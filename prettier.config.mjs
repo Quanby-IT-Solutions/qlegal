@@ -1,7 +1,12 @@
 /** @type {import('prettier').Config & import('@ianvs/prettier-plugin-sort-imports').PluginConfig & import('prettier-plugin-tailwindcss').PluginOptions} */
 const config = {
+	// Modern formatting preferences
 	bracketSameLine: false,
+	bracketSpacing: true,
+	arrowParens: "avoid",
 	endOfLine: "lf",
+
+	// Import sorting configuration
 	importOrder: [
 		"^(next/(.*)$)|^(next$)|^(react/(.*)$)|^(react$)", // Next.js and React.js modules
 		"<BUILTIN_MODULES>", // Node.js built-in modules
@@ -16,20 +21,25 @@ const config = {
 		"^@/(.*)$",
 		"",
 		"^(?!.*[.]css$)[./].*$",
-		".css$"
+		".css$",
 	],
 	importOrderParserPlugins: ["typescript", "jsx", "decorators-legacy"],
-	plugins: [
-		"@ianvs/prettier-plugin-sort-imports",
-		"prettier-plugin-tailwindcss"
-	],
-	printWidth: 80,
+
+	// Modern formatting rules
+	printWidth: 100,
 	quoteProps: "consistent",
 	semi: false,
 	singleQuote: false,
 	tabWidth: 2,
-	trailingComma: "none",
-	useTabs: true
+	trailingComma: "es5",
+	useTabs: true,
+
+	// Plugins
+	plugins: ["@ianvs/prettier-plugin-sort-imports", "prettier-plugin-tailwindcss"],
+
+	// Additional modern settings
+	proseWrap: "preserve",
+	htmlWhitespaceSensitivity: "css",
 }
 
 export default config

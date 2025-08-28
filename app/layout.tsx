@@ -4,17 +4,17 @@ import { Inter } from "next/font/google"
 import "@/core/styles/globals.css"
 
 const inter = Inter({
-	subsets: ["latin"]
+	subsets: ["latin"],
 })
 
 export const metadata: Metadata = {
 	title: "QSign Lite | Simple, Fast, Secure Digital Signatures",
 	description:
-		"QSign Lite lets you sign documents online quickly and securely. Lightweight and hassle-free."
+		"QSign Lite lets you sign documents online quickly and securely. Lightweight and hassle-free.",
 }
 
 export default function RootLayout({
-	children
+	children,
 }: Readonly<{
 	children: React.ReactNode
 }>) {
