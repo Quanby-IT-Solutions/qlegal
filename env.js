@@ -3,14 +3,12 @@ import { z } from "zod"
 
 export const env = createEnv({
 	server: {
-		NODE_ENV: z
-			.enum(["development", "test", "production"])
-			.default("development")
+		NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
 	},
 	client: {},
 	runtimeEnv: {
-		NODE_ENV: process.env.NODE_ENV
+		NODE_ENV: process.env.NODE_ENV,
 	},
 	skipValidation: !!process.env.SKIP_ENV_VALIDATION,
-	emptyStringAsUndefined: true
+	emptyStringAsUndefined: true,
 })
