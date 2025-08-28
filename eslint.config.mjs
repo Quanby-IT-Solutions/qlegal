@@ -86,29 +86,6 @@ export default tseslint.config(
 			// React Hooks rules
 			...reactHooks.configs.recommended.rules,
 
-			// Next.js rules (core web vitals)
-			"@next/next/no-html-link-for-pages": "error",
-			"@next/next/no-img-element": "error",
-			"@next/next/no-page-custom-font": "error",
-			"@next/next/no-sync-scripts": "error",
-			"@next/next/no-title-in-document-head": "error",
-			"@next/next/no-unwanted-polyfillio": "error",
-			"@next/next/google-font-display": "warn",
-			"@next/next/google-font-preconnect": "warn",
-			"@next/next/next-script-for-ga": "warn",
-			"@next/next/no-assign-module-variable": "error",
-			"@next/next/no-async-client-component": "warn",
-			"@next/next/no-before-interactive-script-outside-document": "warn",
-			"@next/next/no-css-tags": "warn",
-			"@next/next/no-document-import-in-page": "error",
-			"@next/next/no-duplicate-head": "error",
-			"@next/next/no-head-element": "warn",
-			"@next/next/no-head-import-in-document": "error",
-			"@next/next/no-script-component-in-head": "error",
-			"@next/next/no-styled-jsx-in-document": "warn",
-			"@next/next/no-typos": "warn",
-			"@next/next/inline-script-id": "error",
-
 			// TanStack Query rules
 			"@tanstack/query/exhaustive-deps": "error",
 			"@tanstack/query/no-rest-destructuring": "warn",
