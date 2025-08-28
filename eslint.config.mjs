@@ -1,6 +1,7 @@
 import js from "@eslint/js"
 import nextPlugin from "@next/eslint-plugin-next"
 import tanstackQuery from "@tanstack/eslint-plugin-query"
+import drizzlePlugin from "eslint-plugin-drizzle"
 import reactHooks from "eslint-plugin-react-hooks"
 import tseslint from "typescript-eslint"
 
@@ -35,6 +36,7 @@ export default tseslint.config(
 			"react-hooks": reactHooks,
 			"@next/next": nextPlugin,
 			"@tanstack/query": tanstackQuery,
+			"drizzle": drizzlePlugin,
 		},
 		rules: {
 			// TypeScript rules (matching your original config)
@@ -86,33 +88,14 @@ export default tseslint.config(
 			// React Hooks rules
 			...reactHooks.configs.recommended.rules,
 
-			// Next.js rules (core web vitals)
-			"@next/next/no-html-link-for-pages": "error",
-			"@next/next/no-img-element": "error",
-			"@next/next/no-page-custom-font": "error",
-			"@next/next/no-sync-scripts": "error",
-			"@next/next/no-title-in-document-head": "error",
-			"@next/next/no-unwanted-polyfillio": "error",
-			"@next/next/google-font-display": "warn",
-			"@next/next/google-font-preconnect": "warn",
-			"@next/next/next-script-for-ga": "warn",
-			"@next/next/no-assign-module-variable": "error",
-			"@next/next/no-async-client-component": "warn",
-			"@next/next/no-before-interactive-script-outside-document": "warn",
-			"@next/next/no-css-tags": "warn",
-			"@next/next/no-document-import-in-page": "error",
-			"@next/next/no-duplicate-head": "error",
-			"@next/next/no-head-element": "warn",
-			"@next/next/no-head-import-in-document": "error",
-			"@next/next/no-script-component-in-head": "error",
-			"@next/next/no-styled-jsx-in-document": "warn",
-			"@next/next/no-typos": "warn",
-			"@next/next/inline-script-id": "error",
-
 			// TanStack Query rules
 			"@tanstack/query/exhaustive-deps": "error",
 			"@tanstack/query/no-rest-destructuring": "warn",
 			"@tanstack/query/stable-query-client": "error",
+
+			// Drizzle rules
+			"drizzle/enforce-delete-with-where": ["error", { drizzleObjectName: ["db"] }],
+			"drizzle/enforce-update-with-where": ["error", { drizzleObjectName: ["db"] }],
 
 			// Environment access restrictions
 			"no-restricted-properties": [
@@ -126,17 +109,13 @@ export default tseslint.config(
 			"no-restricted-imports": [
 				"error",
 				{
-					patterns: [
-						{
-							group: ["process"],
-							importNames: ["env"],
-							message: "Use `import { env } from '@/env'` instead to ensure validated types.",
-						},
-						{
-							group: ["zod"],
-							message: "Use `import { z } from 'zod/v4'` instead to ensure v4.",
-						},
-					],
+					name: "process",
+					importNames: ["env"],
+					message: "Use `import { env } from '@/env'` instead to ensure validated types.",
+				},
+				{
+					name: "zod",
+					message: "Use 'zod/v4' instead to ensure v4.",
 				},
 			],
 		},
