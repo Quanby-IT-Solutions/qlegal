@@ -1,32 +1,47 @@
-import { dirname } from "path"
-import { fileURLToPath } from "url"
-import { FlatCompat } from "@eslint/eslintrc"
+import js from "@eslint/js"
+import nextPlugin from "@next/eslint-plugin-next"
+import tanstackQuery from "@tanstack/eslint-plugin-query"
+import reactHooks from "eslint-plugin-react-hooks"
+import tseslint from "typescript-eslint"
 
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = dirname(__filename)
-
-const compat = new FlatCompat({
-	baseDirectory: __dirname
-})
-
-const eslintConfig = [
+export default tseslint.config(
+	// Global ignores
 	{
-		ignores: ["postcss.config.mjs", "tailwind.config.ts"]
+		ignores: [
+			"postcss.config.mjs",
+			"tailwind.config.ts",
+			".next/**",
+			"node_modules/**"
+		]
 	},
-	...compat.config({
-		parser: "@typescript-eslint/parser",
-		parserOptions: {
-			project: true
-		},
+
+	// Base JavaScript config
+	js.configs.recommended,
+
+	// Main configuration for all TypeScript files
+	{
+		files: ["**/*.ts", "**/*.tsx"],
+		ignores: ["next-env.d.ts"],
 		extends: [
-			"next/core-web-vitals",
-			"next/typescript",
-			"prettier",
-			"plugin:@typescript-eslint/recommended-type-checked",
-			"plugin:@typescript-eslint/stylistic-type-checked",
-			"plugin:@tanstack/query/recommended"
+			...tseslint.configs.recommended,
+			...tseslint.configs.recommendedTypeChecked,
+			...tseslint.configs.stylisticTypeChecked
 		],
+		languageOptions: {
+			parser: tseslint.parser,
+			parserOptions: {
+				project: true,
+				tsconfigRootDir: import.meta.dirname
+			}
+		},
+		plugins: {
+			"@typescript-eslint": tseslint.plugin,
+			"react-hooks": reactHooks,
+			"@next/next": nextPlugin,
+			"@tanstack/query": tanstackQuery
+		},
 		rules: {
+			// TypeScript rules (matching your original config)
 			"@typescript-eslint/array-type": "off",
 			"@typescript-eslint/consistent-type-definitions": "off",
 			"@typescript-eslint/consistent-type-imports": [
@@ -52,9 +67,84 @@ const eslintConfig = [
 					}
 				}
 			],
-			"no-unreachable": "warn"
-		}
-	})
-]
 
-export default eslintConfig
+			// General rules
+			"no-unreachable": "warn",
+
+			// React Hooks rules
+			...reactHooks.configs.recommended.rules,
+
+			// Next.js rules (core web vitals)
+			"@next/next/no-html-link-for-pages": "error",
+			"@next/next/no-img-element": "error",
+			"@next/next/no-page-custom-font": "error",
+			"@next/next/no-sync-scripts": "error",
+			"@next/next/no-title-in-document-head": "error",
+			"@next/next/no-unwanted-polyfillio": "error",
+			"@next/next/google-font-display": "warn",
+			"@next/next/google-font-preconnect": "warn",
+			"@next/next/next-script-for-ga": "warn",
+			"@next/next/no-assign-module-variable": "error",
+			"@next/next/no-async-client-component": "warn",
+			"@next/next/no-before-interactive-script-outside-document": "warn",
+			"@next/next/no-css-tags": "warn",
+			"@next/next/no-document-import-in-page": "error",
+			"@next/next/no-duplicate-head": "error",
+			"@next/next/no-head-element": "warn",
+			"@next/next/no-head-import-in-document": "error",
+			"@next/next/no-script-component-in-head": "error",
+			"@next/next/no-styled-jsx-in-document": "warn",
+			"@next/next/no-typos": "warn",
+			"@next/next/inline-script-id": "error",
+
+			// TanStack Query rules
+			"@tanstack/query/exhaustive-deps": "error",
+			"@tanstack/query/no-rest-destructuring": "warn",
+			"@tanstack/query/stable-query-client": "error",
+
+			// Environment access restrictions
+			"no-restricted-properties": [
+				"error",
+				{
+					object: "process",
+					property: "env",
+					message:
+						"Use `import { env } from '@/env'` instead to ensure validated types."
+				}
+			],
+			"no-restricted-imports": [
+				"error",
+				{
+					patterns: [
+						{
+							group: ["process"],
+							importNames: ["env"],
+							message:
+								"Use `import { env } from '@/env'` instead to ensure validated types."
+						},
+						{
+							group: ["zod"],
+							message: "Use `import { z } from 'zod/v4'` instead to ensure v4."
+						}
+					]
+				}
+			]
+		}
+	},
+
+	// JavaScript files (if any)
+	{
+		files: ["**/*.js", "**/*.mjs"],
+		languageOptions: {
+			parser: tseslint.parser,
+			globals: {
+				process: "readonly"
+			}
+		},
+		rules: {
+			"@typescript-eslint/no-var-requires": "off",
+			"no-restricted-properties": "off",
+			"no-restricted-imports": "off"
+		}
+	}
+)
