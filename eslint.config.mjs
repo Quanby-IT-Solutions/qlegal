@@ -103,17 +103,13 @@ export default tseslint.config(
 			"no-restricted-imports": [
 				"error",
 				{
-					patterns: [
-						{
-							group: ["process"],
-							importNames: ["env"],
-							message: "Use `import { env } from '@/env'` instead to ensure validated types.",
-						},
-						{
-							group: ["zod"],
-							message: "Use `import { z } from 'zod/v4'` instead to ensure v4.",
-						},
-					],
+					name: "process",
+					importNames: ["env"],
+					message: "Use `import { env } from '@/env'` instead to ensure validated types.",
+				},
+				{
+					name: "zod",
+					message: "Use 'zod/v4' instead to ensure v4.",
 				},
 			],
 		},
