@@ -1,6 +1,7 @@
 import js from "@eslint/js"
 import nextPlugin from "@next/eslint-plugin-next"
 import tanstackQuery from "@tanstack/eslint-plugin-query"
+import drizzlePlugin from "eslint-plugin-drizzle"
 import reactHooks from "eslint-plugin-react-hooks"
 import tseslint from "typescript-eslint"
 
@@ -35,6 +36,7 @@ export default tseslint.config(
 			"react-hooks": reactHooks,
 			"@next/next": nextPlugin,
 			"@tanstack/query": tanstackQuery,
+			"drizzle": drizzlePlugin,
 		},
 		rules: {
 			// TypeScript rules (matching your original config)
@@ -90,6 +92,10 @@ export default tseslint.config(
 			"@tanstack/query/exhaustive-deps": "error",
 			"@tanstack/query/no-rest-destructuring": "warn",
 			"@tanstack/query/stable-query-client": "error",
+
+			// Drizzle rules
+			"drizzle/enforce-delete-with-where": ["error", { drizzleObjectName: ["db"] }],
+			"drizzle/enforce-update-with-where": ["error", { drizzleObjectName: ["db"] }],
 
 			// Environment access restrictions
 			"no-restricted-properties": [
