@@ -1,10 +1,11 @@
+/* eslint-disable no-console */
 import { cache } from "react"
-import { initTRPC } from "@trpc/server"
+import { initTRPC, TRPCError } from "@trpc/server"
 import SuperJSON from "superjson"
 import { ZodError } from "zod/v4"
 
-// import { auth } from "@/services/next-auth"
-// import { db } from "@/services/prisma/db"
+import { db } from "@/services/drizzle/db"
+import { auth } from "@/services/next-auth"
 
 /**
  * 1. CONTEXT
@@ -19,11 +20,11 @@ import { ZodError } from "zod/v4"
  * @see https://trpc.io/docs/server/context
  */
 export const createTRPCContext = cache(async (opts: { headers: Headers }) => {
-	// const session = await auth()
+	const session = await auth()
 
 	return {
-		// db,
-		// session,
+		db,
+		session,
 		...opts,
 	}
 })
@@ -87,7 +88,6 @@ const timingMiddleware = t.middleware(async ({ next, path }) => {
 	const result = await next()
 
 	const end = Date.now()
-	// eslint-disable-next-line no-console
 	console.log(`[TRPC] ${path} took ${end - start}ms to execute`)
 
 	return result
@@ -110,16 +110,16 @@ export const publicProcedure = t.procedure.use(timingMiddleware)
  *
  * @see https://trpc.io/docs/procedures
  */
-// export const protectedProcedure = t.procedure.use(timingMiddleware).use(({ ctx, next }) => {
-// 	if (!ctx.session?.user) {
-// 		throw new TRPCError({ code: "UNAUTHORIZED" })
-// 	}
-// 	return next({
-// 		ctx: {
-// 			session: {
-// 				...ctx.session,
-// 				user: ctx.session.user,
-// 			},
-// 		},
-// 	})
-// })
+export const protectedProcedure = t.procedure.use(timingMiddleware).use(({ ctx, next }) => {
+	if (!ctx.session?.user) {
+		throw new TRPCError({ code: "UNAUTHORIZED" })
+	}
+	return next({
+		ctx: {
+			session: {
+				...ctx.session,
+				user: ctx.session.user,
+			},
+		},
+	})
+})

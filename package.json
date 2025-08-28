@@ -31,6 +31,8 @@
 		"@trpc/next": "^11.5.0",
 		"@trpc/react-query": "^11.5.0",
 		"@trpc/server": "^11.5.0",
+		"@typescript-eslint/eslint-plugin": "^8.41.0",
+		"@typescript-eslint/parser": "^8.41.0",
 		"adapter": "link:@auth/drizzle/adapter",
 		"bcrypt": "^6.0.0",
 		"class-variance-authority": "^0.7.1",
