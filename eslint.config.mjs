@@ -4,15 +4,11 @@ import tanstackQuery from "@tanstack/eslint-plugin-query"
 import reactHooks from "eslint-plugin-react-hooks"
 import tseslint from "typescript-eslint"
 
+// ESLint v9 flat config for TypeScript and React/Next.js projects
 export default tseslint.config(
 	// Global ignores
 	{
-		ignores: [
-			"postcss.config.mjs",
-			"tailwind.config.ts",
-			".next/**",
-			"node_modules/**"
-		]
+		ignores: ["postcss.config.mjs", "tailwind.config.ts", ".next/**", "node_modules/**"],
 	},
 
 	// Base JavaScript config
@@ -25,20 +21,20 @@ export default tseslint.config(
 		extends: [
 			...tseslint.configs.recommended,
 			...tseslint.configs.recommendedTypeChecked,
-			...tseslint.configs.stylisticTypeChecked
+			...tseslint.configs.stylisticTypeChecked,
 		],
 		languageOptions: {
 			parser: tseslint.parser,
 			parserOptions: {
 				project: true,
-				tsconfigRootDir: import.meta.dirname
-			}
+				tsconfigRootDir: import.meta.dirname,
+			},
 		},
 		plugins: {
 			"@typescript-eslint": tseslint.plugin,
 			"react-hooks": reactHooks,
 			"@next/next": nextPlugin,
-			"@tanstack/query": tanstackQuery
+			"@tanstack/query": tanstackQuery,
 		},
 		rules: {
 			// TypeScript rules (matching your original config)
@@ -48,14 +44,14 @@ export default tseslint.config(
 				"warn",
 				{
 					prefer: "type-imports",
-					fixStyle: "inline-type-imports"
-				}
+					fixStyle: "inline-type-imports",
+				},
 			],
 			"@typescript-eslint/no-unused-vars": [
 				"warn",
 				{
-					argsIgnorePattern: "^_"
-				}
+					argsIgnorePattern: "^_",
+				},
 			],
 			"@typescript-eslint/no-explicit-any": "warn",
 			"@typescript-eslint/require-await": "off",
@@ -63,13 +59,29 @@ export default tseslint.config(
 				"error",
 				{
 					checksVoidReturn: {
-						attributes: false
-					}
-				}
+						attributes: false,
+					},
+				},
 			],
 
-			// General rules
+			// Modern JavaScript/TypeScript best practices
+			"no-console": "warn",
+			"eqeqeq": ["error", "always"],
+			"curly": ["error", "all"],
+			"prefer-const": "error",
+			"no-var": "error",
+			"object-shorthand": "error",
+			"prefer-template": "error",
 			"no-unreachable": "warn",
+			"no-duplicate-imports": "error",
+			"no-unused-expressions": "error",
+			"no-return-await": "error",
+
+			// Security and best practices
+			"no-eval": "error",
+			"no-implied-eval": "error",
+			"no-new-func": "error",
+			"no-script-url": "error",
 
 			// React Hooks rules
 			...reactHooks.configs.recommended.rules,
@@ -108,9 +120,8 @@ export default tseslint.config(
 				{
 					object: "process",
 					property: "env",
-					message:
-						"Use `import { env } from '@/env'` instead to ensure validated types."
-				}
+					message: "Use `import { env } from '@/env'` instead to ensure validated types.",
+				},
 			],
 			"no-restricted-imports": [
 				"error",
@@ -119,17 +130,16 @@ export default tseslint.config(
 						{
 							group: ["process"],
 							importNames: ["env"],
-							message:
-								"Use `import { env } from '@/env'` instead to ensure validated types."
+							message: "Use `import { env } from '@/env'` instead to ensure validated types.",
 						},
 						{
 							group: ["zod"],
-							message: "Use `import { z } from 'zod/v4'` instead to ensure v4."
-						}
-					]
-				}
-			]
-		}
+							message: "Use `import { z } from 'zod/v4'` instead to ensure v4.",
+						},
+					],
+				},
+			],
+		},
 	},
 
 	// JavaScript files (if any)
@@ -138,13 +148,13 @@ export default tseslint.config(
 		languageOptions: {
 			parser: tseslint.parser,
 			globals: {
-				process: "readonly"
-			}
+				process: "readonly",
+			},
 		},
 		rules: {
 			"@typescript-eslint/no-var-requires": "off",
 			"no-restricted-properties": "off",
-			"no-restricted-imports": "off"
-		}
+			"no-restricted-imports": "off",
+		},
 	}
 )
