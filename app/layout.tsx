@@ -5,6 +5,8 @@ import { TRPCProvider } from "@/services/trpc/client"
 
 import "@/core/styles/globals.css"
 
+import { ThemeProvider } from "@/core/context/theme-provider"
+
 const inter = Inter({
 	subsets: ["latin"],
 })
@@ -23,7 +25,16 @@ export default function RootLayout({
 	return (
 		<html lang="en">
 			<body className={`${inter.className} antialiased`}>
-				<TRPCProvider>{children}</TRPCProvider>
+				<TRPCProvider>
+					<ThemeProvider
+						attribute="class"
+						defaultTheme="system"
+						enableSystem
+						disableTransitionOnChange
+					>
+						{children}
+					</ThemeProvider>
+				</TRPCProvider>
 			</body>
 		</html>
 	)
