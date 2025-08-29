@@ -10,8 +10,7 @@ export default async function Page() {
 	const isAuthenticated = !!session?.user
 
 	return (
-		<div className="flex flex-col bg-gradient-to-br from-background via-background to-muted/20">
-			{/* Animated Navbar */}
+		<div className="from-background via-background to-muted/20 flex flex-col bg-gradient-to-br">
 			<Navbar isAuthenticated={isAuthenticated} />
 
 			{/* Content */}
