@@ -50,24 +50,15 @@ export function Navbar({ isAuthenticated }: NavbarProps) {
 			transition={{
 				duration: 0.8,
 				delay: 1,
-				ease: [0.23, 0.86, 0.39, 0.96]
+				ease: [0.23, 0.86, 0.39, 0.96],
 			}}
 			className="fixed inset-x-0 top-0 z-50 flex justify-center"
 		>
-			<NavbarContainer
-				isScrolled={isScrolled && hasAnimated}
-				isMobile={isMobile}
-			>
-				<NavbarContent
-					isAuthenticated={isAuthenticated}
-					isScrolled={isScrolled && hasAnimated}
-				/>
+			<NavbarContainer isScrolled={isScrolled && hasAnimated} isMobile={isMobile}>
+				<NavbarContent isAuthenticated={isAuthenticated} isScrolled={isScrolled && hasAnimated} />
 			</NavbarContainer>
 
-			<NavbarBackground
-				isScrolled={isScrolled && hasAnimated}
-				isMobile={isMobile}
-			/>
+			<NavbarBackground isScrolled={isScrolled && hasAnimated} isMobile={isMobile} />
 		</motion.nav>
 	)
 }
@@ -75,7 +66,7 @@ export function Navbar({ isAuthenticated }: NavbarProps) {
 function NavbarContainer({
 	isScrolled,
 	isMobile,
-	children
+	children,
 }: {
 	isScrolled: boolean
 	isMobile: boolean
@@ -85,11 +76,11 @@ function NavbarContainer({
 		<motion.div
 			className="relative size-full max-w-7xl"
 			animate={{
-				width: isScrolled ? (isMobile ? "90%" : "80%") : "100%"
+				width: isScrolled ? (isMobile ? "90%" : "80%") : "100%",
 			}}
 			transition={{
 				duration: 0.6,
-				ease: [0.4, 0, 0.2, 1]
+				ease: [0.4, 0, 0.2, 1],
 			}}
 		>
 			{children}
@@ -99,7 +90,7 @@ function NavbarContainer({
 
 function NavbarContent({
 	isAuthenticated,
-	isScrolled
+	isScrolled,
 }: {
 	isAuthenticated: boolean
 	isScrolled: boolean
@@ -109,11 +100,11 @@ function NavbarContent({
 			className="relative z-20 flex w-full items-center justify-between px-4 sm:px-6 lg:px-8"
 			animate={{
 				height: isScrolled ? "48px" : "64px",
-				y: isScrolled ? 20 : 0
+				y: isScrolled ? 20 : 0,
 			}}
 			transition={{
 				duration: 0.6,
-				ease: [0.4, 0, 0.2, 1]
+				ease: [0.4, 0, 0.2, 1],
 			}}
 		>
 			{/* Logo */}
@@ -123,16 +114,16 @@ function NavbarContent({
 				transition={{
 					duration: 0.7,
 					delay: 1.7,
-					ease: "easeOut"
+					ease: "easeOut",
 				}}
 			>
 				<Link
 					href="/"
-					className="flex items-center gap-2 rounded-lg p-1 transition-colors hover:bg-muted/50"
+					className="hover:bg-muted/50 flex items-center gap-2 rounded-lg p-1 transition-colors"
 				>
 					<QuanbyLogo className="!size-8" />
 
-					<span className="bg-gradient-to-r from-foreground to-foreground/80 bg-clip-text text-xl font-bold leading-tight tracking-tight text-transparent">
+					<span className="from-foreground to-foreground/80 bg-gradient-to-r bg-clip-text text-xl leading-tight font-bold tracking-tight text-transparent">
 						QSign
 					</span>
 				</Link>
@@ -145,7 +136,7 @@ function NavbarContent({
 				transition={{
 					duration: 0.7,
 					delay: 1.7,
-					ease: "easeOut"
+					ease: "easeOut",
 				}}
 				className="flex h-full items-center gap-3"
 			>
@@ -166,7 +157,7 @@ function NavbarContent({
 									className={cn(
 										buttonVariants({
 											variant: "ghost",
-											size: "sm"
+											size: "sm",
 										}),
 										"font-medium"
 									)}
@@ -177,10 +168,7 @@ function NavbarContent({
 							<div>
 								<Link
 									href="/auth/register"
-									className={cn(
-										buttonVariants({ size: "sm" }),
-										"font-medium shadow-sm"
-									)}
+									className={cn(buttonVariants({ size: "sm" }), "font-medium shadow-sm")}
 								>
 									Sign Up
 								</Link>
@@ -193,13 +181,7 @@ function NavbarContent({
 	)
 }
 
-function NavbarBackground({
-	isScrolled,
-	isMobile
-}: {
-	isScrolled: boolean
-	isMobile: boolean
-}) {
+function NavbarBackground({ isScrolled, isMobile }: { isScrolled: boolean; isMobile: boolean }) {
 	return (
 		<motion.div
 			className="absolute inset-x-0 top-0 -z-10 h-full"
@@ -209,19 +191,17 @@ function NavbarBackground({
 				marginTop: isScrolled ? "12px" : "0px",
 				left: isScrolled ? (isMobile ? "5%" : "10%") : "0%",
 				right: isScrolled ? (isMobile ? "5%" : "10%") : "0%",
-				backgroundColor: isScrolled
-					? "hsl(var(--background) / 0.6)"
-					: "hsl(var(--background) / 0)",
+				backgroundColor: isScrolled ? "hsl(var(--background) / 0.6)" : "hsl(var(--background) / 0)",
 				backdropFilter: isScrolled ? "blur(12px)" : "none",
 				borderRadius: isScrolled ? "12px" : "0px",
 				border: isScrolled ? "1px solid hsl(var(--border) / 0.5)" : "none",
 				borderBottom: isScrolled
 					? "1px solid hsl(var(--border))"
-					: "1px solid hsl(var(--border) / 0)"
+					: "1px solid hsl(var(--border) / 0)",
 			}}
 			transition={{
 				duration: 0.6,
-				ease: [0.4, 0, 0.2, 1]
+				ease: [0.4, 0, 0.2, 1],
 			}}
 		/>
 	)
