@@ -3,7 +3,6 @@ import { type UserRole } from "@/services/drizzle/schema/auth"
 // ============================================================================
 // TYPES & INTERFACES
 // ============================================================================
-
 export interface RoutePattern {
 	path: string
 	exact?: boolean
@@ -63,7 +62,7 @@ export const CUSTOM_HEADERS = {
 } as const
 
 export const DEFAULT_ROUTES: Record<UserRole, string> = {
-	client: "/",
-	admin: "/",
-	super_admin: "/",
+	client: "/envelopes", // Default to envelopes page for clients
+	admin: "/dashboard",
+	super_admin: "/dashboard",
 }

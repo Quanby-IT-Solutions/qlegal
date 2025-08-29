@@ -10,9 +10,15 @@ export default async function RegisterPage({
 }: {
 	searchParams: Promise<{ callbackUrl?: string }>
 }) {
+	const params = await searchParams
+	let callbackUrl = params.callbackUrl
+
+	if (callbackUrl && !callbackUrl.startsWith("/")) {
+		callbackUrl = undefined
+	}
+
 	return (
 		<div className="relative min-h-screen w-full overflow-hidden">
-			{/* Return to Home Button - Top Left */}
 			<div className="absolute top-6 left-6 z-50">
 				<Button variant="ghost" size="sm" asChild>
 					<Link href="/" className="text-foreground/80 hover:text-foreground transition-colors">
@@ -45,7 +51,7 @@ export default async function RegisterPage({
 				}}
 			>
 				<div className="flex min-h-screen items-center justify-center p-4">
-					<RegisterForm />
+					<RegisterForm callbackUrl={callbackUrl} />
 				</div>
 			</GridBackground>
 		</div>
