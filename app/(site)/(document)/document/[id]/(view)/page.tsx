@@ -1,7 +1,7 @@
 export default function Page() {
 	return (
 		<div>
-			<h1>Specific Envelope</h1>
+			<h1>View Specific Document</h1>
 		</div>
 	)
 }

@@ -1,7 +1,12 @@
-export default function Page() {
+import { SiteNavbar } from "@/core/components/navbar/site-navbar"
+
+import { EnvelopesPage } from "@/features/envelopes-lite/components/envelopes-page"
+
+export default async function Page() {
 	return (
-		<div>
-			<h1>All Envelopes</h1>
-		</div>
+		<>
+			<SiteNavbar items={[{ label: "Envelopes", url: "/envelopes" }]} />
+			<EnvelopesPage />
+		</>
 	)
 }
