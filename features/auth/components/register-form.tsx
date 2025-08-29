@@ -3,7 +3,6 @@
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { Info } from "lucide-react"
 import { useForm } from "react-hook-form"
 import { toast } from "sonner"
 
@@ -15,7 +14,7 @@ import {
 	CardContent,
 	CardDescription,
 	CardHeader,
-	CardTitle
+	CardTitle,
 } from "@/core/components/ui/card"
 import { Checkbox } from "@/core/components/ui/checkbox"
 import {
@@ -24,19 +23,20 @@ import {
 	FormField,
 	FormItem,
 	FormLabel,
-	FormMessage
+	FormMessage,
 } from "@/core/components/ui/form"
 import { Input } from "@/core/components/ui/input"
 import { InputPassword } from "@/core/components/ui/input-password"
 
 import { trpc } from "@/services/trpc/client"
 
-import {
-	registerSchema,
-	type RegisterSchema
-} from "@/features/auth/api/auth.schemas"
+import { registerSchema, type RegisterSchema } from "@/features/auth/api/auth.schemas"
 
-export function RegisterForm() {
+interface RegisterFormProps {
+	callbackUrl?: string
+}
+
+export function RegisterForm({ callbackUrl }: RegisterFormProps) {
 	const router = useRouter()
 
 	const form = useForm({
@@ -46,19 +46,23 @@ export function RegisterForm() {
 			email: "",
 			password: "",
 			confirmPassword: "",
-			agreeToTerms: false
-		}
+			agreeToTerms: false,
+		},
 	})
 
 	const { mutate, isPending } = trpc.auth.register.useMutation({
 		onSuccess: () => {
 			toast.info("Account created successfully!", {
-				description: "You can now sign in with your credentials."
+				description: "You can now sign in with your credentials.",
 			})
-			router.push("/auth/login")
+			// Preserve the callback URL when redirecting to login
+			const loginUrl = callbackUrl
+				? `/auth/login?callbackUrl=${encodeURIComponent(callbackUrl)}`
+				: "/auth/login"
+			router.push(loginUrl)
 			form.reset()
 		},
-		onError: (err) => toast.info(err.message)
+		onError: err => toast.info(err.message),
 	})
 
 	const onSubmit = (values: RegisterSchema) => mutate(values)
@@ -70,18 +74,14 @@ export function RegisterForm() {
 					<QuanbyLogo className="h-16 w-16" />
 				</div>
 				<CardTitle className="text-2xl">Create Account</CardTitle>
-				<CardDescription>
-					Join Quanby Sign and start signing documents securely
-				</CardDescription>
+				<CardDescription>Join Quanby Sign and start signing documents securely</CardDescription>
 			</CardHeader>
 			<CardContent>
 				<Form {...form}>
 					<form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
 						{form.formState.errors.agreeToTerms && (
 							<Alert variant="destructive">
-								<AlertDescription>
-									{form.formState.errors.agreeToTerms.message}
-								</AlertDescription>
+								<AlertDescription>{form.formState.errors.agreeToTerms.message}</AlertDescription>
 							</Alert>
 						)}
 						<FormField
@@ -105,11 +105,7 @@ export function RegisterForm() {
 								<FormItem>
 									<FormLabel>Email</FormLabel>
 									<FormControl>
-										<Input
-											type="email"
-											placeholder="Enter your email"
-											{...field}
-										/>
+										<Input type="email" placeholder="Enter your email" {...field} />
 									</FormControl>
 									<FormMessage />
 								</FormItem>
@@ -137,10 +133,7 @@ export function RegisterForm() {
 								<FormItem>
 									<FormLabel>Confirm Password</FormLabel>
 									<FormControl>
-										<InputPassword
-											placeholder="Confirm your password"
-											{...field}
-										/>
+										<InputPassword placeholder="Confirm your password" {...field} />
 									</FormControl>
 									<FormMessage />
 								</FormItem>
@@ -151,12 +144,9 @@ export function RegisterForm() {
 							control={form.control}
 							name="agreeToTerms"
 							render={({ field }) => (
-								<FormItem className="flex flex-row items-start space-x-3 space-y-0">
+								<FormItem className="flex flex-row items-start space-y-0 space-x-3">
 									<FormControl>
-										<Checkbox
-											checked={field.value}
-											onCheckedChange={field.onChange}
-										/>
+										<Checkbox checked={field.value} onCheckedChange={field.onChange} />
 									</FormControl>
 									<div className="space-y-1 leading-none">
 										<FormLabel className="text-sm">
@@ -187,10 +177,14 @@ export function RegisterForm() {
 				</Form>
 
 				<div className="mt-6 text-center">
-					<p className="text-sm text-muted-foreground">
+					<p className="text-muted-foreground text-sm">
 						Already have an account?{" "}
 						<Link
-							href="/auth/login"
+							href={
+								callbackUrl
+									? `/auth/login?callbackUrl=${encodeURIComponent(callbackUrl)}`
+									: "/auth/login"
+							}
 							className="text-primary hover:text-primary/80 hover:underline"
 						>
 							Sign in
