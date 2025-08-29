@@ -1,6 +1,9 @@
-import { boolean, integer, pgTable, primaryKey, text, timestamp } from "drizzle-orm/pg-core"
+import type { InferSelectModel } from "drizzle-orm"
+import { boolean, integer, pgEnum, pgTable, primaryKey, text, timestamp } from "drizzle-orm/pg-core"
 
 import type { AdapterAccount } from "@/services/drizzle/types/auth"
+
+export const userRoles = pgEnum("user_roles", ["client", "admin", "super_admin"])
 
 export const users = pgTable("user", {
 	id: text("id")
@@ -12,6 +15,7 @@ export const users = pgTable("user", {
 	image: text("image"),
 	password: text("password").notNull(),
 	phoneNumber: text("phone_number"),
+	role: userRoles("role").default("client").notNull(),
 }).enableRLS()
 
 export const accounts = pgTable(
@@ -86,3 +90,10 @@ export const authenticators = pgTable(
 		},
 	]
 ).enableRLS()
+
+export type UserRole = InferSelectModel<typeof users>["role"]
+export type User = InferSelectModel<typeof users>
+export type Account = InferSelectModel<typeof accounts>
+export type Session = InferSelectModel<typeof sessions>
+export type VerificationToken = InferSelectModel<typeof verificationTokens>
+export type Authenticator = InferSelectModel<typeof authenticators>
