@@ -9,7 +9,7 @@ import {
 	CommandEmpty,
 	CommandGroup,
 	CommandItem,
-	CommandList
+	CommandList,
 } from "@/core/components/ui/command"
 import { Input } from "@/core/components/ui/input"
 import { cn } from "@/core/lib/utils"
@@ -40,10 +40,12 @@ function useAnimatedPlaceholders(placeholders: string[]) {
 	const [currentIndex, setCurrentIndex] = useState(0)
 
 	useEffect(() => {
-		if (placeholders.length <= 1) return
+		if (placeholders.length <= 1) {
+			return
+		}
 
 		const interval = setInterval(() => {
-			setCurrentIndex((prev) => (prev + 1) % placeholders.length)
+			setCurrentIndex(prev => (prev + 1) % placeholders.length)
 		}, 3000)
 
 		return () => clearInterval(interval)
@@ -56,16 +58,18 @@ function useAnimatedPlaceholders(placeholders: string[]) {
 function AnimatedPlaceholder({
 	placeholders,
 	currentIndex,
-	show
+	show,
 }: {
 	placeholders: string[]
 	currentIndex: number
 	show: boolean
 }) {
-	if (!show) return null
+	if (!show) {
+		return null
+	}
 
 	return (
-		<div className="pointer-events-none absolute left-10 top-1/2 -translate-y-1/2">
+		<div className="pointer-events-none absolute top-1/2 left-10 -translate-y-1/2">
 			<AnimatePresence mode="wait">
 				<motion.span
 					key={currentIndex}
@@ -73,7 +77,7 @@ function AnimatedPlaceholder({
 					animate={{ opacity: 1 }}
 					exit={{ opacity: 0 }}
 					transition={{ duration: 0.3 }}
-					className="text-sm text-muted-foreground"
+					className="text-muted-foreground text-sm"
 				>
 					{placeholders[currentIndex]}
 				</motion.span>
@@ -85,7 +89,7 @@ function AnimatedPlaceholder({
 // Simplified search result item component
 function SearchResultItem({
 	option,
-	onSelect
+	onSelect,
 }: {
 	option: SearchOption
 	onSelect: (option: SearchOption) => void
@@ -106,14 +110,10 @@ function SearchResultItem({
 			<div className="flex-1 text-start">
 				<div className="font-medium">{option.label}</div>
 				{option.description && (
-					<div className="text-xs text-muted-foreground">
-						{option.description}
-					</div>
+					<div className="text-muted-foreground text-xs">{option.description}</div>
 				)}
 			</div>
-			<span className="text-xs text-muted-foreground">
-				{isDocument ? "Document" : "Envelope"}
-			</span>
+			<span className="text-muted-foreground text-xs">{isDocument ? "Document" : "Envelope"}</span>
 		</CommandItem>
 	)
 }
@@ -124,7 +124,7 @@ function SearchDropdown({
 	searchValue,
 	filteredOptions,
 	onSelect,
-	containerRef
+	containerRef,
 }: {
 	isOpen: boolean
 	searchValue: string
@@ -135,7 +135,9 @@ function SearchDropdown({
 	const [position, setPosition] = useState<"below" | "above">("below")
 
 	useEffect(() => {
-		if (!isOpen || !containerRef.current) return
+		if (!isOpen || !containerRef.current) {
+			return
+		}
 
 		const container = containerRef.current
 		const containerRect = container.getBoundingClientRect()
@@ -151,20 +153,18 @@ function SearchDropdown({
 		}
 	}, [isOpen, containerRef])
 
-	if (!isOpen || !searchValue) return null
+	if (!isOpen || !searchValue) {
+		return null
+	}
 
-	const documentOptions = filteredOptions.filter(
-		(opt) => opt.type === "document"
-	)
-	const envelopeOptions = filteredOptions.filter(
-		(opt) => opt.type === "envelope"
-	)
+	const documentOptions = filteredOptions.filter(opt => opt.type === "document")
+	const envelopeOptions = filteredOptions.filter(opt => opt.type === "envelope")
 
 	return (
 		<AnimatePresence>
 			<motion.div
 				className={cn(
-					"absolute z-50 w-full overflow-hidden rounded-lg border bg-muted shadow-lg",
+					"bg-muted absolute z-50 w-full overflow-hidden rounded-lg border shadow-lg",
 					position === "above" ? "bottom-full mb-2" : "top-12"
 				)}
 				initial={{ opacity: 0, height: 0 }}
@@ -176,7 +176,7 @@ function SearchDropdown({
 					<CommandList className="max-h-60 overflow-y-auto">
 						{filteredOptions.length === 0 ? (
 							<CommandEmpty>
-								<div className="py-6 text-center text-sm text-muted-foreground">
+								<div className="text-muted-foreground py-6 text-center text-sm">
 									No results found.
 								</div>
 							</CommandEmpty>
@@ -184,24 +184,16 @@ function SearchDropdown({
 							<>
 								{documentOptions.length > 0 && (
 									<CommandGroup heading="Documents">
-										{documentOptions.map((option) => (
-											<SearchResultItem
-												key={option.value}
-												option={option}
-												onSelect={onSelect}
-											/>
+										{documentOptions.map(option => (
+											<SearchResultItem key={option.value} option={option} onSelect={onSelect} />
 										))}
 									</CommandGroup>
 								)}
 
 								{envelopeOptions.length > 0 && (
 									<CommandGroup heading="Envelopes">
-										{envelopeOptions.map((option) => (
-											<SearchResultItem
-												key={option.value}
-												option={option}
-												onSelect={onSelect}
-											/>
+										{envelopeOptions.map(option => (
+											<SearchResultItem key={option.value} option={option} onSelect={onSelect} />
 										))}
 									</CommandGroup>
 								)}
@@ -211,7 +203,7 @@ function SearchDropdown({
 				</Command>
 
 				<div className="border-t px-3 py-2">
-					<div className="flex items-center justify-between text-xs text-muted-foreground">
+					<div className="text-muted-foreground flex items-center justify-between text-xs">
 						<span>Click to select</span>
 						<span>ESC to cancel</span>
 					</div>
@@ -231,7 +223,7 @@ export function SearchCombobox({
 	onCreateEnvelope: _onCreateEnvelope,
 	onCreateFolder: _onCreateFolder,
 	className,
-	disabled = false
+	disabled = false,
 }: SearchComboboxProps) {
 	const [searchValue, setSearchValue] = useState(value)
 	const [isFocused, setIsFocused] = useState(false)
@@ -239,7 +231,7 @@ export function SearchCombobox({
 	const containerRef = useRef<HTMLDivElement>(null)
 	const currentPlaceholder = useAnimatedPlaceholders(placeholders)
 
-	const filteredOptions = options.filter((option) =>
+	const filteredOptions = options.filter(option =>
 		option.label.toLowerCase().includes(searchValue.toLowerCase())
 	)
 
@@ -257,9 +249,7 @@ export function SearchCombobox({
 		inputRef.current?.blur()
 	}
 
-	const showDropdown = Boolean(
-		isFocused && searchValue && filteredOptions.length > 0
-	)
+	const showDropdown = Boolean(isFocused && searchValue && filteredOptions.length > 0)
 
 	return (
 		<div className={cn("mx-auto w-full max-w-md", className)}>
@@ -275,9 +265,9 @@ export function SearchCombobox({
 							onBlur={() => setTimeout(() => setIsFocused(false), 200)}
 							disabled={disabled}
 							placeholder=""
-							className="bg-white/90 pl-10 shadow-sm backdrop-blur-sm hover:bg-white/95 dark:border-white/10 dark:bg-muted/90 dark:hover:bg-muted/95"
+							className="dark:bg-muted/90 dark:hover:bg-muted/95 bg-white/90 pl-10 shadow-sm backdrop-blur-sm hover:bg-white/95 dark:border-white/10"
 						/>
-						<SearchIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+						<SearchIcon className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
 
 						<AnimatedPlaceholder
 							placeholders={placeholders}

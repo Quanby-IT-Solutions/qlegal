@@ -1,30 +1,30 @@
-import { z } from "zod"
+import { z } from "zod/v4"
 
 // Base validation schemas - Single responsibility principle
 const nameSchema = z
-	.string({ required_error: "Name is required" })
+	.string({ error: "Name is required" })
 	.trim()
 	.min(1, "Name cannot be empty")
 	.trim()
 
 const emailSchema = z
-	.string({ required_error: "Email is required" })
 	.email("Please enter a valid email address")
+	.min(1, "Email is required")
 	.trim()
 	.toLowerCase()
 
 const passwordSchema = z
-	.string({ required_error: "Password is required" })
+	.string({ error: "Password is required" })
 	.trim()
 	.min(6, "Password must be at least 6 characters long")
 
 const confirmPasswordSchema = z
-	.string({ required_error: "Please confirm your password" })
+	.string({ error: "Please confirm your password" })
 	.trim()
 	.min(6, "Password confirmation must be at least 6 characters long")
 
 const agreeToTermsSchema = z.boolean({
-	required_error: "You must agree to the terms and conditions"
+	error: "You must agree to the terms and conditions",
 })
 
 export const registerSchema = z
@@ -33,30 +33,30 @@ export const registerSchema = z
 		email: emailSchema,
 		password: passwordSchema,
 		confirmPassword: confirmPasswordSchema,
-		agreeToTerms: agreeToTermsSchema
+		agreeToTerms: agreeToTermsSchema,
 	})
 	.superRefine((data, ctx) => {
 		// Password confirmation validation
 		if (data.password !== data.confirmPassword) {
 			ctx.addIssue({
-				code: z.ZodIssueCode.custom,
+				code: "custom",
 				message: "Passwords do not match",
-				path: ["confirmPassword"]
+				path: ["confirmPassword"],
 			})
 		}
 
-		if (data.agreeToTerms != true) {
+		if (data.agreeToTerms !== true) {
 			ctx.addIssue({
-				code: z.ZodIssueCode.custom,
+				code: "custom",
 				message: "You must agree to the terms and conditions",
-				path: ["agreeToTerms"]
+				path: ["agreeToTerms"],
 			})
 		}
 	})
 
 export const loginSchema = z.object({
 	email: emailSchema,
-	password: passwordSchema
+	password: passwordSchema,
 })
 
 export const twoFactorLoginSchema = z.object({
@@ -64,11 +64,11 @@ export const twoFactorLoginSchema = z.object({
 	code: z
 		.string()
 		.length(6, "Code must be 6 digits")
-		.regex(/^\d+$/, "Code must contain only numbers")
+		.regex(/^\d+$/, "Code must contain only numbers"),
 })
 
 export const forgotPasswordSchema = z.object({
-	email: emailSchema
+	email: emailSchema,
 })
 
 export const resetPasswordSchema = z
@@ -79,7 +79,7 @@ export const resetPasswordSchema = z
 			.length(6, "Code must be 6 digits")
 			.regex(/^\d+$/, "Code must contain only numbers"),
 		newPassword: passwordSchema,
-		confirmPassword: confirmPasswordSchema
+		confirmPassword: confirmPasswordSchema,
 	})
 	.superRefine((data, ctx) => {
 		// Password confirmation validation
@@ -87,7 +87,7 @@ export const resetPasswordSchema = z
 			ctx.addIssue({
 				code: z.ZodIssueCode.custom,
 				message: "Passwords do not match",
-				path: ["confirmPassword"]
+				path: ["confirmPassword"],
 			})
 		}
 	})

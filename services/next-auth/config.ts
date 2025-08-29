@@ -1,7 +1,10 @@
 import { DrizzleAdapter } from "@auth/drizzle-adapter"
+import { eq } from "drizzle-orm"
 import { type DefaultSession, type NextAuthConfig } from "next-auth"
 
 import { db } from "@/services/drizzle/db"
+import { users } from "@/services/drizzle/schema/auth"
+import type { UserRole } from "@/services/drizzle/schema/auth"
 
 /**
  * Module augmentation for `next-auth` types. Allows us to add custom properties to the `session`
@@ -16,6 +19,7 @@ declare module "next-auth" {
 			name: string
 			email: string
 			image: string
+			role: UserRole
 		}
 	}
 }
@@ -32,4 +36,28 @@ export const authConfig = {
 	providers: [],
 	adapter: DrizzleAdapter(db),
 	session: { strategy: "jwt" },
+	callbacks: {
+		async session({ session, token }) {
+			if (token.sub) {
+				// Get user role from database
+				const [user] = await db
+					.select({ role: users.role })
+					.from(users)
+					.where(eq(users.id, token.sub))
+					.limit(1)
+
+				if (user && session.user) {
+					session.user.id = token.sub
+					session.user.role = user.role
+				}
+			}
+			return session
+		},
+		async jwt({ token, user }) {
+			if (user) {
+				token.sub = user.id
+			}
+			return token
+		},
+	},
 } satisfies NextAuthConfig
