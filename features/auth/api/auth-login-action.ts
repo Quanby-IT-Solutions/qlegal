@@ -4,7 +4,7 @@ import { compare } from "bcryptjs"
 
 import { emailService } from "@/services/email/service"
 import { prepareTwoFactorEmail } from "@/services/email/templates/two-factor-auth/service"
-import { db } from "@/services/prisma/db"
+import { db } from "@/services/drizzle/db"
 
 import {
 	loginSchema,
@@ -15,11 +15,11 @@ import {
 
 export async function initiateLogin(values: LoginSchema) {
 	const parsed = loginSchema.safeParse(values)
-	if (!parsed.success) throw new Error("Invalid credentials")
+	if (!parsed.success) {throw new Error("Invalid credentials")}
 	const { email, password } = parsed.data
 
 	// Fetch minimal user data
-	const user = await db.user.findUnique({
+	const user = await db.query.users.findUnique({
 		where: { email },
 		select: {
 			id: true,
@@ -29,10 +29,10 @@ export async function initiateLogin(values: LoginSchema) {
 			name: true
 		}
 	})
-	if (!user) throw new Error("Invalid credentials")
+	if (!user) {throw new Error("Invalid credentials")}
 
 	const isValidPassword = await compare(password, user.password)
-	if (!isValidPassword) throw new Error("Invalid credentials")
+	if (!isValidPassword) {throw new Error("Invalid credentials")}
 
 	if (!user.twoFactorEnabled) {
 		// Check if user has default signature
@@ -90,19 +90,19 @@ export async function initiateLogin(values: LoginSchema) {
  */
 export async function verifyTwoFactorLogin(values: TwoFactorLoginSchema) {
 	const parsed = twoFactorLoginSchema.safeParse(values)
-	if (!parsed.success) throw new Error("Invalid request")
+	if (!parsed.success) {throw new Error("Invalid request")}
 	const { email, code } = parsed.data
 
 	const user = await db.user.findUnique({
 		where: { email },
 		select: { id: true, email: true, twoFactorEnabled: true }
 	})
-	if (!user?.twoFactorEnabled) throw new Error("Invalid request")
+	if (!user?.twoFactorEnabled) {throw new Error("Invalid request")}
 
 	const twoFactorCode = await db.twoFactorCode.findFirst({
 		where: { userId: user.id, code, used: false, expires: { gt: new Date() } }
 	})
-	if (!twoFactorCode) throw new Error("Invalid or expired verification code")
+	if (!twoFactorCode) {throw new Error("Invalid or expired verification code")}
 
 	await db.twoFactorCode.update({
 		where: { id: twoFactorCode.id },
