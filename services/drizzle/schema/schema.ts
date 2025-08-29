@@ -61,6 +61,17 @@ export const auditEventTypeEnum = pgEnum("audit_event_type", [
 	"SETTINGS_UPDATED",
 ])
 
+export const fieldTypeEnum = pgEnum("field_type", [
+	"SIGNATURE",
+	"INITIAL",
+	"NAME",
+	"DATE",
+	"TEXT",
+	"EMAIL",
+	"CHECKBOX",
+	"RADIO",
+])
+
 // Core Tables Only
 export const envelopes = pgTable(
 	"envelopes",
@@ -140,6 +151,51 @@ export const recipients = pgTable(
 	})
 ).enableRLS()
 
+export const documentFields = pgTable(
+	"document_fields",
+	{
+		id: text("id")
+			.primaryKey()
+			.$defaultFn(() => crypto.randomUUID()),
+		type: fieldTypeEnum("type").notNull(),
+		label: text("label").notNull(),
+		placeholder: text("placeholder"),
+		required: boolean("required").default(true).notNull(),
+		options: text("options").array(), // For checkbox/radio fields
+
+		// Position and size on the document
+		x: text("x").notNull(), // Using text to handle float values
+		y: text("y").notNull(),
+		width: text("width").notNull(),
+		height: text("height").notNull(),
+		pageNumber: text("page_number").notNull(), // Using text for consistency
+
+		// Signature value fields
+		signatureValue: text("signature_value"), // The actual signature value (base64 for images, text for typed)
+		signatureType: text("signature_type"), // Type of signature: "draw", "type", "upload"
+		signedAt: timestamp("signed_at"), // When this field was signed
+		ipAddress: text("ip_address"), // IP address for audit trail
+		userAgent: text("user_agent"), // User agent for audit trail
+
+		// Relations
+		documentId: text("document_id")
+			.notNull()
+			.references(() => documents.id, { onDelete: "cascade" }),
+		recipientId: text("recipient_id")
+			.notNull()
+			.references(() => recipients.id, { onDelete: "cascade" }),
+
+		// Timestamps
+		createdAt: timestamp("created_at").defaultNow().notNull(),
+		updatedAt: timestamp("updated_at").defaultNow().notNull(),
+	},
+	table => ({
+		documentIdIdx: index("document_fields_document_id_idx").on(table.documentId),
+		recipientIdIdx: index("document_fields_recipient_id_idx").on(table.recipientId),
+		typeIdx: index("document_fields_type_idx").on(table.type),
+	})
+).enableRLS()
+
 export const auditEvents = pgTable(
 	"audit_events",
 	{
@@ -213,6 +269,7 @@ export const documentsRelations = relations(documents, ({ one, many }) => ({
 	}),
 	recipients: many(recipients),
 	auditEvents: many(auditEvents),
+	documentFields: many(documentFields),
 }))
 
 export const recipientsRelations = relations(recipients, ({ one, many }) => ({
@@ -229,6 +286,18 @@ export const recipientsRelations = relations(recipients, ({ one, many }) => ({
 		references: [documents.id],
 	}),
 	auditEvents: many(auditEvents),
+	documentFields: many(documentFields),
+}))
+
+export const documentFieldsRelations = relations(documentFields, ({ one }) => ({
+	document: one(documents, {
+		fields: [documentFields.documentId],
+		references: [documents.id],
+	}),
+	recipient: one(recipients, {
+		fields: [documentFields.recipientId],
+		references: [recipients.id],
+	}),
 }))
 
 export const auditEventsRelations = relations(auditEvents, ({ one }) => ({
