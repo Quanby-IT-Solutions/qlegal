@@ -1,6 +1,5 @@
 "use client"
 
-import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
@@ -52,20 +51,26 @@ export function RegisterForm({ callbackUrl }: RegisterFormProps) {
 
 	const { mutate, isPending } = trpc.auth.register.useMutation({
 		onSuccess: () => {
-			toast.info("Account created successfully!", {
+			toast.success("Account created successfully!", {
 				description: "You can now sign in with your credentials.",
 			})
-			// Preserve the callback URL when redirecting to login
-			const loginUrl = callbackUrl
-				? `/auth/login?callbackUrl=${encodeURIComponent(callbackUrl)}`
-				: "/auth/login"
-			router.push(loginUrl)
+
+			const redirectUrl = callbackUrl ?? "/"
+			router.push(redirectUrl as never)
+
 			form.reset()
 		},
-		onError: err => toast.info(err.message),
+		onError: err => toast.error(err.message),
 	})
 
 	const onSubmit = (values: RegisterSchema) => mutate(values)
+
+	const handleLoginRedirect = () => {
+		const loginUrl = callbackUrl
+			? `/auth/login?callbackUrl=${encodeURIComponent(callbackUrl)}`
+			: "/auth/login"
+		router.push(loginUrl as never)
+	}
 
 	return (
 		<Card className="w-full max-w-md">
@@ -151,19 +156,23 @@ export function RegisterForm({ callbackUrl }: RegisterFormProps) {
 									<div className="space-y-1 leading-none">
 										<FormLabel className="text-sm">
 											I agree to the{" "}
-											<Link
-												href="/terms"
-												className="text-primary hover:text-primary/80 hover:underline"
+											<span
+												className="text-primary hover:text-primary/80 cursor-pointer hover:underline"
+												onClick={() => {
+													// TODO: Open terms modal or navigate to terms page
+												}}
 											>
 												Terms of Service
-											</Link>{" "}
+											</span>{" "}
 											and{" "}
-											<Link
-												href="/privacy"
-												className="text-primary hover:text-primary/80 hover:underline"
+											<span
+												className="text-primary hover:text-primary/80 cursor-pointer hover:underline"
+												onClick={() => {
+													// TODO: Open privacy modal or navigate to privacy page
+												}}
 											>
 												Privacy Policy
-											</Link>
+											</span>
 										</FormLabel>
 									</div>
 								</FormItem>
@@ -179,16 +188,13 @@ export function RegisterForm({ callbackUrl }: RegisterFormProps) {
 				<div className="mt-6 text-center">
 					<p className="text-muted-foreground text-sm">
 						Already have an account?{" "}
-						<Link
-							href={
-								callbackUrl
-									? `/auth/login?callbackUrl=${encodeURIComponent(callbackUrl)}`
-									: "/auth/login"
-							}
-							className="text-primary hover:text-primary/80 hover:underline"
+						<button
+							type="button"
+							onClick={handleLoginRedirect}
+							className="text-primary hover:text-primary/80 border-none bg-transparent p-0 font-normal hover:underline"
 						>
 							Sign in
-						</Link>
+						</button>
 					</p>
 				</div>
 			</CardContent>
