@@ -1,9 +1,9 @@
 import { relations, sql, type InferSelectModel } from "drizzle-orm"
-import { index, pgEnum, pgTableCreator, primaryKey, text } from "drizzle-orm/pg-core"
+import { index, pgEnum, primaryKey, text } from "drizzle-orm/pg-core"
 
+import { envelopes } from "@/services/drizzle/schema/envelope"
 import type { AdapterAccount } from "@/services/drizzle/types/auth"
-
-export const createTable = pgTableCreator(name => name)
+import { createTable, randomId } from "@/services/drizzle/utils"
 
 export const userRoles = pgEnum("user_roles", ["client", "admin", "super_admin"])
 
@@ -11,7 +11,7 @@ export const users = createTable("user", f => ({
 	id: f
 		.text("id")
 		.primaryKey()
-		.$defaultFn(() => crypto.randomUUID()),
+		.$defaultFn(() => randomId()),
 	name: f.text("name"),
 	email: f.text("email").unique(),
 	emailVerified: f
@@ -25,6 +25,7 @@ export const users = createTable("user", f => ({
 
 export const userRelations = relations(users, ({ many }) => ({
 	accounts: many(accounts),
+	envelopes: many(envelopes),
 }))
 
 export const accounts = createTable(
