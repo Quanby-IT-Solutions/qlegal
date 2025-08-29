@@ -1,4 +1,4 @@
-import { type Config } from "drizzle-kit"
+import { defineConfig } from "drizzle-kit"
 
 import { env } from "@/env"
 
@@ -6,7 +6,7 @@ import { env } from "@/env"
  * Drizzle Kit configuration following best practices
  * @see https://orm.drizzle.team/docs/kit-overview
  */
-const config: Config = {
+export default defineConfig({
 	// Schema configuration
 	schema: "./services/drizzle/schema/*",
 	schemaFilter: ["public"],
@@ -23,6 +23,4 @@ const config: Config = {
 	casing: "snake_case",
 	// Migration configuration
 	breakpoints: env.NODE_ENV === "development",
-}
-
-export default config
+})
