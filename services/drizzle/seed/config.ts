@@ -4,6 +4,7 @@ import { faker } from "@faker-js/faker"
 export const SEED_CONFIG = {
 	seed: 12345,
 	userCount: 25,
+	defaultPassword: "asdfasdf",
 	testAccounts: [
 		{
 			email: "client@quanby.com",
