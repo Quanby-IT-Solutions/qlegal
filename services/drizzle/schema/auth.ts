@@ -8,8 +8,10 @@ export const users = pgTable("user", {
 		.$defaultFn(() => crypto.randomUUID()),
 	name: text("name"),
 	email: text("email").unique(),
-	emailVerified: timestamp("emailVerified", { mode: "string" }),
+	emailVerified: timestamp("email_verified", { mode: "date" }),
 	image: text("image"),
+	password: text("password").notNull(),
+	phoneNumber: text("phone_number"),
 }).enableRLS()
 
 export const accounts = pgTable(

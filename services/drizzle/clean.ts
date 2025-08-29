@@ -5,7 +5,7 @@ import { eq, like } from "drizzle-orm"
 import { db } from "@/services/drizzle/db"
 import * as schema from "@/services/drizzle/schema"
 
-async function cleanupSeededData() {
+async function cleanSeededData() {
 	await db.$client.query("SELECT 1")
 
 	const seededUsersBefore = await db
@@ -28,4 +28,4 @@ async function cleanupSeededData() {
 	await db.delete(schema.users).where(like(schema.users.id, "test-%"))
 }
 
-void cleanupSeededData()
+void cleanSeededData()
