@@ -1,0 +1,99 @@
+import { z } from "zod"
+
+// Base validation schemas - Single responsibility principle
+const nameSchema = z
+	.string({ required_error: "Name is required" })
+	.trim()
+	.min(1, "Name cannot be empty")
+	.trim()
+
+const emailSchema = z
+	.string({ required_error: "Email is required" })
+	.email("Please enter a valid email address")
+	.trim()
+	.toLowerCase()
+
+const passwordSchema = z
+	.string({ required_error: "Password is required" })
+	.trim()
+	.min(6, "Password must be at least 6 characters long")
+
+const confirmPasswordSchema = z
+	.string({ required_error: "Please confirm your password" })
+	.trim()
+	.min(6, "Password confirmation must be at least 6 characters long")
+
+const agreeToTermsSchema = z.boolean({
+	required_error: "You must agree to the terms and conditions"
+})
+
+export const registerSchema = z
+	.object({
+		name: nameSchema,
+		email: emailSchema,
+		password: passwordSchema,
+		confirmPassword: confirmPasswordSchema,
+		agreeToTerms: agreeToTermsSchema
+	})
+	.superRefine((data, ctx) => {
+		// Password confirmation validation
+		if (data.password !== data.confirmPassword) {
+			ctx.addIssue({
+				code: z.ZodIssueCode.custom,
+				message: "Passwords do not match",
+				path: ["confirmPassword"]
+			})
+		}
+
+		if (data.agreeToTerms != true) {
+			ctx.addIssue({
+				code: z.ZodIssueCode.custom,
+				message: "You must agree to the terms and conditions",
+				path: ["agreeToTerms"]
+			})
+		}
+	})
+
+export const loginSchema = z.object({
+	email: emailSchema,
+	password: passwordSchema
+})
+
+export const twoFactorLoginSchema = z.object({
+	email: emailSchema,
+	code: z
+		.string()
+		.length(6, "Code must be 6 digits")
+		.regex(/^\d+$/, "Code must contain only numbers")
+})
+
+export const forgotPasswordSchema = z.object({
+	email: emailSchema
+})
+
+export const resetPasswordSchema = z
+	.object({
+		email: emailSchema,
+		code: z
+			.string()
+			.length(6, "Code must be 6 digits")
+			.regex(/^\d+$/, "Code must contain only numbers"),
+		newPassword: passwordSchema,
+		confirmPassword: confirmPasswordSchema
+	})
+	.superRefine((data, ctx) => {
+		// Password confirmation validation
+		if (data.newPassword !== data.confirmPassword) {
+			ctx.addIssue({
+				code: z.ZodIssueCode.custom,
+				message: "Passwords do not match",
+				path: ["confirmPassword"]
+			})
+		}
+	})
+
+export type RegisterSchema = z.infer<typeof registerSchema>
+export type LoginSchema = z.infer<typeof loginSchema>
+export type TwoFactorLoginSchema = z.infer<typeof twoFactorLoginSchema>
+export type ForgotPasswordSchema = z.infer<typeof forgotPasswordSchema>
+export type ResetPasswordSchema = z.infer<typeof resetPasswordSchema>
