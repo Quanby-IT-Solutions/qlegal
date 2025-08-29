@@ -1,8 +1,7 @@
 import { drizzle } from "drizzle-orm/postgres-js"
 import postgres from "postgres"
 
-import * as authSchema from "@/services/drizzle/schema/auth"
-import * as schemaSchema from "@/services/drizzle/schema/schema"
+import { schema } from "@/services/drizzle/schema"
 
 import { env } from "@/env"
 
@@ -20,8 +19,5 @@ if (env.NODE_ENV !== "production") {
 }
 
 export const db = drizzle(conn, {
-	schema: {
-		...authSchema,
-		...schemaSchema,
-	},
+	schema,
 })
