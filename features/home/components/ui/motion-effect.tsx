@@ -8,7 +8,7 @@ import {
 	type HTMLMotionProps,
 	type Transition,
 	type UseInViewOptions,
-	type Variant
+	type Variant,
 } from "motion/react"
 
 type MotionEffectProps = HTMLMotionProps<"div"> & {
@@ -55,7 +55,7 @@ function MotionEffect({
 
 	const inViewResult = useInView(localRef, {
 		once: inViewOnce,
-		margin: inViewMargin
+		margin: inViewMargin,
 	})
 	const isInView = !inView || inViewResult
 
@@ -64,29 +64,24 @@ function MotionEffect({
 
 	if (slide) {
 		const offset = typeof slide === "boolean" ? 100 : (slide.offset ?? 100)
-		const direction =
-			typeof slide === "boolean" ? "left" : (slide.direction ?? "left")
+		const direction = typeof slide === "boolean" ? "left" : (slide.direction ?? "left")
 		const axis = direction === "up" || direction === "down" ? "y" : "x"
-		hiddenVariant[axis] =
-			direction === "left" || direction === "up" ? -offset : offset
+		hiddenVariant[axis] = direction === "left" || direction === "up" ? -offset : offset
 		visibleVariant[axis] = 0
 	}
 
 	if (fade) {
-		hiddenVariant.opacity =
-			typeof fade === "boolean" ? 0 : (fade.initialOpacity ?? 0)
+		hiddenVariant.opacity = typeof fade === "boolean" ? 0 : (fade.initialOpacity ?? 0)
 		visibleVariant.opacity = typeof fade === "boolean" ? 1 : (fade.opacity ?? 1)
 	}
 
 	if (zoom) {
-		hiddenVariant.scale =
-			typeof zoom === "boolean" ? 0.5 : (zoom.initialScale ?? 0.5)
+		hiddenVariant.scale = typeof zoom === "boolean" ? 0.5 : (zoom.initialScale ?? 0.5)
 		visibleVariant.scale = typeof zoom === "boolean" ? 1 : (zoom.scale ?? 1)
 	}
 
 	if (blur) {
-		hiddenVariant.filter =
-			typeof blur === "boolean" ? "blur(10px)" : `blur(${blur})`
+		hiddenVariant.filter = typeof blur === "boolean" ? "blur(10px)" : `blur(${blur})`
 		visibleVariant.filter = "blur(0px)"
 	}
 
@@ -100,11 +95,11 @@ function MotionEffect({
 				exit="hidden"
 				variants={{
 					hidden: hiddenVariant,
-					visible: visibleVariant
+					visible: visibleVariant,
 				}}
 				transition={{
 					...transition,
-					delay: (transition?.delay ?? 0) + delay
+					delay: (transition?.delay ?? 0) + delay,
 				}}
 				className={className}
 				{...props}

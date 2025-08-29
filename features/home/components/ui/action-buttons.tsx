@@ -14,23 +14,23 @@ const BUTTON_MOTION_CONFIG = {
 		rest: { maxWidth: "40px" },
 		hover: {
 			maxWidth: "140px",
-			transition: { type: "spring", stiffness: 200, damping: 35, delay: 0.15 }
+			transition: { type: "spring", stiffness: 200, damping: 35, delay: 0.15 },
 		},
-		tap: { scale: 0.95 }
+		tap: { scale: 0.95 },
 	},
-	transition: { type: "spring", stiffness: 250, damping: 25 }
+	transition: { type: "spring", stiffness: 250, damping: 25 },
 } as const
 
 const LABEL_VARIANTS: Variants = {
 	rest: { opacity: 0, x: 4 },
 	hover: { opacity: 1, x: 0, visibility: "visible" },
-	tap: { opacity: 1, x: 0, visibility: "visible" }
+	tap: { opacity: 1, x: 0, visibility: "visible" },
 }
 
 const LABEL_TRANSITION: Transition = {
 	type: "spring",
 	stiffness: 200,
-	damping: 25
+	damping: 25,
 }
 
 export interface ActionButtonProps {
@@ -48,16 +48,19 @@ export const ActionButton = ({
 	label,
 	Icon,
 	disabled,
-	onClick
+	onClick,
 }: ActionButtonProps) => {
 	const baseButtonClass =
 		"flex h-10 items-center space-x-2 overflow-hidden whitespace-nowrap rounded-lg border bg-white/90 shadow-sm backdrop-blur-sm px-2.5 py-2 text-foreground hover:bg-white/95 dark:border-white/10 dark:bg-muted/90 dark:text-foreground dark:hover:bg-muted/95"
 
 	return (
 		<Link
+			// @ts-expect-error - bypass Next.js 15.5 typed route
 			href={href}
-			onClick={(e) => {
-				if (disabled) e.preventDefault()
+			onClick={e => {
+				if (disabled) {
+					e.preventDefault()
+				}
 				onClick?.()
 			}}
 			aria-disabled={disabled}
@@ -68,10 +71,10 @@ export const ActionButton = ({
 				{...BUTTON_MOTION_CONFIG}
 				className={cn(
 					baseButtonClass,
-					"ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+					"ring-offset-background focus-visible:ring-ring focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
 				)}
 			>
-				<Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
+				<Icon className="text-muted-foreground h-4 w-4 shrink-0" />
 				<motion.span
 					variants={LABEL_VARIANTS}
 					transition={LABEL_TRANSITION}
