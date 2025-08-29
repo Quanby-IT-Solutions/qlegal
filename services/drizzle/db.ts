@@ -49,6 +49,7 @@ const createConnection = (): Pool => {
 }
 
 const conn = globalForDb.conn ?? createConnection()
+
 export const db =
 	globalForDb.db ??
 	drizzle(conn, {
