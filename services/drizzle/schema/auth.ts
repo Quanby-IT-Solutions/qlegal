@@ -1,5 +1,5 @@
 import { relations, sql, type InferSelectModel } from "drizzle-orm"
-import { index, pgEnum, pgTableCreator, primaryKey, text, timestamp } from "drizzle-orm/pg-core"
+import { index, pgEnum, pgTableCreator, primaryKey, text } from "drizzle-orm/pg-core"
 
 import type { AdapterAccount } from "@/services/drizzle/types/auth"
 
@@ -51,28 +51,27 @@ export const accounts = createTable(
 	]
 ).enableRLS()
 
-export const sessions = createTable("session", {
-	sessionToken: text("sessionToken").primaryKey(),
-	userId: text("userId")
+export const sessions = createTable("session", f => ({
+	sessionToken: f.text("sessionToken").primaryKey(),
+	userId: f
+		.text("userId")
 		.notNull()
 		.references(() => users.id, { onDelete: "cascade" }),
-	expires: timestamp("expires", { mode: "date" }).notNull(),
-}).enableRLS()
+	expires: f.timestamp("expires", { mode: "date" }).notNull(),
+})).enableRLS()
+
+export const sessionsRelations = relations(sessions, ({ one }) => ({
+	user: one(users, { fields: [sessions.userId], references: [users.id] }),
+}))
 
 export const verificationTokens = createTable(
-	"verificationToken",
-	{
-		identifier: text("identifier").notNull(),
-		token: text("token").notNull(),
-		expires: timestamp("expires", { mode: "date" }).notNull(),
-	},
-	verificationToken => [
-		{
-			compositePk: primaryKey({
-				columns: [verificationToken.identifier, verificationToken.token],
-			}),
-		},
-	]
+	"verification_token",
+	f => ({
+		identifier: f.text("identifier").notNull(),
+		token: f.text("token").notNull(),
+		expires: f.timestamp({ mode: "date", withTimezone: true }).notNull(),
+	}),
+	c => [primaryKey({ columns: [c.identifier, c.token] })]
 ).enableRLS()
 
 export type UserRole = InferSelectModel<typeof users>["role"]
