@@ -79,6 +79,7 @@
 		"@tanstack/eslint-plugin-query": "^5.83.1",
 		"@types/bcrypt": "^6.0.0",
 		"@types/node": "^20",
+		"@types/nodemailer": "^7.0.1",
 		"@types/pg": "^8.15.5",
 		"@types/react": "^19.1.12",
 		"@types/react-dom": "^19.1.8",
