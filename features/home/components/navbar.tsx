@@ -116,10 +116,14 @@ function NavbarContent({
 					delay: 1.7,
 					ease: "easeOut",
 				}}
+				className="flex"
 			>
 				<Link
 					href="/"
-					className="hover:bg-muted/50 flex items-center gap-2 rounded-lg p-1 transition-colors"
+					className={cn(
+						buttonVariants({ variant: "ghost" }),
+						"items-center justify-center px-1.5 py-0"
+					)}
 				>
 					<QuanbyLogo className="!size-8" />
 
@@ -191,13 +195,17 @@ function NavbarBackground({ isScrolled, isMobile }: { isScrolled: boolean; isMob
 				marginTop: isScrolled ? "12px" : "0px",
 				left: isScrolled ? (isMobile ? "5%" : "10%") : "0%",
 				right: isScrolled ? (isMobile ? "5%" : "10%") : "0%",
-				backgroundColor: isScrolled ? "hsl(var(--background) / 0.6)" : "hsl(var(--background) / 0)",
+				backgroundColor: isScrolled
+					? "color-mix(in srgb, var(--background) 60%, transparent)"
+					: "color-mix(in srgb, var(--background) 0%, transparent)",
 				backdropFilter: isScrolled ? "blur(12px)" : "none",
 				borderRadius: isScrolled ? "12px" : "0px",
-				border: isScrolled ? "1px solid hsl(var(--border) / 0.5)" : "none",
+				border: isScrolled
+					? "1px solid color-mix(in srgb, var(--border) 50%, transparent)"
+					: "none",
 				borderBottom: isScrolled
-					? "1px solid hsl(var(--border))"
-					: "1px solid hsl(var(--border) / 0)",
+					? "1px solid color-mix(in srgb, var(--border) 100%, transparent)"
+					: "1px solid color-mix(in srgb, var(--border) 0%, transparent)",
 			}}
 			transition={{
 				duration: 0.6,
