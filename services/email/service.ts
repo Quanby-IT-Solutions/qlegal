@@ -1,20 +1,19 @@
-import type { RecipientRole } from "@prisma/client"
+import { createTransporter, emailConfig } from "@/services/email/config"
 
-import { createTransporter, emailConfig } from "./config"
-import { prepareApproverAssignmentEmail } from "./templates/assign-approver/service"
-import { prepareRecipientAssignmentEmail } from "./templates/assign-signer/service"
-import {
-	prepareSignatureRejectedEmail,
-	type SignatureRejectedParams,
-} from "./templates/signatire-rejected/service"
-import {
-	prepareSignatureApprovedEmail,
-	type SignatureApprovedParams,
-} from "./templates/signature-approved/service"
-import {
-	prepareSignatureCompleteEmail,
-	type SignatureCompleteParams,
-} from "./templates/signature-complete/service"
+// import { prepareApproverAssignmentEmail } from "./templates/assign-approver/service"
+// import { prepareRecipientAssignmentEmail } from "./templates/assign-signer/service"
+// import {
+// 	prepareSignatureRejectedEmail,
+// 	type SignatureRejectedParams,
+// } from "./templates/signatire-rejected/service"
+// import {
+// 	prepareSignatureApprovedEmail,
+// 	type SignatureApprovedParams,
+// } from "./templates/signature-approved/service"
+// import {
+// 	prepareSignatureCompleteEmail,
+// 	type SignatureCompleteParams,
+// } from "./templates/signature-complete/service"
 
 interface EmailOptions {
 	to: string
@@ -28,7 +27,7 @@ interface NotificationParams {
 	sender: { name?: string | null; email?: string | null }
 	envelope: { id: string; title: string; description?: string | null }
 	documents: { id: string; name: string }[]
-	role: RecipientRole
+	// role: RecipientRole
 }
 
 export class EmailService {

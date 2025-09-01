@@ -1,7 +1,6 @@
 import { render } from "@react-email/render"
 
-// import { emailConfig } from '../../config'
-import { TwoFactorEmail } from "./components/two-factor-email"
+import { TwoFactorEmail } from "@/services/email/templates/two-factor-auth/components/two-factor-email"
 
 export interface TwoFactorEmailParams {
 	user: { name?: string | null; email: string }
@@ -65,7 +64,7 @@ This is an automated security message from Quanby Sign. Please do not reply to t
  * Render HTML email content using React Email template
  */
 export async function renderHtmlContent(params: TwoFactorEmailParams): Promise<string> {
-	return await render(TwoFactorEmail(params))
+	return render(TwoFactorEmail(params))
 }
 
 /**

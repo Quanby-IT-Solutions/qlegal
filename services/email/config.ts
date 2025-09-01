@@ -1,6 +1,6 @@
 import nodemailer from "nodemailer"
 
-import { env } from "../../env.js"
+import { env } from "@/env.js"
 
 // Create SMTP transporter
 export const createTransporter = () => {

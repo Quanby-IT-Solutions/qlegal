@@ -1,87 +1,93 @@
 "use server"
 
-import { compare } from "bcryptjs"
+import { compare } from "bcrypt"
 
+import { db } from "@/services/drizzle/db"
 import { emailService } from "@/services/email/service"
 import { prepareTwoFactorEmail } from "@/services/email/templates/two-factor-auth/service"
-import { db } from "@/services/drizzle/db"
 
 import {
 	loginSchema,
 	twoFactorLoginSchema,
 	type LoginSchema,
-	type TwoFactorLoginSchema
+	type TwoFactorLoginSchema,
 } from "@/features/auth/api/auth.schemas"
 
 export async function initiateLogin(values: LoginSchema) {
 	const parsed = loginSchema.safeParse(values)
-	if (!parsed.success) {throw new Error("Invalid credentials")}
+	if (!parsed.success) {
+		throw new Error("Invalid credentials")
+	}
 	const { email, password } = parsed.data
 
 	// Fetch minimal user data
-	const user = await db.query.users.findUnique({
-		where: { email },
-		select: {
+	const user = await db.query.users.findFirst({
+		where: (data, { eq }) => eq(data.email, email),
+		columns: {
 			id: true,
 			email: true,
 			password: true,
-			twoFactorEnabled: true,
-			name: true
-		}
+			// twoFactorEnabled: true,
+			name: true,
+		},
 	})
-	if (!user) {throw new Error("Invalid credentials")}
+	if (!user) {
+		throw new Error("Invalid credentials")
+	}
 
 	const isValidPassword = await compare(password, user.password)
-	if (!isValidPassword) {throw new Error("Invalid credentials")}
-
-	if (!user.twoFactorEnabled) {
-		// Check if user has default signature
-		const userWithSignature = await db.user.findUnique({
-			where: { id: user.id },
-			select: { defaultSignature: true }
-		})
-
-		const hasDefaultSignature = !!userWithSignature?.defaultSignature
-		console.log("DEBUG: User signature check:", {
-			userId: user.id,
-			defaultSignature: userWithSignature?.defaultSignature,
-			hasDefaultSignature
-		})
-
-		// Client will proceed to call signIn directly (keeps cookies flow consistent)
-		return {
-			requiresTwoFactor: false as const,
-			hasDefaultSignature,
-			message: "Credentials validated"
-		}
+	if (!isValidPassword) {
+		throw new Error("Invalid credentials")
 	}
+
+	// if (!user.twoFactorEnabled) {
+	// 	// Check if user has default signature
+	// 	const userWithSignature = await db.user.findUnique({
+	// 		where: { id: user.id },
+	// 		select: { defaultSignature: true },
+	// 	})
+
+	// 	const hasDefaultSignature = !!userWithSignature?.defaultSignature
+	// 	console.log("DEBUG: User signature check:", {
+	// 		userId: user.id,
+	// 		defaultSignature: userWithSignature?.defaultSignature,
+	// 		hasDefaultSignature,
+	// 	})
+
+	// 	// Client will proceed to call signIn directly (keeps cookies flow consistent)
+	// 	return {
+	// 		requiresTwoFactor: false as const,
+	// 		hasDefaultSignature,
+	// 		message: "Credentials validated",
+	// 	}
+	// }
 
 	// 2FA path
 	const code = Math.floor(100000 + Math.random() * 900000).toString()
 	const expires = new Date(Date.now() + 10 * 60 * 1000)
 
-	try {
-		await db.twoFactorCode.deleteMany({
-			where: { userId: user.id, used: false }
-		})
-		await db.twoFactorCode.create({ data: { userId: user.id, code, expires } })
+	// try {
+	// 	await db.twoFactorCode.deleteMany({
+	// 		where: { userId: user.id, used: false },
+	// 	})
+	// 	await db.twoFactorCode.create({ data: { userId: user.id, code, expires } })
 
-		const emailData = await prepareTwoFactorEmail({
-			user: { name: user.name, email: user.email! },
-			code,
-			type: "login"
-		})
-		await emailService.sendEmail(emailData)
+	// 	const emailData = await prepareTwoFactorEmail({
+	// 		user: { name: user.name, email: user.email! },
+	// 		code,
+	// 		type: "login",
+	// 	})
+	// 	await emailService.sendEmail(emailData)
 
-		return {
-			requiresTwoFactor: true as const,
-			email: user.email,
-			message: "Verification code sent to your email"
-		}
-	} catch (e) {
-		console.error("initiateLogin 2FA error", e)
-		throw new Error("Failed to send verification code")
-	}
+	// 	return {
+	// 		requiresTwoFactor: true as const,
+	// 		email: user.email,
+	// 		message: "Verification code sent to your email",
+	// 	}
+	// } catch (e) {
+	// 	console.error("initiateLogin 2FA error", e)
+	// 	throw new Error("Failed to send verification code")
+	// }
 }
 
 /**
@@ -90,59 +96,65 @@ export async function initiateLogin(values: LoginSchema) {
  */
 export async function verifyTwoFactorLogin(values: TwoFactorLoginSchema) {
 	const parsed = twoFactorLoginSchema.safeParse(values)
-	if (!parsed.success) {throw new Error("Invalid request")}
+	if (!parsed.success) {
+		throw new Error("Invalid request")
+	}
 	const { email, code } = parsed.data
 
-	const user = await db.user.findUnique({
-		where: { email },
-		select: { id: true, email: true, twoFactorEnabled: true }
-	})
-	if (!user?.twoFactorEnabled) {throw new Error("Invalid request")}
+	// const user = await db.user.findUnique({
+	// 	where: { email },
+	// 	select: { id: true, email: true, twoFactorEnabled: true },
+	// })
+	// if (!user?.twoFactorEnabled) {
+	// 	throw new Error("Invalid request")
+	// }
 
-	const twoFactorCode = await db.twoFactorCode.findFirst({
-		where: { userId: user.id, code, used: false, expires: { gt: new Date() } }
-	})
-	if (!twoFactorCode) {throw new Error("Invalid or expired verification code")}
+	// const twoFactorCode = await db.twoFactorCode.findFirst({
+	// 	where: { userId: user.id, code, used: false, expires: { gt: new Date() } },
+	// })
+	// if (!twoFactorCode) {
+	// 	throw new Error("Invalid or expired verification code")
+	// }
 
-	await db.twoFactorCode.update({
-		where: { id: twoFactorCode.id },
-		data: { used: true }
-	})
+	// await db.twoFactorCode.update({
+	// 	where: { id: twoFactorCode.id },
+	// 	data: { used: true },
+	// })
 
-	try {
-		// Check if user has default signature
-		const userWithSignature = await db.user.findUnique({
-			where: { id: user.id },
-			select: { defaultSignature: true }
-		})
+	// try {
+	// 	// Check if user has default signature
+	// 	const userWithSignature = await db.user.findUnique({
+	// 		where: { id: user.id },
+	// 		select: { defaultSignature: true },
+	// 	})
 
-		const hasDefaultSignature = !!userWithSignature?.defaultSignature
-		console.log("DEBUG: 2FA User signature check:", {
-			userId: user.id,
-			defaultSignature: userWithSignature?.defaultSignature,
-			hasDefaultSignature
-		})
+	// 	const hasDefaultSignature = !!userWithSignature?.defaultSignature
+	// 	console.log("DEBUG: 2FA User signature check:", {
+	// 		userId: user.id,
+	// 		defaultSignature: userWithSignature?.defaultSignature,
+	// 		hasDefaultSignature,
+	// 	})
 
-		const verificationToken = `2FA_VERIFIED_${user.id}_${Date.now()}`
-		await db.twoFactorCode.deleteMany({
-			where: { userId: user.id, used: false }
-		})
-		await db.twoFactorCode.create({
-			data: {
-				userId: user.id,
-				code: verificationToken,
-				expires: new Date(Date.now() + 5 * 60 * 1000)
-			}
-		})
-		return {
-			success: true as const,
-			verificationToken,
-			email: user.email,
-			hasDefaultSignature,
-			message: "Verification successful"
-		}
-	} catch (e) {
-		console.error("verifyTwoFactorLogin error", e)
-		throw new Error("Failed to complete login")
-	}
+	// 	const verificationToken = `2FA_VERIFIED_${user.id}_${Date.now()}`
+	// 	await db.twoFactorCode.deleteMany({
+	// 		where: { userId: user.id, used: false },
+	// 	})
+	// 	await db.twoFactorCode.create({
+	// 		data: {
+	// 			userId: user.id,
+	// 			code: verificationToken,
+	// 			expires: new Date(Date.now() + 5 * 60 * 1000),
+	// 		},
+	// 	})
+	// 	return {
+	// 		success: true as const,
+	// 		verificationToken,
+	// 		email: user.email,
+	// 		hasDefaultSignature,
+	// 		message: "Verification successful",
+	// 	}
+	// } catch (e) {
+	// 	console.error("verifyTwoFactorLogin error", e)
+	// 	throw new Error("Failed to complete login")
+	// }
 }
