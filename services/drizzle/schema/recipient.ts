@@ -1,0 +1,37 @@
+import { relations } from "drizzle-orm"
+
+import { createTable, randomId } from "@/services/drizzle/utils"
+
+import { users } from "./auth"
+
+export const envelopes = createTable("envelopes", f => ({
+	id: f
+		.text("id")
+		.primaryKey()
+		.$defaultFn(() => randomId()),
+	token: f
+		.text("token")
+		.unique()
+		.notNull()
+		.$defaultFn(() => randomId()),
+	title: f.text("title").notNull(),
+	description: f.text("description"),
+	createdAt: f.timestamp("created_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
+	updatedAt: f
+		.timestamp("updated_at", { mode: "date", withTimezone: true })
+		.defaultNow()
+		.$onUpdateFn(() => new Date())
+		.notNull(),
+	// Relations
+	userId: f
+		.text("user_id")
+		.notNull()
+		.references(() => users.id),
+})).enableRLS()
+
+export const envelopeRelations = relations(envelopes, ({ one }) => ({
+	user: one(users, {
+		fields: [envelopes.userId],
+		references: [users.id],
+	}),
+}))
