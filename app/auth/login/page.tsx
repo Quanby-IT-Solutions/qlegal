@@ -5,7 +5,13 @@ import { GridBackground } from "@/core/components/ui/grid-background"
 
 import { LoginForm } from "@/features/auth/components/login-form"
 
-export default function LoginPage() {
+export default async function LoginPage({
+	searchParams,
+}: {
+	searchParams: Promise<{ callbackUrl?: string }>
+}) {
+	const { callbackUrl } = await searchParams
+
 	return (
 		<div className="relative min-h-screen w-full overflow-hidden">
 			<div className="absolute top-6 left-6 z-50">
@@ -40,7 +46,7 @@ export default function LoginPage() {
 				}}
 			>
 				<div className="flex min-h-screen items-center justify-center p-4">
-					<LoginForm />
+					<LoginForm callbackUrl={callbackUrl} />
 				</div>
 			</GridBackground>
 		</div>
