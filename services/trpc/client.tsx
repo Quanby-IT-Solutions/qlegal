@@ -15,6 +15,8 @@ import { createTRPCReact, type inferReactQueryProcedureOptions } from "@trpc/rea
 import type { inferRouterInputs, inferRouterOutputs } from "@trpc/server"
 import SuperJSON from "superjson"
 
+import { getUrl } from "@/core/lib/get-url"
+
 import { makeQueryClient } from "@/services/trpc/query-client"
 import { type AppRouter } from "@/services/trpc/root"
 
@@ -30,22 +32,6 @@ export const getQueryClient = () => {
 	clientQueryClientSingleton ??= makeQueryClient()
 	// Return the query client
 	return clientQueryClientSingleton
-}
-
-function getUrl() {
-	// Browser: use relative URL so it respects the current origin
-	if (typeof window !== "undefined") {
-		return ""
-	}
-
-	// Server/build: prefer explicit host
-	const { AUTH_URL, PORT } = env
-
-	if (AUTH_URL) {
-		return AUTH_URL.replace(/\/$/, "")
-	}
-
-	return `http://localhost:${PORT ?? 3000}`
 }
 
 export function TRPCProvider(

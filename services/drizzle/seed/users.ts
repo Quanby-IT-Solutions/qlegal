@@ -1,4 +1,5 @@
 import { faker } from "@faker-js/faker"
+import { hash } from "bcrypt"
 import { seed } from "drizzle-seed"
 
 import { db } from "@/services/drizzle/db"
@@ -6,21 +7,23 @@ import { users } from "@/services/drizzle/schema/auth"
 import { generateTestIds, SEED_CONFIG } from "@/services/drizzle/seed/config"
 
 export async function createUsers() {
-	// First, create the specific test accounts
-	const testAccountIds = generateTestIds(SEED_CONFIG.testAccounts.length, "test")
+	const hashedPassword = await hash(SEED_CONFIG.defaultPassword, 10)
 
-	for (let i = 0; i < SEED_CONFIG.testAccounts.length; i++) {
-		const account = SEED_CONFIG.testAccounts[i]
-		await db.insert(users).values({
-			id: testAccountIds[i],
-			email: account?.email,
-			name: account?.name,
-			emailVerified: account?.emailVerified.toISOString(),
-			image: account?.image,
-		})
+	const testAccountIds = generateTestIds(SEED_CONFIG.testAccounts.length, "test")
+	const testAccountData = SEED_CONFIG.testAccounts.map((account, i) => ({
+		id: testAccountIds[i],
+		email: account.email,
+		name: account.name,
+		emailVerified: account.emailVerified,
+		image: account.image,
+		password: hashedPassword,
+	}))
+
+	if (testAccountData.length > 0) {
+		await db.insert(users).values(testAccountData)
 	}
 
-	// Then create random seeded users
+	// Create random seeded users
 	const randomUserCount = SEED_CONFIG.userCount - SEED_CONFIG.testAccounts.length
 	if (randomUserCount > 0) {
 		const randomTestIds = generateTestIds(randomUserCount, "test")
@@ -36,6 +39,7 @@ export async function createUsers() {
 						maxDate: "2024-12-31T23:59:59.999Z",
 					}),
 					image: funcs.default({ defaultValue: faker.image.avatar() }),
+					password: funcs.default({ defaultValue: hashedPassword }),
 				},
 			},
 		}))

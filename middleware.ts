@@ -1,15 +1,29 @@
 import { NextResponse } from "next/server"
-import NextAuth from "next-auth"
 
-import { authConfig } from "./services/next-auth/config"
+import { getDefaultRoute, isRouteAuthorized } from "./core/middleware/authorization"
+import { type UserRole } from "./services/drizzle/schema/auth"
+import { auth } from "./services/next-auth"
 
-const { auth: middleware } = NextAuth(authConfig)
-
-export default middleware(async req => {
+export default auth(async req => {
 	const { nextUrl } = req
+	const { pathname } = nextUrl
 
-	if (nextUrl.pathname === "/") {
-		return NextResponse.redirect(new URL("/auth/login", nextUrl.origin))
+	// Get the session from the auth middleware
+	const session = req.auth
+
+	// Extract user role from session
+	const userRole = session?.user?.role as UserRole | null
+
+	// Check if the current route is authorized
+	if (!isRouteAuthorized(pathname, userRole)) {
+		// If not authenticated, redirect to login
+		if (!session?.user) {
+			return NextResponse.redirect(new URL("/auth/login", nextUrl.origin))
+		}
+
+		// If authenticated but not authorized, redirect to default route for their role
+		const defaultRoute = getDefaultRoute(userRole!)
+		return NextResponse.redirect(new URL(defaultRoute, nextUrl.origin))
 	}
 
 	return NextResponse.next()
