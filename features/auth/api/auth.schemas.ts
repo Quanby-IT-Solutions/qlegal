@@ -57,6 +57,7 @@ export const registerSchema = z
 export const loginSchema = z.object({
 	email: emailSchema,
 	password: passwordSchema,
+	code: z.string().optional(),
 })
 
 export const twoFactorLoginSchema = z.object({
