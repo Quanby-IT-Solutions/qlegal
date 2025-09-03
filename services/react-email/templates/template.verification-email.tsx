@@ -64,3 +64,5 @@ VerificationEmail.PreviewProps = {
 	email: "sample.email@quanby.com",
 	confirmLink: "123456",
 } as VerificationEmailProps
+
+export default VerificationEmail

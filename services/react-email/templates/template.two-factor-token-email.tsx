@@ -63,3 +63,5 @@ TwoFactorTokenEmail.PreviewProps = {
 	email: "sample.email@quanby.com",
 	token: "123456",
 } as TwoFactorTokenEmailProps
+
+export default TwoFactorTokenEmail

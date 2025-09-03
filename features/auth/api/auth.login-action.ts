@@ -1,6 +1,6 @@
 "use server"
 
-import { compare } from "bcrypt"
+import { compare } from "bcryptjs"
 import { eq } from "drizzle-orm"
 import { AuthError } from "next-auth"
 

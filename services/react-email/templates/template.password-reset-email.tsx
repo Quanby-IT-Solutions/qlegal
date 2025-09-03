@@ -65,3 +65,5 @@ PasswordResetEmail.PreviewProps = {
 	email: "sample.email@quanby.com",
 	resetLink: "123456",
 } as PasswordEmailProps
+
+export default PasswordResetEmail
