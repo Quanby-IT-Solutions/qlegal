@@ -3,8 +3,7 @@ import { eq } from "drizzle-orm"
 import { type DefaultSession, type NextAuthConfig } from "next-auth"
 
 import { db } from "@/services/drizzle/db"
-import { users } from "@/services/drizzle/schema/auth"
-import type { UserRole } from "@/services/drizzle/schema/auth"
+import { users, type UserRole } from "@/services/drizzle/schema/auth"
 
 /**
  * Module augmentation for `next-auth` types. Allows us to add custom properties to the `session`

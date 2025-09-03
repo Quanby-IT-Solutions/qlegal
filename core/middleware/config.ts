@@ -56,13 +56,10 @@ export const ROUTE_CONFIG: RouteConfig = {
 // CONSTANTS
 // ============================================================================
 
-export const CUSTOM_HEADERS = {
-	// Minimal headers to prevent 431 errors
-	// Removed X-Powered-By to reduce header size
-} as const
+export const CUSTOM_HEADERS = {} as const
 
 export const DEFAULT_ROUTES: Record<UserRole, string> = {
-	client: "/envelopes", // Default to envelopes page for clients
-	admin: "/dashboard",
-	super_admin: "/dashboard",
+	client: "/",
+	admin: "/",
+	super_admin: "/",
 }

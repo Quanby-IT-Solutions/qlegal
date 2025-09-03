@@ -3,9 +3,7 @@
 import Link from "next/link"
 import { useState, useTransition } from "react"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { signIn } from "next-auth/react"
 import { useForm, type SubmitHandler } from "react-hook-form"
-import { toast } from "sonner"
 
 import { QuanbyLogo } from "@/core/components/quanby-logo"
 import { Button } from "@/core/components/ui/button"
@@ -28,12 +26,7 @@ import { Input } from "@/core/components/ui/input"
 import { InputPassword } from "@/core/components/ui/input-password"
 
 import { login } from "@/features/auth/api/auth-login-action"
-// import { initiateLogin } from "@/features/auth/api/auth-login-action"
-// import { trpc } from "@/services/trpc/client"
-
 import { loginSchema, type LoginSchema } from "@/features/auth/api/auth.schemas"
-
-// import { LoginTwoFactor } from "@/features/auth/components/login-two-factor"
 
 export function LoginForm({ callbackUrl }: { callbackUrl?: string }) {
 	const [formSuccess, setFormSuccess] = useState<string | null>(null)
@@ -51,116 +44,6 @@ export function LoginForm({ callbackUrl }: { callbackUrl?: string }) {
 
 	const [isSubmitting, setIsSubmitting] = useState(false)
 
-	// const onSubmit = async (values: LoginSchema) => {
-	// 	setIsSubmitting(true)
-	// 	try {
-	// 		const result = await initiateLogin(values)
-	// 		if (result.requiresTwoFactor) {
-	// 			setUserEmail(values.email)
-	// 			setPendingPassword(values.password)
-	// 			setShowTwoFactor(true)
-	// 			toast.success(result.message)
-	// 		} else {
-	// 			console.log("DEBUG: Login result:", result)
-
-	// 			// Check if user has default signature BEFORE calling signIn
-	// 			console.log("DEBUG: hasDefaultSignature:", result.hasDefaultSignature)
-	// 			if (!result.hasDefaultSignature) {
-	// 				// First, establish the session
-	// 				const res = await signIn("credentials", {
-	// 					email: values.email,
-	// 					password: values.password,
-	// 					redirect: false,
-	// 					callbackUrl: "/auth/signature", // Set signature page as the callback
-	// 				})
-	// 				console.log("DEBUG: NextAuth response:", res)
-
-	// 				if (res?.ok) {
-	// 					toast.success("Login successful")
-	// 					// Redirect to signature setup with original callback URL
-	// 					// Properly encode the callback URL to preserve all parameters
-	// 					const signatureUrl = `/auth/signature?callbackUrl=${encodeURIComponent(callbackUrl)}`
-	// 					console.log("DEBUG: Redirecting to signature:", signatureUrl)
-	// 					console.log("DEBUG: Original callbackUrl:", callbackUrl)
-	// 					// Use router.push instead of window.location for better Next.js integration
-	// 					router.push(signatureUrl)
-	// 				} else {
-	// 					toast.error("Authentication failed")
-	// 				}
-	// 			} else {
-	// 				// User has signature, proceed with normal login
-	// 				const res = await signIn("credentials", {
-	// 					email: values.email,
-	// 					password: values.password,
-	// 					redirect: false,
-	// 					callbackUrl,
-	// 				})
-	// 				console.log("DEBUG: NextAuth response:", res)
-
-	// 				if (res?.ok) {
-	// 					toast.success("Login successful")
-	// 					// Normal redirect to dashboard or callback
-	// 					console.log("DEBUG: Redirecting to callback:", callbackUrl)
-	// 					router.push(callbackUrl)
-	// 				} else {
-	// 					toast.error("Authentication failed")
-	// 				}
-	// 			}
-	// 		}
-	// 	} catch (error) {
-	// 		const message = error instanceof Error ? error.message : "Login failed"
-	// 		toast.error(message)
-	// 	} finally {
-	// 		setIsSubmitting(false)
-	// 	}
-	// }
-
-	// const handleTwoFactorSuccess = async (
-	// 	verificationToken: string,
-	// 	hasDefaultSignature: boolean
-	// ) => {
-	// 	const res = await signIn("credentials", {
-	// 		email: userEmail,
-	// 		verificationToken,
-	// 		redirect: false,
-	// 		callbackUrl,
-	// 	})
-	// 	if (res?.ok) {
-	// 		toast.success("Login successful")
-	// 		// Check if user has default signature
-	// 		if (!hasDefaultSignature) {
-	// 			// Redirect to signature setup with callback URL
-	// 			const signatureUrl = `/auth/signature?callbackUrl=${encodeURIComponent(callbackUrl)}`
-	// 			console.log("DEBUG: Two-factor - redirecting to signature:", signatureUrl)
-	// 			console.log("DEBUG: Two-factor - original callbackUrl:", callbackUrl)
-	// 			router.push(signatureUrl)
-	// 		} else {
-	// 			// Normal redirect to dashboard or callback
-	// 			router.push(callbackUrl)
-	// 		}
-	// 	} else {
-	// 		toast.error("Failed to establish session")
-	// 	}
-	// }
-
-	// const handleBackToLogin = () => {
-	// 	setShowTwoFactor(false)
-	// 	setUserEmail("")
-	// 	setPendingPassword("")
-	// 	form.reset()
-	// }
-
-	// if (showTwoFactor) {
-	// 	return (
-	// 		<LoginTwoFactor
-	// 			email={userEmail}
-	// 			password={pendingPassword}
-	// 			onBack={handleBackToLogin}
-	// 			onSuccess={handleTwoFactorSuccess}
-	// 		/>
-	// 	)
-	// }
-
 	const onSubmit: SubmitHandler<LoginSchema> = data => {
 		setFormError("")
 		setFormSuccess("")
@@ -168,7 +51,9 @@ export function LoginForm({ callbackUrl }: { callbackUrl?: string }) {
 		startTransition(async () => {
 			await login(data)
 				.then(data => {
-					if (data?.error) return setFormError(data.error)
+					if (data?.error) {
+						return setFormError(data.error)
+					}
 					if (data?.success) {
 						setShowTwoFactor(data?.twoFactor ?? false)
 						return setFormSuccess(data?.success)
