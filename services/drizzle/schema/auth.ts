@@ -19,13 +19,21 @@ export const users = createTable("user", f => ({
 		.default(sql`CURRENT_TIMESTAMP`),
 	image: f.text("image"),
 	password: f.text("password").notNull(),
+	isTwoFactorEnabled: f.boolean("is_two_factor_enabled").default(false),
 	phoneNumber: f.text("phone_number"),
 	role: userRoles("role").default("client").notNull(),
 })).enableRLS()
 
-export const userRelations = relations(users, ({ many }) => ({
+export const userRelations = relations(users, ({ one, many }) => ({
 	accounts: many(accounts),
 	envelopes: many(envelopes),
+	twoFactorTokens: many(twoFactorTokens),
+	twoFactorConfirmations: one(twoFactorConfirmations, {
+		fields: [users.id],
+		references: [twoFactorConfirmations.userId],
+	}),
+	passwordResetTokens: many(passwordResetTokens),
+	verificationTokens: many(verificationTokens),
 }))
 
 export const accounts = createTable(
@@ -65,18 +73,64 @@ export const sessionsRelations = relations(sessions, ({ one }) => ({
 	user: one(users, { fields: [sessions.userId], references: [users.id] }),
 }))
 
-export const verificationTokens = createTable(
-	"verification_token",
-	f => ({
-		identifier: f.text("identifier").notNull(),
-		token: f.text("token").notNull(),
-		expires: f.timestamp({ mode: "date", withTimezone: true }).notNull(),
-	}),
-	c => [primaryKey({ columns: [c.identifier, c.token] })]
-).enableRLS()
+export const passwordResetTokens = createTable("password_reset_token", f => ({
+	id: f.text("id").notNull().default(randomId()).primaryKey(),
+	email: f
+		.text("email")
+		.notNull()
+		.references(() => users.email, { onDelete: "cascade" }),
+	token: f.text("token").notNull(),
+	expires: f.timestamp({ mode: "date", withTimezone: true }).notNull(),
+})).enableRLS()
+
+export const passwordResetTokensRelations = relations(passwordResetTokens, ({ one }) => ({
+	user: one(users, { fields: [passwordResetTokens.email], references: [users.email] }),
+}))
+
+export const twoFactorTokens = createTable("two_factor_token", f => ({
+	id: f.text("id").notNull().default(randomId()).primaryKey(),
+	email: f
+		.text("email")
+		.notNull()
+		.references(() => users.email, { onDelete: "cascade" }),
+	token: f.text("token").notNull(),
+	expires: f.timestamp({ mode: "date", withTimezone: true }).notNull(),
+})).enableRLS()
+
+export const twoFactorTokensRelations = relations(twoFactorTokens, ({ one }) => ({
+	user: one(users, { fields: [twoFactorTokens.email], references: [users.email] }),
+}))
+
+export const twoFactorConfirmations = createTable("two_factor_confirmation", f => ({
+	id: f.text("id").notNull().default(randomId()).primaryKey(),
+	userId: f
+		.text("userId")
+		.notNull()
+		.references(() => users.id, { onDelete: "cascade" }),
+})).enableRLS()
+
+export const twoFactorConfirmationsRelations = relations(twoFactorConfirmations, ({ one }) => ({
+	user: one(users, { fields: [twoFactorConfirmations.userId], references: [users.id] }),
+}))
+
+export const verificationTokens = createTable("verification_token", f => ({
+	id: f.text("id").notNull().default(randomId()).primaryKey(),
+	email: f
+		.text("email")
+		.notNull()
+		.references(() => users.email, { onDelete: "cascade" }),
+	token: f.text("token").notNull(),
+	expires: f.timestamp({ mode: "date", withTimezone: true }).notNull(),
+})).enableRLS()
+
+export const verificationTokensRelations = relations(verificationTokens, ({ one }) => ({
+	user: one(users, { fields: [verificationTokens.email], references: [users.email] }),
+}))
 
 export type UserRole = InferSelectModel<typeof users>["role"]
 export type User = InferSelectModel<typeof users>
 export type Account = InferSelectModel<typeof accounts>
 export type Session = InferSelectModel<typeof sessions>
+export type PasswordResetToken = InferSelectModel<typeof passwordResetTokens>
+export type TwoFactorToken = InferSelectModel<typeof twoFactorTokens>
 export type VerificationToken = InferSelectModel<typeof verificationTokens>
