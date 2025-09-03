@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm"
 import { type DefaultSession, type NextAuthConfig } from "next-auth"
 
 import { db } from "@/services/drizzle/db"
-import { users, type UserRole } from "@/services/drizzle/schema/auth"
+import { twoFactorConfirmations, users, type UserRole } from "@/services/drizzle/schema/auth"
 
 /**
  * Module augmentation for `next-auth` types. Allows us to add custom properties to the `session`
@@ -36,6 +36,41 @@ export const authConfig = {
 	adapter: DrizzleAdapter(db),
 	session: { strategy: "jwt" },
 	callbacks: {
+		async signIn({ account, user }) {
+			if (account?.provider !== "credentials") {
+				return true
+			}
+
+			const existingUser = await db.query.users.findFirst({
+				where: (data, { eq }) => eq(data.id, user.id ?? ""),
+			})
+
+			if (!existingUser || existingUser instanceof Error) {
+				return false
+			}
+
+			if (!existingUser.emailVerified) {
+				return false
+			}
+
+			if (!existingUser.isTwoFactorEnabled) {
+				return true
+			}
+
+			const twoFactorConfirmation = await db.query.twoFactorConfirmations.findFirst({
+				where: (data, { eq }) => eq(data.userId, existingUser.id),
+			})
+
+			if (!twoFactorConfirmation || twoFactorConfirmation instanceof Error) {
+				return false
+			}
+
+			await db
+				.delete(twoFactorConfirmations)
+				.where(eq(twoFactorConfirmations.userId, existingUser.id))
+
+			return true
+		},
 		async session({ session, token }) {
 			if (token.sub) {
 				// Get user role from database
@@ -50,12 +85,14 @@ export const authConfig = {
 					session.user.role = user.role
 				}
 			}
+
 			return session
 		},
 		async jwt({ token, user }) {
 			if (user) {
 				token.sub = user.id
 			}
+
 			return token
 		},
 	},

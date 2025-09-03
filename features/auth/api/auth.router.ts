@@ -1,5 +1,5 @@
 import { TRPCError } from "@trpc/server"
-import { hash } from "bcrypt"
+import { hash } from "bcryptjs"
 
 import { users } from "@/services/drizzle/schema/auth"
 // import { emailService } from "@/services/email/service"

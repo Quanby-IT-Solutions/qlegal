@@ -1,3 +1,4 @@
+/* eslint-disable no-restricted-properties */
 "use client"
 
 import { useState } from "react"
@@ -19,8 +20,6 @@ import { getUrl } from "@/core/lib/get-url"
 
 import { makeQueryClient } from "@/services/trpc/query-client"
 import { type AppRouter } from "@/services/trpc/root"
-
-import { env } from "@/env"
 
 let clientQueryClientSingleton: QueryClient | undefined = undefined
 export const getQueryClient = () => {
@@ -46,7 +45,7 @@ export function TRPCProvider(
 			links: [
 				loggerLink({
 					enabled: op =>
-						env.NODE_ENV === "development" ||
+						process.env.NODE_ENV === "development" ||
 						(op.direction === "down" && op.result instanceof Error),
 				}),
 				splitLink({
