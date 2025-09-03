@@ -25,7 +25,7 @@ import {
 import { Input } from "@/core/components/ui/input"
 import { InputPassword } from "@/core/components/ui/input-password"
 
-import { login } from "@/features/auth/api/auth-login-action"
+import { login } from "@/features/auth/api/auth.login-action"
 import { loginSchema, type LoginSchema } from "@/features/auth/api/auth.schemas"
 
 export function LoginForm({ callbackUrl }: { callbackUrl?: string }) {
