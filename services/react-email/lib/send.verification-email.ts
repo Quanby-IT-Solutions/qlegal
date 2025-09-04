@@ -11,9 +11,9 @@ export async function sendVerificationEmail(email: string, token: string) {
 	const confirmLink = `${getUrl()}/auth/verify-email?token=${token}`
 
 	await emailTransporter.sendMail({
-		from: `QSign <${env.EMAIL_FROM}>`,
+		from: `Quanby Sign <${env.EMAIL_FROM}>`,
 		to: email,
-		subject: "QSign: Confirm your email",
+		subject: "Confirm your email",
 		html: await render(VerificationEmail({ email, confirmLink })),
 	})
 }

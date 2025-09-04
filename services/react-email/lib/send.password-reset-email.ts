@@ -7,13 +7,13 @@ import { emailTransporter } from "@/services/react-email/utils"
 
 import { env } from "@/env"
 
-export async function sendVerificationEmail(email: string, token: string) {
+export async function sendPasswordResetEmail(email: string, token: string) {
 	const resetLink = `${getUrl()}/auth/reset-password?token=${token}`
 
 	await emailTransporter.sendMail({
-		from: `QSign <${env.EMAIL_FROM}>`,
+		from: `Quanby Sign <${env.EMAIL_FROM}>`,
 		to: email,
-		subject: "QSign: Reset your password",
+		subject: "Reset your password",
 		html: await render(PasswordResetEmail({ email, resetLink })),
 	})
 }
