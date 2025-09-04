@@ -13,12 +13,12 @@ import {
 	Text,
 } from "@react-email/components"
 
-type TwoFactorTokenEmailProps = {
+type TwoFactorAuthTemplateProps = {
 	email?: string
 	token?: string
 }
 
-export const TwoFactorTokenEmail = ({ email, token }: TwoFactorTokenEmailProps) => {
+export const TwoFactorAuthTemplate = ({ email, token }: TwoFactorAuthTemplateProps) => {
 	return (
 		<Html>
 			<Head />
@@ -59,9 +59,9 @@ export const TwoFactorTokenEmail = ({ email, token }: TwoFactorTokenEmailProps) 
 	)
 }
 
-TwoFactorTokenEmail.PreviewProps = {
+TwoFactorAuthTemplate.PreviewProps = {
 	email: "sample.email@quanby.com",
 	token: "123456",
-} as TwoFactorTokenEmailProps
+} as TwoFactorAuthTemplateProps
 
-export default TwoFactorTokenEmail
+export default TwoFactorAuthTemplate

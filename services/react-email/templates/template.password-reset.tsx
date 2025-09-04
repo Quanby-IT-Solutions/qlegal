@@ -13,16 +13,16 @@ import {
 	Text,
 } from "@react-email/components"
 
-type VerificationEmailProps = {
+type PasswordResetTemplateProps = {
 	email?: string
-	confirmLink?: string
+	resetLink?: string
 }
 
-export const VerificationEmail = ({ email, confirmLink }: VerificationEmailProps) => {
+export const PasswordResetTemplate = ({ email, resetLink }: PasswordResetTemplateProps) => {
 	return (
 		<Html>
 			<Head />
-			<Preview>Confirm your email</Preview>
+			<Preview>Reset your password</Preview>
 			<Tailwind>
 				<Body className="mx-auto my-auto bg-neutral-100 py-6 font-sans text-black">
 					<Container className="rounded-xl border border-solid border-[#eaeaea] bg-white px-10 pb-10">
@@ -33,18 +33,19 @@ export const VerificationEmail = ({ email, confirmLink }: VerificationEmailProps
 								Hi there <strong>{email}</strong>!
 							</Text>
 							<Text>
-								Thank you for signing up! We want to make sure it&apos;s really you. Please{" "}
-								<strong>confirm your email</strong> by clicking the button below:
+								Someone recently requested a <strong>password change</strong> for your for your
+								Scholar account. If this was you, you can set a new password by clicking the button
+								below:
 							</Text>
 							<Button
-								href={confirmLink}
+								href={resetLink}
 								className="rounded bg-[#000000] px-14 py-3 text-center text-xs font-semibold tracking-wide text-white no-underline"
 							>
-								Confirm Email
+								Reset Password
 							</Button>
 							<Text>
-								If you did not sign up for this account, please ignore this email or contact support
-								at{" "}
+								If you do not want to change your password, please ignore this email or contact
+								support at{" "}
 								<Link href="mailto:support@ustl-lms.tech" className="text-blue-600 no-underline">
 									support@ustl-lms.tech
 								</Link>
@@ -60,9 +61,9 @@ export const VerificationEmail = ({ email, confirmLink }: VerificationEmailProps
 	)
 }
 
-VerificationEmail.PreviewProps = {
+PasswordResetTemplate.PreviewProps = {
 	email: "sample.email@quanby.com",
-	confirmLink: "123456",
-} as VerificationEmailProps
+	resetLink: "123456",
+} as PasswordResetTemplateProps
 
-export default VerificationEmail
+export default PasswordResetTemplate
