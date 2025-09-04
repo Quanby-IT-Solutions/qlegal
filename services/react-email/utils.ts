@@ -1,4 +1,4 @@
-import nodemailer, { type Transporter } from "nodemailer"
+import nodemailer from "nodemailer"
 
 import { env } from "@/env.js"
 
