@@ -1,9 +1,13 @@
 import { DrizzleAdapter } from "@auth/drizzle-adapter"
+import { compare } from "bcryptjs"
 import { eq } from "drizzle-orm"
 import { type DefaultSession, type NextAuthConfig } from "next-auth"
+import Credentials from "next-auth/providers/credentials"
 
 import { db } from "@/services/drizzle/db"
 import { twoFactorConfirmations, users, type UserRole } from "@/services/drizzle/schema/auth"
+
+import { loginSchema } from "@/features/auth/api/auth.schemas"
 
 /**
  * Module augmentation for `next-auth` types. Allows us to add custom properties to the `session`
@@ -32,7 +36,35 @@ export const authConfig = {
 	pages: {
 		signIn: "/auth/login",
 	},
-	providers: [],
+	providers: [
+		Credentials({
+			async authorize(credentials) {
+				const validatedFields = loginSchema.safeParse(credentials)
+
+				if (!validatedFields.success) {
+					return null
+				}
+
+				const { email, password } = validatedFields.data
+
+				const user = await db.query.users.findFirst({
+					where: (data, { eq }) => eq(data.email, email),
+				})
+
+				if (user instanceof Error || !user?.password) {
+					return null
+				}
+
+				const isPasswordValid = await compare(password, user.password)
+
+				if (!isPasswordValid) {
+					return null
+				}
+
+				return user
+			},
+		}),
+	],
 	adapter: DrizzleAdapter(db),
 	session: { strategy: "jwt" },
 	callbacks: {

@@ -13,7 +13,7 @@ import { sendVerificationEmail } from "@/services/react-email/lib/send.verificat
 import { loginSchema, type LoginSchema } from "@/features/auth/api/auth.schemas"
 import { generateTwoFactorToken, generateVerificationToken } from "@/features/auth/lib/token"
 
-export const login = async (values: LoginSchema) => {
+export const login = async (values: LoginSchema, callbackUrl?: string) => {
 	const validatedFields = loginSchema.safeParse(values)
 
 	if (!validatedFields.success) {
@@ -83,7 +83,7 @@ export const login = async (values: LoginSchema) => {
 		await signIn("credentials", {
 			email,
 			password,
-			redirectTo: "/",
+			redirectTo: callbackUrl ?? "/",
 		})
 		return { success: "Success" }
 	} catch (error) {
