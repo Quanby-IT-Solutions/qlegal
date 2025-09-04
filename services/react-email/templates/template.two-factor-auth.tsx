@@ -63,7 +63,7 @@ export const TwoFactorAuthTemplate = ({ email, token }: TwoFactorAuthTemplatePro
 						</Text>
 
 						<Text className="mb-6 text-base leading-relaxed text-gray-700">
-							Hello <strong className="font-bold text-gray-900">{name ?? email}</strong>,
+							Hello <strong className="font-bold text-gray-900">{email}</strong>,
 						</Text>
 
 						<Text className="mb-0 text-base leading-relaxed text-gray-700">
