@@ -29,6 +29,10 @@ export const login = async (values: LoginSchema, callbackUrl?: string) => {
 		return { error: "User does not exist!" }
 	}
 
+	if (!existingUser.password) {
+		return { error: "Sign in with Google instead!" }
+	}
+
 	if (!existingUser.emailVerified) {
 		const verificationToken = await generateVerificationToken(existingUser.email)
 		await sendVerificationToken(verificationToken.email, verificationToken.token)

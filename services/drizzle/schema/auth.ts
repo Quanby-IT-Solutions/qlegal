@@ -1,4 +1,4 @@
-import { relations, sql, type InferSelectModel } from "drizzle-orm"
+import { relations, type InferSelectModel } from "drizzle-orm"
 import { index, pgEnum, primaryKey, text } from "drizzle-orm/pg-core"
 
 import { envelopes } from "@/services/drizzle/schema/envelope"
@@ -15,9 +15,8 @@ export const users = createTable("user", f => ({
 	name: f.text("name"),
 	email: f.text("email").unique(),
 	emailVerified: f.timestamp("email_verified", { mode: "date", withTimezone: true }),
-	// .default(sql`CURRENT_TIMESTAMP`),
 	image: f.text("image"),
-	password: f.text("password").notNull(),
+	password: f.text("password"),
 	isTwoFactorEnabled: f.boolean("is_two_factor_enabled").default(false),
 	phoneNumber: f.text("phone_number"),
 	role: userRoles("role").default("client").notNull(),
