@@ -5,11 +5,11 @@ import { emailTransporter } from "@/services/react-email/utils"
 
 import { env } from "@/env"
 
-export async function sendTwoFactorAuthToken(email: string, token: string) {
+export async function sendTwoFactorAuthToken(name: string, email: string, token: string) {
 	await emailTransporter.sendMail({
 		from: `Quanby Sign <${env.EMAIL_FROM}>`,
 		to: email,
 		subject: "Two-Factor Authentication Token",
-		html: await render(TwoFactorAuthTemplate({ email, token })),
+		html: await render(TwoFactorAuthTemplate({ name, email, token })),
 	})
 }
