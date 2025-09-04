@@ -5,15 +5,7 @@ import { useState, useTransition } from "react"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm, type SubmitHandler } from "react-hook-form"
 
-import { QuanbyLogo } from "@/core/components/quanby-logo"
 import { Button } from "@/core/components/ui/button"
-import {
-	Card,
-	CardContent,
-	CardDescription,
-	CardHeader,
-	CardTitle,
-} from "@/core/components/ui/card"
 import {
 	Form,
 	FormControl,
@@ -65,84 +57,52 @@ export function LoginForm({ callbackUrl }: { callbackUrl?: string }) {
 	}
 
 	return (
-		<Card className="w-full max-w-md">
-			<CardHeader className="text-center">
-				<div className="mb-4 flex justify-center">
-					<QuanbyLogo className="h-16 w-16" />
+		<Form {...form}>
+			<form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+				<FormField
+					control={form.control}
+					name="email"
+					render={({ field }) => (
+						<FormItem>
+							<FormLabel>Email</FormLabel>
+							<FormControl>
+								<Input type="email" placeholder="Enter your email" {...field} />
+							</FormControl>
+							<FormMessage />
+						</FormItem>
+					)}
+				/>
+
+				<FormField
+					control={form.control}
+					name="password"
+					render={({ field }) => (
+						<FormItem>
+							<FormLabel>Password</FormLabel>
+							<FormControl>
+								<InputPassword placeholder="Enter your password" {...field} />
+							</FormControl>
+							<FormMessage />
+						</FormItem>
+					)}
+				/>
+
+				<div className="flex items-center justify-between">
+					<Link
+						href="/auth/forgot-password"
+						className="text-primary hover:text-primary/80 text-sm hover:underline"
+					>
+						Forgot password?
+					</Link>
 				</div>
-				<CardTitle className="text-2xl">Welcome Back</CardTitle>
-				<CardDescription>Sign in to your Quanby Sign account</CardDescription>
-			</CardHeader>
-			<CardContent>
-				<Form {...form}>
-					<form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-						<FormField
-							control={form.control}
-							name="email"
-							render={({ field }) => (
-								<FormItem>
-									<FormLabel>Email</FormLabel>
-									<FormControl>
-										<Input type="email" placeholder="Enter your email" {...field} />
-									</FormControl>
-									<FormMessage />
-								</FormItem>
-							)}
-						/>
 
-						<FormField
-							control={form.control}
-							name="password"
-							render={({ field }) => (
-								<FormItem>
-									<FormLabel>Password</FormLabel>
-									<FormControl>
-										<InputPassword placeholder="Enter your password" {...field} />
-									</FormControl>
-									<FormMessage />
-								</FormItem>
-							)}
-						/>
+				<FormResponse type="error" message={formError} />
+				<FormResponse type="success" message={formSuccess} />
 
-						<div className="flex items-center justify-between">
-							<Link
-								href="/auth/forgot-password"
-								className="text-primary hover:text-primary/80 text-sm hover:underline"
-							>
-								Forgot password?
-							</Link>
-						</div>
-
-						<FormResponse type="error" message={formError} />
-						<FormResponse type="success" message={formSuccess} />
-
-						<Button type="submit" className="w-full" disabled={isPending}>
-							{isPending ? "Signing in..." : "Sign In"}
-						</Button>
-					</form>
-				</Form>
-
-				<div className="mt-6 text-center">
-					<p className="text-muted-foreground text-sm">
-						Don&apos;t have an account?{" "}
-						{callbackUrl ? (
-							<Link
-								href={`/auth/register?callbackUrl=${encodeURIComponent(callbackUrl)}`}
-								className="text-primary hover:text-primary/80 hover:underline"
-							>
-								Sign up
-							</Link>
-						) : (
-							<Link
-								href="/auth/register"
-								className="text-primary hover:text-primary/80 hover:underline"
-							>
-								Sign up
-							</Link>
-						)}
-					</p>
-				</div>
-			</CardContent>
-		</Card>
+				<Button type="submit" className="w-full" disabled={isPending}>
+					{isPending ? "Signing in..." : "Sign In"}
+				</Button>
+			</form>
+		</Form>
 	)
 }
