@@ -19,7 +19,9 @@ import { InputPassword } from "@/core/components/ui/input-password"
 
 import { login } from "@/features/auth/api/auth.login-action"
 import { loginSchema, type LoginSchema } from "@/features/auth/api/auth.schemas"
+import { OAuthButton } from "@/features/auth/components/oauth-button"
 import { FormResponse } from "@/features/auth/components/ui/form-response"
+import { FormSeparator } from "@/features/auth/components/ui/form-separator"
 
 export function LoginForm({ callbackUrl }: { callbackUrl?: string }) {
 	const [formSuccess, setFormSuccess] = useState<string | null>(null)
@@ -78,7 +80,17 @@ export function LoginForm({ callbackUrl }: { callbackUrl?: string }) {
 					name="password"
 					render={({ field }) => (
 						<FormItem>
-							<FormLabel>Password</FormLabel>
+							<div className="flex items-center justify-between">
+								<FormLabel>Password</FormLabel>
+								<div className="flex items-center justify-between">
+									<Link
+										href="/auth/forgot-password"
+										className="text-primary/80 hover:text-primary ml-auto text-sm hover:underline"
+									>
+										Forgot password
+									</Link>
+								</div>
+							</div>
 							<FormControl>
 								<InputPassword placeholder="Enter your password" {...field} />
 							</FormControl>
@@ -87,21 +99,19 @@ export function LoginForm({ callbackUrl }: { callbackUrl?: string }) {
 					)}
 				/>
 
-				<div className="flex items-center justify-between">
-					<Link
-						href="/auth/forgot-password"
-						className="text-primary hover:text-primary/80 text-sm hover:underline"
-					>
-						Forgot password?
-					</Link>
-				</div>
-
 				<FormResponse type="error" message={formError} />
 				<FormResponse type="success" message={formSuccess} />
 
-				<Button type="submit" className="w-full" disabled={isPending}>
+				<Button type="submit" className="mt-4 w-full" disabled={isPending}>
 					{isPending ? "Signing in..." : "Sign In"}
 				</Button>
+
+				<OAuthButton provider="google" label="Continue with Google" />
+				{/* <div className="mt-4 space-y-6">
+					<FormSeparator label="Or continue with" />
+
+					<OAuthButton provider="google" label="Continue with Google" />
+				</div> */}
 			</form>
 		</Form>
 	)
