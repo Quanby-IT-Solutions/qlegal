@@ -1,8 +1,10 @@
 "use client"
 
 import { zodResolver } from "@hookform/resolvers/zod"
+import { LoaderIcon } from "lucide-react"
 import { useForm, type SubmitHandler } from "react-hook-form"
 
+import { Button } from "@/core/components/ui/button"
 import {
 	Form,
 	FormControl,
@@ -11,20 +13,12 @@ import {
 	FormLabel,
 	FormMessage,
 } from "@/core/components/ui/form"
+import { Input } from "@/core/components/ui/input"
 
 import { trpc } from "@/services/trpc/client"
 
-// import { FormResponse } from "@/core/components/ui/form-response"
-// import { Input } from "@/core/components/ui/input"
-// import { Loader } from "@/core/components/ui/loader"
-
-// import { api } from "@/services/trpc/react"
-
-// import { ButtonShining } from "@/features/auth/components/ui/button-shining"
-// import {
-// 	forgotPasswordSchema,
-// 	type ForgotPasswordSchema,
-// } from "@/features/auth/validations/forgot-password-schema"
+import { forgotPasswordSchema, type ForgotPasswordSchema } from "@/features/auth/api/auth.schemas"
+import { FormResponse } from "@/features/auth/components/ui/form-response"
 
 export const ForgotPasswordForm = () => {
 	const form = useForm({
@@ -62,15 +56,10 @@ export const ForgotPasswordForm = () => {
 				<FormResponse type="error" message={error?.message} />
 				<FormResponse type="success" message={data?.message} />
 
-				<ButtonShining
-					className="w-full rounded-xl"
-					shiningClassName="bg-white/20"
-					disabled={isPending}
-					variant={isPending ? "shine" : "default"}
-				>
-					{isPending && <Loader />}
+				<Button className="w-full rounded-xl">
+					{isPending && <LoaderIcon className="animate-spin" />}
 					Send reset email
-				</ButtonShining>
+				</Button>
 			</form>
 		</Form>
 	)

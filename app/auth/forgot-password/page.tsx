@@ -10,7 +10,7 @@ import {
 	CardTitle,
 } from "@/core/components/ui/card"
 
-import { ForgotPasswordForm } from "@/features/auth/components/forgot-password-form-old"
+import { ForgotPasswordForm } from "@/features/auth/components/forms/form.forgot-password"
 
 export const metadata: Metadata = {
 	title: "Forgot Password | Account Recovery",
