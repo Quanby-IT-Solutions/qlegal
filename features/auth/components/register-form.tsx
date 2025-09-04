@@ -31,6 +31,8 @@ import { trpc } from "@/services/trpc/client"
 
 import { registerSchema, type RegisterSchema } from "@/features/auth/api/auth.schemas"
 
+import { FormResponse } from "./ui/form-response"
+
 interface RegisterFormProps {
 	callbackUrl?: string
 }
@@ -49,7 +51,7 @@ export function RegisterForm({ callbackUrl }: RegisterFormProps) {
 		},
 	})
 
-	const { mutate, isPending } = trpc.auth.register.useMutation({
+	const { mutate, data, error, isPending } = trpc.auth.register.useMutation({
 		onSuccess: () => {
 			toast.success("Account created successfully!", {
 				description: "You can now sign in with your credentials.",
@@ -178,6 +180,9 @@ export function RegisterForm({ callbackUrl }: RegisterFormProps) {
 								</FormItem>
 							)}
 						/>
+
+						<FormResponse type="error" message={error?.message} />
+						<FormResponse type="success" message={data?.message} />
 
 						<Button type="submit" className="w-full" disabled={isPending}>
 							{isPending ? "Creating Account..." : "Create Account"}

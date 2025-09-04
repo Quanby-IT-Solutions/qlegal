@@ -27,6 +27,7 @@ import { InputPassword } from "@/core/components/ui/input-password"
 
 import { login } from "@/features/auth/api/auth.login-action"
 import { loginSchema, type LoginSchema } from "@/features/auth/api/auth.schemas"
+import { FormResponse } from "@/features/auth/components/ui/form-response"
 
 export function LoginForm({ callbackUrl }: { callbackUrl?: string }) {
 	const [formSuccess, setFormSuccess] = useState<string | null>(null)
@@ -42,14 +43,12 @@ export function LoginForm({ callbackUrl }: { callbackUrl?: string }) {
 		},
 	})
 
-	const [isSubmitting, setIsSubmitting] = useState(false)
-
 	const onSubmit: SubmitHandler<LoginSchema> = data => {
 		setFormError("")
 		setFormSuccess("")
 
 		startTransition(async () => {
-			await login(data)
+			await login(data, callbackUrl)
 				.then(data => {
 					if (data?.error) {
 						return setFormError(data.error)
@@ -114,8 +113,11 @@ export function LoginForm({ callbackUrl }: { callbackUrl?: string }) {
 							</Link>
 						</div>
 
-						<Button type="submit" className="w-full" disabled={isSubmitting}>
-							{isSubmitting ? "Signing in..." : "Sign In"}
+						<FormResponse type="error" message={formError} />
+						<FormResponse type="success" message={formSuccess} />
+
+						<Button type="submit" className="w-full" disabled={isPending}>
+							{isPending ? "Signing in..." : "Sign In"}
 						</Button>
 					</form>
 				</Form>
