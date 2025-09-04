@@ -79,7 +79,7 @@ export const authConfig = {
 		}),
 	],
 	adapter: DrizzleCustomAdapter(),
-	session: { strategy: "jwt" },
+	session: { strategy: "database" },
 	callbacks: {
 		async signIn({ account, user }) {
 			if (account?.provider !== "credentials") {

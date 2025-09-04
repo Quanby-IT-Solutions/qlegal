@@ -1,6 +1,6 @@
 "use client"
 
-import { useRouter } from "next/navigation"
+// import { useRouter } from "next/navigation"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import { toast } from "sonner"
@@ -30,7 +30,7 @@ interface RegisterFormProps {
 }
 
 export function RegisterForm({ callbackUrl }: RegisterFormProps) {
-	const router = useRouter()
+	// const router = useRouter()
 
 	const form = useForm({
 		resolver: zodResolver(registerSchema),
@@ -46,11 +46,11 @@ export function RegisterForm({ callbackUrl }: RegisterFormProps) {
 	const { mutate, data, error, isPending } = trpc.auth.register.useMutation({
 		onSuccess: data => {
 			toast.success(data.message)
-			if (callbackUrl) {
-				router.push(callbackUrl as never)
-			} else {
-				router.push("/auth/login")
-			}
+			// if (callbackUrl) {
+			// 	router.push(callbackUrl as never)
+			// } else {
+			// 	router.push("/auth/login")
+			// }
 			form.reset()
 		},
 		onError: err => toast.error(err.message),
@@ -158,7 +158,7 @@ export function RegisterForm({ callbackUrl }: RegisterFormProps) {
 					{isPending ? "Creating Account..." : "Create Account"}
 				</Button>
 
-				<OAuthButton provider="google" label="Continue with Google" />
+				<OAuthButton provider="google" label="Continue with Google" callbackUrl={callbackUrl} />
 			</form>
 		</Form>
 	)

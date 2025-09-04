@@ -2,8 +2,7 @@ import { TRPCError } from "@trpc/server"
 import { hash } from "bcryptjs"
 
 import { users } from "@/services/drizzle/schema/auth"
-// import { emailService } from "@/services/email/service"
-// import { prepareTwoFactorEmail } from "@/services/email/templates/two-factor-auth/service"
+import { sendVerificationToken } from "@/services/react-email/lib/send.verification-token"
 import { createTRPCRouter, publicProcedure } from "@/services/trpc/init"
 
 import {
@@ -11,6 +10,7 @@ import {
 	registerSchema,
 	resetPasswordSchema,
 } from "@/features/auth/api/auth.schemas"
+import { generateVerificationToken } from "@/features/auth/lib/token"
 
 export const authRouter = createTRPCRouter({
 	register: publicProcedure.input(registerSchema).mutation(async ({ ctx, input }) => {
@@ -34,6 +34,9 @@ export const authRouter = createTRPCRouter({
 			email,
 			password: hashedPassword,
 		})
+
+		const verificationToken = await generateVerificationToken(email)
+		await sendVerificationToken(verificationToken.email, verificationToken.token)
 
 		return { message: "Confirmation email sent." }
 	}),
