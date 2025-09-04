@@ -125,12 +125,21 @@ export function LoginForm({ callbackUrl }: { callbackUrl?: string }) {
 				<div className="mt-6 text-center">
 					<p className="text-muted-foreground text-sm">
 						Don&apos;t have an account?{" "}
-						<Link
-							href="/auth/register"
-							className="text-primary hover:text-primary/80 hover:underline"
-						>
-							Sign up
-						</Link>
+						{callbackUrl ? (
+							<Link
+								href={`/auth/register?callbackUrl=${encodeURIComponent(callbackUrl)}`}
+								className="text-primary hover:text-primary/80 hover:underline"
+							>
+								Sign up
+							</Link>
+						) : (
+							<Link
+								href="/auth/register"
+								className="text-primary hover:text-primary/80 hover:underline"
+							>
+								Sign up
+							</Link>
+						)}
 					</p>
 				</div>
 			</CardContent>

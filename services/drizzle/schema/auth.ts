@@ -14,9 +14,8 @@ export const users = createTable("user", f => ({
 		.$defaultFn(() => randomId()),
 	name: f.text("name"),
 	email: f.text("email").unique(),
-	emailVerified: f
-		.timestamp("email_verified", { mode: "date", withTimezone: true })
-		.default(sql`CURRENT_TIMESTAMP`),
+	emailVerified: f.timestamp("email_verified", { mode: "date", withTimezone: true }),
+	// .default(sql`CURRENT_TIMESTAMP`),
 	image: f.text("image"),
 	password: f.text("password").notNull(),
 	isTwoFactorEnabled: f.boolean("is_two_factor_enabled").default(false),
