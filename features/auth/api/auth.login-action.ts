@@ -7,7 +7,7 @@ import { AuthError } from "next-auth"
 import { db } from "@/services/drizzle/db"
 import { twoFactorConfirmations, twoFactorTokens } from "@/services/drizzle/schema/auth"
 import { signIn } from "@/services/next-auth"
-import { sendTwoFactorAuthTokenEmail } from "@/services/react-email/lib/send.two-factor-auth-token"
+import { sendTwoFactorAuthToken } from "@/services/react-email/lib/send.two-factor-auth-token"
 import { sendVerificationToken } from "@/services/react-email/lib/send.verification-token"
 
 import { loginSchema, type LoginSchema } from "@/features/auth/api/auth.schemas"
@@ -44,7 +44,7 @@ export const login = async (values: LoginSchema, callbackUrl?: string) => {
 			}
 
 			const twoFactorToken = await generateTwoFactorToken(existingUser.email)
-			await sendTwoFactorAuthTokenEmail(twoFactorToken.email, twoFactorToken.token)
+			await sendTwoFactorAuthToken(twoFactorToken.email, twoFactorToken.token)
 
 			return { success: "2FA email sent!", twoFactor: true }
 		}
