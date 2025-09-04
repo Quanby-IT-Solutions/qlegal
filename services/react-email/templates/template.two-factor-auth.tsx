@@ -4,19 +4,21 @@ import {
 	Head,
 	Html,
 	Img,
+	Link,
 	Preview,
 	Section,
 	Tailwind,
 	Text,
 } from "@react-email/components"
 
+import { env } from "@/env"
+
 interface TwoFactorAuthTemplateProps {
-	name: string
 	email: string
 	token: string
 }
 
-export const TwoFactorAuthTemplate = ({ name, email, token }: TwoFactorAuthTemplateProps) => (
+export const TwoFactorAuthTemplate = ({ email, token }: TwoFactorAuthTemplateProps) => (
 	<Html>
 		<Head />
 		<Preview>Your verification code is {token}</Preview>
@@ -97,8 +99,15 @@ export const TwoFactorAuthTemplate = ({ name, email, token }: TwoFactorAuthTempl
 						</Text>
 
 						<Text className="text-base leading-relaxed text-gray-700">
-							If you didn&apos;t attempt to sign in, please change your password immediately and
-							contact our support team.
+							If you did not sign up for this account, please ignore this email or contact support
+							at{" "}
+							<Link
+								href={`mailto:${env.EMAIL_USER || "quanbysignteam@gmail.com"}`}
+								className="font-semibold no-underline"
+							>
+								{env.EMAIL_USER || "quanbysignteam@gmail.com"}
+							</Link>
+							.
 						</Text>
 					</Section>
 
@@ -122,7 +131,6 @@ export const TwoFactorAuthTemplate = ({ name, email, token }: TwoFactorAuthTempl
 )
 
 TwoFactorAuthTemplate.PreviewProps = {
-	name: "John Doe",
 	email: "john.doe@example.com",
 	token: "123456",
 } as TwoFactorAuthTemplateProps

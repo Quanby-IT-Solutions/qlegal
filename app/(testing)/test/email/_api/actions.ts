@@ -10,8 +10,7 @@ import { sendVerificationToken } from "@/services/react-email/lib/send.verificat
 type EmailType = "verification" | "password-reset" | "two-fa"
 
 export async function sendTestEmail() {
-	const name = ""
-	const email = ""
+	const email = "mj.balcueva.3@gmail.com"
 	const type: EmailType = "verification"
 
 	const testToken = Math.random().toString(36).substring(2, 8).toUpperCase()
@@ -21,7 +20,7 @@ export async function sendTestEmail() {
 	} else if (type === "password-reset") {
 		await sendPasswordResetToken(email, testToken)
 	} else if (type === "two-fa") {
-		await sendTwoFactorAuthToken(name, email, testToken)
+		await sendTwoFactorAuthToken(email, testToken)
 	} else {
 		throw new Error("Invalid email type")
 	}
