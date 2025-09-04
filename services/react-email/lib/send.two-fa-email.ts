@@ -7,9 +7,9 @@ import { env } from "@/env"
 
 export async function sendTwoFactorTokenEmail(email: string, token: string) {
 	await emailTransporter.sendMail({
-		from: `QSign <${env.EMAIL_FROM}>`,
+		from: `Quanby Sign <${env.EMAIL_FROM}>`,
 		to: email,
-		subject: "QSign: Two-Factor Authentication Token",
+		subject: "Two-Factor Authentication Token",
 		html: await render(TwoFactorTokenEmail({ email, token })),
 	})
 }

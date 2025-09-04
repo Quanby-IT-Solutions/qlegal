@@ -22,7 +22,7 @@ export interface RouteConfig {
 // ============================================================================
 
 export const ROUTE_CONFIG: RouteConfig = {
-	public: [{ path: "/", exact: true }],
+	public: [{ path: "/", exact: true }, { path: "/test" }],
 
 	// Public only routes - accessible to non-authenticated users only
 	publicOnly: [
