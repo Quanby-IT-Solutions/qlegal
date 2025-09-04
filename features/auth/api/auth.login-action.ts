@@ -7,8 +7,8 @@ import { AuthError } from "next-auth"
 import { db } from "@/services/drizzle/db"
 import { twoFactorConfirmations, twoFactorTokens } from "@/services/drizzle/schema/auth"
 import { signIn } from "@/services/next-auth"
-import { sendTwoFactorTokenEmail } from "@/services/react-email/lib/send.two-fa-email"
-import { sendVerificationEmail } from "@/services/react-email/lib/send.verification-email"
+import { sendTwoFactorAuthTokenEmail } from "@/services/react-email/lib/send.two-factor-auth-token"
+import { sendVerificationToken } from "@/services/react-email/lib/send.verification-token"
 
 import { loginSchema, type LoginSchema } from "@/features/auth/api/auth.schemas"
 import { generateTwoFactorToken, generateVerificationToken } from "@/features/auth/lib/token"
@@ -31,7 +31,7 @@ export const login = async (values: LoginSchema, callbackUrl?: string) => {
 
 	if (!existingUser.emailVerified) {
 		const verificationToken = await generateVerificationToken(existingUser.email)
-		await sendVerificationEmail(verificationToken.email, verificationToken.token)
+		await sendVerificationToken(verificationToken.email, verificationToken.token)
 
 		return { success: "Confirmation email sent!" }
 	}
@@ -44,7 +44,7 @@ export const login = async (values: LoginSchema, callbackUrl?: string) => {
 			}
 
 			const twoFactorToken = await generateTwoFactorToken(existingUser.email)
-			await sendTwoFactorTokenEmail(twoFactorToken.email, twoFactorToken.token)
+			await sendTwoFactorAuthTokenEmail(twoFactorToken.email, twoFactorToken.token)
 
 			return { success: "2FA email sent!", twoFactor: true }
 		}

@@ -3,9 +3,9 @@
 
 import { revalidatePath } from "next/cache"
 
-import { sendPasswordResetEmail } from "@/services/react-email/lib/send.password-reset-email"
-import { sendTwoFactorTokenEmail } from "@/services/react-email/lib/send.two-fa-email"
-import { sendVerificationEmail } from "@/services/react-email/lib/send.verification-email"
+import { sendPasswordResetToken } from "@/services/react-email/lib/send.password-reset-token"
+import { sendTwoFactorAuthToken } from "@/services/react-email/lib/send.two-factor-auth-token"
+import { sendVerificationToken } from "@/services/react-email/lib/send.verification-token"
 
 type EmailType = "verification" | "password-reset" | "two-fa"
 
@@ -16,11 +16,11 @@ export async function sendTestEmail() {
 	const testToken = Math.random().toString(36).substring(2, 8).toUpperCase()
 
 	if (type === "verification") {
-		await sendVerificationEmail(email, testToken)
+		await sendVerificationToken(email, testToken)
 	} else if (type === "password-reset") {
-		await sendPasswordResetEmail(email, testToken)
+		await sendPasswordResetToken(email, testToken)
 	} else if (type === "two-fa") {
-		await sendTwoFactorTokenEmail(email, testToken)
+		await sendTwoFactorAuthToken(email, testToken)
 	} else {
 		throw new Error("Invalid email type")
 	}
