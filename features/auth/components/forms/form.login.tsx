@@ -106,12 +106,7 @@ export function LoginForm({ callbackUrl }: { callbackUrl?: string }) {
 					{isPending ? "Signing in..." : "Sign In"}
 				</Button>
 
-				<OAuthButton provider="google" label="Continue with Google" />
-				{/* <div className="mt-4 space-y-6">
-					<FormSeparator label="Or continue with" />
-
-					<OAuthButton provider="google" label="Continue with Google" />
-				</div> */}
+				<OAuthButton provider="google" label="Continue with Google" callbackUrl={callbackUrl} />
 			</form>
 		</Form>
 	)
