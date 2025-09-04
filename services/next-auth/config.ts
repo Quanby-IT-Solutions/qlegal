@@ -5,7 +5,7 @@ import { type DefaultSession, type NextAuthConfig } from "next-auth"
 import Credentials from "next-auth/providers/credentials"
 
 import { db } from "@/services/drizzle/db"
-import { twoFactorConfirmations, users, type UserRole } from "@/services/drizzle/schema/auth"
+import { twoFactorConfirmations, type UserRole } from "@/services/drizzle/schema/auth"
 
 import { loginSchema } from "@/features/auth/api/auth.schemas"
 
@@ -105,12 +105,9 @@ export const authConfig = {
 		},
 		async session({ session, token }) {
 			if (token.sub) {
-				// Get user role from database
-				const [user] = await db
-					.select({ role: users.role })
-					.from(users)
-					.where(eq(users.id, token.sub))
-					.limit(1)
+				const user = await db.query.users.findFirst({
+					where: (data, { eq }) => eq(data.id, token.sub ?? ""),
+				})
 
 				if (user && session.user) {
 					session.user.id = token.sub

@@ -18,21 +18,12 @@ import { Profile } from "@/core/components/user-profile"
 import { getSiteUserItems, iconMap } from "@/core/lib/nav.config"
 import { cn } from "@/core/lib/utils"
 
-import type { UserRole } from "@/services/drizzle/schema/auth"
-
 import { ModeToggleDropdown } from "../mode-toggle-dropdown"
-
-function isValidUserRole(role: string | undefined | null): role is UserRole {
-	if (!role) {
-		return false
-	}
-	return ["client", "admin", "super_admin"].includes(role)
-}
 
 export function SiteUser() {
 	const { data: session, status } = useSession()
 	const user = session?.user
-	const config = getSiteUserItems(user?.role || null)
+	const config = getSiteUserItems(user?.role ?? null)
 
 	// Show loading state or nothing if session is loading
 	if (status === "loading") {

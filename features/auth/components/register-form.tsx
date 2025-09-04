@@ -1,5 +1,6 @@
 "use client"
 
+import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
@@ -30,8 +31,7 @@ import { InputPassword } from "@/core/components/ui/input-password"
 import { trpc } from "@/services/trpc/client"
 
 import { registerSchema, type RegisterSchema } from "@/features/auth/api/auth.schemas"
-
-import { FormResponse } from "./ui/form-response"
+import { FormResponse } from "@/features/auth/components/ui/form-response"
 
 interface RegisterFormProps {
 	callbackUrl?: string
@@ -52,27 +52,19 @@ export function RegisterForm({ callbackUrl }: RegisterFormProps) {
 	})
 
 	const { mutate, data, error, isPending } = trpc.auth.register.useMutation({
-		onSuccess: () => {
-			toast.success("Account created successfully!", {
-				description: "You can now sign in with your credentials.",
-			})
-
-			const redirectUrl = callbackUrl ?? "/"
-			router.push(redirectUrl as never)
-
+		onSuccess: data => {
+			toast.success(data.message)
+			if (callbackUrl) {
+				router.push(callbackUrl as never)
+			} else {
+				router.push("/auth/login")
+			}
 			form.reset()
 		},
 		onError: err => toast.error(err.message),
 	})
 
 	const onSubmit = (values: RegisterSchema) => mutate(values)
-
-	const handleLoginRedirect = () => {
-		const loginUrl = callbackUrl
-			? `/auth/login?callbackUrl=${encodeURIComponent(callbackUrl)}`
-			: "/auth/login"
-		router.push(loginUrl as never)
-	}
 
 	return (
 		<Card className="w-full max-w-md">
@@ -193,13 +185,21 @@ export function RegisterForm({ callbackUrl }: RegisterFormProps) {
 				<div className="mt-6 text-center">
 					<p className="text-muted-foreground text-sm">
 						Already have an account?{" "}
-						<button
-							type="button"
-							onClick={handleLoginRedirect}
-							className="text-primary hover:text-primary/80 border-none bg-transparent p-0 font-normal hover:underline"
-						>
-							Sign in
-						</button>
+						{callbackUrl ? (
+							<Link
+								href={`/auth/login?callbackUrl=${encodeURIComponent(callbackUrl)}`}
+								className="text-primary hover:text-primary/80 hover:underline"
+							>
+								Sign in
+							</Link>
+						) : (
+							<Link
+								href="/auth/login"
+								className="text-primary hover:text-primary/80 hover:underline"
+							>
+								Sign in
+							</Link>
+						)}
 					</p>
 				</div>
 			</CardContent>
