@@ -117,38 +117,6 @@ export function RegisterForm({ callbackUrl }: RegisterFormProps) {
 					)}
 				/>
 
-				{/* <FormField
-					control={form.control}
-					name="agreeToTerms"
-					render={({ field }) => (
-						<FormItem className="flex flex-row items-start space-y-0 space-x-3">
-							<FormControl>
-								<Checkbox checked={field.value} onCheckedChange={field.onChange} />
-							</FormControl>
-							<FormLabel className="text-muted-foreground text-xs">
-								I agree to the
-								<span
-									className={cn(
-										buttonVariants({ variant: "link" }),
-										"text-primary hover:text-primary/80 h-fit p-0 text-xs hover:cursor-pointer"
-									)}
-								>
-									Terms of Service
-								</span>
-								and
-								<span
-									className={cn(
-										buttonVariants({ variant: "link" }),
-										"text-primary hover:text-primary/80 h-fit p-0 text-xs hover:cursor-pointer"
-									)}
-								>
-									Privacy Policy
-								</span>
-							</FormLabel>
-						</FormItem>
-					)}
-				/> */}
-
 				<FormField
 					control={form.control}
 					name="agreeToTerms"

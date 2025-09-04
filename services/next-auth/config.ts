@@ -1,13 +1,17 @@
-import { DrizzleAdapter } from "@auth/drizzle-adapter"
+// import { DrizzleAdapter } from "@auth/drizzle-adapter"
 import { compare } from "bcryptjs"
 import { eq } from "drizzle-orm"
 import { type DefaultSession, type NextAuthConfig } from "next-auth"
 import Credentials from "next-auth/providers/credentials"
+import Google from "next-auth/providers/google"
 
 import { db } from "@/services/drizzle/db"
 import { twoFactorConfirmations, type UserRole } from "@/services/drizzle/schema/auth"
+import { DrizzleCustomAdapter } from "@/services/next-auth/adapter"
 
 import { loginSchema } from "@/features/auth/api/auth.schemas"
+
+import { env } from "@/env"
 
 /**
  * Module augmentation for `next-auth` types. Allows us to add custom properties to the `session`
@@ -33,12 +37,13 @@ declare module "next-auth" {
  * @see https://next-auth.js.org/configuration/options
  */
 export const authConfig = {
+	debug: env.NODE_ENV !== "production",
 	pages: {
 		signIn: "/auth/login",
 	},
 	providers: [
 		Credentials({
-			async authorize(credentials) {
+			async authorize(credentials, _req) {
 				const validatedFields = loginSchema.safeParse(credentials)
 
 				if (!validatedFields.success) {
@@ -64,8 +69,16 @@ export const authConfig = {
 				return user
 			},
 		}),
+		Google({
+			allowDangerousEmailAccountLinking: true,
+			authorization: {
+				params: {
+					prompt: "select_account",
+				},
+			},
+		}),
 	],
-	adapter: DrizzleAdapter(db),
+	adapter: DrizzleCustomAdapter(),
 	session: { strategy: "jwt" },
 	callbacks: {
 		async signIn({ account, user }) {
@@ -104,14 +117,19 @@ export const authConfig = {
 			return true
 		},
 		async session({ session, token }) {
-			if (token.sub) {
-				const user = await db.query.users.findFirst({
-					where: (data, { eq }) => eq(data.id, token.sub ?? ""),
-				})
-
-				if (user && session.user) {
+			try {
+				if (token.sub) {
+					const user = await db.query.users.findFirst({
+						where: (data, { eq }) => eq(data.id, token.sub ?? ""),
+					})
+					if (user && session.user) {
+						session.user.id = token.sub
+						session.user.role = user.role
+					}
+				}
+			} catch {
+				if (token.sub && session.user) {
 					session.user.id = token.sub
-					session.user.role = user.role
 				}
 			}
 
