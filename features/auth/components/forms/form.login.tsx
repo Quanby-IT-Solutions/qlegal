@@ -21,7 +21,6 @@ import { login } from "@/features/auth/api/auth.login-action"
 import { loginSchema, type LoginSchema } from "@/features/auth/api/auth.schemas"
 import { OAuthButton } from "@/features/auth/components/oauth-button"
 import { FormResponse } from "@/features/auth/components/ui/form-response"
-import { FormSeparator } from "@/features/auth/components/ui/form-separator"
 
 export function LoginForm({ callbackUrl }: { callbackUrl?: string }) {
 	const [formSuccess, setFormSuccess] = useState<string | null>(null)
