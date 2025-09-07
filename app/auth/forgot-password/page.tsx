@@ -18,9 +18,9 @@ export const metadata: Metadata = {
 
 export default function Page() {
 	return (
-		<Card>
-			<CardHeader>
-				<CardTitle>Forgot your password?</CardTitle>
+		<Card className="w-full max-w-md">
+			<CardHeader className="text-center">
+				<CardTitle className="text-2xl">Forgot your password?</CardTitle>
 				<CardDescription>Enter your email address to reset your password.</CardDescription>
 			</CardHeader>
 			<CardContent>
