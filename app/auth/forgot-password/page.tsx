@@ -4,9 +4,7 @@ import {
 	Card,
 	CardContent,
 	CardDescription,
-	CardFooter,
 	CardHeader,
-	// CardLink,
 	CardTitle,
 } from "@/core/components/ui/card"
 
@@ -28,11 +26,6 @@ export default function Page() {
 			<CardContent>
 				<ForgotPasswordForm />
 			</CardContent>
-			<CardFooter>
-				{/* <CardLink href="/login" label="Back to login" />
-				<CardLink href="/privacy" label="Privacy" className="!ml-auto" />
-				<CardLink href="/terms" label="Terms" /> */}
-			</CardFooter>
 		</Card>
 	)
 }
