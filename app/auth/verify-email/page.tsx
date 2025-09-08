@@ -1,5 +1,3 @@
-import Link from "next/link"
-
 import { QuanbyLogo } from "@/core/components/quanby-logo"
 import {
 	Card,
