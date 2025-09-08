@@ -5,7 +5,7 @@ import { useState, useTransition } from "react"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm, type SubmitHandler } from "react-hook-form"
 
-import { Button } from "@/core/components/ui/button"
+import { Button, buttonVariants } from "@/core/components/ui/button"
 import {
 	Form,
 	FormControl,
@@ -16,6 +16,7 @@ import {
 } from "@/core/components/ui/form"
 import { Input } from "@/core/components/ui/input"
 import { InputPassword } from "@/core/components/ui/input-password"
+import { cn } from "@/core/lib/utils"
 
 import { login } from "@/features/auth/api/auth.login-action"
 import { loginSchema, type LoginSchema } from "@/features/auth/api/auth.schemas"
@@ -84,7 +85,10 @@ export function LoginForm({ callbackUrl }: { callbackUrl?: string }) {
 								<div className="flex items-center justify-between">
 									<Link
 										href="/auth/forgot-password"
-										className="text-primary/80 hover:text-primary ml-auto text-sm hover:underline"
+										className={cn(
+											buttonVariants({ variant: "link" }),
+											"text-primary hover:text-primary/80 h-fit px-1.5 py-0.5 text-sm"
+										)}
 									>
 										Forgot password
 									</Link>
