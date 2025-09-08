@@ -33,6 +33,11 @@ export const login = async (values: LoginSchema, callbackUrl?: string) => {
 		return { error: "Sign in with Google instead!" }
 	}
 
+	const isPasswordValid = await compare(password, existingUser.password)
+	if (!isPasswordValid) {
+		return { error: "Invalid credentials" }
+	}
+
 	if (!existingUser.emailVerified) {
 		const verificationToken = await generateVerificationToken(existingUser.email)
 		await sendVerificationToken(verificationToken.email, verificationToken.token)
@@ -42,11 +47,6 @@ export const login = async (values: LoginSchema, callbackUrl?: string) => {
 
 	if (existingUser.isTwoFactorEnabled) {
 		if (!code) {
-			const isPasswordValid = await compare(password, existingUser.password)
-			if (!isPasswordValid) {
-				return { error: "Invalid credentials" }
-			}
-
 			const twoFactorToken = await generateTwoFactorToken(existingUser.email)
 			await sendTwoFactorAuthToken(twoFactorToken.email, twoFactorToken.token)
 
