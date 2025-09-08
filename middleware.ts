@@ -7,7 +7,6 @@ import { logAccess, logError, logRedirect } from "@/core/middleware/logger"
 import { matchesAnyRoute } from "@/core/middleware/route-matcher"
 import { addCustomHeaders } from "@/core/middleware/security"
 
-import { type UserRole } from "@/services/drizzle/schema/auth"
 import { authConfig } from "@/services/next-auth/config"
 
 const { auth: middleware } = NextAuth(authConfig)
