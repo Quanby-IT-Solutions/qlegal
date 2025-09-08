@@ -5,6 +5,7 @@ import {
 	Card,
 	CardContent,
 	CardDescription,
+	CardFooter,
 	CardHeader,
 	CardTitle,
 } from "@/core/components/ui/card"
@@ -29,28 +30,25 @@ export default async function LoginPage({
 			</CardHeader>
 			<CardContent>
 				<LoginForm callbackUrl={callbackUrl} />
-
-				<div className="mt-6 text-center">
-					<p className="text-muted-foreground text-sm">
-						Don&apos;t have an account?{" "}
-						{callbackUrl ? (
-							<Link
-								href={`/auth/register?callbackUrl=${encodeURIComponent(callbackUrl)}`}
-								className="text-primary hover:text-primary/80 hover:underline"
-							>
-								Sign up
-							</Link>
-						) : (
-							<Link
-								href="/auth/register"
-								className="text-primary hover:text-primary/80 hover:underline"
-							>
-								Sign up
-							</Link>
-						)}
-					</p>
-				</div>
 			</CardContent>
+			<CardFooter className="text-muted-foreground justify-center gap-x-1 text-sm">
+				Don&apos;t have an account?{" "}
+				{callbackUrl ? (
+					<Link
+						href={`/auth/register?callbackUrl=${encodeURIComponent(callbackUrl)}`}
+						className="text-primary hover:text-primary/80 hover:underline"
+					>
+						Sign up
+					</Link>
+				) : (
+					<Link
+						href="/auth/register"
+						className="text-primary hover:text-primary/80 hover:underline"
+					>
+						Sign up
+					</Link>
+				)}
+			</CardFooter>
 		</Card>
 	)
 }
