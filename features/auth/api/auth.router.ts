@@ -1,7 +1,8 @@
 import { TRPCError } from "@trpc/server"
 import { hash } from "bcryptjs"
+import { eq } from "drizzle-orm"
 
-import { users } from "@/services/drizzle/schema/auth"
+import { users, verificationTokens } from "@/services/drizzle/schema/auth"
 import { sendVerificationToken } from "@/services/react-email/lib/send.verification-token"
 import { createTRPCRouter, publicProcedure } from "@/services/trpc/init"
 
@@ -9,6 +10,7 @@ import {
 	forgotPasswordSchema,
 	registerSchema,
 	resetPasswordSchema,
+	verifyEmailSchema,
 } from "@/features/auth/api/auth.schemas"
 import { generateVerificationToken } from "@/features/auth/lib/token"
 
@@ -92,5 +94,55 @@ export const authRouter = createTRPCRouter({
 				message: "User not found",
 			})
 		}
+	}),
+
+	verifyEmail: publicProcedure.input(verifyEmailSchema).mutation(async ({ ctx, input }) => {
+		const { token } = input
+		if (!token) {
+			throw new TRPCError({
+				code: "BAD_REQUEST",
+				message: "No verification token provided.",
+			})
+		}
+
+		const existingToken = await ctx.db.query.verificationTokens.findFirst({
+			where: (data, { eq }) => eq(data.token, token),
+		})
+		if (!existingToken) {
+			throw new TRPCError({
+				code: "NOT_FOUND",
+				message: "Verification token not found.",
+			})
+		}
+
+		const tokenHasExpired = new Date(existingToken.expires) < new Date()
+		if (tokenHasExpired) {
+			throw new TRPCError({
+				code: "BAD_REQUEST",
+				message: "Verification token has expired.",
+			})
+		}
+
+		const existingUser = await ctx.db.query.users.findFirst({
+			where: (data, { eq }) => eq(data.email, existingToken.email),
+		})
+		if (!existingUser) {
+			throw new TRPCError({
+				code: "NOT_FOUND",
+				message: "User with this email not found.",
+			})
+		}
+
+		await ctx.db
+			.update(users)
+			.set({
+				emailVerified: new Date(),
+				email: existingToken.email,
+			})
+			.where(eq(users.id, existingUser.id))
+
+		await ctx.db.delete(verificationTokens).where(eq(verificationTokens.id, existingToken.id))
+
+		return { message: "Email verified!" }
 	}),
 })

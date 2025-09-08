@@ -39,6 +39,7 @@ declare module "next-auth" {
 export const authConfig = {
 	debug: env.NODE_ENV !== "production",
 	pages: {
+		error: "/error",
 		signIn: "/auth/login",
 	},
 	providers: [
@@ -79,7 +80,7 @@ export const authConfig = {
 		}),
 	],
 	adapter: DrizzleCustomAdapter(),
-	session: { strategy: "database" },
+	session: { strategy: "jwt" },
 	callbacks: {
 		async signIn({ account, user }) {
 			if (account?.provider !== "credentials") {

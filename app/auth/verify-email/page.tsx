@@ -7,7 +7,7 @@ import {
 	CardTitle,
 } from "@/core/components/ui/card"
 
-import { LoginForm } from "@/features/auth/components/forms/form.login"
+import { VerifyEmailForm } from "@/features/auth/components/forms/form.verify-email"
 
 export default async function LoginPage({
 	searchParams,
@@ -26,7 +26,7 @@ export default async function LoginPage({
 				<CardDescription>We just want to make sure it&apos;s really you.</CardDescription>
 			</CardHeader>
 			<CardContent>
-				<LoginForm callbackUrl={token} />
+				<VerifyEmailForm token={token} />
 			</CardContent>
 		</Card>
 	)
