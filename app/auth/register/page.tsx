@@ -1,6 +1,7 @@
 import Link from "next/link"
 
 import { QuanbyLogo } from "@/core/components/quanby-logo"
+import { buttonVariants } from "@/core/components/ui/button"
 import {
 	Card,
 	CardContent,
@@ -9,6 +10,7 @@ import {
 	CardHeader,
 	CardTitle,
 } from "@/core/components/ui/card"
+import { cn } from "@/core/lib/utils"
 
 import { RegisterForm } from "@/features/auth/components/forms/form.register"
 
@@ -36,17 +38,26 @@ export default async function RegisterPage({
 			<CardContent>
 				<RegisterForm callbackUrl={callbackUrl} />
 			</CardContent>
-			<CardFooter className="text-muted-foreground justify-center gap-x-1 text-sm">
-				Already have an account?{" "}
+			<CardFooter className="text-muted-foreground justify-center text-sm">
+				Already have an account?
 				{callbackUrl ? (
 					<Link
 						href={`/auth/login?callbackUrl=${encodeURIComponent(callbackUrl)}`}
-						className="text-primary hover:text-primary/80 hover:underline"
+						className={cn(
+							buttonVariants({ variant: "link" }),
+							"text-primary hover:text-primary/80 h-fit px-1.5 py-0.5 text-sm"
+						)}
 					>
 						Sign in
 					</Link>
 				) : (
-					<Link href="/auth/login" className="text-primary hover:text-primary/80 hover:underline">
+					<Link
+						href="/auth/login"
+						className={cn(
+							buttonVariants({ variant: "link" }),
+							"text-primary hover:text-primary/80 h-fit px-1.5 py-0.5 text-sm"
+						)}
+					>
 						Sign in
 					</Link>
 				)}
