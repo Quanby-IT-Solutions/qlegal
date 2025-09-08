@@ -43,7 +43,7 @@
 }
 
 :root {
-	--radius: 0.625rem;
+	--radius: 1.3rem;
 	--background: rgb(255, 255, 255);
 	--foreground: rgb(10, 10, 10);
 	--card: rgb(255, 255, 255);
