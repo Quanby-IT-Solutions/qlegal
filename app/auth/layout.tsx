@@ -1,4 +1,5 @@
 import Link from "next/link"
+import { ChevronLeftIcon } from "lucide-react"
 
 import { Button } from "@/core/components/ui/button"
 import { GridBackground } from "@/core/components/ui/grid-background"
@@ -9,7 +10,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
 			<div className="absolute top-6 left-6 z-50">
 				<Button variant="ghost" size="sm" asChild>
 					<Link href="/" className="text-foreground/80 hover:text-foreground transition-colors">
-						← Back to Home
+						<ChevronLeftIcon /> Back to Home
 					</Link>
 				</Button>
 			</div>

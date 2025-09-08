@@ -86,15 +86,20 @@ export const resetPasswordSchema = z
 		// Password confirmation validation
 		if (data.newPassword !== data.confirmPassword) {
 			ctx.addIssue({
-				code: z.ZodIssueCode.custom,
+				code: "custom",
 				message: "Passwords do not match",
 				path: ["confirmPassword"],
 			})
 		}
 	})
 
+export const verifyEmailSchema = z.object({
+	token: z.string().min(1, "Token is required"),
+})
+
 export type RegisterSchema = z.infer<typeof registerSchema>
 export type LoginSchema = z.infer<typeof loginSchema>
 export type TwoFactorLoginSchema = z.infer<typeof twoFactorLoginSchema>
 export type ForgotPasswordSchema = z.infer<typeof forgotPasswordSchema>
 export type ResetPasswordSchema = z.infer<typeof resetPasswordSchema>
+export type VerifyEmailSchema = z.infer<typeof verifyEmailSchema>

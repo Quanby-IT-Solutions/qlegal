@@ -1,13 +1,16 @@
 import Link from "next/link"
 
 import { QuanbyLogo } from "@/core/components/quanby-logo"
+import { buttonVariants } from "@/core/components/ui/button"
 import {
 	Card,
 	CardContent,
 	CardDescription,
+	CardFooter,
 	CardHeader,
 	CardTitle,
 } from "@/core/components/ui/card"
+import { cn } from "@/core/lib/utils"
 
 import { LoginForm } from "@/features/auth/components/forms/form.login"
 
@@ -29,28 +32,31 @@ export default async function LoginPage({
 			</CardHeader>
 			<CardContent>
 				<LoginForm callbackUrl={callbackUrl} />
-
-				<div className="mt-6 text-center">
-					<p className="text-muted-foreground text-sm">
-						Don&apos;t have an account?{" "}
-						{callbackUrl ? (
-							<Link
-								href={`/auth/register?callbackUrl=${encodeURIComponent(callbackUrl)}`}
-								className="text-primary hover:text-primary/80 hover:underline"
-							>
-								Sign up
-							</Link>
-						) : (
-							<Link
-								href="/auth/register"
-								className="text-primary hover:text-primary/80 hover:underline"
-							>
-								Sign up
-							</Link>
-						)}
-					</p>
-				</div>
 			</CardContent>
+			<CardFooter className="text-muted-foreground justify-center text-sm">
+				Don&apos;t have an account?{""}
+				{callbackUrl ? (
+					<Link
+						href={`/auth/register?callbackUrl=${encodeURIComponent(callbackUrl)}`}
+						className={cn(
+							buttonVariants({ variant: "link" }),
+							"text-primary hover:text-primary/80 h-fit px-1.5 py-0.5 text-sm"
+						)}
+					>
+						Sign up
+					</Link>
+				) : (
+					<Link
+						href="/auth/register"
+						className={cn(
+							buttonVariants({ variant: "link" }),
+							"text-primary hover:text-primary/80 h-fit px-1.5 py-0.5 text-sm"
+						)}
+					>
+						Sign up
+					</Link>
+				)}
+			</CardFooter>
 		</Card>
 	)
 }
