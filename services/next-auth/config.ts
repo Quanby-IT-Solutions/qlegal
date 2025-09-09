@@ -6,7 +6,7 @@ import Credentials from "next-auth/providers/credentials"
 import Google from "next-auth/providers/google"
 
 import { db } from "@/services/drizzle/db"
-import { twoFactorConfirmations, type UserRole } from "@/services/drizzle/schema/auth"
+import { twoFactorConfirmations, users, type UserRole } from "@/services/drizzle/schema/auth"
 import { DrizzleCustomAdapter } from "@/services/next-auth/adapter"
 
 import { loginSchema } from "@/features/auth/api/auth.schemas"
@@ -126,6 +126,7 @@ export const authConfig = {
 					if (user && session.user) {
 						session.user.id = token.sub
 						session.user.role = user.role
+						session.user.image = user.image ?? session.user.image
 					}
 				}
 			} catch {
@@ -139,9 +140,27 @@ export const authConfig = {
 		async jwt({ token, user }) {
 			if (user) {
 				token.sub = user.id
+				token.image = user.image ?? token.picture
 			}
 
 			return token
+		},
+	},
+	events: {
+		async linkAccount({ user, profile }) {
+			const existingUser = await db.query.users.findFirst({
+				where: (data, { eq }) => eq(data.email, user.email ?? ""),
+			})
+
+			if (existingUser && !(existingUser instanceof Error)) {
+				await db
+					.update(users)
+					.set({
+						emailVerified: new Date(),
+						image: existingUser?.image ?? profile.image,
+					})
+					.where(eq(users.id, existingUser.id))
+			}
 		},
 	},
 } satisfies NextAuthConfig
