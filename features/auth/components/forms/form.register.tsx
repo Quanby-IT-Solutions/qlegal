@@ -1,6 +1,5 @@
 "use client"
 
-// import { useRouter } from "next/navigation"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import { toast } from "sonner"
@@ -30,8 +29,6 @@ interface RegisterFormProps {
 }
 
 export function RegisterForm({ callbackUrl }: RegisterFormProps) {
-	// const router = useRouter()
-
 	const form = useForm({
 		resolver: zodResolver(registerSchema),
 		defaultValues: {
@@ -46,11 +43,6 @@ export function RegisterForm({ callbackUrl }: RegisterFormProps) {
 	const { mutate, data, error, isPending } = trpc.auth.register.useMutation({
 		onSuccess: data => {
 			toast.success(data.message)
-			// if (callbackUrl) {
-			// 	router.push(callbackUrl as never)
-			// } else {
-			// 	router.push("/auth/login")
-			// }
 			form.reset()
 		},
 		onError: err => toast.error(err.message),
