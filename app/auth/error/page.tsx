@@ -1,16 +1,22 @@
 import { type Metadata } from "next"
-import Image from "next/image"
+import Link from "next/link"
 
+import { buttonVariants } from "@/core/components/ui/button"
 import {
 	Card,
 	CardContent,
 	CardDescription,
+	CardFooter,
 	// CardFooter,
 	CardHeader,
 	// CardLink,
 	// CardLogoutButton,
 	CardTitle,
 } from "@/core/components/ui/card"
+import { cn } from "@/core/lib/utils"
+
+import { LogoutButton } from "@/features/auth/components/logout-button"
+import { FormResponse } from "@/features/auth/components/ui/form-response"
 
 export const metadata: Metadata = {
 	title: "Authentication Error",
@@ -20,11 +26,13 @@ export const metadata: Metadata = {
 
 type ErrorPageParam = "Configuration" | "AccessDenied" | "Verification"
 
-export default function Page({
-	searchParams: { error },
+export default async function Page({
+	searchParams,
 }: {
-	searchParams: { error: ErrorPageParam }
+	searchParams: Promise<{ error: ErrorPageParam }>
 }) {
+	const { error } = await searchParams
+
 	const errorMessages: Record<ErrorPageParam, { title: string; description: string }> = {
 		AccessDenied: {
 			title: "Access Denied!",
@@ -46,23 +54,30 @@ export default function Page({
 	}
 
 	return (
-		<Card>
-			<CardHeader>
-				<CardTitle>{title}</CardTitle>
+		<Card className="w-full max-w-md">
+			<CardHeader className="text-center">
+				<CardTitle className="text-2xl">{title}</CardTitle>
 				<CardDescription>{description}</CardDescription>
 			</CardHeader>
 			<CardContent className="items-center justify-center">
-				<Image src="/assets/error.svg" alt="Error" width={200} height={200} priority />
+				{!error && <FormResponse type="error" message="Invalid or missing token." />}
+				<FormResponse type="error" message={error} />
 			</CardContent>
-			{/* <CardFooter>
-				{error === 'AccessDenied' || error === 'Configuration' ? (
-					<CardLogoutButton />
+			<CardFooter className="justify-center">
+				{error === "AccessDenied" || error === "Configuration" ? (
+					<LogoutButton />
 				) : (
-					<CardLink href="/login" label="Back to login" />
+					<Link
+						href="/auth/login"
+						className={cn(
+							buttonVariants({ variant: "link" }),
+							"text-primary hover:text-primary/80 h-fit px-1.5 py-0.5 text-sm"
+						)}
+					>
+						Back to Login
+					</Link>
 				)}
-				<CardLink href="/privacy" label="Privacy" className="!ml-auto" />
-				<CardLink href="/terms" label="Terms" />
-			</CardFooter> */}
+			</CardFooter>
 		</Card>
 	)
 }
