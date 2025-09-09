@@ -2,7 +2,8 @@ import { TRPCError } from "@trpc/server"
 import { hash } from "bcryptjs"
 import { eq } from "drizzle-orm"
 
-import { users, verificationTokens } from "@/services/drizzle/schema/auth"
+import { passwordResetTokens, users, verificationTokens } from "@/services/drizzle/schema/auth"
+import { sendPasswordResetToken } from "@/services/react-email/lib/send.password-reset-token"
 import { sendVerificationToken } from "@/services/react-email/lib/send.verification-token"
 import { createTRPCRouter, publicProcedure } from "@/services/trpc/init"
 
@@ -12,7 +13,7 @@ import {
 	resetPasswordSchema,
 	verifyEmailSchema,
 } from "@/features/auth/api/auth.schemas"
-import { generateVerificationToken } from "@/features/auth/lib/token"
+import { generatePasswordResetToken, generateVerificationToken } from "@/features/auth/lib/token"
 
 export const authRouter = createTRPCRouter({
 	register: publicProcedure.input(registerSchema).mutation(async ({ ctx, input }) => {
@@ -46,18 +47,22 @@ export const authRouter = createTRPCRouter({
 	forgotPassword: publicProcedure.input(forgotPasswordSchema).mutation(async ({ ctx, input }) => {
 		const { email } = input
 
-		const user = await ctx.db.query.users.findFirst({
+		const existingUser = await ctx.db.query.users.findFirst({
 			where: (data, { eq }) => eq(data.email, email),
 			columns: { id: true, email: true, name: true },
 		})
 
-		// Always return success to prevent email enumeration
-		if (!user?.email) {
-			return {
-				success: true,
-				message: "If an account exists, a password reset code has been sent to your email",
-			}
+		if (!existingUser) {
+			throw new TRPCError({
+				code: "NOT_FOUND",
+				message: "User with this email not found.",
+			})
 		}
+
+		const passwordResetToken = await generatePasswordResetToken(email)
+		await sendPasswordResetToken(passwordResetToken.email, passwordResetToken.token)
+
+		return { message: "Password reset email sent!" }
 	}),
 
 	forgotPasswordRecovery: publicProcedure
@@ -79,21 +84,56 @@ export const authRouter = createTRPCRouter({
 		}),
 
 	resetPassword: publicProcedure.input(resetPasswordSchema).mutation(async ({ ctx, input }) => {
-		// const { email, code, newPassword } = input
-		const { email } = input
+		const { newPassword, token } = input
 
-		// Find user
-		const user = await ctx.db.query.users.findFirst({
-			where: (data, { eq }) => eq(data.email, email),
-			columns: { id: true, email: true, name: true },
-		})
-
-		if (!user) {
+		if (!token) {
 			throw new TRPCError({
-				code: "NOT_FOUND",
-				message: "User not found",
+				code: "BAD_REQUEST",
+				message: "No verification token provided.",
 			})
 		}
+
+		const existingToken = await ctx.db.query.passwordResetTokens.findFirst({
+			where: (data, { eq }) => eq(data.token, token),
+		})
+
+		if (!existingToken) {
+			throw new TRPCError({
+				code: "NOT_FOUND",
+				message: "Verification token not found.",
+			})
+		}
+
+		const tokenHasExpired = new Date(existingToken.expires) < new Date()
+
+		if (tokenHasExpired) {
+			throw new TRPCError({
+				code: "BAD_REQUEST",
+				message: "Verification token has expired.",
+			})
+		}
+
+		const existingUser = await ctx.db.query.users.findFirst({
+			where: (data, { eq }) => eq(data.email, existingToken.email),
+		})
+
+		if (!existingUser) {
+			throw new TRPCError({
+				code: "NOT_FOUND",
+				message: "User with this email not found.",
+			})
+		}
+
+		const hashedPassword = await hash(newPassword, 10)
+
+		await ctx.db
+			.update(users)
+			.set({ password: hashedPassword })
+			.where(eq(users.id, existingUser.id))
+
+		await ctx.db.delete(passwordResetTokens).where(eq(passwordResetTokens.id, existingToken.id))
+
+		return { message: "Password updated!" }
 	}),
 
 	verifyEmail: publicProcedure.input(verifyEmailSchema).mutation(async ({ ctx, input }) => {

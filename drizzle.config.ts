@@ -7,20 +7,15 @@ import { env } from "@/env"
  * @see https://orm.drizzle.team/docs/kit-overview
  */
 export default defineConfig({
-	// Schema configuration
 	schema: "./services/drizzle/schema/*",
 	schemaFilter: ["public"],
-	// Output configuration
 	out: "./services/drizzle/migrations",
-	// Database configuration
 	dialect: "postgresql",
 	dbCredentials: {
 		url: env.DATABASE_URL,
 	},
-	// Development and debugging
 	verbose: env.NODE_ENV === "development",
 	strict: true,
 	casing: "camelCase",
-	// Migration configuration
 	breakpoints: env.NODE_ENV === "development",
 })
