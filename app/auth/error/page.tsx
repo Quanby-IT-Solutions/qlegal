@@ -7,10 +7,7 @@ import {
 	CardContent,
 	CardDescription,
 	CardFooter,
-	// CardFooter,
 	CardHeader,
-	// CardLink,
-	// CardLogoutButton,
 	CardTitle,
 } from "@/core/components/ui/card"
 import { cn } from "@/core/lib/utils"

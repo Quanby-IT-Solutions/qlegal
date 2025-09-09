@@ -74,13 +74,9 @@ export const forgotPasswordSchema = z.object({
 
 export const resetPasswordSchema = z
 	.object({
-		email: emailSchema,
-		code: z
-			.string()
-			.length(6, "Code must be 6 digits")
-			.regex(/^\d+$/, "Code must contain only numbers"),
 		newPassword: passwordSchema,
 		confirmPassword: confirmPasswordSchema,
+		token: z.string().optional(),
 	})
 	.superRefine((data, ctx) => {
 		// Password confirmation validation
