@@ -20,7 +20,7 @@ export default defineConfig({
 	// Development and debugging
 	verbose: env.NODE_ENV === "development",
 	strict: true,
-	casing: "snake_case",
+	casing: "camelCase",
 	// Migration configuration
 	breakpoints: env.NODE_ENV === "development",
 })
