@@ -26,9 +26,10 @@ export const ROUTE_CONFIG: RouteConfig = {
 
 	// Public only routes - accessible to non-authenticated users only
 	publicOnly: [
+		{ path: "/auth/error", exact: true },
+		{ path: "/auth/forgot-password", exact: true },
 		{ path: "/auth/login", exact: true },
 		{ path: "/auth/register", exact: true },
-		{ path: "/auth/forgot-password", exact: true },
 		{ path: "/auth/reset-password", exact: true },
 		{ path: "/auth/verify-email", exact: true },
 	],
