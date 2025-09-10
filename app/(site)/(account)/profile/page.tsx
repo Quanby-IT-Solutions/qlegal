@@ -3,12 +3,14 @@ import ShapesContainer from "@/features/profile/components/shapes-container"
 
 export default function Page() {
 	return (
-		<div className="from-background via-background to-muted/20 flex flex-col bg-gradient-to-br">
-			<Navbar isAuthenticated={true} />
+		// <div className="from-background via-background to-muted/20 flex flex-col bg-gradient-to-br">
 
-			<ShapesContainer>
+		<ShapesContainer>
+			<Navbar isAuthenticated={true} />
+			<div className="mt-16 bg-green-800">
 				<h1>Profile page</h1>
-			</ShapesContainer>
-		</div>
+			</div>
+		</ShapesContainer>
+		// </div>
 	)
 }
