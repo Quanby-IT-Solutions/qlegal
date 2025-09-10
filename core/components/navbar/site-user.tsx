@@ -4,6 +4,7 @@ import Link from "next/link"
 import { LogOutIcon } from "lucide-react"
 import { signOut, useSession } from "next-auth/react"
 
+import { ModeToggleDropdown } from "@/core/components/mode-toggle-dropdown"
 import { buttonVariants } from "@/core/components/ui/button"
 import {
 	DropdownMenu,
@@ -17,8 +18,6 @@ import {
 import { Profile } from "@/core/components/user-profile"
 import { getSiteUserItems, iconMap } from "@/core/lib/nav.config"
 import { cn } from "@/core/lib/utils"
-
-import { ModeToggleDropdown } from "../mode-toggle-dropdown"
 
 export function SiteUser() {
 	const { data: session, status } = useSession()
