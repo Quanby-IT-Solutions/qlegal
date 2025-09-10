@@ -24,13 +24,14 @@ const GRADIENTS = [
 	"from-blue-500/[0.65] dark:from-blue-500/[0.45]",
 	"from-purple-500/[0.65] dark:from-purple-500/[0.45]",
 	"from-teal-500/[0.65] dark:from-teal-500/[0.45]",
+	"from-sky-500/[0.65] dark:from-sky-500/[0.45",
 ]
 
 const pick = <T,>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)]!
 const rand = (min: number, max: number) => Math.floor(Math.random() * (max - min + 1)) + min
 
 function generateShapes(): Shape[] {
-	const count = rand(6, 9)
+	const count = rand(7, 10)
 
 	return Array.from({ length: count }).map((_, i) => {
 		const width = pick([150, 200, 250, 300, 350, 400, 450, 600])
@@ -48,7 +49,7 @@ function generateShapes(): Shape[] {
 		} as React.CSSProperties
 
 		return {
-			key: `profile-shape-${i}`,
+			key: `shape-${i}`,
 			width,
 			height,
 			rotate,
@@ -70,9 +71,9 @@ export default function ShapesContainer({ children }: { children: React.ReactNod
 	}, [shapes])
 
 	return (
-		<div className="relative flex min-h-screen w-full items-center justify-center overflow-x-hidden bg-white dark:bg-[#030303]">
+		<div className="relative flex min-h-screen w-full justify-center overflow-x-hidden">
 			<div
-				className="pointer-events-none absolute inset-0 z-0 bg-gradient-to-br from-indigo-500/[0.02] via-transparent to-rose-500/[0.02] blur-3xl dark:from-indigo-500/[0.05] dark:via-transparent dark:to-rose-500/[0.05]"
+				className="from-background via-background to-muted/20 pointer-events-none absolute inset-0 z-0 flex flex-col bg-gradient-to-br blur-3xl"
 				aria-hidden="true"
 			/>
 
