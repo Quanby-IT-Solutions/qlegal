@@ -93,7 +93,7 @@ export function SiteUser() {
 						}
 					}}
 				>
-					<LogOutIcon className="mr-2 h-4 w-4" />
+					<LogOutIcon />
 					Sign out
 				</DropdownMenuItem>
 			</DropdownMenuContent>
