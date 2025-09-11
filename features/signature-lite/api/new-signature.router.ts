@@ -1,6 +1,6 @@
 import { TRPCError } from "@trpc/server"
 import { PDFDocument, rgb } from "pdf-lib"
-import { z } from "zod"
+import { z } from "zod/v4"
 
 import { getPublicClient } from "@/services/supabase"
 import { getDocumentPublicUrl } from "@/services/supabase/signed-url"
