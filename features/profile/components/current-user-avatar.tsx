@@ -1,6 +1,7 @@
 "use client"
 
 import { cva, type VariantProps } from "class-variance-authority"
+import { useSession } from "next-auth/react"
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/core/components/ui/avatar"
 import { cn, getInitials } from "@/core/lib/utils"
@@ -27,11 +28,15 @@ interface CurrentUserAvatarProps extends VariantProps<typeof iconvVariants> {
 
 export const CurrentUserAvatar = ({ className, name, size }: CurrentUserAvatarProps) => {
 	const { data: avatarData } = useAvatarUrl()
+	const { data: session } = useSession()
 	const initials = getInitials(name)
+
+	// Prefer uploaded Supabase avatar, otherwise fall back to SSO/profile image provided by session.user.image
+	const imageSrc = avatarData?.avatarUrl ?? session?.user?.image ?? undefined
 
 	return (
 		<Avatar className={cn(iconvVariants({ size }), className)}>
-			{avatarData?.avatarUrl && <AvatarImage src={avatarData.avatarUrl} />}
+			{imageSrc ? <AvatarImage src={imageSrc} /> : null}
 			<AvatarFallback className="bg-secondary text-secondary-foreground rounded-md text-xs font-semibold">
 				{initials}
 			</AvatarFallback>
