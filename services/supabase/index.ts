@@ -24,15 +24,3 @@ export function getSupabaseClient(): SupabaseClient {
 
 	return supabaseClient
 }
-
-// For server-side usage where you need a fresh client
-export function createSupabaseClient() {
-	const supabaseUrl = env.NEXT_PUBLIC_SUPABASE_URL
-	const supabaseKey = env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-
-	if (!supabaseUrl || !supabaseKey) {
-		throw new Error("Missing Supabase environment variables")
-	}
-
-	return createClient(supabaseUrl, supabaseKey)
-}
