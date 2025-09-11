@@ -16,30 +16,6 @@ export async function createAvatarUploadUrl(fileName: string) {
 	return data // { signedUrl, path }
 }
 
-export async function createAvatarDownloadUrl(path: string) {
-	const supabase = getServiceRoleClient()
-
-	const { data, error } = await supabase.storage.from("avatars").createSignedUrl(path, 60 * 5) // valid for 5m
-
-	if (error) {
-		throw new Error(`Failed to create download URL: ${error.message}`)
-	}
-
-	return data.signedUrl
-}
-
-export async function getAvatarUrl(imagePath: string | null): Promise<string | null> {
-	if (!imagePath) {
-		return null
-	}
-
-	try {
-		return await createAvatarDownloadUrl(imagePath)
-	} catch {
-		return null
-	}
-}
-
 /**
  * Delete an avatar file from the avatars bucket.
  * Returns true if removal succeeded or false if file was not found.
@@ -55,8 +31,6 @@ export async function deleteAvatar(path: string) {
 	const { error } = await supabase.storage.from("avatars").remove([path])
 
 	if (error) {
-		// Supabase returns 404-like behavior as an error too; surface useful message
-		// Let callers decide whether to treat this as fatal.
 		throw new Error(error.message)
 	}
 

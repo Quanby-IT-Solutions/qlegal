@@ -4,8 +4,6 @@ import { useMutation } from "@tanstack/react-query"
 import { useSession } from "next-auth/react"
 import { toast } from "sonner"
 
-import { trpc } from "@/services/trpc/client"
-
 import { createAvatarUploadUrl } from "@/features/profile/api/profile.actions"
 
 export function useAvatarUpload() {
@@ -17,7 +15,6 @@ export function useAvatarUpload() {
 				throw new Error("User not authenticated")
 			}
 
-			// Preserve original filename and add a timestamp to avoid collisions.
 			// Resulting pattern: [userId]/<timestamp>-<sanitized-original-filename>
 			const sanitize = (name: string) => name.replace(/[^a-zA-Z0-9.\-_]/g, "-")
 			const timestamp = Date.now()
@@ -49,12 +46,4 @@ export function useAvatarUpload() {
 		uploadAvatar: mutation.mutateAsync,
 		isUploading: mutation.isPending,
 	}
-}
-
-export const useUpdateAvatar = () => {
-	return trpc.profile.updateAvatar.useMutation()
-}
-
-export const useAvatarUrl = () => {
-	return trpc.profile.getAvatarUrl.useQuery()
 }

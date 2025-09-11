@@ -6,17 +6,14 @@ import { useSession } from "next-auth/react"
 import { useDropzone, type FileWithPath } from "react-dropzone"
 import { toast } from "sonner"
 
-import { Avatar, AvatarFallback, AvatarImage } from "@/core/components/ui/avatar"
 import { Button } from "@/core/components/ui/button"
-import { getInitials } from "@/core/lib/utils"
+import { Profile } from "@/core/components/user-profile"
+
+import { trpc } from "@/services/trpc/client"
 
 import type { FileWithPreview } from "@/features/profile/api/profile.types"
 import { ImageCropper } from "@/features/profile/components/ui/image-cropper"
-import {
-	useAvatarUpload,
-	useAvatarUrl,
-	useUpdateAvatar,
-} from "@/features/profile/hooks/use-profile"
+import { useAvatarUpload } from "@/features/profile/hooks/use-avatar-upload"
 
 const accept = {
 	"image/*": [],
@@ -26,11 +23,9 @@ export const AvatarUploadForm = () => {
 	const [selectedFile, setSelectedFile] = useState<FileWithPreview | null>(null)
 	const [isDialogOpen, setDialogOpen] = useState(false)
 
-	const { data: session } = useSession()
-	const initials = getInitials(session?.user?.name)
+	const { data: session, update: updateSession } = useSession()
 	const { uploadAvatar, isUploading } = useAvatarUpload()
-	const updateAvatarMutation = useUpdateAvatar()
-	const { data: avatarData, refetch: refetchAvatar } = useAvatarUrl()
+	const updateAvatarMutation = trpc.profile.updateAvatar.useMutation()
 
 	const handleCrop = useCallback(
 		async (croppedImageDataUrl: string) => {
@@ -58,13 +53,13 @@ export const AvatarUploadForm = () => {
 				setSelectedFile(null)
 				setDialogOpen(false)
 
-				// Refetch the avatar URL to show the new image
-				await refetchAvatar()
+				// Update the session to reflect the new avatar
+				await updateSession()
 			} catch {
 				toast.error("Failed to update avatar. Please try again.")
 			}
 		},
-		[uploadAvatar, updateAvatarMutation, refetchAvatar, selectedFile]
+		[uploadAvatar, updateAvatarMutation, updateSession, selectedFile]
 	)
 
 	const onDrop = useCallback((acceptedFiles: FileWithPath[]) => {
@@ -99,19 +94,14 @@ export const AvatarUploadForm = () => {
 					isLoading={isUploading || updateAvatarMutation.isPending}
 				/>
 			) : (
-				<div className="group relative">
-					<Avatar
-						{...getRootProps()}
-						className="ring-ring ring-offset-border size-36 cursor-pointer ring-2 ring-offset-2"
-					>
-						<input {...getInputProps()} />
-						{/* Prefer uploaded Supabase avatar; fall back to SSO/profile image if present */}
-						<AvatarImage
-							src={avatarData?.avatarUrl ?? session?.user?.image ?? undefined}
-							alt={initials}
-						/>
-						<AvatarFallback>{initials}</AvatarFallback>
-					</Avatar>
+				<div className="group relative" {...getRootProps()}>
+					<input {...getInputProps()} />
+					<Profile
+						url={session?.user?.image ?? null}
+						name={session?.user?.name ?? "User"}
+						size="xl"
+						className="ring-ring ring-offset-border cursor-pointer ring-2 ring-offset-2"
+					/>
 				</div>
 			)}
 
