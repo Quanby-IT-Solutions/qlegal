@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react"
 import { ArrowLeft, Search } from "lucide-react"
 import { Button } from "@/core/components/ui/button"
 import { Input } from "@/core/components/ui/input"
+import { TooltipProvider } from "@/core/components/tooltip"
 
 import { trpc } from "@/services/trpc/client"
 
@@ -190,10 +191,15 @@ export function EnvelopeViewPage({ envelopeId }: { envelopeId: string }) {
 
 				{/* Documents List */}
 				{!isLoadingEnvelope && !isLoadingDocuments && filteredDocuments.length > 0 && (
-				<DocumentListWithDisclosure
-					documents={filteredDocuments}
-					envelopeId={envelopeId}
-				/>
+					<TooltipProvider>
+						<DocumentListWithDisclosure
+							documents={filteredDocuments}
+							envelopeId={envelopeId}
+							onFilteredCountChange={(_count) => {
+								// Optional: Update filtered count in parent component
+							}}
+						/>
+					</TooltipProvider>
 				)}
 			</div>
 

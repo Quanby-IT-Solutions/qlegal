@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useCallback, useState } from "react"
+import React, { useCallback, useEffect, useState } from "react"
 import {
 	ChevronLeft,
 	ChevronRight,
@@ -8,12 +8,16 @@ import {
 	ZoomIn,
 	ZoomOut
 } from "lucide-react"
-import { Document, Page, pdfjs } from "react-pdf"
 
 import { Button } from "@/core/components/ui/button"
 
-// Configure PDF.js worker
-pdfjs.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.js"
+// Import react-pdf CSS
+import "react-pdf/dist/Page/AnnotationLayer.css"
+import "react-pdf/dist/Page/TextLayer.css"
+
+// Import react-pdf components directly (will be handled by client-side only loading)
+import { Document, Page } from "react-pdf"
+
 
 interface SimplePdfViewerProps {
 	fileUrl: string
@@ -26,6 +30,7 @@ interface PdfViewerState {
 	scale: number
 	rotation: number
 	error: string | null
+	isLoaded: boolean
 }
 
 const SCALE_LIMITS = {
@@ -43,8 +48,21 @@ export function SimplePdfViewer({
 		pageNumber: 1,
 		scale: 1.0,
 		rotation: 0,
-		error: null
+		error: null,
+		isLoaded: false
 	})
+
+	// Load PDF.js on client side
+	useEffect(() => {
+		if (typeof window !== "undefined") {
+			void import("react-pdf").then(({ pdfjs }) => {
+				// Use CDN for PDF worker to avoid file path issues
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+				pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.js`
+				setState(prev => ({ ...prev, isLoaded: true }))
+			})
+		}
+	}, [])
 
 	const onDocumentLoadSuccess = useCallback(
 		({ numPages }: { numPages: number }) => {
@@ -57,8 +75,7 @@ export function SimplePdfViewer({
 		// Page loaded successfully - no action needed
 	}, [])
 
-	const onDocumentLoadError = useCallback((error: Error) => {
-		console.error("PDF load error:", error)
+	const onDocumentLoadError = useCallback((_error: Error) => {
 		setState((prev) => ({ ...prev, error: "Failed to load PDF document" }))
 	}, [])
 
@@ -82,6 +99,32 @@ export function SimplePdfViewer({
 	const rotate = useCallback(() => {
 		setState((prev) => ({ ...prev, rotation: (prev.rotation + 90) % 360 }))
 	}, [])
+
+	// Don't render on server side
+	if (typeof window === "undefined") {
+		return (
+			<div className="flex h-full w-full items-center justify-center">
+				<div className="text-center">
+					<p className="text-sm text-muted-foreground">
+						Loading PDF viewer...
+					</p>
+				</div>
+			</div>
+		)
+	}
+
+	// If PDF library not loaded yet, show loading state
+	if (!state.isLoaded) {
+		return (
+			<div className="flex h-full w-full items-center justify-center">
+				<div className="text-center">
+					<p className="text-sm text-muted-foreground">
+						Loading PDF viewer...
+					</p>
+				</div>
+			</div>
+		)
+	}
 
 	// If no file URL, show empty state
 	if (!fileUrl && !state.error) {
