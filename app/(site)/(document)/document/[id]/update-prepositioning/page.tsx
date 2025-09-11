@@ -21,13 +21,13 @@ export default async function UpdatePrepositioningPage({
 	})
 
 	// Get document and envelope data for navigation
-	const documentData = await trpc.signatureLite.prepositioning.getDocumentWithFields({
+	const documentData: { name?: string } | null = await (trpc.signatureLite.prepositioning.getDocumentWithFields({
 		documentId
-	})
-	const envelope = await trpc.signatureLite.prepositioning.getEnvelopeWithRecipients({
+	}) as Promise<{ name?: string }>).catch(() => null)
+	const envelope: { title?: string } | null = await (trpc.signatureLite.prepositioning.getEnvelopeWithRecipients({
 		envelopeId,
 		documentId
-	})
+	}) as Promise<{ title?: string }>).catch(() => null)
 
 	const resolvedEnvelopeTitle = envelope?.title ?? envelopeId
 	const resolvedDocumentTitle = documentData?.name ?? documentId

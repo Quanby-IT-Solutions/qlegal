@@ -1,5 +1,5 @@
 import { createCallerFactory, createTRPCRouter, publicProcedure } from "@/services/trpc/init"
-// import { signatureLiteRouter } from "@/features/signature-lite/api/new-signature.router"
+import { signatureLiteRouter } from "@/features/signature-lite/api/new-signature.router"
 import { envelopeLiteRouter } from "@/features/envelopes-lite/api/envelope-lite.router"
 // import { mySignedRouter } from "@/features/my-signed/api/my-signed.router"
 // import { userManagementRouter } from "@/features/user-management/api/user-management.router"
@@ -17,7 +17,7 @@ export const appRouter = createTRPCRouter({
 		return { status: "ok" }
 	}),
 	auth: authRouter,
-  // signatureLite: signatureLiteRouter,
+  signatureLite: signatureLiteRouter,
   envelopeLite: envelopeLiteRouter,
   // mySigned: mySignedRouter,
   // userManagement: userManagementRouter,

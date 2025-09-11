@@ -134,7 +134,7 @@ export const envelopeLiteRouter = createTRPCRouter({
   getEnvelopeDocuments: protectedProcedure
     .input(getByIdSchema)
     .query(async ({ ctx, input }) => {
-      // Get all documents for an envelope
+      // Get all documents for an envelope with recipients
       const envelopeDocuments = await ctx.db
         .select({
           id: documents.id,
@@ -151,6 +151,62 @@ export const envelopeLiteRouter = createTRPCRouter({
         .where(eq(documents.envelopeId, input.envelopeId))
         .orderBy(desc(documents.createdAt))
       
-      return envelopeDocuments
+      // For now, return documents with empty recipients array
+      // TODO: Add proper recipient relationships when schema is updated
+      return envelopeDocuments.map(doc => ({
+        ...doc,
+        recipients: []
+      }))
+    }),
+
+  // Placeholder procedures for the disclosure component
+  getPendingRecipientRequests: protectedProcedure
+    .input(getByIdSchema)
+    .query(async () => {
+      // TODO: Implement when recipient request system is added
+      return []
+    }),
+
+  acceptRecipientRequest: protectedProcedure
+    .input(z.object({ recipientId: z.string() }))
+    .mutation(async () => {
+      // TODO: Implement when recipient request system is added
+      throw new Error("Not implemented yet")
+    }),
+
+  declineRecipientRequest: protectedProcedure
+    .input(z.object({ recipientId: z.string() }))
+    .mutation(async () => {
+      // TODO: Implement when recipient request system is added
+      throw new Error("Not implemented yet")
+    }),
+
+  deleteDocument: protectedProcedure
+    .input(z.object({ documentId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      // Delete document from database
+      await ctx.db.delete(documents).where(eq(documents.id, input.documentId))
+      return { success: true }
+    }),
+
+  getDocumentForViewing: protectedProcedure
+    .input(z.object({ documentId: z.string(), envelopeId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      // Get document for viewing
+      const [document] = await ctx.db
+        .select()
+        .from(documents)
+        .where(eq(documents.id, input.documentId))
+        .limit(1)
+      
+      if (!document) {
+        throw new Error("Document not found")
+      }
+      
+      // TODO: Generate proper document URL from storage
+      return {
+        ...document,
+        url: `#mock-url-for-${document.id}`
+      }
     })
 })

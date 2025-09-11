@@ -68,8 +68,8 @@ export function getDocumentStatus(
 	documentStatus?: string,
 	recipients: Array<{ status?: string }> = []
 ): DocumentStatus {
-	if (documentStatus === "SIGNED") return "SIGNED"
-	if (recipients.some((r) => r.status === "REQUESTED")) return "PENDING"
+	if (documentStatus === "SIGNED") {return "SIGNED"}
+	if (recipients.some((r) => r.status === "REQUESTED")) {return "PENDING"}
 	return "UNSIGNED"
 }
 
