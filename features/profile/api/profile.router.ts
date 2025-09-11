@@ -7,6 +7,7 @@ import { users } from "@/services/drizzle/schema/auth"
 import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
 
 import { deleteAvatar } from "@/features/profile/api/profile.actions"
+import { personalInformationSchema } from "@/features/profile/api/profile.schema"
 
 export const profileRouter = createTRPCRouter({
 	updateAvatar: protectedProcedure
@@ -49,5 +50,39 @@ export const profileRouter = createTRPCRouter({
 				success: true,
 				user: updatedUser,
 			}
+		}),
+
+	getPersonalInformation: protectedProcedure.query(async ({ ctx }) => {
+		const user = await ctx.db.query.users.findFirst({
+			where: eq(users.id, ctx.session.user.id),
+			columns: {
+				name: true,
+				email: true,
+				phoneNumber: true,
+			},
+		})
+
+		return {
+			name: user?.name ?? "",
+			email: user?.email ?? "",
+			phoneNumber: user?.phoneNumber ?? "",
+		}
+	}),
+
+	updatePersonalInformation: protectedProcedure
+		.input(personalInformationSchema)
+		.mutation(async ({ ctx, input }) => {
+			const user = await ctx.db
+				.update(users)
+				.set({
+					name: input.name,
+					email: input.email,
+					phoneNumber:
+						input.phoneNumber && input.phoneNumber.trim() !== "" ? input.phoneNumber : null,
+				})
+				.where(eq(users.id, ctx.session.user.id))
+				.returning()
+
+			return { message: "Personal information updated successfully", user }
 		}),
 })
