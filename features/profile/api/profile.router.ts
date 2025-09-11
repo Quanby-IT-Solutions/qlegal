@@ -1,10 +1,12 @@
 import { eq } from "drizzle-orm"
 import { z } from "zod/v4"
 
+import { logError } from "@/core/middleware/logger"
+
 import { users } from "@/services/drizzle/schema/auth"
 import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
 
-import { getAvatarUrl } from "@/features/profile/api/profile.actions"
+import { deleteAvatar, getAvatarUrl } from "@/features/profile/api/profile.actions"
 
 export const profileRouter = createTRPCRouter({
 	updateAvatar: protectedProcedure
@@ -16,6 +18,24 @@ export const profileRouter = createTRPCRouter({
 		.mutation(async ({ ctx, input }) => {
 			const { db, session } = ctx
 			const { imagePath } = input
+
+			// Delete previous avatar from storage (if any and different)
+
+			// If there's a previous avatar and it's different, attempt to delete it.
+			// Failures to remove the previous file should not block the update but should be logged.
+			try {
+				const previousPath = session.user.image
+				if (previousPath && previousPath !== imagePath) {
+					try {
+						await deleteAvatar(previousPath)
+					} catch (err) {
+						// Log non-fatal deletion errors and continue.
+						logError(err, "profile:updateAvatar:deletePrevious")
+					}
+				}
+			} catch (err) {
+				logError(err, "profile:updateAvatar:precheck")
+			}
 
 			// Update the user's image path in the database
 			const [updatedUser] = await db

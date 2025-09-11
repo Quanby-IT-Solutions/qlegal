@@ -35,10 +35,13 @@ export const AvatarUploadForm = () => {
 	const handleCrop = useCallback(
 		async (croppedImageDataUrl: string) => {
 			try {
-				// Convert data URL to File
+				// Convert data URL to File. Preserve original filename when possible.
 				const response = await fetch(croppedImageDataUrl)
 				const blob = await response.blob()
-				const file = new File([blob], "avatar.png", { type: "image/png" })
+				// Use the previously selected file name if available, otherwise use a timestamped fallback
+				const fallbackName = `${Date.now()}-avatar.png`
+				const originalName = (selectedFile as File | null)?.name ?? fallbackName
+				const file = new File([blob], originalName, { type: blob.type || "image/png" })
 
 				// Upload to Supabase and get the storage path
 				const path = await uploadAvatar(file)
@@ -61,7 +64,7 @@ export const AvatarUploadForm = () => {
 				toast.error("Failed to update avatar. Please try again.")
 			}
 		},
-		[uploadAvatar, updateAvatarMutation, refetchAvatar]
+		[uploadAvatar, updateAvatarMutation, refetchAvatar, selectedFile]
 	)
 
 	const onDrop = useCallback((acceptedFiles: FileWithPath[]) => {

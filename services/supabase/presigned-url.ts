@@ -2,7 +2,7 @@ import { useMutation } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { z } from "zod/v4"
 
-import { getSupabaseClient } from "./index"
+import { getPublicClient } from "./index"
 
 const presignedUrlSchema = z.object({
 	file: z.instanceof(File, { message: "A file is required" }),
@@ -18,7 +18,7 @@ async function generatePresignedUploadUrl(input: PresignedUrlInput) {
 
 	const fullPath = folderPath ? `${folderPath.replace(/^\/+|\/+$/g, "")}/${file.name}` : file.name
 
-	const supabase = getSupabaseClient()
+	const supabase = getPublicClient()
 	const { data, error } = await supabase.storage
 		.from(bucket)
 		.createSignedUploadUrl(fullPath, { upsert })
