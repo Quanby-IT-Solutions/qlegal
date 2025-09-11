@@ -61,7 +61,7 @@ function generateShapes(): Shape[] {
 	})
 }
 
-export default function ShapesContainer({ children }: { children: React.ReactNode }) {
+export function ShapesContainer({ children }: { children: React.ReactNode }) {
 	const [shapes, setShapes] = useState<Shape[] | null>(null)
 
 	useEffect(() => {
