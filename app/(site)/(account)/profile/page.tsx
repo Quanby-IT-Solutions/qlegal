@@ -1,4 +1,5 @@
 import { AvatarCard } from "@/features/profile/components/avatar-card"
+import { PersonalInformationCard } from "@/features/profile/components/personal-information-card"
 
 export default function Page() {
 	return (
@@ -11,6 +12,7 @@ export default function Page() {
 			</div>
 
 			<AvatarCard />
+			<PersonalInformationCard />
 		</main>
 	)
 }
