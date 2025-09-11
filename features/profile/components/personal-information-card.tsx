@@ -8,6 +8,8 @@ import {
 	CardTitle,
 } from "@/core/components/ui/card"
 
+import { PersonalInformationForm } from "@/features/profile/components/forms/form.personal-information"
+
 export function PersonalInformationCard() {
 	return (
 		<Card className="border-border/60 bg-background/80 dark:bg-background/40 border shadow-sm backdrop-blur-xl transition-all duration-300 hover:shadow-md">
@@ -18,9 +20,7 @@ export function PersonalInformationCard() {
 				<CardDescription>Update your personal information here.</CardDescription>
 			</CardHeader>
 			<CardContent className="px-8">
-				<h1>rawr</h1>
-				<h1>rawr</h1>
-				<h1>rawr</h1>
+				<PersonalInformationForm />
 			</CardContent>
 		</Card>
 	)

@@ -123,8 +123,11 @@ export const authConfig = {
 					const user = await db.query.users.findFirst({
 						where: (data, { eq }) => eq(data.id, token.sub ?? ""),
 					})
+
 					if (user && session.user) {
 						session.user.id = token.sub
+						session.user.name = user.name ?? ""
+						session.user.email = user.email ?? ""
 						session.user.role = user.role
 
 						// Convert Supabase storage paths to displayable URLs
@@ -150,6 +153,8 @@ export const authConfig = {
 		async jwt({ token, user }) {
 			if (user) {
 				token.sub = user.id
+				token.name = user.name
+				token.email = user.email
 				token.image = user.image ?? token.picture
 			}
 
