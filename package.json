@@ -90,7 +90,6 @@
 		"@types/pg": "^8.15.5",
 		"@types/react": "^19.1.12",
 		"@types/react-dom": "^19.1.8",
-		"@types/react-pdf": "^7.0.0",
 		"@types/uuid": "^10.0.0",
 		"drizzle-kit": "^0.31.4",
 		"eslint": "^9.34.0",
