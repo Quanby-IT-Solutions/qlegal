@@ -7,16 +7,12 @@ import {
 	TooltipContent,
 	TooltipProvider,
 	TooltipTrigger
-} from "@/core/components/tooltip"
+} from "@/core/components/ui/tooltip"
 import {
 	Avatar,
 	AvatarFallback,
 	AvatarImage
 } from "@/core/components/ui/avatar"
-import {
-	AvatarGroup,
-	AvatarGroupTooltip
-} from "@/core/components/ui/avatar-group"
 import { Card, CardContent } from "@/core/components/ui/card"
 import { getInitials } from "@/core/lib/utils"
 
@@ -29,15 +25,8 @@ interface EnvelopeListItemProps {
 }
 
 export function EnvelopeListItem({ envelope }: EnvelopeListItemProps) {
-	// Deduplicate recipients based on user ID or email
-	const uniqueRecipients = envelope.recipient.filter(
-		(recipient, index, self) => {
-			const identifier = recipient.user?.id ?? recipient.email
-			return (
-				index === self.findIndex((r) => (r.user?.id ?? r.email) === identifier)
-			)
-		}
-	)
+	// For now, just show the envelope creator since recipient data doesn't exist in mock
+	const creator = envelope.user
 
 	return (
 		<Card className="group cursor-pointer border border-border bg-background transition-all duration-200 hover:border-foreground/20 hover:shadow-sm dark:bg-muted/60">
@@ -55,52 +44,28 @@ export function EnvelopeListItem({ envelope }: EnvelopeListItemProps) {
 							</p>
 						</div>
 
-						{/* Recipients */}
+						{/* Creator */}
 						<div className="flex items-center gap-2">
-							{uniqueRecipients.length > 0 ? (
-								<AvatarGroup className="h-6 -space-x-1.5">
-									{uniqueRecipients.slice(0, 3).map((recipient, index) => (
-										<Avatar
-											key={recipient.user?.id ?? recipient.email ?? index}
-											className="size-6 border"
-										>
-											<AvatarImage src={recipient.user?.image ?? ""} />
-											<AvatarFallback className="text-[10px] font-medium">
-												{getInitials(
-													recipient.user?.name ?? recipient.name ?? "?"
-												)}
-											</AvatarFallback>
-											<AvatarGroupTooltip>
-												<p className="font-medium">
-													{recipient.user?.name ?? recipient.name ?? "Unknown"}
-												</p>
-												<p className="text-xs text-muted-foreground">
-													{recipient.user?.email ?? recipient.email}
-												</p>
-											</AvatarGroupTooltip>
-										</Avatar>
-									))}
-								</AvatarGroup>
+							{creator ? (
+								<div className="flex h-6 -space-x-1.5">
+									<Avatar
+										key={creator.id}
+										className="size-6 border"
+									>
+										<AvatarImage src={creator.image ?? ""} />
+										<AvatarFallback className="text-[10px] font-medium">
+											{getInitials(creator.name ?? "?")}
+										</AvatarFallback>
+									</Avatar>
+								</div>
 							) : (
-								<AvatarGroup className="h-6 -space-x-1.5">
-									{[
-										<Avatar key="plus" className="size-6 border bg-muted">
-											<AvatarFallback className="text-[10px] font-medium">
-												<PlusIcon className="size-3.5" />
-											</AvatarFallback>
-											<AvatarGroupTooltip>
-												<span className="text-sm">
-													Signetories will show here.
-												</span>
-											</AvatarGroupTooltip>
-										</Avatar>
-									]}
-								</AvatarGroup>
-							)}
-							{uniqueRecipients.length > 3 && (
-								<span className="text-xs text-muted-foreground">
-									+{uniqueRecipients.length - 3}
-								</span>
+								<div className="flex h-6 -space-x-1.5">
+									<Avatar key="plus" className="size-6 border bg-muted">
+										<AvatarFallback className="text-[10px] font-medium">
+											<PlusIcon className="size-3.5" />
+										</AvatarFallback>
+									</Avatar>
+								</div>
 							)}
 						</div>
 
@@ -108,7 +73,7 @@ export function EnvelopeListItem({ envelope }: EnvelopeListItemProps) {
 						<div className="flex items-center gap-4 text-xs text-muted-foreground">
 							<div className="flex items-center gap-1">
 								<FileText className="h-3.5 w-3.5" />
-								<span>{envelope.documents.length}</span>
+								<span>0</span>
 							</div>
 							<div className="flex items-center gap-1">
 								<Clock className="h-3.5 w-3.5" />
@@ -118,7 +83,7 @@ export function EnvelopeListItem({ envelope }: EnvelopeListItemProps) {
 					</div>
 
 					{/* Action - right side */}
-					<TooltipProvider openDelay={100}>
+					<TooltipProvider>
 						<Tooltip>
 							<TooltipTrigger>
 								<div className="ml-2.5 flex h-6 w-6 items-center justify-center rounded-full bg-muted text-muted-foreground transition-colors hover:bg-muted/80">

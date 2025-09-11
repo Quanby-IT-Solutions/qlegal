@@ -1,13 +1,15 @@
 "use client"
 
-import { useMemo, useState } from "react"
-import { Search } from "lucide-react"
-
+import { useRouter } from "next/navigation"
+import { useEffect, useMemo, useState } from "react"
+import { ArrowLeft, Search } from "lucide-react"
 import { Button } from "@/core/components/ui/button"
 import { Input } from "@/core/components/ui/input"
+import { TooltipProvider } from "@/core/components/tooltip"
 
 import { trpc } from "@/services/trpc/client"
 
+// import { DeleteEnvelopeDialog } from "./delete-envelope-dialog"
 import { DocumentEmptyState } from "./document-empty-state"
 import { DocumentListWithDisclosure } from "./document-list-with-disclosure"
 import { DocumentLoadingSkeleton } from "./document-loading-skeleton"
@@ -18,26 +20,50 @@ type StatusFilter = "all" | "SIGNED" | "PENDING" | "REJECTED"
 export function EnvelopeViewPage({ envelopeId }: { envelopeId: string }) {
 	const [searchQuery, setSearchQuery] = useState("")
 	const [statusFilter, setStatusFilter] = useState<StatusFilter>("all")
+	const router = useRouter()
 
-	const { data: envelope } = trpc.envelopeLite.getEnvelopeById.useQuery({
+	const {
+		data: envelope,
+		error,
+		isLoading: isLoadingEnvelope
+	} = trpc.envelopeLite.getEnvelopeById.useQuery({
 		envelopeId
 	})
 
+	// Redirect to envelopes list if envelope is not found (e.g., after deletion)
+	useEffect(() => {
+		if (
+			error?.data?.code === "NOT_FOUND" ||
+			(error?.message?.includes("not found")) ||
+			(error?.message?.includes("NOT_FOUND"))
+		) {
+			router.push("/envelopes")
+		}
+	}, [error, router])
+
+	// Get real documents from database
 	const {
-		data: documents,
-		isPending,
-		refetch: refetchDocuments
-	} = trpc.envelopeLite.getEnvelopeDocuments.useQuery({ envelopeId })
+		data: documents = [],
+		isLoading: isLoadingDocuments
+	} = trpc.envelopeLite.getEnvelopeDocuments.useQuery({
+		envelopeId
+	})
 
 	// Filter and search documents
 	const filteredDocuments = useMemo(() => {
-		if (!documents) return []
+		if (!documents) {
+			return []
+		}
 
 		return documents.filter((document) => {
-			// Status filter
-			if (statusFilter !== "all" && document.status !== statusFilter) {
+			// Filter out documents with "_signed" in the name
+			if (document.name.includes("_signed")) {
 				return false
 			}
+			// Status filter (documents don't have status yet, so skip for now)
+			// if (statusFilter !== "all" && document.status !== statusFilter) {
+			// 	return false
+			// }
 
 			// Search filter
 			if (searchQuery.trim()) {
@@ -50,10 +76,29 @@ export function EnvelopeViewPage({ envelopeId }: { envelopeId: string }) {
 
 			return true
 		})
-	}, [documents, statusFilter, searchQuery])
+	}, [documents, searchQuery])
 
 	const handleDocumentUploadSuccess = async () => {
-		await refetchDocuments()
+		// Refresh documents when upload succeeds
+		// TODO: Implement document refresh when real data is available
+	}
+
+
+	if (!envelopeId) {
+		return (
+			<div className="min-h-screen bg-muted dark:bg-background">
+				<div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+					<div className="py-12 text-center">
+						<div className="text-lg font-medium text-muted-foreground mb-2">
+							Invalid Envelope ID
+						</div>
+						<p className="text-sm text-muted-foreground">
+							The envelope ID is missing or invalid.
+						</p>
+					</div>
+				</div>
+			</div>
+		)
 	}
 
 	return (
@@ -62,9 +107,20 @@ export function EnvelopeViewPage({ envelopeId }: { envelopeId: string }) {
 			<div className="border-b bg-background backdrop-blur dark:bg-muted/60">
 				<div className="mx-auto max-w-7xl space-y-6 px-4 py-6 sm:px-6 lg:px-8">
 					<div className="flex items-center gap-4">
+						<Button
+							variant="ghost"
+							size="sm"
+							onClick={() => router.push("/envelopes")}
+							className="h-8 w-8 p-0"
+							suppressHydrationWarning
+						>
+							<ArrowLeft className="h-4 w-4" />
+						</Button>
 						<div>
 							<h1 className="text-2xl font-medium text-foreground">
-								{envelope?.title ?? "Loading..."}
+								{isLoadingEnvelope
+									? "Loading..."
+									: (envelope?.title ?? "Untitled Envelope")}
 							</h1>
 							<p className="mt-1 text-sm text-muted-foreground">
 								{envelope?.description ?? "No description"}
@@ -83,6 +139,7 @@ export function EnvelopeViewPage({ envelopeId }: { envelopeId: string }) {
 									value={searchQuery}
 									onChange={(e) => setSearchQuery(e.target.value)}
 									className="pl-9"
+									suppressHydrationWarning
 								/>
 							</div>
 						</div>
@@ -100,11 +157,11 @@ export function EnvelopeViewPage({ envelopeId }: { envelopeId: string }) {
 
 			{/* Documents */}
 			<div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-				{isPending && <DocumentLoadingSkeleton />}
+				{(isLoadingEnvelope || isLoadingDocuments) && <DocumentLoadingSkeleton />}
 
-				{!isPending && filteredDocuments.length === 0 && (
+				{!isLoadingEnvelope && !isLoadingDocuments && filteredDocuments.length === 0 && (
 					<div className="py-12 text-center">
-						{documents?.length === 0 ? (
+						{(documents?.length ?? 0) === 0 ? (
 							<DocumentEmptyState envelopeId={envelopeId} />
 						) : (
 							<div className="space-y-3">
@@ -133,20 +190,27 @@ export function EnvelopeViewPage({ envelopeId }: { envelopeId: string }) {
 				)}
 
 				{/* Documents List */}
-				{!isPending && filteredDocuments.length > 0 && (
-					<DocumentListWithDisclosure
-						documents={filteredDocuments}
-						envelopeId={envelopeId}
-					/>
+				{!isLoadingEnvelope && !isLoadingDocuments && filteredDocuments.length > 0 && (
+					<TooltipProvider>
+						<DocumentListWithDisclosure
+							documents={filteredDocuments}
+							envelopeId={envelopeId}
+							onFilteredCountChange={(_count) => {
+								// Optional: Update filtered count in parent component
+							}}
+						/>
+					</TooltipProvider>
 				)}
 			</div>
 
 			{/* Documents Count */}
 			<div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
 				{/* Results count */}
-				{!isPending && (
+				{!isLoadingEnvelope && !isLoadingDocuments && (
 					<div className="text-sm text-muted-foreground">
-						{filteredDocuments.length} of {documents?.length ?? 0} documents
+						{filteredDocuments.length} of{" "}
+						{(documents?.filter((doc: { name: string }) => !doc.name.includes("_signed")).length ?? 0)}{" "}
+						documents
 						{statusFilter !== "all" &&
 							` (filtered by ${statusFilter.toLowerCase()})`}
 						{searchQuery && ` (matching "${searchQuery}")`}

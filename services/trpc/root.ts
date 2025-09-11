@@ -1,7 +1,9 @@
 import { createCallerFactory, createTRPCRouter, publicProcedure } from "@/services/trpc/init"
 
 import { authRouter } from "@/features/auth/api/auth.router"
+import { envelopeLiteRouter } from "@/features/envelopes-lite/api/envelope-lite.router"
 import { profileRouter } from "@/features/profile/api/profile.router"
+import { signatureLiteRouter } from "@/features/signature-lite/api/new-signature.router"
 
 /**
  * This is the primary router for your server.
@@ -14,6 +16,10 @@ export const appRouter = createTRPCRouter({
 		return { status: "ok" }
 	}),
 	auth: authRouter,
+	signatureLite: signatureLiteRouter,
+	envelopeLite: envelopeLiteRouter,
+	// mySigned: mySignedRouter,
+	// userManagement: userManagementRouter,
 	profile: profileRouter,
 })
 
