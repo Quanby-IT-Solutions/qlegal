@@ -9,6 +9,7 @@ const iconvVariants = cva("rounded-full border flex items-center justify-center"
 			default: "!size-8 min-w-8 rounded-full",
 			sm: "!size-10 min-w-10 rounded-full",
 			lg: "!size-12 min-w-12 rounded-full",
+			xl: "!size-36 min-w-36 rounded-full",
 		},
 	},
 	defaultVariants: {

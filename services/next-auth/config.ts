@@ -126,7 +126,17 @@ export const authConfig = {
 					if (user && session.user) {
 						session.user.id = token.sub
 						session.user.role = user.role
-						session.user.image = user.image ?? session.user.image
+
+						// Convert Supabase storage paths to displayable URLs
+						const imagePath = user.image ?? session.user.image
+						if (imagePath?.startsWith("http")) {
+							session.user.image = imagePath
+						} else if (imagePath) {
+							const { getPublicClient } = await import("@/services/supabase")
+							const supabase = getPublicClient()
+							const { data } = supabase.storage.from("avatars").getPublicUrl(imagePath)
+							session.user.image = data.publicUrl
+						}
 					}
 				}
 			} catch {

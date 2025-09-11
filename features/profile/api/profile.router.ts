@@ -6,7 +6,7 @@ import { logError } from "@/core/middleware/logger"
 import { users } from "@/services/drizzle/schema/auth"
 import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
 
-import { deleteAvatar, getAvatarUrl } from "@/features/profile/api/profile.actions"
+import { deleteAvatar } from "@/features/profile/api/profile.actions"
 
 export const profileRouter = createTRPCRouter({
 	updateAvatar: protectedProcedure
@@ -19,13 +19,10 @@ export const profileRouter = createTRPCRouter({
 			const { db, session } = ctx
 			const { imagePath } = input
 
-			// Delete previous avatar from storage (if any and different)
-
-			// If there's a previous avatar and it's different, attempt to delete it.
-			// Failures to remove the previous file should not block the update but should be logged.
+			// Only delete if it's a Supabase storage path, not an external URL (like Google SSO)
 			try {
 				const previousPath = session.user.image
-				if (previousPath && previousPath !== imagePath) {
+				if (previousPath && previousPath !== imagePath && !previousPath.startsWith("http")) {
 					try {
 						await deleteAvatar(previousPath)
 					} catch (err) {
@@ -53,19 +50,4 @@ export const profileRouter = createTRPCRouter({
 				user: updatedUser,
 			}
 		}),
-
-	getAvatarUrl: protectedProcedure.query(async ({ ctx }) => {
-		const { session } = ctx
-
-		// Get the current user's image path from the session
-		const imagePath = session.user.image
-
-		// Generate signed URL if path exists
-		const avatarUrl = await getAvatarUrl(imagePath)
-
-		return {
-			avatarUrl,
-			imagePath,
-		}
-	}),
 })

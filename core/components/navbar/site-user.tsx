@@ -15,17 +15,15 @@ import {
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "@/core/components/ui/dropdown-menu"
+import { Profile } from "@/core/components/user-profile"
 import { getSiteUserItems, iconMap } from "@/core/lib/nav.config"
 import { cn } from "@/core/lib/utils"
-
-import { CurrentUserAvatar } from "@/features/profile/components/current-user-avatar"
 
 export function SiteUser() {
 	const { data: session, status } = useSession()
 	const user = session?.user
 	const config = getSiteUserItems(user?.role ?? null)
 
-	// Show loading state or nothing if session is loading
 	if (status === "loading") {
 		return (
 			<div
@@ -37,7 +35,6 @@ export function SiteUser() {
 		)
 	}
 
-	// Don't render if no user
 	if (!user) {
 		return null
 	}
@@ -47,7 +44,7 @@ export function SiteUser() {
 			<DropdownMenuTrigger
 				className={cn(buttonVariants({ variant: "ghost", size: "icon" }), "size-8 rounded-full")}
 			>
-				<CurrentUserAvatar name={user?.name ?? ""} />
+				<Profile url={user?.image ?? null} name={user?.name ?? ""} />
 			</DropdownMenuTrigger>
 			<DropdownMenuContent
 				className="w-(--radix-dropdown-menu-trigger-width) min-w-56 rounded-lg"
@@ -56,7 +53,7 @@ export function SiteUser() {
 			>
 				<DropdownMenuLabel className="p-0 font-normal">
 					<div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
-						<CurrentUserAvatar name={user?.name ?? ""} />
+						<Profile url={user?.image ?? null} name={user?.name ?? ""} />
 						<div className="grid flex-1 text-left text-sm leading-tight">
 							<span className="truncate font-medium">{user?.name}</span>
 							<span className="truncate text-xs">{user?.email}</span>
