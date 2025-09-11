@@ -8,7 +8,7 @@ import { Button } from "@/core/components/ui/button"
 import { Input } from "@/core/components/ui/input"
 import { ToggleGroup, ToggleGroupItem } from "@/core/components/ui/toggle-group"
 
-import { trpc } from "@/services/trpc/client"
+import { trpc, type RouterOutputs } from "@/services/trpc/client"
 
 import { EnvelopeCard } from "./envelope-card"
 import { EnvelopeCreateDialog } from "./envelope-create-dialog"
@@ -31,33 +31,33 @@ export function EnvelopePage() {
 	const [statusFilter, setStatusFilter] = useState<StatusFilter>("all")
 	const [viewMode, setViewMode] = useState<ViewMode>("grid")
 
-	const { data: envelopes, isPending } =
-		trpc.envelopeLite.getMyEnvelopes.useQuery()
+	const query = trpc.envelopeLite.getMyEnvelopes.useQuery()
+	
+	// Handle error case and ensure proper typing
+	const envelopes: RouterOutputs["envelopeLite"]["getMyEnvelopes"] = query.data ?? []
+	const isPending: boolean = query.isPending
 
 	// Filter and search envelopes
 	const filteredEnvelopes = useMemo(() => {
-		if (!envelopes) return []
+		if (!envelopes || !Array.isArray(envelopes)) {
+			return []
+		}
 
 		return envelopes.filter((envelope) => {
-			// Status filter
-			if (statusFilter !== "all" && envelope.status !== statusFilter) {
-				return false
-			}
-
 			// Search filter
 			if (searchQuery.trim()) {
 				const query = searchQuery.toLowerCase()
 				return (
 					envelope.title.toLowerCase().includes(query) ||
 					(envelope.description?.toLowerCase().includes(query) ?? false) ||
-					(envelope.createdBy?.name?.toLowerCase().includes(query) ?? false) ||
-					(envelope.createdBy?.email?.toLowerCase().includes(query) ?? false)
+					(envelope.user?.name?.toLowerCase().includes(query) ?? false) ||
+					(envelope.user?.email?.toLowerCase().includes(query) ?? false)
 				)
 			}
 
 			return true
 		})
-	}, [envelopes, statusFilter, searchQuery])
+	}, [envelopes, searchQuery])
 
 	return (
 		<div className="min-h-screen bg-muted dark:bg-background">
