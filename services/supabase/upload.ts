@@ -1,10 +1,11 @@
+/* eslint-disable no-console */
 import { useMutation } from "@tanstack/react-query"
-import { z } from "zod"
+import { z } from "zod/v4"
 
 const uploadFileSchema = z.object({
 	signedUrl: z.string().url("Must be a valid URL"),
 	file: z.instanceof(File, { message: "A file is required" }),
-	contentType: z.string().optional()
+	contentType: z.string().optional(),
 })
 
 export type UploadFileInput = z.input<typeof uploadFileSchema>
@@ -15,7 +16,7 @@ async function uploadFileToSupabase(input: UploadFileInput) {
 	const uploadResponse = await fetch(signedUrl, {
 		method: "PUT",
 		headers: { "Content-Type": contentType ?? file.type },
-		body: file
+		body: file,
 	})
 
 	if (!uploadResponse.ok) {
@@ -25,7 +26,7 @@ async function uploadFileToSupabase(input: UploadFileInput) {
 	return {
 		success: true,
 		status: uploadResponse.status,
-		statusText: uploadResponse.statusText
+		statusText: uploadResponse.statusText,
 	}
 }
 
@@ -42,8 +43,8 @@ async function uploadFileToSupabase(input: UploadFileInput) {
 export function useUploadFile() {
 	return useMutation({
 		mutationFn: uploadFileToSupabase,
-		onError: (error) => {
+		onError: error => {
 			console.error("Failed to upload file to Supabase:", error)
-		}
+		},
 	})
 }

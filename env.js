@@ -15,10 +15,14 @@ export const env = createEnv({
 		EMAIL_PORT: z.coerce.number(),
 		EMAIL_USER: z.string(),
 		NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
+
 		PORT: process.env.PORT ? z.coerce.number() : z.coerce.number().default(3000),
 		SEED_VALUE: z.coerce.number().optional(),
 	},
-	client: {},
+	client: {
+		NEXT_PUBLIC_SUPABASE_URL: z.url(),
+		NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string(),
+	},
 	runtimeEnv: {
 		AUTH_SECRET: process.env.AUTH_SECRET,
 		AUTH_URL: process.env.AUTH_URL,
@@ -32,6 +36,8 @@ export const env = createEnv({
 		EMAIL_PORT: process.env.EMAIL_PORT,
 		EMAIL_USER: process.env.EMAIL_USER,
 		NODE_ENV: process.env.NODE_ENV,
+		NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
+		NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
 		PORT: process.env.PORT,
 		SEED_VALUE: process.env.SEED_VALUE,
 	},
