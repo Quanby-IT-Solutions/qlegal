@@ -1,6 +1,10 @@
 import { z } from "zod/v4"
+import { eq, desc } from "drizzle-orm"
 
 import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
+import { envelopes } from "@/services/drizzle/schema/envelope"
+import { documents } from "@/services/drizzle/schema/document"
+import { users } from "@/services/drizzle/schema/auth"
 
 import { createEnvelopeSchema } from "./envelope-lite-schema"
 
@@ -10,57 +14,55 @@ const searchUsersSchema = z.object({
 
 const getByIdSchema = z.object({ envelopeId: z.string().min(1) })
 
-// In-memory storage for mock envelopes
-const mockEnvelopes = new Map<string, {
-  id: string
-  title: string
-  description: string | null
-  status: "DRAFT" | "PUBLISHED" | "COMPLETED" | "PENDING_APPROVAL" | "APPROVED" | "REJECTED"
-  userId: string
-  createdAt: Date
-  updatedAt: Date
-  user: {
-    id: string
-    name: string | null
-    email: string | null
-    image: string | null
-  }
-}>()
+const createDocumentsSchema = z.object({
+  envelopeId: z.string().min(1),
+  files: z.array(z.object({
+    name: z.string(),
+    type: z.string(),
+    size: z.number(),
+    path: z.string()
+  }))
+})
 
 export const envelopeLiteRouter = createTRPCRouter({
   createEnvelope: protectedProcedure
     .input(createEnvelopeSchema)
     .mutation(async ({ ctx, input }) => {
-      // Generate a unique ID for the envelope
-      const envelopeId = `envelope-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
-      
-      const mockEnvelope = {
-        id: envelopeId,
+      // Create envelope in database
+      const [envelope] = await ctx.db.insert(envelopes).values({
         title: input.title,
         description: input.description ?? null,
-        status: "DRAFT" as const,
-        userId: ctx.session.user.id,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        user: {
-          id: ctx.session.user.id,
-          name: ctx.session.user.name ?? null,
-          email: ctx.session.user.email ?? null,
-          image: ctx.session.user.image ?? null
-        }
-      }
+        status: "DRAFT",
+        userId: ctx.session.user.id
+      }).returning()
       
-      // Store the envelope in memory
-      mockEnvelopes.set(envelopeId, mockEnvelope)
-      
-      return mockEnvelope
+      return envelope
     }),
 
   getEnvelopeById: protectedProcedure
     .input(getByIdSchema)
     .query(async ({ ctx, input }) => {
-      // Get the envelope from memory storage
-      const envelope = mockEnvelopes.get(input.envelopeId)
+      // Get envelope from database
+      const [envelope] = await ctx.db
+        .select({
+          id: envelopes.id,
+          title: envelopes.title,
+          description: envelopes.description,
+          status: envelopes.status,
+          createdAt: envelopes.createdAt,
+          updatedAt: envelopes.updatedAt,
+          userId: envelopes.userId,
+          user: {
+            id: users.id,
+            name: users.name,
+            email: users.email,
+            image: users.image
+          }
+        })
+        .from(envelopes)
+        .leftJoin(users, eq(envelopes.userId, users.id))
+        .where(eq(envelopes.id, input.envelopeId))
+        .limit(1)
       
       if (!envelope) {
         throw new Error("Envelope not found")
@@ -70,17 +72,34 @@ export const envelopeLiteRouter = createTRPCRouter({
     }),
 
   getMyEnvelopes: protectedProcedure.query(async ({ ctx }) => {
-    // Return all envelopes for the current user
-    const userEnvelopes = Array.from(mockEnvelopes.values())
-      .filter(envelope => envelope.userId === ctx.session.user.id)
-      .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())
+    // Get all envelopes for the current user from database
+    const userEnvelopes = await ctx.db
+      .select({
+        id: envelopes.id,
+        title: envelopes.title,
+        description: envelopes.description,
+        status: envelopes.status,
+        createdAt: envelopes.createdAt,
+        updatedAt: envelopes.updatedAt,
+        userId: envelopes.userId,
+        user: {
+          id: users.id,
+          name: users.name,
+          email: users.email,
+          image: users.image
+        }
+      })
+      .from(envelopes)
+      .leftJoin(users, eq(envelopes.userId, users.id))
+      .where(eq(envelopes.userId, ctx.session.user.id))
+      .orderBy(desc(envelopes.updatedAt))
     
     return userEnvelopes
   }),
 
   searchUsers: protectedProcedure
     .input(searchUsersSchema)
-    .query(async ({ ctx, input }) => {
+    .query(async () => {
       // For now, return empty array until database is properly set up
       const mockUsers: Array<{
         id: string
@@ -89,5 +108,49 @@ export const envelopeLiteRouter = createTRPCRouter({
         image: string | null
       }> = []
       return mockUsers
+    }),
+
+  // Document management
+  createDocuments: protectedProcedure
+    .input(createDocumentsSchema)
+    .mutation(async ({ ctx, input }) => {
+      // Create documents in database
+      const createdDocuments = await ctx.db
+        .insert(documents)
+        .values(
+          input.files.map(file => ({
+            name: file.name,
+            type: file.type,
+            size: file.size,
+            path: file.path,
+            envelopeId: input.envelopeId
+          }))
+        )
+        .returning()
+      
+      return createdDocuments
+    }),
+
+  getEnvelopeDocuments: protectedProcedure
+    .input(getByIdSchema)
+    .query(async ({ ctx, input }) => {
+      // Get all documents for an envelope
+      const envelopeDocuments = await ctx.db
+        .select({
+          id: documents.id,
+          name: documents.name,
+          type: documents.type,
+          size: documents.size,
+          path: documents.path,
+          status: documents.status,
+          createdAt: documents.createdAt,
+          updatedAt: documents.updatedAt,
+          envelopeId: documents.envelopeId
+        })
+        .from(documents)
+        .where(eq(documents.envelopeId, input.envelopeId))
+        .orderBy(desc(documents.createdAt))
+      
+      return envelopeDocuments
     })
 })

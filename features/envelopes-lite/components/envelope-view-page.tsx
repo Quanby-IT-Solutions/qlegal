@@ -40,30 +40,29 @@ export function EnvelopeViewPage({ envelopeId }: { envelopeId: string }) {
 		}
 	}, [error, router])
 
-	// Mock documents for now - will be replaced with real data later
-	const mockDocuments = useMemo(() => [] as Array<{
-		id: string
-		name: string
-		type: string
-		status: string
-		createdAt: Date
-	}>, [])
+	// Get real documents from database
+	const {
+		data: documents = [],
+		isLoading: isLoadingDocuments
+	} = trpc.envelopeLite.getEnvelopeDocuments.useQuery({
+		envelopeId
+	})
 
 	// Filter and search documents
 	const filteredDocuments = useMemo(() => {
-		if (!mockDocuments) {
+		if (!documents) {
 			return []
 		}
 
-		return mockDocuments.filter((document) => {
+		return documents.filter((document) => {
 			// Filter out documents with "_signed" in the name
 			if (document.name.includes("_signed")) {
 				return false
 			}
-			// Status filter
-			if (statusFilter !== "all" && document.status !== statusFilter) {
-				return false
-			}
+			// Status filter (documents don't have status yet, so skip for now)
+			// if (statusFilter !== "all" && document.status !== statusFilter) {
+			// 	return false
+			// }
 
 			// Search filter
 			if (searchQuery.trim()) {
@@ -76,7 +75,7 @@ export function EnvelopeViewPage({ envelopeId }: { envelopeId: string }) {
 
 			return true
 		})
-	}, [mockDocuments, statusFilter, searchQuery])
+	}, [documents, searchQuery])
 
 	const handleDocumentUploadSuccess = async () => {
 		// Refresh documents when upload succeeds
@@ -157,11 +156,11 @@ export function EnvelopeViewPage({ envelopeId }: { envelopeId: string }) {
 
 			{/* Documents */}
 			<div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-				{isLoadingEnvelope && <DocumentLoadingSkeleton />}
+				{(isLoadingEnvelope || isLoadingDocuments) && <DocumentLoadingSkeleton />}
 
-				{!isLoadingEnvelope && filteredDocuments.length === 0 && (
+				{!isLoadingEnvelope && !isLoadingDocuments && filteredDocuments.length === 0 && (
 					<div className="py-12 text-center">
-						{(mockDocuments?.length ?? 0) === 0 ? (
+						{(documents?.length ?? 0) === 0 ? (
 							<DocumentEmptyState envelopeId={envelopeId} />
 						) : (
 							<div className="space-y-3">
@@ -190,21 +189,21 @@ export function EnvelopeViewPage({ envelopeId }: { envelopeId: string }) {
 				)}
 
 				{/* Documents List */}
-				{!isLoadingEnvelope && filteredDocuments.length > 0 && (
-					<DocumentListWithDisclosure
-						documents={filteredDocuments}
-						envelopeId={envelopeId}
-					/>
+				{!isLoadingEnvelope && !isLoadingDocuments && filteredDocuments.length > 0 && (
+				<DocumentListWithDisclosure
+					documents={filteredDocuments}
+					envelopeId={envelopeId}
+				/>
 				)}
 			</div>
 
 			{/* Documents Count */}
 			<div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
 				{/* Results count */}
-				{!isLoadingEnvelope && (
+				{!isLoadingEnvelope && !isLoadingDocuments && (
 					<div className="text-sm text-muted-foreground">
 						{filteredDocuments.length} of{" "}
-						{(mockDocuments?.filter((doc) => !doc.name.includes("_signed")).length ?? 0)}{" "}
+						{(documents?.filter((doc: { name: string }) => !doc.name.includes("_signed")).length ?? 0)}{" "}
 						documents
 						{statusFilter !== "all" &&
 							` (filtered by ${statusFilter.toLowerCase()})`}
