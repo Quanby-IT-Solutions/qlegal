@@ -1,124 +1,82 @@
 "use client"
 
-import { useState } from "react"
+import { useCallback, useState } from "react"
 import { CameraIcon } from "lucide-react"
 import { useSession } from "next-auth/react"
-import { toast } from "sonner"
+import { useDropzone, type FileWithPath } from "react-dropzone"
 
+import { Avatar, AvatarFallback, AvatarImage } from "@/core/components/ui/avatar"
 import { Button } from "@/core/components/ui/button"
-import { Input } from "@/core/components/ui/input"
-import { Profile } from "@/core/components/user-profile"
+import { getInitials } from "@/core/lib/utils"
 
-import { trpc } from "@/services/trpc/client"
+import type { FileWithPreview } from "@/features/profile/api/profile.types"
+import { ImageCropper } from "@/features/profile/components/ui/image-cropper"
 
-// import {
-// 	useProfileImageSelection,
-// 	useProfileImageUpload,
-// } from "@/features/profile/api/profile.hooks"
-// import { ImageCropper } from "@/features/profile/components/image-cropper"
-
+const accept = {
+	"image/*": [],
+}
 export const AvatarForm = () => {
-	const { data: session, update: updateSession } = useSession()
-	const [isImageCropperOpen, setIsImageCropperOpen] = useState(false)
-	const [selectedImage, setSelectedImage] = useState<string | null>(null)
-	const [selectedFile, setSelectedFile] = useState<File | null>(null)
+	const [selectedFile, setSelectedFile] = useState<FileWithPreview | null>(null)
+	const [isDialogOpen, setDialogOpen] = useState(false)
 
-	const utils = trpc.useUtils()
-	const profileImageUpload = useProfileImageUpload()
-	const { validateAndProcessFile } = useProfileImageSelection()
+	const { data: session } = useSession()
+	const initials = getInitials(session?.user?.name)
 
-	const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-		const file = e.target.files?.[0]
-		if (!file) {
-			return
-		}
-
-		try {
-			const { file: validatedFile, preview } = await validateAndProcessFile(file)
-			setSelectedFile(validatedFile)
-			setSelectedImage(preview)
-			setIsImageCropperOpen(true)
-		} catch (error) {
-			if (error instanceof Error) {
-				toast.error(error.message)
+	const onDrop = useCallback(
+		(acceptedFiles: FileWithPath[]) => {
+			const file = acceptedFiles[0]
+			if (!file) {
+				alert("Selected image is too large!")
+				return
 			}
-		}
-	}
 
-	const handleCropComplete = async (croppedImageData: string) => {
-		if (!selectedFile) {
-			return
-		}
-
-		try {
-			// Convert base64 to File for upload
-			const response = await fetch(croppedImageData)
-			const blob = await response.blob()
-			const croppedFile = new File([blob], selectedFile.name, {
-				type: selectedFile.type,
+			const fileWithPreview = Object.assign(file, {
+				preview: URL.createObjectURL(file),
 			})
 
-			// Upload using the client-side hook
-			const result = await profileImageUpload.mutateAsync(croppedFile)
+			setSelectedFile(fileWithPreview)
+			setDialogOpen(true)
+		},
 
-			// Update session with new user data
-			await updateSession({
-				user: result.user,
-			})
+		[]
+	)
 
-			// Invalidate profile queries
-			await utils.profile.getSummary.invalidate()
-			await utils.profile.getPersonalInformation.invalidate()
-
-			setIsImageCropperOpen(false)
-			setSelectedImage(null)
-			setSelectedFile(null)
-		} catch (error) {
-			console.error("Error updating profile picture:", error)
-			// Error handling is done in the hook
-		}
-	}
+	const { getRootProps, getInputProps } = useDropzone({
+		onDrop,
+		accept,
+	})
 
 	return (
-		<div className="flex flex-col items-center space-y-4">
-			<div className="relative">
-				<Profile
-					className="!size-40"
-					url={session?.user?.image ?? null}
-					name={session?.user?.name ?? ""}
-				/>
-				<Button
-					size="sm"
-					variant="outline"
-					className="absolute -right-2 -bottom-2 h-10 w-10 rounded-full p-0"
-					onClick={() => document.getElementById("avatar-upload")?.click()}
-					disabled={profileImageUpload.isPending}
-				>
-					<CameraIcon className="h-5 w-5" />
-				</Button>
-			</div>
-
-			<Input
-				id="avatar-upload"
-				type="file"
-				accept="image/*"
-				className="hidden"
-				onChange={handleFileChange}
-				disabled={profileImageUpload.isPending}
-			/>
-
-			{selectedImage && (
+		<div className="relative">
+			{selectedFile ? (
 				<ImageCropper
-					imageUrl={selectedImage}
-					isOpen={isImageCropperOpen}
-					onClose={() => {
-						setIsImageCropperOpen(false)
-						setSelectedImage(null)
-						setSelectedFile(null)
-					}}
-					onCropComplete={handleCropComplete}
+					dialogOpen={isDialogOpen}
+					setDialogOpen={setDialogOpen}
+					selectedFile={selectedFile}
+					setSelectedFile={setSelectedFile}
 				/>
+			) : (
+				<div className="group relative">
+					<Avatar
+						{...getRootProps()}
+						className="ring-ring ring-offset-border size-36 cursor-pointer ring-2 ring-offset-2"
+					>
+						<input {...getInputProps()} />
+						<AvatarImage src={session?.user.image} alt={initials} />
+						<AvatarFallback>{initials}</AvatarFallback>
+					</Avatar>
+				</div>
 			)}
+
+			<Button
+				{...getRootProps()}
+				size="sm"
+				variant="outline"
+				className="bg-background/80 dark:bg-background/80 dark:hover:bg-background/90 absolute -right-1 -bottom-1 size-10 cursor-pointer rounded-full p-0 backdrop-blur-2xl"
+			>
+				<input {...getInputProps()} />
+				<CameraIcon className="size-5" />
+			</Button>
 		</div>
 	)
 }

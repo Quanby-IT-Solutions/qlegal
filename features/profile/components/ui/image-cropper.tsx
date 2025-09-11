@@ -1,124 +1,173 @@
 "use client"
 
-import Image from "next/image"
-import { useRef, useState, type SyntheticEvent } from "react"
+import React, { type SyntheticEvent } from "react"
+import { CropIcon, Trash2Icon } from "lucide-react"
 import ReactCrop, { centerCrop, makeAspectCrop, type Crop, type PixelCrop } from "react-image-crop"
 
+import { Avatar, AvatarFallback, AvatarImage } from "@/core/components/ui/avatar"
 import { Button } from "@/core/components/ui/button"
 import {
 	Dialog,
+	DialogClose,
 	DialogContent,
+	DialogDescription,
 	DialogFooter,
 	DialogHeader,
 	DialogTitle,
+	DialogTrigger,
 } from "@/core/components/ui/dialog"
+
+import type { FileWithPreview } from "@/features/profile/api/profile.types"
 
 import "react-image-crop/dist/ReactCrop.css"
 
 interface ImageCropperProps {
-	imageUrl: string
-	isOpen: boolean
-	onClose: () => void
-	onCropComplete: (croppedImage: string) => void
+	dialogOpen: boolean
+	setDialogOpen: React.Dispatch<React.SetStateAction<boolean>>
+	selectedFile: FileWithPreview | null
+	setSelectedFile: React.Dispatch<React.SetStateAction<FileWithPreview | null>>
 }
 
-export const ImageCropper = ({ imageUrl, isOpen, onClose, onCropComplete }: ImageCropperProps) => {
-	const imgRef = useRef<HTMLImageElement | null>(null)
-	const [crop, setCrop] = useState<Crop>()
-	const [completedCrop, setCompletedCrop] = useState<PixelCrop>()
+export function ImageCropper({
+	dialogOpen,
+	setDialogOpen,
+	selectedFile,
+	setSelectedFile,
+}: ImageCropperProps) {
+	const aspect = 1
 
-	const onImageLoad = (e: SyntheticEvent<HTMLImageElement>) => {
-		const { width, height } = e.currentTarget
-		const initialCrop = centerCrop(
-			makeAspectCrop(
-				{
-					unit: "%",
-					width: 80,
-					x: 10,
-					y: 10,
-				},
-				1, // aspect ratio of 1:1
-				width,
-				height
-			),
-			width,
-			height
-		)
-		setCrop(initialCrop)
+	const imgRef = React.useRef<HTMLImageElement | null>(null)
+
+	const [crop, setCrop] = React.useState<Crop>()
+	const [croppedImageUrl, setCroppedImageUrl] = React.useState<string>("")
+	const [croppedImage, setCroppedImage] = React.useState<string>("")
+
+	function onImageLoad(e: SyntheticEvent<HTMLImageElement>) {
+		if (aspect) {
+			const { width, height } = e.currentTarget
+			setCrop(centerAspectCrop(width, height, aspect))
+		}
 	}
 
-	const getCroppedImage = () => {
-		if (!imgRef.current || !completedCrop) {
-			return
+	function onCropComplete(crop: PixelCrop) {
+		if (imgRef.current && crop.width && crop.height) {
+			const croppedImageUrl = getCroppedImg(imgRef.current, crop)
+			setCroppedImageUrl(croppedImageUrl)
 		}
+	}
 
-		const image = imgRef.current
+	function getCroppedImg(image: HTMLImageElement, crop: PixelCrop): string {
 		const canvas = document.createElement("canvas")
-		const ctx = canvas.getContext("2d")
-		if (!ctx) {
-			return
-		}
-
 		const scaleX = image.naturalWidth / image.width
 		const scaleY = image.naturalHeight / image.height
 
-		const cropWidth = completedCrop.width * scaleX
-		const cropHeight = completedCrop.height * scaleY
-		canvas.width = cropWidth
-		canvas.height = cropHeight
+		canvas.width = crop.width * scaleX
+		canvas.height = crop.height * scaleY
 
-		const cropX = completedCrop.x * scaleX
-		const cropY = completedCrop.y * scaleY
+		const ctx = canvas.getContext("2d")
 
-		// Set rendering quality
-		ctx.imageSmoothingQuality = "high"
+		if (ctx) {
+			ctx.imageSmoothingEnabled = false
 
-		// Draw the cropped image
-		ctx.drawImage(image, cropX, cropY, cropWidth, cropHeight, 0, 0, cropWidth, cropHeight)
+			ctx.drawImage(
+				image,
+				crop.x * scaleX,
+				crop.y * scaleY,
+				crop.width * scaleX,
+				crop.height * scaleY,
+				0,
+				0,
+				crop.width * scaleX,
+				crop.height * scaleY
+			)
+		}
 
-		const base64Image = canvas.toDataURL("image/jpeg", 0.9)
-		onCropComplete(base64Image)
-		onClose()
+		return canvas.toDataURL("image/png", 1.0)
+	}
+
+	async function onCrop() {
+		try {
+			setCroppedImage(croppedImageUrl)
+			setDialogOpen(false)
+		} catch {
+			alert("Something went wrong!")
+		}
 	}
 
 	return (
-		<Dialog open={isOpen} onOpenChange={onClose}>
-			<DialogContent className="flex max-h-[90vh] flex-col sm:max-w-md">
-				<DialogHeader className="flex-shrink-0">
-					<DialogTitle>Crop Profile Picture</DialogTitle>
+		<Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+			<DialogTrigger>
+				<Avatar className="ring-ring ring-offset-border size-36 cursor-pointer ring-2 ring-offset-2">
+					<AvatarImage src={croppedImage ? croppedImage : selectedFile?.preview} alt="@me" />
+					<AvatarFallback>You</AvatarFallback>
+				</Avatar>
+			</DialogTrigger>
+			<DialogContent className="gap-0 p-0">
+				<DialogHeader className="px-6 pt-6">
+					<DialogTitle>Crop Image</DialogTitle>
+					<DialogDescription>Select the area you want to crop.</DialogDescription>
 				</DialogHeader>
-				<p className="text-muted-foreground flex-shrink-0 text-sm">
-					Adjust the crop area to select your profile picture.
-				</p>
-				<div className="mt-4 flex-1 overflow-y-auto">
+				<div className="size-full p-6">
 					<ReactCrop
 						crop={crop}
 						onChange={(_, percentCrop) => setCrop(percentCrop)}
-						onComplete={c => setCompletedCrop(c)}
-						aspect={1}
+						onComplete={c => onCropComplete(c)}
+						aspect={aspect}
 						circularCrop
 					>
-						<Image
-							ref={imgRef}
-							src={imageUrl}
-							alt="Crop preview"
-							className="max-h-none w-full object-contain"
-							onLoad={onImageLoad}
-						/>
+						<Avatar className="size-full rounded-none">
+							<AvatarImage
+								ref={imgRef}
+								className="aspect-auto max-h-none w-full object-contain"
+								alt="Image Cropper Shell"
+								src={selectedFile?.preview}
+								onLoad={onImageLoad}
+							/>
+							<AvatarFallback className="size-full min-h-[460px] rounded-none">
+								Loading...
+							</AvatarFallback>
+						</Avatar>
 					</ReactCrop>
 				</div>
-				<DialogFooter className="mt-4 flex-shrink-0 gap-2 sm:gap-0">
-					<Button variant="outline" onClick={onClose}>
-						Cancel
-					</Button>
-					<Button
-						onClick={getCroppedImage}
-						disabled={!completedCrop?.width || !completedCrop?.height}
-					>
-						Apply Crop
+				<DialogFooter className="justify-center p-6 pt-0">
+					<DialogClose asChild>
+						<Button
+							size={"sm"}
+							type="reset"
+							className="w-fit"
+							variant={"outline"}
+							onClick={() => {
+								setSelectedFile(null)
+							}}
+						>
+							<Trash2Icon className="mr-1.5 size-4" />
+							Cancel
+						</Button>
+					</DialogClose>
+					<Button type="submit" size={"sm"} className="w-fit" onClick={onCrop}>
+						<CropIcon className="mr-1.5 size-4" />
+						Crop
 					</Button>
 				</DialogFooter>
 			</DialogContent>
 		</Dialog>
+	)
+}
+
+// Helper function to center the crop
+export function centerAspectCrop(mediaWidth: number, mediaHeight: number, aspect: number): Crop {
+	return centerCrop(
+		makeAspectCrop(
+			{
+				unit: "%",
+				width: 50,
+				height: 50,
+			},
+			aspect,
+			mediaWidth,
+			mediaHeight
+		),
+		mediaWidth,
+		mediaHeight
 	)
 }
