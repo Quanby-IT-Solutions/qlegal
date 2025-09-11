@@ -32,7 +32,7 @@ import { trpc } from "@/services/trpc/client"
 import {
 	createEnvelopeSchema,
 	type CreateEnvelopeSchema
-} from "../api/envelope-lite.schema"
+} from "../api/envelope-lite-schema"
 
 export function EnvelopeCreateDialog() {
 	const form = useForm({
@@ -51,7 +51,9 @@ export function EnvelopeCreateDialog() {
 				description: "You can now manage your envelope."
 			})
 			form.reset()
-			if (data?.id) router.push(`/envelope/${data.id}`)
+			if (data && 'id' in data) {
+				router.push(`/envelope/${(data as { id: string }).id}`)
+			}
 		},
 		onError: (err) => toast.info(err.message)
 	})
