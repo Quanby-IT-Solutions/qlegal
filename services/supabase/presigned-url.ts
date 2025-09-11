@@ -1,6 +1,6 @@
 import { useMutation } from "@tanstack/react-query"
 import { toast } from "sonner"
-import { z } from "zod"
+import { z } from "zod/v4"
 
 import { getSupabaseClient } from "./index"
 
@@ -8,7 +8,7 @@ const presignedUrlSchema = z.object({
 	file: z.instanceof(File, { message: "A file is required" }),
 	bucket: z.string().min(1, "Bucket name is required"),
 	folderPath: z.string().default(""),
-	upsert: z.boolean().default(false)
+	upsert: z.boolean().default(false),
 })
 
 export type PresignedUrlInput = z.input<typeof presignedUrlSchema>
@@ -16,9 +16,7 @@ export type PresignedUrlInput = z.input<typeof presignedUrlSchema>
 async function generatePresignedUploadUrl(input: PresignedUrlInput) {
 	const { file, bucket, folderPath, upsert } = presignedUrlSchema.parse(input)
 
-	const fullPath = folderPath
-		? `${folderPath.replace(/^\/+|\/+$/g, "")}/${file.name}`
-		: file.name
+	const fullPath = folderPath ? `${folderPath.replace(/^\/+|\/+$/g, "")}/${file.name}` : file.name
 
 	const supabase = getSupabaseClient()
 	const { data, error } = await supabase.storage
@@ -32,7 +30,7 @@ async function generatePresignedUploadUrl(input: PresignedUrlInput) {
 	return {
 		signedUrl: data.signedUrl,
 		path: data.path,
-		fileName: file.name
+		fileName: file.name,
 	}
 }
 
@@ -50,6 +48,6 @@ async function generatePresignedUploadUrl(input: PresignedUrlInput) {
 export function usePresignedUrl() {
 	return useMutation({
 		mutationFn: generatePresignedUploadUrl,
-		onError: (error) => toast.error(error.message)
+		onError: error => toast.error(error.message),
 	})
 }
