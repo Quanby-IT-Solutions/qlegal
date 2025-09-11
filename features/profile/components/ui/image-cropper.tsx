@@ -26,6 +26,8 @@ interface ImageCropperProps {
 	setDialogOpen: React.Dispatch<React.SetStateAction<boolean>>
 	selectedFile: FileWithPreview | null
 	setSelectedFile: React.Dispatch<React.SetStateAction<FileWithPreview | null>>
+	onCrop?: (croppedImageDataUrl: string) => Promise<void> | void
+	isLoading?: boolean
 }
 
 export function ImageCropper({
@@ -33,6 +35,8 @@ export function ImageCropper({
 	setDialogOpen,
 	selectedFile,
 	setSelectedFile,
+	onCrop,
+	isLoading = false,
 }: ImageCropperProps) {
 	const aspect = 1
 
@@ -85,12 +89,19 @@ export function ImageCropper({
 		return canvas.toDataURL("image/png", 1.0)
 	}
 
-	async function onCrop() {
+	async function handleCrop() {
+		if (!onCrop) {
+			setCroppedImage(croppedImageUrl)
+			setDialogOpen(false)
+			return
+		}
+
 		try {
+			await onCrop(croppedImageUrl)
 			setCroppedImage(croppedImageUrl)
 			setDialogOpen(false)
 		} catch {
-			alert("Something went wrong!")
+			// Error handling is done by the onCrop function
 		}
 	}
 
@@ -144,9 +155,15 @@ export function ImageCropper({
 							Cancel
 						</Button>
 					</DialogClose>
-					<Button type="submit" size={"sm"} className="w-fit" onClick={onCrop}>
+					<Button
+						type="submit"
+						size={"sm"}
+						className="w-fit"
+						onClick={handleCrop}
+						disabled={isLoading}
+					>
 						<CropIcon className="mr-1.5 size-4" />
-						Crop
+						{isLoading ? "Uploading..." : "Crop"}
 					</Button>
 				</DialogFooter>
 			</DialogContent>

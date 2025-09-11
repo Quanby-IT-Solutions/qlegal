@@ -1,6 +1,7 @@
 import { createCallerFactory, createTRPCRouter, publicProcedure } from "@/services/trpc/init"
 
 import { authRouter } from "@/features/auth/api/auth.router"
+import { profileRouter } from "@/features/profile/api/profile.router"
 
 /**
  * This is the primary router for your server.
@@ -13,6 +14,7 @@ export const appRouter = createTRPCRouter({
 		return { status: "ok" }
 	}),
 	auth: authRouter,
+	profile: profileRouter,
 })
 
 // export type definition of API
