@@ -23,15 +23,7 @@ export const users = createTable("user", t => ({
 })).enableRLS()
 
 export const userRelations = relations(users, ({ many }) => ({
-	// accounts: many(accounts),
 	envelopes: many(envelopes),
-	// 	twoFactorTokens: many(twoFactorTokens),
-	// 	twoFactorConfirmations: one(twoFactorConfirmations, {
-	// 		fields: [users.id],
-	// 		references: [twoFactorConfirmations.userId],
-	// 	}),
-	// 	passwordResetTokens: many(passwordResetTokens),
-	// 	verificationTokens: many(verificationTokens),
 }))
 
 export const accounts = createTable(

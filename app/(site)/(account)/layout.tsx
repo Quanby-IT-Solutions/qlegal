@@ -1,5 +1,6 @@
+import { ShapesContainer } from "@/core/components/shapes-container"
+
 import { Navbar } from "@/features/home/components/navbar"
-import { ShapesContainer } from "@/features/profile/components/shapes-container"
 
 export default function Layout(props: LayoutProps<"/">) {
 	return (
