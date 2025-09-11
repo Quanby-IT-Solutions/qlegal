@@ -105,7 +105,11 @@ export const AvatarUploadForm = () => {
 						className="ring-ring ring-offset-border size-36 cursor-pointer ring-2 ring-offset-2"
 					>
 						<input {...getInputProps()} />
-						<AvatarImage src={avatarData?.avatarUrl ?? undefined} alt={initials} />
+						{/* Prefer uploaded Supabase avatar; fall back to SSO/profile image if present */}
+						<AvatarImage
+							src={avatarData?.avatarUrl ?? session?.user?.image ?? undefined}
+							alt={initials}
+						/>
 						<AvatarFallback>{initials}</AvatarFallback>
 					</Avatar>
 				</div>

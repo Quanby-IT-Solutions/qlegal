@@ -13,7 +13,7 @@
 		"db:check": "drizzle-kit check",
 		"db:seed": "tsx services/drizzle/seed.ts",
 		"db:reset": "tsx services/drizzle/reset.ts",
-		"db:clean": "tsx services/drizzle/cleanup.ts",
+		"db:clean": "tsx services/drizzle/clean.ts",
 		"check": "eslint && tsc --noEmit",
 		"build": "next build --turbopack",
 		"start": "next start",
