@@ -11,35 +11,41 @@ import { getInitials } from "@/core/lib/utils"
 
 import type { FileWithPreview } from "@/features/profile/api/profile.types"
 import { ImageCropper } from "@/features/profile/components/ui/image-cropper"
+import { useAvatarUpload } from "@/features/profile/hooks/use-avatar-upload"
 
 const accept = {
 	"image/*": [],
 }
-export const AvatarForm = () => {
+
+export const AvatarUploadForm = () => {
 	const [selectedFile, setSelectedFile] = useState<FileWithPreview | null>(null)
 	const [isDialogOpen, setDialogOpen] = useState(false)
 
 	const { data: session } = useSession()
 	const initials = getInitials(session?.user?.name)
+	const { uploadAvatar, isUploading } = useAvatarUpload()
 
-	const onDrop = useCallback(
-		(acceptedFiles: FileWithPath[]) => {
-			const file = acceptedFiles[0]
-			if (!file) {
-				alert("Selected image is too large!")
-				return
-			}
-
-			const fileWithPreview = Object.assign(file, {
-				preview: URL.createObjectURL(file),
-			})
-
-			setSelectedFile(fileWithPreview)
-			setDialogOpen(true)
+	const handleCrop = useCallback(
+		async (croppedImageDataUrl: string) => {
+			await uploadAvatar(croppedImageDataUrl)
 		},
-
-		[]
+		[uploadAvatar]
 	)
+
+	const onDrop = useCallback((acceptedFiles: FileWithPath[]) => {
+		const file = acceptedFiles[0]
+		if (!file) {
+			alert("Selected image is too large!")
+			return
+		}
+
+		const fileWithPreview = Object.assign(file, {
+			preview: URL.createObjectURL(file),
+		})
+
+		setSelectedFile(fileWithPreview)
+		setDialogOpen(true)
+	}, [])
 
 	const { getRootProps, getInputProps } = useDropzone({
 		onDrop,
@@ -54,6 +60,8 @@ export const AvatarForm = () => {
 					setDialogOpen={setDialogOpen}
 					selectedFile={selectedFile}
 					setSelectedFile={setSelectedFile}
+					onCrop={handleCrop}
+					isLoading={isUploading}
 				/>
 			) : (
 				<div className="group relative">
@@ -73,6 +81,7 @@ export const AvatarForm = () => {
 				size="sm"
 				variant="outline"
 				className="bg-background/80 dark:bg-background/80 dark:hover:bg-background/90 absolute -right-1 -bottom-1 size-10 cursor-pointer rounded-full p-0 backdrop-blur-2xl"
+				disabled={isUploading}
 			>
 				<input {...getInputProps()} />
 				<CameraIcon className="size-5" />
