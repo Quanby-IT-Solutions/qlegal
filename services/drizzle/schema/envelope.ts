@@ -15,6 +15,7 @@ export const envelopes = createTable("envelopes", f => ({
 		.$defaultFn(() => randomId()),
 	title: f.text("title").notNull(),
 	description: f.text("description"),
+	status: f.text("status", { enum: ["DRAFT", "PUBLISHED", "COMPLETED", "PENDING_APPROVAL", "APPROVED", "REJECTED"] }).default("DRAFT").notNull(),
 	createdAt: f.timestamp("created_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
 	updatedAt: f
 		.timestamp("updated_at", { mode: "date", withTimezone: true })

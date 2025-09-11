@@ -10,10 +10,6 @@ import {
 	DialogTitle
 } from "@/core/components/ui/dialog"
 
-import { trpc } from "@/services/trpc/client"
-
-import { SimplePdfViewer } from "./simple-pdf-viewer"
-
 interface DocumentPreviewDialogProps {
 	isOpen: boolean
 	onClose: () => void
@@ -29,15 +25,6 @@ export function DocumentPreviewDialog({
 	envelopeId,
 	documentName
 }: DocumentPreviewDialogProps) {
-	const {
-		data: documentData,
-		isPending,
-		error
-	} = trpc.envelopeLite.getDocumentForViewing.useQuery({
-		documentId,
-		envelopeId
-	})
-
 	return (
 		<Dialog open={isOpen} onOpenChange={onClose}>
 			<DialogContent className="h-[85vh] w-[90vw] max-w-7xl overflow-hidden p-0 sm:h-[90vh] sm:w-[95vw]">
@@ -57,54 +44,23 @@ export function DocumentPreviewDialog({
 
 				{/* Content */}
 				<div className="flex h-full flex-col overflow-hidden">
-					{isPending && (
-						<div className="flex h-full items-center justify-center">
-							<div className="flex flex-col items-center justify-center text-center">
-								<div className="mb-4 h-8 w-8 animate-spin rounded-full border-4 border-muted border-t-primary" />
-								<p className="text-sm text-muted-foreground">
-									Loading document...
-								</p>
-							</div>
+					<div className="flex h-full items-center justify-center">
+						<div className="text-center">
+							<p className="text-sm text-muted-foreground mb-4">
+								Document preview feature coming soon!
+							</p>
+							<p className="text-xs text-muted-foreground mb-4">
+								Document ID: {documentId}
+							</p>
+							<Button
+								variant="outline"
+								size="sm"
+								onClick={onClose}
+							>
+								Close
+							</Button>
 						</div>
-					)}
-
-					{error && (
-						<div className="flex h-full items-center justify-center">
-							<div className="text-center">
-								<p className="mb-4 text-sm text-destructive">
-									Failed to load document
-								</p>
-								<p className="text-xs text-muted-foreground">{error.message}</p>
-								<Button
-									variant="outline"
-									size="sm"
-									onClick={() => window.location.reload()}
-									className="mt-4"
-								>
-									Try Again
-								</Button>
-							</div>
-						</div>
-					)}
-
-					{documentData?.url && !isPending && !error && (
-						<div className="flex-1 overflow-hidden">
-							<SimplePdfViewer
-								fileUrl={documentData.url}
-								documentName={documentData.name}
-							/>
-						</div>
-					)}
-
-					{!documentData?.url && !isPending && !error && (
-						<div className="flex h-full items-center justify-center">
-							<div className="text-center">
-								<p className="text-sm text-muted-foreground">
-									No document URL available
-								</p>
-							</div>
-						</div>
-					)}
+					</div>
 				</div>
 			</DialogContent>
 		</Dialog>
