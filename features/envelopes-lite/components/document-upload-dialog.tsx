@@ -4,6 +4,11 @@ import { useState } from "react"
 import { Upload } from "lucide-react"
 import { toast } from "sonner"
 
+import {
+	FileUploader,
+	FileUploaderDropZone,
+	FileUploaderFileList
+} from "@/core/components/file-uploader"
 import { Badge } from "@/core/components/ui/badge"
 import { Button } from "@/core/components/ui/button"
 import {
@@ -38,14 +43,14 @@ export function DocumentUploadDialog({
 	const [uploadStatus, setUploadStatus] = useState("")
 	const [isOpen, setIsOpen] = useState(false)
 
-	// Mock tRPC calls for now
+	// Real tRPC calls for document management
 	const { refetch: refetchDocuments } =
-		trpc.envelopeLite.getMyEnvelopes.useQuery(
-			undefined,
+		trpc.envelopeLite.getEnvelopeDocuments.useQuery(
+			{ envelopeId },
 			{ enabled: false }
 		)
 
-	const createDocuments = trpc.envelopeLite.createEnvelope.useMutation({
+	const createDocuments = trpc.envelopeLite.createDocuments.useMutation({
 		onSuccess: async () => {
 			await refetchDocuments()
 			setFiles([])
@@ -54,20 +59,13 @@ export function DocumentUploadDialog({
 			setIsOpen(false)
 			onSuccess?.()
 		},
-		onError: (error) => {
-			console.error("Document creation error:", error)
+		onError: (_error) => {
 			setUploadStatus("Failed to upload documents. Please try again.")
 			toast.error("Failed to upload documents. Please try again.")
 		}
 	})
 
 	const handleFilesReady = (selectedFiles: File[]) => {
-		setFiles(selectedFiles)
-		setUploadStatus("")
-	}
-
-	const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-		const selectedFiles = Array.from(event.target.files ?? [])
 		setFiles(selectedFiles)
 		setUploadStatus("")
 	}
@@ -79,23 +77,25 @@ export function DocumentUploadDialog({
 		setUploadStatus("Uploading files...")
 
 		try {
-			// Mock upload process
-			await new Promise(resolve => setTimeout(resolve, 2000))
+			// TODO: Implement actual file upload to storage (Supabase/S3/etc)
+			// For now, simulate file upload and create database records
+			const uploadedFiles = files.map(file => ({
+				name: file.name,
+				type: file.type,
+				size: file.size,
+				path: `envelopes/${envelopeId}/${file.name}` // Mock storage path
+			}))
 			
 			setUploadStatus("Creating document records...")
 			
-			// For now, just simulate success
-			await new Promise(resolve => setTimeout(resolve, 1000))
-			
-			setUploadStatus("Documents uploaded successfully!")
-			toast.success("Documents uploaded successfully!")
-			setIsOpen(false)
-			onSuccess?.()
-		} catch (error) {
-			console.error("Upload error:", error)
+			// Create document records in database
+			createDocuments.mutate({
+				envelopeId,
+				files: uploadedFiles
+			})
+		} catch (_error) {
 			setUploadStatus("Failed to upload files. Please try again.")
 			toast.error("Failed to upload files. Please try again.")
-		} finally {
 			setUploading(false)
 		}
 	}
@@ -125,27 +125,15 @@ export function DocumentUploadDialog({
 				</DialogHeader>
 
 				<div className="max-h-[60vh] space-y-4 overflow-y-auto">
-					{/* Simple file input for now */}
-					<div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-8 text-center">
-						<input
-							type="file"
-							multiple
-							accept=".pdf"
-							onChange={handleFileSelect}
-							className="hidden"
-							id="file-upload"
-						/>
-						<label
-							htmlFor="file-upload"
-							className="cursor-pointer flex flex-col items-center gap-2"
-						>
-							<Upload className="h-8 w-8 text-muted-foreground" />
-							<div className="text-sm font-medium">Choose PDF files</div>
-							<div className="text-xs text-muted-foreground">
-								Click to select files or drag and drop
-							</div>
-						</label>
-					</div>
+					<FileUploader
+						maxFiles={10}
+						maxSize={10 * 1024 * 1024} // 10MB
+						accept={["application/pdf"]}
+						onFilesReady={handleFilesReady}
+					>
+						<FileUploaderDropZone />
+						<FileUploaderFileList />
+					</FileUploader>
 
 					{files.length > 0 && (
 						<Card className="mt-4">
