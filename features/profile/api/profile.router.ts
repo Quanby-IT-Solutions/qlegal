@@ -20,9 +20,14 @@ export const profileRouter = createTRPCRouter({
 			const { db, session } = ctx
 			const { imagePath } = input
 
-			// Only delete if it's a Supabase storage path, not an external URL (like Google SSO)
 			try {
-				const previousPath = session.user.image
+				const currentUser = await db.query.users.findFirst({
+					where: eq(users.id, session.user.id),
+					columns: { image: true },
+				})
+
+				const previousPath = currentUser?.image
+				// Only delete if it's a Supabase storage path, not an external URL (like Google SSO)
 				if (previousPath && previousPath !== imagePath && !previousPath.startsWith("http")) {
 					try {
 						await deleteAvatar(previousPath)
