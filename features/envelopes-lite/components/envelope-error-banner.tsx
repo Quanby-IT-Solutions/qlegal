@@ -11,7 +11,9 @@ export function EnvelopeErrorBanner({
 	isError,
 	onRetry
 }: EnvelopeErrorBannerProps) {
-	if (!isError) return null
+	if (!isError) {
+		return null
+	}
 
 	return (
 		<div className="border-b bg-orange-50 dark:bg-orange-950/50">

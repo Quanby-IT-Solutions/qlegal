@@ -7,20 +7,21 @@ import { EnvelopeViewPage } from "@/features/envelopes-lite/components/envelope-
 export default async function Page({
 	params
 }: {
-	params: Promise<{ envelopeId: string }>
+	params: Promise<{ id: string }>
 }) {
-	const { envelopeId } = await params
+	const { id: envelopeId } = await params
 
 	// Only prefetch, let the client component handle the data
 	await trpc.envelopeLite.getEnvelopeById.prefetch({ envelopeId })
-	await trpc.envelopeLite.getEnvelopeDocuments.prefetch({ envelopeId })
+	// Note: getEnvelopeDocuments procedure doesn't exist yet, so we'll skip this for now
+	// await trpc.envelopeLite.getEnvelopeDocuments.prefetch({ envelopeId })
 
 	return (
 		<HydrateClient>
 			<SiteNavbar
 				items={[
 					{ label: "Envelopes", url: "/envelopes" },
-					{ label: "Document View", url: `/envelopes/${envelopeId}` }
+					{ label: "Document View", url: `/envelope/${envelopeId}` }
 				]}
 			/>
 			<EnvelopeViewPage envelopeId={envelopeId} />
