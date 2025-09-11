@@ -3,7 +3,7 @@ import { useMutation } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { z } from "zod/v4"
 
-import { getSupabaseClient } from "./index"
+import { getPublicClient } from "./index"
 
 const signedUrlSchema = z.object({
 	bucket: z.string().min(1, "Bucket name is required"),
@@ -16,7 +16,7 @@ export type SignedUrlInput = z.input<typeof signedUrlSchema>
 async function generateSignedUrl(input: SignedUrlInput) {
 	const { bucket, path, expiresIn = 3600 } = signedUrlSchema.parse(input)
 
-	const supabase = getSupabaseClient()
+	const supabase = getPublicClient()
 	const { data, error } = await supabase.storage.from(bucket).createSignedUrl(path, expiresIn)
 
 	if (error) {
@@ -38,7 +38,7 @@ export function useSignedUrl() {
 
 // New helper for public URLs (no expiration, for PDFs that should be publicly accessible)
 export async function getPublicUrl(bucket: string, path: string): Promise<string> {
-	const supabase = getSupabaseClient()
+	const supabase = getPublicClient()
 
 	const { data } = supabase.storage.from(bucket).getPublicUrl(path)
 

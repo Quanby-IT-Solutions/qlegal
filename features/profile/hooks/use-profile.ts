@@ -17,8 +17,13 @@ export function useAvatarUpload() {
 				throw new Error("User not authenticated")
 			}
 
-			// Create filename with userId pattern: [userId]/avatar.png
-			const fileName = `${session.user.id}/avatar.png`
+			// Preserve original filename and add a timestamp to avoid collisions.
+			// Resulting pattern: [userId]/<timestamp>-<sanitized-original-filename>
+			const sanitize = (name: string) => name.replace(/[^a-zA-Z0-9.\-_]/g, "-")
+			const timestamp = Date.now()
+			const originalName = file.name || "avatar"
+			const safeName = sanitize(originalName)
+			const fileName = `${session.user.id}/${timestamp}-${safeName}`
 
 			// 1. Ask server for signed upload URL
 			const { signedUrl, path } = await createAvatarUploadUrl(fileName)
