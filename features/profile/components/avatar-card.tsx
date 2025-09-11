@@ -4,7 +4,7 @@ import { useSession } from "next-auth/react"
 
 import { Card, CardContent } from "@/core/components/ui/card"
 
-import { AvatarUploadForm } from "@/features/profile/components/forms/avatar-upload-form"
+import { AvatarUploadForm } from "@/features/profile/components/forms/form.avatar-upload"
 
 export function AvatarCard() {
 	const { data: session } = useSession()
