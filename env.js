@@ -18,6 +18,7 @@ export const env = createEnv({
 
 		PORT: process.env.PORT ? z.coerce.number() : z.coerce.number().default(3000),
 		SEED_VALUE: z.coerce.number().optional(),
+		SUPABASE_SERVICE_ROLE_KEY: z.string(),
 	},
 	client: {
 		NEXT_PUBLIC_SUPABASE_URL: z.url(),
@@ -40,6 +41,7 @@ export const env = createEnv({
 		NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
 		PORT: process.env.PORT,
 		SEED_VALUE: process.env.SEED_VALUE,
+		SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
 	},
 	skipValidation: !!process.env.SKIP_ENV_VALIDATION,
 	emptyStringAsUndefined: true,
