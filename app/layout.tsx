@@ -1,15 +1,14 @@
 import type { Metadata } from "next"
 import { Inter } from "next/font/google"
-
-import { TRPCProvider } from "@/services/trpc/client"
-
-import "@/core/styles/globals.css"
-
 import { SessionProvider } from "next-auth/react"
 
+import { Toaster } from "@/core/components/ui/sonner"
 import { ThemeProvider } from "@/core/context/theme-provider"
 
 import { auth } from "@/services/next-auth"
+import { TRPCProvider } from "@/services/trpc/client"
+
+import "@/core/styles/globals.css"
 
 const inter = Inter({
 	subsets: ["latin"],
@@ -40,6 +39,7 @@ export default async function RootLayout({
 							disableTransitionOnChange
 						>
 							{children}
+							<Toaster richColors closeButton />
 						</ThemeProvider>
 					</TRPCProvider>
 				</SessionProvider>
