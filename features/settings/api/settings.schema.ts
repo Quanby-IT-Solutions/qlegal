@@ -46,5 +46,10 @@ export const addPasswordSchema = z
 		}
 	})
 
+export const toggleTwoFASchema = z.object({
+	enabled: z.boolean(),
+})
+
 export type ChangePasswordSchema = z.infer<typeof changePasswordSchema>
 export type AddPasswordSchema = z.infer<typeof addPasswordSchema>
+export type ToggleTwoFASchema = z.infer<typeof toggleTwoFASchema>
