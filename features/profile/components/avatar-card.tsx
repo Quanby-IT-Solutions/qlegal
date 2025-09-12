@@ -10,7 +10,7 @@ export function AvatarCard() {
 	const { data: session } = useSession()
 
 	return (
-		<Card className="border-border/60 bg-background/80 dark:bg-background/40 border shadow-sm backdrop-blur-xl transition-all duration-300 hover:shadow-md">
+		<Card className="border-border/60 bg-card/80 dark:bg-card/70 border shadow-sm backdrop-blur-xl transition-all duration-300 hover:shadow-md">
 			<CardContent className="flex flex-col items-center justify-center space-y-4 py-4 text-center">
 				<AvatarUploadForm />
 

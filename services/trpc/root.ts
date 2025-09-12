@@ -3,6 +3,7 @@ import { createCallerFactory, createTRPCRouter, publicProcedure } from "@/servic
 import { authRouter } from "@/features/auth/api/auth.router"
 import { envelopeLiteRouter } from "@/features/envelopes-lite/api/envelope-lite.router"
 import { profileRouter } from "@/features/profile/api/profile.router"
+import { settingsRouter } from "@/features/settings/api/settings.router"
 import { signatureLiteRouter } from "@/features/signature-lite/api/new-signature.router"
 
 /**
@@ -16,11 +17,10 @@ export const appRouter = createTRPCRouter({
 		return { status: "ok" }
 	}),
 	auth: authRouter,
-	signatureLite: signatureLiteRouter,
 	envelopeLite: envelopeLiteRouter,
-	// mySigned: mySignedRouter,
-	// userManagement: userManagementRouter,
 	profile: profileRouter,
+	settings: settingsRouter,
+	signatureLite: signatureLiteRouter,
 })
 
 // export type definition of API

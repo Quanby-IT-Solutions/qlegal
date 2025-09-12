@@ -1,4 +1,4 @@
-import { ChangePasswordCard } from "@/features/profile/components/change-password-card"
+import { ChangePasswordCard } from "@/features/settings/components/change-password-card"
 
 export default function Page() {
 	return (
