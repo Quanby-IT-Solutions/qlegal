@@ -5,6 +5,7 @@ import { trpc } from "@/services/trpc/client"
 import { AddPasswordCard } from "@/features/settings/components/add-password-card"
 import { ChangePasswordCard } from "@/features/settings/components/change-password-card"
 import { PasswordCardSkeleton } from "@/features/settings/components/password-card-skeleton"
+import { ToggleTwoFACard } from "@/features/settings/components/toggle-two-fa-card"
 
 export default function Page() {
 	const { data: userPasswordStatus, isLoading } = trpc.settings.checkUserHasPassword.useQuery()
@@ -25,6 +26,8 @@ export default function Page() {
 			) : (
 				<AddPasswordCard />
 			)}
+
+			<ToggleTwoFACard />
 		</main>
 	)
 }
