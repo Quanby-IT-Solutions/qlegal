@@ -16,15 +16,17 @@ import {
 	DropdownMenuTrigger,
 } from "@/core/components/ui/dropdown-menu"
 import { Profile } from "@/core/components/user-profile"
+import { useHydrated } from "@/core/hooks/use-hydrated"
 import { getSiteUserItems, iconMap } from "@/core/lib/nav.config"
 import { cn } from "@/core/lib/utils"
 
 export function SiteUser() {
 	const { data: session, status } = useSession()
+	const hydrated = useHydrated()
 	const user = session?.user
 	const config = getSiteUserItems(user?.role ?? null)
 
-	if (status === "loading") {
+	if (status === "loading" || !hydrated) {
 		return (
 			<div
 				className={cn(
