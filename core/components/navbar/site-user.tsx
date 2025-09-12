@@ -4,6 +4,7 @@ import Link from "next/link"
 import { LogOutIcon } from "lucide-react"
 import { signOut, useSession } from "next-auth/react"
 
+import { ModeToggleDropdown } from "@/core/components/mode-toggle-dropdown"
 import { buttonVariants } from "@/core/components/ui/button"
 import {
 	DropdownMenu,
@@ -18,14 +19,11 @@ import { Profile } from "@/core/components/user-profile"
 import { getSiteUserItems, iconMap } from "@/core/lib/nav.config"
 import { cn } from "@/core/lib/utils"
 
-import { ModeToggleDropdown } from "../mode-toggle-dropdown"
-
 export function SiteUser() {
 	const { data: session, status } = useSession()
 	const user = session?.user
 	const config = getSiteUserItems(user?.role ?? null)
 
-	// Show loading state or nothing if session is loading
 	if (status === "loading") {
 		return (
 			<div
@@ -37,7 +35,6 @@ export function SiteUser() {
 		)
 	}
 
-	// Don't render if no user
 	if (!user) {
 		return null
 	}

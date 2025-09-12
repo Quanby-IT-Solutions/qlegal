@@ -22,26 +22,16 @@ export function Navbar({ isAuthenticated }: NavbarProps) {
 	const isMobile = useIsMobile()
 
 	useEffect(() => {
-		// Mark animation as complete after initial delay
 		const timer = setTimeout(() => setHasAnimated(true), 1800)
 		return () => clearTimeout(timer)
 	}, [])
 
 	useEffect(() => {
-		const handleScroll = () => {
-			// Only track scroll after animation is complete
-			if (hasAnimated) {
-				setIsScrolled(window.scrollY > 50)
-			} else {
-				setIsScrolled(false)
-			}
-		}
-
-		window.addEventListener("scroll", handleScroll)
-		handleScroll() // Check initial scroll position
-
+		const handleScroll = () => setIsScrolled(window.scrollY > 50)
+		window.addEventListener("scroll", handleScroll, { passive: true })
+		handleScroll()
 		return () => window.removeEventListener("scroll", handleScroll)
-	}, [hasAnimated])
+	}, [])
 
 	return (
 		<motion.nav

@@ -123,10 +123,23 @@ export const authConfig = {
 					const user = await db.query.users.findFirst({
 						where: (data, { eq }) => eq(data.id, token.sub ?? ""),
 					})
+
 					if (user && session.user) {
 						session.user.id = token.sub
+						session.user.name = user.name ?? ""
+						session.user.email = user.email ?? ""
 						session.user.role = user.role
-						session.user.image = user.image ?? session.user.image
+
+						// Convert Supabase storage paths to displayable URLs
+						const imagePath = user.image ?? session.user.image
+						if (imagePath?.startsWith("http")) {
+							session.user.image = imagePath
+						} else if (imagePath) {
+							const { getPublicClient } = await import("@/services/supabase")
+							const supabase = getPublicClient()
+							const { data } = supabase.storage.from("avatars").getPublicUrl(imagePath)
+							session.user.image = data.publicUrl
+						}
 					}
 				}
 			} catch {
@@ -140,6 +153,8 @@ export const authConfig = {
 		async jwt({ token, user }) {
 			if (user) {
 				token.sub = user.id
+				token.name = user.name
+				token.email = user.email
 				token.image = user.image ?? token.picture
 			}
 

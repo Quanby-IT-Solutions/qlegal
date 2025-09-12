@@ -1,14 +1,14 @@
 import { TRPCError } from "@trpc/server"
 import { z } from "zod"
 
-import { getSupabaseClient } from "@/services/supabase"
+import { getPublicClient } from "@/services/supabase"
 import { createTRPCRouter, publicProcedure } from "@/services/trpc/init"
 
 import {
 	downloadSignedDocumentSchema,
 	// getMySignedEnvelopeSchema,
 	getSigningTimelineSchema,
-	listMySignedEnvelopesSchema
+	listMySignedEnvelopesSchema,
 } from "./my-signed.schemas"
 
 // Helper function to determine the correct bucket based on path format
@@ -28,7 +28,7 @@ export const mySignedRouter = createTRPCRouter({
 			if (!userId) {
 				throw new TRPCError({
 					code: "UNAUTHORIZED",
-					message: "User ID is required"
+					message: "User ID is required",
 				})
 			}
 
@@ -40,11 +40,11 @@ export const mySignedRouter = createTRPCRouter({
 							some: {
 								userId: userId,
 								role: "SIGNER" as const,
-								status: "SIGNED" as const
-							}
-						}
-					}
-				}
+								status: "SIGNED" as const,
+							},
+						},
+					},
+				},
 			}
 
 			let where
@@ -53,7 +53,7 @@ export const mySignedRouter = createTRPCRouter({
 				// Only completed envelopes
 				where = {
 					...baseWhere,
-					status: "COMPLETED" as const
+					status: "COMPLETED" as const,
 				}
 			} else if (status === "SIGNED") {
 				// User has signed but envelope might not be completed yet
@@ -75,49 +75,46 @@ export const mySignedRouter = createTRPCRouter({
 											select: {
 												id: true,
 												name: true,
-												email: true
-											}
-										}
-									}
+												email: true,
+											},
+										},
+									},
 								},
-								signedDoc: true // Include signed version for URL generation
-							}
+								signedDoc: true, // Include signed version for URL generation
+							},
 						},
 						createdBy: {
 							select: {
 								id: true,
 								name: true,
-								email: true
-							}
-						}
+								email: true,
+							},
+						},
 					},
 					orderBy: { updatedAt: "desc" }, // Most recently updated first
 					take: limit,
-					skip: offset
+					skip: offset,
 				}),
-				ctx.db.envelope.count({ where })
+				ctx.db.envelope.count({ where }),
 			])
 
 			// Transform to include only documents where this user signed
-			const supabase = getSupabaseClient()
+			const supabase = getPublicClient()
 			const transformedEnvelopes = envelopes
-				.map((envelope) => ({
+				.map(envelope => ({
 					...envelope,
 					documents: envelope.documents
-						.filter((doc) => {
+						.filter(doc => {
 							// Only include documents where the user is a signed recipient
 							return doc.recipients.some(
-								(r) =>
-									r.userId === userId &&
-									r.role === "SIGNER" &&
-									r.status === "SIGNED"
+								r => r.userId === userId && r.role === "SIGNER" && r.status === "SIGNED"
 							)
 						})
-						.map((doc) => {
+						.map(doc => {
 							// Use the signed version for URL (should exist since user signed)
 							const displayDocument = doc.signedDoc ?? doc
 							const {
-								data: { publicUrl }
+								data: { publicUrl },
 							} = supabase.storage
 								.from(getBucketName(displayDocument.path))
 								.getPublicUrl(displayDocument.path)
@@ -127,7 +124,7 @@ export const mySignedRouter = createTRPCRouter({
 								url: publicUrl,
 								displayPath: displayDocument.path,
 								isSignedVersion: !!doc.signedDoc,
-								recipients: doc.recipients.map((recipient) => ({
+								recipients: doc.recipients.map(recipient => ({
 									id: recipient.id,
 									role: recipient.role,
 									status: recipient.status,
@@ -136,14 +133,14 @@ export const mySignedRouter = createTRPCRouter({
 										? {
 												id: recipient.user.id,
 												name: recipient.user.name,
-												email: recipient.user.email
+												email: recipient.user.email,
 											}
-										: null
-								}))
+										: null,
+								})),
 							}
-						})
+						}),
 				}))
-				.filter((envelope) => envelope.documents.length > 0) // Only include envelopes with signed documents
+				.filter(envelope => envelope.documents.length > 0) // Only include envelopes with signed documents
 
 			return {
 				envelopes: transformedEnvelopes,
@@ -151,8 +148,8 @@ export const mySignedRouter = createTRPCRouter({
 				pagination: {
 					limit,
 					offset,
-					hasMore: offset + limit < total
-				}
+					hasMore: offset + limit < total,
+				},
 			}
 		}),
 
@@ -165,7 +162,7 @@ export const mySignedRouter = createTRPCRouter({
 			if (!userId) {
 				throw new TRPCError({
 					code: "UNAUTHORIZED",
-					message: "User ID is required"
+					message: "User ID is required",
 				})
 			}
 
@@ -177,41 +174,41 @@ export const mySignedRouter = createTRPCRouter({
 						where: {
 							userId: userId,
 							role: "SIGNER",
-							status: "SIGNED"
-						}
+							status: "SIGNED",
+						},
 					},
 					signedDoc: true,
 					envelope: {
 						select: {
 							id: true,
 							title: true,
-							status: true
-						}
-					}
-				}
+							status: true,
+						},
+					},
+				},
 			})
 
 			if (!document) {
 				throw new TRPCError({
 					code: "NOT_FOUND",
-					message: "Document not found"
+					message: "Document not found",
 				})
 			}
 
 			if (document.recipients.length === 0) {
 				throw new TRPCError({
 					code: "FORBIDDEN",
-					message: "You do not have access to download this document"
+					message: "You do not have access to download this document",
 				})
 			}
 
 			// Use the signed version if available
 			const downloadDocument = document.signedDoc ?? document
-			const supabase = getSupabaseClient()
+			const supabase = getPublicClient()
 
 			// Get download URL
 			const {
-				data: { publicUrl }
+				data: { publicUrl },
 			} = supabase.storage
 				.from(getBucketName(downloadDocument.path))
 				.getPublicUrl(downloadDocument.path)
@@ -221,7 +218,7 @@ export const mySignedRouter = createTRPCRouter({
 				filename: downloadDocument.name,
 				documentId: downloadDocument.id,
 				isSignedVersion: !!document.signedDoc,
-				envelope: document.envelope
+				envelope: document.envelope,
 			}
 		}),
 
@@ -234,65 +231,64 @@ export const mySignedRouter = createTRPCRouter({
 			if (!userId) {
 				throw new TRPCError({
 					code: "UNAUTHORIZED",
-					message: "User ID is required"
+					message: "User ID is required",
 				})
 			}
 
-			const [totalSigned, completedEnvelopes, pendingEnvelopes] =
-				await Promise.all([
-					// Count total documents signed by user
-					ctx.db.recipient.count({
-						where: {
-							userId: userId,
-							role: "SIGNER",
-							status: "SIGNED"
-						}
-					}),
+			const [totalSigned, completedEnvelopes, pendingEnvelopes] = await Promise.all([
+				// Count total documents signed by user
+				ctx.db.recipient.count({
+					where: {
+						userId: userId,
+						role: "SIGNER",
+						status: "SIGNED",
+					},
+				}),
 
-					// Count completed envelopes where user signed
-					ctx.db.envelope.count({
-						where: {
-							status: "COMPLETED",
-							documents: {
-								some: {
-									recipients: {
-										some: {
-											userId: userId,
-											role: "SIGNER",
-											status: "SIGNED"
-										}
-									}
-								}
-							}
-						}
-					}),
-
-					// Count envelopes still pending where user has signed
-					ctx.db.envelope.count({
-						where: {
-							status: {
-								in: ["PUBLISHED", "PENDING_APPROVAL"]
+				// Count completed envelopes where user signed
+				ctx.db.envelope.count({
+					where: {
+						status: "COMPLETED",
+						documents: {
+							some: {
+								recipients: {
+									some: {
+										userId: userId,
+										role: "SIGNER",
+										status: "SIGNED",
+									},
+								},
 							},
-							documents: {
-								some: {
-									recipients: {
-										some: {
-											userId: userId,
-											role: "SIGNER",
-											status: "SIGNED"
-										}
-									}
-								}
-							}
-						}
-					})
-				])
+						},
+					},
+				}),
+
+				// Count envelopes still pending where user has signed
+				ctx.db.envelope.count({
+					where: {
+						status: {
+							in: ["PUBLISHED", "PENDING_APPROVAL"],
+						},
+						documents: {
+							some: {
+								recipients: {
+									some: {
+										userId: userId,
+										role: "SIGNER",
+										status: "SIGNED",
+									},
+								},
+							},
+						},
+					},
+				}),
+			])
 
 			return {
 				totalDocumentsSigned: totalSigned,
 				completedEnvelopes,
 				pendingEnvelopes,
-				totalEnvelopes: completedEnvelopes + pendingEnvelopes
+				totalEnvelopes: completedEnvelopes + pendingEnvelopes,
 			}
 		}),
 
@@ -305,7 +301,7 @@ export const mySignedRouter = createTRPCRouter({
 			if (!userId) {
 				throw new TRPCError({
 					code: "UNAUTHORIZED",
-					message: "User ID is required"
+					message: "User ID is required",
 				})
 			}
 
@@ -336,30 +332,30 @@ export const mySignedRouter = createTRPCRouter({
 					documentFields: {
 						some: {
 							signedAt: {
-								gte: startDate
-							}
-						}
-					}
+								gte: startDate,
+							},
+						},
+					},
 				},
 				include: {
 					documentFields: {
 						where: {
 							signedAt: {
-								gte: startDate
-							}
+								gte: startDate,
+							},
 						},
 						orderBy: {
-							signedAt: "asc"
-						}
-					}
-				}
+							signedAt: "asc",
+						},
+					},
+				},
 			})
 
 			// Process data to create timeline
 			const timelineData: Record<string, number> = {}
 
-			signedDocuments.forEach((recipient) => {
-				recipient.documentFields.forEach((field) => {
+			signedDocuments.forEach(recipient => {
+				recipient.documentFields.forEach(field => {
 					if (field.signedAt) {
 						let key: string
 						const date = new Date(field.signedAt)
@@ -410,18 +406,15 @@ export const mySignedRouter = createTRPCRouter({
 			}
 
 			// Create final timeline with all periods included
-			const timeline = allKeys.map((key) => ({
+			const timeline = allKeys.map(key => ({
 				period: key,
-				signed: timelineData[key] ?? 0
+				signed: timelineData[key] ?? 0,
 			}))
 
 			return {
 				timeline,
-				totalSigned: Object.values(timelineData).reduce(
-					(sum, count) => sum + count,
-					0
-				),
-				period
+				totalSigned: Object.values(timelineData).reduce((sum, count) => sum + count, 0),
+				period,
 			}
-		})
+		}),
 })

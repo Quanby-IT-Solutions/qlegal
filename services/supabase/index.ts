@@ -1,37 +1,48 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js"
 
-// Singleton pattern for client-side Supabase client
-let supabaseClient: SupabaseClient | null = null
+import { env } from "@/env"
 
-export function getSupabaseClient(): SupabaseClient {
-	if (!supabaseClient) {
-		const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-		const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+let publicClient: SupabaseClient | null = null
+let serviceRoleClient: SupabaseClient | null = null
+
+export function getPublicClient(): SupabaseClient {
+	if (!publicClient) {
+		const supabaseUrl = env.NEXT_PUBLIC_SUPABASE_URL
+		const supabaseKey = env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
 		if (!supabaseUrl || !supabaseKey) {
 			throw new Error("Missing Supabase environment variables")
 		}
 
-		supabaseClient = createClient(supabaseUrl, supabaseKey, {
+		publicClient = createClient(supabaseUrl, supabaseKey, {
 			auth: {
 				persistSession: true,
 				autoRefreshToken: true,
-				detectSessionInUrl: true
-			}
+				detectSessionInUrl: true,
+			},
 		})
 	}
 
-	return supabaseClient
+	return publicClient
 }
 
-// For server-side usage where you need a fresh client
-export function createSupabaseClient(): SupabaseClient {
-	const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-	const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+// Admin client with service role key - bypasses RLS
+export function getServiceRoleClient(): SupabaseClient {
+	if (!serviceRoleClient) {
+		const supabaseUrl = env.NEXT_PUBLIC_SUPABASE_URL
+		const supabaseServiceKey = env.SUPABASE_SERVICE_ROLE_KEY
 
-	if (!supabaseUrl || !supabaseKey) {
-		throw new Error("Missing Supabase environment variables")
+		if (!supabaseUrl || !supabaseServiceKey) {
+			throw new Error("Missing Supabase service role key environment variables")
+		}
+
+		serviceRoleClient = createClient(supabaseUrl, supabaseServiceKey, {
+			auth: {
+				autoRefreshToken: false,
+				persistSession: false,
+			},
+		})
 	}
 
-	return createClient(supabaseUrl, supabaseKey)
+	return serviceRoleClient
 }
