@@ -28,10 +28,13 @@ export function AddPasswordForm() {
 		},
 	})
 
+	const utils = trpc.useUtils()
+
 	const { mutate, isPending } = trpc.settings.addPassword.useMutation({
 		onSuccess: data => {
 			toast.success(data.message)
 			form.reset()
+			void utils.settings.checkUserHasPassword.invalidate()
 		},
 		onError: err => toast.error(err.message),
 	})
@@ -42,33 +45,37 @@ export function AddPasswordForm() {
 		<Form {...form}>
 			<form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
 				<div className="flex flex-col gap-6 md:grid md:grid-cols-2 md:gap-8">
-					<FormField
-						control={form.control}
-						name="newPassword"
-						render={({ field }) => (
-							<FormItem className="md:col-span-1">
-								<FormLabel>New Password</FormLabel>
-								<FormControl>
-									<InputPassword placeholder="Enter your new password" {...field} />
-								</FormControl>
-								<FormMessage />
-							</FormItem>
-						)}
-					/>
+					<div className="md:col-span-1">
+						<FormField
+							control={form.control}
+							name="newPassword"
+							render={({ field }) => (
+								<FormItem>
+									<FormLabel>New Password</FormLabel>
+									<FormControl>
+										<InputPassword placeholder="Enter your new password" {...field} />
+									</FormControl>
+									<FormMessage />
+								</FormItem>
+							)}
+						/>
+					</div>
 
-					<FormField
-						control={form.control}
-						name="confirmPassword"
-						render={({ field }) => (
-							<FormItem className="md:col-span-1">
-								<FormLabel>Confirm Password</FormLabel>
-								<FormControl>
-									<InputPassword placeholder="Confirm your new password" {...field} />
-								</FormControl>
-								<FormMessage />
-							</FormItem>
-						)}
-					/>
+					<div className="md:col-span-1">
+						<FormField
+							control={form.control}
+							name="confirmPassword"
+							render={({ field }) => (
+								<FormItem>
+									<FormLabel>Confirm Password</FormLabel>
+									<FormControl>
+										<InputPassword placeholder="Confirm your new password" {...field} />
+									</FormControl>
+									<FormMessage />
+								</FormItem>
+							)}
+						/>
+					</div>
 				</div>
 
 				<Button type="submit" className="mt-4" disabled={isPending}>
