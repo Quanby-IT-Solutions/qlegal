@@ -101,7 +101,7 @@ export function PersonalInformationForm() {
 					/>
 				</div>
 
-				<Button type="submit" className="mt-4 w-full" disabled={isPending}>
+				<Button type="submit" className="mt-4" disabled={isPending}>
 					{isPending ? "Updating Personal Information..." : "Update Personal Information"}
 				</Button>
 			</form>
