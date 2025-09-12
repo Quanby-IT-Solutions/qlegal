@@ -31,4 +31,20 @@ export const changePasswordSchema = z
 		}
 	})
 
+export const addPasswordSchema = z
+	.object({
+		newPassword: newPasswordSchema,
+		confirmPassword: confirmPasswordSchema,
+	})
+	.superRefine((data, ctx) => {
+		if (data.newPassword !== data.confirmPassword) {
+			ctx.addIssue({
+				code: "custom",
+				message: "Passwords do not match",
+				path: ["confirmPassword"],
+			})
+		}
+	})
+
 export type ChangePasswordSchema = z.infer<typeof changePasswordSchema>
+export type AddPasswordSchema = z.infer<typeof addPasswordSchema>
