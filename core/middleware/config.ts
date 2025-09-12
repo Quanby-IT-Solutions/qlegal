@@ -37,13 +37,13 @@ export const ROUTE_CONFIG: RouteConfig = {
 	// Protected routes - require authentication and role-based access
 	protected: {
 		shared: [
-			{ path: "/profile" },
-			{ path: "/notifications" },
-			{ path: "/settings" },
-			{ path: "/envelopes" },
-			{ path: "/envelope" },
-			{ path: "/my-signed" },
 			{ path: "/auth/signature" },
+			{ path: "/envelope" },
+			{ path: "/envelopes" },
+			{ path: "/my-signed" },
+			{ path: "/notifications" },
+			{ path: "/profile" },
+			{ path: "/settings" },
 		],
 		byRole: {
 			client: [],

@@ -2,7 +2,7 @@ import { TRPCError } from "@trpc/server"
 import { PDFDocument, rgb } from "pdf-lib"
 import { z } from "zod/v4"
 
-import { getSupabaseClient } from "@/services/supabase"
+import { getPublicClient } from "@/services/supabase"
 import { getDocumentPublicUrl } from "@/services/supabase/signed-url"
 import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
 
@@ -10,13 +10,13 @@ import { documentPrepositioningRouter } from "../components/document-preposition
 import {
 	createEnvelopeSchema,
 	getDocumentForEditingSchema,
-	sendEnvelopeSchema
+	sendEnvelopeSchema,
 } from "./new-signature.schemas"
 
 // Signature schemas (consolidated)
 const getDocumentForSigningSchema = z.object({
 	envelopeId: z.string().min(1, "Envelope ID is required"),
-	documentId: z.string().min(1, "Document ID is required")
+	documentId: z.string().min(1, "Document ID is required"),
 })
 
 const signFieldSchema = z.object({
@@ -25,14 +25,14 @@ const signFieldSchema = z.object({
 		type: z.enum(["drawn", "typed", "uploaded", "default"]),
 		value: z.string().min(1, "Signature value is required"),
 		ipAddress: z.string().optional(),
-		userAgent: z.string().optional()
-	})
+		userAgent: z.string().optional(),
+	}),
 })
 
 const completeDocumentSignatureSchema = z.object({
 	envelopeId: z.string().min(1, "Envelope ID is required"),
 	documentId: z.string().min(1, "Document ID is required"),
-	agreed: z.boolean().refine((val) => val === true, "Must agree to terms")
+	agreed: z.boolean().refine(val => val === true, "Must agree to terms"),
 })
 
 // Helper function to validate and clean base64 image data
@@ -49,7 +49,7 @@ function validateAndCleanBase64Image(dataUrl: string): {
 				isValid: false,
 				mimeType: "",
 				base64Data: "",
-				error: "Not a data URL"
+				error: "Not a data URL",
 			}
 		}
 
@@ -60,7 +60,7 @@ function validateAndCleanBase64Image(dataUrl: string): {
 				isValid: false,
 				mimeType: "",
 				base64Data: "",
-				error: "Invalid data URL format"
+				error: "Invalid data URL format",
 			}
 		}
 
@@ -73,20 +73,12 @@ function validateAndCleanBase64Image(dataUrl: string): {
 		const mimeType = mimeMatch?.[1] ?? ""
 
 		// Validate MIME type
-		if (
-			![
-				"image/png",
-				"image/jpeg",
-				"image/jpg",
-				"image/gif",
-				"image/webp"
-			].includes(mimeType)
-		) {
+		if (!["image/png", "image/jpeg", "image/jpg", "image/gif", "image/webp"].includes(mimeType)) {
 			return {
 				isValid: false,
 				mimeType,
 				base64Data: "",
-				error: `Unsupported MIME type: ${mimeType}`
+				error: `Unsupported MIME type: ${mimeType}`,
 			}
 		}
 
@@ -96,7 +88,7 @@ function validateAndCleanBase64Image(dataUrl: string): {
 				isValid: false,
 				mimeType,
 				base64Data: "",
-				error: "Empty base64 data"
+				error: "Empty base64 data",
 			}
 		}
 
@@ -108,19 +100,18 @@ function validateAndCleanBase64Image(dataUrl: string): {
 				isValid: false,
 				mimeType,
 				base64Data: "",
-				error: "Invalid base64 encoding"
+				error: "Invalid base64 encoding",
 			}
 		}
 
 		return { isValid: true, mimeType, base64Data }
 	} catch (error) {
-		const errorMessage =
-			error instanceof Error ? error.message : "Unknown error"
+		const errorMessage = error instanceof Error ? error.message : "Unknown error"
 		return {
 			isValid: false,
 			mimeType: "",
 			base64Data: "",
-			error: `Validation error: ${errorMessage}`
+			error: `Validation error: ${errorMessage}`,
 		}
 	}
 }
@@ -170,17 +161,13 @@ async function mergePDFSignatures(
 			) {
 				try {
 					// Validate and clean the base64 image data
-					const validation = validateAndCleanBase64Image(
-						signature.signatureValue
-					)
+					const validation = validateAndCleanBase64Image(signature.signatureValue)
 
 					if (!validation.isValid) {
 						continue
 					}
 
-					const imageBytes = Uint8Array.from(
-						Buffer.from(validation.base64Data, "base64")
-					)
+					const imageBytes = Uint8Array.from(Buffer.from(validation.base64Data, "base64"))
 
 					// Try to embed based on detected type first, then fallback
 					let image
@@ -209,7 +196,7 @@ async function mergePDFSignatures(
 						x,
 						y,
 						width: signature.width,
-						height: signature.height
+						height: signature.height,
 					})
 				} catch {
 					// Continue to next signature on error
@@ -223,7 +210,7 @@ async function mergePDFSignatures(
 						x,
 						y: y + signature.height * 0.2, // Center vertically
 						size: fontSize,
-						color: rgb(0, 0, 0) // Black color
+						color: rgb(0, 0, 0), // Black color
 					})
 				} catch {
 					// Continue to next signature on error
@@ -267,7 +254,7 @@ export const signatureLiteRouter = createTRPCRouter({
 			const document = await ctx.db.document.findFirst({
 				where: {
 					id: documentId,
-					envelopeId: envelopeId
+					envelopeId: envelopeId,
 				},
 				include: {
 					envelope: {
@@ -275,8 +262,8 @@ export const signatureLiteRouter = createTRPCRouter({
 							id: true,
 							title: true,
 							status: true,
-							userId: true
-						}
+							userId: true,
+						},
 					},
 					documentFields: true,
 					recipients: {
@@ -285,18 +272,18 @@ export const signatureLiteRouter = createTRPCRouter({
 								select: {
 									id: true,
 									name: true,
-									email: true
-								}
-							}
-						}
-					}
-				}
+									email: true,
+								},
+							},
+						},
+					},
+				},
 			})
 
 			if (!document) {
 				throw new TRPCError({
 					code: "NOT_FOUND",
-					message: "Document not found"
+					message: "Document not found",
 				})
 			}
 
@@ -310,34 +297,34 @@ export const signatureLiteRouter = createTRPCRouter({
 								select: {
 									id: true,
 									name: true,
-									email: true
-								}
-							}
-						}
-					}
-				}
+									email: true,
+								},
+							},
+						},
+					},
+				},
 			})
 
 			if (!document) {
 				throw new TRPCError({
 					code: "NOT_FOUND",
-					message: "Document not found"
+					message: "Document not found",
 				})
 			}
 
 			// Check if user has access - either as envelope owner or as a recipient
 			// First try to find an APPROVED or SIGNED recipient with fields assigned to them for this document
 			let userRecipient = envelope?.recipient?.find(
-				(r) =>
+				r =>
 					r.userId === userId &&
 					(r.status === "APPROVED" || r.status === "SIGNED") &&
 					r.documentId === documentId &&
-					document?.documentFields?.some((field) => field.recipientId === r.id)
+					document?.documentFields?.some(field => field.recipientId === r.id)
 			)
 
 			// If no recipient with fields found, try to find any APPROVED or SIGNED recipient for this document
 			userRecipient ??= envelope?.recipient?.find(
-				(r) =>
+				r =>
 					r.userId === userId &&
 					(r.status === "APPROVED" || r.status === "SIGNED") &&
 					r.documentId === documentId
@@ -345,21 +332,19 @@ export const signatureLiteRouter = createTRPCRouter({
 
 			// Last fallback: any recipient for this user and document
 			userRecipient ??= envelope?.recipient?.find(
-				(r) => r.userId === userId && r.documentId === documentId
+				r => r.userId === userId && r.documentId === documentId
 			)
 
 			// Additional fallback: any recipient for this user in this envelope (regardless of documentId)
 			userRecipient ??= envelope?.recipient?.find(
-				(r) =>
-					r.userId === userId &&
-					(r.status === "APPROVED" || r.status === "SIGNED")
+				r => r.userId === userId && (r.status === "APPROVED" || r.status === "SIGNED")
 			)
 			const isOwner = document?.envelope?.userId === userId
 
 			if (!userRecipient && !isOwner) {
 				throw new TRPCError({
 					code: "FORBIDDEN",
-					message: "You are not authorized to access this document"
+					message: "You are not authorized to access this document",
 				})
 			}
 
@@ -368,7 +353,7 @@ export const signatureLiteRouter = createTRPCRouter({
 
 			// Get fields assigned to the current user (if they're a recipient)
 			const userFields = document.documentFields
-				.filter((field) => {
+				.filter(field => {
 					// If user is recipient, only show fields assigned to them
 					if (userRecipient) {
 						return field.recipientId === userRecipient.id
@@ -376,7 +361,7 @@ export const signatureLiteRouter = createTRPCRouter({
 					// If user is envelope owner, show all fields (for preview)
 					return isOwner
 				})
-				.map((field) => ({
+				.map(field => ({
 					id: field.id,
 					type: field.type,
 					label: field.label ?? `${field.type} Field`,
@@ -384,26 +369,26 @@ export const signatureLiteRouter = createTRPCRouter({
 					position: {
 						x: field.x,
 						y: field.y,
-						pageNumber: field.pageNumber
+						pageNumber: field.pageNumber,
 					},
 					size: {
 						width: field.width,
-						height: field.height
+						height: field.height,
 					},
 					placeholder: field.placeholder,
 					options: field.options,
 					signed: !!field.signatureValue,
-					signatureValue: field.signatureValue as string | undefined
+					signatureValue: field.signatureValue as string | undefined,
 				}))
 
 			// Transform recipients
-			const recipients = envelope?.recipient?.map((recipient) => ({
+			const recipients = envelope?.recipient?.map(recipient => ({
 				id: recipient.id,
 				name: recipient.user?.name,
 				email: recipient.user?.email ?? recipient.email ?? "Unknown",
 				role: recipient.role,
 				status: recipient.status,
-				isCurrentUser: recipient.userId === userId
+				isCurrentUser: recipient.userId === userId,
 			}))
 
 			return {
@@ -414,95 +399,89 @@ export const signatureLiteRouter = createTRPCRouter({
 				fields: userFields,
 				recipients,
 				isOwner,
-				currentUserRecipient: userRecipient
+				currentUserRecipient: userRecipient,
 			}
 		}),
 
-	signField: protectedProcedure
-		.input(signFieldSchema)
-		.mutation(async ({ ctx, input }) => {
-			const userId = ctx.session.user.id
-			const { fieldId, signatureData } = input
+	signField: protectedProcedure.input(signFieldSchema).mutation(async ({ ctx, input }) => {
+		const userId = ctx.session.user.id
+		const { fieldId, signatureData } = input
 
-			// Get the field and verify user access
-			const field = await ctx.db.documentField.findFirst({
-				where: {
-					id: fieldId,
-					recipient: {
-						userId: userId
-					}
+		// Get the field and verify user access
+		const field = await ctx.db.documentField.findFirst({
+			where: {
+				id: fieldId,
+				recipient: {
+					userId: userId,
 				},
-				include: {
-					recipient: true,
-					document: {
-						include: {
-							envelope: true
-						}
-					}
-				}
-			})
-
-			if (!field) {
-				throw new TRPCError({
-					code: "NOT_FOUND",
-					message: "Field not found or access denied"
-				})
-			}
-
-			// Check if envelope is in the right status for signing
-			console.log("Debug: Envelope status check:", {
-				envelopeId: field.document.envelope?.id,
-				envelopeStatus: field.document.envelope?.status,
-				allowedStatuses: ["PUBLISHED", "APPROVED", "COMPLETED"],
-				isAllowed: ["PUBLISHED", "APPROVED", "COMPLETED"].includes(
-					field.document.envelope?.status ?? ""
-				)
-			})
-
-			if (
-				!["PUBLISHED", "APPROVED", "COMPLETED"].includes(
-					field.document.envelope?.status ?? ""
-				)
-			) {
-				throw new TRPCError({
-					code: "BAD_REQUEST",
-					message: "Document is not available for signing"
-				})
-			}
-
-			const finalSignatureValue = signatureData.value
-
-			// TODO: For now, we'll store base64 data directly for drawn signatures
-			// Storage upload will be implemented later per user request
-
-			// Update field with signature value
-			const updatedField = await ctx.db.documentField.update({
-				where: {
-					id: fieldId
+			},
+			include: {
+				recipient: true,
+				document: {
+					include: {
+						envelope: true,
+					},
 				},
-				data: {
-					signatureValue: finalSignatureValue,
-					signatureType: signatureData.type,
-					signedAt: new Date(),
-					ipAddress: signatureData.ipAddress,
-					userAgent: signatureData.userAgent
-				}
-			})
+			},
+		})
 
-			// Update recipient status if this was their first signature
-			await ctx.db.recipient.update({
-				where: { id: field.recipientId },
-				data: {
-					status: "SIGNED"
-				}
+		if (!field) {
+			throw new TRPCError({
+				code: "NOT_FOUND",
+				message: "Field not found or access denied",
 			})
+		}
 
-			return {
-				success: true,
-				fieldId: updatedField.id,
-				signatureUrl: finalSignatureValue
-			}
-		}),
+		// Check if envelope is in the right status for signing
+		console.log("Debug: Envelope status check:", {
+			envelopeId: field.document.envelope?.id,
+			envelopeStatus: field.document.envelope?.status,
+			allowedStatuses: ["PUBLISHED", "APPROVED", "COMPLETED"],
+			isAllowed: ["PUBLISHED", "APPROVED", "COMPLETED"].includes(
+				field.document.envelope?.status ?? ""
+			),
+		})
+
+		if (!["PUBLISHED", "APPROVED", "COMPLETED"].includes(field.document.envelope?.status ?? "")) {
+			throw new TRPCError({
+				code: "BAD_REQUEST",
+				message: "Document is not available for signing",
+			})
+		}
+
+		const finalSignatureValue = signatureData.value
+
+		// TODO: For now, we'll store base64 data directly for drawn signatures
+		// Storage upload will be implemented later per user request
+
+		// Update field with signature value
+		const updatedField = await ctx.db.documentField.update({
+			where: {
+				id: fieldId,
+			},
+			data: {
+				signatureValue: finalSignatureValue,
+				signatureType: signatureData.type,
+				signedAt: new Date(),
+				ipAddress: signatureData.ipAddress,
+				userAgent: signatureData.userAgent,
+			},
+		})
+
+		// Update recipient status if this was their first signature
+		await ctx.db.recipient.update({
+			where: { id: field.recipientId },
+			data: {
+				status: "SIGNED",
+			},
+		})
+
+		return {
+			success: true,
+			fieldId: updatedField.id,
+			signatureUrl: finalSignatureValue,
+		}
+	}),
 
 	completeDocumentSignature: protectedProcedure
 		.input(completeDocumentSignatureSchema)
@@ -513,7 +492,7 @@ export const signatureLiteRouter = createTRPCRouter({
 			if (!agreed) {
 				throw new TRPCError({
 					code: "BAD_REQUEST",
-					message: "Must agree to terms and conditions"
+					message: "Must agree to terms and conditions",
 				})
 			}
 
@@ -521,14 +500,14 @@ export const signatureLiteRouter = createTRPCRouter({
 			const recipient = await ctx.db.recipient.findFirst({
 				where: {
 					userId: userId,
-					documentId: documentId
-				}
+					documentId: documentId,
+				},
 			})
 
 			if (!recipient) {
 				throw new TRPCError({
 					code: "NOT_FOUND",
-					message: "You are not a recipient of this document"
+					message: "You are not a recipient of this document",
 				})
 			}
 
@@ -537,21 +516,19 @@ export const signatureLiteRouter = createTRPCRouter({
 				where: {
 					documentId: documentId,
 					recipientId: recipient.id,
-					required: true
-				}
+					required: true,
+				},
 			})
 
 			// Check if all required fields are signed
-			const unsignedRequiredFields = requiredFields.filter(
-				(field) => !field.signatureValue
-			)
+			const unsignedRequiredFields = requiredFields.filter(field => !field.signatureValue)
 
 			if (unsignedRequiredFields.length > 0) {
 				throw new TRPCError({
 					code: "BAD_REQUEST",
 					message: `Please complete all required fields. Missing: ${unsignedRequiredFields
-						.map((f) => f.label ?? f.type)
-						.join(", ")}`
+						.map(f => f.label ?? f.type)
+						.join(", ")}`,
 				})
 			}
 
@@ -559,8 +536,8 @@ export const signatureLiteRouter = createTRPCRouter({
 			await ctx.db.recipient.update({
 				where: { id: recipient.id },
 				data: {
-					status: "SIGNED"
-				}
+					status: "SIGNED",
+				},
 			})
 
 			// Check if all recipients have signed this document
@@ -568,14 +545,12 @@ export const signatureLiteRouter = createTRPCRouter({
 				where: {
 					documentId: documentId,
 					role: {
-						not: "VIEWER"
-					}
-				}
+						not: "VIEWER",
+					},
+				},
 			})
 
-			const documentFullySigned = allRecipients.every(
-				(r) => r.status === "SIGNED" || r.role === "CC"
-			)
+			const documentFullySigned = allRecipients.every(r => r.status === "SIGNED" || r.role === "CC")
 
 			// Check if ALL documents in the envelope have been signed
 			const allEnvelopeDocuments = await ctx.db.document.findMany({
@@ -584,19 +559,16 @@ export const signatureLiteRouter = createTRPCRouter({
 					recipients: {
 						where: {
 							role: {
-								not: "VIEWER"
-							}
-						}
-					}
-				}
+								not: "VIEWER",
+							},
+						},
+					},
+				},
 			})
 
-			const allDocumentsSigned = allEnvelopeDocuments.every((doc) => {
-				const signersForDoc = doc.recipients.filter((r) => r.role !== "CC")
-				return (
-					signersForDoc.length === 0 ||
-					signersForDoc.every((r) => r.status === "SIGNED")
-				)
+			const allDocumentsSigned = allEnvelopeDocuments.every(doc => {
+				const signersForDoc = doc.recipients.filter(r => r.role !== "CC")
+				return signersForDoc.length === 0 || signersForDoc.every(r => r.status === "SIGNED")
 			})
 
 			let signedDocumentUrl: string | null = null
@@ -610,11 +582,11 @@ export const signatureLiteRouter = createTRPCRouter({
 							documentFields: {
 								where: {
 									signatureValue: {
-										not: null
-									}
-								}
-							}
-						}
+										not: null,
+									},
+								},
+							},
+						},
 					})
 
 					if (document) {
@@ -623,37 +595,32 @@ export const signatureLiteRouter = createTRPCRouter({
 							where: {
 								documentId: documentId,
 								signatureValue: {
-									not: null
-								}
-							}
+									not: null,
+								},
+							},
 						})
 
 						// Generate signed document with all signatures merged
-						const supabase = getSupabaseClient()
+						const supabase = getPublicClient()
 
 						// Determine the correct bucket based on document path
 						// Legacy files (no slashes) -> "documents", Envelope files (with slashes) -> "envelopes"
-						const bucketName = document.path.includes("/")
-							? "envelopes"
-							: "documents"
+						const bucketName = document.path.includes("/") ? "envelopes" : "documents"
 
 						// Get the original document from the correct bucket
-						const { data: originalFile, error: downloadError } =
-							await supabase.storage.from(bucketName).download(document.path)
+						const { data: originalFile, error: downloadError } = await supabase.storage
+							.from(bucketName)
+							.download(document.path)
 
 						if (downloadError) {
-							throw new Error(
-								`Failed to download original document: ${downloadError.message}`
-							)
+							throw new Error(`Failed to download original document: ${downloadError.message}`)
 						}
 
 						// Convert blob to buffer
-						const originalPdfBuffer = Buffer.from(
-							await originalFile.arrayBuffer()
-						)
+						const originalPdfBuffer = Buffer.from(await originalFile.arrayBuffer())
 
 						// Prepare signatures for PDF merging
-						const signaturesToMerge = allSignatures.map((field) => ({
+						const signaturesToMerge = allSignatures.map(field => ({
 							id: field.id,
 							signatureValue: field.signatureValue!,
 							signatureType: field.signatureType!,
@@ -661,37 +628,31 @@ export const signatureLiteRouter = createTRPCRouter({
 							y: field.y,
 							width: field.width,
 							height: field.height,
-							pageNumber: field.pageNumber
+							pageNumber: field.pageNumber,
 						}))
 
 						// Merge signatures into PDF
-						const signedPdfBuffer = await mergePDFSignatures(
-							originalPdfBuffer,
-							signaturesToMerge
-						)
+						const signedPdfBuffer = await mergePDFSignatures(originalPdfBuffer, signaturesToMerge)
 
 						// Create signed document path
 						const signedFileName = `${envelopeId}/signed/${documentId}_signed.pdf`
 
 						// Upload signed document to envelopes bucket
-						const { data: uploadData, error: uploadError } =
-							await supabase.storage
-								.from("envelopes")
-								.upload(signedFileName, signedPdfBuffer, {
-									contentType: document.type,
-									cacheControl: "3600",
-									upsert: true // Allow overwriting if it already exists
-								})
+						const { data: uploadData, error: uploadError } = await supabase.storage
+							.from("envelopes")
+							.upload(signedFileName, signedPdfBuffer, {
+								contentType: document.type,
+								cacheControl: "3600",
+								upsert: true, // Allow overwriting if it already exists
+							})
 
 						if (uploadError) {
-							throw new Error(
-								`Failed to save signed document: ${uploadError.message}`
-							)
+							throw new Error(`Failed to save signed document: ${uploadError.message}`)
 						}
 
 						// Get the public URL for the signed document
 						const {
-							data: { publicUrl }
+							data: { publicUrl },
 						} = supabase.storage.from("envelopes").getPublicUrl(uploadData.path)
 
 						signedDocumentUrl = publicUrl
@@ -704,16 +665,16 @@ export const signatureLiteRouter = createTRPCRouter({
 								type: document.type,
 								size: signedPdfBuffer.length,
 								path: uploadData.path,
-								envelopeId: envelopeId
-							}
+								envelopeId: envelopeId,
+							},
 						})
 
 						// Update original document to reference the signed version
 						await ctx.db.document.update({
 							where: { id: documentId },
 							data: {
-								signedDocId: signedDocument.id
-							}
+								signedDocId: signedDocument.id,
+							},
 						})
 					}
 				} catch {
@@ -725,8 +686,8 @@ export const signatureLiteRouter = createTRPCRouter({
 					await ctx.db.envelope.update({
 						where: { id: envelopeId },
 						data: {
-							status: "COMPLETED"
-						}
+							status: "COMPLETED",
+						},
 					})
 				}
 			}
@@ -735,7 +696,7 @@ export const signatureLiteRouter = createTRPCRouter({
 				success: true,
 				allDocumentsSigned: allDocumentsSigned,
 				documentFullySigned: documentFullySigned,
-				signedDocumentUrl
+				signedDocumentUrl,
 			}
 		}),
 
@@ -743,7 +704,7 @@ export const signatureLiteRouter = createTRPCRouter({
 	getSignedDocument: protectedProcedure
 		.input(
 			z.object({
-				documentId: z.string().min(1, "Document ID is required")
+				documentId: z.string().min(1, "Document ID is required"),
 			})
 		)
 		.query(async ({ ctx, input }) => {
@@ -753,23 +714,23 @@ export const signatureLiteRouter = createTRPCRouter({
 			// Get document with signed version
 			const document = await ctx.db.document.findFirst({
 				where: {
-					id: documentId
+					id: documentId,
 				},
 				include: {
 					signedDoc: true,
 					envelope: true,
 					recipients: {
 						where: {
-							userId: userId
-						}
-					}
-				}
+							userId: userId,
+						},
+					},
+				},
 			})
 
 			if (!document) {
 				throw new TRPCError({
 					code: "NOT_FOUND",
-					message: "Document not found"
+					message: "Document not found",
 				})
 			}
 
@@ -780,24 +741,22 @@ export const signatureLiteRouter = createTRPCRouter({
 			if (!isOwner && !isRecipient) {
 				throw new TRPCError({
 					code: "FORBIDDEN",
-					message: "You are not authorized to access this document"
+					message: "You are not authorized to access this document",
 				})
 			}
 
 			if (!document.signedDoc) {
 				return {
 					hasSignedVersion: false,
-					signedDocumentUrl: null
+					signedDocumentUrl: null,
 				}
 			}
 
 			// Get signed document URL
-			const supabase = getSupabaseClient()
+			const supabase = getPublicClient()
 			const {
-				data: { publicUrl }
-			} = supabase.storage
-				.from("envelopes")
-				.getPublicUrl(document.signedDoc.path)
+				data: { publicUrl },
+			} = supabase.storage.from("envelopes").getPublicUrl(document.signedDoc.path)
 
 			return {
 				hasSignedVersion: true,
@@ -806,8 +765,8 @@ export const signatureLiteRouter = createTRPCRouter({
 					id: document.signedDoc.id,
 					name: document.signedDoc.name,
 					path: document.signedDoc.path,
-					createdAt: document.signedDoc.createdAt
-				}
+					createdAt: document.signedDoc.createdAt,
+				},
 			}
 		}),
 
@@ -819,7 +778,7 @@ export const signatureLiteRouter = createTRPCRouter({
 				file: z.string(), // Base64 encoded file
 				mimeType: z.string(),
 				size: z.number(),
-				description: z.string().optional()
+				description: z.string().optional(),
 			})
 		)
 		.mutation(async ({ ctx, input }) => {
@@ -832,12 +791,12 @@ export const signatureLiteRouter = createTRPCRouter({
 						name,
 						path: "", // Will be updated after upload
 						type: mimeType,
-						size
-					}
+						size,
+					},
 				})
 
 				// Upload to Supabase storage
-				const supabase = getSupabaseClient()
+				const supabase = getPublicClient()
 				const fileName = `${document.id}/${name}`
 
 				// Decode base64 file data
@@ -847,7 +806,7 @@ export const signatureLiteRouter = createTRPCRouter({
 					.from("documents")
 					.upload(fileName, fileBuffer, {
 						contentType: mimeType,
-						cacheControl: "3600"
+						cacheControl: "3600",
 					})
 
 				if (uploadError) {
@@ -855,29 +814,29 @@ export const signatureLiteRouter = createTRPCRouter({
 					await ctx.db.document.delete({ where: { id: document.id } })
 					throw new TRPCError({
 						code: "INTERNAL_SERVER_ERROR",
-						message: `Upload failed: ${uploadError.message}`
+						message: `Upload failed: ${uploadError.message}`,
 					})
 				}
 
 				// Update document with storage path
 				const updatedDocument = await ctx.db.document.update({
 					where: { id: document.id },
-					data: { path: uploadData.path }
+					data: { path: uploadData.path },
 				})
 
 				// Get public URL for the document
 				const {
-					data: { publicUrl }
+					data: { publicUrl },
 				} = supabase.storage.from("documents").getPublicUrl(uploadData.path)
 
 				return {
 					...updatedDocument,
-					url: publicUrl
+					url: publicUrl,
 				}
 			} catch (error) {
 				throw new TRPCError({
 					code: "INTERNAL_SERVER_ERROR",
-					message: error instanceof Error ? error.message : "Upload failed"
+					message: error instanceof Error ? error.message : "Upload failed",
 				})
 			}
 		}),
@@ -891,40 +850,37 @@ export const signatureLiteRouter = createTRPCRouter({
 				include: {
 					envelope: {
 						include: {
-							recipient: true
-						}
+							recipient: true,
+						},
 					},
-					documentFields: true
-				}
+					documentFields: true,
+				},
 			})
 
 			if (!document) {
 				throw new TRPCError({
 					code: "NOT_FOUND",
-					message: "Document not found"
+					message: "Document not found",
 				})
 			}
 
 			// Check if user owns the document (through envelope)
-			if (
-				document.envelope &&
-				document.envelope.userId !== ctx.session.user.id
-			) {
+			if (document.envelope && document.envelope.userId !== ctx.session.user.id) {
 				throw new TRPCError({
 					code: "FORBIDDEN",
-					message: "You don't have permission to access this document"
+					message: "You don't have permission to access this document",
 				})
 			}
 
 			// Get Supabase public URL for the document
-			const supabase = getSupabaseClient()
+			const supabase = getPublicClient()
 			const {
-				data: { publicUrl }
+				data: { publicUrl },
 			} = supabase.storage.from("documents").getPublicUrl(document.path)
 
 			return {
 				...document,
-				url: publicUrl
+				url: publicUrl,
 			}
 		}),
 
@@ -936,13 +892,13 @@ export const signatureLiteRouter = createTRPCRouter({
 
 			// Check if document exists and user has access
 			const document = await ctx.db.document.findUnique({
-				where: { id: documentId }
+				where: { id: documentId },
 			})
 
 			if (!document) {
 				throw new TRPCError({
 					code: "NOT_FOUND",
-					message: "Document not found"
+					message: "Document not found",
 				})
 			}
 
@@ -950,32 +906,32 @@ export const signatureLiteRouter = createTRPCRouter({
 			if (document.envelopeId) {
 				throw new TRPCError({
 					code: "BAD_REQUEST",
-					message: "Document is already assigned to an envelope"
+					message: "Document is already assigned to an envelope",
 				})
 			}
 
 			try {
 				// Create envelope with recipients and fields in a transaction
-				const envelope = await ctx.db.$transaction(async (tx) => {
+				const envelope = await ctx.db.$transaction(async tx => {
 					// Create the envelope
 					const newEnvelope = await tx.envelope.create({
 						data: {
 							title,
 							description,
 							userId: ctx.session.user.id,
-							status: "DRAFT"
-						}
+							status: "DRAFT",
+						},
 					})
 
 					// Update document to link to envelope
 					await tx.document.update({
 						where: { id: documentId },
-						data: { envelopeId: newEnvelope.id }
+						data: { envelopeId: newEnvelope.id },
 					})
 
 					// Create recipients
 					const createdRecipients = await Promise.all(
-						recipients.map((recipient) =>
+						recipients.map(recipient =>
 							tx.recipient.create({
 								data: {
 									role: recipient.role,
@@ -983,25 +939,22 @@ export const signatureLiteRouter = createTRPCRouter({
 									email: recipient.email,
 									name: recipient.name,
 									envelopeId: newEnvelope.id,
-									documentId: documentId
-								}
+									documentId: documentId,
+								},
 							})
 						)
 					)
 
 					// Create document fields
 					const createdFields = await Promise.all(
-						fields.map((field) => {
+						fields.map(field => {
 							const recipient = createdRecipients.find(
-								(r) =>
-									r.email ===
-									recipients.find((rec) => rec.email === field.recipientId)
-										?.email
+								r => r.email === recipients.find(rec => rec.email === field.recipientId)?.email
 							)
 							if (!recipient) {
 								throw new TRPCError({
 									code: "BAD_REQUEST",
-									message: `Recipient not found for field: ${field.label}`
+									message: `Recipient not found for field: ${field.label}`,
 								})
 							}
 
@@ -1018,8 +971,8 @@ export const signatureLiteRouter = createTRPCRouter({
 									y: field.position.y,
 									width: field.size.width,
 									height: field.size.height,
-									pageNumber: field.position.pageNumber
-								}
+									pageNumber: field.position.pageNumber,
+								},
 							})
 						})
 					)
@@ -1029,8 +982,8 @@ export const signatureLiteRouter = createTRPCRouter({
 						recipients: createdRecipients,
 						document: {
 							...document,
-							documentFields: createdFields
-						}
+							documentFields: createdFields,
+						},
 					}
 				})
 
@@ -1038,8 +991,7 @@ export const signatureLiteRouter = createTRPCRouter({
 			} catch (error) {
 				throw new TRPCError({
 					code: "INTERNAL_SERVER_ERROR",
-					message:
-						error instanceof Error ? error.message : "Failed to create envelope"
+					message: error instanceof Error ? error.message : "Failed to create envelope",
 				})
 			}
 		}),
@@ -1054,16 +1006,16 @@ export const signatureLiteRouter = createTRPCRouter({
 					recipient: true,
 					documents: {
 						include: {
-							documentFields: true
-						}
-					}
-				}
+							documentFields: true,
+						},
+					},
+				},
 			})
 
 			if (!envelope) {
 				throw new TRPCError({
 					code: "NOT_FOUND",
-					message: "Envelope not found"
+					message: "Envelope not found",
 				})
 			}
 
@@ -1071,7 +1023,7 @@ export const signatureLiteRouter = createTRPCRouter({
 			if (envelope.userId !== ctx.session.user.id) {
 				throw new TRPCError({
 					code: "FORBIDDEN",
-					message: "You don't have permission to access this envelope"
+					message: "You don't have permission to access this envelope",
 				})
 			}
 
@@ -1089,8 +1041,8 @@ export const signatureLiteRouter = createTRPCRouter({
 			const recipient = await ctx.db.recipient.findFirst({
 				where: {
 					userId: userId,
-					documentId: documentId
-				}
+					documentId: documentId,
+				},
 			})
 
 			if (!recipient) {
@@ -1100,7 +1052,7 @@ export const signatureLiteRouter = createTRPCRouter({
 					totalRequiredFields: 0,
 					signedRequiredFields: 0,
 					progress: 0,
-					allRequiredFieldsSigned: false
+					allRequiredFieldsSigned: false,
 				}
 			}
 
@@ -1108,27 +1060,26 @@ export const signatureLiteRouter = createTRPCRouter({
 			const allFields = await ctx.db.documentField.findMany({
 				where: {
 					documentId: documentId,
-					recipientId: recipient.id
-				}
+					recipientId: recipient.id,
+				},
 			})
 
 			// Count signed fields (those with signatureValue)
 			const signedFields = allFields.filter(
-				(field) => field.signatureValue !== null && field.signatureValue !== ""
+				field => field.signatureValue !== null && field.signatureValue !== ""
 			)
 
 			// Count required fields and signed required fields
-			const requiredFields = allFields.filter((field) => field.required)
+			const requiredFields = allFields.filter(field => field.required)
 			const signedRequiredFields = requiredFields.filter(
-				(field) => field.signatureValue !== null && field.signatureValue !== ""
+				field => field.signatureValue !== null && field.signatureValue !== ""
 			)
 
 			const totalFields = allFields.length
 			const signedCount = signedFields.length
 			const totalRequiredFields = requiredFields.length
 			const signedRequiredCount = signedRequiredFields.length
-			const progress =
-				totalFields > 0 ? Math.round((signedCount / totalFields) * 100) : 0
+			const progress = totalFields > 0 ? Math.round((signedCount / totalFields) * 100) : 0
 			const allRequiredFieldsSigned =
 				totalRequiredFields > 0 && signedRequiredCount === totalRequiredFields
 
@@ -1138,65 +1089,62 @@ export const signatureLiteRouter = createTRPCRouter({
 				totalRequiredFields,
 				signedRequiredFields: signedRequiredCount,
 				progress,
-				allRequiredFieldsSigned
+				allRequiredFieldsSigned,
 			}
 		}),
 
 	// Send envelope for signatures
-	sendEnvelope: protectedProcedure
-		.input(sendEnvelopeSchema)
-		.mutation(async ({ ctx, input }) => {
-			const { envelopeId } = input
+	sendEnvelope: protectedProcedure.input(sendEnvelopeSchema).mutation(async ({ ctx, input }) => {
+		const { envelopeId } = input
 
-			const envelope = await ctx.db.envelope.findUnique({
+		const envelope = await ctx.db.envelope.findUnique({
+			where: { id: envelopeId },
+			include: {
+				recipient: true,
+			},
+		})
+
+		if (!envelope) {
+			throw new TRPCError({
+				code: "NOT_FOUND",
+				message: "Envelope not found",
+			})
+		}
+
+		// Check if user owns the envelope
+		if (envelope.userId !== ctx.session.user.id) {
+			throw new TRPCError({
+				code: "FORBIDDEN",
+				message: "You don't have permission to send this envelope",
+			})
+		}
+
+		// Check if envelope has recipients
+		if (envelope.recipient.length === 0) {
+			throw new TRPCError({
+				code: "BAD_REQUEST",
+				message: "Envelope must have at least one recipient",
+			})
+		}
+
+		try {
+			// Update envelope status to published
+			const updatedEnvelope = await ctx.db.envelope.update({
 				where: { id: envelopeId },
-				include: {
-					recipient: true
-				}
+				data: {
+					status: "PUBLISHED",
+				},
 			})
 
-			if (!envelope) {
-				throw new TRPCError({
-					code: "NOT_FOUND",
-					message: "Envelope not found"
-				})
-			}
+			// TODO: Send email notifications to recipients
+			// This would integrate with your email service
 
-			// Check if user owns the envelope
-			if (envelope.userId !== ctx.session.user.id) {
-				throw new TRPCError({
-					code: "FORBIDDEN",
-					message: "You don't have permission to send this envelope"
-				})
-			}
-
-			// Check if envelope has recipients
-			if (envelope.recipient.length === 0) {
-				throw new TRPCError({
-					code: "BAD_REQUEST",
-					message: "Envelope must have at least one recipient"
-				})
-			}
-
-			try {
-				// Update envelope status to published
-				const updatedEnvelope = await ctx.db.envelope.update({
-					where: { id: envelopeId },
-					data: {
-						status: "PUBLISHED"
-					}
-				})
-
-				// TODO: Send email notifications to recipients
-				// This would integrate with your email service
-
-				return updatedEnvelope
-			} catch (error) {
-				throw new TRPCError({
-					code: "INTERNAL_SERVER_ERROR",
-					message:
-						error instanceof Error ? error.message : "Failed to send envelope"
-				})
-			}
-		})
+			return updatedEnvelope
+		} catch (error) {
+			throw new TRPCError({
+				code: "INTERNAL_SERVER_ERROR",
+				message: error instanceof Error ? error.message : "Failed to send envelope",
+			})
+		}
+	}),
 })

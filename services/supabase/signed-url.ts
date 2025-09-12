@@ -1,13 +1,14 @@
+/* eslint-disable no-console */
 import { useMutation } from "@tanstack/react-query"
 import { toast } from "sonner"
-import { z } from "zod"
+import { z } from "zod/v4"
 
-import { getSupabaseClient } from "./index"
+import { getPublicClient } from "./index"
 
 const signedUrlSchema = z.object({
 	bucket: z.string().min(1, "Bucket name is required"),
 	path: z.string().min(1, "File path is required"),
-	expiresIn: z.number().optional() // seconds, default: 3600 (1 hour)
+	expiresIn: z.number().optional(), // seconds, default: 3600 (1 hour)
 })
 
 export type SignedUrlInput = z.input<typeof signedUrlSchema>
@@ -15,10 +16,8 @@ export type SignedUrlInput = z.input<typeof signedUrlSchema>
 async function generateSignedUrl(input: SignedUrlInput) {
 	const { bucket, path, expiresIn = 3600 } = signedUrlSchema.parse(input)
 
-	const supabase = getSupabaseClient()
-	const { data, error } = await supabase.storage
-		.from(bucket)
-		.createSignedUrl(path, expiresIn)
+	const supabase = getPublicClient()
+	const { data, error } = await supabase.storage.from(bucket).createSignedUrl(path, expiresIn)
 
 	if (error) {
 		throw new Error(`Failed to create signed download URL: ${error.message}`)
@@ -26,30 +25,25 @@ async function generateSignedUrl(input: SignedUrlInput) {
 
 	return {
 		signedUrl: data.signedUrl,
-		path
+		path,
 	}
 }
 
 export function useSignedUrl() {
 	return useMutation({
 		mutationFn: generateSignedUrl,
-		onError: (error) => toast.error(error.message)
+		onError: error => toast.error(error.message),
 	})
 }
 
 // New helper for public URLs (no expiration, for PDFs that should be publicly accessible)
-export async function getPublicUrl(
-	bucket: string,
-	path: string
-): Promise<string> {
-	const supabase = getSupabaseClient()
+export async function getPublicUrl(bucket: string, path: string): Promise<string> {
+	const supabase = getPublicClient()
 
 	const { data } = supabase.storage.from(bucket).getPublicUrl(path)
 
 	if (!data.publicUrl) {
-		throw new Error(
-			`Could not generate public URL for bucket: ${bucket}, path: ${path}`
-		)
+		throw new Error(`Could not generate public URL for bucket: ${bucket}, path: ${path}`)
 	}
 
 	return data.publicUrl
@@ -63,9 +57,7 @@ function getBucketName(path: string): string {
 }
 
 // Helper specifically for document paths - auto-detects correct bucket
-export async function getDocumentPublicUrl(
-	documentPath: string
-): Promise<string> {
+export async function getDocumentPublicUrl(documentPath: string): Promise<string> {
 	console.log("Getting document public URL for path:", documentPath)
 
 	// For documents that only have a filename, we need to try different approaches
@@ -78,7 +70,7 @@ export async function getDocumentPublicUrl(
 			{ bucket: "envelopes", path: documentPath },
 			// Try with a common folder structure
 			{ bucket: "documents", path: `uploads/${documentPath}` },
-			{ bucket: "envelopes", path: `uploads/${documentPath}` }
+			{ bucket: "envelopes", path: `uploads/${documentPath}` },
 		]
 
 		for (const { bucket, path } of possiblePaths) {
