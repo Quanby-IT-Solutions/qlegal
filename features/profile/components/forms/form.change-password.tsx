@@ -24,7 +24,7 @@ import {
 	type PersonalInformationSchema,
 } from "@/features/profile/api/profile.schema"
 
-export function PersonalInformationForm() {
+export function ChangePasswordForm() {
 	const { data } = trpc.profile.getPersonalInformation.useQuery()
 
 	const form = useForm({
@@ -102,7 +102,7 @@ export function PersonalInformationForm() {
 				</div>
 
 				<Button type="submit" className="mt-4" disabled={isPending}>
-					{isPending ? "Updating Personal Information..." : "Update Personal Information"}
+					{isPending ? "Updating Password..." : "Update Password"}
 				</Button>
 			</form>
 		</Form>
