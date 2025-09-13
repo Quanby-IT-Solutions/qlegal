@@ -88,16 +88,12 @@ export function LoginForm({ callbackUrl }: { callbackUrl?: string }) {
 		}
 
 		startTransition(async () => {
-			try {
-				const response = await login(data, callbackUrl)
-				if (response?.error) {
-					setFormError(response.error)
-				} else if (response?.success) {
-					setShowTwoFactor(response?.twoFactor ?? false)
-					setFormSuccess(response.success)
-				}
-			} catch {
-				setFormError("Something went wrong!")
+			const response = await login(data, callbackUrl)
+			if (response?.error) {
+				setFormError(response.error)
+			} else if (response?.success) {
+				setShowTwoFactor(response?.twoFactor ?? false)
+				setFormSuccess(response.success)
 			}
 		})
 	}
