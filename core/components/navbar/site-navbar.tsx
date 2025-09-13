@@ -1,5 +1,6 @@
 "use client"
 
+import { type Route } from "next"
 import Link from "next/link"
 import { Fragment } from "react"
 import { MenuIcon } from "lucide-react"
@@ -14,7 +15,7 @@ import {
 	SheetDescription,
 	SheetHeader,
 	SheetTitle,
-	SheetTrigger
+	SheetTrigger,
 } from "@/core/components/ui/sheet"
 import { useIsMobile } from "@/core/hooks/use-mobile"
 import { cn } from "@/core/lib/utils"
@@ -25,7 +26,7 @@ import {
 	BreadcrumbLink,
 	BreadcrumbList,
 	BreadcrumbPage,
-	BreadcrumbSeparator
+	BreadcrumbSeparator,
 } from "@/features/home/components/ui/breadcrumb"
 
 import { SiteUser } from "./site-user"
@@ -33,7 +34,7 @@ import { SiteUser } from "./site-user"
 interface SiteNavbarProps {
 	items?: {
 		label: string
-		url?: string
+		url?: Route
 	}[]
 }
 
@@ -45,11 +46,11 @@ export function SiteNavbar({ items }: SiteNavbarProps) {
 				<div className="flex items-center gap-2">
 					<Link
 						href="/"
-						className="flex items-center gap-2 rounded-lg p-1 transition-colors hover:bg-muted/50 md:gap-3"
+						className="hover:bg-muted/50 flex items-center gap-2 rounded-lg p-1 transition-colors md:gap-3"
 					>
 						<div className="flex gap-x-2">
 							<QuanbyLogo className="size-6 shrink-0" />
-							<span className="bg-gradient-to-r from-foreground to-foreground/80 bg-clip-text text-lg font-bold leading-tight tracking-tight text-transparent">
+							<span className="from-foreground to-foreground/80 bg-gradient-to-r bg-clip-text text-lg leading-tight font-bold tracking-tight text-transparent">
 								QSign
 							</span>
 						</div>
@@ -100,8 +101,8 @@ export function SiteNavbar({ items }: SiteNavbarProps) {
 								<SheetHeader>
 									<SheetTitle>Are you absolutely sure?</SheetTitle>
 									<SheetDescription>
-										This action cannot be undone. This will permanently delete
-										your account and remove your data from our servers.
+										This action cannot be undone. This will permanently delete your account and
+										remove your data from our servers.
 									</SheetDescription>
 								</SheetHeader>
 							</SheetContent>

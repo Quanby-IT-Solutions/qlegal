@@ -1,5 +1,6 @@
 "use client"
 
+import { type Route } from "next"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import { toast } from "sonner"
@@ -25,7 +26,7 @@ import { OAuthButton } from "@/features/auth/components/oauth-button"
 import { FormResponse } from "@/features/auth/components/ui/form-response"
 
 interface RegisterFormProps {
-	callbackUrl?: string
+	callbackUrl?: Route
 }
 
 export function RegisterForm({ callbackUrl }: RegisterFormProps) {

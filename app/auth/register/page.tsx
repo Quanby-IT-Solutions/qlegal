@@ -1,3 +1,4 @@
+import { type Route } from "next"
 import Link from "next/link"
 
 import { QuanbyLogo } from "@/core/components/quanby-logo"
@@ -17,14 +18,9 @@ import { RegisterForm } from "@/features/auth/components/forms/form.register"
 export default async function RegisterPage({
 	searchParams,
 }: {
-	searchParams: Promise<{ callbackUrl?: string }>
+	searchParams: Promise<{ callbackUrl?: Route }>
 }) {
-	const params = await searchParams
-	let callbackUrl = params.callbackUrl
-
-	if (callbackUrl && !callbackUrl.startsWith("/")) {
-		callbackUrl = undefined
-	}
+	const { callbackUrl } = await searchParams
 
 	return (
 		<Card className="w-full max-w-md">
@@ -40,27 +36,19 @@ export default async function RegisterPage({
 			</CardContent>
 			<CardFooter className="text-muted-foreground justify-center text-sm">
 				Already have an account?
-				{callbackUrl ? (
-					<Link
-						href={`/auth/login?callbackUrl=${encodeURIComponent(callbackUrl)}`}
-						className={cn(
-							buttonVariants({ variant: "link" }),
-							"text-primary hover:text-primary/80 h-fit px-1.5 py-0.5 text-sm"
-						)}
-					>
-						Sign in
-					</Link>
-				) : (
-					<Link
-						href="/auth/login"
-						className={cn(
-							buttonVariants({ variant: "link" }),
-							"text-primary hover:text-primary/80 h-fit px-1.5 py-0.5 text-sm"
-						)}
-					>
-						Sign in
-					</Link>
-				)}
+				<Link
+					href={
+						callbackUrl
+							? (`/auth/login?callbackUrl=${encodeURIComponent(callbackUrl)}` as Route)
+							: "/auth/login"
+					}
+					className={cn(
+						buttonVariants({ variant: "link" }),
+						"text-primary hover:text-primary/80 h-fit px-1.5 py-0.5 text-sm"
+					)}
+				>
+					Sign in
+				</Link>
 			</CardFooter>
 		</Card>
 	)
