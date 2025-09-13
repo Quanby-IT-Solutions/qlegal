@@ -3,6 +3,7 @@
 import Link from "next/link"
 import { useEffect, useState } from "react"
 import { motion } from "motion/react"
+import { useSession } from "next-auth/react"
 
 import { ModeToggle } from "@/core/components/mode-toggle"
 import { SiteUser } from "@/core/components/navbar/site-user"
@@ -13,13 +14,16 @@ import { useIsMobile } from "@/core/hooks/use-mobile"
 import { cn } from "@/core/lib/utils"
 
 interface NavbarProps {
-	isAuthenticated: boolean
+	isAuthenticated?: boolean
 }
 
 export function Navbar({ isAuthenticated }: NavbarProps) {
 	const [isScrolled, setIsScrolled] = useState(false)
 	const [hasAnimated, setHasAnimated] = useState(false)
 	const isMobile = useIsMobile()
+	const { data: session } = useSession()
+
+	const isUserAuthenticated = session?.user ? true : (isAuthenticated ?? false)
 
 	useEffect(() => {
 		const timer = setTimeout(() => setHasAnimated(true), 1800)
@@ -45,7 +49,10 @@ export function Navbar({ isAuthenticated }: NavbarProps) {
 			className="fixed inset-x-0 top-0 z-50 flex justify-center"
 		>
 			<NavbarContainer isScrolled={isScrolled && hasAnimated} isMobile={isMobile}>
-				<NavbarContent isAuthenticated={isAuthenticated} isScrolled={isScrolled && hasAnimated} />
+				<NavbarContent
+					isAuthenticated={isUserAuthenticated}
+					isScrolled={isScrolled && hasAnimated}
+				/>
 			</NavbarContainer>
 
 			<NavbarBackground isScrolled={isScrolled && hasAnimated} isMobile={isMobile} />
