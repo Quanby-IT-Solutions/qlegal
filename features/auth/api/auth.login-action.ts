@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 "use server"
 
 import { compare } from "bcryptjs"
@@ -47,10 +48,29 @@ export const login = async (values: LoginSchema, callbackUrl?: string) => {
 
 	if (existingUser.isTwoFactorEnabled) {
 		if (!code) {
-			const twoFactorToken = await generateTwoFactorToken(existingUser.email)
-			await sendTwoFactorAuthToken(twoFactorToken.email, twoFactorToken.token)
+			const existingToken = await db.query.twoFactorTokens.findFirst({
+				where: (data, { eq }) => eq(data.email, existingUser.email!),
+			})
 
-			return { success: "2FA email sent!", twoFactor: true }
+			const hasValidToken =
+				existingToken &&
+				!(existingToken instanceof Error) &&
+				new Date(existingToken.expires) > new Date()
+
+			if (!hasValidToken) {
+				try {
+					const twoFactorToken = await generateTwoFactorToken(existingUser.email)
+					await sendTwoFactorAuthToken(twoFactorToken.email, twoFactorToken.token)
+				} catch (error) {
+					console.error("Error sending initial 2FA code:", error)
+					return { error: "Failed to send verification code. Please try again." }
+				}
+			}
+
+			return {
+				success: "A code was sent to your email.",
+				twoFactor: true,
+			}
 		}
 
 		const twoFactorToken = await db.query.twoFactorTokens.findFirst({
@@ -102,5 +122,60 @@ export const login = async (values: LoginSchema, callbackUrl?: string) => {
 			}
 		}
 		throw error
+	}
+}
+
+const RATE_LIMIT_MS = 2 * 60 * 1000
+
+export const resendTwoFactorCode = async (email: string) => {
+	if (!email) {
+		return { error: "Email is required" }
+	}
+
+	const existingUser = await db.query.users.findFirst({
+		where: (data, { eq }) => eq(data.email, email),
+	})
+
+	if (!existingUser || existingUser instanceof Error || !existingUser.email) {
+		return { error: "User not found" }
+	}
+
+	if (!existingUser.isTwoFactorEnabled) {
+		return { error: "Two-factor authentication is not enabled for this user" }
+	}
+
+	const existingToken = await db.query.twoFactorTokens.findFirst({
+		where: (data, { eq }) => eq(data.email, email),
+	})
+
+	if (existingToken && !(existingToken instanceof Error)) {
+		const now = Date.now()
+		const tokenExpiry = new Date(existingToken.expires).getTime()
+		const tokenCreatedAt = tokenExpiry - 5 * 60 * 1000
+		const timeSinceCreation = now - tokenCreatedAt
+
+		if (timeSinceCreation < RATE_LIMIT_MS) {
+			const remainingTime = Math.ceil((RATE_LIMIT_MS - timeSinceCreation) / 1000)
+			const minutes = Math.floor(remainingTime / 60)
+			const seconds = remainingTime % 60
+
+			return {
+				error: `Please wait ${minutes > 0 ? `${minutes}m ` : ""}${seconds}s before requesting another code.`,
+				remainingTime,
+			}
+		}
+	}
+
+	try {
+		const twoFactorToken = await generateTwoFactorToken(email)
+		await sendTwoFactorAuthToken(twoFactorToken.email, twoFactorToken.token)
+
+		return {
+			success: "New verification code sent to your email.",
+			cooldownUntil: new Date(Date.now() + RATE_LIMIT_MS).toISOString(),
+		}
+	} catch (error) {
+		console.error("Error resending 2FA code:", error)
+		return { error: "Failed to send verification code. Please try again." }
 	}
 }
