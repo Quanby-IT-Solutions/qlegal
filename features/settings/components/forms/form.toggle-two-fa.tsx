@@ -18,10 +18,11 @@ import { trpc } from "@/services/trpc/client"
 
 import { toggleTwoFASchema, type ToggleTwoFASchema } from "@/features/settings/api/settings.schema"
 
-export function ToggleTwoFAForm() {
-	const { data: twoFAStatus, isLoading: isLoadingStatus } =
-		trpc.settings.checkTwoFAStatus.useQuery()
+interface ToggleTwoFAFormProps {
+	twoFAStatus?: { twoFactorEnabled: boolean }
+}
 
+export function ToggleTwoFAForm({ twoFAStatus }: ToggleTwoFAFormProps) {
 	const form = useForm<ToggleTwoFASchema>({
 		resolver: zodResolver(toggleTwoFASchema),
 		values: {
@@ -44,10 +45,6 @@ export function ToggleTwoFAForm() {
 	const handleToggleChange = (checked: boolean) => {
 		form.setValue("enabled", checked)
 		void form.handleSubmit(onSubmit)()
-	}
-
-	if (isLoadingStatus) {
-		return <div className="text-muted-foreground text-sm">Loading...</div>
 	}
 
 	return (
