@@ -1,5 +1,6 @@
 "use client"
 
+import { type Route } from "next"
 import { useState } from "react"
 import { LoaderIcon } from "lucide-react"
 import { signIn } from "next-auth/react"
@@ -11,7 +12,7 @@ import { cn } from "@/core/lib/utils"
 type Provider = "google"
 
 type OAuthButtonProps = React.ComponentProps<typeof Button> & {
-	callbackUrl?: string
+	callbackUrl?: Route
 	label: string
 	provider: Provider
 }
