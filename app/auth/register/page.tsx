@@ -18,14 +18,9 @@ import { RegisterForm } from "@/features/auth/components/forms/form.register"
 export default async function RegisterPage({
 	searchParams,
 }: {
-	searchParams: Promise<{ callbackUrl?: string }>
+	searchParams: Promise<{ callbackUrl?: Route }>
 }) {
-	const params = await searchParams
-	let callbackUrl = params.callbackUrl
-
-	if (callbackUrl && !callbackUrl.startsWith("/")) {
-		callbackUrl = undefined
-	}
+	const { callbackUrl } = await searchParams
 
 	return (
 		<Card className="w-full max-w-md">
