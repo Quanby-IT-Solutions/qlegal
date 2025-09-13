@@ -5,7 +5,7 @@ import { Navbar } from "@/features/home/components/navbar"
 export default function Layout(props: LayoutProps<"/">) {
 	return (
 		<ShapesContainer>
-			<Navbar isAuthenticated />
+			<Navbar />
 			{props.children}
 		</ShapesContainer>
 	)
