@@ -1,5 +1,6 @@
 "use client"
 
+import { type Route } from "next"
 import Link from "next/link"
 import { useEffect, useState, useTransition } from "react"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -30,7 +31,7 @@ import { loginSchema, type LoginSchema } from "@/features/auth/api/auth.schemas"
 import { OAuthButton } from "@/features/auth/components/oauth-button"
 import { FormResponse } from "@/features/auth/components/ui/form-response"
 
-export function LoginForm({ callbackUrl }: { callbackUrl?: string }) {
+export function LoginForm({ callbackUrl }: { callbackUrl?: Route }) {
 	const [formSuccess, setFormSuccess] = useState<string | null>(null)
 	const [formError, setFormError] = useState<string | null>(null)
 	const [isPending, startTransition] = useTransition()
