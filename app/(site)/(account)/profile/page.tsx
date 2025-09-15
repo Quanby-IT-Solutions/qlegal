@@ -1,4 +1,5 @@
 import { AvatarCard } from "@/features/profile/components/avatar-card"
+import { DefaultSignatureCard } from "@/features/profile/components/default-signature-card"
 import { PersonalInformationCard } from "@/features/profile/components/personal-information-card"
 
 export default function Page() {
@@ -13,6 +14,7 @@ export default function Page() {
 
 			<AvatarCard />
 			<PersonalInformationCard />
+			<DefaultSignatureCard />
 		</main>
 	)
 }
