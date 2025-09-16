@@ -1,6 +1,16 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
 	typedRoutes: true,
+	images: {
+		remotePatterns: [
+			{
+				protocol: "https",
+				hostname: "vsgztvwubvuevuvfmoxh.supabase.co",
+				port: "",
+				pathname: "/storage/v1/object/public/**",
+			},
+		],
+	},
 }
 
 export default nextConfig
