@@ -25,11 +25,13 @@ function AvatarImage({
 	if (src && typeof src === "string") {
 		return (
 			<Image
+				data-slot="avatar-image"
+				className={cn("aspect-square object-cover", className)}
 				src={src}
 				alt={alt ?? "Avatar"}
 				fill
-				data-slot="avatar-image"
-				className={cn("aspect-square object-cover", className)}
+				sizes="128px"
+				priority
 			/>
 		)
 	}
