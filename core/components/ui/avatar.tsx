@@ -22,7 +22,7 @@ function AvatarImage({
 	alt,
 	...props
 }: React.ComponentProps<typeof AvatarPrimitive.Image>) {
-	if (src && typeof src === "string") {
+	if (src && typeof src === "string" && (src.startsWith("http") || src.startsWith("blob:"))) {
 		return (
 			<Image
 				data-slot="avatar-image"

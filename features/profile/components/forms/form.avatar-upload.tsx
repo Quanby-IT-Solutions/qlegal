@@ -24,7 +24,7 @@ export const AvatarUploadForm = () => {
 	const [selectedFile, setSelectedFile] = useState<FileWithPreview | null>(null)
 	const [isDialogOpen, setDialogOpen] = useState(false)
 
-	const { data: session, updatea: updateSession } = useSession()
+	const { data: session, update: updateSession } = useSession()
 	const { uploadAvatar, isUploading } = useAvatarUpload()
 	const updateAvatarMutation = trpc.profile.updateAvatar.useMutation()
 
