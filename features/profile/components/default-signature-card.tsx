@@ -8,6 +8,8 @@ import {
 	CardTitle,
 } from "@/core/components/ui/card"
 
+import { DefaultSignatureForm } from "@/features/profile/components/forms/form.default-signature"
+
 export function DefaultSignatureCard() {
 	return (
 		<Card className="border-border/60 bg-card/80 dark:bg-card/70 border shadow-sm backdrop-blur-xl transition-all duration-300 hover:shadow-md">
@@ -18,8 +20,7 @@ export function DefaultSignatureCard() {
 				<CardDescription>Update your default signature here.</CardDescription>
 			</CardHeader>
 			<CardContent className="px-8">
-				{/* <PersonalInformationForm /> */}
-				default signature
+				<DefaultSignatureForm />
 			</CardContent>
 		</Card>
 	)
