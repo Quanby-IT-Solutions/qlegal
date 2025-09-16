@@ -24,7 +24,7 @@ export const AvatarUploadForm = () => {
 	const [selectedFile, setSelectedFile] = useState<FileWithPreview | null>(null)
 	const [isDialogOpen, setDialogOpen] = useState(false)
 
-	const { data: session, update: updateSession } = useSession()
+	const { data: session, updatea: updateSession } = useSession()
 	const { uploadAvatar, isUploading } = useAvatarUpload()
 	const updateAvatarMutation = trpc.profile.updateAvatar.useMutation()
 
@@ -84,7 +84,7 @@ export const AvatarUploadForm = () => {
 	})
 
 	return (
-		<div className="group relative rounded-full">
+		<div className="group relative cursor-pointer rounded-full">
 			{selectedFile ? (
 				<ImageCropper
 					dialogOpen={isDialogOpen}
@@ -102,7 +102,7 @@ export const AvatarUploadForm = () => {
 							url={session?.user?.image ?? null}
 							name={session?.user?.name ?? "User"}
 							size="xl"
-							className="ring-ring ring-offset-border cursor-pointer ring-2 ring-offset-2 transition-all duration-200"
+							className="ring-ring ring-offset-border ring-2 ring-offset-2 transition-all duration-200"
 						/>
 						{/* Hover overlay with darkening effect and camera icon */}
 						<div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/40 opacity-0 transition-all duration-200 group-hover:opacity-100">
