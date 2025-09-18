@@ -8,6 +8,7 @@ import { toast } from "sonner"
 
 import { Button } from "@/core/components/ui/button"
 import { Profile } from "@/core/components/user-profile"
+import { cn } from "@/core/lib/utils"
 
 import { trpc } from "@/services/trpc/client"
 
@@ -83,7 +84,7 @@ export const AvatarUploadForm = () => {
 	})
 
 	return (
-		<div className="relative">
+		<div className="group relative cursor-pointer rounded-full">
 			{selectedFile ? (
 				<ImageCropper
 					dialogOpen={isDialogOpen}
@@ -94,14 +95,20 @@ export const AvatarUploadForm = () => {
 					isLoading={isUploading || updateAvatarMutation.isPending}
 				/>
 			) : (
-				<div className="group relative" {...getRootProps()}>
+				<div className="relative rounded-full" {...getRootProps()}>
 					<input {...getInputProps()} />
-					<Profile
-						url={session?.user?.image ?? null}
-						name={session?.user?.name ?? "User"}
-						size="xl"
-						className="ring-ring ring-offset-border cursor-pointer ring-2 ring-offset-2"
-					/>
+					<div className="relative rounded-full">
+						<Profile
+							url={session?.user?.image ?? null}
+							name={session?.user?.name ?? "User"}
+							size="xl"
+							className="ring-ring ring-offset-border ring-2 ring-offset-2 transition-all duration-200"
+						/>
+						{/* Hover overlay with darkening effect and camera icon */}
+						<div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/40 opacity-0 transition-all duration-200 group-hover:opacity-100">
+							<CameraIcon className="size-8 text-white/80" />
+						</div>
+					</div>
 				</div>
 			)}
 
@@ -109,7 +116,12 @@ export const AvatarUploadForm = () => {
 				{...getRootProps()}
 				size="sm"
 				variant="outline"
-				className="bg-background/80 dark:bg-background/80 dark:hover:bg-background/90 absolute -right-1 -bottom-1 size-10 cursor-pointer rounded-full p-0 backdrop-blur-2xl"
+				className={cn(
+					"absolute -right-1 -bottom-1 size-10 cursor-pointer rounded-full p-0 backdrop-blur-2xl transition-all duration-200",
+					"bg-background/80 dark:bg-background/80",
+					"hover:bg-background/90 dark:hover:bg-background/90",
+					"group-hover:bg-background/90 dark:group-hover:bg-background/90"
+				)}
 				disabled={isUploading || updateAvatarMutation.isPending}
 			>
 				<input {...getInputProps()} />

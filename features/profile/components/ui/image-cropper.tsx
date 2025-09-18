@@ -1,5 +1,6 @@
 "use client"
 
+import Image from "next/image"
 import React, { type SyntheticEvent } from "react"
 import { CropIcon, Trash2Icon } from "lucide-react"
 import ReactCrop, { centerCrop, makeAspectCrop, type Crop, type PixelCrop } from "react-image-crop"
@@ -118,7 +119,7 @@ export function ImageCropper({
 					<DialogTitle>Crop Image</DialogTitle>
 					<DialogDescription>Select the area you want to crop.</DialogDescription>
 				</DialogHeader>
-				<div className="size-full p-6">
+				<div className="w-full p-6">
 					<ReactCrop
 						crop={crop}
 						onChange={(_, percentCrop) => setCrop(percentCrop)}
@@ -126,18 +127,16 @@ export function ImageCropper({
 						aspect={aspect}
 						circularCrop
 					>
-						<Avatar className="size-full rounded-none">
-							<AvatarImage
-								ref={imgRef}
-								className="aspect-auto max-h-none w-full object-contain"
-								alt="Image Cropper Shell"
-								src={selectedFile?.preview}
-								onLoad={onImageLoad}
-							/>
-							<AvatarFallback className="size-full min-h-[460px] rounded-none">
-								Loading...
-							</AvatarFallback>
-						</Avatar>
+						<Image
+							ref={imgRef}
+							className="max-h-[460px] w-full object-contain"
+							alt="Image Cropper Shell"
+							src={selectedFile?.preview ?? ""}
+							width={800}
+							height={600}
+							unoptimized
+							onLoad={onImageLoad}
+						/>
 					</ReactCrop>
 				</div>
 				<DialogFooter className="justify-center p-6 pt-0">
