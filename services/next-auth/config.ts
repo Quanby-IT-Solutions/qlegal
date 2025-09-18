@@ -38,6 +38,7 @@ declare module "next-auth" {
  */
 export const authConfig = {
 	debug: env.NODE_ENV !== "production",
+	trustHost: true,
 	pages: {
 		error: "/error",
 		signIn: "/auth/login",

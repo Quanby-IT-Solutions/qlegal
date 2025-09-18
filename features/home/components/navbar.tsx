@@ -185,24 +185,14 @@ function NavbarContent({
 function NavbarBackground({ isScrolled, isMobile }: { isScrolled: boolean; isMobile: boolean }) {
 	return (
 		<motion.div
-			className="absolute inset-x-0 top-0 -z-10 h-full"
+			className="bg-background/60 border-border/50 border-b-border absolute inset-x-0 top-0 -z-10 h-full rounded-xl border backdrop-blur-md"
 			animate={{
 				height: "64px",
 				width: isScrolled ? (isMobile ? "90%" : "80%") : "100%",
 				marginTop: isScrolled ? "12px" : "0px",
 				left: isScrolled ? (isMobile ? "5%" : "10%") : "0%",
 				right: isScrolled ? (isMobile ? "5%" : "10%") : "0%",
-				backgroundColor: isScrolled
-					? "color-mix(in srgb, var(--background) 60%, transparent)"
-					: "color-mix(in srgb, var(--background) 0%, transparent)",
-				backdropFilter: isScrolled ? "blur(12px)" : "none",
-				borderRadius: isScrolled ? "12px" : "0px",
-				border: isScrolled
-					? "1px solid color-mix(in srgb, var(--border) 50%, transparent)"
-					: "none",
-				borderBottom: isScrolled
-					? "1px solid color-mix(in srgb, var(--border) 100%, transparent)"
-					: "1px solid color-mix(in srgb, var(--border) 0%, transparent)",
+				opacity: isScrolled ? 1 : 0,
 			}}
 			transition={{
 				duration: 0.6,
