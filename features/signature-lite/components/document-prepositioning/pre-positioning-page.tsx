@@ -11,18 +11,13 @@ import {
 	Pen,
 	Plus,
 	Trash2,
-	Type
+	Type,
 } from "lucide-react"
 import { Document, Page, pdfjs } from "react-pdf"
 import { toast } from "sonner"
 
 import { Button } from "@/core/components/ui/button"
-import {
-	Card,
-	CardContent,
-	CardHeader,
-	CardTitle
-} from "@/core/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/core/components/ui/card"
 import { useIsMobile } from "@/core/hooks/use-mobile"
 
 // Set up PDF.js worker
@@ -30,15 +25,7 @@ pdfjs.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.js"
 
 export interface DocumentField {
 	id: string
-	type:
-		| "SIGNATURE"
-		| "INITIAL"
-		| "NAME"
-		| "DATE"
-		| "TEXT"
-		| "EMAIL"
-		| "CHECKBOX"
-		| "RADIO"
+	type: "SIGNATURE" | "INITIAL" | "NAME" | "DATE" | "TEXT" | "EMAIL" | "CHECKBOX" | "RADIO"
 	label: string
 	placeholder?: string
 	required: boolean
@@ -85,50 +72,50 @@ const FIELD_TYPES = [
 		value: "SIGNATURE",
 		label: "Signature",
 		icon: Pen,
-		defaultSize: { width: 200, height: 60 }
+		defaultSize: { width: 200, height: 60 },
 	},
 	{
 		value: "INITIAL",
 		label: "Initial",
 		icon: LetterTextIcon,
-		defaultSize: { width: 60, height: 60 }
+		defaultSize: { width: 60, height: 60 },
 	},
 	{
 		value: "NAME",
 		label: "Name",
 		icon: Type,
-		defaultSize: { width: 200, height: 40 }
+		defaultSize: { width: 200, height: 40 },
 	},
 	{
 		value: "DATE",
 		label: "Date",
 		icon: Calendar,
-		defaultSize: { width: 150, height: 40 }
+		defaultSize: { width: 150, height: 40 },
 	},
 	{
 		value: "TEXT",
 		label: "Text",
 		icon: Type,
-		defaultSize: { width: 200, height: 40 }
+		defaultSize: { width: 200, height: 40 },
 	},
 	{
 		value: "EMAIL",
 		label: "Email",
 		icon: Mail,
-		defaultSize: { width: 200, height: 40 }
+		defaultSize: { width: 200, height: 40 },
 	},
 	{
 		value: "CHECKBOX",
 		label: "Checkbox",
 		icon: CheckSquare,
-		defaultSize: { width: 20, height: 20 }
+		defaultSize: { width: 20, height: 20 },
 	},
 	{
 		value: "RADIO",
 		label: "Radio",
 		icon: Circle,
-		defaultSize: { width: 20, height: 20 }
-	}
+		defaultSize: { width: 20, height: 20 },
+	},
 ] as const
 
 const RECIPIENT_COLORS = [
@@ -139,7 +126,7 @@ const RECIPIENT_COLORS = [
 	"#8B5CF6", // Purple
 	"#EC4899", // Pink
 	"#06B6D4", // Cyan
-	"#84CC16" // Lime
+	"#84CC16", // Lime
 ]
 
 export default function PrePositioningPage({
@@ -156,7 +143,7 @@ export default function PrePositioningPage({
 	isAddingRecipient = false,
 	onDeleteRecipient,
 	_onRefresh,
-	onPendingSaveChange
+	onPendingSaveChange,
 }: PrePositioningPageProps) {
 	const [numPages, setNumPages] = useState<number>(0)
 	const [currentPage, setCurrentPage] = useState<number>(1)
@@ -171,11 +158,8 @@ export default function PrePositioningPage({
 	const [fields, setFields] = useState<DocumentField[]>(existingFields)
 	const fieldsRef = useRef<DocumentField[]>(existingFields) // Track latest fields state
 	const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null) // For debouncing saves
-	const [selectedFieldType, setSelectedFieldType] =
-		useState<string>("SIGNATURE")
-	const [selectedRecipient, setSelectedRecipient] = useState<string>(
-		recipients[0]?.id ?? ""
-	)
+	const [selectedFieldType, setSelectedFieldType] = useState<string>("SIGNATURE")
+	const [selectedRecipient, setSelectedRecipient] = useState<string>(recipients[0]?.id ?? "")
 	const [draggedField, setDraggedField] = useState<DocumentField | null>(null)
 	const [isPlacingField, setIsPlacingField] = useState(false)
 	const [isDragging, setIsDragging] = useState(false)
@@ -226,14 +210,12 @@ export default function PrePositioningPage({
 	// Assign colors to recipients
 	const recipientsWithColors = recipients.map((recipient, index) => ({
 		...recipient,
-		color: RECIPIENT_COLORS[index % RECIPIENT_COLORS.length]
+		color: RECIPIENT_COLORS[index % RECIPIENT_COLORS.length],
 	}))
 
 	// Clear selectedRecipient if it no longer exists in recipients list
 	useEffect(() => {
-		const recipientExists = recipientsWithColors.some(
-			(r) => r.id === selectedRecipient
-		)
+		const recipientExists = recipientsWithColors.some(r => r.id === selectedRecipient)
 		if (selectedRecipient && !recipientExists) {
 			setSelectedRecipient("")
 			setIsPlacingField(false)
@@ -357,9 +339,7 @@ export default function PrePositioningPage({
 	// Validate recipient selection before allowing field placement
 	const handleFieldTypeSelect = (fieldTypeValue: string) => {
 		// Check if selectedRecipient exists in the current recipients list
-		const recipientExists = recipientsWithColors.some(
-			(r) => r.id === selectedRecipient
-		)
+		const recipientExists = recipientsWithColors.some(r => r.id === selectedRecipient)
 
 		if (!selectedRecipient || !recipientExists) {
 			toast.error("Please select a recipient first before adding fields")
@@ -368,24 +348,15 @@ export default function PrePositioningPage({
 
 		setSelectedFieldType(fieldTypeValue)
 		setIsPlacingField(true)
-		const fieldType = FIELD_TYPES.find((ft) => ft.value === fieldTypeValue)
-		toast.info(
-			`Click on the document to place a ${fieldType?.label.toLowerCase()} field`
-		)
+		const fieldType = FIELD_TYPES.find(ft => ft.value === fieldTypeValue)
+		toast.info(`Click on the document to place a ${fieldType?.label.toLowerCase()} field`)
 	}
 
 	const handleCanvasClick = (event: React.MouseEvent<HTMLDivElement>) => {
 		// Check if selectedRecipient exists in the current recipients list
-		const recipientExists = recipientsWithColors.some(
-			(r) => r.id === selectedRecipient
-		)
+		const recipientExists = recipientsWithColors.some(r => r.id === selectedRecipient)
 
-		if (
-			!isPlacingField ||
-			!pageRef.current ||
-			!selectedRecipient ||
-			!recipientExists
-		) {
+		if (!isPlacingField || !pageRef.current || !selectedRecipient || !recipientExists) {
 			if (!selectedRecipient || !recipientExists) {
 				toast.error("Please select a recipient first")
 			}
@@ -396,7 +367,7 @@ export default function PrePositioningPage({
 		const clickX = (event.clientX - rect.left) / pageScale
 		const clickY = (event.clientY - rect.top) / pageScale
 
-		const fieldType = FIELD_TYPES.find((ft) => ft.value === selectedFieldType)
+		const fieldType = FIELD_TYPES.find(ft => ft.value === selectedFieldType)
 		if (!fieldType) return
 
 		// Get page dimensions for boundary checking
@@ -415,25 +386,21 @@ export default function PrePositioningPage({
 			type: selectedFieldType as DocumentField["type"],
 			label: `${fieldType.label} ${fields.length + 1}`,
 			placeholder: `Enter ${fieldType.label.toLowerCase()}`,
-			required:
-				selectedFieldType === "SIGNATURE" || selectedFieldType === "INITIAL",
+			required: selectedFieldType === "SIGNATURE" || selectedFieldType === "INITIAL",
 			position: {
 				x,
 				y,
-				pageNumber: currentPage
+				pageNumber: currentPage,
 			},
 			size: fieldType.defaultSize,
-			recipientId: selectedRecipient
+			recipientId: selectedRecipient,
 		}
 
 		void updateFields([...fields, newField])
 		setIsPlacingField(false)
 	}
 
-	const handleFieldDragStart = (
-		field: DocumentField,
-		event: React.MouseEvent
-	) => {
+	const handleFieldDragStart = (field: DocumentField, event: React.MouseEvent) => {
 		event.preventDefault()
 		event.stopPropagation()
 		if (!pageRef.current) return
@@ -475,11 +442,11 @@ export default function PrePositioningPage({
 			const y = Math.max(0, Math.min(newY, maxY))
 
 			// Update field position immediately for smooth dragging (no auto-save)
-			const updatedFields = fields.map((f) =>
+			const updatedFields = fields.map(f =>
 				f.id === field.id
 					? {
 							...f,
-							position: { ...f.position, x, y, pageNumber: currentPage }
+							position: { ...f.position, x, y, pageNumber: currentPage },
 						}
 					: f
 			)
@@ -500,7 +467,7 @@ export default function PrePositioningPage({
 	}
 
 	const handleFieldDelete = (fieldId: string) => {
-		void updateFields(fields.filter((field) => field.id !== fieldId))
+		void updateFields(fields.filter(field => field.id !== fieldId))
 	}
 
 	const handleResizeStart = (field: DocumentField, event: React.MouseEvent) => {
@@ -537,14 +504,14 @@ export default function PrePositioningPage({
 			const finalHeight = Math.min(newHeight, maxHeight)
 
 			// Update field size immediately for smooth resizing (no auto-save)
-			const updatedFields = fields.map((f) =>
+			const updatedFields = fields.map(f =>
 				f.id === field.id
 					? {
 							...f,
 							size: {
 								width: finalWidth,
-								height: finalHeight
-							}
+								height: finalHeight,
+							},
 						}
 					: f
 			)
@@ -564,12 +531,10 @@ export default function PrePositioningPage({
 		document.addEventListener("mouseup", handleMouseUp)
 	}
 
-	const currentPageFields = fields.filter(
-		(field) => field.position.pageNumber === currentPage
-	)
+	const currentPageFields = fields.filter(field => field.position.pageNumber === currentPage)
 
 	return (
-		<div className="min-h-screen bg-background p-2 md:p-4">
+		<div className="bg-background min-h-screen p-2 md:p-4">
 			<div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
 				<div className="grid grid-cols-1 gap-4 md:gap-6 xl:grid-cols-4">
 					{/* Field Tools Sidebar */}
@@ -585,9 +550,7 @@ export default function PrePositioningPage({
 							</Button>
 						</div>
 
-						<div
-							className={`space-y-4 md:space-y-6 ${showSidebar ? "block" : "hidden xl:block"}`}
-						>
+						<div className={`space-y-4 md:space-y-6 ${showSidebar ? "block" : "hidden xl:block"}`}>
 							{/* Recipients */}
 							<Card>
 								<CardHeader className="pb-3">
@@ -597,8 +560,7 @@ export default function PrePositioningPage({
 									{recipientsWithColors.length === 0 ? (
 										<div className="py-4 text-center">
 											<p className="mb-3 text-sm text-gray-500">
-												No recipients yet. Add recipients first to start
-												positioning fields.
+												No recipients yet. Add recipients first to start positioning fields.
 											</p>
 											{onAddRecipient && (
 												<Button
@@ -626,8 +588,8 @@ export default function PrePositioningPage({
 														selectedRecipient === recipient.id
 															? selectedFieldType
 																? "border-primary bg-primary/10"
-																: "border-blue-500 bg-background"
-															: "border bg-muted hover:bg-popover"
+																: "bg-background border-blue-500"
+															: "bg-muted hover:bg-popover border"
 													}`}
 													onClick={() => {
 														setSelectedRecipient(recipient.id)
@@ -645,45 +607,39 @@ export default function PrePositioningPage({
 														style={{ backgroundColor: recipient.color }}
 													/>
 													<div className="min-w-0 flex-1">
-														<p className="truncate text-sm font-medium">
-															{recipient.name}
-														</p>
-														<p className="truncate text-xs text-gray-500">
-															{recipient.email}
-														</p>
+														<p className="truncate text-sm font-medium">{recipient.name}</p>
+														<p className="truncate text-xs text-gray-500">{recipient.email}</p>
 													</div>
 													<div className="flex items-center gap-1">
 														{/* Show copy invite link button only for placeholder recipients after fields are saved */}
-														{fieldsSaved &&
-															recipient.email.includes("placeholder.com") && (
-																<Button
-																	size="sm"
-																	variant="outline"
-																	className="h-6 px-2 text-xs"
-																	onClick={(e) => {
-																		e.stopPropagation()
-																		// copyInviteLink(recipient.name)
-																	}}
-																>
-																	Copy Link
-																</Button>
-															)}
+														{fieldsSaved && recipient.email.includes("placeholder.com") && (
+															<Button
+																size="sm"
+																variant="outline"
+																className="h-6 px-2 text-xs"
+																onClick={e => {
+																	e.stopPropagation()
+																	// copyInviteLink(recipient.name)
+																}}
+															>
+																Copy Link
+															</Button>
+														)}
 														{/* Delete recipient button */}
-														{onDeleteRecipient &&
-															recipient.email.includes("placeholder.com") && (
-																<Button
-																	size="sm"
-																	variant="ghost"
-																	className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
-																	onClick={(e) => {
-																		e.stopPropagation()
-																		onDeleteRecipient(recipient.id)
-																	}}
-																	title="Delete recipient"
-																>
-																	<Trash2 className="h-3 w-3" />
-																</Button>
-															)}
+														{onDeleteRecipient && recipient.email.includes("placeholder.com") && (
+															<Button
+																size="sm"
+																variant="ghost"
+																className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
+																onClick={e => {
+																	e.stopPropagation()
+																	onDeleteRecipient(recipient.id)
+																}}
+																title="Delete recipient"
+															>
+																<Trash2 className="h-3 w-3" />
+															</Button>
+														)}
 													</div>
 												</div>
 											))}
@@ -701,9 +657,7 @@ export default function PrePositioningPage({
 													) : (
 														<Plus className="h-3 w-3 xl:h-4 xl:w-4" />
 													)}
-													<span className="hidden sm:inline xl:inline">
-														Add Recipient
-													</span>
+													<span className="hidden sm:inline xl:inline">Add Recipient</span>
 												</Button>
 											)}
 										</>
@@ -723,17 +677,13 @@ export default function PrePositioningPage({
 										</p>
 									)}
 									<div className="grid grid-cols-2 gap-2 xl:grid-cols-1">
-										{FIELD_TYPES.map((fieldType) => {
+										{FIELD_TYPES.map(fieldType => {
 											const Icon = fieldType.icon
 											const isDisabled = !selectedRecipient
 											return (
 												<Button
 													key={fieldType.value}
-													variant={
-														selectedFieldType === fieldType.value
-															? "default"
-															: "outline"
-													}
+													variant={selectedFieldType === fieldType.value ? "default" : "outline"}
 													className={`w-full justify-start text-xs xl:text-sm ${
 														isDisabled ? "cursor-not-allowed opacity-50" : ""
 													}`}
@@ -742,12 +692,8 @@ export default function PrePositioningPage({
 													onClick={() => handleFieldTypeSelect(fieldType.value)}
 												>
 													<Icon className="mr-2 h-3 w-3 xl:h-4 xl:w-4" />
-													<span className="hidden sm:inline xl:inline">
-														{fieldType.label}
-													</span>
-													<span className="sm:hidden xl:hidden">
-														{fieldType.label.slice(0, 3)}
-													</span>
+													<span className="hidden sm:inline xl:inline">{fieldType.label}</span>
+													<span className="sm:hidden xl:hidden">{fieldType.label.slice(0, 3)}</span>
 												</Button>
 											)
 										})}
@@ -758,21 +704,15 @@ export default function PrePositioningPage({
 							{/* Field List */}
 							<Card>
 								<CardHeader className="pb-3">
-									<CardTitle className="text-sm">
-										Fields on Page {currentPage}
-									</CardTitle>
+									<CardTitle className="text-sm">Fields on Page {currentPage}</CardTitle>
 								</CardHeader>
 								<CardContent className="space-y-2">
 									{currentPageFields.length === 0 ? (
-										<p className="text-sm text-gray-500">
-											No fields on this page
-										</p>
+										<p className="text-sm text-gray-500">No fields on this page</p>
 									) : (
 										<div className="max-h-48 space-y-2 overflow-y-auto">
-											{currentPageFields.map((field) => {
-												const recipient = recipientsWithColors.find(
-													(r) => r.id === field.recipientId
-												)
+											{currentPageFields.map(field => {
+												const recipient = recipientsWithColors.find(r => r.id === field.recipientId)
 												return (
 													<div
 														key={field.id}
@@ -783,12 +723,8 @@ export default function PrePositioningPage({
 															style={{ backgroundColor: recipient?.color }}
 														/>
 														<div className="min-w-0 flex-1">
-															<p className="truncate text-sm font-medium">
-																{field.label}
-															</p>
-															<p className="text-xs text-gray-500">
-																{field.type}
-															</p>
+															<p className="truncate text-sm font-medium">{field.label}</p>
+															<p className="text-xs text-gray-500">{field.type}</p>
 														</div>
 														<Button
 															variant="ghost"
@@ -813,24 +749,20 @@ export default function PrePositioningPage({
 						<Card className="overflow-hidden border shadow-lg">
 							<CardContent className="p-0">
 								{isLoading && (
-									<div className="flex h-96 items-center justify-center bg-muted">
+									<div className="bg-muted flex h-96 items-center justify-center">
 										<div className="text-center">
 											<Loader2 className="mx-auto mb-2 h-8 w-8 animate-spin" />
-											<span className="text-sm text-muted-foreground">
-												Loading document...
-											</span>
+											<span className="text-muted-foreground text-sm">Loading document...</span>
 										</div>
 									</div>
 								)}
 
 								<div
 									ref={pdfContainerRef}
-									className="relative overflow-auto bg-muted/10"
+									className="bg-muted/10 relative overflow-auto"
 									style={{
-										maxHeight: isMobile
-											? "calc(100vh - 250px)"
-											: "calc(100vh - 200px)",
-										minHeight: isMobile ? "250px" : "300px"
+										maxHeight: isMobile ? "calc(100vh - 250px)" : "calc(100vh - 200px)",
+										minHeight: isMobile ? "250px" : "300px",
 									}}
 								>
 									<div className="flex min-h-full items-start justify-center p-4 md:p-6">
@@ -839,14 +771,14 @@ export default function PrePositioningPage({
 											onLoadSuccess={onDocumentLoadSuccess}
 											onLoadError={onDocumentLoadError}
 											loading={null}
-											className="overflow-hidden rounded-lg bg-background shadow-2xl"
+											className="bg-background overflow-hidden rounded-lg shadow-2xl"
 										>
 											<div
 												ref={pageRef}
-												className="relative inline-block overflow-hidden rounded-lg border bg-card shadow-xl"
+												className="bg-card relative inline-block overflow-hidden rounded-lg border shadow-xl"
 												onClick={handleCanvasClick}
 												style={{
-													cursor: isPlacingField ? "crosshair" : "default"
+													cursor: isPlacingField ? "crosshair" : "default",
 												}}
 											>
 												<Page
@@ -858,53 +790,45 @@ export default function PrePositioningPage({
 												/>
 
 												{/* Render positioned fields */}
-												{currentPageFields.map((field) => {
+												{currentPageFields.map(field => {
 													const recipient = recipientsWithColors.find(
-														(r) => r.id === field.recipientId
+														r => r.id === field.recipientId
 													)
 													return (
 														<div
 															key={field.id}
 															className={`group absolute transition-all duration-100 ${
-																isDragging && draggedField?.id === field.id
-																	? "z-50 shadow-lg"
-																	: ""
-															} ${
-																isResizing && draggedField?.id === field.id
-																	? "z-50"
-																	: ""
-															}`}
+																isDragging && draggedField?.id === field.id ? "z-50 shadow-lg" : ""
+															} ${isResizing && draggedField?.id === field.id ? "z-50" : ""}`}
 															style={{
 																left: field.position.x * pageScale,
 																top: field.position.y * pageScale,
 																width: field.size.width * pageScale,
-																height: field.size.height * pageScale
+																height: field.size.height * pageScale,
 															}}
 														>
 															{/* Main field area */}
 															<div
-																className={`relative flex h-full w-full items-center justify-center border-2 border-dashed bg-opacity-20 text-xs font-medium transition-all hover:border-solid hover:bg-opacity-30 ${
+																className={`bg-opacity-20 hover:bg-opacity-30 relative flex h-full w-full items-center justify-center border-2 border-dashed text-xs font-medium transition-all hover:border-solid ${
 																	isDragging && draggedField?.id === field.id
-																		? "cursor-grabbing border-solid bg-opacity-40 shadow-lg"
+																		? "bg-opacity-40 cursor-grabbing border-solid shadow-lg"
 																		: "cursor-grab hover:cursor-grab"
 																} ${
 																	isResizing && draggedField?.id === field.id
-																		? "border-solid bg-opacity-40"
+																		? "bg-opacity-40 border-solid"
 																		: ""
 																}`}
 																style={{
 																	borderColor: recipient?.color,
 																	backgroundColor: recipient?.color + "20",
-																	color: recipient?.color
+																	color: recipient?.color,
 																}}
-																onMouseDown={(e) => {
+																onMouseDown={e => {
 																	// Prevent dragging when clicking on delete button or resize handle
 																	const target = e.target as HTMLElement
 																	if (
 																		target.closest("button") ||
-																		target.classList.contains(
-																			"cursor-se-resize"
-																		) ||
+																		target.classList.contains("cursor-se-resize") ||
 																		target.closest(".cursor-se-resize")
 																	) {
 																		return
@@ -913,14 +837,14 @@ export default function PrePositioningPage({
 																}}
 																title={`${field.label} for ${recipient?.name}`}
 															>
-																<span className="pointer-events-none select-none px-1 text-center">
+																<span className="pointer-events-none px-1 text-center select-none">
 																	{field.type}
 																</span>
 
 																{/* Delete button */}
 																<button
-																	className="absolute -right-2 -top-2 h-6 w-6 rounded-full bg-red-500 text-xs text-white opacity-0 shadow-lg transition-opacity hover:bg-red-600 group-hover:opacity-100"
-																	onClick={(e) => {
+																	className="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-red-500 text-xs text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100 hover:bg-red-600"
+																	onClick={e => {
 																		e.stopPropagation()
 																		handleFieldDelete(field.id)
 																	}}
@@ -931,13 +855,13 @@ export default function PrePositioningPage({
 
 																{/* Resize handle */}
 																<div
-																	className={`absolute -bottom-1 -right-1 h-4 w-4 cursor-se-resize rounded-full border-2 bg-white shadow-md transition-all duration-150 ${
+																	className={`absolute -right-1 -bottom-1 h-4 w-4 cursor-se-resize rounded-full border-2 bg-white shadow-md transition-all duration-150 ${
 																		isResizing && draggedField?.id === field.id
 																			? "scale-125 border-4 opacity-100"
-																			: "opacity-0 hover:scale-110 group-hover:opacity-100"
+																			: "opacity-0 group-hover:opacity-100 hover:scale-110"
 																	}`}
 																	style={{ borderColor: recipient?.color }}
-																	onMouseDown={(e) => {
+																	onMouseDown={e => {
 																		e.stopPropagation()
 																		handleResizeStart(field, e)
 																	}}
@@ -953,7 +877,7 @@ export default function PrePositioningPage({
 								</div>
 
 								{/* Enhanced Zoom Controls */}
-								<div className="border-t bg-card p-3 md:p-4">
+								<div className="bg-card border-t p-3 md:p-4">
 									<div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
 										<div className="flex items-center justify-center gap-3 md:justify-start">
 											{/* Zoom Controls */}
@@ -961,9 +885,7 @@ export default function PrePositioningPage({
 												<Button
 													variant="outline"
 													size="sm"
-													onClick={() =>
-														setPageScale(Math.max(0.5, pageScale - 0.1))
-													}
+													onClick={() => setPageScale(Math.max(0.5, pageScale - 0.1))}
 													disabled={pageScale <= 0.5}
 												>
 													-
@@ -974,9 +896,7 @@ export default function PrePositioningPage({
 												<Button
 													variant="outline"
 													size="sm"
-													onClick={() =>
-														setPageScale(Math.min(3, pageScale + 0.1))
-													}
+													onClick={() => setPageScale(Math.min(3, pageScale + 0.1))}
 												>
 													+
 												</Button>
@@ -996,9 +916,7 @@ export default function PrePositioningPage({
 													<Button
 														variant="outline"
 														size="sm"
-														onClick={() =>
-															setCurrentPage(Math.max(1, currentPage - 1))
-														}
+														onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
 														disabled={currentPage <= 1}
 													>
 														Prev
@@ -1009,11 +927,7 @@ export default function PrePositioningPage({
 													<Button
 														variant="outline"
 														size="sm"
-														onClick={() =>
-															setCurrentPage(
-																Math.min(numPages, currentPage + 1)
-															)
-														}
+														onClick={() => setCurrentPage(Math.min(numPages, currentPage + 1))}
 														disabled={currentPage >= numPages}
 													>
 														Next
@@ -1028,23 +942,20 @@ export default function PrePositioningPage({
 													⚠️ Add recipients first to start positioning fields
 												</span>
 											)}
-											{!isSaving &&
-												recipientsWithColors.length > 0 &&
-												!selectedRecipient && (
-													<span className="font-medium text-amber-600">
-														⚠️ Select a recipient first
-													</span>
-												)}
+											{!isSaving && recipientsWithColors.length > 0 && !selectedRecipient && (
+												<span className="font-medium text-amber-600">
+													⚠️ Select a recipient first
+												</span>
+											)}
 											{!isSaving && selectedRecipient && isPlacingField && (
 												<span className="font-medium text-blue-600">
-													📍 Click on the document to place a{" "}
-													{selectedFieldType.toLowerCase()} field
+													📍 Click on the document to place a {selectedFieldType.toLowerCase()}{" "}
+													field
 												</span>
 											)}
 											{!isSaving && selectedRecipient && !isPlacingField && (
 												<span className="text-gray-500">
-													Select a field type and click to place it on the
-													document
+													Select a field type and click to place it on the document
 												</span>
 											)}
 										</div>

@@ -1,14 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import {
-	CheckCircle,
-	ChevronLeft,
-	ChevronRight,
-	FileText,
-	Send,
-	Users
-} from "lucide-react"
+import { CheckCircle, ChevronLeft, ChevronRight, FileText, Send, Users } from "lucide-react"
 import { toast } from "sonner"
 
 import { Button } from "@/core/components/ui/button"
@@ -17,7 +10,7 @@ import {
 	CardContent,
 	CardDescription,
 	CardHeader,
-	CardTitle
+	CardTitle,
 } from "@/core/components/ui/card"
 import { Progress } from "@/core/components/ui/progress"
 import { Separator } from "@/core/components/ui/separator"
@@ -31,26 +24,26 @@ const STEPS = [
 		id: "document",
 		title: "Upload Document",
 		description: "Add the document that needs to be signed",
-		icon: FileText
+		icon: FileText,
 	},
 	{
 		id: "recipients",
 		title: "Add Recipients",
 		description: "Specify who needs to sign or review",
-		icon: Users
+		icon: Users,
 	},
 	{
 		id: "positioning",
 		title: "Position Fields",
 		description: "Place signature and form fields on the document",
-		icon: CheckCircle
+		icon: CheckCircle,
 	},
 	{
 		id: "send",
 		title: "Send for Signature",
 		description: "Review and send the envelope",
-		icon: Send
-	}
+		icon: Send,
+	},
 ] as const
 
 type StepId = (typeof STEPS)[number]["id"]
@@ -65,15 +58,7 @@ interface Document {
 
 interface DocumentField {
 	id: string
-	type:
-		| "SIGNATURE"
-		| "INITIAL"
-		| "NAME"
-		| "DATE"
-		| "TEXT"
-		| "EMAIL"
-		| "CHECKBOX"
-		| "RADIO"
+	type: "SIGNATURE" | "INITIAL" | "NAME" | "DATE" | "TEXT" | "EMAIL" | "CHECKBOX" | "RADIO"
 	label: string
 	position: { x: number; y: number; pageNumber: number }
 	size: { width: number; height: number }
@@ -98,12 +83,12 @@ export function EnvelopeBuilder() {
 		recipients: [],
 		documentFields: [],
 		envelopeTitle: "",
-		envelopeMessage: ""
+		envelopeMessage: "",
 	})
 	const [isSubmitting, setIsSubmitting] = useState(false)
 
 	// Step navigation
-	const currentStepIndex = STEPS.findIndex((step) => step.id === currentStep)
+	const currentStepIndex = STEPS.findIndex(step => step.id === currentStep)
 	const progress = ((currentStepIndex + 1) / STEPS.length) * 100
 
 	// Validation for each step
@@ -112,10 +97,7 @@ export function EnvelopeBuilder() {
 			case "document":
 				return state.document !== null
 			case "recipients":
-				return (
-					state.recipients.length > 0 &&
-					state.recipients.some((r) => r.role === "SIGNER")
-				)
+				return state.recipients.length > 0 && state.recipients.some(r => r.role === "SIGNER")
 			case "positioning":
 				return state.documentFields.length > 0
 			case "send":
@@ -150,7 +132,7 @@ export function EnvelopeBuilder() {
 	}
 
 	const handleStepClick = (stepId: StepId) => {
-		const stepIndex = STEPS.findIndex((step) => step.id === stepId)
+		const stepIndex = STEPS.findIndex(step => step.id === stepId)
 
 		// Only allow going to previous steps or current step
 		if (stepIndex <= currentStepIndex) {
@@ -160,58 +142,49 @@ export function EnvelopeBuilder() {
 
 	// State update handlers
 	const handleDocumentUpload = (document: Document) => {
-		setState((prev) => ({ ...prev, document }))
+		setState(prev => ({ ...prev, document }))
 		toast.success("Document uploaded successfully")
 	}
 
 	const handleRecipientsChange = (recipients: Recipient[]) => {
-		setState((prev) => ({ ...prev, recipients }))
+		setState(prev => ({ ...prev, recipients }))
 	}
 
 	const handleDocumentFieldsChange = (documentFields: DocumentField[]) => {
-		setState((prev) => ({ ...prev, documentFields }))
+		setState(prev => ({ ...prev, documentFields }))
 	}
 
 	// Field management handlers
 	const handleFieldAdd = (field: Omit<DocumentField, "id">) => {
 		const newField: DocumentField = {
 			...field,
-			id: `field_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+			id: `field_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
 		}
-		setState((prev) => ({
+		setState(prev => ({
 			...prev,
-			documentFields: [...prev.documentFields, newField]
+			documentFields: [...prev.documentFields, newField],
 		}))
 	}
 
-	const handleFieldUpdate = (
-		fieldId: string,
-		updates: Partial<DocumentField>
-	) => {
-		setState((prev) => ({
+	const handleFieldUpdate = (fieldId: string, updates: Partial<DocumentField>) => {
+		setState(prev => ({
 			...prev,
-			documentFields: prev.documentFields.map((field) =>
+			documentFields: prev.documentFields.map(field =>
 				field.id === fieldId ? { ...field, ...updates } : field
-			)
+			),
 		}))
 	}
 
 	const handleFieldDelete = (fieldId: string) => {
-		setState((prev) => ({
+		setState(prev => ({
 			...prev,
-			documentFields: prev.documentFields.filter(
-				(field) => field.id !== fieldId
-			)
+			documentFields: prev.documentFields.filter(field => field.id !== fieldId),
 		}))
 	}
 
 	// Final submission
 	const handleSendEnvelope = async () => {
-		if (
-			!state.document ||
-			state.recipients.length === 0 ||
-			state.documentFields.length === 0
-		) {
+		if (!state.document || state.recipients.length === 0 || state.documentFields.length === 0) {
 			toast.error("Please complete all required steps")
 			return
 		}
@@ -219,7 +192,7 @@ export function EnvelopeBuilder() {
 		setIsSubmitting(true)
 		try {
 			// TODO: Implement envelope sending logic via tRPC
-			await new Promise((resolve) => setTimeout(resolve, 2000)) // Simulate API call
+			await new Promise(resolve => setTimeout(resolve, 2000)) // Simulate API call
 
 			toast.success("Envelope sent successfully!")
 
@@ -229,7 +202,7 @@ export function EnvelopeBuilder() {
 				recipients: [],
 				documentFields: [],
 				envelopeTitle: "",
-				envelopeMessage: ""
+				envelopeMessage: "",
 			})
 			setCurrentStep("document")
 		} catch (error) {
@@ -259,9 +232,7 @@ export function EnvelopeBuilder() {
 					return (
 						<Card>
 							<CardContent className="pt-6">
-								<p className="text-center text-gray-500">
-									Please upload a document first
-								</p>
+								<p className="text-center text-gray-500">Please upload a document first</p>
 							</CardContent>
 						</Card>
 					)
@@ -284,46 +255,40 @@ export function EnvelopeBuilder() {
 					<Card>
 						<CardHeader>
 							<CardTitle>Review & Send</CardTitle>
-							<CardDescription>
-								Review your envelope details before sending
-							</CardDescription>
+							<CardDescription>Review your envelope details before sending</CardDescription>
 						</CardHeader>
 						<CardContent className="space-y-6">
 							{/* Envelope Summary */}
 							<div className="space-y-4">
 								<div>
-									<label className="text-sm font-medium text-gray-700">
-										Envelope Title
-									</label>
+									<label className="text-sm font-medium text-gray-700">Envelope Title</label>
 									<input
 										type="text"
 										value={state.envelopeTitle}
-										onChange={(e) =>
-											setState((prev) => ({
+										onChange={e =>
+											setState(prev => ({
 												...prev,
-												envelopeTitle: e.target.value
+												envelopeTitle: e.target.value,
 											}))
 										}
 										placeholder="Enter envelope title"
-										className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
+										className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:ring-blue-500 focus:outline-none"
 									/>
 								</div>
 
 								<div>
-									<label className="text-sm font-medium text-gray-700">
-										Message (Optional)
-									</label>
+									<label className="text-sm font-medium text-gray-700">Message (Optional)</label>
 									<textarea
 										value={state.envelopeMessage}
-										onChange={(e) =>
-											setState((prev) => ({
+										onChange={e =>
+											setState(prev => ({
 												...prev,
-												envelopeMessage: e.target.value
+												envelopeMessage: e.target.value,
 											}))
 										}
 										placeholder="Add a message for recipients..."
 										rows={3}
-										className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
+										className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:ring-blue-500 focus:outline-none"
 									/>
 								</div>
 							</div>
@@ -334,9 +299,7 @@ export function EnvelopeBuilder() {
 							<div className="grid gap-4 md:grid-cols-3">
 								<div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
 									<h4 className="font-medium text-blue-900">Document</h4>
-									<p className="mt-1 text-sm text-blue-700">
-										{state.document?.name}
-									</p>
+									<p className="mt-1 text-sm text-blue-700">{state.document?.name}</p>
 									<p className="mt-1 text-xs text-blue-600">
 										{state.documentFields.length} fields positioned
 									</p>
@@ -345,33 +308,20 @@ export function EnvelopeBuilder() {
 								<div className="rounded-lg border border-green-200 bg-green-50 p-4">
 									<h4 className="font-medium text-green-900">Recipients</h4>
 									<p className="mt-1 text-sm text-green-700">
-										{state.recipients.filter((r) => r.role === "SIGNER").length}{" "}
-										signer(s)
+										{state.recipients.filter(r => r.role === "SIGNER").length} signer(s)
 									</p>
 									<p className="mt-1 text-xs text-green-600">
-										{
-											state.recipients.filter((r) => r.role === "APPROVER")
-												.length
-										}{" "}
-										approver(s)
+										{state.recipients.filter(r => r.role === "APPROVER").length} approver(s)
 									</p>
 								</div>
 
 								<div className="rounded-lg border border-purple-200 bg-purple-50 p-4">
 									<h4 className="font-medium text-purple-900">Fields</h4>
 									<p className="mt-1 text-sm text-purple-700">
-										{
-											state.documentFields.filter((f) => f.type === "SIGNATURE")
-												.length
-										}{" "}
-										signature(s)
+										{state.documentFields.filter(f => f.type === "SIGNATURE").length} signature(s)
 									</p>
 									<p className="mt-1 text-xs text-purple-600">
-										{
-											state.documentFields.filter((f) => f.type !== "SIGNATURE")
-												.length
-										}{" "}
-										other field(s)
+										{state.documentFields.filter(f => f.type !== "SIGNATURE").length} other field(s)
 									</p>
 								</div>
 							</div>
@@ -408,12 +358,8 @@ export function EnvelopeBuilder() {
 		<div className="mx-auto max-w-6xl space-y-6 p-6">
 			{/* Header */}
 			<div className="space-y-2 text-center">
-				<h1 className="text-3xl font-bold text-gray-900">
-					Create Signature Envelope
-				</h1>
-				<p className="text-gray-600">
-					Upload, assign, and send documents for digital signature
-				</p>
+				<h1 className="text-3xl font-bold text-gray-900">Create Signature Envelope</h1>
+				<p className="text-gray-600">Upload, assign, and send documents for digital signature</p>
 			</div>
 
 			{/* Progress */}
@@ -422,9 +368,7 @@ export function EnvelopeBuilder() {
 					<span className="text-sm font-medium text-gray-700">
 						Step {currentStepIndex + 1} of {STEPS.length}
 					</span>
-					<span className="text-sm text-gray-500">
-						{Math.round(progress)}% Complete
-					</span>
+					<span className="text-sm text-gray-500">{Math.round(progress)}% Complete</span>
 				</div>
 				<Progress value={progress} className="h-2" />
 			</div>
@@ -454,17 +398,11 @@ export function EnvelopeBuilder() {
 						>
 							<Icon
 								className={`mb-2 h-6 w-6 ${
-									isCompleted
-										? "text-green-600"
-										: isActive
-											? "text-blue-600"
-											: "text-gray-400"
+									isCompleted ? "text-green-600" : isActive ? "text-blue-600" : "text-gray-400"
 								}`}
 							/>
 							<span className="text-sm font-medium">{step.title}</span>
-							<span className="mt-1 text-center text-xs opacity-70">
-								{step.description}
-							</span>
+							<span className="mt-1 text-center text-xs opacity-70">{step.description}</span>
 						</button>
 					)
 				})}

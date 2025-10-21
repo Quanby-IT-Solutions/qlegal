@@ -11,9 +11,7 @@ interface DisclosureContextValue {
 	orientation: "vertical" | "horizontal"
 }
 
-const DisclosureContext = React.createContext<
-	DisclosureContextValue | undefined
->(undefined)
+const DisclosureContext = React.createContext<DisclosureContextValue | undefined>(undefined)
 
 interface DisclosureProps {
 	ref?: React.Ref<HTMLDivElement>
@@ -34,7 +32,7 @@ export function Disclosure({
 	orientation = "vertical",
 	className,
 	children,
-	asChild = false
+	asChild = false,
 }: DisclosureProps) {
 	const [uncontrolledOpen, setUncontrolledOpen] = React.useState(defaultOpen)
 	const isControlled = controlledOpen !== undefined
@@ -43,7 +41,9 @@ export function Disclosure({
 
 	const toggle = React.useCallback(() => {
 		const newOpen = !open
-		if (!isControlled) {setUncontrolledOpen(newOpen)}
+		if (!isControlled) {
+			setUncontrolledOpen(newOpen)
+		}
 		onOpenChange?.(newOpen)
 	}, [open, isControlled, onOpenChange])
 
@@ -54,9 +54,7 @@ export function Disclosure({
 				data-state={open ? "open" : "closed"}
 				className={cn(
 					"flex",
-					orientation === "vertical"
-						? "w-full flex-col"
-						: "h-full w-fit flex-row",
+					orientation === "vertical" ? "w-full flex-col" : "h-full w-fit flex-row",
 					className
 				)}
 			>
@@ -115,8 +113,8 @@ export function DisclosureTrigger({
 			aria-expanded={open}
 			data-state={open ? "open" : "closed"}
 			className={cn(
-				"rounded-md ring-offset-background transition-colors",
-				"focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+				"ring-offset-background rounded-md transition-colors",
+				"focus-visible:ring-ring focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none",
 				"disabled:pointer-events-none disabled:opacity-50",
 				className
 			)}
@@ -148,11 +146,12 @@ export function DisclosureContent({
 
 	React.useLayoutEffect(() => {
 		const element = contentRef.current
-		if (!element) {return}
+		if (!element) {
+			return
+		}
 
 		const updateSize = () => {
-			const newSize =
-				orientation === "vertical" ? element.scrollHeight : element.scrollWidth
+			const newSize = orientation === "vertical" ? element.scrollHeight : element.scrollWidth
 			setSize(newSize)
 		}
 
@@ -169,13 +168,13 @@ export function DisclosureContent({
 		if (isVertical) {
 			return {
 				height: open ? size : 0,
-				overflow: "hidden" as const
+				overflow: "hidden" as const,
 			}
 		}
 
 		return {
 			width: open ? size : 0,
-			overflow: "hidden" as const
+			overflow: "hidden" as const,
 		}
 	}, [open, size, isVertical])
 

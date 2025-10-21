@@ -12,7 +12,7 @@ import {
 	AlertDialogFooter,
 	AlertDialogHeader,
 	AlertDialogTitle,
-	AlertDialogTrigger
+	AlertDialogTrigger,
 } from "@/core/components/ui/alert-dialog"
 import { Button } from "@/core/components/ui/button"
 
@@ -27,7 +27,7 @@ export function DeleteDocumentDialog({
 	documentName,
 	onConfirm,
 	trigger,
-	isDeleting = false
+	isDeleting = false,
 }: DeleteDocumentDialogProps) {
 	const [isOpen, setIsOpen] = useState(false)
 
@@ -42,13 +42,12 @@ export function DeleteDocumentDialog({
 			<AlertDialogContent>
 				<AlertDialogHeader>
 					<AlertDialogTitle className="flex items-center gap-2">
-						<AlertTriangle className="h-5 w-5 text-destructive" />
+						<AlertTriangle className="text-destructive h-5 w-5" />
 						Delete Document
 					</AlertDialogTitle>
 					<AlertDialogDescription>
-						Are you sure you want to delete &quot;{documentName}&quot;? This
-						action cannot be undone and will permanently remove the document and
-						all associated signatures.
+						Are you sure you want to delete &quot;{documentName}&quot;? This action cannot be undone
+						and will permanently remove the document and all associated signatures.
 					</AlertDialogDescription>
 				</AlertDialogHeader>
 				<AlertDialogFooter>

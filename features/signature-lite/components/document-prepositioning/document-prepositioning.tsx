@@ -34,7 +34,7 @@ export default function DocumentPrePositioning({
 	isAddingRecipient = false,
 	onDeleteRecipient,
 	onRefresh,
-	onPendingSaveChange
+	onPendingSaveChange,
 }: DocumentPrePositioningProps) {
 	return (
 		<div className="flex h-screen gap-4">

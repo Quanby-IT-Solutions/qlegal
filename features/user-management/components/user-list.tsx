@@ -1,22 +1,10 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import {
-	AlertCircle,
-	CheckCircle,
-	Clock,
-	Edit,
-	MoreVertical,
-	Shield,
-	Trash2
-} from "lucide-react"
+import { AlertCircle, CheckCircle, Clock, Edit, MoreVertical, Shield, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 
-import {
-	Avatar,
-	AvatarFallback,
-	AvatarImage
-} from "@/core/components/ui/avatar"
+import { Avatar, AvatarFallback, AvatarImage } from "@/core/components/ui/avatar"
 import { Badge } from "@/core/components/ui/badge"
 import { Button } from "@/core/components/ui/button"
 import {
@@ -24,7 +12,7 @@ import {
 	CardContent,
 	CardDescription,
 	CardHeader,
-	CardTitle
+	CardTitle,
 } from "@/core/components/ui/card"
 import {
 	DropdownMenu,
@@ -32,14 +20,14 @@ import {
 	DropdownMenuItem,
 	DropdownMenuLabel,
 	DropdownMenuSeparator,
-	DropdownMenuTrigger
+	DropdownMenuTrigger,
 } from "@/core/components/ui/dropdown-menu"
 import {
 	Select,
 	SelectContent,
 	SelectItem,
 	SelectTrigger,
-	SelectValue
+	SelectValue,
 } from "@/core/components/ui/select"
 
 import { trpc } from "@/services/trpc/client"
@@ -55,11 +43,7 @@ interface UserListProps {
 	statusFilter: string
 }
 
-export function UserList({
-	searchTerm,
-	roleFilter,
-	statusFilter
-}: UserListProps) {
+export function UserList({ searchTerm, roleFilter, statusFilter }: UserListProps) {
 	const [selectedUserId, setSelectedUserId] = useState<string | null>(null)
 	const [currentPage, setCurrentPage] = useState(1)
 	const [pageSize, setPageSize] = useState(10)
@@ -72,26 +56,21 @@ export function UserList({
 		open: false,
 		action: "suspend",
 		userId: "",
-		userName: ""
+		userName: "",
 	})
 	const utils = trpc.useUtils()
 
 	const {
 		data: userData,
 		isLoading,
-		refetch
+		refetch,
 	} = trpc.userManagement.list.useQuery({
 		search: searchTerm ?? undefined,
-		role:
-			roleFilter === "all"
-				? undefined
-				: (roleFilter as "CLIENT" | "ADMIN" | "SUPER_ADMIN"),
+		role: roleFilter === "all" ? undefined : (roleFilter as "CLIENT" | "ADMIN" | "SUPER_ADMIN"),
 		status:
-			statusFilter === "all"
-				? undefined
-				: (statusFilter as "active" | "pending" | "suspended"),
+			statusFilter === "all" ? undefined : (statusFilter as "active" | "pending" | "suspended"),
 		page: currentPage,
-		limit: pageSize
+		limit: pageSize,
 	})
 
 	// Reset to first page when filters change
@@ -109,9 +88,9 @@ export function UserList({
 			// Invalidate stats to update the counts
 			void utils.userManagement.stats.invalidate()
 		},
-		onError: (error) => {
+		onError: error => {
 			toast.error(error.message || "Failed to approve user")
-		}
+		},
 	})
 
 	const suspendUserMutation = trpc.userManagement.suspend.useMutation({
@@ -121,9 +100,9 @@ export function UserList({
 			// Invalidate stats to update the counts
 			void utils.userManagement.stats.invalidate()
 		},
-		onError: (error) => {
+		onError: error => {
 			toast.error(error.message || "Failed to suspend user")
-		}
+		},
 	})
 
 	const unsuspendUserMutation = trpc.userManagement.unsuspend.useMutation({
@@ -133,9 +112,9 @@ export function UserList({
 			// Invalidate stats to update the counts
 			void utils.userManagement.stats.invalidate()
 		},
-		onError: (error) => {
+		onError: error => {
 			toast.error(error.message || "Failed to unsuspend user")
-		}
+		},
 	})
 
 	const deleteUserMutation = trpc.userManagement.delete.useMutation({
@@ -145,9 +124,9 @@ export function UserList({
 			// Invalidate stats to update the counts
 			void utils.userManagement.stats.invalidate()
 		},
-		onError: (error) => {
+		onError: error => {
 			toast.error(error.message || "Failed to delete user")
-		}
+		},
 	})
 
 	const handleApproveUser = async (userId: string) => {
@@ -167,7 +146,7 @@ export function UserList({
 			open: true,
 			action,
 			userId,
-			userName
+			userName,
 		})
 	}
 
@@ -176,7 +155,7 @@ export function UserList({
 			open: false,
 			action: "suspend",
 			userId: "",
-			userName: ""
+			userName: "",
 		})
 	}
 
@@ -229,21 +208,13 @@ export function UserList({
 	const getStatusIcon = (status: string) => {
 		switch (status) {
 			case "active":
-				return (
-					<CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
-				)
+				return <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
 			case "pending":
-				return (
-					<Clock className="h-4 w-4 text-orange-600 dark:text-orange-400" />
-				)
+				return <Clock className="h-4 w-4 text-orange-600 dark:text-orange-400" />
 			case "suspended":
-				return (
-					<AlertCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
-				)
+				return <AlertCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
 			default:
-				return (
-					<AlertCircle className="h-4 w-4 text-gray-600 dark:text-gray-400" />
-				)
+				return <AlertCircle className="h-4 w-4 text-gray-600 dark:text-gray-400" />
 		}
 	}
 
@@ -257,28 +228,25 @@ export function UserList({
 							<CardDescription>Loading users...</CardDescription>
 						</div>
 						<div className="flex items-center space-x-2">
-							<span className="text-sm text-muted-foreground">Show:</span>
-							<div className="h-9 w-20 animate-pulse rounded-md bg-muted" />
+							<span className="text-muted-foreground text-sm">Show:</span>
+							<div className="bg-muted h-9 w-20 animate-pulse rounded-md" />
 						</div>
 					</div>
 				</CardHeader>
 				<CardContent>
 					<div className="space-y-4">
 						{Array.from({ length: 3 }).map((_, i) => (
-							<div
-								key={i}
-								className="flex items-center justify-between rounded-lg border p-4"
-							>
+							<div key={i} className="flex items-center justify-between rounded-lg border p-4">
 								<div className="flex items-center space-x-4">
-									<div className="h-12 w-12 animate-pulse rounded-full bg-muted" />
+									<div className="bg-muted h-12 w-12 animate-pulse rounded-full" />
 									<div className="space-y-2">
-										<div className="h-4 w-32 animate-pulse rounded bg-muted" />
-										<div className="h-3 w-48 animate-pulse rounded bg-muted" />
+										<div className="bg-muted h-4 w-32 animate-pulse rounded" />
+										<div className="bg-muted h-3 w-48 animate-pulse rounded" />
 									</div>
 								</div>
 								<div className="space-y-2">
-									<div className="h-6 w-16 animate-pulse rounded bg-muted" />
-									<div className="h-6 w-20 animate-pulse rounded bg-muted" />
+									<div className="bg-muted h-6 w-16 animate-pulse rounded" />
+									<div className="bg-muted h-6 w-20 animate-pulse rounded" />
 								</div>
 							</div>
 						))}
@@ -294,16 +262,11 @@ export function UserList({
 				<div className="flex items-center justify-between">
 					<div>
 						<CardTitle>Users</CardTitle>
-						<CardDescription>
-							{pagination?.totalCount ?? 0} user(s) found
-						</CardDescription>
+						<CardDescription>{pagination?.totalCount ?? 0} user(s) found</CardDescription>
 					</div>
 					<div className="flex items-center space-x-2">
-						<span className="text-sm text-muted-foreground">Show:</span>
-						<Select
-							value={pageSize.toString()}
-							onValueChange={(value) => setPageSize(Number(value))}
-						>
+						<span className="text-muted-foreground text-sm">Show:</span>
+						<Select value={pageSize.toString()} onValueChange={value => setPageSize(Number(value))}>
 							<SelectTrigger className="w-20">
 								<SelectValue />
 							</SelectTrigger>
@@ -319,20 +282,18 @@ export function UserList({
 			</CardHeader>
 			<CardContent>
 				<div className="space-y-4">
-					{users.map((user) => (
+					{users.map(user => (
 						<div
 							key={user.id}
 							className="flex items-center justify-between rounded-lg border p-4 transition-colors hover:bg-gray-50 dark:hover:bg-gray-800"
 						>
 							<div className="flex flex-1 items-center space-x-4">
 								<Avatar className="h-12 w-12">
-									{user.avatar ? (
-										<AvatarImage src={user.avatar} alt={user.name} />
-									) : null}
-									<AvatarFallback className="bg-muted font-medium text-muted-foreground">
+									{user.avatar ? <AvatarImage src={user.avatar} alt={user.name} /> : null}
+									<AvatarFallback className="bg-muted text-muted-foreground font-medium">
 										{user.name
 											.split(" ")
-											.map((n) => n[0])
+											.map(n => n[0])
 											.join("")
 											.toUpperCase()}
 									</AvatarFallback>
@@ -351,13 +312,9 @@ export function UserList({
 											/>
 										)}
 									</div>
-									<p className="truncate text-sm text-gray-600 dark:text-gray-400">
-										{user.email}
-									</p>
+									<p className="truncate text-sm text-gray-600 dark:text-gray-400">{user.email}</p>
 									{user.organization && (
-										<p className="truncate text-sm text-gray-500">
-											{user.organization}
-										</p>
+										<p className="truncate text-sm text-gray-500">{user.organization}</p>
 									)}
 									<div className="mt-2 flex items-center space-x-4 text-xs text-gray-500">
 										<span>Last login: {user.lastActive}</span>
@@ -384,34 +341,28 @@ export function UserList({
 									<DropdownMenuContent align="end">
 										<DropdownMenuLabel>Actions</DropdownMenuLabel>
 										<DropdownMenuSeparator />
-										<DropdownMenuItem
-											onClick={() => setSelectedUserId(user.id)}
-										>
+										<DropdownMenuItem onClick={() => setSelectedUserId(user.id)}>
 											<Edit className="mr-2 h-4 w-4" />
 											Edit User
 										</DropdownMenuItem>
 										<UserProfileSheet
 											userId={user.id}
 											trigger={
-												<DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+												<DropdownMenuItem onSelect={e => e.preventDefault()}>
 													<Shield className="mr-2 h-4 w-4" />
 													View Profile
 												</DropdownMenuItem>
 											}
 										/>
 										{user.status === "pending" && (
-											<DropdownMenuItem
-												onClick={() => handleApproveUser(user.id)}
-											>
+											<DropdownMenuItem onClick={() => handleApproveUser(user.id)}>
 												<CheckCircle className="mr-2 h-4 w-4" />
 												Approve User
 											</DropdownMenuItem>
 										)}
 										{user.status === "active" && (
 											<DropdownMenuItem
-												onClick={() =>
-													openConfirmationModal("suspend", user.id, user.name)
-												}
+												onClick={() => openConfirmationModal("suspend", user.id, user.name)}
 											>
 												<AlertCircle className="mr-2 h-4 w-4" />
 												Suspend User
@@ -419,9 +370,7 @@ export function UserList({
 										)}
 										{user.status === "suspended" && (
 											<DropdownMenuItem
-												onClick={() =>
-													openConfirmationModal("unsuspend", user.id, user.name)
-												}
+												onClick={() => openConfirmationModal("unsuspend", user.id, user.name)}
 											>
 												<CheckCircle className="mr-2 h-4 w-4" />
 												Unsuspend User
@@ -430,9 +379,7 @@ export function UserList({
 										<DropdownMenuSeparator />
 										<DropdownMenuItem
 											className="text-red-600"
-											onClick={() =>
-												openConfirmationModal("delete", user.id, user.name)
-											}
+											onClick={() => openConfirmationModal("delete", user.id, user.name)}
 										>
 											<Trash2 className="mr-2 h-4 w-4" />
 											Delete User
@@ -472,7 +419,7 @@ export function UserList({
 			{/* Confirmation Modal */}
 			<ConfirmationModal
 				open={confirmationModal.open}
-				onOpenChange={(open) => !open && closeConfirmationModal()}
+				onOpenChange={open => !open && closeConfirmationModal()}
 				action={confirmationModal.action}
 				userName={confirmationModal.userName}
 				onConfirm={handleConfirmAction}

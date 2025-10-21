@@ -12,7 +12,7 @@ import {
 	DialogDescription,
 	DialogFooter,
 	DialogHeader,
-	DialogTitle
+	DialogTitle,
 } from "@/core/components/ui/dialog"
 import { Input } from "@/core/components/ui/input"
 import { Label } from "@/core/components/ui/label"
@@ -21,15 +21,12 @@ import {
 	SelectContent,
 	SelectItem,
 	SelectTrigger,
-	SelectValue
+	SelectValue,
 } from "@/core/components/ui/select"
 
 import { trpc } from "@/services/trpc/client"
 
-import {
-	updateUserSchema,
-	type UpdateUserInput
-} from "../api/user-management.schema"
+import { updateUserSchema, type UpdateUserInput } from "../api/user-management.schema"
 
 interface UserActionsProps {
 	userId: string
@@ -38,17 +35,14 @@ interface UserActionsProps {
 	onSuccess: () => void
 }
 
-export function UserActions({
-	userId,
-	open,
-	onOpenChange,
-	onSuccess
-}: UserActionsProps) {
+export function UserActions({ userId, open, onOpenChange, onSuccess }: UserActionsProps) {
 	const [isLoading, setIsLoading] = useState(false)
 	const utils = trpc.useUtils()
 
-	const { data: user, isLoading: isLoadingUser } =
-		trpc.userManagement.getById.useQuery({ id: userId }, { enabled: open })
+	const { data: user, isLoading: isLoadingUser } = trpc.userManagement.getById.useQuery(
+		{ id: userId },
+		{ enabled: open }
+	)
 
 	const updateUserMutation = trpc.userManagement.update.useMutation({
 		onSuccess: () => {
@@ -58,9 +52,9 @@ export function UserActions({
 			void utils.userManagement.list.invalidate()
 			void utils.userManagement.stats.invalidate()
 		},
-		onError: (error) => {
+		onError: error => {
 			toast.error(error.message || "Failed to update user")
-		}
+		},
 	})
 
 	const form = useForm<UpdateUserInput>({
@@ -70,8 +64,8 @@ export function UserActions({
 			name: "",
 			email: "",
 			role: "CLIENT",
-			organization: ""
-		}
+			organization: "",
+		},
 	})
 
 	// Update form values when user data loads
@@ -82,7 +76,7 @@ export function UserActions({
 				name: user.name ?? "",
 				email: user.email ?? "",
 				role: user.role as "CLIENT" | "ADMIN" | "SUPER_ADMIN",
-				organization: user.organization ?? ""
+				organization: user.organization ?? "",
 			})
 		}
 	}, [user, form, userId])
@@ -95,7 +89,7 @@ export function UserActions({
 				name: data.name,
 				email: data.email,
 				role: data.role,
-				organization: data.organization
+				organization: data.organization,
 			})
 		} finally {
 			setIsLoading(false)
@@ -125,8 +119,7 @@ export function UserActions({
 				<DialogHeader>
 					<DialogTitle>Edit User</DialogTitle>
 					<DialogDescription>
-						Make changes to user information here. Click save when you&apos;re
-						done.
+						Make changes to user information here. Click save when you&apos;re done.
 					</DialogDescription>
 				</DialogHeader>
 				<form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -134,33 +127,20 @@ export function UserActions({
 						<Label htmlFor="name" className="text-right">
 							Name
 						</Label>
-						<Input
-							id="name"
-							{...form.register("name")}
-							className="col-span-3"
-						/>
+						<Input id="name" {...form.register("name")} className="col-span-3" />
 					</div>
 					{form.formState.errors.name && (
-						<p className="col-span-4 text-sm text-red-500">
-							{form.formState.errors.name.message}
-						</p>
+						<p className="col-span-4 text-sm text-red-500">{form.formState.errors.name.message}</p>
 					)}
 
 					<div className="grid grid-cols-4 items-center gap-4">
 						<Label htmlFor="email" className="text-right">
 							Email
 						</Label>
-						<Input
-							id="email"
-							type="email"
-							{...form.register("email")}
-							className="col-span-3"
-						/>
+						<Input id="email" type="email" {...form.register("email")} className="col-span-3" />
 					</div>
 					{form.formState.errors.email && (
-						<p className="col-span-4 text-sm text-red-500">
-							{form.formState.errors.email.message}
-						</p>
+						<p className="col-span-4 text-sm text-red-500">{form.formState.errors.email.message}</p>
 					)}
 
 					<div className="grid grid-cols-4 items-center gap-4">
@@ -169,11 +149,8 @@ export function UserActions({
 						</Label>
 						<Select
 							value={form.watch("role")}
-							onValueChange={(value) =>
-								form.setValue(
-									"role",
-									value as "CLIENT" | "ADMIN" | "SUPER_ADMIN"
-								)
+							onValueChange={value =>
+								form.setValue("role", value as "CLIENT" | "ADMIN" | "SUPER_ADMIN")
 							}
 						>
 							<SelectTrigger className="col-span-3">
@@ -191,19 +168,11 @@ export function UserActions({
 						<Label htmlFor="organization" className="text-right">
 							Organization
 						</Label>
-						<Input
-							id="organization"
-							{...form.register("organization")}
-							className="col-span-3"
-						/>
+						<Input id="organization" {...form.register("organization")} className="col-span-3" />
 					</div>
 
 					<DialogFooter>
-						<Button
-							type="button"
-							variant="outline"
-							onClick={() => onOpenChange(false)}
-						>
+						<Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
 							Cancel
 						</Button>
 						<Button type="submit" disabled={isLoading}>

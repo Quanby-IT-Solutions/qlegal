@@ -28,7 +28,7 @@ export default function PDFViewerEnhanced({
 	initialScale = 1.2,
 	maxHeight = "80vh",
 	onPageChange,
-	children
+	children,
 }: PDFViewerEnhancedProps) {
 	const [numPages, setNumPages] = useState<number>(0)
 	const [currentPage, setCurrentPage] = useState<number>(1)
@@ -64,9 +64,7 @@ export default function PDFViewerEnhanced({
 	}
 
 	return (
-		<Card
-			className={`overflow-hidden border-2 border-gray-200 shadow-lg ${className}`}
-		>
+		<Card className={`overflow-hidden border-2 border-gray-200 shadow-lg ${className}`}>
 			<CardContent className="p-0">
 				{isLoading && (
 					<div className="flex h-96 items-center justify-center bg-gray-50">
@@ -148,9 +146,7 @@ export default function PDFViewerEnhanced({
 										<Button
 											variant="outline"
 											size="sm"
-											onClick={() =>
-												handlePageChange(Math.max(1, currentPage - 1))
-											}
+											onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
 											disabled={currentPage <= 1}
 										>
 											Previous
@@ -161,9 +157,7 @@ export default function PDFViewerEnhanced({
 										<Button
 											variant="outline"
 											size="sm"
-											onClick={() =>
-												handlePageChange(Math.min(numPages, currentPage + 1))
-											}
+											onClick={() => handlePageChange(Math.min(numPages, currentPage + 1))}
 											disabled={currentPage >= numPages}
 										>
 											Next

@@ -4,11 +4,7 @@ import { HydrateClient, trpc } from "@/services/trpc/server"
 
 import { EnvelopeViewPage } from "@/features/envelopes-lite/components/envelope-view-page"
 
-export default async function Page({
-	params
-}: {
-	params: Promise<{ id: string }>
-}) {
+export default async function Page({ params }: { params: Promise<{ id: string }> }) {
 	const { id: envelopeId } = await params
 
 	// Only prefetch, let the client component handle the data
@@ -21,7 +17,7 @@ export default async function Page({
 			<SiteNavbar
 				items={[
 					{ label: "Envelopes", url: "/envelopes" },
-					{ label: "Document View", url: `/envelope/${envelopeId}` }
+					{ label: "Document View", url: `/envelope/${envelopeId}` },
 				]}
 			/>
 			<EnvelopeViewPage envelopeId={envelopeId} />

@@ -3,9 +3,10 @@
 import { useRouter } from "next/navigation"
 import { useEffect, useMemo, useState } from "react"
 import { ArrowLeft, Search } from "lucide-react"
+
+import { TooltipProvider } from "@/core/components/tooltip"
 import { Button } from "@/core/components/ui/button"
 import { Input } from "@/core/components/ui/input"
-import { TooltipProvider } from "@/core/components/tooltip"
 
 import { trpc } from "@/services/trpc/client"
 
@@ -25,29 +26,27 @@ export function EnvelopeViewPage({ envelopeId }: { envelopeId: string }) {
 	const {
 		data: envelope,
 		error,
-		isLoading: isLoadingEnvelope
+		isLoading: isLoadingEnvelope,
 	} = trpc.envelopeLite.getEnvelopeById.useQuery({
-		envelopeId
+		envelopeId,
 	})
 
 	// Redirect to envelopes list if envelope is not found (e.g., after deletion)
 	useEffect(() => {
 		if (
 			error?.data?.code === "NOT_FOUND" ||
-			(error?.message?.includes("not found")) ||
-			(error?.message?.includes("NOT_FOUND"))
+			error?.message?.includes("not found") ||
+			error?.message?.includes("NOT_FOUND")
 		) {
 			router.push("/envelopes")
 		}
 	}, [error, router])
 
 	// Get real documents from database
-	const {
-		data: documents = [],
-		isLoading: isLoadingDocuments
-	} = trpc.envelopeLite.getEnvelopeDocuments.useQuery({
-		envelopeId
-	})
+	const { data: documents = [], isLoading: isLoadingDocuments } =
+		trpc.envelopeLite.getEnvelopeDocuments.useQuery({
+			envelopeId,
+		})
 
 	// Filter and search documents
 	const filteredDocuments = useMemo(() => {
@@ -55,7 +54,7 @@ export function EnvelopeViewPage({ envelopeId }: { envelopeId: string }) {
 			return []
 		}
 
-		return documents.filter((document) => {
+		return documents.filter(document => {
 			// Filter out documents with "_signed" in the name
 			if (document.name.includes("_signed")) {
 				return false
@@ -69,8 +68,7 @@ export function EnvelopeViewPage({ envelopeId }: { envelopeId: string }) {
 			if (searchQuery.trim()) {
 				const query = searchQuery.toLowerCase()
 				return (
-					document.name.toLowerCase().includes(query) ||
-					document.type.toLowerCase().includes(query)
+					document.name.toLowerCase().includes(query) || document.type.toLowerCase().includes(query)
 				)
 			}
 
@@ -83,18 +81,15 @@ export function EnvelopeViewPage({ envelopeId }: { envelopeId: string }) {
 		// TODO: Implement document refresh when real data is available
 	}
 
-
 	if (!envelopeId) {
 		return (
-			<div className="min-h-screen bg-muted dark:bg-background">
+			<div className="bg-muted dark:bg-background min-h-screen">
 				<div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
 					<div className="py-12 text-center">
-						<div className="text-lg font-medium text-muted-foreground mb-2">
+						<div className="text-muted-foreground mb-2 text-lg font-medium">
 							Invalid Envelope ID
 						</div>
-						<p className="text-sm text-muted-foreground">
-							The envelope ID is missing or invalid.
-						</p>
+						<p className="text-muted-foreground text-sm">The envelope ID is missing or invalid.</p>
 					</div>
 				</div>
 			</div>
@@ -102,9 +97,9 @@ export function EnvelopeViewPage({ envelopeId }: { envelopeId: string }) {
 	}
 
 	return (
-		<div className="min-h-screen bg-muted dark:bg-background">
+		<div className="bg-muted dark:bg-background min-h-screen">
 			{/* Header */}
-			<div className="border-b bg-background backdrop-blur dark:bg-muted/60">
+			<div className="bg-background dark:bg-muted/60 border-b backdrop-blur">
 				<div className="mx-auto max-w-7xl space-y-6 px-4 py-6 sm:px-6 lg:px-8">
 					<div className="flex items-center gap-4">
 						<Button
@@ -117,12 +112,10 @@ export function EnvelopeViewPage({ envelopeId }: { envelopeId: string }) {
 							<ArrowLeft className="h-4 w-4" />
 						</Button>
 						<div>
-							<h1 className="text-2xl font-medium text-foreground">
-								{isLoadingEnvelope
-									? "Loading..."
-									: (envelope?.title ?? "Untitled Envelope")}
+							<h1 className="text-foreground text-2xl font-medium">
+								{isLoadingEnvelope ? "Loading..." : (envelope?.title ?? "Untitled Envelope")}
 							</h1>
-							<p className="mt-1 text-sm text-muted-foreground">
+							<p className="text-muted-foreground mt-1 text-sm">
 								{envelope?.description ?? "No description"}
 							</p>
 						</div>
@@ -133,11 +126,11 @@ export function EnvelopeViewPage({ envelopeId }: { envelopeId: string }) {
 						<div className="flex flex-1 items-center gap-4">
 							{/* Search */}
 							<div className="relative max-w-sm flex-1">
-								<Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+								<Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
 								<Input
 									placeholder="Search documents..."
 									value={searchQuery}
-									onChange={(e) => setSearchQuery(e.target.value)}
+									onChange={e => setSearchQuery(e.target.value)}
 									className="pl-9"
 									suppressHydrationWarning
 								/>
@@ -165,10 +158,8 @@ export function EnvelopeViewPage({ envelopeId }: { envelopeId: string }) {
 							<DocumentEmptyState envelopeId={envelopeId} />
 						) : (
 							<div className="space-y-3">
-								<div className="text-lg font-medium text-muted-foreground">
-									No documents found
-								</div>
-								<p className="mx-auto max-w-md text-sm text-muted-foreground">
+								<div className="text-muted-foreground text-lg font-medium">No documents found</div>
+								<p className="text-muted-foreground mx-auto max-w-md text-sm">
 									{searchQuery || statusFilter !== "all"
 										? "Try adjusting your search or filter criteria."
 										: "Upload your first document to get started."}
@@ -195,7 +186,7 @@ export function EnvelopeViewPage({ envelopeId }: { envelopeId: string }) {
 						<DocumentListWithDisclosure
 							documents={filteredDocuments}
 							envelopeId={envelopeId}
-							onFilteredCountChange={(_count) => {
+							onFilteredCountChange={_count => {
 								// Optional: Update filtered count in parent component
 							}}
 						/>
@@ -207,12 +198,12 @@ export function EnvelopeViewPage({ envelopeId }: { envelopeId: string }) {
 			<div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
 				{/* Results count */}
 				{!isLoadingEnvelope && !isLoadingDocuments && (
-					<div className="text-sm text-muted-foreground">
+					<div className="text-muted-foreground text-sm">
 						{filteredDocuments.length} of{" "}
-						{(documents?.filter((doc: { name: string }) => !doc.name.includes("_signed")).length ?? 0)}{" "}
+						{documents?.filter((doc: { name: string }) => !doc.name.includes("_signed")).length ??
+							0}{" "}
 						documents
-						{statusFilter !== "all" &&
-							` (filtered by ${statusFilter.toLowerCase()})`}
+						{statusFilter !== "all" && ` (filtered by ${statusFilter.toLowerCase()})`}
 						{searchQuery && ` (matching "${searchQuery}")`}
 					</div>
 				)}

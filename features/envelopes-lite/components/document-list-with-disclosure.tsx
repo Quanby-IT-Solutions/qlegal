@@ -3,42 +3,19 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { format } from "date-fns"
-import {
-	ChevronDown,
-	Eye,
-	FileText,
-	Trash2,
-	UserPlus
-} from "lucide-react"
+import { ChevronDown, Eye, FileText, Trash2, UserPlus } from "lucide-react"
 import { toast } from "sonner"
 
-import {
-	Tooltip,
-	TooltipContent,
-	TooltipTrigger
-} from "@/core/components/tooltip"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/core/components/tooltip"
 import { Badge } from "@/core/components/ui/badge"
 import { Button } from "@/core/components/ui/button"
 import { Card, CardContent } from "@/core/components/ui/card"
-import {
-	Disclosure,
-	DisclosureContent,
-	DisclosureTrigger
-} from "@/core/components/ui/disclosure"
-import {
-	Tabs,
-	TabsContent,
-	TabsList,
-	TabsTrigger
-} from "@/core/components/ui/tabs"
+import { Disclosure, DisclosureContent, DisclosureTrigger } from "@/core/components/ui/disclosure"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/core/components/ui/tabs"
 
 import { trpc, type RouterOutputs } from "@/services/trpc/client"
 
-import {
-	formatFileSize,
-	getDocumentStatus,
-	getDocumentStatusConfig
-} from "../utils/status.utils"
+import { formatFileSize, getDocumentStatus, getDocumentStatusConfig } from "../utils/status.utils"
 import { DeleteDocumentDialog } from "./delete-document-dialog"
 import { DocumentPreviewDialog } from "./document-preview-dialog"
 
@@ -55,7 +32,7 @@ type FilterTab = "all" | "unsigned" | "signed"
 export function DocumentListWithDisclosure({
 	documents,
 	envelopeId,
-	onFilteredCountChange
+	onFilteredCountChange,
 }: DocumentListWithDisclosureProps) {
 	// Preview dialog state
 	const [previewDocument, setPreviewDocument] = useState<{
@@ -70,7 +47,7 @@ export function DocumentListWithDisclosure({
 
 	// Filter documents based on active tab
 	const filteredDocuments = useMemo(() => {
-		return documents.filter((document) => {
+		return documents.filter(document => {
 			// Get document status using utility
 			const documentStatus = getDocumentStatus(document.status, [])
 
@@ -98,15 +75,15 @@ export function DocumentListWithDisclosure({
 			toast.success("Document deleted successfully!")
 			// Invalidate and refetch envelope documents to update the list
 			await queryClient.invalidateQueries({
-				queryKey: [["envelopeLite", "getEnvelopeDocuments"]]
+				queryKey: [["envelopeLite", "getEnvelopeDocuments"]],
 			})
 			await queryClient.invalidateQueries({
-				queryKey: [["envelopeLite", "getEnvelopeById"]]
+				queryKey: [["envelopeLite", "getEnvelopeById"]],
 			})
 		},
-		onError: (_error) => {
+		onError: _error => {
 			toast.error("Failed to delete document. Please try again.")
-		}
+		},
 	})
 
 	const handleDeleteDocument = useCallback(
@@ -121,7 +98,7 @@ export function DocumentListWithDisclosure({
 			{/* Filter Tabs */}
 			<Tabs
 				value={activeTab}
-				onValueChange={(value) => setActiveTab(value as FilterTab)}
+				onValueChange={value => setActiveTab(value as FilterTab)}
 				className="w-full"
 			>
 				<TabsList>
@@ -132,30 +109,25 @@ export function DocumentListWithDisclosure({
 
 				<TabsContent value={activeTab} className="mt-4">
 					<div className="space-y-4">
-						{filteredDocuments.map((document) => {
+						{filteredDocuments.map(document => {
 							// Get document status using utility
 							const documentStatus = getDocumentStatus(document.status, [])
 							const statusConfig = getDocumentStatusConfig(documentStatus)
 
 							return (
-								<Card key={document.id} className="group overflow-hidden dark:bg-muted/60">
+								<Card key={document.id} className="group dark:bg-muted/60 overflow-hidden">
 									<CardContent className="p-0">
 										<Disclosure>
 											{/* Document Header */}
 											<div className="flex items-center gap-4 p-4">
-												<div className="rounded-lg bg-muted p-2">
-													<FileText className="h-5 w-5 text-muted-foreground" />
+												<div className="bg-muted rounded-lg p-2">
+													<FileText className="text-muted-foreground h-5 w-5" />
 												</div>
 												<div className="min-w-0 flex-1">
 													<div className="mb-1 flex items-center gap-2">
-														<h3 className="truncate text-sm font-medium">
-															{document.name}
-														</h3>
+														<h3 className="truncate text-sm font-medium">{document.name}</h3>
 														<div className="flex items-center gap-2">
-															<Badge
-																variant="secondary"
-																className="text-xs"
-															>
+															<Badge variant="secondary" className="text-xs">
 																{document.type}
 															</Badge>
 															<Badge
@@ -166,12 +138,9 @@ export function DocumentListWithDisclosure({
 															</Badge>
 														</div>
 													</div>
-													<p className="text-xs text-muted-foreground">
+													<p className="text-muted-foreground text-xs">
 														{formatFileSize(document.size)} •{" "}
-														{format(
-															new Date(document.createdAt),
-															"MMM d, yyyy 'at' h:mm a"
-														)}
+														{format(new Date(document.createdAt), "MMM d, yyyy 'at' h:mm a")}
 													</p>
 												</div>
 
@@ -184,11 +153,11 @@ export function DocumentListWithDisclosure({
 																<Button
 																	variant="ghost"
 																	size="icon"
-																	className="h-8 w-8 rounded-none border-r hover:bg-muted"
+																	className="hover:bg-muted h-8 w-8 rounded-none border-r"
 																	onClick={() =>
 																		setPreviewDocument({
 																			id: document.id,
-																			name: document.name
+																			name: document.name,
 																		})
 																	}
 																>
@@ -211,12 +180,10 @@ export function DocumentListWithDisclosure({
 																	<Button
 																		variant="ghost"
 																		size="icon"
-																		className="h-8 w-8 rounded-none border-r hover:bg-muted"
+																		className="hover:bg-muted h-8 w-8 rounded-none border-r"
 																		asChild
 																	>
-																		<a
-																			href={`/document/${document.id}/update-prepositioning`}
-																		>
+																		<a href={`/document/${document.id}/update-prepositioning`}>
 																			<UserPlus className="h-4 w-4" />
 																		</a>
 																	</Button>
@@ -232,15 +199,13 @@ export function DocumentListWithDisclosure({
 																	<Button
 																		variant="ghost"
 																		size="icon"
-																		className="h-8 w-8 rounded-none border-r transition-transform hover:bg-muted data-[state=open]:rotate-180"
+																		className="hover:bg-muted h-8 w-8 rounded-none border-r transition-transform data-[state=open]:rotate-180"
 																	>
 																		<ChevronDown className="h-4 w-4" />
 																	</Button>
 																</DisclosureTrigger>
 															</TooltipTrigger>
-															<TooltipContent>
-																Show Details
-															</TooltipContent>
+															<TooltipContent>Show Details</TooltipContent>
 														</Tooltip>
 
 														{/* Delete Document Button */}
@@ -248,24 +213,20 @@ export function DocumentListWithDisclosure({
 															<TooltipTrigger>
 																<DeleteDocumentDialog
 																	documentName={document.name}
-																	onConfirm={() =>
-																		handleDeleteDocument(document.id)
-																	}
+																	onConfirm={() => handleDeleteDocument(document.id)}
 																	isDeleting={deleteDocument.isPending}
 																	trigger={
 																		<Button
 																			variant="ghost"
 																			size="icon"
-																			className="h-8 w-8 rounded-none text-red-600 hover:bg-muted hover:text-red-700"
+																			className="hover:bg-muted h-8 w-8 rounded-none text-red-600 hover:text-red-700"
 																		>
 																			<Trash2 className="h-4 w-4" />
 																		</Button>
 																	}
 																/>
 															</TooltipTrigger>
-															<TooltipContent>
-																Delete Document
-															</TooltipContent>
+															<TooltipContent>Delete Document</TooltipContent>
 														</Tooltip>
 													</div>
 												</div>
@@ -277,24 +238,33 @@ export function DocumentListWithDisclosure({
 													<div className="space-y-4">
 														{/* Document Details */}
 														<div>
-															<h4 className="mb-3 text-sm font-medium text-foreground">
+															<h4 className="text-foreground mb-3 text-sm font-medium">
 																Document Details
 															</h4>
 															<div className="grid grid-cols-2 gap-4 text-sm">
 																<div>
-																	<span className="font-medium text-muted-foreground">File Size:</span>
+																	<span className="text-muted-foreground font-medium">
+																		File Size:
+																	</span>
 																	<p>{formatFileSize(document.size)}</p>
 																</div>
 																<div>
-																	<span className="font-medium text-muted-foreground">Type:</span>
+																	<span className="text-muted-foreground font-medium">Type:</span>
 																	<p>{document.type}</p>
 																</div>
 																<div>
-																	<span className="font-medium text-muted-foreground">Created:</span>
-																	<p>{format(new Date(document.createdAt), "MMM d, yyyy 'at' h:mm a")}</p>
+																	<span className="text-muted-foreground font-medium">
+																		Created:
+																	</span>
+																	<p>
+																		{format(
+																			new Date(document.createdAt),
+																			"MMM d, yyyy 'at' h:mm a"
+																		)}
+																	</p>
 																</div>
 																<div>
-																	<span className="font-medium text-muted-foreground">Status:</span>
+																	<span className="text-muted-foreground font-medium">Status:</span>
 																	<p>{statusConfig.label}</p>
 																</div>
 															</div>
@@ -303,7 +273,7 @@ export function DocumentListWithDisclosure({
 														{/* Document Actions */}
 														<div className="border-t pt-3">
 															<div className="flex items-center justify-between">
-																<span className="text-sm font-medium text-muted-foreground">
+																<span className="text-muted-foreground text-sm font-medium">
 																	Document Actions
 																</span>
 																<div className="flex gap-2">
