@@ -40,7 +40,7 @@ export function PDFViewerWithOverlay({
 	fileUrl,
 	fields,
 	currentFieldId,
-	className
+	className,
 }: PDFViewerWithOverlayProps) {
 	const pageRef = useRef<HTMLDivElement>(null)
 	const pdfContainerRef = useRef<HTMLDivElement>(null)
@@ -57,7 +57,7 @@ export function PDFViewerWithOverlay({
 
 	// Simple state to trigger re-renders when needed
 	const [, forceUpdate] = useState(0)
-	const triggerUpdate = () => forceUpdate((prev) => prev + 1)
+	const triggerUpdate = () => forceUpdate(prev => prev + 1)
 
 	// Calculate and apply auto-fit scale
 	const applyAutoFit = useCallback(() => {
@@ -123,29 +123,27 @@ export function PDFViewerWithOverlay({
 
 	// Manual zoom handlers that disable auto-fit
 	const handleZoomIn = useCallback(() => {
-		setScale((prev) => Math.min(3, prev + 0.1))
+		setScale(prev => Math.min(3, prev + 0.1))
 	}, [])
 
 	const handleZoomOut = useCallback(() => {
-		setScale((prev) => Math.max(0.5, prev - 0.1))
+		setScale(prev => Math.max(0.5, prev - 0.1))
 	}, [])
 
 	// Observe container size changes
 	useEffect(() => {
 		if (!pdfContainerRef.current) return
 
-		const resizeObserver = new ResizeObserver((entries) => {
+		const resizeObserver = new ResizeObserver(entries => {
 			for (const entry of entries) {
 				const newDimensions = {
 					width: entry.contentRect.width,
-					height: entry.contentRect.height
+					height: entry.contentRect.height,
 				}
 
 				const prevDimensions = containerDimensionsRef.current
 				const widthChange = Math.abs(prevDimensions.width - newDimensions.width)
-				const heightChange = Math.abs(
-					prevDimensions.height - newDimensions.height
-				)
+				const heightChange = Math.abs(prevDimensions.height - newDimensions.height)
 
 				if (widthChange > 20 || heightChange > 20) {
 					containerDimensionsRef.current = newDimensions
@@ -186,9 +184,7 @@ export function PDFViewerWithOverlay({
 	}
 
 	// Get fields for current page
-	const fieldsForCurrentPage = fields.filter(
-		(field) => field.position.pageNumber === currentPage
-	)
+	const fieldsForCurrentPage = fields.filter(field => field.position.pageNumber === currentPage)
 
 	// Get field style based on type and status
 	const getFieldStyle = (field: FieldOverlay) => {
@@ -208,7 +204,7 @@ export function PDFViewerWithOverlay({
 			pointerEvents: "none" as const,
 			zIndex: 10,
 			boxShadow: "0 2px 4px rgba(0, 0, 0, 0.1)",
-			transition: "all 0.2s ease-in-out"
+			transition: "all 0.2s ease-in-out",
 		}
 
 		if (field.id === currentFieldId) {
@@ -219,8 +215,7 @@ export function PDFViewerWithOverlay({
 				backgroundColor: "rgba(59, 130, 246, 0.15)",
 				color: "#1e40af",
 				animation: "pulse 2s infinite",
-				boxShadow:
-					"0 4px 8px rgba(59, 130, 246, 0.3), 0 0 0 2px rgba(59, 130, 246, 0.2)"
+				boxShadow: "0 4px 8px rgba(59, 130, 246, 0.3), 0 0 0 2px rgba(59, 130, 246, 0.2)",
 			}
 		} else if (field.signed) {
 			// Already signed field
@@ -229,7 +224,7 @@ export function PDFViewerWithOverlay({
 				borderColor: "#10b981",
 				backgroundColor: "rgba(16, 185, 129, 0.15)",
 				color: "#065f46",
-				boxShadow: "0 2px 4px rgba(16, 185, 129, 0.2)"
+				boxShadow: "0 2px 4px rgba(16, 185, 129, 0.2)",
 			}
 		} else {
 			// Pending field
@@ -238,7 +233,7 @@ export function PDFViewerWithOverlay({
 				borderColor: "#f59e0b",
 				backgroundColor: "rgba(245, 158, 11, 0.15)",
 				color: "#92400e",
-				boxShadow: "0 2px 4px rgba(245, 158, 11, 0.2)"
+				boxShadow: "0 2px 4px rgba(245, 158, 11, 0.2)",
 			}
 		}
 	}
@@ -247,10 +242,7 @@ export function PDFViewerWithOverlay({
 	const getFieldContent = (field: FieldOverlay) => {
 		if (field.id === currentFieldId && field.previewValue) {
 			// Show preview for current field
-			if (
-				field.type === "SIGNATURE" &&
-				field.previewValue?.startsWith("data:image")
-			) {
+			if (field.type === "SIGNATURE" && field.previewValue?.startsWith("data:image")) {
 				return (
 					// eslint-disable-next-line @next/next/no-img-element
 					<img
@@ -259,7 +251,7 @@ export function PDFViewerWithOverlay({
 						style={{
 							maxWidth: "100%",
 							maxHeight: "100%",
-							objectFit: "contain"
+							objectFit: "contain",
 						}}
 					/>
 				)
@@ -267,10 +259,7 @@ export function PDFViewerWithOverlay({
 			return field.previewValue
 		} else if (field.signed && field.signatureValue) {
 			// Show actual signature for signed fields
-			if (
-				field.type === "SIGNATURE" &&
-				field.signatureValue.startsWith("data:image")
-			) {
+			if (field.type === "SIGNATURE" && field.signatureValue.startsWith("data:image")) {
 				return (
 					// eslint-disable-next-line @next/next/no-img-element
 					<img
@@ -279,7 +268,7 @@ export function PDFViewerWithOverlay({
 						style={{
 							maxWidth: "100%",
 							maxHeight: "100%",
-							objectFit: "contain"
+							objectFit: "contain",
 						}}
 					/>
 				)
@@ -312,17 +301,17 @@ export function PDFViewerWithOverlay({
 	return (
 		<div className={`flex w-full flex-col space-y-6 ${className}`}>
 			{/* PDF Container */}
-			<Card className="overflow-hidden border-2 border-border shadow-lg">
+			<Card className="border-border overflow-hidden border-2 shadow-lg">
 				<CardContent className="p-0">
 					<div
 						ref={pdfContainerRef}
-						className={`relative flex items-center justify-center bg-muted/10 ${
+						className={`bg-muted/10 relative flex items-center justify-center ${
 							isMobile ? "overflow-hidden" : "overflow-auto"
 						}`}
 						style={{
 							height: "auto",
 							minHeight: isMobile ? "50vh" : "60vh",
-							maxHeight: isMobile ? "80vh" : "85vh"
+							maxHeight: isMobile ? "80vh" : "85vh",
 						}}
 					>
 						<div className="flex w-full items-center justify-center p-2">
@@ -331,14 +320,12 @@ export function PDFViewerWithOverlay({
 								onLoadSuccess={onDocumentLoadSuccess}
 								onLoadError={onDocumentLoadError}
 								loading={
-									<div className="flex h-full w-full items-center justify-center rounded-md bg-muted/20">
+									<div className="bg-muted/20 flex h-full w-full items-center justify-center rounded-md">
 										<div className="space-y-4 text-center">
-											<div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-muted border-t-primary"></div>
+											<div className="border-muted border-t-primary mx-auto h-12 w-12 animate-spin rounded-full border-4"></div>
 											<div className="space-y-2">
-												<p className="text-lg font-medium text-foreground">
-													Loading PDF...
-												</p>
-												<p className="text-sm text-muted-foreground">
+												<p className="text-foreground text-lg font-medium">Loading PDF...</p>
+												<p className="text-muted-foreground text-sm">
 													Please wait while we prepare your document
 												</p>
 											</div>
@@ -347,11 +334,11 @@ export function PDFViewerWithOverlay({
 								}
 								error={
 									<div className="flex h-full w-full items-center justify-center">
-										<Card className="border-2 border-dashed border-destructive/50 bg-destructive/10">
+										<Card className="border-destructive/50 bg-destructive/10 border-2 border-dashed">
 											<CardContent className="p-8 text-center">
-												<div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-destructive/20">
+												<div className="bg-destructive/20 mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full">
 													<svg
-														className="h-6 w-6 text-destructive"
+														className="text-destructive h-6 w-6"
 														fill="none"
 														viewBox="0 0 24 24"
 														stroke="currentColor"
@@ -365,10 +352,10 @@ export function PDFViewerWithOverlay({
 													</svg>
 												</div>
 												<div className="space-y-2">
-													<p className="text-lg font-semibold text-destructive">
+													<p className="text-destructive text-lg font-semibold">
 														Error loading PDF
 													</p>
-													<p className="text-sm text-muted-foreground">
+													<p className="text-muted-foreground text-sm">
 														Failed to load PDF document
 													</p>
 												</div>
@@ -383,11 +370,11 @@ export function PDFViewerWithOverlay({
 										</Card>
 									</div>
 								}
-								className="overflow-hidden rounded-lg bg-card shadow-2xl"
+								className="bg-card overflow-hidden rounded-lg shadow-2xl"
 							>
 								<div
 									ref={pageRef}
-									className="relative inline-block w-full max-w-full overflow-hidden rounded-lg border border-border bg-card shadow-lg"
+									className="border-border bg-card relative inline-block w-full max-w-full overflow-hidden rounded-lg border shadow-lg"
 								>
 									<Page
 										pageNumber={currentPage}
@@ -400,25 +387,21 @@ export function PDFViewerWithOverlay({
 
 									{/* Field Overlays */}
 									<div className="pointer-events-none absolute inset-0">
-										{fieldsForCurrentPage.map((field) => (
+										{fieldsForCurrentPage.map(field => (
 											<div
 												key={field.id}
 												style={getFieldStyle(field)}
 												title={`${field.label} (${field.type})`}
 											>
-												<div className="overflow-hidden break-words px-1 text-center">
+												<div className="overflow-hidden px-1 text-center break-words">
 													{field.type === "SIGNATURE" &&
 													(field.previewValue?.startsWith("data:image") ||
 														field.signatureValue?.startsWith("data:image")) ? (
 														getFieldContent(field)
 													) : (
 														<>
-															<span className="mr-1 text-xs">
-																{getFieldIcon(field.type)}
-															</span>
-															<span className="truncate text-xs">
-																{getFieldContent(field)}
-															</span>
+															<span className="mr-1 text-xs">{getFieldIcon(field.type)}</span>
+															<span className="truncate text-xs">{getFieldContent(field)}</span>
 														</>
 													)}
 												</div>
@@ -441,9 +424,7 @@ export function PDFViewerWithOverlay({
 							{/* Page Navigation */}
 							<div className="flex items-center justify-center gap-2 sm:justify-start">
 								<Button
-									onClick={() =>
-										setCurrentPage((prev) => Math.max(1, prev - 1))
-									}
+									onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
 									disabled={currentPage <= 1}
 									size="sm"
 									variant="outline"
@@ -453,16 +434,14 @@ export function PDFViewerWithOverlay({
 									<span className="hidden sm:inline">Prev</span>
 								</Button>
 
-								<div className="flex min-w-[60px] items-center justify-center rounded-md border border-border px-2 py-1">
-									<span className="text-xs font-medium text-foreground">
+								<div className="border-border flex min-w-[60px] items-center justify-center rounded-md border px-2 py-1">
+									<span className="text-foreground text-xs font-medium">
 										{currentPage} of {numPages}
 									</span>
 								</div>
 
 								<Button
-									onClick={() =>
-										setCurrentPage((prev) => Math.min(numPages, prev + 1))
-									}
+									onClick={() => setCurrentPage(prev => Math.min(numPages, prev + 1))}
 									disabled={currentPage >= numPages}
 									size="sm"
 									variant="outline"
@@ -475,7 +454,7 @@ export function PDFViewerWithOverlay({
 
 							{/* Zoom Controls */}
 							<div className="flex items-center justify-center gap-2">
-								<div className="flex items-center gap-1 rounded-md border border-border p-1">
+								<div className="border-border flex items-center gap-1 rounded-md border p-1">
 									<Button
 										variant="ghost"
 										size="sm"
@@ -485,8 +464,8 @@ export function PDFViewerWithOverlay({
 									>
 										<Minus className="h-4 w-4" />
 									</Button>
-									<div className="flex min-w-[50px] items-center justify-center border-x border-border px-2">
-										<span className="text-xs font-medium text-foreground">
+									<div className="border-border flex min-w-[50px] items-center justify-center border-x px-2">
+										<span className="text-foreground text-xs font-medium">
 											{Math.round(scale * 100)}%
 										</span>
 									</div>
@@ -517,9 +496,7 @@ export function PDFViewerWithOverlay({
 			{/* Field Legend */}
 			<Card className="w-full shadow-sm">
 				<CardContent className="p-4">
-					<h4 className="mb-3 text-sm font-semibold text-foreground">
-						Field Status Legend
-					</h4>
+					<h4 className="text-foreground mb-3 text-sm font-semibold">Field Status Legend</h4>
 					<div className="flex flex-wrap gap-4 text-sm sm:gap-6">
 						<div className="flex items-center gap-2">
 							<div className="h-3 w-3 rounded border-2 border-blue-500 bg-blue-100 shadow-sm dark:bg-blue-900"></div>
@@ -537,8 +514,8 @@ export function PDFViewerWithOverlay({
 							<div className="ml-auto hidden sm:block">
 								<Card className="bg-muted">
 									<CardContent className="px-3 py-1">
-										<span className="text-xs text-muted-foreground">
-											{fieldsForCurrentPage.filter((f) => f.signed).length} of{" "}
+										<span className="text-muted-foreground text-xs">
+											{fieldsForCurrentPage.filter(f => f.signed).length} of{" "}
 											{fieldsForCurrentPage.length} completed on this page
 										</span>
 									</CardContent>
@@ -550,8 +527,8 @@ export function PDFViewerWithOverlay({
 						<div className="mt-2 block sm:hidden">
 							<Card className="bg-muted">
 								<CardContent className="px-3 py-1 text-center">
-									<span className="text-xs text-muted-foreground">
-										{fieldsForCurrentPage.filter((f) => f.signed).length} of{" "}
+									<span className="text-muted-foreground text-xs">
+										{fieldsForCurrentPage.filter(f => f.signed).length} of{" "}
 										{fieldsForCurrentPage.length} completed on this page
 									</span>
 								</CardContent>

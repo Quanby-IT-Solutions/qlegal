@@ -11,7 +11,7 @@ import {
 	CardContent,
 	CardDescription,
 	CardHeader,
-	CardTitle
+	CardTitle,
 } from "@/core/components/ui/card"
 import { Input } from "@/core/components/ui/input"
 import { Label } from "@/core/components/ui/label"
@@ -28,10 +28,7 @@ interface DocumentUploadProps {
 	isUploading?: boolean
 }
 
-export function DocumentUpload({
-	onDocumentUpload,
-	isUploading = false
-}: DocumentUploadProps) {
+export function DocumentUpload({ onDocumentUpload, isUploading = false }: DocumentUploadProps) {
 	const [documentName, setDocumentName] = useState("")
 	const [description, setDescription] = useState("")
 	const [selectedFile, setSelectedFile] = useState<File | null>(null)
@@ -60,10 +57,10 @@ export function DocumentUpload({
 	const { getRootProps, getInputProps, isDragActive } = useDropzone({
 		onDrop,
 		accept: {
-			"application/pdf": [".pdf"]
+			"application/pdf": [".pdf"],
 		},
 		multiple: false,
-		disabled: isUploading
+		disabled: isUploading,
 	})
 
 	const handleUpload = async () => {
@@ -100,7 +97,7 @@ export function DocumentUpload({
 				file: base64,
 				mimeType: selectedFile.type,
 				size: selectedFile.size,
-				description: description.trim() || undefined
+				description: description.trim() || undefined,
 			})
 
 			// Reset form
@@ -125,9 +122,7 @@ export function DocumentUpload({
 					<Upload className="h-5 w-5" />
 					Upload Document
 				</CardTitle>
-				<CardDescription>
-					Upload a PDF document to create a new signature envelope
-				</CardDescription>
+				<CardDescription>Upload a PDF document to create a new signature envelope</CardDescription>
 			</CardHeader>
 			<CardContent className="space-y-6">
 				{/* File Drop Zone */}
@@ -147,24 +142,14 @@ export function DocumentUpload({
 							</div>
 							{isDragActive ? (
 								<div>
-									<p className="text-lg font-medium text-blue-600">
-										Drop your PDF here
-									</p>
-									<p className="text-sm text-gray-500">
-										Release to upload the document
-									</p>
+									<p className="text-lg font-medium text-blue-600">Drop your PDF here</p>
+									<p className="text-sm text-gray-500">Release to upload the document</p>
 								</div>
 							) : (
 								<div>
-									<p className="text-lg font-medium text-gray-900">
-										Drag & drop your PDF here
-									</p>
-									<p className="text-sm text-gray-500">
-										or click to browse files
-									</p>
-									<p className="mt-2 text-xs text-gray-400">
-										Maximum file size: 10MB
-									</p>
+									<p className="text-lg font-medium text-gray-900">Drag & drop your PDF here</p>
+									<p className="text-sm text-gray-500">or click to browse files</p>
+									<p className="mt-2 text-xs text-gray-400">Maximum file size: 10MB</p>
 								</div>
 							)}
 						</div>
@@ -177,9 +162,7 @@ export function DocumentUpload({
 								<FileText className="h-5 w-5 text-red-600" />
 							</div>
 							<div className="min-w-0 flex-1">
-								<p className="truncate text-sm font-medium text-gray-900">
-									{selectedFile.name}
-								</p>
+								<p className="truncate text-sm font-medium text-gray-900">{selectedFile.name}</p>
 								<p className="text-xs text-gray-500">
 									{(selectedFile.size / 1024 / 1024).toFixed(2)} MB
 								</p>
@@ -205,7 +188,7 @@ export function DocumentUpload({
 							<Input
 								id="document-name"
 								value={documentName}
-								onChange={(e) => setDocumentName(e.target.value)}
+								onChange={e => setDocumentName(e.target.value)}
 								placeholder="Enter document name"
 								disabled={isUploading}
 							/>
@@ -216,7 +199,7 @@ export function DocumentUpload({
 							<Textarea
 								id="description"
 								value={description}
-								onChange={(e) => setDescription(e.target.value)}
+								onChange={e => setDescription(e.target.value)}
 								placeholder="Enter a brief description of the document"
 								rows={3}
 								disabled={isUploading}

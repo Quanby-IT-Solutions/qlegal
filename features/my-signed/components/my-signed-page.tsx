@@ -44,17 +44,16 @@ interface EnvelopeData {
 export function MySignedPage() {
 	const { data: session, status } = useSession()
 
-	const { data: signedData, isLoading: signedLoading } =
-		trpc.toSign.listEnvelopesToSign.useQuery(
-			{
-				status: "SIGNED",
-				userId: session?.user?.id ?? ""
-			},
-			{
-				enabled: !!session?.user?.id,
-				staleTime: 1000 * 60 // 1 minute
-			}
-		)
+	const { data: signedData, isLoading: signedLoading } = trpc.toSign.listEnvelopesToSign.useQuery(
+		{
+			status: "SIGNED",
+			userId: session?.user?.id ?? "",
+		},
+		{
+			enabled: !!session?.user?.id,
+			staleTime: 1000 * 60, // 1 minute
+		}
+	)
 
 	const signedEnvelopes = signedData?.envelopes ?? []
 	const isLoading = signedLoading || status === "loading"
@@ -63,28 +62,20 @@ export function MySignedPage() {
 
 	if (isLoading) {
 		return (
-			<div className="min-h-screen bg-muted dark:bg-background">
+			<div className="bg-muted dark:bg-background min-h-screen">
 				<MySignedHeader totalCount={0} />
 				<div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
 					<div className="mb-6">
-						{session?.user?.id && (
-							<SigningTimelineChart userId={session.user.id} />
-						)}
+						{session?.user?.id && <SigningTimelineChart userId={session.user.id} />}
 					</div>
 					<div className="animate-pulse space-y-4">
 						{Array.from({ length: 3 }).map((_, i) => (
-							<div
-								key={i}
-								className="h-32 rounded-lg border border-border bg-background"
-							/>
+							<div key={i} className="border-border bg-background h-32 rounded-lg border" />
 						))}
 					</div>
 					<div className="animate-pulse space-y-4">
 						{Array.from({ length: 3 }).map((_, i) => (
-							<div
-								key={i}
-								className="h-32 rounded-lg border border-border bg-background"
-							/>
+							<div key={i} className="border-border bg-background h-32 rounded-lg border" />
 						))}
 					</div>
 				</div>
@@ -93,15 +84,13 @@ export function MySignedPage() {
 	}
 
 	return (
-		<div className="min-h-screen bg-muted dark:bg-background">
+		<div className="bg-muted dark:bg-background min-h-screen">
 			<MySignedHeader totalCount={signedEnvelopes.length} />
 
 			<div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
 				{/* Signing Timeline Chart */}
 				<div className="mb-6">
-					{session?.user?.id && (
-						<SigningTimelineChart userId={session.user.id} />
-					)}
+					{session?.user?.id && <SigningTimelineChart userId={session.user.id} />}
 				</div>
 
 				{/* Search Bar */}
@@ -119,11 +108,7 @@ export function MySignedPage() {
 				) : (
 					<div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
 						{signedEnvelopes.map((envelope: EnvelopeData) => (
-							<SignedDocumentCard
-								key={envelope.id}
-								envelope={envelope}
-								viewMode="grid"
-							/>
+							<SignedDocumentCard key={envelope.id} envelope={envelope} viewMode="grid" />
 						))}
 					</div>
 				)}

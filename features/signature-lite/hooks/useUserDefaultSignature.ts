@@ -16,12 +16,12 @@ export function useUserDefaultSignature() {
 	const {
 		data: userSignature,
 		isLoading,
-		error
+		error,
 	} = trpc.userManagement.getDefaultSignature.useQuery(
 		undefined, // No parameters needed as it uses session
 		{
 			enabled: status === "authenticated" && !!session?.user?.id,
-			staleTime: 5 * 60 * 1000 // 5 minutes
+			staleTime: 5 * 60 * 1000, // 5 minutes
 		}
 	)
 
@@ -33,6 +33,6 @@ export function useUserDefaultSignature() {
 		isLoading: status === "loading" || isLoading,
 		error,
 		isAuthenticated: status === "authenticated",
-		hasDefaultSignature: !!defaultSignature
+		hasDefaultSignature: !!defaultSignature,
 	}
 }

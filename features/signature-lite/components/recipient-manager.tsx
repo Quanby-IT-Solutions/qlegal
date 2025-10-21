@@ -11,7 +11,7 @@ import {
 	CardContent,
 	CardDescription,
 	CardHeader,
-	CardTitle
+	CardTitle,
 } from "@/core/components/ui/card"
 import { Input } from "@/core/components/ui/input"
 import { Label } from "@/core/components/ui/label"
@@ -20,7 +20,7 @@ import {
 	SelectContent,
 	SelectItem,
 	SelectTrigger,
-	SelectValue
+	SelectValue,
 } from "@/core/components/ui/select"
 
 // Color palette for recipient visual distinction
@@ -34,7 +34,7 @@ const RECIPIENT_COLORS = [
 	"#F97316", // Orange
 	"#84CC16", // Lime
 	"#EC4899", // Pink
-	"#6B7280" // Gray
+	"#6B7280", // Gray
 ]
 
 export interface Recipient {
@@ -55,7 +55,7 @@ interface RecipientManagerProps {
 export function RecipientManager({
 	recipients,
 	onRecipientsChange,
-	maxRecipients = 10
+	maxRecipients = 10,
 }: RecipientManagerProps) {
 	const [newRecipient, setNewRecipient] = useState<{
 		email: string
@@ -64,17 +64,14 @@ export function RecipientManager({
 	}>({
 		email: "",
 		name: "",
-		role: "SIGNER"
+		role: "SIGNER",
 	})
 	const [isAdding, setIsAdding] = useState(false)
 
 	// Get next available color
 	const getNextColor = (): string => {
-		const usedColors = recipients.map((r) => r.color)
-		return (
-			RECIPIENT_COLORS.find((color) => !usedColors.includes(color)) ??
-			RECIPIENT_COLORS[0]!
-		)
+		const usedColors = recipients.map(r => r.color)
+		return RECIPIENT_COLORS.find(color => !usedColors.includes(color)) ?? RECIPIENT_COLORS[0]!
 	}
 
 	// Validate email format
@@ -85,7 +82,7 @@ export function RecipientManager({
 
 	// Check if email is already added
 	const isEmailDuplicate = (email: string) => {
-		return recipients.some((r) => r.email.toLowerCase() === email.toLowerCase())
+		return recipients.some(r => r.email.toLowerCase() === email.toLowerCase())
 	}
 
 	// Add new recipient
@@ -121,7 +118,7 @@ export function RecipientManager({
 			name: newRecipient.name.trim(),
 			role: newRecipient.role,
 			color: getNextColor(),
-			order: recipients.length + 1
+			order: recipients.length + 1,
 		}
 
 		onRecipientsChange([...recipients, recipient])
@@ -130,7 +127,7 @@ export function RecipientManager({
 		setNewRecipient({
 			email: "",
 			name: "",
-			role: "SIGNER"
+			role: "SIGNER",
 		})
 		setIsAdding(false)
 
@@ -139,11 +136,11 @@ export function RecipientManager({
 
 	// Remove recipient
 	const handleRemoveRecipient = (id: string) => {
-		const recipientToRemove = recipients.find((r) => r.id === id)
+		const recipientToRemove = recipients.find(r => r.id === id)
 		if (!recipientToRemove) return
 
 		const updatedRecipients = recipients
-			.filter((r) => r.id !== id)
+			.filter(r => r.id !== id)
 			.map((r, index) => ({ ...r, order: index + 1 })) // Reorder
 
 		onRecipientsChange(updatedRecipients)
@@ -152,15 +149,13 @@ export function RecipientManager({
 
 	// Update recipient role
 	const handleRoleChange = (id: string, role: "SIGNER" | "APPROVER" | "CC") => {
-		const updatedRecipients = recipients.map((r) =>
-			r.id === id ? { ...r, role } : r
-		)
+		const updatedRecipients = recipients.map(r => (r.id === id ? { ...r, role } : r))
 		onRecipientsChange(updatedRecipients)
 	}
 
 	// Reorder recipients
 	const handleReorder = (id: string, direction: "up" | "down") => {
-		const currentIndex = recipients.findIndex((r) => r.id === id)
+		const currentIndex = recipients.findIndex(r => r.id === id)
 		if (currentIndex === -1) return
 
 		const newIndex = direction === "up" ? currentIndex - 1 : currentIndex + 1
@@ -175,7 +170,7 @@ export function RecipientManager({
 		// Update order numbers
 		const updatedRecipients = reorderedRecipients.map((r, index) => ({
 			...r,
-			order: index + 1
+			order: index + 1,
 		}))
 
 		onRecipientsChange(updatedRecipients)
@@ -185,7 +180,7 @@ export function RecipientManager({
 		const colors = {
 			SIGNER: "bg-blue-100 text-blue-800 border-blue-200",
 			APPROVER: "bg-green-100 text-green-800 border-green-200",
-			CC: "bg-gray-100 text-gray-800 border-gray-200"
+			CC: "bg-gray-100 text-gray-800 border-gray-200",
 		}
 		return colors[role as keyof typeof colors] || colors.SIGNER
 	}
@@ -194,7 +189,7 @@ export function RecipientManager({
 		const descriptions = {
 			SIGNER: "Required to sign the document",
 			APPROVER: "Approves the document after signing",
-			CC: "Receives a copy for information only"
+			CC: "Receives a copy for information only",
 		}
 		return descriptions[role as keyof typeof descriptions] || ""
 	}
@@ -206,17 +201,13 @@ export function RecipientManager({
 					<Users className="h-5 w-5" />
 					Recipients ({recipients.length})
 				</CardTitle>
-				<CardDescription>
-					Add people who need to sign or review this document
-				</CardDescription>
+				<CardDescription>Add people who need to sign or review this document</CardDescription>
 			</CardHeader>
 			<CardContent className="space-y-6">
 				{/* Existing Recipients */}
 				{recipients.length > 0 && (
 					<div className="space-y-3">
-						<h4 className="text-sm font-medium text-gray-900">
-							Added Recipients
-						</h4>
+						<h4 className="text-sm font-medium text-gray-900">Added Recipients</h4>
 						<div className="space-y-2">
 							{recipients.map((recipient, index) => (
 								<div
@@ -229,17 +220,13 @@ export function RecipientManager({
 											className="h-4 w-4 rounded-full border-2 border-white shadow-sm"
 											style={{ backgroundColor: recipient.color }}
 										/>
-										<span className="w-4 text-sm font-medium text-gray-500">
-											{recipient.order}
-										</span>
+										<span className="w-4 text-sm font-medium text-gray-500">{recipient.order}</span>
 									</div>
 
 									{/* Recipient info */}
 									<div className="min-w-0 flex-1">
 										<div className="mb-1 flex items-center gap-2">
-											<p className="truncate text-sm font-medium text-gray-900">
-												{recipient.name}
-											</p>
+											<p className="truncate text-sm font-medium text-gray-900">{recipient.name}</p>
 											<Badge
 												variant="outline"
 												className={`text-xs ${getRoleColor(recipient.role)}`}
@@ -247,9 +234,7 @@ export function RecipientManager({
 												{recipient.role}
 											</Badge>
 										</div>
-										<p className="truncate text-xs text-gray-500">
-											{recipient.email}
-										</p>
+										<p className="truncate text-xs text-gray-500">{recipient.email}</p>
 									</div>
 
 									{/* Role selector */}
@@ -317,30 +302,26 @@ export function RecipientManager({
 						<Plus className="mr-2 h-4 w-4" />
 						Add Recipient
 						{recipients.length >= maxRecipients && (
-							<span className="ml-2 text-xs">
-								(Max {maxRecipients} reached)
-							</span>
+							<span className="ml-2 text-xs">(Max {maxRecipients} reached)</span>
 						)}
 					</Button>
 				) : (
 					<div className="space-y-4 rounded-lg border border-gray-200 bg-gray-50 p-4">
-						<h4 className="text-sm font-medium text-gray-900">
-							Add New Recipient
-						</h4>
+						<h4 className="text-sm font-medium text-gray-900">Add New Recipient</h4>
 
 						<div className="space-y-3">
 							<div className="space-y-2">
 								<Label htmlFor="recipient-name">Full Name</Label>
 								<div className="relative">
-									<User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 transform text-gray-400" />
+									<User className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 transform text-gray-400" />
 									<Input
 										id="recipient-name"
 										type="text"
 										value={newRecipient.name}
-										onChange={(e) =>
-											setNewRecipient((prev) => ({
+										onChange={e =>
+											setNewRecipient(prev => ({
 												...prev,
-												name: e.target.value
+												name: e.target.value,
 											}))
 										}
 										placeholder="Enter full name"
@@ -352,15 +333,15 @@ export function RecipientManager({
 							<div className="space-y-2">
 								<Label htmlFor="recipient-email">Email Address</Label>
 								<div className="relative">
-									<Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 transform text-gray-400" />
+									<Mail className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 transform text-gray-400" />
 									<Input
 										id="recipient-email"
 										type="email"
 										value={newRecipient.email}
-										onChange={(e) =>
-											setNewRecipient((prev) => ({
+										onChange={e =>
+											setNewRecipient(prev => ({
 												...prev,
-												email: e.target.value
+												email: e.target.value,
 											}))
 										}
 										placeholder="Enter email address"
@@ -374,7 +355,7 @@ export function RecipientManager({
 								<Select
 									value={newRecipient.role}
 									onValueChange={(value: "SIGNER" | "APPROVER" | "CC") =>
-										setNewRecipient((prev) => ({ ...prev, role: value }))
+										setNewRecipient(prev => ({ ...prev, role: value }))
 									}
 								>
 									<SelectTrigger>
@@ -384,9 +365,7 @@ export function RecipientManager({
 										<SelectItem value="SIGNER">
 											<div>
 												<div className="font-medium">Signer</div>
-												<div className="text-xs text-gray-500">
-													{getRoleDescription("SIGNER")}
-												</div>
+												<div className="text-xs text-gray-500">{getRoleDescription("SIGNER")}</div>
 											</div>
 										</SelectItem>
 										<SelectItem value="APPROVER">
@@ -400,9 +379,7 @@ export function RecipientManager({
 										<SelectItem value="CC">
 											<div>
 												<div className="font-medium">CC</div>
-												<div className="text-xs text-gray-500">
-													{getRoleDescription("CC")}
-												</div>
+												<div className="text-xs text-gray-500">{getRoleDescription("CC")}</div>
 											</div>
 										</SelectItem>
 									</SelectContent>
@@ -436,21 +413,17 @@ export function RecipientManager({
 					<div className="py-8 text-center text-gray-500">
 						<Users className="mx-auto mb-4 h-12 w-12 text-gray-300" />
 						<p className="text-sm font-medium">No recipients added yet</p>
-						<p className="mt-1 text-xs">
-							Add recipients who need to sign or review this document
-						</p>
+						<p className="mt-1 text-xs">Add recipients who need to sign or review this document</p>
 					</div>
 				)}
 
 				{/* Summary */}
 				{recipients.length > 0 && (
 					<div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
-						<h4 className="mb-2 text-sm font-medium text-blue-900">
-							Signing Order
-						</h4>
+						<h4 className="mb-2 text-sm font-medium text-blue-900">Signing Order</h4>
 						<div className="space-y-1">
 							{recipients
-								.filter((r) => r.role === "SIGNER")
+								.filter(r => r.role === "SIGNER")
 								.map((recipient, index) => (
 									<div key={recipient.id} className="text-sm text-blue-800">
 										{index + 1}. {recipient.name} ({recipient.email})

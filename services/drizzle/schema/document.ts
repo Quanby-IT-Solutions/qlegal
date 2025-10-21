@@ -6,9 +6,9 @@ import { createTable, randomId } from "@/services/drizzle/utils"
 
 export const documentStatusEnum = pgEnum("document_status", [
 	"UPLOADED",
-	"PROCESSING", 
+	"PROCESSING",
 	"READY",
-	"ERROR"
+	"ERROR",
 ])
 
 export const documents = createTable("documents", f => ({

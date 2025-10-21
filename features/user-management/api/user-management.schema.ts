@@ -5,7 +5,7 @@ export const createUserSchema = z.object({
 	name: z.string().min(1, "Name is required"),
 	email: z.string().email("Invalid email address"),
 	role: z.enum(["CLIENT", "ADMIN", "SUPER_ADMIN"]),
-	organization: z.string().optional()
+	organization: z.string().optional(),
 })
 
 export const updateUserSchema = z.object({
@@ -13,7 +13,7 @@ export const updateUserSchema = z.object({
 	name: z.string().min(1).optional(),
 	email: z.string().email().optional(),
 	role: z.enum(["CLIENT", "ADMIN", "SUPER_ADMIN"]).optional(),
-	organization: z.string().optional()
+	organization: z.string().optional(),
 })
 
 export const userListInputSchema = z.object({
@@ -21,27 +21,27 @@ export const userListInputSchema = z.object({
 	role: z.enum(["all", "CLIENT", "ADMIN", "SUPER_ADMIN"]).optional(),
 	status: z.enum(["all", "active", "pending", "suspended"]).optional(),
 	page: z.number().min(1).default(1),
-	limit: z.number().min(1).max(100).default(10)
+	limit: z.number().min(1).max(100).default(10),
 })
 
 export const getUserByIdSchema = z.object({
-	id: z.string()
+	id: z.string(),
 })
 
 export const deleteUserSchema = z.object({
-	id: z.string()
+	id: z.string(),
 })
 
 export const approveUserSchema = z.object({
-	id: z.string()
+	id: z.string(),
 })
 
 export const suspendUserSchema = z.object({
-	id: z.string()
+	id: z.string(),
 })
 
 export const unsuspendUserSchema = z.object({
-	id: z.string()
+	id: z.string(),
 })
 
 // Type exports for frontend use

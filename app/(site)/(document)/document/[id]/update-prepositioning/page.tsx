@@ -5,7 +5,7 @@ import { HydrateClient, trpc } from "@/services/trpc/server"
 import { UpdatePrepositioningClient } from "@/features/signature-lite/components/update-prepositioning-client"
 
 export default async function UpdatePrepositioningPage({
-	params
+	params,
 }: {
 	params: Promise<{ envelopeId: string; documentId: string }>
 }) {
@@ -13,21 +13,25 @@ export default async function UpdatePrepositioningPage({
 
 	// Prefetch data for better performance
 	await trpc.signatureLite.prepositioning.getDocumentWithFields.prefetch({
-		documentId
+		documentId,
 	})
 	await trpc.signatureLite.prepositioning.getEnvelopeWithRecipients.prefetch({
 		envelopeId,
-		documentId
+		documentId,
 	})
 
 	// Get document and envelope data for navigation
-	const documentData: { name?: string } | null = await (trpc.signatureLite.prepositioning.getDocumentWithFields({
-		documentId
-	}) as Promise<{ name?: string }>).catch(() => null)
-	const envelope: { title?: string } | null = await (trpc.signatureLite.prepositioning.getEnvelopeWithRecipients({
-		envelopeId,
-		documentId
-	}) as Promise<{ title?: string }>).catch(() => null)
+	const documentData: { name?: string } | null = await (
+		trpc.signatureLite.prepositioning.getDocumentWithFields({
+			documentId,
+		}) as Promise<{ name?: string }>
+	).catch(() => null)
+	const envelope: { title?: string } | null = await (
+		trpc.signatureLite.prepositioning.getEnvelopeWithRecipients({
+			envelopeId,
+			documentId,
+		}) as Promise<{ title?: string }>
+	).catch(() => null)
 
 	const resolvedEnvelopeTitle = envelope?.title ?? envelopeId
 	const resolvedDocumentTitle = documentData?.name ?? documentId
@@ -40,18 +44,15 @@ export default async function UpdatePrepositioningPage({
 					{ label: resolvedEnvelopeTitle, url: `/envelope/${envelopeId}` },
 					{
 						label: resolvedDocumentTitle,
-						url: `/envelope/${envelopeId}/`
+						url: `/envelope/${envelopeId}/`,
 					},
 					{
 						label: "Update Positioning",
-						url: `/envelope/${envelopeId}/document/${documentId}/update-prepositioning`
-					}
+						url: `/envelope/${envelopeId}/document/${documentId}/update-prepositioning`,
+					},
 				]}
 			/>
-			<UpdatePrepositioningClient
-				envelopeId={envelopeId}
-				documentId={documentId}
-			/>
+			<UpdatePrepositioningClient envelopeId={envelopeId} documentId={documentId} />
 		</HydrateClient>
 	)
 }

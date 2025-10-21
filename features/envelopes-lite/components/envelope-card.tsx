@@ -4,28 +4,18 @@ import {
 	// Eye,
 	FileText,
 	// MoreVertical,
-	PlusIcon
+	PlusIcon,
 	// Share2
 } from "lucide-react"
 
-import {
-	Tooltip,
-	TooltipContent,
-	TooltipProvider,
-	TooltipTrigger
-} from "@/core/components/ui/tooltip"
-import {
-	Avatar,
-	AvatarFallback,
-	AvatarImage
-} from "@/core/components/ui/avatar"
+import { Avatar, AvatarFallback, AvatarImage } from "@/core/components/ui/avatar"
 import {
 	Card,
 	CardContent,
 	CardDescription,
 	CardFooter,
 	CardHeader,
-	CardTitle
+	CardTitle,
 } from "@/core/components/ui/card"
 // import {
 // 	DropdownMenu,
@@ -34,6 +24,12 @@ import {
 // 	DropdownMenuTrigger
 // } from "@/core/components/ui/dropdown-menu"
 import { Separator } from "@/core/components/ui/separator"
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipProvider,
+	TooltipTrigger,
+} from "@/core/components/ui/tooltip"
 import { getInitials } from "@/core/lib/utils"
 
 import type { RouterOutputs } from "@/services/trpc/client"
@@ -41,7 +37,7 @@ import type { RouterOutputs } from "@/services/trpc/client"
 import { formatRelativeTime } from "../utils/date"
 
 export function EnvelopeCard({
-	envelope
+	envelope,
 }: {
 	envelope: RouterOutputs["envelopeLite"]["getMyEnvelopes"][number]
 }) {
@@ -49,7 +45,7 @@ export function EnvelopeCard({
 	const creator = envelope.user
 
 	return (
-		<Card className="group flex h-full cursor-pointer flex-col overflow-hidden border border-border bg-background transition-all duration-200 hover:border-foreground/20 hover:shadow-sm dark:bg-muted/60">
+		<Card className="group border-border bg-background hover:border-foreground/20 dark:bg-muted/60 flex h-full cursor-pointer flex-col overflow-hidden border transition-all duration-200 hover:shadow-sm">
 			<CardHeader className="group flex flex-1 flex-row items-start justify-between">
 				<div className="flex flex-col gap-1">
 					<CardTitle className="text-sm">{envelope.title}</CardTitle>
@@ -69,7 +65,7 @@ export function EnvelopeCard({
 				<TooltipProvider>
 					<Tooltip>
 						<TooltipTrigger>
-							<div className="!mt-0 flex h-6 w-6 items-center justify-center rounded-full bg-muted text-muted-foreground transition-colors hover:bg-muted/80">
+							<div className="bg-muted text-muted-foreground hover:bg-muted/80 !mt-0 flex h-6 w-6 items-center justify-center rounded-full transition-colors">
 								<ChevronRightIcon className="h-3.5 w-3.5" />
 							</div>
 						</TooltipTrigger>
@@ -100,19 +96,16 @@ export function EnvelopeCard({
 				</DropdownMenu> */}
 			</CardHeader>
 
-			<CardContent className="pb-4 pt-4">
+			<CardContent className="pt-4 pb-4">
 				<Separator />
 			</CardContent>
 
-			<CardFooter className="flex flex-row items-center justify-between text-xs text-muted-foreground">
+			<CardFooter className="text-muted-foreground flex flex-row items-center justify-between text-xs">
 				<div className="flex items-center gap-2">
 					{creator ? (
 						<div className="flex items-center gap-2">
 							<div className="flex h-6 -space-x-1.5">
-								<Avatar
-									key={creator.id}
-									className="size-6 border"
-								>
+								<Avatar key={creator.id} className="size-6 border">
 									<AvatarImage src={creator.image ?? ""} />
 									<AvatarFallback className="text-[10px] font-medium">
 										{getInitials(creator.name ?? "?")}
@@ -122,7 +115,7 @@ export function EnvelopeCard({
 						</div>
 					) : (
 						<div className="flex h-6 -space-x-1.5">
-							<Avatar key="plus" className="size-6 border bg-muted">
+							<Avatar key="plus" className="bg-muted size-6 border">
 								<AvatarFallback className="text-[10px] font-medium">
 									<PlusIcon className="size-3.5" />
 								</AvatarFallback>

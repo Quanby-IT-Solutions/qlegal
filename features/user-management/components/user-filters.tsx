@@ -2,19 +2,14 @@
 
 import { Filter, Search } from "lucide-react"
 
-import {
-	Card,
-	CardContent,
-	CardHeader,
-	CardTitle
-} from "@/core/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/core/components/ui/card"
 import { Input } from "@/core/components/ui/input"
 import {
 	Select,
 	SelectContent,
 	SelectItem,
 	SelectTrigger,
-	SelectValue
+	SelectValue,
 } from "@/core/components/ui/select"
 
 interface UserFiltersProps {
@@ -32,7 +27,7 @@ export function UserFilters({
 	roleFilter,
 	setRoleFilter,
 	statusFilter,
-	setStatusFilter
+	setStatusFilter,
 }: UserFiltersProps) {
 	return (
 		<Card>
@@ -43,11 +38,11 @@ export function UserFilters({
 				<div className="flex flex-col gap-4 md:flex-row">
 					<div className="flex-1">
 						<div className="relative">
-							<Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 transform text-gray-400" />
+							<Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 transform text-gray-400" />
 							<Input
 								placeholder="Search by name, email, or organization..."
 								value={searchTerm}
-								onChange={(e) => setSearchTerm(e.target.value)}
+								onChange={e => setSearchTerm(e.target.value)}
 								className="pl-10"
 							/>
 						</div>

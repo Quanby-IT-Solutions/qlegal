@@ -80,7 +80,7 @@ export const statusVariantMap = {
 	EXPIRED: "destructive",
 	APPROVED: "default",
 	PENDING_APPROVAL: "outline",
-	REJECTED: "destructive"
+	REJECTED: "destructive",
 } as const
 
 export interface EnvelopeTableProps {
