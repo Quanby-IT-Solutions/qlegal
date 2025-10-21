@@ -15,9 +15,9 @@ const inter = Inter({
 })
 
 export const metadata: Metadata = {
-	title: "QSign Lite | Simple, Fast, Secure Digital Signatures",
+	title: "QSign Main | Simple, Fast, Secure Digital Signatures",
 	description:
-		"QSign Lite lets you sign documents online quickly and securely. Lightweight and hassle-free.",
+		"QSign Main lets you sign documents online quickly and securely. Lightweight and hassle-free.",
 }
 
 export default async function RootLayout({

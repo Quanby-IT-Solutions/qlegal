@@ -30,11 +30,11 @@ export function Footer() {
 						>
 							<QuanbyLogo className="!size-8" />
 							<span className="from-foreground to-foreground/80 bg-gradient-to-r bg-clip-text text-xl leading-tight font-bold tracking-tight text-transparent">
-								QSign Lite
+								QSign Main
 							</span>
 						</Link>
 						<p className="text-muted-foreground leading-relaxed">
-							QSign Lite is a lightweight e-signature app focused on speed, simplicity, and privacy.
+							QSign Main is a lightweight e-signature app focused on speed, simplicity, and privacy.
 						</p>
 					</MotionEffect>
 
@@ -101,7 +101,7 @@ export function Footer() {
 					className="border-border/40 mt-12 border-t pt-8 text-center"
 				>
 					<p className="text-muted-foreground text-sm">
-						&copy; {new Date().getFullYear()} QSign Lite. All rights reserved.
+						&copy; {new Date().getFullYear()} QSign Main. All rights reserved.
 					</p>
 				</MotionEffect>
 			</div>
