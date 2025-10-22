@@ -17,5 +17,8 @@
 		"ui": "@/core/components/ui",
 		"lib": "@/core/lib",
 		"hooks": "@/core/hooks"
+	},
+	"registries": {
+		"@animate-ui": "https://animate-ui.com/r/{name}.json"
 	}
 }

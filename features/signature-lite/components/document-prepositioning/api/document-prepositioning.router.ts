@@ -12,7 +12,7 @@ import {
 	getFieldsByRecipientSchema,
 	saveDocumentFieldsSchema,
 	updateDocumentFieldSchema,
-	validateFieldPlacementSchema
+	validateFieldPlacementSchema,
 } from "./document-prepositioning.schemas"
 
 export const documentPrepositioningRouter = createTRPCRouter({
@@ -24,7 +24,7 @@ export const documentPrepositioningRouter = createTRPCRouter({
 				where: { id: input.documentId },
 				include: {
 					documentFields: {
-						orderBy: { createdAt: "asc" }
+						orderBy: { createdAt: "asc" },
 					},
 					envelope: {
 						include: {
@@ -34,32 +34,28 @@ export const documentPrepositioningRouter = createTRPCRouter({
 										select: {
 											id: true,
 											name: true,
-											email: true
-										}
-									}
-								}
-							}
-						}
-					}
-				}
+											email: true,
+										},
+									},
+								},
+							},
+						},
+					},
+				},
 			})
 
 			if (!document) {
 				throw new TRPCError({
 					code: "NOT_FOUND",
-					message: "Document not found"
+					message: "Document not found",
 				})
 			}
 
 			// Only envelope creator (owner) can access positioning functionality
-			if (
-				!document.envelope ||
-				document.envelope.userId !== ctx.session.user.id
-			) {
+			if (!document.envelope || document.envelope.userId !== ctx.session.user.id) {
 				throw new TRPCError({
 					code: "FORBIDDEN",
-					message:
-						"Only the envelope creator can access positioning functionality"
+					message: "Only the envelope creator can access positioning functionality",
 				})
 			}
 
@@ -68,7 +64,7 @@ export const documentPrepositioningRouter = createTRPCRouter({
 
 			return {
 				...document,
-				url: documentUrl
+				url: documentUrl,
 			}
 		}),
 
@@ -81,25 +77,25 @@ export const documentPrepositioningRouter = createTRPCRouter({
 				include: {
 					recipient: {
 						where: {
-							documentId: input.documentId ?? undefined
+							documentId: input.documentId ?? undefined,
 						},
 						include: {
 							user: {
 								select: {
 									id: true,
 									name: true,
-									email: true
-								}
-							}
-						}
-					}
-				}
+									email: true,
+								},
+							},
+						},
+					},
+				},
 			})
 
 			if (!envelope) {
 				throw new TRPCError({
 					code: "NOT_FOUND",
-					message: "Envelope not found"
+					message: "Envelope not found",
 				})
 			}
 
@@ -109,8 +105,7 @@ export const documentPrepositioningRouter = createTRPCRouter({
 			if (!isOwner) {
 				throw new TRPCError({
 					code: "FORBIDDEN",
-					message:
-						"Only the envelope creator can access positioning functionality"
+					message: "Only the envelope creator can access positioning functionality",
 				})
 			}
 
@@ -128,39 +123,37 @@ export const documentPrepositioningRouter = createTRPCRouter({
 					recipients: {
 						where: {
 							role: {
-								not: "VIEWER" // Exclude VIEWER role recipients
-							}
+								not: "VIEWER", // Exclude VIEWER role recipients
+							},
 						},
 						include: {
 							user: {
 								select: {
 									id: true,
 									name: true,
-									email: true
-								}
-							}
-						}
-					}
-				}
+									email: true,
+								},
+							},
+						},
+					},
+				},
 			})
 
 			if (!document) {
 				throw new TRPCError({
 					code: "NOT_FOUND",
-					message: "Document not found"
+					message: "Document not found",
 				})
 			}
 
 			// Check if user has access to this document
 			const isOwner = document.envelope?.userId === ctx.session.user.id
-			const isRecipient = document.recipients.some(
-				(r) => r.user?.email === ctx.session.user.email
-			)
+			const isRecipient = document.recipients.some(r => r.user?.email === ctx.session.user.email)
 
 			if (!isOwner && !isRecipient) {
 				throw new TRPCError({
 					code: "FORBIDDEN",
-					message: "You don't have permission to access this document"
+					message: "You don't have permission to access this document",
 				})
 			}
 
@@ -177,36 +170,33 @@ export const documentPrepositioningRouter = createTRPCRouter({
 			const document = await ctx.db.document.findUnique({
 				where: { id: documentId },
 				include: {
-					envelope: true
-				}
+					envelope: true,
+				},
 			})
 
 			if (!document) {
 				throw new TRPCError({
 					code: "NOT_FOUND",
-					message: "Document not found"
+					message: "Document not found",
 				})
 			}
 
-			if (
-				!document.envelope ||
-				document.envelope.userId !== ctx.session.user.id
-			) {
+			if (!document.envelope || document.envelope.userId !== ctx.session.user.id) {
 				throw new TRPCError({
 					code: "FORBIDDEN",
-					message: "You don't have permission to edit this document"
+					message: "You don't have permission to edit this document",
 				})
 			}
 
 			try {
 				// Delete existing fields for this document
 				await ctx.db.documentField.deleteMany({
-					where: { documentId }
+					where: { documentId },
 				})
 
 				// Create new fields
 				const createdFields = await Promise.all(
-					fields.map((field) =>
+					fields.map(field =>
 						ctx.db.documentField.create({
 							data: {
 								documentId,
@@ -220,21 +210,21 @@ export const documentPrepositioningRouter = createTRPCRouter({
 								pageNumber: field.position.pageNumber,
 								width: field.size.width,
 								height: field.size.height,
-								recipientId: field.recipientId
-							}
+								recipientId: field.recipientId,
+							},
 						})
 					)
 				)
 
 				return {
 					success: true,
-					fieldsCreated: createdFields.length
+					fieldsCreated: createdFields.length,
 				}
 			} catch (error) {
 				console.error("Save document fields error:", error)
 				throw new TRPCError({
 					code: "INTERNAL_SERVER_ERROR",
-					message: "Failed to save document fields"
+					message: "Failed to save document fields",
 				})
 			}
 		}),
@@ -248,31 +238,28 @@ export const documentPrepositioningRouter = createTRPCRouter({
 				include: {
 					document: {
 						include: {
-							envelope: true
-						}
-					}
-				}
+							envelope: true,
+						},
+					},
+				},
 			})
 
 			if (!field) {
 				throw new TRPCError({
 					code: "NOT_FOUND",
-					message: "Field not found"
+					message: "Field not found",
 				})
 			}
 
-			if (
-				!field.document.envelope ||
-				field.document.envelope.userId !== ctx.session.user.id
-			) {
+			if (!field.document.envelope || field.document.envelope.userId !== ctx.session.user.id) {
 				throw new TRPCError({
 					code: "FORBIDDEN",
-					message: "You don't have permission to delete this field"
+					message: "You don't have permission to delete this field",
 				})
 			}
 
 			await ctx.db.documentField.delete({
-				where: { id: input.fieldId }
+				where: { id: input.fieldId },
 			})
 
 			return { success: true }
@@ -289,16 +276,16 @@ export const documentPrepositioningRouter = createTRPCRouter({
 				include: {
 					document: {
 						include: {
-							envelope: true
-						}
-					}
-				}
+							envelope: true,
+						},
+					},
+				},
 			})
 
 			if (!existingField) {
 				throw new TRPCError({
 					code: "NOT_FOUND",
-					message: "Field not found"
+					message: "Field not found",
 				})
 			}
 
@@ -308,7 +295,7 @@ export const documentPrepositioningRouter = createTRPCRouter({
 			) {
 				throw new TRPCError({
 					code: "FORBIDDEN",
-					message: "You don't have permission to update this field"
+					message: "You don't have permission to update this field",
 				})
 			}
 
@@ -325,8 +312,8 @@ export const documentPrepositioningRouter = createTRPCRouter({
 					pageNumber: field.position.pageNumber,
 					width: field.size.width,
 					height: field.size.height,
-					recipientId: field.recipientId
-				}
+					recipientId: field.recipientId,
+				},
 			})
 
 			return updatedField
@@ -342,30 +329,27 @@ export const documentPrepositioningRouter = createTRPCRouter({
 			const document = await ctx.db.document.findUnique({
 				where: { id: documentId },
 				include: {
-					envelope: true
-				}
+					envelope: true,
+				},
 			})
 
 			if (!document) {
 				throw new TRPCError({
 					code: "NOT_FOUND",
-					message: "Document not found"
+					message: "Document not found",
 				})
 			}
 
-			if (
-				!document.envelope ||
-				document.envelope.userId !== ctx.session.user.id
-			) {
+			if (!document.envelope || document.envelope.userId !== ctx.session.user.id) {
 				throw new TRPCError({
 					code: "FORBIDDEN",
-					message: "You don't have permission to edit this document"
+					message: "You don't have permission to edit this document",
 				})
 			}
 
 			try {
 				const updatedFields = await Promise.all(
-					fields.map((field) => {
+					fields.map(field => {
 						const updateData: Record<string, unknown> = {}
 
 						if (field.position) {
@@ -380,30 +364,27 @@ export const documentPrepositioningRouter = createTRPCRouter({
 						}
 
 						if (field.label !== undefined) updateData.label = field.label
-						if (field.placeholder !== undefined)
-							updateData.placeholder = field.placeholder
-						if (field.required !== undefined)
-							updateData.required = field.required
+						if (field.placeholder !== undefined) updateData.placeholder = field.placeholder
+						if (field.required !== undefined) updateData.required = field.required
 						if (field.options !== undefined) updateData.options = field.options
-						if (field.recipientId !== undefined)
-							updateData.recipientId = field.recipientId
+						if (field.recipientId !== undefined) updateData.recipientId = field.recipientId
 
 						return ctx.db.documentField.update({
 							where: { id: field.id },
-							data: updateData
+							data: updateData,
 						})
 					})
 				)
 
 				return {
 					success: true,
-					fieldsUpdated: updatedFields.length
+					fieldsUpdated: updatedFields.length,
 				}
 			} catch (error) {
 				console.error("Bulk update fields error:", error)
 				throw new TRPCError({
 					code: "INTERNAL_SERVER_ERROR",
-					message: "Failed to update document fields"
+					message: "Failed to update document fields",
 				})
 			}
 		}),
@@ -415,9 +396,9 @@ export const documentPrepositioningRouter = createTRPCRouter({
 			const fields = await ctx.db.documentField.findMany({
 				where: {
 					documentId: input.documentId,
-					recipientId: input.recipientId
+					recipientId: input.recipientId,
 				},
-				orderBy: { createdAt: "asc" }
+				orderBy: { createdAt: "asc" },
 			})
 
 			return fields
@@ -437,35 +418,32 @@ export const documentPrepositioningRouter = createTRPCRouter({
 					AND: [
 						{
 							x: {
-								lt: position.x + size.width
-							}
+								lt: position.x + size.width,
+							},
 						},
 						{
 							x: {
-								gte: position.x - size.width
-							}
+								gte: position.x - size.width,
+							},
 						},
 						{
 							y: {
-								lt: position.y + size.height
-							}
+								lt: position.y + size.height,
+							},
 						},
 						{
 							y: {
-								gte: position.y - size.height
-							}
-						}
-					]
-				}
+								gte: position.y - size.height,
+							},
+						},
+					],
+				},
 			})
 
 			return {
 				isValid: overlappingFields.length === 0,
 				overlappingFields: overlappingFields.length,
-				warnings:
-					overlappingFields.length > 0
-						? ["Field overlaps with existing fields"]
-						: []
+				warnings: overlappingFields.length > 0 ? ["Field overlaps with existing fields"] : [],
 			}
-		})
+		}),
 })

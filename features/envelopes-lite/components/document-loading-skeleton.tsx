@@ -9,16 +9,16 @@ export function DocumentLoadingSkeleton() {
 				<Card key={i}>
 					<CardContent className="p-4">
 						<div className="flex items-center gap-4">
-							<div className="h-9 w-9 animate-pulse rounded-lg bg-muted" />
+							<div className="bg-muted h-9 w-9 animate-pulse rounded-lg" />
 							<div className="flex-1 space-y-2">
 								<div className="flex items-center gap-2">
-									<div className="h-4 w-32 animate-pulse rounded bg-muted" />
-									<div className="h-5 w-12 animate-pulse rounded bg-muted" />
-									<div className="h-5 w-16 animate-pulse rounded bg-muted" />
+									<div className="bg-muted h-4 w-32 animate-pulse rounded" />
+									<div className="bg-muted h-5 w-12 animate-pulse rounded" />
+									<div className="bg-muted h-5 w-16 animate-pulse rounded" />
 								</div>
-								<div className="h-3 w-48 animate-pulse rounded bg-muted" />
+								<div className="bg-muted h-3 w-48 animate-pulse rounded" />
 							</div>
-							<div className="h-6 w-6 animate-pulse rounded bg-muted" />
+							<div className="bg-muted h-6 w-6 animate-pulse rounded" />
 						</div>
 					</CardContent>
 				</Card>

@@ -5,21 +5,10 @@ import { useEffect, useRef, useState } from "react"
 import { ImageIcon, Pen, Save, Trash2, Type } from "lucide-react"
 
 import { Button } from "@/core/components/ui/button"
-import {
-	Card,
-	CardContent,
-	CardFooter,
-	CardHeader,
-	CardTitle
-} from "@/core/components/ui/card"
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/core/components/ui/card"
 import { Input } from "@/core/components/ui/input"
 import { Label } from "@/core/components/ui/label"
-import {
-	Tabs,
-	TabsContent,
-	TabsList,
-	TabsTrigger
-} from "@/core/components/ui/tabs"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/core/components/ui/tabs"
 
 interface SignaturePadProps {
 	onSave: (signatureData: string, signatureType: string) => void
@@ -27,21 +16,14 @@ interface SignaturePadProps {
 	defaultType?: "draw" | "type" | "upload"
 }
 
-export function SignaturePad({
-	onSave,
-	onCancel,
-	defaultType = "draw"
-}: SignaturePadProps) {
-	const [signatureType, setSignatureType] = useState<
-		"draw" | "type" | "upload"
-	>(defaultType)
+export function SignaturePad({ onSave, onCancel, defaultType = "draw" }: SignaturePadProps) {
+	const [signatureType, setSignatureType] = useState<"draw" | "type" | "upload">(defaultType)
 	const [typedName, setTypedName] = useState("")
 	const [signatureImage, setSignatureImage] = useState<string | null>(null)
 
 	const canvasRef = useRef<HTMLCanvasElement>(null)
 	const [isDrawing, setIsDrawing] = useState(false)
-	const [canvasContext, setCanvasContext] =
-		useState<CanvasRenderingContext2D | null>(null)
+	const [canvasContext, setCanvasContext] = useState<CanvasRenderingContext2D | null>(null)
 
 	// Initialize canvas
 	useEffect(() => {
@@ -73,9 +55,7 @@ export function SignaturePad({
 		canvasContext.moveTo(offsetX, offsetY)
 	}
 
-	const draw = (
-		e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>
-	) => {
+	const draw = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
 		if (!isDrawing || !canvasContext) return
 
 		// Get coordinates
@@ -105,13 +85,13 @@ export function SignaturePad({
 			if (!touch) return { offsetX: 0, offsetY: 0 }
 			return {
 				offsetX: touch.clientX - rect.left,
-				offsetY: touch.clientY - rect.top
+				offsetY: touch.clientY - rect.top,
 			}
 		} else {
 			// Mouse event
 			return {
 				offsetX: e.nativeEvent.offsetX,
-				offsetY: e.nativeEvent.offsetY
+				offsetY: e.nativeEvent.offsetY,
 			}
 		}
 	}
@@ -119,12 +99,7 @@ export function SignaturePad({
 	// Clear canvas
 	const clearCanvas = () => {
 		if (canvasRef.current && canvasContext) {
-			canvasContext.clearRect(
-				0,
-				0,
-				canvasRef.current.width,
-				canvasRef.current.height
-			)
+			canvasContext.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height)
 		}
 	}
 
@@ -134,7 +109,7 @@ export function SignaturePad({
 		if (!file) return
 
 		const reader = new FileReader()
-		reader.onload = (event) => {
+		reader.onload = event => {
 			if (event.target?.result) {
 				setSignatureImage(event.target.result as string)
 			}
@@ -170,9 +145,7 @@ export function SignaturePad({
 			<CardContent>
 				<Tabs
 					value={signatureType}
-					onValueChange={(value) =>
-						setSignatureType(value as "draw" | "type" | "upload")
-					}
+					onValueChange={value => setSignatureType(value as "draw" | "type" | "upload")}
 				>
 					<TabsList className="grid w-full grid-cols-3">
 						<TabsTrigger value="draw" className="flex items-center gap-1">
@@ -205,12 +178,7 @@ export function SignaturePad({
 								onTouchEnd={stopDrawing}
 							/>
 						</div>
-						<Button
-							variant="outline"
-							size="sm"
-							onClick={clearCanvas}
-							className="w-full"
-						>
+						<Button variant="outline" size="sm" onClick={clearCanvas} className="w-full">
 							<Trash2 className="mr-1 h-3.5 w-3.5" />
 							Clear
 						</Button>
@@ -222,15 +190,13 @@ export function SignaturePad({
 							<Input
 								id="typed-name"
 								value={typedName}
-								onChange={(e) => setTypedName(e.target.value)}
+								onChange={e => setTypedName(e.target.value)}
 								placeholder="Enter your full name"
 							/>
 						</div>
 						{typedName && (
 							<div className="rounded-lg border bg-white p-4">
-								<p className="text-center font-serif text-2xl italic text-gray-800">
-									{typedName}
-								</p>
+								<p className="text-center font-serif text-2xl text-gray-800 italic">{typedName}</p>
 							</div>
 						)}
 					</TabsContent>

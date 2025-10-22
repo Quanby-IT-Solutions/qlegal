@@ -12,7 +12,7 @@ import {
 	DialogDescription,
 	DialogFooter,
 	DialogHeader,
-	DialogTitle
+	DialogTitle,
 } from "@/core/components/ui/dialog"
 import { Input } from "@/core/components/ui/input"
 import { Label } from "@/core/components/ui/label"
@@ -21,15 +21,12 @@ import {
 	SelectContent,
 	SelectItem,
 	SelectTrigger,
-	SelectValue
+	SelectValue,
 } from "@/core/components/ui/select"
 
 import { trpc } from "@/services/trpc/client"
 
-import {
-	createUserSchema,
-	type CreateUserInput
-} from "../api/user-management.schema"
+import { createUserSchema, type CreateUserInput } from "../api/user-management.schema"
 
 interface AddUserDialogProps {
 	open: boolean
@@ -50,9 +47,9 @@ export function AddUserDialog({ open, onOpenChange }: AddUserDialogProps) {
 			void utils.userManagement.list.invalidate()
 			void utils.userManagement.stats.invalidate()
 		},
-		onError: (error) => {
+		onError: error => {
 			toast.error(error.message || "Failed to create user")
-		}
+		},
 	})
 
 	const form = useForm<CreateUserInput>({
@@ -61,8 +58,8 @@ export function AddUserDialog({ open, onOpenChange }: AddUserDialogProps) {
 			name: "",
 			email: "",
 			role: "CLIENT",
-			organization: ""
-		}
+			organization: "",
+		},
 	})
 
 	const onSubmit = async (data: CreateUserInput) => {
@@ -96,9 +93,7 @@ export function AddUserDialog({ open, onOpenChange }: AddUserDialogProps) {
 						/>
 					</div>
 					{form.formState.errors.name && (
-						<p className="col-span-4 text-sm text-red-500">
-							{form.formState.errors.name.message}
-						</p>
+						<p className="col-span-4 text-sm text-red-500">{form.formState.errors.name.message}</p>
 					)}
 
 					<div className="grid grid-cols-4 items-center gap-4">
@@ -114,9 +109,7 @@ export function AddUserDialog({ open, onOpenChange }: AddUserDialogProps) {
 						/>
 					</div>
 					{form.formState.errors.email && (
-						<p className="col-span-4 text-sm text-red-500">
-							{form.formState.errors.email.message}
-						</p>
+						<p className="col-span-4 text-sm text-red-500">{form.formState.errors.email.message}</p>
 					)}
 
 					<div className="grid grid-cols-4 items-center gap-4">
@@ -125,11 +118,8 @@ export function AddUserDialog({ open, onOpenChange }: AddUserDialogProps) {
 						</Label>
 						<Select
 							value={form.watch("role")}
-							onValueChange={(value) =>
-								form.setValue(
-									"role",
-									value as "CLIENT" | "ADMIN" | "SUPER_ADMIN"
-								)
+							onValueChange={value =>
+								form.setValue("role", value as "CLIENT" | "ADMIN" | "SUPER_ADMIN")
 							}
 						>
 							<SelectTrigger className="col-span-3">
@@ -156,11 +146,7 @@ export function AddUserDialog({ open, onOpenChange }: AddUserDialogProps) {
 					</div>
 
 					<DialogFooter>
-						<Button
-							type="button"
-							variant="outline"
-							onClick={() => onOpenChange(false)}
-						>
+						<Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
 							Cancel
 						</Button>
 						<Button type="submit" disabled={isLoading}>

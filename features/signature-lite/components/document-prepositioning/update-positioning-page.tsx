@@ -1,41 +1,19 @@
 "use client"
 
 import { useRef, useState } from "react"
-import {
-	Calendar,
-	CheckSquare,
-	Circle,
-	Hand,
-	Loader2,
-	Mail,
-	Save,
-	Type
-} from "lucide-react"
+import { Calendar, CheckSquare, Circle, Hand, Loader2, Mail, Save, Type } from "lucide-react"
 import { Document, Page, pdfjs } from "react-pdf"
 import { toast } from "sonner"
 
 import { Button } from "@/core/components/ui/button"
-import {
-	Card,
-	CardContent,
-	CardHeader,
-	CardTitle
-} from "@/core/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/core/components/ui/card"
 
 // Set up PDF.js worker
 pdfjs.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.js"
 
 export interface DocumentField {
 	id: string
-	type:
-		| "SIGNATURE"
-		| "INITIAL"
-		| "NAME"
-		| "DATE"
-		| "TEXT"
-		| "EMAIL"
-		| "CHECKBOX"
-		| "RADIO"
+	type: "SIGNATURE" | "INITIAL" | "NAME" | "DATE" | "TEXT" | "EMAIL" | "CHECKBOX" | "RADIO"
 	label: string
 	placeholder?: string
 	required: boolean
@@ -77,7 +55,7 @@ const FIELD_TYPE_INFO = {
 	TEXT: { label: "Text", icon: Type, color: "#EF4444" },
 	EMAIL: { label: "Email", icon: Mail, color: "#06B6D4" },
 	CHECKBOX: { label: "Checkbox", icon: CheckSquare, color: "#84CC16" },
-	RADIO: { label: "Radio", icon: Circle, color: "#EC4899" }
+	RADIO: { label: "Radio", icon: Circle, color: "#EC4899" },
 } as const
 
 const RECIPIENT_COLORS = [
@@ -88,7 +66,7 @@ const RECIPIENT_COLORS = [
 	"#8B5CF6", // Purple
 	"#EC4899", // Pink
 	"#06B6D4", // Cyan
-	"#84CC16" // Lime
+	"#84CC16", // Lime
 ]
 
 export default function UpdatePositioningPage({
@@ -97,7 +75,7 @@ export default function UpdatePositioningPage({
 	recipients,
 	existingFields,
 	onUpdate,
-	onCancel
+	onCancel,
 }: UpdatePositioningPageProps) {
 	const [numPages, setNumPages] = useState<number>(0)
 	const [currentPage, setCurrentPage] = useState<number>(1)
@@ -121,7 +99,7 @@ export default function UpdatePositioningPage({
 	// Assign colors to recipients
 	const recipientsWithColors = recipients.map((recipient, index) => ({
 		...recipient,
-		color: RECIPIENT_COLORS[index % RECIPIENT_COLORS.length]
+		color: RECIPIENT_COLORS[index % RECIPIENT_COLORS.length],
 	}))
 
 	const onDocumentLoadSuccess = ({ numPages }: { numPages: number }) => {
@@ -135,10 +113,7 @@ export default function UpdatePositioningPage({
 		setIsLoading(false)
 	}
 
-	const handleFieldDragStart = (
-		field: DocumentField,
-		event: React.DragEvent
-	) => {
+	const handleFieldDragStart = (field: DocumentField, event: React.DragEvent) => {
 		setDraggedField(field)
 		event.dataTransfer.effectAllowed = "move"
 	}
@@ -162,12 +137,12 @@ export default function UpdatePositioningPage({
 		const x = Math.max(0, Math.min(dropX, maxX))
 		const y = Math.max(0, Math.min(dropY, maxY))
 
-		setFields((prev) =>
-			prev.map((field) =>
+		setFields(prev =>
+			prev.map(field =>
 				field.id === draggedField.id
 					? {
 							...field,
-							position: { ...field.position, x, y, pageNumber: currentPage }
+							position: { ...field.position, x, y, pageNumber: currentPage },
 						}
 					: field
 			)
@@ -178,7 +153,7 @@ export default function UpdatePositioningPage({
 	}
 
 	const handleFieldDelete = (fieldId: string) => {
-		setFields((prev) => prev.filter((field) => field.id !== fieldId))
+		setFields(prev => prev.filter(field => field.id !== fieldId))
 		toast.success("Field deleted")
 	}
 
@@ -209,15 +184,15 @@ export default function UpdatePositioningPage({
 			const finalWidth = Math.min(newWidth, maxWidth)
 			const finalHeight = Math.min(newHeight, maxHeight)
 
-			setFields((prev) =>
-				prev.map((f) =>
+			setFields(prev =>
+				prev.map(f =>
 					f.id === field.id
 						? {
 								...f,
 								size: {
 									width: finalWidth,
-									height: finalHeight
-								}
+									height: finalHeight,
+								},
 							}
 						: f
 				)
@@ -248,9 +223,7 @@ export default function UpdatePositioningPage({
 		}
 	}
 
-	const currentPageFields = fields.filter(
-		(field) => field.position.pageNumber === currentPage
-	)
+	const currentPageFields = fields.filter(field => field.position.pageNumber === currentPage)
 
 	return (
 		<div className="min-h-screen bg-gray-50 p-2 md:p-4">
@@ -258,22 +231,14 @@ export default function UpdatePositioningPage({
 				{/* Header */}
 				<div className="mb-4 flex flex-col gap-4 md:mb-6 md:flex-row md:items-center md:justify-between">
 					<div>
-						<h1 className="text-xl font-bold text-gray-900 md:text-2xl">
-							Update Field Positions
-						</h1>
+						<h1 className="text-xl font-bold text-gray-900 md:text-2xl">Update Field Positions</h1>
 						<p className="text-sm text-gray-600">
-							Drag and resize existing signature fields to update their
-							positions
+							Drag and resize existing signature fields to update their positions
 						</p>
 					</div>
 					<div className="flex flex-wrap gap-2">
 						{onCancel && (
-							<Button
-								variant="outline"
-								onClick={onCancel}
-								size="sm"
-								className="md:size-default"
-							>
+							<Button variant="outline" onClick={onCancel} size="sm" className="md:size-default">
 								Cancel
 							</Button>
 						)}
@@ -308,9 +273,7 @@ export default function UpdatePositioningPage({
 							</Button>
 						</div>
 
-						<div
-							className={`space-y-4 md:space-y-6 ${showSidebar ? "block" : "hidden xl:block"}`}
-						>
+						<div className={`space-y-4 md:space-y-6 ${showSidebar ? "block" : "hidden xl:block"}`}>
 							{/* Recipients */}
 							<Card>
 								<CardHeader className="pb-3">
@@ -327,12 +290,8 @@ export default function UpdatePositioningPage({
 												style={{ backgroundColor: recipient.color }}
 											/>
 											<div className="min-w-0 flex-1">
-												<p className="truncate text-sm font-medium">
-													{recipient.name}
-												</p>
-												<p className="truncate text-xs text-gray-500">
-													{recipient.email}
-												</p>
+												<p className="truncate text-sm font-medium">{recipient.name}</p>
+												<p className="truncate text-xs text-gray-500">{recipient.email}</p>
 											</div>
 										</div>
 									))}
@@ -347,8 +306,7 @@ export default function UpdatePositioningPage({
 								<CardContent className="space-y-2">
 									<div className="text-sm text-gray-600">
 										<p>
-											Total Fields:{" "}
-											<span className="font-medium">{fields.length}</span>
+											Total Fields: <span className="font-medium">{fields.length}</span>
 										</p>
 										<p>
 											Current Page:{" "}
@@ -357,10 +315,7 @@ export default function UpdatePositioningPage({
 											</span>
 										</p>
 										<p>
-											Page Fields:{" "}
-											<span className="font-medium">
-												{currentPageFields.length}
-											</span>
+											Page Fields: <span className="font-medium">{currentPageFields.length}</span>
 										</p>
 									</div>
 								</CardContent>
@@ -369,21 +324,15 @@ export default function UpdatePositioningPage({
 							{/* Current Page Fields */}
 							<Card>
 								<CardHeader className="pb-3">
-									<CardTitle className="text-sm">
-										Fields on Page {currentPage}
-									</CardTitle>
+									<CardTitle className="text-sm">Fields on Page {currentPage}</CardTitle>
 								</CardHeader>
 								<CardContent className="space-y-2">
 									{currentPageFields.length === 0 ? (
-										<p className="text-sm text-gray-500">
-											No fields on this page
-										</p>
+										<p className="text-sm text-gray-500">No fields on this page</p>
 									) : (
 										<div className="max-h-48 space-y-2 overflow-y-auto">
-											{currentPageFields.map((field) => {
-												const recipient = recipientsWithColors.find(
-													(r) => r.id === field.recipientId
-												)
+											{currentPageFields.map(field => {
+												const recipient = recipientsWithColors.find(r => r.id === field.recipientId)
 												const fieldInfo = FIELD_TYPE_INFO[field.type]
 												return (
 													<div
@@ -395,9 +344,7 @@ export default function UpdatePositioningPage({
 															style={{ backgroundColor: recipient?.color }}
 														/>
 														<div className="min-w-0 flex-1">
-															<p className="truncate text-sm font-medium">
-																{field.label}
-															</p>
+															<p className="truncate text-sm font-medium">{field.label}</p>
 															<p className="text-xs text-gray-500">
 																{fieldInfo.label} - {recipient?.name}
 															</p>
@@ -429,8 +376,7 @@ export default function UpdatePositioningPage({
 											• <strong>Drag</strong> fields to move them
 										</p>
 										<p>
-											• <strong>Resize</strong> using the handle in bottom-right
-											corner
+											• <strong>Resize</strong> using the handle in bottom-right corner
 										</p>
 										<p>
 											• <strong>Delete</strong> fields with the × button
@@ -450,9 +396,7 @@ export default function UpdatePositioningPage({
 									<div className="flex h-96 items-center justify-center bg-gray-50">
 										<div className="text-center">
 											<Loader2 className="mx-auto mb-2 h-8 w-8 animate-spin" />
-											<span className="text-sm text-gray-600">
-												Loading document...
-											</span>
+											<span className="text-sm text-gray-600">Loading document...</span>
 										</div>
 									</div>
 								)}
@@ -474,7 +418,7 @@ export default function UpdatePositioningPage({
 												ref={pageRef}
 												className="relative inline-block overflow-hidden rounded-lg border-2 border-gray-300 bg-white shadow-xl"
 												onDrop={handleFieldDrop}
-												onDragOver={(e) => e.preventDefault()}
+												onDragOver={e => e.preventDefault()}
 											>
 												<Page
 													pageNumber={currentPage}
@@ -485,9 +429,9 @@ export default function UpdatePositioningPage({
 												/>
 
 												{/* Render positioned fields */}
-												{currentPageFields.map((field) => {
+												{currentPageFields.map(field => {
 													const recipient = recipientsWithColors.find(
-														(r) => r.id === field.recipientId
+														r => r.id === field.recipientId
 													)
 													return (
 														<div
@@ -497,31 +441,29 @@ export default function UpdatePositioningPage({
 																left: field.position.x * pageScale,
 																top: field.position.y * pageScale,
 																width: field.size.width * pageScale,
-																height: field.size.height * pageScale
+																height: field.size.height * pageScale,
 															}}
 														>
 															{/* Main field area */}
 															<div
-																className="relative flex h-full w-full cursor-move items-center justify-center border-2 border-dashed bg-opacity-20 text-xs font-medium transition-all hover:border-solid hover:bg-opacity-30"
+																className="bg-opacity-20 hover:bg-opacity-30 relative flex h-full w-full cursor-move items-center justify-center border-2 border-dashed text-xs font-medium transition-all hover:border-solid"
 																style={{
 																	borderColor: recipient?.color,
 																	backgroundColor: recipient?.color + "20",
-																	color: recipient?.color
+																	color: recipient?.color,
 																}}
 																draggable
-																onDragStart={(e) =>
-																	handleFieldDragStart(field, e)
-																}
+																onDragStart={e => handleFieldDragStart(field, e)}
 																title={`${field.label} for ${recipient?.name} - Drag to move`}
 															>
-																<span className="pointer-events-none select-none px-1 text-center">
+																<span className="pointer-events-none px-1 text-center select-none">
 																	{field.type}
 																</span>
 
 																{/* Delete button */}
 																<button
-																	className="absolute -right-2 -top-2 h-6 w-6 rounded-full bg-red-500 text-xs text-white opacity-0 shadow-lg transition-opacity hover:bg-red-600 group-hover:opacity-100"
-																	onClick={(e) => {
+																	className="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-red-500 text-xs text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100 hover:bg-red-600"
+																	onClick={e => {
 																		e.stopPropagation()
 																		handleFieldDelete(field.id)
 																	}}
@@ -532,11 +474,9 @@ export default function UpdatePositioningPage({
 
 																{/* Resize handle */}
 																<div
-																	className="absolute -bottom-1 -right-1 h-3 w-3 cursor-se-resize rounded-full border-2 bg-white opacity-0 shadow-md transition-opacity group-hover:opacity-100"
+																	className="absolute -right-1 -bottom-1 h-3 w-3 cursor-se-resize rounded-full border-2 bg-white opacity-0 shadow-md transition-opacity group-hover:opacity-100"
 																	style={{ borderColor: recipient?.color }}
-																	onMouseDown={(e) =>
-																		handleResizeStart(field, e)
-																	}
+																	onMouseDown={e => handleResizeStart(field, e)}
 																	title="Resize field"
 																/>
 															</div>
@@ -557,9 +497,7 @@ export default function UpdatePositioningPage({
 												<Button
 													variant="outline"
 													size="sm"
-													onClick={() =>
-														setPageScale(Math.max(0.5, pageScale - 0.1))
-													}
+													onClick={() => setPageScale(Math.max(0.5, pageScale - 0.1))}
 													disabled={pageScale <= 0.5}
 												>
 													-
@@ -570,9 +508,7 @@ export default function UpdatePositioningPage({
 												<Button
 													variant="outline"
 													size="sm"
-													onClick={() =>
-														setPageScale(Math.min(3, pageScale + 0.1))
-													}
+													onClick={() => setPageScale(Math.min(3, pageScale + 0.1))}
 												>
 													+
 												</Button>
@@ -592,9 +528,7 @@ export default function UpdatePositioningPage({
 													<Button
 														variant="outline"
 														size="sm"
-														onClick={() =>
-															setCurrentPage(Math.max(1, currentPage - 1))
-														}
+														onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
 														disabled={currentPage <= 1}
 													>
 														Prev
@@ -605,11 +539,7 @@ export default function UpdatePositioningPage({
 													<Button
 														variant="outline"
 														size="sm"
-														onClick={() =>
-															setCurrentPage(
-																Math.min(numPages, currentPage + 1)
-															)
-														}
+														onClick={() => setCurrentPage(Math.min(numPages, currentPage + 1))}
 														disabled={currentPage >= numPages}
 													>
 														Next
@@ -620,8 +550,7 @@ export default function UpdatePositioningPage({
 
 										<div className="text-center text-sm text-gray-600 md:text-right">
 											<span className="font-medium text-blue-600">
-												🎯 Drag fields to reposition, resize using corner
-												handles
+												🎯 Drag fields to reposition, resize using corner handles
 											</span>
 										</div>
 									</div>

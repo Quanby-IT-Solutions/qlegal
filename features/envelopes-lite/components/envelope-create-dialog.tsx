@@ -14,7 +14,7 @@ import {
 	DialogDescription,
 	DialogHeader,
 	DialogTitle,
-	DialogTrigger
+	DialogTrigger,
 } from "@/core/components/ui/dialog"
 import {
 	Form,
@@ -22,40 +22,37 @@ import {
 	FormField,
 	FormItem,
 	FormLabel,
-	FormMessage
+	FormMessage,
 } from "@/core/components/ui/form"
 import { Input } from "@/core/components/ui/input"
 import { Textarea } from "@/core/components/ui/textarea"
 
 import { trpc } from "@/services/trpc/client"
 
-import {
-	createEnvelopeSchema,
-	type CreateEnvelopeSchema
-} from "../api/envelope-lite-schema"
+import { createEnvelopeSchema, type CreateEnvelopeSchema } from "../api/envelope-lite-schema"
 
 export function EnvelopeCreateDialog() {
 	const form = useForm({
 		resolver: zodResolver(createEnvelopeSchema),
 		defaultValues: {
 			title: "",
-			description: ""
-		}
+			description: "",
+		},
 	})
 
 	const router = useRouter()
 
 	const { mutate, isPending } = trpc.envelopeLite.createEnvelope.useMutation({
-		onSuccess: (data) => {
+		onSuccess: data => {
 			toast.info("Envelope created successfully!", {
-				description: "You can now manage your envelope."
+				description: "You can now manage your envelope.",
 			})
 			form.reset()
-			if (data && 'id' in data) {
+			if (data && "id" in data) {
 				router.push(`/envelope/${(data as { id: string }).id}`)
 			}
 		},
-		onError: (err) => toast.info(err.message)
+		onError: err => toast.info(err.message),
 	})
 
 	const onSubmit = (values: CreateEnvelopeSchema) => mutate(values)
@@ -70,12 +67,9 @@ export function EnvelopeCreateDialog() {
 			</DialogTrigger>
 			<DialogContent className="sm:max-w-md">
 				<DialogHeader>
-					<DialogTitle className="text-lg font-medium">
-						Create New Envelope
-					</DialogTitle>
+					<DialogTitle className="text-lg font-medium">Create New Envelope</DialogTitle>
 					<DialogDescription>
-						Create a new envelope for digital signatures and document
-						management.
+						Create a new envelope for digital signatures and document management.
 					</DialogDescription>
 				</DialogHeader>
 
@@ -88,11 +82,7 @@ export function EnvelopeCreateDialog() {
 								<FormItem>
 									<FormLabel>Title</FormLabel>
 									<FormControl>
-										<Input
-											placeholder="Enter title..."
-											className="bg-muted/60"
-											{...field}
-										/>
+										<Input placeholder="Enter title..." className="bg-muted/60" {...field} />
 									</FormControl>
 									<FormMessage />
 								</FormItem>

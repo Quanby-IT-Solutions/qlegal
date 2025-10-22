@@ -2,14 +2,7 @@
 
 import { useParams, useRouter } from "next/navigation"
 import { useState } from "react"
-import {
-	ArrowLeft,
-	CheckCircle,
-	FileText,
-	Lock,
-	PenTool,
-	Shield
-} from "lucide-react"
+import { ArrowLeft, CheckCircle, FileText, Lock, PenTool, Shield } from "lucide-react"
 import { toast } from "sonner"
 
 import { SiteNavbar } from "@/core/components/navbar/site-navbar"
@@ -19,7 +12,7 @@ import {
 	CardContent,
 	CardDescription,
 	CardHeader,
-	CardTitle
+	CardTitle,
 } from "@/core/components/ui/card"
 import { Checkbox } from "@/core/components/ui/checkbox"
 import { Progress } from "@/core/components/ui/progress"
@@ -58,7 +51,7 @@ export default function DocumentSignPage() {
 	const {
 		data: document,
 		isLoading,
-		refetch
+		refetch,
 	} = trpc.signatureLite.getDocumentForSigning.useQuery(
 		{ envelopeId, documentId },
 		{ enabled: !!envelopeId && !!documentId }
@@ -72,20 +65,19 @@ export default function DocumentSignPage() {
 		)
 
 	// Complete signature mutation
-	const completeSignatureMutation =
-		trpc.signatureLite.completeDocumentSignature.useMutation({
-			onSuccess: (data) => {
-				if (data.allDocumentsSigned) {
-					toast.success("Document completed! All recipients have signed.")
-				} else {
-					toast.success("Your signature has been recorded successfully.")
-				}
-				router.push("/my-signed")
-			},
-			onError: (error) => {
-				toast.error(error.message)
+	const completeSignatureMutation = trpc.signatureLite.completeDocumentSignature.useMutation({
+		onSuccess: data => {
+			if (data.allDocumentsSigned) {
+				toast.success("Document completed! All recipients have signed.")
+			} else {
+				toast.success("Your signature has been recorded successfully.")
 			}
-		})
+			router.push("/my-signed")
+		},
+		onError: error => {
+			toast.error(error.message)
+		},
+	})
 
 	// Handle field signing
 	const handleFieldSign = (field: {
@@ -103,10 +95,7 @@ export default function DocumentSignPage() {
 	}
 
 	// Handle field signed callback
-	const handleFieldSigned = async (
-		_fieldId: string,
-		_signatureData: unknown
-	) => {
+	const handleFieldSigned = async (_fieldId: string, _signatureData: unknown) => {
 		// Refresh both the document data and progress to show updated fields
 		await Promise.all([refetch(), refetchProgress()])
 	}
@@ -115,7 +104,7 @@ export default function DocumentSignPage() {
 		return (
 			<div className="flex min-h-screen items-center justify-center">
 				<div className="text-center">
-					<div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-b-2 border-primary"></div>
+					<div className="border-primary mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-b-2"></div>
 					<p className="text-muted-foreground">Loading document...</p>
 				</div>
 			</div>
@@ -128,9 +117,9 @@ export default function DocumentSignPage() {
 				<Card className="w-96">
 					<CardContent className="py-12 text-center">
 						<h3 className="mb-2 text-lg font-medium">Document Not Found</h3>
-						<p className="mb-4 text-sm text-muted-foreground">
-							The document you&apos;re looking for doesn&apos;t exist or you
-							don&apos;t have access to it.
+						<p className="text-muted-foreground mb-4 text-sm">
+							The document you&apos;re looking for doesn&apos;t exist or you don&apos;t have access
+							to it.
 						</p>
 						<Button onClick={() => router.push("/")} variant="outline">
 							<ArrowLeft className="mr-2 h-4 w-4" />
@@ -146,8 +135,8 @@ export default function DocumentSignPage() {
 	const userFields = document.fields
 	const isOwner = document.isOwner
 	const currentUserRecipient = document.currentUserRecipient
-	const requiredFields = userFields.filter((field) => field.required)
-	const signedRequiredFields = requiredFields.filter((field) => field.signed)
+	const requiredFields = userFields.filter(field => field.required)
+	const signedRequiredFields = requiredFields.filter(field => field.signed)
 	// Calculate if all required fields are signed
 	const allRequiredFieldsSigned = (() => {
 		// Always calculate manually for now to debug the issue
@@ -155,12 +144,11 @@ export default function DocumentSignPage() {
 			return true // No required fields means all are "signed"
 		}
 
-		const manualCalculation =
-			signedRequiredFields.length === requiredFields.length
+		const manualCalculation = signedRequiredFields.length === requiredFields.length
 		console.log("Manual calculation:", {
 			signedRequiredFieldsLength: signedRequiredFields.length,
 			requiredFieldsLength: requiredFields.length,
-			result: manualCalculation
+			result: manualCalculation,
 		})
 
 		return manualCalculation
@@ -168,38 +156,38 @@ export default function DocumentSignPage() {
 
 	// Debug logging
 	console.log("Debug info:", {
-		userFields: userFields.map((f) => ({
+		userFields: userFields.map(f => ({
 			id: f.id,
 			label: f.label,
 			required: f.required,
-			signed: f.signed
+			signed: f.signed,
 		})),
 		isOwner,
 		currentUserRecipient,
 		recipients: document.recipients,
 		fieldsCount: userFields.length,
-		requiredFields: requiredFields.map((f) => ({
+		requiredFields: requiredFields.map(f => ({
 			id: f.id,
 			label: f.label,
-			signed: f.signed
+			signed: f.signed,
 		})),
-		signedRequiredFields: signedRequiredFields.map((f) => ({
+		signedRequiredFields: signedRequiredFields.map(f => ({
 			id: f.id,
-			label: f.label
+			label: f.label,
 		})),
 		allRequiredFieldsSigned,
 		fieldProgress,
 		requiredFieldsCount: requiredFields.length,
 		signedRequiredFieldsCount: signedRequiredFields.length,
 		// Add detailed field analysis
-		fieldAnalysis: userFields.map((f) => ({
+		fieldAnalysis: userFields.map(f => ({
 			id: f.id,
 			label: f.label,
 			required: f.required,
 			signed: f.signed,
 			hasSignatureValue: !!f.signatureValue,
-			signatureValueLength: f.signatureValue?.length ?? 0
-		}))
+			signatureValueLength: f.signatureValue?.length ?? 0,
+		})),
 	})
 
 	const handleSign = async () => {
@@ -209,9 +197,7 @@ export default function DocumentSignPage() {
 		}
 
 		if (!allRequiredFieldsSigned) {
-			toast.error(
-				"Please complete all required signature fields before proceeding."
-			)
+			toast.error("Please complete all required signature fields before proceeding.")
 			return
 		}
 
@@ -220,7 +206,7 @@ export default function DocumentSignPage() {
 			await completeSignatureMutation.mutateAsync({
 				envelopeId,
 				documentId,
-				agreed: true
+				agreed: true,
 			})
 		} finally {
 			setIsSigning(false)
@@ -234,21 +220,18 @@ export default function DocumentSignPage() {
 				items={[
 					{ label: "Envelopes", url: "/envelopes" },
 					{ label: "Document View", url: `/envelope/${envelopeId}` },
-					{ label: "Sign Document" }
+					{ label: "Sign Document" },
 				]}
 			/>
 
-			<div className="min-h-screen bg-muted dark:bg-background">
+			<div className="bg-muted dark:bg-background min-h-screen">
 				{/* Header */}
-				<div className="border-b bg-background backdrop-blur dark:bg-muted/60">
+				<div className="bg-background dark:bg-muted/60 border-b backdrop-blur">
 					<div className="mx-auto max-w-7xl space-y-6 px-4 py-6 sm:px-6 lg:px-8">
 						<div>
-							<h1 className="text-2xl font-medium text-foreground">
-								{document.envelope?.title}
-							</h1>
-							<p className="mt-1 text-sm text-muted-foreground">
-								Document: {document.name} • {userFields.length} fields assigned
-								to you
+							<h1 className="text-foreground text-2xl font-medium">{document.envelope?.title}</h1>
+							<p className="text-muted-foreground mt-1 text-sm">
+								Document: {document.name} • {userFields.length} fields assigned to you
 							</p>
 						</div>
 					</div>
@@ -265,8 +248,8 @@ export default function DocumentSignPage() {
 										Secure Signing Session
 									</h3>
 									<p className="text-sm text-blue-700 dark:text-blue-200">
-										This is a secure signing session. Your signature will be
-										legally binding and recorded in the audit trail.
+										This is a secure signing session. Your signature will be legally binding and
+										recorded in the audit trail.
 									</p>
 								</div>
 							</div>
@@ -285,14 +268,13 @@ export default function DocumentSignPage() {
 									<span>Document to Sign</span>
 								</CardTitle>
 								<CardDescription>
-									Click &quot;Sign&quot; buttons to fill in your signature
-									fields
+									Click &quot;Sign&quot; buttons to fill in your signature fields
 								</CardDescription>
 							</CardHeader>
 							<CardContent>
 								<PDFViewerWithOverlay
 									fileUrl={document.url}
-									fields={userFields.map((field) => ({
+									fields={userFields.map(field => ({
 										id: field.id,
 										type: field.type,
 										label: field.label,
@@ -301,9 +283,7 @@ export default function DocumentSignPage() {
 										signed: field.signed,
 										signatureValue: field.signatureValue,
 										previewValue:
-											currentFieldToSign?.id === field.id
-												? field.signatureValue
-												: undefined
+											currentFieldToSign?.id === field.id ? field.signatureValue : undefined,
 									}))}
 									currentFieldId={currentFieldToSign?.id}
 									className="w-full"
@@ -315,44 +295,40 @@ export default function DocumentSignPage() {
 						<Card>
 							<CardHeader>
 								<CardTitle>Signature Fields</CardTitle>
-								<CardDescription>
-									Complete all required fields to sign
-								</CardDescription>
+								<CardDescription>Complete all required fields to sign</CardDescription>
 							</CardHeader>
 							<CardContent className="space-y-4">
 								{/* Field Status */}
 								<div className="space-y-3">
 									{userFields.length === 0 ? (
-										<div className="space-y-2 py-4 text-center text-muted-foreground">
+										<div className="text-muted-foreground space-y-2 py-4 text-center">
 											<p>No signature fields assigned to you</p>
 											{isOwner && (
 												<p className="text-sm">
-													You are the document owner. Recipients will sign the
-													fields you&apos;ve assigned to them.
+													You are the document owner. Recipients will sign the fields you&apos;ve
+													assigned to them.
 												</p>
 											)}
 											{!isOwner && !currentUserRecipient && (
 												<p className="text-sm">
-													You are not a recipient of this document or there may
-													be an access issue.
+													You are not a recipient of this document or there may be an access issue.
 												</p>
 											)}
 											{currentUserRecipient && (
 												<p className="text-sm">
-													You are a recipient but no fields have been assigned
-													to you yet.
+													You are a recipient but no fields have been assigned to you yet.
 												</p>
 											)}
 										</div>
 									) : (
-										userFields.map((field) => (
+										userFields.map(field => (
 											<div
 												key={field.id}
-												className="flex items-center justify-between rounded-lg border p-3 hover:bg-muted/50"
+												className="hover:bg-muted/50 flex items-center justify-between rounded-lg border p-3"
 											>
 												<div className="flex-1">
 													<p className="text-sm font-medium">{field.label}</p>
-													<p className="text-xs text-muted-foreground">
+													<p className="text-muted-foreground text-xs">
 														Page {field.position.pageNumber} •{" "}
 														{field.required ? "Required" : "Optional"}
 													</p>
@@ -378,7 +354,7 @@ export default function DocumentSignPage() {
 																<PenTool className="mr-1 h-3 w-3" />
 																Sign
 															</Button>
-															<div className="h-5 w-5 rounded-full border-2 border-muted-foreground/30" />
+															<div className="border-muted-foreground/30 h-5 w-5 rounded-full border-2" />
 														</>
 													)}
 												</div>
@@ -406,19 +382,18 @@ export default function DocumentSignPage() {
 										<Checkbox
 											id="terms"
 											checked={isAgreed}
-											onCheckedChange={(checked) => setIsAgreed(!!checked)}
+											onCheckedChange={checked => setIsAgreed(!!checked)}
 										/>
 										<div className="grid gap-1.5 leading-none">
 											<label
 												htmlFor="terms"
-												className="cursor-pointer text-sm font-medium leading-none"
+												className="cursor-pointer text-sm leading-none font-medium"
 											>
 												I agree to the terms and conditions
 											</label>
-											<p className="text-xs text-muted-foreground">
-												By checking this box, I acknowledge that I have read and
-												agree to the terms of this document and consent to use
-												electronic signatures.
+											<p className="text-muted-foreground text-xs">
+												By checking this box, I acknowledge that I have read and agree to the terms
+												of this document and consent to use electronic signatures.
 											</p>
 										</div>
 									</div>
@@ -427,9 +402,7 @@ export default function DocumentSignPage() {
 									<Button
 										onClick={handleSign}
 										className="w-full"
-										disabled={
-											!isAgreed || !allRequiredFieldsSigned || isSigning
-										}
+										disabled={!isAgreed || !allRequiredFieldsSigned || isSigning}
 									>
 										<Lock className="mr-2 h-4 w-4" />
 										{isSigning ? "Signing..." : "Complete Signature"}
@@ -456,9 +429,9 @@ export default function DocumentSignPage() {
 										envelope: {
 											id: document.envelope?.id ?? envelopeId,
 											title: document.envelope?.title ?? "Document",
-											status: document.envelope?.status ?? "PUBLISHED"
+											status: document.envelope?.status ?? "PUBLISHED",
 										},
-										fields: userFields.map((field) => ({
+										fields: userFields.map(field => ({
 											id: field.id,
 											type: field.type,
 											label: field.label,
@@ -467,8 +440,8 @@ export default function DocumentSignPage() {
 											size: field.size,
 											signed: field.signed,
 											signatureValue: field.signatureValue,
-											placeholder: `Enter your ${field.label.toLowerCase()}`
-										}))
+											placeholder: `Enter your ${field.label.toLowerCase()}`,
+										})),
 									}
 								: null
 						}

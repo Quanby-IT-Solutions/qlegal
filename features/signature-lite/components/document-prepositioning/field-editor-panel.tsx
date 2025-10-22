@@ -6,12 +6,7 @@ import { toast } from "sonner"
 
 import { Badge } from "@/core/components/ui/badge"
 import { Button } from "@/core/components/ui/button"
-import {
-	Card,
-	CardContent,
-	CardHeader,
-	CardTitle
-} from "@/core/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/core/components/ui/card"
 import { Input } from "@/core/components/ui/input"
 import { Label } from "@/core/components/ui/label"
 import {
@@ -19,7 +14,7 @@ import {
 	SelectContent,
 	SelectItem,
 	SelectTrigger,
-	SelectValue
+	SelectValue,
 } from "@/core/components/ui/select"
 import { Separator } from "@/core/components/ui/separator"
 import { Switch } from "@/core/components/ui/switch"
@@ -40,7 +35,7 @@ export default function FieldEditorPanel({
 	recipients,
 	onUpdate,
 	onDelete,
-	onClose
+	onClose,
 }: FieldEditorPanelProps) {
 	const [localField, setLocalField] = useState<DocumentField | null>(field)
 	const [hasChanges, setHasChanges] = useState(false)
@@ -73,9 +68,7 @@ export default function FieldEditorPanel({
 		}
 	}
 
-	const selectedRecipient = recipients.find(
-		(r) => r.id === localField.recipientId
-	)
+	const selectedRecipient = recipients.find(r => r.id === localField.recipientId)
 
 	return (
 		<Card className="w-80 shadow-lg">
@@ -104,9 +97,7 @@ export default function FieldEditorPanel({
 								className="h-2 w-2 rounded-full"
 								style={{ backgroundColor: selectedRecipient.color }}
 							/>
-							<span className="text-xs text-gray-600">
-								{selectedRecipient.name}
-							</span>
+							<span className="text-xs text-gray-600">{selectedRecipient.name}</span>
 						</div>
 					)}
 				</div>
@@ -122,7 +113,7 @@ export default function FieldEditorPanel({
 						<Input
 							id="field-label"
 							value={localField.label}
-							onChange={(e) => handleFieldChange({ label: e.target.value })}
+							onChange={e => handleFieldChange({ label: e.target.value })}
 							placeholder="Field label"
 							className="h-8"
 						/>
@@ -135,9 +126,7 @@ export default function FieldEditorPanel({
 						<Input
 							id="field-placeholder"
 							value={localField.placeholder ?? ""}
-							onChange={(e) =>
-								handleFieldChange({ placeholder: e.target.value })
-							}
+							onChange={e => handleFieldChange({ placeholder: e.target.value })}
 							placeholder="Placeholder text"
 							className="h-8"
 						/>
@@ -149,9 +138,7 @@ export default function FieldEditorPanel({
 						</Label>
 						<Select
 							value={localField.recipientId}
-							onValueChange={(value) =>
-								handleFieldChange({ recipientId: value })
-							}
+							onValueChange={value => handleFieldChange({ recipientId: value })}
 						>
 							<SelectTrigger className="h-8">
 								<SelectValue />
@@ -182,9 +169,7 @@ export default function FieldEditorPanel({
 						<Switch
 							id="field-required"
 							checked={localField.required}
-							onCheckedChange={(checked) =>
-								handleFieldChange({ required: checked })
-							}
+							onCheckedChange={checked => handleFieldChange({ required: checked })}
 						/>
 					</div>
 				</div>
@@ -201,12 +186,12 @@ export default function FieldEditorPanel({
 							<Input
 								type="number"
 								value={Math.round(localField.position.x)}
-								onChange={(e) =>
+								onChange={e =>
 									handleFieldChange({
 										position: {
 											...localField.position,
-											x: parseInt(e.target.value) || 0
-										}
+											x: parseInt(e.target.value) || 0,
+										},
 									})
 								}
 								className="h-7 text-xs"
@@ -217,12 +202,12 @@ export default function FieldEditorPanel({
 							<Input
 								type="number"
 								value={Math.round(localField.position.y)}
-								onChange={(e) =>
+								onChange={e =>
 									handleFieldChange({
 										position: {
 											...localField.position,
-											y: parseInt(e.target.value) || 0
-										}
+											y: parseInt(e.target.value) || 0,
+										},
 									})
 								}
 								className="h-7 text-xs"
@@ -236,12 +221,12 @@ export default function FieldEditorPanel({
 							<Input
 								type="number"
 								value={Math.round(localField.size.width)}
-								onChange={(e) =>
+								onChange={e =>
 									handleFieldChange({
 										size: {
 											...localField.size,
-											width: parseInt(e.target.value) || 0
-										}
+											width: parseInt(e.target.value) || 0,
+										},
 									})
 								}
 								className="h-7 text-xs"
@@ -252,12 +237,12 @@ export default function FieldEditorPanel({
 							<Input
 								type="number"
 								value={Math.round(localField.size.height)}
-								onChange={(e) =>
+								onChange={e =>
 									handleFieldChange({
 										size: {
 											...localField.size,
-											height: parseInt(e.target.value) || 0
-										}
+											height: parseInt(e.target.value) || 0,
+										},
 									})
 								}
 								className="h-7 text-xs"
@@ -270,12 +255,12 @@ export default function FieldEditorPanel({
 						<Input
 							type="number"
 							value={localField.position.pageNumber}
-							onChange={(e) =>
+							onChange={e =>
 								handleFieldChange({
 									position: {
 										...localField.position,
-										pageNumber: parseInt(e.target.value) || 1
-									}
+										pageNumber: parseInt(e.target.value) || 1,
+									},
 								})
 							}
 							className="h-7 text-xs"
@@ -292,19 +277,15 @@ export default function FieldEditorPanel({
 							<h4 className="text-xs font-medium text-gray-700">Options</h4>
 							<Textarea
 								value={localField.options?.join("\n") ?? ""}
-								onChange={(e) =>
+								onChange={e =>
 									handleFieldChange({
-										options: e.target.value
-											.split("\n")
-											.filter((opt) => opt.trim())
+										options: e.target.value.split("\n").filter(opt => opt.trim()),
 									})
 								}
 								placeholder="Enter each option on a new line"
 								className="h-20 text-xs"
 							/>
-							<p className="text-xs text-gray-500">
-								Enter each option on a separate line
-							</p>
+							<p className="text-xs text-gray-500">Enter each option on a separate line</p>
 						</div>
 					</>
 				)}
@@ -316,10 +297,7 @@ export default function FieldEditorPanel({
 					<h4 className="text-xs font-medium text-gray-700">Information</h4>
 					<div className="space-y-1 text-xs text-gray-600">
 						<div>
-							Field ID:{" "}
-							<code className="rounded bg-gray-100 px-1 text-xs">
-								{localField.id}
-							</code>
+							Field ID: <code className="rounded bg-gray-100 px-1 text-xs">{localField.id}</code>
 						</div>
 						<div>
 							Type:{" "}
@@ -343,12 +321,7 @@ export default function FieldEditorPanel({
 						<Save className="mr-1 h-3 w-3" />
 						Save
 					</Button>
-					<Button
-						variant="destructive"
-						size="sm"
-						onClick={handleDelete}
-						className="flex-1"
-					>
+					<Button variant="destructive" size="sm" onClick={handleDelete} className="flex-1">
 						<X className="mr-1 h-3 w-3" />
 						Delete
 					</Button>

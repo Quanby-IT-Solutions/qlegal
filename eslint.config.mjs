@@ -59,7 +59,7 @@ const typescriptRules = {
 const javascriptRules = {
 	"no-console": "warn",
 	"eqeqeq": ["error", "always"],
-	"curly": ["error", "all"],
+	// "curly": ["error", "all"],
 	"prefer-const": "error",
 	"no-var": "error",
 	"object-shorthand": "error",

@@ -14,19 +14,14 @@ import {
 	TextCursor,
 	Trash2,
 	ZoomIn,
-	ZoomOut
+	ZoomOut,
 } from "lucide-react"
 import { Document, Page, pdfjs } from "react-pdf"
 import { toast } from "sonner"
 
 import { Badge } from "@/core/components/ui/badge"
 import { Button } from "@/core/components/ui/button"
-import {
-	Card,
-	CardContent,
-	CardHeader,
-	CardTitle
-} from "@/core/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/core/components/ui/card"
 import { Input } from "@/core/components/ui/input"
 
 // Configure PDF.js worker
@@ -41,7 +36,7 @@ export const FIELD_TYPES = {
 	TEXT: { label: "Text", color: "bg-gray-500", icon: Text },
 	EMAIL: { label: "Email", color: "bg-pink-500", icon: Mail },
 	CHECKBOX: { label: "Checkbox", color: "bg-indigo-500", icon: SquareCheck },
-	RADIO: { label: "Radio", color: "bg-yellow-500", icon: Radio }
+	RADIO: { label: "Radio", color: "bg-yellow-500", icon: Radio },
 } as const
 
 export type FieldType = keyof typeof FIELD_TYPES
@@ -98,7 +93,7 @@ export function SignaturePositioning({
 	onFieldUpdate,
 	onFieldDelete,
 	selectedFieldType = "SIGNATURE",
-	selectedRecipient
+	selectedRecipient,
 }: SignaturePositioningProps) {
 	const [currentPage, setCurrentPage] = useState(1)
 	const [totalPages, setTotalPages] = useState(0)
@@ -143,8 +138,8 @@ export function SignaturePositioning({
 				recipientId: selectedRecipient,
 				...(selectedFieldType === "TEXT" && { placeholder: "Enter text here" }),
 				...(selectedFieldType === "RADIO" && {
-					options: ["Option 1", "Option 2"]
-				})
+					options: ["Option 1", "Option 2"],
+				}),
 			}
 
 			onFieldAdd(newField)
@@ -162,7 +157,7 @@ export function SignaturePositioning({
 			TEXT: { width: 150, height: 30 },
 			EMAIL: { width: 150, height: 30 },
 			CHECKBOX: { width: 20, height: 20 },
-			RADIO: { width: 20, height: 20 }
+			RADIO: { width: 20, height: 20 },
 		}
 		return defaultSizes[type]
 	}
@@ -174,7 +169,7 @@ export function SignaturePositioning({
 			setSelectedField(fieldId)
 			setIsDragging(true)
 
-			const field = fields.find((f) => f.id === fieldId)
+			const field = fields.find(f => f.id === fieldId)
 			if (!field || !overlayRef.current) return
 
 			const rect = overlayRef.current.getBoundingClientRect()
@@ -183,7 +178,7 @@ export function SignaturePositioning({
 
 			setDragOffset({
 				x: event.clientX - rect.left - fieldX,
-				y: event.clientY - rect.top - fieldY
+				y: event.clientY - rect.top - fieldY,
 			})
 		},
 		[fields]
@@ -195,17 +190,11 @@ export function SignaturePositioning({
 			if (!isDragging || !selectedField || !overlayRef.current) return
 
 			const rect = overlayRef.current.getBoundingClientRect()
-			const x = Math.max(
-				0,
-				Math.min(1, (event.clientX - rect.left - dragOffset.x) / rect.width)
-			)
-			const y = Math.max(
-				0,
-				Math.min(1, (event.clientY - rect.top - dragOffset.y) / rect.height)
-			)
+			const x = Math.max(0, Math.min(1, (event.clientX - rect.left - dragOffset.x) / rect.width))
+			const y = Math.max(0, Math.min(1, (event.clientY - rect.top - dragOffset.y) / rect.height))
 
 			onFieldUpdate(selectedField, {
-				position: { x, y, pageNumber: currentPage }
+				position: { x, y, pageNumber: currentPage },
 			})
 		},
 		[isDragging, selectedField, dragOffset, currentPage, onFieldUpdate]
@@ -232,19 +221,19 @@ export function SignaturePositioning({
 
 	// Navigation functions
 	const goToPreviousPage = () => {
-		setCurrentPage((prev) => Math.max(1, prev - 1))
+		setCurrentPage(prev => Math.max(1, prev - 1))
 	}
 
 	const goToNextPage = () => {
-		setCurrentPage((prev) => Math.min(totalPages, prev + 1))
+		setCurrentPage(prev => Math.min(totalPages, prev + 1))
 	}
 
 	const handleZoomIn = () => {
-		setScale((prev) => Math.min(3, prev + 0.1))
+		setScale(prev => Math.min(3, prev + 0.1))
 	}
 
 	const handleZoomOut = () => {
-		setScale((prev) => Math.max(0.5, prev - 0.1))
+		setScale(prev => Math.max(0.5, prev - 0.1))
 	}
 
 	const handlePageInput = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -255,13 +244,11 @@ export function SignaturePositioning({
 	}
 
 	// Filter fields for current page
-	const currentPageFields = fields.filter(
-		(field) => field.position.pageNumber === currentPage
-	)
+	const currentPageFields = fields.filter(field => field.position.pageNumber === currentPage)
 
 	// Get recipient info for a field
 	const getRecipientInfo = (recipientId: string) => {
-		return recipients.find((r) => r.id === recipientId)
+		return recipients.find(r => r.id === recipientId)
 	}
 
 	return (
@@ -281,23 +268,11 @@ export function SignaturePositioning({
 							</CardTitle>
 							<div className="flex items-center gap-2">
 								{/* Zoom Controls */}
-								<Button
-									variant="outline"
-									size="sm"
-									onClick={handleZoomOut}
-									disabled={scale <= 0.5}
-								>
+								<Button variant="outline" size="sm" onClick={handleZoomOut} disabled={scale <= 0.5}>
 									<ZoomOut className="h-4 w-4" />
 								</Button>
-								<span className="text-sm font-medium">
-									{Math.round(scale * 100)}%
-								</span>
-								<Button
-									variant="outline"
-									size="sm"
-									onClick={handleZoomIn}
-									disabled={scale >= 3}
-								>
+								<span className="text-sm font-medium">{Math.round(scale * 100)}%</span>
+								<Button variant="outline" size="sm" onClick={handleZoomIn} disabled={scale >= 3}>
 									<ZoomIn className="h-4 w-4" />
 								</Button>
 							</div>
@@ -372,7 +347,7 @@ export function SignaturePositioning({
 										className="absolute inset-0 cursor-crosshair"
 										onClick={handleOverlayClick}
 									>
-										{currentPageFields.map((field) => {
+										{currentPageFields.map(field => {
 											const recipient = getRecipientInfo(field.recipientId)
 											const fieldStyle = FIELD_TYPES[field.type]
 
@@ -389,10 +364,10 @@ export function SignaturePositioning({
 														top: `${field.position.y * 100}%`,
 														width: `${(field.size.width / (overlayRef.current?.clientWidth ?? 1)) * 100}%`,
 														height: `${(field.size.height / (overlayRef.current?.clientHeight ?? 1)) * 100}%`,
-														borderColor: recipient?.color ?? "#6b7280"
+														borderColor: recipient?.color ?? "#6b7280",
 													}}
-													onMouseDown={(e) => handleFieldMouseDown(e, field.id)}
-													onClick={(e) => {
+													onMouseDown={e => handleFieldMouseDown(e, field.id)}
+													onClick={e => {
 														e.stopPropagation()
 														setSelectedField(field.id)
 													}}
@@ -404,8 +379,7 @@ export function SignaturePositioning({
 														{field.type === "INITIAL" && "Initial"}
 														{field.type === "NAME" && "Full Name"}
 														{field.type === "DATE" && "Date"}
-														{field.type === "TEXT" &&
-															(field.placeholder ?? "Text")}
+														{field.type === "TEXT" && (field.placeholder ?? "Text")}
 														{field.type === "EMAIL" && "Email"}
 														{field.type === "CHECKBOX" && "☐"}
 														{field.type === "RADIO" && "○"}
@@ -421,7 +395,7 @@ export function SignaturePositioning({
 																variant="ghost"
 																size="sm"
 																className="h-6 w-6 p-0 hover:bg-red-50"
-																onClick={(e) => {
+																onClick={e => {
 																	e.stopPropagation()
 																	onFieldDelete(field.id)
 																	setSelectedField(null)
@@ -437,7 +411,7 @@ export function SignaturePositioning({
 														className="absolute -bottom-6 left-0 rounded px-2 py-1 text-xs font-medium"
 														style={{
 															backgroundColor: recipient?.color ?? "#6b7280",
-															color: "white"
+															color: "white",
 														}}
 													>
 														{recipient?.name ?? "Unknown"}
@@ -454,14 +428,11 @@ export function SignaturePositioning({
 						{selectedRecipient ? (
 							<div className="mt-4 rounded-lg border border-blue-200 bg-blue-50 p-4">
 								<p className="text-sm text-blue-800">
-									<strong>Instructions:</strong> Click anywhere on the document
-									to add a{" "}
+									<strong>Instructions:</strong> Click anywhere on the document to add a{" "}
+									<span className="font-medium">{FIELD_TYPES[selectedFieldType].label}</span> field
+									for{" "}
 									<span className="font-medium">
-										{FIELD_TYPES[selectedFieldType].label}
-									</span>{" "}
-									field for{" "}
-									<span className="font-medium">
-										{recipients.find((r) => r.id === selectedRecipient)?.name}
+										{recipients.find(r => r.id === selectedRecipient)?.name}
 									</span>
 									. Drag existing fields to reposition them.
 								</p>
@@ -469,8 +440,8 @@ export function SignaturePositioning({
 						) : (
 							<div className="mt-4 rounded-lg border border-gray-200 bg-gray-50 p-4">
 								<p className="text-sm text-gray-600">
-									Select a recipient and field type from the panel to start
-									adding fields to the document.
+									Select a recipient and field type from the panel to start adding fields to the
+									document.
 								</p>
 							</div>
 						)}
@@ -493,9 +464,7 @@ export function SignaturePositioning({
 									variant={selectedFieldType === type ? "default" : "outline"}
 									size="sm"
 									className="justify-start text-xs"
-									onClick={() =>
-										onFieldUpdate("fieldType", { type: type as FieldType })
-									}
+									onClick={() => onFieldUpdate("fieldType", { type: type as FieldType })}
 								>
 									<config.icon className="mr-1 h-3 w-3" />
 									{config.label}
@@ -512,7 +481,7 @@ export function SignaturePositioning({
 					</CardHeader>
 					<CardContent>
 						<div className="space-y-2">
-							{recipients.map((recipient) => (
+							{recipients.map(recipient => (
 								<div
 									key={recipient.id}
 									className={`flex cursor-pointer items-center gap-2 rounded border p-2 transition-all ${
@@ -520,9 +489,7 @@ export function SignaturePositioning({
 											? "border-blue-500 bg-blue-50"
 											: "border-gray-200 hover:border-gray-300"
 									}`}
-									onClick={() =>
-										onFieldUpdate("recipient", { recipientId: recipient.id })
-									}
+									onClick={() => onFieldUpdate("recipient", { recipientId: recipient.id })}
 								>
 									<div
 										className="h-3 w-3 rounded-full"
@@ -532,9 +499,7 @@ export function SignaturePositioning({
 										<div className="truncate text-sm font-medium text-gray-900">
 											{recipient.name}
 										</div>
-										<div className="truncate text-xs text-gray-500">
-											{recipient.email}
-										</div>
+										<div className="truncate text-xs text-gray-500">{recipient.email}</div>
 									</div>
 									<Badge variant="outline" className="text-xs">
 										{recipient.role}
@@ -553,11 +518,9 @@ export function SignaturePositioning({
 					<CardContent>
 						<div className="max-h-60 space-y-2 overflow-y-auto">
 							{fields.length === 0 ? (
-								<p className="py-4 text-center text-sm text-gray-500">
-									No fields added yet
-								</p>
+								<p className="py-4 text-center text-sm text-gray-500">No fields added yet</p>
 							) : (
-								fields.map((field) => {
+								fields.map(field => {
 									const recipient = getRecipientInfo(field.recipientId)
 									const fieldStyle = FIELD_TYPES[field.type]
 
@@ -587,7 +550,7 @@ export function SignaturePositioning({
 												variant="ghost"
 												size="sm"
 												className="h-6 w-6 p-0 hover:bg-red-50"
-												onClick={(e) => {
+												onClick={e => {
 													e.stopPropagation()
 													onFieldDelete(field.id)
 													if (selectedField === field.id) {

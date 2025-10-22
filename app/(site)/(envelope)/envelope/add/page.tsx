@@ -11,14 +11,10 @@ import {
 	Download,
 	Eye,
 	FileText,
-	Share2
+	Share2,
 } from "lucide-react"
 
-import {
-	Avatar,
-	AvatarFallback,
-	AvatarImage
-} from "@/core/components/ui/avatar"
+import { Avatar, AvatarFallback, AvatarImage } from "@/core/components/ui/avatar"
 import { Badge } from "@/core/components/ui/badge"
 import { Button } from "@/core/components/ui/button"
 import { Card, CardContent, CardHeader } from "@/core/components/ui/card"
@@ -38,7 +34,7 @@ const mockDocument = {
 			email: "john@example.com",
 			avatar: "/placeholder-logo.png",
 			role: "sender",
-			status: "completed"
+			status: "completed",
 		},
 		{
 			id: "2",
@@ -46,7 +42,7 @@ const mockDocument = {
 			email: "sarah@example.com",
 			avatar: "/placeholder-logo.png",
 			role: "signer",
-			status: "pending"
+			status: "pending",
 		},
 		{
 			id: "3",
@@ -54,8 +50,8 @@ const mockDocument = {
 			email: "mike@example.com",
 			avatar: "/placeholder-logo.png",
 			role: "signer",
-			status: "pending"
-		}
+			status: "pending",
+		},
 	],
 	documents: [
 		{
@@ -63,35 +59,35 @@ const mockDocument = {
 			name: "Contract_Agreement_v1.pdf",
 			size: "2.4 MB",
 			type: "pdf",
-			uploadedAt: "2024-01-15"
+			uploadedAt: "2024-01-15",
 		},
 		{
 			id: "file-2",
 			name: "Terms_and_Conditions.pdf",
 			size: "1.8 MB",
 			type: "pdf",
-			uploadedAt: "2024-01-15"
-		}
+			uploadedAt: "2024-01-15",
+		},
 	],
 	lastActivity: "2 hours ago",
 	description:
-		"This contract outlines the terms and conditions for the partnership agreement between ABC Corp and our company. All parties must review and sign the document before the deadline."
+		"This contract outlines the terms and conditions for the partnership agreement between ABC Corp and our company. All parties must review and sign the document before the deadline.",
 }
 
 const statusColors = {
 	pending: "bg-yellow-100 text-yellow-800 border-yellow-200",
 	completed: "bg-green-100 text-green-800 border-green-200",
-	draft: "bg-gray-100 text-gray-800 border-gray-200"
+	draft: "bg-gray-100 text-gray-800 border-gray-200",
 }
 
 const participantStatusIcons = {
 	completed: <CheckCircle className="h-4 w-4 text-green-600" />,
 	pending: <Clock className="h-4 w-4 text-yellow-600" />,
-	declined: <AlertCircle className="h-4 w-4 text-red-600" />
+	declined: <AlertCircle className="h-4 w-4 text-red-600" />,
 }
 
 export default function DocumentPage({
-	params
+	params,
 }: {
 	params: Promise<{ envelopeId: string; documentId: string }>
 }) {
@@ -153,9 +149,7 @@ export default function DocumentPage({
 						</Link>
 						<Separator orientation="vertical" className="h-6" />
 						<div>
-							<h1 className="text-xl font-semibold text-gray-900">
-								{mockDocument.title}
-							</h1>
+							<h1 className="text-xl font-semibold text-gray-900">{mockDocument.title}</h1>
 							<p className="text-sm text-gray-500">
 								Document ID: {routeParams?.documentId ?? "Loading..."}
 							</p>
@@ -170,13 +164,8 @@ export default function DocumentPage({
 							<Download className="mr-2 h-4 w-4" />
 							Download
 						</Button>
-						<Badge
-							className={
-								statusColors[mockDocument.status as keyof typeof statusColors]
-							}
-						>
-							{mockDocument.status.charAt(0).toUpperCase() +
-								mockDocument.status.slice(1)}
+						<Badge className={statusColors[mockDocument.status as keyof typeof statusColors]}>
+							{mockDocument.status.charAt(0).toUpperCase() + mockDocument.status.slice(1)}
 						</Badge>
 					</div>
 				</div>
@@ -201,12 +190,8 @@ export default function DocumentPage({
 							<CardContent>
 								<div className="rounded-lg border-2 border-dashed border-gray-300 bg-gray-100 p-12 text-center">
 									<FileText className="mx-auto mb-4 h-16 w-16 text-gray-400" />
-									<h3 className="mb-2 text-lg font-medium text-gray-900">
-										Document Preview
-									</h3>
-									<p className="mb-4 text-gray-500">
-										{mockDocument.description}
-									</p>
+									<h3 className="mb-2 text-lg font-medium text-gray-900">Document Preview</h3>
+									<p className="mb-4 text-gray-500">{mockDocument.description}</p>
 									<Button>
 										<Eye className="mr-2 h-4 w-4" />
 										View Full Document
@@ -222,7 +207,7 @@ export default function DocumentPage({
 							</CardHeader>
 							<CardContent>
 								<div className="space-y-3">
-									{mockDocument.documents.map((doc) => (
+									{mockDocument.documents.map(doc => (
 										<div
 											key={doc.id}
 											className="flex items-center justify-between rounded-lg border border-gray-200 p-3"
@@ -230,9 +215,7 @@ export default function DocumentPage({
 											<div className="flex items-center gap-3">
 												<FileText className="h-8 w-8 text-red-500" />
 												<div>
-													<h4 className="font-medium text-gray-900">
-														{doc.name}
-													</h4>
+													<h4 className="font-medium text-gray-900">{doc.name}</h4>
 													<p className="text-sm text-gray-500">
 														{doc.size} • {doc.uploadedAt}
 													</p>
@@ -261,7 +244,7 @@ export default function DocumentPage({
 							</CardHeader>
 							<CardContent>
 								<div className="space-y-3">
-									{mockDocument.participants.map((participant) => (
+									{mockDocument.participants.map(participant => (
 										<div
 											key={participant.id}
 											className="flex items-center justify-between rounded-lg border border-gray-200 p-3"
@@ -272,17 +255,13 @@ export default function DocumentPage({
 													<AvatarFallback className="text-xs">
 														{participant.name
 															.split(" ")
-															.map((n) => n[0])
+															.map(n => n[0])
 															.join("")}
 													</AvatarFallback>
 												</Avatar>
 												<div>
-													<h4 className="font-medium text-gray-900">
-														{participant.name}
-													</h4>
-													<p className="text-sm text-gray-500">
-														{participant.role}
-													</p>
+													<h4 className="font-medium text-gray-900">{participant.name}</h4>
+													<p className="text-sm text-gray-500">{participant.role}</p>
 												</div>
 											</div>
 											{
@@ -305,30 +284,23 @@ export default function DocumentPage({
 								<div className="space-y-3">
 									<div className="flex justify-between">
 										<span className="text-sm text-gray-500">Created</span>
-										<span className="text-sm font-medium">
-											{mockDocument.createdAt}
-										</span>
+										<span className="text-sm font-medium">{mockDocument.createdAt}</span>
 									</div>
 									<div className="flex justify-between">
 										<span className="text-sm text-gray-500">Last Modified</span>
-										<span className="text-sm font-medium">
-											{mockDocument.updatedAt}
-										</span>
+										<span className="text-sm font-medium">{mockDocument.updatedAt}</span>
 									</div>
 									<div className="flex justify-between">
 										<span className="text-sm text-gray-500">Status</span>
 										<Badge
 											className={`text-xs ${statusColors[mockDocument.status as keyof typeof statusColors]}`}
 										>
-											{mockDocument.status.charAt(0).toUpperCase() +
-												mockDocument.status.slice(1)}
+											{mockDocument.status.charAt(0).toUpperCase() + mockDocument.status.slice(1)}
 										</Badge>
 									</div>
 									<div className="flex justify-between">
 										<span className="text-sm text-gray-500">Files</span>
-										<span className="text-sm font-medium">
-											{mockDocument.documents.length}
-										</span>
+										<span className="text-sm font-medium">{mockDocument.documents.length}</span>
 									</div>
 								</div>
 							</CardContent>

@@ -4,15 +4,10 @@ import { Skeleton } from "@/core/components/ui/skeleton"
 export default function Loading() {
 	return (
 		<>
-			<SiteNavbar
-				items={[
-					{ label: "Envelopes", url: "/envelopes" },
-					{ label: "Loading..." }
-				]}
-			/>
-			<div className="min-h-screen bg-muted dark:bg-background">
+			<SiteNavbar items={[{ label: "Envelopes", url: "/envelopes" }, { label: "Loading..." }]} />
+			<div className="bg-muted dark:bg-background min-h-screen">
 				{/* Header */}
-				<div className="border-b bg-background backdrop-blur dark:bg-muted/60">
+				<div className="bg-background dark:bg-muted/60 border-b backdrop-blur">
 					<div className="mx-auto max-w-7xl space-y-6 px-4 py-6 sm:px-6 lg:px-8">
 						<div className="flex items-center gap-4">
 							<div>
@@ -44,10 +39,7 @@ export default function Loading() {
 					<div className="space-y-4">
 						{/* Document card skeletons */}
 						{Array.from({ length: 3 }).map((_, i) => (
-							<div
-								key={i}
-								className="overflow-hidden rounded-lg border bg-card p-0"
-							>
+							<div key={i} className="bg-card overflow-hidden rounded-lg border p-0">
 								<div className="flex items-center gap-4 p-4">
 									{/* File icon skeleton */}
 									<Skeleton className="h-9 w-9 rounded-lg" />

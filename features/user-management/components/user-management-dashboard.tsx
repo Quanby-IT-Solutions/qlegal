@@ -21,9 +21,7 @@ export function UserManagementDashboard() {
 			{/* Header */}
 			<div className="flex items-center justify-between">
 				<div>
-					<h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-						User Management
-					</h1>
+					<h1 className="text-3xl font-bold text-gray-900 dark:text-white">User Management</h1>
 					<p className="text-gray-600 dark:text-gray-400">
 						Manage platform users, roles, and permissions
 					</p>
@@ -48,11 +46,7 @@ export function UserManagementDashboard() {
 			/>
 
 			{/* Users List */}
-			<UserList
-				searchTerm={searchTerm}
-				roleFilter={roleFilter}
-				statusFilter={statusFilter}
-			/>
+			<UserList searchTerm={searchTerm} roleFilter={roleFilter} statusFilter={statusFilter} />
 
 			{/* Add User Dialog */}
 			<AddUserDialog open={isAddUserOpen} onOpenChange={setIsAddUserOpen} />
