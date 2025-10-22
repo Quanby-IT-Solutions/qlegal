@@ -109,7 +109,6 @@ export default middleware(req => {
 // ============================================================================
 
 export const config = {
-	runtime: "nodejs",
 	matcher: [
 		/*
 		 * Match all request paths except for:
