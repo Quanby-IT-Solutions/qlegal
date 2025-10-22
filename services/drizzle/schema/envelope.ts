@@ -1,7 +1,6 @@
-import { relations } from "drizzle-orm"
-
-import { users } from "@/services/drizzle/schema/auth"
 import { createTable, randomId } from "@/services/drizzle/utils"
+
+import { users } from "./auth"
 
 export const envelopes = createTable("envelopes", f => ({
 	id: f
@@ -33,10 +32,3 @@ export const envelopes = createTable("envelopes", f => ({
 		.notNull()
 		.references(() => users.id),
 })).enableRLS()
-
-export const envelopeRelations = relations(envelopes, ({ one }) => ({
-	user: one(users, {
-		fields: [envelopes.userId],
-		references: [users.id],
-	}),
-}))
