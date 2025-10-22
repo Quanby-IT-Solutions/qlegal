@@ -1,3 +1,5 @@
+import * as enumsSchema from "./_enums"
+import * as relationsSchema from "./_relations"
 import * as authSchema from "./auth"
 import * as documentSchema from "./document"
 import * as envelopeSchema from "./envelope"
@@ -10,4 +12,6 @@ export const schema = {
 	...envelopeSchema,
 	...meetingsSchema,
 	...messagesSchema,
+	...enumsSchema,
+	...relationsSchema,
 }

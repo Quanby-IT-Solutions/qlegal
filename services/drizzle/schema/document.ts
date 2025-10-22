@@ -1,15 +1,7 @@
-import { relations } from "drizzle-orm"
-import { pgEnum } from "drizzle-orm/pg-core"
-
-import { envelopes } from "@/services/drizzle/schema/envelope"
 import { createTable, randomId } from "@/services/drizzle/utils"
 
-export const documentStatusEnum = pgEnum("document_status", [
-	"UPLOADED",
-	"PROCESSING",
-	"READY",
-	"ERROR",
-])
+import { documentStatusEnum } from "./_enums"
+import { envelopes } from "./envelope"
 
 export const documents = createTable("documents", f => ({
 	id: f
@@ -33,10 +25,3 @@ export const documents = createTable("documents", f => ({
 		.$onUpdateFn(() => new Date())
 		.notNull(),
 })).enableRLS()
-
-export const documentRelations = relations(documents, ({ one }) => ({
-	envelope: one(envelopes, {
-		fields: [documents.envelopeId],
-		references: [envelopes.id],
-	}),
-}))

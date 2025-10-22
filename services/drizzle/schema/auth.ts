@@ -1,11 +1,10 @@
-import { relations, type InferSelectModel } from "drizzle-orm"
-import { index, pgEnum, primaryKey } from "drizzle-orm/pg-core"
+import { type InferSelectModel } from "drizzle-orm"
+import { index, primaryKey } from "drizzle-orm/pg-core"
 
-import { envelopes } from "@/services/drizzle/schema/envelope"
 import type { AdapterAccount } from "@/services/drizzle/types/auth"
 import { createTable, randomId } from "@/services/drizzle/utils"
 
-export const userRoles = pgEnum("user_roles", ["client", "admin", "super_admin"])
+import { userRoles } from "./_enums"
 
 export const users = createTable("user", t => ({
 	id: t
@@ -21,10 +20,6 @@ export const users = createTable("user", t => ({
 	phoneNumber: t.varchar({ length: 255 }),
 	role: userRoles().default("client").notNull(),
 })).enableRLS()
-
-export const userRelations = relations(users, ({ many }) => ({
-	envelopes: many(envelopes),
-}))
 
 export const accounts = createTable(
 	"account",
@@ -50,10 +45,6 @@ export const accounts = createTable(
 	]
 ).enableRLS()
 
-// export const accountsRelations = relations(accounts, ({ one }) => ({
-// 	user: one(users, { fields: [accounts.userId], references: [users.id] }),
-// }))
-
 export const sessions = createTable("session", t => ({
 	sessionToken: t.varchar({ length: 255 }).primaryKey(),
 	userId: t
@@ -62,10 +53,6 @@ export const sessions = createTable("session", t => ({
 		.references(() => users.id, { onDelete: "cascade" }),
 	expires: t.timestamp({ mode: "date" }).notNull(),
 })).enableRLS()
-
-// export const sessionsRelations = relations(sessions, ({ one }) => ({
-// 	user: one(users, { fields: [sessions.userId], references: [users.id] }),
-// }))
 
 export const passwordResetTokens = createTable("password_reset_token", t => ({
 	id: t.varchar({ length: 255 }).notNull().default(randomId()).primaryKey(),
@@ -77,10 +64,6 @@ export const passwordResetTokens = createTable("password_reset_token", t => ({
 	expires: t.timestamp({ mode: "date", withTimezone: true }).notNull(),
 })).enableRLS()
 
-// export const passwordResetTokensRelations = relations(passwordResetTokens, ({ one }) => ({
-// 	user: one(users, { fields: [passwordResetTokens.email], references: [users.email] }),
-// }))
-
 export const twoFactorTokens = createTable("two_factor_token", t => ({
 	id: t.varchar({ length: 255 }).notNull().default(randomId()).primaryKey(),
 	email: t
@@ -91,10 +74,6 @@ export const twoFactorTokens = createTable("two_factor_token", t => ({
 	expires: t.timestamp({ mode: "date", withTimezone: true }).notNull(),
 })).enableRLS()
 
-// export const twoFactorTokensRelations = relations(twoFactorTokens, ({ one }) => ({
-// 	user: one(users, { fields: [twoFactorTokens.email], references: [users.email] }),
-// }))
-
 export const twoFactorConfirmations = createTable("two_factor_confirmation", t => ({
 	id: t.varchar({ length: 255 }).notNull().default(randomId()).primaryKey(),
 	userId: t
@@ -102,10 +81,6 @@ export const twoFactorConfirmations = createTable("two_factor_confirmation", t =
 		.notNull()
 		.references(() => users.id, { onDelete: "cascade" }),
 })).enableRLS()
-
-// export const twoFactorConfirmationsRelations = relations(twoFactorConfirmations, ({ one }) => ({
-// 	user: one(users, { fields: [twoFactorConfirmations.userId], references: [users.id] }),
-// }))
 
 export const verificationTokens = createTable("verification_token", t => ({
 	id: t.varchar({ length: 255 }).notNull().default(randomId()).primaryKey(),
@@ -116,10 +91,6 @@ export const verificationTokens = createTable("verification_token", t => ({
 	token: t.varchar({ length: 255 }).notNull(),
 	expires: t.timestamp({ mode: "date", withTimezone: true }).notNull(),
 })).enableRLS()
-
-// export const verificationTokensRelations = relations(verificationTokens, ({ one }) => ({
-// 	user: one(users, { fields: [verificationTokens.email], references: [users.email] }),
-// }))
 
 export type UserRole = InferSelectModel<typeof users>["role"]
 export type User = InferSelectModel<typeof users>
