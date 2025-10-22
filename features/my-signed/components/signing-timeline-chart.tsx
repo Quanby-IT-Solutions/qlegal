@@ -1,14 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import {
-	Area,
-	AreaChart,
-	ResponsiveContainer,
-	Tooltip,
-	XAxis,
-	YAxis
-} from "recharts"
+import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
 
 import { Badge } from "@/core/components/ui/badge"
 import { Button } from "@/core/components/ui/button"
@@ -17,7 +10,7 @@ import {
 	CardContent,
 	CardDescription,
 	CardHeader,
-	CardTitle
+	CardTitle,
 } from "@/core/components/ui/card"
 import { Skeleton } from "@/core/components/ui/skeleton"
 
@@ -28,33 +21,30 @@ interface SigningTimelineChartProps {
 }
 
 export function SigningTimelineChart({ userId }: SigningTimelineChartProps) {
-	const [selectedPeriod, setSelectedPeriod] = useState<
-		"week" | "month" | "year"
-	>("month")
+	const [selectedPeriod, setSelectedPeriod] = useState<"week" | "month" | "year">("month")
 
-	const { data: timelineData, isLoading } =
-		trpc.mySigned.getSigningTimeline.useQuery(
-			{
-				userId,
-				period: selectedPeriod
-			},
-			{
-				enabled: !!userId,
-				staleTime: 1000 * 60 * 5 // 5 minutes
-			}
-		)
+	const { data: timelineData, isLoading } = trpc.mySigned.getSigningTimeline.useQuery(
+		{
+			userId,
+			period: selectedPeriod,
+		},
+		{
+			enabled: !!userId,
+			staleTime: 1000 * 60 * 5, // 5 minutes
+		}
+	)
 
 	const formatXAxisLabel = (value: string) => {
 		switch (selectedPeriod) {
 			case "week":
 				return new Date(value).toLocaleDateString("en-US", {
 					month: "short",
-					day: "numeric"
+					day: "numeric",
 				})
 			case "month":
 				return new Date(value + "-01").toLocaleDateString("en-US", {
 					year: "numeric",
-					month: "short"
+					month: "short",
 				})
 			case "year":
 				return value
@@ -70,12 +60,12 @@ export function SigningTimelineChart({ userId }: SigningTimelineChartProps) {
 					weekday: "long",
 					year: "numeric",
 					month: "long",
-					day: "numeric"
+					day: "numeric",
 				})
 			case "month":
 				return new Date(value + "-01").toLocaleDateString("en-US", {
 					year: "numeric",
-					month: "long"
+					month: "long",
 				})
 			case "year":
 				return value
@@ -99,7 +89,7 @@ export function SigningTimelineChart({ userId }: SigningTimelineChartProps) {
 
 	if (isLoading) {
 		return (
-			<Card className="border border-border bg-background dark:bg-muted/60">
+			<Card className="border-border bg-background dark:bg-muted/60 border">
 				<CardHeader className="pb-6">
 					<div className="flex items-center justify-between">
 						<div>
@@ -124,16 +114,13 @@ export function SigningTimelineChart({ userId }: SigningTimelineChartProps) {
 	const totalSigned = timelineData?.totalSigned ?? 0
 
 	return (
-		<Card className="border border-border bg-background dark:bg-muted/60">
+		<Card className="border-border bg-background dark:bg-muted/60 border">
 			<CardHeader className="pb-6">
 				<div className="flex items-center justify-between">
 					<div>
-						<CardTitle className="flex items-center gap-3 text-xl font-semibold text-foreground">
+						<CardTitle className="text-foreground flex items-center gap-3 text-xl font-semibold">
 							Signing Activity
-							<Badge
-								variant="secondary"
-								className="bg-muted text-muted-foreground"
-							>
+							<Badge variant="secondary" className="bg-muted text-muted-foreground">
 								{totalSigned} signed
 							</Badge>
 						</CardTitle>
@@ -179,7 +166,7 @@ export function SigningTimelineChart({ userId }: SigningTimelineChartProps) {
 									top: 10,
 									right: 30,
 									left: 0,
-									bottom: 0
+									bottom: 0,
 								}}
 							>
 								<defs>
@@ -195,7 +182,7 @@ export function SigningTimelineChart({ userId }: SigningTimelineChartProps) {
 									tick={{
 										fontSize: 12,
 										fill: "#64748b",
-										fontFamily: "Inter"
+										fontFamily: "Inter",
 									}}
 									tickFormatter={formatXAxisLabel}
 								/>
@@ -205,7 +192,7 @@ export function SigningTimelineChart({ userId }: SigningTimelineChartProps) {
 									tick={{
 										fontSize: 12,
 										fill: "#64748b",
-										fontFamily: "Inter"
+										fontFamily: "Inter",
 									}}
 									allowDecimals={false}
 								/>
@@ -213,10 +200,7 @@ export function SigningTimelineChart({ userId }: SigningTimelineChartProps) {
 									content={({ active, payload, label }) => {
 										if (active && payload?.length && label) {
 											const dataPoint = payload[0] as { value?: unknown }
-											const value =
-												typeof dataPoint?.value === "number"
-													? dataPoint.value
-													: 0
+											const value = typeof dataPoint?.value === "number" ? dataPoint.value : 0
 											return (
 												<div className="rounded-lg border border-slate-200 bg-white p-3 shadow-lg">
 													<p className="font-['Inter'] text-sm font-medium text-slate-900">
@@ -241,13 +225,13 @@ export function SigningTimelineChart({ userId }: SigningTimelineChartProps) {
 									dot={{
 										fill: "#3b82f6",
 										strokeWidth: 2,
-										r: 4
+										r: 4,
 									}}
 									activeDot={{
 										r: 6,
 										fill: "#3b82f6",
 										strokeWidth: 2,
-										stroke: "#ffffff"
+										stroke: "#ffffff",
 									}}
 								/>
 							</AreaChart>
@@ -263,8 +247,7 @@ export function SigningTimelineChart({ userId }: SigningTimelineChartProps) {
 								No signing activity
 							</p>
 							<p className="font-['Inter'] text-xs text-slate-600">
-								Your signing activity will appear here once you start signing
-								documents
+								Your signing activity will appear here once you start signing documents
 							</p>
 						</div>
 					</div>

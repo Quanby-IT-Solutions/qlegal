@@ -2,18 +2,14 @@
 
 import { ChevronRightIcon, Clock, FileText, PlusIcon } from "lucide-react"
 
+import { Avatar, AvatarFallback, AvatarImage } from "@/core/components/ui/avatar"
+import { Card, CardContent } from "@/core/components/ui/card"
 import {
 	Tooltip,
 	TooltipContent,
 	TooltipProvider,
-	TooltipTrigger
+	TooltipTrigger,
 } from "@/core/components/ui/tooltip"
-import {
-	Avatar,
-	AvatarFallback,
-	AvatarImage
-} from "@/core/components/ui/avatar"
-import { Card, CardContent } from "@/core/components/ui/card"
 import { getInitials } from "@/core/lib/utils"
 
 import type { RouterOutputs } from "@/services/trpc/client"
@@ -29,17 +25,15 @@ export function EnvelopeListItem({ envelope }: EnvelopeListItemProps) {
 	const creator = envelope.user
 
 	return (
-		<Card className="group cursor-pointer border border-border bg-background transition-all duration-200 hover:border-foreground/20 hover:shadow-sm dark:bg-muted/60">
+		<Card className="group border-border bg-background hover:border-foreground/20 dark:bg-muted/60 cursor-pointer border transition-all duration-200 hover:shadow-sm">
 			<CardContent className="p-4">
 				<div className="flex items-center justify-between">
 					{/* Main content - left side */}
 					<div className="flex flex-1 items-center gap-4">
 						{/* Title and description */}
 						<div className="min-w-0 flex-1">
-							<h3 className="truncate text-sm font-medium text-foreground">
-								{envelope.title}
-							</h3>
-							<p className="truncate text-xs text-muted-foreground">
+							<h3 className="text-foreground truncate text-sm font-medium">{envelope.title}</h3>
+							<p className="text-muted-foreground truncate text-xs">
 								{envelope.description ?? "No description"}
 							</p>
 						</div>
@@ -48,10 +42,7 @@ export function EnvelopeListItem({ envelope }: EnvelopeListItemProps) {
 						<div className="flex items-center gap-2">
 							{creator ? (
 								<div className="flex h-6 -space-x-1.5">
-									<Avatar
-										key={creator.id}
-										className="size-6 border"
-									>
+									<Avatar key={creator.id} className="size-6 border">
 										<AvatarImage src={creator.image ?? ""} />
 										<AvatarFallback className="text-[10px] font-medium">
 											{getInitials(creator.name ?? "?")}
@@ -60,7 +51,7 @@ export function EnvelopeListItem({ envelope }: EnvelopeListItemProps) {
 								</div>
 							) : (
 								<div className="flex h-6 -space-x-1.5">
-									<Avatar key="plus" className="size-6 border bg-muted">
+									<Avatar key="plus" className="bg-muted size-6 border">
 										<AvatarFallback className="text-[10px] font-medium">
 											<PlusIcon className="size-3.5" />
 										</AvatarFallback>
@@ -70,7 +61,7 @@ export function EnvelopeListItem({ envelope }: EnvelopeListItemProps) {
 						</div>
 
 						{/* Stats */}
-						<div className="flex items-center gap-4 text-xs text-muted-foreground">
+						<div className="text-muted-foreground flex items-center gap-4 text-xs">
 							<div className="flex items-center gap-1">
 								<FileText className="h-3.5 w-3.5" />
 								<span>0</span>
@@ -86,7 +77,7 @@ export function EnvelopeListItem({ envelope }: EnvelopeListItemProps) {
 					<TooltipProvider>
 						<Tooltip>
 							<TooltipTrigger>
-								<div className="ml-2.5 flex h-6 w-6 items-center justify-center rounded-full bg-muted text-muted-foreground transition-colors hover:bg-muted/80">
+								<div className="bg-muted text-muted-foreground hover:bg-muted/80 ml-2.5 flex h-6 w-6 items-center justify-center rounded-full transition-colors">
 									<ChevronRightIcon className="h-3.5 w-3.5" />
 								</div>
 							</TooltipTrigger>

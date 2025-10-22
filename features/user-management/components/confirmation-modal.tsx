@@ -10,7 +10,7 @@ import {
 	AlertDialogDescription,
 	AlertDialogFooter,
 	AlertDialogHeader,
-	AlertDialogTitle
+	AlertDialogTitle,
 } from "@/core/components/ui/alert-dialog"
 
 interface ConfirmationModalProps {
@@ -28,7 +28,7 @@ export function ConfirmationModal({
 	action,
 	userName,
 	onConfirm,
-	isLoading = false
+	isLoading = false,
 }: ConfirmationModalProps) {
 	const getActionConfig = () => {
 		switch (action) {
@@ -38,7 +38,7 @@ export function ConfirmationModal({
 					description: `Are you sure you want to suspend ${userName}? This will prevent them from accessing the platform.`,
 					icon: <UserX className="h-4 w-4" />,
 					confirmText: "Suspend User",
-					variant: "destructive" as const
+					variant: "destructive" as const,
 				}
 			case "unsuspend":
 				return {
@@ -46,7 +46,7 @@ export function ConfirmationModal({
 					description: `Are you sure you want to unsuspend ${userName}? They will regain access to the platform.`,
 					icon: <UserCheck className="h-4 w-4" />,
 					confirmText: "Unsuspend User",
-					variant: "default" as const
+					variant: "default" as const,
 				}
 			case "delete":
 				return {
@@ -54,7 +54,7 @@ export function ConfirmationModal({
 					description: `Are you sure you want to permanently delete ${userName}? This action cannot be undone and will remove all their data.`,
 					icon: <Trash2 className="h-4 w-4" />,
 					confirmText: "Delete User",
-					variant: "destructive" as const
+					variant: "destructive" as const,
 				}
 		}
 	}

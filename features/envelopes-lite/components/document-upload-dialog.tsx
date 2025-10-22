@@ -7,16 +7,11 @@ import { toast } from "sonner"
 import {
 	FileUploader,
 	FileUploaderDropZone,
-	FileUploaderFileList
+	FileUploaderFileList,
 } from "@/core/components/file-uploader"
 import { Badge } from "@/core/components/ui/badge"
 import { Button } from "@/core/components/ui/button"
-import {
-	Card,
-	CardContent,
-	CardHeader,
-	CardTitle
-} from "@/core/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/core/components/ui/card"
 import {
 	Dialog,
 	DialogClose,
@@ -24,7 +19,7 @@ import {
 	DialogDescription,
 	DialogHeader,
 	DialogTitle,
-	DialogTrigger
+	DialogTrigger,
 } from "@/core/components/ui/dialog"
 
 import { trpc } from "@/services/trpc/client"
@@ -34,21 +29,17 @@ interface DocumentUploadDialogProps {
 	onSuccess?: () => void
 }
 
-export function DocumentUploadDialog({
-	envelopeId,
-	onSuccess
-}: DocumentUploadDialogProps) {
+export function DocumentUploadDialog({ envelopeId, onSuccess }: DocumentUploadDialogProps) {
 	const [files, setFiles] = useState<File[]>([])
 	const [uploading, setUploading] = useState(false)
 	const [uploadStatus, setUploadStatus] = useState("")
 	const [isOpen, setIsOpen] = useState(false)
 
 	// Real tRPC calls for document management
-	const { refetch: refetchDocuments } =
-		trpc.envelopeLite.getEnvelopeDocuments.useQuery(
-			{ envelopeId },
-			{ enabled: false }
-		)
+	const { refetch: refetchDocuments } = trpc.envelopeLite.getEnvelopeDocuments.useQuery(
+		{ envelopeId },
+		{ enabled: false }
+	)
 
 	const createDocuments = trpc.envelopeLite.createDocuments.useMutation({
 		onSuccess: async () => {
@@ -59,10 +50,10 @@ export function DocumentUploadDialog({
 			setIsOpen(false)
 			onSuccess?.()
 		},
-		onError: (_error) => {
+		onError: _error => {
 			setUploadStatus("Failed to upload documents. Please try again.")
 			toast.error("Failed to upload documents. Please try again.")
-		}
+		},
 	})
 
 	const handleFilesReady = (selectedFiles: File[]) => {
@@ -71,7 +62,9 @@ export function DocumentUploadDialog({
 	}
 
 	const handleUpload = async () => {
-		if (files.length === 0) {return}
+		if (files.length === 0) {
+			return
+		}
 
 		setUploading(true)
 		setUploadStatus("Uploading files...")
@@ -83,15 +76,15 @@ export function DocumentUploadDialog({
 				name: file.name,
 				type: file.type,
 				size: file.size,
-				path: `envelopes/${envelopeId}/${file.name}` // Mock storage path
+				path: `envelopes/${envelopeId}/${file.name}`, // Mock storage path
 			}))
-			
+
 			setUploadStatus("Creating document records...")
-			
+
 			// Create document records in database
 			createDocuments.mutate({
 				envelopeId,
-				files: uploadedFiles
+				files: uploadedFiles,
 			})
 		} catch (_error) {
 			setUploadStatus("Failed to upload files. Please try again.")
@@ -116,9 +109,7 @@ export function DocumentUploadDialog({
 			</DialogTrigger>
 			<DialogContent className="max-h-[90vh] w-[95vw] max-w-2xl overflow-y-auto p-4 sm:p-6 lg:max-w-4xl">
 				<DialogHeader className="space-y-2">
-					<DialogTitle className="text-lg font-medium sm:text-xl">
-						Upload Documents
-					</DialogTitle>
+					<DialogTitle className="text-lg font-medium sm:text-xl">Upload Documents</DialogTitle>
 					<DialogDescription className="text-sm sm:text-base">
 						Select multiple PDF files to upload to this envelope.
 					</DialogDescription>
@@ -179,11 +170,7 @@ export function DocumentUploadDialog({
 									</Button>
 								</div>
 
-								{uploadStatus && (
-									<p className="text-sm text-muted-foreground">
-										{uploadStatus}
-									</p>
-								)}
+								{uploadStatus && <p className="text-muted-foreground text-sm">{uploadStatus}</p>}
 							</CardContent>
 						</Card>
 					)}

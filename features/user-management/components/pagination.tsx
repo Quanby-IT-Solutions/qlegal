@@ -11,12 +11,7 @@ interface PaginationProps {
 	className?: string
 }
 
-export function Pagination({
-	currentPage,
-	totalPages,
-	onPageChange,
-	className
-}: PaginationProps) {
+export function Pagination({ currentPage, totalPages, onPageChange, className }: PaginationProps) {
 	const getVisiblePages = () => {
 		const delta = 2
 		const range = []
@@ -98,7 +93,7 @@ export function Pagination({
 				</Button>
 			</div>
 
-			<div className="text-sm text-muted-foreground">
+			<div className="text-muted-foreground text-sm">
 				Page {currentPage} of {totalPages}
 			</div>
 		</div>

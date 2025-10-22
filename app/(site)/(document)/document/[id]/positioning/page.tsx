@@ -13,7 +13,7 @@ import { trpc } from "@/services/trpc/client"
 import {
 	DocumentPrePositioning,
 	type DocumentField,
-	type Recipient
+	type Recipient,
 } from "@/features/signature-lite/components/document-prepositioning"
 
 export default function DocumentPositioningPage() {
@@ -31,24 +31,24 @@ export default function DocumentPositioningPage() {
 	const {
 		data: document,
 		isLoading: documentLoading,
-		error: documentError
+		error: documentError,
 	} = trpc.signatureLite.prepositioning.getDocumentWithFields.useQuery(
 		{ documentId },
 		{
 			enabled: !!documentId,
-			retry: 1
+			retry: 1,
 		}
 	)
 
 	const {
 		data: envelope,
 		isLoading: envelopeLoading,
-		error: envelopeError
+		error: envelopeError,
 	} = trpc.signatureLite.prepositioning.getEnvelopeWithRecipients.useQuery(
 		{ envelopeId, documentId },
 		{
 			enabled: !!envelopeId && !!documentId,
-			retry: 1
+			retry: 1,
 		}
 	)
 
@@ -56,19 +56,18 @@ export default function DocumentPositioningPage() {
 	const sendEnvelopeMutation = trpc.signatureLite.sendEnvelope.useMutation()
 
 	// Also add save mutation for field positioning
-	const saveFieldsMutation =
-		trpc.signatureLite.prepositioning.saveDocumentFields.useMutation()
+	const saveFieldsMutation = trpc.signatureLite.prepositioning.saveDocumentFields.useMutation()
 
 	const handleSaveFields = async (fields: DocumentField[]) => {
 		try {
-			const fieldsToSave = fields.map((field) => ({
+			const fieldsToSave = fields.map(field => ({
 				...field,
-				options: field.options ?? []
+				options: field.options ?? [],
 			}))
 
 			await saveFieldsMutation.mutateAsync({
 				documentId,
-				fields: fieldsToSave
+				fields: fieldsToSave,
 			})
 		} catch (error) {
 			console.error("Auto-save fields error:", error)
@@ -98,7 +97,9 @@ export default function DocumentPositioningPage() {
 	}, [documentError, envelopeError])
 
 	const handleSendEnvelope = async () => {
-		if (!envelope) return
+		if (!envelope) {
+			return
+		}
 
 		try {
 			// First save the current fields if any exist
@@ -124,19 +125,16 @@ export default function DocumentPositioningPage() {
 	const recipients: Recipient[] =
 		envelope?.recipient?.map((recipient, index) => ({
 			id: recipient.id,
-			email:
-				recipient.user?.email ??
-				recipient.email ??
-				`recipient-${index + 1}@example.com`,
+			email: recipient.user?.email ?? recipient.email ?? `recipient-${index + 1}@example.com`,
 			name: recipient.user?.name ?? recipient.name ?? `Recipient ${index + 1}`,
 			role: recipient.role as "SIGNER" | "APPROVER" | "CC",
-			color: `hsl(${(index * 137.5) % 360}, 70%, 50%)` // Generate colors
+			color: `hsl(${(index * 137.5) % 360}, 70%, 50%)`, // Generate colors
 		})) ?? []
 
 	// Extract existing fields from document if available
 	const existingFields: DocumentField[] = useMemo(
 		() =>
-			document?.documentFields?.map((field) => ({
+			document?.documentFields?.map(field => ({
 				id: field.id,
 				type: field.type as DocumentField["type"],
 				label: field.label,
@@ -146,13 +144,13 @@ export default function DocumentPositioningPage() {
 				position: {
 					x: field.x,
 					y: field.y,
-					pageNumber: field.pageNumber
+					pageNumber: field.pageNumber,
 				},
 				size: {
 					width: field.width,
-					height: field.height
+					height: field.height,
 				},
-				recipientId: field.recipientId
+				recipientId: field.recipientId,
 			})) ?? [],
 		[document?.documentFields]
 	)
@@ -189,8 +187,8 @@ export default function DocumentPositioningPage() {
 					<CardContent className="py-12 text-center">
 						<h3 className="mb-2 text-lg font-medium">Document Not Found</h3>
 						<p className="mb-4 text-sm text-gray-600">
-							The document or envelope you&apos;re looking for doesn&apos;t
-							exist or you don&apos;t have permission to access it.
+							The document or envelope you&apos;re looking for doesn&apos;t exist or you don&apos;t
+							have permission to access it.
 						</p>
 						<Button onClick={handleBack} variant="outline">
 							<ArrowLeft className="mr-2 h-4 w-4" />
@@ -211,9 +209,7 @@ export default function DocumentPositioningPage() {
 						<p className="mb-4 text-sm text-gray-600">
 							Please add recipients to this envelope before positioning fields.
 						</p>
-						<Button
-							onClick={() => router.push(`/envelope/${envelopeId}/recipients`)}
-						>
+						<Button onClick={() => router.push(`/envelope/${envelopeId}/recipients`)}>
 							Add Recipients
 						</Button>
 					</CardContent>
@@ -233,19 +229,14 @@ export default function DocumentPositioningPage() {
 								<ArrowLeft className="h-4 w-4" />
 							</Button>
 							<div>
-								<h1 className="text-xl font-semibold">
-									Position Document Fields
-								</h1>
+								<h1 className="text-xl font-semibold">Position Document Fields</h1>
 								<p className="text-sm text-gray-600">
 									{document.name} • {envelope.title}
 								</p>
 							</div>
 						</div>
 						<div className="flex items-center gap-2">
-							<Button
-								onClick={handleSendEnvelope}
-								disabled={sendEnvelopeMutation.isPending}
-							>
+							<Button onClick={handleSendEnvelope} disabled={sendEnvelopeMutation.isPending}>
 								{sendEnvelopeMutation.isPending ? (
 									<Loader2 className="mr-2 h-4 w-4 animate-spin" />
 								) : (

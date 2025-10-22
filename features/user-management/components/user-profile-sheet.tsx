@@ -10,29 +10,20 @@ import {
 	Mail,
 	MapPin,
 	Shield,
-	User
+	User,
 } from "lucide-react"
 
 import { Alert, AlertDescription } from "@/core/components/ui/alert"
-import {
-	Avatar,
-	AvatarFallback,
-	AvatarImage
-} from "@/core/components/ui/avatar"
+import { Avatar, AvatarFallback, AvatarImage } from "@/core/components/ui/avatar"
 import { Badge } from "@/core/components/ui/badge"
 // import { Button } from "@/core/components/ui/button"
-import {
-	Card,
-	CardContent,
-	CardHeader,
-	CardTitle
-} from "@/core/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/core/components/ui/card"
 import {
 	Sheet,
 	SheetContent,
 	SheetHeader,
 	SheetTitle,
-	SheetTrigger
+	SheetTrigger,
 } from "@/core/components/ui/sheet"
 
 import { trpc } from "@/services/trpc/client"
@@ -83,14 +74,14 @@ export function UserProfileSheet({ userId, trigger }: UserProfileSheetProps) {
 			month: "long",
 			day: "numeric",
 			hour: "2-digit",
-			minute: "2-digit"
+			minute: "2-digit",
 		})
 	}
 
 	return (
 		<Sheet open={open} onOpenChange={setOpen}>
 			<SheetTrigger asChild>{trigger}</SheetTrigger>
-			<SheetContent className="w-[400px] overflow-y-auto border-l bg-background sm:w-[540px]">
+			<SheetContent className="bg-background w-[400px] overflow-y-auto border-l sm:w-[540px]">
 				<SheetHeader className="sr-only">
 					<SheetTitle>User Profile</SheetTitle>
 				</SheetHeader>
@@ -98,10 +89,10 @@ export function UserProfileSheet({ userId, trigger }: UserProfileSheetProps) {
 				<div className="space-y-4 p-4">
 					{isLoading ? (
 						<div className="space-y-4">
-							<div className="mx-auto h-20 w-20 animate-pulse rounded-full bg-muted" />
+							<div className="bg-muted mx-auto h-20 w-20 animate-pulse rounded-full" />
 							<div className="space-y-2">
-								<div className="mx-auto h-4 w-32 animate-pulse rounded bg-muted" />
-								<div className="mx-auto h-3 w-48 animate-pulse rounded bg-muted" />
+								<div className="bg-muted mx-auto h-4 w-32 animate-pulse rounded" />
+								<div className="bg-muted mx-auto h-3 w-48 animate-pulse rounded" />
 							</div>
 						</div>
 					) : user ? (
@@ -109,31 +100,23 @@ export function UserProfileSheet({ userId, trigger }: UserProfileSheetProps) {
 							{/* Profile Header */}
 							<div className="space-y-3 text-center">
 								<Avatar className="mx-auto h-20 w-20">
-									{user.avatar ? (
-										<AvatarImage src={user.avatar} alt={user.name} />
-									) : null}
-									<AvatarFallback className="bg-muted text-lg font-medium text-muted-foreground">
+									{user.avatar ? <AvatarImage src={user.avatar} alt={user.name} /> : null}
+									<AvatarFallback className="bg-muted text-muted-foreground text-lg font-medium">
 										{user.name
 											.split(" ")
-											.map((n) => n[0])
+											.map(n => n[0])
 											.join("")
 											.toUpperCase()}
 									</AvatarFallback>
 								</Avatar>
 								<div className="space-y-2">
 									<h2 className="text-xl font-semibold">{user.name}</h2>
-									<p className="text-sm text-muted-foreground">{user.email}</p>
+									<p className="text-muted-foreground text-sm">{user.email}</p>
 									<div className="flex justify-center gap-2">
-										<Badge
-											variant="secondary"
-											className={getRoleColor(user.role)}
-										>
+										<Badge variant="secondary" className={getRoleColor(user.role)}>
 											{user.role}
 										</Badge>
-										<Badge
-											variant="secondary"
-											className={getStatusColor(user.status)}
-										>
+										<Badge variant="secondary" className={getStatusColor(user.status)}>
 											{user.status}
 										</Badge>
 									</div>
@@ -151,7 +134,7 @@ export function UserProfileSheet({ userId, trigger }: UserProfileSheetProps) {
 								}
 							>
 								{user.status === "suspended" ? (
-									<AlertCircle className="h-4 w-4 text-destructive" />
+									<AlertCircle className="text-destructive h-4 w-4" />
 								) : user.status === "active" ? (
 									<CheckCircle className="h-4 w-4 text-green-600" />
 								) : (
@@ -176,22 +159,18 @@ export function UserProfileSheet({ userId, trigger }: UserProfileSheetProps) {
 								</CardHeader>
 								<CardContent className="space-y-3">
 									<div className="flex items-center gap-3">
-										<Mail className="h-4 w-4 text-muted-foreground" />
+										<Mail className="text-muted-foreground h-4 w-4" />
 										<div className="flex-1">
 											<p className="text-sm font-medium">Email</p>
-											<p className="text-sm text-muted-foreground">
-												{user.email}
-											</p>
+											<p className="text-muted-foreground text-sm">{user.email}</p>
 										</div>
 									</div>
 									{user.organization && (
 										<div className="flex items-center gap-3">
-											<MapPin className="h-4 w-4 text-muted-foreground" />
+											<MapPin className="text-muted-foreground h-4 w-4" />
 											<div className="flex-1">
 												<p className="text-sm font-medium">Organization</p>
-												<p className="text-sm text-muted-foreground">
-													{user.organization}
-												</p>
+												<p className="text-muted-foreground text-sm">{user.organization}</p>
 											</div>
 										</div>
 									)}
@@ -208,21 +187,17 @@ export function UserProfileSheet({ userId, trigger }: UserProfileSheetProps) {
 								</CardHeader>
 								<CardContent className="space-y-3">
 									<div className="flex items-center gap-3">
-										<Calendar className="h-4 w-4 text-muted-foreground" />
+										<Calendar className="text-muted-foreground h-4 w-4" />
 										<div className="flex-1">
 											<p className="text-sm font-medium">Joined</p>
-											<p className="text-sm text-muted-foreground">
-												{formatDate(user.joinDate)}
-											</p>
+											<p className="text-muted-foreground text-sm">{formatDate(user.joinDate)}</p>
 										</div>
 									</div>
 									<div className="flex items-center gap-3">
-										<Clock className="h-4 w-4 text-muted-foreground" />
+										<Clock className="text-muted-foreground h-4 w-4" />
 										<div className="flex-1">
 											<p className="text-sm font-medium">Last Active</p>
-											<p className="text-sm text-muted-foreground">
-												{formatDate(user.lastActive)}
-											</p>
+											<p className="text-muted-foreground text-sm">{formatDate(user.lastActive)}</p>
 										</div>
 									</div>
 								</CardContent>
@@ -238,19 +213,13 @@ export function UserProfileSheet({ userId, trigger }: UserProfileSheetProps) {
 								</CardHeader>
 								<CardContent>
 									<div className="grid grid-cols-2 gap-4">
-										<div className="rounded-lg bg-muted p-3 text-center">
-											<div className="text-2xl font-bold">
-												{user.documentsCount}
-											</div>
-											<div className="text-xs text-muted-foreground">
-												Documents
-											</div>
+										<div className="bg-muted rounded-lg p-3 text-center">
+											<div className="text-2xl font-bold">{user.documentsCount}</div>
+											<div className="text-muted-foreground text-xs">Documents</div>
 										</div>
-										<div className="rounded-lg bg-muted p-3 text-center">
+										<div className="bg-muted rounded-lg p-3 text-center">
 											<div className="text-2xl font-bold">-</div>
-											<div className="text-xs text-muted-foreground">
-												Signatures
-											</div>
+											<div className="text-muted-foreground text-xs">Signatures</div>
 										</div>
 									</div>
 								</CardContent>

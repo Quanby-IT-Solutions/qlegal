@@ -2,12 +2,7 @@
 
 import { AlertCircle, CheckCircle, Clock, Users } from "lucide-react"
 
-import {
-	Card,
-	CardContent,
-	CardHeader,
-	CardTitle
-} from "@/core/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/core/components/ui/card"
 
 import { trpc } from "@/services/trpc/client"
 
@@ -34,10 +29,7 @@ export function UserStats() {
 	}
 
 	return (
-		<div
-			className="grid grid-cols-1 gap-6 md:grid-cols-4"
-			suppressHydrationWarning
-		>
+		<div className="grid grid-cols-1 gap-6 md:grid-cols-4" suppressHydrationWarning>
 			<Card>
 				<CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
 					<CardTitle className="text-sm font-medium">Total Users</CardTitle>
@@ -45,7 +37,7 @@ export function UserStats() {
 				</CardHeader>
 				<CardContent>
 					<div className="text-2xl font-bold">{stats?.total ?? 0}</div>
-					<p className="text-xs text-muted-foreground">All registered users</p>
+					<p className="text-muted-foreground text-xs">All registered users</p>
 				</CardContent>
 			</Card>
 			<Card>
@@ -55,19 +47,17 @@ export function UserStats() {
 				</CardHeader>
 				<CardContent>
 					<div className="text-2xl font-bold">{stats?.active ?? 0}</div>
-					<p className="text-xs text-muted-foreground">Currently active</p>
+					<p className="text-muted-foreground text-xs">Currently active</p>
 				</CardContent>
 			</Card>
 			<Card>
 				<CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-					<CardTitle className="text-sm font-medium">
-						Pending Approval
-					</CardTitle>
+					<CardTitle className="text-sm font-medium">Pending Approval</CardTitle>
 					<Clock className="h-4 w-4 text-orange-600" />
 				</CardHeader>
 				<CardContent>
 					<div className="text-2xl font-bold">{stats?.pending ?? 0}</div>
-					<p className="text-xs text-muted-foreground">Awaiting approval</p>
+					<p className="text-muted-foreground text-xs">Awaiting approval</p>
 				</CardContent>
 			</Card>
 			<Card>
@@ -77,7 +67,7 @@ export function UserStats() {
 				</CardHeader>
 				<CardContent>
 					<div className="text-2xl font-bold">{stats?.suspended ?? 0}</div>
-					<p className="text-xs text-muted-foreground">Account suspended</p>
+					<p className="text-muted-foreground text-xs">Account suspended</p>
 				</CardContent>
 			</Card>
 		</div>

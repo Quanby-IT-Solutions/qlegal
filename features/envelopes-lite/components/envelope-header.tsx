@@ -24,15 +24,15 @@ export function EnvelopeHeader({
 	viewMode,
 	onViewModeChange,
 	onCreateClick,
-	isCreating
+	isCreating,
 }: EnvelopeHeaderProps) {
 	return (
-		<div className="border-b bg-background backdrop-blur dark:bg-muted/60">
+		<div className="bg-background dark:bg-muted/60 border-b backdrop-blur">
 			<div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
 				{/* Vercel-style Page Title */}
 				<div className="mb-6">
-					<h1 className="text-2xl font-medium text-foreground">Envelopes</h1>
-					<p className="mt-1 text-sm text-muted-foreground">
+					<h1 className="text-foreground text-2xl font-medium">Envelopes</h1>
+					<p className="text-muted-foreground mt-1 text-sm">
 						Manage your digital signature envelopes
 					</p>
 				</div>
@@ -42,20 +42,20 @@ export function EnvelopeHeader({
 					<div className="flex flex-1 items-center gap-3">
 						{/* Vercel Search */}
 						<div className="relative max-w-sm flex-1">
-							<Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+							<Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
 							<Input
 								placeholder="Search..."
 								value={searchQuery}
-								onChange={(e) => onSearchChange(e.target.value)}
-								className="h-8 border border-border bg-background pl-10 text-sm focus-visible:ring-1"
+								onChange={e => onSearchChange(e.target.value)}
+								className="border-border bg-background h-8 border pl-10 text-sm focus-visible:ring-1"
 							/>
 						</div>
 
 						{/* Vercel Filter */}
 						<select
 							value={selectedStatus}
-							onChange={(e) => onStatusChange(e.target.value)}
-							className="h-8 rounded-md border border-border bg-background px-3 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+							onChange={e => onStatusChange(e.target.value)}
+							className="border-border bg-background focus:ring-ring h-8 rounded-md border px-3 text-sm focus:ring-1 focus:outline-none"
 						>
 							<option value="all">All Status</option>
 							<option value="draft">Draft</option>
@@ -64,7 +64,7 @@ export function EnvelopeHeader({
 						</select>
 
 						{/* Vercel View Toggle */}
-						<div className="flex items-center rounded-md border border-border bg-background">
+						<div className="border-border bg-background flex items-center rounded-md border">
 							<Button
 								variant={viewMode === "grid" ? "secondary" : "ghost"}
 								size="sm"

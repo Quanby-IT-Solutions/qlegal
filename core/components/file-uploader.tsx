@@ -1,13 +1,6 @@
 "use client"
 
-import React, {
-	createContext,
-	useCallback,
-	useContext,
-	useEffect,
-	useRef,
-	useState
-} from "react"
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react"
 import {
 	AlertCircle,
 	Check,
@@ -18,23 +11,14 @@ import {
 	FileVideo,
 	Image as ImageIcon,
 	Upload,
-	X
+	X,
 } from "lucide-react"
-import ReactCrop, {
-	centerCrop,
-	convertToPixelCrop,
-	makeAspectCrop
-} from "react-image-crop"
+import ReactCrop, { centerCrop, convertToPixelCrop, makeAspectCrop } from "react-image-crop"
 
 import { Badge } from "@/core/components/ui/badge"
 import { Button } from "@/core/components/ui/button"
 import { Card, CardContent } from "@/core/components/ui/card"
-import {
-	Dialog,
-	DialogContent,
-	DialogHeader,
-	DialogTitle
-} from "@/core/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/core/components/ui/dialog"
 import { cn } from "@/core/lib/utils"
 
 import "react-image-crop/dist/ReactCrop.css"
@@ -78,9 +62,7 @@ const FileUploaderContext = createContext<FileUploaderContextType | null>(null)
 const useFileUploader = () => {
 	const context = useContext(FileUploaderContext)
 	if (!context) {
-		throw new Error(
-			"FileUploader components must be used within a FileUploader"
-		)
+		throw new Error("FileUploader components must be used within a FileUploader")
 	}
 	return context
 }
@@ -91,14 +73,11 @@ const FileUploaderProgress = React.forwardRef<
 >(({ className, value = 0, ...props }, ref) => (
 	<div
 		ref={ref}
-		className={cn(
-			"relative w-full overflow-hidden rounded-full bg-secondary",
-			className
-		)}
+		className={cn("bg-secondary relative w-full overflow-hidden rounded-full", className)}
 		{...props}
 	>
 		<div
-			className="h-full w-full flex-1 bg-primary transition-all duration-300 ease-in-out"
+			className="bg-primary h-full w-full flex-1 transition-all duration-300 ease-in-out"
 			style={{ width: `${value}%` }}
 		/>
 	</div>
@@ -115,12 +94,7 @@ function FileUploaderPreview({ file, className }: FileUploaderPreviewProps) {
 
 	if (file.preview) {
 		return (
-			<div
-				className={cn(
-					"h-12 w-12 shrink-0 overflow-hidden rounded-md border",
-					className
-				)}
-			>
+			<div className={cn("h-12 w-12 shrink-0 overflow-hidden rounded-md border", className)}>
 				{/* eslint-disable-next-line @next/next/no-img-element */}
 				<img
 					src={file.croppedPreview ?? file.preview}
@@ -134,15 +108,11 @@ function FileUploaderPreview({ file, className }: FileUploaderPreviewProps) {
 	return (
 		<div
 			className={cn(
-				"flex h-12 w-12 shrink-0 items-center justify-center rounded-md border bg-muted",
+				"bg-muted flex h-12 w-12 shrink-0 items-center justify-center rounded-md border",
 				className
 			)}
 		>
-			{file.error ? (
-				<AlertCircle className="h-6 w-6 text-destructive" />
-			) : (
-				getFileIcon(file.file)
-			)}
+			{file.error ? <AlertCircle className="text-destructive h-6 w-6" /> : getFileIcon(file.file)}
 		</div>
 	)
 }
@@ -174,7 +144,7 @@ function CropTrigger({ file, className, children }: CropTriggerProps) {
 			size="icon"
 			onClick={handleClick}
 			className={cn(
-				"h-8 w-8 shrink-0 rounded-full opacity-70 hover:bg-primary/10 hover:text-primary hover:opacity-100",
+				"hover:bg-primary/10 hover:text-primary h-8 w-8 shrink-0 rounded-full opacity-70 hover:opacity-100",
 				className
 			)}
 			title="Crop image"
@@ -189,12 +159,8 @@ interface FileUploaderDropZoneProps {
 	disabled?: boolean
 }
 
-function FileUploaderDropZone({
-	className,
-	disabled
-}: FileUploaderDropZoneProps) {
-	const { files, maxFiles, maxSize, accept, addFiles, formatFileSize } =
-		useFileUploader()
+function FileUploaderDropZone({ className, disabled }: FileUploaderDropZoneProps) {
+	const { files, maxFiles, maxSize, accept, addFiles, formatFileSize } = useFileUploader()
 
 	const [dragActive, setDragActive] = useState(false)
 	const fileInputRef = useRef<HTMLInputElement>(null)
@@ -236,12 +202,22 @@ function FileUploaderDropZone({
 	}
 
 	const getReadableFileTypes = useCallback(() => {
-		return accept.map((type) => {
-			if (type === "image/*") {return "Images"}
-			if (type === "application/pdf") {return "PDF"}
-			if (type === "text/*") {return "Text files"}
-			if (type === "video/*") {return "Videos"}
-			if (type === "audio/*") {return "Audio"}
+		return accept.map(type => {
+			if (type === "image/*") {
+				return "Images"
+			}
+			if (type === "application/pdf") {
+				return "PDF"
+			}
+			if (type === "text/*") {
+				return "Text files"
+			}
+			if (type === "video/*") {
+				return "Videos"
+			}
+			if (type === "audio/*") {
+				return "Audio"
+			}
 			return type
 		})
 	}, [accept])
@@ -251,7 +227,7 @@ function FileUploaderDropZone({
 	return (
 		<Card
 			className={cn(
-				"relative border-2 border-dashed border-muted transition-colors duration-200",
+				"border-muted relative border-2 border-dashed transition-colors duration-200",
 				dragActive && "border-primary bg-primary/5",
 				isDisabled && "pointer-events-none opacity-50",
 				className
@@ -265,9 +241,7 @@ function FileUploaderDropZone({
 				<div
 					className={cn(
 						"mb-4 flex h-16 w-16 items-center justify-center rounded-full transition-colors",
-						dragActive
-							? "bg-primary text-primary-foreground"
-							: "bg-muted/50 text-muted-foreground"
+						dragActive ? "bg-primary text-primary-foreground" : "bg-muted/50 text-muted-foreground"
 					)}
 				>
 					<Upload className="h-8 w-8" />
@@ -277,7 +251,7 @@ function FileUploaderDropZone({
 					{dragActive ? "Drop files here" : "Upload Files"}
 				</h3>
 
-				<p className="mb-4 text-sm text-muted-foreground">
+				<p className="text-muted-foreground mb-4 text-sm">
 					Drag and drop files here or click to browse
 				</p>
 
@@ -292,13 +266,13 @@ function FileUploaderDropZone({
 				<Button
 					onClick={openFileDialog}
 					variant="outline"
-					className="transition-all duration-200 hover:bg-primary hover:text-primary-foreground"
+					className="hover:bg-primary hover:text-primary-foreground transition-all duration-200"
 					disabled={isDisabled}
 				>
 					Choose Files
 				</Button>
 
-				<p className="mt-2 text-xs text-muted-foreground">
+				<p className="text-muted-foreground mt-2 text-xs">
 					Max {maxFiles} files, up to {formatFileSize(maxSize)} each
 				</p>
 			</CardContent>
@@ -348,31 +322,29 @@ function FileItem({ file, enableCropping }: FileItemProps) {
 							)}
 						</div>
 
-						<p className="mb-2 text-xs text-muted-foreground">
+						<p className="text-muted-foreground mb-2 text-xs">
 							{formatFileSize(file.size)} • {file.type}
 						</p>
 
 						{file.error ? (
-							<p className="flex items-center gap-1 text-xs text-destructive">
+							<p className="text-destructive flex items-center gap-1 text-xs">
 								<AlertCircle className="h-3 w-3" /> {file.error}
 							</p>
 						) : (
 							<FileUploaderProgress
 								value={file.progress}
-								className="h-1 rounded-full bg-secondary"
+								className="bg-secondary h-1 rounded-full"
 							/>
 						)}
 					</div>
 
 					<div className="flex items-center gap-2">
-						{enableCropping && file.preview && !file.error && (
-							<CropTrigger file={file} />
-						)}
+						{enableCropping && file.preview && !file.error && <CropTrigger file={file} />}
 						<Button
 							variant="ghost"
 							size="icon"
 							onClick={() => removeFile(file.id)}
-							className="h-8 w-8 shrink-0 rounded-full opacity-70 hover:bg-destructive/10 hover:text-destructive hover:opacity-100"
+							className="hover:bg-destructive/10 hover:text-destructive h-8 w-8 shrink-0 rounded-full opacity-70 hover:opacity-100"
 						>
 							<X className="h-4 w-4" />
 						</Button>
@@ -392,7 +364,7 @@ interface FileUploaderFileListProps {
 function FileUploaderFileList({
 	className,
 	showHeader = true,
-	enableCropping = false
+	enableCropping = false,
 }: FileUploaderFileListProps) {
 	const { files, maxFiles, clearAllFiles } = useFileUploader()
 
@@ -411,19 +383,15 @@ function FileUploaderFileList({
 						variant="ghost"
 						size="sm"
 						onClick={clearAllFiles}
-						className="text-xs hover:bg-destructive/10 hover:text-destructive"
+						className="hover:bg-destructive/10 hover:text-destructive text-xs"
 					>
 						Clear All
 					</Button>
 				</div>
 			)}
 
-			{files.map((fileData) => (
-				<FileItem
-					key={fileData.id}
-					file={fileData}
-					enableCropping={enableCropping}
-				/>
+			{files.map(fileData => (
+				<FileItem key={fileData.id} file={fileData} enableCropping={enableCropping} />
 			))}
 		</div>
 	)
@@ -435,32 +403,29 @@ interface FileUploaderCropProps {
 	minHeight?: number
 }
 
-function FileUploaderCrop({
-	aspectRatio,
-	minWidth = 50,
-	minHeight = 50
-}: FileUploaderCropProps) {
-	const {
-		updateFile,
-		cropDialogOpen,
-		setCropDialogOpen,
-		currentCropFile,
-		setCurrentCropFile
-	} = useFileUploader()
-	const [crop, setCrop] = useState<{
-		x: number
-		y: number
-		width: number
-		height: number
-		unit: "px" | "%"
-	} | undefined>()
-	const [completedCrop, setCompletedCrop] = useState<{
-		x: number
-		y: number
-		width: number
-		height: number
-		unit: "px" | "%"
-	} | undefined>()
+function FileUploaderCrop({ aspectRatio, minWidth = 50, minHeight = 50 }: FileUploaderCropProps) {
+	const { updateFile, cropDialogOpen, setCropDialogOpen, currentCropFile, setCurrentCropFile } =
+		useFileUploader()
+	const [crop, setCrop] = useState<
+		| {
+				x: number
+				y: number
+				width: number
+				height: number
+				unit: "px" | "%"
+		  }
+		| undefined
+	>()
+	const [completedCrop, setCompletedCrop] = useState<
+		| {
+				x: number
+				y: number
+				width: number
+				height: number
+				unit: "px" | "%"
+		  }
+		| undefined
+	>()
 	const [imgRef, setImgRef] = useState<HTMLImageElement | null>(null)
 
 	const createCroppedImage = useCallback(
@@ -489,16 +454,14 @@ function FileUploaderCrop({
 				height: number
 				unit: "px" | "%"
 			}
-			
-			const pixelCrop = (convertToPixelCrop as (
-				crop: { x: number; y: number; width: number; height: number; unit: "px" | "%" },
-				containerWidth: number,
-				containerHeight: number
-			) => { unit: "px"; x: number; y: number; width: number; height: number })(
-				cropData,
-				image.naturalWidth,
-				image.naturalHeight
-			)
+
+			const pixelCrop = (
+				convertToPixelCrop as (
+					crop: { x: number; y: number; width: number; height: number; unit: "px" | "%" },
+					containerWidth: number,
+					containerHeight: number
+				) => { unit: "px"; x: number; y: number; width: number; height: number }
+			)(cropData, image.naturalWidth, image.naturalHeight)
 
 			const scaleX = image.naturalWidth / image.width
 			const scaleY = image.naturalHeight / image.height
@@ -523,14 +486,14 @@ function FileUploaderCrop({
 
 			return new Promise((resolve, reject) => {
 				canvas.toBlob(
-					(blob) => {
+					blob => {
 						if (!blob) {
 							reject(new Error("Failed to create blob"))
 							return
 						}
 						const file = new globalThis.File([blob], fileName, {
 							type: "image/png",
-							lastModified: Date.now()
+							lastModified: Date.now(),
 						})
 						resolve(file)
 					},
@@ -543,14 +506,12 @@ function FileUploaderCrop({
 	)
 
 	const handleCropComplete = useCallback(async () => {
-		if (!completedCrop || !imgRef || !currentCropFile) {return}
+		if (!completedCrop || !imgRef || !currentCropFile) {
+			return
+		}
 
 		try {
-			const croppedFile = await createCroppedImage(
-				imgRef,
-				completedCrop,
-				currentCropFile.name
-			)
+			const croppedFile = await createCroppedImage(imgRef, completedCrop, currentCropFile.name)
 
 			const croppedPreview = URL.createObjectURL(croppedFile)
 
@@ -558,7 +519,7 @@ function FileUploaderCrop({
 				file: croppedFile,
 				croppedPreview,
 				size: croppedFile.size,
-				originalFile: currentCropFile.originalFile ?? currentCropFile.file
+				originalFile: currentCropFile.originalFile ?? currentCropFile.file,
 			})
 
 			setCropDialogOpen(false)
@@ -573,7 +534,7 @@ function FileUploaderCrop({
 		createCroppedImage,
 		updateFile,
 		setCropDialogOpen,
-		setCurrentCropFile
+		setCurrentCropFile,
 	])
 
 	const handleCropCancel = useCallback(() => {
@@ -586,31 +547,31 @@ function FileUploaderCrop({
 	const initializeCrop = useCallback(
 		(imageWidth: number, imageHeight: number) => {
 			const aspectCrop = aspectRatio
-				? ((makeAspectCrop as (
-						crop: { unit: "%"; width: number },
-						aspect: number,
-						containerWidth: number,
-						containerHeight: number
-					) => { x: number; y: number; width: number; height: number; unit: "%" })(
+				? (
+						makeAspectCrop as (
+							crop: { unit: "%"; width: number },
+							aspect: number,
+							containerWidth: number,
+							containerHeight: number
+						) => { x: number; y: number; width: number; height: number; unit: "%" }
+					)(
 						{
 							unit: "%",
-							width: 90
+							width: 90,
 						},
 						aspectRatio,
 						imageWidth,
 						imageHeight
-					))
+					)
 				: { x: 0, y: 0, width: 90, height: 90, unit: "%" as const }
 
-			const newCrop = (centerCrop as (
-				crop: { x: number; y: number; width: number; height: number; unit: "%" },
-				containerWidth: number,
-				containerHeight: number
-			) => { x: number; y: number; width: number; height: number; unit: "%" })(
-				aspectCrop,
-				imageWidth,
-				imageHeight
-			)
+			const newCrop = (
+				centerCrop as (
+					crop: { x: number; y: number; width: number; height: number; unit: "%" },
+					containerWidth: number,
+					containerHeight: number
+				) => { x: number; y: number; width: number; height: number; unit: "%" }
+			)(aspectCrop, imageWidth, imageHeight)
 			setCrop(newCrop)
 			setCompletedCrop(newCrop)
 		},
@@ -628,20 +589,28 @@ function FileUploaderCrop({
 						<div className="flex justify-center">
 							<ReactCrop
 								crop={crop}
-								onChange={(c) => setCrop(c as {
-									x: number
-									y: number
-									width: number
-									height: number
-									unit: "px" | "%"
-								})}
-								onComplete={(c) => setCompletedCrop(c as {
-									x: number
-									y: number
-									width: number
-									height: number
-									unit: "px" | "%"
-								})}
+								onChange={c =>
+									setCrop(
+										c as {
+											x: number
+											y: number
+											width: number
+											height: number
+											unit: "px" | "%"
+										}
+									)
+								}
+								onComplete={c =>
+									setCompletedCrop(
+										c as {
+											x: number
+											y: number
+											width: number
+											height: number
+											unit: "px" | "%"
+										}
+									)
+								}
 								aspect={aspectRatio}
 								minWidth={minWidth}
 								minHeight={minHeight}
@@ -650,11 +619,9 @@ function FileUploaderCrop({
 								{/* eslint-disable-next-line @next/next/no-img-element */}
 								<img
 									ref={setImgRef}
-									src={
-										currentCropFile.croppedPreview ?? currentCropFile.preview!
-									}
+									src={currentCropFile.croppedPreview ?? currentCropFile.preview!}
 									alt="Crop preview"
-									onLoad={(e) => {
+									onLoad={e => {
 										const { naturalWidth, naturalHeight } = e.currentTarget
 										initializeCrop(naturalWidth, naturalHeight)
 									}}
@@ -666,11 +633,7 @@ function FileUploaderCrop({
 							<Button variant="outline" size="sm" onClick={handleCropCancel}>
 								Cancel
 							</Button>
-							<Button
-								size="sm"
-								onClick={handleCropComplete}
-								disabled={!completedCrop}
-							>
+							<Button size="sm" onClick={handleCropComplete} disabled={!completedCrop}>
 								Apply
 							</Button>
 						</div>
@@ -696,40 +659,49 @@ export function FileUploader({
 	maxSize = 10 * 1024 * 1024,
 	accept = ["image/*", "application/pdf", "text/*"],
 	className,
-	children
+	children,
 }: FileUploaderProps) {
 	const [files, setFiles] = useState<FileWithPreview[]>([])
 	const [cropDialogOpen, setCropDialogOpen] = useState(false)
-	const [currentCropFile, setCurrentCropFile] =
-		useState<FileWithPreview | null>(null)
+	const [currentCropFile, setCurrentCropFile] = useState<FileWithPreview | null>(null)
 
 	useEffect(() => {
 		return () => {
-			files.forEach((file) => {
-				if (file.preview) {URL.revokeObjectURL(file.preview)}
-				if (file.croppedPreview) {URL.revokeObjectURL(file.croppedPreview)}
+			files.forEach(file => {
+				if (file.preview) {
+					URL.revokeObjectURL(file.preview)
+				}
+				if (file.croppedPreview) {
+					URL.revokeObjectURL(file.croppedPreview)
+				}
 			})
 		}
 	}, [files])
 
 	const getFileIcon = useCallback((file: File) => {
-		if (file.type.startsWith("image/"))
-			{return <ImageIcon className="h-4 w-4" aria-hidden="true" />}
-		if (file.type.startsWith("video/"))
-			{return <FileVideo className="h-4 w-4" aria-hidden="true" />}
-		if (file.type.startsWith("audio/"))
-			{return <FileAudio className="h-4 w-4" aria-hidden="true" />}
-		if (file.type === "application/pdf")
-			{return <FileText className="h-4 w-4" aria-hidden="true" />}
+		if (file.type.startsWith("image/")) {
+			return <ImageIcon className="h-4 w-4" aria-hidden="true" />
+		}
+		if (file.type.startsWith("video/")) {
+			return <FileVideo className="h-4 w-4" aria-hidden="true" />
+		}
+		if (file.type.startsWith("audio/")) {
+			return <FileAudio className="h-4 w-4" aria-hidden="true" />
+		}
+		if (file.type === "application/pdf") {
+			return <FileText className="h-4 w-4" aria-hidden="true" />
+		}
 		return <File className="h-4 w-4" aria-hidden="true" />
 	}, [])
 
 	const formatFileSize = useCallback((bytes: number) => {
-		if (bytes === 0) {return "0 Bytes"}
+		if (bytes === 0) {
+			return "0 Bytes"
+		}
 		const k = 1024
 		const sizes = ["Bytes", "KB", "MB", "GB"]
 		const i = Math.floor(Math.log(bytes) / Math.log(k))
-		return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))  } ${  sizes[i]}`
+		return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`
 	}, [])
 
 	const validateFile = useCallback(
@@ -739,7 +711,7 @@ export function FileUploader({
 			}
 
 			const fileType = file.type
-			const isAccepted = accept.some((type) => {
+			const isAccepted = accept.some(type => {
 				if (type.endsWith("/*")) {
 					return fileType.startsWith(type.slice(0, -1))
 				}
@@ -757,11 +729,13 @@ export function FileUploader({
 
 	const addFiles = useCallback(
 		(newFiles: FileList) => {
-			if (files.length >= maxFiles) {return}
+			if (files.length >= maxFiles) {
+				return
+			}
 
 			const filesToAdd = Array.from(newFiles).slice(0, maxFiles - files.length)
 
-			const processedFiles = filesToAdd.map((file) => {
+			const processedFiles = filesToAdd.map(file => {
 				const error = validateFile(file)
 				const isImage = file.type.startsWith("image/")
 
@@ -774,14 +748,14 @@ export function FileUploader({
 					progress: error ? 0 : 100,
 					status: error ? "error" : "complete",
 					error,
-					preview: isImage ? URL.createObjectURL(file) : null
+					preview: isImage ? URL.createObjectURL(file) : null,
 				} as FileWithPreview
 			})
 
 			const newFileList = [...files, ...processedFiles]
 			setFiles(newFileList)
 
-			const validFiles = newFileList.filter((f) => !f.error).map((f) => f.file)
+			const validFiles = newFileList.filter(f => !f.error).map(f => f.file)
 			if (onFilesReady) {
 				onFilesReady(validFiles)
 			}
@@ -791,8 +765,8 @@ export function FileUploader({
 
 	const removeFile = useCallback(
 		(fileId: string) => {
-			setFiles((prevFiles) => {
-				const fileToRemove = prevFiles.find((f) => f.id === fileId)
+			setFiles(prevFiles => {
+				const fileToRemove = prevFiles.find(f => f.id === fileId)
 				if (fileToRemove?.preview) {
 					URL.revokeObjectURL(fileToRemove.preview)
 				}
@@ -800,12 +774,10 @@ export function FileUploader({
 					URL.revokeObjectURL(fileToRemove.croppedPreview)
 				}
 
-				const updatedFiles = prevFiles.filter((f) => f.id !== fileId)
+				const updatedFiles = prevFiles.filter(f => f.id !== fileId)
 
 				if (onFilesReady) {
-					const validFiles = updatedFiles
-						.filter((f) => !f.error)
-						.map((f) => f.file)
+					const validFiles = updatedFiles.filter(f => !f.error).map(f => f.file)
 					onFilesReady(validFiles)
 				}
 
@@ -816,9 +788,13 @@ export function FileUploader({
 	)
 
 	const clearAllFiles = useCallback(() => {
-		files.forEach((file) => {
-			if (file.preview) {URL.revokeObjectURL(file.preview)}
-			if (file.croppedPreview) {URL.revokeObjectURL(file.croppedPreview)}
+		files.forEach(file => {
+			if (file.preview) {
+				URL.revokeObjectURL(file.preview)
+			}
+			if (file.croppedPreview) {
+				URL.revokeObjectURL(file.croppedPreview)
+			}
 		})
 
 		setFiles([])
@@ -829,15 +805,11 @@ export function FileUploader({
 
 	const updateFile = useCallback(
 		(fileId: string, updates: Partial<FileWithPreview>) => {
-			setFiles((prevFiles) => {
-				const updatedFiles = prevFiles.map((f) =>
-					f.id === fileId ? { ...f, ...updates } : f
-				)
+			setFiles(prevFiles => {
+				const updatedFiles = prevFiles.map(f => (f.id === fileId ? { ...f, ...updates } : f))
 
 				if (onFilesReady) {
-					const validFiles = updatedFiles
-						.filter((f) => !f.error)
-						.map((f) => f.file)
+					const validFiles = updatedFiles.filter(f => !f.error).map(f => f.file)
 					onFilesReady(validFiles)
 				}
 
@@ -869,7 +841,7 @@ export function FileUploader({
 		cropDialogOpen,
 		setCropDialogOpen,
 		currentCropFile,
-		setCurrentCropFile
+		setCurrentCropFile,
 	}
 
 	return (
@@ -890,5 +862,5 @@ export {
 	FileUploaderFileList,
 	FileUploaderCrop,
 	FileUploaderProgress,
-	FileUploaderPreview
+	FileUploaderPreview,
 }

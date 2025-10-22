@@ -13,7 +13,7 @@ import { trpc } from "@/services/trpc/client"
 import {
 	DocumentPrePositioning,
 	type DocumentField,
-	type Recipient
+	type Recipient,
 } from "@/features/signature-lite/components/document-prepositioning"
 
 interface UpdatePrepositioningClientProps {
@@ -25,7 +25,7 @@ interface UpdatePrepositioningClientProps {
 export const UpdatePrepositioningClient = ({
 	envelopeId,
 	documentId,
-	onUpdate
+	onUpdate,
 }: UpdatePrepositioningClientProps) => {
 	const router = useRouter()
 	const [isLoading, setIsLoading] = useState(true)
@@ -58,54 +58,43 @@ export const UpdatePrepositioningClient = ({
 	}, [utils])
 
 	// Fetch document data with fields and envelope data
-	const documentQuery =
-		trpc.signatureLite.prepositioning.getDocumentWithFields.useQuery(
-			{ documentId },
-			{
-				enabled: !!documentId,
-				retry: 1,
-				refetchOnWindowFocus: false, // Reduce unnecessary refetches
-				staleTime: 10000, // Increased to 10 seconds to reduce conflicts during editing
-				gcTime: 15000 // Keep cache longer to prevent unnecessary refetches
-			}
-		)
+	const documentQuery = trpc.signatureLite.prepositioning.getDocumentWithFields.useQuery(
+		{ documentId },
+		{
+			enabled: !!documentId,
+			retry: 1,
+			refetchOnWindowFocus: false, // Reduce unnecessary refetches
+			staleTime: 10000, // Increased to 10 seconds to reduce conflicts during editing
+			gcTime: 15000, // Keep cache longer to prevent unnecessary refetches
+		}
+	)
 
-	const {
-		data: documentData,
-		isLoading: documentLoading,
-		error: documentError
-	} = documentQuery
+	const { data: documentData, isLoading: documentLoading, error: documentError } = documentQuery
 
-	const envelopeQuery =
-		trpc.signatureLite.prepositioning.getEnvelopeWithRecipients.useQuery(
-			{ envelopeId, documentId },
-			{
-				enabled: !!envelopeId && !!documentId,
-				retry: 1,
-				refetchOnWindowFocus: false, // Reduce unnecessary refetches
-				staleTime: 10000, // Increased to 10 seconds to reduce conflicts during editing
-				gcTime: 15000 // Keep cache longer to prevent unnecessary refetches
-			}
-		)
+	const envelopeQuery = trpc.signatureLite.prepositioning.getEnvelopeWithRecipients.useQuery(
+		{ envelopeId, documentId },
+		{
+			enabled: !!envelopeId && !!documentId,
+			retry: 1,
+			refetchOnWindowFocus: false, // Reduce unnecessary refetches
+			staleTime: 10000, // Increased to 10 seconds to reduce conflicts during editing
+			gcTime: 15000, // Keep cache longer to prevent unnecessary refetches
+		}
+	)
 
-	const {
-		data: envelope,
-		isLoading: envelopeLoading,
-		error: envelopeError
-	} = envelopeQuery
+	const { data: envelope, isLoading: envelopeLoading, error: envelopeError } = envelopeQuery
 
 	// Mutation for saving fields only
-	const saveFieldsMutation =
-		trpc.signatureLite.prepositioning.saveDocumentFields.useMutation({
-			onSuccess: () => {
-				// Don't invalidate cache immediately to prevent reverting field positions
-				// The cache will naturally refresh when staleTime expires
-				setFieldsSaved(true)
-			},
-			onError: (_error) => {
-				toast.error("Failed to save fields")
-			}
-		})
+	const saveFieldsMutation = trpc.signatureLite.prepositioning.saveDocumentFields.useMutation({
+		onSuccess: () => {
+			// Don't invalidate cache immediately to prevent reverting field positions
+			// The cache will naturally refresh when staleTime expires
+			setFieldsSaved(true)
+		},
+		onError: _error => {
+			toast.error("Failed to save fields")
+		},
+	})
 
 	useEffect(() => {
 		if (!documentLoading && !envelopeLoading) {
@@ -131,12 +120,10 @@ export const UpdatePrepositioningClient = ({
 		}
 
 		try {
-			const formattedFields = fieldsToSave.map((field) => {
+			const formattedFields = fieldsToSave.map(field => {
 				// Validate each field before formatting
 				if (!field.id || !field.type || !field.label) {
-					throw new Error(
-						`Field missing required properties: ${JSON.stringify(field)}`
-					)
+					throw new Error(`Field missing required properties: ${JSON.stringify(field)}`)
 				}
 
 				if (!field.recipientId) {
@@ -145,13 +132,13 @@ export const UpdatePrepositioningClient = ({
 
 				return {
 					...field,
-					options: field.options ?? []
+					options: field.options ?? [],
 				}
 			})
 
 			await saveFieldsMutation.mutateAsync({
 				documentId,
-				fields: formattedFields
+				fields: formattedFields,
 			})
 
 			// Mutation's onSuccess will handle state updates
@@ -198,45 +185,40 @@ export const UpdatePrepositioningClient = ({
 
 		// Only show APPROVED real recipients (not pending requests)
 		const realRecipients = envelope.recipient
-			.filter((r) => r.userId !== null && r.status === "APPROVED") // Only approved real recipients
+			.filter(r => r.userId !== null && r.status === "APPROVED") // Only approved real recipients
 			.map((recipient, index) => ({
 				id: recipient.id,
-				email:
-					recipient.user?.email ??
-					recipient.email ??
-					`recipient-${index + 1}@example.com`,
-				name:
-					recipient.user?.name ?? recipient.name ?? `Recipient ${index + 1}`,
+				email: recipient.user?.email ?? recipient.email ?? `recipient-${index + 1}@example.com`,
+				name: recipient.user?.name ?? recipient.name ?? `Recipient ${index + 1}`,
 				role: recipient.role as "SIGNER" | "APPROVER" | "CC",
-				color: `hsl(${(index * 137.5) % 360}, 70%, 50%)`
+				color: `hsl(${(index * 137.5) % 360}, 70%, 50%)`,
 			}))
 
 		// Get placeholder recipients (these are placeholders waiting for real users)
 		const placeholderRecipientsFromDB = envelope.recipient
-			.filter((r) => r.userId === null && r.status === "PENDING")
+			.filter(r => r.userId === null && r.status === "PENDING")
 			.map((recipient, index) => ({
 				id: recipient.id,
 				email: recipient.email ?? `recipient-${index + 1}@placeholder.com`,
 				name: recipient.name ?? `Recipient ${index + 1}`,
 				role: recipient.role as "SIGNER" | "APPROVER" | "CC",
-				color: `hsl(${((realRecipients.length + index) * 137.5) % 360}, 70%, 50%)`
+				color: `hsl(${((realRecipients.length + index) * 137.5) % 360}, 70%, 50%)`,
 			}))
 
 		return [...realRecipients, ...placeholderRecipientsFromDB]
 	}, [envelope])
 
 	// Mutation for creating placeholder recipients
-	const createPlaceholderRecipient =
-		trpc.envelopeLite.createPlaceholderRecipient.useMutation({
-			onSuccess: () => {
-				toast.success("Placeholder recipient added")
-				// Refetch envelope data to update the UI
-				void envelopeQuery.refetch()
-			},
-			onError: (_error) => {
-				toast.error("Failed to add recipient")
-			}
-		})
+	const createPlaceholderRecipient = trpc.envelopeLite.createPlaceholderRecipient.useMutation({
+		onSuccess: () => {
+			toast.success("Placeholder recipient added")
+			// Refetch envelope data to update the UI
+			void envelopeQuery.refetch()
+		},
+		onError: _error => {
+			toast.error("Failed to add recipient")
+		},
+	})
 
 	// Mutation for deleting placeholder recipients
 	const deletePlaceholderRecipientMutation =
@@ -246,25 +228,23 @@ export const UpdatePrepositioningClient = ({
 				// Refetch envelope data to update the UI
 				void envelopeQuery.refetch()
 			},
-			onError: (_error) => {
+			onError: _error => {
 				toast.error("Failed to delete recipient")
-			}
+			},
 		})
 
 	// Function to add placeholder recipient
 	const addPlaceholderRecipient = () => {
 		// Count existing placeholder recipients from the database, not from the UI state
 		const existingPlaceholders =
-			envelope?.recipient?.filter(
-				(r) => r.userId === null && r.status === "PENDING"
-			).length ?? 0
+			envelope?.recipient?.filter(r => r.userId === null && r.status === "PENDING").length ?? 0
 
 		const newIndex = existingPlaceholders + 1
 		createPlaceholderRecipient.mutate({
 			envelopeId,
 			documentId,
 			name: `Recipient${newIndex}`,
-			email: `recipient${newIndex}@placeholder.com`
+			email: `recipient${newIndex}@placeholder.com`,
 		})
 	}
 
@@ -284,14 +264,13 @@ export const UpdatePrepositioningClient = ({
 
 		try {
 			// Get current fields - use state first, then ref as fallback
-			const currentFields =
-				fields.length > 0 ? fields : currentFieldsRef.current
+			const currentFields = fields.length > 0 ? fields : currentFieldsRef.current
 
 			// Only save if we have fields to save
 			if (currentFields.length > 0) {
 				// Validate recipients exist for all fields
 				const invalidFields = currentFields.filter(
-					(field) => !recipients.find((r) => r.id === field.recipientId)
+					field => !recipients.find(r => r.id === field.recipientId)
 				)
 
 				if (invalidFields.length > 0) {
@@ -312,8 +291,7 @@ export const UpdatePrepositioningClient = ({
 			toast.success("Field positions updated successfully")
 			router.push(`/envelope/${envelopeId}`)
 		} catch (error) {
-			const errorMessage =
-				error instanceof Error ? error.message : "Unknown error occurred"
+			const errorMessage = error instanceof Error ? error.message : "Unknown error occurred"
 			toast.error(`Failed to update field positions: ${errorMessage}`)
 		} finally {
 			if (isMountedRef.current) {
@@ -330,7 +308,7 @@ export const UpdatePrepositioningClient = ({
 	// Extract existing fields from document if available
 	const existingFields: DocumentField[] = useMemo(
 		() =>
-			documentData?.documentFields?.map((field) => ({
+			documentData?.documentFields?.map(field => ({
 				id: field.id,
 				type: field.type as DocumentField["type"],
 				label: field.label,
@@ -340,13 +318,13 @@ export const UpdatePrepositioningClient = ({
 				position: {
 					x: field.x,
 					y: field.y,
-					pageNumber: field.pageNumber
+					pageNumber: field.pageNumber,
 				},
 				size: {
 					width: field.width,
-					height: field.height
+					height: field.height,
 				},
-				recipientId: field.recipientId
+				recipientId: field.recipientId,
 			})) ?? [],
 		[documentData?.documentFields]
 	)
@@ -363,30 +341,29 @@ export const UpdatePrepositioningClient = ({
 		if (documentId) {
 			// Only invalidate cache once when document ID changes, not continuously
 			void utils.signatureLite.prepositioning.getDocumentWithFields.invalidate({
-				documentId
+				documentId,
 			})
-			void utils.signatureLite.prepositioning.getEnvelopeWithRecipients.invalidate(
-				{ envelopeId, documentId }
-			)
+			void utils.signatureLite.prepositioning.getEnvelopeWithRecipients.invalidate({
+				envelopeId,
+				documentId,
+			})
 		}
 	}, [
 		documentId,
 		envelopeId,
 		utils.signatureLite.prepositioning.getDocumentWithFields,
-		utils.signatureLite.prepositioning.getEnvelopeWithRecipients
+		utils.signatureLite.prepositioning.getEnvelopeWithRecipients,
 	]) // Only depend on IDs, not query functions to prevent loops
 
 	if (isLoading) {
 		return (
-			<div className="flex min-h-screen items-center justify-center bg-background">
+			<div className="bg-background flex min-h-screen items-center justify-center">
 				<Card className="w-96">
 					<CardContent className="flex items-center justify-center py-12">
 						<div className="text-center">
-							<Loader2 className="mx-auto mb-4 h-8 w-8 animate-spin text-primary" />
-							<h3 className="text-lg font-medium text-foreground">
-								Loading Document
-							</h3>
-							<p className="text-sm text-muted-foreground">
+							<Loader2 className="text-primary mx-auto mb-4 h-8 w-8 animate-spin" />
+							<h3 className="text-foreground text-lg font-medium">Loading Document</h3>
+							<p className="text-muted-foreground text-sm">
 								Please wait while we prepare your document for updating...
 							</p>
 						</div>
@@ -398,15 +375,13 @@ export const UpdatePrepositioningClient = ({
 
 	if (!documentData) {
 		return (
-			<div className="flex min-h-screen items-center justify-center bg-background">
+			<div className="bg-background flex min-h-screen items-center justify-center">
 				<Card className="w-96">
 					<CardContent className="py-12 text-center">
-						<h3 className="mb-2 text-lg font-medium text-foreground">
-							Document Not Found
-						</h3>
-						<p className="mb-4 text-sm text-muted-foreground">
-							The document you&apos;re looking for doesn&apos;t exist or you
-							don&apos;t have permission to access it.
+						<h3 className="text-foreground mb-2 text-lg font-medium">Document Not Found</h3>
+						<p className="text-muted-foreground mb-4 text-sm">
+							The document you&apos;re looking for doesn&apos;t exist or you don&apos;t have
+							permission to access it.
 						</p>
 						<Button onClick={handleBack} variant="outline">
 							<ArrowLeft className="mr-2 h-4 w-4" />
@@ -419,9 +394,9 @@ export const UpdatePrepositioningClient = ({
 	}
 
 	return (
-		<div className="min-h-screen bg-background">
+		<div className="bg-background min-h-screen">
 			{/* Header */}
-			<div className="border-b bg-muted/60 shadow-sm">
+			<div className="bg-muted/60 border-b shadow-sm">
 				<div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
 					<div className="flex items-center justify-between">
 						<div>
@@ -445,9 +420,7 @@ export const UpdatePrepositioningClient = ({
 								) : (
 									<CheckIcon className="mr-2 h-4 w-4" />
 								)}
-								<span className="hidden sm:inline">
-									{isPendingAutoSave ? "Saving..." : "Done"}
-								</span>
+								<span className="hidden sm:inline">{isPendingAutoSave ? "Saving..." : "Done"}</span>
 							</Button>
 						</div>
 					</div>

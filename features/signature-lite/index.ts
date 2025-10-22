@@ -1,17 +1,14 @@
 // Signature Lite - Simplified signature workflow components
 export { EnvelopeBuilder } from "./components/envelope-builder"
 export { DocumentUpload } from "./components/document-upload"
-export {
-	RecipientManager,
-	type Recipient
-} from "./components/recipient-manager"
+export { RecipientManager, type Recipient } from "./components/recipient-manager"
 export { SignaturePositioning } from "./components/signature-positioning"
 
 // Document positioning components
 export {
 	PrePositioningPage,
 	UpdatePositioningPage,
-	type DocumentField
+	type DocumentField,
 } from "./components/document-prepositioning"
 
 // Enhanced PDF viewer
