@@ -1,0 +1,119 @@
+"use client"
+
+import dynamic from "next/dynamic"
+import { useRouter } from "next/navigation"
+import { useSession } from "next-auth/react"
+import { use, useEffect } from "react"
+
+import { Button } from "@/core/components/ui/button"
+import { Card, CardContent } from "@/core/components/ui/card"
+import { Skeleton } from "@/core/components/ui/skeleton"
+import { useMeetings } from "@/features/meetings/api/meetings.hooks"
+
+// Dynamically import VideoSDK component (client-only, no SSR)
+const VideoMeetingClient = dynamic(
+	() => import("@/features/meetings/components/video-meeting-client").then((mod) => mod.VideoMeetingClient),
+	{ 
+		ssr: false,
+		loading: () => (
+			<div className="flex h-screen items-center justify-center bg-gray-950">
+				<div className="text-center">
+					<div className="size-8 animate-spin rounded-full border-b-2 border-primary mx-auto mb-4" />
+					<p className="text-gray-300">Loading video SDK...</p>
+				</div>
+			</div>
+		)
+	}
+)
+
+// Main page component
+export default function MeetingRoomPage({ params }: { params: Promise<{ id: string }> }) {
+	const { id } = use(params)
+	const router = useRouter()
+	const { data: session } = useSession()
+	const { getById, getToken } = useMeetings()
+	const { data: meeting, isLoading: isMeetingLoading } = getById(id)
+	const { data: tokenData, isLoading: isTokenLoading } = getToken(id)
+
+	useEffect(() => {
+		if (!session) {
+			router.push(`/auth/login?callbackUrl=/meetings/${id}`)
+		}
+	}, [session, router, id])
+
+	const handleLeave = () => {
+		router.push("/meetings")
+	}
+
+	if (isMeetingLoading || isTokenLoading) {
+		return (
+			<div className="flex h-screen items-center justify-center bg-gray-950">
+				<div className="text-center">
+					<Skeleton className="mx-auto mb-4 size-12 rounded-full" />
+					<Skeleton className="h-6 w-48" />
+				</div>
+			</div>
+		)
+	}
+
+	if (!meeting || !tokenData) {
+		return (
+			<div className="flex h-screen items-center justify-center bg-gray-950">
+				<div className="text-center text-white">
+					<h2 className="text-2xl font-bold">Meeting not found</h2>
+					<Button className="mt-4" onClick={() => router.push("/meetings")}>
+						Back to Meetings
+					</Button>
+				</div>
+			</div>
+		)
+	}
+
+	// Check if meeting is ongoing
+	if (meeting.status !== "ONGOING") {
+		return (
+			<div className="flex h-screen items-center justify-center bg-gray-950">
+				<Card className="w-full max-w-md">
+					<CardContent className="p-8 text-center">
+						<h2 className="mb-2 text-2xl font-bold">{meeting.title}</h2>
+						<p className="mb-6 text-muted-foreground">
+							{meeting.status === "SCHEDULED" 
+								? "This meeting has not started yet. Please wait for the host to start the meeting."
+								: "This meeting has ended."
+							}
+						</p>
+						<Button onClick={() => router.push("/meetings")}>
+							Back to Meetings
+						</Button>
+					</CardContent>
+				</Card>
+			</div>
+		)
+	}
+
+	if (!meeting.roomId) {
+		return (
+			<div className="flex h-screen items-center justify-center bg-gray-950">
+				<div className="text-center text-white">
+					<h2 className="text-2xl font-bold">Meeting room not available</h2>
+					<p className="mt-2 text-gray-400">This meeting has not been started yet</p>
+					<Button className="mt-4" onClick={() => router.push("/meetings")}>
+						Back to Meetings
+					</Button>
+				</div>
+			</div>
+		)
+	}
+
+	// Directly render video meeting - no extra "Ready to join" screen
+	return (
+		<VideoMeetingClient
+			meetingId={meeting.roomId}
+			token={tokenData.token}
+			participantName={session?.user?.name ?? "Guest"}
+			onLeave={handleLeave}
+		/>
+	)
+}
+
+
