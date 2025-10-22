@@ -40,6 +40,8 @@ export const ROUTE_CONFIG: RouteConfig = {
 			{ path: "/auth/signature" },
 			{ path: "/envelope" },
 			{ path: "/envelopes" },
+			{ path: "/meetings" },
+			{ path: "/messages" },
 			{ path: "/my-signed" },
 			{ path: "/notifications" },
 			{ path: "/profile" },
