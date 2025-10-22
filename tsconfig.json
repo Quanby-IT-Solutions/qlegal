@@ -18,7 +18,7 @@
 		"noEmit": true,
 		"module": "ESNext",
 		"moduleResolution": "Bundler",
-		"jsx": "preserve",
+		"jsx": "react-jsx",
 		"jsxImportSource": "react",
 		"plugins": [
 			{
@@ -42,7 +42,8 @@
 		"eslint.config.ts",
 		"postcss.config.ts",
 		"prettier.config.ts",
-		"next.config.mjs"
+		"next.config.mjs",
+		".next/dev/types/**/*.ts"
 	],
 	"exclude": ["node_modules"]
 }
