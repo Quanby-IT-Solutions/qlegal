@@ -17,6 +17,7 @@ export async function createUsers() {
 		emailVerified: account.emailVerified,
 		image: account.image,
 		password: hashedPassword,
+		role: account.role as "client" | "admin" | "super_admin",
 	}))
 
 	if (testAccountData.length > 0) {
@@ -40,6 +41,7 @@ export async function createUsers() {
 					}),
 					image: funcs.default({ defaultValue: faker.image.avatar() }),
 					password: funcs.default({ defaultValue: hashedPassword }),
+					role: funcs.default({ defaultValue: "client" }),
 				},
 			},
 		}))
