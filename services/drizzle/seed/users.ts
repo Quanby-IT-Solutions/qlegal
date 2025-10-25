@@ -17,7 +17,7 @@ export async function createUsers() {
 		emailVerified: account.emailVerified,
 		image: account.image,
 		password: hashedPassword,
-		role: account.role as "client" | "admin" | "super_admin",
+		role: account.role,
 	}))
 
 	if (testAccountData.length > 0) {
