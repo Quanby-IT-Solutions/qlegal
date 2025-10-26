@@ -5,7 +5,7 @@ import { AnimatePresence, motion, type HTMLMotionProps } from "motion/react"
 import { Tooltip as TooltipPrimitive } from "radix-ui"
 
 import { getStrictContext } from "@/core/context/get-strict-context"
-import { useControlledState } from "@/core/context/use-controlled-state"
+import { useControlledState } from "@/core/hooks/use-controlled-state"
 
 type TooltipContextType = {
 	isOpen: boolean
