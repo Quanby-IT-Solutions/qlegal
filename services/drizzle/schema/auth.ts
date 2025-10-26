@@ -1,10 +1,9 @@
 import { type InferSelectModel } from "drizzle-orm"
 import { index, primaryKey } from "drizzle-orm/pg-core"
 
+import { userRoles } from "@/services/drizzle/schema/_enums"
 import type { AdapterAccount } from "@/services/drizzle/types/auth"
 import { createTable, randomId } from "@/services/drizzle/utils"
-
-import { userRoles } from "./_enums"
 
 export const users = createTable("user", t => ({
 	id: t

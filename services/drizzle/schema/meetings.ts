@@ -1,10 +1,9 @@
 import { type InferSelectModel } from "drizzle-orm"
 import { index, pgTable, timestamp, varchar } from "drizzle-orm/pg-core"
 
+import { meetingStatus } from "@/services/drizzle/schema/_enums"
+import { users } from "@/services/drizzle/schema/auth"
 import { randomId } from "@/services/drizzle/utils"
-
-import { meetingStatus } from "./_enums"
-import { users } from "./auth"
 
 // Simple meetings table
 export const meetings = pgTable(

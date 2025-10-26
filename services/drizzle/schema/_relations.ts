@@ -1,10 +1,14 @@
 import { relations } from "drizzle-orm"
 
-import { users } from "./auth"
-import { documents } from "./document"
-import { envelopes } from "./envelope"
-import { meetingParticipants, meetings } from "./meetings"
-import { conversationParticipants, conversations, messages } from "./messages"
+import { users } from "@/services/drizzle/schema/auth"
+import { documents } from "@/services/drizzle/schema/document"
+import { envelopes } from "@/services/drizzle/schema/envelope"
+import { meetingParticipants, meetings } from "@/services/drizzle/schema/meetings"
+import {
+	conversationParticipants,
+	conversations,
+	messages,
+} from "@/services/drizzle/schema/messages"
 
 // Auth relations
 export const userRelations = relations(users, ({ many }) => ({

@@ -1,6 +1,5 @@
+import { users } from "@/services/drizzle/schema/auth"
 import { createTable, randomId } from "@/services/drizzle/utils"
-
-import { users } from "./auth"
 
 export const envelopes = createTable("envelopes", f => ({
 	id: f
