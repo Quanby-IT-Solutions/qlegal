@@ -1,8 +1,7 @@
 import { index, pgTable, text, timestamp, varchar } from "drizzle-orm/pg-core"
 
+import { users } from "@/services/drizzle/schema/auth"
 import { randomId } from "@/services/drizzle/utils"
-
-import { users } from "./auth"
 
 // Conversations table
 export const conversations = pgTable(

@@ -1,7 +1,6 @@
+import { documentStatusEnum } from "@/services/drizzle/schema/_enums"
+import { envelopes } from "@/services/drizzle/schema/envelope"
 import { createTable, randomId } from "@/services/drizzle/utils"
-
-import { documentStatusEnum } from "./_enums"
-import { envelopes } from "./envelope"
 
 export const documents = createTable("documents", f => ({
 	id: f
