@@ -293,6 +293,7 @@ function TooltipOverlay() {
 									open: rendered.open,
 								}}
 							>
+								{/* @ts-expect-error - Slot vs motion.div type incompatibility */}
 								<Component
 									data-slot="tooltip-content"
 									data-side={resolvedSide}
@@ -513,6 +514,7 @@ function TooltipTrigger({
 	const Component = asChild ? Slot : motion.div
 
 	return (
+		// @ts-expect-error - Slot vs motion.div type incompatibility
 		<Component
 			ref={triggerRef}
 			onPointerDown={handlePointerDown}
