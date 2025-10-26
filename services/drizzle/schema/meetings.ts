@@ -21,10 +21,10 @@ export const meetings = pgTable(
 		createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 		updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 	},
-	table => ({
-		roomIdIdx: index("meetings_room_id_idx").on(table.roomId),
-		createdByIdx: index("meetings_created_by_idx").on(table.createdById),
-	})
+	table => [
+		index("meetings_room_id_idx").on(table.roomId),
+		index("meetings_created_by_idx").on(table.createdById),
+	]
 )
 
 // Meeting participants
@@ -42,10 +42,10 @@ export const meetingParticipants = pgTable(
 			.references(() => users.id, { onDelete: "cascade" }),
 		createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 	},
-	table => ({
-		meetingIdIdx: index("meeting_participants_meeting_id_idx").on(table.meetingId),
-		userIdIdx: index("meeting_participants_user_id_idx").on(table.userId),
-	})
+	table => [
+		index("meeting_participants_meeting_id_idx").on(table.meetingId),
+		index("meeting_participants_user_id_idx").on(table.userId),
+	]
 )
 
 // Types

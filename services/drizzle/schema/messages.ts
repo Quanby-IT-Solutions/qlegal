@@ -13,9 +13,7 @@ export const conversations = pgTable(
 		createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 		updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 	},
-	table => ({
-		updatedAtIdx: index("conversation_updated_at_idx").on(table.updatedAt),
-	})
+	table => [index("conversation_updated_at_idx").on(table.updatedAt)]
 )
 
 // Conversation participants (for 1-on-1 or group chats)
@@ -34,12 +32,10 @@ export const conversationParticipants = pgTable(
 		joinedAt: timestamp("joined_at", { withTimezone: true }).defaultNow().notNull(),
 		lastReadAt: timestamp("last_read_at", { withTimezone: true }),
 	},
-	table => ({
-		conversationIdIdx: index("conversation_participant_conversation_id_idx").on(
-			table.conversationId
-		),
-		userIdIdx: index("conversation_participant_user_id_idx").on(table.userId),
-	})
+	table => [
+		index("conversation_participant_conversation_id_idx").on(table.conversationId),
+		index("conversation_participant_user_id_idx").on(table.userId),
+	]
 )
 
 // Messages table
@@ -58,8 +54,8 @@ export const messages = pgTable(
 		content: text("content").notNull(),
 		createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 	},
-	table => ({
-		conversationIdIdx: index("message_conversation_id_idx").on(table.conversationId),
-		createdAtIdx: index("message_created_at_idx").on(table.createdAt),
-	})
+	table => [
+		index("message_conversation_id_idx").on(table.conversationId),
+		index("message_created_at_idx").on(table.createdAt),
+	]
 )
