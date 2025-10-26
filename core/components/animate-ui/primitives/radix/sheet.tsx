@@ -5,7 +5,7 @@ import { AnimatePresence, motion, type HTMLMotionProps } from "motion/react"
 import { Dialog as SheetPrimitive } from "radix-ui"
 
 import { getStrictContext } from "@/core/context/get-strict-context"
-import { useControlledState } from "@/core/context/use-controlled-state"
+import { useControlledState } from "@/core/hooks/use-controlled-state"
 
 type SheetContextType = {
 	isOpen: boolean
