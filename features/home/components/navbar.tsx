@@ -122,9 +122,9 @@ function NavbarContent({
 						"items-center justify-center px-1.5 py-0"
 					)}
 				>
-					<QuanbyLogo className="!size-8" />
+					<QuanbyLogo className="size-8!" />
 
-					<span className="from-foreground to-foreground/80 bg-gradient-to-r bg-clip-text text-xl leading-tight font-bold tracking-tight text-transparent">
+					<span className="from-foreground to-foreground/80 bg-linear-to-r bg-clip-text text-xl leading-tight font-bold tracking-tight text-transparent">
 						QSign
 					</span>
 				</Link>
