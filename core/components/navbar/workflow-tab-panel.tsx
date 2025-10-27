@@ -89,19 +89,22 @@ export function WorkflowTabPanel<T extends string>({
 			x: sidebarState === "collapsed" ? 0 : dir > 0 ? 300 : -300,
 			y: sidebarState === "collapsed" ? (dir > 0 ? 100 : -100) : 0,
 			opacity: 0,
-			filter: "blur(4px)",
+			filter: "blur(8px)",
+			scale: 0.95,
 		}),
 		center: {
 			x: 0,
 			y: 0,
 			opacity: 1,
 			filter: "blur(0px)",
+			scale: 1,
 		},
 		exit: (dir: number) => ({
 			x: sidebarState === "collapsed" ? 0 : dir < 0 ? 300 : -300,
 			y: sidebarState === "collapsed" ? (dir < 0 ? 100 : -100) : 0,
 			opacity: 0,
-			filter: "blur(4px)",
+			filter: "blur(8px)",
+			scale: 0.95,
 		}),
 	}
 
@@ -169,7 +172,13 @@ export function WorkflowTabPanel<T extends string>({
 					activeIndex={activeIndex}
 					variants={variants}
 					custom={direction}
-					transition={{ duration: 0.3, ease: "easeInOut" }}
+					transition={{
+						duration: 0.4,
+						ease: [0.4, 0, 0.2, 1],
+						opacity: { duration: 0.3 },
+						filter: { duration: 0.3 },
+						scale: { duration: 0.35 },
+					}}
 				>
 					{tabs.map(tab => (
 						<div key={tab.value}>{children(tab.value)}</div>
