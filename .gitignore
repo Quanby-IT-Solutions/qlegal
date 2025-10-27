@@ -41,6 +41,11 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# cursor
+.cursor/
+
+# github
+.github/copilot-instructions.md
 
 # START Ruler Generated Files
 /.cursor/rules/ruler_cursor_instructions.mdc
