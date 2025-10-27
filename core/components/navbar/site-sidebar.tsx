@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import {
 	BadgeCheck,
 	Bell,
@@ -41,28 +41,16 @@ import {
 	SidebarRail,
 } from "@/core/components/animate-ui/components/radix/sidebar"
 import {
-	Tabs,
-	TabsContent,
-	TabsContents,
-	TabsList,
-	TabsTrigger,
-} from "@/core/components/animate-ui/components/radix/tabs"
-import {
 	Collapsible,
 	CollapsibleContent,
 	CollapsibleTrigger,
 } from "@/core/components/animate-ui/primitives/radix/collapsible"
+import { WorkflowTabPanel } from "@/core/components/navbar/workflow-tab-panel"
 import { Avatar, AvatarFallback, AvatarImage } from "@/core/components/ui/avatar"
 import { useIsMobile } from "@/core/hooks/use-mobile"
 import { getTeams } from "@/core/lib/nav/site.config"
 // Import navigation configs
-import {
-	type NavItem,
-	type NavSection,
-	type NotaryRole,
-	type Team,
-	type WorkflowType,
-} from "@/core/lib/nav/types"
+import { type NavItem, type NavSection, type NotaryRole, type Team } from "@/core/lib/nav/types"
 import { canAccessNavItem, getAppSidebarSections } from "@/core/lib/nav/utils"
 
 // Use imported data instead of local DATA object
@@ -170,22 +158,6 @@ export const SiteSidebar = () => {
 	const isMobile = useIsMobile()
 	const [activeTeam, setActiveTeam] = useState<Team>(getTeams()[0]!)
 	const userRole = session?.user?.role
-	const [workflow, setWorkflow] = useState<WorkflowType>("REN") // Default workflow
-
-	// Initialize workflow from cookie and keep it in sync
-	useEffect(() => {
-		const match = document.cookie.split("; ").find(row => row.startsWith("workflow_preference="))
-		const value = match?.split("=")[1]
-		if (value === "REN" || value === "IEN") {
-			setWorkflow(value as WorkflowType)
-		}
-	}, [])
-
-	const handleSetWorkflow = (wf: WorkflowType) => {
-		setWorkflow(wf)
-		// persist for ~180 days
-		document.cookie = `workflow_preference=${wf}; Path=/; Max-Age=${60 * 60 * 24 * 180}`
-	}
 
 	if (!activeTeam) return null
 
@@ -248,51 +220,31 @@ export const SiteSidebar = () => {
 			</SidebarHeader>
 
 			<SidebarContent>
-				<Tabs value={workflow} onValueChange={value => handleSetWorkflow(value as WorkflowType)}>
-					{/* Workflow Selector */}
-					<SidebarGroup>
-						<SidebarGroupLabel>Notarization Workflow</SidebarGroupLabel>
-						<SidebarMenu>
-							<SidebarMenuItem>
-								<TabsList className="grid w-full grid-cols-2">
-									<TabsTrigger value="REN" className="flex items-center gap-2">
-										<Globe className="size-4" />
-										<span>REN</span>
-									</TabsTrigger>
-									<TabsTrigger value="IEN" className="flex items-center gap-2">
-										<Handshake className="size-4" />
-										<span>IEN</span>
-									</TabsTrigger>
-								</TabsList>
-							</SidebarMenuItem>
-						</SidebarMenu>
-					</SidebarGroup>
-
-					{/* Navigation Sections with Animation */}
-					<TabsContents>
-						<TabsContent value="REN">
-							{getAppSidebarSections(userRole, "REN").map(section => (
+				{/* Navigation Sections */}
+				<WorkflowTabPanel
+					tabs={[
+						{ value: "REN", label: "REN", icon: Globe },
+						{ value: "IEN", label: "IEN", icon: Handshake },
+					]}
+					defaultValue="REN"
+					cookieName="workflow_preference"
+					cookieMaxAge={60 * 60 * 24 * 180}
+				>
+					{currentWorkflow => (
+						<>
+							{getAppSidebarSections(userRole, currentWorkflow).map(section => (
 								<SidebarNavSection
 									key={section.label}
 									section={section}
 									userRole={userRole}
-									currentWorkflow="REN"
+									currentWorkflow={currentWorkflow}
 								/>
 							))}
-						</TabsContent>
-						<TabsContent value="IEN">
-							{getAppSidebarSections(userRole, "IEN").map(section => (
-								<SidebarNavSection
-									key={section.label}
-									section={section}
-									userRole={userRole}
-									currentWorkflow="IEN"
-								/>
-							))}
-						</TabsContent>
-					</TabsContents>
-				</Tabs>
+						</>
+					)}
+				</WorkflowTabPanel>
 			</SidebarContent>
+
 			<SidebarFooter>
 				{/* Nav User */}
 				<SidebarMenu>
