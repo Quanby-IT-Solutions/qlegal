@@ -35,7 +35,8 @@ export function Footer() {
 							</span>
 						</Link>
 						<p className="text-muted-foreground leading-relaxed">
-							QSign Main is a lightweight e-signature app focused on speed, simplicity, and privacy.
+							QSign Main is an e-notary platform—consult with a notary or lawyer and sign documents
+							together in a secure, guided session.
 						</p>
 					</MotionEffect>
 
