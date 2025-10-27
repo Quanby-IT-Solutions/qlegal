@@ -9,13 +9,13 @@ import { addCustomHeaders } from "@/core/middleware/security"
 
 import { authConfig } from "@/services/next-auth/config"
 
-const { auth: middleware } = NextAuth(authConfig)
+const { auth: proxy } = NextAuth(authConfig)
 
 // ============================================================================
 // MIDDLEWARE FUNCTION
 // ============================================================================
 
-export default middleware(req => {
+export default proxy(req => {
 	const { nextUrl, auth } = req
 	const path = nextUrl.pathname
 	const isAuth = !!auth?.user
