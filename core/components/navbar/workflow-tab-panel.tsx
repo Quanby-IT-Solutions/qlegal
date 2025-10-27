@@ -112,7 +112,7 @@ export function WorkflowTabPanel<T extends string>({
 
 	return (
 		<div className={cn("overflow-x-hidden", className)}>
-			<Tabs value={activeValue} onValueChange={handleValueChange}>
+			<Tabs value={activeValue} onValueChange={handleValueChange} className="gap-0">
 				{/* Tab Header */}
 				<SidebarGroup className="group-data-[collapsible=icon]:p-[6px]">
 					<SidebarGroupLabel className="group-data-[collapsible=icon]:hidden">
@@ -128,7 +128,7 @@ export function WorkflowTabPanel<T extends string>({
 							className={cn(
 								"bg-muted text-muted-foreground rounded-lg p-[3px]",
 								sidebarState === "collapsed"
-									? "inline-flex h-18 w-9 flex-col items-center justify-center"
+									? "inline-flex h-16 w-9 flex-col items-center justify-center"
 									: "flex h-9 w-full flex-row items-center justify-center"
 							)}
 						>

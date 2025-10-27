@@ -1,5 +1,7 @@
 "use client"
 
+import type { Route } from "next"
+import Link from "next/link"
 import { useState } from "react"
 import {
 	BadgeCheck,
@@ -7,13 +9,10 @@ import {
 	ChevronRight,
 	ChevronsUpDown,
 	CreditCard,
-	Globe,
-	Handshake,
-	LifeBuoy,
 	LogOut,
 	Plus,
-	Send,
 	Sparkles,
+	type LucideIcon,
 } from "lucide-react"
 import { useSession } from "next-auth/react"
 
@@ -56,26 +55,24 @@ import {
 import { WorkflowTabPanel } from "@/core/components/navbar/workflow-tab-panel"
 import { Avatar, AvatarFallback, AvatarImage } from "@/core/components/ui/avatar"
 import { useIsMobile } from "@/core/hooks/use-mobile"
-import { getTeams } from "@/core/lib/nav/site.config"
-// Import navigation configs
+import {
+	getTeams,
+	getUserProfile,
+	iconMap,
+	navSecondary,
+	workflows,
+} from "@/core/lib/nav/site.config"
 import { type NavItem, type NavSection, type NotaryRole, type Team } from "@/core/lib/nav/types"
 import { canAccessNavItem, getAppSidebarSections } from "@/core/lib/nav/utils"
 
-// Use imported data instead of local DATA object
-
-// Secondary navigation items
-const navSecondary = [
-	{
-		title: "Support",
-		url: "#",
-		icon: LifeBuoy,
-	},
-	{
-		title: "Feedback",
-		url: "#",
-		icon: Send,
-	},
-]
+// Helper function to resolve icon names to components
+const resolveIcon = (icon?: LucideIcon | string) => {
+	if (!icon) return undefined
+	if (typeof icon === "string") {
+		return iconMap[icon as keyof typeof iconMap]
+	}
+	return icon
+}
 
 // SidebarNavItem Component
 type SidebarNavItemProps = {
@@ -95,6 +92,7 @@ const SidebarNavItem = ({ item, userRole, currentWorkflow }: SidebarNavItemProps
 
 	// If no sub-items or no accessible sub-items, render as simple link
 	if (!item.items || accessibleSubItems.length === 0) {
+		const IconComponent = resolveIcon(item.icon)
 		return (
 			<SidebarMenuItem>
 				{sidebarState === "collapsed" ? (
@@ -102,7 +100,7 @@ const SidebarNavItem = ({ item, userRole, currentWorkflow }: SidebarNavItemProps
 						<TooltipTrigger asChild>
 							<SidebarMenuButton asChild>
 								<a href={item.url}>
-									{item.icon && <item.icon />}
+									{IconComponent && <IconComponent />}
 									<span>{item.title}</span>
 								</a>
 							</SidebarMenuButton>
@@ -113,10 +111,10 @@ const SidebarNavItem = ({ item, userRole, currentWorkflow }: SidebarNavItemProps
 					</Tooltip>
 				) : (
 					<SidebarMenuButton asChild>
-						<a href={item.url}>
-							{item.icon && <item.icon />}
+						<Link href={item.url as Route}>
+							{IconComponent && <IconComponent />}
 							<span>{item.title}</span>
-						</a>
+						</Link>
 					</SidebarMenuButton>
 				)}
 			</SidebarMenuItem>
@@ -124,6 +122,7 @@ const SidebarNavItem = ({ item, userRole, currentWorkflow }: SidebarNavItemProps
 	}
 
 	// Render as collapsible with sub-items
+	const IconComponent = resolveIcon(item.icon)
 	return (
 		<Collapsible asChild defaultOpen={item.isActive} className="group/collapsible">
 			<SidebarMenuItem>
@@ -132,7 +131,7 @@ const SidebarNavItem = ({ item, userRole, currentWorkflow }: SidebarNavItemProps
 						<TooltipTrigger asChild>
 							<CollapsibleTrigger asChild>
 								<SidebarMenuButton>
-									{item.icon && <item.icon />}
+									{IconComponent && <IconComponent />}
 									<span>{item.title}</span>
 									<ChevronRight className="ml-auto transition-transform duration-300 group-data-[state=open]/collapsible:rotate-90" />
 								</SidebarMenuButton>
@@ -145,7 +144,7 @@ const SidebarNavItem = ({ item, userRole, currentWorkflow }: SidebarNavItemProps
 				) : (
 					<CollapsibleTrigger asChild>
 						<SidebarMenuButton>
-							{item.icon && <item.icon />}
+							{IconComponent && <IconComponent />}
 							<span>{item.title}</span>
 							<ChevronRight className="ml-auto transition-transform duration-300 group-data-[state=open]/collapsible:rotate-90" />
 						</SidebarMenuButton>
@@ -274,16 +273,16 @@ export const SiteSidebar = () => {
 						</DropdownMenu>
 					</SidebarMenuItem>
 				</SidebarMenu>
-				{/* Team Switcher */}
 			</SidebarHeader>
 
 			<SidebarContent className="overflow-x-hidden">
 				{/* Navigation Sections */}
 				<WorkflowTabPanel
-					tabs={[
-						{ value: "REN", label: "REN", icon: Globe },
-						{ value: "IEN", label: "IEN", icon: Handshake },
-					]}
+					tabs={workflows.map(workflow => ({
+						value: workflow.id,
+						label: workflow.label,
+						icon: workflow.icon,
+					}))}
 					defaultValue="REN"
 					cookieName="workflow_preference"
 					cookieMaxAge={60 * 60 * 24 * 180}
@@ -306,32 +305,35 @@ export const SiteSidebar = () => {
 			<SidebarFooter>
 				{/* Secondary Navigation */}
 				<SidebarMenu className="mt-auto">
-					{navSecondary.map(item => (
-						<SidebarMenuItem key={item.title}>
-							{sidebarState === "collapsed" ? (
-								<Tooltip side="right" align="center">
-									<TooltipTrigger asChild>
-										<SidebarMenuButton asChild>
-											<a href={item.url}>
-												<item.icon />
-												<span>{item.title}</span>
-											</a>
-										</SidebarMenuButton>
-									</TooltipTrigger>
-									<TooltipContent>
-										<p>{item.title}</p>
-									</TooltipContent>
-								</Tooltip>
-							) : (
-								<SidebarMenuButton asChild>
-									<a href={item.url}>
-										<item.icon />
-										<span>{item.title}</span>
-									</a>
-								</SidebarMenuButton>
-							)}
-						</SidebarMenuItem>
-					))}
+					{navSecondary.map((item: NavItem) => {
+						const IconComponent = resolveIcon(item.icon)
+						return (
+							<SidebarMenuItem key={item.title}>
+								{sidebarState === "collapsed" ? (
+									<Tooltip side="right" align="center">
+										<TooltipTrigger asChild>
+											<SidebarMenuButton asChild>
+												<a href={item.url}>
+													{IconComponent && <IconComponent />}
+													<span>{item.title}</span>
+												</a>
+											</SidebarMenuButton>
+										</TooltipTrigger>
+										<TooltipContent>
+											<p>{item.title}</p>
+										</TooltipContent>
+									</Tooltip>
+								) : (
+									<SidebarMenuButton asChild>
+										<a href={item.url}>
+											{IconComponent && <IconComponent />}
+											<span>{item.title}</span>
+										</a>
+									</SidebarMenuButton>
+								)}
+							</SidebarMenuItem>
+						)
+					})}
 				</SidebarMenu>
 				{/* Nav User */}
 				<SidebarMenu>
@@ -343,14 +345,21 @@ export const SiteSidebar = () => {
 									className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
 								>
 									<Avatar className="h-8 w-8 rounded-lg">
-										<AvatarImage src={session?.user?.image ?? ""} alt={session?.user?.name ?? ""} />
+										<AvatarImage
+											src={session?.user?.image ?? getUserProfile().avatar}
+											alt={session?.user?.name ?? getUserProfile().name}
+										/>
 										<AvatarFallback className="rounded-lg">
-											{session?.user?.name?.[0] ?? "U"}
+											{session?.user?.name?.[0] ?? getUserProfile().name[0]}
 										</AvatarFallback>
 									</Avatar>
 									<div className="grid flex-1 text-left text-sm leading-tight">
-										<span className="truncate font-semibold">{session?.user?.name ?? ""}</span>
-										<span className="truncate text-xs">{session?.user?.email ?? ""}</span>
+										<span className="truncate font-semibold">
+											{session?.user?.name ?? getUserProfile().name}
+										</span>
+										<span className="truncate text-xs">
+											{session?.user?.email ?? getUserProfile().email}
+										</span>
 									</div>
 									<ChevronsUpDown className="ml-auto size-4" />
 								</SidebarMenuButton>
@@ -365,16 +374,20 @@ export const SiteSidebar = () => {
 									<div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
 										<Avatar className="h-8 w-8 rounded-lg">
 											<AvatarImage
-												src={session?.user?.image ?? ""}
-												alt={session?.user?.name ?? ""}
+												src={session?.user?.image ?? getUserProfile().avatar}
+												alt={session?.user?.name ?? getUserProfile().name}
 											/>
 											<AvatarFallback className="rounded-lg">
-												{session?.user?.name?.[0] ?? "U"}
+												{session?.user?.name?.[0] ?? getUserProfile().name[0]}
 											</AvatarFallback>
 										</Avatar>
 										<div className="grid flex-1 text-left text-sm leading-tight">
-											<span className="truncate font-semibold">{session?.user?.name ?? ""}</span>
-											<span className="truncate text-xs">{session?.user?.email ?? ""}</span>
+											<span className="truncate font-semibold">
+												{session?.user?.name ?? getUserProfile().name}
+											</span>
+											<span className="truncate text-xs">
+												{session?.user?.email ?? getUserProfile().email}
+											</span>
 										</div>
 									</div>
 								</DropdownMenuLabel>
@@ -409,7 +422,6 @@ export const SiteSidebar = () => {
 						</DropdownMenu>
 					</SidebarMenuItem>
 				</SidebarMenu>
-				{/* Nav User */}
 			</SidebarFooter>
 			<SidebarRail />
 		</Sidebar>

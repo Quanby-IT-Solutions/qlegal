@@ -19,6 +19,7 @@ import {
 	Handshake,
 	HouseIcon,
 	LayersIcon,
+	LifeBuoy,
 	LogOut,
 	MailIcon,
 	MessageSquareIcon,
@@ -27,6 +28,7 @@ import {
 	PieChart,
 	Plus,
 	Scan,
+	Send,
 	Settings2,
 	SettingsIcon,
 	ShieldIcon,
@@ -80,6 +82,9 @@ export const iconMap = {
 	logOut: LogOut,
 	plus: Plus,
 	sparkles: Sparkles,
+	// Secondary navigation icons
+	lifeBuoy: LifeBuoy,
+	send: Send,
 } as const
 
 export type IconName = keyof typeof iconMap
@@ -125,6 +130,20 @@ export const userProfile: UserProfile = {
 	email: "skyleen@example.com",
 	avatar: "https://pbs.twimg.com/profile_images/1909615404789506048/MTqvRsjo_400x400.jpg",
 }
+
+// Secondary navigation items
+export const navSecondary: NavItem[] = [
+	{
+		title: "Support",
+		url: "/support",
+		icon: "lifeBuoy",
+	},
+	{
+		title: "Feedback",
+		url: "/feedback",
+		icon: "send",
+	},
+]
 
 // App sidebar sections configuration
 export const appSidebarSections: NavSection[] = [
@@ -394,4 +413,8 @@ export function getUserProfile(): UserProfile {
 
 export function getSiteUserItems(userRole?: UserRole | null): NavItem[] {
 	return filterNavItemsByRole(siteUserConfig, userRole)
+}
+
+export function getNavSecondary(): NavItem[] {
+	return navSecondary
 }
