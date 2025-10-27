@@ -29,8 +29,8 @@ export function Footer() {
 							href="/"
 							className="hover:bg-muted/50 flex items-center gap-2 rounded-lg p-1 transition-colors"
 						>
-							<QuanbyLogo className="!size-8" />
-							<span className="from-foreground to-foreground/80 bg-gradient-to-r bg-clip-text text-xl leading-tight font-bold tracking-tight text-transparent">
+							<QuanbyLogo className="size-8!" />
+							<span className="from-foreground to-foreground/80 bg-linear-to-r bg-clip-text text-xl leading-tight font-bold tracking-tight text-transparent">
 								QSign Main
 							</span>
 						</Link>
