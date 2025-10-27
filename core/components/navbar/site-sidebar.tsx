@@ -1,21 +1,26 @@
 "use client"
 
-import * as React from "react"
+import type { Route } from "next"
+import Link from "next/link"
+import { useState } from "react"
 import {
 	BadgeCheck,
 	Bell,
 	ChevronRight,
 	ChevronsUpDown,
 	CreditCard,
-	Globe,
-	Handshake,
 	LogOut,
 	Plus,
 	Sparkles,
-	User,
-	Users,
+	type LucideIcon,
 } from "lucide-react"
+import { useSession } from "next-auth/react"
 
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipTrigger,
+} from "@/core/components/animate-ui/components/animate/tooltip"
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -40,26 +45,28 @@ import {
 	SidebarMenuSubButton,
 	SidebarMenuSubItem,
 	SidebarRail,
+	useSidebar,
 } from "@/core/components/animate-ui/components/radix/sidebar"
 import {
 	Collapsible,
 	CollapsibleContent,
 	CollapsibleTrigger,
 } from "@/core/components/animate-ui/primitives/radix/collapsible"
+import { WorkflowTabPanel } from "@/core/components/navbar/workflow-tab-panel"
 import { Avatar, AvatarFallback, AvatarImage } from "@/core/components/ui/avatar"
 import { useIsMobile } from "@/core/hooks/use-mobile"
-import { getTeams, getUserProfile, getWorkflows } from "@/core/lib/nav/site.config"
-// Import navigation configs
-import {
-	type NavItem,
-	type NavSection,
-	type NotaryRole,
-	type Team,
-	type WorkflowType,
-} from "@/core/lib/nav/types"
+import { getTeams, iconMap, navSecondary, workflows } from "@/core/lib/nav/site.config"
+import { type NavItem, type NavSection, type NotaryRole, type Team } from "@/core/lib/nav/types"
 import { canAccessNavItem, getAppSidebarSections } from "@/core/lib/nav/utils"
 
-// Use imported data instead of local DATA object
+// Helper function to resolve icon names to components
+const resolveIcon = (icon?: LucideIcon | string) => {
+	if (!icon) return undefined
+	if (typeof icon === "string") {
+		return iconMap[icon as keyof typeof iconMap]
+	}
+	return icon
+}
 
 // SidebarNavItem Component
 type SidebarNavItemProps = {
@@ -69,6 +76,8 @@ type SidebarNavItemProps = {
 }
 
 const SidebarNavItem = ({ item, userRole, currentWorkflow }: SidebarNavItemProps) => {
+	const { state: sidebarState } = useSidebar()
+
 	// Filter sub-items by role and workflow
 	const accessibleSubItems =
 		item.items?.filter(subItem =>
@@ -77,29 +86,64 @@ const SidebarNavItem = ({ item, userRole, currentWorkflow }: SidebarNavItemProps
 
 	// If no sub-items or no accessible sub-items, render as simple link
 	if (!item.items || accessibleSubItems.length === 0) {
+		const IconComponent = resolveIcon(item.icon)
 		return (
 			<SidebarMenuItem>
-				<SidebarMenuButton asChild tooltip={item.title}>
-					<a href={item.url}>
-						{item.icon && <item.icon />}
-						<span>{item.title}</span>
-					</a>
-				</SidebarMenuButton>
+				{sidebarState === "collapsed" ? (
+					<Tooltip side="right" align="center">
+						<TooltipTrigger asChild>
+							<SidebarMenuButton asChild>
+								<a href={item.url}>
+									{IconComponent && <IconComponent />}
+									<span>{item.title}</span>
+								</a>
+							</SidebarMenuButton>
+						</TooltipTrigger>
+						<TooltipContent>
+							<p>{item.title}</p>
+						</TooltipContent>
+					</Tooltip>
+				) : (
+					<SidebarMenuButton asChild>
+						<Link href={item.url as Route}>
+							{IconComponent && <IconComponent />}
+							<span>{item.title}</span>
+						</Link>
+					</SidebarMenuButton>
+				)}
 			</SidebarMenuItem>
 		)
 	}
 
 	// Render as collapsible with sub-items
+	const IconComponent = resolveIcon(item.icon)
 	return (
 		<Collapsible asChild defaultOpen={item.isActive} className="group/collapsible">
 			<SidebarMenuItem>
-				<CollapsibleTrigger asChild>
-					<SidebarMenuButton tooltip={item.title}>
-						{item.icon && <item.icon />}
-						<span>{item.title}</span>
-						<ChevronRight className="ml-auto transition-transform duration-300 group-data-[state=open]/collapsible:rotate-90" />
-					</SidebarMenuButton>
-				</CollapsibleTrigger>
+				{sidebarState === "collapsed" ? (
+					<Tooltip side="right" align="center">
+						<TooltipTrigger asChild>
+							<CollapsibleTrigger asChild>
+								<SidebarMenuButton>
+									{IconComponent && <IconComponent />}
+									<span>{item.title}</span>
+									<ChevronRight className="ml-auto transition-transform duration-300 group-data-[state=open]/collapsible:rotate-90" />
+								</SidebarMenuButton>
+							</CollapsibleTrigger>
+						</TooltipTrigger>
+						<TooltipContent>
+							<p>{item.title}</p>
+						</TooltipContent>
+					</Tooltip>
+				) : (
+					<CollapsibleTrigger asChild>
+						<SidebarMenuButton>
+							{IconComponent && <IconComponent />}
+							<span>{item.title}</span>
+							<ChevronRight className="ml-auto transition-transform duration-300 group-data-[state=open]/collapsible:rotate-90" />
+						</SidebarMenuButton>
+					</CollapsibleTrigger>
+				)}
 				<CollapsibleContent>
 					<SidebarMenuSub>
 						{accessibleSubItems.map(subItem => (
@@ -160,10 +204,11 @@ const SidebarNavSection = ({ section, userRole, currentWorkflow }: SidebarNavSec
 }
 
 export const SiteSidebar = () => {
+	const { data: session } = useSession()
 	const isMobile = useIsMobile()
-	const [activeTeam, setActiveTeam] = React.useState<Team>(getTeams()[0]!)
-	const [userRole, setUserRole] = React.useState<string>("ENP") // Default role
-	const [workflow, setWorkflow] = React.useState<WorkflowType>("REN") // Default workflow
+	const { state: sidebarState } = useSidebar()
+	const [activeTeam, setActiveTeam] = useState<Team>(getTeams()[0]!)
+	const userRole = session?.user?.role
 
 	if (!activeTeam) return null
 
@@ -222,90 +267,68 @@ export const SiteSidebar = () => {
 						</DropdownMenu>
 					</SidebarMenuItem>
 				</SidebarMenu>
-				{/* Team Switcher */}
 			</SidebarHeader>
 
-			<SidebarContent>
-				{/* Workflow Selector */}
-				<SidebarGroup>
-					<SidebarGroupLabel>Notarization Workflow</SidebarGroupLabel>
-					<SidebarMenu>
-						<SidebarMenuItem>
-							<DropdownMenu>
-								<DropdownMenuTrigger asChild>
-									<SidebarMenuButton>
-										{workflow === "REN" ? <Globe /> : <Handshake />}
-										<span>{workflow === "REN" ? "REN" : "IEN"}</span>
-									</SidebarMenuButton>
-								</DropdownMenuTrigger>
-								<DropdownMenuContent
-									className="w-48 rounded-lg"
-									side={isMobile ? "bottom" : "right"}
-									align="start"
-								>
-									<DropdownMenuLabel>Select Workflow</DropdownMenuLabel>
-									{getWorkflows().map(workflowConfig => (
-										<DropdownMenuItem
-											key={workflowConfig.id}
-											onClick={() => setWorkflow(workflowConfig.id)}
-										>
-											<workflowConfig.icon />
-											{workflowConfig.description}
-										</DropdownMenuItem>
-									))}
-								</DropdownMenuContent>
-							</DropdownMenu>
-						</SidebarMenuItem>
-					</SidebarMenu>
-				</SidebarGroup>
-
-				{/* Role Switcher for Demo */}
-				<SidebarGroup>
-					<SidebarGroupLabel>User Role</SidebarGroupLabel>
-					<SidebarMenu>
-						<SidebarMenuItem>
-							<DropdownMenu>
-								<DropdownMenuTrigger asChild>
-									<SidebarMenuButton>
-										<BadgeCheck />
-										<span>Role: {userRole}</span>
-									</SidebarMenuButton>
-								</DropdownMenuTrigger>
-								<DropdownMenuContent
-									className="w-48 rounded-lg"
-									side={isMobile ? "bottom" : "right"}
-									align="start"
-								>
-									<DropdownMenuLabel>Switch Role</DropdownMenuLabel>
-									<DropdownMenuItem onClick={() => setUserRole("ENP")}>
-										<BadgeCheck />
-										ENP (Lawyer/Signer)
-									</DropdownMenuItem>
-									<DropdownMenuItem onClick={() => setUserRole("Principal")}>
-										<User />
-										Principal (Client/Requester)
-									</DropdownMenuItem>
-									<DropdownMenuItem onClick={() => setUserRole("ENA")}>
-										<Users />
-										ENA (Supreme Court Rep)
-									</DropdownMenuItem>
-								</DropdownMenuContent>
-							</DropdownMenu>
-						</SidebarMenuItem>
-					</SidebarMenu>
-				</SidebarGroup>
-
+			<SidebarContent className="overflow-x-hidden">
 				{/* Navigation Sections */}
-				{getAppSidebarSections(userRole, workflow).map(section => (
-					<SidebarNavSection
-						key={section.label}
-						section={section}
-						userRole={userRole}
-						currentWorkflow={workflow}
-					/>
-				))}
+				<WorkflowTabPanel
+					tabs={workflows.map(workflow => ({
+						value: workflow.id,
+						label: workflow.label,
+						icon: workflow.icon,
+					}))}
+					defaultValue="REN"
+					cookieName="workflow_preference"
+					cookieMaxAge={60 * 60 * 24 * 180}
+				>
+					{currentWorkflow => (
+						<>
+							{getAppSidebarSections(userRole, currentWorkflow).map(section => (
+								<SidebarNavSection
+									key={section.label}
+									section={section}
+									userRole={userRole}
+									currentWorkflow={currentWorkflow}
+								/>
+							))}
+						</>
+					)}
+				</WorkflowTabPanel>
 			</SidebarContent>
+
 			<SidebarFooter>
+				{/* Secondary Navigation */}
+				<SidebarMenu className="mt-auto">
+					{navSecondary.map((item: NavItem) => {
+						const IconComponent = resolveIcon(item.icon)
+						return (
+							<SidebarMenuItem key={item.title}>
+								{sidebarState === "collapsed" ? (
+									<Tooltip side="right" align="center">
+										<TooltipTrigger asChild>
+											<SidebarMenuButton asChild>
+												<a href={item.url}>
+													{IconComponent && <IconComponent />}
+													<span>{item.title}</span>
+												</a>
+											</SidebarMenuButton>
+										</TooltipTrigger>
+										<TooltipContent>
+											<p>{item.title}</p>
+										</TooltipContent>
+									</Tooltip>
+								) : (
+									<SidebarMenuButton asChild>
+										<a href={item.url}>
+											{IconComponent && <IconComponent />}
+											<span>{item.title}</span>
+										</a>
+									</SidebarMenuButton>
+								)}
+							</SidebarMenuItem>
+						)
+					})}
+				</SidebarMenu>
 				{/* Nav User */}
 				<SidebarMenu>
 					<SidebarMenuItem>
@@ -316,12 +339,14 @@ export const SiteSidebar = () => {
 									className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
 								>
 									<Avatar className="h-8 w-8 rounded-lg">
-										<AvatarImage src={getUserProfile().avatar} alt={getUserProfile().name} />
-										<AvatarFallback className="rounded-lg">CN</AvatarFallback>
+										<AvatarImage src={session?.user?.image ?? ""} alt={session?.user?.name ?? ""} />
+										<AvatarFallback className="rounded-lg">
+											{session?.user?.name?.[0] ?? ""}
+										</AvatarFallback>
 									</Avatar>
 									<div className="grid flex-1 text-left text-sm leading-tight">
-										<span className="truncate font-semibold">{getUserProfile().name}</span>
-										<span className="truncate text-xs">{getUserProfile().email}</span>
+										<span className="truncate font-semibold">{session?.user?.name ?? ""}</span>
+										<span className="truncate text-xs">{session?.user?.email ?? ""}</span>
 									</div>
 									<ChevronsUpDown className="ml-auto size-4" />
 								</SidebarMenuButton>
@@ -335,12 +360,17 @@ export const SiteSidebar = () => {
 								<DropdownMenuLabel className="p-0 font-normal">
 									<div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
 										<Avatar className="h-8 w-8 rounded-lg">
-											<AvatarImage src={getUserProfile().avatar} alt={getUserProfile().name} />
-											<AvatarFallback className="rounded-lg">CN</AvatarFallback>
+											<AvatarImage
+												src={session?.user?.image ?? ""}
+												alt={session?.user?.name ?? ""}
+											/>
+											<AvatarFallback className="rounded-lg">
+												{session?.user?.name?.[0] ?? ""}
+											</AvatarFallback>
 										</Avatar>
 										<div className="grid flex-1 text-left text-sm leading-tight">
-											<span className="truncate font-semibold">{getUserProfile().name}</span>
-											<span className="truncate text-xs">{getUserProfile().email}</span>
+											<span className="truncate font-semibold">{session?.user?.name ?? ""}</span>
+											<span className="truncate text-xs">{session?.user?.email ?? ""}</span>
 										</div>
 									</div>
 								</DropdownMenuLabel>
@@ -375,37 +405,8 @@ export const SiteSidebar = () => {
 						</DropdownMenu>
 					</SidebarMenuItem>
 				</SidebarMenu>
-				{/* Nav User */}
 			</SidebarFooter>
 			<SidebarRail />
 		</Sidebar>
-
-		// <SidebarInset>
-		// 	<header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
-		// 		<div className="flex items-center gap-2 px-4">
-		// 			<SidebarTrigger className="-ml-1" />
-		// 			<Separator orientation="vertical" className="mr-2 h-4" />
-		// 			<Breadcrumb>
-		// 				<BreadcrumbList>
-		// 					<BreadcrumbItem className="hidden md:block">
-		// 						<BreadcrumbLink href="#">Building Your Application</BreadcrumbLink>
-		// 					</BreadcrumbItem>
-		// 					<BreadcrumbSeparator className="hidden md:block" />
-		// 					<BreadcrumbItem>
-		// 						<BreadcrumbPage>Data Fetching</BreadcrumbPage>
-		// 					</BreadcrumbItem>
-		// 				</BreadcrumbList>
-		// 			</Breadcrumb>
-		// 		</div>
-		// 	</header>
-		// 	<div className="flex flex-1 flex-col gap-4 p-4 pt-0">
-		// 		<div className="grid auto-rows-min gap-4 md:grid-cols-3">
-		// 			<div className="bg-muted/50 aspect-video rounded-xl" />
-		// 			<div className="bg-muted/50 aspect-video rounded-xl" />
-		// 			<div className="bg-muted/50 aspect-video rounded-xl" />
-		// 		</div>
-		// 		<div className="bg-muted/50 min-h-screen flex-1 rounded-xl md:min-h-min" />
-		// 	</div>
-		// </SidebarInset>
 	)
 }
