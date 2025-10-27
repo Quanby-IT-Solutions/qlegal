@@ -3,6 +3,7 @@
 import Link from "next/link"
 
 import { QuanbyLogo } from "@/core/components/quanby-logo"
+import { getFooterGroups } from "@/core/lib/nav/home.config"
 
 import { MotionEffect } from "@/features/home/components/ui/motion-effect"
 
@@ -38,37 +39,7 @@ export function Footer() {
 						</p>
 					</MotionEffect>
 
-					{[
-						{
-							title: "Product",
-							links: [{ label: "Envelopes", href: "/envelopes" }],
-						},
-						{
-							title: "Company",
-							links: [
-								{ label: "About Us", href: "https://quanbyit.com/about-us/" },
-								{ label: "Blog", href: "https://quanbyit.com/quill-news/" },
-								{ label: "Careers", href: "https://quanbyit.com/careers/" },
-							],
-						},
-						{
-							title: "Support",
-							links: [
-								{
-									label: "Data Privacy",
-									href: "https://quanbyit.com/data-privacy/",
-								},
-								{
-									label: "Mission & Vision",
-									href: "https://quanbyit.com/mission-vision/",
-								},
-								{
-									label: "Contact Us",
-									href: "https://quanbyit.com/contact-quanby/",
-								},
-							],
-						},
-					].map((section, index) => (
+					{Object.values(getFooterGroups()).map((section, index) => (
 						<MotionEffect
 							key={index}
 							inView
@@ -76,16 +47,16 @@ export function Footer() {
 							fade
 							delay={0.3 + index * 0.1}
 						>
-							<h3 className="text-foreground mb-6 font-semibold">{section.title}</h3>
+							<h3 className="text-foreground mb-6 font-semibold">{section.label}</h3>
 							<ul className="space-y-3">
-								{section.links.map((link, linkIndex) => (
+								{section.items?.map((link, linkIndex) => (
 									<li key={linkIndex}>
 										<Link
-											// @ts-expect-error - bypass Next.js 15.5 typed route
-											href={link.href}
+											// @ts-expect-error - bypass Next.js typed route for external URLs
+											href={link.url}
 											className="text-muted-foreground hover:text-foreground text-sm transition-colors"
 										>
-											{link.label}
+											{link.title}
 										</Link>
 									</li>
 								))}
