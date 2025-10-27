@@ -135,17 +135,11 @@ export const appSidebarSections: NavSection[] = [
 				url: "/dashboard",
 				icon: PieChart,
 			},
-		],
-	},
-	{
-		label: "Documents",
-		items: [
 			{
 				title: "My Documents",
 				url: "/documents",
 				icon: FileText,
 				roles: ["ENP", "PRINCIPAL"],
-				workflows: ["REN", "IEN"],
 				items: [
 					{
 						title: "Create New Envelope",
@@ -173,11 +167,6 @@ export const appSidebarSections: NavSection[] = [
 					},
 				],
 			},
-		],
-	},
-	{
-		label: "Notarial Records",
-		items: [
 			{
 				title: "Electronic Notarial Book",
 				url: "/notarial-book",
@@ -206,11 +195,6 @@ export const appSidebarSections: NavSection[] = [
 					},
 				],
 			},
-		],
-	},
-	{
-		label: "Verification",
-		items: [
 			{
 				title: "Identity Verification",
 				url: "/verification/identity",
