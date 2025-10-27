@@ -10,9 +10,9 @@ import {
 	type HighlightItemProps,
 	type HighlightProps,
 } from "@/core/components/animate-ui/primitives/effects/highlight"
+import { getStrictContext } from "@/core/context/get-strict-context"
 import { useControlledState } from "@/core/hooks/use-controlled-state"
 import { useDataState } from "@/core/hooks/use-data-state"
-import { getStrictContext } from "@/core/lib/get-strict-context"
 
 type DropdownMenuContextType = {
 	isOpen: boolean
