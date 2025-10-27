@@ -13,7 +13,11 @@ import {
 	SidebarGroupLabel,
 	useSidebar,
 } from "@/core/components/animate-ui/components/radix/sidebar"
-import { Highlight, HighlightItem } from "@/core/components/animate-ui/primitives/effects/highlight"
+import { Tabs, TabsList, TabsTrigger } from "@/core/components/animate-ui/components/radix/tabs"
+import {
+	TabsHighlight,
+	TabsHighlightItem,
+} from "@/core/components/animate-ui/primitives/radix/tabs"
 import { TransitionPanel } from "@/core/components/ui-motion/transition-panel"
 import { cn } from "@/core/lib/utils"
 
@@ -57,10 +61,11 @@ export function WorkflowTabPanel<T extends string>({
 		}
 	}, [cookieName, tabs])
 
-	const handleValueChange = (value: T) => {
+	const handleValueChange = (value: string) => {
+		const typedValue = value as T
 		setPreviousValue(activeValue)
-		setActiveValue(value)
-		onValueChange?.(value)
+		setActiveValue(typedValue)
+		onValueChange?.(typedValue)
 
 		// Persist to cookie
 		if (cookieName) {
@@ -103,75 +108,74 @@ export function WorkflowTabPanel<T extends string>({
 	const activeIndex = tabs.findIndex(tab => tab.value === activeValue)
 
 	return (
-		<div className={className}>
-			{/* Tab Header */}
-			<SidebarGroup className="group-data-[collapsible=icon]:p-[6px]">
-				<SidebarGroupLabel className="group-data-[collapsible=icon]:hidden">
-					Workflow
-				</SidebarGroupLabel>
-				<Highlight
-					controlledItems
-					value={activeValue}
-					transition={{ type: "spring", stiffness: 200, damping: 25 }}
-					click={false}
-					className={cn(
-						"bg-background dark:border-input dark:bg-input/30 order-transparent absolute inset-0 z-0 rounded-md border shadow-sm",
-						sidebarState === "collapsed" ? "ml-0.5 h-7 w-7 p-1" : "p-0"
-					)}
-				>
-					<div
+		<div className={cn("overflow-x-hidden", className)}>
+			<Tabs value={activeValue} onValueChange={handleValueChange}>
+				{/* Tab Header */}
+				<SidebarGroup className="group-data-[collapsible=icon]:p-[6px]">
+					<SidebarGroupLabel className="group-data-[collapsible=icon]:hidden">
+						Workflow
+					</SidebarGroupLabel>
+					<TabsHighlight
 						className={cn(
-							"bg-muted text-muted-foreground grid items-center justify-center rounded-lg p-1",
-							sidebarState === "collapsed" ? "h-18 w-9 grid-rows-2" : "h-9 w-full grid-cols-2"
+							"bg-background dark:border-input dark:bg-input/30 absolute inset-0 z-0 rounded-md border border-transparent shadow-sm",
+							sidebarState === "collapsed" ? "ml-0.5 h-18 w-9 p-1" : "w-full p-0"
 						)}
 					>
-						{tabs.map(tab => (
-							<HighlightItem key={tab.value} value={tab.value}>
-								{sidebarState === "collapsed" ? (
-									<Tooltip side="right" align="center">
-										<TooltipTrigger asChild>
-											<button
-												onClick={() => handleValueChange(tab.value)}
-												className={cn(
-													"data-[state=active]:text-foreground focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:outline-ring text-muted-foreground inline-flex h-[calc(100%-1px)] w-full flex-1 cursor-pointer items-center justify-center rounded-md px-2 py-1.5 text-sm font-medium whitespace-nowrap transition-colors duration-500 ease-in-out focus-visible:ring-[3px] focus-visible:outline-1 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
-												)}
-											>
-												<tab.icon className="size-4" />
-											</button>
-										</TooltipTrigger>
-										<TooltipContent>
-											<p>{tab.label}</p>
-										</TooltipContent>
-									</Tooltip>
-								) : (
-									<button
-										onClick={() => handleValueChange(tab.value)}
-										className={cn(
-											"focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:outline-ring text-foreground inline-flex h-[calc(100%-1px)] w-full flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-md px-2 py-1 text-sm font-medium whitespace-nowrap transition-colors duration-500 ease-in-out focus-visible:ring-[3px] focus-visible:outline-1 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:text-green-500 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
-											"flex items-center gap-2"
-										)}
-									>
-										<tab.icon className="size-4" />
-										<span>{tab.label}</span>
-									</button>
-								)}
-							</HighlightItem>
-						))}
-					</div>
-				</Highlight>
-			</SidebarGroup>
+						<TabsList
+							className={cn(
+								"bg-muted text-muted-foreground rounded-lg p-[3px]",
+								sidebarState === "collapsed"
+									? "inline-flex h-18 w-9 flex-col items-center justify-center"
+									: "flex h-9 w-full flex-row items-center justify-center"
+							)}
+						>
+							{tabs.map(tab => (
+								<TabsHighlightItem
+									key={tab.value}
+									value={tab.value}
+									className={cn(sidebarState === "collapsed" ? "w-full" : "w-full flex-1")}
+								>
+									{sidebarState === "collapsed" ? (
+										<Tooltip side="right" align="center">
+											<TooltipTrigger asChild>
+												<TabsTrigger
+													value={tab.value}
+													className="focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:outline-ring inline-flex h-[calc(100%-1px)] w-full flex-1 cursor-pointer items-center justify-center rounded-md px-2 py-1.5 text-sm font-medium whitespace-nowrap transition-colors duration-500 ease-in-out focus-visible:ring-[3px] focus-visible:outline-1 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
+												>
+													<tab.icon className="size-4" />
+												</TabsTrigger>
+											</TooltipTrigger>
+											<TooltipContent>
+												<p>{tab.label}</p>
+											</TooltipContent>
+										</Tooltip>
+									) : (
+										<TabsTrigger
+											value={tab.value}
+											className="focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:outline-ring text-muted-foreground data-[state=active]:text-foreground flex h-[calc(100%-1px)] w-full flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-md px-2 py-1 text-sm font-medium whitespace-nowrap transition-colors duration-500 ease-in-out focus-visible:ring-[3px] focus-visible:outline-1 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
+										>
+											<tab.icon className="size-4" />
+											<span>{tab.label}</span>
+										</TabsTrigger>
+									)}
+								</TabsHighlightItem>
+							))}
+						</TabsList>
+					</TabsHighlight>
+				</SidebarGroup>
 
-			{/* Animated Content */}
-			<TransitionPanel
-				activeIndex={activeIndex}
-				variants={variants}
-				custom={direction}
-				transition={{ duration: 0.3, ease: "easeInOut" }}
-			>
-				{tabs.map(tab => (
-					<div key={tab.value}>{children(tab.value)}</div>
-				))}
-			</TransitionPanel>
+				{/* Animated Content */}
+				<TransitionPanel
+					activeIndex={activeIndex}
+					variants={variants}
+					custom={direction}
+					transition={{ duration: 0.3, ease: "easeInOut" }}
+				>
+					{tabs.map(tab => (
+						<div key={tab.value}>{children(tab.value)}</div>
+					))}
+				</TransitionPanel>
+			</Tabs>
 		</div>
 	)
 }

@@ -235,7 +235,7 @@ export const SiteSidebar = () => {
 				{/* Team Switcher */}
 			</SidebarHeader>
 
-			<SidebarContent>
+			<SidebarContent className="overflow-x-hidden">
 				{/* Navigation Sections */}
 				<WorkflowTabPanel
 					tabs={[
