@@ -17,7 +17,7 @@ export const users = createTable("user", t => ({
 	password: t.text(),
 	isTwoFactorEnabled: t.boolean().default(false),
 	phoneNumber: t.varchar({ length: 255 }),
-	role: userRoles().default("client").notNull(),
+	role: userRoles().default("PRINCIPAL").notNull(),
 })).enableRLS()
 
 export const accounts = createTable(
