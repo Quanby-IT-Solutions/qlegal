@@ -18,6 +18,11 @@ import {
 import { useSession } from "next-auth/react"
 
 import {
+	Tooltip,
+	TooltipContent,
+	TooltipTrigger,
+} from "@/core/components/animate-ui/components/animate/tooltip"
+import {
 	DropdownMenu,
 	DropdownMenuContent,
 	DropdownMenuGroup,
@@ -41,6 +46,7 @@ import {
 	SidebarMenuSubButton,
 	SidebarMenuSubItem,
 	SidebarRail,
+	useSidebar,
 } from "@/core/components/animate-ui/components/radix/sidebar"
 import {
 	Collapsible,
@@ -79,6 +85,8 @@ type SidebarNavItemProps = {
 }
 
 const SidebarNavItem = ({ item, userRole, currentWorkflow }: SidebarNavItemProps) => {
+	const { state: sidebarState } = useSidebar()
+
 	// Filter sub-items by role and workflow
 	const accessibleSubItems =
 		item.items?.filter(subItem =>
@@ -89,12 +97,28 @@ const SidebarNavItem = ({ item, userRole, currentWorkflow }: SidebarNavItemProps
 	if (!item.items || accessibleSubItems.length === 0) {
 		return (
 			<SidebarMenuItem>
-				<SidebarMenuButton asChild tooltip={item.title}>
-					<a href={item.url}>
-						{item.icon && <item.icon />}
-						<span>{item.title}</span>
-					</a>
-				</SidebarMenuButton>
+				{sidebarState === "collapsed" ? (
+					<Tooltip side="right" align="center">
+						<TooltipTrigger asChild>
+							<SidebarMenuButton asChild>
+								<a href={item.url}>
+									{item.icon && <item.icon />}
+									<span>{item.title}</span>
+								</a>
+							</SidebarMenuButton>
+						</TooltipTrigger>
+						<TooltipContent>
+							<p>{item.title}</p>
+						</TooltipContent>
+					</Tooltip>
+				) : (
+					<SidebarMenuButton asChild>
+						<a href={item.url}>
+							{item.icon && <item.icon />}
+							<span>{item.title}</span>
+						</a>
+					</SidebarMenuButton>
+				)}
 			</SidebarMenuItem>
 		)
 	}
@@ -103,13 +127,30 @@ const SidebarNavItem = ({ item, userRole, currentWorkflow }: SidebarNavItemProps
 	return (
 		<Collapsible asChild defaultOpen={item.isActive} className="group/collapsible">
 			<SidebarMenuItem>
-				<CollapsibleTrigger asChild>
-					<SidebarMenuButton tooltip={item.title}>
-						{item.icon && <item.icon />}
-						<span>{item.title}</span>
-						<ChevronRight className="ml-auto transition-transform duration-300 group-data-[state=open]/collapsible:rotate-90" />
-					</SidebarMenuButton>
-				</CollapsibleTrigger>
+				{sidebarState === "collapsed" ? (
+					<Tooltip side="right" align="center">
+						<TooltipTrigger asChild>
+							<CollapsibleTrigger asChild>
+								<SidebarMenuButton>
+									{item.icon && <item.icon />}
+									<span>{item.title}</span>
+									<ChevronRight className="ml-auto transition-transform duration-300 group-data-[state=open]/collapsible:rotate-90" />
+								</SidebarMenuButton>
+							</CollapsibleTrigger>
+						</TooltipTrigger>
+						<TooltipContent>
+							<p>{item.title}</p>
+						</TooltipContent>
+					</Tooltip>
+				) : (
+					<CollapsibleTrigger asChild>
+						<SidebarMenuButton>
+							{item.icon && <item.icon />}
+							<span>{item.title}</span>
+							<ChevronRight className="ml-auto transition-transform duration-300 group-data-[state=open]/collapsible:rotate-90" />
+						</SidebarMenuButton>
+					</CollapsibleTrigger>
+				)}
 				<CollapsibleContent>
 					<SidebarMenuSub>
 						{accessibleSubItems.map(subItem => (
@@ -172,6 +213,7 @@ const SidebarNavSection = ({ section, userRole, currentWorkflow }: SidebarNavSec
 export const SiteSidebar = () => {
 	const { data: session } = useSession()
 	const isMobile = useIsMobile()
+	const { state: sidebarState } = useSidebar()
 	const [activeTeam, setActiveTeam] = useState<Team>(getTeams()[0]!)
 	const userRole = session?.user?.role
 
@@ -266,12 +308,28 @@ export const SiteSidebar = () => {
 				<SidebarMenu className="mt-auto">
 					{navSecondary.map(item => (
 						<SidebarMenuItem key={item.title}>
-							<SidebarMenuButton asChild tooltip={item.title}>
-								<a href={item.url}>
-									<item.icon />
-									<span>{item.title}</span>
-								</a>
-							</SidebarMenuButton>
+							{sidebarState === "collapsed" ? (
+								<Tooltip side="right" align="center">
+									<TooltipTrigger asChild>
+										<SidebarMenuButton asChild>
+											<a href={item.url}>
+												<item.icon />
+												<span>{item.title}</span>
+											</a>
+										</SidebarMenuButton>
+									</TooltipTrigger>
+									<TooltipContent>
+										<p>{item.title}</p>
+									</TooltipContent>
+								</Tooltip>
+							) : (
+								<SidebarMenuButton asChild>
+									<a href={item.url}>
+										<item.icon />
+										<span>{item.title}</span>
+									</a>
+								</SidebarMenuButton>
+							)}
 						</SidebarMenuItem>
 					))}
 				</SidebarMenu>
