@@ -9,8 +9,10 @@ import {
 	CreditCard,
 	Globe,
 	Handshake,
+	LifeBuoy,
 	LogOut,
 	Plus,
+	Send,
 	Sparkles,
 } from "lucide-react"
 import { useSession } from "next-auth/react"
@@ -54,6 +56,20 @@ import { type NavItem, type NavSection, type NotaryRole, type Team } from "@/cor
 import { canAccessNavItem, getAppSidebarSections } from "@/core/lib/nav/utils"
 
 // Use imported data instead of local DATA object
+
+// Secondary navigation items
+const navSecondary = [
+	{
+		title: "Support",
+		url: "#",
+		icon: LifeBuoy,
+	},
+	{
+		title: "Feedback",
+		url: "#",
+		icon: Send,
+	},
+]
 
 // SidebarNavItem Component
 type SidebarNavItemProps = {
@@ -246,6 +262,19 @@ export const SiteSidebar = () => {
 			</SidebarContent>
 
 			<SidebarFooter>
+				{/* Secondary Navigation */}
+				<SidebarMenu className="mt-auto">
+					{navSecondary.map(item => (
+						<SidebarMenuItem key={item.title}>
+							<SidebarMenuButton asChild tooltip={item.title}>
+								<a href={item.url}>
+									<item.icon />
+									<span>{item.title}</span>
+								</a>
+							</SidebarMenuButton>
+						</SidebarMenuItem>
+					))}
+				</SidebarMenu>
 				{/* Nav User */}
 				<SidebarMenu>
 					<SidebarMenuItem>
