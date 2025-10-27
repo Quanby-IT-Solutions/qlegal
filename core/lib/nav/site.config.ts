@@ -26,6 +26,7 @@ import {
 	PenToolIcon,
 	PieChart,
 	Plus,
+	Scan,
 	Settings2,
 	SettingsIcon,
 	ShieldIcon,
@@ -134,6 +135,12 @@ export const appSidebarSections: NavSection[] = [
 				title: "Dashboard",
 				url: "/dashboard",
 				icon: PieChart,
+			},
+			{
+				title: "Scan Documents",
+				url: "/scan",
+				icon: Scan,
+				workflows: ["IEN"],
 			},
 			{
 				title: "My Documents",

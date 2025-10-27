@@ -27,29 +27,30 @@ export function filterNavItemsByRoleAndWorkflow(
 	userRole?: string,
 	currentWorkflow?: string
 ): NavItem[] {
-	return navItems.filter(item => {
-		// Check if user can access this item
-		// Handle union type: roles can be NotaryRole[] | UserRole[]
-		if (
-			!canAccessNavItem(
+	return navItems
+		.filter(item => {
+			// Check if user can access this item
+			// Handle union type: roles can be NotaryRole[] | UserRole[]
+			return canAccessNavItem(
 				item.roles as NotaryRole[] | undefined,
 				userRole,
 				item.workflows,
 				currentWorkflow
 			)
-		) {
-			return false
-		}
-
-		// Filter sub-items if they exist
-		if (item.items) {
-			item.items = item.items.filter(subItem =>
-				canAccessNavItem(subItem.roles, userRole, subItem.workflows, currentWorkflow)
-			)
-		}
-
-		return true
-	})
+		})
+		.map(item => {
+			// Create new object with filtered sub-items if they exist
+			if (item.items) {
+				const filteredSubItems = item.items.filter(subItem =>
+					canAccessNavItem(subItem.roles, userRole, subItem.workflows, currentWorkflow)
+				)
+				return {
+					...item,
+					items: filteredSubItems,
+				}
+			}
+			return item
+		})
 }
 
 // Filter navigation sections by role and workflow

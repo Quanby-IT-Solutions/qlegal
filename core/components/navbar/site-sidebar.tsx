@@ -1,6 +1,6 @@
 "use client"
 
-import * as React from "react"
+import { useEffect, useState } from "react"
 import {
 	BadgeCheck,
 	Bell,
@@ -12,9 +12,8 @@ import {
 	LogOut,
 	Plus,
 	Sparkles,
-	User,
-	Users,
 } from "lucide-react"
+import { useSession } from "next-auth/react"
 
 import {
 	DropdownMenu,
@@ -42,13 +41,20 @@ import {
 	SidebarRail,
 } from "@/core/components/animate-ui/components/radix/sidebar"
 import {
+	Tabs,
+	TabsContent,
+	TabsContents,
+	TabsList,
+	TabsTrigger,
+} from "@/core/components/animate-ui/components/radix/tabs"
+import {
 	Collapsible,
 	CollapsibleContent,
 	CollapsibleTrigger,
 } from "@/core/components/animate-ui/primitives/radix/collapsible"
 import { Avatar, AvatarFallback, AvatarImage } from "@/core/components/ui/avatar"
 import { useIsMobile } from "@/core/hooks/use-mobile"
-import { getTeams, getUserProfile, getWorkflows } from "@/core/lib/nav/site.config"
+import { getTeams } from "@/core/lib/nav/site.config"
 // Import navigation configs
 import {
 	type NavItem,
@@ -160,10 +166,26 @@ const SidebarNavSection = ({ section, userRole, currentWorkflow }: SidebarNavSec
 }
 
 export const SiteSidebar = () => {
+	const { data: session } = useSession()
 	const isMobile = useIsMobile()
-	const [activeTeam, setActiveTeam] = React.useState<Team>(getTeams()[0]!)
-	const [userRole, setUserRole] = React.useState<string>("ENP") // Default role
-	const [workflow, setWorkflow] = React.useState<WorkflowType>("REN") // Default workflow
+	const [activeTeam, setActiveTeam] = useState<Team>(getTeams()[0]!)
+	const userRole = session?.user?.role
+	const [workflow, setWorkflow] = useState<WorkflowType>("REN") // Default workflow
+
+	// Initialize workflow from cookie and keep it in sync
+	useEffect(() => {
+		const match = document.cookie.split("; ").find(row => row.startsWith("workflow_preference="))
+		const value = match?.split("=")[1]
+		if (value === "REN" || value === "IEN") {
+			setWorkflow(value as WorkflowType)
+		}
+	}, [])
+
+	const handleSetWorkflow = (wf: WorkflowType) => {
+		setWorkflow(wf)
+		// persist for ~180 days
+		document.cookie = `workflow_preference=${wf}; Path=/; Max-Age=${60 * 60 * 24 * 180}`
+	}
 
 	if (!activeTeam) return null
 
@@ -226,84 +248,50 @@ export const SiteSidebar = () => {
 			</SidebarHeader>
 
 			<SidebarContent>
-				{/* Workflow Selector */}
-				<SidebarGroup>
-					<SidebarGroupLabel>Notarization Workflow</SidebarGroupLabel>
-					<SidebarMenu>
-						<SidebarMenuItem>
-							<DropdownMenu>
-								<DropdownMenuTrigger asChild>
-									<SidebarMenuButton>
-										{workflow === "REN" ? <Globe /> : <Handshake />}
-										<span>{workflow === "REN" ? "REN" : "IEN"}</span>
-									</SidebarMenuButton>
-								</DropdownMenuTrigger>
-								<DropdownMenuContent
-									className="w-48 rounded-lg"
-									side={isMobile ? "bottom" : "right"}
-									align="start"
-								>
-									<DropdownMenuLabel>Select Workflow</DropdownMenuLabel>
-									{getWorkflows().map(workflowConfig => (
-										<DropdownMenuItem
-											key={workflowConfig.id}
-											onClick={() => setWorkflow(workflowConfig.id)}
-										>
-											<workflowConfig.icon />
-											{workflowConfig.description}
-										</DropdownMenuItem>
-									))}
-								</DropdownMenuContent>
-							</DropdownMenu>
-						</SidebarMenuItem>
-					</SidebarMenu>
-				</SidebarGroup>
+				<Tabs value={workflow} onValueChange={value => handleSetWorkflow(value as WorkflowType)}>
+					{/* Workflow Selector */}
+					<SidebarGroup>
+						<SidebarGroupLabel>Notarization Workflow</SidebarGroupLabel>
+						<SidebarMenu>
+							<SidebarMenuItem>
+								<TabsList className="grid w-full grid-cols-2">
+									<TabsTrigger value="REN" className="flex items-center gap-2">
+										<Globe className="size-4" />
+										<span>REN</span>
+									</TabsTrigger>
+									<TabsTrigger value="IEN" className="flex items-center gap-2">
+										<Handshake className="size-4" />
+										<span>IEN</span>
+									</TabsTrigger>
+								</TabsList>
+							</SidebarMenuItem>
+						</SidebarMenu>
+					</SidebarGroup>
 
-				{/* Role Switcher for Demo */}
-				<SidebarGroup>
-					<SidebarGroupLabel>User Role</SidebarGroupLabel>
-					<SidebarMenu>
-						<SidebarMenuItem>
-							<DropdownMenu>
-								<DropdownMenuTrigger asChild>
-									<SidebarMenuButton>
-										<BadgeCheck />
-										<span>Role: {userRole}</span>
-									</SidebarMenuButton>
-								</DropdownMenuTrigger>
-								<DropdownMenuContent
-									className="w-48 rounded-lg"
-									side={isMobile ? "bottom" : "right"}
-									align="start"
-								>
-									<DropdownMenuLabel>Switch Role</DropdownMenuLabel>
-									<DropdownMenuItem onClick={() => setUserRole("ENP")}>
-										<BadgeCheck />
-										ENP (Lawyer/Signer)
-									</DropdownMenuItem>
-									<DropdownMenuItem onClick={() => setUserRole("Principal")}>
-										<User />
-										Principal (Client/Requester)
-									</DropdownMenuItem>
-									<DropdownMenuItem onClick={() => setUserRole("ENA")}>
-										<Users />
-										ENA (Supreme Court Rep)
-									</DropdownMenuItem>
-								</DropdownMenuContent>
-							</DropdownMenu>
-						</SidebarMenuItem>
-					</SidebarMenu>
-				</SidebarGroup>
-
-				{/* Navigation Sections */}
-				{getAppSidebarSections(userRole, workflow).map(section => (
-					<SidebarNavSection
-						key={section.label}
-						section={section}
-						userRole={userRole}
-						currentWorkflow={workflow}
-					/>
-				))}
+					{/* Navigation Sections with Animation */}
+					<TabsContents>
+						<TabsContent value="REN">
+							{getAppSidebarSections(userRole, "REN").map(section => (
+								<SidebarNavSection
+									key={section.label}
+									section={section}
+									userRole={userRole}
+									currentWorkflow="REN"
+								/>
+							))}
+						</TabsContent>
+						<TabsContent value="IEN">
+							{getAppSidebarSections(userRole, "IEN").map(section => (
+								<SidebarNavSection
+									key={section.label}
+									section={section}
+									userRole={userRole}
+									currentWorkflow="IEN"
+								/>
+							))}
+						</TabsContent>
+					</TabsContents>
+				</Tabs>
 			</SidebarContent>
 			<SidebarFooter>
 				{/* Nav User */}
@@ -316,12 +304,14 @@ export const SiteSidebar = () => {
 									className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
 								>
 									<Avatar className="h-8 w-8 rounded-lg">
-										<AvatarImage src={getUserProfile().avatar} alt={getUserProfile().name} />
-										<AvatarFallback className="rounded-lg">CN</AvatarFallback>
+										<AvatarImage src={session?.user?.image ?? ""} alt={session?.user?.name ?? ""} />
+										<AvatarFallback className="rounded-lg">
+											{session?.user?.name?.[0] ?? "U"}
+										</AvatarFallback>
 									</Avatar>
 									<div className="grid flex-1 text-left text-sm leading-tight">
-										<span className="truncate font-semibold">{getUserProfile().name}</span>
-										<span className="truncate text-xs">{getUserProfile().email}</span>
+										<span className="truncate font-semibold">{session?.user?.name ?? ""}</span>
+										<span className="truncate text-xs">{session?.user?.email ?? ""}</span>
 									</div>
 									<ChevronsUpDown className="ml-auto size-4" />
 								</SidebarMenuButton>
@@ -335,12 +325,17 @@ export const SiteSidebar = () => {
 								<DropdownMenuLabel className="p-0 font-normal">
 									<div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
 										<Avatar className="h-8 w-8 rounded-lg">
-											<AvatarImage src={getUserProfile().avatar} alt={getUserProfile().name} />
-											<AvatarFallback className="rounded-lg">CN</AvatarFallback>
+											<AvatarImage
+												src={session?.user?.image ?? ""}
+												alt={session?.user?.name ?? ""}
+											/>
+											<AvatarFallback className="rounded-lg">
+												{session?.user?.name?.[0] ?? "U"}
+											</AvatarFallback>
 										</Avatar>
 										<div className="grid flex-1 text-left text-sm leading-tight">
-											<span className="truncate font-semibold">{getUserProfile().name}</span>
-											<span className="truncate text-xs">{getUserProfile().email}</span>
+											<span className="truncate font-semibold">{session?.user?.name ?? ""}</span>
+											<span className="truncate text-xs">{session?.user?.email ?? ""}</span>
 										</div>
 									</div>
 								</DropdownMenuLabel>
@@ -379,33 +374,5 @@ export const SiteSidebar = () => {
 			</SidebarFooter>
 			<SidebarRail />
 		</Sidebar>
-
-		// <SidebarInset>
-		// 	<header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
-		// 		<div className="flex items-center gap-2 px-4">
-		// 			<SidebarTrigger className="-ml-1" />
-		// 			<Separator orientation="vertical" className="mr-2 h-4" />
-		// 			<Breadcrumb>
-		// 				<BreadcrumbList>
-		// 					<BreadcrumbItem className="hidden md:block">
-		// 						<BreadcrumbLink href="#">Building Your Application</BreadcrumbLink>
-		// 					</BreadcrumbItem>
-		// 					<BreadcrumbSeparator className="hidden md:block" />
-		// 					<BreadcrumbItem>
-		// 						<BreadcrumbPage>Data Fetching</BreadcrumbPage>
-		// 					</BreadcrumbItem>
-		// 				</BreadcrumbList>
-		// 			</Breadcrumb>
-		// 		</div>
-		// 	</header>
-		// 	<div className="flex flex-1 flex-col gap-4 p-4 pt-0">
-		// 		<div className="grid auto-rows-min gap-4 md:grid-cols-3">
-		// 			<div className="bg-muted/50 aspect-video rounded-xl" />
-		// 			<div className="bg-muted/50 aspect-video rounded-xl" />
-		// 			<div className="bg-muted/50 aspect-video rounded-xl" />
-		// 		</div>
-		// 		<div className="bg-muted/50 min-h-screen flex-1 rounded-xl md:min-h-min" />
-		// 	</div>
-		// </SidebarInset>
 	)
 }
