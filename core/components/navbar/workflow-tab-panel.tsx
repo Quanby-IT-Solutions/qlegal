@@ -105,7 +105,7 @@ export function WorkflowTabPanel<T extends string>({
 	return (
 		<div className={className}>
 			{/* Tab Header */}
-			<SidebarGroup>
+			<SidebarGroup className="group-data-[collapsible=icon]:p-1">
 				<SidebarGroupLabel className="group-data-[collapsible=icon]:hidden">
 					Workflow
 				</SidebarGroupLabel>
