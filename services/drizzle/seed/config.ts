@@ -1,12 +1,14 @@
 import { randomUUID } from "crypto"
 import { faker } from "@faker-js/faker"
 
+import type { UserRole } from "@/services/drizzle/schema/auth"
+
 interface TestAccount {
 	email: string
 	name: string
 	emailVerified: Date
 	image: string
-	role: "client" | "admin" | "super_admin"
+	role: UserRole
 }
 
 export const SEED_CONFIG = {
@@ -15,32 +17,32 @@ export const SEED_CONFIG = {
 	defaultPassword: "asdfasdf",
 	testAccounts: [
 		{
-			email: "client@quanby.com",
-			name: "Sarah Johnson",
-			emailVerified: new Date("2024-01-15T10:30:00.000Z"),
+			email: "principal@quanby.com",
+			name: "Principal User",
+			emailVerified: new Date(Date.now()),
 			image: faker.image.avatar(),
-			role: "client" as const,
+			role: "PRINCIPAL" as const,
 		},
 		{
-			email: "john@quanby.com",
-			name: "John Smith",
-			emailVerified: new Date("2024-02-20T14:15:00.000Z"),
+			email: "enp@quanby.com",
+			name: "ENP User",
+			emailVerified: new Date(Date.now()),
 			image: faker.image.avatar(),
-			role: "client" as const,
+			role: "ENP" as const,
+		},
+		{
+			email: "ena@quanby.com",
+			name: "ENA User",
+			emailVerified: new Date(Date.now()),
+			image: faker.image.avatar(),
+			role: "ENA" as const,
 		},
 		{
 			email: "admin@quanby.com",
-			name: "Michael Chen",
-			emailVerified: new Date("2024-03-10T08:45:00.000Z"),
+			name: "Admin User",
+			emailVerified: new Date(Date.now()),
 			image: faker.image.avatar(),
-			role: "admin" as const,
-		},
-		{
-			email: "superadmin@quanby.com",
-			name: "Emily Davis",
-			emailVerified: new Date("2024-04-05T16:20:00.000Z"),
-			image: faker.image.avatar(),
-			role: "super_admin" as const,
+			role: "ADMIN" as const,
 		},
 	] satisfies TestAccount[],
 } as const
