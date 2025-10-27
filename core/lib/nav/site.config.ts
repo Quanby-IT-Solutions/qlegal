@@ -109,27 +109,10 @@ export const workflows: WorkflowConfig[] = [
 export const teams: Team[] = [
 	{
 		name: "Acme Inc",
-		logo: GalleryVerticalEnd,
+		logo: AudioWaveform,
 		plan: "Enterprise",
 	},
-	{
-		name: "Acme Corp.",
-		logo: AudioWaveform,
-		plan: "Startup",
-	},
-	{
-		name: "Evil Corp.",
-		logo: Command,
-		plan: "Free",
-	},
 ]
-
-// User profile configuration (mock data)
-export const userProfile: UserProfile = {
-	name: "Skyleen",
-	email: "skyleen@example.com",
-	avatar: "https://pbs.twimg.com/profile_images/1909615404789506048/MTqvRsjo_400x400.jpg",
-}
 
 // Secondary navigation items
 export const navSecondary: NavItem[] = [
@@ -154,6 +137,11 @@ export const appSidebarSections: NavSection[] = [
 				title: "Dashboard",
 				url: "/dashboard",
 				icon: PieChart,
+			},
+			{
+				title: "Find a Lawyer",
+				url: "/find-a-lawyer",
+				icon: UsersIcon,
 			},
 			{
 				title: "Scan Documents",
@@ -291,18 +279,6 @@ export const appSidebarSections: NavSection[] = [
 		],
 	},
 	{
-		label: "Notifications",
-		items: [
-			{
-				title: "All Notifications",
-				url: "/notifications",
-				icon: BellIcon,
-				roles: ["PRINCIPAL"],
-				workflows: ["REN", "IEN"],
-			},
-		],
-	},
-	{
 		label: "Settings",
 		items: [
 			{
@@ -405,10 +381,6 @@ export function getWorkflows(): WorkflowConfig[] {
 
 export function getTeams(): Team[] {
 	return teams
-}
-
-export function getUserProfile(): UserProfile {
-	return userProfile
 }
 
 export function getSiteUserItems(userRole?: UserRole | null): NavItem[] {

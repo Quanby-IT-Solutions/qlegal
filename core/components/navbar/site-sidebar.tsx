@@ -55,13 +55,7 @@ import {
 import { WorkflowTabPanel } from "@/core/components/navbar/workflow-tab-panel"
 import { Avatar, AvatarFallback, AvatarImage } from "@/core/components/ui/avatar"
 import { useIsMobile } from "@/core/hooks/use-mobile"
-import {
-	getTeams,
-	getUserProfile,
-	iconMap,
-	navSecondary,
-	workflows,
-} from "@/core/lib/nav/site.config"
+import { getTeams, iconMap, navSecondary, workflows } from "@/core/lib/nav/site.config"
 import { type NavItem, type NavSection, type NotaryRole, type Team } from "@/core/lib/nav/types"
 import { canAccessNavItem, getAppSidebarSections } from "@/core/lib/nav/utils"
 
@@ -345,21 +339,14 @@ export const SiteSidebar = () => {
 									className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
 								>
 									<Avatar className="h-8 w-8 rounded-lg">
-										<AvatarImage
-											src={session?.user?.image ?? getUserProfile().avatar}
-											alt={session?.user?.name ?? getUserProfile().name}
-										/>
+										<AvatarImage src={session?.user?.image ?? ""} alt={session?.user?.name ?? ""} />
 										<AvatarFallback className="rounded-lg">
-											{session?.user?.name?.[0] ?? getUserProfile().name[0]}
+											{session?.user?.name?.[0] ?? ""}
 										</AvatarFallback>
 									</Avatar>
 									<div className="grid flex-1 text-left text-sm leading-tight">
-										<span className="truncate font-semibold">
-											{session?.user?.name ?? getUserProfile().name}
-										</span>
-										<span className="truncate text-xs">
-											{session?.user?.email ?? getUserProfile().email}
-										</span>
+										<span className="truncate font-semibold">{session?.user?.name ?? ""}</span>
+										<span className="truncate text-xs">{session?.user?.email ?? ""}</span>
 									</div>
 									<ChevronsUpDown className="ml-auto size-4" />
 								</SidebarMenuButton>
@@ -374,20 +361,16 @@ export const SiteSidebar = () => {
 									<div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
 										<Avatar className="h-8 w-8 rounded-lg">
 											<AvatarImage
-												src={session?.user?.image ?? getUserProfile().avatar}
-												alt={session?.user?.name ?? getUserProfile().name}
+												src={session?.user?.image ?? ""}
+												alt={session?.user?.name ?? ""}
 											/>
 											<AvatarFallback className="rounded-lg">
-												{session?.user?.name?.[0] ?? getUserProfile().name[0]}
+												{session?.user?.name?.[0] ?? ""}
 											</AvatarFallback>
 										</Avatar>
 										<div className="grid flex-1 text-left text-sm leading-tight">
-											<span className="truncate font-semibold">
-												{session?.user?.name ?? getUserProfile().name}
-											</span>
-											<span className="truncate text-xs">
-												{session?.user?.email ?? getUserProfile().email}
-											</span>
+											<span className="truncate font-semibold">{session?.user?.name ?? ""}</span>
+											<span className="truncate text-xs">{session?.user?.email ?? ""}</span>
 										</div>
 									</div>
 								</DropdownMenuLabel>
