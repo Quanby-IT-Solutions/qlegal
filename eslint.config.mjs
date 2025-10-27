@@ -4,6 +4,7 @@ import { FlatCompat } from "@eslint/eslintrc"
 import js from "@eslint/js"
 import tanstackQuery from "@tanstack/eslint-plugin-query"
 import drizzlePlugin from "eslint-plugin-drizzle"
+import drizzlePlugin from "eslint-plugin-drizzle"
 import reactHooks from "eslint-plugin-react-hooks"
 import tseslint from "typescript-eslint"
 
@@ -22,9 +23,9 @@ const compat = new FlatCompat({
 // Extended Configurations
 // ============================================================================
 
-/** Additional Next.js and Prettier configurations from the merged config */
-const extendedCompatConfigs = compat.config({
-	extends: ["next/core-web-vitals", "next/typescript", "prettier"],
+/** Prettier configuration only (Next.js will be configured directly) */
+const prettierConfig = compat.config({
+	extends: ["prettier"],
 })
 
 // ============================================================================
@@ -83,6 +84,10 @@ const frameworkRules = {
 	// React Hooks
 	...reactHooks.configs.recommended.rules,
 
+	// Next.js rules (configured directly to avoid circular references)
+	...nextPlugin.configs.recommended.rules,
+	...nextPlugin.configs["core-web-vitals"].rules,
+
 	// TanStack Query
 	"@tanstack/query/exhaustive-deps": "error",
 	"@tanstack/query/no-rest-destructuring": "warn",
@@ -133,8 +138,8 @@ const eslintConfig = tseslint.config(
 		],
 	},
 
-	// Compatibility configurations
-	...extendedCompatConfigs,
+	// Prettier configuration
+	...prettierConfig,
 
 	// Base JavaScript recommendations
 	js.configs.recommended,
@@ -163,6 +168,7 @@ const eslintConfig = tseslint.config(
 			"react-hooks": reactHooks,
 			"@tanstack/query": tanstackQuery,
 			"drizzle": drizzlePlugin,
+			"@next/next": nextPlugin,
 		},
 
 		rules: {

@@ -1,42 +1,27 @@
-import { relations } from "drizzle-orm"
-
 import { users } from "@/services/drizzle/schema/auth"
 import { createTable, randomId } from "@/services/drizzle/utils"
 
-export const envelopes = createTable("envelopes", f => ({
-	id: f
-		.text("id")
+export const envelopes = createTable("envelope", t => ({
+	id: t
+		.varchar({ length: 255 })
 		.primaryKey()
 		.$defaultFn(() => randomId()),
-	token: f
-		.text("token")
+	token: t
+		.varchar({ length: 255 })
 		.unique()
 		.notNull()
 		.$defaultFn(() => randomId()),
-	title: f.text("title").notNull(),
-	description: f.text("description"),
-	status: f
-		.text("status", {
-			enum: ["DRAFT", "PUBLISHED", "COMPLETED", "PENDING_APPROVAL", "APPROVED", "REJECTED"],
-		})
-		.default("DRAFT")
-		.notNull(),
-	createdAt: f.timestamp("created_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
-	updatedAt: f
-		.timestamp("updated_at", { mode: "date", withTimezone: true })
+	title: t.varchar({ length: 255 }).notNull(),
+	description: t.text(),
+	status: t.varchar({ length: 255 }).default("DRAFT").notNull(),
+	createdAt: t.timestamp({ mode: "date", withTimezone: true }).defaultNow().notNull(),
+	updatedAt: t
+		.timestamp({ mode: "date", withTimezone: true })
 		.defaultNow()
 		.$onUpdateFn(() => new Date())
 		.notNull(),
-	// Relations
-	userId: f
-		.text("user_id")
+	userId: t
+		.varchar({ length: 255 })
 		.notNull()
 		.references(() => users.id),
 })).enableRLS()
-
-export const envelopeRelations = relations(envelopes, ({ one }) => ({
-	user: one(users, {
-		fields: [envelopes.userId],
-		references: [users.id],
-	}),
-}))

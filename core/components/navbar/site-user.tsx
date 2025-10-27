@@ -17,7 +17,7 @@ import {
 } from "@/core/components/ui/dropdown-menu"
 import { Profile } from "@/core/components/user-profile"
 import { useHydrated } from "@/core/hooks/use-hydrated"
-import { getSiteUserItems, iconMap } from "@/core/lib/nav.config"
+import { getSiteUserItems, iconMap } from "@/core/lib/nav/site.config"
 import { cn } from "@/core/lib/utils"
 
 export function SiteUser() {
@@ -65,7 +65,10 @@ export function SiteUser() {
 				<DropdownMenuSeparator />
 				<DropdownMenuGroup>
 					{config.map(item => {
-						const IconComponent = item.icon ? iconMap[item.icon] : null
+						const IconComponent =
+							item.icon && typeof item.icon === "string"
+								? iconMap[item.icon as keyof typeof iconMap]
+								: null
 
 						return (
 							<DropdownMenuItem key={item.url} asChild>

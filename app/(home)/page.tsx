@@ -4,7 +4,7 @@ import { Navbar } from "@/features/home/components/navbar"
 
 export default async function Page() {
 	return (
-		<div className="from-background via-background to-muted/20 flex flex-col bg-gradient-to-br">
+		<div className="from-background via-background to-muted/20 flex flex-col bg-linear-to-br">
 			<Navbar />
 
 			{/* Content */}

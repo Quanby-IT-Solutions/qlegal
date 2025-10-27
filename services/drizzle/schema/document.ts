@@ -1,42 +1,26 @@
-import { relations } from "drizzle-orm"
-import { pgEnum } from "drizzle-orm/pg-core"
-
+import { documentStatusEnum } from "@/services/drizzle/schema/_enums"
 import { envelopes } from "@/services/drizzle/schema/envelope"
 import { createTable, randomId } from "@/services/drizzle/utils"
 
-export const documentStatusEnum = pgEnum("document_status", [
-	"UPLOADED",
-	"PROCESSING",
-	"READY",
-	"ERROR",
-])
-
-export const documents = createTable("documents", f => ({
-	id: f
-		.text("id")
+export const documents = createTable("document", t => ({
+	id: t
+		.varchar({ length: 255 })
 		.primaryKey()
 		.$defaultFn(() => randomId()),
-	name: f.text("name").notNull(),
-	description: f.text("description"),
-	type: f.text("type").notNull(), // MIME type
-	size: f.integer("size").notNull(), // File size in bytes
-	path: f.text("path").notNull(), // Storage path
+	name: t.varchar({ length: 255 }).notNull(),
+	description: t.text(),
+	type: t.varchar({ length: 255 }).notNull(), // MIME type
+	size: t.integer().notNull(), // File size in bytes
+	path: t.varchar({ length: 255 }).notNull(), // Storage path
 	status: documentStatusEnum("status").default("UPLOADED").notNull(),
-	envelopeId: f
-		.text("envelope_id")
+	envelopeId: t
+		.varchar({ length: 255 })
 		.notNull()
 		.references(() => envelopes.id),
-	createdAt: f.timestamp("created_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
-	updatedAt: f
-		.timestamp("updated_at", { mode: "date", withTimezone: true })
+	createdAt: t.timestamp({ mode: "date", withTimezone: true }).defaultNow().notNull(),
+	updatedAt: t
+		.timestamp({ mode: "date", withTimezone: true })
 		.defaultNow()
 		.$onUpdateFn(() => new Date())
 		.notNull(),
 })).enableRLS()
-
-export const documentRelations = relations(documents, ({ one }) => ({
-	envelope: one(envelopes, {
-		fields: [documents.envelopeId],
-		references: [envelopes.id],
-	}),
-}))
