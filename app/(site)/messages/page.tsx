@@ -21,6 +21,7 @@ import { ScrollArea } from "@/core/components/ui/scroll-area"
 import { Skeleton } from "@/core/components/ui/skeleton"
 import { cn } from "@/core/lib/utils"
 import { useMessages } from "@/features/messages/api/messages.hooks"
+import { FileUploadPanel } from "@/features/messages/components/file-upload-panel"
 import { toast } from "sonner"
 
 export default function MessagesPage() {
@@ -256,33 +257,34 @@ export default function MessagesPage() {
 
 			{/* Main Chat Area */}
 			{selectedConversation ? (
-				<div className="flex flex-1 flex-col">
-					{/* Chat Header */}
-					<div className="flex items-center justify-between border-b p-4">
-						<div className="flex items-center gap-3">
-							<Avatar className="size-10">
-								<AvatarImage src={selectedConversation.otherUser?.image ?? undefined} />
-								<AvatarFallback className="bg-primary text-primary-foreground">
-									{selectedConversation.otherUser?.name
-										?.split(" ")
-										.map((n) => n[0])
-										.join("")}
-								</AvatarFallback>
-							</Avatar>
-							<div>
-								<h2 className="font-semibold">{selectedConversation.otherUser?.name}</h2>
-								<p className="text-xs text-muted-foreground">{selectedConversation.otherUser?.email}</p>
+				<>
+					<div className="flex flex-1 flex-col">
+						{/* Chat Header */}
+						<div className="flex items-center justify-between border-b p-4">
+							<div className="flex items-center gap-3">
+								<Avatar className="size-10">
+									<AvatarImage src={selectedConversation.otherUser?.image ?? undefined} />
+									<AvatarFallback className="bg-primary text-primary-foreground">
+										{selectedConversation.otherUser?.name
+											?.split(" ")
+											.map((n) => n[0])
+											.join("")}
+									</AvatarFallback>
+								</Avatar>
+								<div>
+									<h2 className="font-semibold">{selectedConversation.otherUser?.name}</h2>
+									<p className="text-xs text-muted-foreground">{selectedConversation.otherUser?.email}</p>
+								</div>
+							</div>
+							<div className="flex items-center gap-2">
+								<Button variant="ghost" size="icon" className="size-9 rounded-full">
+									<Phone className="size-5" />
+								</Button>
+								<Button variant="ghost" size="icon" className="size-9 rounded-full">
+									<Video className="size-5" />
+								</Button>
 							</div>
 						</div>
-						<div className="flex items-center gap-2">
-							<Button variant="ghost" size="icon" className="size-9 rounded-full">
-								<Phone className="size-5" />
-							</Button>
-							<Button variant="ghost" size="icon" className="size-9 rounded-full">
-								<Video className="size-5" />
-							</Button>
-						</div>
-					</div>
 
 					{/* Messages Area */}
 					<ScrollArea className="flex-1 p-4">
@@ -357,44 +359,48 @@ export default function MessagesPage() {
 						)}
 					</ScrollArea>
 
-					{/* Message Input */}
-					<div className="border-t p-4">
-						<div className="flex items-center gap-2">
-							<Button variant="ghost" size="icon" className="size-9 rounded-full">
-								<Paperclip className="size-5" />
-							</Button>
-							<div className="relative flex-1">
-								<Input
-									placeholder="Type a message..."
-									value={messageInput}
-									onChange={(e) => setMessageInput(e.target.value)}
-									className="pr-10"
-									onKeyDown={(e) => {
-										if (e.key === "Enter" && messageInput.trim()) {
-											void handleSendMessage()
-										}
-									}}
-									disabled={sendMessage.isPending}
-								/>
+						{/* Message Input */}
+						<div className="border-t p-4">
+							<div className="flex items-center gap-2">
+								<Button variant="ghost" size="icon" className="size-9 rounded-full">
+									<Paperclip className="size-5" />
+								</Button>
+								<div className="relative flex-1">
+									<Input
+										placeholder="Type a message..."
+										value={messageInput}
+										onChange={(e) => setMessageInput(e.target.value)}
+										className="pr-10"
+										onKeyDown={(e) => {
+											if (e.key === "Enter" && messageInput.trim()) {
+												void handleSendMessage()
+											}
+										}}
+										disabled={sendMessage.isPending}
+									/>
+									<Button
+										variant="ghost"
+										size="icon"
+										className="absolute right-1 top-1/2 size-8 -translate-y-1/2 rounded-full"
+									>
+										<Smile className="size-5" />
+									</Button>
+								</div>
 								<Button
-									variant="ghost"
 									size="icon"
-									className="absolute right-1 top-1/2 size-8 -translate-y-1/2 rounded-full"
+									className="size-9 rounded-full"
+									disabled={!messageInput.trim() || sendMessage.isPending}
+									onClick={() => void handleSendMessage()}
 								>
-									<Smile className="size-5" />
+									<Send className="size-5" />
 								</Button>
 							</div>
-							<Button
-								size="icon"
-								className="size-9 rounded-full"
-								disabled={!messageInput.trim() || sendMessage.isPending}
-								onClick={() => void handleSendMessage()}
-							>
-								<Send className="size-5" />
-							</Button>
 						</div>
 					</div>
-				</div>
+
+					{/* Right Panel - File Uploads */}
+					<FileUploadPanel conversationId={selectedConversationId ?? ""} />
+				</>
 			) : (
 				<div className="flex flex-1 items-center justify-center">
 					<div className="text-center">

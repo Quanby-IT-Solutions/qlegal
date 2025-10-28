@@ -42,28 +42,85 @@ function ScreenShareView({ participantId }: { participantId: string }) {
 
 // Participant video component
 function ParticipantView({ participantId }: { participantId: string }) {
-	const { webcamStream, micOn, webcamOn, displayName, isLocal } = useParticipant(participantId)
+	const { webcamStream, micOn, webcamOn, displayName, isLocal, screenShareStream, screenShareOn } = useParticipant(participantId)
 	const videoRef = useRef<HTMLVideoElement>(null)
+	const [streamSet, setStreamSet] = useState(false)
 
+	const getDisplayName = () => displayName ?? `Participant ${participantId.slice(-4)}`
+
+	// Webcam stream setup
 	useEffect(() => {
-		if (webcamStream && videoRef.current && webcamOn) {
-			const mediaStream = new MediaStream()
-			mediaStream.addTrack(webcamStream.track)
-			videoRef.current.srcObject = mediaStream
-			void videoRef.current.play().catch(() => void 0)
+		const videoElement = videoRef.current
+
+		// Only set webcam stream if not currently screen sharing
+		if (videoElement && webcamStream && webcamOn && !streamSet && !screenShareOn) {
+			try {
+				if (webcamStream.track && webcamStream.track instanceof MediaStreamTrack) {
+					const mediaStream = new MediaStream([webcamStream.track])
+					videoElement.srcObject = mediaStream
+					setStreamSet(true)
+					// eslint-disable-next-line no-console
+					console.log("📹 Webcam stream set for:", participantId)
+				} else {
+					console.error(`❌ Invalid stream for ${participantId}:`, webcamStream)
+				}
+			} catch (error) {
+				console.error(`❌ Error setting video stream for ${participantId}:`, error)
+			}
 		}
-	}, [webcamStream, webcamOn])
+
+		// Reset if webcam is turned off
+		if (!webcamOn && streamSet) {
+			setStreamSet(false)
+			if (videoElement) {
+				videoElement.srcObject = null
+			}
+		}
+	}, [webcamStream, webcamOn, participantId, streamSet, screenShareOn])
+
+	// Screen share stream setup
+	useEffect(() => {
+		const videoElement = videoRef.current
+
+		if (videoElement && screenShareStream && screenShareOn) {
+			try {
+				if (screenShareStream.track && screenShareStream.track instanceof MediaStreamTrack) {
+					const mediaStream = new MediaStream([screenShareStream.track])
+					videoElement.srcObject = mediaStream
+					// eslint-disable-next-line no-console
+					console.log("🖥️ Screen share stream set for:", participantId)
+				}
+			} catch (error) {
+				console.error(`❌ Error setting screen share for ${participantId}:`, error)
+			}
+		}
+
+		// Reset if screen share is turned off
+		if (!screenShareOn && videoElement && videoElement.srcObject) {
+			videoElement.srcObject = null
+		}
+	}, [screenShareStream, screenShareOn, participantId])
+
+	const hasVideo = (webcamOn && webcamStream && webcamStream.track) || (screenShareOn && screenShareStream && screenShareStream.track)
 
 	return (
 		<Card className="relative size-full overflow-hidden border border-gray-800 transition-all hover:border-primary">
 			<CardContent className="relative p-0 size-full">
-				{webcamOn && webcamStream ? (
+				{hasVideo ? (
 					<video
 						ref={videoRef}
 						autoPlay
 						playsInline
 						muted={isLocal}
-						className="size-full object-contain bg-gray-900"
+						onLoadedMetadata={() => {
+							// eslint-disable-next-line no-console
+							console.log("📹 Video loaded for:", participantId, getDisplayName())
+						}}
+						onError={(e) => {
+							console.error(`❌ Video error for ${participantId}:`, e)
+							setStreamSet(false)
+						}}
+						className="size-full object-cover bg-gray-900"
 					/>
 				) : (
 					<div className="flex size-full items-center justify-center bg-gray-900">
@@ -180,22 +237,35 @@ function MeetingControls() {
 // Main meeting view
 function MeetingView({ onLeave }: { onLeave?: () => void }) {
 	const [joined, setJoined] = useState(false)
-	const [joinCalled, setJoinCalled] = useState(false)
 	const [presenterId, setPresenterId] = useState<string | null>(null)
 	
-	const { participants, join } = useMeeting({
+	const { participants } = useMeeting({
 		onMeetingJoined: () => {
 			setJoined(true)
+			// eslint-disable-next-line no-console
+			console.log("✅ Successfully joined meeting")
 		},
 		onMeetingLeft: () => {
 			setJoined(false)
+			// eslint-disable-next-line no-console
+			console.log("👋 Left meeting")
 			// Call the onLeave callback to redirect user
 			if (onLeave) {
 				onLeave()
 			}
 		},
+		onParticipantJoined: (participant) => {
+			// eslint-disable-next-line no-console
+			console.log("👋 Participant joined:", participant.id, participant.displayName)
+		},
+		onParticipantLeft: (participant) => {
+			// eslint-disable-next-line no-console
+			console.log("👋 Participant left:", participant.id, participant.displayName)
+		},
 		onPresenterChanged: (presenterId) => {
 			setPresenterId(presenterId)
+			// eslint-disable-next-line no-console
+			console.log("🖥️ Presenter changed:", presenterId)
 		},
 	})
 
@@ -263,17 +333,6 @@ function MeetingView({ onLeave }: { onLeave?: () => void }) {
 			})
 		}
 	}, [participantIds.length, participantIds, participants])
-
-	useEffect(() => {
-		if (!joinCalled) {
-			// Add a small delay to prevent duplicate joins
-			const timer = setTimeout(() => {
-				join()
-				setJoinCalled(true)
-			}, 100)
-			return () => clearTimeout(timer)
-		}
-	}, [join, joinCalled]) // Only run once
 
 	if (!joined) {
 		return (
@@ -350,31 +409,16 @@ export interface VideoMeetingClientProps {
 }
 
 export function VideoMeetingClient({ meetingId, token, participantName, onLeave }: VideoMeetingClientProps) {
-	const [isClient, setIsClient] = useState(false)
-
-	useEffect(() => {
-		setIsClient(true)
-	}, [])
-
-	if (!isClient) {
-		return (
-			<div className="flex h-screen items-center justify-center bg-gray-950">
-				<div className="text-center">
-					<div className="size-8 animate-spin rounded-full border-b-2 border-primary mx-auto mb-4" />
-					<p className="text-gray-300">Loading...</p>
-				</div>
-			</div>
-		)
-	}
-
 	return (
 		<MeetingProvider
 			config={{
 				meetingId,
-				micEnabled: true,
+				micEnabled: false,
 				webcamEnabled: false,
 				name: participantName,
-				debugMode: false,
+				mode: "SEND_AND_RECV",
+				multiStream: true,
+				debugMode: true,
 			}}
 			token={token}
 			joinWithoutUserInteraction

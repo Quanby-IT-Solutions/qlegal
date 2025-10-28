@@ -60,6 +60,9 @@ importers:
       '@typescript-eslint/parser':
         specifier: ^8.46.2
         version: 8.46.2(eslint@9.38.0(jiti@2.6.1))(typescript@5.9.3)
+      '@videosdk.live/react-sdk':
+        specifier: ^0.4.8
+        version: 0.4.8(react@19.2.0)
       adapter:
         specifier: link:@auth/drizzle/adapter
         version: link:@auth/drizzle/adapter
@@ -2903,6 +2906,14 @@ packages:
     resolution: {integrity: sha512-lrW200hZdbfRtztbygyaq/6jP6AKE8qQN2KvPcJ+x7wiD038YtnYtZ82IMNJ69GJibV7bwL3y9FgK+5w/pYt6g==}
     cpu: [x64]
     os: [win32]
+
+  '@videosdk.live/js-sdk@0.3.9':
+    resolution: {integrity: sha512-zilQGK6q95U/eLjeI74nFueWvlF3AWJIyerH2kGXSLXJNS3Vyu1dAMldqsecdjdd75FyKBtz0MykJhDJH+W6GA==}
+
+  '@videosdk.live/react-sdk@0.4.8':
+    resolution: {integrity: sha512-/yJcNFTVlaFCQDwZ1UhDuu+8v0Yg7T9xPH/7f6KsYH3HVjPWARo3vmuLkHOBlmhO1/o6Ix3tTAU6e7cY1nScsw==}
+    peerDependencies:
+      react: ^16.13.1 || ^17 || ^18 || ^19
 
   '@webassemblyjs/ast@1.14.1':
     resolution: {integrity: sha512-nuBEDgQfm1ccRp/8bCQrx1frohyufl4JlbMMZ4P1wpeOfDhF6FQkxZJ1b/e+PLwr6X1Nhw6OLme5usuBWYBvuQ==}
@@ -8778,7 +8789,7 @@ snapshots:
     dependencies:
       '@types/node': 20.19.23
       tapable: 2.2.3
-      webpack: 5.101.3(esbuild@0.25.10)
+      webpack: 5.101.3(esbuild@0.25.9)
     transitivePeerDependencies:
       - '@swc/core'
       - esbuild
@@ -8940,6 +8951,14 @@ snapshots:
 
   '@unrs/resolver-binding-win32-x64-msvc@1.11.1':
     optional: true
+
+  '@videosdk.live/js-sdk@0.3.9': {}
+
+  '@videosdk.live/react-sdk@0.4.8(react@19.2.0)':
+    dependencies:
+      '@videosdk.live/js-sdk': 0.3.9
+      events: 3.3.0
+      react: 19.2.0
 
   '@webassemblyjs/ast@1.14.1':
     dependencies:
@@ -11742,14 +11761,14 @@ snapshots:
 
   tapable@2.2.3: {}
 
-  terser-webpack-plugin@5.3.14(esbuild@0.25.10)(webpack@5.101.3(esbuild@0.25.9)):
+  terser-webpack-plugin@5.3.14(esbuild@0.25.10)(webpack@5.101.3(esbuild@0.25.10)):
     dependencies:
       '@jridgewell/trace-mapping': 0.3.30
       jest-worker: 27.5.1
       schema-utils: 4.3.2
       serialize-javascript: 6.0.2
       terser: 5.44.0
-      webpack: 5.101.3(esbuild@0.25.10)
+      webpack: 5.101.3(esbuild@0.25.9)
     optionalDependencies:
       esbuild: 0.25.10
 
@@ -11999,7 +12018,7 @@ snapshots:
 
   webpack-sources@3.3.3: {}
 
-  webpack@5.101.3(esbuild@0.25.10):
+  webpack@5.101.3(esbuild@0.25.9):
     dependencies:
       '@types/eslint-scope': 3.7.7
       '@types/estree': 1.0.8
@@ -12023,7 +12042,7 @@ snapshots:
       neo-async: 2.6.2
       schema-utils: 4.3.2
       tapable: 2.2.3
-      terser-webpack-plugin: 5.3.14(esbuild@0.25.10)(webpack@5.101.3(esbuild@0.25.9))
+      terser-webpack-plugin: 5.3.14(esbuild@0.25.10)(webpack@5.101.3(esbuild@0.25.10))
       watchpack: 2.4.4
       webpack-sources: 3.3.3
     transitivePeerDependencies:
