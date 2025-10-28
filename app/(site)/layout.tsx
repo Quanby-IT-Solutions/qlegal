@@ -3,7 +3,6 @@ import { cookies } from "next/headers"
 import {
 	SidebarInset,
 	SidebarProvider,
-	SidebarTrigger,
 } from "@/core/components/animate-ui/components/radix/sidebar"
 import { SiteSidebar } from "@/core/components/navbar/site-sidebar"
 
@@ -18,12 +17,7 @@ export default async function Layout({
 	return (
 		<SidebarProvider defaultOpen={defaultOpen}>
 			<SiteSidebar />
-			<SidebarInset>
-				<main>
-					<SidebarTrigger />
-					{children}
-				</main>
-			</SidebarInset>
+			<SidebarInset>{children}</SidebarInset>
 		</SidebarProvider>
 	)
 }

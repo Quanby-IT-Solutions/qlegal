@@ -40,6 +40,7 @@ export const ROUTE_CONFIG: RouteConfig = {
 			{ path: "/auth/signature" },
 			{ path: "/envelope" },
 			{ path: "/envelopes" },
+			{ path: "/find-a-lawyer" },
 			{ path: "/meetings" },
 			{ path: "/messages" },
 			{ path: "/my-signed" },
@@ -48,9 +49,10 @@ export const ROUTE_CONFIG: RouteConfig = {
 			{ path: "/settings" },
 		],
 		byRole: {
-			client: [],
-			admin: [{ path: "/dashboard" }],
-			super_admin: [{ path: "/dashboard" }],
+			ENP: [{ path: "/dashboard" }],
+			PRINCIPAL: [{ path: "/dashboard" }],
+			ENA: [{ path: "/dashboard" }],
+			ADMIN: [{ path: "/dashboard" }],
 		},
 	},
 }
@@ -62,7 +64,8 @@ export const ROUTE_CONFIG: RouteConfig = {
 export const CUSTOM_HEADERS = {} as const
 
 export const DEFAULT_ROUTES: Record<UserRole, string> = {
-	client: "/",
-	admin: "/",
-	super_admin: "/",
+	ENP: "/dashboard",
+	PRINCIPAL: "/dashboard",
+	ENA: "/dashboard",
+	ADMIN: "/dashboard",
 }
