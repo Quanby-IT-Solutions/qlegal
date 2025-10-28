@@ -93,10 +93,10 @@ const SidebarNavItem = ({ item, userRole, currentWorkflow }: SidebarNavItemProps
 					<Tooltip side="right" align="center">
 						<TooltipTrigger asChild>
 							<SidebarMenuButton asChild>
-								<a href={item.url}>
+								<Link href={item.url as Route}>
 									{IconComponent && <IconComponent />}
 									<span>{item.title}</span>
-								</a>
+								</Link>
 							</SidebarMenuButton>
 						</TooltipTrigger>
 						<TooltipContent>
@@ -307,10 +307,10 @@ export const SiteSidebar = () => {
 									<Tooltip side="right" align="center">
 										<TooltipTrigger asChild>
 											<SidebarMenuButton asChild>
-												<a href={item.url}>
+												<Link href={item.url as Route}>
 													{IconComponent && <IconComponent />}
 													<span>{item.title}</span>
-												</a>
+												</Link>
 											</SidebarMenuButton>
 										</TooltipTrigger>
 										<TooltipContent>
@@ -319,10 +319,10 @@ export const SiteSidebar = () => {
 									</Tooltip>
 								) : (
 									<SidebarMenuButton asChild>
-										<a href={item.url}>
+										<Link href={item.url as Route}>
 											{IconComponent && <IconComponent />}
 											<span>{item.title}</span>
-										</a>
+										</Link>
 									</SidebarMenuButton>
 								)}
 							</SidebarMenuItem>
