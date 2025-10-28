@@ -1,10 +1,11 @@
 "use client"
 
-import { Calendar, Plus, PlayCircle, StopCircle, Trash2, Users, Video } from "lucide-react"
+import { Calendar, Plus, PlayCircle, StopCircle, Trash2, Users, Video, X, Search } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
 import { useState } from "react"
 
+import { Avatar, AvatarFallback, AvatarImage } from "@/core/components/ui/avatar"
 import { Button } from "@/core/components/ui/button"
 import { Badge } from "@/core/components/ui/badge"
 import {
@@ -25,18 +26,25 @@ import {
 } from "@/core/components/ui/dialog"
 import { Input } from "@/core/components/ui/input"
 import { Label } from "@/core/components/ui/label"
+import { ScrollArea } from "@/core/components/ui/scroll-area"
 import { Skeleton } from "@/core/components/ui/skeleton"
 import { useMeetings } from "@/features/meetings/api/meetings.hooks"
+import { useMessages } from "@/features/messages/api/messages.hooks"
 import { toast } from "sonner"
 
 export default function MeetingsPage() {
 	const router = useRouter()
 	const { data: session } = useSession()
 	const { getUserMeetings, create, startMeeting, endMeeting, deleteMeeting } = useMeetings()
+	const { searchUsers } = useMessages()
 	const { data: meetings, isLoading } = getUserMeetings()
 	const [isDialogOpen, setIsDialogOpen] = useState(false)
 	const [title, setTitle] = useState("")
+	const [userSearchQuery, setUserSearchQuery] = useState("")
+	const [selectedUsers, setSelectedUsers] = useState<Array<{ id: string; name: string | null; email: string | null; image: string | null }>>([])
 	const [loadingMeetingId, setLoadingMeetingId] = useState<string | null>(null)
+	
+	const { data: searchResults } = searchUsers(userSearchQuery)
 
 	const handleCreate = async () => {
 		if (!title.trim()) {return}
@@ -44,16 +52,30 @@ export default function MeetingsPage() {
 		try {
 			const result = await create.mutateAsync({
 				title: title.trim(),
+				participantIds: selectedUsers.map(u => u.id),
 			})
 
 			if (result.success) {
 				setIsDialogOpen(false)
 				setTitle("")
+				setSelectedUsers([])
+				setUserSearchQuery("")
 				router.push(`/meetings/${result.meeting.id}`)
 			}
 		} catch {
 			toast.error("Failed to create meeting")
 		}
+	}
+
+	const handleAddUser = (user: { id: string; name: string | null; email: string | null; image: string | null }) => {
+		if (!selectedUsers.find(u => u.id === user.id)) {
+			setSelectedUsers([...selectedUsers, user])
+			setUserSearchQuery("")
+		}
+	}
+
+	const handleRemoveUser = (userId: string) => {
+		setSelectedUsers(selectedUsers.filter(u => u.id !== userId))
 	}
 
 	const handleStartMeeting = async (id: string) => {
@@ -141,11 +163,11 @@ export default function MeetingsPage() {
 							New Meeting
 						</Button>
 					</DialogTrigger>
-					<DialogContent>
+					<DialogContent className="max-w-2xl">
 						<DialogHeader>
 							<DialogTitle>Create Meeting</DialogTitle>
 							<DialogDescription>
-								Create a new video meeting and start collaborating
+								Create a new video meeting and invite participants
 							</DialogDescription>
 						</DialogHeader>
 						<div className="space-y-4">
@@ -156,12 +178,71 @@ export default function MeetingsPage() {
 									placeholder="Team Standup"
 									value={title}
 									onChange={(e) => setTitle(e.target.value)}
-									onKeyDown={(e) => {
-										if (e.key === "Enter") {
-											void handleCreate()
-										}
-									}}
 								/>
+							</div>
+
+							<div>
+								<Label>Invite Participants (Optional)</Label>
+								<div className="space-y-3">
+									{/* Selected Users */}
+									{selectedUsers.length > 0 && (
+										<div className="flex flex-wrap gap-2">
+											{selectedUsers.map((user) => (
+												<Badge key={user.id} variant="secondary" className="gap-2 pr-1">
+													{user.name}
+													<button
+														onClick={() => handleRemoveUser(user.id)}
+														className="ml-1 rounded-full hover:bg-muted"
+													>
+														<X className="size-3" />
+													</button>
+												</Badge>
+											))}
+										</div>
+									)}
+
+									{/* User Search */}
+									<div className="relative">
+										<Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+										<Input
+											placeholder="Search users to invite..."
+											value={userSearchQuery}
+											onChange={(e) => setUserSearchQuery(e.target.value)}
+											className="pl-10"
+										/>
+									</div>
+
+									{/* Search Results */}
+									{userSearchQuery.length > 0 && (
+										<ScrollArea className="h-48 rounded-lg border">
+											<div className="p-2">
+												{searchResults && searchResults.length > 0 ? (
+													searchResults.map((user) => (
+														<button
+															key={user.id}
+															onClick={() => handleAddUser(user)}
+															disabled={selectedUsers.some(u => u.id === user.id)}
+															className="flex w-full items-center gap-3 rounded-lg p-3 text-left transition-colors hover:bg-accent disabled:opacity-50"
+														>
+															<Avatar className="size-10">
+																<AvatarImage src={user.image ?? undefined} />
+																<AvatarFallback className="bg-primary text-primary-foreground">
+																	{user.name?.split(" ").map((n) => n[0]).join("")}
+																</AvatarFallback>
+															</Avatar>
+															<div className="flex-1 overflow-hidden">
+																<p className="font-semibold">{user.name}</p>
+																<p className="truncate text-sm text-muted-foreground">{user.email}</p>
+															</div>
+														</button>
+													))
+												) : (
+													<p className="p-4 text-center text-sm text-muted-foreground">No users found</p>
+												)}
+											</div>
+										</ScrollArea>
+									)}
+								</div>
 							</div>
 						</div>
 						<DialogFooter>
