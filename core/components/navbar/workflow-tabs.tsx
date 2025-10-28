@@ -220,7 +220,7 @@ function WorkflowTabs<T extends string>({
 	}
 
 	return (
-		<div className={cn("overflow-x-hidden", className)}>
+		<div className={className}>
 			<Tabs
 				value={activeValue}
 				onValueChange={handleValueChange}

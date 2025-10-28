@@ -150,7 +150,7 @@ export const appSidebarSections: NavSection[] = [
 				workflows: ["IEN"],
 			},
 			{
-				title: "My Documents",
+				title: "Documents",
 				url: "/documents",
 				icon: FileText,
 				roles: ["ENP", "PRINCIPAL"],
