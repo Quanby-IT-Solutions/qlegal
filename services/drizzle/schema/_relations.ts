@@ -4,6 +4,7 @@ import { users } from "@/services/drizzle/schema/auth"
 import { documents } from "@/services/drizzle/schema/document"
 import { envelopes } from "@/services/drizzle/schema/envelope"
 import { meetingParticipants, meetings } from "@/services/drizzle/schema/meetings"
+import { messageAttachments } from "@/services/drizzle/schema/message-attachments"
 import {
 	conversationParticipants,
 	conversations,
@@ -55,6 +56,7 @@ export const meetingParticipantsRelations = relations(meetingParticipants, ({ on
 export const conversationsRelations = relations(conversations, ({ many }) => ({
 	participants: many(conversationParticipants),
 	messages: many(messages),
+	attachments: many(messageAttachments),
 }))
 
 export const conversationParticipantsRelations = relations(conversationParticipants, ({ one }) => ({
@@ -75,6 +77,17 @@ export const messagesRelations = relations(messages, ({ one }) => ({
 	}),
 	sender: one(users, {
 		fields: [messages.senderId],
+		references: [users.id],
+	}),
+}))
+
+export const messageAttachmentsRelations = relations(messageAttachments, ({ one }) => ({
+	conversation: one(conversations, {
+		fields: [messageAttachments.conversationId],
+		references: [conversations.id],
+	}),
+	uploadedBy: one(users, {
+		fields: [messageAttachments.uploadedBy],
 		references: [users.id],
 	}),
 }))
