@@ -1,4 +1,4 @@
-import { BadgeCheck, Mail, Phone } from "lucide-react"
+import { BadgeCheck, Calendar, Mail, Phone } from "lucide-react"
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/core/components/ui/avatar"
 import { Badge } from "@/core/components/ui/badge"
@@ -14,6 +14,8 @@ import {
 import { getInitials } from "@/core/lib/utils"
 
 import type { RouterOutputs } from "@/services/trpc/client"
+
+import { AppointmentBookingDialog } from "./appointment-booking-dialog"
 
 type Lawyer = RouterOutputs["lawyers"]["getLawyers"][number]
 
@@ -64,14 +66,23 @@ export function LawyerCard({ lawyer }: LawyerCardProps) {
 				)}
 			</CardContent>
 
-			<CardFooter className="flex gap-2 pt-4">
-				<Button variant="default" className="flex-1" asChild>
-					<a href={`mailto:${lawyer.email}`}>Contact</a>
-				</Button>
-				<Button variant="outline" className="flex-1">
-					View Profile
-				</Button>
-			</CardFooter>
+		<CardFooter className="flex gap-2 pt-4">
+			<AppointmentBookingDialog
+				lawyer={lawyer}
+				trigger={
+					<Button variant="default" className="flex-1">
+						<Calendar className="mr-2 h-4 w-4" />
+						Book
+					</Button>
+				}
+			/>
+			<Button variant="outline" className="flex-1" asChild>
+				<a href={`mailto:${lawyer.email}`}>
+					<Mail className="mr-2 h-4 w-4" />
+					Email
+				</a>
+			</Button>
+		</CardFooter>
 		</Card>
 	)
 }
