@@ -1,0 +1,534 @@
+"use client"
+
+import { useState, useEffect } from "react"
+import { useParams } from "next/navigation"
+import { 
+	Video, 
+	Handshake, 
+	Camera, 
+	Mic, 
+	MicOff, 
+	VideoOff, 
+	CheckCircle, 
+	AlertCircle, 
+	Shield, 
+	FileText, 
+	User, 
+	Users, 
+	Clock,
+	MapPin,
+	Phone,
+	Mail,
+	Download,
+	Eye,
+	PenTool,
+	Lock,
+	Play,
+	Pause,
+	Square
+} from "lucide-react"
+
+import { SiteNavbar } from "@/core/components/navbar/site-navbar"
+import { Button } from "@/core/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/core/components/ui/card"
+import { Badge } from "@/core/components/ui/badge"
+import { Avatar, AvatarFallback, AvatarImage } from "@/core/components/ui/avatar"
+import { Progress } from "@/core/components/ui/progress"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/core/components/ui/tabs"
+import { Checkbox } from "@/core/components/ui/checkbox"
+import { Alert, AlertDescription } from "@/core/components/ui/alert"
+import { Separator } from "@/core/components/ui/separator"
+
+// Mock data for notarization session
+const mockNotarizationData = {
+	"1": {
+		id: "1",
+		envelopeId: "env_123",
+		title: "Real Estate Purchase Agreement",
+		status: "IN_PROGRESS",
+		workflow: "REN" as "REN" | "IEN",
+		enp: {
+			id: "1",
+			name: "Atty. Maria Santos",
+			title: "Electronic Notary Public",
+			avatar: "/avatars/maria-santos.jpg",
+			phone: "+63 917 123 4567",
+			email: "maria.santos@notary.ph",
+		},
+		principal: {
+			id: "2",
+			name: "John Doe",
+			email: "john.doe@email.com",
+			phone: "+63 917 987 6543",
+		},
+		documents: [
+			{
+				id: "doc_1",
+				name: "Purchase Agreement.pdf",
+				url: "/documents/purchase-agreement.pdf",
+				status: "PENDING_SIGNATURE",
+				pages: 5,
+			},
+			{
+				id: "doc_2", 
+				name: "Property Deed.pdf",
+				url: "/documents/property-deed.pdf",
+				status: "PENDING_SIGNATURE",
+				pages: 3,
+			}
+		],
+		requirements: {
+			identityVerified: false,
+			documentsScanned: false,
+			witnessPresent: false,
+			videoRecording: false,
+		},
+		startTime: "2024-01-15T10:00:00Z",
+		estimatedDuration: 30,
+		location: "Remote Video Call", // For REN
+		// location: "123 Main St, Makati City", // For IEN
+	}
+}
+
+export default function NotarizePage() {
+	const params = useParams()
+	const notarizationId = params.id as string
+	
+	const [notarization, setNotarization] = useState(mockNotarizationData[notarizationId as keyof typeof mockNotarizationData])
+	const [isVideoOn, setIsVideoOn] = useState(true)
+	const [isMicOn, setIsMicOn] = useState(true)
+	const [isRecording, setIsRecording] = useState(false)
+	const [recordingTime, setRecordingTime] = useState(0)
+	const [currentStep, setCurrentStep] = useState(1)
+	const [requirements, setRequirements] = useState(notarization?.requirements || {
+		identityVerified: false,
+		documentsScanned: false,
+		witnessPresent: false,
+		videoRecording: false,
+	})
+
+	// Timer for recording
+	useEffect(() => {
+		let interval: NodeJS.Timeout
+		if (isRecording) {
+			interval = setInterval(() => {
+				setRecordingTime(prev => prev + 1)
+			}, 1000)
+		}
+		return () => clearInterval(interval)
+	}, [isRecording])
+
+	const formatTime = (seconds: number) => {
+		const mins = Math.floor(seconds / 60)
+		const secs = seconds % 60
+		return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
+	}
+
+	const handleRequirementChange = (requirement: keyof typeof requirements, checked: boolean) => {
+		setRequirements(prev => ({
+			...prev,
+			[requirement]: checked
+		}))
+	}
+
+	const handleStartRecording = () => {
+		setIsRecording(true)
+		setRecordingTime(0)
+		handleRequirementChange('videoRecording', true)
+	}
+
+	const handleStopRecording = () => {
+		setIsRecording(false)
+	}
+
+	const handleCompleteNotarization = () => {
+		// Complete notarization logic
+		console.log("Completing notarization...")
+	}
+
+	if (!notarization) {
+		return (
+			<>
+				<SiteNavbar items={[{ label: "Notarization", url: "/notarizations/active" }]} />
+				<div className="flex min-h-screen items-center justify-center">
+					<Card className="w-96">
+						<CardContent className="py-12 text-center">
+							<AlertCircle className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+							<h3 className="mb-2 text-lg font-medium">Notarization Not Found</h3>
+							<p className="text-muted-foreground mb-4 text-sm">
+								The notarization session you're looking for doesn't exist or you don't have access to it.
+							</p>
+							<Button onClick={() => window.history.back()}>
+								Go Back
+							</Button>
+						</CardContent>
+					</Card>
+				</div>
+			</>
+		)
+	}
+
+	const isREN = notarization.workflow === "REN"
+	const isIEN = notarization.workflow === "IEN"
+	const allRequirementsMet = Object.values(requirements).every(Boolean)
+
+	return (
+		<>
+			<SiteNavbar 
+				items={[
+					{ label: "Notarizations", url: "/notarizations/active" },
+					{ label: notarization.title, url: `/notarize/${notarizationId}` }
+				]} 
+			/>
+			
+			<div className="min-h-screen bg-muted/30">
+				<div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+					{/* Header */}
+					<div className="mb-8">
+						<div className="flex items-center justify-between">
+							<div>
+								<h1 className="text-3xl font-bold tracking-tight">{notarization.title}</h1>
+								<p className="mt-2 text-muted-foreground">
+									{isREN ? "Remote Electronic Notarization (REN)" : "In-Person Electronic Notarization (IEN)"}
+								</p>
+							</div>
+							<Badge variant={isREN ? "default" : "secondary"} className="text-sm">
+								{isREN ? (
+									<>
+										<Video className="mr-1 h-3 w-3" />
+										REN
+									</>
+								) : (
+									<>
+										<Handshake className="mr-1 h-3 w-3" />
+										IEN
+									</>
+								)}
+							</Badge>
+						</div>
+					</div>
+
+					<div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+						{/* Main Content */}
+						<div className="lg:col-span-2 space-y-6">
+							{/* Video/Meeting Section */}
+							{isREN && (
+								<Card>
+									<CardHeader>
+										<CardTitle className="flex items-center gap-2">
+											<Video className="h-5 w-5" />
+											Video Session
+										</CardTitle>
+										<CardDescription>
+											Remote notarization requires active video recording
+										</CardDescription>
+									</CardHeader>
+									<CardContent>
+										<div className="space-y-4">
+											{/* Video Controls */}
+											<div className="flex items-center justify-between">
+												<div className="flex items-center gap-2">
+													<Button
+														variant={isVideoOn ? "default" : "destructive"}
+														size="sm"
+														onClick={() => setIsVideoOn(!isVideoOn)}
+													>
+														{isVideoOn ? <Camera className="h-4 w-4" /> : <VideoOff className="h-4 w-4" />}
+														{isVideoOn ? "Video On" : "Video Off"}
+													</Button>
+													<Button
+														variant={isMicOn ? "default" : "destructive"}
+														size="sm"
+														onClick={() => setIsMicOn(!isMicOn)}
+													>
+														{isMicOn ? <Mic className="h-4 w-4" /> : <MicOff className="h-4 w-4" />}
+														{isMicOn ? "Mic On" : "Mic Off"}
+													</Button>
+												</div>
+												
+												{/* Recording Controls */}
+												<div className="flex items-center gap-2">
+													{!isRecording ? (
+														<Button
+															onClick={handleStartRecording}
+															variant="destructive"
+															size="sm"
+														>
+															<Play className="mr-2 h-4 w-4" />
+															Start Recording
+														</Button>
+													) : (
+														<Button
+															onClick={handleStopRecording}
+															variant="outline"
+															size="sm"
+														>
+															<Square className="mr-2 h-4 w-4" />
+															Stop Recording
+														</Button>
+													)}
+													{isRecording && (
+														<div className="flex items-center gap-2 text-sm">
+															<div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+															<span className="font-mono">{formatTime(recordingTime)}</span>
+														</div>
+													)}
+												</div>
+											</div>
+
+											{/* Video Placeholder */}
+											<div className="bg-black rounded-lg aspect-video flex items-center justify-center">
+												<div className="text-center text-white">
+													<Video className="mx-auto h-12 w-12 mb-2" />
+													<p className="text-sm">Video call in progress</p>
+													<p className="text-xs text-gray-400">
+														{isVideoOn ? "Camera active" : "Camera disabled"}
+													</p>
+												</div>
+											</div>
+
+											{/* Recording Notice */}
+											<Alert>
+												<AlertCircle className="h-4 w-4" />
+												<AlertDescription>
+													This session is being recorded for legal compliance. 
+													Recording will be stored securely and used only for notarization purposes.
+												</AlertDescription>
+											</Alert>
+										</div>
+									</CardContent>
+								</Card>
+							)}
+
+							{/* Physical Presence Section for IEN */}
+							{isIEN && (
+								<Card>
+									<CardHeader>
+										<CardTitle className="flex items-center gap-2">
+											<Handshake className="h-5 w-5" />
+											Physical Presence Verification
+										</CardTitle>
+										<CardDescription>
+											Verify that all parties are physically present
+										</CardDescription>
+									</CardHeader>
+									<CardContent>
+										<div className="space-y-4">
+											<div className="flex items-center gap-4">
+												<Avatar className="h-12 w-12">
+													<AvatarImage src={notarization.enp.avatar} alt={notarization.enp.name} />
+													<AvatarFallback>{notarization.enp.name.split(" ").map(n => n[0]).join("")}</AvatarFallback>
+												</Avatar>
+												<div>
+													<h4 className="font-medium">{notarization.enp.name}</h4>
+													<p className="text-sm text-muted-foreground">{notarization.enp.title}</p>
+													<div className="flex items-center gap-2 mt-1">
+														<MapPin className="h-4 w-4 text-muted-foreground" />
+														<span className="text-sm">{notarization.location}</span>
+													</div>
+												</div>
+											</div>
+											
+											<Separator />
+											
+											<div className="flex items-center gap-4">
+												<Avatar className="h-12 w-12">
+													<AvatarFallback>{notarization.principal.name.split(" ").map(n => n[0]).join("")}</AvatarFallback>
+												</Avatar>
+												<div>
+													<h4 className="font-medium">{notarization.principal.name}</h4>
+													<p className="text-sm text-muted-foreground">Principal</p>
+													<div className="flex items-center gap-2 mt-1">
+														<CheckCircle className="h-4 w-4 text-green-600" />
+														<span className="text-sm text-green-600">Present</span>
+													</div>
+												</div>
+											</div>
+										</div>
+									</CardContent>
+								</Card>
+							)}
+
+							{/* Documents Section */}
+							<Card>
+								<CardHeader>
+									<CardTitle className="flex items-center gap-2">
+										<FileText className="h-5 w-5" />
+										Documents to Notarize
+									</CardTitle>
+									<CardDescription>
+										{notarization.documents.length} document{notarization.documents.length !== 1 ? "s" : ""} pending notarization
+									</CardDescription>
+								</CardHeader>
+								<CardContent>
+									<div className="space-y-3">
+										{notarization.documents.map((doc) => (
+											<div key={doc.id} className="flex items-center justify-between p-3 border rounded-lg">
+												<div className="flex items-center gap-3">
+													<FileText className="h-8 w-8 text-blue-600" />
+													<div>
+														<h4 className="font-medium">{doc.name}</h4>
+														<p className="text-sm text-muted-foreground">{doc.pages} pages</p>
+													</div>
+												</div>
+												<div className="flex items-center gap-2">
+													<Badge variant={doc.status === "PENDING_SIGNATURE" ? "secondary" : "default"}>
+														{doc.status === "PENDING_SIGNATURE" ? "Pending" : "Completed"}
+													</Badge>
+													<Button variant="outline" size="sm">
+														<Eye className="mr-2 h-4 w-4" />
+														View
+													</Button>
+													<Button size="sm">
+														<PenTool className="mr-2 h-4 w-4" />
+														Sign
+													</Button>
+												</div>
+											</div>
+										))}
+									</div>
+								</CardContent>
+							</Card>
+						</div>
+
+						{/* Sidebar */}
+						<div className="space-y-6">
+							{/* Requirements Checklist */}
+							<Card>
+								<CardHeader>
+									<CardTitle className="flex items-center gap-2">
+										<Shield className="h-5 w-5" />
+										Requirements Checklist
+									</CardTitle>
+									<CardDescription>
+										Complete all requirements before finalizing notarization
+									</CardDescription>
+								</CardHeader>
+								<CardContent>
+									<div className="space-y-4">
+										{/* Identity Verification */}
+										<div className="flex items-center space-x-2">
+											<Checkbox
+												id="identity"
+												checked={requirements.identityVerified}
+												onCheckedChange={(checked) => handleRequirementChange('identityVerified', !!checked)}
+											/>
+											<Label htmlFor="identity" className="text-sm">
+												{isREN ? "Remote identity verification completed" : "Physical ID verification completed"}
+											</Label>
+										</div>
+
+										{/* Document Scanning (IEN only) */}
+										{isIEN && (
+											<div className="flex items-center space-x-2">
+												<Checkbox
+													id="documents"
+													checked={requirements.documentsScanned}
+													onCheckedChange={(checked) => handleRequirementChange('documentsScanned', !!checked)}
+												/>
+												<Label htmlFor="documents" className="text-sm">
+													Physical documents scanned and uploaded
+												</Label>
+											</div>
+										)}
+
+										{/* Witness (IEN only) */}
+										{isIEN && (
+											<div className="flex items-center space-x-2">
+												<Checkbox
+													id="witness"
+													checked={requirements.witnessPresent}
+													onCheckedChange={(checked) => handleRequirementChange('witnessPresent', !!checked)}
+												/>
+												<Label htmlFor="witness" className="text-sm">
+													Witness present and verified (if required)
+												</Label>
+											</div>
+										)}
+
+										{/* Video Recording (REN only) */}
+										{isREN && (
+											<div className="flex items-center space-x-2">
+												<Checkbox
+													id="recording"
+													checked={requirements.videoRecording}
+													onCheckedChange={(checked) => handleRequirementChange('videoRecording', !!checked)}
+												/>
+												<Label htmlFor="recording" className="text-sm">
+													Video/audio recording active
+												</Label>
+											</div>
+										)}
+
+										{/* Progress */}
+										<div className="pt-4">
+											<div className="flex items-center justify-between text-sm mb-2">
+												<span>Progress</span>
+												<span>{Object.values(requirements).filter(Boolean).length}/{Object.keys(requirements).length}</span>
+											</div>
+											<Progress 
+												value={(Object.values(requirements).filter(Boolean).length / Object.keys(requirements).length) * 100} 
+												className="h-2" 
+											/>
+										</div>
+									</div>
+								</CardContent>
+							</Card>
+
+							{/* Session Info */}
+							<Card>
+								<CardHeader>
+									<CardTitle className="flex items-center gap-2">
+										<Clock className="h-5 w-5" />
+										Session Information
+									</CardTitle>
+								</CardHeader>
+								<CardContent className="space-y-3">
+									<div className="flex items-center gap-2">
+										<Badge variant="outline">
+											{isREN ? "Remote" : "In-Person"}
+										</Badge>
+									</div>
+									<div className="text-sm space-y-2">
+										<div>
+											<span className="font-medium">Started:</span>
+											<span className="ml-2">{new Date(notarization.startTime).toLocaleString()}</span>
+										</div>
+										<div>
+											<span className="font-medium">Duration:</span>
+											<span className="ml-2">{notarization.estimatedDuration} minutes</span>
+										</div>
+										<div>
+											<span className="font-medium">Location:</span>
+											<span className="ml-2">{notarization.location}</span>
+										</div>
+									</div>
+								</CardContent>
+							</Card>
+
+							{/* Complete Notarization */}
+							<Card>
+								<CardContent className="pt-6">
+									<Button
+										onClick={handleCompleteNotarization}
+										disabled={!allRequirementsMet}
+										className="w-full"
+										size="lg"
+									>
+										<Lock className="mr-2 h-4 w-4" />
+										Complete Notarization
+									</Button>
+									{!allRequirementsMet && (
+										<p className="text-xs text-muted-foreground text-center mt-2">
+											Complete all requirements to finalize
+										</p>
+									)}
+								</CardContent>
+							</Card>
+						</div>
+					</div>
+				</div>
+			</div>
+		</>
+	)
+}
