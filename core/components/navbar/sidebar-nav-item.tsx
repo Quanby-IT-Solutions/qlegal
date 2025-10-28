@@ -10,11 +10,6 @@ import {
 	TooltipTrigger,
 } from "@/core/components/animate-ui/components/animate/tooltip"
 import {
-	Collapsible,
-	CollapsibleContent,
-	CollapsibleTrigger,
-} from "@/core/components/animate-ui/primitives/radix/collapsible"
-import {
 	SidebarMenuButton,
 	SidebarMenuItem,
 	SidebarMenuSub,
@@ -22,8 +17,13 @@ import {
 	SidebarMenuSubItem,
 	useSidebar,
 } from "@/core/components/animate-ui/components/radix/sidebar"
+import {
+	Collapsible,
+	CollapsibleContent,
+	CollapsibleTrigger,
+} from "@/core/components/animate-ui/primitives/radix/collapsible"
+import type { NavItem } from "@/core/lib/nav/types"
 import { canAccessNavItem, resolveIcon } from "@/core/lib/nav/utils"
-import type { NavItem, NotaryRole } from "@/core/lib/nav/types"
 
 type SidebarNavItemProps = {
 	item: NavItem
@@ -42,7 +42,9 @@ export const SidebarNavItem = ({ item, userRole, currentWorkflow }: SidebarNavIt
 
 	// If no sub-items or no accessible sub-items, render as simple link
 	if (!item.items || accessibleSubItems.length === 0) {
-		const IconComponent = resolveIcon(item.icon)
+		const IconComponent = (
+			resolveIcon as (icon?: string | React.ComponentType) => React.ComponentType | undefined
+		)(item.icon)
 		return (
 			<SidebarMenuItem>
 				{sidebarState === "collapsed" ? (
@@ -72,7 +74,9 @@ export const SidebarNavItem = ({ item, userRole, currentWorkflow }: SidebarNavIt
 	}
 
 	// Render as collapsible with sub-items
-	const IconComponent = resolveIcon(item.icon)
+	const IconComponent = (
+		resolveIcon as (icon?: string | React.ComponentType) => React.ComponentType | undefined
+	)(item.icon)
 	return (
 		<Collapsible asChild defaultOpen={item.isActive} className="group/collapsible">
 			<SidebarMenuItem>

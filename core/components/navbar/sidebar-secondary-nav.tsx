@@ -1,5 +1,7 @@
 "use client"
 
+import * as React from "react"
+
 import {
 	Tooltip,
 	TooltipContent,
@@ -26,7 +28,10 @@ export const SidebarSecondaryNav = ({ items }: SidebarSecondaryNavProps) => {
 		<SidebarGroup className="mt-auto">
 			<SidebarMenu>
 				{items.map((item: NavItem) => {
-					const IconComponent = resolveIcon(item.icon)
+					const IconComponent = (
+						resolveIcon as (icon?: string | React.ComponentType) => React.ComponentType | undefined
+					)(item.icon)
+					const hasIcon = IconComponent !== undefined
 					return (
 						<SidebarMenuItem key={item.title}>
 							{sidebarState === "collapsed" ? (
@@ -34,7 +39,7 @@ export const SidebarSecondaryNav = ({ items }: SidebarSecondaryNavProps) => {
 									<TooltipTrigger asChild>
 										<SidebarMenuButton asChild>
 											<a href={item.url}>
-												{IconComponent && <IconComponent />}
+												{hasIcon && <IconComponent />}
 												<span>{item.title}</span>
 											</a>
 										</SidebarMenuButton>
@@ -46,7 +51,7 @@ export const SidebarSecondaryNav = ({ items }: SidebarSecondaryNavProps) => {
 							) : (
 								<SidebarMenuButton asChild>
 									<a href={item.url}>
-										{IconComponent && <IconComponent />}
+										{hasIcon && <IconComponent />}
 										<span>{item.title}</span>
 									</a>
 								</SidebarMenuButton>

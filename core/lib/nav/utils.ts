@@ -4,10 +4,10 @@ import { appSidebarSections, iconMap } from "@/core/lib/nav/site.config"
 import type { NavItem, NavSection, NotaryRole, WorkflowType } from "@/core/lib/nav/types"
 
 // Helper function to resolve icon names to components
-export const resolveIcon = (icon?: LucideIcon | string) => {
+export const resolveIcon = (icon?: LucideIcon | string): LucideIcon | undefined => {
 	if (!icon) return undefined
 	if (typeof icon === "string") {
-		return iconMap[icon as keyof typeof iconMap]
+		return (iconMap as Record<string, LucideIcon>)[icon] ?? undefined
 	}
 	return icon
 }

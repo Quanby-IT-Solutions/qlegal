@@ -5,8 +5,9 @@ import {
 	SidebarGroupLabel,
 	SidebarMenu,
 } from "@/core/components/animate-ui/components/radix/sidebar"
+import type { NavSection, NotaryRole } from "@/core/lib/nav/types"
 import { canAccessNavItem } from "@/core/lib/nav/utils"
-import type { NavItem, NavSection, NotaryRole } from "@/core/lib/nav/types"
+
 import { SidebarNavItem } from "./sidebar-nav-item"
 
 type SidebarNavSectionProps = {
@@ -15,7 +16,11 @@ type SidebarNavSectionProps = {
 	currentWorkflow?: string
 }
 
-export const SidebarNavSection = ({ section, userRole, currentWorkflow }: SidebarNavSectionProps) => {
+export const SidebarNavSection = ({
+	section,
+	userRole,
+	currentWorkflow,
+}: SidebarNavSectionProps) => {
 	// Filter items by role and workflow
 	const accessibleItems = section.items.filter(item => {
 		// Handle union type: roles can be NotaryRole[] | UserRole[]
