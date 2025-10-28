@@ -25,64 +25,70 @@ interface LawyerCardProps {
 
 export function LawyerCard({ lawyer }: LawyerCardProps) {
 	return (
-		<Card className="hover:border-primary transition-all duration-200 hover:shadow-md">
-			<CardHeader className="pb-4">
-				<div className="flex items-start gap-4">
-					<Avatar className="h-16 w-16">
+		<Card className="hover:border-primary flex h-full flex-col transition-all duration-200 hover:shadow-md">
+			<CardHeader className="pb-3">
+				<div className="flex items-start gap-3">
+					<Avatar className="h-14 w-14 shrink-0">
 						<AvatarImage src={lawyer.image ?? ""} alt={lawyer.name ?? ""} />
-						<AvatarFallback className="text-lg">
+						<AvatarFallback className="text-base">
 							{getInitials(lawyer.name ?? "Unknown")}
 						</AvatarFallback>
 					</Avatar>
-					<div className="flex-1 space-y-1">
-						<div className="flex items-center gap-2">
-							<CardTitle className="text-xl">{lawyer.name ?? "Unknown"}</CardTitle>
+					<div className="flex min-w-0 flex-1 flex-col gap-1">
+						<div className="flex min-w-0 items-start gap-2">
+							<CardTitle className="break-words text-lg leading-tight min-w-0 flex-1" title={lawyer.name ?? "Unknown"}>
+								{lawyer.name ?? "Unknown"}
+							</CardTitle>
 							{lawyer.emailVerified && (
-								<Badge variant="secondary" className="gap-1">
+								<Badge variant="secondary" className="shrink-0 gap-1 text-xs whitespace-nowrap">
 									<BadgeCheck className="h-3 w-3" />
 									Verified
 								</Badge>
 							)}
 						</div>
-						<CardDescription className="text-muted-foreground text-sm">
+						<CardDescription className="text-muted-foreground text-xs">
 							Electronic Notary Public (ENP)
 						</CardDescription>
 					</div>
 				</div>
 			</CardHeader>
 
-			<CardContent className="space-y-3 pb-4">
+			<CardContent className="flex-1 space-y-2 pb-4">
 				{lawyer.email && (
-					<div className="flex items-center gap-2">
-						<Mail className="text-muted-foreground h-4 w-4" />
-						<span className="text-sm">{lawyer.email}</span>
+					<div className="flex min-w-0 items-center gap-2.5">
+						<Mail className="text-muted-foreground h-4 w-4 shrink-0" />
+						<span className="truncate text-sm" title={lawyer.email}>
+							{lawyer.email}
+						</span>
 					</div>
 				)}
 				{lawyer.phoneNumber && (
-					<div className="flex items-center gap-2">
-						<Phone className="text-muted-foreground h-4 w-4" />
-						<span className="text-sm">{lawyer.phoneNumber}</span>
+					<div className="flex min-w-0 items-center gap-2.5">
+						<Phone className="text-muted-foreground h-4 w-4 shrink-0" />
+						<span className="truncate text-sm" title={lawyer.phoneNumber}>
+							{lawyer.phoneNumber}
+						</span>
 					</div>
 				)}
 			</CardContent>
 
-		<CardFooter className="flex gap-2 pt-4">
-			<AppointmentBookingDialog
-				lawyer={lawyer}
-				trigger={
-					<Button variant="default" className="flex-1">
-						<Calendar className="mr-2 h-4 w-4" />
-						Book
-					</Button>
-				}
-			/>
-			<Button variant="outline" className="flex-1" asChild>
-				<a href={`mailto:${lawyer.email}`}>
-					<Mail className="mr-2 h-4 w-4" />
-					Email
-				</a>
-			</Button>
-		</CardFooter>
+			<CardFooter className="flex gap-2 border-t pt-4">
+				<AppointmentBookingDialog
+					lawyer={lawyer}
+					trigger={
+						<Button variant="default" size="sm" className="flex-1">
+							<Calendar className="mr-1.5 h-3.5 w-3.5" />
+							Book
+						</Button>
+					}
+				/>
+				<Button variant="outline" size="sm" className="flex-1" asChild>
+					<a href={`mailto:${lawyer.email}`}>
+						<Mail className="mr-1.5 h-3.5 w-3.5" />
+						Email
+					</a>
+				</Button>
+			</CardFooter>
 		</Card>
 	)
 }
