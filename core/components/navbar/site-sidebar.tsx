@@ -52,7 +52,7 @@ import {
 	CollapsibleContent,
 	CollapsibleTrigger,
 } from "@/core/components/animate-ui/primitives/radix/collapsible"
-import { WorkflowTabPanel } from "@/core/components/navbar/workflow-tab-panel"
+import { WorkflowTabs } from "@/core/components/navbar/workflow-tabs"
 import { Avatar, AvatarFallback, AvatarImage } from "@/core/components/ui/avatar"
 import { useIsMobile } from "@/core/hooks/use-mobile"
 import { getTeams, iconMap, navSecondary, workflows } from "@/core/lib/nav/site.config"
@@ -271,7 +271,7 @@ export const SiteSidebar = () => {
 
 			<SidebarContent className="overflow-x-hidden">
 				{/* Navigation Sections */}
-				<WorkflowTabPanel
+				<WorkflowTabs
 					tabs={workflows.map(workflow => ({
 						value: workflow.id,
 						label: workflow.label,
@@ -293,7 +293,7 @@ export const SiteSidebar = () => {
 							))}
 						</>
 					)}
-				</WorkflowTabPanel>
+				</WorkflowTabs>
 			</SidebarContent>
 
 			<SidebarFooter>

@@ -41,7 +41,7 @@ import {
 
 import type { UserRole } from "@/services/drizzle/schema/auth"
 
-import type { NavItem, NavSection, Team, UserProfile, WorkflowConfig, WorkflowType } from "./types"
+import type { NavItem, NavSection, Team, WorkflowConfig, WorkflowType } from "./types"
 
 // Icon mapping for string-based icon references
 export const iconMap = {
