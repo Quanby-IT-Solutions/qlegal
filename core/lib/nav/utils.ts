@@ -1,5 +1,16 @@
-import { appSidebarSections } from "@/core/lib/nav/site.config"
+import type { LucideIcon } from "lucide-react"
+
+import { appSidebarSections, iconMap } from "@/core/lib/nav/site.config"
 import type { NavItem, NavSection, NotaryRole, WorkflowType } from "@/core/lib/nav/types"
+
+// Helper function to resolve icon names to components
+export const resolveIcon = (icon?: LucideIcon | string) => {
+	if (!icon) return undefined
+	if (typeof icon === "string") {
+		return iconMap[icon as keyof typeof iconMap]
+	}
+	return icon
+}
 
 // Role and workflow filtering utility
 export const canAccessNavItem = (
