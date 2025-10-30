@@ -18,3 +18,17 @@ export const meetingStatus = pgEnum("meeting_status", [
 	"COMPLETED",
 	"CANCELLED",
 ])
+
+// Appointment status enum
+export const appointmentStatus = pgEnum("appointment_status", [
+	"PENDING",
+	"CONFIRMED",
+	"CANCELLED",
+	"COMPLETED",
+])
+
+// Appointment type enum
+export const appointmentType = pgEnum("appointment_type", [
+	"DOCUMENT_SIGNING",
+	"CONSULTATION",
+])

@@ -1,9 +1,11 @@
 import { relations } from "drizzle-orm"
 
+import { appointments } from "@/services/drizzle/schema/appointments"
 import { users } from "@/services/drizzle/schema/auth"
 import { documents } from "@/services/drizzle/schema/document"
 import { envelopes } from "@/services/drizzle/schema/envelope"
 import { meetingParticipants, meetings } from "@/services/drizzle/schema/meetings"
+import { messageAttachments } from "@/services/drizzle/schema/message-attachments"
 import {
 	conversationParticipants,
 	conversations,
@@ -55,6 +57,7 @@ export const meetingParticipantsRelations = relations(meetingParticipants, ({ on
 export const conversationsRelations = relations(conversations, ({ many }) => ({
 	participants: many(conversationParticipants),
 	messages: many(messages),
+	attachments: many(messageAttachments),
 }))
 
 export const conversationParticipantsRelations = relations(conversationParticipants, ({ one }) => ({
@@ -76,5 +79,19 @@ export const messagesRelations = relations(messages, ({ one }) => ({
 	sender: one(users, {
 		fields: [messages.senderId],
 		references: [users.id],
+	}),
+}))
+
+// Appointment relations
+export const appointmentsRelations = relations(appointments, ({ one }) => ({
+	client: one(users, {
+		fields: [appointments.clientId],
+		references: [users.id],
+		relationName: "clientAppointments",
+	}),
+	lawyer: one(users, {
+		fields: [appointments.lawyerId],
+		references: [users.id],
+		relationName: "lawyerAppointments",
 	}),
 }))

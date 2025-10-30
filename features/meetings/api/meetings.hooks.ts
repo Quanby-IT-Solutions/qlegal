@@ -11,7 +11,9 @@ export function useMeetings() {
 		},
 	})
 
-	const getUserMeetings = trpc.meetings.getUserMeetings.useQuery
+	const getUserMeetings = () => trpc.meetings.getUserMeetings.useQuery(undefined, {
+		refetchInterval: 3000, // Poll every 3 seconds for real-time updates
+	})
 
 	const getById = (id: string) =>
 		trpc.meetings.getById.useQuery(id, {
