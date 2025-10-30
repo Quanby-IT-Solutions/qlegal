@@ -6,7 +6,11 @@ import { format } from "date-fns"
 import { ChevronDown, Eye, FileText, Trash2, UserPlus } from "lucide-react"
 import { toast } from "sonner"
 
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/core/components/tooltip"
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipTrigger,
+} from "@/core/components/animate-ui/components/animate/tooltip"
 import { Badge } from "@/core/components/ui/badge"
 import { Button } from "@/core/components/ui/button"
 import { Card, CardContent } from "@/core/components/ui/card"
