@@ -26,8 +26,9 @@ import {
 	Monitor,
 	PenToolIcon,
 	PieChart,
+	PieChartIcon,
 	Plus,
-	Scan,
+	ScanIcon,
 	Send,
 	Settings2,
 	SettingsIcon,
@@ -41,7 +42,7 @@ import {
 
 import type { UserRole } from "@/services/drizzle/schema/auth"
 
-import type { NavItem, NavSection, Team, UserProfile, WorkflowConfig, WorkflowType } from "./types"
+import type { NavItem, NavSection, Team, WorkflowConfig, WorkflowType } from "./types"
 
 // Icon mapping for string-based icon references
 export const iconMap = {
@@ -90,6 +91,22 @@ export const iconMap = {
 export type IconName = keyof typeof iconMap
 
 // Workflow configurations
+// Based on Philippine Supreme Court Rules on Electronic Notarization (A.M. No. 24-10-14-SC)
+//
+// REN (Remote Electronic Notarization) Requirements:
+// - Video/audio recording of entire session (mandatory)
+// - Remote identity verification via credential analysis + KBA
+// - Appointment scheduling system for remote coordination
+// - Electronic Notarization Facility (ENF) Provider accreditation
+// - Principals can participate from anywhere (including abroad)
+//
+// IEN (In-Person Electronic Notarization) Requirements:
+// - Physical presence verification
+// - Identity verification via government-issued ID inspection
+// - Document scanning capabilities for physical documents
+// - Witness management for certain document types
+// - No mandatory video recording (optional)
+// - No ENF Provider dependency
 export const workflows: WorkflowConfig[] = [
 	{
 		id: "REN",
@@ -129,65 +146,229 @@ export const navSecondary: NavItem[] = [
 ]
 
 // App sidebar sections configuration
+// Based on Philippine Supreme Court Rules on Electronic Notarization (A.M. No. 24-10-14-SC)
 export const appSidebarSections: NavSection[] = [
 	{
 		label: "Platform",
 		items: [
+			// ============================================================================
+			// DASHBOARD - Universal entry point for all users
+			// ============================================================================
+			// Available to: All authenticated users
+			// Workflows: REN, IEN
+			// Purpose: Main dashboard showing user-specific overview and quick actions
 			{
 				title: "Dashboard",
 				url: "/dashboard",
-				icon: PieChart,
+				icon: PieChartIcon,
 			},
+
+			// ============================================================================
+			// FIND A NOTARY - Client discovery of available ENPs
+			// ============================================================================
+			// Available to: PRINCIPAL (clients looking for notary services)
+			// Workflows: REN, IEN (workflow-agnostic - all ENPs support both)
+			// Purpose: Browse and search for Electronic Notaries Public
+			// Features: ENP profiles, location, specialization, availability, ratings
+			// Next Step: Book consultation or request notarization
 			{
-				title: "Find a Lawyer",
-				url: "/find-a-lawyer",
+				title: "Find a Notary",
+				url: "/find-notary",
 				icon: UsersIcon,
+				roles: ["PRINCIPAL"],
+				workflows: ["REN", "IEN"],
 			},
+
+			// ============================================================================
+			// CONSULTATION - Book or manage consultation appointments
+			// ============================================================================
+			// Available to: PRINCIPAL (booking), ENP (managing)
+			// Workflows: REN, IEN (branches based on selected workflow)
+			// Purpose:
+			//   - REN: Schedule remote video consultation
+			//   - IEN: Schedule in-person meeting or walk-in
+			// Features: Calendar, ENP selection, workflow choice, appointment management
+			{
+				title: "Consultations",
+				url: "/consultations",
+				icon: CalendarIcon,
+				roles: ["PRINCIPAL", "ENP"],
+				workflows: ["REN", "IEN"],
+			},
+
+			// ============================================================================
+			// MY CALENDAR (ENP Calendar Management) - REN-specific
+			// ============================================================================
+			// Available to: ENP only
+			// Workflows: REN only
+			// Purpose: ENP manages their remote appointment calendar and availability
+			// Features: Calendar view, availability slots, scheduled remote sessions
+			// Note: IEN doesn't need separate appointment management (walk-in or consultation)
+			{
+				title: "My Calendar",
+				url: "/appointments",
+				icon: CalendarIcon,
+				roles: ["ENP"],
+				workflows: ["REN"],
+			},
+
+			// ============================================================================
+			// DOCUMENT SCANNING - IEN-specific document digitization
+			// ============================================================================
+			// Available to: ENP only
+			// Workflows: IEN only
+			// Purpose: Scan physical documents for in-person notarization
+			// Features: Camera/scanner integration, PDF generation, document upload
+			// Note: REN doesn't need this (documents already digital/uploaded remotely)
 			{
 				title: "Scan Documents",
 				url: "/scan",
-				icon: Scan,
+				icon: ScanIcon,
+				roles: ["ENP"],
 				workflows: ["IEN"],
 			},
+
+			// ============================================================================
+			// NOTARIZATION REQUESTS - Client-initiated notarization workflow
+			// ============================================================================
+			// Available to: PRINCIPAL, ENP
+			// Workflows: REN, IEN
+			// Purpose:
+			//   - PRINCIPAL: Request notarization service, upload documents
+			//   - ENP: View incoming notarization requests
+			// Features: Document upload, ENP selection, workflow choice, request tracking
 			{
-				title: "My Documents",
-				url: "/documents",
+				title: "Notarization Requests",
+				url: "/requests",
 				icon: FileText,
-				roles: ["ENP", "PRINCIPAL"],
+				roles: ["PRINCIPAL", "ENP"],
+				workflows: ["REN", "IEN"],
 				items: [
+					// PRINCIPAL: Create new notarization request
 					{
-						title: "Create New Envelope",
-						url: "/documents/create",
-						roles: ["ENP"],
-						workflows: ["REN", "IEN"],
-					},
-					{
-						title: "Request Notarization",
-						url: "/documents/request",
+						title: "New Request",
+						url: "/requests/new",
 						roles: ["PRINCIPAL"],
 						workflows: ["REN", "IEN"],
 					},
+					// PRINCIPAL: View their submitted requests
 					{
-						title: "Pending Signatures",
-						url: "/documents/pending",
-						roles: ["ENP"],
+						title: "My Requests",
+						url: "/requests/my-requests",
+						roles: ["PRINCIPAL"],
 						workflows: ["REN", "IEN"],
 					},
+					// ENP: View incoming requests from clients
 					{
-						title: "Completed",
-						url: "/documents/completed",
-						roles: ["ENP", "PRINCIPAL"],
+						title: "Incoming Requests",
+						url: "/requests/incoming",
+						roles: ["ENP"],
 						workflows: ["REN", "IEN"],
 					},
 				],
 			},
+
+			// ============================================================================
+			// ACTIVE NOTARIZATIONS - Live notarization sessions and pending actions
+			// ============================================================================
+			// Available to: ENP, PRINCIPAL
+			// Workflows: REN, IEN
+			// Purpose: Active notarization sessions requiring action
+			// Features:
+			//   - REN: Video session active, remote signing, recording indicator
+			//   - IEN: In-person session, physical presence verified, signing
+			// Routes to: /notarize/[id] (workflow-aware notarization page)
 			{
-				title: "Electronic Notarial Book",
+				title: "Active Notarizations",
+				url: "/notarizations/active",
+				icon: PenToolIcon,
+				roles: ["ENP", "PRINCIPAL"],
+				workflows: ["REN", "IEN"],
+			},
+
+			// ============================================================================
+			// NOTARIZATION HISTORY - Completed and historical notarizations
+			// ============================================================================
+			// Available to: ENP, PRINCIPAL
+			// Workflows: REN, IEN
+			// Purpose: View completed notarizations and history
+			// Features: Search, filter by date/workflow, download certificates, audit trail
+			{
+				title: "Notarization History",
+				url: "/notarizations/history",
+				icon: BookIcon,
+				roles: ["ENP", "PRINCIPAL"],
+				workflows: ["REN", "IEN"],
+			},
+
+			// ============================================================================
+			// DOCUMENT MANAGEMENT - All documents and envelopes
+			// ============================================================================
+			// Available to: ENP, PRINCIPAL
+			// Workflows: REN, IEN
+			// Purpose: Manage all documents, envelopes, and templates
+			// Note: Consolidates /envelopes and /documents into one clear section
+			{
+				title: "Documents",
+				url: "/documents",
+				icon: FileText,
+				roles: ["ENP", "PRINCIPAL"],
+				workflows: ["REN", "IEN"],
+				items: [
+					// ENP: Create new document envelope for notarization
+					{
+						title: "Create Envelope",
+						url: "/documents/create",
+						roles: ["ENP"],
+						workflows: ["REN", "IEN"],
+					},
+					// All: View documents pending signature
+					{
+						title: "Pending Signatures",
+						url: "/documents/pending",
+						roles: ["ENP", "PRINCIPAL"],
+						workflows: ["REN", "IEN"],
+					},
+					// All: View completed documents
+					{
+						title: "Completed Documents",
+						url: "/documents/completed",
+						roles: ["ENP", "PRINCIPAL"],
+						workflows: ["REN", "IEN"],
+					},
+					// ENP: Document templates for reuse
+					{
+						title: "Templates",
+						url: "/documents/templates",
+						roles: ["ENP"],
+						workflows: ["REN", "IEN"],
+					},
+				],
+			},
+
+			// ============================================================================
+			// ELECTRONIC NOTARIAL BOOK - ENP's official record book
+			// ============================================================================
+			// Available to: ENP only
+			// Workflows: REN, IEN (both must maintain records)
+			// Purpose: Official electronic notarial register per Supreme Court rules
+			// Features: All notarial acts, chronological entries, search, export
+			// Legal: Required by Philippine Supreme Court Rules (A.M. No. 24-10-14-SC)
+			{
+				title: "Notarial Book",
 				url: "/notarial-book",
 				icon: BookOpen,
 				roles: ["ENP"],
 				workflows: ["REN", "IEN"],
 			},
+
+			// ============================================================================
+			// AUDIT & COMPLIANCE - ENA oversight and monitoring
+			// ============================================================================
+			// Available to: ENA (Electronic Notarization Authority) only
+			// Workflows: REN, IEN
+			// Purpose: ENA monitors compliance, reviews records, generates reports
+			// Legal: ENA oversight per Supreme Court Rules
 			{
 				title: "Audit & Compliance",
 				url: "/audit",
@@ -202,13 +383,29 @@ export const appSidebarSections: NavSection[] = [
 						workflows: ["REN", "IEN"],
 					},
 					{
-						title: "Reports",
+						title: "Compliance Reports",
 						url: "/audit/reports",
+						roles: ["ENA"],
+						workflows: ["REN", "IEN"],
+					},
+					{
+						title: "Violations",
+						url: "/audit/violations",
 						roles: ["ENA"],
 						workflows: ["REN", "IEN"],
 					},
 				],
 			},
+
+			// ============================================================================
+			// IDENTITY VERIFICATION - IEN-specific in-person ID check
+			// ============================================================================
+			// Available to: ENP only
+			// Workflows: IEN only
+			// Purpose: Verify identity via government-issued ID inspection
+			// Features: ID scanning, comparison, validation checklist, photo capture
+			// Legal: IEN requires physical ID inspection per Supreme Court Rules
+			// Note: REN uses different verification (credential analysis + KBA)
 			{
 				title: "Identity Verification",
 				url: "/verification/identity",
@@ -216,6 +413,15 @@ export const appSidebarSections: NavSection[] = [
 				roles: ["ENP"],
 				workflows: ["IEN"],
 			},
+
+			// ============================================================================
+			// WITNESS MANAGEMENT - IEN-specific physical witness verification
+			// ============================================================================
+			// Available to: ENP only
+			// Workflows: IEN only
+			// Purpose: Manage witnesses for documents requiring physical witnesses
+			// Features: Witness registration, ID verification, signature capture
+			// Legal: Certain documents require witnesses per Supreme Court Rules
 			{
 				title: "Witness Management",
 				url: "/verification/witness",
@@ -223,11 +429,35 @@ export const appSidebarSections: NavSection[] = [
 				roles: ["ENP"],
 				workflows: ["IEN"],
 			},
+
+			// ============================================================================
+			// VIDEO MEETINGS - REN-specific remote session management
+			// ============================================================================
+			// Available to: ENP, PRINCIPAL
+			// Workflows: REN only
+			// Purpose: Manage remote video consultation and notarization sessions
+			// Features: Video call, screen sharing, recording, meeting history
+			// Legal: REN requires video/audio recording per Supreme Court Rules
+			// Note: Integrated with VideoSDK
+			{
+				title: "Video Meetings",
+				url: "/meetings",
+				icon: Monitor,
+				roles: ["ENP", "PRINCIPAL"],
+				workflows: ["REN"],
+			},
 		],
 	},
 	{
 		label: "Management",
 		items: [
+			// ============================================================================
+			// ENP MANAGEMENT - ENA oversight of Electronic Notaries Public
+			// ============================================================================
+			// Available to: ENA only
+			// Workflows: REN, IEN (ENA manages all ENPs)
+			// Purpose: Manage ENP commissions, applications, and revocations
+			// Legal: ENA oversight per Supreme Court Rules
 			{
 				title: "ENP Management",
 				url: "/management/enp",
@@ -248,13 +478,22 @@ export const appSidebarSections: NavSection[] = [
 						workflows: ["REN", "IEN"],
 					},
 					{
-						title: "Revocations",
+						title: "Revocations & Suspensions",
 						url: "/management/enp/revocations",
 						roles: ["ENA"],
 						workflows: ["REN", "IEN"],
 					},
 				],
 			},
+
+			// ============================================================================
+			// FACILITY PROVIDERS - REN-specific ENF Provider accreditation
+			// ============================================================================
+			// Available to: ENA only
+			// Workflows: REN only
+			// Purpose: Manage Electronic Notarization Facility (ENF) Provider accreditation
+			// Legal: REN requires accredited ENF Providers per Supreme Court Guidelines
+			// Features: Accreditation applications, monitoring, compliance, penalties
 			{
 				title: "Facility Providers",
 				url: "/management/providers",
@@ -269,8 +508,14 @@ export const appSidebarSections: NavSection[] = [
 						workflows: ["REN"],
 					},
 					{
-						title: "Monitoring",
+						title: "Performance Monitoring",
 						url: "/management/providers/monitoring",
+						roles: ["ENA"],
+						workflows: ["REN"],
+					},
+					{
+						title: "Compliance & Penalties",
+						url: "/management/providers/compliance",
 						roles: ["ENA"],
 						workflows: ["REN"],
 					},
@@ -281,6 +526,14 @@ export const appSidebarSections: NavSection[] = [
 	{
 		label: "Settings",
 		items: [
+			// ============================================================================
+			// ACCOUNT SETTINGS - User profile and security management
+			// ============================================================================
+			// Available to: All authenticated users
+			// Workflows: REN, IEN
+			// Purpose: Manage user profile, security settings, and preferences
+			// Features: Profile editing, password change, 2FA, notification preferences
+			// Legal: All users need profile and security management per Supreme Court Rules
 			{
 				title: "Account Settings",
 				url: "/settings",
