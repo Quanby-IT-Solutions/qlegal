@@ -117,26 +117,11 @@ const WorkflowTabsContent = <T extends string>({
 	activeValue,
 	children,
 	className,
-}: WorkflowTabsContentProps<T>) => {
+	direction,
+}: WorkflowTabsContentProps<T> & { direction: number }) => {
 	const { state: sidebarState } = useSidebar()
-	const [previousValue, setPreviousValue] = useState<T>(activeValue)
+	const activeIndex = tabs.findIndex(tab => tab.value === activeValue)
 
-	// Update previousValue when activeValue changes
-	useEffect(() => {
-		setPreviousValue(activeValue)
-	}, [activeValue])
-
-	// Calculate direction for animation
-	const direction =
-		activeValue === tabs[0]?.value
-			? previousValue === tabs.find(t => t.value !== activeValue)?.value
-				? -1
-				: 0
-			: previousValue === tabs[0]?.value
-				? 1
-				: 0
-
-	// Define transition variants
 	const variants = {
 		enter: (dir: number) => ({
 			x: sidebarState === "collapsed" ? 0 : dir > 0 ? 300 : -300,
@@ -160,8 +145,6 @@ const WorkflowTabsContent = <T extends string>({
 			scale: 0.95,
 		}),
 	}
-
-	const activeIndex = tabs.findIndex(tab => tab.value === activeValue)
 
 	return (
 		<TransitionPanel
@@ -196,6 +179,11 @@ function WorkflowTabs<T extends string>({
 }: WorkflowTabsProps<T>) {
 	const { state: sidebarState } = useSidebar()
 	const [activeValue, setActiveValue] = useState<T>(defaultValue)
+	const [lastActiveIndex, setLastActiveIndex] = useState<number>(
+		tabs.findIndex(tab => tab.value === defaultValue)
+	)
+	const activeIndex = tabs.findIndex(tab => tab.value === activeValue)
+	const direction = activeIndex > lastActiveIndex ? 1 : activeIndex < lastActiveIndex ? -1 : 0
 
 	// Initialize from cookie and keep it in sync
 	useEffect(() => {
@@ -205,11 +193,15 @@ function WorkflowTabs<T extends string>({
 		const value = match?.split("=")[1]
 		if (value && tabs.some(tab => tab.value === value)) {
 			setActiveValue(value as T)
+			const idx = tabs.findIndex(tab => tab.value === value)
+			setLastActiveIndex(idx)
 		}
 	}, [cookieName, tabs])
 
 	const handleValueChange = (value: string) => {
 		const typedValue = value as T
+		const newIndex = tabs.findIndex(tab => tab.value === typedValue)
+		setLastActiveIndex(activeIndex)
 		setActiveValue(typedValue)
 		onValueChange?.(typedValue)
 
@@ -254,7 +246,7 @@ function WorkflowTabs<T extends string>({
 				</SidebarGroup>
 
 				{/* Animated Content */}
-				<WorkflowTabsContent tabs={tabs} activeValue={activeValue}>
+				<WorkflowTabsContent tabs={tabs} activeValue={activeValue} direction={direction}>
 					{children}
 				</WorkflowTabsContent>
 			</Tabs>
