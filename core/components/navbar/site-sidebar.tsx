@@ -1,20 +1,59 @@
 "use client"
 
+import type { Route } from "next"
+import Link from "next/link"
 import { useState } from "react"
+import {
+	BadgeCheck,
+	Bell,
+	ChevronRightIcon,
+	ChevronsUpDownIcon,
+	CreditCard,
+	LogOut,
+	Sparkles,
+	type LucideIcon,
+} from "lucide-react"
 import { useSession } from "next-auth/react"
 
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipTrigger,
+} from "@/core/components/animate-ui/components/animate/tooltip"
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuGroup,
+	DropdownMenuItem,
+	DropdownMenuLabel,
+	DropdownMenuSeparator,
+	DropdownMenuTrigger,
+} from "@/core/components/animate-ui/components/radix/dropdown-menu"
 import {
 	Sidebar,
 	SidebarContent,
 	SidebarFooter,
+	SidebarGroup,
+	SidebarGroupLabel,
 	SidebarHeader,
+	SidebarMenu,
+	SidebarMenuButton,
+	SidebarMenuItem,
+	SidebarMenuSub,
+	SidebarMenuSubButton,
+	SidebarMenuSubItem,
 	SidebarRail,
+	useSidebar,
 } from "@/core/components/animate-ui/components/radix/sidebar"
-import { SidebarNavSection } from "@/core/components/navbar/sidebar-nav-section"
+import {
+	Collapsible,
+	CollapsibleContent,
+	CollapsibleTrigger,
+} from "@/core/components/animate-ui/primitives/radix/collapsible"
 import { SidebarSecondaryNav } from "@/core/components/navbar/sidebar-secondary-nav"
 import { TeamSwitcher } from "@/core/components/navbar/team-switcher"
-import { UserDropdown } from "@/core/components/navbar/user-dropdown"
 import { WorkflowTabs } from "@/core/components/navbar/workflow-tabs"
+import { Avatar, AvatarFallback, AvatarImage } from "@/core/components/ui/avatar"
 import { useIsMobile } from "@/core/hooks/use-mobile"
 import { getTeams, iconMap, navSecondary, workflows } from "@/core/lib/nav/site.config"
 import { type NavItem, type NavSection, type NotaryRole, type Team } from "@/core/lib/nav/types"
@@ -88,7 +127,7 @@ const SidebarNavItem = ({ item, userRole, currentWorkflow }: SidebarNavItemProps
 								<SidebarMenuButton>
 									{IconComponent && <IconComponent />}
 									<span>{item.title}</span>
-									<ChevronRight className="ml-auto transition-transform duration-300 group-data-[state=open]/collapsible:rotate-90" />
+									<ChevronRightIcon className="ml-auto transition-transform duration-300 group-data-[state=open]/collapsible:rotate-90" />
 								</SidebarMenuButton>
 							</CollapsibleTrigger>
 						</TooltipTrigger>
@@ -101,7 +140,7 @@ const SidebarNavItem = ({ item, userRole, currentWorkflow }: SidebarNavItemProps
 						<SidebarMenuButton>
 							{IconComponent && <IconComponent />}
 							<span>{item.title}</span>
-							<ChevronRight className="ml-auto transition-transform duration-300 group-data-[state=open]/collapsible:rotate-90" />
+							<ChevronRightIcon className="ml-auto transition-transform duration-300 group-data-[state=open]/collapsible:rotate-90" />
 						</SidebarMenuButton>
 					</CollapsibleTrigger>
 				)}
@@ -217,7 +256,14 @@ export const SiteSidebar = () => {
 						const IconComponent = resolveIcon(item.icon)
 						return (
 							<SidebarMenuItem key={item.title}>
-								{sidebarState === "collapsed" ? (
+								{isMobile ? (
+									<SidebarMenuButton asChild>
+										<Link href={item.url as Route}>
+											{IconComponent && <IconComponent />}
+											<span>{item.title}</span>
+										</Link>
+									</SidebarMenuButton>
+								) : (
 									<Tooltip side="right" align="center">
 										<TooltipTrigger asChild>
 											<SidebarMenuButton asChild>
@@ -231,13 +277,6 @@ export const SiteSidebar = () => {
 											<p>{item.title}</p>
 										</TooltipContent>
 									</Tooltip>
-								) : (
-									<SidebarMenuButton asChild>
-										<Link href={item.url as Route}>
-											{IconComponent && <IconComponent />}
-											<span>{item.title}</span>
-										</Link>
-									</SidebarMenuButton>
 								)}
 							</SidebarMenuItem>
 						)
@@ -252,7 +291,7 @@ export const SiteSidebar = () => {
 									size="lg"
 									className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
 								>
-									<Avatar className="h-8 w-8 rounded-lg">
+									<Avatar className="size-8 rounded-lg">
 										<AvatarImage src={session?.user?.image ?? ""} alt={session?.user?.name ?? ""} />
 										<AvatarFallback className="rounded-lg">
 											{session?.user?.name?.[0] ?? ""}
@@ -262,7 +301,7 @@ export const SiteSidebar = () => {
 										<span className="truncate font-semibold">{session?.user?.name ?? ""}</span>
 										<span className="truncate text-xs">{session?.user?.email ?? ""}</span>
 									</div>
-									<ChevronsUpDown className="ml-auto size-4" />
+									<ChevronsUpDownIcon className="ml-auto size-4" />
 								</SidebarMenuButton>
 							</DropdownMenuTrigger>
 							<DropdownMenuContent
@@ -273,7 +312,7 @@ export const SiteSidebar = () => {
 							>
 								<DropdownMenuLabel className="p-0 font-normal">
 									<div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
-										<Avatar className="h-8 w-8 rounded-lg">
+										<Avatar className="size-8 rounded-lg">
 											<AvatarImage
 												src={session?.user?.image ?? ""}
 												alt={session?.user?.name ?? ""}
