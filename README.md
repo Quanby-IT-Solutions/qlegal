@@ -2,7 +2,7 @@
 
 Send, sign, and track documents securely with role‑based access for every stakeholder. Approvals, guided eSigning, and an audit‑ready history—all in one place.
 
-**Built with:** Next.js 15 • tRPC • Prisma • NextAuth • Supabase
+**Built with:** Next.js 15 • tRPC • Drizzle • NextAuth • Supabase
 
 ## Features
 
@@ -76,7 +76,7 @@ core/                 # ✅ Shared/reusable code
 services/             # ✅ External service integrations
 ├── email/            # ✅ Email service
 ├── next-auth/        # ✅ NextAuth setup
-├── prisma/           # ✅ Database schema
+├── drizzle/          # ✅ Database schema
 ├── supabase/         # ✅ Supabase client
 └── trpc/             # ✅ tRPC setup
 ```
@@ -94,7 +94,7 @@ services/             # ✅ External service integrations
 pnpm dev              # Start development server
 pnpm build            # Build for production
 pnpm db:push          # Push database changes
-pnpm db:generate      # Generate Prisma client
+pnpm db:generate      # Generate Drizzle client
 pnpm db:studio        # Open database GUI
 pnpm check            # Check code quality and lint
 ```
