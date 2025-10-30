@@ -38,7 +38,7 @@ export function isRouteAuthorized(path: string, role: UserRole | null): boolean 
 	}
 
 	// Admin has access to all protected routes
-	if (role === "admin") {
+	if (role === "ADMIN") {
 		return Object.values(ROUTE_CONFIG.protected.byRole)
 			.flat()
 			.some(pattern => matchesRoute(path, pattern))
