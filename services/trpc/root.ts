@@ -1,6 +1,7 @@
 import { createCallerFactory, createTRPCRouter, publicProcedure } from "@/services/trpc/init"
 
 import { authRouter } from "@/features/auth/api/auth.router"
+import { consultationsRouter } from "@/features/consultations/api/consultations.router"
 import { envelopeLiteRouter } from "@/features/envelopes-lite/api/envelope-lite.router"
 import { appointmentsRouter } from "@/features/lawyers/api/appointments.router"
 import { lawyersRouter } from "@/features/lawyers/api/lawyers.router"
@@ -23,6 +24,7 @@ export const appRouter = createTRPCRouter({
 	}),
 	appointments: appointmentsRouter,
 	auth: authRouter,
+	consultations: consultationsRouter,
 	envelopeLite: envelopeLiteRouter,
 	lawyers: lawyersRouter,
 	meetings: meetingsRouter,

@@ -22,7 +22,10 @@ export const messageFilesRouter = createTRPCRouter({
 		.mutation(async ({ input, ctx }) => {
 			// Verify user is participant in conversation
 			const participant = await db.query.conversationParticipants.findFirst({
-				where: eq(conversationParticipants.conversationId, input.conversationId),
+				where: and(
+					eq(conversationParticipants.conversationId, input.conversationId),
+					eq(conversationParticipants.userId, ctx.session.user.id)
+				),
 			})
 
 			if (!participant) {
@@ -60,7 +63,10 @@ export const messageFilesRouter = createTRPCRouter({
 		.mutation(async ({ input, ctx }) => {
 			// Verify user is participant
 			const participant = await db.query.conversationParticipants.findFirst({
-				where: eq(conversationParticipants.conversationId, input.conversationId),
+				where: and(
+					eq(conversationParticipants.conversationId, input.conversationId),
+					eq(conversationParticipants.userId, ctx.session.user.id)
+				),
 			})
 
 			if (!participant) {
@@ -103,7 +109,10 @@ export const messageFilesRouter = createTRPCRouter({
 		.query(async ({ input, ctx }) => {
 			// Verify user is participant
 			const participant = await db.query.conversationParticipants.findFirst({
-				where: eq(conversationParticipants.conversationId, input.conversationId),
+				where: and(
+					eq(conversationParticipants.conversationId, input.conversationId),
+					eq(conversationParticipants.userId, ctx.session.user.id)
+				),
 			})
 
 			if (!participant) {

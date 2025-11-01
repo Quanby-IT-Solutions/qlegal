@@ -3,7 +3,9 @@ import { eq } from "drizzle-orm"
 import { z } from "zod/v4"
 
 import { db } from "@/services/drizzle/db"
+import { documents } from "@/services/drizzle/schema/document"
 import { meetings, meetingParticipants } from "@/services/drizzle/schema/meetings"
+import { getPublicClient } from "@/services/supabase"
 import { createMeetingRoom, generateMeetingToken } from "@/services/video-sdk"
 import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
 
@@ -271,6 +273,144 @@ export const meetingsRouter = createTRPCRouter({
 		await db.delete(meetings).where(eq(meetings.id, input))
 
 		return { success: true }
+	}),
+
+	// Upload document during meeting
+	uploadDocument: protectedProcedure
+		.input(
+			z.object({
+				meetingId: z.string().min(1),
+				name: z.string().min(1, "Document name is required"),
+				file: z.string(), // Base64 encoded file
+				mimeType: z.string(),
+				size: z.number(),
+				description: z.string().optional(),
+			})
+		)
+		.mutation(async ({ ctx, input }) => {
+			const { meetingId, name, file, mimeType, size } = input
+
+			// Verify meeting exists and user has access
+			const meeting = await db.query.meetings.findFirst({
+				where: eq(meetings.id, meetingId),
+				with: {
+					participants: true,
+				},
+			})
+
+			if (!meeting) {
+				throw new TRPCError({
+					code: "NOT_FOUND",
+					message: "Meeting not found",
+				})
+			}
+
+			// Check if user has access to the meeting
+			const hasAccess = meeting.participants.some((p) => p.userId === ctx.session.user.id)
+
+			if (!hasAccess) {
+				throw new TRPCError({
+					code: "FORBIDDEN",
+					message: "You don't have access to this meeting",
+				})
+			}
+
+			try {
+				// Create document record in database
+				const [document] = await db
+					.insert(documents)
+					.values({
+						name,
+						path: "", // Will be updated after upload
+						type: mimeType,
+						size,
+						description: input.description || null,
+						meetingId,
+					})
+					.returning()
+
+				if (!document) {
+					throw new TRPCError({
+						code: "INTERNAL_SERVER_ERROR",
+						message: "Failed to create document record",
+					})
+				}
+
+				// Upload to Supabase storage
+				const supabase = getPublicClient()
+				const fileName = `meetings/${meetingId}/${document.id}/${name}`
+
+				// Decode base64 file data
+				const fileBuffer = Buffer.from(file, "base64")
+
+				const { data: uploadData, error: uploadError } = await supabase.storage
+					.from("documents")
+					.upload(fileName, fileBuffer, {
+						contentType: mimeType,
+						cacheControl: "3600",
+					})
+
+				if (uploadError) {
+					// Clean up database record if upload fails
+					await db.delete(documents).where(eq(documents.id, document.id))
+					throw new TRPCError({
+						code: "INTERNAL_SERVER_ERROR",
+						message: `Upload failed: ${uploadError.message}`,
+					})
+				}
+
+				// Update document with storage path
+				const [updatedDocument] = await db
+					.update(documents)
+					.set({ path: uploadData.path })
+					.where(eq(documents.id, document.id))
+					.returning()
+
+				// Get public URL for the document
+				const {
+					data: { publicUrl },
+				} = supabase.storage.from("documents").getPublicUrl(uploadData.path)
+
+				return {
+					...updatedDocument,
+					url: publicUrl,
+				}
+			} catch (error) {
+				throw new TRPCError({
+					code: "INTERNAL_SERVER_ERROR",
+					message: error instanceof Error ? error.message : "Upload failed",
+				})
+			}
+		}),
+
+	// Get meeting documents
+	getMeetingDocuments: protectedProcedure.input(z.string()).query(async ({ input, ctx }) => {
+		const meeting = await db.query.meetings.findFirst({
+			where: eq(meetings.id, input),
+			with: {
+				participants: true,
+				documents: true,
+			},
+		})
+
+		if (!meeting) {
+			throw new TRPCError({
+				code: "NOT_FOUND",
+				message: "Meeting not found",
+			})
+		}
+
+		// Check if user has access
+		const hasAccess = meeting.participants.some((p) => p.userId === ctx.session.user.id)
+
+		if (!hasAccess) {
+			throw new TRPCError({
+				code: "FORBIDDEN",
+				message: "You don't have access to this meeting",
+			})
+		}
+
+		return meeting.documents
 	}),
 })
 

@@ -12,6 +12,16 @@ import {
 	messages,
 } from "@/services/drizzle/schema/messages"
 
+// Meeting relations
+export const meetingsRelations = relations(meetings, ({ one, many }) => ({
+	createdBy: one(users, {
+		fields: [meetings.createdById],
+		references: [users.id],
+	}),
+	participants: many(meetingParticipants),
+	documents: many(documents),
+}))
+
 // Auth relations
 export const userRelations = relations(users, ({ many }) => ({
 	envelopes: many(envelopes),
@@ -23,6 +33,10 @@ export const documentRelations = relations(documents, ({ one }) => ({
 		fields: [documents.envelopeId],
 		references: [envelopes.id],
 	}),
+	meeting: one(meetings, {
+		fields: [documents.meetingId],
+		references: [meetings.id],
+	}),
 }))
 
 // Envelope relations
@@ -33,14 +47,6 @@ export const envelopeRelations = relations(envelopes, ({ one }) => ({
 	}),
 }))
 
-// Meeting relations
-export const meetingsRelations = relations(meetings, ({ one, many }) => ({
-	createdBy: one(users, {
-		fields: [meetings.createdById],
-		references: [users.id],
-	}),
-	participants: many(meetingParticipants),
-}))
 
 export const meetingParticipantsRelations = relations(meetingParticipants, ({ one }) => ({
 	meeting: one(meetings, {
@@ -78,6 +84,17 @@ export const messagesRelations = relations(messages, ({ one }) => ({
 	}),
 	sender: one(users, {
 		fields: [messages.senderId],
+		references: [users.id],
+	}),
+}))
+
+export const messageAttachmentsRelations = relations(messageAttachments, ({ one }) => ({
+	conversation: one(conversations, {
+		fields: [messageAttachments.conversationId],
+		references: [conversations.id],
+	}),
+	uploadedBy: one(users, {
+		fields: [messageAttachments.uploadedBy],
 		references: [users.id],
 	}),
 }))
