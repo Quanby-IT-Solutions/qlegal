@@ -62,7 +62,7 @@ importers:
         version: 8.46.2(eslint@9.38.0(jiti@2.6.1))(typescript@5.9.3)
       '@videosdk.live/react-sdk':
         specifier: ^0.4.8
-        version: 0.4.8(react@19.2.0)
+        version: 0.4.9(react@19.2.0)
       adapter:
         specifier: link:@auth/drizzle/adapter
         version: link:@auth/drizzle/adapter
@@ -2910,8 +2910,8 @@ packages:
   '@videosdk.live/js-sdk@0.3.9':
     resolution: {integrity: sha512-zilQGK6q95U/eLjeI74nFueWvlF3AWJIyerH2kGXSLXJNS3Vyu1dAMldqsecdjdd75FyKBtz0MykJhDJH+W6GA==}
 
-  '@videosdk.live/react-sdk@0.4.8':
-    resolution: {integrity: sha512-/yJcNFTVlaFCQDwZ1UhDuu+8v0Yg7T9xPH/7f6KsYH3HVjPWARo3vmuLkHOBlmhO1/o6Ix3tTAU6e7cY1nScsw==}
+  '@videosdk.live/react-sdk@0.4.9':
+    resolution: {integrity: sha512-8HPFWItIn8PwT8G7AjAGhnAWslV6r120Rk1TzMUYB5CwMalHbq/KragNunoGYefm/SFbXC3gBCRC7l4YDdHibg==}
     peerDependencies:
       react: ^16.13.1 || ^17 || ^18 || ^19
 
@@ -8954,7 +8954,7 @@ snapshots:
 
   '@videosdk.live/js-sdk@0.3.9': {}
 
-  '@videosdk.live/react-sdk@0.4.8(react@19.2.0)':
+  '@videosdk.live/react-sdk@0.4.9(react@19.2.0)':
     dependencies:
       '@videosdk.live/js-sdk': 0.3.9
       events: 3.3.0

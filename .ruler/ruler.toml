@@ -5,8 +5,11 @@
 # uncomment and populate the following line. If omitted, all agents are active.
 default_agents = [
   "claude",
+  "codex",
   "copilot",
   "cursor",
+  "gemini-cli",
+  "windsurf",
   ]
 
 
