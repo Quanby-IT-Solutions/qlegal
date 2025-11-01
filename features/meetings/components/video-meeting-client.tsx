@@ -1,12 +1,14 @@
 "use client"
 
-import { Camera, CameraOff, Mic, MicOff, Monitor, PhoneOff, Users } from "lucide-react"
+import { Camera, CameraOff, FileText, FileUp, Mic, MicOff, Monitor, PhoneOff, Users } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import { MeetingProvider, useMeeting, useParticipant } from "@videosdk.live/react-sdk"
 
+import { trpc } from "@/services/trpc/client"
 import { Button } from "@/core/components/ui/button"
 import { Card, CardContent } from "@/core/components/ui/card"
 import { cn } from "@/core/lib/utils"
+import { MeetingDocumentUpload } from "./meeting-document-upload"
 
 // Screen share view component
 function ScreenShareView({ participantId }: { participantId: string }) {
@@ -148,7 +150,7 @@ function ParticipantView({ participantId }: { participantId: string }) {
 }
 
 // Meeting controls
-function MeetingControls() {
+function MeetingControls({ onUploadClick }: { onUploadClick?: () => void }) {
 	const meeting = useMeeting()
 	const [isMicOn, setIsMicOn] = useState(true)
 	const [isCameraOn, setIsCameraOn] = useState(false)
@@ -198,46 +200,69 @@ function MeetingControls() {
 				onClick={handleToggleMic}
 				title={isMicOn ? "Mute microphone" : "Unmute microphone"}
 			>
-				{isMicOn ? <Mic className="size-4" /> : <MicOff className="size-4" />}
-			</Button>
+		{isMicOn ? <Mic className="size-4" /> : <MicOff className="size-4" />}
+		</Button>
 
+		<Button
+			variant={isCameraOn ? "ghost" : "destructive"}
+			size="sm"
+			className="size-9 rounded-full p-0"
+			onClick={handleToggleCamera}
+			title={isCameraOn ? "Turn off camera" : "Turn on camera"}
+		>
+			{isCameraOn ? <Camera className="size-4" /> : <CameraOff className="size-4" />}
+		</Button>
+
+		<Button
+			variant={isScreenSharing ? "destructive" : "ghost"}
+			size="sm"
+			className="size-9 rounded-full p-0"
+			onClick={handleToggleScreenShare}
+			title={isScreenSharing ? "Stop sharing" : "Share screen"}
+		>
+			<Monitor className="size-4" />
+		</Button>
+
+		{onUploadClick && (
 			<Button
-				variant={isCameraOn ? "ghost" : "destructive"}
+				variant="ghost"
 				size="sm"
 				className="size-9 rounded-full p-0"
-				onClick={handleToggleCamera}
-				title={isCameraOn ? "Turn off camera" : "Turn on camera"}
+				onClick={onUploadClick}
+				title="Upload document"
 			>
-				{isCameraOn ? <Camera className="size-4" /> : <CameraOff className="size-4" />}
+				<FileUp className="size-4" />
 			</Button>
+		)}
 
-			<Button
-				variant={isScreenSharing ? "destructive" : "ghost"}
-				size="sm"
-				className="size-9 rounded-full p-0"
-				onClick={handleToggleScreenShare}
-				title={isScreenSharing ? "Stop sharing" : "Share screen"}
-			>
-				<Monitor className="size-4" />
-			</Button>
-
-			<Button
-				variant="destructive"
-				size="sm"
-				className="size-9 rounded-full p-0"
-				onClick={handleLeave}
-				title="Leave meeting"
-			>
-				<PhoneOff className="size-4" />
-			</Button>
-		</div>
-	)
+		<Button
+			variant="destructive"
+			size="sm"
+			className="size-9 rounded-full p-0"
+			onClick={handleLeave}
+			title="Leave meeting"
+		>
+			<PhoneOff className="size-4" />
+		</Button>
+	</div>
+)
 }
 
 // Main meeting view
-function MeetingView({ onLeave }: { onLeave?: () => void }) {
+function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?: string }) {
 	const [joined, setJoined] = useState(false)
 	const [presenterId, setPresenterId] = useState<string | null>(null)
+	const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false)
+	const [showDocuments, setShowDocuments] = useState(false)
+	
+	// Fetch meeting documents
+	const { data: documents, refetch: refetchDocuments } = trpc.meetings.getMeetingDocuments.useQuery(
+		meetingId || "",
+		{
+			enabled: !!meetingId,
+			refetchInterval: 5000, // Refetch every 5 seconds to get new uploads
+		}
+	)
 	
 	const { participants } = useMeeting({
 		onMeetingJoined: () => {
@@ -352,7 +377,7 @@ function MeetingView({ onLeave }: { onLeave?: () => void }) {
 				<h1 className="text-lg font-bold">Video Meeting</h1>
 				
 				{/* Meeting Controls */}
-				<MeetingControls />
+				<MeetingControls onUploadClick={() => setIsUploadDialogOpen(true)} />
 				
 				<div className="flex items-center gap-2 text-sm text-gray-400">
 					<Users className="size-4" />
@@ -360,55 +385,137 @@ function MeetingView({ onLeave }: { onLeave?: () => void }) {
 				</div>
 			</div>
 
-			{/* Video Grid or Screen Share Layout */}
-			{presenterId ? (
-				// Screen share layout: Main screen + sidebar with participants
-				<div className="flex flex-1 gap-4 overflow-hidden p-4">
-					{/* Main screen share area */}
-					<div className="flex-1">
-						<ScreenShareView participantId={presenterId} />
-					</div>
-					
-					{/* Sidebar with participant videos */}
-					<div className="flex w-64 flex-col gap-2 overflow-y-auto">
-						{participantIds.map((participantId) => (
-							<div key={participantId} className="h-36 flex-shrink-0">
-								<ParticipantView participantId={participantId} />
-							</div>
-						))}
-					</div>
-				</div>
-			) : (
-				// Normal grid layout when no one is sharing
-				<div className="flex-1 overflow-hidden p-4">
-					<div
-						className={cn(
-							"grid size-full gap-4",
-							participantIds.length === 1 && "grid-cols-1",
-							participantIds.length === 2 && "grid-cols-2",
-							participantIds.length > 2 && participantIds.length <= 4 && "grid-cols-2",
-							participantIds.length > 4 && "grid-cols-3"
-						)}
-					>
-						{participantIds.map((participantId) => (
-							<ParticipantView key={participantId} participantId={participantId} />
-						))}
-					</div>
-				</div>
+			{/* Document Upload Dialog */}
+			{meetingId && (
+				<MeetingDocumentUpload
+					meetingId={meetingId}
+					isOpen={isUploadDialogOpen}
+					onClose={() => setIsUploadDialogOpen(false)}
+					onSuccess={() => {
+						refetchDocuments()
+						setShowDocuments(true)
+					}}
+				/>
 			)}
+
+			{/* Main Content: Video Grid or Screen Share Layout */}
+			<div className="flex flex-1 flex-col overflow-hidden">
+				{presenterId ? (
+					// Screen share layout: Main screen + sidebar with participants
+					<div className="flex flex-1 gap-4 overflow-hidden p-4">
+						{/* Main screen share area */}
+						<div className="flex-1">
+							<ScreenShareView participantId={presenterId} />
+						</div>
+						
+						{/* Sidebar with participant videos */}
+						<div className="flex w-64 flex-col gap-2 overflow-y-auto">
+							{participantIds.map((participantId) => (
+								<div key={participantId} className="h-36 flex-shrink-0">
+									<ParticipantView participantId={participantId} />
+								</div>
+							))}
+						</div>
+					</div>
+				) : (
+					// Normal grid layout when no one is sharing
+					<div className="flex-1 overflow-hidden p-4">
+						<div
+							className={cn(
+								"grid size-full gap-4",
+								participantIds.length === 1 && "grid-cols-1",
+								participantIds.length === 2 && "grid-cols-2",
+								participantIds.length > 2 && participantIds.length <= 4 && "grid-cols-2",
+								participantIds.length > 4 && "grid-cols-3"
+							)}
+						>
+							{participantIds.map((participantId) => (
+								<ParticipantView key={participantId} participantId={participantId} />
+							))}
+						</div>
+					</div>
+				)}
+
+				{/* Documents Panel at Bottom */}
+				{documents && documents.length > 0 && (
+					<div className={cn(
+						"border-t border-gray-800 bg-gray-900 transition-all duration-300 flex-shrink-0",
+						showDocuments ? "h-48" : "h-12"
+					)}>
+						<div className="flex h-12 items-center justify-between px-4 md:px-6 border-b border-gray-800">
+							<div className="flex items-center gap-2 text-sm text-gray-300">
+								<FileText className="size-4" />
+								<span className="font-medium">Documents ({documents.length})</span>
+							</div>
+							<Button
+								variant="ghost"
+								size="sm"
+								onClick={() => setShowDocuments(!showDocuments)}
+								className="h-7 px-3 text-xs"
+							>
+								{showDocuments ? "Hide" : "Show"}
+							</Button>
+						</div>
+						{showDocuments && (
+							<div 
+								className="h-36 overflow-x-auto overflow-y-hidden px-4 md:px-6 py-3"
+								style={{
+									scrollbarWidth: 'thin',
+									scrollbarColor: '#4B5563 #1F2937'
+								}}
+							>
+								<div className="flex gap-3 min-w-max">
+									{documents.map((doc) => (
+										<Card key={doc.id} className="flex-shrink-0 w-64 border-gray-700 bg-gray-800 hover:bg-gray-700 transition-colors">
+											<CardContent className="p-4">
+												<div className="flex items-start gap-3 mb-3">
+													<div className="rounded-lg bg-primary/10 p-2.5 flex-shrink-0">
+														<FileText className="size-5 text-primary" />
+													</div>
+													<div className="flex-1 min-w-0">
+														<p className="text-sm font-medium text-white truncate" title={doc.name}>
+															{doc.name}
+														</p>
+														<p className="text-xs text-gray-400 mt-1">
+															{(doc.size / 1024).toFixed(1)} KB • PDF
+														</p>
+													</div>
+												</div>
+												<Button
+													variant="outline"
+													size="sm"
+													className="w-full h-8 text-xs border-gray-600 hover:bg-primary hover:text-primary-foreground hover:border-primary"
+													onClick={() => {
+														// Open document in new tab
+														window.open(`/api/documents/${doc.id}`, '_blank')
+													}}
+												>
+													<FileText className="size-3 mr-1.5" />
+													View Document
+												</Button>
+											</CardContent>
+										</Card>
+									))}
+								</div>
+							</div>
+						)}
+					</div>
+				)}
+			</div>
 		</div>
 	)
 }
 
 // Main export component
 export interface VideoMeetingClientProps {
-	meetingId: string
+	meetingId: string // VideoSDK room ID
+	dbMeetingId?: string // Database meeting ID for uploads
 	token: string
 	participantName: string
 	onLeave?: () => void
 }
 
-export function VideoMeetingClient({ meetingId, token, participantName, onLeave }: VideoMeetingClientProps) {
+export function VideoMeetingClient({ meetingId, dbMeetingId, token, participantName, onLeave }: VideoMeetingClientProps) {
 	return (
 		<MeetingProvider
 			config={{
@@ -423,7 +530,7 @@ export function VideoMeetingClient({ meetingId, token, participantName, onLeave 
 			token={token}
 			joinWithoutUserInteraction
 		>
-			<MeetingView onLeave={onLeave} />
+			<MeetingView onLeave={onLeave} meetingId={dbMeetingId} />
 		</MeetingProvider>
 	)
 }

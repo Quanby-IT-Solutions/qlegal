@@ -43,6 +43,17 @@ export function useMeetings() {
 		},
 	})
 
+	const uploadDocument = trpc.meetings.uploadDocument.useMutation({
+		onSuccess: () => {
+			void utils.meetings.getMeetingDocuments.invalidate()
+		},
+	})
+
+	const getMeetingDocuments = (meetingId: string) =>
+		trpc.meetings.getMeetingDocuments.useQuery(meetingId, {
+			enabled: !!meetingId,
+		})
+
 	return {
 		create,
 		getUserMeetings,
@@ -51,6 +62,8 @@ export function useMeetings() {
 		startMeeting,
 		endMeeting,
 		deleteMeeting,
+		uploadDocument,
+		getMeetingDocuments,
 	}
 }
 

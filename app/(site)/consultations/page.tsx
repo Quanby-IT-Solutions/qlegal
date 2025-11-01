@@ -1,9 +1,12 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useSearchParams } from "next/navigation"
-import { Calendar, Clock, MapPin, Video, Handshake, User, Phone, Mail, CheckCircle } from "lucide-react"
+import { type Route } from "next"
+import { useSearchParams, useRouter } from "next/navigation"
+import { Calendar, Clock, MapPin, Video, Handshake, User, Phone, Mail, CheckCircle, Loader2 } from "lucide-react"
+import { toast } from "sonner"
 
+import { trpc } from "@/services/trpc/client"
 import { SiteNavbar } from "@/core/components/navbar/site-navbar"
 import { Button } from "@/core/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/core/components/ui/card"
@@ -13,89 +16,30 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/core/components/ui/t
 import { RadioGroup, RadioGroupItem } from "@/core/components/ui/radio-group"
 import { Label } from "@/core/components/ui/label"
 import { Textarea } from "@/core/components/ui/textarea"
-import { Input } from "@/core/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/core/components/ui/select"
 import { Calendar as CalendarComponent } from "@/core/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/core/components/ui/popover"
 import { format } from "date-fns"
 
-// Mock data for ENP details
-const mockENPDetails = {
-	"1": {
-		id: "1",
-		name: "Atty. Maria Santos",
-		title: "Electronic Notary Public",
-		location: "Makati City, Metro Manila",
-		specialization: "Real Estate, Business Documents",
-		rating: 4.9,
-		reviewCount: 127,
-		avatar: "/avatars/maria-santos.jpg",
-		experience: "8 years",
-		languages: ["English", "Filipino", "Spanish"],
-		responseTime: "Within 2 hours",
-		phone: "+63 917 123 4567",
-		email: "maria.santos@notary.ph",
-		officeHours: "9:00 AM - 6:00 PM (Mon-Fri), 9:00 AM - 2:00 PM (Sat)",
-		availableSlots: {
-			REN: [
-				{ date: "2024-01-15", time: "10:00 AM", duration: "30 min" },
-				{ date: "2024-01-15", time: "2:00 PM", duration: "30 min" },
-				{ date: "2024-01-16", time: "9:00 AM", duration: "30 min" },
-				{ date: "2024-01-16", time: "3:00 PM", duration: "30 min" },
-			],
-			IEN: [
-				{ date: "2024-01-15", time: "10:00 AM", duration: "45 min" },
-				{ date: "2024-01-15", time: "2:00 PM", duration: "45 min" },
-				{ date: "2024-01-16", time: "9:00 AM", duration: "45 min" },
-				{ date: "2024-01-16", time: "3:00 PM", duration: "45 min" },
-			]
-		}
-	},
-	"2": {
-		id: "2",
-		name: "Atty. Juan Dela Cruz",
-		title: "Electronic Notary Public",
-		location: "Quezon City, Metro Manila",
-		specialization: "Legal Documents, Contracts",
-		rating: 4.8,
-		reviewCount: 89,
-		avatar: "/avatars/juan-dela-cruz.jpg",
-		experience: "12 years",
-		languages: ["English", "Filipino"],
-		responseTime: "Within 1 hour",
-		phone: "+63 917 234 5678",
-		email: "juan.delacruz@notary.ph",
-		officeHours: "8:00 AM - 5:00 PM (Mon-Fri), 8:00 AM - 12:00 PM (Sat)",
-		availableSlots: {
-			REN: [
-				{ date: "2024-01-15", time: "11:00 AM", duration: "30 min" },
-				{ date: "2024-01-15", time: "3:00 PM", duration: "30 min" },
-				{ date: "2024-01-17", time: "10:00 AM", duration: "30 min" },
-				{ date: "2024-01-17", time: "2:00 PM", duration: "30 min" },
-			],
-			IEN: [
-				{ date: "2024-01-15", time: "11:00 AM", duration: "45 min" },
-				{ date: "2024-01-15", time: "3:00 PM", duration: "45 min" },
-				{ date: "2024-01-17", time: "10:00 AM", duration: "45 min" },
-				{ date: "2024-01-17", time: "2:00 PM", duration: "45 min" },
-			]
-		}
-	}
-}
+type ConsultationType = "INITIAL" | "FOLLOWUP" | "URGENT"
+type WorkflowType = "REN" | "IEN"
+type MeetingPreference = "VIDEO_CALL" | "CHAT_ONLY"
 
 export default function ConsultationsPage() {
 	const searchParams = useSearchParams()
-	const [selectedWorkflow, setSelectedWorkflow] = useState<"REN" | "IEN">("REN")
+	const router = useRouter()
+	
+	const [selectedWorkflow, setSelectedWorkflow] = useState<WorkflowType>("REN")
 	const [selectedENP, setSelectedENP] = useState<string | null>(null)
 	const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined)
 	const [selectedTime, setSelectedTime] = useState<string>("")
-	const [consultationType, setConsultationType] = useState<"initial" | "followup" | "urgent">("initial")
+	const [consultationType, setConsultationType] = useState<ConsultationType>("INITIAL")
+	const [meetingPreference, setMeetingPreference] = useState<MeetingPreference>("VIDEO_CALL")
 	const [specialRequirements, setSpecialRequirements] = useState("")
-	const [isBooking, setIsBooking] = useState(false)
+	const [location, setLocation] = useState("")
 
 	// Get ENP ID from URL params
 	const enpId = searchParams.get("enp")
-	const workflowParam = searchParams.get("workflow") as "REN" | "IEN" | null
+	const workflowParam = searchParams.get("workflow") as WorkflowType | null
 
 	useEffect(() => {
 		if (enpId) {
@@ -106,41 +50,90 @@ export default function ConsultationsPage() {
 		}
 	}, [enpId, workflowParam])
 
-	const enpDetails = selectedENP ? mockENPDetails[selectedENP as keyof typeof mockENPDetails] : null
+	// Fetch available ENPs
+	const { data: availableEnps, isLoading: isLoadingEnps } = trpc.consultations.getAvailableEnps.useQuery({
+		workflowType: selectedWorkflow,
+	})
 
-	const handleWorkflowChange = (workflow: "REN" | "IEN") => {
+	// Fetch ENP availability when ENP is selected
+	const { data: availabilitySlots, isLoading: isLoadingAvailability } = trpc.consultations.getEnpAvailability.useQuery(
+		{
+			enpId: selectedENP || "",
+			workflowType: selectedWorkflow,
+		},
+		{
+			enabled: !!selectedENP,
+		}
+	)
+
+	// Book consultation mutation
+	const bookConsultationMutation = trpc.consultations.bookConsultation.useMutation({
+		onSuccess: (data) => {
+			toast.success("Consultation Booked!", {
+				description: "Your consultation has been successfully booked.",
+			})
+
+			// Redirect based on workflow type and meeting preference
+			if (data.workflowType === "REN" && data.meetingId) {
+				// Video call - go to meeting room
+				router.push(`/meetings/${data.meetingId}` as Route)
+			} else if (data.workflowType === "REN" && data.conversationId) {
+				// Chat only - could redirect to messages or dashboard
+				toast.success("Ready to Chat!", {
+					description: "You can now message the ENP directly.",
+				})
+				router.push("/dashboard" as Route)
+			} else if (data.workflowType === "IEN") {
+				router.push("/dashboard" as Route)
+			} else {
+				router.push("/dashboard" as Route)
+			}
+		},
+		onError: (error) => {
+			toast.error("Booking Failed", {
+				description: error.message || "Failed to book consultation. Please try again.",
+			})
+		},
+	})
+
+	const enpDetails = availableEnps?.find((enp) => enp.id === selectedENP)
+
+	const handleWorkflowChange = (workflow: WorkflowType) => {
 		setSelectedWorkflow(workflow)
 		setSelectedDate(undefined)
 		setSelectedTime("")
 	}
 
 	const handleBooking = async () => {
-		if (!selectedENP || !selectedDate || !selectedTime) return
-
-		setIsBooking(true)
-		try {
-			// Simulate booking API call
-			await new Promise(resolve => setTimeout(resolve, 2000))
-			
-			// Redirect to appropriate next step
-			if (selectedWorkflow === "REN") {
-				// Redirect to video meeting setup
-				window.location.href = `/meetings/new?enp=${selectedENP}&date=${selectedDate.toISOString()}&time=${selectedTime}&workflow=REN`
-			} else {
-				// Redirect to in-person appointment confirmation
-				window.location.href = `/appointments/confirm?enp=${selectedENP}&date=${selectedDate.toISOString()}&time=${selectedTime}&workflow=IEN`
-			}
-		} catch (error) {
-			console.error("Booking failed:", error)
-		} finally {
-			setIsBooking(false)
+		if (!selectedENP || !selectedDate || !selectedTime) {
+			toast.error("Missing Information", {
+				description: "Please select a date and time to continue.",
+			})
+			return
 		}
+
+		if (selectedWorkflow === "IEN" && !location) {
+			toast.error("Location Required", {
+				description: "Please provide a location for the in-person consultation.",
+			})
+			return
+		}
+
+		await bookConsultationMutation.mutateAsync({
+			enpId: selectedENP,
+			workflowType: selectedWorkflow,
+			appointmentDate: selectedDate,
+			appointmentTime: selectedTime,
+			consultationType,
+			meetingPreference: selectedWorkflow === "REN" ? meetingPreference : undefined,
+			specialRequirements: specialRequirements || undefined,
+			location: selectedWorkflow === "IEN" ? location : undefined,
+		})
 	}
 
-	const availableSlots = enpDetails?.availableSlots[selectedWorkflow] || []
-	const filteredSlots = selectedDate 
-		? availableSlots.filter(slot => slot.date === format(selectedDate, "yyyy-MM-dd"))
-		: availableSlots
+	const filteredSlots = selectedDate && availabilitySlots
+		? availabilitySlots.filter((slot) => slot.date === format(selectedDate, "yyyy-MM-dd"))
+		: []
 
 	return (
 		<>
@@ -170,7 +163,7 @@ export default function ConsultationsPage() {
 							</CardDescription>
 						</CardHeader>
 						<CardContent>
-							<Tabs value={selectedWorkflow} onValueChange={handleWorkflowChange}>
+							<Tabs value={selectedWorkflow} onValueChange={(value) => handleWorkflowChange(value as WorkflowType)}>
 								<TabsList className="grid w-full grid-cols-2">
 									<TabsTrigger value="REN" className="flex items-center gap-2">
 										<Video className="h-4 w-4" />
@@ -253,27 +246,45 @@ export default function ConsultationsPage() {
 								</CardDescription>
 							</CardHeader>
 							<CardContent>
-								<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-									{Object.values(mockENPDetails).map((enp) => (
-										<Card key={enp.id} className="cursor-pointer hover:shadow-md transition-shadow"
-											onClick={() => setSelectedENP(enp.id)}>
-											<CardContent className="p-4">
-												<div className="flex items-center gap-4">
-													<Avatar className="h-12 w-12">
-														<AvatarImage src={enp.avatar} alt={enp.name} />
-														<AvatarFallback>{enp.name.split(" ").map(n => n[0]).join("")}</AvatarFallback>
-													</Avatar>
-													<div className="flex-1">
-														<h4 className="font-medium">{enp.name}</h4>
-														<p className="text-sm text-muted-foreground">{enp.specialization}</p>
-														<p className="text-sm text-muted-foreground">{enp.location}</p>
+								{isLoadingEnps ? (
+									<div className="flex items-center justify-center py-8">
+										<Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+									</div>
+								) : availableEnps && availableEnps.length > 0 ? (
+									<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+										{availableEnps.map((enp) => (
+											<Card 
+												key={enp.id} 
+												className="cursor-pointer hover:shadow-md transition-shadow"
+												onClick={() => setSelectedENP(enp.id)}
+											>
+												<CardContent className="p-4">
+													<div className="flex items-center gap-4">
+														<Avatar className="h-12 w-12">
+															<AvatarImage src={enp.image || undefined} alt={enp.name || "ENP"} />
+															<AvatarFallback>{enp.name?.split(" ").map(n => n[0]).join("") || "EN"}</AvatarFallback>
+														</Avatar>
+														<div className="flex-1">
+															<h4 className="font-medium">{enp.name}</h4>
+															<p className="text-sm text-muted-foreground">{enp.specialization}</p>
+															<div className="flex items-center gap-1 mt-1">
+																<span className="text-sm font-medium">{enp.rating}</span>
+																<span className="text-sm text-muted-foreground">
+																	({enp.reviewCount} reviews)
+																</span>
+															</div>
+														</div>
+														<Badge variant="outline">Available</Badge>
 													</div>
-													<Badge variant="outline">Available</Badge>
-												</div>
-											</CardContent>
-										</Card>
-									))}
-								</div>
+												</CardContent>
+											</Card>
+										))}
+									</div>
+								) : (
+									<p className="text-center text-muted-foreground py-8">
+										No Electronic Notaries Public available at the moment.
+									</p>
+								)}
 							</CardContent>
 						</Card>
 					)}
@@ -290,35 +301,31 @@ export default function ConsultationsPage() {
 									<CardContent className="space-y-4">
 										<div className="flex items-center gap-4">
 											<Avatar className="h-16 w-16">
-												<AvatarImage src={enpDetails.avatar} alt={enpDetails.name} />
-												<AvatarFallback>{enpDetails.name.split(" ").map(n => n[0]).join("")}</AvatarFallback>
+												<AvatarImage src={enpDetails.image || undefined} alt={enpDetails.name || "ENP"} />
+												<AvatarFallback>{enpDetails.name?.split(" ").map(n => n[0]).join("") || "EN"}</AvatarFallback>
 											</Avatar>
 											<div>
 												<h4 className="font-medium">{enpDetails.name}</h4>
-												<p className="text-sm text-muted-foreground">{enpDetails.title}</p>
+												<p className="text-sm text-muted-foreground">Electronic Notary Public</p>
 												<div className="flex items-center gap-1 mt-1">
 													<span className="text-sm font-medium">{enpDetails.rating}</span>
-													<span className="text-sm text-muted-foreground">({enpDetails.reviewCount} reviews)</span>
+													<span className="text-sm text-muted-foreground">
+														({enpDetails.reviewCount} reviews)
+													</span>
 												</div>
 											</div>
 										</div>
 
 										<div className="space-y-3 text-sm">
-											<div className="flex items-center gap-2">
-												<MapPin className="h-4 w-4 text-muted-foreground" />
-												<span>{enpDetails.location}</span>
-											</div>
-											<div className="flex items-center gap-2">
-												<Phone className="h-4 w-4 text-muted-foreground" />
-												<span>{enpDetails.phone}</span>
-											</div>
+											{enpDetails.phoneNumber && (
+												<div className="flex items-center gap-2">
+													<Phone className="h-4 w-4 text-muted-foreground" />
+													<span>{enpDetails.phoneNumber}</span>
+												</div>
+											)}
 											<div className="flex items-center gap-2">
 												<Mail className="h-4 w-4 text-muted-foreground" />
 												<span>{enpDetails.email}</span>
-											</div>
-											<div>
-												<p className="font-medium">Office Hours</p>
-												<p className="text-muted-foreground">{enpDetails.officeHours}</p>
 											</div>
 											<div>
 												<p className="font-medium">Specialization</p>
@@ -327,6 +334,14 @@ export default function ConsultationsPage() {
 											<div>
 												<p className="font-medium">Languages</p>
 												<p className="text-muted-foreground">{enpDetails.languages.join(", ")}</p>
+											</div>
+											<div>
+												<p className="font-medium">Experience</p>
+												<p className="text-muted-foreground">{enpDetails.experience}</p>
+											</div>
+											<div>
+												<p className="font-medium">Response Time</p>
+												<p className="text-muted-foreground">{enpDetails.responseTime}</p>
 											</div>
 										</div>
 
@@ -359,7 +374,7 @@ export default function ConsultationsPage() {
 											<Label className="text-base font-medium">Select Date</Label>
 											<Popover>
 												<PopoverTrigger asChild>
-													<Button variant="outline" className="w-full justify-start text-left font-normal">
+													<Button variant="outline" className="w-full justify-start text-left font-normal mt-2">
 														<Calendar className="mr-2 h-4 w-4" />
 														{selectedDate ? format(selectedDate, "PPP") : "Pick a date"}
 													</Button>
@@ -380,20 +395,26 @@ export default function ConsultationsPage() {
 										{selectedDate && (
 											<div>
 												<Label className="text-base font-medium">Available Times</Label>
-												<div className="grid grid-cols-2 md:grid-cols-3 gap-2 mt-2">
-													{filteredSlots.map((slot, index) => (
-														<Button
-															key={index}
-															variant={selectedTime === slot.time ? "default" : "outline"}
-															onClick={() => setSelectedTime(slot.time)}
-															className="justify-start"
-														>
-															<Clock className="mr-2 h-4 w-4" />
-															{slot.time}
-														</Button>
-													))}
-												</div>
-												{filteredSlots.length === 0 && (
+												{isLoadingAvailability ? (
+													<div className="flex items-center justify-center py-8">
+														<Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+													</div>
+												) : (
+													<div className="grid grid-cols-2 md:grid-cols-3 gap-2 mt-2">
+														{filteredSlots.map((slot, index) => (
+															<Button
+																key={index}
+																variant={selectedTime === slot.time ? "default" : "outline"}
+																onClick={() => setSelectedTime(slot.time)}
+																className="justify-start"
+															>
+																<Clock className="mr-2 h-4 w-4" />
+																{slot.time}
+															</Button>
+														))}
+													</div>
+												)}
+												{!isLoadingAvailability && filteredSlots.length === 0 && (
 													<p className="text-sm text-muted-foreground mt-2">
 														No available times for this date. Please select another date.
 													</p>
@@ -404,21 +425,71 @@ export default function ConsultationsPage() {
 										{/* Consultation Type */}
 										<div>
 											<Label className="text-base font-medium">Consultation Type</Label>
-											<RadioGroup value={consultationType} onValueChange={(value) => setConsultationType(value as any)}>
+											<RadioGroup value={consultationType} onValueChange={(value) => setConsultationType(value as ConsultationType)} className="mt-2">
 												<div className="flex items-center space-x-2">
-													<RadioGroupItem value="initial" id="initial" />
-													<Label htmlFor="initial">Initial Consultation</Label>
+													<RadioGroupItem value="INITIAL" id="initial" />
+													<Label htmlFor="initial" className="font-normal">Initial Consultation</Label>
 												</div>
 												<div className="flex items-center space-x-2">
-													<RadioGroupItem value="followup" id="followup" />
-													<Label htmlFor="followup">Follow-up Consultation</Label>
+													<RadioGroupItem value="FOLLOWUP" id="followup" />
+													<Label htmlFor="followup" className="font-normal">Follow-up Consultation</Label>
 												</div>
 												<div className="flex items-center space-x-2">
-													<RadioGroupItem value="urgent" id="urgent" />
-													<Label htmlFor="urgent">Urgent Consultation</Label>
+													<RadioGroupItem value="URGENT" id="urgent" />
+													<Label htmlFor="urgent" className="font-normal">Urgent Consultation</Label>
 												</div>
 											</RadioGroup>
 										</div>
+
+										{/* Meeting Preference (REN only) */}
+										{selectedWorkflow === "REN" && (
+											<div>
+												<Label className="text-base font-medium">Meeting Preference</Label>
+												<RadioGroup value={meetingPreference} onValueChange={(value) => setMeetingPreference(value as MeetingPreference)} className="mt-2">
+													<div className="flex items-center space-x-2">
+														<RadioGroupItem value="VIDEO_CALL" id="video" />
+														<Label htmlFor="video" className="font-normal">
+															<div className="flex items-center gap-2">
+																<Video className="h-4 w-4" />
+																<div>
+																	<div className="font-medium">Video Call</div>
+																	<div className="text-xs text-muted-foreground">Full video consultation with screen sharing</div>
+																</div>
+															</div>
+														</Label>
+													</div>
+													<div className="flex items-center space-x-2">
+														<RadioGroupItem value="CHAT_ONLY" id="chat" />
+														<Label htmlFor="chat" className="font-normal">
+															<div className="flex items-center gap-2">
+																<Mail className="h-4 w-4" />
+																<div>
+																	<div className="font-medium">Chat Only</div>
+																	<div className="text-xs text-muted-foreground">Text-based consultation via messaging</div>
+																</div>
+															</div>
+														</Label>
+													</div>
+												</RadioGroup>
+											</div>
+										)}
+
+										{/* Location for IEN */}
+										{selectedWorkflow === "IEN" && (
+											<div>
+												<Label htmlFor="location" className="text-base font-medium">
+													Meeting Location <span className="text-red-500">*</span>
+												</Label>
+												<input
+													id="location"
+													type="text"
+													placeholder="Enter the meeting location address..."
+													value={location}
+													onChange={(e) => setLocation(e.target.value)}
+													className="mt-2 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+												/>
+											</div>
+										)}
 
 										{/* Special Requirements */}
 										<div>
@@ -437,12 +508,15 @@ export default function ConsultationsPage() {
 										{/* Booking Button */}
 										<Button
 											onClick={handleBooking}
-											disabled={!selectedDate || !selectedTime || isBooking}
+											disabled={!selectedDate || !selectedTime || bookConsultationMutation.isPending}
 											className="w-full"
 											size="lg"
 										>
-											{isBooking ? (
-												"Booking..."
+											{bookConsultationMutation.isPending ? (
+												<>
+													<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+													Booking...
+												</>
 											) : (
 												<>
 													{selectedWorkflow === "REN" ? (

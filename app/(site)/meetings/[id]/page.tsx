@@ -109,6 +109,7 @@ export default function MeetingRoomPage({ params }: { params: Promise<{ id: stri
 	return (
 		<VideoMeetingClient
 			meetingId={meeting.roomId}
+			dbMeetingId={id} // Pass the database meeting ID for uploads
 			token={tokenData.token}
 			participantName={session?.user?.name ?? "Guest"}
 			onLeave={handleLeave}
