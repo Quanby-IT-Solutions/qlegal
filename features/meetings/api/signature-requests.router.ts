@@ -7,7 +7,7 @@ import { signatureRequests } from "@/services/drizzle/schema/signature-requests"
 import { documents } from "@/services/drizzle/schema/document"
 import { users } from "@/services/drizzle/schema/auth"
 import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
-import { addSignerToProject } from "@/services/docochain"
+import { addSignerToProject, sendDocoChainProject } from "@/services/docochain"
 
 export const signatureRequestsRouter = createTRPCRouter({
 	// Create a signature request
@@ -51,7 +51,7 @@ export const signatureRequestsRouter = createTRPCRouter({
 				})
 			}
 
-			// Add signer to DocoChain project
+			// Add signer to DocoChain project and send it
 			if (document.docoChainProjectId) {
 				try {
 					const nameParts = (signerUser.name || "").split(" ")
@@ -67,6 +67,10 @@ export const signatureRequestsRouter = createTRPCRouter({
 					})
 
 					console.log("✅ Added signer to DocoChain project")
+
+					// Send/Deploy the project to make it active
+					await sendDocoChainProject(document.docoChainProjectId)
+					console.log("✅ DocoChain project sent/deployed")
 				} catch (docoChainError) {
 					console.error("❌ Failed to add signer to DocoChain:", docoChainError)
 					// Continue anyway - user can still be notified

@@ -21,6 +21,7 @@ interface DocoChainApiResponse {
 		status: string
 		file_name: string
 		url: string
+		redirect_url?: string // Authenticated redirect URL with token
 		// ... other fields
 	}
 	meta: Record<string, unknown>
@@ -44,7 +45,7 @@ export async function createDocoChainProject({
 	title,
 	documentFile,
 	fileName,
-}: CreateProjectRequest): Promise<{ uuid: string; id: number }> {
+}: CreateProjectRequest): Promise<{ uuid: string; id: number; redirectUrl?: string }> {
 	console.log("🔵 Starting DocoChain project creation...")
 	console.log("   - Title:", title)
 	console.log("   - File name:", fileName)
@@ -92,10 +93,12 @@ export async function createDocoChainProject({
 		console.log("✅ DocoChain project created successfully!")
 		console.log("   - UUID:", result.data.uuid)
 		console.log("   - ID:", result.data.id)
+		console.log("   - Redirect URL:", result.data.redirect_url)
 
 		return {
 			uuid: result.data.uuid,
 			id: result.data.id,
+			redirectUrl: result.data.redirect_url,
 		}
 	} catch (error) {
 		console.error("❌ Error creating DocoChain project:", error)
@@ -239,9 +242,56 @@ export async function getDocoChainProject(projectUuid: string) {
 }
 
 /**
+ * Send/Deploy a DocoChain project to recipients
+ * This activates the project and makes it accessible to signers
+ */
+export async function sendDocoChainProject(projectUuid: string) {
+	console.log("🔵 Sending DocoChain project to recipients...")
+	console.log("   - Project UUID:", projectUuid)
+
+	try {
+		if (!DOCOCHAIN_API_TOKEN) {
+			throw new Error("DocoChain API token not configured")
+		}
+
+		const response = await fetch(
+			`${DOCOCHAIN_API_BASE}/my/projects/${projectUuid}/send?user_type=ENTERPRISE_API`,
+			{
+				method: "POST",
+				headers: {
+					Authorization: `Bearer ${DOCOCHAIN_API_TOKEN}`,
+					Accept: "application/json",
+				},
+			}
+		)
+
+		console.log("📡 DocoChain send project response status:", response.status)
+
+		if (!response.ok) {
+			const errorText = await response.text()
+			console.error("❌ DocoChain send project error:", errorText)
+			throw new Error(`DocoChain API error: ${response.status} ${response.statusText} - ${errorText}`)
+		}
+
+		const result = await response.json()
+		console.log("✅ DocoChain project sent successfully:", result)
+
+		return result
+	} catch (error) {
+		console.error("❌ Error sending DocoChain project:", error)
+		throw error
+	}
+}
+
+/**
  * Generate DocoChain signing URL
  */
 export function getDocoChainSigningUrl(projectUuid: string): string {
-	return `https://app.doconchain.com/${projectUuid}`
+	// Use staging app URL if using staging API, otherwise production
+	const appBaseUrl = DOCOCHAIN_API_BASE.includes('stg') 
+		? 'https://stg-app.doconchain.com'
+		: 'https://app.doconchain.com'
+	
+	return `${appBaseUrl}/${projectUuid}`
 }
 

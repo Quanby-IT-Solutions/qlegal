@@ -702,13 +702,15 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 								className="w-full sm:w-auto"
 								onClick={() => {
 									const projectId = activeSignatureRequest.document.docoChainProjectId
+									const redirectUrl = (activeSignatureRequest.document as any).docoChainRedirectUrl
 									
 									console.log("Document:", activeSignatureRequest.document)
 									console.log("DocoChain Project ID:", projectId)
+									console.log("DocoChain Redirect URL:", redirectUrl)
 									
 									if (projectId) {
-										// Redirect to DocoChain platform with project UUID
-										const docoChainUrl = `https://app.doconchain.com/${projectId}`
+										// Use the redirect URL with auth token if available, otherwise construct URL
+										const docoChainUrl = redirectUrl || `https://stg-app.doconchain.com/${projectId}`
 										console.log("Opening DocoChain URL:", docoChainUrl)
 										window.open(docoChainUrl, '_blank')
 										toast.success("Opening DocoChain platform...")
