@@ -16,10 +16,10 @@ const VideoMeetingClient = dynamic(
 	{ 
 		ssr: false,
 		loading: () => (
-			<div className="flex h-screen items-center justify-center bg-gray-950">
+			<div className="flex h-screen items-center justify-center bg-gradient-to-br from-background via-muted/30 to-background">
 				<div className="text-center">
-					<div className="size-8 animate-spin rounded-full border-b-2 border-primary mx-auto mb-4" />
-					<p className="text-gray-300">Loading video SDK...</p>
+					<div className="size-12 animate-spin rounded-full border-b-4 border-primary mx-auto mb-4" />
+					<p className="text-muted-foreground font-medium">Loading video SDK...</p>
 				</div>
 			</div>
 		)
@@ -47,7 +47,7 @@ export default function MeetingRoomPage({ params }: { params: Promise<{ id: stri
 
 	if (isMeetingLoading || isTokenLoading) {
 		return (
-			<div className="flex h-screen items-center justify-center bg-gray-950">
+			<div className="flex h-screen items-center justify-center bg-gradient-to-br from-background via-muted/30 to-background">
 				<div className="text-center">
 					<Skeleton className="mx-auto mb-4 size-12 rounded-full" />
 					<Skeleton className="h-6 w-48" />
@@ -58,13 +58,16 @@ export default function MeetingRoomPage({ params }: { params: Promise<{ id: stri
 
 	if (!meeting || !tokenData) {
 		return (
-			<div className="flex h-screen items-center justify-center bg-gray-950">
-				<div className="text-center text-white">
-					<h2 className="text-2xl font-bold">Meeting not found</h2>
-					<Button className="mt-4" onClick={() => router.push("/meetings")}>
-						Back to Meetings
-					</Button>
-				</div>
+			<div className="flex h-screen items-center justify-center bg-gradient-to-br from-background via-muted/30 to-background">
+				<Card className="w-full max-w-md shadow-xl">
+					<CardContent className="p-8 text-center">
+						<h2 className="text-2xl font-bold">Meeting not found</h2>
+						<p className="mt-2 text-muted-foreground">The meeting you're looking for doesn't exist.</p>
+						<Button className="mt-6" onClick={() => router.push("/meetings")}>
+							Back to Meetings
+						</Button>
+					</CardContent>
+				</Card>
 			</div>
 		)
 	}
@@ -72,8 +75,8 @@ export default function MeetingRoomPage({ params }: { params: Promise<{ id: stri
 	// Check if meeting is ongoing
 	if (meeting.status !== "ONGOING") {
 		return (
-			<div className="flex h-screen items-center justify-center bg-gray-950">
-				<Card className="w-full max-w-md">
+			<div className="flex h-screen items-center justify-center bg-gradient-to-br from-background via-muted/30 to-background">
+				<Card className="w-full max-w-md shadow-xl">
 					<CardContent className="p-8 text-center">
 						<h2 className="mb-2 text-2xl font-bold">{meeting.title}</h2>
 						<p className="mb-6 text-muted-foreground">
@@ -93,14 +96,16 @@ export default function MeetingRoomPage({ params }: { params: Promise<{ id: stri
 
 	if (!meeting.roomId) {
 		return (
-			<div className="flex h-screen items-center justify-center bg-gray-950">
-				<div className="text-center text-white">
-					<h2 className="text-2xl font-bold">Meeting room not available</h2>
-					<p className="mt-2 text-gray-400">This meeting has not been started yet</p>
-					<Button className="mt-4" onClick={() => router.push("/meetings")}>
-						Back to Meetings
-					</Button>
-				</div>
+			<div className="flex h-screen items-center justify-center bg-gradient-to-br from-background via-muted/30 to-background">
+				<Card className="w-full max-w-md shadow-xl">
+					<CardContent className="p-8 text-center">
+						<h2 className="text-2xl font-bold">Meeting room not available</h2>
+						<p className="mt-4 text-muted-foreground">This meeting has not been started yet</p>
+						<Button className="mt-6" onClick={() => router.push("/meetings")}>
+							Back to Meetings
+						</Button>
+					</CardContent>
+				</Card>
 			</div>
 		)
 	}
