@@ -6,6 +6,7 @@ import { envelopeLiteRouter } from "@/features/envelopes-lite/api/envelope-lite.
 import { appointmentsRouter } from "@/features/lawyers/api/appointments.router"
 import { lawyersRouter } from "@/features/lawyers/api/lawyers.router"
 import { meetingsRouter } from "@/features/meetings/api/meetings.router"
+import { signatureRequestsRouter } from "@/features/meetings/api/signature-requests.router"
 import { messageFilesRouter } from "@/features/messages/api/message-files.router"
 import { messagesRouter } from "@/features/messages/api/messages.router"
 import { profileRouter } from "@/features/profile/api/profile.router"
@@ -28,6 +29,7 @@ export const appRouter = createTRPCRouter({
 	envelopeLite: envelopeLiteRouter,
 	lawyers: lawyersRouter,
 	meetings: meetingsRouter,
+	signatureRequests: signatureRequestsRouter,
 	messages: messagesRouter,
 	messageFiles: messageFilesRouter,
 	profile: profileRouter,

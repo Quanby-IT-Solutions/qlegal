@@ -11,6 +11,7 @@ import {
 	conversations,
 	messages,
 } from "@/services/drizzle/schema/messages"
+import { signatureRequests } from "@/services/drizzle/schema/signature-requests"
 
 // Meeting relations
 export const meetingsRelations = relations(meetings, ({ one, many }) => ({
@@ -20,6 +21,7 @@ export const meetingsRelations = relations(meetings, ({ one, many }) => ({
 	}),
 	participants: many(meetingParticipants),
 	documents: many(documents),
+	signatureRequests: many(signatureRequests),
 }))
 
 // Auth relations
@@ -28,7 +30,7 @@ export const userRelations = relations(users, ({ many }) => ({
 }))
 
 // Document relations
-export const documentRelations = relations(documents, ({ one }) => ({
+export const documentRelations = relations(documents, ({ one, many }) => ({
 	envelope: one(envelopes, {
 		fields: [documents.envelopeId],
 		references: [envelopes.id],
@@ -37,6 +39,7 @@ export const documentRelations = relations(documents, ({ one }) => ({
 		fields: [documents.meetingId],
 		references: [meetings.id],
 	}),
+	signatureRequests: many(signatureRequests),
 }))
 
 // Envelope relations
@@ -110,5 +113,27 @@ export const appointmentsRelations = relations(appointments, ({ one }) => ({
 		fields: [appointments.lawyerId],
 		references: [users.id],
 		relationName: "lawyerAppointments",
+	}),
+}))
+
+// Signature Request relations
+export const signatureRequestsRelations = relations(signatureRequests, ({ one }) => ({
+	meeting: one(meetings, {
+		fields: [signatureRequests.meetingId],
+		references: [meetings.id],
+	}),
+	document: one(documents, {
+		fields: [signatureRequests.documentId],
+		references: [documents.id],
+	}),
+	requester: one(users, {
+		fields: [signatureRequests.requesterId],
+		references: [users.id],
+		relationName: "requestedSignatures",
+	}),
+	signer: one(users, {
+		fields: [signatureRequests.signerId],
+		references: [users.id],
+		relationName: "signaturesToSign",
 	}),
 }))
