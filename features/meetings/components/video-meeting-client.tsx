@@ -16,11 +16,25 @@ function ScreenShareView({ participantId }: { participantId: string }) {
 	const screenVideoRef = useRef<HTMLVideoElement>(null)
 
 	useEffect(() => {
-		if (screenShareStream && screenVideoRef.current) {
-			const mediaStream = new MediaStream()
-			mediaStream.addTrack(screenShareStream.track)
-			screenVideoRef.current.srcObject = mediaStream
-			void screenVideoRef.current.play().catch(() => void 0)
+		const videoElement = screenVideoRef.current
+		if (!videoElement) return
+
+		if (screenShareStream?.track) {
+			// Check if this is a different stream
+			const currentStream = videoElement.srcObject as MediaStream | null
+			const currentTrack = currentStream?.getVideoTracks()[0]
+			
+			// Only update if the track ID is different
+			if (!currentTrack || currentTrack.id !== screenShareStream.track.id) {
+				const mediaStream = new MediaStream([screenShareStream.track])
+				videoElement.srcObject = mediaStream
+				
+				videoElement.play().catch((err) => {
+					if (err.name !== 'AbortError') {
+						console.error('Error playing screen share:', err)
+					}
+				})
+			}
 		}
 	}, [screenShareStream])
 
@@ -55,26 +69,23 @@ function ParticipantView({ participantId }: { participantId: string }) {
 		const videoElement = videoRef.current
 		if (!videoElement) return
 
-		// Clear existing stream first
-		if (videoElement.srcObject) {
-			const tracks = (videoElement.srcObject as MediaStream).getTracks()
-			tracks.forEach(track => track.stop())
-			videoElement.srcObject = null
-		}
-
-		// Set webcam stream if camera is on and not screen sharing
+		// If webcam is ON and we have a stream
 		if (webcamOn && webcamStream?.track && !screenShareOn) {
 			try {
 				if (webcamStream.track instanceof MediaStreamTrack) {
-					const mediaStream = new MediaStream([webcamStream.track])
-					videoElement.srcObject = mediaStream
-					setStreamSet(true)
+					// Check if this is a different stream
+					const currentStream = videoElement.srcObject as MediaStream | null
+					const currentTrack = currentStream?.getVideoTracks()[0]
 					
-					// Play the video
-					const playPromise = videoElement.play()
-					if (playPromise !== undefined) {
-						playPromise.catch((err) => {
-							if (err.name !== 'NotAllowedError') {
+					// Only update if the track ID is different (new stream)
+					if (!currentTrack || currentTrack.id !== webcamStream.track.id) {
+						const mediaStream = new MediaStream([webcamStream.track])
+						videoElement.srcObject = mediaStream
+						setStreamSet(true)
+						
+						// Play the video without await to avoid blocking
+						videoElement.play().catch((err) => {
+							if (err.name !== 'NotAllowedError' && err.name !== 'AbortError') {
 								console.error(`Error playing video for ${participantId}:`, err)
 							}
 						})
@@ -83,7 +94,10 @@ function ParticipantView({ participantId }: { participantId: string }) {
 			} catch (error) {
 				console.error(`Error setting video stream for ${participantId}:`, error)
 			}
-		} else {
+		} 
+		// If webcam is OFF, clear the stream
+		else if (!webcamOn && videoElement.srcObject) {
+			videoElement.srcObject = null
 			setStreamSet(false)
 		}
 	}, [webcamStream, webcamOn, participantId, screenShareOn])
@@ -96,18 +110,20 @@ function ParticipantView({ participantId }: { participantId: string }) {
 		if (screenShareOn && screenShareStream?.track) {
 			try {
 				if (screenShareStream.track instanceof MediaStreamTrack) {
-					// Clear current stream
-					if (videoElement.srcObject) {
-						const tracks = (videoElement.srcObject as MediaStream).getTracks()
-						tracks.forEach(track => track.stop())
-					}
+					// Check if this is a different stream
+					const currentStream = videoElement.srcObject as MediaStream | null
+					const currentTrack = currentStream?.getVideoTracks()[0]
 					
-					const mediaStream = new MediaStream([screenShareStream.track])
-					videoElement.srcObject = mediaStream
-					
-					const playPromise = videoElement.play()
-					if (playPromise !== undefined) {
-						playPromise.catch(() => void 0)
+					// Only update if the track ID is different
+					if (!currentTrack || currentTrack.id !== screenShareStream.track.id) {
+						const mediaStream = new MediaStream([screenShareStream.track])
+						videoElement.srcObject = mediaStream
+						
+						videoElement.play().catch((err) => {
+							if (err.name !== 'AbortError') {
+								console.error(`Error playing screen share for ${participantId}:`, err)
+							}
+						})
 					}
 				}
 			} catch (error) {
