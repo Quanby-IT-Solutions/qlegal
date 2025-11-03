@@ -15,6 +15,7 @@ export const documents = createTable("document", t => ({
 	path: t.varchar({ length: 255 }).default(""), // Storage path - can be empty initially
 	status: documentStatusEnum("status").default("UPLOADED").notNull(),
 	docoChainProjectId: t.varchar({ length: 255 }), // DocoChain project UUID
+	docoChainRedirectUrl: t.text(), // DocoChain redirect URL with auth token
 	envelopeId: t
 		.varchar({ length: 255 })
 		.references(() => envelopes.id),

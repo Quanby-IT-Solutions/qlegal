@@ -367,6 +367,7 @@ export const meetingsRouter = createTRPCRouter({
 
 				// Create DocoChain project SYNCHRONOUSLY (wait for it)
 				let docoChainProjectId: string | null = null
+				let docoChainRedirectUrl: string | null = null
 				try {
 					console.log("🔵 Creating DocoChain project for:", name)
 					const docoChainProject = await createDocoChainProject({
@@ -375,19 +376,22 @@ export const meetingsRouter = createTRPCRouter({
 						fileName: name.endsWith('.pdf') ? name : `${name}.pdf`,
 					})
 					docoChainProjectId = docoChainProject.uuid
+					docoChainRedirectUrl = docoChainProject.redirectUrl || null
 					console.log("✅ DocoChain project created:", docoChainProjectId)
+					console.log("✅ DocoChain redirect URL:", docoChainRedirectUrl)
 				} catch (docoChainError) {
 					console.error("❌ Failed to create DocoChain project:", docoChainError)
 					console.error("Error details:", docoChainError instanceof Error ? docoChainError.message : String(docoChainError))
 					// Continue without DocoChain - signing will be disabled
 				}
 
-				// Update document with storage path AND DocoChain project ID
+				// Update document with storage path, DocoChain project ID, AND redirect URL
 				const [updatedDocument] = await db
 					.update(documents)
 					.set({ 
 						path: uploadData.path,
 						docoChainProjectId,
+						docoChainRedirectUrl,
 					})
 					.where(eq(documents.id, document.id))
 					.returning()
