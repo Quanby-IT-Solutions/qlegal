@@ -14,6 +14,7 @@ export const documents = createTable("document", t => ({
 	size: t.integer().notNull(), // File size in bytes
 	path: t.varchar({ length: 255 }).default(""), // Storage path - can be empty initially
 	status: documentStatusEnum("status").default("UPLOADED").notNull(),
+	docoChainProjectId: t.varchar({ length: 255 }), // DocoChain project UUID
 	envelopeId: t
 		.varchar({ length: 255 })
 		.references(() => envelopes.id),
