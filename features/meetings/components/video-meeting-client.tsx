@@ -300,6 +300,20 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 		},
 	})
 
+	// Generate signing link mutation
+	const generateSigningLink = trpc.signatureRequests.generateSigningLink.useMutation({
+		onSuccess: (data) => {
+			// Open the generated signing link in a new tab
+			if (data.signingLink) {
+				window.open(data.signingLink, '_blank')
+				toast.success("Opening DocoChain - you can place your signature now!")
+			}
+		},
+		onError: (error) => {
+			toast.error(error.message || "Failed to generate signing link")
+		},
+	})
+
 	// Get the first non-dismissed pending request
 	const activeSignatureRequest = pendingRequests?.find(
 		(req) => !dismissedRequestIds.has(req.id)
@@ -677,9 +691,17 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 								</div>
 							</div>
 
-							<p className="text-sm text-muted-foreground">
-								Click "Sign Document" to open the DocoChain platform where you can place your signature on the document.
-							</p>
+							<div className="rounded-lg bg-primary/10 p-3 border border-primary/20">
+								<p className="text-sm font-medium mb-2">✍️ You're in control!</p>
+								<p className="text-xs text-muted-foreground">
+									When you click "Sign Document", you'll be able to:
+								</p>
+								<ul className="text-xs text-muted-foreground mt-1 ml-4 space-y-1">
+									<li>• Create and customize your signature</li>
+									<li>• Place signature fields wherever you want</li>
+									<li>• Sign the document when you're ready</li>
+								</ul>
+							</div>
 						</div>
 
 						<DialogFooter className="flex-col sm:flex-row gap-2">
@@ -698,34 +720,31 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 							>
 								{updateSignatureStatus.isPending ? "Declining..." : "Decline"}
 							</Button>
-							<Button
-								className="w-full sm:w-auto"
-								onClick={() => {
-									const projectId = activeSignatureRequest.document.docoChainProjectId
-									const redirectUrl = (activeSignatureRequest.document as any).docoChainRedirectUrl
-									
-									console.log("Document:", activeSignatureRequest.document)
-									console.log("DocoChain Project ID:", projectId)
-									console.log("DocoChain Redirect URL:", redirectUrl)
-									
-									if (projectId) {
-										// Use the redirect URL with auth token if available, otherwise construct URL
-										const docoChainUrl = redirectUrl || `https://stg-app.doconchain.com/${projectId}`
-										console.log("Opening DocoChain URL:", docoChainUrl)
-										window.open(docoChainUrl, '_blank')
-										toast.success("Opening DocoChain platform...")
-										
-										// Dismiss this request
-										setDismissedRequestIds(prev => new Set(prev).add(activeSignatureRequest.id))
-									} else {
-										console.error("No DocoChain project ID found")
-										toast.error("DocoChain project not found. Please ensure the document was uploaded correctly and your DocoChain API token is configured.")
-									}
-								}}
-							>
-								<FileSignature className="mr-2 size-4" />
-								Sign Document
-							</Button>
+						<Button
+							className="w-full sm:w-auto"
+							onClick={() => {
+								// Generate a fresh, personalized signing link for this ENP user
+								generateSigningLink.mutate({
+									requestId: activeSignatureRequest.id,
+								})
+								
+								// Dismiss this request after generating the link
+								setDismissedRequestIds(prev => new Set(prev).add(activeSignatureRequest.id))
+							}}
+							disabled={generateSigningLink.isPending}
+						>
+							{generateSigningLink.isPending ? (
+								<>
+									<div className="mr-2 size-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
+									Generating Link...
+								</>
+							) : (
+								<>
+									<FileSignature className="mr-2 size-4" />
+									Sign Document
+								</>
+							)}
+						</Button>
 						</DialogFooter>
 					</DialogContent>
 				</Dialog>

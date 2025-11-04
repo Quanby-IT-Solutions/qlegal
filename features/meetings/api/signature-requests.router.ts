@@ -7,7 +7,7 @@ import { signatureRequests } from "@/services/drizzle/schema/signature-requests"
 import { documents } from "@/services/drizzle/schema/document"
 import { users } from "@/services/drizzle/schema/auth"
 import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
-import { addSignerToProject, sendDocoChainProject } from "@/services/docochain"
+import { addSignerToProject, generateSignLink } from "@/services/docochain"
 
 export const signatureRequestsRouter = createTRPCRouter({
 	// Create a signature request
@@ -51,7 +51,7 @@ export const signatureRequestsRouter = createTRPCRouter({
 				})
 			}
 
-			// Add signer to DocoChain project and send it
+			// Add signer to DocoChain project (keep as DRAFT so ENP can place signature fields)
 			if (document.docoChainProjectId) {
 				try {
 					const nameParts = (signerUser.name || "").split(" ")
@@ -67,10 +67,14 @@ export const signatureRequestsRouter = createTRPCRouter({
 					})
 
 					console.log("✅ Added signer to DocoChain project")
+					console.log("📝 Project kept as DRAFT - ENP can place signature fields themselves")
 
-					// Send/Deploy the project to make it active
-					await sendDocoChainProject(document.docoChainProjectId)
-					console.log("✅ DocoChain project sent/deployed")
+					// NOTE: We DON'T add signature fields or deploy the project here
+					// The project stays as DRAFT so the ENP can:
+					// 1. Open the DocoChain project in DRAFT mode
+					// 2. Use the "SIGNATURE" button to drag and place signature fields
+					// 3. Click on the field to create their signature
+					// 4. Click "SIGN NOW" when ready (DocoChain auto-deploys after signing)
 				} catch (docoChainError) {
 					console.error("❌ Failed to add signer to DocoChain:", docoChainError)
 					// Continue anyway - user can still be notified
@@ -177,6 +181,76 @@ export const signatureRequestsRouter = createTRPCRouter({
 			return {
 				success: true,
 				request: updatedRequest,
+			}
+		}),
+
+	// Generate a personalized signing link for the ENP user
+	generateSigningLink: protectedProcedure
+		.input(
+			z.object({
+				requestId: z.string(),
+			})
+		)
+		.mutation(async ({ input, ctx }) => {
+			const { requestId } = input
+
+			// Get the signature request with document details
+			const request = await db.query.signatureRequests.findFirst({
+				where: eq(signatureRequests.id, requestId),
+				with: {
+					document: true,
+				},
+			})
+
+			if (!request) {
+				throw new TRPCError({
+					code: "NOT_FOUND",
+					message: "Signature request not found",
+				})
+			}
+
+			// Verify the user is the signer
+			if (request.signerId !== ctx.session.user.id) {
+				throw new TRPCError({
+					code: "FORBIDDEN",
+					message: "You don't have permission to access this signing link",
+				})
+			}
+
+			// Check if document has DocoChain project ID
+			if (!request.document.docoChainProjectId) {
+				throw new TRPCError({
+					code: "BAD_REQUEST",
+					message: "Document does not have a DocoChain project associated with it",
+				})
+			}
+
+			// Get current user's email
+			const userEmail = ctx.session.user.email
+			if (!userEmail) {
+				throw new TRPCError({
+					code: "BAD_REQUEST",
+					message: "User email not found",
+				})
+			}
+
+			try {
+				// Generate the personalized signing link for ENP
+				const signingLink = await generateSignLink({
+					projectUuid: request.document.docoChainProjectId,
+					email: userEmail,
+				})
+
+				return {
+					success: true,
+					signingLink,
+				}
+			} catch (error) {
+				console.error("❌ Failed to generate signing link:", error)
+				throw new TRPCError({
+					code: "INTERNAL_SERVER_ERROR",
+					message: "Failed to generate signing link. Please try again.",
+				})
 			}
 		}),
 })
