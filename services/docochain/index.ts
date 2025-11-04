@@ -284,7 +284,67 @@ export async function sendDocoChainProject(projectUuid: string) {
 }
 
 /**
- * Generate DocoChain signing URL
+ * Generate a personalized signing link for a specific user
+ * This creates a secure, email-specific link for signing
+ */
+export async function generateSignLink({
+	projectUuid,
+	email,
+}: {
+	projectUuid: string
+	email: string
+}): Promise<string> {
+	console.log("🔵 Generating signing link for user...")
+	console.log("   - Project UUID:", projectUuid)
+	console.log("   - Email:", email)
+
+	try {
+		if (!DOCOCHAIN_API_TOKEN) {
+			throw new Error("DocoChain API token not configured")
+		}
+
+		const response = await fetch(
+			`${DOCOCHAIN_API_BASE}/api/v2/projects/${projectUuid}/link/generate?email=${encodeURIComponent(email)}`,
+			{
+				method: "POST",
+				headers: {
+					Authorization: `Bearer ${DOCOCHAIN_API_TOKEN}`,
+					"Content-Type": "application/json",
+					Accept: "application/json",
+				},
+			}
+		)
+
+		console.log("📡 DocoChain generate link response status:", response.status)
+
+		if (!response.ok) {
+			const errorText = await response.text()
+			console.error("❌ DocoChain generate link error:", errorText)
+			throw new Error(`DocoChain API error: ${response.status} ${response.statusText} - ${errorText}`)
+		}
+
+		const result = await response.json()
+		console.log("✅ Signing link generated successfully:", result)
+
+		// The API returns the signing link in different possible fields
+		// Check all possible locations: message, data.link, link, data.url, url
+		const signingLink = result.message || result.data?.link || result.link || result.data?.url || result.url
+		
+		if (!signingLink) {
+			console.error("❌ No signing link in response:", result)
+			throw new Error("DocoChain did not return a signing link")
+		}
+
+		console.log("🔗 Generated signing link:", signingLink)
+		return signingLink
+	} catch (error) {
+		console.error("❌ Error generating signing link:", error)
+		throw error
+	}
+}
+
+/**
+ * Generate DocoChain signing URL (fallback method)
  */
 export function getDocoChainSigningUrl(projectUuid: string): string {
 	// Use staging app URL if using staging API, otherwise production
