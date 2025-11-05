@@ -13,6 +13,7 @@ import { Card, CardContent } from "@/core/components/ui/card"
 import { RequestFiltersComponent } from "@/features/requests/components/request-filters"
 import { RequestCard } from "@/features/requests/components/request-card"
 import { ViewRequestDialog } from "@/features/requests/components/view-request-dialog"
+import { RescheduleRequestDialog } from "@/features/requests/components/reschedule-request-dialog"
 
 // Feature hooks
 import { useRequestFilters } from "@/features/requests/hooks/use-request-filters"
@@ -28,12 +29,20 @@ export default function MyRequestsPage() {
 	const { filters, updateFilters } = useRequestFilters()
 	const [selectedAppointment, setSelectedAppointment] = useState<AppointmentWithDetails | null>(null)
 	const [viewDialogOpen, setViewDialogOpen] = useState(false)
+	const [rescheduleOpen, setRescheduleOpen] = useState(false)
 
 	// Fetch appointments for the current user
 	const { data: appointments, isLoading } = trpc.appointments.getMyAppointments.useQuery(
 		{ limit: 100, offset: 0 },
 		{ enabled: !!userId }
 	)
+	const utils = trpc.useUtils()
+	const updateMutation = trpc.appointments.updateAppointment.useMutation({
+		onSuccess: async () => {
+			await utils.appointments.getMyAppointments.invalidate()
+			setRescheduleOpen(false)
+		},
+	})
 
 	// Only include appointments where the current user is the client (PRINCIPAL)
 	const myAppointments = (appointments?.filter((apt: any) => apt.clientId === userId) || []) as AppointmentWithDetails[]
@@ -43,6 +52,24 @@ export default function MyRequestsPage() {
 	const handleViewDetails = (appointment: AppointmentWithDetails) => {
 		setSelectedAppointment(appointment)
 		setViewDialogOpen(true)
+	}
+
+	const handleRescheduleClick = (appointmentId: string) => {
+		const apt = filteredAppointments.find(a => a.id === appointmentId)
+		if (apt) {
+			setSelectedAppointment(apt)
+			setRescheduleOpen(true)
+		}
+	}
+
+	const handleReschedule = async (values: { appointmentDate: Date; duration: number }) => {
+		if (!selectedAppointment) return
+		await updateMutation.mutateAsync({
+			appointmentId: selectedAppointment.id,
+			appointmentDate: values.appointmentDate,
+			duration: values.duration,
+			status: "PENDING",
+		})
 	}
 
 	return (
@@ -98,6 +125,7 @@ export default function MyRequestsPage() {
 									appointment={appointment}
 									viewMode="my-requests"
 									onViewDetails={handleViewDetails}
+									onReschedule={handleRescheduleClick}
 								/>
 							))
 						) : (
@@ -124,6 +152,14 @@ export default function MyRequestsPage() {
 				open={viewDialogOpen}
 				onOpenChange={setViewDialogOpen}
 				viewMode="my-requests"
+			/>
+
+			<RescheduleRequestDialog
+				open={rescheduleOpen}
+				onOpenChange={setRescheduleOpen}
+				appointment={selectedAppointment}
+				onSubmit={handleReschedule}
+				isSubmitting={updateMutation.isPending}
 			/>
 		</>
 	)

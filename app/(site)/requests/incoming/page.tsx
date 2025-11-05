@@ -16,6 +16,7 @@ import { RequestCard } from "@/features/requests/components/request-card"
 import { ViewRequestDialog } from "@/features/requests/components/view-request-dialog"
 import { ConfirmRequestDialog } from "@/features/requests/components/confirm-request-dialog"
 import { RejectRequestDialog } from "@/features/requests/components/reject-request-dialog"
+import { RescheduleRequestDialog } from "@/features/requests/components/reschedule-request-dialog"
 
 // Feature hooks
 import { useRequestFilters } from "@/features/requests/hooks/use-request-filters"
@@ -32,6 +33,7 @@ export default function IncomingRequestsPage() {
 	const [viewDialogOpen, setViewDialogOpen] = useState(false)
 	const [confirmDialogOpen, setConfirmDialogOpen] = useState(false)
 	const [rejectDialogOpen, setRejectDialogOpen] = useState(false)
+	const [rescheduleOpen, setRescheduleOpen] = useState(false)
 	const [processingId, setProcessingId] = useState<string | null>(null)
 
 	// Fetch appointments where current user is the lawyer (ENP)
@@ -39,6 +41,8 @@ export default function IncomingRequestsPage() {
 		{ limit: 100, offset: 0 },
 		{ enabled: !!userId }
 	)
+
+	const utils = trpc.useUtils()
 
 	// Filter to only show appointments where current user is the lawyer (incoming requests)
 	const incomingAppointments = (appointments?.filter((apt: any) => apt.lawyerId === userId) || []) as AppointmentWithDetails[]
@@ -71,6 +75,17 @@ export default function IncomingRequestsPage() {
 				description: error.message,
 			})
 			setProcessingId(null)
+		},
+	})
+
+	const updateMutation = trpc.appointments.updateAppointment.useMutation({
+		onSuccess: async () => {
+			await utils.appointments.getMyAppointments.invalidate()
+			setRescheduleOpen(false)
+			setProcessingId(null)
+		},
+		onError: (error: any) => {
+			toast.error("Failed to reschedule appointment", { description: error.message })
 		},
 	})
 
@@ -110,6 +125,25 @@ export default function IncomingRequestsPage() {
 		await cancelMutation.mutateAsync({
 			appointmentId: selectedAppointment.id,
 			cancelReason: data.cancelReason,
+		})
+	}
+
+	const handleRescheduleClick = (appointmentId: string) => {
+		const appointment = filteredAppointments.find(a => a.id === appointmentId)
+		if (appointment) {
+			setSelectedAppointment(appointment)
+			setRescheduleOpen(true)
+		}
+	}
+
+	const handleReschedule = async (values: { appointmentDate: Date; duration: number }) => {
+		if (!selectedAppointment) return
+		setProcessingId(selectedAppointment.id)
+		await updateMutation.mutateAsync({
+			appointmentId: selectedAppointment.id,
+			appointmentDate: values.appointmentDate,
+			duration: values.duration,
+			status: "PENDING",
 		})
 	}
 
@@ -168,6 +202,7 @@ export default function IncomingRequestsPage() {
 									onViewDetails={handleViewDetails}
 									onConfirm={handleConfirmClick}
 									onReject={handleRejectClick}
+									onReschedule={handleRescheduleClick}
 									isProcessing={processingId === appointment.id}
 								/>
 							))
@@ -209,6 +244,14 @@ export default function IncomingRequestsPage() {
 				onOpenChange={setRejectDialogOpen}
 				onReject={handleReject}
 				isLoading={cancelMutation.isPending}
+			/>
+
+			<RescheduleRequestDialog
+				open={rescheduleOpen}
+				onOpenChange={setRescheduleOpen}
+				appointment={selectedAppointment}
+				onSubmit={handleReschedule}
+				isSubmitting={updateMutation.isPending}
 			/>
 		</>
 	)

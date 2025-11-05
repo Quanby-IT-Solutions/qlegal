@@ -1,6 +1,6 @@
 "use client"
 
-import { Calendar, Clock, FileText, Mail, Phone, User, MapPin, Video } from "lucide-react"
+import { Calendar, Clock, FileText, Mail, Phone, User, MapPin, Video, AlertTriangle } from "lucide-react"
 import { format } from "date-fns"
 
 import { Card, CardContent } from "@/core/components/ui/card"
@@ -16,6 +16,7 @@ interface RequestCardProps {
 	onViewDetails: (appointment: AppointmentWithDetails) => void
 	onConfirm?: (appointmentId: string) => void
 	onReject?: (appointmentId: string) => void
+	onReschedule?: (appointmentId: string) => void
 	isProcessing?: boolean
 }
 
@@ -26,10 +27,14 @@ export function RequestCard({
 	onConfirm,
 	onReject,
 	isProcessing = false,
+	onReschedule,
 }: RequestCardProps) {
 	const displayUser = viewMode === "incoming" ? appointment.client : appointment.lawyer
 	const isRemote = appointment.meetingLink !== null
 	const isInPerson = appointment.location !== null
+	const now = new Date()
+	const isOverdue = new Date(appointment.appointmentDate) < now &&
+		(appointment.status === "PENDING" || appointment.status === "CONFIRMED")
 
 	const getStatusBadge = (status: string) => {
 		const variants: Record<string, { variant: "default" | "secondary" | "destructive" | "outline"; className?: string }> = {
@@ -80,6 +85,12 @@ export function RequestCard({
 									{getStatusBadge(appointment.status)}
 									{getTypeBadge(appointment.type)}
 									{getWorkflowBadge()}
+									{isOverdue && (
+										<Badge variant="destructive" className="flex items-center gap-1">
+											<AlertTriangle className="h-3 w-3" />
+											Overdue
+										</Badge>
+									)}
 								</div>
 							</div>
 						</div>
@@ -191,6 +202,16 @@ export function RequestCard({
 									{isProcessing ? "Processing..." : "Reject"}
 								</Button>
 							</>
+						)}
+
+						{isOverdue && (
+							<Button
+								variant="default"
+								size="sm"
+								onClick={() => onReschedule?.(appointment.id)}
+							>
+								Reschedule
+							</Button>
 						)}
 					</div>
 				</div>
