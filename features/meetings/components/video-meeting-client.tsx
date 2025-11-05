@@ -500,9 +500,9 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 				{documents && documents.length > 0 && (
 					<div className={cn(
 						"border-t bg-card/50 backdrop-blur-sm transition-all duration-300 flex-shrink-0 shadow-lg",
-						showDocuments ? "h-48 md:h-52" : "h-12 md:h-14"
+						showDocuments ? "h-60 sm:h-64 md:h-72 lg:h-80 xl:h-[22rem]" : "h-12 md:h-14"
 					)}>
-						<div className="flex h-12 md:h-14 items-center justify-between px-3 md:px-4 lg:px-6 border-b">
+						<div className="flex h-12 md:h-14 items-center justify-between px-3 md:px-4 lg:px-6 border-b flex-shrink-0">
 							<div className="flex items-center gap-2">
 								<div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10">
 									<FileText className="size-3.5 text-primary" />
@@ -519,13 +519,13 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 							</Button>
 						</div>
 						{showDocuments && (
-							<div className="h-36 md:h-38 overflow-x-auto overflow-y-hidden px-3 md:px-4 lg:px-6 py-3">
-								<div className="flex gap-3 min-w-max">
+							<div className="flex-1 overflow-x-auto overflow-y-hidden px-3 md:px-4 lg:px-6 py-4 pb-6">
+								<div className="flex gap-3 md:gap-4 min-w-max h-full">
 									{documents.map((doc) => {
 										const isPrincipal = meetingDetails?.createdBy.id === session?.user?.id
 										return (
-											<Card key={doc.id} className="flex-shrink-0 w-56 md:w-64 shadow-md hover:shadow-lg transition-all border-2 hover:border-primary/50">
-												<CardContent className="p-3 md:p-4">
+											<Card key={doc.id} className="flex-shrink-0 w-52 sm:w-56 md:w-60 lg:w-64 h-fit shadow-md hover:shadow-lg transition-all border-2 hover:border-primary/50 mb-3">
+												<CardContent className="p-3 md:p-4 pb-4 md:pb-5">
 													<div className="flex items-start gap-2.5 md:gap-3 mb-3">
 														<div className="rounded-lg bg-primary/10 p-2 md:p-2.5 flex-shrink-0">
 															<FileText className="size-4 md:size-5 text-primary" />
@@ -543,13 +543,13 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 														<Button
 															variant="outline"
 															size="sm"
-															className="w-full h-7 md:h-8 text-[10px] md:text-xs shadow-sm hover:bg-primary hover:text-primary-foreground transition-all"
+															className="w-full h-8 md:h-9 text-xs md:text-sm shadow-sm hover:bg-primary hover:text-primary-foreground transition-all"
 															onClick={() => {
 																// Open document in new tab
 																window.open(`/api/documents/${doc.id}`, '_blank')
 															}}
 														>
-															<FileText className="size-3 mr-1.5" />
+															<FileText className="size-3 md:size-3.5 mr-1.5" />
 															View Document
 														</Button>
 														
@@ -557,13 +557,13 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 															<Button
 																variant="default"
 																size="sm"
-																className="w-full h-7 md:h-8 text-[10px] md:text-xs shadow-sm"
+																className="w-full h-8 md:h-9 text-xs md:text-sm shadow-sm"
 																onClick={() => {
 																	setSelectedDocumentId(doc.id)
 																	setIsSendDialogOpen(true)
 																}}
 															>
-																<Send className="size-3 mr-1.5" />
+																<Send className="size-3 md:size-3.5 mr-1.5" />
 																Send to ENP
 															</Button>
 														)}
