@@ -300,19 +300,10 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 		},
 	})
 
-	// Generate signing link mutation
-	const generateSigningLink = trpc.signatureRequests.generateSigningLink.useMutation({
-		onSuccess: (data) => {
-			// Open the generated signing link in a new tab
-			if (data.signingLink) {
-				window.open(data.signingLink, '_blank')
-				toast.success("Opening DocoChain - you can place your signature now!")
-			}
-		},
-		onError: (error) => {
-			toast.error(error.message || "Failed to generate signing link")
-		},
-	})
+	// Get tRPC utils for imperative queries
+	const utils = trpc.useUtils()
+
+	// NOTE: ENP gets direct DRAFT project access to drag and place their own signature fields
 
 	// Get the first non-dismissed pending request
 	const activeSignatureRequest = pendingRequests?.find(
@@ -509,9 +500,9 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 				{documents && documents.length > 0 && (
 					<div className={cn(
 						"border-t bg-card/50 backdrop-blur-sm transition-all duration-300 flex-shrink-0 shadow-lg",
-						showDocuments ? "h-48 md:h-52" : "h-12 md:h-14"
+						showDocuments ? "h-60 sm:h-64 md:h-72 lg:h-80 xl:h-[22rem]" : "h-12 md:h-14"
 					)}>
-						<div className="flex h-12 md:h-14 items-center justify-between px-3 md:px-4 lg:px-6 border-b">
+						<div className="flex h-12 md:h-14 items-center justify-between px-3 md:px-4 lg:px-6 border-b flex-shrink-0">
 							<div className="flex items-center gap-2">
 								<div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10">
 									<FileText className="size-3.5 text-primary" />
@@ -528,13 +519,13 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 							</Button>
 						</div>
 						{showDocuments && (
-							<div className="h-36 md:h-38 overflow-x-auto overflow-y-hidden px-3 md:px-4 lg:px-6 py-3">
-								<div className="flex gap-3 min-w-max">
+							<div className="flex-1 overflow-x-auto overflow-y-hidden px-3 md:px-4 lg:px-6 py-4 pb-6">
+								<div className="flex gap-3 md:gap-4 min-w-max h-full">
 									{documents.map((doc) => {
 										const isPrincipal = meetingDetails?.createdBy.id === session?.user?.id
 										return (
-											<Card key={doc.id} className="flex-shrink-0 w-56 md:w-64 shadow-md hover:shadow-lg transition-all border-2 hover:border-primary/50">
-												<CardContent className="p-3 md:p-4">
+											<Card key={doc.id} className="flex-shrink-0 w-52 sm:w-56 md:w-60 lg:w-64 h-fit shadow-md hover:shadow-lg transition-all border-2 hover:border-primary/50 mb-3">
+												<CardContent className="p-3 md:p-4 pb-4 md:pb-5">
 													<div className="flex items-start gap-2.5 md:gap-3 mb-3">
 														<div className="rounded-lg bg-primary/10 p-2 md:p-2.5 flex-shrink-0">
 															<FileText className="size-4 md:size-5 text-primary" />
@@ -552,13 +543,13 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 														<Button
 															variant="outline"
 															size="sm"
-															className="w-full h-7 md:h-8 text-[10px] md:text-xs shadow-sm hover:bg-primary hover:text-primary-foreground transition-all"
+															className="w-full h-8 md:h-9 text-xs md:text-sm shadow-sm hover:bg-primary hover:text-primary-foreground transition-all"
 															onClick={() => {
 																// Open document in new tab
 																window.open(`/api/documents/${doc.id}`, '_blank')
 															}}
 														>
-															<FileText className="size-3 mr-1.5" />
+															<FileText className="size-3 md:size-3.5 mr-1.5" />
 															View Document
 														</Button>
 														
@@ -566,13 +557,13 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 															<Button
 																variant="default"
 																size="sm"
-																className="w-full h-7 md:h-8 text-[10px] md:text-xs shadow-sm"
+																className="w-full h-8 md:h-9 text-xs md:text-sm shadow-sm"
 																onClick={() => {
 																	setSelectedDocumentId(doc.id)
 																	setIsSendDialogOpen(true)
 																}}
 															>
-																<Send className="size-3 mr-1.5" />
+																<Send className="size-3 md:size-3.5 mr-1.5" />
 																Send to ENP
 															</Button>
 														)}
@@ -693,13 +684,15 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 
 							<div className="rounded-lg bg-primary/10 p-3 border border-primary/20">
 								<p className="text-sm font-medium mb-2">✍️ You're in control!</p>
-								<p className="text-xs text-muted-foreground">
-									When you click "Sign Document", you'll be able to:
+								<p className="text-xs text-muted-foreground mb-2">
+									When you click "Sign Document":
 								</p>
-								<ul className="text-xs text-muted-foreground mt-1 ml-4 space-y-1">
-									<li>• Create and customize your signature</li>
-									<li>• Place signature fields wherever you want</li>
-									<li>• Sign the document when you're ready</li>
+								<ul className="text-xs text-muted-foreground ml-4 space-y-1">
+									<li>• DocoChain will open in a new tab (DRAFT mode)</li>
+									<li>• Click the green "SIGNATURE" button on the left sidebar</li>
+									<li>• Drag and place signature fields where you want to sign</li>
+									<li>• Click on the field to create your signature</li>
+									<li>• Click "SIGN NOW" when ready - no "Send" needed!</li>
 								</ul>
 							</div>
 						</div>
@@ -722,28 +715,27 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 							</Button>
 						<Button
 							className="w-full sm:w-auto"
-							onClick={() => {
-								// Generate a fresh, personalized signing link for this ENP user
-								generateSigningLink.mutate({
-									requestId: activeSignatureRequest.id,
-								})
-								
-								// Dismiss this request after generating the link
-								setDismissedRequestIds(prev => new Set(prev).add(activeSignatureRequest.id))
+							onClick={async () => {
+								try {
+									// Get the ENP's personalized DRAFT link
+									const result = await utils.signatureRequests.getDraftSigningUrl.fetch({
+										requestId: activeSignatureRequest.id,
+									})
+									
+									console.log("Opening DocoChain DRAFT for ENP:", result.draftUrl)
+									window.open(result.draftUrl, '_blank')
+									toast.success("Opening DocoChain - place your signature and sign!")
+									
+									// Dismiss this request
+									setDismissedRequestIds(prev => new Set(prev).add(activeSignatureRequest.id))
+								} catch (error) {
+									console.error("Failed to get DocoChain URL:", error)
+									toast.error("Failed to open signing interface. Please try again.")
+								}
 							}}
-							disabled={generateSigningLink.isPending}
 						>
-							{generateSigningLink.isPending ? (
-								<>
-									<div className="mr-2 size-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
-									Generating Link...
-								</>
-							) : (
-								<>
-									<FileSignature className="mr-2 size-4" />
-									Sign Document
-								</>
-							)}
+							<FileSignature className="mr-2 size-4" />
+							Sign Document
 						</Button>
 						</DialogFooter>
 					</DialogContent>
