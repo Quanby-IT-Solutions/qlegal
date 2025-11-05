@@ -83,6 +83,7 @@ export default function IncomingRequestsPage() {
 			await utils.appointments.getMyAppointments.invalidate()
 			setRescheduleOpen(false)
 			setProcessingId(null)
+			toast.success("Appointment rescheduled. Status set to pending for approval.")
 		},
 		onError: (error: any) => {
 			toast.error("Failed to reschedule appointment", { description: error.message })

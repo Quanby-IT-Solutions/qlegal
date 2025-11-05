@@ -4,6 +4,7 @@ import { useState } from "react"
 import { FileText } from "lucide-react"
 import { type Route } from "next"
 import { useSession } from "next-auth/react"
+import { toast } from "sonner"
 
 import { trpc } from "@/services/trpc/client"
 import { SiteNavbar } from "@/core/components/navbar/site-navbar"
@@ -41,7 +42,11 @@ export default function MyRequestsPage() {
 		onSuccess: async () => {
 			await utils.appointments.getMyAppointments.invalidate()
 			setRescheduleOpen(false)
+			toast.success("Appointment rescheduled. Waiting for ENP approval.")
 		},
+		onError: (error: any) => {
+			toast.error("Failed to reschedule appointment", { description: error.message })
+		}
 	})
 
 	// Only include appointments where the current user is the client (PRINCIPAL)
