@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useSession } from "next-auth/react"
 import { FileText } from "lucide-react"
 import { type Route } from "next"
 import { toast } from "sonner"
@@ -24,6 +25,8 @@ import { useFilteredRequests } from "@/features/requests/hooks/use-filtered-requ
 import type { AppointmentWithDetails } from "@/features/requests/types/requests.types"
 
 export default function IncomingRequestsPage() {
+	const { data: session } = useSession()
+	const userId = session?.user?.id
 	const { filters, updateFilters } = useRequestFilters()
 	const [selectedAppointment, setSelectedAppointment] = useState<AppointmentWithDetails | null>(null)
 	const [viewDialogOpen, setViewDialogOpen] = useState(false)
@@ -32,13 +35,13 @@ export default function IncomingRequestsPage() {
 	const [processingId, setProcessingId] = useState<string | null>(null)
 
 	// Fetch appointments where current user is the lawyer (ENP)
-	const { data: appointments, isLoading } = trpc.appointments.getMyAppointments.useQuery({
-		limit: 100,
-		offset: 0,
-	})
+	const { data: appointments, isLoading } = trpc.appointments.getMyAppointments.useQuery(
+		{ limit: 100, offset: 0 },
+		{ enabled: !!userId }
+	)
 
-	// Filter to only show appointments where user is the lawyer (incoming requests)
-	const incomingAppointments = appointments?.filter((apt: any) => apt.lawyerId === apt.lawyer.id) as AppointmentWithDetails[] | undefined
+	// Filter to only show appointments where current user is the lawyer (incoming requests)
+	const incomingAppointments = (appointments?.filter((apt: any) => apt.lawyerId === userId) || []) as AppointmentWithDetails[]
 
 	const { filteredAppointments, stats } = useFilteredRequests(incomingAppointments, filters)
 
