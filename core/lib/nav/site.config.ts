@@ -245,12 +245,12 @@ export const appSidebarSections: NavSection[] = [
 				workflows: ["REN", "IEN"],
 				items: [
 					// PRINCIPAL: Create new notarization request
-					{
-						title: "New Request",
-						url: "/requests/new",
-						roles: ["PRINCIPAL"],
-						workflows: ["REN", "IEN"],
-					},
+					// {
+					// 	title: "New Request",
+					// 	url: "/requests/new",
+					// 	roles: ["PRINCIPAL"],
+					// 	workflows: ["REN", "IEN"],
+					// },
 					// PRINCIPAL: View their submitted requests
 					{
 						title: "My Requests",
