@@ -300,19 +300,10 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 		},
 	})
 
-	// Generate signing link mutation
-	const generateSigningLink = trpc.signatureRequests.generateSigningLink.useMutation({
-		onSuccess: (data) => {
-			// Open the generated signing link in a new tab
-			if (data.signingLink) {
-				window.open(data.signingLink, '_blank')
-				toast.success("Opening DocoChain - you can place your signature now!")
-			}
-		},
-		onError: (error) => {
-			toast.error(error.message || "Failed to generate signing link")
-		},
-	})
+	// Get tRPC utils for imperative queries
+	const utils = trpc.useUtils()
+
+	// NOTE: ENP gets direct DRAFT project access to drag and place their own signature fields
 
 	// Get the first non-dismissed pending request
 	const activeSignatureRequest = pendingRequests?.find(
@@ -693,13 +684,15 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 
 							<div className="rounded-lg bg-primary/10 p-3 border border-primary/20">
 								<p className="text-sm font-medium mb-2">✍️ You're in control!</p>
-								<p className="text-xs text-muted-foreground">
-									When you click "Sign Document", you'll be able to:
+								<p className="text-xs text-muted-foreground mb-2">
+									When you click "Sign Document":
 								</p>
-								<ul className="text-xs text-muted-foreground mt-1 ml-4 space-y-1">
-									<li>• Create and customize your signature</li>
-									<li>• Place signature fields wherever you want</li>
-									<li>• Sign the document when you're ready</li>
+								<ul className="text-xs text-muted-foreground ml-4 space-y-1">
+									<li>• DocoChain will open in a new tab (DRAFT mode)</li>
+									<li>• Click the green "SIGNATURE" button on the left sidebar</li>
+									<li>• Drag and place signature fields where you want to sign</li>
+									<li>• Click on the field to create your signature</li>
+									<li>• Click "SIGN NOW" when ready - no "Send" needed!</li>
 								</ul>
 							</div>
 						</div>
@@ -722,28 +715,27 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 							</Button>
 						<Button
 							className="w-full sm:w-auto"
-							onClick={() => {
-								// Generate a fresh, personalized signing link for this ENP user
-								generateSigningLink.mutate({
-									requestId: activeSignatureRequest.id,
-								})
-								
-								// Dismiss this request after generating the link
-								setDismissedRequestIds(prev => new Set(prev).add(activeSignatureRequest.id))
+							onClick={async () => {
+								try {
+									// Get the ENP's personalized DRAFT link
+									const result = await utils.signatureRequests.getDraftSigningUrl.fetch({
+										requestId: activeSignatureRequest.id,
+									})
+									
+									console.log("Opening DocoChain DRAFT for ENP:", result.draftUrl)
+									window.open(result.draftUrl, '_blank')
+									toast.success("Opening DocoChain - place your signature and sign!")
+									
+									// Dismiss this request
+									setDismissedRequestIds(prev => new Set(prev).add(activeSignatureRequest.id))
+								} catch (error) {
+									console.error("Failed to get DocoChain URL:", error)
+									toast.error("Failed to open signing interface. Please try again.")
+								}
 							}}
-							disabled={generateSigningLink.isPending}
 						>
-							{generateSigningLink.isPending ? (
-								<>
-									<div className="mr-2 size-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
-									Generating Link...
-								</>
-							) : (
-								<>
-									<FileSignature className="mr-2 size-4" />
-									Sign Document
-								</>
-							)}
+							<FileSignature className="mr-2 size-4" />
+							Sign Document
 						</Button>
 						</DialogFooter>
 					</DialogContent>
