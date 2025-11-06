@@ -83,7 +83,7 @@ export default function IncomingRequestsPage() {
 			await utils.appointments.getMyAppointments.invalidate()
 			setRescheduleOpen(false)
 			setProcessingId(null)
-			toast.success("Appointment rescheduled. Status set to pending for approval.")
+			toast.success("Appointment rescheduled and confirmed.")
 		},
 		onError: (error: any) => {
 			toast.error("Failed to reschedule appointment", { description: error.message })
@@ -103,12 +103,11 @@ export default function IncomingRequestsPage() {
 		}
 	}
 
-	const handleConfirm = async (data: { meetingLink?: string }) => {
+	const handleConfirm = async () => {
 		if (!selectedAppointment) return
 		setProcessingId(selectedAppointment.id)
 		await confirmMutation.mutateAsync({
 			appointmentId: selectedAppointment.id,
-			meetingLink: data.meetingLink,
 		})
 	}
 
@@ -144,7 +143,7 @@ export default function IncomingRequestsPage() {
 			appointmentId: selectedAppointment.id,
 			appointmentDate: values.appointmentDate,
 			duration: values.duration,
-			status: "PENDING",
+			status: "CONFIRMED",
 		})
 	}
 
