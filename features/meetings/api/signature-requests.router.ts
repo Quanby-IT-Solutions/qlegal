@@ -7,7 +7,7 @@ import { signatureRequests } from "@/services/drizzle/schema/signature-requests"
 import { documents } from "@/services/drizzle/schema/document"
 import { users } from "@/services/drizzle/schema/auth"
 import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
-import { addSignerToProject, sendDocoChainProject } from "@/services/docochain"
+import { addSignerToProject, sendDocoChainProject, generateSignLink } from "@/services/docochain"
 
 export const signatureRequestsRouter = createTRPCRouter({
 	// Create a signature request
@@ -177,6 +177,54 @@ export const signatureRequestsRouter = createTRPCRouter({
 			return {
 				success: true,
 				request: updatedRequest,
+			}
+		}),
+
+	// Generate a signing link for a DocoChain project
+	generateSigningLink: protectedProcedure
+		.input(
+			z.object({
+				projectUuid: z.string().min(1, "Project UUID is required"),
+				email: z.string().email("Valid email is required"),
+				firstName: z.string().optional(),
+				lastName: z.string().optional(),
+			})
+		)
+		.mutation(async ({ input, ctx }) => {
+			const { projectUuid, email, firstName, lastName } = input
+
+			try {
+				// Get user details if not provided
+				const userFirstName = firstName || ctx.session.user.name?.split(" ")[0] || "User"
+				const userLastName = lastName || ctx.session.user.name?.split(" ").slice(1).join(" ") || ""
+
+				// Step 1: Add the ENP as a signer to the project (if not already added)
+				console.log("🔵 Ensuring ENP is added as signer to project...")
+				await addSignerToProject({
+					projectUuid,
+					email,
+					firstName: userFirstName,
+					lastName: userLastName,
+					signerRole: "Signer",
+				})
+
+				// Step 2: Generate the signing link for this ENP
+				console.log("🔵 Generating signing link for ENP...")
+				const result = await generateSignLink({
+					projectUuid,
+					email,
+				})
+
+				return {
+					success: true,
+					link: result.link,
+				}
+			} catch (error) {
+				console.error("❌ Failed to generate signing link:", error)
+				throw new TRPCError({
+					code: "INTERNAL_SERVER_ERROR",
+					message: error instanceof Error ? error.message : "Failed to generate signing link",
+				})
 			}
 		}),
 })

@@ -300,6 +300,20 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 		},
 	})
 
+	// Generate personalized signing link for ENP
+	const generateSigningLink = trpc.signatureRequests.generateSigningLink.useMutation({
+		onSuccess: (data) => {
+			console.log("✅ Personalized signing link generated:", data.link)
+			// Open the unique signing link for this ENP
+			window.open(data.link, '_blank')
+			toast.success("Opening your personalized signing page...")
+		},
+		onError: (error) => {
+			console.error("❌ Failed to generate signing link:", error)
+			toast.error(error.message || "Failed to generate signing link")
+		},
+	})
+
 	// Get the first non-dismissed pending request
 	const activeSignatureRequest = pendingRequests?.find(
 		(req) => !dismissedRequestIds.has(req.id)
@@ -702,29 +716,35 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 								className="w-full sm:w-auto"
 								onClick={() => {
 									const projectId = activeSignatureRequest.document.docoChainProjectId
-									const redirectUrl = (activeSignatureRequest.document as any).docoChainRedirectUrl
+									const userEmail = session?.user?.email
 									
 									console.log("Document:", activeSignatureRequest.document)
 									console.log("DocoChain Project ID:", projectId)
-									console.log("DocoChain Redirect URL:", redirectUrl)
+									console.log("ENP Email:", userEmail)
 									
-									if (projectId) {
-										// Use the redirect URL with auth token if available, otherwise construct URL
-										const docoChainUrl = redirectUrl || `https://stg-app.doconchain.com/${projectId}`
-										console.log("Opening DocoChain URL:", docoChainUrl)
-										window.open(docoChainUrl, '_blank')
-										toast.success("Opening DocoChain platform...")
+									if (projectId && userEmail) {
+										// Generate personalized signing link for this ENP
+										console.log("🔵 Generating personalized signing link for ENP...")
+										generateSigningLink.mutate({
+											projectUuid: projectId,
+											email: userEmail,
+										})
 										
 										// Dismiss this request
 										setDismissedRequestIds(prev => new Set(prev).add(activeSignatureRequest.id))
 									} else {
-										console.error("No DocoChain project ID found")
-										toast.error("DocoChain project not found. Please ensure the document was uploaded correctly and your DocoChain API token is configured.")
+										console.error("Missing required data:", { projectId, userEmail })
+										toast.error(
+											!projectId 
+												? "DocoChain project not found. Please ensure the document was uploaded correctly."
+												: "User email not found. Please sign in again."
+										)
 									}
 								}}
+								disabled={generateSigningLink.isPending}
 							>
 								<FileSignature className="mr-2 size-4" />
-								Sign Document
+								{generateSigningLink.isPending ? "Generating Link..." : "Sign Document"}
 							</Button>
 						</DialogFooter>
 					</DialogContent>

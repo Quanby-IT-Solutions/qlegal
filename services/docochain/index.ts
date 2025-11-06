@@ -160,6 +160,13 @@ export async function addSignerToProject({
 		if (!response.ok) {
 			const errorText = await response.text()
 			console.error("❌ DocoChain add signer error:", errorText)
+			
+			// If signer already exists, that's OK - continue
+			if (response.status === 400 && errorText.includes("already")) {
+				console.log("ℹ️ Signer already exists in project - continuing...")
+				return { message: "Signer already exists" }
+			}
+			
 			throw new Error(`DocoChain API error: ${response.status} ${response.statusText} - ${errorText}`)
 		}
 
@@ -279,6 +286,63 @@ export async function sendDocoChainProject(projectUuid: string) {
 		return result
 	} catch (error) {
 		console.error("❌ Error sending DocoChain project:", error)
+		throw error
+	}
+}
+
+/**
+ * Generate a unique signing link for a specific project and recipient
+ * This link can be sent to the user to access and sign the document
+ */
+export async function generateSignLink({
+	projectUuid,
+	email,
+}: {
+	projectUuid: string
+	email: string
+}): Promise<{ link: string }> {
+	console.log("🔵 Generating signing link...")
+	console.log("   - Project UUID:", projectUuid)
+	console.log("   - Email:", email)
+
+	try {
+		if (!DOCOCHAIN_API_TOKEN) {
+			throw new Error("DocoChain API token not configured")
+		}
+
+		const apiUrl = `${DOCOCHAIN_API_BASE}/api/v2/projects/${projectUuid}/link/generate?email=${encodeURIComponent(email)}`
+		console.log("🔵 Calling DocoChain API:", apiUrl)
+
+		const response = await fetch(apiUrl, {
+			method: "POST",
+			headers: {
+				Authorization: `Bearer ${DOCOCHAIN_API_TOKEN}`,
+				Accept: "application/json",
+			},
+		})
+
+		console.log("📡 DocoChain generate link response status:", response.status)
+
+		if (!response.ok) {
+			const errorText = await response.text()
+			console.error("❌ DocoChain generate link error:", errorText)
+			throw new Error(`DocoChain API error: ${response.status} ${response.statusText} - ${errorText}`)
+		}
+
+		const result = await response.json()
+		console.log("✅ Signing link generated successfully:", result)
+
+		// DocoChain returns the link in the 'message' field
+		const link = result.message || result.link
+		console.log("✅ Extracted signing link:", link)
+
+		if (!link) {
+			throw new Error("DocoChain did not return a valid signing link")
+		}
+
+		return { link }
+	} catch (error) {
+		console.error("❌ Error generating signing link:", error)
 		throw error
 	}
 }
