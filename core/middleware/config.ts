@@ -38,7 +38,6 @@ export const ROUTE_CONFIG: RouteConfig = {
 	protected: {
 		shared: [
 			{ path: "/auth/signature" },
-			{ path: "/consultations" },
 			{ path: "/documents" },
 			{ path: "/documents/completed" },
 			{ path: "/documents/create" },
@@ -63,7 +62,7 @@ export const ROUTE_CONFIG: RouteConfig = {
 		],
 		byRole: {
 			ENP: [{ path: "/dashboard" }],
-			PRINCIPAL: [{ path: "/dashboard" }],
+			PRINCIPAL: [{ path: "/dashboard" }, { path: "/consultations" }],
 			ENA: [{ path: "/dashboard" }],
 			ADMIN: [{ path: "/dashboard" }],
 		},
