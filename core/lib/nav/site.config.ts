@@ -192,7 +192,7 @@ export const appSidebarSections: NavSection[] = [
 				title: "Consultations",
 				url: "/consultations",
 				icon: CalendarIcon,
-				roles: ["PRINCIPAL", "ENP"],
+				roles: ["PRINCIPAL"],
 				workflows: ["REN", "IEN"],
 			},
 
