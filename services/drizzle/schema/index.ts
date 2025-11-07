@@ -7,6 +7,7 @@ import * as envelopeSchema from "@/services/drizzle/schema/envelope"
 import * as meetingsSchema from "@/services/drizzle/schema/meetings"
 import * as messageAttachmentsSchema from "@/services/drizzle/schema/message-attachments"
 import * as messagesSchema from "@/services/drizzle/schema/messages"
+import * as signatureRequestsSchema from "@/services/drizzle/schema/signature-requests"
 
 export const schema = {
 	...authSchema,
@@ -16,6 +17,7 @@ export const schema = {
 	...meetingsSchema,
 	...messagesSchema,
 	...messageAttachmentsSchema,
+	...signatureRequestsSchema,
 	...enumsSchema,
 	...relationsSchema,
 }

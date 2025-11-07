@@ -8,6 +8,7 @@ import { meetings, meetingParticipants } from "@/services/drizzle/schema/meeting
 import { getPublicClient } from "@/services/supabase"
 import { createMeetingRoom, generateMeetingToken } from "@/services/video-sdk"
 import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
+import { createDocoChainProject } from "@/services/docochain"
 
 export const meetingsRouter = createTRPCRouter({
 	// Create a new meeting
@@ -359,17 +360,41 @@ export const meetingsRouter = createTRPCRouter({
 					})
 				}
 
-				// Update document with storage path
-				const [updatedDocument] = await db
-					.update(documents)
-					.set({ path: uploadData.path })
-					.where(eq(documents.id, document.id))
-					.returning()
-
-				// Get public URL for the document
+				// Get public URL for the document first
 				const {
 					data: { publicUrl },
 				} = supabase.storage.from("documents").getPublicUrl(uploadData.path)
+
+				// Create DocoChain project SYNCHRONOUSLY (wait for it)
+				let docoChainProjectId: string | null = null
+				let docoChainRedirectUrl: string | null = null
+				try {
+					console.log("🔵 Creating DocoChain project for:", name)
+					const docoChainProject = await createDocoChainProject({
+						title: name,
+						documentFile: fileBuffer,
+						fileName: name.endsWith('.pdf') ? name : `${name}.pdf`,
+					})
+					docoChainProjectId = docoChainProject.uuid
+					docoChainRedirectUrl = docoChainProject.redirectUrl || null
+					console.log("✅ DocoChain project created:", docoChainProjectId)
+					console.log("✅ DocoChain redirect URL:", docoChainRedirectUrl)
+				} catch (docoChainError) {
+					console.error("❌ Failed to create DocoChain project:", docoChainError)
+					console.error("Error details:", docoChainError instanceof Error ? docoChainError.message : String(docoChainError))
+					// Continue without DocoChain - signing will be disabled
+				}
+
+				// Update document with storage path, DocoChain project ID, AND redirect URL
+				const [updatedDocument] = await db
+					.update(documents)
+					.set({ 
+						path: uploadData.path,
+						docoChainProjectId,
+						docoChainRedirectUrl,
+					})
+					.where(eq(documents.id, document.id))
+					.returning()
 
 				return {
 					...updatedDocument,
