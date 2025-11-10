@@ -5,7 +5,7 @@ import { z } from "zod/v4"
 import { db } from "@/services/drizzle/db"
 import { documents } from "@/services/drizzle/schema/document"
 import { meetings, meetingParticipants } from "@/services/drizzle/schema/meetings"
-import { getPublicClient } from "@/services/supabase"
+import { getServiceRoleClient } from "@/services/supabase"
 import { createMeetingRoom, generateMeetingToken } from "@/services/video-sdk"
 import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
 import { createDocoChainProject } from "@/services/docochain"
@@ -337,12 +337,17 @@ export const meetingsRouter = createTRPCRouter({
 					})
 				}
 
-				// Upload to Supabase storage
-				const supabase = getPublicClient()
+				// Upload to Supabase storage - use service role client for server-side uploads
+				const supabase = getServiceRoleClient()
 				const fileName = `meetings/${meetingId}/${document.id}/${name}`
 
 				// Decode base64 file data
 				const fileBuffer = Buffer.from(file, "base64")
+
+				console.log("🔵 Uploading to Supabase storage...")
+				console.log("   - Bucket: documents")
+				console.log("   - File name:", fileName)
+				console.log("   - File size:", fileBuffer.length, "bytes")
 
 				const { data: uploadData, error: uploadError } = await supabase.storage
 					.from("documents")
@@ -352,6 +357,8 @@ export const meetingsRouter = createTRPCRouter({
 					})
 
 				if (uploadError) {
+					console.error("❌ Supabase upload error:", uploadError)
+					console.error("❌ Error details:", JSON.stringify(uploadError, null, 2))
 					// Clean up database record if upload fails
 					await db.delete(documents).where(eq(documents.id, document.id))
 					throw new TRPCError({
@@ -359,6 +366,8 @@ export const meetingsRouter = createTRPCRouter({
 						message: `Upload failed: ${uploadError.message}`,
 					})
 				}
+
+				console.log("✅ Uploaded to Supabase:", uploadData.path)
 
 				// Get public URL for the document first
 				const {

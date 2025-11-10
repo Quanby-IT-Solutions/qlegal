@@ -3,8 +3,10 @@
  * API Base URL: https://stg-api2.doconchain.com
  */
 
-const DOCOCHAIN_API_BASE = process.env.DOCOCHAIN_API_URL || "https://stg-api2.doconchain.com"
-const DOCOCHAIN_API_TOKEN = process.env.DOCOCHAIN_API_TOKEN || ""
+import { env } from "@/env"
+
+const DOCOCHAIN_API_BASE = env.DOCOCHAIN_API_URL || "https://stg-api2.doconchain.com"
+const DOCOCHAIN_API_TOKEN = env.DOCOCHAIN_API_TOKEN || ""
 
 interface CreateProjectRequest {
 	title: string
