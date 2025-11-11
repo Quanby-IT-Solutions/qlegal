@@ -69,32 +69,39 @@ export default function ConsultationsPage() {
 	// Book consultation mutation
 	const bookConsultationMutation = trpc.consultations.bookConsultation.useMutation({
 		onSuccess: (data) => {
+			console.log("🔍 Consultation booking success:", data)
+			
 			toast.success("Consultation Booked!", {
 				description: "Your consultation has been successfully booked.",
 			})
 
 			// Redirect based on workflow type and meeting preference
-			if (data.workflowType === "REN" && data.meetingPreference === "VIDEO_CALL" && data.meetingId) {
-				// Video call - go to meeting lobby
-				toast.success("Video Consultation Ready!", {
-					description: "Redirecting you to the meeting lobby...",
-				})
-				router.push(`/meetings/${data.meetingId}/lobby` as Route)
-			} else if (data.workflowType === "REN" && data.meetingPreference === "CHAT_ONLY" && data.conversationId) {
-				// Chat only - go to messages
+			// Check CHAT_ONLY first to ensure proper redirect
+			if (data.workflowType === "REN" && data.meetingPreference === "CHAT_ONLY") {
+				// Chat only - always go to messages (conversation is created in backend)
+				console.log("✅ Redirecting to messages for CHAT_ONLY consultation")
 				toast.success("Chat Consultation Ready!", {
 					description: "You can now message the ENP directly.",
 				})
 				router.push("/messages" as Route)
+			} else if (data.workflowType === "REN" && data.meetingPreference === "VIDEO_CALL" && data.meetingId) {
+				// Video call - go to meeting lobby
+				console.log("✅ Redirecting to video meeting lobby:", data.meetingId)
+				toast.success("Video Consultation Ready!", {
+					description: "Redirecting you to the meeting lobby...",
+				})
+				router.push(`/meetings/${data.meetingId}/lobby` as Route)
 			} else if (data.workflowType === "IEN") {
-				// In-person - go to dashboard/appointments
+				// In-person - go to appointments
+				console.log("✅ Redirecting to dashboard for in-person consultation")
 				toast.success("Appointment Scheduled!", {
 					description: "Check your appointments for details.",
 				})
-				router.push("/dashboard" as Route)
+				router.push("/appointments" as Route)
 			} else {
-				// Fallback
-				router.push("/dashboard" as Route)
+				// Fallback - shouldn't happen
+				console.warn("⚠️ Unexpected workflow type, redirecting to messages:", data)
+				router.push("/messages" as Route)
 			}
 		},
 		onError: (error) => {
