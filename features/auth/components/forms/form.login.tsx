@@ -2,9 +2,11 @@
 
 import { type Route } from "next"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { useEffect, useState, useTransition } from "react"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm, type SubmitHandler } from "react-hook-form"
+import { useSession } from "next-auth/react"
 import { z } from "zod/v4"
 
 import { Button, buttonVariants } from "@/core/components/ui/button"
@@ -32,6 +34,8 @@ import { OAuthButton } from "@/features/auth/components/oauth-button"
 import { FormResponse } from "@/features/auth/components/ui/form-response"
 
 export function LoginForm({ callbackUrl }: { callbackUrl?: Route }) {
+	const router = useRouter()
+	const { update } = useSession()
 	const [formSuccess, setFormSuccess] = useState<string | null>(null)
 	const [formError, setFormError] = useState<string | null>(null)
 	const [isPending, startTransition] = useTransition()
@@ -89,12 +93,22 @@ export function LoginForm({ callbackUrl }: { callbackUrl?: Route }) {
 		}
 
 		startTransition(async () => {
-			const response = await login(data, callbackUrl)
+			const response = await login(data)
 			if (response?.error) {
 				setFormError(response.error)
 			} else if (response?.success) {
-				setShowTwoFactor(response?.twoFactor ?? false)
-				setFormSuccess(response.success)
+				if (response?.twoFactor) {
+					setShowTwoFactor(true)
+					setFormSuccess(response.success)
+				} else {
+					// Login successful without 2FA or after 2FA verification
+					setFormSuccess(response.success)
+					// Update the session to reflect the logged-in user immediately
+					await update()
+					// Navigate to the callback URL or home page
+					router.push(callbackUrl ?? "/")
+					router.refresh()
+				}
 			}
 		})
 	}
