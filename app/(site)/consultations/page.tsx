@@ -74,18 +74,26 @@ export default function ConsultationsPage() {
 			})
 
 			// Redirect based on workflow type and meeting preference
-			if (data.workflowType === "REN" && data.meetingId) {
-				// Video call - go to meeting room
-				router.push(`/meetings/${data.meetingId}` as Route)
-			} else if (data.workflowType === "REN" && data.conversationId) {
-				// Chat only - could redirect to messages or dashboard
-				toast.success("Ready to Chat!", {
+			if (data.workflowType === "REN" && data.meetingPreference === "VIDEO_CALL" && data.meetingId) {
+				// Video call - go to meeting lobby
+				toast.success("Video Consultation Ready!", {
+					description: "Redirecting you to the meeting lobby...",
+				})
+				router.push(`/meetings/${data.meetingId}/lobby` as Route)
+			} else if (data.workflowType === "REN" && data.meetingPreference === "CHAT_ONLY" && data.conversationId) {
+				// Chat only - go to messages
+				toast.success("Chat Consultation Ready!", {
 					description: "You can now message the ENP directly.",
 				})
-				router.push("/dashboard" as Route)
+				router.push("/messages" as Route)
 			} else if (data.workflowType === "IEN") {
+				// In-person - go to dashboard/appointments
+				toast.success("Appointment Scheduled!", {
+					description: "Check your appointments for details.",
+				})
 				router.push("/dashboard" as Route)
 			} else {
+				// Fallback
 				router.push("/dashboard" as Route)
 			}
 		},

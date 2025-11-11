@@ -3,6 +3,7 @@ import { relations } from "drizzle-orm"
 import { appointments } from "@/services/drizzle/schema/appointments"
 import { users } from "@/services/drizzle/schema/auth"
 import { documents } from "@/services/drizzle/schema/document"
+import { enpAvailability, enpProfiles } from "@/services/drizzle/schema/enp-profiles"
 import { envelopes } from "@/services/drizzle/schema/envelope"
 import { meetingParticipants, meetings } from "@/services/drizzle/schema/meetings"
 import { messageAttachments } from "@/services/drizzle/schema/message-attachments"
@@ -25,8 +26,13 @@ export const meetingsRelations = relations(meetings, ({ one, many }) => ({
 }))
 
 // Auth relations
-export const userRelations = relations(users, ({ many }) => ({
+export const userRelations = relations(users, ({ one, many }) => ({
 	envelopes: many(envelopes),
+	enpProfile: one(enpProfiles, {
+		fields: [users.id],
+		references: [enpProfiles.userId],
+	}),
+	enpAvailability: many(enpAvailability),
 }))
 
 // Document relations
@@ -135,5 +141,21 @@ export const signatureRequestsRelations = relations(signatureRequests, ({ one })
 		fields: [signatureRequests.signerId],
 		references: [users.id],
 		relationName: "signaturesToSign",
+	}),
+}))
+
+// ENP Profile relations
+export const enpProfilesRelations = relations(enpProfiles, ({ one }) => ({
+	user: one(users, {
+		fields: [enpProfiles.userId],
+		references: [users.id],
+	}),
+}))
+
+// ENP Availability relations
+export const enpAvailabilityRelations = relations(enpAvailability, ({ one }) => ({
+	enp: one(users, {
+		fields: [enpAvailability.enpId],
+		references: [users.id],
 	}),
 }))

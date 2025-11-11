@@ -428,13 +428,16 @@ export const consultationsRouter = createTRPCRouter({
 		return results
 	}),
 
-	// Get ENP availability (mock implementation - can be enhanced with actual availability table)
+	// Get ENP availability
 	getEnpAvailability: protectedProcedure
 		.input(getEnpAvailabilitySchema)
 		.query(async ({ ctx, input }) => {
 			// Verify ENP exists
 			const enp = await ctx.db.query.users.findFirst({
 				where: eq(users.id, input.enpId),
+				with: {
+					enpAvailability: true,
+				},
 			})
 
 			if (!enp || enp.role !== "ENP") {
@@ -452,22 +455,45 @@ export const consultationsRouter = createTRPCRouter({
 				),
 			})
 
-			// Generate available time slots (this is a simple implementation)
-			// In a production app, you'd have a separate availability table
 			const slots = []
 			const today = new Date()
 			const duration = input.workflowType === "REN" ? 30 : 45
 
-			// Generate slots for next 7 days
+			// Generate slots for next 7 days based on ENP's availability settings
 			for (let i = 1; i <= 7; i++) {
 				const date = new Date(today)
 				date.setDate(date.getDate() + i)
+				const dayOfWeek = date.getDay()
 				const dateStr = date.toISOString().split("T")[0]
 
-				// Office hours: 9 AM to 5 PM
-				const officeHours = ["09:00", "10:00", "11:00", "14:00", "15:00", "16:00"]
+				// Find availability for this day of week
+				const dayAvailability = enp.enpAvailability?.filter(
+					(avail) => avail.dayOfWeek === dayOfWeek && avail.isAvailable
+				) || []
 
-				for (const time of officeHours) {
+				// If no custom availability set, use default office hours
+				const timeSlots = dayAvailability.length > 0
+					? dayAvailability.flatMap((avail) => {
+						const slots = []
+						const [startHour, startMin] = avail.startTime.split(":").map(Number)
+						const [endHour, endMin] = avail.endTime.split(":").map(Number)
+						
+						let currentHour = startHour || 0
+						let currentMin = startMin || 0
+						
+						while (currentHour < (endHour || 0) || (currentHour === (endHour || 0) && currentMin < (endMin || 0))) {
+							slots.push(`${String(currentHour).padStart(2, "0")}:${String(currentMin).padStart(2, "0")}`)
+							currentMin += 60 // 1-hour slots
+							if (currentMin >= 60) {
+								currentHour++
+								currentMin = 0
+							}
+						}
+						return slots
+					})
+					: ["09:00", "10:00", "11:00", "14:00", "15:00", "16:00"] // Default office hours
+
+				for (const time of timeSlots) {
 					const [hours, minutes] = time.split(":").map(Number)
 					const slotDate = new Date(date)
 					slotDate.setHours(hours || 0, minutes || 0, 0, 0)
@@ -497,7 +523,7 @@ export const consultationsRouter = createTRPCRouter({
 	getAvailableEnps: protectedProcedure
 		.input(getAvailableEnpsSchema)
 		.query(async ({ ctx, input }) => {
-			// Get all ENPs
+			// Get all ENPs with their profiles
 			const enps = await ctx.db.query.users.findMany({
 				where: eq(users.role, "ENP"),
 				columns: {
@@ -507,19 +533,27 @@ export const consultationsRouter = createTRPCRouter({
 					image: true,
 					phoneNumber: true,
 				},
+				with: {
+					enpProfile: true,
+				},
 			})
 
-			// TODO: Filter by specialization and availability if needed
-			return enps.map((enp) => ({
-				...enp,
-				// Mock data for now - in production, fetch from profile/lawyer table
-				specialization: "Legal Documents, Contracts",
-				rating: 4.8,
-				reviewCount: 0,
-				experience: "5+ years",
-				languages: ["English"],
-				responseTime: "Within 2 hours",
-			}))
+			// Map ENPs with their profile data
+			return enps
+				.filter((enp) => enp.enpProfile?.isAvailable !== false) // Only show available ENPs
+				.map((enp) => ({
+					id: enp.id,
+					name: enp.name,
+					email: enp.email,
+					image: enp.image,
+					phoneNumber: enp.phoneNumber,
+					specialization: enp.enpProfile?.specialization || "Legal Services",
+					rating: enp.enpProfile?.rating || 0,
+					reviewCount: enp.enpProfile?.reviewCount || 0,
+					experience: enp.enpProfile?.experience || "Experienced",
+					languages: enp.enpProfile?.languages ? JSON.parse(enp.enpProfile.languages) : ["English"],
+					responseTime: enp.enpProfile?.responseTime || "Within 24 hours",
+				}))
 		}),
 
 	// Confirm consultation (ENP only) - creates meeting if REN
