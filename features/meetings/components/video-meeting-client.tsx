@@ -300,10 +300,19 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 		},
 	})
 
-	// Get tRPC utils for imperative queries
-	const utils = trpc.useUtils()
-
-	// NOTE: ENP gets direct DRAFT project access to drag and place their own signature fields
+	// Generate personalized signing link for ENP
+	const generateSigningLink = trpc.signatureRequests.generateSigningLink.useMutation({
+		onSuccess: (data) => {
+			console.log("✅ Personalized signing link generated:", data.link)
+			// Open the unique signing link for this ENP
+			window.open(data.link, '_blank')
+			toast.success("Opening your personalized signing page...")
+		},
+		onError: (error) => {
+			console.error("❌ Failed to generate signing link:", error)
+			toast.error(error.message || "Failed to generate signing link")
+		},
+	})
 
 	// Get the first non-dismissed pending request
 	const activeSignatureRequest = pendingRequests?.find(
@@ -500,41 +509,41 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 				{documents && documents.length > 0 && (
 					<div className={cn(
 						"border-t bg-card/50 backdrop-blur-sm transition-all duration-300 flex-shrink-0 shadow-lg",
-						showDocuments ? "h-60 sm:h-64 md:h-72 lg:h-80 xl:h-[22rem]" : "h-12 md:h-14"
+						showDocuments ? "min-h-[200px] max-h-[400px]" : "h-12 md:h-14"
 					)}>
 						<div className="flex h-12 md:h-14 items-center justify-between px-3 md:px-4 lg:px-6 border-b flex-shrink-0">
 							<div className="flex items-center gap-2">
-								<div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10">
-									<FileText className="size-3.5 text-primary" />
+								<div className="flex h-7 w-7 md:h-8 md:w-8 items-center justify-center rounded-lg bg-primary/10">
+									<FileText className="size-4 md:size-5 text-primary" />
 								</div>
-								<span className="text-xs md:text-sm font-semibold">Documents ({documents.length})</span>
+								<span className="text-sm md:text-base font-semibold">Documents ({documents.length})</span>
 							</div>
 							<Button
 								variant="ghost"
 								size="sm"
 								onClick={() => setShowDocuments(!showDocuments)}
-								className="h-8 px-3 text-xs hover:bg-muted"
+								className="h-8 px-3 text-xs md:text-sm hover:bg-muted"
 							>
 								{showDocuments ? "Hide" : "Show"}
 							</Button>
 						</div>
 						{showDocuments && (
-							<div className="flex-1 overflow-x-auto overflow-y-hidden px-3 md:px-4 lg:px-6 py-4 pb-6">
-								<div className="flex gap-3 md:gap-4 min-w-max h-full">
+							<div className="overflow-y-auto max-h-[350px] px-3 md:px-4 lg:px-6 py-4">
+								<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
 									{documents.map((doc) => {
 										const isPrincipal = meetingDetails?.createdBy.id === session?.user?.id
 										return (
-											<Card key={doc.id} className="flex-shrink-0 w-52 sm:w-56 md:w-60 lg:w-64 h-fit shadow-md hover:shadow-lg transition-all border-2 hover:border-primary/50 mb-3">
-												<CardContent className="p-3 md:p-4 pb-4 md:pb-5">
-													<div className="flex items-start gap-2.5 md:gap-3 mb-3">
-														<div className="rounded-lg bg-primary/10 p-2 md:p-2.5 flex-shrink-0">
-															<FileText className="size-4 md:size-5 text-primary" />
+											<Card key={doc.id} className="shadow-md hover:shadow-lg transition-all border-2 hover:border-primary/50">
+												<CardContent className="p-4">
+													<div className="flex items-start gap-3 mb-3">
+														<div className="rounded-lg bg-primary/10 p-2.5 flex-shrink-0">
+															<FileText className="size-5 text-primary" />
 														</div>
 														<div className="flex-1 min-w-0">
-															<p className="text-xs md:text-sm font-semibold truncate" title={doc.name}>
+															<p className="text-sm font-semibold truncate" title={doc.name}>
 																{doc.name}
 															</p>
-															<p className="text-[10px] md:text-xs text-muted-foreground mt-0.5 md:mt-1">
+															<p className="text-xs text-muted-foreground mt-1">
 																{(doc.size / 1024).toFixed(1)} KB • PDF
 															</p>
 														</div>
@@ -543,13 +552,13 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 														<Button
 															variant="outline"
 															size="sm"
-															className="w-full h-8 md:h-9 text-xs md:text-sm shadow-sm hover:bg-primary hover:text-primary-foreground transition-all"
+															className="w-full h-9 text-xs shadow-sm hover:bg-primary hover:text-primary-foreground transition-all"
 															onClick={() => {
 																// Open document in new tab
 																window.open(`/api/documents/${doc.id}`, '_blank')
 															}}
 														>
-															<FileText className="size-3 md:size-3.5 mr-1.5" />
+															<FileText className="size-3.5 mr-1.5" />
 															View Document
 														</Button>
 														
@@ -557,13 +566,13 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 															<Button
 																variant="default"
 																size="sm"
-																className="w-full h-8 md:h-9 text-xs md:text-sm shadow-sm"
+																className="w-full h-9 text-xs shadow-sm"
 																onClick={() => {
 																	setSelectedDocumentId(doc.id)
 																	setIsSendDialogOpen(true)
 																}}
 															>
-																<Send className="size-3 md:size-3.5 mr-1.5" />
+																<Send className="size-3.5 mr-1.5" />
 																Send to ENP
 															</Button>
 														)}
@@ -713,30 +722,40 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 							>
 								{updateSignatureStatus.isPending ? "Declining..." : "Decline"}
 							</Button>
-						<Button
-							className="w-full sm:w-auto"
-							onClick={async () => {
-								try {
-									// Get the ENP's personalized DRAFT link
-									const result = await utils.signatureRequests.getDraftSigningUrl.fetch({
-										requestId: activeSignatureRequest.id,
-									})
+							<Button
+								className="w-full sm:w-auto"
+								onClick={() => {
+									const projectId = activeSignatureRequest.document.docoChainProjectId
+									const userEmail = session?.user?.email
 									
-									console.log("Opening DocoChain DRAFT for ENP:", result.draftUrl)
-									window.open(result.draftUrl, '_blank')
-									toast.success("Opening DocoChain - place your signature and sign!")
+									console.log("Document:", activeSignatureRequest.document)
+									console.log("DocoChain Project ID:", projectId)
+									console.log("ENP Email:", userEmail)
 									
-									// Dismiss this request
-									setDismissedRequestIds(prev => new Set(prev).add(activeSignatureRequest.id))
-								} catch (error) {
-									console.error("Failed to get DocoChain URL:", error)
-									toast.error("Failed to open signing interface. Please try again.")
-								}
-							}}
-						>
-							<FileSignature className="mr-2 size-4" />
-							Sign Document
-						</Button>
+									if (projectId && userEmail) {
+										// Generate personalized signing link for this ENP
+										console.log("🔵 Generating personalized signing link for ENP...")
+										generateSigningLink.mutate({
+											projectUuid: projectId,
+											email: userEmail,
+										})
+										
+										// Dismiss this request
+										setDismissedRequestIds(prev => new Set(prev).add(activeSignatureRequest.id))
+									} else {
+										console.error("Missing required data:", { projectId, userEmail })
+										toast.error(
+											!projectId 
+												? "DocoChain project not found. Please ensure the document was uploaded correctly."
+												: "User email not found. Please sign in again."
+										)
+									}
+								}}
+								disabled={generateSigningLink.isPending}
+							>
+								<FileSignature className="mr-2 size-4" />
+								{generateSigningLink.isPending ? "Generating Link..." : "Sign Document"}
+							</Button>
 						</DialogFooter>
 					</DialogContent>
 				</Dialog>

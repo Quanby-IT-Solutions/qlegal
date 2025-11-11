@@ -3,9 +3,10 @@
  * API Base URL: https://stg-api2.doconchain.com
  */
 
-const DOCOCHAIN_API_BASE = process.env.DOCOCHAIN_API_URL || "https://stg-api2.doconchain.com"
-const DOCOCHAIN_API_TOKEN = process.env.DOCOCHAIN_API_TOKEN || ""
-const DOCOCHAIN_ORGANIZATION_ID = process.env.DOCONCHAIN_ORGANIZATION_ID || "1287"
+import { env } from "@/env"
+
+const DOCOCHAIN_API_BASE = env.DOCOCHAIN_API_URL || "https://stg-api2.doconchain.com"
+const DOCOCHAIN_API_TOKEN = env.DOCOCHAIN_API_TOKEN || ""
 
 interface CreateProjectRequest {
 	title: string
@@ -166,6 +167,13 @@ export async function addSignerToProject({
 		if (!response.ok) {
 			const errorText = await response.text()
 			console.error("❌ DocoChain add signer error:", errorText)
+			
+			// If signer already exists, that's OK - continue
+			if (response.status === 400 && errorText.includes("already")) {
+				console.log("ℹ️ Signer already exists in project - continuing...")
+				return { message: "Signer already exists" }
+			}
+			
 			throw new Error(`DocoChain API error: ${response.status} ${response.statusText} - ${errorText}`)
 		}
 
@@ -452,8 +460,8 @@ export async function sendDocoChainProject(projectUuid: string) {
 }
 
 /**
- * Generate a personalized signing link for a specific user
- * This creates a secure, email-specific link for signing
+ * Generate a unique signing link for a specific project and recipient
+ * This link can be sent to the user to access and sign the document
  */
 export async function generateSignLink({
 	projectUuid,
@@ -461,8 +469,8 @@ export async function generateSignLink({
 }: {
 	projectUuid: string
 	email: string
-}): Promise<string> {
-	console.log("🔵 Generating signing link for user...")
+}): Promise<{ link: string }> {
+	console.log("🔵 Generating signing link...")
 	console.log("   - Project UUID:", projectUuid)
 	console.log("   - Email:", email)
 
@@ -471,17 +479,16 @@ export async function generateSignLink({
 			throw new Error("DocoChain API token not configured")
 		}
 
-		const response = await fetch(
-			`${DOCOCHAIN_API_BASE}/api/v2/projects/${projectUuid}/link/generate?email=${encodeURIComponent(email)}`,
-			{
-				method: "POST",
-				headers: {
-					Authorization: `Bearer ${DOCOCHAIN_API_TOKEN}`,
-					"Content-Type": "application/json",
-					Accept: "application/json",
-				},
-			}
-		)
+		const apiUrl = `${DOCOCHAIN_API_BASE}/api/v2/projects/${projectUuid}/link/generate?email=${encodeURIComponent(email)}`
+		console.log("🔵 Calling DocoChain API:", apiUrl)
+
+		const response = await fetch(apiUrl, {
+			method: "POST",
+			headers: {
+				Authorization: `Bearer ${DOCOCHAIN_API_TOKEN}`,
+				Accept: "application/json",
+			},
+		})
 
 		console.log("📡 DocoChain generate link response status:", response.status)
 
@@ -494,17 +501,15 @@ export async function generateSignLink({
 		const result = await response.json()
 		console.log("✅ Signing link generated successfully:", result)
 
-		// The API returns the signing link in different possible fields
-		// Check all possible locations: message, data.link, link, data.url, url
-		const signingLink = result.message || result.data?.link || result.link || result.data?.url || result.url
-		
-		if (!signingLink) {
-			console.error("❌ No signing link in response:", result)
-			throw new Error("DocoChain did not return a signing link")
+		// DocoChain returns the link in the 'message' field
+		const link = result.message || result.link
+		console.log("✅ Extracted signing link:", link)
+
+		if (!link) {
+			throw new Error("DocoChain did not return a valid signing link")
 		}
 
-		console.log("🔗 Generated signing link:", signingLink)
-		return signingLink
+		return { link }
 	} catch (error) {
 		console.error("❌ Error generating signing link:", error)
 		throw error
@@ -512,7 +517,7 @@ export async function generateSignLink({
 }
 
 /**
- * Generate DocoChain signing URL (fallback method)
+ * Generate DocoChain signing URL
  */
 export function getDocoChainSigningUrl(projectUuid: string): string {
 	// Use staging app URL if using staging API, otherwise production

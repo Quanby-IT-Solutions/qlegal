@@ -7,7 +7,8 @@ import { signatureRequests } from "@/services/drizzle/schema/signature-requests"
 import { documents } from "@/services/drizzle/schema/document"
 import { users } from "@/services/drizzle/schema/auth"
 import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
-import { addSignerToProject, deleteSigner, autoJoinOrganization } from "@/services/docochain"
+import { addSignerToProject, sendDocoChainProject, generateSignLink } from "@/services/docochain"
+
 
 export const signatureRequestsRouter = createTRPCRouter({
 	// Create a signature request
@@ -215,66 +216,57 @@ export const signatureRequestsRouter = createTRPCRouter({
 				.returning()
 
 			return {
-		success: true,
-		request: updatedRequest,
-	}
-}),
+				success: true,
+				request: updatedRequest,
+			}
+		}),
 
-// Get ENP's personalized DocoChain DRAFT link
-getDraftSigningUrl: protectedProcedure
-	.input(
-		z.object({
-			requestId: z.string(),
-		})
-	)
-	.query(async ({ input, ctx }) => {
-		const { requestId } = input
-
-		// Get the signature request with document details
-		const request = await db.query.signatureRequests.findFirst({
-			where: eq(signatureRequests.id, requestId),
-			with: {
-				document: true,
-			},
-		})
-
-		if (!request) {
-			throw new TRPCError({
-				code: "NOT_FOUND",
-				message: "Signature request not found",
+	// Generate a signing link for a DocoChain project
+	generateSigningLink: protectedProcedure
+		.input(
+			z.object({
+				projectUuid: z.string().min(1, "Project UUID is required"),
+				email: z.string().email("Valid email is required"),
+				firstName: z.string().optional(),
+				lastName: z.string().optional(),
 			})
-		}
+		)
+		.mutation(async ({ input, ctx }) => {
+			const { projectUuid, email, firstName, lastName } = input
 
-		// Verify the user is the signer (ENP)
-		if (request.signerId !== ctx.session.user.id) {
-			throw new TRPCError({
-				code: "FORBIDDEN",
-				message: "You don't have permission to access this",
-			})
-		}
+			try {
+				// Get user details if not provided
+				const userFirstName = firstName || ctx.session.user.name?.split(" ")[0] || "User"
+				const userLastName = lastName || ctx.session.user.name?.split(" ").slice(1).join(" ") || ""
 
-		// Check if document has DocoChain project ID
-		if (!request.document.docoChainProjectId) {
-			throw new TRPCError({
-				code: "BAD_REQUEST",
-				message: "Document does not have a DocoChain project",
-			})
-		}
+				// Step 1: Add the ENP as a signer to the project (if not already added)
+				console.log("🔵 Ensuring ENP is added as signer to project...")
+				await addSignerToProject({
+					projectUuid,
+					email,
+					firstName: userFirstName,
+					lastName: userLastName,
+					signerRole: "Signer",
+				})
 
-		// Build the DRAFT project URL for the ENP
-		// Since ENP is now an organization member (via auto-join),
-		// they can access the DRAFT project directly
-		const projectId = request.document.docoChainProjectId
-		const enpEmail = ctx.session.user.email
-		
-		// DocoChain DRAFT URL format (organization members can access DRAFT directly)
-		const draftUrl = `https://stg-app.doconchain.com/${projectId}?email=${encodeURIComponent(enpEmail || '')}`
+				// Step 2: Generate the signing link for this ENP
+				console.log("🔵 Generating signing link for ENP...")
+				const result = await generateSignLink({
+					projectUuid,
+					email,
+				})
 
-		return {
-			success: true,
-			draftUrl,
-			projectId,
-		}
-	}),
+				return {
+					success: true,
+					link: result.link,
+				}
+			} catch (error) {
+				console.error("❌ Failed to generate signing link:", error)
+				throw new TRPCError({
+					code: "INTERNAL_SERVER_ERROR",
+					message: error instanceof Error ? error.message : "Failed to generate signing link",
+				})
+			}
+		}),
 })
 
