@@ -511,7 +511,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 						"border-t bg-card/50 backdrop-blur-sm transition-all duration-300 flex-shrink-0 shadow-lg",
 						showDocuments ? "min-h-[200px] max-h-[400px]" : "h-12 md:h-14"
 					)}>
-						<div className="flex h-12 md:h-14 items-center justify-between px-3 md:px-4 lg:px-6 border-b">
+						<div className="flex h-12 md:h-14 items-center justify-between px-3 md:px-4 lg:px-6 border-b flex-shrink-0">
 							<div className="flex items-center gap-2">
 								<div className="flex h-7 w-7 md:h-8 md:w-8 items-center justify-center rounded-lg bg-primary/10">
 									<FileText className="size-4 md:size-5 text-primary" />
@@ -691,9 +691,19 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 								</div>
 							</div>
 
-							<p className="text-sm text-muted-foreground">
-								Click "Sign Document" to open the DocoChain platform where you can place your signature on the document.
-							</p>
+							<div className="rounded-lg bg-primary/10 p-3 border border-primary/20">
+								<p className="text-sm font-medium mb-2">✍️ You're in control!</p>
+								<p className="text-xs text-muted-foreground mb-2">
+									When you click "Sign Document":
+								</p>
+								<ul className="text-xs text-muted-foreground ml-4 space-y-1">
+									<li>• DocoChain will open in a new tab (DRAFT mode)</li>
+									<li>• Click the green "SIGNATURE" button on the left sidebar</li>
+									<li>• Drag and place signature fields where you want to sign</li>
+									<li>• Click on the field to create your signature</li>
+									<li>• Click "SIGN NOW" when ready - no "Send" needed!</li>
+								</ul>
+							</div>
 						</div>
 
 						<DialogFooter className="flex-col sm:flex-row gap-2">

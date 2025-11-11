@@ -63,9 +63,14 @@ export async function createDocoChainProject({
 		const formData = new FormData()
 		const fileBlob = new Blob([new Uint8Array(documentFile)], { type: "application/pdf" })
 		formData.append("file", fileBlob, fileName)
+		
+		// Prevent creator (Principal) from being added to the document
+		// Only the ENP should be in the document
+		formData.append("creator_as_viewer", "false")
 
 		const apiUrl = `${DOCOCHAIN_API_BASE}/api/v2/projects?user_type=ENTERPRISE_API`
 		console.log("🔵 Calling DocoChain API:", apiUrl)
+		console.log("   - creator_as_viewer: false (Principal will NOT be added)")
 
 		const response = await fetch(apiUrl, {
 			method: "POST",
@@ -178,6 +183,168 @@ export async function addSignerToProject({
 		return result
 	} catch (error) {
 		console.error("❌ Error adding signer to DocoChain project:", error)
+		throw error
+	}
+}
+
+/**
+ * Auto-join a user to the DocoChain organization
+ * This makes them an organization member instead of a guest
+ */
+export async function autoJoinOrganization({
+	email,
+	firstName,
+	lastName,
+	role = "Member",
+}: {
+	email: string
+	firstName: string
+	lastName: string
+	role?: string
+}): Promise<void> {
+	console.log("🔵 Auto-joining user to DocoChain organization...")
+	console.log("   - Email:", email)
+	console.log("   - Name:", firstName, lastName)
+	console.log("   - Role:", role)
+	console.log("   - Organization ID:", DOCOCHAIN_ORGANIZATION_ID)
+
+	try {
+		if (!DOCOCHAIN_API_TOKEN) {
+			throw new Error("DocoChain API token not configured")
+		}
+
+		const formData = new FormData()
+		formData.append("data[0][email]", email)
+		formData.append("data[0][first_name]", firstName)
+		formData.append("data[0][last_name]", lastName)
+		formData.append("data[0][role]", role)
+		formData.append("data[0][organization_id]", DOCOCHAIN_ORGANIZATION_ID)
+
+		const response = await fetch(
+			`${DOCOCHAIN_API_BASE}/api/v2/organization/members/auto-join?user_type=ENTERPRISE_API`,
+			{
+				method: "POST",
+				headers: {
+					Authorization: `Bearer ${DOCOCHAIN_API_TOKEN}`,
+					Accept: "application/json",
+				},
+				body: formData,
+			}
+		)
+
+		console.log("📡 DocoChain auto-join response status:", response.status)
+
+		if (!response.ok) {
+			const errorText = await response.text()
+			console.error("❌ DocoChain auto-join error:", errorText)
+			
+			// Check if user already exists in organization (409 Conflict)
+			if (response.status === 409) {
+				console.log("ℹ️ User already exists in organization - continuing...")
+				return // Not a critical error
+			}
+			
+			// Check if unauthorized (need better token)
+			if (response.status === 401 || response.status === 403) {
+				console.warn("⚠️ API token doesn't have permission to add org members")
+				console.warn("⚠️ User will be added as GUEST instead of organization member")
+				return // Continue anyway
+			}
+			
+			throw new Error(`DocoChain API error: ${response.status} ${response.statusText} - ${errorText}`)
+		}
+
+		const result = await response.json()
+		console.log("✅ User auto-joined to organization:", result)
+	} catch (error) {
+		console.error("❌ Error auto-joining user to organization:", error)
+		// Don't throw - this is not critical, user can still be added as GUEST
+		console.warn("⚠️ Continuing without organization membership...")
+	}
+}
+
+/**
+ * Get DocoChain project details including all signers
+ */
+export async function getProjectDetails(projectUuid: string): Promise<any> {
+	console.log("🔵 Fetching DocoChain project details...")
+	console.log("   - Project UUID:", projectUuid)
+
+	try {
+		if (!DOCOCHAIN_API_TOKEN) {
+			throw new Error("DocoChain API token not configured")
+		}
+
+		const response = await fetch(
+			`${DOCOCHAIN_API_BASE}/api/v2/projects/${projectUuid}?user_type=ENTERPRISE_API`,
+			{
+				method: "GET",
+				headers: {
+					Authorization: `Bearer ${DOCOCHAIN_API_TOKEN}`,
+					Accept: "application/json",
+				},
+			}
+		)
+
+		console.log("📡 DocoChain get project response status:", response.status)
+
+		if (!response.ok) {
+			const errorText = await response.text()
+			console.error("❌ DocoChain get project error:", errorText)
+			throw new Error(`DocoChain API error: ${response.status} ${response.statusText}`)
+		}
+
+		const result = await response.json()
+		console.log("✅ Project details fetched:", result)
+
+		return result
+	} catch (error) {
+		console.error("❌ Error fetching project details:", error)
+		throw error
+	}
+}
+
+/**
+ * Delete a signer from a DocoChain project
+ */
+export async function deleteSigner({
+	projectUuid,
+	signerId,
+}: {
+	projectUuid: string
+	signerId: number
+}): Promise<void> {
+	console.log("🔵 Deleting signer from DocoChain project...")
+	console.log("   - Project UUID:", projectUuid)
+	console.log("   - Signer ID:", signerId)
+
+	try {
+		if (!DOCOCHAIN_API_TOKEN) {
+			throw new Error("DocoChain API token not configured")
+		}
+
+		const response = await fetch(
+			`${DOCOCHAIN_API_BASE}/projects/${projectUuid}/signers/${signerId}?user_type=ENTERPRISE_API`,
+			{
+				method: "DELETE",
+				headers: {
+					Authorization: `Bearer ${DOCOCHAIN_API_TOKEN}`,
+					Accept: "application/json",
+				},
+			}
+		)
+
+		console.log("📡 DocoChain delete signer response status:", response.status)
+
+		if (!response.ok) {
+			const errorText = await response.text()
+			console.error("❌ DocoChain delete signer error:", errorText)
+			throw new Error(`DocoChain API error: ${response.status} ${response.statusText}`)
+		}
+
+		console.log("✅ Signer deleted from DocoChain project")
+	} catch (error) {
+		console.error("❌ Error deleting signer:", error)
 		throw error
 	}
 }

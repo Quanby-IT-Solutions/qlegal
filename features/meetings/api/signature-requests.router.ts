@@ -9,6 +9,7 @@ import { users } from "@/services/drizzle/schema/auth"
 import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
 import { addSignerToProject, sendDocoChainProject, generateSignLink } from "@/services/docochain"
 
+
 export const signatureRequestsRouter = createTRPCRouter({
 	// Create a signature request
 	createRequest: protectedProcedure
@@ -51,26 +52,66 @@ export const signatureRequestsRouter = createTRPCRouter({
 				})
 			}
 
-			// Add signer to DocoChain project and send it
-			if (document.docoChainProjectId) {
-				try {
-					const nameParts = (signerUser.name || "").split(" ")
-					const firstName = nameParts[0] || "Signer"
-					const lastName = nameParts.slice(1).join(" ") || "User"
+		// Add signer to DocoChain project (keep as DRAFT so ENP can place signature fields)
+		if (document.docoChainProjectId) {
+			try {
+				const nameParts = (signerUser.name || "").split(" ")
+				const firstName = nameParts[0] || "Signer"
+				const lastName = nameParts.slice(1).join(" ") || "User"
 
-					await addSignerToProject({
+			// 🔑 First, auto-join the ENP to the organization
+			// This makes them an organization member instead of a guest
+			await autoJoinOrganization({
+				email: signerUser.email || "",
+				firstName,
+				lastName,
+				role: "Member",
+			})
+
+			const addSignerResponse = await addSignerToProject({
+				projectUuid: document.docoChainProjectId,
+				email: signerUser.email || "",
+				firstName,
+				lastName,
+				signerRole: "Signer",
+			})
+
+			console.log("✅ Added signer to DocoChain project")
+
+			// 🔥 WORKAROUND: DocoChain ignores creator_as_viewer=false
+			// So we manually DELETE the creator from the signers list
+			try {
+				console.log("🔥 Removing creator from signers list...")
+				
+				// The addSignerResponse contains ALL signers, including the creator
+				// Find the creator (type: 'ME') or by email
+				const creatorSigner = addSignerResponse.data?.find(
+					(signer: any) => signer.type === 'ME' || signer.email === ctx.session.user.email
+				)
+
+				if (creatorSigner) {
+					console.log(`🗑️ Found creator signer: ${creatorSigner.email} (ID: ${creatorSigner.id})`)
+					await deleteSigner({
 						projectUuid: document.docoChainProjectId,
-						email: signerUser.email || "",
-						firstName,
-						lastName,
-						signerRole: "Signer",
+						signerId: creatorSigner.id,
 					})
+					console.log("✅ Creator DELETED! Only ENP remains in the document! 🎉")
+				} else {
+					console.log("ℹ️ Creator not found in signers list (already removed or not added)")
+				}
+			} catch (deleteError) {
+				console.error("⚠️ Failed to remove creator (non-critical):", deleteError)
+				// Continue anyway - not critical
+			}
 
-					console.log("✅ Added signer to DocoChain project")
+				console.log("📝 Project kept as DRAFT - ENP can place signature fields themselves")
 
-					// Send/Deploy the project to make it active
-					await sendDocoChainProject(document.docoChainProjectId)
-					console.log("✅ DocoChain project sent/deployed")
+				// NOTE: We DON'T add signature fields or deploy the project here
+				// The project stays as DRAFT so the ENP can:
+				// 1. Open the DocoChain project in DRAFT mode
+				// 2. Use the "SIGNATURE" button to drag and place signature fields
+				// 3. Click on the field to create their signature
+				// 4. Click "SIGN NOW" when ready (DocoChain auto-deploys after signing)
 				} catch (docoChainError) {
 					console.error("❌ Failed to add signer to DocoChain:", docoChainError)
 					// Continue anyway - user can still be notified
