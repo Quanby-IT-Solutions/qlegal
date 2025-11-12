@@ -25,23 +25,34 @@ import {
 	LineChart as LineChartIcon
 } from "lucide-react"
 import { format, parseISO } from "date-fns"
-import { 
-	AreaChart, 
-	Area, 
-	BarChart, 
-	Bar, 
-	PieChart, 
-	Pie, 
-	Cell, 
-	LineChart, 
-	Line, 
-	XAxis, 
-	YAxis, 
-	CartesianGrid, 
-	Tooltip, 
-	Legend, 
-	ResponsiveContainer 
-} from "recharts"
+import {
+	Chart as ChartJS,
+	CategoryScale,
+	LinearScale,
+	PointElement,
+	LineElement,
+	BarElement,
+	ArcElement,
+	Title,
+	Tooltip as ChartTooltip,
+	Legend as ChartLegend,
+	Filler,
+} from "chart.js"
+import { Line, Bar, Doughnut } from "react-chartjs-2"
+
+// Register Chart.js components
+ChartJS.register(
+	CategoryScale,
+	LinearScale,
+	PointElement,
+	LineElement,
+	BarElement,
+	ArcElement,
+	Title,
+	ChartTooltip,
+	ChartLegend,
+	Filler
+)
 
 import { trpc } from "@/services/trpc/client"
 import { SidebarTrigger } from "@/core/components/animate-ui/components/radix/sidebar"
@@ -89,9 +100,9 @@ export default function DashboardPage() {
 	const { data: appointmentStatusData, isLoading: isLoadingAppointmentStatus } = trpc.dashboard.getAppointmentStatusDistribution.useQuery()
 	const { data: documentStatusData, isLoading: isLoadingDocumentStatus } = trpc.dashboard.getDocumentStatusDistribution.useQuery()
 
-	// Process activity data for charts
+	// Process activity data for Chart.js
 	const activityChartData = useMemo(() => {
-		if (!activityData) return []
+		if (!activityData) return { labels: [], datasets: [] }
 		
 		// Merge appointments and documents by date
 		const dateMap = new Map<string, { date: string; appointments: number; documents: number }>()
@@ -109,32 +120,102 @@ export default function DashboardPage() {
 			}
 		})
 		
-		return Array.from(dateMap.values()).sort((a, b) => a.date.localeCompare(b.date))
+		const sortedData = Array.from(dateMap.values()).sort((a, b) => a.date.localeCompare(b.date))
+		
+		return {
+			labels: sortedData.map(item => format(parseISO(item.date), 'MMM dd')),
+			datasets: [
+				{
+					label: 'Appointments',
+					data: sortedData.map(item => item.appointments),
+					borderColor: COLORS.primary,
+					backgroundColor: `${COLORS.primary}80`,
+					fill: true,
+					tension: 0.4,
+				},
+				{
+					label: 'Documents',
+					data: sortedData.map(item => item.documents),
+					borderColor: COLORS.secondary,
+					backgroundColor: `${COLORS.secondary}80`,
+					fill: true,
+					tension: 0.4,
+				},
+			],
+		}
 	}, [activityData])
 
-	// Process pie chart data
-	const appointmentTypePieData = useMemo(() => {
-		if (!appointmentTypeData) return []
-		return appointmentTypeData.map(item => ({
-			name: item.type?.replace(/_/g, ' ') || 'Unknown',
-			value: item.count
-		}))
+	// Modern gradient color palette for appointment types
+	const appointmentTypeGradientColors = [
+		{ start: '#3b82f6', end: '#1d4ed8', shadow: '#1e40af' }, // Blue
+		{ start: '#8b5cf6', end: '#6d28d9', shadow: '#5b21b6' }, // Purple
+		{ start: '#10b981', end: '#059669', shadow: '#047857' }, // Green
+		{ start: '#f59e0b', end: '#d97706', shadow: '#b45309' }, // Orange
+		{ start: '#ef4444', end: '#dc2626', shadow: '#b91c1c' }, // Red
+		{ start: '#06b6d4', end: '#0891b2', shadow: '#0e7490' }, // Cyan
+		{ start: '#ec4899', end: '#db2777', shadow: '#be185d' }, // Pink
+		{ start: '#14b8a6', end: '#0d9488', shadow: '#0f766e' }, // Teal
+	]
+
+	// Process appointment type data for Horizontal Bar chart
+	const appointmentTypeChartData = useMemo(() => {
+		if (!appointmentTypeData || appointmentTypeData.length === 0) return null
+		
+		return {
+			labels: appointmentTypeData.map(item => item.type?.replace(/_/g, ' ') || 'Unknown'),
+			datasets: [
+				{
+					label: 'Count',
+					data: appointmentTypeData.map(item => item.count),
+					backgroundColor: appointmentTypeData.map((_, index) => {
+						const colors = appointmentTypeGradientColors[index % appointmentTypeGradientColors.length] ?? appointmentTypeGradientColors[0]
+						return colors?.start || '#3b82f6'
+					}),
+					borderColor: appointmentTypeData.map((_, index) => {
+						const colors = appointmentTypeGradientColors[index % appointmentTypeGradientColors.length] ?? appointmentTypeGradientColors[0]
+						return colors?.end || '#1d4ed8'
+					}),
+					borderWidth: 2,
+					borderRadius: 8,
+					borderSkipped: false,
+				},
+			],
+		}
 	}, [appointmentTypeData])
 
-	const appointmentStatusPieData = useMemo(() => {
-		if (!appointmentStatusData) return []
-		return appointmentStatusData.map(item => ({
-			name: item.status || 'Unknown',
-			value: item.count
-		}))
+	// Process appointment status data for Chart.js
+	const appointmentStatusChartData = useMemo(() => {
+		if (!appointmentStatusData || appointmentStatusData.length === 0) return null
+		
+		return {
+			labels: appointmentStatusData.map(item => item.status || 'Unknown'),
+			datasets: [
+				{
+					data: appointmentStatusData.map(item => item.count),
+					backgroundColor: appointmentStatusData.map((_, index) => PIE_COLORS[index % PIE_COLORS.length]),
+					borderColor: '#fff',
+					borderWidth: 2,
+				},
+			],
+		}
 	}, [appointmentStatusData])
 
-	const documentStatusBarData = useMemo(() => {
-		if (!documentStatusData) return []
-		return documentStatusData.map(item => ({
-			name: item.status || 'Unknown',
-			count: item.count
-		}))
+	// Process document status data for Chart.js
+	const documentStatusChartData = useMemo(() => {
+		if (!documentStatusData || documentStatusData.length === 0) return null
+		
+		return {
+			labels: documentStatusData.map(item => item.status || 'Unknown'),
+			datasets: [
+				{
+					label: 'Documents',
+					data: documentStatusData.map(item => item.count),
+					backgroundColor: documentStatusData.map((_, index) => PIE_COLORS[index % PIE_COLORS.length]),
+					borderColor: '#fff',
+					borderWidth: 1,
+				},
+			],
+		}
 	}, [documentStatusData])
 
 	// Status badge variant helper
@@ -366,48 +447,35 @@ export default function DashboardPage() {
 							<CardContent>
 								{isLoadingActivity ? (
 									<Skeleton className="h-[300px] w-full" />
-								) : activityChartData.length > 0 ? (
-									<ResponsiveContainer width="100%" height={300}>
-										<AreaChart data={activityChartData}>
-											<defs>
-												<linearGradient id="colorAppointments" x1="0" y1="0" x2="0" y2="1">
-													<stop offset="5%" stopColor={COLORS.primary} stopOpacity={0.8}/>
-													<stop offset="95%" stopColor={COLORS.primary} stopOpacity={0}/>
-												</linearGradient>
-												<linearGradient id="colorDocuments" x1="0" y1="0" x2="0" y2="1">
-													<stop offset="5%" stopColor={COLORS.secondary} stopOpacity={0.8}/>
-													<stop offset="95%" stopColor={COLORS.secondary} stopOpacity={0}/>
-												</linearGradient>
-											</defs>
-											<CartesianGrid strokeDasharray="3 3" />
-											<XAxis 
-												dataKey="date" 
-												tick={{ fontSize: 12 }}
-												tickFormatter={(value) => format(parseISO(value), 'MMM dd')}
-											/>
-											<YAxis tick={{ fontSize: 12 }} />
-											<Tooltip 
-												labelFormatter={(value) => format(parseISO(value as string), 'PPP')}
-											/>
-											<Legend />
-											<Area 
-												type="monotone" 
-												dataKey="appointments" 
-												stroke={COLORS.primary} 
-												fillOpacity={1} 
-												fill="url(#colorAppointments)" 
-												name="Appointments"
-											/>
-											<Area 
-												type="monotone" 
-												dataKey="documents" 
-												stroke={COLORS.secondary} 
-												fillOpacity={1} 
-												fill="url(#colorDocuments)" 
-												name="Documents"
-											/>
-										</AreaChart>
-									</ResponsiveContainer>
+								) : activityChartData.labels.length > 0 ? (
+									<div className="h-[300px]">
+										<Line
+											data={activityChartData}
+											options={{
+												responsive: true,
+												maintainAspectRatio: false,
+												plugins: {
+													legend: {
+														position: 'top' as const,
+													},
+													tooltip: {
+														mode: 'index',
+														intersect: false,
+													},
+												},
+												scales: {
+													x: {
+														grid: {
+															display: false,
+														},
+													},
+													y: {
+														beginAtZero: true,
+													},
+												},
+											}}
+										/>
+									</div>
 								) : (
 									<div className="flex h-[300px] items-center justify-center text-muted-foreground">
 										No activity data yet
@@ -434,26 +502,32 @@ export default function DashboardPage() {
 							<CardContent>
 								{isLoadingAppointmentStatus ? (
 									<Skeleton className="h-[300px] w-full" />
-								) : appointmentStatusPieData.length > 0 ? (
-									<ResponsiveContainer width="100%" height={300}>
-										<PieChart>
-											<Pie
-												data={appointmentStatusPieData}
-												cx="50%"
-												cy="50%"
-												labelLine={false}
-												label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-												outerRadius={80}
-												fill="#8884d8"
-												dataKey="value"
-											>
-												{appointmentStatusPieData.map((entry, index) => (
-													<Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
-												))}
-											</Pie>
-											<Tooltip />
-										</PieChart>
-									</ResponsiveContainer>
+								) : appointmentStatusChartData ? (
+									<div className="h-[300px]">
+										<Doughnut
+											data={appointmentStatusChartData}
+											options={{
+												responsive: true,
+												maintainAspectRatio: false,
+												plugins: {
+													legend: {
+														position: 'bottom' as const,
+													},
+													tooltip: {
+														callbacks: {
+															label: (context) => {
+																const label = context.label || ''
+																const value = context.parsed
+																const total = context.dataset.data.reduce((a: number, b: number) => a + b, 0)
+																const percentage = ((value / total) * 100).toFixed(0)
+																return `${label}: ${value} (${percentage}%)`
+															},
+														},
+													},
+												},
+											}}
+										/>
+									</div>
 								) : (
 									<div className="flex h-[300px] items-center justify-center text-muted-foreground">
 										No appointment data yet
@@ -465,7 +539,7 @@ export default function DashboardPage() {
 
 					{/* Additional Charts Row */}
 					<div className="grid gap-8 lg:grid-cols-2">
-						{/* Appointment Type Distribution */}
+						{/* Appointment Type Distribution - Horizontal Bar Chart */}
 						<Card>
 							<CardHeader>
 								<div className="flex items-center justify-between">
@@ -482,25 +556,136 @@ export default function DashboardPage() {
 							</CardHeader>
 							<CardContent>
 								{isLoadingAppointmentTypes ? (
-									<Skeleton className="h-[300px] w-full" />
-								) : appointmentTypePieData.length > 0 ? (
-									<ResponsiveContainer width="100%" height={300}>
-										<BarChart data={appointmentTypePieData}>
-											<CartesianGrid strokeDasharray="3 3" />
-											<XAxis dataKey="name" tick={{ fontSize: 12 }} />
-											<YAxis tick={{ fontSize: 12 }} />
-											<Tooltip />
-											<Legend />
-											<Bar dataKey="value" fill={COLORS.primary} name="Count" radius={[8, 8, 0, 0]}>
-												{appointmentTypePieData.map((entry, index) => (
-													<Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
-												))}
-											</Bar>
-										</BarChart>
-									</ResponsiveContainer>
+									<Skeleton className="h-[350px] w-full" />
+								) : appointmentTypeChartData ? (
+									<div className="h-[350px]">
+										<Bar
+											data={appointmentTypeChartData}
+											options={{
+												indexAxis: 'y' as const,
+												responsive: true,
+												maintainAspectRatio: false,
+												animation: {
+													duration: 1200,
+													easing: 'easeOutQuart',
+												},
+												interaction: {
+													mode: 'index' as const,
+													intersect: false,
+												},
+												plugins: {
+													legend: {
+														display: false,
+													},
+													tooltip: {
+														enabled: true,
+														padding: 12,
+														backgroundColor: 'rgba(0, 0, 0, 0.85)',
+														titleColor: '#fff',
+														bodyColor: '#fff',
+														borderColor: 'rgba(255, 255, 255, 0.1)',
+														borderWidth: 1,
+														cornerRadius: 8,
+														displayColors: true,
+														callbacks: {
+															title: (context) => {
+																return context[0]?.label || ''
+															},
+															label: (context) => {
+																if (!context.parsed) return ''
+																const value = context.parsed.x as number
+																const numericData = context.dataset.data.filter((d): d is number => typeof d === 'number')
+																const total = numericData.reduce((a, b) => a + b, 0)
+																const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : '0'
+																return `${value} appointment${value !== 1 ? 's' : ''} (${percentage}%)`
+															},
+															labelColor: (context) => {
+																const backgroundColorArray = Array.isArray(context.dataset.backgroundColor) ? context.dataset.backgroundColor : []
+																const backgroundColor = (typeof backgroundColorArray[context.dataIndex] === 'string' ? backgroundColorArray[context.dataIndex] : '#3b82f6') as string
+																const borderColorArray = Array.isArray(context.dataset.borderColor) ? context.dataset.borderColor : []
+																const borderColor = (typeof borderColorArray[context.dataIndex] === 'string' ? borderColorArray[context.dataIndex] : '#1d4ed8') as string
+																return {
+																	borderColor,
+																	backgroundColor,
+																	borderWidth: 2,
+																	borderRadius: 4,
+																}
+															},
+														},
+													},
+												},
+												scales: {
+													x: {
+														beginAtZero: true,
+														border: {
+															display: false,
+														},
+														grid: {
+															color: 'rgba(148, 163, 184, 0.1)',
+														},
+														ticks: {
+															color: '#94a3b8',
+															font: {
+																size: 11,
+															},
+															padding: 8,
+															callback: function(value) {
+																return Number.isInteger(value) ? value : ''
+															},
+														},
+													},
+													y: {
+														border: {
+															display: false,
+														},
+														grid: {
+															display: false,
+														},
+														ticks: {
+															color: '#64748b',
+															font: {
+																size: 12,
+															},
+															padding: 10,
+														},
+													},
+												},
+											}}
+											plugins={[
+												{
+													id: 'valueLabels',
+													afterDatasetsDraw: (chart) => {
+														const ctx = chart.ctx
+														chart.data.datasets.forEach((dataset, i) => {
+															const meta = chart.getDatasetMeta(i)
+															meta.data.forEach((bar: any, index) => {
+																const value = typeof dataset.data[index] === 'number' ? dataset.data[index] : 0
+																if (value > 0) {
+																	const colors = appointmentTypeGradientColors[index % appointmentTypeGradientColors.length] ?? appointmentTypeGradientColors[0]
+																	ctx.save()
+																	ctx.fillStyle = colors?.end || '#1e293b'
+																	ctx.font = 'bold 12px Inter, system-ui, sans-serif'
+																	ctx.textAlign = 'left'
+																	ctx.textBaseline = 'middle'
+																	const x = bar.x + 8
+																	const y = bar.y
+																	ctx.fillText(value.toString(), x, y)
+																	ctx.restore()
+																}
+															})
+														})
+													}
+												}
+											]}
+										/>
+									</div>
 								) : (
-									<div className="flex h-[300px] items-center justify-center text-muted-foreground">
-										No appointment type data yet
+									<div className="flex h-[350px] flex-col items-center justify-center text-center">
+										<div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-blue-100 to-blue-200">
+											<BarChart3 className="h-8 w-8 text-blue-600" />
+										</div>
+										<p className="font-semibold text-slate-900">No appointment type data</p>
+										<p className="text-sm text-slate-600">Appointment type distribution will appear here</p>
 									</div>
 								)}
 							</CardContent>
@@ -524,21 +709,36 @@ export default function DashboardPage() {
 							<CardContent>
 								{isLoadingDocumentStatus ? (
 									<Skeleton className="h-[300px] w-full" />
-								) : documentStatusBarData.length > 0 ? (
-									<ResponsiveContainer width="100%" height={300}>
-										<BarChart data={documentStatusBarData}>
-											<CartesianGrid strokeDasharray="3 3" />
-											<XAxis dataKey="name" tick={{ fontSize: 12 }} />
-											<YAxis tick={{ fontSize: 12 }} />
-											<Tooltip />
-											<Legend />
-											<Bar dataKey="count" fill={COLORS.success} name="Documents" radius={[8, 8, 0, 0]}>
-												{documentStatusBarData.map((entry, index) => (
-													<Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
-												))}
-											</Bar>
-										</BarChart>
-									</ResponsiveContainer>
+								) : documentStatusChartData ? (
+									<div className="h-[300px]">
+										<Bar
+											data={documentStatusChartData}
+											options={{
+												responsive: true,
+												maintainAspectRatio: false,
+												plugins: {
+													legend: {
+														display: false,
+													},
+													tooltip: {
+														callbacks: {
+															label: (context) => `Documents: ${context.parsed.y}`,
+														},
+													},
+												},
+												scales: {
+													x: {
+														grid: {
+															display: false,
+														},
+													},
+													y: {
+														beginAtZero: true,
+													},
+												},
+											}}
+										/>
+									</div>
 								) : (
 									<div className="flex h-[300px] items-center justify-center text-muted-foreground">
 										No document data yet
