@@ -123,9 +123,9 @@ export default function MessagesPage() {
 	}
 
 	return (
-		<div className="flex h-screen bg-background">
+		<div className="flex h-screen overflow-hidden bg-background">
 			{/* Sidebar - Conversations List */}
-			<div className="flex w-80 flex-col border-r">
+			<div className="flex w-80 flex-col border-r overflow-hidden">
 				{/* Sidebar Header */}
 				<div className="border-b p-4">
 					<div className="mb-4 flex items-center justify-between">
@@ -258,9 +258,9 @@ export default function MessagesPage() {
 			{/* Main Chat Area */}
 			{selectedConversation ? (
 				<>
-					<div className="flex flex-1 flex-col">
+					<div className="flex flex-1 flex-col overflow-hidden">
 						{/* Chat Header */}
-						<div className="flex items-center justify-between border-b p-4">
+						<div className="flex items-center justify-between border-b p-4 flex-shrink-0">
 							<div className="flex items-center gap-3">
 								<Avatar className="size-10">
 									<AvatarImage src={selectedConversation.otherUser?.image ?? undefined} />
@@ -287,13 +287,13 @@ export default function MessagesPage() {
 						</div>
 
 					{/* Messages Area */}
-					<ScrollArea className="flex-1 p-4">
+					<div className="flex-1 overflow-y-auto p-4">
 						{loadingMessages ? (
 							<div className="flex h-full items-center justify-center">
 								<p className="text-muted-foreground">Loading messages...</p>
 							</div>
 						) : messages && messages.length > 0 ? (
-							<div className="space-y-4">
+							<div className="space-y-4 pb-4">
 								{messages.map((message) => {
 									const isSent = message.senderId === session?.user?.id
 									return (
@@ -357,10 +357,10 @@ export default function MessagesPage() {
 								</div>
 							</div>
 						)}
-					</ScrollArea>
+					</div>
 
 						{/* Message Input */}
-						<div className="border-t p-4">
+						<div className="border-t p-4 flex-shrink-0">
 							<div className="flex items-center gap-2">
 								<Button variant="ghost" size="icon" className="size-9 rounded-full">
 									<Paperclip className="size-5" />

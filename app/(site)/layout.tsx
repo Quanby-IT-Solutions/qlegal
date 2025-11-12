@@ -15,9 +15,9 @@ export default async function Layout({
 	const defaultOpen = cookieStore.get("sidebar_state")?.value === "true"
 
 	return (
-		<SidebarProvider defaultOpen={defaultOpen}>
+		<SidebarProvider defaultOpen={defaultOpen} suppressHydrationWarning>
 			<SiteSidebar />
-			<SidebarInset>{children}</SidebarInset>
+			<SidebarInset suppressHydrationWarning>{children}</SidebarInset>
 		</SidebarProvider>
 	)
 }

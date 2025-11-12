@@ -206,7 +206,6 @@ export async function autoJoinOrganization({
 	console.log("   - Email:", email)
 	console.log("   - Name:", firstName, lastName)
 	console.log("   - Role:", role)
-	console.log("   - Organization ID:", DOCOCHAIN_ORGANIZATION_ID)
 
 	try {
 		if (!DOCOCHAIN_API_TOKEN) {
@@ -218,7 +217,6 @@ export async function autoJoinOrganization({
 		formData.append("data[0][first_name]", firstName)
 		formData.append("data[0][last_name]", lastName)
 		formData.append("data[0][role]", role)
-		formData.append("data[0][organization_id]", DOCOCHAIN_ORGANIZATION_ID)
 
 		const response = await fetch(
 			`${DOCOCHAIN_API_BASE}/api/v2/organization/members/auto-join?user_type=ENTERPRISE_API`,

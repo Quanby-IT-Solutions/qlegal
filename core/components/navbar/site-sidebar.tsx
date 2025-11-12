@@ -29,8 +29,8 @@ export const SiteSidebar = () => {
 	if (!activeTeam) return null
 
 	return (
-		<Sidebar collapsible="icon">
-			<SidebarHeader>
+		<Sidebar collapsible="icon" suppressHydrationWarning>
+			<SidebarHeader suppressHydrationWarning>
 				<TeamSwitcher
 					activeTeam={activeTeam}
 					setActiveTeam={setActiveTeam}

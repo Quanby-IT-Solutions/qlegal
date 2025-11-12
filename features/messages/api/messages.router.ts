@@ -1,5 +1,5 @@
 import { TRPCError } from "@trpc/server"
-import { and, desc, eq, ne, or, sql } from "drizzle-orm"
+import { and, desc, eq, gt, ne, or, sql } from "drizzle-orm"
 import { z } from "zod/v4"
 
 import { db } from "@/services/drizzle/db"
@@ -30,39 +30,49 @@ export const messagesRouter = createTRPCRouter({
 						},
 						messages: {
 							orderBy: [desc(messages.createdAt)],
-							limit: 1,
+							limit: 1, // Just for displaying the last message preview
 						},
 					},
 				},
 			},
 		})
 
-		// Format the response
-		const formattedConversations = userConversations.map((uc) => {
-			const conversation = uc.conversation
-			// Get the other participant (not the current user)
-			const otherParticipant = conversation.participants.find((p) => p.userId !== ctx.session.user.id)
-			const lastMessage = conversation.messages[0]
+		// Format the response with proper unread counts
+		const formattedConversations = await Promise.all(
+			userConversations.map(async (uc) => {
+				const conversation = uc.conversation
+				// Get the other participant (not the current user)
+				const otherParticipant = conversation.participants.find((p) => p.userId !== ctx.session.user.id)
+				const lastMessage = conversation.messages[0]
 
-			// Count unread messages
-			const unreadCount = conversation.messages.filter((msg) => {
-				// Message is unread if it was sent after user's last read time
+				// Get user's last read time
 				const userParticipant = conversation.participants.find((p) => p.userId === ctx.session.user.id)
-				return (
-					msg.senderId !== ctx.session.user.id &&
-					(!userParticipant?.lastReadAt || msg.createdAt > userParticipant.lastReadAt)
-				)
-			}).length
 
-			return {
-				id: conversation.id,
-				otherUser: otherParticipant?.user,
-				lastMessage: lastMessage?.content,
-				lastMessageTime: lastMessage?.createdAt,
-				unreadCount,
-				updatedAt: conversation.updatedAt,
-			}
-		})
+				// Count ALL unread messages for this conversation
+				const whereConditions = [
+					eq(messages.conversationId, conversation.id),
+					ne(messages.senderId, ctx.session.user.id), // Not sent by current user
+				]
+
+				// Add date filter if user has read messages before
+				if (userParticipant?.lastReadAt) {
+					whereConditions.push(gt(messages.createdAt, userParticipant.lastReadAt))
+				}
+
+				const unreadMessages = await db.query.messages.findMany({
+					where: and(...whereConditions),
+				})
+
+				return {
+					id: conversation.id,
+					otherUser: otherParticipant?.user,
+					lastMessage: lastMessage?.content,
+					lastMessageTime: lastMessage?.createdAt,
+					unreadCount: unreadMessages.length,
+					updatedAt: conversation.updatedAt,
+				}
+			})
+		)
 
 		// Sort by updatedAt (most recent first)
 		return formattedConversations.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())
