@@ -1,6 +1,6 @@
 "use client"
 
-import { Camera, CameraOff, FileText, FileUp, Mic, MicOff, Monitor, PhoneOff, Users, Send, FileSignature } from "lucide-react"
+import { Camera, CameraOff, FileText, FileUp, Mic, MicOff, Monitor, PhoneOff, Users, Send, FileSignature, CircleDot, Square } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import { MeetingProvider, useMeeting, useParticipant } from "@videosdk.live/react-sdk"
 import { useSession } from "next-auth/react"
@@ -58,68 +58,162 @@ function ScreenShareView({ participantId }: { participantId: string }) {
 	)
 }
 
-// Participant video component
+// Participant video component - SIMPLIFIED AND CLEAN
 function ParticipantView({ participantId }: { participantId: string }) {
 	const { webcamStream, micOn, webcamOn, displayName, isLocal, screenShareStream, screenShareOn } = useParticipant(participantId)
 	const videoRef = useRef<HTMLVideoElement>(null)
-	const [streamSet, setStreamSet] = useState(false)
 
-	const getDisplayName = () => displayName ?? `Participant ${participantId.slice(-4)}`
-
-	// Webcam stream setup
+	// Update video element when stream changes
 	useEffect(() => {
 		const videoElement = videoRef.current
 		if (!videoElement) return
 
-		if (webcamOn && webcamStream?.track) {
-			const mediaStream = new MediaStream([webcamStream.track])
-			videoElement.srcObject = mediaStream
-			videoElement.play().catch(() => {})
-			setStreamSet(true)
-		} else if (!webcamOn) {
-			videoElement.srcObject = null
-			setStreamSet(false)
-		}
-	}, [webcamStream, webcamOn])
+		let mediaStream: MediaStream | null = null
+		let trackEndHandler: ((e: Event) => void) | null = null
 
-	// Screen share stream setup
+		// Helper to extract MediaStream from VideoSDK stream object
+		const getMediaStream = (streamObj: any): MediaStream | null => {
+			if (!streamObj) return null
+			
+			// If it's already a MediaStream
+			if (streamObj instanceof MediaStream) {
+				return streamObj
+			}
+			
+			// Try .stream property (most common VideoSDK pattern)
+			if (streamObj.stream instanceof MediaStream) {
+				return streamObj.stream
+			}
+			
+			// Try .track property and create MediaStream
+			if (streamObj.track && streamObj.track instanceof MediaStreamTrack) {
+				return new MediaStream([streamObj.track])
+			}
+			
+			// Try getVideoTracks() method
+			if (typeof streamObj.getVideoTracks === 'function') {
+				const tracks = streamObj.getVideoTracks()
+				if (tracks && tracks.length > 0) {
+					return new MediaStream(tracks)
+				}
+			}
+			
+			// Try getTracks() method and filter for video
+			if (typeof streamObj.getTracks === 'function') {
+				const tracks = streamObj.getTracks().filter((t: MediaStreamTrack) => t.kind === 'video')
+				if (tracks && tracks.length > 0) {
+					return new MediaStream(tracks)
+				}
+			}
+			
+			return null
+		}
+
+		// Screen share takes priority
+		if (screenShareOn && screenShareStream) {
+			mediaStream = getMediaStream(screenShareStream)
+		}
+		
+		// Webcam stream (only if no screen share)
+		if (!mediaStream && webcamOn && webcamStream) {
+			mediaStream = getMediaStream(webcamStream)
+		}
+		
+		// Update video element
+		if (mediaStream) {
+			const videoTracks = mediaStream.getVideoTracks()
+			
+			if (videoTracks.length > 0) {
+				const currentStream = videoElement.srcObject as MediaStream | null
+				const currentVideoTrack = currentStream?.getVideoTracks()[0]
+				const newVideoTrack = videoTracks[0]
+				
+				// Ensure newVideoTrack exists before using it
+				if (newVideoTrack) {
+					// Update if track changed or no current stream
+					if (!currentVideoTrack || currentVideoTrack.id !== newVideoTrack.id) {
+						// Set the stream
+						videoElement.srcObject = mediaStream
+						
+						// Listen for track ended event
+						trackEndHandler = () => {
+							if (videoElement.srcObject === mediaStream) {
+								videoElement.srcObject = null
+							}
+						}
+						
+						newVideoTrack.addEventListener('ended', trackEndHandler)
+						
+						// Play the video
+						videoElement.play().catch((error) => {
+							// Silently handle autoplay errors
+							if (error.name !== 'NotAllowedError' && error.name !== 'NotReadableError') {
+								console.error("Video play error:", error)
+							}
+						})
+					} else if (videoElement.paused) {
+						// Same stream but paused - try to play
+						videoElement.play().catch(() => {})
+					}
+				}
+			} else {
+				// Stream exists but no video tracks - clear
+				if (videoElement.srcObject === mediaStream) {
+					videoElement.srcObject = null
+				}
+			}
+		} else {
+			// No valid stream - clear the video element
+			if (videoElement.srcObject) {
+				videoElement.srcObject = null
+			}
+		}
+		
+		// Cleanup function
+		return () => {
+			if (trackEndHandler && mediaStream) {
+				const tracks = mediaStream.getVideoTracks()
+				tracks.forEach(track => {
+					track.removeEventListener('ended', trackEndHandler!)
+				})
+			}
+		}
+	}, [webcamStream, webcamOn, screenShareStream, screenShareOn])
+
+	// Determine what to display based on actual video tracks
+	const [hasVideoTracks, setHasVideoTracks] = useState(false)
+	
 	useEffect(() => {
-		const videoElement = videoRef.current
-		if (!videoElement) return
-
-		if (screenShareOn && screenShareStream?.track) {
-			const mediaStream = new MediaStream([screenShareStream.track])
-			videoElement.srcObject = mediaStream
-			videoElement.play().catch(() => {})
+		if (videoRef.current?.srcObject) {
+			const stream = videoRef.current.srcObject as MediaStream
+			const tracks = stream.getVideoTracks()
+			setHasVideoTracks(tracks.length > 0 && tracks.some(t => t.readyState === 'live'))
+		} else {
+			setHasVideoTracks(false)
 		}
-	}, [screenShareStream, screenShareOn])
-
-	const hasVideo = (webcamOn && webcamStream && webcamStream.track) || (screenShareOn && screenShareStream && screenShareStream.track)
+	}, [webcamStream, webcamOn, screenShareStream, screenShareOn])
+	
+	const showPlaceholder = !hasVideoTracks || (!webcamOn && !screenShareOn)
 
 	return (
 		<Card className="relative size-full overflow-hidden border-2 shadow-lg transition-all hover:border-primary/50 hover:shadow-xl">
 			<CardContent className="relative p-0 size-full">
-				{hasVideo ? (
-					<video
-						ref={videoRef}
-						autoPlay
-						playsInline
-						muted={isLocal}
-						onLoadedMetadata={() => {
-							// eslint-disable-next-line no-console
-							console.log("📹 Video loaded for:", participantId, getDisplayName())
-						}}
-						onError={(e) => {
-							console.error(`❌ Video error for ${participantId}:`, e)
-							setStreamSet(false)
-						}}
-						className={cn(
-							"size-full object-cover bg-muted/10",
-							isLocal && "scale-x-[-1]"
-						)}
-					/>
-				) : (
-					<div className="flex size-full items-center justify-center bg-gradient-to-br from-muted/30 to-muted/10">
+				{/* Video element - always render so stream can be attached */}
+				<video
+					ref={videoRef}
+					autoPlay
+					playsInline
+					muted={isLocal}
+					className={cn(
+						"size-full object-cover bg-muted/10",
+						isLocal && "scale-x-[-1]",
+						showPlaceholder && "opacity-0 pointer-events-none"
+					)}
+				/>
+				
+				{/* Placeholder avatar - show when no video */}
+				{showPlaceholder && (
+					<div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-muted/30 to-muted/10 z-0">
 						<div className="flex size-20 md:size-28 items-center justify-center rounded-full bg-gradient-to-br from-primary to-primary/80 text-3xl md:text-4xl font-bold text-primary-foreground shadow-2xl">
 							{displayName?.charAt(0).toUpperCase() ?? "?"}
 						</div>
@@ -127,7 +221,7 @@ function ParticipantView({ participantId }: { participantId: string }) {
 				)}
 
 				{/* Overlay info */}
-				<div className="absolute bottom-2 md:bottom-3 left-2 md:left-3 right-2 md:right-3 flex items-center justify-between gap-2">
+				<div className="absolute bottom-2 md:bottom-3 left-2 md:left-3 right-2 md:right-3 flex items-center justify-between gap-2 z-10">
 					<div className="flex items-center gap-2 rounded-lg bg-card/95 px-2.5 md:px-3 py-1.5 text-xs md:text-sm shadow-lg backdrop-blur-md border max-w-[70%]">
 						<span className="font-semibold truncate">{displayName ?? "Unknown"}</span>
 						{isLocal && <span className="text-[10px] md:text-xs text-muted-foreground flex-shrink-0">(You)</span>}
@@ -144,13 +238,19 @@ function ParticipantView({ participantId }: { participantId: string }) {
 }
 
 // Meeting controls
-function MeetingControls({ onUploadClick }: { onUploadClick?: () => void }) {
+function MeetingControls({ onUploadClick, isRecording, onRecordingChange }: { 
+	onUploadClick?: () => void
+	isRecording?: boolean
+	onRecordingChange?: (recording: boolean) => void
+}) {
 	const meeting = useMeeting()
-	const [isMicOn, setIsMicOn] = useState(true)
-	const [isCameraOn, setIsCameraOn] = useState(false)
-	const [isScreenSharing, setIsScreenSharing] = useState(false)
+	
+	// Initialize state from VideoSDK - use actual values from meeting object
+	const [isMicOn, setIsMicOn] = useState(() => meeting?.localMicOn ?? false)
+	const [isCameraOn, setIsCameraOn] = useState(() => meeting?.localWebcamOn ?? false)
+	const [isScreenSharing, setIsScreenSharing] = useState(() => meeting?.localScreenShareOn ?? false)
 
-	// Sync with VideoSDK state
+	// Sync with VideoSDK state - update whenever meeting state changes
 	useEffect(() => {
 		if (meeting?.localMicOn !== undefined) {
 			setIsMicOn(meeting.localMicOn)
@@ -169,16 +269,44 @@ function MeetingControls({ onUploadClick }: { onUploadClick?: () => void }) {
 		}
 	}, [meeting?.localScreenShareOn])
 
-	const handleToggleMic = () => {
-		meeting?.toggleMic()
+	const handleToggleMic = async () => {
+		if (meeting) {
+			await meeting.toggleMic()
+		}
 	}
 
-	const handleToggleCamera = () => {
-		meeting?.toggleWebcam()
+	const handleToggleCamera = async () => {
+		if (meeting) {
+			try {
+				await meeting.toggleWebcam()
+				// State will update automatically via useEffect when VideoSDK state changes
+			} catch (error) {
+				console.error("Error toggling camera:", error)
+			}
+		}
 	}
 
-	const handleToggleScreenShare = () => {
-		meeting?.toggleScreenShare()
+	const handleToggleScreenShare = async () => {
+		if (meeting) {
+			await meeting.toggleScreenShare()
+		}
+	}
+
+	const handleToggleRecording = async () => {
+		if (!meeting) return
+		
+		try {
+			if (isRecording) {
+				await meeting.stopRecording()
+				// State will update via onRecordingStateChanged callback
+			} else {
+				await meeting.startRecording()
+				// State will update via onRecordingStateChanged callback
+			}
+		} catch (error: any) {
+			console.error("Error toggling recording:", error)
+			toast.error(error?.message || "Failed to toggle recording")
+		}
 	}
 
 	const handleLeave = () => {
@@ -215,6 +343,23 @@ function MeetingControls({ onUploadClick }: { onUploadClick?: () => void }) {
 				title={isScreenSharing ? "Stop sharing" : "Share screen"}
 			>
 				<Monitor className="size-4" />
+			</Button>
+
+			<Button
+				variant={isRecording ? "destructive" : "outline"}
+				size="icon"
+				className={cn(
+					"size-9 md:size-10 rounded-full shadow-md hover:shadow-lg transition-all",
+					isRecording && "animate-pulse"
+				)}
+				onClick={handleToggleRecording}
+				title={isRecording ? "Stop recording" : "Start recording"}
+			>
+				{isRecording ? (
+					<Square className="size-4 fill-current" />
+				) : (
+					<CircleDot className="size-4" />
+				)}
 			</Button>
 
 			{onUploadClick && (
@@ -347,32 +492,39 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 			// eslint-disable-next-line no-console
 			console.log("🖥️ Presenter changed:", presenterId)
 		},
+		onRecordingStateChanged: (data: { status: string }) => {
+			// eslint-disable-next-line no-console
+			console.log("🎥 Recording state changed:", data)
+			// VideoSDK returns { status: 'RECORDING_STARTED' | 'RECORDING_STOPPING' | 'RECORDING_STOPPED' | 'RECORDING_STARTING' }
+			const status = data.status as string
+			const recording = status === 'RECORDING_STARTED' || status === 'RECORDING_STARTING'
+			setIsRecording(recording)
+			
+			if (status === 'RECORDING_STARTED') {
+				toast.success("Recording started")
+			} else if (status === 'RECORDING_STOPPED') {
+				toast.success("Recording stopped")
+			}
+		},
 	})
 
 	const { participants } = meeting
-
-	// Enable camera immediately after joining
+	
+	// Initialize and sync recording state with VideoSDK
+	const [isRecording, setIsRecording] = useState(false)
+	
+	// Sync recording state from VideoSDK
 	useEffect(() => {
-		if (joined && meeting?.toggleWebcam) {
-			// Request permissions first
-			navigator.mediaDevices.getUserMedia({ video: true, audio: true })
-				.then((stream) => {
-					// Stop the test stream
-					stream.getTracks().forEach(track => track.stop())
-					
-					// Enable camera
-					setTimeout(() => {
-						meeting.toggleWebcam()
-						// eslint-disable-next-line no-console
-						console.log("🎥 Camera enabled")
-					}, 1000)
-				})
-				.catch((err) => {
-					console.error("Camera permission denied:", err)
-				})
+		if (meeting) {
+			// Check if recording is active (VideoSDK might expose this differently)
+			// Some VideoSDK versions use meeting.recordingState or meeting.isRecording
+			const recordingState = (meeting as any)?.recordingState
+			if (recordingState) {
+				const recording = recordingState === 'RECORDING_STARTED' || recordingState === 'RECORDING_STARTING'
+				setIsRecording(recording)
+			}
 		}
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [joined])
+	}, [meeting])
 
 	// Get unique participants - deduplicate by name
 	const allParticipantIds = Array.from(participants.keys())
@@ -434,6 +586,16 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 
 	return (
 		<div className="flex h-screen flex-col bg-gradient-to-br from-background via-muted/20 to-background">
+			{/* Recording Indicator Banner - Visible to all participants */}
+			{isRecording && (
+				<div className="bg-destructive/90 text-destructive-foreground px-4 py-2 flex items-center justify-center gap-2 shadow-lg z-50">
+					<div className="flex items-center gap-2 animate-pulse">
+						<CircleDot className="size-4 fill-current" />
+						<span className="text-sm font-semibold">RECORDING</span>
+					</div>
+				</div>
+			)}
+
 			{/* Header with Controls */}
 			<div className="flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4 border-b bg-card/50 backdrop-blur-sm px-4 md:px-6 py-3 md:py-4 shadow-sm">
 				<div className="flex items-center gap-2">
@@ -444,7 +606,11 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 				</div>
 				
 				{/* Meeting Controls */}
-				<MeetingControls onUploadClick={() => setIsUploadDialogOpen(true)} />
+				<MeetingControls 
+					onUploadClick={() => setIsUploadDialogOpen(true)}
+					isRecording={isRecording}
+					onRecordingChange={setIsRecording}
+				/>
 				
 				<div className="flex items-center gap-2 rounded-lg bg-muted/50 px-3 py-1.5">
 					<Users className="size-4 text-muted-foreground" />
@@ -774,6 +940,9 @@ export interface VideoMeetingClientProps {
 }
 
 export function VideoMeetingClient({ meetingId, dbMeetingId, token, participantName, onLeave }: VideoMeetingClientProps) {
+	// Only enable debug mode in development
+	const isDevelopment = process.env.NODE_ENV === 'development'
+	
 	return (
 		<MeetingProvider
 			config={{
@@ -783,7 +952,7 @@ export function VideoMeetingClient({ meetingId, dbMeetingId, token, participantN
 				name: participantName,
 				mode: "SEND_AND_RECV",
 				multiStream: true,
-				debugMode: true,
+				debugMode: isDevelopment,
 			}}
 			token={token}
 			joinWithoutUserInteraction

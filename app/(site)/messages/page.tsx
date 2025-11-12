@@ -127,13 +127,13 @@ export default function MessagesPage() {
 			{/* Sidebar - Conversations List */}
 			<div className="flex w-80 flex-col border-r overflow-hidden">
 				{/* Sidebar Header */}
-				<div className="border-b p-4">
-					<div className="mb-4 flex items-center justify-between">
-						<h1 className="text-2xl font-bold">Messages</h1>
+				<div className="border-b p-3">
+					<div className="mb-3 flex items-center justify-between">
+						<h1 className="text-lg font-semibold">Messages</h1>
 						<Dialog open={isNewChatDialogOpen} onOpenChange={setIsNewChatDialogOpen}>
 							<DialogTrigger asChild>
-								<Button variant="ghost" size="icon" className="size-9 rounded-full">
-									<Plus className="size-5" />
+								<Button variant="ghost" size="icon" className="size-7 rounded-full">
+									<Plus className="size-4" />
 								</Button>
 							</DialogTrigger>
 							<DialogContent>
@@ -190,33 +190,33 @@ export default function MessagesPage() {
 					</div>
 					{/* Search Bar */}
 					<div className="relative">
-						<Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+						<Search className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
 						<Input
 							placeholder="Search messages..."
 							value={searchQuery}
 							onChange={(e) => setSearchQuery(e.target.value)}
-							className="pl-10"
+							className="h-9 pl-8 text-sm"
 						/>
 					</div>
 				</div>
 
 				{/* Conversations List */}
 				<ScrollArea className="flex-1">
-					<div className="p-2">
+					<div className="p-1.5">
 						{filteredConversations && filteredConversations.length > 0 ? (
 							filteredConversations.map((conversation) => (
 								<button
 									key={conversation.id}
 									onClick={() => setSelectedConversationId(conversation.id)}
 									className={cn(
-										"flex w-full items-center gap-3 rounded-lg p-3 text-left transition-colors hover:bg-accent",
+										"flex w-full items-center gap-2.5 rounded-lg p-2 text-left transition-colors hover:bg-accent",
 										selectedConversationId === conversation.id && "bg-accent"
 									)}
 								>
-									<div className="relative">
-										<Avatar className="size-12">
+									<div className="relative flex-shrink-0">
+										<Avatar className="size-10">
 											<AvatarImage src={conversation.otherUser?.image ?? undefined} />
-											<AvatarFallback className="bg-primary text-primary-foreground">
+											<AvatarFallback className="bg-primary text-xs text-primary-foreground">
 												{conversation.otherUser?.name
 													?.split(" ")
 													.map((n) => n[0])
@@ -224,19 +224,19 @@ export default function MessagesPage() {
 											</AvatarFallback>
 										</Avatar>
 									</div>
-									<div className="flex-1 overflow-hidden">
-										<div className="flex items-center justify-between">
-											<h3 className="font-semibold">{conversation.otherUser?.name}</h3>
-											<span className="text-xs text-muted-foreground">
+									<div className="flex-1 min-w-0 overflow-hidden">
+										<div className="flex items-center justify-between gap-2">
+											<h3 className="text-sm font-medium truncate">{conversation.otherUser?.name}</h3>
+											<span className="text-[10px] text-muted-foreground whitespace-nowrap flex-shrink-0">
 												{formatTime(conversation.lastMessageTime)}
 											</span>
 										</div>
-										<div className="flex items-center justify-between">
-										<p className="truncate text-sm text-muted-foreground">
+										<div className="flex items-center justify-between gap-2 mt-0.5">
+										<p className="truncate text-xs text-muted-foreground">
 											{conversation.lastMessage ?? "No messages yet"}
 										</p>
 											{conversation.unreadCount > 0 && (
-												<span className="ml-2 flex size-5 items-center justify-center rounded-full bg-primary text-xs text-primary-foreground">
+												<span className="ml-1 flex size-4 items-center justify-center rounded-full bg-primary text-[10px] font-medium text-primary-foreground flex-shrink-0">
 													{conversation.unreadCount}
 												</span>
 											)}
@@ -245,10 +245,10 @@ export default function MessagesPage() {
 								</button>
 							))
 						) : (
-							<div className="p-8 text-center">
-								<MessageSquare className="mx-auto mb-2 size-12 text-muted-foreground" />
-								<p className="text-sm text-muted-foreground">No conversations yet</p>
-								<p className="mt-1 text-xs text-muted-foreground">Start a new chat to begin messaging</p>
+							<div className="p-6 text-center">
+								<MessageSquare className="mx-auto mb-2 size-8 text-muted-foreground" />
+								<p className="text-xs text-muted-foreground">No conversations yet</p>
+								<p className="mt-1 text-[10px] text-muted-foreground">Start a new chat to begin messaging</p>
 							</div>
 						)}
 					</div>
@@ -260,11 +260,11 @@ export default function MessagesPage() {
 				<>
 					<div className="flex flex-1 flex-col overflow-hidden">
 						{/* Chat Header */}
-						<div className="flex items-center justify-between border-b p-4 flex-shrink-0">
-							<div className="flex items-center gap-3">
-								<Avatar className="size-10">
+						<div className="flex items-center justify-between border-b p-3 flex-shrink-0">
+							<div className="flex items-center gap-2.5">
+								<Avatar className="size-8">
 									<AvatarImage src={selectedConversation.otherUser?.image ?? undefined} />
-									<AvatarFallback className="bg-primary text-primary-foreground">
+									<AvatarFallback className="bg-primary text-xs text-primary-foreground">
 										{selectedConversation.otherUser?.name
 											?.split(" ")
 											.map((n) => n[0])
@@ -272,28 +272,28 @@ export default function MessagesPage() {
 									</AvatarFallback>
 								</Avatar>
 								<div>
-									<h2 className="font-semibold">{selectedConversation.otherUser?.name}</h2>
-									<p className="text-xs text-muted-foreground">{selectedConversation.otherUser?.email}</p>
+									<h2 className="text-sm font-medium">{selectedConversation.otherUser?.name}</h2>
+									<p className="text-[10px] text-muted-foreground">{selectedConversation.otherUser?.email}</p>
 								</div>
 							</div>
-							<div className="flex items-center gap-2">
-								<Button variant="ghost" size="icon" className="size-9 rounded-full">
-									<Phone className="size-5" />
+							<div className="flex items-center gap-1.5">
+								<Button variant="ghost" size="icon" className="size-7 rounded-full">
+									<Phone className="size-4" />
 								</Button>
-								<Button variant="ghost" size="icon" className="size-9 rounded-full">
-									<Video className="size-5" />
+								<Button variant="ghost" size="icon" className="size-7 rounded-full">
+									<Video className="size-4" />
 								</Button>
 							</div>
 						</div>
 
 					{/* Messages Area */}
-					<div className="flex-1 overflow-y-auto p-4">
+					<div className="flex-1 overflow-y-auto p-3">
 						{loadingMessages ? (
 							<div className="flex h-full items-center justify-center">
-								<p className="text-muted-foreground">Loading messages...</p>
+								<p className="text-xs text-muted-foreground">Loading messages...</p>
 							</div>
 						) : messages && messages.length > 0 ? (
-							<div className="space-y-4 pb-4">
+							<div className="space-y-2.5 pb-3">
 								{messages.map((message) => {
 									const isSent = message.senderId === session?.user?.id
 									return (
@@ -308,11 +308,11 @@ export default function MessagesPage() {
 												)}
 											>
 												{!isSent && (
-													<Avatar className="size-8">
+													<Avatar className="size-7 flex-shrink-0">
 														<AvatarImage
 															src={selectedConversation.otherUser?.image ?? undefined}
 														/>
-														<AvatarFallback className="bg-primary text-xs text-primary-foreground">
+														<AvatarFallback className="bg-primary text-[10px] text-primary-foreground">
 															{selectedConversation.otherUser?.name
 																?.split(" ")
 																.map((n) => n[0])
@@ -320,20 +320,20 @@ export default function MessagesPage() {
 														</AvatarFallback>
 													</Avatar>
 												)}
-												<div className="space-y-1">
+												<div className="space-y-0.5">
 													<Card
 														className={cn(
-															"px-4 py-2",
+															"px-3 py-1.5",
 															isSent
 																? "bg-primary text-primary-foreground"
 																: "bg-muted"
 														)}
 													>
-														<p className="text-sm">{message.content}</p>
+														<p className="text-xs leading-relaxed">{message.content}</p>
 													</Card>
 													<p
 														className={cn(
-															"text-xs text-muted-foreground",
+															"text-[10px] text-muted-foreground",
 															isSent && "text-right"
 														)}
 													>
@@ -349,9 +349,9 @@ export default function MessagesPage() {
 						) : (
 							<div className="flex h-full items-center justify-center">
 								<div className="text-center">
-									<MessageSquare className="mx-auto mb-2 size-12 text-muted-foreground" />
-									<p className="text-sm text-muted-foreground">No messages yet</p>
-									<p className="mt-1 text-xs text-muted-foreground">
+									<MessageSquare className="mx-auto mb-2 size-8 text-muted-foreground" />
+									<p className="text-xs text-muted-foreground">No messages yet</p>
+									<p className="mt-1 text-[10px] text-muted-foreground">
 										Start the conversation by sending a message
 									</p>
 								</div>
@@ -360,17 +360,17 @@ export default function MessagesPage() {
 					</div>
 
 						{/* Message Input */}
-						<div className="border-t p-4 flex-shrink-0">
-							<div className="flex items-center gap-2">
-								<Button variant="ghost" size="icon" className="size-9 rounded-full">
-									<Paperclip className="size-5" />
+						<div className="border-t p-2.5 flex-shrink-0">
+							<div className="flex items-center gap-1.5">
+								<Button variant="ghost" size="icon" className="size-7 rounded-full">
+									<Paperclip className="size-4" />
 								</Button>
 								<div className="relative flex-1">
 									<Input
 										placeholder="Type a message..."
 										value={messageInput}
 										onChange={(e) => setMessageInput(e.target.value)}
-										className="pr-10"
+										className="h-9 pr-8 text-sm"
 										onKeyDown={(e) => {
 											if (e.key === "Enter" && messageInput.trim()) {
 												void handleSendMessage()
@@ -381,18 +381,18 @@ export default function MessagesPage() {
 									<Button
 										variant="ghost"
 										size="icon"
-										className="absolute right-1 top-1/2 size-8 -translate-y-1/2 rounded-full"
+										className="absolute right-1 top-1/2 size-6 -translate-y-1/2 rounded-full"
 									>
-										<Smile className="size-5" />
+										<Smile className="size-3.5" />
 									</Button>
 								</div>
 								<Button
 									size="icon"
-									className="size-9 rounded-full"
+									className="size-7 rounded-full"
 									disabled={!messageInput.trim() || sendMessage.isPending}
 									onClick={() => void handleSendMessage()}
 								>
-									<Send className="size-5" />
+									<Send className="size-4" />
 								</Button>
 							</div>
 						</div>
@@ -404,9 +404,9 @@ export default function MessagesPage() {
 			) : (
 				<div className="flex flex-1 items-center justify-center">
 					<div className="text-center">
-						<MessageSquare className="mx-auto mb-4 size-16 text-muted-foreground" />
-						<h3 className="text-xl font-semibold">Select a conversation</h3>
-						<p className="mt-2 text-sm text-muted-foreground">
+						<MessageSquare className="mx-auto mb-3 size-10 text-muted-foreground" />
+						<h3 className="text-sm font-medium">Select a conversation</h3>
+						<p className="mt-1.5 text-xs text-muted-foreground">
 							Choose a conversation from the list or start a new one
 						</p>
 					</div>

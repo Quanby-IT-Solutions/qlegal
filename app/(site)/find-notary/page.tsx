@@ -57,19 +57,19 @@ export default function FindNotaryPage() {
 				description: "Your consultation has been successfully booked.",
 			})
 
-			// Redirect based on workflow type and meeting preference
-			if (data.workflowType === "REN" && data.meetingId) {
-				router.push(`/meetings/${data.meetingId}` as Route)
-			} else if (data.workflowType === "REN" && data.conversationId) {
-				toast.success("Ready to Chat!", {
-					description: "You can now message the ENP directly.",
-				})
-				router.push("/dashboard" as Route)
-			} else if (data.workflowType === "IEN") {
-				router.push("/dashboard" as Route)
-			} else {
-				router.push("/dashboard" as Route)
-			}
+		// Redirect based on workflow type and meeting preference
+		if (data.workflowType === "REN" && data.meetingId) {
+			router.push(`/meetings/${data.meetingId}` as Route)
+		} else if (data.workflowType === "REN" && data.conversationId) {
+			toast.success("Ready to Chat!", {
+				description: "You can now message the ENP directly.",
+			})
+			router.push("/messages" as Route)
+		} else if (data.workflowType === "IEN") {
+			router.push("/dashboard" as Route)
+		} else {
+			router.push("/dashboard" as Route)
+		}
 		},
 		onError: (error) => {
 			toast.error("Booking Failed", {
