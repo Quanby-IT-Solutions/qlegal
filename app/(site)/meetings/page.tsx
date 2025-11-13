@@ -70,7 +70,8 @@ export default function MeetingsPage() {
 				setTitle("")
 				setSelectedUsers([])
 				setUserSearchQuery("")
-				router.push(`/meetings/${result.meeting.id}`)
+				toast.success("Meeting created successfully!")
+				// Stay on meetings page - the list will auto-refresh
 			}
 		} catch {
 			toast.error("Failed to create meeting")
