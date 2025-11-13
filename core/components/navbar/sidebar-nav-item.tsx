@@ -51,10 +51,10 @@ export const SidebarNavItem = ({ item, userRole, currentWorkflow }: SidebarNavIt
 					<Tooltip side="right" align="center">
 						<TooltipTrigger asChild>
 							<SidebarMenuButton asChild>
-								<a href={item.url}>
+								<Link href={item.url as Route}>
 									{IconComponent && <IconComponent />}
 									<span>{item.title}</span>
-								</a>
+								</Link>
 							</SidebarMenuButton>
 						</TooltipTrigger>
 						<TooltipContent>
@@ -109,9 +109,9 @@ export const SidebarNavItem = ({ item, userRole, currentWorkflow }: SidebarNavIt
 						{accessibleSubItems.map(subItem => (
 							<SidebarMenuSubItem key={subItem.title}>
 								<SidebarMenuSubButton asChild>
-									<a href={subItem.url}>
+									<Link href={subItem.url as Route}>
 										<span>{subItem.title}</span>
-									</a>
+									</Link>
 								</SidebarMenuSubButton>
 							</SidebarMenuSubItem>
 						))}

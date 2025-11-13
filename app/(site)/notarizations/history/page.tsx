@@ -1,8 +1,11 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useMemo } from "react"
+import { useSession } from "next-auth/react"
 import { Search, Filter, Clock, CheckCircle, XCircle, FileText, Calendar, User, Download, Eye, Video, Handshake } from "lucide-react"
+import { format } from "date-fns"
 
+import { trpc } from "@/services/trpc/client"
 import { SiteNavbar } from "@/core/components/navbar/site-navbar"
 import { Button } from "@/core/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/core/components/ui/card"
@@ -11,116 +14,108 @@ import { Badge } from "@/core/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/core/components/ui/select"
 import { Avatar, AvatarFallback, AvatarImage } from "@/core/components/ui/avatar"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/core/components/ui/tabs"
-
-// Mock data for notarization history
-const mockNotarizationHistory = [
-	{
-		id: "not_1",
-		title: "Real Estate Purchase Agreement",
-		status: "COMPLETED",
-		workflow: "REN",
-		enp: {
-			name: "Atty. Maria Santos",
-			avatar: "/avatars/maria-santos.jpg",
-		},
-		principal: {
-			name: "John Doe",
-			email: "john.doe@email.com",
-		},
-		completedAt: "2024-01-15T10:45:00Z",
-		duration: 45,
-		documents: 2,
-		location: "Remote Video Call",
-		certificateUrl: "/certificates/not_1.pdf",
-		recordingUrl: "/recordings/not_1.mp4",
-	},
-	{
-		id: "not_2",
-		title: "Business Contract",
-		status: "COMPLETED",
-		workflow: "IEN",
-		enp: {
-			name: "Atty. Juan Dela Cruz",
-			avatar: "/avatars/juan-dela-cruz.jpg",
-		},
-		principal: {
-			name: "Jane Smith",
-			email: "jane.smith@email.com",
-		},
-		completedAt: "2024-01-14T15:30:00Z",
-		duration: 60,
-		documents: 1,
-		location: "123 Main St, Makati City",
-		certificateUrl: "/certificates/not_2.pdf",
-		recordingUrl: null,
-	},
-	{
-		id: "not_3",
-		title: "Power of Attorney",
-		status: "COMPLETED",
-		workflow: "REN",
-		enp: {
-			name: "Atty. Ana Rodriguez",
-			avatar: "/avatars/ana-rodriguez.jpg",
-		},
-		principal: {
-			name: "Robert Johnson",
-			email: "robert.johnson@email.com",
-		},
-		completedAt: "2024-01-13T11:15:00Z",
-		duration: 30,
-		documents: 3,
-		location: "Remote Video Call",
-		certificateUrl: "/certificates/not_3.pdf",
-		recordingUrl: "/recordings/not_3.mp4",
-	},
-	{
-		id: "not_4",
-		title: "Will and Testament",
-		status: "CANCELLED",
-		workflow: "IEN",
-		enp: {
-			name: "Atty. Carlos Mendoza",
-			avatar: "/avatars/carlos-mendoza.jpg",
-		},
-		principal: {
-			name: "Maria Garcia",
-			email: "maria.garcia@email.com",
-		},
-		cancelledAt: "2024-01-12T14:20:00Z",
-		duration: 0,
-		documents: 1,
-		location: "456 Oak St, Quezon City",
-		cancellationReason: "Client cancelled due to schedule conflict",
-	},
-	{
-		id: "not_5",
-		title: "Marriage Contract",
-		status: "COMPLETED",
-		workflow: "IEN",
-		enp: {
-			name: "Atty. Maria Santos",
-			avatar: "/avatars/maria-santos.jpg",
-		},
-		principal: {
-			name: "David Wilson",
-			email: "david.wilson@email.com",
-		},
-		completedAt: "2024-01-11T09:30:00Z",
-		duration: 50,
-		documents: 2,
-		location: "789 Pine St, Cebu City",
-		certificateUrl: "/certificates/not_5.pdf",
-		recordingUrl: null,
-	},
-]
+import { Skeleton } from "@/core/components/ui/skeleton"
 
 export default function NotarizationHistoryPage() {
+	const { data: session } = useSession()
 	const [searchTerm, setSearchTerm] = useState("")
 	const [statusFilter, setStatusFilter] = useState("ALL")
 	const [workflowFilter, setWorkflowFilter] = useState("ALL")
 	const [dateFilter, setDateFilter] = useState("ALL")
 	const [activeTab, setActiveTab] = useState("all")
+
+	// Fetch completed and cancelled appointments
+	const { data: appointments, isLoading } = trpc.appointments.getMyAppointments.useQuery({
+		limit: 100,
+		offset: 0,
+	})
+
+	// Transform appointments to notarization history format
+	const notarizationHistory = useMemo(() => {
+		if (!appointments) return []
+
+		// Filter to only include completed or cancelled appointments
+		const historyAppointments = appointments.filter(
+			apt => apt.status === "COMPLETED" || apt.status === "CANCELLED"
+		)
+
+		return historyAppointments.map((appointment) => {
+			// Determine workflow
+			const notesLower = (appointment.notes || "").toLowerCase()
+			const hasRemoteKeywords = notesLower.includes("remote") || notesLower.includes("ren")
+			const hasInPersonKeywords = notesLower.includes("in-person") || notesLower.includes("ien") || notesLower.includes("in person")
+			
+			let workflow: "REN" | "IEN"
+			if (appointment.meetingLink) {
+				workflow = "REN"
+			} else if (appointment.location) {
+				workflow = "IEN"
+			} else if (hasRemoteKeywords && !hasInPersonKeywords) {
+				workflow = "REN"
+			} else if (hasInPersonKeywords && !hasRemoteKeywords) {
+				workflow = "IEN"
+			} else {
+				workflow = hasRemoteKeywords ? "REN" : "IEN"
+			}
+
+			// Get ENP and Principal
+			const enp = appointment.lawyer
+			const principal = appointment.client
+
+			// Generate title
+			let title = ""
+			if (appointment.notes) {
+				const cleanedNotes = appointment.notes
+					.replace(/Consultation Type:\s*/gi, "")
+					.replace(/Workflow:\s*/gi, "")
+					.replace(/Meeting Preference:\s*/gi, "")
+					.replace(/Remote Electronic Notarization/gi, "REN")
+					.replace(/In-Person Electronic Notarization/gi, "IEN")
+					.trim()
+				
+				if (cleanedNotes.length > 60 || cleanedNotes.includes("\n")) {
+					const firstLine = cleanedNotes.split("\n")[0]?.trim() || ""
+					title = firstLine.length > 60 ? `${firstLine.substring(0, 57)}...` : firstLine
+				} else {
+					title = cleanedNotes
+				}
+			}
+			
+			if (!title || title.length < 3) {
+				const typeLabel = appointment.type === "DOCUMENT_SIGNING" ? "Document Signing" : "Consultation"
+				title = `${typeLabel} - ${principal?.name || "Client"}`
+			}
+
+			// Get document count (TODO: fetch from related documents/envelopes)
+			const documents = 0 // Placeholder
+
+			// Calculate duration (use appointment duration or estimate based on status)
+			const duration = appointment.duration || 30
+
+			return {
+				id: appointment.id,
+				title,
+				status: appointment.status as "COMPLETED" | "CANCELLED",
+				workflow,
+				enp: {
+					name: enp?.name || "Unknown ENP",
+					avatar: enp?.image || undefined,
+				},
+				principal: {
+					name: principal?.name || "Unknown Client",
+					email: principal?.email || "",
+				},
+				completedAt: appointment.status === "COMPLETED" ? appointment.updatedAt.toISOString() : undefined,
+				cancelledAt: appointment.status === "CANCELLED" ? appointment.updatedAt.toISOString() : undefined,
+				duration,
+				documents,
+				location: appointment.location || (workflow === "REN" ? "Remote Video Call" : "Location TBD"),
+				cancellationReason: appointment.cancelReason || undefined,
+				certificateUrl: appointment.status === "COMPLETED" ? undefined : undefined, // TODO: Add certificate URL when available
+				recordingUrl: appointment.status === "COMPLETED" && workflow === "REN" ? undefined : undefined, // TODO: Add recording URL when available
+			}
+		})
+	}, [appointments])
 
 	const getStatusIcon = (status: string) => {
 		switch (status) {
@@ -152,7 +147,7 @@ export default function NotarizationHistoryPage() {
 		)
 	}
 
-	const filteredNotarizations = mockNotarizationHistory.filter(notarization => {
+	const filteredNotarizations = notarizationHistory.filter(notarization => {
 		const matchesSearch = notarization.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
 			notarization.enp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
 			notarization.principal.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -270,14 +265,31 @@ export default function NotarizationHistoryPage() {
 					{/* Tabs */}
 					<Tabs value={activeTab} onValueChange={setActiveTab}>
 						<TabsList className="grid w-full grid-cols-3">
-							<TabsTrigger value="all">All ({filteredNotarizations.length})</TabsTrigger>
-							<TabsTrigger value="completed">Completed ({completedNotarizations.length})</TabsTrigger>
-							<TabsTrigger value="cancelled">Cancelled ({cancelledNotarizations.length})</TabsTrigger>
+							<TabsTrigger value="all">
+								All {isLoading ? "" : `(${filteredNotarizations.length})`}
+							</TabsTrigger>
+							<TabsTrigger value="completed">
+								Completed {isLoading ? "" : `(${completedNotarizations.length})`}
+							</TabsTrigger>
+							<TabsTrigger value="cancelled">
+								Cancelled {isLoading ? "" : `(${cancelledNotarizations.length})`}
+							</TabsTrigger>
 						</TabsList>
 
 						<TabsContent value="all" className="mt-6">
-							<div className="space-y-4">
-								{filteredNotarizations.map((notarization) => (
+							{isLoading ? (
+								<div className="space-y-4">
+									{Array.from({ length: 3 }).map((_, i) => (
+										<Card key={i}>
+											<CardContent className="p-6">
+												<Skeleton className="h-32 w-full" />
+											</CardContent>
+										</Card>
+									))}
+								</div>
+							) : (
+								<div className="space-y-4">
+									{filteredNotarizations.map((notarization) => (
 									<Card key={notarization.id} className="hover:shadow-md transition-shadow">
 										<CardContent className="p-6">
 											<div className="flex items-start justify-between">
@@ -301,8 +313,8 @@ export default function NotarizationHistoryPage() {
 															<Calendar className="h-4 w-4" />
 															<span>
 																{notarization.status === "COMPLETED" 
-																	? `Completed ${new Date(notarization.completedAt!).toLocaleDateString()}`
-																	: `Cancelled ${new Date(notarization.cancelledAt!).toLocaleDateString()}`
+																	? `Completed ${format(new Date(notarization.completedAt!), "MMM dd, yyyy")}`
+																	: `Cancelled ${format(new Date(notarization.cancelledAt!), "MMM dd, yyyy")}`
 																}
 															</span>
 														</div>
@@ -330,10 +342,12 @@ export default function NotarizationHistoryPage() {
 													{/* Participants */}
 													<div className="flex items-center gap-4">
 														<div className="flex items-center gap-2">
-															<Avatar className="h-8 w-8">
-																<AvatarImage src={notarization.enp.avatar} alt={notarization.enp.name} />
-																<AvatarFallback>{notarization.enp.name.split(" ").map(n => n[0]).join("")}</AvatarFallback>
-															</Avatar>
+													<Avatar className="h-8 w-8">
+														<AvatarImage src={notarization.enp.avatar} alt={notarization.enp.name} />
+														<AvatarFallback>
+															{notarization.enp.name.split(" ").map(n => n[0]).join("").toUpperCase()}
+														</AvatarFallback>
+													</Avatar>
 															<div className="text-sm">
 																<p className="font-medium">{notarization.enp.name}</p>
 																<p className="text-muted-foreground">ENP</p>
@@ -341,7 +355,9 @@ export default function NotarizationHistoryPage() {
 														</div>
 														<div className="flex items-center gap-2">
 															<Avatar className="h-8 w-8">
-																<AvatarFallback>{notarization.principal.name.split(" ").map(n => n[0]).join("")}</AvatarFallback>
+																<AvatarFallback>
+																	{notarization.principal.name.split(" ").map(n => n[0]).join("").toUpperCase()}
+																</AvatarFallback>
 															</Avatar>
 															<div className="text-sm">
 																<p className="font-medium">{notarization.principal.name}</p>
@@ -397,7 +413,7 @@ export default function NotarizationHistoryPage() {
 									</Card>
 								))}
 
-								{filteredNotarizations.length === 0 && (
+								{!isLoading && filteredNotarizations.length === 0 && (
 									<Card>
 										<CardContent className="py-12 text-center">
 											<FileText className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
@@ -412,11 +428,23 @@ export default function NotarizationHistoryPage() {
 									</Card>
 								)}
 							</div>
+							)}
 						</TabsContent>
 
 						<TabsContent value="completed" className="mt-6">
-							<div className="space-y-4">
-								{completedNotarizations.map((notarization) => (
+							{isLoading ? (
+								<div className="space-y-4">
+									{Array.from({ length: 3 }).map((_, i) => (
+										<Card key={i}>
+											<CardContent className="p-6">
+												<Skeleton className="h-32 w-full" />
+											</CardContent>
+										</Card>
+									))}
+								</div>
+							) : (
+								<div className="space-y-4">
+									{completedNotarizations.map((notarization) => (
 									<Card key={notarization.id} className="hover:shadow-md transition-shadow">
 										<CardContent className="p-6">
 											{/* Same content as above but only for completed */}
@@ -439,7 +467,7 @@ export default function NotarizationHistoryPage() {
 														</div>
 														<div className="flex items-center gap-1">
 															<Calendar className="h-4 w-4" />
-															<span>Completed {new Date(notarization.completedAt!).toLocaleDateString()}</span>
+															<span>Completed {format(new Date(notarization.completedAt!), "MMM dd, yyyy")}</span>
 														</div>
 														<div className="flex items-center gap-1">
 															<Clock className="h-4 w-4" />
@@ -478,11 +506,23 @@ export default function NotarizationHistoryPage() {
 									</Card>
 								))}
 							</div>
+							)}
 						</TabsContent>
 
 						<TabsContent value="cancelled" className="mt-6">
-							<div className="space-y-4">
-								{cancelledNotarizations.map((notarization) => (
+							{isLoading ? (
+								<div className="space-y-4">
+									{Array.from({ length: 3 }).map((_, i) => (
+										<Card key={i}>
+											<CardContent className="p-6">
+												<Skeleton className="h-32 w-full" />
+											</CardContent>
+										</Card>
+									))}
+								</div>
+							) : (
+								<div className="space-y-4">
+									{cancelledNotarizations.map((notarization) => (
 									<Card key={notarization.id} className="hover:shadow-md transition-shadow">
 										<CardContent className="p-6">
 											{/* Same content as above but only for cancelled */}
@@ -505,7 +545,7 @@ export default function NotarizationHistoryPage() {
 														</div>
 														<div className="flex items-center gap-1">
 															<Calendar className="h-4 w-4" />
-															<span>Cancelled {new Date(notarization.cancelledAt!).toLocaleDateString()}</span>
+															<span>Cancelled {format(new Date(notarization.cancelledAt!), "MMM dd, yyyy")}</span>
 														</div>
 													</div>
 
@@ -530,6 +570,7 @@ export default function NotarizationHistoryPage() {
 									</Card>
 								))}
 							</div>
+							)}
 						</TabsContent>
 					</Tabs>
 				</div>

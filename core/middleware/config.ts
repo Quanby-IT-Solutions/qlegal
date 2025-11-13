@@ -58,6 +58,7 @@ export const ROUTE_CONFIG: RouteConfig = {
 			{ path: "/requests" },
 			{ path: "/requests/incoming" },
 			{ path: "/requests/my-requests" },
+			{ path: "/scan" },
 			{ path: "/settings" },
 		],
 		byRole: {
