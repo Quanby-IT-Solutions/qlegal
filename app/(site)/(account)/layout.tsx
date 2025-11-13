@@ -1,12 +1,10 @@
-import { ShapesContainer } from "@/core/components/shapes-container"
-
 import { Navbar } from "@/features/home/components/navbar"
 
 export default function Layout(props: LayoutProps<"/">) {
 	return (
-		<ShapesContainer>
+		<div className="min-h-screen">
 			<Navbar />
 			{props.children}
-		</ShapesContainer>
+		</div>
 	)
 }

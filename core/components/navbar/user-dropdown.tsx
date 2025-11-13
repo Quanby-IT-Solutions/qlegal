@@ -1,7 +1,8 @@
 "use client"
 
-import { BadgeCheck, Bell, ChevronsUpDown, CreditCard, LogOut, Sparkles } from "lucide-react"
-import { useSession } from "next-auth/react"
+import { BadgeCheck, Bell, ChevronsUpDown, LogOut, Settings } from "lucide-react"
+import { useSession, signOut } from "next-auth/react"
+import { useRouter } from "next/navigation"
 
 import {
 	DropdownMenu,
@@ -25,6 +26,7 @@ type UserDropdownProps = {
 
 export const UserDropdown = ({ isMobile }: UserDropdownProps) => {
 	const { data: session } = useSession()
+	const router = useRouter()
 
 	return (
 		<SidebarMenu>
@@ -70,28 +72,32 @@ export const UserDropdown = ({ isMobile }: UserDropdownProps) => {
 						</DropdownMenuLabel>
 						<DropdownMenuSeparator />
 						<DropdownMenuGroup>
-							<DropdownMenuItem>
-								<Sparkles />
-								Upgrade to Pro
-							</DropdownMenuItem>
-						</DropdownMenuGroup>
-						<DropdownMenuSeparator />
-						<DropdownMenuGroup>
-							<DropdownMenuItem>
+							<DropdownMenuItem onClick={() => router.push("/profile")}>
 								<BadgeCheck />
-								Account
+								Profile
 							</DropdownMenuItem>
-							<DropdownMenuItem>
-								<CreditCard />
-								Billing
-							</DropdownMenuItem>
-							<DropdownMenuItem>
+							<DropdownMenuItem onClick={() => router.push("/notifications")}>
 								<Bell />
 								Notifications
 							</DropdownMenuItem>
+							<DropdownMenuItem onClick={() => router.push("/settings")}>
+								<Settings />
+								Settings
+							</DropdownMenuItem>
 						</DropdownMenuGroup>
 						<DropdownMenuSeparator />
-						<DropdownMenuItem>
+						<DropdownMenuItem
+							onClick={async () => {
+								try {
+									await signOut({
+										redirect: true,
+										callbackUrl: "/",
+									})
+								} catch {
+									void signOut()
+								}
+							}}
+						>
 							<LogOut />
 							Log out
 						</DropdownMenuItem>
