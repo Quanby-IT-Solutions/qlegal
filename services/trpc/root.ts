@@ -14,6 +14,7 @@ import { messagesRouter } from "@/features/messages/api/messages.router"
 import { profileRouter } from "@/features/profile/api/profile.router"
 import { settingsRouter } from "@/features/settings/api/settings.router"
 import { signatureLiteRouter } from "@/features/signature-lite/api/new-signature.router"
+import { witnessesRouter } from "@/features/witnesses/api/witnesses.router"
 
 /**
  * This is the primary router for your server.
@@ -39,6 +40,7 @@ export const appRouter = createTRPCRouter({
 	profile: profileRouter,
 	settings: settingsRouter,
 	signatureLite: signatureLiteRouter,
+	witnesses: witnessesRouter,
 })
 
 // export type definition of API
