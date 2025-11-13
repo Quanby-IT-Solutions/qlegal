@@ -61,6 +61,7 @@ export const ROUTE_CONFIG: RouteConfig = {
 			{ path: "/scan" },
 			{ path: "/settings" },
 			{ path: "/verification" },
+			{ path: "/notarial-book" },
 		],
 		byRole: {
 			ENP: [{ path: "/dashboard" }],
