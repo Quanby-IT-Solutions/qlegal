@@ -9,6 +9,7 @@ import * as meetingsSchema from "@/services/drizzle/schema/meetings"
 import * as messageAttachmentsSchema from "@/services/drizzle/schema/message-attachments"
 import * as messagesSchema from "@/services/drizzle/schema/messages"
 import * as signatureRequestsSchema from "@/services/drizzle/schema/signature-requests"
+import * as witnessesSchema from "@/services/drizzle/schema/witnesses"
 
 export const schema = {
 	...authSchema,
@@ -20,6 +21,7 @@ export const schema = {
 	...messagesSchema,
 	...messageAttachmentsSchema,
 	...signatureRequestsSchema,
+	...witnessesSchema,
 	...enumsSchema,
 	...relationsSchema,
 }

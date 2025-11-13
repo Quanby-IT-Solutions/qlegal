@@ -13,6 +13,7 @@ import {
 	messages,
 } from "@/services/drizzle/schema/messages"
 import { signatureRequests } from "@/services/drizzle/schema/signature-requests"
+import { witnesses } from "@/services/drizzle/schema/witnesses"
 
 // Meeting relations
 export const meetingsRelations = relations(meetings, ({ one, many }) => ({
@@ -157,5 +158,17 @@ export const enpAvailabilityRelations = relations(enpAvailability, ({ one }) => 
 	enp: one(users, {
 		fields: [enpAvailability.enpId],
 		references: [users.id],
+	}),
+}))
+
+// Witness relations
+export const witnessesRelations = relations(witnesses, ({ one }) => ({
+	enp: one(users, {
+		fields: [witnesses.enpId],
+		references: [users.id],
+	}),
+	appointment: one(appointments, {
+		fields: [witnesses.appointmentId],
+		references: [appointments.id],
 	}),
 }))

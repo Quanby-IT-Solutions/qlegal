@@ -60,6 +60,7 @@ export const ROUTE_CONFIG: RouteConfig = {
 			{ path: "/requests/my-requests" },
 			{ path: "/scan" },
 			{ path: "/settings" },
+			{ path: "/verification" },
 		],
 		byRole: {
 			ENP: [{ path: "/dashboard" }],
