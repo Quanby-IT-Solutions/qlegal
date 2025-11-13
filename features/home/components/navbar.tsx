@@ -141,6 +141,23 @@ function NavbarContent({
 				}}
 				className="flex h-full items-center gap-3"
 			>
+				{isAuthenticated && (
+					<>
+						<Link
+							href="/dashboard"
+							className={cn(
+								buttonVariants({
+									variant: "outline",
+									size: "sm",
+								}),
+								"font-medium"
+							)}
+						>
+							Dashboard
+						</Link>
+					</>
+				)}
+
 				<ModeToggle />
 
 				<div className="h-[40%]">

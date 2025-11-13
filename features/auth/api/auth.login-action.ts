@@ -14,7 +14,7 @@ import { sendVerificationToken } from "@/services/react-email/lib/send.verificat
 import { loginSchema, type LoginSchema } from "@/features/auth/api/auth.schemas"
 import { generateTwoFactorToken, generateVerificationToken } from "@/features/auth/lib/token"
 
-export const login = async (values: LoginSchema, callbackUrl?: string) => {
+export const login = async (values: LoginSchema) => {
 	const validatedFields = loginSchema.safeParse(values)
 
 	if (!validatedFields.success) {
@@ -107,9 +107,9 @@ export const login = async (values: LoginSchema, callbackUrl?: string) => {
 		await signIn("credentials", {
 			email,
 			password,
-			redirectTo: callbackUrl ?? "/",
+			redirect: false,
 		})
-		return { success: "Success" }
+		return { success: "Login successful!" }
 	} catch (error) {
 		if (error instanceof AuthError) {
 			switch (error.type) {
