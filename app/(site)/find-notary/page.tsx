@@ -78,16 +78,16 @@ export default function FindNotaryPage() {
 		},
 	})
 
-	// Enhanced ENPs with mock data (until we have a proper profile/lawyer table)
+	// Transform ENPs to EnhancedENP format with real data from backend
 	const enhancedEnps: EnhancedENP[] | undefined = enps?.map((enp) => ({
 		...enp,
-		specialization: "Legal Documents, Contracts",
-		rating: 4.8,
-		reviewCount: 0,
-		experience: "5+ years",
-		languages: ["English", "Filipino"],
-		responseTime: "Within 2 hours",
-		location: "Metro Manila", // Can be enhanced later with actual data
+		specialization: enp.specialization || "General Notary Services",
+		rating: enp.rating || 0,
+		reviewCount: enp.reviewCount || 0,
+		experience: enp.experience || "Not specified",
+		languages: Array.isArray(enp.languages) ? enp.languages : (enp.languages ? [enp.languages] : ["English"]),
+		responseTime: enp.responseTime || "Not specified",
+		location: "Not specified", // Location not stored in schema yet - can be added later
 	}))
 
 	// Filter ENPs based on search criteria

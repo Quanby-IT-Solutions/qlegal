@@ -1,8 +1,11 @@
 "use client"
 
-import { useState } from "react"
-import { Search, Filter, Clock, CheckCircle, XCircle, AlertCircle, FileText, Calendar, User, Play, Video, Handshake, MapPin } from "lucide-react"
+import { useState, useMemo } from "react"
+import { useSession } from "next-auth/react"
+import { Search, Filter, Clock, CheckCircle, XCircle, AlertCircle, FileText, Calendar, User, Play, Video, Handshake, MapPin, Loader2 } from "lucide-react"
+import { format } from "date-fns"
 
+import { trpc } from "@/services/trpc/client"
 import { SiteNavbar } from "@/core/components/navbar/site-navbar"
 import { Button } from "@/core/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/core/components/ui/card"
@@ -11,90 +14,134 @@ import { Badge } from "@/core/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/core/components/ui/select"
 import { Avatar, AvatarFallback, AvatarImage } from "@/core/components/ui/avatar"
 import { Progress } from "@/core/components/ui/progress"
-
-// Mock data for active notarizations
-const mockActiveNotarizations = [
-	{
-		id: "not_1",
-		title: "Real Estate Purchase Agreement",
-		status: "IN_PROGRESS",
-		workflow: "REN",
-		enp: {
-			name: "Atty. Maria Santos",
-			avatar: "/avatars/maria-santos.jpg",
-		},
-		principal: {
-			name: "John Doe",
-			email: "john.doe@email.com",
-		},
-		startedAt: "2024-01-15T10:00:00Z",
-		estimatedDuration: 30,
-		progress: 65,
-		documents: 2,
-		requirements: {
-			identityVerified: true,
-			videoRecording: true,
-			documentsScanned: false,
-			witnessPresent: false,
-		},
-		location: "Remote Video Call",
-	},
-	{
-		id: "not_2",
-		title: "Business Contract",
-		status: "IN_PROGRESS",
-		workflow: "IEN",
-		enp: {
-			name: "Atty. Juan Dela Cruz",
-			avatar: "/avatars/juan-dela-cruz.jpg",
-		},
-		principal: {
-			name: "Jane Smith",
-			email: "jane.smith@email.com",
-		},
-		startedAt: "2024-01-15T14:30:00Z",
-		estimatedDuration: 45,
-		progress: 30,
-		documents: 1,
-		requirements: {
-			identityVerified: true,
-			documentsScanned: true,
-			witnessPresent: false,
-			videoRecording: false,
-		},
-		location: "123 Main St, Makati City",
-	},
-	{
-		id: "not_3",
-		title: "Power of Attorney",
-		status: "PENDING_START",
-		workflow: "REN",
-		enp: {
-			name: "Atty. Ana Rodriguez",
-			avatar: "/avatars/ana-rodriguez.jpg",
-		},
-		principal: {
-			name: "Robert Johnson",
-			email: "robert.johnson@email.com",
-		},
-		scheduledAt: "2024-01-15T16:00:00Z",
-		estimatedDuration: 30,
-		progress: 0,
-		documents: 3,
-		requirements: {
-			identityVerified: false,
-			videoRecording: false,
-			documentsScanned: false,
-			witnessPresent: false,
-		},
-		location: "Remote Video Call",
-	},
-]
+import { Skeleton } from "@/core/components/ui/skeleton"
 
 export default function ActiveNotarizationsPage() {
+	const { data: session } = useSession()
 	const [searchTerm, setSearchTerm] = useState("")
 	const [statusFilter, setStatusFilter] = useState("ALL")
 	const [workflowFilter, setWorkflowFilter] = useState("ALL")
+
+	// Fetch active appointments (CONFIRMED and PENDING that haven't been cancelled or completed)
+	const { data: appointments, isLoading } = trpc.appointments.getMyAppointments.useQuery({
+		// Don't filter by status - we'll filter in the component to get both PENDING and CONFIRMED
+		limit: 100,
+		offset: 0,
+	})
+
+	// Transform appointments to notarization format
+	const notarizations = useMemo(() => {
+		if (!appointments) return []
+
+		// Filter to only include active appointments (PENDING or CONFIRMED, not CANCELLED or COMPLETED)
+		const activeAppointments = appointments.filter(
+			apt => apt.status === "PENDING" || apt.status === "CONFIRMED"
+		)
+
+		return activeAppointments.map((appointment) => {
+			// Determine workflow: 
+			// - REN if has meetingLink OR notes contain "Remote" keywords
+			// - IEN if has location OR notes contain "In-Person" keywords
+			const notesLower = (appointment.notes || "").toLowerCase()
+			const hasRemoteKeywords = notesLower.includes("remote") || notesLower.includes("ren")
+			const hasInPersonKeywords = notesLower.includes("in-person") || notesLower.includes("ien") || notesLower.includes("in person")
+			
+			let workflow: "REN" | "IEN"
+			if (appointment.meetingLink) {
+				workflow = "REN"
+			} else if (appointment.location) {
+				workflow = "IEN"
+			} else if (hasRemoteKeywords && !hasInPersonKeywords) {
+				workflow = "REN"
+			} else if (hasInPersonKeywords && !hasRemoteKeywords) {
+				workflow = "IEN"
+			} else {
+				// Default: if no clear indicator, check if notes mention remote
+				workflow = hasRemoteKeywords ? "REN" : "IEN"
+			}
+			
+			// Map appointment status to notarization status
+			// CONFIRMED appointments that haven't started yet are PENDING_START
+			// CONFIRMED appointments that have started are IN_PROGRESS
+			const now = new Date()
+			const appointmentDate = new Date(appointment.appointmentDate)
+			const hasStarted = appointmentDate <= now
+			const status = hasStarted ? "IN_PROGRESS" : "PENDING_START"
+
+			// Get ENP and Principal based on user role
+			const isENP = session?.user?.role === "ENP"
+			const enp = appointment.lawyer
+			const principal = appointment.client
+
+			// Generate a better title from notes or use a default
+			let title = ""
+			if (appointment.notes) {
+				// Try to extract a meaningful title from notes
+				// Remove common prefixes like "Consultation Type:", "Workflow:", etc.
+				const cleanedNotes = appointment.notes
+					.replace(/Consultation Type:\s*/gi, "")
+					.replace(/Workflow:\s*/gi, "")
+					.replace(/Meeting Preference:\s*/gi, "")
+					.replace(/Remote Electronic Notarization/gi, "REN")
+					.replace(/In-Person Electronic Notarization/gi, "IEN")
+					.trim()
+				
+				// If cleaned notes are still too long or contain multiple lines, use first meaningful part
+				if (cleanedNotes.length > 60 || cleanedNotes.includes("\n")) {
+					const firstLine = cleanedNotes.split("\n")[0]?.trim() || ""
+					title = firstLine.length > 60 ? `${firstLine.substring(0, 57)}...` : firstLine
+				} else {
+					title = cleanedNotes
+				}
+			}
+			
+			// Fallback to a formatted title
+			if (!title || title.length < 3) {
+				const typeLabel = appointment.type === "DOCUMENT_SIGNING" ? "Document Signing" : "Consultation"
+				title = `${typeLabel} - ${principal?.name || "Client"}`
+			}
+
+			// For now, we'll use placeholder requirements
+			// TODO: Fetch actual requirements from a separate table or calculate from related data
+			const requirements = {
+				identityVerified: hasStarted,
+				videoRecording: workflow === "REN" && hasStarted,
+				documentsScanned: workflow === "IEN" && hasStarted,
+				witnessPresent: false,
+			}
+
+			// Calculate progress (simplified - TODO: calculate from actual requirements)
+			const requirementsProgress = Object.values(requirements).filter(Boolean).length
+			const requirementsTotal = Object.keys(requirements).length
+			const requirementsPercent = (requirementsProgress / requirementsTotal) * 100
+			const overallProgress = hasStarted ? Math.min(requirementsPercent + 20, 100) : 0
+
+			// Get document count (TODO: fetch from related documents/envelopes)
+			const documents = 0 // Placeholder
+
+			return {
+				id: appointment.id,
+				title,
+				status,
+				workflow,
+				enp: {
+					name: enp?.name || "Unknown ENP",
+					avatar: enp?.image || undefined,
+				},
+				principal: {
+					name: principal?.name || "Unknown Client",
+					email: principal?.email || "",
+				},
+				startedAt: hasStarted ? appointment.appointmentDate.toISOString() : undefined,
+				scheduledAt: !hasStarted ? appointment.appointmentDate.toISOString() : undefined,
+				estimatedDuration: appointment.duration || 30,
+				progress: overallProgress,
+				documents,
+				requirements,
+				location: appointment.location || (workflow === "REN" ? "Remote Video Call" : "Location TBD"),
+			}
+		})
+	}, [appointments, session?.user?.role])
 
 	const getStatusIcon = (status: string) => {
 		switch (status) {
@@ -140,7 +187,7 @@ export default function ActiveNotarizationsPage() {
 		return (completed / total) * 100
 	}
 
-	const filteredNotarizations = mockActiveNotarizations.filter(notarization => {
+	const filteredNotarizations = notarizations.filter(notarization => {
 		const matchesSearch = notarization.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
 			notarization.enp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
 			notarization.principal.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -214,11 +261,28 @@ export default function ActiveNotarizationsPage() {
 					<div className="space-y-4">
 						<div className="flex items-center justify-between">
 							<h2 className="text-xl font-semibold">
-								{filteredNotarizations.length} Active Notarization{filteredNotarizations.length !== 1 ? "s" : ""}
+								{isLoading ? (
+									<Skeleton className="h-6 w-48" />
+								) : (
+									<>
+										{filteredNotarizations.length} Active Notarization{filteredNotarizations.length !== 1 ? "s" : ""}
+									</>
+								)}
 							</h2>
 						</div>
 
-						{filteredNotarizations.map((notarization) => (
+						{isLoading ? (
+							<div className="space-y-4">
+								{Array.from({ length: 3 }).map((_, i) => (
+									<Card key={i}>
+										<CardContent className="p-6">
+											<Skeleton className="h-32 w-full" />
+										</CardContent>
+									</Card>
+								))}
+							</div>
+						) : (
+							filteredNotarizations.map((notarization) => (
 							<Card key={notarization.id} className="hover:shadow-md transition-shadow">
 								<CardContent className="p-6">
 									<div className="flex items-start justify-between">
@@ -242,8 +306,8 @@ export default function ActiveNotarizationsPage() {
 													<Calendar className="h-4 w-4" />
 													<span>
 														{notarization.status === "PENDING_START" 
-															? `Scheduled ${new Date(notarization.scheduledAt!).toLocaleString()}`
-															: `Started ${new Date(notarization.startedAt).toLocaleString()}`
+															? `Scheduled ${format(new Date(notarization.scheduledAt!), "PPp")}`
+															: `Started ${format(new Date(notarization.startedAt!), "PPp")}`
 														}
 													</span>
 												</div>
@@ -294,7 +358,9 @@ export default function ActiveNotarizationsPage() {
 												<div className="flex items-center gap-2">
 													<Avatar className="h-8 w-8">
 														<AvatarImage src={notarization.enp.avatar} alt={notarization.enp.name} />
-														<AvatarFallback>{notarization.enp.name.split(" ").map(n => n[0]).join("")}</AvatarFallback>
+														<AvatarFallback>
+															{notarization.enp.name.split(" ").map(n => n[0]).join("").toUpperCase()}
+														</AvatarFallback>
 													</Avatar>
 													<div className="text-sm">
 														<p className="font-medium">{notarization.enp.name}</p>
@@ -303,7 +369,9 @@ export default function ActiveNotarizationsPage() {
 												</div>
 												<div className="flex items-center gap-2">
 													<Avatar className="h-8 w-8">
-														<AvatarFallback>{notarization.principal.name.split(" ").map(n => n[0]).join("")}</AvatarFallback>
+														<AvatarFallback>
+														{notarization.principal.name.split(" ").map(n => n[0]).join("").toUpperCase()}
+													</AvatarFallback>
 													</Avatar>
 													<div className="text-sm">
 														<p className="font-medium">{notarization.principal.name}</p>
@@ -354,9 +422,9 @@ export default function ActiveNotarizationsPage() {
 									</div>
 								</CardContent>
 							</Card>
-						))}
+						)))}
 
-						{filteredNotarizations.length === 0 && (
+						{!isLoading && filteredNotarizations.length === 0 && (
 							<Card>
 								<CardContent className="py-12 text-center">
 									<FileText className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
