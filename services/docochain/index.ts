@@ -460,6 +460,7 @@ export async function sendDocoChainProject(projectUuid: string) {
 /**
  * Generate a unique signing link for a specific project and recipient
  * This link can be sent to the user to access and sign the document
+ * Uses the Generate Sign Link API: POST https://stg-app.doconchain.com/api/v2/projects/{uuid}/link/generate
  */
 export async function generateSignLink({
 	projectUuid,
@@ -477,8 +478,13 @@ export async function generateSignLink({
 			throw new Error("DocoChain API token not configured")
 		}
 
-		const apiUrl = `${DOCOCHAIN_API_BASE}/api/v2/projects/${projectUuid}/link/generate?email=${encodeURIComponent(email)}`
-		console.log("🔵 Calling DocoChain API:", apiUrl)
+		// The endpoint is on the API domain, not the app domain
+		// stg-app.doconchain.com is the frontend (Remix app), API endpoints are on stg-api2.doconchain.com
+		// Endpoint: POST /api/v2/projects/{uuid}/link/generate?email={email}&user_type=ENTERPRISE_API
+		// No body required, only email as query parameter
+		// Adding user_type=ENTERPRISE_API like all other API endpoints
+		const apiUrl = `${DOCOCHAIN_API_BASE}/api/v2/projects/${projectUuid}/link/generate?email=${encodeURIComponent(email)}&user_type=ENTERPRISE_API`
+		console.log("🔵 Calling DocoChain Generate Sign Link API:", apiUrl)
 
 		const response = await fetch(apiUrl, {
 			method: "POST",
@@ -486,6 +492,7 @@ export async function generateSignLink({
 				Authorization: `Bearer ${DOCOCHAIN_API_TOKEN}`,
 				Accept: "application/json",
 			},
+			// No body required as per API documentation
 		})
 
 		console.log("📡 DocoChain generate link response status:", response.status)
@@ -497,17 +504,43 @@ export async function generateSignLink({
 		}
 
 		const result = await response.json()
-		console.log("✅ Signing link generated successfully:", result)
+		console.log("✅ Signing link generated successfully - FULL RESPONSE:", JSON.stringify(result, null, 2))
 
-		// DocoChain returns the link in the 'message' field
-		const link = result.message || result.link
-		console.log("✅ Extracted signing link:", link)
+		// Extract the link from the response
+		// The Generate Sign Link API should return the signing link directly
+		// Try multiple possible locations in the response
+		let link = result.data?.link || 
+		           result.data?.url || 
+		           result.data?.signing_link ||
+		           result.data?.sign_url ||
+		           result.link || 
+		           result.url ||
+		           result.signing_link ||
+		           result.sign_url ||
+		           result.message || 
+		           result.data?.message
+
+		console.log("✅ Extracted signing link (raw):", link)
+		console.log("✅ Response structure:", {
+			hasData: !!result.data,
+			hasLink: !!result.link,
+			hasUrl: !!result.url,
+			hasMessage: !!result.message,
+			keys: Object.keys(result),
+			dataKeys: result.data ? Object.keys(result.data) : null,
+		})
 
 		if (!link) {
-			throw new Error("DocoChain did not return a valid signing link")
+			console.error("❌ No link found in response. Full response:", result)
+			throw new Error(`DocoChain did not return a valid signing link. Response: ${JSON.stringify(result)}`)
 		}
 
-		return { link }
+		// Use the link EXACTLY as returned by the API - don't modify it
+		// The Generate Sign Link API returns a unique signing link with authentication tokens
+		// that should bypass the draft interface and go directly to signing
+		console.log("✅ Using signing link EXACTLY as returned by API:", link)
+
+		return { link: String(link) }
 	} catch (error) {
 		console.error("❌ Error generating signing link:", error)
 		throw error

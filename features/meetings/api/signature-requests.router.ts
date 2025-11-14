@@ -249,7 +249,19 @@ export const signatureRequestsRouter = createTRPCRouter({
 					signerRole: "Signer",
 				})
 
-				// Step 2: Generate the signing link for this ENP
+				// Step 2: Send/deploy the project so it's ready for signing
+				// The Generate Sign Link API requires the project to be sent/deployed
+				console.log("🔵 Sending DocoChain project to enable signing...")
+				try {
+					await sendDocoChainProject(projectUuid)
+					console.log("✅ Project sent successfully")
+				} catch (sendError) {
+					console.warn("⚠️ Failed to send project (may already be sent):", sendError)
+					// Continue anyway - project might already be sent
+				}
+
+				// Step 3: Generate the signing link for this ENP
+				// This must be done AFTER sending the project
 				console.log("🔵 Generating signing link for ENP...")
 				const result = await generateSignLink({
 					projectUuid,
