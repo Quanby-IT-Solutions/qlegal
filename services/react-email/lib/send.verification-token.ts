@@ -8,7 +8,9 @@ import { emailTransporter } from "@/services/react-email/utils"
 import { env } from "@/env"
 
 export async function sendVerificationToken(email: string, token: string) {
-	const confirmLink = `${getUrl()}/auth/verify-email?token=${token}`
+	// URL encode the token to ensure it's properly handled in the email link
+	const encodedToken = encodeURIComponent(token)
+	const confirmLink = `${getUrl()}/auth/verify-email?token=${encodedToken}`
 
 	await emailTransporter.sendMail({
 		from: `Quanby Sign <${env.EMAIL_FROM}>`,

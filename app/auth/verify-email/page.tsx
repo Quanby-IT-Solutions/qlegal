@@ -19,7 +19,9 @@ export default async function LoginPage({
 }: {
 	searchParams: Promise<{ token?: string }>
 }) {
-	const { token } = await searchParams
+	const params = await searchParams
+	// Decode the token from URL if it's encoded
+	const token = params.token ? decodeURIComponent(params.token) : undefined
 
 	return (
 		<Card className="w-full max-w-md">
