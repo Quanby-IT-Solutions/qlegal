@@ -770,6 +770,130 @@ export async function generateEditDraftLink(projectUuid: string): Promise<{ link
 }
 
 /**
+ * Check if a document/project is fully signed
+ * Returns signing status information including signer details
+ */
+export interface SigningStatusResult {
+	isFullySigned: boolean
+	projectStatus: string // "Draft" | "Sent" | "Completed" | etc.
+	completedAt: string | null
+	totalSigners: number
+	signedCount: number
+	signers: Array<{
+		id: number
+		email: string
+		firstName: string
+		lastName: string
+		status: string // "PENDING" | "SIGNED" | "DECLINED" | etc.
+		signedAt: string | null
+		sequence: number
+		signerRole: string
+	}>
+}
+
+export async function checkSigningStatus(projectUuid: string): Promise<SigningStatusResult> {
+	console.log("🔵 Checking signing status for project...")
+	console.log("   - Project UUID:", projectUuid)
+
+	try {
+		const projectDetails = await getProjectDetails(projectUuid)
+		const projectData = projectDetails?.data
+
+		if (!projectData) {
+			throw new Error("Project not found or invalid response")
+		}
+
+		const signers = projectData.signers || []
+		const signedSigners = signers.filter((s: { status: string; signed_at: string | null }) => 
+			s.status === "SIGNED" || s.signed_at !== null
+		)
+
+		const isFullySigned = signers.length > 0 && signedSigners.length === signers.length && 
+			(projectData.status === "Completed" || projectData.completed_at !== null)
+
+		console.log("✅ Signing status checked:")
+		console.log("   - Project Status:", projectData.status)
+		console.log("   - Total Signers:", signers.length)
+		console.log("   - Signed Count:", signedSigners.length)
+		console.log("   - Is Fully Signed:", isFullySigned)
+
+		return {
+			isFullySigned,
+			projectStatus: projectData.status || "Unknown",
+			completedAt: projectData.completed_at || null,
+			totalSigners: signers.length,
+			signedCount: signedSigners.length,
+			signers: signers.map((s: any) => ({
+				id: s.id,
+				email: s.email,
+				firstName: s.first_name || "",
+				lastName: s.last_name || "",
+				status: s.status || "PENDING",
+				signedAt: s.signed_at || null,
+				sequence: s.sequence || 0,
+				signerRole: s.signer_role || s.role || "",
+			})),
+		}
+	} catch (error) {
+		console.error("❌ Error checking signing status:", error)
+		throw error
+	}
+}
+
+/**
+ * Download the signed document from DocoChain
+ * Returns the signed PDF as a Buffer
+ */
+export async function downloadSignedDocument(projectUuid: string): Promise<{ buffer: Buffer; fileName: string; url: string }> {
+	console.log("🔵 Downloading signed document from DocoChain...")
+	console.log("   - Project UUID:", projectUuid)
+
+	try {
+		const projectDetails = await getProjectDetails(projectUuid)
+		const projectData = projectDetails?.data
+
+		if (!projectData) {
+			throw new Error("Project not found or invalid response")
+		}
+
+		// Get the signed document URL from project data
+		// DocoChain provides the signed document URL in the 'url' field when completed
+		const signedDocumentUrl = projectData.url
+
+		if (!signedDocumentUrl) {
+			throw new Error("Signed document URL not available. Document may not be fully signed yet.")
+		}
+
+		console.log("📥 Fetching signed document from:", signedDocumentUrl)
+
+		// Download the PDF from DocoChain CDN
+		const response = await fetch(signedDocumentUrl)
+
+		if (!response.ok) {
+			throw new Error(`Failed to download signed document: ${response.status} ${response.statusText}`)
+		}
+
+		const arrayBuffer = await response.arrayBuffer()
+		const buffer = Buffer.from(arrayBuffer)
+
+		const fileName = projectData.file_name || projectData.name || `signed-document-${projectUuid}.pdf`
+
+		console.log("✅ Signed document downloaded successfully")
+		console.log("   - File name:", fileName)
+		console.log("   - File size:", buffer.length, "bytes")
+
+		return {
+			buffer,
+			fileName,
+			url: signedDocumentUrl,
+		}
+	} catch (error) {
+		console.error("❌ Error downloading signed document:", error)
+		throw error
+	}
+}
+
+/**
  * Generate DocoChain signing URL
  */
 export function getDocoChainSigningUrl(projectUuid: string): string {

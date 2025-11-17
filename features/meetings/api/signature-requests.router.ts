@@ -8,7 +8,7 @@ import { signatureRequests } from "@/services/drizzle/schema/signature-requests"
 import { documents } from "@/services/drizzle/schema/document"
 import { users } from "@/services/drizzle/schema/auth"
 import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
-import { addSignerToProject, sendDocoChainProject, generateSignLink, generateEditDraftLink, autoJoinOrganization, getProjectDetails, deleteSigner, updateProjectSigner } from "@/services/docochain"
+import { addSignerToProject, sendDocoChainProject, generateSignLink, generateEditDraftLink, autoJoinOrganization, getProjectDetails, deleteSigner, updateProjectSigner, checkSigningStatus, downloadSignedDocument } from "@/services/docochain"
 
 const DOCOCHAIN_API_BASE = env.DOCOCHAIN_API_URL || "https://stg-api2.doconchain.com"
 
@@ -527,6 +527,74 @@ export const signatureRequestsRouter = createTRPCRouter({
 				console.error("❌ Error checking if user is signer:", error)
 				// Return false on error to be safe
 				return { isSigner: false }
+			}
+		}),
+
+	// Check if a document is fully signed
+	checkSigningStatus: protectedProcedure
+		.input(
+			z.object({
+				projectUuid: z.string().min(1, "Project UUID is required"),
+			})
+		)
+		.query(async ({ input }) => {
+			const { projectUuid } = input
+
+			try {
+				const status = await checkSigningStatus(projectUuid)
+				return status
+			} catch (error) {
+				console.error("❌ Error checking signing status:", error)
+				throw new TRPCError({
+					code: "INTERNAL_SERVER_ERROR",
+					message: error instanceof Error ? error.message : "Failed to check signing status",
+				})
+			}
+		}),
+
+	// Download the signed document from DocoChain
+	downloadSignedDocument: protectedProcedure
+		.input(
+			z.object({
+				projectUuid: z.string().min(1, "Project UUID is required"),
+			})
+		)
+		.query(async ({ input }) => {
+			const { projectUuid } = input
+
+			try {
+				// First check if document is fully signed
+				const status = await checkSigningStatus(projectUuid)
+				
+				if (!status.isFullySigned) {
+					throw new TRPCError({
+						code: "BAD_REQUEST",
+						message: `Document is not fully signed yet. Status: ${status.projectStatus}, Signed: ${status.signedCount}/${status.totalSigners}`,
+					})
+				}
+
+				// Download the signed document
+				const { buffer, fileName, url } = await downloadSignedDocument(projectUuid)
+
+				// Convert buffer to base64 for transmission
+				const base64 = buffer.toString('base64')
+
+				return {
+					success: true,
+					fileName,
+					documentUrl: url,
+					base64,
+					size: buffer.length,
+				}
+			} catch (error) {
+				console.error("❌ Error downloading signed document:", error)
+				if (error instanceof TRPCError) {
+					throw error
+				}
+				throw new TRPCError({
+					code: "INTERNAL_SERVER_ERROR",
+					message: error instanceof Error ? error.message : "Failed to download signed document",
+				})
 			}
 		}),
 })
