@@ -28,7 +28,13 @@ export const appointmentStatus = pgEnum("appointment_status", [
 ])
 
 // Appointment type enum
-export const appointmentType = pgEnum("appointment_type", [
-	"DOCUMENT_SIGNING",
-	"CONSULTATION",
+export const appointmentType = pgEnum("appointment_type", ["DOCUMENT_SIGNING", "CONSULTATION"])
+
+// Legal application status enum
+export const legalApplicationStatus = pgEnum("legal_application_status", [
+	"DRAFT",
+	"PENDING",
+	"UNDER_REVIEW",
+	"APPROVED",
+	"REJECTED",
 ])

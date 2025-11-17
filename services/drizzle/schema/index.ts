@@ -5,6 +5,7 @@ import * as authSchema from "@/services/drizzle/schema/auth"
 import * as documentSchema from "@/services/drizzle/schema/document"
 import * as enpProfilesSchema from "@/services/drizzle/schema/enp-profiles"
 import * as envelopeSchema from "@/services/drizzle/schema/envelope"
+import * as legalRegistrationSchema from "@/services/drizzle/schema/legal-registration"
 import * as meetingsSchema from "@/services/drizzle/schema/meetings"
 import * as messageAttachmentsSchema from "@/services/drizzle/schema/message-attachments"
 import * as messagesSchema from "@/services/drizzle/schema/messages"
@@ -18,6 +19,7 @@ export const schema = {
 	...documentSchema,
 	...enpProfilesSchema,
 	...envelopeSchema,
+	...legalRegistrationSchema,
 	...meetingsSchema,
 	...messagesSchema,
 	...messageAttachmentsSchema,

@@ -5,6 +5,7 @@ import { users } from "@/services/drizzle/schema/auth"
 import { documents } from "@/services/drizzle/schema/document"
 import { enpAvailability, enpProfiles } from "@/services/drizzle/schema/enp-profiles"
 import { envelopes } from "@/services/drizzle/schema/envelope"
+import { legalRegistrations } from "@/services/drizzle/schema/legal-registration"
 import { meetingParticipants, meetings } from "@/services/drizzle/schema/meetings"
 import { messageAttachments } from "@/services/drizzle/schema/message-attachments"
 import {
@@ -34,6 +35,10 @@ export const userRelations = relations(users, ({ one, many }) => ({
 		references: [enpProfiles.userId],
 	}),
 	enpAvailability: many(enpAvailability),
+	legalRegistration: one(legalRegistrations, {
+		fields: [users.id],
+		references: [legalRegistrations.applicantId],
+	}),
 }))
 
 // Document relations
@@ -56,7 +61,6 @@ export const envelopeRelations = relations(envelopes, ({ one }) => ({
 		references: [users.id],
 	}),
 }))
-
 
 export const meetingParticipantsRelations = relations(meetingParticipants, ({ one }) => ({
 	meeting: one(meetings, {
@@ -170,5 +174,13 @@ export const witnessesRelations = relations(witnesses, ({ one }) => ({
 	appointment: one(appointments, {
 		fields: [witnesses.appointmentId],
 		references: [appointments.id],
+	}),
+}))
+
+// Legal Registration relations
+export const legalRegistrationsRelations = relations(legalRegistrations, ({ one }) => ({
+	applicant: one(users, {
+		fields: [legalRegistrations.applicantId],
+		references: [users.id],
 	}),
 }))
