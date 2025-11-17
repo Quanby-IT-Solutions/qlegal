@@ -1,6 +1,6 @@
 "use client"
 
-import { Camera, CameraOff, FileText, FileUp, Mic, MicOff, Monitor, PhoneOff, Users, Send, FileSignature, CircleDot, Square } from "lucide-react"
+import { Camera, CameraOff, FileText, FileUp, Mic, MicOff, Monitor, PhoneOff, Users, Send, FileSignature, CircleDot, Square, X } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import { MeetingProvider, useMeeting, useParticipant } from "@videosdk.live/react-sdk"
 import { useSession } from "next-auth/react"
@@ -398,7 +398,7 @@ function DocumentActions({
 	document: { id: string; name: string; docoChainProjectId: string | null }
 	isPrincipal: boolean
 	isENP: boolean
-	onSignClick: (projectUuid: string, email: string) => void
+	onSignClick: (projectUuid: string, email: string, documentId: string) => void
 	isSigningPending: boolean
 }) {
 	const { data: session } = useSession()
@@ -436,7 +436,7 @@ function DocumentActions({
 							// 1. Add ENP as signer using Add Project Signer API
 							// 2. Generate signing link
 							// 3. Redirect to DocoChain signing page
-							onSignClick(document.docoChainProjectId, userEmail)
+							onSignClick(document.docoChainProjectId, userEmail, document.id)
 						} else {
 							toast.error(
 								!document.docoChainProjectId 
@@ -475,6 +475,9 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 	const [selectedSignerId, setSelectedSignerId] = useState<string>("")
 	const [isSendDialogOpen, setIsSendDialogOpen] = useState(false)
 	const [dismissedRequestIds, setDismissedRequestIds] = useState<Set<string>>(new Set())
+	const [signingUrl, setSigningUrl] = useState<string | null>(null)
+	const [signingProjectUuid, setSigningProjectUuid] = useState<string | null>(null)
+	const [signingDocumentId, setSigningDocumentId] = useState<string | null>(null)
 	
 	// Fetch meeting documents
 	const { data: documents, refetch: refetchDocuments } = trpc.meetings.getMeetingDocuments.useQuery(
@@ -524,7 +527,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 		},
 	})
 
-	// ENP initiates signing - adds them as signer and opens signing page in new tab
+	// ENP initiates signing - adds them as signer and embeds signing page
 	const initiateSigning = trpc.signatureRequests.initiateSigning.useMutation({
 		onSuccess: (data) => {
 			// Validate that we have a valid URL string
@@ -549,18 +552,45 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 			console.log("   - Project UUID:", data.projectUuid)
 			console.log("   - Signing link:", signingLink)
 			
-			// Open DocoChain signing page in new tab to keep meeting open
-			const signingWindow = window.open(signingLink, "_blank", "noopener,noreferrer")
-			if (signingWindow) {
-				toast.success("Opening signing page in new tab...")
+			// Open DocoChain signing page in popup window (iframe blocked by DocoChain)
+			// Open in popup window with specific dimensions (centered, almost fullscreen)
+			const width = Math.min(window.innerWidth - 40, 1400)
+			const height = Math.min(window.innerHeight - 40, 900)
+			const left = (window.screen.width - width) / 2
+			const top = (window.screen.height - height) / 2
+			
+			const popup = window.open(
+				signingLink,
+				'DocoChainSigning',
+				`width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes,toolbar=no,location=no,menubar=no`
+			)
+			
+			if (popup) {
+				// Store reference for monitoring
+				setSigningUrl(signingLink)
+				setSigningProjectUuid(data.projectUuid)
+				
+				// Monitor popup for closing
+				const checkClosed = setInterval(() => {
+					if (popup.closed) {
+						clearInterval(checkClosed)
+						setSigningUrl(null)
+						setSigningProjectUuid(null)
+						setSigningDocumentId(null)
+						refetchDocuments()
+						toast.success("Signing completed. Document status updated.")
+					}
+				}, 500)
+				
+				toast.success("Opening signing interface in popup window...")
 			} else {
-				// Fallback if popup blocked - redirect instead
-				window.location.href = signingLink
-				toast.success("Redirecting to signing page...")
+				toast.error("Popup blocked. Please allow popups for this site and try again.")
+				setSigningDocumentId(null) // Clear loading state
 			}
 		},
 		onError: (error) => {
 			console.error("❌ Failed to initiate signing:", error)
+			setSigningDocumentId(null) // Clear loading state on error
 			toast.error(error.message || "Failed to start signing process")
 		},
 	})
@@ -824,14 +854,16 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 														document={doc}
 														isPrincipal={isPrincipal}
 														isENP={session?.user?.role === "ENP"}
-														onSignClick={(projectUuid, email) => {
+														onSignClick={(projectUuid, email, documentId) => {
+															// Set the document ID being signed before mutation
+															setSigningDocumentId(documentId)
 															// ENP clicks to initiate signing - adds them as signer and redirects
 															initiateSigning.mutate({
 																projectUuid,
 																email,
 															})
 														}}
-														isSigningPending={initiateSigning.isPending}
+														isSigningPending={initiateSigning.isPending && signingDocumentId === doc.id}
 													/>
 												</CardContent>
 											</Card>
@@ -1002,6 +1034,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 					</DialogContent>
 				</Dialog>
 			)}
+
 		</div>
 	)
 }
