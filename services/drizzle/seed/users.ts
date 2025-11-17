@@ -1,6 +1,6 @@
 import { faker } from "@faker-js/faker"
 import { hash } from "bcryptjs"
-import { eq, inArray } from "drizzle-orm"
+import { inArray } from "drizzle-orm"
 import { seed } from "drizzle-seed"
 
 import { db } from "@/services/drizzle/db"
