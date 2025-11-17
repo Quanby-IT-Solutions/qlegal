@@ -1,5 +1,6 @@
 import { faker } from "@faker-js/faker"
 import { hash } from "bcryptjs"
+import { eq, inArray } from "drizzle-orm"
 import { seed } from "drizzle-seed"
 
 import { db } from "@/services/drizzle/db"
@@ -21,6 +22,11 @@ export async function createUsers() {
 	}))
 
 	if (testAccountData.length > 0) {
+		// Delete existing test accounts by email to avoid conflicts
+		const testEmails = testAccountData.map(account => account.email)
+		await db.delete(users).where(inArray(users.email, testEmails))
+
+		// Insert test accounts
 		await db.insert(users).values(testAccountData)
 	}
 
@@ -41,7 +47,7 @@ export async function createUsers() {
 					}),
 					image: funcs.default({ defaultValue: faker.image.avatar() }),
 					password: funcs.default({ defaultValue: hashedPassword }),
-					role: funcs.default({ defaultValue: "client" }),
+					role: funcs.default({ defaultValue: "PRINCIPAL" }),
 				},
 			},
 		}))
