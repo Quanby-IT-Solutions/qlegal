@@ -317,16 +317,46 @@ export const meetingsRouter = createTRPCRouter({
 			}
 
 			try {
-				// Create document record in database
+				// Validate file type - only PDF is supported by DocoChain Create Project API
+				if (mimeType !== "application/pdf") {
+					throw new TRPCError({
+						code: "BAD_REQUEST",
+						message: "Only PDF files are supported for document signing via DocoChain",
+					})
+				}
+
+				// Decode base64 file data
+				const fileBuffer = Buffer.from(file, "base64")
+
+				// STEP 1: Create DocoChain project FIRST using Create Project API
+				// This is the PRIMARY upload - the project UUID is critical for identifying the document
+				console.log("🔵 Creating DocoChain project for:", name)
+				const docoChainProject = await createDocoChainProject({
+					title: name,
+					documentFile: fileBuffer,
+					fileName: name.endsWith('.pdf') ? name : `${name}.pdf`,
+					userListEditable: false, // Recipients cannot be edited after creation
+					creatorAsViewer: false, // Creator is not added as a viewer
+				})
+				const docoChainProjectId = docoChainProject.uuid // THIS IS THE CRITICAL PROJECT UUID
+				const docoChainRedirectUrl = docoChainProject.redirectUrl || null
+				console.log("✅ DocoChain project created!")
+				console.log("   - Project UUID:", docoChainProjectId)
+				console.log("   - Project ID:", docoChainProject.id)
+				console.log("   - Redirect URL:", docoChainRedirectUrl)
+
+				// STEP 2: Create document record in database with DocoChain project UUID
 				const [document] = await db
 					.insert(documents)
 					.values({
 						name,
-						path: "", // Will be updated after upload
+						path: "", // Will be updated after Supabase upload
 						type: mimeType,
 						size,
 						description: input.description || null,
 						meetingId,
+						docoChainProjectId, // Store the critical project UUID
+						docoChainRedirectUrl,
 					})
 					.returning()
 
@@ -337,18 +367,11 @@ export const meetingsRouter = createTRPCRouter({
 					})
 				}
 
-				// Upload to Supabase storage - use service role client for server-side uploads
+				// STEP 3: Upload to Supabase storage for backup/access
 				const supabase = getServiceRoleClient()
 				const fileName = `meetings/${meetingId}/${document.id}/${name}`
 
-				// Decode base64 file data
-				const fileBuffer = Buffer.from(file, "base64")
-
-				console.log("🔵 Uploading to Supabase storage...")
-				console.log("   - Bucket: documents")
-				console.log("   - File name:", fileName)
-				console.log("   - File size:", fileBuffer.length, "bytes")
-
+				console.log("🔵 Uploading to Supabase storage (backup)...")
 				const { data: uploadData, error: uploadError } = await supabase.storage
 					.from("documents")
 					.upload(fileName, fileBuffer, {
@@ -357,50 +380,21 @@ export const meetingsRouter = createTRPCRouter({
 					})
 
 				if (uploadError) {
-					console.error("❌ Supabase upload error:", uploadError)
-					console.error("❌ Error details:", JSON.stringify(uploadError, null, 2))
-					// Clean up database record if upload fails
-					await db.delete(documents).where(eq(documents.id, document.id))
-					throw new TRPCError({
-						code: "INTERNAL_SERVER_ERROR",
-						message: `Upload failed: ${uploadError.message}`,
-					})
+					console.warn("⚠️ Supabase upload failed but DocoChain project created successfully")
+				} else {
+					console.log("✅ Uploaded to Supabase:", uploadData.path)
 				}
 
-				console.log("✅ Uploaded to Supabase:", uploadData.path)
+				// Get public URL for the document
+				const publicUrl = uploadData?.path 
+					? supabase.storage.from("documents").getPublicUrl(uploadData.path).data.publicUrl
+					: null
 
-				// Get public URL for the document first
-				const {
-					data: { publicUrl },
-				} = supabase.storage.from("documents").getPublicUrl(uploadData.path)
-
-				// Create DocoChain project SYNCHRONOUSLY (wait for it)
-				let docoChainProjectId: string | null = null
-				let docoChainRedirectUrl: string | null = null
-				try {
-					console.log("🔵 Creating DocoChain project for:", name)
-					const docoChainProject = await createDocoChainProject({
-						title: name,
-						documentFile: fileBuffer,
-						fileName: name.endsWith('.pdf') ? name : `${name}.pdf`,
-					})
-					docoChainProjectId = docoChainProject.uuid
-					docoChainRedirectUrl = docoChainProject.redirectUrl || null
-					console.log("✅ DocoChain project created:", docoChainProjectId)
-					console.log("✅ DocoChain redirect URL:", docoChainRedirectUrl)
-				} catch (docoChainError) {
-					console.error("❌ Failed to create DocoChain project:", docoChainError)
-					console.error("Error details:", docoChainError instanceof Error ? docoChainError.message : String(docoChainError))
-					// Continue without DocoChain - signing will be disabled
-				}
-
-				// Update document with storage path, DocoChain project ID, AND redirect URL
+				// Update document with storage path
 				const [updatedDocument] = await db
 					.update(documents)
 					.set({ 
-						path: uploadData.path,
-						docoChainProjectId,
-						docoChainRedirectUrl,
+						path: uploadData?.path || "",
 					})
 					.where(eq(documents.id, document.id))
 					.returning()

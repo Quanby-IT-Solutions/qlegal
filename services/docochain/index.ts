@@ -7,11 +7,14 @@ import { env } from "@/env"
 
 const DOCOCHAIN_API_BASE = env.DOCOCHAIN_API_URL || "https://stg-api2.doconchain.com"
 const DOCOCHAIN_API_TOKEN = env.DOCOCHAIN_API_TOKEN || ""
+const DOCOCHAIN_ORGANIZATION_ID = env.DOCOCHAIN_ORGANIZATION_ID || ""
 
 interface CreateProjectRequest {
 	title: string
 	documentFile: Buffer // PDF file buffer
 	fileName: string
+	userListEditable?: boolean // If false, recipients cannot be edited after creation
+	creatorAsViewer?: boolean // If false, creator is not added as a viewer
 }
 
 interface DocoChainApiResponse {
@@ -47,6 +50,8 @@ export async function createDocoChainProject({
 	title,
 	documentFile,
 	fileName,
+	userListEditable = false,
+	creatorAsViewer = false,
 }: CreateProjectRequest): Promise<{ uuid: string; id: number; redirectUrl?: string }> {
 	console.log("🔵 Starting DocoChain project creation...")
 	console.log("   - Title:", title)
@@ -64,13 +69,17 @@ export async function createDocoChainProject({
 		const fileBlob = new Blob([new Uint8Array(documentFile)], { type: "application/pdf" })
 		formData.append("file", fileBlob, fileName)
 		
-		// Prevent creator (Principal) from being added to the document
-		// Only the ENP should be in the document
-		formData.append("creator_as_viewer", "false")
+		// Add optional parameters per API specification
+		// user_list_editable: If false, recipients cannot be edited after creation
+		formData.append("user_list_editable", String(userListEditable))
+		
+		// creator_as_viewer: If false, creator is not added as a viewer
+		formData.append("creator_as_viewer", String(creatorAsViewer))
 
 		const apiUrl = `${DOCOCHAIN_API_BASE}/api/v2/projects?user_type=ENTERPRISE_API`
 		console.log("🔵 Calling DocoChain API:", apiUrl)
-		console.log("   - creator_as_viewer: false (Principal will NOT be added)")
+		console.log("   - user_list_editable:", userListEditable)
+		console.log("   - creator_as_viewer:", creatorAsViewer)
 
 		const response = await fetch(apiUrl, {
 			method: "POST",
@@ -168,10 +177,27 @@ export async function addSignerToProject({
 			const errorText = await response.text()
 			console.error("❌ DocoChain add signer error:", errorText)
 			
-			// If signer already exists, that's OK - continue
-			if (response.status === 400 && errorText.includes("already")) {
-				console.log("ℹ️ Signer already exists in project - continuing...")
-				return { message: "Signer already exists" }
+			// If signer already exists, verify it was actually added by checking project details
+			if (response.status === 400) {
+				if (errorText.includes("already") || errorText.includes("already been added")) {
+					console.log("ℹ️ Signer already exists in project - verifying...")
+					try {
+						// Verify the signer exists by getting project details
+						const projectDetails = await getProjectDetails(projectUuid)
+						const signers = projectDetails?.data?.signers || []
+						const signerExists = signers.some((s: { email: string }) => s.email === email)
+						if (signerExists) {
+							console.log("✅ Signer verified in project")
+							return { message: "Signer already exists", verified: true }
+						} else {
+							console.warn("⚠️ Signer not found in project despite 'already exists' error")
+							throw new Error(`Signer was not properly added to project: ${errorText}`)
+						}
+					} catch (verifyError) {
+						console.error("❌ Failed to verify signer:", verifyError)
+						throw new Error(`DocoChain API error: ${response.status} ${response.statusText} - ${errorText}`)
+					}
+				}
 			}
 			
 			throw new Error(`DocoChain API error: ${response.status} ${response.statusText} - ${errorText}`)
@@ -190,26 +216,36 @@ export async function addSignerToProject({
 /**
  * Auto-join a user to the DocoChain organization
  * This makes them an organization member instead of a guest
+ * Requires organization_id to be set in environment variables
  */
 export async function autoJoinOrganization({
 	email,
 	firstName,
 	lastName,
 	role = "Member",
+	organizationId,
 }: {
 	email: string
 	firstName: string
 	lastName: string
 	role?: string
+	organizationId?: string
 }): Promise<void> {
 	console.log("🔵 Auto-joining user to DocoChain organization...")
 	console.log("   - Email:", email)
 	console.log("   - Name:", firstName, lastName)
 	console.log("   - Role:", role)
+	console.log("   - Organization ID:", organizationId || DOCOCHAIN_ORGANIZATION_ID)
 
 	try {
 		if (!DOCOCHAIN_API_TOKEN) {
 			throw new Error("DocoChain API token not configured")
+		}
+
+		const orgId = organizationId || DOCOCHAIN_ORGANIZATION_ID
+		if (!orgId) {
+			console.warn("⚠️ Organization ID not configured. User will be added as GUEST.")
+			return
 		}
 
 		const formData = new FormData()
@@ -217,6 +253,7 @@ export async function autoJoinOrganization({
 		formData.append("data[0][first_name]", firstName)
 		formData.append("data[0][last_name]", lastName)
 		formData.append("data[0][role]", role)
+		formData.append("data[0][organization_id]", orgId)
 
 		const response = await fetch(
 			`${DOCOCHAIN_API_BASE}/api/v2/organization/members/auto-join?user_type=ENTERPRISE_API`,
@@ -236,10 +273,16 @@ export async function autoJoinOrganization({
 			const errorText = await response.text()
 			console.error("❌ DocoChain auto-join error:", errorText)
 			
-			// Check if user already exists in organization (409 Conflict)
+			// Check if user already exists in organization (409 Conflict or 400 with specific message)
 			if (response.status === 409) {
-				console.log("ℹ️ User already exists in organization - continuing...")
+				console.log("ℹ️ User already exists in organization (409) - continuing...")
 				return // Not a critical error
+			}
+			
+			// Check for 400 error with "already exist" message
+			if (response.status === 400 && errorText.includes("already exist")) {
+				console.log("ℹ️ User already exists in organization (400) - continuing...")
+				return // Not a critical error - user is already in the organization
 			}
 			
 			// Check if unauthorized (need better token)
@@ -532,17 +575,196 @@ export async function generateSignLink({
 
 		if (!link) {
 			console.error("❌ No link found in response. Full response:", result)
-			throw new Error(`DocoChain did not return a valid signing link. Response: ${JSON.stringify(result)}`)
+			// Fallback: Construct signing URL using project UUID directly
+			console.log("⚠️ Falling back to direct project URL...")
+			const appBaseUrl = DOCOCHAIN_API_BASE.includes('stg') 
+				? 'https://stg-app.doconchain.com'
+				: 'https://app.doconchain.com'
+			link = `${appBaseUrl}/${projectUuid}`
+			console.log("✅ Using fallback URL:", link)
 		}
 
-		// Use the link EXACTLY as returned by the API - don't modify it
-		// The Generate Sign Link API returns a unique signing link with authentication tokens
-		// that should bypass the draft interface and go directly to signing
-		console.log("✅ Using signing link EXACTLY as returned by API:", link)
+		// Ensure link is a valid URL
+		if (typeof link === 'string' && !link.startsWith('http')) {
+			console.warn("⚠️ Link doesn't start with http, might be invalid:", link)
+			// If it's just a path, prepend the app base URL
+			const appBaseUrl = DOCOCHAIN_API_BASE.includes('stg') 
+				? 'https://stg-app.doconchain.com'
+				: 'https://app.doconchain.com'
+			if (link.startsWith('/')) {
+				link = `${appBaseUrl}${link}`
+			} else {
+				link = `${appBaseUrl}/${link}`
+			}
+			console.log("✅ Constructed full URL:", link)
+		}
 
-		return { link: String(link) }
+		// Ensure link is always a string, never an object
+		if (typeof link !== 'string') {
+			console.error("❌ Link is not a string:", typeof link, link)
+			// Fallback to direct project URL
+			const appBaseUrl = DOCOCHAIN_API_BASE.includes('stg') 
+				? 'https://stg-app.doconchain.com'
+				: 'https://app.doconchain.com'
+			link = `${appBaseUrl}/${projectUuid}`
+			console.log("⚠️ Using fallback URL due to invalid link type:", link)
+		}
+
+		console.log("✅ Final signing link:", link)
+		return { link }
 	} catch (error) {
 		console.error("❌ Error generating signing link:", error)
+		throw error
+	}
+}
+
+/**
+ * Update a project signer
+ * PUT /projects/{uuid}/signers/{signerId}?user_type=ENTERPRISE_API
+ */
+export async function updateProjectSigner({
+	projectUuid,
+	signerId,
+	firstName,
+	lastName,
+	sequence,
+	signerRole,
+}: {
+	projectUuid: string
+	signerId: string | number
+	firstName: string
+	lastName: string
+	sequence: number
+	signerRole: string
+}) {
+	console.log("🔵 Updating project signer...")
+	console.log("   - Project UUID:", projectUuid)
+	console.log("   - Signer ID:", signerId)
+	console.log("   - Name:", firstName, lastName)
+	console.log("   - Sequence:", sequence)
+	console.log("   - Signer Role:", signerRole)
+
+	try {
+		if (!DOCOCHAIN_API_TOKEN) {
+			throw new Error("DocoChain API token not configured")
+		}
+
+		const response = await fetch(
+			`${DOCOCHAIN_API_BASE}/projects/${projectUuid}/signers/${signerId}?user_type=ENTERPRISE_API`,
+			{
+				method: "PUT",
+				headers: {
+					Authorization: `Bearer ${DOCOCHAIN_API_TOKEN}`,
+					"Content-Type": "application/json",
+					Accept: "application/json",
+				},
+				body: JSON.stringify({
+					first_name: firstName,
+					last_name: lastName,
+					sequence,
+					signer_role: signerRole,
+				}),
+			}
+		)
+
+		console.log("📡 DocoChain update signer response status:", response.status)
+
+		if (!response.ok) {
+			const errorText = await response.text()
+			console.error("❌ DocoChain update signer error:", errorText)
+			throw new Error(`DocoChain API error: ${response.status} ${response.statusText} - ${errorText}`)
+		}
+
+		const result = await response.json()
+		console.log("✅ Signer updated successfully:", result)
+
+		return result
+	} catch (error) {
+		console.error("❌ Error updating project signer:", error)
+		throw error
+	}
+}
+
+/**
+ * Generate Edit Draft Project Link
+ * This generates a link that allows editing/plotting/signing a draft project
+ * POST https://stg-api2.doconchain.com/api/v2/projects/{uuid}/link?user_type=ENTERPRISE_API
+ */
+export async function generateEditDraftLink(projectUuid: string): Promise<{ link: string }> {
+	console.log("🔵 Generating edit draft project link...")
+	console.log("   - Project UUID:", projectUuid)
+
+	try {
+		if (!DOCOCHAIN_API_TOKEN) {
+			throw new Error("DocoChain API token not configured")
+		}
+
+		const apiUrl = `${DOCOCHAIN_API_BASE}/api/v2/projects/${projectUuid}/link?user_type=ENTERPRISE_API`
+		console.log("🔵 Calling DocoChain Generate Edit Draft Link API:", apiUrl)
+
+		const response = await fetch(apiUrl, {
+			method: "POST",
+			headers: {
+				Authorization: `Bearer ${DOCOCHAIN_API_TOKEN}`,
+				Accept: "application/json",
+			},
+		})
+
+		console.log("📡 DocoChain generate edit draft link response status:", response.status)
+
+		if (!response.ok) {
+			const errorText = await response.text()
+			console.error("❌ DocoChain generate edit draft link error:", errorText)
+			throw new Error(`DocoChain API error: ${response.status} ${response.statusText} - ${errorText}`)
+		}
+
+		const result = await response.json()
+		console.log("✅ Edit draft link generated successfully - FULL RESPONSE:", JSON.stringify(result, null, 2))
+
+		// Extract the link from the response
+		// API returns: { message: { message: "...", link: "..." } }
+		// OR: { message: "..." } (string)
+		// OR: { data: { link: "..." } }
+		let link = result.message?.link ||  // If message is an object with link property
+		           (typeof result.message === 'string' ? result.message : null) ||  // If message is a string (link)
+		           result.data?.link || 
+		           result.data?.url || 
+		           result.link || 
+		           result.url ||
+		           result.data?.message
+
+		console.log("✅ Extracted edit draft link (raw):", link)
+
+		if (!link) {
+			console.error("❌ No link found in response. Full response:", result)
+			throw new Error(`DocoChain did not return a valid edit draft link. Response: ${JSON.stringify(result)}`)
+		}
+
+		// Ensure link is a valid URL
+		if (typeof link === 'string' && !link.startsWith('http')) {
+			console.warn("⚠️ Link doesn't start with http, might be invalid:", link)
+			// If it's just a path, prepend the app base URL
+			const appBaseUrl = DOCOCHAIN_API_BASE.includes('stg') 
+				? 'https://stg-app.doconchain.com'
+				: 'https://app.doconchain.com'
+			if (link.startsWith('/')) {
+				link = `${appBaseUrl}${link}`
+			} else {
+				link = `${appBaseUrl}/${link}`
+			}
+			console.log("✅ Constructed full URL:", link)
+		}
+
+		// Ensure link is always a string, never an object
+		if (typeof link !== 'string') {
+			console.error("❌ Link is not a string:", typeof link, link)
+			throw new Error(`Invalid link type: expected string, got ${typeof link}`)
+		}
+
+		console.log("✅ Final edit draft link:", link)
+		return { link }
+	} catch (error) {
+		console.error("❌ Error generating edit draft link:", error)
 		throw error
 	}
 }

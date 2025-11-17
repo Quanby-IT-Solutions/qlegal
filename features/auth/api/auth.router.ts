@@ -6,6 +6,7 @@ import { passwordResetTokens, users, verificationTokens } from "@/services/drizz
 import { sendPasswordResetToken } from "@/services/react-email/lib/send.password-reset-token"
 import { sendVerificationToken } from "@/services/react-email/lib/send.verification-token"
 import { createTRPCRouter, publicProcedure } from "@/services/trpc/init"
+import { autoJoinOrganization } from "@/services/docochain"
 
 import {
 	forgotPasswordSchema,
@@ -37,6 +38,25 @@ export const authRouter = createTRPCRouter({
 			email,
 			password: hashedPassword,
 		})
+
+		// Auto-join user to DocoChain organization
+		// This makes them an organization member so they can use DocoChain features
+		try {
+			const nameParts = name.split(" ")
+			const firstName = nameParts[0] || "User"
+			const lastName = nameParts.slice(1).join(" ") || ""
+
+			await autoJoinOrganization({
+				email,
+				firstName,
+				lastName,
+				role: "Member",
+			})
+			console.log("✅ User auto-joined to DocoChain organization")
+		} catch (error) {
+			// Don't fail registration if auto-join fails
+			console.warn("⚠️ Failed to auto-join user to DocoChain organization:", error)
+		}
 
 		const verificationToken = await generateVerificationToken(email)
 		await sendVerificationToken(verificationToken.email, verificationToken.token)
@@ -145,10 +165,25 @@ export const authRouter = createTRPCRouter({
 			})
 		}
 
+		// Decode the token in case it's URL encoded
+		const decodedToken = decodeURIComponent(token)
+
+		console.log("🔵 Verifying email token...")
+		console.log("   - Token (raw):", token)
+		console.log("   - Token (decoded):", decodedToken)
+
 		const existingToken = await ctx.db.query.verificationTokens.findFirst({
-			where: (data, { eq }) => eq(data.token, token),
+			where: (data, { eq }) => eq(data.token, decodedToken),
 		})
+
 		if (!existingToken) {
+			console.error("❌ Verification token not found in database")
+			// Try to find by email to help debug
+			const allTokens = await ctx.db.query.verificationTokens.findMany({
+				limit: 5,
+			})
+			console.log("   - Recent tokens in DB:", allTokens.map(t => ({ email: t.email, token: t.token?.substring(0, 10) + "..." })))
+			
 			throw new TRPCError({
 				code: "NOT_FOUND",
 				message: "Verification token not found.",
