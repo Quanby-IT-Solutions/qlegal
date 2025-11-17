@@ -57,6 +57,19 @@ export const profileRouter = createTRPCRouter({
 			}
 		}),
 
+	getSummary: protectedProcedure.query(async ({ ctx }) => {
+		const user = await ctx.db.query.users.findFirst({
+			where: eq(users.id, ctx.session.user.id),
+			columns: {
+				name: true,
+			},
+		})
+
+		return {
+			organization: user?.name ?? "",
+		}
+	}),
+
 	getPersonalInformation: protectedProcedure.query(async ({ ctx }) => {
 		const user = await ctx.db.query.users.findFirst({
 			where: eq(users.id, ctx.session.user.id),

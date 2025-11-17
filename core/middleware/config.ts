@@ -32,6 +32,7 @@ export const ROUTE_CONFIG: RouteConfig = {
 		{ path: "/auth/register", exact: true },
 		{ path: "/auth/reset-password", exact: true },
 		{ path: "/auth/verify-email", exact: true },
+		{ path: "/auth/legal-registration", exact: true },
 	],
 
 	// Protected routes - require authentication and role-based access
