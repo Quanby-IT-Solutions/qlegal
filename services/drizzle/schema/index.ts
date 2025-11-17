@@ -12,6 +12,7 @@ import * as signatureRequestsSchema from "@/services/drizzle/schema/signature-re
 import * as witnessesSchema from "@/services/drizzle/schema/witnesses"
 
 export const schema = {
+	...enumsSchema,
 	...authSchema,
 	...appointmentsSchema,
 	...documentSchema,
@@ -22,6 +23,5 @@ export const schema = {
 	...messageAttachmentsSchema,
 	...signatureRequestsSchema,
 	...witnessesSchema,
-	...enumsSchema,
 	...relationsSchema,
 }
