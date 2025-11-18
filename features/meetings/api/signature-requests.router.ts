@@ -236,10 +236,37 @@ export const signatureRequestsRouter = createTRPCRouter({
 			const { projectUuid, email } = input
 
 			try {
-				// Get document to check for stored redirect URL (has auth token)
+				// Get document to check for stored redirect URL (has auth token) and get meeting
 				const document = await db.query.documents.findFirst({
 					where: eq(documents.docoChainProjectId, projectUuid),
+					with: {
+						meeting: {
+							with: {
+								participants: {
+									with: {
+										user: {
+											columns: {
+												id: true,
+												name: true,
+												email: true,
+											},
+										},
+									},
+								},
+							},
+						},
+					},
 				})
+
+				if (!document || !document.meeting) {
+					throw new TRPCError({
+						code: "NOT_FOUND",
+						message: "Document or meeting not found",
+					})
+				}
+
+				const meeting = document.meeting
+				const participants = meeting.participants || []
 
 				// Get user details
 				const nameParts = (ctx.session.user.name || "").split(" ")
@@ -248,71 +275,94 @@ export const signatureRequestsRouter = createTRPCRouter({
 
 				console.log("🔵 ENP initiating signing process...")
 				console.log("   - Project UUID:", projectUuid)
+				console.log("   - Meeting ID:", meeting.id)
+				console.log("   - Total participants:", participants.length)
 				console.log("   - ENP Email:", email)
 				console.log("   - ENP Name:", userFirstName, userLastName)
 
-				// Step 1: Auto-join the ENP to the organization (optional - makes them organization member instead of guest)
-				console.log("🔵 Step 1: Auto-joining ENP to organization...")
-				try {
-					await autoJoinOrganization({
-						email,
-						firstName: userFirstName,
-						lastName: userLastName,
-						role: "Member",
-					})
-					console.log("✅ ENP auto-joined to organization")
-				} catch (orgError) {
-					console.warn("⚠️ Failed to auto-join ENP to organization (continuing anyway):", orgError)
-					// Continue - organization membership is optional for signing
+				// Step 1: Add ALL meeting participants as signers to DocoChain
+				// IMPORTANT: Project must be in 'Draft' status to add signers (per API docs)
+				console.log("🔵 Step 1: Adding all meeting participants as signers to DocoChain project...")
+				
+				const addedEmails = new Set<string>()
+				
+				for (const participant of participants) {
+					const participantUser = participant.user
+					if (!participantUser || !participantUser.email) {
+						console.warn(`⚠️ Skipping participant with no email: ${participantUser?.name || 'Unknown'}`)
+						continue
+					}
+
+					// Skip if already added
+					if (addedEmails.has(participantUser.email)) {
+						console.log(`ℹ️ Skipping duplicate participant: ${participantUser.email}`)
+						continue
+					}
+
+					const nameParts = (participantUser.name || "").split(" ")
+					const firstName = nameParts[0] || "User"
+					const lastName = nameParts.slice(1).join(" ") || ""
+
+					console.log(`   - Adding signer: ${firstName} ${lastName} (${participantUser.email})`)
+
+					try {
+						// Auto-join to organization (optional - makes them organization member instead of guest)
+						try {
+							await autoJoinOrganization({
+								email: participantUser.email,
+								firstName,
+								lastName,
+								role: "Member",
+							})
+						} catch (orgError) {
+							// Continue - organization membership is optional
+							console.warn(`   ⚠️ Failed to auto-join ${participantUser.email} to organization (continuing)`)
+						}
+
+						// Add as signer
+						await addSignerToProject({
+							projectUuid,
+							email: participantUser.email,
+							firstName,
+							lastName,
+							signerRole: "Signer",
+						})
+
+						addedEmails.add(participantUser.email)
+						console.log(`   ✅ Added signer: ${participantUser.email}`)
+					} catch (addError) {
+						// If signer already exists, that's okay - continue
+						if (addError instanceof Error && (
+							addError.message.includes("already") || 
+							addError.message.includes("already been added") ||
+							addError.message.includes("400")
+						)) {
+							console.log(`   ℹ️ Signer already exists: ${participantUser.email}`)
+							addedEmails.add(participantUser.email)
+						} else {
+							console.error(`   ❌ Failed to add signer ${participantUser.email}:`, addError)
+							// Continue with other participants - don't fail the whole process
+						}
+					}
 				}
 
-				// Step 2: Add the ENP as a signer to the project using Add Project Signer API
-				// IMPORTANT: Project must be in 'Draft' status to add signers (per API docs)
-				// We keep the project in Draft so the ENP can plot/edit/sign using the Edit Draft Link
-				console.log("🔵 Step 2: Adding ENP as signer to project using Add Project Signer API...")
-				console.log("   - Project UUID:", projectUuid)
-				console.log("   - Email:", email)
-				console.log("   - Name:", userFirstName, userLastName)
-				console.log("   - Type: GUEST")
-				console.log("   - Signer Role: Signer")
-				
-				const addSignerResponse = await addSignerToProject({
-					projectUuid,
-					email,
-					firstName: userFirstName,
-					lastName: userLastName,
-					signerRole: "Signer",
-				})
-				console.log("✅ ENP added as signer to project")
+				console.log(`✅ Added ${addedEmails.size} signers to DocoChain project`)
 
-				// Step 2.5: Update ENP signer sequence to 1 so they can plot and sign first
-				// Extract signer ID from response
+				// Step 2: Get ENP signer ID and update their sequence to 1 so they can plot and sign first
+				console.log("🔵 Step 2: Getting ENP signer ID and updating sequence to 1...")
 				let signerId: number | null = null
-				if (addSignerResponse && typeof addSignerResponse === 'object') {
-					// Response might be { data: [{ id, ... }] } or just [{ id, ... }]
-					const signers = addSignerResponse.data || (Array.isArray(addSignerResponse) ? addSignerResponse : [])
-					const enpSigner = Array.isArray(signers) 
-						? signers.find((s: { email: string; id: number }) => s.email === email)
-						: null
-					
+				
+				// Get project details to find the ENP signer ID
+				try {
+					const projectDetails = await getProjectDetails(projectUuid)
+					const signers = projectDetails?.data?.signers || []
+					const enpSigner = signers.find((s: { email: string; id: number }) => s.email === email)
 					if (enpSigner && enpSigner.id) {
 						signerId = typeof enpSigner.id === 'number' ? enpSigner.id : parseInt(String(enpSigner.id), 10)
+						console.log(`✅ Found ENP signer ID: ${signerId}`)
 					}
-				}
-
-				// If signer was already added, get project details to find the signer ID
-				if (!signerId) {
-					console.log("🔵 Signer ID not in response, fetching project details...")
-					try {
-						const projectDetails = await getProjectDetails(projectUuid)
-						const signers = projectDetails?.data?.signers || []
-						const enpSigner = signers.find((s: { email: string; id: number }) => s.email === email)
-						if (enpSigner && enpSigner.id) {
-							signerId = typeof enpSigner.id === 'number' ? enpSigner.id : parseInt(String(enpSigner.id), 10)
-						}
-					} catch (detailsError) {
-						console.warn("⚠️ Failed to get project details:", detailsError)
-					}
+				} catch (detailsError) {
+					console.warn("⚠️ Failed to get project details:", detailsError)
 				}
 
 				// Step 2.5: Check if ENP is the creator and update their role/sequence

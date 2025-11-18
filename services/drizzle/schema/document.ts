@@ -22,6 +22,7 @@ export const documents = createTable("document", t => ({
 	meetingId: t
 		.varchar({ length: 255 })
 		.references(() => meetings.id, { onDelete: "cascade" }),
+	order: t.integer().default(0), // Order for drag and drop
 	createdAt: t.timestamp({ mode: "date", withTimezone: true }).defaultNow().notNull(),
 	updatedAt: t
 		.timestamp({ mode: "date", withTimezone: true })

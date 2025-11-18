@@ -438,7 +438,54 @@ export const meetingsRouter = createTRPCRouter({
 			})
 		}
 
-		return meeting.documents
+		return meeting.documents.sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
 	}),
+
+	// Update document order
+	updateDocumentOrder: protectedProcedure
+		.input(
+			z.object({
+				meetingId: z.string(),
+				documentIds: z.array(z.string()),
+			})
+		)
+		.mutation(async ({ input, ctx }) => {
+			const meeting = await db.query.meetings.findFirst({
+				where: eq(meetings.id, input.meetingId),
+				with: {
+					participants: true,
+					documents: true,
+				},
+			})
+
+			if (!meeting) {
+				throw new TRPCError({
+					code: "NOT_FOUND",
+					message: "Meeting not found",
+				})
+			}
+
+			// Check if user has access
+			const hasAccess = meeting.participants.some((p) => p.userId === ctx.session.user.id)
+
+			if (!hasAccess) {
+				throw new TRPCError({
+					code: "FORBIDDEN",
+					message: "You don't have access to this meeting",
+				})
+			}
+
+			// Update order for each document
+			await Promise.all(
+				input.documentIds.map((documentId, index) =>
+					db
+						.update(documents)
+						.set({ order: index })
+						.where(eq(documents.id, documentId))
+				)
+			)
+
+			return { success: true }
+		}),
 })
 
