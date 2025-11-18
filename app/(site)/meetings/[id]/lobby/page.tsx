@@ -32,15 +32,7 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 		}
 	}, [session, router, id])
 
-	// Auto-start camera preview when lobby loads
-	useEffect(() => {
-		if (session && meeting?.status === "ONGOING" && !stream) {
-			const timer = setTimeout(() => {
-				void startPreview()
-			}, 500) // Small delay to ensure component is mounted
-			return () => clearTimeout(timer)
-		}
-	}, [session, meeting?.status, stream])
+	// Don't auto-start - let users choose
 
 	// Update video element when stream changes
 	useEffect(() => {
@@ -70,6 +62,7 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 		
 		setIsTestingDevices(true)
 		try {
+			// Try to get both video and audio, but don't block if it fails
 			const mediaStream = await navigator.mediaDevices.getUserMedia({
 				video: {
 					width: { ideal: 1280 },
@@ -77,23 +70,12 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 				},
 				audio: true,
 			})
-			
-		setStream(mediaStream)
-		setIsCameraOn(true)
-		setIsMicOn(true)
-		toast.success("Camera and microphone ready!")
+			setStream(mediaStream)
+			setIsCameraOn(true)
+			setIsMicOn(true)
 		} catch (error) {
-			console.error("Error accessing media devices:", error)
-			const errorMessage = error instanceof Error ? error.message : "Unknown error"
-			
-			if (errorMessage.includes("Permission denied") || errorMessage.includes("NotAllowedError")) {
-				toast.error("Camera/microphone permission denied. Please allow access in your browser settings.")
-			} else if (errorMessage.includes("NotFoundError")) {
-				toast.error("No camera or microphone found. Please connect a device.")
-			} else {
-				toast.error("Failed to access camera/microphone. Please check your device settings.")
-			}
-			
+			// Silently fail - user can still join without camera/mic
+			console.log("Media devices not available, user can still join")
 			setIsCameraOn(false)
 			setIsMicOn(false)
 		} finally {
@@ -361,7 +343,6 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 							<Button 
 								className="w-full h-11 text-sm shadow-md hover:shadow-lg transition-all" 
 								onClick={handleJoinMeeting}
-								disabled={!stream}
 							>
 								<Video className="mr-2 size-4" />
 								Join Meeting Now

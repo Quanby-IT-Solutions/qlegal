@@ -1,6 +1,6 @@
 "use client"
 
-import { Camera, CameraOff, FileText, FileUp, Mic, MicOff, Monitor, PhoneOff, Users, Send, FileSignature, CircleDot, Square, X } from "lucide-react"
+import { Camera, CameraOff, FileText, FileUp, Mic, MicOff, Monitor, PhoneOff, Users, Send, FileSignature, CircleDot, Square, X, GripVertical } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import { MeetingProvider, useMeeting, useParticipant } from "@videosdk.live/react-sdk"
 import { useSession } from "next-auth/react"
@@ -478,6 +478,8 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 	const [signingUrl, setSigningUrl] = useState<string | null>(null)
 	const [signingProjectUuid, setSigningProjectUuid] = useState<string | null>(null)
 	const [signingDocumentId, setSigningDocumentId] = useState<string | null>(null)
+	const [draggedDocumentId, setDraggedDocumentId] = useState<string | null>(null)
+	const [dragOverDocumentId, setDragOverDocumentId] = useState<string | null>(null)
 	
 	// Fetch meeting documents
 	const { data: documents, refetch: refetchDocuments } = trpc.meetings.getMeetingDocuments.useQuery(
@@ -524,6 +526,137 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 		},
 		onError: (error) => {
 			toast.error(error.message || "Failed to update request")
+		},
+	})
+
+	// Update document order mutation (for drag and drop)
+	const updateDocumentOrder = trpc.meetings.updateDocumentOrder.useMutation({
+		onSuccess: () => {
+			refetchDocuments() // Refetch to sync with other users
+		},
+		onError: (error) => {
+			toast.error(error.message || "Failed to update document order")
+		},
+	})
+
+	// Drag and drop handlers
+	const handleDragStart = (e: React.DragEvent, documentId: string) => {
+		// Don't start drag if clicking on interactive elements (buttons, links, etc.)
+		const target = e.target as HTMLElement
+		if (target.closest('button') || target.closest('a') || target.closest('[role="button"]')) {
+			e.preventDefault()
+			return
+		}
+		
+		setDraggedDocumentId(documentId)
+		e.dataTransfer.effectAllowed = "move"
+		e.dataTransfer.setData("text/plain", documentId)
+	}
+
+	const handleDragEnter = (e: React.DragEvent, targetDocumentId: string) => {
+		e.preventDefault()
+		if (!draggedDocumentId || targetDocumentId === draggedDocumentId) return
+		setDragOverDocumentId(targetDocumentId)
+	}
+
+	const handleDragLeave = (e: React.DragEvent) => {
+		e.preventDefault()
+		const relatedTarget = e.relatedTarget as HTMLElement
+		if (!relatedTarget || !e.currentTarget.contains(relatedTarget)) {
+			setDragOverDocumentId(null)
+		}
+	}
+
+	const handleDragOver = (e: React.DragEvent, targetDocumentId: string) => {
+		e.preventDefault()
+		e.dataTransfer.dropEffect = "move"
+		if (draggedDocumentId && targetDocumentId !== draggedDocumentId) {
+			setDragOverDocumentId(targetDocumentId)
+		}
+	}
+
+	const handleDrop = (e: React.DragEvent, targetDocumentId: string) => {
+		e.preventDefault()
+		setDragOverDocumentId(null)
+		
+		if (!draggedDocumentId || !meetingId) {
+			setDraggedDocumentId(null)
+			return
+		}
+		
+		if (!documents) {
+			setDraggedDocumentId(null)
+			return
+		}
+
+		const sourceIndex = documents.findIndex(doc => doc.id === draggedDocumentId)
+		const targetIndex = documents.findIndex(doc => doc.id === targetDocumentId)
+		
+		if (sourceIndex === -1 || targetIndex === -1 || sourceIndex === targetIndex) {
+			setDraggedDocumentId(null)
+			return
+		}
+
+		// Reorder documents
+		const newOrder = [...documents]
+		const removed = newOrder.splice(sourceIndex, 1)[0]
+		if (!removed) {
+			setDraggedDocumentId(null)
+			return
+		}
+		newOrder.splice(targetIndex, 0, removed)
+		
+		// Update order in database (this will sync to all users)
+		updateDocumentOrder.mutate({
+			meetingId,
+			documentIds: newOrder.map(doc => doc.id),
+		})
+
+		setDraggedDocumentId(null)
+	}
+
+	const handleDragEnd = () => {
+		setDraggedDocumentId(null)
+		setDragOverDocumentId(null)
+	}
+
+	// Generate signing link mutation (for signature request dialog)
+	const generateSigningLink = trpc.signatureRequests.generateSigningLink.useMutation({
+		onSuccess: (data) => {
+			const signingLink = typeof data.link === 'string' ? data.link : null
+			
+			if (!signingLink) {
+				toast.error("Invalid signing link received")
+				return
+			}
+
+			try {
+				new URL(signingLink)
+			} catch {
+				toast.error("Invalid URL format for signing link")
+				return
+			}
+
+			// Open DocoChain signing page in popup window
+			const width = Math.min(window.innerWidth - 40, 1400)
+			const height = Math.min(window.innerHeight - 40, 900)
+			const left = (window.screen.width - width) / 2
+			const top = (window.screen.height - height) / 2
+			
+			const popup = window.open(
+				signingLink,
+				'DocoChainSigning',
+				`width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes,toolbar=no,location=no,menubar=no`
+			)
+			
+			if (popup) {
+				toast.success("Opening signing interface...")
+			} else {
+				toast.error("Popup blocked. Please allow popups for this site and try again.")
+			}
+		},
+		onError: (error) => {
+			toast.error(error.message || "Failed to generate signing link")
 		},
 	})
 
@@ -831,13 +964,50 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 						</div>
 						{showDocuments && (
 							<div className="overflow-y-auto max-h-[350px] px-3 md:px-4 lg:px-6 py-4">
-								<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
+								<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4 transition-all duration-300">
 									{documents.map((doc) => {
 										const isPrincipal = meetingDetails?.createdBy.id === session?.user?.id
+										const isDragged = draggedDocumentId === doc.id
+										const isDragOver = dragOverDocumentId === doc.id
+										
 										return (
-											<Card key={doc.id} className="shadow-md hover:shadow-lg transition-all border-2 hover:border-primary/50">
+											<Card 
+												key={doc.id} 
+												style={{
+													opacity: isDragged ? 0.5 : 1,
+													transform: isDragged 
+														? 'scale(0.95)' 
+														: isDragOver 
+															? 'scale(1.03)' 
+															: 'scale(1)',
+													transition: isDragged 
+														? 'opacity 0.2s ease-out, transform 0.2s ease-out' 
+														: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+													zIndex: isDragged ? 50 : isDragOver ? 10 : 1,
+												}}
+												className={cn(
+													"shadow-md hover:shadow-lg border-2",
+													isDragged 
+														? "cursor-grabbing shadow-2xl" 
+														: "hover:border-primary/50 hover:shadow-xl",
+													isDragOver && !isDragged && "border-primary border-2 shadow-xl bg-primary/5"
+												)}
+												onDragEnter={(e) => handleDragEnter(e, doc.id)}
+												onDragLeave={handleDragLeave}
+												onDragOver={(e) => handleDragOver(e, doc.id)}
+												onDrop={(e) => handleDrop(e, doc.id)}
+											>
 												<CardContent className="p-4">
 													<div className="flex items-start gap-3 mb-3">
+														{/* Drag handle - only draggable element */}
+														<div 
+															className="cursor-move text-muted-foreground hover:text-foreground mt-1 flex-shrink-0"
+															draggable={true}
+															onDragStart={(e) => handleDragStart(e, doc.id)}
+															onDragEnd={handleDragEnd}
+														>
+															<GripVertical className="size-4" />
+														</div>
 														<div className="rounded-lg bg-primary/10 p-2.5 flex-shrink-0">
 															<FileText className="size-5 text-primary" />
 														</div>
