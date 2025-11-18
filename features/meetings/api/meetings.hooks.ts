@@ -17,12 +17,14 @@ export function useMeetings() {
 
 	const getById = (id: string) =>
 		trpc.meetings.getById.useQuery(id, {
-			enabled: !!id,
+			enabled: !!id && !!id.trim(),
+			retry: false,
 		})
 
 	const getToken = (id: string) =>
 		trpc.meetings.getToken.useQuery(id, {
-			enabled: !!id,
+			enabled: !!id && !!id.trim(),
+			retry: false,
 		})
 
 	const startMeeting = trpc.meetings.startMeeting.useMutation({

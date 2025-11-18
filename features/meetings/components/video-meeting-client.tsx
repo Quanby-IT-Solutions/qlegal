@@ -1,6 +1,6 @@
 "use client"
 
-import { Camera, CameraOff, FileText, FileUp, Mic, MicOff, Monitor, PhoneOff, Users, Send, FileSignature, CircleDot, Square } from "lucide-react"
+import { Camera, CameraOff, FileText, FileUp, Mic, MicOff, Monitor, PhoneOff, Users, Send, FileSignature, CircleDot, Square, X } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import { MeetingProvider, useMeeting, useParticipant } from "@videosdk.live/react-sdk"
 import { useSession } from "next-auth/react"
@@ -387,6 +387,83 @@ function MeetingControls({ onUploadClick, isRecording, onRecordingChange }: {
 	)
 }
 
+// Document Actions Component - ENP can initiate signing directly
+function DocumentActions({
+	document,
+	isPrincipal,
+	isENP,
+	onSignClick,
+	isSigningPending,
+}: {
+	document: { id: string; name: string; docoChainProjectId: string | null }
+	isPrincipal: boolean
+	isENP: boolean
+	onSignClick: (projectUuid: string, email: string, documentId: string) => void
+	isSigningPending: boolean
+}) {
+	const { data: session } = useSession()
+
+	return (
+		<div className="space-y-2">
+			<Button
+				variant="outline"
+				size="sm"
+				className="w-full h-9 text-xs shadow-sm hover:bg-primary hover:text-primary-foreground transition-all"
+				onClick={() => {
+					// Open document in new tab
+					window.open(`/api/documents/${document.id}`, '_blank')
+				}}
+			>
+				<FileText className="size-3.5 mr-1.5" />
+				View Document
+			</Button>
+			
+			{/* Show "Start Signing" button for ENP users - they initiate the signing process */}
+			{/* ENP clicks this to add themselves as signer and redirect to DocoChain signing page */}
+			{isENP && document.docoChainProjectId && (
+				<Button
+					variant="default"
+					size="sm"
+					className="w-full h-9 text-xs shadow-sm"
+					onClick={() => {
+						const userEmail = session?.user?.email
+						if (document.docoChainProjectId && userEmail) {
+							console.log("🔵 ENP initiating signing process for document:", document.name)
+							console.log("   - DocoChain Project UUID:", document.docoChainProjectId)
+							console.log("   - ENP Email:", userEmail)
+							
+							// ENP clicks to start signing - this will:
+							// 1. Add ENP as signer using Add Project Signer API
+							// 2. Generate signing link
+							// 3. Redirect to DocoChain signing page
+							onSignClick(document.docoChainProjectId, userEmail, document.id)
+						} else {
+							toast.error(
+								!document.docoChainProjectId 
+									? "DocoChain project not found. Please ensure the document was uploaded correctly."
+									: "User email not found. Please sign in again."
+							)
+						}
+					}}
+					disabled={isSigningPending}
+				>
+					{isSigningPending ? (
+						<>
+							<div className="mr-2 size-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
+							Starting...
+						</>
+					) : (
+						<>
+							<FileSignature className="size-3.5 mr-1.5" />
+							Start Signing
+						</>
+					)}
+				</Button>
+			)}
+		</div>
+	)
+}
+
 // Main meeting view
 function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?: string }) {
 	const { data: session } = useSession()
@@ -398,6 +475,9 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 	const [selectedSignerId, setSelectedSignerId] = useState<string>("")
 	const [isSendDialogOpen, setIsSendDialogOpen] = useState(false)
 	const [dismissedRequestIds, setDismissedRequestIds] = useState<Set<string>>(new Set())
+	const [signingUrl, setSigningUrl] = useState<string | null>(null)
+	const [signingProjectUuid, setSigningProjectUuid] = useState<string | null>(null)
+	const [signingDocumentId, setSigningDocumentId] = useState<string | null>(null)
 	
 	// Fetch meeting documents
 	const { data: documents, refetch: refetchDocuments } = trpc.meetings.getMeetingDocuments.useQuery(
@@ -410,15 +490,17 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 
 	// Fetch meeting details to get participants
 	const { data: meetingDetails } = trpc.meetings.getById.useQuery(meetingId || "", {
-		enabled: !!meetingId,
+		enabled: !!meetingId && !!meetingId.trim(),
+		retry: false,
 	})
 
 	// Fetch pending signature requests for current user
 	const { data: pendingRequests } = trpc.signatureRequests.getPendingRequests.useQuery(
 		{ meetingId: meetingId || "" },
 		{
-			enabled: !!meetingId,
+			enabled: !!meetingId && !!meetingId.trim(),
 			refetchInterval: 3000, // Poll every 3 seconds for new requests
+			retry: false,
 		}
 	)
 
@@ -445,17 +527,71 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 		},
 	})
 
-	// Generate personalized signing link for ENP
-	const generateSigningLink = trpc.signatureRequests.generateSigningLink.useMutation({
+	// ENP initiates signing - adds them as signer and embeds signing page
+	const initiateSigning = trpc.signatureRequests.initiateSigning.useMutation({
 		onSuccess: (data) => {
-			console.log("✅ Personalized signing link generated:", data.link)
-			// Open the unique signing link for this ENP
-			window.open(data.link, '_blank')
-			toast.success("Opening your personalized signing page...")
+			// Validate that we have a valid URL string
+			const signingLink = typeof data.link === 'string' ? data.link : null
+			
+			if (!signingLink) {
+				console.error("❌ Invalid signing link received:", data)
+				toast.error("Invalid signing link received")
+				return
+			}
+
+			// Validate it's a proper URL
+			try {
+				new URL(signingLink)
+			} catch {
+				console.error("❌ Invalid URL format:", signingLink)
+				toast.error("Invalid URL format for signing link")
+				return
+			}
+
+			console.log("✅ Signing process initiated successfully!")
+			console.log("   - Project UUID:", data.projectUuid)
+			console.log("   - Signing link:", signingLink)
+			
+			// Open DocoChain signing page in popup window (iframe blocked by DocoChain)
+			// Open in popup window with specific dimensions (centered, almost fullscreen)
+			const width = Math.min(window.innerWidth - 40, 1400)
+			const height = Math.min(window.innerHeight - 40, 900)
+			const left = (window.screen.width - width) / 2
+			const top = (window.screen.height - height) / 2
+			
+			const popup = window.open(
+				signingLink,
+				'DocoChainSigning',
+				`width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes,toolbar=no,location=no,menubar=no`
+			)
+			
+			if (popup) {
+				// Store reference for monitoring
+				setSigningUrl(signingLink)
+				setSigningProjectUuid(data.projectUuid)
+				
+				// Monitor popup for closing
+				const checkClosed = setInterval(() => {
+					if (popup.closed) {
+						clearInterval(checkClosed)
+						setSigningUrl(null)
+						setSigningProjectUuid(null)
+						setSigningDocumentId(null)
+						refetchDocuments()
+						toast.success("Signing completed. Document status updated.")
+					}
+				}, 500)
+				
+				toast.success("Opening signing interface in popup window...")
+			} else {
+				toast.error("Popup blocked. Please allow popups for this site and try again.")
+				setSigningDocumentId(null) // Clear loading state
+			}
 		},
 		onError: (error) => {
-			console.error("❌ Failed to generate signing link:", error)
-			toast.error(error.message || "Failed to generate signing link")
+			console.error("❌ Failed to initiate signing:", error)
+			setSigningDocumentId(null) // Clear loading state on error
+			toast.error(error.message || "Failed to start signing process")
 		},
 	})
 
@@ -714,35 +850,21 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 															</p>
 														</div>
 													</div>
-													<div className="space-y-2">
-														<Button
-															variant="outline"
-															size="sm"
-															className="w-full h-9 text-xs shadow-sm hover:bg-primary hover:text-primary-foreground transition-all"
-															onClick={() => {
-																// Open document in new tab
-																window.open(`/api/documents/${doc.id}`, '_blank')
-															}}
-														>
-															<FileText className="size-3.5 mr-1.5" />
-															View Document
-														</Button>
-														
-														{isPrincipal && (
-															<Button
-																variant="default"
-																size="sm"
-																className="w-full h-9 text-xs shadow-sm"
-																onClick={() => {
-																	setSelectedDocumentId(doc.id)
-																	setIsSendDialogOpen(true)
-																}}
-															>
-																<Send className="size-3.5 mr-1.5" />
-																Send to ENP
-															</Button>
-														)}
-													</div>
+													<DocumentActions 
+														document={doc}
+														isPrincipal={isPrincipal}
+														isENP={session?.user?.role === "ENP"}
+														onSignClick={(projectUuid, email, documentId) => {
+															// Set the document ID being signed before mutation
+															setSigningDocumentId(documentId)
+															// ENP clicks to initiate signing - adds them as signer and redirects
+															initiateSigning.mutate({
+																projectUuid,
+																email,
+															})
+														}}
+														isSigningPending={initiateSigning.isPending && signingDocumentId === doc.id}
+													/>
 												</CardContent>
 											</Card>
 										)
@@ -856,20 +978,6 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 									<p className="font-semibold">{activeSignatureRequest.meeting.title}</p>
 								</div>
 							</div>
-
-							<div className="rounded-lg bg-primary/10 p-3 border border-primary/20">
-								<p className="text-sm font-medium mb-2">✍️ You're in control!</p>
-								<p className="text-xs text-muted-foreground mb-2">
-									When you click "Sign Document":
-								</p>
-								<ul className="text-xs text-muted-foreground ml-4 space-y-1">
-									<li>• DocoChain will open in a new tab (DRAFT mode)</li>
-									<li>• Click the green "SIGNATURE" button on the left sidebar</li>
-									<li>• Drag and place signature fields where you want to sign</li>
-									<li>• Click on the field to create your signature</li>
-									<li>• Click "SIGN NOW" when ready - no "Send" needed!</li>
-								</ul>
-							</div>
 						</div>
 
 						<DialogFooter className="flex-col sm:flex-row gap-2">
@@ -926,6 +1034,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 					</DialogContent>
 				</Dialog>
 			)}
+
 		</div>
 	)
 }

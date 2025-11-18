@@ -5,6 +5,7 @@ import { z } from "zod/v4"
 import { getPublicClient } from "@/services/supabase"
 import { getDocumentPublicUrl } from "@/services/supabase/signed-url"
 import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
+import { createDocoChainProject } from "@/services/docochain"
 
 import { documentPrepositioningRouter } from "../components/document-prepositioning/api/document-prepositioning.router"
 import {
@@ -785,6 +786,17 @@ export const signatureLiteRouter = createTRPCRouter({
 			const { name, file, mimeType, size } = input
 
 			try {
+				// Validate file type - only PDF is supported by DocoChain
+				if (mimeType !== "application/pdf") {
+					throw new TRPCError({
+						code: "BAD_REQUEST",
+						message: "Only PDF files are supported for document signing",
+					})
+				}
+
+				// Decode base64 file data
+				const fileBuffer = Buffer.from(file, "base64")
+
 				// Create document record in database
 				const document = await ctx.db.document.create({
 					data: {
@@ -795,12 +807,31 @@ export const signatureLiteRouter = createTRPCRouter({
 					},
 				})
 
-				// Upload to Supabase storage
+				// Create DocoChain project using Create Project API
+				let docoChainProjectId: string | null = null
+				let docoChainRedirectUrl: string | null = null
+				try {
+					console.log("🔵 Creating DocoChain project for:", name)
+					const docoChainProject = await createDocoChainProject({
+						title: name,
+						documentFile: fileBuffer,
+						fileName: name.endsWith('.pdf') ? name : `${name}.pdf`,
+						userListEditable: false, // Recipients cannot be edited after creation
+						creatorAsViewer: false, // Creator is not added as a viewer
+					})
+					docoChainProjectId = docoChainProject.uuid
+					docoChainRedirectUrl = docoChainProject.redirectUrl || null
+					console.log("✅ DocoChain project created:", docoChainProjectId)
+					console.log("✅ DocoChain redirect URL:", docoChainRedirectUrl)
+				} catch (docoChainError) {
+					console.error("❌ Failed to create DocoChain project:", docoChainError)
+					console.error("Error details:", docoChainError instanceof Error ? docoChainError.message : String(docoChainError))
+					// Continue without DocoChain - document can still be uploaded to storage
+				}
+
+				// Upload to Supabase storage for backup/access
 				const supabase = getPublicClient()
 				const fileName = `${document.id}/${name}`
-
-				// Decode base64 file data
-				const fileBuffer = Buffer.from(file, "base64")
 
 				const { data: uploadData, error: uploadError } = await supabase.storage
 					.from("documents")
@@ -810,6 +841,7 @@ export const signatureLiteRouter = createTRPCRouter({
 					})
 
 				if (uploadError) {
+					console.error("❌ Supabase upload error:", uploadError)
 					// Clean up database record if upload fails
 					await ctx.db.document.delete({ where: { id: document.id } })
 					throw new TRPCError({
@@ -818,10 +850,14 @@ export const signatureLiteRouter = createTRPCRouter({
 					})
 				}
 
-				// Update document with storage path
+				// Update document with storage path, DocoChain project ID, and redirect URL
 				const updatedDocument = await ctx.db.document.update({
 					where: { id: document.id },
-					data: { path: uploadData.path },
+					data: {
+						path: uploadData.path,
+						docoChainProjectId,
+						docoChainRedirectUrl,
+					},
 				})
 
 				// Get public URL for the document
@@ -834,6 +870,9 @@ export const signatureLiteRouter = createTRPCRouter({
 					url: publicUrl,
 				}
 			} catch (error) {
+				if (error instanceof TRPCError) {
+					throw error
+				}
 				throw new TRPCError({
 					code: "INTERNAL_SERVER_ERROR",
 					message: error instanceof Error ? error.message : "Upload failed",
