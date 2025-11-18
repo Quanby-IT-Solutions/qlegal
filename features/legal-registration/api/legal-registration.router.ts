@@ -1,6 +1,6 @@
 import { TRPCError } from "@trpc/server"
 import { and, count, desc, eq } from "drizzle-orm"
-import { z } from "zod"
+import { z } from "zod/v4"
 
 import { db } from "@/services/drizzle/db"
 import { users } from "@/services/drizzle/schema/auth"
@@ -48,7 +48,7 @@ export const legalRegistrationRouter = createTRPCRouter({
 						dateOfBirth: new Date(input.personalQualifications.dateOfBirth),
 						residentialAddress: input.personalQualifications.residentialAddress,
 						workOrBusinessAddress: input.personalQualifications.workOrBusinessAddress,
-						telephoneNumber: input.personalQualifications.telephoneNumber || null,
+						telephoneNumber: input.personalQualifications.telephoneNumber ?? null,
 						mobileNumber: input.personalQualifications.mobileNumber,
 						emailAddress: input.personalQualifications.emailAddress,
 						professionalTaxReceiptNumber: input.personalQualifications.professionalTaxReceiptNumber,

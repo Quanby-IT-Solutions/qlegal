@@ -1,4 +1,4 @@
-import { z } from "zod"
+import { z } from "zod/v4"
 
 // Personal Qualifications Schema
 export const personalQualificationsSchema = z.object({
