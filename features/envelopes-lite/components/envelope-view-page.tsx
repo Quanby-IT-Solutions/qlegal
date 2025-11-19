@@ -4,9 +4,9 @@ import { useRouter } from "next/navigation"
 import { useEffect, useMemo, useState } from "react"
 import { ArrowLeft, Search } from "lucide-react"
 
-import { TooltipProvider } from "@/core/components/tooltip"
 import { Button } from "@/core/components/ui/button"
 import { Input } from "@/core/components/ui/input"
+import { TooltipProvider } from "@/core/components/ui/tooltip"
 
 import { trpc } from "@/services/trpc/client"
 

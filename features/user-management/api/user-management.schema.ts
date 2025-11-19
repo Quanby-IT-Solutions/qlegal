@@ -1,4 +1,4 @@
-import { z } from "zod"
+import { z } from "zod/v4"
 
 // Input schemas for validation
 export const createUserSchema = z.object({
