@@ -4,21 +4,19 @@ import { z } from "zod/v4"
 export const createUserSchema = z.object({
 	name: z.string().min(1, "Name is required"),
 	email: z.string().email("Invalid email address"),
-	role: z.enum(["CLIENT", "ADMIN", "SUPER_ADMIN"]),
-	organization: z.string().optional(),
+	role: z.enum(["ENP", "PRINCIPAL", "ENA", "ADMIN"]),
 })
 
 export const updateUserSchema = z.object({
 	id: z.string(),
 	name: z.string().min(1).optional(),
 	email: z.string().email().optional(),
-	role: z.enum(["CLIENT", "ADMIN", "SUPER_ADMIN"]).optional(),
-	organization: z.string().optional(),
+	role: z.enum(["ENP", "PRINCIPAL", "ENA", "ADMIN"]).optional(),
 })
 
 export const userListInputSchema = z.object({
 	search: z.string().optional(),
-	role: z.enum(["all", "CLIENT", "ADMIN", "SUPER_ADMIN"]).optional(),
+	role: z.enum(["all", "ENP", "PRINCIPAL", "ENA", "ADMIN"]).optional(),
 	status: z.enum(["all", "active", "pending", "suspended"]).optional(),
 	page: z.number().min(1).default(1),
 	limit: z.number().min(1).max(100).default(10),
