@@ -894,6 +894,129 @@ export async function downloadSignedDocument(projectUuid: string): Promise<{ buf
 }
 
 /**
+ * Download the certificate of completion from DocoChain
+ * Returns the certificate PDF as a Buffer
+ */
+export async function downloadCertificate(projectUuid: string): Promise<{ buffer: Buffer; fileName: string; url: string }> {
+	console.log("🔵 Downloading certificate from DocoChain...")
+	console.log("   - Project UUID:", projectUuid)
+
+	try {
+		if (!DOCOCHAIN_API_TOKEN) {
+			throw new Error("DocoChain API token not configured")
+		}
+
+		// First, get project details to check if certificate URL is available
+		const projectDetails = await getProjectDetails(projectUuid)
+		const projectData = projectDetails?.data
+
+		if (!projectData) {
+			throw new Error("Project not found or invalid response")
+		}
+
+		// Try to get certificate URL from project data first
+		let certificateUrl = projectData.certificate_url || projectData.certificateUrl || projectData.cert_url
+
+		// If not in project data, try different endpoint formats
+		if (!certificateUrl) {
+			// Determine app base URL (for certificate downloads, might need app URL instead of API URL)
+			const appBaseUrl = DOCOCHAIN_API_BASE.includes('stg') 
+				? 'https://stg-app.doconchain.com'
+				: 'https://app.doconchain.com'
+			
+			// Try multiple possible endpoint formats
+			const possibleEndpoints = [
+				// Try API endpoints first
+				`${DOCOCHAIN_API_BASE}/api/v2/projects/${projectUuid}/certificate?user_type=ENTERPRISE_API`,
+				`${DOCOCHAIN_API_BASE}/projects/${projectUuid}/certificate?user_type=ENTERPRISE_API`,
+				`${DOCOCHAIN_API_BASE}/api/v2/projects/${projectUuid}/certificate/download?user_type=ENTERPRISE_API`,
+				`${DOCOCHAIN_API_BASE}/my/projects/${projectUuid}/certificate?user_type=ENTERPRISE_API`,
+				// Try app endpoints (might require different auth or be publicly accessible)
+				`${appBaseUrl}/api/v2/projects/${projectUuid}/certificate?user_type=ENTERPRISE_API`,
+				`${appBaseUrl}/projects/${projectUuid}/certificate`,
+			]
+
+			for (const endpoint of possibleEndpoints) {
+				try {
+					console.log(`📥 Trying certificate endpoint: ${endpoint}`)
+					const response = await fetch(endpoint, {
+						method: "GET",
+						headers: {
+							Authorization: `Bearer ${DOCOCHAIN_API_TOKEN}`,
+							Accept: "application/pdf",
+						},
+					})
+
+					if (response.ok) {
+						const arrayBuffer = await response.arrayBuffer()
+						const buffer = Buffer.from(arrayBuffer)
+						const fileName = `certificate-${projectUuid}.pdf`
+
+						console.log("✅ Certificate downloaded successfully")
+						console.log("   - File name:", fileName)
+						console.log("   - File size:", buffer.length, "bytes")
+
+						return {
+							buffer,
+							fileName,
+							url: endpoint,
+						}
+					} else if (response.status !== 404) {
+						// If it's not a 404, log the error but continue trying other endpoints
+						const errorText = await response.text()
+						console.warn(`⚠️ Endpoint ${endpoint} returned ${response.status}: ${errorText}`)
+					}
+				} catch (endpointError) {
+					console.warn(`⚠️ Error trying endpoint ${endpoint}:`, endpointError)
+					continue
+				}
+			}
+
+			// If all endpoints failed, provide helpful error message
+			console.error("❌ All certificate endpoints failed. Certificate might be embedded in the signed PDF.")
+			throw new Error(
+				"Certificate download endpoint not available. " +
+				"The certificate may be embedded in the signed PDF document. " +
+				"Please download the signed document to access the certificate."
+			)
+		} else {
+			// Certificate URL was found in project data, download from that URL
+			console.log("📥 Fetching certificate from project data URL:", certificateUrl)
+			const response = await fetch(certificateUrl, {
+				method: "GET",
+				headers: {
+					Authorization: `Bearer ${DOCOCHAIN_API_TOKEN}`,
+					Accept: "application/pdf",
+				},
+			})
+
+			if (!response.ok) {
+				const errorText = await response.text()
+				console.error("❌ DocoChain certificate download error:", errorText)
+				throw new Error(`Failed to download certificate: ${response.status} ${response.statusText} - ${errorText}`)
+			}
+
+			const arrayBuffer = await response.arrayBuffer()
+			const buffer = Buffer.from(arrayBuffer)
+			const fileName = `certificate-${projectUuid}.pdf`
+
+			console.log("✅ Certificate downloaded successfully")
+			console.log("   - File name:", fileName)
+			console.log("   - File size:", buffer.length, "bytes")
+
+			return {
+				buffer,
+				fileName,
+				url: certificateUrl,
+			}
+		}
+	} catch (error) {
+		console.error("❌ Error downloading certificate:", error)
+		throw error
+	}
+}
+
+/**
  * Generate DocoChain signing URL
  */
 export function getDocoChainSigningUrl(projectUuid: string): string {
