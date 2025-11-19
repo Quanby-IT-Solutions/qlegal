@@ -41,7 +41,8 @@ export function MeetingDocumentUpload({
 	const uploadDocument = trpc.meetings.uploadDocument.useMutation({
 		onSuccess: () => {
 			toast.success("Document uploaded successfully!")
-			// Reset form
+			// Reset form and state
+			setIsUploading(false)
 			setSelectedFile(null)
 			setDocumentName("")
 			setDescription("")
@@ -133,14 +134,31 @@ export function MeetingDocumentUpload({
 
 	const handleClose = () => {
 		if (isUploading) return
+		// Reset all state
+		setIsUploading(false)
 		setSelectedFile(null)
 		setDocumentName("")
 		setDescription("")
 		onClose()
 	}
 
+	// Reset state when dialog closes
+	const handleOpenChange = (open: boolean) => {
+		if (!open && !isUploading) {
+			// Reset state when dialog is closed (only if not uploading)
+			setIsUploading(false)
+			setSelectedFile(null)
+			setDocumentName("")
+			setDescription("")
+			onClose()
+		} else if (!open) {
+			// If uploading, just close without resetting (upload will handle reset)
+			onClose()
+		}
+	}
+
 	return (
-		<Dialog open={isOpen} onOpenChange={handleClose}>
+		<Dialog open={isOpen} onOpenChange={handleOpenChange}>
 			<DialogContent className="max-w-2xl">
 				<DialogHeader>
 					<DialogTitle className="flex items-center gap-2">
