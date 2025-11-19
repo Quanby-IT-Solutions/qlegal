@@ -58,7 +58,7 @@ const typescriptRules = {
 
 /** Core JavaScript/TypeScript best practices */
 const javascriptRules = {
-	"no-console": "warn",
+	// "no-console": "warn",
 	"eqeqeq": ["error", "always"],
 	// "curly": ["error", "all"],
 	"prefer-const": "error",
