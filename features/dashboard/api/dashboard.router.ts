@@ -6,6 +6,7 @@ import { appointments } from "@/services/drizzle/schema/appointments"
 import { documents } from "@/services/drizzle/schema/document"
 import { envelopes } from "@/services/drizzle/schema/envelope"
 import { meetings } from "@/services/drizzle/schema/meetings"
+import { notarizationRequests } from "@/services/drizzle/schema/notarization-requests"
 import { signatureRequests } from "@/services/drizzle/schema/signature-requests"
 import { users } from "@/services/drizzle/schema/auth"
 
@@ -64,6 +65,21 @@ export const dashboardRouter = createTRPCRouter({
 			pendingSignatureRequests = signatureRequestsResult?.count || 0
 		}
 
+		// Pending notarization requests (for ENPs)
+		let pendingNotarizationRequests = 0
+		if (isENP) {
+			const [notarizationRequestsResult] = await ctx.db
+				.select({ count: count() })
+				.from(notarizationRequests)
+				.where(
+					and(
+						eq(notarizationRequests.enpId, userId),
+						eq(notarizationRequests.status, "PENDING")
+					)
+				)
+			pendingNotarizationRequests = notarizationRequestsResult?.count || 0
+		}
+
 		// Total meetings
 		const [meetingsResult] = await ctx.db
 			.select({ count: count() })
@@ -88,6 +104,7 @@ export const dashboardRouter = createTRPCRouter({
 			pendingAppointments: pendingAppointmentsResult?.count || 0,
 			totalDocuments: documentsResult?.count || 0,
 			pendingSignatureRequests,
+			pendingNotarizationRequests,
 			totalMeetings: meetingsResult?.count || 0,
 			completedAppointments: completedAppointmentsResult?.count || 0,
 		}

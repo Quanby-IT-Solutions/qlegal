@@ -12,6 +12,7 @@ import { signatureRequestsRouter } from "@/features/meetings/api/signature-reque
 import { messageFilesRouter } from "@/features/messages/api/message-files.router"
 import { messagesRouter } from "@/features/messages/api/messages.router"
 import { profileRouter } from "@/features/profile/api/profile.router"
+import { requestsRouter } from "@/features/requests/api/requests.router"
 import { settingsRouter } from "@/features/settings/api/settings.router"
 import { signatureLiteRouter } from "@/features/signature-lite/api/new-signature.router"
 import { witnessesRouter } from "@/features/witnesses/api/witnesses.router"
@@ -38,6 +39,7 @@ export const appRouter = createTRPCRouter({
 	messages: messagesRouter,
 	messageFiles: messageFilesRouter,
 	profile: profileRouter,
+	requests: requestsRouter,
 	settings: settingsRouter,
 	signatureLite: signatureLiteRouter,
 	witnesses: witnessesRouter,

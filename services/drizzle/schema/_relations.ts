@@ -12,6 +12,7 @@ import {
 	conversations,
 	messages,
 } from "@/services/drizzle/schema/messages"
+import { notarizationRequests } from "@/services/drizzle/schema/notarization-requests"
 import { signatureRequests } from "@/services/drizzle/schema/signature-requests"
 import { witnesses } from "@/services/drizzle/schema/witnesses"
 
@@ -169,6 +170,24 @@ export const witnessesRelations = relations(witnesses, ({ one }) => ({
 	}),
 	appointment: one(appointments, {
 		fields: [witnesses.appointmentId],
+		references: [appointments.id],
+	}),
+}))
+
+// Notarization Request relations
+export const notarizationRequestsRelations = relations(notarizationRequests, ({ one }) => ({
+	principal: one(users, {
+		fields: [notarizationRequests.principalId],
+		references: [users.id],
+		relationName: "principalRequests",
+	}),
+	enp: one(users, {
+		fields: [notarizationRequests.enpId],
+		references: [users.id],
+		relationName: "enpRequests",
+	}),
+	appointment: one(appointments, {
+		fields: [notarizationRequests.appointmentId],
 		references: [appointments.id],
 	}),
 }))
