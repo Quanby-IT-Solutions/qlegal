@@ -1,17 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import {
-	Activity,
-	AlertCircle,
-	Calendar,
-	CheckCircle,
-	Clock,
-	Mail,
-	MapPin,
-	Shield,
-	User,
-} from "lucide-react"
+import { Activity, Calendar, CheckCircle, Clock, Mail, MapPin, Shield, User } from "lucide-react"
 
 import { Alert, AlertDescription } from "@/core/components/ui/alert"
 import { Avatar, AvatarFallback, AvatarImage } from "@/core/components/ui/avatar"
@@ -42,13 +32,15 @@ export function UserProfileSheet({ userId, trigger }: UserProfileSheetProps) {
 	)
 
 	const getRoleColor = (role: string) => {
-		switch (role) {
-			case "client":
+		switch (role.toUpperCase()) {
+			case "PRINCIPAL":
 				return "bg-blue-100 text-blue-800"
-			case "admin":
+			case "ENP":
+				return "bg-green-100 text-green-800"
+			case "ENA":
+				return "bg-yellow-100 text-yellow-800"
+			case "ADMIN":
 				return "bg-purple-100 text-purple-800"
-			case "super-admin":
-				return "bg-red-100 text-red-800"
 			default:
 				return "bg-gray-100 text-gray-800"
 		}
@@ -60,8 +52,6 @@ export function UserProfileSheet({ userId, trigger }: UserProfileSheetProps) {
 				return "bg-green-100 text-green-800"
 			case "pending":
 				return "bg-orange-100 text-orange-800"
-			case "suspended":
-				return "bg-red-100 text-red-800"
 			default:
 				return "bg-gray-100 text-gray-800"
 		}
@@ -125,27 +115,17 @@ export function UserProfileSheet({ userId, trigger }: UserProfileSheetProps) {
 
 							{/* Status Alert */}
 							<Alert
-								className={
-									user.status === "suspended"
-										? "border-destructive"
-										: user.status === "active"
-											? "border-green-500"
-											: "border-orange-500"
-								}
+								className={user.status === "active" ? "border-green-500" : "border-orange-500"}
 							>
-								{user.status === "suspended" ? (
-									<AlertCircle className="text-destructive h-4 w-4" />
-								) : user.status === "active" ? (
+								{user.status === "active" ? (
 									<CheckCircle className="h-4 w-4 text-green-600" />
 								) : (
 									<Clock className="h-4 w-4 text-orange-600" />
 								)}
 								<AlertDescription>
-									{user.status === "suspended"
-										? "This user account has been suspended and cannot access the platform."
-										: user.status === "active"
-											? "This user account is active and has full access to the platform."
-											: "This user account is pending approval and has limited access."}
+									{user.status === "active"
+										? "This user account is active and has full access to the platform."
+										: "This user account is pending approval and has limited access."}
 								</AlertDescription>
 							</Alert>
 

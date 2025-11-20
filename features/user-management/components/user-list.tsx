@@ -66,9 +66,11 @@ export function UserList({ searchTerm, roleFilter, statusFilter }: UserListProps
 		refetch,
 	} = trpc.userManagement.list.useQuery({
 		search: searchTerm ?? undefined,
-		role: roleFilter === "all" ? undefined : (roleFilter as "CLIENT" | "ADMIN" | "SUPER_ADMIN"),
+		role: roleFilter === "all" ? undefined : (roleFilter as "PRINCIPAL" | "ADMIN" | "ENP" | "ENA"),
 		status:
-			statusFilter === "all" ? undefined : (statusFilter as "active" | "pending" | "suspended"),
+			statusFilter === "all"
+				? undefined
+				: (statusFilter.toUpperCase() as "ACTIVE" | "PENDING" | "SUSPENDED"),
 		page: currentPage,
 		limit: pageSize,
 	})
@@ -180,13 +182,15 @@ export function UserList({ searchTerm, roleFilter, statusFilter }: UserListProps
 	}
 
 	const getRoleColor = (role: string) => {
-		switch (role) {
-			case "client":
+		switch (role.toUpperCase()) {
+			case "PRINCIPAL":
 				return "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
-			case "admin":
+			case "ENP":
+				return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+			case "ENA":
+				return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200"
+			case "ADMIN":
 				return "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200"
-			case "super-admin":
-				return "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
 			default:
 				return "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200"
 		}
@@ -324,7 +328,7 @@ export function UserList({ searchTerm, roleFilter, statusFilter }: UserListProps
 							</div>
 							<div className="flex items-center space-x-4">
 								<div className="flex flex-col items-end space-y-2">
-									<Badge className={getRoleColor(user.role)}>{user.role}</Badge>
+									<Badge className={getRoleColor(user.role)}>{user.role.toUpperCase()}</Badge>
 									<Badge className={getStatusColor(user.status)}>
 										<div className="flex items-center space-x-1">
 											{getStatusIcon(user.status)}

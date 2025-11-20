@@ -3,6 +3,9 @@ import { pgEnum } from "drizzle-orm/pg-core"
 // User roles enum
 export const userRoles = pgEnum("user_role", ["ENP", "PRINCIPAL", "ENA", "ADMIN"])
 
+// User status enum
+export const userStatus = pgEnum("user_status", ["ACTIVE", "PENDING", "SUSPENDED"])
+
 // Document status enum
 export const documentStatusEnum = pgEnum("document_status", [
 	"UPLOADED",

@@ -1,7 +1,7 @@
 import { type InferSelectModel } from "drizzle-orm"
 import { index, primaryKey } from "drizzle-orm/pg-core"
 
-import { userRoles } from "@/services/drizzle/schema/_enums"
+import { userRoles, userStatus } from "@/services/drizzle/schema/_enums"
 import type { AdapterAccount } from "@/services/drizzle/types/auth"
 import { createTable, randomId } from "@/services/drizzle/utils"
 
@@ -18,6 +18,7 @@ export const users = createTable("user", t => ({
 	isTwoFactorEnabled: t.boolean().default(false),
 	phoneNumber: t.varchar({ length: 255 }),
 	role: userRoles().default("PRINCIPAL").notNull(),
+	status: userStatus().default("PENDING").notNull(),
 })).enableRLS()
 
 export const accounts = createTable(
