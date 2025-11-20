@@ -1,4 +1,4 @@
-import { z } from "zod"
+import { z } from "zod/v4"
 
 export const listMySignedEnvelopesSchema = z.object({
 	status: z.enum(["ALL", "SIGNED", "COMPLETED"]).optional().default("ALL"),

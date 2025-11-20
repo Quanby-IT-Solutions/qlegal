@@ -1,5 +1,5 @@
 import { TRPCError } from "@trpc/server"
-import { z } from "zod"
+import { z } from "zod/v4"
 
 import { getPublicClient } from "@/services/supabase"
 import { createTRPCRouter, publicProcedure } from "@/services/trpc/init"
@@ -38,7 +38,7 @@ export const mySignedRouter = createTRPCRouter({
 					some: {
 						recipients: {
 							some: {
-								userId: userId,
+								userId,
 								role: "SIGNER" as const,
 								status: "SIGNED" as const,
 							},
@@ -172,7 +172,7 @@ export const mySignedRouter = createTRPCRouter({
 				include: {
 					recipients: {
 						where: {
-							userId: userId,
+							userId,
 							role: "SIGNER",
 							status: "SIGNED",
 						},
@@ -239,7 +239,7 @@ export const mySignedRouter = createTRPCRouter({
 				// Count total documents signed by user
 				ctx.db.recipient.count({
 					where: {
-						userId: userId,
+						userId,
 						role: "SIGNER",
 						status: "SIGNED",
 					},
@@ -253,7 +253,7 @@ export const mySignedRouter = createTRPCRouter({
 							some: {
 								recipients: {
 									some: {
-										userId: userId,
+										userId,
 										role: "SIGNER",
 										status: "SIGNED",
 									},
@@ -273,7 +273,7 @@ export const mySignedRouter = createTRPCRouter({
 							some: {
 								recipients: {
 									some: {
-										userId: userId,
+										userId,
 										role: "SIGNER",
 										status: "SIGNED",
 									},
@@ -326,7 +326,7 @@ export const mySignedRouter = createTRPCRouter({
 			// Query for signed documents with timestamp
 			const signedDocuments = await ctx.db.recipient.findMany({
 				where: {
-					userId: userId,
+					userId,
 					role: "SIGNER",
 					status: "SIGNED",
 					documentFields: {
