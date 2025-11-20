@@ -1,8 +1,11 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useMemo } from "react"
+import { useRouter } from "next/navigation"
 import { Upload, FileText, X, Plus, Search, MapPin, Calendar, Clock, Video, Handshake } from "lucide-react"
+import { toast } from "sonner"
 
+import { trpc } from "@/services/trpc/client"
 import { SiteNavbar } from "@/core/components/navbar/site-navbar"
 import { Button } from "@/core/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/core/components/ui/card"
@@ -14,55 +17,45 @@ import { RadioGroup, RadioGroupItem } from "@/core/components/ui/radio-group"
 import { Badge } from "@/core/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/core/components/ui/avatar"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/core/components/ui/tabs"
-
-// Mock data for available ENPs
-const mockENPs = [
-	{
-		id: "1",
-		name: "Atty. Maria Santos",
-		title: "Electronic Notary Public",
-		location: "Makati City, Metro Manila",
-		specialization: "Real Estate, Business Documents",
-		rating: 4.9,
-		reviewCount: 127,
-		avatar: "/avatars/maria-santos.jpg",
-		workflows: ["REN", "IEN"],
-		responseTime: "Within 2 hours",
-	},
-	{
-		id: "2",
-		name: "Atty. Juan Dela Cruz",
-		title: "Electronic Notary Public",
-		location: "Quezon City, Metro Manila",
-		specialization: "Legal Documents, Contracts",
-		rating: 4.8,
-		reviewCount: 89,
-		avatar: "/avatars/juan-dela-cruz.jpg",
-		workflows: ["REN", "IEN"],
-		responseTime: "Within 1 hour",
-	},
-	{
-		id: "3",
-		name: "Atty. Ana Rodriguez",
-		title: "Electronic Notary Public",
-		location: "Cebu City, Cebu",
-		specialization: "Immigration, Personal Documents",
-		rating: 4.7,
-		reviewCount: 156,
-		avatar: "/avatars/ana-rodriguez.jpg",
-		workflows: ["REN", "IEN"],
-		responseTime: "Within 30 minutes",
-	},
-]
+import { Skeleton } from "@/core/components/ui/skeleton"
 
 export default function NewRequestPage() {
+	const router = useRouter()
 	const [selectedWorkflow, setSelectedWorkflow] = useState<"REN" | "IEN">("REN")
 	const [selectedENP, setSelectedENP] = useState<string>("")
 	const [requestTitle, setRequestTitle] = useState("")
 	const [description, setDescription] = useState("")
 	const [priority, setPriority] = useState<"NORMAL" | "HIGH" | "URGENT">("NORMAL")
 	const [uploadedFiles, setUploadedFiles] = useState<File[]>([])
-	const [isSubmitting, setIsSubmitting] = useState(false)
+	const [searchQuery, setSearchQuery] = useState("")
+
+	// Fetch available ENPs
+	const { data: availableENPs = [], isLoading: isLoadingENPs } = trpc.consultations.getAvailableEnps.useQuery({
+		workflowType: selectedWorkflow,
+	})
+
+	// Filter ENPs based on search query
+	const filteredENPs = useMemo(() => {
+		if (!searchQuery.trim()) return availableENPs
+		const query = searchQuery.toLowerCase()
+		return availableENPs.filter(
+			enp =>
+				enp.name?.toLowerCase().includes(query) ||
+				enp.specialization?.toLowerCase().includes(query) ||
+				enp.email?.toLowerCase().includes(query)
+		)
+	}, [availableENPs, searchQuery])
+
+	// Create request mutation
+	const createRequest = trpc.requests.createRequest.useMutation({
+		onSuccess: () => {
+			toast.success("Notarization request created successfully!")
+			router.push("/requests")
+		},
+		onError: (error) => {
+			toast.error(error.message || "Failed to create request")
+		},
+	})
 
 	const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
 		const files = Array.from(event.target.files || [])
@@ -74,26 +67,21 @@ export default function NewRequestPage() {
 	}
 
 	const handleSubmitRequest = async () => {
-		if (!selectedENP || !requestTitle || uploadedFiles.length === 0) {
-			alert("Please fill in all required fields and upload at least one document.")
+		if (!selectedENP || !requestTitle) {
+			toast.error("Please fill in all required fields (ENP and title)")
 			return
 		}
 
-		setIsSubmitting(true)
-		try {
-			// Simulate API call
-			await new Promise(resolve => setTimeout(resolve, 2000))
-			
-			// Redirect to requests page
-			window.location.href = "/requests"
-		} catch (error) {
-			console.error("Failed to submit request:", error)
-		} finally {
-			setIsSubmitting(false)
-		}
+		createRequest.mutate({
+			enpId: selectedENP,
+			title: requestTitle,
+			description: description || undefined,
+			workflow: selectedWorkflow,
+			priority,
+		})
 	}
 
-	const selectedENPDetails = mockENPs.find(enp => enp.id === selectedENP)
+	const selectedENPDetails = availableENPs.find(enp => enp.id === selectedENP)
 
 	return (
 		<>
@@ -170,10 +158,29 @@ export default function NewRequestPage() {
 									<Input
 										placeholder="Search ENPs by name, specialization, or location..."
 										className="w-full"
+										value={searchQuery}
+										onChange={(e) => setSearchQuery(e.target.value)}
 									/>
 									
-									<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-										{mockENPs.map((enp) => (
+									{isLoadingENPs ? (
+										<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+											{Array.from({ length: 4 }).map((_, i) => (
+												<Card key={i}>
+													<CardContent className="p-4">
+														<Skeleton className="h-24 w-full" />
+													</CardContent>
+												</Card>
+											))}
+										</div>
+									) : filteredENPs.length === 0 ? (
+										<div className="py-8 text-center">
+											<p className="text-muted-foreground">
+												{searchQuery ? "No ENPs found matching your search." : "No available ENPs found."}
+											</p>
+										</div>
+									) : (
+										<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+											{filteredENPs.map((enp) => (
 											<Card 
 												key={enp.id} 
 												className={`cursor-pointer transition-all ${
@@ -186,35 +193,42 @@ export default function NewRequestPage() {
 												<CardContent className="p-4">
 													<div className="flex items-start gap-4">
 														<Avatar className="h-12 w-12">
-															<AvatarImage src={enp.avatar} alt={enp.name} />
-															<AvatarFallback>{enp.name.split(" ").map(n => n[0]).join("")}</AvatarFallback>
+															<AvatarImage src={enp.image || undefined} alt={enp.name || "ENP"} />
+															<AvatarFallback>{(enp.name || "ENP").split(" ").map(n => n[0]).join("")}</AvatarFallback>
 														</Avatar>
 														<div className="flex-1">
-															<h4 className="font-medium">{enp.name}</h4>
-															<p className="text-sm text-muted-foreground">{enp.title}</p>
-															<p className="text-sm text-muted-foreground">{enp.location}</p>
+															<h4 className="font-medium">{enp.name || "Unknown ENP"}</h4>
+															<p className="text-sm text-muted-foreground">Electronic Notary Public</p>
+															{enp.phoneNumber && (
+																<p className="text-sm text-muted-foreground">{enp.phoneNumber}</p>
+															)}
 															<div className="flex items-center gap-2 mt-2">
 																<Badge variant="outline" className="text-xs">
-																	{enp.specialization}
+																	{enp.specialization || "Legal Services"}
 																</Badge>
-																<span className="text-xs text-muted-foreground">
-																	{enp.rating} ({enp.reviewCount} reviews)
-																</span>
+																{enp.rating && (
+																	<span className="text-xs text-muted-foreground">
+																		{enp.rating} {enp.reviewCount ? `(${enp.reviewCount} reviews)` : ""}
+																	</span>
+																)}
 															</div>
 															<div className="flex items-center gap-2 mt-1">
 																<Badge variant="outline" className="text-xs">
 																	{selectedWorkflow}
 																</Badge>
-																<span className="text-xs text-muted-foreground">
-																	{enp.responseTime}
-																</span>
+																{enp.responseTime && (
+																	<span className="text-xs text-muted-foreground">
+																		{enp.responseTime}
+																	</span>
+																)}
 															</div>
 														</div>
 													</div>
 												</CardContent>
 											</Card>
-										))}
-									</div>
+											))}
+										</div>
+									)}
 								</div>
 							</CardContent>
 						</Card>
@@ -345,18 +359,22 @@ export default function NewRequestPage() {
 								<CardContent>
 									<div className="flex items-center gap-4">
 										<Avatar className="h-16 w-16">
-											<AvatarImage src={selectedENPDetails.avatar} alt={selectedENPDetails.name} />
-											<AvatarFallback>{selectedENPDetails.name.split(" ").map(n => n[0]).join("")}</AvatarFallback>
+											<AvatarImage src={selectedENPDetails?.image || undefined} alt={selectedENPDetails?.name || "ENP"} />
+											<AvatarFallback>{(selectedENPDetails?.name || "ENP").split(" ").map(n => n[0]).join("")}</AvatarFallback>
 										</Avatar>
 										<div className="flex-1">
-											<h4 className="font-medium">{selectedENPDetails.name}</h4>
-											<p className="text-sm text-muted-foreground">{selectedENPDetails.title}</p>
-											<p className="text-sm text-muted-foreground">{selectedENPDetails.location}</p>
+											<h4 className="font-medium">{selectedENPDetails?.name || "Unknown ENP"}</h4>
+											<p className="text-sm text-muted-foreground">Electronic Notary Public</p>
+											{selectedENPDetails?.phoneNumber && (
+												<p className="text-sm text-muted-foreground">{selectedENPDetails.phoneNumber}</p>
+											)}
 											<div className="flex items-center gap-2 mt-2">
 												<Badge variant="outline">{selectedWorkflow}</Badge>
-												<span className="text-sm text-muted-foreground">
-													{selectedENPDetails.responseTime}
-												</span>
+												{selectedENPDetails?.responseTime && (
+													<span className="text-sm text-muted-foreground">
+														{selectedENPDetails.responseTime}
+													</span>
+												)}
 											</div>
 										</div>
 									</div>
@@ -371,9 +389,9 @@ export default function NewRequestPage() {
 							</Button>
 							<Button
 								onClick={handleSubmitRequest}
-								disabled={!selectedENP || !requestTitle || uploadedFiles.length === 0 || isSubmitting}
+								disabled={!selectedENP || !requestTitle || createRequest.isPending}
 							>
-								{isSubmitting ? "Submitting..." : "Submit Request"}
+								{createRequest.isPending ? "Submitting..." : "Submit Request"}
 							</Button>
 						</div>
 					</div>

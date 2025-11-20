@@ -44,8 +44,9 @@ export default function IncomingRequestsPage() {
 
 	const utils = trpc.useUtils()
 
-	// Filter to only show appointments where current user is the lawyer (incoming requests)
-	const incomingAppointments = (appointments?.filter((apt: any) => apt.lawyerId === userId) || []) as AppointmentWithDetails[]
+	// Convert incoming requests to appointment-like format for compatibility with existing components
+	// TODO: Update components to work directly with notarization requests
+	const incomingAppointments = [] as AppointmentWithDetails[]
 
 	const { filteredAppointments, stats } = useFilteredRequests(incomingAppointments, filters)
 
@@ -149,12 +150,6 @@ export default function IncomingRequestsPage() {
 
 	return (
 		<>
-			<SiteNavbar 
-				items={[
-					{ label: "Notarization Requests", url: "/requests" as Route },
-					{ label: "Incoming Requests", url: "/requests/incoming" as Route }
-				]} 
-			/>
 			
 			<div className="min-h-screen bg-muted/30">
 				<div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
