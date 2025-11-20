@@ -15,6 +15,7 @@ import { messagesRouter } from "@/features/messages/api/messages.router"
 import { profileRouter } from "@/features/profile/api/profile.router"
 import { settingsRouter } from "@/features/settings/api/settings.router"
 import { signatureLiteRouter } from "@/features/signature-lite/api/new-signature.router"
+import { userManagementRouter } from "@/features/user-management/api/user-management.router"
 import { witnessesRouter } from "@/features/witnesses/api/witnesses.router"
 
 /**
@@ -43,6 +44,7 @@ export const appRouter = createTRPCRouter({
 	settings: settingsRouter,
 	signatureLite: signatureLiteRouter,
 	witnesses: witnessesRouter,
+	userManagement: userManagementRouter,
 })
 
 // export type definition of API
