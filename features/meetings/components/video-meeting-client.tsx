@@ -1,6 +1,6 @@
 "use client"
 
-import { Camera, CameraOff, FileText, FileUp, Mic, MicOff, Monitor, PhoneOff, Users, Send, FileSignature, CircleDot, Square, X, GripVertical } from "lucide-react"
+import { Camera, CameraOff, FileText, FileUp, Mic, MicOff, Monitor, PhoneOff, Users, Send, FileSignature, CircleDot, Square, X, GripVertical, Download, CheckCircle2, Clock } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import { MeetingProvider, useMeeting, useParticipant } from "@videosdk.live/react-sdk"
 import { useSession } from "next-auth/react"
@@ -394,12 +394,22 @@ function DocumentActions({
 	isENP,
 	onSignClick,
 	isSigningPending,
+	onDownloadCertificate,
+	isDownloadingCertificate,
+	onDownloadSignedDocument,
+	isDownloadingSignedDocument,
+	isFullySigned,
 }: {
 	document: { id: string; name: string; docoChainProjectId: string | null }
 	isPrincipal: boolean
 	isENP: boolean
 	onSignClick: (projectUuid: string, email: string, documentId: string) => void
 	isSigningPending: boolean
+	onDownloadCertificate?: (projectUuid: string) => void
+	isDownloadingCertificate?: boolean
+	onDownloadSignedDocument?: (projectUuid: string) => void
+	isDownloadingSignedDocument?: boolean
+	isFullySigned?: boolean
 }) {
 	const { data: session } = useSession()
 
@@ -460,6 +470,60 @@ function DocumentActions({
 					)}
 				</Button>
 			)}
+
+			{/* Download Signed Document button - only show for fully signed documents */}
+			{document.docoChainProjectId && onDownloadSignedDocument && isFullySigned && (
+				<Button
+					variant="outline"
+					size="sm"
+					className="w-full h-9 text-xs shadow-sm hover:bg-primary/10 hover:text-primary transition-all"
+					onClick={() => {
+						if (document.docoChainProjectId) {
+							onDownloadSignedDocument(document.docoChainProjectId)
+						}
+					}}
+					disabled={isDownloadingSignedDocument}
+				>
+					{isDownloadingSignedDocument ? (
+						<>
+							<div className="mr-2 size-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
+							Downloading...
+						</>
+					) : (
+						<>
+							<Download className="size-3.5 mr-1.5" />
+							Download Signed Document
+						</>
+					)}
+				</Button>
+			)}
+
+			{/* Download Certificate button - only show for fully signed documents */}
+			{document.docoChainProjectId && onDownloadCertificate && isFullySigned && (
+				<Button
+					variant="outline"
+					size="sm"
+					className="w-full h-9 text-xs shadow-sm hover:bg-green-50 hover:text-green-700 hover:border-green-300 transition-all"
+					onClick={() => {
+						if (document.docoChainProjectId) {
+							onDownloadCertificate(document.docoChainProjectId)
+						}
+					}}
+					disabled={isDownloadingCertificate}
+				>
+					{isDownloadingCertificate ? (
+						<>
+							<div className="mr-2 size-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
+							Downloading...
+						</>
+					) : (
+						<>
+							<Download className="size-3.5 mr-1.5" />
+							Download Certificate
+						</>
+					)}
+				</Button>
+			)}
 		</div>
 	)
 }
@@ -480,6 +544,9 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 	const [signingDocumentId, setSigningDocumentId] = useState<string | null>(null)
 	const [draggedDocumentId, setDraggedDocumentId] = useState<string | null>(null)
 	const [dragOverDocumentId, setDragOverDocumentId] = useState<string | null>(null)
+	const [downloadingProjectUuid, setDownloadingProjectUuid] = useState<string | null>(null)
+	const [downloadingCertificateUuid, setDownloadingCertificateUuid] = useState<string | null>(null)
+	const [documentSigningStatus, setDocumentSigningStatus] = useState<Map<string, { isFullySigned: boolean; signedCount: number; totalSigners: number }>>(new Map())
 	
 	// Fetch meeting documents
 	const { data: documents, refetch: refetchDocuments } = trpc.meetings.getMeetingDocuments.useQuery(
@@ -489,6 +556,51 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 			refetchInterval: 5000, // Refetch every 5 seconds to get new uploads
 		}
 	)
+
+	// Get tRPC utils for imperative calls
+	const utils = trpc.useUtils()
+
+	// Check signing status for all documents with DocoChain project IDs
+	useEffect(() => {
+		if (!documents || documents.length === 0) return
+
+		const checkStatuses = async () => {
+			const statusMap = new Map<string, { isFullySigned: boolean; signedCount: number; totalSigners: number }>()
+			
+			for (const doc of documents) {
+				if (doc.docoChainProjectId) {
+					try {
+						const status = await utils.signatureRequests.checkSigningStatus.fetch({
+							projectUuid: doc.docoChainProjectId,
+						})
+						statusMap.set(doc.id, {
+							isFullySigned: status.isFullySigned,
+							signedCount: status.signedCount,
+							totalSigners: status.totalSigners,
+						})
+					} catch (error) {
+						// If status check fails, assume not signed
+						statusMap.set(doc.id, {
+							isFullySigned: false,
+							signedCount: 0,
+							totalSigners: 0,
+						})
+					}
+				}
+			}
+			
+			setDocumentSigningStatus(statusMap)
+		}
+
+		void checkStatuses()
+		
+		// Refresh status every 5 seconds to show real-time updates
+		const interval = setInterval(() => {
+			void checkStatuses()
+		}, 5000)
+
+		return () => clearInterval(interval)
+	}, [documents, utils])
 
 	// Fetch meeting details to get participants
 	const { data: meetingDetails } = trpc.meetings.getById.useQuery(meetingId || "", {
@@ -618,6 +730,84 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 	const handleDragEnd = () => {
 		setDraggedDocumentId(null)
 		setDragOverDocumentId(null)
+	}
+
+	// Handle signed document download
+	const handleDownloadSignedDocument = async (projectUuid: string) => {
+		setDownloadingProjectUuid(projectUuid)
+		
+		try {
+			// Fetch the signed document using tRPC utils
+			const result = await utils.signatureRequests.downloadSignedDocument.fetch(projectUuid as any)
+			
+			if (result && result.base64) {
+				// Convert base64 to blob and download
+				const byteCharacters = atob(result.base64)
+				const byteNumbers = new Array(byteCharacters.length)
+				for (let i = 0; i < byteCharacters.length; i++) {
+					byteNumbers[i] = byteCharacters.charCodeAt(i)
+				}
+				const byteArray = new Uint8Array(byteNumbers)
+				const blob = new Blob([byteArray], { type: 'application/pdf' })
+				
+				const url = window.URL.createObjectURL(blob)
+				const link = document.createElement('a')
+				link.href = url
+				link.download = result.fileName || `signed-document-${projectUuid}.pdf`
+				document.body.appendChild(link)
+				link.click()
+				document.body.removeChild(link)
+				window.URL.revokeObjectURL(url)
+				
+				toast.success("Signed document downloaded successfully!")
+			} else {
+				toast.error("Failed to download signed document")
+			}
+		} catch (error) {
+			console.error("Error downloading signed document:", error)
+			toast.error(error instanceof Error ? error.message : "Failed to download signed document")
+		} finally {
+			setDownloadingProjectUuid(null)
+		}
+	}
+
+	// Handle certificate download
+	const handleDownloadCertificate = async (projectUuid: string) => {
+		setDownloadingCertificateUuid(projectUuid)
+		
+		try {
+			// Fetch the certificate using tRPC utils
+			const result = await utils.signatureRequests.downloadCertificate.fetch(projectUuid as any)
+			
+			if (result && result.base64) {
+				// Convert base64 to blob and download
+				const byteCharacters = atob(result.base64)
+				const byteNumbers = new Array(byteCharacters.length)
+				for (let i = 0; i < byteCharacters.length; i++) {
+					byteNumbers[i] = byteCharacters.charCodeAt(i)
+				}
+				const byteArray = new Uint8Array(byteNumbers)
+				const blob = new Blob([byteArray], { type: 'application/pdf' })
+				
+				const url = window.URL.createObjectURL(blob)
+				const link = document.createElement('a')
+				link.href = url
+				link.download = result.fileName || `certificate-${projectUuid}.pdf`
+				document.body.appendChild(link)
+				link.click()
+				document.body.removeChild(link)
+				window.URL.revokeObjectURL(url)
+				
+				toast.success("Certificate downloaded successfully!")
+			} else {
+				toast.error("Failed to download certificate")
+			}
+		} catch (error) {
+			console.error("Error downloading certificate:", error)
+			toast.error(error instanceof Error ? error.message : "Failed to download certificate")
+		} finally {
+			setDownloadingCertificateUuid(null)
+		}
 	}
 
 	// Generate signing link mutation (for signature request dialog)
@@ -986,7 +1176,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 													zIndex: isDragged ? 50 : isDragOver ? 10 : 1,
 												}}
 												className={cn(
-													"shadow-md hover:shadow-lg border-2",
+													"shadow-md hover:shadow-lg border-2 relative",
 													isDragged 
 														? "cursor-grabbing shadow-2xl" 
 														: "hover:border-primary/50 hover:shadow-xl",
@@ -997,6 +1187,28 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 												onDragOver={(e) => handleDragOver(e, doc.id)}
 												onDrop={(e) => handleDrop(e, doc.id)}
 											>
+												{/* Signing status indicator - top right corner */}
+												{doc.docoChainProjectId && documentSigningStatus.has(doc.id) && (() => {
+													const status = documentSigningStatus.get(doc.id)!
+													return status.isFullySigned ? (
+														<div className="absolute top-2 right-2 flex items-center gap-1 rounded-full bg-green-100 dark:bg-green-900/30 px-2 py-0.5 z-10">
+															<CheckCircle2 className="size-3 text-green-600 dark:text-green-400" />
+															<span className="text-[10px] font-semibold text-green-700 dark:text-green-400">Signed</span>
+														</div>
+													) : status.signedCount > 0 ? (
+														<div className="absolute top-2 right-2 flex items-center gap-1 rounded-full bg-yellow-100 dark:bg-yellow-900/30 px-2 py-0.5 z-10">
+															<Clock className="size-3 text-yellow-600 dark:text-yellow-400" />
+															<span className="text-[10px] font-semibold text-yellow-700 dark:text-yellow-400">
+																{status.signedCount}/{status.totalSigners}
+															</span>
+														</div>
+													) : (
+														<div className="absolute top-2 right-2 flex items-center gap-1 rounded-full bg-gray-100 dark:bg-gray-800 px-2 py-0.5 z-10">
+															<Clock className="size-3 text-gray-500 dark:text-gray-400" />
+															<span className="text-[10px] font-semibold text-gray-600 dark:text-gray-400">Pending</span>
+														</div>
+													)
+												})()}
 												<CardContent className="p-4">
 													<div className="flex items-start gap-3 mb-3">
 														{/* Drag handle - only draggable element */}
@@ -1034,6 +1246,11 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 															})
 														}}
 														isSigningPending={initiateSigning.isPending && signingDocumentId === doc.id}
+														onDownloadSignedDocument={handleDownloadSignedDocument}
+														isDownloadingSignedDocument={downloadingProjectUuid === doc.docoChainProjectId}
+														onDownloadCertificate={handleDownloadCertificate}
+														isDownloadingCertificate={downloadingCertificateUuid === doc.docoChainProjectId}
+														isFullySigned={documentSigningStatus.get(doc.id)?.isFullySigned ?? false}
 													/>
 												</CardContent>
 											</Card>

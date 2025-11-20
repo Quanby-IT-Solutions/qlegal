@@ -1,8 +1,8 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { type Route } from "next"
-import { useRouter } from "next/navigation"
+import { useRouter, usePathname } from "next/navigation"
 import { useSession } from "next-auth/react"
 import { 
 	Activity, 
@@ -83,13 +83,56 @@ const PIE_COLORS = ["#3b82f6", "#8b5cf6", "#10b981", "#f59e0b", "#ef4444", "#06b
 
 export default function DashboardPage() {
 	const router = useRouter()
+	const pathname = usePathname()
 	const { data: session } = useSession()
 	const userRole = session?.user?.role || "PRINCIPAL"
 	const isENP = userRole === "ENP"
 	const isPrincipal = userRole === "PRINCIPAL"
+	
+	// Track if ENP has viewed requests page to hide notification dot
+	const [hasViewedRequests, setHasViewedRequests] = useState(false)
 
 	// Fetch dashboard data
 	const { data: statistics, isLoading: isLoadingStats } = trpc.dashboard.getStatistics.useQuery()
+	
+	useEffect(() => {
+		// Check if user has viewed requests page before
+		// Show dot if there are pending requests and either:
+		// 1. They haven't viewed the page yet, OR
+		// 2. New requests came in since last view
+		if (isENP && statistics) {
+			const viewed = localStorage.getItem("enp_viewed_requests")
+			const lastViewedCount = localStorage.getItem("enp_last_viewed_count")
+			const currentCount = statistics.pendingNotarizationRequests || 0
+			
+			if (viewed === "true" && lastViewedCount) {
+				const lastCount = parseInt(lastViewedCount, 10)
+				// If count increased (new requests), show dot again
+				if (currentCount > lastCount) {
+					setHasViewedRequests(false)
+				} else if (currentCount === 0) {
+					// No pending requests, hide dot
+					setHasViewedRequests(true)
+				} else {
+					// Same count, they've viewed it
+					setHasViewedRequests(true)
+				}
+			} else {
+				// Never viewed, show dot if there are pending requests
+				setHasViewedRequests(currentCount === 0)
+			}
+		}
+	}, [isENP, statistics?.pendingNotarizationRequests])
+	
+	useEffect(() => {
+		// Mark as viewed when ENP visits requests page
+		if (isENP && pathname === "/requests") {
+			const currentCount = statistics?.pendingNotarizationRequests || 0
+			localStorage.setItem("enp_viewed_requests", "true")
+			localStorage.setItem("enp_last_viewed_count", currentCount.toString())
+			setHasViewedRequests(true)
+		}
+	}, [isENP, pathname, statistics?.pendingNotarizationRequests])
 	const { data: upcomingAppointments, isLoading: isLoadingUpcoming } = trpc.dashboard.getUpcomingAppointments.useQuery({ limit: 5 })
 	const { data: recentDocuments, isLoading: isLoadingDocuments } = trpc.dashboard.getRecentDocuments.useQuery({ limit: 5 })
 	const { data: recentMeetings, isLoading: isLoadingMeetings } = trpc.dashboard.getRecentMeetings.useQuery({ limit: 5 })
@@ -262,8 +305,16 @@ export default function DashboardPage() {
 			},
 		]
 
-		// Add ENP-specific stat
+		// Add ENP-specific stats
 		if (isENP) {
+			baseStats.push({
+				title: "Notarization Requests",
+				value: statistics?.pendingNotarizationRequests || 0,
+				icon: ClipboardList,
+				description: "Pending requests",
+				color: "text-orange-600",
+				bgColor: "bg-orange-50",
+			})
 			baseStats.push({
 				title: "Signature Requests",
 				value: statistics?.pendingSignatureRequests || 0,
@@ -320,9 +371,9 @@ export default function DashboardPage() {
 					</div>
 
 					{/* Statistics Cards */}
-					<div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+					<div className={`grid gap-4 sm:grid-cols-2 ${isENP ? 'lg:grid-cols-5' : 'lg:grid-cols-4'}`}>
 						{isLoadingStats ? (
-							Array.from({ length: 4 }).map((_, i) => (
+							Array.from({ length: isENP ? 5 : 4 }).map((_, i) => (
 								<Card key={i}>
 									<CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
 										<Skeleton className="h-4 w-24" />
@@ -337,8 +388,12 @@ export default function DashboardPage() {
 						) : (
 							statsCards.map((stat, index) => {
 								const Icon = stat.icon
+								const hasPendingRequests = isENP && stat.title === "Notarization Requests" && (statistics?.pendingNotarizationRequests || 0) > 0 && !hasViewedRequests
 								return (
-									<Card key={index}>
+									<Card key={index} className="relative overflow-visible">
+										{hasPendingRequests && (
+											<div className="absolute -right-2 -top-2 h-4 w-4 rounded-full bg-red-500 border-2 border-background z-20 shadow-lg animate-pulse" />
+										)}
 										<CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
 											<CardTitle className="text-sm font-medium">
 												{stat.title}
@@ -368,7 +423,7 @@ export default function DashboardPage() {
 							</CardDescription>
 						</CardHeader>
 						<CardContent>
-							<div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+							<div className={`grid gap-4 sm:grid-cols-2 ${isENP ? 'lg:grid-cols-5' : 'lg:grid-cols-4'}`}>
 								{isPrincipal && (
 									<Button
 										variant="outline"
@@ -384,6 +439,30 @@ export default function DashboardPage() {
 										</div>
 									</Button>
 								)}
+								{isENP && (
+									<Button
+										variant="outline"
+										className="h-auto flex-col items-start gap-2 p-4 relative overflow-visible"
+										onClick={() => {
+											const currentCount = statistics?.pendingNotarizationRequests || 0
+											localStorage.setItem("enp_viewed_requests", "true")
+											localStorage.setItem("enp_last_viewed_count", currentCount.toString())
+											setHasViewedRequests(true)
+											router.push("/requests/incoming" as Route)
+										}}
+									>
+										{(statistics?.pendingNotarizationRequests || 0) > 0 && !hasViewedRequests && (
+											<div className="absolute -right-2 -top-2 h-4 w-4 rounded-full bg-red-500 border-2 border-background z-20 shadow-lg animate-pulse" />
+										)}
+										<ClipboardList className="h-5 w-5" />
+										<div className="text-left">
+											<div className="font-semibold">Notarization Requests</div>
+											<div className="text-xs text-muted-foreground">
+												{statistics?.pendingNotarizationRequests || 0} pending request{statistics?.pendingNotarizationRequests !== 1 ? "s" : ""}
+											</div>
+										</div>
+									</Button>
+								)}
 								<Button
 									variant="outline"
 									className="h-auto flex-col items-start gap-2 p-4"
@@ -391,7 +470,7 @@ export default function DashboardPage() {
 								>
 									<CalendarClock className="h-5 w-5" />
 									<div className="text-left">
-										<div className="font-semibold">{isENP ? "View Requests" : "Book Consultation"}</div>
+										<div className="font-semibold">{isENP ? "View Consultations" : "Book Consultation"}</div>
 										<div className="text-xs text-muted-foreground">
 											{isENP ? "Manage consultation requests" : "Schedule a consultation"}
 										</div>
