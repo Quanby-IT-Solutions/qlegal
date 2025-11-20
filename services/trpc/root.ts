@@ -2,11 +2,12 @@ import { createCallerFactory, createTRPCRouter, publicProcedure } from "@/servic
 
 import { authRouter } from "@/features/auth/api/auth.router"
 import { consultationsRouter } from "@/features/consultations/api/consultations.router"
-import { dashboardRouter } from "@/features/dashboard/api/dashboard.router"
 import { enpProfileRouter } from "@/features/consultations/api/enp-profile.router"
+import { dashboardRouter } from "@/features/dashboard/api/dashboard.router"
 import { envelopeLiteRouter } from "@/features/envelopes-lite/api/envelope-lite.router"
 import { appointmentsRouter } from "@/features/lawyers/api/appointments.router"
 import { lawyersRouter } from "@/features/lawyers/api/lawyers.router"
+import { legalRegistrationRouter } from "@/features/legal-registration/api/legal-registration.router"
 import { meetingsRouter } from "@/features/meetings/api/meetings.router"
 import { signatureRequestsRouter } from "@/features/meetings/api/signature-requests.router"
 import { messageFilesRouter } from "@/features/messages/api/message-files.router"
@@ -34,6 +35,7 @@ export const appRouter = createTRPCRouter({
 	enpProfile: enpProfileRouter,
 	envelopeLite: envelopeLiteRouter,
 	lawyers: lawyersRouter,
+	legalRegistrations: legalRegistrationRouter,
 	meetings: meetingsRouter,
 	signatureRequests: signatureRequestsRouter,
 	messages: messagesRouter,
