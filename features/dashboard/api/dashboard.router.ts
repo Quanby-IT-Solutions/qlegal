@@ -1,14 +1,14 @@
 import { and, count, desc, eq, gte, or, sql } from "drizzle-orm"
 import { z } from "zod/v4"
 
-import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
 import { appointments } from "@/services/drizzle/schema/appointments"
+import { users } from "@/services/drizzle/schema/auth"
 import { documents } from "@/services/drizzle/schema/document"
 import { envelopes } from "@/services/drizzle/schema/envelope"
 import { meetings } from "@/services/drizzle/schema/meetings"
 import { notarizationRequests } from "@/services/drizzle/schema/notarization-requests"
 import { signatureRequests } from "@/services/drizzle/schema/signature-requests"
-import { users } from "@/services/drizzle/schema/auth"
+import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
 
 export const dashboardRouter = createTRPCRouter({
 	// Get dashboard statistics
@@ -24,11 +24,7 @@ export const dashboardRouter = createTRPCRouter({
 		const [appointmentsResult] = await ctx.db
 			.select({ count: count() })
 			.from(appointments)
-			.where(
-				isENP
-					? eq(appointments.lawyerId, userId)
-					: eq(appointments.clientId, userId)
-			)
+			.where(isENP ? eq(appointments.lawyerId, userId) : eq(appointments.clientId, userId))
 
 		// Pending appointments
 		const [pendingAppointmentsResult] = await ctx.db
@@ -36,9 +32,7 @@ export const dashboardRouter = createTRPCRouter({
 			.from(appointments)
 			.where(
 				and(
-					isENP
-						? eq(appointments.lawyerId, userId)
-						: eq(appointments.clientId, userId),
+					isENP ? eq(appointments.lawyerId, userId) : eq(appointments.clientId, userId),
 					eq(appointments.status, "PENDING")
 				)
 			)
@@ -56,13 +50,8 @@ export const dashboardRouter = createTRPCRouter({
 			const [signatureRequestsResult] = await ctx.db
 				.select({ count: count() })
 				.from(signatureRequests)
-				.where(
-					and(
-						eq(signatureRequests.signerId, userId),
-						eq(signatureRequests.status, "PENDING")
-					)
-				)
-			pendingSignatureRequests = signatureRequestsResult?.count || 0
+				.where(and(eq(signatureRequests.signerId, userId), eq(signatureRequests.status, "PENDING")))
+			pendingSignatureRequests = signatureRequestsResult?.count ?? 0
 		}
 
 		// Pending notarization requests (for ENPs)
@@ -72,12 +61,9 @@ export const dashboardRouter = createTRPCRouter({
 				.select({ count: count() })
 				.from(notarizationRequests)
 				.where(
-					and(
-						eq(notarizationRequests.enpId, userId),
-						eq(notarizationRequests.status, "PENDING")
-					)
+					and(eq(notarizationRequests.enpId, userId), eq(notarizationRequests.status, "PENDING"))
 				)
-			pendingNotarizationRequests = notarizationRequestsResult?.count || 0
+			pendingNotarizationRequests = notarizationRequestsResult?.count ?? 0
 		}
 
 		// Total meetings
@@ -92,21 +78,19 @@ export const dashboardRouter = createTRPCRouter({
 			.from(appointments)
 			.where(
 				and(
-					isENP
-						? eq(appointments.lawyerId, userId)
-						: eq(appointments.clientId, userId),
+					isENP ? eq(appointments.lawyerId, userId) : eq(appointments.clientId, userId),
 					eq(appointments.status, "COMPLETED")
 				)
 			)
 
 		return {
-			totalAppointments: appointmentsResult?.count || 0,
-			pendingAppointments: pendingAppointmentsResult?.count || 0,
-			totalDocuments: documentsResult?.count || 0,
+			totalAppointments: appointmentsResult?.count ?? 0,
+			pendingAppointments: pendingAppointmentsResult?.count ?? 0,
+			totalDocuments: documentsResult?.count ?? 0,
 			pendingSignatureRequests,
 			pendingNotarizationRequests,
-			totalMeetings: meetingsResult?.count || 0,
-			completedAppointments: completedAppointmentsResult?.count || 0,
+			totalMeetings: meetingsResult?.count ?? 0,
+			completedAppointments: completedAppointmentsResult?.count ?? 0,
 		}
 	}),
 
@@ -146,21 +130,11 @@ export const dashboardRouter = createTRPCRouter({
 					lawyerImage: sql<string>`lawyer.image`,
 				})
 				.from(appointments)
-				.innerJoin(
-					sql`${users} as client`,
-					eq(appointments.clientId, sql`client.id`)
-				)
-				.innerJoin(
-					sql`${users} as lawyer`,
-					eq(appointments.lawyerId, sql`lawyer.id`)
-				)
-				.where(
-					isENP
-						? eq(appointments.lawyerId, userId)
-						: eq(appointments.clientId, userId)
-				)
+				.innerJoin(sql`${users} as client`, eq(appointments.clientId, sql`client.id`))
+				.innerJoin(sql`${users} as lawyer`, eq(appointments.lawyerId, sql`lawyer.id`))
+				.where(isENP ? eq(appointments.lawyerId, userId) : eq(appointments.clientId, userId))
 				.orderBy(desc(appointments.appointmentDate))
-				.limit(input?.limit || 5)
+				.limit(input?.limit ?? 5)
 
 			return recentAppointments
 		}),
@@ -203,28 +177,17 @@ export const dashboardRouter = createTRPCRouter({
 					lawyerImage: sql<string>`lawyer.image`,
 				})
 				.from(appointments)
-				.innerJoin(
-					sql`${users} as client`,
-					eq(appointments.clientId, sql`client.id`)
-				)
-				.innerJoin(
-					sql`${users} as lawyer`,
-					eq(appointments.lawyerId, sql`lawyer.id`)
-				)
+				.innerJoin(sql`${users} as client`, eq(appointments.clientId, sql`client.id`))
+				.innerJoin(sql`${users} as lawyer`, eq(appointments.lawyerId, sql`lawyer.id`))
 				.where(
 					and(
-						isENP
-							? eq(appointments.lawyerId, userId)
-							: eq(appointments.clientId, userId),
+						isENP ? eq(appointments.lawyerId, userId) : eq(appointments.clientId, userId),
 						gte(appointments.appointmentDate, now),
-						or(
-							eq(appointments.status, "PENDING"),
-							eq(appointments.status, "CONFIRMED")
-						)
+						or(eq(appointments.status, "PENDING"), eq(appointments.status, "CONFIRMED"))
 					)
 				)
 				.orderBy(appointments.appointmentDate)
-				.limit(input?.limit || 5)
+				.limit(input?.limit ?? 5)
 
 			return upcomingAppointments
 		}),
@@ -257,7 +220,7 @@ export const dashboardRouter = createTRPCRouter({
 				.innerJoin(envelopes, eq(documents.envelopeId, envelopes.id))
 				.where(eq(envelopes.userId, userId))
 				.orderBy(desc(documents.createdAt))
-				.limit(input?.limit || 5)
+				.limit(input?.limit ?? 5)
 
 			return recentDocuments
 		}),
@@ -290,7 +253,7 @@ export const dashboardRouter = createTRPCRouter({
 				.innerJoin(users, eq(meetings.createdById, users.id))
 				.where(eq(meetings.createdById, userId))
 				.orderBy(desc(meetings.createdAt))
-				.limit(input?.limit || 5)
+				.limit(input?.limit ?? 5)
 
 			return recentMeetings
 		}),
@@ -309,7 +272,7 @@ export const dashboardRouter = createTRPCRouter({
 			const userRole = ctx.session.user.role
 			const isENP = userRole === "ENP"
 
-			const days = input?.days || 30
+			const days = input?.days ?? 30
 			const startDate = new Date()
 			startDate.setDate(startDate.getDate() - days)
 
@@ -322,9 +285,7 @@ export const dashboardRouter = createTRPCRouter({
 				.from(appointments)
 				.where(
 					and(
-						isENP
-							? eq(appointments.lawyerId, userId)
-							: eq(appointments.clientId, userId),
+						isENP ? eq(appointments.lawyerId, userId) : eq(appointments.clientId, userId),
 						gte(appointments.createdAt, startDate)
 					)
 				)
@@ -339,9 +300,7 @@ export const dashboardRouter = createTRPCRouter({
 				})
 				.from(documents)
 				.innerJoin(envelopes, eq(documents.envelopeId, envelopes.id))
-				.where(
-					and(eq(envelopes.userId, userId), gte(documents.createdAt, startDate))
-				)
+				.where(and(eq(envelopes.userId, userId), gte(documents.createdAt, startDate)))
 				.groupBy(sql`DATE(${documents.createdAt})`)
 				.orderBy(sql`DATE(${documents.createdAt})`)
 
@@ -363,11 +322,7 @@ export const dashboardRouter = createTRPCRouter({
 				count: count(),
 			})
 			.from(appointments)
-			.where(
-				isENP
-					? eq(appointments.lawyerId, userId)
-					: eq(appointments.clientId, userId)
-			)
+			.where(isENP ? eq(appointments.lawyerId, userId) : eq(appointments.clientId, userId))
 			.groupBy(appointments.type)
 
 		return distribution
@@ -385,11 +340,7 @@ export const dashboardRouter = createTRPCRouter({
 				count: count(),
 			})
 			.from(appointments)
-			.where(
-				isENP
-					? eq(appointments.lawyerId, userId)
-					: eq(appointments.clientId, userId)
-			)
+			.where(isENP ? eq(appointments.lawyerId, userId) : eq(appointments.clientId, userId))
 			.groupBy(appointments.status)
 
 		return distribution
@@ -412,4 +363,3 @@ export const dashboardRouter = createTRPCRouter({
 		return distribution
 	}),
 })
-
