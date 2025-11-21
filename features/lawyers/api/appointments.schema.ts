@@ -52,6 +52,11 @@ export const confirmAppointmentSchema = z.object({
 	meetingLink: z.string().url().optional().or(z.literal("")),
 })
 
+// Get notarization session schema (accepts appointment ID or notarization request ID)
+export const getNotarizationSessionSchema = z.object({
+	sessionId: z.string().min(1, "Session ID is required"),
+})
+
 // Type exports
 export type CreateAppointmentInput = z.infer<typeof createAppointmentSchema>
 export type UpdateAppointmentInput = z.infer<typeof updateAppointmentSchema>
@@ -59,3 +64,4 @@ export type CancelAppointmentInput = z.infer<typeof cancelAppointmentSchema>
 export type GetAppointmentsInput = z.infer<typeof getAppointmentsSchema>
 export type GetAppointmentByIdInput = z.infer<typeof getAppointmentByIdSchema>
 export type ConfirmAppointmentInput = z.infer<typeof confirmAppointmentSchema>
+export type GetNotarizationSessionInput = z.infer<typeof getNotarizationSessionSchema>

@@ -85,7 +85,7 @@ export default function DashboardPage() {
 	const router = useRouter()
 	const pathname = usePathname()
 	const { data: session } = useSession()
-	const userRole = session?.user?.role || "PRINCIPAL"
+	const userRole = session?.user?.role ?? "PRINCIPAL"
 	const isENP = userRole === "ENP"
 	const isPrincipal = userRole === "PRINCIPAL"
 	
@@ -103,7 +103,7 @@ export default function DashboardPage() {
 		if (isENP && statistics) {
 			const viewed = localStorage.getItem("enp_viewed_requests")
 			const lastViewedCount = localStorage.getItem("enp_last_viewed_count")
-			const currentCount = statistics.pendingNotarizationRequests || 0
+			const currentCount = statistics.pendingNotarizationRequests ?? 0
 			
 			if (viewed === "true" && lastViewedCount) {
 				const lastCount = parseInt(lastViewedCount, 10)
@@ -127,7 +127,7 @@ export default function DashboardPage() {
 	useEffect(() => {
 		// Mark as viewed when ENP visits requests page
 		if (isENP && pathname === "/requests") {
-			const currentCount = statistics?.pendingNotarizationRequests || 0
+			const currentCount = statistics?.pendingNotarizationRequests ?? 0
 			localStorage.setItem("enp_viewed_requests", "true")
 			localStorage.setItem("enp_last_viewed_count", currentCount.toString())
 			setHasViewedRequests(true)
@@ -205,18 +205,18 @@ export default function DashboardPage() {
 		if (!appointmentTypeData || appointmentTypeData.length === 0) return null
 		
 		return {
-			labels: appointmentTypeData.map(item => item.type?.replace(/_/g, ' ') || 'Unknown'),
+			labels: appointmentTypeData.map(item => item.type?.replace(/_/g, ' ') ?? 'Unknown'),
 			datasets: [
 				{
 					label: 'Count',
 					data: appointmentTypeData.map(item => item.count),
 					backgroundColor: appointmentTypeData.map((_, index) => {
 						const colors = appointmentTypeGradientColors[index % appointmentTypeGradientColors.length] ?? appointmentTypeGradientColors[0]
-						return colors?.start || '#3b82f6'
+						return colors?.start ?? '#3b82f6'
 					}),
 					borderColor: appointmentTypeData.map((_, index) => {
 						const colors = appointmentTypeGradientColors[index % appointmentTypeGradientColors.length] ?? appointmentTypeGradientColors[0]
-						return colors?.end || '#1d4ed8'
+						return colors?.end ?? '#1d4ed8'
 					}),
 					borderWidth: 2,
 					borderRadius: 8,
@@ -231,7 +231,7 @@ export default function DashboardPage() {
 		if (!appointmentStatusData || appointmentStatusData.length === 0) return null
 		
 		return {
-			labels: appointmentStatusData.map(item => item.status || 'Unknown'),
+			labels: appointmentStatusData.map(item => item.status ?? 'Unknown'),
 			datasets: [
 				{
 					data: appointmentStatusData.map(item => item.count),
@@ -248,7 +248,7 @@ export default function DashboardPage() {
 		if (!documentStatusData || documentStatusData.length === 0) return null
 		
 		return {
-			labels: documentStatusData.map(item => item.status || 'Unknown'),
+			labels: documentStatusData.map(item => item.status ?? 'Unknown'),
 			datasets: [
 				{
 					label: 'Documents',
@@ -281,7 +281,7 @@ export default function DashboardPage() {
 		const baseStats = [
 			{
 				title: isENP ? "Total Clients" : "Total Appointments",
-				value: statistics?.totalAppointments || 0,
+				value: statistics?.totalAppointments ?? 0,
 				icon: isENP ? Users : Calendar,
 				description: "All time",
 				color: "text-blue-600",
@@ -289,7 +289,7 @@ export default function DashboardPage() {
 			},
 			{
 				title: "Pending",
-				value: statistics?.pendingAppointments || 0,
+				value: statistics?.pendingAppointments ?? 0,
 				icon: Clock,
 				description: isENP ? "Pending requests" : "Awaiting confirmation",
 				color: "text-orange-600",
@@ -297,7 +297,7 @@ export default function DashboardPage() {
 			},
 			{
 				title: "Documents",
-				value: statistics?.totalDocuments || 0,
+				value: statistics?.totalDocuments ?? 0,
 				icon: FileText,
 				description: "Total uploaded",
 				color: "text-purple-600",
@@ -309,7 +309,7 @@ export default function DashboardPage() {
 		if (isENP) {
 			baseStats.push({
 				title: "Notarization Requests",
-				value: statistics?.pendingNotarizationRequests || 0,
+				value: statistics?.pendingNotarizationRequests ?? 0,
 				icon: ClipboardList,
 				description: "Pending requests",
 				color: "text-orange-600",
@@ -317,7 +317,7 @@ export default function DashboardPage() {
 			})
 			baseStats.push({
 				title: "Signature Requests",
-				value: statistics?.pendingSignatureRequests || 0,
+				value: statistics?.pendingSignatureRequests ?? 0,
 				icon: FileCheck,
 				description: "Pending signatures",
 				color: "text-pink-600",
@@ -326,7 +326,7 @@ export default function DashboardPage() {
 		} else {
 			baseStats.push({
 				title: "Completed",
-				value: statistics?.completedAppointments || 0,
+				value: statistics?.completedAppointments ?? 0,
 				icon: CheckCircle,
 				description: "Successfully finished",
 				color: "text-green-600",
@@ -388,7 +388,7 @@ export default function DashboardPage() {
 						) : (
 							statsCards.map((stat, index) => {
 								const Icon = stat.icon
-								const hasPendingRequests = isENP && stat.title === "Notarization Requests" && (statistics?.pendingNotarizationRequests || 0) > 0 && !hasViewedRequests
+								const hasPendingRequests = isENP && stat.title === "Notarization Requests" && (statistics?.pendingNotarizationRequests ?? 0) > 0 && !hasViewedRequests
 								return (
 									<Card key={index} className="relative overflow-visible">
 										{hasPendingRequests && (
@@ -444,21 +444,21 @@ export default function DashboardPage() {
 										variant="outline"
 										className="h-auto flex-col items-start gap-2 p-4 relative overflow-visible"
 										onClick={() => {
-											const currentCount = statistics?.pendingNotarizationRequests || 0
+											const currentCount = statistics?.pendingNotarizationRequests ?? 0
 											localStorage.setItem("enp_viewed_requests", "true")
 											localStorage.setItem("enp_last_viewed_count", currentCount.toString())
 											setHasViewedRequests(true)
 											router.push("/requests/incoming" as Route)
 										}}
 									>
-										{(statistics?.pendingNotarizationRequests || 0) > 0 && !hasViewedRequests && (
+										{(statistics?.pendingNotarizationRequests ?? 0) > 0 && !hasViewedRequests && (
 											<div className="absolute -right-2 -top-2 h-4 w-4 rounded-full bg-red-500 border-2 border-background z-20 shadow-lg animate-pulse" />
 										)}
 										<ClipboardList className="h-5 w-5" />
 										<div className="text-left">
 											<div className="font-semibold">Notarization Requests</div>
 											<div className="text-xs text-muted-foreground">
-												{statistics?.pendingNotarizationRequests || 0} pending request{statistics?.pendingNotarizationRequests !== 1 ? "s" : ""}
+												{statistics?.pendingNotarizationRequests ?? 0} pending request{statistics?.pendingNotarizationRequests !== 1 ? "s" : ""}
 											</div>
 										</div>
 									</Button>
@@ -595,7 +595,7 @@ export default function DashboardPage() {
 													tooltip: {
 														callbacks: {
 															label: (context) => {
-																const label = context.label || ''
+																const label = context.label ?? ''
 																const value = context.parsed
 																const total = context.dataset.data.reduce((a: number, b: number) => a + b, 0)
 																const percentage = ((value / total) * 100).toFixed(0)
@@ -668,11 +668,11 @@ export default function DashboardPage() {
 														displayColors: true,
 														callbacks: {
 															title: (context) => {
-																return context[0]?.label || ''
+																return context[0]?.label ?? ''
 															},
 															label: (context) => {
 																if (!context.parsed) return ''
-																const value = context.parsed.x as number
+																const value = context.parsed.x!
 																const numericData = context.dataset.data.filter((d): d is number => typeof d === 'number')
 																const total = numericData.reduce((a, b) => a + b, 0)
 																const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : '0'
@@ -708,7 +708,7 @@ export default function DashboardPage() {
 																size: 11,
 															},
 															padding: 8,
-															callback: function(value) {
+															callback(value) {
 																return Number.isInteger(value) ? value : ''
 															},
 														},
@@ -742,7 +742,7 @@ export default function DashboardPage() {
 																if (value > 0) {
 																	const colors = appointmentTypeGradientColors[index % appointmentTypeGradientColors.length] ?? appointmentTypeGradientColors[0]
 																	ctx.save()
-																	ctx.fillStyle = colors?.end || '#1e293b'
+																	ctx.fillStyle = colors?.end ?? '#1e293b'
 																	ctx.font = 'bold 12px Inter, system-ui, sans-serif'
 																	ctx.textAlign = 'left'
 																	ctx.textBaseline = 'middle'

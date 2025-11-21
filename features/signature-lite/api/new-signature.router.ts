@@ -5,7 +5,7 @@ import { z } from "zod/v4"
 import { getPublicClient } from "@/services/supabase"
 import { getDocumentPublicUrl } from "@/services/supabase/signed-url"
 import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
-import { createDocoChainProject } from "@/services/docochain"
+import { createDocoChainProject, downloadCertificate, checkSigningStatus } from "@/services/docochain"
 
 import { documentPrepositioningRouter } from "../components/document-prepositioning/api/document-prepositioning.router"
 import {
@@ -350,7 +350,26 @@ export const signatureLiteRouter = createTRPCRouter({
 			}
 
 			// Get document URL using the same approach as pre-positioning page
-			const documentUrl = await getDocumentPublicUrl(document.path)
+			// Check if document has a valid path
+			if (!document.path || document.path.trim() === "") {
+				throw new TRPCError({
+					code: "BAD_REQUEST",
+					message: "Document file is not available. The document may not have been uploaded to storage yet.",
+				})
+			}
+
+			let documentUrl: string
+			try {
+				documentUrl = await getDocumentPublicUrl(document.path)
+			} catch (error) {
+				console.error("Error generating document URL:", error)
+				throw new TRPCError({
+					code: "INTERNAL_SERVER_ERROR",
+					message: error instanceof Error 
+						? `Failed to generate document URL: ${error.message}` 
+						: "Failed to generate document URL. The document file may not be available in storage.",
+				})
+			}
 
 			// Get fields assigned to the current user (if they're a recipient)
 			const userFields = document.documentFields
@@ -1140,6 +1159,7 @@ export const signatureLiteRouter = createTRPCRouter({
 			where: { id: envelopeId },
 			include: {
 				recipient: true,
+				documents: true,
 			},
 		})
 
@@ -1166,6 +1186,26 @@ export const signatureLiteRouter = createTRPCRouter({
 			})
 		}
 
+		// Check if envelope has documents
+		if (!envelope.documents || envelope.documents.length === 0) {
+			throw new TRPCError({
+				code: "BAD_REQUEST",
+				message: "Envelope must have at least one document",
+			})
+		}
+
+		// Verify all documents have valid paths (files uploaded to storage)
+		const documentsWithoutPaths = envelope.documents.filter(
+			doc => !doc.path || doc.path.trim() === ""
+		)
+
+		if (documentsWithoutPaths.length > 0) {
+			throw new TRPCError({
+				code: "BAD_REQUEST",
+				message: `Cannot send envelope: ${documentsWithoutPaths.length} document(s) have not been uploaded to storage yet. Please ensure all documents are properly uploaded before sending.`,
+			})
+		}
+
 		try {
 			// Update envelope status to published
 			const updatedEnvelope = await ctx.db.envelope.update({
@@ -1186,4 +1226,104 @@ export const signatureLiteRouter = createTRPCRouter({
 			})
 		}
 	}),
+
+	// Download certificate of completion for a document
+	downloadCertificate: protectedProcedure
+		.input(z.object({ documentId: z.string().min(1, "Document ID is required") }))
+		.query(async ({ ctx, input }) => {
+			const { documentId } = input
+
+			// Get document with DocoChain project ID
+			const document = await ctx.db.document.findUnique({
+				where: { id: documentId },
+				select: {
+					id: true,
+					name: true,
+					docoChainProjectId: true,
+					envelope: {
+						select: {
+							id: true,
+							userId: true,
+							status: true,
+						},
+					},
+				},
+			})
+
+			if (!document) {
+				throw new TRPCError({
+					code: "NOT_FOUND",
+					message: "Document not found",
+				})
+			}
+
+			// Check if user has access to this document
+			if (document.envelope.userId !== ctx.session.user.id) {
+				// Check if user is a recipient
+				const recipient = await ctx.db.envelopeRecipient.findFirst({
+					where: {
+						envelopeId: document.envelope.id,
+						userId: ctx.session.user.id,
+					},
+				})
+
+				if (!recipient) {
+					throw new TRPCError({
+						code: "FORBIDDEN",
+						message: "You don't have permission to download this certificate",
+					})
+				}
+			}
+
+			// Check if document has DocoChain project ID
+			if (!document.docoChainProjectId) {
+				throw new TRPCError({
+					code: "BAD_REQUEST",
+					message: "This document does not have a certificate available. It may not have been processed through DocoChain.",
+				})
+			}
+
+			// Check if envelope is completed
+			if (document.envelope.status !== "COMPLETED") {
+				throw new TRPCError({
+					code: "BAD_REQUEST",
+					message: "Certificate is only available for completed documents. Please wait until all signers have completed signing.",
+				})
+			}
+
+			try {
+				// Check if document is fully signed
+				const status = await checkSigningStatus(document.docoChainProjectId)
+
+				if (!status.isFullySigned) {
+					throw new TRPCError({
+						code: "BAD_REQUEST",
+						message: `Document is not fully signed yet. Status: ${status.projectStatus}, Signed: ${status.signedCount}/${status.totalSigners}`,
+					})
+				}
+
+				// Download the certificate
+				const { buffer, fileName, url } = await downloadCertificate(document.docoChainProjectId)
+
+				// Convert buffer to base64 for transmission
+				const base64 = buffer.toString("base64")
+
+				return {
+					success: true,
+					fileName: fileName || `certificate-${document.name.replace(".pdf", "")}.pdf`,
+					certificateUrl: url,
+					base64,
+					size: buffer.length,
+				}
+			} catch (error) {
+				console.error("❌ Error downloading certificate:", error)
+				if (error instanceof TRPCError) {
+					throw error
+				}
+				throw new TRPCError({
+					code: "INTERNAL_SERVER_ERROR",
+					message: error instanceof Error ? error.message : "Failed to download certificate",
+				})
+			}
+		}),
 })

@@ -170,23 +170,27 @@ export function FileUploadPanel({ conversationId }: FileUploadPanelProps) {
 		files,
 		isLoading,
 		uploadType,
+		showUploadButton = true,
 	}: {
 		title: string
 		files: any[] | undefined
 		isLoading: boolean
 		uploadType: "general" | "principal" | "enp"
+		showUploadButton?: boolean
 	}) => (
 		<div className="flex flex-col space-y-3">
 			<div className="flex items-center justify-between">
 				<h3 className="text-sm font-semibold">{title}</h3>
-				<Button
-					variant="ghost"
-					size="sm"
-					className="size-8 p-0"
-					onClick={() => handleUploadClick(uploadType)}
-				>
-					<Upload className="size-4" />
-				</Button>
+				{showUploadButton && (
+					<Button
+						variant="ghost"
+						size="sm"
+						className="size-8 p-0"
+						onClick={() => handleUploadClick(uploadType)}
+					>
+						<Upload className="size-4" />
+					</Button>
+				)}
 			</div>
 			{isLoading ? (
 				<div className="space-y-2">
@@ -225,6 +229,7 @@ export function FileUploadPanel({ conversationId }: FileUploadPanelProps) {
 							files={generalFiles}
 							isLoading={loadingGeneral}
 							uploadType="general"
+							showUploadButton={false}
 						/>
 						<Separator />
 						<FileSection

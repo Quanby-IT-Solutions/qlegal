@@ -51,6 +51,7 @@ export default function DocumentSignPage() {
 	const {
 		data: document,
 		isLoading,
+		error: documentError,
 		refetch,
 	} = trpc.signatureLite.getDocumentForSigning.useQuery(
 		{ envelopeId, documentId },
@@ -111,20 +112,34 @@ export default function DocumentSignPage() {
 		)
 	}
 
+	// Handle error state
 	if (!document) {
+		// Check if there was an error in the query
+		const errorMessage = documentError?.message || "Document not found"
+		
 		return (
 			<div className="flex min-h-screen items-center justify-center">
 				<Card className="w-96">
 					<CardContent className="py-12 text-center">
-						<h3 className="mb-2 text-lg font-medium">Document Not Found</h3>
+						<h3 className="mb-2 text-lg font-medium">
+							{errorMessage.includes("deleted") || errorMessage.includes("not available") 
+								? "Document Not Available" 
+								: "Document Not Found"}
+						</h3>
 						<p className="text-muted-foreground mb-4 text-sm">
-							The document you&apos;re looking for doesn&apos;t exist or you don&apos;t have access
-							to it.
+							{errorMessage.includes("deleted") || errorMessage.includes("not available")
+								? "The document file is not available. It may not have been uploaded to storage yet, or the file may have been moved."
+								: "The document you're looking for doesn't exist or you don't have access to it."}
 						</p>
-						<Button onClick={() => router.push("/")} variant="outline">
-							<ArrowLeft className="mr-2 h-4 w-4" />
-							Go to Dashboard
-						</Button>
+						<div className="flex flex-col gap-2">
+							<Button onClick={() => router.push(`/envelope/${envelopeId}`)} variant="outline">
+								<ArrowLeft className="mr-2 h-4 w-4" />
+								Back to Envelope
+							</Button>
+							<Button onClick={() => router.push("/")} variant="ghost" size="sm">
+								Go to Homepage
+							</Button>
+						</div>
 					</CardContent>
 				</Card>
 			</div>

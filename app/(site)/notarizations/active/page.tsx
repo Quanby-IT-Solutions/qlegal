@@ -15,12 +15,21 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Avatar, AvatarFallback, AvatarImage } from "@/core/components/ui/avatar"
 import { Progress } from "@/core/components/ui/progress"
 import { Skeleton } from "@/core/components/ui/skeleton"
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogHeader,
+	DialogTitle,
+} from "@/core/components/ui/dialog"
+import { Separator } from "@/core/components/ui/separator"
 
 export default function ActiveNotarizationsPage() {
 	const { data: session } = useSession()
 	const [searchTerm, setSearchTerm] = useState("")
 	const [statusFilter, setStatusFilter] = useState("ALL")
 	const [workflowFilter, setWorkflowFilter] = useState("ALL")
+	const [selectedNotarizationId, setSelectedNotarizationId] = useState<string | null>(null)
 
 	// Fetch active appointments (CONFIRMED and PENDING that haven't been cancelled or completed)
 	const { data: appointments, isLoading } = trpc.appointments.getMyAppointments.useQuery({
@@ -201,8 +210,15 @@ export default function ActiveNotarizationsPage() {
 	}
 
 	const handleViewNotarization = (notarizationId: string) => {
-		window.location.href = `/notarize/${notarizationId}`
+		setSelectedNotarizationId(notarizationId)
 	}
+
+	// Fetch full notarization session details when dialog is open
+	const { data: notarizationDetails, isLoading: isLoadingDetails } = 
+		trpc.appointments.getNotarizationSession.useQuery(
+			{ sessionId: selectedNotarizationId! },
+			{ enabled: !!selectedNotarizationId }
+		)
 
 	return (
 		<>
@@ -444,6 +460,274 @@ export default function ActiveNotarizationsPage() {
 					</div>
 				</div>
 			</div>
+
+			{/* Notarization Details Dialog */}
+			<Dialog open={!!selectedNotarizationId} onOpenChange={(open) => {
+				if (!open) setSelectedNotarizationId(null)
+			}}>
+				<DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+					<DialogHeader>
+						<DialogTitle>
+							{isLoadingDetails 
+								? "Loading Notarization Details" 
+								: notarizationDetails 
+									? notarizationDetails.title 
+									: "Notarization Details"}
+						</DialogTitle>
+						{notarizationDetails && (
+							<DialogDescription>
+								{notarizationDetails.workflow === "REN" 
+									? "Remote Electronic Notarization (REN)" 
+									: "In-Person Electronic Notarization (IEN)"}
+							</DialogDescription>
+						)}
+					</DialogHeader>
+
+					{isLoadingDetails ? (
+						<div className="py-8">
+							<div className="flex items-center justify-center gap-2">
+								<Loader2 className="h-5 w-5 animate-spin" />
+								<span className="text-sm text-muted-foreground">Loading details...</span>
+							</div>
+						</div>
+					) : notarizationDetails ? (
+						<>
+							<div className="flex items-center justify-between mb-4">
+								<Badge variant={notarizationDetails.workflow === "REN" ? "default" : "secondary"}>
+									{notarizationDetails.workflow}
+								</Badge>
+							</div>
+
+							<div className="space-y-6">
+								{/* Status and Info */}
+								<Card>
+									<CardHeader>
+										<CardTitle className="text-lg">Session Information</CardTitle>
+									</CardHeader>
+									<CardContent className="space-y-3">
+										<div className="grid grid-cols-2 gap-4 text-sm">
+											<div>
+												<span className="text-muted-foreground">Status:</span>
+												<Badge variant="default" className="ml-2">
+													{notarizationDetails.status}
+												</Badge>
+											</div>
+											<div>
+												<span className="text-muted-foreground">Location:</span>
+												<span className="ml-2">{notarizationDetails.location}</span>
+											</div>
+											<div>
+												<span className="text-muted-foreground">Started:</span>
+												<span className="ml-2">
+													{format(new Date(notarizationDetails.startTime), "PPp")}
+												</span>
+											</div>
+											<div>
+												<span className="text-muted-foreground">Duration:</span>
+												<span className="ml-2">~{notarizationDetails.estimatedDuration} minutes</span>
+											</div>
+										</div>
+									</CardContent>
+								</Card>
+
+								{/* Participants */}
+								<Card>
+									<CardHeader>
+										<CardTitle className="text-lg">Participants</CardTitle>
+									</CardHeader>
+									<CardContent className="space-y-4">
+										<div className="flex items-center gap-4">
+											<Avatar className="h-12 w-12">
+												<AvatarImage src={notarizationDetails.enp.avatar || undefined} alt={notarizationDetails.enp.name} />
+												<AvatarFallback>
+													{notarizationDetails.enp.name.split(" ").map(n => n[0]).join("").toUpperCase()}
+												</AvatarFallback>
+											</Avatar>
+											<div className="flex-1">
+												<p className="font-medium">{notarizationDetails.enp.name}</p>
+												<p className="text-sm text-muted-foreground">{notarizationDetails.enp.title}</p>
+												{notarizationDetails.enp.email && (
+													<p className="text-sm text-muted-foreground">{notarizationDetails.enp.email}</p>
+												)}
+												{notarizationDetails.enp.phone && (
+													<p className="text-sm text-muted-foreground">{notarizationDetails.enp.phone}</p>
+												)}
+											</div>
+											<Badge variant="outline">ENP</Badge>
+										</div>
+
+										<Separator />
+
+										<div className="flex items-center gap-4">
+											<Avatar className="h-12 w-12">
+												<AvatarFallback>
+													{notarizationDetails.principal.name.split(" ").map(n => n[0]).join("").toUpperCase()}
+												</AvatarFallback>
+											</Avatar>
+											<div className="flex-1">
+												<p className="font-medium">{notarizationDetails.principal.name}</p>
+												<p className="text-sm text-muted-foreground">Principal</p>
+												{notarizationDetails.principal.email && (
+													<p className="text-sm text-muted-foreground">{notarizationDetails.principal.email}</p>
+												)}
+												{notarizationDetails.principal.phone && (
+													<p className="text-sm text-muted-foreground">{notarizationDetails.principal.phone}</p>
+												)}
+											</div>
+											<Badge variant="outline">Principal</Badge>
+										</div>
+									</CardContent>
+								</Card>
+
+								{/* Documents */}
+								<Card>
+									<CardHeader>
+										<CardTitle className="text-lg">Documents</CardTitle>
+										<CardDescription>
+											{notarizationDetails.documents.length} document{notarizationDetails.documents.length !== 1 ? "s" : ""} to notarize
+										</CardDescription>
+									</CardHeader>
+									<CardContent>
+										{notarizationDetails.documents.length > 0 ? (
+											<div className="space-y-3">
+												{notarizationDetails.documents.map((doc) => (
+													<div key={doc.id} className="flex items-center justify-between p-3 border rounded-lg">
+														<div className="flex items-center gap-3">
+															<FileText className="h-8 w-8 text-blue-600" />
+															<div>
+																<h4 className="font-medium">{doc.name}</h4>
+																<p className="text-sm text-muted-foreground">{doc.pages} pages</p>
+															</div>
+														</div>
+														<Badge variant={doc.status === "PENDING_SIGNATURE" ? "secondary" : "default"}>
+															{doc.status === "PENDING_SIGNATURE" ? "Pending" : "Completed"}
+														</Badge>
+													</div>
+												))}
+											</div>
+										) : (
+											<p className="text-sm text-muted-foreground text-center py-4">
+												No documents uploaded yet
+											</p>
+										)}
+									</CardContent>
+								</Card>
+
+								{/* Requirements */}
+								<Card>
+									<CardHeader>
+										<CardTitle className="text-lg">Requirements Checklist</CardTitle>
+									</CardHeader>
+									<CardContent>
+										<div className="space-y-3">
+											<div className="flex items-center justify-between">
+												<span className="text-sm">
+													{notarizationDetails.workflow === "REN" 
+														? "Remote identity verification" 
+														: "Physical ID verification"}
+												</span>
+												{notarizationDetails.requirements.identityVerified ? (
+													<CheckCircle className="h-5 w-5 text-green-600" />
+												) : (
+													<XCircle className="h-5 w-5 text-gray-400" />
+												)}
+											</div>
+											{notarizationDetails.workflow === "IEN" && (
+												<div className="flex items-center justify-between">
+													<span className="text-sm">Physical documents scanned</span>
+													{notarizationDetails.requirements.documentsScanned ? (
+														<CheckCircle className="h-5 w-5 text-green-600" />
+													) : (
+														<XCircle className="h-5 w-5 text-gray-400" />
+													)}
+												</div>
+											)}
+											{notarizationDetails.workflow === "IEN" && (
+												<div className="flex items-center justify-between">
+													<span className="text-sm">Witness present</span>
+													{notarizationDetails.requirements.witnessPresent ? (
+														<CheckCircle className="h-5 w-5 text-green-600" />
+													) : (
+														<XCircle className="h-5 w-5 text-gray-400" />
+													)}
+												</div>
+											)}
+											{notarizationDetails.workflow === "REN" && (
+												<div className="flex items-center justify-between">
+													<span className="text-sm">Video/audio recording active</span>
+													{notarizationDetails.requirements.videoRecording ? (
+														<CheckCircle className="h-5 w-5 text-green-600" />
+													) : (
+														<XCircle className="h-5 w-5 text-gray-400" />
+													)}
+												</div>
+											)}
+										</div>
+										<div className="mt-4 pt-4 border-t">
+											<div className="flex items-center justify-between text-sm mb-2">
+												<span>Progress</span>
+												<span>
+													{Object.values(notarizationDetails.requirements).filter(Boolean).length}/
+													{Object.keys(notarizationDetails.requirements).length}
+												</span>
+											</div>
+											<Progress 
+												value={
+													(Object.values(notarizationDetails.requirements).filter(Boolean).length / 
+													Object.keys(notarizationDetails.requirements).length) * 100
+												} 
+												className="h-2" 
+											/>
+										</div>
+									</CardContent>
+								</Card>
+
+								{/* Actions */}
+								<div className="flex justify-end gap-2 pt-4">
+									<Button
+										variant="outline"
+										onClick={() => setSelectedNotarizationId(null)}
+									>
+										Close
+									</Button>
+									<Button
+										onClick={() => {
+											const sessionId = selectedNotarizationId
+											setSelectedNotarizationId(null)
+											if (sessionId) {
+												window.location.href = `/notarize/${sessionId}`
+											}
+										}}
+									>
+										{notarizationDetails.workflow === "REN" ? (
+											<>
+												<Video className="mr-2 h-4 w-4" />
+												Continue REN
+											</>
+										) : (
+											<>
+												<Handshake className="mr-2 h-4 w-4" />
+												Continue IEN
+											</>
+										)}
+									</Button>
+								</div>
+							</div>
+						</>
+					) : (
+						<div className="py-8 text-center">
+							<AlertCircle className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+							<h3 className="mb-2 text-lg font-medium">Unable to load details</h3>
+							<p className="text-muted-foreground text-sm mb-4">
+								Failed to load notarization session details.
+							</p>
+							<Button variant="outline" onClick={() => setSelectedNotarizationId(null)}>
+								Close
+							</Button>
+						</div>
+					)}
+				</DialogContent>
+			</Dialog>
 		</>
 	)
 }

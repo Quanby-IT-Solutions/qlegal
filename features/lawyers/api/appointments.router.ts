@@ -3,6 +3,11 @@ import { and, desc, eq, gte, or } from "drizzle-orm"
 
 import { users } from "@/services/drizzle/schema/auth"
 import { appointments } from "@/services/drizzle/schema/appointments"
+import { documents } from "@/services/drizzle/schema/document"
+import { envelopes } from "@/services/drizzle/schema/envelope"
+import { notarizationRequests } from "@/services/drizzle/schema/notarization-requests"
+import { enpProfiles } from "@/services/drizzle/schema/enp-profiles"
+import { getDocumentPublicUrl } from "@/services/supabase/signed-url"
 import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
 
 import {
@@ -11,6 +16,7 @@ import {
 	createAppointmentSchema,
 	getAppointmentByIdSchema,
 	getAppointmentsSchema,
+	getNotarizationSessionSchema,
 	updateAppointmentSchema,
 } from "./appointments.schema"
 
@@ -316,4 +322,221 @@ export const appointmentsRouter = createTRPCRouter({
 
 		return results
 	}),
+
+	// Get notarization session data (works with appointment ID or notarization request ID)
+	getNotarizationSession: protectedProcedure
+		.input(getNotarizationSessionSchema)
+		.query(async ({ ctx, input }) => {
+			const userId = ctx.session.user.id
+			const { sessionId } = input
+
+			// Try to find as appointment first
+			let appointment = await ctx.db.query.appointments.findFirst({
+				where: eq(appointments.id, sessionId),
+				with: {
+					client: {
+						columns: {
+							id: true,
+							name: true,
+							email: true,
+							image: true,
+							phoneNumber: true,
+						},
+					},
+					lawyer: {
+						columns: {
+							id: true,
+							name: true,
+							email: true,
+							image: true,
+							phoneNumber: true,
+						},
+					},
+				},
+			})
+
+			// If not found as appointment, try as notarization request
+			let notarizationRequest = null
+			if (!appointment) {
+				notarizationRequest = await ctx.db.query.notarizationRequests.findFirst({
+					where: eq(notarizationRequests.id, sessionId),
+					with: {
+						principal: {
+							columns: {
+								id: true,
+								name: true,
+								email: true,
+								image: true,
+								phoneNumber: true,
+							},
+						},
+						enp: {
+							columns: {
+								id: true,
+								name: true,
+								email: true,
+								image: true,
+								phoneNumber: true,
+							},
+						},
+						appointment: {
+							with: {
+								client: {
+									columns: {
+										id: true,
+										name: true,
+										email: true,
+										image: true,
+										phoneNumber: true,
+									},
+								},
+								lawyer: {
+									columns: {
+										id: true,
+										name: true,
+										email: true,
+										image: true,
+										phoneNumber: true,
+									},
+								},
+							},
+						},
+					},
+				})
+
+				// If request has an appointment, use that
+				if (notarizationRequest?.appointment) {
+					appointment = notarizationRequest.appointment
+				}
+			}
+
+			// If neither found, throw error
+			if (!appointment && !notarizationRequest) {
+				throw new TRPCError({
+					code: "NOT_FOUND",
+					message: "Notarization session not found",
+				})
+			}
+
+			// Determine principal and ENP
+			const principal = appointment
+				? appointment.client
+				: notarizationRequest?.principal
+			const enpUser = appointment
+				? appointment.lawyer
+				: notarizationRequest?.enp
+
+			if (!principal || !enpUser) {
+				throw new TRPCError({
+					code: "NOT_FOUND",
+					message: "Principal or ENP not found",
+				})
+			}
+
+			// Check permissions
+			if (principal.id !== userId && enpUser.id !== userId) {
+				throw new TRPCError({
+					code: "FORBIDDEN",
+					message: "You don't have access to this session",
+				})
+			}
+
+			// Get ENP profile
+			const enpProfile = await ctx.db.query.enpProfiles.findFirst({
+				where: eq(enpProfiles.userId, enpUser.id),
+			})
+
+			// Get workflow (REN or IEN) - from notarization request if available, otherwise infer from appointment
+			const workflow = notarizationRequest
+				? (notarizationRequest.workflow as "REN" | "IEN")
+				: appointment?.meetingLink
+					? ("REN" as const)
+					: ("IEN" as const)
+
+			// Get envelope associated with the appointment/request
+			// For now, we'll look for envelopes created by the principal around the appointment time
+			// In a real system, there might be a direct link between appointments and envelopes
+			const envelope = await ctx.db.query.envelopes.findFirst({
+				where: eq(envelopes.userId, principal.id),
+				orderBy: [desc(envelopes.createdAt)],
+			})
+
+			// Get documents for the envelope
+			let sessionDocuments: Array<{
+				id: string
+				name: string
+				url: string
+				status: string
+				pages: number
+			}> = []
+
+			if (envelope) {
+				const envelopeDocuments = await ctx.db
+					.select()
+					.from(documents)
+					.where(eq(documents.envelopeId, envelope.id))
+
+				// Get document URLs and determine page count
+				sessionDocuments = await Promise.all(
+					envelopeDocuments.map(async (doc) => {
+						let docUrl = ""
+						try {
+							if (doc.path) {
+								docUrl = await getDocumentPublicUrl(doc.path)
+							}
+						} catch (error) {
+							console.error(`Failed to get URL for document ${doc.id}:`, error)
+						}
+
+						// For now, estimate pages based on file size (rough estimate: 1 page per 50KB)
+						// In production, you'd parse the PDF to get actual page count
+						const estimatedPages = Math.max(1, Math.floor(doc.size / 50000))
+
+						return {
+							id: doc.id,
+							name: doc.name,
+							url: docUrl,
+							status: doc.status === "SIGNED" ? "SIGNED" : "PENDING_SIGNATURE",
+							pages: estimatedPages,
+						}
+					})
+				)
+			}
+
+			// Determine location
+			const location = appointment?.location || (workflow === "REN" ? "Remote Video Call" : "In-Person")
+
+			// Build response
+			return {
+				id: appointment?.id || notarizationRequest?.id || sessionId,
+				envelopeId: envelope?.id || null,
+				title: notarizationRequest?.title || envelope?.title || "Notarization Session",
+				status: appointment?.status || notarizationRequest?.status || "PENDING",
+				workflow,
+				enp: {
+					id: enpUser.id,
+					name: enpUser.name || "Electronic Notary Public",
+					title: enpProfile?.specialization || "Electronic Notary Public",
+					avatar: enpUser.image || null,
+					phone: enpUser.phoneNumber || null,
+					email: enpUser.email || null,
+				},
+				principal: {
+					id: principal.id,
+					name: principal.name || "Principal",
+					email: principal.email || null,
+					phone: principal.phoneNumber || null,
+				},
+				documents: sessionDocuments,
+				requirements: {
+					identityVerified: false,
+					documentsScanned: false,
+					witnessPresent: false,
+					videoRecording: false,
+				},
+				startTime: appointment?.appointmentDate?.toISOString() || new Date().toISOString(),
+				estimatedDuration: appointment?.duration || 30,
+				location,
+			}
+		}),
 })
