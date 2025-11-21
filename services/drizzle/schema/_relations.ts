@@ -56,11 +56,12 @@ export const documentRelations = relations(documents, ({ one, many }) => ({
 }))
 
 // Envelope relations
-export const envelopeRelations = relations(envelopes, ({ one }) => ({
+export const envelopeRelations = relations(envelopes, ({ one, many }) => ({
 	user: one(users, {
 		fields: [envelopes.userId],
 		references: [users.id],
 	}),
+	documents: many(documents),
 }))
 
 export const meetingParticipantsRelations = relations(meetingParticipants, ({ one }) => ({

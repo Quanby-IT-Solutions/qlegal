@@ -133,6 +133,16 @@ export const envelopeLiteRouter = createTRPCRouter({
 		}),
 
 	getEnvelopeDocuments: protectedProcedure.input(getByIdSchema).query(async ({ ctx, input }) => {
+		// Get envelope to check status
+		const [envelope] = await ctx.db
+			.select({
+				id: envelopes.id,
+				status: envelopes.status,
+			})
+			.from(envelopes)
+			.where(eq(envelopes.id, input.envelopeId))
+			.limit(1)
+
 		// Get all documents for an envelope with recipients
 		const envelopeDocuments = await ctx.db
 			.select({
@@ -142,6 +152,7 @@ export const envelopeLiteRouter = createTRPCRouter({
 				size: documents.size,
 				path: documents.path,
 				status: documents.status,
+				docoChainProjectId: documents.docoChainProjectId,
 				createdAt: documents.createdAt,
 				updatedAt: documents.updatedAt,
 				envelopeId: documents.envelopeId,
@@ -155,6 +166,7 @@ export const envelopeLiteRouter = createTRPCRouter({
 		return envelopeDocuments.map(doc => ({
 			...doc,
 			recipients: [],
+			envelopeStatus: envelope?.status ?? "DRAFT",
 		}))
 	}),
 

@@ -25,7 +25,8 @@ import {
 	Lock,
 	Play,
 	Pause,
-	Square
+	Square,
+	Loader2
 } from "lucide-react"
 
 import { SiteNavbar } from "@/core/components/navbar/site-navbar"
@@ -38,69 +39,25 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/core/components/ui/t
 import { Checkbox } from "@/core/components/ui/checkbox"
 import { Alert, AlertDescription } from "@/core/components/ui/alert"
 import { Separator } from "@/core/components/ui/separator"
-
-// Mock data for notarization session
-const mockNotarizationData = {
-	"1": {
-		id: "1",
-		envelopeId: "env_123",
-		title: "Real Estate Purchase Agreement",
-		status: "IN_PROGRESS",
-		workflow: "REN" as "REN" | "IEN",
-		enp: {
-			id: "1",
-			name: "Atty. Maria Santos",
-			title: "Electronic Notary Public",
-			avatar: "/avatars/maria-santos.jpg",
-			phone: "+63 917 123 4567",
-			email: "maria.santos@notary.ph",
-		},
-		principal: {
-			id: "2",
-			name: "John Doe",
-			email: "john.doe@email.com",
-			phone: "+63 917 987 6543",
-		},
-		documents: [
-			{
-				id: "doc_1",
-				name: "Purchase Agreement.pdf",
-				url: "/documents/purchase-agreement.pdf",
-				status: "PENDING_SIGNATURE",
-				pages: 5,
-			},
-			{
-				id: "doc_2", 
-				name: "Property Deed.pdf",
-				url: "/documents/property-deed.pdf",
-				status: "PENDING_SIGNATURE",
-				pages: 3,
-			}
-		],
-		requirements: {
-			identityVerified: false,
-			documentsScanned: false,
-			witnessPresent: false,
-			videoRecording: false,
-		},
-		startTime: "2024-01-15T10:00:00Z",
-		estimatedDuration: 30,
-		location: "Remote Video Call", // For REN
-		// location: "123 Main St, Makati City", // For IEN
-	}
-}
+import { Label } from "@/core/components/ui/label"
+import { trpc } from "@/services/trpc/client"
 
 export default function NotarizePage() {
 	const params = useParams()
 	const notarizationId = params.id as string
 	
-	const [notarization, setNotarization] = useState(mockNotarizationData[notarizationId as keyof typeof mockNotarizationData])
+	// Fetch notarization session data from backend
+	const { data: notarization, isLoading, error } = trpc.appointments.getNotarizationSession.useQuery(
+		{ sessionId: notarizationId },
+		{ enabled: !!notarizationId }
+	)
+
 	const [isVideoOn, setIsVideoOn] = useState(true)
 	const [isMicOn, setIsMicOn] = useState(true)
 	const [isRecording, setIsRecording] = useState(false)
 	const [recordingTime, setRecordingTime] = useState(0)
 	const [currentStep, setCurrentStep] = useState(1)
-	const [requirements, setRequirements] = useState(notarization?.requirements || {
+	const [requirements, setRequirements] = useState({
 		identityVerified: false,
 		documentsScanned: false,
 		witnessPresent: false,
@@ -146,7 +103,35 @@ export default function NotarizePage() {
 		console.log("Completing notarization...")
 	}
 
-	if (!notarization) {
+	// Update requirements when notarization data loads
+	useEffect(() => {
+		if (notarization?.requirements) {
+			setRequirements(notarization.requirements)
+		}
+	}, [notarization])
+
+	// Loading state
+	if (isLoading) {
+		return (
+			<>
+				<SiteNavbar items={[{ label: "Notarization", url: "/notarizations/active" }]} />
+				<div className="flex min-h-screen items-center justify-center">
+					<Card className="w-96">
+						<CardContent className="py-12 text-center">
+							<Loader2 className="mx-auto h-12 w-12 text-muted-foreground mb-4 animate-spin" />
+							<h3 className="mb-2 text-lg font-medium">Loading Session</h3>
+							<p className="text-muted-foreground text-sm">
+								Please wait while we load the notarization session...
+							</p>
+						</CardContent>
+					</Card>
+				</div>
+			</>
+		)
+	}
+
+	// Error or not found state
+	if (error || !notarization) {
 		return (
 			<>
 				<SiteNavbar items={[{ label: "Notarization", url: "/notarizations/active" }]} />
@@ -156,7 +141,7 @@ export default function NotarizePage() {
 							<AlertCircle className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
 							<h3 className="mb-2 text-lg font-medium">Notarization Not Found</h3>
 							<p className="text-muted-foreground mb-4 text-sm">
-								The notarization session you're looking for doesn't exist or you don't have access to it.
+								{error?.message || "The notarization session you're looking for doesn't exist or you don't have access to it."}
 							</p>
 							<Button onClick={() => window.history.back()}>
 								Go Back

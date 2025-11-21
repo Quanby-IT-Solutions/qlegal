@@ -60,7 +60,26 @@ export const documentPrepositioningRouter = createTRPCRouter({
 			}
 
 			// Get document public URL using the proper helper
-			const documentUrl = await getDocumentPublicUrl(document.path)
+			// Check if document has a valid path
+			if (!document.path || document.path.trim() === "") {
+				throw new TRPCError({
+					code: "BAD_REQUEST",
+					message: "Document file is not available. The document may not have been uploaded to storage yet.",
+				})
+			}
+
+			let documentUrl: string
+			try {
+				documentUrl = await getDocumentPublicUrl(document.path)
+			} catch (error) {
+				console.error("Error generating document URL:", error)
+				throw new TRPCError({
+					code: "INTERNAL_SERVER_ERROR",
+					message: error instanceof Error 
+						? `Failed to generate document URL: ${error.message}` 
+						: "Failed to generate document URL. The document file may not be available in storage.",
+				})
+			}
 
 			return {
 				...document,

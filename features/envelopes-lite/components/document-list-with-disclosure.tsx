@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { format } from "date-fns"
-import { ChevronDown, Eye, FileText, Trash2, UserPlus } from "lucide-react"
+import { ChevronDown, Download, Eye, FileText, Trash2, UserPlus } from "lucide-react"
 import { toast } from "sonner"
 
 import {
@@ -89,6 +89,57 @@ export function DocumentListWithDisclosure({
 			toast.error("Failed to delete document. Please try again.")
 		},
 	})
+
+	// Download certificate mutation
+	const [downloadingCertificateId, setDownloadingCertificateId] = useState<string | null>(null)
+	const downloadCertificateQuery = trpc.signatureLite.downloadCertificate.useQuery(
+		{ documentId: downloadingCertificateId ?? "" },
+		{
+			enabled: !!downloadingCertificateId,
+			retry: false,
+		}
+	)
+
+	// Handle certificate download
+	useEffect(() => {
+		if (downloadCertificateQuery.data && downloadingCertificateId) {
+			try {
+				// Convert base64 to blob
+				const byteCharacters = atob(downloadCertificateQuery.data.base64)
+				const byteNumbers = new Array(byteCharacters.length)
+				for (let i = 0; i < byteCharacters.length; i++) {
+					byteNumbers[i] = byteCharacters.charCodeAt(i)
+				}
+				const byteArray = new Uint8Array(byteNumbers)
+				const blob = new Blob([byteArray], { type: "application/pdf" })
+
+				// Create download link
+				const url = URL.createObjectURL(blob)
+				const link = document.createElement("a")
+				link.href = url
+				link.download = downloadCertificateQuery.data.fileName
+				document.body.appendChild(link)
+				link.click()
+				document.body.removeChild(link)
+				URL.revokeObjectURL(url)
+
+				toast.success("Certificate downloaded successfully!")
+			} catch (error) {
+				console.error("Error downloading certificate:", error)
+				toast.error("Failed to download certificate")
+			} finally {
+				setDownloadingCertificateId(null)
+			}
+		}
+		if (downloadCertificateQuery.error && downloadingCertificateId) {
+			toast.error(downloadCertificateQuery.error.message || "Failed to download certificate")
+			setDownloadingCertificateId(null)
+		}
+	}, [downloadCertificateQuery.data, downloadCertificateQuery.error, downloadingCertificateId])
+
+	const handleDownloadCertificate = (documentId: string) => {
+		setDownloadingCertificateId(documentId)
+	}
 
 	const handleDeleteDocument = useCallback(
 		async (documentId: string) => {
@@ -281,12 +332,37 @@ export function DocumentListWithDisclosure({
 																	Document Actions
 																</span>
 																<div className="flex gap-2">
-																	<Button variant="outline" size="sm">
+																	<Button
+																		variant="outline"
+																		size="sm"
+																		onClick={() => setPreviewDocument({ id: document.id, name: document.name })}
+																	>
+																		<Eye className="mr-2 h-3 w-3" />
 																		Preview
 																	</Button>
-																	<Button variant="outline" size="sm">
-																		Sign
-																	</Button>
+																	{/* Show download certificate button if envelope is completed and document has DocoChain project ID */}
+																	{"envelopeStatus" in document &&
+																		document.envelopeStatus === "COMPLETED" &&
+																		document.docoChainProjectId && (
+																			<Button
+																				variant="outline"
+																				size="sm"
+																				onClick={() => handleDownloadCertificate(document.id)}
+																				disabled={downloadingCertificateId === document.id}
+																			>
+																				{downloadingCertificateId === document.id ? (
+																					<>
+																						<div className="mr-2 h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
+																						Downloading...
+																					</>
+																				) : (
+																					<>
+																						<Download className="mr-2 h-3 w-3" />
+																						Certificate
+																					</>
+																				)}
+																			</Button>
+																		)}
 																</div>
 															</div>
 														</div>
