@@ -42,8 +42,8 @@ export function PersonalInformationForm() {
 
 	const { mutate, isPending } = trpc.profile.updatePersonalInformation.useMutation({
 		onSuccess: async data => {
+			router.refresh()
 			await Promise.all([
-				router.refresh(),
 				updateSession({ user: data.user }),
 				utils.profile.getPersonalInformation.invalidate(),
 			])

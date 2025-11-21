@@ -57,8 +57,7 @@ export function AddUserDialog({ open, onOpenChange }: AddUserDialogProps) {
 		defaultValues: {
 			name: "",
 			email: "",
-			role: "CLIENT",
-			organization: "",
+			role: "PRINCIPAL",
 		},
 	})
 
@@ -119,7 +118,7 @@ export function AddUserDialog({ open, onOpenChange }: AddUserDialogProps) {
 						<Select
 							value={form.watch("role")}
 							onValueChange={value =>
-								form.setValue("role", value as "CLIENT" | "ADMIN" | "SUPER_ADMIN")
+								form.setValue("role", value as "PRINCIPAL" | "ADMIN" | "ENP" | "ENA")
 							}
 						>
 							<SelectTrigger className="col-span-3">
@@ -131,18 +130,6 @@ export function AddUserDialog({ open, onOpenChange }: AddUserDialogProps) {
 								<SelectItem value="SUPER_ADMIN">Super Administrator</SelectItem>
 							</SelectContent>
 						</Select>
-					</div>
-
-					<div className="grid grid-cols-4 items-center gap-4">
-						<Label htmlFor="organization" className="text-right">
-							Organization
-						</Label>
-						<Input
-							id="organization"
-							{...form.register("organization")}
-							className="col-span-3"
-							placeholder="Enter organization name (optional)"
-						/>
 					</div>
 
 					<DialogFooter>
