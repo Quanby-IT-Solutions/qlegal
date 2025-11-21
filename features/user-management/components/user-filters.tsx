@@ -54,9 +54,10 @@ export function UserFilters({
 						</SelectTrigger>
 						<SelectContent>
 							<SelectItem value="all">All Roles</SelectItem>
-							<SelectItem value="CLIENT">Client</SelectItem>
+							<SelectItem value="PRINCIPAL">Client</SelectItem>
 							<SelectItem value="ADMIN">Administrator</SelectItem>
-							<SelectItem value="SUPER_ADMIN">Super Administrator</SelectItem>
+							<SelectItem value="ENP">ENP</SelectItem>
+							<SelectItem value="ENA">ENA</SelectItem>
 						</SelectContent>
 					</Select>
 					<Select value={statusFilter} onValueChange={setStatusFilter}>

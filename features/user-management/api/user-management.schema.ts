@@ -17,7 +17,7 @@ export const updateUserSchema = z.object({
 export const userListInputSchema = z.object({
 	search: z.string().optional(),
 	role: z.enum(["all", "ENP", "PRINCIPAL", "ENA", "ADMIN"]).optional(),
-	status: z.enum(["all", "active", "pending", "suspended"]).optional(),
+	status: z.enum(["all", "ACTIVE", "PENDING", "SUSPENDED"]).optional(),
 	page: z.number().min(1).default(1),
 	limit: z.number().min(1).max(100).default(10),
 })

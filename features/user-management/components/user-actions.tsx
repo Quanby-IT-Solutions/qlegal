@@ -63,8 +63,7 @@ export function UserActions({ userId, open, onOpenChange, onSuccess }: UserActio
 			id: userId,
 			name: "",
 			email: "",
-			role: "CLIENT",
-			organization: "",
+			role: "PRINCIPAL",
 		},
 	})
 
@@ -75,8 +74,7 @@ export function UserActions({ userId, open, onOpenChange, onSuccess }: UserActio
 				id: userId,
 				name: user.name ?? "",
 				email: user.email ?? "",
-				role: user.role as "CLIENT" | "ADMIN" | "SUPER_ADMIN",
-				organization: user.organization ?? "",
+				role: user.role as "PRINCIPAL" | "ADMIN" | "ENP" | "ENA",
 			})
 		}
 	}, [user, form, userId])
@@ -89,7 +87,6 @@ export function UserActions({ userId, open, onOpenChange, onSuccess }: UserActio
 				name: data.name,
 				email: data.email,
 				role: data.role,
-				organization: data.organization,
 			})
 		} finally {
 			setIsLoading(false)
@@ -150,25 +147,19 @@ export function UserActions({ userId, open, onOpenChange, onSuccess }: UserActio
 						<Select
 							value={form.watch("role")}
 							onValueChange={value =>
-								form.setValue("role", value as "CLIENT" | "ADMIN" | "SUPER_ADMIN")
+								form.setValue("role", value as "PRINCIPAL" | "ADMIN" | "ENP" | "ENA")
 							}
 						>
 							<SelectTrigger className="col-span-3">
 								<SelectValue placeholder="Select role" />
 							</SelectTrigger>
 							<SelectContent>
-								<SelectItem value="CLIENT">Client</SelectItem>
+								<SelectItem value="PRINCIPAL">Principal</SelectItem>
+								<SelectItem value="ENP">ENP (Notary Public)</SelectItem>
+								<SelectItem value="ENA">ENA (Notary Administrator)</SelectItem>
 								<SelectItem value="ADMIN">Administrator</SelectItem>
-								<SelectItem value="SUPER_ADMIN">Super Administrator</SelectItem>
 							</SelectContent>
 						</Select>
-					</div>
-
-					<div className="grid grid-cols-4 items-center gap-4">
-						<Label htmlFor="organization" className="text-right">
-							Organization
-						</Label>
-						<Input id="organization" {...form.register("organization")} className="col-span-3" />
 					</div>
 
 					<DialogFooter>

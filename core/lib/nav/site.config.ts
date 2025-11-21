@@ -125,7 +125,7 @@ export const workflows: WorkflowConfig[] = [
 // Teams configuration (mock data)
 export const teams: Team[] = [
 	{
-		name: "Acme Inc",
+		name: "Quanby Sign",
 		logo: AudioWaveform,
 		plan: "Enterprise",
 	},
@@ -373,25 +373,25 @@ export const appSidebarSections: NavSection[] = [
 				title: "Audit & Compliance",
 				url: "/audit",
 				icon: BadgeCheck,
-				roles: ["ENA"],
+				roles: ["ENA", "ADMIN"],
 				workflows: ["REN", "IEN"],
 				items: [
 					{
 						title: "Notarial Records",
 						url: "/audit/records",
-						roles: ["ENA"],
+						roles: ["ENA", "ADMIN"],
 						workflows: ["REN", "IEN"],
 					},
 					{
 						title: "Compliance Reports",
 						url: "/audit/reports",
-						roles: ["ENA"],
+						roles: ["ENA", "ADMIN"],
 						workflows: ["REN", "IEN"],
 					},
 					{
 						title: "Violations",
 						url: "/audit/violations",
-						roles: ["ENA"],
+						roles: ["ENA", "ADMIN"],
 						workflows: ["REN", "IEN"],
 					},
 				],
@@ -462,25 +462,31 @@ export const appSidebarSections: NavSection[] = [
 				title: "ENP Management",
 				url: "/management/enp",
 				icon: UsersIcon,
-				roles: ["ENA"],
+				roles: ["ENA", "ADMIN"],
 				workflows: ["REN", "IEN"],
 				items: [
 					{
 						title: "Active Commissions",
 						url: "/management/enp/commissions",
-						roles: ["ENA"],
+						roles: ["ENA", "ADMIN"],
 						workflows: ["REN", "IEN"],
 					},
 					{
 						title: "Applications",
 						url: "/management/enp/applications",
-						roles: ["ENA"],
+						roles: ["ENA", "ADMIN"],
 						workflows: ["REN", "IEN"],
 					},
 					{
 						title: "Revocations & Suspensions",
 						url: "/management/enp/revocations",
-						roles: ["ENA"],
+						roles: ["ENA", "ADMIN"],
+						workflows: ["REN", "IEN"],
+					},
+					{
+						title: "User Management",
+						url: "/management/users",
+						roles: ["ENA", "ADMIN"],
 						workflows: ["REN", "IEN"],
 					},
 				],
@@ -556,7 +562,7 @@ export const appSidebarSections: NavSection[] = [
 					{
 						title: "System Settings",
 						url: "/settings/system",
-						roles: ["ENA"],
+						roles: ["ENA", "ADMIN"],
 						workflows: ["REN", "IEN"],
 					},
 				],
@@ -609,7 +615,7 @@ function isValidUserRole(role: string | null | undefined): role is UserRole {
 	if (!role) {
 		return false
 	}
-	return ["ENP", "Principal", "ENA"].includes(role)
+	return ["ENP", "PRINCIPAL", "ENA", "ADMIN"].includes(role)
 }
 
 function filterNavItemsByRole(navItems: NavItem[], userRole?: string | null): NavItem[] {

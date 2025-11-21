@@ -1,4 +1,4 @@
-import { and, count, desc, eq, ilike, isNotNull, isNull, or, sql } from "drizzle-orm"
+import { and, count, desc, eq, ilike, or } from "drizzle-orm"
 
 import { users } from "@/services/drizzle/schema/auth"
 import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
@@ -32,14 +32,7 @@ export const userManagementRouter = createTRPCRouter({
 
 		// Apply status filter
 		if (input.status && input.status !== "all") {
-			switch (input.status) {
-				case "active":
-					conditions.push(isNotNull(users.emailVerified))
-					break
-				case "pending":
-					conditions.push(isNull(users.emailVerified))
-					break
-			}
+			conditions.push(eq(users.status, input.status))
 		}
 
 		const whereCondition = conditions.length > 0 ? and(...conditions) : undefined
@@ -64,6 +57,7 @@ export const userManagementRouter = createTRPCRouter({
 				email: users.email,
 				role: users.role,
 				image: users.image,
+				status: users.status,
 				emailVerified: users.emailVerified,
 			})
 			.from(users)
@@ -79,7 +73,7 @@ export const userManagementRouter = createTRPCRouter({
 			email: user.email ?? "no-email@example.com",
 			role: user.role.toLowerCase().replace("_", "-") as "client" | "admin" | "super-admin",
 			organization: null,
-			status: user.emailVerified ? ("active" as const) : ("pending" as const),
+			status: user.status.toLowerCase() as "active" | "pending" | "suspended",
 			joinDate:
 				user.emailVerified?.toISOString().split("T")[0] ?? new Date().toISOString().split("T")[0],
 			lastActive: user.emailVerified?.toISOString() ?? new Date().toISOString(),
@@ -108,20 +102,26 @@ export const userManagementRouter = createTRPCRouter({
 		const [activeResult] = await ctx.db
 			.select({ count: count() })
 			.from(users)
-			.where(isNotNull(users.emailVerified))
+			.where(eq(users.status, "ACTIVE"))
 		const activeUsers = activeResult?.count ?? 0
 
 		const [pendingResult] = await ctx.db
 			.select({ count: count() })
 			.from(users)
-			.where(isNull(users.emailVerified))
+			.where(eq(users.status, "PENDING"))
 		const pendingUsers = pendingResult?.count ?? 0
+
+		const [suspendedResult] = await ctx.db
+			.select({ count: count() })
+			.from(users)
+			.where(eq(users.status, "SUSPENDED"))
+		const suspendedUsers = suspendedResult?.count ?? 0
 
 		return {
 			total: totalUsers,
 			active: activeUsers,
 			pending: pendingUsers,
-			suspended: 0,
+			suspended: suspendedUsers,
 		}
 	}),
 
@@ -135,6 +135,7 @@ export const userManagementRouter = createTRPCRouter({
 				email: true,
 				role: true,
 				image: true,
+				status: true,
 				emailVerified: true,
 			},
 		})
@@ -149,7 +150,7 @@ export const userManagementRouter = createTRPCRouter({
 			email: user.email ?? "no-email@example.com",
 			role: user.role.toLowerCase().replace("_", "-") as "client" | "admin" | "super-admin",
 			organization: null,
-			status: user.emailVerified ? ("active" as const) : ("pending" as const),
+			status: user.status.toLowerCase() as "active" | "pending" | "suspended",
 			joinDate:
 				user.emailVerified?.toISOString().split("T")[0] ?? new Date().toISOString().split("T")[0],
 			lastActive: user.emailVerified?.toISOString() ?? new Date().toISOString(),
@@ -185,7 +186,7 @@ export const userManagementRouter = createTRPCRouter({
 			email: newUser!.email ?? "no-email@example.com",
 			role: newUser!.role.toLowerCase().replace("_", "-") as "client" | "admin" | "super-admin",
 			organization: null,
-			status: newUser!.emailVerified ? ("active" as const) : ("pending" as const),
+			status: newUser!.status.toLowerCase() as "active" | "pending" | "suspended",
 			joinDate:
 				newUser!.emailVerified?.toISOString().split("T")[0] ??
 				new Date().toISOString().split("T")[0],
@@ -214,7 +215,7 @@ export const userManagementRouter = createTRPCRouter({
 			email: updatedUser!.email ?? "no-email@example.com",
 			role: updatedUser!.role.toLowerCase().replace("_", "-") as "client" | "admin" | "super-admin",
 			organization: null,
-			status: updatedUser!.emailVerified ? ("active" as const) : ("pending" as const),
+			status: updatedUser!.status.toLowerCase() as "active" | "pending" | "suspended",
 			joinDate:
 				updatedUser!.emailVerified?.toISOString().split("T")[0] ??
 				new Date().toISOString().split("T")[0],
@@ -231,24 +232,27 @@ export const userManagementRouter = createTRPCRouter({
 		return { success: true, deletedId: input.id }
 	}),
 
-	// Approve user (verify email)
+	// Approve user (verify email and set status to ACTIVE)
 	approve: protectedProcedure.input(approveUserSchema).mutation(async ({ ctx, input }) => {
-		await ctx.db.update(users).set({ emailVerified: new Date() }).where(eq(users.id, input.id))
+		await ctx.db
+			.update(users)
+			.set({ emailVerified: new Date(), status: "ACTIVE" })
+			.where(eq(users.id, input.id))
 
 		return { success: true, userId: input.id, status: "active" }
 	}),
 
-	// Suspend user - Note: suspendedAt field doesn't exist in schema
+	// Suspend user
 	suspend: protectedProcedure.input(suspendUserSchema).mutation(async ({ ctx, input }) => {
-		// TODO: Add suspendedAt field to users schema if needed
-		// For now, just return success
+		await ctx.db.update(users).set({ status: "SUSPENDED" }).where(eq(users.id, input.id))
+
 		return { success: true, userId: input.id, status: "suspended" }
 	}),
 
-	// Unsuspend user - Note: suspendedAt field doesn't exist in schema
+	// Unsuspend user
 	unsuspend: protectedProcedure.input(unsuspendUserSchema).mutation(async ({ ctx, input }) => {
-		// TODO: Add suspendedAt field to users schema if needed
-		// For now, just return success
+		await ctx.db.update(users).set({ status: "ACTIVE" }).where(eq(users.id, input.id))
+
 		return { success: true, userId: input.id, status: "active" }
 	}),
 
