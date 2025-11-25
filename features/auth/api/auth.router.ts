@@ -2,11 +2,11 @@ import { TRPCError } from "@trpc/server"
 import { hash } from "bcryptjs"
 import { eq } from "drizzle-orm"
 
+import { autoJoinOrganization } from "@/services/docochain"
 import { passwordResetTokens, users, verificationTokens } from "@/services/drizzle/schema/auth"
 import { sendPasswordResetToken } from "@/services/react-email/lib/send.password-reset-token"
 import { sendVerificationToken } from "@/services/react-email/lib/send.verification-token"
 import { createTRPCRouter, publicProcedure } from "@/services/trpc/init"
-import { autoJoinOrganization } from "@/services/docochain"
 
 import {
 	forgotPasswordSchema,
@@ -43,7 +43,7 @@ export const authRouter = createTRPCRouter({
 		// This makes them an organization member so they can use DocoChain features
 		try {
 			const nameParts = name.split(" ")
-			const firstName = nameParts[0] || "User"
+			const firstName = nameParts[0] ?? "User"
 			const lastName = nameParts.slice(1).join(" ") || ""
 
 			await autoJoinOrganization({
@@ -182,8 +182,11 @@ export const authRouter = createTRPCRouter({
 			const allTokens = await ctx.db.query.verificationTokens.findMany({
 				limit: 5,
 			})
-			console.log("   - Recent tokens in DB:", allTokens.map(t => ({ email: t.email, token: t.token?.substring(0, 10) + "..." })))
-			
+			console.log(
+				"   - Recent tokens in DB:",
+				allTokens.map(t => ({ email: t.email, token: `${t.token?.substring(0, 10)}...` }))
+			)
+
 			throw new TRPCError({
 				code: "NOT_FOUND",
 				message: "Verification token not found.",
