@@ -337,6 +337,7 @@ export const meetingsRouter = createTRPCRouter({
 					fileName: name.endsWith('.pdf') ? name : `${name}.pdf`,
 					userListEditable: false, // Recipients cannot be edited after creation
 					creatorAsViewer: false, // Creator is not added as a viewer
+					creatorEmail: ctx.session.user.email || undefined, // Pass creator's email for token generation
 				})
 				const docoChainProjectId = docoChainProject.uuid // THIS IS THE CRITICAL PROJECT UUID
 				const docoChainRedirectUrl = docoChainProject.redirectUrl || null

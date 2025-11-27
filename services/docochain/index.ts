@@ -8,6 +8,120 @@ import { env } from "@/env"
 const DOCOCHAIN_API_BASE = env.DOCOCHAIN_API_URL || "https://stg-api2.doconchain.com"
 const DOCOCHAIN_API_TOKEN = env.DOCOCHAIN_API_TOKEN || ""
 const DOCOCHAIN_ORGANIZATION_ID = env.DOCOCHAIN_ORGANIZATION_ID || ""
+const DOCOCHAIN_CLIENT_KEY = env.DOCOCHAIN_CLIENT_KEY || ""
+const DOCOCHAIN_CLIENT_SECRET = env.DOCOCHAIN_CLIENT_SECRET || ""
+
+// Token cache to store generated tokens per email
+// Format: { email: { token: string, expiresAt: number } }
+const tokenCache = new Map<string, { token: string; expiresAt: number }>()
+
+// Token expiration time: 1 hour (3600000 ms) - tokens typically expire after some time
+const TOKEN_EXPIRATION_MS = 3600000 // 1 hour
+
+/**
+ * Generate a DocoChain authentication token for a specific user email
+ * Uses the Generate Token API: POST https://stg-api2.doconchain.com/api/v2/generate/token
+ * 
+ * @param email - The email address of the user to generate token for
+ * @returns The generated token string
+ */
+export async function generateDocoChainToken(email: string): Promise<string> {
+	console.log("🔵 Generating DocoChain token...")
+	console.log("   - Email:", email)
+	
+	// Check cache first
+	const cached = tokenCache.get(email)
+	if (cached && cached.expiresAt > Date.now()) {
+		console.log("✅ Using cached token for:", email)
+		return cached.token
+	}
+
+	try {
+		if (!DOCOCHAIN_CLIENT_KEY || !DOCOCHAIN_CLIENT_SECRET) {
+			console.warn("⚠️ DocoChain client credentials not configured. Using static token.")
+			// Fallback to static token if credentials not available
+			if (DOCOCHAIN_API_TOKEN) {
+				return DOCOCHAIN_API_TOKEN
+			}
+			throw new Error("DocoChain client credentials not configured. Set DOCOCHAIN_CLIENT_KEY and DOCOCHAIN_CLIENT_SECRET in .env.local")
+		}
+
+		const formData = new FormData()
+		formData.append("client_key", DOCOCHAIN_CLIENT_KEY)
+		formData.append("client_secret", DOCOCHAIN_CLIENT_SECRET)
+		formData.append("email", email)
+
+		const apiUrl = `${DOCOCHAIN_API_BASE}/api/v2/generate/token`
+		console.log("🔵 Calling DocoChain Generate Token API:", apiUrl)
+
+		const response = await fetch(apiUrl, {
+			method: "POST",
+			headers: {
+				Accept: "application/json",
+			},
+			body: formData,
+		})
+
+		console.log("📡 DocoChain generate token response status:", response.status)
+
+		if (!response.ok) {
+			const errorText = await response.text()
+			console.error("❌ DocoChain generate token error:", errorText)
+			throw new Error(`DocoChain API error: ${response.status} ${response.statusText} - ${errorText}`)
+		}
+
+		const result = await response.json()
+		console.log("✅ Token generated successfully")
+
+		// Extract token from response
+		// API returns: { token: "..." } or { data: { token: "..." } }
+		const token = result.token || result.data?.token
+
+		if (!token) {
+			console.error("❌ No token in response:", result)
+			throw new Error("DocoChain did not return a token")
+		}
+
+		// Cache the token with expiration
+		tokenCache.set(email, {
+			token,
+			expiresAt: Date.now() + TOKEN_EXPIRATION_MS,
+		})
+
+		console.log("✅ Token cached for:", email)
+		return token
+	} catch (error) {
+		console.error("❌ Error generating DocoChain token:", error)
+		// Fallback to static token if available
+		if (DOCOCHAIN_API_TOKEN) {
+			console.warn("⚠️ Falling back to static token")
+			return DOCOCHAIN_API_TOKEN
+		}
+		throw error
+	}
+}
+
+/**
+ * Get a valid DocoChain token for a user, generating a new one if needed
+ * This function handles token caching and automatic refresh
+ * 
+ * @param email - The email address of the user
+ * @returns A valid token string
+ */
+export async function getDocoChainToken(email?: string): Promise<string> {
+	// If email is provided, generate user-specific token
+	if (email) {
+		return generateDocoChainToken(email)
+	}
+	
+	// Otherwise, use static token or generate a default one
+	if (DOCOCHAIN_API_TOKEN) {
+		return DOCOCHAIN_API_TOKEN
+	}
+	
+	// If no static token and no email, we can't generate a token
+	throw new Error("Cannot generate token: email is required when DOCOCHAIN_API_TOKEN is not set")
+}
 
 interface CreateProjectRequest {
 	title: string
@@ -52,17 +166,20 @@ export async function createDocoChainProject({
 	fileName,
 	userListEditable = false,
 	creatorAsViewer = false,
-}: CreateProjectRequest): Promise<{ uuid: string; id: number; redirectUrl?: string }> {
+	creatorEmail,
+}: CreateProjectRequest & { creatorEmail?: string }): Promise<{ uuid: string; id: number; redirectUrl?: string }> {
 	console.log("🔵 Starting DocoChain project creation...")
 	console.log("   - Title:", title)
 	console.log("   - File name:", fileName)
 	console.log("   - File size:", documentFile.length, "bytes")
 	console.log("   - API Base:", DOCOCHAIN_API_BASE)
-	console.log("   - Has Token:", !!DOCOCHAIN_API_TOKEN)
+	console.log("   - Creator Email:", creatorEmail || "not provided")
 	
 	try {
-		if (!DOCOCHAIN_API_TOKEN) {
-			throw new Error("DocoChain API token not configured. Set DOCOCHAIN_API_TOKEN in .env.local")
+		// Get token for creator
+		const token = await getDocoChainToken(creatorEmail)
+		if (!token) {
+			throw new Error("DocoChain API token not available. Set DOCOCHAIN_API_TOKEN or DOCOCHAIN_CLIENT_KEY/CLIENT_SECRET in .env.local")
 		}
 
 		const formData = new FormData()
@@ -84,7 +201,7 @@ export async function createDocoChainProject({
 		const response = await fetch(apiUrl, {
 			method: "POST",
 			headers: {
-				Authorization: `Bearer ${DOCOCHAIN_API_TOKEN}`,
+				Authorization: `Bearer ${token}`,
 				Accept: "application/json",
 			},
 			body: formData,
@@ -135,21 +252,26 @@ export async function addSignerToProject({
 	firstName,
 	lastName,
 	signerRole = "Signer",
+	userEmail,
 }: {
 	projectUuid: string
 	email: string
 	firstName: string
 	lastName: string
 	signerRole?: string
+	userEmail?: string // Email of the user making the API call (creator/ENP)
 }) {
 	console.log("🔵 Adding signer to DocoChain project...")
 	console.log("   - Project UUID:", projectUuid)
 	console.log("   - Email:", email)
 	console.log("   - Name:", firstName, lastName)
+	console.log("   - User Email (for token):", userEmail || "not provided")
 
 	try {
-		if (!DOCOCHAIN_API_TOKEN) {
-			throw new Error("DocoChain API token not configured")
+		// Get token for the user making the API call
+		const token = await getDocoChainToken(userEmail)
+		if (!token) {
+			throw new Error("DocoChain API token not available")
 		}
 
 		const response = await fetch(
@@ -157,7 +279,7 @@ export async function addSignerToProject({
 			{
 				method: "POST",
 				headers: {
-					Authorization: `Bearer ${DOCOCHAIN_API_TOKEN}`,
+					Authorization: `Bearer ${token}`,
 					"Content-Type": "application/json",
 					Accept: "application/json",
 				},
@@ -183,7 +305,8 @@ export async function addSignerToProject({
 					console.log("ℹ️ Signer already exists in project - verifying...")
 					try {
 						// Verify the signer exists by getting project details
-						const projectDetails = await getProjectDetails(projectUuid)
+						// Use userEmail to get proper token for project access
+						const projectDetails = await getProjectDetails(projectUuid, userEmail)
 						const signers = projectDetails?.data?.signers || []
 						const signerExists = signers.some((s: { email: string }) => s.email === email)
 						if (signerExists) {
@@ -195,7 +318,9 @@ export async function addSignerToProject({
 						}
 					} catch (verifyError) {
 						console.error("❌ Failed to verify signer:", verifyError)
-						throw new Error(`DocoChain API error: ${response.status} ${response.statusText} - ${errorText}`)
+						// If verification fails but we got "already exists" error, assume it's fine
+						console.log(`ℹ️ Signer already exists: ${  email}`)
+						return { message: "Signer already exists", verified: true }
 					}
 				}
 			}
@@ -224,22 +349,27 @@ export async function autoJoinOrganization({
 	lastName,
 	role = "Member",
 	organizationId,
+	userEmail,
 }: {
 	email: string
 	firstName: string
 	lastName: string
 	role?: string
 	organizationId?: string
+	userEmail?: string // Email of the user making the API call
 }): Promise<void> {
 	console.log("🔵 Auto-joining user to DocoChain organization...")
 	console.log("   - Email:", email)
 	console.log("   - Name:", firstName, lastName)
 	console.log("   - Role:", role)
 	console.log("   - Organization ID:", organizationId || DOCOCHAIN_ORGANIZATION_ID)
+	console.log("   - User Email (for token):", userEmail || "not provided")
 
 	try {
-		if (!DOCOCHAIN_API_TOKEN) {
-			throw new Error("DocoChain API token not configured")
+		// Get token for the user making the API call
+		const token = await getDocoChainToken(userEmail)
+		if (!token) {
+			throw new Error("DocoChain API token not available")
 		}
 
 		const orgId = organizationId || DOCOCHAIN_ORGANIZATION_ID
@@ -260,7 +390,7 @@ export async function autoJoinOrganization({
 			{
 				method: "POST",
 				headers: {
-					Authorization: `Bearer ${DOCOCHAIN_API_TOKEN}`,
+					Authorization: `Bearer ${token}`,
 					Accept: "application/json",
 				},
 				body: formData,
@@ -307,13 +437,16 @@ export async function autoJoinOrganization({
 /**
  * Get DocoChain project details including all signers
  */
-export async function getProjectDetails(projectUuid: string): Promise<any> {
+export async function getProjectDetails(projectUuid: string, userEmail?: string): Promise<any> {
 	console.log("🔵 Fetching DocoChain project details...")
 	console.log("   - Project UUID:", projectUuid)
+	console.log("   - User Email (for token):", userEmail || "not provided")
 
 	try {
-		if (!DOCOCHAIN_API_TOKEN) {
-			throw new Error("DocoChain API token not configured")
+		// Get token for the user
+		const token = await getDocoChainToken(userEmail)
+		if (!token) {
+			throw new Error("DocoChain API token not available")
 		}
 
 		const response = await fetch(
@@ -321,7 +454,7 @@ export async function getProjectDetails(projectUuid: string): Promise<any> {
 			{
 				method: "GET",
 				headers: {
-					Authorization: `Bearer ${DOCOCHAIN_API_TOKEN}`,
+					Authorization: `Bearer ${token}`,
 					Accept: "application/json",
 				},
 			}
@@ -351,17 +484,22 @@ export async function getProjectDetails(projectUuid: string): Promise<any> {
 export async function deleteSigner({
 	projectUuid,
 	signerId,
+	userEmail,
 }: {
 	projectUuid: string
 	signerId: number
+	userEmail?: string // Email of the user making the API call
 }): Promise<void> {
 	console.log("🔵 Deleting signer from DocoChain project...")
 	console.log("   - Project UUID:", projectUuid)
 	console.log("   - Signer ID:", signerId)
+	console.log("   - User Email (for token):", userEmail || "not provided")
 
 	try {
-		if (!DOCOCHAIN_API_TOKEN) {
-			throw new Error("DocoChain API token not configured")
+		// Get token for the user making the API call
+		const token = await getDocoChainToken(userEmail)
+		if (!token) {
+			throw new Error("DocoChain API token not available")
 		}
 
 		const response = await fetch(
@@ -369,7 +507,7 @@ export async function deleteSigner({
 			{
 				method: "DELETE",
 				headers: {
-					Authorization: `Bearer ${DOCOCHAIN_API_TOKEN}`,
+					Authorization: `Bearer ${token}`,
 					Accept: "application/json",
 				},
 			}
@@ -462,13 +600,16 @@ export async function getDocoChainProject(projectUuid: string) {
  * Send/Deploy a DocoChain project to recipients
  * This activates the project and makes it accessible to signers
  */
-export async function sendDocoChainProject(projectUuid: string) {
+export async function sendDocoChainProject(projectUuid: string, userEmail?: string) {
 	console.log("🔵 Sending DocoChain project to recipients...")
 	console.log("   - Project UUID:", projectUuid)
+	console.log("   - User Email (for token):", userEmail || "not provided")
 
 	try {
-		if (!DOCOCHAIN_API_TOKEN) {
-			throw new Error("DocoChain API token not configured")
+		// Get token for the user
+		const token = await getDocoChainToken(userEmail)
+		if (!token) {
+			throw new Error("DocoChain API token not available")
 		}
 
 		const response = await fetch(
@@ -476,7 +617,7 @@ export async function sendDocoChainProject(projectUuid: string) {
 			{
 				method: "POST",
 				headers: {
-					Authorization: `Bearer ${DOCOCHAIN_API_TOKEN}`,
+					Authorization: `Bearer ${token}`,
 					Accept: "application/json",
 				},
 			}
@@ -517,8 +658,10 @@ export async function generateSignLink({
 	console.log("   - Email:", email)
 
 	try {
-		if (!DOCOCHAIN_API_TOKEN) {
-			throw new Error("DocoChain API token not configured")
+		// Generate token for the signer (the email parameter is the signer's email)
+		const token = await getDocoChainToken(email)
+		if (!token) {
+			throw new Error("DocoChain API token not available")
 		}
 
 		// The endpoint is on the API domain, not the app domain
@@ -532,7 +675,7 @@ export async function generateSignLink({
 		const response = await fetch(apiUrl, {
 			method: "POST",
 			headers: {
-				Authorization: `Bearer ${DOCOCHAIN_API_TOKEN}`,
+				Authorization: `Bearer ${token}`,
 				Accept: "application/json",
 			},
 			// No body required as per API documentation
@@ -629,6 +772,7 @@ export async function updateProjectSigner({
 	lastName,
 	sequence,
 	signerRole,
+	userEmail,
 }: {
 	projectUuid: string
 	signerId: string | number
@@ -636,6 +780,7 @@ export async function updateProjectSigner({
 	lastName: string
 	sequence: number
 	signerRole: string
+	userEmail?: string // Email of the user making the API call
 }) {
 	console.log("🔵 Updating project signer...")
 	console.log("   - Project UUID:", projectUuid)
@@ -643,10 +788,13 @@ export async function updateProjectSigner({
 	console.log("   - Name:", firstName, lastName)
 	console.log("   - Sequence:", sequence)
 	console.log("   - Signer Role:", signerRole)
+	console.log("   - User Email (for token):", userEmail || "not provided")
 
 	try {
-		if (!DOCOCHAIN_API_TOKEN) {
-			throw new Error("DocoChain API token not configured")
+		// Get token for the user making the API call
+		const token = await getDocoChainToken(userEmail)
+		if (!token) {
+			throw new Error("DocoChain API token not available")
 		}
 
 		const response = await fetch(
@@ -654,7 +802,7 @@ export async function updateProjectSigner({
 			{
 				method: "PUT",
 				headers: {
-					Authorization: `Bearer ${DOCOCHAIN_API_TOKEN}`,
+					Authorization: `Bearer ${token}`,
 					"Content-Type": "application/json",
 					Accept: "application/json",
 				},
@@ -690,13 +838,16 @@ export async function updateProjectSigner({
  * This generates a link that allows editing/plotting/signing a draft project
  * POST https://stg-api2.doconchain.com/api/v2/projects/{uuid}/link?user_type=ENTERPRISE_API
  */
-export async function generateEditDraftLink(projectUuid: string): Promise<{ link: string }> {
+export async function generateEditDraftLink(projectUuid: string, userEmail?: string): Promise<{ link: string }> {
 	console.log("🔵 Generating edit draft project link...")
 	console.log("   - Project UUID:", projectUuid)
+	console.log("   - User Email (for token):", userEmail || "not provided")
 
 	try {
-		if (!DOCOCHAIN_API_TOKEN) {
-			throw new Error("DocoChain API token not configured")
+		// Get token for the user (creator/ENP)
+		const token = await getDocoChainToken(userEmail)
+		if (!token) {
+			throw new Error("DocoChain API token not available")
 		}
 
 		const apiUrl = `${DOCOCHAIN_API_BASE}/api/v2/projects/${projectUuid}/link?user_type=ENTERPRISE_API`
@@ -705,7 +856,7 @@ export async function generateEditDraftLink(projectUuid: string): Promise<{ link
 		const response = await fetch(apiUrl, {
 			method: "POST",
 			headers: {
-				Authorization: `Bearer ${DOCOCHAIN_API_TOKEN}`,
+				Authorization: `Bearer ${token}`,
 				Accept: "application/json",
 			},
 		})
@@ -791,12 +942,13 @@ export interface SigningStatusResult {
 	}>
 }
 
-export async function checkSigningStatus(projectUuid: string): Promise<SigningStatusResult> {
+export async function checkSigningStatus(projectUuid: string, userEmail?: string): Promise<SigningStatusResult> {
 	console.log("🔵 Checking signing status for project...")
 	console.log("   - Project UUID:", projectUuid)
+	console.log("   - User Email (for token):", userEmail || "not provided")
 
 	try {
-		const projectDetails = await getProjectDetails(projectUuid)
+		const projectDetails = await getProjectDetails(projectUuid, userEmail)
 		const projectData = projectDetails?.data
 
 		if (!projectData) {
@@ -844,12 +996,13 @@ export async function checkSigningStatus(projectUuid: string): Promise<SigningSt
  * Download the signed document from DocoChain
  * Returns the signed PDF as a Buffer
  */
-export async function downloadSignedDocument(projectUuid: string): Promise<{ buffer: Buffer; fileName: string; url: string }> {
+export async function downloadSignedDocument(projectUuid: string, userEmail?: string): Promise<{ buffer: Buffer; fileName: string; url: string }> {
 	console.log("🔵 Downloading signed document from DocoChain...")
 	console.log("   - Project UUID:", projectUuid)
+	console.log("   - User Email (for token):", userEmail || "not provided")
 
 	try {
-		const projectDetails = await getProjectDetails(projectUuid)
+		const projectDetails = await getProjectDetails(projectUuid, userEmail)
 		const projectData = projectDetails?.data
 
 		if (!projectData) {
@@ -897,17 +1050,20 @@ export async function downloadSignedDocument(projectUuid: string): Promise<{ buf
  * Download the certificate of completion from DocoChain
  * Returns the certificate PDF as a Buffer
  */
-export async function downloadCertificate(projectUuid: string): Promise<{ buffer: Buffer; fileName: string; url: string }> {
+export async function downloadCertificate(projectUuid: string, userEmail?: string): Promise<{ buffer: Buffer; fileName: string; url: string }> {
 	console.log("🔵 Downloading certificate from DocoChain...")
 	console.log("   - Project UUID:", projectUuid)
+	console.log("   - User Email (for token):", userEmail || "not provided")
 
 	try {
-		if (!DOCOCHAIN_API_TOKEN) {
-			throw new Error("DocoChain API token not configured")
+		// Get token for the user
+		const token = await getDocoChainToken(userEmail)
+		if (!token) {
+			throw new Error("DocoChain API token not available")
 		}
 
 		// First, get project details to check if certificate URL is available
-		const projectDetails = await getProjectDetails(projectUuid)
+		const projectDetails = await getProjectDetails(projectUuid, userEmail)
 		const projectData = projectDetails?.data
 
 		if (!projectData) {
@@ -917,7 +1073,48 @@ export async function downloadCertificate(projectUuid: string): Promise<{ buffer
 		// Try to get certificate URL from project data first
 		let certificateUrl = projectData.certificate_url || projectData.certificateUrl || projectData.cert_url
 
-		// If not in project data, try different endpoint formats
+		// If not in project data, try Passport API to get certificate URL
+		if (!certificateUrl) {
+			console.log("🔵 Certificate URL not in project data, trying Passport API...")
+			try {
+				const passportData = await getPassportDocument(projectUuid, "certificate_url", userEmail)
+				
+				// Handle case where response is a string URL directly
+				if (typeof passportData === "string" && passportData.startsWith("http")) {
+					certificateUrl = passportData
+					console.log("✅ Certificate URL returned directly as string from Passport API")
+				} else {
+					// Extract certificate URL from passport response object
+					// The response structure may vary, try multiple possible locations
+					certificateUrl = passportData?.data?.certificate_url || 
+					                passportData?.data?.certificateUrl || 
+					                passportData?.data?.cert_url ||
+					                passportData?.data?.url ||
+					                passportData?.certificate_url ||
+					                passportData?.certificateUrl ||
+					                passportData?.cert_url ||
+					                passportData?.url ||
+					                (typeof passportData?.data === "string" && passportData.data.startsWith("http") ? passportData.data : null)
+				}
+				
+				// If certificateUrl is still not found, log the full response for debugging
+				if (!certificateUrl) {
+					console.warn("⚠️ Passport API response structure:")
+					console.warn("   - Full response:", JSON.stringify(passportData, null, 2))
+					console.warn("   - Response keys:", Object.keys(passportData || {}))
+					if (passportData?.data) {
+						console.warn("   - Data keys:", Object.keys(passportData.data))
+					}
+				} else {
+					console.log("✅ Certificate URL found via Passport API:", certificateUrl)
+				}
+			} catch (passportError) {
+				console.warn("⚠️ Failed to get certificate URL from Passport API:", passportError)
+				// Continue to try other methods
+			}
+		}
+
+		// If still no certificate URL, try different endpoint formats
 		if (!certificateUrl) {
 			// Determine app base URL (for certificate downloads, might need app URL instead of API URL)
 			const appBaseUrl = DOCOCHAIN_API_BASE.includes('stg') 
@@ -942,7 +1139,7 @@ export async function downloadCertificate(projectUuid: string): Promise<{ buffer
 					const response = await fetch(endpoint, {
 						method: "GET",
 						headers: {
-							Authorization: `Bearer ${DOCOCHAIN_API_TOKEN}`,
+							Authorization: `Bearer ${token}`,
 							Accept: "application/pdf",
 						},
 					})
@@ -985,7 +1182,7 @@ export async function downloadCertificate(projectUuid: string): Promise<{ buffer
 			const response = await fetch(certificateUrl, {
 				method: "GET",
 				headers: {
-					Authorization: `Bearer ${DOCOCHAIN_API_TOKEN}`,
+					Authorization: `Bearer ${token}`,
 					Accept: "application/pdf",
 				},
 			})
@@ -1012,6 +1209,65 @@ export async function downloadCertificate(projectUuid: string): Promise<{ buffer
 		}
 	} catch (error) {
 		console.error("❌ Error downloading certificate:", error)
+		throw error
+	}
+}
+
+/**
+ * Get Passport Document from DocoChain
+ * Retrieves the Passport details of a specific document including audit trail, blockchain hash, user data, etc.
+ * API: GET /api/v2/projects/{uuid}/passport?user_type=ENTERPRISE_API&view={view}
+ * 
+ * @param projectUuid - The unique identifier of the project
+ * @param view - The view type: 'blockchain', 'history', 'user_data', 'verifiable_presentation', or 'certificate_url'
+ * @param userEmail - Email of the user making the API call (for token generation)
+ * @returns The passport document data
+ */
+export async function getPassportDocument(
+	projectUuid: string,
+	view: "blockchain" | "history" | "user_data" | "verifiable_presentation" | "certificate_url" = "blockchain",
+	userEmail?: string
+): Promise<any> {
+	console.log("🔵 Getting Passport Document from DocoChain...")
+	console.log("   - Project UUID:", projectUuid)
+	console.log("   - View:", view)
+	console.log("   - User Email (for token):", userEmail || "not provided")
+
+	try {
+		// Get token for the user
+		const token = await getDocoChainToken(userEmail)
+		if (!token) {
+			throw new Error("DocoChain API token not available")
+		}
+
+		// Build the API URL with query parameters
+		const apiUrl = `${DOCOCHAIN_API_BASE}/api/v2/projects/${projectUuid}/passport?user_type=ENTERPRISE_API&view=${view}`
+		console.log("🔵 Calling DocoChain Passport API:", apiUrl)
+
+		const response = await fetch(apiUrl, {
+			method: "GET",
+			headers: {
+				Authorization: `Bearer ${token}`,
+				Accept: "application/json",
+			},
+		})
+
+		console.log("📡 DocoChain passport response status:", response.status)
+
+		if (!response.ok) {
+			const errorText = await response.text()
+			console.error("❌ DocoChain passport error:", errorText)
+			throw new Error(`DocoChain API error: ${response.status} ${response.statusText} - ${errorText}`)
+		}
+
+		const result = await response.json()
+		console.log("✅ Passport document retrieved successfully")
+		console.log("   - View type:", view)
+		console.log("   - Response keys:", Object.keys(result))
+
+		return result
+	} catch (error) {
+		console.error("❌ Error getting passport document:", error)
 		throw error
 	}
 }

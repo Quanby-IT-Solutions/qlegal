@@ -8,7 +8,7 @@ import { signatureRequests } from "@/services/drizzle/schema/signature-requests"
 import { documents } from "@/services/drizzle/schema/document"
 import { users } from "@/services/drizzle/schema/auth"
 import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
-import { addSignerToProject, sendDocoChainProject, generateSignLink, generateEditDraftLink, autoJoinOrganization, getProjectDetails, deleteSigner, updateProjectSigner, checkSigningStatus, downloadSignedDocument, downloadCertificate } from "@/services/docochain"
+import { addSignerToProject, sendDocoChainProject, generateSignLink, generateEditDraftLink, autoJoinOrganization, getProjectDetails, deleteSigner, updateProjectSigner, checkSigningStatus, downloadSignedDocument, downloadCertificate, getPassportDocument } from "@/services/docochain"
 
 const DOCOCHAIN_API_BASE = env.DOCOCHAIN_API_URL || "https://stg-api2.doconchain.com"
 
@@ -69,6 +69,7 @@ export const signatureRequestsRouter = createTRPCRouter({
 				firstName,
 				lastName,
 				role: "Member",
+				userEmail: ctx.session.user.email || undefined, // Pass creator's email for token
 			})
 
 			const addSignerResponse = await addSignerToProject({
@@ -77,6 +78,7 @@ export const signatureRequestsRouter = createTRPCRouter({
 				firstName,
 				lastName,
 				signerRole: "Signer",
+				userEmail: ctx.session.user.email || undefined, // Pass creator's email for token
 			})
 
 			console.log("✅ Added signer to DocoChain project")
@@ -97,6 +99,7 @@ export const signatureRequestsRouter = createTRPCRouter({
 					await deleteSigner({
 						projectUuid: document.docoChainProjectId,
 						signerId: creatorSigner.id,
+						userEmail: ctx.session.user.email || undefined, // Pass creator's email for token
 					})
 					console.log("✅ Creator DELETED! Only ENP remains in the document! 🎉")
 				} else {
@@ -253,12 +256,17 @@ export const signatureRequestsRouter = createTRPCRouter({
 										},
 									},
 								},
+								createdBy: {
+									columns: {
+										email: true,
+									},
+								},
 							},
 						},
 					},
 				})
 
-				if (!document || !document.meeting) {
+				if (!document?.meeting) {
 					throw new TRPCError({
 						code: "NOT_FOUND",
 						message: "Document or meeting not found",
@@ -267,8 +275,17 @@ export const signatureRequestsRouter = createTRPCRouter({
 
 				const meeting = document.meeting
 				const participants = meeting.participants || []
+				
+				// Get creator's email - this is who created the project, so their token has access
+				const creatorEmail = meeting.createdBy?.email || undefined
+				if (!creatorEmail) {
+					throw new TRPCError({
+						code: "NOT_FOUND",
+						message: "Meeting creator not found",
+					})
+				}
 
-				// Get user details
+				// Get user details (ENP who is clicking "Start Signing")
 				const nameParts = (ctx.session.user.name || "").split(" ")
 				const userFirstName = nameParts[0] || "User"
 				const userLastName = nameParts.slice(1).join(" ") || ""
@@ -277,7 +294,8 @@ export const signatureRequestsRouter = createTRPCRouter({
 				console.log("   - Project UUID:", projectUuid)
 				console.log("   - Meeting ID:", meeting.id)
 				console.log("   - Total participants:", participants.length)
-				console.log("   - ENP Email:", email)
+				console.log("   - Creator Email (for project access):", creatorEmail)
+				console.log("   - ENP Email (signer):", email)
 				console.log("   - ENP Name:", userFirstName, userLastName)
 
 				// Step 1: Add ALL meeting participants as signers to DocoChain
@@ -288,7 +306,7 @@ export const signatureRequestsRouter = createTRPCRouter({
 				
 				for (const participant of participants) {
 					const participantUser = participant.user
-					if (!participantUser || !participantUser.email) {
+					if (!participantUser?.email) {
 						console.warn(`⚠️ Skipping participant with no email: ${participantUser?.name || 'Unknown'}`)
 						continue
 					}
@@ -307,25 +325,28 @@ export const signatureRequestsRouter = createTRPCRouter({
 
 					try {
 						// Auto-join to organization (optional - makes them organization member instead of guest)
+						// Use creator's token for this operation
 						try {
 							await autoJoinOrganization({
 								email: participantUser.email,
 								firstName,
 								lastName,
 								role: "Member",
+								userEmail: creatorEmail, // Use creator's email for token (has permissions)
 							})
 						} catch (orgError) {
 							// Continue - organization membership is optional
 							console.warn(`   ⚠️ Failed to auto-join ${participantUser.email} to organization (continuing)`)
 						}
 
-						// Add as signer
+						// Add as signer - use creator's token (they own the project)
 						await addSignerToProject({
 							projectUuid,
 							email: participantUser.email,
 							firstName,
 							lastName,
 							signerRole: "Signer",
+							userEmail: creatorEmail, // Use creator's email for token (has project access)
 						})
 
 						addedEmails.add(participantUser.email)
@@ -353,11 +374,12 @@ export const signatureRequestsRouter = createTRPCRouter({
 				let signerId: number | null = null
 				
 				// Get project details to find the ENP signer ID
+				// Use creator's token to access project
 				try {
-					const projectDetails = await getProjectDetails(projectUuid)
+					const projectDetails = await getProjectDetails(projectUuid, creatorEmail)
 					const signers = projectDetails?.data?.signers || []
 					const enpSigner = signers.find((s: { email: string; id: number }) => s.email === email)
-					if (enpSigner && enpSigner.id) {
+					if (enpSigner?.id) {
 						signerId = typeof enpSigner.id === 'number' ? enpSigner.id : parseInt(String(enpSigner.id), 10)
 						console.log(`✅ Found ENP signer ID: ${signerId}`)
 					}
@@ -371,7 +393,7 @@ export const signatureRequestsRouter = createTRPCRouter({
 				// DO NOT DELETE THE CREATOR - it will cause DocoChain to delete the project
 				console.log("🔵 Step 2.5: Checking if ENP is creator and updating role/sequence...")
 				try {
-					const projectDetails = await getProjectDetails(projectUuid)
+					const projectDetails = await getProjectDetails(projectUuid, creatorEmail)
 					const signers = projectDetails?.data?.signers || []
 					const creatorSigner = signers.find((s: { type: string; email: string; role: string }) => 
 						s.type === 'ME' || s.role === 'Creator'
@@ -379,7 +401,7 @@ export const signatureRequestsRouter = createTRPCRouter({
 
 					// If the creator is the ENP (same email), update them to Signer role with sequence 1
 					// Don't delete them - that causes the project to be deleted
-					if (creatorSigner && creatorSigner.email === email && !signerId) {
+					if (creatorSigner?.email === email && !signerId) {
 						console.log(`🔵 Found creator is the ENP (${creatorSigner.email}), updating to Signer...`)
 						console.log(`   - Creator Signer ID: ${creatorSigner.id}`)
 						console.log(`   - Will update role to Signer and sequence to 1`)
@@ -390,7 +412,7 @@ export const signatureRequestsRouter = createTRPCRouter({
 						console.log("ℹ️ Creator is not the ENP or signer ID already found")
 						// If ENP is already a separate signer, use that ID
 						const enpSigner = signers.find((s: { email: string; id: number }) => s.email === email)
-						if (enpSigner && enpSigner.id) {
+						if (enpSigner?.id) {
 							signerId = typeof enpSigner.id === 'number' ? enpSigner.id : parseInt(String(enpSigner.id), 10)
 							console.log("✅ Found ENP as separate signer, ID:", signerId)
 						}
@@ -411,6 +433,7 @@ export const signatureRequestsRouter = createTRPCRouter({
 							lastName: userLastName,
 							sequence: 1, // Set sequence to 1 so ENP can plot and sign first
 							signerRole: "Signer",
+							userEmail: creatorEmail, // Use creator's email for token (has project access)
 						})
 						console.log("✅ ENP signer sequence updated to 1")
 					} catch (updateError) {
@@ -422,42 +445,91 @@ export const signatureRequestsRouter = createTRPCRouter({
 				}
 
 				// Step 3: Get signing link for ENP
-				// Prefer using the stored redirect_url from Create Project (has auth token)
-				// Otherwise, generate Edit Draft Project Link
+				// Strategy:
+				// - If project is Draft: Use Edit Draft Link or stored redirect URL
+				// - If project is Sent: Use Generate Sign Link API (requires project to be sent)
 				console.log("🔵 Step 3: Getting signing link for ENP...")
 				console.log("   - Project UUID:", projectUuid)
+				console.log("   - ENP Email (signer):", email)
 				
 				let signingLink: string
 				
-				// First, try to use the stored redirect_url from Create Project (has auth token)
-				if (document?.docoChainRedirectUrl) {
-					signingLink = document.docoChainRedirectUrl
-					console.log("✅ Using stored redirect URL from Create Project:", signingLink)
-				} else {
-					// Generate Edit Draft Project Link (allows plotting/editing/signing in draft)
+				// First, check project status to determine which link type to use
+				let projectStatus = "Draft"
+				let isProjectSent = false
+				try {
+					const projectDetails = await getProjectDetails(projectUuid, creatorEmail)
+					projectStatus = projectDetails?.data?.status || "Draft"
+					// Check if project has been sent (sent_at field exists) or status indicates it's sent
+					isProjectSent = !!projectDetails?.data?.sent_at || 
+					                projectStatus === "Sent" || 
+					                projectStatus === "Completed" || 
+					                projectStatus === "In Progress" ||
+					                projectStatus === "View Only" // "View Only" means project was sent
+					console.log("   - Project Status:", projectStatus)
+					console.log("   - Project Sent At:", projectDetails?.data?.sent_at || "not sent")
+					console.log("   - Is Project Sent:", isProjectSent)
+				} catch (statusError) {
+					console.warn("⚠️ Failed to get project status, assuming Draft:", statusError)
+				}
+				
+				// If project is Sent or Completed, use Generate Sign Link API
+				// This generates a personalized link for the specific signer
+				// IMPORTANT: Do NOT use stored redirect URL or Edit Draft Link for sent projects
+				if (isProjectSent) {
+					console.log("🔵 Project is sent - using Generate Sign Link API (required for sent projects)...")
 					try {
-						const editDraftResult = await generateEditDraftLink(projectUuid)
-						signingLink = editDraftResult.link
-						console.log("✅ Edit Draft Project Link generated successfully:", signingLink)
-					} catch (editDraftError) {
-						console.warn("⚠️ Failed to generate Edit Draft Link, trying Generate Sign Link...", editDraftError)
-						
-						// Fallback: Try Generate Sign Link API
+						const signLinkResult = await generateSignLink({
+							projectUuid,
+							email, // ENP's email - this generates a personalized link for them
+						})
+						signingLink = signLinkResult.link
+						console.log("✅ Signing link generated successfully for sent project:", signingLink)
+					} catch (signLinkError) {
+						console.error("❌ Failed to generate signing link for sent project:", signLinkError)
+						// Fallback: Use direct project URL with email parameter
+						const appBaseUrl = DOCOCHAIN_API_BASE.includes('stg') 
+							? 'https://stg-app.doconchain.com'
+							: 'https://app.doconchain.com'
+						signingLink = `${appBaseUrl}/${projectUuid}?email=${encodeURIComponent(email)}`
+						console.log("⚠️ Using fallback direct project URL with email:", signingLink)
+					}
+				} else {
+					// Project is still Draft - use Edit Draft Link or stored redirect URL
+					console.log("🔵 Project is Draft - using Edit Draft Link or stored redirect URL...")
+					
+					// First, try to use the stored redirect_url from Create Project (has auth token)
+					// Only use this for Draft projects
+					if (document?.docoChainRedirectUrl && projectStatus === "Draft") {
+						signingLink = document.docoChainRedirectUrl
+						console.log("✅ Using stored redirect URL from Create Project:", signingLink)
+					} else {
+						// Generate Edit Draft Project Link (allows plotting/editing/signing in draft)
+						// Use creator's token to generate the link
 						try {
-							const signLinkResult = await generateSignLink({
-								projectUuid,
-								email,
-							})
-							signingLink = signLinkResult.link
-							console.log("✅ Signing link generated successfully:", signingLink)
-						} catch (signLinkError) {
-							console.error("❌ Failed to generate signing link:", signLinkError)
-							// Final fallback: Use direct project URL
-							const appBaseUrl = DOCOCHAIN_API_BASE.includes('stg') 
-								? 'https://stg-app.doconchain.com'
-								: 'https://app.doconchain.com'
-							signingLink = `${appBaseUrl}/${projectUuid}`
-							console.log("⚠️ Using fallback direct project URL:", signingLink)
+							const editDraftResult = await generateEditDraftLink(projectUuid, creatorEmail)
+							signingLink = editDraftResult.link
+							console.log("✅ Edit Draft Project Link generated successfully:", signingLink)
+						} catch (editDraftError) {
+							console.warn("⚠️ Failed to generate Edit Draft Link, trying Generate Sign Link...", editDraftError)
+							
+							// Fallback: Try Generate Sign Link API (might work even for draft)
+							try {
+								const signLinkResult = await generateSignLink({
+									projectUuid,
+									email,
+								})
+								signingLink = signLinkResult.link
+								console.log("✅ Signing link generated successfully:", signingLink)
+							} catch (signLinkError) {
+								console.error("❌ Failed to generate signing link:", signLinkError)
+								// Final fallback: Use direct project URL
+								const appBaseUrl = DOCOCHAIN_API_BASE.includes('stg') 
+									? 'https://stg-app.doconchain.com'
+									: 'https://app.doconchain.com'
+								signingLink = `${appBaseUrl}/${projectUuid}`
+								console.log("⚠️ Using fallback direct project URL:", signingLink)
+							}
 						}
 					}
 				}
@@ -501,6 +573,7 @@ export const signatureRequestsRouter = createTRPCRouter({
 					firstName: userFirstName,
 					lastName: userLastName,
 					role: "Member",
+					userEmail: ctx.session.user.email || undefined, // Pass user's email for token
 				})
 
 				// Step 2: Add the ENP as a signer to the project (if not already added)
@@ -511,13 +584,14 @@ export const signatureRequestsRouter = createTRPCRouter({
 					firstName: userFirstName,
 					lastName: userLastName,
 					signerRole: "Signer",
+					userEmail: ctx.session.user.email || undefined, // Pass user's email for token
 				})
 
 				// Step 3: Send/deploy the project so it's ready for signing
 				// The Generate Sign Link API requires the project to be sent/deployed
 				console.log("🔵 Sending DocoChain project to enable signing...")
 				try {
-					await sendDocoChainProject(projectUuid)
+					await sendDocoChainProject(projectUuid, ctx.session.user.email || undefined)
 					console.log("✅ Project sent successfully")
 				} catch (sendError) {
 					console.warn("⚠️ Failed to send project (may already be sent):", sendError)
@@ -587,11 +661,37 @@ export const signatureRequestsRouter = createTRPCRouter({
 				projectUuid: z.string().min(1, "Project UUID is required"),
 			})
 		)
-		.query(async ({ input }) => {
+		.query(async ({ input, ctx }) => {
 			const { projectUuid } = input
 
 			try {
-				const status = await checkSigningStatus(projectUuid)
+				// Get the document to find the meeting creator
+				const document = await db.query.documents.findFirst({
+					where: eq(documents.docoChainProjectId, projectUuid),
+					columns: {
+						id: true,
+						meetingId: true,
+					},
+					with: {
+						meeting: {
+							columns: {
+								createdById: true,
+							},
+							with: {
+								createdBy: {
+									columns: {
+										email: true,
+									},
+								},
+							},
+						},
+					},
+				})
+
+				// Get creator's email from the meeting
+				const creatorEmail = document?.meeting?.createdBy?.email || ctx.session.user.email || undefined
+
+				const status = await checkSigningStatus(projectUuid, creatorEmail)
 				return status
 			} catch (error) {
 				console.error("❌ Error checking signing status:", error)
@@ -605,10 +705,36 @@ export const signatureRequestsRouter = createTRPCRouter({
 	// Download the signed document from DocoChain
 	downloadSignedDocument: protectedProcedure
 		.input(z.string().min(1, "Project UUID is required"))
-		.query(async ({ input: projectUuid }) => {
+		.query(async ({ input: projectUuid, ctx }) => {
 			try {
+				// Get the document to find the meeting creator
+				const document = await db.query.documents.findFirst({
+					where: eq(documents.docoChainProjectId, projectUuid),
+					columns: {
+						id: true,
+						meetingId: true,
+					},
+					with: {
+						meeting: {
+							columns: {
+								createdById: true,
+							},
+							with: {
+								createdBy: {
+									columns: {
+										email: true,
+									},
+								},
+							},
+						},
+					},
+				})
+
+				// Get creator's email from the meeting
+				const creatorEmail = document?.meeting?.createdBy?.email || ctx.session.user.email || undefined
+
 				// First check if document is fully signed
-				const status = await checkSigningStatus(projectUuid)
+				const status = await checkSigningStatus(projectUuid, creatorEmail)
 				
 				if (!status.isFullySigned) {
 					throw new TRPCError({
@@ -618,7 +744,7 @@ export const signatureRequestsRouter = createTRPCRouter({
 				}
 
 				// Download the signed document
-				const { buffer, fileName, url } = await downloadSignedDocument(projectUuid)
+				const { buffer, fileName, url } = await downloadSignedDocument(projectUuid, creatorEmail)
 
 				// Convert buffer to base64 for transmission
 				const base64 = buffer.toString('base64')
@@ -645,10 +771,36 @@ export const signatureRequestsRouter = createTRPCRouter({
 	// Download the certificate of completion from DocoChain
 	downloadCertificate: protectedProcedure
 		.input(z.string().min(1, "Project UUID is required"))
-		.query(async ({ input: projectUuid }) => {
+		.query(async ({ input: projectUuid, ctx }) => {
 			try {
+				// Get the document to find the meeting creator
+				const document = await db.query.documents.findFirst({
+					where: eq(documents.docoChainProjectId, projectUuid),
+					columns: {
+						id: true,
+						meetingId: true,
+					},
+					with: {
+						meeting: {
+							columns: {
+								createdById: true,
+							},
+							with: {
+								createdBy: {
+									columns: {
+										email: true,
+									},
+								},
+							},
+						},
+					},
+				})
+
+				// Get creator's email from the meeting
+				const creatorEmail = document?.meeting?.createdBy?.email || ctx.session.user.email || undefined
+
 				// First check if document is fully signed
-				const status = await checkSigningStatus(projectUuid)
+				const status = await checkSigningStatus(projectUuid, creatorEmail)
 				
 				if (!status.isFullySigned) {
 					throw new TRPCError({
@@ -658,7 +810,7 @@ export const signatureRequestsRouter = createTRPCRouter({
 				}
 
 				// Download the certificate
-				const { buffer, fileName, url } = await downloadCertificate(projectUuid)
+				const { buffer, fileName, url } = await downloadCertificate(projectUuid, creatorEmail)
 
 				// Convert buffer to base64 for transmission
 				const base64 = buffer.toString('base64')
@@ -678,6 +830,64 @@ export const signatureRequestsRouter = createTRPCRouter({
 				throw new TRPCError({
 					code: "INTERNAL_SERVER_ERROR",
 					message: error instanceof Error ? error.message : "Failed to download certificate",
+				})
+			}
+		}),
+
+	// Get Passport Document
+	getPassportDocument: protectedProcedure
+		.input(
+			z.object({
+				projectUuid: z.string(),
+				view: z.enum(["blockchain", "history", "user_data", "verifiable_presentation", "certificate_url"]).optional().default("blockchain"),
+			})
+		)
+		.query(async ({ ctx, input }) => {
+			const { projectUuid, view } = input
+
+			try {
+				// Get the document to find the creator's email
+				const document = await db.query.documents.findFirst({
+					where: eq(documents.docoChainProjectUuid, projectUuid),
+					columns: {
+						id: true,
+						meetingId: true,
+					},
+					with: {
+						meeting: {
+							columns: {
+								createdById: true,
+							},
+							with: {
+								createdBy: {
+									columns: {
+										email: true,
+									},
+								},
+							},
+						},
+					},
+				})
+
+				// Get creator's email from the meeting
+				const creatorEmail = document?.meeting?.createdBy?.email || ctx.session.user.email || undefined
+
+				// Get the passport document
+				const passportData = await getPassportDocument(projectUuid, view, creatorEmail)
+
+				return {
+					success: true,
+					view,
+					data: passportData,
+				}
+			} catch (error) {
+				console.error("❌ Error getting passport document:", error)
+				if (error instanceof TRPCError) {
+					throw error
+				}
+				throw new TRPCError({
+					code: "INTERNAL_SERVER_ERROR",
+					message: error instanceof Error ? error.message : "Failed to get passport document",
 				})
 			}
 		}),
