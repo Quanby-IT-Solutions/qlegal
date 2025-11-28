@@ -813,11 +813,24 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 	// Generate signing link mutation (for signature request dialog)
 	const generateSigningLink = trpc.signatureRequests.generateSigningLink.useMutation({
 		onSuccess: (data) => {
-			const signingLink = typeof data.link === 'string' ? data.link : null
+			let signingLink = typeof data.link === 'string' ? data.link : null
 			
 			if (!signingLink) {
 				toast.error("Invalid signing link received")
 				return
+			}
+
+			// Clean up the URL - remove api=null parameter if present
+			try {
+				const url = new URL(signingLink)
+				if (url.searchParams.has('api') && (url.searchParams.get('api') === 'null' || url.searchParams.get('api') === '')) {
+					url.searchParams.delete('api')
+					signingLink = url.toString()
+					console.log("🧹 Cleaned URL - removed api=null parameter")
+				}
+			} catch {
+				// If URL parsing fails, try simple string replacement
+				signingLink = signingLink.replace(/\?api=null(&|$)/, '?').replace(/&api=null(&|$)/, '&').replace(/\?$/, '')
 			}
 
 			try {
@@ -854,12 +867,25 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 	const initiateSigning = trpc.signatureRequests.initiateSigning.useMutation({
 		onSuccess: (data) => {
 			// Validate that we have a valid URL string
-			const signingLink = typeof data.link === 'string' ? data.link : null
+			let signingLink = typeof data.link === 'string' ? data.link : null
 			
 			if (!signingLink) {
 				console.error("❌ Invalid signing link received:", data)
 				toast.error("Invalid signing link received")
 				return
+			}
+
+			// Clean up the URL - remove api=null parameter if present
+			try {
+				const url = new URL(signingLink)
+				if (url.searchParams.has('api') && (url.searchParams.get('api') === 'null' || url.searchParams.get('api') === '')) {
+					url.searchParams.delete('api')
+					signingLink = url.toString()
+					console.log("🧹 Cleaned URL - removed api=null parameter")
+				}
+			} catch {
+				// If URL parsing fails, try simple string replacement
+				signingLink = signingLink.replace(/\?api=null(&|$)/, '?').replace(/&api=null(&|$)/, '&').replace(/\?$/, '')
 			}
 
 			// Validate it's a proper URL

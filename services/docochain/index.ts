@@ -18,6 +18,9 @@ const tokenCache = new Map<string, { token: string; expiresAt: number }>()
 // Token expiration time: 1 hour (3600000 ms) - tokens typically expire after some time
 const TOKEN_EXPIRATION_MS = 3600000 // 1 hour
 
+// Refresh tokens 5 minutes before expiration to avoid expired token errors
+const TOKEN_REFRESH_BUFFER_MS = 5 * 60 * 1000 // 5 minutes
+
 /**
  * Generate a DocoChain authentication token for a specific user email
  * Uses the Generate Token API: POST https://stg-api2.doconchain.com/api/v2/generate/token
@@ -25,15 +28,34 @@ const TOKEN_EXPIRATION_MS = 3600000 // 1 hour
  * @param email - The email address of the user to generate token for
  * @returns The generated token string
  */
-export async function generateDocoChainToken(email: string): Promise<string> {
+export async function generateDocoChainToken(email: string, forceRefresh = false): Promise<string> {
 	console.log("🔵 Generating DocoChain token...")
 	console.log("   - Email:", email)
+	console.log("   - Force refresh:", forceRefresh)
 	
-	// Check cache first
-	const cached = tokenCache.get(email)
-	if (cached && cached.expiresAt > Date.now()) {
-		console.log("✅ Using cached token for:", email)
-		return cached.token
+	// Check cache first (unless forcing refresh)
+	if (!forceRefresh) {
+		const cached = tokenCache.get(email)
+		if (cached) {
+			const now = Date.now()
+			// If token is still valid and not about to expire, use cached token
+			if (cached.expiresAt > now + TOKEN_REFRESH_BUFFER_MS) {
+				console.log("✅ Using cached token for:", email)
+				console.log("   - Token expires in:", Math.round((cached.expiresAt - now) / 1000 / 60), "minutes")
+				return cached.token
+			}
+			// Token is about to expire, refresh it proactively
+			if (cached.expiresAt > now) {
+				console.log("🔄 Token expiring soon, refreshing proactively for:", email)
+				console.log("   - Token expires in:", Math.round((cached.expiresAt - now) / 1000 / 60), "minutes")
+			} else {
+				console.log("⚠️ Cached token expired, generating new token for:", email)
+			}
+		}
+	} else {
+		console.log("🔄 Force refreshing token for:", email)
+		// Clear the cache entry to force a new token generation
+		tokenCache.delete(email)
 	}
 
 	try {
@@ -106,12 +128,13 @@ export async function generateDocoChainToken(email: string): Promise<string> {
  * This function handles token caching and automatic refresh
  * 
  * @param email - The email address of the user
+ * @param forceRefresh - Force a new token generation even if cached token exists
  * @returns A valid token string
  */
-export async function getDocoChainToken(email?: string): Promise<string> {
+export async function getDocoChainToken(email?: string, forceRefresh = false): Promise<string> {
 	// If email is provided, generate user-specific token
 	if (email) {
-		return generateDocoChainToken(email)
+		return generateDocoChainToken(email, forceRefresh)
 	}
 	
 	// Otherwise, use static token or generate a default one
@@ -121,6 +144,61 @@ export async function getDocoChainToken(email?: string): Promise<string> {
 	
 	// If no static token and no email, we can't generate a token
 	throw new Error("Cannot generate token: email is required when DOCOCHAIN_API_TOKEN is not set")
+}
+
+/**
+ * Make a DocoChain API call with automatic token refresh on 401 errors
+ * This wrapper function ensures tokens are automatically refreshed when they expire
+ * 
+ * @param apiCall - A function that makes the API call and returns a Response
+ * @param userEmail - The email address of the user (for token generation)
+ * @param retryCount - Internal counter for retry attempts (max 1 retry)
+ * @returns The API response
+ */
+export async function makeDocoChainApiCall(
+	apiCall: (token: string) => Promise<Response>,
+	userEmail?: string,
+	retryCount = 0
+): Promise<Response> {
+	const maxRetries = 1 // Only retry once to avoid infinite loops
+	
+	try {
+		// Get token (will be refreshed if about to expire)
+		const token = await getDocoChainToken(userEmail)
+		
+		// Make the API call
+		const response = await apiCall(token)
+		
+		// If we get a 401 Unauthorized, the token might have expired
+		// Refresh the token and retry once
+		if (response.status === 401 && retryCount < maxRetries && userEmail) {
+			console.warn("⚠️ Received 401 Unauthorized, refreshing token and retrying...")
+			console.log("   - User email:", userEmail)
+			console.log("   - Retry attempt:", retryCount + 1)
+			
+			// Force refresh the token
+			await getDocoChainToken(userEmail, true)
+			
+			// Retry the API call with the new token
+			return makeDocoChainApiCall(apiCall, userEmail, retryCount + 1)
+		}
+		
+		return response
+	} catch (error) {
+		// If token generation failed and we haven't retried, try once more
+		if (retryCount < maxRetries && userEmail) {
+			console.warn("⚠️ Error in API call, refreshing token and retrying...")
+			console.log("   - Error:", error)
+			
+			// Force refresh the token
+			await getDocoChainToken(userEmail, true)
+			
+			// Retry the API call with the new token
+			return makeDocoChainApiCall(apiCall, userEmail, retryCount + 1)
+		}
+		
+		throw error
+	}
 }
 
 interface CreateProjectRequest {
@@ -176,12 +254,6 @@ export async function createDocoChainProject({
 	console.log("   - Creator Email:", creatorEmail || "not provided")
 	
 	try {
-		// Get token for creator
-		const token = await getDocoChainToken(creatorEmail)
-		if (!token) {
-			throw new Error("DocoChain API token not available. Set DOCOCHAIN_API_TOKEN or DOCOCHAIN_CLIENT_KEY/CLIENT_SECRET in .env.local")
-		}
-
 		const formData = new FormData()
 		const fileBlob = new Blob([new Uint8Array(documentFile)], { type: "application/pdf" })
 		formData.append("file", fileBlob, fileName)
@@ -198,14 +270,20 @@ export async function createDocoChainProject({
 		console.log("   - user_list_editable:", userListEditable)
 		console.log("   - creator_as_viewer:", creatorAsViewer)
 
-		const response = await fetch(apiUrl, {
-			method: "POST",
-			headers: {
-				Authorization: `Bearer ${token}`,
-				Accept: "application/json",
+		// Use the wrapper function for automatic token refresh on 401 errors
+		const response = await makeDocoChainApiCall(
+			async (token) => {
+				return fetch(apiUrl, {
+					method: "POST",
+					headers: {
+						Authorization: `Bearer ${token}`,
+						Accept: "application/json",
+					},
+					body: formData,
+				})
 			},
-			body: formData,
-		})
+			creatorEmail // Email of the creator
+		)
 
 		console.log("📡 DocoChain response status:", response.status)
 
@@ -268,29 +346,29 @@ export async function addSignerToProject({
 	console.log("   - User Email (for token):", userEmail || "not provided")
 
 	try {
-		// Get token for the user making the API call
-		const token = await getDocoChainToken(userEmail)
-		if (!token) {
-			throw new Error("DocoChain API token not available")
-		}
-
-		const response = await fetch(
-			`${DOCOCHAIN_API_BASE}/projects/${projectUuid}/signers?user_type=ENTERPRISE_API`,
-			{
-				method: "POST",
-				headers: {
-					Authorization: `Bearer ${token}`,
-					"Content-Type": "application/json",
-					Accept: "application/json",
-				},
-				body: JSON.stringify({
-					email,
-					first_name: firstName,
-					last_name: lastName,
-					type: "GUEST",
-					signer_role: signerRole,
-				}),
-			}
+		// Use the wrapper function for automatic token refresh on 401 errors
+		const response = await makeDocoChainApiCall(
+			async (token) => {
+				return fetch(
+					`${DOCOCHAIN_API_BASE}/projects/${projectUuid}/signers?user_type=ENTERPRISE_API`,
+					{
+						method: "POST",
+						headers: {
+							Authorization: `Bearer ${token}`,
+							"Content-Type": "application/json",
+							Accept: "application/json",
+						},
+						body: JSON.stringify({
+							email,
+							first_name: firstName,
+							last_name: lastName,
+							type: "GUEST",
+							signer_role: signerRole,
+						}),
+					}
+				)
+			},
+			userEmail // Email of the user making the API call (creator/ENP)
 		)
 
 		console.log("📡 DocoChain add signer response status:", response.status)
@@ -366,12 +444,6 @@ export async function autoJoinOrganization({
 	console.log("   - User Email (for token):", userEmail || "not provided")
 
 	try {
-		// Get token for the user making the API call
-		const token = await getDocoChainToken(userEmail)
-		if (!token) {
-			throw new Error("DocoChain API token not available")
-		}
-
 		const orgId = organizationId || DOCOCHAIN_ORGANIZATION_ID
 		if (!orgId) {
 			console.warn("⚠️ Organization ID not configured. User will be added as GUEST.")
@@ -385,16 +457,22 @@ export async function autoJoinOrganization({
 		formData.append("data[0][role]", role)
 		formData.append("data[0][organization_id]", orgId)
 
-		const response = await fetch(
-			`${DOCOCHAIN_API_BASE}/api/v2/organization/members/auto-join?user_type=ENTERPRISE_API`,
-			{
-				method: "POST",
-				headers: {
-					Authorization: `Bearer ${token}`,
-					Accept: "application/json",
-				},
-				body: formData,
-			}
+		// Use the wrapper function for automatic token refresh on 401 errors
+		const response = await makeDocoChainApiCall(
+			async (token) => {
+				return fetch(
+					`${DOCOCHAIN_API_BASE}/api/v2/organization/members/auto-join?user_type=ENTERPRISE_API`,
+					{
+						method: "POST",
+						headers: {
+							Authorization: `Bearer ${token}`,
+							Accept: "application/json",
+						},
+						body: formData,
+					}
+				)
+			},
+			userEmail // Email of the user making the API call
 		)
 
 		console.log("📡 DocoChain auto-join response status:", response.status)
@@ -443,21 +521,21 @@ export async function getProjectDetails(projectUuid: string, userEmail?: string)
 	console.log("   - User Email (for token):", userEmail || "not provided")
 
 	try {
-		// Get token for the user
-		const token = await getDocoChainToken(userEmail)
-		if (!token) {
-			throw new Error("DocoChain API token not available")
-		}
-
-		const response = await fetch(
-			`${DOCOCHAIN_API_BASE}/api/v2/projects/${projectUuid}?user_type=ENTERPRISE_API`,
-			{
-				method: "GET",
-				headers: {
-					Authorization: `Bearer ${token}`,
-					Accept: "application/json",
-				},
-			}
+		// Use the wrapper function for automatic token refresh on 401 errors
+		const response = await makeDocoChainApiCall(
+			async (token) => {
+				return fetch(
+					`${DOCOCHAIN_API_BASE}/api/v2/projects/${projectUuid}?user_type=ENTERPRISE_API`,
+					{
+						method: "GET",
+						headers: {
+							Authorization: `Bearer ${token}`,
+							Accept: "application/json",
+						},
+					}
+				)
+			},
+			userEmail
 		)
 
 		console.log("📡 DocoChain get project response status:", response.status)
@@ -496,21 +574,21 @@ export async function deleteSigner({
 	console.log("   - User Email (for token):", userEmail || "not provided")
 
 	try {
-		// Get token for the user making the API call
-		const token = await getDocoChainToken(userEmail)
-		if (!token) {
-			throw new Error("DocoChain API token not available")
-		}
-
-		const response = await fetch(
-			`${DOCOCHAIN_API_BASE}/projects/${projectUuid}/signers/${signerId}?user_type=ENTERPRISE_API`,
-			{
-				method: "DELETE",
-				headers: {
-					Authorization: `Bearer ${token}`,
-					Accept: "application/json",
-				},
-			}
+		// Use the wrapper function for automatic token refresh on 401 errors
+		const response = await makeDocoChainApiCall(
+			async (token) => {
+				return fetch(
+					`${DOCOCHAIN_API_BASE}/projects/${projectUuid}/signers/${signerId}?user_type=ENTERPRISE_API`,
+					{
+						method: "DELETE",
+						headers: {
+							Authorization: `Bearer ${token}`,
+							Accept: "application/json",
+						},
+					}
+				)
+			},
+			userEmail // Email of the user making the API call
 		)
 
 		console.log("📡 DocoChain delete signer response status:", response.status)
@@ -606,21 +684,21 @@ export async function sendDocoChainProject(projectUuid: string, userEmail?: stri
 	console.log("   - User Email (for token):", userEmail || "not provided")
 
 	try {
-		// Get token for the user
-		const token = await getDocoChainToken(userEmail)
-		if (!token) {
-			throw new Error("DocoChain API token not available")
-		}
-
-		const response = await fetch(
-			`${DOCOCHAIN_API_BASE}/my/projects/${projectUuid}/send?user_type=ENTERPRISE_API`,
-			{
-				method: "POST",
-				headers: {
-					Authorization: `Bearer ${token}`,
-					Accept: "application/json",
-				},
-			}
+		// Use the wrapper function for automatic token refresh on 401 errors
+		const response = await makeDocoChainApiCall(
+			async (token) => {
+				return fetch(
+					`${DOCOCHAIN_API_BASE}/my/projects/${projectUuid}/send?user_type=ENTERPRISE_API`,
+					{
+						method: "POST",
+						headers: {
+							Authorization: `Bearer ${token}`,
+							Accept: "application/json",
+						},
+					}
+				)
+			},
+			userEmail
 		)
 
 		console.log("📡 DocoChain send project response status:", response.status)
@@ -658,12 +736,6 @@ export async function generateSignLink({
 	console.log("   - Email:", email)
 
 	try {
-		// Generate token for the signer (the email parameter is the signer's email)
-		const token = await getDocoChainToken(email)
-		if (!token) {
-			throw new Error("DocoChain API token not available")
-		}
-
 		// The endpoint is on the API domain, not the app domain
 		// stg-app.doconchain.com is the frontend (Remix app), API endpoints are on stg-api2.doconchain.com
 		// Endpoint: POST /api/v2/projects/{uuid}/link/generate?email={email}&user_type=ENTERPRISE_API
@@ -672,14 +744,21 @@ export async function generateSignLink({
 		const apiUrl = `${DOCOCHAIN_API_BASE}/api/v2/projects/${projectUuid}/link/generate?email=${encodeURIComponent(email)}&user_type=ENTERPRISE_API`
 		console.log("🔵 Calling DocoChain Generate Sign Link API:", apiUrl)
 
-		const response = await fetch(apiUrl, {
-			method: "POST",
-			headers: {
-				Authorization: `Bearer ${token}`,
-				Accept: "application/json",
+		// Use the wrapper function for automatic token refresh on 401 errors
+		// Generate token for the signer (the email parameter is the signer's email)
+		const response = await makeDocoChainApiCall(
+			async (token) => {
+				return fetch(apiUrl, {
+					method: "POST",
+					headers: {
+						Authorization: `Bearer ${token}`,
+						Accept: "application/json",
+					},
+					// No body required as per API documentation
+				})
 			},
-			// No body required as per API documentation
-		})
+			email // Use the signer's email for token generation
+		)
 
 		console.log("📡 DocoChain generate link response status:", response.status)
 
@@ -753,6 +832,22 @@ export async function generateSignLink({
 			console.log("⚠️ Using fallback URL due to invalid link type:", link)
 		}
 
+		// Clean up the URL - remove api=null parameter if present
+		// DocoChain sometimes adds ?api=null which causes issues
+		try {
+			const url = new URL(link)
+			// Remove api parameter if it's null or empty
+			if (url.searchParams.has('api') && (url.searchParams.get('api') === 'null' || url.searchParams.get('api') === '')) {
+				url.searchParams.delete('api')
+				link = url.toString()
+				console.log("🧹 Cleaned URL - removed api=null parameter")
+			}
+		} catch (urlError) {
+			// If URL parsing fails, try simple string replacement
+			link = link.replace(/\?api=null(&|$)/, '?').replace(/&api=null(&|$)/, '&').replace(/\?$/, '')
+			console.log("🧹 Cleaned URL using string replacement")
+		}
+
 		console.log("✅ Final signing link:", link)
 		return { link }
 	} catch (error) {
@@ -791,28 +886,28 @@ export async function updateProjectSigner({
 	console.log("   - User Email (for token):", userEmail || "not provided")
 
 	try {
-		// Get token for the user making the API call
-		const token = await getDocoChainToken(userEmail)
-		if (!token) {
-			throw new Error("DocoChain API token not available")
-		}
-
-		const response = await fetch(
-			`${DOCOCHAIN_API_BASE}/projects/${projectUuid}/signers/${signerId}?user_type=ENTERPRISE_API`,
-			{
-				method: "PUT",
-				headers: {
-					Authorization: `Bearer ${token}`,
-					"Content-Type": "application/json",
-					Accept: "application/json",
-				},
-				body: JSON.stringify({
-					first_name: firstName,
-					last_name: lastName,
-					sequence,
-					signer_role: signerRole,
-				}),
-			}
+		// Use the wrapper function for automatic token refresh on 401 errors
+		const response = await makeDocoChainApiCall(
+			async (token) => {
+				return fetch(
+					`${DOCOCHAIN_API_BASE}/projects/${projectUuid}/signers/${signerId}?user_type=ENTERPRISE_API`,
+					{
+						method: "PUT",
+						headers: {
+							Authorization: `Bearer ${token}`,
+							"Content-Type": "application/json",
+							Accept: "application/json",
+						},
+						body: JSON.stringify({
+							first_name: firstName,
+							last_name: lastName,
+							sequence,
+							signer_role: signerRole,
+						}),
+					}
+				)
+			},
+			userEmail // Email of the user making the API call
 		)
 
 		console.log("📡 DocoChain update signer response status:", response.status)
@@ -844,22 +939,22 @@ export async function generateEditDraftLink(projectUuid: string, userEmail?: str
 	console.log("   - User Email (for token):", userEmail || "not provided")
 
 	try {
-		// Get token for the user (creator/ENP)
-		const token = await getDocoChainToken(userEmail)
-		if (!token) {
-			throw new Error("DocoChain API token not available")
-		}
-
 		const apiUrl = `${DOCOCHAIN_API_BASE}/api/v2/projects/${projectUuid}/link?user_type=ENTERPRISE_API`
 		console.log("🔵 Calling DocoChain Generate Edit Draft Link API:", apiUrl)
 
-		const response = await fetch(apiUrl, {
-			method: "POST",
-			headers: {
-				Authorization: `Bearer ${token}`,
-				Accept: "application/json",
+		// Use the wrapper function for automatic token refresh on 401 errors
+		const response = await makeDocoChainApiCall(
+			async (token) => {
+				return fetch(apiUrl, {
+					method: "POST",
+					headers: {
+						Authorization: `Bearer ${token}`,
+						Accept: "application/json",
+					},
+				})
 			},
-		})
+			userEmail // Email of the user (creator/ENP)
+		)
 
 		console.log("📡 DocoChain generate edit draft link response status:", response.status)
 
@@ -910,6 +1005,22 @@ export async function generateEditDraftLink(projectUuid: string, userEmail?: str
 		if (typeof link !== 'string') {
 			console.error("❌ Link is not a string:", typeof link, link)
 			throw new Error(`Invalid link type: expected string, got ${typeof link}`)
+		}
+
+		// Clean up the URL - remove api=null parameter if present
+		// DocoChain sometimes adds ?api=null which causes issues
+		try {
+			const url = new URL(link)
+			// Remove api parameter if it's null or empty
+			if (url.searchParams.has('api') && (url.searchParams.get('api') === 'null' || url.searchParams.get('api') === '')) {
+				url.searchParams.delete('api')
+				link = url.toString()
+				console.log("🧹 Cleaned URL - removed api=null parameter")
+			}
+		} catch (urlError) {
+			// If URL parsing fails, try simple string replacement
+			link = link.replace(/\?api=null(&|$)/, '?').replace(/&api=null(&|$)/, '&').replace(/\?$/, '')
+			console.log("🧹 Cleaned URL using string replacement")
 		}
 
 		console.log("✅ Final edit draft link:", link)
@@ -1056,13 +1167,8 @@ export async function downloadCertificate(projectUuid: string, userEmail?: strin
 	console.log("   - User Email (for token):", userEmail || "not provided")
 
 	try {
-		// Get token for the user
-		const token = await getDocoChainToken(userEmail)
-		if (!token) {
-			throw new Error("DocoChain API token not available")
-		}
-
 		// First, get project details to check if certificate URL is available
+		// (getProjectDetails already uses automatic token refresh)
 		const projectDetails = await getProjectDetails(projectUuid, userEmail)
 		const projectData = projectDetails?.data
 
@@ -1136,13 +1242,19 @@ export async function downloadCertificate(projectUuid: string, userEmail?: strin
 			for (const endpoint of possibleEndpoints) {
 				try {
 					console.log(`📥 Trying certificate endpoint: ${endpoint}`)
-					const response = await fetch(endpoint, {
-						method: "GET",
-						headers: {
-							Authorization: `Bearer ${token}`,
-							Accept: "application/pdf",
+					// Use the wrapper function for automatic token refresh on 401 errors
+					const response = await makeDocoChainApiCall(
+						async (token) => {
+							return fetch(endpoint, {
+								method: "GET",
+								headers: {
+									Authorization: `Bearer ${token}`,
+									Accept: "application/pdf",
+								},
+							})
 						},
-					})
+						userEmail
+					)
 
 					if (response.ok) {
 						const arrayBuffer = await response.arrayBuffer()
@@ -1179,13 +1291,19 @@ export async function downloadCertificate(projectUuid: string, userEmail?: strin
 		} else {
 			// Certificate URL was found in project data, download from that URL
 			console.log("📥 Fetching certificate from project data URL:", certificateUrl)
-			const response = await fetch(certificateUrl, {
-				method: "GET",
-				headers: {
-					Authorization: `Bearer ${token}`,
-					Accept: "application/pdf",
+			// Use the wrapper function for automatic token refresh on 401 errors
+			const response = await makeDocoChainApiCall(
+				async (token) => {
+					return fetch(certificateUrl, {
+						method: "GET",
+						headers: {
+							Authorization: `Bearer ${token}`,
+							Accept: "application/pdf",
+						},
+					})
 				},
-			})
+				userEmail
+			)
 
 			if (!response.ok) {
 				const errorText = await response.text()
@@ -1234,23 +1352,23 @@ export async function getPassportDocument(
 	console.log("   - User Email (for token):", userEmail || "not provided")
 
 	try {
-		// Get token for the user
-		const token = await getDocoChainToken(userEmail)
-		if (!token) {
-			throw new Error("DocoChain API token not available")
-		}
-
 		// Build the API URL with query parameters
 		const apiUrl = `${DOCOCHAIN_API_BASE}/api/v2/projects/${projectUuid}/passport?user_type=ENTERPRISE_API&view=${view}`
 		console.log("🔵 Calling DocoChain Passport API:", apiUrl)
 
-		const response = await fetch(apiUrl, {
-			method: "GET",
-			headers: {
-				Authorization: `Bearer ${token}`,
-				Accept: "application/json",
+		// Use the wrapper function for automatic token refresh on 401 errors
+		const response = await makeDocoChainApiCall(
+			async (token) => {
+				return fetch(apiUrl, {
+					method: "GET",
+					headers: {
+						Authorization: `Bearer ${token}`,
+						Accept: "application/json",
+					},
+				})
 			},
-		})
+			userEmail // Email of the user
+		)
 
 		console.log("📡 DocoChain passport response status:", response.status)
 
