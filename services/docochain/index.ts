@@ -1160,68 +1160,98 @@ export async function downloadSignedDocument(projectUuid: string, userEmail?: st
 /**
  * Download the certificate of completion from DocoChain
  * Returns the certificate PDF as a Buffer
+ * Includes retry mechanism to handle cases where certificate URL is not immediately available after signing
  */
 export async function downloadCertificate(projectUuid: string, userEmail?: string): Promise<{ buffer: Buffer; fileName: string; url: string }> {
 	console.log("🔵 Downloading certificate from DocoChain...")
 	console.log("   - Project UUID:", projectUuid)
 	console.log("   - User Email (for token):", userEmail || "not provided")
 
-	try {
-		// First, get project details to check if certificate URL is available
-		// (getProjectDetails already uses automatic token refresh)
-		const projectDetails = await getProjectDetails(projectUuid, userEmail)
-		const projectData = projectDetails?.data
+	// Retry configuration - certificate may not be immediately available after signing
+	const maxRetries = 3
+	const retryDelayMs = 2000 // 2 seconds between retries
 
-		if (!projectData) {
-			throw new Error("Project not found or invalid response")
+	const attemptToGetCertificateUrl = async (attempt: number): Promise<string | null> => {
+		if (attempt > 1) {
+			console.log(`🔄 Retry attempt ${attempt}/${maxRetries} to get certificate URL...`)
+			// Wait before retrying (exponential backoff)
+			await new Promise(resolve => setTimeout(resolve, retryDelayMs * (attempt - 1)))
 		}
 
-		// Try to get certificate URL from project data first
-		let certificateUrl = projectData.certificate_url || projectData.certificateUrl || projectData.cert_url
+		try {
+			// First, get project details to check if certificate URL is available
+			// (getProjectDetails already uses automatic token refresh)
+			const projectDetails = await getProjectDetails(projectUuid, userEmail)
+			const projectData = projectDetails?.data
 
-		// If not in project data, try Passport API to get certificate URL
-		if (!certificateUrl) {
-			console.log("🔵 Certificate URL not in project data, trying Passport API...")
-			try {
-				const passportData = await getPassportDocument(projectUuid, "certificate_url", userEmail)
-				
-				// Handle case where response is a string URL directly
-				if (typeof passportData === "string" && passportData.startsWith("http")) {
-					certificateUrl = passportData
-					console.log("✅ Certificate URL returned directly as string from Passport API")
-				} else {
-					// Extract certificate URL from passport response object
-					// The response structure may vary, try multiple possible locations
-					certificateUrl = passportData?.data?.certificate_url || 
-					                passportData?.data?.certificateUrl || 
-					                passportData?.data?.cert_url ||
-					                passportData?.data?.url ||
-					                passportData?.certificate_url ||
-					                passportData?.certificateUrl ||
-					                passportData?.cert_url ||
-					                passportData?.url ||
-					                (typeof passportData?.data === "string" && passportData.data.startsWith("http") ? passportData.data : null)
-				}
-				
-				// If certificateUrl is still not found, log the full response for debugging
-				if (!certificateUrl) {
-					console.warn("⚠️ Passport API response structure:")
-					console.warn("   - Full response:", JSON.stringify(passportData, null, 2))
-					console.warn("   - Response keys:", Object.keys(passportData || {}))
-					if (passportData?.data) {
-						console.warn("   - Data keys:", Object.keys(passportData.data))
+			if (!projectData) {
+				return null
+			}
+
+			// Try to get certificate URL from project data first
+			let certificateUrl = projectData.certificate_url || projectData.certificateUrl || projectData.cert_url
+
+			// If not in project data, try Passport API to get certificate URL
+			if (!certificateUrl) {
+				console.log("🔵 Certificate URL not in project data, trying Passport API...")
+				try {
+					const passportData = await getPassportDocument(projectUuid, "certificate_url", userEmail)
+					
+					// Handle case where response is a string URL directly
+					if (typeof passportData === "string" && passportData.startsWith("http")) {
+						certificateUrl = passportData
+						console.log("✅ Certificate URL returned directly as string from Passport API")
+					} else {
+						// Extract certificate URL from passport response object
+						// The response structure may vary, try multiple possible locations
+						certificateUrl = passportData?.data?.certificate_url || 
+						                passportData?.data?.certificateUrl || 
+						                passportData?.data?.cert_url ||
+						                passportData?.data?.url ||
+						                passportData?.certificate_url ||
+						                passportData?.certificateUrl ||
+						                passportData?.cert_url ||
+						                passportData?.url ||
+						                (typeof passportData?.data === "string" && passportData.data.startsWith("http") ? passportData.data : null)
 					}
-				} else {
-					console.log("✅ Certificate URL found via Passport API:", certificateUrl)
+					
+					// If certificateUrl is still not found, log the full response for debugging (only on first attempt)
+					if (!certificateUrl && attempt === 1) {
+						console.warn("⚠️ Passport API response structure:")
+						console.warn("   - Full response:", JSON.stringify(passportData, null, 2))
+						console.warn("   - Response keys:", Object.keys(passportData || {}))
+						if (passportData?.data) {
+							console.warn("   - Data keys:", Object.keys(passportData.data))
+						}
+					} else if (certificateUrl) {
+						console.log("✅ Certificate URL found via Passport API:", certificateUrl)
+					}
+				} catch (passportError) {
+					console.warn("⚠️ Failed to get certificate URL from Passport API:", passportError)
+					// Continue to try other methods
 				}
-			} catch (passportError) {
-				console.warn("⚠️ Failed to get certificate URL from Passport API:", passportError)
-				// Continue to try other methods
+			}
+
+			return certificateUrl || null
+		} catch (error) {
+			console.warn(`⚠️ Error getting certificate URL (attempt ${attempt}):`, error)
+			return null
+		}
+	}
+
+	try {
+		// Try to get certificate URL with retries
+		let certificateUrl: string | null = null
+		for (let attempt = 1; attempt <= maxRetries; attempt++) {
+			certificateUrl = await attemptToGetCertificateUrl(attempt)
+			if (certificateUrl) {
+				break
 			}
 		}
 
-		// If still no certificate URL, try different endpoint formats
+		// If still no certificate URL after retries, try different endpoint formats
 		if (!certificateUrl) {
+			console.log("🔵 Certificate URL not found after retries, trying direct endpoint formats...")
 			// Determine app base URL (for certificate downloads, might need app URL instead of API URL)
 			const appBaseUrl = DOCOCHAIN_API_BASE.includes('stg') 
 				? 'https://stg-app.doconchain.com'
@@ -1289,8 +1319,8 @@ export async function downloadCertificate(projectUuid: string, userEmail?: strin
 				"Please download the signed document to access the certificate."
 			)
 		} else {
-			// Certificate URL was found in project data, download from that URL
-			console.log("📥 Fetching certificate from project data URL:", certificateUrl)
+			// Certificate URL was found, download from that URL
+			console.log("📥 Fetching certificate from URL:", certificateUrl)
 			// Use the wrapper function for automatic token refresh on 401 errors
 			const response = await makeDocoChainApiCall(
 				async (token) => {

@@ -325,6 +325,14 @@ export const meetingsRouter = createTRPCRouter({
 					})
 				}
 
+				// Get existing documents count to set the order for new upload
+				const existingDocuments = await db
+					.select({ id: documents.id })
+					.from(documents)
+					.where(eq(documents.meetingId, meetingId))
+				
+				const nextOrder = existingDocuments.length
+
 				// Decode base64 file data
 				const fileBuffer = Buffer.from(file, "base64")
 
@@ -358,6 +366,7 @@ export const meetingsRouter = createTRPCRouter({
 						meetingId,
 						docoChainProjectId, // Store the critical project UUID
 						docoChainRedirectUrl,
+						order: nextOrder, // Set order based on upload sequence
 					})
 					.returning()
 
@@ -439,7 +448,21 @@ export const meetingsRouter = createTRPCRouter({
 			})
 		}
 
-		return meeting.documents.sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+		// Sort by order first (for manual reordering), then by createdAt (for upload sequence)
+		return meeting.documents.sort((a, b) => {
+			const orderA = a.order ?? 0
+			const orderB = b.order ?? 0
+			
+			// If orders are different, sort by order
+			if (orderA !== orderB) {
+				return orderA - orderB
+			}
+			
+			// If orders are the same (or both 0), sort by createdAt to maintain upload sequence
+			const createdAtA = a.createdAt ? new Date(a.createdAt).getTime() : 0
+			const createdAtB = b.createdAt ? new Date(b.createdAt).getTime() : 0
+			return createdAtA - createdAtB
+		})
 	}),
 
 	// Update document order
