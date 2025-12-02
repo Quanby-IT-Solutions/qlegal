@@ -1,6 +1,6 @@
 "use client"
 
-import { Camera, CameraOff, FileText, FileUp, Mic, MicOff, Monitor, PhoneOff, Users, Send, FileSignature, CircleDot, Square, X, GripVertical, Download, CheckCircle2, Clock } from "lucide-react"
+import { Camera, CameraOff, FileText, FileUp, Mic, MicOff, Monitor, PhoneOff, Users, Send, FileSignature, CircleDot, Square, X, GripVertical, Download, CheckCircle2, Clock, Lock, Unlock } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import { MeetingProvider, useMeeting, useParticipant } from "@videosdk.live/react-sdk"
 import { useSession } from "next-auth/react"
@@ -174,7 +174,7 @@ function ParticipantView({ participantId }: { participantId: string }) {
 			if (trackEndHandler && mediaStream) {
 				const tracks = mediaStream.getVideoTracks()
 				tracks.forEach(track => {
-					track.removeEventListener('ended', trackEndHandler!)
+					track.removeEventListener('ended', trackEndHandler)
 				})
 			}
 		}
@@ -547,6 +547,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 	const [downloadingProjectUuid, setDownloadingProjectUuid] = useState<string | null>(null)
 	const [downloadingCertificateUuid, setDownloadingCertificateUuid] = useState<string | null>(null)
 	const [documentSigningStatus, setDocumentSigningStatus] = useState<Map<string, { isFullySigned: boolean; signedCount: number; totalSigners: number }>>(new Map())
+	const [isLocked, setIsLocked] = useState(false)
 	
 	// Fetch meeting documents
 	const { data: documents, refetch: refetchDocuments } = trpc.meetings.getMeetingDocuments.useQuery(
@@ -653,6 +654,12 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 
 	// Drag and drop handlers
 	const handleDragStart = (e: React.DragEvent, documentId: string) => {
+		// Prevent dragging if locked
+		if (isLocked) {
+			e.preventDefault()
+			return
+		}
+		
 		// Don't start drag if clicking on interactive elements (buttons, links, etc.)
 		const target = e.target as HTMLElement
 		if (target.closest('button') || target.closest('a') || target.closest('[role="button"]')) {
@@ -666,6 +673,10 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 	}
 
 	const handleDragEnter = (e: React.DragEvent, targetDocumentId: string) => {
+		if (isLocked) {
+			e.preventDefault()
+			return
+		}
 		e.preventDefault()
 		if (!draggedDocumentId || targetDocumentId === draggedDocumentId) return
 		setDragOverDocumentId(targetDocumentId)
@@ -680,6 +691,10 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 	}
 
 	const handleDragOver = (e: React.DragEvent, targetDocumentId: string) => {
+		if (isLocked) {
+			e.preventDefault()
+			return
+		}
 		e.preventDefault()
 		e.dataTransfer.dropEffect = "move"
 		if (draggedDocumentId && targetDocumentId !== draggedDocumentId) {
@@ -688,6 +703,12 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 	}
 
 	const handleDrop = (e: React.DragEvent, targetDocumentId: string) => {
+		if (isLocked) {
+			e.preventDefault()
+			setDraggedDocumentId(null)
+			setDragOverDocumentId(null)
+			return
+		}
 		e.preventDefault()
 		setDragOverDocumentId(null)
 		
@@ -813,11 +834,24 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 	// Generate signing link mutation (for signature request dialog)
 	const generateSigningLink = trpc.signatureRequests.generateSigningLink.useMutation({
 		onSuccess: (data) => {
-			const signingLink = typeof data.link === 'string' ? data.link : null
+			let signingLink = typeof data.link === 'string' ? data.link : null
 			
 			if (!signingLink) {
 				toast.error("Invalid signing link received")
 				return
+			}
+
+			// Clean up the URL - remove api=null parameter if present
+			try {
+				const url = new URL(signingLink)
+				if (url.searchParams.has('api') && (url.searchParams.get('api') === 'null' || url.searchParams.get('api') === '')) {
+					url.searchParams.delete('api')
+					signingLink = url.toString()
+					console.log("🧹 Cleaned URL - removed api=null parameter")
+				}
+			} catch {
+				// If URL parsing fails, try simple string replacement
+				signingLink = signingLink.replace(/\?api=null(&|$)/, '?').replace(/&api=null(&|$)/, '&').replace(/\?$/, '')
 			}
 
 			try {
@@ -854,12 +888,25 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 	const initiateSigning = trpc.signatureRequests.initiateSigning.useMutation({
 		onSuccess: (data) => {
 			// Validate that we have a valid URL string
-			const signingLink = typeof data.link === 'string' ? data.link : null
+			let signingLink = typeof data.link === 'string' ? data.link : null
 			
 			if (!signingLink) {
 				console.error("❌ Invalid signing link received:", data)
 				toast.error("Invalid signing link received")
 				return
+			}
+
+			// Clean up the URL - remove api=null parameter if present
+			try {
+				const url = new URL(signingLink)
+				if (url.searchParams.has('api') && (url.searchParams.get('api') === 'null' || url.searchParams.get('api') === '')) {
+					url.searchParams.delete('api')
+					signingLink = url.toString()
+					console.log("🧹 Cleaned URL - removed api=null parameter")
+				}
+			} catch {
+				// If URL parsing fails, try simple string replacement
+				signingLink = signingLink.replace(/\?api=null(&|$)/, '?').replace(/&api=null(&|$)/, '&').replace(/\?$/, '')
 			}
 
 			// Validate it's a proper URL
@@ -926,12 +973,12 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 	const meeting = useMeeting({
 		onMeetingJoined: () => {
 			setJoined(true)
-			// eslint-disable-next-line no-console
+			 
 			console.log("✅ Successfully joined meeting")
 		},
 		onMeetingLeft: () => {
 			setJoined(false)
-			// eslint-disable-next-line no-console
+			 
 			console.log("👋 Left meeting")
 			// Call the onLeave callback to redirect user
 			if (onLeave) {
@@ -939,23 +986,23 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 			}
 		},
 		onParticipantJoined: (participant) => {
-			// eslint-disable-next-line no-console
+			 
 			console.log("👋 Participant joined:", participant.id, participant.displayName)
 		},
 		onParticipantLeft: (participant) => {
-			// eslint-disable-next-line no-console
+			 
 			console.log("👋 Participant left:", participant.id, participant.displayName)
 		},
 		onPresenterChanged: (presenterId) => {
 			setPresenterId(presenterId)
-			// eslint-disable-next-line no-console
+			 
 			console.log("🖥️ Presenter changed:", presenterId)
 		},
 		onRecordingStateChanged: (data: { status: string }) => {
-			// eslint-disable-next-line no-console
+			 
 			console.log("🎥 Recording state changed:", data)
 			// VideoSDK returns { status: 'RECORDING_STARTED' | 'RECORDING_STOPPING' | 'RECORDING_STOPPED' | 'RECORDING_STARTING' }
-			const status = data.status as string
+			const status = data.status
 			const recording = status === 'RECORDING_STARTED' || status === 'RECORDING_STARTING'
 			setIsRecording(recording)
 			
@@ -1143,14 +1190,35 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 								</div>
 								<span className="text-sm md:text-base font-semibold">Documents ({documents.length})</span>
 							</div>
-							<Button
-								variant="ghost"
-								size="sm"
-								onClick={() => setShowDocuments(!showDocuments)}
-								className="h-8 px-3 text-xs md:text-sm hover:bg-muted"
-							>
-								{showDocuments ? "Hide" : "Show"}
-							</Button>
+							<div className="flex items-center gap-2">
+								<Button
+									variant="ghost"
+									size="sm"
+									onClick={() => setIsLocked(!isLocked)}
+									className="h-8 px-3 text-xs md:text-sm hover:bg-muted"
+									title={isLocked ? "Unlock document order" : "Lock document order"}
+								>
+									{isLocked ? (
+										<>
+											<Lock className="size-3.5 mr-1.5" />
+											Locked
+										</>
+									) : (
+										<>
+											<Unlock className="size-3.5 mr-1.5" />
+											Unlocked
+										</>
+									)}
+								</Button>
+								<Button
+									variant="ghost"
+									size="sm"
+									onClick={() => setShowDocuments(!showDocuments)}
+									className="h-8 px-3 text-xs md:text-sm hover:bg-muted"
+								>
+									{showDocuments ? "Hide" : "Show"}
+								</Button>
+							</div>
 						</div>
 						{showDocuments && (
 							<div className="overflow-y-auto max-h-[350px] px-3 md:px-4 lg:px-6 py-4">
@@ -1164,29 +1232,43 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 											<Card 
 												key={doc.id} 
 												style={{
-													opacity: isDragged ? 0.5 : 1,
-													transform: isDragged 
+													opacity: isDragged && !isLocked ? 0.5 : 1,
+													transform: isDragged && !isLocked
 														? 'scale(0.95)' 
-														: isDragOver 
+														: isDragOver && !isLocked
 															? 'scale(1.03)' 
 															: 'scale(1)',
-													transition: isDragged 
+													transition: isDragged && !isLocked
 														? 'opacity 0.2s ease-out, transform 0.2s ease-out' 
 														: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-													zIndex: isDragged ? 50 : isDragOver ? 10 : 1,
+													zIndex: isDragged && !isLocked ? 50 : isDragOver && !isLocked ? 10 : 1,
 												}}
 												className={cn(
 													"shadow-md hover:shadow-lg border-2 relative",
 													isDragged 
 														? "cursor-grabbing shadow-2xl" 
 														: "hover:border-primary/50 hover:shadow-xl",
-													isDragOver && !isDragged && "border-primary border-2 shadow-xl bg-primary/5"
+													isDragOver && !isDragged && !isLocked && "border-primary border-2 shadow-xl bg-primary/5",
+													isLocked && "border-muted/50 opacity-90"
 												)}
-												onDragEnter={(e) => handleDragEnter(e, doc.id)}
+												onDragEnter={(e) => {
+													if (!isLocked) handleDragEnter(e, doc.id)
+												}}
 												onDragLeave={handleDragLeave}
-												onDragOver={(e) => handleDragOver(e, doc.id)}
-												onDrop={(e) => handleDrop(e, doc.id)}
+												onDragOver={(e) => {
+													if (!isLocked) handleDragOver(e, doc.id)
+												}}
+												onDrop={(e) => {
+													if (!isLocked) handleDrop(e, doc.id)
+												}}
 											>
+												{/* Lock indicator - top left corner */}
+												{isLocked && (
+													<div className="absolute top-2 left-2 flex items-center gap-1 rounded-full bg-muted/90 dark:bg-muted/80 px-2 py-0.5 z-10 border border-muted-foreground/20">
+														<Lock className="size-3 text-muted-foreground" />
+														<span className="text-[10px] font-semibold text-muted-foreground">Locked</span>
+													</div>
+												)}
 												{/* Signing status indicator - top right corner */}
 												{doc.docoChainProjectId && documentSigningStatus.has(doc.id) && (() => {
 													const status = documentSigningStatus.get(doc.id)!
@@ -1213,12 +1295,21 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 													<div className="flex items-start gap-3 mb-3">
 														{/* Drag handle - only draggable element */}
 														<div 
-															className="cursor-move text-muted-foreground hover:text-foreground mt-1 flex-shrink-0"
-															draggable={true}
+															className={cn(
+																"mt-1 flex-shrink-0 relative",
+																isLocked 
+																	? "cursor-not-allowed text-muted-foreground/30" 
+																	: "cursor-move text-muted-foreground hover:text-foreground"
+															)}
+															draggable={!isLocked}
 															onDragStart={(e) => handleDragStart(e, doc.id)}
 															onDragEnd={handleDragEnd}
+															title={isLocked ? "Document order is locked" : "Drag to reorder"}
 														>
 															<GripVertical className="size-4" />
+															{isLocked && (
+																<Lock className="absolute -top-1 -right-1 size-2.5 text-muted-foreground/60" />
+															)}
 														</div>
 														<div className="rounded-lg bg-primary/10 p-2.5 flex-shrink-0">
 															<FileText className="size-5 text-primary" />

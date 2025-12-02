@@ -218,4 +218,87 @@ export const envelopeLiteRouter = createTRPCRouter({
 				url: `#mock-url-for-${document.id}`,
 			}
 		}),
+
+	getPendingDocuments: protectedProcedure.query(async ({ ctx }) => {
+		const userId = ctx.session.user.id
+
+		// Get documents from envelopes that are in pending states
+		// Pending states: PUBLISHED, PENDING_APPROVAL, IN_PROGRESS, PENDING
+		// Documents should belong to envelopes owned by the user
+		const pendingStatuses = ["PUBLISHED", "PENDING_APPROVAL", "IN_PROGRESS", "PENDING"]
+
+		const pendingDocuments = await ctx.db
+			.select({
+				id: documents.id,
+				name: documents.name,
+				type: documents.type,
+				size: documents.size,
+				path: documents.path,
+				status: documents.status,
+				docoChainProjectId: documents.docoChainProjectId,
+				createdAt: documents.createdAt,
+				updatedAt: documents.updatedAt,
+				envelopeId: documents.envelopeId,
+				envelope: {
+					id: envelopes.id,
+					title: envelopes.title,
+					description: envelopes.description,
+					status: envelopes.status,
+					userId: envelopes.userId,
+					createdAt: envelopes.createdAt,
+					updatedAt: envelopes.updatedAt,
+				},
+				envelopeOwner: {
+					id: users.id,
+					name: users.name,
+					email: users.email,
+					image: users.image,
+				},
+			})
+			.from(documents)
+			.innerJoin(envelopes, eq(documents.envelopeId, envelopes.id))
+			.leftJoin(users, eq(envelopes.userId, users.id))
+			.where(
+				// User owns the envelope AND envelope is in a pending state
+				eq(envelopes.userId, userId)
+			)
+			.orderBy(desc(documents.updatedAt))
+
+		// Filter to only include documents from envelopes with pending statuses
+		const filtered = pendingDocuments.filter(
+			doc => doc.envelope && pendingStatuses.includes(doc.envelope.status)
+		)
+
+		return filtered.map(doc => ({
+			id: doc.id,
+			name: doc.name,
+			type: doc.type,
+			size: doc.size,
+			path: doc.path,
+			status: doc.status,
+			docoChainProjectId: doc.docoChainProjectId,
+			createdAt: doc.createdAt,
+			updatedAt: doc.updatedAt,
+			envelopeId: doc.envelopeId,
+			envelope: doc.envelope
+				? {
+						id: doc.envelope.id,
+						title: doc.envelope.title,
+						description: doc.envelope.description,
+						status: doc.envelope.status,
+						userId: doc.envelope.userId,
+						createdAt: doc.envelope.createdAt,
+						updatedAt: doc.envelope.updatedAt,
+					}
+				: null,
+			envelopeOwner: doc.envelopeOwner
+				? {
+						id: doc.envelopeOwner.id,
+						name: doc.envelopeOwner.name,
+						email: doc.envelopeOwner.email,
+						image: doc.envelopeOwner.image,
+					}
+				: null,
+		}))
+	}),
 })
