@@ -125,8 +125,8 @@ export default function DashboardPage() {
 	}, [isENP, statistics?.pendingNotarizationRequests])
 	
 	useEffect(() => {
-		// Mark as viewed when ENP visits requests page
-		if (isENP && pathname === "/requests") {
+		// Mark as viewed when ENP visits requests page (both /requests and /requests/incoming)
+		if (isENP && (pathname === "/requests" || pathname === "/requests/incoming")) {
 			const currentCount = statistics?.pendingNotarizationRequests ?? 0
 			localStorage.setItem("enp_viewed_requests", "true")
 			localStorage.setItem("enp_last_viewed_count", currentCount.toString())
