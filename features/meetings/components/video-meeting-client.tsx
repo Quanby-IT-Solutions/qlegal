@@ -399,6 +399,9 @@ function DocumentActions({
 	onDownloadSignedDocument,
 	isDownloadingSignedDocument,
 	isFullySigned,
+	isLocked,
+	isPreviousDocumentSigned,
+	documentIndex,
 }: {
 	document: { id: string; name: string; docoChainProjectId: string | null }
 	isPrincipal: boolean
@@ -410,8 +413,14 @@ function DocumentActions({
 	onDownloadSignedDocument?: (projectUuid: string) => void
 	isDownloadingSignedDocument?: boolean
 	isFullySigned?: boolean
+	isLocked?: boolean
+	isPreviousDocumentSigned?: boolean
+	documentIndex?: number
 }) {
 	const { data: session } = useSession()
+	
+	// Determine if Start Signing button should be disabled
+	const isSigningDisabled = isLocked && !isPreviousDocumentSigned && (documentIndex ?? 0) > 0
 
 	return (
 		<div className="space-y-2">
@@ -431,44 +440,52 @@ function DocumentActions({
 			{/* Show "Start Signing" button for ENP users - they initiate the signing process */}
 			{/* ENP clicks this to add themselves as signer and redirect to DocoChain signing page */}
 			{isENP && document.docoChainProjectId && (
-				<Button
-					variant="default"
-					size="sm"
-					className="w-full h-9 text-xs shadow-sm"
-					onClick={() => {
-						const userEmail = session?.user?.email
-						if (document.docoChainProjectId && userEmail) {
-							console.log("🔵 ENP initiating signing process for document:", document.name)
-							console.log("   - DocoChain Project UUID:", document.docoChainProjectId)
-							console.log("   - ENP Email:", userEmail)
-							
-							// ENP clicks to start signing - this will:
-							// 1. Add ENP as signer using Add Project Signer API
-							// 2. Generate signing link
-							// 3. Redirect to DocoChain signing page
-							onSignClick(document.docoChainProjectId, userEmail, document.id)
-						} else {
-							toast.error(
-								!document.docoChainProjectId 
-									? "DocoChain project not found. Please ensure the document was uploaded correctly."
-									: "User email not found. Please sign in again."
-							)
-						}
-					}}
-					disabled={isSigningPending}
-				>
-					{isSigningPending ? (
-						<>
-							<div className="mr-2 size-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
-							Starting...
-						</>
-					) : (
-						<>
-							<FileSignature className="size-3.5 mr-1.5" />
-							Start Signing
-						</>
+				<div className="space-y-1.5">
+					<Button
+						variant="default"
+						size="sm"
+						className="w-full h-9 text-xs shadow-sm"
+						onClick={() => {
+							const userEmail = session?.user?.email
+							if (document.docoChainProjectId && userEmail) {
+								console.log("🔵 ENP initiating signing process for document:", document.name)
+								console.log("   - DocoChain Project UUID:", document.docoChainProjectId)
+								console.log("   - ENP Email:", userEmail)
+								
+								// ENP clicks to start signing - this will:
+								// 1. Add ENP as signer using Add Project Signer API
+								// 2. Generate signing link
+								// 3. Redirect to DocoChain signing page
+								onSignClick(document.docoChainProjectId, userEmail, document.id)
+							} else {
+								toast.error(
+									!document.docoChainProjectId 
+										? "DocoChain project not found. Please ensure the document was uploaded correctly."
+										: "User email not found. Please sign in again."
+								)
+							}
+						}}
+						disabled={isSigningPending || isSigningDisabled}
+					>
+						{isSigningPending ? (
+							<>
+								<div className="mr-2 size-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
+								Starting...
+							</>
+						) : (
+							<>
+								<FileSignature className="size-3.5 mr-1.5" />
+								Start Signing
+							</>
+						)}
+					</Button>
+					{/* Show message when button is disabled due to locked order */}
+					{isSigningDisabled && (
+						<p className="text-[10px] text-amber-700 dark:text-amber-400 leading-tight">
+							Previous document must be signed first
+						</p>
 					)}
-				</Button>
+				</div>
 			)}
 
 			{/* Download Signed Document button - only show for fully signed documents */}
@@ -1189,14 +1206,24 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 									<FileText className="size-4 md:size-5 text-primary" />
 								</div>
 								<span className="text-sm md:text-base font-semibold">Documents ({documents.length})</span>
+								{/* Locked State Indicator */}
+								{isLocked && (
+									<div className="flex items-center gap-1.5 rounded-full bg-amber-100 dark:bg-amber-900/30 px-2.5 py-1 border border-amber-300 dark:border-amber-700">
+										<Lock className="size-3 text-amber-700 dark:text-amber-400" />
+										<span className="text-[11px] font-semibold text-amber-700 dark:text-amber-400">Order Locked</span>
+									</div>
+								)}
 							</div>
 							<div className="flex items-center gap-2">
 								<Button
 									variant="ghost"
 									size="sm"
 									onClick={() => setIsLocked(!isLocked)}
-									className="h-8 px-3 text-xs md:text-sm hover:bg-muted"
-									title={isLocked ? "Unlock document order" : "Lock document order"}
+									className={cn(
+										"h-8 px-3 text-xs md:text-sm hover:bg-muted",
+										isLocked && "bg-amber-50 dark:bg-amber-900/20 hover:bg-amber-100 dark:hover:bg-amber-900/30"
+									)}
+									title={isLocked ? "Unlock document order - allows reordering" : "Lock document order - enforces sequential signing"}
 								>
 									{isLocked ? (
 										<>
@@ -1220,13 +1247,26 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 								</Button>
 							</div>
 						</div>
+						{/* Locked State Banner - Show explanation when locked */}
+						{isLocked && showDocuments && (
+							<div className="bg-amber-50 dark:bg-amber-900/10 border-b border-amber-200 dark:border-amber-800 px-3 md:px-4 lg:px-6 py-2">
+								<p className="text-xs text-amber-800 dark:text-amber-300 flex items-center gap-2">
+									<Lock className="size-3.5 flex-shrink-0" />
+									<span>Documents are locked in signing order. Each document must be signed before the next one can be started.</span>
+								</p>
+							</div>
+						)}
 						{showDocuments && (
 							<div className="overflow-y-auto max-h-[350px] px-3 md:px-4 lg:px-6 py-4">
 								<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4 transition-all duration-300">
-									{documents.map((doc) => {
+									{documents.map((doc, index) => {
 										const isPrincipal = meetingDetails?.createdBy.id === session?.user?.id
 										const isDragged = draggedDocumentId === doc.id
 										const isDragOver = dragOverDocumentId === doc.id
+										
+										// Check if previous document is signed (for sequential signing when locked)
+										const previousDoc = index > 0 ? documents[index - 1] : null
+										const isPreviousDocumentSigned = !previousDoc || documentSigningStatus.get(previousDoc.id)?.isFullySigned || false
 										
 										return (
 											<Card 
@@ -1262,11 +1302,13 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 													if (!isLocked) handleDrop(e, doc.id)
 												}}
 											>
-												{/* Lock indicator - top left corner */}
+												{/* Order indicator when locked - top left corner */}
 												{isLocked && (
-													<div className="absolute top-2 left-2 flex items-center gap-1 rounded-full bg-muted/90 dark:bg-muted/80 px-2 py-0.5 z-10 border border-muted-foreground/20">
-														<Lock className="size-3 text-muted-foreground" />
-														<span className="text-[10px] font-semibold text-muted-foreground">Locked</span>
+													<div className="absolute top-2 left-2 flex items-center gap-1.5 rounded-full bg-amber-100 dark:bg-amber-900/40 px-2.5 py-1 z-10 border border-amber-300 dark:border-amber-700 shadow-sm">
+														<div className="flex items-center justify-center size-4 rounded-full bg-amber-600 dark:bg-amber-500 text-white text-[10px] font-bold">
+															{index + 1}
+														</div>
+														<Lock className="size-3 text-amber-700 dark:text-amber-400" />
 													</div>
 												)}
 												{/* Signing status indicator - top right corner */}
@@ -1296,20 +1338,20 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 														{/* Drag handle - only draggable element */}
 														<div 
 															className={cn(
-																"mt-1 flex-shrink-0 relative",
+																"mt-1 flex-shrink-0 relative transition-colors",
 																isLocked 
-																	? "cursor-not-allowed text-muted-foreground/30" 
-																	: "cursor-move text-muted-foreground hover:text-foreground"
+																	? "cursor-not-allowed opacity-40" 
+																	: "cursor-move text-muted-foreground hover:text-primary"
 															)}
 															draggable={!isLocked}
 															onDragStart={(e) => handleDragStart(e, doc.id)}
 															onDragEnd={handleDragEnd}
-															title={isLocked ? "Document order is locked" : "Drag to reorder"}
+															title={isLocked ? "Document order is locked - cannot reorder" : "Drag to reorder documents"}
 														>
-															<GripVertical className="size-4" />
-															{isLocked && (
-																<Lock className="absolute -top-1 -right-1 size-2.5 text-muted-foreground/60" />
-															)}
+															<GripVertical className={cn(
+																"size-4",
+																isLocked && "text-muted-foreground/30"
+															)} />
 														</div>
 														<div className="rounded-lg bg-primary/10 p-2.5 flex-shrink-0">
 															<FileText className="size-5 text-primary" />
@@ -1342,6 +1384,9 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 														onDownloadCertificate={handleDownloadCertificate}
 														isDownloadingCertificate={downloadingCertificateUuid === doc.docoChainProjectId}
 														isFullySigned={documentSigningStatus.get(doc.id)?.isFullySigned ?? false}
+														isLocked={isLocked}
+														isPreviousDocumentSigned={isPreviousDocumentSigned}
+														documentIndex={index}
 													/>
 												</CardContent>
 											</Card>
