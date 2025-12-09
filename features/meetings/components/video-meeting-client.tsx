@@ -1,6 +1,6 @@
 "use client"
 
-import { Camera, CameraOff, FileText, FileUp, Mic, MicOff, Monitor, PhoneOff, Users, Send, FileSignature, CircleDot, Square, X, GripVertical, Download, CheckCircle2, Clock, Lock, Unlock } from "lucide-react"
+import { Camera, CameraOff, FileText, FileUp, Mic, MicOff, Monitor, PhoneOff, Users, Send, FileSignature, CircleDot, Square, X, GripVertical, Download, CheckCircle2, Clock, Lock, Unlock, User, AlertCircle } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import { MeetingProvider, useMeeting, useParticipant } from "@videosdk.live/react-sdk"
 import { useSession } from "next-auth/react"
@@ -387,11 +387,112 @@ function MeetingControls({ onUploadClick, isRecording, onRecordingChange }: {
 	)
 }
 
+// Signer List Component - Shows all signers and their status
+function SignerList({ 
+	signers 
+}: { 
+	signers: Array<{
+		id: number;
+		email: string;
+		firstName: string;
+		lastName: string;
+		status: string;
+		signedAt: string | null;
+		sequence: number;
+		signerRole: string;
+	}> 
+}) {
+	if (!signers || signers.length === 0) {
+		return null
+	}
+
+	// Sort signers by sequence
+	const sortedSigners = [...signers].sort((a, b) => a.sequence - b.sequence)
+	
+	// Find the current signer (first one who hasn't signed yet)
+	const currentSignerIndex = sortedSigners.findIndex(s => s.status !== "SIGNED" && !s.signedAt)
+	
+	return (
+		<div className="mb-3 rounded-lg border bg-muted/30 p-2.5 space-y-1.5">
+			<div className="flex items-center gap-1.5 mb-2">
+				<Users className="size-3.5 text-muted-foreground" />
+				<span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
+					Signers ({sortedSigners.filter(s => s.status === "SIGNED" || s.signedAt).length}/{sortedSigners.length})
+				</span>
+			</div>
+			<div className="space-y-1">
+				{sortedSigners.map((signer, index) => {
+					const isSigned = signer.status === "SIGNED" || signer.signedAt !== null
+					const isCurrent = index === currentSignerIndex
+					const isWaiting = index > currentSignerIndex && currentSignerIndex !== -1
+					
+					return (
+						<div 
+							key={signer.id} 
+							className={cn(
+								"flex items-center gap-2 rounded-md px-2 py-1.5 text-xs transition-colors",
+								isSigned && "bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800",
+								isCurrent && "bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800",
+								isWaiting && "bg-muted/50 opacity-60"
+							)}
+						>
+							<div className={cn(
+								"flex items-center justify-center size-5 rounded-full text-[10px] font-bold flex-shrink-0",
+								isSigned 
+									? "bg-green-600 text-white" 
+									: isCurrent 
+										? "bg-blue-600 text-white"
+										: "bg-muted text-muted-foreground"
+							)}>
+								{signer.sequence}
+							</div>
+							<div className="flex-1 min-w-0">
+								<div className="flex items-center gap-1.5">
+									<User className="size-3 text-muted-foreground flex-shrink-0" />
+									<span className="font-medium truncate">
+										{signer.firstName} {signer.lastName}
+									</span>
+								</div>
+								<div className="text-[10px] text-muted-foreground truncate">
+									{signer.email}
+								</div>
+							</div>
+							<div className="flex-shrink-0">
+								{isSigned ? (
+									<div className="flex items-center gap-1 rounded-full bg-green-100 dark:bg-green-900/40 px-1.5 py-0.5">
+										<CheckCircle2 className="size-3 text-green-600 dark:text-green-400" />
+										<span className="text-[10px] font-semibold text-green-700 dark:text-green-400">
+											Signed
+										</span>
+									</div>
+								) : isCurrent ? (
+									<div className="flex items-center gap-1 rounded-full bg-blue-100 dark:bg-blue-900/40 px-1.5 py-0.5">
+										<AlertCircle className="size-3 text-blue-600 dark:text-blue-400" />
+										<span className="text-[10px] font-semibold text-blue-700 dark:text-blue-400">
+											Current
+										</span>
+									</div>
+								) : (
+									<div className="flex items-center gap-1 rounded-full bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5">
+										<Clock className="size-3 text-gray-500 dark:text-gray-400" />
+										<span className="text-[10px] font-semibold text-gray-600 dark:text-gray-400">
+											Waiting
+										</span>
+									</div>
+								)}
+							</div>
+						</div>
+					)
+				})}
+			</div>
+		</div>
+	)
+}
+
 // Document Actions Component - ENP can initiate signing directly
 function DocumentActions({
 	document,
 	isPrincipal,
-	isENP,
 	onSignClick,
 	isSigningPending,
 	onDownloadCertificate,
@@ -402,10 +503,10 @@ function DocumentActions({
 	isLocked,
 	isPreviousDocumentSigned,
 	documentIndex,
+	signers,
 }: {
 	document: { id: string; name: string; docoChainProjectId: string | null }
 	isPrincipal: boolean
-	isENP: boolean
 	onSignClick: (projectUuid: string, email: string, documentId: string) => void
 	isSigningPending: boolean
 	onDownloadCertificate?: (projectUuid: string) => void
@@ -416,6 +517,16 @@ function DocumentActions({
 	isLocked?: boolean
 	isPreviousDocumentSigned?: boolean
 	documentIndex?: number
+	signers?: Array<{
+		id: number;
+		email: string;
+		firstName: string;
+		lastName: string;
+		status: string;
+		signedAt: string | null;
+		sequence: number;
+		signerRole: string;
+	}>
 }) {
 	const { data: session } = useSession()
 	
@@ -424,6 +535,10 @@ function DocumentActions({
 
 	return (
 		<div className="space-y-2">
+			{/* Show signer list if available */}
+			{signers && signers.length > 0 && (
+				<SignerList signers={signers} />
+			)}
 			<Button
 				variant="outline"
 				size="sm"
@@ -437,9 +552,9 @@ function DocumentActions({
 				View Document
 			</Button>
 			
-			{/* Show "Start Signing" button for ENP users - they initiate the signing process */}
-			{/* ENP clicks this to add themselves as signer and redirect to DocoChain signing page */}
-			{isENP && document.docoChainProjectId && (
+			{/* Show "Start Signing" button for all meeting participants */}
+			{/* Any participant (Principal, ENP, etc.) can click to sign */}
+			{document.docoChainProjectId && (
 				<div className="space-y-1.5">
 					<Button
 						variant="default"
@@ -563,8 +678,21 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 	const [dragOverDocumentId, setDragOverDocumentId] = useState<string | null>(null)
 	const [downloadingProjectUuid, setDownloadingProjectUuid] = useState<string | null>(null)
 	const [downloadingCertificateUuid, setDownloadingCertificateUuid] = useState<string | null>(null)
-	const [documentSigningStatus, setDocumentSigningStatus] = useState<Map<string, { isFullySigned: boolean; signedCount: number; totalSigners: number }>>(new Map())
-	const [isLocked, setIsLocked] = useState(false)
+	const [documentSigningStatus, setDocumentSigningStatus] = useState<Map<string, { 
+		isFullySigned: boolean; 
+		signedCount: number; 
+		totalSigners: number;
+		signers: Array<{
+			id: number;
+			email: string;
+			firstName: string;
+			lastName: string;
+			status: string;
+			signedAt: string | null;
+			sequence: number;
+			signerRole: string;
+		}>;
+	}>>(new Map())
 	
 	// Fetch meeting documents
 	const { data: documents, refetch: refetchDocuments } = trpc.meetings.getMeetingDocuments.useQuery(
@@ -583,7 +711,21 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 		if (!documents || documents.length === 0) return
 
 		const checkStatuses = async () => {
-			const statusMap = new Map<string, { isFullySigned: boolean; signedCount: number; totalSigners: number }>()
+			const statusMap = new Map<string, { 
+				isFullySigned: boolean; 
+				signedCount: number; 
+				totalSigners: number;
+				signers: Array<{
+					id: number;
+					email: string;
+					firstName: string;
+					lastName: string;
+					status: string;
+					signedAt: string | null;
+					sequence: number;
+					signerRole: string;
+				}>;
+			}>()
 			
 			for (const doc of documents) {
 				if (doc.docoChainProjectId) {
@@ -595,6 +737,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 							isFullySigned: status.isFullySigned,
 							signedCount: status.signedCount,
 							totalSigners: status.totalSigners,
+							signers: status.signers || [],
 						})
 					} catch (error) {
 						// If status check fails, assume not signed
@@ -602,6 +745,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 							isFullySigned: false,
 							signedCount: 0,
 							totalSigners: 0,
+							signers: [],
 						})
 					}
 				}
@@ -620,10 +764,22 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 		return () => clearInterval(interval)
 	}, [documents, utils])
 
-	// Fetch meeting details to get participants
-	const { data: meetingDetails } = trpc.meetings.getById.useQuery(meetingId || "", {
+	// Fetch meeting details to get participants and lock state
+	const { data: meetingDetails, refetch: refetchMeetingDetails } = trpc.meetings.getById.useQuery(meetingId || "", {
 		enabled: !!meetingId && !!meetingId.trim(),
 		retry: false,
+		refetchInterval: 3000, // Refetch every 3 seconds to sync lock state
+	})
+
+	// Mutation to toggle document order lock
+	const toggleLockMutation = trpc.meetings.toggleDocumentOrderLock.useMutation({
+		onSuccess: () => {
+			void refetchMeetingDetails()
+			toast.success(meetingDetails?.isDocumentOrderLocked ? "Document order unlocked" : "Document order locked")
+		},
+		onError: (error) => {
+			toast.error(error.message || "Failed to toggle document lock")
+		},
 	})
 
 	// Fetch pending signature requests for current user
@@ -671,6 +827,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 
 	// Drag and drop handlers
 	const handleDragStart = (e: React.DragEvent, documentId: string) => {
+		const isLocked = meetingDetails?.isDocumentOrderLocked ?? false
 		// Prevent dragging if locked
 		if (isLocked) {
 			e.preventDefault()
@@ -690,6 +847,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 	}
 
 	const handleDragEnter = (e: React.DragEvent, targetDocumentId: string) => {
+		const isLocked = meetingDetails?.isDocumentOrderLocked ?? false
 		if (isLocked) {
 			e.preventDefault()
 			return
@@ -708,6 +866,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 	}
 
 	const handleDragOver = (e: React.DragEvent, targetDocumentId: string) => {
+		const isLocked = meetingDetails?.isDocumentOrderLocked ?? false
 		if (isLocked) {
 			e.preventDefault()
 			return
@@ -720,6 +879,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 	}
 
 	const handleDrop = (e: React.DragEvent, targetDocumentId: string) => {
+		const isLocked = meetingDetails?.isDocumentOrderLocked ?? false
 		if (isLocked) {
 			e.preventDefault()
 			setDraggedDocumentId(null)
@@ -1201,65 +1361,93 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 						showDocuments ? "min-h-[200px] max-h-[400px]" : "h-12 md:h-14"
 					)}>
 						<div className="flex h-12 md:h-14 items-center justify-between px-3 md:px-4 lg:px-6 border-b flex-shrink-0">
-							<div className="flex items-center gap-2">
-								<div className="flex h-7 w-7 md:h-8 md:w-8 items-center justify-center rounded-lg bg-primary/10">
-									<FileText className="size-4 md:size-5 text-primary" />
-								</div>
-								<span className="text-sm md:text-base font-semibold">Documents ({documents.length})</span>
-								{/* Locked State Indicator */}
-								{isLocked && (
-									<div className="flex items-center gap-1.5 rounded-full bg-amber-100 dark:bg-amber-900/30 px-2.5 py-1 border border-amber-300 dark:border-amber-700">
-										<Lock className="size-3 text-amber-700 dark:text-amber-400" />
-										<span className="text-[11px] font-semibold text-amber-700 dark:text-amber-400">Order Locked</span>
-									</div>
-								)}
-							</div>
-							<div className="flex items-center gap-2">
-								<Button
-									variant="ghost"
-									size="sm"
-									onClick={() => setIsLocked(!isLocked)}
-									className={cn(
-										"h-8 px-3 text-xs md:text-sm hover:bg-muted",
-										isLocked && "bg-amber-50 dark:bg-amber-900/20 hover:bg-amber-100 dark:hover:bg-amber-900/30"
-									)}
-									title={isLocked ? "Unlock document order - allows reordering" : "Lock document order - enforces sequential signing"}
-								>
-									{isLocked ? (
-										<>
-											<Lock className="size-3.5 mr-1.5" />
-											Locked
-										</>
-									) : (
-										<>
-											<Unlock className="size-3.5 mr-1.5" />
-											Unlocked
-										</>
-									)}
-								</Button>
-								<Button
-									variant="ghost"
-									size="sm"
-									onClick={() => setShowDocuments(!showDocuments)}
-									className="h-8 px-3 text-xs md:text-sm hover:bg-muted"
-								>
-									{showDocuments ? "Hide" : "Show"}
-								</Button>
-							</div>
+							{(() => {
+								const isLocked = meetingDetails?.isDocumentOrderLocked ?? false
+								const isPrincipal = meetingDetails?.createdBy.id === session?.user?.id
+								
+								return (
+									<>
+										<div className="flex items-center gap-2">
+											<div className="flex h-7 w-7 md:h-8 md:w-8 items-center justify-center rounded-lg bg-primary/10">
+												<FileText className="size-4 md:size-5 text-primary" />
+											</div>
+											<span className="text-sm md:text-base font-semibold">Documents ({documents.length})</span>
+											{/* Locked State Indicator */}
+											{isLocked && (
+												<div className="flex items-center gap-1.5 rounded-full bg-amber-100 dark:bg-amber-900/30 px-2.5 py-1 border border-amber-300 dark:border-amber-700">
+													<Lock className="size-3 text-amber-700 dark:text-amber-400" />
+													<span className="text-[11px] font-semibold text-amber-700 dark:text-amber-400">Order Locked</span>
+												</div>
+											)}
+										</div>
+										<div className="flex items-center gap-2">
+											<Button
+												variant="ghost"
+												size="sm"
+												onClick={() => {
+													if (isPrincipal && meetingId) {
+														toggleLockMutation.mutate({
+															meetingId,
+															isLocked: !isLocked
+														})
+													}
+												}}
+												disabled={!isPrincipal || toggleLockMutation.isPending}
+												className={cn(
+													"h-8 px-3 text-xs md:text-sm hover:bg-muted",
+													isLocked && "bg-amber-50 dark:bg-amber-900/20 hover:bg-amber-100 dark:hover:bg-amber-900/30",
+													!isPrincipal && "opacity-50 cursor-not-allowed"
+												)}
+												title={
+													!isPrincipal 
+														? "Only the meeting creator (principal) can lock/unlock documents" 
+														: isLocked 
+															? "Unlock document order - allows reordering" 
+															: "Lock document order - enforces sequential signing"
+												}
+											>
+												{isLocked ? (
+													<>
+														<Lock className="size-3.5 mr-1.5" />
+														Locked
+													</>
+												) : (
+													<>
+														<Unlock className="size-3.5 mr-1.5" />
+														Unlocked
+													</>
+												)}
+											</Button>
+											<Button
+												variant="ghost"
+												size="sm"
+												onClick={() => setShowDocuments(!showDocuments)}
+												className="h-8 px-3 text-xs md:text-sm hover:bg-muted"
+											>
+												{showDocuments ? "Hide" : "Show"}
+											</Button>
+										</div>
+									</>
+								)
+							})()}
 						</div>
 						{/* Locked State Banner - Show explanation when locked */}
-						{isLocked && showDocuments && (
-							<div className="bg-amber-50 dark:bg-amber-900/10 border-b border-amber-200 dark:border-amber-800 px-3 md:px-4 lg:px-6 py-2">
-								<p className="text-xs text-amber-800 dark:text-amber-300 flex items-center gap-2">
-									<Lock className="size-3.5 flex-shrink-0" />
-									<span>Documents are locked in signing order. Each document must be signed before the next one can be started.</span>
-								</p>
-							</div>
-						)}
+						{(() => {
+							const isLocked = meetingDetails?.isDocumentOrderLocked ?? false
+							return isLocked && showDocuments && (
+								<div className="bg-amber-50 dark:bg-amber-900/10 border-b border-amber-200 dark:border-amber-800 px-3 md:px-4 lg:px-6 py-2">
+									<p className="text-xs text-amber-800 dark:text-amber-300 flex items-center gap-2">
+										<Lock className="size-3.5 flex-shrink-0" />
+										<span>Documents are locked in signing order. Each document must be signed before the next one can be started.</span>
+									</p>
+								</div>
+							)
+						})()}
 						{showDocuments && (
 							<div className="overflow-y-auto max-h-[350px] px-3 md:px-4 lg:px-6 py-4">
 								<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4 transition-all duration-300">
 									{documents.map((doc, index) => {
+										const isLocked = meetingDetails?.isDocumentOrderLocked ?? false
 										const isPrincipal = meetingDetails?.createdBy.id === session?.user?.id
 										const isDragged = draggedDocumentId === doc.id
 										const isDragOver = dragOverDocumentId === doc.id
@@ -1368,7 +1556,6 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 													<DocumentActions 
 														document={doc}
 														isPrincipal={isPrincipal}
-														isENP={session?.user?.role === "ENP"}
 														onSignClick={(projectUuid, email, documentId) => {
 															// Set the document ID being signed before mutation
 															setSigningDocumentId(documentId)
@@ -1387,6 +1574,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 														isLocked={isLocked}
 														isPreviousDocumentSigned={isPreviousDocumentSigned}
 														documentIndex={index}
+														signers={documentSigningStatus.get(doc.id)?.signers}
 													/>
 												</CardContent>
 											</Card>

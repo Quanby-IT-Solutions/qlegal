@@ -5,7 +5,7 @@ import { users } from "@/services/drizzle/schema/auth"
 import { documents } from "@/services/drizzle/schema/document"
 import { envelopes } from "@/services/drizzle/schema/envelope"
 import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
-import { getProcessingCompletedProjects } from "@/services/docochain"
+import { getProcessingCompletedProjects, getProjectDetails } from "@/services/docochain"
 
 import { createEnvelopeSchema } from "./envelope-lite-schema"
 
@@ -200,8 +200,49 @@ export const envelopeLiteRouter = createTRPCRouter({
 		}),
 
 	getDocumentForViewing: protectedProcedure
-		.input(z.object({ documentId: z.string(), envelopeId: z.string() }))
+		.input(
+			z.object({
+				documentId: z.string(),
+				envelopeId: z.string().optional(),
+				projectUuid: z.string().optional(),
+			})
+		)
 		.query(async ({ ctx, input }) => {
+			// Handle DocoChain projects (when projectUuid is provided)
+			if (input.projectUuid && !input.envelopeId) {
+				try {
+					const userEmail = ctx.session.user.email
+					const projectDetails = await getProjectDetails(input.projectUuid, userEmail || undefined)
+					const projectData = projectDetails?.data
+
+					if (!projectData) {
+						throw new Error("DocoChain project not found")
+					}
+
+					// Get the signed document URL from project data
+					const signedDocumentUrl = projectData.url
+
+					if (!signedDocumentUrl) {
+						throw new Error("Signed document URL not available. Document may not be fully signed yet.")
+					}
+
+					return {
+						id: input.documentId,
+						name: projectData.file_name || projectData.name || "Signed Document",
+						url: signedDocumentUrl,
+					}
+				} catch (error) {
+					throw new Error(
+						error instanceof Error ? error.message : "Failed to load DocoChain document"
+					)
+				}
+			}
+
+			// Handle regular documents (when envelopeId is provided)
+			if (!input.envelopeId) {
+				throw new Error("Either envelopeId or projectUuid is required")
+			}
+
 			// Get document for viewing
 			const [document] = await ctx.db
 				.select()

@@ -13,8 +13,9 @@ interface DocumentPreviewDialogProps {
 	isOpen: boolean
 	onClose: () => void
 	documentId: string
-	envelopeId: string
+	envelopeId?: string | null
 	documentName: string
+	projectUuid?: string
 }
 
 // Skeleton component for loading state
@@ -51,6 +52,7 @@ export function DocumentPreviewDialog({
 	documentId,
 	envelopeId,
 	documentName,
+	projectUuid,
 }: DocumentPreviewDialogProps) {
 	const {
 		data: documentData,
@@ -58,12 +60,16 @@ export function DocumentPreviewDialog({
 		error,
 	} = trpc.envelopeLite.getDocumentForViewing.useQuery({
 		documentId,
-		envelopeId,
+		envelopeId: envelopeId || undefined,
+		projectUuid: projectUuid || undefined,
 	})
 
 	return (
 		<Dialog open={isOpen} onOpenChange={onClose}>
-			<DialogContent className="flex h-[85vh] w-[90vw] max-w-7xl flex-col overflow-hidden p-0 sm:h-[90vh] sm:w-[95vw]">
+			<DialogContent 
+				className="!flex !h-[96vh] !w-[96vw] !max-w-none flex-col overflow-hidden !p-0 !m-0 !rounded-lg !gap-0"
+				style={{ maxWidth: '96vw' }}
+			>
 				<DialogHeader className="bg-background flex shrink-0 flex-row items-center justify-between border-b p-4">
 					<div className="flex items-center gap-3">
 						<div className="bg-muted rounded-lg p-2">

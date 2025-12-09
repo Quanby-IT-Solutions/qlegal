@@ -1,6 +1,5 @@
 "use client"
 
-import Link from "next/link"
 import { useMemo, useState } from "react"
 import { CheckCircle2, FileText, LayoutGrid, List, Search } from "lucide-react"
 
@@ -11,6 +10,8 @@ import { Input } from "@/core/components/ui/input"
 import { ToggleGroup, ToggleGroupItem } from "@/core/components/ui/toggle-group"
 
 import { trpc } from "@/services/trpc/client"
+
+import { DocumentPreviewDialog } from "./document-preview-dialog"
 
 type ViewMode = "grid" | "list"
 
@@ -34,6 +35,12 @@ function formatDate(date: Date | string): string {
 export function CompletedDocumentsPage() {
 	const [searchQuery, setSearchQuery] = useState("")
 	const [viewMode, setViewMode] = useState<ViewMode>("grid")
+	const [previewDocument, setPreviewDocument] = useState<{
+		documentId: string
+		envelopeId: string | null
+		documentName: string
+		projectUuid?: string
+	} | null>(null)
 
 	const { data: completedDocuments, isPending, error } = trpc.envelopeLite.getCompletedDocuments.useQuery()
 
@@ -185,11 +192,20 @@ export function CompletedDocumentsPage() {
 										<span className="font-medium">{doc.type}</span>
 									</div>
 									<div className="pt-2 border-t">
-										<Link href={`/envelope/${doc.envelopeId}`}>
-											<Button variant="outline" className="w-full">
-												View Envelope
-											</Button>
-										</Link>
+										<Button
+											variant="outline"
+											className="w-full"
+											onClick={() =>
+												setPreviewDocument({
+													documentId: doc.id,
+													envelopeId: doc.envelopeId,
+													documentName: doc.name,
+													projectUuid: (doc as any).projectUuid || (doc as any).docoChainProjectId,
+												})
+											}
+										>
+											View Document
+										</Button>
 									</div>
 								</CardContent>
 							</Card>
@@ -232,9 +248,19 @@ export function CompletedDocumentsPage() {
 												<div className="text-muted-foreground">Type</div>
 												<div className="font-medium mt-1">{doc.type}</div>
 											</div>
-											<Link href={`/envelope/${doc.envelopeId}`}>
-												<Button variant="outline">View</Button>
-											</Link>
+											<Button
+												variant="outline"
+												onClick={() =>
+													setPreviewDocument({
+														documentId: doc.id,
+														envelopeId: doc.envelopeId,
+														documentName: doc.name,
+														projectUuid: (doc as any).projectUuid || (doc as any).docoChainProjectId,
+													})
+												}
+											>
+												View Document
+											</Button>
 										</div>
 									</div>
 								</CardContent>
@@ -243,6 +269,18 @@ export function CompletedDocumentsPage() {
 					</div>
 				)}
 			</div>
+
+			{/* Document Preview Dialog */}
+			{previewDocument && (
+				<DocumentPreviewDialog
+					isOpen={!!previewDocument}
+					onClose={() => setPreviewDocument(null)}
+					documentId={previewDocument.documentId}
+					envelopeId={previewDocument.envelopeId}
+					documentName={previewDocument.documentName}
+					projectUuid={previewDocument.projectUuid}
+				/>
+			)}
 		</div>
 	)
 }
