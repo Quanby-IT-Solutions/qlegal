@@ -19,7 +19,6 @@ import { createKycLink, checkKycStatus } from "../_api/actions"
 interface KycLinkResult {
 	transactionId: string
 	url: string
-	expiry: string
 }
 
 interface KycStatusResult {
@@ -209,10 +208,6 @@ export function KycTestForm() {
 							{copied && (
 								<p className="text-sm text-green-600">Link copied to clipboard!</p>
 							)}
-						</div>
-
-						<div className="text-sm text-green-700">
-							<p>Link expires: {new Date(linkResult.expiry).toLocaleString()}</p>
 						</div>
 
 						<Button

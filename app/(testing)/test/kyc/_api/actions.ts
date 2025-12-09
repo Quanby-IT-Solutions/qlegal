@@ -38,11 +38,10 @@ export async function createKycLink(formData: FormData) {
 	const config: OnboardLinkConfig = {
 		transactionId,
 		redirectUrl: redirectUrl || undefined,
+		// Provide optional workflow inputs instead of unsupported 'metadata'
 		inputs: {
 			email,
-			...(name && { name }),
-		},
-		customFields: {
+			...(name ? { name } : {}),
 			createdAt: new Date().toISOString(),
 			source: "qsign-test-page",
 		},
@@ -57,8 +56,7 @@ export async function createKycLink(formData: FormData) {
 			success: true,
 			data: {
 				transactionId,
-				url: result.result.url,
-				expiry: result.result.expiry,
+				url: result.result.startKycUrl,
 			},
 		}
 	} catch (error) {

@@ -21,9 +21,9 @@ export const env = createEnv({
 		EMAIL_PORT: z.coerce.number(),
 		EMAIL_USER: z.string(),
 		HYPERVERGE_API_URL: z.string().optional(),
-		HYPERVERGE_APP_ID: z.string().optional(),
-		HYPERVERGE_APP_KEY: z.string().optional(),
-		HYPERVERGE_WORKFLOW_ID: z.string().optional(),
+		HYPERVERGE_APP_ID: z.string(),
+		HYPERVERGE_APP_KEY: z.string(),
+		HYPERVERGE_WORKFLOW_ID: z.string(),
 		NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
 
 		PORT: process.env.PORT ? z.coerce.number() : z.coerce.number().default(3000),
