@@ -37,6 +37,11 @@ export function KycTestForm() {
 	const [statusResult, setStatusResult] = useState<KycStatusResult | null>(null)
 	const [error, setError] = useState<string | null>(null)
 	const [copied, setCopied] = useState(false)
+	const [autoOpen, setAutoOpen] = useState(true)
+	const [autoPoll, setAutoPoll] = useState(true)
+	const [polling, setPolling] = useState(false)
+	const [pollIntervalMs, setPollIntervalMs] = useState(5000)
+	const [pollId, setPollId] = useState<number | null>(null)
 
 	const handleCreateLink = (formData: FormData) => {
 		setError(null)
@@ -47,6 +52,15 @@ export function KycTestForm() {
 			const result = await createKycLink(formData)
 			if (result.success && result.data) {
 				setLinkResult(result.data)
+				// Auto-open the KYC link in a new tab for smoother flow
+				if (autoOpen && result.data.url) {
+					window.open(result.data.url, "_blank", "noopener,noreferrer")
+				}
+
+				// Start auto-polling the status until completion/decision
+				if (autoPoll && result.data.transactionId) {
+					startPolling(result.data.transactionId)
+				}
 			} else {
 				setError(result.error || "Failed to create KYC link")
 			}
@@ -63,10 +77,40 @@ export function KycTestForm() {
 			const result = await checkKycStatus(linkResult.transactionId)
 			if (result.success && result.data) {
 				setStatusResult(result.data)
+				// Stop polling if complete or decided
+				if (result.data.isComplete || result.data.isApproved || result.data.needsReview || result.data.status === "auto_declined") {
+					stopPolling()
+				}
 			} else {
 				setError(result.error || "Failed to check KYC status")
 			}
 		})
+	}
+
+	const startPolling = (transactionId: string) => {
+		if (polling) return
+		setPolling(true)
+		const id = window.setInterval(async () => {
+			const result = await checkKycStatus(transactionId)
+			if (result.success && result.data) {
+				setStatusResult(result.data)
+				if (result.data.isComplete || result.data.isApproved || result.data.needsReview || result.data.status === "auto_declined") {
+					stopPolling()
+				}
+			} else {
+				// Stop polling on error to avoid tight loops
+				stopPolling()
+			}
+		}, pollIntervalMs)
+		setPollId(id)
+	}
+
+	const stopPolling = () => {
+		if (pollId) {
+			window.clearInterval(pollId)
+			setPollId(null)
+		}
+		setPolling(false)
 	}
 
 	const handleCopyLink = async () => {
@@ -95,6 +139,31 @@ export function KycTestForm() {
 
 	return (
 		<div className="space-y-6">
+			{/* Flow Settings */}
+			<Card>
+				<CardHeader>
+					<CardTitle>Flow Settings</CardTitle>
+					<CardDescription>Control how the KYC flow behaves</CardDescription>
+				</CardHeader>
+				<CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+					<div className="flex items-center justify-between gap-4">
+						<Label htmlFor="autoOpen">Auto-open link</Label>
+						<Input id="autoOpen" type="checkbox" checked={autoOpen} onChange={(e) => setAutoOpen(e.target.checked)} className="w-5 h-5" />
+					</div>
+					<div className="flex items-center justify-between gap-4">
+						<Label htmlFor="autoPoll">Auto-poll status</Label>
+						<Input id="autoPoll" type="checkbox" checked={autoPoll} onChange={(e) => setAutoPoll(e.target.checked)} className="w-5 h-5" />
+					</div>
+					<div className="flex items-center justify-between gap-4">
+						<Label htmlFor="pollInterval">Poll interval (ms)</Label>
+						<Input id="pollInterval" type="number" min={2000} step={1000} value={pollIntervalMs} onChange={(e) => setPollIntervalMs(Number(e.target.value) || 5000)} />
+					</div>
+					<div className="flex items-center justify-between gap-4">
+						<Label>Status polling</Label>
+						<p className={polling ? "text-green-600" : "text-gray-400"}>{polling ? "Active" : "Idle"}</p>
+					</div>
+				</CardContent>
+			</Card>
 			{/* Create KYC Link Form */}
 			<Card>
 				<CardHeader>
@@ -204,6 +273,9 @@ export function KycTestForm() {
 										<ExternalLink className="h-4 w-4" />
 									</a>
 								</Button>
+								{autoOpen && (
+									<p className="text-xs text-muted-foreground">Auto-opened in a new tab</p>
+								)}
 							</div>
 							{copied && (
 								<p className="text-sm text-green-600">Link copied to clipboard!</p>
@@ -225,6 +297,12 @@ export function KycTestForm() {
 								"Check KYC Status"
 							)}
 						</Button>
+
+						{polling ? (
+							<Button variant="ghost" onClick={stopPolling} className="w-full">Stop Auto-Polling</Button>
+						) : (
+							<Button variant="ghost" onClick={() => linkResult?.transactionId && startPolling(linkResult.transactionId)} className="w-full">Start Auto-Polling</Button>
+						)}
 					</CardContent>
 				</Card>
 			)}
