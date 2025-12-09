@@ -8,7 +8,7 @@ import { meetings, meetingParticipants } from "@/services/drizzle/schema/meeting
 import { getServiceRoleClient } from "@/services/supabase"
 import { createMeetingRoom, generateMeetingToken } from "@/services/video-sdk"
 import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
-import { createDocoChainProject } from "@/services/docochain"
+import { createDocoChainProject, addSignerToProject } from "@/services/docochain"
 
 export const meetingsRouter = createTRPCRouter({
 	// Create a new meeting
@@ -354,6 +354,11 @@ export const meetingsRouter = createTRPCRouter({
 				console.log("   - Project ID:", docoChainProject.id)
 				console.log("   - Redirect URL:", docoChainRedirectUrl)
 
+				// STEP 1.5: Don't add any signers yet
+				// Signers will be added dynamically when they click "Start Signing"
+				// This ensures each signer only sees themselves + creator when plotting
+				console.log("ℹ️ Signers will be added dynamically when they click 'Start Signing'")
+
 				// STEP 2: Create document record in database with DocoChain project UUID
 				const [document] = await db
 					.insert(documents)
@@ -510,6 +515,49 @@ export const meetingsRouter = createTRPCRouter({
 			)
 
 			return { success: true }
+		}),
+
+	// Toggle document order lock
+	toggleDocumentOrderLock: protectedProcedure
+		.input(
+			z.object({
+				meetingId: z.string(),
+				isLocked: z.boolean(),
+			})
+		)
+		.mutation(async ({ input, ctx }) => {
+			const meeting = await db.query.meetings.findFirst({
+				where: eq(meetings.id, input.meetingId),
+			})
+
+			if (!meeting) {
+				throw new TRPCError({
+					code: "NOT_FOUND",
+					message: "Meeting not found",
+				})
+			}
+
+			// Only the meeting creator (principal) can toggle the lock
+			if (meeting.createdById !== ctx.session.user.id) {
+				throw new TRPCError({
+					code: "FORBIDDEN",
+					message: "Only the meeting creator can lock/unlock document order",
+				})
+			}
+
+			const [updatedMeeting] = await db
+				.update(meetings)
+				.set({ 
+					isDocumentOrderLocked: input.isLocked,
+					updatedAt: new Date() 
+				})
+				.where(eq(meetings.id, input.meetingId))
+				.returning()
+
+			return { 
+				success: true, 
+				isLocked: updatedMeeting?.isDocumentOrderLocked ?? false 
+			}
 		}),
 })
 

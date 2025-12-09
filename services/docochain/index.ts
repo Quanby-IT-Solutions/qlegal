@@ -1432,3 +1432,236 @@ export function getDocoChainSigningUrl(projectUuid: string): string {
 	return `${appBaseUrl}/${projectUuid}`
 }
 
+/**
+ * Get All Projects (Processing & Completed)
+ * Retrieves templates/projects for a specific user type, filtered by processing status
+ * API: GET https://stg-api2.doconchain.com/api/v2/templates/processing-completed
+ * 
+ * @param userEmail - Email of the user to generate token for
+ * @param options - Query parameters for filtering and pagination
+ * @returns Projects with pagination metadata
+ */
+export interface GetProcessingCompletedOptions {
+	page?: number
+	perPage?: number
+	email?: string
+	sort?: string
+	order?: "asc" | "desc"
+	status?: "processing" | "completed"
+	userItemsOnly?: boolean
+	apiIntegratedProjectsOnly?: boolean
+	getProjectsByOrganization?: boolean
+}
+
+export interface ProcessingCompletedProject {
+	id: number
+	uuid: string
+	name: string
+	status: string
+	created_at: string
+	updated_at: string
+	project_uuid?: string
+	[key: string]: unknown // Allow for additional fields
+}
+
+export interface ProcessingCompletedResponse {
+	message: string
+	data: ProcessingCompletedProject[]
+	meta?: {
+		total: number
+		per_page: number
+		first_page: number
+		last_page: number
+		current_page: number
+	}
+}
+
+export async function getProcessingCompletedProjects(
+	userEmail: string,
+	options: GetProcessingCompletedOptions = {}
+): Promise<ProcessingCompletedResponse> {
+	const {
+		page = 1,
+		perPage = 100,
+		email,
+		sort,
+		order,
+		status = "completed", // Default to completed
+		userItemsOnly = false,
+		apiIntegratedProjectsOnly = true, // Default to API-integrated only
+		getProjectsByOrganization = false,
+	} = options
+
+	console.log("🔵 Getting DocoChain processing/completed projects...")
+	console.log("   - User Email:", userEmail)
+	console.log("   - Status:", status)
+	console.log("   - Page:", page)
+	console.log("   - Per Page:", perPage)
+
+	try {
+		// Build query parameters
+		const params = new URLSearchParams({
+			user_type: "ENTERPRISE_API",
+			page: String(page),
+			per_page: String(perPage),
+			status,
+			user_items_only: userItemsOnly ? "yes" : "no",
+			api_integrated_projects_only: apiIntegratedProjectsOnly ? "yes" : "no",
+			get_projects_by_organization: getProjectsByOrganization ? "yes" : "no",
+		})
+
+		// Add optional parameters
+		if (email) {
+			params.append("email", email)
+		}
+		if (sort) {
+			params.append("sort", sort)
+		}
+		if (order) {
+			params.append("order", order)
+		}
+
+		const apiUrl = `${DOCOCHAIN_API_BASE}/api/v2/templates/processing-completed?${params.toString()}`
+		console.log("🔵 Calling DocoChain Processing/Completed API:", apiUrl)
+
+		// Use the wrapper function for automatic token refresh on 401 errors
+		const response = await makeDocoChainApiCall(
+			async (token) => {
+				return fetch(apiUrl, {
+					method: "GET",
+					headers: {
+						Authorization: `Bearer ${token}`,
+						Accept: "application/json",
+					},
+				})
+			},
+			userEmail
+		)
+
+		console.log("📡 DocoChain processing/completed response status:", response.status)
+
+		if (!response.ok) {
+			const errorText = await response.text()
+			console.error("❌ DocoChain processing/completed error:", errorText)
+			throw new Error(`DocoChain API error: ${response.status} ${response.statusText} - ${errorText}`)
+		}
+
+		const result = (await response.json()) as ProcessingCompletedResponse
+		console.log("✅ Processing/completed projects retrieved successfully")
+		console.log("   - Total items:", result.meta?.total ?? result.data?.length ?? 0)
+		console.log("   - Items in response:", result.data?.length ?? 0)
+
+		return result
+	} catch (error) {
+		console.error("❌ Error getting processing/completed projects:", error)
+		throw error
+	}
+}
+
+/**
+ * Get Projects In Vault
+ * Retrieves all completed signature request projects stored in the vault
+ * API: GET https://stg-api2.doconchain.com/vault/items
+ * 
+ * @param userEmail - Email of the user to generate token for
+ * @param options - Query parameters for filtering and pagination
+ * @returns Vault items with pagination metadata
+ */
+export interface GetVaultItemsOptions {
+	perPage?: number
+	page?: number
+	userItemsOnly?: boolean // Set to true to include only user items
+	apiIntegratedProjectsOnly?: boolean // Set to true to include only API-integrated projects
+}
+
+export interface VaultItem {
+	id: number
+	uuid: string
+	client_id: number
+	category_id: number | null
+	project_uuid: string
+	category_type: string
+	signatory_type: string
+	name: string
+	size: string
+	status: string
+	created_at: string
+	actions: string[]
+	contents: unknown[]
+}
+
+export interface VaultItemsResponse {
+	message: string
+	data: VaultItem[]
+	meta: {
+		total: number
+		per_page: number
+		first_page: number
+		last_page: number
+		current_page: number
+	}
+}
+
+export async function getVaultItems(
+	userEmail: string,
+	options: GetVaultItemsOptions = {}
+): Promise<VaultItemsResponse> {
+	const {
+		perPage = 15,
+		page = 1,
+		userItemsOnly = false,
+		apiIntegratedProjectsOnly = false,
+	} = options
+
+	console.log("🔵 Getting DocoChain vault items...")
+	console.log("   - User Email:", userEmail)
+	console.log("   - Page:", page)
+	console.log("   - Per Page:", perPage)
+
+	try {
+		// Build query parameters
+		const params = new URLSearchParams({
+			user_type: "ENTERPRISE_API",
+			per_page: String(perPage),
+			page: String(page),
+			user_items_only: userItemsOnly ? "yes" : "no",
+			api_integrated_projects_only: apiIntegratedProjectsOnly ? "yes" : "no",
+		})
+
+		const apiUrl = `${DOCOCHAIN_API_BASE}/vault/items?${params.toString()}`
+		console.log("🔵 Calling DocoChain Vault API:", apiUrl)
+
+		// Use the wrapper function for automatic token refresh on 401 errors
+		const response = await makeDocoChainApiCall(
+			async (token) => {
+				return fetch(apiUrl, {
+					method: "GET",
+					headers: {
+						Authorization: `Bearer ${token}`,
+						Accept: "application/json",
+					},
+				})
+			},
+			userEmail
+		)
+
+		console.log("📡 DocoChain vault response status:", response.status)
+
+		if (!response.ok) {
+			const errorText = await response.text()
+			console.error("❌ DocoChain vault error:", errorText)
+			throw new Error(`DocoChain API error: ${response.status} ${response.statusText} - ${errorText}`)
+		}
+
+		const result = (await response.json()) as VaultItemsResponse
+		console.log("✅ Vault items retrieved successfully")
+		console.log("   - Total items:", result.meta?.total ?? 0)
+		console.log("   - Items in response:", result.data?.length ?? 0)
+
+		return result
+	} catch (error) {
+		console.error("❌ Error getting vault items:", error)
+		throw error
+	}
+}
+

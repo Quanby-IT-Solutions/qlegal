@@ -5,6 +5,7 @@ import { users } from "@/services/drizzle/schema/auth"
 import { documents } from "@/services/drizzle/schema/document"
 import { envelopes } from "@/services/drizzle/schema/envelope"
 import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
+import { getProcessingCompletedProjects, getProjectDetails } from "@/services/docochain"
 
 import { createEnvelopeSchema } from "./envelope-lite-schema"
 
@@ -199,8 +200,49 @@ export const envelopeLiteRouter = createTRPCRouter({
 		}),
 
 	getDocumentForViewing: protectedProcedure
-		.input(z.object({ documentId: z.string(), envelopeId: z.string() }))
+		.input(
+			z.object({
+				documentId: z.string(),
+				envelopeId: z.string().optional(),
+				projectUuid: z.string().optional(),
+			})
+		)
 		.query(async ({ ctx, input }) => {
+			// Handle DocoChain projects (when projectUuid is provided)
+			if (input.projectUuid && !input.envelopeId) {
+				try {
+					const userEmail = ctx.session.user.email
+					const projectDetails = await getProjectDetails(input.projectUuid, userEmail || undefined)
+					const projectData = projectDetails?.data
+
+					if (!projectData) {
+						throw new Error("DocoChain project not found")
+					}
+
+					// Get the signed document URL from project data
+					const signedDocumentUrl = projectData.url
+
+					if (!signedDocumentUrl) {
+						throw new Error("Signed document URL not available. Document may not be fully signed yet.")
+					}
+
+					return {
+						id: input.documentId,
+						name: projectData.file_name || projectData.name || "Signed Document",
+						url: signedDocumentUrl,
+					}
+				} catch (error) {
+					throw new Error(
+						error instanceof Error ? error.message : "Failed to load DocoChain document"
+					)
+				}
+			}
+
+			// Handle regular documents (when envelopeId is provided)
+			if (!input.envelopeId) {
+				throw new Error("Either envelopeId or projectUuid is required")
+			}
+
 			// Get document for viewing
 			const [document] = await ctx.db
 				.select()
@@ -300,5 +342,70 @@ export const envelopeLiteRouter = createTRPCRouter({
 					}
 				: null,
 		}))
+	}),
+
+	getCompletedDocuments: protectedProcedure.query(async ({ ctx }) => {
+		const userEmail = ctx.session.user.email
+
+		if (!userEmail) {
+			return []
+		}
+
+		// Fetch completed projects from DocoChain processing-completed API
+		let completedProjects: Array<{
+			id: number
+			uuid: string
+			name: string
+			status: string
+			created_at: string
+			updated_at: string
+			project_uuid?: string
+		}> = []
+
+		try {
+			const response = await getProcessingCompletedProjects(userEmail, {
+				perPage: 100, // Get more items
+				page: 1,
+				status: "completed", // Only get completed projects
+				email: userEmail, // Filter by user email
+				userItemsOnly: false,
+				apiIntegratedProjectsOnly: true, // Only get API-integrated projects
+				getProjectsByOrganization: false,
+			})
+
+			completedProjects = response.data || []
+		} catch (error) {
+			// Log error but don't fail the entire query
+			console.error("Failed to fetch DocoChain completed projects:", error)
+			return []
+		}
+
+		// Transform completed projects to document-like structure
+		const completedDocuments = completedProjects.map(project => ({
+			id: `project-${project.uuid}`, // Unique ID for projects
+			name: project.name || "Untitled Document",
+			type: "application/pdf", // Default type for projects
+			size: 0, // Size not available from API
+			path: "", // No local path for projects
+			status: "SIGNED" as const,
+			docoChainProjectId: project.project_uuid || project.uuid,
+			createdAt: new Date(project.created_at),
+			updatedAt: new Date(project.updated_at || project.created_at),
+			envelopeId: null, // No local envelope for projects
+			envelope: null,
+			envelopeOwner: null,
+			// Project-specific metadata
+			projectId: project.id,
+			projectUuid: project.uuid,
+			projectCreatedAt: project.created_at,
+			isVaultOnly: true, // Flag to indicate this is from DocoChain API
+		}))
+
+		// Return as array, sorted by updatedAt (most recent first)
+		return completedDocuments.sort((a, b) => {
+			const dateA = new Date(a.updatedAt).getTime()
+			const dateB = new Date(b.updatedAt).getTime()
+			return dateB - dateA
+		})
 	}),
 })
