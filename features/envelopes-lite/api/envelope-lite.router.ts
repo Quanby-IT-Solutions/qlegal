@@ -5,7 +5,7 @@ import { users } from "@/services/drizzle/schema/auth"
 import { documents } from "@/services/drizzle/schema/document"
 import { envelopes } from "@/services/drizzle/schema/envelope"
 import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
-import { getProcessingCompletedProjects, getProjectDetails } from "@/services/docochain"
+import { getProcessingCompletedProjects, getProjectDetails, downloadSignedDocument, downloadCertificate, checkSigningStatus } from "@/services/docochain"
 
 import { createEnvelopeSchema } from "./envelope-lite-schema"
 
@@ -344,68 +344,236 @@ export const envelopeLiteRouter = createTRPCRouter({
 		}))
 	}),
 
-	getCompletedDocuments: protectedProcedure.query(async ({ ctx }) => {
-		const userEmail = ctx.session.user.email
+	getCompletedDocuments: protectedProcedure
+		.input(
+			z.object({
+				page: z.number().min(1).default(1).optional(),
+				limit: z.number().min(1).max(100).default(20).optional(),
+			})
+		)
+		.query(async ({ ctx, input }) => {
+			const userEmail = ctx.session.user.email
 
-		if (!userEmail) {
-			return []
-		}
+			if (!userEmail) {
+				return {
+					documents: [],
+					total: 0,
+					page: input.page || 1,
+					limit: input.limit || 20,
+					hasMore: false,
+				}
+			}
 
-		// Fetch completed projects from DocoChain processing-completed API
-		let completedProjects: Array<{
-			id: number
-			uuid: string
-			name: string
-			status: string
-			created_at: string
-			updated_at: string
-			project_uuid?: string
-		}> = []
+			const page = input.page || 1
+			const limit = input.limit || 20
 
-		try {
-			const response = await getProcessingCompletedProjects(userEmail, {
-				perPage: 100, // Get more items
-				page: 1,
-				status: "completed", // Only get completed projects
-				email: userEmail, // Filter by user email
-				userItemsOnly: false,
-				apiIntegratedProjectsOnly: true, // Only get API-integrated projects
-				getProjectsByOrganization: false,
+			// Fetch completed projects from DocoChain processing-completed API
+			let completedProjects: Array<{
+				id: number
+				uuid: string
+				name: string
+				status: string
+				created_at: string
+				updated_at: string
+				project_uuid?: string
+			}> = []
+
+			let totalCount = 0
+
+			try {
+				const response = await getProcessingCompletedProjects(userEmail, {
+					perPage: limit,
+					page,
+					status: "completed", // Only get completed projects
+					email: userEmail, // Filter by user email
+					userItemsOnly: false,
+					apiIntegratedProjectsOnly: true, // Only get API-integrated projects
+					getProjectsByOrganization: false,
+				})
+
+				completedProjects = response.data || []
+				// Get total count from metadata if available
+				totalCount = response.meta?.total || completedProjects.length
+			} catch (error) {
+				// Log error but don't fail the entire query
+				console.error("Failed to fetch DocoChain completed projects:", error)
+				return {
+					documents: [],
+					total: 0,
+					page,
+					limit,
+					hasMore: false,
+				}
+			}
+
+			// Transform completed projects to document-like structure
+			const completedDocuments = completedProjects.map(project => ({
+				id: `project-${project.uuid}`, // Unique ID for projects
+				name: project.name || "Untitled Document",
+				type: "application/pdf", // Default type for projects
+				size: 0, // Size not available from API
+				path: "", // No local path for projects
+				status: "SIGNED" as const,
+				docoChainProjectId: project.project_uuid || project.uuid,
+				createdAt: new Date(project.created_at),
+				updatedAt: new Date(project.updated_at || project.created_at),
+				envelopeId: null, // No local envelope for projects
+				envelope: null,
+				envelopeOwner: null,
+				// Project-specific metadata
+				projectId: project.id,
+				projectUuid: project.uuid,
+				projectCreatedAt: project.created_at,
+				isVaultOnly: true, // Flag to indicate this is from DocoChain API
+			}))
+
+			// Sort by updatedAt (most recent first)
+			const sortedDocuments = completedDocuments.sort((a, b) => {
+				const dateA = new Date(a.updatedAt).getTime()
+				const dateB = new Date(b.updatedAt).getTime()
+				return dateB - dateA
 			})
 
-			completedProjects = response.data || []
-		} catch (error) {
-			// Log error but don't fail the entire query
-			console.error("Failed to fetch DocoChain completed projects:", error)
-			return []
-		}
+			// Calculate if there are more pages
+			const hasMore = page * limit < totalCount
 
-		// Transform completed projects to document-like structure
-		const completedDocuments = completedProjects.map(project => ({
-			id: `project-${project.uuid}`, // Unique ID for projects
-			name: project.name || "Untitled Document",
-			type: "application/pdf", // Default type for projects
-			size: 0, // Size not available from API
-			path: "", // No local path for projects
-			status: "SIGNED" as const,
-			docoChainProjectId: project.project_uuid || project.uuid,
-			createdAt: new Date(project.created_at),
-			updatedAt: new Date(project.updated_at || project.created_at),
-			envelopeId: null, // No local envelope for projects
-			envelope: null,
-			envelopeOwner: null,
-			// Project-specific metadata
-			projectId: project.id,
-			projectUuid: project.uuid,
-			projectCreatedAt: project.created_at,
-			isVaultOnly: true, // Flag to indicate this is from DocoChain API
-		}))
+			return {
+				documents: sortedDocuments,
+				total: totalCount,
+				page,
+				limit,
+				hasMore,
+			}
+		}),
 
-		// Return as array, sorted by updatedAt (most recent first)
-		return completedDocuments.sort((a, b) => {
-			const dateA = new Date(a.updatedAt).getTime()
-			const dateB = new Date(b.updatedAt).getTime()
-			return dateB - dateA
-		})
-	}),
+	// Download the signed document from DocoChain
+	downloadSignedDocument: protectedProcedure
+		.input(z.object({ projectUuid: z.string().min(1, "Project UUID is required") }))
+		.query(async ({ input, ctx }) => {
+			try {
+				const userEmail = ctx.session.user.email
+
+				if (!userEmail) {
+					throw new Error("User email is required")
+				}
+
+				// First check if document is fully signed
+				const status = await checkSigningStatus(input.projectUuid, userEmail)
+
+				if (!status.isFullySigned) {
+					throw new Error(
+						`Document is not fully signed yet. Status: ${status.projectStatus}, Signed: ${status.signedCount}/${status.totalSigners}`
+					)
+				}
+
+				// Download the signed document
+				const { buffer, fileName, url } = await downloadSignedDocument(input.projectUuid, userEmail)
+
+				// Convert buffer to base64 for transmission
+				const base64 = buffer.toString("base64")
+
+				return {
+					success: true,
+					fileName,
+					documentUrl: url,
+					base64,
+					size: buffer.length,
+				}
+			} catch (error) {
+				console.error("❌ Error downloading signed document:", error)
+				throw new Error(error instanceof Error ? error.message : "Failed to download signed document")
+			}
+		}),
+
+	// Get certificate for viewing (returns URL)
+	getCertificateForViewing: protectedProcedure
+		.input(z.object({ projectUuid: z.string().min(1, "Project UUID is required") }))
+		.query(async ({ input, ctx }) => {
+			try {
+				const userEmail = ctx.session.user.email
+
+				if (!userEmail) {
+					throw new Error("User email is required")
+				}
+
+				// First check if document is fully signed
+				const status = await checkSigningStatus(input.projectUuid, userEmail)
+
+				if (!status.isFullySigned) {
+					throw new Error(
+						`Document is not fully signed yet. Status: ${status.projectStatus}, Signed: ${status.signedCount}/${status.totalSigners}`
+					)
+				}
+
+				// Get project details to find certificate URL
+				const projectDetails = await getProjectDetails(input.projectUuid, userEmail)
+				const projectData = projectDetails?.data
+
+				if (!projectData) {
+					throw new Error("DocoChain project not found")
+				}
+
+				// Try to get certificate URL from project data
+				let certificateUrl =
+					projectData.certificate_url || projectData.certificateUrl || projectData.cert_url
+
+				// If not in project data, download certificate to get URL
+				if (!certificateUrl) {
+					const certificateData = await downloadCertificate(input.projectUuid, userEmail)
+					certificateUrl = certificateData.url
+				}
+
+				if (!certificateUrl) {
+					throw new Error("Certificate URL not available. Certificate may not be ready yet.")
+				}
+
+				return {
+					id: input.projectUuid,
+					name: `${projectData.file_name || projectData.name || "Certificate"}_certificate.pdf`,
+					url: certificateUrl,
+				}
+			} catch (error) {
+				console.error("❌ Error getting certificate for viewing:", error)
+				throw new Error(error instanceof Error ? error.message : "Failed to load certificate")
+			}
+		}),
+
+	// Download the certificate of completion from DocoChain
+	downloadCertificate: protectedProcedure
+		.input(z.object({ projectUuid: z.string().min(1, "Project UUID is required") }))
+		.query(async ({ input, ctx }) => {
+			try {
+				const userEmail = ctx.session.user.email
+
+				if (!userEmail) {
+					throw new Error("User email is required")
+				}
+
+				// First check if document is fully signed
+				const status = await checkSigningStatus(input.projectUuid, userEmail)
+
+				if (!status.isFullySigned) {
+					throw new Error(
+						`Document is not fully signed yet. Status: ${status.projectStatus}, Signed: ${status.signedCount}/${status.totalSigners}`
+					)
+				}
+
+				// Download the certificate
+				const { buffer, fileName, url } = await downloadCertificate(input.projectUuid, userEmail)
+
+				// Convert buffer to base64 for transmission
+				const base64 = buffer.toString("base64")
+
+				return {
+					success: true,
+					fileName,
+					certificateUrl: url,
+					base64,
+					size: buffer.length,
+				}
+			} catch (error) {
+				console.error("❌ Error downloading certificate:", error)
+				throw new Error(error instanceof Error ? error.message : "Failed to download certificate")
+			}
+		}),
 })
