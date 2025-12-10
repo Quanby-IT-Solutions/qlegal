@@ -1,7 +1,8 @@
 "use client"
 
-import { useMemo, useState } from "react"
-import { CheckCircle2, FileText, LayoutGrid, List, Search } from "lucide-react"
+import { useEffect, useMemo, useState } from "react"
+import { Award, CheckCircle2, Download, FileText, LayoutGrid, List, RefreshCw, Search } from "lucide-react"
+import { toast } from "sonner"
 
 import { Badge } from "@/core/components/ui/badge"
 import { Button } from "@/core/components/ui/button"
@@ -11,6 +12,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/core/components/ui/toggle-group"
 
 import { trpc } from "@/services/trpc/client"
 
+import { CertificatePreviewDialog } from "./certificate-preview-dialog"
 import { DocumentPreviewDialog } from "./document-preview-dialog"
 
 type ViewMode = "grid" | "list"
@@ -35,14 +37,126 @@ function formatDate(date: Date | string): string {
 export function CompletedDocumentsPage() {
 	const [searchQuery, setSearchQuery] = useState("")
 	const [viewMode, setViewMode] = useState<ViewMode>("grid")
+	const [page, setPage] = useState(1)
+	const [limit] = useState(20) // Fixed limit per page
 	const [previewDocument, setPreviewDocument] = useState<{
 		documentId: string
 		envelopeId: string | null
 		documentName: string
 		projectUuid?: string
 	} | null>(null)
+	const [previewCertificate, setPreviewCertificate] = useState<{
+		projectUuid: string
+		certificateName: string
+	} | null>(null)
+	const [downloadingProjectUuid, setDownloadingProjectUuid] = useState<string | null>(null)
 
-	const { data: completedDocuments, isPending, error } = trpc.envelopeLite.getCompletedDocuments.useQuery()
+	const utils = trpc.useUtils()
+
+	const {
+		data: completedData,
+		isPending,
+		error,
+		refetch,
+		isRefetching,
+	} = trpc.envelopeLite.getCompletedDocuments.useQuery(
+		{ page, limit },
+		{
+			// Cache configuration for better performance
+			staleTime: 1000 * 60 * 5, // 5 minutes - data is considered fresh for 5 minutes
+			gcTime: 1000 * 60 * 10, // 10 minutes - keep in cache for 10 minutes
+			refetchOnWindowFocus: false, // Don't refetch when window regains focus
+			refetchOnMount: false, // Don't refetch on mount if data is fresh
+			refetchOnReconnect: true, // Only refetch on reconnect
+		}
+	)
+
+	const completedDocuments = completedData?.documents || []
+	const total = completedData?.total || 0
+	const hasMore = completedData?.hasMore || false
+
+	// Handle manual refresh
+	const handleRefresh = async () => {
+		// Invalidate cache and refetch
+		await utils.envelopeLite.getCompletedDocuments.invalidate()
+		await refetch()
+	}
+
+	// Download signed document query
+	const downloadDocumentQuery = trpc.envelopeLite.downloadSignedDocument.useQuery(
+		{ projectUuid: downloadingProjectUuid || "" },
+		{
+			enabled: !!downloadingProjectUuid,
+		}
+	)
+
+	// Handle download result
+	useEffect(() => {
+		if (downloadDocumentQuery.data && downloadingProjectUuid) {
+			try {
+				const result = downloadDocumentQuery.data
+				if (result?.base64) {
+					// Convert base64 to blob
+					const byteCharacters = atob(result.base64)
+					const byteNumbers = new Array(byteCharacters.length)
+					for (let i = 0; i < byteCharacters.length; i++) {
+						byteNumbers[i] = byteCharacters.charCodeAt(i)
+					}
+					const byteArray = new Uint8Array(byteNumbers)
+					const blob = new Blob([byteArray], { type: "application/pdf" })
+
+					// Create download link
+					const url = window.URL.createObjectURL(blob)
+					const link = document.createElement("a")
+					link.href = url
+					link.download = result.fileName || "signed-document.pdf"
+					link.style.display = "none"
+
+					document.body.appendChild(link)
+					link.click()
+					document.body.removeChild(link)
+
+					// Clean up
+					window.URL.revokeObjectURL(url)
+					toast.success("Document downloaded successfully")
+				} else {
+					toast.error("Failed to get document data")
+				}
+			} catch (error) {
+				console.error("Download failed:", error)
+				toast.error("Failed to download document")
+			} finally {
+				setDownloadingProjectUuid(null)
+			}
+		}
+
+		if (downloadDocumentQuery.error && downloadingProjectUuid) {
+			console.error("Download failed:", downloadDocumentQuery.error)
+			toast.error(downloadDocumentQuery.error.message || "Failed to download document")
+			setDownloadingProjectUuid(null)
+		}
+	}, [downloadDocumentQuery.data, downloadDocumentQuery.error, downloadingProjectUuid])
+
+	// Handle download button click
+	const handleDownload = (projectUuid: string) => {
+		if (!projectUuid) {
+			toast.error("Project UUID is required")
+			return
+		}
+		setDownloadingProjectUuid(projectUuid)
+	}
+
+	// Handle certificate view button click
+	const handleViewCertificate = (projectUuid: string, documentName: string) => {
+		if (!projectUuid) {
+			toast.error("Project UUID is required")
+			return
+		}
+		setPreviewCertificate({
+			projectUuid,
+			certificateName: `${documentName} - Certificate`,
+		})
+	}
 
 	// Filter and search documents
 	const filteredDocuments = useMemo(() => {
@@ -119,7 +233,25 @@ export function CompletedDocumentsPage() {
 									<List className="h-4 w-4" />
 								</ToggleGroupItem>
 							</ToggleGroup>
+
+							{/* Refresh Button */}
+							<Button
+								variant="outline"
+								size="icon"
+								onClick={handleRefresh}
+								disabled={isRefetching}
+								title="Refresh documents"
+							>
+								<RefreshCw className={`h-4 w-4 ${isRefetching ? "animate-spin" : ""}`} />
+							</Button>
 						</div>
+
+						{/* Results count */}
+						{!isPending && total > 0 && (
+							<div className="text-muted-foreground text-sm">
+								Showing {completedDocuments.length} of {total} documents
+							</div>
+						)}
 					</div>
 				</div>
 			</div>
@@ -191,7 +323,7 @@ export function CompletedDocumentsPage() {
 										<span className="text-muted-foreground">Type:</span>
 										<span className="font-medium">{doc.type}</span>
 									</div>
-									<div className="pt-2 border-t">
+									<div className="pt-2 border-t space-y-2">
 										<Button
 											variant="outline"
 											className="w-full"
@@ -204,8 +336,41 @@ export function CompletedDocumentsPage() {
 												})
 											}
 										>
+											<FileText className="mr-2 h-4 w-4" />
 											View Document
 										</Button>
+										<div className="flex gap-2">
+											<Button
+												variant="outline"
+												size="sm"
+												className="flex-1"
+												onClick={() => {
+													const projectUuid = (doc as any).projectUuid || (doc as any).docoChainProjectId
+													if (projectUuid) {
+														handleDownload(projectUuid)
+													}
+												}}
+												disabled={!((doc as any).projectUuid || (doc as any).docoChainProjectId) || downloadingProjectUuid === ((doc as any).projectUuid || (doc as any).docoChainProjectId)}
+											>
+												<Download className="mr-2 h-4 w-4" />
+												{downloadingProjectUuid === ((doc as any).projectUuid || (doc as any).docoChainProjectId) ? "Downloading..." : "Download"}
+											</Button>
+											<Button
+												variant="outline"
+												size="sm"
+												className="flex-1"
+												onClick={() => {
+													const projectUuid = (doc as any).projectUuid || (doc as any).docoChainProjectId
+													if (projectUuid) {
+														handleViewCertificate(projectUuid, doc.name)
+													}
+												}}
+												disabled={!((doc as any).projectUuid || (doc as any).docoChainProjectId)}
+											>
+												<Award className="mr-2 h-4 w-4" />
+												Certificate
+											</Button>
+										</div>
 									</div>
 								</CardContent>
 							</Card>
@@ -248,24 +413,83 @@ export function CompletedDocumentsPage() {
 												<div className="text-muted-foreground">Type</div>
 												<div className="font-medium mt-1">{doc.type}</div>
 											</div>
-											<Button
-												variant="outline"
-												onClick={() =>
-													setPreviewDocument({
-														documentId: doc.id,
-														envelopeId: doc.envelopeId,
-														documentName: doc.name,
-														projectUuid: (doc as any).projectUuid || (doc as any).docoChainProjectId,
-													})
-												}
-											>
-												View Document
-											</Button>
+											<div className="flex items-center gap-2">
+												<Button
+													variant="outline"
+													size="sm"
+													onClick={() =>
+														setPreviewDocument({
+															documentId: doc.id,
+															envelopeId: doc.envelopeId,
+															documentName: doc.name,
+															projectUuid: (doc as any).projectUuid || (doc as any).docoChainProjectId,
+														})
+													}
+												>
+													<FileText className="mr-2 h-4 w-4" />
+													View
+												</Button>
+												<Button
+													variant="outline"
+													size="sm"
+													onClick={() => {
+														const projectUuid = (doc as any).projectUuid || (doc as any).docoChainProjectId
+														if (projectUuid) {
+															handleDownload(projectUuid)
+														}
+													}}
+													disabled={!((doc as any).projectUuid || (doc as any).docoChainProjectId) || downloadingProjectUuid === ((doc as any).projectUuid || (doc as any).docoChainProjectId)}
+												>
+													<Download className="mr-2 h-4 w-4" />
+													{downloadingProjectUuid === ((doc as any).projectUuid || (doc as any).docoChainProjectId) ? "..." : "Download"}
+												</Button>
+												<Button
+													variant="outline"
+													size="sm"
+													onClick={() => {
+														const projectUuid = (doc as any).projectUuid || (doc as any).docoChainProjectId
+														if (projectUuid) {
+															handleViewCertificate(projectUuid, doc.name)
+														}
+													}}
+													disabled={!((doc as any).projectUuid || (doc as any).docoChainProjectId)}
+												>
+													<Award className="mr-2 h-4 w-4" />
+													Certificate
+												</Button>
+											</div>
 										</div>
 									</div>
 								</CardContent>
 							</Card>
 						))}
+					</div>
+				)}
+
+				{/* Pagination Controls */}
+				{!isPending && filteredDocuments.length > 0 && (
+					<div className="mt-8 flex items-center justify-between border-t pt-6">
+						<div className="text-muted-foreground text-sm">
+							Page {page} • {total > 0 ? `Showing ${(page - 1) * limit + 1}-${Math.min(page * limit, total)} of ${total}` : "No documents"}
+						</div>
+						<div className="flex items-center gap-2">
+							<Button
+								variant="outline"
+								size="sm"
+								onClick={() => setPage(p => Math.max(1, p - 1))}
+								disabled={page === 1 || isPending}
+							>
+								Previous
+							</Button>
+							<Button
+								variant="outline"
+								size="sm"
+								onClick={() => setPage(p => p + 1)}
+								disabled={!hasMore || isPending}
+							>
+								Next
+							</Button>
+						</div>
 					</div>
 				)}
 			</div>
@@ -279,6 +503,16 @@ export function CompletedDocumentsPage() {
 					envelopeId={previewDocument.envelopeId}
 					documentName={previewDocument.documentName}
 					projectUuid={previewDocument.projectUuid}
+				/>
+			)}
+
+			{/* Certificate Preview Dialog */}
+			{previewCertificate && (
+				<CertificatePreviewDialog
+					isOpen={!!previewCertificate}
+					onClose={() => setPreviewCertificate(null)}
+					projectUuid={previewCertificate.projectUuid}
+					certificateName={previewCertificate.certificateName}
 				/>
 			)}
 		</div>
