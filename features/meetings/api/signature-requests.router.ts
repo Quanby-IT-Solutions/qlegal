@@ -593,12 +593,13 @@ export const signatureRequestsRouter = createTRPCRouter({
 			const { projectUuid } = input
 
 			try {
-				// Get the document to find the meeting creator
+				// Get the document to find the creator (could be from meeting or envelope)
 				const document = await db.query.documents.findFirst({
 					where: eq(documents.docoChainProjectId, projectUuid),
 					columns: {
 						id: true,
 						meetingId: true,
+						envelopeId: true,
 					},
 					with: {
 						meeting: {
@@ -613,16 +614,58 @@ export const signatureRequestsRouter = createTRPCRouter({
 								},
 							},
 						},
+						envelope: {
+							columns: {
+								userId: true,
+							},
+							with: {
+								user: {
+									columns: {
+										email: true,
+									},
+								},
+							},
+						},
 					},
 				})
 
-				// Get creator's email from the meeting
-				const creatorEmail = document?.meeting?.createdBy?.email || ctx.session.user.email || undefined
+				// Try to get creator's email from meeting first, then envelope, then fallback to session user
+				let creatorEmail = document?.meeting?.createdBy?.email || 
+				                  document?.envelope?.user?.email || 
+				                  ctx.session.user.email || 
+				                  undefined
 
-				const status = await checkSigningStatus(projectUuid, creatorEmail)
-				return status
+				// Try checking status with the creator email
+				try {
+					const status = await checkSigningStatus(projectUuid, creatorEmail)
+					return status
+				} catch (statusError) {
+					// If we get "not part of project" error, try with session user's email as fallback
+					if (statusError instanceof Error && statusError.message.includes("not part of this project")) {
+						console.warn("⚠️ Creator email doesn't have access, trying session user email...")
+						// Only try session user if it's different from creator
+						if (ctx.session.user.email && ctx.session.user.email !== creatorEmail) {
+							try {
+								const status = await checkSigningStatus(projectUuid, ctx.session.user.email)
+								return status
+							} catch (fallbackError) {
+								// If both fail, throw the original error
+								throw statusError
+							}
+						}
+					}
+					// Re-throw if it's not a "not part of project" error
+					throw statusError
+				}
 			} catch (error) {
 				console.error("❌ Error checking signing status:", error)
+				// If it's a "not part of project" error, return a more user-friendly message
+				if (error instanceof Error && error.message.includes("not part of this project")) {
+					throw new TRPCError({
+						code: "FORBIDDEN",
+						message: "You don't have access to check the status of this project. The project may have been created by a different user.",
+					})
+				}
 				throw new TRPCError({
 					code: "INTERNAL_SERVER_ERROR",
 					message: error instanceof Error ? error.message : "Failed to check signing status",
