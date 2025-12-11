@@ -13,12 +13,16 @@ import { env } from "@/env"
 
 // HyperVerge API Configuration
 // Prefer explicit full URLs if provided; otherwise, use documented defaults
-const HYPERVERGE_API_START_URL =
-	process.env.HYPERVERGE_API_START_URL ||
-	`${(env.HYPERVERGE_API_URL || "https://ind.idv.hyperverge.co").replace(/\/$/, "")}/v1/link-kyc/start`
-const HYPERVERGE_API_RESULTS_URL =
-	process.env.HYPERVERGE_API_RESULTS_URL ||
-	`${(env.HYPERVERGE_API_URL || "https://ind.idv.hyperverge.co").replace(/\/$/, "")}/v1/link-kyc/results`
+const DEFAULT_BASE_URL = "https://ind.idv.hyperverge.co"
+const CONFIGURED_BASE_URL = (env.HYPERVERGE_API_URL || DEFAULT_BASE_URL).replace(/\/$/, "")
+const FALLBACK_BASE_URL = DEFAULT_BASE_URL
+
+const HYPERVERGE_API_START_URL_PRIMARY = `${CONFIGURED_BASE_URL}/v1/link-kyc/start`
+// Output API per docs: https://ind.idv.hyperverge.co/v1/output
+const HYPERVERGE_API_RESULTS_URL_PRIMARY = `${CONFIGURED_BASE_URL}/v1/output`
+
+const HYPERVERGE_API_START_URL_FALLBACK = `${FALLBACK_BASE_URL}/v1/link-kyc/start`
+const HYPERVERGE_API_RESULTS_URL_FALLBACK = `${FALLBACK_BASE_URL}/v1/output`
 const HYPERVERGE_APP_ID = env.HYPERVERGE_APP_ID || ""
 const HYPERVERGE_APP_KEY = env.HYPERVERGE_APP_KEY || ""
 const HYPERVERGE_WORKFLOW_ID = env.HYPERVERGE_WORKFLOW_ID || ""
@@ -70,6 +74,8 @@ export interface OnboardLinkResponse {
 	result: {
 		/** The onboard link URL to send to the customer (startKycUrl) */
 		startKycUrl: string
+		/** The transaction ID returned by HyperVerge (might differ from input) */
+		transactionId?: string
 	}
 }
 
@@ -120,18 +126,47 @@ export async function createOnboardLink(config: OnboardLinkConfig): Promise<Onbo
 	if (config.email) requestBody.email = config.email
 
 	console.log("   - Workflow ID:", workflowId)
-	console.log("   - API URL:", HYPERVERGE_API_START_URL)
+	console.log("   - Primary API URL:", HYPERVERGE_API_START_URL_PRIMARY)
 
 	try {
-		const response = await fetch(HYPERVERGE_API_START_URL, {
-			method: "POST",
-			headers: {
-				"Content-Type": "application/json",
-				appId: HYPERVERGE_APP_ID,
-				appKey: HYPERVERGE_APP_KEY,
-			},
-			body: JSON.stringify(requestBody),
-		})
+		let response: Response
+		try {
+			response = await fetch(HYPERVERGE_API_START_URL_PRIMARY, {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					appId: HYPERVERGE_APP_ID,
+					appKey: HYPERVERGE_APP_KEY,
+				},
+				body: JSON.stringify(requestBody),
+			})
+		} catch (networkErr) {
+			console.warn("⚠️ Primary create link fetch failed (network)", networkErr)
+			console.log("   - Trying fallback API URL:", HYPERVERGE_API_START_URL_FALLBACK)
+			response = await fetch(HYPERVERGE_API_START_URL_FALLBACK, {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					appId: HYPERVERGE_APP_ID,
+					appKey: HYPERVERGE_APP_KEY,
+				},
+				body: JSON.stringify(requestBody),
+			})
+		}
+
+		// Handle DNS/network failures by retrying against fallback base URL
+		if (!response.ok && (response.status === 404 || response.status === 502)) {
+			console.log("   - Trying fallback API URL:", HYPERVERGE_API_START_URL_FALLBACK)
+			response = await fetch(HYPERVERGE_API_START_URL_FALLBACK, {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					appId: HYPERVERGE_APP_ID,
+					appKey: HYPERVERGE_APP_KEY,
+				},
+				body: JSON.stringify(requestBody),
+			})
+		}
 
 		const responseText = await response.text()
 		console.log("📡 HyperVerge API response status:", response.status)
@@ -175,29 +210,77 @@ export interface TransactionStatusResponse {
  * Get the status of a KYC transaction
  * 
  * @param transactionId - The transaction ID to check
+ * @param retryCount - Number of retries (for internal use)
  * @returns The transaction status details
  */
-export async function getTransactionStatus(transactionId: string): Promise<TransactionStatusResponse> {
+export async function getTransactionStatus(
+	transactionId: string,
+	retryCount = 0
+): Promise<TransactionStatusResponse> {
 	console.log("🔵 Getting HyperVerge transaction status...")
 	console.log("   - Transaction ID:", transactionId)
+	console.log("   - Retry attempt:", retryCount)
 
 	validateCredentials()
 
 	try {
-		const url = `${HYPERVERGE_API_RESULTS_URL}?transactionId=${encodeURIComponent(transactionId)}`
-		const response = await fetch(url, {
-			method: "GET",
-			headers: {
-				appId: HYPERVERGE_APP_ID,
-				appKey: HYPERVERGE_APP_KEY,
-			},
-		})
+		console.log("   - Primary Request URL:", HYPERVERGE_API_RESULTS_URL_PRIMARY)
+        
+		// HyperVerge Output API uses POST with transactionId in body
+		let response: Response
+		try {
+			response = await fetch(HYPERVERGE_API_RESULTS_URL_PRIMARY, {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					appId: HYPERVERGE_APP_ID,
+					appKey: HYPERVERGE_APP_KEY,
+				},
+				body: JSON.stringify({ transactionId }),
+			})
+		} catch (networkErr) {
+			console.warn("⚠️ Primary status fetch failed (network)", networkErr)
+			console.log("   - Trying fallback Request URL:", HYPERVERGE_API_RESULTS_URL_FALLBACK)
+			response = await fetch(HYPERVERGE_API_RESULTS_URL_FALLBACK, {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					appId: HYPERVERGE_APP_ID,
+					appKey: HYPERVERGE_APP_KEY,
+				},
+				body: JSON.stringify({ transactionId }),
+			})
+		}
+
+		// If network fails (DNS/ENOTFOUND) or 404/502, try fallback base URL
+		if (!response.ok && (response.status === 404 || response.status === 502)) {
+			console.log("   - Trying fallback Request URL:", HYPERVERGE_API_RESULTS_URL_FALLBACK)
+			response = await fetch(HYPERVERGE_API_RESULTS_URL_FALLBACK, {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					appId: HYPERVERGE_APP_ID,
+					appKey: HYPERVERGE_APP_KEY,
+				},
+				body: JSON.stringify({ transactionId }),
+			})
+		}
 
 		const responseText = await response.text()
 		console.log("📡 HyperVerge status response:", response.status)
+		console.log("📡 Response body:", responseText)
 
 		if (!response.ok) {
 			console.error("❌ HyperVerge status check failed:", responseText)
+			
+			// If 404 and we haven't retried much, it might be processing delay
+			if (response.status === 404 && retryCount < 3) {
+				const delay = Math.pow(2, retryCount) * 2000 // 2s, 4s, 8s
+				console.log(`⏳ Transaction not found yet, waiting ${delay}ms before retry...`)
+				await new Promise(resolve => setTimeout(resolve, delay))
+				return getTransactionStatus(transactionId, retryCount + 1)
+			}
+			
 			throw new Error(`HyperVerge API error: ${response.status} - ${responseText}`)
 		}
 

@@ -48,6 +48,7 @@ export const ROUTE_CONFIG: RouteConfig = {
 			{ path: "/envelopes" },
 			{ path: "/find-a-lawyer" },
 			{ path: "/find-notary" },
+			{ path: "/kyc" },
 			{ path: "/meetings" },
 			{ path: "/messages" },
 			{ path: "/my-signed" },
