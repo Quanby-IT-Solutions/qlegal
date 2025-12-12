@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useTransition } from "react"
+import { useEffect, useMemo, useState, useTransition } from "react"
 import { CheckCircle2, ExternalLink, Loader2, ShieldCheck, XCircle } from "lucide-react"
 import { useSearchParams } from "next/navigation"
 import { toast } from "sonner"
@@ -41,9 +41,11 @@ interface KycVerificationCardProps {
 		transactionId: string | null
 		kycStatus: string | null
 	}
+	minimal?: boolean
+	redirectUrlOnSkip?: string
 }
 
-export function KycVerificationCard({ userInfo }: KycVerificationCardProps) {
+export function KycVerificationCard({ userInfo, minimal, redirectUrlOnSkip }: KycVerificationCardProps) {
 	const [isPending, startTransition] = useTransition()
 	const [linkResult, setLinkResult] = useState<KycLinkResult | null>(null)
 	const [statusResult, setStatusResult] = useState<KycStatusResult | null>(null)
@@ -54,6 +56,23 @@ export function KycVerificationCard({ userInfo }: KycVerificationCardProps) {
 
 	// Auto-poll interval (5 seconds)
 	const pollIntervalMs = 5000
+
+	const handleSkip = () => {
+		if (redirectUrlOnSkip) {
+			window.location.href = redirectUrlOnSkip
+		}
+	}
+
+	// When verified in minimal mode, auto-redirect to dashboard after short delay
+	const effectiveStatus = useMemo(() => statusResult?.kycStatus || userInfo.kycStatus, [statusResult, userInfo.kycStatus])
+	useEffect(() => {
+		if (minimal && effectiveStatus === "VERIFIED" && redirectUrlOnSkip) {
+			const t = setTimeout(() => {
+				window.location.href = redirectUrlOnSkip
+			}, 2000)
+			return () => clearTimeout(t)
+		}
+	}, [minimal, effectiveStatus, redirectUrlOnSkip])
 
 	// Check if user completed KYC (from redirect) or has pending status
 	useEffect(() => {
@@ -204,22 +223,31 @@ export function KycVerificationCard({ userInfo }: KycVerificationCardProps) {
 	const hasExistingVerification = userInfo.transactionId && userInfo.kycStatus !== "NOT_STARTED"
 
 	return (
-		<div className="space-y-6">
+		<div className={minimal ? "space-y-6" : "space-y-6"}>
 			{/* Current Status Card */}
 			<Card>
 				<CardHeader>
 					<div className="flex items-center justify-between">
 						<div className="flex items-center gap-2">
 							<ShieldCheck className="h-5 w-5" />
-							<CardTitle>KYC Verification Status</CardTitle>
+							<CardTitle>{minimal ? "Complete Your KYC" : "KYC Verification Status"}</CardTitle>
 						</div>
 						{getStatusBadge(currentStatus)}
 					</div>
 					<CardDescription>
-						Identity verification through HyperVerge for enhanced security
+						{minimal
+							? "For security and compliance, please verify your identity. You can skip and do it later."
+							: "Identity verification through HyperVerge for enhanced security"}
 					</CardDescription>
 				</CardHeader>
 				<CardContent className="space-y-4">
+					{minimal && redirectUrlOnSkip && (
+						<div className="flex justify-end">
+							<Button variant="ghost" size="sm" onClick={handleSkip}>
+								Skip for now
+							</Button>
+						</div>
+					)}
 					<div className="space-y-2">
 						<Label>Account Information</Label>
 						<div className="bg-muted rounded-lg p-4 space-y-2">
@@ -279,10 +307,15 @@ export function KycVerificationCard({ userInfo }: KycVerificationCardProps) {
 								) : (
 									<>
 										<ExternalLink className="mr-2 h-4 w-4" />
-										Start KYC Verification
+										{minimal ? "Start Verification" : "Start KYC Verification"}
 									</>
 								)}
 							</Button>
+							{minimal && redirectUrlOnSkip && (
+								<Button onClick={handleSkip} variant="outline" className="w-full">
+									Skip for now
+								</Button>
+							)}
 						</div>
 					)}
 
@@ -312,6 +345,11 @@ export function KycVerificationCard({ userInfo }: KycVerificationCardProps) {
 									</>
 								)}
 							</Button>
+							{minimal && redirectUrlOnSkip && (
+								<Button onClick={handleSkip} variant="outline" className="w-full">
+									Skip for now
+								</Button>
+							)}
 							{polling && (
 								<p className="text-muted-foreground text-center text-xs">
 									Auto-checking every {pollIntervalMs / 1000} seconds...
@@ -327,11 +365,15 @@ export function KycVerificationCard({ userInfo }: KycVerificationCardProps) {
 								<div>
 									<p className="font-medium text-green-900">Verification Complete</p>
 									<p className="text-green-700 text-sm">
-										Your identity has been successfully verified. You now have full access to
-										all platform features.
+										Your identity has been successfully verified. {minimal ? "Redirecting to your dashboard..." : "You now have full access to all platform features."}
 									</p>
 								</div>
 							</div>
+							{minimal && redirectUrlOnSkip && (
+								<Button onClick={handleSkip} className="mt-4 w-full" variant="default">
+									Continue to Dashboard
+								</Button>
+							)}
 						</div>
 					)}
 

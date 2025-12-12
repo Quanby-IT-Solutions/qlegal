@@ -60,6 +60,16 @@ export default proxy(req => {
 		// --- ACCESS GRANTED ---
 		// User has permission: public routes, shared protected, or role-specific routes
 		if (hasAccess) {
+			// If authenticated and KYC not started, route to onboarding KYC page, except on auth pages
+			const onAuthPage = matchesAnyRoute(path, ROUTE_CONFIG.publicOnly) || path.startsWith("/auth/")
+			// @ts-expect-error augmented user field
+			const kycStatus = auth?.user?.kycStatus as string | undefined
+			if (isAuth && !onAuthPage && kycStatus === "NOT_STARTED" && path !== "/auth/kyc") {
+				const kycUrl = new URL("/auth/kyc", nextUrl)
+				logRedirect(path, kycUrl.pathname, "kyc gate redirect")
+				return NextResponse.redirect(kycUrl)
+			}
+
 			const response = NextResponse.next()
 			return addCustomHeaders(response, userId, path)
 		}
