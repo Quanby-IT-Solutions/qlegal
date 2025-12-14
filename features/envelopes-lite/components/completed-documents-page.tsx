@@ -1,12 +1,18 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { Award, CheckCircle2, Download, FileText, LayoutGrid, List, RefreshCw, Search } from "lucide-react"
+import { Award, CheckCircle2, Download, FileText, LayoutGrid, List, MoreVertical, RefreshCw, Search } from "lucide-react"
 import { toast } from "sonner"
 
 import { Badge } from "@/core/components/ui/badge"
 import { Button } from "@/core/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/core/components/ui/card"
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuTrigger,
+} from "@/core/components/ui/dropdown-menu"
 import { Input } from "@/core/components/ui/input"
 import { ToggleGroup, ToggleGroupItem } from "@/core/components/ui/toggle-group"
 
@@ -339,37 +345,53 @@ export function CompletedDocumentsPage() {
 											<FileText className="mr-2 h-4 w-4" />
 											View Document
 										</Button>
-										<div className="flex gap-2">
+										<div className="flex items-center gap-2">
 											<Button
 												variant="outline"
-												size="sm"
 												className="flex-1"
 												onClick={() => {
-													const projectUuid = (doc as any).projectUuid || (doc as any).docoChainProjectId
-													if (projectUuid) {
-														handleDownload(projectUuid)
+													const targetDocumentId = doc.id
+													const targetEnvelopeId = doc.envelopeId
+													if (targetDocumentId && targetEnvelopeId) {
+														window.location.href = `/document/${targetDocumentId}/sign?envelopeId=${targetEnvelopeId}`
 													}
 												}}
-												disabled={!((doc as any).projectUuid || (doc as any).docoChainProjectId) || downloadingProjectUuid === ((doc as any).projectUuid || (doc as any).docoChainProjectId)}
 											>
-												<Download className="mr-2 h-4 w-4" />
-												{downloadingProjectUuid === ((doc as any).projectUuid || (doc as any).docoChainProjectId) ? "Downloading..." : "Download"}
+												Start Signing
 											</Button>
-											<Button
-												variant="outline"
-												size="sm"
-												className="flex-1"
-												onClick={() => {
-													const projectUuid = (doc as any).projectUuid || (doc as any).docoChainProjectId
-													if (projectUuid) {
-														handleViewCertificate(projectUuid, doc.name)
-													}
-												}}
-												disabled={!((doc as any).projectUuid || (doc as any).docoChainProjectId)}
-											>
-												<Award className="mr-2 h-4 w-4" />
-												Certificate
-											</Button>
+											<DropdownMenu>
+												<DropdownMenuTrigger asChild>
+													<Button variant="outline" size="icon">
+														<MoreVertical className="h-4 w-4" />
+													</Button>
+												</DropdownMenuTrigger>
+												<DropdownMenuContent align="end">
+													<DropdownMenuItem
+														onClick={() => {
+															const projectUuid = (doc as any).projectUuid || (doc as any).docoChainProjectId
+															if (projectUuid) {
+																handleDownload(projectUuid)
+															}
+														}}
+														disabled={!((doc as any).projectUuid || (doc as any).docoChainProjectId) || downloadingProjectUuid === ((doc as any).projectUuid || (doc as any).docoChainProjectId)}
+													>
+														<Download className="mr-2 h-4 w-4" />
+														{downloadingProjectUuid === ((doc as any).projectUuid || (doc as any).docoChainProjectId) ? "Downloading..." : "Download Signed Document"}
+													</DropdownMenuItem>
+													<DropdownMenuItem
+														onClick={() => {
+															const projectUuid = (doc as any).projectUuid || (doc as any).docoChainProjectId
+															if (projectUuid) {
+																handleViewCertificate(projectUuid, doc.name)
+															}
+														}}
+														disabled={!((doc as any).projectUuid || (doc as any).docoChainProjectId)}
+													>
+														<Award className="mr-2 h-4 w-4" />
+														Download Certificate
+													</DropdownMenuItem>
+												</DropdownMenuContent>
+											</DropdownMenu>
 										</div>
 									</div>
 								</CardContent>

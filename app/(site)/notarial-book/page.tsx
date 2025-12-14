@@ -2,8 +2,9 @@
 
 import { useState, useMemo } from "react"
 import { useSession } from "next-auth/react"
-import { Search, Download, FileText, Calendar, Filter, BookOpen } from "lucide-react"
+import { Search, Download, FileText, BookOpen, RefreshCw, AlertCircle, Eye, FileCheck } from "lucide-react"
 import { format } from "date-fns"
+import { toast } from "sonner"
 
 import { trpc } from "@/services/trpc/client"
 import { SiteNavbar } from "@/core/components/navbar/site-navbar"
@@ -13,6 +14,7 @@ import { Input } from "@/core/components/ui/input"
 import { Badge } from "@/core/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/core/components/ui/select"
 import { Skeleton } from "@/core/components/ui/skeleton"
+import { Alert, AlertDescription } from "@/core/components/ui/alert"
 import {
 	Table,
 	TableBody,
@@ -25,122 +27,97 @@ import {
 export default function NotarialBookPage() {
 	const { data: session } = useSession()
 	const [searchTerm, setSearchTerm] = useState("")
+	const [actTypeFilter, setActTypeFilter] = useState<"ALL" | "ACKNOWLEDGMENT" | "AFFIRMATION" | "JURAT" | "SIGNATURE_WITNESSING">("ALL")
 	const [workflowFilter, setWorkflowFilter] = useState<"ALL" | "REN" | "IEN">("ALL")
-	const [dateFilter, setDateFilter] = useState("ALL")
+	const [page, setPage] = useState(1)
+	const perPage = 50
 
-	// Fetch completed appointments (notarial acts)
-	const { data: appointments, isLoading } = trpc.appointments.getMyAppointments.useQuery({
-		status: "COMPLETED",
-		limit: 100,
-		offset: 0,
+	// Fetch notarial book entries using Doc On Chain Passport API
+	const { data: notarialBookData, isLoading, refetch } = trpc.notarialBook.getNotarialBook.useQuery({
+		page,
+		perPage,
+		search: searchTerm || undefined,
+		actType: actTypeFilter,
+		workflow: workflowFilter,
 	})
 
-	const notarialActs = useMemo(() => {
-		if (!appointments) return []
+	// Auto-sync mutation
+	const autoSyncMutation = trpc.notarialBook.autoSyncAllDocuments.useMutation({
+		onSuccess: (data) => {
+			toast.success(`Successfully synced ${data.syncedCount} document(s) to notarial book`)
+			if (data.errors && data.errors.length > 0) {
+				toast.warning(`${data.errors.length} document(s) failed to sync`)
+			}
+			refetch()
+		},
+		onError: (error) => {
+			toast.error(`Failed to sync documents: ${error.message}`)
+		},
+	})
 
-		return appointments
-			.filter(apt => apt.status === "COMPLETED")
-			.map((appointment, index) => {
-				const notesLower = (appointment.notes || "").toLowerCase()
-				const hasRemoteKeywords = notesLower.includes("remote") || notesLower.includes("ren")
-				const hasInPersonKeywords = notesLower.includes("in-person") || notesLower.includes("ien") || notesLower.includes("in person")
-				
-				let workflow: "REN" | "IEN"
-				if (appointment.meetingLink) {
-					workflow = "REN"
-				} else if (appointment.location) {
-					workflow = "IEN"
-				} else if (hasRemoteKeywords && !hasInPersonKeywords) {
-					workflow = "REN"
-				} else if (hasInPersonKeywords && !hasRemoteKeywords) {
-					workflow = "IEN"
-				} else {
-					workflow = hasRemoteKeywords ? "REN" : "IEN"
-				}
+	// Export mutation
+	const exportMutation = trpc.notarialBook.exportNotarialBook.useMutation({
+		onSuccess: () => {
+			toast.success("Notarial book export generated successfully")
+		},
+		onError: (error) => {
+			toast.error(`Failed to export: ${error.message}`)
+		},
+	})
 
-				const enp = appointment.lawyer
-				const principal = appointment.client
-
-				let actDescription = ""
-				if (appointment.notes) {
-					const cleanedNotes = appointment.notes
-						.replace(/Consultation Type:\s*/gi, "")
-						.replace(/Workflow:\s*/gi, "")
-						.replace(/Meeting Preference:\s*/gi, "")
-						.replace(/Remote Electronic Notarization/gi, "REN")
-						.replace(/In-Person Electronic Notarization/gi, "IEN")
-						.trim()
-					
-					if (cleanedNotes.length > 100 || cleanedNotes.includes("\n")) {
-						const firstLine = cleanedNotes.split("\n")[0]?.trim() || ""
-						actDescription = firstLine.length > 100 ? `${firstLine.substring(0, 97)}...` : firstLine
-					} else {
-						actDescription = cleanedNotes
-					}
-				}
-				
-				if (!actDescription || actDescription.length < 3) {
-					const typeLabel = appointment.type === "DOCUMENT_SIGNING" ? "Document Signing" : "Consultation"
-					actDescription = `${typeLabel} - ${principal?.name || "Client"}`
-				}
-
-				return {
-					entryNumber: index + 1,
-					id: appointment.id,
-					date: appointment.updatedAt,
-					workflow,
-					actDescription,
-					principalName: principal?.name || "Unknown",
-					principalAddress: "", // TODO: Add to schema
-					documentType: appointment.type === "DOCUMENT_SIGNING" ? "Document Signing" : "Consultation",
-					enpName: enp?.name || "Unknown ENP",
-					location: appointment.location || (workflow === "REN" ? "Remote Video Call" : "Location TBD"),
-					documentsCount: 0, // TODO: Link to actual documents
-					certificateNumber: appointment.id.substring(0, 8).toUpperCase(), // Placeholder
-				}
-			})
-			.sort((a, b) => b.date.getTime() - a.date.getTime()) // Most recent first
-	}, [appointments])
+	const notarialActs = notarialBookData?.acts || []
 
 	const filteredActs = useMemo(() => {
+		if (!notarialActs) return []
+
 		return notarialActs.filter(act => {
 			const matchesSearch = 
-				act.principalName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-				act.actDescription.toLowerCase().includes(searchTerm.toLowerCase()) ||
-				act.certificateNumber.toLowerCase().includes(searchTerm.toLowerCase())
+				act.principalName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+				act.documentName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+				act.certificateNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+				false
 			
-			const matchesWorkflow = workflowFilter === "ALL" || act.workflow === workflowFilter
-			
-			// Date filtering
-			let matchesDate = true
-			if (dateFilter !== "ALL") {
-				const now = new Date()
-				const actDate = act.date
-				const daysDiff = Math.floor((now.getTime() - actDate.getTime()) / (1000 * 60 * 60 * 24))
-				
-				switch (dateFilter) {
-					case "TODAY":
-						matchesDate = daysDiff === 0
-						break
-					case "WEEK":
-						matchesDate = daysDiff <= 7
-						break
-					case "MONTH":
-						matchesDate = daysDiff <= 30
-						break
-					case "YEAR":
-						matchesDate = daysDiff <= 365
-						break
-				}
-			}
-			
-			return matchesSearch && matchesWorkflow && matchesDate
+			return matchesSearch
 		})
-	}, [notarialActs, searchTerm, workflowFilter, dateFilter])
+	}, [notarialActs, searchTerm])
 
 	const handleExport = () => {
-		// TODO: Implement export functionality
-		alert("Export functionality coming soon!")
+		exportMutation.mutate()
+	}
+
+	const handleAutoSync = () => {
+		if (confirm("This will sync all completed documents with DocoChain project UUIDs to your notarial book. Continue?")) {
+			autoSyncMutation.mutate()
+		}
+	}
+
+	// Document and certificate viewing
+	const utils = trpc.useUtils()
+
+	const handleViewDocument = async (actId: string) => {
+		try {
+			const result = await utils.notarialBook.getDocumentUrl.fetch({ actId })
+			if (result?.url) {
+				window.open(result.url, "_blank")
+			} else {
+				toast.error("Document URL not available")
+			}
+		} catch (error) {
+			toast.error(`Failed to get document: ${error instanceof Error ? error.message : "Unknown error"}`)
+		}
+	}
+
+	const handleViewCertificate = async (actId: string) => {
+		try {
+			const result = await utils.notarialBook.getCertificateUrl.fetch({ actId })
+			if (result?.url) {
+				window.open(result.url, "_blank")
+			} else {
+				toast.error("Certificate URL not available")
+			}
+		} catch (error) {
+			toast.error(`Failed to get certificate: ${error instanceof Error ? error.message : "Unknown error"}`)
+		}
 	}
 
 	return (
@@ -163,27 +140,90 @@ export default function NotarialBookPage() {
 								</h1>
 								<p className="mt-2 text-muted-foreground">
 									Official electronic register of all notarial acts per Supreme Court Rules (A.M. No. 24-10-14-SC)
+									<br />
+									<span className="text-xs">Powered by Doc On Chain Passport API for audit trail and verification</span>
 								</p>
 							</div>
-							<Button onClick={handleExport} variant="outline">
-								<Download className="mr-2 h-4 w-4" />
-								Export Records
-							</Button>
+							<div className="flex gap-2">
+								<Button 
+									onClick={handleAutoSync} 
+									variant="outline"
+									disabled={autoSyncMutation.isPending}
+								>
+									<RefreshCw className={`mr-2 h-4 w-4 ${autoSyncMutation.isPending ? "animate-spin" : ""}`} />
+									{autoSyncMutation.isPending ? "Syncing..." : "Sync Documents"}
+								</Button>
+								<Button 
+									onClick={handleExport} 
+									variant="outline"
+									disabled={exportMutation.isPending}
+								>
+									<Download className="mr-2 h-4 w-4" />
+									Export Records
+								</Button>
+							</div>
 						</div>
 					</div>
+
+					{/* Auto-sync info */}
+					{autoSyncMutation.isSuccess && autoSyncMutation.data && (
+						<Alert className="mb-4">
+							<AlertCircle className="h-4 w-4" />
+							<AlertDescription>
+								Synced {autoSyncMutation.data.syncedCount} of {autoSyncMutation.data.totalDocuments} document(s).
+								{autoSyncMutation.data.errors && autoSyncMutation.data.errors.length > 0 && (
+									<div className="mt-2 text-sm">
+										<strong>Errors:</strong>
+										<ul className="list-disc list-inside mt-1">
+											{autoSyncMutation.data.errors.slice(0, 3).map((error, i) => (
+												<li key={i}>{error}</li>
+											))}
+											{autoSyncMutation.data.errors.length > 3 && (
+												<li>...and {autoSyncMutation.data.errors.length - 3} more</li>
+											)}
+										</ul>
+									</div>
+								)}
+							</AlertDescription>
+						</Alert>
+					)}
 
 					{/* Filters */}
 					<Card className="mb-8">
 						<CardContent className="pt-6">
 							<div className="grid grid-cols-1 gap-4 md:grid-cols-3">
 								<Input
-									placeholder="Search by principal name, act description, or certificate number..."
+									placeholder="Search by principal name, document name, or certificate number..."
 									value={searchTerm}
-									onChange={(e) => setSearchTerm(e.target.value)}
+									onChange={(e) => {
+										setSearchTerm(e.target.value)
+										setPage(1) // Reset to first page on search
+									}}
 								/>
 								<Select 
+									value={actTypeFilter} 
+									onValueChange={(value) => {
+										setActTypeFilter(value as typeof actTypeFilter)
+										setPage(1)
+									}}
+								>
+									<SelectTrigger>
+										<SelectValue placeholder="All Act Types" />
+									</SelectTrigger>
+									<SelectContent>
+										<SelectItem value="ALL">All Act Types</SelectItem>
+										<SelectItem value="ACKNOWLEDGMENT">Acknowledgment</SelectItem>
+										<SelectItem value="AFFIRMATION">Affirmation</SelectItem>
+										<SelectItem value="JURAT">Jurat</SelectItem>
+										<SelectItem value="SIGNATURE_WITNESSING">Signature Witnessing</SelectItem>
+									</SelectContent>
+								</Select>
+								<Select 
 									value={workflowFilter} 
-									onValueChange={(value) => setWorkflowFilter(value as "ALL" | "REN" | "IEN")}
+									onValueChange={(value) => {
+										setWorkflowFilter(value as "ALL" | "REN" | "IEN")
+										setPage(1)
+									}}
 								>
 									<SelectTrigger>
 										<SelectValue placeholder="All Workflows" />
@@ -192,18 +232,6 @@ export default function NotarialBookPage() {
 										<SelectItem value="ALL">All Workflows</SelectItem>
 										<SelectItem value="REN">REN</SelectItem>
 										<SelectItem value="IEN">IEN</SelectItem>
-									</SelectContent>
-								</Select>
-								<Select value={dateFilter} onValueChange={setDateFilter}>
-									<SelectTrigger>
-										<SelectValue placeholder="All Dates" />
-									</SelectTrigger>
-									<SelectContent>
-										<SelectItem value="ALL">All Dates</SelectItem>
-										<SelectItem value="TODAY">Today</SelectItem>
-										<SelectItem value="WEEK">Last 7 Days</SelectItem>
-										<SelectItem value="MONTH">Last 30 Days</SelectItem>
-										<SelectItem value="YEAR">Last Year</SelectItem>
 									</SelectContent>
 								</Select>
 							</div>
@@ -219,7 +247,12 @@ export default function NotarialBookPage() {
 									<Skeleton className="h-4 w-32" />
 								) : (
 									<>
-										{filteredActs.length} notarial act{filteredActs.length !== 1 ? "s" : ""} recorded
+										{notarialBookData?.total || 0} notarial act{(notarialBookData?.total || 0) !== 1 ? "s" : ""} recorded
+										{notarialBookData && notarialBookData.totalPages > 1 && (
+											<span className="ml-2">
+												(Page {page} of {notarialBookData.totalPages})
+											</span>
+										)}
 									</>
 								)}
 							</CardDescription>
@@ -235,72 +268,141 @@ export default function NotarialBookPage() {
 								<div className="py-12 text-center">
 									<FileText className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
 									<h3 className="text-lg font-medium mb-2">No notarial acts found</h3>
-									<p className="text-muted-foreground">
-										{searchTerm || workflowFilter !== "ALL" || dateFilter !== "ALL"
+									<p className="text-muted-foreground mb-4">
+										{searchTerm || actTypeFilter !== "ALL" || workflowFilter !== "ALL"
 											? "Try adjusting your search criteria or filters."
-											: "You haven't completed any notarial acts yet. Completed notarizations will appear here."}
+											: "You haven't synced any notarial acts yet. Click 'Sync Documents' to import completed documents from Doc On Chain."}
 									</p>
+									{!searchTerm && actTypeFilter === "ALL" && workflowFilter === "ALL" && (
+										<Button onClick={handleAutoSync} variant="outline" disabled={autoSyncMutation.isPending}>
+											<RefreshCw className={`mr-2 h-4 w-4 ${autoSyncMutation.isPending ? "animate-spin" : ""}`} />
+											Sync Documents from Doc On Chain
+										</Button>
+									)}
 								</div>
 							) : (
-								<div className="overflow-x-auto">
-									<Table>
-										<TableHeader>
-											<TableRow>
-												<TableHead className="w-20">Entry #</TableHead>
-												<TableHead>Date</TableHead>
-												<TableHead>Workflow</TableHead>
-												<TableHead>Principal</TableHead>
-												<TableHead>Act Description</TableHead>
-												<TableHead>Document Type</TableHead>
-												<TableHead>Location</TableHead>
-												<TableHead>Certificate #</TableHead>
-											</TableRow>
-										</TableHeader>
-										<TableBody>
-											{filteredActs.map((act) => (
-												<TableRow key={act.id}>
-													<TableCell className="font-mono font-medium">
-														{act.entryNumber}
-													</TableCell>
-													<TableCell>
-														<span className="text-sm">
-															{format(act.date, "MMM dd, yyyy")}
-															<br />
-															<span className="text-muted-foreground">
-																{format(act.date, "hh:mm a")}
-															</span>
-														</span>
-													</TableCell>
-													<TableCell>
-														<Badge variant={act.workflow === "REN" ? "default" : "secondary"}>
-															{act.workflow}
-														</Badge>
-													</TableCell>
-													<TableCell>
-														<div>
-															<p className="font-medium">{act.principalName}</p>
-															{act.principalAddress && (
-																<p className="text-xs text-muted-foreground">{act.principalAddress}</p>
-															)}
-														</div>
-													</TableCell>
-													<TableCell className="max-w-md">
-														<p className="text-sm">{act.actDescription}</p>
-													</TableCell>
-													<TableCell>
-														<span className="text-sm">{act.documentType}</span>
-													</TableCell>
-													<TableCell>
-														<span className="text-sm">{act.location}</span>
-													</TableCell>
-													<TableCell>
-														<span className="font-mono text-sm">{act.certificateNumber}</span>
-													</TableCell>
+								<>
+									<div className="overflow-x-auto">
+										<Table>
+											<TableHeader>
+												<TableRow>
+													<TableHead className="w-20">Entry #</TableHead>
+													<TableHead>Date & Time</TableHead>
+													<TableHead>Act Type</TableHead>
+													<TableHead>Workflow</TableHead>
+													<TableHead>Principal</TableHead>
+													<TableHead>Document</TableHead>
+													<TableHead>Location</TableHead>
+													<TableHead>Certificate #</TableHead>
+													<TableHead className="w-32">Actions</TableHead>
 												</TableRow>
-											))}
-										</TableBody>
-									</Table>
-								</div>
+											</TableHeader>
+											<TableBody>
+												{filteredActs.map((act, index) => (
+													<TableRow key={act.id}>
+														<TableCell className="font-mono font-medium">
+															{(page - 1) * perPage + index + 1}
+														</TableCell>
+														<TableCell>
+															<span className="text-sm">
+																{format(new Date(act.executedAt), "MMM dd, yyyy")}
+																<br />
+																<span className="text-muted-foreground">
+																	{format(new Date(act.executedAt), "hh:mm a")}
+																</span>
+															</span>
+														</TableCell>
+														<TableCell>
+															<Badge variant="outline">
+																{act.actType}
+															</Badge>
+														</TableCell>
+														<TableCell>
+															<Badge variant={act.workflow === "REN" ? "default" : "secondary"}>
+																{act.workflow}
+															</Badge>
+														</TableCell>
+														<TableCell>
+															<div>
+																<p className="font-medium">{act.principalName}</p>
+																{act.principalIdNumber && (
+																	<p className="text-xs text-muted-foreground">ID: {act.principalIdNumber}</p>
+																)}
+																{act.witnessName && (
+																	<p className="text-xs text-muted-foreground mt-1">Witness: {act.witnessName}</p>
+																)}
+															</div>
+														</TableCell>
+														<TableCell className="max-w-md">
+															<p className="text-sm font-medium">{act.documentName || "Untitled Document"}</p>
+															{act.documentDescription && (
+																<p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+																	{act.documentDescription}
+																</p>
+															)}
+														</TableCell>
+														<TableCell>
+															<span className="text-sm">{act.location || "Philippines"}</span>
+														</TableCell>
+														<TableCell>
+															<span className="font-mono text-sm">{act.certificateNumber || "N/A"}</span>
+														</TableCell>
+														<TableCell>
+															<div className="flex items-center gap-2">
+																{(act.documentId || act.docoChainProjectUuid) && (
+																	<Button
+																		variant="ghost"
+																		size="sm"
+																		onClick={() => handleViewDocument(act.id)}
+																		title="View Document"
+																	>
+																		<Eye className="h-4 w-4" />
+																	</Button>
+																)}
+																{act.docoChainProjectUuid && (
+																	<Button
+																		variant="ghost"
+																		size="sm"
+																		onClick={() => handleViewCertificate(act.id)}
+																		title="View Certificate"
+																	>
+																		<FileCheck className="h-4 w-4" />
+																	</Button>
+																)}
+															</div>
+														</TableCell>
+													</TableRow>
+												))}
+											</TableBody>
+										</Table>
+									</div>
+									{/* Pagination */}
+									{notarialBookData && notarialBookData.totalPages > 1 && (
+										<div className="flex items-center justify-between mt-4 pt-4 border-t">
+											<div className="text-sm text-muted-foreground">
+												Showing {(page - 1) * perPage + 1} to {Math.min(page * perPage, notarialBookData.total)} of {notarialBookData.total} entries
+											</div>
+											<div className="flex gap-2">
+												<Button
+													variant="outline"
+													size="sm"
+													onClick={() => setPage(p => Math.max(1, p - 1))}
+													disabled={page === 1}
+												>
+													Previous
+												</Button>
+												<Button
+													variant="outline"
+													size="sm"
+													onClick={() => setPage(p => Math.min(notarialBookData.totalPages, p + 1))}
+													disabled={page >= notarialBookData.totalPages}
+												>
+													Next
+												</Button>
+											</div>
+										</div>
+									)}
+								</>
 							)}
 						</CardContent>
 					</Card>
