@@ -241,13 +241,7 @@ export function KycVerificationCard({ userInfo, minimal, redirectUrlOnSkip }: Ky
 					</CardDescription>
 				</CardHeader>
 				<CardContent className="space-y-4">
-					{minimal && redirectUrlOnSkip && (
-						<div className="flex justify-end">
-							<Button variant="ghost" size="sm" onClick={handleSkip}>
-								Skip for now
-							</Button>
-						</div>
-					)}
+					{/* Skip for now (minimal) shown only below Start button in NOT_STARTED state */}
 					<div className="space-y-2">
 						<Label>Account Information</Label>
 						<div className="bg-muted rounded-lg p-4 space-y-2">
@@ -345,11 +339,7 @@ export function KycVerificationCard({ userInfo, minimal, redirectUrlOnSkip }: Ky
 									</>
 								)}
 							</Button>
-							{minimal && redirectUrlOnSkip && (
-								<Button onClick={handleSkip} variant="outline" className="w-full">
-									Skip for now
-								</Button>
-							)}
+							{/* No top-level skip in Pending; keep only in NOT_STARTED */}
 							{polling && (
 								<p className="text-muted-foreground text-center text-xs">
 									Auto-checking every {pollIntervalMs / 1000} seconds...

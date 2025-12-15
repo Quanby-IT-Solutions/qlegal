@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation"
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/core/components/ui/card"
-import { SiteNavbar } from "@/core/components/navbar/site-navbar"
 import { getUserKycInfo } from "@/features/kyc/api/kyc.actions"
 import { KycVerificationCard } from "@/features/kyc/components/kyc-verification-card"
 import { auth } from "@/services/next-auth"
@@ -25,7 +24,6 @@ export default async function KycRegisterPage() {
 
   return (
     <div className="min-h-screen w-full bg-muted flex flex-col">
-      <SiteNavbar minimal />
       <div className="flex flex-1 items-center justify-center px-4 py-10">
         <Card className="w-full max-w-xl">
           <CardHeader>
