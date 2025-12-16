@@ -27,6 +27,7 @@ declare module "next-auth" {
 			email: string
 			image: string
 			role: UserRole
+			kycStatus?: string
 		}
 	}
 }
@@ -162,11 +163,11 @@ export const authConfig = {
 				token.name = user.name
 				token.email = user.email
 				token.image = user.image ?? token.picture
-				// also attach initial kyc info if available on user
+				// Attach initial KYC info from user, default to "NOT_STARTED" if not set
 				// @ts-expect-error augment token
-				token.kycStatus = (user as any).kycStatus ?? token.kycStatus
+				token.kycStatus = (user as any).kycStatus ?? "NOT_STARTED"
 				// @ts-expect-error augment token
-				token.kycTransactionId = (user as any).kycTransactionId ?? token.kycTransactionId
+				token.kycTransactionId = (user as any).kycTransactionId ?? null
 			}
 
 			// On subsequent runs, enrich token with KYC from DB
@@ -177,9 +178,9 @@ export const authConfig = {
 					})
 					if (existing) {
 						// @ts-expect-error augment token
-						token.kycStatus = existing.kycStatus ?? token.kycStatus
+						token.kycStatus = existing.kycStatus ?? "NOT_STARTED"
 						// @ts-expect-error augment token
-						token.kycTransactionId = existing.kycTransactionId ?? token.kycTransactionId
+						token.kycTransactionId = existing.kycTransactionId ?? null
 					}
 				} catch {}
 			}

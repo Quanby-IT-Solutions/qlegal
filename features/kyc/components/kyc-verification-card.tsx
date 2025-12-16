@@ -7,13 +7,6 @@ import { toast } from "sonner"
 
 import { Badge } from "@/core/components/ui/badge"
 import { Button } from "@/core/components/ui/button"
-import {
-	Card,
-	CardContent,
-	CardDescription,
-	CardHeader,
-	CardTitle,
-} from "@/core/components/ui/card"
 import { Label } from "@/core/components/ui/label"
 
 import { checkUserKycStatus, createUserKycLink, resetUserKycStatus } from "@/features/kyc/api/kyc.actions"
@@ -58,8 +51,15 @@ export function KycVerificationCard({ userInfo, minimal, redirectUrlOnSkip }: Ky
 	const pollIntervalMs = 5000
 
 	const handleSkip = () => {
+		console.log("handleSkip called, redirectUrlOnSkip:", redirectUrlOnSkip)
 		if (redirectUrlOnSkip) {
+			console.log("Redirecting to:", redirectUrlOnSkip)
+			// Set a SESSION cookie (no max-age = expires when browser closes)
+			// This allows temporary access but prompts KYC on next session
+			document.cookie = "skipKycSession=true; path=/; SameSite=Lax"
 			window.location.href = redirectUrlOnSkip
+		} else {
+			console.error("No redirectUrlOnSkip provided")
 		}
 	}
 
@@ -223,218 +223,216 @@ export function KycVerificationCard({ userInfo, minimal, redirectUrlOnSkip }: Ky
 	const hasExistingVerification = userInfo.transactionId && userInfo.kycStatus !== "NOT_STARTED"
 
 	return (
-		<div className={minimal ? "space-y-6" : "space-y-6"}>
-			{/* Current Status Card */}
-			<Card>
-				<CardHeader>
-					<div className="flex items-center justify-between">
-						<div className="flex items-center gap-2">
-							<ShieldCheck className="h-5 w-5" />
-							<CardTitle>{minimal ? "Complete Your KYC" : "KYC Verification Status"}</CardTitle>
+		<div className="space-y-6">
+			{/* Status Badge - Only show in non-minimal or if not NOT_STARTED */}
+			{(!minimal || currentStatus !== "NOT_STARTED") && (
+				<div className="flex items-center justify-center">
+					{getStatusBadge(currentStatus)}
+				</div>
+			)}
+
+			{/* Account Information - Only show in non-minimal mode */}
+			{!minimal && (
+				<div className="space-y-2">
+					<Label>Account Information</Label>
+					<div className="bg-muted rounded-lg p-4 space-y-2">
+						<div className="flex justify-between text-sm">
+							<span className="text-muted-foreground">Name:</span>
+							<span className="font-medium">{userInfo.name || "N/A"}</span>
 						</div>
-						{getStatusBadge(currentStatus)}
-					</div>
-					<CardDescription>
-						{minimal
-							? "For security and compliance, please verify your identity. You can skip and do it later."
-							: "Identity verification through HyperVerge for enhanced security"}
-					</CardDescription>
-				</CardHeader>
-				<CardContent className="space-y-4">
-					{/* Skip for now (minimal) shown only below Start button in NOT_STARTED state */}
-					<div className="space-y-2">
-						<Label>Account Information</Label>
-						<div className="bg-muted rounded-lg p-4 space-y-2">
+						<div className="flex justify-between text-sm">
+							<span className="text-muted-foreground">Email:</span>
+							<span className="font-medium">{userInfo.email || "N/A"}</span>
+						</div>
+						{userInfo.transactionId && (
 							<div className="flex justify-between text-sm">
-								<span className="text-muted-foreground">Name:</span>
-								<span className="font-medium">{userInfo.name || "N/A"}</span>
-							</div>
-							<div className="flex justify-between text-sm">
-								<span className="text-muted-foreground">Email:</span>
-								<span className="font-medium">{userInfo.email || "N/A"}</span>
-							</div>
-							{userInfo.transactionId && (
-								<div className="flex justify-between text-sm">
-									<span className="text-muted-foreground">Transaction ID:</span>
-									<span className="font-mono text-xs">{userInfo.transactionId}</span>
-								</div>
-							)}
-						</div>
-					</div>
-
-					{/* Development Helper - Reset KYC */}
-					{process.env.NODE_ENV === "development" && currentStatus !== "NOT_STARTED" && (
-						<div className="pt-4 border-t">
-							<Button
-								onClick={async () => {
-									if (confirm("Reset KYC status? This will clear your current verification.")) {
-										const result = await resetUserKycStatus()
-										if (result.success) {
-											toast.success("KYC status reset successfully")
-											window.location.reload()
-										} else {
-											toast.error(result.error || "Failed to reset")
-										}
-									}
-								}}
-								variant="ghost"
-								size="sm"
-								className="w-full text-xs text-muted-foreground"
-							>
-								[Dev] Reset KYC Status
-							</Button>
-						</div>
-					)}
-
-					{currentStatus === "NOT_STARTED" && (
-						<div className="space-y-4">
-							<p className="text-muted-foreground text-sm">
-								You haven&apos;t completed your KYC verification yet. Click the button below to
-								start the verification process.
-							</p>
-							<Button onClick={handleCreateLink} disabled={isPending} className="w-full">
-								{isPending ? (
-									<>
-										<Loader2 className="mr-2 h-4 w-4 animate-spin" />
-										Creating Link...
-									</>
-								) : (
-									<>
-										<ExternalLink className="mr-2 h-4 w-4" />
-										{minimal ? "Start Verification" : "Start KYC Verification"}
-									</>
-								)}
-							</Button>
-							{minimal && redirectUrlOnSkip && (
-								<Button onClick={handleSkip} variant="outline" className="w-full">
-									Skip for now
-								</Button>
-							)}
-						</div>
-					)}
-
-					{currentStatus === "PENDING" && (
-						<div className="space-y-4">
-							<div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
-								<div className="flex items-start gap-3">
-									<Loader2 className="h-5 w-5 text-blue-600 animate-spin mt-0.5" />
-									<div>
-										<p className="font-medium text-blue-900">Verification In Progress</p>
-										<p className="text-blue-700 text-sm">
-											Complete the verification process in the HyperVerge window, then click the button below to check your status.
-										</p>
-									</div>
-								</div>
-							</div>
-							<Button onClick={handleCheckStatus} disabled={isPending} className="w-full">
-								{isPending ? (
-									<>
-										<Loader2 className="mr-2 h-4 w-4 animate-spin" />
-										Checking Status...
-									</>
-								) : (
-									<>
-										<ShieldCheck className="mr-2 h-4 w-4" />
-										Check Verification Status
-									</>
-								)}
-							</Button>
-							{/* No top-level skip in Pending; keep only in NOT_STARTED */}
-							{polling && (
-								<p className="text-muted-foreground text-center text-xs">
-									Auto-checking every {pollIntervalMs / 1000} seconds...
-								</p>
-							)}
-						</div>
-					)}
-
-					{currentStatus === "VERIFIED" && (
-						<div className="rounded-lg border border-green-200 bg-green-50 p-4">
-							<div className="flex items-start gap-3">
-								<CheckCircle2 className="h-5 w-5 text-green-600 mt-0.5" />
-								<div>
-									<p className="font-medium text-green-900">Verification Complete</p>
-									<p className="text-green-700 text-sm">
-										Your identity has been successfully verified. {minimal ? "Redirecting to your dashboard..." : "You now have full access to all platform features."}
-									</p>
-								</div>
-							</div>
-							{minimal && redirectUrlOnSkip && (
-								<Button onClick={handleSkip} className="mt-4 w-full" variant="default">
-									Continue to Dashboard
-								</Button>
-							)}
-						</div>
-					)}
-
-					{currentStatus === "REJECTED" && (
-						<div className="space-y-4">
-							<div className="rounded-lg border border-red-200 bg-red-50 p-4">
-								<div className="flex items-start gap-3">
-									<XCircle className="h-5 w-5 text-red-600 mt-0.5" />
-									<div>
-										<p className="font-medium text-red-900">Verification Failed</p>
-										<p className="text-red-700 text-sm">
-											Your KYC verification was not approved. Please try again with valid
-											identification documents.
-										</p>
-									</div>
-								</div>
-							</div>
-							<Button
-								onClick={async () => {
-									const result = await resetUserKycStatus()
-									if (result.success) {
-										toast.success("KYC status reset. You can start a new verification.")
-										window.location.reload()
-									} else {
-										toast.error(result.error || "Failed to reset KYC status")
-									}
-								}}
-								disabled={isPending}
-								variant="outline"
-								className="w-full"
-							>
-								Reset and Start New Verification
-							</Button>
-						</div>
-					)}
-				</CardContent>
-			</Card>
-
-			{/* Status Details Card */}
-			{statusResult && (
-				<Card className={`border ${getStatusColor(statusResult.kycStatus)}`}>
-					<CardHeader>
-						<CardTitle>Verification Details</CardTitle>
-					</CardHeader>
-					<CardContent className="space-y-4">
-						<div className={`rounded-lg border p-4 ${getStatusColor(statusResult.status)}`}>
-							<p className="font-semibold capitalize">
-								Status: {statusResult.status.replace(/_/g, " ")}
-							</p>
-							<p className="mt-1 text-sm">{statusResult.message}</p>
-						</div>
-
-						{statusResult.details && Object.keys(statusResult.details).length > 0 && (
-							<div className="space-y-2">
-								<Label>Additional Details</Label>
-								<pre className="bg-muted overflow-auto rounded-lg p-4 text-xs">
-									{JSON.stringify(statusResult.details, null, 2)}
-								</pre>
+								<span className="text-muted-foreground">Transaction ID:</span>
+								<span className="font-mono text-xs">{userInfo.transactionId}</span>
 							</div>
 						)}
-					</CardContent>
-				</Card>
+					</div>
+				</div>
+			)}
+
+			{/* Development Helper - Reset KYC */}
+			{process.env.NODE_ENV === "development" && currentStatus !== "NOT_STARTED" && (
+				<div className="pt-2 border-t">
+					<Button
+						onClick={async () => {
+							if (confirm("Reset KYC status? This will clear your current verification.")) {
+								const result = await resetUserKycStatus()
+								if (result.success) {
+									toast.success("KYC status reset successfully")
+									window.location.reload()
+								} else {
+									toast.error(result.error || "Failed to reset")
+								}
+							}
+						}}
+						variant="ghost"
+						size="sm"
+						className="w-full text-xs text-muted-foreground"
+					>
+						[Dev] Reset KYC Status
+					</Button>
+				</div>
+			)}
+
+			{/* NOT_STARTED State */}
+			{currentStatus === "NOT_STARTED" && (
+				<div className="space-y-4">
+					{!minimal && (
+						<p className="text-muted-foreground text-sm text-center">
+							You haven&apos;t completed your KYC verification yet. Click the button below to
+							start the verification process.
+						</p>
+					)}
+					<Button onClick={handleCreateLink} disabled={isPending} className="w-full" size="lg">
+						{isPending ? (
+							<>
+								<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+								Creating Link...
+							</>
+						) : (
+							<>
+								<ShieldCheck className="mr-2 h-5 w-5" />
+								Start Verification
+							</>
+						)}
+					</Button>
+					{minimal && redirectUrlOnSkip && (
+						<Button onClick={handleSkip} variant="ghost" className="w-full" type="button">
+							Skip for now
+						</Button>
+					)}
+				</div>
+			)}
+
+			{/* PENDING State */}
+			{currentStatus === "PENDING" && (
+				<div className="space-y-4">
+					<div className="rounded-lg border border-blue-200 bg-blue-50 dark:bg-blue-950/20 dark:border-blue-800 p-4">
+						<div className="flex items-start gap-3">
+							<Loader2 className="h-5 w-5 text-blue-600 dark:text-blue-400 animate-spin mt-0.5 flex-shrink-0" />
+							<div>
+								<p className="font-medium text-blue-900 dark:text-blue-100">Verification In Progress</p>
+								<p className="text-blue-700 dark:text-blue-300 text-sm mt-1">
+									Complete the verification process in the HyperVerge window, then click the button below to check your status.
+								</p>
+							</div>
+						</div>
+					</div>
+					<Button onClick={handleCheckStatus} disabled={isPending} className="w-full" size="lg">
+						{isPending ? (
+							<>
+								<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+								Checking Status...
+							</>
+						) : (
+							<>
+								<ShieldCheck className="mr-2 h-5 w-5" />
+								Check Verification Status
+							</>
+						)}
+					</Button>
+					{polling && (
+						<p className="text-muted-foreground text-center text-xs">
+							Auto-checking every {pollIntervalMs / 1000} seconds...
+						</p>
+					)}
+				</div>
+			)}
+
+			{/* VERIFIED State */}
+			{currentStatus === "VERIFIED" && (
+				<div className="space-y-4">
+					<div className="rounded-lg border border-green-200 bg-green-50 dark:bg-green-950/20 dark:border-green-800 p-4">
+						<div className="flex items-start gap-3">
+							<CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400 mt-0.5 flex-shrink-0" />
+							<div>
+								<p className="font-medium text-green-900 dark:text-green-100">Verification Complete</p>
+								<p className="text-green-700 dark:text-green-300 text-sm mt-1">
+									Your identity has been successfully verified.{" "}
+									{minimal
+										? "Redirecting to your dashboard..."
+										: "You now have full access to all platform features."}
+								</p>
+							</div>
+						</div>
+					</div>
+					{minimal && redirectUrlOnSkip && (
+						<Button onClick={handleSkip} className="w-full" variant="default" size="lg" type="button">
+							Continue to Dashboard
+						</Button>
+					)}
+				</div>
+			)}
+
+			{/* REJECTED State */}
+			{currentStatus === "REJECTED" && (
+				<div className="space-y-4">
+					<div className="rounded-lg border border-red-200 bg-red-50 dark:bg-red-950/20 dark:border-red-800 p-4">
+						<div className="flex items-start gap-3">
+							<XCircle className="h-5 w-5 text-red-600 dark:text-red-400 mt-0.5 flex-shrink-0" />
+							<div>
+								<p className="font-medium text-red-900 dark:text-red-100">Verification Failed</p>
+								<p className="text-red-700 dark:text-red-300 text-sm mt-1">
+									Your KYC verification was not approved. Please try again with valid
+									identification documents.
+								</p>
+							</div>
+						</div>
+					</div>
+					<Button
+						onClick={async () => {
+							const result = await resetUserKycStatus()
+							if (result.success) {
+								toast.success("KYC status reset. You can start a new verification.")
+								window.location.reload()
+							} else {
+								toast.error(result.error || "Failed to reset KYC status")
+							}
+						}}
+						disabled={isPending}
+						variant="outline"
+						size="lg"
+						className="w-full"
+					>
+						Reset and Start New Verification
+					</Button>
+				</div>
+			)}
+
+			{/* Status Details - Only in non-minimal mode */}
+			{!minimal && statusResult && (
+				<div className="space-y-4 pt-4 border-t">
+					<Label className="text-base font-semibold">Verification Details</Label>
+					<div className={`rounded-lg border p-4 ${getStatusColor(statusResult.status)}`}>
+						<p className="font-semibold capitalize">
+							Status: {statusResult.status.replace(/_/g, " ")}
+						</p>
+						<p className="mt-1 text-sm">{statusResult.message}</p>
+					</div>
+
+					{statusResult.details && Object.keys(statusResult.details).length > 0 && (
+						<div className="space-y-2">
+							<Label>Additional Details</Label>
+							<pre className="bg-muted overflow-auto rounded-lg p-4 text-xs">
+								{JSON.stringify(statusResult.details, null, 2)}
+							</pre>
+						</div>
+					)}
+				</div>
 			)}
 
 			{/* Error Display */}
 			{error && (
-				<Card className="border-red-200 bg-red-50">
-					<CardContent className="pt-6">
-						<p className="text-red-600">{error}</p>
-					</CardContent>
-				</Card>
+				<div className="rounded-lg border border-red-200 bg-red-50 dark:bg-red-950/20 dark:border-red-800 p-4">
+					<div className="flex items-start gap-3">
+						<XCircle className="h-5 w-5 text-red-600 dark:text-red-400 mt-0.5 flex-shrink-0" />
+						<p className="text-red-700 dark:text-red-300 text-sm">{error}</p>
+					</div>
+				</div>
 			)}
 		</div>
 	)

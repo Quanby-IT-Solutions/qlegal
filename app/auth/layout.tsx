@@ -8,11 +8,11 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
 	return (
 		<div className="relative min-h-screen w-full overflow-hidden">
 			<div className="absolute top-6 left-6 z-50">
-				<Button variant="ghost" size="sm" asChild>
-					<Link href="/" className="text-foreground/80 hover:text-foreground transition-colors">
+				<Link href="/">
+					<Button variant="ghost" size="sm" type="button" className="text-foreground/80 hover:text-foreground transition-colors">
 						<ChevronLeftIcon /> Back to Home
-					</Link>
-				</Button>
+					</Button>
+				</Link>
 			</div>
 
 			<GridBackground
