@@ -322,7 +322,7 @@ export function KycVerificationCard({ userInfo, minimal, redirectUrlOnSkip }: Ky
 							</div>
 						</div>
 					</div>
-					<Button onClick={handleCheckStatus} disabled={isPending} className="w-full" size="lg">
+					{/* <Button onClick={handleCheckStatus} disabled={isPending} className="w-full" size="lg">
 						{isPending ? (
 							<>
 								<Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -334,7 +334,7 @@ export function KycVerificationCard({ userInfo, minimal, redirectUrlOnSkip }: Ky
 								Check Verification Status
 							</>
 						)}
-					</Button>
+					</Button> */}
 					{polling && (
 						<p className="text-muted-foreground text-center text-xs">
 							Auto-checking every {pollIntervalMs / 1000} seconds...
