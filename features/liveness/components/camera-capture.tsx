@@ -41,6 +41,14 @@ export function CameraCapture({ onCapture, onError, disabled = false }: CameraCa
 				audio: false,
 			})
 
+			if (videoRef.current) {
+				videoRef.current.srcObject = mediaStream
+				// Ensure video plays after setting srcObject
+				await videoRef.current.play().catch(err => {
+					console.warn("Video play warning:", err)
+				})
+			}
+
 			setStream(mediaStream)
 			setCaptureState(prev => ({
 				...prev,
@@ -48,10 +56,6 @@ export function CameraCapture({ onCapture, onError, disabled = false }: CameraCa
 				hasCameraAccess: true,
 				isProcessing: false,
 			}))
-
-			if (videoRef.current) {
-				videoRef.current.srcObject = mediaStream
-			}
 		} catch (error) {
 			console.error("Error accessing camera:", error)
 			const errorMessage =
@@ -122,12 +126,22 @@ export function CameraCapture({ onCapture, onError, disabled = false }: CameraCa
 		setFacingMode(prev => (prev === "user" ? "environment" : "user"))
 	}, [stopCamera])
 
-	// Start camera when facing mode changes
+	// Ensure video element displays stream when stream is available
 	useEffect(() => {
-		if (captureState.isCapturing && !stream) {
+		if (stream && videoRef.current && videoRef.current.srcObject !== stream) {
+			videoRef.current.srcObject = stream
+			videoRef.current.play().catch(err => {
+				console.warn("Video play warning:", err)
+			})
+		}
+	}, [stream])
+
+	// Start camera when facing mode changes and we need to restart
+	useEffect(() => {
+		if (captureState.isCapturing && !stream && facingMode) {
 			void startCamera()
 		}
-	}, [facingMode, captureState.isCapturing, stream, startCamera])
+	}, [facingMode, startCamera])
 
 	// Cleanup on unmount
 	useEffect(() => {
