@@ -13,6 +13,7 @@ import {
 	conversations,
 	messages,
 } from "@/services/drizzle/schema/messages"
+import { notarialActs, notarialBooks } from "@/services/drizzle/schema/notarial-book"
 import { notarizationRequests } from "@/services/drizzle/schema/notarization-requests"
 import { signatureRequests } from "@/services/drizzle/schema/signature-requests"
 import { witnesses } from "@/services/drizzle/schema/witnesses"
@@ -40,6 +41,7 @@ export const userRelations = relations(users, ({ one, many }) => ({
 		fields: [users.id],
 		references: [legalRegistrations.applicantId],
 	}),
+	notarialBooks: many(notarialBooks),
 }))
 
 // Document relations
@@ -194,5 +196,26 @@ export const notarizationRequestsRelations = relations(notarizationRequests, ({ 
 	appointment: one(appointments, {
 		fields: [notarizationRequests.appointmentId],
 		references: [appointments.id],
+	}),
+}))
+
+// Notarial Book relations
+export const notarialBooksRelations = relations(notarialBooks, ({ one, many }) => ({
+	enp: one(users, {
+		fields: [notarialBooks.enpId],
+		references: [users.id],
+	}),
+	acts: many(notarialActs),
+}))
+
+// Notarial Act relations
+export const notarialActsRelations = relations(notarialActs, ({ one }) => ({
+	notarialBook: one(notarialBooks, {
+		fields: [notarialActs.notarialBookId],
+		references: [notarialBooks.id],
+	}),
+	document: one(documents, {
+		fields: [notarialActs.documentId],
+		references: [documents.id],
 	}),
 }))

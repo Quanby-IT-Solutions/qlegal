@@ -298,80 +298,108 @@ export const signatureRequestsRouter = createTRPCRouter({
 				console.log("   - User Email (signer):", email)
 				console.log("   - User Name:", userFirstName, userLastName)
 
-				// Step 1: Check if user is already a signer, if not add them
-				console.log("🔵 Step 1: Checking if user is already a signer...")
+				// Step 1: Check current signers and project status
+				console.log("🔵 Step 1: Checking current signers in DocoChain project...")
 				let currentSigners: any[] = []
-				let userSigner: any = null
 				let projectStatus = "Draft"
 				
 				try {
 					const projectDetails = await getProjectDetails(projectUuid, creatorEmail)
 					currentSigners = projectDetails?.data?.signers || []
 					projectStatus = projectDetails?.data?.status || "Draft"
-					userSigner = currentSigners.find((s: any) => 
-						s.email?.toLowerCase() === email.toLowerCase()
-					)
-					console.log(`   - Total signers: ${currentSigners.length}`)
+					console.log(`   - Total existing signers: ${currentSigners.length}`)
 					console.log(`   - Project status: ${projectStatus}`)
-					console.log(`   - User is signer: ${!!userSigner}`)
-					if (userSigner) {
-						console.log(`   - User sequence: ${userSigner.sequence}`)
-						console.log(`   - User status: ${userSigner.status}`)
-					}
+					currentSigners.forEach((s: any, idx: number) => {
+						console.log(`   - Signer ${idx + 1}: ${s.email} (sequence: ${s.sequence}, status: ${s.status})`)
+					})
 				} catch (error) {
 					console.warn("⚠️ Failed to get project details:", error)
 				}
 
-				// Step 2: Add user as signer if not already added
-				if (!userSigner) {
-					console.log("🔵 Step 2: Adding user as next signer...")
-					const nextSequence = currentSigners.length + 1
-					console.log(`   - Next sequence: ${nextSequence}`)
+				// Step 2: Add ALL meeting participants as signers if not already added
+				// This ensures all participants (principal + ENPs) are visible in DocoChain
+				console.log("🔵 Step 2: Ensuring all meeting participants are added as signers...")
+				
+				for (const participant of participants) {
+					const participantEmail = participant.user?.email
+					if (!participantEmail) {
+						console.warn(`   ⚠️ Skipping participant ${participant.user?.name || participant.userId} - no email`)
+						continue
+					}
+
+					// Check if participant is already a signer
+					const isAlreadySigner = currentSigners.some((s: any) => 
+						s.email?.toLowerCase() === participantEmail.toLowerCase()
+					)
+
+					if (isAlreadySigner) {
+						console.log(`   ℹ️ ${participantEmail} is already a signer, skipping...`)
+						continue
+					}
+
+					// Add participant as signer
+					const participantNameParts = (participant.user?.name || "").split(" ")
+					const participantFirstName = participantNameParts[0] || "User"
+					const participantLastName = participantNameParts.slice(1).join(" ") || ""
+
+					console.log(`   🔵 Adding ${participantEmail} as signer...`)
 
 					try {
 						// Auto-join to organization (optional)
 						try {
 							await autoJoinOrganization({
-								email,
-								firstName: userFirstName,
-								lastName: userLastName,
+								email: participantEmail,
+								firstName: participantFirstName,
+								lastName: participantLastName,
 								role: "Member",
 								userEmail: creatorEmail,
 							})
-							console.log(`   ✅ Auto-joined to organization`)
+							console.log(`   ✅ ${participantEmail} auto-joined to organization`)
 						} catch (orgError) {
-							console.warn(`   ⚠️ Failed to auto-join to organization (continuing)`)
+							console.warn(`   ⚠️ Failed to auto-join ${participantEmail} to organization (continuing)`)
 						}
 
 						// Add as signer
 						await addSignerToProject({
 							projectUuid,
-							email,
-							firstName: userFirstName,
-							lastName: userLastName,
+							email: participantEmail,
+							firstName: participantFirstName,
+							lastName: participantLastName,
 							signerRole: "Signer",
 							userEmail: creatorEmail,
 						})
 
-						console.log(`   ✅ User added as Signer with sequence ${nextSequence}`)
+						console.log(`   ✅ ${participantEmail} added as Signer`)
+						
+						// Update currentSigners list to include the newly added signer
+						currentSigners.push({
+							email: participantEmail,
+							firstName: participantFirstName,
+							lastName: participantLastName,
+						})
 					} catch (addError) {
 						// If adding fails (e.g., project already sent), check if user can still access
 						if (addError instanceof Error && (
 							addError.message.includes("already") || 
 							addError.message.includes("already been added")
 						)) {
-							console.log(`   ℹ️ User already exists as signer`)
+							console.log(`   ℹ️ ${participantEmail} already exists as signer`)
 						} else {
-							console.error(`   ❌ Failed to add signer:`, addError)
-							throw new TRPCError({
-								code: "BAD_REQUEST",
-								message: `Cannot add signer: ${addError instanceof Error ? addError.message : 'Unknown error'}. The document may have already been sent.`,
-							})
+							console.error(`   ❌ Failed to add ${participantEmail} as signer:`, addError)
+							// Don't throw error for other participants - continue adding remaining ones
+							// Only throw if it's the current user (the one clicking "Start Signing")
+							if (participantEmail.toLowerCase() === email.toLowerCase()) {
+								throw new TRPCError({
+									code: "BAD_REQUEST",
+									message: `Cannot add signer: ${addError instanceof Error ? addError.message : 'Unknown error'}. The document may have already been sent.`,
+								})
+							}
 						}
 					}
-				} else {
-					console.log(`ℹ️ User is already a signer, continuing...`)
 				}
+
+				console.log(`✅ All meeting participants have been ensured as signers`)
+				console.log(`   - Total signers after update: ${currentSigners.length}`)
 
 				// Step 3: Get signing link for user
 				// Strategy:
@@ -630,7 +658,7 @@ export const signatureRequestsRouter = createTRPCRouter({
 				})
 
 				// Try to get creator's email from meeting first, then envelope, then fallback to session user
-				let creatorEmail = document?.meeting?.createdBy?.email || 
+				const creatorEmail = document?.meeting?.createdBy?.email || 
 				                  document?.envelope?.user?.email || 
 				                  ctx.session.user.email || 
 				                  undefined

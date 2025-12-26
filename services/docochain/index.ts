@@ -304,12 +304,35 @@ export async function createDocoChainProject({
 		console.log("✅ DocoChain project created successfully!")
 		console.log("   - UUID:", result.data.uuid)
 		console.log("   - ID:", result.data.id)
-		console.log("   - Redirect URL:", result.data.redirect_url)
+		console.log("   - Redirect URL (raw):", result.data.redirect_url)
+
+		// Clean the redirect URL - remove api_token=undefined if present
+		let cleanedRedirectUrl = result.data.redirect_url
+		if (cleanedRedirectUrl) {
+			try {
+				const url = new URL(cleanedRedirectUrl)
+				// Remove api_token if it's undefined or empty
+				if (url.searchParams.has('api_token') && (url.searchParams.get('api_token') === 'undefined' || url.searchParams.get('api_token') === '')) {
+					url.searchParams.delete('api_token')
+					console.log("⚠️ Removed invalid api_token=undefined from redirect URL")
+				}
+				// Remove api parameter if it's null or empty
+				if (url.searchParams.has('api') && (url.searchParams.get('api') === 'null' || url.searchParams.get('api') === '')) {
+					url.searchParams.delete('api')
+				}
+				cleanedRedirectUrl = url.toString()
+			} catch (urlError) {
+				// If URL parsing fails, try simple string replacement
+				cleanedRedirectUrl = cleanedRedirectUrl.replace(/\?api_token=undefined(&|$)/, '?').replace(/&api_token=undefined(&|$)/, '&').replace(/\?$/, '')
+				cleanedRedirectUrl = cleanedRedirectUrl.replace(/\?api=null(&|$)/, '?').replace(/&api=null(&|$)/, '&').replace(/\?$/, '')
+			}
+			console.log("   - Redirect URL (cleaned):", cleanedRedirectUrl)
+		}
 
 		return {
 			uuid: result.data.uuid,
 			id: result.data.id,
-			redirectUrl: result.data.redirect_url,
+			redirectUrl: cleanedRedirectUrl,
 		}
 	} catch (error) {
 		console.error("❌ Error creating DocoChain project:", error)
