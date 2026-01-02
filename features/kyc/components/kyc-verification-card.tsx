@@ -45,22 +45,16 @@ export function KycVerificationCard({ userInfo, minimal, redirectUrlOnSkip }: Ky
 	const [error, setError] = useState<string | null>(null)
 	const [polling, setPolling] = useState(false)
 	const [pollId, setPollId] = useState<number | null>(null)
+	const [shownToasts, setShownToasts] = useState<Set<string>>(new Set())
 	const searchParams = useSearchParams()
 
 	// Auto-poll interval (5 seconds)
 	const pollIntervalMs = 5000
 
 	const handleSkip = () => {
-		console.log("handleSkip called, redirectUrlOnSkip:", redirectUrlOnSkip)
-		if (redirectUrlOnSkip) {
-			console.log("Redirecting to:", redirectUrlOnSkip)
-			// Set a SESSION cookie (no max-age = expires when browser closes)
-			// This allows temporary access but prompts KYC on next session
-			document.cookie = "skipKycSession=true; path=/; SameSite=Lax"
-			window.location.href = redirectUrlOnSkip
-		} else {
-			console.error("No redirectUrlOnSkip provided")
-		}
+		// Skip functionality removed - KYC is now mandatory
+		// Users must complete verification to access the platform
+		console.warn("KYC verification is mandatory and cannot be skipped")
 	}
 
 	// When verified in minimal mode, auto-redirect to dashboard after short delay
@@ -129,13 +123,20 @@ export function KycVerificationCard({ userInfo, minimal, redirectUrlOnSkip }: Ky
 					result.data.kycStatus === "REJECTED"
 				) {
 					stopPolling()
-					if (result.data.isApproved) {
+					// Only show toast if not already shown for this status
+					const toastKey = `${result.data.kycStatus}-${result.data.isApproved}`
+					if (result.data.isApproved && !shownToasts.has(toastKey)) {
 						toast.success("KYC verification approved!")
+						setShownToasts(prev => new Set(prev).add(toastKey))
 					}
 				}
 			} else {
-				setError(result.error || "Failed to check KYC status")
-				toast.error(result.error || "Failed to check KYC status")
+				const errorKey = `error-${result.error}`
+				if (!shownToasts.has(errorKey)) {
+					setError(result.error || "Failed to check KYC status")
+					toast.error(result.error || "Failed to check KYC status")
+					setShownToasts(prev => new Set(prev).add(errorKey))
+				}
 			}
 		})
 	}
@@ -154,6 +155,12 @@ export function KycVerificationCard({ userInfo, minimal, redirectUrlOnSkip }: Ky
 					result.data.kycStatus === "REJECTED"
 				) {
 					stopPolling()
+					// Show success toast only once during polling
+					const toastKey = `${result.data.kycStatus}-${result.data.isApproved}`
+					if (result.data.isApproved && !shownToasts.has(toastKey)) {
+						toast.success("KYC verification approved!")
+						setShownToasts(prev => new Set(prev).add(toastKey))
+					}
 				}
 			} else {
 				stopPolling()
@@ -282,10 +289,24 @@ export function KycVerificationCard({ userInfo, minimal, redirectUrlOnSkip }: Ky
 			{currentStatus === "NOT_STARTED" && (
 				<div className="space-y-4">
 					{!minimal && (
-						<p className="text-muted-foreground text-sm text-center">
-							You haven&apos;t completed your KYC verification yet. Click the button below to
-							start the verification process.
-						</p>
+						<div className="rounded-lg border border-blue-200 bg-blue-50 dark:bg-blue-950/20 dark:border-blue-800 p-4">
+							<p className="text-blue-900 dark:text-blue-100 text-sm font-medium mb-2">
+								 Identity Verification Required
+							</p>
+							<p className="text-blue-700 dark:text-blue-300 text-sm">
+								To ensure security and compliance, all users must complete identity verification before accessing platform features. This process takes just a few minutes.
+							</p>
+						</div>
+					)}
+					{minimal && (
+						<div className="rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800 p-4 text-center">
+							<p className="text-amber-900 dark:text-amber-100 text-sm font-semibold mb-1">
+								 Verification Required
+							</p>
+							<p className="text-amber-700 dark:text-amber-300 text-xs">
+								Complete your identity verification to continue
+							</p>
+						</div>
 					)}
 					<Button onClick={handleCreateLink} disabled={isPending} className="w-full" size="lg">
 						{isPending ? (
@@ -300,11 +321,6 @@ export function KycVerificationCard({ userInfo, minimal, redirectUrlOnSkip }: Ky
 							</>
 						)}
 					</Button>
-					{minimal && redirectUrlOnSkip && (
-						<Button onClick={handleSkip} variant="ghost" className="w-full" type="button">
-							Skip for now
-						</Button>
-					)}
 				</div>
 			)}
 
@@ -314,32 +330,34 @@ export function KycVerificationCard({ userInfo, minimal, redirectUrlOnSkip }: Ky
 					<div className="rounded-lg border border-blue-200 bg-blue-50 dark:bg-blue-950/20 dark:border-blue-800 p-4">
 						<div className="flex items-start gap-3">
 							<Loader2 className="h-5 w-5 text-blue-600 dark:text-blue-400 animate-spin mt-0.5 flex-shrink-0" />
-							<div>
-								<p className="font-medium text-blue-900 dark:text-blue-100">Verification In Progress</p>
-								<p className="text-blue-700 dark:text-blue-300 text-sm mt-1">
-									Complete the verification process in the HyperVerge window, then click the button below to check your status.
+							<div className="flex-1">
+								<p className="font-medium text-blue-900 dark:text-blue-100 mb-1">Verification In Progress</p>
+								<p className="text-blue-700 dark:text-blue-300 text-sm">
+									We&apos;re reviewing your identity documents. This usually takes a few minutes.
+									{polling && " We&apos;ll automatically check your status and notify you when complete."}
 								</p>
+								{polling && (
+									<p className="text-blue-600 dark:text-blue-400 text-xs mt-2 flex items-center gap-1.5">
+										<span className="inline-block h-1.5 w-1.5 rounded-full bg-blue-600 dark:bg-blue-400 animate-pulse"></span>
+										Auto-checking every {pollIntervalMs / 1000} seconds
+									</p>
+								)}
 							</div>
 						</div>
 					</div>
-					{/* <Button onClick={handleCheckStatus} disabled={isPending} className="w-full" size="lg">
+					<Button onClick={handleCheckStatus} disabled={isPending} variant="outline" className="w-full">
 						{isPending ? (
 							<>
 								<Loader2 className="mr-2 h-4 w-4 animate-spin" />
-								Checking Status...
+								Checking...
 							</>
 						) : (
 							<>
-								<ShieldCheck className="mr-2 h-5 w-5" />
-								Check Verification Status
+								<ShieldCheck className="mr-2 h-4 w-4" />
+								Check Status Manually
 							</>
 						)}
-					</Button> */}
-					{polling && (
-						<p className="text-muted-foreground text-center text-xs">
-							Auto-checking every {pollIntervalMs / 1000} seconds...
-						</p>
-					)}
+					</Button>
 				</div>
 			)}
 
@@ -348,23 +366,25 @@ export function KycVerificationCard({ userInfo, minimal, redirectUrlOnSkip }: Ky
 				<div className="space-y-4">
 					<div className="rounded-lg border border-green-200 bg-green-50 dark:bg-green-950/20 dark:border-green-800 p-4">
 						<div className="flex items-start gap-3">
-							<CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400 mt-0.5 flex-shrink-0" />
-							<div>
-								<p className="font-medium text-green-900 dark:text-green-100">Verification Complete</p>
-								<p className="text-green-700 dark:text-green-300 text-sm mt-1">
-									Your identity has been successfully verified.{" "}
-									{minimal
-										? "Redirecting to your dashboard..."
-										: "You now have full access to all platform features."}
+							<CheckCircle2 className="h-6 w-6 text-green-600 dark:text-green-400 mt-0.5 flex-shrink-0" />
+							<div className="flex-1">
+								<p className="font-semibold text-green-900 dark:text-green-100 text-lg mb-1">✓ Verification Complete!</p>
+								<p className="text-green-700 dark:text-green-300 text-sm">
+									Your identity has been successfully verified. You now have full access to all platform features.
 								</p>
 							</div>
 						</div>
 					</div>
-					{minimal && redirectUrlOnSkip && (
-						<Button onClick={handleSkip} className="w-full" variant="default" size="lg" type="button">
-							Continue to Dashboard
-						</Button>
-					)}
+					<Button 
+						onClick={() => window.location.href = redirectUrlOnSkip || "/dashboard"} 
+						className="w-full" 
+						variant="default" 
+						size="lg" 
+						type="button"
+					>
+						<CheckCircle2 className="mr-2 h-5 w-5" />
+						Continue to Dashboard
+					</Button>
 				</div>
 			)}
 
@@ -374,31 +394,36 @@ export function KycVerificationCard({ userInfo, minimal, redirectUrlOnSkip }: Ky
 					<div className="rounded-lg border border-red-200 bg-red-50 dark:bg-red-950/20 dark:border-red-800 p-4">
 						<div className="flex items-start gap-3">
 							<XCircle className="h-5 w-5 text-red-600 dark:text-red-400 mt-0.5 flex-shrink-0" />
-							<div>
-								<p className="font-medium text-red-900 dark:text-red-100">Verification Failed</p>
-								<p className="text-red-700 dark:text-red-300 text-sm mt-1">
-									Your KYC verification was not approved. Please try again with valid
-									identification documents.
+							<div className="flex-1">
+								<p className="font-medium text-red-900 dark:text-red-100 mb-1">Verification Not Approved</p>
+								<p className="text-red-700 dark:text-red-300 text-sm mb-2">
+									Your identity verification was not approved. This could be due to unclear documents or mismatched information.
+								</p>
+								<p className="text-red-600 dark:text-red-400 text-xs">
+									💡 Please ensure your ID is clear, well-lit, and all information is visible before retrying.
 								</p>
 							</div>
 						</div>
 					</div>
 					<Button
 						onClick={async () => {
-							const result = await resetUserKycStatus()
-							if (result.success) {
-								toast.success("KYC status reset. You can start a new verification.")
-								window.location.reload()
-							} else {
-								toast.error(result.error || "Failed to reset KYC status")
+							if (confirm("Start a new verification? Your previous attempt will be cleared.")) {
+								const result = await resetUserKycStatus()
+								if (result.success) {
+									toast.success("Ready to start new verification")
+									window.location.reload()
+								} else {
+									toast.error(result.error || "Failed to reset. Please contact support.")
+								}
 							}
 						}}
 						disabled={isPending}
-						variant="outline"
+						variant="default"
 						size="lg"
 						className="w-full"
 					>
-						Reset and Start New Verification
+						<ShieldCheck className="mr-2 h-5 w-5" />
+						Try Again with New Documents
 					</Button>
 				</div>
 			)}

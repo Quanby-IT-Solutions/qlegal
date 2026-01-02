@@ -20,7 +20,7 @@ export default async function KycRegisterPage() {
 		redirect("/auth/login")
 	}
 
-	// If already verified, go to dashboard
+	// If already verified, redirect to dashboard
 	// @ts-expect-error augmented session field
 	if (session.user.kycStatus === "VERIFIED") {
 		redirect("/dashboard")
@@ -28,7 +28,8 @@ export default async function KycRegisterPage() {
 
 	const kycInfoResult = await getUserKycInfo()
 	if (!kycInfoResult.success || !kycInfoResult.data) {
-		redirect("/dashboard")
+		// If can't get KYC info, something is wrong, redirect to login
+		redirect("/auth/login")
 	}
 
 	return (
@@ -37,9 +38,9 @@ export default async function KycRegisterPage() {
 				<div className="mb-4 flex justify-center">
 					<QuanbyLogo className="h-16 w-16" />
 				</div>
-				<CardTitle className="text-2xl">Verify Your Identity</CardTitle>
+				<CardTitle className="text-2xl">🔒 Identity Verification Required</CardTitle>
 				<CardDescription>
-					Complete your KYC verification to access all features securely
+					To ensure security and regulatory compliance, all users must complete identity verification before accessing the platform.
 				</CardDescription>
 			</CardHeader>
 			<CardContent>

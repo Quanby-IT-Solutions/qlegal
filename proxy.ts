@@ -34,6 +34,16 @@ export default proxy(req => {
 		// BUT: Don't handle callback URLs on the signature page itself
 		const callbackUrl = nextUrl.searchParams.get("callbackUrl")
 		if (isAuth && callbackUrl && path !== "/auth/signature") {
+			// @ts-expect-error augmented user field
+			const kycStatus = auth?.user?.kycStatus as string | undefined
+			
+			// STRICT KYC: If not verified, always redirect to KYC first, regardless of callback
+			if (kycStatus === "NOT_STARTED" || kycStatus === "PENDING") {
+				const kycUrl = new URL("/auth/kyc", nextUrl)
+				logRedirect(path, kycUrl.pathname, "kyc required before callback")
+				return NextResponse.redirect(kycUrl)
+			}
+			
 			try {
 				const callbackObj = new URL(callbackUrl, nextUrl.origin)
 				const callbackPath = callbackObj.pathname
@@ -45,18 +55,13 @@ export default proxy(req => {
 					return NextResponse.redirect(callbackObj)
 				} else {
 					// CALLBACK DENIED: User lacks permission for callback URL
-					// For new OAuth users, redirect to home page instead of dashboard
-					// @ts-expect-error augmented user field
-					const kycStatus = auth?.user?.kycStatus as string | undefined
-					const redirectUrl = kycStatus === "NOT_STARTED" ? "/" : getDefaultRoute(role!)
+					const redirectUrl = getDefaultRoute(role!)
 					logRedirect(path, redirectUrl, "callback not authorized")
 					return NextResponse.redirect(new URL(redirectUrl, nextUrl))
 				}
 			} catch {
-				// If callback URL is invalid, redirect to home page for new users
-				// @ts-expect-error augmented user field
-				const kycStatus = auth?.user?.kycStatus as string | undefined
-				const redirectUrl = kycStatus === "NOT_STARTED" ? "/" : getDefaultRoute(role!)
+				// If callback URL is invalid, redirect to default route
+				const redirectUrl = getDefaultRoute(role!)
 				logRedirect(path, redirectUrl, "invalid callback URL")
 				return NextResponse.redirect(new URL(redirectUrl, nextUrl))
 			}
@@ -65,28 +70,19 @@ export default proxy(req => {
 		// --- ACCESS GRANTED ---
 		// User has permission: public routes, shared protected, or role-specific routes
 		if (hasAccess) {
-			// If authenticated and KYC not started, route to onboarding KYC page, except on auth pages
+			// STRICT KYC GATE: All authenticated users must complete KYC before accessing any protected routes
 			const onAuthPage = matchesAnyRoute(path, ROUTE_CONFIG.publicOnly) || path.startsWith("/auth/")
 			// @ts-expect-error augmented user field
 			const kycStatus = auth?.user?.kycStatus as string | undefined
 			
-			// Check if user has temporarily skipped KYC for this session
-			// Using session cookie (no max-age means it expires when browser closes)
-			const hasSkippedKycSession = req.cookies.get("skipKycSession")?.value === "true"
-			
-			// Allow access to home page (/) even without KYC - it's a public landing page
-			const isHomePage = path === "/"
-			
 			// KYC Gate: Redirect to KYC page if:
 			// - User is authenticated AND
-			// - Not on an auth/public page AND
-			// - Not on home page AND
-			// - Haven't skipped KYC for this session AND
-			// - KYC status is NOT_STARTED AND
-			// - Not already on KYC page
-			if (isAuth && !onAuthPage && !isHomePage && !hasSkippedKycSession && kycStatus === "NOT_STARTED" && path !== "/auth/kyc") {
+			// - Not already on KYC page AND
+			// - Not on other auth pages (login, register, etc.) AND
+			// - KYC status is NOT_STARTED or PENDING (not yet VERIFIED)
+			if (isAuth && path !== "/auth/kyc" && !onAuthPage && (kycStatus === "NOT_STARTED" || kycStatus === "PENDING")) {
 				const kycUrl = new URL("/auth/kyc", nextUrl)
-				logRedirect(path, kycUrl.pathname, "kyc gate redirect")
+				logRedirect(path, kycUrl.pathname, "strict kyc gate - verification required")
 				return NextResponse.redirect(kycUrl)
 			}
 
@@ -103,15 +99,15 @@ export default proxy(req => {
 
 			if (isPublicOnly) {
 				// AUTH ROUTES: Logged-in users cannot access auth pages
-				// For new users with NOT_STARTED KYC, redirect to home page instead of dashboard
-				const defaultRoute = kycStatus === "NOT_STARTED" ? "/" : getDefaultRoute(role!)
+				// STRICT KYC: If not verified, redirect to KYC page
+				const defaultRoute = (kycStatus === "NOT_STARTED" || kycStatus === "PENDING") ? "/auth/kyc" : getDefaultRoute(role!)
 				logRedirect(path, defaultRoute, "authenticated user accessing public-only route")
 				return NextResponse.redirect(new URL(defaultRoute, nextUrl))
 			}
 
 			// INSUFFICIENT PERMISSIONS: User role cannot access this protected route
-			// For new users with NOT_STARTED KYC, redirect to home page instead of dashboard
-			const defaultRoute = kycStatus === "NOT_STARTED" ? "/" : getDefaultRoute(role!)
+			// STRICT KYC: If not verified, redirect to KYC page
+			const defaultRoute = (kycStatus === "NOT_STARTED" || kycStatus === "PENDING") ? "/auth/kyc" : getDefaultRoute(role!)
 			logRedirect(path, defaultRoute, "unauthorized access")
 			return NextResponse.redirect(new URL(defaultRoute, nextUrl))
 		}

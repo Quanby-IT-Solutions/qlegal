@@ -68,7 +68,6 @@ import {
 	BreadcrumbList,
 	BreadcrumbPage,
 } from "@/features/home/components/ui/breadcrumb"
-import { KycReminderBanner } from "@/features/kyc/components/kyc-reminder-banner"
 
 // Chart colors
 const COLORS = {
@@ -370,9 +369,6 @@ export default function DashboardPage() {
 							}
 						</p>
 					</div>
-
-					{/* KYC Reminder Banner */}
-					<KycReminderBanner kycStatus={session?.user?.kycStatus} />
 
 					{/* Statistics Cards */}
 					<div className={`grid gap-4 sm:grid-cols-2 ${isENP ? 'lg:grid-cols-5' : 'lg:grid-cols-4'}`}>
