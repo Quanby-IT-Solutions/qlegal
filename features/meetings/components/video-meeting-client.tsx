@@ -1,6 +1,6 @@
 "use client"
 
-import { Camera, CameraOff, FileText, FileUp, Mic, MicOff, Monitor, PhoneOff, Users, Send, FileSignature, CircleDot, Square, X, GripVertical, Download, CheckCircle2, Clock, Lock, Unlock, User, AlertCircle } from "lucide-react"
+import { Camera, CameraOff, CircleDot, FileText, FileUp, GripVertical, Download, CheckCircle2, Clock, Lock, Monitor, PhoneOff, Send, Square, FileSignature, Unlock, User, Users as UsersIcon, AlertCircle } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import { MeetingProvider, useMeeting, useParticipant } from "@videosdk.live/react-sdk"
 import { useSession } from "next-auth/react"
@@ -26,236 +26,12 @@ import {
 } from "@/core/components/ui/select"
 import { cn } from "@/core/lib/utils"
 import { MeetingDocumentUpload } from "./meeting-document-upload"
-
-// Screen share view component
-function ScreenShareView({ participantId }: { participantId: string }) {
-	const { screenShareStream, displayName } = useParticipant(participantId)
-	const screenVideoRef = useRef<HTMLVideoElement>(null)
-
-	useEffect(() => {
-		if (screenShareStream?.track && screenVideoRef.current) {
-			const mediaStream = new MediaStream([screenShareStream.track])
-			screenVideoRef.current.srcObject = mediaStream
-			screenVideoRef.current.play().catch(() => {})
-		}
-	}, [screenShareStream])
-
-	return (
-		<Card className="relative size-full overflow-hidden border-2 border-primary/50 shadow-xl">
-			<CardContent className="relative p-0 size-full bg-muted/10">
-				<video
-					ref={screenVideoRef}
-					autoPlay
-					playsInline
-					className="size-full object-contain"
-				/>
-				<div className="absolute top-3 left-3 rounded-lg bg-card/95 px-3 py-2 text-sm shadow-lg backdrop-blur-md border">
-					<Monitor className="mr-2 inline size-4 text-primary" />
-					<span className="font-semibold">{displayName} is presenting</span>
-				</div>
-			</CardContent>
-		</Card>
-	)
-}
-
-// Participant video component - SIMPLIFIED AND CLEAN
-function ParticipantView({ participantId }: { participantId: string }) {
-	const { webcamStream, micOn, webcamOn, displayName, isLocal, screenShareStream, screenShareOn } = useParticipant(participantId)
-	const videoRef = useRef<HTMLVideoElement>(null)
-
-	// Update video element when stream changes
-	useEffect(() => {
-		const videoElement = videoRef.current
-		if (!videoElement) return
-
-		let mediaStream: MediaStream | null = null
-		let trackEndHandler: ((e: Event) => void) | null = null
-
-		// Helper to extract MediaStream from VideoSDK stream object
-		const getMediaStream = (streamObj: any): MediaStream | null => {
-			if (!streamObj) return null
-			
-			// If it's already a MediaStream
-			if (streamObj instanceof MediaStream) {
-				return streamObj
-			}
-			
-			// Try .stream property (most common VideoSDK pattern)
-			if (streamObj.stream instanceof MediaStream) {
-				return streamObj.stream
-			}
-			
-			// Try .track property and create MediaStream
-			if (streamObj.track && streamObj.track instanceof MediaStreamTrack) {
-				return new MediaStream([streamObj.track])
-			}
-			
-			// Try getVideoTracks() method
-			if (typeof streamObj.getVideoTracks === 'function') {
-				const tracks = streamObj.getVideoTracks()
-				if (tracks && tracks.length > 0) {
-					return new MediaStream(tracks)
-				}
-			}
-			
-			// Try getTracks() method and filter for video
-			if (typeof streamObj.getTracks === 'function') {
-				const tracks = streamObj.getTracks().filter((t: MediaStreamTrack) => t.kind === 'video')
-				if (tracks && tracks.length > 0) {
-					return new MediaStream(tracks)
-				}
-			}
-			
-			return null
-		}
-
-		// Screen share takes priority
-		if (screenShareOn && screenShareStream) {
-			mediaStream = getMediaStream(screenShareStream)
-		}
-		
-		// Webcam stream (only if no screen share)
-		if (!mediaStream && webcamOn && webcamStream) {
-			mediaStream = getMediaStream(webcamStream)
-		}
-		
-		// Update video element
-		if (mediaStream) {
-			const videoTracks = mediaStream.getVideoTracks()
-			
-			if (videoTracks.length > 0) {
-				const currentStream = videoElement.srcObject as MediaStream | null
-				const currentVideoTrack = currentStream?.getVideoTracks()[0]
-				const newVideoTrack = videoTracks[0]
-				
-				// Ensure newVideoTrack exists before using it
-				if (newVideoTrack) {
-					// Update if track changed or no current stream
-					if (!currentVideoTrack || currentVideoTrack.id !== newVideoTrack.id) {
-						// Set the stream
-						videoElement.srcObject = mediaStream
-						
-						// Listen for track ended event
-						trackEndHandler = () => {
-							if (videoElement.srcObject === mediaStream) {
-								videoElement.srcObject = null
-							}
-						}
-						
-						newVideoTrack.addEventListener('ended', trackEndHandler)
-						
-						// Play the video
-						videoElement.play().catch((error) => {
-							// Silently handle autoplay errors
-							if (error.name !== 'NotAllowedError' && error.name !== 'NotReadableError') {
-								console.error("Video play error:", error)
-							}
-						})
-					} else if (videoElement.paused) {
-						// Same stream but paused - try to play
-						videoElement.play().catch(() => {})
-					}
-				}
-			} else {
-				// Stream exists but no video tracks - clear
-				if (videoElement.srcObject === mediaStream) {
-					videoElement.srcObject = null
-				}
-			}
-		} else {
-			// No valid stream - clear the video element
-			if (videoElement.srcObject) {
-				videoElement.srcObject = null
-			}
-		}
-		
-		// Cleanup function
-		return () => {
-			if (trackEndHandler && mediaStream) {
-				const tracks = mediaStream.getVideoTracks()
-				tracks.forEach(track => {
-					track.removeEventListener('ended', trackEndHandler)
-				})
-			}
-		}
-	}, [webcamStream, webcamOn, screenShareStream, screenShareOn])
-
-	// Determine what to display based on actual video tracks
-	const [hasVideoTracks, setHasVideoTracks] = useState(false)
-	
-	useEffect(() => {
-		if (videoRef.current?.srcObject) {
-			const stream = videoRef.current.srcObject as MediaStream
-			const tracks = stream.getVideoTracks()
-			setHasVideoTracks(tracks.length > 0 && tracks.some(t => t.readyState === 'live'))
-		} else {
-			setHasVideoTracks(false)
-		}
-	}, [webcamStream, webcamOn, screenShareStream, screenShareOn])
-	
-	const showPlaceholder = !hasVideoTracks || (!webcamOn && !screenShareOn)
-
-	return (
-		<Card className="relative size-full overflow-hidden border-2 shadow-lg transition-all hover:border-primary/50 hover:shadow-xl">
-			<CardContent className="relative p-0 size-full">
-				{/* Video element - always render so stream can be attached */}
-				<video
-					ref={videoRef}
-					autoPlay
-					playsInline
-					muted={isLocal}
-					className={cn(
-						"size-full object-cover bg-muted/10",
-						isLocal && "scale-x-[-1]",
-						showPlaceholder && "opacity-0 pointer-events-none"
-					)}
-				/>
-				
-				{/* Placeholder avatar - show when no video */}
-				{showPlaceholder && (
-					<div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-muted/30 to-muted/10 z-0">
-						<div className="flex size-20 md:size-28 items-center justify-center rounded-full bg-gradient-to-br from-primary to-primary/80 text-3xl md:text-4xl font-bold text-primary-foreground shadow-2xl">
-							{displayName?.charAt(0).toUpperCase() ?? "?"}
-						</div>
-					</div>
-				)}
-
-				{/* Overlay info */}
-				<div className="absolute bottom-2 md:bottom-3 left-2 md:left-3 right-2 md:right-3 flex items-center justify-between gap-2 z-10">
-					<div className="flex items-center gap-2 rounded-lg bg-card/95 px-2.5 md:px-3 py-1.5 text-xs md:text-sm shadow-lg backdrop-blur-md border max-w-[70%]">
-						<span className="font-semibold truncate">{displayName ?? "Unknown"}</span>
-						{isLocal && <span className="text-[10px] md:text-xs text-muted-foreground flex-shrink-0">(You)</span>}
-					</div>
-					{!micOn && (
-						<div className="rounded-lg bg-destructive/95 p-1.5 md:p-2 shadow-lg backdrop-blur-sm flex-shrink-0">
-							<MicOff className="size-3 md:size-4 text-white" />
-						</div>
-					)}
-				</div>
-			</CardContent>
-		</Card>
-	)
-}
-
-// Meeting controls
-function MeetingControls({ onUploadClick, isRecording, onRecordingChange }: { 
-	onUploadClick?: () => void
-	isRecording?: boolean
-	onRecordingChange?: (recording: boolean) => void
-}) {
+// Meeting controls focused on signing workflow (video actions removed)
+function MeetingControls({ onUploadClick }: { onUploadClick?: () => void }) {
 	const meeting = useMeeting()
-	
-	// Initialize state from VideoSDK - use actual values from meeting object
-	const [isMicOn, setIsMicOn] = useState(() => meeting?.localMicOn ?? false)
 	const [isCameraOn, setIsCameraOn] = useState(() => meeting?.localWebcamOn ?? false)
-	const [isScreenSharing, setIsScreenSharing] = useState(() => meeting?.localScreenShareOn ?? false)
-
-	// Sync with VideoSDK state - update whenever meeting state changes
-	useEffect(() => {
-		if (meeting?.localMicOn !== undefined) {
-			setIsMicOn(meeting.localMicOn)
-		}
-	}, [meeting?.localMicOn])
+	const [isScreenSharing, setIsScreenSharing] = useState(() => (meeting as any)?.localScreenShareOn ?? false)
+	const [isRecording, setIsRecording] = useState(false)
 
 	useEffect(() => {
 		if (meeting?.localWebcamOn !== undefined) {
@@ -264,48 +40,27 @@ function MeetingControls({ onUploadClick, isRecording, onRecordingChange }: {
 	}, [meeting?.localWebcamOn])
 
 	useEffect(() => {
-		if (meeting?.localScreenShareOn !== undefined) {
-			setIsScreenSharing(meeting.localScreenShareOn)
+		const current = meeting as any
+		if (current?.localScreenShareOn !== undefined) {
+			setIsScreenSharing(current.localScreenShareOn)
 		}
-	}, [meeting?.localScreenShareOn])
+	}, [meeting])
 
-	const handleToggleMic = async () => {
-		if (meeting) {
-			await meeting.toggleMic()
+	useEffect(() => {
+		const current = meeting as any
+		const state = current?.recordingState
+		if (state) {
+			const recording = state === "RECORDING_STARTED" || state === "RECORDING_STARTING"
+			setIsRecording(recording)
 		}
-	}
+	}, [meeting])
 
 	const handleToggleCamera = async () => {
-		if (meeting) {
-			try {
-				await meeting.toggleWebcam()
-				// State will update automatically via useEffect when VideoSDK state changes
-			} catch (error) {
-				console.error("Error toggling camera:", error)
-			}
-		}
-	}
-
-	const handleToggleScreenShare = async () => {
-		if (meeting) {
-			await meeting.toggleScreenShare()
-		}
-	}
-
-	const handleToggleRecording = async () => {
 		if (!meeting) return
-		
 		try {
-			if (isRecording) {
-				await meeting.stopRecording()
-				// State will update via onRecordingStateChanged callback
-			} else {
-				await meeting.startRecording()
-				// State will update via onRecordingStateChanged callback
-			}
-		} catch (error: any) {
-			console.error("Error toggling recording:", error)
-			toast.error(error?.message || "Failed to toggle recording")
+			await meeting.toggleWebcam()
+		} catch (error) {
+			console.error("Error toggling camera:", error)
 		}
 	}
 
@@ -313,18 +68,33 @@ function MeetingControls({ onUploadClick, isRecording, onRecordingChange }: {
 		meeting?.leave()
 	}
 
+	const handleToggleScreenShare = async () => {
+		if (!meeting) return
+		try {
+			await (meeting as any).toggleScreenShare()
+		} catch (error) {
+			console.error("Error toggling screen share:", error)
+		}
+	}
+
+	const handleToggleRecording = async () => {
+		if (!meeting) return
+		try {
+			if (isRecording) {
+				await (meeting as any).stopRecording()
+				setIsRecording(false)
+			} else {
+				await (meeting as any).startRecording()
+				setIsRecording(true)
+			}
+		} catch (error: any) {
+			console.error("Error toggling recording:", error)
+			toast.error(error?.message || "Failed to toggle recording")
+		}
+	}
+
 	return (
 		<div className="flex items-center gap-1.5 md:gap-2">
-			<Button
-				variant={isMicOn ? "outline" : "destructive"}
-				size="icon"
-				className="size-9 md:size-10 rounded-full shadow-md hover:shadow-lg transition-all"
-				onClick={handleToggleMic}
-				title={isMicOn ? "Mute microphone" : "Unmute microphone"}
-			>
-				{isMicOn ? <Mic className="size-4" /> : <MicOff className="size-4" />}
-			</Button>
-
 			<Button
 				variant={isCameraOn ? "outline" : "destructive"}
 				size="icon"
@@ -355,11 +125,7 @@ function MeetingControls({ onUploadClick, isRecording, onRecordingChange }: {
 				onClick={handleToggleRecording}
 				title={isRecording ? "Stop recording" : "Start recording"}
 			>
-				{isRecording ? (
-					<Square className="size-4 fill-current" />
-				) : (
-					<CircleDot className="size-4" />
-				)}
+				{isRecording ? <Square className="size-4 fill-current" /> : <CircleDot className="size-4" />}
 			</Button>
 
 			{onUploadClick && (
@@ -379,11 +145,101 @@ function MeetingControls({ onUploadClick, isRecording, onRecordingChange }: {
 				size="icon"
 				className="size-9 md:size-10 rounded-full shadow-md hover:shadow-lg transition-all"
 				onClick={handleLeave}
-				title="Leave meeting"
+				title="Leave session"
 			>
 				<PhoneOff className="size-4" />
 			</Button>
 		</div>
+	)
+}
+
+// Simple participant video card with screen share support
+function ParticipantView({ participantId }: { participantId: string }) {
+	const { webcamStream, webcamOn, displayName, isLocal, micOn, screenShareStream, screenShareOn } = useParticipant(participantId)
+	const videoRef = useRef<HTMLVideoElement>(null)
+	const [hasTrack, setHasTrack] = useState(false)
+
+	useEffect(() => {
+		const videoElement = videoRef.current
+		if (!videoElement) return
+
+		const getMediaStream = (streamObj: any): MediaStream | null => {
+			if (!streamObj) return null
+			if (streamObj instanceof MediaStream) return streamObj
+			if (streamObj.stream instanceof MediaStream) return streamObj.stream
+			if (streamObj.mediaStream instanceof MediaStream) return streamObj.mediaStream
+			if (streamObj.track instanceof MediaStreamTrack) return new MediaStream([streamObj.track])
+			if (typeof streamObj.getTracks === "function") {
+				const tracks = streamObj.getTracks()
+				if (tracks?.length) return new MediaStream(tracks)
+			}
+			if (typeof streamObj.getVideoTracks === "function") {
+				const vTracks = streamObj.getVideoTracks()
+				if (vTracks?.length) return new MediaStream(vTracks)
+			}
+			return null
+		}
+
+		const mediaStream =
+			(screenShareOn && getMediaStream(screenShareStream)) ||
+			(webcamOn && getMediaStream(webcamStream))
+
+		if (mediaStream && mediaStream.getVideoTracks().length > 0) {
+			setHasTrack(true)
+			videoElement.srcObject = mediaStream
+			videoElement
+				.play()
+				.catch(() => {
+					// ignore autoplay errors
+				})
+		} else {
+			setHasTrack(false)
+			videoElement.srcObject = null
+		}
+	}, [webcamOn, webcamStream, screenShareOn, screenShareStream])
+
+	const initials = displayName?.charAt(0).toUpperCase() ?? "?"
+	const isPresenting = !!screenShareOn
+	const showVideo = hasTrack
+
+	return (
+		<Card className="relative size-full overflow-hidden border border-border/70 rounded-xl shadow-lg bg-card/80 backdrop-blur-sm">
+			<CardContent className="p-0 relative size-full bg-gradient-to-br from-muted/40 via-background to-muted/60">
+				<video
+					ref={videoRef}
+					autoPlay
+					playsInline
+					muted={isLocal}
+					className={cn(
+						"size-full bg-muted/30 transition-opacity duration-200",
+						isPresenting ? "object-contain" : "object-cover",
+						"aspect-[4/3] md:aspect-[16/10]",
+						!showVideo && "opacity-0"
+					)}
+				/>
+
+				{!showVideo && !isPresenting && (
+					<div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+						<div className="flex size-16 md:size-20 items-center justify-center rounded-full bg-primary text-primary-foreground text-2xl font-semibold shadow-lg">
+							{initials}
+						</div>
+					</div>
+				)}
+
+				<div className="absolute bottom-2 left-2 right-2 flex items-center justify-between rounded-lg bg-gradient-to-r from-black/80 via-black/70 to-black/60 px-2.5 py-1.5 text-[11px] text-white shadow-md">
+					<div className="flex items-center gap-1">
+						<span className="font-semibold truncate max-w-[140px]">{displayName ?? "Guest"}</span>
+						{isLocal && <span className="text-[10px] text-white/80">(You)</span>}
+						{isPresenting && (
+							<span className="text-[10px] text-emerald-200 bg-emerald-900/60 px-1.5 py-0.5 rounded-full ml-1">
+								Presenting
+							</span>
+						)}
+					</div>
+					{!micOn && <AlertCircle className="size-3.5 text-amber-300" />}
+				</div>
+			</CardContent>
+		</Card>
 	)
 }
 
@@ -415,7 +271,7 @@ function SignerList({
 	return (
 		<div className="mb-3 rounded-lg border bg-muted/30 p-2.5 space-y-1.5">
 			<div className="flex items-center gap-1.5 mb-2">
-				<Users className="size-3.5 text-muted-foreground" />
+				<UsersIcon className="size-3.5 text-muted-foreground" />
 				<span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
 					Signers ({sortedSigners.filter(s => s.status === "SIGNED" || s.signedAt).length}/{sortedSigners.length})
 				</span>
@@ -666,7 +522,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 	const [joined, setJoined] = useState(false)
 	const [presenterId, setPresenterId] = useState<string | null>(null)
 	const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false)
-	const [showDocuments, setShowDocuments] = useState(false)
+	const [showDocuments, setShowDocuments] = useState(true)
 	const [selectedDocumentId, setSelectedDocumentId] = useState<string | null>(null)
 	const [selectedSignerId, setSelectedSignerId] = useState<string>("")
 	const [isSendDialogOpen, setIsSendDialogOpen] = useState(false)
@@ -1170,91 +1026,66 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 			 
 			console.log("👋 Participant left:", participant.id, participant.displayName)
 		},
-		onPresenterChanged: (presenterId) => {
-			setPresenterId(presenterId)
+		onPresenterChanged: (id) => {
+			setPresenterId(id || null)
 			 
-			console.log("🖥️ Presenter changed:", presenterId)
-		},
-		onRecordingStateChanged: (data: { status: string }) => {
-			 
-			console.log("🎥 Recording state changed:", data)
-			// VideoSDK returns { status: 'RECORDING_STARTED' | 'RECORDING_STOPPING' | 'RECORDING_STOPPED' | 'RECORDING_STARTING' }
-			const status = data.status
-			const recording = status === 'RECORDING_STARTED' || status === 'RECORDING_STARTING'
-			setIsRecording(recording)
-			
-			if (status === 'RECORDING_STARTED') {
-				toast.success("Recording started")
-			} else if (status === 'RECORDING_STOPPED') {
-				toast.success("Recording stopped")
-			}
+			console.log("🖥️ Presenter changed:", id)
 		},
 	})
 
-	const { participants } = meeting
-	
-	// Initialize and sync recording state with VideoSDK
-	const [isRecording, setIsRecording] = useState(false)
-	
-	// Sync recording state from VideoSDK
-	useEffect(() => {
-		if (meeting) {
-			// Check if recording is active (VideoSDK might expose this differently)
-			// Some VideoSDK versions use meeting.recordingState or meeting.isRecording
-			const recordingState = (meeting as any)?.recordingState
-			if (recordingState) {
-				const recording = recordingState === 'RECORDING_STARTED' || recordingState === 'RECORDING_STARTING'
-				setIsRecording(recording)
-			}
-		}
-	}, [meeting])
+	const participants = meeting?.participants ?? new Map<string, any>()
 
-	// Get unique participants - deduplicate by name
-	const allParticipantIds = Array.from(participants.keys())
-	
-	// Filter out system participants
-	const humanParticipants = allParticipantIds.filter((id) => {
-		const participant = participants.get(id)
+	const filterHuman = (id: string, participant: any) => {
 		if (!participant) return false
 		
 		const idLower = id.toLowerCase()
 		const nameLower = (participant.displayName || "").toLowerCase()
 		
-		const isSystemParticipant = 
+		return !(
 			idLower.includes("recorder") ||
 			idLower.includes("bot") ||
 			idLower.includes("internal") ||
 			idLower.includes("hls") ||
 			nameLower.includes("recorder") ||
 			nameLower.includes("bot")
-		
-		return !isSystemParticipant
-	})
+		)
+	}
 	
-	// Deduplicate by name - keep only one per unique display name
-	const participantsByName = new Map<string, string>()
-	humanParticipants.forEach((id) => {
-		const participant = participants.get(id)
-		if (!participant) return
+	const normalizeName = (name: string | undefined) => (name || "").trim().toLowerCase() || "unknown"
+	
+	const uniqueByName = new Map<string, { id: string; participant: any }>()
+	Array.from(participants.entries()).forEach(([id, participant]) => {
+		if (!filterHuman(id, participant)) return
 		
-		const name = participant.displayName || id
+		const participantIsPresenting = Boolean((participant as { screenShareOn?: boolean })?.screenShareOn)
+		const key = participantIsPresenting ? `${id}-presenter` : normalizeName(participant.displayName || id)
+		const current = uniqueByName.get(key)
+		const currentIsPresenting = Boolean((current?.participant as { screenShareOn?: boolean })?.screenShareOn)
+
+		const shouldReplace =
+			!current ||
+			(participantIsPresenting && !currentIsPresenting) || // prefer presenter
+			(!participantIsPresenting && currentIsPresenting ? false : !!participant?.webcamOn && !current?.participant?.webcamOn) || // otherwise prefer webcam on
+			(participant?.local && !current?.participant?.local && participant?.webcamOn === current?.participant?.webcamOn && participantIsPresenting === currentIsPresenting) // prefer local if tied
 		
-		// Prefer local participant if duplicate names exist
-		if (participant.local) {
-			participantsByName.set(name, id)
-		} else if (!participantsByName.has(name)) {
-			participantsByName.set(name, id)
-		} else {
-			// If name exists, keep the one that's already there unless current is local
-			const existingId = participantsByName.get(name)
-			const existingParticipant = participants.get(existingId!)
-			if (!existingParticipant?.local) {
-				participantsByName.set(name, id)
-			}
+		if (shouldReplace) {
+			uniqueByName.set(key, { id, participant })
 		}
 	})
 	
-	const participantIds = Array.from(participantsByName.values())
+	const participantIds = Array.from(uniqueByName.values())
+		.sort((a, b) => {
+			const aPresenting = Boolean((a.participant as { screenShareOn?: boolean })?.screenShareOn)
+			const bPresenting = Boolean((b.participant as { screenShareOn?: boolean })?.screenShareOn)
+			if (aPresenting && !bPresenting) return -1
+			if (!aPresenting && bPresenting) return 1
+			// fall back to local first
+			if (a.participant?.local && !b.participant?.local) return -1
+			if (!a.participant?.local && b.participant?.local) return 1
+			return 0
+		})
+		.map((entry) => entry.id)
+	const participantCount = participantIds.length
 
 	if (!joined) {
 		return (
@@ -1269,35 +1100,23 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 
 	return (
 		<div className="flex h-screen flex-col bg-gradient-to-br from-background via-muted/20 to-background">
-			{/* Recording Indicator Banner - Visible to all participants */}
-			{isRecording && (
-				<div className="bg-destructive/90 text-destructive-foreground px-4 py-2 flex items-center justify-center gap-2 shadow-lg z-50">
-					<div className="flex items-center gap-2 animate-pulse">
-						<CircleDot className="size-4 fill-current" />
-						<span className="text-sm font-semibold">RECORDING</span>
-					</div>
-				</div>
-			)}
-
 			{/* Header with Controls */}
 			<div className="flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4 border-b bg-card/50 backdrop-blur-sm px-4 md:px-6 py-3 md:py-4 shadow-sm">
 				<div className="flex items-center gap-2">
 					<div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
-						<Camera className="h-4 w-4 text-primary" />
+						<FileSignature className="h-4 w-4 text-primary" />
 					</div>
-					<h1 className="text-base md:text-lg font-bold">Video Meeting</h1>
+					<h1 className="text-base md:text-lg font-bold">Signing Session</h1>
 				</div>
 				
 				{/* Meeting Controls */}
 				<MeetingControls 
 					onUploadClick={() => setIsUploadDialogOpen(true)}
-					isRecording={isRecording}
-					onRecordingChange={setIsRecording}
 				/>
 				
 				<div className="flex items-center gap-2 rounded-lg bg-muted/50 px-3 py-1.5">
-					<Users className="size-4 text-muted-foreground" />
-					<span className="text-xs md:text-sm font-medium">{participantIds.length} {participantIds.length === 1 ? "participant" : "participants"}</span>
+					<UsersIcon className="size-4 text-muted-foreground" />
+					<span className="text-xs md:text-sm font-medium">{participantCount} {participantCount === 1 ? "participant" : "participants"}</span>
 				</div>
 			</div>
 
@@ -1314,45 +1133,42 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 				/>
 			)}
 
-			{/* Main Content: Video Grid or Screen Share Layout */}
+			{/* Main Content: Signing-focused layout */}
 			<div className="flex flex-1 flex-col overflow-hidden">
-				{presenterId ? (
-					// Screen share layout: Main screen + sidebar with participants
-					<div className="flex flex-1 flex-col lg:flex-row gap-3 md:gap-4 overflow-hidden p-3 md:p-4">
-						{/* Main screen share area */}
-						<div className="flex-1 min-h-0">
-							<ScreenShareView participantId={presenterId} />
-						</div>
-						
-						{/* Sidebar with participant videos */}
-						<div className="flex lg:flex-col flex-row lg:w-56 xl:w-64 gap-2 md:gap-3 overflow-x-auto lg:overflow-x-visible lg:overflow-y-auto pb-2 lg:pb-0">
-							{participantIds.map((participantId) => (
-								<div key={participantId} className="h-32 lg:h-36 flex-shrink-0 w-48 lg:w-full">
-									<ParticipantView participantId={participantId} />
+				<div className="flex-1 overflow-hidden p-3 md:p-4 lg:p-6">
+					{participantIds.length === 0 ? (
+						<Card className="max-w-xl mx-auto shadow-md">
+							<CardContent className="p-6 text-center text-sm text-muted-foreground">
+								No participants yet. Turn on your camera to appear in the session.
+							</CardContent>
+						</Card>
+					) : (
+						<div className="h-full w-full overflow-y-auto flex flex-col gap-4">
+							{presenterId && (
+								<div className="w-full">
+									<div className="rounded-xl overflow-hidden shadow-lg border border-border/70 bg-card/80">
+										<ParticipantView participantId={presenterId} />
+									</div>
 								</div>
-							))}
-						</div>
-					</div>
-				) : (
-					// Normal grid layout when no one is sharing
-					<div className="flex-1 overflow-hidden p-3 md:p-4 lg:p-6">
-						<div
-							className={cn(
-								"grid size-full gap-2 md:gap-3 lg:gap-4",
-								participantIds.length === 1 && "grid-cols-1",
-								participantIds.length === 2 && "grid-cols-1 sm:grid-cols-2",
-								participantIds.length === 3 && "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3",
-								participantIds.length === 4 && "grid-cols-2",
-								participantIds.length > 4 && participantIds.length <= 6 && "grid-cols-2 lg:grid-cols-3",
-								participantIds.length > 6 && "grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
 							)}
-						>
-							{participantIds.map((participantId) => (
-								<ParticipantView key={participantId} participantId={participantId} />
-							))}
+							<div
+								className={cn(
+									"grid h-full w-full grid-cols-[repeat(auto-fit,minmax(240px,1fr))] gap-4 sm:gap-5",
+									"auto-rows-[minmax(260px,1fr)]",
+									showDocuments && "auto-rows-[minmax(220px,1fr)] md:auto-rows-[minmax(240px,1fr)]"
+								)}
+							>
+								{participantIds
+									.filter((id) => id !== presenterId)
+									.map((participantId) => (
+										<div key={participantId} className="min-h-[260px]">
+											<ParticipantView participantId={participantId} />
+										</div>
+									))}
+							</div>
 						</div>
-					</div>
-				)}
+					)}
+				</div>
 
 				{/* Documents Panel at Bottom */}
 				{documents && documents.length > 0 && (
