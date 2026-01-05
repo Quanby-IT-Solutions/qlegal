@@ -7,13 +7,14 @@ import { GridBackground } from "@/core/components/ui/grid-background"
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
 	return (
 		<div className="relative min-h-screen w-full overflow-hidden">
-			<div className="absolute top-6 left-6 z-50">
+			{/* Back to Home button commented out - KYC verification is mandatory */}
+			{/* <div className="absolute top-6 left-6 z-50">
 				<Link href="/">
 					<Button variant="ghost" size="sm" type="button" className="text-foreground/80 hover:text-foreground transition-colors">
 						<ChevronLeftIcon /> Back to Home
 					</Button>
 				</Link>
-			</div>
+			</div> */}
 
 			<GridBackground
 				gridSize="6:6"

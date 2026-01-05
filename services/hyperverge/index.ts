@@ -362,3 +362,134 @@ export function interpretStatus(status: ApplicationStatus): {
 			}
 	}
 }
+
+/**
+ * Selfie Validation API Configuration
+ */
+export interface SelfieValidationConfig {
+	/** Base64 encoded selfie image */
+	image: string
+	/** Transaction ID for tracking */
+	transactionId: string
+	/** Module configuration */
+	showCaptureInstructions?: boolean
+	disableLiveness?: boolean
+}
+
+/**
+ * Response from Selfie Validation API
+ */
+export interface SelfieValidationResponse {
+	status: "success" | "error"
+	statusCode: number
+	metadata: {
+		requestId: string
+		transactionId: string
+	}
+	result: {
+		details: Array<{
+			liveFace: {
+				value: "yes" | "no"
+			}
+			qualityChecks: {
+				eyesClosed: {
+					value: "yes" | "no"
+					confidence: "high" | "medium" | "low"
+				}
+				occlusion: {
+					value: "yes" | "no"
+					confidence: "high" | "medium" | "low"
+				}
+				multipleFaces: {
+					value: "yes" | "no"
+					confidence: "high" | "medium" | "low"
+				}
+			}
+		}>
+		summary: {
+			action: "pass" | "fail"
+			details: string[]
+		}
+	}
+}
+
+/**
+ * Validate selfie for liveness detection using HyperVerge API
+ * 
+ * API: POST https://ind.idv.hyperverge.co/v1/photo/liveness
+ * 
+ * @param config - Selfie validation configuration
+ * @returns Validation result with liveness and quality checks
+ */
+export async function validateSelfie(
+	config: SelfieValidationConfig
+): Promise<SelfieValidationResponse> {
+	console.log("🔵 Validating selfie with HyperVerge...")
+	console.log("   - Transaction ID:", config.transactionId)
+
+	validateCredentials()
+
+	const LIVENESS_API_URL = `${CONFIGURED_BASE_URL}/v1/photo/liveness`
+	const LIVENESS_API_URL_FALLBACK = `${FALLBACK_BASE_URL}/v1/photo/liveness`
+
+	const requestBody = {
+		image: config.image,
+		transactionId: config.transactionId,
+		...(config.showCaptureInstructions !== undefined && {
+			showCaptureInstructions: config.showCaptureInstructions,
+		}),
+		...(config.disableLiveness !== undefined && {
+			disableLiveness: config.disableLiveness,
+		}),
+	}
+
+	try {
+		let response: Response
+		try {
+			response = await fetch(LIVENESS_API_URL, {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					appId: HYPERVERGE_APP_ID,
+					appKey: HYPERVERGE_APP_KEY,
+				},
+				body: JSON.stringify(requestBody),
+			})
+		} catch (networkErr) {
+			console.warn("⚠️ Primary liveness API failed (network)", networkErr)
+			console.log("   - Trying fallback API URL:", LIVENESS_API_URL_FALLBACK)
+			response = await fetch(LIVENESS_API_URL_FALLBACK, {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					appId: HYPERVERGE_APP_ID,
+					appKey: HYPERVERGE_APP_KEY,
+				},
+				body: JSON.stringify(requestBody),
+			})
+		}
+
+		const responseText = await response.text()
+		console.log("📡 HyperVerge liveness API response status:", response.status)
+
+		if (!response.ok) {
+			console.error("❌ HyperVerge selfie validation failed:", responseText)
+			throw new Error(`HyperVerge liveness API error: ${response.status} - ${responseText}`)
+		}
+
+		const result = JSON.parse(responseText) as SelfieValidationResponse
+
+		if (result.status !== "success") {
+			throw new Error(`HyperVerge validation error: ${JSON.stringify(result)}`)
+		}
+
+		console.log("✅ Selfie validation completed")
+		console.log("   - Action:", result.result.summary.action)
+		console.log("   - Live Face:", result.result.details[0]?.liveFace.value)
+
+		return result
+	} catch (error) {
+		console.error("❌ Failed to validate selfie:", error)
+		throw error
+	}
+}

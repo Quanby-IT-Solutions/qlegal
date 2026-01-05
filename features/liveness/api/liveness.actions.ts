@@ -1,11 +1,11 @@
 "use server"
 
+import { validateSelfie as validateSelfieAPI } from "@/services/hyperverge"
 import type { LivenessApiResponse, LivenessValidationRequest } from "../types"
 
 /**
- * Validate selfie for liveness detection
- * This is a mock implementation for testing purposes
- * In production, this would call the actual HyperVerge API
+ * Validate selfie for liveness detection using HyperVerge API
+ * Sends base64 image directly to the API
  */
 export async function validateSelfie(imageData: string): Promise<{
 	success: boolean
@@ -13,57 +13,35 @@ export async function validateSelfie(imageData: string): Promise<{
 	error?: string
 }> {
 	try {
-		// Simulate API delay
-		await new Promise(resolve => setTimeout(resolve, 2000))
+		// Generate transaction ID
+		const transactionId = `selfie-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`
 
-		// For testing, we'll simulate a successful response
-		// In production, you would:
-		// 1. Upload image to your storage (Supabase/S3)
-		// 2. Call HyperVerge API with the image URL
-		// 3. Return the actual API response
+		console.log("🔵 Starting selfie validation...")
+		console.log("   - Transaction ID:", transactionId)
 
-		const mockResponse: LivenessApiResponse = {
-			status: "success",
-			statusCode: 200,
-			metadata: {
-				requestId: `req-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-				transactionId: `txn-${Date.now()}`,
-			},
-			result: {
-				details: [
-					{
-						liveFace: {
-							value: "yes",
-						},
-						qualityChecks: {
-							eyesClosed: {
-								value: "no",
-								confidence: "high",
-							},
-							occlusion: {
-								value: "no",
-								confidence: "high",
-							},
-							multipleFaces: {
-								value: "no",
-								confidence: "high",
-							},
-						},
-					},
-				],
-				summary: {
-					action: "pass",
-					details: [],
-				},
-			},
-		}
+		// Remove data URL prefix if present (keep only base64)
+		const base64Image = imageData.includes("base64,")
+			? imageData.split("base64,")[1]!
+			: imageData
 
+		// Call HyperVerge API
+		const apiResponse = await validateSelfieAPI({
+			image: base64Image,
+			transactionId,
+			showCaptureInstructions: false, // Already shown in our UI
+			disableLiveness: false,
+		})
+
+		console.log("✅ Validation response received")
+		console.log("   - Action:", apiResponse.result.summary.action)
+
+		// Map API response to our data structure
 		const validationData: LivenessValidationRequest = {
 			module: "Selfie Validation",
 			moduleId: "selfie_validation",
 			selfieImageUrl: imageData,
 			attempts: 1,
-			apiResponse: mockResponse,
+			apiResponse: apiResponse as LivenessApiResponse,
 			previousAttempts: [],
 		}
 
@@ -72,10 +50,15 @@ export async function validateSelfie(imageData: string): Promise<{
 			data: validationData,
 		}
 	} catch (error) {
-		console.error("Liveness validation error:", error)
+		console.error("❌ Liveness validation error:", error)
+		
+		const errorMessage = error instanceof Error 
+			? error.message 
+			: "Validation failed. Please try again."
+
 		return {
 			success: false,
-			error: error instanceof Error ? error.message : "Validation failed",
+			error: errorMessage,
 		}
 	}
 }
