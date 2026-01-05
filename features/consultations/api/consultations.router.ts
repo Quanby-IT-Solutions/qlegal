@@ -3,7 +3,7 @@ import { and, desc, eq, gte, or } from "drizzle-orm"
 
 import { users } from "@/services/drizzle/schema/auth"
 import { appointments } from "@/services/drizzle/schema/appointments"
-import { conversations, conversationParticipants } from "@/services/drizzle/schema/messages"
+import { conversations, conversationParticipants, messages } from "@/services/drizzle/schema/messages"
 import { meetings, meetingParticipants } from "@/services/drizzle/schema/meetings"
 import { createMeetingRoom, generateMeetingToken } from "@/services/video-sdk"
 import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
@@ -143,52 +143,47 @@ export const consultationsRouter = createTRPCRouter({
 				// Conversation will be created below for messaging
 			}
 
-			// Create a conversation between client and ENP for messaging
+			// Create a dedicated conversation for this consultation (always new)
 			let conversationId: string | null = null
-			
+
 			try {
-				// Check if conversation already exists
-				const existingConversations = await ctx.db.query.conversationParticipants.findMany({
-					where: eq(conversationParticipants.userId, clientId),
-					with: {
-						conversation: {
-							with: {
-								participants: true,
-							},
+				const [conversation] = await ctx.db.insert(conversations).values({}).returning()
+
+				if (conversation) {
+					conversationId = conversation.id
+
+					// Add both users as participants
+					await ctx.db.insert(conversationParticipants).values([
+						{
+							conversationId: conversation.id,
+							userId: clientId,
 						},
-					},
-				})
+						{
+							conversationId: conversation.id,
+							userId: input.enpId,
+						},
+					])
 
-				const existingConversation = existingConversations.find((cp) => {
-					const participants = cp.conversation.participants
-					return (
-						participants.length === 2 &&
-						participants.some((p) => p.userId === input.enpId) &&
-						participants.some((p) => p.userId === clientId)
-					)
-				})
+					// Seed a system-style message so the thread has booking context
+					const formattedDate = appointmentDateTime.toLocaleString("en-US", {
+						month: "short",
+						day: "numeric",
+						year: "numeric",
+						hour: "numeric",
+						minute: "2-digit",
+					})
+					const workflowLabel = input.workflowType === "REN" ? "Remote (REN)" : "In-Person (IEN)"
+					const preferenceLabel =
+						input.workflowType === "REN"
+							? ` • Preference: ${input.meetingPreference === "CHAT_ONLY" ? "Chat Only" : "Video Call"}`
+							: ""
+					const summary = `Consultation booked for ${formattedDate} • ${workflowLabel}${preferenceLabel}`
 
-				if (existingConversation) {
-					conversationId = existingConversation.conversationId
-				} else {
-					// Create new conversation
-					const [conversation] = await ctx.db.insert(conversations).values({}).returning()
-
-					if (conversation) {
-						conversationId = conversation.id
-
-						// Add both users as participants
-						await ctx.db.insert(conversationParticipants).values([
-							{
-								conversationId: conversation.id,
-								userId: clientId,
-							},
-							{
-								conversationId: conversation.id,
-								userId: input.enpId,
-							},
-						])
-					}
+					await ctx.db.insert(messages).values({
+						conversationId: conversation.id,
+						senderId: clientId,
+						content: summary,
+					})
 				}
 			} catch (error) {
 				console.error("Failed to create conversation:", error)

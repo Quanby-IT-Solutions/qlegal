@@ -6,7 +6,7 @@ import { Search, Filter, Clock, CheckCircle, XCircle, FileText, Calendar, User, 
 import { format } from "date-fns"
 
 import { trpc } from "@/services/trpc/client"
-import { SiteNavbar } from "@/core/components/navbar/site-navbar"
+import { PageHeader } from "@/core/components/navbar/page-header"
 import { Button } from "@/core/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/core/components/ui/card"
 import { Input } from "@/core/components/ui/input"
@@ -199,18 +199,18 @@ export default function NotarizationHistoryPage() {
 	}
 
 	return (
-		<>
-			<SiteNavbar 
+		<div className="flex flex-1 flex-col">
+			<PageHeader 
 				items={[
-					{ label: "Notarizations", url: "/notarizations/active" },
-					{ label: "History", url: "/notarizations/history" }
+					{ label: "Notarizations", href: "/notarizations/history" },
+					{ label: "History" }
 				]} 
 			/>
 			
-			<div className="min-h-screen bg-muted/30">
-				<div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+			<main className="flex-1 p-4 md:p-6 lg:p-8">
+				<div className="mx-auto max-w-7xl space-y-8">
 					{/* Header */}
-					<div className="mb-8">
+					<div className="space-y-2">
 						<h1 className="text-3xl font-bold tracking-tight">Notarization History</h1>
 						<p className="mt-2 text-muted-foreground">
 							View your completed and cancelled notarization sessions
@@ -574,7 +574,7 @@ export default function NotarizationHistoryPage() {
 						</TabsContent>
 					</Tabs>
 				</div>
-			</div>
-		</>
+			</main>
+		</div>
 	)
 }

@@ -3,6 +3,8 @@
 import { format } from "date-fns"
 import { MessageSquare, Paperclip, Phone, Plus, Search, Send, Smile, Video, X } from "lucide-react"
 import { useSession } from "next-auth/react"
+import { useSearchParams } from "next/navigation"
+import Link from "next/link"
 import { useEffect, useRef, useState } from "react"
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/core/components/ui/avatar"
@@ -26,6 +28,7 @@ import { toast } from "sonner"
 
 export default function MessagesPage() {
 	const { data: session } = useSession()
+	const searchParams = useSearchParams()
 	const { getConversations, getMessages, sendMessage, startConversation, markAsRead, searchUsers } = useMessages()
 	const { data: conversations, isLoading: loadingConversations } = getConversations
 
@@ -42,12 +45,19 @@ export default function MessagesPage() {
 	// Get users for new chat search
 	const { data: searchResults } = searchUsers(userSearchQuery)
 
-	// Auto-select first conversation
+	// Auto-select conversation (prefer URL param)
 	useEffect(() => {
+		const conversationFromQuery = searchParams.get("conversationId")
+
+		if (conversationFromQuery && conversations?.some((c) => c.id === conversationFromQuery)) {
+			setSelectedConversationId(conversationFromQuery)
+			return
+		}
+
 		if (conversations && conversations.length > 0 && !selectedConversationId && conversations[0]) {
 			setSelectedConversationId(conversations[0].id)
 		}
-	}, [conversations, selectedConversationId])
+	}, [conversations, selectedConversationId, searchParams])
 
 	// Mark conversation as read when selected
 	useEffect(() => {
@@ -67,6 +77,10 @@ export default function MessagesPage() {
 	)
 
 	const selectedConversation = conversations?.find((c) => c.id === selectedConversationId)
+	const bookingLink =
+		selectedConversation?.otherUser?.id !== undefined
+			? `/consultations?enp=${selectedConversation.otherUser.id}`
+			: "/consultations"
 
 	const handleSendMessage = async () => {
 		if (!messageInput.trim() || !selectedConversationId) return
@@ -79,6 +93,18 @@ export default function MessagesPage() {
 			setMessageInput("")
 		} catch (error) {
 			toast.error("Failed to send message")
+		}
+	}
+
+	const handleShareBookingLink = async () => {
+		if (!selectedConversationId) return
+		try {
+			await sendMessage.mutateAsync({
+				conversationId: selectedConversationId,
+				content: `Book a consultation here: ${bookingLink}`,
+			})
+		} catch (error) {
+			toast.error("Failed to share booking link")
 		}
 	}
 
@@ -277,6 +303,16 @@ export default function MessagesPage() {
 								</div>
 							</div>
 							<div className="flex items-center gap-1.5">
+								<Button variant="outline" size="sm" asChild disabled={!selectedConversation?.otherUser?.id}>
+									<Link href={bookingLink} target="_blank" rel="noopener noreferrer">
+										Book consultation
+									</Link>
+								</Button>
+								{session?.user?.role === "ENP" && (
+									<Button variant="ghost" size="sm" onClick={() => void handleShareBookingLink()}>
+										Share booking link
+									</Button>
+								)}
 								<Button variant="ghost" size="icon" className="size-7 rounded-full">
 									<Phone className="size-4" />
 								</Button>

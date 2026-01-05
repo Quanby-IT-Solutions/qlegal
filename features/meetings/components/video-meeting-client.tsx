@@ -1,7 +1,7 @@
 "use client"
 
+import React, { useEffect, useRef, useState } from "react"
 import { Camera, CameraOff, CircleDot, FileText, FileUp, GripVertical, Download, CheckCircle2, Clock, Lock, Monitor, PhoneOff, Send, Square, FileSignature, Unlock, User, Users as UsersIcon, AlertCircle } from "lucide-react"
-import { useEffect, useRef, useState } from "react"
 import { MeetingProvider, useMeeting, useParticipant } from "@videosdk.live/react-sdk"
 import { useSession } from "next-auth/react"
 import { toast } from "sonner"
@@ -27,11 +27,36 @@ import {
 import { cn } from "@/core/lib/utils"
 import { MeetingDocumentUpload } from "./meeting-document-upload"
 // Meeting controls focused on signing workflow (video actions removed)
-function MeetingControls({ onUploadClick }: { onUploadClick?: () => void }) {
+type RecordingState = {
+	isRecording: boolean
+	isStarting: boolean
+	isStopping: boolean
+}
+
+type LocalRecordingState = {
+	isRecording: boolean
+	elapsed: string
+}
+
+function MeetingControls({
+	onUploadClick,
+	recordingState,
+	onRecordingToggle,
+	localRecordingState,
+	onLocalRecordingToggle,
+	localRecordingSupported,
+}: {
+	onUploadClick?: () => void
+	recordingState?: RecordingState
+	onRecordingToggle?: () => Promise<void> | void
+	localRecordingState?: LocalRecordingState
+	onLocalRecordingToggle?: () => Promise<void> | void
+	localRecordingSupported?: boolean
+}) {
 	const meeting = useMeeting()
 	const [isCameraOn, setIsCameraOn] = useState(() => meeting?.localWebcamOn ?? false)
 	const [isScreenSharing, setIsScreenSharing] = useState(() => (meeting as any)?.localScreenShareOn ?? false)
-	const [isRecording, setIsRecording] = useState(false)
+	const [isRecordingLocal, setIsRecordingLocal] = useState(false)
 
 	useEffect(() => {
 		if (meeting?.localWebcamOn !== undefined) {
@@ -51,9 +76,16 @@ function MeetingControls({ onUploadClick }: { onUploadClick?: () => void }) {
 		const state = current?.recordingState
 		if (state) {
 			const recording = state === "RECORDING_STARTED" || state === "RECORDING_STARTING"
-			setIsRecording(recording)
+			setIsRecordingLocal(recording)
 		}
 	}, [meeting])
+
+	const effectiveRecording =
+		recordingState?.isRecording ?? isRecordingLocal
+	const isRecordingStarting = recordingState?.isStarting ?? false
+	const localRecordingActive = localRecordingState?.isRecording ?? false
+	const localRecordingElapsed = localRecordingState?.elapsed ?? "00:00"
+	const localRecordingDisabled = !localRecordingSupported
 
 	const handleToggleCamera = async () => {
 		if (!meeting) return
@@ -78,14 +110,19 @@ function MeetingControls({ onUploadClick }: { onUploadClick?: () => void }) {
 	}
 
 	const handleToggleRecording = async () => {
+		if (onRecordingToggle) {
+			await onRecordingToggle()
+			return
+		}
+
 		if (!meeting) return
 		try {
-			if (isRecording) {
+			if (effectiveRecording) {
 				await (meeting as any).stopRecording()
-				setIsRecording(false)
+				setIsRecordingLocal(false)
 			} else {
 				await (meeting as any).startRecording()
-				setIsRecording(true)
+				setIsRecordingLocal(true)
 			}
 		} catch (error: any) {
 			console.error("Error toggling recording:", error)
@@ -116,16 +153,40 @@ function MeetingControls({ onUploadClick }: { onUploadClick?: () => void }) {
 			</Button>
 
 			<Button
-				variant={isRecording ? "destructive" : "outline"}
+				variant={effectiveRecording ? "destructive" : "outline"}
 				size="icon"
 				className={cn(
 					"size-9 md:size-10 rounded-full shadow-md hover:shadow-lg transition-all",
-					isRecording && "animate-pulse"
+					effectiveRecording && "animate-pulse"
 				)}
 				onClick={handleToggleRecording}
-				title={isRecording ? "Stop recording" : "Start recording"}
+				title={
+					isRecordingStarting
+						? "Recording starting..."
+						: effectiveRecording
+							? "Stop recording"
+							: "Start recording"
+				}
+				disabled={isRecordingStarting}
 			>
-				{isRecording ? <Square className="size-4 fill-current" /> : <CircleDot className="size-4" />}
+				{effectiveRecording ? <Square className="size-4 fill-current" /> : <CircleDot className="size-4" />}
+			</Button>
+
+			<Button
+				variant={localRecordingActive ? "destructive" : "outline"}
+				size="icon"
+				className="size-9 md:size-10 rounded-full shadow-md hover:shadow-lg transition-all"
+				onClick={localRecordingDisabled ? undefined : onLocalRecordingToggle}
+				title={
+					localRecordingDisabled
+						? "Local recording requires Chrome/Edge desktop with captureStream support"
+						: localRecordingActive
+							? `Stop local recording (${localRecordingElapsed})`
+							: "Start local (on-screen) recording"
+				}
+				disabled={localRecordingDisabled}
+			>
+				<Download className="size-4" />
 			</Button>
 
 			{onUploadClick && (
@@ -521,6 +582,18 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 	const { data: session } = useSession()
 	const [joined, setJoined] = useState(false)
 	const [presenterId, setPresenterId] = useState<string | null>(null)
+	const [isRecording, setIsRecording] = useState(false)
+	const [recordingStatus, setRecordingStatus] = useState<string>("RECORDING_STOPPED")
+	const [recordingStartedAt, setRecordingStartedAt] = useState<number | null>(null)
+	const [recordingElapsed, setRecordingElapsed] = useState<string>("00:00")
+	const [isLocalRecording, setIsLocalRecording] = useState(false)
+	const [localRecordingElapsed, setLocalRecordingElapsed] = useState("00:00")
+	const mediaRecorderRef = useRef<MediaRecorder | null>(null)
+	const localStreamRef = useRef<MediaStream | null>(null)
+	const recordingContainerRef = useRef<HTMLDivElement>(null)
+	const localRecordingSupported =
+		(typeof navigator !== "undefined" && !!navigator.mediaDevices?.getDisplayMedia) ||
+		(typeof HTMLDivElement !== "undefined" && typeof (HTMLDivElement.prototype as any)?.captureStream === "function")
 	const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false)
 	const [showDocuments, setShowDocuments] = useState(true)
 	const [selectedDocumentId, setSelectedDocumentId] = useState<string | null>(null)
@@ -1031,6 +1104,24 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 			 
 			console.log("🖥️ Presenter changed:", id)
 		},
+		onRecordingStateChanged: (data: { status: string }) => {
+			 
+			console.log("🎥 Recording state changed:", data)
+			const status = data.status
+			setRecordingStatus(status)
+
+			if (status === "RECORDING_STARTED") {
+				setIsRecording(true)
+				setRecordingStartedAt(Date.now())
+				toast.success("Recording started")
+			} else if (status === "RECORDING_STOPPED") {
+				setIsRecording(false)
+				setRecordingStartedAt(null)
+				toast.success("Recording stopped")
+			} else if (status === "RECORDING_STARTING") {
+				toast.message("Starting recording...")
+			}
+		},
 	})
 
 	const participants = meeting?.participants ?? new Map<string, any>()
@@ -1087,6 +1178,148 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 		.map((entry) => entry.id)
 	const participantCount = participantIds.length
 
+	useEffect(() => {
+		if (!isRecording || !recordingStartedAt) {
+			setRecordingElapsed("00:00")
+			return
+		}
+
+		const interval = setInterval(() => {
+			const diff = Date.now() - recordingStartedAt
+			const totalSeconds = Math.max(0, Math.floor(diff / 1000))
+			const minutes = Math.floor(totalSeconds / 60)
+			const seconds = totalSeconds % 60
+			setRecordingElapsed(`${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`)
+		}, 1000)
+
+		return () => clearInterval(interval)
+	}, [isRecording, recordingStartedAt])
+
+	useEffect(() => {
+		if (!isLocalRecording || !localStreamRef.current) {
+			setLocalRecordingElapsed("00:00")
+			return
+		}
+
+		const started = (mediaRecorderRef.current as any)?.__startedAt as number | undefined
+		if (!started) {
+			setLocalRecordingElapsed("00:00")
+			return
+		}
+
+		const interval = setInterval(() => {
+			const diff = Date.now() - started
+			const totalSeconds = Math.max(0, Math.floor(diff / 1000))
+			const minutes = Math.floor(totalSeconds / 60)
+			const seconds = totalSeconds % 60
+			setLocalRecordingElapsed(`${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`)
+		}, 1000)
+
+		return () => clearInterval(interval)
+	}, [isLocalRecording])
+
+	const startLocalRecording = async () => {
+		if (isLocalRecording) return
+
+		const container = recordingContainerRef.current
+		const canCapture = container && typeof (container as any).captureStream === "function"
+		const canShareDisplay = typeof navigator !== "undefined" && !!navigator.mediaDevices?.getDisplayMedia
+
+		if (!canCapture && !canShareDisplay) {
+			toast.error("Local recording not supported here. Please use Chrome/Edge desktop on HTTPS.")
+			return
+		}
+
+		try {
+			const stream: MediaStream = canCapture
+				? (container as any).captureStream(30)
+				: await navigator.mediaDevices.getDisplayMedia({
+					video: { frameRate: 30 },
+					audio: true,
+				})
+			const mimeTypes = ["video/webm;codecs=vp9", "video/webm;codecs=vp8", "video/webm"]
+			let recorder: MediaRecorder | null = null
+			for (const type of mimeTypes) {
+				if (MediaRecorder.isTypeSupported(type)) {
+					recorder = new MediaRecorder(stream, { mimeType: type })
+					break
+				}
+			}
+			if (!recorder) {
+				recorder = new MediaRecorder(stream)
+			}
+
+			const chunks: BlobPart[] = []
+			recorder.ondataavailable = (e) => {
+				if (e.data && e.data.size > 0) {
+					chunks.push(e.data)
+				}
+			}
+			recorder.onstop = () => {
+				const firstChunk: any = chunks[0]
+				const inferredType = typeof firstChunk === "object" && firstChunk?.type ? firstChunk.type : "video/webm"
+				const blob = new Blob(chunks, { type: inferredType })
+				const url = URL.createObjectURL(blob)
+				const a = document.createElement("a")
+				a.href = url
+				a.download = `meeting-local-recording-${new Date().toISOString()}.webm`
+				document.body.appendChild(a)
+				a.click()
+				document.body.removeChild(a)
+				URL.revokeObjectURL(url)
+				toast.success("Local recording saved")
+				setIsLocalRecording(false)
+				setLocalRecordingElapsed("00:00")
+				localStreamRef.current?.getTracks().forEach((t) => t.stop())
+				localStreamRef.current = null
+			}
+
+			;(recorder as any).__startedAt = Date.now()
+			recorder.start(500)
+			mediaRecorderRef.current = recorder
+			localStreamRef.current = stream
+			setIsLocalRecording(true)
+			toast.message("Local recording started. It will capture what you see.")
+		} catch (error: any) {
+			console.error("Local recording error:", error)
+			toast.error(error?.message || "Failed to start local recording")
+		}
+	}
+
+	const stopLocalRecording = async () => {
+		if (!isLocalRecording) return
+		if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+			mediaRecorderRef.current.stop()
+		}
+	}
+
+	const handleRecordingToggle = async () => {
+		if (!meeting) return
+		if (recordingStatus === "RECORDING_STARTING") return
+
+		try {
+			if (isRecording) {
+				setRecordingStatus("RECORDING_STOPPING")
+				await (meeting as any).stopRecording()
+			} else {
+				setRecordingStatus("RECORDING_STARTING")
+				await (meeting as any).startRecording({
+					layout: {
+						type: "GRID",
+						priority: "SPEAKER",
+						gridSize: 4,
+						participants: ["*"],
+					},
+					theme: "DARK",
+				})
+			}
+		} catch (error: any) {
+			console.error("Error toggling recording:", error)
+			toast.error(error?.message || "Failed to toggle recording")
+			setRecordingStatus(isRecording ? "RECORDING_STARTED" : "RECORDING_STOPPED")
+		}
+	}
+
 	if (!joined) {
 		return (
 			<div className="flex h-screen items-center justify-center bg-gradient-to-br from-background via-muted/30 to-background">
@@ -1099,7 +1332,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 	}
 
 	return (
-		<div className="flex h-screen flex-col bg-gradient-to-br from-background via-muted/20 to-background">
+		<div ref={recordingContainerRef} className="flex h-screen flex-col bg-gradient-to-br from-background via-muted/20 to-background">
 			{/* Header with Controls */}
 			<div className="flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4 border-b bg-card/50 backdrop-blur-sm px-4 md:px-6 py-3 md:py-4 shadow-sm">
 				<div className="flex items-center gap-2">
@@ -1112,6 +1345,24 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 				{/* Meeting Controls */}
 				<MeetingControls 
 					onUploadClick={() => setIsUploadDialogOpen(true)}
+					recordingState={{
+						isRecording,
+						isStarting: recordingStatus === "RECORDING_STARTING",
+						isStopping: recordingStatus === "RECORDING_STOPPING",
+					}}
+					onRecordingToggle={handleRecordingToggle}
+					localRecordingState={{
+						isRecording: isLocalRecording,
+						elapsed: localRecordingElapsed,
+					}}
+					onLocalRecordingToggle={async () => {
+						if (isLocalRecording) {
+							await stopLocalRecording()
+						} else {
+							await startLocalRecording()
+						}
+					}}
+					localRecordingSupported={localRecordingSupported}
 				/>
 				
 				<div className="flex items-center gap-2 rounded-lg bg-muted/50 px-3 py-1.5">
@@ -1136,6 +1387,16 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 			{/* Main Content: Signing-focused layout */}
 			<div className="flex flex-1 flex-col overflow-hidden">
 				<div className="flex-1 overflow-hidden p-3 md:p-4 lg:p-6">
+					{isRecording && (
+						<div className="mb-3 flex items-center justify-between rounded-lg bg-destructive/10 border border-destructive/30 px-3 py-2 text-sm text-destructive">
+							<div className="flex items-center gap-2">
+								<span className="inline-flex h-2 w-2 rounded-full bg-destructive animate-pulse" />
+								<span className="font-semibold">Recording</span>
+								<span className="text-destructive/80">• {recordingElapsed}</span>
+							</div>
+							<span className="text-xs text-destructive/70">{recordingStatus}</span>
+						</div>
+					)}
 					{participantIds.length === 0 ? (
 						<Card className="max-w-xl mx-auto shadow-md">
 							<CardContent className="p-6 text-center text-sm text-muted-foreground">

@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
 import { useState } from "react"
 
-import { SiteNavbar } from "@/core/components/navbar/site-navbar"
+import { PageHeader } from "@/core/components/navbar/page-header"
 import { Avatar, AvatarFallback, AvatarImage } from "@/core/components/ui/avatar"
 import { Button } from "@/core/components/ui/button"
 import { Badge } from "@/core/components/ui/badge"
@@ -146,39 +146,38 @@ export default function MeetingsPage() {
 
 	if (isLoading) {
 		return (
-			<>
-				<SiteNavbar items={[{ label: "Meetings", url: "/meetings" as Route }]} />
-				<div className="bg-muted/30 min-h-screen">
-					<div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-						<Skeleton className="mb-8 h-10 w-48" />
+			<div className="flex flex-1 flex-col">
+				<PageHeader items={[{ label: "Meetings" }]} />
+				<main className="flex-1 p-4 md:p-6 lg:p-8">
+					<div className="mx-auto max-w-7xl space-y-8">
+						<Skeleton className="h-10 w-48" />
 						<div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
 							{[1, 2, 3].map((i) => (
 								<Skeleton key={i} className="h-64" />
 							))}
 						</div>
 					</div>
-				</div>
-			</>
+				</main>
+			</div>
 		)
 	}
 
 	return (
-		<>
-			<SiteNavbar items={[{ label: "Meetings", url: "/meetings" as Route }]} />
+		<div className="flex flex-1 flex-col">
+			<PageHeader items={[{ label: "Meetings" }]} />
 			
-			<div className="bg-muted/30 min-h-screen">
-				<div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+			<main className="flex-1 p-4 md:p-6 lg:p-8">
+				<div className="mx-auto max-w-7xl space-y-8">
 					{/* Header */}
-					<div className="mb-8">
-						<div className="flex items-center justify-between">
-							<div>
-								<h1 className="text-3xl font-bold tracking-tight">Video Meetings</h1>
-								<p className="mt-2 text-muted-foreground">
-									Create and join video meetings with participants for notarization sessions
-								</p>
-							</div>
+					<div className="flex items-center justify-between">
+						<div>
+							<h1 className="text-3xl font-bold tracking-tight">Video Meetings</h1>
+							<p className="mt-2 text-muted-foreground">
+								Create and join video meetings with participants for notarization sessions
+							</p>
+						</div>
 
-							<Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+						<Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
 						<DialogTrigger asChild>
 							<Button size="lg" className="shadow-lg hover:shadow-xl transition-shadow">
 								<Plus className="mr-2 size-5" />
@@ -356,7 +355,6 @@ export default function MeetingsPage() {
 							</DialogFooter>
 						</DialogContent>
 					</Dialog>
-						</div>
 					</div>
 
 					{/* Filter & Stats */}
@@ -395,7 +393,7 @@ export default function MeetingsPage() {
 					)}
 
 					{/* Results */}
-					{meetings && meetings.length === 0 ? (
+					{meetings?.length === 0 ? (
 						<Card>
 							<CardContent className="py-12 text-center">
 								<Video className="mx-auto mb-4 size-16 text-muted-foreground" />
@@ -409,7 +407,7 @@ export default function MeetingsPage() {
 								</Button>
 							</CardContent>
 						</Card>
-					) : filteredMeetings && filteredMeetings.length === 0 ? (
+					) : filteredMeetings?.length === 0 ? (
 						<Card>
 							<CardContent className="py-12 text-center">
 								<Search className="mx-auto mb-4 size-12 text-muted-foreground" />
@@ -549,8 +547,8 @@ export default function MeetingsPage() {
 						</div>
 					)}
 				</div>
-			</div>
-		</>
+			</main>
+		</div>
 	)
 }
 

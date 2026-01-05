@@ -6,7 +6,7 @@ interface MySignedHeaderProps {
 
 export function MySignedHeader({ totalCount }: MySignedHeaderProps) {
 	return (
-		<div className="bg-background dark:bg-muted/60 border-b backdrop-blur">
+		<div className="bg-background border-b">
 			<div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
 				{/* Page Title */}
 				<div className="mb-6">

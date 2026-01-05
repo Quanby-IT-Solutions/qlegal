@@ -241,7 +241,7 @@ export default function DocumentSignPage() {
 
 			<div className="bg-muted dark:bg-background min-h-screen">
 				{/* Header */}
-				<div className="bg-background dark:bg-muted/60 border-b backdrop-blur">
+				<div className="bg-background border-b">
 					<div className="mx-auto max-w-7xl space-y-6 px-4 py-6 sm:px-6 lg:px-8">
 						<div>
 							<h1 className="text-foreground text-2xl font-medium">{document.envelope?.title}</h1>

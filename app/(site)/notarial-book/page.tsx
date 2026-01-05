@@ -7,7 +7,7 @@ import { format } from "date-fns"
 import { toast } from "sonner"
 
 import { trpc } from "@/services/trpc/client"
-import { SiteNavbar } from "@/core/components/navbar/site-navbar"
+import { PageHeader } from "@/core/components/navbar/page-header"
 import { Button } from "@/core/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/core/components/ui/card"
 import { Input } from "@/core/components/ui/input"
@@ -122,16 +122,16 @@ export default function NotarialBookPage() {
 
 	return (
 		<>
-			<SiteNavbar 
-				items={[
-					{ label: "Notarial Book", url: "/notarial-book" }
-				]} 
-			/>
-			
-			<div className="min-h-screen bg-muted/30">
-				<div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-					{/* Header */}
-					<div className="mb-8">
+			<div className="flex flex-1 flex-col">
+				<PageHeader 
+					items={[
+						{ label: "Notarial Book", href: "/notarial-book" }
+					]} 
+				/>
+				
+				<main className="flex-1 p-4 md:p-6 lg:p-8">
+					<div className="mx-auto max-w-7xl space-y-8">
+						{/* Header */}
 						<div className="flex items-center justify-between">
 							<div>
 								<h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
@@ -163,7 +163,6 @@ export default function NotarialBookPage() {
 								</Button>
 							</div>
 						</div>
-					</div>
 
 					{/* Auto-sync info */}
 					{autoSyncMutation.isSuccess && autoSyncMutation.data && (
@@ -407,7 +406,8 @@ export default function NotarialBookPage() {
 						</CardContent>
 					</Card>
 				</div>
-			</div>
+			</main>
+		</div>
 		</>
 	)
 }

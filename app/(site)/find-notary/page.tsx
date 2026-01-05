@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 
 import { trpc } from "@/services/trpc/client"
-import { SiteNavbar } from "@/core/components/navbar/site-navbar"
+import { PageHeader } from "@/core/components/navbar/page-header"
 import { Button } from "@/core/components/ui/button"
 
 // Feature components
@@ -129,18 +129,18 @@ export default function FindNotaryPage() {
 	const enpDetails = enhancedEnps?.find((enp) => enp.id === bookingState.selectedENP)
 
 	return (
-		<>
-			<SiteNavbar items={[{ label: "Find a Notary", url: "/find-notary" as Route }]} />
+		<div className="flex flex-1 flex-col">
+			<PageHeader items={[{ label: "Find a Notary" }]} />
 
-			<div className="bg-muted/30 min-h-screen">
-				<div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+			<main className="flex-1 p-4 md:p-6 lg:p-8">
+				<div className="mx-auto max-w-7xl space-y-8">
 					{/* Show list view when no ENP is selected */}
 					{!bookingState.selectedENP && (
 						<>
 							{/* Header */}
-							<div className="mb-8">
+							<div className="space-y-2">
 								<h1 className="text-3xl font-bold tracking-tight">Find a Notary</h1>
-								<p className="text-muted-foreground mt-2">
+								<p className="text-muted-foreground">
 									Discover Electronic Notaries Public (ENPs) who can help with your notarization needs.
 									All ENPs support both Remote (REN) and In-Person (IEN) workflows.
 								</p>
@@ -166,21 +166,21 @@ export default function FindNotaryPage() {
 					{bookingState.selectedENP && enpDetails && (
 						<>
 							{/* Header */}
-							<div className="mb-8">
+							<div className="space-y-2">
 								<Button
 									variant="outline"
 									onClick={resetBooking}
-									className="mb-4"
+									className="w-fit"
 								>
 									← Back to List
 								</Button>
 								<h1 className="text-3xl font-bold tracking-tight">Book Consultation</h1>
-								<p className="text-muted-foreground mt-2">
+								<p className="text-muted-foreground">
 									Schedule a {bookingState.bookingWorkflow === "REN" ? "remote" : "in-person"} consultation with {enpDetails.name}
 								</p>
 							</div>
 
-							<div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+							<div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
 								{/* ENP Information */}
 								<div className="lg:col-span-1">
 									<NotaryDetails
@@ -205,7 +205,7 @@ export default function FindNotaryPage() {
 						</>
 					)}
 				</div>
-			</div>
-		</>
+			</main>
+		</div>
 	)
 }

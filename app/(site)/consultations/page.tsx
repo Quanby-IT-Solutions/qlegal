@@ -7,7 +7,7 @@ import { Calendar, Clock, MapPin, Video, Handshake, User, Phone, Mail, CheckCirc
 import { toast } from "sonner"
 
 import { trpc } from "@/services/trpc/client"
-import { SiteNavbar } from "@/core/components/navbar/site-navbar"
+import { PageHeader } from "@/core/components/navbar/page-header"
 import { Button } from "@/core/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/core/components/ui/card"
 import { Badge } from "@/core/components/ui/badge"
@@ -79,11 +79,16 @@ export default function ConsultationsPage() {
 			// Check CHAT_ONLY first to ensure proper redirect
 			if (data.workflowType === "REN" && data.meetingPreference === "CHAT_ONLY") {
 				// Chat only - always go to messages (conversation is created in backend)
-				console.log("✅ Redirecting to messages for CHAT_ONLY consultation")
+				const targetConversation = data.conversationId
+				console.log("✅ Redirecting to messages for CHAT_ONLY consultation", targetConversation)
 				toast.success("Chat Consultation Ready!", {
 					description: "You can now message the ENP directly.",
 				})
-				router.push("/messages" as Route)
+				if (targetConversation) {
+					router.push(`/messages?conversationId=${targetConversation}` as Route)
+				} else {
+					router.push("/messages" as Route)
+				}
 			} else if (data.workflowType === "REN" && data.meetingPreference === "VIDEO_CALL" && data.meetingId) {
 				// Video call - go to meeting lobby
 				console.log("✅ Redirecting to video meeting lobby:", data.meetingId)
@@ -151,26 +156,26 @@ export default function ConsultationsPage() {
 		: []
 
 	return (
-		<>
-			<SiteNavbar 
+		<div className="flex flex-1 flex-col">
+			<PageHeader
 				items={[
-					{ label: "Find a Notary", url: "/find-notary" },
-					{ label: "Consultations", url: "/consultations" }
-				]} 
+					{ label: "Find a Notary", href: "/find-notary" },
+					{ label: "Consultations" },
+				]}
 			/>
-			
-			<div className="min-h-screen bg-muted/30">
-				<div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+
+			<main className="flex-1 p-4 md:p-6 lg:p-8">
+				<div className="mx-auto max-w-7xl space-y-8">
 					{/* Header */}
-					<div className="mb-8">
+					<div className="space-y-2">
 						<h1 className="text-3xl font-bold tracking-tight">Book Consultation</h1>
-						<p className="mt-2 text-muted-foreground">
+						<p className="text-muted-foreground">
 							Schedule a consultation with an Electronic Notary Public for your notarization needs.
 						</p>
 					</div>
 
 					{/* Workflow Selection */}
-					<Card className="mb-8">
+					<Card>
 						<CardHeader>
 							<CardTitle>Select Notarization Type</CardTitle>
 							<CardDescription>
@@ -253,7 +258,7 @@ export default function ConsultationsPage() {
 
 					{/* ENP Selection */}
 					{!selectedENP && (
-						<Card className="mb-8">
+						<Card>
 							<CardHeader>
 								<CardTitle>Select a Notary</CardTitle>
 								<CardDescription>
@@ -306,7 +311,7 @@ export default function ConsultationsPage() {
 
 					{/* ENP Details and Booking */}
 					{selectedENP && enpDetails && (
-						<div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+						<div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
 							{/* ENP Information */}
 							<div className="lg:col-span-1">
 								<Card>
@@ -415,7 +420,7 @@ export default function ConsultationsPage() {
 														<Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
 													</div>
 												) : (
-													<div className="grid grid-cols-2 md:grid-cols-3 gap-2 mt-2">
+													<div className="grid grid-cols-2 gap-2 mt-2 md:grid-cols-3">
 														{filteredSlots.map((slot, index) => (
 															<Button
 																key={index}
@@ -560,7 +565,7 @@ export default function ConsultationsPage() {
 						</div>
 					)}
 				</div>
-			</div>
-		</>
+			</main>
+		</div>
 	)
 }

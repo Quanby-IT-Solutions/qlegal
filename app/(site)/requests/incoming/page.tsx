@@ -7,6 +7,7 @@ import { FileText, Clock, CheckCircle, XCircle, AlertCircle, Calendar, User, Sea
 import { toast } from "sonner"
 
 import { trpc } from "@/services/trpc/client"
+import { PageHeader } from "@/core/components/navbar/page-header"
 import { Button } from "@/core/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/core/components/ui/card"
 import { Input } from "@/core/components/ui/input"
@@ -151,21 +152,30 @@ export default function IncomingRequestsPage() {
 
 	return (
 		<>
-			
-			<div className="min-h-screen bg-muted/30">
-				<div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-					{/* Header */}
-					<div className="mb-8">
-						<h1 className="text-3xl font-bold tracking-tight">Incoming Requests</h1>
-						<p className="mt-2 text-muted-foreground">
-							Review and manage notarization requests from clients
-						</p>
-						<div className="mt-4 flex items-center gap-4 text-sm text-muted-foreground">
-							<span>{stats.todayCount} today</span>
-							<span>•</span>
-							<span>{stats.upcomingCount} upcoming</span>
+			<div className="flex flex-1 flex-col">
+				<PageHeader
+					items={[
+						{ label: "Requests", href: "/requests" },
+						{ label: "Incoming" },
+					]}
+				/>
+				
+				<main className="flex-1 p-4 md:p-6 lg:p-8">
+					<div className="mx-auto max-w-7xl space-y-8">
+						{/* Header */}
+						<div className="flex items-center justify-between">
+							<div>
+								<h1 className="text-3xl font-bold tracking-tight">Incoming Requests</h1>
+								<p className="mt-2 text-muted-foreground">
+									Review and manage notarization requests from clients
+								</p>
+								<div className="mt-4 flex items-center gap-4 text-sm text-muted-foreground">
+									<span>{stats.todayCount} today</span>
+									<span>•</span>
+									<span>{stats.upcomingCount} upcoming</span>
+								</div>
+							</div>
 						</div>
-					</div>
 
 					{/* Filters */}
 					<Card className="mb-6">
@@ -322,7 +332,8 @@ export default function IncomingRequestsPage() {
 							</Card>
 						)}
 					</div>
-				</div>
+					</div>
+				</main>
 			</div>
 
 			{/* Reject Dialog */}
