@@ -42,7 +42,7 @@ export default function FindNotaryPage() {
 	// Fetch ENP availability when ENP is selected
 	const { data: availabilitySlots, isLoading: isLoadingAvailability } = trpc.consultations.getEnpAvailability.useQuery(
 		{
-			enpId: bookingState.selectedENP || "",
+			enpId: bookingState.selectedENP ?? "",
 			workflowType: bookingState.bookingWorkflow,
 		},
 		{
@@ -81,12 +81,12 @@ export default function FindNotaryPage() {
 	// Transform ENPs to EnhancedENP format with real data from backend
 	const enhancedEnps: EnhancedENP[] | undefined = enps?.map((enp) => ({
 		...enp,
-		specialization: enp.specialization || "General Notary Services",
+		specialization: enp.specialization ?? "General Notary Services",
 		rating: enp.rating || 0,
 		reviewCount: enp.reviewCount || 0,
-		experience: enp.experience || "Not specified",
+		experience: enp.experience ?? "Not specified",
 		languages: Array.isArray(enp.languages) ? enp.languages : (enp.languages ? [enp.languages] : ["English"]),
-		responseTime: enp.responseTime || "Not specified",
+		responseTime: enp.responseTime ?? "Not specified",
 		location: "Not specified", // Location not stored in schema yet - can be added later
 	}))
 

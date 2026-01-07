@@ -5,10 +5,13 @@ import { users } from "@/services/drizzle/schema/auth"
 import { appointments } from "@/services/drizzle/schema/appointments"
 import { documents } from "@/services/drizzle/schema/document"
 import { envelopes } from "@/services/drizzle/schema/envelope"
+import { meetings, meetingParticipants } from "@/services/drizzle/schema/meetings"
 import { notarizationRequests } from "@/services/drizzle/schema/notarization-requests"
 import { enpProfiles } from "@/services/drizzle/schema/enp-profiles"
 import { getDocumentPublicUrl } from "@/services/supabase/signed-url"
+import { createMeetingRoom } from "@/services/video-sdk"
 import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
+import { env } from "@/env"
 
 import {
 	cancelAppointmentSchema,
@@ -233,12 +236,47 @@ export const appointmentsRouter = createTRPCRouter({
 				})
 			}
 
+			const isRemote = !existing.location // location null/undefined => remote
+			const providedLink = input.meetingLink && input.meetingLink.trim().length > 0 ? input.meetingLink : undefined
+			let meetingLink = providedLink ?? existing.meetingLink
+
+			// For remote appointments without a meeting yet, create one on accept
+			if (isRemote && !meetingLink) {
+				try {
+					const { roomId } = await createMeetingRoom()
+					const [meeting] = await ctx.db
+						.insert(meetings)
+						.values({
+							title:
+								existing.type === "DOCUMENT_SIGNING"
+									? "Document Signing Session"
+									: "Consultation Meeting",
+							roomId,
+							createdById: userId,
+							createdAt: existing.appointmentDate,
+							updatedAt: existing.appointmentDate,
+						})
+						.returning()
+
+					if (meeting) {
+						await ctx.db.insert(meetingParticipants).values([
+							{ meetingId: meeting.id, userId: existing.clientId },
+							{ meetingId: meeting.id, userId: existing.lawyerId },
+						])
+
+						meetingLink = `${env.NEXT_PUBLIC_APP_URL ?? ""}/meetings/${meeting.id}`
+					}
+				} catch (error) {
+					console.error("Failed to create meeting on confirmation:", error)
+				}
+			}
+
 			// Update appointment
 			const [updated] = await ctx.db
 				.update(appointments)
 				.set({
 					status: "CONFIRMED",
-					meetingLink: input.meetingLink,
+					meetingLink: meetingLink ?? existing.meetingLink ?? providedLink ?? "",
 					updatedAt: new Date(),
 				})
 				.where(eq(appointments.id, input.appointmentId))

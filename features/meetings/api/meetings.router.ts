@@ -183,6 +183,9 @@ export const meetingsRouter = createTRPCRouter({
 	startMeeting: protectedProcedure.input(z.string()).mutation(async ({ input, ctx }) => {
 		const meeting = await db.query.meetings.findFirst({
 			where: eq(meetings.id, input),
+			with: {
+				participants: true,
+			},
 		})
 
 		if (!meeting) {
@@ -192,17 +195,20 @@ export const meetingsRouter = createTRPCRouter({
 			})
 		}
 
-		if (meeting.createdById !== ctx.session.user.id) {
+		const isHost = meeting.createdById === ctx.session.user.id
+		const isParticipant = meeting.participants.some((p) => p.userId === ctx.session.user.id)
+
+		if (!isHost && !isParticipant) {
 			throw new TRPCError({
 				code: "FORBIDDEN",
-				message: "Only the host can start the meeting",
+				message: "Only meeting participants can start the meeting",
 			})
 		}
 
-		if (meeting.status === "ONGOING") {
+		if (meeting.status !== "SCHEDULED") {
 			throw new TRPCError({
 				code: "BAD_REQUEST",
-				message: "Meeting is already ongoing",
+				message: "Meeting is already started or ended",
 			})
 		}
 

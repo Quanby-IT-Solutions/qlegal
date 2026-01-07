@@ -101,7 +101,7 @@ export const requestsRouter = createTRPCRouter({
 				where: eq(users.id, input.enpId),
 			})
 
-			if (!enp || enp.role !== "ENP") {
+			if (enp?.role !== "ENP") {
 				throw new TRPCError({
 					code: "NOT_FOUND",
 					message: "Electronic Notary Public not found",

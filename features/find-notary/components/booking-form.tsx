@@ -1,7 +1,7 @@
 "use client"
 
 import { Calendar, Clock, Handshake, Loader2, Mail, Video } from "lucide-react"
-import { format } from "date-fns"
+import { format, startOfToday } from "date-fns"
 
 import { Button } from "@/core/components/ui/button"
 import {
@@ -41,6 +41,7 @@ export function BookingForm({
 	onBookingStateChange,
 	onSubmitBooking,
 }: BookingFormProps) {
+	const today = startOfToday()
 	const {
 		bookingWorkflow,
 		selectedDate,
@@ -84,7 +85,7 @@ export function BookingForm({
 								mode="single"
 								selected={selectedDate}
 								onSelect={(date) => onBookingStateChange({ selectedDate: date })}
-								disabled={(date) => date < new Date()}
+								disabled={(date) => date < today}
 								initialFocus
 							/>
 						</PopoverContent>
@@ -93,32 +94,45 @@ export function BookingForm({
 
 				{/* Time Selection */}
 				{selectedDate && (
-					<div>
-						<Label className="text-base font-medium">Available Times</Label>
-						{isLoadingAvailability ? (
-							<div className="flex items-center justify-center py-8">
-								<Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-							</div>
-						) : (
-							<div className="grid grid-cols-2 md:grid-cols-3 gap-2 mt-2">
-								{filteredSlots.map((slot, index) => (
-									<Button
-										key={index}
-										variant={selectedTime === slot.time ? "default" : "outline"}
-										onClick={() => onBookingStateChange({ selectedTime: slot.time })}
-										className="justify-start"
-									>
-										<Clock className="mr-2 h-4 w-4" />
-										{slot.time}
-									</Button>
-								))}
-							</div>
-						)}
-						{!isLoadingAvailability && filteredSlots.length === 0 && (
-							<p className="text-sm text-muted-foreground mt-2">
-								No available times for this date. Please select another date.
+					<div className="space-y-3">
+						<div className="space-y-1">
+							<Label className="text-base font-medium">Pick a time</Label>
+							<p className="text-xs text-muted-foreground">
+								Choose a suggested slot or type a custom time (24h or 12h accepted).
 							</p>
-						)}
+						</div>
+						<input
+							type="time"
+							className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+							value={selectedTime || ""}
+							onChange={(e) => onBookingStateChange({ selectedTime: e.target.value })}
+						/>
+						<div className="space-y-2">
+							<Label className="text-sm font-medium text-muted-foreground">Suggested slots</Label>
+							{isLoadingAvailability ? (
+								<div className="flex items-center justify-center py-4">
+									<Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+								</div>
+							) : filteredSlots.length > 0 ? (
+								<div className="grid grid-cols-2 md:grid-cols-3 gap-2 mt-2">
+									{filteredSlots.map((slot, index) => (
+										<Button
+											key={index}
+											variant={selectedTime === slot.time ? "default" : "outline"}
+											onClick={() => onBookingStateChange({ selectedTime: slot.time })}
+											className="justify-start"
+										>
+											<Clock className="mr-2 h-4 w-4" />
+											{slot.time}
+										</Button>
+									))}
+								</div>
+							) : (
+								<p className="text-sm text-muted-foreground">
+									No suggested slots for this date. Enter a custom time above.
+								</p>
+							)}
+						</div>
 					</div>
 				)}
 

@@ -18,16 +18,21 @@ import { Label } from "@/core/components/ui/label"
 import { Textarea } from "@/core/components/ui/textarea"
 import { Calendar as CalendarComponent } from "@/core/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/core/components/ui/popover"
-import { format } from "date-fns"
+import { format, startOfToday } from "date-fns"
 
 type ConsultationType = "INITIAL" | "FOLLOWUP" | "URGENT"
 type WorkflowType = "REN" | "IEN"
 type MeetingPreference = "VIDEO_CALL" | "CHAT_ONLY"
+type BookingMode = "CONSULTATION" | "SIGNING"
 
 export default function ConsultationsPage() {
 	const searchParams = useSearchParams()
 	const router = useRouter()
 	
+	const modeParam = (searchParams.get("mode") || searchParams.get("booking") || "").toUpperCase()
+	const initialBooking: BookingMode = modeParam === "SIGNING" ? "SIGNING" : "CONSULTATION"
+
+	const [bookingMode, setBookingMode] = useState<BookingMode>("CONSULTATION")
 	const [selectedWorkflow, setSelectedWorkflow] = useState<WorkflowType>("REN")
 	const [selectedENP, setSelectedENP] = useState<string | null>(null)
 	const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined)
@@ -36,19 +41,34 @@ export default function ConsultationsPage() {
 	const [meetingPreference, setMeetingPreference] = useState<MeetingPreference>("VIDEO_CALL")
 	const [specialRequirements, setSpecialRequirements] = useState("")
 	const [location, setLocation] = useState("")
+	const today = startOfToday()
 
 	// Get ENP ID from URL params
 	const enpId = searchParams.get("enp")
 	const workflowParam = searchParams.get("workflow") as WorkflowType | null
+	const dateParam = searchParams.get("date")
+	const timeParam = searchParams.get("time")
 
 	useEffect(() => {
+		setBookingMode(initialBooking)
 		if (enpId) {
 			setSelectedENP(enpId)
 		}
 		if (workflowParam && (workflowParam === "REN" || workflowParam === "IEN")) {
 			setSelectedWorkflow(workflowParam)
 		}
-	}, [enpId, workflowParam])
+		if (dateParam) {
+			const parsedDate = new Date(dateParam)
+			if (!Number.isNaN(parsedDate.getTime())) {
+				const normalized = new Date(parsedDate)
+				normalized.setHours(12, 0, 0, 0)
+				setSelectedDate(normalized)
+			}
+		}
+		if (timeParam) {
+			setSelectedTime(timeParam)
+		}
+	}, [dateParam, enpId, timeParam, workflowParam])
 
 	// Fetch available ENPs
 	const { data: availableEnps, isLoading: isLoadingEnps } = trpc.consultations.getAvailableEnps.useQuery({
@@ -115,6 +135,18 @@ export default function ConsultationsPage() {
 			})
 		},
 	})
+	// Book signing session (document signing) via appointments
+	const bookSigningMutation = trpc.appointments.createAppointment.useMutation({
+		onSuccess: () => {
+			toast.success("Signing session booked!")
+			router.push("/appointments" as Route)
+		},
+		onError: (error) => {
+			toast.error("Booking failed", {
+				description: error.message || "Failed to book signing session. Please try again.",
+			})
+		},
+	})
 
 	const enpDetails = availableEnps?.find((enp) => enp.id === selectedENP)
 
@@ -139,16 +171,34 @@ export default function ConsultationsPage() {
 			return
 		}
 
-		await bookConsultationMutation.mutateAsync({
-			enpId: selectedENP,
-			workflowType: selectedWorkflow,
-			appointmentDate: selectedDate,
-			appointmentTime: selectedTime,
-			consultationType,
-			meetingPreference: selectedWorkflow === "REN" ? meetingPreference : undefined,
-			specialRequirements: specialRequirements || undefined,
-			location: selectedWorkflow === "IEN" ? location : undefined,
-		})
+		if (bookingMode === "CONSULTATION") {
+			await bookConsultationMutation.mutateAsync({
+				enpId: selectedENP,
+				workflowType: selectedWorkflow,
+				appointmentDate: selectedDate,
+				appointmentTime: selectedTime,
+				consultationType,
+				meetingPreference: selectedWorkflow === "REN" ? meetingPreference : undefined,
+				specialRequirements: specialRequirements || undefined,
+				location: selectedWorkflow === "IEN" ? location : undefined,
+			})
+		} else {
+			// Signing session booking
+			// Combine date and time
+			const [hours, minutes] = selectedTime.split(":").map(Number)
+			const appointmentDate = new Date(selectedDate)
+			appointmentDate.setHours(hours ?? 0, minutes ?? 0, 0, 0)
+
+			await bookSigningMutation.mutateAsync({
+				lawyerId: selectedENP,
+				type: "DOCUMENT_SIGNING",
+				appointmentDate,
+				duration: selectedWorkflow === "REN" ? 45 : 60,
+				notes: specialRequirements || undefined,
+				location: selectedWorkflow === "IEN" ? location : undefined,
+				meetingLink: selectedWorkflow === "REN" ? "" : undefined,
+			})
+		}
 	}
 
 	const filteredSlots = selectedDate && availabilitySlots
@@ -168,11 +218,30 @@ export default function ConsultationsPage() {
 				<div className="mx-auto max-w-7xl space-y-8">
 					{/* Header */}
 					<div className="space-y-2">
-						<h1 className="text-3xl font-bold tracking-tight">Book Consultation</h1>
+						<h1 className="text-3xl font-bold tracking-tight">
+							{bookingMode === "CONSULTATION" ? "Book Consultation" : "Book Signing Session"}
+						</h1>
 						<p className="text-muted-foreground">
-							Schedule a consultation with an Electronic Notary Public for your notarization needs.
+							{bookingMode === "CONSULTATION"
+								? "Schedule a consultation with an Electronic Notary Public for your notarization needs."
+								: "Schedule a document signing session with an Electronic Notary Public."}
 						</p>
 					</div>
+
+					<Card>
+						<CardHeader>
+							<CardTitle>What do you need?</CardTitle>
+							<CardDescription>Select between consultation or signing session.</CardDescription>
+						</CardHeader>
+						<CardContent>
+							<Tabs value={bookingMode} onValueChange={(v) => setBookingMode(v as BookingMode)}>
+								<TabsList>
+									<TabsTrigger value="CONSULTATION">Consultation</TabsTrigger>
+									<TabsTrigger value="SIGNING">Signing Session</TabsTrigger>
+								</TabsList>
+							</Tabs>
+						</CardContent>
+					</Card>
 
 					{/* Workflow Selection */}
 					<Card>
@@ -404,7 +473,7 @@ export default function ConsultationsPage() {
 														mode="single"
 														selected={selectedDate}
 														onSelect={setSelectedDate}
-														disabled={(date) => date < new Date()}
+														disabled={(date) => date < today}
 														initialFocus
 													/>
 												</PopoverContent>
@@ -413,32 +482,45 @@ export default function ConsultationsPage() {
 
 										{/* Time Selection */}
 										{selectedDate && (
-											<div>
-												<Label className="text-base font-medium">Available Times</Label>
-												{isLoadingAvailability ? (
-													<div className="flex items-center justify-center py-8">
-														<Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-													</div>
-												) : (
-													<div className="grid grid-cols-2 gap-2 mt-2 md:grid-cols-3">
-														{filteredSlots.map((slot, index) => (
-															<Button
-																key={index}
-																variant={selectedTime === slot.time ? "default" : "outline"}
-																onClick={() => setSelectedTime(slot.time)}
-																className="justify-start"
-															>
-																<Clock className="mr-2 h-4 w-4" />
-																{slot.time}
-															</Button>
-														))}
-													</div>
-												)}
-												{!isLoadingAvailability && filteredSlots.length === 0 && (
-													<p className="text-sm text-muted-foreground mt-2">
-														No available times for this date. Please select another date.
+											<div className="space-y-3">
+												<div className="space-y-1">
+													<Label className="text-base font-medium">Pick a time</Label>
+													<p className="text-xs text-muted-foreground">
+														Choose a suggested slot or type a custom time (24h or 12h accepted).
 													</p>
-												)}
+												</div>
+												<input
+													type="time"
+													className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+													value={selectedTime || ""}
+													onChange={(e) => setSelectedTime(e.target.value)}
+												/>
+												<div className="space-y-2">
+													<Label className="text-sm font-medium text-muted-foreground">Suggested slots</Label>
+													{isLoadingAvailability ? (
+														<div className="flex items-center justify-center py-4">
+															<Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+														</div>
+													) : filteredSlots.length > 0 ? (
+														<div className="grid grid-cols-2 gap-2 md:grid-cols-3">
+															{filteredSlots.map((slot, index) => (
+																<Button
+																	key={index}
+																	variant={selectedTime === slot.time ? "default" : "outline"}
+																	onClick={() => setSelectedTime(slot.time)}
+																	className="justify-start"
+																>
+																	<Clock className="mr-2 h-4 w-4" />
+																	{slot.time}
+																</Button>
+															))}
+														</div>
+													) : (
+														<p className="text-sm text-muted-foreground">
+															No suggested slots for this date. Enter a custom time above.
+														</p>
+													)}
+												</div>
 											</div>
 										)}
 

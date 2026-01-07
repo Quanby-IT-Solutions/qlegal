@@ -1,10 +1,10 @@
 "use client"
 
-import { type Route } from "next"
 import { Calendar, Plus, PlayCircle, StopCircle, Trash2, Users, Video, X, Search, Clock } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
 import { useState } from "react"
+import { format } from "date-fns"
 
 import { PageHeader } from "@/core/components/navbar/page-header"
 import { Avatar, AvatarFallback, AvatarImage } from "@/core/components/ui/avatar"
@@ -439,9 +439,13 @@ export default function MeetingsPage() {
 							<div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
 								{filteredMeetings?.map((meeting) => {
 									const isHost = meeting.createdBy.id === session?.user?.id
+									const isParticipant = meeting.participants.some((p) => p.user?.id === session?.user?.id)
 									const canJoin = meeting.status === "ONGOING"
-									const canStart = isHost && meeting.status === "SCHEDULED"
+									const canStart = (isHost || isParticipant) && meeting.status === "SCHEDULED"
 									const canEnd = isHost && meeting.status === "ONGOING"
+									const scheduledLabel = meeting.createdAt
+										? format(new Date(meeting.createdAt), "PPP • h:mm a")
+										: "Not scheduled"
 
 									return (
 										<Card key={meeting.id} className="transition-shadow hover:shadow-lg">
@@ -487,6 +491,10 @@ export default function MeetingsPage() {
 													<Users className="size-4" />
 													<span>{meeting.participants.length} participant{meeting.participants.length !== 1 ? "s" : ""}</span>
 												</div>
+													<div className="flex items-center gap-2 text-sm text-muted-foreground">
+														<Calendar className="size-4" />
+														<span>Scheduled for {scheduledLabel}</span>
+													</div>
 
 												{/* Action Buttons */}
 												<div className="space-y-2 pt-2">

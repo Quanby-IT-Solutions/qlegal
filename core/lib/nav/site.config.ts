@@ -37,6 +37,7 @@ import {
 	UserCheckIcon,
 	UserIcon,
 	UsersIcon,
+	Video,
 	type LucideIcon,
 } from "lucide-react"
 
@@ -196,6 +197,17 @@ export const appSidebarSections: NavSection[] = [
 				workflows: ["REN", "IEN"],
 			},
 
+			// ========================================================================
+			// LAWYER AVAILABILITY CALENDAR - Principal-only view of ENP schedules
+			// ========================================================================
+			{
+				title: "Calendar",
+				url: "/calendar",
+				icon: CalendarIcon,
+				roles: ["PRINCIPAL"],
+				workflows: ["REN", "IEN"],
+			},
+
 			// ============================================================================
 			// MY CALENDAR (ENP Calendar Management) - REN-specific
 			// ============================================================================
@@ -210,6 +222,13 @@ export const appSidebarSections: NavSection[] = [
 				icon: CalendarIcon,
 				roles: ["ENP"],
 				workflows: ["REN"],
+			},
+			{
+				title: "Appointment Meeting",
+				url: "/appointments",
+				icon: Video,
+				roles: ["ENP", "PRINCIPAL"],
+				workflows: ["REN", "IEN"],
 			},
 
 			// ============================================================================
@@ -229,44 +248,36 @@ export const appSidebarSections: NavSection[] = [
 			},
 
 			// ============================================================================
-			// NOTARIZATION REQUESTS - Client-initiated notarization workflow
+			// NOTARIZATION REQUESTS - temporarily hidden (redundant)
+			// Kept commented for potential future use.
 			// ============================================================================
-			// Available to: PRINCIPAL, ENP
-			// Workflows: REN, IEN
-			// Purpose:
-			//   - PRINCIPAL: Request notarization service, upload documents
-			//   - ENP: View incoming notarization requests
-			// Features: Document upload, ENP selection, workflow choice, request tracking
-			{
-				title: "Notarization Requests",
-				url: "/requests",
-				icon: FileText,
-				roles: ["PRINCIPAL", "ENP"],
-				workflows: ["REN", "IEN"],
-				items: [
-					// PRINCIPAL: Create new notarization request
-					{
-						title: "New Request",
-						url: "/requests/new",
-						roles: ["PRINCIPAL"],
-						workflows: ["REN", "IEN"],
-					},
-					// PRINCIPAL: View their submitted requests
-					{
-						title: "My Requests",
-						url: "/requests/my-requests",
-						roles: ["PRINCIPAL"],
-						workflows: ["REN", "IEN"],
-					},
-					// ENP: View incoming requests from clients
-					{
-						title: "Incoming Requests",
-						url: "/requests/incoming",
-						roles: ["ENP"],
-						workflows: ["REN", "IEN"],
-					},
-				],
-			},
+			// {
+			// 	title: "Notarization Requests",
+			// 	url: "/requests",
+			// 	icon: FileText,
+		// 	roles: ["PRINCIPAL", "ENP"],
+			// 	workflows: ["REN", "IEN"],
+			// 	items: [
+			// 		{
+			// 			title: "New Request",
+			// 			url: "/requests/new",
+			// 			roles: ["PRINCIPAL"],
+			// 			workflows: ["REN", "IEN"],
+			// 		},
+			// 		{
+			// 			title: "My Requests",
+			// 			url: "/requests/my-requests",
+			// 			roles: ["PRINCIPAL"],
+			// 			workflows: ["REN", "IEN"],
+			// 		},
+			// 		{
+			// 			title: "Incoming Requests",
+			// 			url: "/requests/incoming",
+			// 			roles: ["ENP"],
+			// 			workflows: ["REN", "IEN"],
+			// 		},
+			// 	],
+			// },
 
 			// ============================================================================
 			// ACTIVE NOTARIZATIONS - Live notarization sessions and pending actions
