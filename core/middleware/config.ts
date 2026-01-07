@@ -54,6 +54,7 @@ export const ROUTE_CONFIG: RouteConfig = {
 			{ path: "/find-a-lawyer" },
 			{ path: "/find-notary" },
 			{ path: "/kyc" },
+			{ path: "/liveness" },
 			{ path: "/meetings" },
 			{ path: "/messages" },
 			{ path: "/my-signed" },

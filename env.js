@@ -24,6 +24,7 @@ export const env = createEnv({
 		HYPERVERGE_APP_ID: z.string(),
 		HYPERVERGE_APP_KEY: z.string(),
 		HYPERVERGE_WORKFLOW_ID: z.string(),
+		HYPERVERGE_DIRECT_LIVENESS_ENABLED: z.string().optional().default("false"),
 		NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
 
 		PORT: process.env.PORT ? z.coerce.number() : z.coerce.number().default(3000),
@@ -59,6 +60,7 @@ export const env = createEnv({
 		HYPERVERGE_APP_ID: process.env.HYPERVERGE_APP_ID,
 		HYPERVERGE_APP_KEY: process.env.HYPERVERGE_APP_KEY,
 		HYPERVERGE_WORKFLOW_ID: process.env.HYPERVERGE_WORKFLOW_ID,
+		HYPERVERGE_DIRECT_LIVENESS_ENABLED: process.env.HYPERVERGE_DIRECT_LIVENESS_ENABLED,
 		NODE_ENV: process.env.NODE_ENV,
 		NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
 		NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,

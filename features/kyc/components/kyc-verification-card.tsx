@@ -280,7 +280,7 @@ export function KycVerificationCard({ userInfo, minimal, redirectUrlOnSkip }: Ky
 						size="sm"
 						className="w-full text-xs text-muted-foreground"
 					>
-						[Dev] Reset KYC Status
+						{/* [Dev] Reset KYC Status */}
 					</Button>
 				</div>
 			)}
