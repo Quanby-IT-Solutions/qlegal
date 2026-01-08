@@ -164,39 +164,6 @@ export const appSidebarSections: NavSection[] = [
 				icon: PieChartIcon,
 			},
 
-			// ============================================================================
-			// FIND A NOTARY - Client discovery of available ENPs
-			// ============================================================================
-			// Available to: PRINCIPAL (clients looking for notary services)
-			// Workflows: REN, IEN (workflow-agnostic - all ENPs support both)
-			// Purpose: Browse and search for Electronic Notaries Public
-			// Features: ENP profiles, location, specialization, availability, ratings
-			// Next Step: Book consultation or request notarization
-			{
-				title: "Find a Notary",
-				url: "/find-notary",
-				icon: UsersIcon,
-				roles: ["PRINCIPAL"],
-				workflows: ["REN", "IEN"],
-			},
-
-			// ============================================================================
-			// CONSULTATION - Book or manage consultation appointments
-			// ============================================================================
-			// Available to: PRINCIPAL (booking), ENP (managing)
-			// Workflows: REN, IEN (branches based on selected workflow)
-			// Purpose:
-			//   - REN: Schedule remote video consultation
-			//   - IEN: Schedule in-person meeting or walk-in
-			// Features: Calendar, ENP selection, workflow choice, appointment management
-			{
-				title: "Consultations",
-				url: "/consultations",
-				icon: CalendarIcon,
-				roles: ["PRINCIPAL"],
-				workflows: ["REN", "IEN"],
-			},
-
 			// ========================================================================
 			// LAWYER AVAILABILITY CALENDAR - Principal-only view of ENP schedules
 			// ========================================================================

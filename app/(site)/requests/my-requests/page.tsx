@@ -27,7 +27,7 @@ export default function MyRequestsPage() {
 
 	// Fetch notarization requests for the current user (principal)
 	const { data: myRequests = [], isLoading } = trpc.requests.getMyRequests.useQuery(
-		{ status: "ALL", workflow: "ALL" },
+		undefined,
 		{ enabled: !!userId }
 	)
 	
@@ -36,9 +36,9 @@ export default function MyRequestsPage() {
 		const matchesStatus = statusFilter === "ALL" || request.status === statusFilter
 		const matchesWorkflow = workflowFilter === "ALL" || request.workflow === workflowFilter
 		const matchesSearch = !searchTerm || 
-			request.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-			request.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-			request.enp?.name?.toLowerCase().includes(searchTerm.toLowerCase())
+			Boolean(request.title?.toLowerCase().includes(searchTerm.toLowerCase())) ||
+			Boolean(request.description?.toLowerCase().includes(searchTerm.toLowerCase())) ||
+			Boolean(request.enp?.name?.toLowerCase().includes(searchTerm.toLowerCase()))
 		return matchesStatus && matchesWorkflow && matchesSearch
 	})
 
@@ -192,7 +192,7 @@ export default function MyRequestsPage() {
 												<div className="flex items-center gap-4 text-sm text-muted-foreground">
 													<div className="flex items-center gap-2">
 														<User className="h-4 w-4" />
-														<span>{request.enp?.name || "Unknown ENP"}</span>
+														<span>{request.enp?.name ?? "Unknown ENP"}</span>
 													</div>
 													<div className="flex items-center gap-2">
 														<Calendar className="h-4 w-4" />
@@ -200,7 +200,7 @@ export default function MyRequestsPage() {
 													</div>
 													<div className="flex items-center gap-2">
 														<FileText className="h-4 w-4" />
-														<span>{request.documentsCount || 0} document{(request.documentsCount || 0) !== 1 ? "s" : ""}</span>
+														<span>{request.documents ?? 0} document{(request.documents ?? 0) !== 1 ? "s" : ""}</span>
 													</div>
 												</div>
 												<div className="flex items-center gap-2 mt-3">
@@ -215,8 +215,8 @@ export default function MyRequestsPage() {
 											</div>
 											<div className="flex items-center gap-2">
 												<Avatar className="h-10 w-10">
-													<AvatarImage src={request.enp?.image || undefined} alt={request.enp?.name || "ENP"} />
-													<AvatarFallback>{(request.enp?.name || "ENP").split(" ").map(n => n[0]).join("")}</AvatarFallback>
+													<AvatarImage src={request.enp?.image ?? undefined} alt={request.enp?.name ?? "ENP"} />
+													<AvatarFallback>{(request.enp?.name ?? "ENP").split(" ").map(n => n[0]).join("")}</AvatarFallback>
 												</Avatar>
 											</div>
 										</div>

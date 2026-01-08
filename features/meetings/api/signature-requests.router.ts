@@ -10,7 +10,7 @@ import { users } from "@/services/drizzle/schema/auth"
 import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
 import { addSignerToProject, sendDocoChainProject, generateSignLink, generateEditDraftLink, autoJoinOrganization, getProjectDetails, deleteSigner, updateProjectSigner, checkSigningStatus, downloadSignedDocument, downloadCertificate, getPassportDocument } from "@/services/docochain"
 
-const DOCOCHAIN_API_BASE = env.DOCOCHAIN_API_URL || "https://stg-api2.doconchain.com"
+const DOCOCHAIN_API_BASE = env.DOCOCHAIN_API_URL ?? "https://stg-api2.doconchain.com"
 
 
 export const signatureRequestsRouter = createTRPCRouter({
@@ -58,23 +58,24 @@ export const signatureRequestsRouter = createTRPCRouter({
 		// Add signer to DocoChain project (keep as DRAFT so ENP can place signature fields)
 		if (document.docoChainProjectId) {
 			try {
-				const nameParts = (signerUser.name || "").split(" ")
-				const firstName = nameParts[0] || "Signer"
+				const nameParts = (signerUser.name ?? "").split(" ")
+				const firstName = nameParts[0] ?? "Signer"
 				const lastName = nameParts.slice(1).join(" ") || "User"
 
 			// 🔑 First, auto-join the ENP to the organization
 			// This makes them an organization member instead of a guest
 			await autoJoinOrganization({
-				email: signerUser.email || "",
+				email: signerUser.email ?? "",
 				firstName,
 				lastName,
 				role: "Member",
 				userEmail: ctx.session.user.email || undefined, // Pass creator's email for token
 			})
 
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
 			const addSignerResponse = await addSignerToProject({
 				projectUuid: document.docoChainProjectId,
-				email: signerUser.email || "",
+				email: signerUser.email ?? "",
 				firstName,
 				lastName,
 				signerRole: "Signer",
@@ -90,14 +91,18 @@ export const signatureRequestsRouter = createTRPCRouter({
 				
 				// The addSignerResponse contains ALL signers, including the creator
 				// Find the creator (type: 'ME') or by email
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
 				const creatorSigner = addSignerResponse.data?.find(
+					// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
 					(signer: any) => signer.type === 'ME' || signer.email === ctx.session.user.email
 				)
 
 				if (creatorSigner) {
+					// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
 					console.log(`🗑️ Found creator signer: ${creatorSigner.email} (ID: ${creatorSigner.id})`)
 					await deleteSigner({
 						projectUuid: document.docoChainProjectId,
+						// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
 						signerId: creatorSigner.id,
 						userEmail: ctx.session.user.email || undefined, // Pass creator's email for token
 					})
@@ -236,6 +241,7 @@ export const signatureRequestsRouter = createTRPCRouter({
 			})
 		)
 		.mutation(async ({ input, ctx }) => {
+			 
 			const { projectUuid, email } = input
 
 			try {
@@ -277,7 +283,8 @@ export const signatureRequestsRouter = createTRPCRouter({
 				const participants = meeting.participants || []
 				
 				// Get creator's email - this is who created the project, so their token has access
-				const creatorEmail = meeting.createdBy?.email || undefined
+				 
+				const creatorEmail = meeting.createdBy?.email ?? undefined
 				if (!creatorEmail) {
 					throw new TRPCError({
 						code: "NOT_FOUND",
@@ -287,7 +294,7 @@ export const signatureRequestsRouter = createTRPCRouter({
 
 				// Get user details (participant who is clicking "Start Signing")
 				const nameParts = (ctx.session.user.name || "").split(" ")
-				const userFirstName = nameParts[0] || "User"
+				const userFirstName = nameParts[0] ?? "User"
 				const userLastName = nameParts.slice(1).join(" ") || ""
 
 				console.log("🔵 User initiating signing process...")
@@ -300,20 +307,40 @@ export const signatureRequestsRouter = createTRPCRouter({
 
 				// Step 1: Check current signers and project status
 				console.log("🔵 Step 1: Checking current signers in DocoChain project...")
+				// eslint-disable-next-line @typescript-eslint/no-explicit-any
 				let currentSigners: any[] = []
 				let projectStatus = "Draft"
 				
 				try {
+					// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
 					const projectDetails = await getProjectDetails(projectUuid, creatorEmail)
-					currentSigners = projectDetails?.data?.signers || []
-					projectStatus = projectDetails?.data?.status || "Draft"
+					// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+					currentSigners = projectDetails?.data?.signers ?? []
+					// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+					projectStatus = projectDetails?.data?.status ?? "Draft"
 					console.log(`   - Total existing signers: ${currentSigners.length}`)
 					console.log(`   - Project status: ${projectStatus}`)
+					// eslint-disable-next-line @typescript-eslint/no-explicit-any
 					currentSigners.forEach((s: any, idx: number) => {
+						// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
 						console.log(`   - Signer ${idx + 1}: ${s.email} (sequence: ${s.sequence}, status: ${s.status})`)
 					})
 				} catch (error) {
 					console.warn("⚠️ Failed to get project details:", error)
+					// If project doesn't exist, throw a more helpful error
+					if (error instanceof Error && (error.message.includes("not found") || error.message.includes("Project not found"))) {
+						throw new TRPCError({
+							code: "NOT_FOUND",
+							message: `DocoChain project not found. The project may have been deleted or the project UUID (${projectUuid}) is incorrect.`,
+						})
+					}
+					// If it's a "not part of project" error, we can still try to add signers
+					// (maybe the creator email doesn't have access but we can try with session user)
+					if (error instanceof Error && error.message.includes("not part of this project")) {
+						console.warn("⚠️ Creator doesn't have access to project, but continuing to try adding signers...")
+					}
+					// For other errors, don't re-throw - we'll try to add signers anyway
+					// The addSignerToProject call will handle the error if the project doesn't exist
 				}
 
 				// Step 2: Add ALL meeting participants as signers if not already added
@@ -323,14 +350,16 @@ export const signatureRequestsRouter = createTRPCRouter({
 				for (const participant of participants) {
 					const participantEmail = participant.user?.email
 					if (!participantEmail) {
-						console.warn(`   ⚠️ Skipping participant ${participant.user?.name || participant.userId} - no email`)
+						console.warn(`   ⚠️ Skipping participant ${participant.user?.name ?? participant.userId} - no email`)
 						continue
 					}
 
 					// Check if participant is already a signer
-					const isAlreadySigner = currentSigners.some((s: any) => 
-						s.email?.toLowerCase() === participantEmail.toLowerCase()
-					)
+					// eslint-disable-next-line @typescript-eslint/no-explicit-any
+					const isAlreadySigner = currentSigners.some((s: any) => {
+						// eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+						return s.email?.toLowerCase() === participantEmail.toLowerCase()
+					})
 
 					if (isAlreadySigner) {
 						console.log(`   ℹ️ ${participantEmail} is already a signer, skipping...`)
@@ -338,8 +367,8 @@ export const signatureRequestsRouter = createTRPCRouter({
 					}
 
 					// Add participant as signer
-					const participantNameParts = (participant.user?.name || "").split(" ")
-					const participantFirstName = participantNameParts[0] || "User"
+					const participantNameParts = (participant.user?.name ?? "").split(" ")
+					const participantFirstName = participantNameParts[0] ?? "User"
 					const participantLastName = participantNameParts.slice(1).join(" ") || ""
 
 					console.log(`   🔵 Adding ${participantEmail} as signer...`)
@@ -355,7 +384,7 @@ export const signatureRequestsRouter = createTRPCRouter({
 								userEmail: creatorEmail,
 							})
 							console.log(`   ✅ ${participantEmail} auto-joined to organization`)
-						} catch (orgError) {
+						} catch {
 							console.warn(`   ⚠️ Failed to auto-join ${participantEmail} to organization (continuing)`)
 						}
 
@@ -384,6 +413,13 @@ export const signatureRequestsRouter = createTRPCRouter({
 							addError.message.includes("already been added")
 						)) {
 							console.log(`   ℹ️ ${participantEmail} already exists as signer`)
+						} else if (addError instanceof Error && addError.message.includes("Project not found")) {
+							// Project doesn't exist - this is a critical error
+							console.error(`   ❌ Project not found when trying to add ${participantEmail} as signer`)
+							throw new TRPCError({
+								code: "NOT_FOUND",
+								message: `DocoChain project not found. The project may have been deleted or the project UUID (${projectUuid}) is incorrect. Please contact support if this issue persists.`,
+							})
 						} else {
 							console.error(`   ❌ Failed to add ${participantEmail} as signer:`, addError)
 							// Don't throw error for other participants - continue adding remaining ones
@@ -414,16 +450,20 @@ export const signatureRequestsRouter = createTRPCRouter({
 				// Use project status from earlier check to determine which link type to use
 				let isProjectSent = false
 				try {
+					// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
 					const projectDetails = await getProjectDetails(projectUuid, creatorEmail)
-					projectStatus = projectDetails?.data?.status || "Draft"
+					// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+					projectStatus = projectDetails?.data?.status ?? "Draft"
 					// Check if project has been sent (sent_at field exists) or status indicates it's sent
+					// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
 					isProjectSent = !!projectDetails?.data?.sent_at || 
 					                projectStatus === "Sent" || 
 					                projectStatus === "Completed" || 
 					                projectStatus === "In Progress" ||
 					                projectStatus === "View Only" // "View Only" means project was sent
 					console.log("   - Project Status:", projectStatus)
-					console.log("   - Project Sent At:", projectDetails?.data?.sent_at || "not sent")
+					// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+					console.log("   - Project Sent At:", projectDetails?.data?.sent_at ?? "not sent")
 					console.log("   - Is Project Sent:", isProjectSent)
 				} catch (statusError) {
 					console.warn("⚠️ Failed to get project status, assuming Draft:", statusError)
@@ -519,8 +559,8 @@ export const signatureRequestsRouter = createTRPCRouter({
 
 			try {
 				// Get user details if not provided
-				const userFirstName = firstName || ctx.session.user.name?.split(" ")[0] || "User"
-				const userLastName = lastName || ctx.session.user.name?.split(" ").slice(1).join(" ") || ""
+				const userFirstName = firstName ?? ctx.session.user.name?.split(" ")[0] ?? "User"
+				const userLastName = lastName ?? (ctx.session.user.name?.split(" ").slice(1).join(" ") ?? "")
 
 				// Step 1: Auto-join the ENP to the organization (makes them organization member instead of guest)
 				console.log("🔵 Auto-joining ENP to organization...")
@@ -592,16 +632,21 @@ export const signatureRequestsRouter = createTRPCRouter({
 
 			try {
 				// Get project details from DocoChain
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
 				const projectDetails = await getProjectDetails(projectUuid)
 				
 				// Check if user's email is in the signers list
-				const signers = projectDetails?.data?.signers || []
-				const isSigner = signers.some((signer: any) => 
-					signer.email?.toLowerCase() === userEmail.toLowerCase()
-				)
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+				const signers = projectDetails?.data?.signers ?? []
+				// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+				const isSigner = signers.some((signer: any) => {
+					// eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+					return signer.email?.toLowerCase() === userEmail.toLowerCase()
+				})
 
 				console.log(`🔵 Checking if ${userEmail} is a signer in project ${projectUuid}: ${isSigner}`)
 
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
 				return { isSigner }
 			} catch (error) {
 				console.error("❌ Error checking if user is signer:", error)
@@ -640,6 +685,15 @@ export const signatureRequestsRouter = createTRPCRouter({
 										email: true,
 									},
 								},
+								participants: {
+									with: {
+										user: {
+											columns: {
+												email: true,
+											},
+										},
+									},
+								},
 							},
 						},
 						envelope: {
@@ -657,34 +711,88 @@ export const signatureRequestsRouter = createTRPCRouter({
 					},
 				})
 
-				// Try to get creator's email from meeting first, then envelope, then fallback to session user
-				const creatorEmail = document?.meeting?.createdBy?.email || 
-				                  document?.envelope?.user?.email || 
-				                  ctx.session.user.email || 
-				                  undefined
+				if (!document) {
+					throw new TRPCError({
+						code: "NOT_FOUND",
+						message: `Document not found for project UUID: ${projectUuid}`,
+					})
+				}
 
-				// Try checking status with the creator email
-				try {
-					const status = await checkSigningStatus(projectUuid, creatorEmail)
-					return status
-				} catch (statusError) {
-					// If we get "not part of project" error, try with session user's email as fallback
-					if (statusError instanceof Error && statusError.message.includes("not part of this project")) {
-						console.warn("⚠️ Creator email doesn't have access, trying session user email...")
-						// Only try session user if it's different from creator
-						if (ctx.session.user.email && ctx.session.user.email !== creatorEmail) {
-							try {
-								const status = await checkSigningStatus(projectUuid, ctx.session.user.email)
-								return status
-							} catch (fallbackError) {
-								// If both fail, throw the original error
-								throw statusError
-							}
+				// Collect all possible emails that might have created the project
+				// This handles cases where documents were uploaded by different users
+				const possibleEmails = new Set<string>()
+				
+				// Add session user email (the person checking status)
+				if (ctx.session.user.email) {
+					possibleEmails.add(ctx.session.user.email)
+				}
+				
+				// Add meeting creator email
+				if (document.meeting?.createdBy?.email) {
+					possibleEmails.add(document.meeting.createdBy.email)
+				}
+				
+				// Add all meeting participants' emails (any of them could have uploaded)
+				if (document.meeting?.participants) {
+					for (const participant of document.meeting.participants) {
+						if (participant.user?.email) {
+							possibleEmails.add(participant.user.email)
 						}
 					}
-					// Re-throw if it's not a "not part of project" error
-					throw statusError
 				}
+				
+				// Add envelope creator email
+				if (document.envelope?.user?.email) {
+					possibleEmails.add(document.envelope.user.email)
+				}
+
+				// Try each email until one works
+				const emailArray = Array.from(possibleEmails)
+				let lastError: Error | null = null
+
+				for (const email of emailArray) {
+					try {
+						console.log(`🔵 Trying to check status with email: ${email}`)
+						const status = await checkSigningStatus(projectUuid, email)
+						console.log(`✅ Successfully checked status with email: ${email}`)
+						return status
+					} catch (error) {
+						console.warn(`⚠️ Failed to check status with email ${email}:`, error instanceof Error ? error.message : String(error))
+						lastError = error instanceof Error ? error : new Error(String(error))
+						
+						// If it's a "not part of project" error, try next email
+						// If it's a "project not found" error, also try next email (might be wrong creator)
+						if (error instanceof Error && (
+							error.message.includes("not part of this project") ||
+							error.message.includes("Project not found") ||
+							error.message.includes("not found")
+						)) {
+							continue // Try next email
+						}
+						// For other errors, re-throw immediately
+						throw error
+					}
+				}
+
+				// If all emails failed, throw a helpful error
+				if (lastError) {
+					if (lastError.message.includes("Project not found") || lastError.message.includes("not found")) {
+						throw new TRPCError({
+							code: "NOT_FOUND",
+							message: `DocoChain project not found. The project may have been deleted or the project UUID (${projectUuid}) is incorrect. Please contact support if this issue persists.`,
+						})
+					}
+					throw new TRPCError({
+						code: "FORBIDDEN",
+						message: "You don't have access to check the status of this project. The project may have been created by a different user.",
+					})
+				}
+
+				// Should never reach here, but just in case
+				throw new TRPCError({
+					code: "BAD_REQUEST",
+					message: "Unable to determine user email for checking project status",
+				})
 			} catch (error) {
 				console.error("❌ Error checking signing status:", error)
 				// If it's a "not part of project" error, return a more user-friendly message
@@ -730,7 +838,8 @@ export const signatureRequestsRouter = createTRPCRouter({
 				})
 
 				// Get creator's email from the meeting
-				const creatorEmail = document?.meeting?.createdBy?.email || ctx.session.user.email || undefined
+				 
+				const creatorEmail = document?.meeting?.createdBy?.email ?? (ctx.session.user.email ?? undefined)
 
 				// First check if document is fully signed
 				const status = await checkSigningStatus(projectUuid, creatorEmail)
@@ -796,7 +905,8 @@ export const signatureRequestsRouter = createTRPCRouter({
 				})
 
 				// Get creator's email from the meeting
-				const creatorEmail = document?.meeting?.createdBy?.email || ctx.session.user.email || undefined
+				 
+				const creatorEmail = document?.meeting?.createdBy?.email ?? (ctx.session.user.email ?? undefined)
 
 				// First check if document is fully signed
 				const status = await checkSigningStatus(projectUuid, creatorEmail)
@@ -847,7 +957,7 @@ export const signatureRequestsRouter = createTRPCRouter({
 			try {
 				// Get the document to find the creator's email
 				const document = await db.query.documents.findFirst({
-					where: eq(documents.docoChainProjectUuid, projectUuid),
+					where: eq(documents.docoChainProjectId, projectUuid),
 					columns: {
 						id: true,
 						meetingId: true,
@@ -869,14 +979,17 @@ export const signatureRequestsRouter = createTRPCRouter({
 				})
 
 				// Get creator's email from the meeting
-				const creatorEmail = document?.meeting?.createdBy?.email || ctx.session.user.email || undefined
+				 
+				const creatorEmail = document?.meeting?.createdBy?.email ?? (ctx.session.user.email ?? undefined)
 
 				// Get the passport document
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
 				const passportData = await getPassportDocument(projectUuid, view, creatorEmail)
 
 				return {
 					success: true,
 					view,
+					// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
 					data: passportData,
 				}
 			} catch (error) {

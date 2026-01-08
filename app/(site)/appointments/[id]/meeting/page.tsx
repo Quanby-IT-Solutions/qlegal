@@ -2,6 +2,7 @@
 
 import { use } from "react"
 import { useRouter } from "next/navigation"
+import type { Route } from "next"
 import { useSession } from "next-auth/react"
 import { format } from "date-fns"
 import { AlertCircle, Calendar, Clock, MapPin, User, Video } from "lucide-react"
@@ -39,7 +40,8 @@ export default function AppointmentMeetingPage({ params }: { params: Promise<{ i
 			const url = new URL(meetingLink)
 			window.location.href = url.toString()
 		} catch {
-			router.push(meetingLink)
+			// If URL parsing fails, treat as internal route
+			router.push((meetingLink as unknown) as Route)
 		}
 	}
 
@@ -112,11 +114,11 @@ export default function AppointmentMeetingPage({ params }: { params: Promise<{ i
 									</div>
 									<div className="flex items-center gap-2">
 										<User className="h-4 w-4" />
-										<span>Lawyer: {appointment.lawyer?.name || "Your lawyer"}</span>
+										<span>Lawyer: {appointment.lawyer?.name ?? "Your lawyer"}</span>
 									</div>
 									<div className="flex items-center gap-2">
 										<User className="h-4 w-4" />
-										<span>Client: {appointment.client?.name || "Client"}</span>
+										<span>Client: {appointment.client?.name ?? "Client"}</span>
 									</div>
 									<div className="flex items-center gap-2">
 										{meetingLink ? <Video className="h-4 w-4" /> : <MapPin className="h-4 w-4" />}

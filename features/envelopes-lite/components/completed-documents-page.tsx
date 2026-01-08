@@ -23,12 +23,38 @@ import { DocumentPreviewDialog } from "./document-preview-dialog"
 
 type ViewMode = "grid" | "list"
 
+// Extended document type to include DocoChain project properties
+type CompletedDocument = {
+	id: string
+	name: string
+	type: string
+	size: number
+	path: string
+	status: string
+	docoChainProjectId?: string
+	createdAt: Date | string
+	updatedAt: Date | string
+	envelopeId: string | null
+	envelope: null
+	envelopeOwner: null
+	projectId?: number
+	projectUuid?: string
+	projectCreatedAt?: string
+	isVaultOnly?: boolean
+}
+
+// Helper function to safely get project UUID from document
+function getProjectUuid(doc: unknown): string | undefined {
+	const typedDoc = doc as CompletedDocument
+	return typedDoc.projectUuid ?? typedDoc.docoChainProjectId
+}
+
 function formatFileSize(bytes: number): string {
 	if (bytes === 0) return "0 Bytes"
 	const k = 1024
 	const sizes = ["Bytes", "KB", "MB", "GB"]
 	const i = Math.floor(Math.log(bytes) / Math.log(k))
-	return Math.round(bytes / Math.pow(k, i) * 100) / 100 + " " + sizes[i]
+	return `${Math.round(bytes / Math.pow(k, i) * 100) / 100} ${sizes[i]}`
 }
 
 function formatDate(date: Date | string): string {
@@ -77,9 +103,9 @@ export function CompletedDocumentsPage() {
 		}
 	)
 
-	const completedDocuments = completedData?.documents || []
-	const total = completedData?.total || 0
-	const hasMore = completedData?.hasMore || false
+	const completedDocuments = useMemo(() => completedData?.documents ?? [], [completedData?.documents])
+	const total = completedData?.total ?? 0
+	const hasMore = completedData?.hasMore ?? false
 
 	// Handle manual refresh
 	const handleRefresh = async () => {
@@ -90,7 +116,7 @@ export function CompletedDocumentsPage() {
 
 	// Download signed document query
 	const downloadDocumentQuery = trpc.envelopeLite.downloadSignedDocument.useQuery(
-		{ projectUuid: downloadingProjectUuid || "" },
+		{ projectUuid: downloadingProjectUuid ?? "" },
 		{
 			enabled: !!downloadingProjectUuid,
 		}
@@ -174,11 +200,17 @@ export function CompletedDocumentsPage() {
 			// Search filter
 			if (searchQuery.trim()) {
 				const query = searchQuery.toLowerCase()
+				 
+				const envelope = doc.envelope as { title?: string; description?: string } | null | undefined
+				 
+				const envelopeTitle = envelope?.title
+				 
+				const envelopeDescription = envelope?.description
 				return (
 					doc.name.toLowerCase().includes(query) ||
 					doc.type.toLowerCase().includes(query) ||
-					doc.envelope?.title.toLowerCase().includes(query) ||
-					(doc.envelope?.description?.toLowerCase().includes(query) ?? false)
+					Boolean(envelopeTitle?.toLowerCase().includes(query)) ||
+					Boolean(envelopeDescription?.toLowerCase().includes(query))
 				)
 			}
 
@@ -304,7 +336,8 @@ export function CompletedDocumentsPage() {
 										<div className="flex-1 min-w-0">
 											<CardTitle className="text-base truncate">{doc.name}</CardTitle>
 											<CardDescription className="mt-1">
-												{doc.envelope?.title || "No envelope"}
+												{ }
+												{(doc.envelope as { title?: string } | null | undefined)?.title ?? "No envelope"}
 											</CardDescription>
 										</div>
 									</div>
@@ -338,7 +371,7 @@ export function CompletedDocumentsPage() {
 													documentId: doc.id,
 													envelopeId: doc.envelopeId,
 													documentName: doc.name,
-													projectUuid: (doc as any).projectUuid || (doc as any).docoChainProjectId,
+													projectUuid: getProjectUuid(doc as CompletedDocument),
 												})
 											}
 										>
@@ -351,7 +384,7 @@ export function CompletedDocumentsPage() {
 												className="flex-1"
 												onClick={() => {
 													const targetDocumentId = doc.id
-													const targetEnvelopeId = doc.envelopeId
+													const targetEnvelopeId = doc.envelopeId as string | null
 													if (targetDocumentId && targetEnvelopeId) {
 														window.location.href = `/document/${targetDocumentId}/sign?envelopeId=${targetEnvelopeId}`
 													}
@@ -368,24 +401,24 @@ export function CompletedDocumentsPage() {
 												<DropdownMenuContent align="end">
 													<DropdownMenuItem
 														onClick={() => {
-															const projectUuid = (doc as any).projectUuid || (doc as any).docoChainProjectId
+															const projectUuid = getProjectUuid(doc as CompletedDocument)
 															if (projectUuid) {
 																handleDownload(projectUuid)
 															}
 														}}
-														disabled={!((doc as any).projectUuid || (doc as any).docoChainProjectId) || downloadingProjectUuid === ((doc as any).projectUuid || (doc as any).docoChainProjectId)}
+														disabled={!getProjectUuid(doc as CompletedDocument) || downloadingProjectUuid === getProjectUuid(doc as CompletedDocument)}
 													>
 														<Download className="mr-2 h-4 w-4" />
-														{downloadingProjectUuid === ((doc as any).projectUuid || (doc as any).docoChainProjectId) ? "Downloading..." : "Download Signed Document"}
+														{downloadingProjectUuid === getProjectUuid(doc as CompletedDocument) ? "Downloading..." : "Download Signed Document"}
 													</DropdownMenuItem>
 													<DropdownMenuItem
 														onClick={() => {
-															const projectUuid = (doc as any).projectUuid || (doc as any).docoChainProjectId
+															const projectUuid = getProjectUuid(doc as CompletedDocument)
 															if (projectUuid) {
 																handleViewCertificate(projectUuid, doc.name)
 															}
 														}}
-														disabled={!((doc as any).projectUuid || (doc as any).docoChainProjectId)}
+														disabled={!getProjectUuid(doc as CompletedDocument)}
 													>
 														<Award className="mr-2 h-4 w-4" />
 														Download Certificate
@@ -410,7 +443,8 @@ export function CompletedDocumentsPage() {
 												<div className="flex-1 min-w-0">
 													<h3 className="text-foreground font-medium truncate">{doc.name}</h3>
 													<p className="text-muted-foreground text-sm mt-1">
-														{doc.envelope?.title || "No envelope"}
+														{ }
+														{((doc.envelope as unknown) as { title?: string } | null | undefined)?.title ?? "No envelope"}
 													</p>
 												</div>
 											</div>
@@ -444,7 +478,7 @@ export function CompletedDocumentsPage() {
 															documentId: doc.id,
 															envelopeId: doc.envelopeId,
 															documentName: doc.name,
-															projectUuid: (doc as any).projectUuid || (doc as any).docoChainProjectId,
+															projectUuid: getProjectUuid(doc as CompletedDocument),
 														})
 													}
 												>
@@ -455,26 +489,26 @@ export function CompletedDocumentsPage() {
 													variant="outline"
 													size="sm"
 													onClick={() => {
-														const projectUuid = (doc as any).projectUuid || (doc as any).docoChainProjectId
+														const projectUuid = getProjectUuid(doc as CompletedDocument)
 														if (projectUuid) {
 															handleDownload(projectUuid)
 														}
 													}}
-													disabled={!((doc as any).projectUuid || (doc as any).docoChainProjectId) || downloadingProjectUuid === ((doc as any).projectUuid || (doc as any).docoChainProjectId)}
+													disabled={!getProjectUuid(doc as CompletedDocument) || downloadingProjectUuid === getProjectUuid(doc as CompletedDocument)}
 												>
 													<Download className="mr-2 h-4 w-4" />
-													{downloadingProjectUuid === ((doc as any).projectUuid || (doc as any).docoChainProjectId) ? "..." : "Download"}
+													{downloadingProjectUuid === getProjectUuid(doc as CompletedDocument) ? "..." : "Download"}
 												</Button>
 												<Button
 													variant="outline"
 													size="sm"
 													onClick={() => {
-														const projectUuid = (doc as any).projectUuid || (doc as any).docoChainProjectId
+														const projectUuid = getProjectUuid(doc as CompletedDocument)
 														if (projectUuid) {
 															handleViewCertificate(projectUuid, doc.name)
 														}
 													}}
-													disabled={!((doc as any).projectUuid || (doc as any).docoChainProjectId)}
+													disabled={!getProjectUuid(doc as CompletedDocument)}
 												>
 													<Award className="mr-2 h-4 w-4" />
 													Certificate

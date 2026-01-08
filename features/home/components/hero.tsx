@@ -1,6 +1,6 @@
 "use client"
 
-import { Pacifico } from "next/font/google"
+// import { Pacifico } from "next/font/google"
 import { motion } from "motion/react"
 
 import { ElegantShape } from "@/core/components/elegant-shape"
@@ -8,11 +8,14 @@ import { cn } from "@/core/lib/utils"
 
 import { SearchCombobox } from "@/features/home/components/ui/search-combobox"
 
-const pacifico = Pacifico({
-	subsets: ["latin"],
-	weight: ["400"],
-	variable: "--font-pacifico",
-})
+// Temporarily using system fonts to avoid build-time Google Fonts fetch requirement
+// const pacifico = Pacifico({
+// 	subsets: ["latin"],
+// 	weight: ["400"],
+// 	variable: "--font-pacifico",
+// 	display: "swap",
+// 	fallback: ["cursive", "system-ui"],
+// })
 
 export function Hero({
 	title1 = "This is my",
@@ -50,7 +53,7 @@ export function Hero({
 							<span
 								className={cn(
 									"bg-gradient-to-r from-indigo-400 to-rose-400 bg-clip-text text-transparent dark:from-indigo-400 dark:to-rose-400",
-									pacifico.className
+									"font-serif"
 								)}
 							>
 								{title2}

@@ -4,6 +4,7 @@ import { format } from "date-fns"
 import { MessageSquare, Paperclip, Phone, Plus, Search, Send, Smile, Video, X } from "lucide-react"
 import { useSession } from "next-auth/react"
 import { useSearchParams } from "next/navigation"
+import type { Route } from "next"
 import Link from "next/link"
 import { useEffect, useRef, useState } from "react"
 
@@ -77,10 +78,11 @@ export default function MessagesPage() {
 	)
 
 	const selectedConversation = conversations?.find((c) => c.id === selectedConversationId)
-	const bookingLink =
+	const bookingLink = (
 		selectedConversation?.otherUser?.id !== undefined
 			? `/consultations?enp=${selectedConversation.otherUser.id}`
 			: "/consultations"
+	) as Route
 
 	const handleSendMessage = async () => {
 		if (!messageInput.trim() || !selectedConversationId) return
@@ -304,9 +306,9 @@ export default function MessagesPage() {
 							</div>
 							<div className="flex items-center gap-1.5">
 								<Button variant="outline" size="sm" asChild disabled={!selectedConversation?.otherUser?.id}>
-									<Link href={bookingLink} target="_blank" rel="noopener noreferrer">
+									<a href={bookingLink} target="_blank" rel="noopener noreferrer">
 										Book consultation
-									</Link>
+									</a>
 								</Button>
 								{session?.user?.role === "ENP" && (
 									<Button variant="ghost" size="sm" onClick={() => void handleShareBookingLink()}>

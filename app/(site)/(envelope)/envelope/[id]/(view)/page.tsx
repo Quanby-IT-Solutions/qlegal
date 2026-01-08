@@ -1,3 +1,5 @@
+import type { Route } from "next"
+
 import { SiteNavbar } from "@/core/components/navbar/site-navbar"
 
 import { HydrateClient, trpc } from "@/services/trpc/server"
@@ -12,12 +14,15 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
 	// Note: getEnvelopeDocuments procedure doesn't exist yet, so we'll skip this for now
 	// await trpc.envelopeLite.getEnvelopeDocuments.prefetch({ envelopeId })
 
-	return (
+		// Construct route with proper typing
+		const envelopeUrl: Route = (`/envelope/${envelopeId}` as unknown) as Route
+
+		return (
 		<HydrateClient>
 			<SiteNavbar
 				items={[
-					{ label: "Envelopes", url: "/envelopes" },
-					{ label: "Document View", url: `/envelope/${envelopeId}` },
+					{ label: "Envelopes", url: "/envelopes" as Route },
+					{ label: "Document View", url: envelopeUrl },
 				]}
 			/>
 			<EnvelopeViewPage envelopeId={envelopeId} />

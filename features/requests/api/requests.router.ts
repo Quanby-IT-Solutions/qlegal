@@ -117,7 +117,7 @@ export const requestsRouter = createTRPCRouter({
 						principalId: userId,
 						enpId: input.enpId,
 						title: input.title,
-						description: input.description || null,
+						description: input.description ?? null,
 						workflow: input.workflow,
 						priority: input.priority,
 						status: "PENDING",
@@ -177,7 +177,7 @@ export const requestsRouter = createTRPCRouter({
 					const requestUrl = `${getUrl()}/requests`
 					await sendNotarizationRequestNotification({
 						enpEmail: requestWithRelations.enp.email,
-						enpName: requestWithRelations.enp.name || "ENP",
+						enpName: requestWithRelations.enp.name ?? "ENP",
 						principalName: requestWithRelations.principal.name,
 						requestTitle: input.title,
 						requestDescription: input.description,
@@ -239,11 +239,18 @@ export const requestsRouter = createTRPCRouter({
 				.update(notarizationRequests)
 				.set({
 					status: input.status,
-					rejectReason: input.rejectReason || null,
+					rejectReason: input.rejectReason ?? null,
 					updatedAt: new Date(),
 				})
 				.where(eq(notarizationRequests.id, input.requestId))
 				.returning()
+
+			if (!updatedRequest) {
+				throw new TRPCError({
+					code: "NOT_FOUND",
+					message: "Request not found",
+				})
+			}
 
 			// Fetch with relations
 			const requestWithRelations = await ctx.db.query.notarizationRequests.findFirst({

@@ -7,7 +7,7 @@ import { conversations, conversationParticipants, messages } from "@/services/dr
 import { meetings, meetingParticipants } from "@/services/drizzle/schema/meetings"
 import { createMeetingRoom, generateMeetingToken } from "@/services/video-sdk"
 import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
-import { env } from "@/env"
+import { getUrl } from "@/core/lib/get-url"
 
 import {
 	bookConsultationSchema,
@@ -526,7 +526,7 @@ export const consultationsRouter = createTRPCRouter({
 							},
 						])
 
-						meetingLink = `${env.NEXT_PUBLIC_APP_URL ?? ""}/meetings/${meeting.id}`
+						meetingLink = `${getUrl()}/meetings/${meeting.id}`
 					}
 				} catch (error) {
 					console.error("Failed to create meeting on confirmation:", error)

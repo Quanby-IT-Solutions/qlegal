@@ -11,7 +11,7 @@ import { enpProfiles } from "@/services/drizzle/schema/enp-profiles"
 import { getDocumentPublicUrl } from "@/services/supabase/signed-url"
 import { createMeetingRoom } from "@/services/video-sdk"
 import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
-import { env } from "@/env"
+import { getUrl } from "@/core/lib/get-url"
 
 import {
 	cancelAppointmentSchema,
@@ -35,7 +35,7 @@ export const appointmentsRouter = createTRPCRouter({
 				where: eq(users.id, input.lawyerId),
 			})
 
-			if (!lawyer || lawyer.role !== "ENP") {
+			if (lawyer?.role !== "ENP") {
 				throw new TRPCError({
 					code: "NOT_FOUND",
 					message: "Lawyer not found",
@@ -264,7 +264,7 @@ export const appointmentsRouter = createTRPCRouter({
 							{ meetingId: meeting.id, userId: existing.lawyerId },
 						])
 
-						meetingLink = `${env.NEXT_PUBLIC_APP_URL ?? ""}/meetings/${meeting.id}`
+						meetingLink = `${getUrl()}/meetings/${meeting.id}`
 					}
 				} catch (error) {
 					console.error("Failed to create meeting on confirmation:", error)
@@ -332,9 +332,9 @@ export const appointmentsRouter = createTRPCRouter({
 
 		const results = await ctx.db.query.appointments.findMany({
 			where: and(
-				or(eq(appointments.clientId, userId), eq(appointments.lawyerId, userId))!,
+				or(eq(appointments.clientId, userId), eq(appointments.lawyerId, userId)),
 				gte(appointments.appointmentDate, now),
-				or(eq(appointments.status, "PENDING"), eq(appointments.status, "CONFIRMED"))!
+				or(eq(appointments.status, "PENDING"), eq(appointments.status, "CONFIRMED"))
 			),
 			orderBy: [appointments.appointmentDate],
 			limit: 10,
@@ -534,7 +534,7 @@ export const appointmentsRouter = createTRPCRouter({
 							id: doc.id,
 							name: doc.name,
 							url: docUrl,
-							status: doc.status === "SIGNED" ? "SIGNED" : "PENDING_SIGNATURE",
+							status: doc.status === "READY" ? "READY" : "PENDING_SIGNATURE",
 							pages: estimatedPages,
 						}
 					})
@@ -542,28 +542,28 @@ export const appointmentsRouter = createTRPCRouter({
 			}
 
 			// Determine location
-			const location = appointment?.location || (workflow === "REN" ? "Remote Video Call" : "In-Person")
+			const location = appointment?.location ?? (workflow === "REN" ? "Remote Video Call" : "In-Person")
 
 			// Build response
 			return {
-				id: appointment?.id || notarizationRequest?.id || sessionId,
-				envelopeId: envelope?.id || null,
-				title: notarizationRequest?.title || envelope?.title || "Notarization Session",
-				status: appointment?.status || notarizationRequest?.status || "PENDING",
+				id: appointment?.id ?? notarizationRequest?.id ?? sessionId,
+				envelopeId: envelope?.id ?? null,
+				title: notarizationRequest?.title ?? envelope?.title ?? "Notarization Session",
+				status: appointment?.status ?? notarizationRequest?.status ?? "PENDING",
 				workflow,
 				enp: {
 					id: enpUser.id,
-					name: enpUser.name || "Electronic Notary Public",
-					title: enpProfile?.specialization || "Electronic Notary Public",
-					avatar: enpUser.image || null,
-					phone: enpUser.phoneNumber || null,
-					email: enpUser.email || null,
+					name: enpUser.name ?? "Electronic Notary Public",
+					title: enpProfile?.specialization ?? "Electronic Notary Public",
+					avatar: enpUser.image ?? null,
+					phone: enpUser.phoneNumber ?? null,
+					email: enpUser.email ?? null,
 				},
 				principal: {
 					id: principal.id,
-					name: principal.name || "Principal",
-					email: principal.email || null,
-					phone: principal.phoneNumber || null,
+					name: principal.name ?? "Principal",
+					email: principal.email ?? null,
+					phone: principal.phoneNumber ?? null,
 				},
 				documents: sessionDocuments,
 				requirements: {
@@ -572,8 +572,8 @@ export const appointmentsRouter = createTRPCRouter({
 					witnessPresent: false,
 					videoRecording: false,
 				},
-				startTime: appointment?.appointmentDate?.toISOString() || new Date().toISOString(),
-				estimatedDuration: appointment?.duration || 30,
+				startTime: appointment?.appointmentDate?.toISOString() ?? new Date().toISOString(),
+				estimatedDuration: appointment?.duration ?? 30,
 				location,
 			}
 		}),

@@ -16,7 +16,10 @@ import { getInitials } from "@/core/lib/utils"
 import { trpc, type RouterOutputs } from "@/services/trpc/client"
 
 type WorkflowType = "REN" | "IEN"
-type AvailableEnp = RouterOutputs["consultations"]["getAvailableEnps"][number]
+type BaseAvailableEnp = RouterOutputs["consultations"]["getAvailableEnps"][number]
+type AvailableEnp = BaseAvailableEnp & {
+	availableSlots?: Array<{ time: string; duration: number }>
+}
 
 function normalizeDate(date: Date): Date {
 	const normalized = new Date(date)
@@ -186,7 +189,7 @@ export default function CalendarPage() {
 									{availableEnps?.map((enp) => (
 										<AvailabilityCard
 											key={enp.id}
-											enp={enp}
+											enp={enp as AvailableEnp}
 											workflowType={workflowType}
 											dateParam={selectedDateParam}
 										/>
@@ -208,19 +211,20 @@ interface AvailabilityCardProps {
 }
 
 function AvailabilityCard({ enp, workflowType, dateParam }: AvailabilityCardProps) {
-	const availableSlots = enp.availableSlots ?? []
+	// Type assertion: availableSlots is not in the TRPC return type but is expected to be extended
+	const availableSlots: Array<{ time: string; duration: number }> = (enp as unknown as AvailableEnp).availableSlots ?? []
 
 	return (
 		<Card className="h-full">
 			<CardHeader className="space-y-3">
 				<div className="flex items-center gap-3">
 					<Avatar className="h-12 w-12">
-						<AvatarImage src={enp.image || undefined} alt={enp.name || "ENP"} />
-						<AvatarFallback>{getInitials(enp.name || "ENP")}</AvatarFallback>
+						<AvatarImage src={enp.image ?? undefined} alt={enp.name ?? "ENP"} />
+						<AvatarFallback>{getInitials(enp.name ?? "ENP")}</AvatarFallback>
 					</Avatar>
 					<div className="min-w-0">
-						<CardTitle className="truncate">{enp.name || "Electronic Notary Public"}</CardTitle>
-						<CardDescription className="truncate">{enp.specialization || "Legal Services"}</CardDescription>
+						<CardTitle className="truncate">{enp.name ?? "Electronic Notary Public"}</CardTitle>
+						<CardDescription className="truncate">{enp.specialization ?? "Legal Services"}</CardDescription>
 					</div>
 					{enp.rating ? (
 						<Badge variant="secondary" className="ml-auto">
@@ -254,7 +258,7 @@ function AvailabilityCard({ enp, workflowType, dateParam }: AvailabilityCardProp
 			<CardContent className="space-y-4">
 				<div className="flex items-center justify-between text-sm">
 					<span className="text-muted-foreground">
-						Available slots ({availableSlots.length || "0"})
+						Available slots ({availableSlots.length ?? "0"})
 					</span>
 					<Badge variant="outline" className="gap-1">
 						<CalendarIcon className="h-3.5 w-3.5" />
@@ -264,7 +268,7 @@ function AvailabilityCard({ enp, workflowType, dateParam }: AvailabilityCardProp
 
 				{availableSlots.length > 0 ? (
 					<div className="flex flex-wrap gap-2">
-						{availableSlots.map((slot, index) => {
+						{availableSlots.map((slot: { time: string; duration: number }, index: number) => {
 							const searchParams = new URLSearchParams({
 								enp: enp.id,
 								workflow: workflowType,
