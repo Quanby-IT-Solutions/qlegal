@@ -41,7 +41,7 @@ interface SiteNavbarProps {
 export function SiteNavbar({ items }: SiteNavbarProps) {
 	const isMobile = useIsMobile()
 	return (
-		<nav className="dark:bg-muted/60">
+		<nav className="bg-background border-b">
 			<div className="mx-auto flex h-16 items-center justify-between px-4 md:px-8">
 				<div className="flex items-center gap-2">
 					<Link

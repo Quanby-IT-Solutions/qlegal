@@ -29,7 +29,6 @@ export interface SearchFilters {
 	searchTerm: string
 	selectedLocation: string
 	selectedSpecialization: string
-	selectedWorkflow: WorkflowType | "ALL"
 }
 
 export interface BookingState {

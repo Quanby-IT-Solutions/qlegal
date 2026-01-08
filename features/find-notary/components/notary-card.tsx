@@ -1,6 +1,7 @@
 "use client"
 
-import { Handshake, MapPin, Star, Video } from "lucide-react"
+import { Handshake, MapPin, Star, Video, MessageCircle } from "lucide-react"
+import { useRouter } from "next/navigation"
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/core/components/ui/avatar"
 import { Badge } from "@/core/components/ui/badge"
@@ -20,6 +21,8 @@ interface NotaryCardProps {
 }
 
 export function NotaryCard({ enp, onBookConsultation }: NotaryCardProps) {
+	const router = useRouter()
+
 	return (
 		<Card className="transition-shadow hover:shadow-lg">
 			<CardHeader>
@@ -101,7 +104,16 @@ export function NotaryCard({ enp, onBookConsultation }: NotaryCardProps) {
 					</div>
 
 					{/* Action Buttons */}
-					<div className="flex gap-2 pt-2">
+					<div className="flex flex-wrap gap-2 pt-2">
+						<Button
+							variant="ghost"
+							size="sm"
+							className="flex-1 justify-center"
+							onClick={() => router.push(`/messages?enpId=${enp.id}`)}
+						>
+							<MessageCircle className="mr-2 h-4 w-4" />
+							Chat
+						</Button>
 						<Button
 							onClick={() => onBookConsultation(enp.id, "REN")}
 							className="flex-1"

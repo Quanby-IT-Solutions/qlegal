@@ -183,6 +183,9 @@ export const meetingsRouter = createTRPCRouter({
 	startMeeting: protectedProcedure.input(z.string()).mutation(async ({ input, ctx }) => {
 		const meeting = await db.query.meetings.findFirst({
 			where: eq(meetings.id, input),
+			with: {
+				participants: true,
+			},
 		})
 
 		if (!meeting) {
@@ -192,17 +195,20 @@ export const meetingsRouter = createTRPCRouter({
 			})
 		}
 
-		if (meeting.createdById !== ctx.session.user.id) {
+		const isHost = meeting.createdById === ctx.session.user.id
+		const isParticipant = meeting.participants.some((p) => p.userId === ctx.session.user.id)
+
+		if (!isHost && !isParticipant) {
 			throw new TRPCError({
 				code: "FORBIDDEN",
-				message: "Only the host can start the meeting",
+				message: "Only meeting participants can start the meeting",
 			})
 		}
 
-		if (meeting.status === "ONGOING") {
+		if (meeting.status !== "SCHEDULED") {
 			throw new TRPCError({
 				code: "BAD_REQUEST",
-				message: "Meeting is already ongoing",
+				message: "Meeting is already started or ended",
 			})
 		}
 
@@ -291,11 +297,16 @@ export const meetingsRouter = createTRPCRouter({
 		.mutation(async ({ ctx, input }) => {
 			const { meetingId, name, file, mimeType, size } = input
 
-			// Verify meeting exists and user has access
+			// Verify meeting exists and user has access, and get the creator's email
 			const meeting = await db.query.meetings.findFirst({
 				where: eq(meetings.id, meetingId),
 				with: {
 					participants: true,
+					createdBy: {
+						columns: {
+							email: true,
+						},
+					},
 				},
 			})
 
@@ -315,6 +326,11 @@ export const meetingsRouter = createTRPCRouter({
 					message: "You don't have access to this meeting",
 				})
 			}
+
+			// Use the meeting creator's email for DocoChain project creation
+			// This ensures the project is always associated with the meeting creator (ENP)
+			// regardless of who uploads the document (client or ENP)
+			const creatorEmail = meeting.createdBy?.email ?? ctx.session.user.email ?? undefined
 
 			try {
 				// Validate file type - only PDF is supported by DocoChain Create Project API
@@ -339,13 +355,14 @@ export const meetingsRouter = createTRPCRouter({
 				// STEP 1: Create DocoChain project FIRST using Create Project API
 				// This is the PRIMARY upload - the project UUID is critical for identifying the document
 				console.log("🔵 Creating DocoChain project for:", name)
+				console.log("   - Using creator email (meeting creator):", creatorEmail)
 				const docoChainProject = await createDocoChainProject({
 					title: name,
 					documentFile: fileBuffer,
 					fileName: name.endsWith('.pdf') ? name : `${name}.pdf`,
 					userListEditable: false, // Recipients cannot be edited after creation
 					creatorAsViewer: false, // Creator is not added as a viewer
-					creatorEmail: ctx.session.user.email || undefined, // Pass creator's email for token generation
+					creatorEmail, // Use meeting creator's email, not the uploader's email
 				})
 				const docoChainProjectId = docoChainProject.uuid // THIS IS THE CRITICAL PROJECT UUID
 				const docoChainRedirectUrl = docoChainProject.redirectUrl || null

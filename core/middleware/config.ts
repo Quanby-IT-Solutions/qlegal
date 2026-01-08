@@ -51,6 +51,7 @@ export const ROUTE_CONFIG: RouteConfig = {
 			{ path: "/documents/templates" },
 			{ path: "/envelope" },
 			{ path: "/envelopes" },
+			{ path: "/calendar" },
 			{ path: "/find-a-lawyer" },
 			{ path: "/find-notary" },
 			{ path: "/kyc" },
@@ -72,7 +73,7 @@ export const ROUTE_CONFIG: RouteConfig = {
 			{ path: "/notarial-book" },
 		],
 		byRole: {
-			ENP: [{ path: "/dashboard" }],
+			ENP: [{ path: "/dashboard" }, { path: "/appointments" }],
 			PRINCIPAL: [{ path: "/dashboard" }, { path: "/consultations" }],
 			ENA: [{ path: "/dashboard" }],
 			ADMIN: [{ path: "/dashboard" }],

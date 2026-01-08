@@ -16,8 +16,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/core/components/ui/select"
-import { Tabs, TabsList, TabsTrigger } from "@/core/components/ui/tabs"
-import type { SearchFilters, WorkflowType } from "../types/find-notary.types"
+import type { SearchFilters } from "../types/find-notary.types"
 
 interface SearchFiltersProps {
 	filters: SearchFilters
@@ -88,19 +87,6 @@ export function SearchFiltersComponent({ filters, onFiltersChange }: SearchFilte
 					</Select>
 				</div>
 
-				{/* Workflow Filter */}
-				<div className="mt-4">
-					<Tabs
-						value={filters.selectedWorkflow}
-						onValueChange={value => updateFilter("selectedWorkflow", value as WorkflowType | "ALL")}
-					>
-						<TabsList>
-							<TabsTrigger value="ALL">All Workflows</TabsTrigger>
-							<TabsTrigger value="REN">Remote (REN)</TabsTrigger>
-							<TabsTrigger value="IEN">In-Person (IEN)</TabsTrigger>
-						</TabsList>
-					</Tabs>
-				</div>
 			</CardContent>
 		</Card>
 	)

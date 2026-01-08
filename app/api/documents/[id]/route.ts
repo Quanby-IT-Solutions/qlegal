@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
 
 import { db } from "@/services/drizzle/db"
 import { documents } from "@/services/drizzle/schema/document"
 import { meetings, meetingParticipants } from "@/services/drizzle/schema/meetings"
 import { eq, and } from "drizzle-orm"
 import { getServiceRoleClient } from "@/services/supabase"
-import { authOptions } from "@/app/api/auth/[...nextauth]/route"
+import { auth } from "@/services/next-auth"
 
 export async function GET(
 	request: NextRequest,
@@ -14,7 +13,7 @@ export async function GET(
 ) {
 	try {
 		const { id } = await params
-		const session = await getServerSession(authOptions)
+		const session = await auth()
 
 		if (!session?.user?.id) {
 			return NextResponse.json(

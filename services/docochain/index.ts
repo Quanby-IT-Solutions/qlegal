@@ -1258,6 +1258,51 @@ export async function downloadSignedDocument(projectUuid: string, userEmail?: st
 			console.warn("⚠️ API download endpoint failed, trying fallback method:", apiError)
 		}
 
+		// Method 1.5: If still missing, try Vault items endpoint (completed projects)
+		if (!buffer) {
+			const vaultUrl = `${DOCOCHAIN_API_BASE}/vault/items/${projectUuid}?user_type=ENTERPRISE_API`
+			console.log("🔵 Trying DocoChain Vault endpoint for signed file:", vaultUrl)
+
+			try {
+				const vaultResponse = await makeDocoChainApiCall(
+					async (token) => {
+						return fetch(vaultUrl, {
+							method: "GET",
+							headers: {
+								Authorization: `Bearer ${token}`,
+								Accept: "application/json",
+							},
+						})
+					},
+					userEmail
+				)
+
+				if (vaultResponse.ok) {
+					const vaultJson = (await vaultResponse.json()) as any
+					const vaultFiles = vaultJson?.data?.files || []
+					const vaultFileUrl: string | undefined = vaultFiles[0]?.file_url || vaultFiles[0]?.url
+
+					if (vaultFileUrl) {
+						console.log("✅ Vault returned file URL, downloading signed PDF:", vaultFileUrl)
+						const fileResp = await fetch(vaultFileUrl)
+						if (fileResp.ok) {
+							const arrayBuffer = await fileResp.arrayBuffer()
+							buffer = Buffer.from(arrayBuffer)
+							signedDocumentUrl = vaultFileUrl
+						} else {
+							console.warn("⚠️ Vault file download failed:", fileResp.status, fileResp.statusText)
+						}
+					} else {
+						console.warn("⚠️ Vault response missing file_url; response keys:", Object.keys(vaultJson?.data || {}))
+					}
+				} else {
+					console.warn("⚠️ Vault endpoint returned:", vaultResponse.status, vaultResponse.statusText)
+				}
+			} catch (vaultError) {
+				console.warn("⚠️ Vault endpoint failed, proceeding to fallback URLs:", vaultError)
+			}
+		}
+
 		// Method 2: Fallback to projectData.url (may be original or signed depending on status)
 		if (!buffer) {
 			const fallbackUrl = projectData.url || projectData.signed_url || projectData.signed_document_url

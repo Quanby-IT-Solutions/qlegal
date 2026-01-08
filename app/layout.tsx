@@ -1,5 +1,5 @@
 import type { Metadata } from "next"
-import { Inter } from "next/font/google"
+// import { Inter } from "next/font/google"
 import { SessionProvider } from "next-auth/react"
 
 import { Toaster } from "@/core/components/ui/sonner"
@@ -10,9 +10,12 @@ import { TRPCProvider } from "@/services/trpc/client"
 
 import "@/core/styles/globals.css"
 
-const inter = Inter({
-	subsets: ["latin"],
-})
+// Temporarily using system fonts to avoid build-time Google Fonts fetch requirement
+// const inter = Inter({
+// 	subsets: ["latin"],
+// 	display: "swap",
+// 	fallback: ["system-ui", "arial"],
+// })
 
 export const metadata: Metadata = {
 	title: "QSign Main | Simple, Fast, Secure Digital Signatures",
@@ -29,7 +32,7 @@ export default async function RootLayout({
 
 	return (
 		<html lang="en" suppressHydrationWarning>
-			<body className={`${inter.className} antialiased`}>
+			<body className="antialiased font-sans">
 				<SessionProvider session={session}>
 					<TRPCProvider>
 						<ThemeProvider
