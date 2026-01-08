@@ -15,6 +15,7 @@ export const meetings = createTable(
 		title: t.varchar({ length: 255 }).notNull(),
 		roomId: t.varchar({ length: 255 }).notNull(), // VideoSDK room ID
 		status: meetingStatus("status").default("SCHEDULED").notNull(),
+		isDocumentOrderLocked: t.boolean().default(false).notNull(), // Document signing order lock
 		createdById: t
 			.varchar({ length: 255 })
 			.notNull()

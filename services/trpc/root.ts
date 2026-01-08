@@ -12,6 +12,7 @@ import { meetingsRouter } from "@/features/meetings/api/meetings.router"
 import { signatureRequestsRouter } from "@/features/meetings/api/signature-requests.router"
 import { messageFilesRouter } from "@/features/messages/api/message-files.router"
 import { messagesRouter } from "@/features/messages/api/messages.router"
+import { notarialBookRouter } from "@/features/notarial-book/api/notarial-book.router"
 import { profileRouter } from "@/features/profile/api/profile.router"
 import { requestsRouter } from "@/features/requests/api/requests.router"
 import { settingsRouter } from "@/features/settings/api/settings.router"
@@ -41,6 +42,7 @@ export const appRouter = createTRPCRouter({
 	signatureRequests: signatureRequestsRouter,
 	messages: messagesRouter,
 	messageFiles: messageFilesRouter,
+	notarialBook: notarialBookRouter,
 	profile: profileRouter,
 	requests: requestsRouter,
 	settings: settingsRouter,

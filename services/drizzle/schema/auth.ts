@@ -59,7 +59,10 @@ export const sessions = createTable("session", t => ({
 })).enableRLS()
 
 export const passwordResetTokens = createTable("password_reset_token", t => ({
-	id: t.varchar({ length: 255 }).notNull().default(randomId()).primaryKey(),
+	id: t
+		.varchar({ length: 255 })
+		.primaryKey()
+		.$defaultFn(() => randomId()),
 	email: t
 		.varchar({ length: 255 })
 		.notNull()
@@ -69,7 +72,10 @@ export const passwordResetTokens = createTable("password_reset_token", t => ({
 })).enableRLS()
 
 export const twoFactorTokens = createTable("two_factor_token", t => ({
-	id: t.varchar({ length: 255 }).notNull().default(randomId()).primaryKey(),
+	id: t
+		.varchar({ length: 255 })
+		.primaryKey()
+		.$defaultFn(() => randomId()),
 	email: t
 		.varchar({ length: 255 })
 		.notNull()
@@ -79,7 +85,10 @@ export const twoFactorTokens = createTable("two_factor_token", t => ({
 })).enableRLS()
 
 export const twoFactorConfirmations = createTable("two_factor_confirmation", t => ({
-	id: t.varchar({ length: 255 }).notNull().default(randomId()).primaryKey(),
+	id: t
+		.varchar({ length: 255 })
+		.primaryKey()
+		.$defaultFn(() => randomId()),
 	userId: t
 		.varchar({ length: 255 })
 		.notNull()
@@ -87,7 +96,10 @@ export const twoFactorConfirmations = createTable("two_factor_confirmation", t =
 })).enableRLS()
 
 export const verificationTokens = createTable("verification_token", t => ({
-	id: t.varchar({ length: 255 }).notNull().default(randomId()).primaryKey(),
+	id: t
+		.varchar({ length: 255 })
+		.primaryKey()
+		.$defaultFn(() => randomId()),
 	email: t
 		.varchar({ length: 255 })
 		.notNull()

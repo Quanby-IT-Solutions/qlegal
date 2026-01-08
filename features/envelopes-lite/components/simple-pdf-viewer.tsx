@@ -32,6 +32,19 @@ const SCALE_LIMITS = {
 	step: 0.25,
 } as const
 
+// Check if URL is external (not from same origin)
+function isExternalUrl(url: string): boolean {
+	if (!url || url.startsWith("#") || url.startsWith("/")) {
+		return false
+	}
+	try {
+		const urlObj = new URL(url, window.location.origin)
+		return urlObj.origin !== window.location.origin
+	} catch {
+		return false
+	}
+}
+
 export function SimplePdfViewer({ fileUrl, documentName: _documentName }: SimplePdfViewerProps) {
 	const [state, setState] = useState<PdfViewerState>({
 		numPages: 0,
@@ -41,6 +54,9 @@ export function SimplePdfViewer({ fileUrl, documentName: _documentName }: Simple
 		error: null,
 		isLoaded: false,
 	})
+
+	// Check if we should use iframe for external URLs
+	const useIframe = isExternalUrl(fileUrl)
 
 	// Load PDF.js on client side
 	useEffect(() => {
@@ -115,6 +131,38 @@ export function SimplePdfViewer({ fileUrl, documentName: _documentName }: Simple
 			<div className="flex h-full w-full items-center justify-center">
 				<div className="text-center">
 					<p className="text-muted-foreground text-sm">No document to display</p>
+				</div>
+			</div>
+		)
+	}
+
+	// Use iframe for external URLs (like DocoChain) to avoid CORS issues
+	if (useIframe) {
+		return (
+			<div className="flex h-full w-full flex-col overflow-hidden">
+				{/* Simple toolbar for iframe */}
+				<div className="flex shrink-0 items-center justify-end border-b px-4 py-2">
+					<Button
+						variant="outline"
+						size="sm"
+						onClick={() => window.open(fileUrl, "_blank")}
+					>
+						Open in New Tab
+					</Button>
+				</div>
+
+				{/* PDF Content in iframe - Full size */}
+				<div className="flex-1 overflow-hidden bg-gray-100">
+					<iframe
+						src={fileUrl}
+						className="h-full w-full border-0"
+						title="PDF Document"
+						style={{
+							minHeight: "100%",
+							width: "100%",
+							height: "100%",
+						}}
+					/>
 				</div>
 			</div>
 		)
