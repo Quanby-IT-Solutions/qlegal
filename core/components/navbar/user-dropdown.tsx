@@ -89,11 +89,15 @@ export const UserDropdown = ({ isMobile }: UserDropdownProps) => {
 						<DropdownMenuItem
 							onClick={async () => {
 								try {
+									// Clear KYC skip session cookie before logout
+									document.cookie = "skipKycSession=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT"
 									await signOut({
 										redirect: true,
 										callbackUrl: "/",
 									})
 								} catch {
+									// Clear KYC skip session cookie before logout
+									document.cookie = "skipKycSession=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT"
 									void signOut()
 								}
 							}}

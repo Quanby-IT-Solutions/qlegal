@@ -1,7 +1,7 @@
 import { type InferSelectModel } from "drizzle-orm"
 import { index, primaryKey } from "drizzle-orm/pg-core"
 
-import { userRoles, userStatus } from "@/services/drizzle/schema/_enums"
+import { kycStatus, userRoles, userStatus } from "@/services/drizzle/schema/_enums"
 import type { AdapterAccount } from "@/services/drizzle/types/auth"
 import { createTable, randomId } from "@/services/drizzle/utils"
 
@@ -19,6 +19,10 @@ export const users = createTable("user", t => ({
 	phoneNumber: t.varchar({ length: 255 }),
 	role: userRoles().default("PRINCIPAL").notNull(),
 	status: userStatus().default("PENDING").notNull(),
+	// KYC Verification fields
+	kycTransactionId: t.varchar({ length: 255 }),
+	kycStatus: kycStatus().default("NOT_STARTED"),
+	kycVerifiedAt: t.timestamp({ mode: "date", withTimezone: true }),
 })).enableRLS()
 
 export const accounts = createTable(
