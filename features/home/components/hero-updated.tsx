@@ -92,9 +92,9 @@ export function Hero() {
 								initial={{ opacity: 0, scale: 0.8 }}
 								animate={{ opacity: 1, scale: 1 }}
 								transition={{ duration: 0.5 }}
-							className="mb-6 inline-flex items-center space-x-2 rounded-full border border-[rgb(91,26,128)]/20 bg-gradient-to-r from-[rgb(91,26,128)]/10 to-[rgb(233,30,140)]/10 px-4 py-2 backdrop-blur-sm"
-						>
-							<Shield className="h-4 w-4 text-[rgb(91,26,128)]" />
+								className="mb-6 inline-flex items-center space-x-2 rounded-full border border-[rgb(91,26,128)]/20 bg-gradient-to-r from-[rgb(91,26,128)]/10 to-[rgb(233,30,140)]/10 px-4 py-2 backdrop-blur-sm"
+							>
+								<Shield className="h-4 w-4 text-[rgb(91,26,128)]" />
 								<span className="text-sm font-medium text-muted-foreground">
 									🇵🇭 Supreme Court Accredited ENF
 								</span>
@@ -124,24 +124,13 @@ export function Hero() {
 							<Button
 								asChild
 								size="lg"
-								className="group bg-gradient-to-r from-primary to-primary/90 px-8 py-6 text-lg shadow-xl transition-all duration-300 hover:from-primary/90 hover:to-primary hover:shadow-2xl"
+								className="group bg-gradient-to-r from-[rgb(91,26,128)] to-[rgb(91,26,128)]/90 px-8 py-6 text-lg shadow-xl transition-all duration-300 hover:from-[rgb(91,26,128)]/90 hover:to-[rgb(91,26,128)] hover:shadow-2xl"
 							>
 								<Link href="/auth/register">
 									Get Started
 									<ArrowRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" />
 								</Link>
 							</Button>
-							{/* <Button
-								asChild
-								variant="outline"
-								size="lg"
-								className="group border-border/50 bg-background/50 px-8 py-6 text-lg backdrop-blur-sm transition-all duration-300 hover:border-border hover:bg-background/80"
-							>
-								<Link href="/find-notary">
-									<Scale className="mr-2 h-5 w-5 transition-transform group-hover:scale-110" />
-									Find a Notary
-								</Link>
-							</Button> */}
 						</motion.div>
 
 						<motion.div
@@ -163,7 +152,8 @@ export function Hero() {
 						</motion.div>
 					</motion.div>
 
-					{/* Right Logo Section */}					<motion.div
+					{/* Right Logo Section */}
+					<motion.div
 						initial={{ opacity: 0, scale: 0.8, rotate: -5 }}
 						animate={{ opacity: 1, scale: 1, rotate: 0 }}
 						transition={{ duration: 0.8, delay: 0.2 }}
@@ -177,13 +167,13 @@ export function Hero() {
 								className="relative flex h-96 w-96 items-center justify-center rounded-3xl border border-border/20 bg-gradient-to-br from-background via-background/80 to-background/60 shadow-2xl backdrop-blur-xl"
 							>
 								{/* Inner glow */}
-							<div className="absolute inset-4 rounded-2xl bg-gradient-to-br from-[rgb(91,26,128)]/10 to-[rgb(233,30,140)]/10" />
+								<div className="absolute inset-4 rounded-2xl bg-gradient-to-br from-[rgb(91,26,128)]/10 to-[rgb(233,30,140)]/10" />
 
-							{/* Logo */}
-							<div className="relative z-10 flex h-48 w-48 items-center justify-center rounded-full border border-[rgb(91,26,128)]/30 bg-gradient-to-br from-[rgb(91,26,128)]/20 to-[rgb(233,30,140)]/20">
-								<div className="h-32 w-32">
-									<QuanbyLogo className="h-full w-full object-contain" />
-								</div>
+								{/* Logo */}
+								<div className="relative z-10 flex h-48 w-48 items-center justify-center rounded-full border border-[rgb(91,26,128)]/30 bg-gradient-to-br from-[rgb(91,26,128)]/20 to-[rgb(233,30,140)]/20">
+									<div className="h-32 w-32">
+										<QuanbyLogo className="h-full w-full object-contain" />
+									</div>
 								</div>
 							</motion.div>
 
@@ -199,9 +189,9 @@ export function Hero() {
 									repeat: Number.POSITIVE_INFINITY,
 									ease: "easeInOut"
 								}}
-							className="absolute -right-6 -top-6 flex h-20 w-20 items-center justify-center rounded-2xl border border-[rgb(91,26,128)]/20 bg-gradient-to-br from-[rgb(91,26,128)]/20 to-[rgb(91,26,128)]/10 shadow-xl backdrop-blur-sm"
-						>
-							<Scale className="h-10 w-10 text-[rgb(91,26,128)]" />
+								className="absolute -right-6 -top-6 flex h-20 w-20 items-center justify-center rounded-2xl border border-[rgb(91,26,128)]/20 bg-gradient-to-br from-[rgb(91,26,128)]/20 to-[rgb(91,26,128)]/10 shadow-xl backdrop-blur-sm"
+							>
+								<Scale className="h-10 w-10 text-[rgb(91,26,128)]" />
 							</motion.div>
 
 							<motion.div
@@ -232,9 +222,9 @@ export function Hero() {
 									ease: "easeInOut",
 									delay: 2
 								}}
-							className="absolute -left-12 top-1/2 flex h-12 w-12 items-center justify-center rounded-lg border border-[rgb(233,30,140)]/20 bg-gradient-to-br from-[rgb(233,30,140)]/20 to-[rgb(233,30,140)]/10 shadow-lg backdrop-blur-sm"
-						>
-							<Shield className="h-6 w-6 text-[rgb(233,30,140)]" />
+								className="absolute -left-12 top-1/2 flex h-12 w-12 items-center justify-center rounded-lg border border-[rgb(233,30,140)]/20 bg-gradient-to-br from-[rgb(233,30,140)]/20 to-[rgb(233,30,140)]/10 shadow-lg backdrop-blur-sm"
+							>
+								<Shield className="h-6 w-6 text-[rgb(233,30,140)]" />
 							</motion.div>
 
 							{/* Decorative rings */}
@@ -245,7 +235,7 @@ export function Hero() {
 									repeat: Number.POSITIVE_INFINITY,
 									ease: "linear"
 								}}
-								className="absolute inset-0 rounded-full border border-primary/10"
+								className="absolute inset-0 rounded-full border border-[rgb(91,26,128)]/10"
 								style={{
 									width: "120%",
 									height: "120%",
@@ -260,7 +250,7 @@ export function Hero() {
 									repeat: Number.POSITIVE_INFINITY,
 									ease: "linear"
 								}}
-								className="absolute inset-0 rounded-full border border-secondary/10"
+								className="absolute inset-0 rounded-full border border-[rgb(233,30,140)]/10"
 								style={{
 									width: "140%",
 									height: "140%",
