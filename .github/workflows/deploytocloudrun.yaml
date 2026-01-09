@@ -63,10 +63,6 @@ env:
 jobs:
   deploy:
     environment: production
-    if: |
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'push' && github.ref == 'refs/heads/production-lite') ||
-      (github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true && github.event.pull_request.head.ref == 'dev-lite')
     permissions:
       contents: "read"
       id-token: "write"
