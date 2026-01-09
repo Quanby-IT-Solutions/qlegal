@@ -17,6 +17,11 @@ export function DrizzleCustomAdapter(): Adapter {
 		email: user.email!,
 		emailVerified: user.emailVerified ?? null,
 		image: user.image ?? null,
+		// Include KYC fields so they're available in JWT callback
+		// @ts-expect-error - extending AdapterUser with custom fields
+		kycStatus: user.kycStatus,
+		// @ts-expect-error - extending AdapterUser with custom fields
+		kycTransactionId: user.kycTransactionId,
 	})
 
 	const mapVerificationRowToToken = (row: typeof verificationTokens.$inferSelect) => ({

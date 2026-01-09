@@ -32,6 +32,7 @@ import {
 	Send,
 	Settings2,
 	SettingsIcon,
+	ShieldCheck,
 	ShieldIcon,
 	Sparkles,
 	UserCheckIcon,
@@ -52,6 +53,7 @@ export const iconMap = {
 	mail: MailIcon,
 	message: MessageSquareIcon,
 	shield: ShieldIcon,
+	"shield-check": ShieldCheck,
 	calendar: CalendarIcon,
 	clipboard: ClipboardCheckIcon,
 	bell: BellIcon,
@@ -580,6 +582,11 @@ const siteUserConfig: NavItem[] = [
 		title: "Notifications",
 		url: "/notifications",
 		icon: "bell",
+	},
+	{
+		title: "KYC Verification",
+		url: "/kyc",
+		icon: "shield-check",
 	},
 	{
 		title: "Settings",

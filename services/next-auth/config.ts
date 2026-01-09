@@ -27,6 +27,7 @@ declare module "next-auth" {
 			email: string
 			image: string
 			role: UserRole
+			kycStatus?: string
 		}
 	}
 }
@@ -130,6 +131,11 @@ export const authConfig = {
 						session.user.name = user.name ?? ""
 						session.user.email = user.email ?? ""
 						session.user.role = user.role
+						// Include KYC status in session for gating post-login
+						// @ts-expect-error augment session user
+						session.user.kycStatus = user.kycStatus ?? "NOT_STARTED"
+						// @ts-expect-error augment session user
+						session.user.kycTransactionId = user.kycTransactionId ?? null
 
 						// Convert Supabase storage paths to displayable URLs
 						const imagePath = user.image ?? session.user.image
@@ -157,6 +163,26 @@ export const authConfig = {
 				token.name = user.name
 				token.email = user.email
 				token.image = user.image ?? token.picture
+				// Attach initial KYC info from user, default to "NOT_STARTED" if not set
+				// @ts-expect-error augment token
+				token.kycStatus = (user as any).kycStatus ?? "NOT_STARTED"
+				// @ts-expect-error augment token
+				token.kycTransactionId = (user as any).kycTransactionId ?? null
+			}
+
+			// On subsequent runs, enrich token with KYC from DB
+			if (!user && token.sub) {
+				try {
+					const existing = await db.query.users.findFirst({
+						where: (data, { eq }) => eq(data.id, token.sub ?? ""),
+					})
+					if (existing) {
+						// @ts-expect-error augment token
+						token.kycStatus = existing.kycStatus ?? "NOT_STARTED"
+						// @ts-expect-error augment token
+						token.kycTransactionId = existing.kycTransactionId ?? null
+					}
+				} catch {}
 			}
 
 			return token

@@ -104,9 +104,15 @@ export function LoginForm({ callbackUrl }: { callbackUrl?: Route }) {
 					// Login successful without 2FA or after 2FA verification
 					setFormSuccess(response.success)
 					// Update the session to reflect the logged-in user immediately
-					await update()
-					// Navigate to the callback URL or home page
-					router.push(callbackUrl ?? "/")
+					const updatedSession = await update()
+					// Navigate to KYC if not verified, otherwise go to callback URL or dashboard
+					// @ts-expect-error augmented session field
+					const kycStatus = updatedSession?.user?.kycStatus
+					if (kycStatus === "NOT_STARTED" || kycStatus === "PENDING") {
+						router.push("/auth/kyc")
+					} else {
+						router.push(callbackUrl ?? "/dashboard")
+					}
 					router.refresh()
 				}
 			}

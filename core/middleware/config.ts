@@ -22,7 +22,11 @@ export interface RouteConfig {
 // ============================================================================
 
 export const ROUTE_CONFIG: RouteConfig = {
-	public: [{ path: "/", exact: true }, { path: "/test" }],
+	public: [
+		{ path: "/", exact: true }, 
+		{ path: "/test" },
+		{ path: "/liveness-validation" } // Testing route for liveness validation
+	],
 
 	// Public only routes - accessible to non-authenticated users only
 	publicOnly: [
@@ -39,6 +43,7 @@ export const ROUTE_CONFIG: RouteConfig = {
 	protected: {
 		shared: [
 			{ path: "/auth/signature" },
+			{ path: "/auth/kyc", exact: true },
 			{ path: "/documents" },
 			{ path: "/documents/completed" },
 			{ path: "/documents/create" },
@@ -49,6 +54,8 @@ export const ROUTE_CONFIG: RouteConfig = {
 			{ path: "/calendar" },
 			{ path: "/find-a-lawyer" },
 			{ path: "/find-notary" },
+			{ path: "/kyc" },
+			{ path: "/liveness" },
 			{ path: "/meetings" },
 			{ path: "/messages" },
 			{ path: "/my-signed" },
