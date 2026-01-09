@@ -28,6 +28,7 @@ declare module "next-auth" {
 			image: string
 			role: UserRole
 			kycStatus?: string
+			kycTransactionId?: string | null
 		}
 	}
 }
@@ -132,10 +133,12 @@ export const authConfig = {
 						session.user.email = user.email ?? ""
 						session.user.role = user.role
 						// Include KYC status in session for gating post-login
-						// @ts-expect-error augment session user
-						session.user.kycStatus = user.kycStatus ?? "NOT_STARTED"
-						// @ts-expect-error augment session user
-						session.user.kycTransactionId = user.kycTransactionId ?? null
+						// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+						const kycStatusValue = user.kycStatus
+						// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+						const kycTransactionIdValue = user.kycTransactionId
+						session.user.kycStatus = (kycStatusValue ?? "NOT_STARTED") as string
+						session.user.kycTransactionId = (kycTransactionIdValue ?? null) as string | null
 
 						// Convert Supabase storage paths to displayable URLs
 						const imagePath = user.image ?? session.user.image
@@ -164,10 +167,15 @@ export const authConfig = {
 				token.email = user.email
 				token.image = user.image ?? token.picture
 				// Attach initial KYC info from user, default to "NOT_STARTED" if not set
-				// @ts-expect-error augment token
-				token.kycStatus = (user as any).kycStatus ?? "NOT_STARTED"
-				// @ts-expect-error augment token
-				token.kycTransactionId = (user as any).kycTransactionId ?? null
+				// Extract KYC fields safely - user may have extended properties from adapter
+				 
+				const userKycStatus = (user as { kycStatus?: string }).kycStatus
+				 
+				const userKycTransactionId = (user as { kycTransactionId?: string | null }).kycTransactionId
+				// ts-expect-error augment token
+				token.kycStatus = (userKycStatus ?? "NOT_STARTED")
+				// ts-expect-error augment token
+				token.kycTransactionId = (userKycTransactionId ?? null)
 			}
 
 			// On subsequent runs, enrich token with KYC from DB
@@ -177,12 +185,18 @@ export const authConfig = {
 						where: (data, { eq }) => eq(data.id, token.sub ?? ""),
 					})
 					if (existing) {
-						// @ts-expect-error augment token
-						token.kycStatus = existing.kycStatus ?? "NOT_STARTED"
-						// @ts-expect-error augment token
-						token.kycTransactionId = existing.kycTransactionId ?? null
+						// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+						const existingKycStatus = existing.kycStatus
+						// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+						const existingKycTransactionId = existing.kycTransactionId
+						// ts-expect-error augment token
+						token.kycStatus = (existingKycStatus ?? "NOT_STARTED") as string
+						// ts-expect-error augment token
+						token.kycTransactionId = (existingKycTransactionId ?? null) as string | null
 					}
-				} catch {}
+				} catch {
+					// Silently handle errors when enriching token with KYC data
+				}
 			}
 
 			return token

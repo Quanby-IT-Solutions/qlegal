@@ -1,4 +1,4 @@
-import { SiteNavbar } from "@/core/components/navbar/site-navbar"
+import { PageHeader } from "@/core/components/navbar/page-header"
 
 import { HydrateClient, trpc } from "@/services/trpc/server"
 
@@ -10,13 +10,15 @@ export default async function Page() {
 
 	return (
 		<HydrateClient>
-			<SiteNavbar
-				items={[
-					{ label: "Documents", url: "/documents" },
-					{ label: "Pending", url: "/documents/pending" },
-				]}
-			/>
-			<PendingDocumentsPage />
+			<div className="flex flex-1 flex-col">
+				<PageHeader
+					items={[
+						{ label: "Documents", href: "/documents" },
+						{ label: "Pending" },
+					]}
+				/>
+				<PendingDocumentsPage />
+			</div>
 		</HydrateClient>
 	)
 }

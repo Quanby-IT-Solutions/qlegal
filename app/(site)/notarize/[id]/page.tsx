@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useParams } from "next/navigation"
+import type { Route } from "next"
 import { 
 	Video, 
 	Handshake, 
@@ -141,7 +142,7 @@ export default function NotarizePage() {
 							<AlertCircle className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
 							<h3 className="mb-2 text-lg font-medium">Notarization Not Found</h3>
 							<p className="text-muted-foreground mb-4 text-sm">
-								{error?.message || "The notarization session you're looking for doesn't exist or you don't have access to it."}
+								{error?.message ?? "The notarization session you're looking for doesn't exist or you don't have access to it."}
 							</p>
 							<Button onClick={() => window.history.back()}>
 								Go Back
@@ -157,12 +158,15 @@ export default function NotarizePage() {
 	const isIEN = notarization.workflow === "IEN"
 	const allRequirementsMet = Object.values(requirements).every(Boolean)
 
+	// Construct route with proper typing
+	const notarizeUrl: Route = (`/notarize/${notarizationId}` as unknown) as Route
+
 	return (
 		<>
 			<SiteNavbar 
 				items={[
-					{ label: "Notarizations", url: "/notarizations/active" },
-					{ label: notarization.title, url: `/notarize/${notarizationId}` }
+					{ label: "Notarizations", url: "/notarizations/active" as Route },
+					{ label: notarization.title, url: notarizeUrl }
 				]} 
 			/>
 			
@@ -301,7 +305,7 @@ export default function NotarizePage() {
 										<div className="space-y-4">
 											<div className="flex items-center gap-4">
 												<Avatar className="h-12 w-12">
-													<AvatarImage src={notarization.enp.avatar} alt={notarization.enp.name} />
+													<AvatarImage src={notarization.enp.avatar ?? undefined} alt={notarization.enp.name} />
 													<AvatarFallback>{notarization.enp.name.split(" ").map(n => n[0]).join("")}</AvatarFallback>
 												</Avatar>
 												<div>

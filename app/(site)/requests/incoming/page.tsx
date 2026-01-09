@@ -7,6 +7,7 @@ import { FileText, Clock, CheckCircle, XCircle, AlertCircle, Calendar, User, Sea
 import { toast } from "sonner"
 
 import { trpc } from "@/services/trpc/client"
+import { PageHeader } from "@/core/components/navbar/page-header"
 import { Button } from "@/core/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/core/components/ui/card"
 import { Input } from "@/core/components/ui/input"
@@ -34,7 +35,7 @@ export default function IncomingRequestsPage() {
 
 	// Fetch incoming notarization requests for ENP
 	const { data: incomingRequests = [], isLoading } = trpc.requests.getIncomingRequests.useQuery(
-		{ status: "ALL", workflow: "ALL" },
+		undefined,
 		{ enabled: !!userId && isENP }
 	)
 	
@@ -54,9 +55,9 @@ export default function IncomingRequestsPage() {
 		const matchesStatus = statusFilter === "ALL" || request.status === statusFilter
 		const matchesWorkflow = workflowFilter === "ALL" || request.workflow === workflowFilter
 		const matchesSearch = !searchTerm || 
-			request.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-			request.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-			request.principal?.name?.toLowerCase().includes(searchTerm.toLowerCase())
+			Boolean(request.title?.toLowerCase().includes(searchTerm.toLowerCase())) ||
+			Boolean(request.description?.toLowerCase().includes(searchTerm.toLowerCase())) ||
+			Boolean(request.principal?.name?.toLowerCase().includes(searchTerm.toLowerCase()))
 		return matchesStatus && matchesWorkflow && matchesSearch
 	})
 
@@ -80,9 +81,9 @@ export default function IncomingRequestsPage() {
 			setProcessingId(null)
 			setRejectReason("")
 		},
-		onError: (error: any) => {
+		onError: (error) => {
 			toast.error("Failed to update request", {
-				description: error.message,
+				description: error?.message ?? "An unexpected error occurred",
 			})
 			setProcessingId(null)
 		},
@@ -151,21 +152,30 @@ export default function IncomingRequestsPage() {
 
 	return (
 		<>
-			
-			<div className="min-h-screen bg-muted/30">
-				<div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-					{/* Header */}
-					<div className="mb-8">
-						<h1 className="text-3xl font-bold tracking-tight">Incoming Requests</h1>
-						<p className="mt-2 text-muted-foreground">
-							Review and manage notarization requests from clients
-						</p>
-						<div className="mt-4 flex items-center gap-4 text-sm text-muted-foreground">
-							<span>{stats.todayCount} today</span>
-							<span>•</span>
-							<span>{stats.upcomingCount} upcoming</span>
+			<div className="flex flex-1 flex-col">
+				<PageHeader
+					items={[
+						{ label: "Requests", href: "/requests" },
+						{ label: "Incoming" },
+					]}
+				/>
+				
+				<main className="flex-1 p-4 md:p-6 lg:p-8">
+					<div className="mx-auto max-w-7xl space-y-8">
+						{/* Header */}
+						<div className="flex items-center justify-between">
+							<div>
+								<h1 className="text-3xl font-bold tracking-tight">Incoming Requests</h1>
+								<p className="mt-2 text-muted-foreground">
+									Review and manage notarization requests from clients
+								</p>
+								<div className="mt-4 flex items-center gap-4 text-sm text-muted-foreground">
+									<span>{stats.todayCount} today</span>
+									<span>•</span>
+									<span>{stats.upcomingCount} upcoming</span>
+								</div>
+							</div>
 						</div>
-					</div>
 
 					{/* Filters */}
 					<Card className="mb-6">
@@ -246,7 +256,7 @@ export default function IncomingRequestsPage() {
 												<div className="flex items-center gap-4 text-sm text-muted-foreground">
 													<div className="flex items-center gap-2">
 														<User className="h-4 w-4" />
-														<span>{request.principal?.name || "Unknown Principal"}</span>
+														<span>{request.principal?.name ?? "Unknown Principal"}</span>
 													</div>
 													<div className="flex items-center gap-2">
 														<Calendar className="h-4 w-4" />
@@ -254,7 +264,7 @@ export default function IncomingRequestsPage() {
 													</div>
 													<div className="flex items-center gap-2">
 														<FileText className="h-4 w-4" />
-														<span>{request.documentsCount || 0} document{(request.documentsCount || 0) !== 1 ? "s" : ""}</span>
+														<span>{request.documents ?? 0} document{(request.documents ?? 0) !== 1 ? "s" : ""}</span>
 													</div>
 												</div>
 												<div className="flex items-center gap-2 mt-3">
@@ -269,8 +279,8 @@ export default function IncomingRequestsPage() {
 											</div>
 											<div className="flex flex-col items-end gap-2">
 												<Avatar className="h-10 w-10">
-													<AvatarImage src={request.principal?.image || undefined} alt={request.principal?.name || "Principal"} />
-													<AvatarFallback>{(request.principal?.name || "P").split(" ").map(n => n[0]).join("")}</AvatarFallback>
+													<AvatarImage src={request.principal?.image ?? undefined} alt={request.principal?.name ?? "Principal"} />
+													<AvatarFallback>{(request.principal?.name ?? "P").split(" ").map(n => n[0]).join("")}</AvatarFallback>
 												</Avatar>
 												{request.status === "PENDING" && (
 													<div className="flex gap-2">
@@ -322,7 +332,8 @@ export default function IncomingRequestsPage() {
 							</Card>
 						)}
 					</div>
-				</div>
+					</div>
+				</main>
 			</div>
 
 			{/* Reject Dialog */}

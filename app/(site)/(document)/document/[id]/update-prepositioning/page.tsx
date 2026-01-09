@@ -1,58 +1,69 @@
-import { SiteNavbar } from "@/core/components/navbar/site-navbar"
+// import type { Route } from "next"
 
-import { HydrateClient, trpc } from "@/services/trpc/server"
+// import { SiteNavbar } from "@/core/components/navbar/site-navbar"
 
-import { UpdatePrepositioningClient } from "@/features/signature-lite/components/update-prepositioning-client"
+// import { HydrateClient, trpc } from "@/services/trpc/server"
 
-export default async function UpdatePrepositioningPage({
-	params,
-}: {
-	params: Promise<{ envelopeId: string; documentId: string }>
-}) {
-	const { envelopeId, documentId } = await params
+// import { UpdatePrepositioningClient } from "@/features/signature-lite/components/update-prepositioning-client"
 
-	// Prefetch data for better performance
-	await trpc.signatureLite.prepositioning.getDocumentWithFields.prefetch({
-		documentId,
-	})
-	await trpc.signatureLite.prepositioning.getEnvelopeWithRecipients.prefetch({
-		envelopeId,
-		documentId,
-	})
+// export default async function UpdatePrepositioningPage({
+// 	params,
+// }: {
+// 	params: Promise<{ envelopeId: string; documentId: string }>
+// }) {
+// 	const { envelopeId, documentId } = await params
 
-	// Get document and envelope data for navigation
-	const documentData: { name?: string } | null = await (
-		trpc.signatureLite.prepositioning.getDocumentWithFields({
-			documentId,
-		}) as Promise<{ name?: string }>
-	).catch(() => null)
-	const envelope: { title?: string } | null = await (
-		trpc.signatureLite.prepositioning.getEnvelopeWithRecipients({
-			envelopeId,
-			documentId,
-		}) as Promise<{ title?: string }>
-	).catch(() => null)
+// 	// Prefetch data for better performance
+// 	await trpc.signatureLite.prepositioning.getDocumentWithFields.prefetch({
+// 		documentId,
+// 	})
+// 	await trpc.signatureLite.prepositioning.getEnvelopeWithRecipients.prefetch({
+// 		envelopeId,
+// 		documentId,
+// 	})
 
-	const resolvedEnvelopeTitle = envelope?.title ?? envelopeId
-	const resolvedDocumentTitle = documentData?.name ?? documentId
+// 	// Get document and envelope data for navigation
+// 	const documentData: { name?: string } | null = await (
+// 		trpc.signatureLite.prepositioning.getDocumentWithFields({
+// 			documentId,
+// 		}) as Promise<{ name?: string }>
+// 	).catch(() => null)
+// 	const envelope: { title?: string } | null = await (
+// 		trpc.signatureLite.prepositioning.getEnvelopeWithRecipients({
+// 			envelopeId,
+// 			documentId,
+// 		}) as Promise<{ title?: string }>
+// 	).catch(() => null)
 
-	return (
-		<HydrateClient>
-			<SiteNavbar
-				items={[
-					{ label: "Envelopes", url: "/envelopes" },
-					{ label: resolvedEnvelopeTitle, url: `/envelope/${envelopeId}` },
-					{
-						label: resolvedDocumentTitle,
-						url: `/envelope/${envelopeId}/`,
-					},
-					{
-						label: "Update Positioning",
-						url: `/envelope/${envelopeId}/document/${documentId}/update-prepositioning`,
-					},
-				]}
-			/>
-			<UpdatePrepositioningClient envelopeId={envelopeId} documentId={documentId} />
-		</HydrateClient>
-	)
+// 	const resolvedEnvelopeTitle = envelope?.title ?? envelopeId
+// 	const resolvedDocumentTitle = documentData?.name ?? documentId
+
+// 	// Construct routes with proper typing
+// 	const envelopeUrl: Route = (`/envelope/${envelopeId}` as unknown) as Route
+// 	const envelopeDocumentUrl: Route = (`/envelope/${envelopeId}/` as unknown) as Route
+// 	const updatePrepositioningUrl: Route = (`/envelope/${envelopeId}/document/${documentId}/update-prepositioning` as unknown) as Route
+
+// 	return (
+// 		<HydrateClient>
+// 			<SiteNavbar
+// 				items={[
+// 					{ label: "Envelopes", url: "/envelopes" as Route },
+// 					{ label: resolvedEnvelopeTitle, url: envelopeUrl },
+// 					{
+// 						label: resolvedDocumentTitle,
+// 						url: envelopeDocumentUrl,
+// 					},
+// 					{
+// 						label: "Update Positioning",
+// 						url: updatePrepositioningUrl,
+// 					},
+// 				]}
+// 			/>
+// 			<UpdatePrepositioningClient envelopeId={envelopeId} documentId={documentId} />
+// 		</HydrateClient>
+// 	)
+// }
+
+export default function UpdatePrepositioningPage() {
+	return null
 }

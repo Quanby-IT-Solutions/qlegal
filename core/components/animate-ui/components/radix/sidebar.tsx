@@ -4,7 +4,7 @@ import * as React from "react"
 import { cva, type VariantProps } from "class-variance-authority"
 import { PanelLeftIcon } from "lucide-react"
 import { type Transition } from "motion/react"
-import { Slot } from "radix-ui"
+import { Slot as SlotPrimitive } from "radix-ui"
 
 import {
 	Tooltip,
@@ -438,7 +438,7 @@ type SidebarGroupLabelProps = React.ComponentProps<"div"> & {
 }
 
 function SidebarGroupLabel({ className, asChild = false, ...props }: SidebarGroupLabelProps) {
-	const Comp = asChild ? Slot.Root : "div"
+	const Comp = asChild ? SlotPrimitive.Slot : "div"
 
 	return (
 		<Comp
@@ -459,7 +459,7 @@ type SidebarGroupActionProps = React.ComponentProps<"button"> & {
 }
 
 function SidebarGroupAction({ className, asChild = false, ...props }: SidebarGroupActionProps) {
-	const Comp = asChild ? Slot.Root : "button"
+	const Comp = asChild ? SlotPrimitive.Slot : "button"
 
 	return (
 		<Comp
@@ -570,7 +570,7 @@ function SidebarMenuButton({
 	className,
 	...props
 }: SidebarMenuButtonProps) {
-	const Comp = asChild ? Slot.Root : "button"
+	const Comp = asChild ? SlotPrimitive.Slot : "button"
 	const { isMobile, state } = useSidebar()
 
 	const button = (
@@ -615,7 +615,7 @@ function SidebarMenuAction({
 	showOnHover = false,
 	...props
 }: SidebarMenuActionProps) {
-	const Comp = asChild ? Slot.Root : "button"
+	const Comp = asChild ? SlotPrimitive.Slot : "button"
 
 	return (
 		<Comp
@@ -733,7 +733,7 @@ function SidebarMenuSubButton({
 	className,
 	...props
 }: SidebarMenuSubButtonProps) {
-	const Comp = asChild ? Slot.Root : "a"
+	const Comp = asChild ? SlotPrimitive.Slot : "a"
 
 	return (
 		<HighlightItem activeClassName="bg-sidebar-accent text-sidebar-accent-foreground rounded-md">

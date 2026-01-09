@@ -1,11 +1,12 @@
 "use client"
 
 import { useCallback, useEffect, useRef, useState } from "react"
+import Image from "next/image"
 import { Camera, CheckCircle2, Eye, RotateCw, X } from "lucide-react"
 import { Button } from "@/core/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/core/components/ui/card"
 import { cn } from "@/core/lib/utils"
-import type { CaptureState } from "../types"
+import type { CaptureState } from "@/features/liveness/types"
 
 interface CameraCaptureProps {
 	onCapture: (imageData: string) => void
@@ -33,7 +34,7 @@ export function CameraCapture({ onCapture, onError, disabled = false }: CameraCa
 
 			const mediaStream = await navigator.mediaDevices.getUserMedia({
 				video: {
-					facingMode: facingMode,
+					facingMode,
 					width: { ideal: 1280 },
 					height: { ideal: 720 },
 				},
@@ -41,7 +42,7 @@ export function CameraCapture({ onCapture, onError, disabled = false }: CameraCa
 			})
 
 			setStream(mediaStream)
-			setCaptureState(prev => ({
+			setCaptureState((prev: CaptureState) => ({
 				...prev,
 				isCapturing: true,
 				hasCameraAccess: true,
@@ -54,7 +55,7 @@ export function CameraCapture({ onCapture, onError, disabled = false }: CameraCa
 					? "Camera access denied. Please allow camera permissions."
 					: "Failed to access camera. Please check your device settings."
 
-			setCaptureState(prev => ({
+			setCaptureState((prev: CaptureState) => ({
 				...prev,
 				error: errorMessage,
 				isProcessing: false,
@@ -69,7 +70,7 @@ export function CameraCapture({ onCapture, onError, disabled = false }: CameraCa
 			stream.getTracks().forEach(track => track.stop())
 			setStream(null)
 		}
-		setCaptureState(prev => ({
+		setCaptureState((prev: CaptureState) => ({
 			...prev,
 			isCapturing: false,
 			hasCameraAccess: false,
@@ -92,7 +93,7 @@ export function CameraCapture({ onCapture, onError, disabled = false }: CameraCa
 
 		const imageData = canvas.toDataURL("image/jpeg", 0.95)
 
-		setCaptureState(prev => ({
+		setCaptureState((prev: CaptureState) => ({
 			...prev,
 			capturedImage: imageData,
 		}))
@@ -118,7 +119,8 @@ export function CameraCapture({ onCapture, onError, disabled = false }: CameraCa
 			
 			if (videoTracks.length > 0) {
 				const currentStream = videoElement.srcObject as MediaStream | null
-				const currentVideoTrack = currentStream?.getVideoTracks()[0]
+				const currentVideoTracks = currentStream?.getVideoTracks() ?? []
+				const currentVideoTrack = currentVideoTracks[0]
 				const newVideoTrack = videoTracks[0]
 
 				// Update if track changed or no current stream
@@ -126,14 +128,16 @@ export function CameraCapture({ onCapture, onError, disabled = false }: CameraCa
 					videoElement.srcObject = stream
 					
 					// Play the video
-					videoElement.play().catch((error) => {
-						if (error.name !== 'AbortError') {
+					videoElement.play().catch((error: unknown) => {
+						if (error instanceof Error && error.name !== 'AbortError') {
 							console.error("Video play error:", error)
 						}
 					})
 				} else if (videoElement.paused) {
 					// Same stream but paused - try to play
-					videoElement.play().catch(() => {})
+					videoElement.play().catch(() => {
+						// Ignore play errors when resuming paused video
+					})
 				}
 			}
 		} else {
@@ -276,10 +280,12 @@ export function CameraCapture({ onCapture, onError, disabled = false }: CameraCa
 				{showCapturedImage && captureState.capturedImage && (
 					<div className="space-y-3">
 						<div className="relative aspect-video w-full overflow-hidden rounded-xl bg-black border-2 border-primary/20 shadow-lg">
-							<img
+							<Image
 								src={captureState.capturedImage}
 								alt="Captured selfie"
-								className="h-full w-full object-cover"
+								fill
+								className="object-cover"
+								unoptimized
 							/>
 							<div className="absolute top-3 right-3">
 								<div className="bg-green-500 text-white text-xs px-3 py-1.5 rounded-full font-medium flex items-center gap-1.5">

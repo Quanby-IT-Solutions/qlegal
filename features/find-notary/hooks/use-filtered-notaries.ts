@@ -18,10 +18,7 @@ export function useFilteredNotaries(enps: EnhancedENP[] | undefined, filters: Se
 		const matchesSpecialization =
 			filters.selectedSpecialization === "ALL" || 
 			enp.specialization.includes(filters.selectedSpecialization)
-		
-		// All ENPs support both REN and IEN
-		const matchesWorkflow = filters.selectedWorkflow === "ALL"
 
-		return matchesSearch && matchesLocation && matchesSpecialization && matchesWorkflow
+		return matchesSearch && matchesLocation && matchesSpecialization
 	})
 }

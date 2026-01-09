@@ -21,7 +21,7 @@ export default async function KycRegisterPage() {
 	}
 
 	// If already verified, redirect to dashboard
-	// @ts-expect-error augmented session field
+	
 	if (session.user.kycStatus === "VERIFIED") {
 		redirect("/dashboard")
 	}

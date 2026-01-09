@@ -3,10 +3,11 @@ import { and, desc, eq, gte, or } from "drizzle-orm"
 
 import { users } from "@/services/drizzle/schema/auth"
 import { appointments } from "@/services/drizzle/schema/appointments"
-import { conversations, conversationParticipants } from "@/services/drizzle/schema/messages"
+import { conversations, conversationParticipants, messages } from "@/services/drizzle/schema/messages"
 import { meetings, meetingParticipants } from "@/services/drizzle/schema/meetings"
 import { createMeetingRoom, generateMeetingToken } from "@/services/video-sdk"
 import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
+import { getUrl } from "@/core/lib/get-url"
 
 import {
 	bookConsultationSchema,
@@ -31,7 +32,7 @@ export const consultationsRouter = createTRPCRouter({
 				where: eq(users.id, input.enpId),
 			})
 
-			if (!enp || enp.role !== "ENP") {
+			if (enp?.role !== "ENP") {
 				throw new TRPCError({
 					code: "NOT_FOUND",
 					message: "Electronic Notary Public not found",
@@ -41,7 +42,7 @@ export const consultationsRouter = createTRPCRouter({
 			// Parse appointment time and create full date
 			const [hours, minutes] = input.appointmentTime.split(":").map(Number)
 			const appointmentDateTime = new Date(input.appointmentDate)
-			appointmentDateTime.setHours(hours || 0, minutes || 0, 0, 0)
+			appointmentDateTime.setHours(hours ?? 0, minutes ?? 0, 0, 0)
 
 			// Check if appointment date is in the future
 			if (appointmentDateTime <= new Date()) {
@@ -76,7 +77,7 @@ export const consultationsRouter = createTRPCRouter({
 					appointmentDate: appointmentDateTime,
 					duration,
 					notes: consultationNotes,
-					location: input.workflowType === "IEN" ? input.location || "To be confirmed" : null,
+					location: input.workflowType === "IEN" ? input.location ?? "To be confirmed" : null,
 					meetingLink: null, // Will be set when confirmed
 					status: "PENDING",
 				})
@@ -89,119 +90,15 @@ export const consultationsRouter = createTRPCRouter({
 				})
 			}
 
-			// For REN consultations, create a meeting room only if VIDEO_CALL is preferred
-			let meetingId: string | null = null
-			let roomId: string | null = null
-			const shouldCreateVideoMeeting = 
-				input.workflowType === "REN" && 
-				(!input.meetingPreference || input.meetingPreference === "VIDEO_CALL")
-			
-			if (shouldCreateVideoMeeting) {
-				try {
-					// Create VideoSDK room
-					const { roomId: videoRoomId } = await createMeetingRoom()
-
-					// Create meeting in database
-					const [meeting] = await ctx.db
-						.insert(meetings)
-						.values({
-							title: `Consultation with ${enp.name}`,
-							roomId: videoRoomId,
-							createdById: clientId,
-						})
-						.returning()
-
-					if (meeting) {
-						meetingId = meeting.id
-						roomId = videoRoomId
-
-						// Add both client and ENP as participants
-						await ctx.db.insert(meetingParticipants).values([
-							{
-								meetingId: meeting.id,
-								userId: clientId,
-							},
-							{
-								meetingId: meeting.id,
-								userId: input.enpId,
-							},
-						])
-
-						// Update appointment with meeting link
-						const meetingLink = `${process.env.NEXT_PUBLIC_APP_URL || ""}/meetings/${meeting.id}`
-						await ctx.db
-							.update(appointments)
-							.set({ meetingLink })
-							.where(eq(appointments.id, appointment.id))
-					}
-				} catch (error) {
-					console.error("Failed to create meeting room:", error)
-					// Continue without meeting - ENP can create it later
-				}
-			} else if (input.workflowType === "REN" && input.meetingPreference === "CHAT_ONLY") {
-				// For chat-only, no video meeting needed
-				// Conversation will be created below for messaging
-			}
-
-			// Create a conversation between client and ENP for messaging
-			let conversationId: string | null = null
-			
-			try {
-				// Check if conversation already exists
-				const existingConversations = await ctx.db.query.conversationParticipants.findMany({
-					where: eq(conversationParticipants.userId, clientId),
-					with: {
-						conversation: {
-							with: {
-								participants: true,
-							},
-						},
-					},
-				})
-
-				const existingConversation = existingConversations.find((cp) => {
-					const participants = cp.conversation.participants
-					return (
-						participants.length === 2 &&
-						participants.some((p) => p.userId === input.enpId) &&
-						participants.some((p) => p.userId === clientId)
-					)
-				})
-
-				if (existingConversation) {
-					conversationId = existingConversation.conversationId
-				} else {
-					// Create new conversation
-					const [conversation] = await ctx.db.insert(conversations).values({}).returning()
-
-					if (conversation) {
-						conversationId = conversation.id
-
-						// Add both users as participants
-						await ctx.db.insert(conversationParticipants).values([
-							{
-								conversationId: conversation.id,
-								userId: clientId,
-							},
-							{
-								conversationId: conversation.id,
-								userId: input.enpId,
-							},
-						])
-					}
-				}
-			} catch (error) {
-				console.error("Failed to create conversation:", error)
-				// Continue without conversation
-			}
+			// Meeting and conversation are created after ENP confirms to ensure acceptance first
 
 			return {
 				appointment,
-				meetingId,
-				roomId,
-				conversationId,
+				meetingId: null,
+				roomId: null,
+				conversationId: null,
 				workflowType: input.workflowType,
-				meetingPreference: input.meetingPreference || (input.workflowType === "REN" ? "VIDEO_CALL" : undefined),
+				meetingPreference: input.meetingPreference ?? (input.workflowType === "REN" ? "VIDEO_CALL" : undefined),
 			}
 		}),
 
@@ -215,7 +112,7 @@ export const consultationsRouter = createTRPCRouter({
 			// Build where conditions
 			const whereConditions = [
 				and(
-					or(eq(appointments.clientId, userId), eq(appointments.lawyerId, userId))!,
+					or(eq(appointments.clientId, userId), eq(appointments.lawyerId, userId)),
 					eq(appointments.type, "CONSULTATION")
 				)!,
 			]
@@ -398,10 +295,10 @@ export const consultationsRouter = createTRPCRouter({
 
 		const results = await ctx.db.query.appointments.findMany({
 			where: and(
-				or(eq(appointments.clientId, userId), eq(appointments.lawyerId, userId))!,
+				or(eq(appointments.clientId, userId), eq(appointments.lawyerId, userId)),
 				eq(appointments.type, "CONSULTATION"),
 				gte(appointments.appointmentDate, now),
-				or(eq(appointments.status, "PENDING"), eq(appointments.status, "CONFIRMED"))!
+				or(eq(appointments.status, "PENDING"), eq(appointments.status, "CONFIRMED"))
 			),
 			orderBy: [appointments.appointmentDate],
 			limit: 10,
@@ -440,7 +337,7 @@ export const consultationsRouter = createTRPCRouter({
 				},
 			})
 
-			if (!enp || enp.role !== "ENP") {
+			if (enp?.role !== "ENP") {
 				throw new TRPCError({
 					code: "NOT_FOUND",
 					message: "Electronic Notary Public not found",
@@ -451,7 +348,7 @@ export const consultationsRouter = createTRPCRouter({
 			const existingAppointments = await ctx.db.query.appointments.findMany({
 				where: and(
 					eq(appointments.lawyerId, input.enpId),
-					or(eq(appointments.status, "PENDING"), eq(appointments.status, "CONFIRMED"))!
+					or(eq(appointments.status, "PENDING"), eq(appointments.status, "CONFIRMED"))
 				),
 			})
 
@@ -478,10 +375,10 @@ export const consultationsRouter = createTRPCRouter({
 						const [startHour, startMin] = avail.startTime.split(":").map(Number)
 						const [endHour, endMin] = avail.endTime.split(":").map(Number)
 						
-						let currentHour = startHour || 0
-						let currentMin = startMin || 0
+						let currentHour = startHour ?? 0
+						let currentMin = startMin ?? 0
 						
-						while (currentHour < (endHour || 0) || (currentHour === (endHour || 0) && currentMin < (endMin || 0))) {
+						while (currentHour < (endHour ?? 0) || (currentHour === (endHour ?? 0) && currentMin < (endMin ?? 0))) {
 							slots.push(`${String(currentHour).padStart(2, "0")}:${String(currentMin).padStart(2, "0")}`)
 							currentMin += 60 // 1-hour slots
 							if (currentMin >= 60) {
@@ -496,7 +393,7 @@ export const consultationsRouter = createTRPCRouter({
 				for (const time of timeSlots) {
 					const [hours, minutes] = time.split(":").map(Number)
 					const slotDate = new Date(date)
-					slotDate.setHours(hours || 0, minutes || 0, 0, 0)
+					slotDate.setHours(hours ?? 0, minutes ?? 0, 0, 0)
 
 					// Check if slot is already booked
 					const isBooked = existingAppointments.some((apt) => {
@@ -547,12 +444,24 @@ export const consultationsRouter = createTRPCRouter({
 					email: enp.email,
 					image: enp.image,
 					phoneNumber: enp.phoneNumber,
-					specialization: enp.enpProfile?.specialization || "Legal Services",
-					rating: enp.enpProfile?.rating || 0,
-					reviewCount: enp.enpProfile?.reviewCount || 0,
-					experience: enp.enpProfile?.experience || "Experienced",
-					languages: enp.enpProfile?.languages ? JSON.parse(enp.enpProfile.languages) : ["English"],
-					responseTime: enp.enpProfile?.responseTime || "Within 24 hours",
+					specialization: enp.enpProfile?.specialization ?? "Legal Services",
+					rating: enp.enpProfile?.rating ?? 0,
+					reviewCount: enp.enpProfile?.reviewCount ?? 0,
+					experience: enp.enpProfile?.experience ?? "Experienced",
+					languages: (() => {
+						const raw = enp.enpProfile?.languages
+						if (!raw) return ["English"]
+						try {
+							const parsed = JSON.parse(raw) as unknown
+							if (Array.isArray(parsed)) {
+								return parsed.map((lang) => String(lang))
+							}
+							return ["English"]
+						} catch {
+							return ["English"]
+						}
+					})(),
+					responseTime: enp.enpProfile?.responseTime ?? "Within 24 hours",
 				}))
 		}),
 
@@ -586,12 +495,69 @@ export const consultationsRouter = createTRPCRouter({
 				})
 			}
 
+			const isRemote = existing.location === null || existing.location === undefined
+			const prefersChatOnly = (existing.notes ?? "").toLowerCase().includes("chat only")
+
+			let meetingLink = existing.meetingLink
+
+			// Create meeting on confirm if remote + not chat-only and no link yet
+			if (isRemote && !prefersChatOnly && !meetingLink) {
+				try {
+					const { roomId: videoRoomId } = await createMeetingRoom()
+					const [meeting] = await ctx.db
+						.insert(meetings)
+						.values({
+							title: `Consultation with ${existing.lawyerId === userId ? "Client" : "ENP"}`,
+							roomId: videoRoomId,
+							createdById: userId,
+						})
+						.returning()
+
+					if (meeting) {
+						// Add both client and ENP as participants
+						await ctx.db.insert(meetingParticipants).values([
+							{
+								meetingId: meeting.id,
+								userId: existing.clientId,
+							},
+							{
+								meetingId: meeting.id,
+								userId: existing.lawyerId,
+							},
+						])
+
+						meetingLink = `${getUrl()}/meetings/${meeting.id}`
+					}
+				} catch (error) {
+					console.error("Failed to create meeting on confirmation:", error)
+				}
+			}
+
+			// Create conversation on confirm (one-time best effort)
+			try {
+				const [conversation] = await ctx.db.insert(conversations).values({}).returning()
+				if (conversation) {
+					await ctx.db.insert(conversationParticipants).values([
+						{
+							conversationId: conversation.id,
+							userId: existing.clientId,
+						},
+						{
+							conversationId: conversation.id,
+							userId: existing.lawyerId,
+						},
+					])
+				}
+			} catch (error) {
+				console.error("Failed to create conversation on confirmation:", error)
+			}
+
 			// Update consultation
 			const [updated] = await ctx.db
 				.update(appointments)
 				.set({
 					status: "CONFIRMED",
-					meetingLink: input.meetingLink || existing.meetingLink,
+					meetingLink: input.meetingLink ?? meetingLink ?? existing.meetingLink,
 					updatedAt: new Date(),
 				})
 				.where(eq(appointments.id, input.consultationId))

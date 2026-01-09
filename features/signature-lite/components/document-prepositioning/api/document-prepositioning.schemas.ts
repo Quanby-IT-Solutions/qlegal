@@ -1,4 +1,4 @@
-import { z } from "zod"
+import { z } from "zod/v4"
 
 // Field type enum - aligned with database FieldType enum
 export const fieldTypeEnum = z.enum([

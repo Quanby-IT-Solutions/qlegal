@@ -31,7 +31,6 @@ export function ModeToggleDropdown({ className }: { className?: string }) {
 					checked={theme === "dark"}
 					onCheckedChange={checked => setTheme(checked ? "dark" : "light")}
 					onClick={e => e.stopPropagation()}
-					size="sm"
 				/>
 			</DropdownMenuItem>
 		</DropdownMenuGroup>

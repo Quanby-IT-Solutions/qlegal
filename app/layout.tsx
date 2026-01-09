@@ -12,6 +12,8 @@ import "@/core/styles/globals.css"
 
 const inter = Inter({
 	subsets: ["latin"],
+	display: "swap",
+	fallback: ["system-ui", "arial"],
 })
 
 export const metadata: Metadata = {
