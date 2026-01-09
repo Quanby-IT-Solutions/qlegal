@@ -163,7 +163,8 @@ export function Hero() {
 						</motion.div>
 					</motion.div>
 
-					{/* Right Logo Section */}					<motion.div
+				{/* Right Logo Section */}
+				<motion.div
 						initial={{ opacity: 0, scale: 0.8, rotate: -5 }}
 						animate={{ opacity: 1, scale: 1, rotate: 0 }}
 						transition={{ duration: 0.8, delay: 0.2 }}
@@ -184,7 +185,7 @@ export function Hero() {
 								<div className="h-32 w-32">
 									<QuanbyLogo className="h-full w-full object-contain" />
 								</div>
-								</div>
+							</div>
 							</motion.div>
 
 							{/* Floating Elements */}
@@ -199,9 +200,9 @@ export function Hero() {
 									repeat: Number.POSITIVE_INFINITY,
 									ease: "easeInOut"
 								}}
-							className="absolute -right-6 -top-6 flex h-20 w-20 items-center justify-center rounded-2xl border border-[rgb(91,26,128)]/20 bg-gradient-to-br from-[rgb(91,26,128)]/20 to-[rgb(91,26,128)]/10 shadow-xl backdrop-blur-sm"
-						>
-							<Scale className="h-10 w-10 text-[rgb(91,26,128)]" />
+								className="absolute -right-6 -top-6 flex h-20 w-20 items-center justify-center rounded-2xl border border-[rgb(91,26,128)]/20 bg-gradient-to-br from-[rgb(91,26,128)]/20 to-[rgb(91,26,128)]/10 shadow-xl backdrop-blur-sm"
+							>
+								<Scale className="h-10 w-10 text-[rgb(91,26,128)]" />
 							</motion.div>
 
 							<motion.div
@@ -232,9 +233,9 @@ export function Hero() {
 									ease: "easeInOut",
 									delay: 2
 								}}
-							className="absolute -left-12 top-1/2 flex h-12 w-12 items-center justify-center rounded-lg border border-[rgb(233,30,140)]/20 bg-gradient-to-br from-[rgb(233,30,140)]/20 to-[rgb(233,30,140)]/10 shadow-lg backdrop-blur-sm"
-						>
-							<Shield className="h-6 w-6 text-[rgb(233,30,140)]" />
+								className="absolute -left-12 top-1/2 flex h-12 w-12 items-center justify-center rounded-lg border border-[rgb(233,30,140)]/20 bg-gradient-to-br from-[rgb(233,30,140)]/20 to-[rgb(233,30,140)]/10 shadow-lg backdrop-blur-sm"
+							>
+								<Shield className="h-6 w-6 text-[rgb(233,30,140)]" />
 							</motion.div>
 
 							{/* Decorative rings */}
