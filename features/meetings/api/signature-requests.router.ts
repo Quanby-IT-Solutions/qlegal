@@ -72,7 +72,7 @@ export const signatureRequestsRouter = createTRPCRouter({
 				userEmail: ctx.session.user.email || undefined, // Pass creator's email for token
 			})
 
-			// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+			 
 			const addSignerResponse = await addSignerToProject({
 				projectUuid: document.docoChainProjectId,
 				email: signerUser.email ?? "",
@@ -91,19 +91,17 @@ export const signatureRequestsRouter = createTRPCRouter({
 				
 				// The addSignerResponse contains ALL signers, including the creator
 				// Find the creator (type: 'ME') or by email
-				// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
-				const creatorSigner = addSignerResponse.data?.find(
-					// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
-					(signer: any) => signer.type === 'ME' || signer.email === ctx.session.user.email
+				const signersArray = Array.isArray(addSignerResponse.data) ? addSignerResponse.data : []
+				const creatorSigner = signersArray.find(
+					(signer) => signer.type === 'ME' || signer.email === ctx.session.user.email
 				)
 
 				if (creatorSigner) {
-					// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
 					console.log(`🗑️ Found creator signer: ${creatorSigner.email} (ID: ${creatorSigner.id})`)
+					const signerId = typeof creatorSigner.id === 'number' ? creatorSigner.id : Number(creatorSigner.id)
 					await deleteSigner({
 						projectUuid: document.docoChainProjectId,
-						// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
-						signerId: creatorSigner.id,
+						signerId,
 						userEmail: ctx.session.user.email || undefined, // Pass creator's email for token
 					})
 					console.log("✅ Creator DELETED! Only ENP remains in the document! 🎉")
@@ -312,11 +310,11 @@ export const signatureRequestsRouter = createTRPCRouter({
 				let projectStatus = "Draft"
 				
 				try {
-					// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+					 
 					const projectDetails = await getProjectDetails(projectUuid, creatorEmail)
-					// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+					 
 					currentSigners = projectDetails?.data?.signers ?? []
-					// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+					 
 					projectStatus = projectDetails?.data?.status ?? "Draft"
 					console.log(`   - Total existing signers: ${currentSigners.length}`)
 					console.log(`   - Project status: ${projectStatus}`)
@@ -450,19 +448,19 @@ export const signatureRequestsRouter = createTRPCRouter({
 				// Use project status from earlier check to determine which link type to use
 				let isProjectSent = false
 				try {
-					// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+					 
 					const projectDetails = await getProjectDetails(projectUuid, creatorEmail)
-					// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+					 
 					projectStatus = projectDetails?.data?.status ?? "Draft"
 					// Check if project has been sent (sent_at field exists) or status indicates it's sent
-					// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+					 
 					isProjectSent = !!projectDetails?.data?.sent_at || 
 					                projectStatus === "Sent" || 
 					                projectStatus === "Completed" || 
 					                projectStatus === "In Progress" ||
 					                projectStatus === "View Only" // "View Only" means project was sent
 					console.log("   - Project Status:", projectStatus)
-					// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+					 
 					console.log("   - Project Sent At:", projectDetails?.data?.sent_at ?? "not sent")
 					console.log("   - Is Project Sent:", isProjectSent)
 				} catch (statusError) {
@@ -651,13 +649,13 @@ export const signatureRequestsRouter = createTRPCRouter({
 
 			try {
 				// Get project details from DocoChain
-				// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+				 
 				const projectDetails = await getProjectDetails(projectUuid)
 				
 				// Check if user's email is in the signers list
-				// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+				 
 				const signers = projectDetails?.data?.signers ?? []
-				// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+				// eslint-disable-next-line @typescript-eslint/no-explicit-any
 				const isSigner = signers.some((signer: any) => {
 					// eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
 					return signer.email?.toLowerCase() === userEmail.toLowerCase()
@@ -665,7 +663,7 @@ export const signatureRequestsRouter = createTRPCRouter({
 
 				console.log(`🔵 Checking if ${userEmail} is a signer in project ${projectUuid}: ${isSigner}`)
 
-				// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+				 
 				return { isSigner }
 			} catch (error) {
 				console.error("❌ Error checking if user is signer:", error)
@@ -1002,13 +1000,13 @@ export const signatureRequestsRouter = createTRPCRouter({
 				const creatorEmail = document?.meeting?.createdBy?.email ?? (ctx.session.user.email ?? undefined)
 
 				// Get the passport document
-				// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+				 
 				const passportData = await getPassportDocument(projectUuid, view, creatorEmail)
 
 				return {
 					success: true,
 					view,
-					// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+					 
 					data: passportData,
 				}
 			} catch (error) {

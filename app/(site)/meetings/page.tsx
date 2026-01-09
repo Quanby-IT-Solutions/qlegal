@@ -3,8 +3,10 @@
 import { Calendar, Plus, PlayCircle, StopCircle, Trash2, Users, Video, X, Search, Clock } from "lucide-react"
 
 import { useRouter } from "next/navigation"
+import { useSession } from "next-auth/react"
 import { useState } from "react"
 import { format } from "date-fns"
+import { toast } from "sonner"
 
 
 import { PageHeader } from "@/core/components/navbar/page-header"
@@ -204,13 +206,13 @@ export default function MeetingsPage() {
 						</div>
 
 						<Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-						<DialogTrigger asChild>
-							<Button size="lg" className="shadow-lg hover:shadow-xl transition-shadow">
-								<Plus className="mr-2 size-5" />
-								New Meeting
-							</Button>
-						</DialogTrigger>
-						<DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+							<DialogTrigger asChild>
+								<Button size="lg" className="shadow-lg hover:shadow-xl transition-shadow">
+									<Plus className="mr-2 size-5" />
+									New Meeting
+								</Button>
+							</DialogTrigger>
+							<DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
 							<DialogHeader className="space-y-3 pb-4">
 								<div className="flex items-center gap-3">
 									<div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
@@ -285,149 +287,81 @@ export default function MeetingsPage() {
 
 											</div>
 										</div>
-									</DialogHeader>
+									)}
 
-									<div className="space-y-6 py-4">
-										{/* Meeting Title */}
-										<div className="space-y-3">
-											<Label htmlFor="title" className="text-base font-semibold">
-												Meeting Title <span className="text-destructive">*</span>
-											</Label>
+									{/* User Search */}
+									<div className="space-y-3">
+										<div className="relative">
+											<Search className="text-muted-foreground absolute top-1/2 left-3 size-5 -translate-y-1/2" />
 											<Input
-												id="title"
-												placeholder="e.g., Team Standup, Client Review, Project Kickoff"
-												value={title}
-												onChange={e => setTitle(e.target.value)}
-												className="h-12 text-base"
+												placeholder="Search by name or email..."
+												value={userSearchQuery}
+												onChange={e => setUserSearchQuery(e.target.value)}
+												className="h-12 pl-11 text-base"
 											/>
 										</div>
 
-										{/* Invite Participants */}
-										<div className="space-y-3">
-											<div className="flex items-center justify-between">
-												<Label className="text-base font-semibold">
-													Invite Participants
-													<span className="text-muted-foreground ml-2 text-sm font-normal">
-														(Optional)
-													</span>
-												</Label>
-												{selectedUsers.length > 0 && (
-													<Badge variant="secondary" className="font-semibold">
-														<Users className="mr-1 size-3" />
-														{selectedUsers.length} invited
-													</Badge>
-												)}
-											</div>
-
-											{/* Selected Users */}
-											{selectedUsers.length > 0 && (
-												<div className="bg-muted/30 rounded-lg border p-4">
-													<p className="text-muted-foreground mb-3 text-sm font-medium">
-														Selected Participants
-													</p>
-													<div className="flex flex-wrap gap-2">
-														{selectedUsers.map(user => (
-															<Badge
-																key={user.id}
-																variant="secondary"
-																className="hover:bg-secondary/80 gap-2 py-1.5 pr-2 text-sm transition-colors"
-															>
-																<Avatar className="size-5">
-																	<AvatarImage src={user.image ?? undefined} />
-																	<AvatarFallback className="bg-primary text-primary-foreground text-xs">
-																		{user.name
-																			?.split(" ")
-																			.map(n => n[0])
-																			.join("")}
-																	</AvatarFallback>
-																</Avatar>
-																<span className="font-medium">{user.name}</span>
-																<button
-																	onClick={() => handleRemoveUser(user.id)}
-																	className="hover:bg-destructive/20 ml-1 rounded-full p-0.5 transition-colors"
-																	aria-label="Remove user"
-																>
-																	<X className="text-muted-foreground hover:text-destructive size-3.5" />
-																</button>
-															</Badge>
-														))}
-													</div>
+										{/* Search Results */}
+										{userSearchQuery.length > 0 && (
+										<div className="bg-card rounded-lg border">
+											<ScrollArea className="h-64">
+												<div className="p-2">
+													{searchResults && searchResults.length > 0 ? (
+														<div className="space-y-1">
+															{searchResults.map(user => {
+																const isSelected = selectedUsers.some(u => u.id === user.id)
+																return (
+																	<button
+																		key={user.id}
+																		onClick={() => handleAddUser(user)}
+																		disabled={isSelected}
+																		className="hover:bg-accent group flex w-full items-center gap-3 rounded-lg p-3 text-left transition-all disabled:cursor-not-allowed disabled:opacity-60"
+																	>
+																		<Avatar className="group-hover:ring-primary/20 size-12 ring-2 ring-transparent transition-all">
+																			<AvatarImage src={user.image ?? undefined} />
+																			<AvatarFallback className="bg-primary text-primary-foreground font-semibold">
+																				{user.name
+																					?.split(" ")
+																					.map(n => n[0])
+																					.join("")}
+																			</AvatarFallback>
+																		</Avatar>
+																		<div className="flex-1 overflow-hidden">
+																			<p className="text-base font-semibold">{user.name}</p>
+																			<p className="text-muted-foreground truncate text-sm">
+																				{user.email}
+																			</p>
+																		</div>
+																		{isSelected && (
+																			<Badge
+																				variant="secondary"
+																				className="bg-primary/10 text-primary"
+																			>
+																				Added
+																			</Badge>
+																		)}
+																	</button>
+																)
+															})}
+														</div>
+													) : (
+														<div className="p-8 text-center">
+															<Search className="text-muted-foreground/50 mx-auto mb-3 size-12" />
+															<p className="text-muted-foreground text-sm font-medium">
+																No users found
+															</p>
+															<p className="text-muted-foreground mt-1 text-xs">
+																Try a different search term
+															</p>
+														</div>
+													)}
 												</div>
-											)}
-
-											{/* User Search */}
-											<div className="space-y-3">
-												<div className="relative">
-													<Search className="text-muted-foreground absolute top-1/2 left-3 size-5 -translate-y-1/2" />
-													<Input
-														placeholder="Search by name or email..."
-														value={userSearchQuery}
-														onChange={e => setUserSearchQuery(e.target.value)}
-														className="h-12 pl-11 text-base"
-													/>
-												</div>
-
-												{/* Search Results */}
-												{userSearchQuery.length > 0 && (
-													<div className="bg-card rounded-lg border">
-														<ScrollArea className="h-64">
-															<div className="p-2">
-																{searchResults && searchResults.length > 0 ? (
-																	<div className="space-y-1">
-																		{searchResults.map(user => {
-																			const isSelected = selectedUsers.some(u => u.id === user.id)
-																			return (
-																				<button
-																					key={user.id}
-																					onClick={() => handleAddUser(user)}
-																					disabled={isSelected}
-																					className="hover:bg-accent group flex w-full items-center gap-3 rounded-lg p-3 text-left transition-all disabled:cursor-not-allowed disabled:opacity-60"
-																				>
-																					<Avatar className="group-hover:ring-primary/20 size-12 ring-2 ring-transparent transition-all">
-																						<AvatarImage src={user.image ?? undefined} />
-																						<AvatarFallback className="bg-primary text-primary-foreground font-semibold">
-																							{user.name
-																								?.split(" ")
-																								.map(n => n[0])
-																								.join("")}
-																						</AvatarFallback>
-																					</Avatar>
-																					<div className="flex-1 overflow-hidden">
-																						<p className="text-base font-semibold">{user.name}</p>
-																						<p className="text-muted-foreground truncate text-sm">
-																							{user.email}
-																						</p>
-																					</div>
-																					{isSelected && (
-																						<Badge
-																							variant="secondary"
-																							className="bg-primary/10 text-primary"
-																						>
-																							Added
-																						</Badge>
-																					)}
-																				</button>
-																			)
-																		})}
-																	</div>
-																) : (
-																	<div className="p-8 text-center">
-																		<Search className="text-muted-foreground/50 mx-auto mb-3 size-12" />
-																		<p className="text-muted-foreground text-sm font-medium">
-																			No users found
-																		</p>
-																		<p className="text-muted-foreground mt-1 text-xs">
-																			Try a different search term
-																		</p>
-																	</div>
-																)}
-															</div>
-														</ScrollArea>
-													</div>
-												)}
-											</div>
+											</ScrollArea>
 										</div>
-									</div>
+									)}
+								</div>
+							</div>
+							</div>
 							<DialogFooter className="gap-2 pt-4 border-t">
 								<Button
 									variant="outline"
@@ -460,7 +394,7 @@ export default function MeetingsPage() {
 								</Button>
 							</DialogFooter>
 						</DialogContent>
-					</Dialog>
+						</Dialog>
 					</div>
 
 					{/* Filter & Stats */}

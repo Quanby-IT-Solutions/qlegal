@@ -11,18 +11,26 @@ import { db } from "@/services/drizzle/db"
 import { accounts, sessions, users, verificationTokens } from "@/services/drizzle/schema/auth"
 
 export function DrizzleCustomAdapter(): Adapter {
-	const pickAdapterUser = (user: typeof users.$inferSelect) => ({
-		id: user.id,
-		name: user.name ?? null,
-		email: user.email!,
-		emailVerified: user.emailVerified ?? null,
-		image: user.image ?? null,
-		// Include KYC fields so they're available in JWT callback
-		// @ts-expect-error - extending AdapterUser with custom fields
-		kycStatus: user.kycStatus,
-		// @ts-expect-error - extending AdapterUser with custom fields
-		kycTransactionId: user.kycTransactionId,
-	})
+	const pickAdapterUser = (user: typeof users.$inferSelect) => {
+		// Safely extract KYC fields - eslint-disable needed due to Drizzle type inference
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+		const kycStatusValue = user.kycStatus
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+		const kycTransactionIdValue = user.kycTransactionId
+		
+		return {
+			id: user.id,
+			name: user.name ?? null,
+			email: user.email!,
+			emailVerified: user.emailVerified ?? null,
+			image: user.image ?? null,
+			// Include KYC fields so they're available in JWT callback
+			// ts-expect-error - extending AdapterUser with custom fields
+			kycStatus: (kycStatusValue ?? null) as string | null,
+			// ts-expect-error - extending AdapterUser with custom fields
+			kycTransactionId: (kycTransactionIdValue ?? null) as string | null,
+		} as AdapterUser & { kycStatus: string | null; kycTransactionId: string | null }
+	}
 
 	const mapVerificationRowToToken = (row: typeof verificationTokens.$inferSelect) => ({
 		identifier: row.email,

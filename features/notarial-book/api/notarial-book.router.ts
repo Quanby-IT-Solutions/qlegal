@@ -579,11 +579,18 @@ export const notarialBookRouter = createTRPCRouter({
 						user.email || undefined
 					)
 
-					if (passportData?.data?.document_url || passportData?.document_url) {
-						return {
-							url: passportData.data?.document_url || passportData.document_url,
-							fileName: act.documentName || "document.pdf",
-							type: "document",
+					// Handle both string and object responses
+					if (typeof passportData === "object" && passportData !== null) {
+						const passportObj = passportData as Record<string, unknown>
+						const documentUrl = (passportObj.data as Record<string, unknown> | undefined)?.document_url as string | undefined
+							?? passportObj.document_url as string | undefined
+						
+						if (documentUrl) {
+							return {
+								url: documentUrl,
+								fileName: act.documentName || "document.pdf",
+								type: "document",
+							}
 						}
 					}
 				} catch (error) {
