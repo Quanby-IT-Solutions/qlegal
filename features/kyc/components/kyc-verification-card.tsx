@@ -46,10 +46,13 @@ export function KycVerificationCard({ userInfo, minimal, redirectUrlOnSkip }: Ky
 	const [polling, setPolling] = useState(false)
 	const [pollId, setPollId] = useState<number | null>(null)
 	const [shownToasts, setShownToasts] = useState<Set<string>>(new Set())
+	const [pollAttempts, setPollAttempts] = useState(0)
 	const searchParams = useSearchParams()
 
-	// Auto-poll interval (5 seconds)
-	const pollIntervalMs = 5000
+	// Polling configuration with exponential backoff
+	const MAX_POLL_ATTEMPTS = 20 // Maximum 20 attempts (about 5-10 minutes)
+	const BASE_POLL_INTERVAL = 10000 // Start with 10 seconds
+	const MAX_POLL_INTERVAL = 60000 // Max 60 seconds between polls
 
 	const handleSkip = () => {
 		// Skip functionality removed - KYC is now mandatory
@@ -71,20 +74,30 @@ export function KycVerificationCard({ userInfo, minimal, redirectUrlOnSkip }: Ky
 	// Check if user completed KYC (from redirect) or has pending status
 	useEffect(() => {
 		const status = searchParams.get("status")
-		// Auto-check status when redirected from HyperVerge or when status is PENDING
-		if ((status === "complete" || userInfo.kycStatus === "PENDING") && userInfo.transactionId) {
-			// Wait longer if just completed (from redirect) to allow HyperVerge to process
-			const delay = status === "complete" ? 5000 : 2000
-			console.log(`⏳ Will check KYC status in ${delay}ms...`)
+		// Auto-check status when redirected from HyperVerge
+		if (status === "complete" && userInfo.transactionId) {
+			// Wait longer if just completed to allow HyperVerge to process (15 seconds)
+			console.log("⏳ KYC completed, will check status in 15s and start polling...")
 			
 			const timer = setTimeout(() => {
-				console.log("🔍 Auto-checking KYC status now...")
-				handleCheckStatus()
-			}, delay)
+				console.log("🔍 Auto-checking KYC status and starting polling...")
+				// Check status once, then start polling if still pending
+				startTransition(async () => {
+					const result = await checkUserKycStatus()
+					if (result.success && result.data) {
+						setStatusResult(result.data)
+						// Only start polling if still pending
+						if (result.data.kycStatus === "PENDING" && !result.data.isComplete) {
+							startPolling(userInfo.transactionId!)
+						}
+					}
+				})
+			}, 15000)
 			return () => clearTimeout(timer)
 		}
+		// For existing PENDING status, don't auto-poll - let user manually check
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [searchParams, userInfo.transactionId, userInfo.kycStatus])
+	}, [searchParams, userInfo.transactionId])
 
 	const handleCreateLink = () => {
 		setError(null)
@@ -99,8 +112,9 @@ export function KycVerificationCard({ userInfo, minimal, redirectUrlOnSkip }: Ky
 				window.open(result.data.url, "_blank", "noopener,noreferrer")
 				toast.success("KYC verification link created! Opening in new window...")
 
-				// Start auto-polling
-				startPolling(result.data.transactionId)
+				// Don't start polling here - user hasn't started KYC yet
+				// Polling will start automatically when they complete and redirect back
+				console.log("✅ KYC link created. Waiting for user to complete verification...")
 			} else {
 				setError(result.error || "Failed to create KYC link")
 				toast.error(result.error || "Failed to create KYC link")
@@ -143,38 +157,95 @@ export function KycVerificationCard({ userInfo, minimal, redirectUrlOnSkip }: Ky
 
 	const startPolling = (transactionId: string) => {
 		if (polling) return
+		
 		setPolling(true)
-		const id = window.setInterval(async () => {
-			const result = await checkUserKycStatus()
-			if (result.success && result.data) {
-				setStatusResult(result.data)
-				if (
-					result.data.isComplete ||
-					result.data.isApproved ||
-					result.data.kycStatus === "VERIFIED" ||
-					result.data.kycStatus === "REJECTED"
-				) {
-					stopPolling()
-					// Show success toast only once during polling
-					const toastKey = `${result.data.kycStatus}-${result.data.isApproved}`
-					if (result.data.isApproved && !shownToasts.has(toastKey)) {
-						toast.success("KYC verification approved!")
-						setShownToasts(prev => new Set(prev).add(toastKey))
+		setPollAttempts(0)
+		
+		const pollWithBackoff = async (attempt: number) => {
+			// Check if we've exceeded max attempts
+			if (attempt >= MAX_POLL_ATTEMPTS) {
+				console.warn("⚠️ Max polling attempts reached. Please refresh the page to check status.")
+				const toastKey = "max-attempts"
+				if (!shownToasts.has(toastKey)) {
+					toast.info("Still processing... Please refresh the page in a few minutes to check your verification status.")
+					setShownToasts(prev => new Set(prev).add(toastKey))
+				}
+				stopPolling()
+				return
+			}
+
+			try {
+				const result = await checkUserKycStatus()
+				setPollAttempts(attempt + 1)
+
+				if (result.success && result.data) {
+					setStatusResult(result.data)
+					
+					// Check if verification is complete
+					if (
+						result.data.isComplete ||
+						result.data.isApproved ||
+						result.data.kycStatus === "VERIFIED" ||
+						result.data.kycStatus === "REJECTED"
+					) {
+						stopPolling()
+						// Show success toast only once during polling
+						const toastKey = `${result.data.kycStatus}-${result.data.isApproved}`
+						if (result.data.isApproved && !shownToasts.has(toastKey)) {
+							toast.success("KYC verification approved!")
+							setShownToasts(prev => new Set(prev).add(toastKey))
+						}
+						return
+					}
+					
+					// Calculate next interval with exponential backoff
+					// Formula: min(BASE * 1.5^attempt, MAX)
+					const nextInterval = Math.min(
+						BASE_POLL_INTERVAL * Math.pow(1.5, attempt),
+						MAX_POLL_INTERVAL
+					)
+					
+					console.log(`⏱️ Next KYC status check in ${Math.round(nextInterval / 1000)}s (attempt ${attempt + 1}/${MAX_POLL_ATTEMPTS})`)
+					
+					// Schedule next poll
+					const id = window.setTimeout(() => pollWithBackoff(attempt + 1), nextInterval)
+					setPollId(id as any)
+				} else {
+					// API call failed - could be network issue or transaction not ready yet
+					console.warn(`⚠️ Status check failed (attempt ${attempt + 1}): ${result.error || 'Unknown error'}`)
+					
+					// Retry with exponential backoff instead of stopping immediately
+					if (attempt < MAX_POLL_ATTEMPTS - 1) {
+						const nextInterval = Math.min(
+							BASE_POLL_INTERVAL * Math.pow(1.5, attempt),
+							MAX_POLL_INTERVAL
+						)
+						console.log(`⏱️ Retrying in ${Math.round(nextInterval / 1000)}s...`)
+						const id = window.setTimeout(() => pollWithBackoff(attempt + 1), nextInterval)
+						setPollId(id as any)
+					} else {
+						console.log("⚠️ Max retry attempts reached, stopping polling")
+						stopPolling()
 					}
 				}
-			} else {
+			} catch (error) {
+				// Catch any unexpected errors
+				console.error("❌ Unexpected error during polling:", error)
 				stopPolling()
 			}
-		}, pollIntervalMs)
-		setPollId(id)
+		}
+
+		// Start first poll immediately
+		pollWithBackoff(0)
 	}
 
 	const stopPolling = () => {
 		if (pollId) {
-			window.clearInterval(pollId)
+			window.clearTimeout(pollId)
 			setPollId(null)
 		}
 		setPolling(false)
+		setPollAttempts(0)
 	}
 
 	const getStatusColor = (status: string) => {
@@ -339,7 +410,7 @@ export function KycVerificationCard({ userInfo, minimal, redirectUrlOnSkip }: Ky
 								{polling && (
 									<p className="text-blue-600 dark:text-blue-400 text-xs mt-2 flex items-center gap-1.5">
 										<span className="inline-block h-1.5 w-1.5 rounded-full bg-blue-600 dark:bg-blue-400 animate-pulse"></span>
-										Auto-checking every {pollIntervalMs / 1000} seconds
+										Auto-checking status with smart intervals
 									</p>
 								)}
 							</div>
