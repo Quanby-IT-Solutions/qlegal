@@ -31,12 +31,11 @@ export function Footer() {
 						>
 							<QuanbyLogo className="size-8!" />
 							<span className="from-foreground to-foreground/80 bg-linear-to-r bg-clip-text text-xl font-bold leading-tight tracking-tight text-transparent">
-								QSign Main
+							Quanby Legal
 							</span>
 						</Link>
 						<p className="text-muted-foreground leading-relaxed">
-							QSign Main is an e-notary platform—consult with a notary or lawyer and sign documents
-							together in a secure, guided session.
+						Supreme Court accredited platform for secure and compliant electronic notarization.
 						</p>
 					</MotionEffect>
 
@@ -73,7 +72,7 @@ export function Footer() {
 					className="border-border/40 mt-12 border-t pt-8 text-center"
 				>
 					<p className="text-muted-foreground text-sm">
-						&copy; {new Date().getFullYear()} QSign Main. All rights reserved.
+						&copy; {new Date().getFullYear()} Quanby Legal. All rights reserved.
 					</p>
 				</MotionEffect>
 			</div>
