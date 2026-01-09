@@ -172,12 +172,12 @@ jobs:
             NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
             SUPABASE_SERVICE_ROLE_KEY=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
 
-            EMAIL_HOST=${{ secrets.EMAIL_HOST }}
-            EMAIL_PORT=${{ secrets.EMAIL_PORT }}
-            EMAIL_USER=${{ secrets.EMAIL_USER }}
+            EMAIL_HOST=${{ vars.EMAIL_HOST }}
+            EMAIL_PORT=${{ vars.EMAIL_PORT }}
+            EMAIL_USER=${{ vars.EMAIL_USER }}
             EMAIL_PASS=${{ secrets.EMAIL_PASS }}
-            EMAIL_FROM=${{ secrets.EMAIL_FROM }}
-            EMAIL_FROM_NAME=${{ secrets.EMAIL_FROM_NAME }}
+            EMAIL_FROM=${{ vars.EMAIL_FROM }}
+            EMAIL_FROM_NAME=${{ vars.EMAIL_FROM_NAME }}
 
             VIDEO_SDK_API_KEY=${{ secrets.VIDEO_SDK_API_KEY }}
             VIDEO_SDK_SECRET=${{ secrets.VIDEO_SDK_SECRET }}
