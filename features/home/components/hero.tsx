@@ -1,6 +1,6 @@
 "use client"
 
-// import { Pacifico } from "next/font/google"
+import { Pacifico } from "next/font/google"
 import { motion } from "motion/react"
 
 import { ElegantShape } from "@/core/components/elegant-shape"
@@ -8,14 +8,13 @@ import { cn } from "@/core/lib/utils"
 
 import { SearchCombobox } from "@/features/home/components/ui/search-combobox"
 
-// Temporarily using system fonts to avoid build-time Google Fonts fetch requirement
-// const pacifico = Pacifico({
-// 	subsets: ["latin"],
-// 	weight: ["400"],
-// 	variable: "--font-pacifico",
-// 	display: "swap",
-// 	fallback: ["cursive", "system-ui"],
-// })
+const pacifico = Pacifico({
+	subsets: ["latin"],
+	weight: ["400"],
+	variable: "--font-pacifico",
+	display: "swap",
+	fallback: ["cursive", "system-ui"],
+})
 
 export function Hero({
 	title1 = "This is my",
@@ -45,20 +44,20 @@ export function Hero({
 							ease: "easeOut",
 						}}
 					>
-						<h1 className="mb-6 text-4xl font-bold tracking-tight sm:text-6xl md:mb-8 md:text-8xl">
-							<span className="bg-gradient-to-b from-black/90 to-black/70 bg-clip-text text-transparent dark:from-white dark:to-white/80">
-								{title1}
-							</span>
-							<br className="my-2" />
-							<span
-								className={cn(
-									"bg-gradient-to-r from-indigo-400 to-rose-400 bg-clip-text text-transparent dark:from-indigo-400 dark:to-rose-400",
-									"font-serif"
-								)}
-							>
-								{title2}
-							</span>
-						</h1>
+					<h1 className="mb-6 text-4xl font-bold tracking-tight sm:text-6xl md:mb-8 md:text-8xl">
+						<span className="font-bold bg-gradient-to-b from-black/90 to-black/70 bg-clip-text text-transparent dark:from-white dark:to-white/80">
+							{title1}
+						</span>
+						<br className="my-2" />
+						<span
+							className={cn(
+								"font-bold bg-gradient-to-r from-indigo-400 to-rose-400 bg-clip-text text-transparent dark:from-indigo-400 dark:to-rose-400",
+								pacifico.className
+							)}
+						>
+							{title2}
+						</span>
+					</h1>
 					</motion.div>
 
 					<motion.div
