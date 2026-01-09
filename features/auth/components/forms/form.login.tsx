@@ -106,12 +106,19 @@ export function LoginForm({ callbackUrl }: { callbackUrl?: Route }) {
 					// Update the session to reflect the logged-in user immediately
 					const updatedSession = await update()
 					// Navigate to KYC if not verified, otherwise go to callback URL or dashboard
-					// @ts-expect-error augmented session field
-					const kycStatus = updatedSession?.user?.kycStatus
-					if (kycStatus === "NOT_STARTED" || kycStatus === "PENDING") {
-						router.push("/auth/kyc")
+					
+					const user = updatedSession?.user
+					if (user) {
+						const kycStatus: string | undefined = "kycStatus" in user && typeof user.kycStatus === "string" ? user.kycStatus : undefined
+						if (kycStatus === "NOT_STARTED" || kycStatus === "PENDING") {
+							router.push("/auth/kyc" as Route)
+						} else {
+							const destination: Route = (callbackUrl ?? "/dashboard")
+							router.push(destination)
+						}
 					} else {
-						router.push(callbackUrl ?? "/dashboard")
+						const destination: Route = (callbackUrl ?? "/dashboard")
+						router.push(destination)
 					}
 					router.refresh()
 				}

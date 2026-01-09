@@ -34,8 +34,8 @@ export default proxy(req => {
 		// BUT: Don't handle callback URLs on the signature page itself
 		const callbackUrl = nextUrl.searchParams.get("callbackUrl")
 		if (isAuth && callbackUrl && path !== "/auth/signature") {
-			// @ts-expect-error augmented user field
-			const kycStatus = auth?.user?.kycStatus as string | undefined
+			
+			const kycStatus = auth?.user?.kycStatus
 			
 			// STRICT KYC: If not verified, always redirect to KYC first, regardless of callback
 			if (kycStatus === "NOT_STARTED" || kycStatus === "PENDING") {
@@ -72,8 +72,8 @@ export default proxy(req => {
 		if (hasAccess) {
 			// STRICT KYC GATE: All authenticated users must complete KYC before accessing any protected routes
 			const onAuthPage = matchesAnyRoute(path, ROUTE_CONFIG.publicOnly) || path.startsWith("/auth/")
-			// @ts-expect-error augmented user field
-			const kycStatus = auth?.user?.kycStatus as string | undefined
+			// ts-expect-error augmented user field
+			const kycStatus = auth?.user?.kycStatus
 			
 			// KYC Gate: Redirect to KYC page if:
 			// - User is authenticated AND
@@ -94,8 +94,7 @@ export default proxy(req => {
 		// User is logged in but lacks permission for this route
 		if (isAuth) {
 			const isPublicOnly = matchesAnyRoute(path, ROUTE_CONFIG.publicOnly)
-			// @ts-expect-error augmented user field
-			const kycStatus = auth?.user?.kycStatus as string | undefined
+			const kycStatus = auth?.user?.kycStatus
 
 			if (isPublicOnly) {
 				// AUTH ROUTES: Logged-in users cannot access auth pages

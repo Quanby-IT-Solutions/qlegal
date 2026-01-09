@@ -72,21 +72,7 @@ ChartJS.register(
 	ChartLegend,
 	Filler
 )
-import { trpc } from "@/services/trpc/client"
-import { SidebarTrigger } from "@/core/components/animate-ui/components/radix/sidebar"
-import { Separator } from "@/core/components/ui/separator"
 import { ModeToggle } from "@/core/components/mode-toggle"
-import { Button } from "@/core/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/core/components/ui/card"
-import { Badge } from "@/core/components/ui/badge"
-import { Avatar, AvatarFallback, AvatarImage } from "@/core/components/ui/avatar"
-import { Skeleton } from "@/core/components/ui/skeleton"
-import {
-	Breadcrumb,
-	BreadcrumbItem,
-	BreadcrumbList,
-	BreadcrumbPage,
-} from "@/features/home/components/ui/breadcrumb"
 // Chart colors
 const COLORS = {
 	primary: "#3b82f6",
