@@ -8,7 +8,7 @@ import { signatureRequests } from "@/services/drizzle/schema/signature-requests"
 import { documents } from "@/services/drizzle/schema/document"
 import { users } from "@/services/drizzle/schema/auth"
 import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
-import { addSignerToProject, sendDocoChainProject, generateSignLink, generateEditDraftLink, autoJoinOrganization, getProjectDetails, deleteSigner, updateProjectSigner, checkSigningStatus, downloadSignedDocument, downloadCertificate, getPassportDocument } from "@/services/docochain"
+import { addSignerToProject, sendDocoChainProject, generateSignLink, generateEditDraftLink, autoJoinOrganization, getProjectDetails, deleteSigner, updateProjectSigner, checkSigningStatus, downloadSignedDocument, downloadCertificate, getPassportDocument, getDocoChainToken } from "@/services/docochain"
 
 const DOCOCHAIN_API_BASE = env.DOCOCHAIN_API_URL ?? "https://stg-api2.doconchain.com"
 
@@ -497,7 +497,26 @@ export const signatureRequestsRouter = createTRPCRouter({
 					// First, try to use the stored redirect_url from Create Project (has auth token)
 					// Only use this for Draft projects
 					if (document?.docoChainRedirectUrl && projectStatus === "Draft") {
-						signingLink = document.docoChainRedirectUrl
+						// Clean up the URL - remove api=null parameter if present
+						try {
+							const url = new URL(document.docoChainRedirectUrl)
+							// Remove api parameter if it's null or empty
+							if (url.searchParams.has('api') && (url.searchParams.get('api') === 'null' || url.searchParams.get('api') === '')) {
+								url.searchParams.delete('api')
+								console.log("🧹 Cleaned stored redirect URL - removed api=null parameter")
+							}
+							// Ensure api_token is present
+							if (!url.searchParams.has('api_token') && creatorEmail) {
+								const apiToken = await getDocoChainToken(creatorEmail)
+								url.searchParams.set('api_token', apiToken)
+								console.log("✅ Added api_token parameter to stored redirect URL")
+							}
+							signingLink = url.toString()
+						} catch {
+							// If URL parsing fails, try simple string replacement
+							signingLink = document.docoChainRedirectUrl.replace(/\?api=null(&|$)/, '?').replace(/&api=null(&|$)/, '&').replace(/\?$/, '')
+							console.log("🧹 Cleaned stored redirect URL using string replacement")
+						}
 						console.log("✅ Using stored redirect URL from Create Project:", signingLink)
 					} else {
 						// Generate Edit Draft Project Link (allows plotting/editing/signing in draft)
