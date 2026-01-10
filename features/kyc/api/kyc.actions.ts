@@ -1,7 +1,7 @@
 "use server"
 
-import { eq } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
+import { eq } from "drizzle-orm"
 
 import { db } from "@/services/drizzle/db"
 import { users } from "@/services/drizzle/schema/auth"
@@ -37,10 +37,10 @@ export async function createUserKycLink() {
 
 	const transactionId = generateTransactionId(session.user.id)
 
-	// Build redirect URL - use NEXTAUTH_URL or fallback to localhost
+	// Build redirect URL - use /auth/kyc directly to avoid middleware redirect that strips query params
 	const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000"
-	const redirectUrl = `${baseUrl}/kyc?status=complete`
-	
+	const redirectUrl = `${baseUrl}/auth/kyc?status=complete`
+
 	console.log("🔗 Creating KYC link with redirect:", redirectUrl)
 
 	const config: OnboardLinkConfig = {
@@ -124,7 +124,8 @@ export async function checkUserKycStatus() {
 
 	try {
 		const result = await getTransactionStatus(user.kycTransactionId)
-		const applicationStatus = (result.result as any).applicationStatus || (result.result as any).status
+		const applicationStatus =
+			(result.result as any).applicationStatus || (result.result as any).status
 		const interpretation = interpretStatus(applicationStatus)
 
 		console.log("🔍 KYC Status Check:", {
