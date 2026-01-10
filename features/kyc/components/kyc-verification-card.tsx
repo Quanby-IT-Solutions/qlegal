@@ -84,6 +84,16 @@ export function KycVerificationCard({
 						console.log("✅ KYC Verified! Redirecting to dashboard...")
 						toast.success("KYC verification approved! Redirecting...")
 
+						// Close the original /auth/kyc tab if this was opened from there
+						if (window.opener && !(window.opener as Window).closed) {
+							console.log("🔄 Closing original /auth/kyc tab...")
+							try {
+								;(window.opener as Window).close()
+							} catch (e) {
+								console.warn("Could not close opener window:", e)
+							}
+						}
+
 						// Redirect to dashboard after brief delay
 						setTimeout(() => {
 							window.location.href = "/dashboard"
@@ -104,6 +114,22 @@ export function KycVerificationCard({
 				setCheckingStatus(false)
 			})
 		}
+
+		// If user returns to this tab and KYC is already verified, redirect to dashboard
+		const handleFocus = () => {
+			if (userInfo.transactionId && !checkingStatus && !status) {
+				// Only check if we're on the original /auth/kyc tab (no ?status param)
+				void checkUserKycStatus().then(result => {
+					if (result.success && result.data?.kycStatus === "VERIFIED") {
+						console.log("✅ KYC already verified in another tab. Redirecting...")
+						window.location.href = "/dashboard"
+					}
+				})
+			}
+		}
+
+		window.addEventListener("focus", handleFocus)
+		return () => window.removeEventListener("focus", handleFocus)
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [searchParams, userInfo.transactionId])
 
@@ -118,8 +144,8 @@ export function KycVerificationCard({
 				window.open(result.data.url, "_blank", "noopener,noreferrer")
 				toast.success("KYC verification link created! Opening in new window...")
 
-				// Don't start polling here - user hasn't started KYC yet
-				// Polling will start automatically when they complete and redirect back
+				// User completes KYC in new window, then redirects back with ?status=complete
+				// Single status check will happen automatically when they return
 				console.log("✅ KYC link created. Waiting for user to complete verification...")
 			} else {
 				setError(result.error ?? "Failed to create KYC link")
