@@ -1,20 +1,19 @@
 "use client"
 
-import { useEffect, useMemo, useState, useTransition } from "react"
-import { CheckCircle2, ExternalLink, Loader2, ShieldCheck, XCircle } from "lucide-react"
 import { useSearchParams } from "next/navigation"
+import { useEffect, useMemo, useState, useTransition } from "react"
+import { CheckCircle2, Loader2, ShieldCheck, XCircle } from "lucide-react"
 import { toast } from "sonner"
 
 import { Badge } from "@/core/components/ui/badge"
 import { Button } from "@/core/components/ui/button"
 import { Label } from "@/core/components/ui/label"
 
-import { checkUserKycStatus, createUserKycLink, resetUserKycStatus } from "@/features/kyc/api/kyc.actions"
-
-interface KycLinkResult {
-	transactionId: string
-	url: string
-}
+import {
+	checkUserKycStatus,
+	createUserKycLink,
+	resetUserKycStatus,
+} from "@/features/kyc/api/kyc.actions"
 
 interface KycStatusResult {
 	transactionId: string
@@ -38,30 +37,23 @@ interface KycVerificationCardProps {
 	redirectUrlOnSkip?: string
 }
 
-export function KycVerificationCard({ userInfo, minimal, redirectUrlOnSkip }: KycVerificationCardProps) {
+export function KycVerificationCard({
+	userInfo,
+	minimal,
+	redirectUrlOnSkip,
+}: KycVerificationCardProps) {
 	const [isPending, startTransition] = useTransition()
-	const [linkResult, setLinkResult] = useState<KycLinkResult | null>(null)
 	const [statusResult, setStatusResult] = useState<KycStatusResult | null>(null)
 	const [error, setError] = useState<string | null>(null)
-	const [polling, setPolling] = useState(false)
-	const [pollId, setPollId] = useState<number | null>(null)
+	const [checkingStatus, setCheckingStatus] = useState(false)
 	const [shownToasts, setShownToasts] = useState<Set<string>>(new Set())
-	const [pollAttempts, setPollAttempts] = useState(0)
 	const searchParams = useSearchParams()
 
-	// Polling configuration with exponential backoff
-	const MAX_POLL_ATTEMPTS = 20 // Maximum 20 attempts (about 5-10 minutes)
-	const BASE_POLL_INTERVAL = 10000 // Start with 10 seconds
-	const MAX_POLL_INTERVAL = 60000 // Max 60 seconds between polls
-
-	const handleSkip = () => {
-		// Skip functionality removed - KYC is now mandatory
-		// Users must complete verification to access the platform
-		console.warn("KYC verification is mandatory and cannot be skipped")
-	}
-
 	// When verified in minimal mode, auto-redirect to dashboard after short delay
-	const effectiveStatus = useMemo(() => statusResult?.kycStatus || userInfo.kycStatus, [statusResult, userInfo.kycStatus])
+	const effectiveStatus = useMemo(
+		() => statusResult?.kycStatus ?? userInfo.kycStatus,
+		[statusResult, userInfo.kycStatus]
+	)
 	useEffect(() => {
 		if (minimal && effectiveStatus === "VERIFIED" && redirectUrlOnSkip) {
 			const t = setTimeout(() => {
@@ -71,43 +63,57 @@ export function KycVerificationCard({ userInfo, minimal, redirectUrlOnSkip }: Ky
 		}
 	}, [minimal, effectiveStatus, redirectUrlOnSkip])
 
-	// Check if user completed KYC (from redirect) or has pending status
+	// Check status ONCE after redirect from HyperVerge
+	// Following HyperVerge best practices: Single check after completion, not polling
 	useEffect(() => {
 		const status = searchParams.get("status")
+
 		// Auto-check status when redirected from HyperVerge
-		if (status === "complete" && userInfo.transactionId) {
-			// Wait longer if just completed to allow HyperVerge to process (15 seconds)
-			console.log("⏳ KYC completed, will check status in 15s and start polling...")
-			
-			const timer = setTimeout(() => {
-				console.log("🔍 Auto-checking KYC status and starting polling...")
-				// Check status once, then start polling if still pending
-				startTransition(async () => {
-					const result = await checkUserKycStatus()
-					if (result.success && result.data) {
-						setStatusResult(result.data)
-						// Only start polling if still pending
-						if (result.data.kycStatus === "PENDING" && !result.data.isComplete) {
-							startPolling(userInfo.transactionId!)
-						}
+		if (status === "complete" && userInfo.transactionId && !checkingStatus) {
+			console.log("✅ KYC flow completed - checking status once (HyperVerge best practice)")
+			setCheckingStatus(true)
+
+			// Single status check after redirect (webhook should have already updated DB)
+			startTransition(async () => {
+				const result = await checkUserKycStatus()
+
+				if (result.success && result.data) {
+					setStatusResult(result.data)
+
+					if (result.data.kycStatus === "VERIFIED") {
+						console.log("✅ KYC Verified! Redirecting to dashboard...")
+						toast.success("KYC verification approved! Redirecting...")
+
+						// Redirect to dashboard after brief delay
+						setTimeout(() => {
+							window.location.href = "/dashboard"
+						}, 1500)
+					} else if (result.data.kycStatus === "REJECTED") {
+						console.log("❌ KYC Rejected")
+						toast.error("KYC verification was declined. Please try again or contact support.")
+					} else {
+						// Still pending - webhook notification will update when ready
+						console.log("⏳ KYC still processing - webhook will notify when complete")
+						toast.info("Verification is being processed. You'll be notified when complete.")
 					}
-				})
-			}, 15000)
-			return () => clearTimeout(timer)
+				} else {
+					console.warn("⚠️ Could not check status:", result.error)
+					toast.info("Checking verification status... Please wait.")
+				}
+
+				setCheckingStatus(false)
+			})
 		}
-		// For existing PENDING status, don't auto-poll - let user manually check
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [searchParams, userInfo.transactionId])
 
 	const handleCreateLink = () => {
 		setError(null)
-		setLinkResult(null)
 		setStatusResult(null)
 
 		startTransition(async () => {
 			const result = await createUserKycLink()
 			if (result.success && result.data) {
-				setLinkResult(result.data)
 				// Auto-open the KYC link
 				window.open(result.data.url, "_blank", "noopener,noreferrer")
 				toast.success("KYC verification link created! Opening in new window...")
@@ -116,8 +122,8 @@ export function KycVerificationCard({ userInfo, minimal, redirectUrlOnSkip }: Ky
 				// Polling will start automatically when they complete and redirect back
 				console.log("✅ KYC link created. Waiting for user to complete verification...")
 			} else {
-				setError(result.error || "Failed to create KYC link")
-				toast.error(result.error || "Failed to create KYC link")
+				setError(result.error ?? "Failed to create KYC link")
+				toast.error(result.error ?? "Failed to create KYC link")
 			}
 		})
 	}
@@ -129,124 +135,31 @@ export function KycVerificationCard({ userInfo, minimal, redirectUrlOnSkip }: Ky
 			const result = await checkUserKycStatus()
 			if (result.success && result.data) {
 				setStatusResult(result.data)
-				// Stop polling if complete or decided
-				if (
-					result.data.isComplete ||
-					result.data.isApproved ||
-					result.data.kycStatus === "VERIFIED" ||
-					result.data.kycStatus === "REJECTED"
-				) {
-					stopPolling()
-					// Only show toast if not already shown for this status
-					const toastKey = `${result.data.kycStatus}-${result.data.isApproved}`
-					if (result.data.isApproved && !shownToasts.has(toastKey)) {
-						toast.success("KYC verification approved!")
-						setShownToasts(prev => new Set(prev).add(toastKey))
-					}
+
+				// Show appropriate message and redirect if verified
+				if (result.data.kycStatus === "VERIFIED") {
+					toast.success("KYC verification approved! Redirecting to dashboard...")
+					setTimeout(() => {
+						window.location.href = "/dashboard"
+					}, 1500)
+				} else if (result.data.kycStatus === "REJECTED") {
+					toast.error("KYC verification was declined.")
+				} else {
+					toast.info("Verification is still being processed. Please check again in a few minutes.")
 				}
 			} else {
 				const errorKey = `error-${result.error}`
 				if (!shownToasts.has(errorKey)) {
-					setError(result.error || "Failed to check KYC status")
-					toast.error(result.error || "Failed to check KYC status")
+					setError(result.error ?? "Failed to check KYC status")
+					toast.error(result.error ?? "Failed to check KYC status")
 					setShownToasts(prev => new Set(prev).add(errorKey))
 				}
 			}
 		})
 	}
 
-	const startPolling = (transactionId: string) => {
-		if (polling) return
-		
-		setPolling(true)
-		setPollAttempts(0)
-		
-		const pollWithBackoff = async (attempt: number) => {
-			// Check if we've exceeded max attempts
-			if (attempt >= MAX_POLL_ATTEMPTS) {
-				console.warn("⚠️ Max polling attempts reached. Please refresh the page to check status.")
-				const toastKey = "max-attempts"
-				if (!shownToasts.has(toastKey)) {
-					toast.info("Still processing... Please refresh the page in a few minutes to check your verification status.")
-					setShownToasts(prev => new Set(prev).add(toastKey))
-				}
-				stopPolling()
-				return
-			}
-
-			try {
-				const result = await checkUserKycStatus()
-				setPollAttempts(attempt + 1)
-
-				if (result.success && result.data) {
-					setStatusResult(result.data)
-					
-					// Check if verification is complete
-					if (
-						result.data.isComplete ||
-						result.data.isApproved ||
-						result.data.kycStatus === "VERIFIED" ||
-						result.data.kycStatus === "REJECTED"
-					) {
-						stopPolling()
-						// Show success toast only once during polling
-						const toastKey = `${result.data.kycStatus}-${result.data.isApproved}`
-						if (result.data.isApproved && !shownToasts.has(toastKey)) {
-							toast.success("KYC verification approved!")
-							setShownToasts(prev => new Set(prev).add(toastKey))
-						}
-						return
-					}
-					
-					// Calculate next interval with exponential backoff
-					// Formula: min(BASE * 1.5^attempt, MAX)
-					const nextInterval = Math.min(
-						BASE_POLL_INTERVAL * Math.pow(1.5, attempt),
-						MAX_POLL_INTERVAL
-					)
-					
-					console.log(`⏱️ Next KYC status check in ${Math.round(nextInterval / 1000)}s (attempt ${attempt + 1}/${MAX_POLL_ATTEMPTS})`)
-					
-					// Schedule next poll
-					const id = window.setTimeout(() => pollWithBackoff(attempt + 1), nextInterval)
-					setPollId(id as any)
-				} else {
-					// API call failed - could be network issue or transaction not ready yet
-					console.warn(`⚠️ Status check failed (attempt ${attempt + 1}): ${result.error || 'Unknown error'}`)
-					
-					// Retry with exponential backoff instead of stopping immediately
-					if (attempt < MAX_POLL_ATTEMPTS - 1) {
-						const nextInterval = Math.min(
-							BASE_POLL_INTERVAL * Math.pow(1.5, attempt),
-							MAX_POLL_INTERVAL
-						)
-						console.log(`⏱️ Retrying in ${Math.round(nextInterval / 1000)}s...`)
-						const id = window.setTimeout(() => pollWithBackoff(attempt + 1), nextInterval)
-						setPollId(id as any)
-					} else {
-						console.log("⚠️ Max retry attempts reached, stopping polling")
-						stopPolling()
-					}
-				}
-			} catch (error) {
-				// Catch any unexpected errors
-				console.error("❌ Unexpected error during polling:", error)
-				stopPolling()
-			}
-		}
-
-		// Start first poll immediately
-		pollWithBackoff(0)
-	}
-
-	const stopPolling = () => {
-		if (pollId) {
-			window.clearTimeout(pollId)
-			setPollId(null)
-		}
-		setPolling(false)
-		setPollAttempts(0)
-	}
+	// No polling - following HyperVerge best practices
+	// Webhook handles real-time updates, manual check is fallback only
 
 	const getStatusColor = (status: string) => {
 		switch (status) {
@@ -297,30 +210,27 @@ export function KycVerificationCard({ userInfo, minimal, redirectUrlOnSkip }: Ky
 	}
 
 	// Show existing status if available
-	const currentStatus = statusResult?.kycStatus || userInfo.kycStatus || "NOT_STARTED"
-	const hasExistingVerification = userInfo.transactionId && userInfo.kycStatus !== "NOT_STARTED"
+	const currentStatus = statusResult?.kycStatus ?? userInfo.kycStatus ?? "NOT_STARTED"
 
 	return (
 		<div className="space-y-6">
 			{/* Status Badge - Only show in non-minimal or if not NOT_STARTED */}
 			{(!minimal || currentStatus !== "NOT_STARTED") && (
-				<div className="flex items-center justify-center">
-					{getStatusBadge(currentStatus)}
-				</div>
+				<div className="flex items-center justify-center">{getStatusBadge(currentStatus)}</div>
 			)}
 
 			{/* Account Information - Only show in non-minimal mode */}
 			{!minimal && (
 				<div className="space-y-2">
 					<Label>Account Information</Label>
-					<div className="bg-muted rounded-lg p-4 space-y-2">
+					<div className="bg-muted space-y-2 rounded-lg p-4">
 						<div className="flex justify-between text-sm">
 							<span className="text-muted-foreground">Name:</span>
-							<span className="font-medium">{userInfo.name || "N/A"}</span>
+							<span className="font-medium">{userInfo.name ?? "N/A"}</span>
 						</div>
 						<div className="flex justify-between text-sm">
 							<span className="text-muted-foreground">Email:</span>
-							<span className="font-medium">{userInfo.email || "N/A"}</span>
+							<span className="font-medium">{userInfo.email ?? "N/A"}</span>
 						</div>
 						{userInfo.transactionId && (
 							<div className="flex justify-between text-sm">
@@ -332,49 +242,26 @@ export function KycVerificationCard({ userInfo, minimal, redirectUrlOnSkip }: Ky
 				</div>
 			)}
 
-			{/* Development Helper - Reset KYC */}
-			{process.env.NODE_ENV === "development" && currentStatus !== "NOT_STARTED" && (
-				<div className="pt-2 border-t">
-					<Button
-						onClick={async () => {
-							if (confirm("Reset KYC status? This will clear your current verification.")) {
-								const result = await resetUserKycStatus()
-								if (result.success) {
-									toast.success("KYC status reset successfully")
-									window.location.reload()
-								} else {
-									toast.error(result.error || "Failed to reset")
-								}
-							}
-						}}
-						variant="ghost"
-						size="sm"
-						className="w-full text-xs text-muted-foreground"
-					>
-						{/* [Dev] Reset KYC Status */}
-					</Button>
-				</div>
-			)}
-
 			{/* NOT_STARTED State */}
 			{currentStatus === "NOT_STARTED" && (
 				<div className="space-y-4">
 					{!minimal && (
-						<div className="rounded-lg border border-blue-200 bg-blue-50 dark:bg-blue-950/20 dark:border-blue-800 p-4">
-							<p className="text-blue-900 dark:text-blue-100 text-sm font-medium mb-2">
-								 Identity Verification Required
+						<div className="rounded-lg border border-blue-200 bg-blue-50 p-4 dark:border-blue-800 dark:bg-blue-950/20">
+							<p className="mb-2 text-sm font-medium text-blue-900 dark:text-blue-100">
+								Identity Verification Required
 							</p>
-							<p className="text-blue-700 dark:text-blue-300 text-sm">
-								To ensure security and compliance, all users must complete identity verification before accessing platform features. This process takes just a few minutes.
+							<p className="text-sm text-blue-700 dark:text-blue-300">
+								To ensure security and compliance, all users must complete identity verification
+								before accessing platform features. This process takes just a few minutes.
 							</p>
 						</div>
 					)}
 					{minimal && (
-						<div className="rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800 p-4 text-center">
-							<p className="text-amber-900 dark:text-amber-100 text-sm font-semibold mb-1">
-								 Verification Required
+						<div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-center dark:border-amber-800 dark:bg-amber-950/20">
+							<p className="mb-1 text-sm font-semibold text-amber-900 dark:text-amber-100">
+								Verification Required
 							</p>
-							<p className="text-amber-700 dark:text-amber-300 text-xs">
+							<p className="text-xs text-amber-700 dark:text-amber-300">
 								Complete your identity verification to continue
 							</p>
 						</div>
@@ -398,26 +285,33 @@ export function KycVerificationCard({ userInfo, minimal, redirectUrlOnSkip }: Ky
 			{/* PENDING State */}
 			{currentStatus === "PENDING" && (
 				<div className="space-y-4">
-					<div className="rounded-lg border border-blue-200 bg-blue-50 dark:bg-blue-950/20 dark:border-blue-800 p-4">
+					<div className="rounded-lg border border-blue-200 bg-blue-50 p-4 dark:border-blue-800 dark:bg-blue-950/20">
 						<div className="flex items-start gap-3">
-							<Loader2 className="h-5 w-5 text-blue-600 dark:text-blue-400 animate-spin mt-0.5 flex-shrink-0" />
+							<Loader2 className="mt-0.5 h-5 w-5 shrink-0 animate-spin text-blue-600 dark:text-blue-400" />
 							<div className="flex-1">
-								<p className="font-medium text-blue-900 dark:text-blue-100 mb-1">Verification In Progress</p>
-								<p className="text-blue-700 dark:text-blue-300 text-sm">
-									We&apos;re reviewing your identity documents. This usually takes a few minutes.
-									{polling && " We&apos;ll automatically check your status and notify you when complete."}
+								<p className="mb-1 font-medium text-blue-900 dark:text-blue-100">
+									Verification In Progress
 								</p>
-								{polling && (
-									<p className="text-blue-600 dark:text-blue-400 text-xs mt-2 flex items-center gap-1.5">
-										<span className="inline-block h-1.5 w-1.5 rounded-full bg-blue-600 dark:bg-blue-400 animate-pulse"></span>
-										Auto-checking status with smart intervals
+								<p className="text-sm text-blue-700 dark:text-blue-300">
+									We&apos;re reviewing your identity documents. This usually takes a few minutes.
+									{checkingStatus && " Checking your verification status..."}
+								</p>
+								{!checkingStatus && (
+									<p className="mt-2 text-xs text-blue-600 dark:text-blue-400">
+										💡 You&apos;ll be automatically redirected when your verification is complete,
+										or you can check manually below.
 									</p>
 								)}
 							</div>
 						</div>
 					</div>
-					<Button onClick={handleCheckStatus} disabled={isPending} variant="outline" className="w-full">
-						{isPending ? (
+					<Button
+						onClick={handleCheckStatus}
+						disabled={isPending || checkingStatus}
+						variant="outline"
+						className="w-full"
+					>
+						{isPending || checkingStatus ? (
 							<>
 								<Loader2 className="mr-2 h-4 w-4 animate-spin" />
 								Checking...
@@ -435,22 +329,25 @@ export function KycVerificationCard({ userInfo, minimal, redirectUrlOnSkip }: Ky
 			{/* VERIFIED State */}
 			{currentStatus === "VERIFIED" && (
 				<div className="space-y-4">
-					<div className="rounded-lg border border-green-200 bg-green-50 dark:bg-green-950/20 dark:border-green-800 p-4">
+					<div className="rounded-lg border border-green-200 bg-green-50 p-4 dark:border-green-800 dark:bg-green-950/20">
 						<div className="flex items-start gap-3">
-							<CheckCircle2 className="h-6 w-6 text-green-600 dark:text-green-400 mt-0.5 flex-shrink-0" />
+							<CheckCircle2 className="mt-0.5 h-6 w-6 shrink-0 text-green-600 dark:text-green-400" />
 							<div className="flex-1">
-								<p className="font-semibold text-green-900 dark:text-green-100 text-lg mb-1">✓ Verification Complete!</p>
-								<p className="text-green-700 dark:text-green-300 text-sm">
-									Your identity has been successfully verified. You now have full access to all platform features.
+								<p className="mb-1 text-lg font-semibold text-green-900 dark:text-green-100">
+									✓ Verification Complete!
+								</p>
+								<p className="text-sm text-green-700 dark:text-green-300">
+									Your identity has been successfully verified. You now have full access to all
+									platform features.
 								</p>
 							</div>
 						</div>
 					</div>
-					<Button 
-						onClick={() => window.location.href = redirectUrlOnSkip || "/dashboard"} 
-						className="w-full" 
-						variant="default" 
-						size="lg" 
+					<Button
+						onClick={() => (window.location.href = redirectUrlOnSkip ?? "/dashboard")}
+						className="w-full"
+						variant="default"
+						size="lg"
 						type="button"
 					>
 						<CheckCircle2 className="mr-2 h-5 w-5" />
@@ -462,16 +359,20 @@ export function KycVerificationCard({ userInfo, minimal, redirectUrlOnSkip }: Ky
 			{/* REJECTED State */}
 			{currentStatus === "REJECTED" && (
 				<div className="space-y-4">
-					<div className="rounded-lg border border-red-200 bg-red-50 dark:bg-red-950/20 dark:border-red-800 p-4">
+					<div className="rounded-lg border border-red-200 bg-red-50 p-4 dark:border-red-800 dark:bg-red-950/20">
 						<div className="flex items-start gap-3">
-							<XCircle className="h-5 w-5 text-red-600 dark:text-red-400 mt-0.5 flex-shrink-0" />
+							<XCircle className="mt-0.5 h-5 w-5 shrink-0 text-red-600 dark:text-red-400" />
 							<div className="flex-1">
-								<p className="font-medium text-red-900 dark:text-red-100 mb-1">Verification Not Approved</p>
-								<p className="text-red-700 dark:text-red-300 text-sm mb-2">
-									Your identity verification was not approved. This could be due to unclear documents or mismatched information.
+								<p className="mb-1 font-medium text-red-900 dark:text-red-100">
+									Verification Not Approved
 								</p>
-								<p className="text-red-600 dark:text-red-400 text-xs">
-									💡 Please ensure your ID is clear, well-lit, and all information is visible before retrying.
+								<p className="mb-2 text-sm text-red-700 dark:text-red-300">
+									Your identity verification was not approved. This could be due to unclear
+									documents or mismatched information.
+								</p>
+								<p className="text-xs text-red-600 dark:text-red-400">
+									💡 Please ensure your ID is clear, well-lit, and all information is visible before
+									retrying.
 								</p>
 							</div>
 						</div>
@@ -484,7 +385,7 @@ export function KycVerificationCard({ userInfo, minimal, redirectUrlOnSkip }: Ky
 									toast.success("Ready to start new verification")
 									window.location.reload()
 								} else {
-									toast.error(result.error || "Failed to reset. Please contact support.")
+									toast.error(result.error ?? "Failed to reset. Please contact support.")
 								}
 							}
 						}}
@@ -501,7 +402,7 @@ export function KycVerificationCard({ userInfo, minimal, redirectUrlOnSkip }: Ky
 
 			{/* Status Details - Only in non-minimal mode */}
 			{!minimal && statusResult && (
-				<div className="space-y-4 pt-4 border-t">
+				<div className="space-y-4 border-t pt-4">
 					<Label className="text-base font-semibold">Verification Details</Label>
 					<div className={`rounded-lg border p-4 ${getStatusColor(statusResult.status)}`}>
 						<p className="font-semibold capitalize">
@@ -523,10 +424,10 @@ export function KycVerificationCard({ userInfo, minimal, redirectUrlOnSkip }: Ky
 
 			{/* Error Display */}
 			{error && (
-				<div className="rounded-lg border border-red-200 bg-red-50 dark:bg-red-950/20 dark:border-red-800 p-4">
+				<div className="rounded-lg border border-red-200 bg-red-50 p-4 dark:border-red-800 dark:bg-red-950/20">
 					<div className="flex items-start gap-3">
-						<XCircle className="h-5 w-5 text-red-600 dark:text-red-400 mt-0.5 flex-shrink-0" />
-						<p className="text-red-700 dark:text-red-300 text-sm">{error}</p>
+						<XCircle className="mt-0.5 h-5 w-5 shrink-0 text-red-600 dark:text-red-400" />
+						<p className="text-sm text-red-700 dark:text-red-300">{error}</p>
 					</div>
 				</div>
 			)}
