@@ -1,4 +1,3 @@
-// import { DrizzleAdapter } from "@auth/drizzle-adapter"
 import { compare } from "bcryptjs"
 import { eq } from "drizzle-orm"
 import { type DefaultSession, type NextAuthConfig } from "next-auth"
@@ -47,7 +46,7 @@ export const authConfig = {
 	},
 	providers: [
 		Credentials({
-			async authorize(credentials, _req) {
+			async authorize(credentials) {
 				const validatedFields = loginSchema.safeParse(credentials)
 
 				if (!validatedFields.success) {
@@ -60,7 +59,7 @@ export const authConfig = {
 					where: (data, { eq }) => eq(data.email, email),
 				})
 
-				if (user instanceof Error || !user?.password) {
+				if (!user?.password) {
 					return null
 				}
 
@@ -90,15 +89,16 @@ export const authConfig = {
 				return true
 			}
 
-			const existingUser = await db.query.users.findFirst({
-				where: (data, { eq }) => eq(data.id, user.id ?? ""),
-			})
-
-			if (!existingUser || existingUser instanceof Error) {
+			if (!user.id) {
 				return false
 			}
 
-			if (!existingUser.emailVerified) {
+			const userId = user.id
+			const existingUser = await db.query.users.findFirst({
+				where: (data, { eq }) => eq(data.id, userId),
+			})
+
+			if (!existingUser?.emailVerified) {
 				return false
 			}
 
@@ -110,7 +110,7 @@ export const authConfig = {
 				where: (data, { eq }) => eq(data.userId, existingUser.id),
 			})
 
-			if (!twoFactorConfirmation || twoFactorConfirmation instanceof Error) {
+			if (!twoFactorConfirmation) {
 				return false
 			}
 
@@ -121,41 +121,41 @@ export const authConfig = {
 			return true
 		},
 		async session({ session, token }) {
+			if (!token.sub || !session.user) {
+				return session
+			}
+
+			const userId = token.sub
+
 			try {
-				if (token.sub) {
-					const user = await db.query.users.findFirst({
-						where: (data, { eq }) => eq(data.id, token.sub ?? ""),
-					})
+				const user = await db.query.users.findFirst({
+					where: (data, { eq }) => eq(data.id, userId),
+				})
 
-					if (user && session.user) {
-						session.user.id = token.sub
-						session.user.name = user.name ?? ""
-						session.user.email = user.email ?? ""
-						session.user.role = user.role
-						// Include KYC status in session for gating post-login
-						// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-						const kycStatusValue = user.kycStatus
-						// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-						const kycTransactionIdValue = user.kycTransactionId
-						session.user.kycStatus = (kycStatusValue ?? "NOT_STARTED") as string
-						session.user.kycTransactionId = (kycTransactionIdValue ?? null) as string | null
+				if (!user) {
+					return session
+				}
 
-						// Convert Supabase storage paths to displayable URLs
-						const imagePath = user.image ?? session.user.image
-						if (imagePath?.startsWith("http")) {
-							session.user.image = imagePath
-						} else if (imagePath) {
-							const { getPublicClient } = await import("@/services/supabase")
-							const supabase = getPublicClient()
-							const { data } = supabase.storage.from("avatars").getPublicUrl(imagePath)
-							session.user.image = data.publicUrl
-						}
-					}
+				session.user.id = userId
+				session.user.name = user.name ?? ""
+				session.user.email = user.email ?? ""
+				session.user.role = user.role
+				session.user.kycStatus = (user.kycStatus ?? "NOT_STARTED") as string
+				session.user.kycTransactionId = user.kycTransactionId ?? null
+
+				// Convert Supabase storage paths to displayable URLs
+				const imagePath = user.image ?? session.user.image
+				if (imagePath?.startsWith("http")) {
+					session.user.image = imagePath
+				} else if (imagePath) {
+					const { getPublicClient } = await import("@/services/supabase")
+					const supabase = getPublicClient()
+					const { data } = supabase.storage.from("avatars").getPublicUrl(imagePath)
+					session.user.image = data.publicUrl
 				}
 			} catch {
-				if (token.sub && session.user) {
-					session.user.id = token.sub
-				}
+				// Fallback to token data if DB query fails
+				session.user.id = userId
 			}
 
 			return session
@@ -166,36 +166,28 @@ export const authConfig = {
 				token.name = user.name
 				token.email = user.email
 				token.image = user.image ?? token.picture
-				// Attach initial KYC info from user, default to "NOT_STARTED" if not set
+
 				// Extract KYC fields safely - user may have extended properties from adapter
-				 
-				const userKycStatus = (user as { kycStatus?: string }).kycStatus
-				 
-				const userKycTransactionId = (user as { kycTransactionId?: string | null }).kycTransactionId
-				// ts-expect-error augment token
-				token.kycStatus = (userKycStatus ?? "NOT_STARTED")
-				// ts-expect-error augment token
-				token.kycTransactionId = (userKycTransactionId ?? null)
+				const userWithKyc = user as { kycStatus?: string; kycTransactionId?: string | null }
+				token.kycStatus = userWithKyc.kycStatus ?? "NOT_STARTED"
+				token.kycTransactionId = userWithKyc.kycTransactionId ?? null
 			}
 
 			// On subsequent runs, enrich token with KYC from DB
 			if (!user && token.sub) {
+				const userId = token.sub
+
 				try {
 					const existing = await db.query.users.findFirst({
-						where: (data, { eq }) => eq(data.id, token.sub ?? ""),
+						where: (data, { eq }) => eq(data.id, userId),
 					})
+
 					if (existing) {
-						// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-						const existingKycStatus = existing.kycStatus
-						// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-						const existingKycTransactionId = existing.kycTransactionId
-						// ts-expect-error augment token
-						token.kycStatus = (existingKycStatus ?? "NOT_STARTED") as string
-						// ts-expect-error augment token
-						token.kycTransactionId = (existingKycTransactionId ?? null) as string | null
+						token.kycStatus = (existing.kycStatus ?? "NOT_STARTED") as string
+						token.kycTransactionId = existing.kycTransactionId ?? null
 					}
 				} catch {
-					// Silently handle errors when enriching token with KYC data
+					// Silently fail - token will use existing values
 				}
 			}
 
@@ -204,16 +196,21 @@ export const authConfig = {
 	},
 	events: {
 		async linkAccount({ user, profile }) {
+			if (!user.email) {
+				return
+			}
+
+			const userEmail = user.email
 			const existingUser = await db.query.users.findFirst({
-				where: (data, { eq }) => eq(data.email, user.email ?? ""),
+				where: (data, { eq }) => eq(data.email, userEmail),
 			})
 
-			if (existingUser && !(existingUser instanceof Error)) {
+			if (existingUser) {
 				await db
 					.update(users)
 					.set({
 						emailVerified: new Date(),
-						image: existingUser?.image ?? profile.image,
+						image: existingUser.image ?? profile.image,
 					})
 					.where(eq(users.id, existingUser.id))
 			}
