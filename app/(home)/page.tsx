@@ -6,14 +6,16 @@ import { Features } from "@/features/home/components/features"
 import { Footer } from "@/features/home/components/footer"
 import { Header } from "@/features/home/components/header"
 import { Hero } from "@/features/home/components/hero"
+import { Navbar } from "@/features/home/components/navbar"
 
 export default function Page() {
 	return (
 		<div className="relative">
-			<Header transition={true} />
+			<Navbar />
+			{/* <Header transition={true} /> */}
 
 			{/* Hero Section */}
-			<div className="flex h-dvh w-full items-center bg-background">
+			<div className="bg-background flex h-dvh w-full items-center">
 				<div className="w-full">
 					<Hero />
 				</div>
