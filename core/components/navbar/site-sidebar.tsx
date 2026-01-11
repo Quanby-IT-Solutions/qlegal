@@ -13,11 +13,11 @@ import {
 	SidebarMenuItem,
 	SidebarRail,
 } from "@/core/components/animate-ui/components/radix/sidebar"
-import { QuanbyLogo } from "@/core/components/quanby-logo"
 import { SidebarNavSection } from "@/core/components/navbar/sidebar-nav-section"
 import { SidebarSecondaryNav } from "@/core/components/navbar/sidebar-secondary-nav"
 import { UserDropdown } from "@/core/components/navbar/user-dropdown"
 import { WorkflowTabs } from "@/core/components/navbar/workflow-tabs"
+import { QuanbyLogo } from "@/core/components/quanby-logo"
 import { useIsMobile } from "@/core/hooks/use-mobile"
 import { navSecondary, workflows } from "@/core/lib/nav/site.config"
 import { getAppSidebarSections } from "@/core/lib/nav/utils"
@@ -34,10 +34,10 @@ export const SiteSidebar = () => {
 					<SidebarMenuItem>
 						<SidebarMenuButton size="lg" asChild>
 							<Link href="/" className="flex items-center gap-2.5">
-								<div className="flex size-8 items-center justify-center shrink-0">
+								<div className="flex size-8 shrink-0 items-center justify-center">
 									<QuanbyLogo className="size-7" />
 								</div>
-								<span className="bg-linear-to-r from-foreground to-foreground/80 bg-clip-text font-bold leading-tight text-base tracking-tight text-transparent">
+								<span className="from-foreground to-foreground/80 bg-linear-to-r bg-clip-text text-base leading-tight font-bold tracking-tight text-transparent">
 									Quanby Legal
 								</span>
 							</Link>
