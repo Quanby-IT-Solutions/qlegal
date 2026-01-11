@@ -1,12 +1,12 @@
 /**
  * HyperVerge Liveness Validation Service
- * 
+ *
  * Provides unified liveness verification supporting:
  * 1. Hosted workflow via redirect/QR (default mode)
  * 2. Direct selfie capture via /checkLiveness API (feature flag mode)
- * 
+ *
  * Both modes share unified backend decision logic using liveFace.value and summary.action
- * 
+ *
  * API Documentation: https://documentation.hyperverge.co/
  */
 
@@ -60,7 +60,7 @@ export interface LivenessDecisionResult {
 /**
  * Unified decision logic for liveness validation
  * Used by both hosted workflow results and direct API responses
- * 
+ *
  * @param liveFaceValue - The liveFace.value from API response ("yes" | "no")
  * @param summaryAction - The summary.action from API response ("pass" | "fail")
  * @param qualityChecks - Optional quality check results
@@ -78,9 +78,9 @@ export function makeLivenessDecision(
 	const isLive = liveFaceValue === "yes"
 	const actionPassed = summaryAction === "pass"
 	const isApproved = isLive && actionPassed
-	
+
 	const qualityIssues: string[] = []
-	
+
 	if (qualityChecks) {
 		if (qualityChecks.eyesClosed?.value === "yes") {
 			qualityIssues.push("Eyes appear to be closed")
@@ -184,13 +184,264 @@ export interface SelfieValidationResponse {
 }
 
 /**
+ * Hosted Workflow Configuration (Onboard Links API)
+ */
+export interface HostedWorkflowConfig {
+	/** Workflow ID (e.g., "workflow_liveness") */
+	workflowId: string
+	/** Transaction ID for tracking */
+	transactionId: string
+	/** URL to redirect user after completion */
+	redirectUrl: string
+}
+
+/**
+ * Response from Hosted Workflow Start API (/v1/link-kyc/start)
+ */
+export interface HostedWorkflowResponse {
+	status: "success" | "error"
+	result: {
+		/** URL to redirect user to HyperVerge hosted page */
+		startKycUrl: string
+	}
+}
+
+/**
+ * Output API Response (from /v1/output)
+ * Called once after webhook notification or user redirect
+ */
+export interface OutputAPIResponse {
+	status: "success" | "error"
+	statusCode: number
+	result: {
+		summary: {
+			action: "pass" | "fail"
+			details: string[]
+		}
+		details: Array<{
+			module: string
+			attempts: Array<{
+				liveFace?: {
+					value: "yes" | "no"
+					confidence?: "high" | "medium" | "low"
+				}
+				qualityChecks?: {
+					eyesClosed?: { value: "yes" | "no"; confidence?: string }
+					occlusion?: { value: "yes" | "no"; confidence?: string }
+					multipleFaces?: { value: "yes" | "no"; confidence?: string }
+				}
+			}>
+		}>
+	}
+	/** Unified decision result (added by our processing) */
+	decision?: LivenessDecisionResult
+}
+
+/**
+ * Start hosted workflow using HyperVerge Onboard Links API
+ *
+ * This creates a HyperVerge-hosted page for liveness verification.
+ * User is redirected to HyperVerge, completes verification, then redirected back.
+ * Results are delivered via webhook or retrieved via /v1/output API.
+ *
+ * API: POST https://ind.idv.hyperverge.co/v1/link-kyc/start
+ *
+ * Note: Despite the "kyc" name, this works for ANY workflow including workflow_liveness
+ *
+ * @param config - Hosted workflow configuration
+ * @returns Response with startKycUrl for redirect
+ */
+export async function startHostedWorkflow(
+	config: HostedWorkflowConfig
+): Promise<HostedWorkflowResponse> {
+	console.log("🔵 Starting hosted workflow with HyperVerge...")
+	console.log("   - Workflow ID:", config.workflowId)
+	console.log("   - Transaction ID:", config.transactionId)
+	console.log("   - Redirect URL:", config.redirectUrl)
+
+	validateCredentials()
+
+	const LINK_KYC_URL = `${CONFIGURED_BASE_URL}/v1/link-kyc/start`
+	const LINK_KYC_URL_FALLBACK = `${FALLBACK_BASE_URL}/v1/link-kyc/start`
+
+	const requestBody = {
+		workflowId: config.workflowId,
+		transactionId: config.transactionId,
+		redirectUrl: config.redirectUrl,
+	}
+
+	try {
+		let response: Response
+		try {
+			response = await fetch(LINK_KYC_URL, {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					"appId": HYPERVERGE_APP_ID,
+					"appKey": HYPERVERGE_APP_KEY,
+				},
+				body: JSON.stringify(requestBody),
+			})
+		} catch (networkErr) {
+			console.warn("⚠️ Primary link-kyc API failed (network)", networkErr)
+			console.log("   - Trying fallback API URL:", LINK_KYC_URL_FALLBACK)
+			response = await fetch(LINK_KYC_URL_FALLBACK, {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					"appId": HYPERVERGE_APP_ID,
+					"appKey": HYPERVERGE_APP_KEY,
+				},
+				body: JSON.stringify(requestBody),
+			})
+		}
+
+		const responseText = await response.text()
+		console.log("📡 HyperVerge link-kyc API response status:", response.status)
+		console.log("📡 Raw API response:", responseText)
+
+		if (!response.ok) {
+			console.error("❌ HyperVerge link-kyc failed:", responseText)
+			throw new Error(`HyperVerge link-kyc API error: ${response.status} - ${responseText}`)
+		}
+
+		const result = JSON.parse(responseText) as HostedWorkflowResponse
+
+		if (result.status !== "success" || !result.result?.startKycUrl) {
+			throw new Error(`HyperVerge link-kyc error: ${JSON.stringify(result)}`)
+		}
+
+		console.log("✅ Hosted workflow started successfully")
+		console.log("   - Start URL:", result.result.startKycUrl)
+
+		return result
+	} catch (error) {
+		console.error("❌ Failed to start hosted workflow:", error)
+		throw error
+	}
+}
+
+/**
+ * Get workflow results using HyperVerge Output API
+ *
+ * Call this ONCE after receiving webhook notification or user redirect.
+ * Do NOT poll this endpoint repeatedly.
+ *
+ * API: POST https://ind.idv.hyperverge.co/v1/output
+ *
+ * @param transactionId - Transaction ID to get results for
+ * @returns Output result with unified decision
+ */
+export async function getWorkflowOutput(transactionId: string): Promise<OutputAPIResponse> {
+	console.log("🔵 Fetching workflow output from HyperVerge...")
+	console.log("   - Transaction ID:", transactionId)
+
+	validateCredentials()
+
+	const OUTPUT_URL = `${CONFIGURED_BASE_URL}/v1/output`
+	const OUTPUT_URL_FALLBACK = `${FALLBACK_BASE_URL}/v1/output`
+
+	const requestBody = {
+		transactionId: transactionId,
+	}
+
+	try {
+		let response: Response
+		try {
+			response = await fetch(OUTPUT_URL, {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					"appId": HYPERVERGE_APP_ID,
+					"appKey": HYPERVERGE_APP_KEY,
+				},
+				body: JSON.stringify(requestBody),
+			})
+		} catch (networkErr) {
+			console.warn("⚠️ Primary output API failed (network)", networkErr)
+			console.log("   - Trying fallback API URL:", OUTPUT_URL_FALLBACK)
+			response = await fetch(OUTPUT_URL_FALLBACK, {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					"appId": HYPERVERGE_APP_ID,
+					"appKey": HYPERVERGE_APP_KEY,
+				},
+				body: JSON.stringify(requestBody),
+			})
+		}
+
+		const responseText = await response.text()
+		console.log("📡 HyperVerge output API response status:", response.status)
+		console.log("📡 Raw API response:", responseText)
+
+		if (!response.ok) {
+			console.error("❌ HyperVerge output failed:", responseText)
+			throw new Error(`HyperVerge output API error: ${response.status} - ${responseText}`)
+		}
+
+		const result = JSON.parse(responseText) as OutputAPIResponse
+
+		if (result.status !== "success") {
+			throw new Error(`HyperVerge output error: ${JSON.stringify(result)}`)
+		}
+
+		console.log("📊 Parsed output result:", {
+			status: result.status,
+			statusCode: result.statusCode,
+			summaryAction: result.result?.summary?.action,
+			detailsCount: result.result?.details?.length || 0,
+		})
+
+		// Extract liveness data from details array
+		let liveFaceValue: "yes" | "no" | "unknown" = "unknown"
+		let qualityChecks: any = undefined
+
+		if (result.result?.details && Array.isArray(result.result.details)) {
+			for (const detail of result.result.details) {
+				if (detail.attempts && Array.isArray(detail.attempts)) {
+					for (const attempt of detail.attempts) {
+						if (attempt.liveFace) {
+							liveFaceValue = attempt.liveFace.value
+							qualityChecks = attempt.qualityChecks
+							break
+						}
+					}
+					if (liveFaceValue !== "unknown") break
+				}
+			}
+		}
+
+		// Apply unified decision logic
+		const decision = makeLivenessDecision(
+			liveFaceValue,
+			result.result.summary?.action,
+			qualityChecks
+		)
+
+		console.log("✅ Output fetch completed")
+		console.log("   - Live Face:", decision.liveFaceValue)
+		console.log("   - Summary Action:", decision.summaryAction)
+		console.log("   - Final Decision:", decision.isApproved ? "APPROVED" : "REJECTED")
+
+		return {
+			...result,
+			decision,
+		}
+	} catch (error) {
+		console.error("❌ Failed to fetch workflow output:", error)
+		throw error
+	}
+}
+
+/**
  * Check liveness using HyperVerge /v1/checkLiveness API (Direct API mode)
- * 
+ *
  * This is the direct API mode that captures selfie in-app and sends to HyperVerge
  * for liveness validation. Accepts any transaction ID for tracking purposes.
- * 
+ *
  * API: POST https://ind.idv.hyperverge.co/v1/checkLiveness
- * 
+ *
  * @param config - Selfie validation configuration
  * @returns Validation result with liveness check and unified decision
  */
@@ -238,9 +489,12 @@ export async function checkLiveness(
 		formData.append("disableLiveness", String(config.disableLiveness))
 	}
 
-	console.log("   - FormData entries:", Array.from(formData.entries()).map(([k, v]) => 
-		`${k}: ${v instanceof Blob ? `Blob(${v.size} bytes)` : v}`
-	))
+	console.log(
+		"   - FormData entries:",
+		Array.from(formData.entries()).map(
+			([k, v]) => `${k}: ${v instanceof Blob ? `Blob(${v.size} bytes)` : v}`
+		)
+	)
 
 	try {
 		let response: Response
@@ -296,15 +550,11 @@ export async function checkLiveness(
 		// Apply unified decision logic
 		// Note: /v1/checkLiveness returns details as object, not array
 		const details = result.result.details
-		const decision = makeLivenessDecision(
-			details?.liveFace?.value,
-			result.result.summary?.action,
-			{
-				eyesClosed: details?.qualityChecks?.eyesClosed,
-				occlusion: details?.qualityChecks?.faceOccluded || details?.qualityChecks?.occlusion,
-				multipleFaces: details?.qualityChecks?.multipleFaces,
-			}
-		)
+		const decision = makeLivenessDecision(details?.liveFace?.value, result.result.summary?.action, {
+			eyesClosed: details?.qualityChecks?.eyesClosed,
+			occlusion: details?.qualityChecks?.faceOccluded || details?.qualityChecks?.occlusion,
+			multipleFaces: details?.qualityChecks?.multipleFaces,
+		})
 
 		console.log("✅ Liveness check completed")
 		console.log("   - Live Face:", decision.liveFaceValue)
