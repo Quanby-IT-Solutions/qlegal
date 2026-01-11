@@ -38,7 +38,7 @@ export const SiteSidebar = () => {
 									<QuanbyLogo className="size-7" />
 								</div>
 								<span className="from-foreground to-foreground/80 bg-linear-to-r bg-clip-text text-base leading-tight font-bold tracking-tight text-transparent">
-									Quanby Legal
+									QLEGAL
 								</span>
 							</Link>
 						</SidebarMenuButton>
