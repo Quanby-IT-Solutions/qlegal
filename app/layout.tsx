@@ -2,6 +2,7 @@ import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import { SessionProvider } from "next-auth/react"
 
+import { CookieConsent } from "@/core/components/blocks/cookie-consent"
 import { Toaster } from "@/core/components/ui/sonner"
 import { ThemeProvider } from "@/core/context/theme-provider"
 
@@ -41,6 +42,7 @@ export default async function RootLayout({
 							disableTransitionOnChange
 						>
 							{children}
+							<CookieConsent variant="mini" />
 							<Toaster richColors closeButton />
 						</ThemeProvider>
 					</TRPCProvider>
