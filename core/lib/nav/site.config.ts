@@ -128,7 +128,7 @@ export const workflows: WorkflowConfig[] = [
 // Teams configuration (mock data)
 export const teams: Team[] = [
 	{
-		name: "Quanby Sign",
+		name: "Quanby Legal",
 		logo: AudioWaveform,
 		plan: "Enterprise",
 	},
