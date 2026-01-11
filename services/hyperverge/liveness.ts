@@ -75,18 +75,20 @@ export function makeLivenessDecision(
 		multipleFaces?: { value: "yes" | "no"; confidence?: string }
 	}
 ): LivenessDecisionResult {
-	const isLive = liveFaceValue === "yes"
+	// If liveFace value is not provided but summary action is pass, trust the summary
+	const isLive =
+		liveFaceValue === "yes" || (liveFaceValue === "unknown" && summaryAction === "pass")
 	const actionPassed = summaryAction === "pass"
-	const isApproved = isLive && actionPassed
+	const isApproved = actionPassed // Trust HyperVerge's overall decision
 
+	// Collect quality issues
 	const qualityIssues: string[] = []
-
 	if (qualityChecks) {
 		if (qualityChecks.eyesClosed?.value === "yes") {
-			qualityIssues.push("Eyes appear to be closed")
+			qualityIssues.push("Eyes closed detected")
 		}
 		if (qualityChecks.occlusion?.value === "yes") {
-			qualityIssues.push("Face is partially obscured/occluded")
+			qualityIssues.push("Face occlusion detected")
 		}
 		if (qualityChecks.multipleFaces?.value === "yes") {
 			qualityIssues.push("Multiple faces detected in image")
@@ -209,16 +211,26 @@ export interface HostedWorkflowResponse {
 /**
  * Output API Response (from /v1/output)
  * Called once after webhook notification or user redirect
+ *
+ * Note: The actual API returns result.status ("auto_approved", "auto_declined", "needs_review")
+ * instead of the nested summary/details structure
  */
 export interface OutputAPIResponse {
 	status: "success" | "error"
 	statusCode: number
+	metadata?: {
+		requestId: string
+	}
 	result: {
-		summary: {
+		/** Overall status from HyperVerge workflow */
+		status: "auto_approved" | "auto_declined" | "needs_review" | string
+		transactionId: string
+		/** Optional: May contain summary and details for some workflows */
+		summary?: {
 			action: "pass" | "fail"
 			details: string[]
 		}
-		details: Array<{
+		details?: Array<{
 			module: string
 			attempts: Array<{
 				liveFace?: {
@@ -235,6 +247,29 @@ export interface OutputAPIResponse {
 	}
 	/** Unified decision result (added by our processing) */
 	decision?: LivenessDecisionResult
+}
+
+/**
+ * Map HyperVerge workflow status to action (pass/fail)
+ * @param status - The result.status from /v1/output API
+ */
+function mapStatusToAction(status: string | undefined): "pass" | "fail" | "unknown" {
+	if (!status) return "unknown"
+
+	const statusLower = status.toLowerCase()
+	if (statusLower.includes("approved") || statusLower === "pass") {
+		return "pass"
+	}
+	if (
+		statusLower.includes("declined") ||
+		statusLower.includes("rejected") ||
+		statusLower === "fail"
+	) {
+		return "fail"
+	}
+
+	// For "needs_review" or unknown statuses, treat as fail for safety
+	return "fail"
 }
 
 /**
@@ -389,21 +424,35 @@ export async function getWorkflowOutput(transactionId: string): Promise<OutputAP
 		console.log("📊 Parsed output result:", {
 			status: result.status,
 			statusCode: result.statusCode,
+			resultStatus: result.result?.status,
 			summaryAction: result.result?.summary?.action,
 			detailsCount: result.result?.details?.length || 0,
 		})
 
-		// Extract liveness data from details array
+		// Log the full result for debugging
+		console.log("📊 Full output result:", JSON.stringify(result.result, null, 2))
+
+		// Extract liveness data from details array (if available)
 		let liveFaceValue: "yes" | "no" | "unknown" = "unknown"
-		let qualityChecks: any = undefined
+		let qualityChecks:
+			| {
+					eyesClosed?: { value: "yes" | "no"; confidence?: string }
+					occlusion?: { value: "yes" | "no"; confidence?: string }
+					multipleFaces?: { value: "yes" | "no"; confidence?: string }
+			  }
+			| undefined = undefined
 
 		if (result.result?.details && Array.isArray(result.result.details)) {
+			console.log("🔍 Processing", result.result.details.length, "detail modules")
 			for (const detail of result.result.details) {
+				console.log("   - Module:", detail.module, "Attempts:", detail.attempts?.length || 0)
 				if (detail.attempts && Array.isArray(detail.attempts)) {
 					for (const attempt of detail.attempts) {
+						console.log("     - Attempt data:", Object.keys(attempt))
 						if (attempt.liveFace) {
 							liveFaceValue = attempt.liveFace.value
 							qualityChecks = attempt.qualityChecks
+							console.log("✅ Found liveFace data:", { liveFaceValue, qualityChecks })
 							break
 						}
 					}
@@ -412,12 +461,24 @@ export async function getWorkflowOutput(transactionId: string): Promise<OutputAP
 			}
 		}
 
+		// Determine action from result.status or result.summary.action
+		const actionFromStatus = mapStatusToAction(result.result?.status)
+		const actionFromSummary = result.result?.summary?.action
+		const finalAction = actionFromSummary || actionFromStatus
+
+		console.log("📊 Action determination:", {
+			resultStatus: result.result?.status,
+			actionFromStatus,
+			actionFromSummary,
+			finalAction,
+		})
+
+		if (liveFaceValue === "unknown" && finalAction !== "unknown") {
+			console.log("ℹ️ No liveFace details in response, using result.status for decision")
+		}
+
 		// Apply unified decision logic
-		const decision = makeLivenessDecision(
-			liveFaceValue,
-			result.result.summary?.action,
-			qualityChecks
-		)
+		const decision = makeLivenessDecision(liveFaceValue, finalAction, qualityChecks)
 
 		console.log("✅ Output fetch completed")
 		console.log("   - Live Face:", decision.liveFaceValue)

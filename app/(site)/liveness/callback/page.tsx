@@ -39,8 +39,12 @@ export default function LivenessCallbackPage() {
 	const [isLoading, setIsLoading] = useState(true)
 	const [result, setResult] = useState<ValidationResult | null>(null)
 	const [error, setError] = useState<string | null>(null)
+	const [hasAttempted, setHasAttempted] = useState(false) // Prevent multiple attempts
 
 	useEffect(() => {
+		// Prevent multiple fetches
+		if (hasAttempted) return
+
 		const transactionId = searchParams.get("transactionId")
 
 		if (!transactionId) {
@@ -49,6 +53,9 @@ export default function LivenessCallbackPage() {
 			toast.error("Invalid callback: Missing transaction ID")
 			return
 		}
+
+		// Mark as attempted
+		setHasAttempted(true)
 
 		// Fetch results from server
 		const fetchResults = async () => {

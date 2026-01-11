@@ -13,20 +13,40 @@
  * - Store results in database for later retrieval
  */
 
-import type { NextRequest } from "next/server"
-
-import { getWorkflowOutput } from "@/services/hyperverge/liveness"
+import { NextResponse, type NextRequest } from "next/server"
 
 /**
  * HyperVerge Webhook Payload
  * Based on Results Webhook documentation
+ *
+ * The webhook sends the full result object matching /v1/output structure
  */
 interface HyperVergeWebhookPayload {
-	transactionId: string
-	workflowId: string
-	status: "auto_approved" | "auto_declined" | "needs_review" | "completed"
-	result?: {
-		action: "pass" | "fail"
+	status: "success" | "error"
+	statusCode: string
+	result: {
+		summary: {
+			action: "pass" | "fail"
+			details: string[]
+		}
+		details: Array<{
+			module: string
+			attempts: Array<{
+				liveFace?: {
+					value: "yes" | "no"
+					confidence?: "high" | "medium" | "low"
+				}
+				qualityChecks?: {
+					eyesClosed?: { value: "yes" | "no"; confidence?: string }
+					occlusion?: { value: "yes" | "no"; confidence?: string }
+					multipleFaces?: { value: "yes" | "no"; confidence?: string }
+				}
+			}>
+		}>
+	}
+	metadata?: {
+		transactionId: string
+		requestId: string
 	}
 }
 
@@ -37,52 +57,86 @@ export async function POST(request: NextRequest) {
 		// Parse webhook payload
 		const payload = (await request.json()) as HyperVergeWebhookPayload
 
-		console.log("📦 Webhook payload:", {
-			transactionId: payload.transactionId,
-			workflowId: payload.workflowId,
+		console.log("📦 Webhook payload received:", {
 			status: payload.status,
+			statusCode: payload.statusCode,
+			transactionId: payload.metadata?.transactionId,
+			summaryAction: payload.result?.summary?.action,
 		})
 
 		// Validate required fields
-		if (!payload.transactionId) {
+		const transactionId = payload.metadata?.transactionId
+		if (!transactionId) {
 			console.error("❌ Missing transactionId in webhook payload")
 			return NextResponse.json({ error: "Missing transactionId" }, { status: 400 })
 		}
 
 		// Optional: Verify webhook authenticity
-		// TODO: Add IP allowlist or signature verification if HyperVerge provides it
-		// const signature = request.headers.get("x-hyperverge-signature")
-		// if (!verifySignature(signature, payload)) {
-		//   return NextResponse.json({ error: "Invalid signature" }, { status: 403 })
+		// TODO: Add IP allowlist verification - HyperVerge sends from specific IP ranges
+		// Refer to: https://documentation.hyperverge.co/docs/webhook-integration
+		// const clientIp = request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip")
+		// if (!isHyperVergeIP(clientIp)) {
+		//   return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
 		// }
 
-		// Fetch full results from Output API
-		// This is called ONCE after webhook notification
-		console.log("📥 Fetching full results from Output API...")
-		const output = await getWorkflowOutput(payload.transactionId)
+		// Process the webhook payload directly (no need to fetch /v1/output again)
+		// The webhook already contains the full result matching /v1/output structure
+		console.log("📊 Processing webhook result...")
 
-		console.log("✅ Results fetched successfully:", {
-			transactionId: payload.transactionId,
-			isApproved: output.decision?.isApproved,
-			summaryAction: output.result.summary.action,
+		// Extract liveness data from webhook payload
+		let liveFaceValue: "yes" | "no" | "unknown" = "unknown"
+		let qualityChecks:
+			| {
+					eyesClosed?: { value: "yes" | "no"; confidence?: string }
+					occlusion?: { value: "yes" | "no"; confidence?: string }
+					multipleFaces?: { value: "yes" | "no"; confidence?: string }
+			  }
+			| undefined = undefined
+
+		if (payload.result?.details && Array.isArray(payload.result.details)) {
+			for (const detail of payload.result.details) {
+				if (detail.attempts && Array.isArray(detail.attempts)) {
+					for (const attempt of detail.attempts) {
+						if (attempt.liveFace) {
+							liveFaceValue = attempt.liveFace.value
+							qualityChecks = attempt.qualityChecks
+							break
+						}
+					}
+					if (liveFaceValue !== "unknown") break
+				}
+			}
+		}
+
+		// Import decision logic
+		const { makeLivenessDecision } = await import("@/services/hyperverge/liveness")
+		const decision = makeLivenessDecision(
+			liveFaceValue,
+			payload.result.summary?.action,
+			qualityChecks
+		)
+
+		console.log("✅ Webhook processed successfully:", {
+			transactionId,
+			isApproved: decision.isApproved,
+			summaryAction: decision.summaryAction,
 		})
 
 		// TODO: Store results in database for later retrieval
-		// Example:
-		// await db.livenessVerification.create({
-		//   data: {
-		//     transactionId: payload.transactionId,
-		//     status: output.decision?.isApproved ? "VERIFIED" : "REJECTED",
-		//     decision: output.decision,
-		//     completedAt: new Date(),
-		//   },
+		// const session = await auth() // Get user session if needed
+		// await db.insert(livenessValidations).values({
+		//   userId: session?.user?.id,
+		//   transactionId,
+		//   status: decision.isApproved ? "pass" : "fail",
+		//   errorMessage: decision.isApproved ? null : decision.message,
+		//   attemptNumber: 1,
 		// })
 
 		// Return success to HyperVerge
 		return NextResponse.json({
 			success: true,
 			message: "Webhook processed successfully",
-			transactionId: payload.transactionId,
+			transactionId,
 		})
 	} catch (error) {
 		console.error("❌ Failed to process HyperVerge webhook:", error)
