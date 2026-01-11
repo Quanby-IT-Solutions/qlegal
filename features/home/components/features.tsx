@@ -1,64 +1,77 @@
 "use client"
 
-import { FileSignature, Users, BookOpen, Video, Scan, Shield } from "lucide-react"
+import { BookOpen, FileSignature, Scan, Shield, Users, Video } from "lucide-react"
 import { motion } from "motion/react"
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/core/components/ui/card"
+import { CardContent, CardHeader, CardTitle } from "@/core/components/ui/card"
+import { CardSpotlight } from "@/core/components/ui/card-spotlight"
 
 const fadeInUp = {
 	initial: { opacity: 0, y: 60 },
 	animate: { opacity: 1, y: 0 },
-	transition: { duration: 0.6 }
+	transition: { duration: 0.6 },
 }
 
 const staggerContainer = {
 	initial: {},
 	animate: {
 		transition: {
-			staggerChildren: 0.1
-		}
-	}
+			staggerChildren: 0.1,
+		},
+	},
 }
 
 const features = [
 	{
 		icon: Video,
 		title: "IEN & REN Services",
-		description: "Perform In-Person and Remote Electronic Notarization with HD videoconferencing and real-time collaboration"
+		description:
+			"Perform In-Person and Remote Electronic Notarization with HD videoconferencing and real-time collaboration",
+		spotlightColor: "rgba(0, 229, 255, 0.2)", // Cyan
 	},
 	{
 		icon: Shield,
 		title: "e-KYC & Multi-Factor Authentication",
-		description: "BSP-compliant electronic Know-Your-Customer with facial recognition, biometrics, OTP, and liveness detection"
+		description:
+			"BSP-compliant electronic Know-Your-Customer with facial recognition, biometrics, OTP, and liveness detection",
+		spotlightColor: "rgba(0, 255, 127, 0.2)", // Spring Green
 	},
 	{
 		icon: FileSignature,
 		title: "Electronic Signatures & Seal",
-		description: "Create and affix electronic signatures for ENPs, principals, and witnesses with electronic notarial seal"
+		description:
+			"Create and affix electronic signatures for ENPs, principals, and witnesses with electronic notarial seal",
+		spotlightColor: "rgba(255, 0, 127, 0.2)", // Rose
 	},
 	{
 		icon: BookOpen,
 		title: "Notarial Book & SC Integration",
-		description: "Automated notarial book with automatic transmission to Supreme Court Central Notarial Database"
+		description:
+			"Automated notarial book with automatic transmission to Supreme Court Central Notarial Database",
+		spotlightColor: "rgba(138, 43, 226, 0.2)", // Blue Violet
 	},
 	{
 		icon: Scan,
 		title: "Secure Document Handling",
-		description: "End-to-end encrypted uploading, viewing, transmission and archival in PDF/A format with tamper-evident security"
+		description:
+			"End-to-end encrypted uploading, viewing, transmission and archival in PDF/A format with tamper-evident security",
+		spotlightColor: "rgba(255, 165, 0, 0.2)", // Orange
 	},
 	{
 		icon: Users,
 		title: "Geolocation & Access Management",
-		description: "VPN detection, geo-restrictions, and automated access control for expired commissions and invalid IDs"
-	}
+		description:
+			"VPN detection, geo-restrictions, and automated access control for expired commissions and invalid IDs",
+		spotlightColor: "rgba(65, 105, 225, 0.2)", // Royal Blue
+	},
 ]
 
 export function Features() {
 	return (
 		<section className="relative overflow-hidden py-20 lg:py-32">
-			<div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-background to-secondary/5" />
-			
-			<div className="relative z-10 mx-auto max-w-screen-xl px-4 sm:px-6 lg:px-8">
+			<div className="from-primary/5 via-background to-secondary/5 absolute inset-0 bg-linear-to-br" />
+
+			<div className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
 				<motion.div
 					variants={staggerContainer}
 					initial="initial"
@@ -68,33 +81,31 @@ export function Features() {
 				>
 					<motion.div variants={fadeInUp} className="text-center">
 						<h2 className="mb-4 text-3xl font-bold tracking-tight lg:text-5xl">
-						Full-Featured Electronic Notarization Facility
-					</h2>
-					<p className="mx-auto max-w-2xl text-lg text-muted-foreground lg:text-xl">
-						Comprehensive ENF platform compliant with Supreme Court Rules on Electronic Notarization
-					</p>
-				</motion.div>
+							Full-Featured Electronic Notarization Facility
+						</h2>
+						<p className="text-muted-foreground mx-auto max-w-2xl text-lg lg:text-xl">
+							Comprehensive ENF platform compliant with Supreme Court Rules on Electronic
+							Notarization
+						</p>
+					</motion.div>
 
 					<div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
 						{features.map((feature, index) => (
-							<motion.div
-								key={feature.title}
-								variants={fadeInUp}
-								custom={index}
-							>
-								<Card className="h-full border-border/50 bg-background/50 backdrop-blur-sm transition-all duration-300 hover:border-primary/50 hover:shadow-lg">
-									<CardHeader>
-										<div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
-											<feature.icon className="h-6 w-6 text-primary" />
+							<motion.div key={feature.title} variants={fadeInUp} custom={index}>
+								<CardSpotlight
+									className="border-border/50 bg-background/50 hover:border-border h-full pt-6 backdrop-blur-sm transition-all duration-300 hover:shadow-lg"
+									spotlightColor={feature.spotlightColor}
+								>
+									<CardHeader className="pb-2">
+										<div className="bg-primary/10 mb-4 flex h-12 w-12 items-center justify-center rounded-lg">
+											<feature.icon className="text-primary h-6 w-6" />
 										</div>
 										<CardTitle className="text-xl">{feature.title}</CardTitle>
 									</CardHeader>
 									<CardContent>
-										<p className="text-sm text-muted-foreground">
-											{feature.description}
-										</p>
+										<p className="text-muted-foreground text-sm">{feature.description}</p>
 									</CardContent>
-								</Card>
+								</CardSpotlight>
 							</motion.div>
 						))}
 					</div>

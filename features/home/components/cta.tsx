@@ -15,15 +15,15 @@ const fadeInUp = {
 export function CTA() {
 	return (
 		<section className="relative overflow-hidden py-20 lg:py-32">
-			<div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-secondary/10 to-primary/10" />
+			<div className="absolute inset-0 bg-linear-to-br from-primary/10 via-secondary/10 to-primary/10" />
 			
-			<div className="relative z-10 mx-auto max-w-screen-xl px-4 sm:px-6 lg:px-8">
+			<div className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
 				<motion.div
 					initial="initial"
 					whileInView="animate"
 					viewport={{ once: true }}
 					variants={fadeInUp}
-					className="relative overflow-hidden rounded-3xl border border-border/50 bg-gradient-to-br from-primary/20 to-secondary/20 p-12 text-center backdrop-blur-sm lg:p-16"
+					className="relative overflow-hidden rounded-3xl border border-border/50 bg-linear-to-br from-primary/20 to-secondary/20 p-12 text-center backdrop-blur-sm lg:p-16"
 				>
 					<div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_20%,hsl(var(--background))_70%)]" />
 					
@@ -38,7 +38,7 @@ export function CTA() {
 							<Button
 								asChild
 								size="lg"
-								className="group bg-gradient-to-r from-primary to-primary/90 px-8 py-6 text-lg shadow-xl transition-all duration-300 hover:from-primary/90 hover:to-primary hover:shadow-2xl"
+								className="group bg-linear-to-r from-primary to-primary/90 px-8 py-6 text-lg shadow-xl transition-all duration-300 hover:from-primary/90 hover:to-primary hover:shadow-2xl"
 							>
 								<Link href="/auth/register">
 									Create Account

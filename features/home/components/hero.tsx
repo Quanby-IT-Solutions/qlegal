@@ -3,11 +3,11 @@
 import Link from "next/link"
 import { ArrowRight, CheckCircle, FileSignature, Scale, Shield, Users } from "lucide-react"
 import { motion } from "motion/react"
-import { useSession } from "next-auth/react"
 
 import { QuanbyLogo } from "@/core/components/quanby-logo"
 import { Button } from "@/core/components/ui/button"
 import { OrbitingCircles } from "@/core/components/ui/orbiting-circles"
+import { TextGenerateEffect } from "@/core/components/ui/text-generate-effect"
 
 const fadeInUp = {
 	initial: { opacity: 0, y: 60 },
@@ -25,15 +25,13 @@ const staggerContainer = {
 }
 
 export function Hero() {
-	const { data: session } = useSession()
-
 	return (
-		<section className="relative overflow-hidden pt-20 pb-24 sm:pt-24 lg:pt-40">
+		<section className="relative w-full overflow-hidden pt-20 pb-24 sm:pt-24 lg:pt-40">
 			{/* Background Elements */}
 			<div className="via-background absolute inset-0 bg-linear-to-br from-[rgb(91,26,128)]/5 to-[rgb(233,30,140)]/5" />
 
 			{/* Grid Pattern */}
-			<div className="absolute inset-0 bg-[linear-gradient(to_right,#8080800a_1px,transparent_1px),linear-gradient(to_bottom,#8080800a_1px,transparent_1px)] bg-size-[14px_24px]" />
+			<div className="absolute inset-0 bg-[linear-gradient(to_right,#8080800a_1px,transparent_1px),linear-gradient(to_bottom,#8080800a_1px,transparent_1px)] bg-[size:14px_24px]" />
 
 			{/* Radial Gradient Overlay */}
 			<div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_20%,hsl(var(--background))_70%)]" />
@@ -64,7 +62,7 @@ export function Hero() {
 				}}
 			/>
 
-			<div className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+			<div className="relative z-20 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
 				<div className="grid items-center gap-12 lg:grid-cols-2 lg:gap-16">
 					{/* Left Content */}
 					<motion.div
@@ -95,13 +93,12 @@ export function Hero() {
 							</h1>
 						</motion.div>
 
-						<motion.p
-							variants={fadeInUp}
-							className="text-muted-foreground mx-auto max-w-2xl text-xl leading-relaxed lg:mx-0 lg:text-2xl"
-						>
-							Secure, compliant, and Supreme Court accredited platform for electronic notarization
-							in the Philippines.
-						</motion.p>
+						<div className="min-h-24">
+							<TextGenerateEffect
+								words="Secure, compliant, and Supreme Court accredited platform for electronic notarization in the Philippines."
+								className="text-muted-foreground text-xl leading-relaxed font-normal lg:text-2xl"
+							/>
+						</div>
 
 						<motion.div
 							variants={fadeInUp}
@@ -112,8 +109,8 @@ export function Hero() {
 								size="lg"
 								className="group from-primary to-primary/90 hover:from-primary/90 hover:to-primary bg-linear-to-r px-8 py-6 text-lg shadow-xl transition-all duration-300 hover:shadow-2xl"
 							>
-								<Link href={session?.user ? "/dashboard" : "/auth/register"}>
-									{session?.user ? "Go to Dashboard" : "Get Started"}
+								<Link href="/auth/register">
+									Get Started
 									<ArrowRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" />
 								</Link>
 							</Button>
@@ -138,44 +135,44 @@ export function Hero() {
 						</motion.div>
 					</motion.div>
 
-					{/* Right Logo Section with Orbiting Circles */}
+					{/* Right Logo Section */}
 					<motion.div
 						initial={{ opacity: 0, scale: 0.8 }}
 						animate={{ opacity: 1, scale: 1 }}
 						transition={{ duration: 0.8, delay: 0.2 }}
-						className="relative flex h-[500px] w-full flex-col items-center justify-center overflow-hidden lg:h-[600px]"
+						className="relative flex h-[550px] w-full flex-col items-center justify-center overflow-hidden lg:h-[650px] lg:justify-center"
 					>
 						{/* Center Logo */}
-						<div className="relative z-10 flex h-32 w-32 items-center justify-center rounded-full border border-[rgb(91,26,128)]/30 bg-linear-to-br from-[rgb(91,26,128)]/20 to-[rgb(233,30,140)]/20 shadow-2xl backdrop-blur-md">
-							<QuanbyLogo className="h-20 w-20 object-contain" />
+						<div className="relative z-10 flex h-40 w-40 items-center justify-center rounded-full border border-[rgb(91,26,128)]/30 bg-linear-to-br from-[rgb(91,26,128)]/20 to-[rgb(233,30,140)]/20 shadow-2xl backdrop-blur-md">
+							<QuanbyLogo className="h-24 w-24 object-contain" />
 						</div>
 
 						{/* Inner Orbit */}
-						<OrbitingCircles iconSize={30} radius={100} duration={20} delay={0}>
-							<div className="flex size-12 items-center justify-center rounded-full border border-[rgb(91,26,128)]/30 bg-linear-to-br from-[rgb(91,26,128)]/20 to-[rgb(91,26,128)]/10 shadow-lg backdrop-blur-sm">
-								<Scale className="size-6 text-[rgb(91,26,128)]" />
+						<OrbitingCircles iconSize={35} radius={125} duration={20} delay={0}>
+							<div className="flex size-14 items-center justify-center rounded-full border border-[rgb(91,26,128)]/30 bg-linear-to-br from-[rgb(91,26,128)]/20 to-[rgb(91,26,128)]/10 shadow-lg backdrop-blur-sm">
+								<Scale className="size-7 text-[rgb(91,26,128)]" />
 							</div>
 						</OrbitingCircles>
-						<OrbitingCircles iconSize={30} radius={100} duration={20} delay={10}>
-							<div className="flex size-12 items-center justify-center rounded-full border border-[rgb(233,30,140)]/30 bg-linear-to-br from-[rgb(233,30,140)]/20 to-[rgb(233,30,140)]/10 shadow-lg backdrop-blur-sm">
-								<FileSignature className="size-6 text-[rgb(233,30,140)]" />
+						<OrbitingCircles iconSize={35} radius={125} duration={20} delay={10}>
+							<div className="flex size-14 items-center justify-center rounded-full border border-[rgb(233,30,140)]/30 bg-linear-to-br from-[rgb(233,30,140)]/20 to-[rgb(233,30,140)]/10 shadow-lg backdrop-blur-sm">
+								<FileSignature className="size-7 text-[rgb(233,30,140)]" />
 							</div>
 						</OrbitingCircles>
 
 						{/* Outer Orbit */}
-						<OrbitingCircles iconSize={40} radius={190} reverse duration={25} delay={0}>
-							<div className="flex size-16 items-center justify-center rounded-full border border-green-500/30 bg-linear-to-br from-green-500/20 to-emerald-500/10 shadow-lg backdrop-blur-sm">
-								<Shield className="size-8 text-green-500" />
+						<OrbitingCircles iconSize={45} radius={225} reverse duration={25} delay={0}>
+							<div className="flex size-18 items-center justify-center rounded-full border border-green-500/30 bg-linear-to-br from-green-500/20 to-emerald-500/10 shadow-lg backdrop-blur-sm">
+								<Shield className="size-9 text-green-500" />
 							</div>
 						</OrbitingCircles>
-						<OrbitingCircles iconSize={40} radius={190} reverse duration={25} delay={8}>
-							<div className="flex size-16 items-center justify-center rounded-full border border-blue-500/30 bg-linear-to-br from-blue-500/20 to-cyan-500/10 shadow-lg backdrop-blur-sm">
-								<CheckCircle className="size-8 text-blue-500" />
+						<OrbitingCircles iconSize={45} radius={225} reverse duration={25} delay={8}>
+							<div className="flex size-18 items-center justify-center rounded-full border border-blue-500/30 bg-linear-to-br from-blue-500/20 to-cyan-500/10 shadow-lg backdrop-blur-sm">
+								<CheckCircle className="size-9 text-blue-500" />
 							</div>
 						</OrbitingCircles>
-						<OrbitingCircles iconSize={40} radius={190} reverse duration={25} delay={16}>
-							<div className="flex size-16 items-center justify-center rounded-full border border-purple-500/30 bg-linear-to-br from-purple-500/20 to-pink-500/10 shadow-lg backdrop-blur-sm">
-								<Users className="size-8 text-purple-500" />
+						<OrbitingCircles iconSize={45} radius={225} reverse duration={25} delay={16}>
+							<div className="flex size-18 items-center justify-center rounded-full border border-purple-500/30 bg-linear-to-br from-purple-500/20 to-pink-500/10 shadow-lg backdrop-blur-sm">
+								<Users className="size-9 text-purple-500" />
 							</div>
 						</OrbitingCircles>
 					</motion.div>
