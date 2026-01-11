@@ -1,12 +1,13 @@
 "use client"
 
 import Link from "next/link"
-import { ArrowRight, CheckCircle, Scale, Shield } from "lucide-react"
+import { ArrowRight, CheckCircle, FileSignature, Scale, Shield, Users } from "lucide-react"
 import { motion } from "motion/react"
 import { useSession } from "next-auth/react"
 
 import { QuanbyLogo } from "@/core/components/quanby-logo"
 import { Button } from "@/core/components/ui/button"
+import { OrbitingCircles } from "@/core/components/ui/orbiting-circles"
 
 const fadeInUp = {
 	initial: { opacity: 0, y: 60 },
@@ -20,18 +21,6 @@ const staggerContainer = {
 		transition: {
 			staggerChildren: 0.1,
 		},
-	},
-}
-
-const floatingAnimation = {
-	animate: {
-		y: [0, -20, 0],
-		rotate: [0, 5, 0],
-	},
-	transition: {
-		duration: 6,
-		repeat: Number.POSITIVE_INFINITY,
-		ease: "easeInOut",
 	},
 }
 
@@ -49,7 +38,7 @@ export function Hero() {
 			{/* Radial Gradient Overlay */}
 			<div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_20%,hsl(var(--background))_70%)]" />
 
-			{/* Floating Orbs */}
+			{/* Floating Orbs - Kept subtle for background ambience */}
 			<motion.div
 				className="pointer-events-none absolute top-20 left-10 h-72 w-72 rounded-full bg-linear-to-r from-[rgb(91,26,128)]/20 to-[rgb(233,30,140)]/20 blur-3xl"
 				animate={{
@@ -128,17 +117,6 @@ export function Hero() {
 									<ArrowRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" />
 								</Link>
 							</Button>
-							{/* <Button
-								asChild
-								variant="outline"
-								size="lg"
-								className="group border-border/50 bg-background/50 px-8 py-6 text-lg backdrop-blur-sm transition-all duration-300 hover:border-border hover:bg-background/80"
-							>
-								<Link href="/find-notary">
-									<Scale className="mr-2 h-5 w-5 transition-transform group-hover:scale-110" />
-									Find a Notary
-								</Link>
-							</Button> */}
 						</motion.div>
 
 						<motion.div
@@ -160,113 +138,46 @@ export function Hero() {
 						</motion.div>
 					</motion.div>
 
-					{/* Right Logo Section */}
+					{/* Right Logo Section with Orbiting Circles */}
 					<motion.div
-						initial={{ opacity: 0, scale: 0.8, rotate: -5 }}
-						animate={{ opacity: 1, scale: 1, rotate: 0 }}
+						initial={{ opacity: 0, scale: 0.8 }}
+						animate={{ opacity: 1, scale: 1 }}
 						transition={{ duration: 0.8, delay: 0.2 }}
-						className="relative flex justify-center lg:justify-end"
+						className="relative flex h-[500px] w-full flex-col items-center justify-center overflow-hidden lg:h-[600px]"
 					>
-						<div className="relative">
-							{/* Main Logo Container */}
-							<motion.div
-								variants={floatingAnimation}
-								animate="animate"
-								className="border-border/20 from-background via-background/80 to-background/60 relative flex h-96 w-96 items-center justify-center rounded-3xl border bg-linear-to-br shadow-2xl backdrop-blur-xl"
-							>
-								{/* Inner glow */}
-								<div className="absolute inset-4 rounded-2xl bg-linear-to-br from-[rgb(91,26,128)]/10 to-[rgb(233,30,140)]/10" />
-
-								{/* Logo */}
-								<div className="relative z-10 flex h-48 w-48 items-center justify-center rounded-full border border-[rgb(91,26,128)]/30 bg-linear-to-br from-[rgb(91,26,128)]/20 to-[rgb(233,30,140)]/20">
-									<div className="h-32 w-32">
-										<QuanbyLogo className="h-full w-full object-contain" />
-									</div>
-								</div>
-							</motion.div>
-
-							{/* Floating Elements */}
-							<motion.div
-								animate={{
-									x: [0, 15, 0],
-									y: [0, -10, 0],
-									rotate: [0, 5, 0],
-								}}
-								transition={{
-									duration: 4,
-									repeat: Number.POSITIVE_INFINITY,
-									ease: "easeInOut",
-								}}
-								className="absolute -top-6 -right-6 flex h-20 w-20 items-center justify-center rounded-2xl border border-[rgb(91,26,128)]/20 bg-linear-to-br from-[rgb(91,26,128)]/20 to-[rgb(91,26,128)]/10 shadow-xl backdrop-blur-sm"
-							>
-								<Scale className="h-10 w-10 text-[rgb(91,26,128)]" />
-							</motion.div>
-
-							<motion.div
-								animate={{
-									x: [0, -12, 0],
-									y: [0, 12, 0],
-									rotate: [0, -5, 0],
-								}}
-								transition={{
-									duration: 3.5,
-									repeat: Number.POSITIVE_INFINITY,
-									ease: "easeInOut",
-									delay: 1,
-								}}
-								className="absolute -bottom-8 -left-8 flex h-16 w-16 items-center justify-center rounded-xl border border-green-500/20 bg-linear-to-br from-green-500/20 to-green-400/10 shadow-xl backdrop-blur-sm"
-							>
-								<CheckCircle className="h-8 w-8 text-green-500" />
-							</motion.div>
-
-							<motion.div
-								animate={{
-									y: [0, -8, 0],
-									rotate: [0, 3, 0],
-								}}
-								transition={{
-									duration: 5,
-									repeat: Number.POSITIVE_INFINITY,
-									ease: "easeInOut",
-									delay: 2,
-								}}
-								className="absolute top-1/2 -left-12 flex h-12 w-12 items-center justify-center rounded-lg border border-[rgb(233,30,140)]/20 bg-linear-to-br from-[rgb(233,30,140)]/20 to-[rgb(233,30,140)]/10 shadow-lg backdrop-blur-sm"
-							>
-								<Shield className="h-6 w-6 text-[rgb(233,30,140)]" />
-							</motion.div>
-
-							{/* Decorative rings */}
-							<motion.div
-								animate={{ rotate: 360 }}
-								transition={{
-									duration: 20,
-									repeat: Number.POSITIVE_INFINITY,
-									ease: "linear",
-								}}
-								className="border-primary/10 absolute inset-0 rounded-full border"
-								style={{
-									width: "120%",
-									height: "120%",
-									left: "-10%",
-									top: "-10%",
-								}}
-							/>
-							<motion.div
-								animate={{ rotate: -360 }}
-								transition={{
-									duration: 30,
-									repeat: Number.POSITIVE_INFINITY,
-									ease: "linear",
-								}}
-								className="border-secondary/10 absolute inset-0 rounded-full border"
-								style={{
-									width: "140%",
-									height: "140%",
-									left: "-20%",
-									top: "-20%",
-								}}
-							/>
+						{/* Center Logo */}
+						<div className="relative z-10 flex h-32 w-32 items-center justify-center rounded-full border border-[rgb(91,26,128)]/30 bg-linear-to-br from-[rgb(91,26,128)]/20 to-[rgb(233,30,140)]/20 shadow-2xl backdrop-blur-md">
+							<QuanbyLogo className="h-20 w-20 object-contain" />
 						</div>
+
+						{/* Inner Orbit */}
+						<OrbitingCircles iconSize={30} radius={100} duration={20} delay={0}>
+							<div className="flex size-12 items-center justify-center rounded-full border border-[rgb(91,26,128)]/30 bg-linear-to-br from-[rgb(91,26,128)]/20 to-[rgb(91,26,128)]/10 shadow-lg backdrop-blur-sm">
+								<Scale className="size-6 text-[rgb(91,26,128)]" />
+							</div>
+						</OrbitingCircles>
+						<OrbitingCircles iconSize={30} radius={100} duration={20} delay={10}>
+							<div className="flex size-12 items-center justify-center rounded-full border border-[rgb(233,30,140)]/30 bg-linear-to-br from-[rgb(233,30,140)]/20 to-[rgb(233,30,140)]/10 shadow-lg backdrop-blur-sm">
+								<FileSignature className="size-6 text-[rgb(233,30,140)]" />
+							</div>
+						</OrbitingCircles>
+
+						{/* Outer Orbit */}
+						<OrbitingCircles iconSize={40} radius={190} reverse duration={25} delay={0}>
+							<div className="flex size-16 items-center justify-center rounded-full border border-green-500/30 bg-linear-to-br from-green-500/20 to-emerald-500/10 shadow-lg backdrop-blur-sm">
+								<Shield className="size-8 text-green-500" />
+							</div>
+						</OrbitingCircles>
+						<OrbitingCircles iconSize={40} radius={190} reverse duration={25} delay={8}>
+							<div className="flex size-16 items-center justify-center rounded-full border border-blue-500/30 bg-linear-to-br from-blue-500/20 to-cyan-500/10 shadow-lg backdrop-blur-sm">
+								<CheckCircle className="size-8 text-blue-500" />
+							</div>
+						</OrbitingCircles>
+						<OrbitingCircles iconSize={40} radius={190} reverse duration={25} delay={16}>
+							<div className="flex size-16 items-center justify-center rounded-full border border-purple-500/30 bg-linear-to-br from-purple-500/20 to-pink-500/10 shadow-lg backdrop-blur-sm">
+								<Users className="size-8 text-purple-500" />
+							</div>
+						</OrbitingCircles>
 					</motion.div>
 				</div>
 			</div>
