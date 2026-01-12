@@ -1,8 +1,8 @@
 "use client"
 
-import { BadgeCheck, Bell, ChevronsUpDown, LogOut, Settings } from "lucide-react"
-import { useSession, signOut } from "next-auth/react"
 import { useRouter } from "next/navigation"
+import { BadgeCheck, Bell, ChevronsUpDown, LogOut, Settings } from "lucide-react"
+import { signOut, useSession } from "next-auth/react"
 
 import {
 	DropdownMenu,
