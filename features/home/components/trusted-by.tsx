@@ -16,7 +16,7 @@ const logos = [
 
 export function TrustedBy() {
 	return (
-		<section className="relative overflow-hidden py-10 lg:py-16">
+		<section className="relative overflow-hidden pt-12 pb-10 sm:pt-16 lg:py-16">
 			{/* Background Elements */}
 			<div className="via-background to-primary/3 absolute inset-0 bg-linear-to-br from-[rgb(91,26,128)]/3" />
 
