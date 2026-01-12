@@ -11,12 +11,11 @@ export function useFilteredNotaries(enps: EnhancedENP[] | undefined, filters: Se
 			enp.specialization.toLowerCase().includes(filters.searchTerm.toLowerCase()) ||
 			enp.location.toLowerCase().includes(filters.searchTerm.toLowerCase())
 
-		const matchesLocation = 
-			filters.selectedLocation === "ALL" || 
-			enp.location.includes(filters.selectedLocation)
-		
+		const matchesLocation =
+			filters.selectedLocation === "ALL" || enp.location.includes(filters.selectedLocation)
+
 		const matchesSpecialization =
-			filters.selectedSpecialization === "ALL" || 
+			filters.selectedSpecialization === "ALL" ||
 			enp.specialization.includes(filters.selectedSpecialization)
 
 		return matchesSearch && matchesLocation && matchesSpecialization

@@ -14,10 +14,10 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
 	// Note: getEnvelopeDocuments procedure doesn't exist yet, so we'll skip this for now
 	// await trpc.envelopeLite.getEnvelopeDocuments.prefetch({ envelopeId })
 
-		// Construct route with proper typing
-		const envelopeUrl: Route = (`/envelope/${envelopeId}` as unknown) as Route
+	// Construct route with proper typing
+	const envelopeUrl: Route = `/envelope/${envelopeId}` as unknown as Route
 
-		return (
+	return (
 		<HydrateClient>
 			<SiteNavbar
 				items={[

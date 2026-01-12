@@ -43,14 +43,13 @@ export function useMessages() {
 			},
 		}),
 
-	// Search users
-	searchUsers: (query: string) =>
-		trpc.messages.searchUsers.useQuery(
-			{ query: query || "" },
-			{
-				enabled: query.length > 0,
-			}
-		),
+		// Search users
+		searchUsers: (query: string) =>
+			trpc.messages.searchUsers.useQuery(
+				{ query: query || "" },
+				{
+					enabled: query.length > 0,
+				}
+			),
 	}
 }
-

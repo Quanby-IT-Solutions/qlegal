@@ -17,6 +17,7 @@ import {
 import { Input } from "@/core/components/ui/input"
 import { Label } from "@/core/components/ui/label"
 import { Textarea } from "@/core/components/ui/textarea"
+
 import { trpc } from "@/services/trpc/client"
 
 interface MeetingDocumentUploadProps {
@@ -49,7 +50,7 @@ export function MeetingDocumentUpload({
 			onClose()
 			onSuccess?.()
 		},
-		onError: (error) => {
+		onError: error => {
 			toast.error(error.message || "Failed to upload document")
 			setIsUploading(false)
 		},
@@ -178,17 +179,17 @@ export function MeetingDocumentUpload({
 							className={`cursor-pointer rounded-lg border-2 border-dashed p-8 text-center transition-colors ${
 								isDragActive
 									? "border-primary bg-primary/10"
-									: "border-gray-300 hover:border-primary hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-900"
+									: "hover:border-primary border-gray-300 hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-900"
 							} ${isUploading ? "cursor-not-allowed opacity-50" : ""}`}
 						>
 							<input {...getInputProps()} />
 							<div className="flex flex-col items-center gap-4">
-								<div className="rounded-full bg-primary/10 p-4">
-									<FileText className="size-8 text-primary" />
+								<div className="bg-primary/10 rounded-full p-4">
+									<FileText className="text-primary size-8" />
 								</div>
 								{isDragActive ? (
 									<div>
-										<p className="text-lg font-medium text-primary">Drop your PDF here</p>
+										<p className="text-primary text-lg font-medium">Drop your PDF here</p>
 										<p className="text-sm text-gray-500">Release to upload the document</p>
 									</div>
 								) : (
@@ -263,7 +264,10 @@ export function MeetingDocumentUpload({
 					<Button variant="outline" onClick={handleClose} disabled={isUploading}>
 						Cancel
 					</Button>
-					<Button onClick={handleUpload} disabled={isUploading || !selectedFile || !documentName.trim()}>
+					<Button
+						onClick={handleUpload}
+						disabled={isUploading || !selectedFile || !documentName.trim()}
+					>
 						{isUploading ? (
 							<>
 								<div className="mr-2 size-4 animate-spin rounded-full border-b-2 border-white"></div>
@@ -281,4 +285,3 @@ export function MeetingDocumentUpload({
 		</Dialog>
 	)
 }
-

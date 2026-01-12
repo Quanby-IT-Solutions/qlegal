@@ -46,4 +46,3 @@ export const signatureRequests = createTable(
 ).enableRLS()
 
 export type SignatureRequest = InferSelectModel<typeof signatureRequests>
-

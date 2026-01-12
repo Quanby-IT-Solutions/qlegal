@@ -105,7 +105,7 @@
 
 // 	// TODO: These procedures need to be implemented in envelopeLite router
 // 	// Type assertion to suppress TypeScript errors until procedures are implemented
-	 
+
 // 	// @ts-expect-error - getEnvelopeByToken doesn't exist yet, needs implementation
 // 	const { data: envelopeData } = trpc.envelopeLite.getEnvelopeByToken.useQuery(
 // 		{ token },
@@ -124,7 +124,7 @@
 
 // 	// Use the first document for the invite data
 // 	const firstDocument = envelopeDocuments?.[0]
-	 
+
 // 	// @ts-expect-error - getEnvelopeByToken doesn't exist yet, needs implementation
 // 	const { data: invite, refetch } = trpc.envelopeLite.getEnvelopeByToken.useQuery(
 // 		{ token },
@@ -143,7 +143,6 @@
 // 	//   }
 // 	// })
 
-	 
 // 	// @ts-expect-error - acceptInviteByToken doesn't exist yet, needs implementation
 // 	const accept = trpc.envelopeLite.acceptInviteByToken.useMutation({
 // 		onSuccess: async () => {
@@ -156,7 +155,6 @@
 // 		},
 // 	})
 
-	 
 // 	// @ts-expect-error - acceptInviteByTokenWithPlaceholder doesn't exist yet, needs implementation
 // 	const acceptWithPlaceholder = trpc.envelopeLite.acceptInviteByTokenWithPlaceholder.useMutation({
 // 		onSuccess: async () => {
@@ -169,7 +167,6 @@
 // 		},
 // 	})
 
-	 
 // 	// @ts-expect-error - declineInviteByToken doesn't exist yet, needs implementation
 // 	const decline = trpc.envelopeLite.declineInviteByToken.useMutation({
 // 		onSuccess: () => {

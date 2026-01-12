@@ -1,21 +1,29 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import { useSession } from "next-auth/react"
 import { format, startOfToday } from "date-fns"
 import { Calendar as CalendarIcon, Clock, Handshake, Loader2, MapPin, Video } from "lucide-react"
+import { useSession } from "next-auth/react"
 import { toast } from "sonner"
 
 import { PageHeader } from "@/core/components/navbar/page-header"
+import { Avatar, AvatarFallback, AvatarImage } from "@/core/components/ui/avatar"
 import { Badge } from "@/core/components/ui/badge"
 import { Button } from "@/core/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/core/components/ui/card"
 import { Calendar as CalendarComponent } from "@/core/components/ui/calendar"
+import {
+	Card,
+	CardContent,
+	CardDescription,
+	CardHeader,
+	CardTitle,
+} from "@/core/components/ui/card"
 import { Separator } from "@/core/components/ui/separator"
-import { Avatar, AvatarFallback, AvatarImage } from "@/core/components/ui/avatar"
-import { useMeetings } from "@/features/meetings/api/meetings.hooks"
-import { trpc, type RouterOutputs } from "@/services/trpc/client"
 import { getInitials } from "@/core/lib/utils"
+
+import { trpc, type RouterOutputs } from "@/services/trpc/client"
+
+import { useMeetings } from "@/features/meetings/api/meetings.hooks"
 
 type Appointment = RouterOutputs["appointments"]["getMyAppointments"][number]
 
@@ -38,7 +46,12 @@ export default function EnpCalendarPage() {
 	const today = useMemo(() => startOfToday(), [])
 	const [selectedDate, setSelectedDate] = useState<Date>(() => normalizeDate(new Date()))
 
-	const { data: appointments, isLoading, isFetching, refetch } = trpc.appointments.getMyAppointments.useQuery({
+	const {
+		data: appointments,
+		isLoading,
+		isFetching,
+		refetch,
+	} = trpc.appointments.getMyAppointments.useQuery({
 		limit: 100,
 		offset: 0,
 	})
@@ -46,14 +59,14 @@ export default function EnpCalendarPage() {
 	const enpAppointments = useMemo(() => {
 		if (!appointments) return []
 		if (session?.user?.role === "ENP") {
-			return appointments.filter((apt) => apt.lawyerId === session.user.id)
+			return appointments.filter(apt => apt.lawyerId === session.user.id)
 		}
 		return appointments
 	}, [appointments, session?.user?.id, session?.user?.role])
 
 	const appointmentsByDate = useMemo(() => {
 		const map = new Map<string, Appointment[]>()
-		enpAppointments.forEach((apt) => {
+		enpAppointments.forEach(apt => {
 			const dateKey = format(new Date(apt.appointmentDate), "yyyy-MM-dd")
 			const current = map.get(dateKey) ?? []
 			current.push(apt)
@@ -63,7 +76,7 @@ export default function EnpCalendarPage() {
 	}, [enpAppointments])
 
 	const bookedDates = useMemo(
-		() => Array.from(appointmentsByDate.keys()).map((d) => new Date(d)),
+		() => Array.from(appointmentsByDate.keys()).map(d => new Date(d)),
 		[appointmentsByDate]
 	)
 
@@ -102,10 +115,10 @@ export default function EnpCalendarPage() {
 									<CalendarComponent
 										mode="single"
 										selected={selectedDate}
-										onSelect={(date) => date && setSelectedDate(normalizeDate(date))}
-										disabled={(date) => date < today}
+										onSelect={date => date && setSelectedDate(normalizeDate(date))}
+										disabled={date => date < today}
 										initialFocus
-										className="w-full max-w-[380px] rounded-2xl border bg-muted/30 p-4 shadow-sm [--cell-size:2.6rem]"
+										className="bg-muted/30 w-full max-w-[380px] rounded-2xl border p-4 shadow-sm [--cell-size:2.6rem]"
 										modifiers={{ booked: bookedDates }}
 										modifiersClassNames={{ booked: "bg-primary/10 text-primary font-semibold" }}
 									/>
@@ -138,7 +151,9 @@ export default function EnpCalendarPage() {
 							<Card className="border-dashed">
 								<CardHeader className="flex flex-row items-center justify-between space-y-0">
 									<div>
-										<CardTitle className="text-lg">Appointments for {format(selectedDate, "PPP")}</CardTitle>
+										<CardTitle className="text-lg">
+											Appointments for {format(selectedDate, "PPP")}
+										</CardTitle>
 										<CardDescription>
 											{isBusy
 												? "Loading your schedule..."
@@ -147,7 +162,9 @@ export default function EnpCalendarPage() {
 													: "No appointments on this day."}
 										</CardDescription>
 									</div>
-									<Badge variant={hasData ? "default" : "outline"}>{appointmentsForDay.length} booked</Badge>
+									<Badge variant={hasData ? "default" : "outline"}>
+										{appointmentsForDay.length} booked
+									</Badge>
 								</CardHeader>
 							</Card>
 
@@ -184,7 +201,7 @@ export default function EnpCalendarPage() {
 
 							{!isBusy && hasData && (
 								<div className="grid grid-cols-1 gap-3">
-									{appointmentsForDay.map((apt) => (
+									{appointmentsForDay.map(apt => (
 										<AppointmentCard
 											key={apt.id}
 											appointment={apt}
@@ -224,28 +241,28 @@ function AppointmentCard({
 			toast.success("Consultation accepted")
 			onRefetch()
 		},
-		onError: (err) => toast.error(err.message || "Failed to accept"),
+		onError: err => toast.error(err.message || "Failed to accept"),
 	})
 	const cancelConsultation = trpc.consultations.cancelConsultation.useMutation({
 		onSuccess: () => {
 			toast.success("Consultation rejected")
 			onRefetch()
 		},
-		onError: (err) => toast.error(err.message || "Failed to reject"),
+		onError: err => toast.error(err.message || "Failed to reject"),
 	})
 	const confirmAppointment = trpc.appointments.confirmAppointment.useMutation({
 		onSuccess: () => {
 			toast.success("Signing session accepted")
 			onRefetch()
 		},
-		onError: (err) => toast.error(err.message || "Failed to accept"),
+		onError: err => toast.error(err.message || "Failed to accept"),
 	})
 	const cancelAppointment = trpc.appointments.cancelAppointment.useMutation({
 		onSuccess: () => {
 			toast.success("Signing session rejected")
 			onRefetch()
 		},
-		onError: (err) => toast.error(err.message || "Failed to reject"),
+		onError: err => toast.error(err.message || "Failed to reject"),
 	})
 	const meetingIdFromLink = useMemo(() => {
 		const match = appointment.meetingLink?.match(/\/meetings\/([^/]+)/)
@@ -263,8 +280,10 @@ function AppointmentCard({
 		appointment.status === "CONFIRMED" &&
 		!appointment.meetingLink &&
 		!isPastSlot
-	const isPendingConsultation = appointment.type === "CONSULTATION" && appointment.status === "PENDING" && isLawyer
-	const isPendingSigning = appointment.type === "DOCUMENT_SIGNING" && appointment.status === "PENDING" && isLawyer
+	const isPendingConsultation =
+		appointment.type === "CONSULTATION" && appointment.status === "PENDING" && isLawyer
+	const isPendingSigning =
+		appointment.type === "DOCUMENT_SIGNING" && appointment.status === "PENDING" && isLawyer
 	const startTimeLabel = format(new Date(appointment.appointmentDate), "h:mm a")
 	const dateLabel = format(new Date(appointment.appointmentDate), "PPP")
 
@@ -309,7 +328,14 @@ function AppointmentCard({
 					</CardDescription>
 				</div>
 				<div className="flex items-center gap-2">
-					<Badge variant="outline" className={workflow === "REN" ? "text-blue-600 border-blue-600" : "text-green-600 border-green-600"}>
+					<Badge
+						variant="outline"
+						className={
+							workflow === "REN"
+								? "border-blue-600 text-blue-600"
+								: "border-green-600 text-green-600"
+						}
+					>
 						{workflow === "REN" ? "Remote" : "In-Person"}
 					</Badge>
 					<Badge variant={appointment.status === "CONFIRMED" ? "default" : "secondary"}>
@@ -328,21 +354,22 @@ function AppointmentCard({
 			<CardContent className="space-y-3">
 				<div className="flex items-center gap-3">
 					<Avatar className="h-10 w-10">
-						<AvatarImage src={appointment.client?.image || undefined} alt={appointment.client?.name || "Client"} />
+						<AvatarImage
+							src={appointment.client?.image || undefined}
+							alt={appointment.client?.name || "Client"}
+						/>
 						<AvatarFallback>{getInitials(appointment.client?.name || "Client")}</AvatarFallback>
 					</Avatar>
 					<div className="min-w-0">
-						<p className="font-medium leading-tight">{appointment.client?.name || "Client"}</p>
-						<p className="text-muted-foreground text-sm truncate">{appointment.client?.email}</p>
+						<p className="leading-tight font-medium">{appointment.client?.name || "Client"}</p>
+						<p className="text-muted-foreground truncate text-sm">{appointment.client?.email}</p>
 					</div>
 				</div>
 
-				<div className="grid gap-2 text-sm text-muted-foreground">
+				<div className="text-muted-foreground grid gap-2 text-sm">
 					<div className="flex items-center gap-2">
 						<Clock className="h-4 w-4" />
-						<span>
-							Duration: {appointment.duration || 30} mins
-						</span>
+						<span>Duration: {appointment.duration || 30} mins</span>
 					</div>
 					<div className="flex items-center gap-2">
 						{workflow === "REN" ? <Video className="h-4 w-4" /> : <Handshake className="h-4 w-4" />}
@@ -382,7 +409,9 @@ function AppointmentCard({
 								cancelAppointment.isPending
 							}
 						>
-							{confirmConsultation.isPending || confirmAppointment.isPending ? "Accepting..." : "Accept"}
+							{confirmConsultation.isPending || confirmAppointment.isPending
+								? "Accepting..."
+								: "Accept"}
 						</Button>
 						<Button
 							size="sm"
@@ -407,7 +436,9 @@ function AppointmentCard({
 								cancelAppointment.isPending
 							}
 						>
-							{cancelConsultation.isPending || cancelAppointment.isPending ? "Rejecting..." : "Reject"}
+							{cancelConsultation.isPending || cancelAppointment.isPending
+								? "Rejecting..."
+								: "Reject"}
 						</Button>
 					</div>
 				)}
@@ -417,15 +448,22 @@ function AppointmentCard({
 						size="sm"
 						variant="default"
 						onClick={() => void handleStartMeeting()}
-						disabled={isStarting || create.isPending || startMeeting.isPending || updateAppointment.isPending}
+						disabled={
+							isStarting ||
+							create.isPending ||
+							startMeeting.isPending ||
+							updateAppointment.isPending
+						}
 					>
 						<Video className="mr-2 h-4 w-4" />
-						{isStarting || create.isPending || startMeeting.isPending ? "Starting..." : "Start Meeting"}
+						{isStarting || create.isPending || startMeeting.isPending
+							? "Starting..."
+							: "Start Meeting"}
 					</Button>
 				)}
 
 				{!canStartMeeting && isPastSlot && !appointment.meetingLink && (
-					<Badge variant="outline" className="text-amber-600 border-amber-600">
+					<Badge variant="outline" className="border-amber-600 text-amber-600">
 						Scheduled time has lapsed
 					</Badge>
 				)}
@@ -450,4 +488,3 @@ function AppointmentCard({
 		</Card>
 	)
 }
-

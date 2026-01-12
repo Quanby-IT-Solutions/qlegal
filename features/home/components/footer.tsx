@@ -30,12 +30,12 @@ export function Footer() {
 							className="hover:bg-muted/50 flex items-center gap-2 rounded-lg p-1 transition-colors"
 						>
 							<QuanbyLogo className="size-8!" />
-							<span className="from-foreground to-foreground/80 bg-linear-to-r bg-clip-text text-xl font-bold leading-tight tracking-tight text-transparent">
-							Quanby Legal
+							<span className="from-foreground to-foreground/80 bg-linear-to-r bg-clip-text text-xl leading-tight font-bold tracking-tight text-transparent">
+								Quanby Legal
 							</span>
 						</Link>
 						<p className="text-muted-foreground leading-relaxed">
-						Supreme Court accredited platform for secure and compliant electronic notarization.
+							Supreme Court accredited platform for secure and compliant electronic notarization.
 						</p>
 					</MotionEffect>
 

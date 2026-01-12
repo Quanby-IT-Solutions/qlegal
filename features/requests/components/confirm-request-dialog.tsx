@@ -2,8 +2,15 @@
 
 import { Check } from "lucide-react"
 
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/core/components/ui/dialog"
 import { Button } from "@/core/components/ui/button"
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+} from "@/core/components/ui/dialog"
 
 interface ConfirmRequestDialogProps {
 	open: boolean
@@ -32,9 +39,7 @@ export function ConfirmRequestDialog({
 						<Check className="h-5 w-5 text-green-600" />
 						Confirm Appointment
 					</DialogTitle>
-					<DialogDescription>
-						Confirm this appointment request.
-					</DialogDescription>
+					<DialogDescription>Confirm this appointment request.</DialogDescription>
 				</DialogHeader>
 
 				<form onSubmit={handleSubmit}>

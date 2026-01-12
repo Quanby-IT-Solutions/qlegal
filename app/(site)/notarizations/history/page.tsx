@@ -1,20 +1,46 @@
 "use client"
 
-import { useState, useMemo } from "react"
-import { useSession } from "next-auth/react"
-import { Search, Filter, Clock, CheckCircle, XCircle, FileText, Calendar, User, Download, Eye, Video, Handshake } from "lucide-react"
+import { useMemo, useState } from "react"
 import { format } from "date-fns"
+import {
+	Calendar,
+	CheckCircle,
+	Clock,
+	Download,
+	Eye,
+	FileText,
+	Filter,
+	Handshake,
+	Search,
+	User,
+	Video,
+	XCircle,
+} from "lucide-react"
+import { useSession } from "next-auth/react"
+
+import { PageHeader } from "@/core/components/navbar/page-header"
+import { Avatar, AvatarFallback, AvatarImage } from "@/core/components/ui/avatar"
+import { Badge } from "@/core/components/ui/badge"
+import { Button } from "@/core/components/ui/button"
+import {
+	Card,
+	CardContent,
+	CardDescription,
+	CardHeader,
+	CardTitle,
+} from "@/core/components/ui/card"
+import { Input } from "@/core/components/ui/input"
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@/core/components/ui/select"
+import { Skeleton } from "@/core/components/ui/skeleton"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/core/components/ui/tabs"
 
 import { trpc } from "@/services/trpc/client"
-import { PageHeader } from "@/core/components/navbar/page-header"
-import { Button } from "@/core/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/core/components/ui/card"
-import { Input } from "@/core/components/ui/input"
-import { Badge } from "@/core/components/ui/badge"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/core/components/ui/select"
-import { Avatar, AvatarFallback, AvatarImage } from "@/core/components/ui/avatar"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/core/components/ui/tabs"
-import { Skeleton } from "@/core/components/ui/skeleton"
 
 export default function NotarizationHistoryPage() {
 	const { data: session } = useSession()
@@ -39,12 +65,15 @@ export default function NotarizationHistoryPage() {
 			apt => apt.status === "COMPLETED" || apt.status === "CANCELLED"
 		)
 
-		return historyAppointments.map((appointment) => {
+		return historyAppointments.map(appointment => {
 			// Determine workflow
 			const notesLower = (appointment.notes || "").toLowerCase()
 			const hasRemoteKeywords = notesLower.includes("remote") || notesLower.includes("ren")
-			const hasInPersonKeywords = notesLower.includes("in-person") || notesLower.includes("ien") || notesLower.includes("in person")
-			
+			const hasInPersonKeywords =
+				notesLower.includes("in-person") ||
+				notesLower.includes("ien") ||
+				notesLower.includes("in person")
+
 			let workflow: "REN" | "IEN"
 			if (appointment.meetingLink) {
 				workflow = "REN"
@@ -72,7 +101,7 @@ export default function NotarizationHistoryPage() {
 					.replace(/Remote Electronic Notarization/gi, "REN")
 					.replace(/In-Person Electronic Notarization/gi, "IEN")
 					.trim()
-				
+
 				if (cleanedNotes.length > 60 || cleanedNotes.includes("\n")) {
 					const firstLine = cleanedNotes.split("\n")[0]?.trim() || ""
 					title = firstLine.length > 60 ? `${firstLine.substring(0, 57)}...` : firstLine
@@ -80,9 +109,10 @@ export default function NotarizationHistoryPage() {
 					title = cleanedNotes
 				}
 			}
-			
+
 			if (!title || title.length < 3) {
-				const typeLabel = appointment.type === "DOCUMENT_SIGNING" ? "Document Signing" : "Consultation"
+				const typeLabel =
+					appointment.type === "DOCUMENT_SIGNING" ? "Document Signing" : "Consultation"
 				title = `${typeLabel} - ${principal?.name || "Client"}`
 			}
 
@@ -105,14 +135,18 @@ export default function NotarizationHistoryPage() {
 					name: principal?.name || "Unknown Client",
 					email: principal?.email || "",
 				},
-				completedAt: appointment.status === "COMPLETED" ? appointment.updatedAt.toISOString() : undefined,
-				cancelledAt: appointment.status === "CANCELLED" ? appointment.updatedAt.toISOString() : undefined,
+				completedAt:
+					appointment.status === "COMPLETED" ? appointment.updatedAt.toISOString() : undefined,
+				cancelledAt:
+					appointment.status === "CANCELLED" ? appointment.updatedAt.toISOString() : undefined,
 				duration,
 				documents,
-				location: appointment.location || (workflow === "REN" ? "Remote Video Call" : "Location TBD"),
+				location:
+					appointment.location || (workflow === "REN" ? "Remote Video Call" : "Location TBD"),
 				cancellationReason: appointment.cancelReason || undefined,
 				certificateUrl: appointment.status === "COMPLETED" ? undefined : undefined, // TODO: Add certificate URL when available
-				recordingUrl: appointment.status === "COMPLETED" && workflow === "REN" ? undefined : undefined, // TODO: Add recording URL when available
+				recordingUrl:
+					appointment.status === "COMPLETED" && workflow === "REN" ? undefined : undefined, // TODO: Add recording URL when available
 			}
 		})
 	}, [appointments])
@@ -131,7 +165,11 @@ export default function NotarizationHistoryPage() {
 	const getStatusBadge = (status: string) => {
 		switch (status) {
 			case "COMPLETED":
-				return <Badge variant="outline" className="text-green-600 border-green-600">Completed</Badge>
+				return (
+					<Badge variant="outline" className="border-green-600 text-green-600">
+						Completed
+					</Badge>
+				)
 			case "CANCELLED":
 				return <Badge variant="destructive">Cancelled</Badge>
 			default:
@@ -141,25 +179,33 @@ export default function NotarizationHistoryPage() {
 
 	const getWorkflowBadge = (workflow: string) => {
 		return (
-			<Badge variant="outline" className={workflow === "REN" ? "text-blue-600 border-blue-600" : "text-green-600 border-green-600"}>
+			<Badge
+				variant="outline"
+				className={
+					workflow === "REN" ? "border-blue-600 text-blue-600" : "border-green-600 text-green-600"
+				}
+			>
 				{workflow}
 			</Badge>
 		)
 	}
 
 	const filteredNotarizations = notarizationHistory.filter(notarization => {
-		const matchesSearch = notarization.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+		const matchesSearch =
+			notarization.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
 			notarization.enp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
 			notarization.principal.name.toLowerCase().includes(searchTerm.toLowerCase())
 		const matchesStatus = statusFilter === "ALL" || notarization.status === statusFilter
 		const matchesWorkflow = workflowFilter === "ALL" || notarization.workflow === workflowFilter
-		
+
 		let matchesDate = true
 		if (dateFilter !== "ALL") {
 			const notarizationDate = new Date(notarization.completedAt || notarization.cancelledAt!)
 			const now = new Date()
-			const daysDiff = Math.floor((now.getTime() - notarizationDate.getTime()) / (1000 * 60 * 60 * 24))
-			
+			const daysDiff = Math.floor(
+				(now.getTime() - notarizationDate.getTime()) / (1000 * 60 * 60 * 24)
+			)
+
 			switch (dateFilter) {
 				case "TODAY":
 					matchesDate = daysDiff === 0
@@ -175,7 +221,7 @@ export default function NotarizationHistoryPage() {
 					break
 			}
 		}
-		
+
 		return matchesSearch && matchesStatus && matchesWorkflow && matchesDate
 	})
 
@@ -200,19 +246,16 @@ export default function NotarizationHistoryPage() {
 
 	return (
 		<div className="flex flex-1 flex-col">
-			<PageHeader 
-				items={[
-					{ label: "Notarizations", href: "/notarizations/history" },
-					{ label: "History" }
-				]} 
+			<PageHeader
+				items={[{ label: "Notarizations", href: "/notarizations/history" }, { label: "History" }]}
 			/>
-			
+
 			<main className="flex-1 p-4 md:p-6 lg:p-8">
 				<div className="mx-auto max-w-7xl space-y-8">
 					{/* Header */}
 					<div className="space-y-2">
 						<h1 className="text-3xl font-bold tracking-tight">Notarization History</h1>
-						<p className="mt-2 text-muted-foreground">
+						<p className="text-muted-foreground mt-2">
 							View your completed and cancelled notarization sessions
 						</p>
 					</div>
@@ -224,7 +267,7 @@ export default function NotarizationHistoryPage() {
 								<Input
 									placeholder="Search notarizations..."
 									value={searchTerm}
-									onChange={(e) => setSearchTerm(e.target.value)}
+									onChange={e => setSearchTerm(e.target.value)}
 								/>
 								<Select value={statusFilter} onValueChange={setStatusFilter}>
 									<SelectTrigger>
@@ -289,145 +332,164 @@ export default function NotarizationHistoryPage() {
 								</div>
 							) : (
 								<div className="space-y-4">
-									{filteredNotarizations.map((notarization) => (
-									<Card key={notarization.id} className="hover:shadow-md transition-shadow">
-										<CardContent className="p-6">
-											<div className="flex items-start justify-between">
-												<div className="flex-1">
-													<div className="flex items-center gap-3 mb-2">
-														<h3 className="text-lg font-medium">{notarization.title}</h3>
-														{getStatusBadge(notarization.status)}
-														{getWorkflowBadge(notarization.workflow)}
-													</div>
-													
-													<div className="flex items-center gap-4 text-sm text-muted-foreground mb-3">
-														<div className="flex items-center gap-1">
-															<User className="h-4 w-4" />
-															<span>{notarization.enp.name}</span>
+									{filteredNotarizations.map(notarization => (
+										<Card key={notarization.id} className="transition-shadow hover:shadow-md">
+											<CardContent className="p-6">
+												<div className="flex items-start justify-between">
+													<div className="flex-1">
+														<div className="mb-2 flex items-center gap-3">
+															<h3 className="text-lg font-medium">{notarization.title}</h3>
+															{getStatusBadge(notarization.status)}
+															{getWorkflowBadge(notarization.workflow)}
 														</div>
-														<div className="flex items-center gap-1">
-															<FileText className="h-4 w-4" />
-															<span>{notarization.documents} document{notarization.documents !== 1 ? "s" : ""}</span>
+
+														<div className="text-muted-foreground mb-3 flex items-center gap-4 text-sm">
+															<div className="flex items-center gap-1">
+																<User className="h-4 w-4" />
+																<span>{notarization.enp.name}</span>
+															</div>
+															<div className="flex items-center gap-1">
+																<FileText className="h-4 w-4" />
+																<span>
+																	{notarization.documents} document
+																	{notarization.documents !== 1 ? "s" : ""}
+																</span>
+															</div>
+															<div className="flex items-center gap-1">
+																<Calendar className="h-4 w-4" />
+																<span>
+																	{notarization.status === "COMPLETED"
+																		? `Completed ${format(new Date(notarization.completedAt!), "MMM dd, yyyy")}`
+																		: `Cancelled ${format(new Date(notarization.cancelledAt!), "MMM dd, yyyy")}`}
+																</span>
+															</div>
+															{notarization.duration > 0 && (
+																<div className="flex items-center gap-1">
+																	<Clock className="h-4 w-4" />
+																	<span>{notarization.duration} min</span>
+																</div>
+															)}
 														</div>
-														<div className="flex items-center gap-1">
-															<Calendar className="h-4 w-4" />
-															<span>
-																{notarization.status === "COMPLETED" 
-																	? `Completed ${format(new Date(notarization.completedAt!), "MMM dd, yyyy")}`
-																	: `Cancelled ${format(new Date(notarization.cancelledAt!), "MMM dd, yyyy")}`
-																}
+
+														<div className="mb-4 flex items-center gap-2">
+															{getStatusIcon(notarization.status)}
+															<span className="text-sm">
+																{notarization.status === "COMPLETED" &&
+																	"Notarization completed successfully"}
+																{notarization.status === "CANCELLED" &&
+																	`Cancelled: ${notarization.cancellationReason}`}
 															</span>
 														</div>
-														{notarization.duration > 0 && (
-															<div className="flex items-center gap-1">
-																<Clock className="h-4 w-4" />
-																<span>{notarization.duration} min</span>
-															</div>
-														)}
-													</div>
 
-													<div className="flex items-center gap-2 mb-4">
-														{getStatusIcon(notarization.status)}
-														<span className="text-sm">
-															{notarization.status === "COMPLETED" && "Notarization completed successfully"}
-															{notarization.status === "CANCELLED" && `Cancelled: ${notarization.cancellationReason}`}
-														</span>
-													</div>
-
-													{/* Location */}
-													<div className="text-sm text-muted-foreground mb-4">
-														Location: {notarization.location}
-													</div>
-
-													{/* Participants */}
-													<div className="flex items-center gap-4">
-														<div className="flex items-center gap-2">
-													<Avatar className="h-8 w-8">
-														<AvatarImage src={notarization.enp.avatar} alt={notarization.enp.name} />
-														<AvatarFallback>
-															{notarization.enp.name.split(" ").map(n => n[0]).join("").toUpperCase()}
-														</AvatarFallback>
-													</Avatar>
-															<div className="text-sm">
-																<p className="font-medium">{notarization.enp.name}</p>
-																<p className="text-muted-foreground">ENP</p>
-															</div>
+														{/* Location */}
+														<div className="text-muted-foreground mb-4 text-sm">
+															Location: {notarization.location}
 														</div>
-														<div className="flex items-center gap-2">
-															<Avatar className="h-8 w-8">
-																<AvatarFallback>
-																	{notarization.principal.name.split(" ").map(n => n[0]).join("").toUpperCase()}
-																</AvatarFallback>
-															</Avatar>
-															<div className="text-sm">
-																<p className="font-medium">{notarization.principal.name}</p>
-																<p className="text-muted-foreground">Principal</p>
+
+														{/* Participants */}
+														<div className="flex items-center gap-4">
+															<div className="flex items-center gap-2">
+																<Avatar className="h-8 w-8">
+																	<AvatarImage
+																		src={notarization.enp.avatar}
+																		alt={notarization.enp.name}
+																	/>
+																	<AvatarFallback>
+																		{notarization.enp.name
+																			.split(" ")
+																			.map(n => n[0])
+																			.join("")
+																			.toUpperCase()}
+																	</AvatarFallback>
+																</Avatar>
+																<div className="text-sm">
+																	<p className="font-medium">{notarization.enp.name}</p>
+																	<p className="text-muted-foreground">ENP</p>
+																</div>
+															</div>
+															<div className="flex items-center gap-2">
+																<Avatar className="h-8 w-8">
+																	<AvatarFallback>
+																		{notarization.principal.name
+																			.split(" ")
+																			.map(n => n[0])
+																			.join("")
+																			.toUpperCase()}
+																	</AvatarFallback>
+																</Avatar>
+																<div className="text-sm">
+																	<p className="font-medium">{notarization.principal.name}</p>
+																	<p className="text-muted-foreground">Principal</p>
+																</div>
 															</div>
 														</div>
 													</div>
-												</div>
 
-												<div className="flex items-center gap-2">
-													{notarization.status === "COMPLETED" && (
-														<>
-															<Button
-																variant="outline"
-																size="sm"
-																onClick={() => handleDownloadCertificate(notarization.certificateUrl!)}
-															>
-																<Download className="mr-2 h-4 w-4" />
-																Certificate
-															</Button>
-															{notarization.recordingUrl && (
+													<div className="flex items-center gap-2">
+														{notarization.status === "COMPLETED" && (
+															<>
 																<Button
 																	variant="outline"
 																	size="sm"
-																	onClick={() => handleViewRecording(notarization.recordingUrl!)}
+																	onClick={() =>
+																		handleDownloadCertificate(notarization.certificateUrl!)
+																	}
 																>
-																	{notarization.workflow === "REN" ? (
-																		<>
-																			<Video className="mr-2 h-4 w-4" />
-																			Recording
-																		</>
-																	) : (
-																		<>
-																			<Handshake className="mr-2 h-4 w-4" />
-																			Details
-																		</>
-																	)}
+																	<Download className="mr-2 h-4 w-4" />
+																	Certificate
 																</Button>
-															)}
-														</>
-													)}
-													<Button
-														variant="outline"
-														size="sm"
-														onClick={() => handleViewNotarization(notarization.id)}
-													>
-														<Eye className="mr-2 h-4 w-4" />
-														View Details
-													</Button>
+																{notarization.recordingUrl && (
+																	<Button
+																		variant="outline"
+																		size="sm"
+																		onClick={() => handleViewRecording(notarization.recordingUrl!)}
+																	>
+																		{notarization.workflow === "REN" ? (
+																			<>
+																				<Video className="mr-2 h-4 w-4" />
+																				Recording
+																			</>
+																		) : (
+																			<>
+																				<Handshake className="mr-2 h-4 w-4" />
+																				Details
+																			</>
+																		)}
+																	</Button>
+																)}
+															</>
+														)}
+														<Button
+															variant="outline"
+															size="sm"
+															onClick={() => handleViewNotarization(notarization.id)}
+														>
+															<Eye className="mr-2 h-4 w-4" />
+															View Details
+														</Button>
+													</div>
 												</div>
-											</div>
-										</CardContent>
-									</Card>
-								))}
+											</CardContent>
+										</Card>
+									))}
 
-								{!isLoading && filteredNotarizations.length === 0 && (
-									<Card>
-										<CardContent className="py-12 text-center">
-											<FileText className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-											<h3 className="text-lg font-medium mb-2">No notarizations found</h3>
-											<p className="text-muted-foreground">
-												{searchTerm || statusFilter !== "ALL" || workflowFilter !== "ALL" || dateFilter !== "ALL"
-													? "Try adjusting your search criteria or filters."
-													: "You don't have any notarization history yet."
-												}
-											</p>
-										</CardContent>
-									</Card>
-								)}
-							</div>
+									{!isLoading && filteredNotarizations.length === 0 && (
+										<Card>
+											<CardContent className="py-12 text-center">
+												<FileText className="text-muted-foreground mx-auto mb-4 h-12 w-12" />
+												<h3 className="mb-2 text-lg font-medium">No notarizations found</h3>
+												<p className="text-muted-foreground">
+													{searchTerm ||
+													statusFilter !== "ALL" ||
+													workflowFilter !== "ALL" ||
+													dateFilter !== "ALL"
+														? "Try adjusting your search criteria or filters."
+														: "You don't have any notarization history yet."}
+												</p>
+											</CardContent>
+										</Card>
+									)}
+								</div>
 							)}
 						</TabsContent>
 
@@ -444,68 +506,78 @@ export default function NotarizationHistoryPage() {
 								</div>
 							) : (
 								<div className="space-y-4">
-									{completedNotarizations.map((notarization) => (
-									<Card key={notarization.id} className="hover:shadow-md transition-shadow">
-										<CardContent className="p-6">
-											{/* Same content as above but only for completed */}
-											<div className="flex items-start justify-between">
-												<div className="flex-1">
-													<div className="flex items-center gap-3 mb-2">
-														<h3 className="text-lg font-medium">{notarization.title}</h3>
-														{getStatusBadge(notarization.status)}
-														{getWorkflowBadge(notarization.workflow)}
-													</div>
-													
-													<div className="flex items-center gap-4 text-sm text-muted-foreground mb-3">
-														<div className="flex items-center gap-1">
-															<User className="h-4 w-4" />
-															<span>{notarization.enp.name}</span>
+									{completedNotarizations.map(notarization => (
+										<Card key={notarization.id} className="transition-shadow hover:shadow-md">
+											<CardContent className="p-6">
+												{/* Same content as above but only for completed */}
+												<div className="flex items-start justify-between">
+													<div className="flex-1">
+														<div className="mb-2 flex items-center gap-3">
+															<h3 className="text-lg font-medium">{notarization.title}</h3>
+															{getStatusBadge(notarization.status)}
+															{getWorkflowBadge(notarization.workflow)}
 														</div>
-														<div className="flex items-center gap-1">
-															<FileText className="h-4 w-4" />
-															<span>{notarization.documents} document{notarization.documents !== 1 ? "s" : ""}</span>
+
+														<div className="text-muted-foreground mb-3 flex items-center gap-4 text-sm">
+															<div className="flex items-center gap-1">
+																<User className="h-4 w-4" />
+																<span>{notarization.enp.name}</span>
+															</div>
+															<div className="flex items-center gap-1">
+																<FileText className="h-4 w-4" />
+																<span>
+																	{notarization.documents} document
+																	{notarization.documents !== 1 ? "s" : ""}
+																</span>
+															</div>
+															<div className="flex items-center gap-1">
+																<Calendar className="h-4 w-4" />
+																<span>
+																	Completed{" "}
+																	{format(new Date(notarization.completedAt!), "MMM dd, yyyy")}
+																</span>
+															</div>
+															<div className="flex items-center gap-1">
+																<Clock className="h-4 w-4" />
+																<span>{notarization.duration} min</span>
+															</div>
 														</div>
-														<div className="flex items-center gap-1">
-															<Calendar className="h-4 w-4" />
-															<span>Completed {format(new Date(notarization.completedAt!), "MMM dd, yyyy")}</span>
-														</div>
-														<div className="flex items-center gap-1">
-															<Clock className="h-4 w-4" />
-															<span>{notarization.duration} min</span>
+
+														<div className="mb-4 flex items-center gap-2">
+															<CheckCircle className="h-4 w-4 text-green-600" />
+															<span className="text-sm text-green-600">
+																Notarization completed successfully
+															</span>
 														</div>
 													</div>
 
-													<div className="flex items-center gap-2 mb-4">
-														<CheckCircle className="h-4 w-4 text-green-600" />
-														<span className="text-sm text-green-600">Notarization completed successfully</span>
-													</div>
-												</div>
-
-												<div className="flex items-center gap-2">
-													<Button
-														variant="outline"
-														size="sm"
-														onClick={() => handleDownloadCertificate(notarization.certificateUrl!)}
-													>
-														<Download className="mr-2 h-4 w-4" />
-														Certificate
-													</Button>
-													{notarization.recordingUrl && (
+													<div className="flex items-center gap-2">
 														<Button
 															variant="outline"
 															size="sm"
-															onClick={() => handleViewRecording(notarization.recordingUrl!)}
+															onClick={() =>
+																handleDownloadCertificate(notarization.certificateUrl!)
+															}
 														>
-															<Video className="mr-2 h-4 w-4" />
-															Recording
+															<Download className="mr-2 h-4 w-4" />
+															Certificate
 														</Button>
-													)}
+														{notarization.recordingUrl && (
+															<Button
+																variant="outline"
+																size="sm"
+																onClick={() => handleViewRecording(notarization.recordingUrl!)}
+															>
+																<Video className="mr-2 h-4 w-4" />
+																Recording
+															</Button>
+														)}
+													</div>
 												</div>
-											</div>
-										</CardContent>
-									</Card>
-								))}
-							</div>
+											</CardContent>
+										</Card>
+									))}
+								</div>
 							)}
 						</TabsContent>
 
@@ -522,54 +594,62 @@ export default function NotarizationHistoryPage() {
 								</div>
 							) : (
 								<div className="space-y-4">
-									{cancelledNotarizations.map((notarization) => (
-									<Card key={notarization.id} className="hover:shadow-md transition-shadow">
-										<CardContent className="p-6">
-											{/* Same content as above but only for cancelled */}
-											<div className="flex items-start justify-between">
-												<div className="flex-1">
-													<div className="flex items-center gap-3 mb-2">
-														<h3 className="text-lg font-medium">{notarization.title}</h3>
-														{getStatusBadge(notarization.status)}
-														{getWorkflowBadge(notarization.workflow)}
-													</div>
-													
-													<div className="flex items-center gap-4 text-sm text-muted-foreground mb-3">
-														<div className="flex items-center gap-1">
-															<User className="h-4 w-4" />
-															<span>{notarization.enp.name}</span>
+									{cancelledNotarizations.map(notarization => (
+										<Card key={notarization.id} className="transition-shadow hover:shadow-md">
+											<CardContent className="p-6">
+												{/* Same content as above but only for cancelled */}
+												<div className="flex items-start justify-between">
+													<div className="flex-1">
+														<div className="mb-2 flex items-center gap-3">
+															<h3 className="text-lg font-medium">{notarization.title}</h3>
+															{getStatusBadge(notarization.status)}
+															{getWorkflowBadge(notarization.workflow)}
 														</div>
-														<div className="flex items-center gap-1">
-															<FileText className="h-4 w-4" />
-															<span>{notarization.documents} document{notarization.documents !== 1 ? "s" : ""}</span>
+
+														<div className="text-muted-foreground mb-3 flex items-center gap-4 text-sm">
+															<div className="flex items-center gap-1">
+																<User className="h-4 w-4" />
+																<span>{notarization.enp.name}</span>
+															</div>
+															<div className="flex items-center gap-1">
+																<FileText className="h-4 w-4" />
+																<span>
+																	{notarization.documents} document
+																	{notarization.documents !== 1 ? "s" : ""}
+																</span>
+															</div>
+															<div className="flex items-center gap-1">
+																<Calendar className="h-4 w-4" />
+																<span>
+																	Cancelled{" "}
+																	{format(new Date(notarization.cancelledAt!), "MMM dd, yyyy")}
+																</span>
+															</div>
 														</div>
-														<div className="flex items-center gap-1">
-															<Calendar className="h-4 w-4" />
-															<span>Cancelled {format(new Date(notarization.cancelledAt!), "MMM dd, yyyy")}</span>
+
+														<div className="mb-4 flex items-center gap-2">
+															<XCircle className="h-4 w-4 text-red-600" />
+															<span className="text-sm text-red-600">
+																Cancelled: {notarization.cancellationReason}
+															</span>
 														</div>
 													</div>
 
-													<div className="flex items-center gap-2 mb-4">
-														<XCircle className="h-4 w-4 text-red-600" />
-														<span className="text-sm text-red-600">Cancelled: {notarization.cancellationReason}</span>
+													<div className="flex items-center gap-2">
+														<Button
+															variant="outline"
+															size="sm"
+															onClick={() => handleViewNotarization(notarization.id)}
+														>
+															<Eye className="mr-2 h-4 w-4" />
+															View Details
+														</Button>
 													</div>
 												</div>
-
-												<div className="flex items-center gap-2">
-													<Button
-														variant="outline"
-														size="sm"
-														onClick={() => handleViewNotarization(notarization.id)}
-													>
-														<Eye className="mr-2 h-4 w-4" />
-														View Details
-													</Button>
-												</div>
-											</div>
-										</CardContent>
-									</Card>
-								))}
-							</div>
+											</CardContent>
+										</Card>
+									))}
+								</div>
 							)}
 						</TabsContent>
 					</Tabs>

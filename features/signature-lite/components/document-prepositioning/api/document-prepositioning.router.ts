@@ -75,8 +75,8 @@
 // 				console.error("Error generating document URL:", error)
 // 				throw new TRPCError({
 // 					code: "INTERNAL_SERVER_ERROR",
-// 					message: error instanceof Error 
-// 						? `Failed to generate document URL: ${error.message}` 
+// 					message: error instanceof Error
+// 						? `Failed to generate document URL: ${error.message}`
 // 						: "Failed to generate document URL. The document file may not be available in storage.",
 // 				})
 // 			}

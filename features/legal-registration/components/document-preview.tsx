@@ -1,29 +1,17 @@
 "use client"
 
 import React, { useState } from "react"
-import {
-	AlertCircle,
-	Download,
-	ExternalLink,
-	Eye,
-	FileText,
-	Loader2
-} from "lucide-react"
+import { AlertCircle, Download, ExternalLink, Eye, FileText, Loader2 } from "lucide-react"
 
 import { Badge } from "@/core/components/ui/badge"
 import { Button } from "@/core/components/ui/button"
-import {
-	Card,
-	CardContent,
-	CardHeader,
-	CardTitle
-} from "@/core/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/core/components/ui/card"
 import {
 	Dialog,
 	DialogContent,
 	DialogDescription,
 	DialogHeader,
-	DialogTitle
+	DialogTitle,
 } from "@/core/components/ui/dialog"
 import {
 	Table,
@@ -31,7 +19,7 @@ import {
 	TableCell,
 	TableHead,
 	TableHeader,
-	TableRow
+	TableRow,
 } from "@/core/components/ui/table"
 
 interface Document {
@@ -83,10 +71,7 @@ const FilePreview: React.FC<{
 	}
 
 	// PDF Preview
-	if (
-		file.type === "application/pdf" ||
-		file.url.toLowerCase().includes(".pdf")
-	) {
+	if (file.type === "application/pdf" || file.url.toLowerCase().includes(".pdf")) {
 		return (
 			<div className="relative h-full min-h-[800px] w-full">
 				{isLoading && (
@@ -99,12 +84,7 @@ const FilePreview: React.FC<{
 						<div className="text-center">
 							<AlertCircle className="mx-auto mb-2 h-12 w-12 text-gray-400" />
 							<p className="text-sm text-gray-500">Unable to preview PDF</p>
-							<Button
-								variant="outline"
-								size="sm"
-								className="mt-2"
-								onClick={downloadFile}
-							>
+							<Button variant="outline" size="sm" className="mt-2" onClick={downloadFile}>
 								<Download className="mr-2 h-4 w-4" />
 								Download to View
 							</Button>
@@ -116,7 +96,7 @@ const FilePreview: React.FC<{
 						className="h-full w-full rounded border-0"
 						style={{
 							minHeight: "800px",
-							height: "100%"
+							height: "100%",
 						}}
 						onLoad={handleLoad}
 						onError={handleError}
@@ -165,9 +145,7 @@ const FilePreview: React.FC<{
 		<div className="flex h-full min-h-[400px] items-center justify-center">
 			<div className="text-center">
 				<FileText className="mx-auto mb-4 h-16 w-16 text-gray-300" />
-				<p className="mb-2 text-gray-500">
-					Preview not available for this file type
-				</p>
+				<p className="mb-2 text-gray-500">Preview not available for this file type</p>
 				<Badge variant="secondary" className="mb-4">
 					{file.type || "Unknown"}
 				</Badge>
@@ -182,11 +160,9 @@ const FilePreview: React.FC<{
 
 export const DocumentPreview: React.FC<DocumentPreviewProps> = ({
 	application,
-	onViewDocument
+	onViewDocument,
 }) => {
-	const [selectedDocument, setSelectedDocument] = useState<Document | null>(
-		null
-	)
+	const [selectedDocument, setSelectedDocument] = useState<Document | null>(null)
 	const [previewDialog, setPreviewDialog] = useState(false)
 
 	// Convert application URLs to document objects
@@ -200,7 +176,7 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({
 				id: "obc-cert",
 				name: "OBC Good Moral Character Certification",
 				url: application.obcCertificationUrl,
-				type: "application/pdf"
+				type: "application/pdf",
 			})
 		}
 
@@ -209,7 +185,7 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({
 				id: "ibp-cert",
 				name: "IBP Good Moral Character Certification",
 				url: application.ibpCertificationUrl,
-				type: "application/pdf"
+				type: "application/pdf",
 			})
 		}
 
@@ -218,7 +194,7 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({
 				id: "passport-photo",
 				name: "Passport-size Colored Photograph",
 				url: application.passportPhotoUrl,
-				type: "image/jpeg"
+				type: "image/jpeg",
 			})
 		}
 
@@ -227,7 +203,7 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({
 				id: "payment-proof",
 				name: "Proof of Payment",
 				url: application.paymentProofUrl,
-				type: "application/pdf"
+				type: "application/pdf",
 			})
 		}
 
@@ -236,7 +212,7 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({
 				id: "enf-cert",
 				name: "ENF Provider Certification",
 				url: application.enfProviderCertificationUrl,
-				type: "application/pdf"
+				type: "application/pdf",
 			})
 		}
 
@@ -304,7 +280,7 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({
 								</TableRow>
 							</TableHeader>
 							<TableBody>
-								{documents.map((document) => (
+								{documents.map(document => (
 									<TableRow key={document.id}>
 										<TableCell>
 											<div className="flex items-center space-x-2">
@@ -313,10 +289,7 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({
 											</div>
 										</TableCell>
 										<TableCell>
-											<Badge
-												variant="outline"
-												className="bg-green-50 text-green-700"
-											>
+											<Badge variant="outline" className="bg-green-50 text-green-700">
 												Uploaded
 											</Badge>
 										</TableCell>
@@ -353,9 +326,7 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({
 				<DialogContent className="flex h-[95vh] max-w-6xl flex-col">
 					<DialogHeader className="flex-shrink-0">
 						<DialogTitle>{selectedDocument?.name}</DialogTitle>
-						<DialogDescription>
-							Document preview for {application.applicant.name}
-						</DialogDescription>
+						<DialogDescription>Document preview for {application.applicant.name}</DialogDescription>
 					</DialogHeader>
 					<div className="mt-4 min-h-0 flex-1">
 						{selectedDocument && (
@@ -364,7 +335,7 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({
 									file={{
 										url: selectedDocument.url,
 										name: selectedDocument.name,
-										type: selectedDocument.type
+										type: selectedDocument.type,
 									}}
 								/>
 							</div>

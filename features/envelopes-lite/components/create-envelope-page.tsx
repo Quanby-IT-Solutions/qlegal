@@ -1,10 +1,10 @@
 "use client"
 
 import { useRouter } from "next/navigation"
+import { useState } from "react"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { Mail, X } from "lucide-react"
 import { useForm } from "react-hook-form"
-import { useState } from "react"
 import { toast } from "sonner"
 
 import {
@@ -39,7 +39,7 @@ import { createEnvelopeSchema, type CreateEnvelopeSchema } from "../api/envelope
 export function CreateEnvelopePage() {
 	const router = useRouter()
 	const [files, setFiles] = useState<File[]>([])
-	
+
 	const form = useForm<CreateEnvelopeSchema>({
 		resolver: zodResolver(createEnvelopeSchema),
 		defaultValues: {
@@ -58,7 +58,7 @@ export function CreateEnvelopePage() {
 	const onSubmit = (values: CreateEnvelopeSchema) => {
 		// Step 1: Create the envelope
 		createEnvelope.mutate(values, {
-			onSuccess: async (envelopeData) => {
+			onSuccess: async envelopeData => {
 				if (!envelopeData || !("id" in envelopeData)) {
 					toast.error("Failed to get envelope ID")
 					return
@@ -191,7 +191,7 @@ export function CreateEnvelopePage() {
 											<FileUploaderFileList />
 										</div>
 									</FileUploader>
-									
+
 									{/* Compact File List */}
 									{files.length > 0 && (
 										<div className="mt-3 space-y-2">
@@ -205,7 +205,7 @@ export function CreateEnvelopePage() {
 													size="sm"
 													onClick={() => setFiles([])}
 													disabled={isPending}
-													className="text-xs h-7"
+													className="h-7 text-xs"
 												>
 													Clear All
 												</Button>
@@ -246,26 +246,23 @@ export function CreateEnvelopePage() {
 								</div>
 
 								<div className="flex flex-col-reverse gap-2 pt-4 sm:flex-row sm:justify-end sm:gap-3">
-									<Button 
-										variant="outline" 
-										type="button" 
-										disabled={isPending} 
+									<Button
+										variant="outline"
+										type="button"
+										disabled={isPending}
 										onClick={() => router.back()}
 										className="w-full sm:w-auto"
 									>
 										Cancel
 									</Button>
-									<Button 
-										type="submit" 
-										disabled={isPending} 
-										size="lg"
-										className="w-full sm:w-auto"
-									>
+									<Button type="submit" disabled={isPending} size="lg" className="w-full sm:w-auto">
 										{isPending ? (
 											<>
 												<div className="mr-2 h-4 w-4 animate-spin rounded-full border-b-2 border-white"></div>
 												<span className="hidden sm:inline">
-													{files.length > 0 ? "Creating Envelope & Uploading Documents..." : "Creating Envelope..."}
+													{files.length > 0
+														? "Creating Envelope & Uploading Documents..."
+														: "Creating Envelope..."}
 												</span>
 												<span className="sm:hidden">
 													{files.length > 0 ? "Creating..." : "Creating..."}
@@ -275,10 +272,13 @@ export function CreateEnvelopePage() {
 											<>
 												<Mail className="mr-2 h-4 w-4" />
 												<span className="hidden sm:inline">
-													Create Envelope{files.length > 0 ? ` (${files.length} file${files.length > 1 ? 's' : ''})` : ''}
+													Create Envelope
+													{files.length > 0
+														? ` (${files.length} file${files.length > 1 ? "s" : ""})`
+														: ""}
 												</span>
 												<span className="sm:hidden">
-													Create{files.length > 0 ? ` (${files.length})` : ''}
+													Create{files.length > 0 ? ` (${files.length})` : ""}
 												</span>
 											</>
 										)}
@@ -292,4 +292,3 @@ export function CreateEnvelopePage() {
 		</div>
 	)
 }
-

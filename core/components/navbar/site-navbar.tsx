@@ -50,7 +50,7 @@ export function SiteNavbar({ items }: SiteNavbarProps) {
 					>
 						<div className="flex gap-x-2">
 							<QuanbyLogo className="size-6 shrink-0" />
-							<span className="from-foreground to-foreground/80 bg-linear-to-r bg-clip-text text-lg font-bold leading-tight tracking-tight text-transparent">
+							<span className="from-foreground to-foreground/80 bg-linear-to-r bg-clip-text text-lg leading-tight font-bold tracking-tight text-transparent">
 								QSign
 							</span>
 						</div>

@@ -69,7 +69,11 @@ const features = [
 export function Features() {
 	return (
 		<section className="relative overflow-hidden py-20 lg:py-32">
-			<div className="from-primary/5 via-background to-secondary/5 absolute inset-0 bg-linear-to-br" />
+			{/* Background Elements */}
+			<div className="from-primary/3 via-background to-secondary/5 absolute inset-0 bg-linear-to-br" />
+
+			{/* Radial Gradient Overlay at Top - Fade from TrustedBy */}
+			<div className="absolute inset-x-0 top-0 h-1/3 bg-[radial-gradient(ellipse_at_top,transparent_0%,hsl(var(--background))_60%)]" />
 
 			<div className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
 				<motion.div
@@ -89,21 +93,23 @@ export function Features() {
 						</p>
 					</motion.div>
 
-					<div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+					<div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
 						{features.map((feature, index) => (
 							<motion.div key={feature.title} variants={fadeInUp} custom={index}>
 								<CardSpotlight
-									className="border-border/50 bg-background/50 hover:border-border h-full pt-6 backdrop-blur-sm transition-all duration-300 hover:shadow-lg"
+									className="border-border/50 bg-background/50 hover:border-border h-full p-8 pt-8 backdrop-blur-sm transition-all duration-300 hover:shadow-lg"
 									spotlightColor={feature.spotlightColor}
 								>
-									<CardHeader className="pb-2">
-										<div className="bg-primary/10 mb-4 flex h-12 w-12 items-center justify-center rounded-lg">
-											<feature.icon className="text-primary h-6 w-6" />
+									<CardHeader className="pb-4">
+										<div className="bg-primary/10 mb-6 flex h-14 w-14 items-center justify-center rounded-lg">
+											<feature.icon className="text-primary h-7 w-7" />
 										</div>
-										<CardTitle className="text-xl">{feature.title}</CardTitle>
+										<CardTitle className="text-2xl">{feature.title}</CardTitle>
 									</CardHeader>
 									<CardContent>
-										<p className="text-muted-foreground text-sm">{feature.description}</p>
+										<p className="text-muted-foreground text-base leading-relaxed">
+											{feature.description}
+										</p>
 									</CardContent>
 								</CardSpotlight>
 							</motion.div>

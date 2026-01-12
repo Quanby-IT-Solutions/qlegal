@@ -1,10 +1,10 @@
 import { TRPCError } from "@trpc/server"
-import { desc, eq, and, isNotNull, count } from "drizzle-orm"
+import { and, count, desc, eq, isNotNull } from "drizzle-orm"
 import { z } from "zod/v4"
 
-import { documents } from "@/services/drizzle/schema/document"
-import { notarialActs, notarialBooks } from "@/services/drizzle/schema/notarial-book"
+import { downloadCertificate, getPassportDocument } from "@/services/docochain"
 import { users } from "@/services/drizzle/schema/auth"
+import { documents } from "@/services/drizzle/schema/document"
 import { legalRegistrations } from "@/services/drizzle/schema/legal-registration"
 import { meetings } from "@/services/drizzle/schema/meetings"
 import { getPassportDocument, downloadCertificate, checkSigningStatus } from "@/services/docochain"
@@ -15,7 +15,9 @@ const getNotarialBookSchema = z.object({
 	page: z.number().min(1).default(1),
 	perPage: z.number().min(1).max(100).default(50),
 	search: z.string().optional(),
-	actType: z.enum(["ALL", "ACKNOWLEDGMENT", "AFFIRMATION", "JURAT", "SIGNATURE_WITNESSING"]).default("ALL"),
+	actType: z
+		.enum(["ALL", "ACKNOWLEDGMENT", "AFFIRMATION", "JURAT", "SIGNATURE_WITNESSING"])
+		.default("ALL"),
 	workflow: z.enum(["ALL", "REN", "IEN"]).default("ALL"),
 })
 
@@ -139,9 +141,7 @@ function extractSignerInfo(passportData: unknown) {
 	) ?? signers[0]
 
 	// Identify witness (role "WITNESS")
-	const witness = signers.find(s => 
-		s.role?.toUpperCase().includes("WITNESS")
-	)
+	const witness = signers.find(s => s.role?.toUpperCase().includes("WITNESS"))
 
 	return { principal, witness, allSigners: signers }
 }
@@ -151,51 +151,66 @@ export const notarialBookRouter = createTRPCRouter({
 	 * Get notarial book entries for the current ENP
 	 * Uses Doc On Chain Passport API to fetch document history
 	 */
-	getNotarialBook: protectedProcedure
-		.input(getNotarialBookSchema)
-		.query(async ({ ctx, input }) => {
-			const userId = ctx.session.user.id
-			const { page, perPage, search, actType, workflow } = input
+	getNotarialBook: protectedProcedure.input(getNotarialBookSchema).query(async ({ ctx, input }) => {
+		const userId = ctx.session.user.id
+		const { page, perPage, search, actType, workflow } = input
 
-			// Verify user is an ENP
-			const user = await ctx.db.query.users.findFirst({
-				where: eq(users.id, userId),
+		// Verify user is an ENP
+		const user = await ctx.db.query.users.findFirst({
+			where: eq(users.id, userId),
+		})
+
+		if (user?.role !== "ENP") {
+			throw new TRPCError({
+				code: "FORBIDDEN",
+				message: "Only ENPs can access the notarial book",
 			})
+		}
 
-			if (user?.role !== "ENP") {
-				throw new TRPCError({
-					code: "FORBIDDEN",
-					message: "Only ENPs can access the notarial book",
+		// Get or create notarial book for this ENP
+		let notarialBook = await ctx.db.query.notarialBooks.findFirst({
+			where: eq(notarialBooks.enpId, userId),
+		})
+
+		if (!notarialBook) {
+			// Create notarial book if it doesn't exist
+			const [created] = await ctx.db
+				.insert(notarialBooks)
+				.values({
+					enpId: userId,
 				})
-			}
+				.returning()
 
-			// Get or create notarial book for this ENP
-			let notarialBook = await ctx.db.query.notarialBooks.findFirst({
-				where: eq(notarialBooks.enpId, userId),
-			})
+			notarialBook = created!
+		}
 
-			if (!notarialBook) {
-				// Create notarial book if it doesn't exist
-				const [created] = await ctx.db
-					.insert(notarialBooks)
-					.values({
-						enpId: userId,
-					})
-					.returning()
-				
-				notarialBook = created!
-			}
+		// Build query filters
+		const filters = [eq(notarialActs.notarialBookId, notarialBook.id)]
 
-			// Build query filters
-			const filters = [eq(notarialActs.notarialBookId, notarialBook.id)]
+		if (actType !== "ALL") {
+			filters.push(eq(notarialActs.actType, actType))
+		}
 
-			if (actType !== "ALL") {
-				filters.push(eq(notarialActs.actType, actType))
-			}
+		if (workflow !== "ALL") {
+			filters.push(eq(notarialActs.workflow, workflow))
+		}
 
-			if (workflow !== "ALL") {
-				filters.push(eq(notarialActs.workflow, workflow))
-			}
+		// Get notarial acts with pagination
+		const acts = await ctx.db
+			.select()
+			.from(notarialActs)
+			.where(and(...filters))
+			.orderBy(desc(notarialActs.executedAt))
+			.limit(perPage)
+			.offset((page - 1) * perPage)
+
+		// Get total count using proper count function
+		const [totalResult] = await ctx.db
+			.select({ count: count() })
+			.from(notarialActs)
+			.where(and(...filters))
+
+		const total = totalResult?.count ?? 0
 
 			// Get notarial acts with pagination
 			// Note: Data is stored chronologically (executedAt timestamp ensures chronological order)
@@ -227,14 +242,14 @@ export const notarialBookRouter = createTRPCRouter({
 				)
 			}
 
-			return {
-				acts: filteredActs,
-				total,
-				page,
-				perPage,
-				totalPages: Math.ceil(total / perPage),
-			}
-		}),
+		return {
+			acts: filteredActs,
+			total,
+			page,
+			perPage,
+			totalPages: Math.ceil(total / perPage),
+		}
+	}),
 
 	/**
 	 * Sync a completed document to the notarial book
@@ -282,7 +297,7 @@ export const notarialBookRouter = createTRPCRouter({
 						enpId: userId,
 					})
 					.returning()
-				
+
 				notarialBook = created!
 			}
 
@@ -361,7 +376,7 @@ export const notarialBookRouter = createTRPCRouter({
 						principalIdNumber = principal.idNumber
 					}
 				}
-				
+
 				if (witness) {
 					witnessName = witness.name ?? null
 				}
@@ -387,12 +402,15 @@ export const notarialBookRouter = createTRPCRouter({
 
 				// Determine workflow (REN if has video/remote indicators, IEN otherwise)
 				const passportText = JSON.stringify(passportData).toLowerCase()
-				if (passportText.includes("remote") || passportText.includes("video") || passportText.includes("ren")) {
+				if (
+					passportText.includes("remote") ||
+					passportText.includes("video") ||
+					passportText.includes("ren")
+				) {
 					workflow = "REN"
 				} else {
 					workflow = "IEN"
 				}
-
 			} catch (error) {
 				console.error("Error fetching passport data:", error)
 				// Continue with default values if passport fetch fails
@@ -442,10 +460,7 @@ export const notarialBookRouter = createTRPCRouter({
 				return updated
 			} else {
 				// Create new act
-				const [created] = await ctx.db
-					.insert(notarialActs)
-					.values(actData)
-					.returning()
+				const [created] = await ctx.db.insert(notarialActs).values(actData).returning()
 
 				return created
 			}
@@ -508,7 +523,7 @@ export const notarialBookRouter = createTRPCRouter({
 					enpId: userId,
 				})
 				.returning()
-			
+
 			notarialBook = created!
 		}
 
@@ -577,7 +592,9 @@ export const notarialBookRouter = createTRPCRouter({
 				}
 			} catch (error) {
 				console.error(`Error syncing document ${doc.id}:`, error)
-				errors.push(`Failed to sync ${doc.name}: ${error instanceof Error ? error.message : "Unknown error"}`)
+				errors.push(
+					`Failed to sync ${doc.name}: ${error instanceof Error ? error.message : "Unknown error"}`
+				)
 			}
 		}
 
@@ -802,4 +819,3 @@ export const notarialBookRouter = createTRPCRouter({
 		}
 	}),
 })
-

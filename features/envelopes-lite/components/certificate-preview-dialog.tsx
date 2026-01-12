@@ -64,7 +64,7 @@ export function CertificatePreviewDialog({
 	return (
 		<Dialog open={isOpen} onOpenChange={onClose}>
 			<DialogContent
-				className="!flex !h-[96vh] !w-[96vw] !max-w-none flex-col overflow-hidden !p-0 !m-0 !rounded-lg !gap-0"
+				className="!m-0 !flex !h-[96vh] !w-[96vw] !max-w-none flex-col !gap-0 overflow-hidden !rounded-lg !p-0"
 				style={{ maxWidth: "96vw" }}
 			>
 				<DialogHeader className="bg-background flex shrink-0 flex-row items-center justify-between border-b p-4">
@@ -121,4 +121,3 @@ export function CertificatePreviewDialog({
 		</Dialog>
 	)
 }
-

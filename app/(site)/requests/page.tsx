@@ -1,9 +1,9 @@
 "use client"
 
+import type { Route } from "next"
+import { useRouter } from "next/navigation"
 import { useEffect } from "react"
 import { useSession } from "next-auth/react"
-import { useRouter } from "next/navigation"
-import type { Route } from "next"
 
 export default function RequestsPage() {
 	const { data: session } = useSession()

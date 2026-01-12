@@ -1,17 +1,13 @@
-"use client";
+"use client"
 
 import React, { useEffect, useRef, useState } from "react"
-import { ImageIcon, Pen, Save, Trash2, Type } from "lucide-react";
+import { ImageIcon, Pen, Save, Trash2, Type } from "lucide-react"
 
-import { Button } from "@/core/components/ui/button";
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/core/components/ui/card";
-import { Input } from "@/core/components/ui/input";
-import { Label } from "@/core/components/ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/core/components/ui/tabs";
-
-
-
-
+import { Button } from "@/core/components/ui/button"
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/core/components/ui/card"
+import { Input } from "@/core/components/ui/input"
+import { Label } from "@/core/components/ui/label"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/core/components/ui/tabs"
 
 interface SignaturePadProps {
 	onSave: (signatureData: string, signatureType: string) => void
