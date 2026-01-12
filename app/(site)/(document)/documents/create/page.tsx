@@ -9,14 +9,10 @@ export default async function Page() {
 		<HydrateClient>
 			<div className="flex flex-1 flex-col">
 				<PageHeader
-					items={[
-						{ label: "Documents", href: "/documents" },
-						{ label: "Create Envelope" },
-					]}
+					items={[{ label: "Documents", href: "/documents" }, { label: "Create Envelope" }]}
 				/>
 				<CreateEnvelopePage />
 			</div>
 		</HydrateClient>
 	)
 }
-

@@ -1,19 +1,41 @@
 "use client"
 
 import { useState } from "react"
-import { useSession } from "next-auth/react"
-import { Search, Plus, UserCheck, FileText, Calendar, CheckCircle, XCircle, Clock, Edit, Trash2 } from "lucide-react"
 import { format } from "date-fns"
-
-import { trpc } from "@/services/trpc/client"
+import {
+	Calendar,
+	CheckCircle,
+	Clock,
+	Edit,
+	FileText,
+	Plus,
+	Search,
+	Trash2,
+	UserCheck,
+	XCircle,
+} from "lucide-react"
+import { useSession } from "next-auth/react"
 import { toast } from "sonner"
+
 import { SiteNavbar } from "@/core/components/navbar/site-navbar"
-import { Button } from "@/core/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/core/components/ui/card"
-import { Input } from "@/core/components/ui/input"
-import { Badge } from "@/core/components/ui/badge"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/core/components/ui/select"
 import { Avatar, AvatarFallback } from "@/core/components/ui/avatar"
+import { Badge } from "@/core/components/ui/badge"
+import { Button } from "@/core/components/ui/button"
+import {
+	Card,
+	CardContent,
+	CardDescription,
+	CardHeader,
+	CardTitle,
+} from "@/core/components/ui/card"
+import { Input } from "@/core/components/ui/input"
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@/core/components/ui/select"
 import { Skeleton } from "@/core/components/ui/skeleton"
 import {
 	Table,
@@ -23,13 +45,18 @@ import {
 	TableHeader,
 	TableRow,
 } from "@/core/components/ui/table"
+
+import { trpc } from "@/services/trpc/client"
+
 import { AddWitnessDialog } from "@/features/witnesses/components/add-witness-dialog"
 
 export default function WitnessManagementPage() {
 	const { data: session } = useSession()
 	const utils = trpc.useUtils()
 	const [searchTerm, setSearchTerm] = useState("")
-	const [statusFilter, setStatusFilter] = useState<"ALL" | "PENDING" | "VERIFIED" | "REJECTED">("ALL")
+	const [statusFilter, setStatusFilter] = useState<"ALL" | "PENDING" | "VERIFIED" | "REJECTED">(
+		"ALL"
+	)
 	const [isAddWitnessOpen, setIsAddWitnessOpen] = useState(false)
 	const [editingWitnessId, setEditingWitnessId] = useState<string | null>(null)
 
@@ -46,7 +73,7 @@ export default function WitnessManagementPage() {
 			toast.success("Witness deleted successfully!")
 			void utils.witnesses.getMyWitnesses.invalidate()
 		},
-		onError: (error) => {
+		onError: error => {
 			toast.error(error.message || "Failed to delete witness")
 		},
 	})
@@ -60,16 +87,22 @@ export default function WitnessManagementPage() {
 	const getInitials = (name: string | null | undefined): string => {
 		if (!name) return "W"
 		const parts: string[] = name.split(" ")
-		return parts
-			.map((n: string) => n[0] ?? "")
-			.join("")
-			.toUpperCase() || "W"
+		return (
+			parts
+				.map((n: string) => n[0] ?? "")
+				.join("")
+				.toUpperCase() || "W"
+		)
 	}
 
 	const getStatusBadge = (status: string) => {
 		switch (status) {
 			case "VERIFIED":
-				return <Badge variant="outline" className="text-green-600 border-green-600">Verified</Badge>
+				return (
+					<Badge variant="outline" className="border-green-600 text-green-600">
+						Verified
+					</Badge>
+				)
 			case "PENDING":
 				return <Badge variant="secondary">Pending</Badge>
 			case "REJECTED":
@@ -80,7 +113,7 @@ export default function WitnessManagementPage() {
 	}
 
 	const filteredWitnesses = (witnesses || []).filter(witness => {
-		const matchesSearch = 
+		const matchesSearch =
 			witness.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
 			witness.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
 			witness.idNumber?.toLowerCase().includes(searchTerm.toLowerCase())
@@ -90,21 +123,21 @@ export default function WitnessManagementPage() {
 
 	return (
 		<>
-			<SiteNavbar 
+			<SiteNavbar
 				items={[
 					{ label: "Verification", url: "/verification/witness" },
-					{ label: "Witness Management", url: "/verification/witness" }
-				]} 
+					{ label: "Witness Management", url: "/verification/witness" },
+				]}
 			/>
-			
-			<div className="min-h-screen bg-muted/30">
+
+			<div className="bg-muted/30 min-h-screen">
 				<div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
 					{/* Header */}
 					<div className="mb-8">
 						<div className="flex items-center justify-between">
 							<div>
 								<h1 className="text-3xl font-bold tracking-tight">Witness Management</h1>
-								<p className="mt-2 text-muted-foreground">
+								<p className="text-muted-foreground mt-2">
 									Manage witnesses for IEN notarization sessions requiring physical witnesses
 								</p>
 							</div>
@@ -122,11 +155,13 @@ export default function WitnessManagementPage() {
 								<Input
 									placeholder="Search witnesses by name, email, or ID number..."
 									value={searchTerm}
-									onChange={(e) => setSearchTerm(e.target.value)}
+									onChange={e => setSearchTerm(e.target.value)}
 								/>
-								<Select 
-									value={statusFilter} 
-									onValueChange={(value) => setStatusFilter(value as "ALL" | "PENDING" | "VERIFIED" | "REJECTED")}
+								<Select
+									value={statusFilter}
+									onValueChange={value =>
+										setStatusFilter(value as "ALL" | "PENDING" | "VERIFIED" | "REJECTED")
+									}
 								>
 									<SelectTrigger>
 										<SelectValue placeholder="All Status" />
@@ -151,7 +186,8 @@ export default function WitnessManagementPage() {
 									<Skeleton className="h-4 w-32" />
 								) : (
 									<>
-										{filteredWitnesses.length} witness{filteredWitnesses.length !== 1 ? "es" : ""} found
+										{filteredWitnesses.length} witness{filteredWitnesses.length !== 1 ? "es" : ""}{" "}
+										found
 									</>
 								)}
 							</CardDescription>
@@ -165,8 +201,8 @@ export default function WitnessManagementPage() {
 								</div>
 							) : filteredWitnesses.length === 0 ? (
 								<div className="py-12 text-center">
-									<UserCheck className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-									<h3 className="text-lg font-medium mb-2">No witnesses found</h3>
+									<UserCheck className="text-muted-foreground mx-auto mb-4 h-12 w-12" />
+									<h3 className="mb-2 text-lg font-medium">No witnesses found</h3>
 									<p className="text-muted-foreground mb-4">
 										{searchTerm || statusFilter !== "ALL"
 											? "Try adjusting your search criteria or filters."
@@ -192,18 +228,18 @@ export default function WitnessManagementPage() {
 										</TableRow>
 									</TableHeader>
 									<TableBody>
-										{filteredWitnesses.map((witness) => (
+										{filteredWitnesses.map(witness => (
 											<TableRow key={witness.id}>
 												<TableCell>
 													<div className="flex items-center gap-3">
 														<Avatar className="h-10 w-10">
-															<AvatarFallback>
-																{getInitials(witness.name)}
-															</AvatarFallback>
+															<AvatarFallback>{getInitials(witness.name)}</AvatarFallback>
 														</Avatar>
 														<div>
 															<p className="font-medium">{witness.name || "Unknown"}</p>
-															<p className="text-sm text-muted-foreground">{witness.email || "No email"}</p>
+															<p className="text-muted-foreground text-sm">
+																{witness.email || "No email"}
+															</p>
 														</div>
 													</div>
 												</TableCell>
@@ -216,16 +252,14 @@ export default function WitnessManagementPage() {
 														<p className="text-muted-foreground">{witness.address || ""}</p>
 													</div>
 												</TableCell>
-												<TableCell>
-													{getStatusBadge(witness.status)}
-												</TableCell>
+												<TableCell>{getStatusBadge(witness.status)}</TableCell>
 												<TableCell>
 													{witness.createdAt ? (
-														<span className="text-sm text-muted-foreground">
+														<span className="text-muted-foreground text-sm">
 															{format(new Date(witness.createdAt), "MMM dd, yyyy")}
 														</span>
 													) : (
-														<span className="text-sm text-muted-foreground">N/A</span>
+														<span className="text-muted-foreground text-sm">N/A</span>
 													)}
 												</TableCell>
 												<TableCell>
@@ -260,11 +294,7 @@ export default function WitnessManagementPage() {
 			</div>
 
 			{/* Add Witness Dialog */}
-			<AddWitnessDialog
-				open={isAddWitnessOpen}
-				onOpenChange={setIsAddWitnessOpen}
-			/>
+			<AddWitnessDialog open={isAddWitnessOpen} onOpenChange={setIsAddWitnessOpen} />
 		</>
 	)
 }
-

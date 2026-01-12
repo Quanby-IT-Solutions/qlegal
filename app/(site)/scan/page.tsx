@@ -215,14 +215,14 @@
 
 // 				// Get image dimensions
 // 				const imageDims = image.scale(1)
-				
+
 // 				// Create a new page with image dimensions (A4 if too large)
 // 				const maxWidth = 595 // A4 width in points
 // 				const maxHeight = 842 // A4 height in points
-				
+
 // 				let pageWidth = imageDims.width
 // 				let pageHeight = imageDims.height
-				
+
 // 				// Scale down if too large
 // 				if (pageWidth > maxWidth || pageHeight > maxHeight) {
 // 					const scale = Math.min(maxWidth / pageWidth, maxHeight / pageHeight)
@@ -306,18 +306,18 @@
 // 					title: documentName.trim(),
 // 					description: `Scanned document from IEN session`,
 // 				})
-				
+
 // 				if (!envelopeResult || !("id" in envelopeResult)) {
 // 					throw new Error("Failed to create envelope")
 // 				}
-				
+
 // 				// TypeScript now knows envelopeResult has an id property
 // 				const envelopeId = (envelopeResult as { id: string }).id
 
 // 				// Add document to envelope
 // 				await createDocumentsMutation.mutateAsync({
 // 					envelopeId,
-					 
+
 // 					files: [{
 // 						name: fileName,
 // 						type: "application/pdf",

@@ -2,27 +2,31 @@
 
 import dynamic from "next/dynamic"
 import { useRouter } from "next/navigation"
-import { useSession } from "next-auth/react"
 import { use, useEffect } from "react"
+import { useSession } from "next-auth/react"
 
 import { Button } from "@/core/components/ui/button"
 import { Card, CardContent } from "@/core/components/ui/card"
 import { Skeleton } from "@/core/components/ui/skeleton"
+
 import { useMeetings } from "@/features/meetings/api/meetings.hooks"
 
 // Dynamically import VideoSDK component (client-only, no SSR)
 const VideoMeetingClient = dynamic(
-	() => import("@/features/meetings/components/video-meeting-client").then((mod) => mod.VideoMeetingClient),
-	{ 
+	() =>
+		import("@/features/meetings/components/video-meeting-client").then(
+			mod => mod.VideoMeetingClient
+		),
+	{
 		ssr: false,
 		loading: () => (
-			<div className="flex h-screen items-center justify-center bg-gradient-to-br from-background via-muted/30 to-background">
+			<div className="from-background via-muted/30 to-background flex h-screen items-center justify-center bg-gradient-to-br">
 				<div className="text-center">
-					<div className="size-12 animate-spin rounded-full border-b-4 border-primary mx-auto mb-4" />
+					<div className="border-primary mx-auto mb-4 size-12 animate-spin rounded-full border-b-4" />
 					<p className="text-muted-foreground font-medium">Loading video SDK...</p>
 				</div>
 			</div>
-		)
+		),
 	}
 )
 
@@ -47,7 +51,7 @@ export default function MeetingRoomPage({ params }: { params: Promise<{ id: stri
 
 	if (isMeetingLoading || isTokenLoading) {
 		return (
-			<div className="flex h-screen items-center justify-center bg-gradient-to-br from-background via-muted/30 to-background">
+			<div className="from-background via-muted/30 to-background flex h-screen items-center justify-center bg-gradient-to-br">
 				<div className="text-center">
 					<Skeleton className="mx-auto mb-4 size-12 rounded-full" />
 					<Skeleton className="h-6 w-48" />
@@ -58,11 +62,13 @@ export default function MeetingRoomPage({ params }: { params: Promise<{ id: stri
 
 	if (!meeting || !tokenData) {
 		return (
-			<div className="flex h-screen items-center justify-center bg-gradient-to-br from-background via-muted/30 to-background">
+			<div className="from-background via-muted/30 to-background flex h-screen items-center justify-center bg-gradient-to-br">
 				<Card className="w-full max-w-md shadow-xl">
 					<CardContent className="p-8 text-center">
 						<h2 className="text-2xl font-bold">Meeting not found</h2>
-						<p className="mt-2 text-muted-foreground">The meeting you're looking for doesn't exist.</p>
+						<p className="text-muted-foreground mt-2">
+							The meeting you're looking for doesn't exist.
+						</p>
 						<Button className="mt-6" onClick={() => router.push("/meetings")}>
 							Back to Meetings
 						</Button>
@@ -75,19 +81,16 @@ export default function MeetingRoomPage({ params }: { params: Promise<{ id: stri
 	// Check if meeting is ongoing
 	if (meeting.status !== "ONGOING") {
 		return (
-			<div className="flex h-screen items-center justify-center bg-gradient-to-br from-background via-muted/30 to-background">
+			<div className="from-background via-muted/30 to-background flex h-screen items-center justify-center bg-gradient-to-br">
 				<Card className="w-full max-w-md shadow-xl">
 					<CardContent className="p-8 text-center">
 						<h2 className="mb-2 text-2xl font-bold">{meeting.title}</h2>
-						<p className="mb-6 text-muted-foreground">
-							{meeting.status === "SCHEDULED" 
+						<p className="text-muted-foreground mb-6">
+							{meeting.status === "SCHEDULED"
 								? "This meeting has not started yet. Please wait for the host to start the meeting."
-								: "This meeting has ended."
-							}
+								: "This meeting has ended."}
 						</p>
-						<Button onClick={() => router.push("/meetings")}>
-							Back to Meetings
-						</Button>
+						<Button onClick={() => router.push("/meetings")}>Back to Meetings</Button>
 					</CardContent>
 				</Card>
 			</div>
@@ -96,11 +99,11 @@ export default function MeetingRoomPage({ params }: { params: Promise<{ id: stri
 
 	if (!meeting.roomId) {
 		return (
-			<div className="flex h-screen items-center justify-center bg-gradient-to-br from-background via-muted/30 to-background">
+			<div className="from-background via-muted/30 to-background flex h-screen items-center justify-center bg-gradient-to-br">
 				<Card className="w-full max-w-md shadow-xl">
 					<CardContent className="p-8 text-center">
 						<h2 className="text-2xl font-bold">Meeting room not available</h2>
-						<p className="mt-4 text-muted-foreground">This meeting has not been started yet</p>
+						<p className="text-muted-foreground mt-4">This meeting has not been started yet</p>
 						<Button className="mt-6" onClick={() => router.push("/meetings")}>
 							Back to Meetings
 						</Button>
@@ -121,5 +124,3 @@ export default function MeetingRoomPage({ params }: { params: Promise<{ id: stri
 		/>
 	)
 }
-
-
