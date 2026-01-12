@@ -38,7 +38,7 @@ export function Hero() {
 	const shadowColor = mounted && theme.resolvedTheme === "dark" ? "white" : "black"
 
 	return (
-		<section className="relative w-full overflow-hidden pt-64 pb-16 sm:pt-24 sm:pb-24 lg:pt-40">
+		<section className="relative w-full overflow-hidden pt-48 pb-16 sm:pb-24 lg:pt-40">
 			{/* Background Elements */}
 			<div className="via-background absolute inset-0 bg-linear-to-br from-[rgb(91,26,128)]/5 to-[rgb(233,30,140)]/5" />
 
@@ -152,7 +152,7 @@ export function Hero() {
 						initial={{ opacity: 0, scale: 0.8 }}
 						animate={{ opacity: 1, scale: 1 }}
 						transition={{ duration: 0.8, delay: 0.2 }}
-						className="hidden lg:flex relative h-[550px] w-full flex-col items-center justify-center overflow-hidden lg:h-[650px] lg:justify-center"
+						className="relative hidden h-[550px] w-full flex-col items-center justify-center overflow-hidden lg:flex lg:h-[650px] lg:justify-center"
 					>
 						{/* Center Logo */}
 						<div className="relative z-10 flex h-40 w-40 items-center justify-center rounded-full border border-[rgb(91,26,128)]/30 bg-linear-to-br from-[rgb(91,26,128)]/20 to-[rgb(233,30,140)]/20 shadow-2xl backdrop-blur-md">
