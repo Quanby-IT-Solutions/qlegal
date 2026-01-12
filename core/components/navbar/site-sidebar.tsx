@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import Link from "next/link"
 import { useSession } from "next-auth/react"
 
 import {
@@ -8,35 +8,42 @@ import {
 	SidebarContent,
 	SidebarFooter,
 	SidebarHeader,
+	SidebarMenu,
+	SidebarMenuButton,
+	SidebarMenuItem,
 	SidebarRail,
 } from "@/core/components/animate-ui/components/radix/sidebar"
 import { SidebarNavSection } from "@/core/components/navbar/sidebar-nav-section"
 import { SidebarSecondaryNav } from "@/core/components/navbar/sidebar-secondary-nav"
-import { TeamSwitcher } from "@/core/components/navbar/team-switcher"
 import { UserDropdown } from "@/core/components/navbar/user-dropdown"
 import { WorkflowTabs } from "@/core/components/navbar/workflow-tabs"
+import { QuanbyLogo } from "@/core/components/quanby-logo"
 import { useIsMobile } from "@/core/hooks/use-mobile"
-import { getTeams, navSecondary, workflows } from "@/core/lib/nav/site.config"
-import { type Team } from "@/core/lib/nav/types"
+import { navSecondary, workflows } from "@/core/lib/nav/site.config"
 import { getAppSidebarSections } from "@/core/lib/nav/utils"
 
 export const SiteSidebar = () => {
 	const { data: session } = useSession()
 	const isMobile = useIsMobile()
-	const [activeTeam, setActiveTeam] = useState<Team>(getTeams()[0]!)
 	const userRole = session?.user?.role
-
-	if (!activeTeam) return null
 
 	return (
 		<Sidebar collapsible="icon" suppressHydrationWarning>
 			<SidebarHeader suppressHydrationWarning>
-				<TeamSwitcher
-					activeTeam={activeTeam}
-					setActiveTeam={setActiveTeam}
-					isMobile={isMobile}
-					teams={getTeams()}
-				/>
+				<SidebarMenu>
+					<SidebarMenuItem>
+						<SidebarMenuButton size="lg" asChild>
+							<Link href="/" className="flex items-center gap-2.5">
+								<div className="flex size-8 shrink-0 items-center justify-center">
+									<QuanbyLogo className="size-7" />
+								</div>
+								<span className="from-foreground to-foreground/80 bg-linear-to-r bg-clip-text text-base leading-tight font-bold tracking-tight text-transparent">
+									QLEGAL
+								</span>
+							</Link>
+						</SidebarMenuButton>
+					</SidebarMenuItem>
+				</SidebarMenu>
 			</SidebarHeader>
 
 			<SidebarContent className="overflow-x-hidden">

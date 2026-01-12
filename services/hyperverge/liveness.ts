@@ -132,6 +132,7 @@ export interface SelfieValidationConfig {
 
 /**
  * Response from Selfie Validation API (/checkLiveness)
+ * Note: details is an OBJECT, not an array (different from /v1/photo/liveness)
  */
 export interface SelfieValidationResponse {
 	status: "success" | "error"
@@ -141,16 +142,21 @@ export interface SelfieValidationResponse {
 		transactionId: string
 	}
 	result: {
-		details: Array<{
+		details: {
 			liveFace: {
 				value: "yes" | "no"
+				confidence?: "high" | "medium" | "low"
 			}
 			qualityChecks: {
 				eyesClosed: {
 					value: "yes" | "no"
 					confidence: "high" | "medium" | "low"
 				}
-				occlusion: {
+				faceOccluded?: {
+					value: "yes" | "no"
+					confidence: "high" | "medium" | "low"
+				}
+				occlusion?: {
 					value: "yes" | "no"
 					confidence: "high" | "medium" | "low"
 				}
@@ -158,8 +164,16 @@ export interface SelfieValidationResponse {
 					value: "yes" | "no"
 					confidence: "high" | "medium" | "low"
 				}
+				blur?: {
+					value: "yes" | "no"
+					confidence: "high" | "medium" | "low"
+				}
+				eyewear?: {
+					value: "yes" | "no"
+					confidence: "high" | "medium" | "low"
+				}
 			}
-		}>
+		}
 		summary: {
 			action: "pass" | "fail"
 			details: string[]
@@ -258,6 +272,7 @@ export async function checkLiveness(
 
 		const responseText = await response.text()
 		console.log("📡 HyperVerge checkLiveness API response status:", response.status)
+		console.log("📡 Raw API response:", responseText)
 
 		if (!response.ok) {
 			console.error("❌ HyperVerge checkLiveness failed:", responseText)
@@ -270,12 +285,25 @@ export async function checkLiveness(
 			throw new Error(`HyperVerge checkLiveness error: ${JSON.stringify(result)}`)
 		}
 
+		console.log("📊 Parsed API result:", {
+			status: result.status,
+			statusCode: result.statusCode,
+			liveFaceValue: result.result?.details?.liveFace?.value,
+			liveFaceConfidence: result.result?.details?.liveFace?.confidence,
+			summaryAction: result.result?.summary?.action,
+		})
+
 		// Apply unified decision logic
-		const details = result.result.details[0]
+		// Note: /v1/checkLiveness returns details as object, not array
+		const details = result.result.details
 		const decision = makeLivenessDecision(
 			details?.liveFace?.value,
 			result.result.summary?.action,
-			details?.qualityChecks
+			{
+				eyesClosed: details?.qualityChecks?.eyesClosed,
+				occlusion: details?.qualityChecks?.faceOccluded || details?.qualityChecks?.occlusion,
+				multipleFaces: details?.qualityChecks?.multipleFaces,
+			}
 		)
 
 		console.log("✅ Liveness check completed")

@@ -1,22 +1,31 @@
+"use client"
+
+import { Compliance } from "@/features/home/components/compliance"
+import { CTA } from "@/features/home/components/cta"
+import { Features } from "@/features/home/components/features"
 import { Footer } from "@/features/home/components/footer"
+import { Header } from "@/features/home/components/header"
 import { Hero } from "@/features/home/components/hero"
 import { Navbar } from "@/features/home/components/navbar"
 
-export default async function Page() {
+export default function Page() {
 	return (
-		<div className="from-background via-background to-muted/20 flex flex-col bg-linear-to-br">
+		<div className="relative">
 			<Navbar />
+			{/* <Header transition={true} /> */}
 
-			{/* Content */}
-			<div className="flex flex-1 flex-col">
-				<Hero
-					title1="Digitally Sign"
-					title2="Documents"
-					description="Instantly sign documents online—fast, secure, and legally binding. No hassle, just signatures."
-				/>
-
-				<Footer />
+			{/* Hero Section */}
+			<div className="bg-background flex h-dvh w-full items-center">
+				<div className="w-full">
+					<Hero />
+				</div>
 			</div>
+
+			{/* Additional Sections */}
+			<Features />
+			<Compliance />
+			<CTA />
+			<Footer />
 		</div>
 	)
 }

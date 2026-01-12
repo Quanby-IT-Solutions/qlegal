@@ -14,7 +14,7 @@ import {
 import { Input } from "@/core/components/ui/input"
 import { Label } from "@/core/components/ui/label"
 
-import { createKycLink, checkKycStatus } from "../_api/actions"
+import { checkKycStatus, createKycLink } from "../_api/actions"
 
 interface KycLinkResult {
 	transactionId: string
@@ -78,7 +78,12 @@ export function KycTestForm() {
 			if (result.success && result.data) {
 				setStatusResult(result.data)
 				// Stop polling if complete or decided
-				if (result.data.isComplete || result.data.isApproved || result.data.needsReview || result.data.status === "auto_declined") {
+				if (
+					result.data.isComplete ||
+					result.data.isApproved ||
+					result.data.needsReview ||
+					result.data.status === "auto_declined"
+				) {
 					stopPolling()
 				}
 			} else {
@@ -90,11 +95,22 @@ export function KycTestForm() {
 	const startPolling = (transactionId: string) => {
 		if (polling) return
 		setPolling(true)
+
+		// ⚠️ WARNING: This polling is for TESTING ONLY
+		// In production, use webhooks instead (see /app/api/webhooks/hyperverge)
+		// Polling violates HyperVerge best practices and may result in rate limiting
+		console.warn("⚠️ TESTING ONLY: Polling is active. Use webhooks in production!")
+
 		const id = window.setInterval(async () => {
 			const result = await checkKycStatus(transactionId)
 			if (result.success && result.data) {
 				setStatusResult(result.data)
-				if (result.data.isComplete || result.data.isApproved || result.data.needsReview || result.data.status === "auto_declined") {
+				if (
+					result.data.isComplete ||
+					result.data.isApproved ||
+					result.data.needsReview ||
+					result.data.status === "auto_declined"
+				) {
 					stopPolling()
 				}
 			} else {
@@ -148,19 +164,40 @@ export function KycTestForm() {
 				<CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-2">
 					<div className="flex items-center justify-between gap-4">
 						<Label htmlFor="autoOpen">Auto-open link</Label>
-						<Input id="autoOpen" type="checkbox" checked={autoOpen} onChange={(e) => setAutoOpen(e.target.checked)} className="w-5 h-5" />
+						<Input
+							id="autoOpen"
+							type="checkbox"
+							checked={autoOpen}
+							onChange={e => setAutoOpen(e.target.checked)}
+							className="h-5 w-5"
+						/>
 					</div>
 					<div className="flex items-center justify-between gap-4">
 						<Label htmlFor="autoPoll">Auto-poll status</Label>
-						<Input id="autoPoll" type="checkbox" checked={autoPoll} onChange={(e) => setAutoPoll(e.target.checked)} className="w-5 h-5" />
+						<Input
+							id="autoPoll"
+							type="checkbox"
+							checked={autoPoll}
+							onChange={e => setAutoPoll(e.target.checked)}
+							className="h-5 w-5"
+						/>
 					</div>
 					<div className="flex items-center justify-between gap-4">
 						<Label htmlFor="pollInterval">Poll interval (ms)</Label>
-						<Input id="pollInterval" type="number" min={2000} step={1000} value={pollIntervalMs} onChange={(e) => setPollIntervalMs(Number(e.target.value) || 5000)} />
+						<Input
+							id="pollInterval"
+							type="number"
+							min={2000}
+							step={1000}
+							value={pollIntervalMs}
+							onChange={e => setPollIntervalMs(Number(e.target.value) || 5000)}
+						/>
 					</div>
 					<div className="flex items-center justify-between gap-4">
 						<Label>Status polling</Label>
-						<p className={polling ? "text-green-600" : "text-gray-400"}>{polling ? "Active" : "Idle"}</p>
+						<p className={polling ? "text-green-600" : "text-gray-400"}>
+							{polling ? "Active" : "Idle"}
+						</p>
 					</div>
 				</CardContent>
 			</Card>
@@ -250,36 +287,20 @@ export function KycTestForm() {
 						<div className="space-y-2">
 							<Label>Onboard Link</Label>
 							<div className="flex gap-2">
-								<Input
-									value={linkResult.url}
-									readOnly
-									className="bg-white"
-								/>
-								<Button
-									variant="outline"
-									size="icon"
-									onClick={handleCopyLink}
-									title="Copy link"
-								>
+								<Input value={linkResult.url} readOnly className="bg-white" />
+								<Button variant="outline" size="icon" onClick={handleCopyLink} title="Copy link">
 									<Copy className="h-4 w-4" />
 								</Button>
-								<Button
-									variant="outline"
-									size="icon"
-									asChild
-									title="Open link"
-								>
+								<Button variant="outline" size="icon" asChild title="Open link">
 									<a href={linkResult.url} target="_blank" rel="noopener noreferrer">
 										<ExternalLink className="h-4 w-4" />
 									</a>
 								</Button>
 								{autoOpen && (
-									<p className="text-xs text-muted-foreground">Auto-opened in a new tab</p>
+									<p className="text-muted-foreground text-xs">Auto-opened in a new tab</p>
 								)}
 							</div>
-							{copied && (
-								<p className="text-sm text-green-600">Link copied to clipboard!</p>
-							)}
+							{copied && <p className="text-sm text-green-600">Link copied to clipboard!</p>}
 						</div>
 
 						<Button
@@ -299,9 +320,17 @@ export function KycTestForm() {
 						</Button>
 
 						{polling ? (
-							<Button variant="ghost" onClick={stopPolling} className="w-full">Stop Auto-Polling</Button>
+							<Button variant="ghost" onClick={stopPolling} className="w-full">
+								Stop Auto-Polling
+							</Button>
 						) : (
-							<Button variant="ghost" onClick={() => linkResult?.transactionId && startPolling(linkResult.transactionId)} className="w-full">Start Auto-Polling</Button>
+							<Button
+								variant="ghost"
+								onClick={() => linkResult?.transactionId && startPolling(linkResult.transactionId)}
+								className="w-full"
+							>
+								Start Auto-Polling
+							</Button>
 						)}
 					</CardContent>
 				</Card>
@@ -312,9 +341,7 @@ export function KycTestForm() {
 				<Card className={`border ${getStatusColor(statusResult.status)}`}>
 					<CardHeader>
 						<CardTitle>KYC Status</CardTitle>
-						<CardDescription>
-							Transaction: {statusResult.transactionId}
-						</CardDescription>
+						<CardDescription>Transaction: {statusResult.transactionId}</CardDescription>
 					</CardHeader>
 					<CardContent className="space-y-4">
 						<div className={`rounded-lg border p-4 ${getStatusColor(statusResult.status)}`}>

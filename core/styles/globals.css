@@ -42,6 +42,17 @@
 	--radius-xl: calc(var(--radius) + 4px);
 	--font-family-sans: ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
 	--font-family-serif: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
+
+	--animate-orbit: orbit calc(var(--duration)*1s) linear infinite;
+
+	@keyframes orbit {
+		0% {
+			transform: rotate(0deg) translateY(calc(var(--radius) * 1px)) rotate(0deg);
+		}
+		100% {
+			transform: rotate(360deg) translateY(calc(var(--radius) * 1px)) rotate(-360deg);
+		}
+	}
 }
 
 :root {

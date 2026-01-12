@@ -9,10 +9,10 @@ import {
 	CardTitle,
 } from "@/core/components/ui/card"
 
+import { auth } from "@/services/next-auth"
+
 import { getUserKycInfo } from "@/features/kyc/api/kyc.actions"
 import { KycVerificationCard } from "@/features/kyc/components/kyc-verification-card"
-
-import { auth } from "@/services/next-auth"
 
 export default async function KycRegisterPage() {
 	const session = await auth()
@@ -20,16 +20,15 @@ export default async function KycRegisterPage() {
 		redirect("/auth/login")
 	}
 
-	// If already verified, redirect to dashboard
-	
+	// If already verified, go to dashboard
+
 	if (session.user.kycStatus === "VERIFIED") {
 		redirect("/dashboard")
 	}
 
 	const kycInfoResult = await getUserKycInfo()
 	if (!kycInfoResult.success || !kycInfoResult.data) {
-		// If can't get KYC info, something is wrong, redirect to login
-		redirect("/auth/login")
+		redirect("/dashboard")
 	}
 
 	return (
@@ -38,17 +37,13 @@ export default async function KycRegisterPage() {
 				<div className="mb-4 flex justify-center">
 					<QuanbyLogo className="h-16 w-16" />
 				</div>
-				<CardTitle className="text-2xl">🔒 Identity Verification Required</CardTitle>
+				<CardTitle className="text-2xl">Verify Your Identity</CardTitle>
 				<CardDescription>
-					To ensure security and regulatory compliance, all users must complete identity verification before accessing the platform.
+					Complete your KYC verification to access all features securely
 				</CardDescription>
 			</CardHeader>
 			<CardContent>
-				<KycVerificationCard
-					userInfo={kycInfoResult.data}
-					minimal
-					redirectUrlOnSkip="/dashboard"
-				/>
+				<KycVerificationCard userInfo={kycInfoResult.data} minimal redirectUrlOnSkip="/dashboard" />
 			</CardContent>
 		</Card>
 	)

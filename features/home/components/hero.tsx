@@ -1,252 +1,183 @@
 "use client"
 
-import { Pacifico } from "next/font/google"
+import Link from "next/link"
+import { ArrowRight, CheckCircle, FileSignature, Scale, Shield, Users } from "lucide-react"
 import { motion } from "motion/react"
 
-import { ElegantShape } from "@/core/components/elegant-shape"
-import { cn } from "@/core/lib/utils"
+import { QuanbyLogo } from "@/core/components/quanby-logo"
+import { Button } from "@/core/components/ui/button"
+import { OrbitingCircles } from "@/core/components/ui/orbiting-circles"
+import { TextGenerateEffect } from "@/core/components/ui/text-generate-effect"
 
-import { SearchCombobox } from "@/features/home/components/ui/search-combobox"
+const fadeInUp = {
+	initial: { opacity: 0, y: 60 },
+	animate: { opacity: 1, y: 0 },
+	transition: { duration: 0.6 },
+}
 
-const pacifico = Pacifico({
-	subsets: ["latin"],
-	weight: ["400"],
-	variable: "--font-pacifico",
-	display: "swap",
-	fallback: ["cursive", "system-ui"],
-})
+const staggerContainer = {
+	initial: {},
+	animate: {
+		transition: {
+			staggerChildren: 0.1,
+		},
+	},
+}
 
-export function Hero({
-	title1 = "This is my",
-	title2 = "Title",
-	description = "This is my description",
-}: {
-	title1?: string
-	title2?: string
-	description?: string
-}) {
-	const fadeUpVariants = {
-		hidden: { opacity: 0, y: 30 },
-		visible: { opacity: 1, y: 0 },
-	}
-
+export function Hero() {
 	return (
-		<HeroContainer>
-			<div className="relative z-10 container mx-auto px-4 md:px-6">
-				<div className="mx-auto max-w-3xl text-center">
+		<section className="relative w-full overflow-hidden pt-20 pb-24 sm:pt-24 lg:pt-40">
+			{/* Background Elements */}
+			<div className="via-background absolute inset-0 bg-linear-to-br from-[rgb(91,26,128)]/5 to-[rgb(233,30,140)]/5" />
+
+			{/* Grid Pattern */}
+			<div className="absolute inset-0 bg-[linear-gradient(to_right,#8080800a_1px,transparent_1px),linear-gradient(to_bottom,#8080800a_1px,transparent_1px)] bg-[size:14px_24px]" />
+
+			{/* Radial Gradient Overlay */}
+			<div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_20%,hsl(var(--background))_70%)]" />
+
+			{/* Floating Orbs - Kept subtle for background ambience */}
+			<motion.div
+				className="pointer-events-none absolute top-20 left-10 h-72 w-72 rounded-full bg-linear-to-r from-[rgb(91,26,128)]/20 to-[rgb(233,30,140)]/20 blur-3xl"
+				animate={{
+					x: [0, 100, 0],
+					y: [0, -50, 0],
+				}}
+				transition={{
+					duration: 20,
+					repeat: Number.POSITIVE_INFINITY,
+					ease: "easeInOut",
+				}}
+			/>
+			<motion.div
+				className="pointer-events-none absolute right-10 bottom-20 h-96 w-96 rounded-full bg-linear-to-r from-[rgb(233,30,140)]/15 to-[rgb(91,26,128)]/15 blur-3xl"
+				animate={{
+					x: [0, -80, 0],
+					y: [0, 30, 0],
+				}}
+				transition={{
+					duration: 25,
+					repeat: Number.POSITIVE_INFINITY,
+					ease: "easeInOut",
+				}}
+			/>
+
+			<div className="relative z-20 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+				<div className="grid items-center gap-12 lg:grid-cols-2 lg:gap-16">
+					{/* Left Content */}
 					<motion.div
-						variants={fadeUpVariants}
-						initial="hidden"
-						animate="visible"
-						transition={{
-							duration: 1,
-							delay: 0.7,
-							ease: "easeOut",
-						}}
+						variants={staggerContainer}
+						initial="initial"
+						animate="animate"
+						className="space-y-8 text-center lg:text-left"
 					>
-					<h1 className="mb-6 text-4xl font-bold tracking-tight sm:text-6xl md:mb-8 md:text-8xl">
-						<span className="font-bold bg-gradient-to-b from-black/90 to-black/70 bg-clip-text text-transparent dark:from-white dark:to-white/80">
-							{title1}
-						</span>
-						<br className="my-2" />
-						<span
-							className={cn(
-								"font-bold bg-gradient-to-r from-indigo-400 to-rose-400 bg-clip-text text-transparent dark:from-indigo-400 dark:to-rose-400",
-								pacifico.className
-							)}
+						<motion.div variants={fadeInUp}>
+							<motion.div
+								initial={{ opacity: 0, scale: 0.8 }}
+								animate={{ opacity: 1, scale: 1 }}
+								transition={{ duration: 0.5 }}
+								className="mb-6 inline-flex items-center space-x-2 rounded-full border border-[rgb(91,26,128)]/20 bg-linear-to-r from-[rgb(91,26,128)]/10 to-[rgb(233,30,140)]/10 px-4 py-2 backdrop-blur-sm"
+							>
+								<Shield className="h-4 w-4 text-[rgb(91,26,128)]" />
+								<span className="text-muted-foreground text-sm font-medium">
+									🇵🇭 Supreme Court Accredited ENF
+								</span>
+							</motion.div>
+
+							<h1 className="text-4xl leading-tight font-bold tracking-tight lg:text-6xl">
+								Accredited{" "}
+								<span className="bg-linear-to-r from-[rgb(91,26,128)] via-[rgb(91,26,128)]/80 to-[rgb(233,30,140)] bg-clip-text text-transparent">
+									Electronic Notarization
+								</span>{" "}
+								Platform
+							</h1>
+						</motion.div>
+
+						<div className="min-h-24">
+							<TextGenerateEffect
+								words="Secure, compliant, and Supreme Court accredited platform for electronic notarization in the Philippines."
+								className="text-muted-foreground text-xl leading-relaxed font-normal lg:text-2xl"
+							/>
+						</div>
+
+						<motion.div
+							variants={fadeInUp}
+							className="flex flex-col gap-4 sm:flex-row lg:justify-start"
 						>
-							{title2}
-						</span>
-					</h1>
+							<Button
+								asChild
+								size="lg"
+								className="group from-primary to-primary/90 hover:from-primary/90 hover:to-primary bg-linear-to-r px-8 py-6 text-lg shadow-xl transition-all duration-300 hover:shadow-2xl"
+							>
+								<Link href="/auth/register">
+									Get Started
+									<ArrowRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" />
+								</Link>
+							</Button>
+						</motion.div>
+
+						<motion.div
+							variants={fadeInUp}
+							className="text-muted-foreground flex flex-wrap items-center justify-center gap-6 text-sm lg:justify-start"
+						>
+							<div className="flex items-center space-x-2">
+								<div className="h-2 w-2 animate-pulse rounded-full bg-green-500" />
+								<span>Supreme Court Compliant</span>
+							</div>
+							<div className="flex items-center space-x-2">
+								<div className="h-2 w-2 animate-pulse rounded-full bg-blue-500" />
+								<span>Audit-Ready History</span>
+							</div>
+							<div className="flex items-center space-x-2">
+								<div className="h-2 w-2 animate-pulse rounded-full bg-purple-500" />
+								<span>REN & IEN Support</span>
+							</div>
+						</motion.div>
 					</motion.div>
 
+					{/* Right Logo Section */}
 					<motion.div
-						variants={fadeUpVariants}
-						initial="hidden"
-						animate="visible"
-						transition={{
-							duration: 1,
-							delay: 0.9,
-							ease: "easeOut",
-						}}
+						initial={{ opacity: 0, scale: 0.8 }}
+						animate={{ opacity: 1, scale: 1 }}
+						transition={{ duration: 0.8, delay: 0.2 }}
+						className="relative flex h-[550px] w-full flex-col items-center justify-center overflow-hidden lg:h-[650px] lg:justify-center"
 					>
-						<p className="mx-auto mb-8 max-w-xl px-4 text-base leading-relaxed font-light tracking-wide text-black/40 sm:text-lg md:text-xl dark:text-white/40">
-							{description}
-						</p>
-					</motion.div>
+						{/* Center Logo */}
+						<div className="relative z-10 flex h-40 w-40 items-center justify-center rounded-full border border-[rgb(91,26,128)]/30 bg-linear-to-br from-[rgb(91,26,128)]/20 to-[rgb(233,30,140)]/20 shadow-2xl backdrop-blur-md">
+							<QuanbyLogo className="h-24 w-24 object-contain" />
+						</div>
 
-					<motion.div
-						variants={fadeUpVariants}
-						initial="hidden"
-						animate="visible"
-						transition={{
-							duration: 1,
-							delay: 1.3,
-							ease: "easeOut",
-						}}
-					>
-						<SearchCombobox
-							placeholders={["Search documents...", "Find envelopes...", "Browse files..."]}
-							options={[
-								{
-									value: "doc-1",
-									label: "Contract Agreement",
-									type: "document",
-									description: "Legal contract for services",
-								},
-								{
-									value: "doc-2",
-									label: "Invoice Template",
-									type: "document",
-									description: "Monthly billing template",
-								},
-								{
-									value: "doc-3",
-									label: "Employee Handbook",
-									type: "document",
-									description: "Company policies and procedures",
-								},
-								{
-									value: "env-1",
-									label: "Legal Documents",
-									type: "envelope",
-									description: "Collection of legal files",
-								},
-								{
-									value: "env-2",
-									label: "HR Forms",
-									type: "envelope",
-									description: "Human resources documentation",
-								},
-								{
-									value: "env-3",
-									label: "Financial Records",
-									type: "envelope",
-									description: "Accounting and finance files",
-								},
-							]}
-							onChange={(value: string) => {
-								// eslint-disable-next-line no-console
-								console.log("Search value changed:", value)
-							}}
-							onSelect={(option: { value: string; label: string; type: string }) => {
-								// eslint-disable-next-line no-console
-								console.log("Option selected:", option)
-							}}
-							onCreateEnvelope={() => {
-								// eslint-disable-next-line no-console
-								console.log("Create new envelope clicked")
-							}}
-							onCreateFolder={() => {
-								// eslint-disable-next-line no-console
-								console.log("Create new folder clicked")
-							}}
-							className="mx-auto"
-						/>
+						{/* Inner Orbit */}
+						<OrbitingCircles iconSize={35} radius={125} duration={20} delay={0}>
+							<div className="flex size-14 items-center justify-center rounded-full border border-[rgb(91,26,128)]/30 bg-linear-to-br from-[rgb(91,26,128)]/20 to-[rgb(91,26,128)]/10 shadow-lg backdrop-blur-sm">
+								<Scale className="size-7 text-[rgb(91,26,128)]" />
+							</div>
+						</OrbitingCircles>
+						<OrbitingCircles iconSize={35} radius={125} duration={20} delay={10}>
+							<div className="flex size-14 items-center justify-center rounded-full border border-[rgb(233,30,140)]/30 bg-linear-to-br from-[rgb(233,30,140)]/20 to-[rgb(233,30,140)]/10 shadow-lg backdrop-blur-sm">
+								<FileSignature className="size-7 text-[rgb(233,30,140)]" />
+							</div>
+						</OrbitingCircles>
+
+						{/* Outer Orbit */}
+						<OrbitingCircles iconSize={45} radius={225} reverse duration={25} delay={0}>
+							<div className="flex size-18 items-center justify-center rounded-full border border-green-500/30 bg-linear-to-br from-green-500/20 to-emerald-500/10 shadow-lg backdrop-blur-sm">
+								<Shield className="size-9 text-green-500" />
+							</div>
+						</OrbitingCircles>
+						<OrbitingCircles iconSize={45} radius={225} reverse duration={25} delay={8}>
+							<div className="flex size-18 items-center justify-center rounded-full border border-blue-500/30 bg-linear-to-br from-blue-500/20 to-cyan-500/10 shadow-lg backdrop-blur-sm">
+								<CheckCircle className="size-9 text-blue-500" />
+							</div>
+						</OrbitingCircles>
+						<OrbitingCircles iconSize={45} radius={225} reverse duration={25} delay={16}>
+							<div className="flex size-18 items-center justify-center rounded-full border border-purple-500/30 bg-linear-to-br from-purple-500/20 to-pink-500/10 shadow-lg backdrop-blur-sm">
+								<Users className="size-9 text-purple-500" />
+							</div>
+						</OrbitingCircles>
 					</motion.div>
 				</div>
 			</div>
-		</HeroContainer>
-	)
-}
-
-export default function HeroContainer({ children }: { children: React.ReactNode }) {
-	return (
-		<section className="overflow-x relative flex min-h-screen w-full items-center justify-center bg-white dark:bg-[#030303]">
-			<div className="absolute inset-0 bg-gradient-to-br from-indigo-500/[0.02] via-transparent to-rose-500/[0.02] blur-3xl dark:from-indigo-500/[0.05] dark:via-transparent dark:to-rose-500/[0.05]" />
-
-			<div className="absolute inset-0 overflow-hidden">
-				{/* Tall rectangle - top left */}
-				<ElegantShape
-					delay={0.3}
-					width={300}
-					height={500}
-					rotate={-8}
-					borderRadius={24}
-					gradient="from-indigo-500/[0.65] dark:from-indigo-500/[0.45]"
-					className="top-[-10%] left-[-15%]"
-				/>
-
-				{/* Wide rectangle - bottom right */}
-				<ElegantShape
-					delay={0.5}
-					width={600}
-					height={200}
-					rotate={15}
-					borderRadius={20}
-					gradient="from-rose-500/[0.65] dark:from-rose-500/[0.45]"
-					className="right-[-20%] bottom-[-5%]"
-				/>
-
-				{/* Square - middle left */}
-				<ElegantShape
-					delay={0.4}
-					width={300}
-					height={300}
-					rotate={24}
-					borderRadius={32}
-					gradient="from-violet-500/[0.65] dark:from-violet-500/[0.45]"
-					className="top-[40%] left-[-5%]"
-				/>
-
-				{/* Small rectangle - top right */}
-				<ElegantShape
-					delay={0.6}
-					width={250}
-					height={100}
-					rotate={-20}
-					borderRadius={12}
-					gradient="from-amber-500/[0.65] dark:from-amber-500/[0.45]"
-					className="top-[5%] right-[10%]"
-				/>
-
-				{/* New shapes */}
-				{/* Medium rectangle - center right */}
-				<ElegantShape
-					delay={0.7}
-					width={400}
-					height={150}
-					rotate={35}
-					borderRadius={16}
-					gradient="from-emerald-500/[0.65] dark:from-emerald-500/[0.45]"
-					className="top-[45%] right-[-10%]"
-				/>
-
-				{/* Small square - bottom left */}
-				<ElegantShape
-					delay={0.2}
-					width={200}
-					height={200}
-					rotate={-25}
-					borderRadius={28}
-					gradient="from-blue-500/[0.65] dark:from-blue-500/[0.45]"
-					className="bottom-[10%] left-[20%]"
-				/>
-
-				{/* Tiny rectangle - top center */}
-				<ElegantShape
-					delay={0.8}
-					width={150}
-					height={80}
-					rotate={45}
-					borderRadius={10}
-					gradient="from-purple-500/[0.65] dark:from-purple-500/[0.45]"
-					className="top-[15%] left-[40%]"
-				/>
-
-				{/* Wide rectangle - middle */}
-				<ElegantShape
-					delay={0.9}
-					width={450}
-					height={120}
-					rotate={-12}
-					borderRadius={18}
-					gradient="from-teal-500/[0.65] dark:from-teal-500/[0.45]"
-					className="top-[60%] left-[25%]"
-				/>
-			</div>
-
-			{children}
 		</section>
 	)
 }
