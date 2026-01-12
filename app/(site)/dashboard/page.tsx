@@ -17,22 +17,22 @@ import {
 	Title,
 } from "chart.js"
 import { format, parseISO } from "date-fns"
+import { HugeiconsIcon } from "@hugeicons/react"
 import {
-	ArrowRightIcon,
-	BarChart3Icon,
-	CalendarClockIcon,
-	CalendarIcon,
-	CheckCircleIcon,
-	ClipboardListIcon,
-	ClockIcon,
-	FileCheckIcon,
-	FilePlusIcon,
-	FileTextIcon,
-	LineChartIcon,
-	PieChartIcon,
-	UsersIcon,
-	VideoIcon,
-} from "lucide-react"
+	ArrowRight01Icon,
+	BarChartIcon,
+	Calendar01Icon,
+	CheckmarkCircle01Icon,
+	ClipboardIcon,
+	Clock01Icon,
+	File01Icon,
+	FileAddIcon,
+	Location01Icon,
+	PieChart01Icon,
+	PresentationLineChart01Icon,
+	UserIcon,
+	Video01Icon,
+} from "@hugeicons/core-free-icons"
 import { useSession } from "next-auth/react"
 import { Bar, Doughnut, Line } from "react-chartjs-2"
 
@@ -306,7 +306,7 @@ export default function DashboardPage() {
 			{
 				title: isENP ? "Total Clients" : "Total Appointments",
 				value: statistics?.totalAppointments ?? 0,
-				icon: isENP ? UsersIcon : CalendarIcon,
+				icon: isENP ? UserIcon : Calendar01Icon,
 				description: "All time",
 				color: "text-blue-600",
 				bgColor: "bg-blue-50",
@@ -314,7 +314,7 @@ export default function DashboardPage() {
 			{
 				title: "Pending",
 				value: statistics?.pendingAppointments ?? 0,
-				icon: ClockIcon,
+				icon: Clock01Icon,
 				description: isENP ? "Pending requests" : "Awaiting confirmation",
 				color: "text-orange-600",
 				bgColor: "bg-orange-50",
@@ -322,7 +322,7 @@ export default function DashboardPage() {
 			{
 				title: "Documents",
 				value: statistics?.totalDocuments ?? 0,
-				icon: FileTextIcon,
+				icon: File01Icon,
 				description: "Total uploaded",
 				color: "text-purple-600",
 				bgColor: "bg-purple-50",
@@ -334,7 +334,7 @@ export default function DashboardPage() {
 			baseStats.push({
 				title: "Notarization Requests",
 				value: statistics?.pendingNotarizationRequests ?? 0,
-				icon: ClipboardListIcon,
+				icon: ClipboardIcon,
 				description: "Pending requests",
 				color: "text-orange-600",
 				bgColor: "bg-orange-50",
@@ -342,7 +342,7 @@ export default function DashboardPage() {
 			baseStats.push({
 				title: "Signature Requests",
 				value: statistics?.pendingSignatureRequests ?? 0,
-				icon: FileCheckIcon,
+				icon: FileAddIcon,
 				description: "Pending signatures",
 				color: "text-pink-600",
 				bgColor: "bg-pink-50",
@@ -351,7 +351,7 @@ export default function DashboardPage() {
 			baseStats.push({
 				title: "Completed",
 				value: statistics?.completedAppointments ?? 0,
-				icon: CheckCircleIcon,
+				icon: CheckmarkCircle01Icon,
 				description: "Successfully finished",
 				color: "text-green-600",
 				bgColor: "bg-green-50",
@@ -427,9 +427,7 @@ export default function DashboardPage() {
 											)}
 											<CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
 												<CardTitle className="text-sm font-medium">{stat.title}</CardTitle>
-												<div className={`rounded-full p-2 ${stat.bgColor}`}>
-													<Icon className={`h-4 w-4 ${stat.color}`} />
-												</div>
+												<HugeiconsIcon icon={Icon} size={16} className={stat.color} />
 											</CardHeader>
 											<CardContent>
 												<div className="text-2xl font-bold">{stat.value}</div>
@@ -456,7 +454,7 @@ export default function DashboardPage() {
 										className="h-auto flex-col items-start gap-2 p-4"
 										onClick={() => router.push("/find-notary" as Route)}
 									>
-										<UsersIcon className="h-5 w-5" />
+										<HugeiconsIcon icon={UserIcon} size={20} />
 										<div className="text-left">
 											<div className="font-semibold">Find a Notary</div>
 											<div className="text-muted-foreground text-xs">
@@ -480,7 +478,7 @@ export default function DashboardPage() {
 										{(statistics?.pendingNotarizationRequests ?? 0) > 0 && !hasViewedRequests && (
 											<div className="border-background absolute -top-2 -right-2 z-20 h-4 w-4 animate-pulse rounded-full border-2 bg-red-500 shadow-lg" />
 										)}
-										<ClipboardListIcon className="h-5 w-5" />
+										<HugeiconsIcon icon={ClipboardIcon} size={20} />
 										<div className="text-left">
 											<div className="font-semibold">Notarization Requests</div>
 											<div className="text-muted-foreground text-xs">
@@ -495,7 +493,7 @@ export default function DashboardPage() {
 									className="h-auto flex-col items-start gap-2 p-4"
 									onClick={() => router.push("/consultations" as Route)}
 								>
-									<CalendarClockIcon className="h-5 w-5" />
+									<HugeiconsIcon icon={Calendar01Icon} size={20} />
 									<div className="text-left">
 										<div className="font-semibold">
 											{isENP ? "View Consultations" : "Book Consultation"}
@@ -510,7 +508,7 @@ export default function DashboardPage() {
 									className="h-auto flex-col items-start gap-2 p-4"
 									onClick={() => router.push("/envelopes" as Route)}
 								>
-									<FilePlusIcon className="h-5 w-5" />
+									<HugeiconsIcon icon={FileAddIcon} size={20} />
 									<div className="text-left">
 										<div className="font-semibold">Upload Document</div>
 										<div className="text-muted-foreground text-xs">Create new envelope</div>
@@ -521,7 +519,7 @@ export default function DashboardPage() {
 									className="h-auto flex-col items-start gap-2 p-4"
 									onClick={() => router.push("/appointments" as Route)}
 								>
-									<ClipboardListIcon className="h-5 w-5" />
+									<HugeiconsIcon icon={ClipboardIcon} size={20} />
 									<div className="text-left">
 										<div className="font-semibold">View Appointments</div>
 										<div className="text-muted-foreground text-xs">Manage your schedule</div>
@@ -539,7 +537,7 @@ export default function DashboardPage() {
 								<div className="flex items-center justify-between">
 									<div>
 										<CardTitle className="flex items-center gap-2">
-											<LineChartIcon className="h-5 w-5" />
+											<HugeiconsIcon icon={PresentationLineChart01Icon} size={20} />
 											Activity Trend
 										</CardTitle>
 										<CardDescription>Last 30 days activity overview</CardDescription>
@@ -592,7 +590,7 @@ export default function DashboardPage() {
 								<div className="flex items-center justify-between">
 									<div>
 										<CardTitle className="flex items-center gap-2">
-											<PieChartIcon className="h-5 w-5" />
+											<HugeiconsIcon icon={PieChart01Icon} size={20} />
 											Appointment Status
 										</CardTitle>
 										<CardDescription>Distribution by status</CardDescription>
@@ -648,7 +646,7 @@ export default function DashboardPage() {
 								<div className="flex items-center justify-between">
 									<div>
 										<CardTitle className="flex items-center gap-2">
-											<BarChart3Icon className="h-5 w-5" />
+											<HugeiconsIcon icon={BarChartIcon} size={20} />
 											Appointment Types
 										</CardTitle>
 										<CardDescription>Distribution by type</CardDescription>
@@ -804,7 +802,7 @@ export default function DashboardPage() {
 								) : (
 									<div className="flex h-[350px] flex-col items-center justify-center text-center">
 										<div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-linear-to-br from-blue-100 to-blue-200">
-											<BarChart3Icon className="h-8 w-8 text-blue-600" />
+											<HugeiconsIcon icon={BarChartIcon} size={32} className="text-blue-600" />
 										</div>
 										<p className="font-semibold text-slate-900">No appointment type data</p>
 										<p className="text-sm text-slate-600">
@@ -821,7 +819,7 @@ export default function DashboardPage() {
 								<div className="flex items-center justify-between">
 									<div>
 										<CardTitle className="flex items-center gap-2">
-											<FileTextIcon className="h-5 w-5" />
+											<HugeiconsIcon icon={File01Icon} size={20} />
 											Document Status
 										</CardTitle>
 										<CardDescription>Documents by status</CardDescription>
@@ -892,7 +890,7 @@ export default function DashboardPage() {
 										onClick={() => router.push("/appointments" as Route)}
 									>
 										View All
-										<ArrowRightIcon className="ml-2 h-4 w-4" />
+										<HugeiconsIcon icon={ArrowRight01Icon} size={16} className="ml-2" />
 									</Button>
 								</div>
 							</CardHeader>
@@ -937,13 +935,14 @@ export default function DashboardPage() {
 													</div>
 													<p className="text-muted-foreground text-sm">{appointment.type}</p>
 													<div className="text-muted-foreground flex items-center gap-2 text-xs">
-														<CalendarIcon className="h-3 w-3" />
+														<HugeiconsIcon icon={Calendar01Icon} size={12} />
 														{format(new Date(appointment.appointmentDate), "PPp")}
 													</div>
 													{appointment.location && (
-														<p className="text-muted-foreground text-xs">
-															📍 {appointment.location}
-														</p>
+														<div className="text-muted-foreground flex items-center gap-1 text-xs">
+															<HugeiconsIcon icon={Location01Icon} size={12} />
+															{appointment.location}
+														</div>
 													)}
 												</div>
 											</div>
@@ -951,7 +950,7 @@ export default function DashboardPage() {
 									</div>
 								) : (
 									<div className="flex flex-col items-center justify-center py-8 text-center">
-										<CalendarIcon className="text-muted-foreground/50 h-12 w-12" />
+										<HugeiconsIcon icon={Calendar01Icon} size={48} className="text-muted-foreground/50" />
 										<p className="text-muted-foreground mt-4 text-sm">No upcoming appointments</p>
 										<Button
 											variant="outline"
@@ -980,7 +979,7 @@ export default function DashboardPage() {
 										onClick={() => router.push("/envelopes" as Route)}
 									>
 										View All
-										<ArrowRightIcon className="ml-2 h-4 w-4" />
+										<HugeiconsIcon icon={ArrowRight01Icon} size={16} className="ml-2" />
 									</Button>
 								</div>
 							</CardHeader>
@@ -1006,7 +1005,7 @@ export default function DashboardPage() {
 												onClick={() => router.push(`/envelopes/${document.envelopeId}` as Route)}
 											>
 												<div className="flex h-10 w-10 items-center justify-center rounded bg-blue-50">
-													<FileTextIcon className="h-5 w-5 text-blue-600" />
+													<HugeiconsIcon icon={File01Icon} size={20} className="text-blue-600" />
 												</div>
 												<div className="flex-1 space-y-1">
 													<div className="flex items-center justify-between">
@@ -1017,7 +1016,7 @@ export default function DashboardPage() {
 													</div>
 													<p className="text-muted-foreground text-sm">{document.envelopeTitle}</p>
 													<div className="text-muted-foreground flex items-center gap-2 text-xs">
-														<ClockIcon className="h-3 w-3" />
+														<HugeiconsIcon icon={Clock01Icon} size={12} />
 														{format(new Date(document.createdAt), "PPp")}
 													</div>
 												</div>
@@ -1026,7 +1025,7 @@ export default function DashboardPage() {
 									</div>
 								) : (
 									<div className="flex flex-col items-center justify-center py-8 text-center">
-										<FileTextIcon className="text-muted-foreground/50 h-12 w-12" />
+										<HugeiconsIcon icon={File01Icon} size={48} className="text-muted-foreground/50" />
 										<p className="text-muted-foreground mt-4 text-sm">No documents yet</p>
 										<Button
 											variant="outline"
@@ -1052,7 +1051,7 @@ export default function DashboardPage() {
 								</div>
 								<Button variant="ghost" size="sm" onClick={() => router.push("/meetings" as Route)}>
 									View All
-									<ArrowRightIcon className="ml-2 h-4 w-4" />
+									<HugeiconsIcon icon={ArrowRight01Icon} size={16} className="ml-2" />
 								</Button>
 							</div>
 						</CardHeader>
@@ -1071,7 +1070,7 @@ export default function DashboardPage() {
 											className="hover:bg-muted/50 flex items-center gap-4 rounded-lg border p-4 transition-colors"
 										>
 											<div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-50">
-												<VideoIcon className="h-5 w-5 text-green-600" />
+												<HugeiconsIcon icon={Video01Icon} size={20} className="text-green-600" />
 											</div>
 											<div className="flex-1">
 												<div className="flex items-center justify-between">
@@ -1079,7 +1078,7 @@ export default function DashboardPage() {
 													<Badge variant={getStatusVariant(meeting.status)}>{meeting.status}</Badge>
 												</div>
 												<div className="text-muted-foreground mt-1 flex items-center gap-2 text-xs">
-													<ClockIcon className="h-3 w-3" />
+													<HugeiconsIcon icon={Clock01Icon} size={12} />
 													{format(new Date(meeting.createdAt), "PPp")}
 												</div>
 											</div>
@@ -1088,7 +1087,7 @@ export default function DashboardPage() {
 								</div>
 							) : (
 								<div className="flex flex-col items-center justify-center py-8 text-center">
-									<VideoIcon className="text-muted-foreground/50 h-12 w-12" />
+									<HugeiconsIcon icon={Video01Icon} size={48} className="text-muted-foreground/50" />
 									<p className="text-muted-foreground mt-4 text-sm">No video meetings yet</p>
 								</div>
 							)}

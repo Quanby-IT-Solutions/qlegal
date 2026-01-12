@@ -55,7 +55,8 @@ function MeetingControls({
 }) {
 	const meeting = useMeeting()
 	const [isCameraOn, setIsCameraOn] = useState(() => meeting?.localWebcamOn ?? false)
-	const [isScreenSharing, setIsScreenSharing] = useState(() => (meeting as any)?.localScreenShareOn ?? false)
+	 
+	const [isScreenSharing, setIsScreenSharing] = useState(() => (meeting as { localScreenShareOn?: boolean })?.localScreenShareOn ?? false)
 	const [isRecordingLocal, setIsRecordingLocal] = useState(false)
 
 	useEffect(() => {
@@ -65,14 +66,16 @@ function MeetingControls({
 	}, [meeting?.localWebcamOn])
 
 	useEffect(() => {
-		const current = meeting as any
+		 
+		const current = meeting as { localScreenShareOn?: boolean } | null | undefined
 		if (current?.localScreenShareOn !== undefined) {
 			setIsScreenSharing(current.localScreenShareOn)
 		}
 	}, [meeting])
 
 	useEffect(() => {
-		const current = meeting as any
+		 
+		const current = meeting as { recordingState?: string } | null | undefined
 		const state = current?.recordingState
 		if (state) {
 			const recording = state === "RECORDING_STARTED" || state === "RECORDING_STARTING"
@@ -90,6 +93,7 @@ function MeetingControls({
 	const handleToggleCamera = async () => {
 		if (!meeting) return
 		try {
+			// eslint-disable-next-line @typescript-eslint/await-thenable
 			await meeting.toggleWebcam()
 		} catch (error) {
 			console.error("Error toggling camera:", error)
@@ -103,7 +107,8 @@ function MeetingControls({
 	const handleToggleScreenShare = async () => {
 		if (!meeting) return
 		try {
-			await (meeting as any).toggleScreenShare()
+			 
+			await (meeting as unknown as { toggleScreenShare?: () => Promise<void> | void }).toggleScreenShare?.()
 		} catch (error) {
 			console.error("Error toggling screen share:", error)
 		}
@@ -117,16 +122,19 @@ function MeetingControls({
 
 		if (!meeting) return
 		try {
+			 
 			if (effectiveRecording) {
-				await (meeting as any).stopRecording()
+				await (meeting as unknown as { stopRecording?: () => Promise<void> | void }).stopRecording?.()
 				setIsRecordingLocal(false)
 			} else {
-				await (meeting as any).startRecording()
+				 
+				await (meeting as unknown as { startRecording?: () => Promise<void> | void }).startRecording?.()
 				setIsRecordingLocal(true)
 			}
-		} catch (error: any) {
+		} catch (error: unknown) {
 			console.error("Error toggling recording:", error)
-			toast.error(error?.message || "Failed to toggle recording")
+			const errorMessage = error instanceof Error ? error.message : "Failed to toggle recording"
+			toast.error(errorMessage)
 		}
 	}
 
@@ -224,19 +232,43 @@ function ParticipantView({ participantId }: { participantId: string }) {
 		const videoElement = videoRef.current
 		if (!videoElement) return
 
-		const getMediaStream = (streamObj: any): MediaStream | null => {
+		const getMediaStream = (streamObj: unknown): MediaStream | null => {
 			if (!streamObj) return null
 			if (streamObj instanceof MediaStream) return streamObj
-			if (streamObj.stream instanceof MediaStream) return streamObj.stream
-			if (streamObj.mediaStream instanceof MediaStream) return streamObj.mediaStream
-			if (streamObj.track instanceof MediaStreamTrack) return new MediaStream([streamObj.track])
-			if (typeof streamObj.getTracks === "function") {
-				const tracks = streamObj.getTracks()
-				if (tracks?.length) return new MediaStream(tracks)
+			 
+			if ((streamObj as { stream?: MediaStream })?.stream instanceof MediaStream) {
+				 
+				return (streamObj as { stream: MediaStream }).stream
 			}
-			if (typeof streamObj.getVideoTracks === "function") {
-				const vTracks = streamObj.getVideoTracks()
-				if (vTracks?.length) return new MediaStream(vTracks)
+			 
+			if ((streamObj as { mediaStream?: MediaStream })?.mediaStream instanceof MediaStream) {
+				 
+				return (streamObj as { mediaStream: MediaStream }).mediaStream
+			}
+			 
+			if ((streamObj as { track?: MediaStreamTrack })?.track instanceof MediaStreamTrack) {
+				 
+				return new MediaStream([(streamObj as { track: MediaStreamTrack }).track])
+			}
+			 
+			if (typeof (streamObj as { getTracks?: () => MediaStreamTrack[] })?.getTracks === "function") {
+				 
+				const tracks = (streamObj as { getTracks: () => MediaStreamTrack[] }).getTracks()
+				 
+				if (tracks?.length) {
+					 
+					return new MediaStream(tracks)
+				}
+			}
+			 
+			if (typeof (streamObj as { getVideoTracks?: () => MediaStreamTrack[] })?.getVideoTracks === "function") {
+				 
+				const vTracks = (streamObj as { getVideoTracks: () => MediaStreamTrack[] }).getVideoTracks()
+				 
+				if (vTracks?.length) {
+					 
+					return new MediaStream(vTracks)
+				}
 			}
 			return null
 		}
@@ -409,7 +441,6 @@ function SignerList({
 // Document Actions Component - ENP can initiate signing directly
 function DocumentActions({
 	document,
-	isPrincipal,
 	onSignClick,
 	isSigningPending,
 	onDownloadCertificate,
@@ -423,7 +454,6 @@ function DocumentActions({
 	signers,
 }: {
 	document: { id: string; name: string; docoChainProjectId: string | null }
-	isPrincipal: boolean
 	onSignClick: (projectUuid: string, email: string, documentId: string) => void
 	isSigningPending: boolean
 	onDownloadCertificate?: (projectUuid: string) => void
@@ -593,15 +623,14 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 	const recordingContainerRef = useRef<HTMLDivElement>(null)
 	const localRecordingSupported =
 		(typeof navigator !== "undefined" && !!navigator.mediaDevices?.getDisplayMedia) ||
-		(typeof HTMLDivElement !== "undefined" && typeof (HTMLDivElement.prototype as any)?.captureStream === "function")
+		 
+		(typeof HTMLDivElement !== "undefined" && typeof (HTMLDivElement.prototype as { captureStream?: unknown })?.captureStream === "function")
 	const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false)
 	const [showDocuments, setShowDocuments] = useState(true)
 	const [selectedDocumentId, setSelectedDocumentId] = useState<string | null>(null)
 	const [selectedSignerId, setSelectedSignerId] = useState<string>("")
 	const [isSendDialogOpen, setIsSendDialogOpen] = useState(false)
 	const [dismissedRequestIds, setDismissedRequestIds] = useState<Set<string>>(new Set())
-	const [signingUrl, setSigningUrl] = useState<string | null>(null)
-	const [signingProjectUuid, setSigningProjectUuid] = useState<string | null>(null)
 	const [signingDocumentId, setSigningDocumentId] = useState<string | null>(null)
 	const [draggedDocumentId, setDraggedDocumentId] = useState<string | null>(null)
 	const [dragOverDocumentId, setDragOverDocumentId] = useState<string | null>(null)
@@ -625,7 +654,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 	
 	// Fetch meeting documents
 	const { data: documents, refetch: refetchDocuments } = trpc.meetings.getMeetingDocuments.useQuery(
-		meetingId || "",
+		meetingId ?? "",
 		{
 			enabled: !!meetingId,
 			refetchInterval: 5000, // Refetch every 5 seconds to get new uploads
@@ -668,7 +697,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 							totalSigners: status.totalSigners,
 							signers: status.signers || [],
 						})
-					} catch (error) {
+					} catch {
 						// If status check fails, assume not signed
 						statusMap.set(doc.id, {
 							isFullySigned: false,
@@ -694,7 +723,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 	}, [documents, utils])
 
 	// Fetch meeting details to get participants and lock state
-	const { data: meetingDetails, refetch: refetchMeetingDetails } = trpc.meetings.getById.useQuery(meetingId || "", {
+	const { data: meetingDetails, refetch: refetchMeetingDetails } = trpc.meetings.getById.useQuery(meetingId ?? "", {
 		enabled: !!meetingId && !!meetingId.trim(),
 		retry: false,
 		refetchInterval: 3000, // Refetch every 3 seconds to sync lock state
@@ -713,7 +742,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 
 	// Fetch pending signature requests for current user
 	const { data: pendingRequests } = trpc.signatureRequests.getPendingRequests.useQuery(
-		{ meetingId: meetingId || "" },
+		{ meetingId: meetingId ?? "" },
 		{
 			enabled: !!meetingId && !!meetingId.trim(),
 			refetchInterval: 3000, // Poll every 3 seconds for new requests
@@ -730,7 +759,8 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 			setSelectedSignerId("")
 		},
 		onError: (error) => {
-			toast.error(error.message || "Failed to send signature request")
+			const errorMessage = error instanceof Error ? error.message : typeof error === 'object' && error !== null && 'message' in error ? String(error.message) : "Failed to send signature request"
+			toast.error(errorMessage)
 		},
 	})
 
@@ -740,17 +770,19 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 			toast.success("Signature request declined")
 		},
 		onError: (error) => {
-			toast.error(error.message || "Failed to update request")
+			const errorMessage = error instanceof Error ? error.message : typeof error === 'object' && error !== null && 'message' in error ? String(error.message) : "Failed to update request"
+			toast.error(errorMessage)
 		},
 	})
 
 	// Update document order mutation (for drag and drop)
 	const updateDocumentOrder = trpc.meetings.updateDocumentOrder.useMutation({
 		onSuccess: () => {
-			refetchDocuments() // Refetch to sync with other users
+			void refetchDocuments() // Refetch to sync with other users
 		},
 		onError: (error) => {
-			toast.error(error.message || "Failed to update document order")
+			const errorMessage = error instanceof Error ? error.message : typeof error === 'object' && error !== null && 'message' in error ? String(error.message) : "Failed to update document order"
+			toast.error(errorMessage)
 		},
 	})
 
@@ -865,9 +897,10 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 		
 		try {
 			// Fetch the signed document using tRPC utils
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument
 			const result = await utils.signatureRequests.downloadSignedDocument.fetch(projectUuid as any)
-			
-			if (result && result.base64) {
+
+			if (result?.base64) {
 				// Convert base64 to blob and download
 				const byteCharacters = atob(result.base64)
 				const byteNumbers = new Array(byteCharacters.length)
@@ -880,7 +913,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 				const url = window.URL.createObjectURL(blob)
 				const link = document.createElement('a')
 				link.href = url
-				link.download = result.fileName || `signed-document-${projectUuid}.pdf`
+				link.download = result.fileName ?? `signed-document-${projectUuid}.pdf`
 				document.body.appendChild(link)
 				link.click()
 				document.body.removeChild(link)
@@ -904,9 +937,10 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 		
 		try {
 			// Fetch the certificate using tRPC utils
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument
 			const result = await utils.signatureRequests.downloadCertificate.fetch(projectUuid as any)
-			
-			if (result && result.base64) {
+
+			if (result?.base64) {
 				// Convert base64 to blob and download
 				const byteCharacters = atob(result.base64)
 				const byteNumbers = new Array(byteCharacters.length)
@@ -986,7 +1020,8 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 			}
 		},
 		onError: (error) => {
-			toast.error(error.message || "Failed to generate signing link")
+			const errorMessage = error instanceof Error ? error.message : typeof error === 'object' && error !== null && 'message' in error ? String(error.message) : "Failed to generate signing link"
+			toast.error(errorMessage)
 		},
 	})
 
@@ -1042,18 +1077,12 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 			)
 			
 			if (popup) {
-				// Store reference for monitoring
-				setSigningUrl(signingLink)
-				setSigningProjectUuid(data.projectUuid)
-				
 				// Monitor popup for closing
 				const checkClosed = setInterval(() => {
 					if (popup.closed) {
 						clearInterval(checkClosed)
-						setSigningUrl(null)
-						setSigningProjectUuid(null)
 						setSigningDocumentId(null)
-						refetchDocuments()
+						void refetchDocuments()
 						toast.success("Signing completed. Document status updated.")
 					}
 				}, 500)
@@ -1067,7 +1096,8 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 		onError: (error) => {
 			console.error("❌ Failed to initiate signing:", error)
 			setSigningDocumentId(null) // Clear loading state on error
-			toast.error(error.message || "Failed to start signing process")
+			const errorMessage = error instanceof Error ? error.message : typeof error === 'object' && error !== null && 'message' in error ? String(error.message) : "Failed to start signing process"
+			toast.error(errorMessage)
 		},
 	})
 
@@ -1100,7 +1130,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 			console.log("👋 Participant left:", participant.id, participant.displayName)
 		},
 		onPresenterChanged: (id) => {
-			setPresenterId(id || null)
+			setPresenterId(id ?? null)
 			 
 			console.log("🖥️ Presenter changed:", id)
 		},
@@ -1124,13 +1154,14 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 		},
 	})
 
-	const participants = meeting?.participants ?? new Map<string, any>()
+	const participants = meeting?.participants ?? new Map<string, { displayName?: string; webcamOn?: boolean; local?: boolean; screenShareOn?: boolean }>()
 
-	const filterHuman = (id: string, participant: any) => {
+	const filterHuman = (id: string, participant: { displayName?: string } | null | undefined) => {
 		if (!participant) return false
 		
 		const idLower = id.toLowerCase()
-		const nameLower = (participant.displayName || "").toLowerCase()
+		 
+		const nameLower = (participant.displayName ?? "").toLowerCase()
 		
 		return !(
 			idLower.includes("recorder") ||
@@ -1142,14 +1173,14 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 		)
 	}
 	
-	const normalizeName = (name: string | undefined) => (name || "").trim().toLowerCase() || "unknown"
+	const normalizeName = (name: string | undefined) => (name ?? "").trim().toLowerCase() || "unknown"
 	
-	const uniqueByName = new Map<string, { id: string; participant: any }>()
+	const uniqueByName = new Map<string, { id: string; participant: { displayName?: string; webcamOn?: boolean; local?: boolean; screenShareOn?: boolean } }>()
 	Array.from(participants.entries()).forEach(([id, participant]) => {
 		if (!filterHuman(id, participant)) return
 		
 		const participantIsPresenting = Boolean((participant as { screenShareOn?: boolean })?.screenShareOn)
-		const key = participantIsPresenting ? `${id}-presenter` : normalizeName(participant.displayName || id)
+		const key = participantIsPresenting ? `${id}-presenter` : normalizeName(participant.displayName ?? id)
 		const current = uniqueByName.get(key)
 		const currentIsPresenting = Boolean((current?.participant as { screenShareOn?: boolean })?.screenShareOn)
 
@@ -1201,7 +1232,8 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 			return
 		}
 
-		const started = (mediaRecorderRef.current as any)?.__startedAt as number | undefined
+		 
+		const started = (mediaRecorderRef.current as { __startedAt?: number })?.__startedAt
 		if (!started) {
 			setLocalRecordingElapsed("00:00")
 			return
@@ -1222,7 +1254,8 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 		if (isLocalRecording) return
 
 		const container = recordingContainerRef.current
-		const canCapture = container && typeof (container as any).captureStream === "function"
+		 
+		const canCapture = container && typeof (container as { captureStream?: unknown })?.captureStream === "function"
 		const canShareDisplay = typeof navigator !== "undefined" && !!navigator.mediaDevices?.getDisplayMedia
 
 		if (!canCapture && !canShareDisplay) {
@@ -1231,8 +1264,9 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 		}
 
 		try {
-			const stream: MediaStream = canCapture
-				? (container as any).captureStream(30)
+			 
+			const stream = canCapture
+				? (container as unknown as { captureStream: (fps: number) => MediaStream }).captureStream(30)
 				: await navigator.mediaDevices.getDisplayMedia({
 					video: { frameRate: 30 },
 					audio: true,
@@ -1241,13 +1275,13 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 			let recorder: MediaRecorder | null = null
 			for (const type of mimeTypes) {
 				if (MediaRecorder.isTypeSupported(type)) {
+					 
 					recorder = new MediaRecorder(stream, { mimeType: type })
 					break
 				}
 			}
-			if (!recorder) {
-				recorder = new MediaRecorder(stream)
-			}
+			 
+			recorder ??= new MediaRecorder(stream)
 
 			const chunks: BlobPart[] = []
 			recorder.ondataavailable = (e) => {
@@ -1256,8 +1290,10 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 				}
 			}
 			recorder.onstop = () => {
-				const firstChunk: any = chunks[0]
+				 
+				const firstChunk = chunks[0] as { type?: string } | undefined
 				const inferredType = typeof firstChunk === "object" && firstChunk?.type ? firstChunk.type : "video/webm"
+				 
 				const blob = new Blob(chunks, { type: inferredType })
 				const url = URL.createObjectURL(blob)
 				const a = document.createElement("a")
@@ -1274,15 +1310,18 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 				localStreamRef.current = null
 			}
 
-			;(recorder as any).__startedAt = Date.now()
+			 
+			;(recorder as { __startedAt?: number }).__startedAt = Date.now()
 			recorder.start(500)
 			mediaRecorderRef.current = recorder
+			 
 			localStreamRef.current = stream
 			setIsLocalRecording(true)
 			toast.message("Local recording started. It will capture what you see.")
-		} catch (error: any) {
+		} catch (error: unknown) {
 			console.error("Local recording error:", error)
-			toast.error(error?.message || "Failed to start local recording")
+			const errorMessage = error instanceof Error ? error.message : "Failed to start local recording"
+			toast.error(errorMessage)
 		}
 	}
 
@@ -1298,12 +1337,16 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 		if (recordingStatus === "RECORDING_STARTING") return
 
 		try {
+			 
+			const meetingWithRecording = meeting as unknown as { stopRecording?: () => Promise<void> | void; startRecording?: (config?: unknown) => Promise<void> | void }
 			if (isRecording) {
 				setRecordingStatus("RECORDING_STOPPING")
-				await (meeting as any).stopRecording()
+				 
+				await meetingWithRecording.stopRecording?.()
 			} else {
 				setRecordingStatus("RECORDING_STARTING")
-				await (meeting as any).startRecording({
+				 
+				await meetingWithRecording.startRecording?.({
 					layout: {
 						type: "GRID",
 						priority: "SPEAKER",
@@ -1313,9 +1356,10 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 					theme: "DARK",
 				})
 			}
-		} catch (error: any) {
+		} catch (error: unknown) {
 			console.error("Error toggling recording:", error)
-			toast.error(error?.message || "Failed to toggle recording")
+			const errorMessage = error instanceof Error ? error.message : "Failed to toggle recording"
+			toast.error(errorMessage)
 			setRecordingStatus(isRecording ? "RECORDING_STARTED" : "RECORDING_STOPPED")
 		}
 	}
@@ -1378,7 +1422,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 					isOpen={isUploadDialogOpen}
 					onClose={() => setIsUploadDialogOpen(false)}
 					onSuccess={() => {
-						refetchDocuments()
+						void refetchDocuments()
 						setShowDocuments(true)
 					}}
 				/>
@@ -1525,13 +1569,12 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 								<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4 transition-all duration-300">
 									{documents.map((doc, index) => {
 										const isLocked = meetingDetails?.isDocumentOrderLocked ?? false
-										const isPrincipal = meetingDetails?.createdBy.id === session?.user?.id
 										const isDragged = draggedDocumentId === doc.id
 										const isDragOver = dragOverDocumentId === doc.id
 										
 										// Check if previous document is signed (for sequential signing when locked)
 										const previousDoc = index > 0 ? documents[index - 1] : null
-										const isPreviousDocumentSigned = !previousDoc || documentSigningStatus.get(previousDoc.id)?.isFullySigned || false
+										const isPreviousDocumentSigned = !previousDoc || (documentSigningStatus.get(previousDoc.id)?.isFullySigned ?? false)
 										
 										return (
 											<Card 
@@ -1630,9 +1673,8 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 															</p>
 														</div>
 													</div>
-													<DocumentActions 
+													<DocumentActions
 														document={doc}
-														isPrincipal={isPrincipal}
 														onSignClick={(projectUuid, email, documentId) => {
 															// Set the document ID being signed before mutation
 															setSigningDocumentId(documentId)
@@ -1705,7 +1747,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 							onClick={() => {
 								if (selectedDocumentId && selectedSignerId) {
 									createSignatureRequest.mutate({
-										meetingId: meetingId || "",
+										meetingId: meetingId ?? "",
 										documentId: selectedDocumentId,
 										signerId: selectedSignerId,
 									})
@@ -1838,7 +1880,7 @@ export interface VideoMeetingClientProps {
 
 export function VideoMeetingClient({ meetingId, dbMeetingId, token, participantName, onLeave }: VideoMeetingClientProps) {
 	// Only enable debug mode in development
-	const isDevelopment = process.env.NODE_ENV === 'development'
+	const isDevelopment = typeof window === 'undefined' ? false : window.location.hostname === 'localhost'
 	
 	return (
 		<MeetingProvider

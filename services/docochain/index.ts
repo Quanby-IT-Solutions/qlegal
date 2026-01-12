@@ -2001,3 +2001,78 @@ export async function getVaultItems(
 	}
 }
 
+/**
+ * Get a single Vault Item by project UUID
+ * Retrieves a specific completed signature request project from the vault
+ * API: GET https://stg-api2.doconchain.com/vault/items/{projectUuid}
+ * 
+ * @param projectUuid - The project UUID to retrieve
+ * @param userEmail - Email of the user to generate token for
+ * @returns Vault item data with files
+ */
+export interface VaultItemData {
+	files?: Array<{
+		file_url?: string
+		url?: string
+		[key: string]: unknown
+	}>
+	file_name?: string
+	name?: string
+	[key: string]: unknown
+}
+
+export interface VaultItemResponse {
+	message?: string
+	data?: VaultItemData
+	[key: string]: unknown
+}
+
+export async function getVaultItem(
+	projectUuid: string,
+	userEmail?: string
+): Promise<VaultItemResponse | null> {
+	console.log("🔵 Getting DocoChain vault item by project UUID...")
+	console.log("   - Project UUID:", projectUuid)
+	console.log("   - User Email:", userEmail ?? "not provided")
+
+	try {
+		const apiUrl = `${DOCOCHAIN_API_BASE}/vault/items/${projectUuid}?user_type=ENTERPRISE_API`
+		console.log("🔵 Calling DocoChain Vault Item API:", apiUrl)
+
+		// Use the wrapper function for automatic token refresh on 401 errors
+		const response = await makeDocoChainApiCall(
+			async (token) => {
+				return fetch(apiUrl, {
+					method: "GET",
+					headers: {
+						Authorization: `Bearer ${token}`,
+						Accept: "application/json",
+					},
+				})
+			},
+			userEmail
+		)
+
+		console.log("📡 DocoChain vault item response status:", response.status)
+
+		if (!response.ok) {
+			if (response.status === 404) {
+				console.log("ℹ️ Vault item not found for project UUID:", projectUuid)
+				return null
+			}
+			const errorText = await response.text()
+			console.error("❌ DocoChain vault item error:", errorText)
+			throw new Error(`DocoChain API error: ${response.status} ${response.statusText} - ${errorText}`)
+		}
+
+		const result = (await response.json()) as VaultItemResponse
+		console.log("✅ Vault item retrieved successfully")
+		console.log("   - Has files:", !!result.data?.files?.length)
+
+		return result
+	} catch (error) {
+		console.error("❌ Error getting vault item:", error)
+		throw error
+	}
+}
+

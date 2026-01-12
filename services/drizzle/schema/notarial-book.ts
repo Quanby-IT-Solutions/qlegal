@@ -1,3 +1,5 @@
+import { index } from "drizzle-orm/pg-core"
+
 import { users } from "@/services/drizzle/schema/auth"
 import { documents } from "@/services/drizzle/schema/document"
 import { createTable, randomId } from "@/services/drizzle/utils"
@@ -26,7 +28,12 @@ export const notarialBooks = createTable("notarial_book", t => ({
 		.defaultNow()
 		.$onUpdateFn(() => new Date())
 		.notNull(),
-})).enableRLS()
+}),
+	t => [
+		// Index for efficient lookup of notarial book by ENP
+		index("notarial_book_enp_id_idx").on(t.enpId),
+	]
+).enableRLS()
 
 // Notarial Act - Individual entries in the notarial book
 export const notarialActs = createTable("notarial_act", t => ({
@@ -84,7 +91,21 @@ export const notarialActs = createTable("notarial_act", t => ({
 		.defaultNow()
 		.$onUpdateFn(() => new Date())
 		.notNull(),
-})).enableRLS()
+}),
+	t => [
+		// Indexes for proper referencing and indexing as required by Section 2, Rule VIII
+		// These ensure efficient searching, chronological ordering, and proper referencing
+		index("notarial_act_notarial_book_id_idx").on(t.notarialBookId),
+		index("notarial_act_executed_at_idx").on(t.executedAt), // Chronological ordering index
+		index("notarial_act_document_id_idx").on(t.documentId),
+		index("notarial_act_doco_chain_uuid_idx").on(t.docoChainProjectUuid), // Prevent duplicates
+		index("notarial_act_principal_name_idx").on(t.principalName), // For searching by principal name
+		index("notarial_act_certificate_number_idx").on(t.certificateNumber), // For certificate lookup
+		index("notarial_act_enp_name_idx").on(t.enpName), // For ENP search
+		index("notarial_act_act_type_idx").on(t.actType), // Filter by act type
+		index("notarial_act_workflow_idx").on(t.workflow), // Filter by REN/IEN
+	]
+).enableRLS()
 
 
 

@@ -23,6 +23,7 @@ import {
 	TableHeader,
 	TableRow,
 } from "@/core/components/ui/table"
+import { NotarialActDocumentDialog } from "@/features/notarial-book/components/notarial-act-document-dialog"
 
 export default function NotarialBookPage() {
 	const { data: session } = useSession()
@@ -31,6 +32,12 @@ export default function NotarialBookPage() {
 	const [workflowFilter, setWorkflowFilter] = useState<"ALL" | "REN" | "IEN">("ALL")
 	const [page, setPage] = useState(1)
 	const perPage = 50
+
+	// Document preview state - matches qsign-lite pattern
+	const [previewDocument, setPreviewDocument] = useState<{
+		actId: string
+		documentName: string
+	} | null>(null)
 
 	// Fetch notarial book entries using Doc On Chain Passport API
 	const { data: notarialBookData, isLoading, refetch } = trpc.notarialBook.getNotarialBook.useQuery({
@@ -48,7 +55,7 @@ export default function NotarialBookPage() {
 			if (data.errors && data.errors.length > 0) {
 				toast.warning(`${data.errors.length} document(s) failed to sync`)
 			}
-			refetch()
+			void refetch()
 		},
 		onError: (error) => {
 			toast.error(`Failed to sync documents: ${error.message}`)
@@ -65,7 +72,7 @@ export default function NotarialBookPage() {
 		},
 	})
 
-	const notarialActs = notarialBookData?.acts || []
+	const notarialActs = notarialBookData?.acts ?? []
 
 	const filteredActs = useMemo(() => {
 		if (!notarialActs) return []
@@ -73,9 +80,9 @@ export default function NotarialBookPage() {
 		return notarialActs.filter(act => {
 			const matchesSearch = 
 				act.principalName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-				act.documentName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-				act.certificateNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-				false
+				(act.documentName?.toLowerCase().includes(searchTerm.toLowerCase()) ??
+				act.certificateNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ??
+				false)
 			
 			return matchesSearch
 		})
@@ -91,21 +98,16 @@ export default function NotarialBookPage() {
 		}
 	}
 
-	// Document and certificate viewing
-	const utils = trpc.useUtils()
-
-	const handleViewDocument = async (actId: string) => {
-		try {
-			const result = await utils.notarialBook.getDocumentUrl.fetch({ actId })
-			if (result?.url) {
-				window.open(result.url, "_blank")
-			} else {
-				toast.error("Document URL not available")
-			}
-		} catch (error) {
-			toast.error(`Failed to get document: ${error instanceof Error ? error.message : "Unknown error"}`)
-		}
+	// View button handler - matches qsign-lite pattern (simple state update)
+	const handleViewDocument = (actId: string, documentName?: string) => {
+		setPreviewDocument({
+			actId,
+			documentName: documentName ?? "document.pdf",
+		})
 	}
+
+	// Certificate viewing
+	const utils = trpc.useUtils()
 
 	const handleViewCertificate = async (actId: string) => {
 		try {
@@ -246,7 +248,7 @@ export default function NotarialBookPage() {
 									<Skeleton className="h-4 w-32" />
 								) : (
 									<>
-										{notarialBookData?.total || 0} notarial act{(notarialBookData?.total || 0) !== 1 ? "s" : ""} recorded
+										{notarialBookData?.total ?? 0} notarial act{(notarialBookData?.total ?? 0) !== 1 ? "s" : ""} recorded
 										{notarialBookData && notarialBookData.totalPages > 1 && (
 											<span className="ml-2">
 												(Page {page} of {notarialBookData.totalPages})
@@ -333,7 +335,7 @@ export default function NotarialBookPage() {
 															</div>
 														</TableCell>
 														<TableCell className="max-w-md">
-															<p className="text-sm font-medium">{act.documentName || "Untitled Document"}</p>
+															<p className="text-sm font-medium">{act.documentName ?? "Untitled Document"}</p>
 															{act.documentDescription && (
 																<p className="text-xs text-muted-foreground mt-1 line-clamp-2">
 																	{act.documentDescription}
@@ -341,18 +343,18 @@ export default function NotarialBookPage() {
 															)}
 														</TableCell>
 														<TableCell>
-															<span className="text-sm">{act.location || "Philippines"}</span>
+															<span className="text-sm">{act.location ?? "Philippines"}</span>
 														</TableCell>
 														<TableCell>
-															<span className="font-mono text-sm">{act.certificateNumber || "N/A"}</span>
+															<span className="font-mono text-sm">{act.certificateNumber ?? "N/A"}</span>
 														</TableCell>
 														<TableCell>
 															<div className="flex items-center gap-2">
-																{(act.documentId || act.docoChainProjectUuid) && (
+																{(act.documentId ?? act.docoChainProjectUuid) && (
 																	<Button
 																		variant="ghost"
 																		size="sm"
-																		onClick={() => handleViewDocument(act.id)}
+																		onClick={() => handleViewDocument(act.id, act.documentName ?? undefined)}
 																		title="View Document"
 																	>
 																		<Eye className="h-4 w-4" />
@@ -408,6 +410,16 @@ export default function NotarialBookPage() {
 				</div>
 			</main>
 		</div>
+
+		{/* Document Preview Dialog - matches qsign-lite pattern */}
+		{previewDocument && (
+			<NotarialActDocumentDialog
+				isOpen={!!previewDocument}
+				onClose={() => setPreviewDocument(null)}
+				actId={previewDocument.actId}
+				documentName={previewDocument.documentName}
+			/>
+		)}
 		</>
 	)
 }
