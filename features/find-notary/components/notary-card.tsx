@@ -1,7 +1,7 @@
 "use client"
 
-import { Handshake, MapPin, Star, Video, MessageCircle } from "lucide-react"
 import { useRouter } from "next/navigation"
+import { Handshake, MapPin, MessageCircle, Star, Video } from "lucide-react"
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/core/components/ui/avatar"
 import { Badge } from "@/core/components/ui/badge"
@@ -13,6 +13,7 @@ import {
 	CardHeader,
 	CardTitle,
 } from "@/core/components/ui/card"
+
 import type { EnhancedENP, WorkflowType } from "../types/find-notary.types"
 
 interface NotaryCardProps {
@@ -55,17 +56,13 @@ export function NotaryCard({ enp, onBookConsultation }: NotaryCardProps) {
 								<Star
 									key={i}
 									className={`h-4 w-4 ${
-										i < Math.floor(enp.rating)
-											? "fill-current text-yellow-400"
-											: "text-gray-300"
+										i < Math.floor(enp.rating) ? "fill-current text-yellow-400" : "text-gray-300"
 									}`}
 								/>
 							))}
 						</div>
 						<span className="text-sm font-medium">{enp.rating}</span>
-						<span className="text-muted-foreground text-sm">
-							({enp.reviewCount} reviews)
-						</span>
+						<span className="text-muted-foreground text-sm">({enp.reviewCount} reviews)</span>
 					</div>
 
 					{/* Specialization */}
@@ -87,9 +84,7 @@ export function NotaryCard({ enp, onBookConsultation }: NotaryCardProps) {
 					</div>
 
 					{/* Response Time */}
-					<div className="text-muted-foreground text-sm">
-						Response time: {enp.responseTime}
-					</div>
+					<div className="text-muted-foreground text-sm">Response time: {enp.responseTime}</div>
 
 					{/* Workflow Support */}
 					<div className="flex gap-2">
@@ -114,11 +109,7 @@ export function NotaryCard({ enp, onBookConsultation }: NotaryCardProps) {
 							<MessageCircle className="mr-2 h-4 w-4" />
 							Chat
 						</Button>
-						<Button
-							onClick={() => onBookConsultation(enp.id, "REN")}
-							className="flex-1"
-							size="sm"
-						>
+						<Button onClick={() => onBookConsultation(enp.id, "REN")} className="flex-1" size="sm">
 							<Video className="mr-2 h-4 w-4" />
 							Book REN
 						</Button>

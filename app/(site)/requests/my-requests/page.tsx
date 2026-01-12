@@ -1,20 +1,37 @@
 "use client"
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
-import { FileText, Plus, Clock, CheckCircle, XCircle, AlertCircle, Calendar, User, Search } from "lucide-react"
 import { type Route } from "next"
+import { useRouter } from "next/navigation"
+import { useState } from "react"
+import {
+	AlertCircle,
+	Calendar,
+	CheckCircle,
+	Clock,
+	FileText,
+	Plus,
+	Search,
+	User,
+	XCircle,
+} from "lucide-react"
 import { useSession } from "next-auth/react"
 
-import { trpc } from "@/services/trpc/client"
 import { PageHeader } from "@/core/components/navbar/page-header"
+import { Avatar, AvatarFallback, AvatarImage } from "@/core/components/ui/avatar"
+import { Badge } from "@/core/components/ui/badge"
 import { Button } from "@/core/components/ui/button"
 import { Card, CardContent } from "@/core/components/ui/card"
 import { Input } from "@/core/components/ui/input"
-import { Badge } from "@/core/components/ui/badge"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/core/components/ui/select"
-import { Avatar, AvatarFallback, AvatarImage } from "@/core/components/ui/avatar"
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@/core/components/ui/select"
 import { Skeleton } from "@/core/components/ui/skeleton"
+
+import { trpc } from "@/services/trpc/client"
 
 export default function MyRequestsPage() {
 	const router = useRouter()
@@ -26,16 +43,16 @@ export default function MyRequestsPage() {
 	const [workflowFilter, setWorkflowFilter] = useState("ALL")
 
 	// Fetch notarization requests for the current user (principal)
-	const { data: myRequests = [], isLoading } = trpc.requests.getMyRequests.useQuery(
-		undefined,
-		{ enabled: !!userId }
-	)
-	
+	const { data: myRequests = [], isLoading } = trpc.requests.getMyRequests.useQuery(undefined, {
+		enabled: !!userId,
+	})
+
 	// Filter requests based on filters
-	const filteredRequests = myRequests.filter((request) => {
+	const filteredRequests = myRequests.filter(request => {
 		const matchesStatus = statusFilter === "ALL" || request.status === statusFilter
 		const matchesWorkflow = workflowFilter === "ALL" || request.workflow === workflowFilter
-		const matchesSearch = !searchTerm || 
+		const matchesSearch =
+			!searchTerm ||
 			Boolean(request.title?.toLowerCase().includes(searchTerm.toLowerCase())) ||
 			Boolean(request.description?.toLowerCase().includes(searchTerm.toLowerCase())) ||
 			Boolean(request.enp?.name?.toLowerCase().includes(searchTerm.toLowerCase()))
@@ -49,7 +66,9 @@ export default function MyRequestsPage() {
 			const requestDate = new Date(r.createdAt)
 			return requestDate.toDateString() === today.toDateString()
 		}).length,
-		upcomingCount: filteredRequests.filter(r => r.status === "PENDING" || r.status === "IN_PROGRESS").length,
+		upcomingCount: filteredRequests.filter(
+			r => r.status === "PENDING" || r.status === "IN_PROGRESS"
+		).length,
 		totalCount: filteredRequests.length,
 	}
 
@@ -75,7 +94,11 @@ export default function MyRequestsPage() {
 			case "IN_PROGRESS":
 				return <Badge variant="default">In Progress</Badge>
 			case "COMPLETED":
-				return <Badge variant="outline" className="text-green-600 border-green-600">Completed</Badge>
+				return (
+					<Badge variant="outline" className="border-green-600 text-green-600">
+						Completed
+					</Badge>
+				)
 			case "REJECTED":
 				return <Badge variant="destructive">Rejected</Badge>
 			default:
@@ -86,22 +109,19 @@ export default function MyRequestsPage() {
 	return (
 		<div className="flex flex-1 flex-col">
 			<PageHeader
-				items={[
-					{ label: "Notarization Requests", href: "/requests" },
-					{ label: "My Requests" },
-				]}
+				items={[{ label: "Notarization Requests", href: "/requests" }, { label: "My Requests" }]}
 			/>
-            
+
 			<main className="flex-1 p-4 md:p-6 lg:p-8">
 				<div className="mx-auto max-w-7xl space-y-8">
 					{/* Header */}
 					<div className="flex items-center justify-between">
 						<div>
 							<h1 className="text-3xl font-bold tracking-tight">My Notarization Requests</h1>
-							<p className="mt-2 text-muted-foreground">
+							<p className="text-muted-foreground mt-2">
 								Track the status of your submitted notarization requests
 							</p>
-							<div className="mt-4 flex items-center gap-4 text-sm text-muted-foreground">
+							<div className="text-muted-foreground mt-4 flex items-center gap-4 text-sm">
 								<span>{stats.todayCount} today</span>
 								<span>•</span>
 								<span>{stats.upcomingCount} upcoming</span>
@@ -118,11 +138,11 @@ export default function MyRequestsPage() {
 						<CardContent className="pt-6">
 							<div className="grid grid-cols-1 gap-4 md:grid-cols-3">
 								<div className="relative">
-									<Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+									<Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
 									<Input
 										placeholder="Search requests..."
 										value={searchTerm}
-										onChange={(e) => setSearchTerm(e.target.value)}
+										onChange={e => setSearchTerm(e.target.value)}
 										className="pl-9"
 									/>
 								</div>
@@ -171,25 +191,35 @@ export default function MyRequestsPage() {
 								))}
 							</div>
 						) : filteredRequests.length > 0 ? (
-							filteredRequests.map((request) => (
-								<Card key={request.id} className="hover:shadow-md transition-shadow">
+							filteredRequests.map(request => (
+								<Card key={request.id} className="transition-shadow hover:shadow-md">
 									<CardContent className="p-6">
 										<div className="flex items-start justify-between">
 											<div className="flex-1">
-												<div className="flex items-center gap-3 mb-2">
+												<div className="mb-2 flex items-center gap-3">
 													<h3 className="text-lg font-semibold">{request.title}</h3>
 													{getStatusBadge(request.status)}
 													<Badge variant="outline">{request.workflow}</Badge>
 													{request.priority && (
-														<Badge variant={request.priority === "URGENT" ? "destructive" : request.priority === "HIGH" ? "default" : "secondary"}>
+														<Badge
+															variant={
+																request.priority === "URGENT"
+																	? "destructive"
+																	: request.priority === "HIGH"
+																		? "default"
+																		: "secondary"
+															}
+														>
 															{request.priority}
 														</Badge>
 													)}
 												</div>
 												{request.description && (
-													<p className="text-muted-foreground text-sm mb-3">{request.description}</p>
+													<p className="text-muted-foreground mb-3 text-sm">
+														{request.description}
+													</p>
 												)}
-												<div className="flex items-center gap-4 text-sm text-muted-foreground">
+												<div className="text-muted-foreground flex items-center gap-4 text-sm">
 													<div className="flex items-center gap-2">
 														<User className="h-4 w-4" />
 														<span>{request.enp?.name ?? "Unknown ENP"}</span>
@@ -200,23 +230,36 @@ export default function MyRequestsPage() {
 													</div>
 													<div className="flex items-center gap-2">
 														<FileText className="h-4 w-4" />
-														<span>{request.documents ?? 0} document{(request.documents ?? 0) !== 1 ? "s" : ""}</span>
+														<span>
+															{request.documents ?? 0} document
+															{(request.documents ?? 0) !== 1 ? "s" : ""}
+														</span>
 													</div>
 												</div>
-												<div className="flex items-center gap-2 mt-3">
+												<div className="mt-3 flex items-center gap-2">
 													{getStatusIcon(request.status)}
-													<span className="text-sm text-muted-foreground">
+													<span className="text-muted-foreground text-sm">
 														{request.status === "PENDING" && "Waiting for ENP response"}
 														{request.status === "IN_PROGRESS" && "Notarization in progress"}
 														{request.status === "COMPLETED" && "Notarization completed"}
-														{request.status === "REJECTED" && request.rejectReason ? `Rejected: ${request.rejectReason}` : "Request rejected"}
+														{request.status === "REJECTED" && request.rejectReason
+															? `Rejected: ${request.rejectReason}`
+															: "Request rejected"}
 													</span>
 												</div>
 											</div>
 											<div className="flex items-center gap-2">
 												<Avatar className="h-10 w-10">
-													<AvatarImage src={request.enp?.image ?? undefined} alt={request.enp?.name ?? "ENP"} />
-													<AvatarFallback>{(request.enp?.name ?? "ENP").split(" ").map(n => n[0]).join("")}</AvatarFallback>
+													<AvatarImage
+														src={request.enp?.image ?? undefined}
+														alt={request.enp?.name ?? "ENP"}
+													/>
+													<AvatarFallback>
+														{(request.enp?.name ?? "ENP")
+															.split(" ")
+															.map(n => n[0])
+															.join("")}
+													</AvatarFallback>
 												</Avatar>
 											</div>
 										</div>
@@ -226,13 +269,12 @@ export default function MyRequestsPage() {
 						) : (
 							<Card>
 								<CardContent className="py-12 text-center">
-									<FileText className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-									<h3 className="text-lg font-medium mb-2">No requests found</h3>
+									<FileText className="text-muted-foreground mx-auto mb-4 h-12 w-12" />
+									<h3 className="mb-2 text-lg font-medium">No requests found</h3>
 									<p className="text-muted-foreground mb-4">
 										{searchTerm || statusFilter !== "ALL" || workflowFilter !== "ALL"
 											? "Try adjusting your search criteria or filters."
-											: "You haven't created any notarization requests yet."
-										}
+											: "You haven't created any notarization requests yet."}
 									</p>
 									<Button onClick={() => router.push("/requests/new" as Route)}>
 										<Plus className="mr-2 h-4 w-4" />

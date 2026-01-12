@@ -43,9 +43,4 @@ export const legalApplicationStatus = pgEnum("legal_application_status", [
 ])
 
 // KYC verification status enum
-export const kycStatus = pgEnum("kyc_status", [
-	"NOT_STARTED",
-	"PENDING",
-	"VERIFIED",
-	"REJECTED",
-])
+export const kycStatus = pgEnum("kyc_status", ["NOT_STARTED", "PENDING", "VERIFIED", "REJECTED"])

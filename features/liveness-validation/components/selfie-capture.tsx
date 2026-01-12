@@ -1,10 +1,19 @@
 "use client"
 
 import { useCallback, useRef, useState, useTransition } from "react"
-import { Camera, CameraOff, FlipHorizontal, Loader2, RefreshCw, XCircle, CheckCircle2 } from "lucide-react"
+import {
+	Camera,
+	CameraOff,
+	CheckCircle2,
+	FlipHorizontal,
+	Loader2,
+	RefreshCw,
+	XCircle,
+} from "lucide-react"
 import { toast } from "sonner"
 
 import { Button } from "@/core/components/ui/button"
+
 import { validateSelfieLiveness } from "@/features/liveness-validation/api/liveness.actions"
 
 interface LivenessDecisionResult {
@@ -196,11 +205,11 @@ export function SelfieCapture({ onSuccess, onError, onCancel }: SelfieCapturePro
 	return (
 		<div className="space-y-4">
 			{/* Instructions */}
-			<div className="rounded-lg border border-blue-200 bg-blue-50 dark:bg-blue-950/20 dark:border-blue-800 p-4">
-				<p className="text-blue-900 dark:text-blue-100 text-sm font-medium mb-2">
+			<div className="rounded-lg border border-blue-200 bg-blue-50 p-4 dark:border-blue-800 dark:bg-blue-950/20">
+				<p className="mb-2 text-sm font-medium text-blue-900 dark:text-blue-100">
 					📷 Live Selfie Capture
 				</p>
-				<ul className="text-blue-700 dark:text-blue-300 text-xs space-y-1 list-disc list-inside">
+				<ul className="list-inside list-disc space-y-1 text-xs text-blue-700 dark:text-blue-300">
 					<li>Ensure good lighting on your face</li>
 					<li>Remove glasses, hats, or face coverings</li>
 					<li>Look directly at the camera</li>
@@ -210,14 +219,14 @@ export function SelfieCapture({ onSuccess, onError, onCancel }: SelfieCapturePro
 			</div>
 
 			{/* Camera View / Captured Image */}
-			<div className="relative aspect-[4/3] w-full bg-black rounded-lg overflow-hidden">
+			<div className="relative aspect-[4/3] w-full overflow-hidden rounded-lg bg-black">
 				{/* Video Preview */}
 				<video
 					ref={videoRef}
 					autoPlay
 					playsInline
 					muted
-					className={`absolute inset-0 w-full h-full object-cover ${
+					className={`absolute inset-0 h-full w-full object-cover ${
 						capturedImage ? "hidden" : ""
 					} ${facingMode === "user" ? "scale-x-[-1]" : ""}`}
 				/>
@@ -230,36 +239,36 @@ export function SelfieCapture({ onSuccess, onError, onCancel }: SelfieCapturePro
 					<img
 						src={capturedImage}
 						alt="Captured selfie"
-						className="absolute inset-0 w-full h-full object-cover"
+						className="absolute inset-0 h-full w-full object-cover"
 					/>
 				)}
 
 				{/* Camera Inactive Placeholder */}
 				{!cameraActive && !capturedImage && (
 					<div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-900 text-white">
-						<CameraOff className="h-12 w-12 mb-4 text-gray-400" />
-						<p className="text-gray-400 text-sm">Camera is not active</p>
+						<CameraOff className="mb-4 h-12 w-12 text-gray-400" />
+						<p className="text-sm text-gray-400">Camera is not active</p>
 						{cameraError && (
-							<p className="text-red-400 text-xs mt-2 px-4 text-center">{cameraError}</p>
+							<p className="mt-2 px-4 text-center text-xs text-red-400">{cameraError}</p>
 						)}
 					</div>
 				)}
 
 				{/* Face Guide Overlay */}
 				{cameraActive && !capturedImage && (
-					<div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-						<div className="w-48 h-64 border-2 border-white/50 rounded-full" />
+					<div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+						<div className="h-64 w-48 rounded-full border-2 border-white/50" />
 					</div>
 				)}
 
 				{/* Camera Controls Overlay */}
 				{cameraActive && !capturedImage && (
-					<div className="absolute bottom-4 left-0 right-0 flex justify-center gap-4">
+					<div className="absolute right-0 bottom-4 left-0 flex justify-center gap-4">
 						<Button
 							onClick={flipCamera}
 							variant="secondary"
 							size="icon"
-							className="rounded-full bg-white/20 hover:bg-white/30 backdrop-blur"
+							className="rounded-full bg-white/20 backdrop-blur hover:bg-white/30"
 							title="Flip camera"
 						>
 							<FlipHorizontal className="h-5 w-5 text-white" />
@@ -270,7 +279,7 @@ export function SelfieCapture({ onSuccess, onError, onCancel }: SelfieCapturePro
 							size="lg"
 							className="rounded-full px-8"
 						>
-							<Camera className="h-5 w-5 mr-2" />
+							<Camera className="mr-2 h-5 w-5" />
 							Capture
 						</Button>
 					</div>
@@ -279,9 +288,9 @@ export function SelfieCapture({ onSuccess, onError, onCancel }: SelfieCapturePro
 				{/* Processing Overlay */}
 				{isPending && (
 					<div className="absolute inset-0 flex flex-col items-center justify-center bg-black/70">
-						<Loader2 className="h-10 w-10 animate-spin text-white mb-4" />
-						<p className="text-white text-sm">Validating liveness...</p>
-						<p className="text-white/70 text-xs mt-1">This may take a few seconds</p>
+						<Loader2 className="mb-4 h-10 w-10 animate-spin text-white" />
+						<p className="text-sm text-white">Validating liveness...</p>
+						<p className="mt-1 text-xs text-white/70">This may take a few seconds</p>
 					</div>
 				)}
 			</div>
@@ -291,19 +300,19 @@ export function SelfieCapture({ onSuccess, onError, onCancel }: SelfieCapturePro
 				<div
 					className={`rounded-lg border p-4 ${
 						validationResult.success && validationResult.decision?.isApproved
-							? "border-green-200 bg-green-50 dark:bg-green-950/20 dark:border-green-800"
-							: "border-red-200 bg-red-50 dark:bg-red-950/20 dark:border-red-800"
+							? "border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950/20"
+							: "border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950/20"
 					}`}
 				>
 					<div className="flex items-start gap-3">
 						{validationResult.success && validationResult.decision?.isApproved ? (
-							<CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400 mt-0.5 flex-shrink-0" />
+							<CheckCircle2 className="mt-0.5 h-5 w-5 flex-shrink-0 text-green-600 dark:text-green-400" />
 						) : (
-							<XCircle className="h-5 w-5 text-red-600 dark:text-red-400 mt-0.5 flex-shrink-0" />
+							<XCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-red-600 dark:text-red-400" />
 						)}
 						<div className="flex-1">
 							<p
-								className={`font-medium mb-1 ${
+								className={`mb-1 font-medium ${
 									validationResult.success && validationResult.decision?.isApproved
 										? "text-green-900 dark:text-green-100"
 										: "text-red-900 dark:text-red-100"
@@ -324,7 +333,7 @@ export function SelfieCapture({ onSuccess, onError, onCancel }: SelfieCapturePro
 							</p>
 							{validationResult.decision?.qualityIssues &&
 								validationResult.decision.qualityIssues.length > 0 && (
-									<ul className="text-red-600 dark:text-red-400 text-xs mt-2 list-disc list-inside">
+									<ul className="mt-2 list-inside list-disc text-xs text-red-600 dark:text-red-400">
 										{validationResult.decision.qualityIssues.map((issue, idx) => (
 											<li key={idx}>{issue}</li>
 										))}
@@ -353,20 +362,11 @@ export function SelfieCapture({ onSuccess, onError, onCancel }: SelfieCapturePro
 
 				{capturedImage && !validationResult?.decision?.isApproved && (
 					<>
-						<Button
-							onClick={retakePhoto}
-							variant="outline"
-							className="flex-1"
-							disabled={isPending}
-						>
+						<Button onClick={retakePhoto} variant="outline" className="flex-1" disabled={isPending}>
 							<RefreshCw className="mr-2 h-4 w-4" />
 							Retake
 						</Button>
-						<Button
-							onClick={submitForValidation}
-							className="flex-1"
-							disabled={isPending}
-						>
+						<Button onClick={submitForValidation} className="flex-1" disabled={isPending}>
 							{isPending ? (
 								<>
 									<Loader2 className="mr-2 h-4 w-4 animate-spin" />

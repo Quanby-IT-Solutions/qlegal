@@ -37,6 +37,7 @@ import { useSession } from "next-auth/react"
 import { Bar, Doughnut, Line } from "react-chartjs-2"
 
 import { SidebarTrigger } from "@/core/components/animate-ui/components/radix/sidebar"
+import { ModeToggle } from "@/core/components/mode-toggle"
 import { Avatar, AvatarFallback, AvatarImage } from "@/core/components/ui/avatar"
 import { Badge } from "@/core/components/ui/badge"
 import { Button } from "@/core/components/ui/button"
@@ -72,7 +73,7 @@ ChartJS.register(
 	ChartLegend,
 	Filler
 )
-import { ModeToggle } from "@/core/components/mode-toggle"
+
 // Chart colors
 const COLORS = {
 	primary: "#3b82f6",

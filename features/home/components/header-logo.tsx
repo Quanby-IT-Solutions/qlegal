@@ -16,7 +16,7 @@ export function HeaderLogo({
 	size = "navbar",
 	draw = false,
 	text = "Quanby Legal",
-	isCentered = false
+	isCentered = false,
 }: HeaderLogoProps) {
 	const isLarge = size === "centered"
 
@@ -29,14 +29,12 @@ export function HeaderLogo({
 					draw
 						? {
 								pathLength: { duration: 2, ease: "easeInOut" },
-								opacity: { duration: 0.5 }
+								opacity: { duration: 0.5 },
 							}
 						: undefined
 				}
 			>
-				<QuanbyLogo
-					className={cn(isLarge ? "h-24 w-24" : "h-8 w-8")}
-				/>
+				<QuanbyLogo className={cn(isLarge ? "h-24 w-24" : "h-8 w-8")} />
 			</motion.div>
 
 			<motion.span
@@ -44,7 +42,7 @@ export function HeaderLogo({
 				animate={draw ? { opacity: 1, y: 0 } : false}
 				transition={draw ? { delay: 1, duration: 0.8 } : undefined}
 				className={cn(
-					"bg-gradient-to-r from-foreground to-foreground/80 bg-clip-text font-bold leading-tight tracking-tight text-transparent",
+					"from-foreground to-foreground/80 bg-gradient-to-r bg-clip-text leading-tight font-bold tracking-tight text-transparent",
 					isLarge ? "text-4xl md:text-5xl" : "text-xl",
 					isCentered && "text-center"
 				)}

@@ -3,8 +3,9 @@ import { desc, eq } from "drizzle-orm"
 import { z } from "zod/v4"
 
 import { getUrl } from "@/core/lib/get-url"
-import { notarizationRequests } from "@/services/drizzle/schema/notarization-requests"
+
 import { users } from "@/services/drizzle/schema/auth"
+import { notarizationRequests } from "@/services/drizzle/schema/notarization-requests"
 import { sendNotarizationRequestNotification } from "@/services/react-email/lib/send.notarization-request"
 import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
 
@@ -45,7 +46,7 @@ export const requestsRouter = createTRPCRouter({
 		// Get document counts for each request
 		// Documents are linked via envelopes or meetings, not directly to requests
 		// For now, return 0 as documents are uploaded separately after request creation
-		const requestsWithCounts = myRequests.map((request) => ({
+		const requestsWithCounts = myRequests.map(request => ({
 			...request,
 			documents: 0, // Documents are uploaded separately after request is created
 		}))
@@ -82,7 +83,7 @@ export const requestsRouter = createTRPCRouter({
 		})
 
 		// Get document counts for each request
-		const requestsWithCounts = incomingRequests.map((request) => ({
+		const requestsWithCounts = incomingRequests.map(request => ({
 			...request,
 			documents: 0, // Documents are uploaded separately after request is created
 		}))
@@ -91,111 +92,109 @@ export const requestsRouter = createTRPCRouter({
 	}),
 
 	// Create a new notarization request
-	createRequest: protectedProcedure
-		.input(createRequestSchema)
-		.mutation(async ({ ctx, input }) => {
-			const userId = ctx.session.user.id
+	createRequest: protectedProcedure.input(createRequestSchema).mutation(async ({ ctx, input }) => {
+		const userId = ctx.session.user.id
 
-			// Verify the ENP exists and has ENP role
-			const enp = await ctx.db.query.users.findFirst({
-				where: eq(users.id, input.enpId),
+		// Verify the ENP exists and has ENP role
+		const enp = await ctx.db.query.users.findFirst({
+			where: eq(users.id, input.enpId),
+		})
+
+		if (enp?.role !== "ENP") {
+			throw new TRPCError({
+				code: "NOT_FOUND",
+				message: "Electronic Notary Public not found",
 			})
+		}
 
-			if (enp?.role !== "ENP") {
-				throw new TRPCError({
-					code: "NOT_FOUND",
-					message: "Electronic Notary Public not found",
+		// Create the request
+		let request
+		try {
+			const result = await ctx.db
+				.insert(notarizationRequests)
+				.values({
+					principalId: userId,
+					enpId: input.enpId,
+					title: input.title,
+					description: input.description ?? null,
+					workflow: input.workflow,
+					priority: input.priority,
+					status: "PENDING",
 				})
-			}
+				.returning()
 
-			// Create the request
-			let request
-			try {
-				const result = await ctx.db
-					.insert(notarizationRequests)
-					.values({
-						principalId: userId,
-						enpId: input.enpId,
-						title: input.title,
-						description: input.description ?? null,
-						workflow: input.workflow,
-						priority: input.priority,
-						status: "PENDING",
-					})
-					.returning()
+			request = result[0]
 
-				request = result[0]
-
-				if (!request) {
-					throw new TRPCError({
-						code: "INTERNAL_SERVER_ERROR",
-						message: "Failed to create notarization request - no record returned",
-					})
-				}
-			} catch (error) {
-				console.error("Database error creating notarization request:", error)
-				if (error instanceof Error) {
-					throw new TRPCError({
-						code: "INTERNAL_SERVER_ERROR",
-						message: `Failed to create notarization request: ${error.message}`,
-						cause: error,
-					})
-				}
+			if (!request) {
 				throw new TRPCError({
 					code: "INTERNAL_SERVER_ERROR",
-					message: "Failed to create notarization request",
+					message: "Failed to create notarization request - no record returned",
+				})
+			}
+		} catch (error) {
+			console.error("Database error creating notarization request:", error)
+			if (error instanceof Error) {
+				throw new TRPCError({
+					code: "INTERNAL_SERVER_ERROR",
+					message: `Failed to create notarization request: ${error.message}`,
 					cause: error,
 				})
 			}
+			throw new TRPCError({
+				code: "INTERNAL_SERVER_ERROR",
+				message: "Failed to create notarization request",
+				cause: error,
+			})
+		}
 
-			// Fetch with relations
-			const requestWithRelations = await ctx.db.query.notarizationRequests.findFirst({
-				where: eq(notarizationRequests.id, request.id),
-				with: {
-					enp: {
-						columns: {
-							id: true,
-							name: true,
-							email: true,
-							image: true,
-						},
-					},
-					principal: {
-						columns: {
-							id: true,
-							name: true,
-							email: true,
-							image: true,
-						},
+		// Fetch with relations
+		const requestWithRelations = await ctx.db.query.notarizationRequests.findFirst({
+			where: eq(notarizationRequests.id, request.id),
+			with: {
+				enp: {
+					columns: {
+						id: true,
+						name: true,
+						email: true,
+						image: true,
 					},
 				},
-			})
+				principal: {
+					columns: {
+						id: true,
+						name: true,
+						email: true,
+						image: true,
+					},
+				},
+			},
+		})
 
-			// Send email notification to ENP
-			if (requestWithRelations?.enp?.email && requestWithRelations?.principal?.name) {
-				try {
-					const requestUrl = `${getUrl()}/requests`
-					await sendNotarizationRequestNotification({
-						enpEmail: requestWithRelations.enp.email,
-						enpName: requestWithRelations.enp.name ?? "ENP",
-						principalName: requestWithRelations.principal.name,
-						requestTitle: input.title,
-						requestDescription: input.description,
-						workflow: input.workflow,
-						priority: input.priority,
-						requestUrl,
-					})
-				} catch (error) {
-					console.error("Failed to send notification email:", error)
-					// Don't fail the request creation if email fails
-				}
+		// Send email notification to ENP
+		if (requestWithRelations?.enp?.email && requestWithRelations?.principal?.name) {
+			try {
+				const requestUrl = `${getUrl()}/requests`
+				await sendNotarizationRequestNotification({
+					enpEmail: requestWithRelations.enp.email,
+					enpName: requestWithRelations.enp.name ?? "ENP",
+					principalName: requestWithRelations.principal.name,
+					requestTitle: input.title,
+					requestDescription: input.description,
+					workflow: input.workflow,
+					priority: input.priority,
+					requestUrl,
+				})
+			} catch (error) {
+				console.error("Failed to send notification email:", error)
+				// Don't fail the request creation if email fails
 			}
+		}
 
-			return {
-				...requestWithRelations!,
-				documents: 0,
-			}
-		}),
+		return {
+			...requestWithRelations!,
+			documents: 0,
+		}
+	}),
 
 	// Update request status
 	updateRequestStatus: protectedProcedure
@@ -330,4 +329,3 @@ export const requestsRouter = createTRPCRouter({
 			}
 		}),
 })
-

@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+
 import type { BookingState, WorkflowType } from "../types/find-notary.types"
 
 export function useBookingState() {

@@ -29,7 +29,6 @@ import { Textarea } from "@/core/components/ui/textarea"
 import { cn } from "@/core/lib/utils"
 
 import { trpc } from "@/services/trpc/client"
-
 import type { RouterOutputs } from "@/services/trpc/client"
 
 type Lawyer = RouterOutputs["lawyers"]["getLawyers"][number]
@@ -96,15 +95,11 @@ export function AppointmentBookingDialog({ lawyer, trigger }: AppointmentBooking
 
 	return (
 		<Dialog open={open} onOpenChange={setOpen}>
-			<DialogTrigger asChild>
-				{trigger || <Button>Book Appointment</Button>}
-			</DialogTrigger>
+			<DialogTrigger asChild>{trigger || <Button>Book Appointment</Button>}</DialogTrigger>
 			<DialogContent className="sm:max-w-[500px]">
 				<DialogHeader>
 					<DialogTitle>Book Appointment with {lawyer.name}</DialogTitle>
-					<DialogDescription>
-						Schedule a consultation or document signing session
-					</DialogDescription>
+					<DialogDescription>Schedule a consultation or document signing session</DialogDescription>
 				</DialogHeader>
 
 				<form onSubmit={handleSubmit} className="space-y-4">

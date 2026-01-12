@@ -1,25 +1,19 @@
 import { NextRequest, NextResponse } from "next/server"
+import { and, eq } from "drizzle-orm"
 
 import { db } from "@/services/drizzle/db"
 import { documents } from "@/services/drizzle/schema/document"
-import { meetings, meetingParticipants } from "@/services/drizzle/schema/meetings"
-import { eq, and } from "drizzle-orm"
-import { getServiceRoleClient } from "@/services/supabase"
+import { meetingParticipants, meetings } from "@/services/drizzle/schema/meetings"
 import { auth } from "@/services/next-auth"
+import { getServiceRoleClient } from "@/services/supabase"
 
-export async function GET(
-	request: NextRequest,
-	{ params }: { params: Promise<{ id: string }> }
-) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
 	try {
 		const { id } = await params
 		const session = await auth()
 
 		if (!session?.user?.id) {
-			return NextResponse.json(
-				{ error: "Unauthorized" },
-				{ status: 401 }
-			)
+			return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 		}
 
 		// Get document from database
@@ -35,18 +29,13 @@ export async function GET(
 		})
 
 		if (!document) {
-			return NextResponse.json(
-				{ error: "Document not found" },
-				{ status: 404 }
-			)
+			return NextResponse.json({ error: "Document not found" }, { status: 404 })
 		}
 
 		// Check if user has access to the document
 		// If document is associated with a meeting, check meeting access
 		if (document.meetingId && document.meeting) {
-			const hasAccess = document.meeting.participants.some(
-				(p) => p.userId === session.user.id
-			)
+			const hasAccess = document.meeting.participants.some(p => p.userId === session.user.id)
 
 			if (!hasAccess) {
 				return NextResponse.json(
@@ -57,31 +46,31 @@ export async function GET(
 		} else {
 			// For documents not in meetings, check if user is the creator
 			// This is a fallback - meeting documents should always have meetingId
-			return NextResponse.json(
-				{ error: "Document access not configured" },
-				{ status: 403 }
-			)
+			return NextResponse.json({ error: "Document access not configured" }, { status: 403 })
 		}
 
 		// If document has no path, it might not be uploaded yet
 		if (!document.path) {
 			return NextResponse.json(
-				{ error: "Document file not available. The document may not have been uploaded to storage yet." },
+				{
+					error:
+						"Document file not available. The document may not have been uploaded to storage yet.",
+				},
 				{ status: 404 }
 			)
 		}
 
 		// Get document from Supabase storage
 		const supabase = getServiceRoleClient()
-		
+
 		// Try to download from documents bucket first
 		let data = null
 		let error = null
-		
+
 		const { data: downloadData, error: downloadError } = await supabase.storage
 			.from("documents")
 			.download(document.path)
-		
+
 		data = downloadData
 		error = downloadError
 
@@ -90,7 +79,7 @@ export async function GET(
 			const { data: envelopeData, error: envelopeError } = await supabase.storage
 				.from("envelopes")
 				.download(document.path)
-			
+
 			if (envelopeData && !envelopeError) {
 				data = envelopeData
 				error = null
@@ -102,9 +91,9 @@ export async function GET(
 			console.error("Document path:", document.path)
 			console.error("Document ID:", document.id)
 			return NextResponse.json(
-				{ 
+				{
 					error: "Failed to retrieve document file. The document may have been deleted or moved.",
-					details: error?.message || "File not found in storage"
+					details: error?.message || "File not found in storage",
 				},
 				{ status: 404 }
 			)
@@ -124,10 +113,6 @@ export async function GET(
 		})
 	} catch (error) {
 		console.error("Error in document API route:", error)
-		return NextResponse.json(
-			{ error: "Internal server error" },
-			{ status: 500 }
-		)
+		return NextResponse.json({ error: "Internal server error" }, { status: 500 })
 	}
 }
-

@@ -1,12 +1,28 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { Award, CheckCircle2, Download, FileText, LayoutGrid, List, MoreVertical, RefreshCw, Search } from "lucide-react"
+import {
+	Award,
+	CheckCircle2,
+	Download,
+	FileText,
+	LayoutGrid,
+	List,
+	MoreVertical,
+	RefreshCw,
+	Search,
+} from "lucide-react"
 import { toast } from "sonner"
 
 import { Badge } from "@/core/components/ui/badge"
 import { Button } from "@/core/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/core/components/ui/card"
+import {
+	Card,
+	CardContent,
+	CardDescription,
+	CardHeader,
+	CardTitle,
+} from "@/core/components/ui/card"
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -54,7 +70,7 @@ function formatFileSize(bytes: number): string {
 	const k = 1024
 	const sizes = ["Bytes", "KB", "MB", "GB"]
 	const i = Math.floor(Math.log(bytes) / Math.log(k))
-	return `${Math.round(bytes / Math.pow(k, i) * 100) / 100} ${sizes[i]}`
+	return `${Math.round((bytes / Math.pow(k, i)) * 100) / 100} ${sizes[i]}`
 }
 
 function formatDate(date: Date | string): string {
@@ -103,7 +119,10 @@ export function CompletedDocumentsPage() {
 		}
 	)
 
-	const completedDocuments = useMemo(() => completedData?.documents ?? [], [completedData?.documents])
+	const completedDocuments = useMemo(
+		() => completedData?.documents ?? [],
+		[completedData?.documents]
+	)
 	const total = completedData?.total ?? 0
 	const hasMore = completedData?.hasMore ?? false
 
@@ -200,11 +219,11 @@ export function CompletedDocumentsPage() {
 			// Search filter
 			if (searchQuery.trim()) {
 				const query = searchQuery.toLowerCase()
-				 
+
 				const envelope = doc.envelope as { title?: string; description?: string } | null | undefined
-				 
+
 				const envelopeTitle = envelope?.title
-				 
+
 				const envelopeDescription = envelope?.description
 				return (
 					doc.name.toLowerCase().includes(query) ||
@@ -228,7 +247,7 @@ export function CompletedDocumentsPage() {
 							<CardDescription>Failed to load completed documents</CardDescription>
 						</CardHeader>
 						<CardContent>
-							<p className="text-sm text-muted-foreground">{error.message}</p>
+							<p className="text-muted-foreground text-sm">{error.message}</p>
 						</CardContent>
 					</Card>
 				</div>
@@ -263,7 +282,11 @@ export function CompletedDocumentsPage() {
 							</div>
 
 							{/* View Mode Toggle */}
-							<ToggleGroup type="single" value={viewMode} onValueChange={value => value && setViewMode(value as ViewMode)}>
+							<ToggleGroup
+								type="single"
+								value={viewMode}
+								onValueChange={value => value && setViewMode(value as ViewMode)}
+							>
 								<ToggleGroupItem value="grid" aria-label="Grid view">
 									<LayoutGrid className="h-4 w-4" />
 								</ToggleGroupItem>
@@ -301,11 +324,11 @@ export function CompletedDocumentsPage() {
 						{Array.from({ length: 6 }).map((_, i) => (
 							<Card key={i} className="animate-pulse">
 								<CardHeader>
-									<div className="h-4 w-3/4 bg-muted rounded" />
-									<div className="h-3 w-1/2 bg-muted rounded mt-2" />
+									<div className="bg-muted h-4 w-3/4 rounded" />
+									<div className="bg-muted mt-2 h-3 w-1/2 rounded" />
 								</CardHeader>
 								<CardContent>
-									<div className="h-20 bg-muted rounded" />
+									<div className="bg-muted h-20 rounded" />
 								</CardContent>
 							</Card>
 						))}
@@ -313,9 +336,9 @@ export function CompletedDocumentsPage() {
 				) : filteredDocuments.length === 0 ? (
 					<Card>
 						<CardContent className="flex flex-col items-center justify-center py-16">
-							<CheckCircle2 className="text-muted-foreground h-12 w-12 mb-4" />
-							<h3 className="text-foreground text-lg font-semibold mb-2">No completed documents</h3>
-							<p className="text-muted-foreground text-sm text-center max-w-md">
+							<CheckCircle2 className="text-muted-foreground mb-4 h-12 w-12" />
+							<h3 className="text-foreground mb-2 text-lg font-semibold">No completed documents</h3>
+							<p className="text-muted-foreground max-w-md text-center text-sm">
 								{searchQuery
 									? "No documents match your search criteria."
 									: "You don't have any completed documents yet. Documents will appear here once all signers have completed signing."}
@@ -330,14 +353,15 @@ export function CompletedDocumentsPage() {
 				) : viewMode === "grid" ? (
 					<div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
 						{filteredDocuments.map(doc => (
-							<Card key={doc.id} className="hover:shadow-lg transition-shadow">
+							<Card key={doc.id} className="transition-shadow hover:shadow-lg">
 								<CardHeader>
 									<div className="flex items-start justify-between">
-										<div className="flex-1 min-w-0">
-											<CardTitle className="text-base truncate">{doc.name}</CardTitle>
+										<div className="min-w-0 flex-1">
+											<CardTitle className="truncate text-base">{doc.name}</CardTitle>
 											<CardDescription className="mt-1">
-												{ }
-												{(doc.envelope as { title?: string } | null | undefined)?.title ?? "No envelope"}
+												{}
+												{(doc.envelope as { title?: string } | null | undefined)?.title ??
+													"No envelope"}
 											</CardDescription>
 										</div>
 									</div>
@@ -362,7 +386,7 @@ export function CompletedDocumentsPage() {
 										<span className="text-muted-foreground">Type:</span>
 										<span className="font-medium">{doc.type}</span>
 									</div>
-									<div className="pt-2 border-t space-y-2">
+									<div className="space-y-2 border-t pt-2">
 										<Button
 											variant="outline"
 											className="w-full"
@@ -406,10 +430,15 @@ export function CompletedDocumentsPage() {
 																handleDownload(projectUuid)
 															}
 														}}
-														disabled={!getProjectUuid(doc as CompletedDocument) || downloadingProjectUuid === getProjectUuid(doc as CompletedDocument)}
+														disabled={
+															!getProjectUuid(doc as CompletedDocument) ||
+															downloadingProjectUuid === getProjectUuid(doc as CompletedDocument)
+														}
 													>
 														<Download className="mr-2 h-4 w-4" />
-														{downloadingProjectUuid === getProjectUuid(doc as CompletedDocument) ? "Downloading..." : "Download Signed Document"}
+														{downloadingProjectUuid === getProjectUuid(doc as CompletedDocument)
+															? "Downloading..."
+															: "Download Signed Document"}
 													</DropdownMenuItem>
 													<DropdownMenuItem
 														onClick={() => {
@@ -434,22 +463,23 @@ export function CompletedDocumentsPage() {
 				) : (
 					<div className="space-y-4">
 						{filteredDocuments.map(doc => (
-							<Card key={doc.id} className="hover:shadow-md transition-shadow">
+							<Card key={doc.id} className="transition-shadow hover:shadow-md">
 								<CardContent className="p-6">
 									<div className="flex items-center justify-between">
-										<div className="flex-1 min-w-0">
+										<div className="min-w-0 flex-1">
 											<div className="flex items-center gap-3">
 												<FileText className="text-muted-foreground h-5 w-5 shrink-0" />
-												<div className="flex-1 min-w-0">
-													<h3 className="text-foreground font-medium truncate">{doc.name}</h3>
-													<p className="text-muted-foreground text-sm mt-1">
-														{ }
-														{((doc.envelope as unknown) as { title?: string } | null | undefined)?.title ?? "No envelope"}
+												<div className="min-w-0 flex-1">
+													<h3 className="text-foreground truncate font-medium">{doc.name}</h3>
+													<p className="text-muted-foreground mt-1 text-sm">
+														{}
+														{(doc.envelope as unknown as { title?: string } | null | undefined)
+															?.title ?? "No envelope"}
 													</p>
 												</div>
 											</div>
 										</div>
-										<div className="flex items-center gap-4 ml-4">
+										<div className="ml-4 flex items-center gap-4">
 											<div className="text-right text-sm">
 												<div className="text-muted-foreground">Status</div>
 												<Badge variant="default" className="mt-1 bg-green-600 hover:bg-green-700">
@@ -459,15 +489,15 @@ export function CompletedDocumentsPage() {
 											</div>
 											<div className="text-right text-sm">
 												<div className="text-muted-foreground">Completed</div>
-												<div className="font-medium mt-1">{formatDate(doc.updatedAt)}</div>
+												<div className="mt-1 font-medium">{formatDate(doc.updatedAt)}</div>
 											</div>
 											<div className="text-right text-sm">
 												<div className="text-muted-foreground">Size</div>
-												<div className="font-medium mt-1">{formatFileSize(doc.size)}</div>
+												<div className="mt-1 font-medium">{formatFileSize(doc.size)}</div>
 											</div>
 											<div className="text-right text-sm">
 												<div className="text-muted-foreground">Type</div>
-												<div className="font-medium mt-1">{doc.type}</div>
+												<div className="mt-1 font-medium">{doc.type}</div>
 											</div>
 											<div className="flex items-center gap-2">
 												<Button
@@ -494,10 +524,15 @@ export function CompletedDocumentsPage() {
 															handleDownload(projectUuid)
 														}
 													}}
-													disabled={!getProjectUuid(doc as CompletedDocument) || downloadingProjectUuid === getProjectUuid(doc as CompletedDocument)}
+													disabled={
+														!getProjectUuid(doc as CompletedDocument) ||
+														downloadingProjectUuid === getProjectUuid(doc as CompletedDocument)
+													}
 												>
 													<Download className="mr-2 h-4 w-4" />
-													{downloadingProjectUuid === getProjectUuid(doc as CompletedDocument) ? "..." : "Download"}
+													{downloadingProjectUuid === getProjectUuid(doc as CompletedDocument)
+														? "..."
+														: "Download"}
 												</Button>
 												<Button
 													variant="outline"
@@ -526,7 +561,10 @@ export function CompletedDocumentsPage() {
 				{!isPending && filteredDocuments.length > 0 && (
 					<div className="mt-8 flex items-center justify-between border-t pt-6">
 						<div className="text-muted-foreground text-sm">
-							Page {page} • {total > 0 ? `Showing ${(page - 1) * limit + 1}-${Math.min(page * limit, total)} of ${total}` : "No documents"}
+							Page {page} •{" "}
+							{total > 0
+								? `Showing ${(page - 1) * limit + 1}-${Math.min(page * limit, total)} of ${total}`
+								: "No documents"}
 						</div>
 						<div className="flex items-center gap-2">
 							<Button
@@ -574,4 +612,3 @@ export function CompletedDocumentsPage() {
 		</div>
 	)
 }
-

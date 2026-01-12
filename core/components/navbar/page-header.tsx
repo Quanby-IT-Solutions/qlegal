@@ -3,6 +3,10 @@
 import { type Route } from "next"
 import { type UrlObject } from "url"
 
+import { SidebarTrigger } from "@/core/components/animate-ui/components/radix/sidebar"
+import { ModeToggle } from "@/core/components/mode-toggle"
+import { Separator } from "@/core/components/ui/separator"
+
 import {
 	Breadcrumb,
 	BreadcrumbItem,
@@ -11,9 +15,6 @@ import {
 	BreadcrumbPage,
 	BreadcrumbSeparator,
 } from "@/features/home/components/ui/breadcrumb"
-import { SidebarTrigger } from "@/core/components/animate-ui/components/radix/sidebar"
-import { Separator } from "@/core/components/ui/separator"
-import { ModeToggle } from "@/core/components/mode-toggle"
 
 interface PageHeaderItem {
 	label: string
@@ -58,4 +59,3 @@ export function PageHeader({ items, actions }: PageHeaderProps) {
 		</header>
 	)
 }
-

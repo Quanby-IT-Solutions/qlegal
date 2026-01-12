@@ -47,11 +47,9 @@ export function NotarizationRequestTemplate({
 			<Body style={main}>
 				<Container style={container}>
 					<Heading style={h1}>New Notarization Request</Heading>
-					
-					<Text style={text}>
-						Hello {enpName},
-					</Text>
-					
+
+					<Text style={text}>Hello {enpName},</Text>
+
 					<Text style={text}>
 						You have received a new notarization request from <strong>{principalName}</strong>.
 					</Text>
@@ -81,7 +79,8 @@ export function NotarizationRequestTemplate({
 					</Section>
 
 					<Text style={footer}>
-						This is an automated notification from Quanby Sign. Please log in to your account to review and respond to this request.
+						This is an automated notification from Quanby Sign. Please log in to your account to
+						review and respond to this request.
 					</Text>
 				</Container>
 			</Body>
@@ -91,7 +90,8 @@ export function NotarizationRequestTemplate({
 
 const main = {
 	backgroundColor: "#f6f9fc",
-	fontFamily: '-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Ubuntu,sans-serif',
+	fontFamily:
+		'-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Ubuntu,sans-serif',
 }
 
 const container = {
@@ -160,4 +160,3 @@ const footer = {
 	marginTop: "32px",
 	textAlign: "center" as const,
 }
-

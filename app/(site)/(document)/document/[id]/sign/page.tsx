@@ -116,14 +116,14 @@
 // 	if (!document) {
 // 		// Check if there was an error in the query
 // 		const errorMessage = documentError?.message || "Document not found"
-		
+
 // 		return (
 // 			<div className="flex min-h-screen items-center justify-center">
 // 				<Card className="w-96">
 // 					<CardContent className="py-12 text-center">
 // 						<h3 className="mb-2 text-lg font-medium">
-// 							{errorMessage.includes("deleted") || errorMessage.includes("not available") 
-// 								? "Document Not Available" 
+// 							{errorMessage.includes("deleted") || errorMessage.includes("not available")
+// 								? "Document Not Available"
 // 								: "Document Not Found"}
 // 						</h3>
 // 						<p className="text-muted-foreground mb-4 text-sm">

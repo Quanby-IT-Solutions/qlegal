@@ -11,15 +11,9 @@ export default async function Page() {
 	return (
 		<HydrateClient>
 			<div className="flex flex-1 flex-col">
-				<PageHeader
-					items={[
-						{ label: "Documents", href: "/documents" },
-						{ label: "Completed" },
-					]}
-				/>
+				<PageHeader items={[{ label: "Documents", href: "/documents" }, { label: "Completed" }]} />
 				<CompletedDocumentsPage />
 			</div>
 		</HydrateClient>
 	)
 }
-

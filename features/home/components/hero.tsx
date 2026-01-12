@@ -1,11 +1,14 @@
 "use client"
 
 import Link from "next/link"
+import { useEffect, useState } from "react"
 import { ArrowRight, CheckCircle, FileSignature, Scale, Shield, Users } from "lucide-react"
 import { motion } from "motion/react"
+import { useTheme } from "next-themes"
 
 import { QuanbyLogo } from "@/core/components/quanby-logo"
 import { Button } from "@/core/components/ui/button"
+import { LineShadowText } from "@/core/components/ui/line-shadow-text"
 import { OrbitingCircles } from "@/core/components/ui/orbiting-circles"
 import { TextGenerateEffect } from "@/core/components/ui/text-generate-effect"
 
@@ -25,13 +28,22 @@ const staggerContainer = {
 }
 
 export function Hero() {
+	const theme = useTheme()
+	const [mounted, setMounted] = useState(false)
+
+	useEffect(() => {
+		setMounted(true)
+	}, [])
+
+	const shadowColor = mounted && theme.resolvedTheme === "dark" ? "white" : "black"
+
 	return (
-		<section className="relative w-full overflow-hidden pt-20 pb-24 sm:pt-24 lg:pt-40">
+		<section className="relative w-full overflow-hidden pt-48 pb-16 sm:pb-24 lg:pt-40">
 			{/* Background Elements */}
 			<div className="via-background absolute inset-0 bg-linear-to-br from-[rgb(91,26,128)]/5 to-[rgb(233,30,140)]/5" />
 
 			{/* Grid Pattern */}
-			<div className="absolute inset-0 bg-[linear-gradient(to_right,#8080800a_1px,transparent_1px),linear-gradient(to_bottom,#8080800a_1px,transparent_1px)] bg-[size:14px_24px]" />
+			<div className="absolute inset-0 bg-[linear-gradient(to_right,#8080800a_1px,transparent_1px),linear-gradient(to_bottom,#8080800a_1px,transparent_1px)] bg-size-[14px_24px]" />
 
 			{/* Radial Gradient Overlay */}
 			<div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_20%,hsl(var(--background))_70%)]" />
@@ -89,7 +101,7 @@ export function Hero() {
 								<span className="bg-linear-to-r from-[rgb(91,26,128)] via-[rgb(91,26,128)]/80 to-[rgb(233,30,140)] bg-clip-text text-transparent">
 									Electronic Notarization
 								</span>{" "}
-								Platform
+								<LineShadowText shadowColor={shadowColor}>Platform</LineShadowText>
 							</h1>
 						</motion.div>
 
@@ -102,7 +114,7 @@ export function Hero() {
 
 						<motion.div
 							variants={fadeInUp}
-							className="flex flex-col gap-4 sm:flex-row lg:justify-start"
+							className="flex flex-col gap-4 sm:flex-row sm:justify-center lg:justify-start"
 						>
 							<Button
 								asChild
@@ -140,7 +152,7 @@ export function Hero() {
 						initial={{ opacity: 0, scale: 0.8 }}
 						animate={{ opacity: 1, scale: 1 }}
 						transition={{ duration: 0.8, delay: 0.2 }}
-						className="relative flex h-[550px] w-full flex-col items-center justify-center overflow-hidden lg:h-[650px] lg:justify-center"
+						className="relative hidden h-[550px] w-full flex-col items-center justify-center overflow-hidden lg:flex lg:h-[650px] lg:justify-center"
 					>
 						{/* Center Logo */}
 						<div className="relative z-10 flex h-40 w-40 items-center justify-center rounded-full border border-[rgb(91,26,128)]/30 bg-linear-to-br from-[rgb(91,26,128)]/20 to-[rgb(233,30,140)]/20 shadow-2xl backdrop-blur-md">

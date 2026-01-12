@@ -1,54 +1,65 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { useParams } from "next/navigation"
 import type { Route } from "next"
-import { 
-	Video, 
-	Handshake, 
-	Camera, 
-	Mic, 
-	MicOff, 
-	VideoOff, 
-	CheckCircle, 
-	AlertCircle, 
-	Shield, 
-	FileText, 
-	User, 
-	Users, 
+import { useParams } from "next/navigation"
+import { useEffect, useState } from "react"
+import {
+	AlertCircle,
+	Camera,
+	CheckCircle,
 	Clock,
-	MapPin,
-	Phone,
-	Mail,
 	Download,
 	Eye,
-	PenTool,
+	FileText,
+	Handshake,
+	Loader2,
 	Lock,
-	Play,
+	Mail,
+	MapPin,
+	Mic,
+	MicOff,
 	Pause,
+	PenTool,
+	Phone,
+	Play,
+	Shield,
 	Square,
-	Loader2
+	User,
+	Users,
+	Video,
+	VideoOff,
 } from "lucide-react"
 
 import { SiteNavbar } from "@/core/components/navbar/site-navbar"
-import { Button } from "@/core/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/core/components/ui/card"
-import { Badge } from "@/core/components/ui/badge"
-import { Avatar, AvatarFallback, AvatarImage } from "@/core/components/ui/avatar"
-import { Progress } from "@/core/components/ui/progress"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/core/components/ui/tabs"
-import { Checkbox } from "@/core/components/ui/checkbox"
 import { Alert, AlertDescription } from "@/core/components/ui/alert"
-import { Separator } from "@/core/components/ui/separator"
+import { Avatar, AvatarFallback, AvatarImage } from "@/core/components/ui/avatar"
+import { Badge } from "@/core/components/ui/badge"
+import { Button } from "@/core/components/ui/button"
+import {
+	Card,
+	CardContent,
+	CardDescription,
+	CardHeader,
+	CardTitle,
+} from "@/core/components/ui/card"
+import { Checkbox } from "@/core/components/ui/checkbox"
 import { Label } from "@/core/components/ui/label"
+import { Progress } from "@/core/components/ui/progress"
+import { Separator } from "@/core/components/ui/separator"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/core/components/ui/tabs"
+
 import { trpc } from "@/services/trpc/client"
 
 export default function NotarizePage() {
 	const params = useParams()
 	const notarizationId = params.id as string
-	
+
 	// Fetch notarization session data from backend
-	const { data: notarization, isLoading, error } = trpc.appointments.getNotarizationSession.useQuery(
+	const {
+		data: notarization,
+		isLoading,
+		error,
+	} = trpc.appointments.getNotarizationSession.useQuery(
 		{ sessionId: notarizationId },
 		{ enabled: !!notarizationId }
 	)
@@ -79,20 +90,20 @@ export default function NotarizePage() {
 	const formatTime = (seconds: number) => {
 		const mins = Math.floor(seconds / 60)
 		const secs = seconds % 60
-		return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
+		return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`
 	}
 
 	const handleRequirementChange = (requirement: keyof typeof requirements, checked: boolean) => {
 		setRequirements(prev => ({
 			...prev,
-			[requirement]: checked
+			[requirement]: checked,
 		}))
 	}
 
 	const handleStartRecording = () => {
 		setIsRecording(true)
 		setRecordingTime(0)
-		handleRequirementChange('videoRecording', true)
+		handleRequirementChange("videoRecording", true)
 	}
 
 	const handleStopRecording = () => {
@@ -119,7 +130,7 @@ export default function NotarizePage() {
 				<div className="flex min-h-screen items-center justify-center">
 					<Card className="w-96">
 						<CardContent className="py-12 text-center">
-							<Loader2 className="mx-auto h-12 w-12 text-muted-foreground mb-4 animate-spin" />
+							<Loader2 className="text-muted-foreground mx-auto mb-4 h-12 w-12 animate-spin" />
 							<h3 className="mb-2 text-lg font-medium">Loading Session</h3>
 							<p className="text-muted-foreground text-sm">
 								Please wait while we load the notarization session...
@@ -139,14 +150,13 @@ export default function NotarizePage() {
 				<div className="flex min-h-screen items-center justify-center">
 					<Card className="w-96">
 						<CardContent className="py-12 text-center">
-							<AlertCircle className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+							<AlertCircle className="text-muted-foreground mx-auto mb-4 h-12 w-12" />
 							<h3 className="mb-2 text-lg font-medium">Notarization Not Found</h3>
 							<p className="text-muted-foreground mb-4 text-sm">
-								{error?.message ?? "The notarization session you're looking for doesn't exist or you don't have access to it."}
+								{error?.message ??
+									"The notarization session you're looking for doesn't exist or you don't have access to it."}
 							</p>
-							<Button onClick={() => window.history.back()}>
-								Go Back
-							</Button>
+							<Button onClick={() => window.history.back()}>Go Back</Button>
 						</CardContent>
 					</Card>
 				</div>
@@ -159,26 +169,28 @@ export default function NotarizePage() {
 	const allRequirementsMet = Object.values(requirements).every(Boolean)
 
 	// Construct route with proper typing
-	const notarizeUrl: Route = (`/notarize/${notarizationId}` as unknown) as Route
+	const notarizeUrl: Route = `/notarize/${notarizationId}` as unknown as Route
 
 	return (
 		<>
-			<SiteNavbar 
+			<SiteNavbar
 				items={[
 					{ label: "Notarizations", url: "/notarizations/active" as Route },
-					{ label: notarization.title, url: notarizeUrl }
-				]} 
+					{ label: notarization.title, url: notarizeUrl },
+				]}
 			/>
-			
-			<div className="min-h-screen bg-muted/30">
+
+			<div className="bg-muted/30 min-h-screen">
 				<div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
 					{/* Header */}
 					<div className="mb-8">
 						<div className="flex items-center justify-between">
 							<div>
 								<h1 className="text-3xl font-bold tracking-tight">{notarization.title}</h1>
-								<p className="mt-2 text-muted-foreground">
-									{isREN ? "Remote Electronic Notarization (REN)" : "In-Person Electronic Notarization (IEN)"}
+								<p className="text-muted-foreground mt-2">
+									{isREN
+										? "Remote Electronic Notarization (REN)"
+										: "In-Person Electronic Notarization (IEN)"}
 								</p>
 							</div>
 							<Badge variant={isREN ? "default" : "secondary"} className="text-sm">
@@ -197,9 +209,9 @@ export default function NotarizePage() {
 						</div>
 					</div>
 
-					<div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+					<div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
 						{/* Main Content */}
-						<div className="lg:col-span-2 space-y-6">
+						<div className="space-y-6 lg:col-span-2">
 							{/* Video/Meeting Section */}
 							{isREN && (
 								<Card>
@@ -222,7 +234,11 @@ export default function NotarizePage() {
 														size="sm"
 														onClick={() => setIsVideoOn(!isVideoOn)}
 													>
-														{isVideoOn ? <Camera className="h-4 w-4" /> : <VideoOff className="h-4 w-4" />}
+														{isVideoOn ? (
+															<Camera className="h-4 w-4" />
+														) : (
+															<VideoOff className="h-4 w-4" />
+														)}
 														{isVideoOn ? "Video On" : "Video Off"}
 													</Button>
 													<Button
@@ -234,31 +250,23 @@ export default function NotarizePage() {
 														{isMicOn ? "Mic On" : "Mic Off"}
 													</Button>
 												</div>
-												
+
 												{/* Recording Controls */}
 												<div className="flex items-center gap-2">
 													{!isRecording ? (
-														<Button
-															onClick={handleStartRecording}
-															variant="destructive"
-															size="sm"
-														>
+														<Button onClick={handleStartRecording} variant="destructive" size="sm">
 															<Play className="mr-2 h-4 w-4" />
 															Start Recording
 														</Button>
 													) : (
-														<Button
-															onClick={handleStopRecording}
-															variant="outline"
-															size="sm"
-														>
+														<Button onClick={handleStopRecording} variant="outline" size="sm">
 															<Square className="mr-2 h-4 w-4" />
 															Stop Recording
 														</Button>
 													)}
 													{isRecording && (
 														<div className="flex items-center gap-2 text-sm">
-															<div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+															<div className="h-2 w-2 animate-pulse rounded-full bg-red-500" />
 															<span className="font-mono">{formatTime(recordingTime)}</span>
 														</div>
 													)}
@@ -266,9 +274,9 @@ export default function NotarizePage() {
 											</div>
 
 											{/* Video Placeholder */}
-											<div className="bg-black rounded-lg aspect-video flex items-center justify-center">
+											<div className="flex aspect-video items-center justify-center rounded-lg bg-black">
 												<div className="text-center text-white">
-													<Video className="mx-auto h-12 w-12 mb-2" />
+													<Video className="mx-auto mb-2 h-12 w-12" />
 													<p className="text-sm">Video call in progress</p>
 													<p className="text-xs text-gray-400">
 														{isVideoOn ? "Camera active" : "Camera disabled"}
@@ -280,8 +288,8 @@ export default function NotarizePage() {
 											<Alert>
 												<AlertCircle className="h-4 w-4" />
 												<AlertDescription>
-													This session is being recorded for legal compliance. 
-													Recording will be stored securely and used only for notarization purposes.
+													This session is being recorded for legal compliance. Recording will be
+													stored securely and used only for notarization purposes.
 												</AlertDescription>
 											</Alert>
 										</div>
@@ -305,29 +313,42 @@ export default function NotarizePage() {
 										<div className="space-y-4">
 											<div className="flex items-center gap-4">
 												<Avatar className="h-12 w-12">
-													<AvatarImage src={notarization.enp.avatar ?? undefined} alt={notarization.enp.name} />
-													<AvatarFallback>{notarization.enp.name.split(" ").map(n => n[0]).join("")}</AvatarFallback>
+													<AvatarImage
+														src={notarization.enp.avatar ?? undefined}
+														alt={notarization.enp.name}
+													/>
+													<AvatarFallback>
+														{notarization.enp.name
+															.split(" ")
+															.map(n => n[0])
+															.join("")}
+													</AvatarFallback>
 												</Avatar>
 												<div>
 													<h4 className="font-medium">{notarization.enp.name}</h4>
-													<p className="text-sm text-muted-foreground">{notarization.enp.title}</p>
-													<div className="flex items-center gap-2 mt-1">
-														<MapPin className="h-4 w-4 text-muted-foreground" />
+													<p className="text-muted-foreground text-sm">{notarization.enp.title}</p>
+													<div className="mt-1 flex items-center gap-2">
+														<MapPin className="text-muted-foreground h-4 w-4" />
 														<span className="text-sm">{notarization.location}</span>
 													</div>
 												</div>
 											</div>
-											
+
 											<Separator />
-											
+
 											<div className="flex items-center gap-4">
 												<Avatar className="h-12 w-12">
-													<AvatarFallback>{notarization.principal.name.split(" ").map(n => n[0]).join("")}</AvatarFallback>
+													<AvatarFallback>
+														{notarization.principal.name
+															.split(" ")
+															.map(n => n[0])
+															.join("")}
+													</AvatarFallback>
 												</Avatar>
 												<div>
 													<h4 className="font-medium">{notarization.principal.name}</h4>
-													<p className="text-sm text-muted-foreground">Principal</p>
-													<div className="flex items-center gap-2 mt-1">
+													<p className="text-muted-foreground text-sm">Principal</p>
+													<div className="mt-1 flex items-center gap-2">
 														<CheckCircle className="h-4 w-4 text-green-600" />
 														<span className="text-sm text-green-600">Present</span>
 													</div>
@@ -346,22 +367,28 @@ export default function NotarizePage() {
 										Documents to Notarize
 									</CardTitle>
 									<CardDescription>
-										{notarization.documents.length} document{notarization.documents.length !== 1 ? "s" : ""} pending notarization
+										{notarization.documents.length} document
+										{notarization.documents.length !== 1 ? "s" : ""} pending notarization
 									</CardDescription>
 								</CardHeader>
 								<CardContent>
 									<div className="space-y-3">
-										{notarization.documents.map((doc) => (
-											<div key={doc.id} className="flex items-center justify-between p-3 border rounded-lg">
+										{notarization.documents.map(doc => (
+											<div
+												key={doc.id}
+												className="flex items-center justify-between rounded-lg border p-3"
+											>
 												<div className="flex items-center gap-3">
 													<FileText className="h-8 w-8 text-blue-600" />
 													<div>
 														<h4 className="font-medium">{doc.name}</h4>
-														<p className="text-sm text-muted-foreground">{doc.pages} pages</p>
+														<p className="text-muted-foreground text-sm">{doc.pages} pages</p>
 													</div>
 												</div>
 												<div className="flex items-center gap-2">
-													<Badge variant={doc.status === "PENDING_SIGNATURE" ? "secondary" : "default"}>
+													<Badge
+														variant={doc.status === "PENDING_SIGNATURE" ? "secondary" : "default"}
+													>
 														{doc.status === "PENDING_SIGNATURE" ? "Pending" : "Completed"}
 													</Badge>
 													<Button variant="outline" size="sm">
@@ -400,10 +427,14 @@ export default function NotarizePage() {
 											<Checkbox
 												id="identity"
 												checked={requirements.identityVerified}
-												onCheckedChange={(checked) => handleRequirementChange('identityVerified', !!checked)}
+												onCheckedChange={checked =>
+													handleRequirementChange("identityVerified", !!checked)
+												}
 											/>
 											<Label htmlFor="identity" className="text-sm">
-												{isREN ? "Remote identity verification completed" : "Physical ID verification completed"}
+												{isREN
+													? "Remote identity verification completed"
+													: "Physical ID verification completed"}
 											</Label>
 										</div>
 
@@ -413,7 +444,9 @@ export default function NotarizePage() {
 												<Checkbox
 													id="documents"
 													checked={requirements.documentsScanned}
-													onCheckedChange={(checked) => handleRequirementChange('documentsScanned', !!checked)}
+													onCheckedChange={checked =>
+														handleRequirementChange("documentsScanned", !!checked)
+													}
 												/>
 												<Label htmlFor="documents" className="text-sm">
 													Physical documents scanned and uploaded
@@ -427,7 +460,9 @@ export default function NotarizePage() {
 												<Checkbox
 													id="witness"
 													checked={requirements.witnessPresent}
-													onCheckedChange={(checked) => handleRequirementChange('witnessPresent', !!checked)}
+													onCheckedChange={checked =>
+														handleRequirementChange("witnessPresent", !!checked)
+													}
 												/>
 												<Label htmlFor="witness" className="text-sm">
 													Witness present and verified (if required)
@@ -441,7 +476,9 @@ export default function NotarizePage() {
 												<Checkbox
 													id="recording"
 													checked={requirements.videoRecording}
-													onCheckedChange={(checked) => handleRequirementChange('videoRecording', !!checked)}
+													onCheckedChange={checked =>
+														handleRequirementChange("videoRecording", !!checked)
+													}
 												/>
 												<Label htmlFor="recording" className="text-sm">
 													Video/audio recording active
@@ -451,13 +488,20 @@ export default function NotarizePage() {
 
 										{/* Progress */}
 										<div className="pt-4">
-											<div className="flex items-center justify-between text-sm mb-2">
+											<div className="mb-2 flex items-center justify-between text-sm">
 												<span>Progress</span>
-												<span>{Object.values(requirements).filter(Boolean).length}/{Object.keys(requirements).length}</span>
+												<span>
+													{Object.values(requirements).filter(Boolean).length}/
+													{Object.keys(requirements).length}
+												</span>
 											</div>
-											<Progress 
-												value={(Object.values(requirements).filter(Boolean).length / Object.keys(requirements).length) * 100} 
-												className="h-2" 
+											<Progress
+												value={
+													(Object.values(requirements).filter(Boolean).length /
+														Object.keys(requirements).length) *
+													100
+												}
+												className="h-2"
 											/>
 										</div>
 									</div>
@@ -474,14 +518,14 @@ export default function NotarizePage() {
 								</CardHeader>
 								<CardContent className="space-y-3">
 									<div className="flex items-center gap-2">
-										<Badge variant="outline">
-											{isREN ? "Remote" : "In-Person"}
-										</Badge>
+										<Badge variant="outline">{isREN ? "Remote" : "In-Person"}</Badge>
 									</div>
-									<div className="text-sm space-y-2">
+									<div className="space-y-2 text-sm">
 										<div>
 											<span className="font-medium">Started:</span>
-											<span className="ml-2">{new Date(notarization.startTime).toLocaleString()}</span>
+											<span className="ml-2">
+												{new Date(notarization.startTime).toLocaleString()}
+											</span>
 										</div>
 										<div>
 											<span className="font-medium">Duration:</span>
@@ -508,7 +552,7 @@ export default function NotarizePage() {
 										Complete Notarization
 									</Button>
 									{!allRequirementsMet && (
-										<p className="text-xs text-muted-foreground text-center mt-2">
+										<p className="text-muted-foreground mt-2 text-center text-xs">
 											Complete all requirements to finalize
 										</p>
 									)}

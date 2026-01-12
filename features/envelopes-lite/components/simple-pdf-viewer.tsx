@@ -142,11 +142,7 @@ export function SimplePdfViewer({ fileUrl, documentName: _documentName }: Simple
 			<div className="flex h-full w-full flex-col overflow-hidden">
 				{/* Simple toolbar for iframe */}
 				<div className="flex shrink-0 items-center justify-end border-b px-4 py-2">
-					<Button
-						variant="outline"
-						size="sm"
-						onClick={() => window.open(fileUrl, "_blank")}
-					>
+					<Button variant="outline" size="sm" onClick={() => window.open(fileUrl, "_blank")}>
 						Open in New Tab
 					</Button>
 				</div>

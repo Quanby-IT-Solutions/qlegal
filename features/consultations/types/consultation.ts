@@ -51,4 +51,3 @@ export interface BookConsultationResult {
 	conversationId?: string
 	workflowType: ConsultationWorkflowType
 }
-

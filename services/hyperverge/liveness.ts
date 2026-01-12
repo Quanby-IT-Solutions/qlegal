@@ -1,9 +1,11 @@
 /**
  * HyperVerge Liveness Validation Service
  *
+ *
  * Provides unified liveness verification supporting:
  * 1. Hosted workflow via redirect/QR (default mode)
  * 2. Direct selfie capture via /checkLiveness API (feature flag mode)
+ *
  *
  * Both modes share unified backend decision logic using liveFace.value and summary.action
  *

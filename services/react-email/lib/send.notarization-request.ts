@@ -47,4 +47,3 @@ export async function sendNotarizationRequestNotification({
 		// Don't throw - email failure shouldn't break request creation
 	}
 }
-

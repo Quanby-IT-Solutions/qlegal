@@ -43,4 +43,3 @@ export const verifyWitnessSchema = z.object({
 	witnessId: z.string(),
 	idVerified: z.boolean(),
 })
-

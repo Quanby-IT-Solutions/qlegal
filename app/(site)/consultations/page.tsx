@@ -1,24 +1,42 @@
 "use client"
 
-import { useState, useEffect } from "react"
 import { type Route } from "next"
-import { useSearchParams, useRouter } from "next/navigation"
-import { Calendar, Clock, MapPin, Video, Handshake, User, Phone, Mail, CheckCircle, Loader2 } from "lucide-react"
+import { useRouter, useSearchParams } from "next/navigation"
+import { useEffect, useState } from "react"
+import { format, startOfToday } from "date-fns"
+import {
+	Calendar,
+	CheckCircle,
+	Clock,
+	Handshake,
+	Loader2,
+	Mail,
+	MapPin,
+	Phone,
+	User,
+	Video,
+} from "lucide-react"
 import { toast } from "sonner"
 
-import { trpc } from "@/services/trpc/client"
 import { PageHeader } from "@/core/components/navbar/page-header"
-import { Button } from "@/core/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/core/components/ui/card"
-import { Badge } from "@/core/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/core/components/ui/avatar"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/core/components/ui/tabs"
-import { RadioGroup, RadioGroupItem } from "@/core/components/ui/radio-group"
-import { Label } from "@/core/components/ui/label"
-import { Textarea } from "@/core/components/ui/textarea"
+import { Badge } from "@/core/components/ui/badge"
+import { Button } from "@/core/components/ui/button"
 import { Calendar as CalendarComponent } from "@/core/components/ui/calendar"
+import {
+	Card,
+	CardContent,
+	CardDescription,
+	CardHeader,
+	CardTitle,
+} from "@/core/components/ui/card"
+import { Label } from "@/core/components/ui/label"
 import { Popover, PopoverContent, PopoverTrigger } from "@/core/components/ui/popover"
-import { format, startOfToday } from "date-fns"
+import { RadioGroup, RadioGroupItem } from "@/core/components/ui/radio-group"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/core/components/ui/tabs"
+import { Textarea } from "@/core/components/ui/textarea"
+
+import { trpc } from "@/services/trpc/client"
 
 type ConsultationType = "INITIAL" | "FOLLOWUP" | "URGENT"
 type WorkflowType = "REN" | "IEN"
@@ -28,7 +46,7 @@ type BookingMode = "CONSULTATION" | "SIGNING"
 export default function ConsultationsPage() {
 	const searchParams = useSearchParams()
 	const router = useRouter()
-	
+
 	const modeParam = (searchParams.get("mode") || searchParams.get("booking") || "").toUpperCase()
 	const initialBooking: BookingMode = modeParam === "SIGNING" ? "SIGNING" : "CONSULTATION"
 
@@ -71,26 +89,28 @@ export default function ConsultationsPage() {
 	}, [dateParam, enpId, timeParam, workflowParam])
 
 	// Fetch available ENPs
-	const { data: availableEnps, isLoading: isLoadingEnps } = trpc.consultations.getAvailableEnps.useQuery({
-		workflowType: selectedWorkflow,
-	})
+	const { data: availableEnps, isLoading: isLoadingEnps } =
+		trpc.consultations.getAvailableEnps.useQuery({
+			workflowType: selectedWorkflow,
+		})
 
 	// Fetch ENP availability when ENP is selected
-	const { data: availabilitySlots, isLoading: isLoadingAvailability } = trpc.consultations.getEnpAvailability.useQuery(
-		{
-			enpId: selectedENP || "",
-			workflowType: selectedWorkflow,
-		},
-		{
-			enabled: !!selectedENP,
-		}
-	)
+	const { data: availabilitySlots, isLoading: isLoadingAvailability } =
+		trpc.consultations.getEnpAvailability.useQuery(
+			{
+				enpId: selectedENP || "",
+				workflowType: selectedWorkflow,
+			},
+			{
+				enabled: !!selectedENP,
+			}
+		)
 
 	// Book consultation mutation
 	const bookConsultationMutation = trpc.consultations.bookConsultation.useMutation({
-		onSuccess: (data) => {
+		onSuccess: data => {
 			console.log("🔍 Consultation booking success:", data)
-			
+
 			toast.success("Consultation Booked!", {
 				description: "Your consultation has been successfully booked.",
 			})
@@ -109,7 +129,11 @@ export default function ConsultationsPage() {
 				} else {
 					router.push("/messages" as Route)
 				}
-			} else if (data.workflowType === "REN" && data.meetingPreference === "VIDEO_CALL" && data.meetingId) {
+			} else if (
+				data.workflowType === "REN" &&
+				data.meetingPreference === "VIDEO_CALL" &&
+				data.meetingId
+			) {
 				// Video call - go to meeting lobby
 				console.log("✅ Redirecting to video meeting lobby:", data.meetingId)
 				toast.success("Video Consultation Ready!", {
@@ -129,7 +153,7 @@ export default function ConsultationsPage() {
 				router.push("/messages" as Route)
 			}
 		},
-		onError: (error) => {
+		onError: error => {
 			toast.error("Booking Failed", {
 				description: error.message || "Failed to book consultation. Please try again.",
 			})
@@ -141,14 +165,14 @@ export default function ConsultationsPage() {
 			toast.success("Signing session booked!")
 			router.push("/appointments" as Route)
 		},
-		onError: (error) => {
+		onError: error => {
 			toast.error("Booking failed", {
 				description: error.message || "Failed to book signing session. Please try again.",
 			})
 		},
 	})
 
-	const enpDetails = availableEnps?.find((enp) => enp.id === selectedENP)
+	const enpDetails = availableEnps?.find(enp => enp.id === selectedENP)
 
 	const handleWorkflowChange = (workflow: WorkflowType) => {
 		setSelectedWorkflow(workflow)
@@ -201,17 +225,15 @@ export default function ConsultationsPage() {
 		}
 	}
 
-	const filteredSlots = selectedDate && availabilitySlots
-		? availabilitySlots.filter((slot) => slot.date === format(selectedDate, "yyyy-MM-dd"))
-		: []
+	const filteredSlots =
+		selectedDate && availabilitySlots
+			? availabilitySlots.filter(slot => slot.date === format(selectedDate, "yyyy-MM-dd"))
+			: []
 
 	return (
 		<div className="flex flex-1 flex-col">
 			<PageHeader
-				items={[
-					{ label: "Find a Notary", href: "/find-notary" },
-					{ label: "Consultations" },
-				]}
+				items={[{ label: "Find a Notary", href: "/find-notary" }, { label: "Consultations" }]}
 			/>
 
 			<main className="flex-1 p-4 md:p-6 lg:p-8">
@@ -234,7 +256,7 @@ export default function ConsultationsPage() {
 							<CardDescription>Select between consultation or signing session.</CardDescription>
 						</CardHeader>
 						<CardContent>
-							<Tabs value={bookingMode} onValueChange={(v) => setBookingMode(v as BookingMode)}>
+							<Tabs value={bookingMode} onValueChange={v => setBookingMode(v as BookingMode)}>
 								<TabsList>
 									<TabsTrigger value="CONSULTATION">Consultation</TabsTrigger>
 									<TabsTrigger value="SIGNING">Signing Session</TabsTrigger>
@@ -248,11 +270,15 @@ export default function ConsultationsPage() {
 						<CardHeader>
 							<CardTitle>Select Notarization Type</CardTitle>
 							<CardDescription>
-								Choose between Remote Electronic Notarization (REN) or In-Person Electronic Notarization (IEN)
+								Choose between Remote Electronic Notarization (REN) or In-Person Electronic
+								Notarization (IEN)
 							</CardDescription>
 						</CardHeader>
 						<CardContent>
-							<Tabs value={selectedWorkflow} onValueChange={(value) => handleWorkflowChange(value as WorkflowType)}>
+							<Tabs
+								value={selectedWorkflow}
+								onValueChange={value => handleWorkflowChange(value as WorkflowType)}
+							>
 								<TabsList className="grid w-full grid-cols-2">
 									<TabsTrigger value="REN" className="flex items-center gap-2">
 										<Video className="h-4 w-4" />
@@ -263,20 +289,21 @@ export default function ConsultationsPage() {
 										In-Person (IEN)
 									</TabsTrigger>
 								</TabsList>
-								
+
 								<TabsContent value="REN" className="mt-6">
 									<div className="space-y-4">
 										<div className="flex items-start gap-3">
-											<CheckCircle className="h-5 w-5 text-green-600 mt-0.5" />
+											<CheckCircle className="mt-0.5 h-5 w-5 text-green-600" />
 											<div>
 												<h4 className="font-medium">Remote Electronic Notarization (REN)</h4>
-												<p className="text-sm text-muted-foreground">
-													Conduct notarization remotely via video call. Requires video/audio recording 
-													and remote identity verification. Perfect for clients who cannot meet in person.
+												<p className="text-muted-foreground text-sm">
+													Conduct notarization remotely via video call. Requires video/audio
+													recording and remote identity verification. Perfect for clients who cannot
+													meet in person.
 												</p>
 											</div>
 										</div>
-										<div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+										<div className="grid grid-cols-1 gap-4 text-sm md:grid-cols-3">
 											<div className="flex items-center gap-2">
 												<Video className="h-4 w-4 text-blue-600" />
 												<span>Video call required</span>
@@ -292,20 +319,20 @@ export default function ConsultationsPage() {
 										</div>
 									</div>
 								</TabsContent>
-								
+
 								<TabsContent value="IEN" className="mt-6">
 									<div className="space-y-4">
 										<div className="flex items-start gap-3">
-											<CheckCircle className="h-5 w-5 text-green-600 mt-0.5" />
+											<CheckCircle className="mt-0.5 h-5 w-5 text-green-600" />
 											<div>
 												<h4 className="font-medium">In-Person Electronic Notarization (IEN)</h4>
-												<p className="text-sm text-muted-foreground">
-													Traditional in-person notarization with physical presence verification. 
+												<p className="text-muted-foreground text-sm">
+													Traditional in-person notarization with physical presence verification.
 													Includes document scanning and physical ID inspection.
 												</p>
 											</div>
 										</div>
-										<div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+										<div className="grid grid-cols-1 gap-4 text-sm md:grid-cols-3">
 											<div className="flex items-center gap-2">
 												<MapPin className="h-4 w-4 text-green-600" />
 												<span>Physical presence required</span>
@@ -330,35 +357,38 @@ export default function ConsultationsPage() {
 						<Card>
 							<CardHeader>
 								<CardTitle>Select a Notary</CardTitle>
-								<CardDescription>
-									Choose from available Electronic Notaries Public
-								</CardDescription>
+								<CardDescription>Choose from available Electronic Notaries Public</CardDescription>
 							</CardHeader>
 							<CardContent>
 								{isLoadingEnps ? (
 									<div className="flex items-center justify-center py-8">
-										<Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+										<Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
 									</div>
 								) : availableEnps && availableEnps.length > 0 ? (
-									<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-										{availableEnps.map((enp) => (
-											<Card 
-												key={enp.id} 
-												className="cursor-pointer hover:shadow-md transition-shadow"
+									<div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+										{availableEnps.map(enp => (
+											<Card
+												key={enp.id}
+												className="cursor-pointer transition-shadow hover:shadow-md"
 												onClick={() => setSelectedENP(enp.id)}
 											>
 												<CardContent className="p-4">
 													<div className="flex items-center gap-4">
 														<Avatar className="h-12 w-12">
 															<AvatarImage src={enp.image || undefined} alt={enp.name || "ENP"} />
-															<AvatarFallback>{enp.name?.split(" ").map(n => n[0]).join("") || "EN"}</AvatarFallback>
+															<AvatarFallback>
+																{enp.name
+																	?.split(" ")
+																	.map(n => n[0])
+																	.join("") || "EN"}
+															</AvatarFallback>
 														</Avatar>
 														<div className="flex-1">
 															<h4 className="font-medium">{enp.name}</h4>
-															<p className="text-sm text-muted-foreground">{enp.specialization}</p>
-															<div className="flex items-center gap-1 mt-1">
+															<p className="text-muted-foreground text-sm">{enp.specialization}</p>
+															<div className="mt-1 flex items-center gap-1">
 																<span className="text-sm font-medium">{enp.rating}</span>
-																<span className="text-sm text-muted-foreground">
+																<span className="text-muted-foreground text-sm">
 																	({enp.reviewCount} reviews)
 																</span>
 															</div>
@@ -370,7 +400,7 @@ export default function ConsultationsPage() {
 										))}
 									</div>
 								) : (
-									<p className="text-center text-muted-foreground py-8">
+									<p className="text-muted-foreground py-8 text-center">
 										No Electronic Notaries Public available at the moment.
 									</p>
 								)}
@@ -390,15 +420,23 @@ export default function ConsultationsPage() {
 									<CardContent className="space-y-4">
 										<div className="flex items-center gap-4">
 											<Avatar className="h-16 w-16">
-												<AvatarImage src={enpDetails.image || undefined} alt={enpDetails.name || "ENP"} />
-												<AvatarFallback>{enpDetails.name?.split(" ").map(n => n[0]).join("") || "EN"}</AvatarFallback>
+												<AvatarImage
+													src={enpDetails.image || undefined}
+													alt={enpDetails.name || "ENP"}
+												/>
+												<AvatarFallback>
+													{enpDetails.name
+														?.split(" ")
+														.map(n => n[0])
+														.join("") || "EN"}
+												</AvatarFallback>
 											</Avatar>
 											<div>
 												<h4 className="font-medium">{enpDetails.name}</h4>
-												<p className="text-sm text-muted-foreground">Electronic Notary Public</p>
-												<div className="flex items-center gap-1 mt-1">
+												<p className="text-muted-foreground text-sm">Electronic Notary Public</p>
+												<div className="mt-1 flex items-center gap-1">
 													<span className="text-sm font-medium">{enpDetails.rating}</span>
-													<span className="text-sm text-muted-foreground">
+													<span className="text-muted-foreground text-sm">
 														({enpDetails.reviewCount} reviews)
 													</span>
 												</div>
@@ -408,12 +446,12 @@ export default function ConsultationsPage() {
 										<div className="space-y-3 text-sm">
 											{enpDetails.phoneNumber && (
 												<div className="flex items-center gap-2">
-													<Phone className="h-4 w-4 text-muted-foreground" />
+													<Phone className="text-muted-foreground h-4 w-4" />
 													<span>{enpDetails.phoneNumber}</span>
 												</div>
 											)}
 											<div className="flex items-center gap-2">
-												<Mail className="h-4 w-4 text-muted-foreground" />
+												<Mail className="text-muted-foreground h-4 w-4" />
 												<span>{enpDetails.email}</span>
 											</div>
 											<div>
@@ -434,8 +472,8 @@ export default function ConsultationsPage() {
 											</div>
 										</div>
 
-										<Button 
-											variant="outline" 
+										<Button
+											variant="outline"
 											onClick={() => setSelectedENP(null)}
 											className="w-full"
 										>
@@ -451,10 +489,9 @@ export default function ConsultationsPage() {
 									<CardHeader>
 										<CardTitle>Schedule Your Consultation</CardTitle>
 										<CardDescription>
-											{selectedWorkflow === "REN" 
+											{selectedWorkflow === "REN"
 												? "Select a time for your remote video consultation"
-												: "Select a time for your in-person consultation"
-											}
+												: "Select a time for your in-person consultation"}
 										</CardDescription>
 									</CardHeader>
 									<CardContent className="space-y-6">
@@ -463,7 +500,10 @@ export default function ConsultationsPage() {
 											<Label className="text-base font-medium">Select Date</Label>
 											<Popover>
 												<PopoverTrigger asChild>
-													<Button variant="outline" className="w-full justify-start text-left font-normal mt-2">
+													<Button
+														variant="outline"
+														className="mt-2 w-full justify-start text-left font-normal"
+													>
 														<Calendar className="mr-2 h-4 w-4" />
 														{selectedDate ? format(selectedDate, "PPP") : "Pick a date"}
 													</Button>
@@ -473,7 +513,7 @@ export default function ConsultationsPage() {
 														mode="single"
 														selected={selectedDate}
 														onSelect={setSelectedDate}
-														disabled={(date) => date < today}
+														disabled={date => date < today}
 														initialFocus
 													/>
 												</PopoverContent>
@@ -485,21 +525,23 @@ export default function ConsultationsPage() {
 											<div className="space-y-3">
 												<div className="space-y-1">
 													<Label className="text-base font-medium">Pick a time</Label>
-													<p className="text-xs text-muted-foreground">
+													<p className="text-muted-foreground text-xs">
 														Choose a suggested slot or type a custom time (24h or 12h accepted).
 													</p>
 												</div>
 												<input
 													type="time"
-													className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+													className="border-input bg-background ring-offset-background placeholder:text-muted-foreground focus-visible:ring-ring w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
 													value={selectedTime || ""}
-													onChange={(e) => setSelectedTime(e.target.value)}
+													onChange={e => setSelectedTime(e.target.value)}
 												/>
 												<div className="space-y-2">
-													<Label className="text-sm font-medium text-muted-foreground">Suggested slots</Label>
+													<Label className="text-muted-foreground text-sm font-medium">
+														Suggested slots
+													</Label>
 													{isLoadingAvailability ? (
 														<div className="flex items-center justify-center py-4">
-															<Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+															<Loader2 className="text-muted-foreground h-5 w-5 animate-spin" />
 														</div>
 													) : filteredSlots.length > 0 ? (
 														<div className="grid grid-cols-2 gap-2 md:grid-cols-3">
@@ -516,7 +558,7 @@ export default function ConsultationsPage() {
 															))}
 														</div>
 													) : (
-														<p className="text-sm text-muted-foreground">
+														<p className="text-muted-foreground text-sm">
 															No suggested slots for this date. Enter a custom time above.
 														</p>
 													)}
@@ -527,18 +569,28 @@ export default function ConsultationsPage() {
 										{/* Consultation Type */}
 										<div>
 											<Label className="text-base font-medium">Consultation Type</Label>
-											<RadioGroup value={consultationType} onValueChange={(value) => setConsultationType(value as ConsultationType)} className="mt-2">
+											<RadioGroup
+												value={consultationType}
+												onValueChange={value => setConsultationType(value as ConsultationType)}
+												className="mt-2"
+											>
 												<div className="flex items-center space-x-2">
 													<RadioGroupItem value="INITIAL" id="initial" />
-													<Label htmlFor="initial" className="font-normal">Initial Consultation</Label>
+													<Label htmlFor="initial" className="font-normal">
+														Initial Consultation
+													</Label>
 												</div>
 												<div className="flex items-center space-x-2">
 													<RadioGroupItem value="FOLLOWUP" id="followup" />
-													<Label htmlFor="followup" className="font-normal">Follow-up Consultation</Label>
+													<Label htmlFor="followup" className="font-normal">
+														Follow-up Consultation
+													</Label>
 												</div>
 												<div className="flex items-center space-x-2">
 													<RadioGroupItem value="URGENT" id="urgent" />
-													<Label htmlFor="urgent" className="font-normal">Urgent Consultation</Label>
+													<Label htmlFor="urgent" className="font-normal">
+														Urgent Consultation
+													</Label>
 												</div>
 											</RadioGroup>
 										</div>
@@ -547,7 +599,11 @@ export default function ConsultationsPage() {
 										{selectedWorkflow === "REN" && (
 											<div>
 												<Label className="text-base font-medium">Meeting Preference</Label>
-												<RadioGroup value={meetingPreference} onValueChange={(value) => setMeetingPreference(value as MeetingPreference)} className="mt-2">
+												<RadioGroup
+													value={meetingPreference}
+													onValueChange={value => setMeetingPreference(value as MeetingPreference)}
+													className="mt-2"
+												>
 													<div className="flex items-center space-x-2">
 														<RadioGroupItem value="VIDEO_CALL" id="video" />
 														<Label htmlFor="video" className="font-normal">
@@ -555,7 +611,9 @@ export default function ConsultationsPage() {
 																<Video className="h-4 w-4" />
 																<div>
 																	<div className="font-medium">Video Call</div>
-																	<div className="text-xs text-muted-foreground">Full video consultation with screen sharing</div>
+																	<div className="text-muted-foreground text-xs">
+																		Full video consultation with screen sharing
+																	</div>
 																</div>
 															</div>
 														</Label>
@@ -567,7 +625,9 @@ export default function ConsultationsPage() {
 																<Mail className="h-4 w-4" />
 																<div>
 																	<div className="font-medium">Chat Only</div>
-																	<div className="text-xs text-muted-foreground">Text-based consultation via messaging</div>
+																	<div className="text-muted-foreground text-xs">
+																		Text-based consultation via messaging
+																	</div>
 																</div>
 															</div>
 														</Label>
@@ -587,8 +647,8 @@ export default function ConsultationsPage() {
 													type="text"
 													placeholder="Enter the meeting location address..."
 													value={location}
-													onChange={(e) => setLocation(e.target.value)}
-													className="mt-2 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+													onChange={e => setLocation(e.target.value)}
+													className="border-input bg-background ring-offset-background placeholder:text-muted-foreground focus-visible:ring-ring mt-2 w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
 												/>
 											</div>
 										)}
@@ -602,7 +662,7 @@ export default function ConsultationsPage() {
 												id="requirements"
 												placeholder="Any special requirements or documents you need notarized..."
 												value={specialRequirements}
-												onChange={(e) => setSpecialRequirements(e.target.value)}
+												onChange={e => setSpecialRequirements(e.target.value)}
 												className="mt-2"
 											/>
 										</div>
@@ -610,7 +670,9 @@ export default function ConsultationsPage() {
 										{/* Booking Button */}
 										<Button
 											onClick={handleBooking}
-											disabled={!selectedDate || !selectedTime || bookConsultationMutation.isPending}
+											disabled={
+												!selectedDate || !selectedTime || bookConsultationMutation.isPending
+											}
 											className="w-full"
 											size="lg"
 										>
@@ -637,7 +699,7 @@ export default function ConsultationsPage() {
 										</Button>
 
 										{(!selectedDate || !selectedTime) && (
-											<p className="text-sm text-muted-foreground text-center">
+											<p className="text-muted-foreground text-center text-sm">
 												Please select a date and time to continue
 											</p>
 										)}

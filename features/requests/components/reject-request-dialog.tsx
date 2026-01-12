@@ -3,10 +3,17 @@
 import { useState } from "react"
 import { X } from "lucide-react"
 
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/core/components/ui/dialog"
 import { Button } from "@/core/components/ui/button"
-import { Textarea } from "@/core/components/ui/textarea"
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+} from "@/core/components/ui/dialog"
 import { Label } from "@/core/components/ui/label"
+import { Textarea } from "@/core/components/ui/textarea"
 
 interface RejectRequestDialogProps {
 	open: boolean
@@ -26,7 +33,7 @@ export function RejectRequestDialog({
 
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault()
-		
+
 		if (!cancelReason.trim()) {
 			setError("Please provide a reason for rejection")
 			return
@@ -42,12 +49,13 @@ export function RejectRequestDialog({
 		<Dialog open={open} onOpenChange={onOpenChange}>
 			<DialogContent>
 				<DialogHeader>
-					<DialogTitle className="flex items-center gap-2 text-destructive">
+					<DialogTitle className="text-destructive flex items-center gap-2">
 						<X className="h-5 w-5" />
 						Reject Appointment
 					</DialogTitle>
 					<DialogDescription>
-						Please provide a reason for rejecting this appointment request. The client will be notified.
+						Please provide a reason for rejecting this appointment request. The client will be
+						notified.
 					</DialogDescription>
 				</DialogHeader>
 
@@ -61,7 +69,7 @@ export function RejectRequestDialog({
 								id="cancelReason"
 								placeholder="e.g., Schedule conflict, incomplete documentation..."
 								value={cancelReason}
-								onChange={(e) => {
+								onChange={e => {
 									setCancelReason(e.target.value)
 									setError("")
 								}}
@@ -69,9 +77,7 @@ export function RejectRequestDialog({
 								rows={4}
 								className={error ? "border-destructive" : ""}
 							/>
-							{error && (
-								<p className="text-sm text-destructive">{error}</p>
-							)}
+							{error && <p className="text-destructive text-sm">{error}</p>}
 						</div>
 					</div>
 

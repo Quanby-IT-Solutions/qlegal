@@ -179,16 +179,19 @@ appKey: YOUR_APP_KEY
 **POST** `https://ind.idv.hyperverge.co/v1/checkLiveness`
 
 **Headers:**
+
 ```
 appId: YOUR_APP_ID
 appKey: YOUR_APP_KEY
 ```
 
 **Body (FormData):**
+
 - `image`: Image file (JPEG blob)
 - `transactionId`: Unique transaction identifier
 
 **Response:**
+
 ```json
 {
   "status": "success",
@@ -229,8 +232,9 @@ The unified decision logic evaluates two key factors:
    - `"fail"` = One or more quality issues detected
 
 **Approval Criteria:**
+
 ```typescript
-isApproved = (liveFace.value === "yes") && (summary.action === "pass")
+isApproved = liveFace.value === "yes" && summary.action === "pass"
 ```
 
 ## Components
@@ -240,11 +244,13 @@ isApproved = (liveFace.value === "yes") && (summary.action === "pass")
 Main camera capture component with controls.
 
 **Props:**
+
 - `onSuccess?: (result) => void` - Called when verification succeeds
 - `onError?: (error: string) => void` - Called when verification fails
 - `onCancel?: () => void` - Called when user cancels
 
 **Features:**
+
 - Camera flip (front/back)
 - Face guide overlay
 - Capture/retake controls
@@ -427,6 +433,7 @@ Direct capture component with camera controls.
 Complete verification card UI with dual-mode support.
 
 **Features:**
+
 - Feature flag detection
 - Start/restart flow
 - Results display with technical details
@@ -439,6 +446,7 @@ Complete verification card UI with dual-mode support.
 Validates a selfie image using HyperVerge API.
 
 **Returns:**
+
 ```typescript
 {
   success: boolean
@@ -457,14 +465,15 @@ Validates a selfie image using HyperVerge API.
 Returns current feature flag configuration.
 
 **Returns:**
+
 ```typescript
 {
-  success: boolean
-  data: {
-    isDirectMode: boolean
-    mode: "direct" | "hosted"
-    description: string
-  }
+	success: boolean
+	data: {
+		isDirectMode: boolean
+		mode: "direct" | "hosted"
+		description: string
+	}
 }
 ```
 
@@ -474,13 +483,13 @@ Returns current feature flag configuration.
 
 ```typescript
 interface LivenessDecisionResult {
-  isLive: boolean              // Live face detected
-  actionPassed: boolean        // Quality checks passed
-  isApproved: boolean          // Both conditions met
-  message: string              // Human-readable result
-  qualityIssues: string[]      // List of detected issues
-  liveFaceValue: "yes" | "no" | "unknown"
-  summaryAction: "pass" | "fail" | "unknown"
+	isLive: boolean // Live face detected
+	actionPassed: boolean // Quality checks passed
+	isApproved: boolean // Both conditions met
+	message: string // Human-readable result
+	qualityIssues: string[] // List of detected issues
+	liveFaceValue: "yes" | "no" | "unknown"
+	summaryAction: "pass" | "fail" | "unknown"
 }
 ```
 
@@ -496,15 +505,18 @@ interface LivenessDecisionResult {
 ## Troubleshooting
 
 ### Camera not working
+
 - Check browser permissions
 - Ensure HTTPS or localhost (required for camera access)
 - Try different browser
 
 ### Feature shows as disabled
+
 - Verify `HYPERVERGE_DIRECT_LIVENESS_ENABLED=true` in `.env`
 - Restart development server after changing env vars
 
 ### API errors
+
 - Check HyperVerge credentials are correct
 - Verify API URL is accessible
 - Check network connectivity

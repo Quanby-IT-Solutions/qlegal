@@ -1,13 +1,18 @@
 import { TRPCError } from "@trpc/server"
 import { and, desc, eq, gte, or } from "drizzle-orm"
 
-import { users } from "@/services/drizzle/schema/auth"
-import { appointments } from "@/services/drizzle/schema/appointments"
-import { conversations, conversationParticipants, messages } from "@/services/drizzle/schema/messages"
-import { meetings, meetingParticipants } from "@/services/drizzle/schema/meetings"
-import { createMeetingRoom, generateMeetingToken } from "@/services/video-sdk"
-import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
 import { getUrl } from "@/core/lib/get-url"
+
+import { appointments } from "@/services/drizzle/schema/appointments"
+import { users } from "@/services/drizzle/schema/auth"
+import { meetingParticipants, meetings } from "@/services/drizzle/schema/meetings"
+import {
+	conversationParticipants,
+	conversations,
+	messages,
+} from "@/services/drizzle/schema/messages"
+import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
+import { createMeetingRoom, generateMeetingToken } from "@/services/video-sdk"
 
 import {
 	bookConsultationSchema,
@@ -59,8 +64,8 @@ export const consultationsRouter = createTRPCRouter({
 			const consultationNotes = [
 				`Consultation Type: ${input.consultationType}`,
 				`Workflow: ${input.workflowType === "REN" ? "Remote Electronic Notarization" : "In-Person Electronic Notarization"}`,
-				input.workflowType === "REN" && input.meetingPreference 
-					? `Meeting Preference: ${input.meetingPreference === "VIDEO_CALL" ? "Video Call" : "Chat Only"}` 
+				input.workflowType === "REN" && input.meetingPreference
+					? `Meeting Preference: ${input.meetingPreference === "VIDEO_CALL" ? "Video Call" : "Chat Only"}`
 					: "",
 				input.specialRequirements ? `Special Requirements: ${input.specialRequirements}` : "",
 			]
@@ -77,7 +82,7 @@ export const consultationsRouter = createTRPCRouter({
 					appointmentDate: appointmentDateTime,
 					duration,
 					notes: consultationNotes,
-					location: input.workflowType === "IEN" ? input.location ?? "To be confirmed" : null,
+					location: input.workflowType === "IEN" ? (input.location ?? "To be confirmed") : null,
 					meetingLink: null, // Will be set when confirmed
 					status: "PENDING",
 				})
@@ -98,7 +103,8 @@ export const consultationsRouter = createTRPCRouter({
 				roomId: null,
 				conversationId: null,
 				workflowType: input.workflowType,
-				meetingPreference: input.meetingPreference ?? (input.workflowType === "REN" ? "VIDEO_CALL" : undefined),
+				meetingPreference:
+					input.meetingPreference ?? (input.workflowType === "REN" ? "VIDEO_CALL" : undefined),
 			}
 		}),
 
@@ -152,7 +158,7 @@ export const consultationsRouter = createTRPCRouter({
 			// Filter by workflow type if specified (from notes)
 			let filteredResults = results
 			if (workflowType) {
-				filteredResults = results.filter((r) =>
+				filteredResults = results.filter(r =>
 					r.notes?.includes(`Workflow: ${workflowType === "REN" ? "Remote" : "In-Person"}`)
 				)
 			}
@@ -167,7 +173,10 @@ export const consultationsRouter = createTRPCRouter({
 			const userId = ctx.session.user.id
 
 			const consultation = await ctx.db.query.appointments.findFirst({
-				where: and(eq(appointments.id, input.consultationId), eq(appointments.type, "CONSULTATION")),
+				where: and(
+					eq(appointments.id, input.consultationId),
+					eq(appointments.type, "CONSULTATION")
+				),
 				with: {
 					client: {
 						columns: {
@@ -256,7 +265,10 @@ export const consultationsRouter = createTRPCRouter({
 
 			// Get existing consultation
 			const existing = await ctx.db.query.appointments.findFirst({
-				where: and(eq(appointments.id, input.consultationId), eq(appointments.type, "CONSULTATION")),
+				where: and(
+					eq(appointments.id, input.consultationId),
+					eq(appointments.type, "CONSULTATION")
+				),
 			})
 
 			if (!existing) {
@@ -364,31 +376,38 @@ export const consultationsRouter = createTRPCRouter({
 				const dateStr = date.toISOString().split("T")[0]
 
 				// Find availability for this day of week
-				const dayAvailability = enp.enpAvailability?.filter(
-					(avail) => avail.dayOfWeek === dayOfWeek && avail.isAvailable
-				) || []
+				const dayAvailability =
+					enp.enpAvailability?.filter(
+						avail => avail.dayOfWeek === dayOfWeek && avail.isAvailable
+					) || []
 
 				// If no custom availability set, use default office hours
-				const timeSlots = dayAvailability.length > 0
-					? dayAvailability.flatMap((avail) => {
-						const slots = []
-						const [startHour, startMin] = avail.startTime.split(":").map(Number)
-						const [endHour, endMin] = avail.endTime.split(":").map(Number)
-						
-						let currentHour = startHour ?? 0
-						let currentMin = startMin ?? 0
-						
-						while (currentHour < (endHour ?? 0) || (currentHour === (endHour ?? 0) && currentMin < (endMin ?? 0))) {
-							slots.push(`${String(currentHour).padStart(2, "0")}:${String(currentMin).padStart(2, "0")}`)
-							currentMin += 60 // 1-hour slots
-							if (currentMin >= 60) {
-								currentHour++
-								currentMin = 0
-							}
-						}
-						return slots
-					})
-					: ["09:00", "10:00", "11:00", "14:00", "15:00", "16:00"] // Default office hours
+				const timeSlots =
+					dayAvailability.length > 0
+						? dayAvailability.flatMap(avail => {
+								const slots = []
+								const [startHour, startMin] = avail.startTime.split(":").map(Number)
+								const [endHour, endMin] = avail.endTime.split(":").map(Number)
+
+								let currentHour = startHour ?? 0
+								let currentMin = startMin ?? 0
+
+								while (
+									currentHour < (endHour ?? 0) ||
+									(currentHour === (endHour ?? 0) && currentMin < (endMin ?? 0))
+								) {
+									slots.push(
+										`${String(currentHour).padStart(2, "0")}:${String(currentMin).padStart(2, "0")}`
+									)
+									currentMin += 60 // 1-hour slots
+									if (currentMin >= 60) {
+										currentHour++
+										currentMin = 0
+									}
+								}
+								return slots
+							})
+						: ["09:00", "10:00", "11:00", "14:00", "15:00", "16:00"] // Default office hours
 
 				for (const time of timeSlots) {
 					const [hours, minutes] = time.split(":").map(Number)
@@ -396,7 +415,7 @@ export const consultationsRouter = createTRPCRouter({
 					slotDate.setHours(hours ?? 0, minutes ?? 0, 0, 0)
 
 					// Check if slot is already booked
-					const isBooked = existingAppointments.some((apt) => {
+					const isBooked = existingAppointments.some(apt => {
 						const aptDate = new Date(apt.appointmentDate)
 						const diff = Math.abs(aptDate.getTime() - slotDate.getTime())
 						return diff < 60 * 60 * 1000 // Within 1 hour
@@ -437,8 +456,8 @@ export const consultationsRouter = createTRPCRouter({
 
 			// Map ENPs with their profile data
 			return enps
-				.filter((enp) => enp.enpProfile?.isAvailable !== false) // Only show available ENPs
-				.map((enp) => ({
+				.filter(enp => enp.enpProfile?.isAvailable !== false) // Only show available ENPs
+				.map(enp => ({
 					id: enp.id,
 					name: enp.name,
 					email: enp.email,
@@ -454,7 +473,7 @@ export const consultationsRouter = createTRPCRouter({
 						try {
 							const parsed = JSON.parse(raw) as unknown
 							if (Array.isArray(parsed)) {
-								return parsed.map((lang) => String(lang))
+								return parsed.map(lang => String(lang))
 							}
 							return ["English"]
 						} catch {
@@ -477,7 +496,10 @@ export const consultationsRouter = createTRPCRouter({
 
 			// Get existing consultation
 			const existing = await ctx.db.query.appointments.findFirst({
-				where: and(eq(appointments.id, input.consultationId), eq(appointments.type, "CONSULTATION")),
+				where: and(
+					eq(appointments.id, input.consultationId),
+					eq(appointments.type, "CONSULTATION")
+				),
 			})
 
 			if (!existing) {
@@ -566,4 +588,3 @@ export const consultationsRouter = createTRPCRouter({
 			return updated
 		}),
 })
-

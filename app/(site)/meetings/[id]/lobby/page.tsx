@@ -1,16 +1,23 @@
 "use client"
 
-import { Camera, CameraOff, Clock, Mic, MicOff, Users, Video } from "lucide-react"
 import { useRouter } from "next/navigation"
-import { useSession } from "next-auth/react"
 import { use, useEffect, useRef, useState } from "react"
+import { Camera, CameraOff, Clock, Mic, MicOff, Users, Video } from "lucide-react"
+import { useSession } from "next-auth/react"
+import { toast } from "sonner"
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/core/components/ui/avatar"
 import { Button } from "@/core/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/core/components/ui/card"
+import {
+	Card,
+	CardContent,
+	CardDescription,
+	CardHeader,
+	CardTitle,
+} from "@/core/components/ui/card"
 import { Skeleton } from "@/core/components/ui/skeleton"
+
 import { useMeetings } from "@/features/meetings/api/meetings.hooks"
-import { toast } from "sonner"
 
 export default function MeetingLobbyPage({ params }: { params: Promise<{ id: string }> }) {
 	const { id } = use(params)
@@ -44,9 +51,9 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 				// Use a promise to handle play() properly
 				const playPromise = videoElement.play()
 				if (playPromise !== undefined) {
-					playPromise.catch((err) => {
+					playPromise.catch(err => {
 						// Silently handle if user hasn't interacted yet
-						if (err.name !== 'NotAllowedError') {
+						if (err.name !== "NotAllowedError") {
 							console.error("Error playing video:", err)
 						}
 					})
@@ -59,7 +66,7 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 		if (stream) {
 			return // Already have a stream
 		}
-		
+
 		setIsTestingDevices(true)
 		try {
 			// Try to get both video and audio, but don't block if it fails
@@ -106,7 +113,7 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 	const handleJoinMeeting = () => {
 		// Stop preview stream before joining
 		if (stream) {
-			stream.getTracks().forEach((track) => track.stop())
+			stream.getTracks().forEach(track => track.stop())
 		}
 		router.push(`/meetings/${id}`)
 	}
@@ -115,14 +122,14 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 	useEffect(() => {
 		return () => {
 			if (stream) {
-				stream.getTracks().forEach((track) => track.stop())
+				stream.getTracks().forEach(track => track.stop())
 			}
 		}
 	}, [stream])
 
 	if (isLoading) {
 		return (
-			<div className="flex h-screen items-center justify-center bg-gradient-to-br from-background via-muted/30 to-background">
+			<div className="from-background via-muted/30 to-background flex h-screen items-center justify-center bg-gradient-to-br">
 				<div className="text-center">
 					<Skeleton className="mx-auto mb-4 size-12 rounded-full" />
 					<Skeleton className="h-6 w-48" />
@@ -133,11 +140,13 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 
 	if (!meeting) {
 		return (
-			<div className="flex h-screen items-center justify-center bg-gradient-to-br from-background via-muted/30 to-background">
+			<div className="from-background via-muted/30 to-background flex h-screen items-center justify-center bg-gradient-to-br">
 				<Card className="w-full max-w-md shadow-xl">
 					<CardContent className="p-8 text-center">
 						<h2 className="text-2xl font-bold">Meeting not found</h2>
-						<p className="mt-2 text-muted-foreground">The meeting you're looking for doesn't exist.</p>
+						<p className="text-muted-foreground mt-2">
+							The meeting you're looking for doesn't exist.
+						</p>
 						<Button className="mt-6" onClick={() => router.push("/meetings")}>
 							Back to Meetings
 						</Button>
@@ -149,19 +158,17 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 
 	if (meeting.status !== "ONGOING") {
 		return (
-			<div className="flex h-screen items-center justify-center bg-gradient-to-br from-background via-muted/30 to-background">
+			<div className="from-background via-muted/30 to-background flex h-screen items-center justify-center bg-gradient-to-br">
 				<Card className="w-full max-w-md shadow-xl">
 					<CardContent className="p-8 text-center">
 						<div className="mx-auto mb-4 flex size-16 items-center justify-center rounded-full bg-yellow-100 dark:bg-yellow-900/20">
 							<Clock className="size-8 text-yellow-600 dark:text-yellow-500" />
 						</div>
 						<h2 className="mb-2 text-2xl font-bold">{meeting.title}</h2>
-						<p className="mb-6 text-muted-foreground">
+						<p className="text-muted-foreground mb-6">
 							This meeting has not started yet. Please wait for the host to start the meeting.
 						</p>
-						<Button onClick={() => router.push("/meetings")}>
-							Back to Meetings
-						</Button>
+						<Button onClick={() => router.push("/meetings")}>Back to Meetings</Button>
 					</CardContent>
 				</Card>
 			</div>
@@ -169,17 +176,17 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 	}
 
 	return (
-		<div className="flex h-screen flex-col bg-gradient-to-br from-background via-muted/30 to-background">
+		<div className="from-background via-muted/30 to-background flex h-screen flex-col bg-gradient-to-br">
 			{/* Header */}
-			<div className="border-b bg-card/50 backdrop-blur-sm px-6 py-6">
+			<div className="bg-card/50 border-b px-6 py-6 backdrop-blur-sm">
 				<div className="mx-auto max-w-7xl">
 					<div className="flex items-center gap-3">
-						<div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
-							<Video className="h-6 w-6 text-primary" />
+						<div className="bg-primary/10 flex h-12 w-12 items-center justify-center rounded-xl">
+							<Video className="text-primary h-6 w-6" />
 						</div>
 						<div>
 							<h1 className="text-2xl font-bold">{meeting.title}</h1>
-							<p className="text-sm text-muted-foreground">Get ready to join your meeting</p>
+							<p className="text-muted-foreground text-sm">Get ready to join your meeting</p>
 						</div>
 					</div>
 				</div>
@@ -187,37 +194,41 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 
 			{/* Main Content */}
 			<div className="flex flex-1 gap-4 overflow-hidden p-4 md:p-6">
-				<div className="mx-auto flex w-full max-w-7xl gap-4 md:gap-6 flex-col lg:flex-row">
+				<div className="mx-auto flex w-full max-w-7xl flex-col gap-4 md:gap-6 lg:flex-row">
 					{/* Left: Camera Preview */}
 					<div className="flex flex-1 flex-col">
 						<Card className="relative flex-1 overflow-hidden shadow-lg">
 							<CardContent className="relative size-full p-0">
-							{isCameraOn && stream ? (
-								<video
-									ref={videoRef}
-									autoPlay
-									playsInline
-									muted
-									className="size-full object-cover rounded-lg scale-x-[-1]"
-								/>
-							) : (
-									<div className="flex size-full items-center justify-center bg-gradient-to-br from-muted/30 to-muted/10">
-										<div className="text-center p-4">
+								{isCameraOn && stream ? (
+									<video
+										ref={videoRef}
+										autoPlay
+										playsInline
+										muted
+										className="size-full scale-x-[-1] rounded-lg object-cover"
+									/>
+								) : (
+									<div className="from-muted/30 to-muted/10 flex size-full items-center justify-center bg-gradient-to-br">
+										<div className="p-4 text-center">
 											{isTestingDevices ? (
 												<div>
-													<div className="mx-auto mb-3 size-12 md:size-16 animate-spin rounded-full border-b-4 border-primary" />
-													<p className="text-sm md:text-base text-muted-foreground font-medium">Starting camera...</p>
+													<div className="border-primary mx-auto mb-3 size-12 animate-spin rounded-full border-b-4 md:size-16" />
+													<p className="text-muted-foreground text-sm font-medium md:text-base">
+														Starting camera...
+													</p>
 												</div>
 											) : (
 												<>
-													<div className="mx-auto mb-4 md:mb-6 flex size-24 md:size-32 items-center justify-center rounded-full bg-gradient-to-br from-primary to-primary/80 text-4xl md:text-5xl font-bold text-primary-foreground shadow-xl">
+													<div className="from-primary to-primary/80 text-primary-foreground mx-auto mb-4 flex size-24 items-center justify-center rounded-full bg-gradient-to-br text-4xl font-bold shadow-xl md:mb-6 md:size-32 md:text-5xl">
 														{session?.user?.name?.charAt(0).toUpperCase() ?? "?"}
 													</div>
-													<p className="text-xl md:text-2xl font-bold">{session?.user?.name}</p>
-													<p className="mt-2 text-sm md:text-base text-muted-foreground">Camera is off</p>
+													<p className="text-xl font-bold md:text-2xl">{session?.user?.name}</p>
+													<p className="text-muted-foreground mt-2 text-sm md:text-base">
+														Camera is off
+													</p>
 													{!stream && (
-														<Button 
-															className="mt-4 md:mt-6 shadow-md" 
+														<Button
+															className="mt-4 shadow-md md:mt-6"
 															onClick={() => void startPreview()}
 															size="default"
 														>
@@ -232,11 +243,11 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 								)}
 
 								{/* Control Overlay */}
-								<div className="absolute bottom-4 left-1/2 flex -translate-x-1/2 gap-2 md:gap-3 rounded-full bg-card/95 p-2 shadow-xl backdrop-blur-md border">
+								<div className="bg-card/95 absolute bottom-4 left-1/2 flex -translate-x-1/2 gap-2 rounded-full border p-2 shadow-xl backdrop-blur-md md:gap-3">
 									<Button
 										variant={isMicOn ? "default" : "destructive"}
 										size="icon"
-										className="size-10 md:size-12 rounded-full shadow-md"
+										className="size-10 rounded-full shadow-md md:size-12"
 										onClick={toggleMic}
 										disabled={!stream}
 										title={isMicOn ? "Mute microphone" : "Unmute microphone"}
@@ -246,7 +257,7 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 									<Button
 										variant={isCameraOn ? "default" : "destructive"}
 										size="icon"
-										className="size-10 md:size-12 rounded-full shadow-md"
+										className="size-10 rounded-full shadow-md md:size-12"
 										onClick={toggleCamera}
 										disabled={!stream}
 										title={isCameraOn ? "Turn off camera" : "Turn on camera"}
@@ -259,37 +270,45 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 					</div>
 
 					{/* Right: Meeting Info & Participants */}
-					<div className="flex lg:w-80 xl:w-96 flex-col gap-3 md:gap-4">
+					<div className="flex flex-col gap-3 md:gap-4 lg:w-80 xl:w-96">
 						{/* Meeting Details */}
 						<Card className="shadow-md">
 							<CardHeader className="pb-3">
 								<CardTitle className="flex items-center gap-2 text-base">
-									<div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10">
-										<Video className="size-3.5 text-primary" />
+									<div className="bg-primary/10 flex h-7 w-7 items-center justify-center rounded-lg">
+										<Video className="text-primary size-3.5" />
 									</div>
 									Meeting Details
 								</CardTitle>
 							</CardHeader>
 							<CardContent className="space-y-3">
-								<div className="flex items-center justify-between rounded-lg bg-muted/50 p-2.5">
+								<div className="bg-muted/50 flex items-center justify-between rounded-lg p-2.5">
 									<div className="min-w-0 flex-1">
-										<p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Host</p>
-										<p className="font-semibold text-sm mt-0.5 truncate">{meeting.createdBy.name}</p>
+										<p className="text-muted-foreground text-[10px] font-medium tracking-wide uppercase">
+											Host
+										</p>
+										<p className="mt-0.5 truncate text-sm font-semibold">
+											{meeting.createdBy.name}
+										</p>
 									</div>
-									<Avatar className="size-8 ring-2 ring-primary/20 flex-shrink-0 ml-2">
+									<Avatar className="ring-primary/20 ml-2 size-8 flex-shrink-0 ring-2">
 										<AvatarImage src={meeting.createdBy.image ?? undefined} />
-										<AvatarFallback className="bg-primary text-primary-foreground font-semibold text-xs">
+										<AvatarFallback className="bg-primary text-primary-foreground text-xs font-semibold">
 											{meeting.createdBy.name?.charAt(0).toUpperCase() ?? "?"}
 										</AvatarFallback>
 									</Avatar>
 								</div>
-								<div className="flex items-center gap-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/20 p-2.5">
-									<div className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex-shrink-0">
-										<div className="size-2 rounded-full bg-emerald-500 animate-pulse" />
+								<div className="flex items-center gap-2 rounded-lg bg-emerald-50 p-2.5 dark:bg-emerald-950/20">
+									<div className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/30">
+										<div className="size-2 animate-pulse rounded-full bg-emerald-500" />
 									</div>
 									<div className="min-w-0 flex-1">
-										<p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Status</p>
-										<p className="font-semibold text-sm text-emerald-700 dark:text-emerald-400">Live Now</p>
+										<p className="text-muted-foreground text-[10px] font-medium tracking-wide uppercase">
+											Status
+										</p>
+										<p className="text-sm font-semibold text-emerald-700 dark:text-emerald-400">
+											Live Now
+										</p>
 									</div>
 								</div>
 							</CardContent>
@@ -299,36 +318,44 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 						<Card className="flex-1 overflow-hidden shadow-md">
 							<CardHeader className="pb-3">
 								<CardTitle className="flex items-center gap-2 text-base">
-									<div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10">
-										<Users className="size-3.5 text-primary" />
+									<div className="bg-primary/10 flex h-7 w-7 items-center justify-center rounded-lg">
+										<Users className="text-primary size-3.5" />
 									</div>
 									Participants
 								</CardTitle>
 								<CardDescription className="text-xs">
-									{meeting.participants.length} {meeting.participants.length === 1 ? 'person' : 'people'}
+									{meeting.participants.length}{" "}
+									{meeting.participants.length === 1 ? "person" : "people"}
 								</CardDescription>
 							</CardHeader>
-							<CardContent className="overflow-y-auto max-h-48">
+							<CardContent className="max-h-48 overflow-y-auto">
 								<div className="space-y-1.5">
-									{meeting.participants.map((participant) => (
-										<div key={participant.id} className="flex items-center gap-2.5 rounded-lg p-2 hover:bg-muted/50 transition-colors">
-											<Avatar className="size-8 ring-2 ring-transparent hover:ring-primary/20 transition-all flex-shrink-0">
+									{meeting.participants.map(participant => (
+										<div
+											key={participant.id}
+											className="hover:bg-muted/50 flex items-center gap-2.5 rounded-lg p-2 transition-colors"
+										>
+											<Avatar className="hover:ring-primary/20 size-8 flex-shrink-0 ring-2 ring-transparent transition-all">
 												<AvatarImage src={participant.user.image ?? undefined} />
-												<AvatarFallback className="bg-primary text-primary-foreground font-semibold text-xs">
+												<AvatarFallback className="bg-primary text-primary-foreground text-xs font-semibold">
 													{participant.user.name?.charAt(0).toUpperCase() ?? "?"}
 												</AvatarFallback>
 											</Avatar>
-											<div className="flex-1 min-w-0">
-												<p className="truncate font-semibold text-xs">
+											<div className="min-w-0 flex-1">
+												<p className="truncate text-xs font-semibold">
 													{participant.user.name}
 													{participant.userId === session?.user?.id && (
-														<span className="ml-1.5 text-[10px] font-normal text-muted-foreground">(You)</span>
+														<span className="text-muted-foreground ml-1.5 text-[10px] font-normal">
+															(You)
+														</span>
 													)}
 												</p>
-												<p className="truncate text-[10px] text-muted-foreground">{participant.user.email}</p>
+												<p className="text-muted-foreground truncate text-[10px]">
+													{participant.user.email}
+												</p>
 											</div>
 											{participant.userId === meeting.createdBy.id && (
-												<span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary flex-shrink-0">
+												<span className="bg-primary/10 text-primary flex-shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold">
 													Host
 												</span>
 											)}
@@ -340,16 +367,16 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 
 						{/* Action Buttons */}
 						<div className="space-y-2">
-							<Button 
-								className="w-full h-11 text-sm shadow-md hover:shadow-lg transition-all" 
+							<Button
+								className="h-11 w-full text-sm shadow-md transition-all hover:shadow-lg"
 								onClick={handleJoinMeeting}
 							>
 								<Video className="mr-2 size-4" />
 								Join Meeting Now
 							</Button>
-							<Button 
+							<Button
 								variant="outline"
-								className="w-full h-9 text-sm"
+								className="h-9 w-full text-sm"
 								onClick={() => router.push("/meetings")}
 							>
 								Cancel
@@ -361,4 +388,3 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 		</div>
 	)
 }
-

@@ -1,10 +1,10 @@
 /**
  * HyperVerge KYC Integration Service
- * 
+ *
  * This service provides integration with HyperVerge's KYC Onboard Links feature.
  * Onboard Links allow you to send customers a hosted KYC verification link without
  * embedding the SDK in your application.
- * 
+ *
  * API Documentation: https://documentation.hyperverge.co/onboard-links
  * API Endpoint: POST https://ind.idv.hyperverge.co/v1/link-kyc/start
  */
@@ -81,12 +81,12 @@ export interface OnboardLinkResponse {
 
 /**
  * Create a HyperVerge Onboard Link
- * 
+ *
  * This generates a hosted KYC verification link that can be sent to customers.
  * The link is hosted on HyperVerge servers and implements the configured workflow.
- * 
+ *
  * API: POST https://ind.idv.hyperverge.co/v1/link/start
- * 
+ *
  * @param config - Configuration for the onboard link
  * @returns The generated onboard link details
  */
@@ -116,12 +116,16 @@ export async function createOnboardLink(config: OnboardLinkConfig): Promise<Onbo
 
 	// Map optional API fields (omit if undefined to avoid validation errors)
 	if (config.inputs) requestBody.inputs = config.inputs
-	if (typeof config.validateWorkflowInputs === "boolean") requestBody.validateWorkflowInputs = config.validateWorkflowInputs
-	if (typeof config.allowEmptyWorkflowInputs === "boolean") requestBody.allowEmptyWorkflowInputs = config.allowEmptyWorkflowInputs
-	if (typeof config.forceCreateLink === "boolean") requestBody.forceCreateLink = config.forceCreateLink
+	if (typeof config.validateWorkflowInputs === "boolean")
+		requestBody.validateWorkflowInputs = config.validateWorkflowInputs
+	if (typeof config.allowEmptyWorkflowInputs === "boolean")
+		requestBody.allowEmptyWorkflowInputs = config.allowEmptyWorkflowInputs
+	if (typeof config.forceCreateLink === "boolean")
+		requestBody.forceCreateLink = config.forceCreateLink
 	if (typeof config.forceLaunchSDK === "boolean") requestBody.forceLaunchSDK = config.forceLaunchSDK
 	if (typeof config.redirectTime === "number") requestBody.redirectTime = config.redirectTime
-	if (typeof config.authenticateOnResume === "boolean") requestBody.authenticateOnResume = config.authenticateOnResume
+	if (typeof config.authenticateOnResume === "boolean")
+		requestBody.authenticateOnResume = config.authenticateOnResume
 	if (config.mobileNumber) requestBody.mobileNumber = config.mobileNumber
 	if (config.email) requestBody.email = config.email
 
@@ -135,8 +139,8 @@ export async function createOnboardLink(config: OnboardLinkConfig): Promise<Onbo
 				method: "POST",
 				headers: {
 					"Content-Type": "application/json",
-					appId: HYPERVERGE_APP_ID,
-					appKey: HYPERVERGE_APP_KEY,
+					"appId": HYPERVERGE_APP_ID,
+					"appKey": HYPERVERGE_APP_KEY,
 				},
 				body: JSON.stringify(requestBody),
 			})
@@ -147,8 +151,8 @@ export async function createOnboardLink(config: OnboardLinkConfig): Promise<Onbo
 				method: "POST",
 				headers: {
 					"Content-Type": "application/json",
-					appId: HYPERVERGE_APP_ID,
-					appKey: HYPERVERGE_APP_KEY,
+					"appId": HYPERVERGE_APP_ID,
+					"appKey": HYPERVERGE_APP_KEY,
 				},
 				body: JSON.stringify(requestBody),
 			})
@@ -161,8 +165,8 @@ export async function createOnboardLink(config: OnboardLinkConfig): Promise<Onbo
 				method: "POST",
 				headers: {
 					"Content-Type": "application/json",
-					appId: HYPERVERGE_APP_ID,
-					appKey: HYPERVERGE_APP_KEY,
+					"appId": HYPERVERGE_APP_ID,
+					"appKey": HYPERVERGE_APP_KEY,
 				},
 				body: JSON.stringify(requestBody),
 			})
@@ -208,7 +212,7 @@ export interface TransactionStatusResponse {
 
 /**
  * Get the status of a KYC transaction
- * 
+ *
  * @param transactionId - The transaction ID to check
  * @param retryCount - Number of retries (for internal use)
  * @returns The transaction status details
@@ -225,7 +229,7 @@ export async function getTransactionStatus(
 
 	try {
 		console.log("   - Primary Request URL:", HYPERVERGE_API_RESULTS_URL_PRIMARY)
-        
+
 		// HyperVerge Output API uses POST with transactionId in body
 		let response: Response
 		try {
@@ -233,8 +237,8 @@ export async function getTransactionStatus(
 				method: "POST",
 				headers: {
 					"Content-Type": "application/json",
-					appId: HYPERVERGE_APP_ID,
-					appKey: HYPERVERGE_APP_KEY,
+					"appId": HYPERVERGE_APP_ID,
+					"appKey": HYPERVERGE_APP_KEY,
 				},
 				body: JSON.stringify({ transactionId }),
 			})
@@ -245,8 +249,8 @@ export async function getTransactionStatus(
 				method: "POST",
 				headers: {
 					"Content-Type": "application/json",
-					appId: HYPERVERGE_APP_ID,
-					appKey: HYPERVERGE_APP_KEY,
+					"appId": HYPERVERGE_APP_ID,
+					"appKey": HYPERVERGE_APP_KEY,
 				},
 				body: JSON.stringify({ transactionId }),
 			})
@@ -259,8 +263,8 @@ export async function getTransactionStatus(
 				method: "POST",
 				headers: {
 					"Content-Type": "application/json",
-					appId: HYPERVERGE_APP_ID,
-					appKey: HYPERVERGE_APP_KEY,
+					"appId": HYPERVERGE_APP_ID,
+					"appKey": HYPERVERGE_APP_KEY,
 				},
 				body: JSON.stringify({ transactionId }),
 			})
@@ -272,7 +276,7 @@ export async function getTransactionStatus(
 
 		if (!response.ok) {
 			console.error("❌ HyperVerge status check failed:", responseText)
-			
+
 			// If 404 and we haven't retried much, it might be processing delay
 			if (response.status === 404 && retryCount < 3) {
 				const delay = Math.pow(2, retryCount) * 2000 // 2s, 4s, 8s
@@ -280,7 +284,7 @@ export async function getTransactionStatus(
 				await new Promise(resolve => setTimeout(resolve, delay))
 				return getTransactionStatus(transactionId, retryCount + 1)
 			}
-			
+
 			throw new Error(`HyperVerge API error: ${response.status} - ${responseText}`)
 		}
 
@@ -299,13 +303,13 @@ export async function getTransactionStatus(
 /**
  * Application status types
  */
-export type ApplicationStatus = 
-	| "auto_approved"    // All checks passed
-	| "auto_declined"    // Verification failed
-	| "needs_review"     // Requires manual review
-	| "user_cancelled"   // User exited the flow
-	| "error"            // Technical failure
-	| "pending"          // In progress
+export type ApplicationStatus =
+	| "auto_approved" // All checks passed
+	| "auto_declined" // Verification failed
+	| "needs_review" // Requires manual review
+	| "user_cancelled" // User exited the flow
+	| "error" // Technical failure
+	| "pending" // In progress
 
 /**
  * Helper function to interpret the application status
@@ -415,9 +419,9 @@ export interface SelfieValidationResponse {
 
 /**
  * Validate selfie for liveness detection using HyperVerge API
- * 
+ *
  * API: POST https://ind.idv.hyperverge.co/v1/photo/liveness
- * 
+ *
  * @param config - Selfie validation configuration
  * @returns Validation result with liveness and quality checks
  */
@@ -450,8 +454,8 @@ export async function validateSelfie(
 				method: "POST",
 				headers: {
 					"Content-Type": "application/json",
-					appId: HYPERVERGE_APP_ID,
-					appKey: HYPERVERGE_APP_KEY,
+					"appId": HYPERVERGE_APP_ID,
+					"appKey": HYPERVERGE_APP_KEY,
 				},
 				body: JSON.stringify(requestBody),
 			})
@@ -462,8 +466,8 @@ export async function validateSelfie(
 				method: "POST",
 				headers: {
 					"Content-Type": "application/json",
-					appId: HYPERVERGE_APP_ID,
-					appKey: HYPERVERGE_APP_KEY,
+					"appId": HYPERVERGE_APP_ID,
+					"appKey": HYPERVERGE_APP_KEY,
 				},
 				body: JSON.stringify(requestBody),
 			})

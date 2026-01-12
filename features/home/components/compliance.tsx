@@ -70,21 +70,23 @@ export function Compliance() {
 						</p>
 					</motion.div>
 
-					<div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+					<div className="grid gap-8 md:grid-cols-2 lg:grid-cols-4">
 						{complianceItems.map((item, index) => (
 							<motion.div key={item.title} variants={fadeInUp} custom={index}>
 								<CardSpotlight
-									className="border-border/50 bg-background/50 hover:border-border h-full pt-6 backdrop-blur-sm transition-all duration-300 hover:shadow-lg"
+									className="border-border/50 bg-background/50 hover:border-border h-full p-8 pt-8 backdrop-blur-sm transition-all duration-300 hover:shadow-lg"
 									spotlightColor={item.spotlightColor}
 								>
-									<CardHeader>
-										<div className="bg-primary/10 mb-4 flex h-12 w-12 items-center justify-center rounded-lg">
-											<item.icon className="text-primary h-6 w-6" />
+									<CardHeader className="pb-4">
+										<div className="bg-primary/10 mb-6 flex h-14 w-14 items-center justify-center rounded-lg">
+											<item.icon className="text-primary h-7 w-7" />
 										</div>
-										<CardTitle className="text-xl">{item.title}</CardTitle>
+										<CardTitle className="text-2xl">{item.title}</CardTitle>
 									</CardHeader>
 									<CardContent>
-										<p className="text-muted-foreground text-sm">{item.description}</p>
+										<p className="text-muted-foreground text-base leading-relaxed">
+											{item.description}
+										</p>
 									</CardContent>
 								</CardSpotlight>
 							</motion.div>
