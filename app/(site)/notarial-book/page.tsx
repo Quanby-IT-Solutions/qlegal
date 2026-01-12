@@ -45,7 +45,9 @@ import {
 } from "@/core/components/ui/table"
 import { NotarialActDocumentDialog } from "@/features/notarial-book/components/notarial-act-document-dialog"
 
-import { trpc } from "@/services/trpc/client"
+import { trpc, type RouterOutputs } from "@/services/trpc/client"
+
+type NotarialAct = RouterOutputs["notarialBook"]["getNotarialBook"]["acts"][number]
 
 export default function NotarialBookPage() {
 	const { data: session } = useSession()
@@ -100,21 +102,19 @@ export default function NotarialBookPage() {
 		},
 	})
 
-	const notarialActs = notarialBookData?.acts ?? []
+	const filteredActs = useMemo((): NotarialAct[] => {
+		const acts: NotarialAct[] = notarialBookData?.acts ?? []
+		if (acts.length === 0) return []
 
-	const filteredActs = useMemo(() => {
-		if (!notarialActs) return []
-
-		return notarialActs.filter(act => {
-			const matchesSearch =
-				act.principalName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-				(act.documentName?.toLowerCase().includes(searchTerm.toLowerCase()) ??
-				act.certificateNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ??
-				false)
+		const searchLower = searchTerm.toLowerCase()
+		return acts.filter((act: NotarialAct) => {
+			const matchesPrincipal = act.principalName?.toLowerCase().includes(searchLower) ?? false
+			const matchesDocument = act.documentName?.toLowerCase().includes(searchLower) ?? false
+			const matchesCertificate = act.certificateNumber?.toLowerCase().includes(searchLower) ?? false
 			
-			return matchesSearch
+			return matchesPrincipal || matchesDocument || matchesCertificate
 		})
-	}, [notarialActs, searchTerm])
+	}, [notarialBookData?.acts, searchTerm])
 
 	const handleExport = () => {
 		exportMutation.mutate()
@@ -284,8 +284,8 @@ export default function NotarialBookPage() {
 										<Skeleton className="h-4 w-32" />
 									) : (
 										<>
-											{notarialBookData?.total || 0} notarial act
-											{(notarialBookData?.total || 0) !== 1 ? "s" : ""} recorded
+											{notarialBookData?.total ?? 0} notarial act
+											{(notarialBookData?.total ?? 0) !== 1 ? "s" : ""} recorded
 											{notarialBookData && notarialBookData.totalPages > 1 && (
 												<span className="ml-2">
 													(Page {page} of {notarialBookData.totalPages})
@@ -325,42 +325,6 @@ export default function NotarialBookPage() {
 										)}
 									</div>
 								) : (
-									<>
-										{notarialBookData?.total ?? 0} notarial act{(notarialBookData?.total ?? 0) !== 1 ? "s" : ""} recorded
-										{notarialBookData && notarialBookData.totalPages > 1 && (
-											<span className="ml-2">
-												(Page {page} of {notarialBookData.totalPages})
-											</span>
-										)}
-									</>
-								)}
-							</CardDescription>
-						</CardHeader>
-						<CardContent>
-							{isLoading ? (
-								<div className="space-y-4">
-									{Array.from({ length: 5 }).map((_, i) => (
-										<Skeleton key={i} className="h-16 w-full" />
-									))}
-								</div>
-							) : filteredActs.length === 0 ? (
-								<div className="py-12 text-center">
-									<FileText className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-									<h3 className="text-lg font-medium mb-2">No notarial acts found</h3>
-									<p className="text-muted-foreground mb-4">
-										{searchTerm || actTypeFilter !== "ALL" || workflowFilter !== "ALL"
-											? "Try adjusting your search criteria or filters."
-											: "You haven't synced any notarial acts yet. Click 'Sync Documents' to import completed documents from Doc On Chain."}
-									</p>
-									{!searchTerm && actTypeFilter === "ALL" && workflowFilter === "ALL" && (
-										<Button onClick={handleAutoSync} variant="outline" disabled={autoSyncMutation.isPending}>
-											<RefreshCw className={`mr-2 h-4 w-4 ${autoSyncMutation.isPending ? "animate-spin" : ""}`} />
-											Sync Documents from Doc On Chain
-										</Button>
-									)}
-								</div>
-							) : (
-								<>
 									<div className="overflow-x-auto">
 										<Table>
 											<TableHeader>
@@ -448,47 +412,14 @@ export default function NotarialBookPage() {
 																		<FileCheck className="h-4 w-4" />
 																	</Button>
 																)}
-															</TableCell>
-															<TableCell>
-																<span className="text-sm">{act.location || "Philippines"}</span>
-															</TableCell>
-															<TableCell>
-																<span className="font-mono text-sm">
-																	{act.certificateNumber || "N/A"}
-																</span>
-															</TableCell>
-															<TableCell>
-																<div className="flex items-center gap-2">
-																	{(act.documentId || act.docoChainProjectUuid) && (
-																		<Button
-																			variant="ghost"
-																			size="sm"
-																			onClick={() => handleViewDocument(act.id)}
-																			title="View Document"
-																		>
-																			<Eye className="h-4 w-4" />
-																		</Button>
-																	)}
-																	{act.docoChainProjectUuid && (
-																		<Button
-																			variant="ghost"
-																			size="sm"
-																			onClick={() => handleViewCertificate(act.id)}
-																			title="View Certificate"
-																		>
-																			<FileCheck className="h-4 w-4" />
-																		</Button>
-																	)}
-																</div>
-															</TableCell>
-														</TableRow>
-													))}
-												</TableBody>
-											</Table>
-										</div>
-									)}
-								</>
-							)}
+															</div>
+														</TableCell>
+													</TableRow>
+												))}
+											</TableBody>
+										</Table>
+									</div>
+								)}
 						</CardContent>
 					</Card>
 				</div>

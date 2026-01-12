@@ -7,6 +7,7 @@ import { users } from "@/services/drizzle/schema/auth"
 import { documents } from "@/services/drizzle/schema/document"
 import { legalRegistrations } from "@/services/drizzle/schema/legal-registration"
 import { meetings } from "@/services/drizzle/schema/meetings"
+import { notarialActs, notarialBooks } from "@/services/drizzle/schema/notarial-book"
 import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
 import { autoCreateNotarialAct } from "@/features/notarial-book/lib/auto-create-notarial-act"
 
