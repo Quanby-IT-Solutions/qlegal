@@ -1,7 +1,6 @@
 "use client"
 
 import { Building2, Globe, Landmark, Scale, Shield, Users } from "lucide-react"
-import { motion } from "motion/react"
 
 const logos = [
 	{ icon: Building2, name: "Corp One" },
