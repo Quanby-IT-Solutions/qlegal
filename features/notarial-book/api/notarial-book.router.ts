@@ -2,12 +2,11 @@ import { TRPCError } from "@trpc/server"
 import { and, count, desc, eq, isNotNull } from "drizzle-orm"
 import { z } from "zod/v4"
 
-import { downloadCertificate, getPassportDocument } from "@/services/docochain"
+import { checkSigningStatus, downloadCertificate, getPassportDocument } from "@/services/docochain"
 import { users } from "@/services/drizzle/schema/auth"
 import { documents } from "@/services/drizzle/schema/document"
 import { legalRegistrations } from "@/services/drizzle/schema/legal-registration"
 import { meetings } from "@/services/drizzle/schema/meetings"
-import { getPassportDocument, downloadCertificate, checkSigningStatus } from "@/services/docochain"
 import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
 import { autoCreateNotarialAct } from "@/features/notarial-book/lib/auto-create-notarial-act"
 
@@ -212,26 +211,7 @@ export const notarialBookRouter = createTRPCRouter({
 
 		const total = totalResult?.count ?? 0
 
-			// Get notarial acts with pagination
-			// Note: Data is stored chronologically (executedAt timestamp ensures chronological order)
-			// Display order is DESC (newest first) for better UX, but data maintains chronological integrity
-			const acts = await ctx.db
-				.select()
-				.from(notarialActs)
-				.where(and(...filters))
-				.orderBy(desc(notarialActs.executedAt)) // Display: newest first, but data is chronologically ordered
-				.limit(perPage)
-				.offset((page - 1) * perPage)
-
-			// Get total count using proper count function
-			const [totalResult] = await ctx.db
-				.select({ count: count() })
-				.from(notarialActs)
-				.where(and(...filters))
-
-			const total = totalResult?.count ?? 0
-
-			// Filter by search term if provided
+		// Filter by search term if provided
 			let filteredActs = acts
 			if (search) {
 				const searchLower = search.toLowerCase()
