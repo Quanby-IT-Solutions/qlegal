@@ -40,15 +40,22 @@
 	--radius-md: calc(var(--radius) - 2px);
 	--radius-lg: var(--radius);
 	--radius-xl: calc(var(--radius) + 4px);
-	--font-family-sans: ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+	--font-family-sans:
+		ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol",
+		"Noto Color Emoji";
 	--font-family-serif: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
 
-	--animate-orbit: orbit calc(var(--duration)*1s) linear infinite;
+	--animate-orbit: orbit calc(var(--duration) * 1s) linear infinite;
 	--animate-marquee: marquee 25s linear infinite;
+	--animate-line-shadow: line-shadow 50s linear infinite;
 
 	@keyframes marquee {
-		0% { transform: translateX(0); }
-		100% { transform: translateX(calc(-100% - var(--gap))); }
+		0% {
+			transform: translateX(0);
+		}
+		100% {
+			transform: translateX(calc(-100% - var(--gap)));
+		}
 	}
 
 	@keyframes orbit {
@@ -57,6 +64,15 @@
 		}
 		100% {
 			transform: rotate(360deg) translateY(calc(var(--radius) * 1px)) rotate(-360deg);
+		}
+	}
+
+	@keyframes line-shadow {
+		0% {
+			background-position: 0 0;
+		}
+		100% {
+			background-position: 100% -100%;
 		}
 	}
 }

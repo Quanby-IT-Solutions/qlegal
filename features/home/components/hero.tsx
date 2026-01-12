@@ -3,9 +3,12 @@
 import Link from "next/link"
 import { ArrowRight, CheckCircle, FileSignature, Scale, Shield, Users } from "lucide-react"
 import { motion } from "motion/react"
+import { useTheme } from "next-themes"
+import { useEffect, useState } from "react"
 
 import { QuanbyLogo } from "@/core/components/quanby-logo"
 import { Button } from "@/core/components/ui/button"
+import { LineShadowText } from "@/core/components/ui/line-shadow-text"
 import { OrbitingCircles } from "@/core/components/ui/orbiting-circles"
 import { TextGenerateEffect } from "@/core/components/ui/text-generate-effect"
 
@@ -25,6 +28,15 @@ const staggerContainer = {
 }
 
 export function Hero() {
+	const theme = useTheme()
+	const [mounted, setMounted] = useState(false)
+
+	useEffect(() => {
+		setMounted(true)
+	}, [])
+
+	const shadowColor = mounted && theme.resolvedTheme === "dark" ? "white" : "black"
+
 	return (
 		<section className="relative w-full overflow-hidden pt-20 pb-24 sm:pt-24 lg:pt-40">
 			{/* Background Elements */}
@@ -89,7 +101,7 @@ export function Hero() {
 								<span className="bg-linear-to-r from-[rgb(91,26,128)] via-[rgb(91,26,128)]/80 to-[rgb(233,30,140)] bg-clip-text text-transparent">
 									Electronic Notarization
 								</span>{" "}
-								Platform
+								<LineShadowText shadowColor={shadowColor}>Platform</LineShadowText>
 							</h1>
 						</motion.div>
 
