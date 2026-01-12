@@ -324,7 +324,7 @@ export function KycVerificationCard({
 								</p>
 								{!checkingStatus && (
 									<p className="mt-2 text-xs text-blue-600 dark:text-blue-400">
-										💡 You&apos;ll be automatically redirected when your verification is complete,
+										You&apos;ll be automatically redirected when your verification is complete,
 										or you can check manually below.
 									</p>
 								)}
@@ -397,7 +397,7 @@ export function KycVerificationCard({
 									documents or mismatched information.
 								</p>
 								<p className="text-xs text-red-600 dark:text-red-400">
-									💡 Please ensure your ID is clear, well-lit, and all information is visible before
+									Please ensure your ID is clear, well-lit, and all information is visible before
 									retrying.
 								</p>
 							</div>
