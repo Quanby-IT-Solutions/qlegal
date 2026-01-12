@@ -1,8 +1,8 @@
 "use client"
 
+import { useState } from "react"
 import { format } from "date-fns"
 import { Download, Eye, FileIcon, Trash2, Upload } from "lucide-react"
-import { useState } from "react"
 import { toast } from "sonner"
 
 import { Button } from "@/core/components/ui/button"
@@ -11,6 +11,7 @@ import { ScrollArea } from "@/core/components/ui/scroll-area"
 import { Separator } from "@/core/components/ui/separator"
 import { Skeleton } from "@/core/components/ui/skeleton"
 import { cn } from "@/core/lib/utils"
+
 import { useMessageFiles } from "@/features/messages/api/message-files.hooks"
 
 import { MultiFileUploadDialog } from "./multi-file-upload-dialog"
@@ -26,7 +27,10 @@ export function FileUploadPanel({ conversationId }: FileUploadPanelProps) {
 
 	// Get files for each category
 	const { data: generalFiles, isLoading: loadingGeneral } = getFiles(conversationId, "general")
-	const { data: principalFiles, isLoading: loadingPrincipal } = getFiles(conversationId, "principal")
+	const { data: principalFiles, isLoading: loadingPrincipal } = getFiles(
+		conversationId,
+		"principal"
+	)
 	const { data: enpFiles, isLoading: loadingEnp } = getFiles(conversationId, "enp")
 
 	const handleDelete = async (fileId: string) => {
@@ -47,7 +51,7 @@ export function FileUploadPanel({ conversationId }: FileUploadPanelProps) {
 		try {
 			const { getSupabaseBrowserClient } = await import("@/services/supabase/client")
 			const supabase = getSupabaseBrowserClient()
-			
+
 			const { data, error } = await supabase.storage.from("documents").download(filePath)
 
 			if (error) {
@@ -75,7 +79,7 @@ export function FileUploadPanel({ conversationId }: FileUploadPanelProps) {
 		try {
 			const { getSupabaseBrowserClient } = await import("@/services/supabase/client")
 			const supabase = getSupabaseBrowserClient()
-			
+
 			const { data, error } = await supabase.storage.from("documents").download(filePath)
 
 			if (error) {
@@ -85,7 +89,7 @@ export function FileUploadPanel({ conversationId }: FileUploadPanelProps) {
 			// Create a blob URL and open in new tab
 			const url = window.URL.createObjectURL(data)
 			window.open(url, "_blank")
-			
+
 			// Clean up the URL after a delay
 			setTimeout(() => {
 				window.URL.revokeObjectURL(url)
@@ -119,15 +123,15 @@ export function FileUploadPanel({ conversationId }: FileUploadPanelProps) {
 			uploadedBy: { name: string | null } | null
 		}
 	}) => (
-		<Card className="p-3 transition-colors hover:bg-accent">
+		<Card className="hover:bg-accent p-3 transition-colors">
 			<div className="flex items-start gap-3">
-				<div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-					<FileIcon className="size-5 text-primary" />
+				<div className="bg-primary/10 flex size-10 shrink-0 items-center justify-center rounded-lg">
+					<FileIcon className="text-primary size-5" />
 				</div>
 				<div className="min-w-0 flex-1">
 					<p className="truncate text-sm font-medium">{file.fileName}</p>
-					<p className="text-xs text-muted-foreground">{formatFileSize(file.fileSize)}</p>
-					<p className="text-xs text-muted-foreground">
+					<p className="text-muted-foreground text-xs">{formatFileSize(file.fileSize)}</p>
+					<p className="text-muted-foreground text-xs">
 						{file.uploadedBy?.name} • {format(new Date(file.createdAt), "MMM d, h:mm a")}
 					</p>
 				</div>
@@ -153,7 +157,7 @@ export function FileUploadPanel({ conversationId }: FileUploadPanelProps) {
 					<Button
 						variant="ghost"
 						size="icon"
-						className="size-8 text-destructive hover:bg-destructive/10 hover:text-destructive"
+						className="text-destructive hover:bg-destructive/10 hover:text-destructive size-8"
 						onClick={() => void handleDelete(file.id)}
 						disabled={deleteFile.isPending}
 						title="Delete file"
@@ -199,14 +203,14 @@ export function FileUploadPanel({ conversationId }: FileUploadPanelProps) {
 				</div>
 			) : files && files.length > 0 ? (
 				<div className="space-y-2">
-					{files.map((file) => (
+					{files.map(file => (
 						<FileItem key={file.id} file={file} />
 					))}
 				</div>
 			) : (
 				<Card className="p-6 text-center">
-					<FileIcon className="mx-auto mb-2 size-8 text-muted-foreground" />
-					<p className="text-xs text-muted-foreground">No files uploaded yet</p>
+					<FileIcon className="text-muted-foreground mx-auto mb-2 size-8" />
+					<p className="text-muted-foreground text-xs">No files uploaded yet</p>
 				</Card>
 			)}
 		</div>
@@ -214,11 +218,11 @@ export function FileUploadPanel({ conversationId }: FileUploadPanelProps) {
 
 	return (
 		<>
-			<div className="flex h-screen w-80 flex-col border-l bg-background">
+			<div className="bg-background flex h-screen w-80 flex-col border-l">
 				{/* Header */}
 				<div className="shrink-0 border-b p-4">
 					<h2 className="text-lg font-semibold">Files</h2>
-					<p className="text-xs text-muted-foreground">Manage conversation files</p>
+					<p className="text-muted-foreground text-xs">Manage conversation files</p>
 				</div>
 
 				{/* File Sections - Scrollable container */}
@@ -258,4 +262,3 @@ export function FileUploadPanel({ conversationId }: FileUploadPanelProps) {
 		</>
 	)
 }
-

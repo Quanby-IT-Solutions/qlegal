@@ -36,7 +36,10 @@ export function LawyerCard({ lawyer }: LawyerCardProps) {
 					</Avatar>
 					<div className="flex min-w-0 flex-1 flex-col gap-1">
 						<div className="flex min-w-0 items-start gap-2">
-							<CardTitle className="break-words text-lg leading-tight min-w-0 flex-1" title={lawyer.name ?? "Unknown"}>
+							<CardTitle
+								className="min-w-0 flex-1 text-lg leading-tight break-words"
+								title={lawyer.name ?? "Unknown"}
+							>
 								{lawyer.name ?? "Unknown"}
 							</CardTitle>
 							{lawyer.emailVerified && (

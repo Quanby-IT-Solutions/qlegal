@@ -1,12 +1,12 @@
 import { TRPCError } from "@trpc/server"
-import { desc, eq, and, isNotNull, count } from "drizzle-orm"
+import { and, count, desc, eq, isNotNull } from "drizzle-orm"
 import { z } from "zod/v4"
 
-import { documents } from "@/services/drizzle/schema/document"
-import { notarialActs, notarialBooks } from "@/services/drizzle/schema/notarial-book"
+import { downloadCertificate, getPassportDocument } from "@/services/docochain"
 import { users } from "@/services/drizzle/schema/auth"
+import { documents } from "@/services/drizzle/schema/document"
 import { legalRegistrations } from "@/services/drizzle/schema/legal-registration"
-import { getPassportDocument, downloadCertificate } from "@/services/docochain"
+import { notarialActs, notarialBooks } from "@/services/drizzle/schema/notarial-book"
 import { getPublicClient } from "@/services/supabase"
 import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
 
@@ -14,7 +14,9 @@ const getNotarialBookSchema = z.object({
 	page: z.number().min(1).default(1),
 	perPage: z.number().min(1).max(100).default(50),
 	search: z.string().optional(),
-	actType: z.enum(["ALL", "ACKNOWLEDGMENT", "AFFIRMATION", "JURAT", "SIGNATURE_WITNESSING"]).default("ALL"),
+	actType: z
+		.enum(["ALL", "ACKNOWLEDGMENT", "AFFIRMATION", "JURAT", "SIGNATURE_WITNESSING"])
+		.default("ALL"),
 	workflow: z.enum(["ALL", "REN", "IEN"]).default("ALL"),
 })
 
@@ -42,14 +44,17 @@ function extractSignerInfo(passportData: any) {
 		signers.push(...passportData.signers)
 	} else if (passportData?.data?.history) {
 		// Extract from history/audit trail
-		const history = Array.isArray(passportData.data.history) 
-			? passportData.data.history 
+		const history = Array.isArray(passportData.data.history)
+			? passportData.data.history
 			: passportData.history || []
-		
+
 		history.forEach((event: any) => {
 			if (event.signer) {
 				signers.push({
-					name: event.signer.name || event.signer.first_name + " " + event.signer.last_name || "Unknown",
+					name:
+						event.signer.name ||
+						event.signer.first_name + " " + event.signer.last_name ||
+						"Unknown",
 					email: event.signer.email || "",
 					role: event.signer.role || event.signer.signer_role || "SIGNER",
 					signedAt: event.timestamp || event.signed_at,
@@ -59,15 +64,13 @@ function extractSignerInfo(passportData: any) {
 	}
 
 	// Identify principal (usually first signer or role "PRINCIPAL")
-	const principal = signers.find(s => 
-		s.role?.toUpperCase().includes("PRINCIPAL") || 
-		s.role?.toUpperCase().includes("SIGNER")
-	) || signers[0]
+	const principal =
+		signers.find(
+			s => s.role?.toUpperCase().includes("PRINCIPAL") || s.role?.toUpperCase().includes("SIGNER")
+		) || signers[0]
 
 	// Identify witness (role "WITNESS")
-	const witness = signers.find(s => 
-		s.role?.toUpperCase().includes("WITNESS")
-	)
+	const witness = signers.find(s => s.role?.toUpperCase().includes("WITNESS"))
 
 	return { principal, witness, allSigners: signers }
 }
@@ -81,7 +84,7 @@ function determineActType(
 	passportData: any
 ): "ACKNOWLEDGMENT" | "AFFIRMATION" | "JURAT" | "SIGNATURE_WITNESSING" {
 	const combinedText = `${documentName} ${documentDescription || ""}`.toLowerCase()
-	
+
 	// Check for keywords
 	if (combinedText.includes("acknowledgment") || combinedText.includes("acknowledge")) {
 		return "ACKNOWLEDGMENT"
@@ -95,7 +98,7 @@ function determineActType(
 	if (combinedText.includes("witness") || combinedText.includes("witnessing")) {
 		return "SIGNATURE_WITNESSING"
 	}
-	
+
 	// Default to acknowledgment (most common)
 	return "ACKNOWLEDGMENT"
 }
@@ -105,88 +108,87 @@ export const notarialBookRouter = createTRPCRouter({
 	 * Get notarial book entries for the current ENP
 	 * Uses Doc On Chain Passport API to fetch document history
 	 */
-	getNotarialBook: protectedProcedure
-		.input(getNotarialBookSchema)
-		.query(async ({ ctx, input }) => {
-			const userId = ctx.session.user.id
-			const { page, perPage, search, actType, workflow } = input
+	getNotarialBook: protectedProcedure.input(getNotarialBookSchema).query(async ({ ctx, input }) => {
+		const userId = ctx.session.user.id
+		const { page, perPage, search, actType, workflow } = input
 
-			// Verify user is an ENP
-			const user = await ctx.db.query.users.findFirst({
-				where: eq(users.id, userId),
+		// Verify user is an ENP
+		const user = await ctx.db.query.users.findFirst({
+			where: eq(users.id, userId),
+		})
+
+		if (user?.role !== "ENP") {
+			throw new TRPCError({
+				code: "FORBIDDEN",
+				message: "Only ENPs can access the notarial book",
 			})
+		}
 
-			if (user?.role !== "ENP") {
-				throw new TRPCError({
-					code: "FORBIDDEN",
-					message: "Only ENPs can access the notarial book",
+		// Get or create notarial book for this ENP
+		let notarialBook = await ctx.db.query.notarialBooks.findFirst({
+			where: eq(notarialBooks.enpId, userId),
+		})
+
+		if (!notarialBook) {
+			// Create notarial book if it doesn't exist
+			const [created] = await ctx.db
+				.insert(notarialBooks)
+				.values({
+					enpId: userId,
 				})
-			}
+				.returning()
 
-			// Get or create notarial book for this ENP
-			let notarialBook = await ctx.db.query.notarialBooks.findFirst({
-				where: eq(notarialBooks.enpId, userId),
-			})
+			notarialBook = created!
+		}
 
-			if (!notarialBook) {
-				// Create notarial book if it doesn't exist
-				const [created] = await ctx.db
-					.insert(notarialBooks)
-					.values({
-						enpId: userId,
-					})
-					.returning()
-				
-				notarialBook = created!
-			}
+		// Build query filters
+		const filters = [eq(notarialActs.notarialBookId, notarialBook.id)]
 
-			// Build query filters
-			const filters = [eq(notarialActs.notarialBookId, notarialBook.id)]
+		if (actType !== "ALL") {
+			filters.push(eq(notarialActs.actType, actType))
+		}
 
-			if (actType !== "ALL") {
-				filters.push(eq(notarialActs.actType, actType))
-			}
+		if (workflow !== "ALL") {
+			filters.push(eq(notarialActs.workflow, workflow))
+		}
 
-			if (workflow !== "ALL") {
-				filters.push(eq(notarialActs.workflow, workflow))
-			}
+		// Get notarial acts with pagination
+		const acts = await ctx.db
+			.select()
+			.from(notarialActs)
+			.where(and(...filters))
+			.orderBy(desc(notarialActs.executedAt))
+			.limit(perPage)
+			.offset((page - 1) * perPage)
 
-			// Get notarial acts with pagination
-			const acts = await ctx.db
-				.select()
-				.from(notarialActs)
-				.where(and(...filters))
-				.orderBy(desc(notarialActs.executedAt))
-				.limit(perPage)
-				.offset((page - 1) * perPage)
+		// Get total count using proper count function
+		const [totalResult] = await ctx.db
+			.select({ count: count() })
+			.from(notarialActs)
+			.where(and(...filters))
 
-			// Get total count using proper count function
-			const [totalResult] = await ctx.db
-				.select({ count: count() })
-				.from(notarialActs)
-				.where(and(...filters))
+		const total = totalResult?.count ?? 0
 
-			const total = totalResult?.count ?? 0
-
-			// Filter by search term if provided
-			let filteredActs = acts
-			if (search) {
-				const searchLower = search.toLowerCase()
-				filteredActs = acts.filter(act =>
+		// Filter by search term if provided
+		let filteredActs = acts
+		if (search) {
+			const searchLower = search.toLowerCase()
+			filteredActs = acts.filter(
+				act =>
 					act.principalName.toLowerCase().includes(searchLower) ||
 					act.documentName?.toLowerCase().includes(searchLower) ||
 					act.certificateNumber?.toLowerCase().includes(searchLower)
-				)
-			}
+			)
+		}
 
-			return {
-				acts: filteredActs,
-				total,
-				page,
-				perPage,
-				totalPages: Math.ceil(total / perPage),
-			}
-		}),
+		return {
+			acts: filteredActs,
+			total,
+			page,
+			perPage,
+			totalPages: Math.ceil(total / perPage),
+		}
+	}),
 
 	/**
 	 * Sync a completed document to the notarial book
@@ -234,7 +236,7 @@ export const notarialBookRouter = createTRPCRouter({
 						enpId: userId,
 					})
 					.returning()
-				
+
 				notarialBook = created!
 			}
 
@@ -258,14 +260,14 @@ export const notarialBookRouter = createTRPCRouter({
 			try {
 				// Get history view for audit trail
 				passportData = await getPassportDocument(projectUuid, "history", user.email || undefined)
-				
+
 				// Extract signer information
 				const { principal, witness } = extractSignerInfo(passportData)
-				
+
 				if (principal) {
 					principalName = principal.name || "Unknown"
 				}
-				
+
 				if (witness) {
 					witnessName = witness.name || null
 				}
@@ -279,12 +281,15 @@ export const notarialBookRouter = createTRPCRouter({
 
 				// Determine workflow (REN if has video/remote indicators, IEN otherwise)
 				const passportText = JSON.stringify(passportData).toLowerCase()
-				if (passportText.includes("remote") || passportText.includes("video") || passportText.includes("ren")) {
+				if (
+					passportText.includes("remote") ||
+					passportText.includes("video") ||
+					passportText.includes("ren")
+				) {
 					workflow = "REN"
 				} else {
 					workflow = "IEN"
 				}
-
 			} catch (error) {
 				console.error("Error fetching passport data:", error)
 				// Continue with default values if passport fetch fails
@@ -334,10 +339,7 @@ export const notarialBookRouter = createTRPCRouter({
 				return updated
 			} else {
 				// Create new act
-				const [created] = await ctx.db
-					.insert(notarialActs)
-					.values(actData)
-					.returning()
+				const [created] = await ctx.db.insert(notarialActs).values(actData).returning()
 
 				return created
 			}
@@ -400,7 +402,7 @@ export const notarialBookRouter = createTRPCRouter({
 					enpId: userId,
 				})
 				.returning()
-			
+
 			notarialBook = created!
 		}
 
@@ -434,13 +436,17 @@ export const notarialBookRouter = createTRPCRouter({
 				let workflow: "REN" | "IEN" = "REN"
 
 				try {
-					passportData = await getPassportDocument(doc.docoChainProjectId, "history", user.email || undefined)
+					passportData = await getPassportDocument(
+						doc.docoChainProjectId,
+						"history",
+						user.email || undefined
+					)
 					const { principal, witness } = extractSignerInfo(passportData)
-					
+
 					if (principal) {
 						principalName = principal.name || "Unknown"
 					}
-					
+
 					if (witness) {
 						witnessName = witness.name || null
 					}
@@ -452,7 +458,11 @@ export const notarialBookRouter = createTRPCRouter({
 					}
 
 					const passportText = JSON.stringify(passportData).toLowerCase()
-					if (passportText.includes("remote") || passportText.includes("video") || passportText.includes("ren")) {
+					if (
+						passportText.includes("remote") ||
+						passportText.includes("video") ||
+						passportText.includes("ren")
+					) {
 						workflow = "REN"
 					} else {
 						workflow = "IEN"
@@ -492,7 +502,9 @@ export const notarialBookRouter = createTRPCRouter({
 				syncedCount++
 			} catch (error) {
 				console.error(`Error syncing document ${doc.id}:`, error)
-				errors.push(`Failed to sync ${doc.name}: ${error instanceof Error ? error.message : "Unknown error"}`)
+				errors.push(
+					`Failed to sync ${doc.name}: ${error instanceof Error ? error.message : "Unknown error"}`
+				)
 			}
 		}
 
@@ -557,9 +569,9 @@ export const notarialBookRouter = createTRPCRouter({
 				if (document?.path) {
 					const supabase = getPublicClient()
 					const bucketName = document.path.includes("envelopes") ? "envelopes" : "documents"
-					const { data: { publicUrl } } = supabase.storage
-						.from(bucketName)
-						.getPublicUrl(document.path)
+					const {
+						data: { publicUrl },
+					} = supabase.storage.from(bucketName).getPublicUrl(document.path)
 
 					return {
 						url: publicUrl,
@@ -582,9 +594,11 @@ export const notarialBookRouter = createTRPCRouter({
 					// Handle both string and object responses
 					if (typeof passportData === "object" && passportData !== null) {
 						const passportObj = passportData as Record<string, unknown>
-						const documentUrl = (passportObj.data as Record<string, unknown> | undefined)?.document_url as string | undefined
-							?? passportObj.document_url as string | undefined
-						
+						const documentUrl =
+							((passportObj.data as Record<string, unknown> | undefined)?.document_url as
+								| string
+								| undefined) ?? (passportObj.document_url as string | undefined)
+
 						if (documentUrl) {
 							return {
 								url: documentUrl,
@@ -740,4 +754,3 @@ export const notarialBookRouter = createTRPCRouter({
 		}
 	}),
 })
-

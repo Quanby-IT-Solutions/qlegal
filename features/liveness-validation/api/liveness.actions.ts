@@ -38,9 +38,9 @@ export async function getLivenessMode() {
 /**
  * Validate selfie liveness using direct API mode
  * This is behind a feature flag (HYPERVERGE_DIRECT_LIVENESS_ENABLED)
- * 
+ *
  * Uses the unified decision logic with liveFace.value and summary.action
- * 
+ *
  * @param imageBase64 - Base64 encoded selfie image (with or without data URI prefix)
  */
 export async function validateSelfieLiveness(imageBase64: string) {

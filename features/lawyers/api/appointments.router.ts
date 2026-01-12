@@ -1,17 +1,18 @@
 import { TRPCError } from "@trpc/server"
 import { and, desc, eq, gte, or } from "drizzle-orm"
 
-import { users } from "@/services/drizzle/schema/auth"
-import { appointments } from "@/services/drizzle/schema/appointments"
-import { documents } from "@/services/drizzle/schema/document"
-import { envelopes } from "@/services/drizzle/schema/envelope"
-import { meetings, meetingParticipants } from "@/services/drizzle/schema/meetings"
-import { notarizationRequests } from "@/services/drizzle/schema/notarization-requests"
-import { enpProfiles } from "@/services/drizzle/schema/enp-profiles"
-import { getDocumentPublicUrl } from "@/services/supabase/signed-url"
-import { createMeetingRoom } from "@/services/video-sdk"
-import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
 import { getUrl } from "@/core/lib/get-url"
+
+import { appointments } from "@/services/drizzle/schema/appointments"
+import { users } from "@/services/drizzle/schema/auth"
+import { documents } from "@/services/drizzle/schema/document"
+import { enpProfiles } from "@/services/drizzle/schema/enp-profiles"
+import { envelopes } from "@/services/drizzle/schema/envelope"
+import { meetingParticipants, meetings } from "@/services/drizzle/schema/meetings"
+import { notarizationRequests } from "@/services/drizzle/schema/notarization-requests"
+import { getDocumentPublicUrl } from "@/services/supabase/signed-url"
+import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
+import { createMeetingRoom } from "@/services/video-sdk"
 
 import {
 	cancelAppointmentSchema,
@@ -77,7 +78,9 @@ export const appointmentsRouter = createTRPCRouter({
 			const { status, type, lawyerId, limit, offset } = input
 
 			// Build where conditions
-			const whereConditions = [or(eq(appointments.clientId, userId), eq(appointments.lawyerId, userId))!]
+			const whereConditions = [
+				or(eq(appointments.clientId, userId), eq(appointments.lawyerId, userId))!,
+			]
 
 			if (status) {
 				whereConditions.push(eq(appointments.status, status))
@@ -237,7 +240,8 @@ export const appointmentsRouter = createTRPCRouter({
 			}
 
 			const isRemote = !existing.location // location null/undefined => remote
-			const providedLink = input.meetingLink && input.meetingLink.trim().length > 0 ? input.meetingLink : undefined
+			const providedLink =
+				input.meetingLink && input.meetingLink.trim().length > 0 ? input.meetingLink : undefined
 			let meetingLink = providedLink ?? existing.meetingLink
 
 			// For remote appointments without a meeting yet, create one on accept
@@ -457,12 +461,8 @@ export const appointmentsRouter = createTRPCRouter({
 			}
 
 			// Determine principal and ENP
-			const principal = appointment
-				? appointment.client
-				: notarizationRequest?.principal
-			const enpUser = appointment
-				? appointment.lawyer
-				: notarizationRequest?.enp
+			const principal = appointment ? appointment.client : notarizationRequest?.principal
+			const enpUser = appointment ? appointment.lawyer : notarizationRequest?.enp
 
 			if (!principal || !enpUser) {
 				throw new TRPCError({
@@ -516,7 +516,7 @@ export const appointmentsRouter = createTRPCRouter({
 
 				// Get document URLs and determine page count
 				sessionDocuments = await Promise.all(
-					envelopeDocuments.map(async (doc) => {
+					envelopeDocuments.map(async doc => {
 						let docUrl = ""
 						try {
 							if (doc.path) {
@@ -542,7 +542,8 @@ export const appointmentsRouter = createTRPCRouter({
 			}
 
 			// Determine location
-			const location = appointment?.location ?? (workflow === "REN" ? "Remote Video Call" : "In-Person")
+			const location =
+				appointment?.location ?? (workflow === "REN" ? "Remote Video Call" : "In-Person")
 
 			// Build response
 			return {

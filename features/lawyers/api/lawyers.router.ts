@@ -64,13 +64,15 @@ export const lawyersRouter = createTRPCRouter({
 			specialization: lawyer.specialization || null,
 			bio: lawyer.bio || null,
 			experience: lawyer.experience || null,
-			languages: lawyer.languages ? (() => {
-				try {
-					return JSON.parse(lawyer.languages) as string[]
-				} catch {
-					return []
-				}
-			})() : [],
+			languages: lawyer.languages
+				? (() => {
+						try {
+							return JSON.parse(lawyer.languages) as string[]
+						} catch {
+							return []
+						}
+					})()
+				: [],
 			responseTime: lawyer.responseTime || null,
 			rating: lawyer.rating ?? 0,
 			reviewCount: lawyer.reviewCount ?? 0,
@@ -79,73 +81,70 @@ export const lawyersRouter = createTRPCRouter({
 	}),
 
 	// Get lawyer by ID with profile
-	getLawyerById: publicProcedure
-		.input(getLawyerByIdSchema)
-		.query(async ({ ctx, input }) => {
-			const { lawyerId } = input
+	getLawyerById: publicProcedure.input(getLawyerByIdSchema).query(async ({ ctx, input }) => {
+		const { lawyerId } = input
 
-			const result = await ctx.db
-				.select({
-					id: users.id,
-					name: users.name,
-					email: users.email,
-					image: users.image,
-					phoneNumber: users.phoneNumber,
-					emailVerified: users.emailVerified,
-					role: users.role,
-					// ENP Profile fields
-					specialization: enpProfiles.specialization,
-					bio: enpProfiles.bio,
-					experience: enpProfiles.experience,
-					languages: enpProfiles.languages,
-					responseTime: enpProfiles.responseTime,
-					rating: enpProfiles.rating,
-					reviewCount: enpProfiles.reviewCount,
-					isAvailable: enpProfiles.isAvailable,
-				})
-				.from(users)
-				.leftJoin(enpProfiles, eq(users.id, enpProfiles.userId))
-				.where(eq(users.id, lawyerId))
-				.limit(1)
+		const result = await ctx.db
+			.select({
+				id: users.id,
+				name: users.name,
+				email: users.email,
+				image: users.image,
+				phoneNumber: users.phoneNumber,
+				emailVerified: users.emailVerified,
+				role: users.role,
+				// ENP Profile fields
+				specialization: enpProfiles.specialization,
+				bio: enpProfiles.bio,
+				experience: enpProfiles.experience,
+				languages: enpProfiles.languages,
+				responseTime: enpProfiles.responseTime,
+				rating: enpProfiles.rating,
+				reviewCount: enpProfiles.reviewCount,
+				isAvailable: enpProfiles.isAvailable,
+			})
+			.from(users)
+			.leftJoin(enpProfiles, eq(users.id, enpProfiles.userId))
+			.where(eq(users.id, lawyerId))
+			.limit(1)
 
-			const lawyer = result[0]
+		const lawyer = result[0]
 
-			if (!lawyer || lawyer.role !== "ENP") {
-				return null
-			}
+		if (!lawyer || lawyer.role !== "ENP") {
+			return null
+		}
 
-			// Transform the data to parse languages JSON and provide defaults
-			return {
-				id: lawyer.id,
-				name: lawyer.name,
-				email: lawyer.email,
-				image: lawyer.image,
-				phoneNumber: lawyer.phoneNumber,
-				emailVerified: lawyer.emailVerified,
-				role: lawyer.role,
-				specialization: lawyer.specialization || null,
-				bio: lawyer.bio || null,
-				experience: lawyer.experience || null,
-				languages: lawyer.languages ? (() => {
-					try {
-						return JSON.parse(lawyer.languages) as string[]
-					} catch {
-						return []
-					}
-				})() : [],
-				responseTime: lawyer.responseTime || null,
-				rating: lawyer.rating ?? 0,
-				reviewCount: lawyer.reviewCount ?? 0,
-				isAvailable: lawyer.isAvailable ?? true,
-			}
-		}),
+		// Transform the data to parse languages JSON and provide defaults
+		return {
+			id: lawyer.id,
+			name: lawyer.name,
+			email: lawyer.email,
+			image: lawyer.image,
+			phoneNumber: lawyer.phoneNumber,
+			emailVerified: lawyer.emailVerified,
+			role: lawyer.role,
+			specialization: lawyer.specialization || null,
+			bio: lawyer.bio || null,
+			experience: lawyer.experience || null,
+			languages: lawyer.languages
+				? (() => {
+						try {
+							return JSON.parse(lawyer.languages) as string[]
+						} catch {
+							return []
+						}
+					})()
+				: [],
+			responseTime: lawyer.responseTime || null,
+			rating: lawyer.rating ?? 0,
+			reviewCount: lawyer.reviewCount ?? 0,
+			isAvailable: lawyer.isAvailable ?? true,
+		}
+	}),
 
 	// Get total count of lawyers
 	getLawyersCount: publicProcedure.query(async ({ ctx }) => {
-		const result = await ctx.db
-			.select()
-			.from(users)
-			.where(eq(users.role, "ENP"))
+		const result = await ctx.db.select().from(users).where(eq(users.role, "ENP"))
 
 		return result.length
 	}),

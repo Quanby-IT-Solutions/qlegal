@@ -18,7 +18,7 @@ import { HeaderLogo } from "@/features/home/components/header-logo"
 const SPRING_TRANSITION = {
 	type: "spring" as const,
 	stiffness: 200,
-	damping: 30
+	damping: 30,
 }
 
 export const Header = ({ transition }: { transition: boolean }) => {
@@ -50,15 +50,15 @@ export const Header = ({ transition }: { transition: boolean }) => {
 					left: 0,
 					right: 0,
 					bottom: 0,
-					height: "100%"
+					height: "100%",
 				},
 				topLeft: {
 					top: 0,
 					left: 0,
 					right: 0,
 					bottom: "auto",
-					height: "auto"
-				}
+					height: "auto",
+				},
 			}}
 			initial="center"
 			animate={transition ? "topLeft" : "center"}
@@ -78,7 +78,7 @@ export const Header = ({ transition }: { transition: boolean }) => {
 function HeaderContainer({
 	transition,
 	isScrolled,
-	children
+	children,
 }: {
 	transition: boolean
 	isScrolled: boolean
@@ -91,11 +91,11 @@ function HeaderContainer({
 			className="relative size-full max-w-7xl"
 			animate={{
 				width: transition && isScrolled ? (isMobile ? "90%" : "80%") : "100%",
-				y: transition && isScrolled ? 8 : 0
+				y: transition && isScrolled ? 8 : 0,
 			}}
 			transition={{
 				width: { duration: 0.7, ease: [0.2, 0, 0.2, 1] },
-				y: { duration: 0.8, ease: [0.8, 0, 0.2, 1] }
+				y: { duration: 0.8, ease: [0.8, 0, 0.2, 1] },
 			}}
 		>
 			{children}
@@ -113,15 +113,15 @@ function AnimatedLogo({ transition }: { transition: boolean }) {
 					left: "50%",
 					x: "-50%",
 					y: "-50%",
-					scale: 1
+					scale: 1,
 				},
 				topLeft: {
 					top: "16px",
 					left: "16px",
 					x: 0,
 					y: 0,
-					scale: 1
-				}
+					scale: 1,
+				},
 			}}
 			initial="center"
 			animate={transition ? "topLeft" : "center"}
@@ -151,22 +151,15 @@ function NavigationContent({ transition }: { transition: boolean }) {
 			<div className="container flex w-full items-center justify-between">
 				{/* Navigation Items */}
 				<nav
-					className={cn(
-						"flex-1 px-2 md:px-4",
-						"flex items-center",
-						"!ml-0 md:!ml-44"
-					)}
+					className={cn("flex-1 px-2 md:px-4", "flex items-center", "!ml-0 md:!ml-44")}
 					aria-label="Main navigation"
 				>
 					<ul className="hidden gap-2 md:flex">
-						{navbarItems.map((item) => {
+						{navbarItems.map(item => {
 							const IconComponent = item.icon ? iconMap[item.icon as keyof typeof iconMap] : null
 							return (
 								<li key={item.url}>
-									<a
-										href={item.url}
-										className={cn(buttonVariants({ variant: "ghost" }), "h-8")}
-									>
+									<a href={item.url} className={cn(buttonVariants({ variant: "ghost" }), "h-8")}>
 										{IconComponent && <IconComponent className="h-4 w-4" />}
 										{item.title}
 									</a>
@@ -180,25 +173,16 @@ function NavigationContent({ transition }: { transition: boolean }) {
 				<div className="flex items-center justify-end gap-x-1 pr-4 md:gap-x-2">
 					<ModeToggle className="hidden md:flex" />
 
-					<Separator
-						orientation="vertical"
-						className="mx-2 hidden h-6 md:block"
-					/>
+					<Separator orientation="vertical" className="mx-2 hidden h-6 md:block" />
 
 					<Link
 						href="/auth/login"
-						className={cn(
-							buttonVariants({ variant: "ghost", size: "sm" }),
-							"h-8 md:h-9"
-						)}
+						className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "h-8 md:h-9")}
 					>
 						Log In
 					</Link>
 
-					<Link
-						href="/auth/register"
-						className={cn(buttonVariants({ size: "sm" }), "h-8 md:h-9")}
-					>
+					<Link href="/auth/register" className={cn(buttonVariants({ size: "sm" }), "h-8 md:h-9")}>
 						Sign up
 					</Link>
 				</div>
@@ -209,7 +193,7 @@ function NavigationContent({ transition }: { transition: boolean }) {
 
 function HeaderBackground({
 	transition,
-	isScrolled
+	isScrolled,
 }: {
 	transition: boolean
 	isScrolled: boolean
@@ -219,7 +203,7 @@ function HeaderBackground({
 	return (
 		<motion.div
 			className={cn(
-				"absolute inset-x-0 top-0 -z-10 h-full bg-background/70 backdrop-blur-md transition-all duration-500",
+				"bg-background/70 absolute inset-x-0 top-0 -z-10 h-full backdrop-blur-md transition-all duration-500",
 				transition && "bg-background/70 backdrop-blur-md",
 				transition && !isScrolled && "border-b",
 				transition && isScrolled && "rounded-md border"
@@ -229,14 +213,14 @@ function HeaderBackground({
 				width: transition && isScrolled ? (isMobile ? "90%" : "80%") : "100%",
 				marginTop: transition && isScrolled ? "8px" : "0px",
 				left: transition && isScrolled ? (isMobile ? "5%" : "10%") : "0%",
-				right: transition && isScrolled ? (isMobile ? "5%" : "10%") : "0%"
+				right: transition && isScrolled ? (isMobile ? "5%" : "10%") : "0%",
 			}}
 			transition={{
 				height: { duration: 0.2, ease: [0.4, 0, 0.2, 1] },
 				width: { duration: 0.2, ease: [0.4, 0, 0.2, 1] },
 				marginTop: { duration: 0.2, ease: [0.4, 0, 0.2, 1] },
 				left: { duration: 0.2, ease: [0.4, 0, 0.2, 1] },
-				right: { duration: 0.2, ease: [0.4, 0, 0.2, 1] }
+				right: { duration: 0.2, ease: [0.4, 0, 0.2, 1] },
 			}}
 		/>
 	)

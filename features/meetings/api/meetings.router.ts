@@ -2,13 +2,13 @@ import { TRPCError } from "@trpc/server"
 import { eq } from "drizzle-orm"
 import { z } from "zod/v4"
 
+import { addSignerToProject, createDocoChainProject } from "@/services/docochain"
 import { db } from "@/services/drizzle/db"
 import { documents } from "@/services/drizzle/schema/document"
-import { meetings, meetingParticipants } from "@/services/drizzle/schema/meetings"
+import { meetingParticipants, meetings } from "@/services/drizzle/schema/meetings"
 import { getServiceRoleClient } from "@/services/supabase"
-import { createMeetingRoom, generateMeetingToken } from "@/services/video-sdk"
 import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
-import { createDocoChainProject, addSignerToProject } from "@/services/docochain"
+import { createMeetingRoom, generateMeetingToken } from "@/services/video-sdk"
 
 export const meetingsRouter = createTRPCRouter({
 	// Create a new meeting
@@ -49,7 +49,7 @@ export const meetingsRouter = createTRPCRouter({
 			// Add other participants
 			if (input.participantIds && input.participantIds.length > 0) {
 				await db.insert(meetingParticipants).values(
-					input.participantIds.map((userId) => ({
+					input.participantIds.map(userId => ({
 						meetingId: meeting.id,
 						userId,
 					}))
@@ -96,7 +96,7 @@ export const meetingsRouter = createTRPCRouter({
 			orderBy: (meetingParticipants, { desc }) => [desc(meetingParticipants.createdAt)],
 		})
 
-		return userMeetings.map((mp) => mp.meeting)
+		return userMeetings.map(mp => mp.meeting)
 	}),
 
 	// Get meeting by ID
@@ -135,7 +135,7 @@ export const meetingsRouter = createTRPCRouter({
 		}
 
 		// Check if user has access
-		const hasAccess = meeting.participants.some((p) => p.userId === ctx.session.user.id)
+		const hasAccess = meeting.participants.some(p => p.userId === ctx.session.user.id)
 
 		if (!hasAccess) {
 			throw new TRPCError({
@@ -164,7 +164,7 @@ export const meetingsRouter = createTRPCRouter({
 		}
 
 		// Check if user has access
-		const hasAccess = meeting.participants.some((p) => p.userId === ctx.session.user.id)
+		const hasAccess = meeting.participants.some(p => p.userId === ctx.session.user.id)
 
 		if (!hasAccess) {
 			throw new TRPCError({
@@ -196,7 +196,7 @@ export const meetingsRouter = createTRPCRouter({
 		}
 
 		const isHost = meeting.createdById === ctx.session.user.id
-		const isParticipant = meeting.participants.some((p) => p.userId === ctx.session.user.id)
+		const isParticipant = meeting.participants.some(p => p.userId === ctx.session.user.id)
 
 		if (!isHost && !isParticipant) {
 			throw new TRPCError({
@@ -318,7 +318,7 @@ export const meetingsRouter = createTRPCRouter({
 			}
 
 			// Check if user has access to the meeting
-			const hasAccess = meeting.participants.some((p) => p.userId === ctx.session.user.id)
+			const hasAccess = meeting.participants.some(p => p.userId === ctx.session.user.id)
 
 			if (!hasAccess) {
 				throw new TRPCError({
@@ -346,7 +346,7 @@ export const meetingsRouter = createTRPCRouter({
 					.select({ id: documents.id })
 					.from(documents)
 					.where(eq(documents.meetingId, meetingId))
-				
+
 				const nextOrder = existingDocuments.length
 
 				// Decode base64 file data
@@ -359,7 +359,7 @@ export const meetingsRouter = createTRPCRouter({
 				const docoChainProject = await createDocoChainProject({
 					title: name,
 					documentFile: fileBuffer,
-					fileName: name.endsWith('.pdf') ? name : `${name}.pdf`,
+					fileName: name.endsWith(".pdf") ? name : `${name}.pdf`,
 					userListEditable: false, // Recipients cannot be edited after creation
 					creatorAsViewer: false, // Creator is not added as a viewer
 					creatorEmail, // Use meeting creator's email, not the uploader's email
@@ -418,14 +418,14 @@ export const meetingsRouter = createTRPCRouter({
 				}
 
 				// Get public URL for the document
-				const publicUrl = uploadData?.path 
+				const publicUrl = uploadData?.path
 					? supabase.storage.from("documents").getPublicUrl(uploadData.path).data.publicUrl
 					: null
 
 				// Update document with storage path
 				const [updatedDocument] = await db
 					.update(documents)
-					.set({ 
+					.set({
 						path: uploadData?.path || "",
 					})
 					.where(eq(documents.id, document.id))
@@ -461,7 +461,7 @@ export const meetingsRouter = createTRPCRouter({
 		}
 
 		// Check if user has access
-		const hasAccess = meeting.participants.some((p) => p.userId === ctx.session.user.id)
+		const hasAccess = meeting.participants.some(p => p.userId === ctx.session.user.id)
 
 		if (!hasAccess) {
 			throw new TRPCError({
@@ -474,12 +474,12 @@ export const meetingsRouter = createTRPCRouter({
 		return meeting.documents.sort((a, b) => {
 			const orderA = a.order ?? 0
 			const orderB = b.order ?? 0
-			
+
 			// If orders are different, sort by order
 			if (orderA !== orderB) {
 				return orderA - orderB
 			}
-			
+
 			// If orders are the same (or both 0), sort by createdAt to maintain upload sequence
 			const createdAtA = a.createdAt ? new Date(a.createdAt).getTime() : 0
 			const createdAtB = b.createdAt ? new Date(b.createdAt).getTime() : 0
@@ -512,7 +512,7 @@ export const meetingsRouter = createTRPCRouter({
 			}
 
 			// Check if user has access
-			const hasAccess = meeting.participants.some((p) => p.userId === ctx.session.user.id)
+			const hasAccess = meeting.participants.some(p => p.userId === ctx.session.user.id)
 
 			if (!hasAccess) {
 				throw new TRPCError({
@@ -524,10 +524,7 @@ export const meetingsRouter = createTRPCRouter({
 			// Update order for each document
 			await Promise.all(
 				input.documentIds.map((documentId, index) =>
-					db
-						.update(documents)
-						.set({ order: index })
-						.where(eq(documents.id, documentId))
+					db.update(documents).set({ order: index }).where(eq(documents.id, documentId))
 				)
 			)
 
@@ -564,17 +561,16 @@ export const meetingsRouter = createTRPCRouter({
 
 			const [updatedMeeting] = await db
 				.update(meetings)
-				.set({ 
+				.set({
 					isDocumentOrderLocked: input.isLocked,
-					updatedAt: new Date() 
+					updatedAt: new Date(),
 				})
 				.where(eq(meetings.id, input.meetingId))
 				.returning()
 
-			return { 
-				success: true, 
-				isLocked: updatedMeeting?.isDocumentOrderLocked ?? false 
+			return {
+				success: true,
+				isLocked: updatedMeeting?.isDocumentOrderLocked ?? false,
 			}
 		}),
 })
-

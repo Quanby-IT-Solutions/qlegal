@@ -5,8 +5,8 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useEffect, useState, useTransition } from "react"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { useForm, type SubmitHandler } from "react-hook-form"
 import { useSession } from "next-auth/react"
+import { useForm, type SubmitHandler } from "react-hook-form"
 import { z } from "zod/v4"
 
 import { Button, buttonVariants } from "@/core/components/ui/button"
@@ -106,18 +106,19 @@ export function LoginForm({ callbackUrl }: { callbackUrl?: Route }) {
 					// Update the session to reflect the logged-in user immediately
 					const updatedSession = await update()
 					// Navigate to KYC if not verified, otherwise go to callback URL or dashboard
-					
+
 					const user = updatedSession?.user
 					if (user) {
-						const kycStatus: string | undefined = "kycStatus" in user && typeof user.kycStatus === "string" ? user.kycStatus : undefined
+						const kycStatus: string | undefined =
+							"kycStatus" in user && typeof user.kycStatus === "string" ? user.kycStatus : undefined
 						if (kycStatus === "NOT_STARTED" || kycStatus === "PENDING") {
 							router.push("/auth/kyc" as Route)
 						} else {
-							const destination: Route = (callbackUrl ?? "/dashboard")
+							const destination: Route = callbackUrl ?? "/dashboard"
 							router.push(destination)
 						}
 					} else {
-						const destination: Route = (callbackUrl ?? "/dashboard")
+						const destination: Route = callbackUrl ?? "/dashboard"
 						router.push(destination)
 					}
 					router.refresh()

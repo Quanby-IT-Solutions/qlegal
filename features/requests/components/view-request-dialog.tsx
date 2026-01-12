@@ -1,12 +1,12 @@
 "use client"
 
-import { Calendar, Clock, FileText, Mail, MapPin, Phone, User, Video, X } from "lucide-react"
 import { format } from "date-fns"
+import { Calendar, Clock, FileText, Mail, MapPin, Phone, User, Video, X } from "lucide-react"
 
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/core/components/ui/dialog"
-import { Badge } from "@/core/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/core/components/ui/avatar"
+import { Badge } from "@/core/components/ui/badge"
 import { Button } from "@/core/components/ui/button"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/core/components/ui/dialog"
 import { Separator } from "@/core/components/ui/separator"
 
 import type { AppointmentWithDetails } from "../types/requests.types"
@@ -32,14 +32,17 @@ export function ViewRequestDialog({
 	const isInPerson = appointment.location !== null
 
 	const getStatusBadge = (status: string) => {
-		const variants: Record<string, { variant: "default" | "secondary" | "destructive" | "outline"; className?: string }> = {
+		const variants: Record<
+			string,
+			{ variant: "default" | "secondary" | "destructive" | "outline"; className?: string }
+		> = {
 			PENDING: { variant: "secondary" },
 			CONFIRMED: { variant: "default" },
 			COMPLETED: { variant: "outline", className: "text-green-600 border-green-600" },
 			CANCELLED: { variant: "destructive" },
 		}
 		const config = variants[status] || { variant: "secondary" as const }
-		
+
 		return (
 			<Badge variant={config.variant} className={config.className}>
 				{status.charAt(0) + status.slice(1).toLowerCase()}
@@ -49,7 +52,7 @@ export function ViewRequestDialog({
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
-			<DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+			<DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
 				<DialogHeader>
 					<DialogTitle className="flex items-center gap-3">
 						<span>Appointment Details</span>
@@ -60,18 +63,18 @@ export function ViewRequestDialog({
 				<div className="space-y-6">
 					{/* Appointment Type and Workflow */}
 					<div>
-						<h3 className="text-sm font-medium mb-2">Appointment Type</h3>
+						<h3 className="mb-2 text-sm font-medium">Appointment Type</h3>
 						<div className="flex items-center gap-2">
 							<Badge variant="outline">
 								{appointment.type === "CONSULTATION" ? "Consultation" : "Document Signing"}
 							</Badge>
 							{isRemote && (
-								<Badge variant="outline" className="text-blue-600 border-blue-600">
+								<Badge variant="outline" className="border-blue-600 text-blue-600">
 									REN (Remote)
 								</Badge>
 							)}
 							{isInPerson && (
-								<Badge variant="outline" className="text-green-600 border-green-600">
+								<Badge variant="outline" className="border-green-600 text-green-600">
 									IEN (In-Person)
 								</Badge>
 							)}
@@ -83,21 +86,22 @@ export function ViewRequestDialog({
 					{/* Date and Time */}
 					<div className="grid grid-cols-2 gap-4">
 						<div>
-							<h3 className="text-sm font-medium mb-2 flex items-center gap-2">
+							<h3 className="mb-2 flex items-center gap-2 text-sm font-medium">
 								<Calendar className="h-4 w-4" />
 								Date
 							</h3>
-							<p className="text-sm text-muted-foreground">
+							<p className="text-muted-foreground text-sm">
 								{format(new Date(appointment.appointmentDate), "PPPP")}
 							</p>
 						</div>
 						<div>
-							<h3 className="text-sm font-medium mb-2 flex items-center gap-2">
+							<h3 className="mb-2 flex items-center gap-2 text-sm font-medium">
 								<Clock className="h-4 w-4" />
 								Time
 							</h3>
-							<p className="text-sm text-muted-foreground">
-								{format(new Date(appointment.appointmentDate), "p")} ({appointment.duration} minutes)
+							<p className="text-muted-foreground text-sm">
+								{format(new Date(appointment.appointmentDate), "p")} ({appointment.duration}{" "}
+								minutes)
 							</p>
 						</div>
 					</div>
@@ -108,11 +112,11 @@ export function ViewRequestDialog({
 					{isInPerson && appointment.location && (
 						<>
 							<div>
-								<h3 className="text-sm font-medium mb-2 flex items-center gap-2">
+								<h3 className="mb-2 flex items-center gap-2 text-sm font-medium">
 									<MapPin className="h-4 w-4" />
 									Location
 								</h3>
-								<p className="text-sm text-muted-foreground">{appointment.location}</p>
+								<p className="text-muted-foreground text-sm">{appointment.location}</p>
 							</div>
 							<Separator />
 						</>
@@ -121,15 +125,15 @@ export function ViewRequestDialog({
 					{isRemote && appointment.meetingLink && (
 						<>
 							<div>
-								<h3 className="text-sm font-medium mb-2 flex items-center gap-2">
+								<h3 className="mb-2 flex items-center gap-2 text-sm font-medium">
 									<Video className="h-4 w-4" />
 									Meeting Link
 								</h3>
-								<a 
+								<a
 									href={appointment.meetingLink}
 									target="_blank"
 									rel="noopener noreferrer"
-									className="text-sm text-blue-600 hover:underline break-all"
+									className="text-sm break-all text-blue-600 hover:underline"
 								>
 									{appointment.meetingLink}
 								</a>
@@ -140,7 +144,7 @@ export function ViewRequestDialog({
 
 					{/* Client/ENP Information */}
 					<div>
-						<h3 className="text-sm font-medium mb-3">
+						<h3 className="mb-3 text-sm font-medium">
 							{viewMode === "incoming" ? "Client Information" : "Notary Information"}
 						</h3>
 						<div className="bg-muted/50 rounded-lg p-4">
@@ -148,20 +152,24 @@ export function ViewRequestDialog({
 								<Avatar className="h-12 w-12">
 									<AvatarImage src={displayUser.image || undefined} alt={displayUser.name} />
 									<AvatarFallback>
-										{displayUser.name.split(" ").map(n => n[0]).join("").toUpperCase()}
+										{displayUser.name
+											.split(" ")
+											.map(n => n[0])
+											.join("")
+											.toUpperCase()}
 									</AvatarFallback>
 								</Avatar>
 								<div className="flex-1 space-y-2">
 									<div>
 										<p className="font-medium">{displayUser.name}</p>
-										<p className="text-sm text-muted-foreground">
+										<p className="text-muted-foreground text-sm">
 											{viewMode === "incoming" ? "Client" : "Electronic Notary Public"}
 										</p>
 									</div>
 									{displayUser.email && (
 										<div className="flex items-center gap-2 text-sm">
-											<Mail className="h-4 w-4 text-muted-foreground" />
-											<a 
+											<Mail className="text-muted-foreground h-4 w-4" />
+											<a
 												href={`mailto:${displayUser.email}`}
 												className="text-muted-foreground hover:text-foreground"
 											>
@@ -171,8 +179,8 @@ export function ViewRequestDialog({
 									)}
 									{displayUser.phoneNumber && (
 										<div className="flex items-center gap-2 text-sm">
-											<Phone className="h-4 w-4 text-muted-foreground" />
-											<a 
+											<Phone className="text-muted-foreground h-4 w-4" />
+											<a
 												href={`tel:${displayUser.phoneNumber}`}
 												className="text-muted-foreground hover:text-foreground"
 											>
@@ -190,11 +198,11 @@ export function ViewRequestDialog({
 						<>
 							<Separator />
 							<div>
-								<h3 className="text-sm font-medium mb-2 flex items-center gap-2">
+								<h3 className="mb-2 flex items-center gap-2 text-sm font-medium">
 									<FileText className="h-4 w-4" />
 									Notes
 								</h3>
-								<p className="text-sm text-muted-foreground whitespace-pre-wrap">
+								<p className="text-muted-foreground text-sm whitespace-pre-wrap">
 									{appointment.notes}
 								</p>
 							</div>
@@ -206,15 +214,15 @@ export function ViewRequestDialog({
 						<>
 							<Separator />
 							<div>
-								<h3 className="text-sm font-medium mb-2 text-destructive">Cancellation Reason</h3>
-								<p className="text-sm text-destructive">{appointment.cancelReason}</p>
+								<h3 className="text-destructive mb-2 text-sm font-medium">Cancellation Reason</h3>
+								<p className="text-destructive text-sm">{appointment.cancelReason}</p>
 							</div>
 						</>
 					)}
 
 					{/* Metadata */}
 					<Separator />
-					<div className="text-xs text-muted-foreground space-y-1">
+					<div className="text-muted-foreground space-y-1 text-xs">
 						<p>Created: {format(new Date(appointment.createdAt), "PPpp")}</p>
 						<p>Last Updated: {format(new Date(appointment.updatedAt), "PPpp")}</p>
 					</div>

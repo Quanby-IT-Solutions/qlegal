@@ -6,7 +6,13 @@ import { FileText, LayoutGrid, List, Search } from "lucide-react"
 
 import { Badge } from "@/core/components/ui/badge"
 import { Button } from "@/core/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/core/components/ui/card"
+import {
+	Card,
+	CardContent,
+	CardDescription,
+	CardHeader,
+	CardTitle,
+} from "@/core/components/ui/card"
 import { Input } from "@/core/components/ui/input"
 import { ToggleGroup, ToggleGroupItem } from "@/core/components/ui/toggle-group"
 
@@ -19,7 +25,7 @@ function formatFileSize(bytes: number): string {
 	const k = 1024
 	const sizes = ["Bytes", "KB", "MB", "GB"]
 	const i = Math.floor(Math.log(bytes) / Math.log(k))
-	return Math.round(bytes / Math.pow(k, i) * 100) / 100 + " " + sizes[i]
+	return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + " " + sizes[i]
 }
 
 function getStatusBadgeVariant(status: string) {
@@ -56,7 +62,11 @@ export function PendingDocumentsPage() {
 	const [searchQuery, setSearchQuery] = useState("")
 	const [viewMode, setViewMode] = useState<ViewMode>("grid")
 
-	const { data: pendingDocuments, isPending, error } = trpc.envelopeLite.getPendingDocuments.useQuery()
+	const {
+		data: pendingDocuments,
+		isPending,
+		error,
+	} = trpc.envelopeLite.getPendingDocuments.useQuery()
 
 	// Filter and search documents
 	const filteredDocuments = useMemo(() => {
@@ -90,7 +100,7 @@ export function PendingDocumentsPage() {
 							<CardDescription>Failed to load pending documents</CardDescription>
 						</CardHeader>
 						<CardContent>
-							<p className="text-sm text-muted-foreground">{error.message}</p>
+							<p className="text-muted-foreground text-sm">{error.message}</p>
 						</CardContent>
 					</Card>
 				</div>
@@ -125,7 +135,11 @@ export function PendingDocumentsPage() {
 							</div>
 
 							{/* View Mode Toggle */}
-							<ToggleGroup type="single" value={viewMode} onValueChange={value => value && setViewMode(value as ViewMode)}>
+							<ToggleGroup
+								type="single"
+								value={viewMode}
+								onValueChange={value => value && setViewMode(value as ViewMode)}
+							>
 								<ToggleGroupItem value="grid" aria-label="Grid view">
 									<LayoutGrid className="h-4 w-4" />
 								</ToggleGroupItem>
@@ -145,11 +159,11 @@ export function PendingDocumentsPage() {
 						{Array.from({ length: 6 }).map((_, i) => (
 							<Card key={i} className="animate-pulse">
 								<CardHeader>
-									<div className="h-4 w-3/4 bg-muted rounded" />
-									<div className="h-3 w-1/2 bg-muted rounded mt-2" />
+									<div className="bg-muted h-4 w-3/4 rounded" />
+									<div className="bg-muted mt-2 h-3 w-1/2 rounded" />
 								</CardHeader>
 								<CardContent>
-									<div className="h-20 bg-muted rounded" />
+									<div className="bg-muted h-20 rounded" />
 								</CardContent>
 							</Card>
 						))}
@@ -157,9 +171,9 @@ export function PendingDocumentsPage() {
 				) : filteredDocuments.length === 0 ? (
 					<Card>
 						<CardContent className="flex flex-col items-center justify-center py-16">
-							<FileText className="text-muted-foreground h-12 w-12 mb-4" />
-							<h3 className="text-foreground text-lg font-semibold mb-2">No pending documents</h3>
-							<p className="text-muted-foreground text-sm text-center max-w-md">
+							<FileText className="text-muted-foreground mb-4 h-12 w-12" />
+							<h3 className="text-foreground mb-2 text-lg font-semibold">No pending documents</h3>
+							<p className="text-muted-foreground max-w-md text-center text-sm">
 								{searchQuery
 									? "No documents match your search criteria."
 									: "You don't have any documents waiting for signatures or approval."}
@@ -174,11 +188,11 @@ export function PendingDocumentsPage() {
 				) : viewMode === "grid" ? (
 					<div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
 						{filteredDocuments.map(doc => (
-							<Card key={doc.id} className="hover:shadow-lg transition-shadow">
+							<Card key={doc.id} className="transition-shadow hover:shadow-lg">
 								<CardHeader>
 									<div className="flex items-start justify-between">
-										<div className="flex-1 min-w-0">
-											<CardTitle className="text-base truncate">{doc.name}</CardTitle>
+										<div className="min-w-0 flex-1">
+											<CardTitle className="truncate text-base">{doc.name}</CardTitle>
 											<CardDescription className="mt-1">
 												{doc.envelope?.title || "No envelope"}
 											</CardDescription>
@@ -202,7 +216,7 @@ export function PendingDocumentsPage() {
 										<span className="text-muted-foreground">Type:</span>
 										<span className="font-medium">{doc.type}</span>
 									</div>
-									<div className="pt-2 border-t">
+									<div className="border-t pt-2">
 										<Link href={`/envelope/${doc.envelopeId}`}>
 											<Button variant="outline" className="w-full">
 												View Envelope
@@ -216,36 +230,39 @@ export function PendingDocumentsPage() {
 				) : (
 					<div className="space-y-4">
 						{filteredDocuments.map(doc => (
-							<Card key={doc.id} className="hover:shadow-md transition-shadow">
+							<Card key={doc.id} className="transition-shadow hover:shadow-md">
 								<CardContent className="p-6">
 									<div className="flex items-center justify-between">
-										<div className="flex-1 min-w-0">
+										<div className="min-w-0 flex-1">
 											<div className="flex items-center gap-3">
 												<FileText className="text-muted-foreground h-5 w-5 shrink-0" />
-												<div className="flex-1 min-w-0">
-													<h3 className="text-foreground font-medium truncate">{doc.name}</h3>
-													<p className="text-muted-foreground text-sm mt-1">
+												<div className="min-w-0 flex-1">
+													<h3 className="text-foreground truncate font-medium">{doc.name}</h3>
+													<p className="text-muted-foreground mt-1 text-sm">
 														{doc.envelope?.title || "No envelope"}
 													</p>
 												</div>
 											</div>
 										</div>
-										<div className="flex items-center gap-4 ml-4">
+										<div className="ml-4 flex items-center gap-4">
 											<div className="text-right text-sm">
 												<div className="text-muted-foreground">Status</div>
 												{doc.envelope?.status && (
-													<Badge variant={getStatusBadgeVariant(doc.envelope.status)} className="mt-1">
+													<Badge
+														variant={getStatusBadgeVariant(doc.envelope.status)}
+														className="mt-1"
+													>
 														{getStatusLabel(doc.envelope.status)}
 													</Badge>
 												)}
 											</div>
 											<div className="text-right text-sm">
 												<div className="text-muted-foreground">Size</div>
-												<div className="font-medium mt-1">{formatFileSize(doc.size)}</div>
+												<div className="mt-1 font-medium">{formatFileSize(doc.size)}</div>
 											</div>
 											<div className="text-right text-sm">
 												<div className="text-muted-foreground">Type</div>
-												<div className="font-medium mt-1">{doc.type}</div>
+												<div className="mt-1 font-medium">{doc.type}</div>
 											</div>
 											<Link href={`/envelope/${doc.envelopeId}`}>
 												<Button variant="outline">View</Button>
@@ -261,4 +278,3 @@ export function PendingDocumentsPage() {
 		</div>
 	)
 }
-

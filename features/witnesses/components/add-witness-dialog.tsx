@@ -1,12 +1,12 @@
 "use client"
 
 import { useState } from "react"
-import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { z } from "zod"
+import { useForm } from "react-hook-form"
 import { toast } from "sonner"
+import { z } from "zod"
 
-import { trpc } from "@/services/trpc/client"
+import { Button } from "@/core/components/ui/button"
 import {
 	Dialog,
 	DialogContent,
@@ -15,7 +15,6 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "@/core/components/ui/dialog"
-import { Button } from "@/core/components/ui/button"
 import { Input } from "@/core/components/ui/input"
 import { Label } from "@/core/components/ui/label"
 import {
@@ -26,6 +25,8 @@ import {
 	SelectValue,
 } from "@/core/components/ui/select"
 import { Textarea } from "@/core/components/ui/textarea"
+
+import { trpc } from "@/services/trpc/client"
 
 const witnessFormSchema = z.object({
 	name: z.string().min(1, "Name is required"),
@@ -77,7 +78,7 @@ export function AddWitnessDialog({ open, onOpenChange, appointmentId }: AddWitne
 			reset()
 			onOpenChange(false)
 		},
-		onError: (error) => {
+		onError: error => {
 			toast.error(error.message || "Failed to add witness")
 		},
 	})
@@ -104,17 +105,18 @@ export function AddWitnessDialog({ open, onOpenChange, appointmentId }: AddWitne
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
-			<DialogContent className="max-w-6xl w-[95vw] max-h-[85vh] overflow-y-auto">
+			<DialogContent className="max-h-[85vh] w-[95vw] max-w-6xl overflow-y-auto">
 				<DialogHeader>
 					<DialogTitle>Add New Witness</DialogTitle>
 					<DialogDescription>
-						Register a new witness for IEN notarization sessions. You can verify their ID and capture their signature later.
+						Register a new witness for IEN notarization sessions. You can verify their ID and
+						capture their signature later.
 					</DialogDescription>
 				</DialogHeader>
 				<form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
 					<div className="grid grid-cols-2 gap-4 py-2">
 						{/* Name - Full Width */}
-						<div className="space-y-2 col-span-2">
+						<div className="col-span-2 space-y-2">
 							<Label htmlFor="name">Full Name *</Label>
 							<Input
 								id="name"
@@ -122,9 +124,7 @@ export function AddWitnessDialog({ open, onOpenChange, appointmentId }: AddWitne
 								placeholder="John Doe"
 								className={errors.name ? "border-red-500" : ""}
 							/>
-							{errors.name && (
-								<p className="text-sm text-red-500">{errors.name.message}</p>
-							)}
+							{errors.name && <p className="text-sm text-red-500">{errors.name.message}</p>}
 						</div>
 
 						{/* Email */}
@@ -137,9 +137,7 @@ export function AddWitnessDialog({ open, onOpenChange, appointmentId }: AddWitne
 								placeholder="john.doe@example.com"
 								className={errors.email ? "border-red-500" : ""}
 							/>
-							{errors.email && (
-								<p className="text-sm text-red-500">{errors.email.message}</p>
-							)}
+							{errors.email && <p className="text-sm text-red-500">{errors.email.message}</p>}
 						</div>
 
 						{/* Phone */}
@@ -154,7 +152,7 @@ export function AddWitnessDialog({ open, onOpenChange, appointmentId }: AddWitne
 						</div>
 
 						{/* Address - Full Width */}
-						<div className="space-y-2 col-span-2">
+						<div className="col-span-2 space-y-2">
 							<Label htmlFor="address">Address</Label>
 							<Textarea
 								id="address"
@@ -169,7 +167,9 @@ export function AddWitnessDialog({ open, onOpenChange, appointmentId }: AddWitne
 							<Label htmlFor="idType">ID Type</Label>
 							<Select
 								value={watch("idType") || undefined}
-								onValueChange={(value) => setValue("idType", value === "none" ? undefined : value as any)}
+								onValueChange={value =>
+									setValue("idType", value === "none" ? undefined : (value as any))
+								}
 							>
 								<SelectTrigger id="idType">
 									<SelectValue placeholder="Select ID type" />
@@ -196,7 +196,7 @@ export function AddWitnessDialog({ open, onOpenChange, appointmentId }: AddWitne
 						</div>
 
 						{/* Notes - Full Width */}
-						<div className="space-y-2 col-span-2">
+						<div className="col-span-2 space-y-2">
 							<Label htmlFor="notes">Notes</Label>
 							<Textarea
 								id="notes"
@@ -228,4 +228,3 @@ export function AddWitnessDialog({ open, onOpenChange, appointmentId }: AddWitne
 		</Dialog>
 	)
 }
-

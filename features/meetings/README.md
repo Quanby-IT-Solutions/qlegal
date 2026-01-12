@@ -129,16 +129,19 @@ meeting_participants {
 ## 🐛 Troubleshooting
 
 **Camera not working?**
+
 - Check browser permissions
 - Try refreshing the page
 - Ensure no other app is using your camera
 
 **Can't join meeting?**
+
 - Verify you're a participant
 - Check your internet connection
 - Ensure VideoSDK credentials are correct
 
 **No video showing?**
+
 - Camera might be disabled
 - Click the camera button to enable
 - Check browser console for errors
@@ -157,4 +160,3 @@ meeting_participants {
 ---
 
 **Built with VideoSDK, Next.js, tRPC, and Drizzle ORM** 🚀
-

@@ -331,25 +331,25 @@ export function LegalRegistrationForm() {
 		// Check all required form fields are filled
 		const requiredFieldsFilled = Boolean(
 			values.personalQualifications.citizenship &&
-				values.personalQualifications.dateOfBirth &&
-				values.personalQualifications.residentialAddress &&
-				values.personalQualifications.workOrBusinessAddress &&
-				values.personalQualifications.mobileNumber &&
-				values.personalQualifications.emailAddress &&
-				values.personalQualifications.professionalTaxReceiptNumber &&
-				values.personalQualifications.rollOfAttorneysNumber &&
-				values.personalQualifications.ibpMembershipNumber &&
-				values.personalQualifications.mcleComplianceNumber &&
-				values.personalQualifications.ulasComplianceNumber
+			values.personalQualifications.dateOfBirth &&
+			values.personalQualifications.residentialAddress &&
+			values.personalQualifications.workOrBusinessAddress &&
+			values.personalQualifications.mobileNumber &&
+			values.personalQualifications.emailAddress &&
+			values.personalQualifications.professionalTaxReceiptNumber &&
+			values.personalQualifications.rollOfAttorneysNumber &&
+			values.personalQualifications.ibpMembershipNumber &&
+			values.personalQualifications.mcleComplianceNumber &&
+			values.personalQualifications.ulasComplianceNumber
 		)
 
 		// Check all required files are uploaded
 		const requiredFilesUploaded = Boolean(
 			files.obcCertification &&
-				files.ibpCertification &&
-				files.passportPhoto &&
-				files.paymentProof &&
-				(files.enfProviderCertification ?? enfAcknowledged)
+			files.ibpCertification &&
+			files.passportPhoto &&
+			files.paymentProof &&
+			(files.enfProviderCertification ?? enfAcknowledged)
 		)
 
 		// Check undertakings are confirmed
@@ -366,23 +366,23 @@ export function LegalRegistrationForm() {
 			const values = form.getValues()
 			const requiredFieldsFilled = Boolean(
 				values.personalQualifications.citizenship &&
-					values.personalQualifications.dateOfBirth &&
-					values.personalQualifications.residentialAddress &&
-					values.personalQualifications.workOrBusinessAddress &&
-					values.personalQualifications.mobileNumber &&
-					values.personalQualifications.emailAddress &&
-					values.personalQualifications.professionalTaxReceiptNumber &&
-					values.personalQualifications.rollOfAttorneysNumber &&
-					values.personalQualifications.ibpMembershipNumber &&
-					values.personalQualifications.mcleComplianceNumber &&
-					values.personalQualifications.ulasComplianceNumber
+				values.personalQualifications.dateOfBirth &&
+				values.personalQualifications.residentialAddress &&
+				values.personalQualifications.workOrBusinessAddress &&
+				values.personalQualifications.mobileNumber &&
+				values.personalQualifications.emailAddress &&
+				values.personalQualifications.professionalTaxReceiptNumber &&
+				values.personalQualifications.rollOfAttorneysNumber &&
+				values.personalQualifications.ibpMembershipNumber &&
+				values.personalQualifications.mcleComplianceNumber &&
+				values.personalQualifications.ulasComplianceNumber
 			)
 			const requiredFilesUploaded = Boolean(
 				files.obcCertification &&
-					files.ibpCertification &&
-					files.passportPhoto &&
-					files.paymentProof &&
-					(files.enfProviderCertification ?? enfAcknowledged)
+				files.ibpCertification &&
+				files.passportPhoto &&
+				files.paymentProof &&
+				(files.enfProviderCertification ?? enfAcknowledged)
 			)
 			const undertakingsConfirmed = Boolean(
 				values.undertakingElectronicNotarialActs && values.undertakingDataSharingGuidelines

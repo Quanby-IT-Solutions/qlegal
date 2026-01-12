@@ -122,15 +122,15 @@ export const messageFilesRouter = createTRPCRouter({
 				})
 			}
 
-		// Get files
-		const files = await db.query.messageAttachments.findMany({
-			where: input.uploadType
-				? and(
-						eq(messageAttachments.conversationId, input.conversationId),
-						eq(messageAttachments.uploadType, input.uploadType)
-					)
-				: eq(messageAttachments.conversationId, input.conversationId),
-			orderBy: [desc(messageAttachments.createdAt)],
+			// Get files
+			const files = await db.query.messageAttachments.findMany({
+				where: input.uploadType
+					? and(
+							eq(messageAttachments.conversationId, input.conversationId),
+							eq(messageAttachments.uploadType, input.uploadType)
+						)
+					: eq(messageAttachments.conversationId, input.conversationId),
+				orderBy: [desc(messageAttachments.createdAt)],
 				with: {
 					uploadedBy: {
 						columns: {
@@ -176,7 +176,9 @@ export const messageFilesRouter = createTRPCRouter({
 
 			// Delete from storage
 			const supabase = getServiceRoleClient()
-			const { error: storageError } = await supabase.storage.from("documents").remove([file.filePath])
+			const { error: storageError } = await supabase.storage
+				.from("documents")
+				.remove([file.filePath])
 
 			if (storageError) {
 				throw new TRPCError({
@@ -191,4 +193,3 @@ export const messageFilesRouter = createTRPCRouter({
 			return { success: true }
 		}),
 })
-

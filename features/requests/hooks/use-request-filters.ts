@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react"
+import { useCallback, useState } from "react"
 
 import type { RequestFilters } from "../types/requests.types"
 
@@ -11,7 +11,7 @@ export function useRequestFilters() {
 	})
 
 	const updateFilters = useCallback((updates: Partial<RequestFilters>) => {
-		setFilters((prev) => ({ ...prev, ...updates }))
+		setFilters(prev => ({ ...prev, ...updates }))
 	}, [])
 
 	const clearFilters = useCallback(() => {

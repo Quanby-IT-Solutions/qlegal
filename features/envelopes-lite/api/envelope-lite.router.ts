@@ -1,11 +1,17 @@
 import { desc, eq } from "drizzle-orm"
 import { z } from "zod/v4"
 
+import {
+	checkSigningStatus,
+	downloadCertificate,
+	downloadSignedDocument,
+	getProcessingCompletedProjects,
+	getProjectDetails,
+} from "@/services/docochain"
 import { users } from "@/services/drizzle/schema/auth"
 import { documents } from "@/services/drizzle/schema/document"
 import { envelopes } from "@/services/drizzle/schema/envelope"
 import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
-import { getProcessingCompletedProjects, getProjectDetails, downloadSignedDocument, downloadCertificate, checkSigningStatus } from "@/services/docochain"
 
 import { createEnvelopeSchema } from "./envelope-lite-schema"
 
@@ -223,7 +229,9 @@ export const envelopeLiteRouter = createTRPCRouter({
 					const signedDocumentUrl = projectData.url
 
 					if (!signedDocumentUrl) {
-						throw new Error("Signed document URL not available. Document may not be fully signed yet.")
+						throw new Error(
+							"Signed document URL not available. Document may not be fully signed yet."
+						)
 					}
 
 					return {
@@ -481,7 +489,9 @@ export const envelopeLiteRouter = createTRPCRouter({
 				}
 			} catch (error) {
 				console.error("❌ Error downloading signed document:", error)
-				throw new Error(error instanceof Error ? error.message : "Failed to download signed document")
+				throw new Error(
+					error instanceof Error ? error.message : "Failed to download signed document"
+				)
 			}
 		}),
 
