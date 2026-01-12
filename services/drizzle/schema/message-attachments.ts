@@ -33,4 +33,3 @@ export const messageAttachments = createTable(
 		index("message_attachment_created_at_idx").on(t.createdAt),
 	]
 ).enableRLS()
-

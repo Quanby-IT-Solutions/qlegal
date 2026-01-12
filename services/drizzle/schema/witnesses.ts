@@ -1,7 +1,7 @@
 import { type InferSelectModel } from "drizzle-orm"
 
-import { users } from "@/services/drizzle/schema/auth"
 import { appointments } from "@/services/drizzle/schema/appointments"
+import { users } from "@/services/drizzle/schema/auth"
 import { createTable, randomId } from "@/services/drizzle/utils"
 
 export const witnesses = createTable("witness", t => ({
@@ -37,10 +37,7 @@ export const witnesses = createTable("witness", t => ({
 	// Additional notes
 	notes: t.text(),
 	// Timestamps
-	createdAt: t
-		.timestamp({ mode: "date", withTimezone: true })
-		.defaultNow()
-		.notNull(),
+	createdAt: t.timestamp({ mode: "date", withTimezone: true }).defaultNow().notNull(),
 	updatedAt: t
 		.timestamp({ mode: "date", withTimezone: true })
 		.defaultNow()
@@ -49,4 +46,3 @@ export const witnesses = createTable("witness", t => ({
 })).enableRLS()
 
 export type Witness = InferSelectModel<typeof witnesses>
-

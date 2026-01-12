@@ -1,18 +1,34 @@
 "use client"
 
-import { useMemo, useState } from "react"
 import Link from "next/link"
+import { useMemo, useState } from "react"
 import { format, startOfToday } from "date-fns"
-import { Calendar as CalendarIcon, Clock, Handshake, Loader2, Mail, MapPin, Phone, Video } from "lucide-react"
+import {
+	Calendar as CalendarIcon,
+	Clock,
+	Handshake,
+	Loader2,
+	Mail,
+	MapPin,
+	Phone,
+	Video,
+} from "lucide-react"
 
 import { PageHeader } from "@/core/components/navbar/page-header"
 import { Avatar, AvatarFallback, AvatarImage } from "@/core/components/ui/avatar"
 import { Badge } from "@/core/components/ui/badge"
 import { Button } from "@/core/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/core/components/ui/card"
 import { Calendar as CalendarComponent } from "@/core/components/ui/calendar"
+import {
+	Card,
+	CardContent,
+	CardDescription,
+	CardHeader,
+	CardTitle,
+} from "@/core/components/ui/card"
 import { Separator } from "@/core/components/ui/separator"
 import { getInitials } from "@/core/lib/utils"
+
 import { trpc, type RouterOutputs } from "@/services/trpc/client"
 
 type WorkflowType = "REN" | "IEN"
@@ -32,7 +48,10 @@ export default function CalendarPage() {
 	const [workflowType, setWorkflowType] = useState<WorkflowType>("REN")
 	const [selectedDate, setSelectedDate] = useState<Date>(() => normalizeDate(new Date()))
 
-	const selectedDateForQuery = useMemo(() => (selectedDate ? normalizeDate(selectedDate) : undefined), [selectedDate])
+	const selectedDateForQuery = useMemo(
+		() => (selectedDate ? normalizeDate(selectedDate) : undefined),
+		[selectedDate]
+	)
 	const selectedDateLabel = selectedDate ? format(selectedDate, "EEEE, MMM d") : "Select a date"
 	const selectedDateParam = selectedDate ? format(selectedDate, "yyyy-MM-dd") : ""
 
@@ -63,8 +82,8 @@ export default function CalendarPage() {
 					<div className="space-y-2">
 						<h1 className="text-3xl font-bold tracking-tight">Lawyer Availability</h1>
 						<p className="text-muted-foreground">
-							View Electronic Notaries Public (ENPs) who are available on a specific day and jump straight into
-							booking.
+							View Electronic Notaries Public (ENPs) who are available on a specific day and jump
+							straight into booking.
 						</p>
 					</div>
 
@@ -73,7 +92,9 @@ export default function CalendarPage() {
 							<Card>
 								<CardHeader>
 									<CardTitle>Select workflow</CardTitle>
-									<CardDescription>Switch between remote (REN) and in-person (IEN) availability.</CardDescription>
+									<CardDescription>
+										Switch between remote (REN) and in-person (IEN) availability.
+									</CardDescription>
 								</CardHeader>
 								<CardContent>
 									<div className="grid grid-cols-2 gap-3">
@@ -100,16 +121,18 @@ export default function CalendarPage() {
 							<Card>
 								<CardHeader>
 									<CardTitle>Pick a day</CardTitle>
-									<CardDescription>See who is available and what time slots they still have.</CardDescription>
+									<CardDescription>
+										See who is available and what time slots they still have.
+									</CardDescription>
 								</CardHeader>
 								<CardContent className="space-y-4">
 									<CalendarComponent
 										mode="single"
 										selected={selectedDate}
-										onSelect={(date) => date && setSelectedDate(normalizeDate(date))}
-										disabled={(date) => date < today}
+										onSelect={date => date && setSelectedDate(normalizeDate(date))}
+										disabled={date => date < today}
 										initialFocus
-										className="w-full max-w-[380px] rounded-2xl border bg-muted/30 p-4 shadow-sm [--cell-size:2.6rem]"
+										className="bg-muted/30 w-full max-w-[380px] rounded-2xl border p-4 shadow-sm [--cell-size:2.6rem]"
 									/>
 
 									<Separator />
@@ -140,10 +163,16 @@ export default function CalendarPage() {
 									<div>
 										<CardTitle className="text-lg">Availability for {selectedDateLabel}</CardTitle>
 										<CardDescription>
-											{isBusy ? "Loading availability..." : hasResults ? "Tap a time to start booking." : "No ENPs for this day yet."}
+											{isBusy
+												? "Loading availability..."
+												: hasResults
+													? "Tap a time to start booking."
+													: "No ENPs for this day yet."}
 										</CardDescription>
 									</div>
-									<Badge variant={hasResults ? "default" : "outline"}>{availableEnps?.length ?? 0} ENPs</Badge>
+									<Badge variant={hasResults ? "default" : "outline"}>
+										{availableEnps?.length ?? 0} ENPs
+									</Badge>
 								</CardHeader>
 							</Card>
 
@@ -186,7 +215,7 @@ export default function CalendarPage() {
 
 							{!isBusy && hasResults && selectedDateParam && (
 								<div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-									{availableEnps?.map((enp) => (
+									{availableEnps?.map(enp => (
 										<AvailabilityCard
 											key={enp.id}
 											enp={enp as AvailableEnp}
@@ -212,7 +241,8 @@ interface AvailabilityCardProps {
 
 function AvailabilityCard({ enp, workflowType, dateParam }: AvailabilityCardProps) {
 	// Type assertion: availableSlots is not in the TRPC return type but is expected to be extended
-	const availableSlots: Array<{ time: string; duration: number }> = (enp as unknown as AvailableEnp).availableSlots ?? []
+	const availableSlots: Array<{ time: string; duration: number }> =
+		(enp as unknown as AvailableEnp).availableSlots ?? []
 
 	return (
 		<Card className="h-full">
@@ -224,7 +254,9 @@ function AvailabilityCard({ enp, workflowType, dateParam }: AvailabilityCardProp
 					</Avatar>
 					<div className="min-w-0">
 						<CardTitle className="truncate">{enp.name ?? "Electronic Notary Public"}</CardTitle>
-						<CardDescription className="truncate">{enp.specialization ?? "Legal Services"}</CardDescription>
+						<CardDescription className="truncate">
+							{enp.specialization ?? "Legal Services"}
+						</CardDescription>
 					</div>
 					{enp.rating ? (
 						<Badge variant="secondary" className="ml-auto">
@@ -233,7 +265,7 @@ function AvailabilityCard({ enp, workflowType, dateParam }: AvailabilityCardProp
 					) : null}
 				</div>
 
-				<div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+				<div className="text-muted-foreground flex flex-wrap items-center gap-3 text-sm">
 					{enp.phoneNumber && (
 						<span className="flex items-center gap-1">
 							<Phone className="h-4 w-4" />
@@ -324,4 +356,3 @@ function AvailabilityCard({ enp, workflowType, dateParam }: AvailabilityCardProp
 		</Card>
 	)
 }
-

@@ -16,8 +16,8 @@ export default function KycTestPage() {
 					<CardHeader>
 						<CardTitle>HyperVerge KYC Test Page</CardTitle>
 						<CardDescription>
-							Test the HyperVerge Onboard Links integration for KYC verification.
-							This page allows you to generate KYC verification links and check their status.
+							Test the HyperVerge Onboard Links integration for KYC verification. This page allows
+							you to generate KYC verification links and check their status.
 						</CardDescription>
 					</CardHeader>
 					<CardContent>
@@ -45,10 +45,18 @@ export default function KycTestPage() {
 					<CardContent className="text-muted-foreground text-xs">
 						<p>Required environment variables:</p>
 						<ul className="mt-2 list-inside list-disc space-y-1">
-							<li><code>HYPERVERGE_APP_ID</code> - Your HyperVerge App ID</li>
-							<li><code>HYPERVERGE_APP_KEY</code> - Your HyperVerge App Key</li>
-							<li><code>HYPERVERGE_WORKFLOW_ID</code> - Workflow ID from HyperVerge Dashboard</li>
-							<li><code>HYPERVERGE_API_URL</code> - API URL (optional, defaults to India region)</li>
+							<li>
+								<code>HYPERVERGE_APP_ID</code> - Your HyperVerge App ID
+							</li>
+							<li>
+								<code>HYPERVERGE_APP_KEY</code> - Your HyperVerge App Key
+							</li>
+							<li>
+								<code>HYPERVERGE_WORKFLOW_ID</code> - Workflow ID from HyperVerge Dashboard
+							</li>
+							<li>
+								<code>HYPERVERGE_API_URL</code> - API URL (optional, defaults to India region)
+							</li>
 						</ul>
 					</CardContent>
 				</Card>

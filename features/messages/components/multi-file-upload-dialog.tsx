@@ -1,7 +1,7 @@
 "use client"
 
-import { CheckCircle2, FileIcon, Loader2, Upload, X } from "lucide-react"
 import { useCallback, useState } from "react"
+import { CheckCircle2, FileIcon, Loader2, Upload, X } from "lucide-react"
 import { useDropzone } from "react-dropzone"
 import { toast } from "sonner"
 
@@ -17,8 +17,10 @@ import {
 import { Progress } from "@/core/components/ui/progress"
 import { ScrollArea } from "@/core/components/ui/scroll-area"
 import { cn } from "@/core/lib/utils"
-import { useMessageFiles } from "@/features/messages/api/message-files.hooks"
+
 import { getSupabaseBrowserClient } from "@/services/supabase/client"
+
+import { useMessageFiles } from "@/features/messages/api/message-files.hooks"
 
 interface FileWithProgress {
 	file: File
@@ -45,12 +47,12 @@ export function MultiFileUploadDialog({
 	const { generateUploadUrl, saveFileMetadata } = useMessageFiles()
 
 	const onDrop = useCallback((acceptedFiles: File[]) => {
-		const newFiles: FileWithProgress[] = acceptedFiles.map((file) => ({
+		const newFiles: FileWithProgress[] = acceptedFiles.map(file => ({
 			file,
 			progress: 0,
 			status: "pending" as const,
 		}))
-		setFiles((prev) => [...prev, ...newFiles])
+		setFiles(prev => [...prev, ...newFiles])
 	}, [])
 
 	const { getRootProps, getInputProps, isDragActive } = useDropzone({
@@ -59,13 +61,13 @@ export function MultiFileUploadDialog({
 	})
 
 	const removeFile = (index: number) => {
-		setFiles((prev) => prev.filter((_, i) => i !== index))
+		setFiles(prev => prev.filter((_, i) => i !== index))
 	}
 
 	const uploadFile = async (fileWithProgress: FileWithProgress, index: number) => {
 		try {
 			// Update status to uploading
-			setFiles((prev) =>
+			setFiles(prev =>
 				prev.map((f, i) => (i === index ? { ...f, status: "uploading" as const } : f))
 			)
 
@@ -89,11 +91,9 @@ export function MultiFileUploadDialog({
 			if (uploadError) {
 				throw new Error(uploadError.message)
 			}
-			
+
 			// Update upload progress
-			setFiles((prev) =>
-				prev.map((f, i) => (i === index ? { ...f, progress: 100 } : f))
-			)
+			setFiles(prev => prev.map((f, i) => (i === index ? { ...f, progress: 100 } : f)))
 
 			// Save metadata to database with the uploaded file path
 			await saveFileMetadata.mutateAsync({
@@ -106,12 +106,10 @@ export function MultiFileUploadDialog({
 			})
 
 			// Update status to success
-			setFiles((prev) =>
-				prev.map((f, i) => (i === index ? { ...f, status: "success" as const } : f))
-			)
+			setFiles(prev => prev.map((f, i) => (i === index ? { ...f, status: "success" as const } : f)))
 		} catch (error: any) {
 			console.error("Upload error:", error)
-			setFiles((prev) =>
+			setFiles(prev =>
 				prev.map((f, i) =>
 					i === index
 						? { ...f, status: "error" as const, error: error?.message || "Upload failed" }
@@ -187,13 +185,11 @@ export function MultiFileUploadDialog({
 						)}
 					>
 						<input {...getInputProps()} />
-						<Upload className="mb-4 size-10 text-muted-foreground" />
+						<Upload className="text-muted-foreground mb-4 size-10" />
 						<p className="text-sm font-medium">
-							{isDragActive
-								? "Drop files here..."
-								: "Drag & drop files here, or click to select"}
+							{isDragActive ? "Drop files here..." : "Drag & drop files here, or click to select"}
 						</p>
-						<p className="mt-1 text-xs text-muted-foreground">
+						<p className="text-muted-foreground mt-1 text-xs">
 							You can upload multiple files at once
 						</p>
 					</div>
@@ -203,38 +199,28 @@ export function MultiFileUploadDialog({
 						<ScrollArea className="h-64 rounded-lg border">
 							<div className="space-y-2 p-4">
 								{files.map((fileWithProgress, index) => (
-									<div
-										key={index}
-										className="flex items-center gap-3 rounded-lg border p-3"
-									>
-										<div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+									<div key={index} className="flex items-center gap-3 rounded-lg border p-3">
+										<div className="bg-primary/10 flex size-10 shrink-0 items-center justify-center rounded-lg">
 											{fileWithProgress.status === "success" ? (
 												<CheckCircle2 className="size-5 text-green-600" />
 											) : fileWithProgress.status === "uploading" ? (
-												<Loader2 className="size-5 animate-spin text-primary" />
+												<Loader2 className="text-primary size-5 animate-spin" />
 											) : fileWithProgress.status === "error" ? (
-												<X className="size-5 text-destructive" />
+												<X className="text-destructive size-5" />
 											) : (
-												<FileIcon className="size-5 text-primary" />
+												<FileIcon className="text-primary size-5" />
 											)}
 										</div>
 										<div className="min-w-0 flex-1">
-											<p className="truncate text-sm font-medium">
-												{fileWithProgress.file.name}
-											</p>
-											<p className="text-xs text-muted-foreground">
+											<p className="truncate text-sm font-medium">{fileWithProgress.file.name}</p>
+											<p className="text-muted-foreground text-xs">
 												{formatFileSize(fileWithProgress.file.size)}
 											</p>
 											{fileWithProgress.status === "uploading" && (
-												<Progress
-													value={fileWithProgress.progress}
-													className="mt-2 h-1"
-												/>
+												<Progress value={fileWithProgress.progress} className="mt-2 h-1" />
 											)}
 											{fileWithProgress.status === "error" && (
-												<p className="text-xs text-destructive">
-													{fileWithProgress.error}
-												</p>
+												<p className="text-destructive text-xs">{fileWithProgress.error}</p>
 											)}
 										</div>
 										{fileWithProgress.status === "pending" && (
@@ -258,10 +244,7 @@ export function MultiFileUploadDialog({
 					<Button variant="outline" onClick={() => onOpenChange(false)} disabled={isUploading}>
 						Cancel
 					</Button>
-					<Button
-						onClick={() => void handleUpload()}
-						disabled={files.length === 0 || isUploading}
-					>
+					<Button onClick={() => void handleUpload()} disabled={files.length === 0 || isUploading}>
 						{isUploading ? (
 							<>
 								<Loader2 className="mr-2 size-4 animate-spin" />
@@ -276,4 +259,3 @@ export function MultiFileUploadDialog({
 		</Dialog>
 	)
 }
-

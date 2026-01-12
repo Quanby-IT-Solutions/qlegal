@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+
 import type { SearchFilters } from "../types/find-notary.types"
 
 export function useSearchFilters() {

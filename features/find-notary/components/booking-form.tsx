@@ -1,9 +1,10 @@
 "use client"
 
-import { Calendar, Clock, Handshake, Loader2, Mail, Video } from "lucide-react"
 import { format, startOfToday } from "date-fns"
+import { Calendar, Clock, Handshake, Loader2, Mail, Video } from "lucide-react"
 
 import { Button } from "@/core/components/ui/button"
+import { Calendar as CalendarComponent } from "@/core/components/ui/calendar"
 import {
 	Card,
 	CardContent,
@@ -12,16 +13,16 @@ import {
 	CardTitle,
 } from "@/core/components/ui/card"
 import { Label } from "@/core/components/ui/label"
+import { Popover, PopoverContent, PopoverTrigger } from "@/core/components/ui/popover"
 import { RadioGroup, RadioGroupItem } from "@/core/components/ui/radio-group"
 import { Textarea } from "@/core/components/ui/textarea"
-import { Calendar as CalendarComponent } from "@/core/components/ui/calendar"
-import { Popover, PopoverContent, PopoverTrigger } from "@/core/components/ui/popover"
-import type { 
-	AvailabilitySlot, 
-	BookingState, 
-	ConsultationType, 
-	MeetingPreference, 
-	WorkflowType 
+
+import type {
+	AvailabilitySlot,
+	BookingState,
+	ConsultationType,
+	MeetingPreference,
+	WorkflowType,
 } from "../types/find-notary.types"
 
 interface BookingFormProps {
@@ -52,21 +53,21 @@ export function BookingForm({
 		location,
 	} = bookingState
 
-	const filteredSlots = selectedDate && availabilitySlots
-		? availabilitySlots.filter((slot) => 
-			slot.date === format(selectedDate, "yyyy-MM-dd") && slot.available
-		)
-		: []
+	const filteredSlots =
+		selectedDate && availabilitySlots
+			? availabilitySlots.filter(
+					slot => slot.date === format(selectedDate, "yyyy-MM-dd") && slot.available
+				)
+			: []
 
 	return (
 		<Card>
 			<CardHeader>
 				<CardTitle>Schedule Your Consultation</CardTitle>
 				<CardDescription>
-					{bookingWorkflow === "REN" 
+					{bookingWorkflow === "REN"
 						? "Select a time for your remote consultation"
-						: "Select a time for your in-person consultation"
-					}
+						: "Select a time for your in-person consultation"}
 				</CardDescription>
 			</CardHeader>
 			<CardContent className="space-y-6">
@@ -75,7 +76,7 @@ export function BookingForm({
 					<Label className="text-base font-medium">Select Date</Label>
 					<Popover>
 						<PopoverTrigger asChild>
-							<Button variant="outline" className="w-full justify-start text-left font-normal mt-2">
+							<Button variant="outline" className="mt-2 w-full justify-start text-left font-normal">
 								<Calendar className="mr-2 h-4 w-4" />
 								{selectedDate ? format(selectedDate, "PPP") : "Pick a date"}
 							</Button>
@@ -84,8 +85,8 @@ export function BookingForm({
 							<CalendarComponent
 								mode="single"
 								selected={selectedDate}
-								onSelect={(date) => onBookingStateChange({ selectedDate: date })}
-								disabled={(date) => date < today}
+								onSelect={date => onBookingStateChange({ selectedDate: date })}
+								disabled={date => date < today}
 								initialFocus
 							/>
 						</PopoverContent>
@@ -97,24 +98,24 @@ export function BookingForm({
 					<div className="space-y-3">
 						<div className="space-y-1">
 							<Label className="text-base font-medium">Pick a time</Label>
-							<p className="text-xs text-muted-foreground">
+							<p className="text-muted-foreground text-xs">
 								Choose a suggested slot or type a custom time (24h or 12h accepted).
 							</p>
 						</div>
 						<input
 							type="time"
-							className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+							className="border-input bg-background ring-offset-background placeholder:text-muted-foreground focus-visible:ring-ring w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
 							value={selectedTime || ""}
-							onChange={(e) => onBookingStateChange({ selectedTime: e.target.value })}
+							onChange={e => onBookingStateChange({ selectedTime: e.target.value })}
 						/>
 						<div className="space-y-2">
-							<Label className="text-sm font-medium text-muted-foreground">Suggested slots</Label>
+							<Label className="text-muted-foreground text-sm font-medium">Suggested slots</Label>
 							{isLoadingAvailability ? (
 								<div className="flex items-center justify-center py-4">
-									<Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+									<Loader2 className="text-muted-foreground h-5 w-5 animate-spin" />
 								</div>
 							) : filteredSlots.length > 0 ? (
-								<div className="grid grid-cols-2 md:grid-cols-3 gap-2 mt-2">
+								<div className="mt-2 grid grid-cols-2 gap-2 md:grid-cols-3">
 									{filteredSlots.map((slot, index) => (
 										<Button
 											key={index}
@@ -128,7 +129,7 @@ export function BookingForm({
 									))}
 								</div>
 							) : (
-								<p className="text-sm text-muted-foreground">
+								<p className="text-muted-foreground text-sm">
 									No suggested slots for this date. Enter a custom time above.
 								</p>
 							)}
@@ -139,22 +140,30 @@ export function BookingForm({
 				{/* Consultation Type */}
 				<div>
 					<Label className="text-base font-medium">Consultation Type</Label>
-					<RadioGroup 
-						value={consultationType} 
-						onValueChange={(value) => onBookingStateChange({ consultationType: value as ConsultationType })} 
+					<RadioGroup
+						value={consultationType}
+						onValueChange={value =>
+							onBookingStateChange({ consultationType: value as ConsultationType })
+						}
 						className="mt-2"
 					>
 						<div className="flex items-center space-x-2">
 							<RadioGroupItem value="INITIAL" id="initial" />
-							<Label htmlFor="initial" className="font-normal">Initial Consultation</Label>
+							<Label htmlFor="initial" className="font-normal">
+								Initial Consultation
+							</Label>
 						</div>
 						<div className="flex items-center space-x-2">
 							<RadioGroupItem value="FOLLOWUP" id="followup" />
-							<Label htmlFor="followup" className="font-normal">Follow-up Consultation</Label>
+							<Label htmlFor="followup" className="font-normal">
+								Follow-up Consultation
+							</Label>
 						</div>
 						<div className="flex items-center space-x-2">
 							<RadioGroupItem value="URGENT" id="urgent" />
-							<Label htmlFor="urgent" className="font-normal">Urgent Consultation</Label>
+							<Label htmlFor="urgent" className="font-normal">
+								Urgent Consultation
+							</Label>
 						</div>
 					</RadioGroup>
 				</div>
@@ -163,9 +172,11 @@ export function BookingForm({
 				{bookingWorkflow === "REN" && (
 					<div>
 						<Label className="text-base font-medium">Meeting Preference</Label>
-						<RadioGroup 
-							value={meetingPreference} 
-							onValueChange={(value) => onBookingStateChange({ meetingPreference: value as MeetingPreference })} 
+						<RadioGroup
+							value={meetingPreference}
+							onValueChange={value =>
+								onBookingStateChange({ meetingPreference: value as MeetingPreference })
+							}
 							className="mt-2"
 						>
 							<div className="flex items-center space-x-2">
@@ -175,7 +186,9 @@ export function BookingForm({
 										<Video className="h-4 w-4" />
 										<div>
 											<div className="font-medium">Video Call</div>
-											<div className="text-xs text-muted-foreground">Full video consultation with screen sharing</div>
+											<div className="text-muted-foreground text-xs">
+												Full video consultation with screen sharing
+											</div>
 										</div>
 									</div>
 								</Label>
@@ -187,7 +200,9 @@ export function BookingForm({
 										<Mail className="h-4 w-4" />
 										<div>
 											<div className="font-medium">Chat Only</div>
-											<div className="text-xs text-muted-foreground">Text-based consultation via messaging</div>
+											<div className="text-muted-foreground text-xs">
+												Text-based consultation via messaging
+											</div>
 										</div>
 									</div>
 								</Label>
@@ -207,8 +222,8 @@ export function BookingForm({
 							type="text"
 							placeholder="Enter the meeting location address..."
 							value={location}
-							onChange={(e) => onBookingStateChange({ location: e.target.value })}
-							className="mt-2 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+							onChange={e => onBookingStateChange({ location: e.target.value })}
+							className="border-input bg-background ring-offset-background placeholder:text-muted-foreground focus-visible:ring-ring mt-2 w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
 						/>
 					</div>
 				)}
@@ -222,7 +237,7 @@ export function BookingForm({
 						id="requirements"
 						placeholder="Any special requirements or documents you need notarized..."
 						value={specialRequirements}
-						onChange={(e) => onBookingStateChange({ specialRequirements: e.target.value })}
+						onChange={e => onBookingStateChange({ specialRequirements: e.target.value })}
 						className="mt-2"
 					/>
 				</div>
@@ -257,7 +272,7 @@ export function BookingForm({
 				</Button>
 
 				{(!selectedDate || !selectedTime) && (
-					<p className="text-sm text-muted-foreground text-center">
+					<p className="text-muted-foreground text-center text-sm">
 						Please select a date and time to continue
 					</p>
 				)}

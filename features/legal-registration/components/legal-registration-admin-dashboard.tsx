@@ -10,14 +10,14 @@ import {
 	CardContent,
 	CardDescription,
 	CardHeader,
-	CardTitle
+	CardTitle,
 } from "@/core/components/ui/card"
 import {
 	Dialog,
 	DialogContent,
 	DialogDescription,
 	DialogHeader,
-	DialogTitle
+	DialogTitle,
 } from "@/core/components/ui/dialog"
 import { Label } from "@/core/components/ui/label"
 import {
@@ -25,7 +25,7 @@ import {
 	SelectContent,
 	SelectItem,
 	SelectTrigger,
-	SelectValue
+	SelectValue,
 } from "@/core/components/ui/select"
 import {
 	Table,
@@ -33,14 +33,9 @@ import {
 	TableCell,
 	TableHead,
 	TableHeader,
-	TableRow
+	TableRow,
 } from "@/core/components/ui/table"
-import {
-	Tabs,
-	TabsContent,
-	TabsList,
-	TabsTrigger
-} from "@/core/components/ui/tabs"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/core/components/ui/tabs"
 import { Textarea } from "@/core/components/ui/textarea"
 
 import type { UpdateApplicationStatus } from "../api/legal-registration.schemas"
@@ -80,16 +75,10 @@ type LegalApplication = {
 }
 
 export function LegalRegistrationAdminDashboard() {
-	const {
-		applications,
-		isLoading,
-		updateApplicationStatus,
-		isUpdatingStatus,
-		refetch
-	} = useLegalRegistrationAdmin()
+	const { applications, isLoading, updateApplicationStatus, isUpdatingStatus, refetch } =
+		useLegalRegistrationAdmin()
 
-	const [selectedApplication, setSelectedApplication] =
-		useState<LegalApplication | null>(null)
+	const [selectedApplication, setSelectedApplication] = useState<LegalApplication | null>(null)
 	const [reviewDialog, setReviewDialog] = useState(false)
 	const [viewDialog, setViewDialog] = useState(false)
 	const [reviewData, setReviewData] = useState<{
@@ -97,7 +86,7 @@ export function LegalRegistrationAdminDashboard() {
 		remarks: string
 	}>({
 		status: "UNDER_REVIEW",
-		remarks: ""
+		remarks: "",
 	})
 
 	const handleView = (application: LegalApplication) => {
@@ -109,7 +98,7 @@ export function LegalRegistrationAdminDashboard() {
 		setSelectedApplication(application)
 		setReviewData({
 			status: "UNDER_REVIEW",
-			remarks: ""
+			remarks: "",
 		})
 		setReviewDialog(true)
 	}
@@ -120,7 +109,7 @@ export function LegalRegistrationAdminDashboard() {
 		const updateData: UpdateApplicationStatus = {
 			applicationId: selectedApplication.id,
 			status: reviewData.status,
-			remarks: reviewData.remarks || undefined
+			remarks: reviewData.remarks || undefined,
 		}
 
 		updateApplicationStatus(updateData)
@@ -164,9 +153,7 @@ export function LegalRegistrationAdminDashboard() {
 							<FileText className="h-6 w-6 text-blue-600" />
 							<div>
 								<CardTitle>Legal Registration Applications</CardTitle>
-								<CardDescription>
-									Manage E-Notarial registration applications
-								</CardDescription>
+								<CardDescription>Manage E-Notarial registration applications</CardDescription>
 							</div>
 						</div>
 						<Button onClick={() => refetch()} variant="outline">
@@ -193,7 +180,7 @@ export function LegalRegistrationAdminDashboard() {
 							</TableRow>
 						</TableHeader>
 						<TableBody>
-							{(applications as LegalApplication[])?.map((application) => (
+							{(applications as LegalApplication[])?.map(application => (
 								<TableRow key={application.id}>
 									<TableCell className="font-medium">
 										{application.applicant?.name ?? "N/A"}
@@ -207,11 +194,7 @@ export function LegalRegistrationAdminDashboard() {
 									</TableCell>
 									<TableCell>
 										<div className="flex space-x-2">
-											<Button
-												variant="outline"
-												size="sm"
-												onClick={() => handleView(application)}
-											>
+											<Button variant="outline" size="sm" onClick={() => handleView(application)}>
 												<Eye className="mr-1 h-4 w-4" />
 												View
 											</Button>
@@ -249,8 +232,7 @@ export function LegalRegistrationAdminDashboard() {
 					<DialogHeader>
 						<DialogTitle>Review Application</DialogTitle>
 						<DialogDescription>
-							{selectedApplication?.applicant?.name} -{" "}
-							{selectedApplication?.applicant?.email}
+							{selectedApplication?.applicant?.name} - {selectedApplication?.applicant?.email}
 						</DialogDescription>
 					</DialogHeader>
 					<div className="space-y-4">
@@ -258,9 +240,9 @@ export function LegalRegistrationAdminDashboard() {
 							<Label htmlFor="status">Decision</Label>
 							<Select
 								value={reviewData.status}
-								onValueChange={(
-									value: "UNDER_REVIEW" | "APPROVED" | "REJECTED"
-								) => setReviewData((prev) => ({ ...prev, status: value }))}
+								onValueChange={(value: "UNDER_REVIEW" | "APPROVED" | "REJECTED") =>
+									setReviewData(prev => ({ ...prev, status: value }))
+								}
 							>
 								<SelectTrigger>
 									<SelectValue />
@@ -278,10 +260,10 @@ export function LegalRegistrationAdminDashboard() {
 							<Textarea
 								id="remarks"
 								value={reviewData.remarks}
-								onChange={(e) =>
-									setReviewData((prev) => ({
+								onChange={e =>
+									setReviewData(prev => ({
 										...prev,
-										remarks: e.target.value
+										remarks: e.target.value,
 									}))
 								}
 								placeholder="Add any comments or feedback..."
@@ -306,15 +288,11 @@ export function LegalRegistrationAdminDashboard() {
 					<DialogHeader className="flex-shrink-0">
 						<DialogTitle>Application Details</DialogTitle>
 						<DialogDescription>
-							{selectedApplication?.applicant?.name} -{" "}
-							{selectedApplication?.applicant?.email}
+							{selectedApplication?.applicant?.name} - {selectedApplication?.applicant?.email}
 						</DialogDescription>
 					</DialogHeader>
 
-					<Tabs
-						defaultValue="info"
-						className="mt-4 flex min-h-0 flex-1 flex-col"
-					>
+					<Tabs defaultValue="info" className="mt-4 flex min-h-0 flex-1 flex-col">
 						<TabsList className="grid w-full flex-shrink-0 grid-cols-2">
 							<TabsTrigger value="info">Application Info</TabsTrigger>
 							<TabsTrigger value="documents">Documents</TabsTrigger>
@@ -326,66 +304,50 @@ export function LegalRegistrationAdminDashboard() {
 									<h4 className="mb-2 font-semibold">Personal Information</h4>
 									<div className="grid grid-cols-2 gap-2 text-sm">
 										<div>
-											<strong>Citizenship:</strong>{" "}
-											{selectedApplication?.citizenship}
+											<strong>Citizenship:</strong> {selectedApplication?.citizenship}
 										</div>
 										<div>
 											<strong>Date of Birth:</strong>{" "}
 											{selectedApplication?.dateOfBirth
-												? new Date(
-														selectedApplication.dateOfBirth
-													).toLocaleDateString()
+												? new Date(selectedApplication.dateOfBirth).toLocaleDateString()
 												: "N/A"}
 										</div>
 										<div>
-											<strong>Mobile:</strong>{" "}
-											{selectedApplication?.mobileNumber}
+											<strong>Mobile:</strong> {selectedApplication?.mobileNumber}
 										</div>
 										<div>
-											<strong>Email:</strong>{" "}
-											{selectedApplication?.emailAddress}
+											<strong>Email:</strong> {selectedApplication?.emailAddress}
 										</div>
 									</div>
 								</div>
 
 								<div>
 									<h4 className="mb-2 font-semibold">Residential Address</h4>
-									<p className="text-sm">
-										{selectedApplication?.residentialAddress}
-									</p>
+									<p className="text-sm">{selectedApplication?.residentialAddress}</p>
 								</div>
 
 								<div>
 									<h4 className="mb-2 font-semibold">Work Address</h4>
-									<p className="text-sm">
-										{selectedApplication?.workOrBusinessAddress}
-									</p>
+									<p className="text-sm">{selectedApplication?.workOrBusinessAddress}</p>
 								</div>
 
 								<div>
-									<h4 className="mb-2 font-semibold">
-										Professional Information
-									</h4>
+									<h4 className="mb-2 font-semibold">Professional Information</h4>
 									<div className="grid grid-cols-2 gap-2 text-sm">
 										<div>
-											<strong>PTR:</strong>{" "}
-											{selectedApplication?.professionalTaxReceiptNumber}
+											<strong>PTR:</strong> {selectedApplication?.professionalTaxReceiptNumber}
 										</div>
 										<div>
-											<strong>Roll Number:</strong>{" "}
-											{selectedApplication?.rollOfAttorneysNumber}
+											<strong>Roll Number:</strong> {selectedApplication?.rollOfAttorneysNumber}
 										</div>
 										<div>
-											<strong>IBP:</strong>{" "}
-											{selectedApplication?.ibpMembershipNumber}
+											<strong>IBP:</strong> {selectedApplication?.ibpMembershipNumber}
 										</div>
 										<div>
-											<strong>MCLE:</strong>{" "}
-											{selectedApplication?.mcleComplianceNumber}
+											<strong>MCLE:</strong> {selectedApplication?.mcleComplianceNumber}
 										</div>
 										<div>
-											<strong>ULAS:</strong>{" "}
-											{selectedApplication?.ulasComplianceNumber}
+											<strong>ULAS:</strong> {selectedApplication?.ulasComplianceNumber}
 										</div>
 									</div>
 								</div>
@@ -393,9 +355,7 @@ export function LegalRegistrationAdminDashboard() {
 								{selectedApplication?.remarks && (
 									<div>
 										<h4 className="mb-2 font-semibold">Review Remarks</h4>
-										<p className="rounded bg-gray-50 p-2 text-sm">
-											{selectedApplication.remarks}
-										</p>
+										<p className="rounded bg-gray-50 p-2 text-sm">{selectedApplication.remarks}</p>
 									</div>
 								)}
 							</div>
@@ -410,25 +370,24 @@ export function LegalRegistrationAdminDashboard() {
 													id: selectedApplication.id,
 													applicant: selectedApplication.applicant ?? {
 														name: null,
-														email: null
+														email: null,
 													},
 													status: selectedApplication.status,
 													obcCertificationUrl:
-														(selectedApplication as LegalApplicationWithDocs)
-															.obcCertificationUrl ?? "",
+														(selectedApplication as LegalApplicationWithDocs).obcCertificationUrl ??
+														"",
 													ibpCertificationUrl:
-														(selectedApplication as LegalApplicationWithDocs)
-															.ibpCertificationUrl ?? "",
+														(selectedApplication as LegalApplicationWithDocs).ibpCertificationUrl ??
+														"",
 													passportPhotoUrl:
-														(selectedApplication as LegalApplicationWithDocs)
-															.passportPhotoUrl ?? "",
+														(selectedApplication as LegalApplicationWithDocs).passportPhotoUrl ??
+														"",
 													paymentProofUrl:
-														(selectedApplication as LegalApplicationWithDocs)
-															.paymentProofUrl ?? "",
+														(selectedApplication as LegalApplicationWithDocs).paymentProofUrl ?? "",
 													enfProviderCertificationUrl:
 														(selectedApplication as LegalApplicationWithDocs)
 															.enfProviderCertificationUrl ?? "",
-													submittedAt: selectedApplication.submittedAt
+													submittedAt: selectedApplication.submittedAt,
 												}
 											: null
 									}

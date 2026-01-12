@@ -22,10 +22,7 @@ export const enpProfiles = createTable("enp_profile", t => ({
 	reviewCount: t.integer().default(0), // Total number of reviews
 	commission: t.real().default(0), // Commission rate for the ENP
 	isAvailable: t.boolean().default(true), // Whether accepting new consultations
-	createdAt: t
-		.timestamp({ mode: "date", withTimezone: true })
-		.defaultNow()
-		.notNull(),
+	createdAt: t.timestamp({ mode: "date", withTimezone: true }).defaultNow().notNull(),
 	updatedAt: t
 		.timestamp({ mode: "date", withTimezone: true })
 		.defaultNow()
@@ -46,10 +43,7 @@ export const enpAvailability = createTable("enp_availability", t => ({
 	startTime: t.varchar({ length: 5 }).notNull(), // e.g., "09:00"
 	endTime: t.varchar({ length: 5 }).notNull(), // e.g., "17:00"
 	isAvailable: t.boolean().default(true),
-	createdAt: t
-		.timestamp({ mode: "date", withTimezone: true })
-		.defaultNow()
-		.notNull(),
+	createdAt: t.timestamp({ mode: "date", withTimezone: true }).defaultNow().notNull(),
 	updatedAt: t
 		.timestamp({ mode: "date", withTimezone: true })
 		.defaultNow()
@@ -59,4 +53,3 @@ export const enpAvailability = createTable("enp_availability", t => ({
 
 export type EnpProfile = InferSelectModel<typeof enpProfiles>
 export type EnpAvailability = InferSelectModel<typeof enpAvailability>
-

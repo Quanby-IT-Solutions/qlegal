@@ -44,6 +44,7 @@ app/(site)/find-a-lawyer/
 ### Database Schema
 
 The appointments table includes:
+
 - `clientId` - User who books the appointment (PRINCIPAL)
 - `lawyerId` - Lawyer (ENP) with whom appointment is booked
 - `type` - DOCUMENT_SIGNING or CONSULTATION
@@ -72,21 +73,24 @@ The appointments table includes:
 ### Lawyers Endpoints
 
 #### `lawyers.getLawyers`
+
 - **Type**: Public Query
 - **Purpose**: Fetch all lawyers with optional search filtering
-- **Input**: 
+- **Input**:
   - `query` (optional): Search term for name, email, or phone
   - `limit` (optional): Number of results (default: 50, max: 100)
   - `offset` (optional): Pagination offset (default: 0)
 - **Returns**: Array of lawyer profiles
 
 #### `lawyers.getLawyerById`
+
 - **Type**: Public Query
 - **Purpose**: Fetch a specific lawyer by ID
 - **Input**: `lawyerId` (required)
 - **Returns**: Lawyer profile or null
 
 #### `lawyers.getLawyersCount`
+
 - **Type**: Public Query
 - **Purpose**: Get total count of lawyers
 - **Returns**: Number of lawyers
@@ -94,6 +98,7 @@ The appointments table includes:
 ### Appointments Endpoints
 
 #### `appointments.createAppointment`
+
 - **Type**: Protected Mutation
 - **Purpose**: Book new appointment with a lawyer
 - **Input**:
@@ -107,6 +112,7 @@ The appointments table includes:
 - **Returns**: Created appointment
 
 #### `appointments.getMyAppointments`
+
 - **Type**: Protected Query
 - **Purpose**: Get user's appointments (both as client and lawyer)
 - **Input**:
@@ -118,12 +124,14 @@ The appointments table includes:
 - **Returns**: Array of appointments with client/lawyer details
 
 #### `appointments.getAppointmentById`
+
 - **Type**: Protected Query
 - **Purpose**: Get specific appointment details
 - **Input**: `appointmentId` (required)
 - **Returns**: Appointment with full details
 
 #### `appointments.confirmAppointment`
+
 - **Type**: Protected Mutation (Lawyer only)
 - **Purpose**: Confirm a pending appointment
 - **Input**:
@@ -132,6 +140,7 @@ The appointments table includes:
 - **Returns**: Updated appointment
 
 #### `appointments.cancelAppointment`
+
 - **Type**: Protected Mutation
 - **Purpose**: Cancel an appointment
 - **Input**:
@@ -140,6 +149,7 @@ The appointments table includes:
 - **Returns**: Updated appointment
 
 #### `appointments.getUpcomingAppointments`
+
 - **Type**: Protected Query
 - **Purpose**: Get upcoming appointments for current user
 - **Returns**: Next 10 upcoming appointments
@@ -147,6 +157,7 @@ The appointments table includes:
 ## Features
 
 ### Lawyer Directory
+
 - ✅ Search lawyers by name, email, or phone number
 - ✅ Grid and list view modes
 - ✅ Verified badge for email-verified lawyers
@@ -157,6 +168,7 @@ The appointments table includes:
 - ✅ Real-time search filtering
 
 ### Appointment Booking
+
 - ✅ Book appointments directly from lawyer cards
 - ✅ Choose appointment type (Signing or Consultation)
 - ✅ Date picker with future dates only

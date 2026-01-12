@@ -24,7 +24,7 @@ const TOKEN_REFRESH_BUFFER_MS = 5 * 60 * 1000 // 5 minutes
 /**
  * Generate a DocoChain authentication token for a specific user email
  * Uses the Generate Token API: POST https://stg-api2.doconchain.com/api/v2/generate/token
- * 
+ *
  * @param email - The email address of the user to generate token for
  * @returns The generated token string
  */
@@ -32,7 +32,7 @@ export async function generateDocoChainToken(email: string, forceRefresh = false
 	console.log("🔵 Generating DocoChain token...")
 	console.log("   - Email:", email)
 	console.log("   - Force refresh:", forceRefresh)
-	
+
 	// Check cache first (unless forcing refresh)
 	if (!forceRefresh) {
 		const cached = tokenCache.get(email)
@@ -41,13 +41,21 @@ export async function generateDocoChainToken(email: string, forceRefresh = false
 			// If token is still valid and not about to expire, use cached token
 			if (cached.expiresAt > now + TOKEN_REFRESH_BUFFER_MS) {
 				console.log("✅ Using cached token for:", email)
-				console.log("   - Token expires in:", Math.round((cached.expiresAt - now) / 1000 / 60), "minutes")
+				console.log(
+					"   - Token expires in:",
+					Math.round((cached.expiresAt - now) / 1000 / 60),
+					"minutes"
+				)
 				return cached.token
 			}
 			// Token is about to expire, refresh it proactively
 			if (cached.expiresAt > now) {
 				console.log("🔄 Token expiring soon, refreshing proactively for:", email)
-				console.log("   - Token expires in:", Math.round((cached.expiresAt - now) / 1000 / 60), "minutes")
+				console.log(
+					"   - Token expires in:",
+					Math.round((cached.expiresAt - now) / 1000 / 60),
+					"minutes"
+				)
 			} else {
 				console.log("⚠️ Cached token expired, generating new token for:", email)
 			}
@@ -65,7 +73,9 @@ export async function generateDocoChainToken(email: string, forceRefresh = false
 			if (DOCOCHAIN_API_TOKEN) {
 				return DOCOCHAIN_API_TOKEN
 			}
-			throw new Error("DocoChain client credentials not configured. Set DOCOCHAIN_CLIENT_KEY and DOCOCHAIN_CLIENT_SECRET in .env.local")
+			throw new Error(
+				"DocoChain client credentials not configured. Set DOCOCHAIN_CLIENT_KEY and DOCOCHAIN_CLIENT_SECRET in .env.local"
+			)
 		}
 
 		const formData = new FormData()
@@ -89,7 +99,9 @@ export async function generateDocoChainToken(email: string, forceRefresh = false
 		if (!response.ok) {
 			const errorText = await response.text()
 			console.error("❌ DocoChain generate token error:", errorText)
-			throw new Error(`DocoChain API error: ${response.status} ${response.statusText} - ${errorText}`)
+			throw new Error(
+				`DocoChain API error: ${response.status} ${response.statusText} - ${errorText}`
+			)
 		}
 
 		const result = (await response.json()) as { token?: string; data?: { token?: string } }
@@ -126,7 +138,7 @@ export async function generateDocoChainToken(email: string, forceRefresh = false
 /**
  * Get a valid DocoChain token for a user, generating a new one if needed
  * This function handles token caching and automatic refresh
- * 
+ *
  * @param email - The email address of the user
  * @param forceRefresh - Force a new token generation even if cached token exists
  * @returns A valid token string
@@ -136,12 +148,12 @@ export async function getDocoChainToken(email?: string, forceRefresh = false): P
 	if (email) {
 		return generateDocoChainToken(email, forceRefresh)
 	}
-	
+
 	// Otherwise, use static token or generate a default one
 	if (DOCOCHAIN_API_TOKEN) {
 		return DOCOCHAIN_API_TOKEN
 	}
-	
+
 	// If no static token and no email, we can't generate a token
 	throw new Error("Cannot generate token: email is required when DOCOCHAIN_API_TOKEN is not set")
 }
@@ -149,7 +161,7 @@ export async function getDocoChainToken(email?: string, forceRefresh = false): P
 /**
  * Make a DocoChain API call with automatic token refresh on 401 errors
  * This wrapper function ensures tokens are automatically refreshed when they expire
- * 
+ *
  * @param apiCall - A function that makes the API call and returns a Response
  * @param userEmail - The email address of the user (for token generation)
  * @param retryCount - Internal counter for retry attempts (max 1 retry)
@@ -161,42 +173,42 @@ export async function makeDocoChainApiCall(
 	retryCount = 0
 ): Promise<Response> {
 	const maxRetries = 1 // Only retry once to avoid infinite loops
-	
+
 	try {
 		// Get token (will be refreshed if about to expire)
 		const token: string = await getDocoChainToken(userEmail)
-		
+
 		// Make the API call
 		const response = await apiCall(token)
-		
+
 		// If we get a 401 Unauthorized, the token might have expired
 		// Refresh the token and retry once
 		if (response.status === 401 && retryCount < maxRetries && userEmail) {
 			console.warn("⚠️ Received 401 Unauthorized, refreshing token and retrying...")
 			console.log("   - User email:", userEmail)
 			console.log("   - Retry attempt:", retryCount + 1)
-			
+
 			// Force refresh the token
 			await getDocoChainToken(userEmail, true)
-			
+
 			// Retry the API call with the new token
 			return makeDocoChainApiCall(apiCall, userEmail, retryCount + 1)
 		}
-		
+
 		return response
 	} catch (error) {
 		// If token generation failed and we haven't retried, try once more
 		if (retryCount < maxRetries && userEmail) {
 			console.warn("⚠️ Error in API call, refreshing token and retrying...")
 			console.log("   - Error:", error)
-			
+
 			// Force refresh the token
 			await getDocoChainToken(userEmail, true)
-			
+
 			// Retry the API call with the new token
 			return makeDocoChainApiCall(apiCall, userEmail, retryCount + 1)
 		}
-		
+
 		throw error
 	}
 }
@@ -280,23 +292,27 @@ export async function createDocoChainProject({
 	userListEditable = false,
 	creatorAsViewer = false,
 	creatorEmail,
-}: CreateProjectRequest & { creatorEmail?: string }): Promise<{ uuid: string; id: number; redirectUrl?: string }> {
+}: CreateProjectRequest & { creatorEmail?: string }): Promise<{
+	uuid: string
+	id: number
+	redirectUrl?: string
+}> {
 	console.log("🔵 Starting DocoChain project creation...")
 	console.log("   - Title:", title)
 	console.log("   - File name:", fileName)
 	console.log("   - File size:", documentFile.length, "bytes")
 	console.log("   - API Base:", DOCOCHAIN_API_BASE)
 	console.log("   - Creator Email:", creatorEmail ?? "not provided")
-	
+
 	try {
 		const formData = new FormData()
 		const fileBlob = new Blob([new Uint8Array(documentFile)], { type: "application/pdf" })
 		formData.append("file", fileBlob, fileName)
-		
+
 		// Add optional parameters per API specification
 		// user_list_editable: If false, recipients cannot be edited after creation
 		formData.append("user_list_editable", String(userListEditable))
-		
+
 		// creator_as_viewer: If false, creator is not added as a viewer
 		formData.append("creator_as_viewer", String(creatorAsViewer))
 
@@ -307,7 +323,7 @@ export async function createDocoChainProject({
 
 		// Use the wrapper function for automatic token refresh on 401 errors
 		const response = await makeDocoChainApiCall(
-			async (token) => {
+			async token => {
 				return fetch(apiUrl, {
 					method: "POST",
 					headers: {
@@ -325,12 +341,14 @@ export async function createDocoChainProject({
 		if (!response.ok) {
 			const errorText = await response.text()
 			console.error("❌ DocoChain API error response:", errorText)
-			throw new Error(`DocoChain API error: ${response.status} ${response.statusText} - ${errorText}`)
+			throw new Error(
+				`DocoChain API error: ${response.status} ${response.statusText} - ${errorText}`
+			)
 		}
 
 		const result = (await response.json()) as DocoChainApiResponse
 		console.log("📦 DocoChain API response:", result)
-		
+
 		if (!result.data?.uuid) {
 			console.error("❌ No UUID in response:", result)
 			throw new Error("DocoChain did not return a project UUID")
@@ -347,21 +365,34 @@ export async function createDocoChainProject({
 			try {
 				const url = new URL(cleanedRedirectUrl)
 				// Remove api_token if it's undefined or empty
-				if (url.searchParams.has('api_token') && (url.searchParams.get('api_token') === 'undefined' || url.searchParams.get('api_token') === '')) {
-					url.searchParams.delete('api_token')
+				if (
+					url.searchParams.has("api_token") &&
+					(url.searchParams.get("api_token") === "undefined" ||
+						url.searchParams.get("api_token") === "")
+				) {
+					url.searchParams.delete("api_token")
 					console.log("⚠️ Removed invalid api_token=undefined from redirect URL")
 				}
 				// Remove api parameter if it's null or empty
-				if (url.searchParams.has('api') && (url.searchParams.get('api') === 'null' || url.searchParams.get('api') === '')) {
-					url.searchParams.delete('api')
+				if (
+					url.searchParams.has("api") &&
+					(url.searchParams.get("api") === "null" || url.searchParams.get("api") === "")
+				) {
+					url.searchParams.delete("api")
 					console.log("🧹 Removed api=null parameter from redirect URL")
 				}
 				cleanedRedirectUrl = url.toString()
 			} catch {
 				// If URL parsing fails, try simple string replacement
-				if (typeof cleanedRedirectUrl === 'string') {
-					cleanedRedirectUrl = cleanedRedirectUrl.replace(/\?api_token=undefined(&|$)/, '?').replace(/&api_token=undefined(&|$)/, '&').replace(/\?$/, '')
-					cleanedRedirectUrl = cleanedRedirectUrl.replace(/\?api=null(&|$)/, '?').replace(/&api=null(&|$)/, '&').replace(/\?$/, '')
+				if (typeof cleanedRedirectUrl === "string") {
+					cleanedRedirectUrl = cleanedRedirectUrl
+						.replace(/\?api_token=undefined(&|$)/, "?")
+						.replace(/&api_token=undefined(&|$)/, "&")
+						.replace(/\?$/, "")
+					cleanedRedirectUrl = cleanedRedirectUrl
+						.replace(/\?api=null(&|$)/, "?")
+						.replace(/&api=null(&|$)/, "&")
+						.replace(/\?$/, "")
 				}
 			}
 			console.log("   - Redirect URL (cleaned):", cleanedRedirectUrl)
@@ -399,7 +430,12 @@ export async function addSignerToProject({
 	lastName: string
 	signerRole?: string
 	userEmail?: string // Email of the user making the API call (creator/ENP)
-}): Promise<{ data?: DocoChainProjectSigner[]; message?: string; verified?: boolean; [key: string]: unknown }> {
+}): Promise<{
+	data?: DocoChainProjectSigner[]
+	message?: string
+	verified?: boolean
+	[key: string]: unknown
+}> {
 	console.log("🔵 Adding signer to DocoChain project...")
 	console.log("   - Project UUID:", projectUuid)
 	console.log("   - Email:", email)
@@ -409,15 +445,15 @@ export async function addSignerToProject({
 	try {
 		// Use the wrapper function for automatic token refresh on 401 errors
 		const response = await makeDocoChainApiCall(
-			async (token) => {
+			async token => {
 				return fetch(
 					`${DOCOCHAIN_API_BASE}/projects/${projectUuid}/signers?user_type=ENTERPRISE_API`,
 					{
 						method: "POST",
 						headers: {
-							Authorization: `Bearer ${token}`,
+							"Authorization": `Bearer ${token}`,
 							"Content-Type": "application/json",
-							Accept: "application/json",
+							"Accept": "application/json",
 						},
 						body: JSON.stringify({
 							email,
@@ -437,7 +473,7 @@ export async function addSignerToProject({
 		if (!response.ok) {
 			const errorText = await response.text()
 			console.error("❌ DocoChain add signer error:", errorText)
-			
+
 			// If signer already exists, verify it was actually added by checking project details
 			if (response.status === 400) {
 				if (errorText.includes("already") || errorText.includes("already been added")) {
@@ -458,13 +494,15 @@ export async function addSignerToProject({
 					} catch (verifyError) {
 						console.error("❌ Failed to verify signer:", verifyError)
 						// If verification fails but we got "already exists" error, assume it's fine
-						console.log(`ℹ️ Signer already exists: ${  email}`)
+						console.log(`ℹ️ Signer already exists: ${email}`)
 						return { message: "Signer already exists", verified: true }
 					}
 				}
 			}
-			
-			throw new Error(`DocoChain API error: ${response.status} ${response.statusText} - ${errorText}`)
+
+			throw new Error(
+				`DocoChain API error: ${response.status} ${response.statusText} - ${errorText}`
+			)
 		}
 
 		const result = (await response.json()) as Record<string, unknown>
@@ -520,7 +558,7 @@ export async function autoJoinOrganization({
 
 		// Use the wrapper function for automatic token refresh on 401 errors
 		const response = await makeDocoChainApiCall(
-			async (token) => {
+			async token => {
 				return fetch(
 					`${DOCOCHAIN_API_BASE}/api/v2/organization/members/auto-join?user_type=ENTERPRISE_API`,
 					{
@@ -541,27 +579,29 @@ export async function autoJoinOrganization({
 		if (!response.ok) {
 			const errorText = await response.text()
 			console.error("❌ DocoChain auto-join error:", errorText)
-			
+
 			// Check if user already exists in organization (409 Conflict or 400 with specific message)
 			if (response.status === 409) {
 				console.log("ℹ️ User already exists in organization (409) - continuing...")
 				return // Not a critical error
 			}
-			
+
 			// Check for 400 error with "already exist" message
 			if (response.status === 400 && errorText.includes("already exist")) {
 				console.log("ℹ️ User already exists in organization (400) - continuing...")
 				return // Not a critical error - user is already in the organization
 			}
-			
+
 			// Check if unauthorized (need better token)
 			if (response.status === 401 || response.status === 403) {
 				console.warn("⚠️ API token doesn't have permission to add org members")
 				console.warn("⚠️ User will be added as GUEST instead of organization member")
 				return // Continue anyway
 			}
-			
-			throw new Error(`DocoChain API error: ${response.status} ${response.statusText} - ${errorText}`)
+
+			throw new Error(
+				`DocoChain API error: ${response.status} ${response.statusText} - ${errorText}`
+			)
 		}
 
 		const result = (await response.json()) as Record<string, unknown>
@@ -576,28 +616,28 @@ export async function autoJoinOrganization({
 /**
  * Get DocoChain project details including all signers
  */
-export async function getProjectDetails(projectUuid: string, userEmail?: string): Promise<DocoChainProjectDetails> {
+export async function getProjectDetails(
+	projectUuid: string,
+	userEmail?: string
+): Promise<DocoChainProjectDetails> {
 	console.log("🔵 Fetching DocoChain project details...")
 	console.log("   - Project UUID:", projectUuid)
 	console.log("   - User Email (for token):", userEmail ?? "not provided")
 
 	try {
 		// Use the wrapper function for automatic token refresh on 401 errors
-		const response = await makeDocoChainApiCall(
-			async (token) => {
-				return fetch(
-					`${DOCOCHAIN_API_BASE}/api/v2/projects/${projectUuid}?user_type=ENTERPRISE_API`,
-					{
-						method: "GET",
-						headers: {
-							Authorization: `Bearer ${token}`,
-							Accept: "application/json",
-						},
-					}
-				)
-			},
-			userEmail
-		)
+		const response = await makeDocoChainApiCall(async token => {
+			return fetch(
+				`${DOCOCHAIN_API_BASE}/api/v2/projects/${projectUuid}?user_type=ENTERPRISE_API`,
+				{
+					method: "GET",
+					headers: {
+						Authorization: `Bearer ${token}`,
+						Accept: "application/json",
+					},
+				}
+			)
+		}, userEmail)
 
 		console.log("📡 DocoChain get project response status:", response.status)
 
@@ -650,7 +690,7 @@ export async function deleteSigner({
 	try {
 		// Use the wrapper function for automatic token refresh on 401 errors
 		const response = await makeDocoChainApiCall(
-			async (token) => {
+			async token => {
 				return fetch(
 					`${DOCOCHAIN_API_BASE}/projects/${projectUuid}/signers/${signerId}?user_type=ENTERPRISE_API`,
 					{
@@ -699,9 +739,9 @@ export async function addSignatureMark({
 			{
 				method: "POST",
 				headers: {
-					Authorization: `Bearer ${DOCOCHAIN_API_TOKEN}`,
+					"Authorization": `Bearer ${DOCOCHAIN_API_TOKEN}`,
 					"Content-Type": "application/json",
-					Accept: "application/json",
+					"Accept": "application/json",
 				},
 				body: JSON.stringify({
 					type,
@@ -759,28 +799,27 @@ export async function sendDocoChainProject(projectUuid: string, userEmail?: stri
 
 	try {
 		// Use the wrapper function for automatic token refresh on 401 errors
-		const response = await makeDocoChainApiCall(
-			async (token) => {
-				return fetch(
-					`${DOCOCHAIN_API_BASE}/my/projects/${projectUuid}/send?user_type=ENTERPRISE_API`,
-					{
-						method: "POST",
-						headers: {
-							Authorization: `Bearer ${token}`,
-							Accept: "application/json",
-						},
-					}
-				)
-			},
-			userEmail
-		)
+		const response = await makeDocoChainApiCall(async token => {
+			return fetch(
+				`${DOCOCHAIN_API_BASE}/my/projects/${projectUuid}/send?user_type=ENTERPRISE_API`,
+				{
+					method: "POST",
+					headers: {
+						Authorization: `Bearer ${token}`,
+						Accept: "application/json",
+					},
+				}
+			)
+		}, userEmail)
 
 		console.log("📡 DocoChain send project response status:", response.status)
 
 		if (!response.ok) {
 			const errorText = await response.text()
 			console.error("❌ DocoChain send project error:", errorText)
-			throw new Error(`DocoChain API error: ${response.status} ${response.statusText} - ${errorText}`)
+			throw new Error(
+				`DocoChain API error: ${response.status} ${response.statusText} - ${errorText}`
+			)
 		}
 
 		const result = (await response.json()) as Record<string, unknown>
@@ -821,7 +860,7 @@ export async function generateSignLink({
 		// Use the wrapper function for automatic token refresh on 401 errors
 		// Generate token for the signer (the email parameter is the signer's email)
 		const response = await makeDocoChainApiCall(
-			async (token) => {
+			async token => {
 				return fetch(apiUrl, {
 					method: "POST",
 					headers: {
@@ -839,7 +878,9 @@ export async function generateSignLink({
 		if (!response.ok) {
 			const errorText = await response.text()
 			console.error("❌ DocoChain generate link error:", errorText)
-			throw new Error(`DocoChain API error: ${response.status} ${response.statusText} - ${errorText}`)
+			throw new Error(
+				`DocoChain API error: ${response.status} ${response.statusText} - ${errorText}`
+			)
 		}
 
 		const result = (await response.json()) as {
@@ -856,21 +897,25 @@ export async function generateSignLink({
 			sign_url?: string
 			message?: string
 		}
-		console.log("✅ Signing link generated successfully - FULL RESPONSE:", JSON.stringify(result, null, 2))
+		console.log(
+			"✅ Signing link generated successfully - FULL RESPONSE:",
+			JSON.stringify(result, null, 2)
+		)
 
 		// Extract the link from the response
 		// The Generate Sign Link API should return the signing link directly
 		// Try multiple possible locations in the response
-		let link: string | undefined = result.data?.link ?? 
-		           result.data?.url ??
-		           result.data?.signing_link ??
-		           result.data?.sign_url ??
-		           result.link ??
-		           result.url ??
-		           result.signing_link ??
-		           result.sign_url ??
-		           result.message ??
-		           result.data?.message
+		let link: string | undefined =
+			result.data?.link ??
+			result.data?.url ??
+			result.data?.signing_link ??
+			result.data?.sign_url ??
+			result.link ??
+			result.url ??
+			result.signing_link ??
+			result.sign_url ??
+			result.message ??
+			result.data?.message
 
 		console.log("✅ Extracted signing link (raw):", link)
 		console.log("✅ Response structure:", {
@@ -883,9 +928,12 @@ export async function generateSignLink({
 		})
 
 		// IMMEDIATE cleanup of api=null if present in the raw link from API
-		if (typeof link === 'string') {
-			link = link.replace(/\?api=null(&|$)/, '?').replace(/&api=null(&|$)/, '&').replace(/\?$/, '')
-			if (link.includes('api=null')) {
+		if (typeof link === "string") {
+			link = link
+				.replace(/\?api=null(&|$)/, "?")
+				.replace(/&api=null(&|$)/, "&")
+				.replace(/\?$/, "")
+			if (link.includes("api=null")) {
 				console.warn("⚠️ Found api=null in raw link, attempting cleanup:", link)
 			}
 		}
@@ -894,21 +942,21 @@ export async function generateSignLink({
 			console.error("❌ No link found in response. Full response:", result)
 			// Fallback: Construct signing URL using project UUID directly
 			console.log("⚠️ Falling back to direct project URL...")
-			const appBaseUrl = DOCOCHAIN_API_BASE.includes('stg') 
-				? 'https://stg-app.doconchain.com'
-				: 'https://app.doconchain.com'
+			const appBaseUrl = DOCOCHAIN_API_BASE.includes("stg")
+				? "https://stg-app.doconchain.com"
+				: "https://app.doconchain.com"
 			link = `${appBaseUrl}/${projectUuid}`
 			console.log("✅ Using fallback URL:", link)
 		}
 
 		// Ensure link is a valid URL
-		if (typeof link === 'string' && !link.startsWith('http')) {
+		if (typeof link === "string" && !link.startsWith("http")) {
 			console.warn("⚠️ Link doesn't start with http, might be invalid:", link)
 			// If it's just a path, prepend the app base URL
-			const appBaseUrl = DOCOCHAIN_API_BASE.includes('stg') 
-				? 'https://stg-app.doconchain.com'
-				: 'https://app.doconchain.com'
-			if (link.startsWith('/')) {
+			const appBaseUrl = DOCOCHAIN_API_BASE.includes("stg")
+				? "https://stg-app.doconchain.com"
+				: "https://app.doconchain.com"
+			if (link.startsWith("/")) {
 				link = `${appBaseUrl}${link}`
 			} else {
 				link = `${appBaseUrl}/${link}`
@@ -917,12 +965,12 @@ export async function generateSignLink({
 		}
 
 		// Ensure link is always a string, never an object
-		if (typeof link !== 'string') {
+		if (typeof link !== "string") {
 			console.error("❌ Link is not a string:", typeof link, link)
 			// Fallback to direct project URL
-			const appBaseUrl = DOCOCHAIN_API_BASE.includes('stg') 
-				? 'https://stg-app.doconchain.com'
-				: 'https://app.doconchain.com'
+			const appBaseUrl = DOCOCHAIN_API_BASE.includes("stg")
+				? "https://stg-app.doconchain.com"
+				: "https://app.doconchain.com"
 			link = `${appBaseUrl}/${projectUuid}`
 			console.log("⚠️ Using fallback URL due to invalid link type:", link)
 		}
@@ -934,27 +982,33 @@ export async function generateSignLink({
 		try {
 			const url = new URL(link)
 			// Remove api parameter if it's null or empty (AGGRESSIVE cleanup)
-			if (url.searchParams.has('api')) {
-				const apiValue = url.searchParams.get('api')
-				if (apiValue === 'null' || apiValue === '' || apiValue === null) {
-					url.searchParams.delete('api')
+			if (url.searchParams.has("api")) {
+				const apiValue = url.searchParams.get("api")
+				if (apiValue === "null" || apiValue === "" || apiValue === null) {
+					url.searchParams.delete("api")
 					console.log("🧹 Removed api=null parameter from edit draft link")
 				}
 			}
 			// Remove api_token if it's undefined
-			if (url.searchParams.has('api_token') && (url.searchParams.get('api_token') === 'undefined' || url.searchParams.get('api_token') === '')) {
-				url.searchParams.delete('api_token')
+			if (
+				url.searchParams.has("api_token") &&
+				(url.searchParams.get("api_token") === "undefined" ||
+					url.searchParams.get("api_token") === "")
+			) {
+				url.searchParams.delete("api_token")
 			}
 			// Remove incorrect status=Deleted parameter if present (DocoChain bug)
 			// The actual status should be verified via getProjectDetails API, not from URL parameters
-			if (url.searchParams.has('status') && url.searchParams.get('status') === 'Deleted') {
-				console.warn("⚠️ Removing incorrect status=Deleted parameter from URL (known DocoChain bug)")
-				url.searchParams.delete('status')
+			if (url.searchParams.has("status") && url.searchParams.get("status") === "Deleted") {
+				console.warn(
+					"⚠️ Removing incorrect status=Deleted parameter from URL (known DocoChain bug)"
+				)
+				url.searchParams.delete("status")
 			}
 			// Add api_token if not present - use the token for the signer
-			if (!url.searchParams.has('api_token')) {
+			if (!url.searchParams.has("api_token")) {
 				const apiToken: string = await getDocoChainToken(email)
-				url.searchParams.set('api_token', apiToken)
+				url.searchParams.set("api_token", apiToken)
 				console.log("✅ Added api_token parameter to signing link")
 			}
 			link = url.toString()
@@ -962,22 +1016,31 @@ export async function generateSignLink({
 			// If URL parsing fails, try simple string replacement (AGGRESSIVE cleanup)
 			console.warn("⚠️ URL parsing failed, using string replacement cleanup:", urlError)
 			// Ensure link is a string before processing
-			if (typeof link === 'string') {
+			if (typeof link === "string") {
 				// Multiple passes to catch all variations
-				link = link.replace(/\?api=null(&|$)/, '?').replace(/&api=null(&|$)/, '&').replace(/\?$/, '')
-				link = link.replace(/\?api=null(&|$)/, '?').replace(/&api=null(&|$)/, '&').replace(/\?$/, '') // Second pass
-				link = link.replace(/\?api_token=undefined(&|$)/, '?').replace(/&api_token=undefined(&|$)/, '&').replace(/\?$/, '')
+				link = link
+					.replace(/\?api=null(&|$)/, "?")
+					.replace(/&api=null(&|$)/, "&")
+					.replace(/\?$/, "")
+				link = link
+					.replace(/\?api=null(&|$)/, "?")
+					.replace(/&api=null(&|$)/, "&")
+					.replace(/\?$/, "") // Second pass
+				link = link
+					.replace(/\?api_token=undefined(&|$)/, "?")
+					.replace(/&api_token=undefined(&|$)/, "&")
+					.replace(/\?$/, "")
 				// Final check - if api=null still exists, remove it more aggressively
-				if (link.includes('api=null')) {
-					link = link.replace(/[?&]api=null/g, '').replace(/\?$/, '')
+				if (link.includes("api=null")) {
+					link = link.replace(/[?&]api=null/g, "").replace(/\?$/, "")
 					console.log("🧹 Aggressive cleanup applied, final link:", link)
 				}
 			}
 			// Try to add api_token even if URL parsing failed
-			if (typeof link === 'string') {
+			if (typeof link === "string") {
 				try {
 					const apiToken: string = await getDocoChainToken(email)
-					const separator = link.includes('?') ? '&' : '?'
+					const separator = link.includes("?") ? "&" : "?"
 					link = `${link}${separator}api_token=${encodeURIComponent(apiToken)}`
 					console.log("✅ Added api_token parameter to signing link (fallback)")
 				} catch (tokenError) {
@@ -987,9 +1050,14 @@ export async function generateSignLink({
 		}
 
 		// FINAL cleanup check - ensure api=null is completely removed before returning
-		if (typeof link === 'string' && link.includes('api=null')) {
-			console.warn("⚠️ WARNING: api=null still present after cleanup! Applying final aggressive cleanup")
-			link = link.replace(/[?&]api=null/g, '').replace(/\?$/, '').replace(/&$/, '')
+		if (typeof link === "string" && link.includes("api=null")) {
+			console.warn(
+				"⚠️ WARNING: api=null still present after cleanup! Applying final aggressive cleanup"
+			)
+			link = link
+				.replace(/[?&]api=null/g, "")
+				.replace(/\?$/, "")
+				.replace(/&$/, "")
 			console.log("🧹 Final cleaned link:", link)
 		}
 
@@ -1033,15 +1101,15 @@ export async function updateProjectSigner({
 	try {
 		// Use the wrapper function for automatic token refresh on 401 errors
 		const response = await makeDocoChainApiCall(
-			async (token) => {
+			async token => {
 				return fetch(
 					`${DOCOCHAIN_API_BASE}/projects/${projectUuid}/signers/${signerId}?user_type=ENTERPRISE_API`,
 					{
 						method: "PUT",
 						headers: {
-							Authorization: `Bearer ${token}`,
+							"Authorization": `Bearer ${token}`,
 							"Content-Type": "application/json",
-							Accept: "application/json",
+							"Accept": "application/json",
 						},
 						body: JSON.stringify({
 							first_name: firstName,
@@ -1060,7 +1128,9 @@ export async function updateProjectSigner({
 		if (!response.ok) {
 			const errorText = await response.text()
 			console.error("❌ DocoChain update signer error:", errorText)
-			throw new Error(`DocoChain API error: ${response.status} ${response.statusText} - ${errorText}`)
+			throw new Error(
+				`DocoChain API error: ${response.status} ${response.statusText} - ${errorText}`
+			)
 		}
 
 		const result = (await response.json()) as Record<string, unknown>
@@ -1078,7 +1148,10 @@ export async function updateProjectSigner({
  * This generates a link that allows editing/plotting/signing a draft project
  * POST https://stg-api2.doconchain.com/api/v2/projects/{uuid}/link?user_type=ENTERPRISE_API
  */
-export async function generateEditDraftLink(projectUuid: string, userEmail?: string): Promise<{ link: string }> {
+export async function generateEditDraftLink(
+	projectUuid: string,
+	userEmail?: string
+): Promise<{ link: string }> {
 	console.log("🔵 Generating edit draft project link...")
 	console.log("   - Project UUID:", projectUuid)
 	console.log("   - User Email (for token):", userEmail ?? "not provided")
@@ -1089,7 +1162,7 @@ export async function generateEditDraftLink(projectUuid: string, userEmail?: str
 
 		// Use the wrapper function for automatic token refresh on 401 errors
 		const response = await makeDocoChainApiCall(
-			async (token) => {
+			async token => {
 				return fetch(apiUrl, {
 					method: "POST",
 					headers: {
@@ -1106,7 +1179,9 @@ export async function generateEditDraftLink(projectUuid: string, userEmail?: str
 		if (!response.ok) {
 			const errorText = await response.text()
 			console.error("❌ DocoChain generate edit draft link error:", errorText)
-			throw new Error(`DocoChain API error: ${response.status} ${response.statusText} - ${errorText}`)
+			throw new Error(
+				`DocoChain API error: ${response.status} ${response.statusText} - ${errorText}`
+			)
 		}
 
 		const result = (await response.json()) as {
@@ -1119,20 +1194,23 @@ export async function generateEditDraftLink(projectUuid: string, userEmail?: str
 			link?: string
 			url?: string
 		}
-		console.log("✅ Edit draft link generated successfully - FULL RESPONSE:", JSON.stringify(result, null, 2))
+		console.log(
+			"✅ Edit draft link generated successfully - FULL RESPONSE:",
+			JSON.stringify(result, null, 2)
+		)
 
 		// Extract the link from the response
-		// API returns: { message: { message: "...", link: "..." } } 
+		// API returns: { message: { message: "...", link: "..." } }
 		// OR: { message: "..." } (string)
 		// OR: { data: { link: "..." } }
-		let link: string | null | undefined = 
-			(typeof result.message === 'object' && result.message !== null && 'link' in result.message 
-				? (result.message as { link?: string }).link 
-				: null) ??  // If message is an object with link property
-			(typeof result.message === 'string' ? result.message : null) ??  // If message is a string (link)
-			result.data?.link ?? 
-			result.data?.url ?? 
-			result.link ?? 
+		let link: string | null | undefined =
+			(typeof result.message === "object" && result.message !== null && "link" in result.message
+				? (result.message as { link?: string }).link
+				: null) ?? // If message is an object with link property
+			(typeof result.message === "string" ? result.message : null) ?? // If message is a string (link)
+			result.data?.link ??
+			result.data?.url ??
+			result.link ??
 			result.url ??
 			result.data?.message
 
@@ -1140,17 +1218,19 @@ export async function generateEditDraftLink(projectUuid: string, userEmail?: str
 
 		if (!link) {
 			console.error("❌ No link found in response. Full response:", result)
-			throw new Error(`DocoChain did not return a valid edit draft link. Response: ${JSON.stringify(result)}`)
+			throw new Error(
+				`DocoChain did not return a valid edit draft link. Response: ${JSON.stringify(result)}`
+			)
 		}
 
 		// Ensure link is a valid URL
-		if (typeof link === 'string' && !link.startsWith('http')) {
+		if (typeof link === "string" && !link.startsWith("http")) {
 			console.warn("⚠️ Link doesn't start with http, might be invalid:", link)
 			// If it's just a path, prepend the app base URL
-			const appBaseUrl = DOCOCHAIN_API_BASE.includes('stg') 
-				? 'https://stg-app.doconchain.com'
-				: 'https://app.doconchain.com'
-			if (link.startsWith('/')) {
+			const appBaseUrl = DOCOCHAIN_API_BASE.includes("stg")
+				? "https://stg-app.doconchain.com"
+				: "https://app.doconchain.com"
+			if (link.startsWith("/")) {
 				link = `${appBaseUrl}${link}`
 			} else {
 				link = `${appBaseUrl}/${link}`
@@ -1159,7 +1239,7 @@ export async function generateEditDraftLink(projectUuid: string, userEmail?: str
 		}
 
 		// Ensure link is always a string, never an object
-		if (typeof link !== 'string') {
+		if (typeof link !== "string") {
 			console.error("❌ Link is not a string:", typeof link, link)
 			throw new Error(`Invalid link type: expected string, got ${typeof link}`)
 		}
@@ -1171,27 +1251,33 @@ export async function generateEditDraftLink(projectUuid: string, userEmail?: str
 		try {
 			const url = new URL(link)
 			// Remove api parameter if it's null or empty (AGGRESSIVE cleanup)
-			if (url.searchParams.has('api')) {
-				const apiValue = url.searchParams.get('api')
-				if (apiValue === 'null' || apiValue === '' || apiValue === null) {
-					url.searchParams.delete('api')
+			if (url.searchParams.has("api")) {
+				const apiValue = url.searchParams.get("api")
+				if (apiValue === "null" || apiValue === "" || apiValue === null) {
+					url.searchParams.delete("api")
 					console.log("🧹 Removed api=null parameter from edit draft link")
 				}
 			}
 			// Remove api_token if it's undefined
-			if (url.searchParams.has('api_token') && (url.searchParams.get('api_token') === 'undefined' || url.searchParams.get('api_token') === '')) {
-				url.searchParams.delete('api_token')
+			if (
+				url.searchParams.has("api_token") &&
+				(url.searchParams.get("api_token") === "undefined" ||
+					url.searchParams.get("api_token") === "")
+			) {
+				url.searchParams.delete("api_token")
 			}
 			// Remove incorrect status=Deleted parameter if present (DocoChain bug)
 			// The actual status should be verified via getProjectDetails API, not from URL parameters
-			if (url.searchParams.has('status') && url.searchParams.get('status') === 'Deleted') {
-				console.warn("⚠️ Removing incorrect status=Deleted parameter from URL (known DocoChain bug)")
-				url.searchParams.delete('status')
+			if (url.searchParams.has("status") && url.searchParams.get("status") === "Deleted") {
+				console.warn(
+					"⚠️ Removing incorrect status=Deleted parameter from URL (known DocoChain bug)"
+				)
+				url.searchParams.delete("status")
 			}
 			// Add api_token if not present - use the token for the user
-			if (!url.searchParams.has('api_token') && userEmail) {
+			if (!url.searchParams.has("api_token") && userEmail) {
 				const apiToken: string = await getDocoChainToken(userEmail)
-				url.searchParams.set('api_token', apiToken)
+				url.searchParams.set("api_token", apiToken)
 				console.log("✅ Added api_token parameter to edit draft link")
 			}
 			link = url.toString()
@@ -1199,22 +1285,31 @@ export async function generateEditDraftLink(projectUuid: string, userEmail?: str
 			// If URL parsing fails, try simple string replacement (AGGRESSIVE cleanup)
 			console.warn("⚠️ URL parsing failed, using string replacement cleanup:", urlError)
 			// Ensure link is a string before processing
-			if (typeof link === 'string') {
+			if (typeof link === "string") {
 				// Multiple passes to catch all variations
-				link = link.replace(/\?api=null(&|$)/, '?').replace(/&api=null(&|$)/, '&').replace(/\?$/, '')
-				link = link.replace(/\?api=null(&|$)/, '?').replace(/&api=null(&|$)/, '&').replace(/\?$/, '') // Second pass
-				link = link.replace(/\?api_token=undefined(&|$)/, '?').replace(/&api_token=undefined(&|$)/, '&').replace(/\?$/, '')
+				link = link
+					.replace(/\?api=null(&|$)/, "?")
+					.replace(/&api=null(&|$)/, "&")
+					.replace(/\?$/, "")
+				link = link
+					.replace(/\?api=null(&|$)/, "?")
+					.replace(/&api=null(&|$)/, "&")
+					.replace(/\?$/, "") // Second pass
+				link = link
+					.replace(/\?api_token=undefined(&|$)/, "?")
+					.replace(/&api_token=undefined(&|$)/, "&")
+					.replace(/\?$/, "")
 				// Final check - if api=null still exists, remove it more aggressively
-				if (link.includes('api=null')) {
-					link = link.replace(/[?&]api=null/g, '').replace(/\?$/, '')
+				if (link.includes("api=null")) {
+					link = link.replace(/[?&]api=null/g, "").replace(/\?$/, "")
 					console.log("🧹 Aggressive cleanup applied, final link:", link)
 				}
 			}
 			// Try to add api_token even if URL parsing failed
-			if (userEmail && typeof link === 'string') {
+			if (userEmail && typeof link === "string") {
 				try {
 					const apiToken = await getDocoChainToken(userEmail)
-					const separator = link.includes('?') ? '&' : '?'
+					const separator = link.includes("?") ? "&" : "?"
 					link = `${link}${separator}api_token=${encodeURIComponent(apiToken)}`
 					console.log("✅ Added api_token parameter to edit draft link (fallback)")
 				} catch (tokenError) {
@@ -1224,9 +1319,14 @@ export async function generateEditDraftLink(projectUuid: string, userEmail?: str
 		}
 
 		// FINAL cleanup check - ensure api=null is completely removed before returning
-		if (typeof link === 'string' && link.includes('api=null')) {
-			console.warn("⚠️ WARNING: api=null still present after cleanup! Applying final aggressive cleanup")
-			link = link.replace(/[?&]api=null/g, '').replace(/\?$/, '').replace(/&$/, '')
+		if (typeof link === "string" && link.includes("api=null")) {
+			console.warn(
+				"⚠️ WARNING: api=null still present after cleanup! Applying final aggressive cleanup"
+			)
+			link = link
+				.replace(/[?&]api=null/g, "")
+				.replace(/\?$/, "")
+				.replace(/&$/, "")
 			console.log("🧹 Final cleaned link:", link)
 		}
 
@@ -1263,7 +1363,10 @@ export interface SigningStatusResult {
 // Export the types for use in other files
 export type { DocoChainProjectDetails, DocoChainProjectSigner }
 
-export async function checkSigningStatus(projectUuid: string, userEmail?: string): Promise<SigningStatusResult> {
+export async function checkSigningStatus(
+	projectUuid: string,
+	userEmail?: string
+): Promise<SigningStatusResult> {
 	console.log("🔵 Checking signing status for project...")
 	console.log("   - Project UUID:", projectUuid)
 	console.log("   - User Email (for token):", userEmail ?? "not provided")
@@ -1277,11 +1380,13 @@ export async function checkSigningStatus(projectUuid: string, userEmail?: string
 		}
 
 		const signers: DocoChainProjectSigner[] = projectData.signers ?? []
-		const signedSigners = signers.filter((s: DocoChainProjectSigner) => 
-			s.status === "SIGNED" || s.signed_at !== null
+		const signedSigners = signers.filter(
+			(s: DocoChainProjectSigner) => s.status === "SIGNED" || s.signed_at !== null
 		)
 
-		const isFullySigned = signers.length > 0 && signedSigners.length === signers.length && 
+		const isFullySigned =
+			signers.length > 0 &&
+			signedSigners.length === signers.length &&
 			(projectData.status === "Completed" || projectData.completed_at !== null)
 
 		console.log("✅ Signing status checked:")
@@ -1297,7 +1402,7 @@ export async function checkSigningStatus(projectUuid: string, userEmail?: string
 			totalSigners: signers.length,
 			signedCount: signedSigners.length,
 			signers: signers.map((s: DocoChainProjectSigner) => ({
-				id: typeof s.id === 'number' ? s.id : Number.parseInt(String(s.id), 10),
+				id: typeof s.id === "number" ? s.id : Number.parseInt(String(s.id), 10),
 				email: s.email,
 				firstName: s.first_name ?? "",
 				lastName: s.last_name ?? "",
@@ -1317,7 +1422,10 @@ export async function checkSigningStatus(projectUuid: string, userEmail?: string
  * Download the signed document from DocoChain
  * Returns the signed PDF as a Buffer
  */
-export async function downloadSignedDocument(projectUuid: string, userEmail?: string): Promise<{ buffer: Buffer; fileName: string; url: string }> {
+export async function downloadSignedDocument(
+	projectUuid: string,
+	userEmail?: string
+): Promise<{ buffer: Buffer; fileName: string; url: string }> {
 	console.log("🔵 Downloading signed document from DocoChain...")
 	console.log("   - Project UUID:", projectUuid)
 	console.log("   - User Email (for token):", userEmail ?? "not provided")
@@ -1332,14 +1440,18 @@ export async function downloadSignedDocument(projectUuid: string, userEmail?: st
 
 		// Check if document is fully signed
 		const signers: DocoChainProjectSigner[] = projectData.signers ?? []
-		const signedSigners = signers.filter((s: DocoChainProjectSigner) =>
-			s.status === "SIGNED" || s.signed_at !== null
+		const signedSigners = signers.filter(
+			(s: DocoChainProjectSigner) => s.status === "SIGNED" || s.signed_at !== null
 		)
-		const isFullySigned = signers.length > 0 && signedSigners.length === signers.length && 
+		const isFullySigned =
+			signers.length > 0 &&
+			signedSigners.length === signers.length &&
 			(projectData.status === "Completed" || projectData.completed_at !== null)
 
 		if (!isFullySigned) {
-			throw new Error("Document is not fully signed yet. All signers must complete signing before downloading the signed document.")
+			throw new Error(
+				"Document is not fully signed yet. All signers must complete signing before downloading the signed document."
+			)
 		}
 
 		// Try multiple methods to get the signed document:
@@ -1353,18 +1465,15 @@ export async function downloadSignedDocument(projectUuid: string, userEmail?: st
 		console.log("🔵 Trying DocoChain API download endpoint:", downloadApiUrl)
 
 		try {
-			const apiResponse = await makeDocoChainApiCall(
-				async (token) => {
-					return fetch(downloadApiUrl, {
-						method: "GET",
-						headers: {
-							Authorization: `Bearer ${token}`,
-							Accept: "application/pdf",
-						},
-					})
-				},
-				userEmail
-			)
+			const apiResponse = await makeDocoChainApiCall(async token => {
+				return fetch(downloadApiUrl, {
+					method: "GET",
+					headers: {
+						Authorization: `Bearer ${token}`,
+						Accept: "application/pdf",
+					},
+				})
+			}, userEmail)
 
 			if (apiResponse.ok) {
 				console.log("✅ Successfully downloaded signed document from API endpoint")
@@ -1372,7 +1481,11 @@ export async function downloadSignedDocument(projectUuid: string, userEmail?: st
 				buffer = Buffer.from(arrayBuffer)
 				signedDocumentUrl = downloadApiUrl
 			} else {
-				console.warn("⚠️ API download endpoint returned:", apiResponse.status, apiResponse.statusText)
+				console.warn(
+					"⚠️ API download endpoint returned:",
+					apiResponse.status,
+					apiResponse.statusText
+				)
 			}
 		} catch (apiError) {
 			console.warn("⚠️ API download endpoint failed, trying fallback method:", apiError)
@@ -1384,18 +1497,15 @@ export async function downloadSignedDocument(projectUuid: string, userEmail?: st
 			console.log("🔵 Trying DocoChain Vault endpoint for signed file:", vaultUrl)
 
 			try {
-				const vaultResponse = await makeDocoChainApiCall(
-					async (token) => {
-						return fetch(vaultUrl, {
-							method: "GET",
-							headers: {
-								Authorization: `Bearer ${token}`,
-								Accept: "application/json",
-							},
-						})
-					},
-					userEmail
-				)
+				const vaultResponse = await makeDocoChainApiCall(async token => {
+					return fetch(vaultUrl, {
+						method: "GET",
+						headers: {
+							Authorization: `Bearer ${token}`,
+							Accept: "application/json",
+						},
+					})
+				}, userEmail)
 
 				if (vaultResponse.ok) {
 					const vaultJson = (await vaultResponse.json()) as {
@@ -1423,10 +1533,17 @@ export async function downloadSignedDocument(projectUuid: string, userEmail?: st
 							console.warn("⚠️ Vault file download failed:", fileResp.status, fileResp.statusText)
 						}
 					} else {
-						console.warn("⚠️ Vault response missing file_url; response keys:", Object.keys(vaultJson?.data ?? {}))
+						console.warn(
+							"⚠️ Vault response missing file_url; response keys:",
+							Object.keys(vaultJson?.data ?? {})
+						)
 					}
 				} else {
-					console.warn("⚠️ Vault endpoint returned:", vaultResponse.status, vaultResponse.statusText)
+					console.warn(
+						"⚠️ Vault endpoint returned:",
+						vaultResponse.status,
+						vaultResponse.statusText
+					)
 				}
 			} catch (vaultError) {
 				console.warn("⚠️ Vault endpoint failed, proceeding to fallback URLs:", vaultError)
@@ -1435,8 +1552,9 @@ export async function downloadSignedDocument(projectUuid: string, userEmail?: st
 
 		// Method 2: Fallback to projectData.url (may be original or signed depending on status)
 		if (!buffer) {
-			const fallbackUrl = projectData.url ?? projectData.signed_url ?? projectData.signed_document_url
-			
+			const fallbackUrl =
+				projectData.url ?? projectData.signed_url ?? projectData.signed_document_url
+
 			if (!fallbackUrl) {
 				throw new Error("Signed document URL not available. Document may not be fully signed yet.")
 			}
@@ -1445,7 +1563,9 @@ export async function downloadSignedDocument(projectUuid: string, userEmail?: st
 			const response = await fetch(fallbackUrl)
 
 			if (!response.ok) {
-				throw new Error(`Failed to download signed document: ${response.status} ${response.statusText}`)
+				throw new Error(
+					`Failed to download signed document: ${response.status} ${response.statusText}`
+				)
 			}
 
 			const arrayBuffer = await response.arrayBuffer()
@@ -1457,7 +1577,8 @@ export async function downloadSignedDocument(projectUuid: string, userEmail?: st
 			throw new Error("Failed to download signed document: No valid download method succeeded")
 		}
 
-		const fileName = projectData.file_name ?? projectData.name ?? `signed-document-${projectUuid}.pdf`
+		const fileName =
+			projectData.file_name ?? projectData.name ?? `signed-document-${projectUuid}.pdf`
 
 		console.log("✅ Signed document downloaded successfully")
 		console.log("   - File name:", fileName)
@@ -1480,7 +1601,10 @@ export async function downloadSignedDocument(projectUuid: string, userEmail?: st
  * Returns the certificate PDF as a Buffer
  * Includes retry mechanism to handle cases where certificate URL is not immediately available after signing
  */
-export async function downloadCertificate(projectUuid: string, userEmail?: string): Promise<{ buffer: Buffer; fileName: string; url: string }> {
+export async function downloadCertificate(
+	projectUuid: string,
+	userEmail?: string
+): Promise<{ buffer: Buffer; fileName: string; url: string }> {
 	console.log("🔵 Downloading certificate from DocoChain...")
 	console.log("   - Project UUID:", projectUuid)
 	console.log("   - User Email (for token):", userEmail ?? "not provided")
@@ -1507,14 +1631,15 @@ export async function downloadCertificate(projectUuid: string, userEmail?: strin
 			}
 
 			// Try to get certificate URL from project data first
-			let certificateUrl = projectData.certificate_url ?? projectData.certificateUrl ?? projectData.cert_url
+			let certificateUrl =
+				projectData.certificate_url ?? projectData.certificateUrl ?? projectData.cert_url
 
 			// If not in project data, try Passport API to get certificate URL
 			if (!certificateUrl) {
 				console.log("🔵 Certificate URL not in project data, trying Passport API...")
 				try {
 					const passportData = await getPassportDocument(projectUuid, "certificate_url", userEmail)
-					
+
 					// Handle case where response is a string URL directly
 					if (typeof passportData === "string" && passportData.startsWith("http")) {
 						certificateUrl = passportData
@@ -1522,30 +1647,44 @@ export async function downloadCertificate(projectUuid: string, userEmail?: strin
 					} else if (typeof passportData === "object" && passportData !== null) {
 						// Extract certificate URL from passport response object
 						// The response structure may vary, try multiple possible locations
-						const data = passportData.data as { certificate_url?: string; certificateUrl?: string; cert_url?: string; url?: string } | undefined
+						const data = passportData.data as
+							| {
+									certificate_url?: string
+									certificateUrl?: string
+									cert_url?: string
+									url?: string
+							  }
+							| undefined
 						const urlProp = passportData.url as string | undefined
 						const certUrlProp = passportData.certificate_url as string | undefined
 						const certUrlProp2 = passportData.certificateUrl as string | undefined
 						const certUrlProp3 = passportData.cert_url as string | undefined
 						const dataString = typeof passportData.data === "string" ? passportData.data : undefined
-						
-						certificateUrl = data?.certificate_url ??
-						                data?.certificateUrl ?? 
-						                data?.cert_url ??
-						                data?.url ??
-						                certUrlProp ??
-						                certUrlProp2 ??
-						                certUrlProp3 ??
-						                urlProp ??
-						                (dataString?.startsWith("http") ? dataString : undefined)
+
+						certificateUrl =
+							data?.certificate_url ??
+							data?.certificateUrl ??
+							data?.cert_url ??
+							data?.url ??
+							certUrlProp ??
+							certUrlProp2 ??
+							certUrlProp3 ??
+							urlProp ??
+							(dataString?.startsWith("http") ? dataString : undefined)
 					}
-					
+
 					// If certificateUrl is still not found, log the full response for debugging (only on first attempt)
 					if (!certificateUrl && attempt === 1) {
 						console.warn("⚠️ Passport API response structure:")
 						console.warn("   - Full response:", JSON.stringify(passportData, null, 2))
 						console.warn("   - Response keys:", Object.keys(passportData ?? {}))
-						if (passportData && typeof passportData === "object" && "data" in passportData && passportData.data && typeof passportData.data === "object") {
+						if (
+							passportData &&
+							typeof passportData === "object" &&
+							"data" in passportData &&
+							passportData.data &&
+							typeof passportData.data === "object"
+						) {
 							console.warn("   - Data keys:", Object.keys(passportData.data))
 						}
 					} else if (certificateUrl) {
@@ -1578,10 +1717,10 @@ export async function downloadCertificate(projectUuid: string, userEmail?: strin
 		if (!certificateUrl) {
 			console.log("🔵 Certificate URL not found after retries, trying direct endpoint formats...")
 			// Determine app base URL (for certificate downloads, might need app URL instead of API URL)
-			const appBaseUrl = DOCOCHAIN_API_BASE.includes('stg') 
-				? 'https://stg-app.doconchain.com'
-				: 'https://app.doconchain.com'
-			
+			const appBaseUrl = DOCOCHAIN_API_BASE.includes("stg")
+				? "https://stg-app.doconchain.com"
+				: "https://app.doconchain.com"
+
 			// Try multiple possible endpoint formats
 			const possibleEndpoints = [
 				// Try API endpoints first
@@ -1598,18 +1737,15 @@ export async function downloadCertificate(projectUuid: string, userEmail?: strin
 				try {
 					console.log(`📥 Trying certificate endpoint: ${endpoint}`)
 					// Use the wrapper function for automatic token refresh on 401 errors
-					const response = await makeDocoChainApiCall(
-						async (token) => {
-							return fetch(endpoint, {
-								method: "GET",
-								headers: {
-									Authorization: `Bearer ${token}`,
-									Accept: "application/pdf",
-								},
-							})
-						},
-						userEmail
-					)
+					const response = await makeDocoChainApiCall(async token => {
+						return fetch(endpoint, {
+							method: "GET",
+							headers: {
+								Authorization: `Bearer ${token}`,
+								Accept: "application/pdf",
+							},
+						})
+					}, userEmail)
 
 					if (response.ok) {
 						const arrayBuffer = await response.arrayBuffer()
@@ -1637,33 +1773,34 @@ export async function downloadCertificate(projectUuid: string, userEmail?: strin
 			}
 
 			// If all endpoints failed, provide helpful error message
-			console.error("❌ All certificate endpoints failed. Certificate might be embedded in the signed PDF.")
+			console.error(
+				"❌ All certificate endpoints failed. Certificate might be embedded in the signed PDF."
+			)
 			throw new Error(
 				"Certificate download endpoint not available. " +
-				"The certificate may be embedded in the signed PDF document. " +
-				"Please download the signed document to access the certificate."
+					"The certificate may be embedded in the signed PDF document. " +
+					"Please download the signed document to access the certificate."
 			)
 		} else {
 			// Certificate URL was found, download from that URL
 			console.log("📥 Fetching certificate from URL:", certificateUrl)
 			// Use the wrapper function for automatic token refresh on 401 errors
-			const response = await makeDocoChainApiCall(
-				async (token) => {
-					return fetch(certificateUrl, {
-						method: "GET",
-						headers: {
-							Authorization: `Bearer ${token}`,
-							Accept: "application/pdf",
-						},
-					})
-				},
-				userEmail
-			)
+			const response = await makeDocoChainApiCall(async token => {
+				return fetch(certificateUrl, {
+					method: "GET",
+					headers: {
+						Authorization: `Bearer ${token}`,
+						Accept: "application/pdf",
+					},
+				})
+			}, userEmail)
 
 			if (!response.ok) {
 				const errorText = await response.text()
 				console.error("❌ DocoChain certificate download error:", errorText)
-				throw new Error(`Failed to download certificate: ${response.status} ${response.statusText} - ${errorText}`)
+				throw new Error(
+					`Failed to download certificate: ${response.status} ${response.statusText} - ${errorText}`
+				)
 			}
 
 			const arrayBuffer = await response.arrayBuffer()
@@ -1690,7 +1827,7 @@ export async function downloadCertificate(projectUuid: string, userEmail?: strin
  * Get Passport Document from DocoChain
  * Retrieves the Passport details of a specific document including audit trail, blockchain hash, user data, etc.
  * API: GET /api/v2/projects/{uuid}/passport?user_type=ENTERPRISE_API&view={view}
- * 
+ *
  * @param projectUuid - The unique identifier of the project
  * @param view - The view type: 'blockchain', 'history', 'user_data', 'verifiable_presentation', or 'certificate_url'
  * @param userEmail - Email of the user making the API call (for token generation)
@@ -1698,7 +1835,12 @@ export async function downloadCertificate(projectUuid: string, userEmail?: strin
  */
 export async function getPassportDocument(
 	projectUuid: string,
-	view: "blockchain" | "history" | "user_data" | "verifiable_presentation" | "certificate_url" = "blockchain",
+	view:
+		| "blockchain"
+		| "history"
+		| "user_data"
+		| "verifiable_presentation"
+		| "certificate_url" = "blockchain",
 	userEmail?: string
 ): Promise<Record<string, unknown> | string> {
 	console.log("🔵 Getting Passport Document from DocoChain...")
@@ -1713,7 +1855,7 @@ export async function getPassportDocument(
 
 		// Use the wrapper function for automatic token refresh on 401 errors
 		const response = await makeDocoChainApiCall(
-			async (token) => {
+			async token => {
 				return fetch(apiUrl, {
 					method: "GET",
 					headers: {
@@ -1730,24 +1872,26 @@ export async function getPassportDocument(
 		if (!response.ok) {
 			const errorText = await response.text()
 			console.error("❌ DocoChain passport error:", errorText)
-			throw new Error(`DocoChain API error: ${response.status} ${response.statusText} - ${errorText}`)
+			throw new Error(
+				`DocoChain API error: ${response.status} ${response.statusText} - ${errorText}`
+			)
 		}
 
 		const result: unknown = await response.json()
 		console.log("✅ Passport document retrieved successfully")
 		console.log("   - View type:", view)
-		
+
 		// Handle both string and object responses
 		if (typeof result === "string") {
 			return result
 		}
-		
+
 		if (typeof result === "object" && result !== null) {
 			const resultObj = result as Record<string, unknown>
 			console.log("   - Response keys:", Object.keys(resultObj))
 			return resultObj
 		}
-		
+
 		// Fallback: return as empty object if result is neither string nor object
 		return {}
 	} catch (error) {
@@ -1761,10 +1905,10 @@ export async function getPassportDocument(
  */
 export function getDocoChainSigningUrl(projectUuid: string): string {
 	// Use staging app URL if using staging API, otherwise production
-	const appBaseUrl = DOCOCHAIN_API_BASE.includes('stg') 
-		? 'https://stg-app.doconchain.com'
-		: 'https://app.doconchain.com'
-	
+	const appBaseUrl = DOCOCHAIN_API_BASE.includes("stg")
+		? "https://stg-app.doconchain.com"
+		: "https://app.doconchain.com"
+
 	return `${appBaseUrl}/${projectUuid}`
 }
 
@@ -1772,7 +1916,7 @@ export function getDocoChainSigningUrl(projectUuid: string): string {
  * Get All Projects (Processing & Completed)
  * Retrieves templates/projects for a specific user type, filtered by processing status
  * API: GET https://stg-api2.doconchain.com/api/v2/templates/processing-completed
- * 
+ *
  * @param userEmail - Email of the user to generate token for
  * @param options - Query parameters for filtering and pagination
  * @returns Projects with pagination metadata
@@ -1861,25 +2005,24 @@ export async function getProcessingCompletedProjects(
 		console.log("🔵 Calling DocoChain Processing/Completed API:", apiUrl)
 
 		// Use the wrapper function for automatic token refresh on 401 errors
-		const response = await makeDocoChainApiCall(
-			async (token) => {
-				return fetch(apiUrl, {
-					method: "GET",
-					headers: {
-						Authorization: `Bearer ${token}`,
-						Accept: "application/json",
-					},
-				})
-			},
-			userEmail
-		)
+		const response = await makeDocoChainApiCall(async token => {
+			return fetch(apiUrl, {
+				method: "GET",
+				headers: {
+					Authorization: `Bearer ${token}`,
+					Accept: "application/json",
+				},
+			})
+		}, userEmail)
 
 		console.log("📡 DocoChain processing/completed response status:", response.status)
 
 		if (!response.ok) {
 			const errorText = await response.text()
 			console.error("❌ DocoChain processing/completed error:", errorText)
-			throw new Error(`DocoChain API error: ${response.status} ${response.statusText} - ${errorText}`)
+			throw new Error(
+				`DocoChain API error: ${response.status} ${response.statusText} - ${errorText}`
+			)
 		}
 
 		const result = (await response.json()) as ProcessingCompletedResponse
@@ -1898,7 +2041,7 @@ export async function getProcessingCompletedProjects(
  * Get Projects In Vault
  * Retrieves all completed signature request projects stored in the vault
  * API: GET https://stg-api2.doconchain.com/vault/items
- * 
+ *
  * @param userEmail - Email of the user to generate token for
  * @param options - Query parameters for filtering and pagination
  * @returns Vault items with pagination metadata
@@ -1968,25 +2111,24 @@ export async function getVaultItems(
 		console.log("🔵 Calling DocoChain Vault API:", apiUrl)
 
 		// Use the wrapper function for automatic token refresh on 401 errors
-		const response = await makeDocoChainApiCall(
-			async (token) => {
-				return fetch(apiUrl, {
-					method: "GET",
-					headers: {
-						Authorization: `Bearer ${token}`,
-						Accept: "application/json",
-					},
-				})
-			},
-			userEmail
-		)
+		const response = await makeDocoChainApiCall(async token => {
+			return fetch(apiUrl, {
+				method: "GET",
+				headers: {
+					Authorization: `Bearer ${token}`,
+					Accept: "application/json",
+				},
+			})
+		}, userEmail)
 
 		console.log("📡 DocoChain vault response status:", response.status)
 
 		if (!response.ok) {
 			const errorText = await response.text()
 			console.error("❌ DocoChain vault error:", errorText)
-			throw new Error(`DocoChain API error: ${response.status} ${response.statusText} - ${errorText}`)
+			throw new Error(
+				`DocoChain API error: ${response.status} ${response.statusText} - ${errorText}`
+			)
 		}
 
 		const result = (await response.json()) as VaultItemsResponse

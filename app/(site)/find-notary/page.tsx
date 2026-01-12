@@ -4,27 +4,22 @@ import { type Route } from "next"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 
-import { trpc } from "@/services/trpc/client"
 import { PageHeader } from "@/core/components/navbar/page-header"
 import { Button } from "@/core/components/ui/button"
 
+import { trpc } from "@/services/trpc/client"
+
+import { BookingForm } from "@/features/find-notary/components/booking-form"
+import { NotaryDetails } from "@/features/find-notary/components/notary-details"
+import { NotaryResults } from "@/features/find-notary/components/notary-results"
 // Feature components
 import { SearchFiltersComponent } from "@/features/find-notary/components/search-filters"
-import { NotaryResults } from "@/features/find-notary/components/notary-results"
-import { NotaryDetails } from "@/features/find-notary/components/notary-details"
-import { BookingForm } from "@/features/find-notary/components/booking-form"
-
-// Hooks
-import { useSearchFilters } from "@/features/find-notary/hooks/use-search-filters"
 import { useBookingState } from "@/features/find-notary/hooks/use-booking-state"
 import { useFilteredNotaries } from "@/features/find-notary/hooks/use-filtered-notaries"
-
+// Hooks
+import { useSearchFilters } from "@/features/find-notary/hooks/use-search-filters"
 // Types
-import type { 
-	WorkflowType, 
-	EnhancedENP 
-} from "@/features/find-notary/types/find-notary.types"
-
+import type { EnhancedENP, WorkflowType } from "@/features/find-notary/types/find-notary.types"
 
 export default function FindNotaryPage() {
 	const router = useRouter()
@@ -40,38 +35,39 @@ export default function FindNotaryPage() {
 	})
 
 	// Fetch ENP availability when ENP is selected
-	const { data: availabilitySlots, isLoading: isLoadingAvailability } = trpc.consultations.getEnpAvailability.useQuery(
-		{
-			enpId: bookingState.selectedENP ?? "",
-			workflowType: bookingState.bookingWorkflow,
-		},
-		{
-			enabled: !!bookingState.selectedENP,
-		}
-	)
+	const { data: availabilitySlots, isLoading: isLoadingAvailability } =
+		trpc.consultations.getEnpAvailability.useQuery(
+			{
+				enpId: bookingState.selectedENP ?? "",
+				workflowType: bookingState.bookingWorkflow,
+			},
+			{
+				enabled: !!bookingState.selectedENP,
+			}
+		)
 
 	// Book consultation mutation
 	const bookConsultationMutation = trpc.consultations.bookConsultation.useMutation({
-		onSuccess: (data) => {
+		onSuccess: data => {
 			toast.success("Consultation Booked!", {
 				description: "Your consultation has been successfully booked.",
 			})
 
-		// Redirect based on workflow type and meeting preference
-		if (data.workflowType === "REN" && data.meetingId) {
-			router.push(`/meetings/${data.meetingId}` as Route)
-		} else if (data.workflowType === "REN" && data.conversationId) {
-			toast.success("Ready to Chat!", {
-				description: "You can now message the ENP directly.",
-			})
-			router.push("/messages" as Route)
-		} else if (data.workflowType === "IEN") {
-			router.push("/dashboard" as Route)
-		} else {
-			router.push("/dashboard" as Route)
-		}
+			// Redirect based on workflow type and meeting preference
+			if (data.workflowType === "REN" && data.meetingId) {
+				router.push(`/meetings/${data.meetingId}` as Route)
+			} else if (data.workflowType === "REN" && data.conversationId) {
+				toast.success("Ready to Chat!", {
+					description: "You can now message the ENP directly.",
+				})
+				router.push("/messages" as Route)
+			} else if (data.workflowType === "IEN") {
+				router.push("/dashboard" as Route)
+			} else {
+				router.push("/dashboard" as Route)
+			}
 		},
-		onError: (error) => {
+		onError: error => {
 			toast.error("Booking Failed", {
 				description: error.message || "Failed to book consultation. Please try again.",
 			})
@@ -79,13 +75,17 @@ export default function FindNotaryPage() {
 	})
 
 	// Transform ENPs to EnhancedENP format with real data from backend
-	const enhancedEnps: EnhancedENP[] | undefined = enps?.map((enp) => ({
+	const enhancedEnps: EnhancedENP[] | undefined = enps?.map(enp => ({
 		...enp,
 		specialization: enp.specialization ?? "General Notary Services",
 		rating: enp.rating || 0,
 		reviewCount: enp.reviewCount || 0,
 		experience: enp.experience ?? "Not specified",
-		languages: Array.isArray(enp.languages) ? enp.languages : (enp.languages ? [enp.languages] : ["English"]),
+		languages: Array.isArray(enp.languages)
+			? enp.languages
+			: enp.languages
+				? [enp.languages]
+				: ["English"],
 		responseTime: enp.responseTime ?? "Not specified",
 		location: "Not specified", // Location not stored in schema yet - can be added later
 	}))
@@ -126,7 +126,7 @@ export default function FindNotaryPage() {
 		})
 	}
 
-	const enpDetails = enhancedEnps?.find((enp) => enp.id === bookingState.selectedENP)
+	const enpDetails = enhancedEnps?.find(enp => enp.id === bookingState.selectedENP)
 
 	return (
 		<div className="flex flex-1 flex-col">
@@ -141,16 +141,13 @@ export default function FindNotaryPage() {
 							<div className="space-y-2">
 								<h1 className="text-3xl font-bold tracking-tight">Find a Notary</h1>
 								<p className="text-muted-foreground">
-									Discover Electronic Notaries Public (ENPs) who can help with your notarization needs.
-									All ENPs support both Remote (REN) and In-Person (IEN) workflows.
+									Discover Electronic Notaries Public (ENPs) who can help with your notarization
+									needs. All ENPs support both Remote (REN) and In-Person (IEN) workflows.
 								</p>
 							</div>
 
 							{/* Search and Filters */}
-							<SearchFiltersComponent
-								filters={filters}
-								onFiltersChange={updateFilters}
-							/>
+							<SearchFiltersComponent filters={filters} onFiltersChange={updateFilters} />
 
 							{/* Results */}
 							<NotaryResults
@@ -167,16 +164,13 @@ export default function FindNotaryPage() {
 						<>
 							{/* Header */}
 							<div className="space-y-2">
-								<Button
-									variant="outline"
-									onClick={resetBooking}
-									className="w-fit"
-								>
+								<Button variant="outline" onClick={resetBooking} className="w-fit">
 									← Back to List
 								</Button>
 								<h1 className="text-3xl font-bold tracking-tight">Book Consultation</h1>
 								<p className="text-muted-foreground">
-									Schedule a {bookingState.bookingWorkflow === "REN" ? "remote" : "in-person"} consultation with {enpDetails.name}
+									Schedule a {bookingState.bookingWorkflow === "REN" ? "remote" : "in-person"}{" "}
+									consultation with {enpDetails.name}
 								</p>
 							</div>
 

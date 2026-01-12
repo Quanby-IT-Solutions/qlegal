@@ -4,7 +4,11 @@ import { z } from "zod/v4"
 
 import { db } from "@/services/drizzle/db"
 import { users } from "@/services/drizzle/schema/auth"
-import { conversations, conversationParticipants, messages } from "@/services/drizzle/schema/messages"
+import {
+	conversationParticipants,
+	conversations,
+	messages,
+} from "@/services/drizzle/schema/messages"
 import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
 
 export const messagesRouter = createTRPCRouter({
@@ -39,14 +43,18 @@ export const messagesRouter = createTRPCRouter({
 
 		// Format the response with proper unread counts
 		const formattedConversations = await Promise.all(
-			userConversations.map(async (uc) => {
+			userConversations.map(async uc => {
 				const conversation = uc.conversation
 				// Get the other participant (not the current user)
-				const otherParticipant = conversation.participants.find((p) => p.userId !== ctx.session.user.id)
+				const otherParticipant = conversation.participants.find(
+					p => p.userId !== ctx.session.user.id
+				)
 				const lastMessage = conversation.messages[0]
 
 				// Get user's last read time
-				const userParticipant = conversation.participants.find((p) => p.userId === ctx.session.user.id)
+				const userParticipant = conversation.participants.find(
+					p => p.userId === ctx.session.user.id
+				)
 
 				// Count ALL unread messages for this conversation
 				const whereConditions = [
@@ -206,12 +214,12 @@ export const messagesRouter = createTRPCRouter({
 			})
 
 			// Find a conversation with exactly 2 participants (current user and target user)
-			const existingConversation = existingConversations.find((cp) => {
+			const existingConversation = existingConversations.find(cp => {
 				const participants = cp.conversation.participants
 				return (
 					participants.length === 2 &&
-					participants.some((p) => p.userId === input.userId) &&
-					participants.some((p) => p.userId === ctx.session.user.id)
+					participants.some(p => p.userId === input.userId) &&
+					participants.some(p => p.userId === ctx.session.user.id)
 				)
 			})
 
@@ -219,29 +227,29 @@ export const messagesRouter = createTRPCRouter({
 				return { conversationId: existingConversation.conversationId }
 			}
 
-		// Create new conversation
-		const [conversation] = await db.insert(conversations).values({}).returning()
+			// Create new conversation
+			const [conversation] = await db.insert(conversations).values({}).returning()
 
-		if (!conversation) {
-			throw new TRPCError({
-				code: "INTERNAL_SERVER_ERROR",
-				message: "Failed to create conversation",
-			})
-		}
+			if (!conversation) {
+				throw new TRPCError({
+					code: "INTERNAL_SERVER_ERROR",
+					message: "Failed to create conversation",
+				})
+			}
 
-		// Add both users as participants
-		await db.insert(conversationParticipants).values([
-			{
-				conversationId: conversation.id,
-				userId: ctx.session.user.id,
-			},
-			{
-				conversationId: conversation.id,
-				userId: input.userId,
-			},
-		])
+			// Add both users as participants
+			await db.insert(conversationParticipants).values([
+				{
+					conversationId: conversation.id,
+					userId: ctx.session.user.id,
+				},
+				{
+					conversationId: conversation.id,
+					userId: input.userId,
+				},
+			])
 
-		return { conversationId: conversation.id }
+			return { conversationId: conversation.id }
 		}),
 
 	// Mark conversation as read
@@ -293,4 +301,3 @@ export const messagesRouter = createTRPCRouter({
 			return searchResults
 		}),
 })
-

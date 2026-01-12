@@ -2,12 +2,7 @@
 
 import { Search } from "lucide-react"
 
-import {
-	Card,
-	CardContent,
-	CardHeader,
-	CardTitle,
-} from "@/core/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/core/components/ui/card"
 import { Input } from "@/core/components/ui/input"
 import {
 	Select,
@@ -16,6 +11,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/core/components/ui/select"
+
 import type { SearchFilters } from "../types/find-notary.types"
 
 interface SearchFiltersProps {
@@ -52,8 +48,8 @@ export function SearchFiltersComponent({ filters, onFiltersChange }: SearchFilte
 					</div>
 
 					{/* Location Filter */}
-					<Select 
-						value={filters.selectedLocation} 
+					<Select
+						value={filters.selectedLocation}
 						onValueChange={value => updateFilter("selectedLocation", value)}
 					>
 						<SelectTrigger>
@@ -69,8 +65,8 @@ export function SearchFiltersComponent({ filters, onFiltersChange }: SearchFilte
 					</Select>
 
 					{/* Specialization Filter */}
-					<Select 
-						value={filters.selectedSpecialization} 
+					<Select
+						value={filters.selectedSpecialization}
 						onValueChange={value => updateFilter("selectedSpecialization", value)}
 					>
 						<SelectTrigger>
@@ -86,7 +82,6 @@ export function SearchFiltersComponent({ filters, onFiltersChange }: SearchFilte
 						</SelectContent>
 					</Select>
 				</div>
-
 			</CardContent>
 		</Card>
 	)

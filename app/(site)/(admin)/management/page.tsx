@@ -1,8 +1,8 @@
 "use client"
 
-import { useEffect } from "react"
-import { useRouter } from "next/navigation"
 import type { Route } from "next"
+import { useRouter } from "next/navigation"
+import { useEffect } from "react"
 
 export default function ManagementPage() {
 	const router = useRouter()
@@ -21,4 +21,3 @@ export default function ManagementPage() {
 		</div>
 	)
 }
-

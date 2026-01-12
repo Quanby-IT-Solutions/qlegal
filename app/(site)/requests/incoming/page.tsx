@@ -1,23 +1,46 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { useSession } from "next-auth/react"
 import { usePathname } from "next/navigation"
-import { FileText, Clock, CheckCircle, XCircle, AlertCircle, Calendar, User, Search } from "lucide-react"
+import { useEffect, useState } from "react"
+import {
+	AlertCircle,
+	Calendar,
+	CheckCircle,
+	Clock,
+	FileText,
+	Search,
+	User,
+	XCircle,
+} from "lucide-react"
+import { useSession } from "next-auth/react"
 import { toast } from "sonner"
 
-import { trpc } from "@/services/trpc/client"
 import { PageHeader } from "@/core/components/navbar/page-header"
+import { Avatar, AvatarFallback, AvatarImage } from "@/core/components/ui/avatar"
+import { Badge } from "@/core/components/ui/badge"
 import { Button } from "@/core/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/core/components/ui/card"
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+} from "@/core/components/ui/dialog"
 import { Input } from "@/core/components/ui/input"
-import { Badge } from "@/core/components/ui/badge"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/core/components/ui/select"
-import { Avatar, AvatarFallback, AvatarImage } from "@/core/components/ui/avatar"
-import { Skeleton } from "@/core/components/ui/skeleton"
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/core/components/ui/dialog"
-import { Textarea } from "@/core/components/ui/textarea"
 import { Label } from "@/core/components/ui/label"
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@/core/components/ui/select"
+import { Skeleton } from "@/core/components/ui/skeleton"
+import { Textarea } from "@/core/components/ui/textarea"
+
+import { trpc } from "@/services/trpc/client"
 
 export default function IncomingRequestsPage() {
 	const { data: session } = useSession()
@@ -38,7 +61,7 @@ export default function IncomingRequestsPage() {
 		undefined,
 		{ enabled: !!userId && isENP }
 	)
-	
+
 	// Mark requests page as viewed when ENP visits
 	useEffect(() => {
 		if (isENP && pathname === "/requests/incoming") {
@@ -51,10 +74,11 @@ export default function IncomingRequestsPage() {
 	const utils = trpc.useUtils()
 
 	// Filter requests based on filters
-	const filteredRequests = incomingRequests.filter((request) => {
+	const filteredRequests = incomingRequests.filter(request => {
 		const matchesStatus = statusFilter === "ALL" || request.status === statusFilter
 		const matchesWorkflow = workflowFilter === "ALL" || request.workflow === workflowFilter
-		const matchesSearch = !searchTerm || 
+		const matchesSearch =
+			!searchTerm ||
 			Boolean(request.title?.toLowerCase().includes(searchTerm.toLowerCase())) ||
 			Boolean(request.description?.toLowerCase().includes(searchTerm.toLowerCase())) ||
 			Boolean(request.principal?.name?.toLowerCase().includes(searchTerm.toLowerCase()))
@@ -68,7 +92,9 @@ export default function IncomingRequestsPage() {
 			const requestDate = new Date(r.createdAt)
 			return requestDate.toDateString() === today.toDateString()
 		}).length,
-		upcomingCount: filteredRequests.filter(r => r.status === "PENDING" || r.status === "IN_PROGRESS").length,
+		upcomingCount: filteredRequests.filter(
+			r => r.status === "PENDING" || r.status === "IN_PROGRESS"
+		).length,
 		totalCount: filteredRequests.length,
 	}
 
@@ -81,7 +107,7 @@ export default function IncomingRequestsPage() {
 			setProcessingId(null)
 			setRejectReason("")
 		},
-		onError: (error) => {
+		onError: error => {
 			toast.error("Failed to update request", {
 				description: error?.message ?? "An unexpected error occurred",
 			})
@@ -142,7 +168,11 @@ export default function IncomingRequestsPage() {
 			case "IN_PROGRESS":
 				return <Badge variant="default">In Progress</Badge>
 			case "COMPLETED":
-				return <Badge variant="outline" className="text-green-600 border-green-600">Completed</Badge>
+				return (
+					<Badge variant="outline" className="border-green-600 text-green-600">
+						Completed
+					</Badge>
+				)
 			case "REJECTED":
 				return <Badge variant="destructive">Rejected</Badge>
 			default:
@@ -153,23 +183,18 @@ export default function IncomingRequestsPage() {
 	return (
 		<>
 			<div className="flex flex-1 flex-col">
-				<PageHeader
-					items={[
-						{ label: "Requests", href: "/requests" },
-						{ label: "Incoming" },
-					]}
-				/>
-				
+				<PageHeader items={[{ label: "Requests", href: "/requests" }, { label: "Incoming" }]} />
+
 				<main className="flex-1 p-4 md:p-6 lg:p-8">
 					<div className="mx-auto max-w-7xl space-y-8">
 						{/* Header */}
 						<div className="flex items-center justify-between">
 							<div>
 								<h1 className="text-3xl font-bold tracking-tight">Incoming Requests</h1>
-								<p className="mt-2 text-muted-foreground">
+								<p className="text-muted-foreground mt-2">
 									Review and manage notarization requests from clients
 								</p>
-								<div className="mt-4 flex items-center gap-4 text-sm text-muted-foreground">
+								<div className="text-muted-foreground mt-4 flex items-center gap-4 text-sm">
 									<span>{stats.todayCount} today</span>
 									<span>•</span>
 									<span>{stats.upcomingCount} upcoming</span>
@@ -177,161 +202,183 @@ export default function IncomingRequestsPage() {
 							</div>
 						</div>
 
-					{/* Filters */}
-					<Card className="mb-6">
-						<CardContent className="pt-6">
-							<div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-								<div className="relative">
-									<Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-									<Input
-										placeholder="Search requests..."
-										value={searchTerm}
-										onChange={(e) => setSearchTerm(e.target.value)}
-										className="pl-9"
-									/>
+						{/* Filters */}
+						<Card className="mb-6">
+							<CardContent className="pt-6">
+								<div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+									<div className="relative">
+										<Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
+										<Input
+											placeholder="Search requests..."
+											value={searchTerm}
+											onChange={e => setSearchTerm(e.target.value)}
+											className="pl-9"
+										/>
+									</div>
+									<Select value={statusFilter} onValueChange={setStatusFilter}>
+										<SelectTrigger>
+											<SelectValue placeholder="All Status" />
+										</SelectTrigger>
+										<SelectContent>
+											<SelectItem value="ALL">All Status</SelectItem>
+											<SelectItem value="PENDING">Pending</SelectItem>
+											<SelectItem value="IN_PROGRESS">In Progress</SelectItem>
+											<SelectItem value="COMPLETED">Completed</SelectItem>
+											<SelectItem value="REJECTED">Rejected</SelectItem>
+										</SelectContent>
+									</Select>
+									<Select value={workflowFilter} onValueChange={setWorkflowFilter}>
+										<SelectTrigger>
+											<SelectValue placeholder="All Workflows" />
+										</SelectTrigger>
+										<SelectContent>
+											<SelectItem value="ALL">All Workflows</SelectItem>
+											<SelectItem value="REN">REN (Remote)</SelectItem>
+											<SelectItem value="IEN">IEN (In-Person)</SelectItem>
+										</SelectContent>
+									</Select>
 								</div>
-								<Select value={statusFilter} onValueChange={setStatusFilter}>
-									<SelectTrigger>
-										<SelectValue placeholder="All Status" />
-									</SelectTrigger>
-									<SelectContent>
-										<SelectItem value="ALL">All Status</SelectItem>
-										<SelectItem value="PENDING">Pending</SelectItem>
-										<SelectItem value="IN_PROGRESS">In Progress</SelectItem>
-										<SelectItem value="COMPLETED">Completed</SelectItem>
-										<SelectItem value="REJECTED">Rejected</SelectItem>
-									</SelectContent>
-								</Select>
-								<Select value={workflowFilter} onValueChange={setWorkflowFilter}>
-									<SelectTrigger>
-										<SelectValue placeholder="All Workflows" />
-									</SelectTrigger>
-									<SelectContent>
-										<SelectItem value="ALL">All Workflows</SelectItem>
-										<SelectItem value="REN">REN (Remote)</SelectItem>
-										<SelectItem value="IEN">IEN (In-Person)</SelectItem>
-									</SelectContent>
-								</Select>
+							</CardContent>
+						</Card>
+
+						{/* Requests List */}
+						<div className="space-y-4">
+							<div className="flex items-center justify-between">
+								<h2 className="text-xl font-semibold">
+									{filteredRequests.length} Request{filteredRequests.length !== 1 ? "s" : ""}
+								</h2>
 							</div>
-						</CardContent>
-					</Card>
 
-					{/* Requests List */}
-					<div className="space-y-4">
-						<div className="flex items-center justify-between">
-							<h2 className="text-xl font-semibold">
-								{filteredRequests.length} Request{filteredRequests.length !== 1 ? "s" : ""}
-							</h2>
-						</div>
-
-						{isLoading ? (
-							<div className="space-y-4">
-								{Array.from({ length: 3 }).map((_, i) => (
-									<Card key={i}>
+							{isLoading ? (
+								<div className="space-y-4">
+									{Array.from({ length: 3 }).map((_, i) => (
+										<Card key={i}>
+											<CardContent className="p-6">
+												<Skeleton className="h-32 w-full" />
+											</CardContent>
+										</Card>
+									))}
+								</div>
+							) : filteredRequests.length > 0 ? (
+								filteredRequests.map(request => (
+									<Card key={request.id} className="transition-shadow hover:shadow-md">
 										<CardContent className="p-6">
-											<Skeleton className="h-32 w-full" />
-										</CardContent>
-									</Card>
-								))}
-							</div>
-						) : filteredRequests.length > 0 ? (
-							filteredRequests.map((request) => (
-								<Card key={request.id} className="hover:shadow-md transition-shadow">
-									<CardContent className="p-6">
-										<div className="flex items-start justify-between">
-											<div className="flex-1">
-												<div className="flex items-center gap-3 mb-2">
-													<h3 className="text-lg font-semibold">{request.title}</h3>
-													{getStatusBadge(request.status)}
-													<Badge variant="outline">{request.workflow}</Badge>
-													{request.priority && (
-														<Badge variant={request.priority === "URGENT" ? "destructive" : request.priority === "HIGH" ? "default" : "secondary"}>
-															{request.priority}
-														</Badge>
+											<div className="flex items-start justify-between">
+												<div className="flex-1">
+													<div className="mb-2 flex items-center gap-3">
+														<h3 className="text-lg font-semibold">{request.title}</h3>
+														{getStatusBadge(request.status)}
+														<Badge variant="outline">{request.workflow}</Badge>
+														{request.priority && (
+															<Badge
+																variant={
+																	request.priority === "URGENT"
+																		? "destructive"
+																		: request.priority === "HIGH"
+																			? "default"
+																			: "secondary"
+																}
+															>
+																{request.priority}
+															</Badge>
+														)}
+													</div>
+													{request.description && (
+														<p className="text-muted-foreground mb-3 text-sm">
+															{request.description}
+														</p>
 													)}
-												</div>
-												{request.description && (
-													<p className="text-muted-foreground text-sm mb-3">{request.description}</p>
-												)}
-												<div className="flex items-center gap-4 text-sm text-muted-foreground">
-													<div className="flex items-center gap-2">
-														<User className="h-4 w-4" />
-														<span>{request.principal?.name ?? "Unknown Principal"}</span>
+													<div className="text-muted-foreground flex items-center gap-4 text-sm">
+														<div className="flex items-center gap-2">
+															<User className="h-4 w-4" />
+															<span>{request.principal?.name ?? "Unknown Principal"}</span>
+														</div>
+														<div className="flex items-center gap-2">
+															<Calendar className="h-4 w-4" />
+															<span>{new Date(request.createdAt).toLocaleDateString()}</span>
+														</div>
+														<div className="flex items-center gap-2">
+															<FileText className="h-4 w-4" />
+															<span>
+																{request.documents ?? 0} document
+																{(request.documents ?? 0) !== 1 ? "s" : ""}
+															</span>
+														</div>
 													</div>
-													<div className="flex items-center gap-2">
-														<Calendar className="h-4 w-4" />
-														<span>{new Date(request.createdAt).toLocaleDateString()}</span>
-													</div>
-													<div className="flex items-center gap-2">
-														<FileText className="h-4 w-4" />
-														<span>{request.documents ?? 0} document{(request.documents ?? 0) !== 1 ? "s" : ""}</span>
+													<div className="mt-3 flex items-center gap-2">
+														{getStatusIcon(request.status)}
+														<span className="text-muted-foreground text-sm">
+															{request.status === "PENDING" && "Waiting for your response"}
+															{request.status === "IN_PROGRESS" && "Notarization in progress"}
+															{request.status === "COMPLETED" && "Notarization completed"}
+															{request.status === "REJECTED" && request.rejectReason
+																? `Rejected: ${request.rejectReason}`
+																: "Request rejected"}
+														</span>
 													</div>
 												</div>
-												<div className="flex items-center gap-2 mt-3">
-													{getStatusIcon(request.status)}
-													<span className="text-sm text-muted-foreground">
-														{request.status === "PENDING" && "Waiting for your response"}
-														{request.status === "IN_PROGRESS" && "Notarization in progress"}
-														{request.status === "COMPLETED" && "Notarization completed"}
-														{request.status === "REJECTED" && request.rejectReason ? `Rejected: ${request.rejectReason}` : "Request rejected"}
-													</span>
-												</div>
-											</div>
-											<div className="flex flex-col items-end gap-2">
-												<Avatar className="h-10 w-10">
-													<AvatarImage src={request.principal?.image ?? undefined} alt={request.principal?.name ?? "Principal"} />
-													<AvatarFallback>{(request.principal?.name ?? "P").split(" ").map(n => n[0]).join("")}</AvatarFallback>
-												</Avatar>
-												{request.status === "PENDING" && (
-													<div className="flex gap-2">
+												<div className="flex flex-col items-end gap-2">
+													<Avatar className="h-10 w-10">
+														<AvatarImage
+															src={request.principal?.image ?? undefined}
+															alt={request.principal?.name ?? "Principal"}
+														/>
+														<AvatarFallback>
+															{(request.principal?.name ?? "P")
+																.split(" ")
+																.map(n => n[0])
+																.join("")}
+														</AvatarFallback>
+													</Avatar>
+													{request.status === "PENDING" && (
+														<div className="flex gap-2">
+															<Button
+																size="sm"
+																variant="default"
+																onClick={() => handleAccept(request.id)}
+																disabled={processingId === request.id}
+															>
+																{processingId === request.id ? "Processing..." : "Accept"}
+															</Button>
+															<Button
+																size="sm"
+																variant="destructive"
+																onClick={() => handleRejectClick(request.id)}
+																disabled={processingId === request.id}
+															>
+																Reject
+															</Button>
+														</div>
+													)}
+													{request.status === "IN_PROGRESS" && (
 														<Button
 															size="sm"
 															variant="default"
-															onClick={() => handleAccept(request.id)}
+															onClick={() => handleComplete(request.id)}
 															disabled={processingId === request.id}
 														>
-															{processingId === request.id ? "Processing..." : "Accept"}
+															{processingId === request.id ? "Processing..." : "Mark Complete"}
 														</Button>
-														<Button
-															size="sm"
-															variant="destructive"
-															onClick={() => handleRejectClick(request.id)}
-															disabled={processingId === request.id}
-														>
-															Reject
-														</Button>
-													</div>
-												)}
-												{request.status === "IN_PROGRESS" && (
-													<Button
-														size="sm"
-														variant="default"
-														onClick={() => handleComplete(request.id)}
-														disabled={processingId === request.id}
-													>
-														{processingId === request.id ? "Processing..." : "Mark Complete"}
-													</Button>
-												)}
+													)}
+												</div>
 											</div>
-										</div>
+										</CardContent>
+									</Card>
+								))
+							) : (
+								<Card>
+									<CardContent className="py-12 text-center">
+										<FileText className="text-muted-foreground mx-auto mb-4 h-12 w-12" />
+										<h3 className="mb-2 text-lg font-medium">No incoming requests</h3>
+										<p className="text-muted-foreground">
+											{searchTerm || statusFilter !== "ALL" || workflowFilter !== "ALL"
+												? "Try adjusting your search criteria or filters."
+												: "No clients have requested your notarization services yet."}
+										</p>
 									</CardContent>
 								</Card>
-							))
-						) : (
-							<Card>
-								<CardContent className="py-12 text-center">
-									<FileText className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-									<h3 className="text-lg font-medium mb-2">No incoming requests</h3>
-									<p className="text-muted-foreground">
-										{searchTerm || statusFilter !== "ALL" || workflowFilter !== "ALL"
-											? "Try adjusting your search criteria or filters."
-											: "No clients have requested your notarization services yet."
-										}
-									</p>
-								</CardContent>
-							</Card>
-						)}
-					</div>
+							)}
+						</div>
 					</div>
 				</main>
 			</div>
@@ -342,7 +389,8 @@ export default function IncomingRequestsPage() {
 					<DialogHeader>
 						<DialogTitle>Reject Request</DialogTitle>
 						<DialogDescription>
-							Are you sure you want to reject this notarization request? You can provide an optional reason.
+							Are you sure you want to reject this notarization request? You can provide an optional
+							reason.
 						</DialogDescription>
 					</DialogHeader>
 					<div className="space-y-4 py-4">
@@ -352,7 +400,7 @@ export default function IncomingRequestsPage() {
 								id="reject-reason"
 								placeholder="Enter rejection reason..."
 								value={rejectReason}
-								onChange={(e) => setRejectReason(e.target.value)}
+								onChange={e => setRejectReason(e.target.value)}
 								className="mt-1"
 								rows={3}
 							/>
@@ -369,11 +417,7 @@ export default function IncomingRequestsPage() {
 						>
 							Cancel
 						</Button>
-						<Button
-							variant="destructive"
-							onClick={handleReject}
-							disabled={processingId !== null}
-						>
+						<Button variant="destructive" onClick={handleReject} disabled={processingId !== null}>
 							{processingId ? "Processing..." : "Reject Request"}
 						</Button>
 					</DialogFooter>

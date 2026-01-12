@@ -1,5 +1,5 @@
 import { useMemo } from "react"
-import { isToday, isThisWeek, isThisMonth } from "date-fns"
+import { isThisMonth, isThisWeek, isToday } from "date-fns"
 
 import type { AppointmentWithDetails, RequestFilters, RequestStats } from "../types/requests.types"
 
@@ -10,10 +10,10 @@ export function useFilteredRequests(
 	const filteredAppointments = useMemo(() => {
 		if (!appointments) return []
 
-		return appointments.filter((appointment) => {
+		return appointments.filter(appointment => {
 			// Search filter
 			const searchLower = filters.search.toLowerCase()
-			const matchesSearch = 
+			const matchesSearch =
 				!searchLower ||
 				appointment.client.name.toLowerCase().includes(searchLower) ||
 				appointment.lawyer.name.toLowerCase().includes(searchLower) ||
@@ -21,14 +21,10 @@ export function useFilteredRequests(
 				appointment.location?.toLowerCase().includes(searchLower)
 
 			// Status filter
-			const matchesStatus = 
-				filters.status === "ALL" || 
-				appointment.status === filters.status
+			const matchesStatus = filters.status === "ALL" || appointment.status === filters.status
 
 			// Type filter
-			const matchesType = 
-				filters.type === "ALL" || 
-				appointment.type === filters.type
+			const matchesType = filters.type === "ALL" || appointment.type === filters.type
 
 			// Workflow filter
 			let matchesWorkflow = true
@@ -58,20 +54,21 @@ export function useFilteredRequests(
 		}
 
 		const now = new Date()
-		
+
 		return {
 			total: appointments.length,
 			pending: appointments.filter(a => a.status === "PENDING").length,
 			confirmed: appointments.filter(a => a.status === "CONFIRMED").length,
 			completed: appointments.filter(a => a.status === "COMPLETED").length,
 			cancelled: appointments.filter(a => a.status === "CANCELLED").length,
-			todayCount: appointments.filter(a => 
-				isToday(new Date(a.appointmentDate)) && 
-				(a.status === "PENDING" || a.status === "CONFIRMED")
+			todayCount: appointments.filter(
+				a =>
+					isToday(new Date(a.appointmentDate)) &&
+					(a.status === "PENDING" || a.status === "CONFIRMED")
 			).length,
-			upcomingCount: appointments.filter(a => 
-				new Date(a.appointmentDate) >= now && 
-				(a.status === "PENDING" || a.status === "CONFIRMED")
+			upcomingCount: appointments.filter(
+				a =>
+					new Date(a.appointmentDate) >= now && (a.status === "PENDING" || a.status === "CONFIRMED")
 			).length,
 		}
 	}, [appointments])

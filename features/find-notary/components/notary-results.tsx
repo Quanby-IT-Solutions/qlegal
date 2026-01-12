@@ -3,12 +3,10 @@
 import { Filter, Loader2, Search } from "lucide-react"
 
 import { Button } from "@/core/components/ui/button"
-import {
-	Card,
-	CardContent,
-} from "@/core/components/ui/card"
-import { NotaryCard } from "./notary-card"
+import { Card, CardContent } from "@/core/components/ui/card"
+
 import type { EnhancedENP, WorkflowType } from "../types/find-notary.types"
+import { NotaryCard } from "./notary-card"
 
 interface NotaryResultsProps {
 	notaries: EnhancedENP[]
@@ -17,16 +15,16 @@ interface NotaryResultsProps {
 	onClearFilters: () => void
 }
 
-export function NotaryResults({ 
-	notaries, 
-	isLoading, 
-	onBookConsultation, 
-	onClearFilters 
+export function NotaryResults({
+	notaries,
+	isLoading,
+	onBookConsultation,
+	onClearFilters,
 }: NotaryResultsProps) {
 	if (isLoading) {
 		return (
 			<div className="flex items-center justify-center py-12">
-				<Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+				<Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
 			</div>
 		)
 	}
@@ -62,11 +60,7 @@ export function NotaryResults({
 
 			<div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
 				{notaries.map(enp => (
-					<NotaryCard 
-						key={enp.id} 
-						enp={enp} 
-						onBookConsultation={onBookConsultation} 
-					/>
+					<NotaryCard key={enp.id} enp={enp} onBookConsultation={onBookConsultation} />
 				))}
 			</div>
 		</div>

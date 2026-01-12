@@ -1,23 +1,34 @@
 "use client"
 
-import { use } from "react"
-import { useRouter } from "next/navigation"
 import type { Route } from "next"
-import { useSession } from "next-auth/react"
+import { useRouter } from "next/navigation"
+import { use } from "react"
 import { format } from "date-fns"
 import { AlertCircle, Calendar, Clock, MapPin, User, Video } from "lucide-react"
+import { useSession } from "next-auth/react"
 
 import { PageHeader } from "@/core/components/navbar/page-header"
 import { Alert, AlertDescription, AlertTitle } from "@/core/components/ui/alert"
 import { Badge } from "@/core/components/ui/badge"
 import { Button } from "@/core/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/core/components/ui/card"
+import {
+	Card,
+	CardContent,
+	CardDescription,
+	CardHeader,
+	CardTitle,
+} from "@/core/components/ui/card"
 import { Skeleton } from "@/core/components/ui/skeleton"
+
 import { trpc } from "@/services/trpc/client"
 
 function getWorkflowLabel(meetingLink?: string | null, location?: string | null) {
-	if (meetingLink) {return "Remote"}
-	if (location) {return "In-Person"}
+	if (meetingLink) {
+		return "Remote"
+	}
+	if (location) {
+		return "In-Person"
+	}
 	return "Not specified"
 }
 
@@ -26,7 +37,11 @@ export default function AppointmentMeetingPage({ params }: { params: Promise<{ i
 	const router = useRouter()
 	const { data: session } = useSession()
 
-	const { data: appointment, isLoading, error } = trpc.appointments.getAppointmentById.useQuery({
+	const {
+		data: appointment,
+		isLoading,
+		error,
+	} = trpc.appointments.getAppointmentById.useQuery({
 		appointmentId: id,
 	})
 
@@ -34,27 +49,32 @@ export default function AppointmentMeetingPage({ params }: { params: Promise<{ i
 	const workflowLabel = getWorkflowLabel(meetingLink, appointment?.location ?? null)
 
 	const handleJoin = () => {
-		if (!meetingLink) {return}
+		if (!meetingLink) {
+			return
+		}
 		// If the link is absolute, navigate there; otherwise push within the app
 		try {
 			const url = new URL(meetingLink)
 			window.location.href = url.toString()
 		} catch {
 			// If URL parsing fails, treat as internal route
-			router.push((meetingLink as unknown) as Route)
+			router.push(meetingLink as unknown as Route)
 		}
 	}
 
 	return (
 		<div className="flex flex-1 flex-col">
-			<PageHeader items={[{ label: "Appointments", href: "/appointments" }, { label: "Meeting" }]} />
+			<PageHeader
+				items={[{ label: "Appointments", href: "/appointments" }, { label: "Meeting" }]}
+			/>
 
 			<main className="flex-1 p-4 md:p-6 lg:p-8">
 				<div className="mx-auto max-w-4xl space-y-6">
 					<div className="space-y-2">
 						<h1 className="text-3xl font-bold tracking-tight">Appointment Meeting</h1>
 						<p className="text-muted-foreground">
-							Join the lawyer's virtual office for this appointment. Only one session can be live at a time.
+							Join the lawyer's virtual office for this appointment. Only one session can be live at
+							a time.
 						</p>
 					</div>
 
@@ -100,7 +120,7 @@ export default function AppointmentMeetingPage({ params }: { params: Promise<{ i
 							</CardHeader>
 
 							<CardContent className="space-y-4">
-								<div className="grid gap-3 text-sm text-muted-foreground">
+								<div className="text-muted-foreground grid gap-3 text-sm">
 									<div className="flex items-center gap-2">
 										<Calendar className="h-4 w-4" />
 										<span>
@@ -138,8 +158,9 @@ export default function AppointmentMeetingPage({ params }: { params: Promise<{ i
 											<Video className="mr-2 h-4 w-4" />
 											Join Meeting
 										</Button>
-										<p className="text-xs text-muted-foreground">
-											This uses the lawyer's single-occupancy office. If another session is live, you'll be asked to wait.
+										<p className="text-muted-foreground text-xs">
+											This uses the lawyer's single-occupancy office. If another session is live,
+											you'll be asked to wait.
 										</p>
 									</div>
 								) : (
@@ -147,14 +168,15 @@ export default function AppointmentMeetingPage({ params }: { params: Promise<{ i
 										<AlertCircle className="h-4 w-4" />
 										<AlertTitle>Meeting link not available</AlertTitle>
 										<AlertDescription>
-											The meeting link hasn&apos;t been provided yet. Please contact your lawyer to confirm the remote session.
+											The meeting link hasn&apos;t been provided yet. Please contact your lawyer to
+											confirm the remote session.
 										</AlertDescription>
 									</Alert>
 								)}
 
 								{appointment.notes && (
-									<div className="rounded-lg border bg-muted/40 p-3 text-sm">
-										<p className="font-medium text-foreground mb-1">Notes</p>
+									<div className="bg-muted/40 rounded-lg border p-3 text-sm">
+										<p className="text-foreground mb-1 font-medium">Notes</p>
 										<p className="text-muted-foreground whitespace-pre-wrap">{appointment.notes}</p>
 									</div>
 								)}
@@ -166,8 +188,3 @@ export default function AppointmentMeetingPage({ params }: { params: Promise<{ i
 		</div>
 	)
 }
-
-
-
-
-

@@ -90,4 +90,3 @@ export type UpdateConsultationInput = z.infer<typeof updateConsultationSchema>
 export type CancelConsultationInput = z.infer<typeof cancelConsultationSchema>
 export type SetEnpAvailabilityInput = z.infer<typeof setEnpAvailabilitySchema>
 export type GetAvailableEnpsInput = z.infer<typeof getAvailableEnpsSchema>
-
