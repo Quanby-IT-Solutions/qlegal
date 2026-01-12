@@ -365,7 +365,7 @@ export const meetingsRouter = createTRPCRouter({
 					creatorEmail, // Use meeting creator's email, not the uploader's email
 				})
 				const docoChainProjectId = docoChainProject.uuid // THIS IS THE CRITICAL PROJECT UUID
-				const docoChainRedirectUrl = docoChainProject.redirectUrl || null
+				const docoChainRedirectUrl = docoChainProject.redirectUrl ?? null
 				console.log("✅ DocoChain project created!")
 				console.log("   - Project UUID:", docoChainProjectId)
 				console.log("   - Project ID:", docoChainProject.id)
@@ -384,7 +384,7 @@ export const meetingsRouter = createTRPCRouter({
 						path: "", // Will be updated after Supabase upload
 						type: mimeType,
 						size,
-						description: input.description || null,
+						description: input.description ?? null,
 						meetingId,
 						docoChainProjectId, // Store the critical project UUID
 						docoChainRedirectUrl,
@@ -426,7 +426,7 @@ export const meetingsRouter = createTRPCRouter({
 				const [updatedDocument] = await db
 					.update(documents)
 					.set({ 
-						path: uploadData?.path || "",
+						path: uploadData?.path ?? "",
 					})
 					.where(eq(documents.id, document.id))
 					.returning()

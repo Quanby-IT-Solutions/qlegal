@@ -547,6 +547,31 @@ export const signatureRequestsRouter = createTRPCRouter({
 					}
 				}
 
+				// FINAL FIX: Ensure api=null is ALWAYS replaced with api=true before returning
+				// This catches any URLs that might have slipped through (from DB, API, or fallback)
+				if (signingLink) {
+					try {
+						const url = new URL(signingLink)
+						if (url.searchParams.has('api') && url.searchParams.get('api') === 'null') {
+							url.searchParams.set('api', 'true')
+							signingLink = url.toString()
+							console.log("✅ FINAL FIX: Replaced api=null with api=true in signing link")
+						} else if (!url.searchParams.has('api')) {
+							url.searchParams.set('api', 'true')
+							signingLink = url.toString()
+							console.log("✅ FINAL FIX: Added api=true to signing link")
+						}
+					} catch {
+						// If URL parsing fails, use string replacement
+						signingLink = signingLink.replace(/\?api=null(&|$)/, '?api=true$1').replace(/&api=null(&|$)/, '&api=true$1')
+						if (!signingLink.includes('api=')) {
+							const separator = signingLink.includes('?') ? '&' : '?'
+							signingLink = `${signingLink}${separator}api=true`
+						}
+						console.log("✅ FINAL FIX: Fixed api parameter using string replacement")
+					}
+				}
+
 				return {
 					success: true,
 					link: signingLink,
@@ -619,9 +644,34 @@ export const signatureRequestsRouter = createTRPCRouter({
 					email,
 				})
 
+				// FINAL FIX: Ensure api=null is ALWAYS replaced with api=true before returning
+				let finalLink = result.link
+				if (finalLink) {
+					try {
+						const url = new URL(finalLink)
+						if (url.searchParams.has('api') && url.searchParams.get('api') === 'null') {
+							url.searchParams.set('api', 'true')
+							finalLink = url.toString()
+							console.log("✅ FINAL FIX: Replaced api=null with api=true in generateSigningLink")
+						} else if (!url.searchParams.has('api')) {
+							url.searchParams.set('api', 'true')
+							finalLink = url.toString()
+							console.log("✅ FINAL FIX: Added api=true to generateSigningLink")
+						}
+					} catch {
+						// If URL parsing fails, use string replacement
+						finalLink = finalLink.replace(/\?api=null(&|$)/, '?api=true$1').replace(/&api=null(&|$)/, '&api=true$1')
+						if (!finalLink.includes('api=')) {
+							const separator = finalLink.includes('?') ? '&' : '?'
+							finalLink = `${finalLink}${separator}api=true`
+						}
+						console.log("✅ FINAL FIX: Fixed api parameter in generateSigningLink using string replacement")
+					}
+				}
+
 				return {
 					success: true,
-					link: result.link,
+					link: finalLink,
 				}
 			} catch (error) {
 				console.error("❌ Failed to generate signing link:", error)

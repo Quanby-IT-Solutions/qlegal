@@ -341,7 +341,7 @@ export async function createDocoChainProject({
 		console.log("   - ID:", result.data.id)
 		console.log("   - Redirect URL (raw):", result.data.redirect_url)
 
-		// Clean the redirect URL - remove api_token=undefined if present
+		// Clean the redirect URL - set api=true if null/empty and remove api_token=undefined
 		let cleanedRedirectUrl = result.data.redirect_url
 		if (cleanedRedirectUrl) {
 			try {
@@ -351,17 +351,27 @@ export async function createDocoChainProject({
 					url.searchParams.delete('api_token')
 					console.log("⚠️ Removed invalid api_token=undefined from redirect URL")
 				}
-				// Remove api parameter if it's null or empty
+				// Set api parameter to true if it's null or empty (API-generated links should have api=true)
 				if (url.searchParams.has('api') && (url.searchParams.get('api') === 'null' || url.searchParams.get('api') === '')) {
-					url.searchParams.delete('api')
-					console.log("🧹 Removed api=null parameter from redirect URL")
+					url.searchParams.set('api', 'true')
+					console.log("✅ Set api=true parameter in redirect URL (was null/empty)")
+				} else if (!url.searchParams.has('api')) {
+					// Add api=true if not present (this is an API-generated link)
+					url.searchParams.set('api', 'true')
+					console.log("✅ Added api=true parameter to redirect URL")
 				}
 				cleanedRedirectUrl = url.toString()
 			} catch {
 				// If URL parsing fails, try simple string replacement
 				if (typeof cleanedRedirectUrl === 'string') {
 					cleanedRedirectUrl = cleanedRedirectUrl.replace(/\?api_token=undefined(&|$)/, '?').replace(/&api_token=undefined(&|$)/, '&').replace(/\?$/, '')
-					cleanedRedirectUrl = cleanedRedirectUrl.replace(/\?api=null(&|$)/, '?').replace(/&api=null(&|$)/, '&').replace(/\?$/, '')
+					// Replace api=null with api=true
+					cleanedRedirectUrl = cleanedRedirectUrl.replace(/\?api=null(&|$)/, '?api=true$1').replace(/&api=null(&|$)/, '&api=true$1')
+					// If api parameter is missing, add api=true
+					if (!cleanedRedirectUrl.includes('api=')) {
+						const separator = cleanedRedirectUrl.includes('?') ? '&' : '?'
+						cleanedRedirectUrl = `${cleanedRedirectUrl}${separator}api=true`
+					}
 				}
 			}
 			console.log("   - Redirect URL (cleaned):", cleanedRedirectUrl)
@@ -933,13 +943,17 @@ export async function generateSignLink({
 		// This is a known DocoChain bug - the actual project status should be verified via API
 		try {
 			const url = new URL(link)
-			// Remove api parameter if it's null or empty (AGGRESSIVE cleanup)
+			// Set api parameter to true if it's null or empty (API-generated links should have api=true)
 			if (url.searchParams.has('api')) {
 				const apiValue = url.searchParams.get('api')
 				if (apiValue === 'null' || apiValue === '' || apiValue === null) {
-					url.searchParams.delete('api')
-					console.log("🧹 Removed api=null parameter from edit draft link")
+					url.searchParams.set('api', 'true')
+					console.log("✅ Set api=true parameter in signing link (was null/empty)")
 				}
+			} else {
+				// Add api=true if not present (this is an API-generated link)
+				url.searchParams.set('api', 'true')
+				console.log("✅ Added api=true parameter to signing link")
 			}
 			// Remove api_token if it's undefined
 			if (url.searchParams.has('api_token') && (url.searchParams.get('api_token') === 'undefined' || url.searchParams.get('api_token') === '')) {
@@ -959,18 +973,24 @@ export async function generateSignLink({
 			}
 			link = url.toString()
 		} catch (urlError) {
-			// If URL parsing fails, try simple string replacement (AGGRESSIVE cleanup)
+			// If URL parsing fails, try simple string replacement
 			console.warn("⚠️ URL parsing failed, using string replacement cleanup:", urlError)
 			// Ensure link is a string before processing
 			if (typeof link === 'string') {
-				// Multiple passes to catch all variations
-				link = link.replace(/\?api=null(&|$)/, '?').replace(/&api=null(&|$)/, '&').replace(/\?$/, '')
-				link = link.replace(/\?api=null(&|$)/, '?').replace(/&api=null(&|$)/, '&').replace(/\?$/, '') // Second pass
+				// Replace api=null with api=true (multiple passes to catch all variations)
+				link = link.replace(/\?api=null(&|$)/, '?api=true$1').replace(/&api=null(&|$)/, '&api=true$1')
+				link = link.replace(/\?api=null(&|$)/, '?api=true$1').replace(/&api=null(&|$)/, '&api=true$1') // Second pass
 				link = link.replace(/\?api_token=undefined(&|$)/, '?').replace(/&api_token=undefined(&|$)/, '&').replace(/\?$/, '')
-				// Final check - if api=null still exists, remove it more aggressively
+				// Final check - if api=null still exists, replace it with api=true
 				if (link.includes('api=null')) {
-					link = link.replace(/[?&]api=null/g, '').replace(/\?$/, '')
-					console.log("🧹 Aggressive cleanup applied, final link:", link)
+					link = link.replace(/[?&]api=null/g, (match) => match.replace('api=null', 'api=true'))
+					console.log("✅ Replaced remaining api=null with api=true, final link:", link)
+				}
+				// If api parameter is missing, add api=true (this is an API-generated link)
+				if (!link.includes('api=')) {
+					const separator = link.includes('?') ? '&' : '?'
+					link = `${link}${separator}api=true`
+					console.log("✅ Added api=true parameter to signing link (fallback)")
 				}
 			}
 			// Try to add api_token even if URL parsing failed
@@ -986,11 +1006,17 @@ export async function generateSignLink({
 			}
 		}
 
-		// FINAL cleanup check - ensure api=null is completely removed before returning
+		// FINAL check - ensure api=null is replaced with api=true before returning
 		if (typeof link === 'string' && link.includes('api=null')) {
-			console.warn("⚠️ WARNING: api=null still present after cleanup! Applying final aggressive cleanup")
-			link = link.replace(/[?&]api=null/g, '').replace(/\?$/, '').replace(/&$/, '')
-			console.log("🧹 Final cleaned link:", link)
+			console.warn("⚠️ WARNING: api=null still present after cleanup! Replacing with api=true")
+			link = link.replace(/[?&]api=null/g, (match) => match.replace('api=null', 'api=true'))
+			console.log("✅ Final link with api=true:", link)
+		}
+		// Ensure api=true is present (this is an API-generated link)
+		if (typeof link === 'string' && !link.includes('api=')) {
+			const separator = link.includes('?') ? '&' : '?'
+			link = `${link}${separator}api=true`
+			console.log("✅ Added api=true parameter to final signing link")
 		}
 
 		console.log("✅ Final signing link:", link)
@@ -1164,19 +1190,23 @@ export async function generateEditDraftLink(projectUuid: string, userEmail?: str
 			throw new Error(`Invalid link type: expected string, got ${typeof link}`)
 		}
 
-		// Clean up the URL - remove api=null parameter if present and add api_token
-		// DocoChain sometimes adds ?api=null which causes issues
+		// Clean up the URL - set api=true if null/empty and add api_token
+		// DocoChain sometimes adds ?api=null which should be api=true for API-generated links
 		// NOTE: DocoChain email notifications may incorrectly include status=Deleted in callback URLs
 		// This is a known DocoChain bug - the actual project status should be verified via API
 		try {
 			const url = new URL(link)
-			// Remove api parameter if it's null or empty (AGGRESSIVE cleanup)
+			// Set api parameter to true if it's null or empty (API-generated links should have api=true)
 			if (url.searchParams.has('api')) {
 				const apiValue = url.searchParams.get('api')
 				if (apiValue === 'null' || apiValue === '' || apiValue === null) {
-					url.searchParams.delete('api')
-					console.log("🧹 Removed api=null parameter from edit draft link")
+					url.searchParams.set('api', 'true')
+					console.log("✅ Set api=true parameter in edit draft link (was null/empty)")
 				}
+			} else {
+				// Add api=true if not present (this is an API-generated link)
+				url.searchParams.set('api', 'true')
+				console.log("✅ Added api=true parameter to edit draft link")
 			}
 			// Remove api_token if it's undefined
 			if (url.searchParams.has('api_token') && (url.searchParams.get('api_token') === 'undefined' || url.searchParams.get('api_token') === '')) {
@@ -1196,18 +1226,24 @@ export async function generateEditDraftLink(projectUuid: string, userEmail?: str
 			}
 			link = url.toString()
 		} catch (urlError) {
-			// If URL parsing fails, try simple string replacement (AGGRESSIVE cleanup)
+			// If URL parsing fails, try simple string replacement
 			console.warn("⚠️ URL parsing failed, using string replacement cleanup:", urlError)
 			// Ensure link is a string before processing
 			if (typeof link === 'string') {
-				// Multiple passes to catch all variations
-				link = link.replace(/\?api=null(&|$)/, '?').replace(/&api=null(&|$)/, '&').replace(/\?$/, '')
-				link = link.replace(/\?api=null(&|$)/, '?').replace(/&api=null(&|$)/, '&').replace(/\?$/, '') // Second pass
+				// Replace api=null with api=true (multiple passes to catch all variations)
+				link = link.replace(/\?api=null(&|$)/, '?api=true$1').replace(/&api=null(&|$)/, '&api=true$1')
+				link = link.replace(/\?api=null(&|$)/, '?api=true$1').replace(/&api=null(&|$)/, '&api=true$1') // Second pass
 				link = link.replace(/\?api_token=undefined(&|$)/, '?').replace(/&api_token=undefined(&|$)/, '&').replace(/\?$/, '')
-				// Final check - if api=null still exists, remove it more aggressively
+				// Final check - if api=null still exists, replace it with api=true
 				if (link.includes('api=null')) {
-					link = link.replace(/[?&]api=null/g, '').replace(/\?$/, '')
-					console.log("🧹 Aggressive cleanup applied, final link:", link)
+					link = link.replace(/[?&]api=null/g, (match) => match.replace('api=null', 'api=true'))
+					console.log("✅ Replaced remaining api=null with api=true, final link:", link)
+				}
+				// If api parameter is missing, add api=true (this is an API-generated link)
+				if (!link.includes('api=')) {
+					const separator = link.includes('?') ? '&' : '?'
+					link = `${link}${separator}api=true`
+					console.log("✅ Added api=true parameter to edit draft link (fallback)")
 				}
 			}
 			// Try to add api_token even if URL parsing failed
@@ -1223,11 +1259,17 @@ export async function generateEditDraftLink(projectUuid: string, userEmail?: str
 			}
 		}
 
-		// FINAL cleanup check - ensure api=null is completely removed before returning
+		// FINAL check - ensure api=null is replaced with api=true before returning
 		if (typeof link === 'string' && link.includes('api=null')) {
-			console.warn("⚠️ WARNING: api=null still present after cleanup! Applying final aggressive cleanup")
-			link = link.replace(/[?&]api=null/g, '').replace(/\?$/, '').replace(/&$/, '')
-			console.log("🧹 Final cleaned link:", link)
+			console.warn("⚠️ WARNING: api=null still present after cleanup! Replacing with api=true")
+			link = link.replace(/[?&]api=null/g, (match) => match.replace('api=null', 'api=true'))
+			console.log("✅ Final link with api=true:", link)
+		}
+		// Ensure api=true is present (this is an API-generated link)
+		if (typeof link === 'string' && !link.includes('api=')) {
+			const separator = link.includes('?') ? '&' : '?'
+			link = `${link}${separator}api=true`
+			console.log("✅ Added api=true parameter to final edit draft link")
 		}
 
 		console.log("✅ Final edit draft link:", link)
@@ -2000,7 +2042,6 @@ export async function getVaultItems(
 		throw error
 	}
 }
-
 /**
  * Get a single Vault Item by project UUID
  * Retrieves a specific completed signature request project from the vault
@@ -2075,4 +2116,5 @@ export async function getVaultItem(
 		throw error
 	}
 }
+
 

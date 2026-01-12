@@ -981,17 +981,27 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 				return
 			}
 
-			// Clean up the URL - remove api=null parameter if present
+			// Fix the URL - set api=true if null/empty (API-generated links should have api=true)
 			try {
 				const url = new URL(signingLink)
 				if (url.searchParams.has('api') && (url.searchParams.get('api') === 'null' || url.searchParams.get('api') === '')) {
-					url.searchParams.delete('api')
+					url.searchParams.set('api', 'true')
 					signingLink = url.toString()
-					console.log("🧹 Cleaned URL - removed api=null parameter")
+					console.log("✅ Set api=true parameter in URL (was null/empty)")
+				} else if (!url.searchParams.has('api')) {
+					// Add api=true if not present (this is an API-generated link)
+					url.searchParams.set('api', 'true')
+					signingLink = url.toString()
+					console.log("✅ Added api=true parameter to URL")
 				}
 			} catch {
 				// If URL parsing fails, try simple string replacement
-				signingLink = signingLink.replace(/\?api=null(&|$)/, '?').replace(/&api=null(&|$)/, '&').replace(/\?$/, '')
+				signingLink = signingLink.replace(/\?api=null(&|$)/, '?api=true$1').replace(/&api=null(&|$)/, '&api=true$1')
+				// If api parameter is missing, add api=true
+				if (!signingLink.includes('api=')) {
+					const separator = signingLink.includes('?') ? '&' : '?'
+					signingLink = `${signingLink}${separator}api=true`
+				}
 			}
 
 			try {
@@ -1037,17 +1047,27 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 				return
 			}
 
-			// Clean up the URL - remove api=null parameter if present
+			// Fix the URL - set api=true if null/empty (API-generated links should have api=true)
 			try {
 				const url = new URL(signingLink)
 				if (url.searchParams.has('api') && (url.searchParams.get('api') === 'null' || url.searchParams.get('api') === '')) {
-					url.searchParams.delete('api')
+					url.searchParams.set('api', 'true')
 					signingLink = url.toString()
-					console.log("🧹 Cleaned URL - removed api=null parameter")
+					console.log("✅ Set api=true parameter in URL (was null/empty)")
+				} else if (!url.searchParams.has('api')) {
+					// Add api=true if not present (this is an API-generated link)
+					url.searchParams.set('api', 'true')
+					signingLink = url.toString()
+					console.log("✅ Added api=true parameter to URL")
 				}
 			} catch {
 				// If URL parsing fails, try simple string replacement
-				signingLink = signingLink.replace(/\?api=null(&|$)/, '?').replace(/&api=null(&|$)/, '&').replace(/\?$/, '')
+				signingLink = signingLink.replace(/\?api=null(&|$)/, '?api=true$1').replace(/&api=null(&|$)/, '&api=true$1')
+				// If api parameter is missing, add api=true
+				if (!signingLink.includes('api=')) {
+					const separator = signingLink.includes('?') ? '&' : '?'
+					signingLink = `${signingLink}${separator}api=true`
+				}
 			}
 
 			// Validate it's a proper URL
