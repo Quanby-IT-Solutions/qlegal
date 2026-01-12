@@ -7,6 +7,7 @@ import { Footer } from "@/features/home/components/footer"
 import { Header } from "@/features/home/components/header"
 import { Hero } from "@/features/home/components/hero"
 import { Navbar } from "@/features/home/components/navbar"
+import { TrustedBy } from "@/features/home/components/trusted-by"
 
 export default function Page() {
 	return (
@@ -22,6 +23,7 @@ export default function Page() {
 			</div>
 
 			{/* Additional Sections */}
+			<TrustedBy />
 			<Features />
 			<Compliance />
 			<CTA />
