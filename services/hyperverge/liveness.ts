@@ -1,12 +1,12 @@
 /**
  * HyperVerge Liveness Validation Service
- * 
+ *
  * Provides unified liveness verification supporting:
  * 1. Hosted workflow via redirect/QR (default mode)
  * 2. Direct selfie capture via /checkLiveness API (feature flag mode)
- * 
+ *
  * Both modes share unified backend decision logic using liveFace.value and summary.action
- * 
+ *
  * API Documentation: https://documentation.hyperverge.co/
  */
 
@@ -60,7 +60,7 @@ export interface LivenessDecisionResult {
 /**
  * Unified decision logic for liveness validation
  * Used by both hosted workflow results and direct API responses
- * 
+ *
  * @param liveFaceValue - The liveFace.value from API response ("yes" | "no")
  * @param summaryAction - The summary.action from API response ("pass" | "fail")
  * @param qualityChecks - Optional quality check results
@@ -78,9 +78,9 @@ export function makeLivenessDecision(
 	const isLive = liveFaceValue === "yes"
 	const actionPassed = summaryAction === "pass"
 	const isApproved = isLive && actionPassed
-	
+
 	const qualityIssues: string[] = []
-	
+
 	if (qualityChecks) {
 		if (qualityChecks.eyesClosed?.value === "yes") {
 			qualityIssues.push("Eyes appear to be closed")
@@ -185,12 +185,12 @@ export interface SelfieValidationResponse {
 
 /**
  * Check liveness using HyperVerge /v1/checkLiveness API (Direct API mode)
- * 
+ *
  * This is the direct API mode that captures selfie in-app and sends to HyperVerge
  * for liveness validation. Accepts any transaction ID for tracking purposes.
- * 
+ *
  * API: POST https://ind.idv.hyperverge.co/v1/checkLiveness
- * 
+ *
  * @param config - Selfie validation configuration
  * @returns Validation result with liveness check and unified decision
  */
@@ -238,9 +238,12 @@ export async function checkLiveness(
 		formData.append("disableLiveness", String(config.disableLiveness))
 	}
 
-	console.log("   - FormData entries:", Array.from(formData.entries()).map(([k, v]) => 
-		`${k}: ${v instanceof Blob ? `Blob(${v.size} bytes)` : v}`
-	))
+	console.log(
+		"   - FormData entries:",
+		Array.from(formData.entries()).map(
+			([k, v]) => `${k}: ${v instanceof Blob ? `Blob(${v.size} bytes)` : v}`
+		)
+	)
 
 	try {
 		let response: Response
@@ -296,15 +299,11 @@ export async function checkLiveness(
 		// Apply unified decision logic
 		// Note: /v1/checkLiveness returns details as object, not array
 		const details = result.result.details
-		const decision = makeLivenessDecision(
-			details?.liveFace?.value,
-			result.result.summary?.action,
-			{
-				eyesClosed: details?.qualityChecks?.eyesClosed,
-				occlusion: details?.qualityChecks?.faceOccluded || details?.qualityChecks?.occlusion,
-				multipleFaces: details?.qualityChecks?.multipleFaces,
-			}
-		)
+		const decision = makeLivenessDecision(details?.liveFace?.value, result.result.summary?.action, {
+			eyesClosed: details?.qualityChecks?.eyesClosed,
+			occlusion: details?.qualityChecks?.faceOccluded || details?.qualityChecks?.occlusion,
+			multipleFaces: details?.qualityChecks?.multipleFaces,
+		})
 
 		console.log("✅ Liveness check completed")
 		console.log("   - Live Face:", decision.liveFaceValue)

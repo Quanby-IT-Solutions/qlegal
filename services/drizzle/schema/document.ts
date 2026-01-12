@@ -16,12 +16,8 @@ export const documents = createTable("document", t => ({
 	status: documentStatusEnum("status").default("UPLOADED").notNull(),
 	docoChainProjectId: t.varchar({ length: 255 }), // DocoChain project UUID
 	docoChainRedirectUrl: t.text(), // DocoChain redirect URL with auth token
-	envelopeId: t
-		.varchar({ length: 255 })
-		.references(() => envelopes.id),
-	meetingId: t
-		.varchar({ length: 255 })
-		.references(() => meetings.id, { onDelete: "cascade" }),
+	envelopeId: t.varchar({ length: 255 }).references(() => envelopes.id),
+	meetingId: t.varchar({ length: 255 }).references(() => meetings.id, { onDelete: "cascade" }),
 	order: t.integer().default(0), // Order for drag and drop
 	createdAt: t.timestamp({ mode: "date", withTimezone: true }).defaultNow().notNull(),
 	updatedAt: t

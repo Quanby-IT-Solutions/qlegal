@@ -27,10 +27,7 @@ export const appointments = createTable("appointment", t => ({
 	location: t.text(), // For in-person appointments
 	meetingLink: t.text(), // For remote appointments
 	cancelReason: t.text(),
-	createdAt: t
-		.timestamp({ mode: "date", withTimezone: true })
-		.defaultNow()
-		.notNull(),
+	createdAt: t.timestamp({ mode: "date", withTimezone: true }).defaultNow().notNull(),
 	updatedAt: t
 		.timestamp({ mode: "date", withTimezone: true })
 		.defaultNow()

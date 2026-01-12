@@ -2,6 +2,7 @@ import { type InferSelectModel } from "drizzle-orm"
 import { index } from "drizzle-orm/pg-core"
 
 import { createTable, randomId } from "@/services/drizzle/utils"
+
 import { users } from "./auth"
 
 /**
@@ -15,7 +16,7 @@ export const livenessValidations = createTable(
 			.varchar({ length: 255 })
 			.primaryKey()
 			.$defaultFn(() => randomId()),
-		
+
 		// User reference
 		userId: t
 			.varchar({ length: 255 })
@@ -24,21 +25,18 @@ export const livenessValidations = createTable(
 
 		// HyperVerge transaction ID (use this to lookup details in HyperVerge dashboard)
 		transactionId: t.varchar({ length: 255 }).notNull().unique(),
-		
+
 		// Attempt tracking for retry logic
 		attemptNumber: t.integer().notNull().default(1),
-		
+
 		// Validation result
 		status: t.varchar({ length: 50 }).notNull(), // "pass" | "fail"
-		
+
 		// Quick error reference (detailed info in HyperVerge)
 		errorMessage: t.text(),
-		
+
 		// Timestamp
-		createdAt: t
-			.timestamp({ mode: "date", withTimezone: true })
-			.notNull()
-			.defaultNow(),
+		createdAt: t.timestamp({ mode: "date", withTimezone: true }).notNull().defaultNow(),
 	}),
 	table => [
 		index("liveness_validation_user_id_idx").on(table.userId),

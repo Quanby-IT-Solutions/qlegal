@@ -44,11 +44,11 @@ export function generateVideoSDKToken(): string {
 // Create a new meeting room
 export async function createMeetingRoom(): Promise<{ roomId: string }> {
 	const token = generateVideoSDKToken()
-	
+
 	const response = await fetch(`${VIDEOSDK_API_BASE}/rooms`, {
 		method: "POST",
 		headers: {
-			authorization: token,
+			"authorization": token,
 			"Content-Type": "application/json",
 		},
 		body: JSON.stringify({}),
@@ -58,7 +58,7 @@ export async function createMeetingRoom(): Promise<{ roomId: string }> {
 		throw new Error("Failed to create meeting room")
 	}
 
-	const data = await response.json() as { roomId: string }
+	const data = (await response.json()) as { roomId: string }
 	return { roomId: data.roomId }
 }
 
@@ -70,7 +70,7 @@ export function generateMeetingToken(): string {
 // Validate a room
 export async function validateRoom(roomId: string): Promise<boolean> {
 	const token = generateVideoSDKToken()
-	
+
 	try {
 		const response = await fetch(`${VIDEOSDK_API_BASE}/rooms/validate/${roomId}`, {
 			method: "GET",
@@ -83,4 +83,3 @@ export async function validateRoom(roomId: string): Promise<boolean> {
 		return false
 	}
 }
-

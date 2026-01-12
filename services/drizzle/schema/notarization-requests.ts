@@ -45,4 +45,3 @@ export const notarizationRequests = createTable(
 ).enableRLS()
 
 export type NotarizationRequest = InferSelectModel<typeof notarizationRequests>
-

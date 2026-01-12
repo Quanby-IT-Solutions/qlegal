@@ -17,7 +17,7 @@ export function DrizzleCustomAdapter(): Adapter {
 		const kycStatusValue = user.kycStatus
 		// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
 		const kycTransactionIdValue = user.kycTransactionId
-		
+
 		return {
 			id: user.id,
 			name: user.name ?? null,
