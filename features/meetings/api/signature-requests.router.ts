@@ -17,6 +17,7 @@ import {
 	sendDocoChainProject,
 	updateProjectSigner,
 } from "@/services/docochain"
+import { normalizeDocoChainUrl } from "@/services/docochain/url-normalizer"
 import { db } from "@/services/drizzle/db"
 import { users } from "@/services/drizzle/schema/auth"
 import { documents } from "@/services/drizzle/schema/document"
@@ -532,20 +533,12 @@ export const signatureRequestsRouter = createTRPCRouter({
 					// First, try to use the stored redirect_url from Create Project (has auth token)
 					// Only use this for Draft projects (for plotting signature fields)
 					if (document?.docoChainRedirectUrl && projectStatus === "Draft") {
-						// Clean up the URL - set api=true if null and ensure api_token is valid
+						// ALWAYS normalize the stored redirect URL - ensure api=true is set
+						signingLink = normalizeDocoChainUrl(document.docoChainRedirectUrl) ?? document.docoChainRedirectUrl
+						
+						// Fix api_token if needed
 						try {
-							const url = new URL(document.docoChainRedirectUrl)
-							// Set api parameter to true if it's null or empty
-							if (
-								url.searchParams.has("api") &&
-								(url.searchParams.get("api") === "null" || url.searchParams.get("api") === "")
-							) {
-								url.searchParams.set("api", "true")
-								console.log("✅ Set api=true parameter in stored redirect URL")
-							} else if (!url.searchParams.has("api")) {
-								url.searchParams.set("api", "true")
-								console.log("✅ Added api=true parameter to stored redirect URL")
-							}
+							const url = new URL(signingLink)
 							// Fix api_token if it's undefined or empty - use creator's token for plotting
 							if (
 								url.searchParams.has("api_token") &&
@@ -569,14 +562,8 @@ export const signatureRequestsRouter = createTRPCRouter({
 							signingLink = url.toString()
 							console.log("✅ Using stored redirect URL from Create Project (for plotting):", signingLink)
 						} catch {
-							// If URL parsing fails, try simple string replacement
-							signingLink = document.docoChainRedirectUrl
-								.replace(/\?api=null(&|$)/, "?api=true$1")
-								.replace(/&api=null(&|$)/, "&api=true$1")
-								.replace(/\?api_token=undefined(&|$)/, "?")
-								.replace(/&api_token=undefined(&|$)/, "&")
-								.replace(/\?$/, "")
-							console.log("🧹 Cleaned stored redirect URL using string replacement")
+							// If URL parsing fails, signingLink is already normalized
+							console.log("✅ Using normalized stored redirect URL")
 						}
 					} else {
 						// Generate Edit Draft Project Link (allows plotting/editing/signing in draft)
@@ -598,24 +585,15 @@ export const signatureRequestsRouter = createTRPCRouter({
 					}
 				}
 
-				// FINAL FIX: Ensure api=null and api_token=undefined are ALWAYS fixed before returning
-				// This catches any URLs that might have slipped through (from DB, API, or fallback)
+				// FINAL FIX: ALWAYS normalize the URL before returning
+				// This ensures api=true is ALWAYS set, no matter what
 				if (signingLink) {
+					// Normalize the URL - this ALWAYS sets api=true
+					signingLink = normalizeDocoChainUrl(signingLink) ?? signingLink
+					
+					// Handle api_token if needed
 					try {
 						const url = new URL(signingLink)
-						// Fix api parameter - check for null, empty string, or any value that's not 'true'
-						const apiValue = url.searchParams.get('api')
-						if (url.searchParams.has('api')) {
-							// If api parameter exists but is null, empty, or not 'true', fix it
-							if (apiValue === 'null' || apiValue === '' || apiValue === null || apiValue !== 'true') {
-								url.searchParams.set('api', 'true')
-								console.log(`✅ FINAL FIX: Replaced api=${apiValue ?? 'null'} with api=true in signing link`)
-							}
-						} else {
-							// Add api=true if not present (this is an API-generated link)
-							url.searchParams.set('api', 'true')
-							console.log("✅ FINAL FIX: Added api=true to signing link")
-						}
 						// Fix api_token if it's undefined or empty
 						if (
 							url.searchParams.has("api_token") &&
@@ -647,33 +625,12 @@ export const signatureRequestsRouter = createTRPCRouter({
 						}
 						signingLink = url.toString()
 					} catch {
-						// If URL parsing fails, use string replacement (more aggressive)
-						console.warn("⚠️ URL parsing failed, using aggressive string replacement")
-						// Multiple passes to catch all variations
-						signingLink = signingLink.replace(/\?api=null(&|$)/, '?api=true$1').replace(/&api=null(&|$)/, '&api=true$1')
-						signingLink = signingLink.replace(/\?api=null(&|$)/, '?api=true$1').replace(/&api=null(&|$)/, '&api=true$1') // Second pass
-						// Use global replace for any remaining api=null
-						if (signingLink.includes('api=null')) {
-							signingLink = signingLink.replace(/[?&]api=null/g, (match) => match.replace('api=null', 'api=true'))
-							console.log("✅ Replaced remaining api=null with api=true")
-						}
-						signingLink = signingLink.replace(/\?api_token=undefined(&|$)/, '?').replace(/&api_token=undefined(&|$)/, '&').replace(/\?$/, '')
-						// Ensure api=true is present
-						if (!signingLink.includes('api=')) {
-							const separator = signingLink.includes('?') ? '&' : '?'
-							signingLink = `${signingLink}${separator}api=true`
-						} else if (signingLink.includes('api=null')) {
-							// Final safety check - if api=null still exists after all replacements
-							signingLink = signingLink.replace(/api=null/g, 'api=true')
-						}
-						console.log("✅ FINAL FIX: Fixed api and api_token parameters using string replacement")
+						// If URL parsing fails, signingLink is already normalized
+						console.log("✅ FINAL FIX: URL already normalized")
 					}
-					// Final safety check - ensure api=null is never in the final URL
-					if (signingLink.includes('api=null')) {
-						console.warn("⚠️ WARNING: api=null still present after all fixes! Applying final replacement")
-						signingLink = signingLink.replace(/api=null/g, 'api=true')
-						console.log("✅ Applied final api=null replacement")
-					}
+					
+					// FINAL safety check - normalize one more time to be absolutely sure
+					signingLink = normalizeDocoChainUrl(signingLink) ?? signingLink
 				}
 
 				return {

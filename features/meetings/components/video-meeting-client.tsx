@@ -46,6 +46,7 @@ import {
 import { cn } from "@/core/lib/utils"
 
 import { trpc } from "@/services/trpc/client"
+import { normalizeDocoChainUrl } from "@/services/docochain/url-normalizer"
 
 import { MeetingDocumentUpload } from "./meeting-document-upload"
 
@@ -1017,49 +1018,8 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 				return
 			}
 
-			// Fix the URL - set api=true if null/empty (API-generated links should have api=true)
-			try {
-				const url = new URL(signingLink)
-				const apiValue = url.searchParams.get('api')
-				if (url.searchParams.has('api')) {
-					// If api parameter exists but is null, empty, or not 'true', fix it
-					if (apiValue === 'null' || apiValue === '' || apiValue === null || apiValue !== 'true') {
-						url.searchParams.set('api', 'true')
-						signingLink = url.toString()
-						console.log(`✅ Set api=true parameter in URL (was ${apiValue ?? 'null'})`)
-					}
-				} else {
-					// Add api=true if not present (this is an API-generated link)
-					url.searchParams.set('api', 'true')
-					signingLink = url.toString()
-					console.log("✅ Added api=true parameter to URL")
-				}
-			} catch {
-				// If URL parsing fails, try aggressive string replacement
-				console.warn("⚠️ URL parsing failed, using aggressive string replacement")
-				// Multiple passes to catch all variations
-				signingLink = signingLink.replace(/\?api=null(&|$)/, '?api=true$1').replace(/&api=null(&|$)/, '&api=true$1')
-				signingLink = signingLink.replace(/\?api=null(&|$)/, '?api=true$1').replace(/&api=null(&|$)/, '&api=true$1') // Second pass
-				// Use global replace for any remaining api=null
-				if (signingLink.includes('api=null')) {
-					signingLink = signingLink.replace(/[?&]api=null/g, (match) => match.replace('api=null', 'api=true'))
-					console.log("✅ Replaced remaining api=null with api=true")
-				}
-				// If api parameter is missing, add api=true
-				if (!signingLink.includes('api=')) {
-					const separator = signingLink.includes('?') ? '&' : '?'
-					signingLink = `${signingLink}${separator}api=true`
-				} else if (signingLink.includes('api=null')) {
-					// Final safety check
-					signingLink = signingLink.replace(/api=null/g, 'api=true')
-				}
-			}
-			// Final safety check - ensure api=null is never in the final URL
-			if (signingLink.includes('api=null')) {
-				console.warn("⚠️ WARNING: api=null still present after all fixes! Applying final replacement")
-				signingLink = signingLink.replace(/api=null/g, 'api=true')
-				console.log("✅ Applied final api=null replacement")
-			}
+			// ALWAYS normalize the URL - ensure api=true is set
+			signingLink = normalizeDocoChainUrl(signingLink) ?? signingLink
 
 			try {
 				new URL(signingLink)
@@ -1104,49 +1064,8 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 				return
 			}
 
-			// Fix the URL - set api=true if null/empty (API-generated links should have api=true)
-			try {
-				const url = new URL(signingLink)
-				const apiValue = url.searchParams.get('api')
-				if (url.searchParams.has('api')) {
-					// If api parameter exists but is null, empty, or not 'true', fix it
-					if (apiValue === 'null' || apiValue === '' || apiValue === null || apiValue !== 'true') {
-						url.searchParams.set('api', 'true')
-						signingLink = url.toString()
-						console.log(`✅ Set api=true parameter in URL (was ${apiValue ?? 'null'})`)
-					}
-				} else {
-					// Add api=true if not present (this is an API-generated link)
-					url.searchParams.set('api', 'true')
-					signingLink = url.toString()
-					console.log("✅ Added api=true parameter to URL")
-				}
-			} catch {
-				// If URL parsing fails, try aggressive string replacement
-				console.warn("⚠️ URL parsing failed, using aggressive string replacement")
-				// Multiple passes to catch all variations
-				signingLink = signingLink.replace(/\?api=null(&|$)/, '?api=true$1').replace(/&api=null(&|$)/, '&api=true$1')
-				signingLink = signingLink.replace(/\?api=null(&|$)/, '?api=true$1').replace(/&api=null(&|$)/, '&api=true$1') // Second pass
-				// Use global replace for any remaining api=null
-				if (signingLink.includes('api=null')) {
-					signingLink = signingLink.replace(/[?&]api=null/g, (match) => match.replace('api=null', 'api=true'))
-					console.log("✅ Replaced remaining api=null with api=true")
-				}
-				// If api parameter is missing, add api=true
-				if (!signingLink.includes('api=')) {
-					const separator = signingLink.includes('?') ? '&' : '?'
-					signingLink = `${signingLink}${separator}api=true`
-				} else if (signingLink.includes('api=null')) {
-					// Final safety check
-					signingLink = signingLink.replace(/api=null/g, 'api=true')
-				}
-			}
-			// Final safety check - ensure api=null is never in the final URL
-			if (signingLink.includes('api=null')) {
-				console.warn("⚠️ WARNING: api=null still present after all fixes! Applying final replacement")
-				signingLink = signingLink.replace(/api=null/g, 'api=true')
-				console.log("✅ Applied final api=null replacement")
-			}
+			// ALWAYS normalize the URL - ensure api=true is set
+			signingLink = normalizeDocoChainUrl(signingLink) ?? signingLink
 
 			// Validate it's a proper URL
 			try {
