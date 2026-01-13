@@ -603,11 +603,16 @@ export const signatureRequestsRouter = createTRPCRouter({
 				if (signingLink) {
 					try {
 						const url = new URL(signingLink)
-						// Fix api parameter
-						if (url.searchParams.has('api') && url.searchParams.get('api') === 'null') {
-							url.searchParams.set('api', 'true')
-							console.log("✅ FINAL FIX: Replaced api=null with api=true in signing link")
-						} else if (!url.searchParams.has('api')) {
+						// Fix api parameter - check for null, empty string, or any value that's not 'true'
+						const apiValue = url.searchParams.get('api')
+						if (url.searchParams.has('api')) {
+							// If api parameter exists but is null, empty, or not 'true', fix it
+							if (apiValue === 'null' || apiValue === '' || apiValue === null || apiValue !== 'true') {
+								url.searchParams.set('api', 'true')
+								console.log(`✅ FINAL FIX: Replaced api=${apiValue ?? 'null'} with api=true in signing link`)
+							}
+						} else {
+							// Add api=true if not present (this is an API-generated link)
 							url.searchParams.set('api', 'true')
 							console.log("✅ FINAL FIX: Added api=true to signing link")
 						}
@@ -642,14 +647,32 @@ export const signatureRequestsRouter = createTRPCRouter({
 						}
 						signingLink = url.toString()
 					} catch {
-						// If URL parsing fails, use string replacement
+						// If URL parsing fails, use string replacement (more aggressive)
+						console.warn("⚠️ URL parsing failed, using aggressive string replacement")
+						// Multiple passes to catch all variations
 						signingLink = signingLink.replace(/\?api=null(&|$)/, '?api=true$1').replace(/&api=null(&|$)/, '&api=true$1')
+						signingLink = signingLink.replace(/\?api=null(&|$)/, '?api=true$1').replace(/&api=null(&|$)/, '&api=true$1') // Second pass
+						// Use global replace for any remaining api=null
+						if (signingLink.includes('api=null')) {
+							signingLink = signingLink.replace(/[?&]api=null/g, (match) => match.replace('api=null', 'api=true'))
+							console.log("✅ Replaced remaining api=null with api=true")
+						}
 						signingLink = signingLink.replace(/\?api_token=undefined(&|$)/, '?').replace(/&api_token=undefined(&|$)/, '&').replace(/\?$/, '')
+						// Ensure api=true is present
 						if (!signingLink.includes('api=')) {
 							const separator = signingLink.includes('?') ? '&' : '?'
 							signingLink = `${signingLink}${separator}api=true`
+						} else if (signingLink.includes('api=null')) {
+							// Final safety check - if api=null still exists after all replacements
+							signingLink = signingLink.replace(/api=null/g, 'api=true')
 						}
 						console.log("✅ FINAL FIX: Fixed api and api_token parameters using string replacement")
+					}
+					// Final safety check - ensure api=null is never in the final URL
+					if (signingLink.includes('api=null')) {
+						console.warn("⚠️ WARNING: api=null still present after all fixes! Applying final replacement")
+						signingLink = signingLink.replace(/api=null/g, 'api=true')
+						console.log("✅ Applied final api=null replacement")
 					}
 				}
 
