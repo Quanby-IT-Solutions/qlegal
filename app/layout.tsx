@@ -42,7 +42,7 @@ export default async function RootLayout({
 							disableTransitionOnChange
 						>
 							{children}
-							<CookieConsent variant="small" />
+							<CookieConsent variant="mini" position="bottom-right" />
 							<Toaster richColors closeButton />
 						</ThemeProvider>
 					</TRPCProvider>

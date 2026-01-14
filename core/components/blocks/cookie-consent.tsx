@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { cva, type VariantProps } from "class-variance-authority"
 import { Cookie as CookieIcon } from "lucide-react"
 
 import { Button } from "@/core/components/ui/button"
@@ -14,9 +15,31 @@ import {
 } from "@/core/components/ui/card"
 import { cn } from "@/core/lib/utils"
 
-// Define prop types
-interface CookieConsentProps extends React.HTMLAttributes<HTMLDivElement> {
-	variant?: "default" | "small" | "mini"
+const cookieConsentVariants = cva("fixed z-50 transition-all duration-700 w-full sm:w-auto", {
+	variants: {
+		variant: {
+			default: "sm:max-w-md",
+			small: "sm:max-w-md",
+			mini: "sm:max-w-3xl",
+		},
+		position: {
+			"top-left": "top-0 left-0 right-0 sm:top-4 sm:left-4 sm:right-auto",
+			"top-center": "top-0 left-0 right-0 sm:top-4 sm:left-1/2 sm:right-auto sm:-translate-x-1/2",
+			"top-right": "top-0 left-0 right-0 sm:top-4 sm:left-auto sm:right-4",
+			"bottom-left": "bottom-0 left-0 right-0 sm:bottom-4 sm:left-4 sm:right-auto",
+			"bottom-center":
+				"bottom-0 left-0 right-0 sm:bottom-4 sm:left-1/2 sm:right-auto sm:-translate-x-1/2",
+			"bottom-right": "bottom-0 left-0 right-0 sm:bottom-4 sm:left-auto sm:right-4",
+		},
+	},
+	defaultVariants: {
+		variant: "default",
+		position: "bottom-left",
+	},
+})
+
+interface CookieConsentProps
+	extends React.HTMLAttributes<HTMLDivElement>, VariantProps<typeof cookieConsentVariants> {
 	demo?: boolean
 	onAcceptCallback?: () => void
 	onDeclineCallback?: () => void
@@ -28,9 +51,14 @@ const CookieConsent = React.forwardRef<HTMLDivElement, CookieConsentProps>(
 	(
 		{
 			variant = "default",
+			position = "bottom-left",
 			demo = false,
-			onAcceptCallback = () => {},
-			onDeclineCallback = () => {},
+			onAcceptCallback = () => {
+				/* empty */
+			},
+			onDeclineCallback = () => {
+				/* empty */
+			},
 			className,
 			description = "We use cookies to ensure you get the best experience on our website. For more information on how we use cookies, please see our cookie policy.",
 			learnMoreHref = "#",
@@ -74,20 +102,29 @@ const CookieConsent = React.forwardRef<HTMLDivElement, CookieConsentProps>(
 
 		if (hide) return null
 
+		const isTop = position?.startsWith("top")
+		const isBottom = position?.startsWith("bottom")
+
 		const containerClasses = cn(
-			"fixed z-50 transition-all duration-700",
-			!isOpen ? "translate-y-full opacity-0" : "translate-y-0 opacity-100",
+			cookieConsentVariants({ variant, position }),
+			// Animation based on position
+			isBottom
+				? !isOpen
+					? "translate-y-full opacity-0"
+					: "translate-y-0 opacity-100"
+				: isTop
+					? !isOpen
+						? "-translate-y-full opacity-0"
+						: "translate-y-0 opacity-100"
+					: !isOpen
+						? "opacity-0 scale-95"
+						: "opacity-100 scale-100",
 			className
 		)
 
 		const commonWrapperProps = {
 			ref,
-			className: cn(
-				containerClasses,
-				variant === "mini"
-					? "left-0 right-0 sm:left-4 bottom-4 w-full sm:max-w-3xl"
-					: "bottom-0 left-0 right-0 sm:left-4 sm:bottom-4 w-full sm:max-w-md"
-			),
+			className: containerClasses,
 			...props,
 		}
 
@@ -97,7 +134,7 @@ const CookieConsent = React.forwardRef<HTMLDivElement, CookieConsentProps>(
 					<Card className="m-3 shadow-lg">
 						<CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
 							<CardTitle className="text-lg">We use cookies</CardTitle>
-							<CookieIcon className="h-5 w-5" />
+							<CookieIcon className="size-5" />
 						</CardHeader>
 						<CardContent className="space-y-2">
 							<CardDescription className="text-sm">{description}</CardDescription>
@@ -131,7 +168,7 @@ const CookieConsent = React.forwardRef<HTMLDivElement, CookieConsentProps>(
 					<Card className="m-3 shadow-lg">
 						<CardHeader className="flex h-0 flex-row items-center justify-between space-y-0 px-4 pb-2">
 							<CardTitle className="text-base">We use cookies</CardTitle>
-							<CookieIcon className="h-4 w-4" />
+							<CookieIcon className="size-4" />
 						</CardHeader>
 						<CardContent className="px-4 pt-0 pb-2">
 							<CardDescription className="text-sm">{description}</CardDescription>
@@ -186,5 +223,6 @@ const CookieConsent = React.forwardRef<HTMLDivElement, CookieConsentProps>(
 )
 
 CookieConsent.displayName = "CookieConsent"
-export { CookieConsent }
+
+export { CookieConsent, cookieConsentVariants }
 export default CookieConsent

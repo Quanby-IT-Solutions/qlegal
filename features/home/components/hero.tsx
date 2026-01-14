@@ -48,6 +48,14 @@ export function Hero() {
 			{/* Radial Gradient Overlay */}
 			<div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_20%,hsl(var(--background))_70%)]" />
 
+			{/* Noise Texture */}
+			<div
+				className="pointer-events-none absolute inset-0 opacity-[0.015]"
+				style={{
+					backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`,
+				}}
+			/>
+
 			{/* Floating Orbs - Kept subtle for background ambience */}
 			<motion.div
 				className="pointer-events-none absolute top-20 left-10 h-72 w-72 rounded-full bg-linear-to-r from-[rgb(91,26,128)]/20 to-[rgb(233,30,140)]/20 blur-3xl"
