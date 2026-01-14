@@ -1336,8 +1336,9 @@ export async function downloadSignedDocument(
 		let buffer: Buffer | null = null
 
 		// Method 1: Try DocoChain API download endpoint for signed document
+		// CRITICAL: Use the download endpoint which should return the signed version when document is completed
 		const downloadApiUrl = `${DOCOCHAIN_API_BASE}/api/v2/projects/${projectUuid}/download?user_type=ENTERPRISE_API`
-		console.log("🔵 Trying DocoChain API download endpoint:", downloadApiUrl)
+		console.log("🔵 Trying DocoChain API download endpoint for SIGNED document:", downloadApiUrl)
 
 		try {
 			const apiResponse = await makeDocoChainApiCall(async token => {
@@ -1425,16 +1426,21 @@ export async function downloadSignedDocument(
 			}
 		}
 
-		// Method 2: Fallback to projectData.url (may be original or signed depending on status)
+		// Method 2: Fallback to signed URLs first (prioritize signed versions over original)
 		if (!buffer) {
+			// CRITICAL: Prioritize signed URLs to ensure we get the document WITH signatures
 			const fallbackUrl =
-				projectData.url ?? projectData.signed_url ?? projectData.signed_document_url
+				projectData.signed_url ?? projectData.signed_document_url ?? projectData.url
 
 			if (!fallbackUrl) {
 				throw new Error("Signed document URL not available. Document may not be fully signed yet.")
 			}
 
-			console.log("📥 Using fallback URL:", fallbackUrl)
+			console.log("📥 Using fallback URL (prioritizing signed URLs):", fallbackUrl)
+			console.log("   - signed_url:", projectData.signed_url ?? "not available")
+			console.log("   - signed_document_url:", projectData.signed_document_url ?? "not available")
+			console.log("   - url (original):", projectData.url ?? "not available")
+			
 			const response = await fetch(fallbackUrl)
 
 			if (!response.ok) {
