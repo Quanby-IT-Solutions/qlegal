@@ -104,7 +104,7 @@ export function Hero() {
 								</span>
 							</motion.div>
 
-							<h1 className="leading-tighter text-4xl font-bold tracking-tight lg:text-6xl">
+							<h1 className="leading-tighter text-5xl font-bold tracking-tight sm:text-6xl lg:text-7xl">
 								<span className="bg-linear-to-r from-[rgb(91,26,128)] via-[rgb(91,26,128)]/80 to-[rgb(233,30,140)] bg-clip-text text-transparent">
 									Electronic Notarization
 								</span>{" "}
@@ -115,7 +115,7 @@ export function Hero() {
 						<div className="min-h-24">
 							<TextGenerateEffect
 								words="Secure, compliant, and trusted by legal professionals nationwide."
-								className="text-muted-foreground text-xl leading-relaxed font-normal lg:text-2xl"
+								className="text-muted-foreground text-base leading-relaxed font-normal sm:text-lg lg:text-xl"
 							/>
 						</div>
 
@@ -126,7 +126,7 @@ export function Hero() {
 							<Button
 								asChild
 								size="lg"
-								className="group from-primary to-primary/90 hover:from-primary/90 hover:to-primary bg-linear-to-r px-8 py-6 text-lg shadow-xl transition-all duration-300 hover:shadow-2xl"
+								className="group from-primary to-primary/90 hover:from-primary/90 hover:to-primary bg-linear-to-r px-8 py-6 text-base shadow-xl transition-all duration-300 hover:shadow-2xl sm:text-lg"
 							>
 								<Link href="/auth/register">
 									Get Started
