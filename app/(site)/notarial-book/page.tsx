@@ -43,8 +43,11 @@ import {
 	TableHeader,
 	TableRow,
 } from "@/core/components/ui/table"
+import { NotarialActDocumentDialog } from "@/features/notarial-book/components/notarial-act-document-dialog"
 
-import { trpc } from "@/services/trpc/client"
+import { trpc, type RouterOutputs } from "@/services/trpc/client"
+
+type NotarialAct = RouterOutputs["notarialBook"]["getNotarialBook"]["acts"][number]
 
 export default function NotarialBookPage() {
 	const { data: session } = useSession()
@@ -55,6 +58,12 @@ export default function NotarialBookPage() {
 	const [workflowFilter, setWorkflowFilter] = useState<"ALL" | "REN" | "IEN">("ALL")
 	const [page, setPage] = useState(1)
 	const perPage = 50
+
+	// Document preview state - matches qsign-lite pattern
+	const [previewDocument, setPreviewDocument] = useState<{
+		actId: string
+		documentName: string
+	} | null>(null)
 
 	// Fetch notarial book entries using Doc On Chain Passport API
 	const {
@@ -76,7 +85,7 @@ export default function NotarialBookPage() {
 			if (data.errors && data.errors.length > 0) {
 				toast.warning(`${data.errors.length} document(s) failed to sync`)
 			}
-			refetch()
+			void refetch()
 		},
 		onError: error => {
 			toast.error(`Failed to sync documents: ${error.message}`)
@@ -93,21 +102,19 @@ export default function NotarialBookPage() {
 		},
 	})
 
-	const notarialActs = notarialBookData?.acts || []
+	const filteredActs = useMemo((): NotarialAct[] => {
+		const acts: NotarialAct[] = notarialBookData?.acts ?? []
+		if (acts.length === 0) return []
 
-	const filteredActs = useMemo(() => {
-		if (!notarialActs) return []
-
-		return notarialActs.filter(act => {
-			const matchesSearch =
-				act.principalName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-				act.documentName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-				act.certificateNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-				false
-
-			return matchesSearch
+		const searchLower = searchTerm.toLowerCase()
+		return acts.filter((act: NotarialAct) => {
+			const matchesPrincipal = act.principalName?.toLowerCase().includes(searchLower) ?? false
+			const matchesDocument = act.documentName?.toLowerCase().includes(searchLower) ?? false
+			const matchesCertificate = act.certificateNumber?.toLowerCase().includes(searchLower) ?? false
+			
+			return matchesPrincipal || matchesDocument || matchesCertificate
 		})
-	}, [notarialActs, searchTerm])
+	}, [notarialBookData?.acts, searchTerm])
 
 	const handleExport = () => {
 		exportMutation.mutate()
@@ -123,23 +130,16 @@ export default function NotarialBookPage() {
 		}
 	}
 
-	// Document and certificate viewing
-	const utils = trpc.useUtils()
-
-	const handleViewDocument = async (actId: string) => {
-		try {
-			const result = await utils.notarialBook.getDocumentUrl.fetch({ actId })
-			if (result?.url) {
-				window.open(result.url, "_blank")
-			} else {
-				toast.error("Document URL not available")
-			}
-		} catch (error) {
-			toast.error(
-				`Failed to get document: ${error instanceof Error ? error.message : "Unknown error"}`
-			)
-		}
+	// View button handler - matches qsign-lite pattern (simple state update)
+	const handleViewDocument = (actId: string, documentName?: string) => {
+		setPreviewDocument({
+			actId,
+			documentName: documentName ?? "document.pdf",
+		})
 	}
+
+	// Certificate viewing
+	const utils = trpc.useUtils()
 
 	const handleViewCertificate = async (actId: string) => {
 		try {
@@ -284,8 +284,8 @@ export default function NotarialBookPage() {
 										<Skeleton className="h-4 w-32" />
 									) : (
 										<>
-											{notarialBookData?.total || 0} notarial act
-											{(notarialBookData?.total || 0) !== 1 ? "s" : ""} recorded
+											{notarialBookData?.total ?? 0} notarial act
+											{(notarialBookData?.total ?? 0) !== 1 ? "s" : ""} recorded
 											{notarialBookData && notarialBookData.totalPages > 1 && (
 												<span className="ml-2">
 													(Page {page} of {notarialBookData.totalPages})
@@ -325,144 +325,116 @@ export default function NotarialBookPage() {
 										)}
 									</div>
 								) : (
-									<>
-										<div className="overflow-x-auto">
-											<Table>
-												<TableHeader>
-													<TableRow>
-														<TableHead className="w-20">Entry #</TableHead>
-														<TableHead>Date & Time</TableHead>
-														<TableHead>Act Type</TableHead>
-														<TableHead>Workflow</TableHead>
-														<TableHead>Principal</TableHead>
-														<TableHead>Document</TableHead>
-														<TableHead>Location</TableHead>
-														<TableHead>Certificate #</TableHead>
-														<TableHead className="w-32">Actions</TableHead>
-													</TableRow>
-												</TableHeader>
-												<TableBody>
-													{filteredActs.map((act, index) => (
-														<TableRow key={act.id}>
-															<TableCell className="font-mono font-medium">
-																{(page - 1) * perPage + index + 1}
-															</TableCell>
-															<TableCell>
-																<span className="text-sm">
-																	{format(new Date(act.executedAt), "MMM dd, yyyy")}
-																	<br />
-																	<span className="text-muted-foreground">
-																		{format(new Date(act.executedAt), "hh:mm a")}
-																	</span>
+									<div className="overflow-x-auto">
+										<Table>
+											<TableHeader>
+												<TableRow>
+													<TableHead className="w-20">Entry #</TableHead>
+													<TableHead>Date & Time</TableHead>
+													<TableHead>Act Type</TableHead>
+													<TableHead>Workflow</TableHead>
+													<TableHead>Principal</TableHead>
+													<TableHead>Document</TableHead>
+													<TableHead>Location</TableHead>
+													<TableHead>Certificate #</TableHead>
+													<TableHead className="w-32">Actions</TableHead>
+												</TableRow>
+											</TableHeader>
+											<TableBody>
+												{filteredActs.map((act, index) => (
+													<TableRow key={act.id}>
+														<TableCell className="font-mono font-medium">
+															{(page - 1) * perPage + index + 1}
+														</TableCell>
+														<TableCell>
+															<span className="text-sm">
+																{format(new Date(act.executedAt), "MMM dd, yyyy")}
+																<br />
+																<span className="text-muted-foreground">
+																	{format(new Date(act.executedAt), "hh:mm a")}
 																</span>
-															</TableCell>
-															<TableCell>
-																<Badge variant="outline">{act.actType}</Badge>
-															</TableCell>
-															<TableCell>
-																<Badge variant={act.workflow === "REN" ? "default" : "secondary"}>
-																	{act.workflow}
-																</Badge>
-															</TableCell>
-															<TableCell>
-																<div>
-																	<p className="font-medium">{act.principalName}</p>
-																	{act.principalIdNumber && (
-																		<p className="text-muted-foreground text-xs">
-																			ID: {act.principalIdNumber}
-																		</p>
-																	)}
-																	{act.witnessName && (
-																		<p className="text-muted-foreground mt-1 text-xs">
-																			Witness: {act.witnessName}
-																		</p>
-																	)}
-																</div>
-															</TableCell>
-															<TableCell className="max-w-md">
-																<p className="text-sm font-medium">
-																	{act.documentName || "Untitled Document"}
-																</p>
-																{act.documentDescription && (
-																	<p className="text-muted-foreground mt-1 line-clamp-2 text-xs">
-																		{act.documentDescription}
-																	</p>
+															</span>
+														</TableCell>
+														<TableCell>
+															<Badge variant="outline">
+																{act.actType}
+															</Badge>
+														</TableCell>
+														<TableCell>
+															<Badge variant={act.workflow === "REN" ? "default" : "secondary"}>
+																{act.workflow}
+															</Badge>
+														</TableCell>
+														<TableCell>
+															<div>
+																<p className="font-medium">{act.principalName}</p>
+																{act.principalIdNumber && (
+																	<p className="text-xs text-muted-foreground">ID: {act.principalIdNumber}</p>
 																)}
-															</TableCell>
-															<TableCell>
-																<span className="text-sm">{act.location || "Philippines"}</span>
-															</TableCell>
-															<TableCell>
-																<span className="font-mono text-sm">
-																	{act.certificateNumber || "N/A"}
-																</span>
-															</TableCell>
-															<TableCell>
-																<div className="flex items-center gap-2">
-																	{(act.documentId || act.docoChainProjectUuid) && (
-																		<Button
-																			variant="ghost"
-																			size="sm"
-																			onClick={() => handleViewDocument(act.id)}
-																			title="View Document"
-																		>
-																			<Eye className="h-4 w-4" />
-																		</Button>
-																	)}
-																	{act.docoChainProjectUuid && (
-																		<Button
-																			variant="ghost"
-																			size="sm"
-																			onClick={() => handleViewCertificate(act.id)}
-																			title="View Certificate"
-																		>
-																			<FileCheck className="h-4 w-4" />
-																		</Button>
-																	)}
-																</div>
-															</TableCell>
-														</TableRow>
-													))}
-												</TableBody>
-											</Table>
-										</div>
-										{/* Pagination */}
-										{notarialBookData && notarialBookData.totalPages > 1 && (
-											<div className="mt-4 flex items-center justify-between border-t pt-4">
-												<div className="text-muted-foreground text-sm">
-													Showing {(page - 1) * perPage + 1} to{" "}
-													{Math.min(page * perPage, notarialBookData.total)} of{" "}
-													{notarialBookData.total} entries
-												</div>
-												<div className="flex gap-2">
-													<Button
-														variant="outline"
-														size="sm"
-														onClick={() => setPage(p => Math.max(1, p - 1))}
-														disabled={page === 1}
-													>
-														Previous
-													</Button>
-													<Button
-														variant="outline"
-														size="sm"
-														onClick={() =>
-															setPage(p => Math.min(notarialBookData.totalPages, p + 1))
-														}
-														disabled={page >= notarialBookData.totalPages}
-													>
-														Next
-													</Button>
-												</div>
-											</div>
-										)}
-									</>
+																{act.witnessName && (
+																	<p className="text-xs text-muted-foreground mt-1">Witness: {act.witnessName}</p>
+																)}
+															</div>
+														</TableCell>
+														<TableCell className="max-w-md">
+															<p className="text-sm font-medium">{act.documentName ?? "Untitled Document"}</p>
+															{act.documentDescription && (
+																<p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+																	{act.documentDescription}
+																</p>
+															)}
+														</TableCell>
+														<TableCell>
+															<span className="text-sm">{act.location ?? "Philippines"}</span>
+														</TableCell>
+														<TableCell>
+															<span className="font-mono text-sm">{act.certificateNumber ?? "N/A"}</span>
+														</TableCell>
+														<TableCell>
+															<div className="flex items-center gap-2">
+																{(act.documentId ?? act.docoChainProjectUuid) && (
+																	<Button
+																		variant="ghost"
+																		size="sm"
+																		onClick={() => handleViewDocument(act.id, act.documentName ?? undefined)}
+																		title="View Document"
+																	>
+																		<Eye className="h-4 w-4" />
+																	</Button>
+																)}
+																{act.docoChainProjectUuid && (
+																	<Button
+																		variant="ghost"
+																		size="sm"
+																		onClick={() => handleViewCertificate(act.id)}
+																		title="View Certificate"
+																	>
+																		<FileCheck className="h-4 w-4" />
+																	</Button>
+																)}
+															</div>
+														</TableCell>
+													</TableRow>
+												))}
+											</TableBody>
+										</Table>
+									</div>
 								)}
-							</CardContent>
-						</Card>
-					</div>
-				</main>
-			</div>
+						</CardContent>
+					</Card>
+				</div>
+			</main>
+		</div>
+
+		{/* Document Preview Dialog - matches qsign-lite pattern */}
+		{previewDocument && (
+			<NotarialActDocumentDialog
+				isOpen={!!previewDocument}
+				onClose={() => setPreviewDocument(null)}
+				actId={previewDocument.actId}
+				documentName={previewDocument.documentName}
+			/>
+		)}
 		</>
 	)
 }
