@@ -37,9 +37,9 @@ export async function createUserKycLink() {
 
 	const transactionId = generateTransactionId(session.user.id)
 
-	// Build redirect URL - use /auth/kyc directly to avoid middleware redirect that strips query params
+	// Build redirect URL - use callback page that closes the window
 	const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000"
-	const redirectUrl = `${baseUrl}/auth/kyc?status=complete`
+	const redirectUrl = `${baseUrl}/auth/kyc/callback`
 
 	console.log("🔗 Creating KYC link with redirect:", redirectUrl)
 
@@ -67,11 +67,12 @@ export async function createUserKycLink() {
 			using: actualTransactionId,
 		})
 
-		// Store the transaction ID in the database
+		// Store the transaction ID and link in the database
 		await db
 			.update(users)
 			.set({
 				kycTransactionId: actualTransactionId,
+				kycLink: result.result.startKycUrl,
 				kycStatus: "PENDING",
 			})
 			.where(eq(users.id, session.user.id))
@@ -178,6 +179,53 @@ export async function checkUserKycStatus() {
 }
 
 /**
+ * Retrieve existing KYC link for the authenticated user
+ */
+export async function getExistingKycLink() {
+	const session = await auth()
+
+	if (!session?.user?.id) {
+		return {
+			success: false,
+			error: "User not authenticated",
+		}
+	}
+
+	const user = await db.query.users.findFirst({
+		where: eq(users.id, session.user.id),
+		columns: {
+			kycTransactionId: true,
+			kycLink: true,
+			kycStatus: true,
+		},
+	})
+
+	if (!user?.kycTransactionId || !user?.kycLink) {
+		return {
+			success: false,
+			error: "No KYC verification link found. Please start the verification process.",
+		}
+	}
+
+	if (user.kycStatus !== "PENDING") {
+		return {
+			success: false,
+			error: "KYC verification is not in pending state",
+		}
+	}
+
+	console.log("🔗 Retrieved existing KYC link for transaction:", user.kycTransactionId)
+
+	return {
+		success: true,
+		data: {
+			transactionId: user.kycTransactionId,
+			url: user.kycLink,
+		},
+	}
+}
+
+/**
  * Get the current user's KYC information
  */
 export async function getUserKycInfo() {
@@ -236,6 +284,7 @@ export async function resetUserKycStatus() {
 			.update(users)
 			.set({
 				kycTransactionId: null,
+				kycLink: null,
 				kycStatus: "NOT_STARTED",
 				kycVerifiedAt: null,
 			})
