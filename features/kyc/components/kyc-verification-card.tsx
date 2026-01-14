@@ -1,7 +1,7 @@
 "use client"
 
 import { useSearchParams } from "next/navigation"
-import { useEffect, useMemo, useState, useTransition } from "react"
+import { useEffect, useMemo, useRef, useState, useTransition } from "react"
 import { CheckCircle2, LogOut, Loader2, PlayCircle, ShieldCheck, XCircle } from "lucide-react"
 import { signOut } from "next-auth/react"
 import { toast } from "sonner"
@@ -11,11 +11,11 @@ import { Button } from "@/core/components/ui/button"
 import { Label } from "@/core/components/ui/label"
 
 import {
-	checkUserKycStatus,
 	createUserKycLink,
 	getExistingKycLink,
 	resetUserKycStatus,
 } from "@/features/kyc/api/kyc.actions"
+import { useKycStatus } from "@/features/kyc/hooks/use-kyc-status"
 
 interface KycStatusResult {
 	transactionId: string
@@ -45,16 +45,37 @@ export function KycVerificationCard({
 	redirectUrlOnSkip,
 }: KycVerificationCardProps) {
 	const [isPending, startTransition] = useTransition()
-	const [statusResult, setStatusResult] = useState<KycStatusResult | null>(null)
 	const [error, setError] = useState<string | null>(null)
-	const [shownToasts, setShownToasts] = useState<Set<string>>(new Set())
+	const [showManualCheck, setShowManualCheck] = useState(false)
 	const searchParams = useSearchParams()
+	const toastShownRef = useRef<Set<string>>(new Set())
+
+	// Determine effective status from either server data or query result
+	const effectiveStatus = useMemo(
+		() => userInfo.kycStatus,
+		[userInfo.kycStatus]
+	)
+
+	// Option 1.5: Single check on mount, no polling
+	// Webhook handles real-time updates (primary method)
+	const { data: statusQueryResult, isLoading: isCheckingStatus, refetch } = useKycStatus({
+		currentStatus: effectiveStatus,
+		enabled: true,
+	})
+
+	const statusResult = statusQueryResult?.success ? statusQueryResult.data : null
+
+	// Show manual check button after 5 seconds if still PENDING
+	useEffect(() => {
+		if (effectiveStatus === "PENDING" && !showManualCheck) {
+			const timer = setTimeout(() => {
+				setShowManualCheck(true)
+			}, 5000) // 5 seconds
+			return () => clearTimeout(timer)
+		}
+	}, [effectiveStatus, showManualCheck])
 
 	// When verified in minimal mode, auto-redirect to dashboard after short delay
-	const effectiveStatus = useMemo(
-		() => statusResult?.kycStatus ?? userInfo.kycStatus,
-		[statusResult, userInfo.kycStatus]
-	)
 	useEffect(() => {
 		if (minimal && effectiveStatus === "VERIFIED" && redirectUrlOnSkip) {
 			const t = setTimeout(() => {
@@ -64,41 +85,28 @@ export function KycVerificationCard({
 		}
 	}, [minimal, effectiveStatus, redirectUrlOnSkip])
 
-	// Auto-check status when in PENDING state (every 10 seconds)
+	// Show toast notifications when status changes (only once per status)
 	useEffect(() => {
-		if (effectiveStatus !== "PENDING") return
+		if (!statusResult) return
 
-		const checkStatus = async () => {
-			const result = await checkUserKycStatus()
-			if (result.success && result.data) {
-				setStatusResult(result.data)
+		const toastKey = `${statusResult.kycStatus}-${statusResult.transactionId}`
 
-				if (result.data.kycStatus === "VERIFIED") {
-					console.log("✅ KYC Verified! Redirecting to dashboard...")
-					toast.success("KYC verification approved! Redirecting...")
-					setTimeout(() => {
-						window.location.href = "/dashboard"
-					}, 1500)
-				} else if (result.data.kycStatus === "REJECTED") {
-					console.log("❌ KYC Rejected")
-					toast.error("KYC verification was declined. Please try again or contact support.")
-				}
-			}
+		if (statusResult.kycStatus === "VERIFIED" && !toastShownRef.current.has(toastKey)) {
+			toastShownRef.current.add(toastKey)
+			console.log("✅ KYC Verified! Redirecting to dashboard...")
+			toast.success("KYC verification approved! Redirecting...")
+			setTimeout(() => {
+				window.location.href = "/dashboard"
+			}, 1500)
+		} else if (statusResult.kycStatus === "REJECTED" && !toastShownRef.current.has(toastKey)) {
+			toastShownRef.current.add(toastKey)
+			console.log("❌ KYC Rejected")
+			toast.error("KYC verification was declined. Please try again or contact support.")
 		}
-
-		// Check immediately
-		checkStatus()
-
-		// Then check every 10 seconds
-		const interval = setInterval(checkStatus, 10000)
-
-		return () => clearInterval(interval)
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [effectiveStatus])
+	}, [statusResult])
 
 	const handleCreateLink = () => {
 		setError(null)
-		setStatusResult(null)
 
 		startTransition(async () => {
 			const result = await createUserKycLink()
@@ -130,6 +138,18 @@ export function KycVerificationCard({
 			} else {
 				setError(result.error ?? "Failed to resume KYC verification")
 				toast.error(result.error ?? "Failed to resume KYC verification")
+			}
+		})
+	}
+
+	const handleManualCheckStatus = () => {
+		setError(null)
+		startTransition(async () => {
+			const result = await refetch()
+			if (result.data?.success) {
+				toast.success("Status updated!")
+			} else {
+				toast.error("Failed to check status")
 			}
 		})
 	}
@@ -304,6 +324,29 @@ export function KycVerificationCard({
 								</>
 							)}
 						</Button>
+
+						{showManualCheck && (
+							<Button
+								onClick={handleManualCheckStatus}
+								disabled={isPending || isCheckingStatus}
+								variant="outline"
+								className="w-full"
+								size="lg"
+							>
+								{isCheckingStatus ? (
+									<>
+										<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+										Checking...
+									</>
+								) : (
+									<>
+										<ShieldCheck className="mr-2 h-4 w-4" />
+										Check Status Manually
+									</>
+								)}
+							</Button>
+						)}
+
 						<Button
 							onClick={handleLogout}
 							disabled={isPending}

@@ -1,7 +1,7 @@
 "use client"
 
 import { useRouter, useSearchParams } from "next/navigation"
-import { useEffect, useState } from "react"
+import { useEffect, useRef } from "react"
 import { ArrowLeft, CheckCircle2, Loader2, XCircle } from "lucide-react"
 import { toast } from "sonner"
 
@@ -15,7 +15,7 @@ import {
 	CardTitle,
 } from "@/core/components/ui/card"
 
-import { getHostedLivenessResult } from "@/features/liveness-validation/api/liveness.actions"
+import { useLivenessResult } from "@/features/liveness-validation/hooks/use-liveness-result"
 
 interface LivenessDecisionResult {
 	isLive: boolean
@@ -36,68 +36,56 @@ interface ValidationResult {
 export default function LivenessCallbackPage() {
 	const searchParams = useSearchParams()
 	const router = useRouter()
-	const [isLoading, setIsLoading] = useState(true)
-	const [result, setResult] = useState<ValidationResult | null>(null)
-	const [error, setError] = useState<string | null>(null)
-	const [hasAttempted, setHasAttempted] = useState(false) // Prevent multiple attempts
+	const transactionId = searchParams.get("transactionId")
+	const toastShownRef = useRef(false)
 
+	// Use TanStack Query hook to fetch results with automatic deduplication
+	// This prevents multiple API calls even if the component re-renders
+	const {
+		data: response,
+		isLoading,
+		error: queryError,
+	} = useLivenessResult({
+		transactionId,
+		enabled: !!transactionId,
+	})
+
+	// Show toast notification once when data is received
 	useEffect(() => {
-		// Prevent multiple fetches
-		if (hasAttempted) return
-
-		const transactionId = searchParams.get("transactionId")
-
-		if (!transactionId) {
-			setError("Missing transaction ID in callback URL")
-			setIsLoading(false)
-			toast.error("Invalid callback: Missing transaction ID")
-			return
-		}
-
-		// Mark as attempted
-		setHasAttempted(true)
-
-		// Fetch results from server
-		const fetchResults = async () => {
-			try {
-				console.log("🔵 Fetching liveness results for transaction:", transactionId)
-
-				const response = await getHostedLivenessResult(transactionId)
-
-				if (!response.success) {
-					throw new Error(response.error ?? "Failed to fetch results")
-				}
-
-				if (!response.data) {
-					throw new Error("No data returned from server")
-				}
-
-				setResult(response.data as ValidationResult)
-
-				// Show toast notification
-				if (response.data.decision.isApproved) {
-					toast.success("Liveness verification successful!")
-				} else {
-					toast.error("Liveness verification failed")
-				}
-			} catch (err) {
-				console.error("Failed to fetch liveness results:", err)
-				const errorMessage =
-					err instanceof Error ? err.message : "Failed to fetch verification results"
-				setError(errorMessage)
-				toast.error(errorMessage)
-			} finally {
-				setIsLoading(false)
+		if (response?.success && response.data && !toastShownRef.current) {
+			toastShownRef.current = true
+			if (response.data.decision.isApproved) {
+				toast.success("Liveness verification successful!")
+			} else {
+				toast.error("Liveness verification failed")
 			}
+		} else if (queryError && !toastShownRef.current) {
+			toastShownRef.current = true
+			const errorMessage =
+				queryError instanceof Error ? queryError.message : "Failed to fetch verification results"
+			toast.error(errorMessage)
+		} else if (!transactionId && !toastShownRef.current) {
+			toastShownRef.current = true
+			toast.error("Invalid callback: Missing transaction ID")
 		}
+	}, [response, queryError, transactionId])
 
-		void fetchResults()
-	}, [searchParams])
+	const result = response?.success ? (response.data as ValidationResult) : null
+	const error = queryError
+		? queryError instanceof Error
+			? queryError.message
+			: "Failed to fetch verification results"
+		: !transactionId
+		  ? "Missing transaction ID in callback URL"
+		  : response && !response.success
+		    ? response.error ?? "Failed to fetch results"
+		    : null
 
 	const handleBackToHome = () => {
 		router.push("/liveness")
 	}
 
+	// Loading state
 	if (isLoading) {
 		return (
 			<div className="container mx-auto max-w-2xl p-6">
