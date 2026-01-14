@@ -18,7 +18,7 @@ import {
 import { Profile } from "@/core/components/user-profile"
 import { useHydrated } from "@/core/hooks/use-hydrated"
 import { getSiteUserItems, iconMap } from "@/core/lib/nav/site.config"
-import { cn, toTitleCase } from "@/core/lib/utils"
+import { cn, mapRoleToLabel } from "@/core/lib/utils"
 
 export function SiteUser() {
 	const { data: session, status } = useSession()
@@ -58,7 +58,7 @@ export function SiteUser() {
 						<Profile url={user?.image ?? null} name={user?.name ?? ""} />
 						<div className="grid flex-1 text-left text-sm leading-tight">
 							<span className="truncate font-medium">{user?.name}</span>
-							<span className="truncate text-xs">{toTitleCase(user?.role)}</span>
+							<span className="truncate text-xs">{mapRoleToLabel(user?.role)}</span>
 						</div>
 					</div>
 				</DropdownMenuLabel>
