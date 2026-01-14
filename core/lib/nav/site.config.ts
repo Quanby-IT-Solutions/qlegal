@@ -196,7 +196,7 @@ export const appSidebarSections: NavSection[] = [
 				title: "Appointment Meeting",
 				url: "/appointments",
 				icon: Video,
-				roles: ["ENP", "PRINCIPAL"],
+				roles: ["ENP"],
 				workflows: ["REN", "IEN"],
 			},
 

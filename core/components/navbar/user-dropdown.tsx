@@ -19,6 +19,7 @@ import {
 	SidebarMenuItem,
 } from "@/core/components/animate-ui/components/radix/sidebar"
 import { Avatar, AvatarFallback, AvatarImage } from "@/core/components/ui/avatar"
+import { mapRoleToLabel } from "@/core/lib/utils"
 
 type UserDropdownProps = {
 	isMobile: boolean
@@ -45,7 +46,7 @@ export const UserDropdown = ({ isMobile }: UserDropdownProps) => {
 							</Avatar>
 							<div className="grid flex-1 text-left text-sm leading-tight">
 								<span className="truncate font-semibold">{session?.user?.name ?? ""}</span>
-								<span className="truncate text-xs">{session?.user?.email ?? ""}</span>
+								<span className="truncate text-xs">{mapRoleToLabel(session?.user?.role)}</span>
 							</div>
 							<ChevronsUpDown className="ml-auto size-4" />
 						</SidebarMenuButton>
@@ -66,7 +67,9 @@ export const UserDropdown = ({ isMobile }: UserDropdownProps) => {
 								</Avatar>
 								<div className="grid flex-1 text-left text-sm leading-tight">
 									<span className="truncate font-semibold">{session?.user?.name ?? ""}</span>
-									<span className="truncate text-xs">{session?.user?.email ?? ""}</span>
+									<span className="truncate text-xs">
+										{mapRoleToLabel(session?.user?.role ?? null)}
+									</span>
 								</div>
 							</div>
 						</DropdownMenuLabel>
