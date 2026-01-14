@@ -104,7 +104,7 @@ export function Hero() {
 								</span>
 							</motion.div>
 
-							<h1 className="text-4xl leading-tight font-bold tracking-tight lg:text-6xl">
+							<h1 className="leading-tighter text-4xl font-bold tracking-tight lg:text-6xl">
 								Accredited{" "}
 								<span className="bg-linear-to-r from-[rgb(91,26,128)] via-[rgb(91,26,128)]/80 to-[rgb(233,30,140)] bg-clip-text text-transparent">
 									Electronic Notarization
