@@ -100,12 +100,11 @@ export function Hero() {
 							>
 								<Shield className="h-4 w-4 text-[rgb(91,26,128)]" />
 								<span className="text-muted-foreground text-sm font-medium">
-									🇵🇭 Supreme Court Accredited ENF
+									🇵🇭 Supreme Court Accredited
 								</span>
 							</motion.div>
 
 							<h1 className="leading-tighter text-4xl font-bold tracking-tight lg:text-6xl">
-								Accredited{" "}
 								<span className="bg-linear-to-r from-[rgb(91,26,128)] via-[rgb(91,26,128)]/80 to-[rgb(233,30,140)] bg-clip-text text-transparent">
 									Electronic Notarization
 								</span>{" "}
@@ -115,7 +114,7 @@ export function Hero() {
 
 						<div className="min-h-24">
 							<TextGenerateEffect
-								words="Secure, compliant, and Supreme Court accredited platform for electronic notarization in the Philippines."
+								words="Secure, compliant, and trusted by legal professionals nationwide."
 								className="text-muted-foreground text-xl leading-relaxed font-normal lg:text-2xl"
 							/>
 						</div>
@@ -142,7 +141,7 @@ export function Hero() {
 						>
 							<div className="flex items-center space-x-2">
 								<div className="h-2 w-2 animate-pulse rounded-full bg-green-500" />
-								<span>Supreme Court Compliant</span>
+								<span>Bank-Level Security</span>
 							</div>
 							<div className="flex items-center space-x-2">
 								<div className="h-2 w-2 animate-pulse rounded-full bg-blue-500" />
