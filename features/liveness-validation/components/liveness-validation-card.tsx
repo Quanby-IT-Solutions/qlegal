@@ -1,7 +1,8 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { Camera, CheckCircle2, Loader2, XCircle } from "lucide-react"
+import { useEffect, useState, useTransition } from "react"
+import { Camera, CheckCircle2, ExternalLink, Loader2, Smartphone, XCircle } from "lucide-react"
+import { toast } from "sonner"
 
 import { Badge } from "@/core/components/ui/badge"
 import { Button } from "@/core/components/ui/button"
@@ -13,7 +14,10 @@ import {
 	CardTitle,
 } from "@/core/components/ui/card"
 
-import { getLivenessMode } from "@/features/liveness-validation/api/liveness.actions"
+import {
+	getLivenessMode,
+	startHostedLivenessWorkflow,
+} from "@/features/liveness-validation/api/liveness.actions"
 import { SelfieCapture } from "@/features/liveness-validation/components/selfie-capture"
 
 interface LivenessDecisionResult {
@@ -38,6 +42,7 @@ export function LivenessValidationCard() {
 	const [isLoading, setIsLoading] = useState(true)
 	const [showCapture, setShowCapture] = useState(false)
 	const [validationResult, setValidationResult] = useState<ValidationResult | null>(null)
+	const [isPending, startTransition] = useTransition()
 
 	// Check liveness mode on mount
 	useEffect(() => {
@@ -67,7 +72,33 @@ export function LivenessValidationCard() {
 
 	const handleStartNew = () => {
 		setValidationResult(null)
-		setShowCapture(true)
+		setShowCapture(false)
+	}
+
+	const handleHostedWorkflow = () => {
+		startTransition(async () => {
+			try {
+				console.log("🔵 Starting hosted liveness workflow...")
+				const result = await startHostedLivenessWorkflow()
+
+				if (!result.success) {
+					throw new Error(result.error || "Failed to start hosted workflow")
+				}
+
+				if (!result.data?.redirectUrl) {
+					throw new Error("No redirect URL returned")
+				}
+
+				console.log("✅ Redirecting to HyperVerge hosted page:", result.data.redirectUrl)
+				toast.success("Redirecting to verification page...")
+
+				// Redirect to HyperVerge hosted page
+				window.location.href = result.data.redirectUrl
+			} catch (error) {
+				console.error("Failed to start hosted workflow:", error)
+				toast.error(error instanceof Error ? error.message : "Failed to start verification")
+			}
+		})
 	}
 
 	if (isLoading) {
@@ -128,19 +159,63 @@ export function LivenessValidationCard() {
 					<div className="space-y-4">
 						<div className="rounded-lg border border-blue-200 bg-blue-50 p-4 dark:border-blue-800 dark:bg-blue-950/20">
 							<p className="mb-2 text-sm font-medium text-blue-900 dark:text-blue-100">
-								How it works
+								Choose Verification Method
 							</p>
-							<ul className="list-inside list-disc space-y-1 text-sm text-blue-700 dark:text-blue-300">
-								<li>Click "Start Verification" to open your camera</li>
-								<li>Position your face in the frame</li>
-								<li>Capture a clear selfie</li>
-								<li>Our AI will verify you're a real person</li>
-							</ul>
+							<p className="mb-3 text-sm text-blue-700 dark:text-blue-300">
+								Select how you'd like to complete liveness verification:
+							</p>
 						</div>
-						<Button onClick={() => setShowCapture(true)} className="w-full" size="lg">
-							<Camera className="mr-2 h-5 w-5" />
-							Start Verification
-						</Button>
+
+						{/* Direct In-App Capture (if enabled) */}
+						{isDirectModeEnabled && (
+							<div className="space-y-2">
+								<p className="text-sm font-medium">Option 1: In-App Capture</p>
+								<div className="bg-muted/50 rounded-lg border p-3">
+									<ul className="text-muted-foreground mb-3 list-inside list-disc space-y-1 text-sm">
+										<li>Quick verification using your device camera</li>
+										<li>Capture selfie directly in the app</li>
+										<li>Instant results</li>
+									</ul>
+									<Button onClick={() => setShowCapture(true)} className="w-full" size="lg">
+										<Camera className="mr-2 h-5 w-5" />
+										Start In-App Capture
+									</Button>
+								</div>
+							</div>
+						)}
+
+						{/* Hosted Workflow (Always Available) */}
+						<div className="space-y-2">
+							<p className="text-sm font-medium">
+								{isDirectModeEnabled ? "Option 2: " : ""}Hosted Verification
+							</p>
+							<div className="bg-muted/50 rounded-lg border p-3">
+								<ul className="text-muted-foreground mb-3 list-inside list-disc space-y-1 text-sm">
+									<li>Secure HyperVerge-hosted verification page</li>
+									<li>Works on any device with QR code option</li>
+									<li>Complete verification and return automatically</li>
+								</ul>
+								<Button
+									onClick={handleHostedWorkflow}
+									variant="outline"
+									className="w-full"
+									size="lg"
+									disabled={isPending}
+								>
+									{isPending ? (
+										<>
+											<Loader2 className="mr-2 h-5 w-5 animate-spin" />
+											Starting...
+										</>
+									) : (
+										<>
+											<ExternalLink className="mr-2 h-5 w-5" />
+											Start Hosted Verification
+										</>
+									)}
+								</Button>
+							</div>
+						</div>
 					</div>
 				)}
 
@@ -172,13 +247,14 @@ export function LivenessValidationCard() {
 						>
 							<div className="flex items-start gap-3">
 								{validationResult.decision.isApproved ? (
-									<CheckCircle2 className="mt-0.5 h-5 w-5 flex-shrink-0 text-green-600 dark:text-green-400" />
+									<CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-green-600 dark:text-green-400" />
 								) : (
-									<XCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-red-600 dark:text-red-400" />
+									<XCircle className="mt-0.5 h-5 w-5 shrink-0 text-red-600 dark:text-red-400" />
 								)}
 								<div className="flex-1">
 									<p
 										className={`mb-1 font-semibold ${
+
 											validationResult.decision.isApproved
 												? "text-green-900 dark:text-green-100"
 												: "text-red-900 dark:text-red-100"

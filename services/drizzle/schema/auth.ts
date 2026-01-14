@@ -21,6 +21,7 @@ export const users = createTable("user", t => ({
 	status: userStatus().default("PENDING").notNull(),
 	// KYC Verification fields
 	kycTransactionId: t.varchar({ length: 255 }),
+	kycLink: t.text(), // Store the HyperVerge onboard link URL
 	kycStatus: kycStatus().default("NOT_STARTED"),
 	kycVerifiedAt: t.timestamp({ mode: "date", withTimezone: true }),
 })).enableRLS()
