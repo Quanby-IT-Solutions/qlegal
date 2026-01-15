@@ -245,9 +245,9 @@ export const appointmentsRouter = createTRPCRouter({
 			let meetingLink = providedLink ?? existing.meetingLink
 
 			// For remote appointments without a meeting yet, create one on accept
-			// IMPORTANT: Set client (PRINCIPAL) as meeting creator, not ENP
-			// This matches manually created meetings where the uploader is the creator
-			// This ensures DocoChain projects use the PRINCIPAL's email as creator
+			// IMPORTANT: Set ENP as meeting creator
+			// ENP is always the initiator - they accept, create, start, and upload documents
+			// This ensures DocoChain projects always use ENP's email as creator
 			if (isRemote && !meetingLink) {
 				try {
 					const { roomId } = await createMeetingRoom()
@@ -259,7 +259,7 @@ export const appointmentsRouter = createTRPCRouter({
 									? "Document Signing Session"
 									: "Consultation Meeting",
 							roomId,
-							createdById: existing.clientId, // Use client (PRINCIPAL) as creator, not ENP
+							createdById: userId, // Use ENP as creator - they accept and initiate
 							createdAt: existing.appointmentDate,
 							updatedAt: existing.appointmentDate,
 						})

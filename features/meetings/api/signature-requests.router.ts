@@ -275,6 +275,7 @@ export const signatureRequestsRouter = createTRPCRouter({
 												id: true,
 												name: true,
 												email: true,
+												role: true,
 											},
 										},
 									},
@@ -282,6 +283,7 @@ export const signatureRequestsRouter = createTRPCRouter({
 								createdBy: {
 									columns: {
 										email: true,
+										role: true,
 									},
 								},
 							},
@@ -299,15 +301,37 @@ export const signatureRequestsRouter = createTRPCRouter({
 				const meeting = document.meeting
 				const participants = meeting.participants || []
 
-				// Get creator's email - this is who created the project, so their token has access
+				// CRITICAL: Always use ENP's email for DocoChain project access
+				// Find ENP from participants - they are always the initiator for signing
+				let creatorEmail: string | undefined
+				
+				// First, check if creator is ENP
+				if (meeting.createdBy?.role === "ENP" && meeting.createdBy?.email) {
+					creatorEmail = meeting.createdBy.email
+				} else {
+					// Find ENP from participants
+					const enpParticipant = participants.find(
+						p => p.user?.role === "ENP"
+					)
+					if (enpParticipant?.user?.email) {
+						creatorEmail = enpParticipant.user.email
+					} else if (ctx.session.user.role === "ENP" && ctx.session.user.email) {
+						// Fallback: current user is ENP
+						creatorEmail = ctx.session.user.email
+					} else {
+						// Last resort: use creator email
+						creatorEmail = meeting.createdBy?.email ?? undefined
+					}
+				}
 
-				const creatorEmail = meeting.createdBy?.email ?? undefined
 				if (!creatorEmail) {
 					throw new TRPCError({
 						code: "NOT_FOUND",
-						message: "Meeting creator not found",
+						message: "ENP email not found for signing process",
 					})
 				}
+
+				console.log("🔵 Using ENP email for signing process:", creatorEmail)
 
 				// Get user details (participant who is clicking "Start Signing")
 				const nameParts = (ctx.session.user.name || "").split(" ")
@@ -509,9 +533,12 @@ export const signatureRequestsRouter = createTRPCRouter({
 						"🔵 Project is sent - using Generate Sign Link API (required for sent projects)..."
 					)
 					try {
+						// CRITICAL: Pass ENP's email (creatorEmail) for token generation
+						// The 'email' parameter is for the signer, but auth token must be ENP's
 						const signLinkResult = await generateSignLink({
 							projectUuid,
 							email, // Signer's email - this generates a personalized link for them
+							userEmail: creatorEmail, // ENP's email - for API token generation
 						})
 						signingLink = signLinkResult.link
 						console.log("✅ Signing link generated successfully for sent project:", signingLink)
@@ -521,7 +548,7 @@ export const signatureRequestsRouter = createTRPCRouter({
 						const appBaseUrl = DOCOCHAIN_API_BASE.includes("stg")
 							? "https://stg-app.doconchain.com"
 							: "https://app.doconchain.com"
-						signingLink = `${appBaseUrl}/${projectUuid}?email=${encodeURIComponent(email)}`
+						signingLink = `${appBaseUrl}/${projectUuid}?email=${encodeURIComponent(email)}&api=true`
 						console.log("⚠️ Using fallback direct project URL with email:", signingLink)
 					}
 				} else {
@@ -541,7 +568,10 @@ export const signatureRequestsRouter = createTRPCRouter({
 						// Fix api_token if needed
 						try {
 							const url = new URL(signingLink)
-							// Fix api_token if it's undefined or empty - use creator's token for plotting
+							// CRITICAL: ALWAYS set api=true FIRST - this ensures api=null is never in the final URL
+							url.searchParams.set("api", "true")
+							// Fix api_token if it's undefined or empty - ALWAYS use ENP's token
+							// ENP is the project creator/owner, so their token is required
 							if (
 								url.searchParams.has("api_token") &&
 								(url.searchParams.get("api_token") === "undefined" ||
@@ -550,16 +580,16 @@ export const signatureRequestsRouter = createTRPCRouter({
 								if (creatorEmail) {
 									const apiToken = await getDocoChainToken(creatorEmail)
 									url.searchParams.set("api_token", apiToken)
-									console.log("✅ Fixed api_token parameter in stored redirect URL")
+									console.log(`✅ Fixed api_token parameter using ENP email: ${creatorEmail}`)
 								} else {
 									url.searchParams.delete("api_token")
-									console.log("⚠️ Removed invalid api_token (no creator email)")
+									console.log("⚠️ Removed invalid api_token (no ENP email)")
 								}
 							} else if (!url.searchParams.has("api_token") && creatorEmail) {
-								// Add api_token if not present
+								// Add api_token if not present - ALWAYS use ENP's token
 								const apiToken = await getDocoChainToken(creatorEmail)
 								url.searchParams.set("api_token", apiToken)
-								console.log("✅ Added api_token parameter to stored redirect URL")
+								console.log(`✅ Added api_token parameter using ENP email: ${creatorEmail}`)
 							}
 							signingLink = url.toString()
 							console.log(
@@ -587,7 +617,7 @@ export const signatureRequestsRouter = createTRPCRouter({
 							const appBaseUrl = DOCOCHAIN_API_BASE.includes("stg")
 								? "https://stg-app.doconchain.com"
 								: "https://app.doconchain.com"
-							signingLink = `${appBaseUrl}/${projectUuid}`
+							signingLink = `${appBaseUrl}/${projectUuid}?api=true`
 							console.log("⚠️ Using fallback direct project URL:", signingLink)
 						}
 					}
@@ -602,33 +632,40 @@ export const signatureRequestsRouter = createTRPCRouter({
 					// Handle api_token if needed
 					try {
 						const url = new URL(signingLink)
+						// CRITICAL: ALWAYS set api=true FIRST - this ensures api=null is never in the final URL
+						url.searchParams.set("api", "true")
 						// Fix api_token if it's undefined or empty
+						// CRITICAL: ALWAYS use ENP's email (creatorEmail) for token generation
+						// ENP is the project owner, so their token is required for API access
 						if (
 							url.searchParams.has("api_token") &&
 							(url.searchParams.get("api_token") === "undefined" ||
 								url.searchParams.get("api_token") === "")
 						) {
-							// For Draft projects (plotting), use creator's token
-							// For Sent projects (signing), use signer's token
-							const tokenEmail = !isProjectSent && creatorEmail ? creatorEmail : email
-							try {
-								const apiToken = await getDocoChainToken(tokenEmail)
-								url.searchParams.set("api_token", apiToken)
-								console.log(`✅ FINAL FIX: Fixed api_token=undefined using ${tokenEmail} token`)
-							} catch (tokenError) {
-								console.warn("⚠️ Failed to get token for api_token fix:", tokenError)
+							if (creatorEmail) {
+								try {
+									const apiToken = await getDocoChainToken(creatorEmail)
+									url.searchParams.set("api_token", apiToken)
+									console.log(`✅ FINAL FIX: Fixed api_token=undefined using ENP email: ${creatorEmail}`)
+								} catch (tokenError) {
+									console.warn("⚠️ Failed to get token for api_token fix:", tokenError)
+									url.searchParams.delete("api_token")
+									console.log("⚠️ Removed invalid api_token (token generation failed)")
+								}
+							} else {
 								url.searchParams.delete("api_token")
-								console.log("⚠️ Removed invalid api_token (token generation failed)")
+								console.log("⚠️ Removed invalid api_token (no ENP email)")
 							}
 						} else if (!url.searchParams.has("api_token")) {
-							// Add api_token if not present
-							const tokenEmail = !isProjectSent && creatorEmail ? creatorEmail : email
-							try {
-								const apiToken = await getDocoChainToken(tokenEmail)
-								url.searchParams.set("api_token", apiToken)
-								console.log(`✅ FINAL FIX: Added api_token using ${tokenEmail} token`)
-							} catch (tokenError) {
-								console.warn("⚠️ Failed to add api_token:", tokenError)
+							// Add api_token if not present - ALWAYS use ENP's token
+							if (creatorEmail) {
+								try {
+									const apiToken = await getDocoChainToken(creatorEmail)
+									url.searchParams.set("api_token", apiToken)
+									console.log(`✅ FINAL FIX: Added api_token using ENP email: ${creatorEmail}`)
+								} catch (tokenError) {
+									console.warn("⚠️ Failed to add api_token:", tokenError)
+								}
 							}
 						}
 						signingLink = url.toString()
@@ -641,9 +678,12 @@ export const signatureRequestsRouter = createTRPCRouter({
 					signingLink = normalizeDocoChainUrl(signingLink) ?? signingLink
 				}
 
+				// ABSOLUTE FINAL CHECK: Normalize one last time before returning
+				const finalNormalizedLink = normalizeDocoChainUrl(signingLink) ?? signingLink
+				
 				return {
 					success: true,
-					link: signingLink,
+					link: finalNormalizedLink,
 					projectUuid, // Return project UUID for reference
 				}
 			} catch (error) {
@@ -669,6 +709,63 @@ export const signatureRequestsRouter = createTRPCRouter({
 			const { projectUuid, email, firstName, lastName } = input
 
 			try {
+				// Get document to find ENP from meeting
+				const document = await db.query.documents.findFirst({
+					where: eq(documents.docoChainProjectId, projectUuid),
+					with: {
+						meeting: {
+							with: {
+								participants: {
+									with: {
+										user: {
+											columns: {
+												email: true,
+												role: true,
+											},
+										},
+									},
+								},
+								createdBy: {
+									columns: {
+										email: true,
+										role: true,
+									},
+								},
+							},
+						},
+					},
+				})
+
+				// CRITICAL: Find ENP email for token generation
+				let enpEmail: string | undefined
+				if (document?.meeting) {
+					// First, check if creator is ENP
+					if (document.meeting.createdBy?.role === "ENP" && document.meeting.createdBy?.email) {
+						enpEmail = document.meeting.createdBy.email
+					} else {
+						// Find ENP from participants
+						const enpParticipant = document.meeting.participants.find(
+							p => p.user?.role === "ENP"
+						)
+						if (enpParticipant?.user?.email) {
+							enpEmail = enpParticipant.user.email
+						}
+					}
+				}
+				// Fallback to current user if they're ENP
+				if (!enpEmail && ctx.session.user.role === "ENP" && ctx.session.user.email) {
+					enpEmail = ctx.session.user.email
+				}
+
+				if (!enpEmail) {
+					throw new TRPCError({
+						code: "NOT_FOUND",
+						message: "ENP email not found for token generation",
+					})
+				}
+
+				console.log(`🔵 Using ENP email for token generation: ${enpEmail}`)
+
 				// Get user details if not provided
 				const userFirstName = firstName ?? ctx.session.user.name?.split(" ")[0] ?? "User"
 				const userLastName = lastName ?? ctx.session.user.name?.split(" ").slice(1).join(" ") ?? ""
@@ -680,7 +777,7 @@ export const signatureRequestsRouter = createTRPCRouter({
 					firstName: userFirstName,
 					lastName: userLastName,
 					role: "Member",
-					userEmail: ctx.session.user.email || undefined, // Pass user's email for token
+					userEmail: enpEmail, // Use ENP's email for token
 				})
 
 				// Step 2: Add the ENP as a signer to the project (if not already added)
@@ -691,14 +788,14 @@ export const signatureRequestsRouter = createTRPCRouter({
 					firstName: userFirstName,
 					lastName: userLastName,
 					signerRole: "Signer",
-					userEmail: ctx.session.user.email || undefined, // Pass user's email for token
+					userEmail: enpEmail, // Use ENP's email for token
 				})
 
 				// Step 3: Send/deploy the project so it's ready for signing
 				// The Generate Sign Link API requires the project to be sent/deployed
 				console.log("🔵 Sending DocoChain project to enable signing...")
 				try {
-					await sendDocoChainProject(projectUuid, ctx.session.user.email || undefined)
+					await sendDocoChainProject(projectUuid, enpEmail)
 					console.log("✅ Project sent successfully")
 				} catch (sendError) {
 					console.warn("⚠️ Failed to send project (may already be sent):", sendError)
@@ -708,9 +805,12 @@ export const signatureRequestsRouter = createTRPCRouter({
 				// Step 4: Generate the signing link for this ENP
 				// This must be done AFTER sending the project
 				console.log("🔵 Generating signing link for ENP...")
+				// CRITICAL: Pass ENP's email (enpEmail) for token generation
+				// The 'email' parameter is for the signer, but auth token must be ENP's
 				const result = await generateSignLink({
 					projectUuid,
-					email,
+					email, // Signer's email (ENP in this case)
+					userEmail: enpEmail, // ENP's email - for API token generation
 				})
 
 				// FINAL FIX: Ensure api=null is ALWAYS replaced with api=true before returning
@@ -718,14 +818,14 @@ export const signatureRequestsRouter = createTRPCRouter({
 				if (finalLink) {
 					try {
 						const url = new URL(finalLink)
-						if (url.searchParams.has("api") && url.searchParams.get("api") === "null") {
+						// CRITICAL: ALWAYS set api=true - replace any value (null, undefined, false, etc.)
+						const currentApiValue = url.searchParams.get("api")
+						if (currentApiValue !== "true") {
 							url.searchParams.set("api", "true")
 							finalLink = url.toString()
-							console.log("✅ FINAL FIX: Replaced api=null with api=true in generateSigningLink")
-						} else if (!url.searchParams.has("api")) {
-							url.searchParams.set("api", "true")
-							finalLink = url.toString()
-							console.log("✅ FINAL FIX: Added api=true to generateSigningLink")
+							console.log(
+								`✅ FINAL FIX: Set api=true in generateSigningLink (was: ${currentApiValue ?? "missing"})`
+							)
 						}
 					} catch {
 						// If URL parsing fails, use string replacement
@@ -742,9 +842,12 @@ export const signatureRequestsRouter = createTRPCRouter({
 					}
 				}
 
+				// ABSOLUTE FINAL CHECK: Normalize one last time before returning
+				const finalNormalizedLink = normalizeDocoChainUrl(finalLink) ?? finalLink
+				
 				return {
 					success: true,
-					link: finalLink,
+					link: finalNormalizedLink,
 				}
 			} catch (error) {
 				console.error("❌ Failed to generate signing link:", error)

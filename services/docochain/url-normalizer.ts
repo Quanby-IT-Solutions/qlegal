@@ -10,46 +10,32 @@ export function normalizeDocoChainUrl(url: string | null | undefined): string | 
 		return url ?? null
 	}
 
+	// FIRST: Aggressive string replacement BEFORE URL parsing to catch api=null
+	let normalized = url
+	// Replace api=null with api=true (multiple passes for safety)
+	normalized = normalized.replace(/api=null/gi, "api=true")
+	normalized = normalized.replace(/\?api=null(&|$)/gi, "?api=true$1")
+	normalized = normalized.replace(/&api=null(&|$)/gi, "&api=true$1")
+	// Final pass for any remaining api=null
+	normalized = normalized.replace(/api=null/gi, "api=true")
+
 	try {
-		const urlObj = new URL(url)
-		const apiValue = urlObj.searchParams.get("api")
+		const urlObj = new URL(normalized)
+		
+		// CRITICAL: ALWAYS set api=true - no exceptions, no matter what
+		urlObj.searchParams.set("api", "true")
 
-		// ALWAYS set api=true - no exceptions
-		// If api parameter exists but is null, empty, or not 'true', fix it
-		if (urlObj.searchParams.has("api")) {
-			if (apiValue === "null" || apiValue === "" || apiValue === null || apiValue !== "true") {
-				urlObj.searchParams.set("api", "true")
-			}
-		} else {
-			// Add api=true if not present (this is an API-generated link)
-			urlObj.searchParams.set("api", "true")
-		}
-
+		// Return the normalized URL
 		return urlObj.toString()
 	} catch {
 		// If URL parsing fails, use aggressive string replacement
-		let normalized = url
-
-		// Multiple passes to catch all variations
-		normalized = normalized.replace(/\?api=null(&|$)/g, "?api=true$1")
-		normalized = normalized.replace(/&api=null(&|$)/g, "&api=true$1")
-		normalized = normalized.replace(/\?api=null(&|$)/g, "?api=true$1") // Second pass
-		normalized = normalized.replace(/&api=null(&|$)/g, "&api=true$1") // Second pass
-
-		// Use global replace for any remaining api=null
-		if (normalized.includes("api=null")) {
-			normalized = normalized.replace(/[?&]api=null/g, match =>
-				match.replace("api=null", "api=true")
-			)
-		}
-
 		// If api parameter is missing, add api=true
 		if (!normalized.includes("api=")) {
 			const separator = normalized.includes("?") ? "&" : "?"
 			normalized = `${normalized}${separator}api=true`
 		} else if (normalized.includes("api=null")) {
-			// Final safety check - if api=null still exists, replace it
-			normalized = normalized.replace(/api=null/g, "api=true")
+			// Final safety check - if api=null still exists (shouldn't happen), replace it
+			normalized = normalized.replace(/api=null/gi, "api=true")
 		}
 
 		return normalized

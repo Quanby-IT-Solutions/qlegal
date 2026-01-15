@@ -298,14 +298,25 @@ export const meetingsRouter = createTRPCRouter({
 		.mutation(async ({ ctx, input }) => {
 			const { meetingId, name, file, mimeType, size } = input
 
-			// Verify meeting exists and user has access, and get the creator's email
+			// Verify meeting exists and user has access, and get the ENP's email
 			const meeting = await db.query.meetings.findFirst({
 				where: eq(meetings.id, meetingId),
 				with: {
-					participants: true,
+					participants: {
+						with: {
+							user: {
+								columns: {
+									id: true,
+									email: true,
+									role: true,
+								},
+							},
+						},
+					},
 					createdBy: {
 						columns: {
 							email: true,
+							role: true,
 						},
 					},
 				},
@@ -328,11 +339,37 @@ export const meetingsRouter = createTRPCRouter({
 				})
 			}
 
-			// Use the meeting creator's email for DocoChain project creation
-			// This ensures the project is always associated with the meeting creator
-			// (whether PRINCIPAL or ENP for manually created meetings)
-			// regardless of who uploads the document (client or ENP)
-			const creatorEmail = meeting.createdBy?.email ?? ctx.session.user.email ?? undefined
+			// CRITICAL: Always use ENP's email for DocoChain project creation
+			// Find ENP from participants - they are always the initiator for signing
+			let creatorEmail: string | undefined
+			
+			// First, check if creator is ENP
+			if (meeting.createdBy?.role === "ENP" && meeting.createdBy?.email) {
+				creatorEmail = meeting.createdBy.email
+			} else {
+				// Find ENP from participants
+				const enpParticipant = meeting.participants.find(
+					p => p.user?.role === "ENP"
+				)
+				if (enpParticipant?.user?.email) {
+					creatorEmail = enpParticipant.user.email
+				} else if (ctx.session.user.role === "ENP" && ctx.session.user.email) {
+					// Fallback: current user is ENP
+					creatorEmail = ctx.session.user.email
+				} else {
+					// Last resort: use creator email
+					creatorEmail = meeting.createdBy?.email ?? ctx.session.user.email ?? undefined
+				}
+			}
+
+			if (!creatorEmail) {
+				throw new TRPCError({
+					code: "BAD_REQUEST",
+					message: "ENP email not found for document signing",
+				})
+			}
+
+			console.log("🔵 Using ENP email for DocoChain project:", creatorEmail)
 
 			try {
 				// Validate file type - only PDF is supported by DocoChain Create Project API
