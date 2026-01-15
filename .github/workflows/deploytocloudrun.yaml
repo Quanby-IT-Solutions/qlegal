@@ -23,6 +23,7 @@ env:
   # Auth JS
   AUTH_GOOGLE_ID: ${{ secrets.AUTH_GOOGLE_ID }}
   AUTH_GOOGLE_SECRET: ${{ secrets.AUTH_GOOGLE_SECRET }}
+  GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
   AUTH_SECRET: ${{ secrets.AUTH_SECRET }}
   AUTH_TRUST_HOST: "true"
   AUTH_URL: ${{ secrets.AUTH_URL }}
@@ -108,6 +109,7 @@ jobs:
           docker build \
             --build-arg AUTH_GOOGLE_ID="${{ secrets.AUTH_GOOGLE_ID }}" \
             --build-arg AUTH_GOOGLE_SECRET="${{ secrets.AUTH_GOOGLE_SECRET }}" \
+            --build-arg GOOGLE_MAPS_API_KEY="${{ secrets.GOOGLE_MAPS_API_KEY }}" \
             --build-arg AUTH_SECRET="${{ secrets.AUTH_SECRET }}" \
             --build-arg AUTH_TRUST_HOST="true" \
             --build-arg AUTH_URL="${{ secrets.AUTH_URL }}" \
@@ -166,6 +168,7 @@ jobs:
 
             AUTH_GOOGLE_ID=${{ secrets.AUTH_GOOGLE_ID }}
             AUTH_GOOGLE_SECRET=${{ secrets.AUTH_GOOGLE_SECRET }}
+            GOOGLE_MAPS_API_KEY=${{ secrets.GOOGLE_MAPS_API_KEY }}
             AUTH_SECRET=${{ secrets.AUTH_SECRET }}
             AUTH_URL=${{ secrets.AUTH_URL }}
 
