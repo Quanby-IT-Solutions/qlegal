@@ -1,7 +1,6 @@
 "use client"
 
 import { Building2, Globe, Landmark, Scale, Shield, Users } from "lucide-react"
-import { motion } from "motion/react"
 
 const logos = [
 	{ icon: Building2, name: "Corp One" },
@@ -21,7 +20,7 @@ export function TrustedBy() {
 			<div className="via-background to-primary/3 absolute inset-0 bg-linear-to-br from-[rgb(91,26,128)]/3" />
 
 			{/* Subtle Grid Pattern Fade */}
-			<div className="absolute inset-0 bg-[linear-gradient(to_right,#80808005_1px,transparent_1px),linear-gradient(to_bottom,#80808005_1px,transparent_1px)] bg-[size:14px_24px]" />
+			<div className="absolute inset-0 bg-[linear-gradient(to_right,#80808005_1px,transparent_1px),linear-gradient(to_bottom,#80808005_1px,transparent_1px)] bg-size-[14px_24px]" />
 
 			{/* Radial Gradient Overlay at Bottom - Fade into Features */}
 			<div className="absolute inset-x-0 bottom-0 h-1/2 bg-[radial-gradient(ellipse_at_bottom,transparent_0%,hsl(var(--background))_70%)]" />
@@ -31,8 +30,8 @@ export function TrustedBy() {
 					Trusted by industry leaders
 				</h3>
 				<div className="relative flex w-full flex-col items-center justify-center overflow-hidden">
-					<div className="group flex max-w-7xl flex-row gap-[var(--gap)] overflow-hidden p-2 [--gap:2rem]">
-						<div className="animate-marquee flex shrink-0 flex-row justify-around gap-[var(--gap)] group-hover:[animation-play-state:paused]">
+					<div className="group flex max-w-7xl flex-row gap-(--gap) overflow-hidden p-2 [--gap:2rem]">
+						<div className="animate-marquee group-hover:paused flex shrink-0 flex-row justify-around gap-(--gap)">
 							{[...logos, ...logos].map((logo, key) => (
 								<div
 									key={key}
@@ -43,7 +42,7 @@ export function TrustedBy() {
 								</div>
 							))}
 						</div>
-						<div className="animate-marquee ml-[var(--gap)] flex shrink-0 flex-row justify-around gap-[var(--gap)] group-hover:[animation-play-state:paused]">
+						<div className="animate-marquee group-hover:paused ml-(--gap) flex shrink-0 flex-row justify-around gap-(--gap)">
 							{[...logos, ...logos].map((logo, key) => (
 								<div
 									key={key}

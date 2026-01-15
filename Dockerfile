@@ -94,6 +94,7 @@ ENV HYPERVERGE_WORKFLOW_ID=${HYPERVERGE_WORKFLOW_ID}
 ENV HYPERVERGE_API_URL=${HYPERVERGE_API_URL}
 
 ENV SKIP_ENV_VALIDATION=1
+ENV ENABLE_STANDALONE=true
 
 # Build the project and its dependencies
 RUN corepack enable pnpm && pnpm db:generate && pnpm build

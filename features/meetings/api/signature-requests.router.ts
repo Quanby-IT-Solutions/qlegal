@@ -17,6 +17,7 @@ import {
 	sendDocoChainProject,
 	updateProjectSigner,
 } from "@/services/docochain"
+import { normalizeDocoChainUrl } from "@/services/docochain/url-normalizer"
 import { db } from "@/services/drizzle/db"
 import { users } from "@/services/drizzle/schema/auth"
 import { documents } from "@/services/drizzle/schema/document"
@@ -337,7 +338,7 @@ export const signatureRequestsRouter = createTRPCRouter({
 					console.log(`   - Project status: ${projectStatus}`)
 					// eslint-disable-next-line @typescript-eslint/no-explicit-any
 					currentSigners.forEach((s: any, idx: number) => {
-						// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+						 
 						console.log(
 							`   - Signer ${idx + 1}: ${s.email} (sequence: ${s.sequence}, status: ${s.status})`
 						)
@@ -511,7 +512,7 @@ export const signatureRequestsRouter = createTRPCRouter({
 					try {
 						const signLinkResult = await generateSignLink({
 							projectUuid,
-							email, // ENP's email - this generates a personalized link for them
+							email, // Signer's email - this generates a personalized link for them
 						})
 						signingLink = signLinkResult.link
 						console.log("✅ Signing link generated successfully for sent project:", signingLink)
@@ -525,71 +526,111 @@ export const signatureRequestsRouter = createTRPCRouter({
 						console.log("⚠️ Using fallback direct project URL with email:", signingLink)
 					}
 				} else {
-					// Project is still Draft - use Edit Draft Link or stored redirect URL
-					console.log("🔵 Project is Draft - using Edit Draft Link or stored redirect URL...")
+					// Project is still Draft - use Edit Draft Link or stored redirect URL (for plotting)
+					// This is for the FIRST time clicking "Start Signing" to plot signature fields
+					console.log("🔵 Project is Draft - using Edit Draft Link or stored redirect URL (for plotting)...")
 
 					// First, try to use the stored redirect_url from Create Project (has auth token)
-					// Only use this for Draft projects
+					// Only use this for Draft projects (for plotting signature fields)
 					if (document?.docoChainRedirectUrl && projectStatus === "Draft") {
-						// Clean up the URL - remove api=null parameter if present
+						// ALWAYS normalize the stored redirect URL - ensure api=true is set
+						signingLink = normalizeDocoChainUrl(document.docoChainRedirectUrl) ?? document.docoChainRedirectUrl
+						
+						// Fix api_token if needed
 						try {
-							const url = new URL(document.docoChainRedirectUrl)
-							// Remove api parameter if it's null or empty
+							const url = new URL(signingLink)
+							// Fix api_token if it's undefined or empty - use creator's token for plotting
 							if (
-								url.searchParams.has("api") &&
-								(url.searchParams.get("api") === "null" || url.searchParams.get("api") === "")
+								url.searchParams.has("api_token") &&
+								(url.searchParams.get("api_token") === "undefined" ||
+									url.searchParams.get("api_token") === "")
 							) {
-								url.searchParams.delete("api")
-								console.log("🧹 Cleaned stored redirect URL - removed api=null parameter")
-							}
-							// Ensure api_token is present
-							if (!url.searchParams.has("api_token") && creatorEmail) {
+								if (creatorEmail) {
+									const apiToken = await getDocoChainToken(creatorEmail)
+									url.searchParams.set("api_token", apiToken)
+									console.log("✅ Fixed api_token parameter in stored redirect URL")
+								} else {
+									url.searchParams.delete("api_token")
+									console.log("⚠️ Removed invalid api_token (no creator email)")
+								}
+							} else if (!url.searchParams.has("api_token") && creatorEmail) {
+								// Add api_token if not present
 								const apiToken = await getDocoChainToken(creatorEmail)
 								url.searchParams.set("api_token", apiToken)
 								console.log("✅ Added api_token parameter to stored redirect URL")
 							}
 							signingLink = url.toString()
+							console.log("✅ Using stored redirect URL from Create Project (for plotting):", signingLink)
 						} catch {
-							// If URL parsing fails, try simple string replacement
-							signingLink = document.docoChainRedirectUrl
-								.replace(/\?api=null(&|$)/, "?")
-								.replace(/&api=null(&|$)/, "&")
-								.replace(/\?$/, "")
-							console.log("🧹 Cleaned stored redirect URL using string replacement")
+							// If URL parsing fails, signingLink is already normalized
+							console.log("✅ Using normalized stored redirect URL")
 						}
-						console.log("✅ Using stored redirect URL from Create Project:", signingLink)
 					} else {
 						// Generate Edit Draft Project Link (allows plotting/editing/signing in draft)
+						// POST /api/v2/projects/{uuid}/link?user_type=ENTERPRISE_API
 						// Use creator's token to generate the link
 						try {
 							const editDraftResult = await generateEditDraftLink(projectUuid, creatorEmail)
 							signingLink = editDraftResult.link
-							console.log("✅ Edit Draft Project Link generated successfully:", signingLink)
+							console.log("✅ Edit Draft Project Link generated successfully (for plotting):", signingLink)
 						} catch (editDraftError) {
-							console.warn(
-								"⚠️ Failed to generate Edit Draft Link, trying Generate Sign Link...",
-								editDraftError
-							)
-
-							// Fallback: Try Generate Sign Link API (might work even for draft)
-							try {
-								const signLinkResult = await generateSignLink({
-									projectUuid,
-									email,
-								})
-								signingLink = signLinkResult.link
-								console.log("✅ Signing link generated successfully:", signingLink)
-							} catch (signLinkError) {
-								console.error("❌ Failed to generate signing link:", signLinkError)
-								// Final fallback: Use direct project URL
-								const appBaseUrl = DOCOCHAIN_API_BASE.includes("stg")
-									? "https://stg-app.doconchain.com"
-									: "https://app.doconchain.com"
-								signingLink = `${appBaseUrl}/${projectUuid}`
-								console.log("⚠️ Using fallback direct project URL:", signingLink)
-							}
+							console.error("❌ Failed to generate Edit Draft Link:", editDraftError)
+							// Final fallback: Use direct project URL
+							const appBaseUrl = DOCOCHAIN_API_BASE.includes("stg")
+								? "https://stg-app.doconchain.com"
+								: "https://app.doconchain.com"
+							signingLink = `${appBaseUrl}/${projectUuid}`
+							console.log("⚠️ Using fallback direct project URL:", signingLink)
 						}
 					}
+				}
+
+				// FINAL FIX: ALWAYS normalize the URL before returning
+				// This ensures api=true is ALWAYS set, no matter what
+				if (signingLink) {
+					// Normalize the URL - this ALWAYS sets api=true
+					signingLink = normalizeDocoChainUrl(signingLink) ?? signingLink
+					
+					// Handle api_token if needed
+					try {
+						const url = new URL(signingLink)
+						// Fix api_token if it's undefined or empty
+						if (
+							url.searchParams.has("api_token") &&
+							(url.searchParams.get("api_token") === "undefined" ||
+								url.searchParams.get("api_token") === "")
+						) {
+							// For Draft projects (plotting), use creator's token
+							// For Sent projects (signing), use signer's token
+							const tokenEmail = !isProjectSent && creatorEmail ? creatorEmail : email
+							try {
+								const apiToken = await getDocoChainToken(tokenEmail)
+								url.searchParams.set("api_token", apiToken)
+								console.log(`✅ FINAL FIX: Fixed api_token=undefined using ${tokenEmail} token`)
+							} catch (tokenError) {
+								console.warn("⚠️ Failed to get token for api_token fix:", tokenError)
+								url.searchParams.delete("api_token")
+								console.log("⚠️ Removed invalid api_token (token generation failed)")
+							}
+						} else if (!url.searchParams.has("api_token")) {
+							// Add api_token if not present
+							const tokenEmail = !isProjectSent && creatorEmail ? creatorEmail : email
+							try {
+								const apiToken = await getDocoChainToken(tokenEmail)
+								url.searchParams.set("api_token", apiToken)
+								console.log(`✅ FINAL FIX: Added api_token using ${tokenEmail} token`)
+							} catch (tokenError) {
+								console.warn("⚠️ Failed to add api_token:", tokenError)
+							}
+						}
+						signingLink = url.toString()
+					} catch {
+						// If URL parsing fails, signingLink is already normalized
+						console.log("✅ FINAL FIX: URL already normalized")
+					}
+					
+					// FINAL safety check - normalize one more time to be absolutely sure
+					signingLink = normalizeDocoChainUrl(signingLink) ?? signingLink
 				}
 
 				return {
@@ -664,9 +705,34 @@ export const signatureRequestsRouter = createTRPCRouter({
 					email,
 				})
 
+				// FINAL FIX: Ensure api=null is ALWAYS replaced with api=true before returning
+				let finalLink = result.link
+				if (finalLink) {
+					try {
+						const url = new URL(finalLink)
+						if (url.searchParams.has('api') && url.searchParams.get('api') === 'null') {
+							url.searchParams.set('api', 'true')
+							finalLink = url.toString()
+							console.log("✅ FINAL FIX: Replaced api=null with api=true in generateSigningLink")
+						} else if (!url.searchParams.has('api')) {
+							url.searchParams.set('api', 'true')
+							finalLink = url.toString()
+							console.log("✅ FINAL FIX: Added api=true to generateSigningLink")
+						}
+					} catch {
+						// If URL parsing fails, use string replacement
+						finalLink = finalLink.replace(/\?api=null(&|$)/, '?api=true$1').replace(/&api=null(&|$)/, '&api=true$1')
+						if (!finalLink.includes('api=')) {
+							const separator = finalLink.includes('?') ? '&' : '?'
+							finalLink = `${finalLink}${separator}api=true`
+						}
+						console.log("✅ FINAL FIX: Fixed api parameter in generateSigningLink using string replacement")
+					}
+				}
+
 				return {
 					success: true,
-					link: result.link,
+					link: finalLink,
 				}
 			} catch (error) {
 				console.error("❌ Failed to generate signing link:", error)
