@@ -329,7 +329,8 @@ export const meetingsRouter = createTRPCRouter({
 			}
 
 			// Use the meeting creator's email for DocoChain project creation
-			// This ensures the project is always associated with the meeting creator (ENP)
+			// This ensures the project is always associated with the meeting creator
+			// (whether PRINCIPAL or ENP for manually created meetings)
 			// regardless of who uploads the document (client or ENP)
 			const creatorEmail = meeting.createdBy?.email ?? ctx.session.user.email ?? undefined
 
