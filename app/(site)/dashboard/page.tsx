@@ -50,6 +50,7 @@ import {
 } from "@/core/components/ui/card"
 import { Separator } from "@/core/components/ui/separator"
 import { Skeleton } from "@/core/components/ui/skeleton"
+import { useKycBroadcast } from "@/core/hooks/use-kyc-broadcast"
 
 import { trpc } from "@/services/trpc/client"
 
@@ -97,8 +98,23 @@ export default function DashboardPage() {
 	// Track if ENP has viewed requests page to hide notification dot
 	const [hasViewedRequests, setHasViewedRequests] = useState(false)
 
+	// Broadcast KYC verification status to other tabs (0 API calls)
+	const { broadcast } = useKycBroadcast()
+
 	// Fetch dashboard data
 	const { data: statistics, isLoading: isLoadingStats } = trpc.dashboard.getStatistics.useQuery()
+
+	// Broadcast KYC_VERIFIED when dashboard loads with verified status
+	useEffect(() => {
+		if (session?.user?.kycStatus === "VERIFIED") {
+			console.log("📢 Dashboard mounted with VERIFIED status - broadcasting to other tabs")
+			broadcast({
+				type: "KYC_VERIFIED",
+				userId: session.user.id,
+				timestamp: Date.now(),
+			})
+		}
+	}, [session?.user?.kycStatus, session?.user?.id, broadcast])
 
 	useEffect(() => {
 		// Check if user has viewed requests page before
