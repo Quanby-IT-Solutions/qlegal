@@ -10,6 +10,8 @@ import { Badge } from "@/core/components/ui/badge"
 import { Button } from "@/core/components/ui/button"
 import { Label } from "@/core/components/ui/label"
 
+import { useKycBroadcast } from "@/core/hooks/use-kyc-broadcast"
+
 import {
 	createUserKycLink,
 	getExistingKycLink,
@@ -64,6 +66,38 @@ export function KycVerificationCard({
 	})
 
 	const statusResult = statusQueryResult?.success ? statusQueryResult.data : null
+
+	// Cross-tab communication: Listen for verification events from other tabs (0 API calls)
+	const { listen, isSupported } = useKycBroadcast()
+
+	useEffect(() => {
+		if (effectiveStatus === "PENDING") {
+			const unsubscribe = listen((message) => {
+				if (message.type === "KYC_VERIFIED") {
+					console.log("📨 Received KYC_VERIFIED from other tab - redirecting...")
+					toast.success("KYC verified! Redirecting...")
+					setTimeout(() => {
+						window.location.href = "/dashboard"
+					}, 500)
+				}
+			})
+
+			return unsubscribe
+		}
+	}, [effectiveStatus, listen])
+
+	// Fallback: Check status on window focus if BroadcastChannel not supported (max 1 extra call)
+	useEffect(() => {
+		if (effectiveStatus === "PENDING" && !isSupported()) {
+			const handleFocus = () => {
+				console.log("🔍 Window focused - checking status (fallback)")
+				refetch()
+			}
+
+			window.addEventListener("focus", handleFocus)
+			return () => window.removeEventListener("focus", handleFocus)
+		}
+	}, [effectiveStatus, isSupported, refetch])
 
 	// Show manual check button after 5 seconds if still PENDING
 	useEffect(() => {
