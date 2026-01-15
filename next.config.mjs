@@ -4,6 +4,7 @@ const nextConfig = {
 	typedRoutes: true,
 	reactCompiler: true,
 	images: {
+		qualities: [100, 75],
 		remotePatterns: [
 			{
 				protocol: "https",
