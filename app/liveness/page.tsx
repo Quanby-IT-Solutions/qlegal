@@ -15,7 +15,7 @@ export default async function LivenessValidationPage() {
 	}
 
 	return (
-		<div className="container flex min-h-screen items-center justify-center py-10">
+		<div className="flex min-h-screen items-center justify-center px-4 py-10">
 			<div className="w-full max-w-2xl space-y-6">
 				{/* Logo */}
 				<div className="flex justify-center">

@@ -2,13 +2,14 @@ import { TRPCError } from "@trpc/server"
 import { and, count, desc, eq, isNotNull } from "drizzle-orm"
 import { z } from "zod/v4"
 
-import { downloadCertificate, getPassportDocument } from "@/services/docochain"
+import { checkSigningStatus, downloadCertificate, getPassportDocument } from "@/services/docochain"
 import { users } from "@/services/drizzle/schema/auth"
 import { documents } from "@/services/drizzle/schema/document"
 import { legalRegistrations } from "@/services/drizzle/schema/legal-registration"
+import { meetings } from "@/services/drizzle/schema/meetings"
 import { notarialActs, notarialBooks } from "@/services/drizzle/schema/notarial-book"
-import { getPublicClient } from "@/services/supabase"
 import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
+import { autoCreateNotarialAct } from "@/features/notarial-book/lib/auto-create-notarial-act"
 
 const getNotarialBookSchema = z.object({
 	page: z.number().min(1).default(1),
@@ -29,78 +30,120 @@ const syncDocumentToNotarialBookSchema = z.object({
 /**
  * Extract principal and witness information from passport data
  */
-function extractSignerInfo(passportData: any) {
+function extractSignerInfo(passportData: unknown) {
 	const signers: Array<{
 		name: string
 		email: string
 		role: string
 		signedAt?: string
+		idNumber?: string
 	}> = []
 
-	// Try different possible structures from DocoChain Passport API
-	if (passportData?.data?.signers) {
-		signers.push(...passportData.data.signers)
-	} else if (passportData?.signers) {
-		signers.push(...passportData.signers)
-	} else if (passportData?.data?.history) {
-		// Extract from history/audit trail
-		const history = Array.isArray(passportData.data.history)
-			? passportData.data.history
-			: passportData.history || []
+	if (!passportData || typeof passportData !== "object") {
+		return { principal: undefined, witness: undefined, allSigners: signers }
+	}
 
-		history.forEach((event: any) => {
-			if (event.signer) {
-				signers.push({
-					name:
-						event.signer.name ||
-						event.signer.first_name + " " + event.signer.last_name ||
-						"Unknown",
-					email: event.signer.email || "",
-					role: event.signer.role || event.signer.signer_role || "SIGNER",
-					signedAt: event.timestamp || event.signed_at,
-				})
+	const passportObj = passportData as { 
+		data?: { 
+			signers?: Array<unknown>
+			history?: Array<unknown>
+		}
+		signers?: Array<unknown>
+		history?: Array<unknown>
+	}
+
+	// Try different possible structures from DocoChain Passport API
+	if (passportObj.data?.signers && Array.isArray(passportObj.data.signers)) {
+		for (const signer of passportObj.data.signers) {
+			if (signer && typeof signer === "object") {
+				const s = signer as { name?: unknown; email?: unknown; role?: unknown; signedAt?: unknown; idNumber?: unknown }
+				if (typeof s.name === "string" && typeof s.email === "string" && typeof s.role === "string") {
+					signers.push({
+						name: s.name,
+						email: s.email,
+						role: s.role,
+						signedAt: typeof s.signedAt === "string" ? s.signedAt : undefined,
+						idNumber: typeof s.idNumber === "string" ? s.idNumber : undefined,
+					})
+				}
 			}
-		})
+		}
+	} else if (passportObj.signers && Array.isArray(passportObj.signers)) {
+		for (const signer of passportObj.signers) {
+			if (signer && typeof signer === "object") {
+				const s = signer as { name?: unknown; email?: unknown; role?: unknown; signedAt?: unknown; idNumber?: unknown }
+				if (typeof s.name === "string" && typeof s.email === "string" && typeof s.role === "string") {
+					signers.push({
+						name: s.name,
+						email: s.email,
+						role: s.role,
+						signedAt: typeof s.signedAt === "string" ? s.signedAt : undefined,
+						idNumber: typeof s.idNumber === "string" ? s.idNumber : undefined,
+					})
+				}
+			}
+		}
+	} else if (passportObj.data?.history || passportObj.history) {
+		// Extract from history/audit trail
+		const history = Array.isArray(passportObj.data?.history) 
+			? passportObj.data.history 
+			: Array.isArray(passportObj.history) 
+				? passportObj.history 
+				: []
+		
+		for (const event of history) {
+			if (event && typeof event === "object" && "signer" in event) {
+				const evt = event as { signer?: unknown; timestamp?: unknown; signed_at?: unknown }
+				const signer = evt.signer
+				if (signer && typeof signer === "object") {
+					const sig = signer as { 
+						name?: unknown
+						first_name?: unknown
+						last_name?: unknown
+						email?: unknown
+						role?: unknown
+						signer_role?: unknown
+					}
+					const name = typeof sig.name === "string" 
+						? sig.name 
+						: (typeof sig.first_name === "string" && typeof sig.last_name === "string")
+							? `${sig.first_name} ${sig.last_name}`.trim()
+							: "Unknown"
+					const email = typeof sig.email === "string" ? sig.email : ""
+					const role = typeof sig.role === "string" 
+						? sig.role 
+						: typeof sig.signer_role === "string" 
+							? sig.signer_role 
+							: "SIGNER"
+					const signedAt = typeof evt.timestamp === "string" 
+						? evt.timestamp 
+						: typeof evt.signed_at === "string" 
+							? evt.signed_at 
+							: undefined
+					
+					if (name && email) {
+						signers.push({
+							name,
+							email,
+							role,
+							signedAt,
+						})
+					}
+				}
+			}
+		}
 	}
 
 	// Identify principal (usually first signer or role "PRINCIPAL")
-	const principal =
-		signers.find(
-			s => s.role?.toUpperCase().includes("PRINCIPAL") || s.role?.toUpperCase().includes("SIGNER")
-		) || signers[0]
+	const principal = signers.find(s => 
+		s.role?.toUpperCase().includes("PRINCIPAL") || 
+		s.role?.toUpperCase().includes("SIGNER")
+	) ?? signers[0]
 
 	// Identify witness (role "WITNESS")
 	const witness = signers.find(s => s.role?.toUpperCase().includes("WITNESS"))
 
 	return { principal, witness, allSigners: signers }
-}
-
-/**
- * Determine act type from document or passport data
- */
-function determineActType(
-	documentName: string,
-	documentDescription: string | null,
-	passportData: any
-): "ACKNOWLEDGMENT" | "AFFIRMATION" | "JURAT" | "SIGNATURE_WITNESSING" {
-	const combinedText = `${documentName} ${documentDescription || ""}`.toLowerCase()
-
-	// Check for keywords
-	if (combinedText.includes("acknowledgment") || combinedText.includes("acknowledge")) {
-		return "ACKNOWLEDGMENT"
-	}
-	if (combinedText.includes("affirmation") || combinedText.includes("affirm")) {
-		return "AFFIRMATION"
-	}
-	if (combinedText.includes("jurat") || combinedText.includes("sworn")) {
-		return "JURAT"
-	}
-	if (combinedText.includes("witness") || combinedText.includes("witnessing")) {
-		return "SIGNATURE_WITNESSING"
-	}
-
-	// Default to acknowledgment (most common)
-	return "ACKNOWLEDGMENT"
 }
 
 export const notarialBookRouter = createTRPCRouter({
@@ -170,16 +213,15 @@ export const notarialBookRouter = createTRPCRouter({
 		const total = totalResult?.count ?? 0
 
 		// Filter by search term if provided
-		let filteredActs = acts
-		if (search) {
-			const searchLower = search.toLowerCase()
-			filteredActs = acts.filter(
-				act =>
+			let filteredActs = acts
+			if (search) {
+				const searchLower = search.toLowerCase()
+				filteredActs = acts.filter(act =>
 					act.principalName.toLowerCase().includes(searchLower) ||
-					act.documentName?.toLowerCase().includes(searchLower) ||
-					act.certificateNumber?.toLowerCase().includes(searchLower)
-			)
-		}
+					(act.documentName?.toLowerCase().includes(searchLower) ?? false) ||
+					(act.certificateNumber?.toLowerCase().includes(searchLower) ?? false)
+				)
+			}
 
 		return {
 			acts: filteredActs,
@@ -248,35 +290,95 @@ export const notarialBookRouter = createTRPCRouter({
 				),
 			})
 
-			// Fetch passport data from Doc On Chain
-			let passportData: any = null
+			// Identify the principal (document uploader)
+			// The principal is the person who uploaded the document, typically a non-ENP participant in the meeting
 			let principalName = "Unknown"
 			let principalIdNumber = ""
+
+			// If document is linked to a meeting, try to find the principal from meeting participants
+			if (document.meetingId) {
+				try {
+					const meeting = await ctx.db.query.meetings.findFirst({
+						where: eq(meetings.id, document.meetingId),
+						with: {
+							participants: {
+								with: {
+									user: {
+										columns: {
+											id: true,
+											name: true,
+											email: true,
+											role: true,
+										},
+									},
+								},
+							},
+						},
+					})
+
+					if (meeting?.participants) {
+						// Find the participant who is NOT the ENP (the principal/uploader)
+						const principalParticipant = meeting.participants.find(
+							p => p.user.id !== userId && p.user.role !== "ENP"
+						)
+
+						if (principalParticipant?.user) {
+							principalName = principalParticipant.user.name ?? principalParticipant.user.email ?? "Unknown"
+							console.log("✅ Found principal from meeting participants:", principalName)
+						}
+					}
+				} catch (error) {
+					console.warn("Failed to get meeting participants for principal identification:", error)
+				}
+			}
+
+			// Fetch passport data from Doc On Chain
+			let passportData: unknown = null
 			let witnessName: string | null = null
 			let executedAt = new Date()
-			let location = "Philippines"
+			const location = "Philippines"
 			let workflow: "REN" | "IEN" = "REN"
 
 			try {
 				// Get history view for audit trail
-				passportData = await getPassportDocument(projectUuid, "history", user.email || undefined)
-
-				// Extract signer information
+				passportData = await getPassportDocument(projectUuid, "history", user.email ?? undefined)
+				
+				// Extract signer information for witness and additional principal details
 				const { principal, witness } = extractSignerInfo(passportData)
-
-				if (principal) {
-					principalName = principal.name || "Unknown"
+				
+				// Only use passport data for principal if we didn't find one from meeting participants
+				// This ensures the uploader (from meeting) takes precedence
+				if (principalName === "Unknown" && principal) {
+					principalName = principal.name ?? "Unknown"
+					principalIdNumber = principal.idNumber ?? ""
+				} else if (principal) {
+					// If we already have principal name, still try to get ID from passport
+					if (!principalIdNumber && principal.idNumber) {
+						principalIdNumber = principal.idNumber
+					}
 				}
 
 				if (witness) {
-					witnessName = witness.name || null
+					witnessName = witness.name ?? null
 				}
 
 				// Get execution time from passport data
-				if (passportData?.data?.completed_at) {
-					executedAt = new Date(passportData.data.completed_at)
-				} else if (passportData?.completed_at) {
-					executedAt = new Date(passportData.completed_at)
+				if (passportData && typeof passportData === "object") {
+					const passportObj = passportData as { 
+						data?: { completed_at?: unknown }
+						completed_at?: unknown
+					}
+					if (passportObj.data?.completed_at) {
+						const completedAt = passportObj.data.completed_at
+						if (typeof completedAt === "string" || typeof completedAt === "number" || completedAt instanceof Date) {
+							executedAt = new Date(completedAt)
+						}
+					} else if (passportObj.completed_at) {
+						const completedAt = passportObj.completed_at
+						if (typeof completedAt === "string" || typeof completedAt === "number" || completedAt instanceof Date) {
+							executedAt = new Date(completedAt)
+						}
+					}
 				}
 
 				// Determine workflow (REN if has video/remote indicators, IEN otherwise)
@@ -300,8 +402,8 @@ export const notarialBookRouter = createTRPCRouter({
 				where: eq(legalRegistrations.applicantId, userId),
 			})
 
-			const enpName = user.name || "Unknown ENP"
-			const enpRollNumber = legalRegistration?.rollOfAttorneysNumber || null
+			const enpName = user.name ?? "Unknown ENP"
+			const enpRollNumber = legalRegistration?.rollOfAttorneysNumber ?? null
 
 			// Generate certificate number
 			const certificateNumber = `NB-${notarialBook.id.substring(0, 4).toUpperCase()}-${Date.now().toString().slice(-6)}`
@@ -315,12 +417,12 @@ export const notarialBookRouter = createTRPCRouter({
 				principalIdNumber,
 				witnessName,
 				enpName,
-				enpRollNumber: enpRollNumber || undefined,
+				enpRollNumber: enpRollNumber ?? undefined,
 				executedAt,
 				location,
 				workflow,
 				documentName: document.name,
-				documentDescription: document.description || null,
+				documentDescription: document.description ?? null,
 				passportData: passportData ? JSON.stringify(passportData) : null,
 				certificateNumber,
 			}
@@ -406,100 +508,69 @@ export const notarialBookRouter = createTRPCRouter({
 			notarialBook = created!
 		}
 
-		// Sync each document
+		// Sync each document using autoCreateNotarialAct for consistency
+		// IMPORTANT: Only sync documents that are FULLY SIGNED
 		for (const doc of enpDocuments) {
 			if (!doc.docoChainProjectId) continue
 
 			try {
-				// Check if already synced - check by docoChainProjectUuid (primary) and documentId (secondary)
-				// This prevents duplicates even if the same project UUID is processed multiple times
-				const existingAct = await ctx.db.query.notarialActs.findFirst({
-					where: and(
-						eq(notarialActs.notarialBookId, notarialBook.id),
-						eq(notarialActs.docoChainProjectUuid, doc.docoChainProjectId)
-					),
-				})
-
-				if (existingAct) {
-					// Already synced, skip
-					continue
-				}
-
-				// Determine act type from document
-				const actType = determineActType(doc.name, doc.description || null, null)
-
-				// Fetch passport data
-				let passportData: any = null
-				let principalName = "Unknown"
-				let witnessName: string | null = null
-				let executedAt = new Date()
-				let workflow: "REN" | "IEN" = "REN"
-
+				// First, verify the document is fully signed before syncing
+				// This ensures only fully signed documents appear in the Notarial Book
 				try {
-					passportData = await getPassportDocument(
-						doc.docoChainProjectId,
-						"history",
-						user.email || undefined
-					)
-					const { principal, witness } = extractSignerInfo(passportData)
-
-					if (principal) {
-						principalName = principal.name || "Unknown"
+					const signingStatus = await checkSigningStatus(doc.docoChainProjectId, user.email ?? undefined)
+					
+					if (!signingStatus.isFullySigned) {
+						console.log(`⏭️ Skipping ${doc.name} - not fully signed yet (${signingStatus.signedCount}/${signingStatus.totalSigners} signers)`)
+						// Don't add to errors - this is expected behavior
+						continue
 					}
-
-					if (witness) {
-						witnessName = witness.name || null
+					
+					console.log(`✅ Document ${doc.name} is fully signed, proceeding to sync...`)
+				} catch (statusError) {
+					const errorMessage = statusError instanceof Error ? statusError.message : String(statusError)
+					
+					// If it's "not fully signed" error, skip silently
+					if (errorMessage.includes("not fully signed") || errorMessage.includes("not fully signed yet")) {
+						console.log(`⏭️ Skipping ${doc.name} - not fully signed yet`)
+						continue
 					}
-
-					if (passportData?.data?.completed_at) {
-						executedAt = new Date(passportData.data.completed_at)
-					} else if (passportData?.completed_at) {
-						executedAt = new Date(passportData.completed_at)
-					}
-
-					const passportText = JSON.stringify(passportData).toLowerCase()
-					if (
-						passportText.includes("remote") ||
-						passportText.includes("video") ||
-						passportText.includes("ren")
-					) {
-						workflow = "REN"
-					} else {
-						workflow = "IEN"
-					}
-				} catch (error) {
-					console.error(`Error fetching passport for ${doc.id}:`, error)
+					
+					// For other errors (API issues), log but try to sync anyway
+					// autoCreateNotarialAct will also check signing status as a safeguard
+					console.warn(`⚠️ Could not verify signing status for ${doc.name}, but continuing (might be temporary API issue):`, errorMessage)
 				}
 
-				// Get legal registration for roll number
-				const legalRegistration = await ctx.db.query.legalRegistrations.findFirst({
-					where: eq(legalRegistrations.applicantId, userId),
-				})
+				// Use autoCreateNotarialAct which handles principal identification from meeting participants
+				// and all other logic consistently (it also checks signing status internally as a safeguard)
+				const createdAct = await autoCreateNotarialAct(
+					ctx.db,
+					doc.id,
+					doc.docoChainProjectId,
+					userId,
+					user.email ?? undefined
+				)
 
-				const enpName = user.name || "Unknown ENP"
-				const enpRollNumber = legalRegistration?.rollOfAttorneysNumber || null
-				const certificateNumber = `NB-${notarialBook.id.substring(0, 4).toUpperCase()}-${Date.now().toString().slice(-6)}`
+				if (createdAct) {
+					syncedCount++
+				} else {
+					// Act already exists or creation failed (already logged in autoCreateNotarialAct)
+					// Check if it already exists to provide better feedback
+					const existingAct = await ctx.db.query.notarialActs.findFirst({
+						where: and(
+							eq(notarialActs.notarialBookId, notarialBook.id),
+							eq(notarialActs.docoChainProjectUuid, doc.docoChainProjectId)
+						),
+					})
 
-				// Create notarial act entry
-				await ctx.db.insert(notarialActs).values({
-					notarialBookId: notarialBook.id,
-					actType,
-					documentId: doc.id,
-					docoChainProjectUuid: doc.docoChainProjectId,
-					principalName,
-					witnessName,
-					enpName,
-					enpRollNumber: enpRollNumber || undefined,
-					executedAt,
-					location: "Philippines",
-					workflow,
-					documentName: doc.name,
-					documentDescription: doc.description || null,
-					passportData: passportData ? JSON.stringify(passportData) : null,
-					certificateNumber,
-				})
-
-				syncedCount++
+					if (existingAct) {
+						// Already synced, skip silently
+						continue
+					} else {
+						// Creation failed for another reason (likely not fully signed, which is expected)
+						// Don't add to errors - this is handled gracefully
+						console.log(`⏭️ Could not create notarial act for ${doc.name} (document may not be fully signed)`)
+					}
+				}
 			} catch (error) {
 				console.error(`Error syncing document ${doc.id}:`, error)
 				errors.push(
@@ -560,61 +631,34 @@ export const notarialBookRouter = createTRPCRouter({
 				})
 			}
 
-			// If we have a documentId, get the document URL
-			if (act.documentId) {
-				const document = await ctx.db.query.documents.findFirst({
-					where: eq(documents.id, act.documentId),
-				})
-
-				if (document?.path) {
-					const supabase = getPublicClient()
-					const bucketName = document.path.includes("envelopes") ? "envelopes" : "documents"
-					const {
-						data: { publicUrl },
-					} = supabase.storage.from(bucketName).getPublicUrl(document.path)
-
-					return {
-						url: publicUrl,
-						fileName: document.name,
-						type: "document",
-					}
+			// Use proxy endpoint to serve the document with proper authentication
+			// This ensures the PDF is fetched with backend authentication and served to the frontend
+			// The proxy endpoint handles all the complexity of fetching from DocoChain Vault/APIs
+			if (act.documentId || act.docoChainProjectUuid) {
+				// Return proxy URL that will handle fetching from DocoChain with authentication
+				const proxyUrl = `/api/notarial-book/documents/${act.id}`
+				console.log("✅ Using proxy endpoint for document:", proxyUrl)
+				return {
+					url: proxyUrl,
+					fileName: act.documentName ?? "document.pdf",
+					type: "document",
 				}
 			}
 
-			// If we have a DocoChain project UUID, try to get document from DocoChain
+
+
+			// If we reach here, neither DocoChain nor Supabase had the document
+			let errorMessage = "Document URL not available."
+			
 			if (act.docoChainProjectUuid) {
-				try {
-					// Get passport data which may contain document URL
-					const passportData = await getPassportDocument(
-						act.docoChainProjectUuid,
-						"blockchain",
-						user.email || undefined
-					)
-
-					// Handle both string and object responses
-					if (typeof passportData === "object" && passportData !== null) {
-						const passportObj = passportData as Record<string, unknown>
-						const documentUrl =
-							((passportObj.data as Record<string, unknown> | undefined)?.document_url as
-								| string
-								| undefined) ?? (passportObj.document_url as string | undefined)
-
-						if (documentUrl) {
-							return {
-								url: documentUrl,
-								fileName: act.documentName || "document.pdf",
-								type: "document",
-							}
-						}
-					}
-				} catch (error) {
-					console.error("Error fetching document from DocoChain:", error)
-				}
+				errorMessage += " The document may not have been fully signed in DocoChain, or the project may have been deleted."
+			} else if (act.documentId) {
+				errorMessage += " The document file may not have been uploaded to storage."
 			}
 
 			throw new TRPCError({
 				code: "NOT_FOUND",
-				message: "Document URL not available",
+				message: errorMessage,
 			})
 		}),
 
@@ -666,7 +710,7 @@ export const notarialBookRouter = createTRPCRouter({
 			if (act.certificateUrl) {
 				return {
 					url: act.certificateUrl,
-					fileName: `certificate-${act.certificateNumber || act.id}.pdf`,
+					fileName: `certificate-${act.certificateNumber ?? act.id}.pdf`,
 					type: "certificate",
 				}
 			}
@@ -676,7 +720,7 @@ export const notarialBookRouter = createTRPCRouter({
 				try {
 					const certificate = await downloadCertificate(
 						act.docoChainProjectUuid,
-						user.email || undefined
+						user.email ?? undefined
 					)
 
 					// Update the act with the certificate URL for future use
@@ -738,11 +782,13 @@ export const notarialBookRouter = createTRPCRouter({
 		}
 
 		// Get all acts
+		// Data is stored chronologically via executedAt timestamp
+		// For export, we use ASC order to export in chronological sequence (oldest to newest)
 		const acts = await ctx.db
 			.select()
 			.from(notarialActs)
 			.where(eq(notarialActs.notarialBookId, notarialBook.id))
-			.orderBy(desc(notarialActs.executedAt))
+			.orderBy(notarialActs.executedAt) // Export: chronological order (oldest to newest)
 
 		// TODO: Generate PDF/PDFA from acts
 		// For now, return the data structure
