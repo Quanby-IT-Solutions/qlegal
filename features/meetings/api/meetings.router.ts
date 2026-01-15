@@ -427,7 +427,7 @@ export const meetingsRouter = createTRPCRouter({
 				// Update document with storage path
 				const [updatedDocument] = await db
 					.update(documents)
-					.set({ 
+					.set({
 						path: uploadData?.path ?? "",
 					})
 					.where(eq(documents.id, document.id))

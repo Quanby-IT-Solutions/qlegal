@@ -76,10 +76,10 @@ export default function LivenessCallbackPage() {
 			? queryError.message
 			: "Failed to fetch verification results"
 		: !transactionId
-		  ? "Missing transaction ID in callback URL"
-		  : response && !response.success
-		    ? response.error ?? "Failed to fetch results"
-		    : null
+			? "Missing transaction ID in callback URL"
+			: response && !response.success
+				? (response.error ?? "Failed to fetch results")
+				: null
 
 	const handleBackToHome = () => {
 		router.push("/liveness")

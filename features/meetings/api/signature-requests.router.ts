@@ -338,7 +338,6 @@ export const signatureRequestsRouter = createTRPCRouter({
 					console.log(`   - Project status: ${projectStatus}`)
 					// eslint-disable-next-line @typescript-eslint/no-explicit-any
 					currentSigners.forEach((s: any, idx: number) => {
-						 
 						console.log(
 							`   - Signer ${idx + 1}: ${s.email} (sequence: ${s.sequence}, status: ${s.status})`
 						)
@@ -528,14 +527,17 @@ export const signatureRequestsRouter = createTRPCRouter({
 				} else {
 					// Project is still Draft - use Edit Draft Link or stored redirect URL (for plotting)
 					// This is for the FIRST time clicking "Start Signing" to plot signature fields
-					console.log("🔵 Project is Draft - using Edit Draft Link or stored redirect URL (for plotting)...")
+					console.log(
+						"🔵 Project is Draft - using Edit Draft Link or stored redirect URL (for plotting)..."
+					)
 
 					// First, try to use the stored redirect_url from Create Project (has auth token)
 					// Only use this for Draft projects (for plotting signature fields)
 					if (document?.docoChainRedirectUrl && projectStatus === "Draft") {
 						// ALWAYS normalize the stored redirect URL - ensure api=true is set
-						signingLink = normalizeDocoChainUrl(document.docoChainRedirectUrl) ?? document.docoChainRedirectUrl
-						
+						signingLink =
+							normalizeDocoChainUrl(document.docoChainRedirectUrl) ?? document.docoChainRedirectUrl
+
 						// Fix api_token if needed
 						try {
 							const url = new URL(signingLink)
@@ -560,7 +562,10 @@ export const signatureRequestsRouter = createTRPCRouter({
 								console.log("✅ Added api_token parameter to stored redirect URL")
 							}
 							signingLink = url.toString()
-							console.log("✅ Using stored redirect URL from Create Project (for plotting):", signingLink)
+							console.log(
+								"✅ Using stored redirect URL from Create Project (for plotting):",
+								signingLink
+							)
 						} catch {
 							// If URL parsing fails, signingLink is already normalized
 							console.log("✅ Using normalized stored redirect URL")
@@ -572,7 +577,10 @@ export const signatureRequestsRouter = createTRPCRouter({
 						try {
 							const editDraftResult = await generateEditDraftLink(projectUuid, creatorEmail)
 							signingLink = editDraftResult.link
-							console.log("✅ Edit Draft Project Link generated successfully (for plotting):", signingLink)
+							console.log(
+								"✅ Edit Draft Project Link generated successfully (for plotting):",
+								signingLink
+							)
 						} catch (editDraftError) {
 							console.error("❌ Failed to generate Edit Draft Link:", editDraftError)
 							// Final fallback: Use direct project URL
@@ -590,7 +598,7 @@ export const signatureRequestsRouter = createTRPCRouter({
 				if (signingLink) {
 					// Normalize the URL - this ALWAYS sets api=true
 					signingLink = normalizeDocoChainUrl(signingLink) ?? signingLink
-					
+
 					// Handle api_token if needed
 					try {
 						const url = new URL(signingLink)
@@ -628,7 +636,7 @@ export const signatureRequestsRouter = createTRPCRouter({
 						// If URL parsing fails, signingLink is already normalized
 						console.log("✅ FINAL FIX: URL already normalized")
 					}
-					
+
 					// FINAL safety check - normalize one more time to be absolutely sure
 					signingLink = normalizeDocoChainUrl(signingLink) ?? signingLink
 				}
@@ -710,23 +718,27 @@ export const signatureRequestsRouter = createTRPCRouter({
 				if (finalLink) {
 					try {
 						const url = new URL(finalLink)
-						if (url.searchParams.has('api') && url.searchParams.get('api') === 'null') {
-							url.searchParams.set('api', 'true')
+						if (url.searchParams.has("api") && url.searchParams.get("api") === "null") {
+							url.searchParams.set("api", "true")
 							finalLink = url.toString()
 							console.log("✅ FINAL FIX: Replaced api=null with api=true in generateSigningLink")
-						} else if (!url.searchParams.has('api')) {
-							url.searchParams.set('api', 'true')
+						} else if (!url.searchParams.has("api")) {
+							url.searchParams.set("api", "true")
 							finalLink = url.toString()
 							console.log("✅ FINAL FIX: Added api=true to generateSigningLink")
 						}
 					} catch {
 						// If URL parsing fails, use string replacement
-						finalLink = finalLink.replace(/\?api=null(&|$)/, '?api=true$1').replace(/&api=null(&|$)/, '&api=true$1')
-						if (!finalLink.includes('api=')) {
-							const separator = finalLink.includes('?') ? '&' : '?'
+						finalLink = finalLink
+							.replace(/\?api=null(&|$)/, "?api=true$1")
+							.replace(/&api=null(&|$)/, "&api=true$1")
+						if (!finalLink.includes("api=")) {
+							const separator = finalLink.includes("?") ? "&" : "?"
 							finalLink = `${finalLink}${separator}api=true`
 						}
-						console.log("✅ FINAL FIX: Fixed api parameter in generateSigningLink using string replacement")
+						console.log(
+							"✅ FINAL FIX: Fixed api parameter in generateSigningLink using string replacement"
+						)
 					}
 				}
 

@@ -12,7 +12,7 @@ export type KycBroadcastMessage = {
 
 /**
  * Hook for cross-tab communication during KYC verification
- * 
+ *
  * Zero API calls - uses BroadcastChannel API for instant tab sync
  * Gracefully degrades if BroadcastChannel not supported
  */

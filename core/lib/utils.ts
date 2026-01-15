@@ -35,3 +35,29 @@ export function getInitials(name?: string | null): string {
 		.join("")
 		.toUpperCase()
 }
+
+/**
+ * Map a user role code to its human-readable label.
+ * @param role - The role code (e.g., 'ENP', 'PRINCIPAL', 'ENA', 'ADMIN')
+ * @returns The mapped label or an empty string if role is invalid.
+ */
+export function mapRoleToLabel(role?: string | null): string {
+	if (!role) return ""
+	switch (role) {
+		case "ENP":
+			return "Electronic Notary Public"
+		case "PRINCIPAL":
+			return "Principal"
+		case "ENA":
+			return "Electronic Notary Admin"
+		case "ADMIN":
+			return "Administrator"
+		default:
+			// fallback: try to convert any ALL_CAPS_WORD to Title Case with spaces (e.g., "LEGAL_OFFICER" -> "Legal Officer")
+			return role
+				.replace(/_/g, " ")
+				.toLowerCase()
+				.replace(/\w\S*/g, word => word.charAt(0).toUpperCase() + word.slice(1))
+				.trim()
+	}
+}

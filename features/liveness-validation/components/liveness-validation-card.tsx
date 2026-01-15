@@ -254,7 +254,6 @@ export function LivenessValidationCard() {
 								<div className="flex-1">
 									<p
 										className={`mb-1 font-semibold ${
-
 											validationResult.decision.isApproved
 												? "text-green-900 dark:text-green-100"
 												: "text-red-900 dark:text-red-100"

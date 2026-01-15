@@ -74,11 +74,11 @@ export function SimplePdfViewer({ fileUrl, documentName: _documentName }: Simple
 		// Check if the URL is valid and returns a PDF
 		// Use Range request to get only first 1024 bytes to check if it's a PDF
 		const controller = new AbortController()
-		
+
 		fetch(fileUrl, {
 			method: "GET",
 			headers: {
-				"Range": "bytes=0-1023", // Request only first 1024 bytes to check if it's a PDF
+				Range: "bytes=0-1023", // Request only first 1024 bytes to check if it's a PDF
 			},
 			signal: controller.signal,
 			credentials: "include", // Include cookies for authenticated requests
@@ -89,9 +89,10 @@ export function SimplePdfViewer({ fileUrl, documentName: _documentName }: Simple
 					// 206 is Partial Content (expected for Range requests)
 					// Any other non-OK status means error
 					let errorMessage = "Failed to load PDF document"
-					
+
 					if (response.status === 404) {
-						errorMessage = "Document not found. The document may not have been fully signed or may not exist."
+						errorMessage =
+							"Document not found. The document may not have been fully signed or may not exist."
 					} else if (response.status === 403) {
 						errorMessage = "Access denied. You don't have permission to view this document."
 					} else if (response.status === 401) {
@@ -101,47 +102,53 @@ export function SimplePdfViewer({ fileUrl, documentName: _documentName }: Simple
 					} else if (response.status === 500) {
 						errorMessage = "Server error. Please try again later."
 					} else if (response.status === 400) {
-						errorMessage = "The document server returned an error. The document may not be available or may be corrupted."
+						errorMessage =
+							"The document server returned an error. The document may not be available or may be corrupted."
 					} else {
 						errorMessage = `Failed to load document (HTTP ${response.status}). The document may not be available.`
 					}
-					
-					setState(prev => ({ 
-						...prev, 
-						isUrlValid: false, 
-						error: errorMessage 
+
+					setState(prev => ({
+						...prev,
+						isUrlValid: false,
+						error: errorMessage,
 					}))
 					return
 				}
-				
+
 				// Check if the response is a PDF by looking at the first bytes
 				// Accept both 200 (full content) and 206 (partial content)
 				return response.arrayBuffer().then(buffer => {
 					if (buffer.byteLength === 0) {
-						setState(prev => ({ 
-							...prev, 
-							isUrlValid: false, 
-							error: "The server returned an empty response." 
+						setState(prev => ({
+							...prev,
+							isUrlValid: false,
+							error: "The server returned an empty response.",
 						}))
 						return
 					}
-					
+
 					const bytes = new Uint8Array(buffer)
 					const firstBytes = bytes.slice(0, Math.min(4, bytes.length))
 					const pdfHeader = String.fromCharCode(...firstBytes)
 					const isPdf = pdfHeader === "%PDF"
-					
+
 					if (!isPdf && buffer.byteLength < 1000) {
 						// Small response that's not a PDF - likely an error message
 						const text = new TextDecoder().decode(buffer)
 						const trimmedText = text.trim()
-						
+
 						// If it looks like an error message (not HTML, starts with text, short)
-						if (trimmedText.length > 0 && trimmedText.length < 500 && !trimmedText.startsWith("<!") && !trimmedText.startsWith("<html")) {
-							setState(prev => ({ 
-								...prev, 
-								isUrlValid: false, 
-								error: trimmedText || "The server returned an error response instead of a PDF." 
+						if (
+							trimmedText.length > 0 &&
+							trimmedText.length < 500 &&
+							!trimmedText.startsWith("<!") &&
+							!trimmedText.startsWith("<html")
+						) {
+							setState(prev => ({
+								...prev,
+								isUrlValid: false,
+								error: trimmedText || "The server returned an error response instead of a PDF.",
 							}))
 						} else {
 							// Might be HTML error page or other format - let react-pdf try
@@ -162,12 +169,12 @@ export function SimplePdfViewer({ fileUrl, documentName: _documentName }: Simple
 					// Request was aborted (component unmounted or URL changed)
 					return
 				}
-				
+
 				console.error("Error validating PDF URL:", error)
 				// On fetch error, still try to load - might be a CORS issue or network error
 				// Let react-pdf handle it
-				setState(prev => ({ 
-					...prev, 
+				setState(prev => ({
+					...prev,
 					isUrlValid: true, // Allow react-pdf to try, it will handle the error
 				}))
 			})
@@ -180,19 +187,21 @@ export function SimplePdfViewer({ fileUrl, documentName: _documentName }: Simple
 	// Load PDF.js on client side
 	useEffect(() => {
 		if (typeof window !== "undefined") {
-			void import("react-pdf").then(({ pdfjs }) => {
-				// Use the version that react-pdf actually uses (from pdfjs.version)
-				// This ensures the worker version matches the API version
-				// PDF.js 5.x requires the .mjs extension for the worker
-				// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment
-				const version = pdfjs.version || "5.4.296"
-				// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-				pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${version}/build/pdf.worker.min.mjs`
-				setState(prev => ({ ...prev, isLoaded: true }))
-			}).catch((error) => {
-				console.error("Failed to load react-pdf:", error)
-				setState(prev => ({ ...prev, error: "Failed to initialize PDF viewer", isLoaded: true }))
-			})
+			void import("react-pdf")
+				.then(({ pdfjs }) => {
+					// Use the version that react-pdf actually uses (from pdfjs.version)
+					// This ensures the worker version matches the API version
+					// PDF.js 5.x requires the .mjs extension for the worker
+					// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment
+					const version = pdfjs.version || "5.4.296"
+					// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+					pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${version}/build/pdf.worker.min.mjs`
+					setState(prev => ({ ...prev, isLoaded: true }))
+				})
+				.catch(error => {
+					console.error("Failed to load react-pdf:", error)
+					setState(prev => ({ ...prev, error: "Failed to initialize PDF viewer", isLoaded: true }))
+				})
 		}
 	}, [])
 
@@ -204,30 +213,37 @@ export function SimplePdfViewer({ fileUrl, documentName: _documentName }: Simple
 		// Page loaded successfully - no action needed
 	}, [])
 
-	const onDocumentLoadError = useCallback((error: Error) => {
-		console.error("PDF document load error:", error)
-		// Check if it's an HTTP error (400, 404, 500, etc.)
-		const errorMessage = error?.message || String(error)
-		let userFriendlyMessage = state.error || "Failed to load PDF document"
-		
-		if (errorMessage.includes("503")) {
-			userFriendlyMessage = "DocoChain API is temporarily unavailable. Please try again later."
-		} else if (errorMessage.includes("400") || errorMessage.includes("Bad Request")) {
-			userFriendlyMessage = "The document server returned an error. The document may not be available or may be corrupted."
-		} else if (errorMessage.includes("404") || errorMessage.includes("not found")) {
-			userFriendlyMessage = "Document not found. The document may not have been fully signed or may not exist."
-		} else if (errorMessage.includes("403") || errorMessage.includes("Forbidden")) {
-			userFriendlyMessage = "Access denied. You don't have permission to view this document."
-		} else if (errorMessage.includes("401") || errorMessage.includes("Unauthorized")) {
-			userFriendlyMessage = "Unauthorized. Please log in to view this document."
-		} else if (errorMessage.includes("500") || errorMessage.includes("Internal Server Error")) {
-			userFriendlyMessage = "Server error. Please try again later."
-		} else if (errorMessage.includes("Unexpected server response")) {
-			userFriendlyMessage = state.error || "The server returned an unexpected response. The document may not be available or may be in an unsupported format."
-		}
-		
-		setState(prev => ({ ...prev, error: userFriendlyMessage, isUrlValid: false }))
-	}, [state.error])
+	const onDocumentLoadError = useCallback(
+		(error: Error) => {
+			console.error("PDF document load error:", error)
+			// Check if it's an HTTP error (400, 404, 500, etc.)
+			const errorMessage = error?.message || String(error)
+			let userFriendlyMessage = state.error || "Failed to load PDF document"
+
+			if (errorMessage.includes("503")) {
+				userFriendlyMessage = "DocoChain API is temporarily unavailable. Please try again later."
+			} else if (errorMessage.includes("400") || errorMessage.includes("Bad Request")) {
+				userFriendlyMessage =
+					"The document server returned an error. The document may not be available or may be corrupted."
+			} else if (errorMessage.includes("404") || errorMessage.includes("not found")) {
+				userFriendlyMessage =
+					"Document not found. The document may not have been fully signed or may not exist."
+			} else if (errorMessage.includes("403") || errorMessage.includes("Forbidden")) {
+				userFriendlyMessage = "Access denied. You don't have permission to view this document."
+			} else if (errorMessage.includes("401") || errorMessage.includes("Unauthorized")) {
+				userFriendlyMessage = "Unauthorized. Please log in to view this document."
+			} else if (errorMessage.includes("500") || errorMessage.includes("Internal Server Error")) {
+				userFriendlyMessage = "Server error. Please try again later."
+			} else if (errorMessage.includes("Unexpected server response")) {
+				userFriendlyMessage =
+					state.error ||
+					"The server returned an unexpected response. The document may not be available or may be in an unsupported format."
+			}
+
+			setState(prev => ({ ...prev, error: userFriendlyMessage, isUrlValid: false }))
+		},
+		[state.error]
+	)
 
 	const changePage = useCallback((offset: number) => {
 		setState(prev => {
@@ -300,15 +316,9 @@ export function SimplePdfViewer({ fileUrl, documentName: _documentName }: Simple
 			<div className="flex h-full w-full items-center justify-center">
 				<div className="text-center">
 					<p className="text-destructive mb-4 text-sm font-medium">Failed to load PDF document</p>
-					<p className="text-muted-foreground mb-4 text-xs">
-						{state.error || "Unknown error"}
-					</p>
+					<p className="text-muted-foreground mb-4 text-xs">{state.error || "Unknown error"}</p>
 					<div className="space-y-2">
-						<Button
-							variant="outline"
-							size="sm"
-							onClick={() => window.open(fileUrl, "_blank")}
-						>
+						<Button variant="outline" size="sm" onClick={() => window.open(fileUrl, "_blank")}>
 							Open in New Tab
 						</Button>
 					</div>

@@ -2,14 +2,13 @@
 
 import { useSearchParams } from "next/navigation"
 import { useEffect, useMemo, useRef, useState, useTransition } from "react"
-import { CheckCircle2, LogOut, Loader2, PlayCircle, ShieldCheck, XCircle } from "lucide-react"
+import { CheckCircle2, Loader2, LogOut, PlayCircle, ShieldCheck, XCircle } from "lucide-react"
 import { signOut } from "next-auth/react"
 import { toast } from "sonner"
 
 import { Badge } from "@/core/components/ui/badge"
 import { Button } from "@/core/components/ui/button"
 import { Label } from "@/core/components/ui/label"
-
 import { useKycBroadcast } from "@/core/hooks/use-kyc-broadcast"
 
 import {
@@ -53,14 +52,15 @@ export function KycVerificationCard({
 	const toastShownRef = useRef<Set<string>>(new Set())
 
 	// Determine effective status from either server data or query result
-	const effectiveStatus = useMemo(
-		() => userInfo.kycStatus,
-		[userInfo.kycStatus]
-	)
+	const effectiveStatus = useMemo(() => userInfo.kycStatus, [userInfo.kycStatus])
 
 	// Option 1.5: Single check on mount, no polling
 	// Webhook handles real-time updates (primary method)
-	const { data: statusQueryResult, isLoading: isCheckingStatus, refetch } = useKycStatus({
+	const {
+		data: statusQueryResult,
+		isLoading: isCheckingStatus,
+		refetch,
+	} = useKycStatus({
 		currentStatus: effectiveStatus,
 		enabled: true,
 	})
@@ -72,7 +72,7 @@ export function KycVerificationCard({
 
 	useEffect(() => {
 		if (effectiveStatus === "PENDING") {
-			const unsubscribe = listen((message) => {
+			const unsubscribe = listen(message => {
 				if (message.type === "KYC_VERIFIED") {
 					console.log("📨 Received KYC_VERIFIED from other tab - redirecting...")
 					toast.success("KYC verified! Redirecting...")
@@ -332,8 +332,8 @@ export function KycVerificationCard({
 									We&apos;re reviewing your identity documents. This usually takes a few minutes.
 								</p>
 								<p className="mt-2 text-xs text-blue-600 dark:text-blue-400">
-									You&apos;ll be automatically redirected when your verification is complete.
-									You can resume the verification or log out below.
+									You&apos;ll be automatically redirected when your verification is complete. You
+									can resume the verification or log out below.
 								</p>
 							</div>
 						</div>
@@ -381,12 +381,7 @@ export function KycVerificationCard({
 							</Button>
 						)}
 
-						<Button
-							onClick={handleLogout}
-							disabled={isPending}
-							variant="ghost"
-							className="w-full"
-						>
+						<Button onClick={handleLogout} disabled={isPending} variant="ghost" className="w-full">
 							<LogOut className="mr-2 h-4 w-4" />
 							Log Out
 						</Button>

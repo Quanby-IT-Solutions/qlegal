@@ -1,18 +1,19 @@
 /**
  * TanStack Query hook for checking KYC verification status
- * 
+ *
  * Option 1.5: "Smart Single Check"
  * - Check ONCE on mount (reads DB first, then calls HyperVerge if PENDING)
  * - NO automatic polling
  * - Relies on webhook for real-time updates (primary method)
  * - Manual "Check Status" button as fallback
- * 
+ *
  * API Call Count:
  * - Best case: 0 (webhook updated DB already)
  * - Worst case: 2 (1 auto check + 1 manual check)
  */
 
 import { useQuery } from "@tanstack/react-query"
+
 import { checkUserKycStatus } from "../api/kyc.actions"
 
 interface UseKycStatusOptions {
