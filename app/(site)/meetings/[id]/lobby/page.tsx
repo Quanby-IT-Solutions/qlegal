@@ -169,7 +169,7 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 				const playPromise = videoElement.play()
 				if (playPromise !== undefined) {
 					playPromise.catch(err => {
-						if (err.name !== "NotAllowedError") {
+						if ((err as { name: string }).name !== "NotAllowedError") {
 							console.error("Error playing video:", err)
 						}
 					})
@@ -284,7 +284,7 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 
 	if (isLoading) {
 		return (
-			<div className="from-background via-muted/30 to-background flex h-screen items-center justify-center bg-gradient-to-br">
+			<div className="from-background via-muted/30 to-background flex h-screen items-center justify-center bg-linear-to-br">
 				<div className="text-center">
 					<Skeleton className="mx-auto mb-4 size-12 rounded-full" />
 					<Skeleton className="h-6 w-48" />
@@ -295,7 +295,7 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 
 	if (!meeting) {
 		return (
-			<div className="from-background via-muted/30 to-background flex h-screen items-center justify-center bg-gradient-to-br">
+			<div className="from-background via-muted/30 to-background flex h-screen items-center justify-center bg-linear-to-br">
 				<Card className="w-full max-w-md shadow-xl">
 					<CardContent className="p-8 text-center">
 						<h2 className="text-2xl font-bold">Meeting not found</h2>
@@ -313,7 +313,7 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 
 	if (meeting.status !== "ONGOING") {
 		return (
-			<div className="from-background via-muted/30 to-background flex h-screen items-center justify-center bg-gradient-to-br">
+			<div className="from-background via-muted/30 to-background flex h-screen items-center justify-center bg-linear-to-br">
 				<Card className="w-full max-w-md shadow-xl">
 					<CardContent className="p-8 text-center">
 						<div className="mx-auto mb-4 flex size-16 items-center justify-center rounded-full bg-yellow-100 dark:bg-yellow-900/20">
@@ -330,7 +330,7 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 		)
 	}
 
-	const userRole = (session?.user?.role ?? "PRINCIPAL") as "ENP" | "PRINCIPAL" | "ENA" | "ADMIN"
+	const userRole = session?.user?.role ?? "PRINCIPAL"
 
 	return (
 		<>
@@ -355,7 +355,7 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 				/>
 			)}
 
-			<div className="from-background via-muted/30 to-background flex h-screen flex-col bg-gradient-to-br">
+			<div className="from-background via-muted/30 to-background flex h-screen flex-col bg-linear-to-br">
 				{/* Header */}
 				<div className="bg-card/50 border-b px-6 py-6 backdrop-blur-sm">
 					<div className="mx-auto max-w-7xl">
@@ -387,7 +387,7 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 											className="size-full scale-x-[-1] rounded-lg object-cover"
 										/>
 									) : (
-										<div className="from-muted/30 to-muted/10 flex size-full items-center justify-center bg-gradient-to-br">
+										<div className="from-muted/30 to-muted/10 flex size-full items-center justify-center bg-linear-to-br">
 											<div className="p-4 text-center">
 												{isTestingDevices ? (
 													<div>
@@ -398,7 +398,7 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 													</div>
 												) : (
 													<>
-														<div className="from-primary to-primary/80 text-primary-foreground mx-auto mb-4 flex size-24 items-center justify-center rounded-full bg-gradient-to-br text-4xl font-bold shadow-xl md:mb-6 md:size-32 md:text-5xl">
+														<div className="from-primary to-primary/80 text-primary-foreground mx-auto mb-4 flex size-24 items-center justify-center rounded-full bg-linear-to-br text-4xl font-bold shadow-xl md:mb-6 md:size-32 md:text-5xl">
 															{session?.user?.name?.charAt(0).toUpperCase() ?? "?"}
 														</div>
 														<p className="text-xl font-bold md:text-2xl">{session?.user?.name}</p>
@@ -469,7 +469,7 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 										className={`flex items-center gap-2 rounded-lg p-2.5 ${locationStatusDisplay.bgColor}`}
 									>
 										<div
-											className={`flex size-6 flex-shrink-0 items-center justify-center ${locationStatusDisplay.color}`}
+											className={`flex size-6 shrink-0 items-center justify-center ${locationStatusDisplay.color}`}
 										>
 											{locationStatusDisplay.icon}
 										</div>
@@ -508,7 +508,7 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 												{meeting.createdBy.name}
 											</p>
 										</div>
-										<Avatar className="ring-primary/20 ml-2 size-8 flex-shrink-0 ring-2">
+										<Avatar className="ring-primary/20 ml-2 size-8 shrink-0 ring-2">
 											<AvatarImage src={meeting.createdBy.image ?? undefined} />
 											<AvatarFallback className="bg-primary text-primary-foreground text-xs font-semibold">
 												{meeting.createdBy.name?.charAt(0).toUpperCase() ?? "?"}
@@ -516,7 +516,7 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 										</Avatar>
 									</div>
 									<div className="flex items-center gap-2 rounded-lg bg-emerald-50 p-2.5 dark:bg-emerald-950/20">
-										<div className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/30">
+										<div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/30">
 											<div className="size-2 animate-pulse rounded-full bg-emerald-500" />
 										</div>
 										<div className="min-w-0 flex-1">
@@ -552,7 +552,7 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 												key={participant.id}
 												className="hover:bg-muted/50 flex items-center gap-2.5 rounded-lg p-2 transition-colors"
 											>
-												<Avatar className="hover:ring-primary/20 size-8 flex-shrink-0 ring-2 ring-transparent transition-all">
+												<Avatar className="hover:ring-primary/20 size-8 shrink-0 ring-2 ring-transparent transition-all">
 													<AvatarImage src={participant.user.image ?? undefined} />
 													<AvatarFallback className="bg-primary text-primary-foreground text-xs font-semibold">
 														{participant.user.name?.charAt(0).toUpperCase() ?? "?"}
@@ -572,7 +572,7 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 													</p>
 												</div>
 												{participant.userId === meeting.createdBy.id && (
-													<span className="bg-primary/10 text-primary flex-shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold">
+													<span className="bg-primary/10 text-primary shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold">
 														Host
 													</span>
 												)}
