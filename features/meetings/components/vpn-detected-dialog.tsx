@@ -66,18 +66,16 @@ export function VpnDetectedDialog({ open, ipInfo }: VpnDetectedDialogProps) {
 					</div>
 
 					{ipInfo && (ipInfo.isp ?? ipInfo.org) && (
-						<div className="rounded-lg bg-muted/50 p-3">
-							<p className="text-muted-foreground mb-1 text-xs font-medium uppercase tracking-wide">
+						<div className="bg-muted/50 rounded-lg p-3">
+							<p className="text-muted-foreground mb-1 text-xs font-medium tracking-wide uppercase">
 								Detected Network
 							</p>
 							<p className="text-sm font-medium">{ipInfo.org ?? ipInfo.isp}</p>
-							{ipInfo.country && (
-								<p className="text-muted-foreground text-xs">{ipInfo.country}</p>
-							)}
+							{ipInfo.country && <p className="text-muted-foreground text-xs">{ipInfo.country}</p>}
 						</div>
 					)}
 
-					<div className="space-y-2 text-sm text-muted-foreground">
+					<div className="text-muted-foreground space-y-2 text-sm">
 						<p className="font-medium">To join this meeting, please:</p>
 						<ol className="ml-4 list-decimal space-y-1">
 							<li>Disconnect from your VPN or proxy service</li>
@@ -91,7 +89,7 @@ export function VpnDetectedDialog({ open, ipInfo }: VpnDetectedDialogProps) {
 					<Button onClick={handleGoBack} className="w-full">
 						Go Back to Meetings
 					</Button>
-					<p className="text-center text-xs text-muted-foreground">
+					<p className="text-muted-foreground text-center text-xs">
 						If you believe this is an error, please contact support.
 					</p>
 				</DialogFooter>

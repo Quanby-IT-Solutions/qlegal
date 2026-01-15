@@ -1,7 +1,7 @@
 "use client"
 
-import { useEffect } from "react"
 import { useSearchParams } from "next/navigation"
+import { useEffect } from "react"
 import { Loader2 } from "lucide-react"
 
 /**
@@ -14,15 +14,15 @@ export default function KycCallbackPage() {
 
 	useEffect(() => {
 		const status = searchParams.get("status")
-		
+
 		// Log the status received from HyperVerge
 		console.log("✅ KYC flow completed with status:", status)
-		
+
 		// Close this window/tab after KYC completion
 		// Add small delay to ensure webhook has time to process
 		setTimeout(() => {
 			window.close()
-			
+
 			// If window.close() doesn't work (some browsers block it), show a message
 			setTimeout(() => {
 				const canClose = window.opener !== null || window.history.length <= 1
@@ -30,7 +30,7 @@ export default function KycCallbackPage() {
 					document.body.innerHTML = `
 						<div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; font-family: system-ui;">
 							<h1 style="font-size: 24px; font-weight: bold; margin-bottom: 16px;">✓ Verification Complete!</h1>
-							<p style="color: #666; margin-bottom: 8px;">Status: ${status || 'processing'}</p>
+							<p style="color: #666; margin-bottom: 8px;">Status: ${status || "processing"}</p>
 							<p style="color: #666; margin-bottom: 24px;">You can close this tab and return to the main page.</p>
 							<button 
 								onclick="window.close()" 
@@ -50,7 +50,7 @@ export default function KycCallbackPage() {
 			<Loader2 className="mb-4 h-12 w-12 animate-spin text-blue-600" />
 			<h1 className="mb-2 text-2xl font-bold">Verification Complete</h1>
 			<p className="text-muted-foreground">Processing status...</p>
-			<p className="text-muted-foreground text-sm mt-2">This window will close automatically</p>
+			<p className="text-muted-foreground mt-2 text-sm">This window will close automatically</p>
 		</div>
 	)
 }

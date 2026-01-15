@@ -9,6 +9,7 @@ import { legalRegistrations } from "@/services/drizzle/schema/legal-registration
 import { meetings } from "@/services/drizzle/schema/meetings"
 import { notarialActs, notarialBooks } from "@/services/drizzle/schema/notarial-book"
 import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
+
 import { autoCreateNotarialAct } from "@/features/notarial-book/lib/auto-create-notarial-act"
 
 const getNotarialBookSchema = z.object({
@@ -43,8 +44,8 @@ function extractSignerInfo(passportData: unknown) {
 		return { principal: undefined, witness: undefined, allSigners: signers }
 	}
 
-	const passportObj = passportData as { 
-		data?: { 
+	const passportObj = passportData as {
+		data?: {
 			signers?: Array<unknown>
 			history?: Array<unknown>
 		}
@@ -56,8 +57,18 @@ function extractSignerInfo(passportData: unknown) {
 	if (passportObj.data?.signers && Array.isArray(passportObj.data.signers)) {
 		for (const signer of passportObj.data.signers) {
 			if (signer && typeof signer === "object") {
-				const s = signer as { name?: unknown; email?: unknown; role?: unknown; signedAt?: unknown; idNumber?: unknown }
-				if (typeof s.name === "string" && typeof s.email === "string" && typeof s.role === "string") {
+				const s = signer as {
+					name?: unknown
+					email?: unknown
+					role?: unknown
+					signedAt?: unknown
+					idNumber?: unknown
+				}
+				if (
+					typeof s.name === "string" &&
+					typeof s.email === "string" &&
+					typeof s.role === "string"
+				) {
 					signers.push({
 						name: s.name,
 						email: s.email,
@@ -71,8 +82,18 @@ function extractSignerInfo(passportData: unknown) {
 	} else if (passportObj.signers && Array.isArray(passportObj.signers)) {
 		for (const signer of passportObj.signers) {
 			if (signer && typeof signer === "object") {
-				const s = signer as { name?: unknown; email?: unknown; role?: unknown; signedAt?: unknown; idNumber?: unknown }
-				if (typeof s.name === "string" && typeof s.email === "string" && typeof s.role === "string") {
+				const s = signer as {
+					name?: unknown
+					email?: unknown
+					role?: unknown
+					signedAt?: unknown
+					idNumber?: unknown
+				}
+				if (
+					typeof s.name === "string" &&
+					typeof s.email === "string" &&
+					typeof s.role === "string"
+				) {
 					signers.push({
 						name: s.name,
 						email: s.email,
@@ -85,18 +106,18 @@ function extractSignerInfo(passportData: unknown) {
 		}
 	} else if (passportObj.data?.history || passportObj.history) {
 		// Extract from history/audit trail
-		const history = Array.isArray(passportObj.data?.history) 
-			? passportObj.data.history 
-			: Array.isArray(passportObj.history) 
-				? passportObj.history 
+		const history = Array.isArray(passportObj.data?.history)
+			? passportObj.data.history
+			: Array.isArray(passportObj.history)
+				? passportObj.history
 				: []
-		
+
 		for (const event of history) {
 			if (event && typeof event === "object" && "signer" in event) {
 				const evt = event as { signer?: unknown; timestamp?: unknown; signed_at?: unknown }
 				const signer = evt.signer
 				if (signer && typeof signer === "object") {
-					const sig = signer as { 
+					const sig = signer as {
 						name?: unknown
 						first_name?: unknown
 						last_name?: unknown
@@ -104,23 +125,26 @@ function extractSignerInfo(passportData: unknown) {
 						role?: unknown
 						signer_role?: unknown
 					}
-					const name = typeof sig.name === "string" 
-						? sig.name 
-						: (typeof sig.first_name === "string" && typeof sig.last_name === "string")
-							? `${sig.first_name} ${sig.last_name}`.trim()
-							: "Unknown"
+					const name =
+						typeof sig.name === "string"
+							? sig.name
+							: typeof sig.first_name === "string" && typeof sig.last_name === "string"
+								? `${sig.first_name} ${sig.last_name}`.trim()
+								: "Unknown"
 					const email = typeof sig.email === "string" ? sig.email : ""
-					const role = typeof sig.role === "string" 
-						? sig.role 
-						: typeof sig.signer_role === "string" 
-							? sig.signer_role 
-							: "SIGNER"
-					const signedAt = typeof evt.timestamp === "string" 
-						? evt.timestamp 
-						: typeof evt.signed_at === "string" 
-							? evt.signed_at 
-							: undefined
-					
+					const role =
+						typeof sig.role === "string"
+							? sig.role
+							: typeof sig.signer_role === "string"
+								? sig.signer_role
+								: "SIGNER"
+					const signedAt =
+						typeof evt.timestamp === "string"
+							? evt.timestamp
+							: typeof evt.signed_at === "string"
+								? evt.signed_at
+								: undefined
+
 					if (name && email) {
 						signers.push({
 							name,
@@ -135,10 +159,10 @@ function extractSignerInfo(passportData: unknown) {
 	}
 
 	// Identify principal (usually first signer or role "PRINCIPAL")
-	const principal = signers.find(s => 
-		s.role?.toUpperCase().includes("PRINCIPAL") || 
-		s.role?.toUpperCase().includes("SIGNER")
-	) ?? signers[0]
+	const principal =
+		signers.find(
+			s => s.role?.toUpperCase().includes("PRINCIPAL") || s.role?.toUpperCase().includes("SIGNER")
+		) ?? signers[0]
 
 	// Identify witness (role "WITNESS")
 	const witness = signers.find(s => s.role?.toUpperCase().includes("WITNESS"))
@@ -213,15 +237,16 @@ export const notarialBookRouter = createTRPCRouter({
 		const total = totalResult?.count ?? 0
 
 		// Filter by search term if provided
-			let filteredActs = acts
-			if (search) {
-				const searchLower = search.toLowerCase()
-				filteredActs = acts.filter(act =>
+		let filteredActs = acts
+		if (search) {
+			const searchLower = search.toLowerCase()
+			filteredActs = acts.filter(
+				act =>
 					act.principalName.toLowerCase().includes(searchLower) ||
 					(act.documentName?.toLowerCase().includes(searchLower) ?? false) ||
 					(act.certificateNumber?.toLowerCase().includes(searchLower) ?? false)
-				)
-			}
+			)
+		}
 
 		return {
 			acts: filteredActs,
@@ -323,7 +348,8 @@ export const notarialBookRouter = createTRPCRouter({
 						)
 
 						if (principalParticipant?.user) {
-							principalName = principalParticipant.user.name ?? principalParticipant.user.email ?? "Unknown"
+							principalName =
+								principalParticipant.user.name ?? principalParticipant.user.email ?? "Unknown"
 							console.log("✅ Found principal from meeting participants:", principalName)
 						}
 					}
@@ -342,10 +368,10 @@ export const notarialBookRouter = createTRPCRouter({
 			try {
 				// Get history view for audit trail
 				passportData = await getPassportDocument(projectUuid, "history", user.email ?? undefined)
-				
+
 				// Extract signer information for witness and additional principal details
 				const { principal, witness } = extractSignerInfo(passportData)
-				
+
 				// Only use passport data for principal if we didn't find one from meeting participants
 				// This ensures the uploader (from meeting) takes precedence
 				if (principalName === "Unknown" && principal) {
@@ -364,18 +390,26 @@ export const notarialBookRouter = createTRPCRouter({
 
 				// Get execution time from passport data
 				if (passportData && typeof passportData === "object") {
-					const passportObj = passportData as { 
+					const passportObj = passportData as {
 						data?: { completed_at?: unknown }
 						completed_at?: unknown
 					}
 					if (passportObj.data?.completed_at) {
 						const completedAt = passportObj.data.completed_at
-						if (typeof completedAt === "string" || typeof completedAt === "number" || completedAt instanceof Date) {
+						if (
+							typeof completedAt === "string" ||
+							typeof completedAt === "number" ||
+							completedAt instanceof Date
+						) {
 							executedAt = new Date(completedAt)
 						}
 					} else if (passportObj.completed_at) {
 						const completedAt = passportObj.completed_at
-						if (typeof completedAt === "string" || typeof completedAt === "number" || completedAt instanceof Date) {
+						if (
+							typeof completedAt === "string" ||
+							typeof completedAt === "number" ||
+							completedAt instanceof Date
+						) {
 							executedAt = new Date(completedAt)
 						}
 					}
@@ -517,27 +551,39 @@ export const notarialBookRouter = createTRPCRouter({
 				// First, verify the document is fully signed before syncing
 				// This ensures only fully signed documents appear in the Notarial Book
 				try {
-					const signingStatus = await checkSigningStatus(doc.docoChainProjectId, user.email ?? undefined)
-					
+					const signingStatus = await checkSigningStatus(
+						doc.docoChainProjectId,
+						user.email ?? undefined
+					)
+
 					if (!signingStatus.isFullySigned) {
-						console.log(`⏭️ Skipping ${doc.name} - not fully signed yet (${signingStatus.signedCount}/${signingStatus.totalSigners} signers)`)
+						console.log(
+							`⏭️ Skipping ${doc.name} - not fully signed yet (${signingStatus.signedCount}/${signingStatus.totalSigners} signers)`
+						)
 						// Don't add to errors - this is expected behavior
 						continue
 					}
-					
+
 					console.log(`✅ Document ${doc.name} is fully signed, proceeding to sync...`)
 				} catch (statusError) {
-					const errorMessage = statusError instanceof Error ? statusError.message : String(statusError)
-					
+					const errorMessage =
+						statusError instanceof Error ? statusError.message : String(statusError)
+
 					// If it's "not fully signed" error, skip silently
-					if (errorMessage.includes("not fully signed") || errorMessage.includes("not fully signed yet")) {
+					if (
+						errorMessage.includes("not fully signed") ||
+						errorMessage.includes("not fully signed yet")
+					) {
 						console.log(`⏭️ Skipping ${doc.name} - not fully signed yet`)
 						continue
 					}
-					
+
 					// For other errors (API issues), log but try to sync anyway
 					// autoCreateNotarialAct will also check signing status as a safeguard
-					console.warn(`⚠️ Could not verify signing status for ${doc.name}, but continuing (might be temporary API issue):`, errorMessage)
+					console.warn(
+						`⚠️ Could not verify signing status for ${doc.name}, but continuing (might be temporary API issue):`,
+						errorMessage
+					)
 				}
 
 				// Use autoCreateNotarialAct which handles principal identification from meeting participants
@@ -568,7 +614,9 @@ export const notarialBookRouter = createTRPCRouter({
 					} else {
 						// Creation failed for another reason (likely not fully signed, which is expected)
 						// Don't add to errors - this is handled gracefully
-						console.log(`⏭️ Could not create notarial act for ${doc.name} (document may not be fully signed)`)
+						console.log(
+							`⏭️ Could not create notarial act for ${doc.name} (document may not be fully signed)`
+						)
 					}
 				}
 			} catch (error) {
@@ -645,13 +693,12 @@ export const notarialBookRouter = createTRPCRouter({
 				}
 			}
 
-
-
 			// If we reach here, neither DocoChain nor Supabase had the document
 			let errorMessage = "Document URL not available."
-			
+
 			if (act.docoChainProjectUuid) {
-				errorMessage += " The document may not have been fully signed in DocoChain, or the project may have been deleted."
+				errorMessage +=
+					" The document may not have been fully signed in DocoChain, or the project may have been deleted."
 			} else if (act.documentId) {
 				errorMessage += " The document file may not have been uploaded to storage."
 			}

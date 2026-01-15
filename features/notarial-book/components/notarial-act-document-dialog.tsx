@@ -1,11 +1,12 @@
 "use client"
 
-import { FileText, Download, Loader2 } from "lucide-react"
+import { Download, FileText, Loader2 } from "lucide-react"
 
 import { Button } from "@/core/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/core/components/ui/dialog"
 
 import { trpc } from "@/services/trpc/client"
+
 import { SimplePdfViewer } from "@/features/envelopes-lite/components/simple-pdf-viewer"
 
 interface NotarialActDocumentDialogProps {
@@ -14,7 +15,6 @@ interface NotarialActDocumentDialogProps {
 	actId: string
 	documentName: string
 }
-
 
 export function NotarialActDocumentDialog({
 	isOpen,
@@ -35,9 +35,9 @@ export function NotarialActDocumentDialog({
 
 	return (
 		<Dialog open={isOpen} onOpenChange={onClose}>
-			<DialogContent 
-				className="!flex !h-[96vh] !w-[96vw] !max-w-none flex-col overflow-hidden !p-0 !m-0 !rounded-lg !gap-0"
-				style={{ maxWidth: '96vw' }}
+			<DialogContent
+				className="!m-0 !flex !h-[96vh] !w-[96vw] !max-w-none flex-col !gap-0 overflow-hidden !rounded-lg !p-0"
+				style={{ maxWidth: "96vw" }}
 			>
 				<DialogHeader className="bg-background flex shrink-0 flex-row items-center justify-between border-b p-4">
 					<div className="flex items-center gap-3">
@@ -54,11 +54,11 @@ export function NotarialActDocumentDialog({
 				</DialogHeader>
 
 				{/* Content Area - Fixed height to prevent layout shifts */}
-				<div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-muted/30">
+				<div className="bg-muted/30 flex min-h-0 flex-1 flex-col overflow-hidden">
 					{isPending && (
 						<div className="flex h-full items-center justify-center p-8">
 							<div className="text-center">
-								<Loader2 className="mx-auto h-8 w-8 animate-spin text-muted-foreground mb-4" />
+								<Loader2 className="text-muted-foreground mx-auto mb-4 h-8 w-8 animate-spin" />
 								<p className="text-muted-foreground text-sm">Loading document...</p>
 							</div>
 						</div>
@@ -85,7 +85,10 @@ export function NotarialActDocumentDialog({
 											if (codeStr.includes("FORBIDDEN") || error.data.code === "FORBIDDEN") {
 												return "Access denied"
 											}
-											if (codeStr.includes("BAD_GATEWAY") || codeStr.includes("SERVICE_UNAVAILABLE")) {
+											if (
+												codeStr.includes("BAD_GATEWAY") ||
+												codeStr.includes("SERVICE_UNAVAILABLE")
+											) {
 												return "Service temporarily unavailable. Please try again later."
 											}
 											return `Error: ${codeStr}`
@@ -94,7 +97,7 @@ export function NotarialActDocumentDialog({
 										return "Unknown error"
 									})()}
 								</p>
-								<div className="flex gap-2 justify-center">
+								<div className="flex justify-center gap-2">
 									<Button variant="outline" size="sm" onClick={onClose}>
 										Close
 									</Button>
@@ -115,9 +118,9 @@ export function NotarialActDocumentDialog({
 
 					{documentData?.url && !isPending && !error && (
 						<div className="flex-1 overflow-hidden">
-							<SimplePdfViewer 
-								fileUrl={documentData.url} 
-								documentName={documentData.fileName ?? documentName} 
+							<SimplePdfViewer
+								fileUrl={documentData.url}
+								documentName={documentData.fileName ?? documentName}
 							/>
 						</div>
 					)}
@@ -129,7 +132,7 @@ export function NotarialActDocumentDialog({
 									<FileText className="text-muted-foreground mx-auto h-8 w-8" />
 								</div>
 								<p className="text-muted-foreground text-sm">No document URL available</p>
-								<p className="text-muted-foreground text-xs mt-2">
+								<p className="text-muted-foreground mt-2 text-xs">
 									The document may not have been fully signed or may not exist in DocoChain.
 								</p>
 							</div>

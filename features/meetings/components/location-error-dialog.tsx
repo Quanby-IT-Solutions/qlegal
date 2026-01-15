@@ -19,7 +19,11 @@ import {
 	type LocationVerificationResult,
 } from "@/features/meetings/lib/location-verification"
 
-type ErrorReason = LocationVerificationResult["reason"] | "permission_denied" | "unavailable" | "timeout"
+type ErrorReason =
+	| LocationVerificationResult["reason"]
+	| "permission_denied"
+	| "unavailable"
+	| "timeout"
 
 interface LocationErrorDialogProps {
 	open: boolean
@@ -83,7 +87,8 @@ function getErrorConfig(errorReason: ErrorReason, userRole: "ENP" | "PRINCIPAL" 
 			iconColor: "text-yellow-600 dark:text-yellow-500",
 			iconBgColor: "bg-yellow-100 dark:bg-yellow-900/20",
 			title: "Geolocation Error",
-			description: "There was an error obtaining your location. Please check your device settings and try again.",
+			description:
+				"There was an error obtaining your location. Please check your device settings and try again.",
 			showRetry: true,
 		},
 		permission_denied: {
@@ -109,7 +114,8 @@ function getErrorConfig(errorReason: ErrorReason, userRole: "ENP" | "PRINCIPAL" 
 			iconColor: "text-yellow-600 dark:text-yellow-500",
 			iconBgColor: "bg-yellow-100 dark:bg-yellow-900/20",
 			title: "Location Request Timed Out",
-			description: "The location request took too long. Please check your connection and try again.",
+			description:
+				"The location request took too long. Please check your connection and try again.",
 			showRetry: true,
 		},
 		in_philippines: {
@@ -170,7 +176,7 @@ export function LocationErrorDialog({
 					{/* Show embassy info if user is near one but role doesn't allow it */}
 					{errorReason === "enp_at_embassy_abroad" && details?.nearbyEmbassy && (
 						<div className="rounded-lg border border-orange-200 bg-orange-50 p-4 dark:border-orange-800 dark:bg-orange-950/30">
-							<p className="text-muted-foreground mb-1 text-xs font-medium uppercase tracking-wide">
+							<p className="text-muted-foreground mb-1 text-xs font-medium tracking-wide uppercase">
 								Detected Location
 							</p>
 							<p className="font-medium text-orange-800 dark:text-orange-200">
@@ -188,12 +194,12 @@ export function LocationErrorDialog({
 					)}
 
 					{/* Show requirements based on role */}
-					<div className="rounded-lg bg-muted/50 p-4">
+					<div className="bg-muted/50 rounded-lg p-4">
 						<div className="flex items-start gap-3">
-							<AlertCircle className="mt-0.5 size-5 flex-shrink-0 text-muted-foreground" />
+							<AlertCircle className="text-muted-foreground mt-0.5 size-5 flex-shrink-0" />
 							<div className="space-y-1">
 								<p className="text-sm font-medium">Location Requirements</p>
-								<p className="text-sm text-muted-foreground">
+								<p className="text-muted-foreground text-sm">
 									{getLocationRequirementMessage(userRole)}
 								</p>
 							</div>
@@ -202,7 +208,7 @@ export function LocationErrorDialog({
 
 					{/* Permission denied specific instructions */}
 					{errorReason === "permission_denied" && (
-						<div className="space-y-2 text-sm text-muted-foreground">
+						<div className="text-muted-foreground space-y-2 text-sm">
 							<p className="font-medium">How to enable location access:</p>
 							<ol className="ml-4 list-decimal space-y-1">
 								<li>Click the lock/info icon in your browser's address bar</li>

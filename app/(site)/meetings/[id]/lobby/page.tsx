@@ -259,7 +259,7 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 					text:
 						verificationResult?.reason === "near_embassy"
 							? `Verified at ${verificationResult.details?.nearbyEmbassy?.name ?? "embassy"}`
-							: verificationResult?.details?.formattedAddress ?? "Location verified",
+							: (verificationResult?.details?.formattedAddress ?? "Location verified"),
 					color: "text-emerald-700 dark:text-emerald-400",
 					bgColor: "bg-emerald-50 dark:bg-emerald-950/20",
 				}
@@ -346,7 +346,7 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 					open={true}
 					errorReason={
 						locationStatus === "error"
-							? verificationResult?.reason ?? "location_unknown"
+							? (verificationResult?.reason ?? "location_unknown")
 							: locationStatus
 					}
 					userRole={userRole}
@@ -477,11 +477,12 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 											<p className={`text-sm font-semibold ${locationStatusDisplay.color}`}>
 												{locationStatusDisplay.text}
 											</p>
-											{locationStatus === "checking" && (isGeoLoading || verifyLocation.isPending) && (
-												<p className="text-muted-foreground text-xs">
-													{isGeoLoading ? "Getting your location..." : "Verifying with server..."}
-												</p>
-											)}
+											{locationStatus === "checking" &&
+												(isGeoLoading || verifyLocation.isPending) && (
+													<p className="text-muted-foreground text-xs">
+														{isGeoLoading ? "Getting your location..." : "Verifying with server..."}
+													</p>
+												)}
 										</div>
 									</div>
 								</CardContent>
@@ -500,7 +501,7 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 								<CardContent className="space-y-3">
 									<div className="bg-muted/50 flex items-center justify-between rounded-lg p-2.5">
 										<div className="min-w-0 flex-1">
-											<p className="text-muted-foreground text-[10px] font-medium uppercase tracking-wide">
+											<p className="text-muted-foreground text-[10px] font-medium tracking-wide uppercase">
 												Host
 											</p>
 											<p className="mt-0.5 truncate text-sm font-semibold">
@@ -519,7 +520,7 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 											<div className="size-2 animate-pulse rounded-full bg-emerald-500" />
 										</div>
 										<div className="min-w-0 flex-1">
-											<p className="text-muted-foreground text-[10px] font-medium uppercase tracking-wide">
+											<p className="text-muted-foreground text-[10px] font-medium tracking-wide uppercase">
 												Status
 											</p>
 											<p className="text-sm font-semibold text-emerald-700 dark:text-emerald-400">

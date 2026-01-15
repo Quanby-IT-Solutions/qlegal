@@ -1,15 +1,16 @@
 /**
  * TanStack Query hook for fetching liveness verification results
- * 
+ *
  * This hook prevents duplicate API calls through:
  * 1. Automatic request deduplication
  * 2. Proper caching with stale time
  * 3. Controlled refetching behavior
- * 
+ *
  * Following HyperVerge best practices: Call /v1/output only ONCE per transaction
  */
 
 import { useQuery } from "@tanstack/react-query"
+
 import { getHostedLivenessResult } from "../api/liveness.actions"
 
 interface UseLivenessResultOptions {

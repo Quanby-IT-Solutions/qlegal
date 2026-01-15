@@ -163,7 +163,7 @@ export const PHILIPPINE_EMBASSIES: EmbassyLocation[] = [
 		type: "embassy",
 		country: "Germany",
 		city: "Berlin",
-		coordinates: { lat: 52.5200, lng: 13.4050 },
+		coordinates: { lat: 52.52, lng: 13.405 },
 		address: "Luisenstraße 16, 10117 Berlin",
 	},
 	{
@@ -197,7 +197,7 @@ export const PHILIPPINE_EMBASSIES: EmbassyLocation[] = [
 		type: "consulate",
 		country: "Italy",
 		city: "Milan",
-		coordinates: { lat: 45.4642, lng: 9.1900 },
+		coordinates: { lat: 45.4642, lng: 9.19 },
 		address: "Via Santa Maria Segreta 6, 20123 Milan",
 	},
 	// Spain
@@ -241,7 +241,7 @@ export const PHILIPPINE_EMBASSIES: EmbassyLocation[] = [
 		type: "embassy",
 		country: "Switzerland",
 		city: "Bern",
-		coordinates: { lat: 46.9480, lng: 7.4474 },
+		coordinates: { lat: 46.948, lng: 7.4474 },
 		address: "Kirchenfeldstrasse 73-75, 3005 Bern",
 	},
 	{
@@ -393,7 +393,8 @@ export const PHILIPPINE_EMBASSIES: EmbassyLocation[] = [
 		country: "China",
 		city: "Guangzhou",
 		coordinates: { lat: 23.1291, lng: 113.2644 },
-		address: "Room 706-712, Guangdong International Hotel, Main Tower, 339 Huanshi Dong Lu, Guangzhou",
+		address:
+			"Room 706-712, Guangdong International Hotel, Main Tower, 339 Huanshi Dong Lu, Guangzhou",
 	},
 	{
 		name: "Philippine Consulate General",
@@ -401,15 +402,17 @@ export const PHILIPPINE_EMBASSIES: EmbassyLocation[] = [
 		country: "China",
 		city: "Xiamen",
 		coordinates: { lat: 24.4798, lng: 118.0894 },
-		address: "Units 02-04, 30/F, Xiamen International Plaza, No. 8 Lujiang Road, Siming District, Xiamen",
+		address:
+			"Units 02-04, 30/F, Xiamen International Plaza, No. 8 Lujiang Road, Siming District, Xiamen",
 	},
 	{
 		name: "Philippine Consulate General",
 		type: "consulate",
 		country: "China",
 		city: "Chongqing",
-		coordinates: { lat: 29.5630, lng: 106.5516 },
-		address: "52F Yingli International Financial Center, 28 Minzu Road, Yuzhong District, Chongqing",
+		coordinates: { lat: 29.563, lng: 106.5516 },
+		address:
+			"52F Yingli International Financial Center, 28 Minzu Road, Yuzhong District, Chongqing",
 	},
 	// Hong Kong
 	{
@@ -435,7 +438,7 @@ export const PHILIPPINE_EMBASSIES: EmbassyLocation[] = [
 		type: "embassy",
 		country: "South Korea",
 		city: "Seoul",
-		coordinates: { lat: 37.5665, lng: 126.9780 },
+		coordinates: { lat: 37.5665, lng: 126.978 },
 		address: "5-1 Itaewon 2-dong, Yongsan-gu, Seoul 04349",
 	},
 	// Taiwan
@@ -444,7 +447,7 @@ export const PHILIPPINE_EMBASSIES: EmbassyLocation[] = [
 		type: "consulate",
 		country: "Taiwan",
 		city: "Taipei",
-		coordinates: { lat: 25.0330, lng: 121.5654 },
+		coordinates: { lat: 25.033, lng: 121.5654 },
 		address: "41F, Taipei 101 Tower, No. 7, Sec. 5, Xinyi Road, Taipei 11049",
 	},
 	// Singapore
@@ -558,7 +561,7 @@ export const PHILIPPINE_EMBASSIES: EmbassyLocation[] = [
 		type: "embassy",
 		country: "India",
 		city: "New Delhi",
-		coordinates: { lat: 28.6139, lng: 77.2090 },
+		coordinates: { lat: 28.6139, lng: 77.209 },
 		address: "50-N, Nyaya Marg, Chanakyapuri, New Delhi 110021",
 	},
 	// Bangladesh
@@ -647,7 +650,7 @@ export const PHILIPPINE_EMBASSIES: EmbassyLocation[] = [
 		type: "embassy",
 		country: "Qatar",
 		city: "Doha",
-		coordinates: { lat: 25.2854, lng: 51.5310 },
+		coordinates: { lat: 25.2854, lng: 51.531 },
 		address: "Villa No. 108, Al Kharaitiyat Area, Doha",
 	},
 	// Bahrain
@@ -665,7 +668,7 @@ export const PHILIPPINE_EMBASSIES: EmbassyLocation[] = [
 		type: "embassy",
 		country: "Oman",
 		city: "Muscat",
-		coordinates: { lat: 23.5880, lng: 58.3829 },
+		coordinates: { lat: 23.588, lng: 58.3829 },
 		address: "Villa No. 2891, Way No. 3017, Al Khuwair, Muscat",
 	},
 	// Israel
@@ -767,7 +770,7 @@ export const PHILIPPINE_EMBASSIES: EmbassyLocation[] = [
 		type: "embassy",
 		country: "Australia",
 		city: "Canberra",
-		coordinates: { lat: -35.2809, lng: 149.1300 },
+		coordinates: { lat: -35.2809, lng: 149.13 },
 		address: "1 Moonah Place, Yarralumla, ACT 2600",
 	},
 	{

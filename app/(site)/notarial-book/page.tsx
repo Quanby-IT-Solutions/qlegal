@@ -43,9 +43,10 @@ import {
 	TableHeader,
 	TableRow,
 } from "@/core/components/ui/table"
-import { NotarialActDocumentDialog } from "@/features/notarial-book/components/notarial-act-document-dialog"
 
 import { trpc, type RouterOutputs } from "@/services/trpc/client"
+
+import { NotarialActDocumentDialog } from "@/features/notarial-book/components/notarial-act-document-dialog"
 
 type NotarialAct = RouterOutputs["notarialBook"]["getNotarialBook"]["acts"][number]
 
@@ -111,7 +112,7 @@ export default function NotarialBookPage() {
 			const matchesPrincipal = act.principalName?.toLowerCase().includes(searchLower) ?? false
 			const matchesDocument = act.documentName?.toLowerCase().includes(searchLower) ?? false
 			const matchesCertificate = act.certificateNumber?.toLowerCase().includes(searchLower) ?? false
-			
+
 			return matchesPrincipal || matchesDocument || matchesCertificate
 		})
 	}, [notarialBookData?.acts, searchTerm])
@@ -356,9 +357,7 @@ export default function NotarialBookPage() {
 															</span>
 														</TableCell>
 														<TableCell>
-															<Badge variant="outline">
-																{act.actType}
-															</Badge>
+															<Badge variant="outline">{act.actType}</Badge>
 														</TableCell>
 														<TableCell>
 															<Badge variant={act.workflow === "REN" ? "default" : "secondary"}>
@@ -369,17 +368,23 @@ export default function NotarialBookPage() {
 															<div>
 																<p className="font-medium">{act.principalName}</p>
 																{act.principalIdNumber && (
-																	<p className="text-xs text-muted-foreground">ID: {act.principalIdNumber}</p>
+																	<p className="text-muted-foreground text-xs">
+																		ID: {act.principalIdNumber}
+																	</p>
 																)}
 																{act.witnessName && (
-																	<p className="text-xs text-muted-foreground mt-1">Witness: {act.witnessName}</p>
+																	<p className="text-muted-foreground mt-1 text-xs">
+																		Witness: {act.witnessName}
+																	</p>
 																)}
 															</div>
 														</TableCell>
 														<TableCell className="max-w-md">
-															<p className="text-sm font-medium">{act.documentName ?? "Untitled Document"}</p>
+															<p className="text-sm font-medium">
+																{act.documentName ?? "Untitled Document"}
+															</p>
 															{act.documentDescription && (
-																<p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+																<p className="text-muted-foreground mt-1 line-clamp-2 text-xs">
 																	{act.documentDescription}
 																</p>
 															)}
@@ -388,7 +393,9 @@ export default function NotarialBookPage() {
 															<span className="text-sm">{act.location ?? "Philippines"}</span>
 														</TableCell>
 														<TableCell>
-															<span className="font-mono text-sm">{act.certificateNumber ?? "N/A"}</span>
+															<span className="font-mono text-sm">
+																{act.certificateNumber ?? "N/A"}
+															</span>
 														</TableCell>
 														<TableCell>
 															<div className="flex items-center gap-2">
@@ -396,7 +403,9 @@ export default function NotarialBookPage() {
 																	<Button
 																		variant="ghost"
 																		size="sm"
-																		onClick={() => handleViewDocument(act.id, act.documentName ?? undefined)}
+																		onClick={() =>
+																			handleViewDocument(act.id, act.documentName ?? undefined)
+																		}
 																		title="View Document"
 																	>
 																		<Eye className="h-4 w-4" />
@@ -420,21 +429,21 @@ export default function NotarialBookPage() {
 										</Table>
 									</div>
 								)}
-						</CardContent>
-					</Card>
-				</div>
-			</main>
-		</div>
+							</CardContent>
+						</Card>
+					</div>
+				</main>
+			</div>
 
-		{/* Document Preview Dialog - matches qsign-lite pattern */}
-		{previewDocument && (
-			<NotarialActDocumentDialog
-				isOpen={!!previewDocument}
-				onClose={() => setPreviewDocument(null)}
-				actId={previewDocument.actId}
-				documentName={previewDocument.documentName}
-			/>
-		)}
+			{/* Document Preview Dialog - matches qsign-lite pattern */}
+			{previewDocument && (
+				<NotarialActDocumentDialog
+					isOpen={!!previewDocument}
+					onClose={() => setPreviewDocument(null)}
+					actId={previewDocument.actId}
+					documentName={previewDocument.documentName}
+				/>
+			)}
 		</>
 	)
 }
