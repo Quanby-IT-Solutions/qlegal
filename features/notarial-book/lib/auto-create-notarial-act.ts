@@ -1,12 +1,12 @@
-import { eq, and } from "drizzle-orm"
+import { and, eq } from "drizzle-orm"
 import type { PostgresJsDatabase } from "drizzle-orm/postgres-js"
 
-import { documents } from "@/services/drizzle/schema/document"
-import { notarialActs, notarialBooks } from "@/services/drizzle/schema/notarial-book"
+import { checkSigningStatus, getPassportDocument } from "@/services/docochain"
 import { users } from "@/services/drizzle/schema/auth"
+import { documents } from "@/services/drizzle/schema/document"
 import { legalRegistrations } from "@/services/drizzle/schema/legal-registration"
 import { meetings } from "@/services/drizzle/schema/meetings"
-import { getPassportDocument, checkSigningStatus } from "@/services/docochain"
+import { notarialActs, notarialBooks } from "@/services/drizzle/schema/notarial-book"
 
 /**
  * Extract principal and witness information from passport data
@@ -42,10 +42,15 @@ function extractSignerInfo(passportData: unknown) {
 
 	console.log("🔵 Extracting signer info from passport data...")
 	console.log("   - Passport data structure:", passportObj ? Object.keys(passportObj) : "null")
-	console.log("   - Passport data.data structure:", passportObj?.data ? Object.keys(passportObj.data) : "null")
+	console.log(
+		"   - Passport data.data structure:",
+		passportObj?.data ? Object.keys(passportObj.data) : "null"
+	)
 
 	// Type guard for signer objects
-	const isSigner = (signer: unknown): signer is {
+	const isSigner = (
+		signer: unknown
+	): signer is {
 		name?: string
 		first_name?: string
 		last_name?: string
@@ -65,7 +70,9 @@ function extractSignerInfo(passportData: unknown) {
 	}
 
 	// Type guard for history event objects
-	const isHistoryEvent = (event: unknown): event is {
+	const isHistoryEvent = (
+		event: unknown
+	): event is {
 		signer?: unknown
 		user?: unknown
 		action?: string
@@ -156,14 +163,18 @@ function extractSignerInfo(passportData: unknown) {
 			const name = signerData.name ?? fullName ?? signerData.email?.split("@")[0] ?? "Unknown"
 
 			// Avoid duplicates
-			const existingSigner = signers.find(
-				s => s.email === signerData.email || s.name === name
-			)
+			const existingSigner = signers.find(s => s.email === signerData.email || s.name === name)
 
 			if (!existingSigner) {
 				const email = signerData.email ?? ""
 				const role = signerData.role ?? signerData.signer_role ?? action ?? "SIGNER"
-				const signedAt = event.timestamp ?? event.signed_at ?? event.created_at ?? signerData.signed_at ?? signerData.signedAt ?? signerData.timestamp
+				const signedAt =
+					event.timestamp ??
+					event.signed_at ??
+					event.created_at ??
+					signerData.signed_at ??
+					signerData.signedAt ??
+					signerData.timestamp
 				const idNumber = signerData.id_number ?? signerData.passport_number ?? signerData.idNumber
 				const address = signerData.address
 
@@ -181,33 +192,37 @@ function extractSignerInfo(passportData: unknown) {
 
 	console.log(`   - Total unique signers found: ${signers.length}`)
 	if (signers.length > 0) {
-		console.log("   - Signers:", signers.map(s => `${s.name} (${s.email}, ${s.role})`))
+		console.log(
+			"   - Signers:",
+			signers.map(s => `${s.name} (${s.email}, ${s.role})`)
+		)
 	}
 
 	// Identify principal (usually first signer or role "PRINCIPAL" or "SIGNER", excluding ENP/NOTARY)
-	const principal = signers.find(s => {
-		const roleUpper = s.role?.toUpperCase() ?? ""
-		return (
-			(roleUpper.includes("PRINCIPAL") ||
-				roleUpper.includes("SIGNER") ||
-				roleUpper === "SIGNER") &&
-			!roleUpper.includes("ENP") &&
-			!roleUpper.includes("NOTARY") &&
-			!roleUpper.includes("WITNESS")
-		)
-	}) ?? signers.find(s => {
-		const roleUpper = s.role?.toUpperCase() ?? ""
-		return (
-			!roleUpper.includes("ENP") &&
-			!roleUpper.includes("NOTARY") &&
-			!roleUpper.includes("WITNESS")
-		)
-	}) ?? signers[0]
+	const principal =
+		signers.find(s => {
+			const roleUpper = s.role?.toUpperCase() ?? ""
+			return (
+				(roleUpper.includes("PRINCIPAL") ||
+					roleUpper.includes("SIGNER") ||
+					roleUpper === "SIGNER") &&
+				!roleUpper.includes("ENP") &&
+				!roleUpper.includes("NOTARY") &&
+				!roleUpper.includes("WITNESS")
+			)
+		}) ??
+		signers.find(s => {
+			const roleUpper = s.role?.toUpperCase() ?? ""
+			return (
+				!roleUpper.includes("ENP") &&
+				!roleUpper.includes("NOTARY") &&
+				!roleUpper.includes("WITNESS")
+			)
+		}) ??
+		signers[0]
 
 	// Identify witness (role "WITNESS")
-	const witness = signers.find(s =>
-		s.role?.toUpperCase().includes("WITNESS")
-	)
+	const witness = signers.find(s => s.role?.toUpperCase().includes("WITNESS"))
 
 	console.log(`   - Principal: ${principal?.name ?? "None"}`)
 	console.log(`   - Witness: ${witness?.name ?? "None"}`)
@@ -337,14 +352,19 @@ export async function autoCreateNotarialAct(
 			const errorMessage = statusError instanceof Error ? statusError.message : String(statusError)
 
 			// If it's clearly "not fully signed", don't create entry
-			if (errorMessage.includes("not fully signed") || errorMessage.includes("not fully signed yet")) {
+			if (
+				errorMessage.includes("not fully signed") ||
+				errorMessage.includes("not fully signed yet")
+			) {
 				console.warn("⚠️ Document is not fully signed - skipping notarial act creation")
 				return null
 			}
 
 			// For other errors (API issues), log but continue - might be temporary
 			// The entry will be created but the document might not be available later
-			console.warn("⚠️ Could not verify signing status, but continuing with entry creation (might be temporary API issue)")
+			console.warn(
+				"⚠️ Could not verify signing status, but continuing with entry creation (might be temporary API issue)"
+			)
 		}
 
 		// Get ENP user information
@@ -385,7 +405,11 @@ export async function autoCreateNotarialAct(
 		try {
 			// Get history view for audit trail and complete information
 			const enpUserEmail = (enpUser as { email?: string }).email
-			passportData = await getPassportDocument(projectUuid, "history", userEmail ?? enpUserEmail ?? undefined)
+			passportData = await getPassportDocument(
+				projectUuid,
+				"history",
+				userEmail ?? enpUserEmail ?? undefined
+			)
 			console.log("🔵 Fetched passport data for principal identification")
 
 			// Extract signer information - passport data should have the actual signers
@@ -401,7 +425,10 @@ export async function autoCreateNotarialAct(
 				// If no principal identified, use the first signer (excluding ENP if possible)
 				const nonEnpSigner =
 					allSigners.find(
-						s => s.role && !s.role.toUpperCase().includes("ENP") && !s.role.toUpperCase().includes("NOTARY")
+						s =>
+							s.role &&
+							!s.role.toUpperCase().includes("ENP") &&
+							!s.role.toUpperCase().includes("NOTARY")
 					) ?? allSigners[0]
 
 				if (nonEnpSigner) {
@@ -459,7 +486,11 @@ export async function autoCreateNotarialAct(
 
 			// Determine workflow (REN if has video/remote indicators, IEN otherwise)
 			const passportText = JSON.stringify(passportData).toLowerCase()
-			if (passportText.includes("remote") || passportText.includes("video") || passportText.includes("ren")) {
+			if (
+				passportText.includes("remote") ||
+				passportText.includes("video") ||
+				passportText.includes("ren")
+			) {
 				workflow = "REN"
 			} else {
 				workflow = "IEN"
@@ -508,29 +539,33 @@ export async function autoCreateNotarialAct(
 					},
 				})
 
-				const meetingObj = meeting as {
-					participants?: Array<{
-						user?: {
-							id?: string
-							name?: string
-							email?: string
-							role?: string
-						}
-					}>
-				} | null | undefined
+				const meetingObj = meeting as
+					| {
+							participants?: Array<{
+								user?: {
+									id?: string
+									name?: string
+									email?: string
+									role?: string
+								}
+							}>
+					  }
+					| null
+					| undefined
 
-				const meetingParticipants = meetingObj &&
+				const meetingParticipants =
+					meetingObj &&
 					typeof meetingObj === "object" &&
 					"participants" in meetingObj &&
 					Array.isArray(meetingObj.participants)
-					? meetingObj.participants
-					: []
+						? meetingObj.participants
+						: []
 
 				if (meetingParticipants.length > 0) {
 					console.log(`   - Found ${meetingParticipants.length} meeting participant(s)`)
 
 					// Find the participant who is NOT the ENP (the principal/uploader)
-					const principalParticipant = meetingParticipants.find((p) => {
+					const principalParticipant = meetingParticipants.find(p => {
 						if (
 							typeof p === "object" &&
 							p !== null &&
@@ -577,7 +612,8 @@ export async function autoCreateNotarialAct(
 		const certificateNumber = `NB-${notarialBookId.substring(0, 4).toUpperCase()}-${executedAt.getTime().toString().slice(-6)}`
 
 		const enpUserName = (enpUser as { name?: string }).name ?? "Unknown ENP"
-		const enpRollNumber = (legalRegistration as { rollOfAttorneysNumber?: string } | undefined)?.rollOfAttorneysNumber
+		const enpRollNumber = (legalRegistration as { rollOfAttorneysNumber?: string } | undefined)
+			?.rollOfAttorneysNumber
 
 		// Create notarial act entry
 		// This is automatically populated in chronological order (via executedAt timestamp)
@@ -613,18 +649,25 @@ export async function autoCreateNotarialAct(
 			return null
 		}
 
-		const actId = createdAct && typeof createdAct === "object" && "id" in createdAct
-			? String(createdAct.id)
-			: undefined
-		const actCertNumber = createdAct && typeof createdAct === "object" && "certificateNumber" in createdAct
-			? String(createdAct.certificateNumber)
-			: undefined
-		const actPrincipalName = createdAct && typeof createdAct === "object" && "principalName" in createdAct
-			? String(createdAct.principalName)
-			: undefined
-		const actExecutedAt = createdAct && typeof createdAct === "object" && "executedAt" in createdAct && createdAct.executedAt instanceof Date
-			? createdAct.executedAt
-			: undefined
+		const actId =
+			createdAct && typeof createdAct === "object" && "id" in createdAct
+				? String(createdAct.id)
+				: undefined
+		const actCertNumber =
+			createdAct && typeof createdAct === "object" && "certificateNumber" in createdAct
+				? String(createdAct.certificateNumber)
+				: undefined
+		const actPrincipalName =
+			createdAct && typeof createdAct === "object" && "principalName" in createdAct
+				? String(createdAct.principalName)
+				: undefined
+		const actExecutedAt =
+			createdAct &&
+			typeof createdAct === "object" &&
+			"executedAt" in createdAct &&
+			createdAct.executedAt instanceof Date
+				? createdAct.executedAt
+				: undefined
 
 		console.log("✅ Automatically created notarial act entry:", {
 			id: actId,

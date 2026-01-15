@@ -4,6 +4,7 @@
  */
 
 import { env } from "@/env"
+
 import { normalizeDocoChainUrl } from "./url-normalizer"
 
 const DOCOCHAIN_API_BASE = env.DOCOCHAIN_API_URL ?? "https://stg-api2.doconchain.com"
@@ -1440,7 +1441,7 @@ export async function downloadSignedDocument(
 			console.log("   - signed_url:", projectData.signed_url ?? "not available")
 			console.log("   - signed_document_url:", projectData.signed_document_url ?? "not available")
 			console.log("   - url (original):", projectData.url ?? "not available")
-			
+
 			const response = await fetch(fallbackUrl)
 
 			if (!response.ok) {
@@ -2027,7 +2028,7 @@ export async function getVaultItems(
  * Get a single Vault Item by project UUID
  * Retrieves a specific completed signature request project from the vault
  * API: GET https://stg-api2.doconchain.com/vault/items/{projectUuid}
- * 
+ *
  * @param projectUuid - The project UUID to retrieve
  * @param userEmail - Email of the user to generate token for
  * @returns Vault item data with files
@@ -2062,18 +2063,15 @@ export async function getVaultItem(
 		console.log("🔵 Calling DocoChain Vault Item API:", apiUrl)
 
 		// Use the wrapper function for automatic token refresh on 401 errors
-		const response = await makeDocoChainApiCall(
-			async (token) => {
-				return fetch(apiUrl, {
-					method: "GET",
-					headers: {
-						Authorization: `Bearer ${token}`,
-						Accept: "application/json",
-					},
-				})
-			},
-			userEmail
-		)
+		const response = await makeDocoChainApiCall(async token => {
+			return fetch(apiUrl, {
+				method: "GET",
+				headers: {
+					Authorization: `Bearer ${token}`,
+					Accept: "application/json",
+				},
+			})
+		}, userEmail)
 
 		console.log("📡 DocoChain vault item response status:", response.status)
 
@@ -2084,7 +2082,9 @@ export async function getVaultItem(
 			}
 			const errorText = await response.text()
 			console.error("❌ DocoChain vault item error:", errorText)
-			throw new Error(`DocoChain API error: ${response.status} ${response.statusText} - ${errorText}`)
+			throw new Error(
+				`DocoChain API error: ${response.status} ${response.statusText} - ${errorText}`
+			)
 		}
 
 		const result = (await response.json()) as VaultItemResponse
@@ -2097,5 +2097,3 @@ export async function getVaultItem(
 		throw error
 	}
 }
-
-

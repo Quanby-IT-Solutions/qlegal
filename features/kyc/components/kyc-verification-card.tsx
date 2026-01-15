@@ -1,19 +1,22 @@
 "use client"
 
 import { useSearchParams } from "next/navigation"
-import { useEffect, useMemo, useState, useTransition } from "react"
-import { CheckCircle2, Loader2, ShieldCheck, XCircle } from "lucide-react"
+import { useEffect, useMemo, useRef, useState, useTransition } from "react"
+import { CheckCircle2, Loader2, LogOut, PlayCircle, ShieldCheck, XCircle } from "lucide-react"
+import { signOut } from "next-auth/react"
 import { toast } from "sonner"
 
 import { Badge } from "@/core/components/ui/badge"
 import { Button } from "@/core/components/ui/button"
 import { Label } from "@/core/components/ui/label"
+import { useKycBroadcast } from "@/core/hooks/use-kyc-broadcast"
 
 import {
-	checkUserKycStatus,
 	createUserKycLink,
+	getExistingKycLink,
 	resetUserKycStatus,
 } from "@/features/kyc/api/kyc.actions"
+import { useKycStatus } from "@/features/kyc/hooks/use-kyc-status"
 
 interface KycStatusResult {
 	transactionId: string
@@ -43,17 +46,70 @@ export function KycVerificationCard({
 	redirectUrlOnSkip,
 }: KycVerificationCardProps) {
 	const [isPending, startTransition] = useTransition()
-	const [statusResult, setStatusResult] = useState<KycStatusResult | null>(null)
 	const [error, setError] = useState<string | null>(null)
-	const [checkingStatus, setCheckingStatus] = useState(false)
-	const [shownToasts, setShownToasts] = useState<Set<string>>(new Set())
+	const [showManualCheck, setShowManualCheck] = useState(false)
 	const searchParams = useSearchParams()
+	const toastShownRef = useRef<Set<string>>(new Set())
+
+	// Determine effective status from either server data or query result
+	const effectiveStatus = useMemo(() => userInfo.kycStatus, [userInfo.kycStatus])
+
+	// Option 1.5: Single check on mount, no polling
+	// Webhook handles real-time updates (primary method)
+	const {
+		data: statusQueryResult,
+		isLoading: isCheckingStatus,
+		refetch,
+	} = useKycStatus({
+		currentStatus: effectiveStatus,
+		enabled: true,
+	})
+
+	const statusResult = statusQueryResult?.success ? statusQueryResult.data : null
+
+	// Cross-tab communication: Listen for verification events from other tabs (0 API calls)
+	const { listen, isSupported } = useKycBroadcast()
+
+	useEffect(() => {
+		if (effectiveStatus === "PENDING") {
+			const unsubscribe = listen(message => {
+				if (message.type === "KYC_VERIFIED") {
+					console.log("📨 Received KYC_VERIFIED from other tab - redirecting...")
+					toast.success("KYC verified! Redirecting...")
+					setTimeout(() => {
+						window.location.href = "/dashboard"
+					}, 500)
+				}
+			})
+
+			return unsubscribe
+		}
+	}, [effectiveStatus, listen])
+
+	// Fallback: Check status on window focus if BroadcastChannel not supported (max 1 extra call)
+	useEffect(() => {
+		if (effectiveStatus === "PENDING" && !isSupported()) {
+			const handleFocus = () => {
+				console.log("🔍 Window focused - checking status (fallback)")
+				refetch()
+			}
+
+			window.addEventListener("focus", handleFocus)
+			return () => window.removeEventListener("focus", handleFocus)
+		}
+	}, [effectiveStatus, isSupported, refetch])
+
+	// Show manual check button after 5 seconds if still PENDING
+	useEffect(() => {
+		if (effectiveStatus === "PENDING" && !showManualCheck) {
+			const timer = setTimeout(() => {
+				setShowManualCheck(true)
+			}, 5000) // 5 seconds
+			return () => clearTimeout(timer)
+		}
+	}, [effectiveStatus, showManualCheck])
 
 	// When verified in minimal mode, auto-redirect to dashboard after short delay
-	const effectiveStatus = useMemo(
-		() => statusResult?.kycStatus ?? userInfo.kycStatus,
-		[statusResult, userInfo.kycStatus]
-	)
 	useEffect(() => {
 		if (minimal && effectiveStatus === "VERIFIED" && redirectUrlOnSkip) {
 			const t = setTimeout(() => {
@@ -63,79 +119,28 @@ export function KycVerificationCard({
 		}
 	}, [minimal, effectiveStatus, redirectUrlOnSkip])
 
-	// Check status ONCE after redirect from HyperVerge
-	// Following HyperVerge best practices: Single check after completion, not polling
+	// Show toast notifications when status changes (only once per status)
 	useEffect(() => {
-		const status = searchParams.get("status")
+		if (!statusResult) return
 
-		// Auto-check status when redirected from HyperVerge
-		if (status === "complete" && userInfo.transactionId && !checkingStatus) {
-			console.log("✅ KYC flow completed - checking status once (HyperVerge best practice)")
-			setCheckingStatus(true)
+		const toastKey = `${statusResult.kycStatus}-${statusResult.transactionId}`
 
-			// Single status check after redirect (webhook should have already updated DB)
-			startTransition(async () => {
-				const result = await checkUserKycStatus()
-
-				if (result.success && result.data) {
-					setStatusResult(result.data)
-
-					if (result.data.kycStatus === "VERIFIED") {
-						console.log("✅ KYC Verified! Redirecting to dashboard...")
-						toast.success("KYC verification approved! Redirecting...")
-
-						// Close the original /auth/kyc tab if this was opened from there
-						if (window.opener && !(window.opener as Window).closed) {
-							console.log("🔄 Closing original /auth/kyc tab...")
-							try {
-								;(window.opener as Window).close()
-							} catch (e) {
-								console.warn("Could not close opener window:", e)
-							}
-						}
-
-						// Redirect to dashboard after brief delay
-						setTimeout(() => {
-							window.location.href = "/dashboard"
-						}, 1500)
-					} else if (result.data.kycStatus === "REJECTED") {
-						console.log("❌ KYC Rejected")
-						toast.error("KYC verification was declined. Please try again or contact support.")
-					} else {
-						// Still pending - webhook notification will update when ready
-						console.log("⏳ KYC still processing - webhook will notify when complete")
-						toast.info("Verification is being processed. You'll be notified when complete.")
-					}
-				} else {
-					console.warn("⚠️ Could not check status:", result.error)
-					toast.info("Checking verification status... Please wait.")
-				}
-
-				setCheckingStatus(false)
-			})
+		if (statusResult.kycStatus === "VERIFIED" && !toastShownRef.current.has(toastKey)) {
+			toastShownRef.current.add(toastKey)
+			console.log("✅ KYC Verified! Redirecting to dashboard...")
+			toast.success("KYC verification approved! Redirecting...")
+			setTimeout(() => {
+				window.location.href = "/dashboard"
+			}, 1500)
+		} else if (statusResult.kycStatus === "REJECTED" && !toastShownRef.current.has(toastKey)) {
+			toastShownRef.current.add(toastKey)
+			console.log("❌ KYC Rejected")
+			toast.error("KYC verification was declined. Please try again or contact support.")
 		}
-
-		// If user returns to this tab and KYC is already verified, redirect to dashboard
-		const handleFocus = () => {
-			if (userInfo.transactionId && !checkingStatus && !status) {
-				// Only check if we're on the original /auth/kyc tab (no ?status param)
-				void checkUserKycStatus().then(result => {
-					if (result.success && result.data?.kycStatus === "VERIFIED") {
-						console.log("✅ KYC already verified in another tab. Redirecting...")
-						window.location.href = "/dashboard"
-					}
-				})
-			}
-		}
-
-		window.addEventListener("focus", handleFocus)
-		return () => window.removeEventListener("focus", handleFocus)
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [searchParams, userInfo.transactionId])
+	}, [statusResult])
 
 	const handleCreateLink = () => {
 		setError(null)
-		setStatusResult(null)
 
 		startTransition(async () => {
 			const result = await createUserKycLink()
@@ -154,34 +159,39 @@ export function KycVerificationCard({
 		})
 	}
 
-	const handleCheckStatus = () => {
+	const handleResumeVerification = () => {
 		setError(null)
 
 		startTransition(async () => {
-			const result = await checkUserKycStatus()
+			const result = await getExistingKycLink()
 			if (result.success && result.data) {
-				setStatusResult(result.data)
-
-				// Show appropriate message and redirect if verified
-				if (result.data.kycStatus === "VERIFIED") {
-					toast.success("KYC verification approved! Redirecting to dashboard...")
-					setTimeout(() => {
-						window.location.href = "/dashboard"
-					}, 1500)
-				} else if (result.data.kycStatus === "REJECTED") {
-					toast.error("KYC verification was declined.")
-				} else {
-					toast.info("Verification is still being processed. Please check again in a few minutes.")
-				}
+				// Open the stored KYC link
+				window.open(result.data.url, "_blank", "noopener,noreferrer")
+				toast.success("Resuming KYC verification...")
+				console.log("🔄 Resuming KYC verification with transaction:", result.data.transactionId)
 			} else {
-				const errorKey = `error-${result.error}`
-				if (!shownToasts.has(errorKey)) {
-					setError(result.error ?? "Failed to check KYC status")
-					toast.error(result.error ?? "Failed to check KYC status")
-					setShownToasts(prev => new Set(prev).add(errorKey))
-				}
+				setError(result.error ?? "Failed to resume KYC verification")
+				toast.error(result.error ?? "Failed to resume KYC verification")
 			}
 		})
+	}
+
+	const handleManualCheckStatus = () => {
+		setError(null)
+		startTransition(async () => {
+			const result = await refetch()
+			if (result.data?.success) {
+				toast.success("Status updated!")
+			} else {
+				toast.error("Failed to check status")
+			}
+		})
+	}
+
+	const handleLogout = () => {
+		// Clear KYC skip session cookie before logout
+		document.cookie = "skipKycSession=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT"
+		signOut({ callbackUrl: "/auth/login" })
 	}
 
 	// No polling - following HyperVerge best practices
@@ -320,35 +330,62 @@ export function KycVerificationCard({
 								</p>
 								<p className="text-sm text-blue-700 dark:text-blue-300">
 									We&apos;re reviewing your identity documents. This usually takes a few minutes.
-									{checkingStatus && " Checking your verification status..."}
 								</p>
-								{!checkingStatus && (
-									<p className="mt-2 text-xs text-blue-600 dark:text-blue-400">
-										💡 You&apos;ll be automatically redirected when your verification is complete,
-										or you can check manually below.
-									</p>
-								)}
+								<p className="mt-2 text-xs text-blue-600 dark:text-blue-400">
+									You&apos;ll be automatically redirected when your verification is complete. You
+									can resume the verification or log out below.
+								</p>
 							</div>
 						</div>
 					</div>
-					<Button
-						onClick={handleCheckStatus}
-						disabled={isPending || checkingStatus}
-						variant="outline"
-						className="w-full"
-					>
-						{isPending || checkingStatus ? (
-							<>
-								<Loader2 className="mr-2 h-4 w-4 animate-spin" />
-								Checking...
-							</>
-						) : (
-							<>
-								<ShieldCheck className="mr-2 h-4 w-4" />
-								Check Status Manually
-							</>
+					<div className="grid gap-3">
+						<Button
+							onClick={handleResumeVerification}
+							disabled={isPending}
+							variant="default"
+							className="w-full"
+							size="lg"
+						>
+							{isPending ? (
+								<>
+									<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+									Loading...
+								</>
+							) : (
+								<>
+									<PlayCircle className="mr-2 h-5 w-5" />
+									Resume Verification
+								</>
+							)}
+						</Button>
+
+						{showManualCheck && (
+							<Button
+								onClick={handleManualCheckStatus}
+								disabled={isPending || isCheckingStatus}
+								variant="outline"
+								className="w-full"
+								size="lg"
+							>
+								{isCheckingStatus ? (
+									<>
+										<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+										Checking...
+									</>
+								) : (
+									<>
+										<ShieldCheck className="mr-2 h-4 w-4" />
+										Check Status Manually
+									</>
+								)}
+							</Button>
 						)}
-					</Button>
+
+						<Button onClick={handleLogout} disabled={isPending} variant="ghost" className="w-full">
+							<LogOut className="mr-2 h-4 w-4" />
+							Log Out
+						</Button>
+					</div>
 				</div>
 			)}
 
@@ -397,7 +434,7 @@ export function KycVerificationCard({
 									documents or mismatched information.
 								</p>
 								<p className="text-xs text-red-600 dark:text-red-400">
-									💡 Please ensure your ID is clear, well-lit, and all information is visible before
+									Please ensure your ID is clear, well-lit, and all information is visible before
 									retrying.
 								</p>
 							</div>

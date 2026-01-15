@@ -18,9 +18,9 @@ const inter = Inter({
 })
 
 export const metadata: Metadata = {
-	title: "QSign Main | Simple, Fast, Secure Digital Signatures",
+	title: "QLegal | Electronic notarial platform",
 	description:
-		"QSign Main lets you sign documents online quickly and securely. Lightweight and hassle-free.",
+		"Expert legal consultation and seamless digital notarization for secure, hassle-free document handling.",
 }
 
 export default async function RootLayout({
@@ -42,7 +42,7 @@ export default async function RootLayout({
 							disableTransitionOnChange
 						>
 							{children}
-							<CookieConsent variant="small" />
+							<CookieConsent variant="mini" position="bottom-right" glass />
 							<Toaster richColors closeButton />
 						</ThemeProvider>
 					</TRPCProvider>
