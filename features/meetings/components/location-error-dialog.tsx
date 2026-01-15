@@ -196,7 +196,7 @@ export function LocationErrorDialog({
 					{/* Show requirements based on role */}
 					<div className="bg-muted/50 rounded-lg p-4">
 						<div className="flex items-start gap-3">
-							<AlertCircle className="text-muted-foreground mt-0.5 size-5 flex-shrink-0" />
+							<AlertCircle className="text-muted-foreground mt-0.5 size-5 shrink-0" />
 							<div className="space-y-1">
 								<p className="text-sm font-medium">Location Requirements</p>
 								<p className="text-muted-foreground text-sm">
