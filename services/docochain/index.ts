@@ -809,13 +809,16 @@ export async function sendDocoChainProject(projectUuid: string, userEmail?: stri
 export async function generateSignLink({
 	projectUuid,
 	email,
+	userEmail,
 }: {
 	projectUuid: string
-	email: string
+	email: string // Signer's email (who should sign the document)
+	userEmail?: string // ENP's email (who owns the project - for token generation)
 }): Promise<{ link: string }> {
 	console.log("🔵 Generating signing link...")
 	console.log("   - Project UUID:", projectUuid)
-	console.log("   - Email:", email)
+	console.log("   - Signer Email:", email)
+	console.log("   - User Email (for token):", userEmail ?? "not provided - will use signer email")
 
 	try {
 		// The endpoint is on the API domain, not the app domain
@@ -826,8 +829,9 @@ export async function generateSignLink({
 		const apiUrl = `${DOCOCHAIN_API_BASE}/api/v2/projects/${projectUuid}/link/generate?email=${encodeURIComponent(email)}&user_type=ENTERPRISE_API`
 		console.log("🔵 Calling DocoChain Generate Sign Link API:", apiUrl)
 
-		// Use the wrapper function for automatic token refresh on 401 errors
-		// Generate token for the signer (the email parameter is the signer's email)
+		// CRITICAL: Use ENP's email (userEmail) for token generation, not signer's email
+		// ENP owns the project, so their token is required for API authorization
+		// The 'email' parameter in URL is for the signer (who should sign), but auth uses ENP's token
 		const response = await makeDocoChainApiCall(
 			async token => {
 				return fetch(apiUrl, {
@@ -839,7 +843,7 @@ export async function generateSignLink({
 					// No body required as per API documentation
 				})
 			},
-			email // Use the signer's email for token generation
+			userEmail ?? email // Use ENP email for token, fallback to signer email if not provided
 		)
 
 		console.log("📡 DocoChain generate link response status:", response.status)
@@ -903,7 +907,7 @@ export async function generateSignLink({
 			const appBaseUrl = DOCOCHAIN_API_BASE.includes("stg")
 				? "https://stg-app.doconchain.com"
 				: "https://app.doconchain.com"
-			link = `${appBaseUrl}/${projectUuid}`
+			link = `${appBaseUrl}/${projectUuid}?api=true`
 			console.log("✅ Using fallback URL:", link)
 		}
 
@@ -919,6 +923,10 @@ export async function generateSignLink({
 			} else {
 				link = `${appBaseUrl}/${link}`
 			}
+			// Ensure api=true is in the URL
+			if (!link.includes("api=")) {
+				link = `${link}${link.includes("?") ? "&" : "?"}api=true`
+			}
 			console.log("✅ Constructed full URL:", link)
 		}
 
@@ -929,7 +937,7 @@ export async function generateSignLink({
 			const appBaseUrl = DOCOCHAIN_API_BASE.includes("stg")
 				? "https://stg-app.doconchain.com"
 				: "https://app.doconchain.com"
-			link = `${appBaseUrl}/${projectUuid}`
+			link = `${appBaseUrl}/${projectUuid}?api=true`
 			console.log("⚠️ Using fallback URL due to invalid link type:", link)
 		}
 
@@ -939,6 +947,8 @@ export async function generateSignLink({
 		// Handle api_token and other parameters
 		try {
 			const url = new URL(link)
+			// CRITICAL: ALWAYS set api=true FIRST - this ensures api=null is never in the final URL
+			url.searchParams.set("api", "true")
 			// Remove api_token if it's undefined
 			if (
 				url.searchParams.has("api_token") &&
@@ -954,21 +964,24 @@ export async function generateSignLink({
 				)
 				url.searchParams.delete("status")
 			}
-			// Add api_token if not present - use the token for the signer
+			// Add api_token if not present - CRITICAL: Use ENP's token (userEmail), not signer's token
+			// ENP owns the project, so their token is required for API access
 			if (!url.searchParams.has("api_token")) {
-				const apiToken: string = await getDocoChainToken(email)
+				const tokenEmail = userEmail ?? email // Prefer ENP email, fallback to signer email
+				const apiToken: string = await getDocoChainToken(tokenEmail)
 				url.searchParams.set("api_token", apiToken)
-				console.log("✅ Added api_token parameter to signing link")
+				console.log(`✅ Added api_token parameter using ${tokenEmail} token`)
 			}
 			link = url.toString()
 		} catch {
 			// If URL parsing fails, try to add api_token anyway
 			if (typeof link === "string") {
 				try {
-					const apiToken: string = await getDocoChainToken(email)
+					const tokenEmail = userEmail ?? email // Prefer ENP email, fallback to signer email
+					const apiToken: string = await getDocoChainToken(tokenEmail)
 					const separator = link.includes("?") ? "&" : "?"
 					link = `${link}${separator}api_token=${encodeURIComponent(apiToken)}`
-					console.log("✅ Added api_token parameter to signing link (fallback)")
+					console.log(`✅ Added api_token parameter using ${tokenEmail} token (fallback)`)
 				} catch (tokenError) {
 					console.warn("⚠️ Failed to add api_token:", tokenError)
 				}
@@ -1152,6 +1165,10 @@ export async function generateEditDraftLink(
 			} else {
 				link = `${appBaseUrl}/${link}`
 			}
+			// Ensure api=true is in the URL
+			if (!link.includes("api=")) {
+				link = `${link}${link.includes("?") ? "&" : "?"}api=true`
+			}
 			console.log("✅ Constructed full URL:", link)
 		}
 
@@ -1167,6 +1184,8 @@ export async function generateEditDraftLink(
 		// Handle api_token and other parameters
 		try {
 			const url = new URL(link)
+			// CRITICAL: ALWAYS set api=true FIRST - this ensures api=null is never in the final URL
+			url.searchParams.set("api", "true")
 			// Remove api_token if it's undefined
 			if (
 				url.searchParams.has("api_token") &&
