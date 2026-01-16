@@ -51,7 +51,7 @@ export function VpnDetectedDialog({ open, ipInfo }: VpnDetectedDialogProps) {
 				<div className="space-y-4 py-4">
 					<div className="rounded-lg border border-red-200 bg-red-50 p-4 dark:border-red-800 dark:bg-red-950/30">
 						<div className="flex items-start gap-3">
-							<AlertTriangle className="mt-0.5 size-5 flex-shrink-0 text-red-600 dark:text-red-500" />
+							<AlertTriangle className="mt-0.5 size-5 shrink-0 text-red-600 dark:text-red-500" />
 							<div className="space-y-1">
 								<p className="text-sm font-medium text-red-800 dark:text-red-200">
 									Why is this required?
