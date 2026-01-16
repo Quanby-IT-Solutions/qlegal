@@ -17,7 +17,6 @@ import {
 import { useSession } from "next-auth/react"
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/core/components/ui/avatar"
-import { Badge } from "@/core/components/ui/badge"
 import { Button } from "@/core/components/ui/button"
 import {
 	Card,
@@ -26,7 +25,6 @@ import {
 	CardHeader,
 	CardTitle,
 } from "@/core/components/ui/card"
-import { Separator } from "@/core/components/ui/separator"
 import { Skeleton } from "@/core/components/ui/skeleton"
 import { useGeolocation } from "@/core/hooks/use-geolocation"
 
@@ -526,6 +524,8 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 											</p>
 										</div>
 									</div>
+								</CardContent>
+							</Card>
 
 							{/* Participants List */}
 							<Card className="flex-1 overflow-hidden shadow-md">
