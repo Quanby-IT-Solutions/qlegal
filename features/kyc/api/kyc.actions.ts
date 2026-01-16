@@ -13,6 +13,8 @@ import {
 } from "@/services/hyperverge"
 import { auth } from "@/services/next-auth"
 
+import { env } from "@/env"
+
 /**
  * Generate a unique transaction ID for KYC based on user ID
  */
@@ -38,7 +40,7 @@ export async function createUserKycLink() {
 	const transactionId = generateTransactionId(session.user.id)
 
 	// Build redirect URL - use callback page that closes the window
-	const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000"
+	const baseUrl = env.AUTH_URL ?? "http://localhost:3000"
 	const redirectUrl = `${baseUrl}/auth/kyc/callback`
 
 	console.log("🔗 Creating KYC link with redirect:", redirectUrl)
