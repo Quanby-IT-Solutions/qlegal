@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react"
 import { format, startOfToday } from "date-fns"
 import { Calendar as CalendarIcon, Clock, Handshake, Loader2, MapPin, Video } from "lucide-react"
+import { useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
 import { toast } from "sonner"
 
@@ -228,8 +229,10 @@ function AppointmentCard({
 	currentUser?: { id?: string; role?: string }
 	onRefetch: () => void
 }) {
+	const router = useRouter()
 	const workflow = getWorkflow(appointment)
 	const { create, startMeeting } = useMeetings()
+	const utils = trpc.useUtils()
 	const [isStarting, setIsStarting] = useState(false)
 	const updateAppointment = trpc.appointments.updateAppointment.useMutation({
 		onSuccess: () => {
@@ -268,18 +271,35 @@ function AppointmentCard({
 		const match = appointment.meetingLink?.match(/\/meetings\/([^/]+)/)
 		return match?.[1] ?? null
 	}, [appointment.meetingLink])
-	const { data: linkedMeeting } = trpc.meetings.getById.useQuery(meetingIdFromLink ?? "", {
-		enabled: !!meetingIdFromLink,
-	})
+	const { data: linkedMeeting, isLoading: isLoadingMeeting, refetch: refetchLinkedMeeting } = trpc.meetings.getById.useQuery(
+		meetingIdFromLink ?? "",
+		{
+			enabled: !!meetingIdFromLink,
+		}
+	)
 	const isMeetingLive = linkedMeeting?.status === "ONGOING"
+	const isMeetingScheduled = linkedMeeting?.status === "SCHEDULED"
 	const isLawyer = currentUser?.role === "ENP" && currentUser.id === appointment.lawyerId
 	const isPastSlot = new Date(appointment.appointmentDate).getTime() < Date.now()
+	// Can start meeting if:
+	// 1. REN workflow
+	// 2. User is the lawyer (ENP)
+	// 3. Appointment is confirmed
+	// 4. Either no meeting link exists, OR meeting exists but status is SCHEDULED, OR meeting data is still loading
+	// 5. Not past the appointment time
 	const canStartMeeting =
 		workflow === "REN" &&
 		isLawyer &&
 		appointment.status === "CONFIRMED" &&
-		!appointment.meetingLink &&
+		(!appointment.meetingLink || (isLoadingMeeting && !linkedMeeting) || (linkedMeeting && isMeetingScheduled)) &&
 		!isPastSlot
+	// Can join meeting if meeting exists and is ONGOING (and not loading)
+	const canJoinMeeting =
+		workflow === "REN" &&
+		isLawyer &&
+		appointment.status === "CONFIRMED" &&
+		!isLoadingMeeting &&
+		isMeetingLive
 	const isPendingConsultation =
 		appointment.type === "CONSULTATION" && appointment.status === "PENDING" && isLawyer
 	const isPendingSigning =
@@ -295,24 +315,53 @@ function AppointmentCard({
 		}
 		setIsStarting(true)
 		try {
-			const title = `${appointment.type === "DOCUMENT_SIGNING" ? "Document Signing" : "Consultation"} with ${appointment.client?.name || "Client"}`
-			const result = await create.mutateAsync({
-				title,
-				participantIds: [appointment.clientId],
-			})
-			const meetingId = result.meeting.id
+			// If meeting already exists (from accept), use it. Otherwise create new one.
+			let meetingId = meetingIdFromLink
+			
+			if (!meetingId) {
+				// Create new meeting if it doesn't exist
+				const title = `${appointment.type === "DOCUMENT_SIGNING" ? "Document Signing" : "Consultation"} with ${appointment.client?.name || "Client"}`
+				const result = await create.mutateAsync({
+					title,
+					participantIds: [appointment.clientId],
+				})
+				meetingId = result.meeting.id
+				
+				// Update appointment with meeting link
+				await updateAppointment.mutateAsync({
+					appointmentId: appointment.id,
+					meetingLink: `/meetings/${meetingId}/lobby`,
+				})
+			}
+			
+			// Start the meeting
 			await startMeeting.mutateAsync(meetingId)
-			await updateAppointment.mutateAsync({
-				appointmentId: appointment.id,
-				meetingLink: `/meetings/${meetingId}/lobby`,
-			})
-			toast.success("Meeting started")
+			
+			// Invalidate and refetch meeting queries immediately
+			await utils.meetings.getById.invalidate(meetingId)
+			void utils.meetings.getUserMeetings.invalidate()
+			
+			// Refetch the linked meeting query if it exists
+			if (meetingId === meetingIdFromLink) {
+				await refetchLinkedMeeting()
+			}
+			
+			// Refetch appointments to update UI
+			await utils.appointments.getMyAppointments.invalidate()
 			onRefetch()
+			
+			toast.success("Meeting started")
 		} catch (error) {
 			console.error(error)
 			toast.error("Couldn't start the meeting")
 		} finally {
 			setIsStarting(false)
+		}
+	}
+
+	const handleJoinMeeting = () => {
+		if (meetingIdFromLink) {
+			router.push(`/meetings/${meetingIdFromLink}/lobby`)
 		}
 	}
 
@@ -462,19 +511,11 @@ function AppointmentCard({
 					</Button>
 				)}
 
-				{!canStartMeeting && isPastSlot && !appointment.meetingLink && (
-					<Badge variant="outline" className="border-amber-600 text-amber-600">
-						Scheduled time has lapsed
-					</Badge>
-				)}
-
-				{appointment.meetingLink && (
+				{canJoinMeeting && (
 					<div className="flex flex-wrap items-center gap-2">
-						<Button asChild size="sm" variant="default">
-							<a href={appointment.meetingLink} target="_blank" rel="noreferrer">
-								<Video className="mr-2 h-4 w-4" />
-								Join Meeting
-							</a>
+						<Button size="sm" variant="default" onClick={handleJoinMeeting}>
+							<Video className="mr-2 h-4 w-4" />
+							Join Meeting
 						</Button>
 						<Button asChild size="sm" variant="outline">
 							<a href={`/appointments/${appointment.id}/meeting`}>
@@ -483,6 +524,12 @@ function AppointmentCard({
 							</a>
 						</Button>
 					</div>
+				)}
+
+				{!canStartMeeting && !canJoinMeeting && isPastSlot && !appointment.meetingLink && (
+					<Badge variant="outline" className="border-amber-600 text-amber-600">
+						Scheduled time has lapsed
+					</Badge>
 				)}
 			</CardContent>
 		</Card>
