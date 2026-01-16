@@ -381,9 +381,15 @@ function ParticipantView({ participantId }: { participantId: string }) {
 	
 	// Peer-to-peer style: Get actual mic status by checking stream tracks directly
 	// This mirrors the peer-to-peer system's approach of checking track.enabled
-	const actualMicOn = useMemo(() => {
-		// Helper to extract MediaStream from various VideoSDK stream formats
-		const getMediaStream = (streamObj: unknown): MediaStream | null => {
+	// Use state + polling for real-time updates (peer-to-peer style)
+	const [actualMicOn, setActualMicOn] = useState(() => {
+		// Initial state from micOn property
+		return micOn ?? false
+	})
+
+	// Helper to extract MediaStream from various VideoSDK stream formats
+	const getMediaStream = useMemo(() => {
+		return (streamObj: unknown): MediaStream | null => {
 			if (!streamObj) return null
 			if (streamObj instanceof MediaStream) return streamObj
 			if ((streamObj as { stream?: MediaStream })?.stream instanceof MediaStream) {
@@ -394,43 +400,88 @@ function ParticipantView({ participantId }: { participantId: string }) {
 			}
 			return null
 		}
+	}, [])
 
-		// Peer-to-peer style: Check actual audio track state from streams (primary method)
-		// This is the most reliable way, just like the peer-to-peer system
+	// Real-time polling + event listeners to check actual track state (peer-to-peer style)
+	useEffect(() => {
+		const checkMicStatus = () => {
+			// Peer-to-peer style: Check actual audio track state from streams
+			// This is the most reliable way, just like the peer-to-peer system
+			
+			// Check micStream first
+			const micMediaStream = getMediaStream(micStream)
+			const webcamMediaStream = getMediaStream(webcamStream)
+			
+			// Collect all audio tracks from both streams
+			const allAudioTracks: MediaStreamTrack[] = []
+			if (micMediaStream) {
+				allAudioTracks.push(...micMediaStream.getAudioTracks())
+			}
+			if (webcamMediaStream) {
+				allAudioTracks.push(...webcamMediaStream.getAudioTracks())
+			}
+			
+			// If we have any tracks, check their enabled state (peer-to-peer style)
+			if (allAudioTracks.length > 0) {
+				// Check if ANY audio track is enabled and live (peer-to-peer style)
+				// If all tracks are disabled, mic is OFF
+				const hasEnabledAudio = allAudioTracks.some(
+					track => track.enabled && track.readyState === "live"
+				)
+				setActualMicOn(hasEnabledAudio)
+				return
+			}
+			
+			// Only fall back to VideoSDK's micOn property if we have NO streams at all
+			// If streams exist but have no tracks, mic is OFF (not available)
+			if (!micMediaStream && !webcamMediaStream) {
+				// No streams at all - use VideoSDK's micOn as fallback
+				if (micOn !== undefined && micOn !== null) {
+					setActualMicOn(micOn)
+				} else {
+					setActualMicOn(false)
+				}
+			} else {
+				// Streams exist but no audio tracks = mic is OFF
+				setActualMicOn(false)
+			}
+		}
+
+		checkMicStatus()
 		
-		// Check micStream first
+		// Add event listeners to tracks for immediate updates (peer-to-peer style)
 		const micMediaStream = getMediaStream(micStream)
-		if (micMediaStream) {
-			const audioTracks = micMediaStream.getAudioTracks()
-			if (audioTracks.length > 0) {
-				// Check if any audio track is enabled and live (peer-to-peer style)
-				const hasEnabledAudio = audioTracks.some(
-					track => track.enabled && track.readyState === "live"
-				)
-				return hasEnabledAudio
-			}
-		}
-		
-		// Check webcamStream for audio tracks (VideoSDK sometimes includes audio in webcam stream)
 		const webcamMediaStream = getMediaStream(webcamStream)
+		const allTracks: MediaStreamTrack[] = []
+		
+		if (micMediaStream) {
+			allTracks.push(...micMediaStream.getAudioTracks())
+		}
 		if (webcamMediaStream) {
-			const audioTracks = webcamMediaStream.getAudioTracks()
-			if (audioTracks.length > 0) {
-				// Check if any audio track is enabled and live (peer-to-peer style)
-				const hasEnabledAudio = audioTracks.some(
-					track => track.enabled && track.readyState === "live"
-				)
-				return hasEnabledAudio
+			allTracks.push(...webcamMediaStream.getAudioTracks())
+		}
+		
+		// Listen to track enabled/disabled changes
+		const trackChangeHandlers = allTracks.map(track => {
+			const handleEnabledChange = () => {
+				checkMicStatus()
 			}
-		}
+			track.addEventListener("unmute", handleEnabledChange)
+			track.addEventListener("mute", handleEnabledChange)
+			return { track, handleEnabledChange }
+		})
 		
-		// Fallback: Use micOn property from VideoSDK if no stream tracks found
-		if (micOn !== undefined && micOn !== null) {
-			return micOn
-		}
+		// Poll every 200ms for real-time updates (peer-to-peer style)
+		const interval = setInterval(checkMicStatus, 200)
 		
-		return false
-	}, [micOn, micStream, webcamStream])
+		return () => {
+			clearInterval(interval)
+			trackChangeHandlers.forEach(({ track, handleEnabledChange }) => {
+				track.removeEventListener("unmute", handleEnabledChange)
+				track.removeEventListener("mute", handleEnabledChange)
+			})
+		}
+	}, [micOn, micStream, webcamStream, getMediaStream])
 
 	useEffect(() => {
 		const videoElement = videoRef.current
