@@ -215,12 +215,40 @@ export async function makeDocoChainApiCall(
 	}
 }
 
+interface NotarySeal {
+	seal: {
+		type: string
+		enp_name: string
+		enp_role_number: string
+	}
+	notary_info: {
+		type: string
+		atty_name: string
+		roll_no: string
+		roll_no_date: string
+		commission_no: string
+		commission_no_valid_until: string
+		PTR_no: string
+		PTR_no_location: string
+		PTR_no_date: string
+		IBP_no: string
+		IBP_no_date: string
+		email: string
+		address: string
+		MCLE_no_period: string
+		MCLE_no: string
+		MCLE_no_date: string
+		mode_of_notarization: string
+	}
+}
+
 interface CreateProjectRequest {
 	title: string
 	documentFile: Buffer // PDF file buffer
 	fileName: string
 	userListEditable?: boolean // If false, recipients cannot be edited after creation
 	creatorAsViewer?: boolean // If false, creator is not added as a viewer
+	notarySeal?: NotarySeal // Notary seal information to be passed as notary_seal parameter
 }
 
 interface DocoChainApiResponse {
@@ -293,6 +321,7 @@ export async function createDocoChainProject({
 	fileName,
 	userListEditable = false,
 	creatorAsViewer = false,
+	notarySeal,
 	creatorEmail,
 }: CreateProjectRequest & { creatorEmail?: string }): Promise<{
 	uuid: string
@@ -318,10 +347,19 @@ export async function createDocoChainProject({
 		// creator_as_viewer: If false, creator is not added as a viewer
 		formData.append("creator_as_viewer", String(creatorAsViewer))
 
+		// notary_seal: Notary seal information (JSON string)
+		if (notarySeal) {
+			formData.append("notary_seal", JSON.stringify(notarySeal))
+			console.log("   - Notary seal included:", JSON.stringify(notarySeal, null, 2))
+		}
+
 		const apiUrl = `${DOCOCHAIN_API_BASE}/api/v2/projects?user_type=ENTERPRISE_API`
 		console.log("🔵 Calling DocoChain API:", apiUrl)
 		console.log("   - user_list_editable:", userListEditable)
 		console.log("   - creator_as_viewer:", creatorAsViewer)
+		if (notarySeal) {
+			console.log("   - notary_seal: included")
+		}
 
 		// Use the wrapper function for automatic token refresh on 401 errors
 		const response = await makeDocoChainApiCall(
