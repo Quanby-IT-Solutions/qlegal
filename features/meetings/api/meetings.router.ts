@@ -395,12 +395,42 @@ export const meetingsRouter = createTRPCRouter({
 				// This is the PRIMARY upload - the project UUID is critical for identifying the document
 				console.log("🔵 Creating DocoChain project for:", name)
 				console.log("   - Using creator email (meeting creator):", creatorEmail)
+
+				// DocoChain Create Project optional multipart param:
+				// document_stamp (JSON string) - applies seal + notary cert info on completed document
+				const documentStamp = {
+					seal: {
+						type: "seal",
+						enp_name: "Mariae Francine Geraldine Biglaen y Sibulop",
+						enp_role_number: "123456",
+					},
+					notary_info: {
+						type: "notary",
+						atty_name: "ATTY. MARIA ANGELICA M. DELA CRUZ-SAN FELIPE",
+						roll_no: "123456",
+						roll_no_date: "5 June 2018",
+						commission_no: "2024 - 024",
+						commission_no_valid_until: "Dec 31, 2025",
+						PTR_no: "1234567",
+						PTR_no_location: "Manila",
+						PTR_no_date: "Jan 02, 2025",
+						IBP_no: "123456",
+						IBP_no_date: "Dec 18, 2024 (for 2025)",
+						email: "juan.cruz@email.com",
+						address: "123, The Actual Bldg., 1234 Avenue, Malate, Manila",
+						MCLE_no_period: "VIII",
+						MCLE_no: "1234567",
+						MCLE_no_date: "Jun 12, 2024",
+						mode_of_notarization: "REN",
+					},
+				}
 				const docoChainProject = await createDocoChainProject({
 					title: name,
 					documentFile: fileBuffer,
 					fileName: name.endsWith(".pdf") ? name : `${name}.pdf`,
 					userListEditable: false, // Recipients cannot be edited after creation
 					creatorAsViewer: false, // Creator is not added as a viewer
+					documentStamp,
 					creatorEmail, // Use meeting creator's email, not the uploader's email
 				})
 				const docoChainProjectId = docoChainProject.uuid // THIS IS THE CRITICAL PROJECT UUID
