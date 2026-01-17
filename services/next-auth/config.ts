@@ -4,6 +4,7 @@ import { type DefaultSession, type NextAuthConfig } from "next-auth"
 import Credentials from "next-auth/providers/credentials"
 import Google from "next-auth/providers/google"
 
+import { autoJoinOrganization } from "@/services/docochain"
 import { db } from "@/services/drizzle/db"
 import { twoFactorConfirmations, users, type UserRole } from "@/services/drizzle/schema/auth"
 import { DrizzleCustomAdapter } from "@/services/next-auth/adapter"
@@ -195,6 +196,31 @@ export const authConfig = {
 		},
 	},
 	events: {
+		/**
+		 * OAuth sign-up: when NextAuth creates a NEW user (e.g. Google sign-up),
+		 * auto-join them to the DocoChain organization (best-effort).
+		 */
+		async createUser({ user }) {
+			if (!user?.email) return
+
+			try {
+				const fullName = (user.name ?? "").trim()
+				const parts = fullName.split(" ").filter(Boolean)
+				const firstName = parts[0] ?? "User"
+				const lastName = parts.slice(1).join(" ") || ""
+
+				await autoJoinOrganization({
+					email: user.email,
+					firstName,
+					lastName,
+					role: "Member",
+				})
+				console.log("✅ Google/OAuth user auto-joined to DocoChain organization")
+			} catch (error) {
+				// Don't fail OAuth signup if auto-join fails
+				console.warn("⚠️ Failed to auto-join Google/OAuth user to DocoChain organization:", error)
+			}
+		},
 		async linkAccount({ user, profile }) {
 			if (!user.email) {
 				return
@@ -213,6 +239,28 @@ export const authConfig = {
 						image: existingUser.image ?? profile.image,
 					})
 					.where(eq(users.id, existingUser.id))
+			}
+
+			// Also best-effort auto-join on OAuth account linking (covers cases where
+			// the user existed already but never got added to DocoChain org).
+			try {
+				const fullName = (user.name ?? "").trim()
+				const parts = fullName.split(" ").filter(Boolean)
+				const firstName = parts[0] ?? "User"
+				const lastName = parts.slice(1).join(" ") || ""
+
+				await autoJoinOrganization({
+					email: userEmail,
+					firstName,
+					lastName,
+					role: "Member",
+				})
+				console.log("✅ Linked OAuth user auto-joined to DocoChain organization")
+			} catch (error) {
+				console.warn(
+					"⚠️ Failed to auto-join linked OAuth user to DocoChain organization:",
+					error
+				)
 			}
 		},
 	},

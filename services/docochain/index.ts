@@ -23,6 +23,10 @@ const TOKEN_EXPIRATION_MS = 3600000 // 1 hour
 // Refresh tokens 5 minutes before expiration to avoid expired token errors
 const TOKEN_REFRESH_BUFFER_MS = 5 * 60 * 1000 // 5 minutes
 
+// If token generation endpoint is unreachable, cache the static token briefly to avoid
+// repeated connect timeouts/log spam on every API call.
+const FALLBACK_TOKEN_TTL_MS = 10 * 60 * 1000 // 10 minutes
+
 /**
  * Generate a DocoChain authentication token for a specific user email
  * Uses the Generate Token API: POST https://stg-api2.doconchain.com/api/v2/generate/token
@@ -73,6 +77,11 @@ export async function generateDocoChainToken(email: string, forceRefresh = false
 			console.warn("⚠️ DocoChain client credentials not configured. Using static token.")
 			// Fallback to static token if credentials not available
 			if (DOCOCHAIN_API_TOKEN) {
+				// Cache static token for this email to avoid repeated generation attempts
+				tokenCache.set(email, {
+					token: DOCOCHAIN_API_TOKEN,
+					expiresAt: Date.now() + FALLBACK_TOKEN_TTL_MS,
+				})
 				return DOCOCHAIN_API_TOKEN
 			}
 			throw new Error(
@@ -131,6 +140,11 @@ export async function generateDocoChainToken(email: string, forceRefresh = false
 		// Fallback to static token if available
 		if (DOCOCHAIN_API_TOKEN) {
 			console.warn("⚠️ Falling back to static token")
+			// Cache fallback token briefly to prevent repeated connect timeouts
+			tokenCache.set(email, {
+				token: DOCOCHAIN_API_TOKEN,
+				expiresAt: Date.now() + FALLBACK_TOKEN_TTL_MS,
+			})
 			return DOCOCHAIN_API_TOKEN
 		}
 		throw error
@@ -215,31 +229,43 @@ export async function makeDocoChainApiCall(
 	}
 }
 
-interface NotarySeal {
-	seal: {
-		type: string
-		enp_name: string
-		enp_role_number: string
+/**
+ * DocoChain Create Project "document_stamp" payload (stringified JSON).
+ *
+ * The API portal docs show this as:
+ * - multipart key: document_stamp
+ * - value: JSON string
+ *
+ * We keep this shape permissive because the portal examples vary in fields.
+ */
+interface DocumentStamp {
+	seal?: {
+		type?: string
+		enp_name?: string
+		enp_role_number?: string
+		[key: string]: unknown
 	}
-	notary_info: {
-		type: string
-		atty_name: string
-		roll_no: string
-		roll_no_date: string
-		commission_no: string
-		commission_no_valid_until: string
-		PTR_no: string
-		PTR_no_location: string
-		PTR_no_date: string
-		IBP_no: string
-		IBP_no_date: string
-		email: string
-		address: string
-		MCLE_no_period: string
-		MCLE_no: string
-		MCLE_no_date: string
-		mode_of_notarization: string
+	notary_info?: {
+		type?: string
+		atty_name?: string
+		roll_no?: string
+		roll_no_date?: string
+		commission_no?: string
+		commission_no_valid_until?: string
+		PTR_no?: string
+		PTR_no_location?: string
+		PTR_no_date?: string
+		IBP_no?: string
+		IBP_no_date?: string
+		email?: string
+		address?: string
+		MCLE_no_period?: string
+		MCLE_no?: string
+		MCLE_no_date?: string
+		mode_of_notarization?: string
+		[key: string]: unknown
 	}
+	[key: string]: unknown
 }
 
 interface CreateProjectRequest {
@@ -248,7 +274,14 @@ interface CreateProjectRequest {
 	fileName: string
 	userListEditable?: boolean // If false, recipients cannot be edited after creation
 	creatorAsViewer?: boolean // If false, creator is not added as a viewer
-	notarySeal?: NotarySeal // Notary seal information to be passed as notary_seal parameter
+	/**
+	 * Notary/Seal info for DocoChain.
+	 *
+	 * - Preferred: documentStamp -> sent as multipart field "document_stamp" (per portal docs)
+	 * - Back-compat: notarySeal -> also supported; will be sent as BOTH "document_stamp" and "notary_seal"
+	 */
+	documentStamp?: DocumentStamp
+	notarySeal?: DocumentStamp
 }
 
 interface DocoChainApiResponse {
@@ -321,6 +354,7 @@ export async function createDocoChainProject({
 	fileName,
 	userListEditable = false,
 	creatorAsViewer = false,
+	documentStamp,
 	notarySeal,
 	creatorEmail,
 }: CreateProjectRequest & { creatorEmail?: string }): Promise<{
@@ -347,18 +381,23 @@ export async function createDocoChainProject({
 		// creator_as_viewer: If false, creator is not added as a viewer
 		formData.append("creator_as_viewer", String(creatorAsViewer))
 
-		// notary_seal: Notary seal information (JSON string)
-		if (notarySeal) {
-			formData.append("notary_seal", JSON.stringify(notarySeal))
-			console.log("   - Notary seal included:", JSON.stringify(notarySeal, null, 2))
+		// document_stamp: Notarial/official seal + notary certificate info (JSON string)
+		// Portal docs: multipart key "document_stamp"
+		// Back-compat: we also send "notary_seal" when provided, in case older environments still expect it.
+		const finalDocumentStamp = documentStamp ?? notarySeal
+		if (finalDocumentStamp) {
+			formData.append("document_stamp", JSON.stringify(finalDocumentStamp))
+			// Back-compat param (safe to ignore if API doesn't use it)
+			formData.append("notary_seal", JSON.stringify(finalDocumentStamp))
+			console.log("   - document_stamp included:", JSON.stringify(finalDocumentStamp, null, 2))
 		}
 
 		const apiUrl = `${DOCOCHAIN_API_BASE}/api/v2/projects?user_type=ENTERPRISE_API`
 		console.log("🔵 Calling DocoChain API:", apiUrl)
 		console.log("   - user_list_editable:", userListEditable)
 		console.log("   - creator_as_viewer:", creatorAsViewer)
-		if (notarySeal) {
-			console.log("   - notary_seal: included")
+		if (finalDocumentStamp) {
+			console.log("   - document_stamp: included")
 		}
 
 		// Use the wrapper function for automatic token refresh on 401 errors
