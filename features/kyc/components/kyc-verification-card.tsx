@@ -359,32 +359,23 @@ export function KycVerificationCard({
 							)}
 						</Button>
 
-						{showManualCheck && (
-							<Button
-								onClick={handleManualCheckStatus}
-								disabled={isPending || isCheckingStatus}
-								variant="outline"
-								className="w-full"
-								size="lg"
-							>
-								{isCheckingStatus ? (
-									<>
-										<Loader2 className="mr-2 h-4 w-4 animate-spin" />
-										Checking...
-									</>
-								) : (
-									<>
-										<ShieldCheck className="mr-2 h-4 w-4" />
-										Check Status Manually
-									</>
-								)}
-							</Button>
-						)}
 
 						<Button onClick={handleLogout} disabled={isPending} variant="ghost" className="w-full">
 							<LogOut className="mr-2 h-4 w-4" />
 							Log Out
 						</Button>
+
+						{/* Subtle backup option for expired links */}
+						<div className="flex justify-center border-t pt-3">
+							<button
+								onClick={handleCreateLink}
+								disabled={isPending}
+								className="text-muted-foreground hover:text-foreground text-xs underline-offset-4 transition-colors hover:underline disabled:pointer-events-none disabled:opacity-50"
+								type="button"
+							>
+								Link expired? Create new verification link
+							</button>
+						</div>
 					</div>
 				</div>
 			)}
