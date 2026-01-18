@@ -923,12 +923,12 @@ function DocumentActions({
 					{isDownloadingSignedDocument ? (
 						<>
 							<div className="mr-2 size-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
-							Downloading...
+							Opening...
 						</>
 					) : (
 						<>
-							<Download className="mr-1.5 size-3.5" />
-							Download Signed Document
+							<FileText className="mr-1.5 size-3.5" />
+							View Signed Document
 						</>
 					)}
 				</Button>
@@ -1277,41 +1277,19 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 		setDragOverDocumentId(null)
 	}
 
-	// Handle signed document download
+	// Handle signed document - open our server-streamed PDF
 	const handleDownloadSignedDocument = async (projectUuid: string) => {
 		setDownloadingProjectUuid(projectUuid)
 
 		try {
-			// Fetch the signed document using tRPC utils
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument
-			const result = await utils.signatureRequests.downloadSignedDocument.fetch(projectUuid as any)
-
-			if (result?.base64) {
-				// Convert base64 to blob and download
-				const byteCharacters = atob(result.base64)
-				const byteNumbers = new Array(byteCharacters.length)
-				for (let i = 0; i < byteCharacters.length; i++) {
-					byteNumbers[i] = byteCharacters.charCodeAt(i)
-				}
-				const byteArray = new Uint8Array(byteNumbers)
-				const blob = new Blob([byteArray], { type: "application/pdf" })
-
-				const url = window.URL.createObjectURL(blob)
-				const link = document.createElement("a")
-				link.href = url
-				link.download = result.fileName ?? `signed-document-${projectUuid}.pdf`
-				document.body.appendChild(link)
-				link.click()
-				document.body.removeChild(link)
-				window.URL.revokeObjectURL(url)
-
-				toast.success("Signed document downloaded successfully!")
-			} else {
-				toast.error("Failed to download signed document")
-			}
+			// Open a QSign API route that streams the signed PDF.
+			// This avoids relying on DocoChain guestToken and avoids leaking api_token in URLs.
+			const url = `/api/docochain/projects/${encodeURIComponent(projectUuid)}/signed`
+			window.open(url, "_blank", "noopener,noreferrer")
+			toast.success("Opening signed document...")
 		} catch (error) {
-			console.error("Error downloading signed document:", error)
-			toast.error(error instanceof Error ? error.message : "Failed to download signed document")
+			console.error("Error opening signed document:", error)
+			toast.error(error instanceof Error ? error.message : "Failed to open signed document")
 		} finally {
 			setDownloadingProjectUuid(null)
 		}

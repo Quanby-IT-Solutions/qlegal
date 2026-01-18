@@ -15,7 +15,6 @@ import {
 	getPassportDocument,
 	getProjectDetails,
 	sendDocoChainProject,
-	updateProjectSigner,
 } from "@/services/docochain"
 import { normalizeDocoChainUrl } from "@/services/docochain/url-normalizer"
 import { db } from "@/services/drizzle/db"
@@ -348,8 +347,14 @@ export const signatureRequestsRouter = createTRPCRouter({
 
 				// Step 1: Check current signers and project status
 				console.log("🔵 Step 1: Checking current signers in DocoChain project...")
-				// eslint-disable-next-line @typescript-eslint/no-explicit-any
-				let currentSigners: any[] = []
+				type CurrentSigner = {
+					email?: string
+					sequence?: number
+					status?: string
+					firstName?: string
+					lastName?: string
+				}
+				let currentSigners: CurrentSigner[] = []
 				let projectStatus = "Draft"
 
 				try {
@@ -360,8 +365,7 @@ export const signatureRequestsRouter = createTRPCRouter({
 					projectStatus = projectDetails?.data?.status ?? "Draft"
 					console.log(`   - Total existing signers: ${currentSigners.length}`)
 					console.log(`   - Project status: ${projectStatus}`)
-					// eslint-disable-next-line @typescript-eslint/no-explicit-any
-					currentSigners.forEach((s: any, idx: number) => {
+					currentSigners.forEach((s, idx) => {
 						console.log(
 							`   - Signer ${idx + 1}: ${s.email} (sequence: ${s.sequence}, status: ${s.status})`
 						)
@@ -1197,6 +1201,11 @@ export const signatureRequestsRouter = createTRPCRouter({
 				})
 			}
 		}),
+
+	// NOTE:
+	// We intentionally do NOT return DocoChain `api_token` in URLs (security risk).
+	// For viewing the signed document, use our server-streaming API route:
+	// `/api/docochain/projects/:projectUuid/signed`
 
 	// Get Passport Document
 	getPassportDocument: protectedProcedure
