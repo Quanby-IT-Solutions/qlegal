@@ -26,6 +26,7 @@ function generateTransactionId(userId: string): string {
 
 /**
  * Create a new KYC onboard link for the authenticated user
+ * Prevents creating multiple pending transactions by checking for existing valid (non-expired) pending transactions
  */
 export async function createUserKycLink() {
 	const session = await auth()
@@ -35,6 +36,35 @@ export async function createUserKycLink() {
 			success: false,
 			error: "User not authenticated",
 		}
+	}
+
+	// Check for existing pending transaction
+	const user = await db.query.users.findFirst({
+		where: eq(users.id, session.user.id),
+		columns: {
+			kycTransactionId: true,
+			kycStatus: true,
+			kycLinkCreatedAt: true,
+		},
+	})
+
+	// If there's a pending transaction, check if it's expired (24 hours)
+	if (user?.kycStatus === "PENDING" && user.kycLinkCreatedAt) {
+		const linkAge = Date.now() - new Date(user.kycLinkCreatedAt).getTime()
+		const expirationTime = 24 * 60 * 60 * 1000 // 24 hours in milliseconds
+		const isExpired = linkAge > expirationTime
+
+		if (!isExpired) {
+			// Link is still valid, prevent creating a new one
+			return {
+				success: false,
+				error: "You already have a pending KYC verification. Please resume your existing verification or wait for it to complete.",
+				isExpired: false,
+			}
+		}
+
+		// Link is expired, allow creating a new one
+		console.log("⚠️ Existing KYC link has expired, creating new link")
 	}
 
 	const transactionId = generateTransactionId(session.user.id)
@@ -69,13 +99,19 @@ export async function createUserKycLink() {
 			using: actualTransactionId,
 		})
 
-		// Store the transaction ID and link in the database
+		const now = new Date()
+		const wasExpired = user?.kycStatus === "PENDING" && user.kycLinkCreatedAt
+			? Date.now() - new Date(user.kycLinkCreatedAt).getTime() > 24 * 60 * 60 * 1000
+			: false
+
+		// Store the transaction ID, link, and creation timestamp in the database
 		await db
 			.update(users)
 			.set({
 				kycTransactionId: actualTransactionId,
 				kycLink: result.result.startKycUrl,
 				kycStatus: "PENDING",
+				kycLinkCreatedAt: now,
 			})
 			.where(eq(users.id, session.user.id))
 
@@ -86,6 +122,7 @@ export async function createUserKycLink() {
 			data: {
 				transactionId: actualTransactionId,
 				url: result.result.startKycUrl,
+				isExpiredLink: wasExpired, // Indicate if this was created for an expired link
 			},
 		}
 	} catch (error) {
@@ -199,6 +236,7 @@ export async function getExistingKycLink() {
 			kycTransactionId: true,
 			kycLink: true,
 			kycStatus: true,
+			kycLinkCreatedAt: true,
 		},
 	})
 
@@ -213,6 +251,18 @@ export async function getExistingKycLink() {
 		return {
 			success: false,
 			error: "KYC verification is not in pending state",
+		}
+	}
+
+	// Check if link is expired (24 hours)
+	if (user.kycLinkCreatedAt) {
+		const linkAge = Date.now() - new Date(user.kycLinkCreatedAt).getTime()
+		const expirationTime = 24 * 60 * 60 * 1000 // 24 hours
+		if (linkAge > expirationTime) {
+			return {
+				success: false,
+				error: "Your verification link has expired. Please create a new link.",
+			}
 		}
 	}
 
@@ -247,6 +297,7 @@ export async function getUserKycInfo() {
 			email: true,
 			kycTransactionId: true,
 			kycStatus: true,
+			kycLinkCreatedAt: true,
 		},
 	})
 
@@ -264,6 +315,7 @@ export async function getUserKycInfo() {
 			email: user.email,
 			transactionId: user.kycTransactionId,
 			kycStatus: user.kycStatus,
+			kycLinkCreatedAt: user.kycLinkCreatedAt,
 		},
 	}
 }
@@ -289,6 +341,7 @@ export async function resetUserKycStatus() {
 				kycLink: null,
 				kycStatus: "NOT_STARTED",
 				kycVerifiedAt: null,
+				kycLinkCreatedAt: null,
 			})
 			.where(eq(users.id, session.user.id))
 
