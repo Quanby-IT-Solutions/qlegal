@@ -29,11 +29,11 @@ export const enpProfiles = createTable(
 		isAvailable: t.boolean().default(true), // Whether accepting new consultations
 
 		// --- Notary Seal Info ---
-		enpName: t.varchar({ length: 255 }), // e.g., "Mariae Francine Geraldine Biglaen y Sibulop"
+		enpName: t.varchar({ length: 255 }), // e.g., "Juan Dela Cruz"
 		enpRoleNumber: t.varchar({ length: 100 }), // e.g., "123456"
 
 		// --- Notary Info (Document Stamp) ---
-		attyName: t.varchar({ length: 255 }), // e.g., "ATTY. MARIA ANGELICA M. DELA CRUZ-SAN FELIPE"
+		attyName: t.varchar({ length: 255 }), // e.g., "ATTY. Juan Dela Cruz"
 		rollNo: t.varchar({ length: 100 }), // Roll of Attorneys number
 		rollNoDate: t.varchar({ length: 100 }), // e.g., "5 June 2018"
 		commissionNo: t.varchar({ length: 100 }), // e.g., "2024 - 024"

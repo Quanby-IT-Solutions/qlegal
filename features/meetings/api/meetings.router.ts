@@ -2,7 +2,7 @@ import { TRPCError } from "@trpc/server"
 import { eq } from "drizzle-orm"
 import { z } from "zod/v4"
 
-import { addSignerToProject, createDocoChainProject } from "@/services/docochain"
+import { createDocoChainProject } from "@/services/docochain"
 import { normalizeDocoChainUrl } from "@/services/docochain/url-normalizer"
 import { db } from "@/services/drizzle/db"
 import { documents } from "@/services/drizzle/schema/document"
@@ -342,15 +342,13 @@ export const meetingsRouter = createTRPCRouter({
 			// CRITICAL: Always use ENP's email for DocoChain project creation
 			// Find ENP from participants - they are always the initiator for signing
 			let creatorEmail: string | undefined
-			
+
 			// First, check if creator is ENP
 			if (meeting.createdBy?.role === "ENP" && meeting.createdBy?.email) {
 				creatorEmail = meeting.createdBy.email
 			} else {
 				// Find ENP from participants
-				const enpParticipant = meeting.participants.find(
-					p => p.user?.role === "ENP"
-				)
+				const enpParticipant = meeting.participants.find(p => p.user?.role === "ENP")
 				if (enpParticipant?.user?.email) {
 					creatorEmail = enpParticipant.user.email
 				} else if (ctx.session.user.role === "ENP" && ctx.session.user.email) {
@@ -401,12 +399,12 @@ export const meetingsRouter = createTRPCRouter({
 				const documentStamp = {
 					seal: {
 						type: "seal",
-						enp_name: "Mariae Francine Geraldine Biglaen y Sibulop",
+						enp_name: "Juan Dela Cruz",
 						enp_role_number: "123456",
 					},
 					notary_info: {
 						type: "notary",
-						atty_name: "ATTY. MARIA ANGELICA M. DELA CRUZ-SAN FELIPE",
+						atty_name: "ATTY. JUAN DELA CRUZ",
 						roll_no: "123456",
 						roll_no_date: "5 June 2018",
 						commission_no: "2024 - 024",
