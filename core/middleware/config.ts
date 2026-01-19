@@ -34,6 +34,7 @@ export const ROUTE_CONFIG: RouteConfig = {
 		{ path: "/auth/forgot-password", exact: true },
 		{ path: "/auth/login", exact: true },
 		{ path: "/auth/register", exact: true },
+		{ path: "/auth/register/lawyer", exact: true },
 		{ path: "/auth/reset-password", exact: true },
 		{ path: "/auth/verify-email", exact: true },
 		{ path: "/auth/legal-registration", exact: true },

@@ -13,9 +13,9 @@ import {
 } from "@/core/components/ui/card"
 import { cn } from "@/core/lib/utils"
 
-import { RegisterForm } from "@/features/auth/components/forms/form.register"
+import { LawyerRegisterForm } from "@/features/auth/components/forms/form.register-lawyer"
 
-export default async function RegisterPage({
+export default async function LawyerRegisterPage({
 	searchParams,
 }: {
 	searchParams: Promise<{ callbackUrl?: Route }>
@@ -26,13 +26,15 @@ export default async function RegisterPage({
 		<Card className="w-full max-w-md">
 			<CardHeader className="text-center">
 				<div className="mb-4 flex justify-center">
-					<QuanbyLogo className="h-16 w-16" />
+					<QuanbyLogo className="size-16" />
 				</div>
-				<CardTitle className="text-2xl">Create Account</CardTitle>
-				<CardDescription>Join Quanby Sign and start signing documents securely</CardDescription>
+				<CardTitle className="text-2xl">Lawyer Registration</CardTitle>
+				<CardDescription>
+					Register as an Electronic Notary Public (ENP) to notarize documents on Quanby Sign
+				</CardDescription>
 			</CardHeader>
 			<CardContent>
-				<RegisterForm callbackUrl={callbackUrl} />
+				<LawyerRegisterForm callbackUrl={callbackUrl} />
 			</CardContent>
 			<CardFooter className="flex-col gap-2">
 				<div className="text-muted-foreground text-center text-sm">
@@ -52,19 +54,19 @@ export default async function RegisterPage({
 					</Link>
 				</div>
 				<div className="text-muted-foreground text-center text-sm">
-					Are you a lawyer?{" "}
+					Not a lawyer?{" "}
 					<Link
 						href={
 							callbackUrl
-								? (`/auth/register/lawyer?callbackUrl=${encodeURIComponent(callbackUrl)}` as Route)
-								: ("/auth/register/lawyer" as Route)
+								? (`/auth/register?callbackUrl=${encodeURIComponent(callbackUrl)}` as Route)
+								: "/auth/register"
 						}
 						className={cn(
 							buttonVariants({ variant: "link" }),
 							"text-primary hover:text-primary/80 h-fit px-1.5 py-0.5 text-sm"
 						)}
 					>
-						Register as ENP
+						Register as Principal
 					</Link>
 				</div>
 			</CardFooter>

@@ -1,34 +1,64 @@
 import { type InferSelectModel } from "drizzle-orm"
+import { index } from "drizzle-orm/pg-core"
 
 import { users } from "@/services/drizzle/schema/auth"
 import { createTable, randomId } from "@/services/drizzle/utils"
 
-export const enpProfiles = createTable("enp_profile", t => ({
-	id: t
-		.varchar({ length: 255 })
-		.primaryKey()
-		.$defaultFn(() => randomId()),
-	userId: t
-		.varchar({ length: 255 })
-		.notNull()
-		.unique()
-		.references(() => users.id, { onDelete: "cascade" }),
-	specialization: t.text(), // e.g., "Legal Documents, Contracts, Real Estate"
-	bio: t.text(),
-	experience: t.varchar({ length: 255 }), // e.g., "5+ years"
-	languages: t.text(), // JSON array stored as text, e.g., '["English", "Filipino"]'
-	responseTime: t.varchar({ length: 255 }), // e.g., "Within 2 hours"
-	rating: t.real().default(0), // Average rating
-	reviewCount: t.integer().default(0), // Total number of reviews
-	commission: t.real().default(0), // Commission rate for the ENP
-	isAvailable: t.boolean().default(true), // Whether accepting new consultations
-	createdAt: t.timestamp({ mode: "date", withTimezone: true }).defaultNow().notNull(),
-	updatedAt: t
-		.timestamp({ mode: "date", withTimezone: true })
-		.defaultNow()
-		.$onUpdateFn(() => new Date())
-		.notNull(),
-})).enableRLS()
+export const enpProfiles = createTable(
+	"enp_profile",
+	t => ({
+		id: t
+			.varchar({ length: 255 })
+			.primaryKey()
+			.$defaultFn(() => randomId()),
+		userId: t
+			.varchar({ length: 255 })
+			.notNull()
+			.unique()
+			.references(() => users.id, { onDelete: "cascade" }),
+
+		// Basic profile info
+		specialization: t.text(), // e.g., "Legal Documents, Contracts, Real Estate"
+		bio: t.text(),
+		experience: t.varchar({ length: 255 }), // e.g., "5+ years"
+		languages: t.text(), // JSON array stored as text, e.g., '["English", "Filipino"]'
+		responseTime: t.varchar({ length: 255 }), // e.g., "Within 2 hours"
+		rating: t.real().default(0), // Average rating
+		reviewCount: t.integer().default(0), // Total number of reviews
+		commission: t.real().default(0), // Commission rate for the ENP
+		isAvailable: t.boolean().default(true), // Whether accepting new consultations
+
+		// --- Notary Seal Info ---
+		enpName: t.varchar({ length: 255 }), // e.g., "Mariae Francine Geraldine Biglaen y Sibulop"
+		enpRoleNumber: t.varchar({ length: 100 }), // e.g., "123456"
+
+		// --- Notary Info (Document Stamp) ---
+		attyName: t.varchar({ length: 255 }), // e.g., "ATTY. MARIA ANGELICA M. DELA CRUZ-SAN FELIPE"
+		rollNo: t.varchar({ length: 100 }), // Roll of Attorneys number
+		rollNoDate: t.varchar({ length: 100 }), // e.g., "5 June 2018"
+		commissionNo: t.varchar({ length: 100 }), // e.g., "2024 - 024"
+		commissionNoValidUntil: t.varchar({ length: 100 }), // e.g., "Dec 31, 2025"
+		ptrNo: t.varchar({ length: 100 }), // Professional Tax Receipt number
+		ptrNoLocation: t.varchar({ length: 255 }), // e.g., "Manila"
+		ptrNoDate: t.varchar({ length: 100 }), // e.g., "Jan 02, 2025"
+		ibpNo: t.varchar({ length: 100 }), // Integrated Bar of the Philippines number
+		ibpNoDate: t.varchar({ length: 100 }), // e.g., "Dec 18, 2024 (for 2025)"
+		notaryEmail: t.varchar({ length: 255 }), // Official notary email
+		notaryAddress: t.text(), // Official notary address
+		mcleNoPeriod: t.varchar({ length: 50 }), // e.g., "VIII"
+		mcleNo: t.varchar({ length: 100 }), // MCLE Compliance number
+		mcleNoDate: t.varchar({ length: 100 }), // e.g., "Jun 12, 2024"
+		modeOfNotarization: t.varchar({ length: 50 }), // e.g., "REN" (Remote Electronic Notarization)
+
+		createdAt: t.timestamp({ mode: "date", withTimezone: true }).defaultNow().notNull(),
+		updatedAt: t
+			.timestamp({ mode: "date", withTimezone: true })
+			.defaultNow()
+			.$onUpdateFn(() => new Date())
+			.notNull(),
+	}),
+	t => [index("enp_profile_user_id_idx").on(t.userId)]
+).enableRLS()
 
 export const enpAvailability = createTable("enp_availability", t => ({
 	id: t

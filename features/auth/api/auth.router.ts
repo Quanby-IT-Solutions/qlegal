@@ -4,12 +4,14 @@ import { eq } from "drizzle-orm"
 
 import { autoJoinOrganization } from "@/services/docochain"
 import { passwordResetTokens, users, verificationTokens } from "@/services/drizzle/schema/auth"
+import { enpProfiles } from "@/services/drizzle/schema/enp-profiles"
 import { sendPasswordResetToken } from "@/services/react-email/lib/send.password-reset-token"
 import { sendVerificationToken } from "@/services/react-email/lib/send.verification-token"
 import { createTRPCRouter, publicProcedure } from "@/services/trpc/init"
 
 import {
 	forgotPasswordSchema,
+	lawyerRegisterSchema,
 	registerSchema,
 	resetPasswordSchema,
 	verifyEmailSchema,
@@ -62,6 +64,127 @@ export const authRouter = createTRPCRouter({
 		await sendVerificationToken(verificationToken.email, verificationToken.token)
 
 		return { message: "Confirmation email sent." }
+	}),
+
+	registerLawyer: publicProcedure.input(lawyerRegisterSchema).mutation(async ({ ctx, input }) => {
+		const { name, email, password, seal, notaryInfo } = input
+
+		// Check if user already exists
+		const existingUser = await ctx.db.query.users.findFirst({
+			where: (data, { eq }) => eq(data.email, email),
+		})
+
+		if (existingUser) {
+			throw new TRPCError({
+				code: "CONFLICT",
+				message: "User with this email already exists.",
+			})
+		}
+
+		const hashedPassword = await hash(password, 10)
+
+		// Create user with PRINCIPAL role (will be upgraded to ENP after admin approval)
+		const [newUser] = await ctx.db
+			.insert(users)
+			.values({
+				name,
+				email,
+				password: hashedPassword,
+				role: "PRINCIPAL", // Pending approval, will become ENP after review
+			})
+			.returning({ id: users.id })
+
+		if (!newUser) {
+			throw new TRPCError({
+				code: "INTERNAL_SERVER_ERROR",
+				message: "Failed to create user account.",
+			})
+		}
+
+		// Create ENP profile with notary credentials
+		await ctx.db.insert(enpProfiles).values({
+			userId: newUser.id,
+			// Seal info
+			enpName: seal.enpName,
+			enpRoleNumber: seal.enpRoleNumber,
+			// Notary info
+			attyName: notaryInfo.attyName,
+			rollNo: notaryInfo.rollNo,
+			rollNoDate: notaryInfo.rollNoDate,
+			commissionNo: notaryInfo.commissionNo,
+			commissionNoValidUntil: notaryInfo.commissionNoValidUntil,
+			ptrNo: notaryInfo.ptrNo,
+			ptrNoLocation: notaryInfo.ptrNoLocation,
+			ptrNoDate: notaryInfo.ptrNoDate,
+			ibpNo: notaryInfo.ibpNo,
+			ibpNoDate: notaryInfo.ibpNoDate,
+			notaryEmail: notaryInfo.notaryEmail,
+			notaryAddress: notaryInfo.notaryAddress,
+			mcleNoPeriod: notaryInfo.mcleNoPeriod,
+			mcleNo: notaryInfo.mcleNo,
+			mcleNoDate: notaryInfo.mcleNoDate,
+			modeOfNotarization: notaryInfo.modeOfNotarization,
+			isAvailable: false, // Not available until approved
+		})
+
+		// Auto-join user to DocoChain organization
+		try {
+			const nameParts = name.split(" ")
+			const firstName = nameParts[0] ?? "User"
+			const lastName = nameParts.slice(1).join(" ") || ""
+
+			await autoJoinOrganization({
+				email,
+				firstName,
+				lastName,
+				role: "Member",
+			})
+			console.log("✅ Lawyer auto-joined to DocoChain organization")
+		} catch (error) {
+			console.warn("⚠️ Failed to auto-join lawyer to DocoChain organization:", error)
+		}
+
+		// Generate document_stamp payload for external API
+		const documentStamp = {
+			seal: {
+				type: "seal",
+				enp_name: seal.enpName,
+				enp_role_number: seal.enpRoleNumber,
+			},
+			notary_info: {
+				type: "notary",
+				atty_name: notaryInfo.attyName,
+				roll_no: notaryInfo.rollNo,
+				roll_no_date: notaryInfo.rollNoDate,
+				commission_no: notaryInfo.commissionNo,
+				commission_no_valid_until: notaryInfo.commissionNoValidUntil,
+				PTR_no: notaryInfo.ptrNo,
+				PTR_no_location: notaryInfo.ptrNoLocation,
+				PTR_no_date: notaryInfo.ptrNoDate,
+				IBP_no: notaryInfo.ibpNo,
+				IBP_no_date: notaryInfo.ibpNoDate,
+				email: notaryInfo.notaryEmail,
+				address: notaryInfo.notaryAddress,
+				MCLE_no_period: notaryInfo.mcleNoPeriod,
+				MCLE_no: notaryInfo.mcleNo,
+				MCLE_no_date: notaryInfo.mcleNoDate,
+				mode_of_notarization: notaryInfo.modeOfNotarization,
+			},
+		}
+
+		// TODO: Send document_stamp to external API
+		// await submitToExternalAPI(documentStamp)
+		console.log("📄 Document stamp payload ready for API:", JSON.stringify(documentStamp, null, 2))
+
+		// Send verification email
+		const verificationToken = await generateVerificationToken(email)
+		await sendVerificationToken(verificationToken.email, verificationToken.token)
+
+		return {
+			message:
+				"Registration successful! Please verify your email. Your application will be reviewed by an administrator.",
+			documentStamp, // Return for debugging/confirmation
+		}
 	}),
 
 	forgotPassword: publicProcedure.input(forgotPasswordSchema).mutation(async ({ ctx, input }) => {
