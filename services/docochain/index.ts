@@ -7,11 +7,26 @@ import { env } from "@/env"
 
 import { normalizeDocoChainUrl } from "./url-normalizer"
 
-const DOCOCHAIN_API_BASE = env.DOCOCHAIN_API_URL ?? "https://stg-api2.doconchain.com"
-const DOCOCHAIN_API_TOKEN = env.DOCOCHAIN_API_TOKEN ?? ""
-const DOCOCHAIN_ORGANIZATION_ID = env.DOCOCHAIN_ORGANIZATION_ID ?? ""
-const DOCOCHAIN_CLIENT_KEY = env.DOCOCHAIN_CLIENT_KEY ?? ""
-const DOCOCHAIN_CLIENT_SECRET = env.DOCOCHAIN_CLIENT_SECRET ?? ""
+const DOCOCHAIN_API_BASE = (env.DOCOCHAIN_API_URL ?? "https://stg-api2.doconchain.com").trim()
+// IMPORTANT: env values can contain trailing whitespace (common in .env). Trim to avoid 401s.
+const DOCOCHAIN_API_TOKEN = (env.DOCOCHAIN_API_TOKEN ?? "").trim()
+const DOCOCHAIN_ORGANIZATION_ID = (env.DOCOCHAIN_ORGANIZATION_ID ?? "").trim()
+const DOCOCHAIN_CLIENT_KEY = (env.DOCOCHAIN_CLIENT_KEY ?? "").trim()
+const DOCOCHAIN_CLIENT_SECRET = (env.DOCOCHAIN_CLIENT_SECRET ?? "").trim()
+/**
+ * Admin email used for privileged org operations (auto-join).
+ * This should be a DocoChain org owner/admin email that is already allowed.
+ *
+ * It is intentionally separate from the registering user's email.
+ */
+const DOCOCHAIN_ADMIN_EMAIL = (env.DOCOCHAIN_ADMIN_EMAIL ?? "").trim()
+
+function splitName(fullName: string | undefined): { firstName: string; lastName: string } {
+	const normalized = (fullName ?? "").trim()
+	if (!normalized) return { firstName: "User", lastName: "" }
+	const parts = normalized.split(/\s+/).filter(Boolean)
+	return { firstName: parts[0] ?? "User", lastName: parts.slice(1).join(" ") || "" }
+}
 
 // Token cache to store generated tokens per email
 // Format: { email: { token: string, expiresAt: number } }
@@ -656,6 +671,132 @@ export async function autoJoinOrganization({
 		console.error("❌ Error auto-joining user to organization:", error)
 		// Don't throw - this is not critical, user can still be added as GUEST
 		console.warn("⚠️ Continuing without organization membership...")
+	}
+}
+
+/**
+ * Ensure a user is a joined member of the DocoChain organization.
+ *
+ * This is a STRICT variant of `autoJoinOrganization`:
+ * - It treats 401/403 as errors (do not silently continue)
+ * - It treats "already exists" responses as success
+ *
+ * Use this during registration/provisioning when you need a hard guarantee.
+ */
+export async function ensureJoinedToOrganization({
+	email,
+	firstName,
+	lastName,
+	role = "Member",
+	organizationId,
+	userEmail,
+}: {
+	email: string
+	firstName: string
+	lastName: string
+	role?: string
+	organizationId?: string
+	userEmail?: string
+}): Promise<void> {
+	const orgId = organizationId ?? DOCOCHAIN_ORGANIZATION_ID
+	if (!orgId) {
+		throw new Error("DocoChain organization ID not configured (DOCOCHAIN_ORGANIZATION_ID)")
+	}
+
+	// IMPORTANT: use a privileged email for auth, not the newly registering user.
+	// If userEmail is not provided, fall back to DOCOCHAIN_ADMIN_EMAIL.
+	const authEmail = userEmail ?? (DOCOCHAIN_ADMIN_EMAIL || undefined)
+
+	const response = await makeDocoChainApiCall(
+		async token => {
+			const formData = new FormData()
+			formData.append("data[0][email]", email)
+			formData.append("data[0][first_name]", firstName)
+			formData.append("data[0][last_name]", lastName)
+			formData.append("data[0][role]", role)
+			formData.append("data[0][organization_id]", orgId)
+
+			return fetch(`${DOCOCHAIN_API_BASE}/api/v2/organization/members/auto-join?user_type=ENTERPRISE_API`, {
+				method: "POST",
+				headers: {
+					Authorization: `Bearer ${token}`,
+					Accept: "application/json",
+				},
+				body: formData,
+			})
+		},
+		authEmail
+	)
+
+	if (response.ok) return
+
+	const errorText = await response.text()
+
+	// Already exists cases are OK
+	if (response.status === 409) return
+	if (response.status === 400 && errorText.toLowerCase().includes("already")) return
+
+	if (response.status === 401 || response.status === 403) {
+		throw new Error(
+			`DocoChain auto-join unauthorized (${response.status}). Ensure the auth identity has org-member permissions (DOCOCHAIN_ADMIN_EMAIL or DOCOCHAIN_API_TOKEN). Body: ${errorText}`
+		)
+	}
+
+	throw new Error(
+		`DocoChain auto-join failed: ${response.status} ${response.statusText} - ${errorText}`
+	)
+}
+
+/**
+ * Provision a newly registered user in DocoChain:
+ * - Join them to the configured organization
+ * - Verify token generation works for their email (warms token cache)
+ */
+export async function provisionDocoChainUser({
+	email,
+	name,
+	role = "Member",
+	organizationId,
+	userEmailForAuth,
+}: {
+	email: string
+	name?: string | null
+	role?: string
+	organizationId?: string
+	/**
+	 * Email used to generate the Bearer token for the org membership call.
+	 * If omitted, we fall back to DOCOCHAIN_API_TOKEN (static) via getDocoChainToken().
+	 */
+	userEmailForAuth?: string
+}): Promise<{ joinedOrganization: boolean; userTokenGenerated: boolean }> {
+	const { firstName, lastName } = splitName(name ?? undefined)
+
+	// BEST-EFFORT: join org so user is immediately usable in DocoChain.
+	// If this fails (401/403, etc), we still allow QLegal registration and log the failure.
+	let joinedOrganization = false
+	try {
+		await ensureJoinedToOrganization({
+			email,
+			firstName,
+			lastName,
+			role,
+			organizationId,
+			// If not provided, ensureJoinedToOrganization will fall back to DOCOCHAIN_ADMIN_EMAIL.
+			userEmail: userEmailForAuth,
+		})
+		joinedOrganization = true
+	} catch (error) {
+		console.warn("⚠️ DocoChain provisioning: failed to auto-join organization:", error)
+	}
+
+	// BEST-EFFORT: generate user token (optional "credentials").
+	// Token generation can fail if client creds are wrong/missing or DocoChain rejects the email.
+	try {
+		await generateDocoChainToken(email, true)
+		return { joinedOrganization, userTokenGenerated: true }
+	} catch (error) {
+		console.warn("⚠️ DocoChain provisioning: failed to generate user token:", error)
+		return { joinedOrganization, userTokenGenerated: false }
 	}
 }
 
@@ -1427,50 +1568,27 @@ export async function downloadSignedDocument(
 		}
 
 		// Try multiple methods to get the signed document:
-		// 1. Prefer DocoChain API download endpoint (signed PDF)
-		// 2. Fallback to Vault item file_url (may include sealed/original output depending on DocoChain)
+		// 1. Prefer Vault item file_url (this is the one that typically includes the document seal)
+		// 2. Fallback to DocoChain API download endpoint (signed PDF, may omit the seal)
 		// 3. Fallback to projectData URLs
 		let signedDocumentUrl: string | null = null
 		let buffer: Buffer | null = null
 
-		// Method 1: DocoChain API download endpoint (signed PDF)
-		// NOTE: This may omit the document seal; this is the "just download signed document" behavior.
-		const downloadApiUrl = `${DOCOCHAIN_API_BASE}/api/v2/projects/${projectUuid}/download?user_type=ENTERPRISE_API`
-		if (!buffer) {
-			console.log("🔵 Trying DocoChain API download endpoint for SIGNED document:", downloadApiUrl)
-			try {
-				const apiResponse = await makeDocoChainApiCall(async token => {
-					return fetch(downloadApiUrl, {
-						method: "GET",
-						headers: {
-							Authorization: `Bearer ${token}`,
-							Accept: "application/pdf",
-						},
-					})
-				}, userEmail)
-
-				if (apiResponse.ok) {
-					console.log("✅ Successfully downloaded signed document from API endpoint")
-					const arrayBuffer = await apiResponse.arrayBuffer()
-					buffer = Buffer.from(arrayBuffer)
-					signedDocumentUrl = downloadApiUrl
-				} else {
-					console.warn(
-						"⚠️ API download endpoint returned:",
-						apiResponse.status,
-						apiResponse.statusText
-					)
-				}
-			} catch (apiError) {
-				console.warn("⚠️ API download endpoint failed, trying fallback methods:", apiError)
-			}
-		}
-
-		// Method 2: Vault "files[].file_url" (completed projects)
-		// Use: GET /vault/items/{projectUuid}?user_type=ENTERPRISE_API
+		// Method 1: Vault "files[].file_url" (completed projects)
+		// IMPORTANT: Vault expects the long UUID (projectData.uuid / project_uuid), not our short project id.
+		// Use: GET /vault/items/{uuid}?user_type=ENTERPRISE_API
 		if (!buffer) {
 			try {
-				const vaultItem = await getVaultItem(projectUuid, userEmail)
+				const rawVaultUuid =
+					(projectData as { uuid?: unknown; project_uuid?: unknown })?.uuid ??
+					(projectData as { uuid?: unknown; project_uuid?: unknown })?.project_uuid
+
+				const vaultUuid =
+					typeof rawVaultUuid === "string" || typeof rawVaultUuid === "number"
+						? String(rawVaultUuid)
+						: projectUuid
+
+				const vaultItem = await getVaultItem(vaultUuid, userEmail)
 				const vaultFiles =
 					(vaultItem?.data?.files as
 						| Array<{
@@ -1485,12 +1603,34 @@ export async function downloadSignedDocument(
 						| undefined) ?? []
 
 				// Prefer a file that matches the project's file name (best signal).
-				// Otherwise, try to pick an ORIGINAL/sealed file if the API includes metadata.
+				// Otherwise, try to pick a SEALED/SIGNED/ORIGINAL-like file if the API includes metadata.
 				const projectFileName = String(projectData.file_name ?? projectData.name ?? "").trim()
 				const matchingByName =
 					projectFileName.length > 0
 						? vaultFiles.find(f => String(f.file_name ?? f.name ?? "").trim() === projectFileName)
 						: undefined
+
+				const sealedOrSignedLike =
+					vaultFiles.find(f => {
+						const type = String(f.type ?? "").toLowerCase()
+						const tab = String(f.tab ?? "").toLowerCase()
+						const name = String(f.name ?? "").toLowerCase()
+						const fileName = String(f.file_name ?? "").toLowerCase()
+						return (
+							type.includes("seal") ||
+							type.includes("sealed") ||
+							type.includes("signed") ||
+							tab.includes("seal") ||
+							tab.includes("sealed") ||
+							tab.includes("signed") ||
+							name.includes("seal") ||
+							name.includes("sealed") ||
+							name.includes("signed") ||
+							fileName.includes("seal") ||
+							fileName.includes("sealed") ||
+							fileName.includes("signed")
+						)
+					}) ?? undefined
 
 				const originalLike =
 					vaultFiles.find(
@@ -1501,7 +1641,7 @@ export async function downloadSignedDocument(
 							String(f.file_name ?? "").toLowerCase().includes("original")
 					) ?? undefined
 
-				const selectedFile = matchingByName ?? originalLike ?? vaultFiles[0]
+				const selectedFile = matchingByName ?? sealedOrSignedLike ?? originalLike ?? vaultFiles[0]
 				const vaultFileUrl: string | undefined = selectedFile?.file_url ?? selectedFile?.url
 
 				if (!vaultFileUrl) {
@@ -1539,7 +1679,40 @@ export async function downloadSignedDocument(
 			}
 		}
 
-		// Method 2: Fallback to signed URLs first (prioritize signed versions over original)
+		// Method 2: DocoChain API download endpoint (signed PDF)
+		// NOTE: This may omit the document seal; keep as fallback behind Vault.
+		const downloadApiUrl = `${DOCOCHAIN_API_BASE}/api/v2/projects/${projectUuid}/download?user_type=ENTERPRISE_API`
+		if (!buffer) {
+			console.log("🔵 Trying DocoChain API download endpoint for SIGNED document:", downloadApiUrl)
+			try {
+				const apiResponse = await makeDocoChainApiCall(async token => {
+					return fetch(downloadApiUrl, {
+						method: "GET",
+						headers: {
+							Authorization: `Bearer ${token}`,
+							Accept: "application/pdf",
+						},
+					})
+				}, userEmail)
+
+				if (apiResponse.ok) {
+					console.log("✅ Successfully downloaded signed document from API endpoint")
+					const arrayBuffer = await apiResponse.arrayBuffer()
+					buffer = Buffer.from(arrayBuffer)
+					signedDocumentUrl = downloadApiUrl
+				} else {
+					console.warn(
+						"⚠️ API download endpoint returned:",
+						apiResponse.status,
+						apiResponse.statusText
+					)
+				}
+			} catch (apiError) {
+				console.warn("⚠️ API download endpoint failed, trying fallback methods:", apiError)
+			}
+		}
+
+		// Method 3: Fallback to signed URLs first (prioritize signed versions over original)
 		if (!buffer) {
 			// CRITICAL: Prioritize signed URLs to ensure we get the document WITH signatures
 			const fallbackUrl =
