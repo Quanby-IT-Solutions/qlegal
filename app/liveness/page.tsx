@@ -4,14 +4,27 @@ import { QuanbyLogo } from "@/core/components/quanby-logo"
 
 import { auth } from "@/services/next-auth"
 
+import { checkUserLivenessStatus } from "@/features/liveness-validation/api/liveness.actions"
 import { LivenessValidationCard } from "@/features/liveness-validation/components/liveness-validation-card"
 
-export default async function LivenessValidationPage() {
+export default async function LivenessValidationPage({
+	searchParams,
+}: {
+	searchParams: Promise<{ redirect?: string; meetingId?: string }>
+}) {
 	const session = await auth()
+	const params = await searchParams
 
 	// Require authentication
 	if (!session?.user?.id) {
 		redirect("/auth/login")
+	}
+
+	// Check if user is already verified for this specific meeting
+	const livenessStatus = await checkUserLivenessStatus(params.meetingId)
+	if (livenessStatus.success && livenessStatus.data?.isVerified && params.redirect) {
+		// Already verified for this meeting, redirect to the intended destination
+		redirect(params.redirect)
 	}
 
 	return (
@@ -23,10 +36,15 @@ export default async function LivenessValidationPage() {
 				</div>
 
 				{/* Main Card */}
-				<LivenessValidationCard />
+				<LivenessValidationCard redirectUrl={params.redirect} meetingId={params.meetingId} />
 
 				{/* Footer Info */}
 				<div className="space-y-2 text-center">
+					{params.meetingId && (
+						<p className="text-primary mb-3 text-sm font-medium">
+							This verification is required to join the meeting
+						</p>
+					)}
 					<p className="text-muted-foreground text-sm">
 						Your verification is processed securely using HyperVerge AI technology
 					</p>

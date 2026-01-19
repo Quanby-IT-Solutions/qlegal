@@ -28,6 +28,7 @@ import {
 import { Skeleton } from "@/core/components/ui/skeleton"
 import { useGeolocation } from "@/core/hooks/use-geolocation"
 
+import { checkUserLivenessStatus } from "@/features/liveness-validation/api/liveness.actions"
 import { useLocationVerification } from "@/features/meetings/api/location-verification.hooks"
 import { useMeetings } from "@/features/meetings/api/meetings.hooks"
 import { LocationErrorDialog } from "@/features/meetings/components/location-error-dialog"
@@ -153,11 +154,24 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 		window.location.reload()
 	}, [])
 
-	// Get user media
+	// Check liveness verification and redirect if needed
 	useEffect(() => {
 		if (!session) {
 			router.push(`/auth/login?callbackUrl=/meetings/${id}/lobby`)
+			return
 		}
+
+		// Check liveness verification status for this specific meeting
+		const checkLiveness = async () => {
+			const result = await checkUserLivenessStatus(id)
+			if (result.success && result.data && !result.data.isVerified) {
+				// User hasn't completed liveness verification for this meeting, redirect to liveness page
+				const redirectUrl = encodeURIComponent(`/meetings/${id}/lobby`)
+				router.push(`/liveness?redirect=${redirectUrl}&meetingId=${id}`)
+			}
+		}
+
+		void checkLiveness()
 	}, [session, router, id])
 
 	// Update video element when stream changes

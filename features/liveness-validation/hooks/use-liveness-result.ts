@@ -15,18 +15,19 @@ import { getHostedLivenessResult } from "../api/liveness.actions"
 
 interface UseLivenessResultOptions {
 	transactionId: string | null
+	meetingId?: string | null
 	enabled?: boolean
 }
 
-export function useLivenessResult({ transactionId, enabled = true }: UseLivenessResultOptions) {
+export function useLivenessResult({ transactionId, meetingId, enabled = true }: UseLivenessResultOptions) {
 	return useQuery({
-		queryKey: ["liveness-result", transactionId],
+		queryKey: ["liveness-result", transactionId, meetingId],
 		queryFn: async () => {
 			if (!transactionId) {
 				throw new Error("Transaction ID is required")
 			}
-			console.log("🔵 [TanStack Query] Fetching liveness result for:", transactionId)
-			return getHostedLivenessResult(transactionId)
+			console.log("🔵 [TanStack Query] Fetching liveness result for:", transactionId, "meeting:", meetingId || "N/A")
+			return getHostedLivenessResult(transactionId, meetingId || undefined)
 		},
 		enabled: enabled && !!transactionId,
 		// Prevent refetching - we only need the result once per transaction

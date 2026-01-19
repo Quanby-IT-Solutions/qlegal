@@ -37,7 +37,13 @@ interface ValidationResult {
 	timestamp: Date
 }
 
-export function LivenessValidationCard() {
+export function LivenessValidationCard({ 
+	redirectUrl,
+	meetingId 
+}: { 
+	redirectUrl?: string
+	meetingId?: string 
+}) {
 	const [isDirectModeEnabled, setIsDirectModeEnabled] = useState(false)
 	const [isLoading, setIsLoading] = useState(true)
 	const [showCapture, setShowCapture] = useState(false)
@@ -64,6 +70,14 @@ export function LivenessValidationCard() {
 			timestamp: new Date(),
 		})
 		setShowCapture(false)
+
+		// If redirect URL is provided and verification passed, redirect
+		if (redirectUrl && result.decision.isApproved) {
+			toast.success("Verification successful! Redirecting...")
+			setTimeout(() => {
+				window.location.href = redirectUrl
+			}, 1500)
+		}
 	}
 
 	const handleError = (error: string) => {
@@ -79,7 +93,8 @@ export function LivenessValidationCard() {
 		startTransition(async () => {
 			try {
 				console.log("🔵 Starting hosted liveness workflow...")
-				const result = await startHostedLivenessWorkflow()
+				console.log("   - Meeting ID:", meetingId || "N/A")
+				const result = await startHostedLivenessWorkflow(redirectUrl, meetingId)
 
 				if (!result.success) {
 					throw new Error(result.error || "Failed to start hosted workflow")
@@ -151,6 +166,7 @@ export function LivenessValidationCard() {
 						onSuccess={handleSuccess}
 						onError={handleError}
 						onCancel={() => setShowCapture(false)}
+						meetingId={meetingId}
 					/>
 				)}
 

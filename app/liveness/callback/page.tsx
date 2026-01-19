@@ -37,6 +37,8 @@ export default function LivenessCallbackPage() {
 	const searchParams = useSearchParams()
 	const router = useRouter()
 	const transactionId = searchParams.get("transactionId")
+	const redirectUrl = searchParams.get("redirect")
+	const meetingId = searchParams.get("meetingId")
 	const toastShownRef = useRef(false)
 
 	// Use TanStack Query hook to fetch results with automatic deduplication
@@ -47,6 +49,7 @@ export default function LivenessCallbackPage() {
 		error: queryError,
 	} = useLivenessResult({
 		transactionId,
+		meetingId,
 		enabled: !!transactionId,
 	})
 
@@ -56,6 +59,12 @@ export default function LivenessCallbackPage() {
 			toastShownRef.current = true
 			if (response.data.decision.isApproved) {
 				toast.success("Liveness verification successful!")
+				// Redirect if URL is provided
+				if (redirectUrl) {
+					setTimeout(() => {
+						router.push(redirectUrl)
+					}, 1500)
+				}
 			} else {
 				toast.error("Liveness verification failed")
 			}
@@ -68,7 +77,7 @@ export default function LivenessCallbackPage() {
 			toastShownRef.current = true
 			toast.error("Invalid callback: Missing transaction ID")
 		}
-	}, [response, queryError, transactionId])
+	}, [response, queryError, transactionId, redirectUrl, router])
 
 	const result = response?.success ? (response.data as ValidationResult) : null
 	const error = queryError
@@ -217,11 +226,18 @@ export default function LivenessCallbackPage() {
 
 					{/* Actions */}
 					<div className="flex gap-3">
-						<Button onClick={handleBackToHome} className="flex-1">
-							<ArrowLeft className="mr-2 h-4 w-4" />
-							Back to Liveness
-						</Button>
-						{isApproved && (
+						{!redirectUrl && (
+							<Button onClick={handleBackToHome} className="flex-1">
+								<ArrowLeft className="mr-2 h-4 w-4" />
+								Back to Liveness
+							</Button>
+						)}
+						{isApproved && redirectUrl && (
+							<Button onClick={() => router.push(redirectUrl)} className="flex-1">
+								Continue to Meeting
+							</Button>
+						)}
+						{isApproved && !redirectUrl && (
 							<Button
 								variant="outline"
 								onClick={() => router.push("/dashboard")}
