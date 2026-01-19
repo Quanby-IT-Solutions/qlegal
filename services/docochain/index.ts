@@ -23,6 +23,10 @@ const TOKEN_EXPIRATION_MS = 3600000 // 1 hour
 // Refresh tokens 5 minutes before expiration to avoid expired token errors
 const TOKEN_REFRESH_BUFFER_MS = 5 * 60 * 1000 // 5 minutes
 
+// If token generation endpoint is unreachable, cache the static token briefly to avoid
+// repeated connect timeouts/log spam on every API call.
+const FALLBACK_TOKEN_TTL_MS = 10 * 60 * 1000 // 10 minutes
+
 /**
  * Generate a DocoChain authentication token for a specific user email
  * Uses the Generate Token API: POST https://stg-api2.doconchain.com/api/v2/generate/token
@@ -73,6 +77,11 @@ export async function generateDocoChainToken(email: string, forceRefresh = false
 			console.warn("⚠️ DocoChain client credentials not configured. Using static token.")
 			// Fallback to static token if credentials not available
 			if (DOCOCHAIN_API_TOKEN) {
+				// Cache static token for this email to avoid repeated generation attempts
+				tokenCache.set(email, {
+					token: DOCOCHAIN_API_TOKEN,
+					expiresAt: Date.now() + FALLBACK_TOKEN_TTL_MS,
+				})
 				return DOCOCHAIN_API_TOKEN
 			}
 			throw new Error(
@@ -131,6 +140,11 @@ export async function generateDocoChainToken(email: string, forceRefresh = false
 		// Fallback to static token if available
 		if (DOCOCHAIN_API_TOKEN) {
 			console.warn("⚠️ Falling back to static token")
+			// Cache fallback token briefly to prevent repeated connect timeouts
+			tokenCache.set(email, {
+				token: DOCOCHAIN_API_TOKEN,
+				expiresAt: Date.now() + FALLBACK_TOKEN_TTL_MS,
+			})
 			return DOCOCHAIN_API_TOKEN
 		}
 		throw error
@@ -215,12 +229,59 @@ export async function makeDocoChainApiCall(
 	}
 }
 
+/**
+ * DocoChain Create Project "document_stamp" payload (stringified JSON).
+ *
+ * The API portal docs show this as:
+ * - multipart key: document_stamp
+ * - value: JSON string
+ *
+ * We keep this shape permissive because the portal examples vary in fields.
+ */
+interface DocumentStamp {
+	seal?: {
+		type?: string
+		enp_name?: string
+		enp_role_number?: string
+		[key: string]: unknown
+	}
+	notary_info?: {
+		type?: string
+		atty_name?: string
+		roll_no?: string
+		roll_no_date?: string
+		commission_no?: string
+		commission_no_valid_until?: string
+		PTR_no?: string
+		PTR_no_location?: string
+		PTR_no_date?: string
+		IBP_no?: string
+		IBP_no_date?: string
+		email?: string
+		address?: string
+		MCLE_no_period?: string
+		MCLE_no?: string
+		MCLE_no_date?: string
+		mode_of_notarization?: string
+		[key: string]: unknown
+	}
+	[key: string]: unknown
+}
+
 interface CreateProjectRequest {
 	title: string
 	documentFile: Buffer // PDF file buffer
 	fileName: string
 	userListEditable?: boolean // If false, recipients cannot be edited after creation
 	creatorAsViewer?: boolean // If false, creator is not added as a viewer
+	/**
+	 * Notary/Seal info for DocoChain.
+	 *
+	 * - Preferred: documentStamp -> sent as multipart field "document_stamp" (per portal docs)
+	 * - Back-compat: notarySeal -> also supported; will be sent as BOTH "document_stamp" and "notary_seal"
+	 */
+	documentStamp?: DocumentStamp
+	notarySeal?: DocumentStamp
 }
 
 interface DocoChainApiResponse {
@@ -293,6 +354,8 @@ export async function createDocoChainProject({
 	fileName,
 	userListEditable = false,
 	creatorAsViewer = false,
+	documentStamp,
+	notarySeal,
 	creatorEmail,
 }: CreateProjectRequest & { creatorEmail?: string }): Promise<{
 	uuid: string
@@ -318,10 +381,24 @@ export async function createDocoChainProject({
 		// creator_as_viewer: If false, creator is not added as a viewer
 		formData.append("creator_as_viewer", String(creatorAsViewer))
 
+		// document_stamp: Notarial/official seal + notary certificate info (JSON string)
+		// Portal docs: multipart key "document_stamp"
+		// Back-compat: we also send "notary_seal" when provided, in case older environments still expect it.
+		const finalDocumentStamp = documentStamp ?? notarySeal
+		if (finalDocumentStamp) {
+			formData.append("document_stamp", JSON.stringify(finalDocumentStamp))
+			// Back-compat param (safe to ignore if API doesn't use it)
+			formData.append("notary_seal", JSON.stringify(finalDocumentStamp))
+			console.log("   - document_stamp included:", JSON.stringify(finalDocumentStamp, null, 2))
+		}
+
 		const apiUrl = `${DOCOCHAIN_API_BASE}/api/v2/projects?user_type=ENTERPRISE_API`
 		console.log("🔵 Calling DocoChain API:", apiUrl)
 		console.log("   - user_list_editable:", userListEditable)
 		console.log("   - creator_as_viewer:", creatorAsViewer)
+		if (finalDocumentStamp) {
+			console.log("   - document_stamp: included")
+		}
 
 		// Use the wrapper function for automatic token refresh on 401 errors
 		const response = await makeDocoChainApiCall(
@@ -1350,96 +1427,112 @@ export async function downloadSignedDocument(
 		}
 
 		// Try multiple methods to get the signed document:
-		// 1. Use DocoChain API download endpoint (preferred - ensures signed version)
-		// 2. Fallback to projectData.url if API endpoint fails
+		// 1. Prefer DocoChain API download endpoint (signed PDF)
+		// 2. Fallback to Vault item file_url (may include sealed/original output depending on DocoChain)
+		// 3. Fallback to projectData URLs
 		let signedDocumentUrl: string | null = null
 		let buffer: Buffer | null = null
 
-		// Method 1: Try DocoChain API download endpoint for signed document
-		// CRITICAL: Use the download endpoint which should return the signed version when document is completed
+		// Method 1: DocoChain API download endpoint (signed PDF)
+		// NOTE: This may omit the document seal; this is the "just download signed document" behavior.
 		const downloadApiUrl = `${DOCOCHAIN_API_BASE}/api/v2/projects/${projectUuid}/download?user_type=ENTERPRISE_API`
-		console.log("🔵 Trying DocoChain API download endpoint for SIGNED document:", downloadApiUrl)
-
-		try {
-			const apiResponse = await makeDocoChainApiCall(async token => {
-				return fetch(downloadApiUrl, {
-					method: "GET",
-					headers: {
-						Authorization: `Bearer ${token}`,
-						Accept: "application/pdf",
-					},
-				})
-			}, userEmail)
-
-			if (apiResponse.ok) {
-				console.log("✅ Successfully downloaded signed document from API endpoint")
-				const arrayBuffer = await apiResponse.arrayBuffer()
-				buffer = Buffer.from(arrayBuffer)
-				signedDocumentUrl = downloadApiUrl
-			} else {
-				console.warn(
-					"⚠️ API download endpoint returned:",
-					apiResponse.status,
-					apiResponse.statusText
-				)
-			}
-		} catch (apiError) {
-			console.warn("⚠️ API download endpoint failed, trying fallback method:", apiError)
-		}
-
-		// Method 1.5: If still missing, try Vault items endpoint (completed projects)
 		if (!buffer) {
-			const vaultUrl = `${DOCOCHAIN_API_BASE}/vault/items/${projectUuid}?user_type=ENTERPRISE_API`
-			console.log("🔵 Trying DocoChain Vault endpoint for signed file:", vaultUrl)
-
+			console.log("🔵 Trying DocoChain API download endpoint for SIGNED document:", downloadApiUrl)
 			try {
-				const vaultResponse = await makeDocoChainApiCall(async token => {
-					return fetch(vaultUrl, {
+				const apiResponse = await makeDocoChainApiCall(async token => {
+					return fetch(downloadApiUrl, {
 						method: "GET",
 						headers: {
 							Authorization: `Bearer ${token}`,
-							Accept: "application/json",
+							Accept: "application/pdf",
 						},
 					})
 				}, userEmail)
 
-				if (vaultResponse.ok) {
-					const vaultJson = (await vaultResponse.json()) as {
-						data?: {
-							files?: Array<{
-								file_url?: string
-								url?: string
-								[key: string]: unknown
-							}>
-							[key: string]: unknown
-						}
-						[key: string]: unknown
-					}
-					const vaultFiles = vaultJson?.data?.files ?? []
-					const vaultFileUrl: string | undefined = vaultFiles[0]?.file_url ?? vaultFiles[0]?.url
-
-					if (vaultFileUrl) {
-						console.log("✅ Vault returned file URL, downloading signed PDF:", vaultFileUrl)
-						const fileResp = await fetch(vaultFileUrl)
-						if (fileResp.ok) {
-							const arrayBuffer = await fileResp.arrayBuffer()
-							buffer = Buffer.from(arrayBuffer)
-							signedDocumentUrl = vaultFileUrl
-						} else {
-							console.warn("⚠️ Vault file download failed:", fileResp.status, fileResp.statusText)
-						}
-					} else {
-						console.warn(
-							"⚠️ Vault response missing file_url; response keys:",
-							Object.keys(vaultJson?.data ?? {})
-						)
-					}
+				if (apiResponse.ok) {
+					console.log("✅ Successfully downloaded signed document from API endpoint")
+					const arrayBuffer = await apiResponse.arrayBuffer()
+					buffer = Buffer.from(arrayBuffer)
+					signedDocumentUrl = downloadApiUrl
 				} else {
 					console.warn(
-						"⚠️ Vault endpoint returned:",
-						vaultResponse.status,
-						vaultResponse.statusText
+						"⚠️ API download endpoint returned:",
+						apiResponse.status,
+						apiResponse.statusText
 					)
+				}
+			} catch (apiError) {
+				console.warn("⚠️ API download endpoint failed, trying fallback methods:", apiError)
+			}
+		}
+
+		// Method 2: Vault "files[].file_url" (completed projects)
+		// Use: GET /vault/items/{projectUuid}?user_type=ENTERPRISE_API
+		if (!buffer) {
+			try {
+				const vaultItem = await getVaultItem(projectUuid, userEmail)
+				const vaultFiles =
+					(vaultItem?.data?.files as
+						| Array<{
+								file_url?: string
+								url?: string
+								file_name?: string
+								name?: string
+								type?: string
+								tab?: string
+								[key: string]: unknown
+						  }>
+						| undefined) ?? []
+
+				// Prefer a file that matches the project's file name (best signal).
+				// Otherwise, try to pick an ORIGINAL/sealed file if the API includes metadata.
+				const projectFileName = String(projectData.file_name ?? projectData.name ?? "").trim()
+				const matchingByName =
+					projectFileName.length > 0
+						? vaultFiles.find(f => String(f.file_name ?? f.name ?? "").trim() === projectFileName)
+						: undefined
+
+				const originalLike =
+					vaultFiles.find(
+						f =>
+							String(f.type ?? "").toLowerCase() === "original" ||
+							String(f.tab ?? "").toLowerCase() === "original" ||
+							String(f.name ?? "").toLowerCase().includes("original") ||
+							String(f.file_name ?? "").toLowerCase().includes("original")
+					) ?? undefined
+
+				const selectedFile = matchingByName ?? originalLike ?? vaultFiles[0]
+				const vaultFileUrl: string | undefined = selectedFile?.file_url ?? selectedFile?.url
+
+				if (!vaultFileUrl) {
+					console.warn("⚠️ Vault item has no downloadable file_url")
+				} else {
+					console.log("✅ Vault returned file URL, downloading sealed PDF:", vaultFileUrl)
+
+					// file_url is usually public/presigned; try plain fetch first
+					let fileResp = await fetch(vaultFileUrl)
+
+					// If it isn't public, retry with Bearer token
+					if (!fileResp.ok && (fileResp.status === 401 || fileResp.status === 403)) {
+						console.log("🔄 Vault file URL requires auth; retrying with Bearer token...")
+						fileResp = await makeDocoChainApiCall(async token => {
+							return fetch(vaultFileUrl, {
+								method: "GET",
+								headers: {
+									Authorization: `Bearer ${token}`,
+									Accept: "application/pdf",
+								},
+							})
+						}, userEmail)
+					}
+
+					if (fileResp.ok) {
+						const arrayBuffer = await fileResp.arrayBuffer()
+						buffer = Buffer.from(arrayBuffer)
+						signedDocumentUrl = vaultFileUrl
+					} else {
+						console.warn("⚠️ Vault file download failed:", fileResp.status, fileResp.statusText)
+					}
 				}
 			} catch (vaultError) {
 				console.warn("⚠️ Vault endpoint failed, proceeding to fallback URLs:", vaultError)

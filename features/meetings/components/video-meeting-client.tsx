@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useEffect, useRef, useState } from "react"
+import React, { useEffect, useMemo, useRef, useState } from "react"
 import { MeetingProvider, useMeeting, useParticipant } from "@videosdk.live/react-sdk"
 import {
 	AlertCircle,
@@ -15,6 +15,8 @@ import {
 	FileUp,
 	GripVertical,
 	Lock,
+	Mic,
+	MicOff,
 	Monitor,
 	PhoneOff,
 	Send,
@@ -79,6 +81,26 @@ function MeetingControls({
 }) {
 	const meeting = useMeeting()
 	const [isCameraOn, setIsCameraOn] = useState(() => meeting?.localWebcamOn ?? false)
+	const [isMicOn, setIsMicOn] = useState(
+		() => (meeting as { localMicOn?: boolean })?.localMicOn ?? true
+	)
+	const localStreamRef = useRef<MediaStream | null>(null)
+	
+	// Get local participant ID - access localParticipant from meeting
+	const localParticipantId = useMemo(() => {
+		if (!meeting?.localParticipant) return ""
+		const localParticipant = meeting.localParticipant
+		// Safely extract ID from localParticipant object
+		if (typeof localParticipant === "object" && localParticipant !== null && "id" in localParticipant) {
+			const id = (localParticipant as { id?: string | number }).id
+			return id ? String(id) : ""
+		}
+		return ""
+	}, [meeting?.localParticipant])
+	
+	// Get local participant to access their stream (peer-to-peer style)
+	// Must call useParticipant unconditionally (React hook rule)
+	const localParticipant = useParticipant(localParticipantId || "local")
 
 	const [isScreenSharing, setIsScreenSharing] = useState(
 		() => (meeting as { localScreenShareOn?: boolean })?.localScreenShareOn ?? false
@@ -90,6 +112,58 @@ function MeetingControls({
 			setIsCameraOn(meeting.localWebcamOn)
 		}
 	}, [meeting?.localWebcamOn])
+
+	// Get local audio stream and track mic state from actual tracks (peer-to-peer style)
+	useEffect(() => {
+		const updateMicState = () => {
+			// Peer-to-peer style: Get stream from local participant
+			if (localParticipant) {
+				const { micStream, webcamStream } = localParticipant
+				
+				// Helper to extract MediaStream
+				const getMediaStream = (streamObj: unknown): MediaStream | null => {
+					if (!streamObj) return null
+					if (streamObj instanceof MediaStream) return streamObj
+					if ((streamObj as { stream?: MediaStream })?.stream instanceof MediaStream) {
+						return (streamObj as { stream: MediaStream }).stream
+					}
+					if ((streamObj as { mediaStream?: MediaStream })?.mediaStream instanceof MediaStream) {
+						return (streamObj as { mediaStream: MediaStream }).mediaStream
+					}
+					return null
+				}
+
+				// Try micStream first, then webcamStream (which may contain audio)
+				const localStream = getMediaStream(micStream) ?? getMediaStream(webcamStream)
+
+				if (localStream) {
+					localStreamRef.current = localStream
+					// Peer-to-peer style: Check actual audio track state
+					const audioTracks = localStream.getAudioTracks()
+					const hasEnabledAudio = audioTracks.some(
+						track => track.enabled && track.readyState === "live"
+					)
+					
+					// Sync state with actual track state (peer-to-peer style)
+					if (hasEnabledAudio !== isMicOn) {
+						setIsMicOn(hasEnabledAudio)
+					}
+				}
+			}
+
+			// Also sync with VideoSDK's localMicOn property
+			const meetingObj = meeting as { localMicOn?: boolean } | null
+			const localMicOn = meetingObj?.localMicOn
+			if (localMicOn !== undefined && localMicOn !== isMicOn) {
+				setIsMicOn(localMicOn)
+			}
+		}
+
+		updateMicState()
+		// Poll to check track state (similar to peer-to-peer system)
+		const interval = setInterval(updateMicState, 200)
+		return () => clearInterval(interval)
+	}, [meeting, localParticipant, isMicOn])
 
 	useEffect(() => {
 		const current = meeting as { localScreenShareOn?: boolean } | null | undefined
@@ -120,6 +194,38 @@ function MeetingControls({
 			await meeting.toggleWebcam()
 		} catch (error) {
 			console.error("Error toggling camera:", error)
+			toast.error("Failed to toggle camera")
+		}
+	}
+
+	const handleToggleMic = async () => {
+		if (!meeting) return
+		
+		try {
+			// Peer-to-peer style: Directly control audio tracks
+			const localStream = localStreamRef.current
+			if (localStream) {
+				const audioTracks = localStream.getAudioTracks()
+				const currentState = audioTracks.some(track => track.enabled)
+				const newState = !currentState
+				
+				// Enable/disable tracks directly (peer-to-peer style)
+				audioTracks.forEach(track => {
+					track.enabled = newState
+				})
+				
+				setIsMicOn(newState)
+				console.log(`[Local] Mic ${newState ? "enabled" : "disabled"} via direct track control`)
+			}
+			
+			// Also use VideoSDK's toggleMic for signaling
+			const toggleMicFn = (meeting as { toggleMic?: () => Promise<void> | void }).toggleMic
+			if (toggleMicFn) {
+				await toggleMicFn()
+			}
+		} catch (error) {
+			console.error("Error toggling microphone:", error)
+			toast.error("Failed to toggle microphone")
 		}
 	}
 
@@ -174,6 +280,19 @@ function MeetingControls({
 				title={isCameraOn ? "Turn off camera" : "Turn on camera"}
 			>
 				{isCameraOn ? <Camera className="size-4" /> : <CameraOff className="size-4" />}
+			</Button>
+
+			<Button
+				variant={isMicOn ? "outline" : "destructive"}
+				size="icon"
+				className={cn(
+					"size-9 rounded-full shadow-md transition-all hover:shadow-lg md:size-10",
+					!isMicOn && "animate-pulse"
+				)}
+				onClick={handleToggleMic}
+				title={isMicOn ? "Mute microphone" : "Unmute microphone"}
+			>
+				{isMicOn ? <Mic className="size-4" /> : <MicOff className="size-4" />}
 			</Button>
 
 			<Button
@@ -254,10 +373,115 @@ function MeetingControls({
 
 // Simple participant video card with screen share support
 function ParticipantView({ participantId }: { participantId: string }) {
-	const { webcamStream, webcamOn, displayName, isLocal, micOn, screenShareStream, screenShareOn } =
+	const { webcamStream, webcamOn, displayName, isLocal, micOn, screenShareStream, screenShareOn, micStream } =
 		useParticipant(participantId)
 	const videoRef = useRef<HTMLVideoElement>(null)
+	const audioRef = useRef<HTMLAudioElement>(null)
 	const [hasTrack, setHasTrack] = useState(false)
+	
+	// Peer-to-peer style: Get actual mic status by checking stream tracks directly
+	// This mirrors the peer-to-peer system's approach of checking track.enabled
+	// Use state + polling for real-time updates (peer-to-peer style)
+	const [actualMicOn, setActualMicOn] = useState(() => {
+		// Initial state from micOn property
+		return micOn ?? false
+	})
+
+	// Helper to extract MediaStream from various VideoSDK stream formats
+	const getMediaStream = useMemo(() => {
+		return (streamObj: unknown): MediaStream | null => {
+			if (!streamObj) return null
+			if (streamObj instanceof MediaStream) return streamObj
+			if ((streamObj as { stream?: MediaStream })?.stream instanceof MediaStream) {
+				return (streamObj as { stream: MediaStream }).stream
+			}
+			if ((streamObj as { mediaStream?: MediaStream })?.mediaStream instanceof MediaStream) {
+				return (streamObj as { mediaStream: MediaStream }).mediaStream
+			}
+			return null
+		}
+	}, [])
+
+	// Real-time polling + event listeners to check actual track state (peer-to-peer style)
+	useEffect(() => {
+		const checkMicStatus = () => {
+			// Peer-to-peer style: Check actual audio track state from streams
+			// This is the most reliable way, just like the peer-to-peer system
+			
+			// Check micStream first
+			const micMediaStream = getMediaStream(micStream)
+			const webcamMediaStream = getMediaStream(webcamStream)
+			
+			// Collect all audio tracks from both streams
+			const allAudioTracks: MediaStreamTrack[] = []
+			if (micMediaStream) {
+				allAudioTracks.push(...micMediaStream.getAudioTracks())
+			}
+			if (webcamMediaStream) {
+				allAudioTracks.push(...webcamMediaStream.getAudioTracks())
+			}
+			
+			// If we have any tracks, check their enabled state (peer-to-peer style)
+			if (allAudioTracks.length > 0) {
+				// Check if ANY audio track is enabled and live (peer-to-peer style)
+				// If all tracks are disabled, mic is OFF
+				const hasEnabledAudio = allAudioTracks.some(
+					track => track.enabled && track.readyState === "live"
+				)
+				setActualMicOn(hasEnabledAudio)
+				return
+			}
+			
+			// Only fall back to VideoSDK's micOn property if we have NO streams at all
+			// If streams exist but have no tracks, mic is OFF (not available)
+			if (!micMediaStream && !webcamMediaStream) {
+				// No streams at all - use VideoSDK's micOn as fallback
+				if (micOn !== undefined && micOn !== null) {
+					setActualMicOn(micOn)
+				} else {
+					setActualMicOn(false)
+				}
+			} else {
+				// Streams exist but no audio tracks = mic is OFF
+				setActualMicOn(false)
+			}
+		}
+
+		checkMicStatus()
+		
+		// Add event listeners to tracks for immediate updates (peer-to-peer style)
+		const micMediaStream = getMediaStream(micStream)
+		const webcamMediaStream = getMediaStream(webcamStream)
+		const allTracks: MediaStreamTrack[] = []
+		
+		if (micMediaStream) {
+			allTracks.push(...micMediaStream.getAudioTracks())
+		}
+		if (webcamMediaStream) {
+			allTracks.push(...webcamMediaStream.getAudioTracks())
+		}
+		
+		// Listen to track enabled/disabled changes
+		const trackChangeHandlers = allTracks.map(track => {
+			const handleEnabledChange = () => {
+				checkMicStatus()
+			}
+			track.addEventListener("unmute", handleEnabledChange)
+			track.addEventListener("mute", handleEnabledChange)
+			return { track, handleEnabledChange }
+		})
+		
+		// Poll every 200ms for real-time updates (peer-to-peer style)
+		const interval = setInterval(checkMicStatus, 200)
+		
+		return () => {
+			clearInterval(interval)
+			trackChangeHandlers.forEach(({ track, handleEnabledChange }) => {
+				track.removeEventListener("unmute", handleEnabledChange)
+				track.removeEventListener("mute", handleEnabledChange)
+			})
+		}
+	}, [micOn, micStream, webcamStream, getMediaStream])
 
 	useEffect(() => {
 		const videoElement = videoRef.current
@@ -303,7 +527,7 @@ function ParticipantView({ participantId }: { participantId: string }) {
 		}
 
 		const mediaStream =
-			(screenShareOn && getMediaStream(screenShareStream)) ||
+			(screenShareOn && getMediaStream(screenShareStream)) ??
 			(webcamOn && getMediaStream(webcamStream))
 
 		if (mediaStream && mediaStream.getVideoTracks().length > 0) {
@@ -317,6 +541,95 @@ function ParticipantView({ participantId }: { participantId: string }) {
 			videoElement.srcObject = null
 		}
 	}, [webcamOn, webcamStream, screenShareOn, screenShareStream])
+
+	// Handle audio stream for remote participants
+	// VideoSDK.live includes audio tracks in webcamStream when mic is enabled
+	useEffect(() => {
+		const audioElement = audioRef.current
+		if (!audioElement || isLocal) return
+
+		const getAudioStream = (streamObj: unknown): MediaStream | null => {
+			if (!streamObj) return null
+			if (streamObj instanceof MediaStream) {
+				const audioTracks = streamObj.getAudioTracks()
+				if (audioTracks.length > 0) {
+					return new MediaStream(audioTracks)
+				}
+				return null
+			}
+
+			if ((streamObj as { stream?: MediaStream })?.stream instanceof MediaStream) {
+				const stream = (streamObj as { stream: MediaStream }).stream
+				const audioTracks = stream.getAudioTracks()
+				if (audioTracks.length > 0) {
+					return new MediaStream(audioTracks)
+				}
+			}
+
+			if ((streamObj as { mediaStream?: MediaStream })?.mediaStream instanceof MediaStream) {
+				const stream = (streamObj as { mediaStream: MediaStream }).mediaStream
+				const audioTracks = stream.getAudioTracks()
+				if (audioTracks.length > 0) {
+					return new MediaStream(audioTracks)
+				}
+			}
+
+			if ((streamObj as { track?: MediaStreamTrack })?.track instanceof MediaStreamTrack) {
+				const track = (streamObj as { track: MediaStreamTrack }).track
+				if (track.kind === "audio") {
+					return new MediaStream([track])
+				}
+			}
+
+			if (
+				typeof (streamObj as { getTracks?: () => MediaStreamTrack[] })?.getTracks === "function"
+			) {
+				const tracks = (streamObj as { getTracks: () => MediaStreamTrack[] }).getTracks()
+				const audioTracks = tracks.filter(t => t.kind === "audio")
+				if (audioTracks.length > 0) {
+					return new MediaStream(audioTracks)
+				}
+			}
+
+			if (
+				typeof (streamObj as { getAudioTracks?: () => MediaStreamTrack[] })?.getAudioTracks ===
+				"function"
+			) {
+				const aTracks = (streamObj as { getAudioTracks: () => MediaStreamTrack[] }).getAudioTracks()
+				if (aTracks.length > 0) {
+					return new MediaStream(aTracks)
+				}
+			}
+			return null
+		}
+
+		// Try micStream first, then webcamStream (which may contain audio)
+		let audioStream = getAudioStream(micStream)
+		if (!audioStream && webcamStream) {
+			audioStream = getAudioStream(webcamStream)
+		}
+
+		// Use actualMicOn (which checks both micOn and stream state), just like webcamOn is used for video
+		if (audioStream && audioStream.getAudioTracks().length > 0 && actualMicOn) {
+			// Check if audio tracks are actually enabled and live
+			const enabledTracks = audioStream.getAudioTracks().filter(
+				track => track.enabled && track.readyState === "live"
+			)
+			
+			if (enabledTracks.length > 0) {
+				const enabledStream = new MediaStream(enabledTracks)
+				audioElement.srcObject = enabledStream
+				audioElement.volume = 1.0
+				audioElement.play().catch(() => {
+					// ignore autoplay errors
+				})
+			} else {
+				audioElement.srcObject = null
+			}
+		} else {
+			audioElement.srcObject = null
+		}
+	}, [micStream, webcamStream, actualMicOn, isLocal])
 
 	const initials = displayName?.charAt(0).toUpperCase() ?? "?"
 	const isPresenting = !!screenShareOn
@@ -338,6 +651,16 @@ function ParticipantView({ participantId }: { participantId: string }) {
 					)}
 				/>
 
+				{/* Hidden audio element for remote participants */}
+				{!isLocal && (
+					<audio
+						ref={audioRef}
+						autoPlay
+						playsInline
+						className="hidden"
+					/>
+				)}
+
 				{!showVideo && !isPresenting && (
 					<div className="pointer-events-none absolute inset-0 flex items-center justify-center">
 						<div className="bg-primary text-primary-foreground flex size-16 items-center justify-center rounded-full text-2xl font-semibold shadow-lg md:size-20">
@@ -356,7 +679,13 @@ function ParticipantView({ participantId }: { participantId: string }) {
 							</span>
 						)}
 					</div>
-					{!micOn && <AlertCircle className="size-3.5 text-amber-300" />}
+					<div className="flex items-center gap-1.5">
+						{actualMicOn ? (
+							<Mic className="size-3.5 text-green-400" />
+						) : (
+							<MicOff className="size-3.5 text-red-400" />
+						)}
+					</div>
 				</div>
 			</CardContent>
 		</Card>
@@ -594,12 +923,12 @@ function DocumentActions({
 					{isDownloadingSignedDocument ? (
 						<>
 							<div className="mr-2 size-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
-							Downloading...
+							Opening...
 						</>
 					) : (
 						<>
-							<Download className="mr-1.5 size-3.5" />
-							Download Signed Document
+							<FileText className="mr-1.5 size-3.5" />
+							View Signed Document
 						</>
 					)}
 				</Button>
@@ -948,41 +1277,19 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 		setDragOverDocumentId(null)
 	}
 
-	// Handle signed document download
+	// Handle signed document - open our server-streamed PDF
 	const handleDownloadSignedDocument = async (projectUuid: string) => {
 		setDownloadingProjectUuid(projectUuid)
 
 		try {
-			// Fetch the signed document using tRPC utils
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument
-			const result = await utils.signatureRequests.downloadSignedDocument.fetch(projectUuid as any)
-
-			if (result?.base64) {
-				// Convert base64 to blob and download
-				const byteCharacters = atob(result.base64)
-				const byteNumbers = new Array(byteCharacters.length)
-				for (let i = 0; i < byteCharacters.length; i++) {
-					byteNumbers[i] = byteCharacters.charCodeAt(i)
-				}
-				const byteArray = new Uint8Array(byteNumbers)
-				const blob = new Blob([byteArray], { type: "application/pdf" })
-
-				const url = window.URL.createObjectURL(blob)
-				const link = document.createElement("a")
-				link.href = url
-				link.download = result.fileName ?? `signed-document-${projectUuid}.pdf`
-				document.body.appendChild(link)
-				link.click()
-				document.body.removeChild(link)
-				window.URL.revokeObjectURL(url)
-
-				toast.success("Signed document downloaded successfully!")
-			} else {
-				toast.error("Failed to download signed document")
-			}
+			// Open a QSign API route that streams the signed PDF.
+			// This avoids relying on DocoChain guestToken and avoids leaking api_token in URLs.
+			const url = `/api/docochain/projects/${encodeURIComponent(projectUuid)}/signed`
+			window.open(url, "_blank", "noopener,noreferrer")
+			toast.success("Opening signed document...")
 		} catch (error) {
-			console.error("Error downloading signed document:", error)
-			toast.error(error instanceof Error ? error.message : "Failed to download signed document")
+			console.error("Error opening signed document:", error)
+			toast.error(error instanceof Error ? error.message : "Failed to open signed document")
 		} finally {
 			setDownloadingProjectUuid(null)
 		}
@@ -2005,7 +2312,7 @@ export function VideoMeetingClient({
 		<MeetingProvider
 			config={{
 				meetingId,
-				micEnabled: false,
+				micEnabled: true, // Enable microphone by default
 				webcamEnabled: false,
 				name: participantName,
 				mode: "SEND_AND_RECV",

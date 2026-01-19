@@ -24,6 +24,7 @@ export const users = createTable("user", t => ({
 	kycLink: t.text(), // Store the HyperVerge onboard link URL
 	kycStatus: kycStatus().default("NOT_STARTED"),
 	kycVerifiedAt: t.timestamp({ mode: "date", withTimezone: true }),
+	kycLinkCreatedAt: t.timestamp({ mode: "date", withTimezone: true }), // Track when KYC link was created to detect expiration
 })).enableRLS()
 
 export const accounts = createTable(
