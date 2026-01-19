@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useEffect, useMemo, useRef, useState } from "react"
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { MeetingProvider, useMeeting, useParticipant } from "@videosdk.live/react-sdk"
 import {
 	AlertCircle,
@@ -18,6 +18,7 @@ import {
 	Mic,
 	MicOff,
 	Monitor,
+	MoreVertical,
 	PhoneOff,
 	Send,
 	Square,
@@ -30,6 +31,12 @@ import { toast } from "sonner"
 
 import { Button } from "@/core/components/ui/button"
 import { Card, CardContent } from "@/core/components/ui/card"
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuTrigger,
+} from "@/core/components/ui/dropdown-menu"
 import {
 	Dialog,
 	DialogContent,
@@ -160,8 +167,8 @@ function MeetingControls({
 		}
 
 		updateMicState()
-		// Poll to check track state (similar to peer-to-peer system)
-		const interval = setInterval(updateMicState, 200)
+		// Poll to check track state (reduced from 200ms to 500ms for performance)
+		const interval = setInterval(updateMicState, 500)
 		return () => clearInterval(interval)
 	}, [meeting, localParticipant, isMicOn])
 
@@ -194,7 +201,8 @@ function MeetingControls({
 			await meeting.toggleWebcam()
 		} catch (error) {
 			console.error("Error toggling camera:", error)
-			toast.error("Failed to toggle camera")
+			const errorMessage = error instanceof Error ? error.message : "Failed to toggle camera"
+			toast.error(errorMessage)
 		}
 	}
 
@@ -471,8 +479,8 @@ function ParticipantView({ participantId }: { participantId: string }) {
 			return { track, handleEnabledChange }
 		})
 		
-		// Poll every 200ms for real-time updates (peer-to-peer style)
-		const interval = setInterval(checkMicStatus, 200)
+		// Poll every 500ms for real-time updates (reduced from 200ms for performance)
+		const interval = setInterval(checkMicStatus, 500)
 		
 		return () => {
 			clearInterval(interval)
@@ -526,9 +534,24 @@ function ParticipantView({ participantId }: { participantId: string }) {
 			return null
 		}
 
-		const mediaStream =
-			(screenShareOn && getMediaStream(screenShareStream)) ??
-			(webcamOn && getMediaStream(webcamStream))
+		const isLiveVideoTrack = (track: MediaStreamTrack) =>
+			track.kind === "video" && track.readyState === "live" && track.enabled
+
+		const screenStream = getMediaStream(screenShareStream)
+		const webcamMediaStream = getMediaStream(webcamStream)
+
+		const screenHasLiveVideo =
+			!!screenStream && screenStream.getVideoTracks().some(isLiveVideoTrack)
+		const webcamHasLiveVideo =
+			!!webcamMediaStream && webcamMediaStream.getVideoTracks().some(isLiveVideoTrack)
+
+		// Prefer screenshare when it has a live track.
+		// Otherwise show webcam based on actual track state (more reliable than webcamOn flags).
+		const mediaStream = screenHasLiveVideo
+			? screenStream
+			: webcamHasLiveVideo
+				? webcamMediaStream
+				: null
 
 		if (mediaStream && mediaStream.getVideoTracks().length > 0) {
 			setHasTrack(true)
@@ -540,7 +563,7 @@ function ParticipantView({ participantId }: { participantId: string }) {
 			setHasTrack(false)
 			videoElement.srcObject = null
 		}
-	}, [webcamOn, webcamStream, screenShareOn, screenShareStream])
+	}, [webcamStream, screenShareStream])
 
 	// Handle audio stream for remote participants
 	// VideoSDK.live includes audio tracks in webcamStream when mic is enabled
@@ -802,11 +825,6 @@ function DocumentActions({
 	document,
 	onSignClick,
 	isSigningPending,
-	onDownloadCertificate,
-	isDownloadingCertificate,
-	onDownloadSignedDocument,
-	isDownloadingSignedDocument,
-	isFullySigned,
 	isLocked,
 	isPreviousDocumentSigned,
 	documentIndex,
@@ -815,11 +833,6 @@ function DocumentActions({
 	document: { id: string; name: string; docoChainProjectId: string | null }
 	onSignClick: (projectUuid: string, email: string, documentId: string) => void
 	isSigningPending: boolean
-	onDownloadCertificate?: (projectUuid: string) => void
-	isDownloadingCertificate?: boolean
-	onDownloadSignedDocument?: (projectUuid: string) => void
-	isDownloadingSignedDocument?: boolean
-	isFullySigned?: boolean
 	isLocked?: boolean
 	isPreviousDocumentSigned?: boolean
 	documentIndex?: number
@@ -907,59 +920,6 @@ function DocumentActions({
 				</div>
 			)}
 
-			{/* Download Signed Document button - only show for fully signed documents */}
-			{document.docoChainProjectId && onDownloadSignedDocument && isFullySigned && (
-				<Button
-					variant="outline"
-					size="sm"
-					className="hover:bg-primary/10 hover:text-primary h-9 w-full text-xs shadow-sm transition-all"
-					onClick={() => {
-						if (document.docoChainProjectId) {
-							onDownloadSignedDocument(document.docoChainProjectId)
-						}
-					}}
-					disabled={isDownloadingSignedDocument}
-				>
-					{isDownloadingSignedDocument ? (
-						<>
-							<div className="mr-2 size-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
-							Opening...
-						</>
-					) : (
-						<>
-							<FileText className="mr-1.5 size-3.5" />
-							View Signed Document
-						</>
-					)}
-				</Button>
-			)}
-
-			{/* Download Certificate button - only show for fully signed documents */}
-			{document.docoChainProjectId && onDownloadCertificate && isFullySigned && (
-				<Button
-					variant="outline"
-					size="sm"
-					className="h-9 w-full text-xs shadow-sm transition-all hover:border-green-300 hover:bg-green-50 hover:text-green-700"
-					onClick={() => {
-						if (document.docoChainProjectId) {
-							onDownloadCertificate(document.docoChainProjectId)
-						}
-					}}
-					disabled={isDownloadingCertificate}
-				>
-					{isDownloadingCertificate ? (
-						<>
-							<div className="mr-2 size-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
-							Downloading...
-						</>
-					) : (
-						<>
-							<Download className="mr-1.5 size-3.5" />
-							Download Certificate
-						</>
-					)}
-				</Button>
-			)}
 		</div>
 	)
 }
@@ -1020,73 +980,94 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 		meetingId ?? "",
 		{
 			enabled: !!meetingId,
-			refetchInterval: 5000, // Refetch every 5 seconds to get new uploads
+			refetchInterval: 15000, // Refetch every 15 seconds to get new uploads (reduced from 5s for performance)
 		}
 	)
 
 	// Get tRPC utils for imperative calls
 	const utils = trpc.useUtils()
 
+	const refreshSigningStatuses = useCallback(async () => {
+		if (!documents || documents.length === 0) return
+
+		const docsWithProjects = documents.filter(d => !!d.docoChainProjectId)
+		if (docsWithProjects.length === 0) return
+
+		// Run status checks in parallel to avoid N * latency delays.
+		const results = await Promise.allSettled(
+			docsWithProjects.map(async doc => {
+				const status = await utils.signatureRequests.checkSigningStatus.fetch({
+					projectUuid: doc.docoChainProjectId as string,
+				})
+				return { docId: doc.id, status }
+			})
+		)
+
+		const statusMap = new Map<
+			string,
+			{
+				isFullySigned: boolean
+				signedCount: number
+				totalSigners: number
+				signers: Array<{
+					id: number
+					email: string
+					firstName: string
+					lastName: string
+					status: string
+					signedAt: string | null
+					sequence: number
+					signerRole: string
+				}>
+			}
+		>()
+
+		for (const result of results) {
+			if (result.status === "fulfilled") {
+				const { docId, status } = result.value
+				statusMap.set(docId, {
+					isFullySigned: status.isFullySigned,
+					signedCount: status.signedCount,
+					totalSigners: status.totalSigners,
+					signers: status.signers || [],
+				})
+			} else {
+				// If status check fails, assume not signed
+				// (do not block other docs from updating)
+				// Note: we can't identify docId reliably here; we leave it unchanged.
+			}
+		}
+
+		// Keep previous entries for docs that failed this round
+		setDocumentSigningStatus(prev => {
+			const merged = new Map(prev)
+			for (const [docId, entry] of statusMap.entries()) {
+				merged.set(docId, entry)
+			}
+			return merged
+		})
+	}, [documents, utils.signatureRequests.checkSigningStatus])
+
 	// Check signing status for all documents with DocoChain project IDs
 	useEffect(() => {
 		if (!documents || documents.length === 0) return
 
-		const checkStatuses = async () => {
-			const statusMap = new Map<
-				string,
-				{
-					isFullySigned: boolean
-					signedCount: number
-					totalSigners: number
-					signers: Array<{
-						id: number
-						email: string
-						firstName: string
-						lastName: string
-						status: string
-						signedAt: string | null
-						sequence: number
-						signerRole: string
-					}>
-				}
-			>()
+		void refreshSigningStatuses()
 
-			for (const doc of documents) {
-				if (doc.docoChainProjectId) {
-					try {
-						const status = await utils.signatureRequests.checkSigningStatus.fetch({
-							projectUuid: doc.docoChainProjectId,
-						})
-						statusMap.set(doc.id, {
-							isFullySigned: status.isFullySigned,
-							signedCount: status.signedCount,
-							totalSigners: status.totalSigners,
-							signers: status.signers || [],
-						})
-					} catch {
-						// If status check fails, assume not signed
-						statusMap.set(doc.id, {
-							isFullySigned: false,
-							signedCount: 0,
-							totalSigners: 0,
-							signers: [],
-						})
-					}
-				}
-			}
+		// Poll faster when anything is still pending (to update "2/2 → Signed" quickly).
+		const hasPending = documents.some(doc => {
+			if (!doc.docoChainProjectId) return false
+			const status = documentSigningStatus.get(doc.id)
+			return !status?.isFullySigned
+		})
+		const intervalMs = hasPending ? 5000 : 15000
 
-			setDocumentSigningStatus(statusMap)
-		}
-
-		void checkStatuses()
-
-		// Refresh status every 5 seconds to show real-time updates
 		const interval = setInterval(() => {
-			void checkStatuses()
-		}, 5000)
+			void refreshSigningStatuses()
+		}, intervalMs)
 
 		return () => clearInterval(interval)
-	}, [documents, utils])
+	}, [documents, documentSigningStatus, refreshSigningStatuses])
 
 	// Fetch meeting details to get participants and lock state
 	const { data: meetingDetails, refetch: refetchMeetingDetails } = trpc.meetings.getById.useQuery(
@@ -1094,7 +1075,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 		{
 			enabled: !!meetingId && !!meetingId.trim(),
 			retry: false,
-			refetchInterval: 3000, // Refetch every 3 seconds to sync lock state
+			refetchInterval: 10000, // Refetch every 10 seconds to sync lock state (reduced from 3s for performance)
 		}
 	)
 
@@ -1116,7 +1097,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 		{ meetingId: meetingId ?? "" },
 		{
 			enabled: !!meetingId && !!meetingId.trim(),
-			refetchInterval: 3000, // Poll every 3 seconds for new requests
+			refetchInterval: 5000, // Poll every 5 seconds for new requests (reduced from 3s, kept relatively fast for good UX)
 			retry: false,
 		}
 	)
@@ -1431,7 +1412,10 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 					if (popup.closed) {
 						clearInterval(checkClosed)
 						setSigningDocumentId(null)
-						void refetchDocuments()
+						// Refresh docs + signing status immediately (don't wait for polling interval)
+						void refetchDocuments().then(() => {
+							void refreshSigningStatuses()
+						})
 						toast.success("Signing completed. Document status updated.")
 					}
 				}, 500)
@@ -1976,6 +1960,17 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 											!previousDoc ||
 											(documentSigningStatus.get(previousDoc.id)?.isFullySigned ?? false)
 
+										const signingStatus = doc.docoChainProjectId
+											? documentSigningStatus.get(doc.id)
+											: undefined
+										const isFullySigned = signingStatus?.isFullySigned ?? false
+										const isDownloadingSigned =
+											!!doc.docoChainProjectId &&
+											downloadingProjectUuid === doc.docoChainProjectId
+										const isDownloadingCert =
+											!!doc.docoChainProjectId &&
+											downloadingCertificateUuid === doc.docoChainProjectId
+
 										return (
 											<Card
 												key={doc.id}
@@ -2024,34 +2019,74 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 														<Lock className="size-3 text-amber-700 dark:text-amber-400" />
 													</div>
 												)}
-												{/* Signing status indicator - top right corner */}
-												{doc.docoChainProjectId &&
-													documentSigningStatus.has(doc.id) &&
-													(() => {
-														const status = documentSigningStatus.get(doc.id)!
-														return status.isFullySigned ? (
-															<div className="absolute top-2 right-2 z-10 flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 dark:bg-green-900/30">
+												{/* Signing status + actions - top right corner */}
+												{doc.docoChainProjectId && signingStatus && (
+													<div className="absolute top-2 right-2 z-10 flex items-center gap-1.5">
+														{isFullySigned ? (
+															<div className="flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 dark:bg-green-900/30">
 																<CheckCircle2 className="size-3 text-green-600 dark:text-green-400" />
 																<span className="text-[10px] font-semibold text-green-700 dark:text-green-400">
 																	Signed
 																</span>
 															</div>
-														) : status.signedCount > 0 ? (
-															<div className="absolute top-2 right-2 z-10 flex items-center gap-1 rounded-full bg-yellow-100 px-2 py-0.5 dark:bg-yellow-900/30">
+														) : signingStatus.signedCount > 0 ? (
+															<div className="flex items-center gap-1 rounded-full bg-yellow-100 px-2 py-0.5 dark:bg-yellow-900/30">
 																<Clock className="size-3 text-yellow-600 dark:text-yellow-400" />
 																<span className="text-[10px] font-semibold text-yellow-700 dark:text-yellow-400">
-																	{status.signedCount}/{status.totalSigners}
+																	{signingStatus.signedCount}/{signingStatus.totalSigners}
 																</span>
 															</div>
 														) : (
-															<div className="absolute top-2 right-2 z-10 flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 dark:bg-gray-800">
+															<div className="flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 dark:bg-gray-800">
 																<Clock className="size-3 text-gray-500 dark:text-gray-400" />
 																<span className="text-[10px] font-semibold text-gray-600 dark:text-gray-400">
 																	Pending
 																</span>
 															</div>
-														)
-													})()}
+														)}
+
+														<DropdownMenu>
+															<DropdownMenuTrigger asChild>
+																<Button
+																	variant="ghost"
+																	size="icon"
+																	className="h-7 w-7 rounded-full bg-black/5 hover:bg-black/10 dark:bg-white/5 dark:hover:bg-white/10"
+																	title="More actions"
+																>
+																	<MoreVertical className="size-4" />
+																</Button>
+															</DropdownMenuTrigger>
+															<DropdownMenuContent align="end" sideOffset={6} className="min-w-44">
+																<DropdownMenuItem
+																	disabled={!isFullySigned || isDownloadingSigned}
+																	onClick={() => {
+																		if (doc.docoChainProjectId) {
+																			void handleDownloadSignedDocument(doc.docoChainProjectId)
+																		}
+																	}}
+																>
+																	<FileText className="size-4" />
+																	<span>
+																		{isDownloadingSigned ? "Opening signed document..." : "View signed document"}
+																	</span>
+																</DropdownMenuItem>
+																<DropdownMenuItem
+																	disabled={!isFullySigned || isDownloadingCert}
+																	onClick={() => {
+																		if (doc.docoChainProjectId) {
+																			void handleDownloadCertificate(doc.docoChainProjectId)
+																		}
+																	}}
+																>
+																	<Download className="size-4" />
+																	<span>
+																		{isDownloadingCert ? "Downloading certificate..." : "Download certificate"}
+																	</span>
+																</DropdownMenuItem>
+															</DropdownMenuContent>
+														</DropdownMenu>
+													</div>
+												)}
 												<CardContent className="p-4">
 													<div className="mb-3 flex items-start gap-3">
 														{/* Drag handle - only draggable element */}
@@ -2100,17 +2135,6 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 														}}
 														isSigningPending={
 															initiateSigning.isPending && signingDocumentId === doc.id
-														}
-														onDownloadSignedDocument={handleDownloadSignedDocument}
-														isDownloadingSignedDocument={
-															downloadingProjectUuid === doc.docoChainProjectId
-														}
-														onDownloadCertificate={handleDownloadCertificate}
-														isDownloadingCertificate={
-															downloadingCertificateUuid === doc.docoChainProjectId
-														}
-														isFullySigned={
-															documentSigningStatus.get(doc.id)?.isFullySigned ?? false
 														}
 														isLocked={isLocked}
 														isPreviousDocumentSigned={isPreviousDocumentSigned}
@@ -2313,7 +2337,7 @@ export function VideoMeetingClient({
 			config={{
 				meetingId,
 				micEnabled: true, // Enable microphone by default
-				webcamEnabled: false,
+				webcamEnabled: true, // Start camera like Google Meet/Zoom
 				name: participantName,
 				mode: "SEND_AND_RECV",
 				multiStream: true,

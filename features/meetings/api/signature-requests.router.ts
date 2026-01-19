@@ -27,6 +27,17 @@ import { env } from "@/env"
 
 const DOCOCHAIN_API_BASE = env.DOCOCHAIN_API_URL ?? "https://stg-api2.doconchain.com"
 
+function isEnpRole(role: unknown): boolean {
+	if (typeof role !== "string") return false
+	return role.trim().toUpperCase() === "ENP"
+}
+
+function asNonEmptyEmail(email: unknown): string | undefined {
+	if (typeof email !== "string") return undefined
+	const trimmed = email.trim()
+	return trimmed.length > 0 ? trimmed : undefined
+}
+
 export const signatureRequestsRouter = createTRPCRouter({
 	// Create a signature request
 	createRequest: protectedProcedure
@@ -43,12 +54,59 @@ export const signatureRequestsRouter = createTRPCRouter({
 			// Get the document to check for DocoChain project ID
 			const document = await db.query.documents.findFirst({
 				where: eq(documents.id, documentId),
+				with: {
+					meeting: {
+						with: {
+							participants: {
+								with: {
+									user: {
+										columns: {
+											email: true,
+											role: true,
+										},
+									},
+								},
+							},
+							createdBy: {
+								columns: {
+									email: true,
+									role: true,
+								},
+							},
+						},
+					},
+				},
 			})
 
 			if (!document) {
 				throw new TRPCError({
 					code: "NOT_FOUND",
 					message: "Document not found",
+				})
+			}
+
+			// DocoChain auth MUST use the ENP (enterprise) owner email; principals often can't create/manage projects.
+			let enpEmail: string | undefined
+			if (document.meeting) {
+				if (isEnpRole(document.meeting.createdBy?.role)) {
+					enpEmail = asNonEmptyEmail(document.meeting.createdBy?.email)
+				} else {
+					const enpParticipant = document.meeting.participants.find(
+						p => isEnpRole(p.user?.role) && !!p.user?.email
+					)
+					enpEmail = asNonEmptyEmail(enpParticipant?.user?.email)
+				}
+			}
+			// Final fallback: current user is ENP
+			if (!enpEmail && isEnpRole(ctx.session.user.role) && ctx.session.user.email) {
+				enpEmail = asNonEmptyEmail(ctx.session.user.email)
+			}
+
+			if (!enpEmail) {
+				throw new TRPCError({
+					code: "BAD_REQUEST",
+					message:
+						"ENP email not found for signing. This meeting must include an ENP participant to create signature requests.",
 				})
 			}
 
@@ -83,7 +141,7 @@ export const signatureRequestsRouter = createTRPCRouter({
 						firstName,
 						lastName,
 						role: "Member",
-						userEmail: ctx.session.user.email || undefined, // Pass creator's email for token
+						userEmail: enpEmail, // Use ENP email for token (required for DocoChain auth)
 					})
 
 					const addSignerResponse = await addSignerToProject({
@@ -92,7 +150,7 @@ export const signatureRequestsRouter = createTRPCRouter({
 						firstName,
 						lastName,
 						signerRole: "Signer",
-						userEmail: ctx.session.user.email || undefined, // Pass creator's email for token
+						userEmail: enpEmail, // Use ENP email for token (required for DocoChain auth)
 					})
 
 					console.log("✅ Added signer to DocoChain project")
@@ -118,7 +176,7 @@ export const signatureRequestsRouter = createTRPCRouter({
 							await deleteSigner({
 								projectUuid: document.docoChainProjectId,
 								signerId,
-								userEmail: ctx.session.user.email || undefined, // Pass creator's email for token
+								userEmail: enpEmail, // Use ENP email for token (required for DocoChain auth)
 							})
 							console.log("✅ Creator DELETED! Only ENP remains in the document! 🎉")
 						} else {
@@ -300,33 +358,25 @@ export const signatureRequestsRouter = createTRPCRouter({
 				const meeting = document.meeting
 				const participants = meeting.participants || []
 
-				// CRITICAL: Always use ENP's email for DocoChain project access
-				// Find ENP from participants - they are always the initiator for signing
+				// CRITICAL: DocoChain auth MUST use an ENP (enterprise) token/email.
 				let creatorEmail: string | undefined
-				
-				// First, check if creator is ENP
-				if (meeting.createdBy?.role === "ENP" && meeting.createdBy?.email) {
-					creatorEmail = meeting.createdBy.email
-				} else {
-					// Find ENP from participants
-					const enpParticipant = participants.find(
-						p => p.user?.role === "ENP"
-					)
-					if (enpParticipant?.user?.email) {
-						creatorEmail = enpParticipant.user.email
-					} else if (ctx.session.user.role === "ENP" && ctx.session.user.email) {
-						// Fallback: current user is ENP
-						creatorEmail = ctx.session.user.email
-					} else {
-						// Last resort: use creator email
-						creatorEmail = meeting.createdBy?.email ?? undefined
-					}
+
+				if (isEnpRole(meeting.createdBy?.role)) {
+					creatorEmail = asNonEmptyEmail(meeting.createdBy?.email)
+				}
+				if (!creatorEmail) {
+					const enpParticipant = participants.find(p => isEnpRole(p.user?.role) && !!p.user?.email)
+					creatorEmail = asNonEmptyEmail(enpParticipant?.user?.email)
+				}
+				if (!creatorEmail && isEnpRole(ctx.session.user.role) && ctx.session.user.email) {
+					creatorEmail = asNonEmptyEmail(ctx.session.user.email)
 				}
 
 				if (!creatorEmail) {
 					throw new TRPCError({
-						code: "NOT_FOUND",
-						message: "ENP email not found for signing process",
+						code: "BAD_REQUEST",
+						message:
+							"ENP email not found for signing process. This meeting must include an ENP participant to sign documents.",
 					})
 				}
 
