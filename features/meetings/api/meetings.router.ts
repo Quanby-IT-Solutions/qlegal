@@ -2,7 +2,7 @@ import { TRPCError } from "@trpc/server"
 import { eq } from "drizzle-orm"
 import { z } from "zod/v4"
 
-import { addSignerToProject, createDocoChainProject } from "@/services/docochain"
+import { createDocoChainProject } from "@/services/docochain"
 import { normalizeDocoChainUrl } from "@/services/docochain/url-normalizer"
 import { db } from "@/services/drizzle/db"
 import { documents } from "@/services/drizzle/schema/document"
@@ -10,6 +10,17 @@ import { meetingParticipants, meetings } from "@/services/drizzle/schema/meeting
 import { getServiceRoleClient } from "@/services/supabase"
 import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
 import { createMeetingRoom, generateMeetingToken } from "@/services/video-sdk"
+
+function isEnpRole(role: unknown): boolean {
+	if (typeof role !== "string") return false
+	return role.trim().toUpperCase() === "ENP"
+}
+
+function asNonEmptyEmail(email: unknown): string | undefined {
+	if (typeof email !== "string") return undefined
+	const trimmed = email.trim()
+	return trimmed.length > 0 ? trimmed : undefined
+}
 
 export const meetingsRouter = createTRPCRouter({
 	// Create a new meeting
@@ -339,33 +350,31 @@ export const meetingsRouter = createTRPCRouter({
 				})
 			}
 
-			// CRITICAL: Always use ENP's email for DocoChain project creation
-			// Find ENP from participants - they are always the initiator for signing
+			// CRITICAL: DocoChain project creation MUST use an ENP (enterprise) token.
+			// In prod, per-user tokens can cause "Unauthorized access" if we accidentally use a Principal's email.
 			let creatorEmail: string | undefined
-			
-			// First, check if creator is ENP
-			if (meeting.createdBy?.role === "ENP" && meeting.createdBy?.email) {
-				creatorEmail = meeting.createdBy.email
-			} else {
-				// Find ENP from participants
-				const enpParticipant = meeting.participants.find(
-					p => p.user?.role === "ENP"
-				)
-				if (enpParticipant?.user?.email) {
-					creatorEmail = enpParticipant.user.email
-				} else if (ctx.session.user.role === "ENP" && ctx.session.user.email) {
-					// Fallback: current user is ENP
-					creatorEmail = ctx.session.user.email
-				} else {
-					// Last resort: use creator email
-					creatorEmail = meeting.createdBy?.email ?? ctx.session.user.email ?? undefined
-				}
+
+			// First, check if meeting creator is ENP
+			if (isEnpRole(meeting.createdBy?.role)) {
+				creatorEmail = asNonEmptyEmail(meeting.createdBy?.email)
+			}
+
+			// Otherwise, find ENP among participants
+			if (!creatorEmail) {
+				const enpParticipant = meeting.participants.find(p => isEnpRole(p.user?.role) && !!p.user?.email)
+				creatorEmail = asNonEmptyEmail(enpParticipant?.user?.email)
+			}
+
+			// Finally, allow ENP uploader as a fallback (rare but safe)
+			if (!creatorEmail && isEnpRole(ctx.session.user.role) && ctx.session.user.email) {
+				creatorEmail = asNonEmptyEmail(ctx.session.user.email)
 			}
 
 			if (!creatorEmail) {
 				throw new TRPCError({
 					code: "BAD_REQUEST",
-					message: "ENP email not found for document signing",
+					message:
+						"ENP email not found for document signing. This meeting must include an ENP participant to upload signing documents.",
 				})
 			}
 
@@ -395,12 +404,42 @@ export const meetingsRouter = createTRPCRouter({
 				// This is the PRIMARY upload - the project UUID is critical for identifying the document
 				console.log("🔵 Creating DocoChain project for:", name)
 				console.log("   - Using creator email (meeting creator):", creatorEmail)
+
+				// DocoChain Create Project optional multipart param:
+				// document_stamp (JSON string) - applies seal + notary cert info on completed document
+				const documentStamp = {
+					seal: {
+						type: "seal",
+						enp_name: "Mariae Francine Geraldine Biglaen y Sibulop",
+						enp_role_number: "123456",
+					},
+					notary_info: {
+						type: "notary",
+						atty_name: "ATTY. MARIA ANGELICA M. DELA CRUZ-SAN FELIPE",
+						roll_no: "123456",
+						roll_no_date: "5 June 2018",
+						commission_no: "2024 - 024",
+						commission_no_valid_until: "Dec 31, 2025",
+						PTR_no: "1234567",
+						PTR_no_location: "Manila",
+						PTR_no_date: "Jan 02, 2025",
+						IBP_no: "123456",
+						IBP_no_date: "Dec 18, 2024 (for 2025)",
+						email: "juan.cruz@email.com",
+						address: "123, The Actual Bldg., 1234 Avenue, Malate, Manila",
+						MCLE_no_period: "VIII",
+						MCLE_no: "1234567",
+						MCLE_no_date: "Jun 12, 2024",
+						mode_of_notarization: "REN",
+					},
+				}
 				const docoChainProject = await createDocoChainProject({
 					title: name,
 					documentFile: fileBuffer,
 					fileName: name.endsWith(".pdf") ? name : `${name}.pdf`,
 					userListEditable: false, // Recipients cannot be edited after creation
 					creatorAsViewer: false, // Creator is not added as a viewer
+					documentStamp,
 					creatorEmail, // Use meeting creator's email, not the uploader's email
 				})
 				const docoChainProjectId = docoChainProject.uuid // THIS IS THE CRITICAL PROJECT UUID

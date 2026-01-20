@@ -1056,7 +1056,7 @@ export default function DashboardPage() {
 												onClick={() => router.push(`/envelopes/${document.envelopeId}` as Route)}
 											>
 												<div className="flex h-10 w-10 items-center justify-center rounded bg-blue-50">
-													{/* eslint-disable-next-line @typescript-eslint/no-unsafe-assignment */}
+												
 													<HugeiconsIcon icon={File01Icon} size={20} className="text-blue-600" />
 												</div>
 												<div className="flex-1 space-y-1">
@@ -1068,7 +1068,7 @@ export default function DashboardPage() {
 													</div>
 													<p className="text-muted-foreground text-sm">{document.envelopeTitle}</p>
 													<div className="text-muted-foreground flex items-center gap-2 text-xs">
-														{/* eslint-disable-next-line @typescript-eslint/no-unsafe-assignment */}
+													
 														<HugeiconsIcon icon={Clock01Icon} size={12} />
 														{format(new Date(document.createdAt), "PPp")}
 													</div>
@@ -1079,7 +1079,7 @@ export default function DashboardPage() {
 								) : (
 									<div className="flex flex-col items-center justify-center py-8 text-center">
 										<HugeiconsIcon
-											// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+											
 											icon={File01Icon}
 											size={48}
 											className="text-muted-foreground/50"
@@ -1109,7 +1109,7 @@ export default function DashboardPage() {
 								</div>
 								<Button variant="ghost" size="sm" onClick={() => router.push("/meetings" as Route)}>
 									View All
-									{/* eslint-disable-next-line @typescript-eslint/no-unsafe-assignment */}
+									
 									<HugeiconsIcon icon={ArrowRight01Icon} size={16} className="ml-2" />
 								</Button>
 							</div>
