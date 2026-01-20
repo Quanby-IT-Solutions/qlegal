@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { usePathname } from "next/navigation"
 import { cva, type VariantProps } from "class-variance-authority"
 import { Cookie as CookieIcon } from "lucide-react"
 
@@ -105,7 +106,8 @@ function DefaultVariantContent({
 	learnMoreHref,
 	onAccept,
 	onDecline,
-}: VariantContentProps & { learnMoreHref: string }) {
+	pathname,
+}: VariantContentProps & { learnMoreHref: string; pathname: string }) {
 	return (
 		<>
 			<CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -119,7 +121,7 @@ function DefaultVariantContent({
 					processing for service improvements consistent with R.A. 10173.
 				</p>
 				<a
-					href={learnMoreHref}
+					href={`${learnMoreHref}?from=${encodeURIComponent(pathname)}`}
 					className="text-primary text-sm underline underline-offset-4 hover:no-underline"
 				>
 					Learn how we protect your data
@@ -142,7 +144,8 @@ function SmallVariantContent({
 	learnMoreHref,
 	onAccept,
 	onDecline,
-}: VariantContentProps) {
+	pathname,
+}: VariantContentProps & { pathname: string }) {
 	return (
 		<>
 			<CardHeader className="flex h-0 flex-row items-center justify-between space-y-0 px-4 pb-2">
@@ -153,7 +156,7 @@ function SmallVariantContent({
 				<CardDescription className="text-sm">{description}</CardDescription>
 				{learnMoreHref ? (
 					<a
-						href={learnMoreHref}
+						href={`${learnMoreHref}?from=${encodeURIComponent(pathname)}`}
 						className="text-primary mt-2 inline-block text-xs underline underline-offset-4 hover:no-underline"
 					>
 						Learn more about R.A. 10173
@@ -177,14 +180,15 @@ function MiniVariantContent({
 	learnMoreHref,
 	onAccept,
 	onDecline,
-}: VariantContentProps) {
+	pathname,
+}: VariantContentProps & { pathname: string }) {
 	return (
 		<CardContent className="grid gap-4 p-0 px-3.5 sm:flex">
 			<div className="flex-1 space-y-1">
 				<CardDescription className="text-xs sm:text-sm">{description}</CardDescription>
 				{learnMoreHref ? (
 					<a
-						href={learnMoreHref}
+						href={`${learnMoreHref}?from=${encodeURIComponent(pathname)}`}
 						className="text-primary inline-block text-[11px] underline underline-offset-4 hover:no-underline sm:text-xs"
 					>
 						Privacy notice (R.A. 10173)
@@ -221,6 +225,7 @@ const CookieConsent = React.forwardRef<HTMLDivElement, CookieConsentProps>(
 	) => {
 		const [isOpen, setIsOpen] = React.useState(false)
 		const [hide, setHide] = React.useState(false)
+		const pathname = usePathname() || "/"
 
 		const closeAndHide = React.useCallback(() => {
 			setIsOpen(false)
@@ -266,19 +271,20 @@ const CookieConsent = React.forwardRef<HTMLDivElement, CookieConsentProps>(
 			onAccept: handleAccept,
 			onDecline: handleDecline,
 			learnMoreHref,
+			pathname,
 		}
 
 		let content: React.ReactNode
 
 		switch (variant) {
 			case "default":
-				content = <DefaultVariantContent {...variantProps} learnMoreHref={learnMoreHref} />
+				content = <DefaultVariantContent {...variantProps} learnMoreHref={learnMoreHref} pathname={pathname} />
 				break
 			case "small":
-				content = <SmallVariantContent {...variantProps} />
+				content = <SmallVariantContent {...variantProps} pathname={pathname} />
 				break
 			case "mini":
-				content = <MiniVariantContent {...variantProps} />
+				content = <MiniVariantContent {...variantProps} pathname={pathname} />
 				break
 			default:
 				return null
