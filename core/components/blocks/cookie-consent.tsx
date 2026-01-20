@@ -1,7 +1,7 @@
 "use client"
 
-import * as React from "react"
 import { usePathname } from "next/navigation"
+import * as React from "react"
 import { cva, type VariantProps } from "class-variance-authority"
 import { Cookie as CookieIcon } from "lucide-react"
 
@@ -278,7 +278,13 @@ const CookieConsent = React.forwardRef<HTMLDivElement, CookieConsentProps>(
 
 		switch (variant) {
 			case "default":
-				content = <DefaultVariantContent {...variantProps} learnMoreHref={learnMoreHref} pathname={pathname} />
+				content = (
+					<DefaultVariantContent
+						{...variantProps}
+						learnMoreHref={learnMoreHref}
+						pathname={pathname}
+					/>
+				)
 				break
 			case "small":
 				content = <SmallVariantContent {...variantProps} pathname={pathname} />
