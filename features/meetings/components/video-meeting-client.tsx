@@ -875,11 +875,19 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 		null
 	)
 	const hasShownSigningStatusAuthErrorRef = useRef(false)
+	const hasShownSigningStatusFetchErrorRef = useRef(false)
+	const signingStatusInFlightRef = useRef(false)
 
 	const refreshSigningStatuses = useCallback(async () => {
 		// Only poll while the documents panel is visible; avoids re-render storms during video actions.
 		if (!showDocuments) return
 		if (!documents || documents.length === 0) return
+
+		// Never overlap requests (can create token races + extra load + lag).
+		if (signingStatusInFlightRef.current) return
+
+		// Don't poll in background tabs.
+		if (typeof document !== "undefined" && document.visibilityState === "hidden") return
 
 		// If we recently got unauthorized, back off to avoid hammering the API + spamming logs.
 		if (signingStatusPollingPausedUntil && Date.now() < signingStatusPollingPausedUntil) return
@@ -901,83 +909,96 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 			)
 		}
 
-		// Run status checks in parallel, but keep docId so we can reason about failures.
-		const results = await Promise.all(
-			docsWithProjects.map(async doc => {
-				try {
-					const status = await utils.signatureRequests.checkSigningStatus.fetch({
-						projectUuid: doc.docoChainProjectId!,
-					})
-					return { ok: true as const, docId: doc.id, status }
-				} catch (error: unknown) {
-					return { ok: false as const, docId: doc.id, error }
-				}
-			})
-		)
-
-		// If any call is unauthorized, pause polling for 60 seconds.
-		if (results.some(r => !r.ok && isUnauthorized(r.error))) {
-			setSigningStatusPollingPausedUntil(Date.now() + 60_000)
-			if (!hasShownSigningStatusAuthErrorRef.current) {
-				hasShownSigningStatusAuthErrorRef.current = true
-				toast.error("Cannot check signing status (unauthorized). Pausing status updates.")
-			}
-			return
-		}
-
-		const statusMap = new Map<
-			string,
-			{
-				isFullySigned: boolean
-				signedCount: number
-				totalSigners: number
-				signers: Array<{
-					id: number
-					email: string
-					firstName: string
-					lastName: string
-					status: string
-					signedAt: string | null
-					sequence: number
-					signerRole: string
-				}>
-			}
-		>()
-
-		for (const result of results) {
-			if (result.ok) {
-				const { docId, status } = result
-				statusMap.set(docId, {
-					isFullySigned: status.isFullySigned,
-					signedCount: status.signedCount,
-					totalSigners: status.totalSigners,
-					signers: status.signers || [],
+		signingStatusInFlightRef.current = true
+		try {
+			// Run status checks in parallel, but keep docId so we can reason about failures.
+			const results = await Promise.all(
+				docsWithProjects.map(async doc => {
+					try {
+						const status = await utils.signatureRequests.checkSigningStatus.fetch({
+							projectUuid: doc.docoChainProjectId!,
+						})
+						return { ok: true as const, docId: doc.id, status }
+					} catch (error: unknown) {
+						return { ok: false as const, docId: doc.id, error }
+					}
 				})
+			)
+
+			const unauthorizedHit = results.some(r => !r.ok && isUnauthorized(r.error))
+			const anyErrorHit = results.some(r => !r.ok)
+
+			// If any call errors, pause polling to avoid spamming console/network.
+			// Unauthorized gets a specific message; other errors (e.g. "fetch failed") get a generic one.
+			if (unauthorizedHit || anyErrorHit) {
+				setSigningStatusPollingPausedUntil(Date.now() + 60_000)
+
+				if (unauthorizedHit && !hasShownSigningStatusAuthErrorRef.current) {
+					hasShownSigningStatusAuthErrorRef.current = true
+					toast.error("Cannot check signing status (unauthorized). Pausing status updates.")
+				} else if (!unauthorizedHit && !hasShownSigningStatusFetchErrorRef.current) {
+					hasShownSigningStatusFetchErrorRef.current = true
+					toast.error("Signing status check failed. Pausing status updates.")
+				}
+				return
 			}
-		}
 
-		// Keep previous entries for docs that failed this round
-		setDocumentSigningStatus(prev => {
-			let changed = false
-			const merged = new Map(prev)
+			const statusMap = new Map<
+				string,
+				{
+					isFullySigned: boolean
+					signedCount: number
+					totalSigners: number
+					signers: Array<{
+						id: number
+						email: string
+						firstName: string
+						lastName: string
+						status: string
+						signedAt: string | null
+						sequence: number
+						signerRole: string
+					}>
+				}
+			>()
 
-			for (const [docId, entry] of statusMap.entries()) {
-				const current = merged.get(docId)
-				const same =
-					!!current &&
-					current.isFullySigned === entry.isFullySigned &&
-					current.signedCount === entry.signedCount &&
-					current.totalSigners === entry.totalSigners &&
-					current.signers.length === entry.signers.length
-
-				if (!same) {
-					changed = true
-					merged.set(docId, entry)
+			for (const result of results) {
+				if (result.ok) {
+					const { docId, status } = result
+					statusMap.set(docId, {
+						isFullySigned: status.isFullySigned,
+						signedCount: status.signedCount,
+						totalSigners: status.totalSigners,
+						signers: status.signers || [],
+					})
 				}
 			}
 
-			return changed ? merged : prev
-		})
+			// Keep previous entries for docs that failed this round
+			setDocumentSigningStatus(prev => {
+				let changed = false
+				const merged = new Map(prev)
+
+				for (const [docId, entry] of statusMap.entries()) {
+					const current = merged.get(docId)
+					const same =
+						!!current &&
+						current.isFullySigned === entry.isFullySigned &&
+						current.signedCount === entry.signedCount &&
+						current.totalSigners === entry.totalSigners &&
+						current.signers.length === entry.signers.length
+
+					if (!same) {
+						changed = true
+						merged.set(docId, entry)
+					}
+				}
+
+				return changed ? merged : prev
+			})
+		} finally {
+			signingStatusInFlightRef.current = false
+		}
 	}, [
 		documents,
 		showDocuments,
@@ -992,10 +1013,10 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 
 		void refreshSigningStatuses()
 
-		// Fixed interval to avoid resetting timers on every state update.
+		// Slow + stable polling interval (avoids spamming when DocoChain is slow/unavailable).
 		const interval = setInterval(() => {
 			void refreshSigningStatuses()
-		}, 20_000)
+		}, 60_000)
 
 		return () => clearInterval(interval)
 	}, [documents, refreshSigningStatuses, showDocuments])
