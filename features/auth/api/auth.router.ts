@@ -2,7 +2,7 @@ import { TRPCError } from "@trpc/server"
 import { hash } from "bcryptjs"
 import { eq } from "drizzle-orm"
 
-import { autoJoinOrganization } from "@/services/docochain"
+import { provisionDocoChainUser } from "@/services/docochain"
 import { passwordResetTokens, users, verificationTokens } from "@/services/drizzle/schema/auth"
 import { enpProfiles } from "@/services/drizzle/schema/enp-profiles"
 import { sendPasswordResetToken } from "@/services/react-email/lib/send.password-reset-token"
@@ -35,29 +35,38 @@ export const authRouter = createTRPCRouter({
 
 		const hashedPassword = await hash(password, 10)
 
-		await ctx.db.insert(users).values({
-			name,
-			email,
-			password: hashedPassword,
-		})
-
-		// Auto-join user to DocoChain organization
-		// This makes them an organization member so they can use DocoChain features
-		try {
-			const nameParts = name.split(" ")
-			const firstName = nameParts[0] ?? "User"
-			const lastName = nameParts.slice(1).join(" ") || ""
-
-			await autoJoinOrganization({
+		// Create user record first; if DocoChain provisioning fails we clean this up.
+		const [createdUser] = await ctx.db
+			.insert(users)
+			.values({
+				name,
 				email,
-				firstName,
-				lastName,
+				password: hashedPassword,
+			})
+			.returning({ id: users.id })
+
+		if (!createdUser?.id) {
+			throw new TRPCError({
+				code: "INTERNAL_SERVER_ERROR",
+				message: "Failed to create user.",
+			})
+		}
+
+		// BEST-EFFORT: provision the user in DocoChain (auto-join org + generate token).
+		// We do NOT block registration if DocoChain rejects/doesn't allow auto-join.
+		try {
+			const result = await provisionDocoChainUser({
+				email,
+				name,
 				role: "Member",
 			})
-			console.log("✅ User auto-joined to DocoChain organization")
+			console.log("✅ DocoChain provisioning result:", {
+				joinedOrganization: result.joinedOrganization,
+				userTokenGenerated: result.userTokenGenerated,
+			})
 		} catch (error) {
-			// Don't fail registration if auto-join fails
-			console.warn("⚠️ Failed to auto-join user to DocoChain organization:", error)
+			// provisionDocoChainUser should already be best-effort, but keep this extra guard
+			console.warn("⚠️ DocoChain provisioning threw unexpectedly:", error)
 		}
 
 		const verificationToken = await generateVerificationToken(email)

@@ -4,7 +4,7 @@ import { type DefaultSession, type NextAuthConfig } from "next-auth"
 import Credentials from "next-auth/providers/credentials"
 import Google from "next-auth/providers/google"
 
-import { autoJoinOrganization } from "@/services/docochain"
+import { provisionDocoChainUser } from "@/services/docochain"
 import { db } from "@/services/drizzle/db"
 import { twoFactorConfirmations, users, type UserRole } from "@/services/drizzle/schema/auth"
 import { DrizzleCustomAdapter } from "@/services/next-auth/adapter"
@@ -204,18 +204,12 @@ export const authConfig = {
 			if (!user?.email) return
 
 			try {
-				const fullName = (user.name ?? "").trim()
-				const parts = fullName.split(" ").filter(Boolean)
-				const firstName = parts[0] ?? "User"
-				const lastName = parts.slice(1).join(" ") || ""
-
-				await autoJoinOrganization({
+				await provisionDocoChainUser({
 					email: user.email,
-					firstName,
-					lastName,
+					name: user.name,
 					role: "Member",
 				})
-				console.log("✅ Google/OAuth user auto-joined to DocoChain organization")
+				console.log("✅ Google/OAuth user provisioning attempted")
 			} catch (error) {
 				// Don't fail OAuth signup if auto-join fails
 				console.warn("⚠️ Failed to auto-join Google/OAuth user to DocoChain organization:", error)
@@ -244,18 +238,12 @@ export const authConfig = {
 			// Also best-effort auto-join on OAuth account linking (covers cases where
 			// the user existed already but never got added to DocoChain org).
 			try {
-				const fullName = (user.name ?? "").trim()
-				const parts = fullName.split(" ").filter(Boolean)
-				const firstName = parts[0] ?? "User"
-				const lastName = parts.slice(1).join(" ") || ""
-
-				await autoJoinOrganization({
+				await provisionDocoChainUser({
 					email: userEmail,
-					firstName,
-					lastName,
+					name: user.name,
 					role: "Member",
 				})
-				console.log("✅ Linked OAuth user auto-joined to DocoChain organization")
+				console.log("✅ Linked OAuth user provisioning attempted")
 			} catch (error) {
 				console.warn(
 					"⚠️ Failed to auto-join linked OAuth user to DocoChain organization:",

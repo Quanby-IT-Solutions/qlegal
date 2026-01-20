@@ -1,4 +1,3 @@
-/* eslint-disable no-console */
 "use server"
 
 import { compare } from "bcryptjs"

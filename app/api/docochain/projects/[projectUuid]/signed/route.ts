@@ -57,7 +57,12 @@ export async function GET(
 
 		const { buffer, fileName } = await downloadSignedDocument(projectUuid, creatorEmail)
 
-		return new NextResponse(buffer, {
+		// NextResponse expects a web BodyInit. Convert Buffer -> Uint8Array (ArrayBuffer-backed),
+		// then wrap in a Blob to satisfy TypeScript + runtime.
+		const bytes = Uint8Array.from(buffer)
+		const body = new Blob([bytes], { type: "application/pdf" })
+
+		return new NextResponse(body, {
 			headers: {
 				"Content-Type": "application/pdf",
 				"Content-Disposition": `inline; filename="${fileName}"`,

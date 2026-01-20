@@ -35,6 +35,7 @@ interface KycVerificationCardProps {
 		email: string | null
 		transactionId: string | null
 		kycStatus: string | null
+		kycLinkCreatedAt?: Date | null
 	}
 	minimal?: boolean
 	redirectUrlOnSkip?: string
@@ -48,8 +49,19 @@ export function KycVerificationCard({
 	const [isPending, startTransition] = useTransition()
 	const [error, setError] = useState<string | null>(null)
 	const [showManualCheck, setShowManualCheck] = useState(false)
+	const [isCreatingForExpired, setIsCreatingForExpired] = useState(false)
 	const searchParams = useSearchParams()
 	const toastShownRef = useRef<Set<string>>(new Set())
+
+	// Check if there's an expired link (24 hours old)
+	const hasExpiredLink = useMemo(() => {
+		if (userInfo.kycStatus === "PENDING" && userInfo.kycLinkCreatedAt) {
+			const linkAge = Date.now() - new Date(userInfo.kycLinkCreatedAt).getTime()
+			const expirationTime = 24 * 60 * 60 * 1000 // 24 hours
+			return linkAge > expirationTime
+		}
+		return false
+	}, [userInfo.kycStatus, userInfo.kycLinkCreatedAt])
 
 	// Determine effective status from either server data or query result
 	const effectiveStatus = useMemo(() => userInfo.kycStatus, [userInfo.kycStatus])
@@ -141,20 +153,33 @@ export function KycVerificationCard({
 
 	const handleCreateLink = () => {
 		setError(null)
+		setIsCreatingForExpired(hasExpiredLink)
 
 		startTransition(async () => {
 			const result = await createUserKycLink()
 			if (result.success && result.data) {
 				// Auto-open the KYC link
 				window.open(result.data.url, "_blank", "noopener,noreferrer")
-				toast.success("KYC verification link created! Opening in new window...")
+				
+				// Show appropriate message based on whether this was for an expired link
+				if (result.data.isExpiredLink) {
+					toast.success("New KYC verification link created (previous link expired). Opening in new window...")
+				} else {
+					toast.success("KYC verification link created! Opening in new window...")
+				}
 
 				// User completes KYC in new window, then redirects back with ?status=complete
 				// Single status check will happen automatically when they return
 				console.log("✅ KYC link created. Waiting for user to complete verification...")
 			} else {
-				setError(result.error ?? "Failed to create KYC link")
-				toast.error(result.error ?? "Failed to create KYC link")
+				// Check if error is about existing pending transaction
+				if (result.error?.includes("already have a pending")) {
+					toast.error(result.error)
+					setError(result.error)
+				} else {
+					setError(result.error ?? "Failed to create KYC link")
+					toast.error(result.error ?? "Failed to create KYC link")
+				}
 			}
 		})
 	}
@@ -246,7 +271,9 @@ export function KycVerificationCard({
 	}
 
 	// Show existing status if available
-	const currentStatus = statusResult?.kycStatus ?? userInfo.kycStatus ?? "NOT_STARTED"
+	// If there's an expired PENDING link, treat it as NOT_STARTED for UI purposes
+	const rawStatus = statusResult?.kycStatus ?? userInfo.kycStatus ?? "NOT_STARTED"
+	const currentStatus = hasExpiredLink && rawStatus === "PENDING" ? "NOT_STARTED" : rawStatus
 
 	return (
 		<div className="space-y-6">
@@ -299,6 +326,13 @@ export function KycVerificationCard({
 							</p>
 							<p className="text-xs text-amber-700 dark:text-amber-300">
 								Complete your identity verification to continue
+							</p>
+						</div>
+					)}
+					{hasExpiredLink && (
+						<div className="rounded-lg border border-orange-200 bg-orange-50 p-3 dark:border-orange-800 dark:bg-orange-950/20">
+							<p className="text-xs text-orange-700 dark:text-orange-300">
+								Your previous verification link has expired. Creating a new link for you.
 							</p>
 						</div>
 					)}

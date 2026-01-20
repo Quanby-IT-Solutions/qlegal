@@ -48,8 +48,9 @@ export async function getLivenessMode() {
  * Uses the unified decision logic with liveFace.value and summary.action
  *
  * @param imageBase64 - Base64 encoded selfie image (with or without data URI prefix)
+ * @param meetingId - Optional meeting ID to associate this verification with
  */
-export async function validateSelfieLiveness(imageBase64: string) {
+export async function validateSelfieLiveness(imageBase64: string, meetingId?: string) {
 	const session = await auth()
 
 	if (!session?.user?.id || !session?.user?.email) {
@@ -80,6 +81,7 @@ export async function validateSelfieLiveness(imageBase64: string) {
 	console.log("🔵 Starting direct liveness validation...")
 	console.log("   - User:", session.user.email)
 	console.log("   - Transaction ID:", transactionId)
+	console.log("   - Meeting ID:", meetingId ?? "N/A")
 
 	try {
 		// Call HyperVerge /checkLiveness API
@@ -105,12 +107,16 @@ export async function validateSelfieLiveness(imageBase64: string) {
 		try {
 			await db.insert(livenessValidations).values({
 				userId: session.user.id,
+				meetingId: meetingId ?? null,
 				transactionId,
 				status: decision.isApproved ? "pass" : "fail",
 				errorMessage: decision.isApproved ? null : decision.message,
 				attemptNumber: 1,
 			})
-			console.log("✅ Saved liveness validation to database")
+			console.log(
+				"✅ Saved liveness validation to database",
+				meetingId ? `for meeting ${meetingId}` : ""
+			)
 		} catch (dbError) {
 			console.error("⚠️ Failed to save to database (non-critical):", dbError)
 			// Don't fail the whole operation if database save fails
@@ -149,9 +155,14 @@ export async function validateSelfieLiveness(imageBase64: string) {
  * This initiates HyperVerge's hosted verification page
  * User will be redirected to HyperVerge, complete verification, then redirected back
  *
+ * @param redirectAfterSuccess - Optional URL to redirect to after successful verification
+ * @param meetingId - Optional meeting ID to associate this verification with
  * @returns Redirect URL to HyperVerge hosted page
  */
-export async function startHostedLivenessWorkflow() {
+export async function startHostedLivenessWorkflow(
+	redirectAfterSuccess?: string,
+	meetingId?: string
+) {
 	const session = await auth()
 
 	if (!session?.user?.id || !session?.user?.email) {
@@ -163,11 +174,18 @@ export async function startHostedLivenessWorkflow() {
 
 	const transactionId = generateTransactionId(session.user.id)
 	const baseUrl = getUrl()
-	const callbackUrl = `${baseUrl}/liveness/callback`
+	let callbackUrl = `${baseUrl}/liveness/callback?transactionId=${transactionId}`
+	if (redirectAfterSuccess) {
+		callbackUrl += `&redirect=${encodeURIComponent(redirectAfterSuccess)}`
+	}
+	if (meetingId) {
+		callbackUrl += `&meetingId=${encodeURIComponent(meetingId)}`
+	}
 
 	console.log("🔵 Starting hosted liveness workflow...")
 	console.log("   - User:", session.user.email)
 	console.log("   - Transaction ID:", transactionId)
+	console.log("   - Meeting ID:", meetingId ?? "N/A")
 	console.log("   - Callback URL:", callbackUrl)
 
 	try {
@@ -197,12 +215,58 @@ export async function startHostedLivenessWorkflow() {
 }
 
 /**
+ * Check if the current user has completed liveness verification for a specific meeting
+ * @param meetingId - The meeting ID to check verification for
+ */
+export async function checkUserLivenessStatus(meetingId?: string) {
+	const session = await auth()
+
+	if (!session?.user?.id) {
+		return {
+			success: false,
+			error: "User not authenticated",
+		}
+	}
+
+	try {
+		const { eq, and } = await import("drizzle-orm")
+
+		// Check if user has a successful liveness validation for this specific meeting
+		const validation = await db.query.livenessValidations.findFirst({
+			where: and(
+				eq(livenessValidations.userId, session.user.id),
+				eq(livenessValidations.meetingId, meetingId ?? ""),
+				eq(livenessValidations.status, "pass")
+			),
+			orderBy: (table, { desc }) => [desc(table.createdAt)],
+		})
+
+		return {
+			success: true,
+			data: {
+				isVerified: !!validation,
+				verifiedAt: validation?.createdAt,
+				transactionId: validation?.transactionId,
+				meetingId: (validation?.meetingId ?? null) as string | null,
+			},
+		}
+	} catch (error) {
+		console.error("Failed to check liveness status:", error)
+		return {
+			success: false,
+			error: error instanceof Error ? error.message : "Failed to check liveness status",
+		}
+	}
+}
+
+/**
  * Get liveness verification results from completed hosted workflow
  * This should be called ONCE after user completes verification and is redirected back
  *
  * @param transactionId - The transaction ID from the hosted workflow
+ * @param meetingId - Optional meeting ID to associate this verification with
  */
-export async function getHostedLivenessResult(transactionId: string) {
+export async function getHostedLivenessResult(transactionId: string, meetingId?: string) {
 	const session = await auth()
 
 	if (!session?.user?.id) {
@@ -222,6 +286,7 @@ export async function getHostedLivenessResult(transactionId: string) {
 	console.log("🔵 Fetching hosted liveness results...")
 	console.log("   - User:", session.user.email)
 	console.log("   - Transaction ID:", transactionId)
+	console.log("   - Meeting ID:", meetingId ?? "N/A")
 
 	try {
 		const result = await getWorkflowOutput(transactionId)
@@ -243,12 +308,16 @@ export async function getHostedLivenessResult(transactionId: string) {
 		try {
 			await db.insert(livenessValidations).values({
 				userId: session.user.id,
+				meetingId: meetingId ?? null,
 				transactionId,
 				status: decision.isApproved ? "pass" : "fail",
 				errorMessage: decision.isApproved ? null : decision.message,
 				attemptNumber: 1,
 			})
-			console.log("✅ Saved liveness validation to database")
+			console.log(
+				"✅ Saved liveness validation to database",
+				meetingId ? `for meeting ${meetingId}` : ""
+			)
 		} catch (dbError) {
 			console.error("⚠️ Failed to save to database (non-critical):", dbError)
 			// Don't fail the whole operation if database save fails

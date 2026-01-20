@@ -34,9 +34,10 @@ interface SelfieCaptureProps {
 	}) => void
 	onError?: (error: string) => void
 	onCancel?: () => void
+	meetingId?: string
 }
 
-export function SelfieCapture({ onSuccess, onError, onCancel }: SelfieCaptureProps) {
+export function SelfieCapture({ onSuccess, onError, onCancel, meetingId }: SelfieCaptureProps) {
 	const videoRef = useRef<HTMLVideoElement>(null)
 	const canvasRef = useRef<HTMLCanvasElement>(null)
 	const streamRef = useRef<MediaStream | null>(null)
@@ -157,7 +158,7 @@ export function SelfieCapture({ onSuccess, onError, onCancel }: SelfieCapturePro
 
 		startTransition(async () => {
 			try {
-				const result = await validateSelfieLiveness(capturedImage)
+				const result = await validateSelfieLiveness(capturedImage, meetingId)
 
 				if (result.success && result.data) {
 					setValidationResult({

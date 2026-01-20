@@ -11,6 +11,17 @@ import { getServiceRoleClient } from "@/services/supabase"
 import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
 import { createMeetingRoom, generateMeetingToken } from "@/services/video-sdk"
 
+function isEnpRole(role: unknown): boolean {
+	if (typeof role !== "string") return false
+	return role.trim().toUpperCase() === "ENP"
+}
+
+function asNonEmptyEmail(email: unknown): string | undefined {
+	if (typeof email !== "string") return undefined
+	const trimmed = email.trim()
+	return trimmed.length > 0 ? trimmed : undefined
+}
+
 export const meetingsRouter = createTRPCRouter({
 	// Create a new meeting
 	create: protectedProcedure
@@ -339,31 +350,33 @@ export const meetingsRouter = createTRPCRouter({
 				})
 			}
 
-			// CRITICAL: Always use ENP's email for DocoChain project creation
-			// Find ENP from participants - they are always the initiator for signing
+			// CRITICAL: DocoChain project creation MUST use an ENP (enterprise) token.
+			// In prod, per-user tokens can cause "Unauthorized access" if we accidentally use a Principal's email.
 			let creatorEmail: string | undefined
 
-			// First, check if creator is ENP
-			if (meeting.createdBy?.role === "ENP" && meeting.createdBy?.email) {
-				creatorEmail = meeting.createdBy.email
-			} else {
-				// Find ENP from participants
-				const enpParticipant = meeting.participants.find(p => p.user?.role === "ENP")
-				if (enpParticipant?.user?.email) {
-					creatorEmail = enpParticipant.user.email
-				} else if (ctx.session.user.role === "ENP" && ctx.session.user.email) {
-					// Fallback: current user is ENP
-					creatorEmail = ctx.session.user.email
-				} else {
-					// Last resort: use creator email
-					creatorEmail = meeting.createdBy?.email ?? ctx.session.user.email ?? undefined
-				}
+			// First, check if meeting creator is ENP
+			if (isEnpRole(meeting.createdBy?.role)) {
+				creatorEmail = asNonEmptyEmail(meeting.createdBy?.email)
+			}
+
+			// Otherwise, find ENP among participants
+			if (!creatorEmail) {
+				const enpParticipant = meeting.participants.find(
+					p => isEnpRole(p.user?.role) && !!p.user?.email
+				)
+				creatorEmail = asNonEmptyEmail(enpParticipant?.user?.email)
+			}
+
+			// Finally, allow ENP uploader as a fallback (rare but safe)
+			if (!creatorEmail && isEnpRole(ctx.session.user.role) && ctx.session.user.email) {
+				creatorEmail = asNonEmptyEmail(ctx.session.user.email)
 			}
 
 			if (!creatorEmail) {
 				throw new TRPCError({
 					code: "BAD_REQUEST",
-					message: "ENP email not found for document signing",
+					message:
+						"ENP email not found for document signing. This meeting must include an ENP participant to upload signing documents.",
 				})
 			}
 
