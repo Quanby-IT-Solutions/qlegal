@@ -35,7 +35,8 @@ export function Footer() {
 							</span>
 						</Link>
 						<p className="text-muted-foreground leading-relaxed">
-							Supreme Court accredited platform for secure and compliant electronic notarization.
+							Supreme Court accredited legal consultation and electronic notarization platform for
+							secure and compliant service.
 						</p>
 					</MotionEffect>
 

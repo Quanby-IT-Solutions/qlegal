@@ -38,11 +38,11 @@ const authLinks: NavItem[] = [
 const authFooterLinks: NavItem[] = [
 	{
 		title: "Privacy Policy",
-		url: "#privacy-policy",
+		url: "/privacy-policy",
 	},
 	{
 		title: "Terms of Service",
-		url: "#terms-of-service",
+		url: "/terms-of-service",
 	},
 	{
 		title: "Help Center",

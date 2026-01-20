@@ -38,17 +38,17 @@ export function Hero() {
 	return (
 		<section className="relative overflow-hidden pt-20 pb-24 sm:pt-24 lg:pt-40">
 			{/* Background Elements */}
-			<div className="via-background absolute inset-0 bg-gradient-to-br from-[rgb(91,26,128)]/5 to-[rgb(233,30,140)]/5" />
+			<div className="via-background absolute inset-0 bg-linear-to-br from-[rgb(91,26,128)]/5 to-[rgb(233,30,140)]/5" />
 
 			{/* Grid Pattern */}
-			<div className="absolute inset-0 bg-[linear-gradient(to_right,#8080800a_1px,transparent_1px),linear-gradient(to_bottom,#8080800a_1px,transparent_1px)] bg-[size:14px_24px]" />
+			<div className="absolute inset-0 bg-[linear-gradient(to_right,#8080800a_1px,transparent_1px),linear-gradient(to_bottom,#8080800a_1px,transparent_1px)] bg-size-[14px_24px]" />
 
 			{/* Radial Gradient Overlay */}
 			<div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_20%,hsl(var(--background))_70%)]" />
 
 			{/* Floating Orbs */}
 			<motion.div
-				className="pointer-events-none absolute top-20 left-10 h-72 w-72 rounded-full bg-gradient-to-r from-[rgb(91,26,128)]/20 to-[rgb(233,30,140)]/20 blur-3xl"
+				className="pointer-events-none absolute top-20 left-10 h-72 w-72 rounded-full bg-linear-to-r from-[rgb(91,26,128)]/20 to-[rgb(233,30,140)]/20 blur-3xl"
 				animate={{
 					x: [0, 100, 0],
 					y: [0, -50, 0],
@@ -60,7 +60,7 @@ export function Hero() {
 				}}
 			/>
 			<motion.div
-				className="pointer-events-none absolute right-10 bottom-20 h-96 w-96 rounded-full bg-gradient-to-r from-[rgb(233,30,140)]/15 to-[rgb(91,26,128)]/15 blur-3xl"
+				className="pointer-events-none absolute right-10 bottom-20 h-96 w-96 rounded-full bg-linear-to-r from-[rgb(233,30,140)]/15 to-[rgb(91,26,128)]/15 blur-3xl"
 				animate={{
 					x: [0, -80, 0],
 					y: [0, 30, 0],
@@ -72,7 +72,7 @@ export function Hero() {
 				}}
 			/>
 
-			<div className="relative z-10 mx-auto max-w-screen-xl px-4 sm:px-6 lg:px-8">
+			<div className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
 				<div className="grid items-center gap-12 lg:grid-cols-2 lg:gap-16">
 					{/* Left Content */}
 					<motion.div
@@ -86,7 +86,7 @@ export function Hero() {
 								initial={{ opacity: 0, scale: 0.8 }}
 								animate={{ opacity: 1, scale: 1 }}
 								transition={{ duration: 0.5 }}
-								className="mb-6 inline-flex items-center space-x-2 rounded-full border border-[rgb(91,26,128)]/20 bg-gradient-to-r from-[rgb(91,26,128)]/10 to-[rgb(233,30,140)]/10 px-4 py-2 backdrop-blur-sm"
+								className="mb-6 inline-flex items-center space-x-2 rounded-full border border-[rgb(91,26,128)]/20 bg-linear-to-r from-[rgb(91,26,128)]/10 to-[rgb(233,30,140)]/10 px-4 py-2 backdrop-blur-sm"
 							>
 								<Shield className="h-4 w-4 text-[rgb(91,26,128)]" />
 								<span className="text-muted-foreground text-sm font-medium">
@@ -96,7 +96,7 @@ export function Hero() {
 
 							<h1 className="text-4xl leading-tight font-bold tracking-tight lg:text-6xl">
 								Accredited{" "}
-								<span className="bg-gradient-to-r from-[rgb(91,26,128)] via-[rgb(91,26,128)]/80 to-[rgb(233,30,140)] bg-clip-text text-transparent">
+								<span className="bg-linear-to-r from-[rgb(91,26,128)] via-[rgb(91,26,128)]/80 to-[rgb(233,30,140)] bg-clip-text text-transparent">
 									Electronic Notarization
 								</span>{" "}
 								Platform
@@ -107,8 +107,8 @@ export function Hero() {
 							variants={fadeInUp}
 							className="text-muted-foreground mx-auto max-w-2xl text-xl leading-relaxed lg:mx-0 lg:text-2xl"
 						>
-							Secure, compliant, and Supreme Court accredited platform for electronic notarization
-							in the Philippines.
+							Secure, compliant, and Supreme Court accredited legal consultation and electronic
+							notarization platform in the Philippines.
 						</motion.p>
 
 						<motion.div
@@ -118,7 +118,7 @@ export function Hero() {
 							<Button
 								asChild
 								size="lg"
-								className="group bg-gradient-to-r from-[rgb(91,26,128)] to-[rgb(91,26,128)]/90 px-8 py-6 text-lg shadow-xl transition-all duration-300 hover:from-[rgb(91,26,128)]/90 hover:to-[rgb(91,26,128)] hover:shadow-2xl"
+								className="group bg-linear-to-r from-[rgb(91,26,128)] to-[rgb(91,26,128)]/90 px-8 py-6 text-lg shadow-xl transition-all duration-300 hover:from-[rgb(91,26,128)]/90 hover:to-[rgb(91,26,128)] hover:shadow-2xl"
 							>
 								<Link href="/auth/register">
 									Get Started
@@ -158,13 +158,13 @@ export function Hero() {
 							<motion.div
 								variants={floatingAnimation}
 								animate="animate"
-								className="border-border/20 from-background via-background/80 to-background/60 relative flex h-96 w-96 items-center justify-center rounded-3xl border bg-gradient-to-br shadow-2xl backdrop-blur-xl"
+								className="border-border/20 from-background via-background/80 to-background/60 relative flex h-96 w-96 items-center justify-center rounded-3xl border bg-linear-to-br shadow-2xl backdrop-blur-xl"
 							>
 								{/* Inner glow */}
-								<div className="absolute inset-4 rounded-2xl bg-gradient-to-br from-[rgb(91,26,128)]/10 to-[rgb(233,30,140)]/10" />
+								<div className="absolute inset-4 rounded-2xl bg-linear-to-br from-[rgb(91,26,128)]/10 to-[rgb(233,30,140)]/10" />
 
 								{/* Logo */}
-								<div className="relative z-10 flex h-48 w-48 items-center justify-center rounded-full border border-[rgb(91,26,128)]/30 bg-gradient-to-br from-[rgb(91,26,128)]/20 to-[rgb(233,30,140)]/20">
+								<div className="relative z-10 flex h-48 w-48 items-center justify-center rounded-full border border-[rgb(91,26,128)]/30 bg-linear-to-br from-[rgb(91,26,128)]/20 to-[rgb(233,30,140)]/20">
 									<div className="h-32 w-32">
 										<QuanbyLogo className="h-full w-full object-contain" />
 									</div>
@@ -183,7 +183,7 @@ export function Hero() {
 									repeat: Number.POSITIVE_INFINITY,
 									ease: "easeInOut",
 								}}
-								className="absolute -top-6 -right-6 flex h-20 w-20 items-center justify-center rounded-2xl border border-[rgb(91,26,128)]/20 bg-gradient-to-br from-[rgb(91,26,128)]/20 to-[rgb(91,26,128)]/10 shadow-xl backdrop-blur-sm"
+								className="absolute -top-6 -right-6 flex h-20 w-20 items-center justify-center rounded-2xl border border-[rgb(91,26,128)]/20 bg-linear-to-br from-[rgb(91,26,128)]/20 to-[rgb(91,26,128)]/10 shadow-xl backdrop-blur-sm"
 							>
 								<Scale className="h-10 w-10 text-[rgb(91,26,128)]" />
 							</motion.div>
@@ -200,7 +200,7 @@ export function Hero() {
 									ease: "easeInOut",
 									delay: 1,
 								}}
-								className="absolute -bottom-8 -left-8 flex h-16 w-16 items-center justify-center rounded-xl border border-green-500/20 bg-gradient-to-br from-green-500/20 to-green-400/10 shadow-xl backdrop-blur-sm"
+								className="absolute -bottom-8 -left-8 flex h-16 w-16 items-center justify-center rounded-xl border border-green-500/20 bg-linear-to-br from-green-500/20 to-green-400/10 shadow-xl backdrop-blur-sm"
 							>
 								<CheckCircle className="h-8 w-8 text-green-500" />
 							</motion.div>
@@ -216,7 +216,7 @@ export function Hero() {
 									ease: "easeInOut",
 									delay: 2,
 								}}
-								className="absolute top-1/2 -left-12 flex h-12 w-12 items-center justify-center rounded-lg border border-[rgb(233,30,140)]/20 bg-gradient-to-br from-[rgb(233,30,140)]/20 to-[rgb(233,30,140)]/10 shadow-lg backdrop-blur-sm"
+								className="absolute top-1/2 -left-12 flex h-12 w-12 items-center justify-center rounded-lg border border-[rgb(233,30,140)]/20 bg-linear-to-br from-[rgb(233,30,140)]/20 to-[rgb(233,30,140)]/10 shadow-lg backdrop-blur-sm"
 							>
 								<Shield className="h-6 w-6 text-[rgb(233,30,140)]" />
 							</motion.div>

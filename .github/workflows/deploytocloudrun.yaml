@@ -63,6 +63,7 @@ env:
   HYPERVERGE_APP_KEY: ${{ secrets.HYPERVERGE_APP_KEY }}
   HYPERVERGE_WORKFLOW_ID: ${{ secrets.HYPERVERGE_WORKFLOW_ID }}
   HYPERVERGE_API_URL: ${{ secrets.HYPERVERGE_API_URL }}
+  HYPERVERGE_DIRECT_LIVENESS_ENABLED: ${{ secrets.HYPERVERGE_DIRECT_LIVENESS_ENABLED }}
 
 jobs:
   deploy:
@@ -137,6 +138,7 @@ jobs:
             --build-arg HYPERVERGE_APP_KEY="${{ secrets.HYPERVERGE_APP_KEY }}" \
             --build-arg HYPERVERGE_WORKFLOW_ID="${{ secrets.HYPERVERGE_WORKFLOW_ID }}" \
             --build-arg HYPERVERGE_API_URL="${{ secrets.HYPERVERGE_API_URL }}" \
+            --build-arg HYPERVERGE_DIRECT_LIVENESS_ENABLED="${{ secrets.HYPERVERGE_DIRECT_LIVENESS_ENABLED }}" \
             -t "${{ env.GAR_LOCATION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.SERVICE }}:${{ github.sha }}" .
 
           docker push "${{ env.GAR_LOCATION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.SERVICE }}:${{ github.sha }}"
@@ -201,6 +203,7 @@ jobs:
             HYPERVERGE_APP_KEY=${{ secrets.HYPERVERGE_APP_KEY }}
             HYPERVERGE_WORKFLOW_ID=${{ secrets.HYPERVERGE_WORKFLOW_ID }}
             HYPERVERGE_API_URL=${{ secrets.HYPERVERGE_API_URL }}
+            HYPERVERGE_DIRECT_LIVENESS_ENABLED=${{ secrets.HYPERVERGE_DIRECT_LIVENESS_ENABLED }}
 
             SKIP_ENV_VALIDATION=1
           flags: >
