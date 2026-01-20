@@ -20,7 +20,7 @@ const VideoMeetingClient = dynamic(
 	{
 		ssr: false,
 		loading: () => (
-			<div className="from-background via-muted/30 to-background flex h-screen items-center justify-center bg-gradient-to-br">
+			<div className="from-background via-muted/30 to-background flex h-screen items-center justify-center bg-linear-to-br">
 				<div className="text-center">
 					<div className="border-primary mx-auto mb-4 size-12 animate-spin rounded-full border-b-4" />
 					<p className="text-muted-foreground font-medium">Loading video SDK...</p>
@@ -51,7 +51,7 @@ export default function MeetingRoomPage({ params }: { params: Promise<{ id: stri
 
 	if (isMeetingLoading || isTokenLoading) {
 		return (
-			<div className="from-background via-muted/30 to-background flex h-screen items-center justify-center bg-gradient-to-br">
+			<div className="from-background via-muted/30 to-background flex h-screen items-center justify-center bg-linear-to-br">
 				<div className="text-center">
 					<Skeleton className="mx-auto mb-4 size-12 rounded-full" />
 					<Skeleton className="h-6 w-48" />
@@ -62,7 +62,7 @@ export default function MeetingRoomPage({ params }: { params: Promise<{ id: stri
 
 	if (!meeting || !tokenData) {
 		return (
-			<div className="from-background via-muted/30 to-background flex h-screen items-center justify-center bg-gradient-to-br">
+			<div className="from-background via-muted/30 to-background flex h-screen items-center justify-center bg-linear-to-br">
 				<Card className="w-full max-w-md shadow-xl">
 					<CardContent className="p-8 text-center">
 						<h2 className="text-2xl font-bold">Meeting not found</h2>
@@ -81,7 +81,7 @@ export default function MeetingRoomPage({ params }: { params: Promise<{ id: stri
 	// Check if meeting is ongoing
 	if (meeting.status !== "ONGOING") {
 		return (
-			<div className="from-background via-muted/30 to-background flex h-screen items-center justify-center bg-gradient-to-br">
+			<div className="from-background via-muted/30 to-background flex h-screen items-center justify-center bg-linear-to-br">
 				<Card className="w-full max-w-md shadow-xl">
 					<CardContent className="p-8 text-center">
 						<h2 className="mb-2 text-2xl font-bold">{meeting.title}</h2>
@@ -99,7 +99,7 @@ export default function MeetingRoomPage({ params }: { params: Promise<{ id: stri
 
 	if (!meeting.roomId) {
 		return (
-			<div className="from-background via-muted/30 to-background flex h-screen items-center justify-center bg-gradient-to-br">
+			<div className="from-background via-muted/30 to-background flex h-screen items-center justify-center bg-linear-to-br">
 				<Card className="w-full max-w-md shadow-xl">
 					<CardContent className="p-8 text-center">
 						<h2 className="text-2xl font-bold">Meeting room not available</h2>
