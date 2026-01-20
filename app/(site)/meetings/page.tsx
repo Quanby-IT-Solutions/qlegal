@@ -6,6 +6,7 @@ import { format } from "date-fns"
 import {
 	Calendar,
 	Clock,
+	Loader2,
 	PlayCircle,
 	Plus,
 	Search,
@@ -60,6 +61,7 @@ export default function MeetingsPage() {
 		Array<{ id: string; name: string | null; email: string | null; image: string | null }>
 	>([])
 	const [loadingMeetingId, setLoadingMeetingId] = useState<string | null>(null)
+	const [joiningMeetingId, setJoiningMeetingId] = useState<string | null>(null)
 	const [statusFilter, setStatusFilter] = useState<string>("ALL")
 
 	const { data: searchResults } = searchUsers(userSearchQuery)
@@ -581,11 +583,22 @@ export default function MeetingsPage() {
 															style={{ backgroundColor: "#313638" }}
 															onClick={e => {
 																e.stopPropagation()
+																setJoiningMeetingId(meeting.id)
 																router.push(`/meetings/${meeting.id}/lobby`)
 															}}
+															disabled={joiningMeetingId === meeting.id}
 														>
-															<Video className="mr-2 size-4" />
-															Join Meeting
+															{joiningMeetingId === meeting.id ? (
+																<>
+																	<Loader2 className="mr-2 size-4 animate-spin" />
+																	Joining...
+																</>
+															) : (
+																<>
+																	<Video className="mr-2 size-4" />
+																	Join Meeting
+																</>
+															)}
 														</Button>
 													)}
 
