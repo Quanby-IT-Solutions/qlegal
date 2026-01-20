@@ -69,19 +69,19 @@ export function LivenessValidationCard({
 		status: string
 		decision: LivenessDecisionResult
 	}) => {
-		setValidationResult({
-			...result,
-			timestamp: new Date(),
-		})
 		setShowCapture(false)
 
-		// If redirect URL is provided and verification passed, redirect
 		if (redirectUrl && result.decision.isApproved) {
-			toast.success("Verification successful! Redirecting...")
-			setTimeout(() => {
-				window.location.href = redirectUrl
-			}, 1500)
+			// Seamless redirect: toast only, no result screen
+			toast.success("Verification complete!")
+			window.location.href = redirectUrl
+			return
 		}
+
+		if (!result.decision.isApproved) {
+			toast.error("Verification failed")
+		}
+		setValidationResult({ ...result, timestamp: new Date() })
 	}
 
 	const handleError = (error: string) => {
