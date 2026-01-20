@@ -114,7 +114,7 @@ export function Hero() {
 
 						<div className="min-h-24">
 							<TextGenerateEffect
-								words="Secure, compliant, and trusted by legal professionals nationwide."
+								words="The Philippines' legal consultation and electronic notarization platform—secure, compliant, and trusted by legal professionals nationwide."
 								className="text-muted-foreground text-base leading-relaxed font-normal sm:text-lg lg:text-xl"
 							/>
 						</div>
@@ -159,7 +159,7 @@ export function Hero() {
 						initial={{ opacity: 0, scale: 0.8 }}
 						animate={{ opacity: 1, scale: 1 }}
 						transition={{ duration: 0.8, delay: 0.2 }}
-						className="relative hidden h-[550px] w-full flex-col items-center justify-center overflow-hidden lg:flex lg:h-[650px] lg:justify-center"
+						className="relative hidden h-137.5 w-full flex-col items-center justify-center overflow-hidden lg:flex lg:h-162.5 lg:justify-center"
 					>
 						{/* Center Logo */}
 						<div className="relative z-10 flex h-40 w-40 items-center justify-center rounded-full border border-[rgb(91,26,128)]/30 bg-linear-to-br from-[rgb(91,26,128)]/20 to-[rgb(233,30,140)]/20 shadow-2xl backdrop-blur-md">
