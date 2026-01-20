@@ -5,6 +5,7 @@ import { z } from "zod/v4"
 import { createDocoChainProject } from "@/services/docochain"
 import { normalizeDocoChainUrl } from "@/services/docochain/url-normalizer"
 import { db } from "@/services/drizzle/db"
+import { users } from "@/services/drizzle/schema/auth"
 import { documents } from "@/services/drizzle/schema/document"
 import { meetingParticipants, meetings } from "@/services/drizzle/schema/meetings"
 import { getServiceRoleClient } from "@/services/supabase"
@@ -650,6 +651,86 @@ export const meetingsRouter = createTRPCRouter({
 			return {
 				success: true,
 				isLocked: updatedMeeting?.isDocumentOrderLocked ?? false,
+			}
+		}),
+
+	/**
+	 * Invite a witness (or any participant) to the meeting by email.
+	 * Kept intentionally simple: adds an existing user as a meeting participant.
+	 *
+	 * NOTE: This does not send email; the host can share the meeting link after adding.
+	 */
+	inviteWitnessByEmail: protectedProcedure
+		.input(
+			z.object({
+				meetingId: z.string().min(1),
+				email: z.string().email(),
+			})
+		)
+		.mutation(async ({ input, ctx }) => {
+			const meeting = await db.query.meetings.findFirst({
+				where: eq(meetings.id, input.meetingId),
+				with: {
+					participants: true,
+				},
+			})
+
+			if (!meeting) {
+				throw new TRPCError({ code: "NOT_FOUND", message: "Meeting not found" })
+			}
+
+			// Only the meeting creator (principal/host) can add participants from the lobby.
+			if (meeting.createdById !== ctx.session.user.id) {
+				throw new TRPCError({
+					code: "FORBIDDEN",
+					message: "Only the meeting host can invite a witness",
+				})
+			}
+
+			const email = input.email.trim().toLowerCase()
+
+			const user = await db.query.users.findFirst({
+				where: eq(users.email, email),
+				columns: {
+					id: true,
+					name: true,
+					email: true,
+					image: true,
+				},
+			})
+
+			if (!user?.id) {
+				throw new TRPCError({
+					code: "BAD_REQUEST",
+					message: "User not found. They must have an account first.",
+				})
+			}
+
+			// Prevent duplicates
+			const alreadyParticipant = meeting.participants.some(p => p.userId === user.id)
+			if (alreadyParticipant) {
+				return {
+					added: false,
+					user,
+				}
+			}
+
+			// Prevent inviting self (common typo)
+			if (user.id === ctx.session.user.id) {
+				return {
+					added: false,
+					user,
+				}
+			}
+
+			await db.insert(meetingParticipants).values({
+				meetingId: meeting.id,
+				userId: user.id,
+			})
+
+			return {
+				added: true,
+				user,
 			}
 		}),
 })
