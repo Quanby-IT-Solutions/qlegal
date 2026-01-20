@@ -174,13 +174,36 @@ export async function generateDocoChainToken(email: string, forceRefresh = false
  * @param forceRefresh - Force a new token generation even if cached token exists
  * @returns A valid token string
  */
-export async function getDocoChainToken(email?: string, forceRefresh = false): Promise<string> {
-	// If email is provided, generate user-specific token
+export async function getDocoChainToken(
+	email?: string,
+	forceRefresh = false,
+	options?: {
+		/**
+		 * Prefer the static enterprise token (DOCOCHAIN_API_TOKEN) over per-email tokens.
+		 * Default: true.
+		 */
+		preferStaticToken?: boolean
+	}
+): Promise<string> {
+	// IMPORTANT:
+	// Many DocoChain endpoints in this app are called with `user_type=ENTERPRISE_API`.
+	// In production deployments it is common that:
+	// - the "static" enterprise API token works for all server-side calls, but
+	// - per-email generated tokens (via client_key/client_secret) are not authorized for those endpoints.
+	//
+	// If a static token is configured, prefer it by default to avoid prod-only 401s.
+	const preferStaticToken = options?.preferStaticToken ?? true
+
+	if (preferStaticToken && DOCOCHAIN_API_TOKEN) {
+		return DOCOCHAIN_API_TOKEN
+	}
+
+	// Otherwise, if an email is provided, generate a user-specific token
 	if (email) {
 		return generateDocoChainToken(email, forceRefresh)
 	}
 
-	// Otherwise, use static token or generate a default one
+	// Fallback to static token (if present)
 	if (DOCOCHAIN_API_TOKEN) {
 		return DOCOCHAIN_API_TOKEN
 	}
@@ -201,13 +224,23 @@ export async function getDocoChainToken(email?: string, forceRefresh = false): P
 export async function makeDocoChainApiCall(
 	apiCall: (token: string) => Promise<Response>,
 	userEmail?: string,
-	retryCount = 0
+	retryCount = 0,
+	options?: {
+		/**
+		 * Prefer the static enterprise token (DOCOCHAIN_API_TOKEN) over per-email tokens.
+		 * Default: true (when DOCOCHAIN_API_TOKEN is set).
+		 */
+		preferStaticToken?: boolean
+	}
 ): Promise<Response> {
 	const maxRetries = 1 // Only retry once to avoid infinite loops
 
 	try {
+		const preferStaticToken = options?.preferStaticToken ?? true
+
 		// Get token (will be refreshed if about to expire)
-		const token: string = await getDocoChainToken(userEmail)
+		// Static token is intentionally preferred to avoid prod-only 401s.
+		const token: string = await getDocoChainToken(userEmail, false, { preferStaticToken })
 
 		// Make the API call
 		const response = await apiCall(token)
@@ -215,29 +248,49 @@ export async function makeDocoChainApiCall(
 		// If we get a 401 Unauthorized, the token might have expired
 		// Refresh the token and retry once
 		if (response.status === 401 && retryCount < maxRetries && userEmail) {
-			console.warn("⚠️ Received 401 Unauthorized, refreshing token and retrying...")
-			console.log("   - User email:", userEmail)
-			console.log("   - Retry attempt:", retryCount + 1)
+			// If we're using the static token and still got 401, fall back to an email token once.
+			if (preferStaticToken && DOCOCHAIN_API_TOKEN) {
+				console.warn(
+					"⚠️ Received 401 with static token; falling back to per-email token and retrying..."
+				)
+				console.log("   - User email:", userEmail)
+				console.log("   - Retry attempt:", retryCount + 1)
 
-			// Force refresh the token
-			await getDocoChainToken(userEmail, true)
+				// Force refresh the per-email token (in case it was cached/expired)
+				await getDocoChainToken(userEmail, true, { preferStaticToken: false })
 
-			// Retry the API call with the new token
-			return makeDocoChainApiCall(apiCall, userEmail, retryCount + 1)
+				return makeDocoChainApiCall(apiCall, userEmail, retryCount + 1, {
+					...options,
+					preferStaticToken: false,
+				})
+			}
+
+			// Otherwise, we were already using per-email token - refresh and retry once.
+			if (!preferStaticToken) {
+				console.warn("⚠️ Received 401 Unauthorized, refreshing token and retrying...")
+				console.log("   - User email:", userEmail)
+				console.log("   - Retry attempt:", retryCount + 1)
+
+				// Force refresh the token
+				await getDocoChainToken(userEmail, true, { preferStaticToken: false })
+
+				// Retry the API call with the new token
+				return makeDocoChainApiCall(apiCall, userEmail, retryCount + 1, options)
+			}
 		}
 
 		return response
 	} catch (error) {
 		// If token generation failed and we haven't retried, try once more
-		if (retryCount < maxRetries && userEmail) {
+		if (retryCount < maxRetries && userEmail && !(options?.preferStaticToken ?? true)) {
 			console.warn("⚠️ Error in API call, refreshing token and retrying...")
 			console.log("   - Error:", error)
 
 			// Force refresh the token
-			await getDocoChainToken(userEmail, true)
+			await getDocoChainToken(userEmail, true, { preferStaticToken: false })
 
 			// Retry the API call with the new token
-			return makeDocoChainApiCall(apiCall, userEmail, retryCount + 1)
+			return makeDocoChainApiCall(apiCall, userEmail, retryCount + 1, options)
 		}
 
 		throw error
@@ -2364,6 +2417,7 @@ export async function getVaultItem(
 			if (response.status === 404) {
 				console.log("ℹ️ Vault item not found for project UUID:", projectUuid)
 				return null
+
 			}
 			const errorText = await response.text()
 			console.error("❌ DocoChain vault item error:", errorText)

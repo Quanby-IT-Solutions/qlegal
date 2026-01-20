@@ -15,6 +15,7 @@ import {
 	Video,
 } from "lucide-react"
 import { useSession } from "next-auth/react"
+import { toast } from "sonner"
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/core/components/ui/avatar"
 import { Button } from "@/core/components/ui/button"
@@ -25,6 +26,7 @@ import {
 	CardHeader,
 	CardTitle,
 } from "@/core/components/ui/card"
+import { Input } from "@/core/components/ui/input"
 import { Skeleton } from "@/core/components/ui/skeleton"
 import { useGeolocation } from "@/core/hooks/use-geolocation"
 
@@ -48,8 +50,8 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 	const { id } = use(params)
 	const router = useRouter()
 	const { data: session } = useSession()
-	const { getById } = useMeetings()
-	const { data: meeting, isLoading } = getById(id)
+	const { getById, inviteWitnessByEmail } = useMeetings()
+	const { data: meeting, isLoading, refetch: refetchMeeting } = getById(id)
 	const { verifyLocation } = useLocationVerification()
 
 	const videoRef = useRef<HTMLVideoElement>(null)
@@ -57,6 +59,8 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 	const [isCameraOn, setIsCameraOn] = useState(false)
 	const [isMicOn, setIsMicOn] = useState(true)
 	const [isTestingDevices, setIsTestingDevices] = useState(false)
+
+	const [witnessEmail, setWitnessEmail] = useState("")
 
 	// Liveness verification state
 	const [isCheckingLiveness, setIsCheckingLiveness] = useState(true)
@@ -411,6 +415,7 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 	}
 
 	const userRole = session?.user?.role ?? "PRINCIPAL"
+	const isHost = meeting.createdBy.id === session?.user?.id
 
 	return (
 		<>
@@ -621,7 +626,52 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 										{meeting.participants.length === 1 ? "person" : "people"}
 									</CardDescription>
 								</CardHeader>
-								<CardContent className="max-h-48 overflow-y-auto">
+								<CardContent className="space-y-3">
+									{/* Invite Witness (host only) */}
+									{isHost && (
+										<div className="flex items-center gap-2">
+											<Input
+												value={witnessEmail}
+												onChange={e => setWitnessEmail(e.target.value)}
+												placeholder="Witness email (e.g. witness@email.com)"
+												className="h-9 text-xs"
+												autoComplete="email"
+												inputMode="email"
+											/>
+											<Button
+												type="button"
+												size="sm"
+												className="h-9"
+												disabled={inviteWitnessByEmail.isPending || witnessEmail.trim().length === 0}
+												onClick={() => {
+													const email = witnessEmail.trim().toLowerCase()
+													if (!email) return
+
+													inviteWitnessByEmail.mutate(
+														{ meetingId: id, email },
+														{
+															onSuccess: async result => {
+																if (result.added) {
+																	toast.success("Witness invited to the meeting")
+																	setWitnessEmail("")
+																} else {
+																	toast.message("That user is already in this meeting")
+																}
+																await refetchMeeting()
+															},
+															onError: err => {
+																toast.error(err.message || "Failed to invite witness")
+															},
+														}
+													)
+												}}
+											>
+												{inviteWitnessByEmail.isPending ? "Inviting..." : "Invite"}
+											</Button>
+										</div>
+									)}
+
+									<div className="max-h-48 overflow-y-auto">
 									<div className="space-y-1.5">
 										{meeting.participants.map(participant => (
 											<div
@@ -654,6 +704,7 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 												)}
 											</div>
 										))}
+									</div>
 									</div>
 								</CardContent>
 							</Card>

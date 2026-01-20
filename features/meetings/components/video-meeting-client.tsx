@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { MeetingProvider, useMeeting, useParticipant } from "@videosdk.live/react-sdk"
+import { MeetingProvider, useMeeting, useParticipant, usePubSub } from "@videosdk.live/react-sdk"
 import {
 	AlertCircle,
 	Camera,
@@ -56,6 +56,7 @@ import { cn } from "@/core/lib/utils"
 
 import { normalizeDocoChainUrl } from "@/services/docochain/url-normalizer"
 import { trpc } from "@/services/trpc/client"
+import fixWebmDuration from "fix-webm-duration"
 
 import { MeetingDocumentUpload } from "./meeting-document-upload"
 
@@ -100,6 +101,7 @@ const MeetingControls = React.memo(function MeetingControls({
 		() => localScreenShareOn ?? false
 	)
 	const [isRecordingLocal, setIsRecordingLocal] = useState(false)
+	const [showRecordingPrompt, setShowRecordingPrompt] = useState(false)
 
 	useEffect(() => {
 		if (meeting?.localWebcamOn !== undefined) {
@@ -207,6 +209,13 @@ const MeetingControls = React.memo(function MeetingControls({
 	}
 
 	const handleToggleRecording = async () => {
+		// If not recording, show confirmation prompt first
+		if (!effectiveRecording && !effectiveIsRecordingStarting) {
+			setShowRecordingPrompt(true)
+			return
+		}
+
+		// If already recording, stop it
 		if (onRecordingToggle) {
 			await onRecordingToggle()
 			return
@@ -214,17 +223,10 @@ const MeetingControls = React.memo(function MeetingControls({
 
 		if (!meeting) return
 		try {
-			if (effectiveRecording) {
-				await (
-					meeting as unknown as { stopRecording?: () => Promise<void> | void }
-				).stopRecording?.()
-				setIsRecordingLocal(false)
-			} else {
-				await (
-					meeting as unknown as { startRecording?: () => Promise<void> | void }
-				).startRecording?.()
-				setIsRecordingLocal(true)
-			}
+			await (
+				meeting as unknown as { stopRecording?: () => Promise<void> | void }
+			).stopRecording?.()
+			setIsRecordingLocal(false)
 		} catch (error: unknown) {
 			console.error("Error toggling recording:", error)
 			const errorMessage = error instanceof Error ? error.message : "Failed to toggle recording"
@@ -232,104 +234,150 @@ const MeetingControls = React.memo(function MeetingControls({
 		}
 	}
 
+	const confirmStartRecording = async () => {
+		setShowRecordingPrompt(false)
+
+		if (onRecordingToggle) {
+			await onRecordingToggle()
+			return
+		}
+
+		if (!meeting) return
+		try {
+			await (
+				meeting as unknown as { startRecording?: () => Promise<void> | void }
+			).startRecording?.()
+			setIsRecordingLocal(true)
+		} catch (error: unknown) {
+			console.error("Error starting recording:", error)
+			const errorMessage = error instanceof Error ? error.message : "Failed to start recording"
+			toast.error(errorMessage)
+		}
+	}
+
 	return (
-		<div className="flex items-center gap-1.5 md:gap-2">
-			<Button
-				variant={isCameraOn ? "outline" : "destructive"}
-				size="icon"
-				className="size-9 rounded-full shadow-md transition-all hover:shadow-lg md:size-10"
-				onClick={handleToggleCamera}
-				title={isCameraOn ? "Turn off camera" : "Turn on camera"}
-			>
-				{isCameraOn ? <Camera className="size-4" /> : <CameraOff className="size-4" />}
-			</Button>
-
-			<Button
-				variant={isMicOn ? "outline" : "destructive"}
-				size="icon"
-				className={cn(
-					"size-9 rounded-full shadow-md transition-all hover:shadow-lg md:size-10",
-					!isMicOn && "animate-pulse"
-				)}
-				onClick={handleToggleMic}
-				title={isMicOn ? "Mute microphone" : "Unmute microphone"}
-			>
-				{isMicOn ? <Mic className="size-4" /> : <MicOff className="size-4" />}
-			</Button>
-
-			<Button
-				variant={isScreenSharing ? "destructive" : "outline"}
-				size="icon"
-				className="size-9 rounded-full shadow-md transition-all hover:shadow-lg md:size-10"
-				onClick={handleToggleScreenShare}
-				title={isScreenSharing ? "Stop sharing" : "Share screen"}
-			>
-				<Monitor className="size-4" />
-			</Button>
-
-			<Button
-				variant={effectiveRecording ? "destructive" : "outline"}
-				size="icon"
-				className={cn(
-					"size-9 rounded-full shadow-md transition-all hover:shadow-lg md:size-10",
-					effectiveRecording && "animate-pulse"
-				)}
-				onClick={handleToggleRecording}
-				title={
-					effectiveIsRecordingStarting
-						? "Recording starting..."
-						: effectiveRecording
-							? "Stop recording"
-							: "Start recording"
-				}
-				disabled={effectiveIsRecordingStarting}
-			>
-				{effectiveRecording ? (
-					<Square className="size-4 fill-current" />
-				) : (
-					<CircleDot className="size-4" />
-				)}
-			</Button>
-
-			<Button
-				variant={localRecordingActive ? "destructive" : "outline"}
-				size="icon"
-				className="size-9 rounded-full shadow-md transition-all hover:shadow-lg md:size-10"
-				onClick={localRecordingDisabled ? undefined : onLocalRecordingToggle}
-				title={
-					localRecordingDisabled
-						? "Local recording requires Chrome/Edge desktop with captureStream support"
-						: localRecordingActive
-							? `Stop local recording (${localRecordingElapsed})`
-							: "Start local (on-screen) recording"
-				}
-				disabled={localRecordingDisabled}
-			>
-				<Download className="size-4" />
-			</Button>
-
-			{onUploadClick && (
+		<>
+			<div className="flex items-center gap-1.5 md:gap-2">
 				<Button
-					variant="outline"
+					variant={isCameraOn ? "outline" : "destructive"}
 					size="icon"
 					className="size-9 rounded-full shadow-md transition-all hover:shadow-lg md:size-10"
-					onClick={onUploadClick}
-					title="Upload document"
+					onClick={handleToggleCamera}
+					title={isCameraOn ? "Turn off camera" : "Turn on camera"}
 				>
-					<FileUp className="size-4" />
+					{isCameraOn ? <Camera className="size-4" /> : <CameraOff className="size-4" />}
 				</Button>
-			)}
 
-			<Button
-				variant="destructive"
-				size="icon"
-				className="size-9 rounded-full shadow-md transition-all hover:shadow-lg md:size-10"
-				onClick={handleLeave}
-				title="Leave session"
-			>
-				<PhoneOff className="size-4" />
-			</Button>
-		</div>
+				<Button
+					variant={isMicOn ? "outline" : "destructive"}
+					size="icon"
+					className={cn(
+						"size-9 rounded-full shadow-md transition-all hover:shadow-lg md:size-10",
+						!isMicOn && "animate-pulse"
+					)}
+					onClick={handleToggleMic}
+					title={isMicOn ? "Mute microphone" : "Unmute microphone"}
+				>
+					{isMicOn ? <Mic className="size-4" /> : <MicOff className="size-4" />}
+				</Button>
+
+				<Button
+					variant={isScreenSharing ? "destructive" : "outline"}
+					size="icon"
+					className="size-9 rounded-full shadow-md transition-all hover:shadow-lg md:size-10"
+					onClick={handleToggleScreenShare}
+					title={isScreenSharing ? "Stop sharing" : "Share screen"}
+				>
+					<Monitor className="size-4" />
+				</Button>
+
+				<Button
+					variant={effectiveRecording ? "destructive" : "outline"}
+					size="icon"
+					className={cn(
+						"size-9 rounded-full shadow-md transition-all hover:shadow-lg md:size-10",
+						effectiveRecording && "animate-pulse"
+					)}
+					onClick={handleToggleRecording}
+					title={
+						effectiveIsRecordingStarting
+							? "Recording starting..."
+							: effectiveRecording
+								? "Stop recording"
+								: "Start recording"
+					}
+					disabled={effectiveIsRecordingStarting}
+				>
+					{effectiveRecording ? (
+						<Square className="size-4 fill-current" />
+					) : (
+						<CircleDot className="size-4" />
+					)}
+				</Button>
+
+				<Button
+					variant={localRecordingActive ? "destructive" : "outline"}
+					size="icon"
+					className="size-9 rounded-full shadow-md transition-all hover:shadow-lg md:size-10"
+					onClick={localRecordingDisabled ? undefined : onLocalRecordingToggle}
+					title={
+						localRecordingDisabled
+							? "Local recording requires Chrome/Edge desktop with captureStream support"
+							: localRecordingActive
+								? `Stop local recording (${localRecordingElapsed})`
+								: "Start local (on-screen) recording"
+					}
+					disabled={localRecordingDisabled}
+				>
+					<Download className="size-4" />
+				</Button>
+
+				{onUploadClick && (
+					<Button
+						variant="outline"
+						size="icon"
+						className="size-9 rounded-full shadow-md transition-all hover:shadow-lg md:size-10"
+						onClick={onUploadClick}
+						title="Upload document"
+					>
+						<FileUp className="size-4" />
+					</Button>
+				)}
+
+				<Button
+					variant="destructive"
+					size="icon"
+					className="size-9 rounded-full shadow-md transition-all hover:shadow-lg md:size-10"
+					onClick={handleLeave}
+					title="Leave session"
+				>
+					<PhoneOff className="size-4" />
+				</Button>
+			</div>
+
+			{/* Recording Confirmation Dialog */}
+			<Dialog open={showRecordingPrompt} onOpenChange={setShowRecordingPrompt}>
+				<DialogContent className="max-w-sm">
+					<DialogHeader>
+						<DialogTitle className="flex items-center gap-2">
+							<CircleDot className="size-5 text-red-500" />
+							Start Recording
+						</DialogTitle>
+						<DialogDescription>
+							This meeting will be recorded. All participants will be notified.
+						</DialogDescription>
+					</DialogHeader>
+					<DialogFooter className="gap-2 sm:gap-0">
+						<Button variant="outline" onClick={() => setShowRecordingPrompt(false)}>
+							Cancel
+						</Button>
+						<Button variant="destructive" onClick={confirmStartRecording}>
+							Start Recording
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
+		</>
 	)
 })
 
@@ -562,10 +610,14 @@ const RecordingBanner = React.memo(function RecordingBanner({
 	isRecording,
 	recordingStatus,
 	recordingStartedAt,
+	isAnyoneRecording,
+	recordingParticipantName,
 }: {
 	isRecording: boolean
 	recordingStatus: string
 	recordingStartedAt: number | null
+	isAnyoneRecording?: boolean
+	recordingParticipantName?: string | null
 }) {
 	const [elapsed, setElapsed] = useState("00:00")
 
@@ -583,16 +635,20 @@ const RecordingBanner = React.memo(function RecordingBanner({
 		return () => clearInterval(interval)
 	}, [isRecording, recordingStartedAt])
 
-	if (!isRecording) return null
+	if (!isRecording && !isAnyoneRecording) return null
 
 	return (
 		<div className="bg-destructive/10 border-destructive/30 text-destructive mb-3 flex items-center justify-between rounded-lg border px-3 py-2 text-sm">
 			<div className="flex items-center gap-2">
 				<span className="bg-destructive inline-flex h-2 w-2 animate-pulse rounded-full" />
-				<span className="font-semibold">Recording</span>
-				<span className="text-destructive/80">• {elapsed}</span>
+				<span className="font-semibold">Recording in progress</span>
+				{isRecording && <span className="text-destructive/80">• {elapsed}</span>}
 			</div>
-			<span className="text-destructive/70 text-xs">{recordingStatus}</span>
+			<span className="text-destructive/70 text-xs">
+				{isAnyoneRecording 
+					? `${recordingParticipantName ?? "Someone"} is recording this meeting`
+					: recordingStatus}
+			</span>
 		</div>
 	)
 })
@@ -818,6 +874,9 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 	const [recordingStartedAt, setRecordingStartedAt] = useState<number | null>(null)
 	const [isLocalRecording, setIsLocalRecording] = useState(false)
 	const [localRecordingStartedAt, setLocalRecordingStartedAt] = useState<number | null>(null)
+	// Track if any participant is recording (broadcast via pubsub)
+	const [isAnyoneRecording, setIsAnyoneRecording] = useState(false)
+	const [recordingParticipantName, setRecordingParticipantName] = useState<string | null>(null)
 	const mediaRecorderRef = useRef<MediaRecorder | null>(null)
 	const localStreamRef = useRef<MediaStream | null>(null)
 	const recordingContainerRef = useRef<HTMLDivElement>(null)
@@ -1452,6 +1511,20 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 		},
 	})
 
+	// PubSub for broadcasting local recording status to all participants
+	const { publish: publishRecordingStatus } = usePubSub("LOCAL_RECORDING_STATUS", {
+		onMessageReceived: (message: { message: string; senderName: string }) => {
+			console.log("📢 Received recording status:", message)
+			if (message.message === "RECORDING_STARTED") {
+				setIsAnyoneRecording(true)
+				setRecordingParticipantName(message.senderName)
+			} else if (message.message === "RECORDING_STOPPED") {
+				setIsAnyoneRecording(false)
+				setRecordingParticipantName(null)
+			}
+		},
+	})
+
 	const participants = meeting?.participants as Map<
 		string,
 		{ displayName?: string; webcamOn?: boolean; local?: boolean; screenShareOn?: boolean }
@@ -1587,15 +1660,40 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 					typeof firstChunk === "object" && firstChunk?.type ? firstChunk.type : "video/webm"
 
 				const blob = new Blob(chunks, { type: inferredType })
-				const url = URL.createObjectURL(blob)
-				const a = document.createElement("a")
-				a.href = url
-				a.download = `meeting-local-recording-${new Date().toISOString()}.webm`
-				document.body.appendChild(a)
-				a.click()
-				document.body.removeChild(a)
-				URL.revokeObjectURL(url)
-				toast.success("Local recording saved")
+				
+				// Calculate recording duration
+				const recorderWithTime = recorder as { __startedAt?: number }
+				const recordingDuration = recorderWithTime.__startedAt 
+					? Date.now() - recorderWithTime.__startedAt 
+					: 0
+
+				// Fix WebM duration metadata so the video is seekable
+				fixWebmDuration(blob, recordingDuration, { logger: false })
+					.then((fixedBlob: Blob) => {
+						const url = URL.createObjectURL(fixedBlob)
+						const a = document.createElement("a")
+						a.href = url
+						a.download = `meeting-local-recording-${new Date().toISOString()}.webm`
+						document.body.appendChild(a)
+						a.click()
+						document.body.removeChild(a)
+						URL.revokeObjectURL(url)
+						toast.success("Local recording saved")
+					})
+					.catch((err: unknown) => {
+						// Fallback to original blob if fixing fails
+						console.warn("Failed to fix WebM duration, using original:", err)
+						const url = URL.createObjectURL(blob)
+						const a = document.createElement("a")
+						a.href = url
+						a.download = `meeting-local-recording-${new Date().toISOString()}.webm`
+						document.body.appendChild(a)
+						a.click()
+						document.body.removeChild(a)
+						URL.revokeObjectURL(url)
+						toast.success("Local recording saved")
+					})
+				
 				setIsLocalRecording(false)
 				setLocalRecordingStartedAt(null)
 				localStreamRef.current?.getTracks().forEach(t => t.stop())
@@ -1609,6 +1707,12 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 			localStreamRef.current = stream
 			setLocalRecordingStartedAt(startedAt)
 			setIsLocalRecording(true)
+			setIsAnyoneRecording(true)
+			setRecordingParticipantName(session?.user?.name ?? "Someone")
+			
+			// Broadcast to all participants that recording has started
+			publishRecordingStatus("RECORDING_STARTED", { persist: false })
+			
 			toast.message("Local recording started. It will capture what you see.")
 		} catch (error: unknown) {
 			console.error("Local recording error:", error)
@@ -1616,17 +1720,23 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 				error instanceof Error ? error.message : "Failed to start local recording"
 			toast.error(errorMessage)
 		}
-	}, [isLocalRecording])
+	}, [isLocalRecording, publishRecordingStatus, session?.user?.name])
 
 	const stopLocalRecording = useCallback(async () => {
 		if (!isLocalRecording) return
 		// Optimistic UI stop for instant feedback; onstop will finalize cleanup/download.
 		setIsLocalRecording(false)
 		setLocalRecordingStartedAt(null)
+		setIsAnyoneRecording(false)
+		setRecordingParticipantName(null)
+		
+		// Broadcast to all participants that recording has stopped
+		publishRecordingStatus("RECORDING_STOPPED", { persist: false })
+		
 		if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
 			mediaRecorderRef.current.stop()
 		}
-	}, [isLocalRecording])
+	}, [isLocalRecording, publishRecordingStatus])
 
 	const handleRecordingToggle = useCallback(async () => {
 		if (!meeting) return
@@ -2067,6 +2177,8 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 						isRecording={isRecording}
 						recordingStatus={recordingStatus}
 						recordingStartedAt={recordingStartedAt}
+						isAnyoneRecording={isAnyoneRecording}
+						recordingParticipantName={recordingParticipantName}
 					/>
 					{participantIds.length === 0 ? (
 						<Card className="mx-auto max-w-xl shadow-md">
