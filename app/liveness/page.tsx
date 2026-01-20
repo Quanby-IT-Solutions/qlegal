@@ -1,3 +1,4 @@
+import type { Route } from "next"
 import { redirect } from "next/navigation"
 
 import { QuanbyLogo } from "@/core/components/quanby-logo"
@@ -22,13 +23,15 @@ export default async function LivenessValidationPage({
 
 	// Check if user is already verified for this specific meeting
 	const livenessStatus = await checkUserLivenessStatus(params.meetingId)
-	if (livenessStatus.success && livenessStatus.data?.isVerified && params.redirect) {
-		// Already verified for this meeting, redirect to the intended destination
-		redirect(params.redirect)
+	if (livenessStatus.success && livenessStatus.data?.isVerified) {
+		const redirectUrl = params.redirect
+		const validRedirectUrl =
+			redirectUrl && typeof redirectUrl === "string" && redirectUrl.startsWith("/")
+		redirect((validRedirectUrl ? redirectUrl : "/dashboard") as Route)
 	}
 
 	return (
-		<div className="from-background via-muted/20 to-background relative flex min-h-screen items-center justify-center bg-gradient-to-br px-4 py-10">
+		<div className="from-background via-muted/20 to-background relative flex min-h-screen items-center justify-center bg-linear-to-br px-4 py-10">
 			<div className="w-full max-w-2xl space-y-6">
 				{/* Logo */}
 				<div className="flex justify-center">
@@ -36,8 +39,8 @@ export default async function LivenessValidationPage({
 				</div>
 
 				{/* Main Card */}
-				<LivenessValidationCard 
-					redirectUrl={params.redirect} 
+				<LivenessValidationCard
+					redirectUrl={params.redirect}
 					meetingId={params.meetingId}
 					canGoBack={!!params.redirect}
 				/>
@@ -47,9 +50,7 @@ export default async function LivenessValidationPage({
 					{params.meetingId && (
 						<div className="bg-primary/10 border-primary/20 inline-flex items-center gap-2 rounded-full border px-4 py-2">
 							<div className="bg-primary h-2 w-2 animate-pulse rounded-full" />
-							<p className="text-primary text-sm font-medium">
-								Required to join meeting
-							</p>
+							<p className="text-primary text-sm font-medium">Required to join meeting</p>
 						</div>
 					)}
 					<p className="text-muted-foreground text-sm">

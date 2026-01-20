@@ -58,7 +58,11 @@ const footerConfig: NavGroups = {
 		items: [
 			{
 				title: "Data Privacy",
-				url: "https://quanbyit.com/data-privacy/",
+				url: "/privacy-policy",
+			},
+			{
+				title: "Terms of Service",
+				url: "/terms-of-service",
 			},
 			{
 				title: "Mission & Vision",
