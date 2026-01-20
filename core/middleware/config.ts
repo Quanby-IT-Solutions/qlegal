@@ -26,6 +26,8 @@ export const ROUTE_CONFIG: RouteConfig = {
 		{ path: "/", exact: true },
 		{ path: "/test" },
 		{ path: "/liveness-validation" }, // Testing route for liveness validation
+		{ path: "/privacy-policy" },
+		{ path: "/terms-of-service" },
 	],
 
 	// Public only routes - accessible to non-authenticated users only

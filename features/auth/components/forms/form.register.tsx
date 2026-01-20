@@ -1,6 +1,7 @@
 "use client"
 
 import { type Route } from "next"
+import Link from "next/link"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import { toast } from "sonner"
@@ -121,23 +122,25 @@ export function RegisterForm({ callbackUrl }: RegisterFormProps) {
 							<div className="space-y-1 leading-none">
 								<FormLabel className="text-muted-foreground text-xs">
 									I agree to the
-									<span
+									<Link
+										href="/terms-of-service"
 										className={cn(
 											buttonVariants({ variant: "link" }),
 											"text-primary hover:text-primary/80 h-fit p-0 text-xs hover:cursor-pointer"
 										)}
 									>
 										Terms of Service
-									</span>
+									</Link>
 									and
-									<span
+									<Link
+										href="/privacy-policy"
 										className={cn(
 											buttonVariants({ variant: "link" }),
 											"text-primary hover:text-primary/80 h-fit p-0 text-xs hover:cursor-pointer"
 										)}
 									>
 										Privacy Policy
-									</span>
+									</Link>
 								</FormLabel>
 							</div>
 						</FormItem>
