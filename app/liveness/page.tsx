@@ -28,7 +28,7 @@ export default async function LivenessValidationPage({
 	}
 
 	return (
-		<div className="flex min-h-screen items-center justify-center px-4 py-10">
+		<div className="from-background via-muted/20 to-background relative flex min-h-screen items-center justify-center bg-gradient-to-br px-4 py-10">
 			<div className="w-full max-w-2xl space-y-6">
 				{/* Logo */}
 				<div className="flex justify-center">
@@ -36,20 +36,24 @@ export default async function LivenessValidationPage({
 				</div>
 
 				{/* Main Card */}
-				<LivenessValidationCard redirectUrl={params.redirect} meetingId={params.meetingId} />
+				<LivenessValidationCard 
+					redirectUrl={params.redirect} 
+					meetingId={params.meetingId}
+					canGoBack={!!params.redirect}
+				/>
 
 				{/* Footer Info */}
-				<div className="space-y-2 text-center">
+				<div className="space-y-3 text-center">
 					{params.meetingId && (
-						<p className="text-primary mb-3 text-sm font-medium">
-							This verification is required to join the meeting
-						</p>
+						<div className="bg-primary/10 border-primary/20 inline-flex items-center gap-2 rounded-full border px-4 py-2">
+							<div className="bg-primary h-2 w-2 animate-pulse rounded-full" />
+							<p className="text-primary text-sm font-medium">
+								Required to join meeting
+							</p>
+						</div>
 					)}
 					<p className="text-muted-foreground text-sm">
-						Your verification is processed securely using HyperVerge AI technology
-					</p>
-					<p className="text-muted-foreground text-xs">
-						Images are used only for verification and are not stored
+						Secured by HyperVerge AI • Images not stored
 					</p>
 				</div>
 			</div>

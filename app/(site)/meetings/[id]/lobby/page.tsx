@@ -58,6 +58,9 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 	const [isMicOn, setIsMicOn] = useState(true)
 	const [isTestingDevices, setIsTestingDevices] = useState(false)
 
+	// Liveness verification state
+	const [isCheckingLiveness, setIsCheckingLiveness] = useState(true)
+
 	// Location verification state
 	const [locationStatus, setLocationStatus] = useState<LocationStatus>("checking")
 	const [verificationResult, setVerificationResult] = useState<LocationVerificationResult | null>(
@@ -154,7 +157,7 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 		window.location.reload()
 	}, [])
 
-	// Check liveness verification and redirect if needed
+	// Check liveness verification and redirect if needed - runs IMMEDIATELY
 	useEffect(() => {
 		if (!session) {
 			router.push(`/auth/login?callbackUrl=/meetings/${id}/lobby`)
@@ -163,11 +166,20 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 
 		// Check liveness verification status for this specific meeting
 		const checkLiveness = async () => {
-			const result = await checkUserLivenessStatus(id)
-			if (result.success && result.data && !result.data.isVerified) {
-				// User hasn't completed liveness verification for this meeting, redirect to liveness page
-				const redirectUrl = encodeURIComponent(`/meetings/${id}/lobby`)
-				router.push(`/liveness?redirect=${redirectUrl}&meetingId=${id}`)
+			try {
+				const result = await checkUserLivenessStatus(id)
+				if (result.success && result.data && !result.data.isVerified) {
+					// User hasn't completed liveness verification for this meeting, redirect to liveness page
+					const redirectUrl = encodeURIComponent(`/meetings/${id}/lobby`)
+					router.push(`/liveness?redirect=${redirectUrl}&meetingId=${id}`)
+				} else {
+					// Liveness check passed, show lobby
+					setIsCheckingLiveness(false)
+				}
+			} catch (error) {
+				console.error("Liveness check failed:", error)
+				// On error, allow access but log it
+				setIsCheckingLiveness(false)
 			}
 		}
 
@@ -296,14 +308,68 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 
 	const locationStatusDisplay = getLocationStatusDisplay()
 
-	if (isLoading) {
+	// Show loading skeleton while checking liveness or loading meeting
+	if (isLoading || isCheckingLiveness) {
 		return (
-			<div className="from-background via-muted/30 to-background flex h-screen items-center justify-center bg-linear-to-br">
-				<div className="text-center">
-					<Skeleton className="mx-auto mb-4 size-12 rounded-full" />
-					<Skeleton className="h-6 w-48" />
+			<>
+				{/* Fixed overlay that covers EVERYTHING including sidebar */}
+				<div className="fixed inset-0 z-[9999] bg-background">
+					<div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-background via-muted/20 to-background px-4 py-10">
+						<div className="w-full max-w-2xl space-y-6">
+							{/* Logo Skeleton */}
+							<div className="flex justify-center">
+								<Skeleton className="size-16 rounded-full" />
+							</div>
+
+							{/* Card Skeleton */}
+							<Card className="w-full shadow-xl">
+								<CardHeader className="space-y-4">
+									<div className="flex items-start justify-between">
+										<div className="flex items-center gap-3">
+											<Skeleton className="size-12 rounded-xl" />
+											<div className="space-y-2">
+												<Skeleton className="h-7 w-48" />
+												<Skeleton className="h-4 w-64" />
+											</div>
+										</div>
+									</div>
+								</CardHeader>
+								<CardContent className="space-y-4">
+									{/* Option 1 Skeleton */}
+									<div className="rounded-xl border-2 p-6">
+										<div className="mb-4 flex items-start gap-4">
+											<Skeleton className="size-10 shrink-0 rounded-lg" />
+											<div className="flex-1 space-y-2">
+												<Skeleton className="h-5 w-32" />
+												<Skeleton className="h-4 w-full" />
+											</div>
+										</div>
+										<Skeleton className="h-11 w-full rounded-md" />
+									</div>
+
+									{/* Option 2 Skeleton */}
+									<div className="rounded-xl border-2 p-6">
+										<div className="mb-4 flex items-start gap-4">
+											<Skeleton className="size-10 shrink-0 rounded-lg" />
+											<div className="flex-1 space-y-2">
+												<Skeleton className="h-5 w-40" />
+												<Skeleton className="h-4 w-full" />
+											</div>
+										</div>
+										<Skeleton className="h-11 w-full rounded-md" />
+									</div>
+								</CardContent>
+							</Card>
+
+							{/* Footer Skeleton */}
+							<div className="space-y-3 text-center">
+								<Skeleton className="mx-auto h-8 w-48 rounded-full" />
+								<Skeleton className="mx-auto h-4 w-64" />
+							</div>
+						</div>
+					</div>
 				</div>
-			</div>
+			</>
 		)
 	}
 

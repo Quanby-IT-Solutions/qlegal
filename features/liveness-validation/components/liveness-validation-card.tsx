@@ -1,7 +1,8 @@
 "use client"
 
+import { useRouter } from "next/navigation"
 import { useEffect, useState, useTransition } from "react"
-import { Camera, CheckCircle2, ExternalLink, Loader2, Smartphone, XCircle } from "lucide-react"
+import { ArrowLeft, Camera, CheckCircle2, ExternalLink, Loader2, Smartphone, XCircle } from "lucide-react"
 import { toast } from "sonner"
 
 import { Badge } from "@/core/components/ui/badge"
@@ -39,11 +40,14 @@ interface ValidationResult {
 
 export function LivenessValidationCard({ 
 	redirectUrl,
-	meetingId 
+	meetingId,
+	canGoBack = false
 }: { 
 	redirectUrl?: string
-	meetingId?: string 
+	meetingId?: string
+	canGoBack?: boolean
 }) {
+	const router = useRouter()
 	const [isDirectModeEnabled, setIsDirectModeEnabled] = useState(false)
 	const [isLoading, setIsLoading] = useState(true)
 	const [showCapture, setShowCapture] = useState(false)
@@ -118,9 +122,9 @@ export function LivenessValidationCard({
 
 	if (isLoading) {
 		return (
-			<Card className="w-full">
-				<CardContent className="flex items-center justify-center pt-6">
-					<Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
+			<Card className="w-full shadow-xl">
+				<CardContent className="flex items-center justify-center py-12">
+					<Loader2 className="text-primary h-8 w-8 animate-spin" />
 				</CardContent>
 			</Card>
 		)
@@ -128,19 +132,15 @@ export function LivenessValidationCard({
 
 	if (!isDirectModeEnabled) {
 		return (
-			<Card className="w-full">
+			<Card className="w-full shadow-xl">
 				<CardHeader>
-					<CardTitle>Liveness Verification Not Available</CardTitle>
-					<CardDescription>Direct liveness validation mode is currently disabled.</CardDescription>
+					<CardTitle>Liveness Verification Unavailable</CardTitle>
+					<CardDescription>Direct liveness mode is currently disabled.</CardDescription>
 				</CardHeader>
 				<CardContent>
 					<div className="rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950/20">
 						<p className="text-sm text-amber-900 dark:text-amber-100">
-							To enable this feature, set{" "}
-							<code className="rounded bg-amber-200 px-1.5 py-0.5 dark:bg-amber-900">
-								HYPERVERGE_DIRECT_LIVENESS_ENABLED=true
-							</code>{" "}
-							in your environment configuration.
+							Contact your administrator to enable this feature.
 						</p>
 					</div>
 				</CardContent>
@@ -149,15 +149,32 @@ export function LivenessValidationCard({
 	}
 
 	return (
-		<Card className="w-full">
-			<CardHeader>
-				<CardTitle className="flex items-center gap-2">
-					<Camera className="h-6 w-6" />
-					Live Face Verification
-				</CardTitle>
-				<CardDescription>
-					Verify your identity using live selfie capture with liveness detection
-				</CardDescription>
+		<Card className="w-full shadow-xl">
+			<CardHeader className="space-y-4">
+				<div className="flex items-start justify-between">
+					<div className="flex items-center gap-3">
+						<div className="bg-primary/10 flex h-12 w-12 items-center justify-center rounded-xl">
+							<Camera className="text-primary h-6 w-6" />
+						</div>
+						<div>
+							<CardTitle className="text-2xl">Face Verification</CardTitle>
+							<CardDescription className="mt-1">
+								Verify your identity to continue
+							</CardDescription>
+						</div>
+					</div>
+					{canGoBack && !showCapture && !validationResult && (
+						<Button
+							variant="ghost"
+							size="sm"
+							onClick={() => router.push('/meetings')}
+							className="text-muted-foreground hover:text-foreground"
+						>
+							<ArrowLeft className="mr-2 h-4 w-4" />
+							Back
+						</Button>
+					)}
+				</div>
 			</CardHeader>
 			<CardContent className="space-y-6">
 				{/* Show capture interface */}
@@ -173,175 +190,125 @@ export function LivenessValidationCard({
 				{/* Show start button */}
 				{!showCapture && !validationResult && (
 					<div className="space-y-4">
-						<div className="rounded-lg border border-blue-200 bg-blue-50 p-4 dark:border-blue-800 dark:bg-blue-950/20">
-							<p className="mb-2 text-sm font-medium text-blue-900 dark:text-blue-100">
-								Choose Verification Method
-							</p>
-							<p className="mb-3 text-sm text-blue-700 dark:text-blue-300">
-								Select how you'd like to complete liveness verification:
-							</p>
-						</div>
-
 						{/* Direct In-App Capture (if enabled) */}
 						{isDirectModeEnabled && (
-							<div className="space-y-2">
-								<p className="text-sm font-medium">Option 1: In-App Capture</p>
-								<div className="bg-muted/50 rounded-lg border p-3">
-									<ul className="text-muted-foreground mb-3 list-inside list-disc space-y-1 text-sm">
-										<li>Quick verification using your device camera</li>
-										<li>Capture selfie directly in the app</li>
-										<li>Instant results</li>
-									</ul>
-									<Button onClick={() => setShowCapture(true)} className="w-full" size="lg">
-										<Camera className="mr-2 h-5 w-5" />
-										Start In-App Capture
-									</Button>
+							<div className="group hover:border-primary/50 cursor-pointer rounded-xl border-2 border-transparent bg-gradient-to-br from-blue-50 to-indigo-50 p-6 transition-all dark:from-blue-950/20 dark:to-indigo-950/20">
+								<div className="mb-4 flex items-start gap-4">
+									<div className="bg-primary/10 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg">
+										<Camera className="text-primary h-5 w-5" />
+									</div>
+									<div className="flex-1">
+										<h3 className="mb-1 font-semibold">Quick Capture</h3>
+										<p className="text-muted-foreground text-sm">
+											Use your device camera • Instant results
+										</p>
+									</div>
 								</div>
+								<Button 
+									onClick={() => setShowCapture(true)} 
+									className="w-full shadow-lg" 
+									size="lg"
+								>
+									<Camera className="mr-2 h-5 w-5" />
+									Start Verification
+								</Button>
 							</div>
 						)}
 
 						{/* Hosted Workflow (Always Available) */}
-						<div className="space-y-2">
-							<p className="text-sm font-medium">
-								{isDirectModeEnabled ? "Option 2: " : ""}Hosted Verification
-							</p>
-							<div className="bg-muted/50 rounded-lg border p-3">
-								<ul className="text-muted-foreground mb-3 list-inside list-disc space-y-1 text-sm">
-									<li>Secure HyperVerge-hosted verification page</li>
-									<li>Works on any device with QR code option</li>
-									<li>Complete verification and return automatically</li>
-								</ul>
-								<Button
-									onClick={handleHostedWorkflow}
-									variant="outline"
-									className="w-full"
-									size="lg"
-									disabled={isPending}
-								>
-									{isPending ? (
-										<>
-											<Loader2 className="mr-2 h-5 w-5 animate-spin" />
-											Starting...
-										</>
-									) : (
-										<>
-											<ExternalLink className="mr-2 h-5 w-5" />
-											Start Hosted Verification
-										</>
-									)}
-								</Button>
+						<div className="group hover:border-primary/50 cursor-pointer rounded-xl border-2 border-transparent bg-gradient-to-br from-purple-50 to-pink-50 p-6 transition-all dark:from-purple-950/20 dark:to-pink-950/20">
+							<div className="mb-4 flex items-start gap-4">
+								<div className="bg-primary/10 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg">
+									<Smartphone className="text-primary h-5 w-5" />
+								</div>
+								<div className="flex-1">
+									<h3 className="mb-1 font-semibold">Hosted Verification</h3>
+									<p className="text-muted-foreground text-sm">
+										Secure external page • QR code support
+									</p>
+								</div>
 							</div>
+							<Button
+								onClick={handleHostedWorkflow}
+								variant="outline"
+								className="w-full"
+								size="lg"
+								disabled={isPending}
+							>
+								{isPending ? (
+									<>
+										<Loader2 className="mr-2 h-5 w-5 animate-spin" />
+										Launching...
+									</>
+								) : (
+									<>
+										<ExternalLink className="mr-2 h-5 w-5" />
+										Open Verification Page
+									</>
+								)}
+							</Button>
 						</div>
 					</div>
 				)}
 
 				{/* Show validation result */}
 				{validationResult && (
-					<div className="space-y-4">
-						{/* Status Badge */}
-						<div className="flex items-center justify-center">
-							{validationResult.decision.isApproved ? (
-								<Badge className="bg-green-100 px-4 py-2 text-base text-green-800">
-									<CheckCircle2 className="mr-2 h-4 w-4" />
-									Verified
-								</Badge>
-							) : (
-								<Badge variant="destructive" className="px-4 py-2 text-base">
-									<XCircle className="mr-2 h-4 w-4" />
-									Rejected
-								</Badge>
+					<div className="space-y-6">
+						{/* Result Card */}
+						<div
+							className={`rounded-2xl border-2 p-8 text-center ${
+								validationResult.decision.isApproved
+									? "border-green-500 bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950/20 dark:to-emerald-950/20"
+									: "border-red-500 bg-gradient-to-br from-red-50 to-rose-50 dark:from-red-950/20 dark:to-rose-950/20"
+							}`}
+						>
+							<div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-white/80 shadow-lg dark:bg-black/20">
+								{validationResult.decision.isApproved ? (
+									<CheckCircle2 className="h-8 w-8 text-green-600 dark:text-green-400" />
+								) : (
+									<XCircle className="h-8 w-8 text-red-600 dark:text-red-400" />
+								)}
+							</div>
+							<h3
+								className={`mb-2 text-2xl font-bold ${
+									validationResult.decision.isApproved
+										? "text-green-900 dark:text-green-100"
+										: "text-red-900 dark:text-red-100"
+								}`}
+							>
+								{validationResult.decision.isApproved ? "Verification Complete!" : "Verification Failed"}
+							</h3>
+							<p
+								className={`text-sm ${
+									validationResult.decision.isApproved
+										? "text-green-700 dark:text-green-300"
+										: "text-red-700 dark:text-red-300"
+								}`}
+							>
+								{validationResult.decision.message}
+							</p>
+
+							{validationResult.decision.qualityIssues.length > 0 && (
+								<div className="mt-4 rounded-lg bg-white/50 p-4 dark:bg-black/20">
+									<p className="mb-2 text-xs font-medium text-red-800 dark:text-red-300">
+										Issues Detected:
+									</p>
+									<ul className="space-y-1 text-xs text-red-600 dark:text-red-400">
+										{validationResult.decision.qualityIssues.map((issue, idx) => (
+											<li key={idx}>• {issue}</li>
+										))}
+									</ul>
+								</div>
 							)}
 						</div>
 
-						{/* Result Details */}
-						<div
-							className={`rounded-lg border p-4 ${
-								validationResult.decision.isApproved
-									? "border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950/20"
-									: "border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950/20"
-							}`}
-						>
-							<div className="flex items-start gap-3">
-								{validationResult.decision.isApproved ? (
-									<CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-green-600 dark:text-green-400" />
-								) : (
-									<XCircle className="mt-0.5 h-5 w-5 shrink-0 text-red-600 dark:text-red-400" />
-								)}
-								<div className="flex-1">
-									<p
-										className={`mb-1 font-semibold ${
-											validationResult.decision.isApproved
-												? "text-green-900 dark:text-green-100"
-												: "text-red-900 dark:text-red-100"
-										}`}
-									>
-										{validationResult.decision.isApproved
-											? "✓ Liveness Verified"
-											: "Verification Failed"}
-									</p>
-									<p
-										className={`mb-2 text-sm ${
-											validationResult.decision.isApproved
-												? "text-green-700 dark:text-green-300"
-												: "text-red-700 dark:text-red-300"
-										}`}
-									>
-										{validationResult.decision.message}
-									</p>
-									{validationResult.decision.qualityIssues.length > 0 && (
-										<div className="mt-2">
-											<p className="mb-1 text-xs font-medium text-red-800 dark:text-red-300">
-												Quality Issues:
-											</p>
-											<ul className="list-inside list-disc text-xs text-red-600 dark:text-red-400">
-												{validationResult.decision.qualityIssues.map((issue, idx) => (
-													<li key={idx}>{issue}</li>
-												))}
-											</ul>
-										</div>
-									)}
-								</div>
-							</div>
-						</div>
-
-						{/* Technical Details */}
-						<div className="space-y-2">
-							<p className="text-muted-foreground text-xs font-medium">Verification Details</p>
-							<div className="bg-muted space-y-1 rounded-lg p-3 font-mono text-xs">
-								<div className="flex justify-between">
-									<span className="text-muted-foreground">Transaction ID:</span>
-									<span className="font-medium">{validationResult.transactionId}</span>
-								</div>
-								<div className="flex justify-between">
-									<span className="text-muted-foreground">Live Face:</span>
-									<span
-										className={validationResult.decision.isLive ? "text-green-600" : "text-red-600"}
-									>
-										{validationResult.decision.liveFaceValue}
-									</span>
-								</div>
-								<div className="flex justify-between">
-									<span className="text-muted-foreground">Summary Action:</span>
-									<span
-										className={
-											validationResult.decision.actionPassed ? "text-green-600" : "text-red-600"
-										}
-									>
-										{validationResult.decision.summaryAction}
-									</span>
-								</div>
-								<div className="flex justify-between">
-									<span className="text-muted-foreground">Timestamp:</span>
-									<span>{validationResult.timestamp.toLocaleString()}</span>
-								</div>
-							</div>
-						</div>
-
 						{/* Action Button */}
-						<Button onClick={handleStartNew} className="w-full" size="lg">
-							<Camera className="mr-2 h-5 w-5" />
-							Verify Another Selfie
-						</Button>
+						{!validationResult.decision.isApproved && (
+							<Button onClick={handleStartNew} className="w-full shadow-lg" size="lg">
+								<Camera className="mr-2 h-5 w-5" />
+								Try Again
+							</Button>
+						)}
 					</div>
 				)}
 			</CardContent>
