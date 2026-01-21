@@ -39,7 +39,6 @@ export const env = createEnv({
 		NEXT_PUBLIC_SUPABASE_URL: z.url(),
 		NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string(),
 		NEXT_PUBLIC_VIDEO_SDK_API_KEY: z.string(),
-		NEXT_PUBLIC_SITE_URL: z.string().url(),
 	},
 	runtimeEnv: {
 		AUTH_GOOGLE_ID: process.env.AUTH_GOOGLE_ID,
@@ -76,7 +75,6 @@ export const env = createEnv({
 		NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
 		NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
 		NEXT_PUBLIC_VIDEO_SDK_API_KEY: process.env.NEXT_PUBLIC_VIDEO_SDK_API_KEY,
-		NEXT_PUBLIC_SITE_URL: process.env.NEXT_PUBLIC_SITE_URL,
 		PORT: process.env.PORT,
 		SEED_VALUE: process.env.SEED_VALUE,
 		SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,

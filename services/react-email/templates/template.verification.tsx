@@ -19,8 +19,6 @@ interface VerificationTemplateProps {
 	confirmLink?: string
 }
 
-const getImageUrl = (path: string) => `${env.NEXT_PUBLIC_SITE_URL}${path}`
-
 export const VerificationTemplate = ({ email, confirmLink }: VerificationTemplateProps) => (
 	<Html>
 		<Head />
@@ -51,7 +49,7 @@ export const VerificationTemplate = ({ email, confirmLink }: VerificationTemplat
 						/>
 						{/* Logo */}
 						<Img
-							src={getImageUrl("/LEGAL.png")}
+							src="https://i.imgur.com/h8TwCwa.png"
 							width="120"
 							height="120"
 							alt="Quanby Sign"
