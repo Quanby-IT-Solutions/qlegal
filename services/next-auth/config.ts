@@ -103,6 +103,11 @@ export const authConfig = {
 				return false
 			}
 
+			// Block sign-in until an admin approves the account.
+			if (existingUser.role === "ENP" && existingUser.status === "PENDING") {
+				return false
+			}
+
 			if (!existingUser.isTwoFactorEnabled) {
 				return true
 			}

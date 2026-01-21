@@ -3,14 +3,8 @@
 import { type UseFormReturn } from "react-hook-form"
 
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/core/components/ui/form"
+import { DateInput } from "@/core/components/ui/date-input"
 import { Input } from "@/core/components/ui/input"
-import {
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from "@/core/components/ui/select"
 
 import { type LawyerRegisterSchema } from "@/features/auth/api/auth.schemas"
 
@@ -21,6 +15,7 @@ interface CredentialsStepProps {
 
 export function CredentialsStep({ form, primaryName }: CredentialsStepProps) {
 	const attorneyName = primaryName?.trim() || "No name provided yet"
+	const todayYmd = new Date().toISOString().slice(0, 10)
 
 	return (
 		<div className="space-y-4">
@@ -32,36 +27,6 @@ export function CredentialsStep({ form, primaryName }: CredentialsStepProps) {
 				<p className="text-muted-foreground mt-1">
 					This will be used across your notary credentials. Update it by editing your primary name.
 				</p>
-			</div>
-
-			<div className="grid grid-cols-2 gap-4">
-				<FormField
-					control={form.control}
-					name="notaryInfo.rollNo"
-					render={({ field }) => (
-						<FormItem>
-							<FormLabel>Roll No.</FormLabel>
-							<FormControl>
-								<Input placeholder="e.g., 123456" {...field} />
-							</FormControl>
-							<FormMessage />
-						</FormItem>
-					)}
-				/>
-
-				<FormField
-					control={form.control}
-					name="notaryInfo.rollNoDate"
-					render={({ field }) => (
-						<FormItem>
-							<FormLabel>Roll No. Date</FormLabel>
-							<FormControl>
-								<Input placeholder="e.g., 5 June 2018" {...field} />
-							</FormControl>
-							<FormMessage />
-						</FormItem>
-					)}
-				/>
 			</div>
 
 			<div className="grid grid-cols-2 gap-4">
@@ -86,7 +51,13 @@ export function CredentialsStep({ form, primaryName }: CredentialsStepProps) {
 						<FormItem>
 							<FormLabel>Commission Valid Until</FormLabel>
 							<FormControl>
-								<Input placeholder="e.g., Dec 31, 2025" {...field} />
+								<DateInput
+									placeholder="e.g., 5 June 2018"
+									value={field.value ?? undefined}
+									onChange={(date: Date | undefined) => {
+										field.onChange(date?.toISOString())
+									}}
+								/>
 							</FormControl>
 							<FormMessage />
 						</FormItem>
@@ -124,20 +95,28 @@ export function CredentialsStep({ form, primaryName }: CredentialsStepProps) {
 				/>
 			</div>
 
+			<FormField
+				control={form.control}
+				name="notaryInfo.ptrNoDate"
+				render={({ field }) => (
+					<FormItem>
+						<FormLabel>PTR Date</FormLabel>
+						<FormControl>
+							<DateInput
+								placeholder="e.g., 5 June 2018"
+								max={todayYmd}
+								value={field.value ?? undefined}
+								onChange={(date: Date | undefined) => {
+									field.onChange(date?.toISOString())
+								}}
+							/>
+						</FormControl>
+						<FormMessage />
+					</FormItem>
+				)}
+			/>
+
 			<div className="grid grid-cols-2 gap-4">
-				<FormField
-					control={form.control}
-					name="notaryInfo.ptrNoDate"
-					render={({ field }) => (
-						<FormItem>
-							<FormLabel>PTR Date</FormLabel>
-							<FormControl>
-								<Input placeholder="e.g., Jan 15, 2024" {...field} />
-							</FormControl>
-							<FormMessage />
-						</FormItem>
-					)}
-				/>
 
 				<FormField
 					control={form.control}
@@ -152,9 +131,7 @@ export function CredentialsStep({ form, primaryName }: CredentialsStepProps) {
 						</FormItem>
 					)}
 				/>
-			</div>
 
-			<div className="grid grid-cols-2 gap-4">
 				<FormField
 					control={form.control}
 					name="notaryInfo.ibpNoDate"
@@ -162,21 +139,14 @@ export function CredentialsStep({ form, primaryName }: CredentialsStepProps) {
 						<FormItem>
 							<FormLabel>IBP Date</FormLabel>
 							<FormControl>
-								<Input placeholder="e.g., Jan 15, 2024" {...field} />
-							</FormControl>
-							<FormMessage />
-						</FormItem>
-					)}
-				/>
-
-				<FormField
-					control={form.control}
-					name="notaryInfo.notaryEmail"
-					render={({ field }) => (
-						<FormItem>
-							<FormLabel>Notary Email</FormLabel>
-							<FormControl>
-								<Input type="email" placeholder="your.email@example.com" {...field} />
+								<DateInput
+									placeholder="e.g., 5 June 2018"
+									max={todayYmd}
+									value={field.value ?? undefined}
+									onChange={(date: Date | undefined) => {
+										field.onChange(date?.toISOString())
+									}}
+								/>
 							</FormControl>
 							<FormMessage />
 						</FormItem>
@@ -206,7 +176,14 @@ export function CredentialsStep({ form, primaryName }: CredentialsStepProps) {
 						<FormItem>
 							<FormLabel>MCLE Period</FormLabel>
 							<FormControl>
-								<Input placeholder="e.g., 2024-2025" {...field} />
+								<DateInput
+									placeholder="e.g., 5 June 2018"
+									max={todayYmd}
+									value={field.value ?? undefined}
+									onChange={(date: Date | undefined) => {
+										field.onChange(date?.toISOString())
+									}}
+								/>
 							</FormControl>
 							<FormMessage />
 						</FormItem>
@@ -235,31 +212,15 @@ export function CredentialsStep({ form, primaryName }: CredentialsStepProps) {
 					<FormItem>
 						<FormLabel>MCLE Date</FormLabel>
 						<FormControl>
-							<Input placeholder="e.g., Jun 12, 2024" {...field} />
+							<DateInput
+								placeholder="e.g., 5 June 2018"
+								max={todayYmd}
+								value={field.value ?? undefined}
+								onChange={(date: Date | undefined) => {
+									field.onChange(date?.toISOString())
+								}}
+							/>
 						</FormControl>
-						<FormMessage />
-					</FormItem>
-				)}
-			/>
-
-			<FormField
-				control={form.control}
-				name="notaryInfo.modeOfNotarization"
-				render={({ field }) => (
-					<FormItem>
-						<FormLabel>Mode of Notarization</FormLabel>
-						<Select onValueChange={field.onChange} defaultValue={field.value}>
-							<FormControl>
-								<SelectTrigger>
-									<SelectValue placeholder="Select mode of notarization" />
-								</SelectTrigger>
-							</FormControl>
-							<SelectContent>
-								<SelectItem value="REN">REN - Remote Electronic Notarization</SelectItem>
-								<SelectItem value="IPEN">IPEN - In-Person Electronic Notarization</SelectItem>
-								<SelectItem value="RON">RON - Remote Online Notarization</SelectItem>
-							</SelectContent>
-						</Select>
 						<FormMessage />
 					</FormItem>
 				)}
