@@ -1,7 +1,7 @@
 import { type InferSelectModel } from "drizzle-orm"
 import { index } from "drizzle-orm/pg-core"
 
-import { meetingStatus } from "@/services/drizzle/schema/_enums"
+import { meetingParticipantStatus, meetingStatus } from "@/services/drizzle/schema/_enums"
 import { users } from "@/services/drizzle/schema/auth"
 import { createTable, randomId } from "@/services/drizzle/utils"
 
@@ -44,11 +44,16 @@ export const meetingParticipants = createTable(
 			.varchar({ length: 255 })
 			.notNull()
 			.references(() => users.id, { onDelete: "cascade" }),
+		// Used for invite flow: host adds row as PENDING, user accepts -> ACCEPTED
+		status: meetingParticipantStatus("status").default("ACCEPTED").notNull(),
+		// Optional: who invited this participant (typically the host)
+		invitedById: t.varchar({ length: 255 }).references(() => users.id, { onDelete: "set null" }),
 		createdAt: t.timestamp({ mode: "date", withTimezone: true }).defaultNow().notNull(),
 	}),
 	t => [
 		index("meeting_participants_meeting_id_idx").on(t.meetingId),
 		index("meeting_participants_user_id_idx").on(t.userId),
+		index("meeting_participants_status_idx").on(t.status),
 	]
 ).enableRLS()
 
