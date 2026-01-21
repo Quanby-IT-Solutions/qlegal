@@ -1148,7 +1148,14 @@ export default function DashboardPage() {
 									<Button
 										variant="ghost"
 										size="sm"
-										onClick={() => router.push("/appointments" as Route)}
+										onClick={() => {
+											// Conditional routing based on user role
+											if (isENP) {
+												router.push("/appointments" as Route) // ENP: Manage their calendar
+											} else {
+												router.push("/calendar" as Route) // Principal: View ENP availability
+											}
+										}}
 									>
 										View All
 										{/* eslint-disable-next-line @typescript-eslint/no-unsafe-assignment */}
