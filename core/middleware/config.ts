@@ -30,6 +30,7 @@ export const ROUTE_CONFIG: RouteConfig = {
 		{ path: "/terms-of-service" },
 		{ path: "/legal/privacy-policy" },
 		{ path: "/legal/terms-of-service" },
+		{ path: "/preview-email" },
 	],
 
 	// Public only routes - accessible to non-authenticated users only

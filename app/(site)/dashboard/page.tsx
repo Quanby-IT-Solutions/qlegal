@@ -562,7 +562,14 @@ export default function DashboardPage() {
 								<Button
 									variant="outline"
 									className="h-auto flex-col items-start gap-2 p-4"
-									onClick={() => router.push("/appointments" as Route)}
+									onClick={() => {
+										// Conditional routing based on user role
+										if (isENP) {
+											router.push("/appointments" as Route) // ENP: Manage their calendar
+										} else {
+											router.push("/calendar" as Route) // Principal: View ENP availability
+										}
+									}}
 								>
 									<HugeiconsIcon icon={ClipboardIcon} size={20} />
 									<div className="text-left">
@@ -943,11 +950,12 @@ export default function DashboardPage() {
 									</div>
 								) : (
 									<div className="flex h-[350px] flex-col items-center justify-center text-center">
-										<div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-linear-to-br from-blue-100 to-blue-200">
-											<HugeiconsIcon icon={BarChartIcon} size={32} className="text-blue-600" />
+										<div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-blue-100 to-blue-200 dark:from-blue-900/30 dark:to-blue-800/30">
+											{ }
+											<HugeiconsIcon icon={BarChartIcon} size={32} className="text-blue-600 dark:text-blue-400" />
 										</div>
-										<p className="font-semibold text-slate-900">No appointment type data</p>
-										<p className="text-sm text-slate-600">
+										<p className="font-semibold text-slate-900 dark:text-slate-100">No appointment type data</p>
+										<p className="text-muted-foreground text-sm">
 											Appointment type distribution will appear here
 										</p>
 									</div>
@@ -1123,7 +1131,14 @@ export default function DashboardPage() {
 									<Button
 										variant="ghost"
 										size="sm"
-										onClick={() => router.push("/appointments" as Route)}
+										onClick={() => {
+											// Conditional routing based on user role
+											if (isENP) {
+												router.push("/appointments" as Route) // ENP: Manage their calendar
+											} else {
+												router.push("/calendar" as Route) // Principal: View ENP availability
+											}
+										}}
 									>
 										View All
 										<HugeiconsIcon icon={ArrowRight01Icon} size={16} className="ml-2" />
