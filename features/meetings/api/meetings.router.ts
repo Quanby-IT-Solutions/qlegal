@@ -388,7 +388,9 @@ export const meetingsRouter = createTRPCRouter({
 
 			// Otherwise, find ENP among participants
 			if (!creatorEmail) {
-				const enpParticipant = meeting.participants.find(p => isEnpRole(p.user?.role) && !!p.user?.email)
+				const enpParticipant = meeting.participants.find(
+					p => isEnpRole(p.user?.role) && !!p.user?.email
+				)
 				creatorEmail = asNonEmptyEmail(enpParticipant?.user?.email)
 			}
 
@@ -437,12 +439,12 @@ export const meetingsRouter = createTRPCRouter({
 				const documentStamp = {
 					seal: {
 						type: "seal",
-						enp_name: "Mariae Francine Geraldine Biglaen y Sibulop",
+						enp_name: "Juan Dela Cruz",
 						enp_role_number: "123456",
 					},
 					notary_info: {
 						type: "notary",
-						atty_name: "ATTY. MARIA ANGELICA M. DELA CRUZ-SAN FELIPE",
+						atty_name: "ATTY. JUAN DELA CRUZ",
 						roll_no: "123456",
 						roll_no_date: "5 June 2018",
 						commission_no: "2024 - 024",
