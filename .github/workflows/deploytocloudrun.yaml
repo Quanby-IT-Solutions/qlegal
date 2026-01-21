@@ -65,6 +65,9 @@ env:
   HYPERVERGE_API_URL: ${{ secrets.HYPERVERGE_API_URL }}
   HYPERVERGE_DIRECT_LIVENESS_ENABLED: ${{ secrets.HYPERVERGE_DIRECT_LIVENESS_ENABLED }}
 
+  #Public Site URl
+  NEXT_PUBLIC_SITE_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL }}
+
 jobs:
   deploy:
     environment: production
