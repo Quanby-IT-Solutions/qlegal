@@ -1141,7 +1141,7 @@ export default function DashboardPage() {
 										}}
 									>
 										View All
-										<HugeiconsIcon icon={ArrowRight01Icon} size={16} className="ml-2" />
+										{/* <HugeiconsIcon icon={ArrowRight01Icon} size={16} className="ml-2" /> */}
 									</Button>
 								</div>
 							</CardHeader>
