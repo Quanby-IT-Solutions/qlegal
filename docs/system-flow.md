@@ -1,6 +1,6 @@
-# Quanby Sign — System Flow
+# Quanby Legal — System Flow
 
-> **Purpose:** This document outlines the simplified user flow for booking and completing notarization or consultation sessions.  
+> **Purpose:** This document outlines the user flow for booking and completing notarization or consultation sessions.  
 > **Audience:** UI/UX designers, product managers, stakeholders  
 > **Last Updated:** January 21, 2026
 
@@ -8,7 +8,7 @@
 
 ## Overview
 
-Quanby Sign is an e-notary platform for the Philippines. Users can:
+Quanby Legal is an SC-accredited Electronic Notarial Facility (ENF) for the Philippines. Users can:
 
 - **Book a Notarization** — Get documents notarized remotely (REN), in-person (IEN), or hybrid
 - **Book a Consultation** — Get legal advice from an ENP (Electronic Notary Public)
@@ -17,22 +17,27 @@ Quanby Sign is an e-notary platform for the Philippines. Users can:
 
 ## Key Terms
 
-| Term                     | Meaning                                                               |
-| ------------------------ | --------------------------------------------------------------------- |
-| **ENP**                  | Electronic Notary Public — the lawyer/notary providing the service    |
-| **Client**               | The person booking and paying for the service                         |
-| **Principal**            | The client, when referred to in a notarization context                |
-| **Witness**              | A person who observes the signing and may also sign to attest         |
-| **REN**                  | Remote Electronic Notarization — ALL participants join via video call |
-| **IEN**                  | In-Person Electronic Notarization — ALL participants meet physically  |
-| **HYBRID**               | Mixed mode — some participants remote, some in-person                 |
-| **Session**              | The actual meeting (video call, in-person, or hybrid)                 |
-| **Jurat**                | Document type — signer swears content is true                         |
-| **Acknowledgement**      | Document type — signer acknowledges signing voluntarily               |
-| **Certified Copy**       | Document type — ENP certifies copy matches original                   |
-| **Oath/Affirmation**     | Document type — verbal pledge administered by ENP                     |
-| **Signature Witnessing** | Document type — ENP witnesses signature only                          |
-| **Notarial Book**        | Official electronic record of all notarial acts performed by an ENP   |
+| Term                     | Meaning                                                                                                              |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------- |
+| **ENF**                  | Electronic Notarial Facility — SC-accredited platform providing secure tools for e-notarization (e.g., Quanby Legal) |
+| **ENP**                  | Electronic Notary Public — lawyer/notary commissioned under A.M. No. 24-10-14-SC                                     |
+| **Client / Principal**   | The person booking the service and signing documents                                                                 |
+| **Witness**              | A person who observes the signing and may also sign to attest                                                        |
+| **REN**                  | Remote Electronic Notarization — ALL participants join via video call                                                |
+| **IEN**                  | In-Person Electronic Notarization — ALL participants meet physically                                                 |
+| **HYBRID**               | Mixed mode — some participants remote, some in-person                                                                |
+| **Session**              | The actual meeting (video call, in-person, or hybrid)                                                                |
+| **Jurat**                | Document type — signer swears content is true                                                                        |
+| **Acknowledgement**      | Document type — signer acknowledges signing voluntarily                                                              |
+| **Certified Copy**       | Document type — ENP certifies copy matches original                                                                  |
+| **Oath/Affirmation**     | Document type — verbal pledge administered by ENP                                                                    |
+| **Signature Witnessing** | Document type — ENP witnesses signature only                                                                         |
+| **Notarial Book**        | Official electronic record of all notarial acts performed by an ENP                                                  |
+
+**Document Requirements (per SC Rules):**
+
+- Format: PDF or PDF/A only (scanned copies allowed)
+- Excluded: Notarial wills and depositions
 
 ---
 
@@ -83,12 +88,16 @@ Quanby Sign is an e-notary platform for the Philippines. Users can:
 │                              │                                               │
 │                              ▼                                               │
 │         ┌─────────────────────────────────────────────┐                      │
-│         │  Find an ENP                                │                      │
+│         │  How do you want to find an ENP?            │                      │
+│         │  (see "ENP Selection" section below)        │                      │
 │         │                                             │                      │
-│         │  • Browse available ENPs                    │                      │
-│         │  • Filter by: specialization, ratings,      │                      │
-│         │    location, language, price (consultation) │                      │
-│         │  • View ENP profile & availability          │                      │
+│         │   ┌─────────────────┐  ┌─────────────────┐  │                      │
+│         │   │ CHOOSE SPECIFIC │  │   QUICK MATCH   │  │                      │
+│         │   │                 │  │                 │  │                      │
+│         │   │ Browse ENP      │  │ Auto-assign     │  │                      │
+│         │   │ Directory &     │  │ available ENP   │  │                      │
+│         │   │ select one      │  │ (like Grab)     │  │                      │
+│         │   └─────────────────┘  └─────────────────┘  │                      │
 │         └─────────────────────────────────────────────┘                      │
 │                              │                                               │
 │                              ▼                                               │
@@ -215,6 +224,127 @@ Quanby Sign is an e-notary platform for the Philippines. Users can:
 
 ---
 
+## ENP Selection (SC Compliance)
+
+Per SC Rules on eNotarization, users can choose ENPs in two ways:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                                                                 │
+│   OPTION 1: SCHEDULED PREFERENCE (Choose Specific ENP)          │
+│   ════════════════════════════════════════════════════          │
+│                                                                 │
+│   Similar to online health consultation apps — pick your        │
+│   preferred professional.                                       │
+│                                                                 │
+│   ┌─────────────────────────────────────────────────────────┐   │
+│   │                                                         │   │
+│   │   1. Go to /find-notary                                 │   │
+│   │                                                         │   │
+│   │   2. Browse ENP Directory                               │   │
+│   │      • Filter by: specialization, ratings,              │   │
+│   │        location, language, consultation rate            │   │
+│   │                                                         │   │
+│   │   3. View ENP profile                                   │   │
+│   │      • See qualifications, reviews, rates               │   │
+│   │      • Check availability calendar                      │   │
+│   │                                                         │   │
+│   │   4. Select specific date & time slot                   │   │
+│   │                                                         │   │
+│   │   5. Choose session type (Consultation/Notarization)    │   │
+│   │                                                         │   │
+│   │   6. Choose mode (REN/IEN/Hybrid)                       │   │
+│   │                                                         │   │
+│   │   7. Submit booking request                             │   │
+│   │                                                         │   │
+│   │   8. Wait for ENP to accept/reject/reschedule           │   │
+│   │                                                         │   │
+│   └─────────────────────────────────────────────────────────┘   │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
+│                                                                 │
+│   OPTION 2: QUICK MATCH (Random Pairing)                        │
+│   ══════════════════════════════════════                        │
+│                                                                 │
+│   Similar to ride-hailing apps (Grab, etc.) — system            │
+│   auto-assigns an available ENP.                                │
+│                                                                 │
+│   ┌─────────────────────────────────────────────────────────┐   │
+│   │                                                         │   │
+│   │   1. Go to /book (or click [Quick Match])               │   │
+│   │                                                         │   │
+│   │   2. Select service type (Consultation/Notarization)    │   │
+│   │                                                         │   │
+│   │   3. Select mode (REN/IEN/Hybrid)                       │   │
+│   │                                                         │   │
+│   │   4. Choose preferred time window                       │   │
+│   │      (e.g., "Today 2-4 PM" or "ASAP")                   │   │
+│   │                                                         │   │
+│   │   5. Click [Find Available ENP]                         │   │
+│   │                                                         │   │
+│   │   6. System auto-assigns an available ENP               │   │
+│   │                                                         │   │
+│   │   7. Session confirmed immediately                      │   │
+│   │      (or next available slot shown)                     │   │
+│   │                                                         │   │
+│   │   Use case: Urgent requests, no ENP preference          │   │
+│   │                                                         │   │
+│   └─────────────────────────────────────────────────────────┘   │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
+│                                                                 │
+│   ALTERNATIVE: MESSAGE FIRST                                    │
+│   ══════════════════════════                                    │
+│                                                                 │
+│   User has questions or wants to discuss before booking.        │
+│                                                                 │
+│   ┌─────────────────────────────────────────────────────────┐   │
+│   │                                                         │   │
+│   │   1. Go to /find-notary                                 │   │
+│   │                                                         │   │
+│   │   2. Browse and select an ENP                           │   │
+│   │                                                         │   │
+│   │   3. Click [💬 Message] on their profile                │   │
+│   │                                                         │   │
+│   │   OR                                                    │   │
+│   │                                                         │   │
+│   │   1. Go to /messages                                    │   │
+│   │                                                         │   │
+│   │   2. Search for an ENP by name/email                    │   │
+│   │                                                         │   │
+│   │   3. Start a new conversation                           │   │
+│   │                                                         │   │
+│   │   THEN                                                  │   │
+│   │                                                         │   │
+│   │   4. Chat with ENP                                      │   │
+│   │      • Ask questions                                    │   │
+│   │      • Share files for preliminary review               │   │
+│   │      • Discuss requirements                             │   │
+│   │                                                         │   │
+│   │   5. Either party can request session upgrade           │   │
+│   │      (see "Messaging → Session Upgrade" section)        │   │
+│   │                                                         │   │
+│   └─────────────────────────────────────────────────────────┘   │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### When to Use Each Path
+
+| Scenario                                    | Recommended Path     |
+| ------------------------------------------- | -------------------- |
+| Know exactly what you need                  | Scheduled Preference |
+| Urgent, no ENP preference                   | Quick Match          |
+| Have questions before committing            | Message First        |
+| Need ENP to review documents before booking | Message First        |
+| Regular client with established ENP         | Scheduled Preference |
+
+---
+
 ## Session Modes
 
 There are three ways to conduct a notarization or consultation session:
@@ -280,7 +410,9 @@ There are three ways to conduct a notarization or consultation session:
 │   ┌─────────────────────────────────────────────────────────┐   │
 │   │                                                         │   │
 │   │   Who's where?                                          │   │
-│   │    • ENP: In-person (at their office/location)          │   │
+│   │    • ENP: Usually in-person, but CAN be remote          │   │
+│   │      (e.g., OFW at embassy — ENP may request            │   │
+│   │       camera pan for manual location verification)      │   │
 │   │    • Principal: Could be either                         │   │
 │   │    • Witnesses: Could be either                         │   │
 │   │                                                         │   │
@@ -294,6 +426,7 @@ There are three ways to conduct a notarization or consultation session:
 │   │    • Principal with ENP, witness joins remotely         │   │
 │   │    • Multiple principals in different locations         │   │
 │   │    • One co-signer abroad, others local                 │   │
+│   │    • OFW at embassy needs notarization                  │   │
 │   │                                                         │   │
 │   └─────────────────────────────────────────────────────────┘   │
 │                                                                 │
@@ -306,96 +439,7 @@ There are three ways to conduct a notarization or consultation session:
 | ------------------- | ------------------------------- | ------------------ | ------------------------------- |
 | **Remote users**    | Liveness + Geolocation + No VPN | N/A                | Liveness + Geolocation + No VPN |
 | **In-person users** | N/A                             | Physical ID by ENP | Physical ID by ENP              |
-| **ENP**             | Liveness + Geolocation + No VPN | Present physically | Present physically (usually)    |
-
----
-
-## Finding an ENP
-
-Users can find and connect with an ENP through two paths:
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                                                                 │
-│   PATH A: DIRECT BOOKING                                        │
-│   ══════════════════════                                        │
-│                                                                 │
-│   User wants to book a session directly.                        │
-│                                                                 │
-│   ┌─────────────────────────────────────────────────────────┐   │
-│   │                                                         │   │
-│   │   1. Go to /find-notary (or /book)                      │   │
-│   │                                                         │   │
-│   │   2. Browse available ENPs                              │   │
-│   │      • Filter by: specialization, ratings,              │   │
-│   │        location, language, consultation rate            │   │
-│   │                                                         │   │
-│   │   3. View ENP profile                                   │   │
-│   │      • See qualifications, reviews, rates               │   │
-│   │      • Check availability calendar                      │   │
-│   │                                                         │   │
-│   │   4. Select date & time slot                            │   │
-│   │                                                         │   │
-│   │   5. Choose session type (Consultation/Notarization)    │   │
-│   │                                                         │   │
-│   │   6. Choose mode (REN/IEN/Hybrid)                       │   │
-│   │                                                         │   │
-│   │   7. Submit booking request                             │   │
-│   │                                                         │   │
-│   │   8. Wait for ENP to accept/reject/reschedule           │   │
-│   │                                                         │   │
-│   └─────────────────────────────────────────────────────────┘   │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────────────────────────┐
-│                                                                 │
-│   PATH B: MESSAGE FIRST                                         │
-│   ═════════════════════                                         │
-│                                                                 │
-│   User has questions or wants to discuss before booking.        │
-│                                                                 │
-│   ┌─────────────────────────────────────────────────────────┐   │
-│   │                                                         │   │
-│   │   1. Go to /find-notary                                 │   │
-│   │                                                         │   │
-│   │   2. Browse and select an ENP                           │   │
-│   │                                                         │   │
-│   │   3. Click [💬 Message] on their profile                │   │
-│   │                                                         │   │
-│   │   OR                                                    │   │
-│   │                                                         │   │
-│   │   1. Go to /messages                                    │   │
-│   │                                                         │   │
-│   │   2. Search for an ENP by name/email                    │   │
-│   │                                                         │   │
-│   │   3. Start a new conversation                           │   │
-│   │                                                         │   │
-│   │   THEN                                                  │   │
-│   │                                                         │   │
-│   │   4. Chat with ENP                                      │   │
-│   │      • Ask questions                                    │   │
-│   │      • Share files for preliminary review               │   │
-│   │      • Discuss requirements                             │   │
-│   │                                                         │   │
-│   │   5. Either party can request session upgrade           │   │
-│   │      (see "Messaging → Session Upgrade" section)        │   │
-│   │                                                         │   │
-│   └─────────────────────────────────────────────────────────┘   │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-### When to Use Each Path
-
-| Scenario                                    | Recommended Path |
-| ------------------------------------------- | ---------------- |
-| Know exactly what you need                  | Direct Booking   |
-| Have questions before committing            | Message First    |
-| Need ENP to review documents before booking | Message First    |
-| Urgent notarization needed                  | Direct Booking   |
-| Unsure which document type you need         | Message First    |
-| Regular client with established ENP         | Either           |
+| **ENP**             | Liveness + Geolocation + No VPN | Present physically | Usually physical, can be remote |
 
 ---
 
@@ -517,6 +561,12 @@ Users can find and connect with an ENP through two paths:
 │   │                                                         │   │
 │   │   After locking → Payment button becomes available      │   │
 │   │                                                         │   │
+│   │   ─────────────────────────────────────────────────     │   │
+│   │                                                         │   │
+│   │   UNLOCK: ENP can click [🔓 Unlock Documents]           │   │
+│   │    • Requires client to RE-APPROVE all documents        │   │
+│   │    • Use case: Client requests changes after lock       │   │
+│   │                                                         │   │
 │   └─────────────────────────────────────────────────────────┘   │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
@@ -555,9 +605,14 @@ Users can find and connect with an ENP through two paths:
 │   │      ┌──────────┐  ┌──────────┐  ┌──────────┐           │   │
 │   │      │   Card   │  │    QR    │  │   Cash   │           │   │
 │   │      │    💳    │  │    📱    │  │    💵    │           │   │
-│   │      │          │  │ (GCash/  │  │  (to ENP │           │   │
-│   │      │          │  │  Maya)   │  │ directly)│           │   │
+│   │      │          │  │ (GCash/  │  │          │           │   │
+│   │      │          │  │  Maya)   │  │          │           │   │
 │   │      └──────────┘  └──────────┘  └──────────┘           │   │
+│   │                                                         │   │
+│   │   For CASH payments (IEN/HYBRID):                       │   │
+│   │    • Client pays ENP directly                           │   │
+│   │    • ENP clicks [✓ Client Paid Cash] button             │   │
+│   │    • System records payment as confirmed                │   │
 │   │                                                         │   │
 │   │   ✓ All payments go through system                      │   │
 │   │   ✓ Official Receipt issued for every transaction       │   │
@@ -635,9 +690,7 @@ Users can find and connect with an ENP through two paths:
 │                          NOTARIZATION SESSION FLOW                           │
 │                                                                              │
 │   ┌──────────────────┐   ┌──────────────────┐   ┌──────────────────┐         │
-│   │                  │   │                  │   │                  │         │
 │   │      CLIENT      │   │      SYSTEM      │   │       ENP        │         │
-│   │                  │   │                  │   │                  │         │
 │   └────────┬─────────┘   └────────┬─────────┘   └────────┬─────────┘         │
 │            │                      │                      │                   │
 │  ══════════╪══════════════════════╪══════════════════════╪═══════════════    │
@@ -657,58 +710,9 @@ Users can find and connect with an ENP through two paths:
 │            │     PHASE 2: DOCUMENT UPLOAD & REVIEW       │                   │
 │  ══════════╪══════════════════════╪══════════════════════╪═══════════════    │
 │            │                      │                      │                   │
-│   ┌────────┴──────────────────────┴──────────────────────┴────────┐          │
-│   │                                                               │          │
-│   │   SCENARIO A: Client uploads document                         │          │
-│   │                                                               │          │
-│   │   Client                    System                  ENP       │          │
-│   │      │                         │                      │       │          │
-│   │      │   Uploads document      │                      │       │          │
-│   │      │────────────────────────►│                      │       │          │
-│   │      │                         │   Shows document     │       │          │
-│   │      │                         │─────────────────────►│       │          │
-│   │      │                         │                      │       │          │
-│   │      │                         │   ENP opens modal    │       │          │
-│   │      │                         │   and assigns:       │       │          │
-│   │      │                         │   • Doc type         │       │          │
-│   │      │                         │   • Fee (pre-filled) │       │          │
-│   │      │                         │   • Tags (optional)  │       │          │
-│   │      │                         │◄─────────────────────│       │          │
-│   │      │                         │                      │       │          │
-│   │      │   Shows ENP's review    │                      │       │          │
-│   │      │◄────────────────────────│                      │       │          │
-│   │      │                         │                      │       │          │
-│   │      │   Marks as "Approved"   │                      │       │          │
-│   │      │────────────────────────►│                      │       │          │
-│   │      │                         │                      │       │          │
-│   └──────┴─────────────────────────┴──────────────────────┴───────┘          │
-│                                                                              │
-│   ┌────────┬──────────────────────┬──────────────────────┬────────┐          │
-│   │                                                               │          │
-│   │   SCENARIO B: ENP uploads prepared document                   │          │
-│   │                                                               │          │
-│   │   Client                    System                  ENP       │          │
-│   │      │                         │                      │       │          │
-│   │      │                         │   Opens upload modal │       │          │
-│   │      │                         │   with REQUIRED:     │       │          │
-│   │      │                         │   • Doc type         │       │          │
-│   │      │                         │   • Fee (pre-filled) │       │          │
-│   │      │                         │   • Tags (optional)  │       │          │
-│   │      │                         │◄─────────────────────│       │          │
-│   │      │                         │                      │       │          │
-│   │      │   Shows document +      │                      │       │          │
-│   │      │   details to Client     │                      │       │          │
-│   │      │◄────────────────────────│                      │       │          │
-│   │      │                         │                      │       │          │
-│   │      │   Client reviews        │                      │       │          │
-│   │      │   content carefully     │                      │       │          │
-│   │      │   ....                  │                      │       │          │
-│   │      │                         │                      │       │          │
-│   │      │   Marks as "Approved"   │                      │       │          │
-│   │      │────────────────────────►│                      │       │          │
-│   │      │                         │                      │       │          │
-│   └──────┴─────────────────────────┴──────────────────────┴───────┘          │
-│                                                                              │
+│            │   (Either party uploads docs)               │                   │
+│            │   (ENP reviews, assigns type + fee)         │                   │
+│            │   (Client approves)                         │                   │
 │            │                      │                      │                   │
 │            │    (repeat for each document)               │                   │
 │            │                      │                      │                   │
@@ -716,20 +720,12 @@ Users can find and connect with an ENP through two paths:
 │            │     PHASE 3: INVITE WITNESSES (if needed)   │                   │
 │  ══════════╪══════════════════════╪══════════════════════╪═══════════════    │
 │            │                      │                      │                   │
-│            │                      │  (See "Witness       │                   │
-│            │                      │   Invitation" section│                   │
-│            │                      │   for full flow)     │                   │
+│            │   (Principal or ENP invites witnesses)      │                   │
+│            │   (Witnesses accept and verify identity)    │                   │
 │            │                      │                      │                   │
 │  ══════════╪══════════════════════╪══════════════════════╪═══════════════    │
 │            │     PHASE 4: LOCK DOCUMENTS                 │                   │
 │  ══════════╪══════════════════════╪══════════════════════╪═══════════════    │
-│            │                      │                      │                   │
-│            │                      │  All docs approved?  │                   │
-│            │                      │  ┌────────────────┐  │                   │
-│            │                      │  │ ✓ Doc 1       │  │                   │
-│            │                      │  │ ✓ Doc 2       │  │                   │
-│            │                      │  │ ✓ Doc 3       │  │                   │
-│            │                      │  └────────────────┘  │                   │
 │            │                      │                      │                   │
 │            │                      │   ENP clicks         │                   │
 │            │                      │◄─────────────────────│                   │
@@ -738,7 +734,6 @@ Users can find and connect with an ENP through two paths:
 │            │   Docs are now       │                      │                   │
 │            │◄─────────────────────│                      │                   │
 │            │   LOCKED             │                      │                   │
-│            │   (no more changes)  │                      │                   │
 │            │                      │                      │                   │
 │  ══════════╪══════════════════════╪══════════════════════╪═══════════════    │
 │            │     PHASE 5: PAYMENT                        │                   │
@@ -748,13 +743,8 @@ Users can find and connect with an ENP through two paths:
 │            │◄─────────────────────│                      │                   │
 │            │   + payment options  │                      │                   │
 │            │                      │                      │                   │
-│            │   REN: Card/GCash    │                      │                   │
-│            │   IEN/Hybrid:        │                      │                   │
-│            │   Card/QR/Cash       │                      │                   │
-│            │                      │                      │                   │
-│            │   Pays ONCE          │                      │                   │
+│            │   Client pays        │                      │                   │
 │            │─────────────────────►│                      │                   │
-│            │                      │                      │                   │
 │            │                      │   Payment confirmed  │                   │
 │            │                      │─────────────────────►│                   │
 │            │                      │                      │                   │
@@ -779,16 +769,13 @@ Users can find and connect with an ENP through two paths:
 │            │     PHASE 7: COMPLETION                     │                   │
 │  ══════════╪══════════════════════╪══════════════════════╪═══════════════    │
 │            │                      │                      │                   │
-│            │                      │  ┌────────────────┐  │                   │
-│            │                      │  │ • Docs saved   │  │                   │
-│            │                      │  │ • Seal added   │  │                   │
-│            │                      │  │ • Certificate  │  │                   │
-│            │                      │  │   attached     │  │                   │
-│            │                      │  │ • Notarial     │  │                   │
-│            │                      │  │   book updated │  │                   │
-│            │                      │  │ • Recording    │  │                   │
-│            │                      │  │   saved        │  │                   │
-│            │                      │  └────────────────┘  │                   │
+│            │                      │  • Docs saved        │                   │
+│            │                      │  • Seal added        │                   │
+│            │                      │  • Certificate       │                   │
+│            │                      │    attached          │                   │
+│            │                      │  • Notarial book     │                   │
+│            │                      │    updated           │                   │
+│            │                      │  • Recording saved   │                   │
 │            │                      │                      │                   │
 │            │  Receives:           │                      │                   │
 │            │  • Notarized docs    │                      │                   │
@@ -850,10 +837,8 @@ Users can find and connect with an ENP through two paths:
 │      │   Fills & submits           │                            │            │
 │      │────────────────────────────►│                            │            │
 │      │                             │                            │            │
-│      │                             │   ┌──────────────────────┐ │            │
-│      │                             │   │ Witness must have    │ │            │
-│      │                             │   │ existing account     │ │            │
-│      │                             │   └──────────────────────┘ │            │
+│      │                             │   Witness must have        │            │
+│      │                             │   existing account         │            │
 │      │                             │                            │            │
 │      │                             │   In-app notification      │            │
 │      │                             │───────────────────────────►│            │
@@ -979,28 +964,17 @@ Users can find and connect with an ENP through two paths:
 
 ┌─────────────────────────────────────────────────────────────────┐
 │                                                                 │
-│   MULTIPLE WITNESSES                                            │
-│                                                                 │
-│   Sessions can have multiple witnesses:                         │
+│   WITNESS NOTES                                                 │
 │                                                                 │
 │   ┌─────────────────────────────────────────────────────────┐   │
 │   │                                                         │   │
-│   │   Example: Contract requiring 2 witnesses               │   │
-│   │                                                         │   │
-│   │   Witnesses:                                            │   │
-│   │    ┌───────────────────────────────────────────────┐    │   │
-│   │    │ 👤 Maria Santos        Remote    ✓ VERIFIED   │    │   │
-│   │    └───────────────────────────────────────────────┘    │   │
-│   │    ┌───────────────────────────────────────────────┐    │   │
-│   │    │ 👤 Pedro Garcia        In-Person ✓ VERIFIED   │    │   │
-│   │    └───────────────────────────────────────────────┘    │   │
-│   │                                                         │   │
-│   │   [+ Add Another Witness]                               │   │
+│   │   • No maximum number of witnesses                      │   │
+│   │   • Witnesses don't pay — covered by principal's fee    │   │
+│   │   • Multiple witnesses supported                        │   │
+│   │   • In HYBRID mode, some witnesses can be remote        │   │
+│   │     while others are in-person with the ENP             │   │
 │   │                                                         │   │
 │   └─────────────────────────────────────────────────────────┘   │
-│                                                                 │
-│   In HYBRID mode, some witnesses can be remote while            │
-│   others are in-person with the ENP.                            │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -1030,24 +1004,6 @@ Users can find and connect with an ENP through two paths:
 │   REJECTED  → ENP rejected document (with remarks/reason)       │
 │   LOCKED    → All docs locked, ready for payment                │
 │   SIGNED    → Document has been signed and notarized            │
-│                                                                 │
-│   ─────────────────────────────────────────────────────────────  │
-│                                                                 │
-│   Each document requires:                                       │
-│                                                                 │
-│   ┌─────────────────────────────────────────────────────────┐   │
-│   │                                                         │   │
-│   │   ☐ Document Type     (Jurat / Acknowledgement / etc.)  │   │
-│   │   ☐ Fee Assigned      (₱ amount set by ENP)             │   │
-│   │   ☐ ENP Reviewed      (ENP marked as reviewed)          │   │
-│   │   ☐ Client Approved   (Client marked as approved)       │   │
-│   │   ☐ Locked            (ENP locked all documents)        │   │
-│   │                                                         │   │
-│   │   ═══════════════════════════════════════════════════   │   │
-│   │   Payment only available after ALL docs are LOCKED      │   │
-│   │   Signing only available after PAYMENT confirmed        │   │
-│   │                                                         │   │
-│   └─────────────────────────────────────────────────────────┘   │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
 
@@ -1127,6 +1083,10 @@ Users can find and connect with an ENP through two paths:
 │    • ALL participants in REN sessions                           │
 │    • REMOTE participants in HYBRID sessions                     │
 │    • REMOTE witnesses                                           │
+│    • ENP (if remote in HYBRID — e.g., OFW at embassy)           │
+│                                                                 │
+│   Note: For OFW at embassy, ENP may also request camera pan     │
+│   for manual location verification.                             │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -1499,7 +1459,7 @@ Per Philippine Supreme Court Rules on Electronic Notarial Practice (Section 2), 
 | Step             | Client Action                                                 | ENP Action                                                                   |
 | ---------------- | ------------------------------------------------------------- | ---------------------------------------------------------------------------- |
 | 1. Onboard       | Sign up → KYC                                                 | Sign up → KYC → Set consultation rates → Set default notarization fees       |
-| 2. Find ENP      | Browse /find-notary OR message first                          | Set availability, respond to messages                                        |
+| 2. Find ENP      | Browse (Scheduled) / Quick Match / Message first              | Set availability, respond to messages                                        |
 | 3. Book          | Choose type → Pick slot → Submit (or request from chat)       | — (or invite from chat)                                                      |
 | 4. Review        | Wait for response                                             | Accept / Reject / Reschedule                                                 |
 | 5. Pay (Consult) | Pay upfront                                                   | —                                                                            |
@@ -1508,16 +1468,24 @@ Per Philippine Supreme Court Rules on Electronic Notarial Practice (Section 2), 
 
 ---
 
+## Resolved Questions
+
+| Question                   | Answer                                                                                   |
+| -------------------------- | ---------------------------------------------------------------------------------------- |
+| Can ENP unlock documents?  | Yes, but requires client to RE-APPROVE all documents                                     |
+| IEN cash payment tracking? | ENP clicks [✓ Client Paid Cash] button to confirm                                        |
+| Max witnesses?             | No limit                                                                                 |
+| Witness fees?              | None — covered by principal's fee                                                        |
+| HYBRID ENP location?       | Can be remote (e.g., OFW at embassy, ENP may request camera pan for manual verification) |
+
+---
+
 ## Open Questions
 
 1. **Cancellation policy** — What happens if client/ENP cancels? Refunds?
 2. **Rescheduling limits** — How many times can a session be rescheduled?
 3. **Embassy/Consular list** — Do we need a predefined list of valid embassy/consular locations for geolocation?
-4. **Cash payment tracking** — For IEN cash payments, how does ENP confirm receipt in the system?
-5. **Unlock documents** — Can ENP unlock documents after locking? (probably requires re-approval from client)
-6. **Witness limits** — Is there a maximum number of witnesses per session?
-7. **Witness fees** — Do witnesses pay anything or is it covered by the principal's fee?
-8. **Hybrid ENP location** — In HYBRID mode, is ENP always in-person or can they be remote too?
+4. **Quick Match algorithm** — How should ENPs be matched? By availability? Specialization? Location?
 
 ---
 
