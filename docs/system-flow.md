@@ -1,263 +1,194 @@
-# Quanby Legal — System Flow
+# Quanby Legal — System Flow (UI/UX Reference)
 
-> **Purpose:** This document outlines the user flow for booking and completing notarization or consultation sessions.  
-> **Audience:** UI/UX designers, product managers, stakeholders  
-> **Last Updated:** January 21, 2026
-
----
-
-## Overview
-
-Quanby Legal is an SC-accredited Electronic Notarial Facility (ENF) for the Philippines. Users can:
-
-- **Book a Notarization** — Get documents notarized remotely (REN), in-person (IEN), or hybrid
-- **Book a Consultation** — Get legal advice from an ENP (Electronic Notary Public)
+> **Document Purpose**: This document describes how users interact with the Quanby Legal platform.
+> It is written for UI/UX designers, product managers, and non-developers.
+> No code, APIs, or technical implementation details are included.
 
 ---
 
 ## Key Terms
 
-| Term                     | Meaning                                                                                                              |
-| ------------------------ | -------------------------------------------------------------------------------------------------------------------- |
-| **ENF**                  | Electronic Notarial Facility — SC-accredited platform providing secure tools for e-notarization (e.g., Quanby Legal) |
-| **ENP**                  | Electronic Notary Public — lawyer/notary commissioned under A.M. No. 24-10-14-SC                                     |
-| **Client / Principal**   | The person booking the service and signing documents                                                                 |
-| **Witness**              | A person who observes the signing and may also sign to attest                                                        |
-| **REN**                  | Remote Electronic Notarization — ALL participants join via video call                                                |
-| **IEN**                  | In-Person Electronic Notarization — ALL participants meet physically                                                 |
-| **HYBRID**               | Mixed mode — some participants remote, some in-person                                                                |
-| **Session**              | The actual meeting (video call, in-person, or hybrid)                                                                |
-| **Jurat**                | Document type — signer swears content is true                                                                        |
-| **Acknowledgement**      | Document type — signer acknowledges signing voluntarily                                                              |
-| **Certified Copy**       | Document type — ENP certifies copy matches original                                                                  |
-| **Oath/Affirmation**     | Document type — verbal pledge administered by ENP                                                                    |
-| **Signature Witnessing** | Document type — ENP witnesses signature only                                                                         |
-| **Notarial Book**        | Official electronic record of all notarial acts performed by an ENP                                                  |
-
-**Document Requirements (per SC Rules):**
-
-- Format: PDF or PDF/A only (scanned copies allowed)
-- Excluded: Notarial wills and depositions
+| Term          | Meaning                                                             |
+| ------------- | ------------------------------------------------------------------- |
+| **ENP**       | Electronic Notary Public — the notary providing services            |
+| **ENF**       | Electronic Notarial Facility — the platform (Quanby Legal)          |
+| **Principal** | The client who needs documents notarized                            |
+| **Witness**   | Person who observes and confirms signature (required for some docs) |
+| **REN**       | Remote Electronic Notarization — all parties join via video         |
+| **IEN**       | In-Person Electronic Notarization — all parties physically present  |
+| **HYBRID**    | Mixed mode — some remote, some in-person                            |
+| **KYC**       | Know Your Customer — identity verification process                  |
+| **Liveness**  | Real-time face verification to prevent fraud                        |
+| **SC**        | Supreme Court of the Philippines                                    |
 
 ---
 
-## The Flow
+## High-Level Flow Diagram
 
 ```
-┌──────────────────────────────────────────────────────────────────────────────┐
-│                                                                              │
-│   ╔═══════════════════════════════════════════════════════════════════════╗  │
-│   ║                         1. ONBOARDING                                 ║  │
-│   ╚═══════════════════════════════════════════════════════════════════════╝  │
-│                                                                              │
-│         ┌─────────────┐          ┌─────────────────────┐                     │
-│         │   Sign Up   │ ───────► │   KYC Verification  │                     │
-│         └─────────────┘          │   (ID + Face Match) │                     │
-│                                  └─────────────────────┘                     │
-│                                            │                                 │
-│                                            ▼                                 │
-│   ╔═══════════════════════════════════════════════════════════════════════╗  │
-│   ║                          2. BOOKING                                   ║  │
-│   ╚═══════════════════════════════════════════════════════════════════════╝  │
-│                                                                              │
-│         ┌─────────────────────────────────────────────┐                      │
-│         │  What do you need?                          │                      │
-│         │                                             │                      │
-│         │   ┌─────────────┐    ┌─────────────────┐    │                      │
-│         │   │ NOTARIZATION│    │  CONSULTATION   │    │                      │
-│         │   │             │    │                 │    │                      │
-│         │   │ Get docs    │    │ Get legal       │    │                      │
-│         │   │ notarized   │    │ advice          │    │                      │
-│         │   └─────────────┘    └─────────────────┘    │                      │
-│         └─────────────────────────────────────────────┘                      │
-│                              │                                               │
-│                              ▼                                               │
-│         ┌─────────────────────────────────────────────┐                      │
-│         │  How do you want to meet?                   │                      │
-│         │                                             │                      │
-│         │   ┌─────────┐  ┌─────────┐  ┌─────────┐     │                      │
-│         │   │   REN   │  │   IEN   │  │ HYBRID  │     │                      │
-│         │   │ (Remote)│  │(In-Per.)│  │ (Mixed) │     │                      │
-│         │   │         │  │         │  │         │     │                      │
-│         │   │ Video   │  │ Meet at │  │ Some    │     │                      │
-│         │   │ call    │  │ physical│  │ remote, │     │                      │
-│         │   │ from    │  │ place   │  │ some    │     │                      │
-│         │   │ home    │  │         │  │ in-pers │     │                      │
-│         │   └─────────┘  └─────────┘  └─────────┘     │                      │
-│         └─────────────────────────────────────────────┘                      │
-│                              │                                               │
-│                              ▼                                               │
-│         ┌─────────────────────────────────────────────┐                      │
-│         │  How do you want to find an ENP?            │                      │
-│         │  (see "ENP Selection" section below)        │                      │
-│         │                                             │                      │
-│         │   ┌─────────────────┐  ┌─────────────────┐  │                      │
-│         │   │ CHOOSE SPECIFIC │  │   QUICK MATCH   │  │                      │
-│         │   │                 │  │                 │  │                      │
-│         │   │ Browse ENP      │  │ Auto-assign     │  │                      │
-│         │   │ Directory &     │  │ available ENP   │  │                      │
-│         │   │ select one      │  │ (like Grab)     │  │                      │
-│         │   └─────────────────┘  └─────────────────┘  │                      │
-│         └─────────────────────────────────────────────┘                      │
-│                              │                                               │
-│                              ▼                                               │
-│         ┌─────────────────────────────────────────────┐                      │
-│         │  Select Date & Time                         │                      │
-│         │                                             │                      │
-│         │  • Pick from ENP's available slots          │                      │
-│         │  • Add notes (optional)                     │                      │
-│         └─────────────────────────────────────────────┘                      │
-│                              │                                               │
-│                              ▼                                               │
-│         ┌─────────────────────────────────────────────┐                      │
-│         │  Submit Booking Request                     │                      │
-│         └─────────────────────────────────────────────┘                      │
-│                              │                                               │
-│                              ▼                                               │
-│   ╔═══════════════════════════════════════════════════════════════════════╗  │
-│   ║                       3. ENP REVIEW                                   ║  │
-│   ╚═══════════════════════════════════════════════════════════════════════╝  │
-│                                                                              │
-│         ┌─────────────────────────────────────────────┐                      │
-│         │  ENP receives notification                  │                      │
-│         │                                             │                      │
-│         │  ENP can:                                   │                      │
-│         │   ✓ Accept                                  │                      │
-│         │   ✗ Reject (with reason)                    │                      │
-│         │   ↻ Reschedule (propose new time)           │                      │
-│         └─────────────────────────────────────────────┘                      │
-│                              │                                               │
-│                              ▼                                               │
-│   ╔═══════════════════════════════════════════════════════════════════════╗  │
-│   ║                   4. PAYMENT (Consultation Only)                      ║  │
-│   ╚═══════════════════════════════════════════════════════════════════════╝  │
-│                                                                              │
-│         ┌─────────────────────────────────────────────┐                      │
-│         │  For CONSULTATION bookings:                 │                      │
-│         │                                             │                      │
-│         │  • ENP's consultation fee is shown          │                      │
-│         │    (set by ENP in their profile)            │                      │
-│         │  • Client pays upfront                      │                      │
-│         │  • Session is confirmed                     │                      │
-│         │                                             │                      │
-│         │  For NOTARIZATION bookings:                 │                      │
-│         │                                             │                      │
-│         │  • No upfront payment                       │                      │
-│         │  • Proceed directly to session              │                      │
-│         │  • Payment happens DURING session           │                      │
-│         │    (after document review & lock)           │                      │
-│         └─────────────────────────────────────────────┘                      │
-│                              │                                               │
-│                              ▼                                               │
-│   ╔═══════════════════════════════════════════════════════════════════════╗  │
-│   ║                        5. SESSION                                     ║  │
-│   ╚═══════════════════════════════════════════════════════════════════════╝  │
-│                                                                              │
-│         ┌─────────────────────────────────────────────┐                      │
-│         │  JOINING (see "Session Modes" section       │                      │
-│         │  for security checks per mode)              │                      │
-│         │                                             │                      │
-│         │  • REN: All join video room + security      │                      │
-│         │    checks (liveness, geolocation, VPN)      │                      │
-│         │                                             │                      │
-│         │  • IEN: Meet at agreed location, ENP        │                      │
-│         │    verifies identity in person              │                      │
-│         │                                             │                      │
-│         │  • HYBRID: Remote participants do REN       │                      │
-│         │    checks, in-person verified physically    │                      │
-│         └─────────────────────────────────────────────┘                      │
-│                              │                                               │
-│                              ▼                                               │
-│                                                                              │
-│    ┌────────────────────────────┐    ┌────────────────────────────┐          │
-│    │      CONSULTATION          │    │       NOTARIZATION         │          │
-│    ├────────────────────────────┤    ├────────────────────────────┤          │
-│    │                            │    │                            │          │
-│    │  • Client asks questions   │    │  1. Upload documents       │          │
-│    │  • ENP provides advice     │    │     (by Client OR ENP)     │          │
-│    │                            │    │                            │          │
-│    │  • Client can upload files │    │  2. Review & approve       │          │
-│    │    for ENP to review       │    │     (both parties)         │          │
-│    │    (e.g., contracts,       │    │                            │          │
-│    │    agreements needing      │    │  3. Invite witnesses       │          │
-│    │    legal advice)           │    │     (if needed)            │          │
-│    │                            │    │                            │          │
-│    │  • ENP can share reference │    │  4. ENP locks documents    │          │
-│    │    documents               │    │                            │          │
-│    │                            │    │  5. Client pays total fee  │          │
-│    │  • Recording (optional,    │    │                            │          │
-│    │    with all-party consent) │    │  6. Signing process        │          │
-│    │                            │    │     (Principals → Witness  │          │
-│    │                            │    │      → ENP notarizes)      │          │
-│    │                            │    │                            │          │
-│    │                            │    │  7. Recording (optional,   │          │
-│    │                            │    │     with consent)          │          │
-│    └────────────────────────────┘    └────────────────────────────┘          │
-│                              │                                               │
-│                              ▼                                               │
-│   ╔═══════════════════════════════════════════════════════════════════════╗  │
-│   ║                       6. COMPLETION                                   ║  │
-│   ╚═══════════════════════════════════════════════════════════════════════╝  │
-│                                                                              │
-│         ┌─────────────────────────────────────────────┐                      │
-│         │  Session ends                               │                      │
-│         │                                             │                      │
-│         │  For CONSULTATION:                          │                      │
-│         │   • Session marked complete                 │                      │
-│         │   • Recording available (if recorded)       │                      │
-│         │   • Shared files accessible in history      │                      │
-│         │                                             │                      │
-│         │  For NOTARIZATION:                          │                      │
-│         │   • Notarized docs finalized with:          │                      │
-│         │     - Digital seal                          │                      │
-│         │     - Certificate of notarization           │                      │
-│         │   • Entry added to Notarial Book            │                      │
-│         │   • Docs saved to blockchain (optional)     │                      │
-│         │   • Client receives:                        │                      │
-│         │     - Notarized documents                   │                      │
-│         │     - Session recording (if recorded)       │                      │
-│         │     - Official Receipt                      │                      │
-│         └─────────────────────────────────────────────┘                      │
-│                                                                              │
-└──────────────────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────────────────┐
+│                                                                                         │
+│                           QUANBY LEGAL — COMPLETE FLOW                                  │
+│                                                                                         │
+│  ┌─────────┐    ┌─────────┐    ┌─────────┐    ┌─────────┐    ┌─────────┐    ┌─────────┐ │
+│  │         │    │         │    │         │    │         │    │         │    │         │ │
+│  │ REGISTER│───►│   KYC   │───►│  FIND   │───►│  BOOK   │───►│ SESSION │───►│COMPLETE │ │
+│  │         │    │         │    │   ENP   │    │         │    │         │    │         │ │
+│  └─────────┘    └─────────┘    └─────────┘    └─────────┘    └─────────┘    └─────────┘ │
+│       │              │              │              │              │              │      │
+│       ▼              ▼              ▼              ▼              ▼              ▼      │
+│   Email verify   ID + Face    Browse/Match    Scheduled/     Video call    Documents    │
+│   Basic info                  Message first   Quick Match    Sign docs      stored      │
+│                                                              Pay fees      Audit trail  │
+│                                                                                         │
+└─────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## ENP Selection (SC Compliance)
+## Phase 1: Registration & Verification
 
-Per SC Rules on eNotarization, users can choose ENPs in two ways:
+### 1.1 Account Creation
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                                                                 │
-│   OPTION 1: SCHEDULED PREFERENCE (Choose Specific ENP)          │
-│   ════════════════════════════════════════════════════          │
+│   REGISTRATION FLOW                                             │
+│                                                                 │
+│   ┌─────────────────────────────────────────────────────────┐   │
+│   │                                                         │   │
+│   │   1. Go to /register                                    │   │
+│   │                                                         │   │
+│   │   2. Enter basic info                                   │   │
+│   │      • Full legal name                                  │   │
+│   │      • Email address                                    │   │
+│   │      • Password                                         │   │
+│   │      • Phone number (optional)                          │   │
+│   │                                                         │   │
+│   │   3. Accept Terms of Service                            │   │
+│   │                                                         │   │
+│   │   4. Click [Create Account]                             │   │
+│   │                                                         │   │
+│   │   5. Check email for verification link                  │   │
+│   │                                                         │   │
+│   │   6. Click link → Account verified                      │   │
+│   │                                                         │   │
+│   └─────────────────────────────────────────────────────────┘   │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### 1.2 KYC (Identity Verification)
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                                                                 │
+│   KYC FLOW (Required to access the system)                      │
+│                                                                 │
+│   ┌─────────────────────────────────────────────────────────┐   │
+│   │                                                         │   │
+│   │   1. Go to /kyc (prompted after registration)           │   │
+│   │                                                         │   │
+│   │   2. Upload government-issued ID                        │   │
+│   │      • Philippine ID, Passport, Driver's License, etc.  │   │
+│   │      • Front and back (if applicable)                   │   │
+│   │                                                         │   │
+│   │   3. Face matching                                      │   │
+│   │      • Take a selfie                                    │   │
+│   │      • System verifies you match your ID photo          │   │
+│   │                                                         │   │
+│   │   4. Wait for verification (usually instant)            │   │
+│   │                                                         │   │
+│   │   5. Status: ✓ KYC Verified                             │   │
+│   │      • Can now access all system features               │   │
+│   │                                                         │   │
+│   └─────────────────────────────────────────────────────────┘   │
+│                                                                 │
+│   ⚠️  KYC is required for ALL USERS to access the system:       │
+│      • All Principals (clients)                                 │
+│      • All Witnesses                                            │
+│      • All ENPs (during their accreditation process)            │
+│                                                                 │
+│   📝 Note: KYC is different from Liveness Check.                │
+│      KYC = one-time identity verification to access system      │
+│      Liveness = real-time check before EVERY session            │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### 1.3 Pre-Session Security (Liveness + Geolocation)
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                                                                 │
+│   LIVENESS + GEOLOCATION CHECK (Before every session)           │
+│                                                                 │
+│   ┌─────────────────────────────────────────────────────────┐   │
+│   │                                                         │   │
+│   │   Before joining ANY session, each participant must:    │   │
+│   │                                                         │   │
+│   │   1. Liveness Check                                     │   │
+│   │      • Look at camera                                   │   │
+│   │      • Follow prompts                                   │   │
+│   │      • Proves you are a real human, present now         │   │
+│   │      • Prevents pre-recorded video fraud                │   │
+│   │                                                         │   │
+│   │   2. Geolocation Check                                  │   │
+│   │      • Must be in Philippines, OR                       │   │
+│   │      • At Philippine embassy/consular office abroad     │   │
+│   │      • VPN usage is detected and blocked                │   │
+│   │                                                         │   │
+│   │   3. Only after BOTH pass → [Join Session] enabled      │   │
+│   │                                                         │   │
+│   └─────────────────────────────────────────────────────────┘   │
+│                                                                 │
+│   ⚠️  This happens EVERY TIME before a session:                 │
+│      • Principal must pass                                      │
+│      • All Witnesses must pass                                  │
+│      • ENP must pass                                            │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Phase 2: ENP Selection (SC Compliance)
+
+Per SC Rules on eNotarization, users can choose ENPs in two ways.
+All booking flows start at `/browse` — the unified entry point.
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                                                                 │
+│   OPTION 1: BROWSE & SELECT (Choose Specific ENP)               │
+│   ═══════════════════════════════════════════════               │
 │                                                                 │
 │   Similar to online health consultation apps — pick your        │
 │   preferred professional.                                       │
 │                                                                 │
 │   ┌─────────────────────────────────────────────────────────┐   │
 │   │                                                         │   │
-│   │   1. Go to /find-notary                                 │   │
+│   │   1. Go to /browse                                      │   │
 │   │                                                         │   │
-│   │   2. Browse ENP Directory                               │   │
-│   │      • Filter by: specialization, ratings,              │   │
+│   │   2. Select [Browse ENPs] tab                           │   │
+│   │                                                         │   │
+│   │   3. Browse ENP Directory                               │   │
+│   │      • Filter by: specialization, ratings, badges,      │   │
 │   │        location, language, consultation rate            │   │
 │   │                                                         │   │
-│   │   3. View ENP profile                                   │   │
-│   │      • See qualifications, reviews, rates               │   │
+│   │   4. View ENP profile                                   │   │
+│   │      • See qualifications, reviews, rates, badges       │   │
 │   │      • Check availability calendar                      │   │
 │   │                                                         │   │
-│   │   4. Select specific date & time slot                   │   │
+│   │   5. Select specific date & time slot                   │   │
 │   │                                                         │   │
-│   │   5. Choose session type (Consultation/Notarization)    │   │
+│   │   6. Choose session type (Consultation/Notarization)    │   │
 │   │                                                         │   │
-│   │   6. Choose mode (REN/IEN/Hybrid)                       │   │
+│   │   7. Choose mode (REN/IEN/Hybrid)                       │   │
 │   │                                                         │   │
-│   │   7. Submit booking request                             │   │
+│   │   8. Submit booking request                             │   │
 │   │                                                         │   │
-│   │   8. Wait for ENP to accept/reject/reschedule           │   │
+│   │   9. Wait for ENP to accept/reject/reschedule           │   │
 │   │                                                         │   │
 │   └─────────────────────────────────────────────────────────┘   │
 │                                                                 │
@@ -265,31 +196,38 @@ Per SC Rules on eNotarization, users can choose ENPs in two ways:
 
 ┌─────────────────────────────────────────────────────────────────┐
 │                                                                 │
-│   OPTION 2: QUICK MATCH (Random Pairing)                        │
-│   ══════════════════════════════════════                        │
+│   OPTION 2: QUICK MATCH (Smart Pairing)                         │
+│   ═════════════════════════════════════                         │
 │                                                                 │
-│   Similar to ride-hailing apps (Grab, etc.) — system            │
-│   auto-assigns an available ENP.                                │
+│   System finds the best available ENP using a fair algorithm.   │
+│   (See "Quick Match Algorithm" section for details)             │
 │                                                                 │
 │   ┌─────────────────────────────────────────────────────────┐   │
 │   │                                                         │   │
-│   │   1. Go to /book (or click [Quick Match])               │   │
+│   │   1. Go to /browse                                      │   │
 │   │                                                         │   │
-│   │   2. Select service type (Consultation/Notarization)    │   │
+│   │   2. Select [Quick Match] tab                           │   │
 │   │                                                         │   │
-│   │   3. Select mode (REN/IEN/Hybrid)                       │   │
+│   │   3. Select service type (Consultation/Notarization)    │   │
 │   │                                                         │   │
-│   │   4. Choose preferred time window                       │   │
+│   │   4. Select mode (REN/IEN/Hybrid)                       │   │
+│   │                                                         │   │
+│   │   5. (Optional) Select document type for better match   │   │
+│   │                                                         │   │
+│   │   6. Choose preferred time window                       │   │
 │   │      (e.g., "Today 2-4 PM" or "ASAP")                   │   │
 │   │                                                         │   │
-│   │   5. Click [Find Available ENP]                         │   │
+│   │   7. Click [Find Best Match]                            │   │
 │   │                                                         │   │
-│   │   6. System auto-assigns an available ENP               │   │
+│   │   8. System shows matched ENP profile briefly           │   │
+│   │      (name, photo, rating, badges, specializations)     │   │
 │   │                                                         │   │
-│   │   7. Session confirmed immediately                      │   │
-│   │      (or next available slot shown)                     │   │
+│   │   9. Client can [Confirm] or [Find Another]             │   │
+│   │      (max 2 re-matches, then 10-min cooldown)           │   │
 │   │                                                         │   │
-│   │   Use case: Urgent requests, no ENP preference          │   │
+│   │   10. ENP has 60 seconds to accept                      │   │
+│   │                                                         │   │
+│   │   Use case: Urgent requests, trust the system           │   │
 │   │                                                         │   │
 │   └─────────────────────────────────────────────────────────┘   │
 │                                                                 │
@@ -304,7 +242,7 @@ Per SC Rules on eNotarization, users can choose ENPs in two ways:
 │                                                                 │
 │   ┌─────────────────────────────────────────────────────────┐   │
 │   │                                                         │   │
-│   │   1. Go to /find-notary                                 │   │
+│   │   1. Go to /browse → [Browse ENPs] tab                  │   │
 │   │                                                         │   │
 │   │   2. Browse and select an ENP                           │   │
 │   │                                                         │   │
@@ -335,41 +273,68 @@ Per SC Rules on eNotarization, users can choose ENPs in two ways:
 
 ### When to Use Each Path
 
-| Scenario                                    | Recommended Path     |
-| ------------------------------------------- | -------------------- |
-| Know exactly what you need                  | Scheduled Preference |
-| Urgent, no ENP preference                   | Quick Match          |
-| Have questions before committing            | Message First        |
-| Need ENP to review documents before booking | Message First        |
-| Regular client with established ENP         | Scheduled Preference |
+| Scenario                                    | Recommended Path |
+| ------------------------------------------- | ---------------- |
+| Know exactly what you need                  | Browse & Select  |
+| Urgent, no ENP preference                   | Quick Match      |
+| Have questions before committing            | Message First    |
+| Need ENP to review documents before booking | Message First    |
+| Regular client with established ENP         | Browse & Select  |
 
 ---
 
-## Session Modes
+## Quick Match Algorithm
 
-There are three ways to conduct a notarization or consultation session:
+The Quick Match system uses a **bidirectional scoring algorithm** that's fair to both ENPs and Principals.
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                                                                 │
-│   1. REN (Remote Electronic Notarization)                       │
-│   ══════════════════════════════════════                        │
-│                                                                 │
-│   ALL participants join via video call.                         │
+│   ENP SCORING (how system ranks available ENPs)                 │
+│   ═════════════════════════════════════════════                 │
 │                                                                 │
 │   ┌─────────────────────────────────────────────────────────┐   │
 │   │                                                         │   │
-│   │   Who's remote?     EVERYONE                            │   │
+│   │   BASE SCORE (0-100 points each):                       │   │
 │   │                                                         │   │
-│   │   Security checks:                                      │   │
-│   │    ✓ Liveness check (all participants)                  │   │
-│   │    ✓ Geolocation check (PH/embassy/consular)            │   │
-│   │    ✓ VPN detection (not allowed)                        │   │
+│   │   📊 Rating Score (25%)                                 │   │
+│   │      • Average client review rating                     │   │
+│   │      • Weighted by recency (recent reviews matter more) │   │
 │   │                                                         │   │
-│   │   Use case:                                             │   │
-│   │    • Client is abroad or in another city                │   │
-│   │    • Witnesses are in different locations               │   │
-│   │    • Convenient, no travel needed                       │   │
+│   │   ⚡ Speed Score (20%)                                   │   │
+│   │      • Average session duration vs expected             │   │
+│   │      • Response time to booking requests                │   │
+│   │                                                         │   │
+│   │   🏆 Experience Score (20%)                             │   │
+│   │      • Total completed notarizations                    │   │
+│   │      • Years as ENP                                     │   │
+│   │                                                         │   │
+│   │   🎯 Specialization Match (15%)                         │   │
+│   │      • If client specifies document type                │   │
+│   │      • ENP's expertise in that area                     │   │
+│   │                                                         │   │
+│   │   ⚖️  Workload Balancer (20%)                           │   │
+│   │      • Fewer recent sessions = higher score             │   │
+│   │      • Ensures fair distribution across ENPs            │   │
+│   │      • Prevents top ENPs from getting ALL requests      │   │
+│   │                                                         │   │
+│   └─────────────────────────────────────────────────────────┘   │
+│                                                                 │
+│   ┌─────────────────────────────────────────────────────────┐   │
+│   │                                                         │   │
+│   │   ENP BOOSTS (temporary score multipliers):             │   │
+│   │                                                         │   │
+│   │   🌟 New ENP Boost (+15%)                               │   │
+│   │      • First 30 days on platform                        │   │
+│   │      • Helps new ENPs build initial client base         │   │
+│   │                                                         │   │
+│   │   🔄 Returning-from-Inactive Boost (+10%)               │   │
+│   │      • ENP was inactive 30+ days, now back              │   │
+│   │      • Lasts for 7 days after return                    │   │
+│   │                                                         │   │
+│   │   💎 Rare Specialization Boost (+10%)                   │   │
+│   │      • ENP has expertise few others have                │   │
+│   │      • e.g., foreign language, specific legal area      │   │
 │   │                                                         │   │
 │   └─────────────────────────────────────────────────────────┘   │
 │                                                                 │
@@ -377,24 +342,26 @@ There are three ways to conduct a notarization or consultation session:
 
 ┌─────────────────────────────────────────────────────────────────┐
 │                                                                 │
-│   2. IEN (In-Person Electronic Notarization)                    │
-│   ══════════════════════════════════════════                    │
+│   PRINCIPAL SCORING (how system evaluates clients)              │
+│   ════════════════════════════════════════════════              │
 │                                                                 │
-│   ALL participants meet at the same physical location.          │
+│   ENPs see client score when receiving Quick Match requests.    │
+│   This helps ENPs make informed decisions.                      │
 │                                                                 │
 │   ┌─────────────────────────────────────────────────────────┐   │
 │   │                                                         │   │
-│   │   Who's in-person?  EVERYONE                            │   │
+│   │   ✓ Verification Status                                 │   │
+│   │     • KYC completed and verified                        │   │
+│   │     • ID documents validated                            │   │
 │   │                                                         │   │
-│   │   Security checks:                                      │   │
-│   │    ✓ ENP verifies identity in person                    │   │
-│   │    ✓ Physical ID inspection                             │   │
-│   │    ✗ No liveness/geolocation/VPN checks needed          │   │
+│   │   📅 Reliability Score                                  │   │
+│   │     • Show-up rate (attended vs no-show)                │   │
+│   │     • Payment success rate                              │   │
+│   │     • Cancellation history                              │   │
 │   │                                                         │   │
-│   │   Use case:                                             │   │
-│   │    • All parties are local                              │   │
-│   │    • Complex documents requiring physical presence      │   │
-│   │    • Client prefers face-to-face interaction            │   │
+│   │   📜 Session History                                    │   │
+│   │     • Total completed sessions                          │   │
+│   │     • Previous ENP reviews of this client               │   │
 │   │                                                         │   │
 │   └─────────────────────────────────────────────────────────┘   │
 │                                                                 │
@@ -402,220 +369,291 @@ There are three ways to conduct a notarization or consultation session:
 
 ┌─────────────────────────────────────────────────────────────────┐
 │                                                                 │
-│   3. HYBRID (Mixed Mode)                                        │
+│   PENALTIES & COOLDOWNS                                         │
+│   ═════════════════════                                         │
+│                                                                 │
+│   ┌─────────────────────────────────────────────────────────┐   │
+│   │                                                         │   │
+│   │   FOR ENPs:                                             │   │
+│   │                                                         │   │
+│   │   ⚠️  Decline Penalty                                   │   │
+│   │      • Declining Quick Match requests drops score       │   │
+│   │      • 3+ declines in 24 hours: -5% to overall score    │   │
+│   │      • 5+ declines in 24 hours: -10% to overall score   │   │
+│   │      • Affects "Fast Responder" badge eligibility       │   │
+│   │                                                         │   │
+│   │   💡 Tip: ENPs can opt-out of Quick Match in settings   │   │
+│   │      instead of repeatedly declining                    │   │
+│   │                                                         │   │
+│   │   ─────────────────────────────────────────────────     │   │
+│   │                                                         │   │
+│   │   FOR PRINCIPALS:                                       │   │
+│   │                                                         │   │
+│   │   ⏳ Re-match Cooldown                                  │   │
+│   │      • Max 2 "Find Another" attempts per request        │   │
+│   │      • After 2 re-matches: 10-minute cooldown           │   │
+│   │      • Must browse manually or wait                     │   │
+│   │                                                         │   │
+│   │   This prevents clients from endlessly cycling          │   │
+│   │   through ENPs and wasting their time.                  │   │
+│   │                                                         │   │
+│   └─────────────────────────────────────────────────────────┘   │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Quick Match — Client Experience
+
+```
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                                                                              │
+│   CLIENT QUICK MATCH FLOW                                                    │
+│                                                                              │
+│   CLIENT                        SYSTEM                                       │
+│      │                             │                                         │
+│      │   Goes to /browse           │                                         │
+│      │   Selects [Quick Match]     │                                         │
+│      │   Fills in preferences      │                                         │
+│      │   Clicks [Find Best Match]  │                                         │
+│      │────────────────────────────►│                                         │
+│      │                             │                                         │
+│      │                             │   System calculates scores              │
+│      │                             │   for all available ENPs                │
+│      │                             │                                         │
+│      │   ┌────────────────────────────────────────────┐                      │
+│      │   │ 🎯 Best Match Found!                       │                      │
+│      │   │                                            │                      │
+│      │   │ ┌──────┐                                   │                      │
+│      │   │ │ 👤   │  Atty. Maria Santos               │                      │
+│      │   │ │      │  ⭐ 4.8 (127 reviews)             │                      │
+│      │   │ └──────┘                                   │                      │
+│      │   │                                            │                      │
+│      │   │ 🏆 Top Rated  ⚡ Fast Responder            │                       │
+│      │   │ 📜 500+ Sessions                           │                      │
+│      │   │                                            │                      │
+│      │   │ Specializations:                           │                      │
+│      │   │ • Real Estate  • Business Contracts        │                      │
+│      │   │                                            │                      │
+│      │   │ Available: Today 3:00 PM                   │                      │
+│      │   │                                            │                      │
+│      │   │ [✓ Confirm]    [↻ Find Another (2 left)]   │                      │
+│      │   └────────────────────────────────────────────┘                      │
+│      │                             │                                         │
+│      │   Clicks [Confirm]          │                                         │
+│      │────────────────────────────►│                                         │
+│      │                             │                                         │
+│      │                             │   Request sent to ENP                   │
+│      │                             │   (60-second timer starts)              │
+│      │                             │                                         │
+│      │   ┌────────────────────────────────────────────┐                      │
+│      │   │ ⏳ Waiting for Atty. Santos to accept...   │                      │
+│      │   │                                            │                      │
+│      │   │ ████████████░░░░░░░░  45 seconds left      │                      │
+│      │   └────────────────────────────────────────────┘                      │
+│      │                             │                                         │
+│      │                             │   ENP accepts!                          │
+│      │                             │                                         │
+│      │   ┌────────────────────────────────────────────┐                      │
+│      │   │ ✓ Session Booked!                          │                      │
+│      │   │                                            │                      │
+│      │   │ Notarization (REN) with Atty. Maria Santos │                      │
+│      │   │ Today • 3:00 PM                            │                      │
+│      │   │                                            │                      │
+│      │   │ [View Details]    [Add to Calendar]        │                      │
+│      │   └────────────────────────────────────────────┘                      │
+│      │                             │                                         │
+└──────┴─────────────────────────────┴─────────────────────────────────────────┘
+```
+
+---
+
+## Quick Match — ENP Experience
+
+```
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                                                                              │
+│   ENP QUICK MATCH FLOW                                                       │
+│                                                                              │
+│   SYSTEM                           ENP                                       │
+│      │                              │                                        │
+│      │   Incoming Quick Match!      │                                        │
+│      │   (push notification +       │                                        │
+│      │    in-app alert)             │                                        │
+│      │─────────────────────────────►│                                        │
+│      │                              │                                        │
+│      │   ┌────────────────────────────────────────────┐                      │
+│      │   │ 🔔 Quick Match Request                     │                      │
+│      │   │                                            │                      │
+│      │   │ ┌──────┐                                   │                      │
+│      │   │ │ 👤   │  Juan Santos                      │                      │
+│      │   │ │      │  ✓ Verified  📅 12 sessions       │                      │
+│      │   │ └──────┘  ⭐ 98% reliability               │                      │
+│      │   │                                            │                      │
+│      │   │ 🏷️ Returning Client                        │                      │
+│      │   │                                            │                      │
+│      │   │ Service: Notarization (REN)                │                      │
+│      │   │ Document: Deed of Sale                     │                      │
+│      │   │ When: Today 3:00 PM                        │                      │
+│      │   │                                            │                      │
+│      │   │ ⏱️ 60 seconds to respond                   │                      │
+│      │   │ ████████████████░░░░  48 sec               │                      │
+│      │   │                                            │                      │
+│      │   │ [✓ Accept]    [✗ Decline]                  │                      │
+│      │   └────────────────────────────────────────────┘                      │
+│      │                              │                                        │
+│      │                              │   ENP clicks [Accept]                  │
+│      │◄─────────────────────────────│                                        │
+│      │                              │                                        │
+│      │   Session confirmed!         │                                        │
+│      │   Added to ENP calendar      │                                        │
+│      │                              │                                        │
+│      │   ─────────────────────────────────────────────────────────           │
+│      │                              │                                        │
+│      │   IF ENP doesn't respond in 60 seconds:                               │
+│      │   → Auto-decline                                                      │
+│      │   → System tries next best ENP                                        │
+│      │   → Counts as decline (affects score)                                 │
+│      │                              │                                        │
+└──────┴──────────────────────────────┴────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
+│                                                                 │
+│   ENP QUICK MATCH SETTINGS (in /settings)                       │
+│   ═══════════════════════════════════════                       │
+│                                                                 │
+│   ┌─────────────────────────────────────────────────────────┐   │
+│   │                                                         │   │
+│   │   Quick Match Preferences                               │   │
+│   │                                                         │   │
+│   │   ┌─────────────────────────────────────────────────┐   │   │
+│   │   │                                                 │   │   │
+│   │   │   [✓] Opt-in to Quick Match                     │   │   │
+│   │   │                                                 │   │   │
+│   │   │   Max Quick Match sessions per day: [5 ▼]       │   │   │
+│   │   │                                                 │   │   │
+│   │   │   Accept requests for:                          │   │   │
+│   │   │   [✓] Notarization                              │   │   │
+│   │   │   [✓] Consultation                              │   │   │
+│   │   │                                                 │   │   │
+│   │   │   Accept modes:                                 │   │   │
+│   │   │   [✓] REN (Remote)                              │   │   │
+│   │   │   [✓] IEN (In-Person)                           │   │   │
+│   │   │   [✓] Hybrid                                    │   │   │
+│   │   │                                                 │   │   │
+│   │   │   Quiet hours (no Quick Match):                 │   │   │
+│   │   │   [10:00 PM] to [7:00 AM]                       │   │   │
+│   │   │                                                 │   │   │
+│   │   └─────────────────────────────────────────────────┘   │   │
+│   │                                                         │   │
+│   │   💡 Opting out has no penalty.                         │   │
+│   │      Declining while opted-in affects your score.       │   │
+│   │                                                         │   │
+│   └─────────────────────────────────────────────────────────┘   │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Badge System
+
+Badges are visual trust indicators displayed on profiles and during Quick Match.
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                                                                 │
+│   ENP BADGES                                                    │
+│   ══════════                                                    │
+│                                                                 │
+│   ┌─────────────────────────────────────────────────────────┐   │
+│   │                                                         │   │
+│   │   🏆 TOP RATED                                          │   │
+│   │      • 4.8+ average rating                              │   │
+│   │      • Minimum 50 reviews                               │   │
+│   │      • Reviewed monthly                                 │   │
+│   │                                                         │   │
+│   │   ⚡ FAST RESPONDER                                      │   │
+│   │      • Accepts 90%+ of requests within time limit       │   │
+│   │      • Average response time under 30 seconds           │   │
+│   │      • Reviewed weekly                                  │   │
+│   │                                                         │   │
+│   │   📜 100+ SESSIONS / 500+ SESSIONS / 1000+ SESSIONS     │   │
+│   │      • Milestone badges for completed notarizations     │   │
+│   │      • Permanent once earned                            │   │
+│   │                                                         │   │
+│   │   🎯 SPECIALIST: [AREA]                                 │   │
+│   │      • e.g., "Specialist: Real Estate"                  │   │
+│   │      • 50+ sessions in specific document category       │   │
+│   │      • Self-declared + verified by session history      │   │
+│   │                                                         │   │
+│   │   🌟 RISING STAR                                        │   │
+│   │      • New ENP (first 30 days)                          │   │
+│   │      • 4.5+ rating in first 10 sessions                 │   │
+│   │      • Encourages clients to try new ENPs               │   │
+│   │                                                         │   │
+│   │   ✓ SC ACCREDITED                                       │   │
+│   │      • Default badge for all verified ENPs              │   │
+│   │      • Confirms valid commission under SC rules         │   │
+│   │                                                         │   │
+│   └─────────────────────────────────────────────────────────┘   │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
+│                                                                 │
+│   PRINCIPAL (CLIENT) BADGES                                     │
+│   ═════════════════════════                                     │
+│                                                                 │
+│   ┌─────────────────────────────────────────────────────────┐   │
+│   │                                                         │   │
+│   │   ✓ VERIFIED                                            │   │
+│   │      • KYC completed and validated                      │   │
+│   │      • Government ID verified                           │   │
+│   │      • Default for all active users                     │   │
+│   │                                                         │   │
+│   │   🔄 RETURNING CLIENT                                   │   │
+│   │      • 3+ completed sessions                            │   │
+│   │      • 95%+ show-up rate                                │   │
+│   │      • Signals reliability to ENPs                      │   │
+│   │                                                         │   │
+│   │   📜 10+ SESSIONS / 50+ SESSIONS                        │   │
+│   │      • Milestone badges for session history             │   │
+│   │      • Shows experience with the platform               │   │
+│   │                                                         │   │
+│   │   ⭐ GREAT CLIENT                                       │   │
+│   │      • 4.8+ average rating from ENPs                    │   │
+│   │      • ENPs can rate clients after sessions             │   │
+│   │      • Based on: preparedness, communication,           │   │
+│   │        punctuality, payment                             │   │
+│   │                                                         │   │
+│   └─────────────────────────────────────────────────────────┘   │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
+│                                                                 │
+│   BADGE DISPLAY EXAMPLES                                        │
 │   ══════════════════════                                        │
 │                                                                 │
-│   Some participants are in-person, some join remotely.          │
-│                                                                 │
+│   ENP Profile Card:                                             │
 │   ┌─────────────────────────────────────────────────────────┐   │
 │   │                                                         │   │
-│   │   Who's where?                                          │   │
-│   │    • ENP: Usually in-person, but CAN be remote          │   │
-│   │      (e.g., OFW at embassy — ENP may request            │   │
-│   │       camera pan for manual location verification)      │   │
-│   │    • Principal: Could be either                         │   │
-│   │    • Witnesses: Could be either                         │   │
+│   │   Atty. Maria Santos                                    │   │
+│   │   ⭐ 4.9 (234 reviews)                                  │   │
 │   │                                                         │   │
-│   │   Security checks:                                      │   │
-│   │    ✓ REMOTE participants: Full REN checks               │   │
-│   │      (liveness, geolocation, VPN detection)             │   │
-│   │    ✓ IN-PERSON participants: Physical verification      │   │
-│   │      by ENP                                             │   │
-│   │                                                         │   │
-│   │   Use case:                                             │   │
-│   │    • Principal with ENP, witness joins remotely         │   │
-│   │    • Multiple principals in different locations         │   │
-│   │    • One co-signer abroad, others local                 │   │
-│   │    • OFW at embassy needs notarization                  │   │
+│   │   🏆 Top Rated  ⚡ Fast Responder  📜 500+ Sessions     │   │
+│   │   🎯 Specialist: Real Estate                            │   │
 │   │                                                         │   │
 │   └─────────────────────────────────────────────────────────┘   │
 │                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-### Security Check Summary by Mode
-
-| Participant         | REN (Remote)                    | IEN (In-Person)    | HYBRID                          |
-| ------------------- | ------------------------------- | ------------------ | ------------------------------- |
-| **Remote users**    | Liveness + Geolocation + No VPN | N/A                | Liveness + Geolocation + No VPN |
-| **In-person users** | N/A                             | Physical ID by ENP | Physical ID by ENP              |
-| **ENP**             | Liveness + Geolocation + No VPN | Present physically | Usually physical, can be remote |
-
----
-
-## Payment Model
-
-### Consultation Sessions
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                                                                 │
-│   ENP sets consultation rate                                    │
-│   (in their profile settings, BEFORE any booking)               │
-│                                                                 │
-│         Example: ₱500/hour                                      │
-│                                                                 │
+│   Client Profile Card (shown to ENP):                           │
 │   ┌─────────────────────────────────────────────────────────┐   │
 │   │                                                         │   │
-│   │   Client books 1-hour consultation                      │   │
-│   │                                                         │   │
-│   │   Total: ₱500                                           │   │
-│   │    ├── ENP receives: ₱450 (90%)                         │   │
-│   │    └── Platform fee: ₱50  (10%)                         │   │
-│   │                                                         │   │
-│   │   Payment: BEFORE session (after ENP accepts)           │   │
-│   │                                                         │   │
-│   └─────────────────────────────────────────────────────────┘   │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-### Notarization Sessions
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                                                                 │
-│   ENP DEFAULT FEES (set in profile settings — OPTIONAL)         │
-│                                                                 │
-│   ENPs can pre-set default fees per document type.              │
-│   They can also set DIFFERENT rates based on who provides       │
-│   the document:                                                 │
-│                                                                 │
-│   ┌─────────────────────────────────────────────────────────┐   │
-│   │                                                         │   │
-│   │   Default Notarization Fees:                            │   │
-│   │                                                         │   │
-│   │                              Client      ENP            │   │
-│   │   Document Type              Provides    Provides       │   │
-│   │   ─────────────────────────────────────────────────     │   │
-│   │   • Jurat .................. ₱150       ₱250            │   │
-│   │   • Acknowledgement ........ ₱200       ₱350            │   │
-│   │   • Certified Copy ......... ₱100       ₱150            │   │
-│   │   • Oath/Affirmation ....... ₱150       ₱200            │   │
-│   │   • Signature Witnessing ... ₱100       ₱150            │   │
-│   │                                                         │   │
-│   │   💡 ENP-provided docs are typically more expensive     │   │
-│   │      because ENP prepares the template/content          │   │
-│   │                                                         │   │
-│   │   These are PRE-FILLED during session but EDITABLE      │   │
-│   │   (ENP can adjust per document as needed)               │   │
-│   │                                                         │   │
-│   └─────────────────────────────────────────────────────────┘   │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────────────────────────┐
-│                                                                 │
-│   DOCUMENT UPLOAD & FEE ASSIGNMENT (during session)             │
-│                                                                 │
-│   Either party can upload documents during the session:         │
-│                                                                 │
-│   ┌─────────────────────────────────────────────────────────┐   │
-│   │                                                         │   │
-│   │   SCENARIO A: CLIENT UPLOADS DOCUMENT                   │   │
-│   │                                                         │   │
-│   │   1. Client uploads file                                │   │
-│   │   2. ENP reviews document                               │   │
-│   │   3. ENP assigns via modal:                             │   │
-│   │      • Document type (Jurat, Acknowledgement, etc.)     │   │
-│   │      • Fee (PRE-FILLED from "Client Provides" default)  │   │
-│   │      • Tags/labels (optional)                           │   │
-│   │   4. Client sees ENP's review                           │   │
-│   │   5. Client marks as "Reviewed & Approved"              │   │
-│   │                                                         │   │
-│   └─────────────────────────────────────────────────────────┘   │
-│                                                                 │
-│   ┌─────────────────────────────────────────────────────────┐   │
-│   │                                                         │   │
-│   │   SCENARIO B: ENP UPLOADS PREPARED DOCUMENT             │   │
-│   │                                                         │   │
-│   │   1. ENP uploads file via modal with REQUIRED fields:   │   │
-│   │      • Document type (Jurat, Acknowledgement, etc.)     │   │
-│   │      • Fee (PRE-FILLED from "ENP Provides" default)     │   │
-│   │      • Tags/labels (optional)                           │   │
-│   │   2. Client receives document                           │   │
-│   │   3. Client reviews content                             │   │
-│   │   4. Client marks as "Reviewed & Approved"              │   │
-│   │                                                         │   │
-│   └─────────────────────────────────────────────────────────┘   │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────────────────────────┐
-│                                                                 │
-│   DOCUMENT LOCKING                                              │
-│                                                                 │
-│   After ALL documents are reviewed & approved:                  │
-│                                                                 │
-│   ┌─────────────────────────────────────────────────────────┐   │
-│   │                                                         │   │
-│   │   ENP clicks [🔒 Lock Documents]                        │   │
-│   │                                                         │   │
-│   │   What this does:                                       │   │
-│   │    ✗ No new documents can be added                      │   │
-│   │    ✗ Existing documents cannot be edited                │   │
-│   │    ✗ Fees cannot be changed                             │   │
-│   │    ✗ Document list is frozen                            │   │
-│   │                                                         │   │
-│   │   ⚠️  Can ONLY lock when ALL docs are approved          │   │
-│   │                                                         │   │
-│   │   After locking → Payment button becomes available      │   │
-│   │                                                         │   │
-│   │   ─────────────────────────────────────────────────     │   │
-│   │                                                         │   │
-│   │   UNLOCK: ENP can click [🔓 Unlock Documents]           │   │
-│   │    • Requires client to RE-APPROVE all documents        │   │
-│   │    • Use case: Client requests changes after lock       │   │
-│   │                                                         │   │
-│   └─────────────────────────────────────────────────────────┘   │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────────────────────────┐
-│                                                                 │
-│   PAYMENT (after documents locked)                              │
-│                                                                 │
-│   ┌─────────────────────────────────────────────────────────┐   │
-│   │                                                         │   │
-│   │   Example session with 3 documents:                     │   │
-│   │                                                         │   │
-│   │    • Deed of Sale (Ack, Client) ........ ₱200  ✓ 🔒     │   │
-│   │    • Affidavit (Jurat, ENP) ............ ₱250  ✓ 🔒     │   │
-│   │    • SPA (Ack, Client) ................. ₱200  ✓ 🔒     │   │
-│   │                                         ──────          │   │
-│   │   Total: ₱650                                           │   │
-│   │    ├── ENP receives: ₱585 (90%)                         │   │
-│   │    └── Platform fee: ₱65  (10%)                         │   │
-│   │                                                         │   │
-│   └─────────────────────────────────────────────────────────┘   │
-│                                                                 │
-│   ┌─────────────────────────────────────────────────────────┐   │
-│   │                                                         │   │
-│   │   PAYMENT METHODS                                       │   │
-│   │                                                         │   │
-│   │   For REN (Remote):                                     │   │
-│   │    • Online payment only                                │   │
-│   │      ┌──────────┐  ┌──────────┐                         │   │
-│   │      │   Card   │  │  GCash/  │                         │   │
-│   │      │    💳    │  │   Maya   │                         │   │
-│   │      └──────────┘  └──────────┘                         │   │
-│   │                                                         │   │
-│   │   For IEN (In-Person) or HYBRID:                        │   │
-│   │    • Client chooses payment method:                     │   │
-│   │      ┌──────────┐  ┌──────────┐  ┌──────────┐           │   │
-│   │      │   Card   │  │    QR    │  │   Cash   │           │   │
-│   │      │    💳    │  │    📱    │  │    💵    │           │   │
-│   │      │          │  │ (GCash/  │  │          │           │   │
-│   │      │          │  │  Maya)   │  │          │           │   │
-│   │      └──────────┘  └──────────┘  └──────────┘           │   │
-│   │                                                         │   │
-│   │   For CASH payments (IEN/HYBRID):                       │   │
-│   │    • Client pays ENP directly                           │   │
-│   │    • ENP clicks [✓ Client Paid Cash] button             │   │
-│   │    • System records payment as confirmed                │   │
-│   │                                                         │   │
-│   │   ✓ All payments go through system                      │   │
-│   │   ✓ Official Receipt issued for every transaction       │   │
+│   │   Juan Santos                                           │   │
+│   │   ✓ Verified  🔄 Returning Client  📜 10+ Sessions      │   │
+│   │   ⭐ 98% reliability                                    │   │
 │   │                                                         │   │
 │   └─────────────────────────────────────────────────────────┘   │
 │                                                                 │
@@ -624,56 +662,94 @@ There are three ways to conduct a notarization or consultation session:
 
 ---
 
-## Session Recording
+## Phase 3: Session Modes (REN / IEN / HYBRID)
+
+### 3.1 Mode Comparison
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────────────┐
+│                                                                                         │
+│   SESSION MODES COMPARISON                                                              │
+│                                                                                         │
+│   ┌───────────────────────────────────────────────────────────────────────────────────┐ │
+│   │                                                                                   │ │
+│   │   REN (Remote Electronic Notarization)                                            │ │
+│   │   ════════════════════════════════════                                            │ │
+│   │                                                                                   │ │
+│   │   WHO:     All parties join via VIDEO CALL                                        │ │
+│   │            ENP (remote) ←→ Principal (remote) ←→ Witnesses (remote)               │ │
+│   │                                                                                   │ │
+│   │   WHERE:   Each person at their own location                                      │ │
+│   │            Must be in Philippines or at PH embassy/consular                       │ │
+│   │                                                                                   │ │
+│   │   USE:     OFWs abroad, clients in different cities, convenience                  │ │
+│   │                                                                                   │ │
+│   │   FLOW:    All join video → All do liveness check → Sign digitally                │ │
+│   │                                                                                   │ │
+│   └───────────────────────────────────────────────────────────────────────────────────┘ │
+│                                                                                         │
+│   ┌───────────────────────────────────────────────────────────────────────────────────┐ │
+│   │                                                                                   │ │
+│   │   IEN (In-Person Electronic Notarization)                                         │ │
+│   │   ═════════════════════════════════════                                           │ │
+│   │                                                                                   │ │
+│   │   WHO:     All parties PHYSICALLY PRESENT with ENP                                │ │
+│   │            ENP + Principal + Witnesses in same room                               │ │
+│   │                                                                                   │ │
+│   │   WHERE:   ENP's office or designated location                                    │ │
+│   │                                                                                   │ │
+│   │   USE:     Traditional notarization, high-value transactions                      │ │
+│   │                                                                                   │ │
+│   │   FLOW:    All present → Liveness check on ENP's device → Sign on device          │ │
+│   │                                                                                   │ │
+│   └───────────────────────────────────────────────────────────────────────────────────┘ │
+│                                                                                         │
+│   ┌───────────────────────────────────────────────────────────────────────────────────┐ │
+│   │                                                                                   │ │
+│   │   HYBRID (Mixed Mode)                                                             │ │
+│   │   ═══════════════════                                                             │ │
+│   │                                                                                   │ │
+│   │   WHO:     SOME parties remote, SOME in-person                                    │ │
+│   │            Example: Principal at embassy + Witness remote + ENP remote            │ │
+│   │                                                                                   │ │
+│   │   WHERE:   Mixed locations                                                        │ │
+│   │                                                                                   │ │
+│   │   USE:     OFW (at embassy) + family member (in Philippines) signing together     │ │
+│   │                                                                                   │ │
+│   │   FLOW:    Video call connects all → Each does liveness at their location         │ │
+│   │                                                                                   │ │
+│   └───────────────────────────────────────────────────────────────────────────────────┘ │
+│                                                                                         │
+└─────────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 3.2 Mode Selection During Booking
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                                                                 │
-│   RECORDING (for ALL session types)                             │
-│                                                                 │
-│   Recording is OPTIONAL for all sessions:                       │
-│    • REN (Remote)                                               │
-│    • IEN (In-Person) — if venue has recording capability        │
-│    • HYBRID                                                     │
-│    • Consultations                                              │
+│   MODE SELECTION UI                                             │
 │                                                                 │
 │   ┌─────────────────────────────────────────────────────────┐   │
 │   │                                                         │   │
-│   │   WHO CAN START?                                        │   │
-│   │    • Anyone in the session can click [🔴 Start Record]  │   │
+│   │   How will you meet with the notary?                    │   │
 │   │                                                         │   │
-│   │   CONSENT REQUIRED:                                     │   │
-│   │    • When someone starts recording, ALL parties see     │   │
-│   │      a consent prompt:                                  │   │
+│   │   ┌─────────────────────────────────────────────────┐   │   │
+│   │   │                                                 │   │   │
+│   │   │   ○ REN — Everyone joins via video call         │   │   │
+│   │   │     Best for: Remote locations, convenience     │   │   │
+│   │   │                                                 │   │   │
+│   │   │   ○ IEN — Everyone meets in person              │   │   │
+│   │   │     Best for: Traditional preference, complex   │   │   │
+│   │   │     documents                                   │   │   │
+│   │   │                                                 │   │   │
+│   │   │   ○ HYBRID — Mix of remote and in-person        │   │   │
+│   │   │     Best for: OFW + local family member         │   │   │
+│   │   │                                                 │   │   │
+│   │   └─────────────────────────────────────────────────┘   │   │
 │   │                                                         │   │
-│   │      ┌────────────────────────────────────────────┐     │   │
-│   │      │  🔴 Recording Request                      │     │   │
-│   │      │                                            │     │   │
-│   │      │  [User] wants to record this session.      │     │   │
-│   │      │                                            │     │   │
-│   │      │  Do you consent to being recorded?         │     │   │
-│   │      │                                            │     │   │
-│   │      │  [Yes, I consent]    [No, decline]         │     │   │
-│   │      └────────────────────────────────────────────┘     │   │
-│   │                                                         │   │
-│   │    ✓ Recording ONLY starts when ALL parties consent     │   │
-│   │    ✗ If anyone declines → recording does not start      │   │
-│   │                                                         │   │
-│   └─────────────────────────────────────────────────────────┘   │
-│                                                                 │
-│   ┌─────────────────────────────────────────────────────────┐   │
-│   │                                                         │   │
-│   │   AFTER SESSION ENDS:                                   │   │
-│   │                                                         │   │
-│   │   Participants can download:                            │   │
-│   │                                                         │   │
-│   │    🎥 Session recording (if recorded)                   │   │
-│   │                                                         │   │
-│   │    📄 Notarized documents with:                         │   │
-│   │       • Digital seal                                    │   │
-│   │       • Certificate of notarization                     │   │
-│   │                                                         │   │
-│   │    🧾 Official Receipt                                  │   │
+│   │   ⚠️ Note: All parties must be in Philippines or at     │   │
+│   │      a Philippine embassy/consular office abroad.       │   │
 │   │                                                         │   │
 │   └─────────────────────────────────────────────────────────┘   │
 │                                                                 │
@@ -682,297 +758,483 @@ There are three ways to conduct a notarization or consultation session:
 
 ---
 
-## Notarization Session — Detailed Steps
+## Phase 4: Session Types
+
+### 4.1 Consultation vs Notarization
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────────────┐
+│                                                                                         │
+│   SESSION TYPES                                                                         │
+│                                                                                         │
+│   ┌───────────────────────────────────────┬───────────────────────────────────────────┐ │
+│   │                                       │                                           │ │
+│   │   CONSULTATION                        │   NOTARIZATION                            │ │
+│   │   ════════════                        │   ════════════                            │ │
+│   │                                       │                                           │ │
+│   │   Purpose:                            │   Purpose:                                │ │
+│   │   • Ask questions                     │   • Officially notarize documents         │ │
+│   │   • Get legal advice                  │   • Create legal records                  │ │
+│   │   • Review documents                  │   • Bind signatures                       │ │
+│   │   • Discuss options                   │                                           │ │
+│   │                                       │                                           │ │
+│   │   Payment:                            │   Payment:                                │ │
+│   │   • PAY UPFRONT (before session)      │   • PAY UPFRONT (before session starts)   │ │
+│   │   • Based on ENP's consultation rate  │   • Based on ENP's fee per document       │ │
+│   │                                       │   • Plus platform fee (10%)               │ │
+│   │                                       │                                           │ │
+│   │   Output:                             │   Output:                                 │ │
+│   │   • No official documents             │   • Notarized documents (PDF)             │ │
+│   │   • Chat/video transcript (optional)  │   • Entry in notarial book                │ │
+│   │                                       │   • Session recording (optional)          │ │
+│   │                                       │                                           │ │
+│   │   Can upgrade to:                     │   Recording:                              │ │
+│   │   • Notarization (if needed)          │   • Optional (can be enabled)             │ │
+│   │                                       │   • Stored per SC requirements if enabled │ │
+│   │                                       │                                           │ │
+│   └───────────────────────────────────────┴───────────────────────────────────────────┘ │
+│                                                                                         │
+└─────────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 4.2 Payment Split
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                                                                 │
+│   PAYMENT DISTRIBUTION                                          │
+│                                                                 │
+│   ┌─────────────────────────────────────────────────────────┐   │
+│   │                                                         │   │
+│   │   Total Fee: ₱1,000 (example)                           │   │
+│   │                                                         │   │
+│   │   ┌─────────────────────────────────────────────────┐   │   │
+│   │   │ ██████████████████████████████████████████ 90%  │   │   │
+│   │   │                                                 │   │   │
+│   │   │                 ENP: ₱900                       │   │   │
+│   │   └─────────────────────────────────────────────────┘   │   │
+│   │                                                         │   │
+│   │   ┌─────┐                                               │   │
+│   │   │████ │ 10%  Platform: ₱100                           │   │
+│   │   └─────┘                                               │   │
+│   │                                                         │   │
+│   └─────────────────────────────────────────────────────────┘   │
+│                                                                 │
+│   ⚠️ IEN sessions can accept CASH payment                       │
+│      ENP clicks [✓ Client Paid Cash] to confirm                 │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Phase 5: Document Management
+
+### 5.1 Document Upload & Review Flow
+
+Documents can be uploaded by either party. The review process differs based on who uploaded.
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                                                                 │
+│   FLOW A: PRINCIPAL UPLOADS DOCUMENT                            │
+│   ══════════════════════════════════                            │
+│                                                                 │
+│   ┌─────────────────────────────────────────────────────────┐   │
+│   │                                                         │   │
+│   │   1. Principal uploads document                         │   │
+│   │      • Contract drafts, supporting docs, etc.           │   │
+│   │      • Can optionally add document type tag             │   │
+│   │                                                         │   │
+│   │   2. ENP reviews the document                           │   │
+│   │      • Adds/corrects document type tag (if missing)     │   │
+│   │      • Sets notarization fee for THIS document          │   │
+│   │        (can be different per document)                  │   │
+│   │      • Can request changes or reject                    │   │
+│   │                                                         │   │
+│   │   3. Once ENP finishes review → Document ready          │   │
+│   │                                                         │   │
+│   └─────────────────────────────────────────────────────────┘   │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
+│                                                                 │
+│   FLOW B: ENP UPLOADS DOCUMENT                                  │
+│   ══════════════════════════════                                │
+│                                                                 │
+│   ┌─────────────────────────────────────────────────────────┐   │
+│   │                                                         │   │
+│   │   1. ENP uploads document                               │   │
+│   │      • Templates, corrected versions, forms             │   │
+│   │      • Must include: document type tag                  │   │
+│   │      • Must include: notarization fee for this doc      │   │
+│   │                                                         │   │
+│   │   2. Principal reviews the document                     │   │
+│   │      • Views document content                           │   │
+│   │      • Sees the fee ENP set for this document           │   │
+│   │      • Clicks [✓ Approve] or [✗ Request Changes]        │   │
+│   │                                                         │   │
+│   │   3. Once Principal approves → Document ready           │   │
+│   │                                                         │   │
+│   └─────────────────────────────────────────────────────────┘   │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### 5.2 Document Locking & Payment
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                                                                 │
+│   DOCUMENT LOCKING → PAYMENT → SESSION                          │
+│   ════════════════════════════════════                          │
+│                                                                 │
+│   ┌─────────────────────────────────────────────────────────┐   │
+│   │                                                         │   │
+│   │   STEP 1: All documents reviewed                        │   │
+│   │   ─────────────────────────────────                     │   │
+│   │   • Each document has been reviewed                     │   │
+│   │   • Each document has: type tag + ENP fee               │   │
+│   │   • Principal has approved ENP-uploaded docs            │   │
+│   │                                                         │   │
+│   │   STEP 2: ENP locks all documents                       │   │
+│   │   ─────────────────────────────────                     │   │
+│   │   • ENP clicks [🔒 Lock All Documents]                  │   │
+│   │   • Documents become LOCKED                             │   │
+│   │   • No more uploads or edits allowed                    │   │
+│   │   • Signing order is finalized                          │   │
+│   │                                                         │   │
+│   │   STEP 3: Principal pays total fees                     │   │
+│   │   ─────────────────────────────────                     │   │
+│   │   • System shows total: sum of all document fees + 10%  │   │
+│   │   • Principal pays via Card/GCash/Maya                  │   │
+│   │   • (IEN: can pay cash, ENP confirms)                   │   │
+│   │                                                         │   │
+│   │   STEP 4: Session can start                             │   │
+│   │   ─────────────────────────────────                     │   │
+│   │   • Payment confirmed → [Join Session] enabled          │   │
+│   │   • Documents signed in locked order                    │   │
+│   │                                                         │   │
+│   └─────────────────────────────────────────────────────────┘   │
+│                                                                 │
+│   ⚠️ IMPORTANT:                                                 │
+│      • Principal MUST PAY before notarization starts            │
+│      • Once locked, no new documents can be added               │
+│      • Once locked, existing documents cannot be edited         │
+│      • The signing order is set at lock time                    │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### 5.3 Document States
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                                                                 │
+│   DOCUMENT STATE DIAGRAM                                        │
+│                                                                 │
+│   Principal uploads:                                            │
+│   ┌──────────┐   ┌─────────────┐   ┌────────┐   ┌──────────┐   │
+│   │ UPLOADED │──►│ ENP REVIEW  │──►│ READY  │──►│  LOCKED  │   │
+│   └──────────┘   └─────────────┘   └────────┘   └──────────┘   │
+│                         │                            │          │
+│                         ▼                            ▼          │
+│                  ┌────────────┐              ┌───────────┐      │
+│                  │ NEEDS EDIT │              │ NOTARIZED │      │
+│                  └────────────┘              └───────────┘      │
+│                                                                 │
+│   ENP uploads:                                                  │
+│   ┌──────────┐   ┌───────────────┐   ┌────────┐   ┌────────┐   │
+│   │ UPLOADED │──►│ CLIENT REVIEW │──►│ READY  │──►│ LOCKED │   │
+│   └──────────┘   └───────────────┘   └────────┘   └────────┘   │
+│                         │                            │          │
+│                         ▼                            ▼          │
+│                  ┌────────────┐              ┌───────────┐      │
+│                  │ NEEDS EDIT │              │ NOTARIZED │      │
+│                  └────────────┘              └───────────┘      │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Phase 6: Witness Management
+
+### 6.1 Witness Invitation Flow
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                                                                 │
+│   WITNESS INVITATION (by Principal or ENP)                      │
+│                                                                 │
+│   ┌─────────────────────────────────────────────────────────┐   │
+│   │                                                         │   │
+│   │   1. From session details, click [+ Add Witness]        │   │
+│   │                                                         │   │
+│   │   2. Enter witness details:                             │   │
+│   │      • Full legal name                                  │   │
+│   │      • Email address                                    │   │
+│   │      • Phone number (optional)                          │   │
+│   │                                                         │   │
+│   │   3. Select witness participation mode:                 │   │
+│   │      ○ Remote (joins via video)                         │   │
+│   │      ○ In-person (at ENP location or embassy)           │   │
+│   │                                                         │   │
+│   │   4. Click [Send Invitation]                            │   │
+│   │                                                         │   │
+│   │   5. Witness receives email with:                       │   │
+│   │      • Link to register/login                           │   │
+│   │      • Session details                                  │   │
+│   │      • Instructions for KYC                             │   │
+│   │                                                         │   │
+│   └─────────────────────────────────────────────────────────┘   │
+│                                                                 │
+│   ⚠️ Witness Requirements:                                      │
+│      • Must complete KYC before session                         │
+│      • Must pass liveness check during session                  │
+│      • Must be in Philippines or at PH embassy/consular         │
+│      • No limit on number of witnesses                          │
+│      • No separate fee (covered by principal's payment)         │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### 6.2 Document Signing Status
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                                                                 │
+│   DOCUMENT SIGNING STATUS (during session)                      │
+│                                                                 │
+│   Track signing progress per document, not per person.          │
+│   Each document must be fully signed before moving to next.     │
+│                                                                 │
+│   ┌─────────────────────────────────────────────────────────┐   │
+│   │                                                         │   │
+│   │   Session #12345 — Signing Progress                     │   │
+│   │                                                         │   │
+│   │   ┌─────────────────────────────────────────────────┐   │   │
+│   │   │                                                 │   │   │
+│   │   │   📄 Document 1: Deed of Absolute Sale          │   │   │
+│   │   │   ──────────────────────────────────────        │   │   │
+│   │   │   [✓] Juan Santos (Principal) - Signed          │   │   │
+│   │   │   [✓] Maria Cruz (Witness) - Signed             │   │   │
+│   │   │   [✓] Pedro Santos (Witness) - Signed           │   │   │
+│   │   │   [✓] Atty. Maria Santos (ENP) - Notarized      │   │   │
+│   │   │                                                 │   │   │
+│   │   │   Status: ✅ COMPLETE                           │   │   │
+│   │   │                                                 │   │   │
+│   │   ├─────────────────────────────────────────────────┤   │   │
+│   │   │                                                 │   │   │
+│   │   │   📄 Document 2: Special Power of Attorney      │   │   │
+│   │   │   ──────────────────────────────────────        │   │   │
+│   │   │   [✓] Juan Santos (Principal) - Signed          │   │   │
+│   │   │   [⏳] Maria Cruz (Witness) - Pending           │   │   │
+│   │   │   [ ] Pedro Santos (Witness) - Waiting          │   │   │
+│   │   │   [ ] Atty. Maria Santos (ENP) - Waiting        │   │   │
+│   │   │                                                 │   │   │
+│   │   │   Status: 🔄 IN PROGRESS                        │   │   │
+│   │   │                                                 │   │   │
+│   │   ├─────────────────────────────────────────────────┤   │   │
+│   │   │                                                 │   │   │
+│   │   │   📄 Document 3: Affidavit                      │   │   │
+│   │   │   ──────────────────────────────────────        │   │   │
+│   │   │   [ ] Juan Santos (Principal) - Waiting         │   │   │
+│   │   │   [ ] Atty. Maria Santos (ENP) - Waiting        │   │   │
+│   │   │                                                 │   │   │
+│   │   │   Status: ⏸️ PENDING (after Doc 2)              │   │   │
+│   │   │                                                 │   │   │
+│   │   └─────────────────────────────────────────────────┘   │   │
+│   │                                                         │   │
+│   └─────────────────────────────────────────────────────────┘   │
+│                                                                 │
+│   ⚠️ Signing Order:                                             │
+│      • Documents are signed in the order they were locked       │
+│      • All signers must complete Doc 1 before Doc 2 begins      │
+│      • ENP signs last (adds notarial seal) for each document    │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Phase 7: The Session
+
+### 7.1 Pre-Session Checklist
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                                                                 │
+│   PRE-SESSION CHECKLIST (shown before joining)                  │
+│                                                                 │
+│   ┌─────────────────────────────────────────────────────────┐   │
+│   │                                                         │   │
+│   │   Before you join, please ensure:                       │   │
+│   │                                                         │   │
+│   │   [✓] Stable internet connection                        │   │
+│   │   [✓] Working camera and microphone                     │   │
+│   │   [✓] Good lighting on your face                        │   │
+│   │   [✓] Valid ID ready                                    │   │
+│   │   [✓] All documents reviewed and locked                 │   │
+│   │   [✓] Payment completed                                 │   │
+│   │   [✓] All witnesses KYC-verified                        │   │
+│   │                                                         │   │
+│   │   ⚠️  Waiting for liveness + geolocation check          │   │
+│   │       [Start Verification]                              │   │
+│   │                                                         │   │
+│   │   ────────────────────────────────────────────────      │   │
+│   │                                                         │   │
+│   │   [Join Session] (enabled after verification passes)    │   │
+│   │                                                         │   │
+│   └─────────────────────────────────────────────────────────┘   │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### 7.2 Session Flow (REN Example)
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────┐
 │                                                                              │
-│                          NOTARIZATION SESSION FLOW                           │
+│   REN SESSION FLOW                                                           │
 │                                                                              │
-│   ┌──────────────────┐   ┌──────────────────┐   ┌──────────────────┐         │
-│   │      CLIENT      │   │      SYSTEM      │   │       ENP        │         │
-│   └────────┬─────────┘   └────────┬─────────┘   └────────┬─────────┘         │
-│            │                      │                      │                   │
-│  ══════════╪══════════════════════╪══════════════════════╪═══════════════    │
-│            │     PHASE 1: JOIN SESSION                   │                   │
-│  ══════════╪══════════════════════╪══════════════════════╪═══════════════    │
-│            │                      │                      │                   │
-│            │   Joins Session      │                      │                   │
-│            │─────────────────────►│                      │                   │
-│            │                      │   Joins Session      │                   │
-│            │                      │◄─────────────────────│                   │
-│            │                      │                      │                   │
-│            │                      │  (Security checks    │                   │
-│            │                      │   per mode — see     │                   │
-│            │                      │   Session Modes)     │                   │
-│            │                      │                      │                   │
-│  ══════════╪══════════════════════╪══════════════════════╪═══════════════    │
-│            │     PHASE 2: DOCUMENT UPLOAD & REVIEW       │                   │
-│  ══════════╪══════════════════════╪══════════════════════╪═══════════════    │
-│            │                      │                      │                   │
-│            │   (Either party uploads docs)               │                   │
-│            │   (ENP reviews, assigns type + fee)         │                   │
-│            │   (Client approves)                         │                   │
-│            │                      │                      │                   │
-│            │    (repeat for each document)               │                   │
-│            │                      │                      │                   │
-│  ══════════╪══════════════════════╪══════════════════════╪═══════════════    │
-│            │     PHASE 3: INVITE WITNESSES (if needed)   │                   │
-│  ══════════╪══════════════════════╪══════════════════════╪═══════════════    │
-│            │                      │                      │                   │
-│            │   (Principal or ENP invites witnesses)      │                   │
-│            │   (Witnesses accept and verify identity)    │                   │
-│            │                      │                      │                   │
-│  ══════════╪══════════════════════╪══════════════════════╪═══════════════    │
-│            │     PHASE 4: LOCK DOCUMENTS                 │                   │
-│  ══════════╪══════════════════════╪══════════════════════╪═══════════════    │
-│            │                      │                      │                   │
-│            │                      │   ENP clicks         │                   │
-│            │                      │◄─────────────────────│                   │
-│            │                      │   [🔒 Lock Docs]     │                   │
-│            │                      │                      │                   │
-│            │   Docs are now       │                      │                   │
-│            │◄─────────────────────│                      │                   │
-│            │   LOCKED             │                      │                   │
-│            │                      │                      │                   │
-│  ══════════╪══════════════════════╪══════════════════════╪═══════════════    │
-│            │     PHASE 5: PAYMENT                        │                   │
-│  ══════════╪══════════════════════╪══════════════════════╪═══════════════    │
-│            │                      │                      │                   │
-│            │   Shows total fee    │                      │                   │
-│            │◄─────────────────────│                      │                   │
-│            │   + payment options  │                      │                   │
-│            │                      │                      │                   │
-│            │   Client pays        │                      │                   │
-│            │─────────────────────►│                      │                   │
-│            │                      │   Payment confirmed  │                   │
-│            │                      │─────────────────────►│                   │
-│            │                      │                      │                   │
-│  ══════════╪══════════════════════╪══════════════════════╪═══════════════    │
-│            │     PHASE 6: SIGNING                        │                   │
-│  ══════════╪══════════════════════╪══════════════════════╪═══════════════    │
-│            │                      │                      │                   │
-│            │   ┌─────────────────────────────────────┐   │                   │
-│            │   │  SIGNING ORDER (strict)             │   │                   │
-│            │   │                                     │   │                   │
-│            │   │  1. ALL Principals sign first       │   │                   │
-│            │   │     (cannot proceed until done)     │   │                   │
-│            │   │              ↓                      │   │                   │
-│            │   │  2. ALL Witnesses sign second       │   │                   │
-│            │   │     (cannot proceed until done)     │   │                   │
-│            │   │              ↓                      │   │                   │
-│            │   │  3. ENP notarizes last              │   │                   │
-│            │   │     (applies seal & certificate)    │   │                   │
-│            │   └─────────────────────────────────────┘   │                   │
-│            │                      │                      │                   │
-│  ══════════╪══════════════════════╪══════════════════════╪═══════════════    │
-│            │     PHASE 7: COMPLETION                     │                   │
-│  ══════════╪══════════════════════╪══════════════════════╪═══════════════    │
-│            │                      │                      │                   │
-│            │                      │  • Docs saved        │                   │
-│            │                      │  • Seal added        │                   │
-│            │                      │  • Certificate       │                   │
-│            │                      │    attached          │                   │
-│            │                      │  • Notarial book     │                   │
-│            │                      │    updated           │                   │
-│            │                      │  • Recording saved   │                   │
-│            │                      │                      │                   │
-│            │  Receives:           │                      │                   │
-│            │  • Notarized docs    │                      │                   │
-│            │  • Recording         │                      │                   │
-│            │  • Official Receipt  │                      │                   │
-│            │◄─────────────────────│                      │                   │
-│            │                      │                      │                   │
-└──────────────────────────────────────────────────────────────────────────────┘
+│   ENP                           PRINCIPAL                    WITNESS         │
+│    │                                │                           │            │
+│    │◄─────── All join video call ───┼───────────────────────────┤            │
+│    │                                │                           │            │
+│    │   ┌────────────────────────────────────────────────────────────┐        │
+│    │   │ 📹 Video Session Started                                   │        │
+│    │   │ Recording: ● ACTIVE                                        │        │
+│    │   │                                                            │        │
+│    │   │ ┌────────┐  ┌────────┐  ┌────────┐                         │        │
+│    │   │ │  ENP   │  │Principal│  │Witness │                        │        │
+│    │   │ │  👤    │  │   👤   │  │   👤   │                        │        │
+│    │   │ └────────┘  └────────┘  └────────┘                         │        │
+│    │   └────────────────────────────────────────────────────────────┘        │
+│    │                                │                           │            │
+│    ├─── Verify geolocation ─────────┼───────────────────────────┤            │
+│    │    (all must pass)             │                           │            │
+│    │                                │                           │            │
+│    ├─── Conduct liveness check ─────┼───────────────────────────┤            │
+│    │    (each person, one by one)   │                           │            │
+│    │                                │                           │            │
+│    │   ┌────────────────────────────────────────────────────────────┐        │
+│    │   │ 🔐 Security Checks                                         │        │
+│    │   │                                                            │        │
+│    │   │ [✓] Juan Santos - Liveness verified                        │        │
+│    │   │ [✓] Maria Cruz - Liveness verified                         │        │
+│    │   │ [⏳] Pedro Santos - Verifying...                           │        │
+│    │   └────────────────────────────────────────────────────────────┘        │
+│    │                                │                           │            │
+│    ├─── Present documents ──────────┤                           │            │
+│    │    (screen share)              │                           │            │
+│    │                                │                           │            │
+│    │   ┌────────────────────────────────────────────────────────────┐        │
+│    │   │ � Payment Already Completed (pre-session)                  │        │
+│    │   │    Total Paid: ₱715                                        │        │
+│    │   │    ✓ Ready to proceed with signing                         │        │
+│    │   └────────────────────────────────────────────────────────────┘        │
+│    │                                │                           │            │
+│    ├─── Present documents ──────────┤                           │            │
+│    │    (one at a time, in order)   │                           │            │
+│    │                                │                           │            │
+│    │   ┌────────────────────────────────────────────────────────────┐        │
+│    │   │ 📄 Document 1: Deed of Absolute Sale                       │        │
+│    │   │                                                            │        │
+│    │   │ [View Full Document]  [Download PDF]                       │        │
+│    │   │                                                            │        │
+│    │   │ Signing order:                                             │        │
+│    │   │ 1. Juan Santos (Principal) - Pending                       │        │
+│    │   │ 2. Maria Cruz (Witness) - Pending                          │        │
+│    │   │ 3. Pedro Santos (Witness) - Pending                        │        │
+│    │   │ 4. Atty. Maria Santos (ENP) - Pending                      │        │
+│    │   └────────────────────────────────────────────────────────────┘        │
+│    │                                │                           │            │
+│    │◄─── Principal signs ───────────┤                           │            │
+│    │                                │                           │            │
+│    │◄───────────────────── Witnesses sign ──────────────────────┤            │
+│    │                                │                           │            │
+│    ├─── ENP affixes notarial seal ──┤                           │            │
+│    │                                │                           │            │
+│    ├─── Repeat for each document ───┤                           │            │
+│    │    (Doc 2, Doc 3, etc.)        │                           │            │
+│    │                                │                           │            │
+│    ├─── All documents signed ───────┼───────────────────────────┤            │
+│    │    Recording saved (if enabled)│                           │            │
+│    │    Documents distributed       │                           │            │
+│    │                                │                           │            │
+└────┴────────────────────────────────┴───────────────────────────┴────────────┘
 ```
 
----
-
-## Witness Invitation & Signing Flow
+### 7.3 IEN Session Specifics
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                                                                 │
-│   WHEN ARE WITNESSES NEEDED?                                    │
-│                                                                 │
-│   Witnesses may be required for certain documents:              │
-│    • Some contracts require 2 witnesses                         │
-│    • Wills typically require witnesses                          │
-│    • ENP may request witnesses for verification                 │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────────────────────────┐
-│                                                                 │
-│   WHO CAN INVITE WITNESSES?                                     │
-│                                                                 │
-│    • Principal (Client)                                         │
-│    • ENP                                                        │
-│                                                                 │
-│   Both can invite witnesses during the session.                 │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-
-┌──────────────────────────────────────────────────────────────────────────────┐
-│                                                                              │
-│   WITNESS INVITATION FLOW                                                    │
-│                                                                              │
-│   INVITER                       SYSTEM                       WITNESS         │
-│      │                             │                            │            │
-│      │   Clicks [+ Add Witness]    │                            │            │
-│      │────────────────────────────►│                            │            │
-│      │                             │                            │            │
-│      │   ┌─────────────────────────────────────────┐            │            │
-│      │   │ Invite Witness                          │            │            │
-│      │   │                                         │            │            │
-│      │   │ Email: [____________________]           │            │            │
-│      │   │                                         │            │            │
-│      │   │ How will they join?                     │            │            │
-│      │   │  ○ Remote (via video)                   │            │            │
-│      │   │  ○ In-Person (with ENP)                 │            │            │
-│      │   │                                         │            │            │
-│      │   │ [Send Invite]                           │            │            │
-│      │   └─────────────────────────────────────────┘            │            │
-│      │                             │                            │            │
-│      │   Fills & submits           │                            │            │
-│      │────────────────────────────►│                            │            │
-│      │                             │                            │            │
-│      │                             │   Witness must have        │            │
-│      │                             │   existing account         │            │
-│      │                             │                            │            │
-│      │                             │   In-app notification      │            │
-│      │                             │───────────────────────────►│            │
-│      │                             │                            │            │
-│      │                             │   ┌────────────────────────────────┐    │
-│      │                             │   │ 📩 Witness Invitation          │    │
-│      │                             │   │                                │    │
-│      │                             │   │ You've been invited to         │    │
-│      │                             │   │ witness a notarization         │    │
-│      │                             │   │                                │    │
-│      │                             │   │ Session: Deed of Sale          │    │
-│      │                             │   │ ENP: Atty. Juan dela Cruz      │    │
-│      │                             │   │ When: Jan 25, 2026 • 3:00 PM   │    │
-│      │                             │   │ Mode: Remote                   │    │
-│      │                             │   │                                │    │
-│      │                             │   │ [Accept]  [Decline]            │    │
-│      │                             │   └────────────────────────────────┘    │
-│      │                             │                            │            │
-│      │                             │   Witness accepts          │            │
-│      │                             │◄───────────────────────────│            │
-│      │                             │                            │            │
-│      │   Notification: Witness     │                            │            │
-│      │   accepted!                 │                            │            │
-│      │◄────────────────────────────│                            │            │
-│      │                             │                            │            │
-│                                                                              │
-└──────────────────────────────────────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────────────────────────┐
-│                                                                 │
-│   WITNESS STATUS STATES                                         │
-│                                                                 │
-│   ┌────────┐   ┌────────┐   ┌────────┐                          │
-│   │PENDING │──►│VERIFIED│──►│ SIGNED │                          │
-│   └────────┘   └────────┘   └────────┘                          │
-│       │                                                         │
-│       └──────►┌────────┐                                        │
-│               │REJECTED│ (witness declined)                     │
-│               └────────┘                                        │
-│                                                                 │
-│   PENDING  → Invite sent, waiting for response                  │
-│   VERIFIED → Witness accepted, identity confirmed               │
-│   REJECTED → Witness declined invitation                        │
-│   SIGNED   → Witness has signed the document(s)                 │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────────────────────────┐
-│                                                                 │
-│   WITNESS SECURITY CHECKS                                       │
-│                                                                 │
-│   When witness joins the session:                               │
+│   IEN SESSION DIFFERENCES                                       │
 │                                                                 │
 │   ┌─────────────────────────────────────────────────────────┐   │
 │   │                                                         │   │
-│   │   REMOTE WITNESS (joining via video):                   │   │
-│   │    ✓ Liveness check                                     │   │
-│   │    ✓ Geolocation check (PH/embassy/consular)            │   │
-│   │    ✓ VPN detection (not allowed)                        │   │
-│   │    ✓ ID verification (government-issued)                │   │
+│   │   Same flow as REN, but:                                │   │
 │   │                                                         │   │
-│   │   IN-PERSON WITNESS (with ENP):                         │   │
-│   │    ✓ Physical ID verification by ENP                    │   │
-│   │    ✓ ENP confirms identity in system                    │   │
+│   │   📍 Location:                                          │   │
+│   │      • All parties physically at ENP's location         │   │
+│   │      • Or at pre-arranged meeting place                 │   │
+│   │                                                         │   │
+│   │   📱 Liveness:                                          │   │
+│   │      • Done on ENP's device                             │   │
+│   │      • Each person takes turn                           │   │
+│   │                                                         │   │
+│   │   ✍️ Signing:                                           │   │
+│   │      • On ENP's tablet/device                           │   │
+│   │      • Or on principal's device if available            │   │
+│   │                                                         │   │
+│   │   💵 Payment:                                           │   │
+│   │      • Can pay CASH                                     │   │
+│   │      • ENP clicks [✓ Client Paid Cash] button           │   │
+│   │      • Or pay digitally (same as REN)                   │   │
+│   │                                                         │   │
+│   │   📹 Recording:                                         │   │
+│   │      • Still recorded (device camera)                   │   │
+│   │      • Shows physical presence of all parties           │   │
 │   │                                                         │   │
 │   └─────────────────────────────────────────────────────────┘   │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
+```
 
+### 7.4 HYBRID Session Specifics
+
+```
 ┌─────────────────────────────────────────────────────────────────┐
 │                                                                 │
-│   SIGNING ORDER (STRICT)                                        │
-│                                                                 │
-│   Documents must be signed in this exact order:                 │
+│   HYBRID SESSION EXAMPLE                                        │
 │                                                                 │
 │   ┌─────────────────────────────────────────────────────────┐   │
 │   │                                                         │   │
-│   │   STEP 1: ALL PRINCIPALS SIGN                           │   │
-│   │   ════════════════════════════                          │   │
+│   │   Scenario: OFW at Philippine Embassy + Family in PH    │   │
 │   │                                                         │   │
-│   │   • Each principal signs all documents                  │   │
-│   │   • System waits until ALL principals complete          │   │
-│   │   • Cannot proceed to witnesses until done              │   │
+│   │   ┌───────────────────────────────────────────────────┐ │   │
+│   │   │                                                   │ │   │
+│   │   │   🏢 EMBASSY (Saudi Arabia)     🏠 PHILIPPINES    │ │   │
+│   │   │                                                   │ │   │
+│   │   │   👤 Juan (Principal)           👤 Maria (Wife)   │ │   │
+│   │   │      IN-PERSON at embassy          REMOTE         │ │   │
+│   │   │                                                   │ │   │
+│   │   │   Geolocation: Embassy GPS     Geolocation: PH    │ │   │
+│   │   │   verified                     verified           │ │   │
+│   │   │                                                   │ │   │
+│   │   │              🎥 VIDEO CALL CONNECTION             │ │   │
+│   │   │                      │                            │ │   │
+│   │   │                      ▼                            │ │   │
+│   │   │                  👤 ENP                           │ │   │
+│   │   │                  REMOTE (PH)                      │ │   │
+│   │   │                                                   │ │   │
+│   │   └───────────────────────────────────────────────────┘ │   │
 │   │                                                         │   │
-│   │           ┌─────────────┐                               │   │
-│   │           │ Principal 1 │ ✓ Signed                      │   │
-│   │           └─────────────┘                               │   │
-│   │           ┌─────────────┐                               │   │
-│   │           │ Principal 2 │ ✓ Signed                      │   │
-│   │           └─────────────┘                               │   │
-│   │                  ↓                                      │   │
-│   │                                                         │   │
-│   │   STEP 2: ALL WITNESSES SIGN                            │   │
-│   │   ══════════════════════════                            │   │
-│   │                                                         │   │
-│   │   • Witnesses attest they saw principals sign           │   │
-│   │   • System waits until ALL witnesses complete           │   │
-│   │   • Cannot proceed to ENP until done                    │   │
-│   │                                                         │   │
-│   │           ┌─────────────┐                               │   │
-│   │           │  Witness 1  │ ✓ Signed                      │   │
-│   │           └─────────────┘                               │   │
-│   │           ┌─────────────┐                               │   │
-│   │           │  Witness 2  │ ✓ Signed                      │   │
-│   │           └─────────────┘                               │   │
-│   │                  ↓                                      │   │
-│   │                                                         │   │
-│   │   STEP 3: ENP NOTARIZES                                 │   │
-│   │   ═════════════════════                                 │   │
-│   │                                                         │   │
-│   │   • ENP applies signature                               │   │
-│   │   • ENP applies digital seal                            │   │
-│   │   • ENP attaches certificate of notarization            │   │
-│   │   • Entry recorded in Notarial Book                     │   │
-│   │                                                         │   │
-│   │           ┌─────────────┐                               │   │
-│   │           │     ENP     │ ✓ Notarized                   │   │
-│   │           └─────────────┘                               │   │
-│   │                                                         │   │
-│   └─────────────────────────────────────────────────────────┘   │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────────────────────────┐
-│                                                                 │
-│   WITNESS NOTES                                                 │
-│                                                                 │
-│   ┌─────────────────────────────────────────────────────────┐   │
-│   │                                                         │   │
-│   │   • No maximum number of witnesses                      │   │
-│   │   • Witnesses don't pay — covered by principal's fee    │   │
-│   │   • Multiple witnesses supported                        │   │
-│   │   • In HYBRID mode, some witnesses can be remote        │   │
-│   │     while others are in-person with the ENP             │   │
+│   │   ⚠️ ENP may request camera pan to verify physical      │   │
+│   │      environment at embassy location                    │   │
 │   │                                                         │   │
 │   └─────────────────────────────────────────────────────────┘   │
 │                                                                 │
@@ -981,60 +1243,74 @@ There are three ways to conduct a notarization or consultation session:
 
 ---
 
-## Document Lifecycle
+## Phase 8: Post-Session
+
+### 8.1 Document Distribution
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                                                                 │
-│   DOCUMENT STATES IN A SESSION                                  │
-│                                                                 │
-│                      ┌──────────┐                               │
-│                      │ REJECTED │ (with remarks)                │
-│                      └──────────┘                               │
-│                           ↑                                     │
-│   ┌────────┐   ┌────────┐ │ ┌────────┐   ┌────────┐   ┌───────┐ │
-│   │UPLOADED│──►│REVIEWED│─┴►│APPROVED│──►│ LOCKED │──►│ SIGNED│ │
-│   └────────┘   └────────┘   └────────┘   └────────┘   └───────┘ │
-│                                                                 │
-│   ─────────────────────────────────────────────────────────────  │
-│                                                                 │
-│   UPLOADED  → Document uploaded by Client or ENP                │
-│   REVIEWED  → ENP has reviewed and assigned type/fee            │
-│   APPROVED  → Client has approved the document                  │
-│   REJECTED  → ENP rejected document (with remarks/reason)       │
-│   LOCKED    → All docs locked, ready for payment                │
-│   SIGNED    → Document has been signed and notarized            │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────────────────────────┐
-│                                                                 │
-│   DOCUMENT REJECTION                                            │
-│                                                                 │
-│   ENP can reject a document if there are issues:                │
+│   POST-SESSION: DOCUMENT DISTRIBUTION                           │
 │                                                                 │
 │   ┌─────────────────────────────────────────────────────────┐   │
 │   │                                                         │   │
-│   │   ENP clicks [✗ Reject Document]                        │   │
+│   │   After session completion:                             │   │
 │   │                                                         │   │
-│   │   ┌────────────────────────────────────────────┐        │   │
-│   │   │ Reject Document                            │        │   │
-│   │   │                                            │        │   │
-│   │   │ Reason for rejection:                      │        │   │
-│   │   │ ┌────────────────────────────────────────┐ │        │   │
-│   │   │ │ Document is incomplete. Missing page 3 │ │        │   │
-│   │   │ │ signature block. Please upload a       │ │        │   │
-│   │   │ │ complete version.                      │ │        │   │
-│   │   │ └────────────────────────────────────────┘ │        │   │
-│   │   │                                            │        │   │
-│   │   │ [Confirm Rejection]   [Cancel]             │        │   │
-│   │   └────────────────────────────────────────────┘        │   │
+│   │   1. Principal receives:                                │   │
+│   │      • Notarized document (PDF with digital seal)       │   │
+│   │      • Receipt/proof of notarization                    │   │
+│   │      • Access to session recording (optional)           │   │
 │   │                                                         │   │
-│   │   After rejection:                                      │   │
-│   │    • Document marked as REJECTED                        │   │
-│   │    • Remarks visible to Client                          │   │
-│   │    • Client can upload corrected version                │   │
-│   │    • Rejected doc excluded from final notarization      │   │
+│   │   2. ENP records:                                       │   │
+│   │      • Entry added to notarial book (automatic)         │   │
+│   │      • Copy of notarized document                       │   │
+│   │      • Session recording stored per SC rules            │   │
+│   │                                                         │   │
+│   │   3. Witnesses receive:                                 │   │
+│   │      • Confirmation email                               │   │
+│   │      • Copy of notarized document (if requested)        │   │
+│   │                                                         │   │
+│   └─────────────────────────────────────────────────────────┘   │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### 8.2 Notarial Book Entry (Per SC Rules)
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                                                                 │
+│   NOTARIAL BOOK ENTRY (Auto-generated)                          │
+│                                                                 │
+│   ┌─────────────────────────────────────────────────────────┐   │
+│   │                                                         │   │
+│   │   Required fields per A.M. No. 24-10-14-SC:             │   │
+│   │                                                         │   │
+│   │   ┌─────────────────────────────────────────────────┐   │   │
+│   │   │                                                 │   │   │
+│   │   │   Entry Number: 2024-001234                     │   │   │
+│   │   │   Date & Time: January 15, 2024, 2:30 PM        │   │   │
+│   │   │                                                 │   │   │
+│   │   │   Document Type: Deed of Absolute Sale          │   │   │
+│   │   │   Document Date: January 15, 2024               │   │   │
+│   │   │                                                 │   │   │
+│   │   │   Principal(s):                                 │   │   │
+│   │   │   • Juan Santos (ID: PSA-123456)                │   │   │
+│   │   │                                                 │   │   │
+│   │   │   Witness(es):                                  │   │   │
+│   │   │   • Maria Cruz (ID: DL-789012)                  │   │   │
+│   │   │   • Pedro Santos (ID: PP-345678)                │   │   │
+│   │   │                                                 │   │   │
+│   │   │   Session Mode: REN                             │   │   │
+│   │   │   Verification: Liveness + Geolocation ✓        │   │   │
+│   │   │                                                 │   │   │
+│   │   │   Notarial Fee: ₱500                            │   │   │
+│   │   │   Doc Control #: NC-2024-001234                 │   │   │
+│   │   │                                                 │   │   │
+│   │   │   Recording ID: REC-2024-001234                 │   │   │
+│   │   │   Storage Location: [Secure Cloud]              │   │   │
+│   │   │                                                 │   │   │
+│   │   └─────────────────────────────────────────────────┘   │   │
 │   │                                                         │   │
 │   └─────────────────────────────────────────────────────────┘   │
 │                                                                 │
@@ -1043,372 +1319,123 @@ There are three ways to conduct a notarization or consultation session:
 
 ---
 
-## Security Checks (REN & Hybrid Remote Participants)
+## Messaging → Session Upgrade
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                                                                 │
-│   BEFORE JOINING A SESSION (for REMOTE participants)            │
-│                                                                 │
-│   Remote participants must pass these checks:                   │
+│   UPGRADING A CHAT TO A SESSION                                 │
 │                                                                 │
 │   ┌─────────────────────────────────────────────────────────┐   │
 │   │                                                         │   │
-│   │   1. LIVENESS CHECK                                     │   │
-│   │      • Face verification via camera                     │   │
-│   │      • Ensures real person, not photo/video             │   │
-│   │      ✓ PASS → Continue                                  │   │
-│   │      ✗ FAIL → Cannot join session                       │   │
+│   │   During a /messages conversation:                      │   │
 │   │                                                         │   │
-│   │   2. GEOLOCATION CHECK                                  │   │
-│   │      • System detects user's location                   │   │
-│   │      • Must be in one of:                               │   │
-│   │         - Philippines 🇵🇭                                │   │
-│   │         - Philippine Embassy (abroad)                   │   │
-│   │         - Philippine Consular Office (abroad)           │   │
-│   │      ✓ PASS → Continue                                  │   │
-│   │      ✗ FAIL → Show error, cannot proceed                │   │
+│   │   1. Either party clicks [📅 Request Session]           │   │
 │   │                                                         │   │
-│   │   3. VPN DETECTION                                      │   │
-│   │      • System checks for VPN/proxy usage                │   │
-│   │      • VPN is NOT ALLOWED                               │   │
-│   │      ✓ No VPN detected → Continue                       │   │
-│   │      ✗ VPN detected → Show error, must disable VPN      │   │
+│   │   2. Requester fills in:                                │   │
+│   │      • Session type (Consultation/Notarization)         │   │
+│   │      • Mode (REN/IEN/Hybrid)                            │   │
+│   │      • Preferred date/time                              │   │
+│   │                                                         │   │
+│   │   3. Other party receives notification in chat:         │   │
+│   │                                                         │   │
+│   │      ┌──────────────────────────────────────────────┐   │   │
+│   │      │ 📅 Session Request                           │   │   │
+│   │      │                                              │   │   │
+│   │      │ Juan requests a Notarization (REN)           │   │   │
+│   │      │ January 20, 2024 at 3:00 PM                  │   │   │
+│   │      │                                              │   │   │
+│   │      │ [Accept] [Suggest Another Time] [Decline]    │   │   │
+│   │      └──────────────────────────────────────────────┘   │   │
+│   │                                                         │   │
+│   │   4. Once accepted → Session created                    │   │
+│   │      • Appears in both parties' calendars               │   │
+│   │      • Chat history preserved for reference             │   │
 │   │                                                         │   │
 │   └─────────────────────────────────────────────────────────┘   │
 │                                                                 │
-│   All 3 checks must pass before entering the video room.        │
-│                                                                 │
-│   This applies to:                                              │
-│    • ALL participants in REN sessions                           │
-│    • REMOTE participants in HYBRID sessions                     │
-│    • REMOTE witnesses                                           │
-│    • ENP (if remote in HYBRID — e.g., OFW at embassy)           │
-│                                                                 │
-│   Note: For OFW at embassy, ENP may also request camera pan     │
-│   for manual location verification.                             │
-│                                                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
-
-### Why These Checks?
-
-| Check       | Reason                                                        |
-| ----------- | ------------------------------------------------------------- |
-| Liveness    | Prevent impersonation / fraud                                 |
-| Geolocation | Philippine notarization law requires presence in PH territory |
-| VPN         | VPN can spoof location, undermining geolocation check         |
 
 ---
 
-## Messaging → Session Upgrade (Bidirectional)
+## Security Checks Summary
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                                                                 │
-│   Both Client and ENP can request a session upgrade from chat.  │
+│   SECURITY CHECKS AT EACH STAGE                                 │
 │                                                                 │
-│   Use cases:                                                    │
-│    • Client has questions → realizes they need formal session   │
-│    • ENP sees complexity → recommends consultation/notarization │
+│   ┌─────────────────────────────────────────────────────────┐   │
+│   │                                                         │   │
+│   │   REGISTRATION:                                         │   │
+│   │   • Email verification                                  │   │
+│   │   • Phone verification (optional)                       │   │
+│   │                                                         │   │
+│   │   KYC (one-time, to access system):                     │   │
+│   │   • Government ID upload + validation                   │   │
+│   │   • Face matching (ID photo vs selfie)                  │   │
+│   │   • Required for ALL users                              │   │
+│   │                                                         │   │
+│   │   BOOKING:                                              │   │
+│   │   • KYC must be complete                                │   │
+│   │   • ENP availability verified                           │   │
+│   │                                                         │   │
+│   │   PRE-SESSION:                                          │   │
+│   │   • All participants KYC verified                       │   │
+│   │   • All witnesses registered and KYC verified           │   │
+│   │   • Documents reviewed, locked, and PAID                │   │
+│   │   • Liveness check (each participant)                   │   │
+│   │   • Geolocation check (PH or embassy)                   │   │
+│   │   • VPN detection and blocking                          │   │
+│   │                                                         │   │
+│   │   DURING SESSION:                                       │   │
+│   │   • All participants already verified (pre-session)     │   │
+│   │   • Session recording (optional)                        │   │
+│   │   • Audit logging of all actions                        │   │
+│   │                                                         │   │
+│   │   POST-SESSION:                                         │   │
+│   │   • Digital signatures verified                         │   │
+│   │   • Document hash stored for integrity                  │   │
+│   │   • Recording stored per SC requirements                │   │
+│   │   • Notarial book entry created                         │   │
+│   │                                                         │   │
+│   └─────────────────────────────────────────────────────────┘   │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
-
-┌──────────────────────────────────────────────────────────────────────────────┐
-│                                                                              │
-│   SCENARIO A: ENP INVITES CLIENT                                             │
-│                                                                              │
-│   CLIENT                         SYSTEM                         ENP         │
-│      │                              │                            │          │
-│      │   Sends message              │                            │          │
-│      │─────────────────────────────►│                            │          │
-│      │                              │   Receives message         │          │
-│      │                              │───────────────────────────►│          │
-│      │                              │                            │          │
-│      │            ... conversation continues ...                 │          │
-│      │                              │                            │          │
-│      │                              │   ENP realizes this is     │          │
-│      │                              │   getting complex...       │          │
-│      │                              │                            │          │
-│      │                              │   ENP clicks:              │          │
-│      │                              │   [📩 Invite to Session]   │          │
-│      │                              │◄───────────────────────────│          │
-│      │                              │                            │          │
-│      │   Receives invite in chat    │                            │          │
-│      │◄─────────────────────────────│                            │          │
-│      │                              │                            │          │
-│      │   ┌────────────────────────────────────────────┐          │          │
-│      │   │ 📩 Atty. Juan invited you to a session     │          │          │
-│      │   │                                            │          │          │
-│      │   │ Type: Notarization (REN)                   │          │          │
-│      │   │ Suggested: Jan 25, 2026 • 3:00 PM          │          │          │
-│      │   │                                            │          │          │
-│      │   │ [Accept]  [Suggest Different Time]         │          │          │
-│      │   └────────────────────────────────────────────┘          │          │
-│      │                              │                            │          │
-│      │   Accepts invite             │                            │          │
-│      │─────────────────────────────►│                            │          │
-│      │                              │                            │          │
-│      │                              │   Session booked!          │          │
-│      │                              │   (ENP already accepted    │          │
-│      │                              │    since they initiated)   │          │
-│      │                              │                            │          │
-└──────┴──────────────────────────────┴────────────────────────────┴──────────┘
-
-┌──────────────────────────────────────────────────────────────────────────────┐
-│                                                                              │
-│   SCENARIO B: CLIENT REQUESTS SESSION                                        │
-│                                                                              │
-│   CLIENT                         SYSTEM                         ENP         │
-│      │                              │                            │          │
-│      │            ... conversation continues ...                 │          │
-│      │                              │                            │          │
-│      │   Client realizes they need  │                            │          │
-│      │   a formal session...        │                            │          │
-│      │                              │                            │          │
-│      │   Client clicks:             │                            │          │
-│      │   [📅 Request Session]       │                            │          │
-│      │─────────────────────────────►│                            │          │
-│      │                              │                            │          │
-│      │   ┌────────────────────────────────────────────┐          │          │
-│      │   │ Request Session                            │          │          │
-│      │   │                                            │          │          │
-│      │   │ What type?                                 │          │          │
-│      │   │  ○ Consultation                            │          │          │
-│      │   │  ○ Notarization                            │          │          │
-│      │   │                                            │          │          │
-│      │   │ Mode: REN / IEN / Hybrid                   │          │          │
-│      │   │                                            │          │          │
-│      │   │ Preferred time?                            │          │          │
-│      │   │ [____________]                             │          │          │
-│      │   │                                            │          │          │
-│      │   │ [Send Request]                             │          │          │
-│      │   └────────────────────────────────────────────┘          │          │
-│      │                              │                            │          │
-│      │                              │   ENP receives request     │          │
-│      │                              │───────────────────────────►│          │
-│      │                              │                            │          │
-│      │                              │   ┌────────────────────────────────┐  │
-│      │                              │   │ 📅 Session Request             │  │
-│      │                              │   │                                │  │
-│      │                              │   │ Juan Santos requested a        │  │
-│      │                              │   │ Consultation (REN)             │  │
-│      │                              │   │                                │  │
-│      │                              │   │ Preferred: Jan 26 • 2:00 PM    │  │
-│      │                              │   │                                │  │
-│      │                              │   │ [Accept] [Reject] [Reschedule] │  │
-│      │                              │   └────────────────────────────────┘  │
-│      │                              │                            │          │
-│      │                              │   ENP accepts              │          │
-│      │                              │◄───────────────────────────│          │
-│      │                              │                            │          │
-│      │   Request accepted!          │                            │          │
-│      │◄─────────────────────────────│                            │          │
-│      │                              │                            │          │
-│      │                              │   (If Consultation:        │          │
-│      │                              │    Client pays upfront)    │          │
-│      │                              │                            │          │
-└──────┴──────────────────────────────┴────────────────────────────┴──────────┘
 ```
-
-### Key Points
-
-- **Bidirectional** — Either party can initiate session upgrade
-- **Pre-filled details** — Initiator sets session type, mode, and suggested time
-- **Other party responds** — Accept, reject, or suggest different time
-- **Streamlined** — Skips the "find ENP" step since they're already talking
-- **Context preserved** — Chat history is linked to the session for reference
 
 ---
 
-## Notarial Book Requirements
-
-Per Philippine Supreme Court Rules on Electronic Notarial Practice (Section 2), each entry in the Electronic Notarial Book must contain:
+## Default Fee Schedule
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                                                                 │
-│   REQUIRED FIELDS FOR EACH NOTARIAL ACT                         │
+│   DEFAULT NOTARIAL FEES (ENP can customize)                     │
 │                                                                 │
 │   ┌─────────────────────────────────────────────────────────┐   │
 │   │                                                         │   │
-│   │   i.   Electronic notarial act type                     │   │
-│   │        (Jurat, Acknowledgement, Oath, etc.)             │   │
+│   │   Base Fees:                                            │   │
+│   │   • Acknowledgment: ₱500                                │   │
+│   │   • Affidavit: ₱500                                     │   │
+│   │   • Deed of Sale: ₱500                                  │   │
+│   │   • Special Power of Attorney: ₱500                     │   │
+│   │   • General Power of Attorney: ₱500                     │   │
+│   │   • Other documents: ₱500                               │   │
 │   │                                                         │   │
-│   │   ii.  Date and time of the notarial act                │   │
+│   │   Additional Fees:                                      │   │
+│   │   • Per additional page: ₱50                            │   │
+│   │   • Per additional signatory: ₱100                      │   │
 │   │                                                         │   │
-│   │   iii. Title/description of notarized document          │   │
+│   │   Consultation Rate:                                    │   │
+│   │   • Per 30 minutes: ₱500 (ENP sets own rate)            │   │
 │   │                                                         │   │
-│   │   iv.  Name and address of each principal               │   │
+│   │   ──────────────────────────────────────────────        │   │
 │   │                                                         │   │
-│   │   v.   Name and address of each witness (if any)        │   │
-│   │                                                         │   │
-│   │   vi.  Competent evidence of identity                   │   │
-│   │        (for principals and witnesses)                   │   │
-│   │        - Government-issued ID type                      │   │
-│   │        - ID number                                      │   │
-│   │                                                         │   │
-│   │   vii. Fee charged for the notarial act                 │   │
-│   │                                                         │   │
-│   │   viii. Location statement:                             │   │
-│   │         "All parties were situated within the           │   │
-│   │          Philippines / Philippine Embassy /             │   │
-│   │          Consular Office / Honorary Consul Office"      │   │
-│   │                                                         │   │
-│   │   ix.  Mode of notarization: REN / IEN / HYBRID         │   │
-│   │                                                         │   │
-│   │   x.   Any other significant circumstances              │   │
-│   │        (as deemed by the ENP)                           │   │
+│   │   Platform Fee: 10% of total (deducted automatically)   │   │
 │   │                                                         │   │
 │   └─────────────────────────────────────────────────────────┘   │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────────────────────────┐
-│                                                                 │
-│   INCOMPLETE / REJECTED NOTARIAL ACTS                           │
-│                                                                 │
-│   When a notarial act is NOT completed, ENP must record:        │
-│                                                                 │
-│   ┌─────────────────────────────────────────────────────────┐   │
-│   │                                                         │   │
-│   │   • Reason for non-completion                           │   │
-│   │   • Circumstances leading to rejection                  │   │
-│   │   • Remarks / notes                                     │   │
-│   │                                                         │   │
-│   │   Examples:                                             │   │
-│   │    - "Principal failed liveness verification"           │   │
-│   │    - "Document incomplete - missing signatures"         │   │
-│   │    - "Principal outside valid jurisdiction (VPN)"       │   │
-│   │    - "Witness declined to participate"                  │   │
-│   │    - "Payment not completed"                            │   │
-│   │                                                         │   │
-│   └─────────────────────────────────────────────────────────┘   │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────────────────────────┐
-│                                                                 │
-│   INSPECTION / COPY REQUESTS                                    │
-│                                                                 │
-│   When someone requests to inspect or copy an entry:            │
-│                                                                 │
-│   ┌─────────────────────────────────────────────────────────┐   │
-│   │                                                         │   │
-│   │   Record in Notarial Book:                              │   │
-│   │                                                         │   │
-│   │   • Requesting party's name                             │   │
-│   │   • Requesting party's address                          │   │
-│   │   • Requesting party's electronic signature             │   │
-│   │   • Competent evidence of identity                      │   │
-│   │   • Stated lawful purpose for the request               │   │
-│   │                                                         │   │
-│   │   If request is REFUSED, also record:                   │   │
-│   │   • Reasons for refusal                                 │   │
-│   │                                                         │   │
-│   └─────────────────────────────────────────────────────────┘   │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────────────────────────┐
-│                                                                 │
-│   CERTIFICATE NUMBERING                                         │
-│                                                                 │
-│   The entry number in the Notarial Book must correspond         │
-│   to the certificate number on each notarized document.         │
-│                                                                 │
-│   Format example: 2026-00001, 2026-00002, etc.                  │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-### Notarial Book Entry Summary Table
-
-| Field                 | Required | Description                                   |
-| --------------------- | -------- | --------------------------------------------- |
-| Act Type              | ✓        | Jurat, Acknowledgement, Oath, etc.            |
-| Date & Time           | ✓        | Exact timestamp of execution                  |
-| Document Title        | ✓        | Description of what was notarized             |
-| Principal Name(s)     | ✓        | Full legal name of each principal             |
-| Principal Address(es) | ✓        | Residential address of each principal         |
-| Principal ID(s)       | ✓        | Government ID type + number for each          |
-| Witness Name(s)       | If any   | Full legal name of each witness               |
-| Witness Address(es)   | If any   | Residential address of each witness           |
-| Witness ID(s)         | If any   | Government ID type + number for each          |
-| Fee Charged           | ✓        | Amount in PHP                                 |
-| Location Statement    | ✓        | Confirms PH / Embassy / Consular jurisdiction |
-| Mode                  | ✓        | REN / IEN / HYBRID                            |
-| Certificate Number    | ✓        | Unique number matching the document           |
-| Other Circumstances   | Optional | Any significant notes by ENP                  |
-| Rejection Reason      | If N/A   | Why notarial act was not completed            |
-| Rejection Remarks     | If N/A   | Additional context for non-completion         |
-
----
-
-## User Dashboards
-
-### Client Dashboard
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│  MY DASHBOARD                                                   │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐              │
-│  │   UPCOMING  │  │   PENDING   │  │  COMPLETED  │              │
-│  │   SESSIONS  │  │   REQUESTS  │  │   SESSIONS  │              │
-│  │             │  │             │  │             │              │
-│  │     2       │  │     1       │  │     15      │              │
-│  └─────────────┘  └─────────────┘  └─────────────┘              │
-│                                                                 │
-│  ┌──────────────────────────────────────────────────────────┐   │
-│  │  Upcoming Sessions                                       │   │
-│  ├──────────────────────────────────────────────────────────┤   │
-│  │  📅 Jan 25, 2026 • 2:00 PM                               │   │
-│  │  Notarization (REN) with Atty. Juan dela Cruz            │   │
-│  │  [Join Session]                                          │   │
-│  ├──────────────────────────────────────────────────────────┤   │
-│  │  📅 Jan 28, 2026 • 10:00 AM                              │   │
-│  │  Consultation (HYBRID) with Atty. Maria Santos           │   │
-│  │  [Join Session]                                          │   │
-│  └──────────────────────────────────────────────────────────┘   │
-│                                                                 │
-│  [+ Book New Session]                                           │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-### ENP Dashboard
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│  MY DASHBOARD                                                   │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐              │
-│  │   TODAY'S   │  │   PENDING   │  │  THIS MONTH │              │
-│  │   SESSIONS  │  │   REQUESTS  │  │   EARNINGS  │              │
-│  │             │  │             │  │             │              │
-│  │     3       │  │     5       │  │   ₱12,500   │              │
-│  └─────────────┘  └─────────────┘  └─────────────┘              │
-│                                                                 │
-│  ┌──────────────────────────────────────────────────────────┐   │
-│  │  Pending Requests                              [View All] │   │
-│  ├──────────────────────────────────────────────────────────┤   │
-│  │  🔔 New Request                                          │   │
-│  │  Notarization (HYBRID) • Juan Santos                     │   │
-│  │  Requested: Jan 26, 2026 • 3:00 PM                       │   │
-│  │  [Accept]  [Reject]  [Reschedule]                        │   │
-│  └──────────────────────────────────────────────────────────┘   │
-│                                                                 │
-│  ┌──────────────────────────────────────────────────────────┐   │
-│  │  Today's Sessions                                        │   │
-│  ├──────────────────────────────────────────────────────────┤   │
-│  │  ⏰ 2:00 PM — Notarization (REN)                         │   │
-│  │  Client: Maria Garcia                                    │   │
-│  │  Witnesses: 2 confirmed                                  │   │
-│  │  [Start Session]                                         │   │
-│  └──────────────────────────────────────────────────────────┘   │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -1423,6 +1450,7 @@ Per Philippine Supreme Court Rules on Electronic Notarial Practice (Section 2), 
 ❌  Multiple overlapping pages:
     /find-notary
     /find-a-lawyer
+    /book
     /consultations
     /requests
     /appointments
@@ -1438,45 +1466,62 @@ Per Philippine Supreme Court Rules on Electronic Notarial Practice (Section 2), 
 
     CLIENT:
     ├── /dashboard ............ Overview + upcoming sessions
-    ├── /book ................. Start new booking (unified)
+    ├── /browse ............... Find ENPs (Browse & Select / Quick Match)
     ├── /sessions ............. All my sessions (past & upcoming)
     ├── /documents ............ My notarized documents
     └── /messages ............. Chat with ENPs
 
     ENP:
     ├── /dashboard ............ Overview + today's sessions
-    ├── /requests ............. Incoming booking requests
+    ├── /requests ............. Incoming booking requests (incl. Quick Match)
     ├── /sessions ............. All sessions
     ├── /notarial-book ........ Official records
     ├── /messages ............. Chat with clients
-    └── /settings ............. Profile, rates, availability
+    └── /settings ............. Profile, rates, Quick Match preferences
+
+    ─────────────────────────────────────────────────────────────
+
+    🔮 FUTURE: Organization / Law Firm Support
+
+    The /browse route is designed to be future-ready for:
+    • Multi-tenant support (law firms, organizations)
+    • Firm profiles with multiple ENPs
+    • Organization-level booking
+    • Team management dashboards
+    • Firm-wide analytics and reporting
+
+    Placeholder routes (not yet implemented):
+    ├── /org/[org-id] ......... Organization profile
+    ├── /org/[org-id]/enps .... Browse ENPs in organization
+    └── /firm-admin ........... Firm management dashboard
 ```
 
 ---
 
-## Summary
+## Summary: User Journey
 
-| Step             | Client Action                                                 | ENP Action                                                                   |
-| ---------------- | ------------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| 1. Onboard       | Sign up → KYC                                                 | Sign up → KYC → Set consultation rates → Set default notarization fees       |
-| 2. Find ENP      | Browse (Scheduled) / Quick Match / Message first              | Set availability, respond to messages                                        |
-| 3. Book          | Choose type → Pick slot → Submit (or request from chat)       | — (or invite from chat)                                                      |
-| 4. Review        | Wait for response                                             | Accept / Reject / Reschedule                                                 |
-| 5. Pay (Consult) | Pay upfront                                                   | —                                                                            |
-| 6. Session       | Join → Upload/review docs → Approve → Pay (after lock) → Sign | Join → Upload/review docs → Invite witnesses → Assign fees → Lock → Notarize |
-| 7. Complete      | Receive: docs (with seal + cert) + recording + OR             | Record in Notarial Book (including rejections with remarks)                  |
+| Step            | Principal (Client)                                | ENP (Notary)                                                  |
+| --------------- | ------------------------------------------------- | ------------------------------------------------------------- |
+| 1. Register     | Create account, verify email, complete KYC        | Create account, verify credentials with SC                    |
+| 2. Find ENP     | /browse → Browse & Select / Quick Match / Message | Set availability, Quick Match preferences                     |
+| 3. Book         | Select date/time, mode, service type              | Accept/reject/reschedule requests                             |
+| 4. Prepare      | Upload documents, invite witnesses                | Review documents, prepare session                             |
+| 5. Session      | Join video, pass liveness, sign documents, pay    | Conduct session, verify identities, notarize, collect payment |
+| 6. Post-session | Download notarized docs, leave review             | Entry auto-added to notarial book, receive 90% of fee         |
 
 ---
 
 ## Resolved Questions
 
-| Question                   | Answer                                                                                   |
-| -------------------------- | ---------------------------------------------------------------------------------------- |
-| Can ENP unlock documents?  | Yes, but requires client to RE-APPROVE all documents                                     |
-| IEN cash payment tracking? | ENP clicks [✓ Client Paid Cash] button to confirm                                        |
-| Max witnesses?             | No limit                                                                                 |
-| Witness fees?              | None — covered by principal's fee                                                        |
-| HYBRID ENP location?       | Can be remote (e.g., OFW at embassy, ENP may request camera pan for manual verification) |
+| Question                   | Answer                                                                                                                                                                                                                                                           |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Can ENP unlock documents?  | Yes, but requires client to RE-APPROVE all documents                                                                                                                                                                                                             |
+| IEN cash payment tracking? | ENP clicks [✓ Client Paid Cash] button to confirm                                                                                                                                                                                                                |
+| Max witnesses?             | No limit                                                                                                                                                                                                                                                         |
+| Witness fees?              | None — covered by principal's fee                                                                                                                                                                                                                                |
+| HYBRID ENP location?       | Can be remote (e.g., OFW at embassy, ENP may request camera pan for manual verification)                                                                                                                                                                         |
+| Quick Match algorithm?     | Bidirectional scoring: ENP score (rating, speed, experience, specialization, workload) + Principal score (verification, reliability, history). Includes boosts for new/returning ENPs and penalties for excessive declines. See "Quick Match Algorithm" section. |
+| Quick Match fairness?      | Workload balancer ensures even distribution. ENPs can opt-out without penalty. Clients have 2 re-matches then 10-min cooldown. ENP decline penalty: -5% to -10% score for 3-5+ declines in 24 hours.                                                             |
 
 ---
 
@@ -1485,8 +1530,9 @@ Per Philippine Supreme Court Rules on Electronic Notarial Practice (Section 2), 
 1. **Cancellation policy** — What happens if client/ENP cancels? Refunds?
 2. **Rescheduling limits** — How many times can a session be rescheduled?
 3. **Embassy/Consular list** — Do we need a predefined list of valid embassy/consular locations for geolocation?
-4. **Quick Match algorithm** — How should ENPs be matched? By availability? Specialization? Location?
 
 ---
 
-_This document is a living draft. Please update as decisions are made._
+_Document Version: 2.0_
+_Last Updated: January 2026_
+_Author: Quanby Legal Product Team_
