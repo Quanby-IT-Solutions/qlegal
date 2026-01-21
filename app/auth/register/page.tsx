@@ -34,21 +34,39 @@ export default async function RegisterPage({
 			<CardContent>
 				<RegisterForm callbackUrl={callbackUrl} />
 			</CardContent>
-			<CardFooter className="text-muted-foreground justify-center text-sm">
-				Already have an account?
-				<Link
-					href={
-						callbackUrl
-							? (`/auth/login?callbackUrl=${encodeURIComponent(callbackUrl)}` as Route)
-							: "/auth/login"
-					}
-					className={cn(
-						buttonVariants({ variant: "link" }),
-						"text-primary hover:text-primary/80 h-fit px-1.5 py-0.5 text-sm"
-					)}
-				>
-					Sign in
-				</Link>
+			<CardFooter className="flex-col gap-2">
+				<div className="text-muted-foreground text-center text-sm">
+					Already have an account?{" "}
+					<Link
+						href={
+							callbackUrl
+								? (`/auth/login?callbackUrl=${encodeURIComponent(callbackUrl)}` as Route)
+								: "/auth/login"
+						}
+						className={cn(
+							buttonVariants({ variant: "link" }),
+							"text-primary hover:text-primary/80 h-fit px-1.5 py-0.5 text-sm"
+						)}
+					>
+						Sign in
+					</Link>
+				</div>
+				<div className="text-muted-foreground text-center text-sm">
+					Are you a lawyer?{" "}
+					<Link
+						href={
+							callbackUrl
+								? (`/auth/register/lawyer?callbackUrl=${encodeURIComponent(callbackUrl)}` as Route)
+								: ("/auth/register/lawyer" as Route)
+						}
+						className={cn(
+							buttonVariants({ variant: "link" }),
+							"text-primary hover:text-primary/80 h-fit px-1.5 py-0.5 text-sm"
+						)}
+					>
+						Register as ENP
+					</Link>
+				</div>
 			</CardFooter>
 		</Card>
 	)

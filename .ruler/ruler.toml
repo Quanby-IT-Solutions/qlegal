@@ -46,3 +46,7 @@ default_agents = [
 # [mcp_servers.example_remote]
 # url = "https://api.example.com/mcp"
 # headers = { Authorization = "Bearer REPLACE_ME" }
+
+# --- Skills ---
+[skills]
+enabled = true  # or false to disable

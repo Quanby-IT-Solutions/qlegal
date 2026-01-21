@@ -1,0 +1,365 @@
+---
+alwaysApply: true
+---
+<!-- Source: .ruler/co-locate-types.md -->
+
+---
+description: Co-locate types with their usage instead of separate type-only files
+globs: ["**/*.ts", "**/*.tsx"]
+alwaysApply: true
+---
+
+# Co-locate Types Rule
+
+## Rule: Avoid Separate Type-Only Files
+
+**Guideline:** Do NOT create separate files that only contain type definitions. Instead, co-locate types with the code that uses them.
+
+### What are Type-Only Files?
+
+Type-only files are files that contain only TypeScript type definitions, interfaces, or enums without any runtime code:
+
+```typescript
+// ❌ BAD - Separate type-only file (types/user.types.ts)
+export interface User {
+	id: string
+	name: string
+	email: string
+}
+
+export type UserRole = "admin" | "user" | "guest"
+
+export interface UserPreferences {
+	theme: "light" | "dark"
+	notifications: boolean
+}
+```
+
+### Why Avoid Separate Type-Only Files?
+
+1. **Context Loss**: Types are separated from the code that uses them
+2. **Navigation Overhead**: Developers must jump between files to understand types
+3. **Maintenance Burden**: Types and implementation can get out of sync
+4. **Import Complexity**: Unnecessary import statements for simple types
+5. **File Proliferation**: Creates many small files that could be consolidated
+
+### Preferred Approach: Co-locate Types
+
+**✅ GOOD - Types with their usage:**
+
+```typescript
+// components/user-profile.tsx
+interface User {
+	id: string
+	name: string
+	email: string
+}
+
+type UserRole = "admin" | "user" | "guest"
+
+export function UserProfile({ user }: { user: User }) {
+	// Component implementation using User type
+}
+```
+
+**✅ GOOD - Types in the same feature directory:**
+
+```typescript
+// features/user-management/api/user.router.ts
+interface CreateUserRequest {
+	name: string
+	email: string
+	role: UserRole
+}
+
+export const userRouter = createTRPCRouter({
+	create: publicProcedure
+		.input(
+			z.object({
+				name: z.string(),
+				email: z.string().email(),
+				role: z.enum(["admin", "user", "guest"]),
+			})
+		)
+		.mutation(async ({ input }) => {
+			// Implementation using CreateUserRequest type
+		}),
+})
+```
+
+**✅ GOOD - Shared types in the same module:**
+
+```typescript
+// features/user-management/lib/user.utils.ts
+export interface User {
+	id: string
+	name: string
+	email: string
+}
+
+export type UserRole = "admin" | "user" | "guest"
+
+export function formatUserName(user: User): string {
+	return user.name
+}
+```
+
+### Exceptions
+
+Separate type files are acceptable only when:
+
+1. **Shared across multiple features** - Types used by 3+ different features
+2. **Generated types** - Auto-generated from external APIs or schemas
+3. **Database schemas** - Drizzle schema definitions
+4. **API contracts** - OpenAPI/Swagger generated types
+5. **Third-party integrations** - External service type definitions
+
+### File Organization
+
+- Put types in the same file as the component/function that uses them
+- For shared types within a feature, put them in the feature's `lib/` directory
+- For truly shared types across features, put them in `core/lib/types/`
+- Use descriptive filenames that indicate the primary purpose, not just "types"
+
+### Enforcement
+
+- No `*.types.ts` files should exist
+- No `types/` directories with only type definitions
+- Types should be defined close to where they're first used
+- Import types from the same file or nearby files when possible
+
+---
+
+**Remember:** Types are most valuable when they're close to the code that uses them, making the codebase more maintainable and easier to understand.
+
+
+
+<!-- Source: .ruler/no-barrel-files.md -->
+
+---
+description: Prohibition of barrel files (index.ts/js files that re-export)
+globs: ["**/*.ts", "**/*.js", "**/*.tsx", "**/*.jsx"]
+alwaysApply: true
+---
+
+# No Barrel Files Rule
+
+## Rule: Prohibit Barrel Files
+
+**Guideline:** Do NOT create barrel files (index.ts/js files that only re-export from other files).
+
+### What are Barrel Files?
+
+Barrel files are `index.ts` or `index.js` files that only contain re-export statements like:
+
+```typescript
+// ❌ BAD - Barrel file
+export { ComponentA } from "./component-a"
+export { ComponentB } from "./component-b"
+export { ComponentC } from "./component-c"
+```
+
+### Why Avoid Barrel Files?
+
+1. **Bundle Size**: They can increase bundle size due to tree-shaking issues
+2. **Performance**: Can cause unnecessary module loading
+3. **Complexity**: Add an extra layer of indirection
+4. **Debugging**: Make it harder to trace imports and dependencies
+5. **Maintenance**: Require constant updates when adding/removing exports
+
+### Acceptable Alternatives
+
+**✅ GOOD - Direct imports:**
+
+```typescript
+import { ComponentA } from "./components/component-a"
+import { ComponentB } from "./components/component-b"
+import { ComponentC } from "./components/component-c"
+```
+
+**✅ GOOD - Named imports from specific files:**
+
+```typescript
+import { ComponentA, ComponentB } from "./components/shared-components"
+```
+
+### Exceptions
+
+The only acceptable `index.ts` files are:
+
+- Entry points for applications (`app/page.tsx`, `app/layout.tsx`)
+- Route handlers (`app/api/route.ts`)
+- Configuration files that actually contain logic, not just re-exports
+
+### Enforcement
+
+- No `index.ts` or `index.js` files should exist in component directories
+- No `index.ts` or `index.js` files should exist in utility directories
+- No `index.ts` or `index.js` files should exist in feature directories
+- Import directly from the specific files you need
+
+---
+
+**Remember:** Direct imports are clearer, more performant, and easier to maintain than barrel files.
+
+
+
+<!-- Source: .ruler/project-rules.md -->
+
+# Quanby Sign - Global AI Agent Rules
+
+## Project Overview
+
+Quanby Sign is a secure document signing platform built with **Next.js 15**, **tRPC**, **Drizzle ORM**, **NextAuth**, and **Supabase**. It provides role-based access control, guided eSigning, approvals, and audit-ready history for stakeholders including individuals, businesses, legal teams, regulators, and admins.
+
+## Technology Stack
+
+- **Frontend**: Next.js 15 (App Router)
+- **Backend**: tRPC for type-safe API calls
+- **Database**: Drizzle ORM with type-safe database operations
+- **Authentication**: NextAuth.js
+- **Storage**: Supabase
+- **Styling**: Shadcn UI component library
+- **Package Manager**: pnpm (always use `pnpm` instead of npm/yarn)
+
+## Critical Project Structure Rules
+
+### Directory Organization
+
+```
+app/                  # ❌ ONLY Next.js reserved files (pages, layouts, routes)
+├── (site)/           # ✅ Route groups and page.tsx files only
+├── api/              # ✅ API routes only
+└── globals.css       # ✅ Global styles only
+
+features/             # ✅ ALL your business logic goes here
+├── [feature-name]/
+│   ├── api/          # ✅ tRPC routers, schemas, hooks
+│   ├── components/   # ✅ Feature-specific UI components
+│   ├── lib/          # ✅ Feature-specific utilities
+│   ├── server/       # ✅ Server actions, DB operations
+│   └── utils/        # ✅ Feature utilities
+
+core/                 # ✅ Shared/reusable code
+├── components/       # ✅ Shared UI components
+├── context/          # ✅ React contexts
+├── hooks/            # ✅ Shared React hooks
+├── lib/              # ✅ Shared utilities
+└── middleware/       # ✅ Shared middleware
+
+services/             # ✅ External service integrations
+├── email/            # ✅ Email service
+├── next-auth/        # ✅ NextAuth setup
+├── drizzle/          # ✅ Drizzle schema and migrations
+├── supabase/         # ✅ Supabase client
+└── trpc/             # ✅ tRPC setup
+└── etc**/
+```
+
+### Business Logic Placement
+
+- **ALL business logic** must go in `/features/[feature-name]/` folders
+- Keep features isolated and self-contained
+- Never put business logic in the `app/` directory
+
+## File Naming Conventions
+
+- **Components**: kebab-case (`user-profile.tsx`, `document-signer.tsx`)
+- **Files**: kebab-case (`user-profile.utils.ts`, `auth-validation.schema.ts`)
+- **Folders**: kebab-case (`user-management/`, `document-signing/`)
+- **tRPC files**: `feature-name.router.ts`, `feature-name.schema.ts`, `feature-name.hooks.ts`
+
+## Coding Standards
+
+### TypeScript
+
+- Use TypeScript everywhere - no `.js` files allowed
+- Define proper types for all data structures
+- Use tRPC for type-safe API communication
+
+### Component Structure
+
+- Use Shadcn UI components as the base component library
+- Feature-specific components go in `/features/[feature-name]/components/`
+- Shared components go in `/core/components/`
+- Follow React best practices with hooks and functional components
+
+### Database & API
+
+- Use Drizzle ORM for all database operations
+- Define schemas in `/services/drizzle/`
+- Use tRPC routers in `/features/[feature-name]/api/`
+- Server actions go in `/features/[feature-name]/server/`
+
+### Authentication & Security
+
+- Use NextAuth for authentication flows
+- Implement role-based access control (RBAC)
+- Secure sensitive operations with proper authorization checks
+
+## Development Workflow
+
+1. Use `pnpm` for all package management
+2. Run `pnpm check` before committing
+3. Update `.env.example` and `env.js` when adding environment variables
+4. Keep features isolated in their own `/features/[name]/` folder
+
+## Environment Setup
+
+- Copy `.env.example` to `.env`
+- Configure Supabase, email, and API keys
+- Run `pnpm db:generate && pnpm db:push` for database setup
+- Start development with `pnpm dev`
+
+## Key Features to Consider
+
+- Secure document access with role-based permissions
+- Envelope and recipient management
+- Guided eSigning workflow
+- Approval and review processes
+- Smart notifications system
+- Identity verification (KYC) with OCR
+- Audit-ready action logging
+- Progress dashboards
+- Account management
+
+## Scripts
+
+- `pnpm dev` - Start development server
+- `pnpm build` - Build for production
+- `pnpm db:push` - Push database schema changes
+- `pnpm db:generate` - Generate database types
+- `pnpm db:migrate` - Run database migrations
+- `pnpm db:studio` - Open database GUI (if configured)
+- `pnpm check` - Check code quality and lint
+
+---
+
+_Ruler concatenates all .md files in this directory (and subdirectories), starting with AGENTS.md (if present), then remaining files in sorted order._
+
+
+
+<!-- Source: .ruler/tailwind.md -->
+
+---
+description: Tailwind CSS size utility preference
+globs: ["**/*.tsx", "**/*.jsx", "**/*.ts", "**/*.js"]
+alwaysApply: true
+---
+
+# Tailwind CSS Size Utility Guidelines
+
+## Rule: Use `size-*` for Square Dimensions
+
+**Guideline 1:** Use Tailwind's `size-*` utility classes instead of separate `w-*` and `h-*` when width and height are the same.
+
+**Examples:**
+
+- `size-4` instead of `w-4 h-4`
+- `size-6` instead of `w-6 h-6`
+- `size-8` instead of `w-8 h-8`
+- `size-12` instead of `w-12 h-12`
+
+**Guideline 2:** Only use separate `w-*` and `h-*` classes when the width and height values are different.
+
+**Guideline 3:** This applies to all size values including responsive variants like `md:size-6`, `lg:size-8`, etc.
