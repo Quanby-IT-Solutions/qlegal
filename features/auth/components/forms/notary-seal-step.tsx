@@ -7,6 +7,7 @@ import { FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/core
 import { Input } from "@/core/components/ui/input"
 
 import { type LawyerRegisterSchema } from "@/features/auth/api/auth.schemas"
+import { DateInput } from "@/core/components/ui/date-input"
 
 interface NotarySealStepProps {
 	form: UseFormReturn<LawyerRegisterSchema>
@@ -15,6 +16,7 @@ interface NotarySealStepProps {
 
 export function NotarySealStep({ form, primaryName }: NotarySealStepProps) {
 	const sealName = primaryName?.trim() || "No name provided yet"
+	const todayYmd = new Date().toISOString().slice(0, 10)
 
 	return (
 		<div className="space-y-4">
@@ -40,12 +42,44 @@ export function NotarySealStep({ form, primaryName }: NotarySealStepProps) {
 
 			<FormField
 				control={form.control}
-				name="seal.enpRoleNumber"
+				name="seal.enpRollNumber"
 				render={({ field }) => (
 					<FormItem>
-						<FormLabel>ENP Role Number</FormLabel>
+						<FormLabel>Roll Number</FormLabel>
 						<FormControl>
-							<Input placeholder="e.g., 123456" {...field} />
+							<Input
+								placeholder="e.g., 123456"
+								inputMode="numeric"
+								autoComplete="off"
+								maxLength={6}
+								pattern="\d{6}"
+								{...field}
+								onChange={(e) => {
+									const digitsOnly = e.target.value.replace(/\D/g, "").slice(0, 6)
+									field.onChange(digitsOnly)
+								}}
+							/>
+						</FormControl>
+						<FormMessage />
+					</FormItem>
+				)}
+			/>
+
+			<FormField
+				control={form.control}
+				name="seal.rollNoDate"
+				render={({ field }) => (
+					<FormItem>
+						<FormLabel>Roll No. Date</FormLabel>
+						<FormControl>
+							<DateInput
+								placeholder="e.g., 5 June 2018"
+								max={todayYmd}
+								value={field.value ?? undefined}
+								onChange={(date: Date | undefined) => {
+									field.onChange(date?.toISOString())
+								}}
+							/>
 						</FormControl>
 						<FormMessage />
 					</FormItem>

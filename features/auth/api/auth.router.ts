@@ -2,7 +2,7 @@ import { TRPCError } from "@trpc/server"
 import { hash } from "bcryptjs"
 import { eq } from "drizzle-orm"
 
-import { provisionDocoChainUser } from "@/services/docochain"
+import { autoJoinOrganization, provisionDocoChainUser } from "@/services/docochain"
 import { passwordResetTokens, users, verificationTokens } from "@/services/drizzle/schema/auth"
 import { enpProfiles } from "@/services/drizzle/schema/enp-profiles"
 import { sendPasswordResetToken } from "@/services/react-email/lib/send.password-reset-token"
@@ -92,49 +92,61 @@ export const authRouter = createTRPCRouter({
 
 		const hashedPassword = await hash(password, 10)
 
-		// Create user with PRINCIPAL role (will be upgraded to ENP after admin approval)
-		const [newUser] = await ctx.db
-			.insert(users)
-			.values({
-				name,
-				email,
-				password: hashedPassword,
-				role: "PRINCIPAL", // Pending approval, will become ENP after review
-			})
-			.returning({ id: users.id })
+		let newUserId: string | undefined
+		try {
+			await ctx.db.transaction(async tx => {
+				const [newUser] = await tx
+					.insert(users)
+					.values({
+						name,
+						email,
+						password: hashedPassword,
+						role: "ENP",
+					})
+					.returning({ id: users.id })
 
-		if (!newUser) {
+				if (!newUser?.id) {
+					throw new TRPCError({
+						code: "INTERNAL_SERVER_ERROR",
+						message: "Failed to create user account.",
+					})
+				}
+				newUserId = newUser.id
+
+				await tx.insert(enpProfiles).values({
+					userId: newUser.id,
+					// Seal info
+					enpName: seal.enpName,
+					enpRoleNumber: seal.enpRollNumber,
+					// Notary info
+					attyName: notaryInfo.attyName,
+					rollNo: seal.enpRollNumber,
+					rollNoDate: seal.rollNoDate,
+					commissionNo: notaryInfo.commissionNo,
+					commissionNoValidUntil: notaryInfo.commissionNoValidUntil,
+					ptrNo: notaryInfo.ptrNo,
+					ptrNoLocation: notaryInfo.ptrNoLocation,
+					ptrNoDate: notaryInfo.ptrNoDate,
+					ibpNo: notaryInfo.ibpNo,
+					ibpNoDate: notaryInfo.ibpNoDate,
+					notaryEmail: notaryInfo.notaryEmail,
+					notaryAddress: notaryInfo.notaryAddress,
+					mcleNoPeriod: notaryInfo.mcleNoPeriod,
+					mcleNo: notaryInfo.mcleNo,
+					mcleNoDate: notaryInfo.mcleNoDate,
+					modeOfNotarization: notaryInfo.modeOfNotarization,
+					isAvailable: false, 
+				})
+			})
+		} catch (error) {
+			const e = error as unknown as { message?: string; cause?: unknown }
+
 			throw new TRPCError({
 				code: "INTERNAL_SERVER_ERROR",
-				message: "Failed to create user account.",
+				message:
+					"Failed to submit ENP application. Please double-check your credentials and try again.",
 			})
 		}
-
-		// Create ENP profile with notary credentials
-		await ctx.db.insert(enpProfiles).values({
-			userId: newUser.id,
-			// Seal info
-			enpName: seal.enpName,
-			enpRoleNumber: seal.enpRoleNumber,
-			// Notary info
-			attyName: notaryInfo.attyName,
-			rollNo: notaryInfo.rollNo,
-			rollNoDate: notaryInfo.rollNoDate,
-			commissionNo: notaryInfo.commissionNo,
-			commissionNoValidUntil: notaryInfo.commissionNoValidUntil,
-			ptrNo: notaryInfo.ptrNo,
-			ptrNoLocation: notaryInfo.ptrNoLocation,
-			ptrNoDate: notaryInfo.ptrNoDate,
-			ibpNo: notaryInfo.ibpNo,
-			ibpNoDate: notaryInfo.ibpNoDate,
-			notaryEmail: notaryInfo.notaryEmail,
-			notaryAddress: notaryInfo.notaryAddress,
-			mcleNoPeriod: notaryInfo.mcleNoPeriod,
-			mcleNo: notaryInfo.mcleNo,
-			mcleNoDate: notaryInfo.mcleNoDate,
-			modeOfNotarization: notaryInfo.modeOfNotarization,
-			isAvailable: false, // Not available until approved
-		})
 
 		// Auto-join user to DocoChain organization
 		try {
@@ -158,13 +170,13 @@ export const authRouter = createTRPCRouter({
 			seal: {
 				type: "seal",
 				enp_name: seal.enpName,
-				enp_role_number: seal.enpRoleNumber,
+				enp_role_number: seal.enpRollNumber,
 			},
 			notary_info: {
 				type: "notary",
 				atty_name: notaryInfo.attyName,
-				roll_no: notaryInfo.rollNo,
-				roll_no_date: notaryInfo.rollNoDate,
+				roll_no: seal.enpRollNumber,
+				roll_no_date: seal.rollNoDate,
 				commission_no: notaryInfo.commissionNo,
 				commission_no_valid_until: notaryInfo.commissionNoValidUntil,
 				PTR_no: notaryInfo.ptrNo,
@@ -181,10 +193,6 @@ export const authRouter = createTRPCRouter({
 			},
 		}
 
-		// TODO: Send document_stamp to external API
-		// await submitToExternalAPI(documentStamp)
-		console.log("📄 Document stamp payload ready for API:", JSON.stringify(documentStamp, null, 2))
-
 		// Send verification email
 		const verificationToken = await generateVerificationToken(email)
 		await sendVerificationToken(verificationToken.email, verificationToken.token)
@@ -193,6 +201,7 @@ export const authRouter = createTRPCRouter({
 			message:
 				"Registration successful! Please verify your email. Your application will be reviewed by an administrator.",
 			documentStamp, // Return for debugging/confirmation
+			userId: newUserId,
 		}
 	}),
 
