@@ -1448,7 +1448,6 @@ Documents can be uploaded by either party. The review process differs based on w
 
 ```
 ❌  Multiple overlapping pages:
-    /find-notary
     /find-a-lawyer
     /book
     /consultations
