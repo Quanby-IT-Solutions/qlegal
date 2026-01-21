@@ -6,14 +6,10 @@ import { useEffect, useState } from "react"
 import { format, startOfToday } from "date-fns"
 import {
 	Calendar,
-	CheckCircle,
 	Clock,
-	Handshake,
 	Loader2,
 	Mail,
-	MapPin,
 	Phone,
-	User,
 	Video,
 } from "lucide-react"
 import { toast } from "sonner"
@@ -32,15 +28,11 @@ import {
 } from "@/core/components/ui/card"
 import { Label } from "@/core/components/ui/label"
 import { Popover, PopoverContent, PopoverTrigger } from "@/core/components/ui/popover"
-import { RadioGroup, RadioGroupItem } from "@/core/components/ui/radio-group"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/core/components/ui/tabs"
-import { Textarea } from "@/core/components/ui/textarea"
+import { Tabs, TabsList, TabsTrigger } from "@/core/components/ui/tabs"
 
 import { trpc } from "@/services/trpc/client"
 
-type ConsultationType = "INITIAL" | "FOLLOWUP" | "URGENT"
 type WorkflowType = "REN" | "IEN"
-type MeetingPreference = "VIDEO_CALL" | "CHAT_ONLY"
 type BookingMode = "CONSULTATION" | "SIGNING"
 
 export default function ConsultationsPage() {
@@ -55,10 +47,6 @@ export default function ConsultationsPage() {
 	const [selectedENP, setSelectedENP] = useState<string | null>(null)
 	const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined)
 	const [selectedTime, setSelectedTime] = useState<string>("")
-	const [consultationType, setConsultationType] = useState<ConsultationType>("INITIAL")
-	const [meetingPreference, setMeetingPreference] = useState<MeetingPreference>("VIDEO_CALL")
-	const [specialRequirements, setSpecialRequirements] = useState("")
-	const [location, setLocation] = useState("")
 	const today = startOfToday()
 
 	// Get ENP ID from URL params
@@ -86,7 +74,7 @@ export default function ConsultationsPage() {
 		if (timeParam) {
 			setSelectedTime(timeParam)
 		}
-	}, [dateParam, enpId, timeParam, workflowParam])
+	}, [dateParam, enpId, initialBooking, timeParam, workflowParam])
 
 	// Fetch available ENPs
 	const { data: availableEnps, isLoading: isLoadingEnps } =
@@ -141,23 +129,10 @@ export default function ConsultationsPage() {
 
 	const enpDetails = availableEnps?.find(enp => enp.id === selectedENP)
 
-	const handleWorkflowChange = (workflow: WorkflowType) => {
-		setSelectedWorkflow(workflow)
-		setSelectedDate(undefined)
-		setSelectedTime("")
-	}
-
 	const handleBooking = async () => {
 		if (!selectedENP || !selectedDate || !selectedTime) {
 			toast.error("Missing Information", {
 				description: "Please select a date and time to continue.",
-			})
-			return
-		}
-
-		if (selectedWorkflow === "IEN" && !location) {
-			toast.error("Location Required", {
-				description: "Please provide a location for the in-person consultation.",
 			})
 			return
 		}
@@ -168,10 +143,10 @@ export default function ConsultationsPage() {
 				workflowType: selectedWorkflow,
 				appointmentDate: selectedDate,
 				appointmentTime: selectedTime,
-				consultationType,
-				meetingPreference: selectedWorkflow === "REN" ? meetingPreference : undefined,
-				specialRequirements: specialRequirements || undefined,
-				location: selectedWorkflow === "IEN" ? location : undefined,
+				consultationType: "INITIAL",
+				meetingPreference: undefined,
+				specialRequirements: undefined,
+				location: undefined,
 			})
 		} else {
 			// Signing session booking
@@ -185,8 +160,8 @@ export default function ConsultationsPage() {
 				type: "DOCUMENT_SIGNING",
 				appointmentDate,
 				duration: selectedWorkflow === "REN" ? 45 : 60,
-				notes: specialRequirements || undefined,
-				location: selectedWorkflow === "IEN" ? location : undefined,
+				notes: undefined,
+				location: undefined,
 				meetingLink: selectedWorkflow === "REN" ? "" : undefined,
 			})
 		}
@@ -200,7 +175,7 @@ export default function ConsultationsPage() {
 	return (
 		<div className="flex flex-1 flex-col">
 			<PageHeader
-				items={[{ label: "Find a Notary", href: "/find-notary" }, { label: "Consultations" }]}
+				items={[{ label: "Calendar", href: "/calendar" }, { label: "Consultations" }]}
 			/>
 
 			<main className="flex-1 p-4 md:p-6 lg:p-8">
@@ -228,93 +203,6 @@ export default function ConsultationsPage() {
 									<TabsTrigger value="CONSULTATION">Consultation</TabsTrigger>
 									<TabsTrigger value="SIGNING">Signing Session</TabsTrigger>
 								</TabsList>
-							</Tabs>
-						</CardContent>
-					</Card>
-
-					{/* Workflow Selection */}
-					<Card>
-						<CardHeader>
-							<CardTitle>Select Notarization Type</CardTitle>
-							<CardDescription>
-								Choose between Remote Electronic Notarization (REN) or In-Person Electronic
-								Notarization (IEN)
-							</CardDescription>
-						</CardHeader>
-						<CardContent>
-							<Tabs
-								value={selectedWorkflow}
-								onValueChange={value => handleWorkflowChange(value as WorkflowType)}
-							>
-								<TabsList className="grid w-full grid-cols-2">
-									<TabsTrigger value="REN" className="flex items-center gap-2">
-										<Video className="h-4 w-4" />
-										Remote (REN)
-									</TabsTrigger>
-									<TabsTrigger value="IEN" className="flex items-center gap-2">
-										<Handshake className="h-4 w-4" />
-										In-Person (IEN)
-									</TabsTrigger>
-								</TabsList>
-
-								<TabsContent value="REN" className="mt-6">
-									<div className="space-y-4">
-										<div className="flex items-start gap-3">
-											<CheckCircle className="mt-0.5 h-5 w-5 text-green-600" />
-											<div>
-												<h4 className="font-medium">Remote Electronic Notarization (REN)</h4>
-												<p className="text-muted-foreground text-sm">
-													Conduct notarization remotely via video call. Requires video/audio
-													recording and remote identity verification. Perfect for clients who cannot
-													meet in person.
-												</p>
-											</div>
-										</div>
-										<div className="grid grid-cols-1 gap-4 text-sm md:grid-cols-3">
-											<div className="flex items-center gap-2">
-												<Video className="h-4 w-4 text-blue-600" />
-												<span>Video call required</span>
-											</div>
-											<div className="flex items-center gap-2">
-												<Clock className="h-4 w-4 text-blue-600" />
-												<span>30-minute sessions</span>
-											</div>
-											<div className="flex items-center gap-2">
-												<CheckCircle className="h-4 w-4 text-blue-600" />
-												<span>Remote ID verification</span>
-											</div>
-										</div>
-									</div>
-								</TabsContent>
-
-								<TabsContent value="IEN" className="mt-6">
-									<div className="space-y-4">
-										<div className="flex items-start gap-3">
-											<CheckCircle className="mt-0.5 h-5 w-5 text-green-600" />
-											<div>
-												<h4 className="font-medium">In-Person Electronic Notarization (IEN)</h4>
-												<p className="text-muted-foreground text-sm">
-													Traditional in-person notarization with physical presence verification.
-													Includes document scanning and physical ID inspection.
-												</p>
-											</div>
-										</div>
-										<div className="grid grid-cols-1 gap-4 text-sm md:grid-cols-3">
-											<div className="flex items-center gap-2">
-												<MapPin className="h-4 w-4 text-green-600" />
-												<span>Physical presence required</span>
-											</div>
-											<div className="flex items-center gap-2">
-												<Clock className="h-4 w-4 text-green-600" />
-												<span>45-minute sessions</span>
-											</div>
-											<div className="flex items-center gap-2">
-												<User className="h-4 w-4 text-green-600" />
-												<span>Physical ID verification</span>
-											</div>
-										</div>
-									</div>
-								</TabsContent>
 							</Tabs>
 						</CardContent>
 					</Card>
@@ -454,11 +342,9 @@ export default function ConsultationsPage() {
 							<div className="lg:col-span-2">
 								<Card>
 									<CardHeader>
-										<CardTitle>Schedule Your Consultation</CardTitle>
+										<CardTitle>Schedule your booking</CardTitle>
 										<CardDescription>
-											{selectedWorkflow === "REN"
-												? "Select a time for your remote video consultation"
-												: "Select a time for your in-person consultation"}
+											Select a date and time to confirm your booking.
 										</CardDescription>
 									</CardHeader>
 									<CardContent className="space-y-6">
@@ -533,109 +419,6 @@ export default function ConsultationsPage() {
 											</div>
 										)}
 
-										{/* Consultation Type - Only show for consultation bookings, not signing sessions */}
-										{bookingMode === "CONSULTATION" && (
-											<div>
-												<Label className="text-base font-medium">Consultation Type</Label>
-												<RadioGroup
-													value={consultationType}
-													onValueChange={value => setConsultationType(value as ConsultationType)}
-													className="mt-2"
-												>
-													<div className="flex items-center space-x-2">
-														<RadioGroupItem value="INITIAL" id="initial" />
-														<Label htmlFor="initial" className="font-normal">
-															Initial Consultation
-														</Label>
-													</div>
-													<div className="flex items-center space-x-2">
-														<RadioGroupItem value="FOLLOWUP" id="followup" />
-														<Label htmlFor="followup" className="font-normal">
-															Follow-up Consultation
-														</Label>
-													</div>
-													<div className="flex items-center space-x-2">
-														<RadioGroupItem value="URGENT" id="urgent" />
-														<Label htmlFor="urgent" className="font-normal">
-															Urgent Consultation
-														</Label>
-													</div>
-												</RadioGroup>
-											</div>
-										)}
-
-										{/* Meeting Preference (REN only, consultation mode only) */}
-										{selectedWorkflow === "REN" && bookingMode === "CONSULTATION" && (
-											<div>
-												<Label className="text-base font-medium">Meeting Preference</Label>
-												<RadioGroup
-													value={meetingPreference}
-													onValueChange={value => setMeetingPreference(value as MeetingPreference)}
-													className="mt-2"
-												>
-													<div className="flex items-center space-x-2">
-														<RadioGroupItem value="VIDEO_CALL" id="video" />
-														<Label htmlFor="video" className="font-normal">
-															<div className="flex items-center gap-2">
-																<Video className="h-4 w-4" />
-																<div>
-																	<div className="font-medium">Video Call</div>
-																	<div className="text-muted-foreground text-xs">
-																		Full video consultation with screen sharing
-																	</div>
-																</div>
-															</div>
-														</Label>
-													</div>
-													<div className="flex items-center space-x-2">
-														<RadioGroupItem value="CHAT_ONLY" id="chat" />
-														<Label htmlFor="chat" className="font-normal">
-															<div className="flex items-center gap-2">
-																<Mail className="h-4 w-4" />
-																<div>
-																	<div className="font-medium">Chat Only</div>
-																	<div className="text-muted-foreground text-xs">
-																		Text-based consultation via messaging
-																	</div>
-																</div>
-															</div>
-														</Label>
-													</div>
-												</RadioGroup>
-											</div>
-										)}
-
-										{/* Location for IEN */}
-										{selectedWorkflow === "IEN" && (
-											<div>
-												<Label htmlFor="location" className="text-base font-medium">
-													Meeting Location <span className="text-red-500">*</span>
-												</Label>
-												<input
-													id="location"
-													type="text"
-													placeholder="Enter the meeting location address..."
-													value={location}
-													onChange={e => setLocation(e.target.value)}
-													className="border-input bg-background ring-offset-background placeholder:text-muted-foreground focus-visible:ring-ring mt-2 w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
-												/>
-											</div>
-										)}
-
-										{/* Special Requirements */}
-										<div>
-											<Label htmlFor="requirements" className="text-base font-medium">
-												Special Requirements (Optional)
-											</Label>
-											<Textarea
-												id="requirements"
-												placeholder="Any special requirements or documents you need notarized..."
-												value={specialRequirements}
-												onChange={e => setSpecialRequirements(e.target.value)}
-												className="mt-2"
-											/>
-										</div>
-
 										{/* Booking Button */}
 										<Button
 											onClick={handleBooking}
@@ -652,17 +435,8 @@ export default function ConsultationsPage() {
 												</>
 											) : (
 												<>
-													{selectedWorkflow === "REN" ? (
-														<>
-															<Video className="mr-2 h-4 w-4" />
-															Book Remote Consultation
-														</>
-													) : (
-														<>
-															<Handshake className="mr-2 h-4 w-4" />
-															Book In-Person Consultation
-														</>
-													)}
+													<Video className="mr-2 h-4 w-4" />
+													Confirm booking
 												</>
 											)}
 										</Button>

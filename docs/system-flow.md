@@ -414,7 +414,6 @@ Quanby Sign is an e-notary platform for the Philippines. Users can:
 
 ```
 ❌  Multiple overlapping pages:
-    /find-notary
     /find-a-lawyer
     /consultations
     /requests

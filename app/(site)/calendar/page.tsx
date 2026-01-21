@@ -6,12 +6,10 @@ import { format, startOfToday } from "date-fns"
 import {
 	Calendar as CalendarIcon,
 	Clock,
-	Handshake,
 	Loader2,
 	Mail,
 	MapPin,
 	Phone,
-	Video,
 } from "lucide-react"
 
 import { PageHeader } from "@/core/components/navbar/page-header"
@@ -37,6 +35,11 @@ type AvailableEnp = BaseAvailableEnp & {
 	availableSlots?: Array<{ time: string; duration: number }>
 }
 
+type AvailableSlot = { time: string; duration: number; workflow: WorkflowType }
+type CalendarEnp = BaseAvailableEnp & {
+	availableSlots: AvailableSlot[]
+}
+
 function normalizeDate(date: Date): Date {
 	const normalized = new Date(date)
 	normalized.setHours(12, 0, 0, 0)
@@ -45,7 +48,6 @@ function normalizeDate(date: Date): Date {
 
 export default function CalendarPage() {
 	const today = useMemo(() => startOfToday(), [])
-	const [workflowType, setWorkflowType] = useState<WorkflowType>("REN")
 	const [selectedDate, setSelectedDate] = useState<Date>(() => normalizeDate(new Date()))
 
 	const selectedDateForQuery = useMemo(
@@ -55,14 +57,9 @@ export default function CalendarPage() {
 	const selectedDateLabel = selectedDate ? format(selectedDate, "EEEE, MMM d") : "Select a date"
 	const selectedDateParam = selectedDate ? format(selectedDate, "yyyy-MM-dd") : ""
 
-	const {
-		data: availableEnps,
-		isLoading,
-		isFetching,
-		refetch,
-	} = trpc.consultations.getAvailableEnps.useQuery(
+	const renQuery = trpc.consultations.getAvailableEnps.useQuery(
 		{
-			workflowType,
+			workflowType: "REN",
 			date: selectedDateForQuery,
 		},
 		{
@@ -70,8 +67,51 @@ export default function CalendarPage() {
 		}
 	)
 
-	const hasResults = (availableEnps?.length ?? 0) > 0
-	const isBusy = isLoading || isFetching
+	const ienQuery = trpc.consultations.getAvailableEnps.useQuery(
+		{
+			workflowType: "IEN",
+			date: selectedDateForQuery,
+		},
+		{
+			enabled: !!selectedDateForQuery,
+		}
+	)
+
+	const isBusy = renQuery.isLoading || renQuery.isFetching || ienQuery.isLoading || ienQuery.isFetching
+	const hasAnyResults = (renQuery.data?.length ?? 0) > 0 || (ienQuery.data?.length ?? 0) > 0
+
+	const mergedEnps = useMemo((): CalendarEnp[] => {
+		const map = new Map<string, CalendarEnp>()
+
+		const addEnps = (enps: BaseAvailableEnp[] | undefined, workflow: WorkflowType) => {
+			if (!enps) return
+			for (const enp of enps) {
+				const slots = ((enp as unknown as AvailableEnp).availableSlots ?? []).map(slot => ({
+					time: slot.time,
+					duration: slot.duration,
+					workflow,
+				}))
+				const existing = map.get(enp.id)
+				if (!existing) {
+					map.set(enp.id, { ...enp, availableSlots: slots })
+				} else {
+					// Merge slots; if same time exists from both workflows, keep the first.
+					const existingTimes = new Set(existing.availableSlots.map(s => s.time))
+					for (const slot of slots) {
+						if (!existingTimes.has(slot.time)) {
+							existing.availableSlots.push(slot)
+						}
+					}
+				}
+			}
+		}
+
+		addEnps(renQuery.data, "REN")
+		addEnps(ienQuery.data, "IEN")
+
+		// Sort by name for stable UI
+		return Array.from(map.values()).sort((a, b) => (a.name ?? "").localeCompare(b.name ?? ""))
+	}, [ienQuery.data, renQuery.data])
 
 	return (
 		<div className="flex flex-1 flex-col">
@@ -89,35 +129,6 @@ export default function CalendarPage() {
 
 					<div className="grid gap-6 lg:grid-cols-[420px,1fr]">
 						<div className="space-y-4">
-							<Card>
-								<CardHeader>
-									<CardTitle>Select workflow</CardTitle>
-									<CardDescription>
-										Switch between remote (REN) and in-person (IEN) availability.
-									</CardDescription>
-								</CardHeader>
-								<CardContent>
-									<div className="grid grid-cols-2 gap-3">
-										<Button
-											variant={workflowType === "REN" ? "default" : "outline"}
-											onClick={() => setWorkflowType("REN")}
-											className="justify-start gap-2"
-										>
-											<Video className="h-4 w-4" />
-											Remote (REN)
-										</Button>
-										<Button
-											variant={workflowType === "IEN" ? "default" : "outline"}
-											onClick={() => setWorkflowType("IEN")}
-											className="justify-start gap-2"
-										>
-											<Handshake className="h-4 w-4" />
-											In-Person (IEN)
-										</Button>
-									</div>
-								</CardContent>
-							</Card>
-
 							<Card>
 								<CardHeader>
 									<CardTitle>Pick a day</CardTitle>
@@ -142,7 +153,15 @@ export default function CalendarPage() {
 											<p className="text-sm font-medium">Selected day</p>
 											<p className="text-muted-foreground text-sm">{selectedDateLabel}</p>
 										</div>
-										<Button variant="ghost" size="sm" onClick={() => refetch()} disabled={isBusy}>
+										<Button
+											variant="ghost"
+											size="sm"
+											onClick={() => {
+												void renQuery.refetch()
+												void ienQuery.refetch()
+											}}
+											disabled={isBusy}
+										>
 											{isBusy ? (
 												<>
 													<Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -165,13 +184,13 @@ export default function CalendarPage() {
 										<CardDescription>
 											{isBusy
 												? "Loading availability..."
-												: hasResults
+												: hasAnyResults
 													? "Tap a time to start booking."
 													: "No ENPs for this day yet."}
 										</CardDescription>
 									</div>
-									<Badge variant={hasResults ? "default" : "outline"}>
-										{availableEnps?.length ?? 0} ENPs
+									<Badge variant={hasAnyResults ? "default" : "outline"}>
+										{mergedEnps.length} ENPs
 									</Badge>
 								</CardHeader>
 							</Card>
@@ -199,29 +218,24 @@ export default function CalendarPage() {
 								</div>
 							)}
 
-							{!isBusy && !hasResults && (
+							{!isBusy && !hasAnyResults && (
 								<Card>
 									<CardContent className="flex flex-col items-center justify-center gap-3 py-12 text-center">
 										<CalendarIcon className="text-muted-foreground h-10 w-10" />
 										<div>
 											<p className="font-medium">No schedules found</p>
 											<p className="text-muted-foreground text-sm">
-												Try another day or switch workflows to see more options.
+												Try another day to see more options.
 											</p>
 										</div>
 									</CardContent>
 								</Card>
 							)}
 
-							{!isBusy && hasResults && selectedDateParam && (
+							{!isBusy && selectedDateParam && (
 								<div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-									{availableEnps?.map(enp => (
-										<AvailabilityCard
-											key={enp.id}
-											enp={enp as AvailableEnp}
-											workflowType={workflowType}
-											dateParam={selectedDateParam}
-										/>
+									{mergedEnps.map(enp => (
+										<AvailabilityCard key={enp.id} enp={enp} dateParam={selectedDateParam} />
 									))}
 								</div>
 							)}
@@ -234,15 +248,12 @@ export default function CalendarPage() {
 }
 
 interface AvailabilityCardProps {
-	enp: AvailableEnp
-	workflowType: WorkflowType
+	enp: CalendarEnp
 	dateParam: string
 }
 
-function AvailabilityCard({ enp, workflowType, dateParam }: AvailabilityCardProps) {
-	// Type assertion: availableSlots is not in the TRPC return type but is expected to be extended
-	const availableSlots: Array<{ time: string; duration: number }> =
-		(enp as unknown as AvailableEnp).availableSlots ?? []
+function AvailabilityCard({ enp, dateParam }: AvailabilityCardProps) {
+	const availableSlots = enp.availableSlots
 
 	return (
 		<Card className="h-full">
@@ -292,18 +303,14 @@ function AvailabilityCard({ enp, workflowType, dateParam }: AvailabilityCardProp
 					<span className="text-muted-foreground">
 						Available slots ({availableSlots.length ?? "0"})
 					</span>
-					<Badge variant="outline" className="gap-1">
-						<CalendarIcon className="h-3.5 w-3.5" />
-						{workflowType}
-					</Badge>
 				</div>
 
 				{availableSlots.length > 0 ? (
 					<div className="flex flex-wrap gap-2">
-						{availableSlots.map((slot: { time: string; duration: number }, index: number) => {
+						{availableSlots.map((slot, index) => {
 							const searchParams = new URLSearchParams({
 								enp: enp.id,
-								workflow: workflowType,
+								workflow: slot.workflow,
 								date: dateParam,
 								time: slot.time,
 								mode: "CONSULTATION",
@@ -332,15 +339,21 @@ function AvailabilityCard({ enp, workflowType, dateParam }: AvailabilityCardProp
 
 				<div className="flex gap-2">
 					<Button variant="default" className="flex-1" asChild>
-						<Link href={`/consultations?enp=${enp.id}&workflow=${workflowType}&mode=CONSULTATION`}>
+						<Link href={`/consultations?enp=${enp.id}&mode=CONSULTATION`}>
 							<CalendarIcon className="mr-2 h-4 w-4" />
 							Book Consultation
 						</Link>
 					</Button>
 					<Button variant="outline" className="flex-1" asChild>
-						<Link href={`/consultations?enp=${enp.id}&workflow=${workflowType}&mode=SIGNING`}>
+						<Link href={`/consultations?enp=${enp.id}&mode=SIGNING`}>
 							<CalendarIcon className="mr-2 h-4 w-4" />
 							Book Signing
+						</Link>
+					</Button>
+					<Button variant="outline" className="flex-1" asChild>
+						<Link href={`/messages?userId=${enp.id}`}>
+							<Phone className="mr-2 h-4 w-4" />
+							Message
 						</Link>
 					</Button>
 					{enp.email && (
