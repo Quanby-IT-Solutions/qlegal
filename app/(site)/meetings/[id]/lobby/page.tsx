@@ -651,11 +651,15 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 														{ meetingId: id, email },
 														{
 															onSuccess: async result => {
-																if (result.added) {
-																	toast.success("Witness invited to the meeting")
+																if (result.created) {
+																	toast.success("Invite sent")
 																	setWitnessEmail("")
 																} else {
-																	toast.message("That user is already in this meeting")
+																	toast.message(
+																		result.status === "PENDING"
+																			? "Invite already sent"
+																			: "That user is already in this meeting"
+																	)
 																}
 																await refetchMeeting()
 															},
@@ -668,6 +672,39 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 											>
 												{inviteWitnessByEmail.isPending ? "Inviting..." : "Invite"}
 											</Button>
+										</div>
+									)}
+
+									{/* Pending invites (host only) */}
+									{isHost && (meeting.pendingInvites?.length ?? 0) > 0 && (
+										<div className="rounded-lg border bg-muted/20 p-2">
+											<p className="text-muted-foreground mb-2 text-[10px] font-semibold uppercase tracking-wide">
+												Pending invites ({meeting.pendingInvites.length})
+											</p>
+											<div className="space-y-1.5">
+												{meeting.pendingInvites.map(invite => (
+													<div
+														key={invite.id}
+														className="flex items-center gap-2.5 rounded-md px-2 py-1.5"
+													>
+														<Avatar className="size-7 shrink-0">
+															<AvatarImage src={invite.user.image ?? undefined} />
+															<AvatarFallback className="bg-primary text-primary-foreground text-[10px] font-semibold">
+																{invite.user.name?.charAt(0).toUpperCase() ?? "?"}
+															</AvatarFallback>
+														</Avatar>
+														<div className="min-w-0 flex-1">
+															<p className="truncate text-xs font-semibold">{invite.user.name}</p>
+															<p className="text-muted-foreground truncate text-[10px]">
+																{invite.user.email}
+															</p>
+														</div>
+														<span className="shrink-0 rounded-full bg-yellow-100 px-2 py-0.5 text-[10px] font-semibold text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300">
+															Pending
+														</span>
+													</div>
+												))}
+											</div>
 										</div>
 									)}
 

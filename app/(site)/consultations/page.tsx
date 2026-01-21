@@ -47,7 +47,7 @@ export default function ConsultationsPage() {
 	const searchParams = useSearchParams()
 	const router = useRouter()
 
-	const modeParam = (searchParams.get("mode") || searchParams.get("booking") || "").toUpperCase()
+	const modeParam = (searchParams.get("mode") ?? searchParams.get("booking") ?? "").toUpperCase()
 	const initialBooking: BookingMode = modeParam === "SIGNING" ? "SIGNING" : "CONSULTATION"
 
 	const [bookingMode, setBookingMode] = useState<BookingMode>("CONSULTATION")
@@ -98,7 +98,7 @@ export default function ConsultationsPage() {
 	const { data: availabilitySlots, isLoading: isLoadingAvailability } =
 		trpc.consultations.getEnpAvailability.useQuery(
 			{
-				enpId: selectedENP || "",
+				enpId: selectedENP ?? "",
 				workflowType: selectedWorkflow,
 			},
 			{
@@ -112,46 +112,13 @@ export default function ConsultationsPage() {
 			console.log("🔍 Consultation booking success:", data)
 
 			toast.success("Consultation Booked!", {
-				description: "Your consultation has been successfully booked.",
+				description: "Your consultation request has been sent. The ENP will review and confirm your booking.",
 			})
 
-			// Redirect based on workflow type and meeting preference
-			// Check CHAT_ONLY first to ensure proper redirect
-			if (data.workflowType === "REN" && data.meetingPreference === "CHAT_ONLY") {
-				// Chat only - always go to messages (conversation is created in backend)
-				const targetConversation = data.conversationId
-				console.log("✅ Redirecting to messages for CHAT_ONLY consultation", targetConversation)
-				toast.success("Chat Consultation Ready!", {
-					description: "You can now message the ENP directly.",
-				})
-				if (targetConversation) {
-					router.push(`/messages?conversationId=${targetConversation}` as Route)
-				} else {
-					router.push("/messages" as Route)
-				}
-			} else if (
-				data.workflowType === "REN" &&
-				data.meetingPreference === "VIDEO_CALL" &&
-				data.meetingId
-			) {
-				// Video call - go to meeting lobby
-				console.log("✅ Redirecting to video meeting lobby:", data.meetingId)
-				toast.success("Video Consultation Ready!", {
-					description: "Redirecting you to the meeting lobby...",
-				})
-				router.push(`/meetings/${data.meetingId}/lobby` as Route)
-			} else if (data.workflowType === "IEN") {
-				// In-person - go to appointments
-				console.log("✅ Redirecting to dashboard for in-person consultation")
-				toast.success("Appointment Scheduled!", {
-					description: "Check your appointments for details.",
-				})
-				router.push("/appointments" as Route)
-			} else {
-				// Fallback - shouldn't happen
-				console.warn("⚠️ Unexpected workflow type, redirecting to messages:", data)
-				router.push("/messages" as Route)
-			}
+			// After booking, always redirect to dashboard - meeting/conversation is created when ENP confirms
+			// The user can see their pending appointment and will be notified when it's confirmed
+			console.log("✅ Redirecting to dashboard after booking")
+			router.push("/dashboard" as Route)
 		},
 		onError: error => {
 			toast.error("Booking Failed", {
@@ -375,12 +342,12 @@ export default function ConsultationsPage() {
 												<CardContent className="p-4">
 													<div className="flex items-center gap-4">
 														<Avatar className="h-12 w-12">
-															<AvatarImage src={enp.image || undefined} alt={enp.name || "ENP"} />
+															<AvatarImage src={enp.image ?? undefined} alt={enp.name ?? "ENP"} />
 															<AvatarFallback>
 																{enp.name
 																	?.split(" ")
 																	.map(n => n[0])
-																	.join("") || "EN"}
+																	.join("") ?? "EN"}
 															</AvatarFallback>
 														</Avatar>
 														<div className="flex-1">
@@ -421,14 +388,14 @@ export default function ConsultationsPage() {
 										<div className="flex items-center gap-4">
 											<Avatar className="h-16 w-16">
 												<AvatarImage
-													src={enpDetails.image || undefined}
-													alt={enpDetails.name || "ENP"}
+													src={enpDetails.image ?? undefined}
+													alt={enpDetails.name ?? "ENP"}
 												/>
 												<AvatarFallback>
 													{enpDetails.name
 														?.split(" ")
 														.map(n => n[0])
-														.join("") || "EN"}
+														.join("") ?? "EN"}
 												</AvatarFallback>
 											</Avatar>
 											<div>
@@ -566,37 +533,39 @@ export default function ConsultationsPage() {
 											</div>
 										)}
 
-										{/* Consultation Type */}
-										<div>
-											<Label className="text-base font-medium">Consultation Type</Label>
-											<RadioGroup
-												value={consultationType}
-												onValueChange={value => setConsultationType(value as ConsultationType)}
-												className="mt-2"
-											>
-												<div className="flex items-center space-x-2">
-													<RadioGroupItem value="INITIAL" id="initial" />
-													<Label htmlFor="initial" className="font-normal">
-														Initial Consultation
-													</Label>
-												</div>
-												<div className="flex items-center space-x-2">
-													<RadioGroupItem value="FOLLOWUP" id="followup" />
-													<Label htmlFor="followup" className="font-normal">
-														Follow-up Consultation
-													</Label>
-												</div>
-												<div className="flex items-center space-x-2">
-													<RadioGroupItem value="URGENT" id="urgent" />
-													<Label htmlFor="urgent" className="font-normal">
-														Urgent Consultation
-													</Label>
-												</div>
-											</RadioGroup>
-										</div>
+										{/* Consultation Type - Only show for consultation bookings, not signing sessions */}
+										{bookingMode === "CONSULTATION" && (
+											<div>
+												<Label className="text-base font-medium">Consultation Type</Label>
+												<RadioGroup
+													value={consultationType}
+													onValueChange={value => setConsultationType(value as ConsultationType)}
+													className="mt-2"
+												>
+													<div className="flex items-center space-x-2">
+														<RadioGroupItem value="INITIAL" id="initial" />
+														<Label htmlFor="initial" className="font-normal">
+															Initial Consultation
+														</Label>
+													</div>
+													<div className="flex items-center space-x-2">
+														<RadioGroupItem value="FOLLOWUP" id="followup" />
+														<Label htmlFor="followup" className="font-normal">
+															Follow-up Consultation
+														</Label>
+													</div>
+													<div className="flex items-center space-x-2">
+														<RadioGroupItem value="URGENT" id="urgent" />
+														<Label htmlFor="urgent" className="font-normal">
+															Urgent Consultation
+														</Label>
+													</div>
+												</RadioGroup>
+											</div>
+										)}
 
-										{/* Meeting Preference (REN only) */}
-										{selectedWorkflow === "REN" && (
+										{/* Meeting Preference (REN only, consultation mode only) */}
+										{selectedWorkflow === "REN" && bookingMode === "CONSULTATION" && (
 											<div>
 												<Label className="text-base font-medium">Meeting Preference</Label>
 												<RadioGroup

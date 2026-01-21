@@ -101,7 +101,6 @@ const MeetingControls = React.memo(function MeetingControls({
 		() => localScreenShareOn ?? false
 	)
 	const [isRecordingLocal, setIsRecordingLocal] = useState(false)
-	const [showRecordingPrompt, setShowRecordingPrompt] = useState(false)
 
 	useEffect(() => {
 		if (meeting?.localWebcamOn !== undefined) {
@@ -129,10 +128,7 @@ const MeetingControls = React.memo(function MeetingControls({
 		}
 	}, [recordingState])
 
-	const effectiveRecording = isRecording ?? isRecordingLocal
-	const effectiveIsRecordingStarting = isRecordingStarting ?? false
 	const localRecordingActive = isLocalRecording ?? false
-	const localRecordingDisabled = !localRecordingSupported
 	const [localRecordingElapsed, setLocalRecordingElapsed] = useState("00:00")
 
 	useEffect(() => {
@@ -208,50 +204,11 @@ const MeetingControls = React.memo(function MeetingControls({
 		}
 	}
 
+	// Start/stop recording directly on click - no dialog needed
+	// (getDisplayMedia requires direct user gesture, dialog breaks the gesture chain)
 	const handleToggleRecording = async () => {
-		// If not recording, show confirmation prompt first
-		if (!effectiveRecording && !effectiveIsRecordingStarting) {
-			setShowRecordingPrompt(true)
-			return
-		}
-
-		// If already recording, stop it
-		if (onRecordingToggle) {
-			await onRecordingToggle()
-			return
-		}
-
-		if (!meeting) return
-		try {
-			await (
-				meeting as unknown as { stopRecording?: () => Promise<void> | void }
-			).stopRecording?.()
-			setIsRecordingLocal(false)
-		} catch (error: unknown) {
-			console.error("Error toggling recording:", error)
-			const errorMessage = error instanceof Error ? error.message : "Failed to toggle recording"
-			toast.error(errorMessage)
-		}
-	}
-
-	const confirmStartRecording = async () => {
-		setShowRecordingPrompt(false)
-
-		if (onRecordingToggle) {
-			await onRecordingToggle()
-			return
-		}
-
-		if (!meeting) return
-		try {
-			await (
-				meeting as unknown as { startRecording?: () => Promise<void> | void }
-			).startRecording?.()
-			setIsRecordingLocal(true)
-		} catch (error: unknown) {
-			console.error("Error starting recording:", error)
-			const errorMessage = error instanceof Error ? error.message : "Failed to start recording"
-			toast.error(errorMessage)
+		if (onLocalRecordingToggle) {
+			await onLocalRecordingToggle()
 		}
 	}
 
@@ -292,44 +249,24 @@ const MeetingControls = React.memo(function MeetingControls({
 				</Button>
 
 				<Button
-					variant={effectiveRecording ? "destructive" : "outline"}
+					variant={localRecordingActive ? "destructive" : "outline"}
 					size="icon"
 					className={cn(
 						"size-9 rounded-full shadow-md transition-all hover:shadow-lg md:size-10",
-						effectiveRecording && "animate-pulse"
+						localRecordingActive && "animate-pulse"
 					)}
 					onClick={handleToggleRecording}
 					title={
-						effectiveIsRecordingStarting
-							? "Recording starting..."
-							: effectiveRecording
-								? "Stop recording"
-								: "Start recording"
+						localRecordingActive
+							? `Stop recording (${localRecordingElapsed})`
+							: "Start recording"
 					}
-					disabled={effectiveIsRecordingStarting}
 				>
-					{effectiveRecording ? (
+					{localRecordingActive ? (
 						<Square className="size-4 fill-current" />
 					) : (
 						<CircleDot className="size-4" />
 					)}
-				</Button>
-
-				<Button
-					variant={localRecordingActive ? "destructive" : "outline"}
-					size="icon"
-					className="size-9 rounded-full shadow-md transition-all hover:shadow-lg md:size-10"
-					onClick={localRecordingDisabled ? undefined : onLocalRecordingToggle}
-					title={
-						localRecordingDisabled
-							? "Local recording requires Chrome/Edge desktop with captureStream support"
-							: localRecordingActive
-								? `Stop local recording (${localRecordingElapsed})`
-								: "Start local (on-screen) recording"
-					}
-					disabled={localRecordingDisabled}
-				>
-					<Download className="size-4" />
 				</Button>
 
 				{onUploadClick && (
@@ -354,29 +291,6 @@ const MeetingControls = React.memo(function MeetingControls({
 					<PhoneOff className="size-4" />
 				</Button>
 			</div>
-
-			{/* Recording Confirmation Dialog */}
-			<Dialog open={showRecordingPrompt} onOpenChange={setShowRecordingPrompt}>
-				<DialogContent className="max-w-sm">
-					<DialogHeader>
-						<DialogTitle className="flex items-center gap-2">
-							<CircleDot className="size-5 text-red-500" />
-							Start Recording
-						</DialogTitle>
-						<DialogDescription>
-							This meeting will be recorded. All participants will be notified.
-						</DialogDescription>
-					</DialogHeader>
-					<DialogFooter className="gap-2 sm:gap-0">
-						<Button variant="outline" onClick={() => setShowRecordingPrompt(false)}>
-							Cancel
-						</Button>
-						<Button variant="destructive" onClick={confirmStartRecording}>
-							Start Recording
-						</Button>
-					</DialogFooter>
-				</DialogContent>
-			</Dialog>
 		</>
 	)
 })
@@ -607,47 +521,68 @@ const ParticipantView = React.memo(function ParticipantView({ participantId }: {
 })
 
 const RecordingBanner = React.memo(function RecordingBanner({
-	isRecording,
-	recordingStatus,
-	recordingStartedAt,
+	isLocalRecording,
+	localRecordingStartedAt,
 	isAnyoneRecording,
 	recordingParticipantName,
+	recordingStopped,
+	stoppedElapsed,
 }: {
-	isRecording: boolean
-	recordingStatus: string
-	recordingStartedAt: number | null
+	isLocalRecording: boolean
+	localRecordingStartedAt: number | null
 	isAnyoneRecording?: boolean
 	recordingParticipantName?: string | null
+	recordingStopped?: boolean
+	stoppedElapsed?: string | null
 }) {
 	const [elapsed, setElapsed] = useState("00:00")
 
+	// Use local recording state or remote recording state
+	const isRecordingActive = isLocalRecording || isAnyoneRecording
+	// eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- intentional: need || to check falsy boolean, not just null/undefined
+	const showBanner = isRecordingActive || recordingStopped
+
 	useEffect(() => {
-		if (!isRecording || !recordingStartedAt) {
+		if (!isRecordingActive || !localRecordingStartedAt) {
 			setElapsed("00:00")
 			return
 		}
 
-		setElapsed(formatElapsedMs(Date.now() - recordingStartedAt))
+		setElapsed(formatElapsedMs(Date.now() - localRecordingStartedAt))
 		const interval = setInterval(() => {
-			setElapsed(formatElapsedMs(Date.now() - recordingStartedAt))
+			setElapsed(formatElapsedMs(Date.now() - localRecordingStartedAt))
 		}, 1000)
 
 		return () => clearInterval(interval)
-	}, [isRecording, recordingStartedAt])
+	}, [isRecordingActive, localRecordingStartedAt])
 
-	if (!isRecording && !isAnyoneRecording) return null
+	if (!showBanner) return null
+
+	// Show stopped message
+	if (recordingStopped && !isRecordingActive) {
+		return (
+			<div className="bg-muted/50 border-muted-foreground/30 text-muted-foreground mb-3 flex items-center justify-between rounded-lg border px-3 py-2 text-sm">
+				<div className="flex items-center gap-2">
+					<span className="bg-muted-foreground inline-flex h-2 w-2 rounded-full" />
+					<span className="font-semibold">Meeting recording stopped.</span>
+					<span className="text-muted-foreground/80">{stoppedElapsed ?? "00:00"}</span>
+				</div>
+				<span className="text-muted-foreground/70 text-xs">
+					{recordingParticipantName ?? "Someone"} stopped the recording
+				</span>
+			</div>
+		)
+	}
 
 	return (
 		<div className="bg-destructive/10 border-destructive/30 text-destructive mb-3 flex items-center justify-between rounded-lg border px-3 py-2 text-sm">
 			<div className="flex items-center gap-2">
 				<span className="bg-destructive inline-flex h-2 w-2 animate-pulse rounded-full" />
-				<span className="font-semibold">Recording in progress</span>
-				{isRecording && <span className="text-destructive/80">• {elapsed}</span>}
+				<span className="font-semibold">Meeting is being recorded.</span>
+				<span className="text-destructive/80">{elapsed}</span>
 			</div>
 			<span className="text-destructive/70 text-xs">
-				{isAnyoneRecording 
-					? `${recordingParticipantName ?? "Someone"} is recording this meeting`
-					: recordingStatus}
+				{recordingParticipantName ?? "Someone"} started the recording
 			</span>
 		</div>
 	)
@@ -877,6 +812,9 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 	// Track if any participant is recording (broadcast via pubsub)
 	const [isAnyoneRecording, setIsAnyoneRecording] = useState(false)
 	const [recordingParticipantName, setRecordingParticipantName] = useState<string | null>(null)
+	// Track when recording stopped to show message briefly
+	const [recordingStopped, setRecordingStopped] = useState(false)
+	const [stoppedElapsed, setStoppedElapsed] = useState<string | null>(null)
 	const mediaRecorderRef = useRef<MediaRecorder | null>(null)
 	const localStreamRef = useRef<MediaStream | null>(null)
 	const recordingContainerRef = useRef<HTMLDivElement>(null)
@@ -1466,26 +1404,47 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 	// Get the first non-dismissed pending request
 	const activeSignatureRequest = pendingRequests?.find(req => !dismissedRequestIds.has(req.id))
 
+	// Force re-render when participants change - VideoSDK mutates the Map in place
+	// so React doesn't detect changes. We increment this counter to trigger re-renders.
+	const [participantVersion, setParticipantVersion] = useState(0)
+
 	const meeting = useMeeting({
 		onMeetingJoined: () => {
 			setJoined(true)
-
 			console.log("✅ Successfully joined meeting")
+			// Force refresh participant list on join
+			setParticipantVersion(v => v + 1)
 		},
 		onMeetingLeft: () => {
 			setJoined(false)
-
 			console.log("👋 Left meeting")
+			// Clear recording state when leaving
+			setIsAnyoneRecording(false)
+			setRecordingParticipantName(null)
+			setRecordingStopped(false)
+			setStoppedElapsed(null)
+			setLocalRecordingStartedAt(null)
 			// Call the onLeave callback to redirect user
 			if (onLeave) {
 				onLeave()
 			}
 		},
 		onParticipantJoined: participant => {
-			console.log("👋 Participant joined:", participant.id, participant.displayName)
+			console.log("👋 Participant JOINED (peer-to-peer):", {
+				id: participant.id,
+				displayName: participant.displayName,
+				isLocal: participant.local,
+			})
+			// Force re-render to show new participant
+			setParticipantVersion(v => v + 1)
 		},
 		onParticipantLeft: participant => {
-			console.log("👋 Participant left:", participant.id, participant.displayName)
+			console.log("👋 Participant LEFT (peer-to-peer):", {
+				id: participant.id,
+				displayName: participant.displayName,
+			})
+			// Force re-render to remove departed participant
+			setParticipantVersion(v => v + 1)
 		},
 		onPresenterChanged: id => {
 			setPresenterId(id ?? null)
@@ -1512,50 +1471,100 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 	})
 
 	// PubSub for broadcasting local recording status to all participants
+	// Message format: "RECORDING_STARTED:1234567890" (with timestamp) or "RECORDING_STOPPED:00:04" (with elapsed time)
 	const { publish: publishRecordingStatus } = usePubSub("LOCAL_RECORDING_STATUS", {
 		onMessageReceived: (message: { message: string; senderName: string }) => {
 			console.log("📢 Received recording status:", message)
-			if (message.message === "RECORDING_STARTED") {
+			if (message.message.startsWith("RECORDING_STARTED")) {
+				setRecordingStopped(false)
+				setStoppedElapsed(null)
 				setIsAnyoneRecording(true)
 				setRecordingParticipantName(message.senderName)
-			} else if (message.message === "RECORDING_STOPPED") {
+				// Parse start timestamp from message (format: "RECORDING_STARTED:1234567890")
+				const parts = message.message.split(":")
+				if (parts[1]) {
+					const startTime = parseInt(parts[1], 10)
+					if (!isNaN(startTime)) {
+						setLocalRecordingStartedAt(startTime)
+					}
+				}
+			} else if (message.message.startsWith("RECORDING_STOPPED")) {
 				setIsAnyoneRecording(false)
-				setRecordingParticipantName(null)
+				setLocalRecordingStartedAt(null)
+				// Parse elapsed time from message (format: "RECORDING_STOPPED:00:04")
+				const elapsed = message.message.split(":").slice(1).join(":") || null
+				// Show stopped message with elapsed time
+				setRecordingStopped(true)
+				setStoppedElapsed(elapsed)
+				// Keep the participant name to show who stopped it
+				// Hide the stopped banner after 5 seconds
+				setTimeout(() => {
+					setRecordingStopped(false)
+					setStoppedElapsed(null)
+					setRecordingParticipantName(null)
+				}, 5000)
 			}
 		},
 	})
 
+	// Get real-time participants from VideoSDK - this is the peer-to-peer connection state
+	// Only participants who have actually joined the WebRTC room will appear here
 	const participants = meeting?.participants as Map<
 		string,
-		{ displayName?: string; webcamOn?: boolean; local?: boolean; screenShareOn?: boolean }
+		{ 
+			displayName?: string
+			webcamOn?: boolean
+			local?: boolean
+			screenShareOn?: boolean
+			// VideoSDK participant properties for connection state
+			mode?: string
+			quality?: string
+		}
 	> | null | undefined
 
-	const { participantIds, participantCount } = useMemo(() => {
-		const participantsMap =
-			participants ??
-			new Map<
-				string,
-				{ displayName?: string; webcamOn?: boolean; local?: boolean; screenShareOn?: boolean }
-			>()
+	// Debug: Log participant changes to help diagnose peer-to-peer issues
+	useEffect(() => {
+		if (participants && participants.size > 0) {
+			const participantList = Array.from(participants.entries()).map(([id, p]) => ({
+				id: `${id.substring(0, 8)  }...`,
+				name: p.displayName,
+				isLocal: p.local,
+				webcamOn: p.webcamOn,
+			}))
+			console.log("📡 VideoSDK Participants (peer-to-peer):", participantList, `v${  participantVersion}`)
+		}
+	}, [participants, participantVersion])
 
-		const filterHuman = (id: string, participant: { displayName?: string } | null | undefined) => {
+	const { participantIds, participantCount } = useMemo(() => {
+		// If no meeting or participants map, return empty
+		if (!participants || participants.size === 0) {
+			return { participantIds: [], participantCount: 0 }
+		}
+
+		const participantsMap = participants
+
+		// Filter out non-human participants (bots, recorders, etc.)
+		const filterHuman = (id: string, participant: { displayName?: string; mode?: string } | null | undefined) => {
 			if (!participant) return false
 
 			const idLower = id.toLowerCase()
 			const nameLower = (participant.displayName ?? "").toLowerCase()
 
-			return !(
+			// Filter out system participants
+			const isSystemParticipant = 
 				idLower.includes("recorder") ||
 				idLower.includes("bot") ||
 				idLower.includes("internal") ||
 				idLower.includes("hls") ||
 				nameLower.includes("recorder") ||
 				nameLower.includes("bot")
-			)
+
+			return !isSystemParticipant
 		}
 
 		const normalizeName = (name: string | undefined) => (name ?? "").trim().toLowerCase() || "unknown"
 
+		// Deduplicate participants by display name (same user might appear multiple times)
 		const uniqueByName = new Map<
 			string,
 			{
@@ -1611,7 +1620,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 			.map(entry => entry.id)
 
 		return { participantIds: ids, participantCount: ids.length }
-	}, [participants])
+	}, [participants, participantVersion])
 
 	const startLocalRecording = useCallback(async () => {
 		if (isLocalRecording) return
@@ -1694,11 +1703,44 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 						toast.success("Local recording saved")
 					})
 				
-				setIsLocalRecording(false)
-				setLocalRecordingStartedAt(null)
 				localStreamRef.current?.getTracks().forEach(t => t.stop())
 				localStreamRef.current = null
 			}
+			
+			// Listen for when user stops screen share via browser UI (not our button)
+			// This ensures we broadcast the stop to all participants
+			stream.getTracks().forEach(track => {
+				track.onended = () => {
+					console.log("📢 Screen share track ended - stopping recording")
+					// Calculate elapsed before clearing
+					const recorderWithTime = recorder as { __startedAt?: number }
+					const elapsed = recorderWithTime.__startedAt 
+						? formatElapsedMs(Date.now() - recorderWithTime.__startedAt) 
+						: "00:00"
+					
+					// Update local state
+					setIsLocalRecording(false)
+					setIsAnyoneRecording(false)
+					setLocalRecordingStartedAt(null)
+					
+					// Show stopped message
+					setRecordingStopped(true)
+					setStoppedElapsed(elapsed)
+					setTimeout(() => {
+						setRecordingStopped(false)
+						setStoppedElapsed(null)
+						setRecordingParticipantName(null)
+					}, 5000)
+					
+					// Broadcast stop to all participants
+					publishRecordingStatus(`RECORDING_STOPPED:${elapsed}`, { persist: false })
+					
+					// Stop the recorder if still active
+					if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+						mediaRecorderRef.current.stop()
+					}
+				}
+			})
 			const startedAt = Date.now()
 			;(recorder as { __startedAt?: number }).__startedAt = startedAt
 			recorder.start(500)
@@ -1709,9 +1751,13 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 			setIsLocalRecording(true)
 			setIsAnyoneRecording(true)
 			setRecordingParticipantName(session?.user?.name ?? "Someone")
+			// Clear any stopped state
+			setRecordingStopped(false)
+			setStoppedElapsed(null)
 			
-			// Broadcast to all participants that recording has started
-			publishRecordingStatus("RECORDING_STARTED", { persist: false })
+			// Broadcast to all participants that recording has started with timestamp
+			// Format: "RECORDING_STARTED:1234567890"
+			publishRecordingStatus(`RECORDING_STARTED:${startedAt}`, { persist: false })
 			
 			toast.message("Local recording started. It will capture what you see.")
 		} catch (error: unknown) {
@@ -1724,19 +1770,36 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 
 	const stopLocalRecording = useCallback(async () => {
 		if (!isLocalRecording) return
+		
+		// Calculate elapsed time before clearing state
+		const elapsed = localRecordingStartedAt 
+			? formatElapsedMs(Date.now() - localRecordingStartedAt) 
+			: "00:00"
+		
 		// Optimistic UI stop for instant feedback; onstop will finalize cleanup/download.
 		setIsLocalRecording(false)
-		setLocalRecordingStartedAt(null)
 		setIsAnyoneRecording(false)
-		setRecordingParticipantName(null)
 		
-		// Broadcast to all participants that recording has stopped
-		publishRecordingStatus("RECORDING_STOPPED", { persist: false })
+		// Show stopped message locally
+		setRecordingStopped(true)
+		setStoppedElapsed(elapsed)
+		// Hide after 5 seconds
+		setTimeout(() => {
+			setRecordingStopped(false)
+			setStoppedElapsed(null)
+			setRecordingParticipantName(null)
+		}, 5000)
+		
+		setLocalRecordingStartedAt(null)
+		
+		// Broadcast to all participants that recording has stopped with elapsed time
+		// Format: "RECORDING_STOPPED:00:04"
+		publishRecordingStatus(`RECORDING_STOPPED:${elapsed}`, { persist: false })
 		
 		if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
 			mediaRecorderRef.current.stop()
 		}
-	}, [isLocalRecording, publishRecordingStatus])
+	}, [isLocalRecording, localRecordingStartedAt, publishRecordingStatus])
 
 	const handleRecordingToggle = useCallback(async () => {
 		if (!meeting) return
@@ -2174,11 +2237,12 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 			<div className="flex flex-1 flex-col overflow-hidden">
 				<div className="flex-1 overflow-hidden p-3 md:p-4 lg:p-6">
 					<RecordingBanner
-						isRecording={isRecording}
-						recordingStatus={recordingStatus}
-						recordingStartedAt={recordingStartedAt}
+						isLocalRecording={isLocalRecording}
+						localRecordingStartedAt={localRecordingStartedAt}
 						isAnyoneRecording={isAnyoneRecording}
 						recordingParticipantName={recordingParticipantName}
+						recordingStopped={recordingStopped}
+						stoppedElapsed={stoppedElapsed}
 					/>
 					{participantIds.length === 0 ? (
 						<Card className="mx-auto max-w-xl shadow-md">

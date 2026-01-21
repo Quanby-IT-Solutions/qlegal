@@ -22,6 +22,13 @@ export const meetingStatus = pgEnum("meeting_status", [
 	"CANCELLED",
 ])
 
+// Meeting participant/invite status enum
+export const meetingParticipantStatus = pgEnum("meeting_participant_status", [
+	"PENDING",
+	"ACCEPTED",
+	"DECLINED",
+])
+
 // Appointment status enum
 export const appointmentStatus = pgEnum("appointment_status", [
 	"PENDING",
