@@ -536,7 +536,14 @@ export default function DashboardPage() {
 								<Button
 									variant="outline"
 									className="h-auto flex-col items-start gap-2 p-4"
-									onClick={() => router.push("/consultations" as Route)}
+									onClick={() => {
+										
+										if (isENP) {
+											router.push("/appointments" as Route)
+										} else {
+											router.push("/consultations" as Route)
+										}
+									}}
 								>
 									<HugeiconsIcon icon={Calendar01Icon} size={20} />
 									<div className="text-left">
@@ -1141,7 +1148,7 @@ export default function DashboardPage() {
 										}}
 									>
 										View All
-										{/* <HugeiconsIcon icon={ArrowRight01Icon} size={16} className="ml-2" /> */}
+										<HugeiconsIcon icon={ArrowRight01Icon} size={16} className="ml-2" />
 									</Button>
 								</div>
 							</CardHeader>
