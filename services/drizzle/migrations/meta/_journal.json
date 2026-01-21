@@ -1,34 +1,34 @@
 {
-  "version": "7",
-  "dialect": "postgresql",
-  "entries": [
-    {
-      "idx": 0,
-      "version": "7",
-      "when": 1763602722345,
-      "tag": "0000_third_naoko",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1764908078390,
-      "tag": "0001_aspiring_aqueduct",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1765419593896,
-      "tag": "0002_illegal_tempest",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1768791685563,
-      "tag": "0003_bright_lizard",
-      "breakpoints": true
-    }
-  ]
+	"version": "7",
+	"dialect": "postgresql",
+	"entries": [
+		{
+			"idx": 0,
+			"version": "7",
+			"when": 1763602722345,
+			"tag": "0000_third_naoko",
+			"breakpoints": true
+		},
+		{
+			"idx": 1,
+			"version": "7",
+			"when": 1764908078390,
+			"tag": "0001_aspiring_aqueduct",
+			"breakpoints": true
+		},
+		{
+			"idx": 2,
+			"version": "7",
+			"when": 1765419593896,
+			"tag": "0002_illegal_tempest",
+			"breakpoints": true
+		},
+		{
+			"idx": 3,
+			"version": "7",
+			"when": 1768921260768,
+			"tag": "0003_add-meeting-participant-role",
+			"breakpoints": true
+		}
+	]
 }

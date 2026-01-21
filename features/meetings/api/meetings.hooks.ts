@@ -57,6 +57,14 @@ export function useMeetings() {
 			enabled: !!meetingId,
 		})
 
+	const inviteWitnessByEmail = trpc.meetings.inviteWitnessByEmail.useMutation({
+		onSuccess: async (_data, variables) => {
+			// Update both the meeting list + the specific meeting view
+			await utils.meetings.getUserMeetings.invalidate()
+			await utils.meetings.getById.invalidate(variables.meetingId)
+		},
+	})
+
 	return {
 		create,
 		getUserMeetings,
@@ -67,5 +75,6 @@ export function useMeetings() {
 		deleteMeeting,
 		uploadDocument,
 		getMeetingDocuments,
+		inviteWitnessByEmail,
 	}
 }
