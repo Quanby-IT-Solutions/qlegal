@@ -10,23 +10,29 @@
 
 Quanby Sign is an e-notary platform for the Philippines. Users can:
 
-- **Book a Notarization** — Get documents notarized remotely (REN) or in-person (IEN)
+- **Book a Notarization** — Get documents notarized remotely (REN), in-person (IEN), or hybrid
 - **Book a Consultation** — Get legal advice from an ENP (Electronic Notary Public)
 
 ---
 
 ## Key Terms
 
-| Term                | Meaning                                                            |
-| ------------------- | ------------------------------------------------------------------ |
-| **ENP**             | Electronic Notary Public — the lawyer/notary providing the service |
-| **Client**          | The person booking and paying for the service                      |
-| **Principal**       | The client, when referred to in a notarization context             |
-| **REN**             | Remote Electronic Notarization — done via video call               |
-| **IEN**             | In-Person Electronic Notarization — done at a physical location    |
-| **Session**         | The actual meeting (video call or in-person)                       |
-| **Jurat**           | Document type — signer swears content is true                      |
-| **Acknowledgement** | Document type — signer acknowledges signing voluntarily            |
+| Term                     | Meaning                                                               |
+| ------------------------ | --------------------------------------------------------------------- |
+| **ENP**                  | Electronic Notary Public — the lawyer/notary providing the service    |
+| **Client**               | The person booking and paying for the service                         |
+| **Principal**            | The client, when referred to in a notarization context                |
+| **Witness**              | A person who observes the signing and may also sign to attest         |
+| **REN**                  | Remote Electronic Notarization — ALL participants join via video call |
+| **IEN**                  | In-Person Electronic Notarization — ALL participants meet physically  |
+| **HYBRID**               | Mixed mode — some participants remote, some in-person                 |
+| **Session**              | The actual meeting (video call, in-person, or hybrid)                 |
+| **Jurat**                | Document type — signer swears content is true                         |
+| **Acknowledgement**      | Document type — signer acknowledges signing voluntarily               |
+| **Certified Copy**       | Document type — ENP certifies copy matches original                   |
+| **Oath/Affirmation**     | Document type — verbal pledge administered by ENP                     |
+| **Signature Witnessing** | Document type — ENP witnesses signature only                          |
+| **Notarial Book**        | Official electronic record of all notarial acts performed by an ENP   |
 
 ---
 
@@ -64,13 +70,15 @@ Quanby Sign is an e-notary platform for the Philippines. Users can:
 │         ┌─────────────────────────────────────────────┐                      │
 │         │  How do you want to meet?                   │                      │
 │         │                                             │                      │
-│         │   ┌─────────────┐    ┌─────────────────┐    │                      │
-│         │   │     REN     │    │      IEN        │    │                      │
-│         │   │   (Remote)  │    │  (In-Person)    │    │                      │
-│         │   │             │    │                 │    │                      │
-│         │   │ Video call  │    │ Meet at a       │    │                      │
-│         │   │ from home   │    │ physical place  │    │                      │
-│         │   └─────────────┘    └─────────────────┘    │                      │
+│         │   ┌─────────┐  ┌─────────┐  ┌─────────┐     │                      │
+│         │   │   REN   │  │   IEN   │  │ HYBRID  │     │                      │
+│         │   │ (Remote)│  │(In-Per.)│  │ (Mixed) │     │                      │
+│         │   │         │  │         │  │         │     │                      │
+│         │   │ Video   │  │ Meet at │  │ Some    │     │                      │
+│         │   │ call    │  │ physical│  │ remote, │     │                      │
+│         │   │ from    │  │ place   │  │ some    │     │                      │
+│         │   │ home    │  │         │  │ in-pers │     │                      │
+│         │   └─────────┘  └─────────┘  └─────────┘     │                      │
 │         └─────────────────────────────────────────────┘                      │
 │                              │                                               │
 │                              ▼                                               │
@@ -137,21 +145,17 @@ Quanby Sign is an e-notary platform for the Philippines. Users can:
 │   ╚═══════════════════════════════════════════════════════════════════════╝  │
 │                                                                              │
 │         ┌─────────────────────────────────────────────┐                      │
-│         │  JOINING                                    │                      │
+│         │  JOINING (see "Session Modes" section       │                      │
+│         │  for security checks per mode)              │                      │
 │         │                                             │                      │
-│         │  For REN (Remote):                          │                      │
-│         │   • Both parties join video room            │                      │
-│         │   • Liveness check (face verification)      │                      │
-│         │   • Geolocation check (must be in PH,       │                      │
-│         │     embassy, or consular office)            │                      │
-│         │   • VPN detection (VPN NOT allowed)         │                      │
+│         │  • REN: All join video room + security      │                      │
+│         │    checks (liveness, geolocation, VPN)      │                      │
 │         │                                             │                      │
-│         │  For IEN (In-Person):                       │                      │
-│         │   • Meet at the agreed location             │                      │
-│         │   • ENP verifies identity in person         │                      │
-│         │   • Same workflow, just no video            │                      │
-│         │   • Payment still done via system           │                      │
-│         │     (for Official Receipt issuance)         │                      │
+│         │  • IEN: Meet at agreed location, ENP        │                      │
+│         │    verifies identity in person              │                      │
+│         │                                             │                      │
+│         │  • HYBRID: Remote participants do REN       │                      │
+│         │    checks, in-person verified physically    │                      │
 │         └─────────────────────────────────────────────┘                      │
 │                              │                                               │
 │                              ▼                                               │
@@ -162,19 +166,22 @@ Quanby Sign is an e-notary platform for the Philippines. Users can:
 │    │                            │    │                            │          │
 │    │  • Client asks questions   │    │  1. Upload documents       │          │
 │    │  • ENP provides advice     │    │     (by Client OR ENP)     │          │
-│    │  • Anyone can start        │    │                            │          │
-│    │    recording (with         │    │  2. Review & approve       │          │
-│    │    all-party consent)      │    │     (both parties)         │          │
 │    │                            │    │                            │          │
-│    │                            │    │  3. ENP locks documents    │          │
+│    │  • Client can upload files │    │  2. Review & approve       │          │
+│    │    for ENP to review       │    │     (both parties)         │          │
+│    │    (e.g., contracts,       │    │                            │          │
+│    │    agreements needing      │    │  3. Invite witnesses       │          │
+│    │    legal advice)           │    │     (if needed)            │          │
 │    │                            │    │                            │          │
-│    │                            │    │  4. Client pays total fee  │          │
+│    │  • ENP can share reference │    │  4. ENP locks documents    │          │
+│    │    documents               │    │                            │          │
+│    │                            │    │  5. Client pays total fee  │          │
+│    │  • Recording (optional,    │    │                            │          │
+│    │    with all-party consent) │    │  6. Signing process        │          │
+│    │                            │    │     (Principals → Witness  │          │
+│    │                            │    │      → ENP notarizes)      │          │
 │    │                            │    │                            │          │
-│    │                            │    │  5. Signing process        │          │
-│    │                            │    │     (Client → Witness →    │          │
-│    │                            │    │      ENP notarizes)        │          │
-│    │                            │    │                            │          │
-│    │                            │    │  6. Recording (optional,   │          │
+│    │                            │    │  7. Recording (optional,   │          │
 │    │                            │    │     with consent)          │          │
 │    └────────────────────────────┘    └────────────────────────────┘          │
 │                              │                                               │
@@ -189,6 +196,7 @@ Quanby Sign is an e-notary platform for the Philippines. Users can:
 │         │  For CONSULTATION:                          │                      │
 │         │   • Session marked complete                 │                      │
 │         │   • Recording available (if recorded)       │                      │
+│         │   • Shared files accessible in history      │                      │
 │         │                                             │                      │
 │         │  For NOTARIZATION:                          │                      │
 │         │   • Notarized docs finalized with:          │                      │
@@ -204,6 +212,190 @@ Quanby Sign is an e-notary platform for the Philippines. Users can:
 │                                                                              │
 └──────────────────────────────────────────────────────────────────────────────┘
 ```
+
+---
+
+## Session Modes
+
+There are three ways to conduct a notarization or consultation session:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                                                                 │
+│   1. REN (Remote Electronic Notarization)                       │
+│   ══════════════════════════════════════                        │
+│                                                                 │
+│   ALL participants join via video call.                         │
+│                                                                 │
+│   ┌─────────────────────────────────────────────────────────┐   │
+│   │                                                         │   │
+│   │   Who's remote?     EVERYONE                            │   │
+│   │                                                         │   │
+│   │   Security checks:                                      │   │
+│   │    ✓ Liveness check (all participants)                  │   │
+│   │    ✓ Geolocation check (PH/embassy/consular)            │   │
+│   │    ✓ VPN detection (not allowed)                        │   │
+│   │                                                         │   │
+│   │   Use case:                                             │   │
+│   │    • Client is abroad or in another city                │   │
+│   │    • Witnesses are in different locations               │   │
+│   │    • Convenient, no travel needed                       │   │
+│   │                                                         │   │
+│   └─────────────────────────────────────────────────────────┘   │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
+│                                                                 │
+│   2. IEN (In-Person Electronic Notarization)                    │
+│   ══════════════════════════════════════════                    │
+│                                                                 │
+│   ALL participants meet at the same physical location.          │
+│                                                                 │
+│   ┌─────────────────────────────────────────────────────────┐   │
+│   │                                                         │   │
+│   │   Who's in-person?  EVERYONE                            │   │
+│   │                                                         │   │
+│   │   Security checks:                                      │   │
+│   │    ✓ ENP verifies identity in person                    │   │
+│   │    ✓ Physical ID inspection                             │   │
+│   │    ✗ No liveness/geolocation/VPN checks needed          │   │
+│   │                                                         │   │
+│   │   Use case:                                             │   │
+│   │    • All parties are local                              │   │
+│   │    • Complex documents requiring physical presence      │   │
+│   │    • Client prefers face-to-face interaction            │   │
+│   │                                                         │   │
+│   └─────────────────────────────────────────────────────────┘   │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
+│                                                                 │
+│   3. HYBRID (Mixed Mode)                                        │
+│   ══════════════════════                                        │
+│                                                                 │
+│   Some participants are in-person, some join remotely.          │
+│                                                                 │
+│   ┌─────────────────────────────────────────────────────────┐   │
+│   │                                                         │   │
+│   │   Who's where?                                          │   │
+│   │    • ENP: In-person (at their office/location)          │   │
+│   │    • Principal: Could be either                         │   │
+│   │    • Witnesses: Could be either                         │   │
+│   │                                                         │   │
+│   │   Security checks:                                      │   │
+│   │    ✓ REMOTE participants: Full REN checks               │   │
+│   │      (liveness, geolocation, VPN detection)             │   │
+│   │    ✓ IN-PERSON participants: Physical verification      │   │
+│   │      by ENP                                             │   │
+│   │                                                         │   │
+│   │   Use case:                                             │   │
+│   │    • Principal with ENP, witness joins remotely         │   │
+│   │    • Multiple principals in different locations         │   │
+│   │    • One co-signer abroad, others local                 │   │
+│   │                                                         │   │
+│   └─────────────────────────────────────────────────────────┘   │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Security Check Summary by Mode
+
+| Participant         | REN (Remote)                    | IEN (In-Person)    | HYBRID                          |
+| ------------------- | ------------------------------- | ------------------ | ------------------------------- |
+| **Remote users**    | Liveness + Geolocation + No VPN | N/A                | Liveness + Geolocation + No VPN |
+| **In-person users** | N/A                             | Physical ID by ENP | Physical ID by ENP              |
+| **ENP**             | Liveness + Geolocation + No VPN | Present physically | Present physically (usually)    |
+
+---
+
+## Finding an ENP
+
+Users can find and connect with an ENP through two paths:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                                                                 │
+│   PATH A: DIRECT BOOKING                                        │
+│   ══════════════════════                                        │
+│                                                                 │
+│   User wants to book a session directly.                        │
+│                                                                 │
+│   ┌─────────────────────────────────────────────────────────┐   │
+│   │                                                         │   │
+│   │   1. Go to /find-notary (or /book)                      │   │
+│   │                                                         │   │
+│   │   2. Browse available ENPs                              │   │
+│   │      • Filter by: specialization, ratings,              │   │
+│   │        location, language, consultation rate            │   │
+│   │                                                         │   │
+│   │   3. View ENP profile                                   │   │
+│   │      • See qualifications, reviews, rates               │   │
+│   │      • Check availability calendar                      │   │
+│   │                                                         │   │
+│   │   4. Select date & time slot                            │   │
+│   │                                                         │   │
+│   │   5. Choose session type (Consultation/Notarization)    │   │
+│   │                                                         │   │
+│   │   6. Choose mode (REN/IEN/Hybrid)                       │   │
+│   │                                                         │   │
+│   │   7. Submit booking request                             │   │
+│   │                                                         │   │
+│   │   8. Wait for ENP to accept/reject/reschedule           │   │
+│   │                                                         │   │
+│   └─────────────────────────────────────────────────────────┘   │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
+│                                                                 │
+│   PATH B: MESSAGE FIRST                                         │
+│   ═════════════════════                                         │
+│                                                                 │
+│   User has questions or wants to discuss before booking.        │
+│                                                                 │
+│   ┌─────────────────────────────────────────────────────────┐   │
+│   │                                                         │   │
+│   │   1. Go to /find-notary                                 │   │
+│   │                                                         │   │
+│   │   2. Browse and select an ENP                           │   │
+│   │                                                         │   │
+│   │   3. Click [💬 Message] on their profile                │   │
+│   │                                                         │   │
+│   │   OR                                                    │   │
+│   │                                                         │   │
+│   │   1. Go to /messages                                    │   │
+│   │                                                         │   │
+│   │   2. Search for an ENP by name/email                    │   │
+│   │                                                         │   │
+│   │   3. Start a new conversation                           │   │
+│   │                                                         │   │
+│   │   THEN                                                  │   │
+│   │                                                         │   │
+│   │   4. Chat with ENP                                      │   │
+│   │      • Ask questions                                    │   │
+│   │      • Share files for preliminary review               │   │
+│   │      • Discuss requirements                             │   │
+│   │                                                         │   │
+│   │   5. Either party can request session upgrade           │   │
+│   │      (see "Messaging → Session Upgrade" section)        │   │
+│   │                                                         │   │
+│   └─────────────────────────────────────────────────────────┘   │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### When to Use Each Path
+
+| Scenario                                    | Recommended Path |
+| ------------------------------------------- | ---------------- |
+| Know exactly what you need                  | Direct Booking   |
+| Have questions before committing            | Message First    |
+| Need ENP to review documents before booking | Message First    |
+| Urgent notarization needed                  | Direct Booking   |
+| Unsure which document type you need         | Message First    |
+| Regular client with established ENP         | Either           |
 
 ---
 
@@ -358,7 +550,7 @@ Quanby Sign is an e-notary platform for the Philippines. Users can:
 │   │      │    💳    │  │   Maya   │                         │   │
 │   │      └──────────┘  └──────────┘                         │   │
 │   │                                                         │   │
-│   │   For IEN (In-Person):                                  │   │
+│   │   For IEN (In-Person) or HYBRID:                        │   │
 │   │    • Client chooses payment method:                     │   │
 │   │      ┌──────────┐  ┌──────────┐  ┌──────────┐           │   │
 │   │      │   Card   │  │    QR    │  │   Cash   │           │   │
@@ -382,7 +574,13 @@ Quanby Sign is an e-notary platform for the Philippines. Users can:
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                                                                 │
-│   RECORDING (for REN sessions and Consultations)                │
+│   RECORDING (for ALL session types)                             │
+│                                                                 │
+│   Recording is OPTIONAL for all sessions:                       │
+│    • REN (Remote)                                               │
+│    • IEN (In-Person) — if venue has recording capability        │
+│    • HYBRID                                                     │
+│    • Consultations                                              │
 │                                                                 │
 │   ┌─────────────────────────────────────────────────────────┐   │
 │   │                                                         │   │
@@ -451,15 +649,9 @@ Quanby Sign is an e-notary platform for the Philippines. Users can:
 │            │                      │   Joins Session      │                   │
 │            │                      │◄─────────────────────│                   │
 │            │                      │                      │                   │
-│            │                      │  Creates Video Room  │                   │
-│            │◄────────────────────►│◄────────────────────►│  (REN only)       │
-│            │                      │                      │                   │
-│            │   Liveness Check     │   Liveness Check     │                   │
-│            │◄────────────────────►│◄────────────────────►│  (REN only)       │
-│            │                      │                      │                   │
-│            │   Geolocation +      │                      │                   │
-│            │   VPN Check          │                      │  (REN only)       │
-│            │◄────────────────────►│                      │                   │
+│            │                      │  (Security checks    │                   │
+│            │                      │   per mode — see     │                   │
+│            │                      │   Session Modes)     │                   │
 │            │                      │                      │                   │
 │  ══════════╪══════════════════════╪══════════════════════╪═══════════════    │
 │            │     PHASE 2: DOCUMENT UPLOAD & REVIEW       │                   │
@@ -521,7 +713,15 @@ Quanby Sign is an e-notary platform for the Philippines. Users can:
 │            │    (repeat for each document)               │                   │
 │            │                      │                      │                   │
 │  ══════════╪══════════════════════╪══════════════════════╪═══════════════    │
-│            │     PHASE 3: LOCK DOCUMENTS                 │                   │
+│            │     PHASE 3: INVITE WITNESSES (if needed)   │                   │
+│  ══════════╪══════════════════════╪══════════════════════╪═══════════════    │
+│            │                      │                      │                   │
+│            │                      │  (See "Witness       │                   │
+│            │                      │   Invitation" section│                   │
+│            │                      │   for full flow)     │                   │
+│            │                      │                      │                   │
+│  ══════════╪══════════════════════╪══════════════════════╪═══════════════    │
+│            │     PHASE 4: LOCK DOCUMENTS                 │                   │
 │  ══════════╪══════════════════════╪══════════════════════╪═══════════════    │
 │            │                      │                      │                   │
 │            │                      │  All docs approved?  │                   │
@@ -541,7 +741,7 @@ Quanby Sign is an e-notary platform for the Philippines. Users can:
 │            │   (no more changes)  │                      │                   │
 │            │                      │                      │                   │
 │  ══════════╪══════════════════════╪══════════════════════╪═══════════════    │
-│            │     PHASE 4: PAYMENT                        │                   │
+│            │     PHASE 5: PAYMENT                        │                   │
 │  ══════════╪══════════════════════╪══════════════════════╪═══════════════    │
 │            │                      │                      │                   │
 │            │   Shows total fee    │                      │                   │
@@ -549,7 +749,8 @@ Quanby Sign is an e-notary platform for the Philippines. Users can:
 │            │   + payment options  │                      │                   │
 │            │                      │                      │                   │
 │            │   REN: Card/GCash    │                      │                   │
-│            │   IEN: Card/QR/Cash  │                      │                   │
+│            │   IEN/Hybrid:        │                      │                   │
+│            │   Card/QR/Cash       │                      │                   │
 │            │                      │                      │                   │
 │            │   Pays ONCE          │                      │                   │
 │            │─────────────────────►│                      │                   │
@@ -558,21 +759,24 @@ Quanby Sign is an e-notary platform for the Philippines. Users can:
 │            │                      │─────────────────────►│                   │
 │            │                      │                      │                   │
 │  ══════════╪══════════════════════╪══════════════════════╪═══════════════    │
-│            │     PHASE 5: SIGNING                        │                   │
+│            │     PHASE 6: SIGNING                        │                   │
 │  ══════════╪══════════════════════╪══════════════════════╪═══════════════    │
 │            │                      │                      │                   │
-│            │   Signs all docs     │                      │                   │
-│            │─────────────────────►│                      │                   │
-│            │                      │                      │                   │
-│            │                      │  (Witness signs      │                   │
-│            │                      │   if required)       │                   │
-│            │                      │                      │                   │
-│            │                      │   ENP notarizes &    │                   │
-│            │                      │◄─────────────────────│                   │
-│            │                      │   signs all docs     │                   │
+│            │   ┌─────────────────────────────────────┐   │                   │
+│            │   │  SIGNING ORDER (strict)             │   │                   │
+│            │   │                                     │   │                   │
+│            │   │  1. ALL Principals sign first       │   │                   │
+│            │   │     (cannot proceed until done)     │   │                   │
+│            │   │              ↓                      │   │                   │
+│            │   │  2. ALL Witnesses sign second       │   │                   │
+│            │   │     (cannot proceed until done)     │   │                   │
+│            │   │              ↓                      │   │                   │
+│            │   │  3. ENP notarizes last              │   │                   │
+│            │   │     (applies seal & certificate)    │   │                   │
+│            │   └─────────────────────────────────────┘   │                   │
 │            │                      │                      │                   │
 │  ══════════╪══════════════════════╪══════════════════════╪═══════════════    │
-│            │     PHASE 6: COMPLETION                     │                   │
+│            │     PHASE 7: COMPLETION                     │                   │
 │  ══════════╪══════════════════════╪══════════════════════╪═══════════════    │
 │            │                      │                      │                   │
 │            │                      │  ┌────────────────┐  │                   │
@@ -597,6 +801,212 @@ Quanby Sign is an e-notary platform for the Philippines. Users can:
 
 ---
 
+## Witness Invitation & Signing Flow
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                                                                 │
+│   WHEN ARE WITNESSES NEEDED?                                    │
+│                                                                 │
+│   Witnesses may be required for certain documents:              │
+│    • Some contracts require 2 witnesses                         │
+│    • Wills typically require witnesses                          │
+│    • ENP may request witnesses for verification                 │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
+│                                                                 │
+│   WHO CAN INVITE WITNESSES?                                     │
+│                                                                 │
+│    • Principal (Client)                                         │
+│    • ENP                                                        │
+│                                                                 │
+│   Both can invite witnesses during the session.                 │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                                                                              │
+│   WITNESS INVITATION FLOW                                                    │
+│                                                                              │
+│   INVITER                       SYSTEM                       WITNESS         │
+│      │                             │                            │            │
+│      │   Clicks [+ Add Witness]    │                            │            │
+│      │────────────────────────────►│                            │            │
+│      │                             │                            │            │
+│      │   ┌─────────────────────────────────────────┐            │            │
+│      │   │ Invite Witness                          │            │            │
+│      │   │                                         │            │            │
+│      │   │ Email: [____________________]           │            │            │
+│      │   │                                         │            │            │
+│      │   │ How will they join?                     │            │            │
+│      │   │  ○ Remote (via video)                   │            │            │
+│      │   │  ○ In-Person (with ENP)                 │            │            │
+│      │   │                                         │            │            │
+│      │   │ [Send Invite]                           │            │            │
+│      │   └─────────────────────────────────────────┘            │            │
+│      │                             │                            │            │
+│      │   Fills & submits           │                            │            │
+│      │────────────────────────────►│                            │            │
+│      │                             │                            │            │
+│      │                             │   ┌──────────────────────┐ │            │
+│      │                             │   │ Witness must have    │ │            │
+│      │                             │   │ existing account     │ │            │
+│      │                             │   └──────────────────────┘ │            │
+│      │                             │                            │            │
+│      │                             │   In-app notification      │            │
+│      │                             │───────────────────────────►│            │
+│      │                             │                            │            │
+│      │                             │   ┌────────────────────────────────┐    │
+│      │                             │   │ 📩 Witness Invitation          │    │
+│      │                             │   │                                │    │
+│      │                             │   │ You've been invited to         │    │
+│      │                             │   │ witness a notarization         │    │
+│      │                             │   │                                │    │
+│      │                             │   │ Session: Deed of Sale          │    │
+│      │                             │   │ ENP: Atty. Juan dela Cruz      │    │
+│      │                             │   │ When: Jan 25, 2026 • 3:00 PM   │    │
+│      │                             │   │ Mode: Remote                   │    │
+│      │                             │   │                                │    │
+│      │                             │   │ [Accept]  [Decline]            │    │
+│      │                             │   └────────────────────────────────┘    │
+│      │                             │                            │            │
+│      │                             │   Witness accepts          │            │
+│      │                             │◄───────────────────────────│            │
+│      │                             │                            │            │
+│      │   Notification: Witness     │                            │            │
+│      │   accepted!                 │                            │            │
+│      │◄────────────────────────────│                            │            │
+│      │                             │                            │            │
+│                                                                              │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
+│                                                                 │
+│   WITNESS STATUS STATES                                         │
+│                                                                 │
+│   ┌────────┐   ┌────────┐   ┌────────┐                          │
+│   │PENDING │──►│VERIFIED│──►│ SIGNED │                          │
+│   └────────┘   └────────┘   └────────┘                          │
+│       │                                                         │
+│       └──────►┌────────┐                                        │
+│               │REJECTED│ (witness declined)                     │
+│               └────────┘                                        │
+│                                                                 │
+│   PENDING  → Invite sent, waiting for response                  │
+│   VERIFIED → Witness accepted, identity confirmed               │
+│   REJECTED → Witness declined invitation                        │
+│   SIGNED   → Witness has signed the document(s)                 │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
+│                                                                 │
+│   WITNESS SECURITY CHECKS                                       │
+│                                                                 │
+│   When witness joins the session:                               │
+│                                                                 │
+│   ┌─────────────────────────────────────────────────────────┐   │
+│   │                                                         │   │
+│   │   REMOTE WITNESS (joining via video):                   │   │
+│   │    ✓ Liveness check                                     │   │
+│   │    ✓ Geolocation check (PH/embassy/consular)            │   │
+│   │    ✓ VPN detection (not allowed)                        │   │
+│   │    ✓ ID verification (government-issued)                │   │
+│   │                                                         │   │
+│   │   IN-PERSON WITNESS (with ENP):                         │   │
+│   │    ✓ Physical ID verification by ENP                    │   │
+│   │    ✓ ENP confirms identity in system                    │   │
+│   │                                                         │   │
+│   └─────────────────────────────────────────────────────────┘   │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
+│                                                                 │
+│   SIGNING ORDER (STRICT)                                        │
+│                                                                 │
+│   Documents must be signed in this exact order:                 │
+│                                                                 │
+│   ┌─────────────────────────────────────────────────────────┐   │
+│   │                                                         │   │
+│   │   STEP 1: ALL PRINCIPALS SIGN                           │   │
+│   │   ════════════════════════════                          │   │
+│   │                                                         │   │
+│   │   • Each principal signs all documents                  │   │
+│   │   • System waits until ALL principals complete          │   │
+│   │   • Cannot proceed to witnesses until done              │   │
+│   │                                                         │   │
+│   │           ┌─────────────┐                               │   │
+│   │           │ Principal 1 │ ✓ Signed                      │   │
+│   │           └─────────────┘                               │   │
+│   │           ┌─────────────┐                               │   │
+│   │           │ Principal 2 │ ✓ Signed                      │   │
+│   │           └─────────────┘                               │   │
+│   │                  ↓                                      │   │
+│   │                                                         │   │
+│   │   STEP 2: ALL WITNESSES SIGN                            │   │
+│   │   ══════════════════════════                            │   │
+│   │                                                         │   │
+│   │   • Witnesses attest they saw principals sign           │   │
+│   │   • System waits until ALL witnesses complete           │   │
+│   │   • Cannot proceed to ENP until done                    │   │
+│   │                                                         │   │
+│   │           ┌─────────────┐                               │   │
+│   │           │  Witness 1  │ ✓ Signed                      │   │
+│   │           └─────────────┘                               │   │
+│   │           ┌─────────────┐                               │   │
+│   │           │  Witness 2  │ ✓ Signed                      │   │
+│   │           └─────────────┘                               │   │
+│   │                  ↓                                      │   │
+│   │                                                         │   │
+│   │   STEP 3: ENP NOTARIZES                                 │   │
+│   │   ═════════════════════                                 │   │
+│   │                                                         │   │
+│   │   • ENP applies signature                               │   │
+│   │   • ENP applies digital seal                            │   │
+│   │   • ENP attaches certificate of notarization            │   │
+│   │   • Entry recorded in Notarial Book                     │   │
+│   │                                                         │   │
+│   │           ┌─────────────┐                               │   │
+│   │           │     ENP     │ ✓ Notarized                   │   │
+│   │           └─────────────┘                               │   │
+│   │                                                         │   │
+│   └─────────────────────────────────────────────────────────┘   │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
+│                                                                 │
+│   MULTIPLE WITNESSES                                            │
+│                                                                 │
+│   Sessions can have multiple witnesses:                         │
+│                                                                 │
+│   ┌─────────────────────────────────────────────────────────┐   │
+│   │                                                         │   │
+│   │   Example: Contract requiring 2 witnesses               │   │
+│   │                                                         │   │
+│   │   Witnesses:                                            │   │
+│   │    ┌───────────────────────────────────────────────┐    │   │
+│   │    │ 👤 Maria Santos        Remote    ✓ VERIFIED   │    │   │
+│   │    └───────────────────────────────────────────────┘    │   │
+│   │    ┌───────────────────────────────────────────────┐    │   │
+│   │    │ 👤 Pedro Garcia        In-Person ✓ VERIFIED   │    │   │
+│   │    └───────────────────────────────────────────────┘    │   │
+│   │                                                         │   │
+│   │   [+ Add Another Witness]                               │   │
+│   │                                                         │   │
+│   └─────────────────────────────────────────────────────────┘   │
+│                                                                 │
+│   In HYBRID mode, some witnesses can be remote while            │
+│   others are in-person with the ENP.                            │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
 ## Document Lifecycle
 
 ```
@@ -604,9 +1014,22 @@ Quanby Sign is an e-notary platform for the Philippines. Users can:
 │                                                                 │
 │   DOCUMENT STATES IN A SESSION                                  │
 │                                                                 │
-│   ┌────────┐   ┌────────┐   ┌────────┐   ┌────────┐   ┌───────┐ │
-│   │UPLOADED│──►│REVIEWED│──►│APPROVED│──►│ LOCKED │──►│ SIGNED│ │
+│                      ┌──────────┐                               │
+│                      │ REJECTED │ (with remarks)                │
+│                      └──────────┘                               │
+│                           ↑                                     │
+│   ┌────────┐   ┌────────┐ │ ┌────────┐   ┌────────┐   ┌───────┐ │
+│   │UPLOADED│──►│REVIEWED│─┴►│APPROVED│──►│ LOCKED │──►│ SIGNED│ │
 │   └────────┘   └────────┘   └────────┘   └────────┘   └───────┘ │
+│                                                                 │
+│   ─────────────────────────────────────────────────────────────  │
+│                                                                 │
+│   UPLOADED  → Document uploaded by Client or ENP                │
+│   REVIEWED  → ENP has reviewed and assigned type/fee            │
+│   APPROVED  → Client has approved the document                  │
+│   REJECTED  → ENP rejected document (with remarks/reason)       │
+│   LOCKED    → All docs locked, ready for payment                │
+│   SIGNED    → Document has been signed and notarized            │
 │                                                                 │
 │   ─────────────────────────────────────────────────────────────  │
 │                                                                 │
@@ -626,38 +1049,52 @@ Quanby Sign is an e-notary platform for the Philippines. Users can:
 │   │                                                         │   │
 │   └─────────────────────────────────────────────────────────┘   │
 │                                                                 │
-│   ─────────────────────────────────────────────────────────────  │
+└─────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
 │                                                                 │
-│   DOCUMENT TYPES (examples):                                    │
+│   DOCUMENT REJECTION                                            │
 │                                                                 │
-│    • Jurat                                                      │
-│      → Signer swears content is true                            │
+│   ENP can reject a document if there are issues:                │
 │                                                                 │
-│    • Acknowledgement                                            │
-│      → Signer acknowledges signing voluntarily                  │
-│                                                                 │
-│    • Certified Copy                                             │
-│      → ENP certifies copy matches original                      │
-│                                                                 │
-│    • Oath/Affirmation                                           │
-│      → Verbal pledge administered by ENP                        │
-│                                                                 │
-│    • Signature Witnessing                                       │
-│      → ENP witnesses signature only                             │
+│   ┌─────────────────────────────────────────────────────────┐   │
+│   │                                                         │   │
+│   │   ENP clicks [✗ Reject Document]                        │   │
+│   │                                                         │   │
+│   │   ┌────────────────────────────────────────────┐        │   │
+│   │   │ Reject Document                            │        │   │
+│   │   │                                            │        │   │
+│   │   │ Reason for rejection:                      │        │   │
+│   │   │ ┌────────────────────────────────────────┐ │        │   │
+│   │   │ │ Document is incomplete. Missing page 3 │ │        │   │
+│   │   │ │ signature block. Please upload a       │ │        │   │
+│   │   │ │ complete version.                      │ │        │   │
+│   │   │ └────────────────────────────────────────┘ │        │   │
+│   │   │                                            │        │   │
+│   │   │ [Confirm Rejection]   [Cancel]             │        │   │
+│   │   └────────────────────────────────────────────┘        │   │
+│   │                                                         │   │
+│   │   After rejection:                                      │   │
+│   │    • Document marked as REJECTED                        │   │
+│   │    • Remarks visible to Client                          │   │
+│   │    • Client can upload corrected version                │   │
+│   │    • Rejected doc excluded from final notarization      │   │
+│   │                                                         │   │
+│   └─────────────────────────────────────────────────────────┘   │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Security Checks (REN Only)
+## Security Checks (REN & Hybrid Remote Participants)
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                                                                 │
-│   BEFORE JOINING A REN SESSION                                  │
+│   BEFORE JOINING A SESSION (for REMOTE participants)            │
 │                                                                 │
-│   Principal must pass these checks:                             │
+│   Remote participants must pass these checks:                   │
 │                                                                 │
 │   ┌─────────────────────────────────────────────────────────┐   │
 │   │                                                         │   │
@@ -686,6 +1123,11 @@ Quanby Sign is an e-notary platform for the Philippines. Users can:
 │                                                                 │
 │   All 3 checks must pass before entering the video room.        │
 │                                                                 │
+│   This applies to:                                              │
+│    • ALL participants in REN sessions                           │
+│    • REMOTE participants in HYBRID sessions                     │
+│    • REMOTE witnesses                                           │
+│                                                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -699,20 +1141,22 @@ Quanby Sign is an e-notary platform for the Philippines. Users can:
 
 ---
 
-## Messaging → Session Upgrade (ENP-Initiated)
+## Messaging → Session Upgrade (Bidirectional)
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                                                                 │
-│   SCENARIO: Client messages ENP with questions                  │
+│   Both Client and ENP can request a session upgrade from chat.  │
 │                                                                 │
-│   Sometimes a client just has a quick question via chat.        │
-│   But if it gets complicated, ENP can invite them to a          │
-│   formal session directly from the conversation.                │
+│   Use cases:                                                    │
+│    • Client has questions → realizes they need formal session   │
+│    • ENP sees complexity → recommends consultation/notarization │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
 
 ┌──────────────────────────────────────────────────────────────────────────────┐
+│                                                                              │
+│   SCENARIO A: ENP INVITES CLIENT                                             │
 │                                                                              │
 │   CLIENT                         SYSTEM                         ENP         │
 │      │                              │                            │          │
@@ -721,11 +1165,6 @@ Quanby Sign is an e-notary platform for the Philippines. Users can:
 │      │                              │   Receives message         │          │
 │      │                              │───────────────────────────►│          │
 │      │                              │                            │          │
-│      │                              │   ENP replies              │          │
-│      │                              │◄───────────────────────────│          │
-│      │   Receives reply             │                            │          │
-│      │◄─────────────────────────────│                            │          │
-│      │                              │                            │          │
 │      │            ... conversation continues ...                 │          │
 │      │                              │                            │          │
 │      │                              │   ENP realizes this is     │          │
@@ -733,21 +1172,6 @@ Quanby Sign is an e-notary platform for the Philippines. Users can:
 │      │                              │                            │          │
 │      │                              │   ENP clicks:              │          │
 │      │                              │   [📩 Invite to Session]   │          │
-│      │                              │◄───────────────────────────│          │
-│      │                              │                            │          │
-│      │                              │   ┌────────────────────┐   │          │
-│      │                              │   │ What type?         │   │          │
-│      │                              │   │                    │   │          │
-│      │                              │   │ ○ Consultation     │   │          │
-│      │                              │   │ ○ Notarization     │   │          │
-│      │                              │   │                    │   │          │
-│      │                              │   │ REN / IEN?         │   │          │
-│      │                              │   │                    │   │          │
-│      │                              │   │ Suggested time?    │   │          │
-│      │                              │   │ [____________]     │   │          │
-│      │                              │   │                    │   │          │
-│      │                              │   │ [Send Invite]      │   │          │
-│      │                              │   └────────────────────┘   │          │
 │      │                              │◄───────────────────────────│          │
 │      │                              │                            │          │
 │      │   Receives invite in chat    │                            │          │
@@ -766,20 +1190,198 @@ Quanby Sign is an e-notary platform for the Philippines. Users can:
 │      │─────────────────────────────►│                            │          │
 │      │                              │                            │          │
 │      │                              │   Session booked!          │          │
-│      │                              │   (skips normal booking    │          │
-│      │                              │    flow since ENP already  │          │
-│      │                              │    initiated)              │          │
+│      │                              │   (ENP already accepted    │          │
+│      │                              │    since they initiated)   │          │
+│      │                              │                            │          │
+└──────┴──────────────────────────────┴────────────────────────────┴──────────┘
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                                                                              │
+│   SCENARIO B: CLIENT REQUESTS SESSION                                        │
+│                                                                              │
+│   CLIENT                         SYSTEM                         ENP         │
+│      │                              │                            │          │
+│      │            ... conversation continues ...                 │          │
+│      │                              │                            │          │
+│      │   Client realizes they need  │                            │          │
+│      │   a formal session...        │                            │          │
+│      │                              │                            │          │
+│      │   Client clicks:             │                            │          │
+│      │   [📅 Request Session]       │                            │          │
+│      │─────────────────────────────►│                            │          │
+│      │                              │                            │          │
+│      │   ┌────────────────────────────────────────────┐          │          │
+│      │   │ Request Session                            │          │          │
+│      │   │                                            │          │          │
+│      │   │ What type?                                 │          │          │
+│      │   │  ○ Consultation                            │          │          │
+│      │   │  ○ Notarization                            │          │          │
+│      │   │                                            │          │          │
+│      │   │ Mode: REN / IEN / Hybrid                   │          │          │
+│      │   │                                            │          │          │
+│      │   │ Preferred time?                            │          │          │
+│      │   │ [____________]                             │          │          │
+│      │   │                                            │          │          │
+│      │   │ [Send Request]                             │          │          │
+│      │   └────────────────────────────────────────────┘          │          │
+│      │                              │                            │          │
+│      │                              │   ENP receives request     │          │
+│      │                              │───────────────────────────►│          │
+│      │                              │                            │          │
+│      │                              │   ┌────────────────────────────────┐  │
+│      │                              │   │ 📅 Session Request             │  │
+│      │                              │   │                                │  │
+│      │                              │   │ Juan Santos requested a        │  │
+│      │                              │   │ Consultation (REN)             │  │
+│      │                              │   │                                │  │
+│      │                              │   │ Preferred: Jan 26 • 2:00 PM    │  │
+│      │                              │   │                                │  │
+│      │                              │   │ [Accept] [Reject] [Reschedule] │  │
+│      │                              │   └────────────────────────────────┘  │
+│      │                              │                            │          │
+│      │                              │   ENP accepts              │          │
+│      │                              │◄───────────────────────────│          │
+│      │                              │                            │          │
+│      │   Request accepted!          │                            │          │
+│      │◄─────────────────────────────│                            │          │
+│      │                              │                            │          │
+│      │                              │   (If Consultation:        │          │
+│      │                              │    Client pays upfront)    │          │
 │      │                              │                            │          │
 └──────┴──────────────────────────────┴────────────────────────────┴──────────┘
 ```
 
 ### Key Points
 
-- **ENP-initiated** — ENP sends the invite, so no need for ENP to "accept" again
-- **Pre-filled details** — ENP sets session type, REN/IEN, and suggested time
-- **Client can counter** — Client can accept or suggest a different time
+- **Bidirectional** — Either party can initiate session upgrade
+- **Pre-filled details** — Initiator sets session type, mode, and suggested time
+- **Other party responds** — Accept, reject, or suggest different time
 - **Streamlined** — Skips the "find ENP" step since they're already talking
 - **Context preserved** — Chat history is linked to the session for reference
+
+---
+
+## Notarial Book Requirements
+
+Per Philippine Supreme Court Rules on Electronic Notarial Practice (Section 2), each entry in the Electronic Notarial Book must contain:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                                                                 │
+│   REQUIRED FIELDS FOR EACH NOTARIAL ACT                         │
+│                                                                 │
+│   ┌─────────────────────────────────────────────────────────┐   │
+│   │                                                         │   │
+│   │   i.   Electronic notarial act type                     │   │
+│   │        (Jurat, Acknowledgement, Oath, etc.)             │   │
+│   │                                                         │   │
+│   │   ii.  Date and time of the notarial act                │   │
+│   │                                                         │   │
+│   │   iii. Title/description of notarized document          │   │
+│   │                                                         │   │
+│   │   iv.  Name and address of each principal               │   │
+│   │                                                         │   │
+│   │   v.   Name and address of each witness (if any)        │   │
+│   │                                                         │   │
+│   │   vi.  Competent evidence of identity                   │   │
+│   │        (for principals and witnesses)                   │   │
+│   │        - Government-issued ID type                      │   │
+│   │        - ID number                                      │   │
+│   │                                                         │   │
+│   │   vii. Fee charged for the notarial act                 │   │
+│   │                                                         │   │
+│   │   viii. Location statement:                             │   │
+│   │         "All parties were situated within the           │   │
+│   │          Philippines / Philippine Embassy /             │   │
+│   │          Consular Office / Honorary Consul Office"      │   │
+│   │                                                         │   │
+│   │   ix.  Mode of notarization: REN / IEN / HYBRID         │   │
+│   │                                                         │   │
+│   │   x.   Any other significant circumstances              │   │
+│   │        (as deemed by the ENP)                           │   │
+│   │                                                         │   │
+│   └─────────────────────────────────────────────────────────┘   │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
+│                                                                 │
+│   INCOMPLETE / REJECTED NOTARIAL ACTS                           │
+│                                                                 │
+│   When a notarial act is NOT completed, ENP must record:        │
+│                                                                 │
+│   ┌─────────────────────────────────────────────────────────┐   │
+│   │                                                         │   │
+│   │   • Reason for non-completion                           │   │
+│   │   • Circumstances leading to rejection                  │   │
+│   │   • Remarks / notes                                     │   │
+│   │                                                         │   │
+│   │   Examples:                                             │   │
+│   │    - "Principal failed liveness verification"           │   │
+│   │    - "Document incomplete - missing signatures"         │   │
+│   │    - "Principal outside valid jurisdiction (VPN)"       │   │
+│   │    - "Witness declined to participate"                  │   │
+│   │    - "Payment not completed"                            │   │
+│   │                                                         │   │
+│   └─────────────────────────────────────────────────────────┘   │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
+│                                                                 │
+│   INSPECTION / COPY REQUESTS                                    │
+│                                                                 │
+│   When someone requests to inspect or copy an entry:            │
+│                                                                 │
+│   ┌─────────────────────────────────────────────────────────┐   │
+│   │                                                         │   │
+│   │   Record in Notarial Book:                              │   │
+│   │                                                         │   │
+│   │   • Requesting party's name                             │   │
+│   │   • Requesting party's address                          │   │
+│   │   • Requesting party's electronic signature             │   │
+│   │   • Competent evidence of identity                      │   │
+│   │   • Stated lawful purpose for the request               │   │
+│   │                                                         │   │
+│   │   If request is REFUSED, also record:                   │   │
+│   │   • Reasons for refusal                                 │   │
+│   │                                                         │   │
+│   └─────────────────────────────────────────────────────────┘   │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
+│                                                                 │
+│   CERTIFICATE NUMBERING                                         │
+│                                                                 │
+│   The entry number in the Notarial Book must correspond         │
+│   to the certificate number on each notarized document.         │
+│                                                                 │
+│   Format example: 2026-00001, 2026-00002, etc.                  │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Notarial Book Entry Summary Table
+
+| Field                 | Required | Description                                   |
+| --------------------- | -------- | --------------------------------------------- |
+| Act Type              | ✓        | Jurat, Acknowledgement, Oath, etc.            |
+| Date & Time           | ✓        | Exact timestamp of execution                  |
+| Document Title        | ✓        | Description of what was notarized             |
+| Principal Name(s)     | ✓        | Full legal name of each principal             |
+| Principal Address(es) | ✓        | Residential address of each principal         |
+| Principal ID(s)       | ✓        | Government ID type + number for each          |
+| Witness Name(s)       | If any   | Full legal name of each witness               |
+| Witness Address(es)   | If any   | Residential address of each witness           |
+| Witness ID(s)         | If any   | Government ID type + number for each          |
+| Fee Charged           | ✓        | Amount in PHP                                 |
+| Location Statement    | ✓        | Confirms PH / Embassy / Consular jurisdiction |
+| Mode                  | ✓        | REN / IEN / HYBRID                            |
+| Certificate Number    | ✓        | Unique number matching the document           |
+| Other Circumstances   | Optional | Any significant notes by ENP                  |
+| Rejection Reason      | If N/A   | Why notarial act was not completed            |
+| Rejection Remarks     | If N/A   | Additional context for non-completion         |
 
 ---
 
@@ -807,7 +1409,7 @@ Quanby Sign is an e-notary platform for the Philippines. Users can:
 │  │  [Join Session]                                          │   │
 │  ├──────────────────────────────────────────────────────────┤   │
 │  │  📅 Jan 28, 2026 • 10:00 AM                              │   │
-│  │  Consultation (REN) with Atty. Maria Santos              │   │
+│  │  Consultation (HYBRID) with Atty. Maria Santos           │   │
 │  │  [Join Session]                                          │   │
 │  └──────────────────────────────────────────────────────────┘   │
 │                                                                 │
@@ -834,7 +1436,7 @@ Quanby Sign is an e-notary platform for the Philippines. Users can:
 │  │  Pending Requests                              [View All] │   │
 │  ├──────────────────────────────────────────────────────────┤   │
 │  │  🔔 New Request                                          │   │
-│  │  Notarization (REN) • Juan Santos                        │   │
+│  │  Notarization (HYBRID) • Juan Santos                     │   │
 │  │  Requested: Jan 26, 2026 • 3:00 PM                       │   │
 │  │  [Accept]  [Reject]  [Reschedule]                        │   │
 │  └──────────────────────────────────────────────────────────┘   │
@@ -844,6 +1446,7 @@ Quanby Sign is an e-notary platform for the Philippines. Users can:
 │  ├──────────────────────────────────────────────────────────┤   │
 │  │  ⏰ 2:00 PM — Notarization (REN)                         │   │
 │  │  Client: Maria Garcia                                    │   │
+│  │  Witnesses: 2 confirmed                                  │   │
 │  │  [Start Session]                                         │   │
 │  └──────────────────────────────────────────────────────────┘   │
 │                                                                 │
@@ -893,26 +1496,28 @@ Quanby Sign is an e-notary platform for the Philippines. Users can:
 
 ## Summary
 
-| Step             | Client Action                                                 | ENP Action                                                             |
-| ---------------- | ------------------------------------------------------------- | ---------------------------------------------------------------------- |
-| 1. Onboard       | Sign up → KYC                                                 | Sign up → KYC → Set consultation rates → Set default notarization fees |
-| 2. Book          | Choose type → Find ENP → Pick slot → Submit                   | — (or ENP invites from chat)                                           |
-| 3. Review        | Wait for response                                             | Accept / Reject / Reschedule                                           |
-| 4. Pay (Consult) | Pay upfront                                                   | —                                                                      |
-| 5. Session       | Join → Upload/review docs → Approve → Pay (after lock) → Sign | Join → Upload/review docs → Assign fees → Lock docs → Notarize         |
-| 6. Complete      | Receive: docs (with seal + cert) + recording + OR             | Record in Notarial Book                                                |
+| Step             | Client Action                                                 | ENP Action                                                                   |
+| ---------------- | ------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| 1. Onboard       | Sign up → KYC                                                 | Sign up → KYC → Set consultation rates → Set default notarization fees       |
+| 2. Find ENP      | Browse /find-notary OR message first                          | Set availability, respond to messages                                        |
+| 3. Book          | Choose type → Pick slot → Submit (or request from chat)       | — (or invite from chat)                                                      |
+| 4. Review        | Wait for response                                             | Accept / Reject / Reschedule                                                 |
+| 5. Pay (Consult) | Pay upfront                                                   | —                                                                            |
+| 6. Session       | Join → Upload/review docs → Approve → Pay (after lock) → Sign | Join → Upload/review docs → Invite witnesses → Assign fees → Lock → Notarize |
+| 7. Complete      | Receive: docs (with seal + cert) + recording + OR             | Record in Notarial Book (including rejections with remarks)                  |
 
 ---
 
 ## Open Questions
 
-1. **Witness flow** — How do witnesses join? Invited by client or ENP?
-2. **Cancellation policy** — What happens if client/ENP cancels?
-3. **Rescheduling limits** — How many times can a session be rescheduled?
-4. **Embassy/Consular list** — Do we need a predefined list of valid embassy/consular locations?
-5. **Cash payment tracking** — For IEN cash payments, how does ENP confirm receipt in the system?
-6. **Document rejection** — Can ENP reject a document? What happens then?
-7. **Unlock documents** — Can ENP unlock documents after locking? (probably requires re-approval)
+1. **Cancellation policy** — What happens if client/ENP cancels? Refunds?
+2. **Rescheduling limits** — How many times can a session be rescheduled?
+3. **Embassy/Consular list** — Do we need a predefined list of valid embassy/consular locations for geolocation?
+4. **Cash payment tracking** — For IEN cash payments, how does ENP confirm receipt in the system?
+5. **Unlock documents** — Can ENP unlock documents after locking? (probably requires re-approval from client)
+6. **Witness limits** — Is there a maximum number of witnesses per session?
+7. **Witness fees** — Do witnesses pay anything or is it covered by the principal's fee?
+8. **Hybrid ENP location** — In HYBRID mode, is ENP always in-person or can they be remote too?
 
 ---
 
