@@ -35,6 +35,7 @@ import {
 import { format, parseISO } from "date-fns"
 import { useSession } from "next-auth/react"
 import { Bar, Doughnut, Line } from "react-chartjs-2"
+import { toast } from "sonner"
 
 import { SidebarTrigger } from "@/core/components/animate-ui/components/radix/sidebar"
 import { ModeToggle } from "@/core/components/mode-toggle"
@@ -97,6 +98,7 @@ export default function DashboardPage() {
 	const userRole = session?.user?.role ?? "PRINCIPAL"
 	const isENP = userRole === "ENP"
 	const isPrincipal = userRole === "PRINCIPAL"
+	const utils = trpc.useUtils()
 
 	// Track if ENP has viewed requests page to hide notification dot
 	const [hasViewedRequests, setHasViewedRequests] = useState(false)
@@ -163,6 +165,25 @@ export default function DashboardPage() {
 		trpc.dashboard.getRecentDocuments.useQuery({ limit: 5 })
 	const { data: recentMeetings, isLoading: isLoadingMeetings } =
 		trpc.dashboard.getRecentMeetings.useQuery({ limit: 5 })
+	const { data: signingSessions, isLoading: isLoadingSessions } =
+		trpc.dashboard.getSigningSessions.useQuery({ limit: 5 }, {
+			// Refetch every 3 seconds to catch meeting status changes (SCHEDULED -> ONGOING)
+			refetchInterval: 3000,
+			// Also refetch when window regains focus
+			refetchOnWindowFocus: true,
+			// Don't use stale data
+			staleTime: 0,
+		})
+	const { data: meetingInvites, isLoading: isLoadingInvites } =
+		trpc.dashboard.getMeetingInvites.useQuery({ limit: 5 })
+
+	const respondToInvite = trpc.meetings.respondToInvite.useMutation({
+		onSuccess: async () => {
+			await utils.dashboard.getMeetingInvites.invalidate()
+			await utils.dashboard.getRecentMeetings.invalidate()
+			await utils.meetings.getUserMeetings.invalidate()
+		},
+	})
 
 	// Fetch chart data
 	const { data: activityData, isLoading: isLoadingActivity } =
@@ -566,6 +587,103 @@ export default function DashboardPage() {
 						</CardContent>
 					</Card>
 
+					{/* Signing Sessions - Shows booked signing appointments with their status */}
+					{!isLoadingSessions && signingSessions && signingSessions.length > 0 && (
+						<Card>
+							<CardHeader>
+								<div className="flex items-center justify-between">
+									<div>
+										<CardTitle className="flex items-center gap-2">
+											Your Signing Sessions
+											{signingSessions.filter(s => s.canJoin).length > 0 && (
+												<Badge className="animate-pulse bg-green-600 hover:bg-green-600">
+													{signingSessions.filter(s => s.canJoin).length} Live
+												</Badge>
+											)}
+										</CardTitle>
+										<CardDescription>
+											{signingSessions.filter(s => s.canJoin).length > 0
+												? "You have sessions ready to join"
+												: signingSessions.some(s => s.status === "CONFIRMED")
+													? "Waiting for the notary to start the session"
+													: "Waiting for the notary to accept your booking"}
+										</CardDescription>
+									</div>
+									<Button
+										variant="ghost"
+										size="sm"
+										onClick={() => router.push("/appointments" as Route)}
+									>
+										View All
+										<HugeiconsIcon icon={ArrowRight01Icon} size={16} className="ml-2" />
+									</Button>
+								</div>
+							</CardHeader>
+							<CardContent>
+								<div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+									{/* Keep the order from backend: most recently booked first (createdAt DESC) */}
+									{signingSessions.map(session => {
+										const canJoin = session.canJoin
+										const isConfirmed = session.status === "CONFIRMED"
+										const otherPartyName = isPrincipal ? session.lawyerName : session.clientName
+										
+										return (
+											<div
+												key={session.id}
+												className="flex flex-col gap-3 rounded-lg border p-4"
+											>
+												<div className="flex items-start justify-between gap-2">
+													<div className="min-w-0 flex-1">
+														<div className="flex items-center gap-2">
+															<p className="truncate font-medium">Document Signing</p>
+															{canJoin && (
+																<span className="flex h-2 w-2 shrink-0 animate-pulse rounded-full bg-green-500" />
+															)}
+														</div>
+														<p className="text-muted-foreground text-sm">
+															with {otherPartyName}
+														</p>
+													</div>
+													{canJoin ? (
+														<Badge className="bg-green-100 text-green-700 hover:bg-green-100 dark:bg-green-900/30 dark:text-green-400">Live</Badge>
+													) : isConfirmed ? (
+														<Badge variant="secondary">Confirmed</Badge>
+													) : (
+														<Badge variant="outline">Pending</Badge>
+													)}
+												</div>
+												
+												{/* Date and Time */}
+												<div className="text-muted-foreground flex items-center gap-4 text-sm">
+													<div className="flex items-center gap-1.5">
+														<HugeiconsIcon icon={Calendar01Icon} size={14} />
+														<span>{format(new Date(session.appointmentDate), "MMM d, yyyy")}</span>
+													</div>
+													<div className="flex items-center gap-1.5">
+														<HugeiconsIcon icon={Clock01Icon} size={14} />
+														<span>{format(new Date(session.appointmentDate), "h:mm a")}</span>
+													</div>
+												</div>
+												
+												{/* Action button for live sessions */}
+												{canJoin && session.activeMeetingId && (
+													<Button
+														size="sm"
+														className="bg-green-600 hover:bg-green-700"
+														onClick={() => router.push(`/meetings/${session.activeMeetingId}/lobby` as Route)}
+													>
+														<HugeiconsIcon icon={Video01Icon} size={16} className="mr-1.5" />
+														Join Meeting
+													</Button>
+												)}
+											</div>
+										)
+									})}
+								</div>
+							</CardContent>
+						</Card>
+					)}
+
 					{/* Analytics & Charts Section */}
 					<div className="grid gap-8 lg:grid-cols-2">
 						{/* Activity Trend Chart */}
@@ -912,6 +1030,100 @@ export default function DashboardPage() {
 
 					{/* Two Column Layout */}
 					<div className="grid gap-8 lg:grid-cols-2">
+						{/* Meeting Invitations */}
+						<Card>
+							<CardHeader>
+								<div className="flex items-center justify-between">
+									<div>
+										<CardTitle>Meeting Invitations</CardTitle>
+										<CardDescription>Invites to join meetings as a witness/participant</CardDescription>
+									</div>
+									<Button variant="ghost" size="sm" onClick={() => router.push("/meetings" as Route)}>
+										View Meetings
+										<HugeiconsIcon icon={ArrowRight01Icon} size={16} className="ml-2" />
+									</Button>
+								</div>
+							</CardHeader>
+							<CardContent>
+								{isLoadingInvites ? (
+									<div className="space-y-3">
+										{Array.from({ length: 3 }).map((_, i) => (
+											<Skeleton key={i} className="h-16 w-full" />
+										))}
+									</div>
+								) : meetingInvites && meetingInvites.length > 0 ? (
+									<div className="space-y-3">
+										{meetingInvites.map(invite => (
+											<div key={invite.id} className="rounded-lg border p-4">
+												<div className="flex items-start justify-between gap-3">
+													<div className="min-w-0 flex-1">
+														<p className="truncate font-semibold">{invite.meetingTitle}</p>
+														<p className="text-muted-foreground mt-1 text-xs">
+															Invited by{" "}
+															{invite.invitedBy?.name ?? invite.host?.name ?? "Host"}
+														</p>
+														<div className="text-muted-foreground mt-2 flex items-center gap-2 text-xs">
+															<HugeiconsIcon icon={Clock01Icon} size={12} />
+															{format(new Date(invite.createdAt), "PPp")}
+														</div>
+													</div>
+													<Badge variant="secondary">Pending</Badge>
+												</div>
+
+												<div className="mt-3 flex gap-2">
+													<Button
+														size="sm"
+														disabled={respondToInvite.isPending}
+														onClick={() => {
+															respondToInvite.mutate(
+																{ meetingId: invite.meetingId, response: "ACCEPT" },
+																{
+																	onSuccess: () => {
+																		toast.success("Invite accepted")
+																		router.push(`/meetings/${invite.meetingId}/lobby` as Route)
+																	},
+																	onError: err => {
+																		toast.error(err.message || "Failed to accept invite")
+																	},
+																}
+															)
+														}}
+													>
+														Accept
+													</Button>
+													<Button
+														size="sm"
+														variant="outline"
+														disabled={respondToInvite.isPending}
+														onClick={() => {
+															respondToInvite.mutate(
+																{ meetingId: invite.meetingId, response: "DECLINE" },
+																{
+																	onSuccess: () => {
+																		toast.message("Invite declined")
+																	},
+																	onError: err => {
+																		toast.error(err.message || "Failed to decline invite")
+																	},
+																}
+															)
+														}}
+													>
+														Decline
+													</Button>
+												</div>
+											</div>
+										))}
+									</div>
+								) : (
+									<div className="flex flex-col items-center justify-center py-8 text-center">
+										<HugeiconsIcon icon={Video01Icon} size={48} className="text-muted-foreground/50" />
+										<p className="text-muted-foreground mt-4 text-sm">No meeting invites</p>
+									</div>
+								)}
+							</CardContent>
+						</Card>
+
 						{/* Upcoming Appointments */}
 						<Card>
 							<CardHeader>

@@ -75,6 +75,11 @@ export const meetingParticipantsRelations = relations(meetingParticipants, ({ on
 		fields: [meetingParticipants.userId],
 		references: [users.id],
 	}),
+	invitedBy: one(users, {
+		fields: [meetingParticipants.invitedById],
+		references: [users.id],
+		relationName: "meetingParticipantInvitedBy",
+	}),
 }))
 
 // Message relations
