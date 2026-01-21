@@ -151,7 +151,7 @@ export const authConfig = {
 				} else if (imagePath) {
 					const { getPublicClient } = await import("@/services/supabase")
 					const supabase = getPublicClient()
-					const { data } = supabase.storage.from("avatars").getPublicUrl(imagePath)
+					const { data } = supabase.storage.from("avatar").getPublicUrl(imagePath)
 					session.user.image = data.publicUrl
 				}
 			} catch {
