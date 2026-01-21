@@ -9,7 +9,7 @@ export const env = createEnv({
 		AUTH_TRUST_HOST: z.string().optional(),
 		AUTH_URL: z.string().optional(),
 		DATABASE_URL: z.string().min(1),
-		DOCOCHAIN_API_TOKEN: z.string().optional(),
+		// DOCOCHAIN_API_TOKEN: z.string().optional(),
 		DOCOCHAIN_API_URL: z.string().optional(),
 		DOCOCHAIN_ADMIN_EMAIL: z.string().optional(),
 		DOCOCHAIN_ORGANIZATION_ID: z.string().optional(),
@@ -39,6 +39,7 @@ export const env = createEnv({
 		NEXT_PUBLIC_SUPABASE_URL: z.url(),
 		NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string(),
 		NEXT_PUBLIC_VIDEO_SDK_API_KEY: z.string(),
+		NEXT_PUBLIC_SITE_URL: z.string().url(),
 	},
 	runtimeEnv: {
 		AUTH_GOOGLE_ID: process.env.AUTH_GOOGLE_ID,
@@ -47,7 +48,7 @@ export const env = createEnv({
 		AUTH_TRUST_HOST: process.env.AUTH_TRUST_HOST,
 		AUTH_URL: process.env.AUTH_URL,
 		DATABASE_URL: process.env.DATABASE_URL,
-		DOCOCHAIN_API_TOKEN: process.env.DOCOCHAIN_API_TOKEN ?? process.env.DOCONCHAIN_API_TOKEN,
+		// DOCOCHAIN_API_TOKEN: process.env.DOCOCHAIN_API_TOKEN ?? process.env.DOCONCHAIN_API_TOKEN,
 		DOCOCHAIN_API_URL: process.env.DOCOCHAIN_API_URL ?? process.env.DOCONCHAIN_API_URL,
 		DOCOCHAIN_ADMIN_EMAIL:
 			process.env.DOCOCHAIN_ADMIN_EMAIL ??
@@ -75,6 +76,7 @@ export const env = createEnv({
 		NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
 		NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
 		NEXT_PUBLIC_VIDEO_SDK_API_KEY: process.env.NEXT_PUBLIC_VIDEO_SDK_API_KEY,
+		NEXT_PUBLIC_SITE_URL: process.env.NEXT_PUBLIC_SITE_URL,
 		PORT: process.env.PORT,
 		SEED_VALUE: process.env.SEED_VALUE,
 		SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,

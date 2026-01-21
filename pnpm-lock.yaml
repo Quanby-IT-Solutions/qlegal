@@ -212,8 +212,8 @@ importers:
         specifier: 16.1.1
         version: 16.1.1
       '@react-email/preview-server':
-        specifier: 4.3.1
-        version: 4.3.1(babel-plugin-react-compiler@1.0.0)(postcss@8.5.6)
+        specifier: 4.3.2
+        version: 4.3.2(babel-plugin-react-compiler@1.0.0)(postcss@8.5.6)
       '@tailwindcss/postcss':
         specifier: ^4.1.18
         version: 4.1.18
@@ -238,6 +238,9 @@ importers:
       '@types/uuid':
         specifier: ^10.0.0
         version: 10.0.0
+      cross-env:
+        specifier: ^7.0.3
+        version: 7.0.3
       drizzle-kit:
         specifier: ^0.31.8
         version: 0.31.8
@@ -2288,8 +2291,8 @@ packages:
     peerDependencies:
       react: ^18.0 || ^19.0 || ^19.0.0-rc
 
-  '@react-email/preview-server@4.3.1':
-    resolution: {integrity: sha512-3YdkWMCy5PyMLT/ShbGfmZ0qbYGE+IlMG1PkSe2KEvv+NUC0j3XFrk17Ej4VHZZ5ecR+pezuMSm5W7IX34GGyw==}
+  '@react-email/preview-server@4.3.2':
+    resolution: {integrity: sha512-rBm2AJhOhfi8Fd8MAFN4DQ0FQtsqq38JjJIWvbHA0EYwbjNwODmtzRZCkbdp+8o6GL5PKiRcikF0FDzbOYAJ+w==}
 
   '@react-email/preview@0.0.13':
     resolution: {integrity: sha512-F7j9FJ0JN/A4d7yr+aw28p4uX7VLWs7hTHtLo7WRyw4G+Lit6Zucq4UWKRxJC8lpsUdzVmG7aBJnKOT+urqs/w==}
@@ -3383,6 +3386,11 @@ packages:
   cors@2.8.5:
     resolution: {integrity: sha512-KIHbLJqu73RGr/hnbrO9uBeixNGuvSQjul/jdFvS/KFSIH1hWVd1ng7zOHx+YrEfInLG7q4n6GHQ9cDtxv/P6g==}
     engines: {node: '>= 0.10'}
+
+  cross-env@7.0.3:
+    resolution: {integrity: sha512-+/HKd6EgcQCJGh2PSjZuUitQBQynKor4wrFbRg4DtAgS1aWO+gU52xpH7M9ScGgXSYmAVS9bIJ8EzuaGw0oNAw==}
+    engines: {node: '>=10.14', npm: '>=6', yarn: '>=1'}
+    hasBin: true
 
   cross-spawn@7.0.6:
     resolution: {integrity: sha512-uV2QOWP2nWzsy2aMp8aRibhi9dlzF5Hgh5SHaB9OiTGEyDTiJJyx0uy51QXdyWbtAHNua4XJzUKca3OzKUd3vA==}
@@ -4655,14 +4663,8 @@ packages:
     resolution: {integrity: sha512-qOOzS1cBTWYF4BH8fVePDBOO9iptMnGUEZwNc/cMWnTV2nVLZ7VoNWEPHkYczZA0pdoA7dl6e7FL659nX9S2aw==}
     engines: {node: '>=16 || 14 >=14.17'}
 
-  motion-dom@12.23.23:
-    resolution: {integrity: sha512-n5yolOs0TQQBRUFImrRfs/+6X4p3Q4n1dUEqt/H58Vx7OW6RF+foWEgmTVDhIWJIMXOuNNL0apKH2S16en9eiA==}
-
   motion-dom@12.24.11:
     resolution: {integrity: sha512-DlWOmsXMJrV8lzZyd+LKjG2CXULUs++bkq8GZ2Sr0R0RRhs30K2wtY+LKiTjhmJU3W61HK+rB0GLz6XmPvTA1A==}
-
-  motion-utils@12.23.6:
-    resolution: {integrity: sha512-eAWoPgr4eFEOFfg2WjIsMoqJTW6Z8MTUCgn/GZ3VRpClWBdnbjryiA3ZSNLyxCTmCQx4RmYX6jX1iWHbenUPNQ==}
 
   motion-utils@12.24.10:
     resolution: {integrity: sha512-x5TFgkCIP4pPsRLpKoI86jv/q8t8FQOiM/0E8QKBzfMozWHfkKap2gA1hOki+B5g3IsBNpxbUnfOum1+dgvYww==}
@@ -4732,7 +4734,6 @@ packages:
   next@15.5.2:
     resolution: {integrity: sha512-H8Otr7abj1glFhbGnvUt3gz++0AF1+QoCXEBmd/6aKbfdFwrn0LpA836Ed5+00va/7HQSDD+mOoVhn3tNy3e/Q==}
     engines: {node: ^18.18.0 || ^19.8.0 || >= 20.0.0}
-    deprecated: This version has a security vulnerability. Please upgrade to a patched version. See https://nextjs.org/blog/CVE-2025-66478 for more details.
     hasBin: true
     peerDependencies:
       '@opentelemetry/api': ^1.1.0
@@ -6362,7 +6363,7 @@ snapshots:
       '@babel/traverse': 7.28.3
       '@babel/types': 7.28.2
       convert-source-map: 2.0.0
-      debug: 4.4.1
+      debug: 4.4.3
       gensync: 1.0.0-beta.2
       json5: 2.2.3
       semver: 6.3.1
@@ -6437,7 +6438,7 @@ snapshots:
       '@babel/parser': 7.28.3
       '@babel/template': 7.27.2
       '@babel/types': 7.28.2
-      debug: 4.4.1
+      debug: 4.4.3
       globals: 11.12.0
     transitivePeerDependencies:
       - supports-color
@@ -8299,7 +8300,7 @@ snapshots:
       marked: 15.0.12
       react: 19.2.3
 
-  '@react-email/preview-server@4.3.1(babel-plugin-react-compiler@1.0.0)(postcss@8.5.6)':
+  '@react-email/preview-server@4.3.2(babel-plugin-react-compiler@1.0.0)(postcss@8.5.6)':
     dependencies:
       '@babel/core': 7.26.10
       '@babel/parser': 7.27.0
@@ -8991,7 +8992,7 @@ snapshots:
     dependencies:
       '@typescript-eslint/tsconfig-utils': 8.46.2(typescript@5.9.3)
       '@typescript-eslint/types': 8.46.2
-      debug: 4.4.1
+      debug: 4.4.3
       typescript: 5.9.3
     transitivePeerDependencies:
       - supports-color
@@ -9045,11 +9046,11 @@ snapshots:
       '@typescript-eslint/tsconfig-utils': 8.46.2(typescript@5.9.3)
       '@typescript-eslint/types': 8.46.2
       '@typescript-eslint/visitor-keys': 8.46.2
-      debug: 4.4.1
+      debug: 4.4.3
       fast-glob: 3.3.3
       is-glob: 4.0.3
       minimatch: 9.0.5
-      semver: 7.7.2
+      semver: 7.7.3
       ts-api-utils: 2.1.0(typescript@5.9.3)
       typescript: 5.9.3
     transitivePeerDependencies:
@@ -9576,6 +9577,10 @@ snapshots:
     dependencies:
       object-assign: 4.1.1
       vary: 1.1.2
+
+  cross-env@7.0.3:
+    dependencies:
+      cross-spawn: 7.0.6
 
   cross-spawn@7.0.6:
     dependencies:
@@ -10330,8 +10335,8 @@ snapshots:
 
   framer-motion@12.23.22(react-dom@19.0.0(react@19.0.0))(react@19.0.0):
     dependencies:
-      motion-dom: 12.23.23
-      motion-utils: 12.23.6
+      motion-dom: 12.24.11
+      motion-utils: 12.24.10
       tslib: 2.8.1
     optionalDependencies:
       react: 19.0.0
@@ -10883,15 +10888,9 @@ snapshots:
 
   minipass@7.1.2: {}
 
-  motion-dom@12.23.23:
-    dependencies:
-      motion-utils: 12.23.6
-
   motion-dom@12.24.11:
     dependencies:
       motion-utils: 12.24.10
-
-  motion-utils@12.23.6: {}
 
   motion-utils@12.24.10: {}
 
@@ -11693,7 +11692,7 @@ snapshots:
     dependencies:
       '@img/colour': 1.0.0
       detect-libc: 2.1.2
-      semver: 7.7.2
+      semver: 7.7.3
     optionalDependencies:
       '@img/sharp-darwin-arm64': 0.34.4
       '@img/sharp-darwin-x64': 0.34.4

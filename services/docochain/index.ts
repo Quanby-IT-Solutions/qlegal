@@ -9,7 +9,8 @@ import { normalizeDocoChainUrl } from "./url-normalizer"
 
 const DOCOCHAIN_API_BASE = (env.DOCOCHAIN_API_URL ?? "https://stg-api2.doconchain.com").trim()
 // IMPORTANT: env values can contain trailing whitespace (common in .env). Trim to avoid 401s.
-const DOCOCHAIN_API_TOKEN = (env.DOCOCHAIN_API_TOKEN ?? "").trim()
+// NOTE: DOCOCHAIN_API_TOKEN has been removed from env.js - using client key/secret flow instead
+const DOCOCHAIN_API_TOKEN = ""
 const DOCOCHAIN_ORGANIZATION_ID = (env.DOCOCHAIN_ORGANIZATION_ID ?? "").trim()
 const DOCOCHAIN_CLIENT_KEY = (env.DOCOCHAIN_CLIENT_KEY ?? "").trim()
 const DOCOCHAIN_CLIENT_SECRET = (env.DOCOCHAIN_CLIENT_SECRET ?? "").trim()
@@ -208,8 +209,14 @@ export async function getDocoChainToken(
 		return DOCOCHAIN_API_TOKEN
 	}
 
-	// If no static token and no email, we can't generate a token
-	throw new Error("Cannot generate token: email is required when DOCOCHAIN_API_TOKEN is not set")
+	// Fallback to admin email token (if configured) - this is an org admin that should have access to all projects
+	if (DOCOCHAIN_ADMIN_EMAIL) {
+		console.log("🔵 No email provided, falling back to DOCOCHAIN_ADMIN_EMAIL for token generation")
+		return generateDocoChainToken(DOCOCHAIN_ADMIN_EMAIL, forceRefresh)
+	}
+
+	// If no static token, no email, and no admin email, we can't generate a token
+	throw new Error("Cannot generate token: email is required when DOCOCHAIN_API_TOKEN and DOCOCHAIN_ADMIN_EMAIL are not set")
 }
 
 /**
@@ -1452,17 +1459,14 @@ export async function generateEditDraftLink(
 		// ALWAYS normalize the URL - ensure api=true is set
 		link = normalizeDocoChainUrl(link) ?? link
 
-		// Handle api_token and other parameters
+		// Handle URL parameters - only set api=true, no api_token needed
+		// The short-code link from DocoChain already contains authentication context
 		try {
 			const url = new URL(link)
-			// CRITICAL: ALWAYS set api=true FIRST - this ensures api=null is never in the final URL
+			// Set api=true for embedded/integrated view
 			url.searchParams.set("api", "true")
-			// Remove api_token if it's undefined
-			if (
-				url.searchParams.has("api_token") &&
-				(url.searchParams.get("api_token") === "undefined" ||
-					url.searchParams.get("api_token") === "")
-			) {
+			// Remove api_token if present - it's not needed for edit draft links
+			if (url.searchParams.has("api_token")) {
 				url.searchParams.delete("api_token")
 			}
 			// Remove incorrect status=Deleted parameter if present (DocoChain bug)
@@ -1472,24 +1476,12 @@ export async function generateEditDraftLink(
 				)
 				url.searchParams.delete("status")
 			}
-			// Add api_token if not present - use the token for the user
-			if (!url.searchParams.has("api_token") && userEmail) {
-				const apiToken: string = await getDocoChainToken(userEmail)
-				url.searchParams.set("api_token", apiToken)
-				console.log("✅ Added api_token parameter to edit draft link")
-			}
 			link = url.toString()
 		} catch {
-			// If URL parsing fails, try to add api_token anyway
-			if (userEmail && typeof link === "string") {
-				try {
-					const apiToken = await getDocoChainToken(userEmail)
-					const separator = link.includes("?") ? "&" : "?"
-					link = `${link}${separator}api_token=${encodeURIComponent(apiToken)}`
-					console.log("✅ Added api_token parameter to edit draft link (fallback)")
-				} catch (tokenError) {
-					console.warn("⚠️ Failed to add api_token:", tokenError)
-				}
+			// If URL parsing fails, just ensure api=true is appended
+			if (!link.includes("api=true")) {
+				const separator = link.includes("?") ? "&" : "?"
+				link = `${link}${separator}api=true`
 			}
 		}
 
