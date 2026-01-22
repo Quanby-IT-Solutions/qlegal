@@ -62,6 +62,9 @@ import {
 	BreadcrumbPage,
 } from "@/features/home/components/ui/breadcrumb"
 
+import Link from "next/link"
+import { buttonVariants } from "@/core/components/ui/button"
+
 // Register Chart.js components
 ChartJS.register(
 	CategoryScale,
@@ -490,101 +493,97 @@ export default function DashboardPage() {
 							<CardDescription>Common tasks to get you started</CardDescription>
 						</CardHeader>
 						<CardContent>
-							<div
-								className={`grid gap-4 sm:grid-cols-2 ${isENP ? "lg:grid-cols-5" : "lg:grid-cols-4"}`}
+						<div
+							className={`grid gap-4 sm:grid-cols-2 ${isENP ? "lg:grid-cols-5" : "lg:grid-cols-4"}`}
 							>
-								{isPrincipal && (
-									<Button
-										variant="outline"
-										className="h-auto flex-col items-start gap-2 p-4"
-										onClick={() => router.push("/calendar" as Route)}
-									>
-										<HugeiconsIcon icon={UserIcon} size={20} />
-										<div className="text-left">
-											<div className="font-semibold">Book a Notary</div>
-											<div className="text-muted-foreground text-xs">
-												View availability and book a time
-											</div>
-										</div>
-									</Button>
+							{isPrincipal && (
+								<Link
+								href="/calendar"
+								className={buttonVariants({ 
+									variant: "outline", 
+									className: "h-auto flex-col items-start gap-2 p-4" 
+								})}
+								>
+								<HugeiconsIcon icon={UserIcon} size={20} />
+								<div className="text-left">
+									<div className="font-semibold">Book a Notary</div>
+									<div className="text-muted-foreground text-xs">
+									View availability and book a time
+									</div>
+								</div>
+								</Link>
+							)}
+							{isENP && (
+								<Link
+								href="/requests/incoming"
+								className={buttonVariants({ 
+									variant: "outline", 
+									className: "relative h-auto flex-col items-start gap-2 overflow-visible p-4" 
+								})}
+								onClick={() => {
+									const currentCount = statistics?.pendingNotarizationRequests ?? 0
+									localStorage.setItem("enp_viewed_requests", "true")
+									localStorage.setItem("enp_last_viewed_count", currentCount.toString())
+									setHasViewedRequests(true)
+								}}
+								>
+								{(statistics?.pendingNotarizationRequests ?? 0) > 0 && !hasViewedRequests && (
+									<div className="border-background absolute -top-2 -right-2 z-20 h-4 w-4 animate-pulse rounded-full border-2 bg-red-500 shadow-lg" />
 								)}
-								{isENP && (
-									<Button
-										variant="outline"
-										className="relative h-auto flex-col items-start gap-2 overflow-visible p-4"
-										onClick={() => {
-											const currentCount = statistics?.pendingNotarizationRequests ?? 0
-											localStorage.setItem("enp_viewed_requests", "true")
-											localStorage.setItem("enp_last_viewed_count", currentCount.toString())
-											setHasViewedRequests(true)
-											router.push("/requests/incoming" as Route)
-										}}
-									>
-										{(statistics?.pendingNotarizationRequests ?? 0) > 0 && !hasViewedRequests && (
-											<div className="border-background absolute -top-2 -right-2 z-20 h-4 w-4 animate-pulse rounded-full border-2 bg-red-500 shadow-lg" />
-										)}
-										<HugeiconsIcon icon={ClipboardIcon} size={20} />
-										<div className="text-left">
-											<div className="font-semibold">Notarization Requests</div>
-											<div className="text-muted-foreground text-xs">
-												{statistics?.pendingNotarizationRequests ?? 0} pending request
-												{statistics?.pendingNotarizationRequests !== 1 ? "s" : ""}
-											</div>
-										</div>
-									</Button>
-								)}
-								<Button
-									variant="outline"
-									className="h-auto flex-col items-start gap-2 p-4"
-									onClick={() => {
-										
-										if (isENP) {
-											router.push("/appointments" as Route)
-										} else {
-											router.push("/consultations" as Route)
-										}
-									}}
-								>
-									<HugeiconsIcon icon={Calendar01Icon} size={20} />
-									<div className="text-left">
-										<div className="font-semibold">
-											{isENP ? "View Consultations" : "Book Consultation"}
-										</div>
-										<div className="text-muted-foreground text-xs">
-											{isENP ? "Manage consultation requests" : "Schedule a consultation"}
-										</div>
+								<HugeiconsIcon icon={ClipboardIcon} size={20} />
+								<div className="text-left">
+									<div className="font-semibold">Notarization Requests</div>
+									<div className="text-muted-foreground text-xs">
+									{statistics?.pendingNotarizationRequests ?? 0} pending request
+									{statistics?.pendingNotarizationRequests !== 1 ? "s" : ""}
 									</div>
-								</Button>
-								<Button
-									variant="outline"
-									className="h-auto flex-col items-start gap-2 p-4"
-									onClick={() => router.push("/envelopes" as Route)}
-								>
-									<HugeiconsIcon icon={FileAddIcon} size={20} />
-									<div className="text-left">
-										<div className="font-semibold">Upload Document</div>
-										<div className="text-muted-foreground text-xs">Create new envelope</div>
-									</div>
-								</Button>
-								<Button
-									variant="outline"
-									className="h-auto flex-col items-start gap-2 p-4"
-									onClick={() => {
-										// Conditional routing based on user role
-										if (isENP) {
-											router.push("/appointments" as Route) // ENP: Manage their calendar
-										} else {
-											router.push("/calendar" as Route) // Principal: View ENP availability
-										}
-									}}
-								>
-									<HugeiconsIcon icon={ClipboardIcon} size={20} />
-									<div className="text-left">
-										<div className="font-semibold">View Appointments</div>
-										<div className="text-muted-foreground text-xs">Manage your schedule</div>
-									</div>
-								</Button>
-							</div>
+								</div>
+								</Link>
+							)}
+							<Link
+								href={isENP ? "/appointments" : "/consultations"}
+								className={buttonVariants({ 
+								variant: "outline", 
+								className: "h-auto flex-col items-start gap-2 p-4" 
+								})}
+							>
+								<HugeiconsIcon icon={Calendar01Icon} size={20} />
+								<div className="text-left">
+								<div className="font-semibold">
+									{isENP ? "View Consultations" : "Book Consultation"}
+								</div>
+								<div className="text-muted-foreground text-xs">
+									{isENP ? "Manage consultation requests" : "Schedule a consultation"}
+								</div>
+								</div>
+							</Link>
+							<Link
+								href="/envelopes"
+								className={buttonVariants({ 
+								variant: "outline", 
+								className: "h-auto flex-col items-start gap-2 p-4" 
+								})}
+							>
+								<HugeiconsIcon icon={FileAddIcon} size={20} />
+								<div className="text-left">
+								<div className="font-semibold">Upload Document</div>
+								<div className="text-muted-foreground text-xs">Create new envelope</div>
+								</div>
+							</Link>
+							<Link
+								href={isENP ? "/appointments" : "/calendar"}
+								className={buttonVariants({ 
+								variant: "outline", 
+								className: "h-auto flex-col items-start gap-2 p-4" 
+								})}
+							>
+								<HugeiconsIcon icon={ClipboardIcon} size={20} />
+								<div className="text-left">
+								<div className="font-semibold">View Appointments</div>
+								<div className="text-muted-foreground text-xs">Manage your schedule</div>
+								</div>
+							</Link>
+							</div>	
 						</CardContent>
 					</Card>
 
@@ -610,14 +609,13 @@ export default function DashboardPage() {
 													: "Waiting for the notary to accept your booking"}
 										</CardDescription>
 									</div>
-									<Button
-										variant="ghost"
-										size="sm"
-										onClick={() => router.push("/appointments" as Route)}
-									>
+									<Link
+										href="/appointments"
+										className={buttonVariants({ variant: "ghost", size: "sm" })}
+										>
 										View All
 										<HugeiconsIcon icon={ArrowRight01Icon} size={16} className="ml-2" />
-									</Button>
+									</Link>
 								</div>
 							</CardHeader>
 							<CardContent>
@@ -1035,10 +1033,13 @@ export default function DashboardPage() {
 										<CardTitle>Meeting Invitations</CardTitle>
 										<CardDescription>Invites to join meetings as a witness/participant</CardDescription>
 									</div>
-									<Button variant="ghost" size="sm" onClick={() => router.push("/meetings" as Route)}>
+									<Link
+										href="/meetings"
+										className={buttonVariants({ variant: "ghost", size: "sm" })}
+										>
 										View Meetings
 										<HugeiconsIcon icon={ArrowRight01Icon} size={16} className="ml-2" />
-									</Button>
+									</Link>
 								</div>
 							</CardHeader>
 							<CardContent>
@@ -1135,21 +1136,13 @@ export default function DashboardPage() {
 												: "Your scheduled consultations"}
 										</CardDescription>
 									</div>
-									<Button
-										variant="ghost"
-										size="sm"
-										onClick={() => {
-											// Conditional routing based on user role
-											if (isENP) {
-												router.push("/appointments" as Route) // ENP: Manage their calendar
-											} else {
-												router.push("/calendar" as Route) // Principal: View ENP availability
-											}
-										}}
-									>
+									<Link
+										href={isENP ? "/appointments" : "/calendar"}
+										className={buttonVariants({ variant: "ghost", size: "sm" })}
+										>
 										View All
 										<HugeiconsIcon icon={ArrowRight01Icon} size={16} className="ml-2" />
-									</Button>
+									</Link>
 								</div>
 							</CardHeader>
 							<CardContent>
@@ -1214,14 +1207,12 @@ export default function DashboardPage() {
 											className="text-muted-foreground/50"
 										/>
 										<p className="text-muted-foreground mt-4 text-sm">No upcoming appointments</p>
-										<Button
-											variant="outline"
-											size="sm"
-											className="mt-4"
-											onClick={() => router.push("/consultations" as Route)}
-										>
+										<Link
+											href="/consultations"
+											className={buttonVariants({ variant: "outline", size: "sm", className: "mt-4" })}
+											>
 											Book Consultation
-										</Button>
+										</Link>
 									</div>
 								)}
 							</CardContent>
@@ -1235,14 +1226,13 @@ export default function DashboardPage() {
 										<CardTitle>Recent Documents</CardTitle>
 										<CardDescription>Your latest uploaded files</CardDescription>
 									</div>
-									<Button
-										variant="ghost"
-										size="sm"
-										onClick={() => router.push("/envelopes" as Route)}
-									>
+									<Link
+										href="/envelopes"
+										className={buttonVariants({ variant: "ghost", size: "sm" })}
+										>
 										View All
 										<HugeiconsIcon icon={ArrowRight01Icon} size={16} className="ml-2" />
-									</Button>
+									</Link>
 								</div>
 							</CardHeader>
 							<CardContent>
@@ -1296,14 +1286,12 @@ export default function DashboardPage() {
 											className="text-muted-foreground/50"
 										/>
 										<p className="text-muted-foreground mt-4 text-sm">No documents yet</p>
-										<Button
-											variant="outline"
-											size="sm"
-											className="mt-4"
-											onClick={() => router.push("/envelopes" as Route)}
+										<Link
+										href="/envelopes"
+										className={buttonVariants({ variant: "outline", size: "sm", className: "mt-4" })}
 										>
-											Upload Document
-										</Button>
+										Upload Document
+										</Link>
 									</div>
 								)}
 							</CardContent>
@@ -1318,11 +1306,13 @@ export default function DashboardPage() {
 									<CardTitle>Recent Video Meetings</CardTitle>
 									<CardDescription>Your latest video consultations</CardDescription>
 								</div>
-								<Button variant="ghost" size="sm" onClick={() => router.push("/meetings" as Route)}>
+								<Link
+									href="/meetings"
+									className={buttonVariants({ variant: "ghost", size: "sm" })}
+									>
 									View All
-									
 									<HugeiconsIcon icon={ArrowRight01Icon} size={16} className="ml-2" />
-								</Button>
+								</Link>
 							</div>
 						</CardHeader>
 						<CardContent>
