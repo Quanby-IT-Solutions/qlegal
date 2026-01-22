@@ -1,10 +1,21 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { trpc } from "@/services/trpc/client"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/core/components/ui/card"
+import { useEffect, useState } from "react"
+import { AlertCircle, Star, Zap } from "lucide-react"
+
+import { Alert, AlertDescription } from "@/core/components/ui/alert"
+import { Avatar, AvatarFallback } from "@/core/components/ui/avatar"
+import { Badge } from "@/core/components/ui/badge"
 import { Button } from "@/core/components/ui/button"
+import {
+	Card,
+	CardContent,
+	CardDescription,
+	CardHeader,
+	CardTitle,
+} from "@/core/components/ui/card"
 import { Label } from "@/core/components/ui/label"
+import { Progress } from "@/core/components/ui/progress"
 import {
 	Select,
 	SelectContent,
@@ -12,13 +23,11 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/core/components/ui/select"
-import { Badge } from "@/core/components/ui/badge"
-import { Avatar, AvatarFallback } from "@/core/components/ui/avatar"
-import { Progress } from "@/core/components/ui/progress"
-import { Alert, AlertDescription } from "@/core/components/ui/alert"
+
+import { trpc } from "@/services/trpc/client"
+
 import { SessionModeSelector } from "@/features/booking/components/session-mode-selector"
 import { SessionTypeSelector } from "@/features/booking/components/session-type-selector"
-import { Star, Zap, AlertCircle } from "lucide-react"
 
 export function QuickMatchPanel() {
 	const [sessionMode, setSessionMode] = useState<"REN" | "IEN">("REN")
@@ -44,7 +53,7 @@ export function QuickMatchPanel() {
 		if (timeRemaining <= 0) return
 
 		const timer = setInterval(() => {
-			setTimeRemaining((prev) => {
+			setTimeRemaining(prev => {
 				if (prev <= 1) {
 					// Time expired - auto-decline
 					handleAutoDecline()
@@ -102,7 +111,7 @@ export function QuickMatchPanel() {
 			return
 		}
 
-		setRematches((prev) => prev - 1)
+		setRematches(prev => prev - 1)
 		handleFindMatch()
 	}
 
@@ -116,10 +125,12 @@ export function QuickMatchPanel() {
 	return (
 		<div className="space-y-6">
 			{/* Info Alert */}
-			<Alert className="bg-blue-50 border-blue-200">
+			<Alert className="border-blue-200 bg-blue-50">
 				<Zap className="h-4 w-4 text-blue-600" />
-				<AlertDescription className="text-blue-900 ml-2">
-					Quick Match uses a fair algorithm to pair you with the best available notary. The system will notify your matched notary, who has 60 seconds to accept. No commitment until both parties agree.
+				<AlertDescription className="ml-2 text-blue-900">
+					Quick Match uses a fair algorithm to pair you with the best available notary. The system
+					will notify your matched notary, who has 60 seconds to accept. No commitment until both
+					parties agree.
 				</AlertDescription>
 			</Alert>
 
@@ -128,16 +139,26 @@ export function QuickMatchPanel() {
 				<Card>
 					<CardHeader>
 						<CardTitle>Quick Match Setup</CardTitle>
-						<CardDescription>Tell us what you need and we'll find the best notary for you</CardDescription>
+						<CardDescription>
+							Tell us what you need and we'll find the best notary for you
+						</CardDescription>
 					</CardHeader>
 					<CardContent className="space-y-6">
 						{/* Session Type */}
-						<SessionTypeSelector value={sessionType} onChange={setSessionType} disabled={isSearching} />
+						<SessionTypeSelector
+							value={sessionType}
+							onChange={setSessionType}
+							disabled={isSearching}
+						/>
 
 						<div className="border-t pt-6" />
 
 						{/* Session Mode */}
-						<SessionModeSelector value={sessionMode} onChange={setSessionMode} disabled={isSearching} />
+						<SessionModeSelector
+							value={sessionMode}
+							onChange={setSessionMode}
+							disabled={isSearching}
+						/>
 
 						<div className="border-t pt-6" />
 
@@ -150,7 +171,7 @@ export function QuickMatchPanel() {
 										<SelectValue placeholder="Any document type" />
 									</SelectTrigger>
 									<SelectContent>
-									<SelectItem value="any">Any document type</SelectItem>
+										<SelectItem value="any">Any document type</SelectItem>
 										<SelectItem value="DEED_OF_SALE">Deed of Sale</SelectItem>
 										<SelectItem value="POA">Power of Attorney</SelectItem>
 										<SelectItem value="AFFIDAVIT">Affidavit</SelectItem>
@@ -176,12 +197,7 @@ export function QuickMatchPanel() {
 							</div>
 						</div>
 
-						<Button
-							onClick={handleFindMatch}
-							disabled={isSearching}
-							size="lg"
-							className="w-full"
-						>
+						<Button onClick={handleFindMatch} disabled={isSearching} size="lg" className="w-full">
 							{isSearching ? "Searching..." : "Find Best Match"}
 						</Button>
 
@@ -200,56 +216,73 @@ export function QuickMatchPanel() {
 			{/* Match Found Section */}
 			{matchedENP && (
 				<Card className="border-2 border-green-200 bg-green-50">
-					<CardHeader className="bg-green-100 rounded-t-lg">
+					<CardHeader className="rounded-t-lg bg-green-100">
 						<CardTitle className="text-green-900">🎯 Best Match Found!</CardTitle>
 						<CardDescription className="text-green-800">
 							Waiting for confirmation - {timeRemaining} seconds remaining
 						</CardDescription>
 					</CardHeader>
 
-					<CardContent className="pt-6 space-y-6">
+					<CardContent className="space-y-6 pt-6">
 						{/* Timer Progress Bar */}
 						<div className="space-y-2">
 							<div className="flex items-center justify-between text-sm">
 								<span className="font-semibold">Response Time</span>
-								<span className="text-xs text-muted-foreground">{timeRemaining}s</span>
+								<span className="text-muted-foreground text-xs">{timeRemaining}s</span>
 							</div>
 							<Progress value={progressPercent} className="h-2" />
 						</div>
 
 						{/* ENP Profile Card */}
-						<div className="border rounded-lg p-4 bg-white space-y-3">
+						<div className="space-y-3 rounded-lg border bg-white p-4">
 							{/* Header */}
 							<div className="flex items-start gap-4">
 								<Avatar className="h-16 w-16">
-									<AvatarFallback>{typeof matchedENP?.enpName === "string" ? matchedENP.enpName[0] : "?"}</AvatarFallback>
+									<AvatarFallback>
+										{typeof matchedENP?.enpName === "string" ? matchedENP.enpName[0] : "?"}
+									</AvatarFallback>
 								</Avatar>
 								<div className="flex-1">
-									<h3 className="text-lg font-bold">{typeof matchedENP?.enpName === "string" ? matchedENP.enpName : "Unknown Notary"}</h3>
-									<div className="flex items-center gap-2 mt-1">
+									<h3 className="text-lg font-bold">
+										{typeof matchedENP?.enpName === "string"
+											? matchedENP.enpName
+											: "Unknown Notary"}
+									</h3>
+									<div className="mt-1 flex items-center gap-2">
 										<Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
 										<span className="font-semibold">{Number(matchedENP?.rating) || 0}</span>
-										<span className="text-sm text-muted-foreground">({Number(matchedENP?.totalSessions) || 0} sessions)</span>
+										<span className="text-muted-foreground text-sm">
+											({Number(matchedENP?.totalSessions) || 0} sessions)
+										</span>
 									</div>
 								</div>
 							</div>
 
 							{/* Badges */}
 							<div className="flex flex-wrap gap-2">
-								{Number((matchedENP?.scoreBreakdown as Record<string, number>)?.newENPBoost ?? 0) > 0 && (
-									<Badge variant="outline" className="bg-amber-50">🌟 Rising Star</Badge>
+								{Number((matchedENP?.scoreBreakdown as Record<string, number>)?.newENPBoost ?? 0) >
+									0 && (
+									<Badge variant="outline" className="bg-amber-50">
+										🌟 Rising Star
+									</Badge>
 								)}
-								{Number((matchedENP?.scoreBreakdown as Record<string, number>)?.ratingScore ?? 0) >= 25 && (
-									<Badge variant="outline" className="bg-purple-50">🏆 Top Rated</Badge>
+								{Number((matchedENP?.scoreBreakdown as Record<string, number>)?.ratingScore ?? 0) >=
+									25 && (
+									<Badge variant="outline" className="bg-purple-50">
+										🏆 Top Rated
+									</Badge>
 								)}
-								{Number((matchedENP?.scoreBreakdown as Record<string, number>)?.speedScore ?? 0) >= 20 && (
-									<Badge variant="outline" className="bg-blue-50">⚡ Fast Responder</Badge>
+								{Number((matchedENP?.scoreBreakdown as Record<string, number>)?.speedScore ?? 0) >=
+									20 && (
+									<Badge variant="outline" className="bg-blue-50">
+										⚡ Fast Responder
+									</Badge>
 								)}
 							</div>
 
 							{/* Specializations */}
 							<div>
-								<p className="text-xs font-semibold text-muted-foreground mb-1">Specializations</p>
+								<p className="text-muted-foreground mb-1 text-xs font-semibold">Specializations</p>
 								<p className="text-sm">
 									{Array.isArray(matchedENP?.specializations)
 										? (matchedENP.specializations as string[]).join(", ")
@@ -258,33 +291,60 @@ export function QuickMatchPanel() {
 							</div>
 
 							{/* Available Time */}
-							<div className="bg-blue-50 p-2 rounded text-sm">
-								<strong>Available:</strong> {typeof matchedENP?.availableTime === "string" ? matchedENP.availableTime : "Check availability"}
+							<div className="rounded bg-blue-50 p-2 text-sm">
+								<strong>Available:</strong>{" "}
+								{typeof matchedENP?.availableTime === "string"
+									? matchedENP.availableTime
+									: "Check availability"}
 							</div>
 						</div>
 
 						{/* Score Breakdown */}
-						<details className="border rounded p-3 cursor-pointer hover:bg-gray-50">
-							<summary className="font-semibold text-sm">Why this match?</summary>
-							<div className="mt-3 space-y-1 text-xs text-muted-foreground pl-4">
-								<p>📊 Rating: {Number((matchedENP?.scoreBreakdown as Record<string, number>)?.ratingScore) || 0}%</p>
-								<p>⚡ Speed: {Number((matchedENP?.scoreBreakdown as Record<string, number>)?.speedScore) || 0}%</p>
-								<p>🏆 Experience: {Number((matchedENP?.scoreBreakdown as Record<string, number>)?.experienceScore) || 0}%</p>
-								<p>🎯 Specialization: {Number((matchedENP?.scoreBreakdown as Record<string, number>)?.specializationScore) || 0}%</p>
-								<p>⚖️ Workload Balance: {Number((matchedENP?.scoreBreakdown as Record<string, number>)?.workloadScore) || 0}%</p>
-								{Number((matchedENP?.scoreBreakdown as Record<string, number>)?.newENPBoost) > 0 && (
-									<p>🌟 New ENP Boost: +{Number((matchedENP?.scoreBreakdown as Record<string, number>)?.newENPBoost)}%</p>
+						<details className="cursor-pointer rounded border p-3 hover:bg-gray-50">
+							<summary className="text-sm font-semibold">Why this match?</summary>
+							<div className="text-muted-foreground mt-3 space-y-1 pl-4 text-xs">
+								<p>
+									📊 Rating:{" "}
+									{Number((matchedENP?.scoreBreakdown as Record<string, number>)?.ratingScore) || 0}
+									%
+								</p>
+								<p>
+									⚡ Speed:{" "}
+									{Number((matchedENP?.scoreBreakdown as Record<string, number>)?.speedScore) || 0}%
+								</p>
+								<p>
+									🏆 Experience:{" "}
+									{Number(
+										(matchedENP?.scoreBreakdown as Record<string, number>)?.experienceScore
+									) || 0}
+									%
+								</p>
+								<p>
+									🎯 Specialization:{" "}
+									{Number(
+										(matchedENP?.scoreBreakdown as Record<string, number>)?.specializationScore
+									) || 0}
+									%
+								</p>
+								<p>
+									⚖️ Workload Balance:{" "}
+									{Number((matchedENP?.scoreBreakdown as Record<string, number>)?.workloadScore) ||
+										0}
+									%
+								</p>
+								{Number((matchedENP?.scoreBreakdown as Record<string, number>)?.newENPBoost) >
+									0 && (
+									<p>
+										🌟 New ENP Boost: +
+										{Number((matchedENP?.scoreBreakdown as Record<string, number>)?.newENPBoost)}%
+									</p>
 								)}
 							</div>
 						</details>
 
 						{/* Action Buttons */}
-						<div className="grid grid-cols-1 gap-3 pt-4 border-t">
-							<Button
-								onClick={handleConfirm}
-								size="lg"
-								className="bg-green-600 hover:bg-green-700"
-							>
+						<div className="grid grid-cols-1 gap-3 border-t pt-4">
+							<Button onClick={handleConfirm} size="lg" className="bg-green-600 hover:bg-green-700">
 								✓ Confirm & Book
 							</Button>
 							<Button

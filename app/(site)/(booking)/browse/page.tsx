@@ -1,11 +1,13 @@
 "use client"
 
 import { useState } from "react"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/core/components/ui/tabs"
+
 import { SiteNavbar } from "@/core/components/navbar/site-navbar"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/core/components/ui/tabs"
+
+import { MessageFirstTab } from "@/features/messages/components/message-first-tab"
 import { BrowseENPsTab } from "@/features/quick-match/components/browse-enps-tab"
 import { QuickMatchPanel } from "@/features/quick-match/components/quick-match-panel"
-import { MessageFirstTab } from "@/features/messages/components/message-first-tab"
 
 export default function BrowsePage() {
 	const [activeTab, setActiveTab] = useState("browse")
@@ -25,22 +27,17 @@ export default function BrowsePage() {
 					<div className="mb-8">
 						<h1 className="text-3xl font-bold tracking-tight">Find & Book a Notary</h1>
 						<p className="text-muted-foreground mt-2">
-							Choose how you want to find a notary public. Browse our directory, use Quick Match for instant pairing, or message first to discuss.
+							Choose how you want to find a notary public. Browse our directory, use Quick Match for
+							instant pairing, or message first to discuss.
 						</p>
 					</div>
 
 					{/* Tabs */}
 					<Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
 						<TabsList className="grid w-full grid-cols-3">
-							<TabsTrigger value="browse">
-								Browse & Select
-							</TabsTrigger>
-							<TabsTrigger value="quick-match">
-								Quick Match
-							</TabsTrigger>
-							<TabsTrigger value="message-first">
-								Message First
-							</TabsTrigger>
+							<TabsTrigger value="browse">Browse & Select</TabsTrigger>
+							<TabsTrigger value="quick-match">Quick Match</TabsTrigger>
+							<TabsTrigger value="message-first">Message First</TabsTrigger>
 						</TabsList>
 
 						{/* BROWSE ENPs TAB */}

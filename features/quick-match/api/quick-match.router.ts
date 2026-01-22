@@ -1,12 +1,13 @@
+import { and, count, desc, eq, gte } from "drizzle-orm"
 import { z } from "zod/v4"
-import { eq, and, gte, desc, count } from "drizzle-orm"
-import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
+
 import { users } from "@/services/drizzle/schema/auth"
 import { enpProfiles } from "@/services/drizzle/schema/enp-profiles"
+import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
 
 /**
  * Quick Match Algorithm
- * 
+ *
  * Fair bidirectional scoring:
  * - ENP scoring: rating (25%), speed (20%), experience (20%), specialization (15%), workload (20%)
  * - Boosts: new ENP (+15%), returning (+10%), rare specialization (+10%)
@@ -61,7 +62,7 @@ export const quickMatchRouter = createTRPCRouter({
 			//    - Rare Specialization (+10%): expertise few others have
 			//
 			// 4. Return top match with score breakdown
-			// eslint-disable-next-line @typescript-eslint/no-unused-vars
+
 			void input
 
 			return {
@@ -95,13 +96,16 @@ export const quickMatchRouter = createTRPCRouter({
 				sessionMode: z.enum(["REN", "IEN"]).optional(),
 				serviceType: z.enum(["CONSULTATION", "NOTARIZATION"]).optional(),
 				specialization: z.string().optional(),
-				minRating: z.number().min(0).max(5).optional(),				date: z.date().optional(),				sortBy: z.enum(["RATING", "EXPERIENCE", "RECENT", "AVAILABILITY"]).default("RATING"),
+				minRating: z.number().min(0).max(5).optional(),
+				date: z.date().optional(),
+				sortBy: z.enum(["RATING", "EXPERIENCE", "RECENT", "AVAILABILITY"]).default("RATING"),
 				limit: z.number().int().min(1).max(50).default(20),
 				offset: z.number().int().min(0).default(0),
 			})
 		)
 		.query(async ({ ctx, input }) => {
-			const { sessionMode, serviceType, specialization, minRating, date, sortBy, limit, offset } = input
+			const { sessionMode, serviceType, specialization, minRating, date, sortBy, limit, offset } =
+				input
 
 			// Build where conditions - use INNER JOIN since we need enpProfiles to exist
 			const conditions = [eq(users.role, "ENP"), eq(enpProfiles.isAvailable, true)]
@@ -156,10 +160,13 @@ export const quickMatchRouter = createTRPCRouter({
 				.innerJoin(enpProfiles, eq(users.id, enpProfiles.userId))
 				.where(and(...conditions))
 				.orderBy(
-					sortBy === "RATING" ? desc(enpProfiles.rating) :
-					sortBy === "EXPERIENCE" ? desc(enpProfiles.experience) :
-					sortBy === "RECENT" ? desc(enpProfiles.createdAt) :
-					desc(enpProfiles.rating) // Default to RATING
+					sortBy === "RATING"
+						? desc(enpProfiles.rating)
+						: sortBy === "EXPERIENCE"
+							? desc(enpProfiles.experience)
+							: sortBy === "RECENT"
+								? desc(enpProfiles.createdAt)
+								: desc(enpProfiles.rating) // Default to RATING
 				)
 				.limit(limit)
 				.offset(offset)
@@ -225,28 +232,27 @@ export const quickMatchRouter = createTRPCRouter({
 	 * Calculate Principal score (for ENP to see)
 	 * Returns: reliability metrics shown to ENP when they receive Quick Match request
 	 */
-	getPrincipalScore: protectedProcedure
-		.query(async ({ ctx }) => {
-			// TODO: Calculate principal metrics:
-			// - KYC verified: boolean
-			// - Reliability: show-up rate (attended/total sessions)
-			// - Payment success rate: (successful payments)/(total sessions)
-			// - Cancellation history: frequency of cancellations
-			// - Session history: total completed sessions
-			// - ENP reviews: ratings left by previous ENPs
+	getPrincipalScore: protectedProcedure.query(async ({ ctx }) => {
+		// TODO: Calculate principal metrics:
+		// - KYC verified: boolean
+		// - Reliability: show-up rate (attended/total sessions)
+		// - Payment success rate: (successful payments)/(total sessions)
+		// - Cancellation history: frequency of cancellations
+		// - Session history: total completed sessions
+		// - ENP reviews: ratings left by previous ENPs
 
-			// eslint-disable-next-line @typescript-eslint/no-unused-vars
-			const principalId = ctx.session.user.id
+		// eslint-disable-next-line @typescript-eslint/no-unused-vars
+		const principalId = ctx.session.user.id
 
-			return {
-				kycVerified: true,
-				showUpRate: 0.98,
-				paymentRate: 1.0,
-				cancellationRate: 0.02,
-				totalSessions: 5,
-				averageENPRating: 4.9,
-			}
-		}),
+		return {
+			kycVerified: true,
+			showUpRate: 0.98,
+			paymentRate: 1.0,
+			cancellationRate: 0.02,
+			totalSessions: 5,
+			averageENPRating: 4.9,
+		}
+	}),
 
 	/**
 	 * Track Quick Match request acceptance/decline
@@ -265,7 +271,7 @@ export const quickMatchRouter = createTRPCRouter({
 			// - If DECLINED: apply -5% or -10% penalty to ENP score
 			// - If TIMEOUT: auto-decline, apply penalty
 			// - If ACCEPTED: create SessionRequest record
-			// eslint-disable-next-line @typescript-eslint/no-unused-vars
+
 			void input
 
 			return { success: true }

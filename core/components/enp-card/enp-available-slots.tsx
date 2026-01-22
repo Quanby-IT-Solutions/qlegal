@@ -1,5 +1,6 @@
 import Link from "next/link"
 import { Clock } from "lucide-react"
+
 import { Button } from "@/core/components/ui/button"
 import type { ENPAvailableSlot } from "@/core/lib/types/enp"
 
@@ -17,7 +18,7 @@ export function EnpAvailableSlots({ slots, enpId, dateParam, className }: EnpAva
 
 	return (
 		<div className={className}>
-			<div className="flex items-center justify-between text-sm mb-2">
+			<div className="mb-2 flex items-center justify-between text-sm">
 				<span className="text-muted-foreground">Available slots ({slots.length})</span>
 			</div>
 
@@ -32,7 +33,13 @@ export function EnpAvailableSlots({ slots, enpId, dateParam, className }: EnpAva
 					})
 
 					return (
-						<Button key={`${slot.time}-${index}`} variant="outline" size="sm" className="gap-2" asChild>
+						<Button
+							key={`${slot.time}-${index}`}
+							variant="outline"
+							size="sm"
+							className="gap-2"
+							asChild
+						>
 							<Link href={`/consultations?${searchParams.toString()}`}>
 								<Clock className="size-4" />
 								{slot.time}

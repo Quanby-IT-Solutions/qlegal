@@ -1,4 +1,5 @@
 import { Star } from "lucide-react"
+
 import { Badge } from "@/core/components/ui/badge"
 
 interface EnpRatingProps {

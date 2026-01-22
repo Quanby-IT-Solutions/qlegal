@@ -1,9 +1,16 @@
 "use client"
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/core/components/ui/card"
+import { Globe, Users } from "lucide-react"
+
+import {
+	Card,
+	CardContent,
+	CardDescription,
+	CardHeader,
+	CardTitle,
+} from "@/core/components/ui/card"
 import { Label } from "@/core/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/core/components/ui/radio-group"
-import { Globe, Users } from "lucide-react"
 
 interface SessionModeSelectorProps {
 	value: "REN" | "IEN"
@@ -13,20 +20,32 @@ interface SessionModeSelectorProps {
 	showNote?: boolean
 }
 
-export function SessionModeSelector({ value, onChange, disabled = false, showHeading = true, showNote = true }: SessionModeSelectorProps) {
+export function SessionModeSelector({
+	value,
+	onChange,
+	disabled = false,
+	showHeading = true,
+	showNote = true,
+}: SessionModeSelectorProps) {
 	return (
 		<div className="space-y-4">
 			{showHeading && (
 				<div>
 					<Label className="text-base font-semibold">Session Mode</Label>
-					<p className="text-sm text-muted-foreground mt-1">How will you meet with the notary?</p>
+					<p className="text-muted-foreground mt-1 text-sm">How will you meet with the notary?</p>
 				</div>
 			)}
 
-			<RadioGroup value={value} onValueChange={(v) => onChange(v as "REN" | "IEN")} disabled={disabled} className="w-full">
+			<RadioGroup
+				value={value}
+				onValueChange={v => onChange(v as "REN" | "IEN")}
+				disabled={disabled}
+				className="w-full"
+			>
 				<div className="grid grid-cols-1 gap-3 md:grid-cols-2">
 					{/* REN - Remote */}
-					<Card className="h-full cursor-pointer border-2 transition-all hover:border-primary"
+					<Card
+						className="hover:border-primary h-full cursor-pointer border-2 transition-all"
 						onClick={() => !disabled && onChange("REN")}
 						style={{
 							borderColor: value === "REN" ? "hsl(var(--primary))" : undefined,
@@ -46,7 +65,7 @@ export function SessionModeSelector({ value, onChange, disabled = false, showHea
 							<CardDescription>
 								Everyone joins via video call from their own location
 							</CardDescription>
-							<ul className="text-sm space-y-1 text-muted-foreground">
+							<ul className="text-muted-foreground space-y-1 text-sm">
 								<li>✓ Convenient - join from anywhere</li>
 								<li>✓ For OFWs, different cities</li>
 								<li>✓ Instant scheduling</li>
@@ -55,7 +74,8 @@ export function SessionModeSelector({ value, onChange, disabled = false, showHea
 					</Card>
 
 					{/* IEN - In-Person */}
-					<Card className="h-full cursor-pointer border-2 transition-all hover:border-primary"
+					<Card
+						className="hover:border-primary h-full cursor-pointer border-2 transition-all"
 						onClick={() => !disabled && onChange("IEN")}
 						style={{
 							borderColor: value === "IEN" ? "hsl(var(--primary))" : undefined,
@@ -75,20 +95,20 @@ export function SessionModeSelector({ value, onChange, disabled = false, showHea
 							<CardDescription>
 								Everyone meets physically at notary's office or location
 							</CardDescription>
-							<ul className="text-sm space-y-1 text-muted-foreground">
+							<ul className="text-muted-foreground space-y-1 text-sm">
 								<li>✓ Traditional approach</li>
 								<li>✓ For complex documents</li>
 								<li>✓ Face-to-face trust</li>
 							</ul>
 						</CardContent>
 					</Card>
-
 				</div>
 			</RadioGroup>
 
 			{showNote && (
 				<div className="rounded-lg bg-blue-50 p-3 text-sm text-blue-900">
-					<strong>⚠️ Location requirement:</strong> All participants must be in the Philippines or at a Philippine embassy/consular office abroad.
+					<strong>⚠️ Location requirement:</strong> All participants must be in the Philippines or
+					at a Philippine embassy/consular office abroad.
 				</div>
 			)}
 		</div>

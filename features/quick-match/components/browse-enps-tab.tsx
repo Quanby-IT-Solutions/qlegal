@@ -1,12 +1,22 @@
 "use client"
 
 import { useState } from "react"
-import { trpc } from "@/services/trpc/client"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/core/components/ui/card"
-import { Button } from "@/core/components/ui/button"
-import { Label } from "@/core/components/ui/label"
-import { Calendar } from "@/core/components/ui/calendar"
+import { format } from "date-fns"
+import { AlertCircle, Filter, X } from "lucide-react"
+
+import { EnpCard } from "@/core/components/enp-card"
+import { Alert, AlertDescription, AlertTitle } from "@/core/components/ui/alert"
 import { Badge } from "@/core/components/ui/badge"
+import { Button } from "@/core/components/ui/button"
+import { Calendar } from "@/core/components/ui/calendar"
+import {
+	Card,
+	CardContent,
+	CardDescription,
+	CardHeader,
+	CardTitle,
+} from "@/core/components/ui/card"
+import { Label } from "@/core/components/ui/label"
 import {
 	Select,
 	SelectContent,
@@ -15,10 +25,8 @@ import {
 	SelectValue,
 } from "@/core/components/ui/select"
 import { Skeleton } from "@/core/components/ui/skeleton"
-import { EnpCard } from "@/core/components/enp-card"
-import { AlertCircle, Filter, X } from "lucide-react"
-import { Alert, AlertDescription, AlertTitle } from "@/core/components/ui/alert"
-import { format } from "date-fns"
+
+import { trpc } from "@/services/trpc/client"
 
 interface ENP {
 	id: string
@@ -44,7 +52,9 @@ interface ENPsData {
 export function BrowseENPsTab() {
 	const [specialization, setSpecialization] = useState<string>("all")
 	const [minRating, setMinRating] = useState<number | undefined>()
-	const [sortBy, setSortBy] = useState<"RATING" | "EXPERIENCE" | "RECENT" | "AVAILABILITY">("RATING")
+	const [sortBy, setSortBy] = useState<"RATING" | "EXPERIENCE" | "RECENT" | "AVAILABILITY">(
+		"RATING"
+	)
 	const [selectedDate, setSelectedDate] = useState<Date | undefined>()
 
 	const enpsQuery = trpc.quickMatch.getAvailableENPs.useQuery({
@@ -67,7 +77,7 @@ export function BrowseENPsTab() {
 			<Card>
 				<CardHeader>
 					<div className="flex items-center gap-2">
-						<Filter className="size-5 text-muted-foreground" />
+						<Filter className="text-muted-foreground size-5" />
 						<CardTitle>Find Your Notary</CardTitle>
 					</div>
 					<CardDescription>
@@ -77,7 +87,9 @@ export function BrowseENPsTab() {
 				<CardContent className="space-y-6">
 					<div>
 						<Label className="text-base font-semibold">Refine your search</Label>
-						<p className="text-sm text-muted-foreground mb-3">Filter by specialization, rating, and sorting preference</p>
+						<p className="text-muted-foreground mb-3 text-sm">
+							Filter by specialization, rating, and sorting preference
+						</p>
 						<div className="grid grid-cols-1 gap-4 md:grid-cols-3">
 							<div className="space-y-2">
 								<Label htmlFor="specialization" className="text-sm">
@@ -104,7 +116,11 @@ export function BrowseENPsTab() {
 								</Label>
 								<Select
 									value={minRating?.toString() ?? "all"}
-									onValueChange={value => setMinRating(value === "all" ? undefined : value ? parseFloat(value) : undefined)}
+									onValueChange={value =>
+										setMinRating(
+											value === "all" ? undefined : value ? parseFloat(value) : undefined
+										)
+									}
 								>
 									<SelectTrigger id="min-rating">
 										<SelectValue placeholder="All ratings" />
@@ -124,7 +140,9 @@ export function BrowseENPsTab() {
 								</Label>
 								<Select
 									value={sortBy}
-									onValueChange={value => setSortBy(value as "RATING" | "EXPERIENCE" | "RECENT" | "AVAILABILITY")}
+									onValueChange={value =>
+										setSortBy(value as "RATING" | "EXPERIENCE" | "RECENT" | "AVAILABILITY")
+									}
 								>
 									<SelectTrigger id="sort">
 										<SelectValue />
@@ -159,11 +177,11 @@ export function BrowseENPsTab() {
 							mode="single"
 							selected={selectedDate}
 							onSelect={setSelectedDate}
-							disabled={(date) => date < new Date()}
+							disabled={date => date < new Date()}
 							initialFocus
 							className="bg-muted/30 w-full max-w-[380px] rounded-2xl border p-4 shadow-sm [--cell-size:2.6rem]"
 						/>
-						
+
 						{selectedDate && (
 							<Button
 								variant="outline"
@@ -203,9 +221,9 @@ export function BrowseENPsTab() {
 							{Array.from({ length: 6 }).map((_, i) => (
 								<Card key={i} className="overflow-hidden">
 									<CardContent className="pt-6">
-										<Skeleton className="size-12 rounded-full mb-4" />
-										<Skeleton className="h-4 w-3/4 mb-2" />
-										<Skeleton className="h-4 w-1/2 mb-2" />
+										<Skeleton className="mb-4 size-12 rounded-full" />
+										<Skeleton className="mb-2 h-4 w-3/4" />
+										<Skeleton className="mb-2 h-4 w-1/2" />
 										<Skeleton className="h-3 w-2/3" />
 									</CardContent>
 								</Card>
@@ -247,8 +265,8 @@ export function BrowseENPsTab() {
 							</AlertDescription>
 						</Alert>
 					)}
+				</div>
 			</div>
 		</div>
-	</div>
-)
+	)
 }

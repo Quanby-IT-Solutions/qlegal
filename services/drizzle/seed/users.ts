@@ -33,15 +33,25 @@ export async function createUsers() {
 		// Create ENP profiles for ENP test accounts
 		const enpUsers = testAccountData.filter(account => account.role === "ENP")
 		console.log(`Creating ENP profiles for ${enpUsers.length} ENP users`)
-		
+
 		if (enpUsers.length > 0) {
 			const enpProfileData = enpUsers.map(enpUser => ({
 				userId: enpUser.id,
-				specialization: faker.helpers.arrayElement(["real-estate", "business", "family", "corporate", "international"]),
+				specialization: faker.helpers.arrayElement([
+					"real-estate",
+					"business",
+					"family",
+					"corporate",
+					"international",
+				]),
 				bio: faker.lorem.sentence(),
 				experience: faker.helpers.arrayElement(["2+ years", "5+ years", "10+ years", "15+ years"]),
 				languages: JSON.stringify(["English", "Filipino"]),
-				responseTime: faker.helpers.arrayElement(["Within 1 hour", "Within 2 hours", "Within 24 hours"]),
+				responseTime: faker.helpers.arrayElement([
+					"Within 1 hour",
+					"Within 2 hours",
+					"Within 24 hours",
+				]),
 				rating: faker.number.float({ min: 3.5, max: 5.0, precision: 0.1 }),
 				reviewCount: faker.number.int({ min: 5, max: 150 }),
 				commission: faker.number.float({ min: 0.1, max: 0.3, precision: 0.05 }),
@@ -69,7 +79,9 @@ export async function createUsers() {
 			const insertedProfiles = await db.insert(enpProfiles).values(enpProfileData).returning()
 			console.log(`✅ Successfully created ${insertedProfiles.length} ENP profiles`)
 			insertedProfiles.forEach(profile => {
-				console.log(`  - ENP Profile: ${profile.enpName} (${profile.specialization}, rating: ${profile.rating})`)
+				console.log(
+					`  - ENP Profile: ${profile.enpName} (${profile.specialization}, rating: ${profile.rating})`
+				)
 			})
 		}
 	}

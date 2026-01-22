@@ -4,16 +4,7 @@ import { type Route } from "next"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useEffect, useState } from "react"
 import { format, startOfToday } from "date-fns"
-import {
-	Calendar,
-	Clock,
-	FileText,
-	Loader2,
-	Mail,
-	Phone,
-	MessageSquare,
-	Video,
-} from "lucide-react"
+import { Calendar, Clock, FileText, Loader2, Mail, MessageSquare, Phone, Video } from "lucide-react"
 import { toast } from "sonner"
 
 import { PageHeader } from "@/core/components/navbar/page-header"
@@ -31,9 +22,10 @@ import {
 import { Label } from "@/core/components/ui/label"
 import { Popover, PopoverContent, PopoverTrigger } from "@/core/components/ui/popover"
 import { RadioGroup, RadioGroupItem } from "@/core/components/ui/radio-group"
-import { SessionModeSelector } from "@/features/booking/components/session-mode-selector"
 
 import { trpc } from "@/services/trpc/client"
+
+import { SessionModeSelector } from "@/features/booking/components/session-mode-selector"
 
 type WorkflowType = "REN" | "IEN"
 type BookingMode = "CONSULTATION" | "SIGNING"
@@ -103,7 +95,8 @@ export default function ConsultationsPage() {
 			console.log("🔍 Consultation booking success:", data)
 
 			toast.success("Consultation Booked!", {
-				description: "Your consultation request has been sent. The ENP will review and confirm your booking.",
+				description:
+					"Your consultation request has been sent. The ENP will review and confirm your booking.",
 			})
 
 			// After booking, always redirect to dashboard - meeting/conversation is created when ENP confirms
@@ -201,14 +194,19 @@ export default function ConsultationsPage() {
 							</CardDescription>
 						</CardHeader>
 						<CardContent className="space-y-4">
-							<RadioGroup value={bookingMode} onValueChange={value => setBookingMode(value as BookingMode)}>
+							<RadioGroup
+								value={bookingMode}
+								onValueChange={value => setBookingMode(value as BookingMode)}
+							>
 								<div className="grid grid-cols-1 gap-3 md:grid-cols-2">
 									<Card
-										className="h-full cursor-pointer border-2 transition-all hover:border-primary"
+										className="hover:border-primary h-full cursor-pointer border-2 transition-all"
 										onClick={() => setBookingMode("CONSULTATION")}
 										style={{
-											borderColor: bookingMode === "CONSULTATION" ? "hsl(var(--primary))" : undefined,
-											backgroundColor: bookingMode === "CONSULTATION" ? "hsl(var(--primary) / 0.05)" : undefined,
+											borderColor:
+												bookingMode === "CONSULTATION" ? "hsl(var(--primary))" : undefined,
+											backgroundColor:
+												bookingMode === "CONSULTATION" ? "hsl(var(--primary) / 0.05)" : undefined,
 										}}
 									>
 										<CardHeader className="pb-3">
@@ -224,7 +222,7 @@ export default function ConsultationsPage() {
 											<CardDescription>
 												Ask questions, review documents, and get guidance before any notarization.
 											</CardDescription>
-											<ul className="text-sm space-y-1 text-muted-foreground">
+											<ul className="text-muted-foreground space-y-1 text-sm">
 												<li>✓ Prep documents and IDs</li>
 												<li>✓ Legal/requirements clarifications</li>
 												<li>✓ Usually 30-45 minutes</li>
@@ -233,11 +231,12 @@ export default function ConsultationsPage() {
 									</Card>
 
 									<Card
-										className="h-full cursor-pointer border-2 transition-all hover:border-primary"
+										className="hover:border-primary h-full cursor-pointer border-2 transition-all"
 										onClick={() => setBookingMode("SIGNING")}
 										style={{
 											borderColor: bookingMode === "SIGNING" ? "hsl(var(--primary))" : undefined,
-											backgroundColor: bookingMode === "SIGNING" ? "hsl(var(--primary) / 0.05)" : undefined,
+											backgroundColor:
+												bookingMode === "SIGNING" ? "hsl(var(--primary) / 0.05)" : undefined,
 										}}
 									>
 										<CardHeader className="pb-3">
@@ -253,7 +252,7 @@ export default function ConsultationsPage() {
 											<CardDescription>
 												Formal notarization of prepared documents with all signers present.
 											</CardDescription>
-											<ul className="text-sm space-y-1 text-muted-foreground">
+											<ul className="text-muted-foreground space-y-1 text-sm">
 												<li>✓ ID verification for all signers</li>
 												<li>✓ Execute and notarize documents</li>
 												<li>✓ Allow 45-60 minutes</li>
