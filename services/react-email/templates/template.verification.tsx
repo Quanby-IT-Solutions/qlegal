@@ -139,7 +139,7 @@ export const VerificationTemplate = ({
 VerificationTemplate.PreviewProps = {
 	email: "sample.email@quanby.com",
 	confirmLink: "http://localhost:3000/verify/123456",
-	siteUrl: "http://localhost:3000", // Add this for preview
+	siteUrl: "http://localhost:3000",
 } as VerificationTemplateProps
 
 export default VerificationTemplate
