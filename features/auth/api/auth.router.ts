@@ -2,7 +2,7 @@ import { TRPCError } from "@trpc/server"
 import { hash } from "bcryptjs"
 import { eq } from "drizzle-orm"
 
-import { autoJoinOrganization, provisionDocoChainUser } from "@/services/doconchain"
+import { autoJoinOrganization, provisionUser } from "@/services/doconchain"
 import { passwordResetTokens, users, verificationTokens } from "@/services/drizzle/schema/auth"
 import { enpProfiles } from "@/services/drizzle/schema/enp-profiles"
 import { sendPasswordResetToken } from "@/services/react-email/lib/send.password-reset-token"
@@ -52,21 +52,16 @@ export const authRouter = createTRPCRouter({
 			})
 		}
 
-		// BEST-EFFORT: provision the user in DocoChain (auto-join org + generate token).
-		// We do NOT block registration if DocoChain rejects/doesn't allow auto-join.
+		// BEST-EFFORT: provision the user in DoconChain (auto-join org + generate token).
+		// We do NOT block registration if DoconChain rejects/doesn't allow auto-join.
 		try {
-			const result = await provisionDocoChainUser({
+			await provisionUser({
 				email,
 				name,
 				role: "Member",
 			})
-			console.log("✅ DocoChain provisioning result:", {
-				joinedOrganization: result.joinedOrganization,
-				userTokenGenerated: result.userTokenGenerated,
-			})
-		} catch (error) {
-			// provisionDocoChainUser should already be best-effort, but keep this extra guard
-			console.warn("⚠️ DocoChain provisioning threw unexpectedly:", error)
+		} catch {
+			// provisionUser is best-effort
 		}
 
 		const verificationToken = await generateVerificationToken(email)
@@ -138,9 +133,7 @@ export const authRouter = createTRPCRouter({
 					isAvailable: false,
 				})
 			})
-		} catch (error) {
-			const e = error as unknown as { message?: string; cause?: unknown }
-
+		} catch {
 			throw new TRPCError({
 				code: "INTERNAL_SERVER_ERROR",
 				message:

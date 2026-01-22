@@ -18,10 +18,11 @@ export const env = createEnv({
 		DATABASE_URL: z.string().min(1),
 
 		// DocOnChain
-		DOCONCHAIN_EMAIL: z.string(),
-		DOCONCHAIN_API_URL: z.string(),
+		DOCONCHAIN_API_URL: z.string().url(),
+		DOCONCHAIN_APP_URL: z.string().url(),
 		DOCONCHAIN_CLIENT_KEY: z.string(),
 		DOCONCHAIN_CLIENT_SECRET: z.string(),
+		DOCONCHAIN_EMAIL: z.string().email(),
 		DOCONCHAIN_ORGANIZATION_ID: z.string(),
 
 		// Email
@@ -88,10 +89,11 @@ export const env = createEnv({
 		DATABASE_URL: process.env.DATABASE_URL,
 
 		// DocOnChain
-		DOCONCHAIN_EMAIL: process.env.DOCONCHAIN_EMAIL,
 		DOCONCHAIN_API_URL: process.env.DOCONCHAIN_API_URL,
+		DOCONCHAIN_APP_URL: process.env.DOCONCHAIN_APP_URL,
 		DOCONCHAIN_CLIENT_KEY: process.env.DOCONCHAIN_CLIENT_KEY,
 		DOCONCHAIN_CLIENT_SECRET: process.env.DOCONCHAIN_CLIENT_SECRET,
+		DOCONCHAIN_EMAIL: process.env.DOCONCHAIN_EMAIL,
 		DOCONCHAIN_ORGANIZATION_ID: process.env.DOCONCHAIN_ORGANIZATION_ID,
 
 		// Email

@@ -2,8 +2,7 @@ import { TRPCError } from "@trpc/server"
 import { and, eq } from "drizzle-orm"
 import { z } from "zod/v4"
 
-import { createDocoChainProject } from "@/services/doconchain"
-import { normalizeDocoChainUrl } from "@/services/doconchain/url-normalizer"
+import { createProject, normalizeUrl } from "@/services/doconchain"
 import { db } from "@/services/drizzle/db"
 import { users } from "@/services/drizzle/schema/auth"
 import { documents } from "@/services/drizzle/schema/document"
@@ -462,27 +461,17 @@ export const meetingsRouter = createTRPCRouter({
 						mode_of_notarization: "REN",
 					},
 				}
-				const docoChainProject = await createDocoChainProject({
+				const docoChainProject = await createProject({
 					title: name,
 					documentFile: fileBuffer,
 					fileName: name.endsWith(".pdf") ? name : `${name}.pdf`,
-					userListEditable: false, // Recipients cannot be edited after creation
-					creatorAsViewer: false, // Creator is not added as a viewer
+					userListEditable: false,
+					creatorAsViewer: false,
 					documentStamp,
-					creatorEmail, // Use meeting creator's email, not the uploader's email
+					creatorEmail,
 				})
-				const docoChainProjectId = docoChainProject.uuid // THIS IS THE CRITICAL PROJECT UUID
-				// ALWAYS normalize the redirect URL before storing - ensure api=true is set
-				const docoChainRedirectUrl = normalizeDocoChainUrl(docoChainProject.redirectUrl) ?? null
-				console.log("✅ DocoChain project created!")
-				console.log("   - Project UUID:", docoChainProjectId)
-				console.log("   - Project ID:", docoChainProject.id)
-				console.log("   - Redirect URL (normalized):", docoChainRedirectUrl)
-
-				// STEP 1.5: Don't add any signers yet
-				// Signers will be added dynamically when they click "Start Signing"
-				// This ensures each signer only sees themselves + creator when plotting
-				console.log("ℹ️ Signers will be added dynamically when they click 'Start Signing'")
+				const docoChainProjectId = docoChainProject.uuid
+				const docoChainRedirectUrl = normalizeUrl(docoChainProject.redirectUrl) ?? null
 
 				// STEP 2: Create document record in database with DocoChain project UUID
 				const [document] = await db

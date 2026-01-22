@@ -1,3 +1,21 @@
+/**
+ * Signed Document Streaming API Route
+ *
+ * This API route exists because tRPC cannot provide a navigable URL for browser operations.
+ * It's used by `window.open()` calls in the meetings feature to open signed PDFs in new tabs.
+ *
+ * Why not use tRPC?
+ * - tRPC returns JSON, not streamable binary data
+ * - `window.open()` requires a URL that browsers can directly navigate to
+ * - This route streams the PDF directly to the browser with proper Content-Type headers
+ *
+ * Security:
+ * - Authenticates via NextAuth session (no DocoChain api_token exposed in URLs)
+ * - Validates meeting participant access before serving the document
+ *
+ * @see /services/doconchain - Core DocoChain SDK (used by this route)
+ * @see /features/meetings/components/video-meeting-client.tsx - Frontend consumer
+ */
 import { NextResponse, type NextRequest } from "next/server"
 import { eq } from "drizzle-orm"
 
