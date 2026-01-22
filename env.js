@@ -21,8 +21,10 @@ export const env = createEnv({
 		EMAIL_PORT: z.coerce.number(),
 		EMAIL_USER: z.string(),
 		GOOGLE_MAPS_API_KEY: z.string(),
+
 		HITPAY_API_KEY: z.string(),
-		HITPAY_API_URL: z.url(),
+		HITPAY_API_URL: z.string(),
+
 		HYPERVERGE_API_URL: z.string().optional(),
 		HYPERVERGE_APP_ID: z.string(),
 		HYPERVERGE_APP_KEY: z.string(),
