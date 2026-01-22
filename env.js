@@ -9,7 +9,6 @@ export const env = createEnv({
 		AUTH_TRUST_HOST: z.string().optional(),
 		AUTH_URL: z.string().optional(),
 		DATABASE_URL: z.string().min(1),
-		// DOCOCHAIN_API_TOKEN: z.string().optional(),
 		DOCOCHAIN_API_URL: z.string().optional(),
 		DOCOCHAIN_ADMIN_EMAIL: z.string().optional(),
 		DOCOCHAIN_ORGANIZATION_ID: z.string().optional(),
@@ -22,6 +21,8 @@ export const env = createEnv({
 		EMAIL_PORT: z.coerce.number(),
 		EMAIL_USER: z.string(),
 		GOOGLE_MAPS_API_KEY: z.string(),
+		HITPAY_API_KEY: z.string(),
+		HITPAY_API_URL: z.url(),
 		HYPERVERGE_API_URL: z.string().optional(),
 		HYPERVERGE_APP_ID: z.string(),
 		HYPERVERGE_APP_KEY: z.string(),
@@ -47,7 +48,6 @@ export const env = createEnv({
 		AUTH_TRUST_HOST: process.env.AUTH_TRUST_HOST,
 		AUTH_URL: process.env.AUTH_URL,
 		DATABASE_URL: process.env.DATABASE_URL,
-		// DOCOCHAIN_API_TOKEN: process.env.DOCOCHAIN_API_TOKEN ?? process.env.DOCONCHAIN_API_TOKEN,
 		DOCOCHAIN_API_URL: process.env.DOCOCHAIN_API_URL ?? process.env.DOCONCHAIN_API_URL,
 		DOCOCHAIN_ADMIN_EMAIL:
 			process.env.DOCOCHAIN_ADMIN_EMAIL ??
@@ -58,7 +58,6 @@ export const env = createEnv({
 		DOCOCHAIN_CLIENT_KEY: process.env.DOCOCHAIN_CLIENT_KEY ?? process.env.DOCONCHAIN_CLIENT_KEY,
 		DOCOCHAIN_CLIENT_SECRET:
 			process.env.DOCOCHAIN_CLIENT_SECRET ?? process.env.DOCONCHAIN_CLIENT_SECRET,
-
 		EMAIL_FROM_NAME: process.env.EMAIL_FROM_NAME,
 		EMAIL_FROM: process.env.EMAIL_FROM,
 		EMAIL_HOST: process.env.EMAIL_HOST,
@@ -66,6 +65,8 @@ export const env = createEnv({
 		EMAIL_PORT: process.env.EMAIL_PORT,
 		EMAIL_USER: process.env.EMAIL_USER,
 		GOOGLE_MAPS_API_KEY: process.env.GOOGLE_MAPS_API_KEY,
+		HITPAY_API_KEY: process.env.HITPAY_API_KEY,
+		HITPAY_API_URL: process.env.HITPAY_API_URL,
 		HYPERVERGE_API_URL: process.env.HYPERVERGE_API_URL,
 		HYPERVERGE_APP_ID: process.env.HYPERVERGE_APP_ID,
 		HYPERVERGE_APP_KEY: process.env.HYPERVERGE_APP_KEY,
