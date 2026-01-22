@@ -254,11 +254,11 @@ export const appSidebarSections: NavSection[] = [
 			// Available to: ENP, PRINCIPAL
 			// Workflows: REN, IEN
 			// Purpose: Single hub for active sessions + history
-			// Routes to: /notarizations (tabbed) + /notarize/[id]
+			// Routes to: /meetings (tabbed) + /notarize/[id]
 			{
-				title: "Notarizations",
-				url: "/notarizations",
-				icon: PenToolIcon,
+				title: "Meetings & Notarization",
+				url: "/meetings",
+				icon: Monitor,
 				roles: ["ENP", "PRINCIPAL"],
 				workflows: ["REN", "IEN"],
 			},
@@ -392,22 +392,7 @@ export const appSidebarSections: NavSection[] = [
 				workflows: ["IEN"],
 			},
 
-			// ============================================================================
-			// VIDEO MEETINGS - REN-specific remote session management
-			// ============================================================================
-			// Available to: ENP, PRINCIPAL
-			// Workflows: REN only
-			// Purpose: Manage remote video consultation and notarization sessions
-			// Features: Video call, screen sharing, recording, meeting history
-			// Legal: REN requires video/audio recording per Supreme Court Rules
-			// Note: Integrated with VideoSDK
-			{
-				title: "Video Meetings",
-				url: "/meetings",
-				icon: Monitor,
-				roles: ["ENP", "PRINCIPAL"],
-				workflows: ["REN"],
-			},
+			// NOTE: Video Meetings + Notarizations are now combined in /meetings (tabbed)
 		],
 	},
 	{
