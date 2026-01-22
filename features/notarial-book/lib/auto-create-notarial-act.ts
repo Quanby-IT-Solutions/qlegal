@@ -1,7 +1,7 @@
 import { and, eq } from "drizzle-orm"
 import type { PostgresJsDatabase } from "drizzle-orm/postgres-js"
 
-import { checkSigningStatus, getPassportDocument } from "@/services/docochain"
+import { checkSigningStatus, getPassportDocument } from "@/services/doconchain"
 import { users } from "@/services/drizzle/schema/auth"
 import { documents } from "@/services/drizzle/schema/document"
 import { legalRegistrations } from "@/services/drizzle/schema/legal-registration"

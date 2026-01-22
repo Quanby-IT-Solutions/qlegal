@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server"
 import { eq } from "drizzle-orm"
 
-import { downloadSignedDocument } from "@/services/docochain"
+import { downloadSignedDocument } from "@/services/doconchain"
 import { db } from "@/services/drizzle/db"
 import { documents } from "@/services/drizzle/schema/document"
 import { auth } from "@/services/next-auth"
@@ -77,4 +77,3 @@ export async function GET(
 		})
 	}
 }
-

@@ -1,12 +1,11 @@
 "use client"
 
 import { type Route } from "next"
-import Link from "next/link"
 import { Fragment } from "react"
 import { MenuIcon } from "lucide-react"
 
+import { SidebarTrigger } from "@/core/components/animate-ui/components/radix/sidebar"
 import { ModeToggle } from "@/core/components/mode-toggle"
-import { QuanbyLogo } from "@/core/components/quanby-logo"
 import { Button } from "@/core/components/ui/button"
 import { Separator } from "@/core/components/ui/separator"
 import {
@@ -36,32 +35,20 @@ interface SiteNavbarProps {
 		label: string
 		url?: Route
 	}[]
+	showUserMenu?: boolean
 }
 
-export function SiteNavbar({ items }: SiteNavbarProps) {
+export function SiteNavbar({ items, showUserMenu = true }: SiteNavbarProps) {
 	const isMobile = useIsMobile()
 	return (
 		<nav className="bg-background border-b">
-			<div className="mx-auto flex h-16 items-center justify-between px-4 md:px-8">
+			<div className="mx-auto flex h-16 items-center justify-between px-2 md:px-4">
 				<div className="flex items-center gap-2">
-					<Link
-						href="/"
-						className="hover:bg-muted/50 flex items-center gap-2 rounded-lg p-1 transition-colors md:gap-3"
-					>
-						<div className="flex gap-x-2">
-							<QuanbyLogo className="size-6 shrink-0" />
-							<span className="from-foreground to-foreground/80 bg-linear-to-r bg-clip-text text-lg leading-tight font-bold tracking-tight text-transparent">
-								QSign
-							</span>
-						</div>
-					</Link>
+					<SidebarTrigger className="-ml-1" />
+					<Separator orientation="vertical" className="mr-2 h-4" />
 
 					{items && (
 						<>
-							<Separator
-								orientation="vertical"
-								className="mx-2 hidden data-[orientation=vertical]:h-4 md:block"
-							/>
 							<Breadcrumb className="hidden md:block">
 								<BreadcrumbList>
 									{items.map(({ label, url }, index, array) => (
@@ -84,11 +71,7 @@ export function SiteNavbar({ items }: SiteNavbarProps) {
 				<div className="flex items-center gap-2">
 					<ModeToggle />
 
-					<div className="h-6">
-						<Separator className="h-full" orientation="vertical" />
-					</div>
-
-					{!isMobile && <SiteUser />}
+					{showUserMenu && !isMobile && <SiteUser />}
 
 					{isMobile && (
 						<Sheet>
@@ -107,6 +90,12 @@ export function SiteNavbar({ items }: SiteNavbarProps) {
 								</SheetHeader>
 							</SheetContent>
 						</Sheet>
+					)}
+
+					{showUserMenu && !isMobile && (
+						<div className="h-6">
+							<Separator className="h-full" orientation="vertical" />
+						</div>
 					)}
 				</div>
 			</div>

@@ -25,7 +25,7 @@ import {
 export function ChangePasswordForm() {
 	const form = useForm({
 		resolver: zodResolver(changePasswordSchema),
-		values: {
+		defaultValues: {
 			currentPassword: "",
 			newPassword: "",
 			confirmPassword: "",
@@ -35,6 +35,7 @@ export function ChangePasswordForm() {
 	const { mutate, isPending } = trpc.settings.changePassword.useMutation({
 		onSuccess: data => {
 			toast.success(data.message)
+			form.reset()
 		},
 		onError: err => toast.error(err.message),
 	})

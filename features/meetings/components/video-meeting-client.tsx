@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { MeetingProvider, useMeeting, useParticipant, usePubSub } from "@videosdk.live/react-sdk"
+import fixWebmDuration from "fix-webm-duration"
 import {
 	AlertCircle,
 	Camera,
@@ -32,12 +33,6 @@ import { toast } from "sonner"
 import { Button } from "@/core/components/ui/button"
 import { Card, CardContent } from "@/core/components/ui/card"
 import {
-	DropdownMenu,
-	DropdownMenuContent,
-	DropdownMenuItem,
-	DropdownMenuTrigger,
-} from "@/core/components/ui/dropdown-menu"
-import {
 	Dialog,
 	DialogContent,
 	DialogDescription,
@@ -45,6 +40,12 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "@/core/components/ui/dialog"
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuTrigger,
+} from "@/core/components/ui/dropdown-menu"
 import {
 	Select,
 	SelectContent,
@@ -54,9 +55,8 @@ import {
 } from "@/core/components/ui/select"
 import { cn } from "@/core/lib/utils"
 
-import { normalizeDocoChainUrl } from "@/services/docochain/url-normalizer"
+import { normalizeDocoChainUrl } from "@/services/doconchain/url-normalizer"
 import { trpc } from "@/services/trpc/client"
-import fixWebmDuration from "fix-webm-duration"
 
 import { MeetingDocumentUpload } from "./meeting-document-upload"
 
@@ -70,11 +70,7 @@ function formatElapsedMs(diffMs: number) {
 // Memoized to prevent re-renders from parent state changes
 const MeetingControls = React.memo(function MeetingControls({
 	onUploadClick,
-	onRecordingToggle,
 	onLocalRecordingToggle,
-	localRecordingSupported,
-	isRecording,
-	isRecordingStarting,
 	isLocalRecording,
 	localRecordingStartedAt,
 }: {
@@ -89,7 +85,8 @@ const MeetingControls = React.memo(function MeetingControls({
 }) {
 	const meeting = useMeeting()
 	const localMicOn = (meeting as { localMicOn?: boolean } | null)?.localMicOn
-	const localScreenShareOn = (meeting as { localScreenShareOn?: boolean } | null)?.localScreenShareOn
+	const localScreenShareOn = (meeting as { localScreenShareOn?: boolean } | null)
+		?.localScreenShareOn
 	const recordingState = (meeting as { recordingState?: string } | null)?.recordingState
 	const [isCameraOn, setIsCameraOn] = useState(() => meeting?.localWebcamOn ?? false)
 	const [isMicOn, setIsMicOn] = useState(() => {
@@ -97,9 +94,7 @@ const MeetingControls = React.memo(function MeetingControls({
 		return localMicOn ?? false
 	})
 
-	const [isScreenSharing, setIsScreenSharing] = useState(
-		() => localScreenShareOn ?? false
-	)
+	const [isScreenSharing, setIsScreenSharing] = useState(() => localScreenShareOn ?? false)
 	const [isRecordingLocal, setIsRecordingLocal] = useState(false)
 
 	useEffect(() => {
@@ -257,9 +252,7 @@ const MeetingControls = React.memo(function MeetingControls({
 					)}
 					onClick={handleToggleRecording}
 					title={
-						localRecordingActive
-							? `Stop recording (${localRecordingElapsed})`
-							: "Start recording"
+						localRecordingActive ? `Stop recording (${localRecordingElapsed})` : "Start recording"
 					}
 				>
 					{localRecordingActive ? (
@@ -297,7 +290,11 @@ const MeetingControls = React.memo(function MeetingControls({
 
 // Simple participant video card with screen share support
 // Memoized to prevent re-renders when parent state changes (e.g., document list updates)
-const ParticipantView = React.memo(function ParticipantView({ participantId }: { participantId: string }) {
+const ParticipantView = React.memo(function ParticipantView({
+	participantId,
+}: {
+	participantId: string
+}) {
 	const { webcamStream, displayName, isLocal, micOn, screenShareStream, screenShareOn, micStream } =
 		useParticipant(participantId)
 	const videoRef = useRef<HTMLVideoElement>(null)
@@ -440,10 +437,10 @@ const ParticipantView = React.memo(function ParticipantView({ participantId }: {
 		// Prefer SDK micOn flag; avoid per-participant polling for efficiency.
 		if (audioStream && audioStream.getAudioTracks().length > 0 && micOn) {
 			// Check if audio tracks are actually enabled and live
-			const enabledTracks = audioStream.getAudioTracks().filter(
-				track => track.enabled && track.readyState === "live"
-			)
-			
+			const enabledTracks = audioStream
+				.getAudioTracks()
+				.filter(track => track.enabled && track.readyState === "live")
+
 			if (enabledTracks.length > 0) {
 				const enabledStream = new MediaStream(enabledTracks)
 				audioElement.srcObject = enabledStream
@@ -465,7 +462,7 @@ const ParticipantView = React.memo(function ParticipantView({ participantId }: {
 
 	return (
 		<Card className="border-border/70 bg-card/80 relative size-full overflow-hidden rounded-xl border shadow-lg backdrop-blur-sm">
-			<CardContent className="from-muted/40 via-background to-muted/60 relative size-full bg-gradient-to-br p-0">
+			<CardContent className="from-muted/40 via-background to-muted/60 relative size-full bg-linear-to-br p-0">
 				<video
 					ref={videoRef}
 					autoPlay
@@ -474,20 +471,13 @@ const ParticipantView = React.memo(function ParticipantView({ participantId }: {
 					className={cn(
 						"bg-muted/30 size-full transition-opacity duration-200",
 						isPresenting ? "object-contain" : "object-cover",
-						"aspect-[4/3] md:aspect-[16/10]",
+						"aspect-4/3 md:aspect-16/10",
 						!showVideo && "opacity-0"
 					)}
 				/>
 
 				{/* Hidden audio element for remote participants */}
-				{!isLocal && (
-					<audio
-						ref={audioRef}
-						autoPlay
-						playsInline
-						className="hidden"
-					/>
-				)}
+				{!isLocal && <audio ref={audioRef} autoPlay playsInline className="hidden" />}
 
 				{!showVideo && !isPresenting && (
 					<div className="pointer-events-none absolute inset-0 flex items-center justify-center">
@@ -497,9 +487,9 @@ const ParticipantView = React.memo(function ParticipantView({ participantId }: {
 					</div>
 				)}
 
-				<div className="absolute right-2 bottom-2 left-2 flex items-center justify-between rounded-lg bg-gradient-to-r from-black/80 via-black/70 to-black/60 px-2.5 py-1.5 text-[11px] text-white shadow-md">
+				<div className="absolute right-2 bottom-2 left-2 flex items-center justify-between rounded-lg bg-linear-to-r from-black/80 via-black/70 to-black/60 px-2.5 py-1.5 text-[11px] text-white shadow-md">
 					<div className="flex items-center gap-1">
-						<span className="max-w-[140px] truncate font-semibold">{displayName ?? "Guest"}</span>
+						<span className="max-w-35 truncate font-semibold">{displayName ?? "Guest"}</span>
 						{isLocal && <span className="text-[10px] text-white/80">(You)</span>}
 						{isPresenting && (
 							<span className="ml-1 rounded-full bg-emerald-900/60 px-1.5 py-0.5 text-[10px] text-emerald-200">
@@ -650,7 +640,7 @@ const SignerList = React.memo(function SignerList({
 						>
 							<div
 								className={cn(
-									"flex size-5 flex-shrink-0 items-center justify-center rounded-full text-[10px] font-bold",
+									"flex size-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold",
 									isSigned
 										? "bg-green-600 text-white"
 										: isCurrent
@@ -662,14 +652,14 @@ const SignerList = React.memo(function SignerList({
 							</div>
 							<div className="min-w-0 flex-1">
 								<div className="flex items-center gap-1.5">
-									<User className="text-muted-foreground size-3 flex-shrink-0" />
+									<User className="text-muted-foreground size-3 shrink-0" />
 									<span className="truncate font-medium">
 										{signer.firstName} {signer.lastName}
 									</span>
 								</div>
 								<div className="text-muted-foreground truncate text-[10px]">{signer.email}</div>
 							</div>
-							<div className="flex-shrink-0">
+							<div className="shrink-0">
 								{isSigned ? (
 									<div className="flex items-center gap-1 rounded-full bg-green-100 px-1.5 py-0.5 dark:bg-green-900/40">
 										<CheckCircle2 className="size-3 text-green-600 dark:text-green-400" />
@@ -795,14 +785,13 @@ const DocumentActions = React.memo(function DocumentActions({
 					</Button>
 					{/* Show message when button is disabled due to locked order */}
 					{isSigningDisabled && (
-					<p className="text-[10px] leading-tight text-amber-700 dark:text-amber-400">
-						Previous document must be signed first
-					</p>
-				)}
-			</div>
-		)}
-
-	</div>
+						<p className="text-[10px] leading-tight text-amber-700 dark:text-amber-400">
+							Previous document must be signed first
+						</p>
+					)}
+				</div>
+			)}
+		</div>
 	)
 })
 
@@ -882,9 +871,9 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 	// Get tRPC utils for imperative calls
 	const utils = trpc.useUtils()
 
-	const [signingStatusPollingPausedUntil, setSigningStatusPollingPausedUntil] = useState<number | null>(
-		null
-	)
+	const [signingStatusPollingPausedUntil, setSigningStatusPollingPausedUntil] = useState<
+		number | null
+	>(null)
 	const hasShownSigningStatusAuthErrorRef = useRef(false)
 	const hasShownSigningStatusFetchErrorRef = useRef(false)
 	const signingStatusInFlightRef = useRef(false)
@@ -1120,34 +1109,40 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 	const isDocumentOrderLocked = meetingDetails?.isDocumentOrderLocked ?? false
 
 	// Drag and drop handlers
-	const handleDragStart = useCallback((e: React.DragEvent, documentId: string) => {
-		// Prevent dragging if locked
-		if (isDocumentOrderLocked) {
-			e.preventDefault()
-			return
-		}
+	const handleDragStart = useCallback(
+		(e: React.DragEvent, documentId: string) => {
+			// Prevent dragging if locked
+			if (isDocumentOrderLocked) {
+				e.preventDefault()
+				return
+			}
 
-		// Don't start drag if clicking on interactive elements (buttons, links, etc.)
-		const target = e.target as HTMLElement
-		if (target.closest("button") || target.closest("a") || target.closest('[role="button"]')) {
-			e.preventDefault()
-			return
-		}
+			// Don't start drag if clicking on interactive elements (buttons, links, etc.)
+			const target = e.target as HTMLElement
+			if (target.closest("button") || target.closest("a") || target.closest('[role="button"]')) {
+				e.preventDefault()
+				return
+			}
 
-		setDraggedDocumentId(documentId)
-		e.dataTransfer.effectAllowed = "move"
-		e.dataTransfer.setData("text/plain", documentId)
-	}, [isDocumentOrderLocked])
+			setDraggedDocumentId(documentId)
+			e.dataTransfer.effectAllowed = "move"
+			e.dataTransfer.setData("text/plain", documentId)
+		},
+		[isDocumentOrderLocked]
+	)
 
-	const handleDragEnter = useCallback((e: React.DragEvent, targetDocumentId: string) => {
-		if (isDocumentOrderLocked) {
+	const handleDragEnter = useCallback(
+		(e: React.DragEvent, targetDocumentId: string) => {
+			if (isDocumentOrderLocked) {
+				e.preventDefault()
+				return
+			}
 			e.preventDefault()
-			return
-		}
-		e.preventDefault()
-		if (!draggedDocumentId || targetDocumentId === draggedDocumentId) return
-		setDragOverDocumentId(targetDocumentId)
-	}, [draggedDocumentId, isDocumentOrderLocked])
+			if (!draggedDocumentId || targetDocumentId === draggedDocumentId) return
+			setDragOverDocumentId(targetDocumentId)
+		},
+		[draggedDocumentId, isDocumentOrderLocked]
+	)
 
 	const handleDragLeave = useCallback((e: React.DragEvent) => {
 		e.preventDefault()
@@ -1157,69 +1152,69 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 		}
 	}, [])
 
-	const handleDragOver = useCallback((e: React.DragEvent, targetDocumentId: string) => {
-		if (isDocumentOrderLocked) {
+	const handleDragOver = useCallback(
+		(e: React.DragEvent, targetDocumentId: string) => {
+			if (isDocumentOrderLocked) {
+				e.preventDefault()
+				return
+			}
 			e.preventDefault()
-			return
-		}
-		e.preventDefault()
-		e.dataTransfer.dropEffect = "move"
-		if (draggedDocumentId && targetDocumentId !== draggedDocumentId) {
-			setDragOverDocumentId(targetDocumentId)
-		}
-	}, [draggedDocumentId, isDocumentOrderLocked])
+			e.dataTransfer.dropEffect = "move"
+			if (draggedDocumentId && targetDocumentId !== draggedDocumentId) {
+				setDragOverDocumentId(targetDocumentId)
+			}
+		},
+		[draggedDocumentId, isDocumentOrderLocked]
+	)
 
-	const handleDrop = useCallback((e: React.DragEvent, targetDocumentId: string) => {
-		if (isDocumentOrderLocked) {
+	const handleDrop = useCallback(
+		(e: React.DragEvent, targetDocumentId: string) => {
+			if (isDocumentOrderLocked) {
+				e.preventDefault()
+				setDraggedDocumentId(null)
+				setDragOverDocumentId(null)
+				return
+			}
 			e.preventDefault()
-			setDraggedDocumentId(null)
 			setDragOverDocumentId(null)
-			return
-		}
-		e.preventDefault()
-		setDragOverDocumentId(null)
 
-		if (!draggedDocumentId || !meetingId) {
+			if (!draggedDocumentId || !meetingId) {
+				setDraggedDocumentId(null)
+				return
+			}
+
+			if (!documents) {
+				setDraggedDocumentId(null)
+				return
+			}
+
+			const sourceIndex = documents.findIndex(doc => doc.id === draggedDocumentId)
+			const targetIndex = documents.findIndex(doc => doc.id === targetDocumentId)
+
+			if (sourceIndex === -1 || targetIndex === -1 || sourceIndex === targetIndex) {
+				setDraggedDocumentId(null)
+				return
+			}
+
+			// Reorder documents
+			const newOrder = [...documents]
+			const removed = newOrder.splice(sourceIndex, 1)[0]
+			if (!removed) {
+				setDraggedDocumentId(null)
+				return
+			}
+			newOrder.splice(targetIndex, 0, removed)
+
+			// Update order in database (this will sync to all users)
+			updateDocumentOrder.mutate({
+				meetingId,
+				documentIds: newOrder.map(doc => doc.id),
+			})
+
 			setDraggedDocumentId(null)
-			return
-		}
-
-		if (!documents) {
-			setDraggedDocumentId(null)
-			return
-		}
-
-		const sourceIndex = documents.findIndex(doc => doc.id === draggedDocumentId)
-		const targetIndex = documents.findIndex(doc => doc.id === targetDocumentId)
-
-		if (sourceIndex === -1 || targetIndex === -1 || sourceIndex === targetIndex) {
-			setDraggedDocumentId(null)
-			return
-		}
-
-		// Reorder documents
-		const newOrder = [...documents]
-		const removed = newOrder.splice(sourceIndex, 1)[0]
-		if (!removed) {
-			setDraggedDocumentId(null)
-			return
-		}
-		newOrder.splice(targetIndex, 0, removed)
-
-		// Update order in database (this will sync to all users)
-		updateDocumentOrder.mutate({
-			meetingId,
-			documentIds: newOrder.map(doc => doc.id),
-		})
-
-		setDraggedDocumentId(null)
-	}, [
-		documents,
-		draggedDocumentId,
-		isDocumentOrderLocked,
-		meetingId,
-		updateDocumentOrder,
-	])
+		},
+		[documents, draggedDocumentId, isDocumentOrderLocked, meetingId, updateDocumentOrder]
+	)
 
 	const handleDragEnd = useCallback(() => {
 		setDraggedDocumentId(null)
@@ -1245,44 +1240,47 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 	}, [])
 
 	// Handle certificate download
-	const handleDownloadCertificate = useCallback(async (projectUuid: string) => {
-		setDownloadingCertificateUuid(projectUuid)
+	const handleDownloadCertificate = useCallback(
+		async (projectUuid: string) => {
+			setDownloadingCertificateUuid(projectUuid)
 
-		try {
-			// Fetch the certificate using tRPC utils
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument
-			const result = await utils.signatureRequests.downloadCertificate.fetch(projectUuid as any)
+			try {
+				// Fetch the certificate using tRPC utils
+				// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument
+				const result = await utils.signatureRequests.downloadCertificate.fetch(projectUuid as any)
 
-			if (result?.base64) {
-				// Convert base64 to blob and download
-				const byteCharacters = atob(result.base64)
-				const byteNumbers = new Array(byteCharacters.length)
-				for (let i = 0; i < byteCharacters.length; i++) {
-					byteNumbers[i] = byteCharacters.charCodeAt(i)
+				if (result?.base64) {
+					// Convert base64 to blob and download
+					const byteCharacters = atob(result.base64)
+					const byteNumbers = new Array(byteCharacters.length)
+					for (let i = 0; i < byteCharacters.length; i++) {
+						byteNumbers[i] = byteCharacters.charCodeAt(i)
+					}
+					const byteArray = new Uint8Array(byteNumbers)
+					const blob = new Blob([byteArray], { type: "application/pdf" })
+
+					const url = window.URL.createObjectURL(blob)
+					const link = document.createElement("a")
+					link.href = url
+					link.download = result.fileName || `certificate-${projectUuid}.pdf`
+					document.body.appendChild(link)
+					link.click()
+					document.body.removeChild(link)
+					window.URL.revokeObjectURL(url)
+
+					toast.success("Certificate downloaded successfully!")
+				} else {
+					toast.error("Failed to download certificate")
 				}
-				const byteArray = new Uint8Array(byteNumbers)
-				const blob = new Blob([byteArray], { type: "application/pdf" })
-
-				const url = window.URL.createObjectURL(blob)
-				const link = document.createElement("a")
-				link.href = url
-				link.download = result.fileName || `certificate-${projectUuid}.pdf`
-				document.body.appendChild(link)
-				link.click()
-				document.body.removeChild(link)
-				window.URL.revokeObjectURL(url)
-
-				toast.success("Certificate downloaded successfully!")
-			} else {
-				toast.error("Failed to download certificate")
+			} catch (error) {
+				console.error("Error downloading certificate:", error)
+				toast.error(error instanceof Error ? error.message : "Failed to download certificate")
+			} finally {
+				setDownloadingCertificateUuid(null)
 			}
-		} catch (error) {
-			console.error("Error downloading certificate:", error)
-			toast.error(error instanceof Error ? error.message : "Failed to download certificate")
-		} finally {
-			setDownloadingCertificateUuid(null)
-		}
-	}, [utils.signatureRequests.downloadCertificate])
+		},
+		[utils.signatureRequests.downloadCertificate]
+	)
 
 	// Generate signing link mutation (for signature request dialog)
 	const generateSigningLink = trpc.signatureRequests.generateSigningLink.useMutation({
@@ -1544,12 +1542,16 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 	useEffect(() => {
 		if (participants && participants.size > 0) {
 			const participantList = Array.from(participants.entries()).map(([id, p]) => ({
-				id: `${id.substring(0, 8)  }...`,
+				id: `${id.substring(0, 8)}...`,
 				name: p.displayName,
 				isLocal: p.local,
 				webcamOn: p.webcamOn,
 			}))
-			console.log("📡 VideoSDK Participants (peer-to-peer):", participantList, `v${  participantVersion}`)
+			console.log(
+				"📡 VideoSDK Participants (peer-to-peer):",
+				participantList,
+				`v${participantVersion}`
+			)
 		}
 	}, [participants, participantVersion])
 
@@ -1562,14 +1564,17 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 		const participantsMap = participants
 
 		// Filter out non-human participants (bots, recorders, etc.)
-		const filterHuman = (id: string, participant: { displayName?: string; mode?: string } | null | undefined) => {
+		const filterHuman = (
+			id: string,
+			participant: { displayName?: string; mode?: string } | null | undefined
+		) => {
 			if (!participant) return false
 
 			const idLower = id.toLowerCase()
 			const nameLower = (participant.displayName ?? "").toLowerCase()
 
 			// Filter out system participants
-			const isSystemParticipant = 
+			const isSystemParticipant =
 				idLower.includes("recorder") ||
 				idLower.includes("bot") ||
 				idLower.includes("internal") ||
@@ -1580,7 +1585,8 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 			return !isSystemParticipant
 		}
 
-		const normalizeName = (name: string | undefined) => (name ?? "").trim().toLowerCase() || "unknown"
+		const normalizeName = (name: string | undefined) =>
+			(name ?? "").trim().toLowerCase() || "unknown"
 
 		// Deduplicate participants by display name (same user might appear multiple times)
 		const uniqueByName = new Map<
@@ -1602,7 +1608,9 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 			const participantIsPresenting = Boolean(
 				(participant as unknown as { screenShareOn?: boolean })?.screenShareOn
 			)
-			const key = participantIsPresenting ? `${id}-presenter` : normalizeName(participant.displayName ?? id)
+			const key = participantIsPresenting
+				? `${id}-presenter`
+				: normalizeName(participant.displayName ?? id)
 			const current = uniqueByName.get(key)
 			const currentIsPresenting = Boolean(
 				(current?.participant as unknown as { screenShareOn?: boolean })?.screenShareOn
@@ -1638,7 +1646,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 			.map(entry => entry.id)
 
 		return { participantIds: ids, participantCount: ids.length }
-	}, [participants, participantVersion])
+	}, [participants])
 
 	const resetRecordingConsentUi = useCallback(() => {
 		setRecordingConsentOpen(false)
@@ -1957,11 +1965,11 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 		return (
 			<div
 				className={cn(
-					"bg-card/50 flex-shrink-0 border-t shadow-lg backdrop-blur-sm transition-all duration-300",
-					showDocuments ? "max-h-[400px] min-h-[200px]" : "h-12 md:h-14"
+					"bg-card/50 shrink-0 border-t shadow-lg backdrop-blur-sm transition-all duration-300",
+					showDocuments ? "max-h-100 min-h-50" : "h-12 md:h-14"
 				)}
 			>
-				<div className="flex h-12 flex-shrink-0 items-center justify-between border-b px-3 md:h-14 md:px-4 lg:px-6">
+				<div className="flex h-12 shrink-0 items-center justify-between border-b px-3 md:h-14 md:px-4 lg:px-6">
 					{(() => {
 						const isLocked = meetingDetails?.isDocumentOrderLocked ?? false
 						const isPrincipal = meetingDetails?.createdBy.id === session?.user?.id
@@ -2045,7 +2053,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 						showDocuments && (
 							<div className="border-b border-amber-200 bg-amber-50 px-3 py-2 md:px-4 lg:px-6 dark:border-amber-800 dark:bg-amber-900/10">
 								<p className="flex items-center gap-2 text-xs text-amber-800 dark:text-amber-300">
-									<Lock className="size-3.5 flex-shrink-0" />
+									<Lock className="size-3.5 shrink-0" />
 									<span>
 										Documents are locked in signing order. Each document must be signed before the
 										next one can be started.
@@ -2056,7 +2064,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 					)
 				})()}
 				{showDocuments && (
-					<div className="max-h-[350px] overflow-y-auto px-3 py-4 md:px-4 lg:px-6">
+					<div className="max-h-87.5 overflow-y-auto px-3 py-4 md:px-4 lg:px-6">
 						<div className="grid grid-cols-1 gap-3 transition-all duration-300 sm:grid-cols-2 md:gap-4 lg:grid-cols-3 xl:grid-cols-4">
 							{documents.map((doc, index) => {
 								const isLocked = meetingDetails?.isDocumentOrderLocked ?? false
@@ -2066,7 +2074,8 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 								// Check if previous document is signed (for sequential signing when locked)
 								const previousDoc = index > 0 ? documents[index - 1] : null
 								const isPreviousDocumentSigned =
-									!previousDoc || (documentSigningStatus.get(previousDoc.id)?.isFullySigned ?? false)
+									!previousDoc ||
+									(documentSigningStatus.get(previousDoc.id)?.isFullySigned ?? false)
 
 								const signingStatus = doc.docoChainProjectId
 									? documentSigningStatus.get(doc.id)
@@ -2075,8 +2084,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 								const isDownloadingSigned =
 									!!doc.docoChainProjectId && downloadingProjectUuid === doc.docoChainProjectId
 								const isDownloadingCert =
-									!!doc.docoChainProjectId &&
-									downloadingCertificateUuid === doc.docoChainProjectId
+									!!doc.docoChainProjectId && downloadingCertificateUuid === doc.docoChainProjectId
 
 								return (
 									<Card
@@ -2203,7 +2211,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 												{/* Drag handle - only draggable element */}
 												<div
 													className={cn(
-														"relative mt-1 flex-shrink-0 transition-colors",
+														"relative mt-1 shrink-0 transition-colors",
 														isLocked
 															? "cursor-not-allowed opacity-40"
 															: "text-muted-foreground hover:text-primary cursor-move"
@@ -2221,7 +2229,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 														className={cn("size-4", isLocked && "text-muted-foreground/30")}
 													/>
 												</div>
-												<div className="bg-primary/10 flex-shrink-0 rounded-lg p-2.5">
+												<div className="bg-primary/10 shrink-0 rounded-lg p-2.5">
 													<FileText className="text-primary size-5" />
 												</div>
 												<div className="min-w-0 flex-1">
@@ -2278,7 +2286,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 
 	if (!joined) {
 		return (
-			<div className="from-background via-muted/30 to-background flex h-screen items-center justify-center bg-gradient-to-br">
+			<div className="from-background via-muted/30 to-background flex h-screen items-center justify-center bg-linear-to-br">
 				<div className="text-center">
 					<div className="border-primary mx-auto mb-4 size-12 animate-spin rounded-full border-b-4" />
 					<p className="text-muted-foreground font-medium">Joining meeting...</p>
@@ -2290,7 +2298,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 	return (
 		<div
 			ref={recordingContainerRef}
-			className="from-background via-muted/20 to-background flex h-screen flex-col bg-gradient-to-br"
+			className="from-background via-muted/20 to-background flex h-screen flex-col bg-linear-to-br"
 		>
 			{/* Header with Controls */}
 			<div className="bg-card/50 flex flex-col items-center justify-between gap-3 border-b px-4 py-3 shadow-sm backdrop-blur-sm sm:flex-row sm:gap-4 md:px-6 md:py-4">
@@ -2370,7 +2378,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 								{participantIds
 									.filter(id => id !== presenterId)
 									.map(participantId => (
-										<div key={participantId} className="min-h-[260px]">
+										<div key={participantId} className="min-h-65">
 											<ParticipantView participantId={participantId} />
 										</div>
 									))}

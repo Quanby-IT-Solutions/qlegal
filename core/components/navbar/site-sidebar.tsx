@@ -16,10 +16,9 @@ import {
 import { SidebarNavSection } from "@/core/components/navbar/sidebar-nav-section"
 import { SidebarSecondaryNav } from "@/core/components/navbar/sidebar-secondary-nav"
 import { UserDropdown } from "@/core/components/navbar/user-dropdown"
-import { WorkflowTabs } from "@/core/components/navbar/workflow-tabs"
 import { QuanbyLogo } from "@/core/components/quanby-logo"
 import { useIsMobile } from "@/core/hooks/use-mobile"
-import { navSecondary, workflows } from "@/core/lib/nav/site.config"
+import { navSecondary } from "@/core/lib/nav/site.config"
 import { getAppSidebarSections } from "@/core/lib/nav/utils"
 
 export const SiteSidebar = () => {
@@ -47,29 +46,14 @@ export const SiteSidebar = () => {
 			</SidebarHeader>
 
 			<SidebarContent className="overflow-x-hidden">
-				<WorkflowTabs
-					tabs={workflows.map(workflow => ({
-						value: workflow.id,
-						label: workflow.label,
-						icon: workflow.icon,
-					}))}
-					defaultValue="REN"
-					cookieName="workflow_preference"
-					cookieMaxAge={60 * 60 * 24 * 180}
-				>
-					{currentWorkflow => (
-						<>
-							{getAppSidebarSections(userRole, currentWorkflow).map(section => (
-								<SidebarNavSection
-									key={section.label}
-									section={section}
-									userRole={userRole}
-									currentWorkflow={currentWorkflow}
-								/>
-							))}
-						</>
-					)}
-				</WorkflowTabs>
+				{getAppSidebarSections(userRole, "REN").map(section => (
+					<SidebarNavSection
+						key={section.label}
+						section={section}
+						userRole={userRole}
+						currentWorkflow="REN"
+					/>
+				))}
 				<SidebarSecondaryNav items={navSecondary} />
 			</SidebarContent>
 
