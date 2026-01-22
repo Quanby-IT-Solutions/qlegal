@@ -24,6 +24,7 @@ import { ScrollArea } from "@/core/components/ui/scroll-area"
 import { Skeleton } from "@/core/components/ui/skeleton"
 import { cn } from "@/core/lib/utils"
 
+import { ConsultationBookingDialog } from "@/features/consultations/components/consultation-booking-dialog"
 import { useMessages } from "@/features/messages/api/messages.hooks"
 import { FileUploadPanel } from "@/features/messages/components/file-upload-panel"
 
@@ -83,11 +84,6 @@ export default function MessagesPage() {
 	)
 
 	const selectedConversation = conversations?.find(c => c.id === selectedConversationId)
-	const bookingLink = (
-		selectedConversation?.otherUser?.id !== undefined
-			? `/consultations?enp=${selectedConversation.otherUser.id}`
-			: "/consultations"
-	) as Route
 
 	const handleSendMessage = async () => {
 		if (!messageInput.trim() || !selectedConversationId) return
@@ -154,8 +150,9 @@ export default function MessagesPage() {
 	])
 
 	const handleShareBookingLink = async () => {
-		if (!selectedConversationId) return
+		if (!selectedConversationId || !selectedConversation?.otherUser?.id) return
 		try {
+			const bookingLink = `/consultations?enp=${selectedConversation.otherUser.id}` as Route
 			await sendMessage.mutateAsync({
 				conversationId: selectedConversationId,
 				content: `Book a consultation here: ${bookingLink}`,
@@ -372,16 +369,21 @@ export default function MessagesPage() {
 								</div>
 							</div>
 							<div className="flex items-center gap-1.5">
-								<Button
-									variant="outline"
-									size="sm"
-									asChild
-									disabled={!selectedConversation?.otherUser?.id}
-								>
-									<a href={bookingLink} target="_blank" rel="noopener noreferrer">
+								{selectedConversation?.otherUser?.id ? (
+									<ConsultationBookingDialog
+										enpId={selectedConversation.otherUser.id}
+										enpName={selectedConversation.otherUser.name}
+										trigger={
+											<Button variant="outline" size="sm">
+												Book consultation
+											</Button>
+										}
+									/>
+								) : (
+									<Button variant="outline" size="sm" disabled>
 										Book consultation
-									</a>
-								</Button>
+									</Button>
+								)}
 								{session?.user?.role === "ENP" && (
 									<Button variant="ghost" size="sm" onClick={() => void handleShareBookingLink()}>
 										Share booking link
