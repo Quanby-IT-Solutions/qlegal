@@ -2,7 +2,7 @@ import { TRPCError } from "@trpc/server"
 import { hash } from "bcryptjs"
 import { eq } from "drizzle-orm"
 
-import { autoJoinOrganization, provisionDocoChainUser } from "@/services/docochain"
+import { autoJoinOrganization, provisionDocoChainUser } from "@/services/doconchain"
 import { passwordResetTokens, users, verificationTokens } from "@/services/drizzle/schema/auth"
 import { enpProfiles } from "@/services/drizzle/schema/enp-profiles"
 import { sendPasswordResetToken } from "@/services/react-email/lib/send.password-reset-token"
@@ -135,7 +135,7 @@ export const authRouter = createTRPCRouter({
 					mcleNo: notaryInfo.mcleNo,
 					mcleNoDate: notaryInfo.mcleNoDate,
 					modeOfNotarization: notaryInfo.modeOfNotarization,
-					isAvailable: false, 
+					isAvailable: false,
 				})
 			})
 		} catch (error) {

@@ -2,7 +2,7 @@ import { TRPCError } from "@trpc/server"
 import { and, count, desc, eq, isNotNull } from "drizzle-orm"
 import { z } from "zod/v4"
 
-import { checkSigningStatus, downloadCertificate, getPassportDocument } from "@/services/docochain"
+import { checkSigningStatus, downloadCertificate, getPassportDocument } from "@/services/doconchain"
 import { users } from "@/services/drizzle/schema/auth"
 import { documents } from "@/services/drizzle/schema/document"
 import { legalRegistrations } from "@/services/drizzle/schema/legal-registration"
