@@ -131,7 +131,7 @@ function LawyerRegisterFormContent() {
 		<Form {...form}>
 			<form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
 				{/* Stepper Navigation */}
-				<StepperNavigation className="mb-6">
+				<StepperNavigation className="mb-10">
 					{steps.map(step => (
 						<StepperStep key={step.id} of={step.id}>
 							<StepperTitle>{step.title}</StepperTitle>
@@ -149,7 +149,7 @@ function LawyerRegisterFormContent() {
 				{methods.current.id === "notary" && <CredentialsStep form={form} primaryName={name} />}
 
 				{/* Step 4: Review */}
-				{methods.current.id === "review" && <ReviewStep form={form} />}
+				{methods.current.id === "review" && <ReviewStep form={form} error={error} data={data} />}
 
 				<FormResponse type="error" message={error?.message} />
 				<FormResponse type="success" message={data?.message} />

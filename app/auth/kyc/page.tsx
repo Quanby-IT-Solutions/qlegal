@@ -6,13 +6,16 @@ import {
 	CardContent,
 	CardDescription,
 	CardHeader,
+	CardFooter,
 	CardTitle,
 } from "@/core/components/ui/card"
+import { LogOut } from "lucide-react"
 
 import { auth } from "@/services/next-auth"
 
 import { getUserKycInfo } from "@/features/kyc/api/kyc.actions"
 import { KycVerificationCard } from "@/features/kyc/components/kyc-verification-card"
+import { LogoutButton } from "@/features/auth/components/logout-button"
 
 export default async function KycRegisterPage() {
 	const session = await auth()
@@ -45,6 +48,13 @@ export default async function KycRegisterPage() {
 			<CardContent>
 				<KycVerificationCard userInfo={kycInfoResult.data} minimal redirectUrlOnSkip="/dashboard" />
 			</CardContent>
+			
+			<CardFooter>
+				<LogoutButton callbackUrl="/auth/login" variant="link" className="w-full">
+					<LogOut className="mr-2 h-4 w-4" />
+					Log Out
+				</LogoutButton>
+			</CardFooter>
 		</Card>
 	)
 }
