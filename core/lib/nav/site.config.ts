@@ -28,7 +28,6 @@ import {
 	PieChart,
 	PieChartIcon,
 	Plus,
-	ScanIcon,
 	Send,
 	Settings2,
 	SettingsIcon,
@@ -201,22 +200,6 @@ export const appSidebarSections: NavSection[] = [
 			},
 
 			// ============================================================================
-			// DOCUMENT SCANNING - IEN-specific document digitization
-			// ============================================================================
-			// Available to: ENP only
-			// Workflows: IEN only
-			// Purpose: Scan physical documents for in-person notarization
-			// Features: Camera/scanner integration, PDF generation, document upload
-			// Note: REN doesn't need this (documents already digital/uploaded remotely)
-			{
-				title: "Scan Documents",
-				url: "/scan",
-				icon: ScanIcon,
-				roles: ["ENP"],
-				workflows: ["IEN"],
-			},
-
-			// ============================================================================
 			// NOTARIZATION REQUESTS - temporarily hidden (redundant)
 			// Kept commented for potential future use.
 			// ============================================================================
@@ -325,74 +308,6 @@ export const appSidebarSections: NavSection[] = [
 			},
 
 			// ============================================================================
-			// AUDIT & COMPLIANCE - ENA oversight and monitoring
-			// ============================================================================
-			// Available to: ENA (Electronic Notarization Authority) only
-			// Workflows: REN, IEN
-			// Purpose: ENA monitors compliance, reviews records, generates reports
-			// Legal: ENA oversight per Supreme Court Rules
-			{
-				title: "Audit & Compliance",
-				url: "/audit",
-				icon: BadgeCheck,
-				roles: ["ENA", "ADMIN"],
-				workflows: ["REN", "IEN"],
-				items: [
-					{
-						title: "Notarial Records",
-						url: "/audit/records",
-						roles: ["ENA", "ADMIN"],
-						workflows: ["REN", "IEN"],
-					},
-					{
-						title: "Compliance Reports",
-						url: "/audit/reports",
-						roles: ["ENA", "ADMIN"],
-						workflows: ["REN", "IEN"],
-					},
-					{
-						title: "Violations",
-						url: "/audit/violations",
-						roles: ["ENA", "ADMIN"],
-						workflows: ["REN", "IEN"],
-					},
-				],
-			},
-
-			// ============================================================================
-			// IDENTITY VERIFICATION - IEN-specific in-person ID check
-			// ============================================================================
-			// Available to: ENP only
-			// Workflows: IEN only
-			// Purpose: Verify identity via government-issued ID inspection
-			// Features: ID scanning, comparison, validation checklist, photo capture
-			// Legal: IEN requires physical ID inspection per Supreme Court Rules
-			// Note: REN uses different verification (credential analysis + KBA)
-			{
-				title: "Identity Verification",
-				url: "/verification/identity",
-				icon: UserIcon,
-				roles: ["ENP"],
-				workflows: ["IEN"],
-			},
-
-			// ============================================================================
-			// WITNESS MANAGEMENT - IEN-specific physical witness verification
-			// ============================================================================
-			// Available to: ENP only
-			// Workflows: IEN only
-			// Purpose: Manage witnesses for documents requiring physical witnesses
-			// Features: Witness registration, ID verification, signature capture
-			// Legal: Certain documents require witnesses per Supreme Court Rules
-			{
-				title: "Witness Management",
-				url: "/verification/witness",
-				icon: UsersIcon,
-				roles: ["ENP"],
-				workflows: ["IEN"],
-			},
-
-			// ============================================================================
 			// VIDEO MEETINGS - REN-specific remote session management
 			// ============================================================================
 			// Available to: ENP, PRINCIPAL
@@ -413,81 +328,12 @@ export const appSidebarSections: NavSection[] = [
 	{
 		label: "Management",
 		items: [
-			// ============================================================================
-			// ENP MANAGEMENT - ENA oversight of Electronic Notaries Public
-			// ============================================================================
-			// Available to: ENA only
-			// Workflows: REN, IEN (ENA manages all ENPs)
-			// Purpose: Manage ENP commissions, applications, and revocations
-			// Legal: ENA oversight per Supreme Court Rules
 			{
-				title: "ENP Management",
-				url: "/management/enp",
+				title: "User Management",
+				url: "/management/users",
 				icon: UsersIcon,
 				roles: ["ENA", "ADMIN"],
 				workflows: ["REN", "IEN"],
-				items: [
-					{
-						title: "Active Commissions",
-						url: "/management/enp/commissions",
-						roles: ["ENA", "ADMIN"],
-						workflows: ["REN", "IEN"],
-					},
-					{
-						title: "Applications",
-						url: "/management/enp/applications",
-						roles: ["ENA", "ADMIN"],
-						workflows: ["REN", "IEN"],
-					},
-					{
-						title: "Revocations & Suspensions",
-						url: "/management/enp/revocations",
-						roles: ["ENA", "ADMIN"],
-						workflows: ["REN", "IEN"],
-					},
-					{
-						title: "User Management",
-						url: "/management/users",
-						roles: ["ENA", "ADMIN"],
-						workflows: ["REN", "IEN"],
-					},
-				],
-			},
-
-			// ============================================================================
-			// FACILITY PROVIDERS - REN-specific ENF Provider accreditation
-			// ============================================================================
-			// Available to: ENA only
-			// Workflows: REN only
-			// Purpose: Manage Electronic Notarization Facility (ENF) Provider accreditation
-			// Legal: REN requires accredited ENF Providers per Supreme Court Guidelines
-			// Features: Accreditation applications, monitoring, compliance, penalties
-			{
-				title: "Facility Providers",
-				url: "/management/providers",
-				icon: Monitor,
-				roles: ["ENA"],
-				workflows: ["REN"],
-				items: [
-					{
-						title: "Accreditation",
-						url: "/management/providers/accreditation",
-						roles: ["ENA"],
-						workflows: ["REN"],
-					},
-					{
-						title: "Performance Monitoring",
-						url: "/management/providers/monitoring",
-						roles: ["ENA"],
-						workflows: ["REN"],
-					},
-					{
-						title: "Compliance & Penalties",
-						url: "/management/providers/compliance",
-						roles: ["ENA"],
-						workflows: ["REN"],
-					},
-				],
 			},
 		],
 	},
@@ -508,26 +354,6 @@ export const appSidebarSections: NavSection[] = [
 				icon: Settings2,
 				roles: ["ENP", "PRINCIPAL", "ENA", "ADMIN"],
 				workflows: ["REN", "IEN"],
-				items: [
-					{
-						title: "Profile",
-						url: "/settings/profile",
-						roles: ["ENP", "PRINCIPAL", "ENA", "ADMIN"],
-						workflows: ["REN", "IEN"],
-					},
-					{
-						title: "Security",
-						url: "/settings/security",
-						roles: ["ENP", "PRINCIPAL", "ENA", "ADMIN"],
-						workflows: ["REN", "IEN"],
-					},
-					{
-						title: "System Settings",
-						url: "/settings/system",
-						roles: ["ENA", "ADMIN"],
-						workflows: ["REN", "IEN"],
-					},
-				],
 			},
 		],
 	},
