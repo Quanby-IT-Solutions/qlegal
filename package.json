@@ -120,6 +120,24 @@
 		"overrides": {
 			"@types/react": "19.2.8",
 			"@types/react-dom": "19.2.3"
-		}
-	}
+		},
+		"onlyBuiltDependencies": [
+			"esbuild",
+			"sharp",
+			"unrs-resolver"
+		]
+	},
+	"description": "Send, sign, and track documents securely with role‑based access for every stakeholder. Approvals, guided eSigning, and an audit‑ready history—all in one place.",
+	"main": "env.js",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/Quanby-IT-Solutions/quanby-legal.git"
+	},
+	"keywords": [],
+	"author": "",
+	"license": "ISC",
+	"bugs": {
+		"url": "https://github.com/Quanby-IT-Solutions/quanby-legal/issues"
+	},
+	"homepage": "https://github.com/Quanby-IT-Solutions/quanby-legal#readme"
 }

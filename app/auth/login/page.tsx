@@ -15,13 +15,14 @@ import { cn } from "@/core/lib/utils"
 
 import { LoginForm } from "@/features/auth/components/forms/form.login"
 
+import { env } from "@/env"
+
 export default async function LoginPage({
 	searchParams,
 }: {
 	searchParams: Promise<{ callbackUrl?: Route }>
 }) {
 	const { callbackUrl } = await searchParams
-
 	return (
 		<Card className="w-full max-w-md">
 			<CardHeader className="text-center">
