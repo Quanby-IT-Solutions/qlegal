@@ -19,6 +19,8 @@ interface VerificationTemplateProps {
 	confirmLink?: string
 }
 
+const getImageUrl = (path: string) => `${env.NEXT_PUBLIC_SITE_URL}${path}`
+
 export const VerificationTemplate = ({ email, confirmLink }: VerificationTemplateProps) => (
 	<Html>
 		<Head />
@@ -26,7 +28,7 @@ export const VerificationTemplate = ({ email, confirmLink }: VerificationTemplat
 		<Tailwind>
 			<Body className="mx-auto my-auto bg-gray-50 p-6 font-sans text-gray-800">
 				<Container
-					className="mx-auto max-w-[600px] overflow-hidden rounded-lg border border-gray-200 bg-white"
+					className="mx-auto max-w-150 overflow-hidden rounded-lg border border-gray-200 bg-white"
 					style={{
 						border: "1px solid #e2e8f0",
 						boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
@@ -36,7 +38,7 @@ export const VerificationTemplate = ({ email, confirmLink }: VerificationTemplat
 					<Section
 						className="relative overflow-hidden py-12 text-center"
 						style={{
-							background: "linear-gradient(135deg, #2563eb 0%, #1d4ed8 50%, #3730a3 100%)",
+							background: "linear-gradient(135deg, #FF5E7E 0%, #E22C9A 50%, #C300B0 100%)",
 						}}
 					>
 						{/* Subtle overlay pattern for depth */}
@@ -49,7 +51,7 @@ export const VerificationTemplate = ({ email, confirmLink }: VerificationTemplat
 						/>
 						{/* Logo */}
 						<Img
-							src="https://aygaepypiusloubktinn.supabase.co/storage/v1/object/public/documents//Quanby%20LOGO.png"
+							src={getImageUrl("/LEGAL.png")}
 							width="120"
 							height="120"
 							alt="Quanby Sign"
@@ -79,8 +81,8 @@ export const VerificationTemplate = ({ email, confirmLink }: VerificationTemplat
 								href={confirmLink}
 								className="rounded-lg px-8 py-4 text-center font-semibold tracking-wide text-white no-underline"
 								style={{
-									background: "linear-gradient(135deg, #2563eb 0%, #1d4ed8 50%, #3730a3 100%)",
-									boxShadow: "0 4px 6px -1px rgba(37, 99, 235, 0.3)",
+									background: "linear-gradient(135deg, #FF5E7E 0%, #E22C9A 50%, #C300B0 100%)",
+									boxShadow: "0 4px 6px -1px rgba(255, 94, 126, 0.3)",
 								}}
 							>
 								Confirm Email Address
@@ -97,6 +99,7 @@ export const VerificationTemplate = ({ email, confirmLink }: VerificationTemplat
 							<Link
 								href={`mailto:${env.EMAIL_USER || "quanbysignteam@gmail.com"}`}
 								className="font-semibold no-underline"
+								style={{ color: "#C300B0" }}
 							>
 								{env.EMAIL_USER || "quanbysignteam@gmail.com"}
 							</Link>

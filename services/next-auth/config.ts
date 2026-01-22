@@ -4,7 +4,7 @@ import { type DefaultSession, type NextAuthConfig } from "next-auth"
 import Credentials from "next-auth/providers/credentials"
 import Google from "next-auth/providers/google"
 
-import { provisionDocoChainUser } from "@/services/docochain"
+import { provisionDocoChainUser } from "@/services/doconchain"
 import { db } from "@/services/drizzle/db"
 import { twoFactorConfirmations, users, type UserRole } from "@/services/drizzle/schema/auth"
 import { DrizzleCustomAdapter } from "@/services/next-auth/adapter"
@@ -103,6 +103,11 @@ export const authConfig = {
 				return false
 			}
 
+			// Block sign-in until an admin approves the account.
+			if (existingUser.role === "ENP" && existingUser.status === "PENDING") {
+				return false
+			}
+
 			if (!existingUser.isTwoFactorEnabled) {
 				return true
 			}
@@ -151,7 +156,7 @@ export const authConfig = {
 				} else if (imagePath) {
 					const { getPublicClient } = await import("@/services/supabase")
 					const supabase = getPublicClient()
-					const { data } = supabase.storage.from("avatars").getPublicUrl(imagePath)
+					const { data } = supabase.storage.from("avatar").getPublicUrl(imagePath)
 					session.user.image = data.publicUrl
 				}
 			} catch {
@@ -245,10 +250,7 @@ export const authConfig = {
 				})
 				console.log("✅ Linked OAuth user provisioning attempted")
 			} catch (error) {
-				console.warn(
-					"⚠️ Failed to auto-join linked OAuth user to DocoChain organization:",
-					error
-				)
+				console.warn("⚠️ Failed to auto-join linked OAuth user to DocoChain organization:", error)
 			}
 		},
 	},

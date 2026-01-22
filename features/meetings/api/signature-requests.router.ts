@@ -11,12 +11,11 @@ import {
 	downloadSignedDocument,
 	generateEditDraftLink,
 	generateSignLink,
-	getDocoChainToken,
 	getPassportDocument,
 	getProjectDetails,
 	sendDocoChainProject,
-} from "@/services/docochain"
-import { normalizeDocoChainUrl } from "@/services/docochain/url-normalizer"
+} from "@/services/doconchain"
+import { normalizeDocoChainUrl } from "@/services/doconchain/url-normalizer"
 import { db } from "@/services/drizzle/db"
 import { users } from "@/services/drizzle/schema/auth"
 import { documents } from "@/services/drizzle/schema/document"
@@ -606,135 +605,62 @@ export const signatureRequestsRouter = createTRPCRouter({
 						console.log("⚠️ Using fallback direct project URL with email:", signingLink)
 					}
 				} else {
-					// Project is still Draft - use Edit Draft Link or stored redirect URL (for plotting)
-					// This is for the FIRST time clicking "Start Signing" to plot signature fields
-					console.log(
-						"🔵 Project is Draft - using Edit Draft Link or stored redirect URL (for plotting)..."
-					)
+					// Project is still Draft - ALWAYS generate a fresh Edit Draft Link
+					// DO NOT use stored redirect URL - it's a one-time link that expires/invalidates
+					// after first use or after some time, causing "Session Ended" errors.
+					console.log("🔵 Project is Draft - generating fresh Edit Draft Link (for plotting)...")
 
-					// First, try to use the stored redirect_url from Create Project (has auth token)
-					// Only use this for Draft projects (for plotting signature fields)
-					if (document?.docoChainRedirectUrl && projectStatus === "Draft") {
-						// ALWAYS normalize the stored redirect URL - ensure api=true is set
-						signingLink =
-							normalizeDocoChainUrl(document.docoChainRedirectUrl) ?? document.docoChainRedirectUrl
-
-						// Fix api_token if needed
-						try {
-							const url = new URL(signingLink)
-							// CRITICAL: ALWAYS set api=true FIRST - this ensures api=null is never in the final URL
-							url.searchParams.set("api", "true")
-							// Fix api_token if it's undefined or empty - ALWAYS use ENP's token
-							// ENP is the project creator/owner, so their token is required
-							if (
-								url.searchParams.has("api_token") &&
-								(url.searchParams.get("api_token") === "undefined" ||
-									url.searchParams.get("api_token") === "")
-							) {
-								if (creatorEmail) {
-									const apiToken = await getDocoChainToken(creatorEmail)
-									url.searchParams.set("api_token", apiToken)
-									console.log(`✅ Fixed api_token parameter using ENP email: ${creatorEmail}`)
-								} else {
-									url.searchParams.delete("api_token")
-									console.log("⚠️ Removed invalid api_token (no ENP email)")
-								}
-							} else if (!url.searchParams.has("api_token") && creatorEmail) {
-								// Add api_token if not present - ALWAYS use ENP's token
-								const apiToken = await getDocoChainToken(creatorEmail)
-								url.searchParams.set("api_token", apiToken)
-								console.log(`✅ Added api_token parameter using ENP email: ${creatorEmail}`)
-							}
-							signingLink = url.toString()
-							console.log(
-								"✅ Using stored redirect URL from Create Project (for plotting):",
-								signingLink
-							)
-						} catch {
-							// If URL parsing fails, signingLink is already normalized
-							console.log("✅ Using normalized stored redirect URL")
-						}
-					} else {
-						// Generate Edit Draft Project Link (allows plotting/editing/signing in draft)
-						// POST /api/v2/projects/{uuid}/link?user_type=ENTERPRISE_API
-						// Use creator's token to generate the link
-						try {
-							const editDraftResult = await generateEditDraftLink(projectUuid, creatorEmail)
-							signingLink = editDraftResult.link
-							console.log(
-								"✅ Edit Draft Project Link generated successfully (for plotting):",
-								signingLink
-							)
-						} catch (editDraftError) {
-							console.error("❌ Failed to generate Edit Draft Link:", editDraftError)
-							// Final fallback: Use direct project URL
-							const appBaseUrl = DOCOCHAIN_API_BASE.includes("stg")
-								? "https://stg-app.doconchain.com"
-								: "https://app.doconchain.com"
-							signingLink = `${appBaseUrl}/${projectUuid}?api=true`
-							console.log("⚠️ Using fallback direct project URL:", signingLink)
-						}
+					// Generate Edit Draft Project Link (allows plotting/editing/signing in draft)
+					// POST /api/v2/projects/{uuid}/link?user_type=ENTERPRISE_API
+					// Use creator's token to generate the link
+					try {
+						const editDraftResult = await generateEditDraftLink(projectUuid, creatorEmail)
+						signingLink = editDraftResult.link
+						console.log(
+							"✅ Edit Draft Project Link generated successfully (for plotting):",
+							signingLink
+						)
+					} catch (editDraftError) {
+						console.error("❌ Failed to generate Edit Draft Link:", editDraftError)
+						// Final fallback: Use direct project URL
+						const appBaseUrl = DOCOCHAIN_API_BASE.includes("stg")
+							? "https://stg-app.doconchain.com"
+							: "https://app.doconchain.com"
+						signingLink = `${appBaseUrl}/${projectUuid}?api=true`
+						console.log("⚠️ Using fallback direct project URL:", signingLink)
 					}
 				}
 
-				// FINAL FIX: ALWAYS normalize the URL before returning
-				// This ensures api=true is ALWAYS set, no matter what
+				// FINAL FIX: Normalize the URL before returning
+				// This ensures api=true is set and removes any invalid api_token
 				if (signingLink) {
 					// Normalize the URL - this ALWAYS sets api=true
 					signingLink = normalizeDocoChainUrl(signingLink) ?? signingLink
 
-					// Handle api_token if needed
+					// Clean up the URL - remove invalid api_token values
 					try {
 						const url = new URL(signingLink)
-						// CRITICAL: ALWAYS set api=true FIRST - this ensures api=null is never in the final URL
+						// Ensure api=true is set
 						url.searchParams.set("api", "true")
-						// Fix api_token if it's undefined or empty
-						// CRITICAL: ALWAYS use ENP's email (creatorEmail) for token generation
-						// ENP is the project owner, so their token is required for API access
+						// Remove api_token if it's undefined or empty - DocoChain short-code links don't need it
 						if (
 							url.searchParams.has("api_token") &&
 							(url.searchParams.get("api_token") === "undefined" ||
 								url.searchParams.get("api_token") === "")
 						) {
-							if (creatorEmail) {
-								try {
-									const apiToken = await getDocoChainToken(creatorEmail)
-									url.searchParams.set("api_token", apiToken)
-									console.log(`✅ FINAL FIX: Fixed api_token=undefined using ENP email: ${creatorEmail}`)
-								} catch (tokenError) {
-									console.warn("⚠️ Failed to get token for api_token fix:", tokenError)
-									url.searchParams.delete("api_token")
-									console.log("⚠️ Removed invalid api_token (token generation failed)")
-								}
-							} else {
-								url.searchParams.delete("api_token")
-								console.log("⚠️ Removed invalid api_token (no ENP email)")
-							}
-						} else if (!url.searchParams.has("api_token")) {
-							// Add api_token if not present - ALWAYS use ENP's token
-							if (creatorEmail) {
-								try {
-									const apiToken = await getDocoChainToken(creatorEmail)
-									url.searchParams.set("api_token", apiToken)
-									console.log(`✅ FINAL FIX: Added api_token using ENP email: ${creatorEmail}`)
-								} catch (tokenError) {
-									console.warn("⚠️ Failed to add api_token:", tokenError)
-								}
-							}
+							url.searchParams.delete("api_token")
+							console.log("✅ Removed invalid api_token=undefined from URL")
 						}
 						signingLink = url.toString()
 					} catch {
 						// If URL parsing fails, signingLink is already normalized
-						console.log("✅ FINAL FIX: URL already normalized")
+						console.log("✅ URL already normalized")
 					}
-
-					// FINAL safety check - normalize one more time to be absolutely sure
-					signingLink = normalizeDocoChainUrl(signingLink) ?? signingLink
 				}
 
-				// ABSOLUTE FINAL CHECK: Normalize one last time before returning
+				// Final normalization
 				const finalNormalizedLink = normalizeDocoChainUrl(signingLink) ?? signingLink
-				
+
 				return {
 					success: true,
 					link: finalNormalizedLink,
@@ -798,9 +724,7 @@ export const signatureRequestsRouter = createTRPCRouter({
 						enpEmail = document.meeting.createdBy.email
 					} else {
 						// Find ENP from participants
-						const enpParticipant = document.meeting.participants.find(
-							p => p.user?.role === "ENP"
-						)
+						const enpParticipant = document.meeting.participants.find(p => p.user?.role === "ENP")
 						if (enpParticipant?.user?.email) {
 							enpEmail = enpParticipant.user.email
 						}
@@ -898,7 +822,7 @@ export const signatureRequestsRouter = createTRPCRouter({
 
 				// ABSOLUTE FINAL CHECK: Normalize one last time before returning
 				const finalNormalizedLink = normalizeDocoChainUrl(finalLink) ?? finalLink
-				
+
 				return {
 					success: true,
 					link: finalNormalizedLink,
@@ -1017,38 +941,46 @@ export const signatureRequestsRouter = createTRPCRouter({
 				}
 
 				// Collect all possible emails that might have created the project
-				// This handles cases where documents were uploaded by different users
-				const possibleEmails = new Set<string>()
+				// IMPORTANT: Meeting creator (ENP) should be tried FIRST since they own the project
+				const possibleEmails: string[] = []
 
-				// Add session user email (the person checking status)
-				if (ctx.session.user.email) {
-					possibleEmails.add(ctx.session.user.email)
-				}
-
-				// Add meeting creator email
+				// 1. FIRST: Add meeting creator email (they own the DocoChain project)
 				if (document.meeting?.createdBy?.email) {
-					possibleEmails.add(document.meeting.createdBy.email)
+					possibleEmails.push(document.meeting.createdBy.email)
 				}
 
-				// Add all meeting participants' emails (any of them could have uploaded)
+				// 2. Add envelope creator email
+				if (
+					document.envelope?.user?.email &&
+					!possibleEmails.includes(document.envelope.user.email)
+				) {
+					possibleEmails.push(document.envelope.user.email)
+				}
+
+				// 3. Add session user email (the person checking status) - try last
+				if (ctx.session.user.email && !possibleEmails.includes(ctx.session.user.email)) {
+					possibleEmails.push(ctx.session.user.email)
+				}
+
+				// 4. Add all meeting participants' emails as fallback
 				if (document.meeting?.participants) {
 					for (const participant of document.meeting.participants) {
-						if (participant.user?.email) {
-							possibleEmails.add(participant.user.email)
+						if (participant.user?.email && !possibleEmails.includes(participant.user.email)) {
+							possibleEmails.push(participant.user.email)
 						}
 					}
 				}
 
-				// Add envelope creator email
-				if (document.envelope?.user?.email) {
-					possibleEmails.add(document.envelope.user.email)
+				// 5. Add DOCOCHAIN_ADMIN_EMAIL as final fallback (org admin with access to all projects)
+				const adminEmail = env.DOCOCHAIN_ADMIN_EMAIL?.trim()
+				if (adminEmail && !possibleEmails.includes(adminEmail)) {
+					possibleEmails.push(adminEmail)
 				}
 
 				// Try each email until one works
-				const emailArray = Array.from(possibleEmails)
 				let lastError: Error | null = null
 
-				for (const email of emailArray) {
+				for (const email of possibleEmails) {
 					try {
 						console.log(`🔵 Trying to check status with email: ${email}`)
 						const status = await checkSigningStatus(projectUuid, email)
@@ -1061,13 +993,17 @@ export const signatureRequestsRouter = createTRPCRouter({
 						)
 						lastError = error instanceof Error ? error : new Error(String(error))
 
-						// If it's a "not part of project" error, try next email
-						// If it's a "project not found" error, also try next email (might be wrong creator)
+						// If it's an access/auth error, try next email
+						// This includes: 401 Unauthorized, 403 Forbidden, "not part of project", etc.
 						if (
 							error instanceof Error &&
 							(error.message.includes("not part of this project") ||
 								error.message.includes("Project not found") ||
-								error.message.includes("not found"))
+								error.message.includes("not found") ||
+								error.message.includes("401") ||
+								error.message.includes("Unauthorized") ||
+								error.message.includes("403") ||
+								error.message.includes("Forbidden"))
 						) {
 							continue // Try next email
 						}

@@ -1,11 +1,10 @@
 "use client"
 
 import type { Route } from "next"
-import Link from "next/link"
 import { useSearchParams } from "next/navigation"
 import { useEffect, useRef, useState } from "react"
 import { format } from "date-fns"
-import { MessageSquare, Paperclip, Phone, Plus, Search, Send, Smile, Video, X } from "lucide-react"
+import { MessageSquare, Paperclip, Phone, Plus, Search, Send, Smile, Video } from "lucide-react"
 import { useSession } from "next-auth/react"
 import { toast } from "sonner"
 
@@ -25,6 +24,7 @@ import { ScrollArea } from "@/core/components/ui/scroll-area"
 import { Skeleton } from "@/core/components/ui/skeleton"
 import { cn } from "@/core/lib/utils"
 
+import { ConsultationBookingDialog } from "@/features/consultations/components/consultation-booking-dialog"
 import { useMessages } from "@/features/messages/api/messages.hooks"
 import { FileUploadPanel } from "@/features/messages/components/file-upload-panel"
 
@@ -40,10 +40,14 @@ export default function MessagesPage() {
 	const [searchQuery, setSearchQuery] = useState("")
 	const [userSearchQuery, setUserSearchQuery] = useState("")
 	const [isNewChatDialogOpen, setIsNewChatDialogOpen] = useState(false)
+	const [hasStartedFromQuery, setHasStartedFromQuery] = useState(false)
 	const messagesEndRef = useRef<HTMLDivElement>(null)
+	const autoStartInFlightRef = useRef(false)
+	const autoStartHandledUserIdRef = useRef<string | null>(null)
 
 	// Get messages for selected conversation
-	const { data: messages, isLoading: loadingMessages } = getMessages(selectedConversationId ?? "")
+	const messagesQuery = getMessages(selectedConversationId ?? "")
+	const { data: messages, isLoading: loadingMessages } = messagesQuery
 
 	// Get users for new chat search
 	const { data: searchResults } = searchUsers(userSearchQuery)
@@ -67,7 +71,7 @@ export default function MessagesPage() {
 		if (selectedConversationId) {
 			void markAsRead.mutateAsync({ conversationId: selectedConversationId })
 		}
-	}, [selectedConversationId])
+	}, [markAsRead, selectedConversationId])
 
 	// Scroll to bottom when messages change
 	useEffect(() => {
@@ -80,11 +84,6 @@ export default function MessagesPage() {
 	)
 
 	const selectedConversation = conversations?.find(c => c.id === selectedConversationId)
-	const bookingLink = (
-		selectedConversation?.otherUser?.id !== undefined
-			? `/consultations?enp=${selectedConversation.otherUser.id}`
-			: "/consultations"
-	) as Route
 
 	const handleSendMessage = async () => {
 		if (!messageInput.trim() || !selectedConversationId) return
@@ -95,19 +94,72 @@ export default function MessagesPage() {
 				content: messageInput.trim(),
 			})
 			setMessageInput("")
-		} catch (error) {
+			await messagesQuery.refetch()
+			await getConversations.refetch()
+		} catch {
 			toast.error("Failed to send message")
 		}
 	}
 
+	// Auto-start conversation from URL (e.g. /messages?userId=ENP_ID)
+	useEffect(() => {
+		const targetUserId = searchParams.get("userId") ?? searchParams.get("enpId")
+		if (!targetUserId || !conversations) return
+		if (hasStartedFromQuery) return
+		if (autoStartInFlightRef.current) return
+		if (autoStartHandledUserIdRef.current === targetUserId) return
+
+		const existing = conversations.find(c => c.otherUser?.id === targetUserId)
+
+		const run = async () => {
+			autoStartInFlightRef.current = true
+			autoStartHandledUserIdRef.current = targetUserId
+			setHasStartedFromQuery(true)
+
+			try {
+				if (existing) {
+					setSelectedConversationId(existing.id)
+					await getConversations.refetch()
+					await messagesQuery.refetch()
+				} else {
+					const result = await startConversation.mutateAsync({ userId: targetUserId })
+					setSelectedConversationId(result.conversationId)
+					await sendMessage.mutateAsync({
+						conversationId: result.conversationId,
+						content: "Hello! I'd like to chat with you.",
+					})
+					await getConversations.refetch()
+					await messagesQuery.refetch()
+				}
+			} catch {
+				toast.error("Failed to start conversation")
+			} finally {
+				autoStartInFlightRef.current = false
+			}
+		}
+
+		void run()
+	}, [
+		conversations,
+		getConversations,
+		hasStartedFromQuery,
+		messagesQuery,
+		searchParams,
+		sendMessage,
+		startConversation,
+	])
+
 	const handleShareBookingLink = async () => {
-		if (!selectedConversationId) return
+		if (!selectedConversationId || !selectedConversation?.otherUser?.id) return
 		try {
+			const bookingLink = `/consultations?enp=${selectedConversation.otherUser.id}` as Route
 			await sendMessage.mutateAsync({
 				conversationId: selectedConversationId,
 				content: `Book a consultation here: ${bookingLink}`,
 			})
-		} catch (error) {
+			await messagesQuery.refetch()
+			await getConversations.refetch()
+		} catch {
 			toast.error("Failed to share booking link")
 		}
 	}
@@ -116,9 +168,11 @@ export default function MessagesPage() {
 		try {
 			const result = await startConversation.mutateAsync({ userId })
 			setSelectedConversationId(result.conversationId)
+			await getConversations.refetch()
+			await messagesQuery.refetch()
 			setIsNewChatDialogOpen(false)
 			setUserSearchQuery("")
-		} catch (error) {
+		} catch {
 			toast.error("Failed to start conversation")
 		}
 	}
@@ -315,16 +369,21 @@ export default function MessagesPage() {
 								</div>
 							</div>
 							<div className="flex items-center gap-1.5">
-								<Button
-									variant="outline"
-									size="sm"
-									asChild
-									disabled={!selectedConversation?.otherUser?.id}
-								>
-									<a href={bookingLink} target="_blank" rel="noopener noreferrer">
+								{selectedConversation?.otherUser?.id ? (
+									<ConsultationBookingDialog
+										enpId={selectedConversation.otherUser.id}
+										enpName={selectedConversation.otherUser.name}
+										trigger={
+											<Button variant="outline" size="sm">
+												Book consultation
+											</Button>
+										}
+									/>
+								) : (
+									<Button variant="outline" size="sm" disabled>
 										Book consultation
-									</a>
-								</Button>
+									</Button>
+								)}
 								{session?.user?.role === "ENP" && (
 									<Button variant="ghost" size="sm" onClick={() => void handleShareBookingLink()}>
 										Share booking link

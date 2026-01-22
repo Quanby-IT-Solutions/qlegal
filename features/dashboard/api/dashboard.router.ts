@@ -5,7 +5,7 @@ import { appointments } from "@/services/drizzle/schema/appointments"
 import { users } from "@/services/drizzle/schema/auth"
 import { documents } from "@/services/drizzle/schema/document"
 import { envelopes } from "@/services/drizzle/schema/envelope"
-import { meetings } from "@/services/drizzle/schema/meetings"
+import { meetingParticipants, meetings } from "@/services/drizzle/schema/meetings"
 import { notarizationRequests } from "@/services/drizzle/schema/notarization-requests"
 import { signatureRequests } from "@/services/drizzle/schema/signature-requests"
 import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
@@ -18,7 +18,7 @@ export const dashboardRouter = createTRPCRouter({
 
 		// Get counts based on user role
 		const isENP = userRole === "ENP"
-		const isPrincipal = userRole === "PRINCIPAL"
+		// const isPrincipal = userRole === "PRINCIPAL"
 
 		// Total appointments
 		const [appointmentsResult] = await ctx.db
@@ -225,6 +225,103 @@ export const dashboardRouter = createTRPCRouter({
 			return recentDocuments
 		}),
 
+	// Get signing session appointments (DOCUMENT_SIGNING type)
+	// Shows: PENDING (waiting for ENP to accept), CONFIRMED (accepted, waiting for ENP to start), 
+	// and appointments with active meetings (ready to join)
+	getSigningSessions: protectedProcedure
+		.input(
+			z
+				.object({
+					limit: z.number().min(1).max(10).default(5),
+				})
+				.optional()
+		)
+		.query(async ({ ctx, input }) => {
+			const userId = ctx.session.user.id
+			const userRole = ctx.session.user.role
+			const isENP = userRole === "ENP"
+
+			// Get DOCUMENT_SIGNING appointments that are PENDING or CONFIRMED
+			const signingAppointments = await ctx.db
+				.select({
+					id: appointments.id,
+					type: appointments.type,
+					status: appointments.status,
+					appointmentDate: appointments.appointmentDate,
+					duration: appointments.duration,
+					notes: appointments.notes,
+					location: appointments.location,
+					meetingLink: appointments.meetingLink,
+					createdAt: appointments.createdAt,
+					// Client info
+					clientId: appointments.clientId,
+					clientName: sql<string>`client.name`,
+					clientEmail: sql<string>`client.email`,
+					clientImage: sql<string>`client.image`,
+					// Lawyer/ENP info
+					lawyerId: appointments.lawyerId,
+					lawyerName: sql<string>`lawyer.name`,
+					lawyerEmail: sql<string>`lawyer.email`,
+					lawyerImage: sql<string>`lawyer.image`,
+				})
+				.from(appointments)
+				.innerJoin(sql`${users} as client`, eq(appointments.clientId, sql`client.id`))
+				.innerJoin(sql`${users} as lawyer`, eq(appointments.lawyerId, sql`lawyer.id`))
+				.where(
+					and(
+						isENP ? eq(appointments.lawyerId, userId) : eq(appointments.clientId, userId),
+						eq(appointments.type, "DOCUMENT_SIGNING"),
+						or(eq(appointments.status, "PENDING"), eq(appointments.status, "CONFIRMED"))
+					)
+				)
+				// Sort by most recently created/booked first so new bookings appear immediately
+				.orderBy(desc(appointments.createdAt))
+				.limit(input?.limit ?? 5)
+
+			// For each appointment, check if there's an active meeting the user can join
+			const appointmentsWithMeetingStatus = await Promise.all(
+				signingAppointments.map(async (apt) => {
+					// Check if there's an ONGOING meeting linked to this appointment (via meetingLink)
+					// The meetingLink contains the meeting ID when a meeting is created
+					let activeMeetingId: string | null = null
+					let linkedMeetingStatus: string | null = null
+					
+					if (apt.meetingLink && apt.meetingLink.trim().length > 0) {
+						// Extract meeting ID from the link
+						// Formats: /meetings/{id}/lobby, /meetings/{id}, http://host/meetings/{id}, http://host/meetings/{id}/lobby
+						const meetingIdRegex = /\/meetings\/([a-zA-Z0-9_-]+)/
+						const meetingIdMatch = meetingIdRegex.exec(apt.meetingLink)
+						const potentialMeetingId = meetingIdMatch?.[1]
+						
+						if (potentialMeetingId) {
+							// Check if this meeting exists and get its status
+							const [linkedMeeting] = await ctx.db
+								.select({ id: meetings.id, status: meetings.status })
+								.from(meetings)
+								.where(eq(meetings.id, potentialMeetingId))
+								.limit(1)
+							
+							if (linkedMeeting) {
+								linkedMeetingStatus = linkedMeeting.status
+								if (linkedMeeting.status === "ONGOING") {
+									activeMeetingId = linkedMeeting.id
+								}
+							}
+						}
+					}
+					
+					return {
+						...apt,
+						activeMeetingId,
+						linkedMeetingStatus,
+						canJoin: !!activeMeetingId,
+					}
+				})
+			)
+
+			return appointmentsWithMeetingStatus
+		}),
+
 	// Get recent meetings
 	getRecentMeetings: protectedProcedure
 		.input(
@@ -237,6 +334,7 @@ export const dashboardRouter = createTRPCRouter({
 		.query(async ({ ctx, input }) => {
 			const userId = ctx.session.user.id
 
+			// Show meetings the user is an ACCEPTED participant of (not just meetings they created)
 			const recentMeetings = await ctx.db
 				.select({
 					id: meetings.id,
@@ -249,13 +347,88 @@ export const dashboardRouter = createTRPCRouter({
 					creatorEmail: users.email,
 					creatorImage: users.image,
 				})
-				.from(meetings)
+				.from(meetingParticipants)
+				.innerJoin(meetings, eq(meetingParticipants.meetingId, meetings.id))
 				.innerJoin(users, eq(meetings.createdById, users.id))
-				.where(eq(meetings.createdById, userId))
+				.where(
+					and(eq(meetingParticipants.userId, userId), eq(meetingParticipants.status, "ACCEPTED"))
+				)
 				.orderBy(desc(meetings.createdAt))
 				.limit(input?.limit ?? 5)
 
 			return recentMeetings
+		}),
+
+	// Get pending meeting invites for current user
+	getMeetingInvites: protectedProcedure
+		.input(
+			z
+				.object({
+					limit: z.number().min(1).max(20).default(5),
+				})
+				.optional()
+		)
+		.query(async ({ ctx, input }) => {
+			const userId = ctx.session.user.id
+
+			const invites = await ctx.db.query.meetingParticipants.findMany({
+				where: and(eq(meetingParticipants.userId, userId), eq(meetingParticipants.status, "PENDING")),
+				with: {
+					meeting: {
+						columns: {
+							id: true,
+							title: true,
+							status: true,
+							createdAt: true,
+							createdById: true,
+						},
+						with: {
+							createdBy: {
+								columns: {
+									id: true,
+									name: true,
+									email: true,
+									image: true,
+								},
+							},
+						},
+					},
+					invitedBy: {
+						columns: {
+							id: true,
+							name: true,
+							email: true,
+							image: true,
+						},
+					},
+				},
+				orderBy: (mp, { desc }) => [desc(mp.createdAt)],
+				limit: input?.limit ?? 5,
+			})
+
+			return invites.map(invite => ({
+				id: invite.id,
+				createdAt: invite.createdAt,
+				meetingId: invite.meetingId,
+				meetingTitle: invite.meeting?.title ?? "Meeting",
+				meetingStatus: invite.meeting?.status ?? "SCHEDULED",
+				host: invite.meeting?.createdBy
+					? {
+							id: invite.meeting.createdBy.id,
+							name: invite.meeting.createdBy.name,
+							email: invite.meeting.createdBy.email,
+							image: invite.meeting.createdBy.image,
+						}
+					: null,
+				invitedBy: invite.invitedBy
+					? {
+							id: invite.invitedBy.id,
+							name: invite.invitedBy.name,
+							email: invite.invitedBy.email,
+							image: invite.invitedBy.image,
+						}
+					: null,
+			}))
 		}),
 
 	// Get activity summary for chart

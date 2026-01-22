@@ -31,6 +31,8 @@ export function useMeetings() {
 	const startMeeting = trpc.meetings.startMeeting.useMutation({
 		onSuccess: () => {
 			void utils.meetings.getUserMeetings.invalidate()
+			// Also invalidate signing sessions so dashboard updates when meeting goes ONGOING
+			void utils.dashboard.getSigningSessions.invalidate()
 		},
 	})
 
@@ -57,6 +59,23 @@ export function useMeetings() {
 			enabled: !!meetingId,
 		})
 
+	const inviteWitnessByEmail = trpc.meetings.inviteWitnessByEmail.useMutation({
+		onSuccess: async (_data, variables) => {
+			// Update both the meeting list + the specific meeting view
+			await utils.meetings.getUserMeetings.invalidate()
+			await utils.meetings.getById.invalidate(variables.meetingId)
+		},
+	})
+
+	const respondToInvite = trpc.meetings.respondToInvite.useMutation({
+		onSuccess: async (_data, variables) => {
+			await utils.meetings.getUserMeetings.invalidate()
+			await utils.meetings.getById.invalidate(variables.meetingId)
+			await utils.dashboard.getRecentMeetings.invalidate()
+			await utils.dashboard.getMeetingInvites.invalidate()
+		},
+	})
+
 	return {
 		create,
 		getUserMeetings,
@@ -67,5 +86,7 @@ export function useMeetings() {
 		deleteMeeting,
 		uploadDocument,
 		getMeetingDocuments,
+		inviteWitnessByEmail,
+		respondToInvite,
 	}
 }

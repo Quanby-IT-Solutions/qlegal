@@ -4,7 +4,7 @@
 	"private": true,
 	"scripts": {
 		"dev": "next dev --turbopack",
-		"dev:email": "SKIP_ENV_VALIDATION=1 email dev --dir ./services/react-email/templates/",
+		"dev:email": "cross-env SKIP_ENV_VALIDATION=1 email dev --dir ./services/react-email/templates/",
 		"db:generate": "drizzle-kit generate",
 		"db:migrate": "drizzle-kit migrate",
 		"db:push": "drizzle-kit push",
@@ -29,8 +29,10 @@
 		"@hookform/resolvers": "^5.2.2",
 		"@hugeicons/core-free-icons": "^3.1.1",
 		"@hugeicons/react": "^1.1.4",
+		"@radix-ui/react-slot": "^1.2.4",
 		"@react-email/components": "^0.5.7",
 		"@react-email/render": "^1.4.0",
+		"@stepperize/react": "^5.1.9",
 		"@supabase/supabase-js": "^2.90.1",
 		"@t3-oss/env-nextjs": "^0.13.10",
 		"@tanstack/react-query": "^5.90.16",
@@ -54,6 +56,7 @@
 		"drizzle-orm": "^0.44.7",
 		"drizzle-seed": "^0.3.1",
 		"embla-carousel-react": "^8.6.0",
+		"fix-webm-duration": "^1.0.6",
 		"input-otp": "^1.4.2",
 		"lucide-react": "^0.542.0",
 		"motion": "^12.25.0",
@@ -88,7 +91,7 @@
 		"@eslint/js": "^9.39.2",
 		"@ianvs/prettier-plugin-sort-imports": "^4.7.0",
 		"@next/eslint-plugin-next": "16.1.1",
-		"@react-email/preview-server": "4.3.1",
+		"@react-email/preview-server": "4.3.2",
 		"@tailwindcss/postcss": "^4.1.18",
 		"@tanstack/eslint-plugin-query": "^5.91.2",
 		"@types/node": "^20.19.28",
@@ -97,6 +100,7 @@
 		"@types/react": "19.2.8",
 		"@types/react-dom": "19.2.3",
 		"@types/uuid": "^10.0.0",
+		"cross-env": "^7.0.3",
 		"drizzle-kit": "^0.31.8",
 		"eslint": "^9.39.2",
 		"eslint-config-next": "16.1.1",
@@ -116,6 +120,24 @@
 		"overrides": {
 			"@types/react": "19.2.8",
 			"@types/react-dom": "19.2.3"
-		}
-	}
+		},
+		"onlyBuiltDependencies": [
+			"esbuild",
+			"sharp",
+			"unrs-resolver"
+		]
+	},
+	"description": "Send, sign, and track documents securely with role‑based access for every stakeholder. Approvals, guided eSigning, and an audit‑ready history—all in one place.",
+	"main": "env.js",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/Quanby-IT-Solutions/quanby-legal.git"
+	},
+	"keywords": [],
+	"author": "",
+	"license": "ISC",
+	"bugs": {
+		"url": "https://github.com/Quanby-IT-Solutions/quanby-legal/issues"
+	},
+	"homepage": "https://github.com/Quanby-IT-Solutions/quanby-legal#readme"
 }

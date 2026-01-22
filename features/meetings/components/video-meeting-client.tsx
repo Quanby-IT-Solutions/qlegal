@@ -1,7 +1,8 @@
 "use client"
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { MeetingProvider, useMeeting, useParticipant } from "@videosdk.live/react-sdk"
+import { MeetingProvider, useMeeting, useParticipant, usePubSub } from "@videosdk.live/react-sdk"
+import fixWebmDuration from "fix-webm-duration"
 import {
 	AlertCircle,
 	Camera,
@@ -32,12 +33,6 @@ import { toast } from "sonner"
 import { Button } from "@/core/components/ui/button"
 import { Card, CardContent } from "@/core/components/ui/card"
 import {
-	DropdownMenu,
-	DropdownMenuContent,
-	DropdownMenuItem,
-	DropdownMenuTrigger,
-} from "@/core/components/ui/dropdown-menu"
-import {
 	Dialog,
 	DialogContent,
 	DialogDescription,
@@ -45,6 +40,12 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "@/core/components/ui/dialog"
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuTrigger,
+} from "@/core/components/ui/dropdown-menu"
 import {
 	Select,
 	SelectContent,
@@ -54,7 +55,7 @@ import {
 } from "@/core/components/ui/select"
 import { cn } from "@/core/lib/utils"
 
-import { normalizeDocoChainUrl } from "@/services/docochain/url-normalizer"
+import { normalizeDocoChainUrl } from "@/services/doconchain/url-normalizer"
 import { trpc } from "@/services/trpc/client"
 
 import { MeetingDocumentUpload } from "./meeting-document-upload"
@@ -69,11 +70,7 @@ function formatElapsedMs(diffMs: number) {
 // Memoized to prevent re-renders from parent state changes
 const MeetingControls = React.memo(function MeetingControls({
 	onUploadClick,
-	onRecordingToggle,
 	onLocalRecordingToggle,
-	localRecordingSupported,
-	isRecording,
-	isRecordingStarting,
 	isLocalRecording,
 	localRecordingStartedAt,
 }: {
@@ -88,7 +85,8 @@ const MeetingControls = React.memo(function MeetingControls({
 }) {
 	const meeting = useMeeting()
 	const localMicOn = (meeting as { localMicOn?: boolean } | null)?.localMicOn
-	const localScreenShareOn = (meeting as { localScreenShareOn?: boolean } | null)?.localScreenShareOn
+	const localScreenShareOn = (meeting as { localScreenShareOn?: boolean } | null)
+		?.localScreenShareOn
 	const recordingState = (meeting as { recordingState?: string } | null)?.recordingState
 	const [isCameraOn, setIsCameraOn] = useState(() => meeting?.localWebcamOn ?? false)
 	const [isMicOn, setIsMicOn] = useState(() => {
@@ -96,9 +94,7 @@ const MeetingControls = React.memo(function MeetingControls({
 		return localMicOn ?? false
 	})
 
-	const [isScreenSharing, setIsScreenSharing] = useState(
-		() => localScreenShareOn ?? false
-	)
+	const [isScreenSharing, setIsScreenSharing] = useState(() => localScreenShareOn ?? false)
 	const [isRecordingLocal, setIsRecordingLocal] = useState(false)
 
 	useEffect(() => {
@@ -127,10 +123,7 @@ const MeetingControls = React.memo(function MeetingControls({
 		}
 	}, [recordingState])
 
-	const effectiveRecording = isRecording ?? isRecordingLocal
-	const effectiveIsRecordingStarting = isRecordingStarting ?? false
 	const localRecordingActive = isLocalRecording ?? false
-	const localRecordingDisabled = !localRecordingSupported
 	const [localRecordingElapsed, setLocalRecordingElapsed] = useState("00:00")
 
 	useEffect(() => {
@@ -206,136 +199,102 @@ const MeetingControls = React.memo(function MeetingControls({
 		}
 	}
 
+	// Start/stop recording directly on click - no dialog needed
+	// (getDisplayMedia requires direct user gesture, dialog breaks the gesture chain)
 	const handleToggleRecording = async () => {
-		if (onRecordingToggle) {
-			await onRecordingToggle()
-			return
-		}
-
-		if (!meeting) return
-		try {
-			if (effectiveRecording) {
-				await (
-					meeting as unknown as { stopRecording?: () => Promise<void> | void }
-				).stopRecording?.()
-				setIsRecordingLocal(false)
-			} else {
-				await (
-					meeting as unknown as { startRecording?: () => Promise<void> | void }
-				).startRecording?.()
-				setIsRecordingLocal(true)
-			}
-		} catch (error: unknown) {
-			console.error("Error toggling recording:", error)
-			const errorMessage = error instanceof Error ? error.message : "Failed to toggle recording"
-			toast.error(errorMessage)
+		if (onLocalRecordingToggle) {
+			await onLocalRecordingToggle()
 		}
 	}
 
 	return (
-		<div className="flex items-center gap-1.5 md:gap-2">
-			<Button
-				variant={isCameraOn ? "outline" : "destructive"}
-				size="icon"
-				className="size-9 rounded-full shadow-md transition-all hover:shadow-lg md:size-10"
-				onClick={handleToggleCamera}
-				title={isCameraOn ? "Turn off camera" : "Turn on camera"}
-			>
-				{isCameraOn ? <Camera className="size-4" /> : <CameraOff className="size-4" />}
-			</Button>
-
-			<Button
-				variant={isMicOn ? "outline" : "destructive"}
-				size="icon"
-				className={cn(
-					"size-9 rounded-full shadow-md transition-all hover:shadow-lg md:size-10",
-					!isMicOn && "animate-pulse"
-				)}
-				onClick={handleToggleMic}
-				title={isMicOn ? "Mute microphone" : "Unmute microphone"}
-			>
-				{isMicOn ? <Mic className="size-4" /> : <MicOff className="size-4" />}
-			</Button>
-
-			<Button
-				variant={isScreenSharing ? "destructive" : "outline"}
-				size="icon"
-				className="size-9 rounded-full shadow-md transition-all hover:shadow-lg md:size-10"
-				onClick={handleToggleScreenShare}
-				title={isScreenSharing ? "Stop sharing" : "Share screen"}
-			>
-				<Monitor className="size-4" />
-			</Button>
-
-			<Button
-				variant={effectiveRecording ? "destructive" : "outline"}
-				size="icon"
-				className={cn(
-					"size-9 rounded-full shadow-md transition-all hover:shadow-lg md:size-10",
-					effectiveRecording && "animate-pulse"
-				)}
-				onClick={handleToggleRecording}
-				title={
-					effectiveIsRecordingStarting
-						? "Recording starting..."
-						: effectiveRecording
-							? "Stop recording"
-							: "Start recording"
-				}
-				disabled={effectiveIsRecordingStarting}
-			>
-				{effectiveRecording ? (
-					<Square className="size-4 fill-current" />
-				) : (
-					<CircleDot className="size-4" />
-				)}
-			</Button>
-
-			<Button
-				variant={localRecordingActive ? "destructive" : "outline"}
-				size="icon"
-				className="size-9 rounded-full shadow-md transition-all hover:shadow-lg md:size-10"
-				onClick={localRecordingDisabled ? undefined : onLocalRecordingToggle}
-				title={
-					localRecordingDisabled
-						? "Local recording requires Chrome/Edge desktop with captureStream support"
-						: localRecordingActive
-							? `Stop local recording (${localRecordingElapsed})`
-							: "Start local (on-screen) recording"
-				}
-				disabled={localRecordingDisabled}
-			>
-				<Download className="size-4" />
-			</Button>
-
-			{onUploadClick && (
+		<>
+			<div className="flex items-center gap-1.5 md:gap-2">
 				<Button
-					variant="outline"
+					variant={isCameraOn ? "outline" : "destructive"}
 					size="icon"
 					className="size-9 rounded-full shadow-md transition-all hover:shadow-lg md:size-10"
-					onClick={onUploadClick}
-					title="Upload document"
+					onClick={handleToggleCamera}
+					title={isCameraOn ? "Turn off camera" : "Turn on camera"}
 				>
-					<FileUp className="size-4" />
+					{isCameraOn ? <Camera className="size-4" /> : <CameraOff className="size-4" />}
 				</Button>
-			)}
 
-			<Button
-				variant="destructive"
-				size="icon"
-				className="size-9 rounded-full shadow-md transition-all hover:shadow-lg md:size-10"
-				onClick={handleLeave}
-				title="Leave session"
-			>
-				<PhoneOff className="size-4" />
-			</Button>
-		</div>
+				<Button
+					variant={isMicOn ? "outline" : "destructive"}
+					size="icon"
+					className={cn(
+						"size-9 rounded-full shadow-md transition-all hover:shadow-lg md:size-10",
+						!isMicOn && "animate-pulse"
+					)}
+					onClick={handleToggleMic}
+					title={isMicOn ? "Mute microphone" : "Unmute microphone"}
+				>
+					{isMicOn ? <Mic className="size-4" /> : <MicOff className="size-4" />}
+				</Button>
+
+				<Button
+					variant={isScreenSharing ? "destructive" : "outline"}
+					size="icon"
+					className="size-9 rounded-full shadow-md transition-all hover:shadow-lg md:size-10"
+					onClick={handleToggleScreenShare}
+					title={isScreenSharing ? "Stop sharing" : "Share screen"}
+				>
+					<Monitor className="size-4" />
+				</Button>
+
+				<Button
+					variant={localRecordingActive ? "destructive" : "outline"}
+					size="icon"
+					className={cn(
+						"size-9 rounded-full shadow-md transition-all hover:shadow-lg md:size-10",
+						localRecordingActive && "animate-pulse"
+					)}
+					onClick={handleToggleRecording}
+					title={
+						localRecordingActive ? `Stop recording (${localRecordingElapsed})` : "Start recording"
+					}
+				>
+					{localRecordingActive ? (
+						<Square className="size-4 fill-current" />
+					) : (
+						<CircleDot className="size-4" />
+					)}
+				</Button>
+
+				{onUploadClick && (
+					<Button
+						variant="outline"
+						size="icon"
+						className="size-9 rounded-full shadow-md transition-all hover:shadow-lg md:size-10"
+						onClick={onUploadClick}
+						title="Upload document"
+					>
+						<FileUp className="size-4" />
+					</Button>
+				)}
+
+				<Button
+					variant="destructive"
+					size="icon"
+					className="size-9 rounded-full shadow-md transition-all hover:shadow-lg md:size-10"
+					onClick={handleLeave}
+					title="Leave session"
+				>
+					<PhoneOff className="size-4" />
+				</Button>
+			</div>
+		</>
 	)
 })
 
 // Simple participant video card with screen share support
 // Memoized to prevent re-renders when parent state changes (e.g., document list updates)
-const ParticipantView = React.memo(function ParticipantView({ participantId }: { participantId: string }) {
+const ParticipantView = React.memo(function ParticipantView({
+	participantId,
+}: {
+	participantId: string
+}) {
 	const { webcamStream, displayName, isLocal, micOn, screenShareStream, screenShareOn, micStream } =
 		useParticipant(participantId)
 	const videoRef = useRef<HTMLVideoElement>(null)
@@ -478,10 +437,10 @@ const ParticipantView = React.memo(function ParticipantView({ participantId }: {
 		// Prefer SDK micOn flag; avoid per-participant polling for efficiency.
 		if (audioStream && audioStream.getAudioTracks().length > 0 && micOn) {
 			// Check if audio tracks are actually enabled and live
-			const enabledTracks = audioStream.getAudioTracks().filter(
-				track => track.enabled && track.readyState === "live"
-			)
-			
+			const enabledTracks = audioStream
+				.getAudioTracks()
+				.filter(track => track.enabled && track.readyState === "live")
+
 			if (enabledTracks.length > 0) {
 				const enabledStream = new MediaStream(enabledTracks)
 				audioElement.srcObject = enabledStream
@@ -503,7 +462,7 @@ const ParticipantView = React.memo(function ParticipantView({ participantId }: {
 
 	return (
 		<Card className="border-border/70 bg-card/80 relative size-full overflow-hidden rounded-xl border shadow-lg backdrop-blur-sm">
-			<CardContent className="from-muted/40 via-background to-muted/60 relative size-full bg-gradient-to-br p-0">
+			<CardContent className="from-muted/40 via-background to-muted/60 relative size-full bg-linear-to-br p-0">
 				<video
 					ref={videoRef}
 					autoPlay
@@ -512,20 +471,13 @@ const ParticipantView = React.memo(function ParticipantView({ participantId }: {
 					className={cn(
 						"bg-muted/30 size-full transition-opacity duration-200",
 						isPresenting ? "object-contain" : "object-cover",
-						"aspect-[4/3] md:aspect-[16/10]",
+						"aspect-4/3 md:aspect-16/10",
 						!showVideo && "opacity-0"
 					)}
 				/>
 
 				{/* Hidden audio element for remote participants */}
-				{!isLocal && (
-					<audio
-						ref={audioRef}
-						autoPlay
-						playsInline
-						className="hidden"
-					/>
-				)}
+				{!isLocal && <audio ref={audioRef} autoPlay playsInline className="hidden" />}
 
 				{!showVideo && !isPresenting && (
 					<div className="pointer-events-none absolute inset-0 flex items-center justify-center">
@@ -535,9 +487,9 @@ const ParticipantView = React.memo(function ParticipantView({ participantId }: {
 					</div>
 				)}
 
-				<div className="absolute right-2 bottom-2 left-2 flex items-center justify-between rounded-lg bg-gradient-to-r from-black/80 via-black/70 to-black/60 px-2.5 py-1.5 text-[11px] text-white shadow-md">
+				<div className="absolute right-2 bottom-2 left-2 flex items-center justify-between rounded-lg bg-linear-to-r from-black/80 via-black/70 to-black/60 px-2.5 py-1.5 text-[11px] text-white shadow-md">
 					<div className="flex items-center gap-1">
-						<span className="max-w-[140px] truncate font-semibold">{displayName ?? "Guest"}</span>
+						<span className="max-w-35 truncate font-semibold">{displayName ?? "Guest"}</span>
 						{isLocal && <span className="text-[10px] text-white/80">(You)</span>}
 						{isPresenting && (
 							<span className="ml-1 rounded-full bg-emerald-900/60 px-1.5 py-0.5 text-[10px] text-emerald-200">
@@ -559,43 +511,79 @@ const ParticipantView = React.memo(function ParticipantView({ participantId }: {
 })
 
 const RecordingBanner = React.memo(function RecordingBanner({
-	isRecording,
-	recordingStatus,
-	recordingStartedAt,
+	isLocalRecording,
+	localRecordingStartedAt,
+	isAnyoneRecording,
+	recordingParticipantName,
+	recordingStopped,
+	stoppedElapsed,
 }: {
-	isRecording: boolean
-	recordingStatus: string
-	recordingStartedAt: number | null
+	isLocalRecording: boolean
+	localRecordingStartedAt: number | null
+	isAnyoneRecording?: boolean
+	recordingParticipantName?: string | null
+	recordingStopped?: boolean
+	stoppedElapsed?: string | null
 }) {
 	const [elapsed, setElapsed] = useState("00:00")
 
+	// Use local recording state or remote recording state
+	const isRecordingActive = isLocalRecording || isAnyoneRecording
+	// eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- intentional: need || to check falsy boolean, not just null/undefined
+	const showBanner = isRecordingActive || recordingStopped
+
 	useEffect(() => {
-		if (!isRecording || !recordingStartedAt) {
+		if (!isRecordingActive || !localRecordingStartedAt) {
 			setElapsed("00:00")
 			return
 		}
 
-		setElapsed(formatElapsedMs(Date.now() - recordingStartedAt))
+		setElapsed(formatElapsedMs(Date.now() - localRecordingStartedAt))
 		const interval = setInterval(() => {
-			setElapsed(formatElapsedMs(Date.now() - recordingStartedAt))
+			setElapsed(formatElapsedMs(Date.now() - localRecordingStartedAt))
 		}, 1000)
 
 		return () => clearInterval(interval)
-	}, [isRecording, recordingStartedAt])
+	}, [isRecordingActive, localRecordingStartedAt])
 
-	if (!isRecording) return null
+	if (!showBanner) return null
+
+	// Show stopped message
+	if (recordingStopped && !isRecordingActive) {
+		return (
+			<div className="bg-muted/50 border-muted-foreground/30 text-muted-foreground mb-3 flex items-center justify-between rounded-lg border px-3 py-2 text-sm">
+				<div className="flex items-center gap-2">
+					<span className="bg-muted-foreground inline-flex h-2 w-2 rounded-full" />
+					<span className="font-semibold">Meeting recording stopped.</span>
+					<span className="text-muted-foreground/80">{stoppedElapsed ?? "00:00"}</span>
+				</div>
+				<span className="text-muted-foreground/70 text-xs">
+					{recordingParticipantName ?? "Someone"} stopped the recording
+				</span>
+			</div>
+		)
+	}
 
 	return (
 		<div className="bg-destructive/10 border-destructive/30 text-destructive mb-3 flex items-center justify-between rounded-lg border px-3 py-2 text-sm">
 			<div className="flex items-center gap-2">
 				<span className="bg-destructive inline-flex h-2 w-2 animate-pulse rounded-full" />
-				<span className="font-semibold">Recording</span>
-				<span className="text-destructive/80">• {elapsed}</span>
+				<span className="font-semibold">Meeting is being recorded.</span>
+				<span className="text-destructive/80">{elapsed}</span>
 			</div>
-			<span className="text-destructive/70 text-xs">{recordingStatus}</span>
+			<span className="text-destructive/70 text-xs">
+				{recordingParticipantName ?? "Someone"} started the recording
+			</span>
 		</div>
 	)
 })
+
+type RecordingConsentRequest = {
+	id: string
+	createdAt: number
+	initiatorName: string
+	requiredParticipantIds: string[]
+}
 
 // Signer List Component - Shows all signers and their status
 // Memoized to prevent re-renders when unrelated state changes
@@ -652,7 +640,7 @@ const SignerList = React.memo(function SignerList({
 						>
 							<div
 								className={cn(
-									"flex size-5 flex-shrink-0 items-center justify-center rounded-full text-[10px] font-bold",
+									"flex size-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold",
 									isSigned
 										? "bg-green-600 text-white"
 										: isCurrent
@@ -664,14 +652,14 @@ const SignerList = React.memo(function SignerList({
 							</div>
 							<div className="min-w-0 flex-1">
 								<div className="flex items-center gap-1.5">
-									<User className="text-muted-foreground size-3 flex-shrink-0" />
+									<User className="text-muted-foreground size-3 shrink-0" />
 									<span className="truncate font-medium">
 										{signer.firstName} {signer.lastName}
 									</span>
 								</div>
 								<div className="text-muted-foreground truncate text-[10px]">{signer.email}</div>
 							</div>
-							<div className="flex-shrink-0">
+							<div className="shrink-0">
 								{isSigned ? (
 									<div className="flex items-center gap-1 rounded-full bg-green-100 px-1.5 py-0.5 dark:bg-green-900/40">
 										<CheckCircle2 className="size-3 text-green-600 dark:text-green-400" />
@@ -797,14 +785,13 @@ const DocumentActions = React.memo(function DocumentActions({
 					</Button>
 					{/* Show message when button is disabled due to locked order */}
 					{isSigningDisabled && (
-					<p className="text-[10px] leading-tight text-amber-700 dark:text-amber-400">
-						Previous document must be signed first
-					</p>
-				)}
-			</div>
-		)}
-
-	</div>
+						<p className="text-[10px] leading-tight text-amber-700 dark:text-amber-400">
+							Previous document must be signed first
+						</p>
+					)}
+				</div>
+			)}
+		</div>
 	)
 })
 
@@ -818,6 +805,19 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 	const [recordingStartedAt, setRecordingStartedAt] = useState<number | null>(null)
 	const [isLocalRecording, setIsLocalRecording] = useState(false)
 	const [localRecordingStartedAt, setLocalRecordingStartedAt] = useState<number | null>(null)
+	const [recordingConsentRequest, setRecordingConsentRequest] =
+		useState<RecordingConsentRequest | null>(null)
+	const [recordingConsentOpen, setRecordingConsentOpen] = useState(false)
+	const [recordingConsentAcceptedIds, setRecordingConsentAcceptedIds] = useState<Set<string>>(
+		() => new Set()
+	)
+	const [recordingConsentDeclined, setRecordingConsentDeclined] = useState(false)
+	// Track if any participant is recording (broadcast via pubsub)
+	const [isAnyoneRecording, setIsAnyoneRecording] = useState(false)
+	const [recordingParticipantName, setRecordingParticipantName] = useState<string | null>(null)
+	// Track when recording stopped to show message briefly
+	const [recordingStopped, setRecordingStopped] = useState(false)
+	const [stoppedElapsed, setStoppedElapsed] = useState<string | null>(null)
 	const mediaRecorderRef = useRef<MediaRecorder | null>(null)
 	const localStreamRef = useRef<MediaStream | null>(null)
 	const recordingContainerRef = useRef<HTMLDivElement>(null)
@@ -871,9 +871,9 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 	// Get tRPC utils for imperative calls
 	const utils = trpc.useUtils()
 
-	const [signingStatusPollingPausedUntil, setSigningStatusPollingPausedUntil] = useState<number | null>(
-		null
-	)
+	const [signingStatusPollingPausedUntil, setSigningStatusPollingPausedUntil] = useState<
+		number | null
+	>(null)
 	const hasShownSigningStatusAuthErrorRef = useRef(false)
 	const hasShownSigningStatusFetchErrorRef = useRef(false)
 	const signingStatusInFlightRef = useRef(false)
@@ -1109,34 +1109,40 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 	const isDocumentOrderLocked = meetingDetails?.isDocumentOrderLocked ?? false
 
 	// Drag and drop handlers
-	const handleDragStart = useCallback((e: React.DragEvent, documentId: string) => {
-		// Prevent dragging if locked
-		if (isDocumentOrderLocked) {
-			e.preventDefault()
-			return
-		}
+	const handleDragStart = useCallback(
+		(e: React.DragEvent, documentId: string) => {
+			// Prevent dragging if locked
+			if (isDocumentOrderLocked) {
+				e.preventDefault()
+				return
+			}
 
-		// Don't start drag if clicking on interactive elements (buttons, links, etc.)
-		const target = e.target as HTMLElement
-		if (target.closest("button") || target.closest("a") || target.closest('[role="button"]')) {
-			e.preventDefault()
-			return
-		}
+			// Don't start drag if clicking on interactive elements (buttons, links, etc.)
+			const target = e.target as HTMLElement
+			if (target.closest("button") || target.closest("a") || target.closest('[role="button"]')) {
+				e.preventDefault()
+				return
+			}
 
-		setDraggedDocumentId(documentId)
-		e.dataTransfer.effectAllowed = "move"
-		e.dataTransfer.setData("text/plain", documentId)
-	}, [isDocumentOrderLocked])
+			setDraggedDocumentId(documentId)
+			e.dataTransfer.effectAllowed = "move"
+			e.dataTransfer.setData("text/plain", documentId)
+		},
+		[isDocumentOrderLocked]
+	)
 
-	const handleDragEnter = useCallback((e: React.DragEvent, targetDocumentId: string) => {
-		if (isDocumentOrderLocked) {
+	const handleDragEnter = useCallback(
+		(e: React.DragEvent, targetDocumentId: string) => {
+			if (isDocumentOrderLocked) {
+				e.preventDefault()
+				return
+			}
 			e.preventDefault()
-			return
-		}
-		e.preventDefault()
-		if (!draggedDocumentId || targetDocumentId === draggedDocumentId) return
-		setDragOverDocumentId(targetDocumentId)
-	}, [draggedDocumentId, isDocumentOrderLocked])
+			if (!draggedDocumentId || targetDocumentId === draggedDocumentId) return
+			setDragOverDocumentId(targetDocumentId)
+		},
+		[draggedDocumentId, isDocumentOrderLocked]
+	)
 
 	const handleDragLeave = useCallback((e: React.DragEvent) => {
 		e.preventDefault()
@@ -1146,69 +1152,69 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 		}
 	}, [])
 
-	const handleDragOver = useCallback((e: React.DragEvent, targetDocumentId: string) => {
-		if (isDocumentOrderLocked) {
+	const handleDragOver = useCallback(
+		(e: React.DragEvent, targetDocumentId: string) => {
+			if (isDocumentOrderLocked) {
+				e.preventDefault()
+				return
+			}
 			e.preventDefault()
-			return
-		}
-		e.preventDefault()
-		e.dataTransfer.dropEffect = "move"
-		if (draggedDocumentId && targetDocumentId !== draggedDocumentId) {
-			setDragOverDocumentId(targetDocumentId)
-		}
-	}, [draggedDocumentId, isDocumentOrderLocked])
+			e.dataTransfer.dropEffect = "move"
+			if (draggedDocumentId && targetDocumentId !== draggedDocumentId) {
+				setDragOverDocumentId(targetDocumentId)
+			}
+		},
+		[draggedDocumentId, isDocumentOrderLocked]
+	)
 
-	const handleDrop = useCallback((e: React.DragEvent, targetDocumentId: string) => {
-		if (isDocumentOrderLocked) {
+	const handleDrop = useCallback(
+		(e: React.DragEvent, targetDocumentId: string) => {
+			if (isDocumentOrderLocked) {
+				e.preventDefault()
+				setDraggedDocumentId(null)
+				setDragOverDocumentId(null)
+				return
+			}
 			e.preventDefault()
-			setDraggedDocumentId(null)
 			setDragOverDocumentId(null)
-			return
-		}
-		e.preventDefault()
-		setDragOverDocumentId(null)
 
-		if (!draggedDocumentId || !meetingId) {
+			if (!draggedDocumentId || !meetingId) {
+				setDraggedDocumentId(null)
+				return
+			}
+
+			if (!documents) {
+				setDraggedDocumentId(null)
+				return
+			}
+
+			const sourceIndex = documents.findIndex(doc => doc.id === draggedDocumentId)
+			const targetIndex = documents.findIndex(doc => doc.id === targetDocumentId)
+
+			if (sourceIndex === -1 || targetIndex === -1 || sourceIndex === targetIndex) {
+				setDraggedDocumentId(null)
+				return
+			}
+
+			// Reorder documents
+			const newOrder = [...documents]
+			const removed = newOrder.splice(sourceIndex, 1)[0]
+			if (!removed) {
+				setDraggedDocumentId(null)
+				return
+			}
+			newOrder.splice(targetIndex, 0, removed)
+
+			// Update order in database (this will sync to all users)
+			updateDocumentOrder.mutate({
+				meetingId,
+				documentIds: newOrder.map(doc => doc.id),
+			})
+
 			setDraggedDocumentId(null)
-			return
-		}
-
-		if (!documents) {
-			setDraggedDocumentId(null)
-			return
-		}
-
-		const sourceIndex = documents.findIndex(doc => doc.id === draggedDocumentId)
-		const targetIndex = documents.findIndex(doc => doc.id === targetDocumentId)
-
-		if (sourceIndex === -1 || targetIndex === -1 || sourceIndex === targetIndex) {
-			setDraggedDocumentId(null)
-			return
-		}
-
-		// Reorder documents
-		const newOrder = [...documents]
-		const removed = newOrder.splice(sourceIndex, 1)[0]
-		if (!removed) {
-			setDraggedDocumentId(null)
-			return
-		}
-		newOrder.splice(targetIndex, 0, removed)
-
-		// Update order in database (this will sync to all users)
-		updateDocumentOrder.mutate({
-			meetingId,
-			documentIds: newOrder.map(doc => doc.id),
-		})
-
-		setDraggedDocumentId(null)
-	}, [
-		documents,
-		draggedDocumentId,
-		isDocumentOrderLocked,
-		meetingId,
-		updateDocumentOrder,
-	])
+		},
+		[documents, draggedDocumentId, isDocumentOrderLocked, meetingId, updateDocumentOrder]
+	)
 
 	const handleDragEnd = useCallback(() => {
 		setDraggedDocumentId(null)
@@ -1234,44 +1240,47 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 	}, [])
 
 	// Handle certificate download
-	const handleDownloadCertificate = useCallback(async (projectUuid: string) => {
-		setDownloadingCertificateUuid(projectUuid)
+	const handleDownloadCertificate = useCallback(
+		async (projectUuid: string) => {
+			setDownloadingCertificateUuid(projectUuid)
 
-		try {
-			// Fetch the certificate using tRPC utils
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument
-			const result = await utils.signatureRequests.downloadCertificate.fetch(projectUuid as any)
+			try {
+				// Fetch the certificate using tRPC utils
+				// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument
+				const result = await utils.signatureRequests.downloadCertificate.fetch(projectUuid as any)
 
-			if (result?.base64) {
-				// Convert base64 to blob and download
-				const byteCharacters = atob(result.base64)
-				const byteNumbers = new Array(byteCharacters.length)
-				for (let i = 0; i < byteCharacters.length; i++) {
-					byteNumbers[i] = byteCharacters.charCodeAt(i)
+				if (result?.base64) {
+					// Convert base64 to blob and download
+					const byteCharacters = atob(result.base64)
+					const byteNumbers = new Array(byteCharacters.length)
+					for (let i = 0; i < byteCharacters.length; i++) {
+						byteNumbers[i] = byteCharacters.charCodeAt(i)
+					}
+					const byteArray = new Uint8Array(byteNumbers)
+					const blob = new Blob([byteArray], { type: "application/pdf" })
+
+					const url = window.URL.createObjectURL(blob)
+					const link = document.createElement("a")
+					link.href = url
+					link.download = result.fileName || `certificate-${projectUuid}.pdf`
+					document.body.appendChild(link)
+					link.click()
+					document.body.removeChild(link)
+					window.URL.revokeObjectURL(url)
+
+					toast.success("Certificate downloaded successfully!")
+				} else {
+					toast.error("Failed to download certificate")
 				}
-				const byteArray = new Uint8Array(byteNumbers)
-				const blob = new Blob([byteArray], { type: "application/pdf" })
-
-				const url = window.URL.createObjectURL(blob)
-				const link = document.createElement("a")
-				link.href = url
-				link.download = result.fileName || `certificate-${projectUuid}.pdf`
-				document.body.appendChild(link)
-				link.click()
-				document.body.removeChild(link)
-				window.URL.revokeObjectURL(url)
-
-				toast.success("Certificate downloaded successfully!")
-			} else {
-				toast.error("Failed to download certificate")
+			} catch (error) {
+				console.error("Error downloading certificate:", error)
+				toast.error(error instanceof Error ? error.message : "Failed to download certificate")
+			} finally {
+				setDownloadingCertificateUuid(null)
 			}
-		} catch (error) {
-			console.error("Error downloading certificate:", error)
-			toast.error(error instanceof Error ? error.message : "Failed to download certificate")
-		} finally {
-			setDownloadingCertificateUuid(null)
-		}
-	}, [utils.signatureRequests.downloadCertificate])
+		},
+		[utils.signatureRequests.downloadCertificate]
+	)
 
 	// Generate signing link mutation (for signature request dialog)
 	const generateSigningLink = trpc.signatureRequests.generateSigningLink.useMutation({
@@ -1407,26 +1416,47 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 	// Get the first non-dismissed pending request
 	const activeSignatureRequest = pendingRequests?.find(req => !dismissedRequestIds.has(req.id))
 
+	// Force re-render when participants change - VideoSDK mutates the Map in place
+	// so React doesn't detect changes. We increment this counter to trigger re-renders.
+	const [participantVersion, setParticipantVersion] = useState(0)
+
 	const meeting = useMeeting({
 		onMeetingJoined: () => {
 			setJoined(true)
-
 			console.log("✅ Successfully joined meeting")
+			// Force refresh participant list on join
+			setParticipantVersion(v => v + 1)
 		},
 		onMeetingLeft: () => {
 			setJoined(false)
-
 			console.log("👋 Left meeting")
+			// Clear recording state when leaving
+			setIsAnyoneRecording(false)
+			setRecordingParticipantName(null)
+			setRecordingStopped(false)
+			setStoppedElapsed(null)
+			setLocalRecordingStartedAt(null)
 			// Call the onLeave callback to redirect user
 			if (onLeave) {
 				onLeave()
 			}
 		},
 		onParticipantJoined: participant => {
-			console.log("👋 Participant joined:", participant.id, participant.displayName)
+			console.log("👋 Participant JOINED (peer-to-peer):", {
+				id: participant.id,
+				displayName: participant.displayName,
+				isLocal: participant.local,
+			})
+			// Force re-render to show new participant
+			setParticipantVersion(v => v + 1)
 		},
 		onParticipantLeft: participant => {
-			console.log("👋 Participant left:", participant.id, participant.displayName)
+			console.log("👋 Participant LEFT (peer-to-peer):", {
+				id: participant.id,
+				displayName: participant.displayName,
+			})
+			// Force re-render to remove departed participant
+			setParticipantVersion(v => v + 1)
 		},
 		onPresenterChanged: id => {
 			setPresenterId(id ?? null)
@@ -1452,37 +1482,113 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 		},
 	})
 
+	// PubSub for broadcasting local recording status to all participants
+	// Message format: "RECORDING_STARTED:1234567890" (with timestamp) or "RECORDING_STOPPED:00:04" (with elapsed time)
+	const { publish: publishRecordingStatus } = usePubSub("LOCAL_RECORDING_STATUS", {
+		onMessageReceived: (message: { message: string; senderName: string }) => {
+			console.log("📢 Received recording status:", message)
+			if (message.message.startsWith("RECORDING_STARTED")) {
+				setRecordingStopped(false)
+				setStoppedElapsed(null)
+				setIsAnyoneRecording(true)
+				setRecordingParticipantName(message.senderName)
+				// Parse start timestamp from message (format: "RECORDING_STARTED:1234567890")
+				const parts = message.message.split(":")
+				if (parts[1]) {
+					const startTime = parseInt(parts[1], 10)
+					if (!isNaN(startTime)) {
+						setLocalRecordingStartedAt(startTime)
+					}
+				}
+			} else if (message.message.startsWith("RECORDING_STOPPED")) {
+				setIsAnyoneRecording(false)
+				setLocalRecordingStartedAt(null)
+				// Parse elapsed time from message (format: "RECORDING_STOPPED:00:04")
+				const elapsed = message.message.split(":").slice(1).join(":") || null
+				// Show stopped message with elapsed time
+				setRecordingStopped(true)
+				setStoppedElapsed(elapsed)
+				// Keep the participant name to show who stopped it
+				// Hide the stopped banner after 5 seconds
+				setTimeout(() => {
+					setRecordingStopped(false)
+					setStoppedElapsed(null)
+					setRecordingParticipantName(null)
+				}, 5000)
+			}
+		},
+	})
+
+	// Get real-time participants from VideoSDK - this is the peer-to-peer connection state
+	// Only participants who have actually joined the WebRTC room will appear here
 	const participants = meeting?.participants as Map<
 		string,
-		{ displayName?: string; webcamOn?: boolean; local?: boolean; screenShareOn?: boolean }
+		{ 
+			displayName?: string
+			webcamOn?: boolean
+			local?: boolean
+			screenShareOn?: boolean
+			// VideoSDK participant properties for connection state
+			mode?: string
+			quality?: string
+		}
 	> | null | undefined
 
-	const { participantIds, participantCount } = useMemo(() => {
-		const participantsMap =
-			participants ??
-			new Map<
-				string,
-				{ displayName?: string; webcamOn?: boolean; local?: boolean; screenShareOn?: boolean }
-			>()
+	const { localParticipant } = useMeeting()
 
-		const filterHuman = (id: string, participant: { displayName?: string } | null | undefined) => {
+	const localParticipantId = localParticipant?.id ?? null
+
+	// Debug: Log participant changes to help diagnose peer-to-peer issues
+	useEffect(() => {
+		if (participants && participants.size > 0) {
+			const participantList = Array.from(participants.entries()).map(([id, p]) => ({
+				id: `${id.substring(0, 8)}...`,
+				name: p.displayName,
+				isLocal: p.local,
+				webcamOn: p.webcamOn,
+			}))
+			console.log(
+				"📡 VideoSDK Participants (peer-to-peer):",
+				participantList,
+				`v${participantVersion}`
+			)
+		}
+	}, [participants, participantVersion])
+
+	const { participantIds, participantCount } = useMemo(() => {
+		// If no meeting or participants map, return empty
+		if (!participants || participants.size === 0) {
+			return { participantIds: [], participantCount: 0 }
+		}
+
+		const participantsMap = participants
+
+		// Filter out non-human participants (bots, recorders, etc.)
+		const filterHuman = (
+			id: string,
+			participant: { displayName?: string; mode?: string } | null | undefined
+		) => {
 			if (!participant) return false
 
 			const idLower = id.toLowerCase()
 			const nameLower = (participant.displayName ?? "").toLowerCase()
 
-			return !(
+			// Filter out system participants
+			const isSystemParticipant =
 				idLower.includes("recorder") ||
 				idLower.includes("bot") ||
 				idLower.includes("internal") ||
 				idLower.includes("hls") ||
 				nameLower.includes("recorder") ||
 				nameLower.includes("bot")
-			)
+
+			return !isSystemParticipant
 		}
 
-		const normalizeName = (name: string | undefined) => (name ?? "").trim().toLowerCase() || "unknown"
+		const normalizeName = (name: string | undefined) =>
+			(name ?? "").trim().toLowerCase() || "unknown"
 
+		// Deduplicate participants by display name (same user might appear multiple times)
 		const uniqueByName = new Map<
 			string,
 			{
@@ -1502,7 +1608,9 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 			const participantIsPresenting = Boolean(
 				(participant as unknown as { screenShareOn?: boolean })?.screenShareOn
 			)
-			const key = participantIsPresenting ? `${id}-presenter` : normalizeName(participant.displayName ?? id)
+			const key = participantIsPresenting
+				? `${id}-presenter`
+				: normalizeName(participant.displayName ?? id)
 			const current = uniqueByName.get(key)
 			const currentIsPresenting = Boolean(
 				(current?.participant as unknown as { screenShareOn?: boolean })?.screenShareOn
@@ -1540,93 +1648,170 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 		return { participantIds: ids, participantCount: ids.length }
 	}, [participants])
 
+	const resetRecordingConsentUi = useCallback(() => {
+		setRecordingConsentOpen(false)
+		setRecordingConsentRequest(null)
+		setRecordingConsentAcceptedIds(new Set())
+		setRecordingConsentDeclined(false)
+	}, [])
+
+	const buildConsentRequest = useCallback(
+		(requiredParticipantIds: string[], initiatorName: string): RecordingConsentRequest => {
+			const id = `${Date.now()}-${Math.random().toString(16).slice(2)}`
+			return { id, createdAt: Date.now(), initiatorName, requiredParticipantIds }
+		},
+		[]
+	)
+
+	// PubSub: recording consent flow
+	// Message formats:
+	// - REQUEST:{requestId}:{createdAt}:{initiatorName}:{requiredParticipantIdsCsv}
+	// - RESPONSE:{requestId}:{participantId}:{participantName}:{ACCEPT|DECLINE}
+	// - CANCEL:{requestId}
+	const { publish: publishRecordingConsent } = usePubSub("RECORDING_CONSENT", {
+		onMessageReceived: (message: { message: string; senderName: string }) => {
+			const raw = message.message
+			if (typeof raw !== "string") return
+
+			const [kind, ...rest] = raw.split(":")
+			if (!kind) return
+
+			if (kind === "REQUEST") {
+				const [requestId, createdAtStr, initiatorName, requiredIdsCsv = ""] = rest
+				if (!requestId || !createdAtStr || !initiatorName) return
+
+				const requiredParticipantIds = requiredIdsCsv
+					.split(",")
+					.map(s => s.trim())
+					.filter(Boolean)
+
+				// Ignore if we're already handling an active request (prevents modal spam)
+				setRecordingConsentRequest(prev => {
+					if (prev && prev.id === requestId) return prev
+					return {
+						id: requestId,
+						createdAt: Number(createdAtStr) || Date.now(),
+						initiatorName,
+						requiredParticipantIds,
+					}
+				})
+				setRecordingConsentAcceptedIds(new Set())
+				setRecordingConsentDeclined(false)
+				setRecordingConsentOpen(true)
+				return
+			}
+
+			if (kind === "RESPONSE") {
+				const [requestId, participantId, _participantName, decision] = rest
+				if (!requestId || !participantId || !decision) return
+
+				setRecordingConsentRequest(current => {
+					if (!current || current.id !== requestId) return current
+
+					if (decision === "DECLINE") {
+						setRecordingConsentDeclined(true)
+						// Keep modal open so both parties see the decline immediately
+						return current
+					}
+
+					if (decision === "ACCEPT") {
+						setRecordingConsentAcceptedIds(prev => {
+							const next = new Set(prev)
+							next.add(participantId)
+							return next
+						})
+					}
+
+					return current
+				})
+				return
+			}
+
+			if (kind === "CANCEL") {
+				const [requestId] = rest
+				setRecordingConsentRequest(current => {
+					if (!current || current.id !== requestId) return current
+					resetRecordingConsentUi()
+					return null
+				})
+			}
+		},
+	})
+
 	const startLocalRecording = useCallback(async () => {
 		if (isLocalRecording) return
-
-		const container = recordingContainerRef.current
-
-		const canCapture =
-			container && typeof (container as { captureStream?: unknown })?.captureStream === "function"
-		const canShareDisplay =
-			typeof navigator !== "undefined" && !!navigator.mediaDevices?.getDisplayMedia
-
-		if (!canCapture && !canShareDisplay) {
-			toast.error("Local recording not supported here. Please use Chrome/Edge desktop on HTTPS.")
-			return
+		if (!meeting) {
+		  toast.error("Meeting not ready yet")
+		  return
 		}
-
+	  
 		try {
-			const stream = canCapture
-				? (container as unknown as { captureStream: (fps: number) => MediaStream }).captureStream(
-						30
-					)
-				: await navigator.mediaDevices.getDisplayMedia({
-						video: { frameRate: 30 },
-						audio: true,
-					})
-			const mimeTypes = ["video/webm;codecs=vp9", "video/webm;codecs=vp8", "video/webm"]
-			let recorder: MediaRecorder | null = null
-			for (const type of mimeTypes) {
-				if (MediaRecorder.isTypeSupported(type)) {
-					recorder = new MediaRecorder(stream, { mimeType: type })
-					break
-				}
-			}
-
-			recorder ??= new MediaRecorder(stream)
-
-			const chunks: BlobPart[] = []
-			recorder.ondataavailable = e => {
-				if (e.data && e.data.size > 0) {
-					chunks.push(e.data)
-				}
-			}
-			recorder.onstop = () => {
-				const firstChunk = chunks[0] as { type?: string } | undefined
-				const inferredType =
-					typeof firstChunk === "object" && firstChunk?.type ? firstChunk.type : "video/webm"
-
-				const blob = new Blob(chunks, { type: inferredType })
-				const url = URL.createObjectURL(blob)
-				const a = document.createElement("a")
-				a.href = url
-				a.download = `meeting-local-recording-${new Date().toISOString()}.webm`
-				document.body.appendChild(a)
-				a.click()
-				document.body.removeChild(a)
-				URL.revokeObjectURL(url)
-				toast.success("Local recording saved")
-				setIsLocalRecording(false)
-				setLocalRecordingStartedAt(null)
-				localStreamRef.current?.getTracks().forEach(t => t.stop())
-				localStreamRef.current = null
-			}
-			const startedAt = Date.now()
-			;(recorder as { __startedAt?: number }).__startedAt = startedAt
-			recorder.start(500)
-			mediaRecorderRef.current = recorder
-
-			localStreamRef.current = stream
-			setLocalRecordingStartedAt(startedAt)
-			setIsLocalRecording(true)
-			toast.message("Local recording started. It will capture what you see.")
-		} catch (error: unknown) {
-			console.error("Local recording error:", error)
-			const errorMessage =
-				error instanceof Error ? error.message : "Failed to start local recording"
-			toast.error(errorMessage)
+		  const startedAt = Date.now()
+	  
+		  // START CLOUD RECORDING (VideoSDK)
+		  await meeting.startRecording()
+	  
+		  // Update local UI state
+		  setIsLocalRecording(true)
+		  setIsAnyoneRecording(true)
+		  setLocalRecordingStartedAt(startedAt)
+		  setRecordingParticipantName(session?.user?.name ?? "Someone")
+	  
+		  // Clear stopped state
+		  setRecordingStopped(false)
+		  setStoppedElapsed(null)
+	  
+		  // Broadcast to all participants
+		  publishRecordingStatus(`RECORDING_STARTED:${startedAt}`, { persist: false })
+	  
+		  toast.success("Cloud recording started")
+		} catch (error) {
+		  console.error("Cloud recording error:", error)
+		  toast.error("Failed to start cloud recording")
 		}
-	}, [isLocalRecording])
+	  }, [
+		isLocalRecording,
+		meeting,
+		publishRecordingStatus,
+		session?.user?.name,
+	  ])	  
 
-	const stopLocalRecording = useCallback(async () => {
-		if (!isLocalRecording) return
-		// Optimistic UI stop for instant feedback; onstop will finalize cleanup/download.
-		setIsLocalRecording(false)
-		setLocalRecordingStartedAt(null)
-		if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
-			mediaRecorderRef.current.stop()
+	  const stopLocalRecording = useCallback(async () => {
+		if (!meeting || !isLocalRecording) return
+	  
+		try {
+		  await meeting.stopRecording()
+	  
+		  const elapsed = localRecordingStartedAt
+			? formatElapsedMs(Date.now() - localRecordingStartedAt)
+			: "00:00"
+	  
+		  setIsLocalRecording(false)
+		  setIsAnyoneRecording(false)
+		  setLocalRecordingStartedAt(null)
+	  
+		  setRecordingStopped(true)
+		  setStoppedElapsed(elapsed)
+	  
+		  setTimeout(() => {
+			setRecordingStopped(false)
+			setStoppedElapsed(null)
+			setRecordingParticipantName(null)
+		  }, 5000)
+	  
+		  publishRecordingStatus(`RECORDING_STOPPED:${elapsed}`, { persist: false })
+	  
+		  toast.success("Cloud recording stopped")
+		} catch (error) {
+		  console.error("Stop recording error:", error)
+		  toast.error("Failed to stop cloud recording")
 		}
-	}, [isLocalRecording])
+	  }, [
+		meeting,
+		isLocalRecording,
+		localRecordingStartedAt,
+		publishRecordingStatus,
+	  ])	  
 
 	const handleRecordingToggle = useCallback(async () => {
 		if (!meeting) return
@@ -1662,14 +1847,111 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 		}
 	}, [meeting, recordingStatus, isRecording])
 
-	// Memoize the local recording toggle handler
-	const handleLocalRecordingToggle = useCallback(async () => {
+	const closeConsentAsInitiator = useCallback(() => {
+		if (!recordingConsentRequest) return
+		publishRecordingConsent(`CANCEL:${recordingConsentRequest.id}`, { persist: false })
+		resetRecordingConsentUi()
+	}, [publishRecordingConsent, recordingConsentRequest, resetRecordingConsentUi])
+
+	const openConsentAndRequest = useCallback(() => {
+		// If already recording, keep existing behavior (stop immediately).
 		if (isLocalRecording) {
-			await stopLocalRecording()
-		} else {
-			await startLocalRecording()
+			void stopLocalRecording()
+			return
 		}
-	}, [isLocalRecording, stopLocalRecording, startLocalRecording])
+
+		// Only run consent flow when there is at least 1 other participant.
+		if (participantIds.length <= 0) {
+			toast.error("Waiting for another participant to join before starting a recording.")
+			return
+		}
+
+		const initiatorName = session?.user?.name ?? "Someone"
+		const requiredIds = participantIds
+		const request = buildConsentRequest(requiredIds, initiatorName)
+
+		setRecordingConsentRequest(request)
+		setRecordingConsentAcceptedIds(new Set())
+		setRecordingConsentDeclined(false)
+		setRecordingConsentOpen(true)
+
+		const payload = `REQUEST:${request.id}:${request.createdAt}:${request.initiatorName}:${request.requiredParticipantIds.join(",")}`
+		publishRecordingConsent(payload, { persist: false })
+	}, [
+		buildConsentRequest,
+		isLocalRecording,
+		participantIds,
+		publishRecordingConsent,
+		session?.user?.name,
+		stopLocalRecording,
+	])
+
+	const acceptConsent = useCallback(async () => {
+		if (!recordingConsentRequest) return
+		if (!localParticipantId) {
+			toast.error("Cannot confirm consent yet (participant id not ready). Please try again.")
+			return
+		}
+
+		const myName = session?.user?.name ?? "Someone"
+		publishRecordingConsent(
+			`RESPONSE:${recordingConsentRequest.id}:${localParticipantId}:${myName}:ACCEPT`,
+			{ persist: false }
+		)
+
+		setRecordingConsentAcceptedIds(prev => {
+			const next = new Set(prev)
+			next.add(localParticipantId)
+			return next
+		})
+	}, [localParticipantId, publishRecordingConsent, recordingConsentRequest, session?.user?.name])
+
+	const declineConsent = useCallback(() => {
+		if (!recordingConsentRequest) return
+		if (!localParticipantId) {
+			resetRecordingConsentUi()
+			return
+		}
+
+		const myName = session?.user?.name ?? "Someone"
+		publishRecordingConsent(
+			`RESPONSE:${recordingConsentRequest.id}:${localParticipantId}:${myName}:DECLINE`,
+			{ persist: false }
+		)
+		setRecordingConsentDeclined(true)
+	}, [localParticipantId, publishRecordingConsent, recordingConsentRequest, resetRecordingConsentUi, session?.user?.name])
+
+	// If I'm the initiator and everyone has accepted, start local recording (initiator only).
+	useEffect(() => {
+		if (!recordingConsentRequest) return
+		if (!localParticipantId) return
+
+		const isInitiator = recordingConsentRequest.initiatorName === (session?.user?.name ?? "Someone")
+		if (!isInitiator) return
+		if (recordingConsentDeclined) return
+
+		const required = recordingConsentRequest.requiredParticipantIds
+		if (!required || required.length === 0) return
+
+		const allAccepted = required.every(id => recordingConsentAcceptedIds.has(id))
+		if (!allAccepted) return
+
+		// Start recording as a direct consequence of the initiator's Accept click.
+		// NOTE: If the last accept came from a remote participant, this won't be a gesture.
+		// In practice, the initiator should click Accept last to satisfy getDisplayMedia gesture.
+		resetRecordingConsentUi()
+		void startLocalRecording()
+	}, [
+		localParticipantId,
+		recordingConsentAcceptedIds,
+		recordingConsentDeclined,
+		recordingConsentRequest,
+		resetRecordingConsentUi,
+		session?.user?.name,
+		startLocalRecording,
+	])
+
+	
 
 	// Memoize upload dialog open handler
 	const handleUploadClick = useCallback(() => {
@@ -1683,11 +1965,11 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 		return (
 			<div
 				className={cn(
-					"bg-card/50 flex-shrink-0 border-t shadow-lg backdrop-blur-sm transition-all duration-300",
-					showDocuments ? "max-h-[400px] min-h-[200px]" : "h-12 md:h-14"
+					"bg-card/50 shrink-0 border-t shadow-lg backdrop-blur-sm transition-all duration-300",
+					showDocuments ? "max-h-100 min-h-50" : "h-12 md:h-14"
 				)}
 			>
-				<div className="flex h-12 flex-shrink-0 items-center justify-between border-b px-3 md:h-14 md:px-4 lg:px-6">
+				<div className="flex h-12 shrink-0 items-center justify-between border-b px-3 md:h-14 md:px-4 lg:px-6">
 					{(() => {
 						const isLocked = meetingDetails?.isDocumentOrderLocked ?? false
 						const isPrincipal = meetingDetails?.createdBy.id === session?.user?.id
@@ -1771,7 +2053,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 						showDocuments && (
 							<div className="border-b border-amber-200 bg-amber-50 px-3 py-2 md:px-4 lg:px-6 dark:border-amber-800 dark:bg-amber-900/10">
 								<p className="flex items-center gap-2 text-xs text-amber-800 dark:text-amber-300">
-									<Lock className="size-3.5 flex-shrink-0" />
+									<Lock className="size-3.5 shrink-0" />
 									<span>
 										Documents are locked in signing order. Each document must be signed before the
 										next one can be started.
@@ -1782,7 +2064,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 					)
 				})()}
 				{showDocuments && (
-					<div className="max-h-[350px] overflow-y-auto px-3 py-4 md:px-4 lg:px-6">
+					<div className="max-h-87.5 overflow-y-auto px-3 py-4 md:px-4 lg:px-6">
 						<div className="grid grid-cols-1 gap-3 transition-all duration-300 sm:grid-cols-2 md:gap-4 lg:grid-cols-3 xl:grid-cols-4">
 							{documents.map((doc, index) => {
 								const isLocked = meetingDetails?.isDocumentOrderLocked ?? false
@@ -1792,7 +2074,8 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 								// Check if previous document is signed (for sequential signing when locked)
 								const previousDoc = index > 0 ? documents[index - 1] : null
 								const isPreviousDocumentSigned =
-									!previousDoc || (documentSigningStatus.get(previousDoc.id)?.isFullySigned ?? false)
+									!previousDoc ||
+									(documentSigningStatus.get(previousDoc.id)?.isFullySigned ?? false)
 
 								const signingStatus = doc.docoChainProjectId
 									? documentSigningStatus.get(doc.id)
@@ -1801,8 +2084,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 								const isDownloadingSigned =
 									!!doc.docoChainProjectId && downloadingProjectUuid === doc.docoChainProjectId
 								const isDownloadingCert =
-									!!doc.docoChainProjectId &&
-									downloadingCertificateUuid === doc.docoChainProjectId
+									!!doc.docoChainProjectId && downloadingCertificateUuid === doc.docoChainProjectId
 
 								return (
 									<Card
@@ -1929,7 +2211,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 												{/* Drag handle - only draggable element */}
 												<div
 													className={cn(
-														"relative mt-1 flex-shrink-0 transition-colors",
+														"relative mt-1 shrink-0 transition-colors",
 														isLocked
 															? "cursor-not-allowed opacity-40"
 															: "text-muted-foreground hover:text-primary cursor-move"
@@ -1947,7 +2229,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 														className={cn("size-4", isLocked && "text-muted-foreground/30")}
 													/>
 												</div>
-												<div className="bg-primary/10 flex-shrink-0 rounded-lg p-2.5">
+												<div className="bg-primary/10 shrink-0 rounded-lg p-2.5">
 													<FileText className="text-primary size-5" />
 												</div>
 												<div className="min-w-0 flex-1">
@@ -2004,7 +2286,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 
 	if (!joined) {
 		return (
-			<div className="from-background via-muted/30 to-background flex h-screen items-center justify-center bg-gradient-to-br">
+			<div className="from-background via-muted/30 to-background flex h-screen items-center justify-center bg-linear-to-br">
 				<div className="text-center">
 					<div className="border-primary mx-auto mb-4 size-12 animate-spin rounded-full border-b-4" />
 					<p className="text-muted-foreground font-medium">Joining meeting...</p>
@@ -2016,7 +2298,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 	return (
 		<div
 			ref={recordingContainerRef}
-			className="from-background via-muted/20 to-background flex h-screen flex-col bg-gradient-to-br"
+			className="from-background via-muted/20 to-background flex h-screen flex-col bg-linear-to-br"
 		>
 			{/* Header with Controls */}
 			<div className="bg-card/50 flex flex-col items-center justify-between gap-3 border-b px-4 py-3 shadow-sm backdrop-blur-sm sm:flex-row sm:gap-4 md:px-6 md:py-4">
@@ -2031,7 +2313,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 				<MeetingControls
 					onUploadClick={handleUploadClick}
 					onRecordingToggle={handleRecordingToggle}
-					onLocalRecordingToggle={handleLocalRecordingToggle}
+					onLocalRecordingToggle={openConsentAndRequest}
 					localRecordingSupported={localRecordingSupported}
 					isRecording={isRecording}
 					isRecordingStarting={recordingStatus === "RECORDING_STARTING"}
@@ -2064,9 +2346,12 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 			<div className="flex flex-1 flex-col overflow-hidden">
 				<div className="flex-1 overflow-hidden p-3 md:p-4 lg:p-6">
 					<RecordingBanner
-						isRecording={isRecording}
-						recordingStatus={recordingStatus}
-						recordingStartedAt={recordingStartedAt}
+						isLocalRecording={isLocalRecording}
+						localRecordingStartedAt={localRecordingStartedAt}
+						isAnyoneRecording={isAnyoneRecording}
+						recordingParticipantName={recordingParticipantName}
+						recordingStopped={recordingStopped}
+						stoppedElapsed={stoppedElapsed}
 					/>
 					{participantIds.length === 0 ? (
 						<Card className="mx-auto max-w-xl shadow-md">
@@ -2093,7 +2378,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 								{participantIds
 									.filter(id => id !== presenterId)
 									.map(participantId => (
-										<div key={participantId} className="min-h-[260px]">
+										<div key={participantId} className="min-h-65">
 											<ParticipantView participantId={participantId} />
 										</div>
 									))}
@@ -2262,6 +2547,98 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 					</DialogContent>
 				</Dialog>
 			)}
+
+			{/* Recording Consent Dialog (shown to all participants) */}
+			<Dialog
+				open={recordingConsentOpen}
+				onOpenChange={open => {
+					// If user closes the modal manually, treat as decline to be safe.
+					if (!open && recordingConsentRequest && !recordingConsentDeclined) {
+						declineConsent()
+					}
+					setRecordingConsentOpen(open)
+				}}
+			>
+				<DialogContent className="max-w-md">
+					<DialogHeader>
+						<DialogTitle className="flex items-center gap-2">
+							<CircleDot className="text-destructive size-5" />
+							Start meeting recording?
+						</DialogTitle>
+						<DialogDescription>
+							{recordingConsentRequest?.initiatorName ?? "Someone"} wants to start a screen recording.
+							Recording will begin only after everyone agrees.
+						</DialogDescription>
+					</DialogHeader>
+
+					<div className="space-y-3 py-2 text-sm">
+						<div className="bg-muted/50 rounded-lg border p-3">
+							<div className="flex items-center justify-between">
+								<span className="font-medium">Consents</span>
+								<span className="text-muted-foreground text-xs">
+									{recordingConsentRequest
+										? `${recordingConsentAcceptedIds.size}/${recordingConsentRequest.requiredParticipantIds.length}`
+										: "0/0"}
+								</span>
+							</div>
+							{recordingConsentDeclined ? (
+								<p className="mt-2 text-sm text-red-600 dark:text-red-400">
+									Someone declined. Recording will not start.
+								</p>
+							) : (
+								<p className="text-muted-foreground mt-2 text-xs">
+									Click <span className="font-semibold">Agree</span> to consent, or{" "}
+									<span className="font-semibold">Decline</span> to cancel.
+								</p>
+							)}
+						</div>
+					</div>
+
+					<DialogFooter className="flex-col gap-2 sm:flex-row">
+						<Button
+							variant="outline"
+							onClick={() => {
+								if (recordingConsentRequest?.initiatorName === (session?.user?.name ?? "Someone")) {
+									closeConsentAsInitiator()
+								} else {
+									declineConsent()
+								}
+							}}
+						>
+							Decline
+						</Button>
+						<Button
+							disabled={
+								recordingConsentDeclined ||
+								!localParticipantId
+							}
+							onClick={async () => {
+								await acceptConsent()
+
+								if (!recordingConsentRequest || !localParticipantId) return
+
+								const isInitiator =
+								recordingConsentRequest.initiatorName === (session?.user?.name ?? "Someone")
+
+								if (!isInitiator) return
+								if (recordingConsentDeclined) return
+
+								const required = recordingConsentRequest.requiredParticipantIds
+								const allAccepted = required.every(id =>
+								id === localParticipantId ? true : recordingConsentAcceptedIds.has(id)
+								)
+
+								if (!allAccepted) return
+
+								resetRecordingConsentUi()
+								void startLocalRecording()
+							}}
+							>
+							Agree
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
 		</div>
 	)
 }

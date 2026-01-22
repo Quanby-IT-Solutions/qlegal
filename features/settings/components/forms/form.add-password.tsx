@@ -22,7 +22,7 @@ import { addPasswordSchema, type AddPasswordSchema } from "@/features/settings/a
 export function AddPasswordForm() {
 	const form = useForm({
 		resolver: zodResolver(addPasswordSchema),
-		values: {
+		defaultValues: {
 			newPassword: "",
 			confirmPassword: "",
 		},

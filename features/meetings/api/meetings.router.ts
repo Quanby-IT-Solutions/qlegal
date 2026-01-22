@@ -1,10 +1,11 @@
 import { TRPCError } from "@trpc/server"
-import { eq } from "drizzle-orm"
+import { and, eq } from "drizzle-orm"
 import { z } from "zod/v4"
 
-import { createDocoChainProject } from "@/services/docochain"
-import { normalizeDocoChainUrl } from "@/services/docochain/url-normalizer"
+import { createDocoChainProject } from "@/services/doconchain"
+import { normalizeDocoChainUrl } from "@/services/doconchain/url-normalizer"
 import { db } from "@/services/drizzle/db"
+import { users } from "@/services/drizzle/schema/auth"
 import { documents } from "@/services/drizzle/schema/document"
 import { meetingParticipants, meetings } from "@/services/drizzle/schema/meetings"
 import { getServiceRoleClient } from "@/services/supabase"
@@ -78,7 +79,10 @@ export const meetingsRouter = createTRPCRouter({
 	// Get user's meetings
 	getUserMeetings: protectedProcedure.query(async ({ ctx }) => {
 		const userMeetings = await db.query.meetingParticipants.findMany({
-			where: eq(meetingParticipants.userId, ctx.session.user.id),
+			where: and(
+				eq(meetingParticipants.userId, ctx.session.user.id),
+				eq(meetingParticipants.status, "ACCEPTED")
+			),
 			with: {
 				meeting: {
 					with: {
@@ -146,8 +150,12 @@ export const meetingsRouter = createTRPCRouter({
 			})
 		}
 
-		// Check if user has access
-		const hasAccess = meeting.participants.some(p => p.userId === ctx.session.user.id)
+		// Check if user has access (host OR accepted participant)
+		const isHost = meeting.createdById === ctx.session.user.id
+		const isAcceptedParticipant = meeting.participants.some(
+			p => p.userId === ctx.session.user.id && p.status === "ACCEPTED"
+		)
+		const hasAccess = isHost || isAcceptedParticipant
 
 		if (!hasAccess) {
 			throw new TRPCError({
@@ -156,7 +164,16 @@ export const meetingsRouter = createTRPCRouter({
 			})
 		}
 
-		return meeting
+		const acceptedParticipants = meeting.participants.filter(p => p.status === "ACCEPTED")
+		const pendingInvites = meeting.participants.filter(p => p.status === "PENDING")
+
+		// Return accepted participants as "participants" (for normal meeting pages),
+		// and also expose pending invites for host UI (lobby invite list).
+		return {
+			...meeting,
+			participants: acceptedParticipants,
+			pendingInvites,
+		}
 	}),
 
 	// Get meeting token
@@ -175,8 +192,12 @@ export const meetingsRouter = createTRPCRouter({
 			})
 		}
 
-		// Check if user has access
-		const hasAccess = meeting.participants.some(p => p.userId === ctx.session.user.id)
+		// Check if user has access (host OR accepted participant)
+		const isHost = meeting.createdById === ctx.session.user.id
+		const isAcceptedParticipant = meeting.participants.some(
+			p => p.userId === ctx.session.user.id && p.status === "ACCEPTED"
+		)
+		const hasAccess = isHost || isAcceptedParticipant
 
 		if (!hasAccess) {
 			throw new TRPCError({
@@ -208,7 +229,9 @@ export const meetingsRouter = createTRPCRouter({
 		}
 
 		const isHost = meeting.createdById === ctx.session.user.id
-		const isParticipant = meeting.participants.some(p => p.userId === ctx.session.user.id)
+		const isParticipant = meeting.participants.some(
+			p => p.userId === ctx.session.user.id && p.status === "ACCEPTED"
+		)
 
 		if (!isHost && !isParticipant) {
 			throw new TRPCError({
@@ -341,7 +364,11 @@ export const meetingsRouter = createTRPCRouter({
 			}
 
 			// Check if user has access to the meeting
-			const hasAccess = meeting.participants.some(p => p.userId === ctx.session.user.id)
+			const isHost = meeting.createdById === ctx.session.user.id
+			const isAcceptedParticipant = meeting.participants.some(
+				p => p.userId === ctx.session.user.id && p.status === "ACCEPTED"
+			)
+			const hasAccess = isHost || isAcceptedParticipant
 
 			if (!hasAccess) {
 				throw new TRPCError({
@@ -361,7 +388,9 @@ export const meetingsRouter = createTRPCRouter({
 
 			// Otherwise, find ENP among participants
 			if (!creatorEmail) {
-				const enpParticipant = meeting.participants.find(p => isEnpRole(p.user?.role) && !!p.user?.email)
+				const enpParticipant = meeting.participants.find(
+					p => isEnpRole(p.user?.role) && !!p.user?.email
+				)
 				creatorEmail = asNonEmptyEmail(enpParticipant?.user?.email)
 			}
 
@@ -410,12 +439,12 @@ export const meetingsRouter = createTRPCRouter({
 				const documentStamp = {
 					seal: {
 						type: "seal",
-						enp_name: "Mariae Francine Geraldine Biglaen y Sibulop",
+						enp_name: "Juan Dela Cruz",
 						enp_role_number: "123456",
 					},
 					notary_info: {
 						type: "notary",
-						atty_name: "ATTY. MARIA ANGELICA M. DELA CRUZ-SAN FELIPE",
+						atty_name: "ATTY. JUAN DELA CRUZ",
 						roll_no: "123456",
 						roll_no_date: "5 June 2018",
 						commission_no: "2024 - 024",
@@ -539,8 +568,12 @@ export const meetingsRouter = createTRPCRouter({
 			})
 		}
 
-		// Check if user has access
-		const hasAccess = meeting.participants.some(p => p.userId === ctx.session.user.id)
+		// Check if user has access (host OR accepted participant)
+		const isHost = meeting.createdById === ctx.session.user.id
+		const isAcceptedParticipant = meeting.participants.some(
+			p => p.userId === ctx.session.user.id && p.status === "ACCEPTED"
+		)
+		const hasAccess = isHost || isAcceptedParticipant
 
 		if (!hasAccess) {
 			throw new TRPCError({
@@ -590,8 +623,12 @@ export const meetingsRouter = createTRPCRouter({
 				})
 			}
 
-			// Check if user has access
-			const hasAccess = meeting.participants.some(p => p.userId === ctx.session.user.id)
+			// Check if user has access (host OR accepted participant)
+			const isHost = meeting.createdById === ctx.session.user.id
+			const isAcceptedParticipant = meeting.participants.some(
+				p => p.userId === ctx.session.user.id && p.status === "ACCEPTED"
+			)
+			const hasAccess = isHost || isAcceptedParticipant
 
 			if (!hasAccess) {
 				throw new TRPCError({
@@ -651,5 +688,128 @@ export const meetingsRouter = createTRPCRouter({
 				success: true,
 				isLocked: updatedMeeting?.isDocumentOrderLocked ?? false,
 			}
+		}),
+
+	/**
+	 * Invite a witness (or any participant) to the meeting by email.
+	 * Creates a PENDING invite. The invited user must ACCEPT in their dashboard to join.
+	 *
+	 * NOTE: This does not send email; it's in-app (peer-to-peer) only.
+	 */
+	inviteWitnessByEmail: protectedProcedure
+		.input(
+			z.object({
+				meetingId: z.string().min(1),
+				email: z.string().email(),
+			})
+		)
+		.mutation(async ({ input, ctx }) => {
+			const meeting = await db.query.meetings.findFirst({
+				where: eq(meetings.id, input.meetingId),
+				with: {
+					participants: true,
+				},
+			})
+
+			if (!meeting) {
+				throw new TRPCError({ code: "NOT_FOUND", message: "Meeting not found" })
+			}
+
+			// Only the meeting creator (principal/host) can add participants from the lobby.
+			if (meeting.createdById !== ctx.session.user.id) {
+				throw new TRPCError({
+					code: "FORBIDDEN",
+					message: "Only the meeting host can invite a witness",
+				})
+			}
+
+			const email = input.email.trim().toLowerCase()
+
+			const user = await db.query.users.findFirst({
+				where: eq(users.email, email),
+				columns: {
+					id: true,
+					name: true,
+					email: true,
+					image: true,
+				},
+			})
+
+			if (!user?.id) {
+				throw new TRPCError({
+					code: "BAD_REQUEST",
+					message: "User not found. They must have an account first.",
+				})
+			}
+
+			// Prevent inviting self (common typo)
+			if (user.id === ctx.session.user.id) {
+				return {
+					created: false,
+					status: "ACCEPTED" as const,
+					user,
+				}
+			}
+
+			const existing = meeting.participants.find(p => p.userId === user.id)
+			if (existing) {
+				return {
+					created: false,
+					status: existing.status,
+					user,
+				}
+			}
+
+			await db.insert(meetingParticipants).values({
+				meetingId: meeting.id,
+				userId: user.id,
+				status: "PENDING",
+				invitedById: ctx.session.user.id,
+			})
+
+			return {
+				created: true,
+				status: "PENDING" as const,
+				user,
+			}
+		}),
+
+	// Respond to a meeting invite (accept/decline)
+	respondToInvite: protectedProcedure
+		.input(
+			z.object({
+				meetingId: z.string().min(1),
+				response: z.enum(["ACCEPT", "DECLINE"]),
+			})
+		)
+		.mutation(async ({ input, ctx }) => {
+			const meeting = await db.query.meetings.findFirst({
+				where: eq(meetings.id, input.meetingId),
+				with: {
+					participants: true,
+				},
+			})
+
+			if (!meeting) {
+				throw new TRPCError({ code: "NOT_FOUND", message: "Meeting not found" })
+			}
+
+			const row = meeting.participants.find(p => p.userId === ctx.session.user.id)
+
+			if (row?.status !== "PENDING") {
+				throw new TRPCError({
+					code: "BAD_REQUEST",
+					message: "No pending invite found for this meeting",
+				})
+			}
+
+			const newStatus = input.response === "ACCEPT" ? "ACCEPTED" : "DECLINED"
+
+			await db
+				.update(meetingParticipants)
+				.set({ status: newStatus })
+				.where(eq(meetingParticipants.id, row.id))
+
+			return { success: true, status: newStatus }
 		}),
 })

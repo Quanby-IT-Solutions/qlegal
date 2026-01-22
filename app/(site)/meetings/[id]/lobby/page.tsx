@@ -15,6 +15,7 @@ import {
 	Video,
 } from "lucide-react"
 import { useSession } from "next-auth/react"
+import { toast } from "sonner"
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/core/components/ui/avatar"
 import { Button } from "@/core/components/ui/button"
@@ -25,6 +26,7 @@ import {
 	CardHeader,
 	CardTitle,
 } from "@/core/components/ui/card"
+import { Input } from "@/core/components/ui/input"
 import { Skeleton } from "@/core/components/ui/skeleton"
 import { useGeolocation } from "@/core/hooks/use-geolocation"
 
@@ -48,8 +50,8 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 	const { id } = use(params)
 	const router = useRouter()
 	const { data: session } = useSession()
-	const { getById } = useMeetings()
-	const { data: meeting, isLoading } = getById(id)
+	const { getById, inviteWitnessByEmail } = useMeetings()
+	const { data: meeting, isLoading, refetch: refetchMeeting } = getById(id)
 	const { verifyLocation } = useLocationVerification()
 
 	const videoRef = useRef<HTMLVideoElement>(null)
@@ -57,6 +59,8 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 	const [isCameraOn, setIsCameraOn] = useState(false)
 	const [isMicOn, setIsMicOn] = useState(true)
 	const [isTestingDevices, setIsTestingDevices] = useState(false)
+
+	const [witnessEmail, setWitnessEmail] = useState("")
 
 	// Liveness verification state
 	const [isCheckingLiveness, setIsCheckingLiveness] = useState(true)
@@ -411,6 +415,7 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 	}
 
 	const userRole = session?.user?.role ?? "PRINCIPAL"
+	const isHost = meeting.createdBy.id === session?.user?.id
 
 	return (
 		<>
@@ -621,7 +626,89 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 										{meeting.participants.length === 1 ? "person" : "people"}
 									</CardDescription>
 								</CardHeader>
-								<CardContent className="max-h-48 overflow-y-auto">
+								<CardContent className="space-y-3">
+									{/* Invite Witness (host only) */}
+									{isHost && (
+										<div className="flex items-center gap-2">
+											<Input
+												value={witnessEmail}
+												onChange={e => setWitnessEmail(e.target.value)}
+												placeholder="Witness email (e.g. witness@email.com)"
+												className="h-9 text-xs"
+												autoComplete="email"
+												inputMode="email"
+											/>
+											<Button
+												type="button"
+												size="sm"
+												className="h-9"
+												disabled={inviteWitnessByEmail.isPending || witnessEmail.trim().length === 0}
+												onClick={() => {
+													const email = witnessEmail.trim().toLowerCase()
+													if (!email) return
+
+													inviteWitnessByEmail.mutate(
+														{ meetingId: id, email },
+														{
+															onSuccess: async result => {
+																if (result.created) {
+																	toast.success("Invite sent")
+																	setWitnessEmail("")
+																} else {
+																	toast.message(
+																		result.status === "PENDING"
+																			? "Invite already sent"
+																			: "That user is already in this meeting"
+																	)
+																}
+																await refetchMeeting()
+															},
+															onError: err => {
+																toast.error(err.message || "Failed to invite witness")
+															},
+														}
+													)
+												}}
+											>
+												{inviteWitnessByEmail.isPending ? "Inviting..." : "Invite"}
+											</Button>
+										</div>
+									)}
+
+									{/* Pending invites (host only) */}
+									{isHost && (meeting.pendingInvites?.length ?? 0) > 0 && (
+										<div className="rounded-lg border bg-muted/20 p-2">
+											<p className="text-muted-foreground mb-2 text-[10px] font-semibold uppercase tracking-wide">
+												Pending invites ({meeting.pendingInvites.length})
+											</p>
+											<div className="space-y-1.5">
+												{meeting.pendingInvites.map(invite => (
+													<div
+														key={invite.id}
+														className="flex items-center gap-2.5 rounded-md px-2 py-1.5"
+													>
+														<Avatar className="size-7 shrink-0">
+															<AvatarImage src={invite.user.image ?? undefined} />
+															<AvatarFallback className="bg-primary text-primary-foreground text-[10px] font-semibold">
+																{invite.user.name?.charAt(0).toUpperCase() ?? "?"}
+															</AvatarFallback>
+														</Avatar>
+														<div className="min-w-0 flex-1">
+															<p className="truncate text-xs font-semibold">{invite.user.name}</p>
+															<p className="text-muted-foreground truncate text-[10px]">
+																{invite.user.email}
+															</p>
+														</div>
+														<span className="shrink-0 rounded-full bg-yellow-100 px-2 py-0.5 text-[10px] font-semibold text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300">
+															Pending
+														</span>
+													</div>
+												))}
+											</div>
+										</div>
+									)}
+
+									<div className="max-h-48 overflow-y-auto">
 									<div className="space-y-1.5">
 										{meeting.participants.map(participant => (
 											<div
@@ -654,6 +741,7 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 												)}
 											</div>
 										))}
+									</div>
 									</div>
 								</CardContent>
 							</Card>

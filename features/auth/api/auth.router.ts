@@ -2,14 +2,16 @@ import { TRPCError } from "@trpc/server"
 import { hash } from "bcryptjs"
 import { eq } from "drizzle-orm"
 
-import { provisionDocoChainUser } from "@/services/docochain"
+import { autoJoinOrganization, provisionDocoChainUser } from "@/services/doconchain"
 import { passwordResetTokens, users, verificationTokens } from "@/services/drizzle/schema/auth"
+import { enpProfiles } from "@/services/drizzle/schema/enp-profiles"
 import { sendPasswordResetToken } from "@/services/react-email/lib/send.password-reset-token"
 import { sendVerificationToken } from "@/services/react-email/lib/send.verification-token"
 import { createTRPCRouter, publicProcedure } from "@/services/trpc/init"
 
 import {
 	forgotPasswordSchema,
+	lawyerRegisterSchema,
 	registerSchema,
 	resetPasswordSchema,
 	verifyEmailSchema,
@@ -71,6 +73,136 @@ export const authRouter = createTRPCRouter({
 		await sendVerificationToken(verificationToken.email, verificationToken.token)
 
 		return { message: "Confirmation email sent." }
+	}),
+
+	registerLawyer: publicProcedure.input(lawyerRegisterSchema).mutation(async ({ ctx, input }) => {
+		const { name, email, password, seal, notaryInfo } = input
+
+		// Check if user already exists
+		const existingUser = await ctx.db.query.users.findFirst({
+			where: (data, { eq }) => eq(data.email, email),
+		})
+
+		if (existingUser) {
+			throw new TRPCError({
+				code: "CONFLICT",
+				message: "User with this email already exists.",
+			})
+		}
+
+		const hashedPassword = await hash(password, 10)
+
+		let newUserId: string | undefined
+		try {
+			await ctx.db.transaction(async tx => {
+				const [newUser] = await tx
+					.insert(users)
+					.values({
+						name,
+						email,
+						password: hashedPassword,
+						role: "ENP",
+					})
+					.returning({ id: users.id })
+
+				if (!newUser?.id) {
+					throw new TRPCError({
+						code: "INTERNAL_SERVER_ERROR",
+						message: "Failed to create user account.",
+					})
+				}
+				newUserId = newUser.id
+
+				await tx.insert(enpProfiles).values({
+					userId: newUser.id,
+					// Seal info
+					enpName: seal.enpName,
+					enpRoleNumber: seal.enpRollNumber,
+					// Notary info
+					attyName: notaryInfo.attyName,
+					rollNo: seal.enpRollNumber,
+					rollNoDate: seal.rollNoDate,
+					commissionNo: notaryInfo.commissionNo,
+					commissionNoValidUntil: notaryInfo.commissionNoValidUntil,
+					ptrNo: notaryInfo.ptrNo,
+					ptrNoLocation: notaryInfo.ptrNoLocation,
+					ptrNoDate: notaryInfo.ptrNoDate,
+					ibpNo: notaryInfo.ibpNo,
+					ibpNoDate: notaryInfo.ibpNoDate,
+					notaryEmail: notaryInfo.notaryEmail,
+					notaryAddress: notaryInfo.notaryAddress,
+					mcleNoPeriod: notaryInfo.mcleNoPeriod,
+					mcleNo: notaryInfo.mcleNo,
+					mcleNoDate: notaryInfo.mcleNoDate,
+					modeOfNotarization: notaryInfo.modeOfNotarization,
+					isAvailable: false,
+				})
+			})
+		} catch (error) {
+			const e = error as unknown as { message?: string; cause?: unknown }
+
+			throw new TRPCError({
+				code: "INTERNAL_SERVER_ERROR",
+				message:
+					"Failed to submit ENP application. Please double-check your credentials and try again.",
+			})
+		}
+
+		// Auto-join user to DocoChain organization
+		try {
+			const nameParts = name.split(" ")
+			const firstName = nameParts[0] ?? "User"
+			const lastName = nameParts.slice(1).join(" ") || ""
+
+			await autoJoinOrganization({
+				email,
+				firstName,
+				lastName,
+				role: "Member",
+			})
+			console.log("✅ Lawyer auto-joined to DocoChain organization")
+		} catch (error) {
+			console.warn("⚠️ Failed to auto-join lawyer to DocoChain organization:", error)
+		}
+
+		// Generate document_stamp payload for external API
+		const documentStamp = {
+			seal: {
+				type: "seal",
+				enp_name: seal.enpName,
+				enp_role_number: seal.enpRollNumber,
+			},
+			notary_info: {
+				type: "notary",
+				atty_name: notaryInfo.attyName,
+				roll_no: seal.enpRollNumber,
+				roll_no_date: seal.rollNoDate,
+				commission_no: notaryInfo.commissionNo,
+				commission_no_valid_until: notaryInfo.commissionNoValidUntil,
+				PTR_no: notaryInfo.ptrNo,
+				PTR_no_location: notaryInfo.ptrNoLocation,
+				PTR_no_date: notaryInfo.ptrNoDate,
+				IBP_no: notaryInfo.ibpNo,
+				IBP_no_date: notaryInfo.ibpNoDate,
+				email: notaryInfo.notaryEmail,
+				address: notaryInfo.notaryAddress,
+				MCLE_no_period: notaryInfo.mcleNoPeriod,
+				MCLE_no: notaryInfo.mcleNo,
+				MCLE_no_date: notaryInfo.mcleNoDate,
+				mode_of_notarization: notaryInfo.modeOfNotarization,
+			},
+		}
+
+		// Send verification email
+		const verificationToken = await generateVerificationToken(email)
+		await sendVerificationToken(verificationToken.email, verificationToken.token)
+
+		return {
+			message:
+				"Registration successful! Please verify your email. Your application will be reviewed by an administrator.",
+			documentStamp, // Return for debugging/confirmation
+			userId: newUserId,
+		}
 	}),
 
 	forgotPassword: publicProcedure.input(forgotPasswordSchema).mutation(async ({ ctx, input }) => {
