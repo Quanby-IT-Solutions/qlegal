@@ -1,11 +1,39 @@
-CREATE TYPE "public"."appointment_status" AS ENUM('PENDING', 'CONFIRMED', 'CANCELLED', 'COMPLETED');--> statement-breakpoint
-CREATE TYPE "public"."appointment_type" AS ENUM('DOCUMENT_SIGNING', 'CONSULTATION');--> statement-breakpoint
-CREATE TYPE "public"."document_status" AS ENUM('UPLOADED', 'PROCESSING', 'READY', 'ERROR');--> statement-breakpoint
-CREATE TYPE "public"."legal_application_status" AS ENUM('DRAFT', 'PENDING', 'UNDER_REVIEW', 'APPROVED', 'REJECTED');--> statement-breakpoint
-CREATE TYPE "public"."meeting_status" AS ENUM('SCHEDULED', 'ONGOING', 'COMPLETED', 'CANCELLED');--> statement-breakpoint
-CREATE TYPE "public"."user_role" AS ENUM('ENP', 'PRINCIPAL', 'ENA', 'ADMIN');--> statement-breakpoint
-CREATE TYPE "public"."user_status" AS ENUM('ACTIVE', 'PENDING', 'SUSPENDED');--> statement-breakpoint
-CREATE TABLE "appointment" (
+DO $$ BEGIN
+    CREATE TYPE "public"."appointment_status" AS ENUM('PENDING', 'CONFIRMED', 'CANCELLED', 'COMPLETED');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;--> statement-breakpoint
+DO $$ BEGIN
+    CREATE TYPE "public"."appointment_type" AS ENUM('DOCUMENT_SIGNING', 'CONSULTATION');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;--> statement-breakpoint
+DO $$ BEGIN
+    CREATE TYPE "public"."document_status" AS ENUM('UPLOADED', 'PROCESSING', 'READY', 'ERROR');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;--> statement-breakpoint
+DO $$ BEGIN
+    CREATE TYPE "public"."legal_application_status" AS ENUM('DRAFT', 'PENDING', 'UNDER_REVIEW', 'APPROVED', 'REJECTED');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;--> statement-breakpoint
+DO $$ BEGIN
+    CREATE TYPE "public"."meeting_status" AS ENUM('SCHEDULED', 'ONGOING', 'COMPLETED', 'CANCELLED');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;--> statement-breakpoint
+DO $$ BEGIN
+    CREATE TYPE "public"."user_role" AS ENUM('ENP', 'PRINCIPAL', 'ENA', 'ADMIN');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;--> statement-breakpoint
+DO $$ BEGIN
+    CREATE TYPE "public"."user_status" AS ENUM('ACTIVE', 'PENDING', 'SUSPENDED');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;--> statement-breakpoint
+CREATE TABLE IF NOT EXISTS "appointment" (
 	"id" varchar(255) PRIMARY KEY NOT NULL,
 	"clientId" varchar(255) NOT NULL,
 	"lawyerId" varchar(255) NOT NULL,
@@ -22,7 +50,7 @@ CREATE TABLE "appointment" (
 );
 --> statement-breakpoint
 ALTER TABLE "appointment" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
-CREATE TABLE "account" (
+CREATE TABLE IF NOT EXISTS "account" (
 	"userId" varchar(255) NOT NULL,
 	"type" varchar(255) NOT NULL,
 	"provider" varchar(255) NOT NULL,
@@ -38,7 +66,7 @@ CREATE TABLE "account" (
 );
 --> statement-breakpoint
 ALTER TABLE "account" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
-CREATE TABLE "password_reset_token" (
+CREATE TABLE IF NOT EXISTS "password_reset_token" (
 	"id" varchar(255) PRIMARY KEY DEFAULT '707a9add-e300-4f52-bc98-73c8eff74fb9' NOT NULL,
 	"email" varchar(255) NOT NULL,
 	"token" varchar(255) NOT NULL,
@@ -46,20 +74,20 @@ CREATE TABLE "password_reset_token" (
 );
 --> statement-breakpoint
 ALTER TABLE "password_reset_token" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
-CREATE TABLE "session" (
+CREATE TABLE IF NOT EXISTS "session" (
 	"sessionToken" varchar(255) PRIMARY KEY NOT NULL,
 	"userId" varchar(255) NOT NULL,
 	"expires" timestamp NOT NULL
 );
 --> statement-breakpoint
 ALTER TABLE "session" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
-CREATE TABLE "two_factor_confirmation" (
+CREATE TABLE IF NOT EXISTS "two_factor_confirmation" (
 	"id" varchar(255) PRIMARY KEY DEFAULT 'b7e1ac7d-c179-4bba-b424-17358f4b74fe' NOT NULL,
 	"userId" varchar(255) NOT NULL
 );
 --> statement-breakpoint
 ALTER TABLE "two_factor_confirmation" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
-CREATE TABLE "two_factor_token" (
+CREATE TABLE IF NOT EXISTS "two_factor_token" (
 	"id" varchar(255) PRIMARY KEY DEFAULT '382f5dc4-faf4-4fb8-bae8-08feb469a492' NOT NULL,
 	"email" varchar(255) NOT NULL,
 	"token" varchar(255) NOT NULL,
@@ -67,7 +95,7 @@ CREATE TABLE "two_factor_token" (
 );
 --> statement-breakpoint
 ALTER TABLE "two_factor_token" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
-CREATE TABLE "user" (
+CREATE TABLE IF NOT EXISTS "user" (
 	"id" varchar(255) PRIMARY KEY NOT NULL,
 	"name" varchar(255),
 	"email" varchar(255),
@@ -82,7 +110,7 @@ CREATE TABLE "user" (
 );
 --> statement-breakpoint
 ALTER TABLE "user" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
-CREATE TABLE "verification_token" (
+CREATE TABLE IF NOT EXISTS "verification_token" (
 	"id" varchar(255) PRIMARY KEY DEFAULT '363901ff-fa7e-41cb-91e5-6c8cbfd9defc' NOT NULL,
 	"email" varchar(255) NOT NULL,
 	"token" varchar(255) NOT NULL,
@@ -90,7 +118,7 @@ CREATE TABLE "verification_token" (
 );
 --> statement-breakpoint
 ALTER TABLE "verification_token" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
-CREATE TABLE "document" (
+CREATE TABLE IF NOT EXISTS "document" (
 	"id" varchar(255) PRIMARY KEY NOT NULL,
 	"name" varchar(255) NOT NULL,
 	"description" text,
@@ -108,7 +136,7 @@ CREATE TABLE "document" (
 );
 --> statement-breakpoint
 ALTER TABLE "document" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
-CREATE TABLE "enp_availability" (
+CREATE TABLE IF NOT EXISTS "enp_availability" (
 	"id" varchar(255) PRIMARY KEY NOT NULL,
 	"enpId" varchar(255) NOT NULL,
 	"dayOfWeek" integer NOT NULL,
@@ -120,7 +148,7 @@ CREATE TABLE "enp_availability" (
 );
 --> statement-breakpoint
 ALTER TABLE "enp_availability" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
-CREATE TABLE "enp_profile" (
+CREATE TABLE IF NOT EXISTS "enp_profile" (
 	"id" varchar(255) PRIMARY KEY NOT NULL,
 	"userId" varchar(255) NOT NULL,
 	"specialization" text,
@@ -138,7 +166,7 @@ CREATE TABLE "enp_profile" (
 );
 --> statement-breakpoint
 ALTER TABLE "enp_profile" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
-CREATE TABLE "envelope" (
+CREATE TABLE IF NOT EXISTS "envelope" (
 	"id" varchar(255) PRIMARY KEY NOT NULL,
 	"token" varchar(255) NOT NULL,
 	"title" varchar(255) NOT NULL,
@@ -151,7 +179,7 @@ CREATE TABLE "envelope" (
 );
 --> statement-breakpoint
 ALTER TABLE "envelope" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
-CREATE TABLE "legal_registration" (
+CREATE TABLE IF NOT EXISTS "legal_registration" (
 	"id" varchar(255) PRIMARY KEY NOT NULL,
 	"applicantId" varchar(255) NOT NULL,
 	"status" "legal_application_status" DEFAULT 'DRAFT' NOT NULL,
@@ -188,7 +216,7 @@ CREATE TABLE "legal_registration" (
 );
 --> statement-breakpoint
 ALTER TABLE "legal_registration" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
-CREATE TABLE "meeting_participant" (
+CREATE TABLE IF NOT EXISTS "meeting_participant" (
 	"id" varchar(255) PRIMARY KEY NOT NULL,
 	"meetingId" varchar(255) NOT NULL,
 	"userId" varchar(255) NOT NULL,
@@ -196,7 +224,7 @@ CREATE TABLE "meeting_participant" (
 );
 --> statement-breakpoint
 ALTER TABLE "meeting_participant" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
-CREATE TABLE "meeting" (
+CREATE TABLE IF NOT EXISTS "meeting" (
 	"id" varchar(255) PRIMARY KEY NOT NULL,
 	"title" varchar(255) NOT NULL,
 	"roomId" varchar(255) NOT NULL,
@@ -207,7 +235,7 @@ CREATE TABLE "meeting" (
 );
 --> statement-breakpoint
 ALTER TABLE "meeting" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
-CREATE TABLE "message_attachment" (
+CREATE TABLE IF NOT EXISTS "message_attachment" (
 	"id" varchar(255) PRIMARY KEY NOT NULL,
 	"conversationId" varchar(255) NOT NULL,
 	"uploadedBy" varchar(255) NOT NULL,
@@ -221,7 +249,7 @@ CREATE TABLE "message_attachment" (
 );
 --> statement-breakpoint
 ALTER TABLE "message_attachment" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
-CREATE TABLE "conversation_participant" (
+CREATE TABLE IF NOT EXISTS "conversation_participant" (
 	"id" varchar(255) PRIMARY KEY NOT NULL,
 	"conversationId" varchar(255) NOT NULL,
 	"userId" varchar(255) NOT NULL,
@@ -230,14 +258,14 @@ CREATE TABLE "conversation_participant" (
 );
 --> statement-breakpoint
 ALTER TABLE "conversation_participant" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
-CREATE TABLE "conversation" (
+CREATE TABLE IF NOT EXISTS "conversation" (
 	"id" varchar(255) PRIMARY KEY NOT NULL,
 	"createdAt" timestamp with time zone DEFAULT now() NOT NULL,
 	"updatedAt" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 ALTER TABLE "conversation" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
-CREATE TABLE "message" (
+CREATE TABLE IF NOT EXISTS "message" (
 	"id" varchar(255) PRIMARY KEY NOT NULL,
 	"conversationId" varchar(255) NOT NULL,
 	"senderId" varchar(255) NOT NULL,
@@ -246,7 +274,7 @@ CREATE TABLE "message" (
 );
 --> statement-breakpoint
 ALTER TABLE "message" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
-CREATE TABLE "signature_request" (
+CREATE TABLE IF NOT EXISTS "signature_request" (
 	"id" varchar(255) PRIMARY KEY NOT NULL,
 	"meetingId" varchar(255) NOT NULL,
 	"documentId" varchar(255) NOT NULL,
@@ -259,7 +287,7 @@ CREATE TABLE "signature_request" (
 );
 --> statement-breakpoint
 ALTER TABLE "signature_request" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
-CREATE TABLE "witness" (
+CREATE TABLE IF NOT EXISTS "witness" (
 	"id" varchar(255) PRIMARY KEY NOT NULL,
 	"enpId" varchar(255) NOT NULL,
 	"appointmentId" varchar(255),
@@ -281,50 +309,166 @@ CREATE TABLE "witness" (
 );
 --> statement-breakpoint
 ALTER TABLE "witness" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
-ALTER TABLE "appointment" ADD CONSTRAINT "appointment_clientId_user_id_fk" FOREIGN KEY ("clientId") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "appointment" ADD CONSTRAINT "appointment_lawyerId_user_id_fk" FOREIGN KEY ("lawyerId") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "account" ADD CONSTRAINT "account_userId_user_id_fk" FOREIGN KEY ("userId") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "password_reset_token" ADD CONSTRAINT "password_reset_token_email_user_email_fk" FOREIGN KEY ("email") REFERENCES "public"."user"("email") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "session" ADD CONSTRAINT "session_userId_user_id_fk" FOREIGN KEY ("userId") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "two_factor_confirmation" ADD CONSTRAINT "two_factor_confirmation_userId_user_id_fk" FOREIGN KEY ("userId") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "two_factor_token" ADD CONSTRAINT "two_factor_token_email_user_email_fk" FOREIGN KEY ("email") REFERENCES "public"."user"("email") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "verification_token" ADD CONSTRAINT "verification_token_email_user_email_fk" FOREIGN KEY ("email") REFERENCES "public"."user"("email") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "document" ADD CONSTRAINT "document_envelopeId_envelope_id_fk" FOREIGN KEY ("envelopeId") REFERENCES "public"."envelope"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "document" ADD CONSTRAINT "document_meetingId_meeting_id_fk" FOREIGN KEY ("meetingId") REFERENCES "public"."meeting"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "enp_availability" ADD CONSTRAINT "enp_availability_enpId_user_id_fk" FOREIGN KEY ("enpId") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "enp_profile" ADD CONSTRAINT "enp_profile_userId_user_id_fk" FOREIGN KEY ("userId") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "envelope" ADD CONSTRAINT "envelope_userId_user_id_fk" FOREIGN KEY ("userId") REFERENCES "public"."user"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "legal_registration" ADD CONSTRAINT "legal_registration_applicantId_user_id_fk" FOREIGN KEY ("applicantId") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "meeting_participant" ADD CONSTRAINT "meeting_participant_meetingId_meeting_id_fk" FOREIGN KEY ("meetingId") REFERENCES "public"."meeting"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "meeting_participant" ADD CONSTRAINT "meeting_participant_userId_user_id_fk" FOREIGN KEY ("userId") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "meeting" ADD CONSTRAINT "meeting_createdById_user_id_fk" FOREIGN KEY ("createdById") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "message_attachment" ADD CONSTRAINT "message_attachment_conversationId_conversation_id_fk" FOREIGN KEY ("conversationId") REFERENCES "public"."conversation"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "message_attachment" ADD CONSTRAINT "message_attachment_uploadedBy_user_id_fk" FOREIGN KEY ("uploadedBy") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "conversation_participant" ADD CONSTRAINT "conversation_participant_conversationId_conversation_id_fk" FOREIGN KEY ("conversationId") REFERENCES "public"."conversation"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "conversation_participant" ADD CONSTRAINT "conversation_participant_userId_user_id_fk" FOREIGN KEY ("userId") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "message" ADD CONSTRAINT "message_conversationId_conversation_id_fk" FOREIGN KEY ("conversationId") REFERENCES "public"."conversation"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "message" ADD CONSTRAINT "message_senderId_user_id_fk" FOREIGN KEY ("senderId") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "signature_request" ADD CONSTRAINT "signature_request_meetingId_meeting_id_fk" FOREIGN KEY ("meetingId") REFERENCES "public"."meeting"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "signature_request" ADD CONSTRAINT "signature_request_documentId_document_id_fk" FOREIGN KEY ("documentId") REFERENCES "public"."document"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "signature_request" ADD CONSTRAINT "signature_request_requesterId_user_id_fk" FOREIGN KEY ("requesterId") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "signature_request" ADD CONSTRAINT "signature_request_signerId_user_id_fk" FOREIGN KEY ("signerId") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "witness" ADD CONSTRAINT "witness_enpId_user_id_fk" FOREIGN KEY ("enpId") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "witness" ADD CONSTRAINT "witness_appointmentId_appointment_id_fk" FOREIGN KEY ("appointmentId") REFERENCES "public"."appointment"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
-CREATE INDEX "account_user_id_idx" ON "account" USING btree ("userId");--> statement-breakpoint
-CREATE INDEX "legal_registration_status_idx" ON "legal_registration" USING btree ("status");--> statement-breakpoint
-CREATE INDEX "legal_registration_applicant_id_idx" ON "legal_registration" USING btree ("applicantId");--> statement-breakpoint
-CREATE INDEX "meeting_participants_meeting_id_idx" ON "meeting_participant" USING btree ("meetingId");--> statement-breakpoint
-CREATE INDEX "meeting_participants_user_id_idx" ON "meeting_participant" USING btree ("userId");--> statement-breakpoint
-CREATE INDEX "meetings_room_id_idx" ON "meeting" USING btree ("roomId");--> statement-breakpoint
-CREATE INDEX "meetings_created_by_idx" ON "meeting" USING btree ("createdById");--> statement-breakpoint
-CREATE INDEX "message_attachment_conversation_id_idx" ON "message_attachment" USING btree ("conversationId");--> statement-breakpoint
-CREATE INDEX "message_attachment_upload_type_idx" ON "message_attachment" USING btree ("uploadType");--> statement-breakpoint
-CREATE INDEX "message_attachment_created_at_idx" ON "message_attachment" USING btree ("createdAt");--> statement-breakpoint
-CREATE INDEX "conversation_participant_conversation_id_idx" ON "conversation_participant" USING btree ("conversationId");--> statement-breakpoint
-CREATE INDEX "conversation_participant_user_id_idx" ON "conversation_participant" USING btree ("userId");--> statement-breakpoint
-CREATE INDEX "conversation_updated_at_idx" ON "conversation" USING btree ("updatedAt");--> statement-breakpoint
-CREATE INDEX "message_conversation_id_idx" ON "message" USING btree ("conversationId");--> statement-breakpoint
-CREATE INDEX "message_created_at_idx" ON "message" USING btree ("createdAt");--> statement-breakpoint
-CREATE INDEX "signature_requests_meeting_id_idx" ON "signature_request" USING btree ("meetingId");--> statement-breakpoint
-CREATE INDEX "signature_requests_signer_id_idx" ON "signature_request" USING btree ("signerId");--> statement-breakpoint
-CREATE INDEX "signature_requests_status_idx" ON "signature_request" USING btree ("status");
+DO $$ BEGIN
+    ALTER TABLE "appointment" ADD CONSTRAINT "appointment_clientId_user_id_fk" FOREIGN KEY ("clientId") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;--> statement-breakpoint
+DO $$ BEGIN
+    ALTER TABLE "appointment" ADD CONSTRAINT "appointment_lawyerId_user_id_fk" FOREIGN KEY ("lawyerId") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;--> statement-breakpoint
+DO $$ BEGIN
+    ALTER TABLE "account" ADD CONSTRAINT "account_userId_user_id_fk" FOREIGN KEY ("userId") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;--> statement-breakpoint
+DO $$ BEGIN
+    ALTER TABLE "password_reset_token" ADD CONSTRAINT "password_reset_token_email_user_email_fk" FOREIGN KEY ("email") REFERENCES "public"."user"("email") ON DELETE cascade ON UPDATE no action;
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;--> statement-breakpoint
+DO $$ BEGIN
+    ALTER TABLE "session" ADD CONSTRAINT "session_userId_user_id_fk" FOREIGN KEY ("userId") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;--> statement-breakpoint
+DO $$ BEGIN
+    ALTER TABLE "two_factor_confirmation" ADD CONSTRAINT "two_factor_confirmation_userId_user_id_fk" FOREIGN KEY ("userId") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;--> statement-breakpoint
+DO $$ BEGIN
+    ALTER TABLE "two_factor_token" ADD CONSTRAINT "two_factor_token_email_user_email_fk" FOREIGN KEY ("email") REFERENCES "public"."user"("email") ON DELETE cascade ON UPDATE no action;
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;--> statement-breakpoint
+DO $$ BEGIN
+    ALTER TABLE "verification_token" ADD CONSTRAINT "verification_token_email_user_email_fk" FOREIGN KEY ("email") REFERENCES "public"."user"("email") ON DELETE cascade ON UPDATE no action;
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;--> statement-breakpoint
+DO $$ BEGIN
+    ALTER TABLE "document" ADD CONSTRAINT "document_envelopeId_envelope_id_fk" FOREIGN KEY ("envelopeId") REFERENCES "public"."envelope"("id") ON DELETE no action ON UPDATE no action;
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;--> statement-breakpoint
+DO $$ BEGIN
+    ALTER TABLE "document" ADD CONSTRAINT "document_meetingId_meeting_id_fk" FOREIGN KEY ("meetingId") REFERENCES "public"."meeting"("id") ON DELETE cascade ON UPDATE no action;
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;--> statement-breakpoint
+DO $$ BEGIN
+    ALTER TABLE "enp_availability" ADD CONSTRAINT "enp_availability_enpId_user_id_fk" FOREIGN KEY ("enpId") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;--> statement-breakpoint
+DO $$ BEGIN
+    ALTER TABLE "enp_profile" ADD CONSTRAINT "enp_profile_userId_user_id_fk" FOREIGN KEY ("userId") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;--> statement-breakpoint
+DO $$ BEGIN
+    ALTER TABLE "envelope" ADD CONSTRAINT "envelope_userId_user_id_fk" FOREIGN KEY ("userId") REFERENCES "public"."user"("id") ON DELETE no action ON UPDATE no action;
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;--> statement-breakpoint
+DO $$ BEGIN
+    ALTER TABLE "legal_registration" ADD CONSTRAINT "legal_registration_applicantId_user_id_fk" FOREIGN KEY ("applicantId") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;--> statement-breakpoint
+DO $$ BEGIN
+    ALTER TABLE "meeting_participant" ADD CONSTRAINT "meeting_participant_meetingId_meeting_id_fk" FOREIGN KEY ("meetingId") REFERENCES "public"."meeting"("id") ON DELETE cascade ON UPDATE no action;
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;--> statement-breakpoint
+DO $$ BEGIN
+    ALTER TABLE "meeting_participant" ADD CONSTRAINT "meeting_participant_userId_user_id_fk" FOREIGN KEY ("userId") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;--> statement-breakpoint
+DO $$ BEGIN
+    ALTER TABLE "meeting" ADD CONSTRAINT "meeting_createdById_user_id_fk" FOREIGN KEY ("createdById") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;--> statement-breakpoint
+DO $$ BEGIN
+    ALTER TABLE "message_attachment" ADD CONSTRAINT "message_attachment_conversationId_conversation_id_fk" FOREIGN KEY ("conversationId") REFERENCES "public"."conversation"("id") ON DELETE cascade ON UPDATE no action;
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;--> statement-breakpoint
+DO $$ BEGIN
+    ALTER TABLE "message_attachment" ADD CONSTRAINT "message_attachment_uploadedBy_user_id_fk" FOREIGN KEY ("uploadedBy") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;--> statement-breakpoint
+DO $$ BEGIN
+    ALTER TABLE "conversation_participant" ADD CONSTRAINT "conversation_participant_conversationId_conversation_id_fk" FOREIGN KEY ("conversationId") REFERENCES "public"."conversation"("id") ON DELETE cascade ON UPDATE no action;
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;--> statement-breakpoint
+DO $$ BEGIN
+    ALTER TABLE "conversation_participant" ADD CONSTRAINT "conversation_participant_userId_user_id_fk" FOREIGN KEY ("userId") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;--> statement-breakpoint
+DO $$ BEGIN
+    ALTER TABLE "message" ADD CONSTRAINT "message_conversationId_conversation_id_fk" FOREIGN KEY ("conversationId") REFERENCES "public"."conversation"("id") ON DELETE cascade ON UPDATE no action;
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;--> statement-breakpoint
+DO $$ BEGIN
+    ALTER TABLE "message" ADD CONSTRAINT "message_senderId_user_id_fk" FOREIGN KEY ("senderId") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;--> statement-breakpoint
+DO $$ BEGIN
+    ALTER TABLE "signature_request" ADD CONSTRAINT "signature_request_meetingId_meeting_id_fk" FOREIGN KEY ("meetingId") REFERENCES "public"."meeting"("id") ON DELETE cascade ON UPDATE no action;
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;--> statement-breakpoint
+DO $$ BEGIN
+    ALTER TABLE "signature_request" ADD CONSTRAINT "signature_request_documentId_document_id_fk" FOREIGN KEY ("documentId") REFERENCES "public"."document"("id") ON DELETE cascade ON UPDATE no action;
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;--> statement-breakpoint
+DO $$ BEGIN
+    ALTER TABLE "signature_request" ADD CONSTRAINT "signature_request_requesterId_user_id_fk" FOREIGN KEY ("requesterId") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;--> statement-breakpoint
+DO $$ BEGIN
+    ALTER TABLE "signature_request" ADD CONSTRAINT "signature_request_signerId_user_id_fk" FOREIGN KEY ("signerId") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;--> statement-breakpoint
+DO $$ BEGIN
+    ALTER TABLE "witness" ADD CONSTRAINT "witness_enpId_user_id_fk" FOREIGN KEY ("enpId") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;--> statement-breakpoint
+DO $$ BEGIN
+    ALTER TABLE "witness" ADD CONSTRAINT "witness_appointmentId_appointment_id_fk" FOREIGN KEY ("appointmentId") REFERENCES "public"."appointment"("id") ON DELETE set null ON UPDATE no action;
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "account_user_id_idx" ON "account" USING btree ("userId");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "legal_registration_status_idx" ON "legal_registration" USING btree ("status");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "legal_registration_applicant_id_idx" ON "legal_registration" USING btree ("applicantId");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "meeting_participants_meeting_id_idx" ON "meeting_participant" USING btree ("meetingId");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "meeting_participants_user_id_idx" ON "meeting_participant" USING btree ("userId");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "meetings_room_id_idx" ON "meeting" USING btree ("roomId");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "meetings_created_by_idx" ON "meeting" USING btree ("createdById");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "message_attachment_conversation_id_idx" ON "message_attachment" USING btree ("conversationId");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "message_attachment_upload_type_idx" ON "message_attachment" USING btree ("uploadType");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "message_attachment_created_at_idx" ON "message_attachment" USING btree ("createdAt");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "conversation_participant_conversation_id_idx" ON "conversation_participant" USING btree ("conversationId");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "conversation_participant_user_id_idx" ON "conversation_participant" USING btree ("userId");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "conversation_updated_at_idx" ON "conversation" USING btree ("updatedAt");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "message_conversation_id_idx" ON "message" USING btree ("conversationId");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "message_created_at_idx" ON "message" USING btree ("createdAt");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "signature_requests_meeting_id_idx" ON "signature_request" USING btree ("meetingId");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "signature_requests_signer_id_idx" ON "signature_request" USING btree ("signerId");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "signature_requests_status_idx" ON "signature_request" USING btree ("status");
