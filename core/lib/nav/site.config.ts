@@ -165,13 +165,17 @@ export const appSidebarSections: NavSection[] = [
 				icon: PieChartIcon,
 			},
 
-			// ========================================================================
-			// LAWYER AVAILABILITY CALENDAR - Principal-only view of ENP schedules
-			// ========================================================================
+			// ============================================================================
+			// FIND & BOOK A NOTARY - PRINCIPAL finding and booking ENPs
+			// ============================================================================
+			// Available to: PRINCIPAL only
+			// Workflows: REN, IEN
+			// Purpose: Browse directory, quick match, or message-first with ENP
+			// Features: Search filters, smart matching algorithm, messaging integration
 			{
-				title: "Calendar",
-				url: "/calendar",
-				icon: CalendarIcon,
+				title: "Find & Book",
+				url: "/browse",
+				icon: Sparkles,
 				roles: ["PRINCIPAL"],
 				workflows: ["REN", "IEN"],
 			},
