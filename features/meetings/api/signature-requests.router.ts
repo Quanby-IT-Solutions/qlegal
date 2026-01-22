@@ -11,12 +11,11 @@ import {
 	downloadSignedDocument,
 	generateEditDraftLink,
 	generateSignLink,
-	getDocoChainToken,
 	getPassportDocument,
 	getProjectDetails,
 	sendDocoChainProject,
-} from "@/services/docochain"
-import { normalizeDocoChainUrl } from "@/services/docochain/url-normalizer"
+} from "@/services/doconchain"
+import { normalizeDocoChainUrl } from "@/services/doconchain/url-normalizer"
 import { db } from "@/services/drizzle/db"
 import { users } from "@/services/drizzle/schema/auth"
 import { documents } from "@/services/drizzle/schema/document"
@@ -609,9 +608,7 @@ export const signatureRequestsRouter = createTRPCRouter({
 					// Project is still Draft - ALWAYS generate a fresh Edit Draft Link
 					// DO NOT use stored redirect URL - it's a one-time link that expires/invalidates
 					// after first use or after some time, causing "Session Ended" errors.
-					console.log(
-						"🔵 Project is Draft - generating fresh Edit Draft Link (for plotting)..."
-					)
+					console.log("🔵 Project is Draft - generating fresh Edit Draft Link (for plotting)...")
 
 					// Generate Edit Draft Project Link (allows plotting/editing/signing in draft)
 					// POST /api/v2/projects/{uuid}/link?user_type=ENTERPRISE_API
@@ -663,7 +660,7 @@ export const signatureRequestsRouter = createTRPCRouter({
 
 				// Final normalization
 				const finalNormalizedLink = normalizeDocoChainUrl(signingLink) ?? signingLink
-				
+
 				return {
 					success: true,
 					link: finalNormalizedLink,
@@ -727,9 +724,7 @@ export const signatureRequestsRouter = createTRPCRouter({
 						enpEmail = document.meeting.createdBy.email
 					} else {
 						// Find ENP from participants
-						const enpParticipant = document.meeting.participants.find(
-							p => p.user?.role === "ENP"
-						)
+						const enpParticipant = document.meeting.participants.find(p => p.user?.role === "ENP")
 						if (enpParticipant?.user?.email) {
 							enpEmail = enpParticipant.user.email
 						}
@@ -827,7 +822,7 @@ export const signatureRequestsRouter = createTRPCRouter({
 
 				// ABSOLUTE FINAL CHECK: Normalize one last time before returning
 				const finalNormalizedLink = normalizeDocoChainUrl(finalLink) ?? finalLink
-				
+
 				return {
 					success: true,
 					link: finalNormalizedLink,
@@ -955,7 +950,10 @@ export const signatureRequestsRouter = createTRPCRouter({
 				}
 
 				// 2. Add envelope creator email
-				if (document.envelope?.user?.email && !possibleEmails.includes(document.envelope.user.email)) {
+				if (
+					document.envelope?.user?.email &&
+					!possibleEmails.includes(document.envelope.user.email)
+				) {
 					possibleEmails.push(document.envelope.user.email)
 				}
 
