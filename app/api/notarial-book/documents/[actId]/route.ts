@@ -1,18 +1,13 @@
 import { NextResponse, type NextRequest } from "next/server"
-import { and, eq } from "drizzle-orm"
+import { eq } from "drizzle-orm"
 
-import {
-	checkSigningStatus,
-	downloadSignedDocument,
-	getProjectDetails,
-	getVaultItem,
-} from "@/services/docochain"
+import { checkSigningStatus, downloadSignedDocument, getVaultItem } from "@/services/doconchain"
 import { db } from "@/services/drizzle/db"
 import { users } from "@/services/drizzle/schema/auth"
 import { documents } from "@/services/drizzle/schema/document"
 import { notarialActs, notarialBooks } from "@/services/drizzle/schema/notarial-book"
 import { auth } from "@/services/next-auth"
-import { getPublicClient, getServiceRoleClient } from "@/services/supabase"
+import { getServiceRoleClient } from "@/services/supabase"
 
 export async function GET(
 	request: NextRequest,

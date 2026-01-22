@@ -7,7 +7,7 @@ import {
 	downloadSignedDocument,
 	getProcessingCompletedProjects,
 	getProjectDetails,
-} from "@/services/docochain"
+} from "@/services/doconchain"
 import { users } from "@/services/drizzle/schema/auth"
 import { documents } from "@/services/drizzle/schema/document"
 import { envelopes } from "@/services/drizzle/schema/envelope"

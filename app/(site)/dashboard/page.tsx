@@ -62,6 +62,9 @@ import {
 	BreadcrumbPage,
 } from "@/features/home/components/ui/breadcrumb"
 
+import Link from "next/link"
+import { buttonVariants } from "@/core/components/ui/button"
+
 // Register Chart.js components
 ChartJS.register(
 	CategoryScale,
@@ -351,7 +354,6 @@ export default function DashboardPage() {
 			{
 				title: isENP ? "Total Clients" : "Total Appointments",
 				value: stats.totalAppointments ?? 0,
-				// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
 				icon: isENP ? UserIcon : Calendar01Icon,
 				description: "All time",
 				color: "text-blue-600",
@@ -360,7 +362,6 @@ export default function DashboardPage() {
 			{
 				title: "Pending",
 				value: stats.pendingAppointments ?? 0,
-				// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
 				icon: Clock01Icon,
 				description: isENP ? "Pending requests" : "Awaiting confirmation",
 				color: "text-orange-600",
@@ -369,7 +370,6 @@ export default function DashboardPage() {
 			{
 				title: "Documents",
 				value: stats.totalDocuments ?? 0,
-				// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
 				icon: File01Icon,
 				description: "Total uploaded",
 				color: "text-purple-600",
@@ -382,7 +382,6 @@ export default function DashboardPage() {
 			baseStats.push({
 				title: "Notarization Requests",
 				value: stats.pendingNotarizationRequests ?? 0,
-				// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
 				icon: ClipboardIcon,
 				description: "Pending requests",
 				color: "text-orange-600",
@@ -391,7 +390,6 @@ export default function DashboardPage() {
 			baseStats.push({
 				title: "Signature Requests",
 				value: stats.pendingSignatureRequests ?? 0,
-				// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
 				icon: FileAddIcon,
 				description: "Pending signatures",
 				color: "text-pink-600",
@@ -401,7 +399,6 @@ export default function DashboardPage() {
 			baseStats.push({
 				title: "Completed",
 				value: stats.completedAppointments ?? 0,
-				// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
 				icon: CheckmarkCircle01Icon,
 				description: "Successfully finished",
 				color: "text-green-600",
@@ -465,7 +462,6 @@ export default function DashboardPage() {
 									</Card>
 								))
 							: statsCards.map((stat, index) => {
-									// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
 									const Icon = stat.icon
 									const hasPendingRequests =
 										isENP &&
@@ -479,7 +475,6 @@ export default function DashboardPage() {
 											)}
 											<CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
 												<CardTitle className="text-sm font-medium">{stat.title}</CardTitle>
-												{/* eslint-disable-next-line @typescript-eslint/no-unsafe-assignment */}
 												<HugeiconsIcon icon={Icon} size={16} className={stat.color} />
 											</CardHeader>
 											<CardContent>
@@ -498,92 +493,97 @@ export default function DashboardPage() {
 							<CardDescription>Common tasks to get you started</CardDescription>
 						</CardHeader>
 						<CardContent>
-							<div
-								className={`grid gap-4 sm:grid-cols-2 ${isENP ? "lg:grid-cols-5" : "lg:grid-cols-4"}`}
+						<div
+							className={`grid gap-4 sm:grid-cols-2 ${isENP ? "lg:grid-cols-5" : "lg:grid-cols-4"}`}
 							>
-								{isPrincipal && (
-									<Button
-										variant="outline"
-										className="h-auto flex-col items-start gap-2 p-4"
-										onClick={() => router.push("/find-notary" as Route)}
-									>
-										{/* eslint-disable-next-line @typescript-eslint/no-unsafe-assignment */}
-										<HugeiconsIcon icon={UserIcon} size={20} />
-										<div className="text-left">
-											<div className="font-semibold">Find a Notary</div>
-											<div className="text-muted-foreground text-xs">
-												Search for available notaries
-											</div>
-										</div>
-									</Button>
+							{isPrincipal && (
+								<Link
+								href="/calendar"
+								className={buttonVariants({ 
+									variant: "outline", 
+									className: "h-auto flex-col items-start gap-2 p-4" 
+								})}
+								>
+								<HugeiconsIcon icon={UserIcon} size={20} />
+								<div className="text-left">
+									<div className="font-semibold">Book a Notary</div>
+									<div className="text-muted-foreground text-xs">
+									View availability and book a time
+									</div>
+								</div>
+								</Link>
+							)}
+							{isENP && (
+								<Link
+								href="/requests/incoming"
+								className={buttonVariants({ 
+									variant: "outline", 
+									className: "relative h-auto flex-col items-start gap-2 overflow-visible p-4" 
+								})}
+								onClick={() => {
+									const currentCount = statistics?.pendingNotarizationRequests ?? 0
+									localStorage.setItem("enp_viewed_requests", "true")
+									localStorage.setItem("enp_last_viewed_count", currentCount.toString())
+									setHasViewedRequests(true)
+								}}
+								>
+								{(statistics?.pendingNotarizationRequests ?? 0) > 0 && !hasViewedRequests && (
+									<div className="border-background absolute -top-2 -right-2 z-20 h-4 w-4 animate-pulse rounded-full border-2 bg-red-500 shadow-lg" />
 								)}
-								{isENP && (
-									<Button
-										variant="outline"
-										className="relative h-auto flex-col items-start gap-2 overflow-visible p-4"
-										onClick={() => {
-											const currentCount = statistics?.pendingNotarizationRequests ?? 0
-											localStorage.setItem("enp_viewed_requests", "true")
-											localStorage.setItem("enp_last_viewed_count", currentCount.toString())
-											setHasViewedRequests(true)
-											router.push("/requests/incoming" as Route)
-										}}
-									>
-										{(statistics?.pendingNotarizationRequests ?? 0) > 0 && !hasViewedRequests && (
-											<div className="border-background absolute -top-2 -right-2 z-20 h-4 w-4 animate-pulse rounded-full border-2 bg-red-500 shadow-lg" />
-										)}
-										{/* eslint-disable-next-line @typescript-eslint/no-unsafe-assignment */}
-										<HugeiconsIcon icon={ClipboardIcon} size={20} />
-										<div className="text-left">
-											<div className="font-semibold">Notarization Requests</div>
-											<div className="text-muted-foreground text-xs">
-												{statistics?.pendingNotarizationRequests ?? 0} pending request
-												{statistics?.pendingNotarizationRequests !== 1 ? "s" : ""}
-											</div>
-										</div>
-									</Button>
-								)}
-								<Button
-									variant="outline"
-									className="h-auto flex-col items-start gap-2 p-4"
-									onClick={() => router.push("/consultations" as Route)}
-								>
-									{/* eslint-disable-next-line @typescript-eslint/no-unsafe-assignment */}
-									<HugeiconsIcon icon={Calendar01Icon} size={20} />
-									<div className="text-left">
-										<div className="font-semibold">
-											{isENP ? "View Consultations" : "Book Consultation"}
-										</div>
-										<div className="text-muted-foreground text-xs">
-											{isENP ? "Manage consultation requests" : "Schedule a consultation"}
-										</div>
+								<HugeiconsIcon icon={ClipboardIcon} size={20} />
+								<div className="text-left">
+									<div className="font-semibold">Notarization Requests</div>
+									<div className="text-muted-foreground text-xs">
+									{statistics?.pendingNotarizationRequests ?? 0} pending request
+									{statistics?.pendingNotarizationRequests !== 1 ? "s" : ""}
 									</div>
-								</Button>
-								<Button
-									variant="outline"
-									className="h-auto flex-col items-start gap-2 p-4"
-									onClick={() => router.push("/envelopes" as Route)}
-								>
-									{/* eslint-disable-next-line @typescript-eslint/no-unsafe-assignment */}
-									<HugeiconsIcon icon={FileAddIcon} size={20} />
-									<div className="text-left">
-										<div className="font-semibold">Upload Document</div>
-										<div className="text-muted-foreground text-xs">Create new envelope</div>
-									</div>
-								</Button>
-								<Button
-									variant="outline"
-									className="h-auto flex-col items-start gap-2 p-4"
-									onClick={() => router.push("/appointments" as Route)}
-								>
-									{/* eslint-disable-next-line @typescript-eslint/no-unsafe-assignment */}
-									<HugeiconsIcon icon={ClipboardIcon} size={20} />
-									<div className="text-left">
-										<div className="font-semibold">View Appointments</div>
-										<div className="text-muted-foreground text-xs">Manage your schedule</div>
-									</div>
-								</Button>
-							</div>
+								</div>
+								</Link>
+							)}
+							<Link
+								href={isENP ? "/appointments" : "/consultations"}
+								className={buttonVariants({ 
+								variant: "outline", 
+								className: "h-auto flex-col items-start gap-2 p-4" 
+								})}
+							>
+								<HugeiconsIcon icon={Calendar01Icon} size={20} />
+								<div className="text-left">
+								<div className="font-semibold">
+									{isENP ? "View Consultations" : "Book Consultation"}
+								</div>
+								<div className="text-muted-foreground text-xs">
+									{isENP ? "Manage consultation requests" : "Schedule a consultation"}
+								</div>
+								</div>
+							</Link>
+							<Link
+								href="/envelopes"
+								className={buttonVariants({ 
+								variant: "outline", 
+								className: "h-auto flex-col items-start gap-2 p-4" 
+								})}
+							>
+								<HugeiconsIcon icon={FileAddIcon} size={20} />
+								<div className="text-left">
+								<div className="font-semibold">Upload Document</div>
+								<div className="text-muted-foreground text-xs">Create new envelope</div>
+								</div>
+							</Link>
+							<Link
+								href={isENP ? "/appointments" : "/calendar"}
+								className={buttonVariants({ 
+								variant: "outline", 
+								className: "h-auto flex-col items-start gap-2 p-4" 
+								})}
+							>
+								<HugeiconsIcon icon={ClipboardIcon} size={20} />
+								<div className="text-left">
+								<div className="font-semibold">View Appointments</div>
+								<div className="text-muted-foreground text-xs">Manage your schedule</div>
+								</div>
+							</Link>
+							</div>	
 						</CardContent>
 					</Card>
 
@@ -609,14 +609,13 @@ export default function DashboardPage() {
 													: "Waiting for the notary to accept your booking"}
 										</CardDescription>
 									</div>
-									<Button
-										variant="ghost"
-										size="sm"
-										onClick={() => router.push("/appointments" as Route)}
-									>
+									<Link
+										href="/appointments"
+										className={buttonVariants({ variant: "ghost", size: "sm" })}
+										>
 										View All
 										<HugeiconsIcon icon={ArrowRight01Icon} size={16} className="ml-2" />
-									</Button>
+									</Link>
 								</div>
 							</CardHeader>
 							<CardContent>
@@ -692,7 +691,6 @@ export default function DashboardPage() {
 								<div className="flex items-center justify-between">
 									<div>
 										<CardTitle className="flex items-center gap-2">
-											{/* eslint-disable-next-line @typescript-eslint/no-unsafe-assignment */}
 											<HugeiconsIcon icon={PresentationLineChart01Icon} size={20} />
 											Activity Trend
 										</CardTitle>
@@ -746,7 +744,6 @@ export default function DashboardPage() {
 								<div className="flex items-center justify-between">
 									<div>
 										<CardTitle className="flex items-center gap-2">
-											{/* eslint-disable-next-line @typescript-eslint/no-unsafe-assignment */}
 											<HugeiconsIcon icon={PieChart01Icon} size={20} />
 											Appointment Status
 										</CardTitle>
@@ -803,7 +800,6 @@ export default function DashboardPage() {
 								<div className="flex items-center justify-between">
 									<div>
 										<CardTitle className="flex items-center gap-2">
-											{/* eslint-disable-next-line @typescript-eslint/no-unsafe-assignment */}
 											<HugeiconsIcon icon={BarChartIcon} size={20} />
 											Appointment Types
 										</CardTitle>
@@ -959,12 +955,12 @@ export default function DashboardPage() {
 									</div>
 								) : (
 									<div className="flex h-[350px] flex-col items-center justify-center text-center">
-										<div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-linear-to-br from-blue-100 to-blue-200">
-											{/* eslint-disable-next-line @typescript-eslint/no-unsafe-assignment */}
-											<HugeiconsIcon icon={BarChartIcon} size={32} className="text-blue-600" />
+										<div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-blue-100 to-blue-200 dark:from-blue-900/30 dark:to-blue-800/30">
+											{ }
+											<HugeiconsIcon icon={BarChartIcon} size={32} className="text-blue-600 dark:text-blue-400" />
 										</div>
-										<p className="font-semibold text-slate-900">No appointment type data</p>
-										<p className="text-sm text-slate-600">
+										<p className="font-semibold text-slate-900 dark:text-slate-100">No appointment type data</p>
+										<p className="text-muted-foreground text-sm">
 											Appointment type distribution will appear here
 										</p>
 									</div>
@@ -978,7 +974,6 @@ export default function DashboardPage() {
 								<div className="flex items-center justify-between">
 									<div>
 										<CardTitle className="flex items-center gap-2">
-											{/* eslint-disable-next-line @typescript-eslint/no-unsafe-assignment */}
 											<HugeiconsIcon icon={File01Icon} size={20} />
 											Document Status
 										</CardTitle>
@@ -1038,10 +1033,13 @@ export default function DashboardPage() {
 										<CardTitle>Meeting Invitations</CardTitle>
 										<CardDescription>Invites to join meetings as a witness/participant</CardDescription>
 									</div>
-									<Button variant="ghost" size="sm" onClick={() => router.push("/meetings" as Route)}>
+									<Link
+										href="/meetings"
+										className={buttonVariants({ variant: "ghost", size: "sm" })}
+										>
 										View Meetings
 										<HugeiconsIcon icon={ArrowRight01Icon} size={16} className="ml-2" />
-									</Button>
+									</Link>
 								</div>
 							</CardHeader>
 							<CardContent>
@@ -1138,15 +1136,13 @@ export default function DashboardPage() {
 												: "Your scheduled consultations"}
 										</CardDescription>
 									</div>
-									<Button
-										variant="ghost"
-										size="sm"
-										onClick={() => router.push("/appointments" as Route)}
-									>
+									<Link
+										href={isENP ? "/appointments" : "/calendar"}
+										className={buttonVariants({ variant: "ghost", size: "sm" })}
+										>
 										View All
-										{/* eslint-disable-next-line @typescript-eslint/no-unsafe-assignment */}
 										<HugeiconsIcon icon={ArrowRight01Icon} size={16} className="ml-2" />
-									</Button>
+									</Link>
 								</div>
 							</CardHeader>
 							<CardContent>
@@ -1190,13 +1186,11 @@ export default function DashboardPage() {
 													</div>
 													<p className="text-muted-foreground text-sm">{appointment.type}</p>
 													<div className="text-muted-foreground flex items-center gap-2 text-xs">
-														{/* eslint-disable-next-line @typescript-eslint/no-unsafe-assignment */}
 														<HugeiconsIcon icon={Calendar01Icon} size={12} />
 														{format(new Date(appointment.appointmentDate), "PPp")}
 													</div>
 													{appointment.location && (
 														<div className="text-muted-foreground flex items-center gap-1 text-xs">
-															{/* eslint-disable-next-line @typescript-eslint/no-unsafe-assignment */}
 															<HugeiconsIcon icon={Location01Icon} size={12} />
 															{appointment.location}
 														</div>
@@ -1208,20 +1202,17 @@ export default function DashboardPage() {
 								) : (
 									<div className="flex flex-col items-center justify-center py-8 text-center">
 										<HugeiconsIcon
-											// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
 											icon={Calendar01Icon}
 											size={48}
 											className="text-muted-foreground/50"
 										/>
 										<p className="text-muted-foreground mt-4 text-sm">No upcoming appointments</p>
-										<Button
-											variant="outline"
-											size="sm"
-											className="mt-4"
-											onClick={() => router.push("/consultations" as Route)}
-										>
+										<Link
+											href="/consultations"
+											className={buttonVariants({ variant: "outline", size: "sm", className: "mt-4" })}
+											>
 											Book Consultation
-										</Button>
+										</Link>
 									</div>
 								)}
 							</CardContent>
@@ -1235,15 +1226,13 @@ export default function DashboardPage() {
 										<CardTitle>Recent Documents</CardTitle>
 										<CardDescription>Your latest uploaded files</CardDescription>
 									</div>
-									<Button
-										variant="ghost"
-										size="sm"
-										onClick={() => router.push("/envelopes" as Route)}
-									>
+									<Link
+										href="/envelopes"
+										className={buttonVariants({ variant: "ghost", size: "sm" })}
+										>
 										View All
-										{/* eslint-disable-next-line @typescript-eslint/no-unsafe-assignment */}
 										<HugeiconsIcon icon={ArrowRight01Icon} size={16} className="ml-2" />
-									</Button>
+									</Link>
 								</div>
 							</CardHeader>
 							<CardContent>
@@ -1297,14 +1286,12 @@ export default function DashboardPage() {
 											className="text-muted-foreground/50"
 										/>
 										<p className="text-muted-foreground mt-4 text-sm">No documents yet</p>
-										<Button
-											variant="outline"
-											size="sm"
-											className="mt-4"
-											onClick={() => router.push("/envelopes" as Route)}
+										<Link
+										href="/envelopes"
+										className={buttonVariants({ variant: "outline", size: "sm", className: "mt-4" })}
 										>
-											Upload Document
-										</Button>
+										Upload Document
+										</Link>
 									</div>
 								)}
 							</CardContent>
@@ -1319,11 +1306,13 @@ export default function DashboardPage() {
 									<CardTitle>Recent Video Meetings</CardTitle>
 									<CardDescription>Your latest video consultations</CardDescription>
 								</div>
-								<Button variant="ghost" size="sm" onClick={() => router.push("/meetings" as Route)}>
+								<Link
+									href="/meetings"
+									className={buttonVariants({ variant: "ghost", size: "sm" })}
+									>
 									View All
-									
 									<HugeiconsIcon icon={ArrowRight01Icon} size={16} className="ml-2" />
-								</Button>
+								</Link>
 							</div>
 						</CardHeader>
 						<CardContent>
@@ -1341,7 +1330,6 @@ export default function DashboardPage() {
 											className="hover:bg-muted/50 flex items-center gap-4 rounded-lg border p-4 transition-colors"
 										>
 											<div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-50">
-												{/* eslint-disable-next-line @typescript-eslint/no-unsafe-assignment */}
 												<HugeiconsIcon icon={Video01Icon} size={20} className="text-green-600" />
 											</div>
 											<div className="flex-1">
@@ -1350,7 +1338,6 @@ export default function DashboardPage() {
 													<Badge variant={getStatusVariant(meeting.status)}>{meeting.status}</Badge>
 												</div>
 												<div className="text-muted-foreground mt-1 flex items-center gap-2 text-xs">
-													{/* eslint-disable-next-line @typescript-eslint/no-unsafe-assignment */}
 													<HugeiconsIcon icon={Clock01Icon} size={12} />
 													{format(new Date(meeting.createdAt), "PPp")}
 												</div>

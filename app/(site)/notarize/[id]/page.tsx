@@ -175,7 +175,7 @@ export default function NotarizePage() {
 		<>
 			<SiteNavbar
 				items={[
-					{ label: "Notarizations", url: "/notarizations/active" as Route },
+					{ label: "Notarizations", url: "/notarizations?tab=active" as Route },
 					{ label: notarization.title, url: notarizeUrl },
 				]}
 			/>

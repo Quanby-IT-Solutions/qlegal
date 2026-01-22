@@ -249,34 +249,16 @@ export const appSidebarSections: NavSection[] = [
 			// },
 
 			// ============================================================================
-			// ACTIVE NOTARIZATIONS - Live notarization sessions and pending actions
+			// NOTARIZATIONS - Active and historical notarizations
 			// ============================================================================
 			// Available to: ENP, PRINCIPAL
 			// Workflows: REN, IEN
-			// Purpose: Active notarization sessions requiring action
-			// Features:
-			//   - REN: Video session active, remote signing, recording indicator
-			//   - IEN: In-person session, physical presence verified, signing
-			// Routes to: /notarize/[id] (workflow-aware notarization page)
+			// Purpose: Single hub for active sessions + history
+			// Routes to: /notarizations (tabbed) + /notarize/[id]
 			{
-				title: "Active Notarizations",
-				url: "/notarizations/active",
+				title: "Notarizations",
+				url: "/notarizations",
 				icon: PenToolIcon,
-				roles: ["ENP", "PRINCIPAL"],
-				workflows: ["REN", "IEN"],
-			},
-
-			// ============================================================================
-			// NOTARIZATION HISTORY - Completed and historical notarizations
-			// ============================================================================
-			// Available to: ENP, PRINCIPAL
-			// Workflows: REN, IEN
-			// Purpose: View completed notarizations and history
-			// Features: Search, filter by date/workflow, download certificates, audit trail
-			{
-				title: "Notarization History",
-				url: "/notarizations/history",
-				icon: BookIcon,
 				roles: ["ENP", "PRINCIPAL"],
 				workflows: ["REN", "IEN"],
 			},

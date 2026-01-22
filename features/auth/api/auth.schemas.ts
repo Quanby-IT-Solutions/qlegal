@@ -101,17 +101,42 @@ export type ResetPasswordSchema = z.infer<typeof resetPasswordSchema>
 
 // --- Lawyer Registration Schemas ---
 
+function isoOrYmdToYmd(value: string): string {
+	if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value
+
+	const d = new Date(value)
+	if (Number.isNaN(d.getTime())) return ""
+	return d.toISOString().slice(0, 10)
+}
+
 // Notary seal information
 const notarySealSchema = z.object({
 	enpName: z.string().min(1, "ENP name is required"),
-	enpRoleNumber: z.string().min(1, "ENP role number is required"),
+	enpRollNumber: z
+		.string()
+		.trim()
+		.regex(/^\d{6}$/, "ENP roll number must be exactly 6 digits"),
+	rollNoDate: z
+		.string()
+		.min(1, "Roll number date is required")
+		.refine(
+			value => {
+				const ymd = isoOrYmdToYmd(value)
+				if (!ymd) return false
+
+				const inputUtcMidnight = new Date(`${ymd}T00:00:00.000Z`)
+				const todayYmd = new Date().toISOString().slice(0, 10)
+				const todayUtcMidnight = new Date(`${todayYmd}T00:00:00.000Z`)
+
+				return inputUtcMidnight.getTime() <= todayUtcMidnight.getTime()
+			},
+			{ message: "Roll number date cannot be greater than today" }
+		),
 })
 
 // Notary professional information
 const notaryInfoSchema = z.object({
 	attyName: z.string().min(1, "Attorney name is required"),
-	rollNo: z.string().min(1, "Roll of Attorneys number is required"),
-	rollNoDate: z.string().min(1, "Roll number date is required"),
 	commissionNo: z.string().min(1, "Commission number is required"),
 	commissionNoValidUntil: z.string().min(1, "Commission validity date is required"),
 	ptrNo: z.string().min(1, "PTR number is required"),

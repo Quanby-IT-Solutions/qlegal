@@ -60,12 +60,11 @@ function LawyerRegisterFormContent() {
 			agreeToTerms: false,
 			seal: {
 				enpName: "",
-				enpRoleNumber: "",
+				enpRollNumber: "",
+				rollNoDate: "",
 			},
 			notaryInfo: {
 				attyName: "",
-				rollNo: "",
-				rollNoDate: "",
 				commissionNo: "",
 				commissionNoValidUntil: "",
 				ptrNo: "",
