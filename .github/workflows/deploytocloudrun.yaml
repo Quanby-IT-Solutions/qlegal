@@ -58,8 +58,6 @@ env:
 
   # Server Configuration
   NODE_ENV: "production"
-  PORT: ${{ vars.PORT }}
-  SEED_VALUE: ${{ secrets.SEED_VALUE }}
 
   # Storage (Supabase)
   NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
@@ -146,8 +144,6 @@ jobs:
             --build-arg NEXT_PUBLIC_SUPABASE_URL="${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}" \
             --build-arg NEXT_PUBLIC_VIDEO_SDK_API_KEY="${{ secrets.NEXT_PUBLIC_VIDEO_SDK_API_KEY }}" \
             --build-arg NODE_ENV="production" \
-            --build-arg PORT="${{ vars.PORT }}" \
-            --build-arg SEED_VALUE="${{ secrets.SEED_VALUE }}" \
             --build-arg SUPABASE_SERVICE_ROLE_KEY="${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
             --build-arg VIDEO_SDK_API_KEY="${{ secrets.VIDEO_SDK_API_KEY }}" \
             --build-arg VIDEO_SDK_SECRET="${{ secrets.VIDEO_SDK_SECRET }}" \
@@ -206,8 +202,6 @@ jobs:
             NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
             NEXT_PUBLIC_VIDEO_SDK_API_KEY=${{ secrets.NEXT_PUBLIC_VIDEO_SDK_API_KEY }}
             NODE_ENV=production
-            PORT=${{ vars.PORT }}
-            SEED_VALUE=${{ secrets.SEED_VALUE }}
             SUPABASE_SERVICE_ROLE_KEY=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
             VIDEO_SDK_API_KEY=${{ secrets.VIDEO_SDK_API_KEY }}
             VIDEO_SDK_SECRET=${{ secrets.VIDEO_SDK_SECRET }}
