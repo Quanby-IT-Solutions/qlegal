@@ -1,4 +1,3 @@
-/* eslint-disable no-console */
 import { cache } from "react"
 import { initTRPC, TRPCError } from "@trpc/server"
 import SuperJSON from "superjson"
