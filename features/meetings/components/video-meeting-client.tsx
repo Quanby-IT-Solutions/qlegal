@@ -70,11 +70,7 @@ function formatElapsedMs(diffMs: number) {
 // Memoized to prevent re-renders from parent state changes
 const MeetingControls = React.memo(function MeetingControls({
 	onUploadClick,
-	onRecordingToggle,
 	onLocalRecordingToggle,
-	localRecordingSupported,
-	isRecording,
-	isRecordingStarting,
 	isLocalRecording,
 	localRecordingStartedAt,
 }: {
@@ -466,7 +462,7 @@ const ParticipantView = React.memo(function ParticipantView({
 
 	return (
 		<Card className="border-border/70 bg-card/80 relative size-full overflow-hidden rounded-xl border shadow-lg backdrop-blur-sm">
-			<CardContent className="from-muted/40 via-background to-muted/60 relative size-full bg-gradient-to-br p-0">
+			<CardContent className="from-muted/40 via-background to-muted/60 relative size-full bg-linear-to-br p-0">
 				<video
 					ref={videoRef}
 					autoPlay
@@ -475,7 +471,7 @@ const ParticipantView = React.memo(function ParticipantView({
 					className={cn(
 						"bg-muted/30 size-full transition-opacity duration-200",
 						isPresenting ? "object-contain" : "object-cover",
-						"aspect-[4/3] md:aspect-[16/10]",
+						"aspect-4/3 md:aspect-16/10",
 						!showVideo && "opacity-0"
 					)}
 				/>
@@ -491,9 +487,9 @@ const ParticipantView = React.memo(function ParticipantView({
 					</div>
 				)}
 
-				<div className="absolute right-2 bottom-2 left-2 flex items-center justify-between rounded-lg bg-gradient-to-r from-black/80 via-black/70 to-black/60 px-2.5 py-1.5 text-[11px] text-white shadow-md">
+				<div className="absolute right-2 bottom-2 left-2 flex items-center justify-between rounded-lg bg-linear-to-r from-black/80 via-black/70 to-black/60 px-2.5 py-1.5 text-[11px] text-white shadow-md">
 					<div className="flex items-center gap-1">
-						<span className="max-w-[140px] truncate font-semibold">{displayName ?? "Guest"}</span>
+						<span className="max-w-35 truncate font-semibold">{displayName ?? "Guest"}</span>
 						{isLocal && <span className="text-[10px] text-white/80">(You)</span>}
 						{isPresenting && (
 							<span className="ml-1 rounded-full bg-emerald-900/60 px-1.5 py-0.5 text-[10px] text-emerald-200">
@@ -637,7 +633,7 @@ const SignerList = React.memo(function SignerList({
 						>
 							<div
 								className={cn(
-									"flex size-5 flex-shrink-0 items-center justify-center rounded-full text-[10px] font-bold",
+									"flex size-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold",
 									isSigned
 										? "bg-green-600 text-white"
 										: isCurrent
@@ -649,14 +645,14 @@ const SignerList = React.memo(function SignerList({
 							</div>
 							<div className="min-w-0 flex-1">
 								<div className="flex items-center gap-1.5">
-									<User className="text-muted-foreground size-3 flex-shrink-0" />
+									<User className="text-muted-foreground size-3 shrink-0" />
 									<span className="truncate font-medium">
 										{signer.firstName} {signer.lastName}
 									</span>
 								</div>
 								<div className="text-muted-foreground truncate text-[10px]">{signer.email}</div>
 							</div>
-							<div className="flex-shrink-0">
+							<div className="shrink-0">
 								{isSigned ? (
 									<div className="flex items-center gap-1 rounded-full bg-green-100 px-1.5 py-0.5 dark:bg-green-900/40">
 										<CheckCircle2 className="size-3 text-green-600 dark:text-green-400" />
@@ -1635,7 +1631,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 			.map(entry => entry.id)
 
 		return { participantIds: ids, participantCount: ids.length }
-	}, [participants, participantVersion])
+	}, [participants])
 
 	const startLocalRecording = useCallback(async () => {
 		if (isLocalRecording) return
@@ -1871,11 +1867,11 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 		return (
 			<div
 				className={cn(
-					"bg-card/50 flex-shrink-0 border-t shadow-lg backdrop-blur-sm transition-all duration-300",
-					showDocuments ? "max-h-[400px] min-h-[200px]" : "h-12 md:h-14"
+					"bg-card/50 shrink-0 border-t shadow-lg backdrop-blur-sm transition-all duration-300",
+					showDocuments ? "max-h-100 min-h-50" : "h-12 md:h-14"
 				)}
 			>
-				<div className="flex h-12 flex-shrink-0 items-center justify-between border-b px-3 md:h-14 md:px-4 lg:px-6">
+				<div className="flex h-12 shrink-0 items-center justify-between border-b px-3 md:h-14 md:px-4 lg:px-6">
 					{(() => {
 						const isLocked = meetingDetails?.isDocumentOrderLocked ?? false
 						const isPrincipal = meetingDetails?.createdBy.id === session?.user?.id
@@ -1959,7 +1955,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 						showDocuments && (
 							<div className="border-b border-amber-200 bg-amber-50 px-3 py-2 md:px-4 lg:px-6 dark:border-amber-800 dark:bg-amber-900/10">
 								<p className="flex items-center gap-2 text-xs text-amber-800 dark:text-amber-300">
-									<Lock className="size-3.5 flex-shrink-0" />
+									<Lock className="size-3.5 shrink-0" />
 									<span>
 										Documents are locked in signing order. Each document must be signed before the
 										next one can be started.
@@ -1970,7 +1966,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 					)
 				})()}
 				{showDocuments && (
-					<div className="max-h-[350px] overflow-y-auto px-3 py-4 md:px-4 lg:px-6">
+					<div className="max-h-87.5 overflow-y-auto px-3 py-4 md:px-4 lg:px-6">
 						<div className="grid grid-cols-1 gap-3 transition-all duration-300 sm:grid-cols-2 md:gap-4 lg:grid-cols-3 xl:grid-cols-4">
 							{documents.map((doc, index) => {
 								const isLocked = meetingDetails?.isDocumentOrderLocked ?? false
@@ -2117,7 +2113,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 												{/* Drag handle - only draggable element */}
 												<div
 													className={cn(
-														"relative mt-1 flex-shrink-0 transition-colors",
+														"relative mt-1 shrink-0 transition-colors",
 														isLocked
 															? "cursor-not-allowed opacity-40"
 															: "text-muted-foreground hover:text-primary cursor-move"
@@ -2135,7 +2131,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 														className={cn("size-4", isLocked && "text-muted-foreground/30")}
 													/>
 												</div>
-												<div className="bg-primary/10 flex-shrink-0 rounded-lg p-2.5">
+												<div className="bg-primary/10 shrink-0 rounded-lg p-2.5">
 													<FileText className="text-primary size-5" />
 												</div>
 												<div className="min-w-0 flex-1">
@@ -2192,7 +2188,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 
 	if (!joined) {
 		return (
-			<div className="from-background via-muted/30 to-background flex h-screen items-center justify-center bg-gradient-to-br">
+			<div className="from-background via-muted/30 to-background flex h-screen items-center justify-center bg-linear-to-br">
 				<div className="text-center">
 					<div className="border-primary mx-auto mb-4 size-12 animate-spin rounded-full border-b-4" />
 					<p className="text-muted-foreground font-medium">Joining meeting...</p>
@@ -2204,7 +2200,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 	return (
 		<div
 			ref={recordingContainerRef}
-			className="from-background via-muted/20 to-background flex h-screen flex-col bg-gradient-to-br"
+			className="from-background via-muted/20 to-background flex h-screen flex-col bg-linear-to-br"
 		>
 			{/* Header with Controls */}
 			<div className="bg-card/50 flex flex-col items-center justify-between gap-3 border-b px-4 py-3 shadow-sm backdrop-blur-sm sm:flex-row sm:gap-4 md:px-6 md:py-4">
@@ -2284,7 +2280,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 								{participantIds
 									.filter(id => id !== presenterId)
 									.map(participantId => (
-										<div key={participantId} className="min-h-[260px]">
+										<div key={participantId} className="min-h-65">
 											<ParticipantView participantId={participantId} />
 										</div>
 									))}
