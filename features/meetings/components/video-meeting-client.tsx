@@ -2,7 +2,6 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { MeetingProvider, useMeeting, useParticipant, usePubSub } from "@videosdk.live/react-sdk"
-import fixWebmDuration from "fix-webm-duration"
 import {
 	AlertCircle,
 	Camera,
@@ -56,7 +55,7 @@ import {
 } from "@/core/components/ui/select"
 import { cn } from "@/core/lib/utils"
 
-import { normalizeDocoChainUrl } from "@/services/doconchain/url-normalizer"
+import { normalizeUrl } from "@/services/doconchain"
 import { trpc } from "@/services/trpc/client"
 
 import { MeetingDocumentUpload } from "./meeting-document-upload"
@@ -659,7 +658,7 @@ const SignerSelector = React.memo(function SignerSelector({
 						<label
 							key={p.userId}
 							className={cn(
-								"flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-xs transition-colors hover:bg-muted/50",
+								"hover:bg-muted/50 flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-xs transition-colors",
 								checked && "bg-muted/50"
 							)}
 						>
@@ -841,8 +840,7 @@ const DocumentActions = React.memo(function DocumentActions({
 	const { data: session } = useSession()
 
 	// Determine if Start Signing button should be disabled
-	const isSigningDisabledByOrder =
-		isLocked && !isPreviousDocumentSigned && (documentIndex ?? 0) > 0
+	const isSigningDisabledByOrder = isLocked && !isPreviousDocumentSigned && (documentIndex ?? 0) > 0
 	const hasNoSignersSelected = !document.docoChainProjectId && (signerUserIds?.length ?? 0) === 0
 	const hasSigners = (signerUserIds?.length ?? 0) > 0
 	const currentUserId = session?.user?.id ?? null
@@ -905,7 +903,10 @@ const DocumentActions = React.memo(function DocumentActions({
 						if (userEmail) {
 							console.log("🔵 Initiating signing process for document:", document.name)
 							console.log("   - Document ID:", document.id)
-							console.log("   - DocoChain Project UUID:", document.docoChainProjectId ?? "will be created")
+							console.log(
+								"   - DocoChain Project UUID:",
+								document.docoChainProjectId ?? "will be created"
+							)
 							console.log("   - User Email:", userEmail)
 
 							// User clicks to start signing - this will:
@@ -1400,7 +1401,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 		try {
 			// Open a QSign API route that streams the signed PDF.
 			// This avoids relying on DocoChain guestToken and avoids leaking api_token in URLs.
-			const url = `/api/docochain/projects/${encodeURIComponent(projectUuid)}/signed`
+			const url = `/api/doconchain/projects/${encodeURIComponent(projectUuid)}/signed`
 			window.open(url, "_blank", "noopener,noreferrer")
 			toast.success("Opening signed document...")
 		} catch (error) {
@@ -1465,7 +1466,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 			}
 
 			// ALWAYS normalize the URL - ensure api=true is set
-			signingLink = normalizeDocoChainUrl(signingLink) ?? signingLink
+			signingLink = normalizeUrl(signingLink) ?? signingLink
 
 			try {
 				new URL(signingLink)
@@ -1516,7 +1517,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 			}
 
 			// ALWAYS normalize the URL - ensure api=true is set
-			signingLink = normalizeDocoChainUrl(signingLink) ?? signingLink
+			signingLink = normalizeUrl(signingLink) ?? signingLink
 
 			// Validate it's a proper URL
 			try {
@@ -1582,9 +1583,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 			setSigningDocumentId(documentId)
 			// If projectUuid exists, use it. Otherwise, pass documentId to create project
 			initiateSigning.mutate(
-				projectUuid
-					? { projectUuid, email }
-					: { documentId, email } // No project yet - will be created on signing
+				projectUuid ? { projectUuid, email } : { documentId, email } // No project yet - will be created on signing
 			)
 		},
 		[initiateSigning]
@@ -1698,18 +1697,21 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 
 	// Get real-time participants from VideoSDK - this is the peer-to-peer connection state
 	// Only participants who have actually joined the WebRTC room will appear here
-	const participants = meeting?.participants as Map<
-		string,
-		{ 
-			displayName?: string
-			webcamOn?: boolean
-			local?: boolean
-			screenShareOn?: boolean
-			// VideoSDK participant properties for connection state
-			mode?: string
-			quality?: string
-		}
-	> | null | undefined
+	const participants = meeting?.participants as
+		| Map<
+				string,
+				{
+					displayName?: string
+					webcamOn?: boolean
+					local?: boolean
+					screenShareOn?: boolean
+					// VideoSDK participant properties for connection state
+					mode?: string
+					quality?: string
+				}
+		  >
+		| null
+		| undefined
 
 	const { localParticipant } = useMeeting()
 
@@ -1918,89 +1920,79 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 	const startLocalRecording = useCallback(async () => {
 		if (isLocalRecording) return
 		if (!meeting) {
-		  toast.error("Meeting not ready yet")
-		  return
+			toast.error("Meeting not ready yet")
+			return
 		}
-	  
-		try {
-		  const startedAt = Date.now()
-	  
-		  // START CLOUD RECORDING (VideoSDK)
-		  const meetingWithRecording = meeting as unknown as {
-			startRecording?: () => Promise<void> | void
-		  }
-		  const recordingResult = meetingWithRecording.startRecording?.()
-		  if (recordingResult !== undefined && recordingResult instanceof Promise) {
-			await recordingResult
-		  }
-	  
-		  // Update local UI state
-		  setIsLocalRecording(true)
-		  setIsAnyoneRecording(true)
-		  setLocalRecordingStartedAt(startedAt)
-		  setRecordingParticipantName(session?.user?.name ?? "Someone")
-	  
-		  // Clear stopped state
-		  setRecordingStopped(false)
-		  setStoppedElapsed(null)
-	  
-		  // Broadcast to all participants
-		  publishRecordingStatus(`RECORDING_STARTED:${startedAt}`, { persist: false })
-	  
-		  toast.success("Cloud recording started")
-		} catch (error) {
-		  console.error("Cloud recording error:", error)
-		  toast.error("Failed to start cloud recording")
-		}
-	  }, [
-		isLocalRecording,
-		meeting,
-		publishRecordingStatus,
-		session?.user?.name,
-	  ])	  
 
-	  const stopLocalRecording = useCallback(async () => {
-		if (!meeting || !isLocalRecording) return
-	  
 		try {
-		  const meetingWithRecording = meeting as unknown as {
-			stopRecording?: () => Promise<void> | void
-		  }
-		  const stopResult = meetingWithRecording.stopRecording?.()
-		  if (stopResult !== undefined && stopResult instanceof Promise) {
-			await stopResult
-		  }
-	  
-		  const elapsed = localRecordingStartedAt
-			? formatElapsedMs(Date.now() - localRecordingStartedAt)
-			: "00:00"
-	  
-		  setIsLocalRecording(false)
-		  setIsAnyoneRecording(false)
-		  setLocalRecordingStartedAt(null)
-	  
-		  setRecordingStopped(true)
-		  setStoppedElapsed(elapsed)
-	  
-		  setTimeout(() => {
+			const startedAt = Date.now()
+
+			// START CLOUD RECORDING (VideoSDK)
+			const meetingWithRecording = meeting as unknown as {
+				startRecording?: () => Promise<void> | void
+			}
+			const recordingResult = meetingWithRecording.startRecording?.()
+			if (recordingResult !== undefined && recordingResult instanceof Promise) {
+				await recordingResult
+			}
+
+			// Update local UI state
+			setIsLocalRecording(true)
+			setIsAnyoneRecording(true)
+			setLocalRecordingStartedAt(startedAt)
+			setRecordingParticipantName(session?.user?.name ?? "Someone")
+
+			// Clear stopped state
 			setRecordingStopped(false)
 			setStoppedElapsed(null)
-			setRecordingParticipantName(null)
-		  }, 5000)
-	  
-		  publishRecordingStatus(`RECORDING_STOPPED:${elapsed}`, { persist: false })
-	  
-		  toast.success("Cloud recording stopped")
+
+			// Broadcast to all participants
+			publishRecordingStatus(`RECORDING_STARTED:${startedAt}`, { persist: false })
+
+			toast.success("Cloud recording started")
 		} catch (error) {
-		  console.error("Stop recording error:", error)
-		  toast.error("Failed to stop cloud recording")
+			console.error("Cloud recording error:", error)
+			toast.error("Failed to start cloud recording")
 		}
-	  }, [
-		meeting,
-		isLocalRecording,
-		localRecordingStartedAt,
-		publishRecordingStatus,
-	  ])	  
+	}, [isLocalRecording, meeting, publishRecordingStatus, session?.user?.name])
+
+	const stopLocalRecording = useCallback(async () => {
+		if (!meeting || !isLocalRecording) return
+
+		try {
+			const meetingWithRecording = meeting as unknown as {
+				stopRecording?: () => Promise<void> | void
+			}
+			const stopResult = meetingWithRecording.stopRecording?.()
+			if (stopResult !== undefined && stopResult instanceof Promise) {
+				await stopResult
+			}
+
+			const elapsed = localRecordingStartedAt
+				? formatElapsedMs(Date.now() - localRecordingStartedAt)
+				: "00:00"
+
+			setIsLocalRecording(false)
+			setIsAnyoneRecording(false)
+			setLocalRecordingStartedAt(null)
+
+			setRecordingStopped(true)
+			setStoppedElapsed(elapsed)
+
+			setTimeout(() => {
+				setRecordingStopped(false)
+				setStoppedElapsed(null)
+				setRecordingParticipantName(null)
+			}, 5000)
+
+			publishRecordingStatus(`RECORDING_STOPPED:${elapsed}`, { persist: false })
+
+			toast.success("Cloud recording stopped")
+		} catch (error) {
+			console.error("Stop recording error:", error)
+			toast.error("Failed to stop cloud recording")
+		}
+	}, [meeting, isLocalRecording, localRecordingStartedAt, publishRecordingStatus])
 
 	const handleRecordingToggle = useCallback(async () => {
 		if (!meeting) return
@@ -2108,7 +2100,13 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 			{ persist: false }
 		)
 		setRecordingConsentDeclined(true)
-	}, [localParticipantId, publishRecordingConsent, recordingConsentRequest, resetRecordingConsentUi, session?.user?.name])
+	}, [
+		localParticipantId,
+		publishRecordingConsent,
+		recordingConsentRequest,
+		resetRecordingConsentUi,
+		session?.user?.name,
+	])
 
 	// If I'm the initiator and everyone has accepted, start local recording (initiator only).
 	useEffect(() => {
@@ -2139,8 +2137,6 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 		session?.user?.name,
 		startLocalRecording,
 	])
-
-	
 
 	// Memoize upload dialog open handler
 	const handleUploadClick = useCallback(() => {
@@ -2760,8 +2756,8 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 							Start meeting recording?
 						</DialogTitle>
 						<DialogDescription>
-							{recordingConsentRequest?.initiatorName ?? "Someone"} wants to start a screen recording.
-							Recording will begin only after everyone agrees.
+							{recordingConsentRequest?.initiatorName ?? "Someone"} wants to start a screen
+							recording. Recording will begin only after everyone agrees.
 						</DialogDescription>
 					</DialogHeader>
 
@@ -2802,24 +2798,21 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 							Decline
 						</Button>
 						<Button
-							disabled={
-								recordingConsentDeclined ||
-								!localParticipantId
-							}
+							disabled={recordingConsentDeclined || !localParticipantId}
 							onClick={async () => {
 								await acceptConsent()
 
 								if (!recordingConsentRequest || !localParticipantId) return
 
 								const isInitiator =
-								recordingConsentRequest.initiatorName === (session?.user?.name ?? "Someone")
+									recordingConsentRequest.initiatorName === (session?.user?.name ?? "Someone")
 
 								if (!isInitiator) return
 								if (recordingConsentDeclined) return
 
 								const required = recordingConsentRequest.requiredParticipantIds
 								const allAccepted = required.every(id =>
-								id === localParticipantId ? true : recordingConsentAcceptedIds.has(id)
+									id === localParticipantId ? true : recordingConsentAcceptedIds.has(id)
 								)
 
 								if (!allAccepted) return
@@ -2827,7 +2820,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 								resetRecordingConsentUi()
 								void startLocalRecording()
 							}}
-							>
+						>
 							Agree
 						</Button>
 					</DialogFooter>
