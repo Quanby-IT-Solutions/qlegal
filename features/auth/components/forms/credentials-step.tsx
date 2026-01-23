@@ -1,10 +1,15 @@
 "use client"
 
+import { Calendar as CalendarIcon } from "lucide-react"
+import { format } from "date-fns"
 import { type UseFormReturn } from "react-hook-form"
 
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/core/components/ui/form"
-import { DateInput } from "@/core/components/ui/date-input"
 import { Input } from "@/core/components/ui/input"
+import { Button } from "@/core/components/ui/button"
+import { Calendar } from "@/core/components/ui/calendar"
+import { Popover, PopoverContent, PopoverTrigger } from "@/core/components/ui/popover"
+import { cn } from "@/core/lib/utils"
 
 import { type LawyerRegisterSchema } from "@/features/auth/api/auth.schemas"
 
@@ -19,15 +24,6 @@ export function CredentialsStep({ form, primaryName }: CredentialsStepProps) {
 
 	return (
 		<div className="space-y-4">
-			<div className="bg-muted/40 rounded-md border p-3 text-sm">
-				<p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
-					Attorney Name
-				</p>
-				<p className="font-medium">{attorneyName}</p>
-				<p className="text-muted-foreground mt-1">
-					This will be used across your notary credentials. Update it by editing your primary name.
-				</p>
-			</div>
 
 			<div className="grid grid-cols-2 gap-4">
 				<FormField
@@ -47,21 +43,45 @@ export function CredentialsStep({ form, primaryName }: CredentialsStepProps) {
 				<FormField
 					control={form.control}
 					name="notaryInfo.commissionNoValidUntil"
-					render={({ field }) => (
-						<FormItem>
-							<FormLabel>Commission Valid Until</FormLabel>
-							<FormControl>
-								<DateInput
-									placeholder="e.g., 5 June 2018"
-									value={field.value ?? undefined}
-									onChange={(date: Date | undefined) => {
-										field.onChange(date?.toISOString())
-									}}
-								/>
-							</FormControl>
-							<FormMessage />
-						</FormItem>
-					)}
+					render={({ field }) => {
+						const dateValue = field.value ? new Date(field.value) : undefined
+
+						return (
+							<FormItem>
+								<FormLabel>Commission Valid Until</FormLabel>
+								<FormControl>
+									<Popover>
+										<PopoverTrigger asChild>
+											<Button
+												variant="outline"
+												data-empty={!dateValue}
+												className={cn(
+													"data-[empty=true]:text-muted-foreground w-full justify-start text-left font-normal",
+													!dateValue && "text-muted-foreground"
+												)}
+											>
+												<CalendarIcon className="mr-2 size-4" />
+												{dateValue ? format(dateValue, "PPP") : <span>Pick a date</span>}
+											</Button>
+										</PopoverTrigger>
+										<PopoverContent className="w-auto p-0" align="start">
+											<Calendar
+												mode="single"
+												selected={dateValue}
+												onSelect={(date) => {
+													field.onChange(date?.toISOString())
+												}}
+												defaultMonth={dateValue}
+												className="rounded-md border shadow-sm"
+												captionLayout="dropdown"
+											/>
+										</PopoverContent>
+									</Popover>
+								</FormControl>
+								<FormMessage />
+							</FormItem>
+						)
+					}}
 				/>
 			</div>
 
@@ -98,22 +118,47 @@ export function CredentialsStep({ form, primaryName }: CredentialsStepProps) {
 			<FormField
 				control={form.control}
 				name="notaryInfo.ptrNoDate"
-				render={({ field }) => (
-					<FormItem>
-						<FormLabel>PTR Date</FormLabel>
-						<FormControl>
-							<DateInput
-								placeholder="e.g., 5 June 2018"
-								max={todayYmd}
-								value={field.value ?? undefined}
-								onChange={(date: Date | undefined) => {
-									field.onChange(date?.toISOString())
-								}}
-							/>
-						</FormControl>
-						<FormMessage />
-					</FormItem>
-				)}
+				render={({ field }) => {
+					const dateValue = field.value ? new Date(field.value) : undefined
+					const maxDate = new Date(todayYmd)
+
+					return (
+						<FormItem>
+							<FormLabel>PTR Date</FormLabel>
+							<FormControl>
+								<Popover>
+									<PopoverTrigger asChild>
+										<Button
+											variant="outline"
+											data-empty={!dateValue}
+											className={cn(
+												"data-[empty=true]:text-muted-foreground w-full justify-start text-left font-normal",
+												!dateValue && "text-muted-foreground"
+											)}
+										>
+											<CalendarIcon className="mr-2 size-4" />
+											{dateValue ? format(dateValue, "PPP") : <span>Pick a date</span>}
+										</Button>
+									</PopoverTrigger>
+									<PopoverContent className="w-auto p-0" align="start">
+										<Calendar
+											mode="single"
+											selected={dateValue}
+											onSelect={(date) => {
+												field.onChange(date?.toISOString())
+											}}
+											defaultMonth={dateValue}
+											disabled={(date) => date > maxDate}
+											className="rounded-md border shadow-sm"
+											captionLayout="dropdown"
+										/>
+									</PopoverContent>
+								</Popover>
+							</FormControl>
+							<FormMessage />
+						</FormItem>
+					)
+				}}
 			/>
 
 			<div className="grid grid-cols-2 gap-4">
@@ -135,22 +180,47 @@ export function CredentialsStep({ form, primaryName }: CredentialsStepProps) {
 				<FormField
 					control={form.control}
 					name="notaryInfo.ibpNoDate"
-					render={({ field }) => (
-						<FormItem>
-							<FormLabel>IBP Date</FormLabel>
-							<FormControl>
-								<DateInput
-									placeholder="e.g., 5 June 2018"
-									max={todayYmd}
-									value={field.value ?? undefined}
-									onChange={(date: Date | undefined) => {
-										field.onChange(date?.toISOString())
-									}}
-								/>
-							</FormControl>
-							<FormMessage />
-						</FormItem>
-					)}
+					render={({ field }) => {
+						const dateValue = field.value ? new Date(field.value) : undefined
+						const maxDate = new Date(todayYmd)
+
+						return (
+							<FormItem>
+								<FormLabel>IBP Date</FormLabel>
+								<FormControl>
+									<Popover>
+										<PopoverTrigger asChild>
+											<Button
+												variant="outline"
+												data-empty={!dateValue}
+												className={cn(
+													"data-[empty=true]:text-muted-foreground w-full justify-start text-left font-normal",
+													!dateValue && "text-muted-foreground"
+												)}
+											>
+												<CalendarIcon className="mr-2 size-4" />
+												{dateValue ? format(dateValue, "PPP") : <span>Pick a date</span>}
+											</Button>
+										</PopoverTrigger>
+										<PopoverContent className="w-auto p-0" align="start">
+											<Calendar
+												mode="single"
+												selected={dateValue}
+												onSelect={(date) => {
+													field.onChange(date?.toISOString())
+												}}
+												defaultMonth={dateValue}
+												disabled={(date) => date > maxDate}
+												className="rounded-md border shadow-sm"
+												captionLayout="dropdown"
+											/>
+										</PopoverContent>
+									</Popover>
+								</FormControl>
+								<FormMessage />
+							</FormItem>
+						)
+					}}
 				/>
 			</div>
 
@@ -172,22 +242,47 @@ export function CredentialsStep({ form, primaryName }: CredentialsStepProps) {
 				<FormField
 					control={form.control}
 					name="notaryInfo.mcleNoPeriod"
-					render={({ field }) => (
-						<FormItem>
-							<FormLabel>MCLE Period</FormLabel>
-							<FormControl>
-								<DateInput
-									placeholder="e.g., 5 June 2018"
-									max={todayYmd}
-									value={field.value ?? undefined}
-									onChange={(date: Date | undefined) => {
-										field.onChange(date?.toISOString())
-									}}
-								/>
-							</FormControl>
-							<FormMessage />
-						</FormItem>
-					)}
+					render={({ field }) => {
+						const dateValue = field.value ? new Date(field.value) : undefined
+						const maxDate = new Date(todayYmd)
+
+						return (
+							<FormItem>
+								<FormLabel>MCLE Period</FormLabel>
+								<FormControl>
+									<Popover>
+										<PopoverTrigger asChild>
+											<Button
+												variant="outline"
+												data-empty={!dateValue}
+												className={cn(
+													"data-[empty=true]:text-muted-foreground w-full justify-start text-left font-normal",
+													!dateValue && "text-muted-foreground"
+												)}
+											>
+												<CalendarIcon className="mr-2 size-4" />
+												{dateValue ? format(dateValue, "PPP") : <span>Pick a date</span>}
+											</Button>
+										</PopoverTrigger>
+										<PopoverContent className="w-auto p-0" align="start">
+											<Calendar
+												mode="single"
+												selected={dateValue}
+												onSelect={(date) => {
+													field.onChange(date?.toISOString())
+												}}
+												defaultMonth={dateValue}
+												disabled={(date) => date > maxDate}
+												className="rounded-md border shadow-sm"
+												captionLayout="dropdown"
+											/>
+										</PopoverContent>
+									</Popover>
+								</FormControl>
+								<FormMessage />
+							</FormItem>
+						)
+					}}
 				/>
 
 				<FormField
@@ -208,22 +303,47 @@ export function CredentialsStep({ form, primaryName }: CredentialsStepProps) {
 			<FormField
 				control={form.control}
 				name="notaryInfo.mcleNoDate"
-				render={({ field }) => (
-					<FormItem>
-						<FormLabel>MCLE Date</FormLabel>
-						<FormControl>
-							<DateInput
-								placeholder="e.g., 5 June 2018"
-								max={todayYmd}
-								value={field.value ?? undefined}
-								onChange={(date: Date | undefined) => {
-									field.onChange(date?.toISOString())
-								}}
-							/>
-						</FormControl>
-						<FormMessage />
-					</FormItem>
-				)}
+				render={({ field }) => {
+					const dateValue = field.value ? new Date(field.value) : undefined
+					const maxDate = new Date(todayYmd)
+
+					return (
+						<FormItem>
+							<FormLabel>MCLE Date</FormLabel>
+							<FormControl>
+								<Popover>
+									<PopoverTrigger asChild>
+										<Button
+											variant="outline"
+											data-empty={!dateValue}
+											className={cn(
+												"data-[empty=true]:text-muted-foreground w-full justify-start text-left font-normal",
+												!dateValue && "text-muted-foreground"
+											)}
+										>
+											<CalendarIcon className="mr-2 size-4" />
+											{dateValue ? format(dateValue, "PPP") : <span>Pick a date</span>}
+										</Button>
+									</PopoverTrigger>
+									<PopoverContent className="w-auto p-0" align="start">
+										<Calendar
+											mode="single"
+											selected={dateValue}
+											onSelect={(date) => {
+												field.onChange(date?.toISOString())
+											}}
+											defaultMonth={dateValue}
+											disabled={(date) => date > maxDate}
+											className="rounded-md border shadow-sm"
+											captionLayout="dropdown"
+										/>
+									</PopoverContent>
+								</Popover>
+							</FormControl>
+							<FormMessage />
+						</FormItem>
+					)
+				}}
 			/>
 		</div>
 	)

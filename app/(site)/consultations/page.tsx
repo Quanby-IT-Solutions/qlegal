@@ -4,14 +4,7 @@ import { type Route } from "next"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useEffect, useState } from "react"
 import { format, startOfToday } from "date-fns"
-import {
-	Calendar,
-	Clock,
-	Loader2,
-	Mail,
-	Phone,
-	Video,
-} from "lucide-react"
+import { Calendar, Clock, FileText, Loader2, Mail, MessageSquare, Phone, Video } from "lucide-react"
 import { toast } from "sonner"
 
 import { PageHeader } from "@/core/components/navbar/page-header"
@@ -28,9 +21,11 @@ import {
 } from "@/core/components/ui/card"
 import { Label } from "@/core/components/ui/label"
 import { Popover, PopoverContent, PopoverTrigger } from "@/core/components/ui/popover"
-import { Tabs, TabsList, TabsTrigger } from "@/core/components/ui/tabs"
+import { RadioGroup, RadioGroupItem } from "@/core/components/ui/radio-group"
 
 import { trpc } from "@/services/trpc/client"
+
+import { SessionModeSelector } from "@/features/booking/components/session-mode-selector"
 
 type WorkflowType = "REN" | "IEN"
 type BookingMode = "CONSULTATION" | "SIGNING"
@@ -100,7 +95,8 @@ export default function ConsultationsPage() {
 			console.log("🔍 Consultation booking success:", data)
 
 			toast.success("Consultation Booked!", {
-				description: "Your consultation request has been sent. The ENP will review and confirm your booking.",
+				description:
+					"Your consultation request has been sent. The ENP will review and confirm your booking.",
 			})
 
 			// After booking, always redirect to dashboard - meeting/conversation is created when ENP confirms
@@ -174,9 +170,7 @@ export default function ConsultationsPage() {
 
 	return (
 		<div className="flex flex-1 flex-col">
-			<PageHeader
-				items={[{ label: "Calendar", href: "/calendar" }, { label: "Consultations" }]}
-			/>
+			<PageHeader items={[{ label: "Browse", href: "/browse" }, { label: "Consultations" }]} />
 
 			<main className="flex-1 p-4 md:p-6 lg:p-8">
 				<div className="mx-auto max-w-7xl space-y-8">
@@ -195,15 +189,92 @@ export default function ConsultationsPage() {
 					<Card>
 						<CardHeader>
 							<CardTitle>What do you need?</CardTitle>
-							<CardDescription>Select between consultation or signing session.</CardDescription>
+							<CardDescription>
+								Pick the service type so we can set the right flow and timing.
+							</CardDescription>
+						</CardHeader>
+						<CardContent className="space-y-4">
+							<RadioGroup
+								value={bookingMode}
+								onValueChange={value => setBookingMode(value as BookingMode)}
+							>
+								<div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+									<Card
+										className="hover:border-primary h-full cursor-pointer border-2 transition-all"
+										onClick={() => setBookingMode("CONSULTATION")}
+										style={{
+											borderColor:
+												bookingMode === "CONSULTATION" ? "hsl(var(--primary))" : undefined,
+											backgroundColor:
+												bookingMode === "CONSULTATION" ? "hsl(var(--primary) / 0.05)" : undefined,
+										}}
+									>
+										<CardHeader className="pb-3">
+											<div className="flex items-center gap-2">
+												<RadioGroupItem value="CONSULTATION" id="consultation-mode" />
+												<div className="flex items-center gap-2">
+													<MessageSquare className="size-5 text-indigo-600" />
+													<CardTitle className="text-base">Consultation</CardTitle>
+												</div>
+											</div>
+										</CardHeader>
+										<CardContent className="space-y-2">
+											<CardDescription>
+												Ask questions, review documents, and get guidance before any notarization.
+											</CardDescription>
+											<ul className="text-muted-foreground space-y-1 text-sm">
+												<li>✓ Prep documents and IDs</li>
+												<li>✓ Legal/requirements clarifications</li>
+												<li>✓ Usually 30-45 minutes</li>
+											</ul>
+										</CardContent>
+									</Card>
+
+									<Card
+										className="hover:border-primary h-full cursor-pointer border-2 transition-all"
+										onClick={() => setBookingMode("SIGNING")}
+										style={{
+											borderColor: bookingMode === "SIGNING" ? "hsl(var(--primary))" : undefined,
+											backgroundColor:
+												bookingMode === "SIGNING" ? "hsl(var(--primary) / 0.05)" : undefined,
+										}}
+									>
+										<CardHeader className="pb-3">
+											<div className="flex items-center gap-2">
+												<RadioGroupItem value="SIGNING" id="signing-mode" />
+												<div className="flex items-center gap-2">
+													<FileText className="size-5 text-emerald-600" />
+													<CardTitle className="text-base">Signing session</CardTitle>
+												</div>
+											</div>
+										</CardHeader>
+										<CardContent className="space-y-2">
+											<CardDescription>
+												Formal notarization of prepared documents with all signers present.
+											</CardDescription>
+											<ul className="text-muted-foreground space-y-1 text-sm">
+												<li>✓ ID verification for all signers</li>
+												<li>✓ Execute and notarize documents</li>
+												<li>✓ Allow 45-60 minutes</li>
+											</ul>
+										</CardContent>
+									</Card>
+								</div>
+							</RadioGroup>
+						</CardContent>
+					</Card>
+
+					<Card>
+						<CardHeader>
+							<CardTitle>Session mode</CardTitle>
+							<CardDescription>Choose how you will meet with the notary.</CardDescription>
 						</CardHeader>
 						<CardContent>
-							<Tabs value={bookingMode} onValueChange={v => setBookingMode(v as BookingMode)}>
-								<TabsList>
-									<TabsTrigger value="CONSULTATION">Consultation</TabsTrigger>
-									<TabsTrigger value="SIGNING">Signing Session</TabsTrigger>
-								</TabsList>
-							</Tabs>
+							<SessionModeSelector
+								value={selectedWorkflow}
+								onChange={setSelectedWorkflow}
+								showHeading={false}
+							/>
 						</CardContent>
 					</Card>
 
