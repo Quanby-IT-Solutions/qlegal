@@ -48,7 +48,7 @@ export const TwoFactorAuthTemplate = ({ email, token }: TwoFactorAuthTemplatePro
 						/>
 						{/* Logo */}
 						<Img
-							src="https://aygaepypiusloubktinn.supabase.co/storage/v1/object/public/documents//Quanby%20LOGO.png"
+							src="https://i.imgur.com/h8TwCwa.png"
 							width="120"
 							height="120"
 							alt="Quanby Sign"

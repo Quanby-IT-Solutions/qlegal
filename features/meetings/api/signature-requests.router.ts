@@ -7,15 +7,16 @@ import {
 	autoJoinOrganization,
 	checkSigningStatus,
 	deleteSigner,
+	DOCONCHAIN_APP_URL,
 	downloadCertificate,
 	downloadSignedDocument,
 	generateEditDraftLink,
 	generateSignLink,
 	getPassportDocument,
 	getProjectDetails,
-	sendDocoChainProject,
+	normalizeUrl,
+	sendProject,
 } from "@/services/doconchain"
-import { normalizeDocoChainUrl } from "@/services/doconchain/url-normalizer"
 import { db } from "@/services/drizzle/db"
 import { users } from "@/services/drizzle/schema/auth"
 import { documents } from "@/services/drizzle/schema/document"
@@ -23,8 +24,6 @@ import { signatureRequests } from "@/services/drizzle/schema/signature-requests"
 import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
 
 import { env } from "@/env"
-
-const DOCOCHAIN_API_BASE = env.DOCOCHAIN_API_URL ?? "https://stg-api2.doconchain.com"
 
 function isEnpRole(role: unknown): boolean {
 	if (typeof role !== "string") return false
@@ -597,12 +596,7 @@ export const signatureRequestsRouter = createTRPCRouter({
 						console.log("✅ Signing link generated successfully for sent project:", signingLink)
 					} catch (signLinkError) {
 						console.error("❌ Failed to generate signing link for sent project:", signLinkError)
-						// Fallback: Use direct project URL with email parameter
-						const appBaseUrl = DOCOCHAIN_API_BASE.includes("stg")
-							? "https://stg-app.doconchain.com"
-							: "https://app.doconchain.com"
-						signingLink = `${appBaseUrl}/${projectUuid}?email=${encodeURIComponent(email)}&api=true`
-						console.log("⚠️ Using fallback direct project URL with email:", signingLink)
+						signingLink = `${DOCONCHAIN_APP_URL}/${projectUuid}?email=${encodeURIComponent(email)}&api=true`
 					}
 				} else {
 					// Project is still Draft - ALWAYS generate a fresh Edit Draft Link
@@ -622,20 +616,12 @@ export const signatureRequestsRouter = createTRPCRouter({
 						)
 					} catch (editDraftError) {
 						console.error("❌ Failed to generate Edit Draft Link:", editDraftError)
-						// Final fallback: Use direct project URL
-						const appBaseUrl = DOCOCHAIN_API_BASE.includes("stg")
-							? "https://stg-app.doconchain.com"
-							: "https://app.doconchain.com"
-						signingLink = `${appBaseUrl}/${projectUuid}?api=true`
-						console.log("⚠️ Using fallback direct project URL:", signingLink)
+						signingLink = `${DOCONCHAIN_APP_URL}/${projectUuid}?api=true`
 					}
 				}
 
-				// FINAL FIX: Normalize the URL before returning
-				// This ensures api=true is set and removes any invalid api_token
 				if (signingLink) {
-					// Normalize the URL - this ALWAYS sets api=true
-					signingLink = normalizeDocoChainUrl(signingLink) ?? signingLink
+					signingLink = normalizeUrl(signingLink) ?? signingLink
 
 					// Clean up the URL - remove invalid api_token values
 					try {
@@ -654,12 +640,10 @@ export const signatureRequestsRouter = createTRPCRouter({
 						signingLink = url.toString()
 					} catch {
 						// If URL parsing fails, signingLink is already normalized
-						console.log("✅ URL already normalized")
 					}
 				}
 
-				// Final normalization
-				const finalNormalizedLink = normalizeDocoChainUrl(signingLink) ?? signingLink
+				const finalNormalizedLink = normalizeUrl(signingLink) ?? signingLink
 
 				return {
 					success: true,
@@ -770,43 +754,29 @@ export const signatureRequestsRouter = createTRPCRouter({
 				})
 
 				// Step 3: Send/deploy the project so it's ready for signing
-				// The Generate Sign Link API requires the project to be sent/deployed
-				console.log("🔵 Sending DocoChain project to enable signing...")
 				try {
-					await sendDocoChainProject(projectUuid, enpEmail)
-					console.log("✅ Project sent successfully")
-				} catch (sendError) {
-					console.warn("⚠️ Failed to send project (may already be sent):", sendError)
+					await sendProject(projectUuid, enpEmail)
+				} catch {
 					// Continue anyway - project might already be sent
 				}
 
 				// Step 4: Generate the signing link for this ENP
-				// This must be done AFTER sending the project
-				console.log("🔵 Generating signing link for ENP...")
-				// CRITICAL: Pass ENP's email (enpEmail) for token generation
-				// The 'email' parameter is for the signer, but auth token must be ENP's
 				const result = await generateSignLink({
 					projectUuid,
-					email, // Signer's email (ENP in this case)
-					userEmail: enpEmail, // ENP's email - for API token generation
+					email,
+					userEmail: enpEmail,
 				})
 
-				// FINAL FIX: Ensure api=null is ALWAYS replaced with api=true before returning
 				let finalLink = result.link
 				if (finalLink) {
 					try {
 						const url = new URL(finalLink)
-						// CRITICAL: ALWAYS set api=true - replace any value (null, undefined, false, etc.)
 						const currentApiValue = url.searchParams.get("api")
 						if (currentApiValue !== "true") {
 							url.searchParams.set("api", "true")
 							finalLink = url.toString()
-							console.log(
-								`✅ FINAL FIX: Set api=true in generateSigningLink (was: ${currentApiValue ?? "missing"})`
-							)
 						}
 					} catch {
-						// If URL parsing fails, use string replacement
 						finalLink = finalLink
 							.replace(/\?api=null(&|$)/, "?api=true$1")
 							.replace(/&api=null(&|$)/, "&api=true$1")
@@ -814,21 +784,16 @@ export const signatureRequestsRouter = createTRPCRouter({
 							const separator = finalLink.includes("?") ? "&" : "?"
 							finalLink = `${finalLink}${separator}api=true`
 						}
-						console.log(
-							"✅ FINAL FIX: Fixed api parameter in generateSigningLink using string replacement"
-						)
 					}
 				}
 
-				// ABSOLUTE FINAL CHECK: Normalize one last time before returning
-				const finalNormalizedLink = normalizeDocoChainUrl(finalLink) ?? finalLink
+				const finalNormalizedLink = normalizeUrl(finalLink) ?? finalLink
 
 				return {
 					success: true,
 					link: finalNormalizedLink,
 				}
 			} catch (error) {
-				console.error("❌ Failed to generate signing link:", error)
 				throw new TRPCError({
 					code: "INTERNAL_SERVER_ERROR",
 					message: error instanceof Error ? error.message : "Failed to generate signing link",
@@ -971,8 +936,8 @@ export const signatureRequestsRouter = createTRPCRouter({
 					}
 				}
 
-				// 5. Add DOCOCHAIN_ADMIN_EMAIL as final fallback (org admin with access to all projects)
-				const adminEmail = env.DOCOCHAIN_ADMIN_EMAIL?.trim()
+				// 5. Add DOCOCHAIN_EMAIL as final fallback (org admin with access to all projects)
+				const adminEmail = env.DOCONCHAIN_EMAIL?.trim()
 				if (adminEmail && !possibleEmails.includes(adminEmail)) {
 					possibleEmails.push(adminEmail)
 				}
@@ -1191,7 +1156,7 @@ export const signatureRequestsRouter = createTRPCRouter({
 	// NOTE:
 	// We intentionally do NOT return DocoChain `api_token` in URLs (security risk).
 	// For viewing the signed document, use our server-streaming API route:
-	// `/api/docochain/projects/:projectUuid/signed`
+	// `/api/doconchain/projects/:projectUuid/signed`
 
 	// Get Passport Document
 	getPassportDocument: protectedProcedure

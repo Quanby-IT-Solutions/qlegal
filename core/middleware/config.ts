@@ -63,7 +63,6 @@ export const ROUTE_CONFIG: RouteConfig = {
 			{ path: "/liveness" },
 			{ path: "/meetings" },
 			{ path: "/messages" },
-			{ path: "/my-signed" },
 			{ path: "/notarizations" },
 			{ path: "/notarizations/active" },
 			{ path: "/notarizations/history" },
@@ -73,9 +72,7 @@ export const ROUTE_CONFIG: RouteConfig = {
 			{ path: "/requests" },
 			{ path: "/requests/incoming" },
 			{ path: "/requests/my-requests" },
-			{ path: "/scan" },
 			{ path: "/settings" },
-			{ path: "/verification" },
 			{ path: "/notarial-book" },
 		],
 		byRole: {
