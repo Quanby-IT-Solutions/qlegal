@@ -41,11 +41,11 @@ export async function checkSigningStatus(
 	const isFullySigned =
 		signers.length > 0 &&
 		signedSigners.length === signers.length &&
-		((projectData.status as string) === "Completed" || projectData.completed_at !== null)
+		(projectData.status === "Completed" || projectData.completed_at !== null)
 
 	return {
 		isFullySigned,
-		projectStatus: (projectData.status as string) ?? "Unknown",
+		projectStatus: projectData.status ?? "Unknown",
 		completedAt: (projectData.completed_at as string | null) ?? null,
 		totalSigners: signers.length,
 		signedCount: signedSigners.length,
@@ -78,7 +78,7 @@ export async function downloadSignedDocument(
 	const isFullySigned =
 		signers.length > 0 &&
 		signedSigners.length === signers.length &&
-		((projectData.status as string) === "Completed" || projectData.completed_at !== null)
+		(projectData.status === "Completed" || projectData.completed_at !== null)
 
 	if (!isFullySigned) {
 		throw new Error(
@@ -93,7 +93,7 @@ export async function downloadSignedDocument(
 	// Method 1: Vault files
 	if (!buffer) {
 		try {
-			const rawVaultUuid = (projectData.uuid as string) ?? (projectData.project_uuid as string)
+			const rawVaultUuid = projectData.uuid ?? projectData.project_uuid
 			const vaultUuid = rawVaultUuid ? String(rawVaultUuid) : projectUuid
 
 			const vaultItem = await getVaultItem(vaultUuid, userEmail)
@@ -189,9 +189,9 @@ export async function downloadSignedDocument(
 	// Method 3: Fallback URLs
 	if (!buffer) {
 		const fallbackUrl =
-			(projectData.signed_url as string) ??
-			(projectData.signed_document_url as string) ??
-			(projectData.url as string)
+			(projectData.signed_url as string | undefined) ??
+			(projectData.signed_document_url as string | undefined) ??
+			(projectData.url as string | undefined)
 
 		if (!fallbackUrl) {
 			throw new Error("Signed document URL not available. Document may not be fully signed yet.")
@@ -215,8 +215,8 @@ export async function downloadSignedDocument(
 	}
 
 	const fileName =
-		(projectData.file_name as string) ??
-		(projectData.name as string) ??
+		(projectData.file_name as string | undefined) ??
+		(projectData.name as string | undefined) ??
 		`signed-document-${projectUuid}.pdf`
 
 	return {

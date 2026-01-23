@@ -53,16 +53,16 @@ export async function createPaymentRequest(
 ): Promise<PaymentRequest> {
 	console.log("🔵 Creating HitPay payment request...")
 	console.log("   - Email:", params.email)
-	console.log("   - Amount:", params.amount, params.currency || "SGD")
+	console.log("   - Amount:", params.amount, params.currency ?? "SGD")
 
 	const response = await makeRequest<PaymentRequestResponse>("/payment-requests", {
 		method: "POST",
 		body: JSON.stringify({
 			email: params.email,
 			name: params.name,
-			purpose: params.purpose || "Payment",
+			purpose: params.purpose ?? "Payment",
 			amount: params.amount,
-			currency: params.currency || "SGD",
+			currency: params.currency ?? "SGD",
 			redirect_url: params.redirect_url,
 			webhook: params.webhook,
 			reference_number: params.reference_number,
