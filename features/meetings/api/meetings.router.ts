@@ -1,5 +1,5 @@
 import { TRPCError } from "@trpc/server"
-import { and, eq } from "drizzle-orm"
+import { and, eq, type InferSelectModel } from "drizzle-orm"
 import { z } from "zod/v4"
 
 import { checkSigningStatus, createProject, normalizeUrl } from "@/services/doconchain"
@@ -623,6 +623,16 @@ export const meetingsRouter = createTRPCRouter({
 				// Decode base64 file data
 				const fileBuffer = Buffer.from(file, "base64")
 
+				// Get creator's email for DocoChain operations
+				const creatorEmail = meeting.createdBy?.email
+
+				if (!creatorEmail) {
+					throw new TRPCError({
+						code: "PRECONDITION_FAILED",
+						message: "Meeting creator email is required for document signing",
+					})
+				}
+
 				// STEP 1: Create DocoChain project FIRST using Create Project API
 				// This is the PRIMARY upload - the project UUID is critical for identifying the document
 				console.log("🔵 Creating DocoChain project for:", name)
@@ -774,8 +784,13 @@ export const meetingsRouter = createTRPCRouter({
 			})
 		}
 
+		// Define type for document with nested signers
+		type DocumentWithSigners = InferSelectModel<typeof documents> & {
+			signers: { userId: string }[]
+		}
+
 		// Sort by order first (for manual reordering), then by createdAt (for upload sequence)
-		const sorted = [...meeting.documents].sort((a, b) => {
+		const sorted = ([...meeting.documents] as DocumentWithSigners[]).sort((a, b) => {
 			const orderA = a.order ?? 0
 			const orderB = b.order ?? 0
 			if (orderA !== orderB) return orderA - orderB
