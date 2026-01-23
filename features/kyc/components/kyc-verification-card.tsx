@@ -3,7 +3,6 @@
 import { useSearchParams } from "next/navigation"
 import { useEffect, useMemo, useRef, useState, useTransition } from "react"
 import { CheckCircle2, Loader2, LogOut, PlayCircle, ShieldCheck, XCircle } from "lucide-react"
-import { signOut } from "next-auth/react"
 import { toast } from "sonner"
 
 import { Badge } from "@/core/components/ui/badge"
@@ -213,12 +212,6 @@ export function KycVerificationCard({
 		})
 	}
 
-	const handleLogout = () => {
-		// Clear KYC skip session cookie before logout
-		document.cookie = "skipKycSession=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT"
-		signOut({ callbackUrl: "/auth/login" })
-	}
-
 	// No polling - following HyperVerge best practices
 	// Webhook handles real-time updates, manual check is fallback only
 
@@ -391,12 +384,6 @@ export function KycVerificationCard({
 									Resume Verification
 								</>
 							)}
-						</Button>
-
-
-						<Button onClick={handleLogout} disabled={isPending} variant="ghost" className="w-full">
-							<LogOut className="mr-2 h-4 w-4" />
-							Log Out
 						</Button>
 
 						{/* Subtle backup option for expired links */}

@@ -15,6 +15,7 @@ import { messageFilesRouter } from "@/features/messages/api/message-files.router
 import { messagesRouter } from "@/features/messages/api/messages.router"
 import { notarialBookRouter } from "@/features/notarial-book/api/notarial-book.router"
 import { profileRouter } from "@/features/profile/api/profile.router"
+import { quickMatchRouter } from "@/features/quick-match/api/quick-match.router"
 import { requestsRouter } from "@/features/requests/api/requests.router"
 import { settingsRouter } from "@/features/settings/api/settings.router"
 import { signatureLiteRouter } from "@/features/signature-lite/api/new-signature.router"
@@ -46,6 +47,7 @@ export const appRouter = createTRPCRouter({
 	messageFiles: messageFilesRouter,
 	notarialBook: notarialBookRouter,
 	profile: profileRouter,
+	quickMatch: quickMatchRouter,
 	requests: requestsRouter,
 	settings: settingsRouter,
 	signatureLite: signatureLiteRouter,
