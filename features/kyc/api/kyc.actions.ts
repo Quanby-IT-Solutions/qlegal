@@ -11,6 +11,8 @@ import {
 	interpretStatus,
 	type OnboardLinkConfig,
 } from "@/services/hyperverge"
+import { checkLiveness } from "@/services/hyperverge/liveness"
+import { matchFaceSelfieToId, readIdCard } from "@/services/hyperverge/kyc-direct"
 import { auth } from "@/services/next-auth"
 
 import { env } from "@/env"
@@ -140,6 +142,156 @@ export async function createUserKycLink() {
 }
 
 /**
+ * Direct API KYC (no workflow / no QR).
+ *
+ * Runs:
+ * 1) ID Card Validation API (readId) -> summary.action
+ * 2) Selfie Validation API (checkLiveness) -> decision + summary.action
+ * 3) Face Match API (matchFace) selfie vs id -> match.value + summary.action
+ *
+ * Updates users.kycStatus based on the combined outcome.
+ *
+ * Note: This is server-to-server to avoid exposing appKey in the browser.
+ */
+export async function runDirectKycVerification(input: {
+	countryId: string
+	documentId: string
+	idImageBase64: string
+	selfieImageBase64: string
+}) {
+	const session = await auth()
+
+	if (!session?.user?.id || !session?.user?.email) {
+		return { success: false, error: "User not authenticated" }
+	}
+
+	// Basic payload validation
+	if (!input.countryId || !input.documentId) {
+		return { success: false, error: "countryId and documentId are required" }
+	}
+	if (!input.idImageBase64 || input.idImageBase64.length < 100) {
+		return { success: false, error: "Invalid ID image" }
+	}
+	if (!input.selfieImageBase64 || input.selfieImageBase64.length < 100) {
+		return { success: false, error: "Invalid selfie image" }
+	}
+
+	const transactionId = generateTransactionId(session.user.id)
+
+	// Mark as pending in DB immediately (so we can track transactionId even if a later step fails)
+	await db
+		.update(users)
+		.set({
+			kycTransactionId: transactionId,
+			kycLink: null,
+			kycStatus: "PENDING",
+			kycLinkCreatedAt: new Date(),
+		})
+		.where(eq(users.id, session.user.id))
+
+	try {
+		// 1) ID OCR/validation
+		const idResult = await readIdCard({
+			transactionId,
+			imageBase64: input.idImageBase64,
+			countryId: input.countryId,
+			documentId: input.documentId,
+			expectedDocumentSide: "front",
+		})
+
+		// 2) Liveness
+		const livenessResult = await checkLiveness({
+			image: input.selfieImageBase64,
+			transactionId,
+			// Enable common quality checks (optional)
+			showCaptureInstructions: false,
+		})
+
+		// 3) Face match (selfie vs full ID image)
+		const faceMatchResult = await matchFaceSelfieToId({
+			transactionId,
+			selfieBase64: input.selfieImageBase64,
+			idBase64: input.idImageBase64,
+			returnScore: true,
+		})
+
+		const idPass = idResult.summaryAction === "pass"
+		const livenessPass = livenessResult.decision?.isApproved === true
+		const faceMatchPass = faceMatchResult.matchValue === "yes" && faceMatchResult.summaryAction === "pass"
+
+		// Conservative decisioning:
+		// - manualReview from readId/faceMatch -> treat as pending (needs review)
+		// - all pass -> verified
+		// - any hard fail -> rejected
+		let kycStatus: "PENDING" | "VERIFIED" | "REJECTED" = "PENDING"
+		let message = "KYC verification submitted."
+
+		const hasManualReview =
+			idResult.summaryAction === "manualReview" || faceMatchResult.summaryAction === "manualReview"
+
+		if (idPass && livenessPass && faceMatchPass) {
+			kycStatus = "VERIFIED"
+			message = "KYC verified successfully."
+		} else if (hasManualReview) {
+			kycStatus = "PENDING"
+			message = "KYC requires manual review."
+		} else {
+			kycStatus = "REJECTED"
+			message = "KYC verification failed."
+		}
+
+		await db
+			.update(users)
+			.set({
+				kycStatus,
+				kycVerifiedAt: kycStatus === "VERIFIED" ? new Date() : null,
+			})
+			.where(eq(users.id, session.user.id))
+
+		revalidatePath("/kyc")
+
+		return {
+			success: true,
+			data: {
+				transactionId,
+				kycStatus,
+				message,
+				steps: {
+					readId: { action: idResult.summaryAction },
+					liveness: {
+						isApproved: livenessResult.decision?.isApproved ?? false,
+						liveFaceValue: livenessResult.decision?.liveFaceValue ?? "unknown",
+						summaryAction: livenessResult.decision?.summaryAction ?? "unknown",
+					},
+					faceMatch: {
+						match: faceMatchResult.matchValue,
+						action: faceMatchResult.summaryAction,
+					},
+				},
+			},
+		}
+	} catch (error) {
+		console.error("Direct KYC failed:", error)
+
+		await db
+			.update(users)
+			.set({
+				kycStatus: "REJECTED",
+				kycVerifiedAt: null,
+			})
+			.where(eq(users.id, session.user.id))
+
+		revalidatePath("/kyc")
+
+		return {
+			success: false,
+			error: error instanceof Error ? error.message : "Direct KYC failed",
+			transactionId,
+		}
+	}
+}
+
+/**
  * Check the KYC status of the authenticated user
  */
 export async function checkUserKycStatus() {
@@ -169,8 +321,7 @@ export async function checkUserKycStatus() {
 
 	try {
 		const result = await getTransactionStatus(user.kycTransactionId)
-		const applicationStatus =
-			(result.result as any).applicationStatus || (result.result as any).status
+		const applicationStatus = result.result.applicationStatus
 		const interpretation = interpretStatus(applicationStatus)
 
 		console.log("🔍 KYC Status Check:", {

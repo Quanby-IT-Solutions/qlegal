@@ -1,8 +1,7 @@
 "use client"
 
-import { useSearchParams } from "next/navigation"
 import { useEffect, useMemo, useRef, useState, useTransition } from "react"
-import { CheckCircle2, Loader2, LogOut, PlayCircle, ShieldCheck, XCircle } from "lucide-react"
+import { CheckCircle2, Loader2, PlayCircle, ShieldCheck, XCircle } from "lucide-react"
 import { toast } from "sonner"
 
 import { Badge } from "@/core/components/ui/badge"
@@ -10,6 +9,7 @@ import { Button } from "@/core/components/ui/button"
 import { Label } from "@/core/components/ui/label"
 import { useKycBroadcast } from "@/core/hooks/use-kyc-broadcast"
 
+import { DirectKycDialog } from "@/features/kyc/components/direct-kyc-dialog"
 import {
 	createUserKycLink,
 	getExistingKycLink,
@@ -48,8 +48,6 @@ export function KycVerificationCard({
 	const [isPending, startTransition] = useTransition()
 	const [error, setError] = useState<string | null>(null)
 	const [showManualCheck, setShowManualCheck] = useState(false)
-	const [isCreatingForExpired, setIsCreatingForExpired] = useState(false)
-	const searchParams = useSearchParams()
 	const toastShownRef = useRef<Set<string>>(new Set())
 
 	// Check if there's an expired link (24 hours old)
@@ -152,7 +150,7 @@ export function KycVerificationCard({
 
 	const handleCreateLink = () => {
 		setError(null)
-		setIsCreatingForExpired(hasExpiredLink)
+		// keep hasExpiredLink memo for UI, no additional state needed
 
 		startTransition(async () => {
 			const result = await createUserKycLink()
@@ -329,19 +327,22 @@ export function KycVerificationCard({
 							</p>
 						</div>
 					)}
-					<Button onClick={handleCreateLink} disabled={isPending} className="w-full" size="lg">
-						{isPending ? (
-							<>
-								<Loader2 className="mr-2 h-4 w-4 animate-spin" />
-								Creating Link...
-							</>
-						) : (
-							<>
-								<ShieldCheck className="mr-2 h-5 w-5" />
-								Start Verification
-							</>
-						)}
-					</Button>
+					<div className="grid gap-3">
+						<Button onClick={handleCreateLink} disabled={isPending} className="w-full" size="lg">
+							{isPending ? (
+								<>
+									<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+									Creating Link...
+								</>
+							) : (
+								<>
+									<ShieldCheck className="mr-2 h-5 w-5" />
+									Start Verification (Hosted)
+								</>
+							)}
+						</Button>
+						<DirectKycDialog disabled={isPending} variant="secondary" />
+					</div>
 				</div>
 			)}
 
@@ -385,6 +386,7 @@ export function KycVerificationCard({
 								</>
 							)}
 						</Button>
+						<DirectKycDialog disabled={isPending} variant="secondary" />
 
 						{/* Subtle backup option for expired links */}
 						<div className="flex justify-center border-t pt-3">
