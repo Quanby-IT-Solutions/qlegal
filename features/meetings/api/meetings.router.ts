@@ -7,6 +7,7 @@ import { normalizeDocoChainUrl } from "@/services/doconchain/url-normalizer"
 import { db } from "@/services/drizzle/db"
 import { users } from "@/services/drizzle/schema/auth"
 import { documents } from "@/services/drizzle/schema/document"
+import { documentSigners } from "@/services/drizzle/schema/document-signers"
 import { meetingParticipants, meetings } from "@/services/drizzle/schema/meetings"
 import { getServiceRoleClient } from "@/services/supabase"
 import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
@@ -601,44 +602,12 @@ export const meetingsRouter = createTRPCRouter({
 				})
 			}
 
-			// CRITICAL: DocoChain project creation MUST use an ENP (enterprise) token.
-			// In prod, per-user tokens can cause "Unauthorized access" if we accidentally use a Principal's email.
-			let creatorEmail: string | undefined
-
-			// First, check if meeting creator is ENP
-			if (isEnpRole(meeting.createdBy?.role)) {
-				creatorEmail = asNonEmptyEmail(meeting.createdBy?.email)
-			}
-
-			// Otherwise, find ENP among participants
-			if (!creatorEmail) {
-				const enpParticipant = meeting.participants.find(
-					p => isEnpRole(p.user?.role) && !!p.user?.email
-				)
-				creatorEmail = asNonEmptyEmail(enpParticipant?.user?.email)
-			}
-
-			// Finally, allow ENP uploader as a fallback (rare but safe)
-			if (!creatorEmail && isEnpRole(ctx.session.user.role) && ctx.session.user.email) {
-				creatorEmail = asNonEmptyEmail(ctx.session.user.email)
-			}
-
-			if (!creatorEmail) {
-				throw new TRPCError({
-					code: "BAD_REQUEST",
-					message:
-						"ENP email not found for document signing. This meeting must include an ENP participant to upload signing documents.",
-				})
-			}
-
-			console.log("🔵 Using ENP email for DocoChain project:", creatorEmail)
-
 			try {
-				// Validate file type - only PDF is supported by DocoChain Create Project API
+				// Validate file type - only PDF is supported for document signing
 				if (mimeType !== "application/pdf") {
 					throw new TRPCError({
 						code: "BAD_REQUEST",
-						message: "Only PDF files are supported for document signing via DocoChain",
+						message: "Only PDF files are supported for document signing",
 					})
 				}
 
@@ -653,62 +622,11 @@ export const meetingsRouter = createTRPCRouter({
 				// Decode base64 file data
 				const fileBuffer = Buffer.from(file, "base64")
 
-				// STEP 1: Create DocoChain project FIRST using Create Project API
-				// This is the PRIMARY upload - the project UUID is critical for identifying the document
-				console.log("🔵 Creating DocoChain project for:", name)
-				console.log("   - Using creator email (meeting creator):", creatorEmail)
+				// STEP 1: Create document record in database FIRST (NO DocoChain project yet)
+				// Documents are uploaded for review - DocoChain project will be created when signing starts
+				console.log("🔵 Uploading document for review:", name)
+				console.log("   - DocoChain project will be created when signing starts")
 
-				// DocoChain Create Project optional multipart param:
-				// document_stamp (JSON string) - applies seal + notary cert info on completed document
-				const documentStamp = {
-					seal: {
-						type: "seal",
-						enp_name: "Juan Dela Cruz",
-						enp_role_number: "123456",
-					},
-					notary_info: {
-						type: "notary",
-						atty_name: "ATTY. JUAN DELA CRUZ",
-						roll_no: "123456",
-						roll_no_date: "5 June 2018",
-						commission_no: "2024 - 024",
-						commission_no_valid_until: "Dec 31, 2025",
-						PTR_no: "1234567",
-						PTR_no_location: "Manila",
-						PTR_no_date: "Jan 02, 2025",
-						IBP_no: "123456",
-						IBP_no_date: "Dec 18, 2024 (for 2025)",
-						email: "juan.cruz@email.com",
-						address: "123, The Actual Bldg., 1234 Avenue, Malate, Manila",
-						MCLE_no_period: "VIII",
-						MCLE_no: "1234567",
-						MCLE_no_date: "Jun 12, 2024",
-						mode_of_notarization: "REN",
-					},
-				}
-				const docoChainProject = await createDocoChainProject({
-					title: name,
-					documentFile: fileBuffer,
-					fileName: name.endsWith(".pdf") ? name : `${name}.pdf`,
-					userListEditable: false, // Recipients cannot be edited after creation
-					creatorAsViewer: false, // Creator is not added as a viewer
-					documentStamp,
-					creatorEmail, // Use meeting creator's email, not the uploader's email
-				})
-				const docoChainProjectId = docoChainProject.uuid // THIS IS THE CRITICAL PROJECT UUID
-				// ALWAYS normalize the redirect URL before storing - ensure api=true is set
-				const docoChainRedirectUrl = normalizeDocoChainUrl(docoChainProject.redirectUrl) ?? null
-				console.log("✅ DocoChain project created!")
-				console.log("   - Project UUID:", docoChainProjectId)
-				console.log("   - Project ID:", docoChainProject.id)
-				console.log("   - Redirect URL (normalized):", docoChainRedirectUrl)
-
-				// STEP 1.5: Don't add any signers yet
-				// Signers will be added dynamically when they click "Start Signing"
-				// This ensures each signer only sees themselves + creator when plotting
-				console.log("ℹ️ Signers will be added dynamically when they click 'Start Signing'")
-
-				// STEP 2: Create document record in database with DocoChain project UUID
 				const [document] = await db
 					.insert(documents)
 					.values({
@@ -718,8 +636,8 @@ export const meetingsRouter = createTRPCRouter({
 						size,
 						description: input.description ?? null,
 						meetingId,
-						docoChainProjectId, // Store the critical project UUID
-						docoChainRedirectUrl,
+						docoChainProjectId: null, // No project yet - will be created when signing starts
+						docoChainRedirectUrl: null,
 						order: nextOrder, // Set order based on upload sequence
 					})
 					.returning()
@@ -731,11 +649,11 @@ export const meetingsRouter = createTRPCRouter({
 					})
 				}
 
-				// STEP 3: Upload to Supabase storage for backup/access
+				// STEP 2: Upload to Supabase storage (this is the PRIMARY storage)
 				const supabase = getServiceRoleClient()
 				const fileName = `meetings/${meetingId}/${document.id}/${name}`
 
-				console.log("🔵 Uploading to Supabase storage (backup)...")
+				console.log("🔵 Uploading to Supabase storage...")
 				const { data: uploadData, error: uploadError } = await supabase.storage
 					.from("documents")
 					.upload(fileName, fileBuffer, {
@@ -744,10 +662,14 @@ export const meetingsRouter = createTRPCRouter({
 					})
 
 				if (uploadError) {
-					console.warn("⚠️ Supabase upload failed but DocoChain project created successfully")
-				} else {
-					console.log("✅ Uploaded to Supabase:", uploadData.path)
+					console.error("❌ Supabase upload failed:", uploadError)
+					throw new TRPCError({
+						code: "INTERNAL_SERVER_ERROR",
+						message: `Failed to upload document to storage: ${uploadError.message}`,
+					})
 				}
+
+				console.log("✅ Uploaded to Supabase:", uploadData.path)
 
 				// Get public URL for the document
 				const publicUrl = uploadData?.path
@@ -758,7 +680,7 @@ export const meetingsRouter = createTRPCRouter({
 				const [updatedDocument] = await db
 					.update(documents)
 					.set({
-						path: uploadData?.path ?? "",
+						path: uploadData.path,
 					})
 					.where(eq(documents.id, document.id))
 					.returning()
@@ -775,13 +697,17 @@ export const meetingsRouter = createTRPCRouter({
 			}
 		}),
 
-	// Get meeting documents
+	// Get meeting documents (with per-document signer selection)
 	getMeetingDocuments: protectedProcedure.input(z.string()).query(async ({ input, ctx }) => {
 		const meeting = await db.query.meetings.findFirst({
 			where: eq(meetings.id, input),
 			with: {
 				participants: true,
-				documents: true,
+				documents: {
+					with: {
+						signers: { columns: { userId: true } },
+					},
+				},
 			},
 		})
 
@@ -807,21 +733,83 @@ export const meetingsRouter = createTRPCRouter({
 		}
 
 		// Sort by order first (for manual reordering), then by createdAt (for upload sequence)
-		return meeting.documents.sort((a, b) => {
+		const sorted = [...meeting.documents].sort((a, b) => {
 			const orderA = a.order ?? 0
 			const orderB = b.order ?? 0
-
-			// If orders are different, sort by order
-			if (orderA !== orderB) {
-				return orderA - orderB
-			}
-
-			// If orders are the same (or both 0), sort by createdAt to maintain upload sequence
+			if (orderA !== orderB) return orderA - orderB
 			const createdAtA = a.createdAt ? new Date(a.createdAt).getTime() : 0
 			const createdAtB = b.createdAt ? new Date(b.createdAt).getTime() : 0
 			return createdAtA - createdAtB
 		})
+
+		// Map to include signerUserIds for each document
+		return sorted.map(doc => {
+			const { signers, ...rest } = doc
+			return {
+				...rest,
+				signerUserIds: (signers ?? []).map(s => s.userId),
+			}
+		})
 	}),
+
+	// Set which meeting participants are signers for a given document (before plotting)
+	setDocumentSigners: protectedProcedure
+		.input(
+			z.object({
+				documentId: z.string().min(1),
+				meetingId: z.string().min(1),
+				userIds: z.array(z.string().min(1)),
+			})
+		)
+		.mutation(async ({ ctx, input }) => {
+			const { documentId, meetingId, userIds } = input
+
+			const meeting = await db.query.meetings.findFirst({
+				where: eq(meetings.id, meetingId),
+				with: {
+					participants: true,
+					documents: { columns: { id: true, meetingId: true } },
+				},
+			})
+
+			if (!meeting) {
+				throw new TRPCError({ code: "NOT_FOUND", message: "Meeting not found" })
+			}
+
+			const isHost = meeting.createdById === ctx.session.user.id
+			const isAccepted = meeting.participants.some(
+				p => p.userId === ctx.session.user.id && p.status === "ACCEPTED"
+			)
+			if (!isHost && !isAccepted) {
+				throw new TRPCError({ code: "FORBIDDEN", message: "You don't have access to this meeting" })
+			}
+
+			const doc = meeting.documents.find(d => d.id === documentId)
+			if (doc?.meetingId !== meetingId) {
+				throw new TRPCError({ code: "NOT_FOUND", message: "Document not found in this meeting" })
+			}
+
+			const acceptedIds = new Set(
+				meeting.participants.filter(p => p.status === "ACCEPTED").map(p => p.userId)
+			)
+			const invalid = userIds.filter(id => !acceptedIds.has(id))
+			if (invalid.length > 0) {
+				throw new TRPCError({
+					code: "BAD_REQUEST",
+					message: "All signers must be accepted participants in this meeting",
+				})
+			}
+
+			await db.delete(documentSigners).where(eq(documentSigners.documentId, documentId))
+
+			if (userIds.length > 0) {
+				await db.insert(documentSigners).values(
+					userIds.map(userId => ({ documentId, userId }))
+				)
+			}
+
+			return { success: true }
+		}),
 
 	// Get notarization details for a meeting (documents + signing status)
 	getMeetingNotarizationDetails: protectedProcedure
