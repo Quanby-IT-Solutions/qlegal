@@ -94,8 +94,10 @@ export const quickMatchRouter = createTRPCRouter({
 				const doc = input.documentType.toLowerCase()
 				// naive grouping
 				if (doc.includes("real") && spec.includes("real estate")) return 1.0
-				if ((doc.includes("poa") || doc.includes("affidavit")) && spec.includes("affidavit")) return 1.0
-				if (doc.includes("loan") && (spec.includes("business") || spec.includes("contracts"))) return 0.9
+				if ((doc.includes("poa") || doc.includes("affidavit")) && spec.includes("affidavit"))
+					return 1.0
+				if (doc.includes("loan") && (spec.includes("business") || spec.includes("contracts")))
+					return 0.9
 				return spec ? 0.6 : 0.5
 			}
 
@@ -117,7 +119,7 @@ export const quickMatchRouter = createTRPCRouter({
 
 				// Boosts
 				let newENPBoost = 0
-				let returningBoost = 0
+				const returningBoost = 0
 				let specialtyBoost = 0
 				if (c.createdAt) {
 					const days = (Date.now() - new Date(c.createdAt).getTime()) / (1000 * 60 * 60 * 24)
@@ -154,14 +156,12 @@ export const quickMatchRouter = createTRPCRouter({
 			})
 
 			// Select best by score then rating
-			const best = scored
-				.sort((a, b) => {
-					if (b.breakdown.totalScore !== a.breakdown.totalScore) {
-						return b.breakdown.totalScore - a.breakdown.totalScore
-					}
-					return normalizeRating(b.candidate.rating) - normalizeRating(a.candidate.rating)
-				})
-				[0]
+			const best = scored.sort((a, b) => {
+				if (b.breakdown.totalScore !== a.breakdown.totalScore) {
+					return b.breakdown.totalScore - a.breakdown.totalScore
+				}
+				return normalizeRating(b.candidate.rating) - normalizeRating(a.candidate.rating)
+			})[0]
 
 			if (!best) return null
 

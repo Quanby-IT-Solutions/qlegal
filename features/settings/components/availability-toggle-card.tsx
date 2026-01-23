@@ -28,7 +28,7 @@ export function AvailabilityToggleCard() {
 		onMutate: () => {
 			setIsChanging(true)
 		},
-		onSuccess: (data) => {
+		onSuccess: data => {
 			setIsChanging(false)
 			void utils.enpProfile.getMyProfile.invalidate()
 			toast.success(
@@ -37,7 +37,7 @@ export function AvailabilityToggleCard() {
 					: "You are now unavailable for bookings"
 			)
 		},
-		onError: (error) => {
+		onError: error => {
 			setIsChanging(false)
 			toast.error(error.message ?? "Failed to update availability")
 		},
