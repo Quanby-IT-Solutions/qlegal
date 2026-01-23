@@ -6,8 +6,6 @@ import {
 	addSignerToProject,
 	autoJoinOrganization,
 	checkSigningStatus,
-	deleteSigner,
-	DOCONCHAIN_APP_URL,
 	downloadCertificate,
 	downloadSignedDocument,
 	generateEditDraftLink,
@@ -152,7 +150,6 @@ export const signatureRequestsRouter = createTRPCRouter({
 					})
 
 					console.log("✅ Added signer to DocoChain project")
-
 
 					console.log("📝 Project kept as DRAFT - ENP can place signature fields themselves")
 
@@ -565,7 +562,7 @@ export const signatureRequestsRouter = createTRPCRouter({
 						console.log("✅ Signing link generated successfully for sent project:", signingLink)
 					} catch (signLinkError) {
 						console.error("❌ Failed to generate signing link for sent project:", signLinkError)
-						signingLink = `${DOCONCHAIN_APP_URL}/${projectUuid}?email=${encodeURIComponent(email)}&api=true`
+						signingLink = `${env.DOCONCHAIN_APP_URL}/${projectUuid}?email=${encodeURIComponent(email)}&api=true`
 					}
 				} else {
 					// Project is still Draft - ALWAYS generate a fresh Edit Draft Link
@@ -585,7 +582,7 @@ export const signatureRequestsRouter = createTRPCRouter({
 						)
 					} catch (editDraftError) {
 						console.error("❌ Failed to generate Edit Draft Link:", editDraftError)
-						signingLink = `${DOCONCHAIN_APP_URL}/${projectUuid}?api=true`
+						signingLink = `${env.DOCONCHAIN_APP_URL}/${projectUuid}?api=true`
 					}
 				}
 
@@ -793,9 +790,7 @@ export const signatureRequestsRouter = createTRPCRouter({
 				// Check if user's email is in the signers list
 
 				const signers = projectDetails?.data?.signers ?? []
-				// eslint-disable-next-line @typescript-eslint/no-explicit-any
 				const isSigner = signers.some((signer: any) => {
-					// eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
 					return signer.email?.toLowerCase() === userEmail.toLowerCase()
 				})
 

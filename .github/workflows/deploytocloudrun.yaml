@@ -17,7 +17,7 @@ env:
   SERVICE: ${{ vars.CLOUD_RUN_SERVICE }}
 
   # ==========================================================
-  # QSIGN MAIN ENVS (store values in GitHub Secrets unless you intentionally want Vars)
+  # QLEGAL ENVS (store values in GitHub Secrets unless you intentionally want Vars)
   # ==========================================================
 
   # Auth
@@ -48,6 +48,11 @@ env:
 
   # Maps
   GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
+
+  # Payment (HitPay)
+  HITPAY_API_KEY: ${{ secrets.HITPAY_API_KEY }}
+  HITPAY_API_URL: ${{ secrets.HITPAY_API_URL }}
+  HITPAY_WEBHOOK_SALT: ${{ secrets.HITPAY_WEBHOOK_SALT }}
 
   # KYC (HyperVerge)
   HYPERVERGE_API_URL: ${{ secrets.HYPERVERGE_API_URL }}
@@ -134,6 +139,9 @@ jobs:
             --build-arg EMAIL_PORT="${{ vars.EMAIL_PORT }}" \
             --build-arg EMAIL_USER="${{ vars.EMAIL_USER }}" \
             --build-arg GOOGLE_MAPS_API_KEY="${{ secrets.GOOGLE_MAPS_API_KEY }}" \
+            --build-arg HITPAY_API_KEY="${{ secrets.HITPAY_API_KEY }}" \
+            --build-arg HITPAY_API_URL="${{ secrets.HITPAY_API_URL }}" \
+            --build-arg HITPAY_WEBHOOK_SALT="${{ secrets.HITPAY_WEBHOOK_SALT }}" \
             --build-arg HYPERVERGE_API_URL="${{ secrets.HYPERVERGE_API_URL }}" \
             --build-arg HYPERVERGE_APP_ID="${{ secrets.HYPERVERGE_APP_ID }}" \
             --build-arg HYPERVERGE_APP_KEY="${{ secrets.HYPERVERGE_APP_KEY }}" \
@@ -192,6 +200,9 @@ jobs:
             EMAIL_PORT=${{ vars.EMAIL_PORT }}
             EMAIL_USER=${{ vars.EMAIL_USER }}
             GOOGLE_MAPS_API_KEY=${{ secrets.GOOGLE_MAPS_API_KEY }}
+            HITPAY_API_KEY=${{ secrets.HITPAY_API_KEY }}
+            HITPAY_API_URL=${{ secrets.HITPAY_API_URL }}
+            HITPAY_WEBHOOK_SALT=${{ secrets.HITPAY_WEBHOOK_SALT }}
             HYPERVERGE_API_URL=${{ secrets.HYPERVERGE_API_URL }}
             HYPERVERGE_APP_ID=${{ secrets.HYPERVERGE_APP_ID }}
             HYPERVERGE_APP_KEY=${{ secrets.HYPERVERGE_APP_KEY }}

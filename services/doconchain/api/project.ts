@@ -87,7 +87,36 @@ export async function createProject({
 export async function getProjectDetails(
 	projectUuid: string,
 	userEmail?: string
-): Promise<{ data?: Record<string, unknown>; message?: string }> {
+): Promise<{
+	data?: {
+		uuid?: string
+		project_uuid?: string
+		id?: number | string
+		status?: string
+		completed_at?: string | null
+		file_name?: string | null
+		name?: string | null
+		signers?: Array<{
+			id?: number | string
+			email?: string
+			first_name?: string | null
+			last_name?: string | null
+			status?: string
+			signed_at?: string | null
+			sequence?: number
+			signer_role?: string
+		}>
+		signed_url?: string | null
+		signed_document_url?: string | null
+		url?: string | null
+		certificate_url?: string | null
+		certificateUrl?: string | null
+		cert_url?: string | null
+		redirect_url?: string | null
+		sent_at?: string | null
+	}
+	message?: string
+}> {
 	const response = await apiCall(async token => {
 		return fetch(
 			`${env.DOCONCHAIN_API_URL}/api/v2/projects/${projectUuid}?user_type=ENTERPRISE_API`,
@@ -113,7 +142,36 @@ export async function getProjectDetails(
 		throw new Error(errorMessage)
 	}
 
-	return (await response.json()) as { data?: Record<string, unknown>; message?: string }
+	return (await response.json()) as {
+		data?: {
+			uuid?: string
+			project_uuid?: string
+			id?: number | string
+			status?: string
+			completed_at?: string | null
+			file_name?: string | null
+			name?: string | null
+			signers?: Array<{
+				id?: number | string
+				email?: string
+				first_name?: string | null
+				last_name?: string | null
+				status?: string
+				signed_at?: string | null
+				sequence?: number
+				signer_role?: string
+			}>
+			signed_url?: string | null
+			signed_document_url?: string | null
+			url?: string | null
+			certificate_url?: string | null
+			certificateUrl?: string | null
+			cert_url?: string | null
+			redirect_url?: string | null
+			sent_at?: string | null
+		}
+		message?: string
+	}
 }
 
 interface AddSignatureMarkRequest {

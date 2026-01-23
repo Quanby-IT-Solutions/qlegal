@@ -29,6 +29,10 @@ services:
         EMAIL_USER: ${EMAIL_USER}
         # Maps
         GOOGLE_MAPS_API_KEY: ${GOOGLE_MAPS_API_KEY}
+        # Payment (HitPay)
+        HITPAY_API_KEY: ${HITPAY_API_KEY}
+        HITPAY_API_URL: ${HITPAY_API_URL}
+        HITPAY_WEBHOOK_SALT: ${HITPAY_WEBHOOK_SALT}
         # KYC (HyperVerge)
         HYPERVERGE_API_URL: ${HYPERVERGE_API_URL}
         HYPERVERGE_APP_ID: ${HYPERVERGE_APP_ID}
@@ -77,6 +81,10 @@ services:
       - EMAIL_USER=${EMAIL_USER}
       # Maps
       - GOOGLE_MAPS_API_KEY=${GOOGLE_MAPS_API_KEY}
+      # Payment (HitPay)
+      - HITPAY_API_KEY=${HITPAY_API_KEY}
+      - HITPAY_API_URL=${HITPAY_API_URL}
+      - HITPAY_WEBHOOK_SALT=${HITPAY_WEBHOOK_SALT}
       # KYC (HyperVerge)
       - HYPERVERGE_API_URL=${HYPERVERGE_API_URL}
       - HYPERVERGE_APP_ID=${HYPERVERGE_APP_ID}

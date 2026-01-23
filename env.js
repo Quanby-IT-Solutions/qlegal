@@ -36,6 +36,11 @@ export const env = createEnv({
 		// Maps
 		GOOGLE_MAPS_API_KEY: z.string(),
 
+		// Payment (HitPay)
+		HITPAY_API_KEY: z.string(),
+		HITPAY_API_URL: z.string(),
+		HITPAY_WEBHOOK_SALT: z.string(),
+
 		// KYC (HyperVerge)
 		HYPERVERGE_API_URL: z.string(),
 		HYPERVERGE_APP_ID: z.string(),
@@ -45,8 +50,8 @@ export const env = createEnv({
 
 		// Server Configuration
 		NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
-		PORT: z.coerce.number(),
-		SEED_VALUE: z.coerce.number(),
+		PORT: z.coerce.number().optional(),
+		SEED_VALUE: z.coerce.number().optional(),
 
 		// Storage
 		SUPABASE_SERVICE_ROLE_KEY: z.string(),
@@ -106,6 +111,11 @@ export const env = createEnv({
 
 		// Maps
 		GOOGLE_MAPS_API_KEY: process.env.GOOGLE_MAPS_API_KEY,
+
+		// Payment (HitPay)
+		HITPAY_API_KEY: process.env.HITPAY_API_KEY,
+		HITPAY_API_URL: process.env.HITPAY_API_URL,
+		HITPAY_WEBHOOK_SALT: process.env.HITPAY_WEBHOOK_SALT,
 
 		// KYC (HyperVerge)
 		HYPERVERGE_API_URL: process.env.HYPERVERGE_API_URL,

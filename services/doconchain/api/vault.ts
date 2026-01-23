@@ -49,7 +49,13 @@ export async function getVaultItems(
 export async function getVaultItem(
 	projectUuid: string,
 	userEmail?: string
-): Promise<{ data?: { files?: Array<{ file_url?: string; url?: string }> } }> {
+): Promise<{
+	data?: {
+		files?: Array<{ file_url?: string; url?: string; file_name?: string; name?: string }>
+		file_name?: string
+		name?: string
+	}
+}> {
 	const response = await apiCall(async token => {
 		return fetch(`${env.DOCONCHAIN_API_URL}/vault/items/${projectUuid}?user_type=ENTERPRISE_API`, {
 			method: "GET",
@@ -68,6 +74,10 @@ export async function getVaultItem(
 	}
 
 	return (await response.json()) as {
-		data?: { files?: Array<{ file_url?: string; url?: string }> }
+		data?: {
+			files?: Array<{ file_url?: string; url?: string; file_name?: string; name?: string }>
+			file_name?: string
+			name?: string
+		}
 	}
 }
