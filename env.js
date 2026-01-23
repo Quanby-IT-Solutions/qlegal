@@ -9,7 +9,7 @@ export const env = createEnv({
 		AUTH_TRUST_HOST: z.string().optional(),
 		AUTH_URL: z.string().optional(),
 		DATABASE_URL: z.string().min(1),
-		// DOCOCHAIN_API_TOKEN: z.string().optional(),
+		DOCOCHAIN_API_TOKEN: z.string().optional(),
 		DOCOCHAIN_API_URL: z.string().optional(),
 		DOCOCHAIN_ADMIN_EMAIL: z.string().optional(),
 		DOCOCHAIN_ORGANIZATION_ID: z.string().optional(),
@@ -48,7 +48,7 @@ export const env = createEnv({
 		AUTH_TRUST_HOST: process.env.AUTH_TRUST_HOST,
 		AUTH_URL: process.env.AUTH_URL,
 		DATABASE_URL: process.env.DATABASE_URL,
-		// DOCOCHAIN_API_TOKEN: process.env.DOCOCHAIN_API_TOKEN ?? process.env.DOCONCHAIN_API_TOKEN,
+		DOCOCHAIN_API_TOKEN: process.env.DOCOCHAIN_API_TOKEN ?? process.env.DOCONCHAIN_API_TOKEN,
 		DOCOCHAIN_API_URL: process.env.DOCOCHAIN_API_URL ?? process.env.DOCONCHAIN_API_URL,
 		DOCOCHAIN_ADMIN_EMAIL:
 			process.env.DOCOCHAIN_ADMIN_EMAIL ??

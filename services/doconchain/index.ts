@@ -9,8 +9,7 @@ import { normalizeDocoChainUrl } from "./url-normalizer"
 
 const DOCOCHAIN_API_BASE = (env.DOCOCHAIN_API_URL ?? "https://stg-api2.doconchain.com").trim()
 // IMPORTANT: env values can contain trailing whitespace (common in .env). Trim to avoid 401s.
-// NOTE: DOCOCHAIN_API_TOKEN has been removed from env.js - using client key/secret flow instead
-const DOCOCHAIN_API_TOKEN = ""
+const DOCOCHAIN_API_TOKEN = (env.DOCOCHAIN_API_TOKEN ?? "").trim()
 const DOCOCHAIN_ORGANIZATION_ID = (env.DOCOCHAIN_ORGANIZATION_ID ?? "").trim()
 const DOCOCHAIN_CLIENT_KEY = (env.DOCOCHAIN_CLIENT_KEY ?? "").trim()
 const DOCOCHAIN_CLIENT_SECRET = (env.DOCOCHAIN_CLIENT_SECRET ?? "").trim()
@@ -22,6 +21,19 @@ const DOCOCHAIN_CLIENT_SECRET = (env.DOCOCHAIN_CLIENT_SECRET ?? "").trim()
  */
 const DOCOCHAIN_ADMIN_EMAIL = (env.DOCOCHAIN_ADMIN_EMAIL ?? "").trim()
 
+// DocoChain SDK is extremely chatty; keep logs opt-in.
+// Set `DOCOCHAIN_LOGS=true` in your environment to enable verbose logs.
+const DOCOCHAIN_LOGS_ENABLED = process.env.DOCOCHAIN_LOGS === "true"
+const docoLog = (...args: any[]) => {
+	if (DOCOCHAIN_LOGS_ENABLED) console.log(...args)
+}
+const docoWarn = (...args: any[]) => {
+	if (DOCOCHAIN_LOGS_ENABLED) console.warn(...args)
+}
+const docoError = (...args: any[]) => {
+	if (DOCOCHAIN_LOGS_ENABLED) console.error(...args)
+}
+
 function splitName(fullName: string | undefined): { firstName: string; lastName: string } {
 	const normalized = (fullName ?? "").trim()
 	if (!normalized) return { firstName: "User", lastName: "" }
@@ -30,8 +42,8 @@ function splitName(fullName: string | undefined): { firstName: string; lastName:
 }
 
 // Token cache to store generated tokens per email
-// Format: { email: { token: string, expiresAt: number } }
-const tokenCache = new Map<string, { token: string; expiresAt: number }>()
+// Format: { email: { token: string, expiresAt: number, lastVerifiedAt: number } }
+const tokenCache = new Map<string, { token: string; expiresAt: number; lastVerifiedAt: number }>()
 
 // Token expiration time: 1 hour (3600000 ms) - tokens typically expire after some time
 const TOKEN_EXPIRATION_MS = 3600000 // 1 hour
@@ -39,9 +51,58 @@ const TOKEN_EXPIRATION_MS = 3600000 // 1 hour
 // Refresh tokens 5 minutes before expiration to avoid expired token errors
 const TOKEN_REFRESH_BUFFER_MS = 5 * 60 * 1000 // 5 minutes
 
+// Verify tokens at most every 10 minutes to avoid extra load
+const TOKEN_VERIFY_TTL_MS = 10 * 60 * 1000 // 10 minutes
+
 // If token generation endpoint is unreachable, cache the static token briefly to avoid
 // repeated connect timeouts/log spam on every API call.
 const FALLBACK_TOKEN_TTL_MS = 10 * 60 * 1000 // 10 minutes
+
+async function verifyAuthToken(token: string): Promise<boolean> {
+	// DocoChain docs: POST /api/v2/auth/verify?user_type=ENTERPRISE_API
+	// with JSON body: { "org_invite_code": "..." }
+	//
+	// In this codebase we only have DOCOCHAIN_ORGANIZATION_ID available; in some orgs the
+	// invite code and org id differ. If we don't have a value, skip verification (best-effort).
+	const orgInviteCode = DOCOCHAIN_ORGANIZATION_ID
+
+	if (!orgInviteCode) {
+		docoWarn("⚠️ Skipping token verification: DOCOCHAIN_ORGANIZATION_ID is not set")
+		return true
+	}
+
+	try {
+		const response = await fetch(
+			`${DOCOCHAIN_API_BASE}/api/v2/auth/verify?user_type=ENTERPRISE_API`,
+			{
+				method: "POST",
+				headers: {
+					Authorization: `Bearer ${token}`,
+					Accept: "application/json",
+					"Content-Type": "application/json",
+				},
+				body: JSON.stringify({ org_invite_code: orgInviteCode }),
+			}
+		)
+
+		if (response.ok) return true
+		if (response.status === 401) return false
+
+		// Treat other failures as invalid for safety; caller will re-generate.
+		const text = await response.text().catch(() => "")
+		docoWarn(
+			"⚠️ Token verification failed:",
+			response.status,
+			response.statusText,
+			text.slice(0, 200)
+		)
+		return false
+	} catch (error) {
+		// Network failure: don't brick the app; let normal 401 retry logic handle it later.
+		docoWarn("⚠️ Token verification request failed (network):", error)
+		return true
+	}
+}
 
 /**
  * Generate a DocoChain authentication token for a specific user email
@@ -51,39 +112,63 @@ const FALLBACK_TOKEN_TTL_MS = 10 * 60 * 1000 // 10 minutes
  * @returns The generated token string
  */
 export async function generateDocoChainToken(email: string, forceRefresh = false): Promise<string> {
-	console.log("🔵 Generating DocoChain token...")
-	console.log("   - Email:", email)
-	console.log("   - Force refresh:", forceRefresh)
+	docoLog("🔵 Generating DocoChain token...")
+	docoLog("   - Email:", email)
+	docoLog("   - Force refresh:", forceRefresh)
 
 	// Check cache first (unless forcing refresh)
 	if (!forceRefresh) {
 		const cached = tokenCache.get(email)
 		if (cached) {
 			const now = Date.now()
+			const shouldVerify = now - cached.lastVerifiedAt > TOKEN_VERIFY_TTL_MS
+
+			// Verify occasionally, even if our local TTL says it's still valid.
+			// This prevents long-lived "stale but revoked" tokens from causing 401s.
+			if (shouldVerify) {
+				const ok = await verifyAuthToken(cached.token)
+				if (!ok) {
+					docoWarn("⚠️ Cached token is invalid/expired; generating new token for:", email)
+					tokenCache.delete(email)
+				} else {
+					// Extend TTL on successful verification.
+					tokenCache.set(email, {
+						token: cached.token,
+						expiresAt: Date.now() + TOKEN_EXPIRATION_MS,
+						lastVerifiedAt: Date.now(),
+					})
+				}
+			}
+
+			const refreshed = tokenCache.get(email)
+			if (!refreshed) {
+				// verification failed and cache was cleared; fallthrough to generation
+			} else {
 			// If token is still valid and not about to expire, use cached token
-			if (cached.expiresAt > now + TOKEN_REFRESH_BUFFER_MS) {
-				console.log("✅ Using cached token for:", email)
-				console.log(
+			if (refreshed.expiresAt > now + TOKEN_REFRESH_BUFFER_MS) {
+				docoLog("✅ Using cached token for:", email)
+				docoLog(
 					"   - Token expires in:",
-					Math.round((cached.expiresAt - now) / 1000 / 60),
+					Math.round((refreshed.expiresAt - now) / 1000 / 60),
 					"minutes"
 				)
-				return cached.token
+				return refreshed.token
 			}
 			// Token is about to expire, refresh it proactively
-			if (cached.expiresAt > now) {
-				console.log("🔄 Token expiring soon, refreshing proactively for:", email)
-				console.log(
+			if (refreshed.expiresAt > now) {
+				docoLog("🔄 Token expiring soon, refreshing proactively for:", email)
+				docoLog(
 					"   - Token expires in:",
-					Math.round((cached.expiresAt - now) / 1000 / 60),
+					Math.round((refreshed.expiresAt - now) / 1000 / 60),
 					"minutes"
 				)
 			} else {
-				console.log("⚠️ Cached token expired, generating new token for:", email)
+				docoLog("⚠️ Cached token expired, generating new token for:", email)
+			}
 			}
 		}
 	} else {
-		console.log("🔄 Force refreshing token for:", email)
+		docoLog("🔄 Force refreshing token for:", email)
 		// Clear the cache entry to force a new token generation
 		tokenCache.delete(email)
 	}
@@ -97,6 +182,7 @@ export async function generateDocoChainToken(email: string, forceRefresh = false
 				tokenCache.set(email, {
 					token: DOCOCHAIN_API_TOKEN,
 					expiresAt: Date.now() + FALLBACK_TOKEN_TTL_MS,
+					lastVerifiedAt: Date.now(),
 				})
 				return DOCOCHAIN_API_TOKEN
 			}
@@ -111,7 +197,7 @@ export async function generateDocoChainToken(email: string, forceRefresh = false
 		formData.append("email", email)
 
 		const apiUrl = `${DOCOCHAIN_API_BASE}/api/v2/generate/token`
-		console.log("🔵 Calling DocoChain Generate Token API:", apiUrl)
+		docoLog("🔵 Calling DocoChain Generate Token API:", apiUrl)
 
 		const response = await fetch(apiUrl, {
 			method: "POST",
@@ -121,45 +207,56 @@ export async function generateDocoChainToken(email: string, forceRefresh = false
 			body: formData,
 		})
 
-		console.log("📡 DocoChain generate token response status:", response.status)
+		docoLog("📡 DocoChain generate token response status:", response.status)
 
 		if (!response.ok) {
 			const errorText = await response.text()
-			console.error("❌ DocoChain generate token error:", errorText)
+			docoError("❌ DocoChain generate token error:", errorText)
 			throw new Error(
 				`DocoChain API error: ${response.status} ${response.statusText} - ${errorText}`
 			)
 		}
 
 		const result = (await response.json()) as { token?: string; data?: { token?: string } }
-		console.log("✅ Token generated successfully")
+		docoLog("✅ Token generated successfully")
 
 		// Extract token from response
 		// API returns: { token: "..." } or { data: { token: "..." } }
 		const token: string | undefined = result.token ?? result.data?.token
 
 		if (!token) {
-			console.error("❌ No token in response:", result)
+			docoError("❌ No token in response:", result)
 			throw new Error("DocoChain did not return a token")
+		}
+
+		// Verify the new token (best effort). Don't block on failure - the token might still work
+		// for actual API calls. If it's truly invalid, we'll get 401s and retry logic will handle it.
+		const isValid = await verifyAuthToken(token)
+		if (!isValid) {
+			docoWarn(
+				"⚠️ New token verification failed, but proceeding anyway. Token may still work for API calls."
+			)
 		}
 
 		// Cache the token with expiration
 		tokenCache.set(email, {
 			token,
 			expiresAt: Date.now() + TOKEN_EXPIRATION_MS,
+			lastVerifiedAt: isValid ? Date.now() : 0, // Mark as "not verified" if verify failed
 		})
 
-		console.log("✅ Token cached for:", email)
+		docoLog("✅ Token cached for:", email)
 		return token
 	} catch (error) {
-		console.error("❌ Error generating DocoChain token:", error)
+		docoError("❌ Error generating DocoChain token:", error)
 		// Fallback to static token if available
 		if (DOCOCHAIN_API_TOKEN) {
-			console.warn("⚠️ Falling back to static token")
+			docoWarn("⚠️ Falling back to static token")
 			// Cache fallback token briefly to prevent repeated connect timeouts
 			tokenCache.set(email, {
 				token: DOCOCHAIN_API_TOKEN,
 				expiresAt: Date.now() + FALLBACK_TOKEN_TTL_MS,
+				lastVerifiedAt: Date.now(),
 			})
 			return DOCOCHAIN_API_TOKEN
 		}
@@ -211,7 +308,7 @@ export async function getDocoChainToken(
 
 	// Fallback to admin email token (if configured) - this is an org admin that should have access to all projects
 	if (DOCOCHAIN_ADMIN_EMAIL) {
-		console.log("🔵 No email provided, falling back to DOCOCHAIN_ADMIN_EMAIL for token generation")
+		docoLog("🔵 No email provided, falling back to DOCOCHAIN_ADMIN_EMAIL for token generation")
 		return generateDocoChainToken(DOCOCHAIN_ADMIN_EMAIL, forceRefresh)
 	}
 
@@ -257,11 +354,11 @@ export async function makeDocoChainApiCall(
 		if (response.status === 401 && retryCount < maxRetries && userEmail) {
 			// If we're using the static token and still got 401, fall back to an email token once.
 			if (preferStaticToken && DOCOCHAIN_API_TOKEN) {
-				console.warn(
+				docoWarn(
 					"⚠️ Received 401 with static token; falling back to per-email token and retrying..."
 				)
-				console.log("   - User email:", userEmail)
-				console.log("   - Retry attempt:", retryCount + 1)
+				docoLog("   - User email:", userEmail)
+				docoLog("   - Retry attempt:", retryCount + 1)
 
 				// Force refresh the per-email token (in case it was cached/expired)
 				await getDocoChainToken(userEmail, true, { preferStaticToken: false })
@@ -274,9 +371,9 @@ export async function makeDocoChainApiCall(
 
 			// Otherwise, we were already using per-email token - refresh and retry once.
 			if (!preferStaticToken) {
-				console.warn("⚠️ Received 401 Unauthorized, refreshing token and retrying...")
-				console.log("   - User email:", userEmail)
-				console.log("   - Retry attempt:", retryCount + 1)
+				docoWarn("⚠️ Received 401 Unauthorized, refreshing token and retrying...")
+				docoLog("   - User email:", userEmail)
+				docoLog("   - Retry attempt:", retryCount + 1)
 
 				// Force refresh the token
 				await getDocoChainToken(userEmail, true, { preferStaticToken: false })
@@ -290,8 +387,8 @@ export async function makeDocoChainApiCall(
 	} catch (error) {
 		// If token generation failed and we haven't retried, try once more
 		if (retryCount < maxRetries && userEmail && !(options?.preferStaticToken ?? true)) {
-			console.warn("⚠️ Error in API call, refreshing token and retrying...")
-			console.log("   - Error:", error)
+			docoWarn("⚠️ Error in API call, refreshing token and retrying...")
+			docoLog("   - Error:", error)
 
 			// Force refresh the token
 			await getDocoChainToken(userEmail, true, { preferStaticToken: false })
@@ -387,6 +484,20 @@ interface DocoChainProjectSigner {
 	type?: string
 }
 
+interface DocoChainProjectFile {
+	id?: number
+	project_id?: number
+	file_name?: string
+	type?: string // "Original", "Original With Signature And QR", "Document Completed", "Document Certification", etc.
+	storage?: string
+	path?: string
+	url?: string
+	qr_link?: string
+	created_by?: string
+	created_at?: string
+	[key: string]: unknown
+}
+
 interface DocoChainProjectDetails {
 	data: {
 		uuid: string
@@ -402,6 +513,7 @@ interface DocoChainProjectDetails {
 		certificate_url?: string
 		certificateUrl?: string
 		cert_url?: string
+		files?: DocoChainProjectFile[] // Files array from API response
 		[key: string]: unknown
 	}
 	message?: string
@@ -867,9 +979,9 @@ export async function getProjectDetails(
 	projectUuid: string,
 	userEmail?: string
 ): Promise<DocoChainProjectDetails> {
-	console.log("🔵 Fetching DocoChain project details...")
-	console.log("   - Project UUID:", projectUuid)
-	console.log("   - User Email (for token):", userEmail ?? "not provided")
+	docoLog("🔵 Fetching DocoChain project details...")
+	docoLog("   - Project UUID:", projectUuid)
+	docoLog("   - User Email (for token):", userEmail ?? "not provided")
 
 	try {
 		// Use the wrapper function for automatic token refresh on 401 errors
@@ -886,11 +998,11 @@ export async function getProjectDetails(
 			)
 		}, userEmail)
 
-		console.log("📡 DocoChain get project response status:", response.status)
+		docoLog("📡 DocoChain get project response status:", response.status)
 
 		if (!response.ok) {
 			const errorText = await response.text()
-			console.error("❌ DocoChain get project error:", errorText)
+			docoError("❌ DocoChain get project error:", errorText)
 			// Parse error message if it's JSON
 			let errorMessage = `DocoChain API error: ${response.status} ${response.statusText}`
 			try {
@@ -908,13 +1020,110 @@ export async function getProjectDetails(
 		}
 
 		const result = (await response.json()) as DocoChainProjectDetails
-		console.log("✅ Project details fetched:", result)
+		docoLog("✅ Project details fetched:", result)
 
 		return result
 	} catch (error) {
-		console.error("❌ Error fetching project details:", error)
+		docoError("❌ Error fetching project details:", error)
 		throw error
 	}
+}
+
+type DocoChainMyProjectFile = {
+	id?: number
+	name?: string | null
+	file_name?: string | null
+	url?: string | null
+	size?: number
+	[key: string]: unknown
+}
+
+type DocoChainMyProjectDetails = {
+	access_type?: string
+	id?: number
+	uuid?: string
+	project_uuid?: string
+	status?: string
+	name?: string | null
+	file_name?: string | null
+	url?: string | null
+	signed_url?: string | null
+	signed_document_url?: string | null
+	files?: DocoChainMyProjectFile[]
+	[key: string]: unknown
+}
+
+type DocoChainMyProjectDetailsResponse = {
+	message?: string
+	data?: DocoChainMyProjectDetails
+	meta?: unknown
+}
+
+function pickBestSignedFileUrlFromMyProject(
+	project: DocoChainMyProjectDetails | undefined
+): string | null {
+	if (!project) return null
+
+	const urlPathname = (rawUrl: string): string => {
+		try {
+			return new URL(rawUrl).pathname.toLowerCase()
+		} catch {
+			// If it's not a valid URL, treat it like a path-ish string.
+			return rawUrl.toLowerCase().split("?")[0] ?? rawUrl.toLowerCase()
+		}
+	}
+
+	const isOriginalLike = (pathOrName: string) => {
+		const v = pathOrName.toLowerCase()
+		return v.includes("original") || v.includes("-original") || v.includes("_original")
+	}
+
+	const isSignedLike = (pathOrName: string) => {
+		const v = pathOrName.toLowerCase()
+		// NOTE: avoid matching AWS query params like X-Amz-SignedHeaders by only passing pathnames here.
+		return (
+			v.includes("sealed") ||
+			v.includes("seal") ||
+			(v.includes("signed") && !v.includes("unsigned"))
+		)
+	}
+
+	// Prefer explicit signed URLs if present (some responses include these).
+	const directSigned =
+		(typeof project.signed_url === "string" && project.signed_url.trim().length > 0
+			? project.signed_url.trim()
+			: null) ??
+		(typeof project.signed_document_url === "string" && project.signed_document_url.trim().length > 0
+			? project.signed_document_url.trim()
+			: null)
+	if (directSigned) {
+		const path = urlPathname(directSigned)
+		// Be defensive: if this somehow points to an original upload, ignore it.
+		if (!isOriginalLike(path) && isSignedLike(path)) return directSigned
+	}
+
+	const files = Array.isArray(project.files) ? project.files : []
+	const signedLike = files.find(f => {
+		const name = String(f.name ?? f.file_name ?? "")
+		const url = String(f.url ?? "")
+		const path = urlPathname(url)
+
+		// Never pick "Original" (unsigned) files.
+		if (isOriginalLike(name) || isOriginalLike(path)) return false
+
+		// Only treat it as signed based on filename/path, not query params.
+		return isSignedLike(name) || isSignedLike(path)
+	})
+	const signedLikeUrl =
+		typeof signedLike?.url === "string" && signedLike.url.trim().length > 0
+			? signedLike.url.trim()
+			: null
+	if (signedLikeUrl) return signedLikeUrl
+
+	// IMPORTANT: Do NOT fall back to `project.url` or the first `files[].url` here.
+	// Those are frequently the original upload (unsigned), which would yield a PDF with no signatures.
+	// If we can't confidently identify a signed/sealed URL, let callers fall back to other methods.
+	return null
 }
 
 /**
@@ -1459,16 +1668,42 @@ export async function generateEditDraftLink(
 		// ALWAYS normalize the URL - ensure api=true is set
 		link = normalizeDocoChainUrl(link) ?? link
 
-		// Handle URL parameters - only set api=true, no api_token needed
-		// The short-code link from DocoChain already contains authentication context
+		// Handle URL parameters - add api_token for authentication
+		// CRITICAL: Short-code links don't need api_token, but full URLs do
 		try {
 			const url = new URL(link)
 			// Set api=true for embedded/integrated view
 			url.searchParams.set("api", "true")
-			// Remove api_token if present - it's not needed for edit draft links
-			if (url.searchParams.has("api_token")) {
-				url.searchParams.delete("api_token")
+			
+			// CRITICAL: Short-code links (link.doconchain.com) don't need api_token
+			// Doconchain will redirect and may add api_token=undefined, which breaks authentication
+			const isShortCodeLink = url.hostname.includes("link.doconchain.com")
+			
+			if (isShortCodeLink) {
+				// Remove api_token from short-code links - they have embedded authentication
+				if (url.searchParams.has("api_token")) {
+					url.searchParams.delete("api_token")
+					console.log("✅ Removed api_token from short-code link (not needed, prevents undefined on redirect)")
+				}
+			} else {
+				// For full project URLs, add api_token if not present - use creator's token
+				if (!url.searchParams.has("api_token")) {
+					if (userEmail) {
+						const apiToken: string = await getDocoChainToken(userEmail, true, {
+							preferStaticToken: false, // Use per-email token for edit draft links, force refresh
+						})
+						url.searchParams.set("api_token", apiToken)
+						console.log(
+							`✅ Added api_token parameter using ${userEmail} token (fresh token, creator)`
+						)
+					} else {
+						console.warn(
+							"⚠️ No userEmail available for edit draft link - token may be missing from URL"
+						)
+					}
+				}
 			}
+			
 			// Remove incorrect status=Deleted parameter if present (DocoChain bug)
 			if (url.searchParams.has("status") && url.searchParams.get("status") === "Deleted") {
 				console.warn(
@@ -1478,10 +1713,36 @@ export async function generateEditDraftLink(
 			}
 			link = url.toString()
 		} catch {
-			// If URL parsing fails, just ensure api=true is appended
-			if (!link.includes("api=true")) {
-				const separator = link.includes("?") ? "&" : "?"
-				link = `${link}${separator}api=true`
+			// If URL parsing fails, check if it's a short-code link
+			if (typeof link === "string") {
+				try {
+					const isShortCodeLink = link.includes("link.doconchain.com")
+					
+					if (isShortCodeLink) {
+						// Remove api_token from short-code links if present
+						link = link.replace(/[&?]api_token=[^&]*/g, "")
+						console.log("✅ Removed api_token from short-code link (fallback)")
+					} else {
+						// For full URLs, try to add api_token if not present - use creator's token
+						if (userEmail && !link.includes("api_token")) {
+							const apiToken: string = await getDocoChainToken(userEmail, true, {
+								preferStaticToken: false, // Force refresh to ensure fresh token
+							})
+							const separator = link.includes("?") ? "&" : "?"
+							link = `${link}${separator}api_token=${encodeURIComponent(apiToken)}`
+							console.log(
+								`✅ Added api_token parameter using ${userEmail} token (fallback, fresh token, creator)`
+							)
+						}
+					}
+					// Ensure api=true is appended
+					if (!link.includes("api=true")) {
+						const separator = link.includes("?") ? "&" : "?"
+						link = `${link}${separator}api=true`
+					}
+				} catch (tokenError) {
+					console.warn("⚠️ Failed to process api_token:", tokenError)
+				}
 			}
 		}
 
@@ -1525,9 +1786,9 @@ export async function checkSigningStatus(
 	projectUuid: string,
 	userEmail?: string
 ): Promise<SigningStatusResult> {
-	console.log("🔵 Checking signing status for project...")
-	console.log("   - Project UUID:", projectUuid)
-	console.log("   - User Email (for token):", userEmail ?? "not provided")
+	docoLog("🔵 Checking signing status for project...")
+	docoLog("   - Project UUID:", projectUuid)
+	docoLog("   - User Email (for token):", userEmail ?? "not provided")
 
 	try {
 		const projectDetails = await getProjectDetails(projectUuid, userEmail)
@@ -1547,11 +1808,11 @@ export async function checkSigningStatus(
 			signedSigners.length === signers.length &&
 			(projectData.status === "Completed" || projectData.completed_at !== null)
 
-		console.log("✅ Signing status checked:")
-		console.log("   - Project Status:", projectData.status)
-		console.log("   - Total Signers:", signers.length)
-		console.log("   - Signed Count:", signedSigners.length)
-		console.log("   - Is Fully Signed:", isFullySigned)
+		docoLog("✅ Signing status checked:")
+		docoLog("   - Project Status:", projectData.status)
+		docoLog("   - Total Signers:", signers.length)
+		docoLog("   - Signed Count:", signedSigners.length)
+		docoLog("   - Is Fully Signed:", isFullySigned)
 
 		return {
 			isFullySigned,
@@ -1571,7 +1832,7 @@ export async function checkSigningStatus(
 			})),
 		}
 	} catch (error) {
-		console.error("❌ Error checking signing status:", error)
+		docoError("❌ Error checking signing status:", error)
 		throw error
 	}
 }
@@ -1613,13 +1874,136 @@ export async function downloadSignedDocument(
 		}
 
 		// Try multiple methods to get the signed document:
-		// 1. Prefer Vault item file_url (this is the one that typically includes the document seal)
-		// 2. Fallback to DocoChain API download endpoint (signed PDF, may omit the seal)
-		// 3. Fallback to projectData URLs
+		// 1. FIRST: Check files array from getProjectDetails for "Document Completed" type
+		// 2. Prefer /my/projects/:uuid files/url (typically includes the seal)
+		// 3. Fallback to Vault item file_url
+		// 4. Fallback to DocoChain API download endpoint
+		// 5. Fallback to projectData URLs
 		let signedDocumentUrl: string | null = null
 		let buffer: Buffer | null = null
+		let vaultUuidFromMyProjects: string | null = null
 
-		// Method 1: Vault "files[].file_url" (completed projects)
+		// Method 0: Check files array from project details (highest priority - "Document Completed")
+		if (!buffer && projectData.files && Array.isArray(projectData.files)) {
+			// Priority order: Document Completed > Original With Signature And QR > Document Certification
+			const filePriorities = [
+				"Document Completed",
+				"Original With Signature And QR",
+				"Document Certification",
+			]
+
+			for (const priorityType of filePriorities) {
+				const bestFile = projectData.files.find(
+					(f: DocoChainProjectFile) => f.type === priorityType && f.url
+				)
+				if (bestFile?.url) {
+					try {
+						console.log(
+							`✅ Found ${priorityType} file in project details, downloading:`,
+							bestFile.url
+						)
+
+						// Try plain fetch first; some urls are public/presigned.
+						let fileResp = await fetch(bestFile.url)
+
+						// If it isn't public, retry with Bearer token.
+						if (!fileResp.ok && (fileResp.status === 401 || fileResp.status === 403)) {
+							console.log("🔄 File URL requires auth; retrying with Bearer token...")
+							fileResp = await makeDocoChainApiCall(async token => {
+								return fetch(bestFile.url!, {
+									method: "GET",
+									headers: {
+										Authorization: `Bearer ${token}`,
+										Accept: "application/pdf",
+									},
+								})
+							}, userEmail)
+						}
+
+						if (fileResp.ok) {
+							const arrayBuffer = await fileResp.arrayBuffer()
+							buffer = Buffer.from(arrayBuffer)
+							signedDocumentUrl = bestFile.url
+							console.log(`✅ Successfully downloaded ${priorityType} document`)
+							break // Found and downloaded, exit loop
+						}
+					} catch (error) {
+						console.warn(`⚠️ Failed to download ${priorityType} file:`, error)
+						// Continue to next method
+					}
+				}
+			}
+		}
+
+		// Method 1: /my/projects/:uuid (the "my projects" endpoint often returns the sealed file URL)
+		if (!buffer) {
+			try {
+				const myProjectResponse = await makeDocoChainApiCall(async token => {
+					return fetch(`${DOCOCHAIN_API_BASE}/my/projects/${projectUuid}?user_type=ENTERPRISE_API`, {
+						method: "GET",
+						headers: {
+							Authorization: `Bearer ${token}`,
+							Accept: "application/json",
+						},
+					})
+				}, userEmail)
+
+				if (!myProjectResponse.ok) {
+					const errorText = await myProjectResponse.text()
+					console.warn(
+						"⚠️ /my/projects endpoint returned:",
+						myProjectResponse.status,
+						myProjectResponse.statusText,
+						errorText
+					)
+				} else {
+					const payload = (await myProjectResponse.json()) as DocoChainMyProjectDetailsResponse
+
+					// IMPORTANT: /vault/items wants the "long" UUID when available.
+					// /my/projects often returns it even when our stored id/uuid is a short code.
+					const myUuidRaw =
+						(typeof payload.data?.uuid === "string" ? payload.data.uuid : null) ??
+						(typeof payload.data?.project_uuid === "string" ? payload.data.project_uuid : null)
+					vaultUuidFromMyProjects = myUuidRaw ? myUuidRaw.trim() : null
+
+					const bestUrl = pickBestSignedFileUrlFromMyProject(payload.data)
+					if (!bestUrl) {
+						console.warn("⚠️ /my/projects returned no usable file URL")
+					} else {
+						console.log("✅ /my/projects returned file URL, downloading sealed PDF:", bestUrl)
+
+						// Try plain fetch first; some urls are public/presigned.
+						let fileResp = await fetch(bestUrl)
+
+						// If it isn't public, retry with Bearer token.
+						if (!fileResp.ok && (fileResp.status === 401 || fileResp.status === 403)) {
+							console.log("🔄 /my/projects file URL requires auth; retrying with Bearer token...")
+							fileResp = await makeDocoChainApiCall(async token => {
+								return fetch(bestUrl, {
+									method: "GET",
+									headers: {
+										Authorization: `Bearer ${token}`,
+										Accept: "application/pdf",
+									},
+								})
+							}, userEmail)
+						}
+
+						if (fileResp.ok) {
+							const arrayBuffer = await fileResp.arrayBuffer()
+							buffer = Buffer.from(arrayBuffer)
+							signedDocumentUrl = bestUrl
+						} else {
+							console.warn("⚠️ /my/projects file download failed:", fileResp.status, fileResp.statusText)
+						}
+					}
+				}
+			} catch (myProjectsError) {
+				console.warn("⚠️ /my/projects method failed, proceeding to next method:", myProjectsError)
+			}
+		}
+
+		// Method 2: Vault "files[].file_url" (completed projects)
 		// IMPORTANT: Vault expects the long UUID (projectData.uuid / project_uuid), not our short project id.
 		// Use: GET /vault/items/{uuid}?user_type=ENTERPRISE_API
 		if (!buffer) {
@@ -1627,11 +2011,16 @@ export async function downloadSignedDocument(
 				const rawVaultUuid =
 					(projectData as { uuid?: unknown; project_uuid?: unknown })?.uuid ??
 					(projectData as { uuid?: unknown; project_uuid?: unknown })?.project_uuid
-
-				const vaultUuid =
+				const vaultUuidCandidate =
 					typeof rawVaultUuid === "string" || typeof rawVaultUuid === "number"
 						? String(rawVaultUuid)
-						: projectUuid
+						: null
+
+				// Prefer the UUID returned by /my/projects (if present), then project details, then fallback.
+				const vaultUuid =
+					vaultUuidFromMyProjects ??
+					(vaultUuidCandidate ? vaultUuidCandidate.trim() : null) ??
+					projectUuid
 
 				const vaultItem = await getVaultItem(vaultUuid, userEmail)
 				const vaultFiles =
@@ -1724,7 +2113,7 @@ export async function downloadSignedDocument(
 			}
 		}
 
-		// Method 2: DocoChain API download endpoint (signed PDF)
+		// Method 3: DocoChain API download endpoint (signed PDF)
 		// NOTE: This may omit the document seal; keep as fallback behind Vault.
 		const downloadApiUrl = `${DOCOCHAIN_API_BASE}/api/v2/projects/${projectUuid}/download?user_type=ENTERPRISE_API`
 		if (!buffer) {
@@ -1757,7 +2146,7 @@ export async function downloadSignedDocument(
 			}
 		}
 
-		// Method 3: Fallback to signed URLs first (prioritize signed versions over original)
+		// Method 4: Fallback to signed URLs first (prioritize signed versions over original)
 		if (!buffer) {
 			// CRITICAL: Prioritize signed URLs to ensure we get the document WITH signatures
 			const fallbackUrl =
