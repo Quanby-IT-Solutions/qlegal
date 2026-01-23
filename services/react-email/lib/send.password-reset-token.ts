@@ -9,11 +9,12 @@ import { env } from "@/env"
 
 export async function sendPasswordResetToken(email: string, token: string) {
 	const resetLink = `${getUrl()}/auth/reset-password?token=${token}`
+	const siteUrl = env.NEXT_PUBLIC_SITE_URL
 
 	await emailTransporter.sendMail({
 		from: `Quanby Sign <${env.EMAIL_FROM}>`,
 		to: email,
 		subject: "Reset your password",
-		html: await render(PasswordResetTemplate({ email, resetLink })),
+		html: await render(PasswordResetTemplate({ email, resetLink, siteUrl })),
 	})
 }

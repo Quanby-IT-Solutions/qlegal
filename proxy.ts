@@ -37,12 +37,21 @@ export default proxy(req => {
 		const callbackUrl = nextUrl.searchParams.get("callbackUrl")
 		if (isAuth && callbackUrl && path !== "/auth/signature") {
 			const kycStatus = auth?.user?.kycStatus
+			// ts-expect-error augmented user field
+			const userStatus = auth?.user?.status
 
 			// STRICT KYC: If not verified, always redirect to KYC first, regardless of callback
 			if (kycStatus === "NOT_STARTED" || kycStatus === "PENDING") {
 				const kycUrl = new URL("/auth/kyc", nextUrl)
 				logRedirect(path, kycUrl.pathname, "kyc required before callback")
 				return NextResponse.redirect(kycUrl)
+			}
+
+			// USER STATUS: If user has not active status, redirect to status page
+			if (userStatus !== "ACTIVE") {
+				const statusUrl = new URL("/auth/status", nextUrl)
+				logRedirect(path, statusUrl.pathname, "user status required before callback")
+				return NextResponse.redirect(statusUrl)
 			}
 
 			try {
@@ -92,6 +101,19 @@ export default proxy(req => {
 				return NextResponse.redirect(kycUrl)
 			}
 
+			const userStatus = auth?.user?.status
+			if (
+				isAuth &&
+				path !== "/auth/status" &&
+				!onAuthPage &&
+				path !== "/auth/kyc" &&
+				(userStatus !== "ACTIVE")
+			) {
+				const statusUrl = new URL("/auth/status", nextUrl)
+				logRedirect(path, statusUrl.pathname, "user status gate - account not active")
+				return NextResponse.redirect(statusUrl)
+			}
+
 			const response = NextResponse.next()
 			return addCustomHeaders(response, userId, path)
 		}
@@ -101,24 +123,30 @@ export default proxy(req => {
 		if (isAuth) {
 			const isPublicOnly = matchesAnyRoute(path, ROUTE_CONFIG.publicOnly)
 			const kycStatus = auth?.user?.kycStatus
+			const userStatus = auth?.user?.status
+
+			// Determine redirect route based on KYC and user status
+			const getRedirectRoute = () => {
+				// KYC takes priority
+				if (kycStatus === "NOT_STARTED" || kycStatus === "PENDING") {
+					return "/auth/kyc"
+				}
+				if (userStatus !== "ACTIVE") {
+					return "/auth/status"
+				}
+				// Default route
+				return getDefaultRoute(role!)
+			}
 
 			if (isPublicOnly) {
 				// AUTH ROUTES: Logged-in users cannot access auth pages
-				// STRICT KYC: If not verified, redirect to KYC page
-				const defaultRoute =
-					kycStatus === "NOT_STARTED" || kycStatus === "PENDING"
-						? "/auth/kyc"
-						: getDefaultRoute(role!)
+				const defaultRoute = getRedirectRoute()
 				logRedirect(path, defaultRoute, "authenticated user accessing public-only route")
 				return NextResponse.redirect(new URL(defaultRoute, nextUrl))
 			}
 
 			// INSUFFICIENT PERMISSIONS: User role cannot access this protected route
-			// STRICT KYC: If not verified, redirect to KYC page
-			const defaultRoute =
-				kycStatus === "NOT_STARTED" || kycStatus === "PENDING"
-					? "/auth/kyc"
-					: getDefaultRoute(role!)
+			const defaultRoute = getRedirectRoute()
 			logRedirect(path, defaultRoute, "unauthorized access")
 			return NextResponse.redirect(new URL(defaultRoute, nextUrl))
 		}

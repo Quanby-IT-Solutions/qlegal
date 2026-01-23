@@ -153,37 +153,6 @@ export const signatureRequestsRouter = createTRPCRouter({
 
 					console.log("✅ Added signer to DocoChain project")
 
-					// 🔥 WORKAROUND: DocoChain ignores creator_as_viewer=false
-					// So we manually DELETE the creator from the signers list
-					try {
-						console.log("🔥 Removing creator from signers list...")
-
-						// The addSignerResponse contains ALL signers, including the creator
-						// Find the creator (type: 'ME') or by email
-						const signersArray = Array.isArray(addSignerResponse.data) ? addSignerResponse.data : []
-						const creatorSigner = signersArray.find(
-							signer => signer.type === "ME" || signer.email === ctx.session.user.email
-						)
-
-						if (creatorSigner) {
-							console.log(
-								`🗑️ Found creator signer: ${creatorSigner.email} (ID: ${creatorSigner.id})`
-							)
-							const signerId =
-								typeof creatorSigner.id === "number" ? creatorSigner.id : Number(creatorSigner.id)
-							await deleteSigner({
-								projectUuid: document.docoChainProjectId,
-								signerId,
-								userEmail: enpEmail, // Use ENP email for token (required for DocoChain auth)
-							})
-							console.log("✅ Creator DELETED! Only ENP remains in the document! 🎉")
-						} else {
-							console.log("ℹ️ Creator not found in signers list (already removed or not added)")
-						}
-					} catch (deleteError) {
-						console.error("⚠️ Failed to remove creator (non-critical):", deleteError)
-						// Continue anyway - not critical
-					}
 
 					console.log("📝 Project kept as DRAFT - ENP can place signature fields themselves")
 

@@ -126,6 +126,7 @@ export function RegisterForm({ callbackUrl }: RegisterFormProps) {
 									I agree to the
 									<Link
 										href={`/terms-of-service?from=${encodeURIComponent(pathname)}`}
+										target="_blank"
 										className={cn(
 											buttonVariants({ variant: "link" }),
 											"text-primary hover:text-primary/80 h-fit p-0 text-xs hover:cursor-pointer"
@@ -136,6 +137,7 @@ export function RegisterForm({ callbackUrl }: RegisterFormProps) {
 									and
 									<Link
 										href={`/privacy-policy?from=${encodeURIComponent(pathname)}`}
+										target="_blank"
 										className={cn(
 											buttonVariants({ variant: "link" }),
 											"text-primary hover:text-primary/80 h-fit p-0 text-xs hover:cursor-pointer"

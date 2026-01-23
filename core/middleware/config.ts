@@ -50,6 +50,8 @@ export const ROUTE_CONFIG: RouteConfig = {
 		shared: [
 			{ path: "/auth/signature" },
 			{ path: "/auth/kyc", exact: true },
+			{ path: "/auth/status", exact: true },
+			{ path: "/browse" },
 			{ path: "/documents" },
 			{ path: "/documents/completed" },
 			{ path: "/documents/create" },

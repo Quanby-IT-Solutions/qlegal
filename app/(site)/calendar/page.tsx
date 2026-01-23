@@ -3,17 +3,10 @@
 import Link from "next/link"
 import { useMemo, useState } from "react"
 import { format, startOfToday } from "date-fns"
-import {
-	Calendar as CalendarIcon,
-	Clock,
-	Loader2,
-	Mail,
-	MapPin,
-	Phone,
-} from "lucide-react"
+import { Calendar as CalendarIcon, Loader2 } from "lucide-react"
 
+import { EnpCard } from "@/core/components/enp-card"
 import { PageHeader } from "@/core/components/navbar/page-header"
-import { Avatar, AvatarFallback, AvatarImage } from "@/core/components/ui/avatar"
 import { Badge } from "@/core/components/ui/badge"
 import { Button } from "@/core/components/ui/button"
 import { Calendar as CalendarComponent } from "@/core/components/ui/calendar"
@@ -25,7 +18,7 @@ import {
 	CardTitle,
 } from "@/core/components/ui/card"
 import { Separator } from "@/core/components/ui/separator"
-import { getInitials } from "@/core/lib/utils"
+import type { ENPAvailableSlot, ENPProfile } from "@/core/lib/types/enp"
 
 import { trpc, type RouterOutputs } from "@/services/trpc/client"
 
@@ -77,7 +70,8 @@ export default function CalendarPage() {
 		}
 	)
 
-	const isBusy = renQuery.isLoading || renQuery.isFetching || ienQuery.isLoading || ienQuery.isFetching
+	const isBusy =
+		renQuery.isLoading || renQuery.isFetching || ienQuery.isLoading || ienQuery.isFetching
 	const hasAnyResults = (renQuery.data?.length ?? 0) > 0 || (ienQuery.data?.length ?? 0) > 0
 
 	const mergedEnps = useMemo((): CalendarEnp[] => {
@@ -235,7 +229,18 @@ export default function CalendarPage() {
 							{!isBusy && selectedDateParam && (
 								<div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
 									{mergedEnps.map(enp => (
-										<AvailabilityCard key={enp.id} enp={enp} dateParam={selectedDateParam} />
+										<EnpCard
+											key={enp.id}
+											variant="calendar"
+											enp={{
+												...enp,
+												specialization: enp.specialization ?? "Legal Services",
+												rating: enp.rating ?? 0,
+												reviewCount: enp.reviewCount ?? 0,
+											}}
+											availableSlots={enp.availableSlots}
+											dateParam={selectedDateParam}
+										/>
 									))}
 								</div>
 							)}
@@ -244,128 +249,5 @@ export default function CalendarPage() {
 				</div>
 			</main>
 		</div>
-	)
-}
-
-interface AvailabilityCardProps {
-	enp: CalendarEnp
-	dateParam: string
-}
-
-function AvailabilityCard({ enp, dateParam }: AvailabilityCardProps) {
-	const availableSlots = enp.availableSlots
-
-	return (
-		<Card className="h-full">
-			<CardHeader className="space-y-3">
-				<div className="flex items-center gap-3">
-					<Avatar className="h-12 w-12">
-						<AvatarImage src={enp.image ?? undefined} alt={enp.name ?? "ENP"} />
-						<AvatarFallback>{getInitials(enp.name ?? "ENP")}</AvatarFallback>
-					</Avatar>
-					<div className="min-w-0">
-						<CardTitle className="truncate">{enp.name ?? "Electronic Notary Public"}</CardTitle>
-						<CardDescription className="truncate">
-							{enp.specialization ?? "Legal Services"}
-						</CardDescription>
-					</div>
-					{enp.rating ? (
-						<Badge variant="secondary" className="ml-auto">
-							⭐ {enp.rating.toFixed(1)}
-						</Badge>
-					) : null}
-				</div>
-
-				<div className="text-muted-foreground flex flex-wrap items-center gap-3 text-sm">
-					{enp.phoneNumber && (
-						<span className="flex items-center gap-1">
-							<Phone className="h-4 w-4" />
-							{enp.phoneNumber}
-						</span>
-					)}
-					{enp.email && (
-						<span className="flex items-center gap-1">
-							<Mail className="h-4 w-4" />
-							{enp.email}
-						</span>
-					)}
-					{enp.languages && (
-						<span className="flex items-center gap-1">
-							<MapPin className="h-4 w-4" />
-							{Array.isArray(enp.languages) ? enp.languages.join(", ") : enp.languages}
-						</span>
-					)}
-				</div>
-			</CardHeader>
-
-			<CardContent className="space-y-4">
-				<div className="flex items-center justify-between text-sm">
-					<span className="text-muted-foreground">
-						Available slots ({availableSlots.length ?? "0"})
-					</span>
-				</div>
-
-				{availableSlots.length > 0 ? (
-					<div className="flex flex-wrap gap-2">
-						{availableSlots.map((slot, index) => {
-							const searchParams = new URLSearchParams({
-								enp: enp.id,
-								workflow: slot.workflow,
-								date: dateParam,
-								time: slot.time,
-								mode: "CONSULTATION",
-							})
-
-							return (
-								<Button
-									key={`${slot.time}-${index}`}
-									variant="outline"
-									size="sm"
-									className="gap-2"
-									asChild
-								>
-									<Link href={`/consultations?${searchParams.toString()}`}>
-										<Clock className="h-4 w-4" />
-										{slot.time}
-										<span className="text-muted-foreground text-xs">({slot.duration}m)</span>
-									</Link>
-								</Button>
-							)
-						})}
-					</div>
-				) : (
-					<p className="text-muted-foreground text-sm">No open slots for this day.</p>
-				)}
-
-				<div className="flex gap-2">
-					<Button variant="default" className="flex-1" asChild>
-						<Link href={`/consultations?enp=${enp.id}&mode=CONSULTATION`}>
-							<CalendarIcon className="mr-2 h-4 w-4" />
-							Book Consultation
-						</Link>
-					</Button>
-					<Button variant="outline" className="flex-1" asChild>
-						<Link href={`/consultations?enp=${enp.id}&mode=SIGNING`}>
-							<CalendarIcon className="mr-2 h-4 w-4" />
-							Book Signing
-						</Link>
-					</Button>
-					<Button variant="outline" className="flex-1" asChild>
-						<Link href={`/messages?userId=${enp.id}`}>
-							<Phone className="mr-2 h-4 w-4" />
-							Message
-						</Link>
-					</Button>
-					{enp.email && (
-						<Button variant="outline" className="flex-1" asChild>
-							<a href={`mailto:${enp.email}`}>
-								<Mail className="mr-2 h-4 w-4" />
-								Email
-							</a>
-						</Button>
-					)}
-				</div>
-			</CardContent>
-		</Card>
 	)
 }

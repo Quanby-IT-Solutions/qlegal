@@ -165,13 +165,17 @@ export const appSidebarSections: NavSection[] = [
 				icon: PieChartIcon,
 			},
 
-			// ========================================================================
-			// LAWYER AVAILABILITY CALENDAR - Principal-only view of ENP schedules
-			// ========================================================================
+			// ============================================================================
+			// FIND & BOOK A NOTARY - PRINCIPAL finding and booking ENPs
+			// ============================================================================
+			// Available to: PRINCIPAL only
+			// Workflows: REN, IEN
+			// Purpose: Browse directory, quick match, or message-first with ENP
+			// Features: Search filters, smart matching algorithm, messaging integration
 			{
-				title: "Calendar",
-				url: "/calendar",
-				icon: CalendarIcon,
+				title: "Find & Book",
+				url: "/browse",
+				icon: Sparkles,
 				roles: ["PRINCIPAL"],
 				workflows: ["REN", "IEN"],
 			},
@@ -237,11 +241,11 @@ export const appSidebarSections: NavSection[] = [
 			// Available to: ENP, PRINCIPAL
 			// Workflows: REN, IEN
 			// Purpose: Single hub for active sessions + history
-			// Routes to: /notarizations (tabbed) + /notarize/[id]
+			// Routes to: /meetings (tabbed) + /notarize/[id]
 			{
-				title: "Notarizations",
-				url: "/notarizations",
-				icon: PenToolIcon,
+				title: "Meetings & Notarization",
+				url: "/meetings",
+				icon: Monitor,
 				roles: ["ENP", "PRINCIPAL"],
 				workflows: ["REN", "IEN"],
 			},
@@ -308,21 +312,74 @@ export const appSidebarSections: NavSection[] = [
 			},
 
 			// ============================================================================
-			// VIDEO MEETINGS - REN-specific remote session management
+			// AUDIT & COMPLIANCE - ENA oversight and monitoring
 			// ============================================================================
-			// Available to: ENP, PRINCIPAL
-			// Workflows: REN only
-			// Purpose: Manage remote video consultation and notarization sessions
-			// Features: Video call, screen sharing, recording, meeting history
-			// Legal: REN requires video/audio recording per Supreme Court Rules
-			// Note: Integrated with VideoSDK
+			// Available to: ENA (Electronic Notarization Authority) only
+			// Workflows: REN, IEN
+			// Purpose: ENA monitors compliance, reviews records, generates reports
+			// Legal: ENA oversight per Supreme Court Rules
 			{
-				title: "Video Meetings",
-				url: "/meetings",
-				icon: Monitor,
-				roles: ["ENP", "PRINCIPAL"],
-				workflows: ["REN"],
+				title: "Audit & Compliance",
+				url: "/audit",
+				icon: BadgeCheck,
+				roles: ["ENA", "ADMIN"],
+				workflows: ["REN", "IEN"],
+				items: [
+					{
+						title: "Notarial Records",
+						url: "/audit/records",
+						roles: ["ENA", "ADMIN"],
+						workflows: ["REN", "IEN"],
+					},
+					{
+						title: "Compliance Reports",
+						url: "/audit/reports",
+						roles: ["ENA", "ADMIN"],
+						workflows: ["REN", "IEN"],
+					},
+					{
+						title: "Violations",
+						url: "/audit/violations",
+						roles: ["ENA", "ADMIN"],
+						workflows: ["REN", "IEN"],
+					},
+				],
 			},
+
+			// ============================================================================
+			// IDENTITY VERIFICATION - IEN-specific in-person ID check
+			// ============================================================================
+			// Available to: ENP only
+			// Workflows: IEN only
+			// Purpose: Verify identity via government-issued ID inspection
+			// Features: ID scanning, comparison, validation checklist, photo capture
+			// Legal: IEN requires physical ID inspection per Supreme Court Rules
+			// Note: REN uses different verification (credential analysis + KBA)
+			{
+				title: "Identity Verification",
+				url: "/verification/identity",
+				icon: UserIcon,
+				roles: ["ENP"],
+				workflows: ["IEN"],
+			},
+
+			// ============================================================================
+			// WITNESS MANAGEMENT - IEN-specific physical witness verification
+			// ============================================================================
+			// Available to: ENP only
+			// Workflows: IEN only
+			// Purpose: Manage witnesses for documents requiring physical witnesses
+			// Features: Witness registration, ID verification, signature capture
+			// Legal: Certain documents require witnesses per Supreme Court Rules
+			{
+				title: "Witness Management",
+				url: "/verification/witness",
+				icon: UsersIcon,
+				roles: ["ENP"],
+				workflows: ["IEN"],
+			},
+
+			// NOTE: Video Meetings + Notarizations are now combined in /meetings (tabbed)
 		],
 	},
 	{
