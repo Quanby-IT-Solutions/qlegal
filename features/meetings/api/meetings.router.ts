@@ -2,7 +2,7 @@ import { TRPCError } from "@trpc/server"
 import { and, eq } from "drizzle-orm"
 import { z } from "zod/v4"
 
-import { createDocoChainProject } from "@/services/doconchain"
+import { checkSigningStatus, createDocoChainProject } from "@/services/doconchain"
 import { normalizeDocoChainUrl } from "@/services/doconchain/url-normalizer"
 import { db } from "@/services/drizzle/db"
 import { users } from "@/services/drizzle/schema/auth"
@@ -21,6 +21,55 @@ function asNonEmptyEmail(email: unknown): string | undefined {
 	if (typeof email !== "string") return undefined
 	const trimmed = email.trim()
 	return trimmed.length > 0 ? trimmed : undefined
+}
+
+function getDocoChainAuthEmailForMeeting(
+	meeting: {
+		createdBy?: { email?: string | null; role?: string | null } | null
+		participants?: Array<{ user?: { email?: string | null; role?: string | null } | null }> | null
+	},
+	fallbackEmail?: string | null
+): string | undefined {
+	const createdByEmail = asNonEmptyEmail(meeting.createdBy?.email)
+	if (createdByEmail && isEnpRole(meeting.createdBy?.role)) return createdByEmail
+
+	const enpParticipantEmail = meeting.participants
+		?.map(p => p.user)
+		.find(u => isEnpRole(u?.role) && !!asNonEmptyEmail(u?.email))?.email
+
+	return asNonEmptyEmail(enpParticipantEmail) ?? createdByEmail ?? asNonEmptyEmail(fallbackEmail)
+}
+
+type SigningStatusCacheEntry = { isFullySigned: boolean; expiresAtMs: number }
+const signingStatusCache = new Map<string, SigningStatusCacheEntry>()
+
+async function getIsFullySignedCached(projectUuid: string, userEmail?: string): Promise<boolean> {
+	const now = Date.now()
+	const cached = signingStatusCache.get(projectUuid)
+	if (cached && cached.expiresAtMs > now) return cached.isFullySigned
+
+	try {
+		const status = await checkSigningStatus(projectUuid, userEmail)
+		const isFullySigned = !!status.isFullySigned
+		signingStatusCache.set(projectUuid, { isFullySigned, expiresAtMs: now + 60_000 })
+		return isFullySigned
+	} catch {
+		// If auth/lookup fails, treat as not signed (and cache briefly to avoid hammering).
+		signingStatusCache.set(projectUuid, { isFullySigned: false, expiresAtMs: now + 15_000 })
+		return false
+	}
+}
+
+async function asyncPool<T>(items: T[], concurrency: number, fn: (item: T) => Promise<void>) {
+	const executing = new Set<Promise<void>>()
+	for (const item of items) {
+		const p = fn(item).finally(() => executing.delete(p))
+		executing.add(p)
+		if (executing.size >= concurrency) {
+			await Promise.race(executing)
+		}
+	}
+	await Promise.all(executing)
 }
 
 export const meetingsRouter = createTRPCRouter({
@@ -92,6 +141,7 @@ export const meetingsRouter = createTRPCRouter({
 								name: true,
 								email: true,
 								image: true,
+								role: true,
 							},
 						},
 						participants: {
@@ -102,6 +152,7 @@ export const meetingsRouter = createTRPCRouter({
 										name: true,
 										email: true,
 										image: true,
+										role: true,
 									},
 								},
 							},
@@ -113,6 +164,130 @@ export const meetingsRouter = createTRPCRouter({
 		})
 
 		return userMeetings.map(mp => mp.meeting)
+	}),
+
+	// Get user's meetings (same order as meetings page), plus document stats
+	getUserMeetingsWithDocumentStats: protectedProcedure.query(async ({ ctx }) => {
+		const userMeetings = await db.query.meetingParticipants.findMany({
+			where: and(
+				eq(meetingParticipants.userId, ctx.session.user.id),
+				eq(meetingParticipants.status, "ACCEPTED")
+			),
+			with: {
+				meeting: {
+					with: {
+						createdBy: {
+							columns: {
+								id: true,
+								name: true,
+								email: true,
+								image: true,
+								role: true,
+							},
+						},
+						participants: {
+							with: {
+								user: {
+									columns: {
+										id: true,
+										name: true,
+										email: true,
+										image: true,
+										role: true,
+									},
+								},
+							},
+						},
+						documents: {
+							columns: {
+								id: true,
+								docoChainProjectId: true, // kept for reference/debug, not used for "signed" anymore
+							},
+						},
+						signatureRequests: {
+							columns: {
+								documentId: true,
+								status: true,
+							},
+						},
+					},
+				},
+			},
+			// IMPORTANT: this is the same ordering the Meetings page uses
+			orderBy: (meetingParticipants, { desc }) => [desc(meetingParticipants.createdAt)],
+		})
+
+		// Precompute external signing status for any docs that aren't clearly signed via our DB rows.
+		// This avoids "0%" when signature request rows are missing or stale.
+		const projectUuidsToCheck = new Set<string>()
+		const projectUuidToAuthEmail = new Map<string, string | undefined>()
+
+		for (const mp of userMeetings) {
+			const meeting = mp.meeting
+			const authEmail = getDocoChainAuthEmailForMeeting(meeting, ctx.session.user.email)
+
+			const requestsByDocumentId = new Map<string, string[]>()
+			for (const req of meeting.signatureRequests ?? []) {
+				const list = requestsByDocumentId.get(req.documentId) ?? []
+				list.push(req.status)
+				requestsByDocumentId.set(req.documentId, list)
+			}
+
+			for (const doc of meeting.documents ?? []) {
+				if (!doc.docoChainProjectId) continue
+				const reqStatuses = requestsByDocumentId.get(doc.id) ?? []
+				const isSignedByRequests = reqStatuses.length > 0 && reqStatuses.every(s => s === "SIGNED")
+				if (!isSignedByRequests) {
+					projectUuidsToCheck.add(doc.docoChainProjectId)
+					if (!projectUuidToAuthEmail.has(doc.docoChainProjectId)) {
+						projectUuidToAuthEmail.set(doc.docoChainProjectId, authEmail)
+					}
+				}
+			}
+		}
+
+		const externalSignedByProjectUuid = new Map<string, boolean>()
+		await asyncPool([...projectUuidsToCheck], 8, async projectUuid => {
+			const authEmail = projectUuidToAuthEmail.get(projectUuid)
+			const isFullySigned = await getIsFullySignedCached(projectUuid, authEmail)
+			externalSignedByProjectUuid.set(projectUuid, isFullySigned)
+		})
+
+		return userMeetings.map(mp => {
+			const meeting = mp.meeting
+			const documentsList = meeting.documents ?? []
+			const total = documentsList.length
+
+			// A document is "signed" if:
+			// - all signature requests for it are SIGNED (when those rows exist), OR
+			// - DocoChain says it's fully signed (covers missing/stale request rows).
+			const requestsByDocumentId = new Map<string, string[]>()
+			for (const req of meeting.signatureRequests ?? []) {
+				const list = requestsByDocumentId.get(req.documentId) ?? []
+				list.push(req.status)
+				requestsByDocumentId.set(req.documentId, list)
+			}
+
+			let signed = 0
+			for (const doc of documentsList) {
+				const reqStatuses = requestsByDocumentId.get(doc.id) ?? []
+				const isSignedByRequests =
+					reqStatuses.length > 0 && reqStatuses.every(status => status === "SIGNED")
+
+				const isSignedByDocoChain =
+					!!doc.docoChainProjectId &&
+					(externalSignedByProjectUuid.get(doc.docoChainProjectId) ?? false)
+
+				if (isSignedByRequests || isSignedByDocoChain) {
+					signed += 1
+				}
+			}
+
+			return {
+				...meeting,
+				documentStats: { total, signed },
+			}
+		})
 	}),
 
 	// Get meeting by ID
@@ -598,6 +773,172 @@ export const meetingsRouter = createTRPCRouter({
 			return createdAtA - createdAtB
 		})
 	}),
+
+	// Get notarization details for a meeting (documents + signing status)
+	getMeetingNotarizationDetails: protectedProcedure
+		.input(z.object({ meetingId: z.string() }))
+		.query(async ({ input, ctx }) => {
+			const meeting = await db.query.meetings.findFirst({
+				where: eq(meetings.id, input.meetingId),
+				with: {
+					createdBy: {
+						columns: {
+							id: true,
+							name: true,
+							email: true,
+							image: true,
+							role: true,
+						},
+					},
+					participants: {
+						with: {
+							user: {
+								columns: {
+									id: true,
+									name: true,
+									email: true,
+									image: true,
+									role: true,
+								},
+							},
+						},
+					},
+					documents: true,
+					signatureRequests: {
+						columns: {
+							id: true,
+							documentId: true,
+							status: true,
+							signedAt: true,
+							signerId: true,
+							requesterId: true,
+							createdAt: true,
+							updatedAt: true,
+						},
+						with: {
+							signer: {
+								columns: {
+									id: true,
+									name: true,
+									email: true,
+									image: true,
+								},
+							},
+						},
+					},
+				},
+			})
+
+			if (!meeting) {
+				throw new TRPCError({
+					code: "NOT_FOUND",
+					message: "Meeting not found",
+				})
+			}
+
+			// Check if user has access (host OR accepted participant)
+			const isHost = meeting.createdById === ctx.session.user.id
+			const isAcceptedParticipant = meeting.participants.some(
+				p => p.userId === ctx.session.user.id && p.status === "ACCEPTED"
+			)
+			const hasAccess = isHost || isAcceptedParticipant
+
+			if (!hasAccess) {
+				throw new TRPCError({
+					code: "FORBIDDEN",
+					message: "You don't have access to this meeting",
+				})
+			}
+
+			const signatureRequestsByDocumentId = new Map<
+				string,
+				Array<{
+					id: string
+					status: string
+					signedAt: Date | null
+					signer: { id: string; name: string | null; email: string | null; image: string | null } | null
+				}>
+			>()
+
+			for (const req of meeting.signatureRequests ?? []) {
+				const list = signatureRequestsByDocumentId.get(req.documentId) ?? []
+				list.push({
+					id: req.id,
+					status: req.status,
+					signedAt: req.signedAt ?? null,
+					signer: req.signer ?? null,
+				})
+				signatureRequestsByDocumentId.set(req.documentId, list)
+			}
+
+			// Precompute DocoChain "fully signed" status per project UUID (cached)
+			const userEmail = getDocoChainAuthEmailForMeeting(meeting, ctx.session.user.email)
+			const projectUuidsToCheck = new Set<string>()
+			for (const doc of meeting.documents ?? []) {
+				if (doc.docoChainProjectId) projectUuidsToCheck.add(doc.docoChainProjectId)
+			}
+
+			const externalSignedByProjectUuid = new Map<string, boolean>()
+			await asyncPool([...projectUuidsToCheck], 6, async projectUuid => {
+				const isFullySigned = await getIsFullySignedCached(projectUuid, userEmail)
+				externalSignedByProjectUuid.set(projectUuid, isFullySigned)
+			})
+
+			// Sort by order first (for manual reordering), then by createdAt (for upload sequence)
+			const sortedDocuments = (meeting.documents ?? []).sort((a, b) => {
+				const orderA = a.order ?? 0
+				const orderB = b.order ?? 0
+
+				if (orderA !== orderB) return orderA - orderB
+
+				const createdAtA = a.createdAt ? new Date(a.createdAt).getTime() : 0
+				const createdAtB = b.createdAt ? new Date(b.createdAt).getTime() : 0
+				return createdAtA - createdAtB
+			})
+
+			const documentsWithSigning = sortedDocuments.map(doc => {
+				const reqs = signatureRequestsByDocumentId.get(doc.id) ?? []
+				const signerTotal = reqs.length
+				const signerSigned = reqs.filter(r => r.status === "SIGNED").length
+
+				const isSignedByRequests = signerTotal > 0 && signerSigned === signerTotal
+				const isSignedByDocoChain =
+					!!doc.docoChainProjectId &&
+					(externalSignedByProjectUuid.get(doc.docoChainProjectId) ?? false)
+
+				const isFullySigned = isSignedByRequests || isSignedByDocoChain
+
+				return {
+					id: doc.id,
+					name: doc.name,
+					status: doc.status,
+					createdAt: doc.createdAt,
+					docoChainProjectId: doc.docoChainProjectId ?? null,
+					isFullySigned,
+					signerSummary: {
+						total: signerTotal,
+						signed: signerSigned,
+					},
+					signatureRequests: reqs,
+				}
+			})
+
+			const total = documentsWithSigning.length
+			const signed = documentsWithSigning.filter(d => d.isFullySigned).length
+
+			return {
+				meeting: {
+					id: meeting.id,
+					title: meeting.title,
+					status: meeting.status,
+					createdAt: meeting.createdAt,
+					createdBy: meeting.createdBy,
+					participants: meeting.participants,
+				},
+				documentStats: { total, signed },
+				documents: documentsWithSigning,
+			}
+		}),
 
 	// Update document order
 	updateDocumentOrder: protectedProcedure
