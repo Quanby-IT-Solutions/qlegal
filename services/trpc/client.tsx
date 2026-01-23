@@ -24,20 +24,14 @@ import { type AppRouter } from "@/services/trpc/root"
 let clientQueryClientSingleton: QueryClient | undefined = undefined
 export const getQueryClient = () => {
 	// Server: always make a new query client
-	if (isServer) {
-		return makeQueryClient()
-	}
+	if (isServer) return makeQueryClient()
 	// Browser: use singleton pattern to keep the same query client
 	clientQueryClientSingleton ??= makeQueryClient()
 	// Return the query client
 	return clientQueryClientSingleton
 }
 
-export function TRPCProvider(
-	props: Readonly<{
-		children: React.ReactNode
-	}>
-) {
+export function TRPCProvider(props: Readonly<{ children: React.ReactNode }>) {
 	const queryClient = getQueryClient()
 
 	const [trpcClient] = useState(() =>
