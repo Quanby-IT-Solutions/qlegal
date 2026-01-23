@@ -10,7 +10,11 @@ import { documents } from "@/services/drizzle/schema/document"
 import { meetingParticipants, meetings } from "@/services/drizzle/schema/meetings"
 import { getServiceRoleClient } from "@/services/supabase"
 import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
-import { createMeetingRoom, generateMeetingToken } from "@/services/video-sdk"
+import {
+	createMeetingRoom,
+	fetchRecordings,
+	generateMeetingToken,
+} from "@/services/video-sdk"
 
 function isEnpRole(role: unknown): boolean {
 	if (typeof role !== "string") return false
@@ -386,6 +390,44 @@ export const meetingsRouter = createTRPCRouter({
 			roomId: meeting.roomId,
 		}
 	}),
+
+	// Fetch VideoSDK recordings for a meeting (user must have access)
+	getRecordings: protectedProcedure
+		.input(z.object({ meetingId: z.string() }))
+		.query(async ({ input, ctx }) => {
+			const meeting = await db.query.meetings.findFirst({
+				where: eq(meetings.id, input.meetingId),
+				columns: { id: true, roomId: true, createdById: true },
+				with: {
+					participants: {
+						columns: { userId: true, status: true },
+					},
+				},
+			})
+
+			if (!meeting) {
+				throw new TRPCError({
+					code: "NOT_FOUND",
+					message: "Meeting not found",
+				})
+			}
+
+			const isHost = meeting.createdById === ctx.session.user.id
+			const isAcceptedParticipant = meeting.participants.some(
+				p => p.userId === ctx.session.user.id && p.status === "ACCEPTED"
+			)
+			const hasAccess = isHost || isAcceptedParticipant
+
+			if (!hasAccess) {
+				throw new TRPCError({
+					code: "FORBIDDEN",
+					message: "You don't have access to this meeting",
+				})
+			}
+
+			const list = await fetchRecordings(meeting.roomId)
+			return list
+		}),
 
 	// Start meeting (change status to ONGOING)
 	startMeeting: protectedProcedure.input(z.string()).mutation(async ({ input, ctx }) => {

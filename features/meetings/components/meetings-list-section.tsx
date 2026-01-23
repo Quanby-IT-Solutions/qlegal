@@ -7,6 +7,7 @@ import {
 	Calendar,
 	Clock,
 	FileText,
+	Film,
 	Grid3x3,
 	LayoutList,
 	Loader2,
@@ -54,6 +55,7 @@ import {
 } from "@/core/components/ui/select"
 
 import { useMeetings } from "@/features/meetings/api/meetings.hooks"
+import { MeetingRecordingsModal } from "@/features/meetings/components/meeting-recordings-modal"
 import { useMessages } from "@/features/messages/api/messages.hooks"
 import { trpc } from "@/services/trpc/client"
 
@@ -109,6 +111,11 @@ export function MeetingsListSection() {
 	const [statusFilter, setStatusFilter] = useState<string>("ALL")
 	const [searchTerm, setSearchTerm] = useState("")
 	const [viewMode, setViewMode] = useState<"list" | "grid">("list")
+	const [recordingsModalOpen, setRecordingsModalOpen] = useState(false)
+	const [recordingsModalMeeting, setRecordingsModalMeeting] = useState<{
+		id: string
+		title: string
+	} | null>(null)
 
 	const { data: searchResults } = searchUsers(userSearchQuery)
 
@@ -532,7 +539,7 @@ export function MeetingsListSection() {
 
 							return (
 								<Card key={meeting.id} className="transition-shadow hover:shadow-md">
-									<CardContent className="p-6">
+									<CardContent className="relative pl-10 pr-10">
 										<div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
 											<div className="min-w-0 flex-1">
 												<div className="mb-2 flex flex-wrap items-center gap-3">
@@ -654,6 +661,22 @@ export function MeetingsListSection() {
 													</Button>
 												)}
 											</div>
+											<Button
+												variant="outline"
+												size="sm"
+												className="absolute bottom-4 right-10 flex items-center gap-2"
+												onClick={e => {
+													e.stopPropagation()
+													setRecordingsModalMeeting({
+													id: meeting.id,
+													title: meeting.title,
+													})
+													setRecordingsModalOpen(true)
+												}}
+												>
+												<Film className="size-4" />
+												Video Records
+											</Button>
 										</div>
 									</CardContent>
 								</Card>
@@ -790,6 +813,22 @@ export function MeetingsListSection() {
 														Meeting Ended
 													</Button>
 												)}
+
+												<Button
+													className="w-full"
+													variant="outline"
+													onClick={e => {
+														e.stopPropagation()
+														setRecordingsModalMeeting({
+															id: meeting.id,
+															title: meeting.title,
+														})
+														setRecordingsModalOpen(true)
+													}}
+												>
+													<Film className="mr-2 size-4" />
+													Video Records
+												</Button>
 											</div>
 										</CardContent>
 									</Card>
@@ -799,6 +838,15 @@ export function MeetingsListSection() {
 					)}
 				</div>
 			)}
+
+			<MeetingRecordingsModal
+				open={recordingsModalOpen}
+				onOpenChange={open => {
+					setRecordingsModalOpen(open)
+					if (!open) setRecordingsModalMeeting(null)
+				}}
+				meeting={recordingsModalMeeting}
+			/>
 		</div>
 	)
 }

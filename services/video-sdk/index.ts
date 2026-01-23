@@ -83,3 +83,59 @@ export async function validateRoom(roomId: string): Promise<boolean> {
 		return false
 	}
 }
+
+export interface VideoSDKRecording {
+	id: string
+	roomId: string
+	sessionId?: string
+	createdAt?: string
+	updatedAt?: string
+	fileId?: string
+	file?: {
+		id?: string
+		fileUrl: string
+		filePath?: string
+		size?: number
+		type?: string
+		meta?: {
+			resolution?: { width?: number; height?: number }
+			format?: string
+			duration?: number
+		}
+		createdAt?: string
+		updatedAt?: string
+	}
+}
+
+interface FetchRecordingsResponse {
+	pageInfo?: {
+		currentPage: number
+		perPage: number
+		lastPage: number
+		total: number
+	}
+	data: VideoSDKRecording[]
+}
+
+/** Fetch VideoSDK cloud recordings for a room (v2 API). */
+export async function fetchRecordings(roomId: string): Promise<VideoSDKRecording[]> {
+	const token = generateVideoSDKToken()
+	const url = new URL(`${VIDEOSDK_API_BASE}/recordings`)
+	url.searchParams.set("roomId", roomId)
+
+	const response = await fetch(url.toString(), {
+		method: "GET",
+		headers: {
+			authorization: token,
+			"Content-Type": "application/json",
+		},
+	})
+
+	if (!response.ok) {
+		throw new Error("Failed to fetch recordings")
+	}
+
+	const body = (await response.json()) as FetchRecordingsResponse
+	const list = Array.isArray(body?.data) ? body.data : []
+	return list
+}
