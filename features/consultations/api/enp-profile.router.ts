@@ -177,4 +177,44 @@ export const enpProfileRouter = createTRPCRouter({
 
 			return { success: true }
 		}),
+
+	// Toggle overall availability status (online/offline)
+	updateAvailability: protectedProcedure
+		.input(
+			z.object({
+				available: z.boolean(),
+			})
+		)
+		.mutation(async ({ ctx, input }) => {
+			const userId = ctx.session.user.id
+
+			// Verify user is ENP
+			if (ctx.session.user.role !== "ENP") {
+				throw new TRPCError({
+					code: "FORBIDDEN",
+					message: "Only ENPs can update their availability status",
+				})
+			}
+
+			// Check if profile exists
+			const profile = await ctx.db.query.enpProfiles.findFirst({
+				where: eq(enpProfiles.userId, userId),
+			})
+
+			if (!profile) {
+				throw new TRPCError({
+					code: "NOT_FOUND",
+					message: "ENP profile not found. Please complete your profile first.",
+				})
+			}
+
+			await ctx.db
+				.update(enpProfiles)
+				.set({ isAvailable: input.available, updatedAt: new Date() })
+				.where(eq(enpProfiles.userId, userId))
+
+			console.log(`[ENP Profile] ${ctx.session.user.name} set availability to: ${input.available}`)
+
+			return { success: true, isAvailable: input.available }
+		}),
 })
