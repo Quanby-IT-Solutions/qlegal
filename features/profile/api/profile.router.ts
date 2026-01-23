@@ -4,10 +4,11 @@ import { z } from "zod/v4"
 import { logError } from "@/core/middleware/logger"
 
 import { users } from "@/services/drizzle/schema/auth"
+import { enpProfiles } from "@/services/drizzle/schema/enp-profiles"
 import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
 
 import { deleteAvatar } from "@/features/profile/api/profile.actions"
-import { personalInformationSchema } from "@/features/profile/api/profile.schema"
+import { enpProfileSchema, personalInformationSchema } from "@/features/profile/api/profile.schema"
 
 export const profileRouter = createTRPCRouter({
 	updateAvatar: protectedProcedure
@@ -101,6 +102,84 @@ export const profileRouter = createTRPCRouter({
 				.where(eq(users.id, ctx.session.user.id))
 				.returning()
 
-			return { message: "Personal information updated successfully", user }
+		return { message: "Personal information updated successfully", user }
+	}),
+
+	getEnpProfile: protectedProcedure.query(async ({ ctx }) => {
+		const enpProfile = await ctx.db.query.enpProfiles.findFirst({
+			where: eq(enpProfiles.userId, ctx.session.user.id),
+		})
+
+		if (!enpProfile) {
+			return null
+		}
+
+		return {
+			// Notary Seal Info
+			enpName: (enpProfile.enpName as string | null) ?? "",
+			enpRoleNumber: (enpProfile.enpRoleNumber as string | null) ?? "",
+			rollNo: (enpProfile.rollNo as string | null) ?? "",
+			rollNoDate: (enpProfile.rollNoDate as string | null) ?? "",
+
+			// Credentials
+			attyName: (enpProfile.attyName as string | null) ?? "",
+			commissionNo: (enpProfile.commissionNo as string | null) ?? "",
+			commissionNoValidUntil: (enpProfile.commissionNoValidUntil as string | null) ?? "",
+			ptrNo: (enpProfile.ptrNo as string | null) ?? "",
+			ptrNoLocation: (enpProfile.ptrNoLocation as string | null) ?? "",
+			ptrNoDate: (enpProfile.ptrNoDate as string | null) ?? "",
+			ibpNo: (enpProfile.ibpNo as string | null) ?? "",
+			ibpNoDate: (enpProfile.ibpNoDate as string | null) ?? "",
+			notaryEmail: (enpProfile.notaryEmail as string | null) ?? "",
+			notaryAddress: (enpProfile.notaryAddress as string | null) ?? "",
+			mcleNoPeriod: (enpProfile.mcleNoPeriod as string | null) ?? "",
+			mcleNo: (enpProfile.mcleNo as string | null) ?? "",
+			mcleNoDate: (enpProfile.mcleNoDate as string | null) ?? "",
+			modeOfNotarization: (enpProfile.modeOfNotarization as string | null) ?? "",
+		}
+	}),
+
+	updateEnpProfile: protectedProcedure
+		.input(enpProfileSchema)
+		.mutation(async ({ ctx, input }) => {
+			const enpProfile = await ctx.db.query.enpProfiles.findFirst({
+				where: eq(enpProfiles.userId, ctx.session.user.id),
+			})
+
+			if (!enpProfile) {
+				throw new Error("ENP profile not found")
+			}
+
+			const normalizeString = (value: string | undefined): string | null => {
+				if (value === undefined) return null
+				const trimmed = value.trim()
+				return trimmed === "" ? null : trimmed
+			}
+
+			await ctx.db
+				.update(enpProfiles)
+				.set({
+					enpName: normalizeString(input.enpName),
+					enpRoleNumber: normalizeString(input.enpRoleNumber),
+					rollNo: normalizeString(input.rollNo),
+					rollNoDate: normalizeString(input.rollNoDate),
+					attyName: normalizeString(input.attyName),
+					commissionNo: normalizeString(input.commissionNo),
+					commissionNoValidUntil: normalizeString(input.commissionNoValidUntil),
+					ptrNo: normalizeString(input.ptrNo),
+					ptrNoLocation: normalizeString(input.ptrNoLocation),
+					ptrNoDate: normalizeString(input.ptrNoDate),
+					ibpNo: normalizeString(input.ibpNo),
+					ibpNoDate: normalizeString(input.ibpNoDate),
+					notaryEmail: normalizeString(input.notaryEmail),
+					notaryAddress: normalizeString(input.notaryAddress),
+					mcleNoPeriod: normalizeString(input.mcleNoPeriod),
+					mcleNo: normalizeString(input.mcleNo),
+					mcleNoDate: normalizeString(input.mcleNoDate),
+					modeOfNotarization: normalizeString(input.modeOfNotarization),
+				})
+				.where(eq(enpProfiles.userId, ctx.session.user.id))
+
+			return { message: "ENP profile updated successfully" }
 		}),
 })

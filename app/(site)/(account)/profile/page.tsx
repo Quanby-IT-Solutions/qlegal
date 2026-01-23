@@ -3,6 +3,7 @@ import { type Route } from "next"
 import { SiteNavbar } from "@/core/components/navbar/site-navbar"
 
 import { AvatarCard } from "@/features/profile/components/avatar-card"
+import { EnpProfileCard } from "@/features/profile/components/enp-profile-card"
 import { PersonalInformationCard } from "@/features/profile/components/personal-information-card"
 
 export default function Page() {
@@ -22,6 +23,8 @@ export default function Page() {
 					<AvatarCard />
 					<div className="h-8" />
 					<PersonalInformationCard />
+					<div className="h-8" />
+					<EnpProfileCard />
 					{/* <DefaultSignatureCard /> */}
 				</main>
 			</div>
