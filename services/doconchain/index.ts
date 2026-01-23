@@ -22,6 +22,19 @@ const DOCOCHAIN_CLIENT_SECRET = (env.DOCOCHAIN_CLIENT_SECRET ?? "").trim()
  */
 const DOCOCHAIN_ADMIN_EMAIL = (env.DOCOCHAIN_ADMIN_EMAIL ?? "").trim()
 
+// DocoChain SDK is extremely chatty; keep logs opt-in.
+// Set `DOCOCHAIN_LOGS=true` in your environment to enable verbose logs.
+const DOCOCHAIN_LOGS_ENABLED = process.env.DOCOCHAIN_LOGS === "true"
+const docoLog = (...args: any[]) => {
+	if (DOCOCHAIN_LOGS_ENABLED) console.log(...args)
+}
+const docoWarn = (...args: any[]) => {
+	if (DOCOCHAIN_LOGS_ENABLED) console.warn(...args)
+}
+const docoError = (...args: any[]) => {
+	if (DOCOCHAIN_LOGS_ENABLED) console.error(...args)
+}
+
 function splitName(fullName: string | undefined): { firstName: string; lastName: string } {
 	const normalized = (fullName ?? "").trim()
 	if (!normalized) return { firstName: "User", lastName: "" }
@@ -51,9 +64,9 @@ const FALLBACK_TOKEN_TTL_MS = 10 * 60 * 1000 // 10 minutes
  * @returns The generated token string
  */
 export async function generateDocoChainToken(email: string, forceRefresh = false): Promise<string> {
-	console.log("🔵 Generating DocoChain token...")
-	console.log("   - Email:", email)
-	console.log("   - Force refresh:", forceRefresh)
+	docoLog("🔵 Generating DocoChain token...")
+	docoLog("   - Email:", email)
+	docoLog("   - Force refresh:", forceRefresh)
 
 	// Check cache first (unless forcing refresh)
 	if (!forceRefresh) {
@@ -62,8 +75,8 @@ export async function generateDocoChainToken(email: string, forceRefresh = false
 			const now = Date.now()
 			// If token is still valid and not about to expire, use cached token
 			if (cached.expiresAt > now + TOKEN_REFRESH_BUFFER_MS) {
-				console.log("✅ Using cached token for:", email)
-				console.log(
+				docoLog("✅ Using cached token for:", email)
+				docoLog(
 					"   - Token expires in:",
 					Math.round((cached.expiresAt - now) / 1000 / 60),
 					"minutes"
@@ -72,18 +85,18 @@ export async function generateDocoChainToken(email: string, forceRefresh = false
 			}
 			// Token is about to expire, refresh it proactively
 			if (cached.expiresAt > now) {
-				console.log("🔄 Token expiring soon, refreshing proactively for:", email)
-				console.log(
+				docoLog("🔄 Token expiring soon, refreshing proactively for:", email)
+				docoLog(
 					"   - Token expires in:",
 					Math.round((cached.expiresAt - now) / 1000 / 60),
 					"minutes"
 				)
 			} else {
-				console.log("⚠️ Cached token expired, generating new token for:", email)
+				docoLog("⚠️ Cached token expired, generating new token for:", email)
 			}
 		}
 	} else {
-		console.log("🔄 Force refreshing token for:", email)
+		docoLog("🔄 Force refreshing token for:", email)
 		// Clear the cache entry to force a new token generation
 		tokenCache.delete(email)
 	}
@@ -111,7 +124,7 @@ export async function generateDocoChainToken(email: string, forceRefresh = false
 		formData.append("email", email)
 
 		const apiUrl = `${DOCOCHAIN_API_BASE}/api/v2/generate/token`
-		console.log("🔵 Calling DocoChain Generate Token API:", apiUrl)
+		docoLog("🔵 Calling DocoChain Generate Token API:", apiUrl)
 
 		const response = await fetch(apiUrl, {
 			method: "POST",
@@ -121,25 +134,25 @@ export async function generateDocoChainToken(email: string, forceRefresh = false
 			body: formData,
 		})
 
-		console.log("📡 DocoChain generate token response status:", response.status)
+		docoLog("📡 DocoChain generate token response status:", response.status)
 
 		if (!response.ok) {
 			const errorText = await response.text()
-			console.error("❌ DocoChain generate token error:", errorText)
+			docoError("❌ DocoChain generate token error:", errorText)
 			throw new Error(
 				`DocoChain API error: ${response.status} ${response.statusText} - ${errorText}`
 			)
 		}
 
 		const result = (await response.json()) as { token?: string; data?: { token?: string } }
-		console.log("✅ Token generated successfully")
+		docoLog("✅ Token generated successfully")
 
 		// Extract token from response
 		// API returns: { token: "..." } or { data: { token: "..." } }
 		const token: string | undefined = result.token ?? result.data?.token
 
 		if (!token) {
-			console.error("❌ No token in response:", result)
+			docoError("❌ No token in response:", result)
 			throw new Error("DocoChain did not return a token")
 		}
 
@@ -149,13 +162,13 @@ export async function generateDocoChainToken(email: string, forceRefresh = false
 			expiresAt: Date.now() + TOKEN_EXPIRATION_MS,
 		})
 
-		console.log("✅ Token cached for:", email)
+		docoLog("✅ Token cached for:", email)
 		return token
 	} catch (error) {
-		console.error("❌ Error generating DocoChain token:", error)
+		docoError("❌ Error generating DocoChain token:", error)
 		// Fallback to static token if available
 		if (DOCOCHAIN_API_TOKEN) {
-			console.warn("⚠️ Falling back to static token")
+			docoWarn("⚠️ Falling back to static token")
 			// Cache fallback token briefly to prevent repeated connect timeouts
 			tokenCache.set(email, {
 				token: DOCOCHAIN_API_TOKEN,
@@ -211,7 +224,7 @@ export async function getDocoChainToken(
 
 	// Fallback to admin email token (if configured) - this is an org admin that should have access to all projects
 	if (DOCOCHAIN_ADMIN_EMAIL) {
-		console.log("🔵 No email provided, falling back to DOCOCHAIN_ADMIN_EMAIL for token generation")
+		docoLog("🔵 No email provided, falling back to DOCOCHAIN_ADMIN_EMAIL for token generation")
 		return generateDocoChainToken(DOCOCHAIN_ADMIN_EMAIL, forceRefresh)
 	}
 
@@ -257,11 +270,11 @@ export async function makeDocoChainApiCall(
 		if (response.status === 401 && retryCount < maxRetries && userEmail) {
 			// If we're using the static token and still got 401, fall back to an email token once.
 			if (preferStaticToken && DOCOCHAIN_API_TOKEN) {
-				console.warn(
+				docoWarn(
 					"⚠️ Received 401 with static token; falling back to per-email token and retrying..."
 				)
-				console.log("   - User email:", userEmail)
-				console.log("   - Retry attempt:", retryCount + 1)
+				docoLog("   - User email:", userEmail)
+				docoLog("   - Retry attempt:", retryCount + 1)
 
 				// Force refresh the per-email token (in case it was cached/expired)
 				await getDocoChainToken(userEmail, true, { preferStaticToken: false })
@@ -274,9 +287,9 @@ export async function makeDocoChainApiCall(
 
 			// Otherwise, we were already using per-email token - refresh and retry once.
 			if (!preferStaticToken) {
-				console.warn("⚠️ Received 401 Unauthorized, refreshing token and retrying...")
-				console.log("   - User email:", userEmail)
-				console.log("   - Retry attempt:", retryCount + 1)
+				docoWarn("⚠️ Received 401 Unauthorized, refreshing token and retrying...")
+				docoLog("   - User email:", userEmail)
+				docoLog("   - Retry attempt:", retryCount + 1)
 
 				// Force refresh the token
 				await getDocoChainToken(userEmail, true, { preferStaticToken: false })
@@ -290,8 +303,8 @@ export async function makeDocoChainApiCall(
 	} catch (error) {
 		// If token generation failed and we haven't retried, try once more
 		if (retryCount < maxRetries && userEmail && !(options?.preferStaticToken ?? true)) {
-			console.warn("⚠️ Error in API call, refreshing token and retrying...")
-			console.log("   - Error:", error)
+			docoWarn("⚠️ Error in API call, refreshing token and retrying...")
+			docoLog("   - Error:", error)
 
 			// Force refresh the token
 			await getDocoChainToken(userEmail, true, { preferStaticToken: false })
@@ -867,9 +880,9 @@ export async function getProjectDetails(
 	projectUuid: string,
 	userEmail?: string
 ): Promise<DocoChainProjectDetails> {
-	console.log("🔵 Fetching DocoChain project details...")
-	console.log("   - Project UUID:", projectUuid)
-	console.log("   - User Email (for token):", userEmail ?? "not provided")
+	docoLog("🔵 Fetching DocoChain project details...")
+	docoLog("   - Project UUID:", projectUuid)
+	docoLog("   - User Email (for token):", userEmail ?? "not provided")
 
 	try {
 		// Use the wrapper function for automatic token refresh on 401 errors
@@ -886,11 +899,11 @@ export async function getProjectDetails(
 			)
 		}, userEmail)
 
-		console.log("📡 DocoChain get project response status:", response.status)
+		docoLog("📡 DocoChain get project response status:", response.status)
 
 		if (!response.ok) {
 			const errorText = await response.text()
-			console.error("❌ DocoChain get project error:", errorText)
+			docoError("❌ DocoChain get project error:", errorText)
 			// Parse error message if it's JSON
 			let errorMessage = `DocoChain API error: ${response.status} ${response.statusText}`
 			try {
@@ -908,11 +921,11 @@ export async function getProjectDetails(
 		}
 
 		const result = (await response.json()) as DocoChainProjectDetails
-		console.log("✅ Project details fetched:", result)
+		docoLog("✅ Project details fetched:", result)
 
 		return result
 	} catch (error) {
-		console.error("❌ Error fetching project details:", error)
+		docoError("❌ Error fetching project details:", error)
 		throw error
 	}
 }
@@ -1459,16 +1472,42 @@ export async function generateEditDraftLink(
 		// ALWAYS normalize the URL - ensure api=true is set
 		link = normalizeDocoChainUrl(link) ?? link
 
-		// Handle URL parameters - only set api=true, no api_token needed
-		// The short-code link from DocoChain already contains authentication context
+		// Handle URL parameters - add api_token for authentication
+		// CRITICAL: Short-code links don't need api_token, but full URLs do
 		try {
 			const url = new URL(link)
 			// Set api=true for embedded/integrated view
 			url.searchParams.set("api", "true")
-			// Remove api_token if present - it's not needed for edit draft links
-			if (url.searchParams.has("api_token")) {
-				url.searchParams.delete("api_token")
+			
+			// CRITICAL: Short-code links (link.doconchain.com) don't need api_token
+			// Doconchain will redirect and may add api_token=undefined, which breaks authentication
+			const isShortCodeLink = url.hostname.includes("link.doconchain.com")
+			
+			if (isShortCodeLink) {
+				// Remove api_token from short-code links - they have embedded authentication
+				if (url.searchParams.has("api_token")) {
+					url.searchParams.delete("api_token")
+					console.log("✅ Removed api_token from short-code link (not needed, prevents undefined on redirect)")
+				}
+			} else {
+				// For full project URLs, add api_token if not present - use creator's token
+				if (!url.searchParams.has("api_token")) {
+					if (userEmail) {
+						const apiToken: string = await getDocoChainToken(userEmail, true, {
+							preferStaticToken: false, // Use per-email token for edit draft links, force refresh
+						})
+						url.searchParams.set("api_token", apiToken)
+						console.log(
+							`✅ Added api_token parameter using ${userEmail} token (fresh token, creator)`
+						)
+					} else {
+						console.warn(
+							"⚠️ No userEmail available for edit draft link - token may be missing from URL"
+						)
+					}
+				}
 			}
+			
 			// Remove incorrect status=Deleted parameter if present (DocoChain bug)
 			if (url.searchParams.has("status") && url.searchParams.get("status") === "Deleted") {
 				console.warn(
@@ -1478,10 +1517,36 @@ export async function generateEditDraftLink(
 			}
 			link = url.toString()
 		} catch {
-			// If URL parsing fails, just ensure api=true is appended
-			if (!link.includes("api=true")) {
-				const separator = link.includes("?") ? "&" : "?"
-				link = `${link}${separator}api=true`
+			// If URL parsing fails, check if it's a short-code link
+			if (typeof link === "string") {
+				try {
+					const isShortCodeLink = link.includes("link.doconchain.com")
+					
+					if (isShortCodeLink) {
+						// Remove api_token from short-code links if present
+						link = link.replace(/[&?]api_token=[^&]*/g, "")
+						console.log("✅ Removed api_token from short-code link (fallback)")
+					} else {
+						// For full URLs, try to add api_token if not present - use creator's token
+						if (userEmail && !link.includes("api_token")) {
+							const apiToken: string = await getDocoChainToken(userEmail, true, {
+								preferStaticToken: false, // Force refresh to ensure fresh token
+							})
+							const separator = link.includes("?") ? "&" : "?"
+							link = `${link}${separator}api_token=${encodeURIComponent(apiToken)}`
+							console.log(
+								`✅ Added api_token parameter using ${userEmail} token (fallback, fresh token, creator)`
+							)
+						}
+					}
+					// Ensure api=true is appended
+					if (!link.includes("api=true")) {
+						const separator = link.includes("?") ? "&" : "?"
+						link = `${link}${separator}api=true`
+					}
+				} catch (tokenError) {
+					console.warn("⚠️ Failed to process api_token:", tokenError)
+				}
 			}
 		}
 
@@ -1525,9 +1590,9 @@ export async function checkSigningStatus(
 	projectUuid: string,
 	userEmail?: string
 ): Promise<SigningStatusResult> {
-	console.log("🔵 Checking signing status for project...")
-	console.log("   - Project UUID:", projectUuid)
-	console.log("   - User Email (for token):", userEmail ?? "not provided")
+	docoLog("🔵 Checking signing status for project...")
+	docoLog("   - Project UUID:", projectUuid)
+	docoLog("   - User Email (for token):", userEmail ?? "not provided")
 
 	try {
 		const projectDetails = await getProjectDetails(projectUuid, userEmail)
@@ -1547,11 +1612,11 @@ export async function checkSigningStatus(
 			signedSigners.length === signers.length &&
 			(projectData.status === "Completed" || projectData.completed_at !== null)
 
-		console.log("✅ Signing status checked:")
-		console.log("   - Project Status:", projectData.status)
-		console.log("   - Total Signers:", signers.length)
-		console.log("   - Signed Count:", signedSigners.length)
-		console.log("   - Is Fully Signed:", isFullySigned)
+		docoLog("✅ Signing status checked:")
+		docoLog("   - Project Status:", projectData.status)
+		docoLog("   - Total Signers:", signers.length)
+		docoLog("   - Signed Count:", signedSigners.length)
+		docoLog("   - Is Fully Signed:", isFullySigned)
 
 		return {
 			isFullySigned,
@@ -1571,7 +1636,7 @@ export async function checkSigningStatus(
 			})),
 		}
 	} catch (error) {
-		console.error("❌ Error checking signing status:", error)
+		docoError("❌ Error checking signing status:", error)
 		throw error
 	}
 }
