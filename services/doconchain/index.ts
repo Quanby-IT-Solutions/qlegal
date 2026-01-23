@@ -1,5 +1,11 @@
 // Token management
-export { generateToken, getCachedToken, getToken, invalidateToken } from "./lib/token-cache"
+export {
+	generateToken,
+	getCachedToken,
+	getToken,
+	invalidateToken,
+	verifyAuthToken,
+} from "./lib/token-cache"
 
 // HTTP client
 export { apiCall } from "./lib/http-client"
@@ -17,6 +23,7 @@ export type {
 	VaultItem,
 	VaultItemDetail,
 	VaultItemsResponse,
+	VerifyTokenResponse,
 } from "./lib/schemas"
 
 // API - Project

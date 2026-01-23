@@ -36,12 +36,20 @@ export async function checkSigningStatus(
 	}
 
 	const signers = (projectData.signers as Signer[]) ?? []
-	const signedSigners = signers.filter(s => s.status === "SIGNED" || s.signed_at !== null)
+	// Helper function to check if a signer has signed (case-insensitive)
+	const isSignerSigned = (s: Signer): boolean => {
+		const statusUpper = (s.status ?? "").toUpperCase()
+		const hasSignedStatus = statusUpper === "SIGNED" || statusUpper === "COMPLETED"
+		const hasSignedAt = s.signed_at !== null && s.signed_at !== undefined && s.signed_at !== ""
+		return hasSignedStatus || hasSignedAt
+	}
+	const signedSigners = signers.filter(isSignerSigned)
 
+	const projectStatusUpper = ((projectData.status as string) ?? "").toUpperCase()
 	const isFullySigned =
 		signers.length > 0 &&
 		signedSigners.length === signers.length &&
-		((projectData.status as string) === "Completed" || projectData.completed_at !== null)
+		(projectStatusUpper === "COMPLETED" || projectData.completed_at !== null)
 
 	return {
 		isFullySigned,
@@ -74,11 +82,19 @@ export async function downloadSignedDocument(
 	}
 
 	const signers = (projectData.signers as Signer[]) ?? []
-	const signedSigners = signers.filter(s => s.status === "SIGNED" || s.signed_at !== null)
+	// Helper function to check if a signer has signed (case-insensitive)
+	const isSignerSigned = (s: Signer): boolean => {
+		const statusUpper = (s.status ?? "").toUpperCase()
+		const hasSignedStatus = statusUpper === "SIGNED" || statusUpper === "COMPLETED"
+		const hasSignedAt = s.signed_at !== null && s.signed_at !== undefined && s.signed_at !== ""
+		return hasSignedStatus || hasSignedAt
+	}
+	const signedSigners = signers.filter(isSignerSigned)
+	const projectStatusUpper = ((projectData.status as string) ?? "").toUpperCase()
 	const isFullySigned =
 		signers.length > 0 &&
 		signedSigners.length === signers.length &&
-		((projectData.status as string) === "Completed" || projectData.completed_at !== null)
+		(projectStatusUpper === "COMPLETED" || projectData.completed_at !== null)
 
 	if (!isFullySigned) {
 		throw new Error(

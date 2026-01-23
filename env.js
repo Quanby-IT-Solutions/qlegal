@@ -24,6 +24,7 @@ export const env = createEnv({
 		DOCONCHAIN_CLIENT_SECRET: z.string(),
 		DOCONCHAIN_EMAIL: z.string().email(),
 		DOCONCHAIN_ORGANIZATION_ID: z.string(),
+		DOCONCHAIN_ORG_INVITE_CODE: z.string().min(1),
 
 		// Email
 		EMAIL_FROM_NAME: z.string(),
@@ -100,6 +101,7 @@ export const env = createEnv({
 		DOCONCHAIN_CLIENT_SECRET: process.env.DOCONCHAIN_CLIENT_SECRET,
 		DOCONCHAIN_EMAIL: process.env.DOCONCHAIN_EMAIL,
 		DOCONCHAIN_ORGANIZATION_ID: process.env.DOCONCHAIN_ORGANIZATION_ID,
+		DOCONCHAIN_ORG_INVITE_CODE: process.env.DOCONCHAIN_ORG_INVITE_CODE,
 
 		// Email
 		EMAIL_FROM_NAME: process.env.EMAIL_FROM_NAME,

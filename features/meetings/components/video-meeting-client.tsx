@@ -715,21 +715,34 @@ const SignerList = React.memo(function SignerList({
 	// Sort signers by sequence
 	const sortedSigners = [...signers].sort((a, b) => a.sequence - b.sequence)
 
+	// Helper function to check if a signer has signed (case-insensitive and checks both status and signedAt)
+	const isSignerSigned = (signer: {
+		status: string
+		signedAt: string | null
+	}): boolean => {
+		const statusUpper = signer.status?.toUpperCase() ?? ""
+		const hasSignedStatus = statusUpper === "SIGNED" || statusUpper === "COMPLETED"
+		const hasSignedAt = signer.signedAt !== null && signer.signedAt !== undefined && signer.signedAt !== ""
+		return hasSignedStatus || hasSignedAt
+	}
+
 	// Find the current signer (first one who hasn't signed yet)
-	const currentSignerIndex = sortedSigners.findIndex(s => s.status !== "SIGNED" && !s.signedAt)
+	const currentSignerIndex = sortedSigners.findIndex(s => !isSignerSigned(s))
+
+	// Count signed signers
+	const signedCount = sortedSigners.filter(isSignerSigned).length
 
 	return (
 		<div className="bg-muted/30 mb-3 space-y-1.5 rounded-lg border p-2.5">
 			<div className="mb-2 flex items-center gap-1.5">
 				<UsersIcon className="text-muted-foreground size-3.5" />
 				<span className="text-muted-foreground text-[11px] font-semibold tracking-wide uppercase">
-					Signers ({sortedSigners.filter(s => s.status === "SIGNED" || s.signedAt).length}/
-					{sortedSigners.length})
+					Signers ({signedCount}/{sortedSigners.length})
 				</span>
 			</div>
 			<div className="space-y-1">
 				{sortedSigners.map((signer, index) => {
-					const isSigned = signer.status === "SIGNED" || signer.signedAt !== null
+					const isSigned = isSignerSigned(signer)
 					const isCurrent = index === currentSignerIndex
 					const isWaiting = index > currentSignerIndex && currentSignerIndex !== -1
 
@@ -839,6 +852,21 @@ const DocumentActions = React.memo(function DocumentActions({
 }) {
 	const { data: session } = useSession()
 
+	// Helper function to check if a signer has signed (case-insensitive)
+	const isSignerSigned = (signer: {
+		status: string
+		signedAt: string | null
+	}): boolean => {
+		const statusUpper = signer.status?.toUpperCase() ?? ""
+		const hasSignedStatus = statusUpper === "SIGNED" || statusUpper === "COMPLETED"
+		const hasSignedAt = signer.signedAt !== null && signer.signedAt !== undefined && signer.signedAt !== ""
+		return hasSignedStatus || hasSignedAt
+	}
+
+	// Check if all signers have signed
+	const allSignersSigned =
+		signers && signers.length > 0 && signers.every(isSignerSigned)
+
 	// Determine if Start Signing button should be disabled
 	const isSigningDisabledByOrder = isLocked && !isPreviousDocumentSigned && (documentIndex ?? 0) > 0
 	const hasNoSignersSelected = !document.docoChainProjectId && (signerUserIds?.length ?? 0) === 0
@@ -847,11 +875,13 @@ const DocumentActions = React.memo(function DocumentActions({
 	const isCurrentUserSigner =
 		currentUserId !== null && (signerUserIds?.includes(currentUserId) ?? false)
 	const userNotInSignerList = hasSigners && !isCurrentUserSigner
-	const isSigningDisabled = isSigningDisabledByOrder
+	const isSigningDisabled = allSignersSigned
 		? true
-		: hasNoSignersSelected
+		: isSigningDisabledByOrder
 			? true
-			: userNotInSignerList
+			: hasNoSignersSelected
+				? true
+				: userNotInSignerList
 
 	const handleSignersChange = useCallback(
 		(userIds: string[]) => {
@@ -936,13 +966,15 @@ const DocumentActions = React.memo(function DocumentActions({
 				{/* Show message when button is disabled */}
 				{isSigningDisabled && (
 					<p className="text-[10px] leading-tight text-amber-700 dark:text-amber-400">
-						{isSigningDisabledByOrder
-							? "Previous document must be signed first"
-							: hasNoSignersSelected
-								? "Select at least one signer for this document"
-								: userNotInSignerList
-									? "You must be added as a signer to start signing"
-									: ""}
+						{allSignersSigned
+							? "All signers have completed signing"
+							: isSigningDisabledByOrder
+								? "Previous document must be signed first"
+								: hasNoSignersSelected
+									? "Select at least one signer for this document"
+									: userNotInSignerList
+										? "You must be added as a signer to start signing"
+										: ""}
 					</p>
 				)}
 			</div>
@@ -2265,7 +2297,14 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 								const signingStatus = doc.docoChainProjectId
 									? documentSigningStatus.get(doc.id)
 									: undefined
-								const isFullySigned = signingStatus?.isFullySigned ?? false
+								// Check if fully signed: either from API or by comparing signedCount to totalSigners
+								// This ensures the badge updates even if the API's isFullySigned is not set correctly
+								const isFullySigned =
+									signingStatus?.isFullySigned === true ||
+									(signingStatus?.totalSigners > 0 &&
+										signingStatus?.signedCount === signingStatus?.totalSigners &&
+										signingStatus?.signedCount > 0) ||
+									false
 								const isDownloadingSigned =
 									!!doc.docoChainProjectId && downloadingProjectUuid === doc.docoChainProjectId
 								const isDownloadingCert =

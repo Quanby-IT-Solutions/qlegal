@@ -93,6 +93,14 @@ export const vaultItemDetailSchema = z.object({
 		.optional(),
 })
 
+export const verifyTokenResponseSchema = z.object({
+	message: z.string(),
+	data: z.object({
+		redirect_to: z.string(),
+		status: z.string(),
+	}),
+})
+
 export type Signer = z.infer<typeof signerSchema>
 export type ProjectData = z.infer<typeof projectDataSchema>
 export type ProjectDetailsResponse = z.infer<typeof projectDetailsResponseSchema>
@@ -101,3 +109,4 @@ export type VaultItem = z.infer<typeof vaultItemSchema>
 export type VaultItemsResponse = z.infer<typeof vaultItemsResponseSchema>
 export type VaultFile = z.infer<typeof vaultFileSchema>
 export type VaultItemDetail = z.infer<typeof vaultItemDetailSchema>
+export type VerifyTokenResponse = z.infer<typeof verifyTokenResponseSchema>

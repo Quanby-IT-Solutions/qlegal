@@ -13,6 +13,7 @@ import {
 	generateSignLink,
 	getPassportDocument,
 	getProjectDetails,
+	getToken,
 	normalizeUrl,
 	sendProject,
 } from "@/services/doconchain"
@@ -688,6 +689,7 @@ export const signatureRequestsRouter = createTRPCRouter({
 				}
 
 				let isProjectSent = false
+				let signerHasPlotted = false
 				try {
 					const projectDetails = await getProjectDetails(actualProjectUuid, creatorEmail)
 
@@ -700,20 +702,39 @@ export const signatureRequestsRouter = createTRPCRouter({
 						projectStatus === "Completed" ||
 						projectStatus === "In Progress" ||
 						projectStatus === "View Only" // "View Only" means project was sent
-					console.log("   - Project Status:", projectStatus)
 
+					// Check if the signer has already plotted (indicated by status other than PENDING)
+					// Statuses like "NEXT GROUP", "SIGNED", etc. indicate the signer has interacted with the document
+					const signers = (projectDetails?.data?.signers as Array<{ email?: string; status?: string }>) ?? []
+					const currentSigner = signers.find(s => s.email?.toLowerCase() === email.toLowerCase())
+					const signerStatus = (currentSigner?.status ?? "").toUpperCase()
+					
+					// If signer status is not PENDING, they've likely plotted or interacted with the document
+					signerHasPlotted = 
+						signerStatus !== "" && 
+						signerStatus !== "PENDING" &&
+						signerStatus !== "INVITED"
+
+					console.log("   - Project Status:", projectStatus)
 					console.log("   - Project Sent At:", projectDetails?.data?.sent_at ?? "not sent")
 					console.log("   - Is Project Sent:", isProjectSent)
+					console.log("   - Signer Status:", currentSigner?.status ?? "not found")
+					console.log("   - Signer Has Plotted:", signerHasPlotted)
 				} catch (statusError) {
 					console.warn("⚠️ Failed to get project status, assuming Draft:", statusError)
 				}
 
-				// If project is Sent or Completed, use Generate Sign Link API
-				// This generates a personalized link for the specific signer
-				// IMPORTANT: Do NOT use stored redirect URL or Edit Draft Link for sent projects
-				if (isProjectSent) {
+				// Use Generate Sign Link API if:
+				// 1. Project is Sent/Completed (already sent)
+				// 2. Project is Draft BUT signer has already plotted (plotting is complete)
+				// Otherwise, use Edit Draft Link for initial plotting
+				const shouldUseSignLink = isProjectSent || signerHasPlotted
+
+				if (shouldUseSignLink) {
 					console.log(
-						"🔵 Project is sent - using Generate Sign Link API (required for sent projects)..."
+						isProjectSent
+							? "🔵 Project is sent - using Generate Sign Link API (required for sent projects)..."
+							: "🔵 Signer has plotted - using Generate Sign Link API (for signing after plotting)..."
 					)
 					try {
 						// CRITICAL: Pass ENP's email (creatorEmail) for token generation
@@ -724,16 +745,16 @@ export const signatureRequestsRouter = createTRPCRouter({
 							userEmail: creatorEmail, // ENP's email - for API token generation
 						})
 						signingLink = signLinkResult.link
-						console.log("✅ Signing link generated successfully for sent project:", signingLink)
+						console.log("✅ Signing link generated successfully:", signingLink)
 					} catch (signLinkError) {
-						console.error("❌ Failed to generate signing link for sent project:", signLinkError)
+						console.error("❌ Failed to generate signing link:", signLinkError)
 						signingLink = `${env.DOCONCHAIN_APP_URL}/${projectUuid}?email=${encodeURIComponent(email)}&api=true`
 					}
 				} else {
-					// Project is still Draft - ALWAYS generate a fresh Edit Draft Link
+					// Project is Draft and signer hasn't plotted yet - use Edit Draft Link for plotting
 					// DO NOT use stored redirect URL - it's a one-time link that expires/invalidates
 					// after first use or after some time, causing "Session Ended" errors.
-					console.log("🔵 Project is Draft - generating fresh Edit Draft Link (for plotting)...")
+					console.log("🔵 Project is Draft and signer hasn't plotted - generating Edit Draft Link (for plotting)...")
 
 					// Generate Edit Draft Project Link (allows plotting/editing/signing in draft)
 					// POST /api/v2/projects/{uuid}/link?user_type=ENTERPRISE_API
@@ -754,20 +775,34 @@ export const signatureRequestsRouter = createTRPCRouter({
 				if (signingLink) {
 					signingLink = normalizeUrl(signingLink) ?? signingLink
 
-					// Clean up the URL - remove invalid api_token values
+					// Clean up the URL - ensure api=true is set and api_token is valid
 					try {
 						const url = new URL(signingLink)
 						// Ensure api=true is set
 						url.searchParams.set("api", "true")
-						// Remove api_token if it's undefined or empty - DocoChain short-code links don't need it
-						if (
-							url.searchParams.has("api_token") &&
-							(url.searchParams.get("api_token") === "undefined" ||
-								url.searchParams.get("api_token") === "")
-						) {
-							url.searchParams.delete("api_token")
-							console.log("✅ Removed invalid api_token=undefined from URL")
+						
+						// Remove api_token ONLY if it's explicitly undefined or empty
+						// For Generate Sign Link, api_token is REQUIRED for document loading
+						if (url.searchParams.has("api_token")) {
+							const existingToken = url.searchParams.get("api_token")
+							if (!existingToken || existingToken === "undefined" || existingToken === "") {
+								url.searchParams.delete("api_token")
+								console.log("⚠️ Removed invalid/empty api_token from URL")
+								
+								// Re-add api_token if it was removed (for Generate Sign Link, it's required)
+								if (shouldUseSignLink) {
+									const apiToken = await getToken(creatorEmail)
+									url.searchParams.set("api_token", apiToken)
+									console.log("✅ Re-added api_token for Generate Sign Link")
+								}
+							}
+						} else if (shouldUseSignLink) {
+							// If api_token is missing and we're using Generate Sign Link, add it
+							const apiToken = await getToken(creatorEmail)
+							url.searchParams.set("api_token", apiToken)
+							console.log("✅ Added missing api_token for Generate Sign Link")
 						}
+						
 						signingLink = url.toString()
 					} catch {
 						// If URL parsing fails, signingLink is already normalized
