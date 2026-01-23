@@ -9,6 +9,8 @@ import { addCustomHeaders } from "@/core/middleware/security"
 
 import { authConfig } from "@/services/next-auth/config"
 
+import { env } from "@/env"
+
 const { auth: proxy } = NextAuth(authConfig)
 
 // ============================================================================
@@ -161,8 +163,7 @@ export default proxy(req => {
 		logError(error, "middleware execution")
 
 		// Fail safely - redirect to error page in production
-		// eslint-disable-next-line no-restricted-properties
-		if (process.env.NODE_ENV === "production") {
+		if (env.NODE_ENV === "production") {
 			return NextResponse.redirect(new URL("/error", nextUrl))
 		}
 

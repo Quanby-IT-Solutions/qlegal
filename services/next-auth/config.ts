@@ -4,7 +4,7 @@ import { type DefaultSession, type NextAuthConfig } from "next-auth"
 import Credentials from "next-auth/providers/credentials"
 import Google from "next-auth/providers/google"
 
-import { provisionDocoChainUser } from "@/services/doconchain"
+import { provisionUser } from "@/services/doconchain"
 import { db } from "@/services/drizzle/db"
 import { twoFactorConfirmations, users, type UserRole } from "@/services/drizzle/schema/auth"
 import { DrizzleCustomAdapter } from "@/services/next-auth/adapter"
@@ -218,15 +218,13 @@ export const authConfig = {
 			if (!user?.email) return
 
 			try {
-				await provisionDocoChainUser({
+				await provisionUser({
 					email: user.email,
 					name: user.name,
 					role: "Member",
 				})
-				console.log("✅ Google/OAuth user provisioning attempted")
-			} catch (error) {
+			} catch {
 				// Don't fail OAuth signup if auto-join fails
-				console.warn("⚠️ Failed to auto-join Google/OAuth user to DocoChain organization:", error)
 			}
 		},
 		async linkAccount({ user, profile }) {
@@ -250,14 +248,13 @@ export const authConfig = {
 			}
 
 			try {
-				await provisionDocoChainUser({
+				await provisionUser({
 					email: userEmail,
 					name: user.name,
 					role: "Member",
 				})
-				console.log("✅ Linked OAuth user provisioning attempted")
-			} catch (error) {
-				console.warn("⚠️ Failed to auto-join linked OAuth user to DocoChain organization:", error)
+			} catch {
+				// Best-effort - don't fail account linking if provisioning fails
 			}
 		},
 	},

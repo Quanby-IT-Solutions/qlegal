@@ -81,7 +81,7 @@ export const ROUTE_CONFIG: RouteConfig = {
 			ENP: [{ path: "/dashboard" }, { path: "/appointments" }],
 			PRINCIPAL: [{ path: "/dashboard" }, { path: "/consultations" }],
 			ENA: [{ path: "/dashboard" }],
-			ADMIN: [{ path: "/dashboard" }],
+			ADMIN: [{ path: "/dashboard" }, { path: "/management/users" }],
 		},
 	},
 }

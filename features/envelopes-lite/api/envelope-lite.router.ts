@@ -236,8 +236,8 @@ export const envelopeLiteRouter = createTRPCRouter({
 
 					return {
 						id: input.documentId,
-						name: projectData.file_name || projectData.name || "Signed Document",
-						url: signedDocumentUrl,
+						name: (projectData.file_name ?? projectData.name ?? "Signed Document") as string,
+						url: signedDocumentUrl as string,
 					}
 				} catch (error) {
 					throw new Error(
@@ -366,14 +366,14 @@ export const envelopeLiteRouter = createTRPCRouter({
 				return {
 					documents: [],
 					total: 0,
-					page: input.page || 1,
-					limit: input.limit || 20,
+					page: input.page ?? 1,
+					limit: input.limit ?? 20,
 					hasMore: false,
 				}
 			}
 
-			const page = input.page || 1
-			const limit = input.limit || 20
+			const page = input.page ?? 1
+			const limit = input.limit ?? 20
 
 			// Fetch completed projects from DocoChain processing-completed API
 			let completedProjects: Array<{
@@ -401,7 +401,7 @@ export const envelopeLiteRouter = createTRPCRouter({
 
 				completedProjects = response.data || []
 				// Get total count from metadata if available
-				totalCount = response.meta?.total || completedProjects.length
+				totalCount = response.meta?.total ?? completedProjects.length
 			} catch (error) {
 				// Log error but don't fail the entire query
 				console.error("Failed to fetch DocoChain completed projects:", error)
@@ -422,7 +422,7 @@ export const envelopeLiteRouter = createTRPCRouter({
 				size: 0, // Size not available from API
 				path: "", // No local path for projects
 				status: "SIGNED" as const,
-				docoChainProjectId: project.project_uuid || project.uuid,
+				docoChainProjectId: project.project_uuid ?? project.uuid,
 				createdAt: new Date(project.created_at),
 				updatedAt: new Date(project.updated_at || project.created_at),
 				envelopeId: null, // No local envelope for projects
@@ -525,7 +525,7 @@ export const envelopeLiteRouter = createTRPCRouter({
 
 				// Try to get certificate URL from project data
 				let certificateUrl =
-					projectData.certificate_url || projectData.certificateUrl || projectData.cert_url
+					projectData.certificate_url ?? projectData.certificateUrl ?? projectData.cert_url
 
 				// If not in project data, download certificate to get URL
 				if (!certificateUrl) {
@@ -539,8 +539,8 @@ export const envelopeLiteRouter = createTRPCRouter({
 
 				return {
 					id: input.projectUuid,
-					name: `${projectData.file_name || projectData.name || "Certificate"}_certificate.pdf`,
-					url: certificateUrl,
+					name: `${String(projectData.file_name ?? projectData.name ?? "Certificate")}_certificate.pdf`,
+					url: certificateUrl as string,
 				}
 			} catch (error) {
 				console.error("❌ Error getting certificate for viewing:", error)

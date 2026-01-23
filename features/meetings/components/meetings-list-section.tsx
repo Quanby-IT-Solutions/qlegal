@@ -62,9 +62,11 @@ import { trpc } from "@/services/trpc/client"
 function MeetingDocumentSummary({
 	total,
 	signed,
+	isComplete,
 }: {
 	total: number
 	signed: number
+	isComplete?: boolean
 }) {
 	if (total === 0) {
 		return (
@@ -86,6 +88,12 @@ function MeetingDocumentSummary({
 					• {signed} signed ({documentProgress}%)
 				</span>
 			</span>
+			{isComplete === false && (
+				<span className="text-muted-foreground ml-1 inline-flex items-center gap-1">
+					<Loader2 className="size-3 animate-spin" />
+					checking…
+				</span>
+			)}
 		</div>
 	)
 }
@@ -94,12 +102,19 @@ export function MeetingsListSection() {
 	const router = useRouter()
 	const { data: session } = useSession()
 	const { create, startMeeting, endMeeting, deleteMeeting } = useMeetings()
-	const { searchUsers } = useMessages()
-	const { data: meetings, isLoading } =
-		trpc.meetings.getUserMeetingsWithDocumentStats.useQuery(undefined, {
-			// This query may call DocoChain status checks; avoid hammering.
-			refetchInterval: 30_000,
-		})
+	const PAGE_SIZE = 10
+	const [page, setPage] = useState(1)
+	const offset = (page - 1) * PAGE_SIZE
+
+	const utils = trpc.useUtils()
+	const { data, isLoading } = trpc.meetings.getUserMeetingsWithDocumentStats.useQuery(
+		{ limit: PAGE_SIZE, offset },
+		{
+			refetchInterval: 10_000, // Refetch every 10 seconds for better real-time updates
+		}
+	)
+	const meetings = data?.items ?? []
+	const hasMore = data?.hasMore ?? false
 	const [isDialogOpen, setIsDialogOpen] = useState(false)
 	const [title, setTitle] = useState("")
 	const [userSearchQuery, setUserSearchQuery] = useState("")
@@ -119,7 +134,7 @@ export function MeetingsListSection() {
 
 	const { data: searchResults } = searchUsers(userSearchQuery)
 
-	const filteredMeetings = meetings?.filter(meeting => {
+	const filteredMeetings = meetings.filter(meeting => {
 		const matchesSearch =
 			meeting.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
 			meeting.createdBy.name?.toLowerCase().includes(searchTerm.toLowerCase())
@@ -135,6 +150,8 @@ export function MeetingsListSection() {
 				participantIds: selectedUsers.map(u => u.id),
 			})
 			if (result.success) {
+				// Immediately refetch to show the new meeting
+				await utils.meetings.getUserMeetingsWithDocumentStats.refetch()
 				setIsDialogOpen(false)
 				setTitle("")
 				setSelectedUsers([])
@@ -166,6 +183,8 @@ export function MeetingsListSection() {
 		setLoadingMeetingId(id)
 		try {
 			await startMeeting.mutateAsync(id)
+			// Immediately refetch to update the UI with "Join Meeting" button
+			await utils.meetings.getUserMeetingsWithDocumentStats.refetch()
 			toast.success("Meeting started successfully!")
 		} catch {
 			toast.error("Failed to start meeting")
@@ -460,7 +479,7 @@ export function MeetingsListSection() {
 						))}
 					</div>
 				)
-			) : meetings?.length === 0 ? (
+			) : meetings.length === 0 ? (
 				<Card>
 					<CardContent className="py-12 text-center">
 						<Video className="text-muted-foreground mx-auto mb-4 size-16" />
@@ -474,7 +493,7 @@ export function MeetingsListSection() {
 						</Button>
 					</CardContent>
 				</Card>
-			) : filteredMeetings?.length === 0 ? (
+			) : filteredMeetings.length === 0 ? (
 				<Card>
 					<CardContent className="py-12 text-center">
 						<Video className="text-muted-foreground mx-auto mb-4 size-12" />
@@ -497,10 +516,29 @@ export function MeetingsListSection() {
 								<Skeleton className="h-6 w-48" />
 							) : (
 								<>
-									{filteredMeetings?.length} Meeting{filteredMeetings?.length !== 1 ? "s" : ""} Found
+									{filteredMeetings.length} Meeting{filteredMeetings.length !== 1 ? "s" : ""} Found
 								</>
 							)}
 						</h3>
+						<div className="flex items-center gap-2">
+							<Button
+								variant="outline"
+								size="sm"
+								onClick={() => setPage(p => Math.max(1, p - 1))}
+								disabled={page <= 1 || isLoading}
+							>
+								Prev
+							</Button>
+							<div className="text-muted-foreground text-sm">Page {page}</div>
+							<Button
+								variant="outline"
+								size="sm"
+								onClick={() => setPage(p => p + 1)}
+								disabled={!hasMore || isLoading}
+							>
+								Next
+							</Button>
+						</div>
 						<div className="flex items-center gap-2">
 							<Button
 								variant={viewMode === "list" ? "default" : "outline"}
@@ -525,7 +563,7 @@ export function MeetingsListSection() {
 
 					{viewMode === "list" ? (
 						<div className="space-y-4">
-						{filteredMeetings?.map(meeting => {
+						{filteredMeetings.map(meeting => {
 							const isHost = meeting.createdBy.id === session?.user?.id
 							const isParticipant = meeting.participants.some(
 								p => p.user?.id === session?.user?.id
@@ -558,6 +596,7 @@ export function MeetingsListSection() {
 													<MeetingDocumentSummary
 														total={meeting.documentStats?.total ?? 0}
 														signed={meeting.documentStats?.signed ?? 0}
+														isComplete={meeting.documentStats?.isComplete}
 													/>
 													<div className="flex items-center gap-1">
 														<Calendar className="size-4 shrink-0" />
@@ -685,7 +724,7 @@ export function MeetingsListSection() {
 						</div>
 					) : (
 						<div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-							{filteredMeetings?.map(meeting => {
+							{filteredMeetings.map(meeting => {
 								const isHost = meeting.createdBy.id === session?.user?.id
 								const isParticipant = meeting.participants.some(
 									p => p.user?.id === session?.user?.id
@@ -747,6 +786,7 @@ export function MeetingsListSection() {
 											<MeetingDocumentSummary
 												total={meeting.documentStats?.total ?? 0}
 												signed={meeting.documentStats?.signed ?? 0}
+												isComplete={meeting.documentStats?.isComplete}
 											/>
 											<div className="text-muted-foreground flex items-center gap-2 text-sm">
 												<Calendar className="size-4" />
