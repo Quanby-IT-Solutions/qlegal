@@ -6,6 +6,7 @@ import {
 	addSignerToProject,
 	autoJoinOrganization,
 	checkSigningStatus,
+	createProject,
 	downloadCertificate,
 	downloadSignedDocument,
 	generateEditDraftLink,
@@ -140,14 +141,14 @@ export const signatureRequestsRouter = createTRPCRouter({
 						userEmail: enpEmail, // Use ENP email for token (required for DocoChain auth)
 					})
 
-					const addSignerResponse = await addSignerToProject({
-						projectUuid: document.docoChainProjectId,
-						email: signerUser.email ?? "",
-						firstName,
-						lastName,
-						signerRole: "Signer",
-						userEmail: enpEmail, // Use ENP email for token (required for DocoChain auth)
-					})
+					// const addSignerResponse = await addSignerToProject({
+					// 	projectUuid: document.docoChainProjectId,
+					// 	email: signerUser.email ?? "",
+					// 	firstName,
+					// 	lastName,
+					// 	signerRole: "Signer",
+					// 	userEmail: enpEmail, // Use ENP email for token (required for DocoChain auth)
+					// })
 
 					console.log("✅ Added signer to DocoChain project")
 
@@ -439,10 +440,6 @@ export const signatureRequestsRouter = createTRPCRouter({
 					const arrayBuffer = await fileData.arrayBuffer()
 					const fileBuffer = Buffer.from(arrayBuffer)
 
-					// Create DocoChain project with document stamp
-					const { createDocoChainProject } = await import("@/services/doconchain")
-					const { normalizeDocoChainUrl } = await import("@/services/doconchain/url-normalizer")
-
 					const documentStamp = {
 						seal: {
 							type: "seal",
@@ -470,7 +467,7 @@ export const signatureRequestsRouter = createTRPCRouter({
 						},
 					}
 
-					const docoChainProject = await createDocoChainProject({
+					const docoChainProject = await createProject({
 						title: document.name,
 						documentFile: fileBuffer,
 						fileName: document.name.endsWith(".pdf") ? document.name : `${document.name}.pdf`,
@@ -481,7 +478,7 @@ export const signatureRequestsRouter = createTRPCRouter({
 					})
 
 					actualProjectUuid = docoChainProject.uuid
-					const docoChainRedirectUrl = normalizeDocoChainUrl(docoChainProject.redirectUrl) ?? null
+					const docoChainRedirectUrl = normalizeUrl(docoChainProject.redirectUrl) ?? null
 
 					// Update document with project UUID
 					await db
@@ -958,7 +955,7 @@ export const signatureRequestsRouter = createTRPCRouter({
 				// Check if user's email is in the signers list
 
 				const signers = projectDetails?.data?.signers ?? []
-				const isSigner = signers.some((signer: any) => {
+				const isSigner = signers.some(signer => {
 					return signer.email?.toLowerCase() === userEmail.toLowerCase()
 				})
 
@@ -981,7 +978,7 @@ export const signatureRequestsRouter = createTRPCRouter({
 				projectUuid: z.string().min(1, "Project UUID is required"),
 			})
 		)
-		.query(async ({ input, ctx }) => {
+		.query(async ({ input }) => {
 			const { projectUuid } = input
 
 			try {
@@ -1048,7 +1045,7 @@ export const signatureRequestsRouter = createTRPCRouter({
 				possibleEmails.push(undefined)
 
 				// 2. Add DOCOCHAIN_ADMIN_EMAIL (org admin with access to all projects)
-				const adminEmail = env.DOCOCHAIN_ADMIN_EMAIL?.trim()
+				const adminEmail = env.DOCONCHAIN_EMAIL?.trim()
 				if (adminEmail) {
 					possibleEmails.push(adminEmail)
 				}
@@ -1100,7 +1097,6 @@ export const signatureRequestsRouter = createTRPCRouter({
 				}
 
 				// 5. Add DOCOCHAIN_EMAIL as final fallback (org admin with access to all projects)
-				const adminEmail = env.DOCONCHAIN_EMAIL?.trim()
 				if (adminEmail && !possibleEmails.includes(adminEmail)) {
 					possibleEmails.push(adminEmail)
 				}
