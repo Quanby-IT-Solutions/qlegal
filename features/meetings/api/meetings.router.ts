@@ -43,6 +43,13 @@ function getDocoChainAuthEmailForMeeting(
 type SigningStatusCacheEntry = { isFullySigned: boolean; expiresAtMs: number }
 const signingStatusCache = new Map<string, SigningStatusCacheEntry>()
 
+function getCachedIsFullySigned(projectUuid: string): boolean | undefined {
+	const cached = signingStatusCache.get(projectUuid)
+	if (!cached) return undefined
+	if (cached.expiresAtMs <= Date.now()) return undefined
+	return cached.isFullySigned
+}
+
 async function getIsFullySignedCached(projectUuid: string, userEmail?: string): Promise<boolean> {
 	const now = Date.now()
 	const cached = signingStatusCache.get(projectUuid)
@@ -167,8 +174,23 @@ export const meetingsRouter = createTRPCRouter({
 	}),
 
 	// Get user's meetings (same order as meetings page), plus document stats
-	getUserMeetingsWithDocumentStats: protectedProcedure.query(async ({ ctx }) => {
-		const userMeetings = await db.query.meetingParticipants.findMany({
+	getUserMeetingsWithDocumentStats: protectedProcedure
+		.input(
+			z
+				.object({
+					limit: z.number().int().min(1).max(50).optional(),
+					offset: z.number().int().min(0).max(50_000).optional(),
+				})
+				.optional()
+		)
+		.query(async ({ ctx, input }) => {
+		// Keep list views fast by capping external checks.
+		// Any missing statuses will be marked as "incomplete" and will fill in over time via cache.
+		const MAX_EXTERNAL_STATUS_CHECKS = 20
+		const limit = input?.limit ?? 10
+		const offset = input?.offset ?? 0
+
+		const rows = await db.query.meetingParticipants.findMany({
 			where: and(
 				eq(meetingParticipants.userId, ctx.session.user.id),
 				eq(meetingParticipants.status, "ACCEPTED")
@@ -201,7 +223,7 @@ export const meetingsRouter = createTRPCRouter({
 						documents: {
 							columns: {
 								id: true,
-								docoChainProjectId: true, // kept for reference/debug, not used for "signed" anymore
+								docoChainProjectId: true,
 							},
 						},
 						signatureRequests: {
@@ -215,13 +237,17 @@ export const meetingsRouter = createTRPCRouter({
 			},
 			// IMPORTANT: this is the same ordering the Meetings page uses
 			orderBy: (meetingParticipants, { desc }) => [desc(meetingParticipants.createdAt)],
+			limit: limit + 1,
+			offset,
 		})
 
-		// Precompute external signing status for any docs that aren't clearly signed via our DB rows.
-		// This avoids "0%" when signature request rows are missing or stale.
-		const projectUuidsToCheck = new Set<string>()
-		const projectUuidToAuthEmail = new Map<string, string | undefined>()
+		const hasMore = rows.length > limit
+		const userMeetings = hasMore ? rows.slice(0, limit) : rows
 
+		const externalSignedByProjectUuid = new Map<string, boolean>()
+		const projectUuidsToCheck: Array<{ projectUuid: string; authEmail?: string }> = []
+
+		// Build a limited list of project UUIDs to check (most recent meetings first).
 		for (const mp of userMeetings) {
 			const meeting = mp.meeting
 			const authEmail = getDocoChainAuthEmailForMeeting(meeting, ctx.session.user.email)
@@ -234,33 +260,45 @@ export const meetingsRouter = createTRPCRouter({
 			}
 
 			for (const doc of meeting.documents ?? []) {
-				if (!doc.docoChainProjectId) continue
+				const projectUuid = doc.docoChainProjectId
+				if (!projectUuid) continue
+
+				// If we already know it's signed (cached), use that.
+				const cachedIsFullySigned = getCachedIsFullySigned(projectUuid)
+				if (cachedIsFullySigned !== undefined) {
+					externalSignedByProjectUuid.set(projectUuid, cachedIsFullySigned)
+					continue
+				}
+
+				// If signature requests already confirm signed, skip external check.
 				const reqStatuses = requestsByDocumentId.get(doc.id) ?? []
 				const isSignedByRequests = reqStatuses.length > 0 && reqStatuses.every(s => s === "SIGNED")
-				if (!isSignedByRequests) {
-					projectUuidsToCheck.add(doc.docoChainProjectId)
-					if (!projectUuidToAuthEmail.has(doc.docoChainProjectId)) {
-						projectUuidToAuthEmail.set(doc.docoChainProjectId, authEmail)
-					}
-				}
+				if (isSignedByRequests) continue
+
+				// Cap external checks to keep response time predictable.
+				if (projectUuidsToCheck.length >= MAX_EXTERNAL_STATUS_CHECKS) continue
+
+				// Avoid duplicates in the same response.
+				if (projectUuidsToCheck.some(p => p.projectUuid === projectUuid)) continue
+
+				projectUuidsToCheck.push({ projectUuid, authEmail })
 			}
 		}
 
-		const externalSignedByProjectUuid = new Map<string, boolean>()
-		await asyncPool([...projectUuidsToCheck], 8, async projectUuid => {
-			const authEmail = projectUuidToAuthEmail.get(projectUuid)
-			const isFullySigned = await getIsFullySignedCached(projectUuid, authEmail)
-			externalSignedByProjectUuid.set(projectUuid, isFullySigned)
+		// Run limited external checks with moderate concurrency.
+		await asyncPool(projectUuidsToCheck, 6, async item => {
+			const isFullySigned = await getIsFullySignedCached(item.projectUuid, item.authEmail)
+			externalSignedByProjectUuid.set(item.projectUuid, isFullySigned)
 		})
 
-		return userMeetings.map(mp => {
+		const items = userMeetings.map(mp => {
 			const meeting = mp.meeting
 			const documentsList = meeting.documents ?? []
 			const total = documentsList.length
 
 			// A document is "signed" if:
 			// - all signature requests for it are SIGNED (when those rows exist), OR
-			// - DocoChain says it's fully signed (covers missing/stale request rows).
+			// - DocoChain says it's fully signed (limited + cached checks).
 			const requestsByDocumentId = new Map<string, string[]>()
 			for (const req of meeting.signatureRequests ?? []) {
 				const list = requestsByDocumentId.get(req.documentId) ?? []
@@ -269,14 +307,23 @@ export const meetingsRouter = createTRPCRouter({
 			}
 
 			let signed = 0
+			let isComplete = true
 			for (const doc of documentsList) {
 				const reqStatuses = requestsByDocumentId.get(doc.id) ?? []
-				const isSignedByRequests =
-					reqStatuses.length > 0 && reqStatuses.every(status => status === "SIGNED")
-
+				const isSignedByRequests = reqStatuses.length > 0 && reqStatuses.every(s => s === "SIGNED")
 				const isSignedByDocoChain =
 					!!doc.docoChainProjectId &&
 					(externalSignedByProjectUuid.get(doc.docoChainProjectId) ?? false)
+
+				// If this doc has a DocoChain project and isn't signed-by-requests, but we don't yet
+				// have an external status, mark the stats as incomplete (UI can show "checking").
+				if (
+					doc.docoChainProjectId &&
+					!isSignedByRequests &&
+					!externalSignedByProjectUuid.has(doc.docoChainProjectId)
+				) {
+					isComplete = false
+				}
 
 				if (isSignedByRequests || isSignedByDocoChain) {
 					signed += 1
@@ -285,9 +332,11 @@ export const meetingsRouter = createTRPCRouter({
 
 			return {
 				...meeting,
-				documentStats: { total, signed },
+				documentStats: { total, signed, isComplete },
 			}
 		})
+
+		return { items, hasMore }
 	}),
 
 	// Get meeting by ID

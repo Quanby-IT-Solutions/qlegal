@@ -83,12 +83,27 @@ const MeetingControls = React.memo(function MeetingControls({
 	isLocalRecording?: boolean
 	localRecordingStartedAt?: number | null
 }) {
-	const meeting = useMeeting()
+	const cameraSetterRef = useRef<((v: boolean) => void) | null>(null)
+	const meeting = useMeeting({
+		onError: ({ code, message }: { code: string; message: string }) => {
+			const isVideoRelated =
+				/camera|video|webcam|video track|video source|unable to initiate|permission/i.test(
+					message
+				) || /video|webcam|camera/i.test(String(code ?? ""))
+			if (isVideoRelated) {
+				cameraSetterRef.current?.(meeting?.localWebcamOn ?? false)
+				toast.error(
+					"Camera access denied or unavailable. Check browser permissions and ensure no other app is using the camera."
+				)
+			}
+		},
+	})
 	const localMicOn = (meeting as { localMicOn?: boolean } | null)?.localMicOn
 	const localScreenShareOn = (meeting as { localScreenShareOn?: boolean } | null)
 		?.localScreenShareOn
 	const recordingState = (meeting as { recordingState?: string } | null)?.recordingState
 	const [isCameraOn, setIsCameraOn] = useState(() => meeting?.localWebcamOn ?? false)
+	cameraSetterRef.current = setIsCameraOn
 	const [isMicOn, setIsMicOn] = useState(() => {
 		// Default to false to avoid any “auto-hot-mic” surprises and to reduce initial work.
 		return localMicOn ?? false
@@ -157,8 +172,15 @@ const MeetingControls = React.memo(function MeetingControls({
 			}
 		} catch (error) {
 			console.error("Error toggling camera:", error)
-			const errorMessage = error instanceof Error ? error.message : "Failed to toggle camera"
-			toast.error(errorMessage)
+			const raw = error instanceof Error ? error.message : String(error)
+			const isPermissionOrSource =
+				/camera|video|webcam|video track|video source|unable to initiate|permission|denied|not found|in use/i.test(
+					raw
+				)
+			const message = isPermissionOrSource
+				? "Camera access denied or unavailable. Check browser permissions and ensure no other app is using the camera."
+				: raw || "Failed to toggle camera"
+			toast.error(message)
 			// Re-sync back to SDK state on error
 			if (meeting?.localWebcamOn !== undefined) setIsCameraOn(meeting.localWebcamOn)
 		}
@@ -1687,7 +1709,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 
 				// Ignore if we're already handling an active request (prevents modal spam)
 				setRecordingConsentRequest(prev => {
-					if (prev && prev.id === requestId) return prev
+					if (prev?.id === requestId) return prev
 					return {
 						id: requestId,
 						createdAt: Number(createdAtStr) || Date.now(),
@@ -1706,7 +1728,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 				if (!requestId || !participantId || !decision) return
 
 				setRecordingConsentRequest(current => {
-					if (!current || current.id !== requestId) return current
+					if (current?.id !== requestId) return current
 
 					if (decision === "DECLINE") {
 						setRecordingConsentDeclined(true)
@@ -1749,7 +1771,13 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 		  const startedAt = Date.now()
 	  
 		  // START CLOUD RECORDING (VideoSDK)
-		  await meeting.startRecording()
+		  const meetingWithRecording = meeting as unknown as {
+			startRecording?: () => Promise<void> | void
+		  }
+		  const recordingResult = meetingWithRecording.startRecording?.()
+		  if (recordingResult !== undefined && recordingResult instanceof Promise) {
+			await recordingResult
+		  }
 	  
 		  // Update local UI state
 		  setIsLocalRecording(true)
@@ -1780,7 +1808,13 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 		if (!meeting || !isLocalRecording) return
 	  
 		try {
-		  await meeting.stopRecording()
+		  const meetingWithRecording = meeting as unknown as {
+			stopRecording?: () => Promise<void> | void
+		  }
+		  const stopResult = meetingWithRecording.stopRecording?.()
+		  if (stopResult !== undefined && stopResult instanceof Promise) {
+			await stopResult
+		  }
 	  
 		  const elapsed = localRecordingStartedAt
 			? formatElapsedMs(Date.now() - localRecordingStartedAt)

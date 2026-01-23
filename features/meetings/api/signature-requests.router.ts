@@ -909,57 +909,97 @@ export const signatureRequestsRouter = createTRPCRouter({
 					})
 				}
 
-				// Collect all possible emails that might have created the project
-				// IMPORTANT: Meeting creator (ENP) should be tried FIRST since they own the project
-				const possibleEmails: string[] = []
+				// Collect all possible emails that might have access to the project
+				// IMPORTANT: Prefer enterprise/admin tokens first, then ENP participants, then others
+				const possibleEmails: (string | undefined)[] = []
 
-				// 1. FIRST: Add meeting creator email (they own the DocoChain project)
-				if (document.meeting?.createdBy?.email) {
-					possibleEmails.push(document.meeting.createdBy.email)
+				// 1. FIRST: Try undefined (uses static DOCOCHAIN_API_TOKEN if available - has enterprise access)
+				possibleEmails.push(undefined)
+
+				// 2. Add DOCOCHAIN_ADMIN_EMAIL (org admin with access to all projects)
+				const adminEmail = env.DOCOCHAIN_ADMIN_EMAIL?.trim()
+				if (adminEmail) {
+					possibleEmails.push(adminEmail)
 				}
 
-				// 2. Add envelope creator email
-				if (
-					document.envelope?.user?.email &&
-					!possibleEmails.includes(document.envelope.user.email)
-				) {
-					possibleEmails.push(document.envelope.user.email)
-				}
-
-				// 3. Add session user email (the person checking status) - try last
-				if (ctx.session.user.email && !possibleEmails.includes(ctx.session.user.email)) {
-					possibleEmails.push(ctx.session.user.email)
-				}
-
-				// 4. Add all meeting participants' emails as fallback
+				// 3. Add ENP participants (they have enterprise access)
 				if (document.meeting?.participants) {
 					for (const participant of document.meeting.participants) {
-						if (participant.user?.email && !possibleEmails.includes(participant.user.email)) {
+						if (
+							participant.user?.email &&
+							isEnpRole(participant.user?.role) &&
+							!possibleEmails.includes(participant.user.email)
+						) {
 							possibleEmails.push(participant.user.email)
 						}
 					}
 				}
 
-				// 5. Add DOCOCHAIN_ADMIN_EMAIL as final fallback (org admin with access to all projects)
-				const adminEmail = env.DOCOCHAIN_ADMIN_EMAIL?.trim()
-				if (adminEmail && !possibleEmails.includes(adminEmail)) {
-					possibleEmails.push(adminEmail)
+				// 4. Add meeting creator email ONLY if they're ENP (Principals don't have enterprise access)
+				if (
+					document.meeting?.createdBy?.email &&
+					isEnpRole(document.meeting.createdBy?.role) &&
+					!possibleEmails.includes(document.meeting.createdBy.email)
+				) {
+					possibleEmails.push(document.meeting.createdBy.email)
 				}
 
-				// Try each email until one works
+				// 5. Add envelope creator email (if ENP)
+				if (
+					document.envelope?.user?.email &&
+					isEnpRole(document.envelope.user.role) &&
+					!possibleEmails.includes(document.envelope.user.email)
+				) {
+					possibleEmails.push(document.envelope.user.email)
+				}
+
+				// 6. Add all other meeting participants' emails as fallback
+				if (document.meeting?.participants) {
+					for (const participant of document.meeting.participants) {
+						if (
+							participant.user?.email &&
+							!isEnpRole(participant.user?.role) &&
+							!possibleEmails.includes(participant.user.email)
+						) {
+							possibleEmails.push(participant.user.email)
+						}
+					}
+				}
+
+				// 7. Add session user email as last resort (the person checking status)
+				if (ctx.session.user.email && !possibleEmails.includes(ctx.session.user.email)) {
+					possibleEmails.push(ctx.session.user.email)
+				}
+
+				// Try each email (or undefined for static token) until one works
 				let lastError: Error | null = null
 
 				for (const email of possibleEmails) {
 					try {
-						console.log(`🔵 Trying to check status with email: ${email}`)
+						if (email === undefined) {
+							console.log(`🔵 Trying to check status with static enterprise token (no email)`)
+						} else {
+							console.log(`🔵 Trying to check status with email: ${email}`)
+						}
 						const status = await checkSigningStatus(projectUuid, email)
-						console.log(`✅ Successfully checked status with email: ${email}`)
+						if (email === undefined) {
+							console.log(`✅ Successfully checked status with static enterprise token`)
+						} else {
+							console.log(`✅ Successfully checked status with email: ${email}`)
+						}
 						return status
 					} catch (error) {
-						console.warn(
-							`⚠️ Failed to check status with email ${email}:`,
-							error instanceof Error ? error.message : String(error)
-						)
+						if (email === undefined) {
+							console.warn(
+								`⚠️ Failed to check status with static token:`,
+								error instanceof Error ? error.message : String(error)
+							)
+						} else {
+							console.warn(
+								`⚠️ Failed to check status with email ${email}:`,
+								error instanceof Error ? error.message : String(error)
+							)
+						}
 						lastError = error instanceof Error ? error : new Error(String(error))
 
 						// If it's an access/auth error, try next email
