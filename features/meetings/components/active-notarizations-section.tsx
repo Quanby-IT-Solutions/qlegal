@@ -70,10 +70,18 @@ function getDocumentSigningBadge(isFullySigned: boolean) {
 
 export function ActiveNotarizationsSection() {
 	// IMPORTANT: same ordering as Meetings page (server query orders by meetingParticipants.createdAt desc)
-	const { data: meetings, isLoading } = trpc.meetings.getUserMeetingsWithDocumentStats.useQuery(undefined, {
-		// This query may call DocoChain status checks; avoid hammering.
-		refetchInterval: 30_000,
-	})
+	const PAGE_SIZE = 10
+	const [page, setPage] = useState(1)
+	const offset = (page - 1) * PAGE_SIZE
+
+	const { data, isLoading } = trpc.meetings.getUserMeetingsWithDocumentStats.useQuery(
+		{ limit: PAGE_SIZE, offset },
+		{
+			refetchInterval: 10_000, // Refetch every 10 seconds for better real-time updates
+		}
+	)
+	const meetings = data?.items ?? []
+	const hasMore = data?.hasMore ?? false
 
 	const [searchTerm, setSearchTerm] = useState("")
 	const [statusFilter, setStatusFilter] = useState<string>("ALL")
@@ -87,7 +95,7 @@ export function ActiveNotarizationsSection() {
 		)
 
 	const filteredMeetings = useMemo(() => {
-		const list = meetings ?? []
+		const list = meetings
 		const q = searchTerm.trim().toLowerCase()
 
 		return list.filter(m => {
@@ -162,6 +170,25 @@ export function ActiveNotarizationsSection() {
 						<h3 className="text-lg font-medium">
 							{filteredMeetings.length} Meeting{filteredMeetings.length !== 1 ? "s" : ""} Found
 						</h3>
+						<div className="flex items-center gap-2">
+							<Button
+								variant="outline"
+								size="sm"
+								onClick={() => setPage(p => Math.max(1, p - 1))}
+								disabled={page <= 1 || isLoading}
+							>
+								Prev
+							</Button>
+							<div className="text-muted-foreground text-sm">Page {page}</div>
+							<Button
+								variant="outline"
+								size="sm"
+								onClick={() => setPage(p => p + 1)}
+								disabled={!hasMore || isLoading}
+							>
+								Next
+							</Button>
+						</div>
 					</div>
 
 					{filteredMeetings.map(meeting => {
@@ -171,6 +198,7 @@ export function ActiveNotarizationsSection() {
 						const signedDocuments = meeting.documentStats.signed
 						const documentProgress =
 							totalDocuments > 0 ? Math.round((signedDocuments / totalDocuments) * 100) : 0
+						const isComplete = meeting.documentStats.isComplete !== false
 
 						return (
 							<Card key={meeting.id} className="transition-shadow hover:shadow-md">
@@ -201,6 +229,12 @@ export function ActiveNotarizationsSection() {
 															</span>
 														)}
 													</span>
+													{!isComplete && (
+														<span className="text-muted-foreground ml-2 inline-flex items-center gap-1 text-xs">
+															<span className="inline-flex size-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
+															checking…
+														</span>
+													)}
 												</div>
 
 												<div className="flex items-center gap-1">

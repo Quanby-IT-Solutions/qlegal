@@ -32,6 +32,7 @@ import { toast } from "sonner"
 
 import { Button } from "@/core/components/ui/button"
 import { Card, CardContent } from "@/core/components/ui/card"
+import { Checkbox } from "@/core/components/ui/checkbox"
 import {
 	Dialog,
 	DialogContent,
@@ -55,7 +56,7 @@ import {
 } from "@/core/components/ui/select"
 import { cn } from "@/core/lib/utils"
 
-import { normalizeUrl } from "@/services/doconchain"
+import { normalizeUrl as normalizeDocoChainUrl } from "@/services/doconchain"
 import { trpc } from "@/services/trpc/client"
 
 import { MeetingDocumentUpload } from "./meeting-document-upload"
@@ -83,12 +84,27 @@ const MeetingControls = React.memo(function MeetingControls({
 	isLocalRecording?: boolean
 	localRecordingStartedAt?: number | null
 }) {
-	const meeting = useMeeting()
+	const cameraSetterRef = useRef<((v: boolean) => void) | null>(null)
+	const meeting = useMeeting({
+		onError: ({ code, message }: { code: string; message: string }) => {
+			const isVideoRelated =
+				/camera|video|webcam|video track|video source|unable to initiate|permission/i.test(
+					message
+				) || /video|webcam|camera/i.test(String(code ?? ""))
+			if (isVideoRelated) {
+				cameraSetterRef.current?.(meeting?.localWebcamOn ?? false)
+				toast.error(
+					"Camera access denied or unavailable. Check browser permissions and ensure no other app is using the camera."
+				)
+			}
+		},
+	})
 	const localMicOn = (meeting as { localMicOn?: boolean } | null)?.localMicOn
 	const localScreenShareOn = (meeting as { localScreenShareOn?: boolean } | null)
 		?.localScreenShareOn
 	const recordingState = (meeting as { recordingState?: string } | null)?.recordingState
 	const [isCameraOn, setIsCameraOn] = useState(() => meeting?.localWebcamOn ?? false)
+	cameraSetterRef.current = setIsCameraOn
 	const [isMicOn, setIsMicOn] = useState(() => {
 		// Default to false to avoid any “auto-hot-mic” surprises and to reduce initial work.
 		return localMicOn ?? false
@@ -157,8 +173,15 @@ const MeetingControls = React.memo(function MeetingControls({
 			}
 		} catch (error) {
 			console.error("Error toggling camera:", error)
-			const errorMessage = error instanceof Error ? error.message : "Failed to toggle camera"
-			toast.error(errorMessage)
+			const raw = error instanceof Error ? error.message : String(error)
+			const isPermissionOrSource =
+				/camera|video|webcam|video track|video source|unable to initiate|permission|denied|not found|in use/i.test(
+					raw
+				)
+			const message = isPermissionOrSource
+				? "Camera access denied or unavailable. Check browser permissions and ensure no other app is using the camera."
+				: raw || "Failed to toggle camera"
+			toast.error(message)
 			// Re-sync back to SDK state on error
 			if (meeting?.localWebcamOn !== undefined) setIsCameraOn(meeting.localWebcamOn)
 		}
@@ -585,6 +608,91 @@ type RecordingConsentRequest = {
 	requiredParticipantIds: string[]
 }
 
+// Signer Selector - Select which meeting participants are signers for this document (before plotting)
+const SignerSelector = React.memo(function SignerSelector({
+	participants,
+	signerUserIds,
+	onSignersChange,
+}: {
+	participants: Array<{
+		userId: string
+		user: { id: string; name: string | null; email: string | null } | null
+	}>
+	signerUserIds: string[]
+	onSignersChange: (userIds: string[]) => void
+}) {
+	const selectedSet = useMemo(() => new Set(signerUserIds), [signerUserIds])
+
+	const toggle = useCallback(
+		(userId: string, checked: boolean) => {
+			if (checked) {
+				onSignersChange([...signerUserIds, userId])
+			} else {
+				onSignersChange(signerUserIds.filter(id => id !== userId))
+			}
+		},
+		[onSignersChange, signerUserIds]
+	)
+
+	const selected = participants.filter(p => selectedSet.has(p.userId))
+	const selectedCount = selected.length
+	const totalCount = participants.length
+
+	return (
+		<div className="bg-muted/30 mb-3 space-y-1.5 rounded-lg border p-2.5">
+			<div className="mb-2 flex items-center gap-1.5">
+				<UsersIcon className="text-muted-foreground size-3.5" />
+				<span className="text-muted-foreground text-[11px] font-semibold tracking-wide uppercase">
+					Signers ({selectedCount}/{totalCount})
+				</span>
+			</div>
+			<p className="text-muted-foreground mb-2 text-[10px]">
+				Select who must sign this document. Only selected signers will be added when you start
+				signing.
+			</p>
+			<div className="space-y-1.5">
+				{participants.map(p => {
+					const checked = selectedSet.has(p.userId)
+					const name = p.user?.name ?? "Unknown"
+					const email = p.user?.email ?? ""
+					return (
+						<label
+							key={p.userId}
+							className={cn(
+								"hover:bg-muted/50 flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-xs transition-colors",
+								checked && "bg-muted/50"
+							)}
+						>
+							<Checkbox
+								checked={checked}
+								onCheckedChange={c => toggle(p.userId, c === true)}
+								aria-label={`${name} (${email})`}
+							/>
+							<div className="min-w-0 flex-1">
+								<div className="flex items-center gap-1.5">
+									<User className="text-muted-foreground size-3 shrink-0" />
+									<span className="truncate font-medium">{name}</span>
+								</div>
+								<div className="text-muted-foreground truncate text-[10px]">{email}</div>
+							</div>
+							{checked && (
+								<div className="shrink-0">
+									<div className="flex items-center gap-1 rounded-full bg-gray-100 px-1.5 py-0.5 dark:bg-gray-800">
+										<Clock className="text-muted-foreground size-3" />
+										<span className="text-[10px] font-semibold text-gray-600 dark:text-gray-400">
+											Waiting
+										</span>
+									</div>
+								</div>
+							)}
+						</label>
+					)
+				})}
+			</div>
+		</div>
+	)
+})
+
 // Signer List Component - Shows all signers and their status
 // Memoized to prevent re-renders when unrelated state changes
 const SignerList = React.memo(function SignerList({
@@ -696,14 +804,19 @@ const SignerList = React.memo(function SignerList({
 const DocumentActions = React.memo(function DocumentActions({
 	document,
 	onSignClick,
+	onSignersChange,
 	isSigningPending,
 	isLocked,
 	isPreviousDocumentSigned,
 	documentIndex,
 	signers,
+	participants,
+	signerUserIds,
+	meetingId,
 }: {
 	document: { id: string; name: string; docoChainProjectId: string | null }
-	onSignClick: (projectUuid: string, email: string, documentId: string) => void
+	onSignClick: (projectUuid: string | null, email: string, documentId: string) => void
+	onSignersChange?: (documentId: string, userIds: string[]) => void
 	isSigningPending: boolean
 	isLocked?: boolean
 	isPreviousDocumentSigned?: boolean
@@ -718,16 +831,53 @@ const DocumentActions = React.memo(function DocumentActions({
 		sequence: number
 		signerRole: string
 	}>
+	participants?: Array<{
+		userId: string
+		user: { id: string; name: string | null; email: string | null } | null
+	}>
+	signerUserIds?: string[]
+	meetingId?: string
 }) {
 	const { data: session } = useSession()
 
 	// Determine if Start Signing button should be disabled
-	const isSigningDisabled = isLocked && !isPreviousDocumentSigned && (documentIndex ?? 0) > 0
+	const isSigningDisabledByOrder = isLocked && !isPreviousDocumentSigned && (documentIndex ?? 0) > 0
+	const hasNoSignersSelected = !document.docoChainProjectId && (signerUserIds?.length ?? 0) === 0
+	const hasSigners = (signerUserIds?.length ?? 0) > 0
+	const currentUserId = session?.user?.id ?? null
+	const isCurrentUserSigner =
+		currentUserId !== null && (signerUserIds?.includes(currentUserId) ?? false)
+	const userNotInSignerList = hasSigners && !isCurrentUserSigner
+	const isSigningDisabled = isSigningDisabledByOrder
+		? true
+		: hasNoSignersSelected
+			? true
+			: userNotInSignerList
+
+	const handleSignersChange = useCallback(
+		(userIds: string[]) => {
+			if (onSignersChange && meetingId) onSignersChange(document.id, userIds)
+		},
+		[onSignersChange, meetingId, document.id]
+	)
 
 	return (
 		<div className="space-y-2">
-			{/* Show signer list if available */}
-			{signers && signers.length > 0 && <SignerList signers={signers} />}
+			{/* Before project exists: show signer selector. After: show DocoChain signer list */}
+			{document.docoChainProjectId && signers && signers.length > 0 ? (
+				<SignerList signers={signers} />
+			) : (
+				participants &&
+				participants.length > 0 &&
+				meetingId &&
+				onSignersChange && (
+					<SignerSelector
+						participants={participants}
+						signerUserIds={signerUserIds ?? []}
+						onSignersChange={handleSignersChange}
+					/>
+				)
+			)}
 			<Button
 				variant="outline"
 				size="sm"
@@ -743,54 +893,60 @@ const DocumentActions = React.memo(function DocumentActions({
 
 			{/* Show "Start Signing" button for all meeting participants */}
 			{/* Any participant (Principal, ENP, etc.) can click to sign */}
-			{document.docoChainProjectId && (
-				<div className="space-y-1.5">
-					<Button
-						variant="default"
-						size="sm"
-						className="h-9 w-full text-xs shadow-sm"
-						onClick={() => {
-							const userEmail = session?.user?.email
-							if (document.docoChainProjectId && userEmail) {
-								console.log("🔵 ENP initiating signing process for document:", document.name)
-								console.log("   - DocoChain Project UUID:", document.docoChainProjectId)
-								console.log("   - ENP Email:", userEmail)
+			{/* Project will be created automatically when signing starts if it doesn't exist */}
+			<div className="space-y-1.5">
+				<Button
+					variant="default"
+					size="sm"
+					className="h-9 w-full text-xs shadow-sm"
+					onClick={() => {
+						const userEmail = session?.user?.email
+						if (userEmail) {
+							console.log("🔵 Initiating signing process for document:", document.name)
+							console.log("   - Document ID:", document.id)
+							console.log(
+								"   - DocoChain Project UUID:",
+								document.docoChainProjectId ?? "will be created"
+							)
+							console.log("   - User Email:", userEmail)
 
-								// ENP clicks to start signing - this will:
-								// 1. Add ENP as signer using Add Project Signer API
-								// 2. Generate signing link
-								// 3. Redirect to DocoChain signing page
-								onSignClick(document.docoChainProjectId, userEmail, document.id)
-							} else {
-								toast.error(
-									!document.docoChainProjectId
-										? "DocoChain project not found. Please ensure the document was uploaded correctly."
-										: "User email not found. Please sign in again."
-								)
-							}
-						}}
-						disabled={isSigningPending || isSigningDisabled}
-					>
-						{isSigningPending ? (
-							<>
-								<div className="mr-2 size-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
-								Starting...
-							</>
-						) : (
-							<>
-								<FileSignature className="mr-1.5 size-3.5" />
-								Start Signing
-							</>
-						)}
-					</Button>
-					{/* Show message when button is disabled due to locked order */}
-					{isSigningDisabled && (
-						<p className="text-[10px] leading-tight text-amber-700 dark:text-amber-400">
-							Previous document must be signed first
-						</p>
+							// User clicks to start signing - this will:
+							// 1. Create DocoChain project if it doesn't exist (download from Supabase)
+							// 2. Add user as signer using Add Project Signer API
+							// 3. Generate signing link
+							// 4. Redirect to DocoChain signing page
+							onSignClick(document.docoChainProjectId ?? null, userEmail, document.id)
+						} else {
+							toast.error("User email not found. Please sign in again.")
+						}
+					}}
+					disabled={isSigningPending || isSigningDisabled}
+				>
+					{isSigningPending ? (
+						<>
+							<div className="mr-2 size-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
+							Starting...
+						</>
+					) : (
+						<>
+							<FileSignature className="mr-1.5 size-3.5" />
+							Start Signing
+						</>
 					)}
-				</div>
-			)}
+				</Button>
+				{/* Show message when button is disabled */}
+				{isSigningDisabled && (
+					<p className="text-[10px] leading-tight text-amber-700 dark:text-amber-400">
+						{isSigningDisabledByOrder
+							? "Previous document must be signed first"
+							: hasNoSignersSelected
+								? "Select at least one signer for this document"
+								: userNotInSignerList
+									? "You must be added as a signer to start signing"
+									: ""}
+					</p>
+				)}
+			</div>
 		</div>
 	)
 })
@@ -1044,6 +1200,24 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 			toast.error(error.message || "Failed to toggle document lock")
 		},
 	})
+
+	// Mutation to set per-document signers (before plotting)
+	const setDocumentSignersMutation = trpc.meetings.setDocumentSigners.useMutation({
+		onSuccess: () => {
+			void utils.meetings.getMeetingDocuments.invalidate(meetingId ?? "")
+		},
+		onError: error => {
+			toast.error(error.message ?? "Failed to update signers")
+		},
+	})
+
+	const handleSignersChange = useCallback(
+		(documentId: string, userIds: string[]) => {
+			if (!meetingId) return
+			setDocumentSignersMutation.mutate({ documentId, meetingId, userIds })
+		},
+		[meetingId, setDocumentSignersMutation]
+	)
 
 	// Fetch pending signature requests for current user
 	const { data: pendingRequests } = trpc.signatureRequests.getPendingRequests.useQuery(
@@ -1406,9 +1580,12 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 	})
 
 	const handleSignClick = useCallback(
-		(projectUuid: string, email: string, documentId: string) => {
+		(projectUuid: string | null, email: string, documentId: string) => {
 			setSigningDocumentId(documentId)
-			initiateSigning.mutate({ projectUuid, email })
+			// If projectUuid exists, use it. Otherwise, pass documentId to create project
+			initiateSigning.mutate(
+				projectUuid ? { projectUuid, email } : { documentId, email } // No project yet - will be created on signing
+			)
 		},
 		[initiateSigning]
 	)
@@ -1690,7 +1867,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 
 				// Ignore if we're already handling an active request (prevents modal spam)
 				setRecordingConsentRequest(prev => {
-					if (prev && prev.id === requestId) return prev
+					if (prev?.id === requestId) return prev
 					return {
 						id: requestId,
 						createdAt: Number(createdAtStr) || Date.now(),
@@ -1709,7 +1886,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 				if (!requestId || !participantId || !decision) return
 
 				setRecordingConsentRequest(current => {
-					if (!current || current.id !== requestId) return current
+					if (current?.id !== requestId) return current
 
 					if (decision === "DECLINE") {
 						setRecordingConsentDeclined(true)
@@ -1752,7 +1929,13 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 			const startedAt = Date.now()
 
 			// START CLOUD RECORDING (VideoSDK)
-			await meeting.startRecording()
+			const meetingWithRecording = meeting as unknown as {
+				startRecording?: () => Promise<void> | void
+			}
+			const recordingResult = meetingWithRecording.startRecording?.()
+			if (recordingResult !== undefined && recordingResult instanceof Promise) {
+				await recordingResult
+			}
 
 			// Update local UI state
 			setIsLocalRecording(true)
@@ -1778,7 +1961,13 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 		if (!meeting || !isLocalRecording) return
 
 		try {
-			await meeting.stopRecording()
+			const meetingWithRecording = meeting as unknown as {
+				stopRecording?: () => Promise<void> | void
+			}
+			const stopResult = meetingWithRecording.stopRecording?.()
+			if (stopResult !== undefined && stopResult instanceof Promise) {
+				await stopResult
+			}
 
 			const elapsed = localRecordingStartedAt
 				? formatElapsedMs(Date.now() - localRecordingStartedAt)
@@ -2241,11 +2430,15 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 											<DocumentActions
 												document={doc}
 												onSignClick={handleSignClick}
+												onSignersChange={handleSignersChange}
 												isSigningPending={initiateSigning.isPending && signingDocumentId === doc.id}
 												isLocked={isLocked}
 												isPreviousDocumentSigned={isPreviousDocumentSigned}
 												documentIndex={index}
 												signers={documentSigningStatus.get(doc.id)?.signers}
+												participants={meetingDetails?.participants ?? []}
+												signerUserIds={(doc as { signerUserIds?: string[] }).signerUserIds ?? []}
+												meetingId={meetingId ?? undefined}
 											/>
 										</CardContent>
 									</Card>
@@ -2272,6 +2465,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 		handleDragStart,
 		handleDrop,
 		handleSignClick,
+		handleSignersChange,
 		initiateSigning.isPending,
 		meetingDetails,
 		meetingId,

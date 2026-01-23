@@ -23,7 +23,8 @@ export function Navbar({ isAuthenticated }: NavbarProps) {
 	const isMobile = useIsMobile()
 	const { data: session } = useSession()
 
-	const isUserAuthenticated = session?.user ? true : (isAuthenticated ?? false)
+	// Use prop if provided (SSR), otherwise fallback to session (CSR)
+	const isUserAuthenticated = isAuthenticated ?? (session?.user ? true : false)
 
 	useEffect(() => {
 		const handleScroll = () => setIsScrolled(window.scrollY > 50)
