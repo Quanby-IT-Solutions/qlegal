@@ -303,9 +303,17 @@ export const appSidebarSections: NavSection[] = [
 			// Purpose: Official electronic notarial register per Supreme Court rules
 			// Features: All notarial acts, chronological entries, search, export
 			// Legal: Required by Philippine Supreme Court Rules (A.M. No. 24-10-14-SC)
+			// COMMENTED OUT - Using notarial-book-2 instead
+			// {
+			// 	title: "Notarial Book",
+			// 	url: "/notarial-book",
+			// 	icon: BookOpen,
+			// 	roles: ["ENP"],
+			// 	workflows: ["REN", "IEN"],
+			// },
 			{
 				title: "Notarial Book",
-				url: "/notarial-book",
+				url: "/notarial-book-2",
 				icon: BookOpen,
 				roles: ["ENP"],
 				workflows: ["REN", "IEN"],

@@ -83,8 +83,23 @@ export async function downloadSignedDocument(
 	try {
 		console.log("🔵 Getting project details from Get Specific Project API (/my/projects/{uuid})...")
 		console.log("   - Project UUID:", projectUuid)
-		const myProjectDetails = await getMyProjectDetails(projectUuid, userEmail)
-		const myProjectData = myProjectDetails?.data
+		let myProjectDetails
+		let myProjectData
+		try {
+			myProjectDetails = await getMyProjectDetails(projectUuid, userEmail)
+			myProjectData = myProjectDetails?.data
+		} catch (myProjectError) {
+			const errorMessage = myProjectError instanceof Error ? myProjectError.message : String(myProjectError)
+			// If user is not part of the project, fall back to getProjectDetails
+			if (errorMessage.includes("not part of this project") || errorMessage.includes("not part of thiss project")) {
+				console.log("⚠️ User is not part of this project, falling back to getProjectDetails...")
+				// Will fall through to getProjectDetails below
+				myProjectData = null
+			} else {
+				// Re-throw other errors
+				throw myProjectError
+			}
+		}
 
 		if (myProjectData) {
 			projectFileName = (myProjectData.file_name ?? myProjectData.name ?? null) as string | null

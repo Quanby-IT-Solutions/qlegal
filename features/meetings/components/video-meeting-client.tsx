@@ -2572,6 +2572,24 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 													<p className="text-muted-foreground mt-1 text-xs">
 														{(doc.size / 1024).toFixed(1)} KB • PDF
 													</p>
+													{doc.notarizationType && (
+														<p className="text-muted-foreground mt-1 text-xs font-medium">
+															{(() => {
+																switch (doc.notarizationType) {
+																	case "ACKNOWLEDGMENT":
+																		return "Acknowledgment"
+																	case "AFFIRMATION":
+																		return "Affirmation"
+																	case "JURAT":
+																		return "Jurat"
+																	case "SIGNATURE_WITNESSING":
+																		return "Signature Witnessing"
+																	default:
+																		return doc.notarizationType
+																}
+															})()}
+														</p>
+													)}
 												</div>
 											</div>
 											<DocumentActions

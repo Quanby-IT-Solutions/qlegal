@@ -75,7 +75,8 @@ export const ROUTE_CONFIG: RouteConfig = {
 			{ path: "/requests/incoming" },
 			{ path: "/requests/my-requests" },
 			{ path: "/settings" },
-			{ path: "/notarial-book" },
+			// { path: "/notarial-book" }, // COMMENTED OUT - Using notarial-book-2 instead
+			{ path: "/notarial-book-2" },
 		],
 		byRole: {
 			ENP: [{ path: "/dashboard" }, { path: "/appointments" }],
