@@ -3,7 +3,7 @@ import { env } from "@/env"
 import { apiCall } from "../lib/http-client"
 import { type Signer } from "../lib/schemas"
 import { getPassportDocument } from "./passport"
-import { getProjectDetails } from "./project"
+import { getMyProjectDetails, getProjectDetails } from "./project"
 import { getVaultItem } from "./vault"
 
 interface SigningStatusResult {
@@ -74,133 +74,259 @@ export async function downloadSignedDocument(
 	projectUuid: string,
 	userEmail?: string
 ): Promise<{ buffer: Buffer; fileName: string; url: string }> {
-	const projectDetails = await getProjectDetails(projectUuid, userEmail)
-	const projectData = projectDetails?.data
-
-	if (!projectData) {
-		throw new Error("Project not found or invalid response")
-	}
-
-	const signers = (projectData.signers as Signer[]) ?? []
-	// Helper function to check if a signer has signed (case-insensitive)
-	const isSignerSigned = (s: Signer): boolean => {
-		const statusUpper = (s.status ?? "").toUpperCase()
-		const hasSignedStatus = statusUpper === "SIGNED" || statusUpper === "COMPLETED"
-		const hasSignedAt = s.signed_at !== null && s.signed_at !== undefined && s.signed_at !== ""
-		return hasSignedStatus || hasSignedAt
-	}
-	const signedSigners = signers.filter(isSignerSigned)
-	const projectStatusUpper = ((projectData.status as string) ?? "").toUpperCase()
-	const isFullySigned =
-		signers.length > 0 &&
-		signedSigners.length === signers.length &&
-		(projectStatusUpper === "COMPLETED" || projectData.completed_at !== null)
-
-	if (!isFullySigned) {
-		throw new Error(
-			"Document is not fully signed yet. All signers must complete signing before downloading."
-		)
-	}
-
+	// First, try to get project details from /my/projects endpoint (includes files array with signed/sealed documents)
 	let signedDocumentUrl: string | null = null
 	let buffer: Buffer | null = null
-	const downloadApiUrl = `${env.DOCONCHAIN_API_URL}/api/v2/projects/${projectUuid}/download?user_type=ENTERPRISE_API`
+	let projectFileName: string | null = null
 
-	// Method 1: Vault files
-	if (!buffer) {
-		try {
-			const rawVaultUuid = (projectData.uuid as string) ?? (projectData.project_uuid as string)
-			const vaultUuid = rawVaultUuid ? String(rawVaultUuid) : projectUuid
+	try {
+		console.log("🔵 Getting project details from /my/projects endpoint...")
+		const myProjectDetails = await getMyProjectDetails(projectUuid, userEmail)
+		const myProjectData = myProjectDetails?.data
 
-			const vaultItem = await getVaultItem(vaultUuid, userEmail)
-			const vaultFiles =
-				(vaultItem?.data?.files as Array<{
-					file_url?: string
-					url?: string
-					file_name?: string
-					name?: string
-					type?: string
-					tab?: string
+		if (myProjectData) {
+			projectFileName = (myProjectData.file_name ?? myProjectData.name ?? null) as string | null
+
+			// Check project status - if completed, prefer download API endpoint for sealed document
+			const projectStatus = String(myProjectData.status ?? "").toLowerCase()
+			const isCompleted = projectStatus === "completed" || myProjectData.completed_at !== null
+
+			// For completed projects, skip files array and use download API endpoint
+			// which ensures we get the document with all seals and certificates properly applied
+			if (!isCompleted) {
+				// For non-completed projects, try to find signed file in files array
+				const files = (myProjectData.files as Array<{
+					id?: number | string
+					file_name?: string | null
+					type?: string | null
+					url?: string | null
 				}>) ?? []
 
-			const rawFileName = projectData.file_name
-			const rawName = projectData.name
-			const projectFileName = (
-				typeof rawFileName === "string" ? rawFileName : typeof rawName === "string" ? rawName : ""
-			).trim()
-			const matchingByName =
-				projectFileName.length > 0
-					? vaultFiles.find(f => String(f.file_name ?? f.name ?? "").trim() === projectFileName)
-					: undefined
-
-			const sealedOrSignedLike = vaultFiles.find(f => {
-				const type = String(f.type ?? "").toLowerCase()
-				const tab = String(f.tab ?? "").toLowerCase()
-				const name = String(f.name ?? "").toLowerCase()
-				const fileName = String(f.file_name ?? "").toLowerCase()
-				return (
-					type.includes("seal") ||
-					type.includes("signed") ||
-					tab.includes("seal") ||
-					tab.includes("signed") ||
-					name.includes("seal") ||
-					name.includes("signed") ||
-					fileName.includes("seal") ||
-					fileName.includes("signed")
-				)
-			})
-
-			const selectedFile = matchingByName ?? sealedOrSignedLike ?? vaultFiles[0]
-			const vaultFileUrl = selectedFile?.file_url ?? selectedFile?.url
-
-			if (vaultFileUrl) {
-				let fileResp = await fetch(vaultFileUrl)
-
-				if (!fileResp.ok && (fileResp.status === 401 || fileResp.status === 403)) {
-					fileResp = await apiCall(async token => {
-						return fetch(vaultFileUrl, {
-							method: "GET",
-							headers: {
-								Authorization: `Bearer ${token}`,
-								Accept: "application/pdf",
-							},
-						})
-					}, userEmail)
-				}
-
-				if (fileResp.ok) {
-					const arrayBuffer = await fileResp.arrayBuffer()
-					buffer = Buffer.from(arrayBuffer)
-					signedDocumentUrl = vaultFileUrl
-				}
-			}
-		} catch {
-			// Vault endpoint failed
-		}
-	}
-
-	// Method 2: API download endpoint
-	if (!buffer) {
-		try {
-			const apiResponse = await apiCall(async token => {
-				return fetch(downloadApiUrl, {
-					method: "GET",
-					headers: {
-						Authorization: `Bearer ${token}`,
-						Accept: "application/pdf",
-					},
+				// Find signed/sealed document (exclude Original, Meta, QR types)
+				const signedFile = files.find(file => {
+					const type = String(file.type ?? "").toLowerCase()
+					const fileName = String(file.file_name ?? "").toLowerCase()
+					return (
+						type !== "original" &&
+						type !== "meta" &&
+						type !== "qr" &&
+						!fileName.includes("original") &&
+						!fileName.includes("meta") &&
+						!fileName.includes("qr") &&
+						(type.includes("signed") ||
+							type.includes("seal") ||
+							type.includes("completed") ||
+							fileName.includes("signed") ||
+							fileName.includes("seal") ||
+							fileName.includes("completed"))
+					)
 				})
-			}, userEmail)
 
-			if (apiResponse.ok) {
-				const arrayBuffer = await apiResponse.arrayBuffer()
-				buffer = Buffer.from(arrayBuffer)
-				signedDocumentUrl = downloadApiUrl
+				// If no specific signed file found, look for any non-Original PDF file
+				const nonOriginalFile =
+					signedFile ??
+					files.find(
+						file =>
+							String(file.type ?? "").toLowerCase() !== "original" &&
+							String(file.file_name ?? "").toLowerCase().includes(".pdf")
+					)
+
+				if (nonOriginalFile?.url) {
+					signedDocumentUrl = nonOriginalFile.url as string
+					console.log("✅ Found signed document URL from /my/projects files array:", signedDocumentUrl)
+
+					// Download the document
+					let fileResponse = await fetch(signedDocumentUrl)
+
+					// If fetch fails with auth error, try with token
+					if (!fileResponse.ok && (fileResponse.status === 401 || fileResponse.status === 403)) {
+						fileResponse = await apiCall(async token => {
+							return fetch(signedDocumentUrl!, {
+								method: "GET",
+								headers: {
+									Authorization: `Bearer ${token}`,
+									Accept: "application/pdf",
+								},
+							})
+						}, userEmail)
+					}
+
+					if (fileResponse.ok) {
+						const arrayBuffer = await fileResponse.arrayBuffer()
+						buffer = Buffer.from(arrayBuffer)
+						console.log("✅ Downloaded signed document with seals and certificates")
+					}
+				}
+			} else {
+				console.log("🔵 Project is completed - will use download API endpoint for sealed document")
 			}
-		} catch {
-			// API download failed
 		}
+	} catch (error) {
+		console.warn("⚠️ Failed to get signed document from /my/projects endpoint:", error)
+		// Fall back to existing methods
 	}
+
+	// Fallback to existing methods if /my/projects didn't work
+	if (!buffer) {
+		const projectDetails = await getProjectDetails(projectUuid, userEmail)
+		const projectData = projectDetails?.data
+
+		if (!projectData) {
+			throw new Error("Project not found or invalid response")
+		}
+
+		if (!projectFileName) {
+			projectFileName = (projectData.file_name ?? projectData.name ?? null) as string | null
+		}
+
+		const signers = (projectData.signers as Signer[]) ?? []
+		// Helper function to check if a signer has signed (case-insensitive)
+		const isSignerSigned = (s: Signer): boolean => {
+			const statusUpper = (s.status ?? "").toUpperCase()
+			const hasSignedStatus = statusUpper === "SIGNED" || statusUpper === "COMPLETED"
+			const hasSignedAt = s.signed_at !== null && s.signed_at !== undefined && s.signed_at !== ""
+			return hasSignedStatus || hasSignedAt
+		}
+		const signedSigners = signers.filter(isSignerSigned)
+		const projectStatusUpper = ((projectData.status as string) ?? "").toUpperCase()
+		const isFullySigned =
+			signers.length > 0 &&
+			signedSigners.length === signers.length &&
+			(projectStatusUpper === "COMPLETED" || projectData.completed_at !== null)
+
+		if (!isFullySigned) {
+			throw new Error(
+				"Document is not fully signed yet. All signers must complete signing before downloading."
+			)
+		}
+
+		const downloadApiUrl = `${env.DOCONCHAIN_API_URL}/api/v2/projects/${projectUuid}/download?user_type=ENTERPRISE_API`
+		const isCompleted = projectStatusUpper === "COMPLETED" || projectData.completed_at !== null
+
+		// For completed projects, prioritize download API endpoint to ensure we get sealed document
+		// Method 1: Download API endpoint (for completed projects - ensures sealed document with seals)
+		if (isCompleted && !buffer) {
+			try {
+				console.log("🔵 Using download API endpoint to get sealed document (project is completed)...")
+				const apiResponse = await apiCall(async token => {
+					return fetch(downloadApiUrl, {
+						method: "GET",
+						headers: {
+							Authorization: `Bearer ${token}`,
+							Accept: "application/pdf",
+						},
+					})
+				}, userEmail)
+
+				if (apiResponse.ok) {
+					const arrayBuffer = await apiResponse.arrayBuffer()
+					buffer = Buffer.from(arrayBuffer)
+					signedDocumentUrl = downloadApiUrl
+					console.log("✅ Downloaded sealed document with seals and certificates from API endpoint")
+				}
+			} catch (error) {
+				console.warn("⚠️ Download API endpoint failed:", error)
+			}
+		}
+
+		// Method 2: Vault files (for non-completed or if download API failed)
+		if (!buffer) {
+			try {
+				const rawVaultUuid = (projectData.uuid as string) ?? (projectData.project_uuid as string)
+				const vaultUuid = rawVaultUuid ? String(rawVaultUuid) : projectUuid
+
+				const vaultItem = await getVaultItem(vaultUuid, userEmail)
+				const vaultFiles =
+					(vaultItem?.data?.files as Array<{
+						file_url?: string
+						url?: string
+						file_name?: string
+						name?: string
+						type?: string
+						tab?: string
+					}>) ?? []
+
+				const rawFileName = projectData.file_name
+				const rawName = projectData.name
+				const projectFileName = (
+					typeof rawFileName === "string" ? rawFileName : typeof rawName === "string" ? rawName : ""
+				).trim()
+				const matchingByName =
+					projectFileName.length > 0
+						? vaultFiles.find(f => String(f.file_name ?? f.name ?? "").trim() === projectFileName)
+						: undefined
+
+				const sealedOrSignedLike = vaultFiles.find(f => {
+					const type = String(f.type ?? "").toLowerCase()
+					const tab = String(f.tab ?? "").toLowerCase()
+					const name = String(f.name ?? "").toLowerCase()
+					const fileName = String(f.file_name ?? "").toLowerCase()
+					return (
+						type.includes("seal") ||
+						type.includes("signed") ||
+						tab.includes("seal") ||
+						tab.includes("signed") ||
+						name.includes("seal") ||
+						name.includes("signed") ||
+						fileName.includes("seal") ||
+						fileName.includes("signed")
+					)
+				})
+
+				const selectedFile = matchingByName ?? sealedOrSignedLike ?? vaultFiles[0]
+				const vaultFileUrl = selectedFile?.file_url ?? selectedFile?.url
+
+				if (vaultFileUrl) {
+					let fileResp = await fetch(vaultFileUrl)
+
+					if (!fileResp.ok && (fileResp.status === 401 || fileResp.status === 403)) {
+						fileResp = await apiCall(async token => {
+							return fetch(vaultFileUrl, {
+								method: "GET",
+								headers: {
+									Authorization: `Bearer ${token}`,
+									Accept: "application/pdf",
+								},
+							})
+						}, userEmail)
+					}
+
+					if (fileResp.ok) {
+						const arrayBuffer = await fileResp.arrayBuffer()
+						buffer = Buffer.from(arrayBuffer)
+						signedDocumentUrl = vaultFileUrl
+					}
+				}
+			} catch {
+				// Vault endpoint failed
+			}
+		}
+
+		// Method 3: API download endpoint (fallback if not completed or other methods failed)
+		if (!buffer && !isCompleted) {
+			try {
+				console.log("🔵 Using download API endpoint to get signed/sealed document...")
+				const apiResponse = await apiCall(async token => {
+					return fetch(downloadApiUrl, {
+						method: "GET",
+						headers: {
+							Authorization: `Bearer ${token}`,
+							Accept: "application/pdf",
+						},
+					})
+				}, userEmail)
+
+				if (apiResponse.ok) {
+					const arrayBuffer = await apiResponse.arrayBuffer()
+					buffer = Buffer.from(arrayBuffer)
+					signedDocumentUrl = downloadApiUrl
+					console.log("✅ Downloaded signed/sealed document from API endpoint")
+				}
+			} catch (error) {
+				console.warn("⚠️ API download endpoint failed:", error)
+				// API download failed, continue to other methods
+			}
+		}
 
 	// Method 3: Fallback URLs
 	if (!buffer) {
@@ -226,19 +352,23 @@ export async function downloadSignedDocument(
 		signedDocumentUrl = fallbackUrl
 	}
 
+		if (!buffer) {
+			throw new Error("Failed to download signed document: No valid download method succeeded")
+		}
+	}
+
 	if (!buffer) {
 		throw new Error("Failed to download signed document: No valid download method succeeded")
 	}
 
 	const fileName =
-		(projectData.file_name as string) ??
-		(projectData.name as string) ??
+		projectFileName ??
 		`signed-document-${projectUuid}.pdf`
 
 	return {
 		buffer,
 		fileName,
-		url: signedDocumentUrl ?? downloadApiUrl,
+		url: signedDocumentUrl ?? `${env.DOCONCHAIN_API_URL}/api/v2/projects/${projectUuid}/download?user_type=ENTERPRISE_API`,
 	}
 }
 

@@ -825,6 +825,8 @@ const DocumentActions = React.memo(function DocumentActions({
 	participants,
 	signerUserIds,
 	meetingId,
+	onCreateProject,
+	isCreatingProject,
 }: {
 	document: { id: string; name: string; docoChainProjectId: string | null }
 	onSignClick: (projectUuid: string | null, email: string, documentId: string) => void
@@ -849,6 +851,8 @@ const DocumentActions = React.memo(function DocumentActions({
 	}>
 	signerUserIds?: string[]
 	meetingId?: string
+	onCreateProject?: (documentId: string, meetingId: string) => void
+	isCreatingProject?: boolean
 }) {
 	const { data: session } = useSession()
 
@@ -920,9 +924,35 @@ const DocumentActions = React.memo(function DocumentActions({
 				View Document
 			</Button>
 
+			{/* Show "Create Project" button if signers are set but project doesn't exist */}
+			{!document.docoChainProjectId && hasSigners && meetingId && onCreateProject && (
+				<Button
+					variant="default"
+					size="sm"
+					className="h-9 w-full text-xs shadow-sm"
+					onClick={() => {
+						if (meetingId) {
+							onCreateProject(document.id, meetingId)
+						}
+					}}
+					disabled={isCreatingProject}
+				>
+					{isCreatingProject ? (
+						<>
+							<div className="mr-2 size-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
+							Creating...
+						</>
+					) : (
+						<>
+							<FileSignature className="mr-1.5 size-3.5" />
+							Add Signer
+						</>
+					)}
+				</Button>
+			)}
+
 			{/* Show "Start Signing" button for all meeting participants */}
-			{/* Any participant (Principal, ENP, etc.) can click to sign */}
-			{/* Project will be created automatically when signing starts if it doesn't exist */}
+			{/* Project must exist before signing can start */}
 			<div className="space-y-1.5">
 				<Button
 					variant="default"
@@ -933,23 +963,19 @@ const DocumentActions = React.memo(function DocumentActions({
 						if (userEmail) {
 							console.log("🔵 Initiating signing process for document:", document.name)
 							console.log("   - Document ID:", document.id)
-							console.log(
-								"   - DocoChain Project UUID:",
-								document.docoChainProjectId ?? "will be created"
-							)
+							console.log("   - DocoChain Project UUID:", document.docoChainProjectId)
 							console.log("   - User Email:", userEmail)
 
 							// User clicks to start signing - this will:
-							// 1. Create DocoChain project if it doesn't exist (download from Supabase)
-							// 2. Add user as signer using Add Project Signer API
-							// 3. Generate signing link
-							// 4. Redirect to DocoChain signing page
+							// 1. Add user as signer using Add Project Signer API
+							// 2. Generate Edit Draft Project Link
+							// 3. Redirect to DocoChain signing page
 							onSignClick(document.docoChainProjectId ?? null, userEmail, document.id)
 						} else {
 							toast.error("User email not found. Please sign in again.")
 						}
 					}}
-					disabled={isSigningPending || isSigningDisabled}
+					disabled={isSigningPending || isSigningDisabled || !document.docoChainProjectId}
 				>
 					{isSigningPending ? (
 						<>
@@ -964,17 +990,19 @@ const DocumentActions = React.memo(function DocumentActions({
 					)}
 				</Button>
 				{/* Show message when button is disabled */}
-				{isSigningDisabled && (
+				{(isSigningDisabled || !document.docoChainProjectId) && (
 					<p className="text-[10px] leading-tight text-amber-700 dark:text-amber-400">
-						{allSignersSigned
-							? "All signers have completed signing"
-							: isSigningDisabledByOrder
-								? "Previous document must be signed first"
-								: hasNoSignersSelected
-									? "Select at least one signer for this document"
-									: userNotInSignerList
-										? "You must be added as a signer to start signing"
-										: ""}
+						{!document.docoChainProjectId
+							? "Add signer first after setting signers"
+							: allSignersSigned
+								? "All signers have completed signing"
+								: isSigningDisabledByOrder
+									? "Previous document must be signed first"
+									: hasNoSignersSelected
+										? "Select at least one signer for this document"
+										: userNotInSignerList
+											? "You must be added as a signer to start signing"
+											: ""}
 					</p>
 				)}
 			</div>
@@ -1089,10 +1117,14 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 					: typeof err === "object" && err !== null && "message" in err
 						? String(err.message)
 						: ""
+			const msgLower = msg.toLowerCase()
 			return (
 				msg.includes("E_UNAUTHORIZED_ACCESS") ||
-				msg.toLowerCase().includes("unauthorized") ||
-				msg.toLowerCase().includes("forbidden")
+				msgLower.includes("unauthorized") ||
+				msgLower.includes("forbidden") ||
+				msgLower.includes("don't have access") ||
+				msgLower.includes("created by a different user") ||
+				msgLower.includes("not part of this project")
 			)
 		}
 
@@ -1239,6 +1271,17 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 		},
 		onError: error => {
 			toast.error(error.message ?? "Failed to update signers")
+		},
+	})
+
+	// Mutation to create DocoChain project (after signers are set)
+	const createDocoChainProjectMutation = trpc.meetings.createDocoChainProject.useMutation({
+		onSuccess: () => {
+			void utils.meetings.getMeetingDocuments.invalidate(meetingId ?? "")
+			toast.success("DocoChain project created successfully!")
+		},
+		onError: error => {
+			toast.error(error.message ?? "Failed to create DocoChain project")
 		},
 	})
 
@@ -2301,9 +2344,9 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 								// This ensures the badge updates even if the API's isFullySigned is not set correctly
 								const isFullySigned =
 									signingStatus?.isFullySigned === true ||
-									(signingStatus?.totalSigners > 0 &&
-										signingStatus?.signedCount === signingStatus?.totalSigners &&
-										signingStatus?.signedCount > 0) ||
+									((signingStatus?.totalSigners ?? 0) > 0 &&
+										(signingStatus?.signedCount ?? 0) === (signingStatus?.totalSigners ?? 0) &&
+										(signingStatus?.signedCount ?? 0) > 0) ||
 									false
 								const isDownloadingSigned =
 									!!doc.docoChainProjectId && downloadingProjectUuid === doc.docoChainProjectId
@@ -2368,11 +2411,11 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 															Signed
 														</span>
 													</div>
-												) : signingStatus.signedCount > 0 ? (
+												) : (signingStatus.signedCount ?? 0) > 0 ? (
 													<div className="flex items-center gap-1 rounded-full bg-yellow-100 px-2 py-0.5 dark:bg-yellow-900/30">
 														<Clock className="size-3 text-yellow-600 dark:text-yellow-400" />
 														<span className="text-[10px] font-semibold text-yellow-700 dark:text-yellow-400">
-															{signingStatus.signedCount}/{signingStatus.totalSigners}
+															{signingStatus.signedCount ?? 0}/{signingStatus.totalSigners ?? 0}
 														</span>
 													</div>
 												) : (
@@ -2477,6 +2520,10 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 												participants={meetingDetails?.participants ?? []}
 												signerUserIds={(doc as { signerUserIds?: string[] }).signerUserIds ?? []}
 												meetingId={meetingId ?? undefined}
+												onCreateProject={(documentId, meetingId) => {
+													createDocoChainProjectMutation.mutate({ documentId, meetingId })
+												}}
+												isCreatingProject={createDocoChainProjectMutation.isPending}
 											/>
 										</CardContent>
 									</Card>

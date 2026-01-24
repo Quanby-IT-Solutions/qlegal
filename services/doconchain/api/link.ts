@@ -123,6 +123,14 @@ export async function generateEditDraftLink(
 	projectUuid: string,
 	userEmail?: string
 ): Promise<{ link: string }> {
+	// Ensure token is valid before making the API call
+	// apiCall will automatically validate and refresh token if needed
+	// getToken validates tokens periodically and refreshes expired ones
+	console.log("🔵 Generating Edit Draft Project Link...")
+	console.log("   - Project UUID:", projectUuid)
+	console.log("   - User Email (for token):", userEmail ?? env.DOCONCHAIN_EMAIL)
+	console.log("   - Ensuring token is valid (validation handled by getToken)...")
+	
 	const response = await apiCall(async token => {
 		return fetch(
 			`${env.DOCONCHAIN_API_URL}/api/v2/projects/${projectUuid}/link?user_type=ENTERPRISE_API`,
@@ -240,7 +248,8 @@ async function appendApiToken(link: string, email: string, alreadyNormalized = f
 
 		// ALWAYS add api_token for API access - required for document loading
 		// Get a fresh, verified token to ensure it's not expired
-		const apiToken = await getToken(email)
+		// Force verification to ensure token is valid before adding to URL
+		const apiToken = await getToken(email, true)
 		url.searchParams.set("api_token", apiToken)
 		
 		console.log("✅ Added api_token to signing link (length:", apiToken.length, "chars)")
@@ -250,7 +259,8 @@ async function appendApiToken(link: string, email: string, alreadyNormalized = f
 		console.error("❌ Failed to append API token to link:", normalizedLink, error)
 		// Fallback: try to append token manually
 		const separator = normalizedLink.includes("?") ? "&" : "?"
-		const apiToken = await getToken(email)
+		// Force verification to ensure token is valid before adding to URL
+		const apiToken = await getToken(email, true)
 		const fallbackLink = `${normalizedLink}${separator}api_token=${encodeURIComponent(apiToken)}`
 		console.log("✅ Added api_token via fallback method")
 		return fallbackLink

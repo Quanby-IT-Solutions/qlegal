@@ -40,12 +40,14 @@ export async function createProject({
 	const formData = new FormData()
 	const documentBlob = new Blob([new Uint8Array(documentFile)], { type: "application/pdf" })
 	formData.append("file", documentBlob, fileName)
-	formData.append("title", title)
-	formData.append("project_type", "SignatureRequest")
-	formData.append("api", "true")
-	formData.append("user_list_editable", userListEditable ? "true" : "false")
-	formData.append("creator_as_viewer", creatorAsViewer ? "true" : "false")
-
+	
+	// Optional parameters per API specification
+	if (userListEditable !== undefined) {
+		formData.append("user_list_editable", String(userListEditable))
+	}
+	if (creatorAsViewer !== undefined) {
+		formData.append("creator_as_viewer", String(creatorAsViewer))
+	}
 	if (documentStamp) {
 		formData.append("document_stamp", JSON.stringify(documentStamp))
 	}
@@ -215,6 +217,104 @@ export async function addSignatureMark({
 	}
 
 	return (await response.json()) as Record<string, unknown>
+}
+
+export async function getMyProjectDetails(
+	projectUuid: string,
+	userEmail?: string
+): Promise<{
+	message?: string
+	data?: {
+		uuid?: string
+		id?: number | string
+		status?: string
+		completed_at?: string | null
+		file_name?: string | null
+		name?: string | null
+		url?: string | null
+		files?: Array<{
+			id?: number | string
+			project_id?: number | string
+			file_name?: string | null
+			type?: string | null
+			storage?: string | null
+			path?: string | null
+			url?: string | null
+			created_at?: string | null
+		}>
+		signers?: Array<{
+			id?: number | string
+			email?: string
+			first_name?: string | null
+			last_name?: string | null
+			status?: string
+			signed_at?: string | null
+			sequence?: number
+			signer_role?: string
+		}>
+		[key: string]: unknown
+	}
+	meta?: Record<string, unknown>
+}> {
+	const response = await apiCall(async token => {
+		return fetch(
+			`${env.DOCONCHAIN_API_URL}/my/projects/${projectUuid}?user_type=ENTERPRISE_API`,
+			{
+				method: "GET",
+				headers: {
+					Authorization: `Bearer ${token}`,
+					Accept: "application/json",
+				},
+			}
+		)
+	}, userEmail)
+
+	if (!response.ok) {
+		const errorText = await response.text()
+		let errorMessage = `doconchain API error: ${response.status} ${response.statusText}`
+		try {
+			const errorJson = JSON.parse(errorText) as { message?: string }
+			if (errorJson.message) errorMessage = errorJson.message
+		} catch {
+			if (errorText) errorMessage = errorText
+		}
+		throw new Error(errorMessage)
+	}
+
+	return (await response.json()) as {
+		message?: string
+		data?: {
+			uuid?: string
+			id?: number | string
+			status?: string
+			completed_at?: string | null
+			file_name?: string | null
+			name?: string | null
+			url?: string | null
+			files?: Array<{
+				id?: number | string
+				project_id?: number | string
+				file_name?: string | null
+				type?: string | null
+				storage?: string | null
+				path?: string | null
+				url?: string | null
+				created_at?: string | null
+			}>
+			signers?: Array<{
+				id?: number | string
+				email?: string
+				first_name?: string | null
+				last_name?: string | null
+				status?: string
+				signed_at?: string | null
+				sequence?: number
+				signer_role?: string
+			}>
+			[key: string]: unknown
+		}
+		meta?: Record<string, unknown>
+	}
 }
 
 export async function sendProject(

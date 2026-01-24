@@ -27,7 +27,7 @@ export type {
 } from "./lib/schemas"
 
 // API - Project
-export { addSignatureMark, createProject, getProjectDetails, sendProject } from "./api/project"
+export { addSignatureMark, createProject, getMyProjectDetails, getProjectDetails, sendProject } from "./api/project"
 
 // API - Signer
 export { addSignerToProject, deleteSigner, updateProjectSigner } from "./api/signer"
