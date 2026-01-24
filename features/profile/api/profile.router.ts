@@ -8,7 +8,7 @@ import { enpProfiles } from "@/services/drizzle/schema/enp-profiles"
 import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
 
 import { deleteAvatar } from "@/features/profile/api/profile.actions"
-import { enpProfileSchema, personalInformationSchema } from "@/features/profile/api/profile.schema"
+import { addressSchema, enpProfileSchema, personalInformationSchema } from "@/features/profile/api/profile.schema"
 
 export const profileRouter = createTRPCRouter({
 	updateAvatar: protectedProcedure
@@ -181,5 +181,32 @@ export const profileRouter = createTRPCRouter({
 				.where(eq(enpProfiles.userId, ctx.session.user.id))
 
 			return { message: "ENP profile updated successfully" }
+		}),
+
+	getAddress: protectedProcedure.query(async ({ ctx }) => {
+		const user = await ctx.db.query.users.findFirst({
+			where: eq(users.id, ctx.session.user.id),
+			columns: {
+				address: true,
+			},
+		})
+
+		return {
+			address: user?.address ?? "",
+		}
+	}),
+
+	updateAddress: protectedProcedure
+		.input(addressSchema)
+		.mutation(async ({ ctx, input }) => {
+			const user = await ctx.db
+				.update(users)
+				.set({
+					address: input.address.trim() !== "" ? input.address.trim() : null,
+				})
+				.where(eq(users.id, ctx.session.user.id))
+				.returning()
+
+			return { message: "Address updated successfully", user }
 		}),
 })

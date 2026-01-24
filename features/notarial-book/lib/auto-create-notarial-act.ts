@@ -603,10 +603,14 @@ export async function autoCreateNotarialAct(
 			}
 		}
 
-		// Determine act type
+		// Determine act type - use document's notarizationType if available, otherwise determine from name/description
 		const documentName = (document as { name?: string }).name ?? ""
 		const documentDescription = (document as { description?: string | null }).description ?? null
-		const actType = determineActType(documentName, documentDescription, passportData)
+		const documentNotarizationType = (document as {
+			notarizationType?: "ACKNOWLEDGMENT" | "AFFIRMATION" | "JURAT" | "SIGNATURE_WITNESSING" | null
+		}).notarizationType
+		
+		const actType = documentNotarizationType ?? determineActType(documentName, documentDescription, passportData)
 
 		// Generate certificate number (unique reference)
 		const certificateNumber = `NB-${notarialBookId.substring(0, 4).toUpperCase()}-${executedAt.getTime().toString().slice(-6)}`

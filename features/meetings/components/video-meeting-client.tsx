@@ -615,7 +615,7 @@ const SignerSelector = React.memo(function SignerSelector({
 }: {
 	participants: Array<{
 		userId: string
-		user: { id: string; name: string | null; email: string | null } | null
+		user: { id: string; name: string | null; email: string | null; role?: string | null } | null
 	}>
 	signerUserIds: string[]
 	onSignersChange: (userIds: string[]) => void
@@ -633,9 +633,15 @@ const SignerSelector = React.memo(function SignerSelector({
 		[onSignersChange, signerUserIds]
 	)
 
-	const selected = participants.filter(p => selectedSet.has(p.userId))
+	// Filter out ENPs - only show principals (ENP always signs, so don't include in assignment)
+	const principalsOnly = useMemo(
+		() => participants.filter(p => p.user?.role?.toUpperCase() !== "ENP"),
+		[participants]
+	)
+
+	const selected = principalsOnly.filter(p => selectedSet.has(p.userId))
 	const selectedCount = selected.length
-	const totalCount = participants.length
+	const totalCount = principalsOnly.length
 
 	return (
 		<div className="bg-muted/30 mb-3 space-y-1.5 rounded-lg border p-2.5">
@@ -650,7 +656,7 @@ const SignerSelector = React.memo(function SignerSelector({
 				signing.
 			</p>
 			<div className="space-y-1.5">
-				{participants.map(p => {
+				{principalsOnly.map(p => {
 					const checked = selectedSet.has(p.userId)
 					const name = p.user?.name ?? "Unknown"
 					const email = p.user?.email ?? ""
@@ -847,7 +853,7 @@ const DocumentActions = React.memo(function DocumentActions({
 	}>
 	participants?: Array<{
 		userId: string
-		user: { id: string; name: string | null; email: string | null } | null
+		user: { id: string; name: string | null; email: string | null; role?: string | null } | null
 	}>
 	signerUserIds?: string[]
 	meetingId?: string
@@ -867,14 +873,31 @@ const DocumentActions = React.memo(function DocumentActions({
 		return hasSignedStatus || hasSignedAt
 	}
 
+	// Filter signers to only show those selected in the database (signerUserIds)
+	// Get participant emails for selected signers
+	const selectedSignerEmails = new Set<string>()
+	if (signerUserIds && participants) {
+		for (const userId of signerUserIds) {
+			const participant = participants.find(p => p.userId === userId)
+			if (participant?.user?.email) {
+				selectedSignerEmails.add(participant.user.email.toLowerCase())
+			}
+		}
+	}
+	
+	// Filter signers to only include those in the selected list
+	const filteredSigners = signers?.filter(signer => 
+		selectedSignerEmails.has(signer.email?.toLowerCase() ?? "")
+	) ?? []
+
 	// Check if all signers have signed
 	const allSignersSigned =
-		signers && signers.length > 0 && signers.every(isSignerSigned)
+		filteredSigners && filteredSigners.length > 0 && filteredSigners.every(isSignerSigned)
 
 	// Determine button state based on current user's signer status
 	const currentUserEmail = session?.user?.email ?? null
 	const currentUserSigner = currentUserEmail
-		? signers?.find(s => s.email?.toLowerCase() === currentUserEmail.toLowerCase())
+		? filteredSigners.find(s => s.email?.toLowerCase() === currentUserEmail.toLowerCase())
 		: null
 	const isUserAddedAsSigner = !!currentUserSigner
 	
@@ -942,8 +965,8 @@ const DocumentActions = React.memo(function DocumentActions({
 	return (
 		<div className="space-y-2">
 			{/* Before project exists: show signer selector. After: show DocoChain signer list */}
-			{document.docoChainProjectId && signers && signers.length > 0 ? (
-				<SignerList signers={signers} />
+			{document.docoChainProjectId && filteredSigners && filteredSigners.length > 0 ? (
+				<SignerList signers={filteredSigners} />
 			) : (
 				participants &&
 				participants.length > 0 &&

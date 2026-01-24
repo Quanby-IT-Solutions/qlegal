@@ -8,6 +8,7 @@ import { SiteNavbar } from "@/core/components/navbar/site-navbar"
 import { trpc } from "@/services/trpc/client"
 
 import { AddPasswordCard } from "@/features/settings/components/add-password-card"
+import { AddressCard } from "@/features/settings/components/address-card"
 import { AvailabilityToggleCard } from "@/features/settings/components/availability-toggle-card"
 import { ChangePasswordCard } from "@/features/settings/components/change-password-card"
 import { PasswordCardSkeleton } from "@/features/settings/components/password-card-skeleton"
@@ -18,6 +19,7 @@ export default function Page() {
 	const { data: userPasswordStatus, isLoading } = trpc.settings.checkUserHasPassword.useQuery()
 
 	const isENP = session?.user?.role === "ENP"
+	const isPrincipal = session?.user?.role === "PRINCIPAL"
 
 	return (
 		<>
@@ -41,6 +43,12 @@ export default function Page() {
 					)}
 					<div className="h-8" />
 					<ToggleTwoFACard />
+					{isPrincipal && (
+						<>
+							<div className="h-8" />
+							<AddressCard />
+						</>
+					)}
 					{isENP && (
 						<>
 							<div className="h-8" />

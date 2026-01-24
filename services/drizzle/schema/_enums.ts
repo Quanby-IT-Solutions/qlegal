@@ -51,3 +51,11 @@ export const legalApplicationStatus = pgEnum("legal_application_status", [
 
 // KYC verification status enum
 export const kycStatus = pgEnum("kyc_status", ["NOT_STARTED", "PENDING", "VERIFIED", "REJECTED"])
+
+// Notarization type enum - eNotarization act types (Rule IV)
+export const notarizationType = pgEnum("notarization_type", [
+	"ACKNOWLEDGMENT", // Acknowledgment by Electronic Means (Section 1, Rule IV)
+	"AFFIRMATION", // Affirmation or Oath by Electronic Means (Section 2, Rule IV)
+	"JURAT", // Jurat by Electronic Means (Section 3, Rule IV)
+	"SIGNATURE_WITNESSING", // Signature Witnessing by Electronic Means (Section 4, Rule IV)
+])
