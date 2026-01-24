@@ -871,6 +871,51 @@ const DocumentActions = React.memo(function DocumentActions({
 	const allSignersSigned =
 		signers && signers.length > 0 && signers.every(isSignerSigned)
 
+	// Determine button state based on current user's signer status
+	const currentUserEmail = session?.user?.email ?? null
+	const currentUserSigner = currentUserEmail
+		? signers?.find(s => s.email?.toLowerCase() === currentUserEmail.toLowerCase())
+		: null
+	const isUserAddedAsSigner = !!currentUserSigner
+	
+	// Check if user has completed signing (status SIGNED/COMPLETED or signedAt is set)
+	const hasUserSigned = currentUserSigner
+		? isSignerSigned({
+				status: currentUserSigner.status,
+				signedAt: currentUserSigner.signedAt,
+			})
+		: false
+	
+	// Check signer status to determine if they've plotted but not signed
+	// Statuses: PENDING, NEXT GROUP (not plotted), or other statuses might indicate plotted
+	const signerStatus = (currentUserSigner?.status ?? "").toUpperCase()
+	const isPendingOrNextGroup = signerStatus === "PENDING" || signerStatus === "NEXT GROUP"
+	
+	// Determine button text based on state:
+	// 1. Not added → "Start Signing" (adds user, generates edit draft link)
+	// 2. Added + PENDING/NEXT GROUP → "Plot Signature" (edit draft link exists, can plot)
+	// 3. Added + other status (plotted but not signed) → "Sign Document" (signature plotted, can sign)
+	// 4. Signed → button disabled (already completed)
+	const getButtonText = () => {
+		if (!isUserAddedAsSigner) {
+			// User not added yet - clicking will add them and generate edit draft link
+			return "Start Signing"
+		}
+		if (hasUserSigned) {
+			// User has completed signing - button should be disabled
+			return "Sign Document"
+		}
+		// Check if user has plotted (status is not PENDING/NEXT GROUP)
+		if (!isPendingOrNextGroup) {
+			// User has plotted signature marks but hasn't signed yet
+			return "Sign Document"
+		}
+		// User is added but still in PENDING/NEXT GROUP - edit draft link exists, can plot signature
+		return "Plot Signature"
+	}
+
+	const buttonText = getButtonText()
+
 	// Determine if Start Signing button should be disabled
 	const isSigningDisabledByOrder = isLocked && !isPreviousDocumentSigned && (documentIndex ?? 0) > 0
 	const hasNoSignersSelected = !document.docoChainProjectId && (signerUserIds?.length ?? 0) === 0
@@ -980,12 +1025,16 @@ const DocumentActions = React.memo(function DocumentActions({
 					{isSigningPending ? (
 						<>
 							<div className="mr-2 size-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
-							Starting...
+							{buttonText === "Start Signing"
+								? "Starting..."
+								: buttonText === "Plot Signature"
+									? "Plotting..."
+									: "Signing..."}
 						</>
 					) : (
 						<>
 							<FileSignature className="mr-1.5 size-3.5" />
-							Start Signing
+							{buttonText}
 						</>
 					)}
 				</Button>
