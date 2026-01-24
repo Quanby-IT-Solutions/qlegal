@@ -74,7 +74,12 @@ export async function getToken(email?: string, forceVerify = false): Promise<str
 		// Proactively verify token validity with DocoChain periodically
 		// so we can refresh before it causes downstream failures.
 		// Only verify periodically, not on every call, to avoid performance issues
-		const shouldVerify = Date.now() - cached.lastVerifiedAt > TOKEN_VERIFY_INTERVAL_MS
+		const timeSinceLastVerify = Date.now() - cached.lastVerifiedAt
+		const timeUntilExpiration = cached.expiresAt - Date.now()
+		const shouldVerifyPeriodically = timeSinceLastVerify > TOKEN_VERIFY_INTERVAL_MS
+		// Also verify if token is close to expiration (within 15 minutes)
+		const shouldVerifyNearExpiration = timeUntilExpiration < 15 * 60 * 1000 && timeSinceLastVerify > 2 * 60 * 1000 // At least 2 min since last verify
+		const shouldVerify = shouldVerifyPeriodically || shouldVerifyNearExpiration || forceVerify
 		const failureCount = verificationFailureCount.get(cacheKey) ?? 0
 
 		// Skip verification if we've had too many consecutive failures
@@ -94,12 +99,23 @@ export async function getToken(email?: string, forceVerify = false): Promise<str
 					return cached.token
 				}
 
-				// Status is not active - but don't regenerate immediately
-				// The token might still work for API calls even if verification fails
-				// Only regenerate when we actually get 401 from API calls
+				// Status is not active - token is likely expired or invalid
+				// If forceVerify is true, regenerate proactively to avoid 401 errors
+				// If forceVerify is false, still return cached token but log warning
+				// (will be regenerated when we get 401 error)
+				if (forceVerify) {
+					console.log(`⚠️ Token verification failed (status: ${status}) - regenerating proactively...`)
+					verificationFailureCount.delete(cacheKey) // Reset count since we're regenerating
+					// Invalidate and regenerate
+					tokenCache.delete(cacheKey)
+					return generateToken(email, true)
+				}
+				
+				// Not forcing verification - increment failure count but still return cached token
+				// Will be regenerated reactively when we get 401
 				verificationFailureCount.set(cacheKey, failureCount + 1)
-				// Update timestamp to avoid spamming verification
 				tokenCache.set(cacheKey, { ...cached, lastVerifiedAt: Date.now() })
+				console.warn(`⚠️ Token verification failed (status: ${status}) but not forcing regeneration - will regenerate on 401`)
 				return cached.token
 			} catch (error) {
 				// Verification endpoint itself failed (network error, etc.)

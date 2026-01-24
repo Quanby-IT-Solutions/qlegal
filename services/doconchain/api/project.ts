@@ -2,6 +2,7 @@ import { env } from "@/env"
 
 import { apiCall } from "../lib/http-client"
 import { createProjectResponseSchema } from "../lib/schemas"
+import { generateToken, invalidateToken } from "../lib/token-cache"
 import { normalizeUrl } from "../lib/utils"
 
 interface DocumentStamp {
@@ -52,6 +53,24 @@ export async function createProject({
 		formData.append("document_stamp", JSON.stringify(documentStamp))
 	}
 
+	// CRITICAL: Generate a completely fresh token for project creation
+	// This ensures maximum token validity (full 1 hour) for all subsequent operations
+	// Every project creation gets a new token, which will be used for all operations on that project
+	console.log("🔵 Creating DocoChain project - generating fresh token for creator...")
+	console.log("   - Creator Email:", creatorEmail)
+	console.log("   - Invalidating any cached token and generating completely fresh token...")
+	
+	// Invalidate any existing token cache for this creator
+	invalidateToken(creatorEmail)
+	
+	// Generate a completely fresh token with full 1-hour validity
+	// This token will be cached and used for all subsequent operations on this project
+	await generateToken(creatorEmail, true)
+	
+	console.log("✅ Fresh token generated for creator - proceeding with project creation...")
+	
+	// Now create the project using the fresh token
+	// forceVerify=true ensures we use the token we just generated
 	const response = await apiCall(async token => {
 		return fetch(`${env.DOCONCHAIN_API_URL}/api/v2/projects?user_type=ENTERPRISE_API`, {
 			method: "POST",
@@ -61,7 +80,7 @@ export async function createProject({
 			},
 			body: formData,
 		})
-	}, creatorEmail)
+	}, creatorEmail, true) // Force verification to use the fresh token we just generated
 
 	if (!response.ok) {
 		const errorText = await response.text()

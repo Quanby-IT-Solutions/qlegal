@@ -13,6 +13,7 @@ import {
 	getPassportDocument,
 	getProjectDetails,
 	getToken,
+	invalidateToken,
 	normalizeUrl,
 	sendProject,
 } from "@/services/doconchain"
@@ -630,7 +631,7 @@ export const signatureRequestsRouter = createTRPCRouter({
 				console.log("   - Project UUID:", actualProjectUuid)
 				console.log("   - User Email (signer):", email)
 
-				let signingLink: string
+				let signingLink = ""
 
 				// Use project status from earlier check to determine which link type to use
 				if (!actualProjectUuid) {
@@ -723,16 +724,62 @@ export const signatureRequestsRouter = createTRPCRouter({
 					// Generate Edit Draft Project Link (allows plotting/editing/signing in draft)
 					// POST /api/v2/projects/{uuid}/link?user_type=ENTERPRISE_API
 					// Use creator's token to generate the link (token validation handled by apiCall)
+					// CRITICAL: If token expires, retry with a fresh token before falling back
+					let editDraftResult: { link: string } | null = null
+					let editDraftError: unknown = null
+					
+					// First attempt
 					try {
-						const editDraftResult = await generateEditDraftLink(actualProjectUuid, creatorEmail)
+						editDraftResult = await generateEditDraftLink(actualProjectUuid, creatorEmail)
 						signingLink = editDraftResult.link
 						console.log(
 							"✅ Edit Draft Project Link generated successfully (for plotting/signing):",
 							signingLink
 						)
-					} catch (editDraftError) {
-						console.error("❌ Failed to generate Edit Draft Link:", editDraftError)
-						signingLink = `${env.DOCONCHAIN_APP_URL}/${actualProjectUuid}?api=true`
+					} catch (firstError) {
+						editDraftError = firstError
+						console.error("❌ First attempt to generate Edit Draft Link failed:", firstError)
+						
+						// Check if it's a token/auth error - if so, invalidate token and retry once
+						const isAuthError =
+							firstError instanceof Error &&
+							(firstError.message.includes("401") ||
+								firstError.message.includes("Unauthorized") ||
+								firstError.message.includes("expired") ||
+								firstError.message.includes("session"))
+						
+						if (isAuthError) {
+							console.log("🔵 Token/auth error detected - invalidating token and retrying with fresh token...")
+							// Invalidate token to force fresh generation on retry
+							invalidateToken(creatorEmail)
+							
+							// Retry once with fresh token
+							try {
+								editDraftResult = await generateEditDraftLink(actualProjectUuid, creatorEmail)
+								signingLink = editDraftResult.link
+								console.log(
+									"✅ Edit Draft Project Link generated successfully on retry (for plotting/signing):",
+									signingLink
+								)
+							} catch (retryError) {
+								console.error("❌ Retry attempt also failed:", retryError)
+								editDraftError = retryError
+							}
+						}
+					}
+					
+					// If both attempts failed, use fallback - but use link.doconchain.com domain, not stg-app
+					if (!editDraftResult) {
+						console.error("❌ Failed to generate Edit Draft Link after retry:", editDraftError)
+						// CRITICAL: Use link.doconchain.com domain for Edit Draft Links, not stg-app.doconchain.com
+						// Extract short code from project UUID or use project UUID directly
+						// The fallback should still be a valid Edit Draft Link format
+						const linkDomain = env.DOCONCHAIN_API_URL.includes("stg")
+							? "https://link.doconchain.com"
+							: "https://link.doconchain.com"
+						// Note: This fallback won't work without a valid short code, but at least uses correct domain
+						console.warn("⚠️ Using fallback URL with correct domain - this may not work without valid short code")
+						signingLink = `${linkDomain}/${actualProjectUuid}?api=true`
 					}
 				}
 
@@ -743,6 +790,18 @@ export const signatureRequestsRouter = createTRPCRouter({
 					// api_token is REQUIRED for document loading in all signing scenarios
 					try {
 						const url = new URL(signingLink)
+						
+						// CRITICAL: For Edit Draft Links (link.doconchain.com), remove unwanted parameters
+						// Edit Draft Links should ONLY have: api=true and api_token
+						// Remove: token, email, signer_role, page (these are for Sign Links, not Edit Draft Links)
+						if (url.hostname.includes("link.doconchain.com")) {
+							console.log("🔵 Cleaning Edit Draft Link - removing unwanted parameters...")
+							url.searchParams.delete("token") // Remove token parameter (not needed for Edit Draft Links)
+							url.searchParams.delete("email") // Remove email parameter (not needed for Edit Draft Links)
+							url.searchParams.delete("signer_role") // Remove signer_role parameter (not needed for Edit Draft Links)
+							url.searchParams.delete("page") // Remove page parameter (not needed for Edit Draft Links)
+						}
+						
 						// Ensure api=true is set
 						url.searchParams.set("api", "true")
 						
@@ -757,10 +816,14 @@ export const signatureRequestsRouter = createTRPCRouter({
 						
 						// Always add api_token if missing (required for document loading)
 						// Use creator's email (ENP) for token generation as they own the project
+						// CRITICAL: Use the SAME token that was generated during project creation
+						// Don't invalidate/regenerate - use the cached token to ensure consistency
+						// The token was already generated fresh during project creation, so it has maximum validity
 						if (!url.searchParams.has("api_token")) {
-							const apiToken = await getToken(creatorEmail)
+							console.log("🔵 Using cached token for signing link (same token from project creation)...")
+							const apiToken = await getToken(creatorEmail, false) // Use cached token, don't force regeneration
 							url.searchParams.set("api_token", apiToken)
-							console.log("✅ Added api_token to signing link (required for document loading)")
+							console.log("✅ Added api_token to signing link (using token from project creation, required for document loading)")
 						}
 						
 						signingLink = url.toString()
