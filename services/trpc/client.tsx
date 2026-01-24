@@ -38,9 +38,27 @@ export function TRPCProvider(props: Readonly<{ children: React.ReactNode }>) {
 		trpc.createClient({
 			links: [
 				loggerLink({
-					enabled: op =>
-						process.env.NODE_ENV === "development" ||
-						(op.direction === "down" && op.result instanceof Error),
+					enabled: op => {
+						// Don't log in production
+						if (process.env.NODE_ENV !== "development") return false
+						
+						// Don't log expected access errors (FORBIDDEN) for checkSigningStatus
+						// These are normal when principals try to check projects they don't have access to
+						const opWithPath = op as typeof op & { path?: string }
+						if (
+							op.direction === "down" &&
+							op.result instanceof Error &&
+							opWithPath.path === "signatureRequests.checkSigningStatus" &&
+  							(op.result.message.includes("don't have access") ||
+								op.result.message.includes("created by a different user") ||
+								op.result.message.includes("not part of this project"))
+						) {
+							return false
+						}
+						
+						// Log other errors and all operations in development
+						return op.direction === "down" && op.result instanceof Error
+					},
 				}),
 				splitLink({
 					condition: op => op.type === "subscription",

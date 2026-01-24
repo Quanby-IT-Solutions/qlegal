@@ -633,52 +633,8 @@ export const meetingsRouter = createTRPCRouter({
 					})
 				}
 
-				// STEP 1: Create DocoChain project FIRST using Create Project API
-				// This is the PRIMARY upload - the project UUID is critical for identifying the document
-				console.log("🔵 Creating DocoChain project for:", name)
-				console.log("   - Using creator email (meeting creator):", creatorEmail)
-
-				// DocoChain Create Project optional multipart param:
-				// document_stamp (JSON string) - applies seal + notary cert info on completed document
-				const documentStamp = {
-					seal: {
-						type: "seal",
-						enp_name: "Juan Dela Cruz",
-						enp_role_number: "123456",
-					},
-					notary_info: {
-						type: "notary",
-						atty_name: "ATTY. JUAN DELA CRUZ",
-						roll_no: "123456",
-						roll_no_date: "5 June 2018",
-						commission_no: "2024 - 024",
-						commission_no_valid_until: "Dec 31, 2025",
-						PTR_no: "1234567",
-						PTR_no_location: "Manila",
-						PTR_no_date: "Jan 02, 2025",
-						IBP_no: "123456",
-						IBP_no_date: "Dec 18, 2024 (for 2025)",
-						email: "juan.cruz@email.com",
-						address: "123, The Actual Bldg., 1234 Avenue, Malate, Manila",
-						MCLE_no_period: "VIII",
-						MCLE_no: "1234567",
-						MCLE_no_date: "Jun 12, 2024",
-						mode_of_notarization: "REN",
-					},
-				}
-				const docoChainProject = await createProject({
-					title: name,
-					documentFile: fileBuffer,
-					fileName: name.endsWith(".pdf") ? name : `${name}.pdf`,
-					userListEditable: false,
-					creatorAsViewer: false,
-					documentStamp,
-					creatorEmail,
-				})
-				const docoChainProjectId = docoChainProject.uuid
-				const docoChainRedirectUrl = normalizeUrl(docoChainProject.redirectUrl) ?? null
-
-				// STEP 2: Create document record in database with DocoChain project UUID
+				// STEP 1: Create document record in database
+				// DocoChain project will be created later after signers are set
 				const [document] = await db
 					.insert(documents)
 					.values({
@@ -688,7 +644,7 @@ export const meetingsRouter = createTRPCRouter({
 						size,
 						description: input.description ?? null,
 						meetingId,
-						docoChainProjectId: null, // No project yet - will be created when signing starts
+						docoChainProjectId: null, // No project yet - will be created after signers are set
 						docoChainRedirectUrl: null,
 						order: nextOrder, // Set order based on upload sequence
 					})
@@ -808,6 +764,194 @@ export const meetingsRouter = createTRPCRouter({
 			}
 		})
 	}),
+
+	// Create DocoChain project for a document (after signers are set)
+	createDocoChainProject: protectedProcedure
+		.input(
+			z.object({
+				documentId: z.string().min(1),
+				meetingId: z.string().min(1),
+			})
+		)
+		.mutation(async ({ ctx, input }) => {
+			const { documentId, meetingId } = input
+
+			const meeting = await db.query.meetings.findFirst({
+				where: eq(meetings.id, meetingId),
+				with: {
+					participants: {
+						with: {
+							user: {
+								columns: {
+									id: true,
+									email: true,
+									role: true,
+								},
+							},
+						},
+					},
+					documents: {
+						where: eq(documents.id, documentId),
+						with: {
+							signers: { columns: { userId: true } },
+						},
+					},
+					createdBy: {
+						columns: {
+							email: true,
+							role: true,
+						},
+					},
+				},
+			})
+
+			if (!meeting) {
+				throw new TRPCError({ code: "NOT_FOUND", message: "Meeting not found" })
+			}
+
+			const isHost = meeting.createdById === ctx.session.user.id
+			const isAccepted = meeting.participants.some(
+				p => p.userId === ctx.session.user.id && p.status === "ACCEPTED"
+			)
+			if (!isHost && !isAccepted) {
+				throw new TRPCError({ code: "FORBIDDEN", message: "You don't have access to this meeting" })
+			}
+
+			const document = meeting.documents.find(d => d.id === documentId)
+			if (!document) {
+				throw new TRPCError({ code: "NOT_FOUND", message: "Document not found in this meeting" })
+			}
+
+			// Check if project already exists
+			if (document.docoChainProjectId) {
+				throw new TRPCError({
+					code: "BAD_REQUEST",
+					message: "DocoChain project already exists for this document",
+				})
+			}
+
+			// Check if signers are set
+			const signerUserIds = new Set((document.signers ?? []).map(s => s.userId))
+			if (signerUserIds.size === 0) {
+				throw new TRPCError({
+					code: "BAD_REQUEST",
+					message: "Please select at least one signer before creating the project",
+				})
+			}
+
+			// Get creator email (ENP)
+			let creatorEmail: string | undefined
+			if (isEnpRole(meeting.createdBy?.role)) {
+				creatorEmail = asNonEmptyEmail(meeting.createdBy?.email)
+			}
+			if (!creatorEmail) {
+				const enpParticipant = meeting.participants.find(
+					p => isEnpRole(p.user?.role) && !!p.user?.email
+				)
+				creatorEmail = asNonEmptyEmail(enpParticipant?.user?.email)
+			}
+			if (!creatorEmail && isEnpRole(ctx.session.user.role) && ctx.session.user.email) {
+				creatorEmail = asNonEmptyEmail(ctx.session.user.email)
+			}
+
+			if (!creatorEmail) {
+				throw new TRPCError({
+					code: "PRECONDITION_FAILED",
+					message: "ENP email is required for creating DocoChain project",
+				})
+			}
+
+			// Download file from Supabase storage
+			if (!document.path) {
+				throw new TRPCError({
+					code: "BAD_REQUEST",
+					message: "Document file not found in storage. Please re-upload the document.",
+				})
+			}
+
+			const { getServiceRoleClient } = await import("@/services/supabase")
+			const supabase = getServiceRoleClient()
+			const { data: fileData, error: downloadError } = await supabase.storage
+				.from("documents")
+				.download(document.path)
+
+			if (downloadError || !fileData) {
+				throw new TRPCError({
+					code: "INTERNAL_SERVER_ERROR",
+					message: `Failed to download document from storage: ${downloadError?.message ?? "Unknown error"}`,
+				})
+			}
+
+			// Convert Blob to Buffer
+			const arrayBuffer = await fileData.arrayBuffer()
+			const fileBuffer = Buffer.from(arrayBuffer)
+
+			// Create document stamp
+			const documentStamp = {
+				seal: {
+					type: "seal",
+					enp_name: "Juan Dela Cruz",
+					enp_role_number: "123456",
+				},
+				notary_info: {
+					type: "notary",
+					atty_name: "ATTY. JUAN DELA CRUZ",
+					roll_no: "123456",
+					roll_no_date: "5 June 2018",
+					commission_no: "2024 - 024",
+					commission_no_valid_until: "Dec 31, 2025",
+					PTR_no: "1234567",
+					PTR_no_location: "Manila",
+					PTR_no_date: "Jan 02, 2025",
+					IBP_no: "123456",
+					IBP_no_date: "Dec 18, 2024 (for 2025)",
+					email: "juan.cruz@email.com",
+					address: "123, The Actual Bldg., 1234 Avenue, Malate, Manila",
+					MCLE_no_period: "VIII",
+					MCLE_no: "1234567",
+					MCLE_no_date: "Jun 12, 2024",
+					mode_of_notarization: "REN",
+				},
+			}
+
+			console.log("🔵 Creating DocoChain project for document:", document.name)
+			console.log("   - Document ID:", documentId)
+			console.log("   - Creator Email:", creatorEmail)
+			console.log("   - Ensuring token is valid...")
+
+			// Create DocoChain project
+			const docoChainProject = await createProject({
+				title: document.name,
+				documentFile: fileBuffer,
+				fileName: document.name.endsWith(".pdf") ? document.name : `${document.name}.pdf`,
+				userListEditable: false,
+				creatorAsViewer: false,
+				documentStamp,
+				creatorEmail,
+			})
+
+			const docoChainProjectId = docoChainProject.uuid
+			const docoChainRedirectUrl = normalizeUrl(docoChainProject.redirectUrl) ?? null
+
+			// Update document with project UUID
+			await db
+				.update(documents)
+				.set({
+					docoChainProjectId,
+					docoChainRedirectUrl,
+				})
+				.where(eq(documents.id, documentId))
+
+			console.log("✅ DocoChain project created successfully!")
+			console.log("   - Project UUID:", docoChainProjectId)
+			console.log("   - Redirect URL:", docoChainRedirectUrl)
+
+			return {
+				success: true,
+				projectUuid: docoChainProjectId,
+				redirectUrl: docoChainRedirectUrl,
+			}
+		}),
 
 	// Set which meeting participants are signers for a given document (before plotting)
 	setDocumentSigners: protectedProcedure
