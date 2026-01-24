@@ -17,6 +17,7 @@ export const users = createTable("user", t => ({
 	password: t.text(),
 	isTwoFactorEnabled: t.boolean().default(false),
 	phoneNumber: t.varchar({ length: 255 }),
+	address: t.text(), // Principal address for document signing records
 	role: userRoles().default("PRINCIPAL").notNull(),
 	status: userStatus().default("PENDING").notNull(),
 	// KYC Verification fields

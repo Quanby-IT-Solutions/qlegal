@@ -1097,18 +1097,13 @@ export const signatureRequestsRouter = createTRPCRouter({
 
 				// Collect all possible emails that might have access to the project
 				// IMPORTANT: Prefer enterprise/admin tokens first, then ENP participants, then others
+				// NOTE: DOCOCHAIN_EMAIL (org owner) is NOT included - it's not part of the signing process
 				const possibleEmails: (string | undefined)[] = []
 
 				// 1. FIRST: Try undefined (uses static DOCOCHAIN_API_TOKEN if available - has enterprise access)
 				possibleEmails.push(undefined)
 
-				// 2. Add DOCOCHAIN_ADMIN_EMAIL (org admin with access to all projects)
-				const adminEmail = env.DOCONCHAIN_EMAIL?.trim()
-				if (adminEmail) {
-					possibleEmails.push(adminEmail)
-				}
-
-				// 3. Add ENP participants (they have enterprise access)
+				// 2. Add ENP participants (they have enterprise access)
 				if (document.meeting?.participants) {
 					for (const participant of document.meeting.participants) {
 						const user = participant.user as { email: string | null; role: string | null } | null
@@ -1154,11 +1149,6 @@ export const signatureRequestsRouter = createTRPCRouter({
 					}
 				}
 
-				// 5. Add DOCOCHAIN_EMAIL as final fallback (org admin with access to all projects)
-				if (adminEmail && !possibleEmails.includes(adminEmail)) {
-					possibleEmails.push(adminEmail)
-				}
-
 				// Try each email (or undefined for static token) until one works
 				let lastError: Error | null = null
 
@@ -1173,18 +1163,37 @@ export const signatureRequestsRouter = createTRPCRouter({
 					} catch (error) {
 						lastError = error instanceof Error ? error : new Error(String(error))
 						
-						// Only log failures that are unexpected (not "not part of project" errors)
+						// Check if it's a network timeout error
+						const isNetworkError =
+							error instanceof Error &&
+							(error.message.includes("timeout") ||
+								error.message.includes("Timeout") ||
+								error.message.includes("fetch failed") ||
+								error.message.includes("ECONNRESET") ||
+								error.message.includes("ENOTFOUND") ||
+								error.message.includes("ECONNREFUSED") ||
+								(error as { code?: string }).code === "UND_ERR_CONNECT_TIMEOUT")
+						
+						// Only log failures that are unexpected (not "not part of project" errors or network errors)
 						const isExpectedFailure =
 							error instanceof Error &&
 							(error.message.includes("not part of this project") ||
 								error.message.includes("Project not found") ||
 								error.message.includes("not found"))
 						
-						if (!isExpectedFailure) {
+						if (!isExpectedFailure && !isNetworkError) {
 							console.warn(
 								`⚠️ Failed to check status with ${email ?? "static token"}:`,
 								error instanceof Error ? error.message : String(error)
 							)
+						}
+						
+						if (isNetworkError) {
+							console.warn(
+								`⚠️ Network timeout when checking status with ${email ?? "static token"} - will try next email or return error`
+							)
+							// For network errors, try next email (might be a temporary network issue)
+							continue
 						}
 
 						// If it's an access/auth error, try next email

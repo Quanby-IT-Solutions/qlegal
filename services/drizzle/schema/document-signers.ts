@@ -19,6 +19,8 @@ export const documentSigners = createTable(
 			.varchar({ length: 255 })
 			.notNull()
 			.references(() => users.id, { onDelete: "cascade" }),
+		signerName: t.varchar({ length: 255 }), // Principal's name for notarial book
+		signerAddress: t.text(), // Principal's address for notarial book
 		createdAt: t.timestamp({ mode: "date", withTimezone: true }).defaultNow().notNull(),
 	}),
 	t => [
