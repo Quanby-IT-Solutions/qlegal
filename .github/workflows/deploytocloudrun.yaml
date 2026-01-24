@@ -36,6 +36,7 @@ env:
   DOCONCHAIN_CLIENT_KEY: ${{ secrets.DOCONCHAIN_CLIENT_KEY }}
   DOCONCHAIN_CLIENT_SECRET: ${{ secrets.DOCONCHAIN_CLIENT_SECRET }}
   DOCONCHAIN_EMAIL: ${{ secrets.DOCONCHAIN_EMAIL }}
+  DOCONCHAIN_ORG_INVITE_CODE: ${{ secrets.DOCONCHAIN_ORG_INVITE_CODE }}
   DOCONCHAIN_ORGANIZATION_ID: ${{ secrets.DOCONCHAIN_ORGANIZATION_ID }}
 
   # Email Configuration
@@ -131,6 +132,7 @@ jobs:
             --build-arg DOCONCHAIN_CLIENT_KEY="${{ secrets.DOCONCHAIN_CLIENT_KEY }}" \
             --build-arg DOCONCHAIN_CLIENT_SECRET="${{ secrets.DOCONCHAIN_CLIENT_SECRET }}" \
             --build-arg DOCONCHAIN_EMAIL="${{ secrets.DOCONCHAIN_EMAIL }}" \
+            --build-arg DOCONCHAIN_ORG_INVITE_CODE="${{ secrets.DOCONCHAIN_ORG_INVITE_CODE }}" \
             --build-arg DOCONCHAIN_ORGANIZATION_ID="${{ secrets.DOCONCHAIN_ORGANIZATION_ID }}" \
             --build-arg EMAIL_FROM_NAME="${{ vars.EMAIL_FROM_NAME }}" \
             --build-arg EMAIL_FROM="${{ vars.EMAIL_FROM }}" \
@@ -192,6 +194,7 @@ jobs:
             DOCONCHAIN_CLIENT_KEY=${{ secrets.DOCONCHAIN_CLIENT_KEY }}
             DOCONCHAIN_CLIENT_SECRET=${{ secrets.DOCONCHAIN_CLIENT_SECRET }}
             DOCONCHAIN_EMAIL=${{ secrets.DOCONCHAIN_EMAIL }}
+            DOCONCHAIN_ORG_INVITE_CODE=${{ secrets.DOCONCHAIN_ORG_INVITE_CODE }}
             DOCONCHAIN_ORGANIZATION_ID=${{ secrets.DOCONCHAIN_ORGANIZATION_ID }}
             EMAIL_FROM_NAME=${{ vars.EMAIL_FROM_NAME }}
             EMAIL_FROM=${{ vars.EMAIL_FROM }}
