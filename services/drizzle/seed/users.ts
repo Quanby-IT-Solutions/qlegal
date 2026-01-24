@@ -1,7 +1,8 @@
 import { faker } from "@faker-js/faker"
 import { hash } from "bcryptjs"
-import { inArray } from "drizzle-orm"
+import { inArray, not } from "drizzle-orm"
 import { seed } from "drizzle-seed"
+import { table } from "console"
 
 import { db } from "@/services/drizzle/db"
 import { users } from "@/services/drizzle/schema/auth"
@@ -11,6 +12,7 @@ import { generateTestIds, SEED_CONFIG } from "@/services/drizzle/seed/config"
 export async function createUsers() {
 	const hashedPassword = await hash(SEED_CONFIG.defaultPassword, 10)
 
+	// Create test accounts
 	const testAccountIds = generateTestIds(SEED_CONFIG.testAccounts.length, "test")
 	const testAccountData = SEED_CONFIG.testAccounts.map((account, i) => ({
 		id: testAccountIds[i],
@@ -20,7 +22,15 @@ export async function createUsers() {
 		image: account.image,
 		password: hashedPassword,
 		role: account.role,
+		status: account.role === "ENP" ? "PENDING" : ("ACTIVE" as const),
 	}))
+
+	let insertedTestUsers: Array<{
+		id: string
+		email: string | null
+		name: string | null
+		role: "ENP" | "PRINCIPAL" | "ENA" | "ADMIN"
+	}> = []
 
 	if (testAccountData.length > 0) {
 		// Delete existing test accounts by email to avoid conflicts
@@ -28,11 +38,10 @@ export async function createUsers() {
 		await db.delete(users).where(inArray(users.email, testEmails))
 
 		// Insert test accounts
-		await db.insert(users).values(testAccountData)
+		insertedTestUsers = await db.insert(users).values(testAccountData).returning()
 
-		// Create ENP profiles for ENP test accounts
-		const enpUsers = testAccountData.filter(account => account.role === "ENP")
-		console.log(`Creating ENP profiles for ${enpUsers.length} ENP users`)
+		// Create ENP profiles for ENP test accounts (silently)
+		const enpUsers = insertedTestUsers.filter(account => account.role === "ENP")
 
 		if (enpUsers.length > 0) {
 			const enpProfileData = enpUsers
@@ -83,19 +92,24 @@ export async function createUsers() {
 					modeOfNotarization: "REN",
 				}))
 
-			const insertedProfiles = await db.insert(enpProfiles).values(enpProfileData).returning()
-			console.log(`✅ Successfully created ${insertedProfiles.length} ENP profiles`)
-			insertedProfiles.forEach(profile => {
-				console.log(
-					`  - ENP Profile: ${profile.enpName} (${profile.specialization}, rating: ${profile.rating})`
-				)
-			})
+			await db.insert(enpProfiles).values(enpProfileData)
 		}
 	}
 
 	// Create random seeded users
+	let insertedRandomUsers: Array<{
+		id: string
+		email: string | null
+		name: string | null
+		role: "ENP" | "PRINCIPAL" | "ENA" | "ADMIN"
+	}> = []
 	const randomUserCount = SEED_CONFIG.userCount - SEED_CONFIG.testAccounts.length
+
 	if (randomUserCount > 0) {
+		// Delete all existing users except test accounts to avoid duplicate emails
+		const testEmails = SEED_CONFIG.testAccounts.map(account => account.email)
+		await db.delete(users).where(not(inArray(users.email, testEmails)))
+
 		const randomTestIds = generateTestIds(randomUserCount, "test")
 
 		await seed(db, { users }, { count: randomUserCount, seed: SEED_CONFIG.seed }).refine(funcs => ({
@@ -111,8 +125,56 @@ export async function createUsers() {
 					image: funcs.default({ defaultValue: faker.image.avatar() }),
 					password: funcs.default({ defaultValue: hashedPassword }),
 					role: funcs.default({ defaultValue: "PRINCIPAL" }),
+					status: funcs.fromArray({
+						values: ["ACTIVE", "ACTIVE", "ACTIVE", "PENDING"],
+					}),
 				},
 			},
 		}))
+
+		// Fetch the newly created random users
+		insertedRandomUsers = await db
+			.select({
+				id: users.id,
+				email: users.email,
+				name: users.name,
+				role: users.role,
+			})
+			.from(users)
+			.where(inArray(users.id, randomTestIds))
+	}
+
+	// Display seed statistics
+	const allUsers = [...insertedTestUsers, ...insertedRandomUsers]
+	const totalUsers = allUsers.length
+	const roleCounts = allUsers.reduce(
+		(acc, user) => {
+			acc[user.role] = (acc[user.role] ?? 0) + 1
+			return acc
+		},
+		{} as Record<string, number>
+	)
+
+	console.log("\n📊 Seed Statistics")
+	console.log("=" .repeat(60))
+	console.log(`Seed Value:         ${SEED_CONFIG.seed}`)
+	console.log(`Total Users:        ${totalUsers}`)
+	console.log(`  Test Accounts:    ${insertedTestUsers.length}`)
+	console.log(`  Random Users:     ${insertedRandomUsers.length}`)
+	console.log(`\nUsers by Role:`)
+	Object.entries(roleCounts).forEach(([role, count]) => {
+		console.log(`  ${role.padEnd(12)} ${count}`)
+	})
+	console.log("=" .repeat(60))
+
+	// Display user table
+	if (allUsers.length > 0) {
+		console.log("\n👥 Generated Users")
+		console.log("=" .repeat(100))
+		table([
+			["Name", "Email", "Role"],
+			...allUsers.map(user => [user.name, user.email, user.role]),
+		])
+		console.log("=" .repeat(100))
 	}
 }
