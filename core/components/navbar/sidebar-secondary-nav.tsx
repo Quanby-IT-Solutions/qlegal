@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { HugeiconsIcon } from "@hugeicons/react"
 
 import {
 	Tooltip,
@@ -14,8 +15,7 @@ import {
 	SidebarMenuItem,
 	useSidebar,
 } from "@/core/components/animate-ui/components/radix/sidebar"
-import type { NavItem } from "@/core/lib/nav/types"
-import { resolveIcon } from "@/core/lib/nav/utils"
+import type { NavItem, IconSvgObject } from "@/core/lib/nav/types"
 
 type SidebarSecondaryNavProps = {
 	items: NavItem[]
@@ -24,14 +24,23 @@ type SidebarSecondaryNavProps = {
 export const SidebarSecondaryNav = ({ items }: SidebarSecondaryNavProps) => {
 	const { state: sidebarState } = useSidebar()
 
+	// Helper to render icon - handles both React component and HugeIcons IconSvgObject
+	const renderIcon = (icon?: typeof items[0]["icon"]) => {
+		if (!icon) return null
+		// Check if it's a React component (function) or HugeIcons IconSvgObject (array)
+		if (typeof icon === 'function') {
+			const IconComponent = icon as React.ComponentType<React.SVGProps<SVGSVGElement>>
+			return <IconComponent />
+		}
+		// It's a HugeIcons IconSvgObject
+		return <HugeiconsIcon icon={icon as IconSvgObject} size={16} />
+	}
+
 	return (
 		<SidebarGroup className="mt-auto">
 			<SidebarMenu>
 				{items.map((item: NavItem) => {
-					const IconComponent = (
-						resolveIcon as (icon?: string | React.ComponentType) => React.ComponentType | undefined
-					)(item.icon)
-					const hasIcon = IconComponent !== undefined
+					const hasIcon = item.icon !== undefined
 					return (
 						<SidebarMenuItem key={item.title}>
 							{sidebarState === "collapsed" ? (
@@ -39,7 +48,7 @@ export const SidebarSecondaryNav = ({ items }: SidebarSecondaryNavProps) => {
 									<TooltipTrigger asChild>
 										<SidebarMenuButton asChild>
 											<a href={item.url}>
-												{hasIcon && <IconComponent />}
+												{hasIcon && renderIcon(item.icon)}
 												<span>{item.title}</span>
 											</a>
 										</SidebarMenuButton>
@@ -51,7 +60,7 @@ export const SidebarSecondaryNav = ({ items }: SidebarSecondaryNavProps) => {
 							) : (
 								<SidebarMenuButton asChild>
 									<a href={item.url}>
-										{hasIcon && <IconComponent />}
+										{hasIcon && renderIcon(item.icon)}
 										<span>{item.title}</span>
 									</a>
 								</SidebarMenuButton>

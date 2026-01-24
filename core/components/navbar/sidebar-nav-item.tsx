@@ -3,6 +3,7 @@
 import type { Route } from "next"
 import Link from "next/link"
 import { ChevronRight } from "lucide-react"
+import { HugeiconsIcon } from "@hugeicons/react"
 
 import {
 	Tooltip,
@@ -23,7 +24,8 @@ import {
 	CollapsibleTrigger,
 } from "@/core/components/animate-ui/primitives/radix/collapsible"
 import type { NavItem } from "@/core/lib/nav/types"
-import { canAccessNavItem, resolveIcon } from "@/core/lib/nav/utils"
+import { canAccessNavItem } from "@/core/lib/nav/utils"
+import type { IconSvgObject } from "@/core/lib/nav/types"
 
 type SidebarNavItemProps = {
 	item: NavItem
@@ -39,11 +41,20 @@ export const SidebarNavItem = ({ item, userRole }: SidebarNavItemProps) => {
 			canAccessNavItem(subItem.roles, userRole)
 		) ?? []
 
+	// Helper to render icon - handles both React component and HugeIcons IconSvgObject
+	const renderIcon = (icon?: typeof item.icon) => {
+		if (!icon) return null
+		// Check if it's a React component (function) or HugeIcons IconSvgObject (array)
+		if (typeof icon === 'function') {
+			const IconComponent = icon as React.ComponentType<React.SVGProps<SVGSVGElement>>
+			return <IconComponent />
+		}
+		// It's a HugeIcons IconSvgObject
+		return <HugeiconsIcon icon={icon as IconSvgObject} size={16} />
+	}
+
 	// If no sub-items or no accessible sub-items, render as simple link
 	if (!item.items || accessibleSubItems.length === 0) {
-		const IconComponent = (
-			resolveIcon as (icon?: string | React.ComponentType) => React.ComponentType | undefined
-		)(item.icon)
 		return (
 			<SidebarMenuItem>
 				{sidebarState === "collapsed" ? (
@@ -51,7 +62,7 @@ export const SidebarNavItem = ({ item, userRole }: SidebarNavItemProps) => {
 						<TooltipTrigger asChild>
 							<SidebarMenuButton asChild>
 								<Link href={item.url as Route}>
-									{IconComponent && <IconComponent />}
+									{renderIcon(item.icon)}
 									<span>{item.title}</span>
 								</Link>
 							</SidebarMenuButton>
@@ -63,7 +74,7 @@ export const SidebarNavItem = ({ item, userRole }: SidebarNavItemProps) => {
 				) : (
 					<SidebarMenuButton asChild>
 						<Link href={item.url as Route}>
-							{IconComponent && <IconComponent />}
+							{renderIcon(item.icon)}
 							<span>{item.title}</span>
 						</Link>
 					</SidebarMenuButton>
@@ -73,9 +84,6 @@ export const SidebarNavItem = ({ item, userRole }: SidebarNavItemProps) => {
 	}
 
 	// Render as collapsible with sub-items
-	const IconComponent = (
-		resolveIcon as (icon?: string | React.ComponentType) => React.ComponentType | undefined
-	)(item.icon)
 	return (
 		<Collapsible asChild defaultOpen={item.isActive} className="group/collapsible">
 			<SidebarMenuItem>
@@ -84,7 +92,7 @@ export const SidebarNavItem = ({ item, userRole }: SidebarNavItemProps) => {
 						<TooltipTrigger asChild>
 							<CollapsibleTrigger asChild>
 								<SidebarMenuButton>
-									{IconComponent && <IconComponent />}
+									{renderIcon(item.icon)}
 									<span>{item.title}</span>
 									<ChevronRight className="ml-auto transition-transform duration-300 group-data-[state=open]/collapsible:rotate-90" />
 								</SidebarMenuButton>
@@ -97,7 +105,7 @@ export const SidebarNavItem = ({ item, userRole }: SidebarNavItemProps) => {
 				) : (
 					<CollapsibleTrigger asChild>
 						<SidebarMenuButton>
-							{IconComponent && <IconComponent />}
+							{renderIcon(item.icon)}
 							<span>{item.title}</span>
 							<ChevronRight className="ml-auto transition-transform duration-300 group-data-[state=open]/collapsible:rotate-90" />
 						</SidebarMenuButton>

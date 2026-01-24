@@ -1,5 +1,7 @@
 import type { UserRole } from "@/services/drizzle/schema/auth"
 
+export type IconSvgObject = readonly (readonly [string, Record<string, string | number>])[]
+
 // Core role types
 export type NotaryRole = "ENP" | "PRINCIPAL" | "ENA" | "ADMIN"
 
@@ -16,7 +18,7 @@ export interface NavSubItem {
 export interface NavItem {
 	title: string
 	url: string
-	icon?: IconComponentType | string
+	icon?: IconComponentType | IconSvgObject
 	isActive?: boolean
 	roles?: NotaryRole[] | UserRole[]
 	items?: NavSubItem[]

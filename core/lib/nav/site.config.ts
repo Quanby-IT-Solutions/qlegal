@@ -1,42 +1,18 @@
 import {
-	AddIcon,
-	BarChartIcon,
-	BadgeCheckIcon,
-	Bell01Icon,
-	BookIcon,
 	BookOpenIcon,
 	Calendar01Icon,
-	ChevronRight,
-	ChevronsUpDown,
-	ClipboardIcon,
-	Command,
-	CreditCard,
-	EyeIcon,
-	DocumentIcon,
-	FileIcon,
-	FilesIcon,
-	GlobeIcon,
-	Handshake,
-	HomeIcon,
-	LayersIcon,
+	DocumentAttachmentIcon,
 	LifebuoyIcon,
-	LogoutIcon,
-	MailIcon,
-	MessageSquareIcon,
-	MonitorIcon,
-	SignatureIcon,
-	PieChartIcon,
-	PresentationChartIcon,
-	SendIcon,
-	SettingsIcon,
-	ShieldIcon,
-	ShieldCheckIcon,
+	Notification01Icon,
+	SendingOrderIcon,
+	Settings01Icon,
+	ShieldUserIcon,
 	SparklesIcon,
-	UserCheckIcon,
+	UserGroupIcon,
 	UserIcon,
-	Users01Icon,
 	Video01Icon,
-	AudioWaveIcon,
+	CheckmarkBadge01Icon,
+  DashboardSquare02Icon,
 } from "@hugeicons/core-free-icons"
 
 import type { UserRole } from "@/services/drizzle/schema/auth"
@@ -44,63 +20,18 @@ import type { UserRole } from "@/services/drizzle/schema/auth"
 import type { NavItem, NavSection } from "./types"
 
 // Icon mapping for string-based icon references
-export const iconMap = {
-	"house": HomeIcon,
-	"document": DocumentIcon,
-	"mail": MailIcon,
-	"message": MessageSquareIcon,
-	"shield": ShieldIcon,
-	"shield-check": ShieldCheckIcon,
-	"calendar": Calendar01Icon,
-	"clipboard": ClipboardIcon,
-	"bell": Bell01Icon,
-	"users": Users01Icon,
-	"chart": BarChartIcon,
-	"userCheck": UserCheckIcon,
-	"eye": EyeIcon,
-	"layers": LayersIcon,
-	"user": UserIcon,
-	"settings": SettingsIcon,
-	"signature": SignatureIcon,
-	"book": BookIcon,
-	// Additional icons from app-sidebar
-	"pieChart": PieChartIcon,
-	"fileText": FileIcon,
-	"bookOpen": BookOpenIcon,
-	"badgeCheck": BadgeCheckIcon,
-	"monitor": MonitorIcon,
-	"settings2": SettingsIcon,
-	"globe": GlobeIcon,
-	"handshake": Handshake,
-	// Team logos
-	"audioWaveform": AudioWaveIcon,
-	"galleryVerticalEnd": FilesIcon,
-	"command": Command,
-	// User actions
-	"chevronRight": ChevronRight,
-	"chevronsUpDown": ChevronsUpDown,
-	"creditCard": CreditCard,
-	"logOut": LogOutIcon,
-	"plus": AddIcon,
-	"sparkles": SparklesIcon,
-	// Secondary navigation icons
-	"lifeBuoy": LifebuoyIcon,
-	"send": SendIcon,
-} as const
-
-export type IconName = keyof typeof iconMap
 
 // Secondary navigation items
 export const navSecondary: NavItem[] = [
 	{
 		title: "Support",
 		url: "/support",
-		icon: "lifeBuoy",
+		icon: LifebuoyIcon,
 	},
 	{
 		title: "Feedback",
 		url: "/feedback",
-		icon: "send",
+		icon: SendingOrderIcon,
 	},
 ]
 
@@ -111,7 +42,7 @@ export const appSidebarSections: NavSection[] = [
 			{
 				title: "Dashboard",
 				url: "/dashboard",
-				icon: PresentationChartIcon,
+				icon: DashboardSquare02Icon,
 			},
 			{
 				title: "Find & Book",
@@ -134,13 +65,13 @@ export const appSidebarSections: NavSection[] = [
 			{
 				title: "Meetings & Notarization",
 				url: "/meetings",
-				icon: MonitorIcon,
+				icon: DocumentAttachmentIcon,
 				roles: ["ENP", "PRINCIPAL"],
 			},
 			{
 				title: "Documents",
 				url: "/documents",
-				icon: DocumentIcon,
+				icon: DocumentAttachmentIcon,
 				roles: ["ENP", "PRINCIPAL"],
 				items: [
 					{
@@ -174,7 +105,7 @@ export const appSidebarSections: NavSection[] = [
 			{
 				title: "Audit & Compliance",
 				url: "/audit",
-				icon: BadgeCheckIcon,
+				icon: CheckmarkBadge01Icon,
 				roles: ["ENA", "ADMIN"],
 				items: [
 					{
@@ -203,7 +134,7 @@ export const appSidebarSections: NavSection[] = [
 			{
 				title: "Witness Management",
 				url: "/verification/witness",
-				icon: UsersIcon,
+				icon: UserGroupIcon,
 				roles: ["ENP"],
 			},
 		],
@@ -214,7 +145,7 @@ export const appSidebarSections: NavSection[] = [
 			{
 				title: "User Management",
 				url: "/management/users",
-				icon: UsersIcon,
+				icon: UserGroupIcon,
 				roles: ["ENA", "ADMIN"],
 			},
 		],
@@ -225,7 +156,7 @@ export const appSidebarSections: NavSection[] = [
 			{
 				title: "Account Settings",
 				url: "/settings",
-				icon: SettingsIcon,
+				icon: Settings01Icon,
 				roles: ["ENP", "PRINCIPAL", "ENA", "ADMIN"],
 			},
 		],
@@ -236,22 +167,22 @@ const siteUserConfig: NavItem[] = [
 	{
 		title: "Profile",
 		url: "/profile",
-		icon: "user",
+		icon: UserIcon,
 	},
 	{
 		title: "Notifications",
 		url: "/notifications",
-		icon: "bell",
+		icon: Notification01Icon,
 	},
 	{
 		title: "KYC Verification",
 		url: "/kyc",
-		icon: "shield-check",
+		icon: ShieldUserIcon,
 	},
 	{
 		title: "Settings",
 		url: "/settings",
-		icon: "settings",
+		icon: Settings01Icon,
 	},
 ]
 
