@@ -22,6 +22,7 @@ export async function createUsers() {
 		image: account.image,
 		password: hashedPassword,
 		role: account.role,
+		status: account.role === "ENP" ? "PENDING" : ("ACTIVE" as const),
 	}))
 
 	let insertedTestUsers: Array<{
@@ -124,6 +125,9 @@ export async function createUsers() {
 					image: funcs.default({ defaultValue: faker.image.avatar() }),
 					password: funcs.default({ defaultValue: hashedPassword }),
 					role: funcs.default({ defaultValue: "PRINCIPAL" }),
+					status: funcs.fromArray({
+						values: ["ACTIVE", "ACTIVE", "ACTIVE", "PENDING"],
+					}),
 				},
 			},
 		}))
