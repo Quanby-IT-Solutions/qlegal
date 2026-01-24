@@ -41,48 +41,140 @@ export const quickMatchRouter = createTRPCRouter({
 				maxRematches: z.number().int().min(0).max(2).default(2),
 			})
 		)
-		.query(async ({ input }) => {
-			// TODO: Implement scoring logic
-			// 1. Get all available ENPs filtered by:
-			//    - Session mode support (REN/IEN)
-			//    - Service type availability
-			//    - Geolocation (Philippines or embassy)
-			//    - Not opted-out of Quick Match
-			//
-			// 2. For each ENP, calculate score:
-			//    - Rating Score (25%): avg review rating, weighted by recency
-			//    - Speed Score (20%): avg session duration vs expected, response time
-			//    - Experience Score (20%): total sessions completed, years active
-			//    - Specialization Match (15%): if documentType specified, expertise in that area
-			//    - Workload Balance (20%): fewer recent sessions = higher score
-			//
-			// 3. Apply boosts:
-			//    - New ENP (+15%): first 30 days on platform
-			//    - Returning (+10%): was inactive 30+ days, now active for <7 days
-			//    - Rare Specialization (+10%): expertise few others have
-			//
-			// 4. Return top match with score breakdown
+		.query(async ({ ctx, input }) => {
+			// Query available ENPs
+			const conditions = [eq(users.role, "ENP"), eq(enpProfiles.isAvailable, true)]
 
-			void input
+			// Note: Additional filters like sessionMode/serviceType would require extra schema fields
+			// Accept them but do not filter until schema supports it
+
+			const candidates = await ctx.db
+				.select({
+					id: users.id,
+					name: users.name,
+					email: users.email,
+					image: users.image,
+					phoneNumber: users.phoneNumber,
+					specialization: enpProfiles.specialization,
+					bio: enpProfiles.bio,
+					experience: enpProfiles.experience,
+					languages: enpProfiles.languages,
+					responseTime: enpProfiles.responseTime,
+					rating: enpProfiles.rating,
+					reviewCount: enpProfiles.reviewCount,
+					createdAt: enpProfiles.createdAt,
+				})
+				.from(users)
+				.innerJoin(enpProfiles, eq(users.id, enpProfiles.userId))
+				.where(and(...conditions))
+				.orderBy(desc(enpProfiles.rating))
+				.limit(50)
+
+			if (!candidates.length) {
+				return null
+			}
+
+			// Helper: normalize rating 0..5 -> 0..1
+			const normalizeRating = (r?: number | null) => Math.min(Math.max((r ?? 0) / 5, 0), 1)
+
+			// Helper: approximate response speed from text
+			const normalizeResponse = (text?: string | null) => {
+				if (!text) return 0.5
+				const t = text.toLowerCase()
+				if (t.includes("minute")) return 1.0
+				if (t.includes("hour")) return 0.8
+				if (t.includes("day")) return 0.4
+				return 0.6
+			}
+
+			// Helper: specialization match coefficient
+			const specializationMatch = (specialization?: string | null) => {
+				if (!input.documentType) return 0.6 // neutral when not specified
+				const spec = (specialization ?? "").toLowerCase()
+				const doc = input.documentType.toLowerCase()
+				// naive grouping
+				if (doc.includes("real") && spec.includes("real estate")) return 1.0
+				if ((doc.includes("poa") || doc.includes("affidavit")) && spec.includes("affidavit"))
+					return 1.0
+				if (doc.includes("loan") && (spec.includes("business") || spec.includes("contracts")))
+					return 0.9
+				return spec ? 0.6 : 0.5
+			}
+
+			// Compute scores
+			const scored = candidates.map(c => {
+				const ratingNorm = normalizeRating(c.rating)
+				const responseNorm = normalizeResponse(c.responseTime)
+				const reviews = Math.max(c.reviewCount ?? 0, 0)
+				const experienceNorm = Math.min(reviews / 100, 1) // proxy when explicit years absent
+				const specializationNorm = specializationMatch(c.specialization)
+				// Reward less recent workload (proxy using review count inverse)
+				const workloadNorm = 1 - Math.min(reviews / 100, 1)
+
+				const ratingScore = ratingNorm * 25
+				const speedScore = responseNorm * 20
+				const experienceScore = experienceNorm * 20
+				const specializationScore = specializationNorm * 15
+				const workloadScore = workloadNorm * 20
+
+				// Boosts
+				let newENPBoost = 0
+				const returningBoost = 0
+				let specialtyBoost = 0
+				if (c.createdAt) {
+					const days = (Date.now() - new Date(c.createdAt).getTime()) / (1000 * 60 * 60 * 24)
+					if (days <= 30) newENPBoost = 10
+				}
+				if (specializationNorm >= 0.95) specialtyBoost = 5
+
+				const totalScore =
+					ratingScore +
+					speedScore +
+					experienceScore +
+					specializationScore +
+					workloadScore +
+					newENPBoost +
+					returningBoost +
+					specialtyBoost
+
+				const breakdown: ENPScoreBreakdown = {
+					ratingScore,
+					speedScore,
+					experienceScore,
+					specializationScore,
+					workloadScore,
+					newENPBoost,
+					returningBoost,
+					specialtyBoost,
+					totalScore,
+				}
+
+				return {
+					candidate: c,
+					breakdown,
+				}
+			})
+
+			// Select best by score then rating
+			const best = scored.sort((a, b) => {
+				if (b.breakdown.totalScore !== a.breakdown.totalScore) {
+					return b.breakdown.totalScore - a.breakdown.totalScore
+				}
+				return normalizeRating(b.candidate.rating) - normalizeRating(a.candidate.rating)
+			})[0]
+
+			if (!best) return null
 
 			return {
-				enpId: "placeholder",
-				enpName: "Atty. Maria Santos",
-				rating: 4.8,
-				totalSessions: 500,
-				specializations: ["Real Estate", "Business Contracts"],
-				availableTime: "Today 3:00 PM",
-				scoreBreakdown: {
-					ratingScore: 25,
-					speedScore: 20,
-					experienceScore: 20,
-					specializationScore: 15,
-					workloadScore: 20,
-					newENPBoost: 0,
-					returningBoost: 0,
-					specialtyBoost: 0,
-					totalScore: 100,
-				} as ENPScoreBreakdown,
+				enpId: String(best.candidate.id),
+				enpName: best.candidate.name ?? "Electronic Notary Public",
+				rating: best.candidate.rating ?? 0,
+				totalSessions: best.candidate.reviewCount ?? 0, // proxy when explicit session count absent
+				specializations: best.candidate.specialization
+					? [best.candidate.specialization]
+					: ["General"],
+				availableTime: input.preferredTimeWindow ?? "Check availability",
+				scoreBreakdown: best.breakdown,
 			}
 		}),
 

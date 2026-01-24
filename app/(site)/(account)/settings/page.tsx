@@ -1,18 +1,23 @@
 "use client"
 
 import { type Route } from "next"
+import { useSession } from "next-auth/react"
 
 import { SiteNavbar } from "@/core/components/navbar/site-navbar"
 
 import { trpc } from "@/services/trpc/client"
 
 import { AddPasswordCard } from "@/features/settings/components/add-password-card"
+import { AvailabilityToggleCard } from "@/features/settings/components/availability-toggle-card"
 import { ChangePasswordCard } from "@/features/settings/components/change-password-card"
 import { PasswordCardSkeleton } from "@/features/settings/components/password-card-skeleton"
 import { ToggleTwoFACard } from "@/features/settings/components/toggle-two-fa-card"
 
 export default function Page() {
+	const { data: session } = useSession()
 	const { data: userPasswordStatus, isLoading } = trpc.settings.checkUserHasPassword.useQuery()
+
+	const isENP = session?.user?.role === "ENP"
 
 	return (
 		<>
@@ -36,6 +41,12 @@ export default function Page() {
 					)}
 					<div className="h-8" />
 					<ToggleTwoFACard />
+					{isENP && (
+						<>
+							<div className="h-8" />
+							<AvailabilityToggleCard />
+						</>
+					)}
 				</main>
 			</div>
 		</>
