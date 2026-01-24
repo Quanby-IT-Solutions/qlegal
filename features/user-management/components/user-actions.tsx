@@ -140,17 +140,18 @@ export function UserActions({ userId, open, onOpenChange, onSuccess }: UserActio
 						<p className="col-span-4 text-sm text-red-500">{form.formState.errors.email.message}</p>
 					)}
 
-					<div className="grid grid-cols-4 items-center gap-4">
-						<Label htmlFor="role" className="text-right">
-							Role
-						</Label>
-						<Select
+				<div className="grid grid-cols-4 items-center gap-4">
+					<Label htmlFor="role" className="text-right">
+						Role *
+					</Label>
+					<div className="col-span-3">
+						<Select	
 							value={form.watch("role")}
 							onValueChange={value =>
 								form.setValue("role", value as "PRINCIPAL" | "ADMIN" | "ENP" | "ENA")
 							}
 						>
-							<SelectTrigger className="col-span-3">
+							<SelectTrigger id="role" className="w-full">
 								<SelectValue placeholder="Select role" />
 							</SelectTrigger>
 							<SelectContent>
@@ -161,6 +162,7 @@ export function UserActions({ userId, open, onOpenChange, onSuccess }: UserActio
 							</SelectContent>
 						</Select>
 					</div>
+				</div>
 
 					<DialogFooter>
 						<Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
