@@ -633,15 +633,9 @@ const SignerSelector = React.memo(function SignerSelector({
 		[onSignersChange, signerUserIds]
 	)
 
-	// Filter out ENPs - only show principals (ENP always signs, so don't include in assignment)
-	const principalsOnly = useMemo(
-		() => participants.filter(p => p.user?.role?.toUpperCase() !== "ENP"),
-		[participants]
-	)
-
-	const selected = principalsOnly.filter(p => selectedSet.has(p.userId))
+	const selected = participants.filter(p => selectedSet.has(p.userId))
 	const selectedCount = selected.length
-	const totalCount = principalsOnly.length
+	const totalCount = participants.length
 
 	return (
 		<div className="bg-muted/30 mb-3 space-y-1.5 rounded-lg border p-2.5">
@@ -656,7 +650,7 @@ const SignerSelector = React.memo(function SignerSelector({
 				signing.
 			</p>
 			<div className="space-y-1.5">
-				{principalsOnly.map(p => {
+				{participants.map(p => {
 					const checked = selectedSet.has(p.userId)
 					const name = p.user?.name ?? "Unknown"
 					const email = p.user?.email ?? ""
