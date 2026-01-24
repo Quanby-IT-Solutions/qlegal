@@ -13,22 +13,18 @@ import { SidebarNavItem } from "./sidebar-nav-item"
 type SidebarNavSectionProps = {
 	section: NavSection
 	userRole?: string
-	currentWorkflow?: string
 }
 
 export const SidebarNavSection = ({
 	section,
 	userRole,
-	currentWorkflow,
 }: SidebarNavSectionProps) => {
-	// Filter items by role and workflow
+	// Filter items by role
 	const accessibleItems = section.items.filter(item => {
 		// Handle union type: roles can be NotaryRole[] | UserRole[]
 		return canAccessNavItem(
 			item.roles as NotaryRole[] | undefined,
-			userRole,
-			item.workflows,
-			currentWorkflow
+			userRole
 		)
 	})
 
@@ -46,7 +42,6 @@ export const SidebarNavSection = ({
 						key={item.title}
 						item={item}
 						userRole={userRole}
-						currentWorkflow={currentWorkflow}
 					/>
 				))}
 			</SidebarMenu>

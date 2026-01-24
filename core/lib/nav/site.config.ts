@@ -38,12 +38,11 @@ import {
 	UserIcon,
 	UsersIcon,
 	Video,
-	type LucideIcon,
 } from "lucide-react"
 
 import type { UserRole } from "@/services/drizzle/schema/auth"
 
-import type { NavItem, NavSection, Team, WorkflowConfig, WorkflowType } from "./types"
+import type { NavItem, NavSection } from "./types"
 
 // Icon mapping for string-based icon references
 export const iconMap = {
@@ -92,47 +91,6 @@ export const iconMap = {
 
 export type IconName = keyof typeof iconMap
 
-// Workflow configurations
-// Based on Philippine Supreme Court Rules on Electronic Notarization (A.M. No. 24-10-14-SC)
-//
-// REN (Remote Electronic Notarization) Requirements:
-// - Video/audio recording of entire session (mandatory)
-// - Remote identity verification via credential analysis + KBA
-// - Appointment scheduling system for remote coordination
-// - Electronic Notarization Facility (ENF) Provider accreditation
-// - Principals can participate from anywhere (including abroad)
-//
-// IEN (In-Person Electronic Notarization) Requirements:
-// - Physical presence verification
-// - Identity verification via government-issued ID inspection
-// - Document scanning capabilities for physical documents
-// - Witness management for certain document types
-// - No mandatory video recording (optional)
-// - No ENF Provider dependency
-export const workflows: WorkflowConfig[] = [
-	{
-		id: "REN",
-		label: "REN",
-		description: "Remote Electronic Notarization",
-		icon: Globe,
-	},
-	{
-		id: "IEN",
-		label: "IEN",
-		description: "In-Person Electronic Notarization",
-		icon: Handshake,
-	},
-]
-
-// Teams configuration (mock data)
-export const teams: Team[] = [
-	{
-		name: "Quanby Legal",
-		logo: AudioWaveform,
-		plan: "Enterprise",
-	},
-]
-
 // Secondary navigation items
 export const navSecondary: NavItem[] = [
 	{
@@ -147,239 +105,108 @@ export const navSecondary: NavItem[] = [
 	},
 ]
 
-// App sidebar sections configuration
-// Based on Philippine Supreme Court Rules on Electronic Notarization (A.M. No. 24-10-14-SC)
 export const appSidebarSections: NavSection[] = [
 	{
 		label: "Platform",
 		items: [
-			// ============================================================================
-			// DASHBOARD - Universal entry point for all users
-			// ============================================================================
-			// Available to: All authenticated users
-			// Workflows: REN, IEN
-			// Purpose: Main dashboard showing user-specific overview and quick actions
 			{
 				title: "Dashboard",
 				url: "/dashboard",
 				icon: PieChartIcon,
 			},
-
-			// ============================================================================
-			// FIND & BOOK A NOTARY - PRINCIPAL finding and booking ENPs
-			// ============================================================================
-			// Available to: PRINCIPAL only
-			// Workflows: REN, IEN
-			// Purpose: Browse directory, quick match, or message-first with ENP
-			// Features: Search filters, smart matching algorithm, messaging integration
 			{
 				title: "Find & Book",
 				url: "/browse",
 				icon: Sparkles,
 				roles: ["PRINCIPAL"],
-				workflows: ["REN", "IEN"],
 			},
-
-			// ============================================================================
-			// MY CALENDAR (ENP Calendar Management) - REN-specific
-			// ============================================================================
-			// Available to: ENP only
-			// Workflows: REN only
-			// Purpose: ENP manages their remote appointment calendar and availability
-			// Features: Calendar view, availability slots, scheduled remote sessions
-			// Note: IEN doesn't need separate appointment management (walk-in or consultation)
 			{
 				title: "My Calendar",
 				url: "/appointments",
 				icon: CalendarIcon,
 				roles: ["ENP"],
-				workflows: ["REN"],
 			},
 			{
 				title: "Appointment Meeting",
 				url: "/appointments",
 				icon: Video,
 				roles: ["ENP"],
-				workflows: ["REN", "IEN"],
 			},
-
-			// ============================================================================
-			// NOTARIZATION REQUESTS - temporarily hidden (redundant)
-			// Kept commented for potential future use.
-			// ============================================================================
-			// {
-			// 	title: "Notarization Requests",
-			// 	url: "/requests",
-			// 	icon: FileText,
-			// 	roles: ["PRINCIPAL", "ENP"],
-			// 	workflows: ["REN", "IEN"],
-			// 	items: [
-			// 		{
-			// 			title: "New Request",
-			// 			url: "/requests/new",
-			// 			roles: ["PRINCIPAL"],
-			// 			workflows: ["REN", "IEN"],
-			// 		},
-			// 		{
-			// 			title: "My Requests",
-			// 			url: "/requests/my-requests",
-			// 			roles: ["PRINCIPAL"],
-			// 			workflows: ["REN", "IEN"],
-			// 		},
-			// 		{
-			// 			title: "Incoming Requests",
-			// 			url: "/requests/incoming",
-			// 			roles: ["ENP"],
-			// 			workflows: ["REN", "IEN"],
-			// 		},
-			// 	],
-			// },
-
-			// ============================================================================
-			// NOTARIZATIONS - Active and historical notarizations
-			// ============================================================================
-			// Available to: ENP, PRINCIPAL
-			// Workflows: REN, IEN
-			// Purpose: Single hub for active sessions + history
-			// Routes to: /meetings (tabbed) + /notarize/[id]
 			{
 				title: "Meetings & Notarization",
 				url: "/meetings",
 				icon: Monitor,
 				roles: ["ENP", "PRINCIPAL"],
-				workflows: ["REN", "IEN"],
 			},
-
-			// ============================================================================
-			// DOCUMENT MANAGEMENT - All documents and envelopes
-			// ============================================================================
-			// Available to: ENP, PRINCIPAL
-			// Workflows: REN, IEN
-			// Purpose: Manage all documents, envelopes, and templates
-			// Note: Consolidates /envelopes and /documents into one clear section
 			{
 				title: "Documents",
 				url: "/documents",
 				icon: FileText,
 				roles: ["ENP", "PRINCIPAL"],
-				workflows: ["REN", "IEN"],
 				items: [
-					// ENP: Create new document envelope for notarization
 					{
 						title: "Create Envelope",
 						url: "/documents/create",
 						roles: ["ENP"],
-						workflows: ["REN", "IEN"],
 					},
-					// All: View documents pending signature
 					{
 						title: "Pending Signatures",
 						url: "/documents/pending",
 						roles: ["ENP", "PRINCIPAL"],
-						workflows: ["REN", "IEN"],
 					},
-					// All: View completed documents
 					{
 						title: "Completed Documents",
 						url: "/documents/completed",
 						roles: ["ENP", "PRINCIPAL"],
-						workflows: ["REN", "IEN"],
 					},
-					// ENP: Document templates for reuse
 					{
 						title: "Templates",
 						url: "/documents/templates",
 						roles: ["ENP"],
-						workflows: ["REN", "IEN"],
 					},
 				],
 			},
-
-			// ============================================================================
-			// ELECTRONIC NOTARIAL BOOK - ENP's official record book
-			// ============================================================================
-			// Available to: ENP only
-			// Workflows: REN, IEN (both must maintain records)
-			// Purpose: Official electronic notarial register per Supreme Court rules
-			// Features: All notarial acts, chronological entries, search, export
-			// Legal: Required by Philippine Supreme Court Rules (A.M. No. 24-10-14-SC)
 			{
 				title: "Notarial Book",
 				url: "/notarial-book",
 				icon: BookOpen,
 				roles: ["ENP"],
-				workflows: ["REN", "IEN"],
 			},
-
-			// ============================================================================
-			// AUDIT & COMPLIANCE - ENA oversight and monitoring
-			// ============================================================================
-			// Available to: ENA (Electronic Notarization Authority) only
-			// Workflows: REN, IEN
-			// Purpose: ENA monitors compliance, reviews records, generates reports
-			// Legal: ENA oversight per Supreme Court Rules
 			{
 				title: "Audit & Compliance",
 				url: "/audit",
 				icon: BadgeCheck,
 				roles: ["ENA", "ADMIN"],
-				workflows: ["REN", "IEN"],
 				items: [
 					{
 						title: "Notarial Records",
 						url: "/audit/records",
 						roles: ["ENA", "ADMIN"],
-						workflows: ["REN", "IEN"],
 					},
 					{
 						title: "Compliance Reports",
 						url: "/audit/reports",
 						roles: ["ENA", "ADMIN"],
-						workflows: ["REN", "IEN"],
 					},
 					{
 						title: "Violations",
 						url: "/audit/violations",
 						roles: ["ENA", "ADMIN"],
-						workflows: ["REN", "IEN"],
 					},
 				],
 			},
-
-			// ============================================================================
-			// IDENTITY VERIFICATION - IEN-specific in-person ID check
-			// ============================================================================
-			// Available to: ENP only
-			// Workflows: IEN only
-			// Purpose: Verify identity via government-issued ID inspection
-			// Features: ID scanning, comparison, validation checklist, photo capture
-			// Legal: IEN requires physical ID inspection per Supreme Court Rules
-			// Note: REN uses different verification (credential analysis + KBA)
 			{
 				title: "Identity Verification",
 				url: "/verification/identity",
 				icon: UserIcon,
 				roles: ["ENP"],
-				workflows: ["IEN"],
 			},
-
-			// ============================================================================
-			// WITNESS MANAGEMENT - IEN-specific physical witness verification
-			// ============================================================================
-			// Available to: ENP only
-			// Workflows: IEN only
-			// Purpose: Manage witnesses for documents requiring physical witnesses
-			// Features: Witness registration, ID verification, signature capture
-			// Legal: Certain documents require witnesses per Supreme Court Rules
 			{
 				title: "Witness Management",
 				url: "/verification/witness",
 				icon: UsersIcon,
 				roles: ["ENP"],
-				workflows: ["IEN"],
 			},
-
-			// NOTE: Video Meetings + Notarizations are now combined in /meetings (tabbed)
 		],
 	},
 	{
@@ -390,53 +217,22 @@ export const appSidebarSections: NavSection[] = [
 				url: "/management/users",
 				icon: UsersIcon,
 				roles: ["ENA", "ADMIN"],
-				workflows: ["REN", "IEN"],
 			},
 		],
 	},
 	{
 		label: "Settings",
 		items: [
-			// ============================================================================
-			// ACCOUNT SETTINGS - User profile and security management
-			// ============================================================================
-			// Available to: All authenticated users
-			// Workflows: REN, IEN
-			// Purpose: Manage user profile, security settings, and preferences
-			// Features: Profile editing, password change, 2FA, notification preferences
-			// Legal: All users need profile and security management per Supreme Court Rules
 			{
 				title: "Account Settings",
 				url: "/settings",
 				icon: Settings2,
 				roles: ["ENP", "PRINCIPAL", "ENA", "ADMIN"],
-				workflows: ["REN", "IEN"],
 			},
 		],
 	},
 ]
 
-// Helper functions for workflows
-export function getWorkflowConfig(workflowId: WorkflowType): WorkflowConfig | undefined {
-	return workflows.find(workflow => workflow.id === workflowId)
-}
-
-export function getWorkflowLabel(workflowId: WorkflowType): string {
-	const config = getWorkflowConfig(workflowId)
-	return config?.label ?? workflowId
-}
-
-export function getWorkflowDescription(workflowId: WorkflowType): string {
-	const config = getWorkflowConfig(workflowId)
-	return config?.description ?? workflowId
-}
-
-export function getWorkflowIcon(workflowId: WorkflowType): LucideIcon | undefined {
-	const config = getWorkflowConfig(workflowId)
-	return config?.icon
-}
-
-// Site user configuration (for authenticated user dropdown)
 const siteUserConfig: NavItem[] = [
 	{
 		title: "Profile",
@@ -460,7 +256,6 @@ const siteUserConfig: NavItem[] = [
 	},
 ]
 
-// Navigation Filtering Functions for site user
 function isValidUserRole(role: string | null | undefined): role is UserRole {
 	if (!role) {
 		return false
@@ -473,23 +268,12 @@ function filterNavItemsByRole(navItems: NavItem[], userRole?: string | null): Na
 		const roles = item.roles
 		if (!roles || roles.length === 0) return true
 		if (!userRole || !isValidUserRole(userRole)) return false
-		// Handle union type: roles can be NotaryRole[] | UserRole[]
-		// Check if any role in the array matches the user's role
 		return (roles as readonly string[]).includes(userRole)
 	})
 }
 
-// Getter functions for easy access
 export function getAppSidebarSections(): NavSection[] {
 	return appSidebarSections
-}
-
-export function getWorkflows(): WorkflowConfig[] {
-	return workflows
-}
-
-export function getTeams(): Team[] {
-	return teams
 }
 
 export function getSiteUserItems(userRole?: UserRole | null): NavItem[] {

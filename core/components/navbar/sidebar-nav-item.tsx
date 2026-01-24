@@ -28,16 +28,15 @@ import { canAccessNavItem, resolveIcon } from "@/core/lib/nav/utils"
 type SidebarNavItemProps = {
 	item: NavItem
 	userRole?: string
-	currentWorkflow?: string
 }
 
-export const SidebarNavItem = ({ item, userRole, currentWorkflow }: SidebarNavItemProps) => {
+export const SidebarNavItem = ({ item, userRole }: SidebarNavItemProps) => {
 	const { state: sidebarState } = useSidebar()
 
-	// Filter sub-items by role and workflow
+	// Filter sub-items by role
 	const accessibleSubItems =
 		item.items?.filter(subItem =>
-			canAccessNavItem(subItem.roles, userRole, subItem.workflows, currentWorkflow)
+			canAccessNavItem(subItem.roles, userRole)
 		) ?? []
 
 	// If no sub-items or no accessible sub-items, render as simple link
