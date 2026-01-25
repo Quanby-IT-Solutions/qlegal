@@ -73,14 +73,18 @@ const utils = trpc.useUtils()
 		id: request.id,
 		title: request.title,
 		principal: { name: request.principal.name ?? "Unknown" },
-		scheduledDate: request.appointmentId ? new Date(request.appointmentId) : null,
-		createdAt: request.createdAt,
-		status: request.status,
+		scheduledDate: null, // Appointment relation is not loaded in this query
+		createdAt: request.createdAt.toISOString(),
+		status: request.status as "PENDING" | "COMPLETED" | "REJECTED" | "IN_PROGRESS",
 	}))
 
 	const handleEventAdd = (event: CalendarEvent) => {
 		// Calculate duration in minutes
 		const duration = Math.round((event.end.getTime() - event.start.getTime()) / (60 * 1000))
+
+		// Extract time strings (HH:MM format)
+		const startTime = `${event.start.getHours().toString().padStart(2, '0')}:${event.start.getMinutes().toString().padStart(2, '0')}`
+		const endTime = `${event.end.getHours().toString().padStart(2, '0')}:${event.end.getMinutes().toString().padStart(2, '0')}`
 
 		// Determine appointment type based on event type
 		const appointmentType = event.eventType === "notarization" ? "DOCUMENT_SIGNING" : "CONSULTATION"
@@ -92,6 +96,8 @@ const utils = trpc.useUtils()
 			title: event.title.trim(),
 			description: event.description?.trim(),
 			appointmentDate: event.start,
+			startTime,
+			endTime,
 			duration,
 			allDay: event.allDay ?? false,
 			location: event.location?.trim(),
@@ -103,11 +109,18 @@ const utils = trpc.useUtils()
 
 	const handleEventUpdate = (event: CalendarEvent) => {
 		const duration = Math.round((event.end.getTime() - event.start.getTime()) / (60 * 1000))
+
+		// Extract time strings (HH:MM format)
+		const startTime = `${event.start.getHours().toString().padStart(2, '0')}:${event.start.getMinutes().toString().padStart(2, '0')}`
+		const endTime = `${event.end.getHours().toString().padStart(2, '0')}:${event.end.getMinutes().toString().padStart(2, '0')}`
+
 		const appointmentType = event.eventType === "notarization" ? "DOCUMENT_SIGNING" : "CONSULTATION"
 		const workflow = event.mode?.toLowerCase() === "ren" || (!event.location && event.eventType === "consultation") ? "REN" : "IEN"
 
 		updateEnpEvent.mutate({
 			appointmentId: event.id,
+			startTime,
+			endTime,
 			title: event.title?.trim(),
 			description: event.description?.trim(),
 			appointmentDate: event.start,
@@ -129,17 +142,17 @@ const utils = trpc.useUtils()
 		if (!scheduleData) return []
 
 		// Transform ENP appointments to calendar events
-		const myEvents = (scheduleData.myAppointments || []).map(apt => {
+		const myEvents = (scheduleData.myAppointments ?? []).map(apt => {
 			const eventDate = new Date(apt.appointmentDate)
 			return {
 				id: apt.id,
 				title: apt.notes ? apt.notes.split("\n")[0] : "Event",
 				start: eventDate,
 				end: new Date(eventDate.getTime() + (apt.duration || 60) * 60 * 1000),
-				allDay: false,
-				color: apt.type === "CONSULTATION" ? "sky" : "emerald",
-				location: apt.location || undefined,
-				recurrence: undefined,
+			allDay: false,
+			color: apt.type === "CONSULTATION" ? "sky" : "emerald",
+			location: apt.location ?? undefined,
+			recurrence: undefined,
 				eventType: apt.type === "CONSULTATION" ? "consultation" : "notarization",
 				mode: undefined,
 				metadata: {
