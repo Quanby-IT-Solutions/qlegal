@@ -25,7 +25,7 @@ export const enpProfiles = createTable(
 		responseTime: t.varchar({ length: 255 }), // e.g., "Within 2 hours"
 		rating: t.real().default(0), // Average rating
 		reviewCount: t.integer().default(0), // Total number of reviews
-		commission: t.real().default(0), // Commission rate for the ENP
+		commission: t.real().default(0), // Commission rate for ENP
 		isAvailable: t.boolean().default(true), // Whether accepting new consultations
 
 		// --- Notary Seal Info ---
@@ -60,6 +60,7 @@ export const enpProfiles = createTable(
 	t => [index("enp_profile_user_id_idx").on(t.userId)]
 ).enableRLS()
 
+
 export const enpAvailability = createTable("enp_availability", t => ({
 	id: t
 		.varchar({ length: 255 })
@@ -69,9 +70,13 @@ export const enpAvailability = createTable("enp_availability", t => ({
 		.varchar({ length: 255 })
 		.notNull()
 		.references(() => users.id, { onDelete: "cascade" }),
-	dayOfWeek: t.integer().notNull(), // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+	type: t.varchar({ length: 50 }).notNull().default('REGULAR'), // 'REGULAR' = weekly recurring availability, 'BLOCKED' = one-time blocked slot, 'CUSTOM' = one-time availability override, 'RECURRING_BLOCKED' = recurring blocked time slots
+	date: t.date(), // For BLOCKED and CUSTOM types (null for REGULAR and RECURRING_BLOCKED)
+	dayOfWeek: t.integer(), // 0 = Sunday, 1 = Monday, ..., 6 = Saturday (required for REGULAR and RECURRING_BLOCKED)
 	startTime: t.varchar({ length: 5 }).notNull(), // e.g., "09:00"
 	endTime: t.varchar({ length: 5 }).notNull(), // e.g., "17:00"
+	reason: t.text(), // Optional reason for blocked slot
+	isAllDays: t.boolean().default(false), // For RECURRING_BLOCKED - applies to all 7 days of week if true
 	isAvailable: t.boolean().default(true),
 	createdAt: t.timestamp({ mode: "date", withTimezone: true }).defaultNow().notNull(),
 	updatedAt: t
