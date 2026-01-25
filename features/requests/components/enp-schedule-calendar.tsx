@@ -95,7 +95,7 @@ export function EnpScheduleCalendar({ selectedDay, onDayClick, onBlockTimeClick 
 						className="flex items-center gap-2 rounded-md border bg-destructive px-4 py-2 text-destructive hover:bg-destructive/90 transition-colors"
 						type="button"
 					>
-						<CalendarIcon className="h-4 w-4" />
+						<CalendarIcon className="size-4" />
 						<span className="font-medium">Block Time</span>
 					</button>
 				</div>

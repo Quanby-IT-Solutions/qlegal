@@ -104,7 +104,7 @@ export function BlockTimeModal({ isOpen, onClose, onSave }: BlockTimeModalProps)
 			<DialogContent className="max-w-2xl">
 				<DialogHeader>
 					<DialogTitle className="flex items-center gap-2">
-						<Calendar className="h-5 w-5" />
+						<Calendar className="size-5" />
 						Block Time Slot
 					</DialogTitle>
 					<DialogDescription>

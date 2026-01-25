@@ -5,8 +5,8 @@ import { CalendarIcon, Clock, X } from "lucide-react"
 export function ScheduleLegend() {
 	return (
 		<div className="flex flex-wrap items-center gap-4 rounded-lg border bg-card p-4">
-			<div className="flex items-center gap-2">
-				<CalendarIcon className="h-4 w-4 text-muted-foreground" />
+		<div className="flex items-center gap-2">
+			<CalendarIcon className="size-4 text-muted-foreground" />
 				<span className="text-sm font-medium">Calendar View</span>
 			</div>
 
@@ -29,7 +29,7 @@ export function ScheduleLegend() {
 				</div>
 
 				<div className="flex items-center gap-2">
-					<Clock className="h-4 w-4 text-blue-500" />
+					<Clock className="size-4 text-blue-500" />
 					<span className="text-sm">Incoming Request</span>
 				</div>
 			</div>
@@ -38,7 +38,7 @@ export function ScheduleLegend() {
 
 			<div className="flex items-center gap-2 text-xs text-muted-foreground">
 				<div className="flex items-center gap-1">
-					<CalendarIcon className="h-3 w-3" />
+					<CalendarIcon className="size-3" />
 					<span>Click day to view details or block time</span>
 				</div>
 				<div className="flex items-center gap-1">
