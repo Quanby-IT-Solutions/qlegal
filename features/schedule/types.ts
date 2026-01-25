@@ -11,6 +11,13 @@ export type RecurrenceType =
 
 export type EventColor = "sky" | "amber" | "violet" | "rose" | "emerald" | "orange"
 
+export interface CalendarEventMetadata {
+	type?: string
+	status?: string
+	roomId?: string
+	timezone?: string
+}
+
 export interface CalendarEvent {
 	id: string
 	title: string
@@ -23,13 +30,7 @@ export interface CalendarEvent {
 	recurrence?: RecurrenceType
 	eventType?: "consultation" | "notarization"
 	mode?: "ren" | "ien"
-	metadata?: {
-		type?: string
-		status?: string
-		roomId?: string
-		timezone?: string
-		[key: string]: any
-	}
+	metadata?: CalendarEventMetadata
 }
 
 export interface BlockTime {

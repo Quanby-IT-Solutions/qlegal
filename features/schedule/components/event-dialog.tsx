@@ -17,7 +17,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/core/components/ui/po
 import { Calendar } from "@/core/components/ui/calendar"
 import { TimeWheelPicker } from "@/features/schedule/components/time-wheel-picker"
 
-import type { CalendarEvent } from "@/features/schedule/types"
+import type { CalendarEvent, CalendarEventMetadata } from "@/features/schedule/types"
 import { eventDialogSchema, type EventDialogSchema } from "./event-dialog.schema"
 
 const TIMEZONES = [
@@ -73,36 +73,36 @@ export function EventDialog({
 }: EventDialogProps) {
 	const [dateRangeOpen, setDateRangeOpen] = useState(false)
 
+	const defaultValues: EventDialogSchema = {
+		title: event?.title ?? "",
+		description: event?.description ?? "",
+		allDay: event?.allDay ?? false,
+		dateRange: {
+			from: event?.start ?? new Date(),
+			to: event?.end ?? new Date(),
+		},
+		startHour: "09",
+		startMinute: "00",
+		startPeriod: "am",
+		endHour: "10",
+		endMinute: "00",
+		endPeriod: "am",
+		timezone: event?.metadata?.timezone ?? "UTC",
+		color: event?.color ?? "sky",
+		recurrence: event?.recurrence ?? "does-not-repeat",
+		eventType: event?.eventType ?? "consultation",
+		mode: event?.mode,
+		location: event?.location ?? "",
+		roomId: event?.metadata?.roomId ?? undefined,
+	}
+
 	const form = useForm<EventDialogSchema>({
 		resolver: zodResolver(eventDialogSchema),
-		defaultValues: {
-			title: "",
-			description: "",
-			allDay: false,
-			dateRange: {
-				from: new Date(),
-				to: new Date(),
-			},
-			startHour: "09",
-			startMinute: "00",
-			startPeriod: "am",
-			endHour: "10",
-			endMinute: "00",
-			endPeriod: "am",
-			timezone: "UTC",
-			color: "sky",
-			recurrence: "does-not-repeat",
-			eventType: "consultation",
-			mode: undefined,
-			location: "",
-		},
+		defaultValues,
 	})
 
 	const watchAllDay = form.watch("allDay")
 	const watchEventType = form.watch("eventType")
-	const watchMode = form.watch("mode")
-
-	const ROOM_ID_PREFIX = "room-"
 
 	const handleSave = (values: EventDialogSchema) => {
 		let start: Date
@@ -114,24 +114,37 @@ export function EventDialog({
 			end = new Date(values.dateRange.to)
 			end.setHours(23, 59, 59, 999)
 		} else {
+			// Ensure time fields are defined (guaranteed by schema validation)
+			const startHour = values.startHour ?? "09"
+			const startMinute = values.startMinute ?? "00"
+			const startPeriod = values.startPeriod ?? "am"
+			const endHour = values.endHour ?? "10"
+			const endMinute = values.endMinute ?? "00"
+			const endPeriod = values.endPeriod ?? "am"
+
 			start = constructDate(
 				values.dateRange.from,
-				values.startHour!,
-				values.startMinute!,
-				values.startPeriod!
+				startHour,
+				startMinute,
+				startPeriod
 			)
 			end = constructDate(
 				values.dateRange.to,
-				values.endHour!,
-				values.endMinute!,
-				values.endPeriod!
+				endHour,
+				endMinute,
+				endPeriod
 			)
 		}
 
 		const isNewEvent = !event?.id
 		const roomId = isNewEvent
-			? `${ROOM_ID_PREFIX}${Date.now()}-${Math.random().toString(36).substring(2, 9)}`
-			: undefined
+			? `room-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`
+			: values.roomId ?? event?.metadata?.roomId
+
+		const metadata: CalendarEventMetadata = {
+			timezone: values.timezone,
+			...(roomId && { roomId }),
+		}
 
 		const updatedEvent: CalendarEvent = {
 			id: event?.id ?? "",
@@ -145,20 +158,15 @@ export function EventDialog({
 			recurrence: values.recurrence,
 			eventType: values.eventType,
 			mode: values.mode,
-			metadata: {
-				...event?.metadata,
-				timezone: values.timezone,
-				...(isNewEvent && roomId && { roomId }),
-			},
+			metadata,
 		}
 
 		onSave(updatedEvent)
+		onClose()
 	}
 
 	const handleDelete = () => {
-		if (event?.id && onDelete) {
-			onDelete(event.id)
-		}
+		if (event?.id && onDelete) onDelete(event.id)
 		onClose()
 	}
 
@@ -280,104 +288,104 @@ export function EventDialog({
 						{!watchAllDay && (
 							<div className="space-y-4">
 								<div className="grid grid-cols-[1fr_1fr_auto] items-center gap-4">
-									<div>
-										<FormLabel>Start Time</FormLabel>
-										<FormField
-											control={form.control}
-											name="startHour"
-											render={({ field }) => (
-												<FormItem>
-													<FormControl>
-														<Input type="hidden" {...field} />
-													</FormControl>
-												</FormItem>
-											)}
-										/>
-										<FormField
-											control={form.control}
-											name="startMinute"
-											render={({ field }) => (
-												<FormItem>
-													<FormControl>
-														<Input type="hidden" {...field} />
-													</FormControl>
-												</FormItem>
-											)}
-										/>
-										<FormField
-											control={form.control}
-											name="startPeriod"
-											render={({ field }) => (
-												<FormItem>
-													<FormControl>
-														<Input type="hidden" {...field} />
-													</FormControl>
-												</FormItem>
-											)}
-										/>
-										<TimeWheelPicker
-											hour={form.watch("startHour") ?? "09"}
-											minute={form.watch("startMinute") ?? "00"}
-											period={form.watch("startPeriod") ?? "am"}
-											onHourChange={(value: string) => form.setValue("startHour", value)}
-											onMinuteChange={(value: string) => form.setValue("startMinute", value)}
-											onPeriodChange={(value: "am" | "pm") => form.setValue("startPeriod", value)}
-										/>
-									</div>
+									<FormField
+										control={form.control}
+										name="startHour"
+										render={({ field }) => (
+											<FormItem>
+												<FormLabel>Start Time</FormLabel>
+												<FormControl>
+													<div className="space-y-2">
+														<FormField
+															control={form.control}
+															name="startMinute"
+															render={({ field: minuteField }) => (
+																<FormItem>
+																	<FormControl>
+																		<Input type="hidden" {...minuteField} />
+																	</FormControl>
+																</FormItem>
+															)}
+														/>
+														<FormField
+															control={form.control}
+															name="startPeriod"
+															render={({ field: periodField }) => (
+																<FormItem>
+																	<FormControl>
+																		<Input type="hidden" {...periodField} />
+																	</FormControl>
+																</FormItem>
+															)}
+														/>
+														<TimeWheelPicker
+															hour={field.value ?? "09"}
+															minute={form.watch("startMinute") ?? "00"}
+															period={form.watch("startPeriod") ?? "am"}
+															onHourChange={field.onChange}
+															onMinuteChange={value => form.setValue("startMinute", value)}
+															onPeriodChange={value => form.setValue("startPeriod", value)}
+														/>
+													</div>
+												</FormControl>
+												<FormMessage />
+											</FormItem>
+										)}
+									/>
 
-									<div>
-										<FormLabel>End Time</FormLabel>
-										<FormField
-											control={form.control}
-											name="endHour"
-											render={({ field }) => (
-												<FormItem>
-													<FormControl>
-														<Input type="hidden" {...field} />
-													</FormControl>
-												</FormItem>
-											)}
-										/>
-										<FormField
-											control={form.control}
-											name="endMinute"
-											render={({ field }) => (
-												<FormItem>
-													<FormControl>
-														<Input type="hidden" {...field} />
-													</FormControl>
-												</FormItem>
-											)}
-										/>
-										<FormField
-											control={form.control}
-											name="endPeriod"
-											render={({ field }) => (
-												<FormItem>
-													<FormControl>
-														<Input type="hidden" {...field} />
-													</FormControl>
-												</FormItem>
-											)}
-										/>
-										<TimeWheelPicker
-											hour={form.watch("endHour") ?? "10"}
-											minute={form.watch("endMinute") ?? "00"}
-											period={form.watch("endPeriod") ?? "am"}
-											onHourChange={(value: string) => form.setValue("endHour", value)}
-											onMinuteChange={(value: string) => form.setValue("endMinute", value)}
-											onPeriodChange={(value: "am" | "pm") => form.setValue("endPeriod", value)}
-										/>
-									</div>
+									<FormField
+										control={form.control}
+										name="endHour"
+										render={({ field }) => (
+											<FormItem>
+												<FormLabel>End Time</FormLabel>
+												<FormControl>
+													<div className="space-y-2">
+														<FormField
+															control={form.control}
+															name="endMinute"
+															render={({ field: minuteField }) => (
+																<FormItem>
+																	<FormControl>
+																		<Input type="hidden" {...minuteField} />
+																	</FormControl>
+																</FormItem>
+															)}
+														/>
+														<FormField
+															control={form.control}
+															name="endPeriod"
+															render={({ field: periodField }) => (
+																<FormItem>
+																	<FormControl>
+																		<Input type="hidden" {...periodField} />
+																	</FormControl>
+																</FormItem>
+															)}
+														/>
+														<TimeWheelPicker
+															hour={field.value ?? "10"}
+															minute={form.watch("endMinute") ?? "00"}
+															period={form.watch("endPeriod") ?? "am"}
+															onHourChange={field.onChange}
+															onMinuteChange={value => form.setValue("endMinute", value)}
+															onPeriodChange={value => form.setValue("endPeriod", value)}
+														/>
+													</div>
+												</FormControl>
+												<FormMessage />
+											</FormItem>
+										)}
+									/>
 
-									{/* Timezone - Below time pickers */}
+									{/* Timezone */}
 									<FormField
 										control={form.control}
 										name="timezone"
 										render={({ field }) => (
 											<FormItem>
 												<FormLabel>Timezone</FormLabel>
-												<Select onValueChange={(value: string) => field.onChange(value)} defaultValue={field.value}>
+												<Select onValueChange={field.onChange} defaultValue={field.value}>
 													<FormControl>
 														<SelectTrigger>
 															<SelectValue />
@@ -406,7 +414,7 @@ export function EventDialog({
 							render={({ field }) => (
 								<FormItem>
 									<FormLabel>Event Type</FormLabel>
-									<Select onValueChange={(value: string) => field.onChange(value)} defaultValue={field.value}>
+									<Select onValueChange={field.onChange} defaultValue={field.value}>
 										<FormControl>
 											<SelectTrigger>
 												<SelectValue />
@@ -431,7 +439,7 @@ export function EventDialog({
 									<FormItem>
 										<FormLabel>Mode</FormLabel>
 										<Select
-											onValueChange={value => field.onChange(value as "ren" | "ien")}
+											onValueChange={field.onChange}
 											defaultValue={field.value}
 										>
 											<FormControl>
@@ -451,7 +459,7 @@ export function EventDialog({
 						)}
 
 						{/* Location - Only for IEN mode */}
-						{watchMode === "ien" && (
+						{watchEventType === "notarization" && form.watch("mode") === "ien" && (
 							<FormField
 								control={form.control}
 								name="location"

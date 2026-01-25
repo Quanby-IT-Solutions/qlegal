@@ -23,6 +23,8 @@ export const eventDialogSchema = z
 		eventType: z.enum(["consultation", "notarization"]),
 		mode: z.enum(["ren", "ien"]).optional(),
 		location: z.string().optional().or(z.literal("")),
+		// Metadata
+		roomId: z.string().optional(),
 	})
 	.refine(data => {
 		// If not all day, time fields are required
