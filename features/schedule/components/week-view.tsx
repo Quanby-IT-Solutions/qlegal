@@ -1,11 +1,11 @@
 "use client"
 
 import { useMemo } from "react"
-import { addDays, endOfWeek, format, isSameWeek, startOfDay, startOfWeek } from "date-fns"
+import { addDays, format, isSameWeek, startOfDay, startOfWeek } from "date-fns"
 
 import type { CalendarEvent } from "../types"
 import { EventItem } from "./event-item"
-import { DefaultStartHour, EventGap, WeekCellsHeight } from "../constants"
+import {  WeekCellsHeight } from "../constants"
 
 interface WeekViewProps {
 	currentDate: Date
@@ -70,9 +70,9 @@ export function WeekView({ currentDate, events, onEventSelect, onEventCreate }: 
 									className="border-r p-0 text-left transition hover:bg-muted/50"
 									onClick={() => onEventCreate(hourStart)}
 								>
-									<div className="flex flex-col gap-[var(--event-gap)] p-1">
+									<div className="flex flex-col gap-(--event-gap) p-1">
 										{dayEvents.map((event) => (
-											<EventItem key={event.id} event={event} view="week" onClick={handleEventClick} showTime />
+											<EventItem key={event.id} event={event} view="week" onClick={() => handleEventClick(event)} showTime />
 										))}
 									</div>
 								</button>
