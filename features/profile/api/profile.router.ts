@@ -142,13 +142,9 @@ export const profileRouter = createTRPCRouter({
 	updateEnpProfile: protectedProcedure
 		.input(enpProfileSchema)
 		.mutation(async ({ ctx, input }) => {
-			const enpProfile = await ctx.db.query.enpProfiles.findFirst({
+			const existingProfile = await ctx.db.query.enpProfiles.findFirst({
 				where: eq(enpProfiles.userId, ctx.session.user.id),
 			})
-
-			if (!enpProfile) {
-				throw new Error("ENP profile not found")
-			}
 
 			const normalizeString = (value: string | undefined): string | null => {
 				if (value === undefined) return null
@@ -156,29 +152,38 @@ export const profileRouter = createTRPCRouter({
 				return trimmed === "" ? null : trimmed
 			}
 
-			await ctx.db
-				.update(enpProfiles)
-				.set({
-					enpName: normalizeString(input.enpName),
-					enpRoleNumber: normalizeString(input.enpRoleNumber),
-					rollNo: normalizeString(input.rollNo),
-					rollNoDate: normalizeString(input.rollNoDate),
-					attyName: normalizeString(input.attyName),
-					commissionNo: normalizeString(input.commissionNo),
-					commissionNoValidUntil: normalizeString(input.commissionNoValidUntil),
-					ptrNo: normalizeString(input.ptrNo),
-					ptrNoLocation: normalizeString(input.ptrNoLocation),
-					ptrNoDate: normalizeString(input.ptrNoDate),
-					ibpNo: normalizeString(input.ibpNo),
-					ibpNoDate: normalizeString(input.ibpNoDate),
-					notaryEmail: normalizeString(input.notaryEmail),
-					notaryAddress: normalizeString(input.notaryAddress),
-					mcleNoPeriod: normalizeString(input.mcleNoPeriod),
-					mcleNo: normalizeString(input.mcleNo),
-					mcleNoDate: normalizeString(input.mcleNoDate),
-					modeOfNotarization: normalizeString(input.modeOfNotarization),
+			const profileData = {
+				enpName: normalizeString(input.enpName),
+				enpRoleNumber: normalizeString(input.enpRoleNumber),
+				rollNo: normalizeString(input.rollNo),
+				rollNoDate: normalizeString(input.rollNoDate),
+				attyName: normalizeString(input.attyName),
+				commissionNo: normalizeString(input.commissionNo),
+				commissionNoValidUntil: normalizeString(input.commissionNoValidUntil),
+				ptrNo: normalizeString(input.ptrNo),
+				ptrNoLocation: normalizeString(input.ptrNoLocation),
+				ptrNoDate: normalizeString(input.ptrNoDate),
+				ibpNo: normalizeString(input.ibpNo),
+				ibpNoDate: normalizeString(input.ibpNoDate),
+				notaryEmail: normalizeString(input.notaryEmail),
+				notaryAddress: normalizeString(input.notaryAddress),
+				mcleNoPeriod: normalizeString(input.mcleNoPeriod),
+				mcleNo: normalizeString(input.mcleNo),
+				mcleNoDate: normalizeString(input.mcleNoDate),
+				modeOfNotarization: normalizeString(input.modeOfNotarization),
+			}
+
+			if (existingProfile) {
+				await ctx.db
+					.update(enpProfiles)
+					.set(profileData)
+					.where(eq(enpProfiles.userId, ctx.session.user.id))
+			} else {
+				await ctx.db.insert(enpProfiles).values({
+					userId: ctx.session.user.id,
+					...profileData,
 				})
-				.where(eq(enpProfiles.userId, ctx.session.user.id))
+			}
 
 			return { message: "ENP profile updated successfully" }
 		}),
