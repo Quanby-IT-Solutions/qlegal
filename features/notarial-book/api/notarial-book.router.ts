@@ -269,7 +269,7 @@ export const notarialBookRouter = createTRPCRouter({
 							},
 						})
 
-						let principal: { name: string; signedAt?: string; idNumber?: string } | undefined
+						let principals: Array<{ name: string; signedAt?: string; idNumber?: string }> = []
 						let witness: { name: string; signedAt?: string } | undefined
 						let allSigners: Array<{ name: string; email: string; role: string; signedAt?: string; idNumber?: string }> = []
 
@@ -319,19 +319,31 @@ export const notarialBookRouter = createTRPCRouter({
 								})
 							}
 
-							// Identify principal (non-ENP, non-NOTARY signer)
-							principal = allSigners.find(s => {
-								const roleUpper = s.role.toUpperCase()
-								return (
-									!roleUpper.includes("ENP") &&
-									!roleUpper.includes("NOTARY") &&
-									!roleUpper.includes("WITNESS")
-								)
-							})
+							// Identify ALL principals (non-ENP, non-NOTARY, non-WITNESS signers)
+							principals = allSigners
+								.filter(s => {
+									const roleUpper = s.role.toUpperCase()
+									return (
+										!roleUpper.includes("ENP") &&
+										!roleUpper.includes("NOTARY") &&
+										!roleUpper.includes("WITNESS")
+									)
+								})
+								.map(s => ({
+									name: s.name,
+									signedAt: s.signedAt,
+									idNumber: s.idNumber,
+								}))
 
-							// If no principal found, use first signer
-							if (!principal && allSigners.length > 0) {
-								principal = allSigners[0]
+							// If no principals found, use first signer as fallback
+							if (principals.length === 0 && allSigners.length > 0 && allSigners[0]) {
+								principals = [
+									{
+										name: allSigners[0].name,
+										signedAt: allSigners[0].signedAt,
+										idNumber: allSigners[0].idNumber,
+									},
+								]
 							}
 
 							// Identify witness
@@ -359,19 +371,31 @@ export const notarialBookRouter = createTRPCRouter({
 								})
 							}
 
-							// Identify principal (non-ENP, non-NOTARY signer)
-							principal = allSigners.find(s => {
-								const roleUpper = s.role.toUpperCase()
-								return (
-									!roleUpper.includes("ENP") &&
-									!roleUpper.includes("NOTARY") &&
-									!roleUpper.includes("WITNESS")
-								)
-							})
+							// Identify ALL principals (non-ENP, non-NOTARY, non-WITNESS signers)
+							principals = allSigners
+								.filter(s => {
+									const roleUpper = s.role.toUpperCase()
+									return (
+										!roleUpper.includes("ENP") &&
+										!roleUpper.includes("NOTARY") &&
+										!roleUpper.includes("WITNESS")
+									)
+								})
+								.map(s => ({
+									name: s.name,
+									signedAt: s.signedAt,
+									idNumber: s.idNumber,
+								}))
 
-							// If no principal found, use first signer
-							if (!principal && allSigners.length > 0) {
-								principal = allSigners[0]
+							// If no principals found, use first signer as fallback
+							if (principals.length === 0 && allSigners.length > 0 && allSigners[0]) {
+								principals = [
+									{
+										name: allSigners[0].name,
+										signedAt: allSigners[0].signedAt,
+										idNumber: allSigners[0].idNumber,
+									},
+								]
 							}
 
 							// Identify witness
@@ -386,9 +410,33 @@ export const notarialBookRouter = createTRPCRouter({
 								const passportSigners = extractSignerInfo(passportData)
 								if (passportSigners.allSigners.length > 0) {
 									allSigners = passportSigners.allSigners
-									principal = passportSigners.principal
+									// Extract all principals from passport data
+									principals = allSigners
+										.filter(s => {
+											const roleUpper = s.role.toUpperCase()
+											return (
+												!roleUpper.includes("ENP") &&
+												!roleUpper.includes("NOTARY") &&
+												!roleUpper.includes("WITNESS")
+											)
+										})
+										.map(s => ({
+											name: s.name,
+											signedAt: s.signedAt,
+											idNumber: s.idNumber,
+										}))
+									// Fallback to single principal if available
+									if (principals.length === 0 && passportSigners.principal) {
+										principals = [
+											{
+												name: passportSigners.principal.name,
+												signedAt: passportSigners.principal.signedAt,
+												idNumber: passportSigners.principal.idNumber,
+											},
+										]
+									}
 									witness = passportSigners.witness
-									console.log(`✅ Found ${allSigners.length} signer(s) from passport data`)
+									console.log(`✅ Found ${allSigners.length} signer(s) from passport data, ${principals.length} principal(s)`)
 								}
 							} catch (error) {
 								console.warn(`⚠️ Could not fetch passport data for ${projectUuid}:`, error)
@@ -398,8 +446,13 @@ export const notarialBookRouter = createTRPCRouter({
 
 						// Determine executedAt timestamp (priority: signer's signed_at > completed_at > created_at)
 						let executedAt = new Date(project.created_at)
-						if (principal?.signedAt) {
-							executedAt = new Date(principal.signedAt)
+						// Use the earliest principal's signed_at if available
+						const principalWithTimestamp = principals
+							.filter(p => p.signedAt)
+							.map(p => ({ signedAt: p.signedAt!, timestamp: new Date(p.signedAt!).getTime() }))
+							.sort((a, b) => a.timestamp - b.timestamp)[0]
+						if (principalWithTimestamp) {
+							executedAt = new Date(principalWithTimestamp.signedAt)
 						} else if (allSigners && allSigners.length > 0) {
 							const signersWithTimestamp = allSigners
 								.filter(s => s.signedAt)
@@ -463,9 +516,11 @@ export const notarialBookRouter = createTRPCRouter({
 						// Apply search filter
 						if (search) {
 							const searchLower = search.toLowerCase()
-							const principalName = principal?.name ?? "Unknown"
+							// Search across all principal names
+							const allPrincipalNames = principals.map(p => p.name).join(" ")
+							const principalNamesLower = allPrincipalNames.toLowerCase()
 							const documentName = projectData.file_name ?? projectData.name ?? project.name ?? ""
-							const matchesPrincipal = principalName.toLowerCase().includes(searchLower)
+							const matchesPrincipal = principalNamesLower.includes(searchLower)
 							const matchesDocument = documentName.toLowerCase().includes(searchLower)
 							if (!matchesPrincipal && !matchesDocument) {
 								return null
@@ -475,14 +530,23 @@ export const notarialBookRouter = createTRPCRouter({
 						// Generate certificate number (using project UUID for uniqueness)
 						const certificateNumber = `NB-${projectUuid.substring(0, 4).toUpperCase()}-${Date.now().toString().slice(-6)}`
 
+						// Join all principal names with comma and space
+						const principalNames = principals.length > 0
+							? principals.map(p => p.name).join(", ")
+							: "Unknown"
+						// Use first principal's ID number (or combine if needed)
+						const principalIdNumber = principals.length > 0 && principals[0]?.idNumber
+							? principals[0].idNumber
+							: null
+
 						return {
 							id: projectUuid, // Use project UUID as ID
 							notarialBookId: "", // Not needed for API-based entries
 							actType: actTypeValue,
 							documentId: null,
 							docoChainProjectUuid: projectUuid,
-							principalName: principal?.name ?? "Unknown",
-							principalIdNumber: principal?.idNumber ?? null,
+							principalName: principalNames,
+							principalIdNumber,
 							witnessName: witness?.name ?? null,
 							enpName: user.name ?? "Unknown ENP",
 							enpRollNumber: null,
