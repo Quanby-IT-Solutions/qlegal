@@ -30,6 +30,28 @@ function asNonEmptyEmail(email: unknown): string | undefined {
 	return trimmed.length > 0 ? trimmed : undefined
 }
 
+// Format date from ISO string or existing formatted string to readable format (e.g., "5 June 2018" or "Dec 31, 2025")
+function formatDateForStamp(dateString: string | null | undefined): string {
+	if (!dateString) return ""
+	
+	// Try to parse as ISO date
+	const date = new Date(dateString)
+	if (!Number.isNaN(date.getTime())) {
+		// Format as "d MMM yyyy" (e.g., "5 June 2018")
+		const day = date.getDate()
+		const monthNames = [
+			"January", "February", "March", "April", "May", "June",
+			"July", "August", "September", "October", "November", "December"
+		]
+		const month = monthNames[date.getMonth()]
+		const year = date.getFullYear()
+		return `${day} ${month} ${year}`
+	}
+	
+	// If not a valid date, return as-is (might already be formatted)
+	return dateString
+}
+
 function getDocoChainAuthEmailForMeeting(
 	meeting: {
 		createdBy?: { email?: string | null; role?: string | null } | null
@@ -940,19 +962,19 @@ export const meetingsRouter = createTRPCRouter({
 					type: "notary",
 					atty_name: enpProfile.attyName ?? "",
 					roll_no: enpProfile.rollNo ?? "",
-					roll_no_date: enpProfile.rollNoDate ?? "",
+					roll_no_date: formatDateForStamp(enpProfile.rollNoDate),
 					commission_no: enpProfile.commissionNo ?? "",
-					commission_no_valid_until: enpProfile.commissionNoValidUntil ?? "",
+					commission_no_valid_until: formatDateForStamp(enpProfile.commissionNoValidUntil),
 					PTR_no: enpProfile.ptrNo ?? "",
 					PTR_no_location: enpProfile.ptrNoLocation ?? "",
-					PTR_no_date: enpProfile.ptrNoDate ?? "",
+					PTR_no_date: formatDateForStamp(enpProfile.ptrNoDate),
 					IBP_no: enpProfile.ibpNo ?? "",
-					IBP_no_date: enpProfile.ibpNoDate ?? "",
+					IBP_no_date: formatDateForStamp(enpProfile.ibpNoDate),
 					email: enpProfile.notaryEmail ?? creatorEmail,
 					address: enpProfile.notaryAddress ?? "",
 					MCLE_no_period: enpProfile.mcleNoPeriod ?? "",
 					MCLE_no: enpProfile.mcleNo ?? "",
-					MCLE_no_date: enpProfile.mcleNoDate ?? "",
+					MCLE_no_date: formatDateForStamp(enpProfile.mcleNoDate),
 					mode_of_notarization: enpProfile.modeOfNotarization ?? "",
 				},
 			}
