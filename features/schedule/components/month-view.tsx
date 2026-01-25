@@ -17,7 +17,8 @@ import { EventItem } from "./event-item"
 import { DroppableCell } from "./droppable-cell"
 import { DraggableEvent } from "./draggable-event"
 import { DefaultStartHour, EventGap, EventHeight } from "../constants"
-import { getAllEventsForDay, getEventsForDay, getSpanningEventsForDay, sortEvents, type CalendarEvent } from "../utils"
+import { getAllEventsForDay, getEventsForDay, getSpanningEventsForDay, sortEvents } from "../utils"
+import type { CalendarEvent } from "../types"
 import { Popover, PopoverContent, PopoverTrigger } from "@/core/components/ui/popover"
 
 interface MonthViewProps {
