@@ -14,6 +14,8 @@ import { ChangePasswordCard } from "@/features/settings/components/change-passwo
 import { PasswordCardSkeleton } from "@/features/settings/components/password-card-skeleton"
 import { ToggleTwoFACard } from "@/features/settings/components/toggle-two-fa-card"
 
+import { EnpProfileCard } from "@/features/profile/components/enp-profile-card"
+
 export default function Page() {
 	const { data: session } = useSession()
 	const { data: userPasswordStatus, isLoading } = trpc.settings.checkUserHasPassword.useQuery()
@@ -53,6 +55,8 @@ export default function Page() {
 						<>
 							<div className="h-8" />
 							<AvailabilityToggleCard />
+							<div className="h-8" />
+							<EnpProfileCard />
 						</>
 					)}
 				</main>

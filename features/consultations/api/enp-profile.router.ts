@@ -22,7 +22,7 @@ export const enpProfileRouter = createTRPCRouter({
 			where: eq(enpProfiles.userId, userId),
 		})
 
-		return profile
+		return profile ?? null
 	}),
 
 	// Create or update ENP profile

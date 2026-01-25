@@ -13,6 +13,7 @@ import { db } from "@/services/drizzle/db"
 import { users } from "@/services/drizzle/schema/auth"
 import { documents } from "@/services/drizzle/schema/document"
 import { documentSigners } from "@/services/drizzle/schema/document-signers"
+import { enpProfiles } from "@/services/drizzle/schema/enp-profiles"
 import { meetingParticipants, meetings } from "@/services/drizzle/schema/meetings"
 import { getServiceRoleClient } from "@/services/supabase"
 import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
@@ -895,31 +896,64 @@ export const meetingsRouter = createTRPCRouter({
 			const arrayBuffer = await fileData.arrayBuffer()
 			const fileBuffer = Buffer.from(arrayBuffer)
 
-			// Create document stamp
+			// Get ENP user ID from email
+			const enpUser = await db.query.users.findFirst({
+				where: eq(users.email, creatorEmail),
+				columns: { id: true },
+			})
+
+			if (!enpUser) {
+				throw new TRPCError({
+					code: "NOT_FOUND",
+					message: "ENP user not found",
+				})
+			}
+
+			// Get ENP profile
+			const enpProfile = await db.query.enpProfiles.findFirst({
+				where: eq(enpProfiles.userId, enpUser.id),
+			})
+
+			if (!enpProfile) {
+				throw new TRPCError({
+					code: "PRECONDITION_FAILED",
+					message: "ENP profile not found. Please complete your profile settings first.",
+				})
+			}
+
+			// Validate required fields
+			if (!enpProfile.enpName || !enpProfile.enpRoleNumber || !enpProfile.attyName) {
+				throw new TRPCError({
+					code: "PRECONDITION_FAILED",
+					message: "ENP profile is incomplete. Please complete your seal and notary information in settings.",
+				})
+			}
+
+			// Create document stamp from ENP profile
 			const documentStamp = {
 				seal: {
 					type: "seal",
-					enp_name: "Juan Dela Cruz",
-					enp_role_number: "123456",
+					enp_name: enpProfile.enpName,
+					enp_role_number: enpProfile.enpRoleNumber,
 				},
 				notary_info: {
 					type: "notary",
-					atty_name: "ATTY. JUAN DELA CRUZ",
-					roll_no: "123456",
-					roll_no_date: "5 June 2018",
-					commission_no: "2024 - 024",
-					commission_no_valid_until: "Dec 31, 2025",
-					PTR_no: "1234567",
-					PTR_no_location: "Manila",
-					PTR_no_date: "Jan 02, 2025",
-					IBP_no: "123456",
-					IBP_no_date: "Dec 18, 2024 (for 2025)",
-					email: "juan.cruz@email.com",
-					address: "123, The Actual Bldg., 1234 Avenue, Malate, Manila",
-					MCLE_no_period: "VIII",
-					MCLE_no: "1234567",
-					MCLE_no_date: "Jun 12, 2024",
-					mode_of_notarization: "REN",
+					atty_name: enpProfile.attyName ?? "",
+					roll_no: enpProfile.rollNo ?? "",
+					roll_no_date: enpProfile.rollNoDate ?? "",
+					commission_no: enpProfile.commissionNo ?? "",
+					commission_no_valid_until: enpProfile.commissionNoValidUntil ?? "",
+					PTR_no: enpProfile.ptrNo ?? "",
+					PTR_no_location: enpProfile.ptrNoLocation ?? "",
+					PTR_no_date: enpProfile.ptrNoDate ?? "",
+					IBP_no: enpProfile.ibpNo ?? "",
+					IBP_no_date: enpProfile.ibpNoDate ?? "",
+					email: enpProfile.notaryEmail ?? creatorEmail,
+					address: enpProfile.notaryAddress ?? "",
+					MCLE_no_period: enpProfile.mcleNoPeriod ?? "",
+					MCLE_no: enpProfile.mcleNo ?? "",
+					MCLE_no_date: enpProfile.mcleNoDate ?? "",
+					mode_of_notarization: enpProfile.modeOfNotarization ?? "",
 				},
 			}
 
