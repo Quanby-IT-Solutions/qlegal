@@ -2,14 +2,6 @@
 
 import { useMemo } from "react"
 
-import {
-	Card,
-	CardContent,
-	CardDescription,
-	CardHeader,
-	CardTitle,
-} from "@/core/components/ui/card"
-
 import type { EnpAvailability } from "@/services/drizzle/schema/enp-profiles"
 import { trpc } from "@/services/trpc/client"
 
@@ -119,19 +111,21 @@ export function ScheduleClient({ scheduleData }: ScheduleClientProps) {
 	}
 
 	return (
-		<Card>
-			<CardHeader>
-				<CardTitle>My Schedule</CardTitle>
-				<CardDescription>Manage your availability and blocked time slots</CardDescription>
-			</CardHeader>
-			<CardContent className="p-0">
+		<div className="space-y-6">
+			<div>
+				<h1 className="text-3xl font-bold tracking-tight">My Schedule</h1>
+				<p className="text-muted-foreground mt-2">
+					Manage your availability and blocked time slots
+				</p>
+			</div>
+			<div className="p-0">
 				<EventCalendar
 					events={calendarEvents}
 					onEventAdd={handleEventAdd}
 					onEventUpdate={handleEventUpdate}
 					onEventDelete={handleEventDelete}
 				/>
-			</CardContent>
-		</Card>
+			</div>
+		</div>
 	)
 }
