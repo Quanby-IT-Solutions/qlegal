@@ -256,6 +256,8 @@ export async function runDirectKycVerification(input: {
 			.set({
 				kycStatus,
 				kycVerifiedAt: kycStatus === "VERIFIED" ? new Date() : null,
+				kycReferenceIdImageBase64: kycStatus === "VERIFIED" ? input.idImageBase64 : null,
+				kycReferenceCreatedAt: kycStatus === "VERIFIED" ? new Date() : null,
 				// Auto-activate account when direct KYC is verified.
 				// Never override SUSPENDED here.
 				status: kycStatus === "VERIFIED" && existingUser.status === "PENDING" ? "ACTIVE" : existingUser.status,
@@ -578,6 +580,8 @@ export async function resetUserKycStatus() {
 				kycStatus: "NOT_STARTED",
 				kycVerifiedAt: null,
 				kycLinkCreatedAt: null,
+				kycReferenceIdImageBase64: null,
+				kycReferenceCreatedAt: null,
 			})
 			.where(eq(users.id, session.user.id))
 
