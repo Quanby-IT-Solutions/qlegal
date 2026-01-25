@@ -52,7 +52,7 @@ export const appSidebarSections: NavSection[] = [
 				icon: Search01Icon,
 				roles: ["PRINCIPAL"],
 			},
-      {
+			{
 				title: "Requests",
 				url: "/requests",
 				icon: Timer02Icon,

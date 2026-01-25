@@ -11,7 +11,7 @@ import { PageHeader } from "@/core/components/navbar/page-header"
 import { Avatar, AvatarFallback, AvatarImage } from "@/core/components/ui/avatar"
 import { Badge } from "@/core/components/ui/badge"
 import { Button } from "@/core/components/ui/button"
-import { Calendar as CalendarComponent } from "@/core/components/ui/calendar"
+import { EventCalendar, type CalendarEvent } from "@/core/components/ui/event-calendar"
 import {
 	Card,
 	CardContent,
@@ -92,6 +92,31 @@ export default function EnpCalendarPage() {
 	const hasData = (appointmentsForDay?.length ?? 0) > 0
 	const isBusy = isLoading || isFetching
 
+	// Transform appointments into calendar events
+	const calendarEvents = useMemo((): CalendarEvent[] => {
+		if (!enpAppointments) return []
+
+		return enpAppointments.map((apt) => {
+			const workflow = getWorkflow(apt)
+			const startDate = new Date(apt.appointmentDate)
+			const endDate = new Date(startDate.getTime() + (apt.duration || 30) * 60 * 1000)
+
+			return {
+				id: apt.id,
+				title: `${apt.type === "DOCUMENT_SIGNING" ? "Document Signing" : "Consultation"} with ${apt.client?.name || "Client"}`,
+				start: startDate,
+				end: endDate,
+				metadata: {
+					type: "appointment",
+					appointmentType: apt.type,
+					status: apt.status,
+					workflow,
+					color: apt.status === "CONFIRMED" ? "#3b82f6" : apt.status === "PENDING" ? "#f59e0b" : "#6b7280",
+				},
+			}
+		})
+	}, [enpAppointments])
+
 	return (
 		<div className="flex flex-1 flex-col">
 			<PageHeader items={[{ label: "My Calendar" }]} />
@@ -113,15 +138,13 @@ export default function EnpCalendarPage() {
 									<CardDescription>Days with bookings are highlighted.</CardDescription>
 								</CardHeader>
 								<CardContent className="space-y-4">
-									<CalendarComponent
-										mode="single"
-										selected={selectedDate}
-										onSelect={date => date && setSelectedDate(normalizeDate(date))}
-										disabled={date => date < today}
-										initialFocus
-										className="bg-muted/30 w-full max-w-[380px] rounded-2xl border p-4 shadow-sm [--cell-size:2.6rem]"
-										modifiers={{ booked: bookedDates }}
-										modifiersClassNames={{ booked: "bg-primary/10 text-primary font-semibold" }}
+									<EventCalendar
+										events={calendarEvents}
+										onDateClick={(date) => setSelectedDate(normalizeDate(date))}
+										defaultView="month"
+										defaultDate={selectedDate}
+										height={400}
+										className="bg-muted/30 rounded-2xl border p-4 shadow-sm"
 									/>
 
 									<Separator />

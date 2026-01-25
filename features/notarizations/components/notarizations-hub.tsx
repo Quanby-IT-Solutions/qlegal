@@ -504,9 +504,6 @@ export function NotarizationsHub({ initialTab }: { initialTab: NotarizationsTab 
 										<p className="text-muted-foreground mb-4">
 											Try adjusting your search or filters.
 										</p>
-										<Button onClick={() => (window.location.href = "/requests/new")}>
-											Create New Request
-										</Button>
 									</CardContent>
 								</Card>
 							) : (

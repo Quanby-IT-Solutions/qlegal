@@ -74,7 +74,6 @@ export const ROUTE_CONFIG: RouteConfig = {
 			{ path: "/profile" },
 			{ path: "/requests" },
 			{ path: "/requests/incoming" },
-			{ path: "/requests/my-requests" },
 			{ path: "/sessions" },
 			{ path: "/settings" },
 		],

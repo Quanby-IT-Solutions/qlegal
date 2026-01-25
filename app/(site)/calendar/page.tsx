@@ -9,7 +9,7 @@ import { EnpCard } from "@/core/components/enp-card"
 import { PageHeader } from "@/core/components/navbar/page-header"
 import { Badge } from "@/core/components/ui/badge"
 import { Button } from "@/core/components/ui/button"
-import { Calendar as CalendarComponent } from "@/core/components/ui/calendar"
+import { EventCalendar, type CalendarEvent } from "@/core/components/ui/event-calendar"
 import {
 	Card,
 	CardContent,
@@ -18,6 +18,7 @@ import {
 	CardTitle,
 } from "@/core/components/ui/card"
 import { Separator } from "@/core/components/ui/separator"
+import { Tabs, TabsList, TabsTrigger } from "@/core/components/ui/tabs"
 import type { ENPAvailableSlot, ENPProfile } from "@/core/lib/types/enp"
 
 import { trpc, type RouterOutputs } from "@/services/trpc/client"
@@ -73,6 +74,42 @@ export default function CalendarPage() {
 	const isBusy =
 		renQuery.isLoading || renQuery.isFetching || ienQuery.isLoading || ienQuery.isFetching
 	const hasAnyResults = (renQuery.data?.length ?? 0) > 0 || (ienQuery.data?.length ?? 0) > 0
+
+	// Transform ENP availability data into calendar events
+	const calendarEvents = useMemo((): CalendarEvent[] => {
+		const events: CalendarEvent[] = []
+
+		const addEventsFromEnps = (enps: BaseAvailableEnp[] | undefined, workflow: WorkflowType) => {
+			if (!enps) return
+			for (const enp of enps) {
+				const availableEnp = enp as AvailableEnp
+				if (!availableEnp.availableSlots) continue
+
+				for (const slot of availableEnp.availableSlots) {
+					const slotDate = new Date(`${selectedDateParam}T${slot.time}`)
+					const endDate = new Date(slotDate.getTime() + slot.duration * 60 * 1000)
+
+					events.push({
+						id: `${enp.id}-${slot.time}-${workflow}`,
+						title: `${enp.name ?? "ENP"} (${workflow})`,
+						start: slotDate,
+						end: endDate,
+						metadata: {
+							type: "availability",
+							enpId: enp.id,
+							workflow,
+							color: workflow === "REN" ? "#3b82f6" : "#10b981",
+						},
+					})
+				}
+			}
+		}
+
+		addEventsFromEnps(renQuery.data, "REN")
+		addEventsFromEnps(ienQuery.data, "IEN")
+
+		return events.sort((a, b) => a.start.getTime() - b.start.getTime())
+	}, [renQuery.data, ienQuery.data, selectedDateParam])
 
 	const mergedEnps = useMemo((): CalendarEnp[] => {
 		const map = new Map<string, CalendarEnp>()
@@ -131,13 +168,13 @@ export default function CalendarPage() {
 									</CardDescription>
 								</CardHeader>
 								<CardContent className="space-y-4">
-									<CalendarComponent
-										mode="single"
-										selected={selectedDate}
-										onSelect={date => date && setSelectedDate(normalizeDate(date))}
-										disabled={date => date < today}
-										initialFocus
-										className="bg-muted/30 w-full max-w-[380px] rounded-2xl border p-4 shadow-sm [--cell-size:2.6rem]"
+									<EventCalendar
+										events={calendarEvents}
+										onDateClick={(date) => setSelectedDate(normalizeDate(date))}
+										defaultView="month"
+										defaultDate={selectedDate}
+										height={400}
+										className="bg-muted/30 rounded-2xl border p-4 shadow-sm"
 									/>
 
 									<Separator />
