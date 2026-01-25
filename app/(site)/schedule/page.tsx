@@ -5,23 +5,30 @@ import { HydrateClient } from "@/services/trpc/server"
 
 import { auth } from "@/services/next-auth"
 import { PageHeader } from "@/core/components/navbar/page-header"
-import { RequestsClient } from "@/features/requests/components/requests-client"
+import { ScheduleClient } from "@/features/requests/components/schedule-client"
 
-export default async function RequestsPage() {
+export default async function SchedulePage() {
 	const session = await auth()
-	const userId = session?.user?.id
 	const isENP = session?.user?.role === "ENP"
 
-	// Pre-fetch data on server
-	const incomingRequests = await trpc.requests.getIncomingRequests()
+	// ENP-only access control
+	if (!isENP) {
+		redirect("/dashboard")
+	}
+
+	const today = new Date()
+	const scheduleData = await trpc.requests.getEnpSchedule({
+		month: today.getMonth(),
+		year: today.getFullYear(),
+	})
 
 	return (
 		<HydrateClient>
 			<div className="flex flex-1 flex-col">
-				<PageHeader items={[{ label: "Requests", href: "/requests" }]} />
+				<PageHeader items={[{ label: "Schedule", href: "/schedule" }]} />
 				<main className="flex-1 p-4 md:p-6 lg:p-8">
 					<div className="mx-auto max-w-7xl space-y-8">
-						<RequestsClient incomingRequests={incomingRequests} isENP={isENP} />
+						<ScheduleClient scheduleData={scheduleData} />
 					</div>
 				</main>
 			</div>

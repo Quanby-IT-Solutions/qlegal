@@ -74,11 +74,12 @@ export const ROUTE_CONFIG: RouteConfig = {
 			{ path: "/profile" },
 			{ path: "/requests" },
 			{ path: "/requests/incoming" },
+			{ path: "/schedule" },
 			{ path: "/sessions" },
 			{ path: "/settings" },
 		],
 		byRole: {
-			ENP: [{ path: "/dashboard" }, { path: "/appointments" }],
+			ENP: [{ path: "/dashboard" }, { path: "/appointments" }, { path: "/schedule" }],
 			PRINCIPAL: [{ path: "/dashboard" }, { path: "/consultations" }],
 			ENA: [{ path: "/dashboard" }],
 			ADMIN: [{ path: "/dashboard" }, { path: "/management/users" }],

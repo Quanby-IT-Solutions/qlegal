@@ -9,13 +9,14 @@ import {
 	UserIcon,
 	Video01Icon,
 	CheckmarkBadge01Icon,
-  Search01Icon,
-  Home01Icon,
-  Timer02Icon,
-  BookOpen02Icon,
-  DocumentValidationIcon,
-  ChatIcon,
-  CustomerSupportIcon,
+	Search01Icon,
+	Home01Icon,
+	Timer02Icon,
+	BookOpen02Icon,
+	DocumentValidationIcon,
+	ChatIcon,
+	CustomerSupportIcon,
+  Calendar02Icon,
 } from "@hugeicons/core-free-icons"
 
 import type { UserRole } from "@/services/drizzle/schema/auth"
@@ -51,6 +52,12 @@ export const appSidebarSections: NavSection[] = [
 				url: "/browse",
 				icon: Search01Icon,
 				roles: ["PRINCIPAL"],
+			},
+      {
+				title: "Schedule",
+				url: "/schedule",
+				icon: Calendar02Icon,
+				roles: ["ENP"],
 			},
 			{
 				title: "Requests",
