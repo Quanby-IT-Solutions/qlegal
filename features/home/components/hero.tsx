@@ -1,7 +1,6 @@
 "use client"
 
 import Link from "next/link"
-import { useEffect, useState } from "react"
 import { ArrowRight, CheckCircle, FileSignature, Scale, Shield, Users } from "lucide-react"
 import { motion } from "motion/react"
 import { useTheme } from "next-themes"
@@ -11,6 +10,10 @@ import { Button } from "@/core/components/ui/button"
 import { LineShadowText } from "@/core/components/ui/line-shadow-text"
 import { OrbitingCircles } from "@/core/components/ui/orbiting-circles"
 import { TextGenerateEffect } from "@/core/components/ui/text-generate-effect"
+
+interface HeroProps {
+	isAuthenticated?: boolean
+}
 
 const fadeInUp = {
 	initial: { opacity: 0, y: 60 },
@@ -27,15 +30,9 @@ const staggerContainer = {
 	},
 }
 
-export function Hero() {
+export function Hero({ isAuthenticated = false }: HeroProps) {
 	const theme = useTheme()
-	const [mounted, setMounted] = useState(false)
-
-	useEffect(() => {
-		setMounted(true)
-	}, [])
-
-	const shadowColor = mounted && theme.resolvedTheme === "dark" ? "white" : "black"
+	const shadowColor = theme.resolvedTheme === "dark" ? "white" : "black"
 
 	return (
 		<section className="relative w-full overflow-hidden pt-48 pb-16 sm:pb-24 lg:pt-40">
@@ -123,16 +120,29 @@ export function Hero() {
 							variants={fadeInUp}
 							className="flex flex-col gap-4 sm:flex-row sm:justify-center lg:justify-start"
 						>
-							<Button
-								asChild
-								size="lg"
-								className="group from-primary to-primary/90 hover:from-primary/90 hover:to-primary bg-linear-to-r px-8 py-6 text-base shadow-xl transition-all duration-300 hover:shadow-2xl sm:text-lg"
-							>
-								<Link href="/auth/register">
-									Get Started
-									<ArrowRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" />
-								</Link>
-							</Button>
+							{isAuthenticated ? (
+								<Button
+									asChild
+									size="lg"
+									className="group from-primary to-primary/90 hover:from-primary/90 hover:to-primary bg-linear-to-r px-8 py-6 text-base shadow-xl transition-all duration-300 hover:shadow-2xl sm:text-lg"
+								>
+									<Link href="/dashboard">
+										Go to Dashboard
+										<ArrowRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" />
+									</Link>
+								</Button>
+							) : (
+								<Button
+									asChild
+									size="lg"
+									className="group from-primary to-primary/90 hover:from-primary/90 hover:to-primary bg-linear-to-r px-8 py-6 text-base shadow-xl transition-all duration-300 hover:shadow-2xl sm:text-lg"
+								>
+									<Link href="/auth/register">
+										Get Started
+										<ArrowRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" />
+									</Link>
+								</Button>
+							)}
 						</motion.div>
 
 						<motion.div
