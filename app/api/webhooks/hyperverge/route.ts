@@ -75,6 +75,7 @@ export async function POST(request: NextRequest) {
 				id: true,
 				email: true,
 				kycStatus: true,
+				status: true,
 			},
 		})
 
@@ -91,12 +92,18 @@ export async function POST(request: NextRequest) {
 		const updateData: {
 			kycStatus: "PENDING" | "VERIFIED" | "REJECTED"
 			kycVerifiedAt?: Date
+			status?: "ACTIVE" | "PENDING" | "SUSPENDED"
 		} = {
 			kycStatus,
 		}
 
 		if (kycStatus === "VERIFIED") {
 			updateData.kycVerifiedAt = new Date()
+			// Auto-activate account on successful KYC.
+			// Never override SUSPENDED here.
+			if (user.status === "PENDING") {
+				updateData.status = "ACTIVE"
+			}
 		}
 
 		await db.update(users).set(updateData).where(eq(users.id, user.id))

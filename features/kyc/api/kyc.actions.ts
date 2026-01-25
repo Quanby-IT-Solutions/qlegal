@@ -176,6 +176,17 @@ export async function runDirectKycVerification(input: {
 		return { success: false, error: "Invalid selfie image" }
 	}
 
+	const existingUser = await db.query.users.findFirst({
+		where: eq(users.id, session.user.id),
+		columns: {
+			status: true,
+		},
+	})
+
+	if (!existingUser) {
+		return { success: false, error: "User not found" }
+	}
+
 	const transactionId = generateTransactionId(session.user.id)
 
 	// Mark as pending in DB immediately (so we can track transactionId even if a later step fails)
@@ -245,6 +256,9 @@ export async function runDirectKycVerification(input: {
 			.set({
 				kycStatus,
 				kycVerifiedAt: kycStatus === "VERIFIED" ? new Date() : null,
+				// Auto-activate account when direct KYC is verified.
+				// Never override SUSPENDED here.
+				status: kycStatus === "VERIFIED" && existingUser.status === "PENDING" ? "ACTIVE" : existingUser.status,
 			})
 			.where(eq(users.id, session.user.id))
 
@@ -309,6 +323,8 @@ export async function checkUserKycStatus() {
 		columns: {
 			kycTransactionId: true,
 			kycStatus: true,
+			kycLink: true,
+			status: true,
 		},
 	})
 
@@ -316,6 +332,63 @@ export async function checkUserKycStatus() {
 		return {
 			success: false,
 			error: "No KYC verification found. Please start the verification process.",
+		}
+	}
+
+	// IMPORTANT:
+	// - Hosted link/workflow KYC can be polled via HyperVerge transaction status.
+	// - Direct API KYC (readId/checkLiveness/matchFace) does NOT go through the workflow engine,
+	//   so HyperVerge "applicationStatus" may remain "started" even when checks have passed.
+	//   In that case, our DB is the source of truth and we must NOT overwrite VERIFIED -> PENDING.
+
+	// If our DB already has a final state, return it without polling HyperVerge.
+	if (user.kycStatus === "VERIFIED") {
+		return {
+			success: true,
+			data: {
+				transactionId: user.kycTransactionId,
+				status: "auto_approved",
+				kycStatus: "VERIFIED" as const,
+				isComplete: true,
+				isApproved: true,
+				needsReview: false,
+				message: "KYC already verified.",
+				details: {},
+			},
+		}
+	}
+
+	if (user.kycStatus === "REJECTED") {
+		return {
+			success: true,
+			data: {
+				transactionId: user.kycTransactionId,
+				status: "auto_declined",
+				kycStatus: "REJECTED" as const,
+				isComplete: true,
+				isApproved: false,
+				needsReview: false,
+				message: "KYC was rejected.",
+				details: {},
+			},
+		}
+	}
+
+	// If it's PENDING but there is no hosted KYC link, assume this is the direct API flow.
+	// Do not poll HyperVerge workflow status because it may remain "started" indefinitely.
+	if (user.kycStatus === "PENDING" && !user.kycLink) {
+		return {
+			success: true,
+			data: {
+				transactionId: user.kycTransactionId,
+				status: "needs_review",
+				kycStatus: "PENDING" as const,
+				isComplete: false,
+				isApproved: false,
+				needsReview: true,
+				message: "KYC is pending review.",
+				details: {},
+			},
 		}
 	}
 
@@ -335,6 +408,7 @@ export async function checkUserKycStatus() {
 		const updateData: {
 			kycStatus: "PENDING" | "VERIFIED" | "REJECTED"
 			kycVerifiedAt?: Date
+			status?: "ACTIVE" | "PENDING" | "SUSPENDED"
 		} = { kycStatus: "PENDING" }
 
 		if (interpretation.isApproved) {
@@ -342,6 +416,12 @@ export async function checkUserKycStatus() {
 			updateData.kycStatus = "VERIFIED"
 			updateData.kycVerifiedAt = new Date()
 			console.log("✅ KYC Approved - Updating to VERIFIED")
+
+			// If account was pending, auto-activate on successful KYC.
+			// Never override SUSPENDED here.
+			if (user.status === "PENDING") {
+				updateData.status = "ACTIVE"
+			}
 		} else if (applicationStatus === "auto_declined" || interpretation.needsReview) {
 			newStatus = "REJECTED"
 			updateData.kycStatus = "REJECTED"
