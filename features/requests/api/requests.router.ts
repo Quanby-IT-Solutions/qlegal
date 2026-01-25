@@ -1,5 +1,6 @@
 import { TRPCError } from "@trpc/server"
 import { and, asc, desc, eq } from "drizzle-orm"
+
 import { z } from "zod/v4"
 
 import { getUrl } from "@/core/lib/get-url"
@@ -9,6 +10,9 @@ import { enpAvailability } from "@/services/drizzle/schema/enp-profiles"
 import { notarizationRequests } from "@/services/drizzle/schema/notarization-requests"
 import { sendNotarizationRequestNotification } from "@/services/react-email/lib/send.notarization-request"
 import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
+
+// Import schedule router
+import { scheduleRouter } from "@/features/schedule/api/schedule.router"
 
 // Type-safe enum constants
 const BLOCKED = "BLOCKED" as const
@@ -113,46 +117,27 @@ export const requestsRouter = createTRPCRouter({
 		}
 
 		// Create the request
-		let request
-		try {
-			const result = await ctx.db
-				.insert(notarizationRequests)
-				.values({
-					principalId: userId,
-					enpId: input.enpId,
-					title: input.title,
-					description: input.description ?? null,
-					workflow: input.workflow,
-					priority: input.priority,
-					status: "PENDING",
-				})
-				.returning()
+		const [request] = await ctx.db
+			.insert(notarizationRequests)
+			.values({
+				principalId: userId,
+				enpId: input.enpId,
+				title: input.title,
+				description: input.description,
+				workflow: input.workflow,
+				priority: input.priority,
+				status: "PENDING",
+			})
+			.returning()
 
-			request = result[0]
-
-			if (!request) {
-				throw new TRPCError({
-					code: "INTERNAL_SERVER_ERROR",
-					message: "Failed to create notarization request - no record returned",
-				})
-			}
-		} catch (error) {
-			console.error("Database error creating notarization request:", error)
-			if (error instanceof Error) {
-				throw new TRPCError({
-					code: "INTERNAL_SERVER_ERROR",
-					message: `Failed to create notarization request: ${error.message}`,
-					cause: error,
-				})
-			}
+		if (!request) {
 			throw new TRPCError({
 				code: "INTERNAL_SERVER_ERROR",
-				message: "Failed to create notarization request",
-				cause: error,
+				message: "Failed to create notarization request - no record returned",
 			})
 		}
 
-		// Fetch with relations
+		// Fetch with relations to send email notification
 		const requestWithRelations = await ctx.db.query.notarizationRequests.findFirst({
 			where: eq(notarizationRequests.id, request.id),
 			with: {
@@ -164,29 +149,18 @@ export const requestsRouter = createTRPCRouter({
 						image: true,
 					},
 				},
-				principal: {
-					columns: {
-						id: true,
-						name: true,
-						email: true,
-						image: true,
-					},
-				},
 			},
 		})
 
 		// Send email notification to ENP
-		if (requestWithRelations?.enp?.email && requestWithRelations?.principal?.name) {
+		if (requestWithRelations?.enp?.email && requestWithRelations?.principalId) {
 			try {
 				const requestUrl = `${getUrl()}/requests`
 				await sendNotarizationRequestNotification({
 					enpEmail: requestWithRelations.enp.email,
-					enpName: requestWithRelations.enp.name ?? "ENP",
+					enpName: requestWithRelations.enp.name,
 					principalName: requestWithRelations.principal.name,
 					requestTitle: input.title,
-					requestDescription: input.description,
-					workflow: input.workflow,
-					priority: input.priority,
 					requestUrl,
 				})
 			} catch (error) {
@@ -197,93 +171,9 @@ export const requestsRouter = createTRPCRouter({
 
 		return {
 			...requestWithRelations!,
-			documents: 0,
+			documents: 0, // Documents are uploaded separately after request is created
 		}
 	}),
-
-	// Update request status
-	updateRequestStatus: protectedProcedure
-		.input(updateRequestStatusSchema)
-		.mutation(async ({ ctx, input }) => {
-			const userId = ctx.session.user.id
-
-			// Get the request
-			const request = await ctx.db.query.notarizationRequests.findFirst({
-				where: eq(notarizationRequests.id, input.requestId),
-			})
-
-			if (!request) {
-				throw new TRPCError({
-					code: "NOT_FOUND",
-					message: "Notarization request not found",
-				})
-			}
-
-			// Check permissions: ENP can update status, Principal can only update their own requests
-			const isENP = userId === request.enpId
-			const isPrincipal = userId === request.principalId
-
-			if (!isENP && !isPrincipal) {
-				throw new TRPCError({
-					code: "FORBIDDEN",
-					message: "You don't have permission to update this request",
-				})
-			}
-
-			// Only ENP can change status to IN_PROGRESS, COMPLETED, or REJECTED
-			if (input.status !== "PENDING" && !isENP) {
-				throw new TRPCError({
-					code: "FORBIDDEN",
-					message: "Only the ENP can change the request status",
-				})
-			}
-
-			// Update the request
-			const [updatedRequest] = await ctx.db
-				.update(notarizationRequests)
-				.set({
-					status: input.status,
-					rejectReason: input.rejectReason ?? null,
-					updatedAt: new Date(),
-				})
-				.where(eq(notarizationRequests.id, input.requestId))
-				.returning()
-
-			if (!updatedRequest) {
-				throw new TRPCError({
-					code: "NOT_FOUND",
-					message: "Request not found",
-				})
-			}
-
-			// Fetch with relations
-			const requestWithRelations = await ctx.db.query.notarizationRequests.findFirst({
-				where: eq(notarizationRequests.id, updatedRequest.id),
-				with: {
-					enp: {
-						columns: {
-							id: true,
-							name: true,
-							email: true,
-							image: true,
-						},
-					},
-					principal: {
-						columns: {
-							id: true,
-							name: true,
-							email: true,
-							image: true,
-						},
-					},
-				},
-			})
-
-			return {
-				...requestWithRelations!,
-				documents: 0,
-			}
-		}),
 
 	// Get request by ID
 	getRequestById: protectedProcedure
@@ -309,9 +199,8 @@ export const requestsRouter = createTRPCRouter({
 							email: true,
 							image: true,
 						},
-					},
 				},
-			})
+			}})
 
 			if (!request) {
 				throw new TRPCError({
@@ -334,9 +223,54 @@ export const requestsRouter = createTRPCRouter({
 			}
 		}),
 
+	// Update request status
+	updateRequestStatus: protectedProcedure
+		.input(updateRequestStatusSchema)
+		.mutation(async ({ ctx, input }) => {
+			const userId = ctx.session.user.id
+
+			const request = await ctx.db.query.notarizationRequests.findFirst({
+				where: eq(notarizationRequests.id, input.requestId),
+			})
+
+			if (!request) {
+				throw new TRPCError({
+					code: "NOT_FOUND",
+					message: "Request not found",
+				})
+			}
+
+			// Check permissions - principal and ENP can update
+			if (request.principalId !== userId && request.enpId !== userId) {
+				throw new TRPCError({
+					code: "FORBIDDEN",
+					message: "You don't have access to this request",
+				})
+			}
+
+			const [updatedRequest] = await ctx.db
+				.update(notarizationRequests)
+				.set({
+					status: input.status,
+					rejectReason: input.rejectReason,
+					updatedAt: new Date(),
+				})
+				.where(eq(notarizationRequests.id, input.requestId))
+				.returning()
+
+			if (!updatedRequest) {
+				throw new TRPCError({
+					code: "NOT_FOUND",
+					message: "Request not found",
+				})
+			}
+
+			return updatedRequest
+		}),
+
 	// =================== ENP Schedule Management ===================
 
-	// Get ENP availability including blocked slots
+	// Get ENP's schedule including their own events
 	getEnpSchedule: protectedProcedure
 		.input(
 			z.object({
@@ -344,7 +278,7 @@ export const requestsRouter = createTRPCRouter({
 				year: z.number(),
 			})
 		)
-		.query(async ({ ctx }) => {
+		.query(async ({ ctx, input }) => {
 			const userId = ctx.session.user.id
 
 			// Verify user is ENP
@@ -385,11 +319,18 @@ export const requestsRouter = createTRPCRouter({
 				orderBy: [asc(enpAvailability.date), asc(enpAvailability.startTime)],
 			})
 
+			// Get ENP's own events from schedule router
+			const myAppointments = await scheduleRouter.createCaller(ctx).getEnpScheduleWithEvents({
+				month: input.month,
+				year: input.year,
+			})
+
 			return {
 				regular: regularAvailability,
 				blocked: blockedSlots,
 				recurringBlocked,
 				custom: customAvailability,
+				myAppointments: myAppointments.myAppointments,
 			}
 		}),
 
@@ -397,11 +338,11 @@ export const requestsRouter = createTRPCRouter({
 	blockTimeSlot: protectedProcedure
 		.input(
 			z.object({
-				type: z.enum(["ONE_TIME", "RECURRING"]), // Block single day or recurring
-				date: z.string().optional(), // YYYY-MM-DD (for ONE_TIME)
-				dayOfWeek: z.number().optional(), // 0-6 (for RECURRING)
-				startTime: z.string(), // HH:MM format
-				endTime: z.string(), // HH:MM format
+				type: z.enum(["ONE_TIME", "RECURRING"]),
+				date: z.string().optional(),
+				dayOfWeek: z.number().optional(),
+				startTime: z.string(),
+				endTime: z.string(),
 				reason: z.string().optional(),
 			})
 		)
@@ -422,7 +363,7 @@ export const requestsRouter = createTRPCRouter({
 
 			// Create blocked slot entry based on type
 			if (input.type === "ONE_TIME") {
-				// Validate date is provided
+				// Validate date is provided for one-time blocks
 				if (!input.date) {
 					throw new TRPCError({
 						code: "BAD_REQUEST",
@@ -430,9 +371,9 @@ export const requestsRouter = createTRPCRouter({
 					})
 				}
 
-				// Create BLOCKED entry for specific date
+				// Create BLOCKED entry
 				await ctx.db.insert(enpAvailability).values({
-					enpId: ctx.session.user.id,
+					enpId: userId,
 					type: BLOCKED,
 					date: input.date,
 					dayOfWeek: new Date(input.date).getDay(),
@@ -440,25 +381,20 @@ export const requestsRouter = createTRPCRouter({
 					endTime: input.endTime,
 					reason: input.reason,
 				})
-			} else {
-				// Create RECURRING_BLOCKED entries for specified days
-				// If dayOfWeek is not provided, apply to all 7 days
+			} else if (input.type === "RECURRING") {
+				// For recurring blocks
 				const days = input.dayOfWeek !== undefined ? [input.dayOfWeek] : [0, 1, 2, 3, 4, 5, 6] // All days
 
-				// Create entries for each selected day
+				// Create RECURRING_BLOCKED entries for each selected day
 				const entries = days.map(day => ({
-					enpId: ctx.session.user.id,
+					enpId: userId,
 					type: RECURRING_BLOCKED,
-					date: null,
 					dayOfWeek: day,
 					startTime: input.startTime,
 					endTime: input.endTime,
 					reason: input.reason ?? "Recurring blocked time",
-					isAvailable: false,
-					isAllDays: input.dayOfWeek === undefined,
 				}))
 
-				// Insert all entries at once
 				await ctx.db.insert(enpAvailability).values(entries)
 			}
 
@@ -473,23 +409,34 @@ export const requestsRouter = createTRPCRouter({
 
 	// Unblock time slot
 	unblockTimeSlot: protectedProcedure
-		.input(z.object({ availabilityId: z.string() }))
+		.input(z.object({ availabilityId: z.string().min(1) }))
 		.mutation(async ({ ctx, input }) => {
 			const userId = ctx.session.user.id
 
-			// Verify user is ENP and slot belongs to them
-			const availability = await ctx.db.query.enpAvailability.findFirst({
-				where: eq(enpAvailability.id, input.availabilityId),
+			// Verify user is ENP
+			const user = await ctx.db.query.users.findFirst({
+				where: eq(users.id, userId),
 			})
 
-			if (availability?.enpId !== userId) {
+			if (user?.role !== "ENP") {
 				throw new TRPCError({
-					code: "NOT_FOUND",
-					message: "Availability slot not found or you don't have permission",
+					code: "FORBIDDEN",
+					message: "Only ENPs can manage their schedule",
 				})
 			}
 
-			// Delete blocked slot entry
+			// Verify slot belongs to user
+			const slot = await ctx.db.query.enpAvailability.findFirst({
+				where: eq(enpAvailability.id, input.availabilityId),
+			})
+
+			if (slot?.enpId !== userId) {
+				throw new TRPCError({
+					code: "NOT_FOUND",
+					message: "Availability slot not found",
+				})
+			}
+
 			await ctx.db.delete(enpAvailability).where(eq(enpAvailability.id, input.availabilityId))
 
 			return {
