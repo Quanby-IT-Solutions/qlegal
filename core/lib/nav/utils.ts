@@ -1,6 +1,25 @@
 import { appSidebarSections } from "@/core/lib/nav/site.config"
 import type { NavItem, NavSection, NotaryRole } from "@/core/lib/nav/types"
 
+// Active route checking utility
+export const isRouteActive = (itemUrl: string, currentPath: string): boolean => {
+	// Remove trailing slashes for comparison
+	const normalizedItemUrl = itemUrl.replace(/\/$/, "")
+	const normalizedCurrentPath = currentPath.replace(/\/$/, "")
+
+	// Exact match
+	if (normalizedItemUrl === normalizedCurrentPath) {
+		return true
+	}
+
+	// Prefix match (e.g., /messages matches /messages/123)
+	if (normalizedCurrentPath.startsWith(`${normalizedItemUrl}/`)) {
+		return true
+	}
+
+	return false
+}
+
 // Role filtering utility
 export const canAccessNavItem = (
 	roles?: NotaryRole[],

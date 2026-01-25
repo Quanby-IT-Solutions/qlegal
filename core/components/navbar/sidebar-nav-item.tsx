@@ -2,6 +2,7 @@
 
 import type { Route } from "next"
 import Link from "next/link"
+import { usePathname } from "next/navigation"
 import { ChevronRight } from "lucide-react"
 import { HugeiconsIcon } from "@hugeicons/react"
 
@@ -24,7 +25,7 @@ import {
 	CollapsibleTrigger,
 } from "@/core/components/animate-ui/primitives/radix/collapsible"
 import { type NavItem } from "@/core/lib/nav/types"
-import { canAccessNavItem } from "@/core/lib/nav/utils"
+import { canAccessNavItem, isRouteActive } from "@/core/lib/nav/utils"
 import { Badge } from "@/core/components/navbar/badges/badge"
 import { cn } from "@/core/lib/utils"
 
@@ -35,9 +36,14 @@ type SidebarNavItemProps = {
 
 export const SidebarNavItem = ({ item, userRole }: SidebarNavItemProps) => {
 	const { state: sidebarState } = useSidebar()
+	const pathname = usePathname()
 
 	const accessibleSubItems =
 		item.items?.filter(subItem => canAccessNavItem(subItem.roles, userRole)) ?? []
+
+	// Check if current item or any of its sub-items are active
+	const isActive = isRouteActive(item.url, pathname) ||
+		accessibleSubItems.some(subItem => isRouteActive(subItem.url, pathname))
 
 	const isSoonBadge = item.badge === 'soon'
 
@@ -72,7 +78,7 @@ export const SidebarNavItem = ({ item, userRole }: SidebarNavItemProps) => {
 					{sidebarState === "collapsed" ? (
 						<Tooltip side="right" align="center">
 							<TooltipTrigger asChild>
-								<SidebarMenuButton asChild className={buttonClassName}>
+								<SidebarMenuButton asChild className={buttonClassName} isActive={!isSoonBadge && isActive}>
 									{isSoonBadge ? (
 										<button type="button" onClick={(e) => e.preventDefault()}>
 											<NavContent />
@@ -89,7 +95,7 @@ export const SidebarNavItem = ({ item, userRole }: SidebarNavItemProps) => {
 							</TooltipContent>
 						</Tooltip>
 					) : (
-						<SidebarMenuButton asChild className={buttonClassName}>
+						<SidebarMenuButton asChild className={buttonClassName} isActive={!isSoonBadge && isActive}>
 							{isSoonBadge ? (
 								<button type="button" onClick={(e) => e.preventDefault()}>
 									<NavContent />
@@ -110,7 +116,7 @@ export const SidebarNavItem = ({ item, userRole }: SidebarNavItemProps) => {
 				{sidebarState === "collapsed" ? (
 					<Tooltip side="right" align="center">
 						<TooltipTrigger asChild>
-							<SidebarMenuButton asChild>
+							<SidebarMenuButton asChild isActive={isActive}>
 								<Link href={item.url as Route}>
 									<NavContent />
 								</Link>
@@ -121,7 +127,7 @@ export const SidebarNavItem = ({ item, userRole }: SidebarNavItemProps) => {
 						</TooltipContent>
 					</Tooltip>
 				) : (
-					<SidebarMenuButton asChild>
+					<SidebarMenuButton asChild isActive={isActive}>
 						<Link href={item.url as Route}>
 							<NavContent />
 						</Link>
@@ -132,13 +138,13 @@ export const SidebarNavItem = ({ item, userRole }: SidebarNavItemProps) => {
 	}
 
 	return (
-		<Collapsible asChild defaultOpen={item.isActive} className="group/collapsible">
+		<Collapsible asChild defaultOpen={item.isActive || isActive} className="group/collapsible">
 			<SidebarMenuItem>
 				{sidebarState === "collapsed" ? (
 					<Tooltip side="right" align="center">
 						<TooltipTrigger asChild>
 							<CollapsibleTrigger asChild>
-								<SidebarMenuButton>
+								<SidebarMenuButton isActive={isActive}>
 									<NavContent />
 									<ChevronRight className="ml-auto transition-transform duration-300 group-data-[state=open]/collapsible:rotate-90" />
 								</SidebarMenuButton>
@@ -150,7 +156,7 @@ export const SidebarNavItem = ({ item, userRole }: SidebarNavItemProps) => {
 					</Tooltip>
 				) : (
 					<CollapsibleTrigger asChild>
-						<SidebarMenuButton>
+						<SidebarMenuButton isActive={isActive}>
 							<NavContent />
 							<ChevronRight className="ml-auto transition-transform duration-300 group-data-[state=open]/collapsible:rotate-90" />
 						</SidebarMenuButton>
@@ -160,7 +166,7 @@ export const SidebarNavItem = ({ item, userRole }: SidebarNavItemProps) => {
 					<SidebarMenuSub>
 						{accessibleSubItems.map(subItem => (
 							<SidebarMenuSubItem key={subItem.title}>
-								<SidebarMenuSubButton asChild>
+								<SidebarMenuSubButton asChild isActive={isRouteActive(subItem.url, pathname)}>
 									<Link href={subItem.url as Route}>
 										<span>{subItem.title}</span>
 									</Link>

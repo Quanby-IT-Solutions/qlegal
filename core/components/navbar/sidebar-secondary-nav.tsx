@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { usePathname } from "next/navigation"
 import { HugeiconsIcon } from "@hugeicons/react"
 
 import {
@@ -17,6 +18,7 @@ import {
 } from "@/core/components/animate-ui/components/radix/sidebar"
 import type { NavItem, IconSvgObject } from "@/core/lib/nav/types"
 import { Badge } from "@/core/components/navbar/badges/badge"
+import { isRouteActive } from "@/core/lib/nav/utils"
 import { cn } from "@/core/lib/utils"
 
 type SidebarSecondaryNavProps = {
@@ -25,6 +27,7 @@ type SidebarSecondaryNavProps = {
 
 export const SidebarSecondaryNav = ({ items }: SidebarSecondaryNavProps) => {
 	const { state: sidebarState } = useSidebar()
+	const pathname = usePathname()
 
 	const renderIcon = (icon?: typeof items[0]["icon"]) => {
 		if (!icon) return null
@@ -48,6 +51,7 @@ export const SidebarSecondaryNav = ({ items }: SidebarSecondaryNavProps) => {
 			<SidebarMenu>
 				{items.map((item: NavItem) => {
 					const isSoonBadge = item.badge === 'soon'
+					const isActive = isRouteActive(item.url, pathname)
 					const buttonClassName = cn(isSoonBadge && "text-muted-foreground hover:text-foreground")
 
 					return (
@@ -55,7 +59,7 @@ export const SidebarSecondaryNav = ({ items }: SidebarSecondaryNavProps) => {
 							{sidebarState === "collapsed" ? (
 								<Tooltip side="right" align="center">
 									<TooltipTrigger asChild>
-										<SidebarMenuButton asChild className={buttonClassName}>
+										<SidebarMenuButton asChild className={buttonClassName} isActive={!isSoonBadge && isActive}>
 											{isSoonBadge ? (
 												<button type="button" onClick={(e) => e.preventDefault()}>
 													<NavContent item={item} />
@@ -72,7 +76,7 @@ export const SidebarSecondaryNav = ({ items }: SidebarSecondaryNavProps) => {
 									</TooltipContent>
 								</Tooltip>
 							) : (
-								<SidebarMenuButton asChild className={buttonClassName}>
+								<SidebarMenuButton asChild className={buttonClassName} isActive={!isSoonBadge && isActive}>
 									{isSoonBadge ? (
 										<button type="button" onClick={(e) => e.preventDefault()}>
 											<NavContent item={item} />
