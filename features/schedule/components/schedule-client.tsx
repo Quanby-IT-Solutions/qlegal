@@ -5,6 +5,7 @@ import { useMemo } from "react"
 import { trpc } from "@/services/trpc/client"
 import { transformScheduleToCalendarEvents } from "@/features/requests/lib/schedule-utils"
 import { EventCalendar } from "./event-calendar"
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/core/components/ui/card"
 import type { CalendarEvent } from "../types"
 
 interface ScheduleClientProps {
@@ -54,20 +55,19 @@ export function ScheduleClient({ scheduleData }: ScheduleClientProps) {
 	}
 
 	return (
-		<div className="space-y-6">
-			<div>
-				<h1 className="text-3xl font-bold tracking-tight">My Schedule</h1>
-				<p className="text-muted-foreground mt-2">
-					Manage your availability and blocked time slots
-				</p>
-			</div>
-
-			<EventCalendar
-				events={calendarEvents}
-				onEventAdd={handleEventAdd}
-				onEventUpdate={handleEventUpdate}
-				onEventDelete={handleEventDelete}
-			/>
-		</div>
+		<Card>
+			<CardHeader>
+				<CardTitle>My Schedule</CardTitle>
+				<CardDescription>Manage your availability and blocked time slots</CardDescription>
+			</CardHeader>
+			<CardContent className="p-0">
+				<EventCalendar
+					events={calendarEvents}
+					onEventAdd={handleEventAdd}
+					onEventUpdate={handleEventUpdate}
+					onEventDelete={handleEventDelete}
+				/>
+			</CardContent>
+		</Card>
 	)
 }

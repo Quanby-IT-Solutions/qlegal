@@ -23,6 +23,13 @@ import {
 	DropdownMenuShortcut,
 	DropdownMenuTrigger,
 } from "@/core/components/ui/dropdown-menu"
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@/core/components/ui/select"
 
 export interface EventCalendarProps {
 	events?: CalendarEvent[]
@@ -187,10 +194,34 @@ export function EventCalendar({
 		})
 	}
 
+	const months = [
+		"January", "February", "March", "April", "May", "June",
+		"July", "August", "September", "October", "November", "December"
+	]
+
+	const currentYear = new Date().getFullYear()
+	const years = Array.from({ length: 21 }, (_, i) => currentYear - 10 + i) // Current year ± 10
+
+	const handleMonthChange = (monthName: string) => {
+		const newMonth = months.indexOf(monthName)
+		if (newMonth !== -1) {
+			const newDate = new Date(currentDate)
+			newDate.setMonth(newMonth)
+			setCurrentDate(newDate)
+		}
+	}
+
+	const handleYearChange = (yearString: string) => {
+		const newYear = parseInt(yearString, 10)
+		if (!isNaN(newYear)) {
+			const newDate = new Date(currentDate)
+			newDate.setFullYear(newYear)
+			setCurrentDate(newDate)
+		}
+	}
+
 	const viewTitle = useMemo(() => {
-		if (view === "month") {
-			return format(currentDate, "MMMM yyyy")
-		} else if (view === "week") {
+		if (view === "week") {
 			const start = startOfWeek(currentDate, { weekStartsOn: 0 })
 			const end = endOfWeek(currentDate, { weekStartsOn: 0 })
 			if (isSameMonth(start, end)) {
@@ -204,7 +235,7 @@ export function EventCalendar({
 					<span className="min-[480px]:hidden" aria-hidden="true">
 						{format(currentDate, "MMM d, yyyy")}
 					</span>
-					<span className="max-[479px]:hidden min-md:hidden" aria-hidden="true">
+					<span className="max-[479px]:hidden md:hidden" aria-hidden="true">
 						{format(currentDate, "MMMM d, yyyy")}
 					</span>
 					<span className="max-md:hidden">{format(currentDate, "EEE MMMM d, yyyy")}</span>
@@ -250,7 +281,36 @@ export function EventCalendar({
 								<ChevronRightIcon size={16} aria-hidden="true" />
 							</Button>
 						</div>
-						<h2 className="text-sm font-semibold sm:text-lg md:text-xl">{viewTitle}</h2>
+						{view === "month" ? (
+							<div className="flex items-center gap-1 sm:gap-2">
+								<Select value={months[currentDate.getMonth()]} onValueChange={handleMonthChange}>
+									<SelectTrigger className="w-32 sm:w-40">
+										<SelectValue />
+									</SelectTrigger>
+									<SelectContent>
+										{months.map((month) => (
+											<SelectItem key={month} value={month}>
+												{month}
+											</SelectItem>
+										))}
+									</SelectContent>
+								</Select>
+								<Select value={currentDate.getFullYear().toString()} onValueChange={handleYearChange}>
+									<SelectTrigger className="w-24 sm:w-28">
+										<SelectValue />
+									</SelectTrigger>
+									<SelectContent>
+										{years.map((year) => (
+											<SelectItem key={year} value={year.toString()}>
+												{year}
+											</SelectItem>
+										))}
+									</SelectContent>
+								</Select>
+							</div>
+						) : (
+							<h2 className="text-sm font-semibold sm:text-lg md:text-xl">{viewTitle}</h2>
+						)}
 					</div>
 					<div className="flex items-center gap-2">
 						<DropdownMenu>

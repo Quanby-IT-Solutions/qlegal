@@ -9,7 +9,6 @@ import {
 	format,
 	isSameDay,
 	isSameMonth,
-	isToday,
 	startOfMonth,
 	startOfWeek,
 } from "date-fns"
@@ -66,10 +65,9 @@ export function MonthView({ currentDate, events, onEventSelect, onEventCreate }:
 	const [contentRef, setContentRef] = useState<HTMLDivElement | null>(null)
 
 	// Calculate visible event count based on available height
-	const getVisibleEventCount = (eventCount: number) => {
+	const getVisibleEventCount = (_eventCount: number) => {
 		if (!contentRef) return 3
 		const containerHeight = contentRef.clientHeight
-		const totalEventHeight = eventCount * (EventHeight + EventGap)
 		const maxVisible = Math.floor(containerHeight / (EventHeight + EventGap))
 		return Math.max(1, Math.min(maxVisible, 4)) // Show between 1 and 4 events
 	}
@@ -80,9 +78,9 @@ export function MonthView({ currentDate, events, onEventSelect, onEventCreate }:
 
 	return (
 		<div data-slot="month-view" className="contents">
-			<div className="border-border/70 grid grid-cols-7 border-b">
+			<div className="border-border grid grid-cols-7 border-b">
 				{weekdays.map((day) => (
-					<div key={day} className="text-muted-foreground/70 py-2 text-center text-sm">
+					<div key={day} className="text-muted-foreground py-2 text-center text-sm border-r last:border-r-0">
 						{day}
 					</div>
 				))}
@@ -105,16 +103,16 @@ export function MonthView({ currentDate, events, onEventSelect, onEventCreate }:
 							const remainingCount = hasMore ? allDayEvents.length - visibleCount : 0
 
 							return (
-								<DroppableCell
-									key={day.toString()}
-									id={cellId}
-									date={day}
-									onClick={() => {
-										const startTime = new Date(day)
-										startTime.setHours(DefaultStartHour, 0, 0)
-										onEventCreate(startTime)
-									}}
-								>
+								<div key={day.toString()} className={`relative flex h-full flex-col p-1 transition-colors border-r ${dayIndex === 6 ? 'border-r-0' : ''}`}>
+									<DroppableCell
+										id={cellId}
+										date={day}
+										onClick={() => {
+											const startTime = new Date(day)
+											startTime.setHours(DefaultStartHour, 0, 0)
+											onEventCreate(startTime)
+										}}
+									>
 									<div
 										className={`group-data-today:bg-primary group-data-today:text-primary-foreground mt-1 inline-flex size-6 items-center justify-center rounded-full text-sm ${
 											!isCurrentMonth ? "text-muted-foreground/70" : ""
@@ -162,7 +160,7 @@ export function MonthView({ currentDate, events, onEventSelect, onEventCreate }:
 											<Popover modal>
 												<PopoverTrigger asChild>
 													<button
-														className="focus-visible:border-ring focus-visible:ring-ring/50 text-muted-foreground hover:text-foreground hover:bg-muted/50 mt-[var(--event-gap)] flex h-[var(--event-height)] w-full items-center overflow-hidden px-1 text-left text-[10px] backdrop-blur-md transition outline-none select-none focus-visible:ring-[3px] sm:px-2 sm:text-xs"
+														className="focus-visible:border-ring focus-visible:ring-ring/50 text-muted-foreground hover:text-foreground hover:bg-muted/50 mt-(--event-gap) flex h-(--event-height) w-full items-center overflow-hidden px-1 text-left text-[10px] backdrop-blur-md transition outline-none select-none focus-visible:ring-[3px] sm:px-2 sm:text-xs"
 														onClick={(e) => e.stopPropagation()}
 													>
 														<span>
@@ -189,8 +187,9 @@ export function MonthView({ currentDate, events, onEventSelect, onEventCreate }:
 											</Popover>
 										)}
 									</div>
-								</DroppableCell>
-							)
+									</DroppableCell>
+								</div>
+								)
 						})}
 					</div>
 				))}
