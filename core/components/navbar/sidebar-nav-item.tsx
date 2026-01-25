@@ -23,9 +23,10 @@ import {
 	CollapsibleContent,
 	CollapsibleTrigger,
 } from "@/core/components/animate-ui/primitives/radix/collapsible"
-import type { NavItem } from "@/core/lib/nav/types"
+import { type NavItem } from "@/core/lib/nav/types"
 import { canAccessNavItem } from "@/core/lib/nav/utils"
-import type { IconSvgObject } from "@/core/lib/nav/types"
+import { Badge } from "@/core/components/navbar/badges/badge"
+import { cn } from "@/core/lib/utils"
 
 type SidebarNavItemProps = {
 	item: NavItem
@@ -35,26 +36,75 @@ type SidebarNavItemProps = {
 export const SidebarNavItem = ({ item, userRole }: SidebarNavItemProps) => {
 	const { state: sidebarState } = useSidebar()
 
-	// Filter sub-items by role
 	const accessibleSubItems =
-		item.items?.filter(subItem =>
-			canAccessNavItem(subItem.roles, userRole)
-		) ?? []
+		item.items?.filter(subItem => canAccessNavItem(subItem.roles, userRole)) ?? []
 
-	// Helper to render icon - handles both React component and HugeIcons IconSvgObject
+	const isSoonBadge = item.badge === 'soon'
+
 	const renderIcon = (icon?: typeof item.icon) => {
 		if (!icon) return null
-		// Check if it's a React component (function) or HugeIcons IconSvgObject (array)
-		if (typeof icon === 'function') {
+		if (typeof icon === "function") {
 			const IconComponent = icon as React.ComponentType<React.SVGProps<SVGSVGElement>>
 			return <IconComponent />
 		}
-		// It's a HugeIcons IconSvgObject
-		return <HugeiconsIcon icon={icon as IconSvgObject} size={16} />
+		return <HugeiconsIcon icon={icon} size={16} />
 	}
 
-	// If no sub-items or no accessible sub-items, render as simple link
+	const renderBadge = () => {
+		if (!item.badge) return null
+		return <Badge variant={item.badge as "new" | "soon" | "beta" | "updated" | "popular"} />
+	}
+
+	const NavContent = () => (
+		<>
+			{renderIcon(item.icon)}
+			<span>{item.title}</span>
+			{renderBadge()}
+		</>
+	)
+
 	if (!item.items || accessibleSubItems.length === 0) {
+		if (item.badge) {
+			const buttonClassName = cn(isSoonBadge && "text-muted-foreground hover:text-foreground")
+
+			return (
+				<SidebarMenuItem>
+					{sidebarState === "collapsed" ? (
+						<Tooltip side="right" align="center">
+							<TooltipTrigger asChild>
+								<SidebarMenuButton asChild className={buttonClassName}>
+									{isSoonBadge ? (
+										<button type="button" onClick={(e) => e.preventDefault()}>
+											<NavContent />
+										</button>
+									) : (
+										<Link href={item.url as Route}>
+											<NavContent />
+										</Link>
+									)}
+								</SidebarMenuButton>
+							</TooltipTrigger>
+							<TooltipContent>
+								<p>{item.title}</p>
+							</TooltipContent>
+						</Tooltip>
+					) : (
+						<SidebarMenuButton asChild className={buttonClassName}>
+							{isSoonBadge ? (
+								<button type="button" onClick={(e) => e.preventDefault()}>
+									<NavContent />
+								</button>
+							) : (
+								<Link href={item.url as Route}>
+									<NavContent />
+								</Link>
+							)}
+						</SidebarMenuButton>
+					)}
+				</SidebarMenuItem>
+			)
+		}
+
 		return (
 			<SidebarMenuItem>
 				{sidebarState === "collapsed" ? (
@@ -62,8 +112,7 @@ export const SidebarNavItem = ({ item, userRole }: SidebarNavItemProps) => {
 						<TooltipTrigger asChild>
 							<SidebarMenuButton asChild>
 								<Link href={item.url as Route}>
-									{renderIcon(item.icon)}
-									<span>{item.title}</span>
+									<NavContent />
 								</Link>
 							</SidebarMenuButton>
 						</TooltipTrigger>
@@ -74,8 +123,7 @@ export const SidebarNavItem = ({ item, userRole }: SidebarNavItemProps) => {
 				) : (
 					<SidebarMenuButton asChild>
 						<Link href={item.url as Route}>
-							{renderIcon(item.icon)}
-							<span>{item.title}</span>
+							<NavContent />
 						</Link>
 					</SidebarMenuButton>
 				)}
@@ -83,7 +131,6 @@ export const SidebarNavItem = ({ item, userRole }: SidebarNavItemProps) => {
 		)
 	}
 
-	// Render as collapsible with sub-items
 	return (
 		<Collapsible asChild defaultOpen={item.isActive} className="group/collapsible">
 			<SidebarMenuItem>
@@ -92,8 +139,7 @@ export const SidebarNavItem = ({ item, userRole }: SidebarNavItemProps) => {
 						<TooltipTrigger asChild>
 							<CollapsibleTrigger asChild>
 								<SidebarMenuButton>
-									{renderIcon(item.icon)}
-									<span>{item.title}</span>
+									<NavContent />
 									<ChevronRight className="ml-auto transition-transform duration-300 group-data-[state=open]/collapsible:rotate-90" />
 								</SidebarMenuButton>
 							</CollapsibleTrigger>
@@ -105,8 +151,7 @@ export const SidebarNavItem = ({ item, userRole }: SidebarNavItemProps) => {
 				) : (
 					<CollapsibleTrigger asChild>
 						<SidebarMenuButton>
-							{renderIcon(item.icon)}
-							<span>{item.title}</span>
+							<NavContent />
 							<ChevronRight className="ml-auto transition-transform duration-300 group-data-[state=open]/collapsible:rotate-90" />
 						</SidebarMenuButton>
 					</CollapsibleTrigger>

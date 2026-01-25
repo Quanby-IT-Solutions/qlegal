@@ -8,6 +8,9 @@ export type NotaryRole = "ENP" | "PRINCIPAL" | "ENA" | "ADMIN"
 // Icon component type (compatible with Lucide, HugeIcons, etc.)
 export type IconComponentType = React.ComponentType<React.SVGProps<SVGSVGElement>>
 
+// Badge types for navigation items
+export type NavBadgeType = "new" | "soon" | "beta" | "updated" | "popular"
+
 // Navigation item types
 export interface NavSubItem {
 	title: string
@@ -22,6 +25,7 @@ export interface NavItem {
 	isActive?: boolean
 	roles?: NotaryRole[] | UserRole[]
 	items?: NavSubItem[]
+	badge?: NavBadgeType
 }
 
 export interface NavSection {

@@ -1,10 +1,8 @@
 import {
 	BookOpenIcon,
-	Calendar01Icon,
 	DocumentAttachmentIcon,
-	LifebuoyIcon,
 	Notification01Icon,
-	SendingOrderIcon,
+	Sent02Icon,
 	Settings01Icon,
 	ShieldUserIcon,
 	UserGroupIcon,
@@ -14,30 +12,28 @@ import {
   Search01Icon,
   Home01Icon,
   Timer02Icon,
-  BookOpen,
   BookOpen02Icon,
   DocumentValidationIcon,
-  Chat01Icon,
   ChatIcon,
+  CustomerSupportIcon,
 } from "@hugeicons/core-free-icons"
 
 import type { UserRole } from "@/services/drizzle/schema/auth"
 
 import type { NavItem, NavSection } from "./types"
 
-// Icon mapping for string-based icon references
-
-// Secondary navigation items
 export const navSecondary: NavItem[] = [
 	{
 		title: "Support",
 		url: "/support",
-		icon: LifebuoyIcon,
+		icon: CustomerSupportIcon,
+    badge: "soon",
 	},
 	{
 		title: "Feedback",
 		url: "/feedback",
-		icon: SendingOrderIcon,
+		icon: Sent02Icon,
+    badge: "soon",
 	},
 ]
 
@@ -134,6 +130,7 @@ export const appSidebarSections: NavSection[] = [
 				url: "/notarial-book",
 				icon: BookOpenIcon,
 				roles: ["ENP"],
+				badge: "soon",
 			},
 			{
 				title: "Audit & Compliance",
@@ -220,9 +217,7 @@ const siteUserConfig: NavItem[] = [
 ]
 
 function isValidUserRole(role: string | null | undefined): role is UserRole {
-	if (!role) {
-		return false
-	}
+	if (!role) return false
 	return ["ENP", "PRINCIPAL", "ENA", "ADMIN"].includes(role)
 }
 
