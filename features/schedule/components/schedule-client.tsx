@@ -41,8 +41,8 @@ const utils = trpc.useUtils()
 
 	const updateEnpEvent = trpc.schedule.updateEnpEvent.useMutation({
 		onSuccess: () => {
-			utils.requests.getEnpSchedule.invalidate()
-			utils.schedule.getEnpScheduleWithEvents.invalidate()
+			void utils.requests.getEnpSchedule.invalidate()
+			void utils.schedule.getEnpScheduleWithEvents.invalidate()
 			toast.success("Event updated")
 		},
 		onError: error => {
@@ -54,8 +54,8 @@ const utils = trpc.useUtils()
 
 	const deleteEnpEvent = trpc.schedule.deleteEnpEvent.useMutation({
 		onSuccess: () => {
-			utils.requests.getEnpSchedule.invalidate()
-			utils.schedule.getEnpScheduleWithEvents.invalidate()
+			void utils.requests.getEnpSchedule.invalidate()
+			void utils.schedule.getEnpScheduleWithEvents.invalidate()
 			toast.success("Event deleted")
 		},
 		onError: error => {
