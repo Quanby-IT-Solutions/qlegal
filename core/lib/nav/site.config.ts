@@ -7,12 +7,18 @@ import {
 	SendingOrderIcon,
 	Settings01Icon,
 	ShieldUserIcon,
-	SparklesIcon,
 	UserGroupIcon,
 	UserIcon,
 	Video01Icon,
 	CheckmarkBadge01Icon,
-  DashboardSquare02Icon,
+  Search01Icon,
+  Home01Icon,
+  Timer02Icon,
+  BookOpen,
+  BookOpen02Icon,
+  DocumentValidationIcon,
+  Chat01Icon,
+  ChatIcon,
 } from "@hugeicons/core-free-icons"
 
 import type { UserRole } from "@/services/drizzle/schema/auth"
@@ -42,21 +48,48 @@ export const appSidebarSections: NavSection[] = [
 			{
 				title: "Dashboard",
 				url: "/dashboard",
-				icon: DashboardSquare02Icon,
+				icon: Home01Icon,
 			},
 			{
-				title: "Find & Book",
+				title: "Browse",
 				url: "/browse",
-				icon: SparklesIcon,
+				icon: Search01Icon,
 				roles: ["PRINCIPAL"],
 			},
-			{
-				title: "My Calendar",
-				url: "/appointments",
-				icon: Calendar01Icon,
+      {
+				title: "Requests",
+				url: "/requests",
+				icon: Timer02Icon,
 				roles: ["ENP"],
 			},
 			{
+				title: "Sessions",
+				url: "/appointments",
+				icon: Video01Icon,
+			},
+      {
+				title: "Documents",
+				url: "/appointments",
+				icon: DocumentValidationIcon,
+        roles: ["PRINCIPAL"],
+			},
+      {
+				title: "Notarial Registry",
+				url: "/appointments",
+				icon: BookOpen02Icon,
+        roles: ["ENP"],
+			},
+      {
+				title: "Messages",
+				url: "/messages",
+				icon: ChatIcon,
+			},
+		],
+	},
+  {
+		label: "Old",
+		items: [
+      {
 				title: "Appointment Meeting",
 				url: "/appointments",
 				icon: Video01Icon,
