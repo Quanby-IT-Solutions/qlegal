@@ -284,7 +284,7 @@ export function EventCalendar({
 
 	return (
 		<div
-			className="flex flex-col rounded-lg border has-data-[slot=month-view]:flex-1"
+			className="flex flex-col rounded-lg border bg-card has-data-[slot=month-view]:flex-1"
 			style={
 				{
 					"--event-height": `${EventHeight}px`,
@@ -294,7 +294,7 @@ export function EventCalendar({
 			}
 		>
 			<CalendarDndProvider onEventUpdate={handleEventUpdate}>
-				<div className={cn("flex items-center justify-between p-2 sm:p-4", className)}>
+				<div className={cn("flex items-center justify-between p-2 sm:p-4 border-b", className)}>
 					<div className="flex items-center gap-1 sm:gap-4">
 						<Button
 							variant="outline"
@@ -389,7 +389,7 @@ export function EventCalendar({
 						</Button>
 					</div>
 				</div>
-				<div className="flex flex-1 flex-col">
+				<div className="flex flex-1 flex-col p-2 sm:p-4">
 					{view === "month" && (
 						<MonthView
 							currentDate={currentDate}
