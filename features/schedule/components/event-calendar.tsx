@@ -417,35 +417,35 @@ export function EventCalendar({
 									Agenda <DropdownMenuShortcut>A</DropdownMenuShortcut>
 								</DropdownMenuItem>
 							</DropdownMenuContent>
-					</DropdownMenu>
-					<TooltipProvider>
-						<Tooltip>
-							<TooltipTrigger asChild>
-								<div className="inline-block">
-									<Button
-										variant="outline"
-										size="sm"
-										className="max-[479px]:aspect-square max-[479px]:p-0!"
-										disabled
-									>
-										<span className="max-sm:sr-only">Block time</span>
-									</Button>
-								</div>
-							</TooltipTrigger>
-							<TooltipContent>Coming soon</TooltipContent>
-						</Tooltip>
-					</TooltipProvider>
-					<Button
-						className="max-[479px]:aspect-square max-[479px]:p-0!"
-						size="sm"
-						onClick={() => {
-							setSelectedEvent(null) // Ensure we're creating a new event
-							setIsEventDialogOpen(true)
-						}}
-					>
-						<PlusIcon className="opacity-60 sm:-ms-1" size={16} aria-hidden="true" />
-						<span className="max-sm:sr-only">New event</span>
-					</Button>
+						</DropdownMenu>
+						<TooltipProvider>
+							<Tooltip>
+								<TooltipTrigger asChild>
+									<div className="inline-block">
+										<Button
+											variant="outline"
+											size="sm"
+											className="max-[479px]:aspect-square max-[479px]:p-0!"
+											disabled
+										>
+											<span className="max-sm:sr-only">Block time</span>
+										</Button>
+									</div>
+								</TooltipTrigger>
+								<TooltipContent>Coming soon</TooltipContent>
+							</Tooltip>
+						</TooltipProvider>
+						<Button
+							className="max-[479px]:aspect-square max-[479px]:p-0!"
+							size="sm"
+							onClick={() => {
+								setSelectedEvent(null) // Ensure we're creating a new event
+								setIsEventDialogOpen(true)
+							}}
+						>
+							<PlusIcon className="opacity-60 sm:-ms-1" size={16} aria-hidden="true" />
+							<span className="max-sm:sr-only">New event</span>
+						</Button>
 					</div>
 				</div>
 				<div className="flex flex-1 flex-col p-2 sm:p-4">

@@ -19,7 +19,15 @@ export const eventDialogSchema = z
 		timezone: z.string().min(1, "Timezone is required"),
 		// Event properties
 		color: z.enum(["sky", "emerald", "amber", "orange", "rose", "violet"]),
-		recurrence: z.enum(["does-not-repeat", "daily", "weekly", "monthly", "annually", "weekdays", "custom"]),
+		recurrence: z.enum([
+			"does-not-repeat",
+			"daily",
+			"weekly",
+			"monthly",
+			"annually",
+			"weekdays",
+			"custom",
+		]),
 		eventType: z.enum(["consultation", "notarization"]),
 		mode: z.enum(["ren", "ien"]).optional(),
 		location: z.string().optional().or(z.literal("")),
@@ -40,10 +48,13 @@ export const eventDialogSchema = z
 		}
 		return true
 	}, "Time fields are required for non-all-day events")
-	.refine(data => data.dateRange.to >= data.dateRange.from, "End date must be on or after start date")
 	.refine(
-		data => data.eventType === "notarization" ? data.mode !== undefined : true,
-		{ path: ["mode"], message: "Mode is required for notarization events" }
+		data => data.dateRange.to >= data.dateRange.from,
+		"End date must be on or after start date"
 	)
+	.refine(data => (data.eventType === "notarization" ? data.mode !== undefined : true), {
+		path: ["mode"],
+		message: "Mode is required for notarization events",
+	})
 
 export type EventDialogSchema = z.infer<typeof eventDialogSchema>
