@@ -1,11 +1,9 @@
 import { redirect } from "next/navigation"
 
-import { trpc } from "@/services/trpc/server"
-import { HydrateClient } from "@/services/trpc/server"
-
+import { trpc, HydrateClient } from "@/services/trpc/server"
 import { auth } from "@/services/next-auth"
 import { PageHeader } from "@/core/components/navbar/page-header"
-import { ScheduleClient } from "@/features/requests/components/schedule-client"
+import { ScheduleClient } from "@/features/schedule/components/schedule-client"
 
 export default async function SchedulePage() {
 	const session = await auth()

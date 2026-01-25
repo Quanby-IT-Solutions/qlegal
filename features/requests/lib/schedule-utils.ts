@@ -1,5 +1,5 @@
 import { addDays, startOfMonth, endOfMonth } from "date-fns"
-import type { CalendarEvent } from "@/core/components/ui/event-calendar"
+import type { CalendarEvent } from "@/features/schedule/types"
 
 export function transformScheduleToCalendarEvents(
 	schedule: {
