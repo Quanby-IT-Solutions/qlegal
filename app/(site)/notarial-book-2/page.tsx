@@ -44,11 +44,9 @@ import {
 	TableRow,
 } from "@/core/components/ui/table"
 
-import { trpc, type RouterOutputs } from "@/services/trpc/client"
+import { trpc } from "@/services/trpc/client"
 
 import { NotarialActDocumentDialog2 } from "@/features/notarial-book/components/notarial-act-document-dialog-2"
-
-type NotarialAct = RouterOutputs["notarialBook"]["getNotarialBook"]["acts"][number]
 
 export default function NotarialBook2Page() {
 	const { data: session } = useSession()
@@ -89,7 +87,7 @@ export default function NotarialBook2Page() {
 		},
 	})
 
-	const filteredActs = useMemo((): NotarialAct[] => {
+	const filteredActs = useMemo(() => {
 		// Search is already handled by the API endpoint
 		return notarialBookData?.acts ?? []
 	}, [notarialBookData?.acts])
@@ -127,7 +125,7 @@ export default function NotarialBook2Page() {
 	return (
 		<>
 			<div className="flex flex-1 flex-col">
-				<PageHeader items={[{ label: "Notarial Book 2", href: "/notarial-book-2" }]} />
+				<PageHeader items={[{ label: "Notarial Book 2" }]} />
 
 				<main className="flex-1 p-4 md:p-6 lg:p-8">
 					<div className="mx-auto max-w-7xl space-y-8">
@@ -136,7 +134,7 @@ export default function NotarialBook2Page() {
 							<div>
 								<h1 className="flex items-center gap-2 text-3xl font-bold tracking-tight">
 									<BookOpen className="h-8 w-8" />
-									Electronic Notarial Book 2 (Test)
+									Notarial Registry
 								</h1>
 								<p className="text-muted-foreground mt-2">
 									Fetches documents directly from DocoChain API (no database sync required)
