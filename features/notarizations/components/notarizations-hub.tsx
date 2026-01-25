@@ -1,9 +1,8 @@
 "use client"
 
-import { format } from "date-fns"
-import { useSession } from "next-auth/react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useMemo, useState } from "react"
+import { format } from "date-fns"
 import {
 	AlertCircle,
 	Calendar,
@@ -19,6 +18,7 @@ import {
 	Video,
 	XCircle,
 } from "lucide-react"
+import { useSession } from "next-auth/react"
 
 import { PageHeader } from "@/core/components/navbar/page-header"
 import { Avatar, AvatarFallback, AvatarImage } from "@/core/components/ui/avatar"
@@ -99,7 +99,9 @@ function inferWorkflow(appointment: Appointment): WorkflowType {
 	const notesLower = (appointment.notes || "").toLowerCase()
 	const hasRemoteKeywords = notesLower.includes("remote") || notesLower.includes("ren")
 	const hasInPersonKeywords =
-		notesLower.includes("in-person") || notesLower.includes("ien") || notesLower.includes("in person")
+		notesLower.includes("in-person") ||
+		notesLower.includes("ien") ||
+		notesLower.includes("in person")
 
 	if (appointment.meetingLink) return "REN"
 	if (appointment.location) return "IEN"
@@ -167,9 +169,15 @@ export function NotarizationsHub({ initialTab }: { initialTab: NotarizationsTab 
 	const [tab, setTab] = useState<NotarizationsTab>(initialTab)
 	const [searchTerm, setSearchTerm] = useState("")
 	const [workflowFilter, setWorkflowFilter] = useState<"ALL" | WorkflowType>("ALL")
-	const [activeStatusFilter, setActiveStatusFilter] = useState<"ALL" | "UPCOMING" | "IN_PROGRESS">("ALL")
-	const [historyStatusFilter, setHistoryStatusFilter] = useState<"ALL" | "COMPLETED" | "CANCELLED">("ALL")
-	const [historyDateFilter, setHistoryDateFilter] = useState<"ALL" | "TODAY" | "WEEK" | "MONTH" | "YEAR">("ALL")
+	const [activeStatusFilter, setActiveStatusFilter] = useState<"ALL" | "UPCOMING" | "IN_PROGRESS">(
+		"ALL"
+	)
+	const [historyStatusFilter, setHistoryStatusFilter] = useState<"ALL" | "COMPLETED" | "CANCELLED">(
+		"ALL"
+	)
+	const [historyDateFilter, setHistoryDateFilter] = useState<
+		"ALL" | "TODAY" | "WEEK" | "MONTH" | "YEAR"
+	>("ALL")
 	const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null)
 
 	const { data: appointments, isLoading } = trpc.appointments.getMyAppointments.useQuery({
@@ -270,14 +278,17 @@ export function NotarizationsHub({ initialTab }: { initialTab: NotarizationsTab 
 					name: base.principal?.name || "Unknown Client",
 					email: base.principal?.email || "",
 				},
-				completedAt: appointment.status === "COMPLETED" ? appointment.updatedAt.toISOString() : undefined,
-				cancelledAt: appointment.status === "CANCELLED" ? appointment.updatedAt.toISOString() : undefined,
+				completedAt:
+					appointment.status === "COMPLETED" ? appointment.updatedAt.toISOString() : undefined,
+				cancelledAt:
+					appointment.status === "CANCELLED" ? appointment.updatedAt.toISOString() : undefined,
 				duration,
 				documents: base.documents,
 				location: base.location,
 				cancellationReason: appointment.cancelReason || undefined,
 				certificateUrl: undefined,
-				recordingUrl: appointment.status === "COMPLETED" && base.workflow === "REN" ? undefined : undefined,
+				recordingUrl:
+					appointment.status === "COMPLETED" && base.workflow === "REN" ? undefined : undefined,
 			} satisfies HistoryItem
 		})
 
@@ -359,7 +370,9 @@ export function NotarizationsHub({ initialTab }: { initialTab: NotarizationsTab 
 	const workflowBadge = (workflow: WorkflowType) => (
 		<Badge
 			variant="outline"
-			className={workflow === "REN" ? "border-blue-600 text-blue-600" : "border-green-600 text-green-600"}
+			className={
+				workflow === "REN" ? "border-blue-600 text-blue-600" : "border-green-600 text-green-600"
+			}
 		>
 			{workflow}
 		</Badge>
@@ -409,7 +422,10 @@ export function NotarizationsHub({ initialTab }: { initialTab: NotarizationsTab 
 									onChange={e => setSearchTerm(e.target.value)}
 								/>
 
-								<Select value={workflowFilter} onValueChange={value => setWorkflowFilter(value as any)}>
+								<Select
+									value={workflowFilter}
+									onValueChange={value => setWorkflowFilter(value as any)}
+								>
 									<SelectTrigger>
 										<SelectValue placeholder="All Workflows" />
 									</SelectTrigger>
@@ -476,12 +492,10 @@ export function NotarizationsHub({ initialTab }: { initialTab: NotarizationsTab 
 					<Tabs value={tab} onValueChange={value => onTabChange(value as NotarizationsTab)}>
 						<TabsList className="grid w-full grid-cols-2">
 							<TabsTrigger value="active">
-								Active{" "}
-								{isLoading ? "" : `(${activeItems.length})`}
+								Active {isLoading ? "" : `(${activeItems.length})`}
 							</TabsTrigger>
 							<TabsTrigger value="history">
-								History{" "}
-								{isLoading ? "" : `(${historyItems.length})`}
+								History {isLoading ? "" : `(${historyItems.length})`}
 							</TabsTrigger>
 						</TabsList>
 
@@ -566,9 +580,14 @@ export function NotarizationsHub({ initialTab }: { initialTab: NotarizationsTab 
 																	<div className="mb-4">
 																		<div className="mb-2 flex items-center justify-between text-sm">
 																			<span>Requirements</span>
-																			<span>{Math.round(getRequirementsProgress(item.requirements))}%</span>
+																			<span>
+																				{Math.round(getRequirementsProgress(item.requirements))}%
+																			</span>
 																		</div>
-																		<Progress value={getRequirementsProgress(item.requirements)} className="h-2" />
+																		<Progress
+																			value={getRequirementsProgress(item.requirements)}
+																			className="h-2"
+																		/>
 																	</div>
 
 																	<div className="text-muted-foreground mb-4 flex items-center gap-2 text-sm">
@@ -600,7 +619,11 @@ export function NotarizationsHub({ initialTab }: { initialTab: NotarizationsTab 
 																			</>
 																		)}
 																	</Button>
-																	<Button variant="outline" size="sm" onClick={() => openDetails(item.id)}>
+																	<Button
+																		variant="outline"
+																		size="sm"
+																		onClick={() => openDetails(item.id)}
+																	>
 																		View details
 																	</Button>
 																</div>
@@ -638,7 +661,9 @@ export function NotarizationsHub({ initialTab }: { initialTab: NotarizationsTab 
 																		</div>
 																		<div className="flex items-center gap-1">
 																			<Calendar className="h-4 w-4" />
-																			<span>Scheduled {format(new Date(item.scheduledAt!), "PPp")}</span>
+																			<span>
+																				Scheduled {format(new Date(item.scheduledAt!), "PPp")}
+																			</span>
 																		</div>
 																		<div className="flex items-center gap-1">
 																			<Clock className="h-4 w-4" />
@@ -662,7 +687,11 @@ export function NotarizationsHub({ initialTab }: { initialTab: NotarizationsTab 
 																		<Play className="h-4 w-4" />
 																		Start
 																	</Button>
-																	<Button variant="outline" size="sm" onClick={() => openDetails(item.id)}>
+																	<Button
+																		variant="outline"
+																		size="sm"
+																		onClick={() => openDetails(item.id)}
+																	>
 																		View details
 																	</Button>
 																</div>
@@ -742,13 +771,18 @@ export function NotarizationsHub({ initialTab }: { initialTab: NotarizationsTab 
 																		{item.status === "COMPLETED" ? (
 																			<>
 																				<CheckCircle className="h-4 w-4 text-green-600" />
-																				<span className="text-green-600">Completed successfully</span>
+																				<span className="text-green-600">
+																					Completed successfully
+																				</span>
 																			</>
 																		) : (
 																			<>
 																				<XCircle className="h-4 w-4 text-red-600" />
 																				<span className="text-red-600">
-																					Cancelled{item.cancellationReason ? `: ${item.cancellationReason}` : ""}
+																					Cancelled
+																					{item.cancellationReason
+																						? `: ${item.cancellationReason}`
+																						: ""}
 																				</span>
 																			</>
 																		)}
@@ -770,7 +804,11 @@ export function NotarizationsHub({ initialTab }: { initialTab: NotarizationsTab 
 																</div>
 
 																<div className="flex shrink-0 flex-col gap-2">
-																	<Button variant="outline" onClick={() => goToNotarize(item.id)} className="gap-2">
+																	<Button
+																		variant="outline"
+																		onClick={() => goToNotarize(item.id)}
+																		className="gap-2"
+																	>
 																		<Eye className="h-4 w-4" />
 																		View details
 																	</Button>
@@ -866,7 +904,9 @@ export function NotarizationsHub({ initialTab }: { initialTab: NotarizationsTab 
 										</div>
 										<div>
 											<span className="text-muted-foreground">Started:</span>
-											<span className="ml-2">{format(new Date(sessionDetails.startTime), "PPp")}</span>
+											<span className="ml-2">
+												{format(new Date(sessionDetails.startTime), "PPp")}
+											</span>
 										</div>
 										<div>
 											<span className="text-muted-foreground">Duration:</span>
@@ -912,10 +952,14 @@ export function NotarizationsHub({ initialTab }: { initialTab: NotarizationsTab 
 											<p className="font-medium">{sessionDetails.principal.name}</p>
 											<p className="text-muted-foreground text-sm">Principal</p>
 											{sessionDetails.principal.email ? (
-												<p className="text-muted-foreground text-sm">{sessionDetails.principal.email}</p>
+												<p className="text-muted-foreground text-sm">
+													{sessionDetails.principal.email}
+												</p>
 											) : null}
 											{sessionDetails.principal.phone ? (
-												<p className="text-muted-foreground text-sm">{sessionDetails.principal.phone}</p>
+												<p className="text-muted-foreground text-sm">
+													{sessionDetails.principal.phone}
+												</p>
 											) : null}
 										</div>
 										<Badge variant="outline">Principal</Badge>
@@ -946,14 +990,18 @@ export function NotarizationsHub({ initialTab }: { initialTab: NotarizationsTab 
 															<p className="text-muted-foreground text-sm">{doc.pages} pages</p>
 														</div>
 													</div>
-													<Badge variant={doc.status === "PENDING_SIGNATURE" ? "secondary" : "default"}>
+													<Badge
+														variant={doc.status === "PENDING_SIGNATURE" ? "secondary" : "default"}
+													>
 														{doc.status === "PENDING_SIGNATURE" ? "Pending" : "Completed"}
 													</Badge>
 												</div>
 											))}
 										</div>
 									) : (
-										<p className="text-muted-foreground py-4 text-center text-sm">No documents uploaded yet</p>
+										<p className="text-muted-foreground py-4 text-center text-sm">
+											No documents uploaded yet
+										</p>
 									)}
 								</CardContent>
 							</Card>
@@ -965,7 +1013,9 @@ export function NotarizationsHub({ initialTab }: { initialTab: NotarizationsTab 
 								<CardContent className="space-y-3">
 									<div className="flex items-center justify-between">
 										<span className="text-sm">
-											{sessionDetails.workflow === "REN" ? "Remote identity verification" : "Physical ID verification"}
+											{sessionDetails.workflow === "REN"
+												? "Remote identity verification"
+												: "Physical ID verification"}
 										</span>
 										{sessionDetails.requirements.identityVerified ? (
 											<CheckCircle className="h-5 w-5 text-green-600" />
@@ -1068,7 +1118,7 @@ export function NotarizationsHub({ initialTab }: { initialTab: NotarizationsTab 
 }
 
 function UserIcon() {
-	return <AlertCircle className="h-4 w-4 text-muted-foreground" />
+	return <AlertCircle className="text-muted-foreground h-4 w-4" />
 }
 
 function Participant({
@@ -1093,5 +1143,3 @@ function Participant({
 		</div>
 	)
 }
-
-

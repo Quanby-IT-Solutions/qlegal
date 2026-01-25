@@ -1,8 +1,8 @@
 "use client"
 
 import { useState } from "react"
-import { Label } from "@/core/components/ui/label"
-import { Textarea } from "@/core/components/ui/textarea"
+
+import { Button } from "@/core/components/ui/button"
 import {
 	Dialog,
 	DialogContent,
@@ -11,7 +11,8 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "@/core/components/ui/dialog"
-import { Button } from "@/core/components/ui/button"
+import { Label } from "@/core/components/ui/label"
+import { Textarea } from "@/core/components/ui/textarea"
 
 interface RejectDialogProps {
 	isOpen: boolean
@@ -52,7 +53,7 @@ export function RejectDialog({ isOpen, onOpenChange, onConfirm, isProcessing }: 
 							id="reject-reason"
 							placeholder="Enter rejection reason..."
 							value={rejectReason}
-							onChange={(e) => setRejectReason(e.target.value)}
+							onChange={e => setRejectReason(e.target.value)}
 							className="mt-1"
 							rows={3}
 						/>

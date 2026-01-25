@@ -2,14 +2,15 @@
 
 import { useMemo, useState } from "react"
 import { Calendar } from "lucide-react"
-
-import { trpc } from "@/services/trpc/client"
-import { transformScheduleToCalendarEvents } from "@/features/requests/lib/schedule-utils"
 import { toast } from "sonner"
 
+import { trpc } from "@/services/trpc/client"
+
+import { transformScheduleToCalendarEvents } from "@/features/requests/lib/schedule-utils"
+
+import { BlockTimeModal } from "./block-time-modal"
 import { EnpScheduleCalendar } from "./enp-schedule-calendar"
 import { ScheduleLegend } from "./schedule-legend"
-import { BlockTimeModal } from "./block-time-modal"
 
 interface ScheduleClientProps {
 	scheduleData: {
@@ -40,7 +41,7 @@ export function ScheduleClient({ scheduleData }: ScheduleClientProps) {
 			},
 			incomingRequests,
 			currentMonth,
-			currentYear,
+			currentYear
 		)
 	}, [scheduleData, incomingRequests, currentMonth, currentYear])
 

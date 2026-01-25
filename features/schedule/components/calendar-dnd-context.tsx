@@ -1,6 +1,7 @@
 "use client"
 
 import { createContext, useContext } from "react"
+
 import type { CalendarEvent } from "../types"
 
 interface CalendarDndContextValue {
@@ -18,7 +19,11 @@ interface CalendarDndProviderProps {
 }
 
 export function CalendarDndProvider({ children, onEventUpdate }: CalendarDndProviderProps) {
-	return <CalendarDndContext.Provider value={{ activeEvent: null, onEventUpdate }}>{children}</CalendarDndContext.Provider>
+	return (
+		<CalendarDndContext.Provider value={{ activeEvent: null, onEventUpdate }}>
+			{children}
+		</CalendarDndContext.Provider>
+	)
 }
 
 export function useCalendarDnd() {

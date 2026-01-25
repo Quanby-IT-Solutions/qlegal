@@ -1,13 +1,13 @@
 "use client"
 
-import { Calendar as CalendarIcon } from "lucide-react"
 import { format } from "date-fns"
+import { Calendar as CalendarIcon } from "lucide-react"
 import { type UseFormReturn } from "react-hook-form"
 
-import { FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/core/components/ui/form"
-import { Input } from "@/core/components/ui/input"
 import { Button } from "@/core/components/ui/button"
 import { Calendar } from "@/core/components/ui/calendar"
+import { FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/core/components/ui/form"
+import { Input } from "@/core/components/ui/input"
 import { Popover, PopoverContent, PopoverTrigger } from "@/core/components/ui/popover"
 import { cn } from "@/core/lib/utils"
 
@@ -24,7 +24,6 @@ export function CredentialsStep({ form, primaryName }: CredentialsStepProps) {
 
 	return (
 		<div className="space-y-4">
-
 			<div className="grid grid-cols-2 gap-4">
 				<FormField
 					control={form.control}
@@ -68,7 +67,7 @@ export function CredentialsStep({ form, primaryName }: CredentialsStepProps) {
 											<Calendar
 												mode="single"
 												selected={dateValue}
-												onSelect={(date) => {
+												onSelect={date => {
 													field.onChange(date?.toISOString())
 												}}
 												defaultMonth={dateValue}
@@ -144,11 +143,11 @@ export function CredentialsStep({ form, primaryName }: CredentialsStepProps) {
 										<Calendar
 											mode="single"
 											selected={dateValue}
-											onSelect={(date) => {
+											onSelect={date => {
 												field.onChange(date?.toISOString())
 											}}
 											defaultMonth={dateValue}
-											disabled={(date) => date > maxDate}
+											disabled={date => date > maxDate}
 											className="rounded-md border shadow-sm"
 											captionLayout="dropdown"
 										/>
@@ -162,7 +161,6 @@ export function CredentialsStep({ form, primaryName }: CredentialsStepProps) {
 			/>
 
 			<div className="grid grid-cols-2 gap-4">
-
 				<FormField
 					control={form.control}
 					name="notaryInfo.ibpNo"
@@ -206,11 +204,11 @@ export function CredentialsStep({ form, primaryName }: CredentialsStepProps) {
 											<Calendar
 												mode="single"
 												selected={dateValue}
-												onSelect={(date) => {
+												onSelect={date => {
 													field.onChange(date?.toISOString())
 												}}
 												defaultMonth={dateValue}
-												disabled={(date) => date > maxDate}
+												disabled={date => date > maxDate}
 												className="rounded-md border shadow-sm"
 												captionLayout="dropdown"
 											/>
@@ -268,11 +266,11 @@ export function CredentialsStep({ form, primaryName }: CredentialsStepProps) {
 											<Calendar
 												mode="single"
 												selected={dateValue}
-												onSelect={(date) => {
+												onSelect={date => {
 													field.onChange(date?.toISOString())
 												}}
 												defaultMonth={dateValue}
-												disabled={(date) => date > maxDate}
+												disabled={date => date > maxDate}
 												className="rounded-md border shadow-sm"
 												captionLayout="dropdown"
 											/>
@@ -329,11 +327,11 @@ export function CredentialsStep({ form, primaryName }: CredentialsStepProps) {
 										<Calendar
 											mode="single"
 											selected={dateValue}
-											onSelect={(date) => {
+											onSelect={date => {
 												field.onChange(date?.toISOString())
 											}}
 											defaultMonth={dateValue}
-											disabled={(date) => date > maxDate}
+											disabled={date => date > maxDate}
 											className="rounded-md border shadow-sm"
 											captionLayout="dropdown"
 										/>

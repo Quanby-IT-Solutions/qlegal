@@ -340,8 +340,8 @@ export const requestsRouter = createTRPCRouter({
 	getEnpSchedule: protectedProcedure
 		.input(
 			z.object({
-					month: z.number(),
-					year: z.number(),
+				month: z.number(),
+				year: z.number(),
 			})
 		)
 		.query(async ({ ctx }) => {
@@ -349,138 +349,125 @@ export const requestsRouter = createTRPCRouter({
 
 			// Verify user is ENP
 			const user = await ctx.db.query.users.findFirst({
-					where: eq(users.id, userId),
+				where: eq(users.id, userId),
 			})
 
 			if (user?.role !== "ENP") {
-					throw new TRPCError({
-							code: "FORBIDDEN",
-							message: "Only ENPs can access schedule",
-					})
+				throw new TRPCError({
+					code: "FORBIDDEN",
+					message: "Only ENPs can access schedule",
+				})
 			}
 
 			// Get regular weekly availability
 			const regularAvailability = await ctx.db.query.enpAvailability.findMany({
-					where: and(
-							eq(enpAvailability.enpId, userId),
-							eq(enpAvailability.type, "REGULAR")
-					),
+				where: and(eq(enpAvailability.enpId, userId), eq(enpAvailability.type, "REGULAR")),
 			})
 
 			// Get one-time blocked slots
 			const blockedSlots = await ctx.db.query.enpAvailability.findMany({
-					where: and(
-							eq(enpAvailability.enpId, userId),
-							eq(enpAvailability.type, "BLOCKED")
-					),
-					orderBy: [asc(enpAvailability.date), asc(enpAvailability.startTime)],
+				where: and(eq(enpAvailability.enpId, userId), eq(enpAvailability.type, "BLOCKED")),
+				orderBy: [asc(enpAvailability.date), asc(enpAvailability.startTime)],
 			})
 
 			// Get recurring blocked slots
 			const recurringBlocked = await ctx.db.query.enpAvailability.findMany({
-					where: and(
-							eq(enpAvailability.enpId, userId),
-							eq(enpAvailability.type, "RECURRING_BLOCKED")
-					),
-					orderBy: [asc(enpAvailability.dayOfWeek), asc(enpAvailability.startTime)],
+				where: and(
+					eq(enpAvailability.enpId, userId),
+					eq(enpAvailability.type, "RECURRING_BLOCKED")
+				),
+				orderBy: [asc(enpAvailability.dayOfWeek), asc(enpAvailability.startTime)],
 			})
 
 			// Get custom availability overrides for month
 			const customAvailability = await ctx.db.query.enpAvailability.findMany({
-					where: and(
-							eq(enpAvailability.enpId, userId),
-							eq(enpAvailability.type, "CUSTOM")
-					),
-					orderBy: [asc(enpAvailability.date), asc(enpAvailability.startTime)],
+				where: and(eq(enpAvailability.enpId, userId), eq(enpAvailability.type, "CUSTOM")),
+				orderBy: [asc(enpAvailability.date), asc(enpAvailability.startTime)],
 			})
 
 			return {
-					regular: regularAvailability,
-					blocked: blockedSlots,
-					recurringBlocked,
-					custom: customAvailability,
+				regular: regularAvailability,
+				blocked: blockedSlots,
+				recurringBlocked,
+				custom: customAvailability,
 			}
 		}),
 
 	// Block/unblock time slot
 	blockTimeSlot: protectedProcedure
 		.input(
-				z.object({
-						type: z.enum(["ONE_TIME", "RECURRING"]), // Block single day or recurring
-						date: z.string().optional(), // YYYY-MM-DD (for ONE_TIME)
-						dayOfWeek: z.number().optional(), // 0-6 (for RECURRING)
-						startTime: z.string(), // HH:MM format
-						endTime: z.string(), // HH:MM format
-						reason: z.string().optional(),
-				})
+			z.object({
+				type: z.enum(["ONE_TIME", "RECURRING"]), // Block single day or recurring
+				date: z.string().optional(), // YYYY-MM-DD (for ONE_TIME)
+				dayOfWeek: z.number().optional(), // 0-6 (for RECURRING)
+				startTime: z.string(), // HH:MM format
+				endTime: z.string(), // HH:MM format
+				reason: z.string().optional(),
+			})
 		)
 		.mutation(async ({ ctx, input }) => {
 			const userId = ctx.session.user.id
 
 			// Verify user is ENP
 			const user = await ctx.db.query.users.findFirst({
-					where: eq(users.id, userId),
+				where: eq(users.id, userId),
 			})
 
 			if (user?.role !== "ENP") {
-					throw new TRPCError({
-							code: "FORBIDDEN",
-							message: "Only ENPs can manage their schedule",
-					})
+				throw new TRPCError({
+					code: "FORBIDDEN",
+					message: "Only ENPs can manage their schedule",
+				})
 			}
 
 			// Create blocked slot entry based on type
 			if (input.type === "ONE_TIME") {
-					// Validate date is provided
-					if (!input.date) {
-						throw new TRPCError({
-								code: "BAD_REQUEST",
-								message: "Date is required for one-time blocks",
-						})
-					}
+				// Validate date is provided
+				if (!input.date) {
+					throw new TRPCError({
+						code: "BAD_REQUEST",
+						message: "Date is required for one-time blocks",
+					})
+				}
 
-					// Create BLOCKED entry for specific date
-					await ctx.db
-							.insert(enpAvailability)
-							.values({
-									enpId: ctx.session.user.id,
-									type: BLOCKED,
-									date: input.date,
-									dayOfWeek: new Date(input.date).getDay(),
-									startTime: input.startTime,
-									endTime: input.endTime,
-									reason: input.reason,
-							})
+				// Create BLOCKED entry for specific date
+				await ctx.db.insert(enpAvailability).values({
+					enpId: ctx.session.user.id,
+					type: BLOCKED,
+					date: input.date,
+					dayOfWeek: new Date(input.date).getDay(),
+					startTime: input.startTime,
+					endTime: input.endTime,
+					reason: input.reason,
+				})
 			} else {
-					// Create RECURRING_BLOCKED entries for specified days
-					// If dayOfWeek is not provided, apply to all 7 days
-					const days =
-							input.dayOfWeek !== undefined
-								? [input.dayOfWeek]
-								: [0, 1, 2, 3, 4, 5, 6] // All days
+				// Create RECURRING_BLOCKED entries for specified days
+				// If dayOfWeek is not provided, apply to all 7 days
+				const days = input.dayOfWeek !== undefined ? [input.dayOfWeek] : [0, 1, 2, 3, 4, 5, 6] // All days
 
-					// Create entries for each selected day
-					const entries = days.map(
-						(day) => ({
-							enpId: ctx.session.user.id,
-							type: RECURRING_BLOCKED,
-							date: null,
-							dayOfWeek: day,
-							startTime: input.startTime,
-							endTime: input.endTime,
-							reason: input.reason ?? "Recurring blocked time",
-							isAvailable: false,
-							isAllDays: input.dayOfWeek === undefined,
-						}),
-					)
+				// Create entries for each selected day
+				const entries = days.map(day => ({
+					enpId: ctx.session.user.id,
+					type: RECURRING_BLOCKED,
+					date: null,
+					dayOfWeek: day,
+					startTime: input.startTime,
+					endTime: input.endTime,
+					reason: input.reason ?? "Recurring blocked time",
+					isAvailable: false,
+					isAllDays: input.dayOfWeek === undefined,
+				}))
 
-					// Insert all entries at once
-					await ctx.db.insert(enpAvailability).values(entries)
+				// Insert all entries at once
+				await ctx.db.insert(enpAvailability).values(entries)
 			}
 
 			return {
-					success: true,
-					message: input.type === "ONE_TIME" ? "Time slot blocked successfully" : "Recurring time block created successfully",
+				success: true,
+				message:
+					input.type === "ONE_TIME"
+						? "Time slot blocked successfully"
+						: "Recurring time block created successfully",
 			}
 		}),
 
@@ -492,24 +479,22 @@ export const requestsRouter = createTRPCRouter({
 
 			// Verify user is ENP and slot belongs to them
 			const availability = await ctx.db.query.enpAvailability.findFirst({
-					where: eq(enpAvailability.id, input.availabilityId),
+				where: eq(enpAvailability.id, input.availabilityId),
 			})
 
 			if (availability?.enpId !== userId) {
-					throw new TRPCError({
-							code: "NOT_FOUND",
-							message: "Availability slot not found or you don't have permission",
-					})
+				throw new TRPCError({
+					code: "NOT_FOUND",
+					message: "Availability slot not found or you don't have permission",
+				})
 			}
 
 			// Delete blocked slot entry
-			await ctx.db
-					.delete(enpAvailability)
-					.where(eq(enpAvailability.id, input.availabilityId))
+			await ctx.db.delete(enpAvailability).where(eq(enpAvailability.id, input.availabilityId))
 
 			return {
-					success: true,
-					message: "Time slot unblocked successfully",
+				success: true,
+				message: "Time slot unblocked successfully",
 			}
 		}),
 })

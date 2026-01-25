@@ -284,9 +284,7 @@ export function MeetingDocumentUpload({
 									<SelectValue placeholder="Select notarization type" />
 								</SelectTrigger>
 								<SelectContent>
-									<SelectItem value="ACKNOWLEDGMENT">
-										Acknowledgment by Electronic Means
-									</SelectItem>
+									<SelectItem value="ACKNOWLEDGMENT">Acknowledgment by Electronic Means</SelectItem>
 									<SelectItem value="AFFIRMATION">
 										Affirmation or Oath by Electronic Means
 									</SelectItem>
@@ -321,9 +319,7 @@ export function MeetingDocumentUpload({
 					</Button>
 					<Button
 						onClick={handleUpload}
-						disabled={
-							isUploading || !selectedFile || !documentName.trim() || !notarizationType
-						}
+						disabled={isUploading || !selectedFile || !documentName.trim() || !notarizationType}
 					>
 						{isUploading ? (
 							<>

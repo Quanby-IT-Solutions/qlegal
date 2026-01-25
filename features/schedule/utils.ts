@@ -1,9 +1,16 @@
 import { isSameDay } from "date-fns"
+
 import type { CalendarEvent, EventColor } from "./types"
 
 // Re-export types for convenience
 export type { CalendarEvent, CalendarView, EventColor } from "./types"
-export { EventGap, EventHeight, WeekCellsHeight, AgendaDaysToShow, DefaultStartHour } from "./constants"
+export {
+	EventGap,
+	EventHeight,
+	WeekCellsHeight,
+	AgendaDaysToShow,
+	DefaultStartHour,
+} from "./constants"
 
 /**
  * Get CSS classes for event colors
@@ -57,7 +64,7 @@ export function isMultiDayEvent(event: CalendarEvent): boolean {
  */
 export function getEventsForDay(events: CalendarEvent[], day: Date): CalendarEvent[] {
 	return events
-		.filter((event) => {
+		.filter(event => {
 			const eventStart = new Date(event.start)
 			return isSameDay(day, eventStart)
 		})
@@ -81,13 +88,14 @@ export function sortEvents(events: CalendarEvent[]): CalendarEvent[] {
  * Get multi-day events that span across a specific day (but don't start on that day)
  */
 export function getSpanningEventsForDay(events: CalendarEvent[], day: Date): CalendarEvent[] {
-	return events.filter((event) => {
+	return events.filter(event => {
 		if (!isMultiDayEvent(event)) return false
 		const eventStart = new Date(event.start)
 		const eventEnd = new Date(event.end)
 		// Only include if it's not start day but is either end day or a middle day
 		return (
-			!isSameDay(day, eventStart) && (isSameDay(day, eventEnd) || (day > eventStart && day < eventEnd))
+			!isSameDay(day, eventStart) &&
+			(isSameDay(day, eventEnd) || (day > eventStart && day < eventEnd))
 		)
 	})
 }
@@ -96,13 +104,11 @@ export function getSpanningEventsForDay(events: CalendarEvent[], day: Date): Cal
  * Get all events visible on a specific day (starting, ending, or spanning)
  */
 export function getAllEventsForDay(events: CalendarEvent[], day: Date): CalendarEvent[] {
-	return events.filter((event) => {
+	return events.filter(event => {
 		const eventStart = new Date(event.start)
 		const eventEnd = new Date(event.end)
 		return (
-			isSameDay(day, eventStart) ||
-			isSameDay(day, eventEnd) ||
-			(day > eventStart && day < eventEnd)
+			isSameDay(day, eventStart) || isSameDay(day, eventEnd) || (day > eventStart && day < eventEnd)
 		)
 	})
 }
@@ -112,7 +118,7 @@ export function getAllEventsForDay(events: CalendarEvent[], day: Date): Calendar
  */
 export function getAgendaEventsForDay(events: CalendarEvent[], day: Date): CalendarEvent[] {
 	return events
-		.filter((event) => {
+		.filter(event => {
 			const eventStart = new Date(event.start)
 			const eventEnd = new Date(event.end)
 			return (

@@ -561,7 +561,12 @@ export const meetingsRouter = createTRPCRouter({
 				mimeType: z.string(),
 				size: z.number(),
 				description: z.string().optional(),
-				notarizationType: z.enum(["ACKNOWLEDGMENT", "AFFIRMATION", "JURAT", "SIGNATURE_WITNESSING"]),
+				notarizationType: z.enum([
+					"ACKNOWLEDGMENT",
+					"AFFIRMATION",
+					"JURAT",
+					"SIGNATURE_WITNESSING",
+				]),
 			})
 		)
 		.mutation(async ({ ctx, input }) => {
@@ -925,7 +930,8 @@ export const meetingsRouter = createTRPCRouter({
 			if (!enpProfile.enpName || !enpProfile.enpRoleNumber || !enpProfile.attyName) {
 				throw new TRPCError({
 					code: "PRECONDITION_FAILED",
-					message: "ENP profile is incomplete. Please complete your seal and notary information in settings.",
+					message:
+						"ENP profile is incomplete. Please complete your seal and notary information in settings.",
 				})
 			}
 
@@ -1144,9 +1150,7 @@ export const meetingsRouter = createTRPCRouter({
 									// Continue - don't fail the whole operation
 								}
 							} else if (hasSigned) {
-								console.log(
-									`ℹ️ Skipping removal of ${signerEmail} - they have already signed`
-								)
+								console.log(`ℹ️ Skipping removal of ${signerEmail} - they have already signed`)
 							}
 						}
 					}
@@ -1178,14 +1182,14 @@ export const meetingsRouter = createTRPCRouter({
 					userIds.map(userId => {
 						const user = userMap.get(userId)
 						const isPrincipal = user?.role === "PRINCIPAL"
-						
+
 						// Extract name and address for principals only
 						const signerName: string | null = isPrincipal && user?.name ? String(user.name) : null
 						const signerAddress: string | null =
 							isPrincipal && user?.address && typeof user.address === "string"
 								? String(user.address)
 								: null
-						
+
 						return {
 							documentId,
 							userId,

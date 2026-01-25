@@ -7,7 +7,12 @@ export const userRoles = pgEnum("user_role", ["ENP", "PRINCIPAL", "ENA", "ADMIN"
 export const userStatus = pgEnum("user_status", ["ACTIVE", "PENDING", "SUSPENDED"])
 
 // Enp availability type enum
-export const enpAvailabilityType = pgEnum("enp_availability_type", ["REGULAR", "BLOCKED", "CUSTOM", "RECURRING_BLOCKED"])
+export const enpAvailabilityType = pgEnum("enp_availability_type", [
+	"REGULAR",
+	"BLOCKED",
+	"CUSTOM",
+	"RECURRING_BLOCKED",
+])
 
 // Document status enum
 export const documentStatusEnum = pgEnum("document_status", [

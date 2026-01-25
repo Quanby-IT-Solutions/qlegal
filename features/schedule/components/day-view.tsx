@@ -3,9 +3,9 @@
 import { useMemo } from "react"
 import { format, startOfDay } from "date-fns"
 
-import { EventItem } from "./event-item"
-import type { CalendarEvent } from "../types"
 import { WeekCellsHeight } from "../constants"
+import type { CalendarEvent } from "../types"
+import { EventItem } from "./event-item"
 
 interface DayViewProps {
 	currentDate: Date
@@ -23,7 +23,7 @@ export function DayView({ currentDate, events, onEventSelect, onEventCreate }: D
 		const hourEnd = new Date(currentDate)
 		hourEnd.setHours(hour + 1, 0, 0, 0)
 
-		return events.filter((evt) => {
+		return events.filter(evt => {
 			const evtStart = new Date(evt.start)
 			const evtEnd = new Date(evt.end)
 
@@ -45,24 +45,37 @@ export function DayView({ currentDate, events, onEventSelect, onEventCreate }: D
 			<div className="grid grid-cols-1 border-b">
 				<div className="border-r p-2 text-center">
 					<div className="font-medium">{format(currentDate, "EEEE")}</div>
-					<div className="text-sm text-muted-foreground">{format(currentDate, "MMMM d, yyyy")}</div>
+					<div className="text-muted-foreground text-sm">{format(currentDate, "MMMM d, yyyy")}</div>
 				</div>
 			</div>
 			<div className="flex-1 overflow-y-auto">
-				{hours.map((hour) => {
+				{hours.map(hour => {
 					const hourStart = new Date(currentDate)
 					hourStart.setHours(hour, 0, 0, 0)
 					const hourEvents = getEventsForHour(hour)
 
 					return (
-						<div key={hour} className="grid grid-cols-[60px_1fr] border-b" style={{ height: `${WeekCellsHeight}px` }}>
+						<div
+							key={hour}
+							className="grid grid-cols-[60px_1fr] border-b"
+							style={{ height: `${WeekCellsHeight}px` }}
+						>
 							<div className="text-muted-foreground border-r p-2 text-xs">
 								{format(hourStart, "ha")}
 							</div>
-							<button className="p-0 text-left transition hover:bg-muted/50" onClick={() => onEventCreate(hourStart)}>
+							<button
+								className="hover:bg-muted/50 p-0 text-left transition"
+								onClick={() => onEventCreate(hourStart)}
+							>
 								<div className="flex flex-col gap-(--event-gap) p-1">
-									{hourEvents.map((event) => (
-										<EventItem key={event.id} event={event} view="day" onClick={handleEventClick.bind(null, event)} showTime />
+									{hourEvents.map(event => (
+										<EventItem
+											key={event.id}
+											event={event}
+											view="day"
+											onClick={handleEventClick.bind(null, event)}
+											showTime
+										/>
 									))}
 								</div>
 							</button>

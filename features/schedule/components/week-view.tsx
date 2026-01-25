@@ -3,9 +3,9 @@
 import { useMemo } from "react"
 import { addDays, format, isSameWeek, startOfDay, startOfWeek } from "date-fns"
 
+import { WeekCellsHeight } from "../constants"
 import type { CalendarEvent } from "../types"
 import { EventItem } from "./event-item"
-import {  WeekCellsHeight } from "../constants"
 
 interface WeekViewProps {
 	currentDate: Date
@@ -16,12 +16,15 @@ interface WeekViewProps {
 
 export function WeekView({ currentDate, events, onEventSelect, onEventCreate }: WeekViewProps) {
 	const weekStart = startOfWeek(currentDate, { weekStartsOn: 0 })
-	const days = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)), [weekStart])
+	const days = useMemo(
+		() => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)),
+		[weekStart]
+	)
 
 	const hours = useMemo(() => Array.from({ length: 24 }, (_, i) => i), [])
 
 	const getEventsForHourAndDay = (hour: number, day: Date) => {
-		return events.filter((event) => {
+		return events.filter(event => {
 			const eventStart = new Date(event.start)
 			const eventEnd = new Date(event.end)
 			const dayStart = startOfDay(day)
@@ -46,20 +49,27 @@ export function WeekView({ currentDate, events, onEventSelect, onEventCreate }: 
 		<div data-slot="week-view" className="flex h-full flex-col">
 			<div className="grid grid-cols-8 border-b">
 				<div className="text-muted-foreground border-r p-2 text-sm">Time</div>
-				{days.map((day) => (
-					<div key={day.toISOString()} className={`border-r p-2 text-center text-sm ${!isSameWeek(day, currentDate) ? "text-muted-foreground/70" : ""}`}>
+				{days.map(day => (
+					<div
+						key={day.toISOString()}
+						className={`border-r p-2 text-center text-sm ${!isSameWeek(day, currentDate) ? "text-muted-foreground/70" : ""}`}
+					>
 						<div className="font-medium">{format(day, "EEE")}</div>
 						<div className="text-xs">{format(day, "d")}</div>
 					</div>
 				))}
 			</div>
 			<div className="flex-1 overflow-y-auto">
-				{hours.map((hour) => (
-					<div key={hour} className="grid grid-cols-8 border-b" style={{ height: `${WeekCellsHeight}px` }}>
+				{hours.map(hour => (
+					<div
+						key={hour}
+						className="grid grid-cols-8 border-b"
+						style={{ height: `${WeekCellsHeight}px` }}
+					>
 						<div className="text-muted-foreground border-r p-2 text-xs">
 							{format(new Date().setHours(hour, 0, 0, 0), "ha")}
 						</div>
-						{days.map((day) => {
+						{days.map(day => {
 							const dayEvents = getEventsForHourAndDay(hour, day)
 							const hourStart = new Date(day)
 							hourStart.setHours(hour, 0, 0, 0)
@@ -67,12 +77,18 @@ export function WeekView({ currentDate, events, onEventSelect, onEventCreate }: 
 							return (
 								<button
 									key={`${day.toISOString()}-${hour}`}
-									className="border-r p-0 text-left transition hover:bg-muted/50"
+									className="hover:bg-muted/50 border-r p-0 text-left transition"
 									onClick={() => onEventCreate(hourStart)}
 								>
 									<div className="flex flex-col gap-(--event-gap) p-1">
-										{dayEvents.map((event) => (
-											<EventItem key={event.id} event={event} view="week" onClick={() => handleEventClick(event)} showTime />
+										{dayEvents.map(event => (
+											<EventItem
+												key={event.id}
+												event={event}
+												view="week"
+												onClick={() => handleEventClick(event)}
+												showTime
+											/>
 										))}
 									</div>
 								</button>

@@ -111,7 +111,7 @@ export function LoginForm({ callbackUrl }: { callbackUrl?: Route }) {
 					if (user) {
 						const kycStatus: string | undefined =
 							"kycStatus" in user && typeof user.kycStatus === "string" ? user.kycStatus : undefined
-						
+
 						const userStatus: string | undefined =
 							"status" in user && typeof user.status === "string" ? user.status : undefined
 

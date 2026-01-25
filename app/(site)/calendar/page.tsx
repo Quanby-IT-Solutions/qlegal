@@ -9,7 +9,6 @@ import { EnpCard } from "@/core/components/enp-card"
 import { PageHeader } from "@/core/components/navbar/page-header"
 import { Badge } from "@/core/components/ui/badge"
 import { Button } from "@/core/components/ui/button"
-import { EventCalendar, type CalendarEvent } from "@/core/components/ui/event-calendar"
 import {
 	Card,
 	CardContent,
@@ -17,6 +16,7 @@ import {
 	CardHeader,
 	CardTitle,
 } from "@/core/components/ui/card"
+import { EventCalendar, type CalendarEvent } from "@/core/components/ui/event-calendar"
 import { Separator } from "@/core/components/ui/separator"
 import { Tabs, TabsList, TabsTrigger } from "@/core/components/ui/tabs"
 import type { ENPAvailableSlot, ENPProfile } from "@/core/lib/types/enp"
@@ -170,7 +170,7 @@ export default function CalendarPage() {
 								<CardContent className="space-y-4">
 									<EventCalendar
 										events={calendarEvents}
-										onDateClick={(date) => setSelectedDate(normalizeDate(date))}
+										onDateClick={date => setSelectedDate(normalizeDate(date))}
 										defaultView="month"
 										defaultDate={selectedDate}
 										height={400}

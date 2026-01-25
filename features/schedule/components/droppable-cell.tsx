@@ -13,7 +13,14 @@ interface DroppableCellProps {
 	className?: string
 }
 
-export function DroppableCell({ id, date, onClick, children, event, className }: DroppableCellProps) {
+export function DroppableCell({
+	id,
+	date,
+	onClick,
+	children,
+	event,
+	className,
+}: DroppableCellProps) {
 	const { setNodeRef, isOver } = useDroppable({
 		id,
 		data: { date, event },
@@ -22,7 +29,7 @@ export function DroppableCell({ id, date, onClick, children, event, className }:
 	return (
 		<div
 			ref={setNodeRef}
-			className={`relative flex h-full flex-col p-1 transition-colors border-r border-b last:border-r-0 ${isOver ? "bg-accent/30" : ""} ${className || ""}`}
+			className={`relative flex h-full flex-col border-r border-b p-1 transition-colors last:border-r-0 ${isOver ? "bg-accent/30" : ""} ${className || ""}`}
 			onClick={onClick}
 		>
 			{children}

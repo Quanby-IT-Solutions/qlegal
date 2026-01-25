@@ -1,22 +1,22 @@
 import {
+	BookOpen02Icon,
 	BookOpenIcon,
+	Calendar02Icon,
+	ChatIcon,
+	CheckmarkBadge01Icon,
+	CustomerSupportIcon,
 	DocumentAttachmentIcon,
+	DocumentValidationIcon,
+	Home01Icon,
 	Notification01Icon,
+	Search01Icon,
 	Sent02Icon,
 	Settings01Icon,
 	ShieldUserIcon,
+	Timer02Icon,
 	UserGroupIcon,
 	UserIcon,
 	Video01Icon,
-	CheckmarkBadge01Icon,
-	Search01Icon,
-	Home01Icon,
-	Timer02Icon,
-	BookOpen02Icon,
-	DocumentValidationIcon,
-	ChatIcon,
-	CustomerSupportIcon,
-  Calendar02Icon,
 } from "@hugeicons/core-free-icons"
 
 import type { UserRole } from "@/services/drizzle/schema/auth"
@@ -28,13 +28,13 @@ export const navSecondary: NavItem[] = [
 		title: "Support",
 		url: "/support",
 		icon: CustomerSupportIcon,
-    badge: "soon",
+		badge: "soon",
 	},
 	{
 		title: "Feedback",
 		url: "/feedback",
 		icon: Sent02Icon,
-    badge: "soon",
+		badge: "soon",
 	},
 ]
 
@@ -53,7 +53,7 @@ export const appSidebarSections: NavSection[] = [
 				icon: Search01Icon,
 				roles: ["PRINCIPAL"],
 			},
-      {
+			{
 				title: "Schedule",
 				url: "/schedule",
 				icon: Calendar02Icon,
@@ -70,29 +70,29 @@ export const appSidebarSections: NavSection[] = [
 				url: "/appointments",
 				icon: Video01Icon,
 			},
-      {
+			{
 				title: "Documents",
 				url: "/appointments",
 				icon: DocumentValidationIcon,
-        roles: ["PRINCIPAL"],
+				roles: ["PRINCIPAL"],
 			},
-      {
+			{
 				title: "Notarial Registry",
 				url: "/appointments",
 				icon: BookOpen02Icon,
-        roles: ["ENP"],
+				roles: ["ENP"],
 			},
-      {
+			{
 				title: "Messages",
 				url: "/messages",
 				icon: ChatIcon,
 			},
 		],
 	},
-  {
+	{
 		label: "Old",
 		items: [
-      {
+			{
 				title: "Appointment Meeting",
 				url: "/appointments",
 				icon: Video01Icon,

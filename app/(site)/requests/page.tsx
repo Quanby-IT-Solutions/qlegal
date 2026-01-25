@@ -1,10 +1,10 @@
 import { redirect } from "next/navigation"
 
-import { trpc } from "@/services/trpc/server"
-import { HydrateClient } from "@/services/trpc/server"
+import { PageHeader } from "@/core/components/navbar/page-header"
 
 import { auth } from "@/services/next-auth"
-import { PageHeader } from "@/core/components/navbar/page-header"
+import { HydrateClient, trpc } from "@/services/trpc/server"
+
 import { RequestsClient } from "@/features/requests/components/requests-client"
 
 export default async function RequestsPage() {

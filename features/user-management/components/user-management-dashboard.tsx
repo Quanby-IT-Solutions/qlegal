@@ -19,10 +19,12 @@ export function UserManagementDashboard() {
 	return (
 		<div className="min-h-screen w-full" suppressHydrationWarning>
 			{/* Header */}
-			<div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-4 sm:p-6">
+			<div className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-6">
 				<div>
-					<h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">User Management</h1>
-					<p className="text-sm sm:text-base text-gray-600 dark:text-gray-400">
+					<h1 className="text-2xl font-bold text-gray-900 sm:text-3xl dark:text-white">
+						User Management
+					</h1>
+					<p className="text-sm text-gray-600 sm:text-base dark:text-gray-400">
 						Manage platform users, roles, and permissions
 					</p>
 				</div>
@@ -38,7 +40,7 @@ export function UserManagementDashboard() {
 			</div>
 
 			{/* Filters */}
-			<div className="px-4 sm:px-6 mt-4 sm:mt-6">
+			<div className="mt-4 px-4 sm:mt-6 sm:px-6">
 				<UserFilters
 					searchTerm={searchTerm}
 					setSearchTerm={setSearchTerm}
@@ -50,7 +52,7 @@ export function UserManagementDashboard() {
 			</div>
 
 			{/* Users List */}
-			<div className="px-4 sm:px-6 mt-4 sm:mt-6 pb-4 sm:pb-6">
+			<div className="mt-4 px-4 pb-4 sm:mt-6 sm:px-6 sm:pb-6">
 				<UserList searchTerm={searchTerm} roleFilter={roleFilter} statusFilter={statusFilter} />
 			</div>
 

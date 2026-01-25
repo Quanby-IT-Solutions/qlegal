@@ -93,7 +93,6 @@ const PIE_COLORS = ["#3b82f6", "#8b5cf6", "#10b981", "#f59e0b", "#ef4444", "#06b
 type DashboardStatistics = RouterOutputs["dashboard"]["getStatistics"]
 
 export default function DashboardPage() {
-	
 	const router = useRouter()
 	const pathname = usePathname()
 	const { data: session } = useSession()

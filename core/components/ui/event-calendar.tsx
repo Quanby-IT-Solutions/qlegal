@@ -1,10 +1,13 @@
 "use client"
 
-import { Calendar, dateFnsLocalizer, type View, Views } from "react-big-calendar"
+import { Calendar, dateFnsLocalizer, Views, type View } from "react-big-calendar"
+
 import "react-big-calendar/lib/css/react-big-calendar.css"
-import { format, parse, startOfWeek, getDay } from "date-fns"
-import enUS from "date-fns/locale/en-US"
+
 import { useCallback, useMemo, useState } from "react"
+import { format, getDay, parse, startOfWeek } from "date-fns"
+import enUS from "date-fns/locale/en-US"
+
 import { cn } from "@/core/lib/utils"
 
 // Configure localizer

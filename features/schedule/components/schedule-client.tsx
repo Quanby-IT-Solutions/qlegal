@@ -2,12 +2,21 @@
 
 import { useMemo } from "react"
 
-import { trpc } from "@/services/trpc/client"
-import { transformScheduleToCalendarEvents } from "@/features/requests/lib/schedule-utils"
-import { EventCalendar } from "./event-calendar"
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/core/components/ui/card"
-import type { CalendarEvent } from "../types"
+import {
+	Card,
+	CardContent,
+	CardDescription,
+	CardHeader,
+	CardTitle,
+} from "@/core/components/ui/card"
+
 import type { EnpAvailability } from "@/services/drizzle/schema/enp-profiles"
+import { trpc } from "@/services/trpc/client"
+
+import { transformScheduleToCalendarEvents } from "@/features/requests/lib/schedule-utils"
+
+import type { CalendarEvent } from "../types"
+import { EventCalendar } from "./event-calendar"
 
 interface ScheduleClientProps {
 	scheduleData: {
@@ -72,7 +81,7 @@ export function ScheduleClient({ scheduleData }: ScheduleClientProps) {
 			}))
 
 		// Transform incoming requests to match expected format
-		const transformedRequests = incomingRequests.map((request) => ({
+		const transformedRequests = incomingRequests.map(request => ({
 			id: request.id,
 			title: request.title,
 			principal: { name: request.principal.name ?? "Unknown" },
@@ -90,7 +99,7 @@ export function ScheduleClient({ scheduleData }: ScheduleClientProps) {
 			},
 			transformedRequests,
 			today.getMonth(),
-			today.getFullYear(),
+			today.getFullYear()
 		)
 	}, [scheduleData, incomingRequests, today])
 

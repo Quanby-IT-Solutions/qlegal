@@ -13,6 +13,7 @@ import {
 } from "lucide-react"
 
 import { PageHeader } from "@/core/components/navbar/page-header"
+import { Alert, AlertDescription } from "@/core/components/ui/alert"
 import { Avatar, AvatarFallback, AvatarImage } from "@/core/components/ui/avatar"
 import { Badge } from "@/core/components/ui/badge"
 import { Button } from "@/core/components/ui/button"
@@ -26,7 +27,6 @@ import {
 	SelectValue,
 } from "@/core/components/ui/select"
 import { Skeleton } from "@/core/components/ui/skeleton"
-import { Alert, AlertDescription } from "@/core/components/ui/alert"
 
 interface IncomingRequest {
 	id: string
@@ -71,26 +71,29 @@ export function RequestsListView({
 	const [workflowFilter, setWorkflowFilter] = useState("ALL")
 
 	// Filter requests based on filters
-	const filteredRequests = incomingRequests.filter((request) => {
+	const filteredRequests = incomingRequests.filter(request => {
 		const matchesStatus = statusFilter === "ALL" || request.status === statusFilter
 		const matchesWorkflow = workflowFilter === "ALL" || request.workflow === workflowFilter
 		const matchesSearch =
 			!searchTerm ||
 			Boolean(request.title?.toLowerCase().includes(searchTerm.toLowerCase())) ||
 			Boolean(request.description?.toLowerCase().includes(searchTerm.toLowerCase())) ||
-			Boolean(request.principal?.name && request.principal.name.toLowerCase().includes(searchTerm.toLowerCase()))
+			Boolean(
+				request.principal?.name &&
+				request.principal.name.toLowerCase().includes(searchTerm.toLowerCase())
+			)
 		return matchesStatus && matchesWorkflow && matchesSearch
 	})
 
 	// Calculate stats
 	const stats = {
-		todayCount: filteredRequests.filter((r) => {
+		todayCount: filteredRequests.filter(r => {
 			const today = new Date()
 			const requestDate = new Date(r.createdAt)
 			return requestDate.toDateString() === today.toDateString()
 		}).length,
 		upcomingCount: filteredRequests.filter(
-			(r) => r.status === "PENDING" || r.status === "IN_PROGRESS"
+			r => r.status === "PENDING" || r.status === "IN_PROGRESS"
 		).length,
 		totalCount: filteredRequests.length,
 	}
@@ -153,7 +156,7 @@ export function RequestsListView({
 							<Input
 								placeholder="Search requests..."
 								value={searchTerm}
-								onChange={(e) => setSearchTerm(e.target.value)}
+								onChange={e => setSearchTerm(e.target.value)}
 								className="pl-9"
 							/>
 						</div>
@@ -202,7 +205,7 @@ export function RequestsListView({
 						))}
 					</div>
 				) : filteredRequests.length > 0 ? (
-					filteredRequests.map((request) => (
+					filteredRequests.map(request => (
 						<Card key={request.id} className="transition-shadow hover:shadow-md">
 							<CardContent className="p-6">
 								<div className="flex items-start justify-between">
@@ -264,14 +267,14 @@ export function RequestsListView({
 												src={request.principal?.image ?? undefined}
 												alt={request.principal?.name ?? "Principal"}
 											/>
-										<AvatarFallback>
-											{request.principal?.name
-												? request.principal.name
-														.split(" ")
-														.map((n) => n[0])
-														.join("")
-												: "P"}
-										</AvatarFallback>
+											<AvatarFallback>
+												{request.principal?.name
+													? request.principal.name
+															.split(" ")
+															.map(n => n[0])
+															.join("")
+													: "P"}
+											</AvatarFallback>
 										</Avatar>
 
 										{request.status === "PENDING" && (

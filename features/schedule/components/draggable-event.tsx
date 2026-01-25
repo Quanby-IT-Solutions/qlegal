@@ -1,7 +1,7 @@
 "use client"
 
-import { useDraggable } from "@dnd-kit/core"
 import { useState } from "react"
+import { useDraggable } from "@dnd-kit/core"
 
 import { EventItem, type CalendarEvent } from "./event-item"
 
@@ -13,7 +13,13 @@ interface DraggableEventProps {
 	isLastDay?: boolean
 }
 
-export function DraggableEvent({ event, view, onClick, isFirstDay, isLastDay }: DraggableEventProps) {
+export function DraggableEvent({
+	event,
+	view,
+	onClick,
+	isFirstDay,
+	isLastDay,
+}: DraggableEventProps) {
 	const [isDragging, setIsDragging] = useState(false)
 
 	const { attributes, listeners, setNodeRef, transform, active } = useDraggable({
@@ -26,7 +32,7 @@ export function DraggableEvent({ event, view, onClick, isFirstDay, isLastDay }: 
 	const style = transform
 		? {
 				transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
-		  }
+			}
 		: undefined
 
 	return (

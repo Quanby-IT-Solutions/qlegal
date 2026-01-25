@@ -107,7 +107,7 @@ export default proxy(req => {
 				path !== "/auth/status" &&
 				!onAuthPage &&
 				path !== "/auth/kyc" &&
-				(userStatus !== "ACTIVE")
+				userStatus !== "ACTIVE"
 			) {
 				const statusUrl = new URL("/auth/status", nextUrl)
 				logRedirect(path, statusUrl.pathname, "user status gate - account not active")

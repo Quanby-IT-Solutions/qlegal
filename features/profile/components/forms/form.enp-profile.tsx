@@ -1,8 +1,8 @@
 "use client"
 
-import { Calendar as CalendarIcon } from "lucide-react"
-import { format } from "date-fns"
 import { zodResolver } from "@hookform/resolvers/zod"
+import { format } from "date-fns"
+import { Calendar as CalendarIcon } from "lucide-react"
 import { useForm } from "react-hook-form"
 import { toast } from "sonner"
 
@@ -82,7 +82,10 @@ export function EnpProfileForm() {
 								<FormItem>
 									<FormLabel>ENP Name</FormLabel>
 									<FormControl>
-										<Input placeholder="e.g., Mariae Francine Geraldine Biglaen y Sibulop" {...field} />
+										<Input
+											placeholder="e.g., Mariae Francine Geraldine Biglaen y Sibulop"
+											{...field}
+										/>
 									</FormControl>
 									<FormMessage />
 								</FormItem>
@@ -177,7 +180,10 @@ export function EnpProfileForm() {
 								<FormItem className="md:col-span-2">
 									<FormLabel>Attorney Name</FormLabel>
 									<FormControl>
-										<Input placeholder="e.g., ATTY. MARIA ANGELICA M. DELA CRUZ-SAN FELIPE" {...field} />
+										<Input
+											placeholder="e.g., ATTY. MARIA ANGELICA M. DELA CRUZ-SAN FELIPE"
+											{...field}
+										/>
 									</FormControl>
 									<FormMessage />
 								</FormItem>

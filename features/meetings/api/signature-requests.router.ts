@@ -38,32 +38,35 @@ function asNonEmptyEmail(email: unknown): string | undefined {
 
 /**
  * Helper function to determine if a signer has actually plotted/signed
- * 
+ *
  * CRITICAL: "NEXT GROUP" status means they're next in line, NOT that they've plotted!
  * Only returns true if they have actually signed (status is SIGNED/COMPLETED or signed_at is set)
- * 
+ *
  * @param signerStatus - The signer's status from DocoChain (e.g., "NEXT GROUP", "PENDING", "SIGNED")
  * @param signedAt - The signer's signed_at timestamp (null if not signed)
  * @returns true only if the signer has actually signed, false otherwise
  */
-function hasSignerPlottedOrSigned(signerStatus: string | null | undefined, signedAt: string | null | undefined): boolean {
+function hasSignerPlottedOrSigned(
+	signerStatus: string | null | undefined,
+	signedAt: string | null | undefined
+): boolean {
 	const status = (signerStatus ?? "").toUpperCase()
-	
+
 	// Signer has plotted/signed ONLY if:
 	// 1. Status is SIGNED or COMPLETED (they've completed signing)
 	// 2. signed_at is set (they have a signed timestamp)
-	const hasSigned = 
-		status === "SIGNED" || 
+	const hasSigned =
+		status === "SIGNED" ||
 		status === "COMPLETED" ||
 		(signedAt !== null && signedAt !== undefined && signedAt !== "")
-	
+
 	// Safety check: If status is "NEXT GROUP" and we're saying they've signed, that's a logic error
 	if (status === "NEXT GROUP" && hasSigned) {
 		console.error("❌ LOGIC ERROR: Signer status is NEXT GROUP but hasSigned is true!")
 		console.error("   NEXT GROUP means they're next in line, NOT that they've plotted/signed")
 		return false // Force to false to prevent incorrect behavior
 	}
-	
+
 	return hasSigned
 }
 
@@ -444,7 +447,8 @@ export const signatureRequestsRouter = createTRPCRouter({
 				if (!actualProjectUuid) {
 					throw new TRPCError({
 						code: "PRECONDITION_FAILED",
-						message: "DocoChain project not found. Please create the project first by clicking 'Create Project' after setting signers.",
+						message:
+							"DocoChain project not found. Please create the project first by clicking 'Create Project' after setting signers.",
 					})
 				}
 
@@ -660,14 +664,15 @@ export const signatureRequestsRouter = createTRPCRouter({
 					// CRITICAL: "NEXT GROUP" status means they're next in line to sign, NOT that they've plotted
 					// Only consider them as having plotted if they have ACTUALLY SIGNED
 					// Note: getProjectDetails doesn't return signature mark fields, so we can only check if they've signed
-					const signers = (projectDetails?.data?.signers as Array<{ 
-						email?: string
-						status?: string
-						signed_at?: string | null
-					}>) ?? []
+					const signers =
+						(projectDetails?.data?.signers as Array<{
+							email?: string
+							status?: string
+							signed_at?: string | null
+						}>) ?? []
 					const currentSigner = signers.find(s => s.email?.toLowerCase() === email.toLowerCase())
 					const signerStatus = (currentSigner?.status ?? "").toUpperCase()
-					
+
 					// Use helper function to determine if signer has plotted/signed
 					// This ensures consistent logic and prevents treating "NEXT GROUP" as "plotted"
 					signerHasPlotted = hasSignerPlottedOrSigned(
@@ -681,11 +686,13 @@ export const signatureRequestsRouter = createTRPCRouter({
 					console.log("   - Signer Status:", currentSigner?.status ?? "not found")
 					console.log("   - Signer Signed At:", currentSigner?.signed_at ?? "not signed")
 					console.log("   - Signer Has Plotted:", signerHasPlotted)
-					
+
 					// Additional validation: Log if status is NEXT GROUP but we're saying they've plotted
 					if (signerStatus === "NEXT GROUP" && signerHasPlotted) {
 						console.error("❌ ERROR: Signer status is NEXT GROUP but signerHasPlotted is true!")
-						console.error("   This indicates a logic error - NEXT GROUP means they haven't plotted yet")
+						console.error(
+							"   This indicates a logic error - NEXT GROUP means they haven't plotted yet"
+						)
 						// Force to false to prevent incorrect behavior
 						signerHasPlotted = false
 					}
@@ -698,7 +705,9 @@ export const signatureRequestsRouter = createTRPCRouter({
 				// This ensures we always get a valid, fresh link with proper token validation
 				if (isProjectSent) {
 					// Project is sent - must use Generate Sign Link API
-					console.log("🔵 Project is sent - using Generate Sign Link API (required for sent projects)...")
+					console.log(
+						"🔵 Project is sent - using Generate Sign Link API (required for sent projects)..."
+					)
 					try {
 						// CRITICAL: Pass ENP's email (creatorEmail) for token generation
 						// The 'email' parameter is for the signer, but auth token must be ENP's
@@ -727,7 +736,7 @@ export const signatureRequestsRouter = createTRPCRouter({
 					// CRITICAL: If token expires, retry with a fresh token before falling back
 					let editDraftResult: { link: string } | null = null
 					let editDraftError: unknown = null
-					
+
 					// First attempt
 					try {
 						editDraftResult = await generateEditDraftLink(actualProjectUuid, creatorEmail)
@@ -739,7 +748,7 @@ export const signatureRequestsRouter = createTRPCRouter({
 					} catch (firstError) {
 						editDraftError = firstError
 						console.error("❌ First attempt to generate Edit Draft Link failed:", firstError)
-						
+
 						// Check if it's a token/auth error - if so, invalidate token and retry once
 						const isAuthError =
 							firstError instanceof Error &&
@@ -747,12 +756,14 @@ export const signatureRequestsRouter = createTRPCRouter({
 								firstError.message.includes("Unauthorized") ||
 								firstError.message.includes("expired") ||
 								firstError.message.includes("session"))
-						
+
 						if (isAuthError) {
-							console.log("🔵 Token/auth error detected - invalidating token and retrying with fresh token...")
+							console.log(
+								"🔵 Token/auth error detected - invalidating token and retrying with fresh token..."
+							)
 							// Invalidate token to force fresh generation on retry
 							invalidateToken(creatorEmail)
-							
+
 							// Retry once with fresh token
 							try {
 								editDraftResult = await generateEditDraftLink(actualProjectUuid, creatorEmail)
@@ -767,7 +778,7 @@ export const signatureRequestsRouter = createTRPCRouter({
 							}
 						}
 					}
-					
+
 					// If both attempts failed, use fallback - but use link.doconchain.com domain, not stg-app
 					if (!editDraftResult) {
 						console.error("❌ Failed to generate Edit Draft Link after retry:", editDraftError)
@@ -778,7 +789,9 @@ export const signatureRequestsRouter = createTRPCRouter({
 							? "https://link.doconchain.com"
 							: "https://link.doconchain.com"
 						// Note: This fallback won't work without a valid short code, but at least uses correct domain
-						console.warn("⚠️ Using fallback URL with correct domain - this may not work without valid short code")
+						console.warn(
+							"⚠️ Using fallback URL with correct domain - this may not work without valid short code"
+						)
 						signingLink = `${linkDomain}/${actualProjectUuid}?api=true`
 					}
 				}
@@ -790,7 +803,7 @@ export const signatureRequestsRouter = createTRPCRouter({
 					// api_token is REQUIRED for document loading in all signing scenarios
 					try {
 						const url = new URL(signingLink)
-						
+
 						// CRITICAL: For Edit Draft Links (link.doconchain.com), remove unwanted parameters
 						// Edit Draft Links should ONLY have: api=true and api_token
 						// Remove: token, email, signer_role, page (these are for Sign Links, not Edit Draft Links)
@@ -801,10 +814,10 @@ export const signatureRequestsRouter = createTRPCRouter({
 							url.searchParams.delete("signer_role") // Remove signer_role parameter (not needed for Edit Draft Links)
 							url.searchParams.delete("page") // Remove page parameter (not needed for Edit Draft Links)
 						}
-						
+
 						// Ensure api=true is set
 						url.searchParams.set("api", "true")
-						
+
 						// Remove api_token ONLY if it's explicitly undefined or empty
 						if (url.searchParams.has("api_token")) {
 							const existingToken = url.searchParams.get("api_token")
@@ -813,19 +826,23 @@ export const signatureRequestsRouter = createTRPCRouter({
 								console.log("⚠️ Removed invalid/empty api_token from URL")
 							}
 						}
-						
+
 						// Always add api_token if missing (required for document loading)
 						// Use creator's email (ENP) for token generation as they own the project
 						// CRITICAL: Use the SAME token that was generated during project creation
 						// Don't invalidate/regenerate - use the cached token to ensure consistency
 						// The token was already generated fresh during project creation, so it has maximum validity
 						if (!url.searchParams.has("api_token")) {
-							console.log("🔵 Using cached token for signing link (same token from project creation)...")
+							console.log(
+								"🔵 Using cached token for signing link (same token from project creation)..."
+							)
 							const apiToken = await getToken(creatorEmail, false) // Use cached token, don't force regeneration
 							url.searchParams.set("api_token", apiToken)
-							console.log("✅ Added api_token to signing link (using token from project creation, required for document loading)")
+							console.log(
+								"✅ Added api_token to signing link (using token from project creation, required for document loading)"
+							)
 						}
-						
+
 						signingLink = url.toString()
 					} catch {
 						// If URL parsing fails, signingLink is already normalized
@@ -1162,7 +1179,7 @@ export const signatureRequestsRouter = createTRPCRouter({
 						return status
 					} catch (error) {
 						lastError = error instanceof Error ? error : new Error(String(error))
-						
+
 						// Check if it's a network timeout error
 						const isNetworkError =
 							error instanceof Error &&
@@ -1173,21 +1190,21 @@ export const signatureRequestsRouter = createTRPCRouter({
 								error.message.includes("ENOTFOUND") ||
 								error.message.includes("ECONNREFUSED") ||
 								(error as { code?: string }).code === "UND_ERR_CONNECT_TIMEOUT")
-						
+
 						// Only log failures that are unexpected (not "not part of project" errors or network errors)
 						const isExpectedFailure =
 							error instanceof Error &&
 							(error.message.includes("not part of this project") ||
 								error.message.includes("Project not found") ||
 								error.message.includes("not found"))
-						
+
 						if (!isExpectedFailure && !isNetworkError) {
 							console.warn(
 								`⚠️ Failed to check status with ${email ?? "static token"}:`,
 								error instanceof Error ? error.message : String(error)
 							)
 						}
-						
+
 						if (isNetworkError) {
 							console.warn(
 								`⚠️ Network timeout when checking status with ${email ?? "static token"} - will try next email or return error`

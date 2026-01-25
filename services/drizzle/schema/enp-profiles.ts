@@ -60,7 +60,6 @@ export const enpProfiles = createTable(
 	t => [index("enp_profile_user_id_idx").on(t.userId)]
 ).enableRLS()
 
-
 export const enpAvailability = createTable("enp_availability", t => ({
 	id: t
 		.varchar({ length: 255 })
@@ -70,7 +69,7 @@ export const enpAvailability = createTable("enp_availability", t => ({
 		.varchar({ length: 255 })
 		.notNull()
 		.references(() => users.id, { onDelete: "cascade" }),
-	type: t.varchar({ length: 50 }).notNull().default('REGULAR'), // 'REGULAR' = weekly recurring availability, 'BLOCKED' = one-time blocked slot, 'CUSTOM' = one-time availability override, 'RECURRING_BLOCKED' = recurring blocked time slots
+	type: t.varchar({ length: 50 }).notNull().default("REGULAR"), // 'REGULAR' = weekly recurring availability, 'BLOCKED' = one-time blocked slot, 'CUSTOM' = one-time availability override, 'RECURRING_BLOCKED' = recurring blocked time slots
 	date: t.date(), // For BLOCKED and CUSTOM types (null for REGULAR and RECURRING_BLOCKED)
 	dayOfWeek: t.integer(), // 0 = Sunday, 1 = Monday, ..., 6 = Saturday (required for REGULAR and RECURRING_BLOCKED)
 	startTime: t.varchar({ length: 5 }).notNull(), // e.g., "09:00"

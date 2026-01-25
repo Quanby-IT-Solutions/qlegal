@@ -18,6 +18,7 @@ import {
 } from "@/core/components/ui/dialog"
 import { Label } from "@/core/components/ui/label"
 import { Popover, PopoverContent, PopoverTrigger } from "@/core/components/ui/popover"
+
 import { trpc } from "@/services/trpc/client"
 
 interface ConsultationBookingDialogProps {
@@ -53,7 +54,8 @@ export function ConsultationBookingDialog({
 	const bookConsultationMutation = trpc.consultations.bookConsultation.useMutation({
 		onSuccess: () => {
 			toast.success("Consultation Booked!", {
-				description: "Your consultation request has been sent. The ENP will review and confirm your booking.",
+				description:
+					"Your consultation request has been sent. The ENP will review and confirm your booking.",
 			})
 			setOpen(false)
 			resetForm()
@@ -97,14 +99,10 @@ export function ConsultationBookingDialog({
 
 	return (
 		<Dialog open={open} onOpenChange={setOpen}>
-			<DialogTrigger asChild>
-				{trigger || <Button>Book Consultation</Button>}
-			</DialogTrigger>
+			<DialogTrigger asChild>{trigger || <Button>Book Consultation</Button>}</DialogTrigger>
 			<DialogContent className="sm:max-w-[500px]">
 				<DialogHeader>
-					<DialogTitle>
-						Book Consultation{enpName ? ` with ${enpName}` : ""}
-					</DialogTitle>
+					<DialogTitle>Book Consultation{enpName ? ` with ${enpName}` : ""}</DialogTitle>
 					<DialogDescription>
 						Schedule a consultation with an Electronic Notary Public for your notarization needs.
 					</DialogDescription>
@@ -116,10 +114,7 @@ export function ConsultationBookingDialog({
 						<Label className="text-base font-medium">Select Date</Label>
 						<Popover>
 							<PopoverTrigger asChild>
-								<Button
-									variant="outline"
-									className="w-full justify-start text-left font-normal"
-								>
+								<Button variant="outline" className="w-full justify-start text-left font-normal">
 									<Calendar className="mr-2 size-4" />
 									{selectedDate ? format(selectedDate, "PPP") : "Pick a date"}
 								</Button>
@@ -152,9 +147,7 @@ export function ConsultationBookingDialog({
 								onChange={e => setSelectedTime(e.target.value)}
 							/>
 							<div className="space-y-2">
-								<Label className="text-muted-foreground text-sm font-medium">
-									Suggested slots
-								</Label>
+								<Label className="text-muted-foreground text-sm font-medium">Suggested slots</Label>
 								{isLoadingAvailability ? (
 									<div className="flex items-center justify-center py-4">
 										<Loader2 className="text-muted-foreground size-5 animate-spin" />
@@ -210,4 +203,3 @@ export function ConsultationBookingDialog({
 		</Dialog>
 	)
 }
-

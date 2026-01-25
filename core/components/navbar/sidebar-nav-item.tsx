@@ -3,8 +3,8 @@
 import type { Route } from "next"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { ChevronRight } from "lucide-react"
 import { HugeiconsIcon } from "@hugeicons/react"
+import { ChevronRight } from "lucide-react"
 
 import {
 	Tooltip,
@@ -24,9 +24,9 @@ import {
 	CollapsibleContent,
 	CollapsibleTrigger,
 } from "@/core/components/animate-ui/primitives/radix/collapsible"
+import { Badge } from "@/core/components/navbar/badges/badge"
 import { type NavItem } from "@/core/lib/nav/types"
 import { canAccessNavItem, isRouteActive } from "@/core/lib/nav/utils"
-import { Badge } from "@/core/components/navbar/badges/badge"
 import { cn } from "@/core/lib/utils"
 
 type SidebarNavItemProps = {
@@ -42,10 +42,11 @@ export const SidebarNavItem = ({ item, userRole }: SidebarNavItemProps) => {
 		item.items?.filter(subItem => canAccessNavItem(subItem.roles, userRole)) ?? []
 
 	// Check if current item or any of its sub-items are active
-	const isActive = isRouteActive(item.url, pathname) ||
+	const isActive =
+		isRouteActive(item.url, pathname) ||
 		accessibleSubItems.some(subItem => isRouteActive(subItem.url, pathname))
 
-	const isSoonBadge = item.badge === 'soon'
+	const isSoonBadge = item.badge === "soon"
 
 	const renderIcon = (icon?: typeof item.icon) => {
 		if (!icon) return null
@@ -78,9 +79,13 @@ export const SidebarNavItem = ({ item, userRole }: SidebarNavItemProps) => {
 					{sidebarState === "collapsed" ? (
 						<Tooltip side="right" align="center">
 							<TooltipTrigger asChild>
-								<SidebarMenuButton asChild className={buttonClassName} isActive={!isSoonBadge && isActive}>
+								<SidebarMenuButton
+									asChild
+									className={buttonClassName}
+									isActive={!isSoonBadge && isActive}
+								>
 									{isSoonBadge ? (
-										<button type="button" onClick={(e) => e.preventDefault()}>
+										<button type="button" onClick={e => e.preventDefault()}>
 											<NavContent />
 										</button>
 									) : (
@@ -95,9 +100,13 @@ export const SidebarNavItem = ({ item, userRole }: SidebarNavItemProps) => {
 							</TooltipContent>
 						</Tooltip>
 					) : (
-						<SidebarMenuButton asChild className={buttonClassName} isActive={!isSoonBadge && isActive}>
+						<SidebarMenuButton
+							asChild
+							className={buttonClassName}
+							isActive={!isSoonBadge && isActive}
+						>
 							{isSoonBadge ? (
-								<button type="button" onClick={(e) => e.preventDefault()}>
+								<button type="button" onClick={e => e.preventDefault()}>
 									<NavContent />
 								</button>
 							) : (

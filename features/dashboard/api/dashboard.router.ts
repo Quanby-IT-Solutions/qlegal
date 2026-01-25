@@ -226,7 +226,7 @@ export const dashboardRouter = createTRPCRouter({
 		}),
 
 	// Get signing session appointments (DOCUMENT_SIGNING type)
-	// Shows: PENDING (waiting for ENP to accept), CONFIRMED (accepted, waiting for ENP to start), 
+	// Shows: PENDING (waiting for ENP to accept), CONFIRMED (accepted, waiting for ENP to start),
 	// and appointments with active meetings (ready to join)
 	getSigningSessions: protectedProcedure
 		.input(
@@ -280,19 +280,19 @@ export const dashboardRouter = createTRPCRouter({
 
 			// For each appointment, check if there's an active meeting the user can join
 			const appointmentsWithMeetingStatus = await Promise.all(
-				signingAppointments.map(async (apt) => {
+				signingAppointments.map(async apt => {
 					// Check if there's an ONGOING meeting linked to this appointment (via meetingLink)
 					// The meetingLink contains the meeting ID when a meeting is created
 					let activeMeetingId: string | null = null
 					let linkedMeetingStatus: string | null = null
-					
+
 					if (apt.meetingLink && apt.meetingLink.trim().length > 0) {
 						// Extract meeting ID from the link
 						// Formats: /meetings/{id}/lobby, /meetings/{id}, http://host/meetings/{id}, http://host/meetings/{id}/lobby
 						const meetingIdRegex = /\/meetings\/([a-zA-Z0-9_-]+)/
 						const meetingIdMatch = meetingIdRegex.exec(apt.meetingLink)
 						const potentialMeetingId = meetingIdMatch?.[1]
-						
+
 						if (potentialMeetingId) {
 							// Check if this meeting exists and get its status
 							const [linkedMeeting] = await ctx.db
@@ -300,7 +300,7 @@ export const dashboardRouter = createTRPCRouter({
 								.from(meetings)
 								.where(eq(meetings.id, potentialMeetingId))
 								.limit(1)
-							
+
 							if (linkedMeeting) {
 								linkedMeetingStatus = linkedMeeting.status
 								if (linkedMeeting.status === "ONGOING") {
@@ -309,7 +309,7 @@ export const dashboardRouter = createTRPCRouter({
 							}
 						}
 					}
-					
+
 					return {
 						...apt,
 						activeMeetingId,
@@ -372,7 +372,10 @@ export const dashboardRouter = createTRPCRouter({
 			const userId = ctx.session.user.id
 
 			const invites = await ctx.db.query.meetingParticipants.findMany({
-				where: and(eq(meetingParticipants.userId, userId), eq(meetingParticipants.status, "PENDING")),
+				where: and(
+					eq(meetingParticipants.userId, userId),
+					eq(meetingParticipants.status, "PENDING")
+				),
 				with: {
 					meeting: {
 						columns: {

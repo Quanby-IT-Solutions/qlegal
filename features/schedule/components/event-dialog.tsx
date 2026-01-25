@@ -3,14 +3,27 @@
 import { useEffect, useState } from "react"
 import { format } from "date-fns"
 
-import type { CalendarEvent } from "../types"
 import { Button } from "@/core/components/ui/button"
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/core/components/ui/dialog"
+import { Checkbox } from "@/core/components/ui/checkbox"
+import {
+	Dialog,
+	DialogContent,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+} from "@/core/components/ui/dialog"
 import { Input } from "@/core/components/ui/input"
 import { Label } from "@/core/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/core/components/ui/select"
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@/core/components/ui/select"
 import { Textarea } from "@/core/components/ui/textarea"
-import { Checkbox } from "@/core/components/ui/checkbox"
+
+import type { CalendarEvent } from "../types"
 
 interface EventDialogProps {
 	event: CalendarEvent | null
@@ -72,14 +85,18 @@ export function EventDialog({ event, isOpen, onClose, onSave, onDelete }: EventD
 						<Input
 							id="title"
 							value={title}
-							onChange={(e) => setTitle(e.target.value)}
+							onChange={e => setTitle(e.target.value)}
 							placeholder="Event title"
 							autoFocus
 						/>
 					</div>
 
 					<div className="flex items-center space-x-2">
-						<Checkbox id="allDay" checked={allDay} onCheckedChange={(checked) => setAllDay(checked as boolean)} />
+						<Checkbox
+							id="allDay"
+							checked={allDay}
+							onCheckedChange={checked => setAllDay(checked as boolean)}
+						/>
 						<Label htmlFor="allDay" className="cursor-pointer">
 							All day
 						</Label>
@@ -93,7 +110,7 @@ export function EventDialog({ event, isOpen, onClose, onSave, onDelete }: EventD
 									id="start"
 									type="datetime-local"
 									value={event?.start ? format(new Date(event.start), "yyyy-MM-dd'T'HH:mm") : ""}
-									onChange={(e) => {
+									onChange={e => {
 										if (event) {
 											event.start = new Date(e.target.value)
 										}
@@ -106,7 +123,7 @@ export function EventDialog({ event, isOpen, onClose, onSave, onDelete }: EventD
 									id="end"
 									type="datetime-local"
 									value={event?.end ? format(new Date(event.end), "yyyy-MM-dd'T'HH:mm") : ""}
-									onChange={(e) => {
+									onChange={e => {
 										if (event) {
 											event.end = new Date(e.target.value)
 										}
@@ -117,8 +134,9 @@ export function EventDialog({ event, isOpen, onClose, onSave, onDelete }: EventD
 					)}
 
 					{allDay && event?.start && event?.end && (
-						<div className="text-sm text-muted-foreground">
-							{format(new Date(event.start), "MMM d, yyyy")} - {format(new Date(event.end), "MMM d, yyyy")}
+						<div className="text-muted-foreground text-sm">
+							{format(new Date(event.start), "MMM d, yyyy")} -{" "}
+							{format(new Date(event.end), "MMM d, yyyy")}
 						</div>
 					)}
 
@@ -127,7 +145,7 @@ export function EventDialog({ event, isOpen, onClose, onSave, onDelete }: EventD
 						<Input
 							id="location"
 							value={location}
-							onChange={(e) => setLocation(e.target.value)}
+							onChange={e => setLocation(e.target.value)}
 							placeholder="Add location"
 						/>
 					</div>
@@ -137,7 +155,7 @@ export function EventDialog({ event, isOpen, onClose, onSave, onDelete }: EventD
 						<Textarea
 							id="description"
 							value={description}
-							onChange={(e) => setDescription(e.target.value)}
+							onChange={e => setDescription(e.target.value)}
 							placeholder="Add description"
 							rows={3}
 						/>

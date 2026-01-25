@@ -1,20 +1,26 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { addDays, addMonths, addWeeks, endOfWeek, format, isSameMonth, startOfWeek, subMonths, subWeeks } from "date-fns"
-import { CalendarIcon, ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon, PlusIcon } from "lucide-react"
+import {
+	addDays,
+	addMonths,
+	addWeeks,
+	endOfWeek,
+	format,
+	isSameMonth,
+	startOfWeek,
+	subMonths,
+	subWeeks,
+} from "date-fns"
+import {
+	CalendarIcon,
+	ChevronDownIcon,
+	ChevronLeftIcon,
+	ChevronRightIcon,
+	PlusIcon,
+} from "lucide-react"
 import { toast } from "sonner"
 
-import type { CalendarEvent, CalendarView } from "../types"
-import { addHoursToDate } from "../utils"
-import { AgendaDaysToShow,  EventGap, EventHeight, WeekCellsHeight } from "../constants"
-import { MonthView } from "./month-view"
-import { WeekView } from "./week-view"
-import { DayView } from "./day-view"
-import { AgendaView } from "./agenda-view"
-import { EventDialog } from "./event-dialog"
-import { CalendarDndProvider } from "./calendar-dnd-context"
-import { cn } from "@/core/lib/utils"
 import { Button } from "@/core/components/ui/button"
 import {
 	DropdownMenu,
@@ -30,6 +36,17 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/core/components/ui/select"
+import { cn } from "@/core/lib/utils"
+
+import { AgendaDaysToShow, EventGap, EventHeight, WeekCellsHeight } from "../constants"
+import type { CalendarEvent, CalendarView } from "../types"
+import { addHoursToDate } from "../utils"
+import { AgendaView } from "./agenda-view"
+import { CalendarDndProvider } from "./calendar-dnd-context"
+import { DayView } from "./day-view"
+import { EventDialog } from "./event-dialog"
+import { MonthView } from "./month-view"
+import { WeekView } from "./week-view"
 
 export interface EventCalendarProps {
 	events?: CalendarEvent[]
@@ -172,7 +189,7 @@ export function EventCalendar({
 	}
 
 	const handleEventDelete = (eventId: string) => {
-		const deletedEvent = events.find((e) => e.id === eventId)
+		const deletedEvent = events.find(e => e.id === eventId)
 		onEventDelete?.(eventId)
 		setIsEventDialogOpen(false)
 		setSelectedEvent(null)
@@ -195,8 +212,18 @@ export function EventCalendar({
 	}
 
 	const months = [
-		"January", "February", "March", "April", "May", "June",
-		"July", "August", "September", "October", "November", "December"
+		"January",
+		"February",
+		"March",
+		"April",
+		"May",
+		"June",
+		"July",
+		"August",
+		"September",
+		"October",
+		"November",
+		"December",
 	]
 
 	const currentYear = new Date().getFullYear()
@@ -269,7 +296,11 @@ export function EventCalendar({
 			<CalendarDndProvider onEventUpdate={handleEventUpdate}>
 				<div className={cn("flex items-center justify-between p-2 sm:p-4", className)}>
 					<div className="flex items-center gap-1 sm:gap-4">
-						<Button variant="outline" className="max-[479px]:aspect-square max-[479px]:p-0!" onClick={handleToday}>
+						<Button
+							variant="outline"
+							className="max-[479px]:aspect-square max-[479px]:p-0!"
+							onClick={handleToday}
+						>
 							<CalendarIcon className="min-[480px]:hidden" size={16} aria-hidden="true" />
 							<span className="max-[479px]:sr-only">Today</span>
 						</Button>
@@ -288,19 +319,22 @@ export function EventCalendar({
 										<SelectValue />
 									</SelectTrigger>
 									<SelectContent>
-										{months.map((month) => (
+										{months.map(month => (
 											<SelectItem key={month} value={month}>
 												{month}
 											</SelectItem>
 										))}
 									</SelectContent>
 								</Select>
-								<Select value={currentDate.getFullYear().toString()} onValueChange={handleYearChange}>
+								<Select
+									value={currentDate.getFullYear().toString()}
+									onValueChange={handleYearChange}
+								>
 									<SelectTrigger className="w-24 sm:w-28">
 										<SelectValue />
 									</SelectTrigger>
 									<SelectContent>
-										{years.map((year) => (
+										{years.map(year => (
 											<SelectItem key={year} value={year.toString()}>
 												{year}
 											</SelectItem>
@@ -357,16 +391,35 @@ export function EventCalendar({
 				</div>
 				<div className="flex flex-1 flex-col">
 					{view === "month" && (
-						<MonthView currentDate={currentDate} events={events} onEventSelect={handleEventSelect} onEventCreate={handleEventCreate} />
+						<MonthView
+							currentDate={currentDate}
+							events={events}
+							onEventSelect={handleEventSelect}
+							onEventCreate={handleEventCreate}
+						/>
 					)}
 					{view === "week" && (
-						<WeekView currentDate={currentDate} events={events} onEventSelect={handleEventSelect} onEventCreate={handleEventCreate} />
+						<WeekView
+							currentDate={currentDate}
+							events={events}
+							onEventSelect={handleEventSelect}
+							onEventCreate={handleEventCreate}
+						/>
 					)}
 					{view === "day" && (
-						<DayView currentDate={currentDate} events={events} onEventSelect={handleEventSelect} onEventCreate={handleEventCreate} />
+						<DayView
+							currentDate={currentDate}
+							events={events}
+							onEventSelect={handleEventSelect}
+							onEventCreate={handleEventCreate}
+						/>
 					)}
 					{view === "agenda" && (
-						<AgendaView currentDate={currentDate} events={events} onEventSelect={handleEventSelect} />
+						<AgendaView
+							currentDate={currentDate}
+							events={events}
+							onEventSelect={handleEventSelect}
+						/>
 					)}
 				</div>
 				<EventDialog

@@ -13,13 +13,14 @@ import {
 	startOfWeek,
 } from "date-fns"
 
-import { EventItem } from "./event-item"
-import { DroppableCell } from "./droppable-cell"
-import { DraggableEvent } from "./draggable-event"
-import { DefaultStartHour, EventGap, EventHeight } from "../constants"
-import { getAllEventsForDay, getEventsForDay, getSpanningEventsForDay, sortEvents } from "../utils"
-import type { CalendarEvent } from "../types"
 import { Popover, PopoverContent, PopoverTrigger } from "@/core/components/ui/popover"
+
+import { DefaultStartHour, EventGap, EventHeight } from "../constants"
+import type { CalendarEvent } from "../types"
+import { getAllEventsForDay, getEventsForDay, getSpanningEventsForDay, sortEvents } from "../utils"
+import { DraggableEvent } from "./draggable-event"
+import { DroppableCell } from "./droppable-cell"
+import { EventItem } from "./event-item"
 
 interface MonthViewProps {
 	currentDate: Date
@@ -80,8 +81,11 @@ export function MonthView({ currentDate, events, onEventSelect, onEventCreate }:
 	return (
 		<div data-slot="month-view" className="contents">
 			<div className="border-border grid grid-cols-7 border-b">
-				{weekdays.map((day) => (
-					<div key={day} className="text-muted-foreground py-2 text-center text-sm border-r last:border-r-0">
+				{weekdays.map(day => (
+					<div
+						key={day}
+						className="text-muted-foreground border-r py-2 text-center text-sm last:border-r-0"
+					>
 						{day}
 					</div>
 				))}
@@ -104,7 +108,10 @@ export function MonthView({ currentDate, events, onEventSelect, onEventCreate }:
 							const remainingCount = hasMore ? allDayEvents.length - visibleCount : 0
 
 							return (
-								<div key={day.toString()} className={`relative flex h-full flex-col p-1 transition-colors border-r ${dayIndex === 6 ? 'border-r-0' : ''}`}>
+								<div
+									key={day.toString()}
+									className={`relative flex h-full flex-col border-r p-1 transition-colors ${dayIndex === 6 ? "border-r-0" : ""}`}
+								>
 									<DroppableCell
 										id={cellId}
 										date={day}
@@ -114,83 +121,112 @@ export function MonthView({ currentDate, events, onEventSelect, onEventCreate }:
 											onEventCreate(startTime)
 										}}
 									>
-									<div
-										className={`group-data-today:bg-primary group-data-today:text-primary-foreground mt-1 inline-flex size-6 items-center justify-center rounded-full text-sm ${
-											!isCurrentMonth ? "text-muted-foreground/70" : ""
-										}`}
-									>
-										{format(day, "d")}
-									</div>
-									<div
-										ref={isReferenceCell ? setContentRef : null}
-										className="min-h-[calc((var(--event-height)+var(--event-gap))*2)] sm:min-h-[calc((var(--event-height)+var(--event-gap))*3)] lg:min-h-[calc((var(--event-height)+var(--event-gap))*4)]"
-									>
-										{sortEvents(allDayEvents).map((event, index) => {
-											const eventStart = new Date(event.start)
-											const eventEnd = new Date(event.end)
-											const isFirstDay = isSameDay(day, eventStart)
-											const isLastDay = isSameDay(day, eventEnd)
-											const isHidden = isMounted && visibleCount && index >= visibleCount
+										<div
+											className={`group-data-today:bg-primary group-data-today:text-primary-foreground mt-1 inline-flex size-6 items-center justify-center rounded-full text-sm ${
+												!isCurrentMonth ? "text-muted-foreground/70" : ""
+											}`}
+										>
+											{format(day, "d")}
+										</div>
+										<div
+											ref={isReferenceCell ? setContentRef : null}
+											className="min-h-[calc((var(--event-height)+var(--event-gap))*2)] sm:min-h-[calc((var(--event-height)+var(--event-gap))*3)] lg:min-h-[calc((var(--event-height)+var(--event-gap))*4)]"
+										>
+											{sortEvents(allDayEvents).map((event, index) => {
+												const eventStart = new Date(event.start)
+												const eventEnd = new Date(event.end)
+												const isFirstDay = isSameDay(day, eventStart)
+												const isLastDay = isSameDay(day, eventEnd)
+												const isHidden = isMounted && visibleCount && index >= visibleCount
 
-											if (!visibleCount) return null
+												if (!visibleCount) return null
 
-											if (!isFirstDay) {
+												if (!isFirstDay) {
+													return (
+														<div
+															key={`spanning-${event.id}-${day.toISOString().slice(0, 10)}`}
+															className="aria-hidden:hidden"
+															aria-hidden={isHidden ? "true" : undefined}
+														>
+															<EventItem
+																onClick={handleEventClick.bind(null, event)}
+																event={event}
+																view="month"
+																isFirstDay={isFirstDay}
+																isLastDay={isLastDay}
+															>
+																<div className="invisible" aria-hidden={true}>
+																	{!event.allDay && (
+																		<span>{format(new Date(event.start), "h:mm")} </span>
+																	)}
+																	{event.title}
+																</div>
+															</EventItem>
+														</div>
+													)
+												}
+
 												return (
 													<div
-														key={`spanning-${event.id}-${day.toISOString().slice(0, 10)}`}
+														key={event.id}
 														className="aria-hidden:hidden"
 														aria-hidden={isHidden ? "true" : undefined}
 													>
-														<EventItem onClick={handleEventClick.bind(null, event)} event={event} view="month" isFirstDay={isFirstDay} isLastDay={isLastDay}>
-															<div className="invisible" aria-hidden={true}>
-																{!event.allDay && <span>{format(new Date(event.start), "h:mm")} </span>}
-																{event.title}
-															</div>
-														</EventItem>
+														<DraggableEvent
+															event={event}
+															view="month"
+															onClick={handleEventClick.bind(null, event)}
+															isFirstDay={isFirstDay}
+															isLastDay={isLastDay}
+														/>
 													</div>
 												)
-											}
-
-											return (
-												<div key={event.id} className="aria-hidden:hidden" aria-hidden={isHidden ? "true" : undefined}>
-													<DraggableEvent event={event} view="month" onClick={handleEventClick.bind(null, event)} isFirstDay={isFirstDay} isLastDay={isLastDay} />
-												</div>
-											)
-										})}
-										{hasMore && (
-											<Popover modal>
-												<PopoverTrigger asChild>
-													<button
-														className="focus-visible:border-ring focus-visible:ring-ring/50 text-muted-foreground hover:text-foreground hover:bg-muted/50 mt-(--event-gap) flex h-(--event-height) w-full items-center overflow-hidden px-1 text-left text-[10px] backdrop-blur-md transition outline-none select-none focus-visible:ring-[3px] sm:px-2 sm:text-xs"
-														onClick={(e) => e.stopPropagation()}
+											})}
+											{hasMore && (
+												<Popover modal>
+													<PopoverTrigger asChild>
+														<button
+															className="focus-visible:border-ring focus-visible:ring-ring/50 text-muted-foreground hover:text-foreground hover:bg-muted/50 mt-(--event-gap) flex h-(--event-height) w-full items-center overflow-hidden px-1 text-left text-[10px] backdrop-blur-md transition outline-none select-none focus-visible:ring-[3px] sm:px-2 sm:text-xs"
+															onClick={e => e.stopPropagation()}
+														>
+															<span>
+																+ {remainingCount} <span className="max-sm:sr-only">more</span>
+															</span>
+														</button>
+													</PopoverTrigger>
+													<PopoverContent
+														align="center"
+														className="max-w-52 p-3"
+														style={{ "--event-height": `${EventHeight}px` } as React.CSSProperties}
 													>
-														<span>
-															+ {remainingCount} <span className="max-sm:sr-only">more</span>
-														</span>
-													</button>
-												</PopoverTrigger>
-												<PopoverContent align="center" className="max-w-52 p-3" style={{ "--event-height": `${EventHeight}px` } as React.CSSProperties}>
-													<div className="space-y-2">
-														<div className="text-sm font-medium">{format(day, "EEE d")}</div>
-														<div className="space-y-1">
-															{sortEvents(allEvents).map((event) => {
-																const eventStart = new Date(event.start)
-																const eventEnd = new Date(event.end)
-																const isFirstDay = isSameDay(day, eventStart)
-																const isLastDay = isSameDay(day, eventEnd)
-																return (
-																	<EventItem key={event.id} onClick={(e) => handleEventClick(event, e)} event={event} view="month" isFirstDay={isFirstDay} isLastDay={isLastDay} />
-																)
-															})}
+														<div className="space-y-2">
+															<div className="text-sm font-medium">{format(day, "EEE d")}</div>
+															<div className="space-y-1">
+																{sortEvents(allEvents).map(event => {
+																	const eventStart = new Date(event.start)
+																	const eventEnd = new Date(event.end)
+																	const isFirstDay = isSameDay(day, eventStart)
+																	const isLastDay = isSameDay(day, eventEnd)
+																	return (
+																		<EventItem
+																			key={event.id}
+																			onClick={e => handleEventClick(event, e)}
+																			event={event}
+																			view="month"
+																			isFirstDay={isFirstDay}
+																			isLastDay={isLastDay}
+																		/>
+																	)
+																})}
+															</div>
 														</div>
-													</div>
-												</PopoverContent>
-											</Popover>
-										)}
-									</div>
+													</PopoverContent>
+												</Popover>
+											)}
+										</div>
 									</DroppableCell>
 								</div>
-								)
+							)
 						})}
 					</div>
 				))}

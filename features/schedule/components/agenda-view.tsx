@@ -2,9 +2,9 @@
 
 import { addDays, format, isSameDay, isToday } from "date-fns"
 
-import { EventItem } from "./event-item"
-import type { CalendarEvent } from "../types"
 import { AgendaDaysToShow } from "../constants"
+import type { CalendarEvent } from "../types"
+import { EventItem } from "./event-item"
 
 interface AgendaViewProps {
 	currentDate: Date
@@ -16,7 +16,7 @@ export function AgendaView({ currentDate, events, onEventSelect }: AgendaViewPro
 	const agendaDays = Array.from({ length: AgendaDaysToShow }, (_, i) => addDays(currentDate, i))
 
 	const getEventsForDay = (day: Date) => {
-		return events.filter((event) => {
+		return events.filter(event => {
 			const eventStart = new Date(event.start)
 			const eventEnd = new Date(event.end)
 			return (
@@ -44,21 +44,26 @@ export function AgendaView({ currentDate, events, onEventSelect }: AgendaViewPro
 				return (
 					<div key={day.toISOString()} className="border-b last:border-b-0">
 						<div
-							className={`border-b bg-muted/30 px-4 py-2 text-sm font-medium ${isToday(day) ? "text-primary" : "text-muted-foreground"}`}
+							className={`bg-muted/30 border-b px-4 py-2 text-sm font-medium ${isToday(day) ? "text-primary" : "text-muted-foreground"}`}
 						>
 							{format(day, "EEEE, MMMM d")}
 							{isToday(day) && <span className="ml-2 text-xs">(Today)</span>}
 						</div>
 						<div className="space-y-2 p-4">
-							{dayEvents.map((event) => (
-								<EventItem key={event.id} event={event} view="agenda" onClick={handleEventClick.bind(null, event)} />
+							{dayEvents.map(event => (
+								<EventItem
+									key={event.id}
+									event={event}
+									view="agenda"
+									onClick={handleEventClick.bind(null, event)}
+								/>
 							))}
 						</div>
 					</div>
 				)
 			})}
-			{agendaDays.every((day) => getEventsForDay(day).length === 0) && (
-				<div className="flex flex-1 items-center justify-center text-muted-foreground">
+			{agendaDays.every(day => getEventsForDay(day).length === 0) && (
+				<div className="text-muted-foreground flex flex-1 items-center justify-center">
 					<p>No events scheduled for this period</p>
 				</div>
 			)}

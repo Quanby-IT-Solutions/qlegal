@@ -1,13 +1,8 @@
+import { BookOpenIcon, Home01Icon, Sent02Icon, UserGroupIcon } from "@hugeicons/core-free-icons"
+
 import type { NavGroups, NavItem } from "@/core/lib/nav/types"
 
 import type { UserRole } from "@/services/drizzle/schema/auth"
-
-import {
-	Home01Icon,
-	BookOpenIcon,
-	Sent02Icon,
-	UserGroupIcon,
-} from "@hugeicons/core-free-icons"
 
 // Landing Page Navigation
 const homeConfig: NavItem[] = [

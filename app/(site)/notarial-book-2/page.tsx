@@ -145,14 +145,8 @@ export default function NotarialBook2Page() {
 								</p>
 							</div>
 							<div className="flex gap-2">
-								<Button
-									onClick={() => void refetch()}
-									variant="outline"
-									disabled={isLoading}
-								>
-									<RefreshCw
-										className={`mr-2 h-4 w-4 ${isLoading ? "animate-spin" : ""}`}
-									/>
+								<Button onClick={() => void refetch()} variant="outline" disabled={isLoading}>
+									<RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
 									{isLoading ? "Refreshing..." : "Refresh"}
 								</Button>
 								<Button
@@ -165,7 +159,6 @@ export default function NotarialBook2Page() {
 								</Button>
 							</div>
 						</div>
-
 
 						{/* Filters */}
 						<Card className="mb-8">

@@ -3,11 +3,13 @@
 import { useMemo, useState } from "react"
 import { format } from "date-fns"
 import { CalendarIcon } from "lucide-react"
+import { toast } from "sonner"
 
 import { EventCalendar, type CalendarEvent } from "@/core/components/ui/event-calendar"
+
 import { trpc } from "@/services/trpc/client"
+
 import { transformScheduleToCalendarEvents } from "@/features/requests/lib/schedule-utils"
-import { toast } from "sonner"
 
 export interface EnpScheduleCalendarProps {
 	selectedDay: Date | null
@@ -15,7 +17,11 @@ export interface EnpScheduleCalendarProps {
 	onBlockTimeClick: () => void
 }
 
-export function EnpScheduleCalendar({ selectedDay, onDayClick, onBlockTimeClick }: EnpScheduleCalendarProps) {
+export function EnpScheduleCalendar({
+	selectedDay,
+	onDayClick,
+	onBlockTimeClick,
+}: EnpScheduleCalendarProps) {
 	const today = new Date()
 	const [currentMonth, setCurrentMonth] = useState(today.getMonth())
 	const [currentYear, setCurrentYear] = useState(today.getFullYear())
@@ -26,16 +32,17 @@ export function EnpScheduleCalendar({ selectedDay, onDayClick, onBlockTimeClick 
 			refetchOnMount: false,
 		})
 
-	const { data: scheduleData, isLoading: isScheduleLoading } = trpc.requests.getEnpSchedule.useQuery(
-		{
-			month: currentMonth,
-			year: currentYear,
-		},
-		{
-			enabled: !!currentMonth && !!currentYear,
-			refetchOnMount: false,
-		},
-	)
+	const { data: scheduleData, isLoading: isScheduleLoading } =
+		trpc.requests.getEnpSchedule.useQuery(
+			{
+				month: currentMonth,
+				year: currentYear,
+			},
+			{
+				enabled: !!currentMonth && !!currentYear,
+				refetchOnMount: false,
+			}
+		)
 
 	// Transform schedule and requests into calendar events
 	const calendarEvents = useMemo(() => {
@@ -50,7 +57,7 @@ export function EnpScheduleCalendar({ selectedDay, onDayClick, onBlockTimeClick 
 			},
 			incomingRequests,
 			currentMonth,
-			currentYear,
+			currentYear
 		)
 	}, [scheduleData, incomingRequests, currentMonth, currentYear])
 
@@ -58,7 +65,7 @@ export function EnpScheduleCalendar({ selectedDay, onDayClick, onBlockTimeClick 
 		onSuccess: () => {
 			toast.success("Time slot unblocked successfully")
 		},
-		onError: (error) => {
+		onError: error => {
 			toast.error("Failed to unblock time slot", {
 				description: error?.message ?? "An unexpected error occurred",
 			})
@@ -86,13 +93,13 @@ export function EnpScheduleCalendar({ selectedDay, onDayClick, onBlockTimeClick 
 	return (
 		<div className="flex flex-col gap-4">
 			<div className="flex items-center justify-between">
-				<div className="text-sm text-muted-foreground">
+				<div className="text-muted-foreground text-sm">
 					{format(new Date(currentYear, currentMonth, 1), "MMMM yyyy")}
 				</div>
 				<div className="flex items-center gap-2">
 					<button
 						onClick={onBlockTimeClick}
-						className="flex items-center gap-2 rounded-md border bg-destructive px-4 py-2 text-destructive hover:bg-destructive/90 transition-colors"
+						className="bg-destructive text-destructive hover:bg-destructive/90 flex items-center gap-2 rounded-md border px-4 py-2 transition-colors"
 						type="button"
 					>
 						<CalendarIcon className="size-4" />
@@ -105,23 +112,28 @@ export function EnpScheduleCalendar({ selectedDay, onDayClick, onBlockTimeClick 
 				events={calendarEvents}
 				onDateClick={onDayClick}
 				onEventClick={handleEventClick}
-				onDateRangeChange={(range) => {
+				onDateRangeChange={range => {
 					setCurrentMonth(range.start.getMonth())
 					setCurrentYear(range.start.getFullYear())
 				}}
 				defaultView="month"
 				defaultDate={selectedDay || today}
 				height={600}
-				className="border rounded-lg bg-card"
+				className="bg-card rounded-lg border"
 			/>
 
 			{selectedDay && (
-				<div className="mt-4 rounded-lg border bg-card p-4">
-					<h3 className="font-semibold mb-2">
-						{selectedDay.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
+				<div className="bg-card mt-4 rounded-lg border p-4">
+					<h3 className="mb-2 font-semibold">
+						{selectedDay.toLocaleDateString("en-US", {
+							weekday: "long",
+							month: "long",
+							day: "numeric",
+						})}
 					</h3>
-					<p className="text-muted-foreground text-sm mb-4">
-						Click on blocked events above to unblock time slots, or use "Block Time" to create new blocks.
+					<p className="text-muted-foreground mb-4 text-sm">
+						Click on blocked events above to unblock time slots, or use "Block Time" to create new
+						blocks.
 					</p>
 				</div>
 			)}

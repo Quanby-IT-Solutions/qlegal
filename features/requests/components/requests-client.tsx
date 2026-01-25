@@ -2,10 +2,11 @@
 
 import { useState } from "react"
 import { toast } from "sonner"
+
 import { trpc } from "@/services/trpc/client"
 
-import { RequestsListView } from "./requests-list-view"
 import { RejectDialog } from "./reject-dialog"
+import { RequestsListView } from "./requests-list-view"
 
 interface IncomingRequest {
 	id: string

@@ -1,4 +1,5 @@
-import { addDays, startOfMonth, endOfMonth } from "date-fns"
+import { addDays, endOfMonth, startOfMonth } from "date-fns"
+
 import type { CalendarEvent } from "@/features/schedule/types"
 
 export function transformScheduleToCalendarEvents(
@@ -44,7 +45,7 @@ export function transformScheduleToCalendarEvents(
 	const monthEnd = endOfMonth(monthStart)
 
 	// 1. Add one-time blocked slots as events
-	schedule.blocked.forEach((slot) => {
+	schedule.blocked.forEach(slot => {
 		events.push({
 			id: slot.id,
 			title: slot.reason || "Blocked",
@@ -58,7 +59,7 @@ export function transformScheduleToCalendarEvents(
 	})
 
 	// 2. Add recurring blocked slots for each day in month
-	schedule.recurringBlocked.forEach((recurring) => {
+	schedule.recurringBlocked.forEach(recurring => {
 		// Determine which days to apply block to
 		const targetDays = recurring.isAllDays
 			? [0, 1, 2, 3, 4, 5, 6] // All days of week
@@ -96,16 +97,13 @@ export function transformScheduleToCalendarEvents(
 	})
 
 	// 3. Add incoming requests as events
-	requests.forEach((request) => {
+	requests.forEach(request => {
 		const requestDate = request.scheduledDate
 			? new Date(request.scheduledDate)
 			: new Date(request.createdAt)
 
 		// Only add requests for current month
-		if (
-			requestDate.getFullYear() === year &&
-			requestDate.getMonth() === month
-		) {
+		if (requestDate.getFullYear() === year && requestDate.getMonth() === month) {
 			events.push({
 				id: request.id,
 				title: `${request.principal.name} - ${request.title}`,
