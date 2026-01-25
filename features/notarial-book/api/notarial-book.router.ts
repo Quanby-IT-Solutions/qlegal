@@ -2,8 +2,16 @@ import { TRPCError } from "@trpc/server"
 import { and, count, desc, eq, isNotNull } from "drizzle-orm"
 import { z } from "zod/v4"
 
-import { checkSigningStatus, downloadCertificate, getPassportDocument } from "@/services/doconchain"
+import {
+	checkSigningStatus,
+	downloadCertificate,
+	getMyProjectDetails,
+	getPassportDocument,
+	getProcessingCompletedProjects,
+	getProjectDetails,
+} from "@/services/doconchain"
 import { users } from "@/services/drizzle/schema/auth"
+import { documentSigners } from "@/services/drizzle/schema/document-signers"
 import { documents } from "@/services/drizzle/schema/document"
 import { legalRegistrations } from "@/services/drizzle/schema/legal-registration"
 import { meetings } from "@/services/drizzle/schema/meetings"
@@ -171,6 +179,356 @@ function extractSignerInfo(passportData: unknown) {
 }
 
 export const notarialBookRouter = createTRPCRouter({
+	/**
+	 * Get notarial book entries directly from DocoChain API (no database sync required)
+	 * Fetches completed projects using Get Specific Project API
+	 */
+	getNotarialBookFromAPI: protectedProcedure.input(getNotarialBookSchema).query(async ({ ctx, input }) => {
+		const userId = ctx.session.user.id
+		const { page, perPage, search, actType, workflow } = input
+
+		// Verify user is an ENP
+		const user = await ctx.db.query.users.findFirst({
+			where: eq(users.id, userId),
+		})
+
+		if (user?.role !== "ENP") {
+			throw new TRPCError({
+				code: "FORBIDDEN",
+				message: "Only ENPs can access the notarial book",
+			})
+		}
+
+		if (!user.email) {
+			throw new TRPCError({
+				code: "BAD_REQUEST",
+				message: "User email is required to fetch projects from DocoChain",
+			})
+		}
+
+		try {
+			// Fetch completed projects directly from DocoChain API
+			console.log("🔵 Fetching completed projects from DocoChain API...")
+			const projectsResponse = await getProcessingCompletedProjects(user.email, {
+				page,
+				perPage,
+				status: "completed",
+				apiIntegratedProjectsOnly: true,
+			})
+
+			const projects = projectsResponse.data ?? []
+			console.log(`✅ Found ${projects.length} completed project(s) from DocoChain API`)
+
+			// Fetch details for each project and transform to notarial book format
+			const acts = await Promise.all(
+				projects.map(async project => {
+					const projectUuid = project.uuid || project.project_uuid
+					if (!projectUuid) {
+						console.warn(`⚠️ Project ${project.id} has no UUID, skipping`)
+						return null
+					}
+
+					try {
+						// Try getMyProjectDetails first, fall back to getProjectDetails
+						let projectDetails
+						try {
+							projectDetails = await getMyProjectDetails(projectUuid, user.email ?? undefined)
+						} catch (error) {
+							const errorMessage = error instanceof Error ? error.message : String(error)
+							if (errorMessage.includes("not part of this project")) {
+								console.log(`⚠️ User not part of project ${projectUuid}, using getProjectDetails...`)
+								projectDetails = await getProjectDetails(projectUuid, user.email ?? undefined)
+							} else {
+								throw error
+							}
+						}
+
+						const projectData = projectDetails?.data
+						if (!projectData) {
+							console.warn(`⚠️ No project data for ${projectUuid}`)
+							return null
+						}
+
+						// Extract signer information from documentSigners table (most reliable source)
+						// First, find the document that has this project UUID
+						const document = await ctx.db.query.documents.findFirst({
+							where: eq(documents.docoChainProjectId, projectUuid),
+							with: {
+								signers: {
+									with: {
+										user: {
+											columns: {
+												id: true,
+												name: true,
+												email: true,
+												role: true,
+											},
+										},
+									},
+								},
+							},
+						})
+
+						let principal: { name: string; signedAt?: string; idNumber?: string } | undefined
+						let witness: { name: string; signedAt?: string } | undefined
+						let allSigners: Array<{ name: string; email: string; role: string; signedAt?: string; idNumber?: string }> = []
+
+						// Extract from documentSigners table (most reliable - stored in our database)
+						// Also get signed_at timestamps from projectData.signers
+						const projectSignersMap = new Map<string, { signed_at?: string | null; signer_role?: string }>()
+						const projectSigners = (projectData.signers as Array<{
+							email?: string
+							first_name?: string | null
+							last_name?: string | null
+							status?: string
+							signed_at?: string | null
+							signer_role?: string
+						}>) ?? []
+
+						// Create a map of email -> signer data for quick lookup
+						for (const signer of projectSigners) {
+							if (signer.email) {
+								projectSignersMap.set(signer.email.toLowerCase(), {
+									signed_at: signer.signed_at,
+									signer_role: signer.signer_role,
+								})
+							}
+						}
+
+						if (document?.signers && document.signers.length > 0) {
+							console.log(`✅ Found ${document.signers.length} signer(s) in documentSigners table`)
+							for (const docSigner of document.signers) {
+								if (!docSigner.user?.email) continue
+
+								const signerUser = docSigner.user
+								const email = signerUser.email! // guarded above
+								// Use signerName from documentSigners if available, otherwise use user name
+								const name = docSigner.signerName ?? signerUser.name ?? email.split("@")[0] ?? "Unknown"
+								const role = signerUser.role ?? "SIGNER"
+
+								// Get signed_at timestamp from project signers if available
+								const projectSignerData = projectSignersMap.get(email.toLowerCase())
+								const signedAt = projectSignerData?.signed_at ?? undefined
+
+								allSigners.push({
+									name,
+									email,
+									role,
+									signedAt,
+									idNumber: undefined, // Can be enhanced if we store ID number in documentSigners
+								})
+							}
+
+							// Identify principal (non-ENP, non-NOTARY signer)
+							principal = allSigners.find(s => {
+								const roleUpper = s.role.toUpperCase()
+								return (
+									!roleUpper.includes("ENP") &&
+									!roleUpper.includes("NOTARY") &&
+									!roleUpper.includes("WITNESS")
+								)
+							})
+
+							// If no principal found, use first signer
+							if (!principal && allSigners.length > 0) {
+								principal = allSigners[0]
+							}
+
+							// Identify witness
+							witness = allSigners.find(s => s.role.toUpperCase().includes("WITNESS"))
+						}
+
+						// Fallback 1: Try projectData.signers if documentSigners didn't work
+						if (allSigners.length === 0 && projectSigners.length > 0) {
+							console.log(`✅ Found ${projectSigners.length} signer(s) in project details`)
+							for (const signer of projectSigners) {
+								if (!signer.email) continue
+
+								const firstName = signer.first_name ?? ""
+								const lastName = signer.last_name ?? ""
+								const fullName = firstName && lastName ? `${firstName} ${lastName}`.trim() : ""
+								const name = fullName || (signer.email?.split("@")[0] ?? "Unknown")
+								const role = signer.signer_role ?? "SIGNER"
+								const signedAt = signer.signed_at ?? undefined
+
+								allSigners.push({
+									name,
+									email: signer.email,
+									role,
+									signedAt,
+								})
+							}
+
+							// Identify principal (non-ENP, non-NOTARY signer)
+							principal = allSigners.find(s => {
+								const roleUpper = s.role.toUpperCase()
+								return (
+									!roleUpper.includes("ENP") &&
+									!roleUpper.includes("NOTARY") &&
+									!roleUpper.includes("WITNESS")
+								)
+							})
+
+							// If no principal found, use first signer
+							if (!principal && allSigners.length > 0) {
+								principal = allSigners[0]
+							}
+
+							// Identify witness
+							witness = allSigners.find(s => s.role.toUpperCase().includes("WITNESS"))
+						}
+
+						// Fallback 2: Try passport data if both documentSigners and project signers didn't work
+						let passportData: unknown = null
+						if (allSigners.length === 0) {
+							try {
+								passportData = await getPassportDocument(projectUuid, "history", user.email ?? undefined)
+								const passportSigners = extractSignerInfo(passportData)
+								if (passportSigners.allSigners.length > 0) {
+									allSigners = passportSigners.allSigners
+									principal = passportSigners.principal
+									witness = passportSigners.witness
+									console.log(`✅ Found ${allSigners.length} signer(s) from passport data`)
+								}
+							} catch (error) {
+								console.warn(`⚠️ Could not fetch passport data for ${projectUuid}:`, error)
+								// Continue with empty signers - will use "Unknown" as principal
+							}
+						}
+
+						// Determine executedAt timestamp (priority: signer's signed_at > completed_at > created_at)
+						let executedAt = new Date(project.created_at)
+						if (principal?.signedAt) {
+							executedAt = new Date(principal.signedAt)
+						} else if (allSigners && allSigners.length > 0) {
+							const signersWithTimestamp = allSigners
+								.filter(s => s.signedAt)
+								.map(s => ({ signedAt: s.signedAt!, timestamp: new Date(s.signedAt!).getTime() }))
+								.sort((a, b) => a.timestamp - b.timestamp)
+
+							if (signersWithTimestamp.length > 0 && signersWithTimestamp[0]) {
+								executedAt = new Date(signersWithTimestamp[0].signedAt)
+							}
+						} else if (projectData.completed_at) {
+							executedAt = new Date(projectData.completed_at)
+						}
+
+						// Determine workflow (default to IEN, can be enhanced with passport data)
+						let workflowType: "REN" | "IEN" = "IEN"
+						if (passportData && typeof passportData === "object") {
+							const passportText = JSON.stringify(passportData).toLowerCase()
+							if (
+								passportText.includes("remote") ||
+								passportText.includes("video") ||
+								passportText.includes("ren")
+							) {
+								workflowType = "REN"
+							}
+						}
+
+						// Determine act type from document.notarizationType (stored in database)
+						let actTypeValue: "ACKNOWLEDGMENT" | "AFFIRMATION" | "JURAT" | "SIGNATURE_WITNESSING" =
+							"ACKNOWLEDGMENT"
+
+						// Use notarizationType from document table if available
+						if (document?.notarizationType) {
+							actTypeValue = document.notarizationType as typeof actTypeValue
+							console.log(`✅ Using notarizationType from document: ${actTypeValue}`)
+						} else if (document) {
+							// Fallback: Try to determine from document name/description
+							const docName = (document?.name ?? projectData.file_name ?? projectData.name ?? "").toLowerCase()
+							const docDesc = (document?.description ?? null)?.toLowerCase() ?? ""
+							const combined = `${docName} ${docDesc}`
+
+							if (combined.includes("affirmation") || combined.includes("affirm")) {
+								actTypeValue = "AFFIRMATION"
+							} else if (combined.includes("jurat")) {
+								actTypeValue = "JURAT"
+							} else if (combined.includes("signature") && combined.includes("witness")) {
+								actTypeValue = "SIGNATURE_WITNESSING"
+							} else if (combined.includes("acknowledgment") || combined.includes("acknowledge")) {
+								actTypeValue = "ACKNOWLEDGMENT"
+							}
+							// Default remains ACKNOWLEDGMENT if nothing matches
+						}
+
+						// Apply filters
+						if (actType !== "ALL" && actTypeValue !== actType) {
+							return null
+						}
+						if (workflow !== "ALL" && workflowType !== workflow) {
+							return null
+						}
+
+						// Apply search filter
+						if (search) {
+							const searchLower = search.toLowerCase()
+							const principalName = principal?.name ?? "Unknown"
+							const documentName = projectData.file_name ?? projectData.name ?? project.name ?? ""
+							const matchesPrincipal = principalName.toLowerCase().includes(searchLower)
+							const matchesDocument = documentName.toLowerCase().includes(searchLower)
+							if (!matchesPrincipal && !matchesDocument) {
+								return null
+							}
+						}
+
+						// Generate certificate number (using project UUID for uniqueness)
+						const certificateNumber = `NB-${projectUuid.substring(0, 4).toUpperCase()}-${Date.now().toString().slice(-6)}`
+
+						return {
+							id: projectUuid, // Use project UUID as ID
+							notarialBookId: "", // Not needed for API-based entries
+							actType: actTypeValue,
+							documentId: null,
+							docoChainProjectUuid: projectUuid,
+							principalName: principal?.name ?? "Unknown",
+							principalIdNumber: principal?.idNumber ?? null,
+							witnessName: witness?.name ?? null,
+							enpName: user.name ?? "Unknown ENP",
+							enpRollNumber: null,
+							executedAt,
+							location: "Philippines",
+							workflow: workflowType,
+							documentName: projectData.file_name ?? projectData.name ?? project.name ?? "Untitled Document",
+							documentDescription: document?.description ?? null,
+							passportData: passportData ? JSON.stringify(passportData) : null,
+							certificateNumber,
+							certificateUrl: null,
+							createdAt: new Date(project.created_at),
+							updatedAt: new Date(project.updated_at),
+						}
+					} catch (error) {
+						console.error(`❌ Error fetching details for project ${projectUuid}:`, error)
+						return null
+					}
+				})
+			)
+
+			// Filter out null entries
+			const validActs = acts.filter((act): act is NonNullable<typeof act> => act !== null)
+
+			// Sort by executedAt descending
+			validActs.sort((a, b) => b.executedAt.getTime() - a.executedAt.getTime())
+
+			// Get total from API response
+			const total = projectsResponse.meta?.total ?? validActs.length
+
+			return {
+				acts: validActs,
+				total,
+				page,
+				perPage,
+				totalPages: projectsResponse.meta?.last_page ?? Math.ceil(total / perPage),
+			}
+		} catch (error) {
+			console.error("❌ Error fetching notarial book from DocoChain API:", error)
+			throw new TRPCError({
+				code: "INTERNAL_SERVER_ERROR",
+				message: `Failed to fetch projects from DocoChain: ${error instanceof Error ? error.message : "Unknown error"}`,
+			})
+		}
+	}),
+
 	/**
 	 * Get notarial book entries for the current ENP
 	 * Uses Doc On Chain Passport API to fetch document history
@@ -370,7 +728,7 @@ export const notarialBookRouter = createTRPCRouter({
 				passportData = await getPassportDocument(projectUuid, "history", user.email ?? undefined)
 
 				// Extract signer information for witness and additional principal details
-				const { principal, witness } = extractSignerInfo(passportData)
+				const { principal, witness, allSigners } = extractSignerInfo(passportData)
 
 				// Only use passport data for principal if we didn't find one from meeting participants
 				// This ensures the uploader (from meeting) takes precedence
@@ -389,7 +747,27 @@ export const notarialBookRouter = createTRPCRouter({
 				}
 
 				// Get execution time from passport data
-				if (passportData && typeof passportData === "object") {
+				// Priority: 1) Principal signer's signed_at (actual signing time), 2) completed_at, 3) latest history event
+				if (principal?.signedAt) {
+					// Use the principal signer's actual signing time
+					executedAt = new Date(principal.signedAt)
+					console.log("✅ Using principal signer's signed_at timestamp:", principal.signedAt)
+				} else if (allSigners && allSigners.length > 0) {
+					// Find the earliest signer's signed_at timestamp
+					const signersWithTimestamp = allSigners
+						.filter(s => s.signedAt)
+						.map(s => ({ signedAt: s.signedAt!, timestamp: new Date(s.signedAt!).getTime() }))
+						.sort((a, b) => a.timestamp - b.timestamp) // Sort by earliest first
+
+					if (signersWithTimestamp.length > 0 && signersWithTimestamp[0]) {
+						// Use the earliest signing time (when the document was first signed)
+						executedAt = new Date(signersWithTimestamp[0].signedAt)
+						console.log("✅ Using earliest signer's signed_at timestamp:", signersWithTimestamp[0].signedAt)
+					}
+				}
+
+				// Fallback to completed_at if no signer timestamps available
+				if (executedAt.getTime() === new Date().getTime() && passportData && typeof passportData === "object") {
 					const passportObj = passportData as {
 						data?: { completed_at?: unknown }
 						completed_at?: unknown
@@ -402,6 +780,7 @@ export const notarialBookRouter = createTRPCRouter({
 							completedAt instanceof Date
 						) {
 							executedAt = new Date(completedAt)
+							console.log("✅ Using completed_at timestamp:", completedAt)
 						}
 					} else if (passportObj.completed_at) {
 						const completedAt = passportObj.completed_at
@@ -411,6 +790,7 @@ export const notarialBookRouter = createTRPCRouter({
 							completedAt instanceof Date
 						) {
 							executedAt = new Date(completedAt)
+							console.log("✅ Using completed_at timestamp:", completedAt)
 						}
 					}
 				}
@@ -707,6 +1087,106 @@ export const notarialBookRouter = createTRPCRouter({
 				code: "NOT_FOUND",
 				message: errorMessage,
 			})
+		}),
+
+	/**
+	 * Get document URL for viewing/downloading (Notarial Book 2 - Programmatic)
+	 * Uses the new API route that fetches documents programmatically with downloadSignedDocument
+	 * Supports both database-stored acts and API-fetched acts (where actId is a project UUID)
+	 */
+	getDocumentUrl2: protectedProcedure
+		.input(z.object({ actId: z.string() }))
+		.query(async ({ ctx, input }) => {
+			const userId = ctx.session.user.id
+
+			// Verify user is an ENP
+			const user = await ctx.db.query.users.findFirst({
+				where: eq(users.id, userId),
+			})
+
+			if (user?.role !== "ENP") {
+				throw new TRPCError({
+					code: "FORBIDDEN",
+					message: "Only ENPs can access documents",
+				})
+			}
+
+			// Try to find act in database first
+			const act = await ctx.db.query.notarialActs.findFirst({
+				where: eq(notarialActs.id, input.actId),
+			})
+
+			let projectUuid: string | null = null
+			let documentName = "document.pdf"
+
+			if (act) {
+				// Act found in database - verify it belongs to this ENP's notarial book
+				const notarialBook = await ctx.db.query.notarialBooks.findFirst({
+					where: eq(notarialBooks.id, act.notarialBookId),
+				})
+
+				if (notarialBook?.enpId !== userId) {
+					throw new TRPCError({
+						code: "FORBIDDEN",
+						message: "You don't have access to this document",
+					})
+				}
+
+				projectUuid = act.docoChainProjectUuid
+				documentName = act.documentName ?? "document.pdf"
+			} else {
+				// Act not in database - treat actId as project UUID (from API-based notarial book)
+				// Verify the project exists and user has access
+				try {
+					let projectDetails
+					try {
+						projectDetails = await getMyProjectDetails(input.actId, user.email ?? undefined)
+					} catch (error) {
+						const errorMessage = error instanceof Error ? error.message : String(error)
+						if (errorMessage.includes("not part of this project")) {
+							// Try getProjectDetails as fallback
+							projectDetails = await getProjectDetails(input.actId, user.email ?? undefined)
+						} else {
+							throw error
+						}
+					}
+
+					const projectData = projectDetails?.data
+					if (!projectData) {
+						throw new TRPCError({
+							code: "NOT_FOUND",
+							message: "Project not found or you don't have access",
+						})
+					}
+
+					projectUuid = input.actId
+					documentName = projectData.file_name ?? projectData.name ?? "document.pdf"
+				} catch (error) {
+					if (error instanceof TRPCError) {
+						throw error
+					}
+					throw new TRPCError({
+						code: "NOT_FOUND",
+						message: `Project not found: ${error instanceof Error ? error.message : "Unknown error"}`,
+					})
+				}
+			}
+
+			if (!projectUuid) {
+				throw new TRPCError({
+					code: "NOT_FOUND",
+					message: "Document URL not available. No DocoChain project UUID found.",
+				})
+			}
+
+			// Use new API route for programmatic document retrieval
+			const proxyUrl = `/api/notarial-book-2/documents/${projectUuid}`
+			console.log("✅ [Notarial Book 2] Using programmatic endpoint for document:", proxyUrl)
+			return {
+				url: proxyUrl,
+				fileName: documentName,
+				type: "document",
+			}
 		}),
 
 	/**
