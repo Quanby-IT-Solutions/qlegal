@@ -110,7 +110,7 @@ export function MonthView({ currentDate, events, onEventSelect, onEventCreate }:
 							return (
 								<div
 									key={day.toString()}
-									className={`relative flex h-full flex-col border-r p-1 pt-0! bg-background transition-colors hover:bg-muted/50 ${dayIndex === 6 ? "border-r-0" : ""}`}
+									className={`relative flex h-full flex-col border-r p-1 pt-0! bg-background transition-colors hover:bg-muted dark:hover:bg-muted/10 ${dayIndex === 6 ? "border-r-0" : ""}`}
 								>
 									<DroppableCell
 										id={cellId}

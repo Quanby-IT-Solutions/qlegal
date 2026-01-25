@@ -42,10 +42,9 @@ export function DayView({ currentDate, events, onEventSelect, onEventCreate }: D
 
 	return (
 		<div data-slot="day-view" className="flex h-full flex-col">
-			<div className="grid grid-cols-1 border-b">
-				<div className="border-r p-2 text-center">
-					<div className="font-medium">{format(currentDate, "EEEE")}</div>
-					<div className="text-muted-foreground text-sm">{format(currentDate, "MMMM d, yyyy")}</div>
+			<div className="grid grid-cols-1 border-b ">
+				<div className="border-r p-2 text-center bg-background dark:bg-input/30">
+					<div className="text-muted-foreground text-sm">{format(currentDate, "EEEE, MMMM d, yyyy")}</div>
 				</div>
 			</div>
 			<div className="flex-1 overflow-y-auto">
@@ -60,11 +59,11 @@ export function DayView({ currentDate, events, onEventSelect, onEventCreate }: D
 							className="grid grid-cols-[60px_1fr] border-b"
 							style={{ height: `${WeekCellsHeight}px` }}
 						>
-							<div className="text-muted-foreground border-r p-2 text-xs">
+							<div className="text-muted-foreground border-r p-2 text-xs bg-background dark:bg-input/30">
 								{format(hourStart, "ha")}
 							</div>
 							<button
-								className="hover:bg-muted/50 p-0 text-left transition"
+								className="hover:bg-muted/50 dark:hover:bg-muted/10 p-0 text-left bg-background transition"
 								onClick={() => onEventCreate(hourStart)}
 							>
 								<div className="flex flex-col gap-(--event-gap) p-1">

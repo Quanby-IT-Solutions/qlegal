@@ -5,9 +5,11 @@ import {
 	addDays,
 	addMonths,
 	addWeeks,
+	endOfMonth,
 	endOfWeek,
 	format,
-	isSameMonth,
+	getWeek,
+	startOfMonth,
 	startOfWeek,
 	subMonths,
 	subWeeks,
@@ -247,40 +249,46 @@ export function EventCalendar({
 		}
 	}
 
-	const viewTitle = useMemo(() => {
-		if (view === "week") {
-			const start = startOfWeek(currentDate, { weekStartsOn: 0 })
-			const end = endOfWeek(currentDate, { weekStartsOn: 0 })
-			if (isSameMonth(start, end)) {
-				return format(start, "MMMM yyyy")
-			} else {
-				return `${format(start, "MMM")} - ${format(end, "MMM yyyy")}`
+	// Calculate week numbers for the current month
+	const weeksInMonth = useMemo(() => {
+		const monthEnd = endOfMonth(currentDate)
+		const calendarStart = startOfWeek(startOfMonth(currentDate), { weekStartsOn: 0 })
+		const calendarEnd = endOfWeek(monthEnd, { weekStartsOn: 0 })
+		const totalDays = Math.ceil((calendarEnd.getTime() - calendarStart.getTime()) / (1000 * 60 * 60 * 24)) + 1
+		const days = Array.from({ length: totalDays }, (_, i) => addDays(calendarStart, i))
+		
+		const weeks = []
+		for (let i = 0; i < days.length; i += 7) {
+			const weekDays = days.slice(i, i + 7)
+			const firstDayOfWeek = weekDays[0]
+			if (firstDayOfWeek) {
+				weeks.push({
+					number: getWeek(firstDayOfWeek, { weekStartsOn: 0 }),
+					start: firstDayOfWeek,
+				})
 			}
-		} else if (view === "day") {
-			return (
-				<>
-					<span className="min-[480px]:hidden" aria-hidden="true">
-						{format(currentDate, "MMM d, yyyy")}
-					</span>
-					<span className="max-[479px]:hidden md:hidden" aria-hidden="true">
-						{format(currentDate, "MMMM d, yyyy")}
-					</span>
-					<span className="max-md:hidden">{format(currentDate, "EEE MMMM d, yyyy")}</span>
-				</>
-			)
-		} else if (view === "agenda") {
-			// Show month range for agenda view
-			const start = currentDate
-			const end = addDays(currentDate, AgendaDaysToShow - 1)
-			if (isSameMonth(start, end)) {
-				return format(start, "MMMM yyyy")
-			} else {
-				return `${format(start, "MMM")} - ${format(end, "MMM yyyy")}`
-			}
-		} else {
-			return format(currentDate, "MMMM yyyy")
 		}
-	}, [currentDate, view])
+		return weeks
+	}, [currentDate])
+
+	// Calculate days in the current month
+	const daysInMonth = useMemo(() => {
+		const monthEnd = endOfMonth(currentDate)
+		return Array.from({ length: monthEnd.getDate() }, (_, i) => i + 1)
+	}, [currentDate])
+
+	const handleWeekChange = (weekNumber: string) => {
+		const week = weeksInMonth.find(w => w.number === parseInt(weekNumber, 10))
+		if (week?.start) {
+			setCurrentDate(week.start)
+		}
+	}
+
+	const handleDayChange = (day: string) => {
+		const newDate = new Date(currentDate)
+		newDate.setDate(parseInt(day, 10))
+		setCurrentDate(newDate)
+	}
 
 	return (
 		<div
@@ -296,14 +304,6 @@ export function EventCalendar({
 			<CalendarDndProvider onEventUpdate={handleEventUpdate}>
 				<div className={cn("flex items-center justify-between p-2 sm:p-4 border-b", className)}>
 					<div className="flex items-center gap-1 sm:gap-4">
-						<Button
-							variant="outline"
-							className="max-[479px]:aspect-square max-[479px]:p-0!"
-							onClick={handleToday}
-						>
-							<CalendarIcon className="min-[480px]:hidden" size={16} aria-hidden="true" />
-							<span className="max-[479px]:sr-only">Today</span>
-						</Button>
 						<div className="flex items-center sm:gap-2">
 							<Button variant="ghost" size="icon" onClick={handlePrevious} aria-label="Previous">
 								<ChevronLeftIcon size={16} aria-hidden="true" />
@@ -312,39 +312,80 @@ export function EventCalendar({
 								<ChevronRightIcon size={16} aria-hidden="true" />
 							</Button>
 						</div>
-						{view === "month" ? (
-							<div className="flex items-center gap-1 sm:gap-2">
-								<Select value={months[currentDate.getMonth()]} onValueChange={handleMonthChange}>
-									<SelectTrigger className="w-32 sm:w-40">
-										<SelectValue />
-									</SelectTrigger>
-									<SelectContent>
-										{months.map(month => (
-											<SelectItem key={month} value={month}>
-												{month}
-											</SelectItem>
-										))}
-									</SelectContent>
-								</Select>
-								<Select
-									value={currentDate.getFullYear().toString()}
-									onValueChange={handleYearChange}
-								>
-									<SelectTrigger className="w-24 sm:w-28">
-										<SelectValue />
-									</SelectTrigger>
-									<SelectContent>
-										{years.map(year => (
-											<SelectItem key={year} value={year.toString()}>
-												{year}
-											</SelectItem>
-										))}
-									</SelectContent>
-								</Select>
-							</div>
-						) : (
-							<h2 className="text-sm font-semibold sm:text-lg md:text-xl">{viewTitle}</h2>
+						{/* Year selector - shown in all views */}
+						<Select
+							value={currentDate.getFullYear().toString()}
+							onValueChange={handleYearChange}
+						>
+							<SelectTrigger className="w-24 sm:w-28">
+								<SelectValue />
+							</SelectTrigger>
+							<SelectContent>
+								{years.map(year => (
+									<SelectItem key={year} value={year.toString()}>
+										{year}
+									</SelectItem>
+								))}
+							</SelectContent>
+						</Select>
+						{/* Month selector - shown in all views */}
+						<Select value={months[currentDate.getMonth()]} onValueChange={handleMonthChange}>
+							<SelectTrigger className="w-32 sm:w-40">
+								<SelectValue />
+							</SelectTrigger>
+							<SelectContent>
+								{months.map(month => (
+									<SelectItem key={month} value={month}>
+										{month}
+									</SelectItem>
+								))}
+							</SelectContent>
+						</Select>
+						{/* Week selector - shown in week and day views */}
+						{(view === "week" || view === "day") && (
+							<Select
+								value={getWeek(currentDate, { weekStartsOn: 0 }).toString()}
+								onValueChange={handleWeekChange}
+							>
+								<SelectTrigger className="w-24 sm:w-32">
+									<SelectValue placeholder="Week" />
+								</SelectTrigger>
+								<SelectContent>
+									{weeksInMonth.map(week => (
+										<SelectItem key={week.number} value={week.number.toString()}>
+											Week {week.number}
+										</SelectItem>
+									))}
+								</SelectContent>
+							</Select>
 						)}
+						{/* Day selector - shown in day view only */}
+						{view === "day" && (
+							<Select
+								value={currentDate.getDate().toString()}
+								onValueChange={handleDayChange}
+							>
+								<SelectTrigger className="w-20 sm:w-24">
+									<SelectValue placeholder="Day" />
+								</SelectTrigger>
+								<SelectContent>
+									{daysInMonth.map(day => (
+										<SelectItem key={day} value={day.toString()}>
+											{day}
+										</SelectItem>
+									))}
+								</SelectContent>
+							</Select>
+						)}
+						{/* Today button */}
+						<Button
+							variant="outline"
+							className="max-[479px]:aspect-square max-[479px]:p-0!"
+							onClick={handleToday}
+						>
+							<CalendarIcon className="min-[480px]:hidden" size={16} aria-hidden="true" />
+							<span className="max-[479px]:sr-only">Today</span>
+						</Button>
 					</div>
 					<div className="flex items-center gap-2">
 						<DropdownMenu>

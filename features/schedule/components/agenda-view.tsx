@@ -44,12 +44,12 @@ export function AgendaView({ currentDate, events, onEventSelect }: AgendaViewPro
 				return (
 					<div key={day.toISOString()} className="border-b last:border-b-0">
 						<div
-							className={`bg-muted/30 border-b px-4 py-2 text-sm font-medium ${isToday(day) ? "text-primary" : "text-muted-foreground"}`}
+							className={`bg-background dark:bg-input/30 border-b px-4 py-2 text-sm font-medium dark:border-input ${isToday(day) ? "text-primary" : "text-muted-foreground"}`}
 						>
 							{format(day, "EEEE, MMMM d")}
 							{isToday(day) && <span className="ml-2 text-xs">(Today)</span>}
 						</div>
-						<div className="space-y-2 p-4">
+						<div className="space-y-2 p-4 bg-background">
 							{dayEvents.map(event => (
 								<EventItem
 									key={event.id}

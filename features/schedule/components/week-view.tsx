@@ -47,12 +47,12 @@ export function WeekView({ currentDate, events, onEventSelect, onEventCreate }: 
 
 	return (
 		<div data-slot="week-view" className="flex h-full flex-col">
-			<div className="grid grid-cols-8 border-b">
+			<div className="grid grid-cols-8 border-b bg-background dark:bg-input/30 dark:border-input">
 				<div className="text-muted-foreground border-r p-2 text-sm">Time</div>
 				{days.map(day => (
 					<div
 						key={day.toISOString()}
-						className={`border-r p-2 text-center text-sm ${!isSameWeek(day, currentDate) ? "text-muted-foreground/70" : ""}`}
+						className={`border-r p-2 text-center text-sm text-muted-foreground ${!isSameWeek(day, currentDate) ? "text-muted-foreground/70" : ""}`}
 					>
 						<div className="font-medium">{format(day, "EEE")}</div>
 						<div className="text-xs">{format(day, "d")}</div>
@@ -66,7 +66,7 @@ export function WeekView({ currentDate, events, onEventSelect, onEventCreate }: 
 						className="grid grid-cols-8 border-b"
 						style={{ height: `${WeekCellsHeight}px` }}
 					>
-						<div className="text-muted-foreground border-r p-2 text-xs">
+						<div className="text-muted-foreground border-r bg-background p-2 text-xs">
 							{format(new Date().setHours(hour, 0, 0, 0), "ha")}
 						</div>
 						{days.map(day => {
@@ -77,7 +77,7 @@ export function WeekView({ currentDate, events, onEventSelect, onEventCreate }: 
 							return (
 								<button
 									key={`${day.toISOString()}-${hour}`}
-									className="hover:bg-muted/50 border-r p-0 text-left transition"
+									className="hover:bg-muted/50 dark:hover:bg-muted/10 border-r p-0 text-left bg-background transition"
 									onClick={() => onEventCreate(hourStart)}
 								>
 									<div className="flex flex-col gap-(--event-gap) p-1">
