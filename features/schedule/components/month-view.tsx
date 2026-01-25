@@ -80,7 +80,7 @@ export function MonthView({ currentDate, events, onEventSelect, onEventCreate }:
 
 	return (
 		<div data-slot="month-view" className="contents">
-			<div className="border-border grid grid-cols-7 border-b dark:bg-input/30 dark:border-input ">
+			<div className="border-border dark:bg-input/30 dark:border-input grid grid-cols-7 border-b">
 				{weekdays.map(day => (
 					<div
 						key={day}
@@ -110,7 +110,7 @@ export function MonthView({ currentDate, events, onEventSelect, onEventCreate }:
 							return (
 								<div
 									key={day.toString()}
-									className={`relative flex h-full flex-col border-r p-1 pt-0! bg-background transition-colors hover:bg-muted dark:hover:bg-muted/10 ${dayIndex === 6 ? "border-r-0" : ""}`}
+									className={`bg-background hover:bg-muted dark:hover:bg-muted/10 relative flex h-full flex-col border-r p-1 pt-0! transition-colors ${dayIndex === 6 ? "border-r-0" : ""}`}
 								>
 									<DroppableCell
 										id={cellId}

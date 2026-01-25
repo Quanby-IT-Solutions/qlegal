@@ -23,10 +23,11 @@ export interface CalendarEvent {
 	recurrence?: RecurrenceType
 	eventType?: "consultation" | "notarization"
 	mode?: "ren" | "ien"
-	guests?: Array<{ name: string; email: string }>
 	metadata?: {
 		type?: string
 		status?: string
+		roomId?: string
+		timezone?: string
 		[key: string]: any
 	}
 }

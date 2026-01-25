@@ -1,13 +1,14 @@
 "use client"
 
 import { useState } from "react"
+import { zodResolver } from "@hookform/resolvers/zod"
 import { format } from "date-fns"
 import { Calendar as CalendarIcon } from "lucide-react"
 import { useForm } from "react-hook-form"
-import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod/v4"
 
 import { Button } from "@/core/components/ui/button"
+import { Calendar } from "@/core/components/ui/calendar"
 import {
 	Dialog,
 	DialogContent,
@@ -24,7 +25,6 @@ import {
 	FormMessage,
 } from "@/core/components/ui/form"
 import { Input } from "@/core/components/ui/input"
-import { Calendar } from "@/core/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/core/components/ui/popover"
 import { RadioGroup, RadioGroupItem } from "@/core/components/ui/radio-group"
 import { Textarea } from "@/core/components/ui/textarea"
@@ -152,13 +152,13 @@ export function BlockingDialog({ isOpen, onClose, onSave }: BlockingDialogProps)
 											onValueChange={value => field.onChange(value as "full-day" | "time-slot")}
 											className="flex flex-col gap-2"
 										>
-											<div className="flex items-center space-x-2 space-y-0">
+											<div className="flex items-center space-y-0 space-x-2">
 												<RadioGroupItem value="full-day" id="full-day" />
 												<FormLabel htmlFor="full-day" className="cursor-pointer font-normal">
 													Full Day
 												</FormLabel>
 											</div>
-											<div className="flex items-center space-x-2 space-y-0">
+											<div className="flex items-center space-y-0 space-x-2">
 												<RadioGroupItem value="time-slot" id="time-slot" />
 												<FormLabel htmlFor="time-slot" className="cursor-pointer font-normal">
 													Time Slot
@@ -313,7 +313,11 @@ export function BlockingDialog({ isOpen, onClose, onSave }: BlockingDialogProps)
 								<FormItem>
 									<FormLabel>Reason (Optional)</FormLabel>
 									<FormControl>
-										<Textarea placeholder="Add a reason for blocking this time" rows={3} {...field} />
+										<Textarea
+											placeholder="Add a reason for blocking this time"
+											rows={3}
+											{...field}
+										/>
 									</FormControl>
 									<FormMessage />
 								</FormItem>
@@ -322,7 +326,7 @@ export function BlockingDialog({ isOpen, onClose, onSave }: BlockingDialogProps)
 
 						<DialogFooter>
 							<Button type="button" variant="outline" onClick={onClose}>
-								Cancel
+								cancel
 							</Button>
 							<Button type="submit">Block Time</Button>
 						</DialogFooter>

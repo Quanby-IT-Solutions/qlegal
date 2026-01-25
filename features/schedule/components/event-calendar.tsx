@@ -38,6 +38,12 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/core/components/ui/select"
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipProvider,
+	TooltipTrigger,
+} from "@/core/components/ui/tooltip"
 import { cn } from "@/core/lib/utils"
 
 import { AgendaDaysToShow, EventGap, EventHeight, WeekCellsHeight } from "../constants"
@@ -254,9 +260,10 @@ export function EventCalendar({
 		const monthEnd = endOfMonth(currentDate)
 		const calendarStart = startOfWeek(startOfMonth(currentDate), { weekStartsOn: 0 })
 		const calendarEnd = endOfWeek(monthEnd, { weekStartsOn: 0 })
-		const totalDays = Math.ceil((calendarEnd.getTime() - calendarStart.getTime()) / (1000 * 60 * 60 * 24)) + 1
+		const totalDays =
+			Math.ceil((calendarEnd.getTime() - calendarStart.getTime()) / (1000 * 60 * 60 * 24)) + 1
 		const days = Array.from({ length: totalDays }, (_, i) => addDays(calendarStart, i))
-		
+
 		const weeks = []
 		for (let i = 0; i < days.length; i += 7) {
 			const weekDays = days.slice(i, i + 7)
@@ -292,7 +299,7 @@ export function EventCalendar({
 
 	return (
 		<div
-			className="flex flex-col rounded-lg border bg-card has-data-[slot=month-view]:flex-1"
+			className="bg-card flex flex-col rounded-lg border has-data-[slot=month-view]:flex-1"
 			style={
 				{
 					"--event-height": `${EventHeight}px`,
@@ -302,7 +309,7 @@ export function EventCalendar({
 			}
 		>
 			<CalendarDndProvider onEventUpdate={handleEventUpdate}>
-				<div className={cn("flex items-center justify-between p-2 sm:p-4 border-b", className)}>
+				<div className={cn("flex items-center justify-between border-b p-2 sm:p-4", className)}>
 					<div className="flex items-center gap-1 sm:gap-4">
 						<div className="flex items-center sm:gap-2">
 							<Button variant="ghost" size="icon" onClick={handlePrevious} aria-label="Previous">
@@ -313,10 +320,7 @@ export function EventCalendar({
 							</Button>
 						</div>
 						{/* Year selector - shown in all views */}
-						<Select
-							value={currentDate.getFullYear().toString()}
-							onValueChange={handleYearChange}
-						>
+						<Select value={currentDate.getFullYear().toString()} onValueChange={handleYearChange}>
 							<SelectTrigger className="w-24 sm:w-28">
 								<SelectValue />
 							</SelectTrigger>
@@ -361,10 +365,7 @@ export function EventCalendar({
 						)}
 						{/* Day selector - shown in day view only */}
 						{view === "day" && (
-							<Select
-								value={currentDate.getDate().toString()}
-								onValueChange={handleDayChange}
-							>
+							<Select value={currentDate.getDate().toString()} onValueChange={handleDayChange}>
 								<SelectTrigger className="w-20 sm:w-24">
 									<SelectValue placeholder="Day" />
 								</SelectTrigger>
@@ -416,18 +417,35 @@ export function EventCalendar({
 									Agenda <DropdownMenuShortcut>A</DropdownMenuShortcut>
 								</DropdownMenuItem>
 							</DropdownMenuContent>
-						</DropdownMenu>
-						<Button
-							className="max-[479px]:aspect-square max-[479px]:p-0!"
-							size="sm"
-							onClick={() => {
-								setSelectedEvent(null) // Ensure we're creating a new event
-								setIsEventDialogOpen(true)
-							}}
-						>
-							<PlusIcon className="opacity-60 sm:-ms-1" size={16} aria-hidden="true" />
-							<span className="max-sm:sr-only">New event</span>
-						</Button>
+					</DropdownMenu>
+					<TooltipProvider>
+						<Tooltip>
+							<TooltipTrigger asChild>
+								<div className="inline-block">
+									<Button
+										variant="outline"
+										size="sm"
+										className="max-[479px]:aspect-square max-[479px]:p-0!"
+										disabled
+									>
+										<span className="max-sm:sr-only">Block time</span>
+									</Button>
+								</div>
+							</TooltipTrigger>
+							<TooltipContent>Coming soon</TooltipContent>
+						</Tooltip>
+					</TooltipProvider>
+					<Button
+						className="max-[479px]:aspect-square max-[479px]:p-0!"
+						size="sm"
+						onClick={() => {
+							setSelectedEvent(null) // Ensure we're creating a new event
+							setIsEventDialogOpen(true)
+						}}
+					>
+						<PlusIcon className="opacity-60 sm:-ms-1" size={16} aria-hidden="true" />
+						<span className="max-sm:sr-only">New event</span>
+					</Button>
 					</div>
 				</div>
 				<div className="flex flex-1 flex-col p-2 sm:p-4">
