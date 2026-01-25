@@ -21,6 +21,7 @@ export const documentSigners = createTable(
 			.references(() => users.id, { onDelete: "cascade" }),
 		signerName: t.varchar({ length: 255 }), // Principal's name for notarial book
 		signerAddress: t.text(), // Principal's address for notarial book
+		signingOrder: t.integer(), // Order in which this signer should sign (1 = first, 2 = second, etc.)
 		createdAt: t.timestamp({ mode: "date", withTimezone: true }).defaultNow().notNull(),
 	}),
 	t => [

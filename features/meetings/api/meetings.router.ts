@@ -745,7 +745,7 @@ export const meetingsRouter = createTRPCRouter({
 				participants: true,
 				documents: {
 					with: {
-						signers: { columns: { userId: true } },
+						signers: { columns: { userId: true, signingOrder: true } },
 					},
 				},
 			},
@@ -774,7 +774,7 @@ export const meetingsRouter = createTRPCRouter({
 
 		// Define type for document with nested signers
 		type DocumentWithSigners = InferSelectModel<typeof documents> & {
-			signers: { userId: string }[]
+			signers: { userId: string; signingOrder: number | null }[]
 		}
 
 		// Sort by order first (for manual reordering), then by createdAt (for upload sequence)
@@ -787,12 +787,19 @@ export const meetingsRouter = createTRPCRouter({
 			return createdAtA - createdAtB
 		})
 
-		// Map to include signerUserIds for each document
+		// Map to include signerUserIds for each document, ordered by signingOrder
 		return sorted.map(doc => {
 			const { signers, ...rest } = doc
+			// Sort signers by signingOrder (nulls last), then by userId for consistency
+			const sortedSigners = [...(signers ?? [])].sort((a, b) => {
+				const orderA = a.signingOrder ?? 999999
+				const orderB = b.signingOrder ?? 999999
+				if (orderA !== orderB) return orderA - orderB
+				return (a.userId ?? "").localeCompare(b.userId ?? "")
+			})
 			return {
 				...rest,
-				signerUserIds: (signers ?? []).map(s => s.userId),
+				signerUserIds: sortedSigners.map(s => s.userId),
 			}
 		})
 	}),
@@ -825,7 +832,7 @@ export const meetingsRouter = createTRPCRouter({
 					documents: {
 						where: eq(documents.id, documentId),
 						with: {
-							signers: { columns: { userId: true } },
+							signers: { columns: { userId: true, signingOrder: true } },
 						},
 					},
 					createdBy: {
@@ -1019,12 +1026,12 @@ export const meetingsRouter = createTRPCRouter({
 		}),
 
 	// Set which meeting participants are signers for a given document (before plotting)
-	setDocumentSigners: protectedProcedure
+			setDocumentSigners: protectedProcedure
 		.input(
 			z.object({
 				documentId: z.string().min(1),
 				meetingId: z.string().min(1),
-				userIds: z.array(z.string().min(1)),
+				userIds: z.array(z.string().min(1)), // Array order represents signing order (first = 1, second = 2, etc.)
 			})
 		)
 		.mutation(async ({ ctx, input }) => {
@@ -1052,7 +1059,7 @@ export const meetingsRouter = createTRPCRouter({
 							docoChainProjectId: true,
 						},
 						with: {
-							signers: { columns: { userId: true } },
+							signers: { columns: { userId: true, signingOrder: true } },
 						},
 					},
 					createdBy: {
@@ -1195,9 +1202,10 @@ export const meetingsRouter = createTRPCRouter({
 				// Create a map for quick lookup
 				const userMap = new Map(signerUsers.map(u => [u.id, u]))
 
-				// Insert signers with name and address for principals
+				// Insert signers with name, address, and signing order
+				// The array index + 1 represents the signing order (1 = first, 2 = second, etc.)
 				await db.insert(documentSigners).values(
-					userIds.map(userId => {
+					userIds.map((userId, index) => {
 						const user = userMap.get(userId)
 						const isPrincipal = user?.role === "PRINCIPAL"
 						
@@ -1213,6 +1221,7 @@ export const meetingsRouter = createTRPCRouter({
 							userId,
 							signerName,
 							signerAddress,
+							signingOrder: index + 1, // 1-based order
 						}
 					})
 				)
