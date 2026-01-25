@@ -517,7 +517,7 @@ export default function DashboardPage() {
 								)}
 								{isENP && (
 									<Link
-										href="/requests/incoming"
+										href="/requests"
 										className={buttonVariants({
 											variant: "outline",
 											className: "relative h-auto flex-col items-start gap-2 overflow-visible p-4",
