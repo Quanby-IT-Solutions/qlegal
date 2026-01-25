@@ -2,25 +2,32 @@ import type { NavGroups, NavItem } from "@/core/lib/nav/types"
 
 import type { UserRole } from "@/services/drizzle/schema/auth"
 
+import {
+	Home01Icon,
+	BookOpenIcon,
+	Sent02Icon,
+	UserGroupIcon,
+} from "@hugeicons/core-free-icons"
+
 // Landing Page Navigation
 const homeConfig: NavItem[] = [
 	{
-		icon: "house",
+		icon: Home01Icon,
 		title: "Features",
 		url: "#features",
 	},
 	{
-		icon: "book",
+		icon: BookOpenIcon,
 		title: "Pricing",
 		url: "#pricing",
 	},
 	{
-		icon: "mail",
+		icon: Sent02Icon,
 		title: "Contact Us",
 		url: "#contact-us",
 	},
 	{
-		icon: "users",
+		icon: UserGroupIcon,
 		title: "About Us",
 		url: "#about-us",
 	},
