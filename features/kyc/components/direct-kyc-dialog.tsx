@@ -1,18 +1,38 @@
 "use client"
 
 import { useMemo, useState, useTransition } from "react"
-import { CheckCircle2, Loader2, ShieldCheck, XCircle } from "lucide-react"
+import { CheckCircle2, FileCheck, Loader2, ShieldCheck, Upload, XCircle } from "lucide-react"
 import { toast } from "sonner"
 
 import { Button } from "@/core/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/core/components/ui/dialog"
 import { Input } from "@/core/components/ui/input"
 import { Label } from "@/core/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/core/components/ui/select"
 
 import { runDirectKycVerification } from "@/features/kyc/api/kyc.actions"
 import { CameraCapture } from "@/features/kyc/components/camera-capture"
 
 type DirectKycStep = "id" | "selfie" | "review" | "result"
+
+// Common countries for KYC verification
+const COUNTRIES = [
+	{ value: "phl", label: "Philippines" },
+	{ value: "ind", label: "India" },
+	{ value: "usa", label: "United States" },
+	{ value: "gbr", label: "United Kingdom" },
+	{ value: "sgp", label: "Singapore" },
+	{ value: "aus", label: "Australia" },
+	{ value: "can", label: "Canada" },
+] as const
+
+// Common document types
+const DOCUMENT_TYPES = [
+	{ value: "dl", label: "Driver's License" },
+	{ value: "national_id", label: "National ID" },
+	{ value: "passport", label: "Passport" },
+	{ value: "voter_id", label: "Voter ID" },
+] as const
 
 export function DirectKycDialog(props: { disabled?: boolean; variant?: "default" | "secondary" }) {
 	const [open, setOpen] = useState(false)
@@ -20,6 +40,7 @@ export function DirectKycDialog(props: { disabled?: boolean; variant?: "default"
 	const [countryId, setCountryId] = useState("phl")
 	const [documentId, setDocumentId] = useState("dl")
 	const [idImage, setIdImage] = useState<string | null>(null)
+	const [uploadedFileName, setUploadedFileName] = useState<string | null>(null)
 	const [selfieImage, setSelfieImage] = useState<string | null>(null)
 	const [result, setResult] = useState<null | { ok: boolean; message: string; status?: string; transactionId?: string }>(null)
 	const [isPending, startTransition] = useTransition()
@@ -33,6 +54,7 @@ export function DirectKycDialog(props: { disabled?: boolean; variant?: "default"
 	const reset = () => {
 		setStep("id")
 		setIdImage(null)
+		setUploadedFileName(null)
 		setSelfieImage(null)
 		setResult(null)
 	}
@@ -113,219 +135,298 @@ export function DirectKycDialog(props: { disabled?: boolean; variant?: "default"
 					type="button"
 				>
 					<ShieldCheck className="mr-2 h-5 w-5" />
-					Start Verification (Desktop Camera)
+					Desktop Camera Verification
 				</Button>
 			</DialogTrigger>
 
 			<DialogContent className="sm:max-w-2xl">
 				<DialogHeader>
-					<DialogTitle>Verify using Desktop Camera (No QR)</DialogTitle>
+					<DialogTitle>Identity Verification</DialogTitle>
 					<DialogDescription>
-						This flow captures your ID and selfie in-app, then validates using HyperVerge direct APIs:{" "}
-						`readId`, `checkLiveness`, `matchFace`.
+						Complete your verification in 3 simple steps
 					</DialogDescription>
 				</DialogHeader>
 
-				<div className="space-y-4">
+				<div className="space-y-6">
 					{step !== "result" && (
-						<div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-							<div className="space-y-1">
-								<Label htmlFor="countryId">Country ID (3-letter)</Label>
-								<Input
-									id="countryId"
-									value={countryId}
-									onChange={e => setCountryId(e.target.value)}
-									placeholder="e.g. phl"
-								/>
+						<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+							<div className="space-y-2">
+								<Label htmlFor="countryId">Country</Label>
+								<Select value={countryId} onValueChange={setCountryId}>
+									<SelectTrigger id="countryId">
+										<SelectValue placeholder="Select country" />
+									</SelectTrigger>
+									<SelectContent>
+										{COUNTRIES.map(country => (
+											<SelectItem key={country.value} value={country.value}>
+												{country.label}
+											</SelectItem>
+										))}
+									</SelectContent>
+								</Select>
 							</div>
-							<div className="space-y-1">
-								<Label htmlFor="documentId">Document ID</Label>
-								<Input
-									id="documentId"
-									value={documentId}
-									onChange={e => setDocumentId(e.target.value)}
-									placeholder="e.g. dl"
-								/>
+							<div className="space-y-2">
+								<Label htmlFor="documentId">Document Type</Label>
+								<Select value={documentId} onValueChange={setDocumentId}>
+									<SelectTrigger id="documentId">
+										<SelectValue placeholder="Select document" />
+									</SelectTrigger>
+									<SelectContent>
+										{DOCUMENT_TYPES.map(doc => (
+											<SelectItem key={doc.value} value={doc.value}>
+												{doc.label}
+											</SelectItem>
+										))}
+									</SelectContent>
+								</Select>
 							</div>
 						</div>
 					)}
 
 					{step === "id" && (
-						<div className="space-y-3">
+						<div className="space-y-4">
+							<div className="space-y-2">
+								<h3 className="text-sm font-semibold">Step 1: Capture ID Document</h3>
+								<p className="text-muted-foreground text-xs">
+									Position your ID card within the frame. Ensure all text is readable and there's no glare.
+								</p>
+							</div>
+
 							<CameraCapture
-								title="Step 1 — Capture your ID (front)"
-								description="Hold your ID steady inside the box. Make sure text is sharp and glare-free."
+								title=""
+								description=""
 								overlayVariant="document"
 								initialFacingMode="environment"
 								autoStart
-								onCapture={setIdImage}
+								onCapture={imageData => {
+									setIdImage(imageData)
+									setUploadedFileName(null)
+								}}
 							/>
 
-							<div className="rounded-lg border p-3">
-								<p className="text-sm font-medium">Or upload an ID photo</p>
-								<p className="text-muted-foreground mt-1 text-xs">
-									Use a clear, well-lit image. Keep it under 6MB (HyperVerge Face Match limit).
-								</p>
-								<div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
-									<Input
-										type="file"
-										accept="image/*"
-										onChange={e => {
-											void (async () => {
-												const file = e.target.files?.[0]
-												if (!file) return
+							<div className="rounded-lg border bg-muted/30 p-4">
+								<p className="mb-2 text-sm font-medium">Or upload a photo</p>
+								<div className="flex flex-col gap-3">
+									<div className="relative">
+										<Input
+											type="file"
+											accept="image/*"
+											id="id-file-upload"
+											className="hidden"
+											onChange={e => {
+												void (async () => {
+													const file = e.target.files?.[0]
+													if (!file) return
 
-												// 6MB safety limit (Face Match API constraint)
-												if (file.size > 6 * 1024 * 1024) {
-													toast.error("File too large. Please upload an image under 6MB.")
-													e.target.value = ""
-													return
-												}
+													// 6MB safety limit (Face Match API constraint)
+													if (file.size > 6 * 1024 * 1024) {
+														toast.error("File too large. Max 6MB allowed.")
+														e.target.value = ""
+														return
+													}
 
-												try {
-													const dataUrl = await readFileAsDataUrl(file)
-													setIdImage(dataUrl)
-													toast.success("ID image uploaded.")
-												} catch (err) {
-													const message =
-														err instanceof Error ? err.message : "Failed to read the uploaded file"
-													toast.error(message)
-												} finally {
-													// allow re-uploading the same file
-													e.target.value = ""
-												}
-											})()
-										}}
-									/>
-									<Button
-										type="button"
-										variant="outline"
-										onClick={() => setIdImage(null)}
-										disabled={!idImage}
-									>
-										Clear
-									</Button>
+													try {
+														const dataUrl = await readFileAsDataUrl(file)
+														setIdImage(dataUrl)
+														setUploadedFileName(file.name)
+														toast.success("Photo uploaded successfully.")
+													} catch (err) {
+														const message =
+															err instanceof Error ? err.message : "Failed to read file"
+														toast.error(message)
+													} finally {
+														e.target.value = ""
+													}
+												})()
+											}}
+										/>
+										<Button
+											type="button"
+											variant="outline"
+											className="w-full"
+											onClick={() => document.getElementById("id-file-upload")?.click()}
+										>
+											{uploadedFileName ? (
+												<>
+													<FileCheck className="mr-2 size-4 text-green-600" />
+													{uploadedFileName}
+												</>
+											) : (
+												<>
+													<Upload className="mr-2 size-4" />
+													Choose File
+												</>
+											)}
+										</Button>
+									</div>
+									{uploadedFileName && (
+										<Button
+											type="button"
+											variant="ghost"
+											size="sm"
+											onClick={() => {
+												setIdImage(null)
+												setUploadedFileName(null)
+											}}
+										>
+											Remove file
+										</Button>
+									)}
+									<p className="text-muted-foreground text-xs">Clear, well-lit image under 6MB</p>
 								</div>
 							</div>
 						</div>
 					)}
 
 					{step === "selfie" && (
-						<CameraCapture
-							title="Step 2 — Capture your selfie"
-							description="Center your face in the oval. Ensure good lighting and remove face coverings."
-							overlayVariant="face"
-							initialFacingMode="user"
-							autoStart
-							onCapture={setSelfieImage}
-						/>
+						<div className="space-y-4">
+							<div className="space-y-2">
+								<h3 className="text-sm font-semibold">Step 2: Capture Selfie</h3>
+								<p className="text-muted-foreground text-xs">
+									Center your face in the frame. Good lighting is essential. Remove glasses and face coverings.
+								</p>
+							</div>
+
+							<CameraCapture
+								title=""
+								description=""
+								overlayVariant="face"
+								initialFacingMode="user"
+								autoStart
+								onCapture={setSelfieImage}
+							/>
+						</div>
 					)}
 
 					{step === "review" && (
-						<div className="space-y-3">
-							<div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+						<div className="space-y-4">
+							<div className="space-y-2">
+								<h3 className="text-sm font-semibold">Step 3: Review & Submit</h3>
+								<p className="text-muted-foreground text-xs">
+									Verify your photos are clear before submitting.
+								</p>
+							</div>
+
+							<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
 								<div className="space-y-2">
-									<p className="text-sm font-medium">ID Photo</p>
+									<Label className="text-xs">ID Document</Label>
 									{idImage ? (
-										<img src={idImage} alt="ID capture" className="w-full rounded-lg border object-cover" />
+										<div className="relative overflow-hidden rounded-lg border">
+											<img src={idImage} alt="ID" className="aspect-video w-full object-cover" />
+										</div>
 									) : (
-										<p className="text-muted-foreground text-xs">Missing</p>
+										<div className="bg-muted flex aspect-video items-center justify-center rounded-lg border">
+											<p className="text-muted-foreground text-xs">No photo</p>
+										</div>
 									)}
 								</div>
 								<div className="space-y-2">
-									<p className="text-sm font-medium">Selfie Photo</p>
+									<Label className="text-xs">Selfie</Label>
 									{selfieImage ? (
-										<img
-											src={selfieImage}
-											alt="Selfie capture"
-											className="w-full rounded-lg border object-cover"
-										/>
+										<div className="relative overflow-hidden rounded-lg border">
+											<img src={selfieImage} alt="Selfie" className="aspect-video w-full object-cover" />
+										</div>
 									) : (
-										<p className="text-muted-foreground text-xs">Missing</p>
+										<div className="bg-muted flex aspect-video items-center justify-center rounded-lg border">
+											<p className="text-muted-foreground text-xs">No photo</p>
+										</div>
 									)}
 								</div>
 							</div>
 
-							<div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/20 dark:text-amber-100">
-								Tip: If face match fails, retake the ID photo with the face area clearly visible and less glare.
+							<div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-xs text-blue-900 dark:border-blue-800 dark:bg-blue-950/20 dark:text-blue-100">
+								Make sure your face is visible in the ID photo for best results.
 							</div>
 						</div>
 					)}
 
 					{step === "result" && (
 						<div
-							className={`rounded-lg border p-4 ${
+							className={`rounded-lg border p-6 ${
 								result?.ok
 									? "border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950/20"
 									: "border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950/20"
 							}`}
 						>
-							<div className="flex items-start gap-3">
+							<div className="flex flex-col items-center gap-3 text-center">
 								{result?.ok ? (
-									<CheckCircle2 className="mt-0.5 h-5 w-5 text-green-600 dark:text-green-400" />
+									<CheckCircle2 className="size-12 text-green-600 dark:text-green-400" />
 								) : (
-									<XCircle className="mt-0.5 h-5 w-5 text-red-600 dark:text-red-400" />
+									<XCircle className="size-12 text-red-600 dark:text-red-400" />
 								)}
-								<div className="flex-1 space-y-1">
-									<p className="font-medium">
-										{result?.status ? `Status: ${result.status}` : result?.ok ? "Verified" : "Not verified"}
+								<div className="space-y-2">
+									<p className="text-lg font-semibold">
+										{result?.ok ? "Verification Successful!" : "Verification Failed"}
 									</p>
-									<p className="text-sm">{result?.message}</p>
+									<p className="text-muted-foreground text-sm">{result?.message}</p>
 									{result?.transactionId && (
-										<p className="text-muted-foreground text-xs">Transaction ID: {result.transactionId}</p>
+										<p className="text-muted-foreground text-xs">ID: {result.transactionId}</p>
 									)}
 								</div>
 							</div>
 						</div>
 					)}
 
-					<div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
-						<Button
-							variant="outline"
-							type="button"
-							onClick={() => {
-								if (step === "result") return close()
-								reset()
-							}}
-							disabled={isPending}
-						>
-							{step === "result" ? "Close" : "Reset"}
-						</Button>
-
+					<div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
 						{step !== "result" && (
-							<>
-								{step !== "id" && (
-									<Button
-										variant="secondary"
-										type="button"
-										onClick={() => setStep(prev => (prev === "selfie" ? "id" : "selfie"))}
-										disabled={isPending}
-									>
-										Back
-									</Button>
-								)}
+							<Button
+								variant="ghost"
+								type="button"
+								onClick={reset}
+								disabled={isPending}
+								size="lg"
+							>
+								Reset
+							</Button>
+						)}
 
-								{step !== "review" ? (
-									<Button
-										type="button"
-										onClick={() => setStep(prev => (prev === "id" ? "selfie" : "review"))}
-										disabled={!canGoNext || isPending}
-									>
-										Next
-									</Button>
+						{step !== "result" && step !== "id" && (
+							<Button
+								variant="outline"
+								type="button"
+								onClick={() => setStep(prev => (prev === "selfie" ? "id" : "selfie"))}
+								disabled={isPending}
+								size="lg"
+							>
+								Back
+							</Button>
+						)}
+
+						{step === "result" ? (
+							<Button
+								variant="default"
+								type="button"
+								onClick={close}
+								className="w-full sm:w-auto"
+								size="lg"
+							>
+								Close
+							</Button>
+						) : step !== "review" ? (
+							<Button
+								type="button"
+								onClick={() => setStep(prev => (prev === "id" ? "selfie" : "review"))}
+								disabled={!canGoNext || isPending}
+								size="lg"
+							>
+								Continue
+							</Button>
+						) : (
+							<Button
+								type="button"
+								onClick={submit}
+								disabled={isPending || !idImage || !selfieImage}
+								size="lg"
+							>
+								{isPending ? (
+									<>
+										<Loader2 className="mr-2 size-4 animate-spin" />
+										Verifying…
+									</>
 								) : (
-									<Button type="button" onClick={submit} disabled={isPending || !idImage || !selfieImage}>
-										{isPending ? (
-											<>
-												<Loader2 className="mr-2 h-4 w-4 animate-spin" />
-												Verifying…
-											</>
-										) : (
-											"Submit Verification"
-										)}
-									</Button>
+									"Submit"
 								)}
-							</>
+							</Button>
 						)}
 					</div>
 				</div>
