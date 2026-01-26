@@ -860,7 +860,7 @@ export const meetingsRouter = createTRPCRouter({
 			})
 		)
 		.mutation(async ({ ctx, input }) => {
-			const { documentId, meetingId } = input
+			const { documentId, meetingId} = input
 
 			const meeting = await db.query.meetings.findFirst({
 				where: eq(meetings.id, meetingId),
@@ -876,12 +876,12 @@ export const meetingsRouter = createTRPCRouter({
 							},
 						},
 					},
-					documents: {
-						where: eq(documents.id, documentId),
-						with: {
-							signers: { columns: { userId: true, signingOrder: true } },
-						},
+				documents: {
+					where: eq(documents.id, documentId),
+					with: {
+						signers: { columns: { userId: true, signingOrder: true } },
 					},
+				},
 					createdBy: {
 						columns: {
 							email: true,
@@ -998,7 +998,7 @@ export const meetingsRouter = createTRPCRouter({
 			}
 
 			// Validate required fields
-			if (!enpProfile.enpName || !enpProfile.enpRoleNumber || !enpProfile.attyName) {
+			if (!enpProfile.enpName || !enpProfile.enpRoleNumber) {
 				throw new TRPCError({
 					code: "PRECONDITION_FAILED",
 					message:
@@ -1015,7 +1015,7 @@ export const meetingsRouter = createTRPCRouter({
 				},
 				notary_info: {
 					type: "notary",
-					atty_name: enpProfile.attyName ?? "",
+					atty_name: enpProfile.enpName ?? "",
 					roll_no: enpProfile.rollNo ?? "",
 					roll_no_date: formatDateForStamp(enpProfile.rollNoDate),
 					commission_no: enpProfile.commissionNo ?? "",
@@ -1025,12 +1025,12 @@ export const meetingsRouter = createTRPCRouter({
 					PTR_no_date: formatDateForStamp(enpProfile.ptrNoDate),
 					IBP_no: enpProfile.ibpNo ?? "",
 					IBP_no_date: formatDateForStamp(enpProfile.ibpNoDate),
-					email: enpProfile.notaryEmail ?? creatorEmail,
+					email: creatorEmail,
 					address: enpProfile.notaryAddress ?? "",
 					MCLE_no_period: enpProfile.mcleNoPeriod ?? "",
 					MCLE_no: enpProfile.mcleNo ?? "",
 					MCLE_no_date: formatDateForStamp(enpProfile.mcleNoDate),
-					mode_of_notarization: enpProfile.modeOfNotarization ?? "",
+					mode_of_notarization: document.notarizationType ?? "",
 				},
 			}
 
