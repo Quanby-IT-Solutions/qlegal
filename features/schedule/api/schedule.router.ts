@@ -1,5 +1,5 @@
 import { TRPCError } from "@trpc/server"
-import { and, asc, eq, or, sql } from "drizzle-orm"
+import { and, asc, eq, gte, lt, or, sql } from "drizzle-orm"
 import { z } from "zod/v4"
 
 import { appointments } from "@/services/drizzle/schema/appointments"
@@ -187,7 +187,7 @@ export const scheduleRouter = createTRPCRouter({
 			return { success: true }
 		}),
 
-	// Get ENP's schedule with their events
+	// Get ENP's schedule with their events - FIXED TIMEZONE ISSUE
 	getEnpScheduleWithEvents: protectedProcedure
 		.input(
 			z.object({
@@ -210,14 +210,16 @@ export const scheduleRouter = createTRPCRouter({
 				})
 			}
 
-			// Get ENP's own appointments (self-created)
+			// Get ENP's appointments (all appointments where ENP is lawyer) - timezone-safe approach
+			const startDate = new Date(input.year, input.month, 1)
+			const endDate = new Date(input.year, input.month + 1, 0, 0, -1) // Last day of month
+
 			const myAppointments = await ctx.db.query.appointments.findMany({
 				where: and(
 					eq(appointments.lawyerId, userId),
-					eq(appointments.clientId, userId), // Self-appointment
 					or(eq(appointments.status, "CONFIRMED"), eq(appointments.status, "PENDING")),
-					sql`EXTRACT(MONTH FROM ${appointments.appointmentDate}) = ${input.month}`,
-					sql`EXTRACT(YEAR FROM ${appointments.appointmentDate}) = ${input.year}`
+					gte(appointments.appointmentDate, startDate),
+					lt(appointments.appointmentDate, endDate)
 				),
 				orderBy: [asc(appointments.appointmentDate)],
 				with: {
@@ -231,6 +233,12 @@ export const scheduleRouter = createTRPCRouter({
 					},
 				},
 			})
+
+			// DEBUG: Log filter results
+			console.log("DEBUG [schedule.router] Filtered by date range:", startDate.toISOString(), "to", endDate.toISOString(), "Found:", myAppointments.length, "appointments")
+
+			// DEBUG: Log returned appointments
+			console.log("DEBUG [schedule.router] Returning myAppointments:", JSON.stringify(myAppointments, null, 2))
 
 			return {
 				myAppointments,

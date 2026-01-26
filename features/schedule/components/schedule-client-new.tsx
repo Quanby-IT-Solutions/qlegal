@@ -148,7 +148,7 @@ export function ScheduleClient({ scheduleData }: ScheduleClientProps) {
 		// Transform ENP appointments to calendar events
 		const myEvents = (scheduleData.myAppointments ?? []).map(apt => {
 			const eventDate = new Date(apt.appointmentDate)
-			const notes = apt.notes?.split("\n")[0]
+			const notes = apt.notes?.split("\\n")[0]
 			const color: EventColor = apt.type === "CONSULTATION" ? "sky" : "emerald"
 			const eventType: "consultation" | "notarization" =
 				apt.type === "CONSULTATION" ? "consultation" : "notarization"
@@ -171,7 +171,7 @@ export function ScheduleClient({ scheduleData }: ScheduleClientProps) {
 			}
 		})
 
-	// DEBUG: Log transformation
+		// DEBUG: Log transformation
 		console.log("DEBUG [schedule-client] Transformed events:", myEvents.length, "My appointments:", scheduleData.myAppointments?.length)
 
 		// Merge myEvents with transformed requests
@@ -195,6 +195,9 @@ export function ScheduleClient({ scheduleData }: ScheduleClientProps) {
 				}
 			}),
 		]
+
+		// DEBUG: Log final events
+		console.log("DEBUG [schedule-client] Final calendarEvents:", calendarEvents.length, calendarEvents)
 
 		return allEvents
 	}, [scheduleData, transformedRequests])
