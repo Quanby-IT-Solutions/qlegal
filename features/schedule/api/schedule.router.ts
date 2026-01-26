@@ -1,5 +1,5 @@
 import { TRPCError } from "@trpc/server"
-import { and, asc, eq, gte, lt, or, sql } from "drizzle-orm"
+import { and, asc, eq, gte, lt, or } from "drizzle-orm"
 import { z } from "zod/v4"
 
 import { appointments } from "@/services/drizzle/schema/appointments"
