@@ -148,6 +148,14 @@ export const requestsRouter = createTRPCRouter({
 						image: true,
 					},
 				},
+				principal: {
+					columns: {
+						id: true,
+						name: true,
+						email: true,
+						image: true,
+					},
+				},
 			},
 		})
 
@@ -157,9 +165,12 @@ export const requestsRouter = createTRPCRouter({
 				const requestUrl = `${getUrl()}/requests`
 				await sendNotarizationRequestNotification({
 					enpEmail: requestWithRelations.enp.email,
-					enpName: requestWithRelations.enp.name,
-					principalName: requestWithRelations.principal.name,
+					enpName: requestWithRelations.enp.name ?? "Unknown",
+					principalName: requestWithRelations.principal?.name ?? "Unknown",
 					requestTitle: input.title,
+					requestDescription: input.description,
+					workflow: input.workflow,
+					priority: input.priority,
 					requestUrl,
 				})
 			} catch (error) {

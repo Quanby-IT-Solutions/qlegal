@@ -1,5 +1,6 @@
 import { TRPCError } from "@trpc/server"
-import { and, asc, desc, eq, or } from "drizzle-orm"
+import { and, asc, eq, or, sql } from "drizzle-orm"
+import { z } from "zod/v4"
 
 import { appointments } from "@/services/drizzle/schema/appointments"
 import { users } from "@/services/drizzle/schema/auth"
@@ -17,8 +18,10 @@ export const scheduleRouter = createTRPCRouter({
 			// Parse appointment date with time
 			const appointmentDateTime = new Date(input.appointmentDate)
 			if (input.startTime) {
-				const [hours, minutes] = input.startTime.split(":").map(Number)
-				appointmentDateTime.setHours(hours ?? 9, minutes ?? 0, 0, 0)
+				const timeParts = input.startTime.split(":").map(Number)
+				const hours = timeParts[0] ?? 9
+				const minutes = timeParts[1] ?? 0
+				appointmentDateTime.setHours(hours, minutes, 0, 0)
 			} else {
 				// Default to start of day for all-day events
 				appointmentDateTime.setHours(9, 0, 0, 0)
@@ -27,9 +30,11 @@ export const scheduleRouter = createTRPCRouter({
 			// Calculate duration or end time
 			let duration = input.duration
 			if (input.endTime && !duration) {
-				const [endHours, endMinutes] = input.endTime.split(":").map(Number)
+				const endTimeParts = input.endTime.split(":").map(Number)
+				const endHours = endTimeParts[0] ?? 0
+				const endMinutes = endTimeParts[1] ?? 0
 				const endTimeDate = new Date(appointmentDateTime)
-				endTimeDate.setHours(endHours ?? 0, endMinutes ?? 0, 0, 0)
+				endTimeDate.setHours(endHours, endMinutes, 0, 0)
 				duration = Math.round((endTimeDate.getTime() - appointmentDateTime.getTime()) / (60 * 1000))
 			}
 
@@ -105,16 +110,20 @@ export const scheduleRouter = createTRPCRouter({
 				: existing.appointmentDate
 
 			if (input.startTime) {
-				const [hours, minutes] = input.startTime.split(":").map(Number)
-				appointmentDateTime.setHours(hours ?? 9, minutes ?? 0, 0, 0)
+				const timeParts = input.startTime.split(":").map(Number)
+				const hours = timeParts[0] ?? 9
+				const minutes = timeParts[1] ?? 0
+				appointmentDateTime.setHours(hours, minutes, 0, 0)
 			}
 
 			// Calculate duration or use existing
 			let duration = input.duration ?? existing.duration
 			if (input.endTime && !input.duration) {
-				const [endHours, endMinutes] = input.endTime.split(":").map(Number)
+				const endTimeParts = input.endTime.split(":").map(Number)
+				const endHours = endTimeParts[0] ?? 0
+				const endMinutes = endTimeParts[1] ?? 0
 				const endTimeDate = new Date(appointmentDateTime)
-				endTimeDate.setHours(endHours ?? 0, endMinutes ?? 0, 0, 0)
+				endTimeDate.setHours(endHours, endMinutes, 0, 0)
 				duration = Math.round((endTimeDate.getTime() - appointmentDateTime.getTime()) / (60 * 1000))
 			}
 
@@ -133,7 +142,6 @@ export const scheduleRouter = createTRPCRouter({
 			const [updated] = await ctx.db
 				.update(appointments)
 				.set({
-					title: input.title,
 					appointmentDate: appointmentDateTime,
 					duration,
 					notes,
@@ -207,7 +215,9 @@ export const scheduleRouter = createTRPCRouter({
 				where: and(
 					eq(appointments.lawyerId, userId),
 					eq(appointments.clientId, userId), // Self-appointment
-					or(eq(appointments.status, "CONFIRMED"), eq(appointments.status, "PENDING"))
+					or(eq(appointments.status, "CONFIRMED"), eq(appointments.status, "PENDING")),
+					sql`EXTRACT(MONTH FROM ${appointments.appointmentDate}) = ${input.month}`,
+					sql`EXTRACT(YEAR FROM ${appointments.appointmentDate}) = ${input.year}`
 				),
 				orderBy: [asc(appointments.appointmentDate)],
 				with: {
