@@ -1,4 +1,3 @@
-import { redirect } from "next/navigation"
 
 import { PageHeader } from "@/core/components/navbar/page-header"
 
@@ -9,11 +8,30 @@ import { RequestsClient } from "@/features/requests/components/requests-client"
 
 export default async function RequestsPage() {
 	const session = await auth()
-	const userId = session?.user?.id
 	const isENP = session?.user?.role === "ENP"
 
 	// Pre-fetch data on server
 	const incomingRequests = await trpc.requests.getIncomingRequests()
+	
+	// Only fetch appointments if user is an ENP
+	let incomingAppointments: typeof incomingRequests
+	if (isENP) {
+		const appointments = await trpc.requests.getIncomingAppointmentsForENP()
+		// Cast appointments to match request structure
+		incomingAppointments = appointments as typeof incomingRequests
+	} else {
+		incomingAppointments = []
+	}
+
+	// Merge requests and appointments into a single list
+	// Sort by creation date (newest first)
+	const allIncomingItems = [...incomingRequests, ...incomingAppointments]
+	
+	allIncomingItems.sort((a, b) => { 
+		const dateA = new Date(a.createdAt).getTime()
+		const dateB = new Date(b.createdAt).getTime()
+		return dateB - dateA
+	})
 
 	return (
 		<HydrateClient>
@@ -21,7 +39,7 @@ export default async function RequestsPage() {
 				<PageHeader items={[{ label: "Requests", href: "/requests" }]} />
 				<main className="flex-1 p-4 md:p-6 lg:p-8">
 					<div className="mx-auto max-w-7xl space-y-8">
-						<RequestsClient incomingRequests={incomingRequests} isENP={isENP} />
+						<RequestsClient incomingRequests={allIncomingItems} isENP={isENP} />
 					</div>
 				</main>
 			</div>

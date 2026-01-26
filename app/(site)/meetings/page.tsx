@@ -53,7 +53,7 @@ export default function MeetingsPage() {
 					{ label: "Meetings & Notarizations", href: "/meetings" },
 					{
 						label:
-							activeTab === "meetings" ? "Meetings" : activeTab === "active" ? "Active" : "History",
+							activeTab === "meetings" ? "Sessions" : activeTab === "active" ? "Active" : "History",
 					},
 				]}
 			/>
@@ -76,7 +76,7 @@ export default function MeetingsPage() {
 						<TabsList className="grid w-full max-w-2xl grid-cols-3">
 							<TabsTrigger value="meetings" className="gap-2">
 								<Video className="size-4" />
-								Video Meetings
+								Sessions
 							</TabsTrigger>
 							<TabsTrigger value="active" className="gap-2">
 								<PenTool className="size-4" />

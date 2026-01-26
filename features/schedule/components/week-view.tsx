@@ -41,7 +41,8 @@ export function WeekView({ currentDate, events, onEventSelect, onEventCreate }: 
 		})
 	}
 
-	const handleEventClick = (event: CalendarEvent) => {
+	const handleEventClick = (event: CalendarEvent) => (e: React.MouseEvent) => {
+		e.stopPropagation()
 		onEventSelect(event)
 	}
 
@@ -74,25 +75,25 @@ export function WeekView({ currentDate, events, onEventSelect, onEventCreate }: 
 							const hourStart = new Date(day)
 							hourStart.setHours(hour, 0, 0, 0)
 
-							return (
-								<button
-									key={`${day.toISOString()}-${hour}`}
-									className="hover:bg-muted/50 dark:hover:bg-muted/10 bg-background border-r p-0 text-left transition"
-									onClick={() => onEventCreate(hourStart)}
-								>
-									<div className="flex flex-col gap-(--event-gap) p-1">
-										{dayEvents.map(event => (
-											<EventItem
-												key={event.id}
-												event={event}
-												view="week"
-												onClick={() => handleEventClick(event)}
-												showTime
-											/>
-										))}
-									</div>
-								</button>
-							)
+						return (
+							<div
+								key={`${day.toISOString()}-${hour}`}
+								className="hover:bg-muted/50 dark:hover:bg-muted/10 bg-background border-r p-0 text-left transition cursor-pointer"
+								onClick={() => onEventCreate(hourStart)}
+							>
+								<div className="flex flex-col gap-(--event-gap) p-1">
+									{dayEvents.map(event => (
+										<EventItem
+											key={event.id}
+											event={event}
+											view="week"
+											onClick={handleEventClick(event)}
+											showTime
+										/>
+									))}
+								</div>
+							</div>
+						)
 						})}
 					</div>
 				))}
