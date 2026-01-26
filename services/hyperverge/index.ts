@@ -206,8 +206,47 @@ export interface TransactionStatusResponse {
 	result: {
 		transactionId: string
 		applicationStatus: ApplicationStatus
+		/**
+		 * Raw Output API result payload (includes flags/userDetails/etc).
+		 *
+		 * Kept as `workflowDetails` for backward compatibility with existing callers.
+		 */
 		workflowDetails?: Record<string, unknown>
 	}
+}
+
+interface HyperVergeOutputApiResponse {
+	status: "success" | "failure"
+	statusCode: number
+	metadata?: {
+		requestId?: string
+		transactionId?: string | null
+	}
+	result?: Record<string, unknown>
+}
+
+function normalizeOutputApplicationStatus(rawStatus: unknown): ApplicationStatus {
+	if (typeof rawStatus !== "string") return "pending"
+	const normalized = rawStatus.trim().toLowerCase().replace(/\s+/g, "_")
+
+	// Be defensive: docs and dashboards sometimes use variant spellings.
+	if (normalized === "auto_approve") return "auto_approved"
+	if (normalized === "approved") return "auto_approved"
+	if (normalized === "declined") return "auto_declined"
+	if (normalized === "manual_review") return "needs_review"
+	if (normalized === "in_progress") return "pending"
+	if (normalized === "started") return "pending"
+
+	const known: ReadonlyArray<ApplicationStatus> = [
+		"auto_approved",
+		"auto_declined",
+		"needs_review",
+		"user_cancelled",
+		"error",
+		"pending",
+	]
+
+	return known.includes(normalized as ApplicationStatus) ? (normalized as ApplicationStatus) : "pending"
 }
 
 /**
@@ -230,7 +269,11 @@ export async function getTransactionStatus(
 	try {
 		console.log("   - Primary Request URL:", HYPERVERGE_API_RESULTS_URL_PRIMARY)
 
-		// HyperVerge Output API uses POST with transactionId in body
+		// HyperVerge Output API uses POST with transactionId in body.
+		// Docs example includes workflowId as well; some accounts return richer output only when workflowId is provided.
+		const requestBody: Record<string, unknown> = { transactionId }
+		if (HYPERVERGE_WORKFLOW_ID) requestBody.workflowId = HYPERVERGE_WORKFLOW_ID
+
 		let response: Response
 		try {
 			response = await fetch(HYPERVERGE_API_RESULTS_URL_PRIMARY, {
@@ -240,7 +283,7 @@ export async function getTransactionStatus(
 					"appId": HYPERVERGE_APP_ID,
 					"appKey": HYPERVERGE_APP_KEY,
 				},
-				body: JSON.stringify({ transactionId }),
+				body: JSON.stringify(requestBody),
 			})
 		} catch (networkErr) {
 			console.warn("⚠️ Primary status fetch failed (network)", networkErr)
@@ -252,7 +295,7 @@ export async function getTransactionStatus(
 					"appId": HYPERVERGE_APP_ID,
 					"appKey": HYPERVERGE_APP_KEY,
 				},
-				body: JSON.stringify({ transactionId }),
+				body: JSON.stringify(requestBody),
 			})
 		}
 
@@ -266,7 +309,7 @@ export async function getTransactionStatus(
 					"appId": HYPERVERGE_APP_ID,
 					"appKey": HYPERVERGE_APP_KEY,
 				},
-				body: JSON.stringify({ transactionId }),
+				body: JSON.stringify(requestBody),
 			})
 		}
 
@@ -288,10 +331,27 @@ export async function getTransactionStatus(
 			throw new Error(`HyperVerge API error: ${response.status} - ${responseText}`)
 		}
 
-		const result = JSON.parse(responseText) as TransactionStatusResponse
+		const raw = JSON.parse(responseText) as HyperVergeOutputApiResponse
+
+		// Output API shape (Jan 2026 docs):
+		// raw.result.status (application status) + raw.result.transactionId + other summary details.
+		const rawResult = raw.result ?? {}
+		const applicationStatus = normalizeOutputApplicationStatus(rawResult["status"])
+		const resolvedTransactionId =
+			typeof rawResult["transactionId"] === "string" ? (rawResult["transactionId"] as string) : transactionId
+
+		const result: TransactionStatusResponse = {
+			status: raw.status,
+			statusCode: raw.statusCode,
+			result: {
+				transactionId: resolvedTransactionId,
+				applicationStatus,
+				workflowDetails: rawResult,
+			},
+		}
 
 		console.log("✅ HyperVerge transaction status retrieved")
-		console.log("   - Status:", result.result?.applicationStatus)
+		console.log("   - Status:", result.result.applicationStatus)
 
 		return result
 	} catch (error) {
