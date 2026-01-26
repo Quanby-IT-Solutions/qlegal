@@ -29,7 +29,8 @@ export function NotarialActDocumentDialog2({
 	} = trpc.notarialBook.getDocumentUrl2.useQuery(
 		{ actId },
 		{
-			enabled: isOpen && !!actId, // Only fetch when dialog is open and actId exists
+			enabled: isOpen && !!actId && actId.length > 0, // Only fetch when dialog is open and actId exists and is not empty
+			retry: false, // Don't retry on error to avoid console spam
 		}
 	)
 

@@ -19,7 +19,19 @@ import { auth } from "@/services/next-auth"
  * @see https://trpc.io/docs/server/context
  */
 export const createTRPCContext = cache(async (opts: { headers: Headers }) => {
-	const session = await auth()
+	// Wrap auth() in try-catch to prevent redirects that return HTML instead of JSON
+	// If auth fails, we return null session instead of letting NextAuth redirect
+	let session = null
+	try {
+		session = await auth()
+	} catch (error) {
+		// If auth() throws (e.g., due to session expiration or invalid token),
+		// we catch it here to prevent NextAuth from redirecting to login page
+		// which would return HTML instead of JSON
+		console.warn("Auth error in tRPC context:", error instanceof Error ? error.message : "Unknown error")
+		// session remains null, which will cause protectedProcedure to throw UNAUTHORIZED
+		// but as a proper JSON error, not an HTML redirect
+	}
 
 	return {
 		db,
