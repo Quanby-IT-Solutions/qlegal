@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import Link from "next/link"
 import { ArrowRight, CheckCircle, FileSignature, Scale, Shield, Users } from "lucide-react"
 import { motion } from "motion/react"
@@ -32,7 +33,13 @@ const staggerContainer = {
 
 export function Hero({ isAuthenticated = false }: HeroProps) {
 	const theme = useTheme()
-	const shadowColor = theme.resolvedTheme === "dark" ? "white" : "black"
+	// Use useState to ensure consistent initial render (matches server)
+	const [shadowColor, setShadowColor] = useState<"white" | "black">("black")
+
+	// Update shadow color after hydration to match theme
+	useEffect(() => {
+		setShadowColor(theme.resolvedTheme === "dark" ? "white" : "black")
+	}, [theme.resolvedTheme])
 
 	return (
 		<section className="relative w-full overflow-hidden pt-48 pb-16 sm:pb-24 lg:pt-40">
