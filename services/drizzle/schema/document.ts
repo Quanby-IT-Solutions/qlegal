@@ -1,4 +1,4 @@
-import { documentStatusEnum } from "@/services/drizzle/schema/_enums"
+import { documentStatusEnum, notarizationType } from "@/services/drizzle/schema/_enums"
 import { envelopes } from "@/services/drizzle/schema/envelope"
 import { meetings } from "@/services/drizzle/schema/meetings"
 import { createTable, randomId } from "@/services/drizzle/utils"
@@ -14,6 +14,7 @@ export const documents = createTable("document", t => ({
 	size: t.integer().notNull(), // File size in bytes
 	path: t.varchar({ length: 255 }).default(""), // Storage path - can be empty initially
 	status: documentStatusEnum("status").default("UPLOADED").notNull(),
+	notarizationType: notarizationType("notarization_type"), // eNotarization act type for notarial book
 	docoChainProjectId: t.varchar({ length: 255 }), // DocoChain project UUID
 	docoChainRedirectUrl: t.text(), // DocoChain redirect URL with auth token
 	envelopeId: t.varchar({ length: 255 }).references(() => envelopes.id),

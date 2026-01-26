@@ -3,6 +3,7 @@ import { relations } from "drizzle-orm"
 import { appointments } from "@/services/drizzle/schema/appointments"
 import { users } from "@/services/drizzle/schema/auth"
 import { documents } from "@/services/drizzle/schema/document"
+import { documentSigners } from "@/services/drizzle/schema/document-signers"
 import { enpAvailability, enpProfiles } from "@/services/drizzle/schema/enp-profiles"
 import { envelopes } from "@/services/drizzle/schema/envelope"
 import { legalRegistrations } from "@/services/drizzle/schema/legal-registration"
@@ -55,6 +56,19 @@ export const documentRelations = relations(documents, ({ one, many }) => ({
 		references: [meetings.id],
 	}),
 	signatureRequests: many(signatureRequests),
+	signers: many(documentSigners),
+}))
+
+// Document signers (per-document signer selection before plotting)
+export const documentSignersRelations = relations(documentSigners, ({ one }) => ({
+	document: one(documents, {
+		fields: [documentSigners.documentId],
+		references: [documents.id],
+	}),
+	user: one(users, {
+		fields: [documentSigners.userId],
+		references: [users.id],
+	}),
 }))
 
 // Envelope relations

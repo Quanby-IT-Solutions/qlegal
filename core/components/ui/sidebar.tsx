@@ -191,6 +191,7 @@ function Sidebar({
 						} as React.CSSProperties
 					}
 					side={side}
+					suppressHydrationWarning
 				>
 					<SheetHeader className="sr-only">
 						<SheetTitle>Sidebar</SheetTitle>

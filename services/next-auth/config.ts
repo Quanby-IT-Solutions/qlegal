@@ -4,7 +4,7 @@ import { type DefaultSession, type NextAuthConfig } from "next-auth"
 import Credentials from "next-auth/providers/credentials"
 import Google from "next-auth/providers/google"
 
-import { provisionDocoChainUser } from "@/services/doconchain"
+import { provisionUser } from "@/services/doconchain"
 import { db } from "@/services/drizzle/db"
 import { twoFactorConfirmations, users, type UserRole } from "@/services/drizzle/schema/auth"
 import { DrizzleCustomAdapter } from "@/services/next-auth/adapter"
@@ -27,6 +27,7 @@ declare module "next-auth" {
 			email: string
 			image: string
 			role: UserRole
+			status?: string
 			kycStatus?: string
 			kycTransactionId?: string | null
 		}
@@ -103,11 +104,6 @@ export const authConfig = {
 				return false
 			}
 
-			// Block sign-in until an admin approves the account.
-			if (existingUser.role === "ENP" && existingUser.status === "PENDING") {
-				return false
-			}
-
 			if (!existingUser.isTwoFactorEnabled) {
 				return true
 			}
@@ -146,6 +142,7 @@ export const authConfig = {
 				session.user.name = user.name ?? ""
 				session.user.email = user.email ?? ""
 				session.user.role = user.role
+				session.user.status = (user.status ?? "PENDING") as string
 				session.user.kycStatus = (user.kycStatus ?? "NOT_STARTED") as string
 				session.user.kycTransactionId = user.kycTransactionId ?? null
 
@@ -162,6 +159,12 @@ export const authConfig = {
 			} catch {
 				// Fallback to token data if DB query fails
 				session.user.id = userId
+				if (token.status) {
+					session.user.status = token.status as string
+				}
+				if (token.kycStatus) {
+					session.user.kycStatus = token.kycStatus as string
+				}
 			}
 
 			return session
@@ -173,8 +176,13 @@ export const authConfig = {
 				token.email = user.email
 				token.image = user.image ?? token.picture
 
-				// Extract KYC fields safely - user may have extended properties from adapter
-				const userWithKyc = user as { kycStatus?: string; kycTransactionId?: string | null }
+				// Extract KYC and status fields safely - user may have extended properties from adapter
+				const userWithKyc = user as {
+					kycStatus?: string
+					kycTransactionId?: string | null
+					status?: string
+				}
+				token.status = userWithKyc.status ?? "PENDING"
 				token.kycStatus = userWithKyc.kycStatus ?? "NOT_STARTED"
 				token.kycTransactionId = userWithKyc.kycTransactionId ?? null
 			}
@@ -189,6 +197,7 @@ export const authConfig = {
 					})
 
 					if (existing) {
+						token.status = (existing.status ?? "PENDING") as string
 						token.kycStatus = (existing.kycStatus ?? "NOT_STARTED") as string
 						token.kycTransactionId = existing.kycTransactionId ?? null
 					}
@@ -209,15 +218,13 @@ export const authConfig = {
 			if (!user?.email) return
 
 			try {
-				await provisionDocoChainUser({
+				await provisionUser({
 					email: user.email,
 					name: user.name,
 					role: "Member",
 				})
-				console.log("✅ Google/OAuth user provisioning attempted")
-			} catch (error) {
+			} catch {
 				// Don't fail OAuth signup if auto-join fails
-				console.warn("⚠️ Failed to auto-join Google/OAuth user to DocoChain organization:", error)
 			}
 		},
 		async linkAccount({ user, profile }) {
@@ -240,17 +247,14 @@ export const authConfig = {
 					.where(eq(users.id, existingUser.id))
 			}
 
-			// Also best-effort auto-join on OAuth account linking (covers cases where
-			// the user existed already but never got added to DocoChain org).
 			try {
-				await provisionDocoChainUser({
+				await provisionUser({
 					email: userEmail,
 					name: user.name,
 					role: "Member",
 				})
-				console.log("✅ Linked OAuth user provisioning attempted")
-			} catch (error) {
-				console.warn("⚠️ Failed to auto-join linked OAuth user to DocoChain organization:", error)
+			} catch {
+				// Best-effort - don't fail account linking if provisioning fails
 			}
 		},
 	},

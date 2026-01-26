@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import { HugeiconsIcon } from "@hugeicons/react"
 import { LogOutIcon } from "lucide-react"
 import { signOut, useSession } from "next-auth/react"
 
@@ -17,7 +18,8 @@ import {
 } from "@/core/components/ui/dropdown-menu"
 import { Profile } from "@/core/components/user-profile"
 import { useHydrated } from "@/core/hooks/use-hydrated"
-import { getSiteUserItems, iconMap } from "@/core/lib/nav/site.config"
+import { getSiteUserItems } from "@/core/lib/nav/site.config"
+import type { IconSvgObject } from "@/core/lib/nav/types"
 import { cn, mapRoleToLabel } from "@/core/lib/utils"
 
 export function SiteUser() {
@@ -25,6 +27,18 @@ export function SiteUser() {
 	const hydrated = useHydrated()
 	const user = session?.user
 	const config = getSiteUserItems(user?.role ?? null)
+
+	// Helper to render icon - handles both React component and HugeIcons IconSvgObject
+	const renderIcon = (icon?: (typeof config)[0]["icon"]) => {
+		if (!icon) return null
+		// Check if it's a React component (function) or HugeIcons IconSvgObject (array)
+		if (typeof icon === "function") {
+			const IconComponent = icon as React.ComponentType<React.SVGProps<SVGSVGElement>>
+			return <IconComponent className="h-4 w-4" />
+		}
+		// It's a HugeIcons IconSvgObject
+		return <HugeiconsIcon icon={icon as IconSvgObject} size={16} />
+	}
 
 	if (status === "loading" || !hydrated) {
 		return (
@@ -65,16 +79,11 @@ export function SiteUser() {
 				<DropdownMenuSeparator />
 				<DropdownMenuGroup>
 					{config.map(item => {
-						const IconComponent =
-							item.icon && typeof item.icon === "string"
-								? iconMap[item.icon as keyof typeof iconMap]
-								: null
-
 						return (
 							<DropdownMenuItem key={item.url} asChild>
 								{/* @ts-expect-error Next.js Link href type mismatch */}
 								<Link href={item.url}>
-									{IconComponent && <IconComponent className="h-4 w-4" />}
+									{renderIcon(item.icon)}
 									{item.title}
 								</Link>
 							</DropdownMenuItem>

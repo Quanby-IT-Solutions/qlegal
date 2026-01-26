@@ -1,16 +1,19 @@
 import { redirect } from "next/navigation"
+import { LogOut } from "lucide-react"
 
 import { QuanbyLogo } from "@/core/components/quanby-logo"
 import {
 	Card,
 	CardContent,
 	CardDescription,
+	CardFooter,
 	CardHeader,
 	CardTitle,
 } from "@/core/components/ui/card"
 
 import { auth } from "@/services/next-auth"
 
+import { LogoutButton } from "@/features/auth/components/logout-button"
 import { getUserKycInfo } from "@/features/kyc/api/kyc.actions"
 import { KycVerificationCard } from "@/features/kyc/components/kyc-verification-card"
 
@@ -45,6 +48,13 @@ export default async function KycRegisterPage() {
 			<CardContent>
 				<KycVerificationCard userInfo={kycInfoResult.data} minimal redirectUrlOnSkip="/dashboard" />
 			</CardContent>
+
+			<CardFooter>
+				<LogoutButton callbackUrl="/auth/login" variant="link" className="w-full">
+					<LogOut className="mr-2 h-4 w-4" />
+					Log Out
+				</LogoutButton>
+			</CardFooter>
 		</Card>
 	)
 }

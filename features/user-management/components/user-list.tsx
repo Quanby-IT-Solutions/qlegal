@@ -43,6 +43,24 @@ interface UserListProps {
 	statusFilter: string
 }
 
+const formatLastLogin = (dateString?: string | null) => {
+	if (!dateString) return "Never"
+
+	const date = new Date(dateString)
+
+	const month = String(date.getMonth() + 1).padStart(2, "0")
+	const day = String(date.getDate()).padStart(2, "0")
+	const year = date.getFullYear()
+
+	const time = date.toLocaleTimeString("en-US", {
+		hour: "numeric",
+		minute: "2-digit",
+		hour12: true,
+	})
+
+	return `${month}-${day}-${year}, ${time}`
+}
+
 export function UserList({ searchTerm, roleFilter, statusFilter }: UserListProps) {
 	const [selectedUserId, setSelectedUserId] = useState<string | null>(null)
 	const [currentPage, setCurrentPage] = useState(1)
@@ -226,7 +244,7 @@ export function UserList({ searchTerm, roleFilter, statusFilter }: UserListProps
 		return (
 			<Card>
 				<CardHeader>
-					<div className="flex items-center justify-between">
+					<div className="flex flex-col space-y-3 sm:flex-row sm:items-center sm:justify-between sm:space-y-0">
 						<div>
 							<CardTitle>Users</CardTitle>
 							<CardDescription>Loading users...</CardDescription>
@@ -263,7 +281,7 @@ export function UserList({ searchTerm, roleFilter, statusFilter }: UserListProps
 	return (
 		<Card suppressHydrationWarning>
 			<CardHeader>
-				<div className="flex items-center justify-between">
+				<div className="flex flex-col space-y-3 sm:flex-row sm:items-center sm:justify-between sm:space-y-0">
 					<div>
 						<CardTitle>Users</CardTitle>
 						<CardDescription>{pagination?.totalCount ?? 0} user(s) found</CardDescription>
@@ -289,12 +307,13 @@ export function UserList({ searchTerm, roleFilter, statusFilter }: UserListProps
 					{users.map(user => (
 						<div
 							key={user.id}
-							className="flex items-center justify-between rounded-lg border p-4 transition-colors hover:bg-gray-50 dark:hover:bg-gray-800"
+							className="flex flex-col gap-4 rounded-lg border p-4 transition-colors hover:bg-gray-50 sm:flex-row sm:items-center sm:justify-between dark:hover:bg-gray-800"
 						>
-							<div className="flex flex-1 items-center space-x-4">
-								<Avatar className="h-12 w-12">
+							{/* Left section: Avatar and User Info */}
+							<div className="flex flex-1 items-start space-x-3 sm:items-center sm:space-x-4">
+								<Avatar className="h-10 w-10 shrink-0 sm:h-12 sm:w-12">
 									{user.avatar ? <AvatarImage src={user.avatar} alt={user.name} /> : null}
-									<AvatarFallback className="bg-muted text-muted-foreground font-medium">
+									<AvatarFallback className="bg-muted text-muted-foreground text-xs font-medium sm:text-sm">
 										{user.name
 											.split(" ")
 											.map(n => n[0])
@@ -303,33 +322,43 @@ export function UserList({ searchTerm, roleFilter, statusFilter }: UserListProps
 									</AvatarFallback>
 								</Avatar>
 								<div className="min-w-0 flex-1">
-									<div className="mb-1 flex items-center space-x-2">
-										<h3 className="truncate font-medium text-gray-900 dark:text-white">
+									<div className="mb-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+										<h3 className="text-sm font-medium break-words text-gray-900 sm:text-base dark:text-white">
 											{user.name}
 										</h3>
 										{/* @ts-expect-error - title is not typed */}
 										{user.verified && (
 											<Shield
-												className="h-4 w-4 text-blue-600"
+												className="h-3 w-3 shrink-0 text-blue-600 sm:h-4 sm:w-4"
 												// @ts-expect-error - title is not typed
 												title="Verified"
 											/>
 										)}
 									</div>
-									<p className="truncate text-sm text-gray-600 dark:text-gray-400">{user.email}</p>
+									<p className="text-xs break-all text-gray-600 sm:text-sm dark:text-gray-400">
+										{user.email}
+									</p>
 									{user.organization && (
-										<p className="truncate text-sm text-gray-500">{user.organization}</p>
+										<p className="text-xs break-words text-gray-500 sm:text-sm">
+											{user.organization}
+										</p>
 									)}
-									<div className="mt-2 flex items-center space-x-4 text-xs text-gray-500">
-										<span>Last login: {user.lastActive}</span>
-										<span>Documents: {user.documentsCount}</span>
+									<div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500">
+										<span className="break-words">
+											Last login: {formatLastLogin(user.lastActive)}
+										</span>
+										<span className="whitespace-nowrap">Documents: {user.documentsCount}</span>
 									</div>
 								</div>
 							</div>
-							<div className="flex items-center space-x-4">
-								<div className="flex flex-col items-end space-y-2">
-									<Badge className={getRoleColor(user.role)}>{user.role.toUpperCase()}</Badge>
-									<Badge className={getStatusColor(user.status)}>
+
+							{/* Right section: Badges and Actions */}
+							<div className="flex items-center justify-between gap-3 sm:justify-end">
+								<div className="flex flex-wrap items-center gap-2">
+									<Badge className={`${getRoleColor(user.role)} text-xs whitespace-nowrap`}>
+										{user.role.toUpperCase()}
+									</Badge>
+									<Badge className={`${getStatusColor(user.status)} text-xs whitespace-nowrap`}>
 										<div className="flex items-center space-x-1">
 											{getStatusIcon(user.status)}
 											<span>{user.status}</span>
@@ -338,7 +367,7 @@ export function UserList({ searchTerm, roleFilter, statusFilter }: UserListProps
 								</div>
 								<DropdownMenu>
 									<DropdownMenuTrigger asChild>
-										<Button variant="ghost" size="icon">
+										<Button variant="ghost" size="icon" className="shrink-0">
 											<MoreVertical className="h-4 w-4" />
 										</Button>
 									</DropdownMenuTrigger>

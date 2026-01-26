@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation"
 
 export default function NotarizationHistoryPage() {
-	redirect("/notarizations?tab=history")
+	redirect("/meetings?tab=history")
 }

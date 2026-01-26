@@ -1,4 +1,4 @@
-import { NotarizationsHub } from "@/features/notarizations/components/notarizations-hub"
+import { redirect } from "next/navigation"
 
 export default async function NotarizationsPage({
 	searchParams,
@@ -9,7 +9,7 @@ export default async function NotarizationsPage({
 	const tabParam = resolvedSearchParams.tab
 	const tab = Array.isArray(tabParam) ? tabParam[0] : tabParam
 
-	return <NotarizationsHub initialTab={tab === "history" ? "history" : "active"} />
+	// Redirect to meetings page with appropriate tab
+	const tabValue = tab === "history" ? "history" : "active"
+	redirect(`/meetings?tab=${tabValue}`)
 }
-
-

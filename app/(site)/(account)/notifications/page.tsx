@@ -1,7 +1,7 @@
 "use client"
 
-import { useState } from "react"
 import { type Route } from "next"
+import { useState } from "react"
 import { Bell } from "lucide-react"
 
 import { Tabs, TabsList, TabsTrigger } from "@/core/components/animate-ui/components/radix/tabs"
@@ -15,7 +15,10 @@ export default function Page() {
 
 	return (
 		<>
-			<SiteNavbar items={[{ label: "Notifications", url: "/notifications" as Route }]} showUserMenu={false} />
+			<SiteNavbar
+				items={[{ label: "Notifications", url: "/notifications" as Route }]}
+				showUserMenu={false}
+			/>
 
 			<div className="bg-muted/30 min-h-screen">
 				<main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
@@ -38,7 +41,7 @@ export default function Page() {
 								<TabsTrigger value="read">Read</TabsTrigger>
 								<button
 									type="button"
-									className="text-muted-foreground border-muted-foreground/40 ml-4 inline-flex h-9 items-center rounded-full border px-4 text-sm font-medium transition-colors hover:bg-muted/40"
+									className="text-muted-foreground border-muted-foreground/40 hover:bg-muted/40 ml-4 inline-flex h-9 items-center rounded-full border px-4 text-sm font-medium transition-colors"
 								>
 									Mark all read
 								</button>

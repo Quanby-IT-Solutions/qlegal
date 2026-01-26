@@ -2,9 +2,12 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { MeetingProvider, useMeeting, useParticipant, usePubSub } from "@videosdk.live/react-sdk"
-import fixWebmDuration from "fix-webm-duration"
 import {
 	AlertCircle,
+	ArrowDown,
+	ArrowLeft,
+	ArrowRight,
+	ArrowUp,
 	Camera,
 	CameraOff,
 	CheckCircle2,
@@ -32,6 +35,7 @@ import { toast } from "sonner"
 
 import { Button } from "@/core/components/ui/button"
 import { Card, CardContent } from "@/core/components/ui/card"
+import { Checkbox } from "@/core/components/ui/checkbox"
 import {
 	Dialog,
 	DialogContent,
@@ -55,7 +59,7 @@ import {
 } from "@/core/components/ui/select"
 import { cn } from "@/core/lib/utils"
 
-import { normalizeDocoChainUrl } from "@/services/doconchain/url-normalizer"
+import { normalizeUrl } from "@/services/doconchain"
 import { trpc } from "@/services/trpc/client"
 
 import { MeetingDocumentUpload } from "./meeting-document-upload"
@@ -83,12 +87,27 @@ const MeetingControls = React.memo(function MeetingControls({
 	isLocalRecording?: boolean
 	localRecordingStartedAt?: number | null
 }) {
-	const meeting = useMeeting()
+	const cameraSetterRef = useRef<((v: boolean) => void) | null>(null)
+	const meeting = useMeeting({
+		onError: ({ code, message }: { code: string; message: string }) => {
+			const isVideoRelated =
+				/camera|video|webcam|video track|video source|unable to initiate|permission/i.test(
+					message
+				) || /video|webcam|camera/i.test(String(code ?? ""))
+			if (isVideoRelated) {
+				cameraSetterRef.current?.(meeting?.localWebcamOn ?? false)
+				toast.error(
+					"Camera access denied or unavailable. Check browser permissions and ensure no other app is using the camera."
+				)
+			}
+		},
+	})
 	const localMicOn = (meeting as { localMicOn?: boolean } | null)?.localMicOn
 	const localScreenShareOn = (meeting as { localScreenShareOn?: boolean } | null)
 		?.localScreenShareOn
 	const recordingState = (meeting as { recordingState?: string } | null)?.recordingState
 	const [isCameraOn, setIsCameraOn] = useState(() => meeting?.localWebcamOn ?? false)
+	cameraSetterRef.current = setIsCameraOn
 	const [isMicOn, setIsMicOn] = useState(() => {
 		// Default to false to avoid any “auto-hot-mic” surprises and to reduce initial work.
 		return localMicOn ?? false
@@ -157,8 +176,15 @@ const MeetingControls = React.memo(function MeetingControls({
 			}
 		} catch (error) {
 			console.error("Error toggling camera:", error)
-			const errorMessage = error instanceof Error ? error.message : "Failed to toggle camera"
-			toast.error(errorMessage)
+			const raw = error instanceof Error ? error.message : String(error)
+			const isPermissionOrSource =
+				/camera|video|webcam|video track|video source|unable to initiate|permission|denied|not found|in use/i.test(
+					raw
+				)
+			const message = isPermissionOrSource
+				? "Camera access denied or unavailable. Check browser permissions and ensure no other app is using the camera."
+				: raw || "Failed to toggle camera"
+			toast.error(message)
 			// Re-sync back to SDK state on error
 			if (meeting?.localWebcamOn !== undefined) setIsCameraOn(meeting.localWebcamOn)
 		}
@@ -585,6 +611,416 @@ type RecordingConsentRequest = {
 	requiredParticipantIds: string[]
 }
 
+// Signer Management Modal - Two-step process: Select signers, then order them
+const SignerManagementModal = React.memo(function SignerManagementModal({
+	participants,
+	signerUserIds,
+	onSignersChange,
+	isOpen,
+	onOpenChange,
+}: {
+	participants: Array<{
+		userId: string
+		user: { id: string; name: string | null; email: string | null; role?: string | null } | null
+	}>
+	signerUserIds: string[]
+	onSignersChange: (userIds: string[]) => void
+	isOpen: boolean
+	onOpenChange: (open: boolean) => void
+}) {
+	const { data: session } = useSession()
+	const isEnp = session?.user?.role === "ENP"
+	
+	const [step, setStep] = useState<"select" | "order">("select")
+	const [selectedUserIds, setSelectedUserIds] = useState<string[]>([])
+	
+	// Initialize selectedUserIds from prop when modal opens
+	useEffect(() => {
+		if (isOpen) {
+			setSelectedUserIds(Array.isArray(signerUserIds) ? [...signerUserIds] : [])
+			setStep("select")
+		}
+	}, [isOpen, signerUserIds])
+	
+	const selectedSet = useMemo(() => new Set(selectedUserIds), [selectedUserIds])
+	
+	const toggle = useCallback(
+		(userId: string, checked: boolean) => {
+			if (checked) {
+				setSelectedUserIds(prev => [...prev, userId])
+			} else {
+				setSelectedUserIds(prev => prev.filter(id => id !== userId))
+			}
+		},
+		[]
+	)
+	
+	const moveUp = useCallback(
+		(index: number) => {
+			if (index === 0) return
+			const newOrder = [...selectedUserIds]
+			const prev = newOrder[index - 1]
+			const curr = newOrder[index]
+			if (prev === undefined || curr === undefined) return
+			newOrder[index - 1] = curr
+			newOrder[index] = prev
+			setSelectedUserIds(newOrder)
+		},
+		[selectedUserIds]
+	)
+	
+	const moveDown = useCallback(
+		(index: number) => {
+			if (index === selectedUserIds.length - 1) return
+			const newOrder = [...selectedUserIds]
+			const curr = newOrder[index]
+			const next = newOrder[index + 1]
+			if (curr === undefined || next === undefined) return
+			newOrder[index] = next
+			newOrder[index + 1] = curr
+			setSelectedUserIds(newOrder)
+		},
+		[selectedUserIds]
+	)
+	
+	const handleNext = useCallback(() => {
+		if (selectedUserIds.length === 0) {
+			toast.error("Please select at least one signer")
+			return
+		}
+		setStep("order")
+	}, [selectedUserIds.length])
+	
+	const handleBack = useCallback(() => {
+		setStep("select")
+	}, [])
+	
+	const handleSave = useCallback(() => {
+		onSignersChange(selectedUserIds)
+		onOpenChange(false)
+		toast.success(`Saved ${selectedUserIds.length} signer(s)`)
+	}, [onSignersChange, onOpenChange, selectedUserIds])
+	
+	const handleCancel = useCallback(() => {
+		setSelectedUserIds(Array.isArray(signerUserIds) ? [...signerUserIds] : [])
+		setStep("select")
+		onOpenChange(false)
+	}, [onOpenChange, signerUserIds])
+	
+	// Get selected signers in order
+	const orderedSelected = useMemo(() => {
+		return selectedUserIds
+			.map(userId => participants.find(p => p.userId === userId))
+			.filter((p): p is NonNullable<typeof p> => p !== undefined)
+	}, [selectedUserIds, participants])
+	
+	return (
+		<Dialog open={isOpen} onOpenChange={onOpenChange}>
+			<DialogContent className="max-w-md">
+				<DialogHeader>
+					<DialogTitle className="flex items-center gap-2">
+						<UsersIcon className="text-primary size-5" />
+						{step === "select" ? "Select Signers" : "Set Signing Order"}
+					</DialogTitle>
+					<DialogDescription>
+						{step === "select"
+							? "Choose which participants must sign this document"
+							: "Arrange the order in which signers will sign (ENP only)"}
+					</DialogDescription>
+				</DialogHeader>
+				
+				<div className="space-y-4 py-4">
+					{step === "select" ? (
+						<div className="space-y-2">
+							<p className="text-muted-foreground text-sm">
+								Selected: {selectedUserIds.length} of {participants.length}
+							</p>
+							<div className="max-h-[400px] space-y-1.5 overflow-y-auto">
+								{participants.map(p => {
+									const checked = selectedSet.has(p.userId)
+									const name = p.user?.name ?? "Unknown"
+									const email = p.user?.email ?? ""
+									return (
+										<label
+											key={p.userId}
+											className={cn(
+												"hover:bg-muted/50 flex cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors",
+												checked && "bg-muted/50"
+											)}
+										>
+											<Checkbox
+												checked={checked}
+												onCheckedChange={c => toggle(p.userId, c === true)}
+												aria-label={`${name} (${email})`}
+											/>
+											<div className="min-w-0 flex-1">
+												<div className="flex items-center gap-1.5">
+													<User className="text-muted-foreground size-4 shrink-0" />
+													<span className="truncate font-medium">{name}</span>
+												</div>
+												<div className="text-muted-foreground truncate text-xs">{email}</div>
+											</div>
+										</label>
+									)
+								})}
+							</div>
+						</div>
+					) : (
+						<div className="space-y-2">
+							<p className="text-muted-foreground text-sm">
+								Drag or use arrows to reorder signers (ENP only)
+							</p>
+							<div className="max-h-[400px] space-y-1.5 overflow-y-auto">
+								{orderedSelected.map((p, index) => {
+									const name = p.user?.name ?? "Unknown"
+									const email = p.user?.email ?? ""
+									return (
+										<div
+											key={p.userId}
+											className="bg-muted/50 flex items-center gap-2 rounded-md px-3 py-2 text-sm"
+										>
+											<div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
+												{index + 1}
+											</div>
+											<div className="min-w-0 flex-1">
+												<div className="flex items-center gap-1.5">
+													<User className="text-muted-foreground size-4 shrink-0" />
+													<span className="truncate font-medium">{name}</span>
+												</div>
+												<div className="text-muted-foreground truncate text-xs">{email}</div>
+											</div>
+											{isEnp && (
+												<div className="flex shrink-0 flex-col gap-0.5">
+													<Button
+														variant="ghost"
+														size="sm"
+														className="h-5 w-5 p-0"
+														onClick={() => moveUp(index)}
+														disabled={index === 0}
+														aria-label="Move up"
+													>
+														<ArrowUp className="size-3" />
+													</Button>
+													<Button
+														variant="ghost"
+														size="sm"
+														className="h-5 w-5 p-0"
+														onClick={() => moveDown(index)}
+														disabled={index === orderedSelected.length - 1}
+														aria-label="Move down"
+													>
+														<ArrowDown className="size-3" />
+													</Button>
+												</div>
+											)}
+										</div>
+									)
+								})}
+							</div>
+						</div>
+					)}
+				</div>
+				
+				<DialogFooter className="flex-col gap-2 sm:flex-row">
+					{step === "select" ? (
+						<>
+							<Button variant="outline" onClick={handleCancel} className="w-full sm:w-auto">
+								Cancel
+							</Button>
+							<Button onClick={handleNext} className="w-full sm:w-auto">
+								Next
+								<ArrowRight className="ml-2 size-4" />
+							</Button>
+						</>
+					) : (
+						<>
+							<Button variant="outline" onClick={handleBack} className="w-full sm:w-auto">
+								<ArrowLeft className="mr-2 size-4" />
+								Back
+							</Button>
+							<Button variant="outline" onClick={handleCancel} className="w-full sm:w-auto">
+								Cancel
+							</Button>
+							<Button onClick={handleSave} className="w-full sm:w-auto">
+								Save
+							</Button>
+						</>
+					)}
+				</DialogFooter>
+			</DialogContent>
+		</Dialog>
+	)
+})
+
+// Signer Selector - Select which meeting participants are signers for this document (before plotting)
+const SignerSelector = React.memo(function SignerSelector({
+	participants,
+	signerUserIds,
+	onSignersChange,
+}: {
+	participants: Array<{
+		userId: string
+		user: { id: string; name: string | null; email: string | null; role?: string | null } | null
+	}>
+	signerUserIds: string[]
+	onSignersChange: (userIds: string[]) => void
+}) {
+	const { data: session } = useSession()
+	const isEnp = session?.user?.role === "ENP"
+	
+	// Ensure signerUserIds is always an array
+	const safeSignerUserIds = useMemo(() => Array.isArray(signerUserIds) ? signerUserIds : [], [signerUserIds])
+	const selectedSet = useMemo(() => new Set(safeSignerUserIds), [safeSignerUserIds])
+
+	const toggle = useCallback(
+		(userId: string, checked: boolean) => {
+			if (checked) {
+				onSignersChange([...safeSignerUserIds, userId])
+			} else {
+				onSignersChange(safeSignerUserIds.filter(id => id !== userId))
+			}
+		},
+		[onSignersChange, safeSignerUserIds]
+	)
+
+	const moveUp = useCallback(
+		(index: number) => {
+			if (index === 0) return
+			const newOrder = [...safeSignerUserIds]
+			const prev = newOrder[index - 1]
+			const curr = newOrder[index]
+			if (prev === undefined || curr === undefined) return
+			newOrder[index - 1] = curr
+			newOrder[index] = prev
+			onSignersChange(newOrder)
+		},
+		[onSignersChange, safeSignerUserIds]
+	)
+
+	const moveDown = useCallback(
+		(index: number) => {
+			if (index === safeSignerUserIds.length - 1) return
+			const newOrder = [...safeSignerUserIds]
+			const curr = newOrder[index]
+			const next = newOrder[index + 1]
+			if (curr === undefined || next === undefined) return
+			newOrder[index] = next
+			newOrder[index + 1] = curr
+			onSignersChange(newOrder)
+		},
+		[onSignersChange, safeSignerUserIds]
+	)
+
+	const selected = participants.filter(p => selectedSet.has(p.userId))
+	const selectedCount = selected.length
+	const totalCount = participants.length
+
+	// Get selected signers in order - use safeSignerUserIds to ensure we have an array
+	const orderedSelected = useMemo(() => {
+		return safeSignerUserIds
+			.map(userId => participants.find(p => p.userId === userId))
+			.filter((p): p is NonNullable<typeof p> => p !== undefined)
+	}, [safeSignerUserIds, participants])
+
+	return (
+		<div className="bg-muted/30 mb-3 space-y-1.5 rounded-lg border p-2.5">
+			<div className="mb-2 flex items-center gap-1.5">
+				<UsersIcon className="text-muted-foreground size-3.5" />
+				<span className="text-muted-foreground text-[11px] font-semibold tracking-wide uppercase">
+					Signers ({selectedCount}/{totalCount})
+				</span>
+			</div>
+			<p className="text-muted-foreground mb-2 text-[10px]">
+				Select who must sign this document. Only selected signers will be added when you start
+				signing.
+			</p>
+
+			{/* Show selected signers in order with order numbers (for ENP to reorder) */}
+			{orderedSelected.length > 0 && (
+				<div className="mb-3 space-y-1">
+					<p className="text-muted-foreground text-[10px] font-semibold">Signing Order:</p>
+					{orderedSelected.map((p, index) => {
+						const name = p.user?.name ?? "Unknown"
+						const email = p.user?.email ?? ""
+						return (
+							<div
+								key={p.userId}
+								className="bg-muted/50 flex items-center gap-2 rounded-md px-2 py-1.5 text-xs"
+							>
+								<div className="flex size-5 shrink-0 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
+									{index + 1}
+								</div>
+								<div className="min-w-0 flex-1">
+									<div className="flex items-center gap-1.5">
+										<User className="text-muted-foreground size-3 shrink-0" />
+										<span className="truncate font-medium">{name}</span>
+									</div>
+									<div className="text-muted-foreground truncate text-[10px]">{email}</div>
+								</div>
+								{isEnp && (
+									<div className="flex shrink-0 flex-col gap-0.5">
+										<Button
+											variant="ghost"
+											size="sm"
+											className="h-4 w-4 p-0"
+											onClick={() => moveUp(index)}
+											disabled={index === 0}
+											aria-label="Move up"
+										>
+											<ArrowUp className="size-3" />
+										</Button>
+										<Button
+											variant="ghost"
+											size="sm"
+											className="h-4 w-4 p-0"
+											onClick={() => moveDown(index)}
+											disabled={index === orderedSelected.length - 1}
+											aria-label="Move down"
+										>
+											<ArrowDown className="size-3" />
+										</Button>
+									</div>
+								)}
+							</div>
+						)
+					})}
+				</div>
+			)}
+
+			{/* Unselected participants with checkboxes (selected ones are shown in Signing Order above) */}
+			{participants.filter(p => !selectedSet.has(p.userId)).length > 0 && (
+				<div className="space-y-1.5">
+					{participants
+						.filter(p => !selectedSet.has(p.userId))
+						.map(p => {
+							const name = p.user?.name ?? "Unknown"
+							const email = p.user?.email ?? ""
+							return (
+								<label
+									key={p.userId}
+									className="hover:bg-muted/50 flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-xs transition-colors"
+								>
+									<Checkbox
+										checked={false}
+										onCheckedChange={c => toggle(p.userId, c === true)}
+										aria-label={`${name} (${email})`}
+									/>
+									<div className="min-w-0 flex-1">
+										<div className="flex items-center gap-1.5">
+											<User className="text-muted-foreground size-3 shrink-0" />
+											<span className="truncate font-medium">{name}</span>
+										</div>
+										<div className="text-muted-foreground truncate text-[10px]">{email}</div>
+									</div>
+								</label>
+							)
+						})}
+				</div>
+			)}
+		</div>
+	)
+})
+
 // Signer List Component - Shows all signers and their status
 // Memoized to prevent re-renders when unrelated state changes
 const SignerList = React.memo(function SignerList({
@@ -608,21 +1044,32 @@ const SignerList = React.memo(function SignerList({
 	// Sort signers by sequence
 	const sortedSigners = [...signers].sort((a, b) => a.sequence - b.sequence)
 
+	// Helper function to check if a signer has signed (case-insensitive and checks both status and signedAt)
+	const isSignerSigned = (signer: { status: string; signedAt: string | null }): boolean => {
+		const statusUpper = signer.status?.toUpperCase() ?? ""
+		const hasSignedStatus = statusUpper === "SIGNED" || statusUpper === "COMPLETED"
+		const hasSignedAt =
+			signer.signedAt !== null && signer.signedAt !== undefined && signer.signedAt !== ""
+		return hasSignedStatus || hasSignedAt
+	}
+
 	// Find the current signer (first one who hasn't signed yet)
-	const currentSignerIndex = sortedSigners.findIndex(s => s.status !== "SIGNED" && !s.signedAt)
+	const currentSignerIndex = sortedSigners.findIndex(s => !isSignerSigned(s))
+
+	// Count signed signers
+	const signedCount = sortedSigners.filter(isSignerSigned).length
 
 	return (
 		<div className="bg-muted/30 mb-3 space-y-1.5 rounded-lg border p-2.5">
 			<div className="mb-2 flex items-center gap-1.5">
 				<UsersIcon className="text-muted-foreground size-3.5" />
 				<span className="text-muted-foreground text-[11px] font-semibold tracking-wide uppercase">
-					Signers ({sortedSigners.filter(s => s.status === "SIGNED" || s.signedAt).length}/
-					{sortedSigners.length})
+					Signers ({signedCount}/{sortedSigners.length})
 				</span>
 			</div>
 			<div className="space-y-1">
 				{sortedSigners.map((signer, index) => {
-					const isSigned = signer.status === "SIGNED" || signer.signedAt !== null
+					const isSigned = isSignerSigned(signer)
 					const isCurrent = index === currentSignerIndex
 					const isWaiting = index > currentSignerIndex && currentSignerIndex !== -1
 
@@ -696,14 +1143,21 @@ const SignerList = React.memo(function SignerList({
 const DocumentActions = React.memo(function DocumentActions({
 	document,
 	onSignClick,
+	onSignersChange,
 	isSigningPending,
 	isLocked,
 	isPreviousDocumentSigned,
 	documentIndex,
 	signers,
+	participants,
+	signerUserIds,
+	meetingId,
+	onCreateProject,
+	isCreatingProject,
 }: {
 	document: { id: string; name: string; docoChainProjectId: string | null }
-	onSignClick: (projectUuid: string, email: string, documentId: string) => void
+	onSignClick: (projectUuid: string | null, email: string, documentId: string) => void
+	onSignersChange?: (documentId: string, userIds: string[]) => void
 	isSigningPending: boolean
 	isLocked?: boolean
 	isPreviousDocumentSigned?: boolean
@@ -718,16 +1172,229 @@ const DocumentActions = React.memo(function DocumentActions({
 		sequence: number
 		signerRole: string
 	}>
+	participants?: Array<{
+		userId: string
+		user: { id: string; name: string | null; email: string | null; role?: string | null } | null
+	}>
+	signerUserIds?: string[]
+	meetingId?: string
+	onCreateProject?: (documentId: string, meetingId: string) => void
+	isCreatingProject?: boolean
 }) {
 	const { data: session } = useSession()
 
-	// Determine if Start Signing button should be disabled
-	const isSigningDisabled = isLocked && !isPreviousDocumentSigned && (documentIndex ?? 0) > 0
+	// Helper function to check if a signer has signed (case-insensitive)
+	const isSignerSigned = (signer: { status: string; signedAt: string | null }): boolean => {
+		const statusUpper = signer.status?.toUpperCase() ?? ""
+		const hasSignedStatus = statusUpper === "SIGNED" || statusUpper === "COMPLETED"
+		const hasSignedAt =
+			signer.signedAt !== null && signer.signedAt !== undefined && signer.signedAt !== ""
+		return hasSignedStatus || hasSignedAt
+	}
 
+	// Filter signers to only show those selected in the database (signerUserIds)
+	// Get participant emails for selected signers
+	const selectedSignerEmails = new Set<string>()
+	if (signerUserIds && participants) {
+		for (const userId of signerUserIds) {
+			const participant = participants.find(p => p.userId === userId)
+			if (participant?.user?.email) {
+				selectedSignerEmails.add(participant.user.email.toLowerCase())
+			}
+		}
+	}
+
+	// Filter signers to only include those in the selected list
+	const filteredSigners =
+		signers?.filter(signer => selectedSignerEmails.has(signer.email?.toLowerCase() ?? "")) ?? []
+
+	// Check if all signers have signed
+	const allSignersSigned =
+		filteredSigners && filteredSigners.length > 0 && filteredSigners.every(isSignerSigned)
+
+	// Determine button state based on current user's signer status
+	const currentUserEmail = session?.user?.email ?? null
+	const currentUserSigner = currentUserEmail
+		? filteredSigners.find(s => s.email?.toLowerCase() === currentUserEmail.toLowerCase())
+		: null
+	const isUserAddedAsSigner = !!currentUserSigner
+
+	// Check if user has completed signing (status SIGNED/COMPLETED or signedAt is set)
+	const hasUserSigned = currentUserSigner
+		? isSignerSigned({
+				status: currentUserSigner.status,
+				signedAt: currentUserSigner.signedAt,
+			})
+		: false
+
+	// Check signer status to determine if they've plotted but not signed
+	// Statuses: PENDING, NEXT GROUP (not plotted), or other statuses might indicate plotted
+	const signerStatus = (currentUserSigner?.status ?? "").toUpperCase()
+	const isPendingOrNextGroup = signerStatus === "PENDING" || signerStatus === "NEXT GROUP"
+	const isEnp = session?.user?.role === "ENP"
+	const isPrincipal = session?.user?.role === "PRINCIPAL"
+
+	// Determine if signer is "Current" (it's their turn to sign)
+	// Find the first signer who hasn't signed - if it's the current user, they're "Current"
+	const currentSignerIndex = filteredSigners.findIndex(s => !isSignerSigned(s))
+	const currentSigner = currentSignerIndex >= 0 ? filteredSigners[currentSignerIndex] : null
+	const isCurrentSigner = currentSigner?.email?.toLowerCase() === currentUserEmail?.toLowerCase()
+	
+	// Also check if ENP is first in signing order (based on signerUserIds array)
+	const currentUserId = session?.user?.id ?? null
+	const currentUserIndexInOrder = currentUserId ? signerUserIds?.indexOf(currentUserId) ?? -1 : -1
+	const isEnpFirstInOrder = isEnp && currentUserIndexInOrder === 0
+
+	// For ENP: After plotting, they should be able to sign.
+	// Detection logic:
+	// 1. If status is not PENDING/NEXT GROUP and not signed → plotted → show "Sign Document"
+	// 2. If ENP is current signer (from signer list) OR first in order → show "Sign Document" (they can plot then sign)
+	// 3. If status is PENDING/NEXT GROUP → show "Plot Signature" (not plotted yet)
+	const hasPlotted = !isPendingOrNextGroup && !hasUserSigned
+	const isEnpCurrentAndCanSign = isEnp && (isCurrentSigner || isEnpFirstInOrder) && !hasUserSigned
+
+	// Determine button text based on state and role:
+	// ENP: Start Signing → Plot Signature (ENP-only) → Sign Document. Principals never see Plot Signature.
+	// Principal: Start Signing only appears after ENP has plotted; before that, show "Start Signing" disabled (waiting for ENP).
+	const getButtonText = (): "Start Signing" | "Plot Signature" | "Sign Document" => {
+		if (!isUserAddedAsSigner) return "Start Signing"
+		if (hasUserSigned) return "Sign Document"
+		
+		// For ENP:
+		// - If status indicates plotted (not PENDING/NEXT GROUP) → "Sign Document"
+		// - Otherwise → "Plot Signature" (ENP must plot first, regardless of position in order)
+		// Note: ENP can always plot, regardless of previous signers' status or their position
+		// After plotting, button changes to "Sign Document" but will be disabled if not their turn
+		if (isEnp) {
+			// If ENP has plotted (status changed from PENDING/NEXT GROUP), show "Sign Document"
+			// The button will be disabled if previous signers haven't signed yet
+			if (hasPlotted) {
+				return "Sign Document"
+			}
+			// ENP hasn't plotted yet - show "Plot Signature" (always enabled for ENP)
+			return "Plot Signature"
+		}
+		
+		// For Principal: if plotted, show "Start Signing", otherwise show "Start Signing" (disabled, waiting for ENP)
+		return "Start Signing"
+	}
+
+	const buttonText = getButtonText()
+	// Principal waiting for ENP to plot: not plotted yet, principal sees "Start Signing" but disabled
+	const isPrincipalWaitingForEnpToPlot = isPrincipal && isUserAddedAsSigner && isPendingOrNextGroup
+
+	// Check if previous signers (by signing order) have signed
+	// signerUserIds array is ordered by signingOrder (index 0 = order 1, index 1 = order 2, etc.)
+	// currentUserIndexInOrder was already calculated above in getButtonText logic
+	const currentUserIndex = currentUserIndexInOrder >= 0 ? currentUserIndexInOrder : (currentUserId ? signerUserIds?.indexOf(currentUserId) ?? -1 : -1)
+	const previousSignersHaveSigned = useMemo(() => {
+		if (currentUserIndex <= 0 || !signerUserIds || !participants || !filteredSigners) return true
+		
+		// Get all signers before current user (by order)
+		const previousUserIds = signerUserIds.slice(0, currentUserIndex)
+		
+		// Get emails of previous signers
+		const previousSignerEmails = new Set<string>()
+		for (const userId of previousUserIds) {
+			const participant = participants.find(p => p.userId === userId)
+			if (participant?.user?.email) {
+				previousSignerEmails.add(participant.user.email.toLowerCase())
+			}
+		}
+		
+		// Check if all previous signers have signed
+		const previousSigners = filteredSigners.filter(s =>
+			previousSignerEmails.has(s.email?.toLowerCase() ?? "")
+		)
+		
+		return previousSigners.length === previousSignerEmails.size && 
+			previousSigners.every(isSignerSigned)
+	}, [currentUserIndex, signerUserIds, participants, filteredSigners, isSignerSigned])
+
+	// Determine if Start Signing button should be disabled
+	const isSigningDisabledByOrder = isLocked && !isPreviousDocumentSigned && (documentIndex ?? 0) > 0
+	const hasNoSignersSelected = !document.docoChainProjectId && (signerUserIds?.length ?? 0) === 0
+	const hasSigners = (signerUserIds?.length ?? 0) > 0
+	const isCurrentUserSigner =
+		currentUserId !== null && (signerUserIds?.includes(currentUserId) ?? false)
+	const userNotInSignerList = hasSigners && !isCurrentUserSigner
+	// "Previous signer must sign first" applies when button is "Start Signing" OR "Sign Document" (for ENP after plotting)
+	// It does NOT apply to "Plot Signature" (ENP can always plot, even if previous signers haven't signed)
+	// For ENP: After plotting, "Sign Document" should be disabled unless it's their turn (previous signers have signed)
+	const isSigningDisabledByPreviousSigners =
+		buttonText !== "Plot Signature" &&
+		(buttonText === "Start Signing" || buttonText === "Sign Document") &&
+		currentUserIndex > 0 &&
+		!previousSignersHaveSigned
+	
+	// For ENP: If button shows "Sign Document" but they haven't actually plotted yet (status still PENDING/NEXT GROUP),
+	// disable the button until they plot (status changes)
+	const isEnpNotPlottedYet = 
+		isEnp && 
+		buttonText === "Sign Document" && 
+		isPendingOrNextGroup && 
+		!hasUserSigned
+	
+	const isSigningDisabled = hasUserSigned
+		? true
+		: allSignersSigned
+			? true
+			: isSigningDisabledByOrder
+				? true
+				: hasNoSignersSelected
+					? true
+					: userNotInSignerList
+						? true
+						: isPrincipalWaitingForEnpToPlot
+							? true
+							: isEnpNotPlottedYet
+								? true
+								: isSigningDisabledByPreviousSigners
+
+	const handleSignersChange = useCallback(
+		(userIds: string[]) => {
+			if (onSignersChange && meetingId) onSignersChange(document.id, userIds)
+		},
+		[onSignersChange, meetingId, document.id]
+	)
+
+	const [isSignerModalOpen, setIsSignerModalOpen] = useState(false)
+	
+	// Show selected signers count
+	const selectedSignersCount = signerUserIds?.length ?? 0
+	
 	return (
 		<div className="space-y-2">
-			{/* Show signer list if available */}
-			{signers && signers.length > 0 && <SignerList signers={signers} />}
+			{/* Before project exists: show signer button and count. After: show DocoChain signer list */}
+			{document.docoChainProjectId && filteredSigners && filteredSigners.length > 0 ? (
+				<SignerList signers={filteredSigners} />
+			) : (
+				participants &&
+				participants.length > 0 &&
+				meetingId &&
+				onSignersChange && (
+					<>
+						<Button
+							variant="outline"
+							size="sm"
+							className="h-9 w-full text-xs shadow-sm"
+							onClick={() => setIsSignerModalOpen(true)}
+						>
+							<UsersIcon className="mr-1.5 size-3.5" />
+							{selectedSignersCount > 0
+								? `Signers (${selectedSignersCount})`
+								: "Add Signers"}
+						</Button>
+						<SignerManagementModal
+							participants={participants}
+							signerUserIds={signerUserIds ?? []}
+							onSignersChange={handleSignersChange}
+							isOpen={isSignerModalOpen}
+							onOpenChange={setIsSignerModalOpen}
+						/>
+					</>
+				)
+			)}
 			<Button
 				variant="outline"
 				size="sm"
@@ -741,56 +1408,100 @@ const DocumentActions = React.memo(function DocumentActions({
 				View Document
 			</Button>
 
-			{/* Show "Start Signing" button for all meeting participants */}
-			{/* Any participant (Principal, ENP, etc.) can click to sign */}
-			{document.docoChainProjectId && (
-				<div className="space-y-1.5">
-					<Button
-						variant="default"
-						size="sm"
-						className="h-9 w-full text-xs shadow-sm"
-						onClick={() => {
-							const userEmail = session?.user?.email
-							if (document.docoChainProjectId && userEmail) {
-								console.log("🔵 ENP initiating signing process for document:", document.name)
-								console.log("   - DocoChain Project UUID:", document.docoChainProjectId)
-								console.log("   - ENP Email:", userEmail)
-
-								// ENP clicks to start signing - this will:
-								// 1. Add ENP as signer using Add Project Signer API
-								// 2. Generate signing link
-								// 3. Redirect to DocoChain signing page
-								onSignClick(document.docoChainProjectId, userEmail, document.id)
-							} else {
-								toast.error(
-									!document.docoChainProjectId
-										? "DocoChain project not found. Please ensure the document was uploaded correctly."
-										: "User email not found. Please sign in again."
-								)
-							}
-						}}
-						disabled={isSigningPending || isSigningDisabled}
-					>
-						{isSigningPending ? (
-							<>
-								<div className="mr-2 size-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
-								Starting...
-							</>
-						) : (
-							<>
-								<FileSignature className="mr-1.5 size-3.5" />
-								Start Signing
-							</>
-						)}
-					</Button>
-					{/* Show message when button is disabled due to locked order */}
-					{isSigningDisabled && (
-						<p className="text-[10px] leading-tight text-amber-700 dark:text-amber-400">
-							Previous document must be signed first
-						</p>
+			{/* Show "Create Project" button if signers are set but project doesn't exist */}
+			{!document.docoChainProjectId && hasSigners && meetingId && onCreateProject && (
+				<Button
+					variant="default"
+					size="sm"
+					className="h-9 w-full text-xs shadow-sm"
+					onClick={() => {
+						if (meetingId) {
+							onCreateProject(document.id, meetingId)
+						}
+					}}
+					disabled={isCreatingProject}
+				>
+					{isCreatingProject ? (
+						<>
+							<div className="mr-2 size-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
+							Creating...
+						</>
+					) : (
+						<>
+							<FileSignature className="mr-1.5 size-3.5" />
+							Create Project
+						</>
 					)}
-				</div>
+				</Button>
 			)}
+
+			{/* Show "Start Signing" button for all meeting participants */}
+			{/* Project must exist before signing can start */}
+			<div className="space-y-1.5">
+				<Button
+					variant="default"
+					size="sm"
+					className="h-9 w-full text-xs shadow-sm"
+					onClick={() => {
+						const userEmail = session?.user?.email
+						if (userEmail) {
+							console.log("🔵 Initiating signing process for document:", document.name)
+							console.log("   - Document ID:", document.id)
+							console.log("   - DocoChain Project UUID:", document.docoChainProjectId)
+							console.log("   - User Email:", userEmail)
+
+							// User clicks to start signing - this will:
+							// 1. Add user as signer using Add Project Signer API
+							// 2. Generate Edit Draft Project Link
+							// 3. Redirect to DocoChain signing page
+							onSignClick(document.docoChainProjectId ?? null, userEmail, document.id)
+						} else {
+							toast.error("User email not found. Please sign in again.")
+						}
+					}}
+					disabled={isSigningPending || isSigningDisabled || !document.docoChainProjectId}
+				>
+					{isSigningPending ? (
+						<>
+							<div className="mr-2 size-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
+							{buttonText === "Start Signing"
+								? "Starting..."
+								: buttonText === "Plot Signature"
+									? "Plotting..."
+									: "Signing..."}
+						</>
+					) : (
+						<>
+							<FileSignature className="mr-1.5 size-3.5" />
+							{buttonText}
+						</>
+					)}
+				</Button>
+				{/* Show message when button is disabled */}
+				{(isSigningDisabled || !document.docoChainProjectId) && (
+					<p className="text-[10px] leading-tight text-amber-700 dark:text-amber-400">
+						{!document.docoChainProjectId
+							? "Add signer first after setting signers"
+							: hasUserSigned
+								? "You have completed signing"
+								: allSignersSigned
+									? "All signers have completed signing"
+									: isSigningDisabledByOrder
+										? "Previous document must be signed first"
+										: hasNoSignersSelected
+											? "Select at least one signer for this document"
+											: userNotInSignerList
+												? "You must be added as a signer to start signing"
+												: isPrincipalWaitingForEnpToPlot
+													? "Waiting for ENP to plot your signature"
+													: isEnpNotPlottedYet
+														? "Please plot your signature first"
+														: isSigningDisabledByPreviousSigners
+															? "Previous signer(s) must sign first"
+															: ""}
+					</p>
+				)}
+			</div>
 		</div>
 	)
 })
@@ -902,10 +1613,14 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 					: typeof err === "object" && err !== null && "message" in err
 						? String(err.message)
 						: ""
+			const msgLower = msg.toLowerCase()
 			return (
 				msg.includes("E_UNAUTHORIZED_ACCESS") ||
-				msg.toLowerCase().includes("unauthorized") ||
-				msg.toLowerCase().includes("forbidden")
+				msgLower.includes("unauthorized") ||
+				msgLower.includes("forbidden") ||
+				msgLower.includes("don't have access") ||
+				msgLower.includes("created by a different user") ||
+				msgLower.includes("not part of this project")
 			)
 		}
 
@@ -1044,6 +1759,35 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 			toast.error(error.message || "Failed to toggle document lock")
 		},
 	})
+
+	// Mutation to set per-document signers (before plotting)
+	const setDocumentSignersMutation = trpc.meetings.setDocumentSigners.useMutation({
+		onSuccess: () => {
+			void utils.meetings.getMeetingDocuments.invalidate(meetingId ?? "")
+		},
+		onError: error => {
+			toast.error(error.message ?? "Failed to update signers")
+		},
+	})
+
+	// Mutation to create DocoChain project (after signers are set)
+	const createDocoChainProjectMutation = trpc.meetings.createDocoChainProject.useMutation({
+		onSuccess: () => {
+			void utils.meetings.getMeetingDocuments.invalidate(meetingId ?? "")
+			toast.success("DocoChain project created successfully!")
+		},
+		onError: error => {
+			toast.error(error.message ?? "Failed to create DocoChain project")
+		},
+	})
+
+	const handleSignersChange = useCallback(
+		(documentId: string, userIds: string[]) => {
+			if (!meetingId) return
+			setDocumentSignersMutation.mutate({ documentId, meetingId, userIds })
+		},
+		[meetingId, setDocumentSignersMutation]
+	)
 
 	// Fetch pending signature requests for current user
 	const { data: pendingRequests } = trpc.signatureRequests.getPendingRequests.useQuery(
@@ -1228,7 +1972,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 		try {
 			// Open a QSign API route that streams the signed PDF.
 			// This avoids relying on DocoChain guestToken and avoids leaking api_token in URLs.
-			const url = `/api/docochain/projects/${encodeURIComponent(projectUuid)}/signed`
+			const url = `/api/doconchain/projects/${encodeURIComponent(projectUuid)}/signed`
 			window.open(url, "_blank", "noopener,noreferrer")
 			toast.success("Opening signed document...")
 		} catch (error) {
@@ -1293,7 +2037,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 			}
 
 			// ALWAYS normalize the URL - ensure api=true is set
-			signingLink = normalizeDocoChainUrl(signingLink) ?? signingLink
+			signingLink = normalizeUrl(signingLink) ?? signingLink
 
 			try {
 				new URL(signingLink)
@@ -1344,7 +2088,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 			}
 
 			// ALWAYS normalize the URL - ensure api=true is set
-			signingLink = normalizeDocoChainUrl(signingLink) ?? signingLink
+			signingLink = normalizeUrl(signingLink) ?? signingLink
 
 			// Validate it's a proper URL
 			try {
@@ -1406,9 +2150,12 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 	})
 
 	const handleSignClick = useCallback(
-		(projectUuid: string, email: string, documentId: string) => {
+		(projectUuid: string | null, email: string, documentId: string) => {
 			setSigningDocumentId(documentId)
-			initiateSigning.mutate({ projectUuid, email })
+			// If projectUuid exists, use it. Otherwise, pass documentId to create project
+			initiateSigning.mutate(
+				projectUuid ? { projectUuid, email } : { documentId, email } // No project yet - will be created on signing
+			)
 		},
 		[initiateSigning]
 	)
@@ -1521,18 +2268,21 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 
 	// Get real-time participants from VideoSDK - this is the peer-to-peer connection state
 	// Only participants who have actually joined the WebRTC room will appear here
-	const participants = meeting?.participants as Map<
-		string,
-		{ 
-			displayName?: string
-			webcamOn?: boolean
-			local?: boolean
-			screenShareOn?: boolean
-			// VideoSDK participant properties for connection state
-			mode?: string
-			quality?: string
-		}
-	> | null | undefined
+	const participants = meeting?.participants as
+		| Map<
+				string,
+				{
+					displayName?: string
+					webcamOn?: boolean
+					local?: boolean
+					screenShareOn?: boolean
+					// VideoSDK participant properties for connection state
+					mode?: string
+					quality?: string
+				}
+		  >
+		| null
+		| undefined
 
 	const { localParticipant } = useMeeting()
 
@@ -1687,7 +2437,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 
 				// Ignore if we're already handling an active request (prevents modal spam)
 				setRecordingConsentRequest(prev => {
-					if (prev && prev.id === requestId) return prev
+					if (prev?.id === requestId) return prev
 					return {
 						id: requestId,
 						createdAt: Number(createdAtStr) || Date.now(),
@@ -1706,7 +2456,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 				if (!requestId || !participantId || !decision) return
 
 				setRecordingConsentRequest(current => {
-					if (!current || current.id !== requestId) return current
+					if (current?.id !== requestId) return current
 
 					if (decision === "DECLINE") {
 						setRecordingConsentDeclined(true)
@@ -1741,77 +2491,79 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 	const startLocalRecording = useCallback(async () => {
 		if (isLocalRecording) return
 		if (!meeting) {
-		  toast.error("Meeting not ready yet")
-		  return
+			toast.error("Meeting not ready yet")
+			return
 		}
-	  
-		try {
-		  const startedAt = Date.now()
-	  
-		  // START CLOUD RECORDING (VideoSDK)
-		  await meeting.startRecording()
-	  
-		  // Update local UI state
-		  setIsLocalRecording(true)
-		  setIsAnyoneRecording(true)
-		  setLocalRecordingStartedAt(startedAt)
-		  setRecordingParticipantName(session?.user?.name ?? "Someone")
-	  
-		  // Clear stopped state
-		  setRecordingStopped(false)
-		  setStoppedElapsed(null)
-	  
-		  // Broadcast to all participants
-		  publishRecordingStatus(`RECORDING_STARTED:${startedAt}`, { persist: false })
-	  
-		  toast.success("Cloud recording started")
-		} catch (error) {
-		  console.error("Cloud recording error:", error)
-		  toast.error("Failed to start cloud recording")
-		}
-	  }, [
-		isLocalRecording,
-		meeting,
-		publishRecordingStatus,
-		session?.user?.name,
-	  ])	  
 
-	  const stopLocalRecording = useCallback(async () => {
-		if (!meeting || !isLocalRecording) return
-	  
 		try {
-		  await meeting.stopRecording()
-	  
-		  const elapsed = localRecordingStartedAt
-			? formatElapsedMs(Date.now() - localRecordingStartedAt)
-			: "00:00"
-	  
-		  setIsLocalRecording(false)
-		  setIsAnyoneRecording(false)
-		  setLocalRecordingStartedAt(null)
-	  
-		  setRecordingStopped(true)
-		  setStoppedElapsed(elapsed)
-	  
-		  setTimeout(() => {
+			const startedAt = Date.now()
+
+			// START CLOUD RECORDING (VideoSDK)
+			const meetingWithRecording = meeting as unknown as {
+				startRecording?: () => Promise<void> | void
+			}
+			const recordingResult = meetingWithRecording.startRecording?.()
+			if (recordingResult !== undefined && recordingResult instanceof Promise) {
+				await recordingResult
+			}
+
+			// Update local UI state
+			setIsLocalRecording(true)
+			setIsAnyoneRecording(true)
+			setLocalRecordingStartedAt(startedAt)
+			setRecordingParticipantName(session?.user?.name ?? "Someone")
+
+			// Clear stopped state
 			setRecordingStopped(false)
 			setStoppedElapsed(null)
-			setRecordingParticipantName(null)
-		  }, 5000)
-	  
-		  publishRecordingStatus(`RECORDING_STOPPED:${elapsed}`, { persist: false })
-	  
-		  toast.success("Cloud recording stopped")
+
+			// Broadcast to all participants
+			publishRecordingStatus(`RECORDING_STARTED:${startedAt}`, { persist: false })
+
+			toast.success("Cloud recording started")
 		} catch (error) {
-		  console.error("Stop recording error:", error)
-		  toast.error("Failed to stop cloud recording")
+			console.error("Cloud recording error:", error)
+			toast.error("Failed to start cloud recording")
 		}
-	  }, [
-		meeting,
-		isLocalRecording,
-		localRecordingStartedAt,
-		publishRecordingStatus,
-	  ])	  
+	}, [isLocalRecording, meeting, publishRecordingStatus, session?.user?.name])
+
+	const stopLocalRecording = useCallback(async () => {
+		if (!meeting || !isLocalRecording) return
+
+		try {
+			const meetingWithRecording = meeting as unknown as {
+				stopRecording?: () => Promise<void> | void
+			}
+			const stopResult = meetingWithRecording.stopRecording?.()
+			if (stopResult !== undefined && stopResult instanceof Promise) {
+				await stopResult
+			}
+
+			const elapsed = localRecordingStartedAt
+				? formatElapsedMs(Date.now() - localRecordingStartedAt)
+				: "00:00"
+
+			setIsLocalRecording(false)
+			setIsAnyoneRecording(false)
+			setLocalRecordingStartedAt(null)
+
+			setRecordingStopped(true)
+			setStoppedElapsed(elapsed)
+
+			setTimeout(() => {
+				setRecordingStopped(false)
+				setStoppedElapsed(null)
+				setRecordingParticipantName(null)
+			}, 5000)
+
+			publishRecordingStatus(`RECORDING_STOPPED:${elapsed}`, { persist: false })
+
+			toast.success("Cloud recording stopped")
+		} catch (error) {
+			console.error("Stop recording error:", error)
+			toast.error("Failed to stop cloud recording")
+		}
+	}, [meeting, isLocalRecording, localRecordingStartedAt, publishRecordingStatus])
 
 	const handleRecordingToggle = useCallback(async () => {
 		if (!meeting) return
@@ -1919,7 +2671,13 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 			{ persist: false }
 		)
 		setRecordingConsentDeclined(true)
-	}, [localParticipantId, publishRecordingConsent, recordingConsentRequest, resetRecordingConsentUi, session?.user?.name])
+	}, [
+		localParticipantId,
+		publishRecordingConsent,
+		recordingConsentRequest,
+		resetRecordingConsentUi,
+		session?.user?.name,
+	])
 
 	// If I'm the initiator and everyone has accepted, start local recording (initiator only).
 	useEffect(() => {
@@ -1950,8 +2708,6 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 		session?.user?.name,
 		startLocalRecording,
 	])
-
-	
 
 	// Memoize upload dialog open handler
 	const handleUploadClick = useCallback(() => {
@@ -2080,7 +2836,14 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 								const signingStatus = doc.docoChainProjectId
 									? documentSigningStatus.get(doc.id)
 									: undefined
-								const isFullySigned = signingStatus?.isFullySigned ?? false
+								// Check if fully signed: either from API or by comparing signedCount to totalSigners
+								// This ensures the badge updates even if the API's isFullySigned is not set correctly
+								const isFullySigned =
+									signingStatus?.isFullySigned === true ||
+									((signingStatus?.totalSigners ?? 0) > 0 &&
+										(signingStatus?.signedCount ?? 0) === (signingStatus?.totalSigners ?? 0) &&
+										(signingStatus?.signedCount ?? 0) > 0) ||
+									false
 								const isDownloadingSigned =
 									!!doc.docoChainProjectId && downloadingProjectUuid === doc.docoChainProjectId
 								const isDownloadingCert =
@@ -2144,11 +2907,11 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 															Signed
 														</span>
 													</div>
-												) : signingStatus.signedCount > 0 ? (
+												) : (signingStatus.signedCount ?? 0) > 0 ? (
 													<div className="flex items-center gap-1 rounded-full bg-yellow-100 px-2 py-0.5 dark:bg-yellow-900/30">
 														<Clock className="size-3 text-yellow-600 dark:text-yellow-400" />
 														<span className="text-[10px] font-semibold text-yellow-700 dark:text-yellow-400">
-															{signingStatus.signedCount}/{signingStatus.totalSigners}
+															{signingStatus.signedCount ?? 0}/{signingStatus.totalSigners ?? 0}
 														</span>
 													</div>
 												) : (
@@ -2239,16 +3002,42 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 													<p className="text-muted-foreground mt-1 text-xs">
 														{(doc.size / 1024).toFixed(1)} KB • PDF
 													</p>
+													{doc.notarizationType && (
+														<p className="text-muted-foreground mt-1 text-xs font-medium">
+															{(() => {
+																switch (doc.notarizationType) {
+																	case "ACKNOWLEDGMENT":
+																		return "Acknowledgment"
+																	case "AFFIRMATION":
+																		return "Affirmation"
+																	case "JURAT":
+																		return "Jurat"
+																	case "SIGNATURE_WITNESSING":
+																		return "Signature Witnessing"
+																	default:
+																		return doc.notarizationType
+																}
+															})()}
+														</p>
+													)}
 												</div>
 											</div>
 											<DocumentActions
 												document={doc}
 												onSignClick={handleSignClick}
+												onSignersChange={handleSignersChange}
 												isSigningPending={initiateSigning.isPending && signingDocumentId === doc.id}
 												isLocked={isLocked}
 												isPreviousDocumentSigned={isPreviousDocumentSigned}
 												documentIndex={index}
 												signers={documentSigningStatus.get(doc.id)?.signers}
+												participants={meetingDetails?.participants ?? []}
+												signerUserIds={(doc as { signerUserIds?: string[] }).signerUserIds ?? []}
+												meetingId={meetingId ?? undefined}
+												onCreateProject={(documentId, meetingId) => {
+													createDocoChainProjectMutation.mutate({ documentId, meetingId })
+												}}
+												isCreatingProject={createDocoChainProjectMutation.isPending}
 											/>
 										</CardContent>
 									</Card>
@@ -2275,6 +3064,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 		handleDragStart,
 		handleDrop,
 		handleSignClick,
+		handleSignersChange,
 		initiateSigning.isPending,
 		meetingDetails,
 		meetingId,
@@ -2566,8 +3356,8 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 							Start meeting recording?
 						</DialogTitle>
 						<DialogDescription>
-							{recordingConsentRequest?.initiatorName ?? "Someone"} wants to start a screen recording.
-							Recording will begin only after everyone agrees.
+							{recordingConsentRequest?.initiatorName ?? "Someone"} wants to start a screen
+							recording. Recording will begin only after everyone agrees.
 						</DialogDescription>
 					</DialogHeader>
 
@@ -2608,24 +3398,21 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 							Decline
 						</Button>
 						<Button
-							disabled={
-								recordingConsentDeclined ||
-								!localParticipantId
-							}
+							disabled={recordingConsentDeclined || !localParticipantId}
 							onClick={async () => {
 								await acceptConsent()
 
 								if (!recordingConsentRequest || !localParticipantId) return
 
 								const isInitiator =
-								recordingConsentRequest.initiatorName === (session?.user?.name ?? "Someone")
+									recordingConsentRequest.initiatorName === (session?.user?.name ?? "Someone")
 
 								if (!isInitiator) return
 								if (recordingConsentDeclined) return
 
 								const required = recordingConsentRequest.requiredParticipantIds
 								const allAccepted = required.every(id =>
-								id === localParticipantId ? true : recordingConsentAcceptedIds.has(id)
+									id === localParticipantId ? true : recordingConsentAcceptedIds.has(id)
 								)
 
 								if (!allAccepted) return
@@ -2633,7 +3420,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 								resetRecordingConsentUi()
 								void startLocalRecording()
 							}}
-							>
+						>
 							Agree
 						</Button>
 					</DialogFooter>

@@ -115,21 +115,23 @@ export function AddUserDialog({ open, onOpenChange }: AddUserDialogProps) {
 						<Label htmlFor="role" className="text-right">
 							Role *
 						</Label>
-						<Select
-							value={form.watch("role")}
-							onValueChange={value =>
-								form.setValue("role", value as "PRINCIPAL" | "ADMIN" | "ENP" | "ENA")
-							}
-						>
-							<SelectTrigger className="col-span-3">
-								<SelectValue placeholder="Select role" />
-							</SelectTrigger>
-							<SelectContent>
-								<SelectItem value="CLIENT">Client</SelectItem>
-								<SelectItem value="ADMIN">Administrator</SelectItem>
-								<SelectItem value="SUPER_ADMIN">Super Administrator</SelectItem>
-							</SelectContent>
-						</Select>
+						<div className="col-span-3">
+							<Select
+								value={form.watch("role")}
+								onValueChange={value =>
+									form.setValue("role", value as "PRINCIPAL" | "ADMIN" | "ENP" | "ENA")
+								}
+							>
+								<SelectTrigger id="role" className="w-full">
+									<SelectValue placeholder="Select role" />
+								</SelectTrigger>
+								<SelectContent>
+									<SelectItem value="CLIENT">Client</SelectItem>
+									<SelectItem value="ADMIN">Administrator</SelectItem>
+									<SelectItem value="SUPER_ADMIN">Super Administrator</SelectItem>
+								</SelectContent>
+							</Select>
+						</div>
 					</div>
 
 					<DialogFooter>

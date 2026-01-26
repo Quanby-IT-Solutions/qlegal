@@ -1,59 +1,48 @@
-import type { LucideIcon } from "lucide-react"
+import { appSidebarSections } from "@/core/lib/nav/site.config"
+import type { NavItem, NavSection, NotaryRole } from "@/core/lib/nav/types"
 
-import { appSidebarSections, iconMap } from "@/core/lib/nav/site.config"
-import type { NavItem, NavSection, NotaryRole, WorkflowType } from "@/core/lib/nav/types"
+// Active route checking utility
+export const isRouteActive = (itemUrl: string, currentPath: string): boolean => {
+	// Remove trailing slashes for comparison
+	const normalizedItemUrl = itemUrl.replace(/\/$/, "")
+	const normalizedCurrentPath = currentPath.replace(/\/$/, "")
 
-// Helper function to resolve icon names to components
-export const resolveIcon = (icon?: LucideIcon | string): LucideIcon | undefined => {
-	if (!icon) return undefined
-	if (typeof icon === "string") {
-		return (iconMap as Record<string, LucideIcon>)[icon] ?? undefined
+	// Exact match
+	if (normalizedItemUrl === normalizedCurrentPath) {
+		return true
 	}
-	return icon
+
+	// Prefix match (e.g., /messages matches /messages/123)
+	if (normalizedCurrentPath.startsWith(`${normalizedItemUrl}/`)) {
+		return true
+	}
+
+	return false
 }
 
-// Role and workflow filtering utility
-export const canAccessNavItem = (
-	roles?: NotaryRole[],
-	userRole?: string,
-	workflows?: WorkflowType[],
-	currentWorkflow?: string
-): boolean => {
+// Role filtering utility
+export const canAccessNavItem = (roles?: NotaryRole[], userRole?: string): boolean => {
 	// Check role access
 	if (roles && roles.length > 0) {
 		if (!userRole || !roles.includes(userRole as NotaryRole)) return false
 	}
 
-	// Check workflow access
-	if (workflows && workflows.length > 0) {
-		if (!currentWorkflow || !workflows.includes(currentWorkflow as WorkflowType)) return false
-	}
-
 	return true
 }
 
-// Filter navigation items by role and workflow
-export function filterNavItemsByRoleAndWorkflow(
-	navItems: NavItem[],
-	userRole?: string,
-	currentWorkflow?: string
-): NavItem[] {
+// Filter navigation items by role
+export function filterNavItemsByRole(navItems: NavItem[], userRole?: string): NavItem[] {
 	return navItems
 		.filter(item => {
 			// Check if user can access this item
 			// Handle union type: roles can be NotaryRole[] | UserRole[]
-			return canAccessNavItem(
-				item.roles as NotaryRole[] | undefined,
-				userRole,
-				item.workflows,
-				currentWorkflow
-			)
+			return canAccessNavItem(item.roles as NotaryRole[] | undefined, userRole)
 		})
 		.map(item => {
 			// Create new object with filtered sub-items if they exist
 			if (item.items) {
 				const filteredSubItems = item.items.filter(subItem =>
-					canAccessNavItem(subItem.roles, userRole, subItem.workflows, currentWorkflow)
+					canAccessNavItem(subItem.roles, userRole)
 				)
 				return {
 					...item,
@@ -64,30 +53,25 @@ export function filterNavItemsByRoleAndWorkflow(
 		})
 }
 
-// Filter navigation sections by role and workflow
-export function filterNavSectionsByRoleAndWorkflow(
+// Filter navigation sections by role
+export function filterNavSectionsByRole(
 	navSections: NavSection[],
-	userRole?: string,
-	currentWorkflow?: string
+	userRole?: string
 ): NavSection[] {
 	return navSections
 		.map(section => ({
 			...section,
-			items: filterNavItemsByRoleAndWorkflow(section.items, userRole, currentWorkflow),
+			items: filterNavItemsByRole(section.items, userRole),
 		}))
 		.filter(section => section.items.length > 0)
 }
 
 // Get filtered app sidebar sections
-export function getAppSidebarSections(userRole?: string, currentWorkflow?: string): NavSection[] {
-	return filterNavSectionsByRoleAndWorkflow(appSidebarSections, userRole, currentWorkflow)
+export function getAppSidebarSections(userRole?: string): NavSection[] {
+	return filterNavSectionsByRole(appSidebarSections, userRole)
 }
 
 // Get filtered nav sections (generic function)
-export function getFilteredNavSections(
-	sections: NavSection[],
-	userRole?: string,
-	workflow?: string
-): NavSection[] {
-	return filterNavSectionsByRoleAndWorkflow(sections, userRole, workflow)
+export function getFilteredNavSections(sections: NavSection[], userRole?: string): NavSection[] {
+	return filterNavSectionsByRole(sections, userRole)
 }

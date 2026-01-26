@@ -283,12 +283,6 @@ export function SearchCombobox({
 							Icon={FolderIcon}
 							disabled={disabled}
 						/>
-						<ActionButton
-							href="/my-signed"
-							label="My Signed"
-							Icon={CheckCircle}
-							disabled={disabled}
-						/>
 					</div>
 				</div>
 

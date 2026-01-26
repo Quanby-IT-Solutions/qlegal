@@ -3,7 +3,6 @@
 import { useSearchParams } from "next/navigation"
 import { useEffect, useMemo, useRef, useState, useTransition } from "react"
 import { CheckCircle2, Loader2, LogOut, PlayCircle, ShieldCheck, XCircle } from "lucide-react"
-import { signOut } from "next-auth/react"
 import { toast } from "sonner"
 
 import { Badge } from "@/core/components/ui/badge"
@@ -160,10 +159,12 @@ export function KycVerificationCard({
 			if (result.success && result.data) {
 				// Auto-open the KYC link
 				window.open(result.data.url, "_blank", "noopener,noreferrer")
-				
+
 				// Show appropriate message based on whether this was for an expired link
 				if (result.data.isExpiredLink) {
-					toast.success("New KYC verification link created (previous link expired). Opening in new window...")
+					toast.success(
+						"New KYC verification link created (previous link expired). Opening in new window..."
+					)
 				} else {
 					toast.success("KYC verification link created! Opening in new window...")
 				}
@@ -211,12 +212,6 @@ export function KycVerificationCard({
 				toast.error("Failed to check status")
 			}
 		})
-	}
-
-	const handleLogout = () => {
-		// Clear KYC skip session cookie before logout
-		document.cookie = "skipKycSession=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT"
-		signOut({ callbackUrl: "/auth/login" })
 	}
 
 	// No polling - following HyperVerge best practices
@@ -391,12 +386,6 @@ export function KycVerificationCard({
 									Resume Verification
 								</>
 							)}
-						</Button>
-
-
-						<Button onClick={handleLogout} disabled={isPending} variant="ghost" className="w-full">
-							<LogOut className="mr-2 h-4 w-4" />
-							Log Out
 						</Button>
 
 						{/* Subtle backup option for expired links */}
