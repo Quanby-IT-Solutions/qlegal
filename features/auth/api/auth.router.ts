@@ -130,7 +130,7 @@ export const authRouter = createTRPCRouter({
 					mcleNo: notaryInfo.mcleNo,
 					mcleNoDate: notaryInfo.mcleNoDate,
 					modeOfNotarization: notaryInfo.modeOfNotarization,
-					isAvailable: false,
+					isAvailable: true,
 				})
 			})
 		} catch {

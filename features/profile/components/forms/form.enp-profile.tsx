@@ -77,6 +77,34 @@ export function EnpProfileForm() {
 					<div className="grid grid-cols-1 gap-4 md:grid-cols-2">
 						<FormField
 							control={form.control}
+							name="enpName"
+							render={({ field }) => (
+								<FormItem>
+									<FormLabel>ENP Name</FormLabel>
+									<FormControl>
+										<Input placeholder="e.g., Mariae Francine Geraldine Biglaen y Sibulop" {...field} />
+									</FormControl>
+									<FormMessage />
+								</FormItem>
+							)}
+						/>
+
+						<FormField
+							control={form.control}
+							name="enpRoleNumber"
+							render={({ field }) => (
+								<FormItem>
+									<FormLabel>ENP Role Number</FormLabel>
+									<FormControl>
+										<Input placeholder="e.g., 123456" {...field} />
+									</FormControl>
+									<FormMessage />
+								</FormItem>
+							)}
+						/>
+
+						<FormField
+							control={form.control}
 							name="rollNo"
 							render={({ field }) => (
 								<FormItem>
@@ -144,12 +172,26 @@ export function EnpProfileForm() {
 					<div className="grid grid-cols-1 gap-4 md:grid-cols-2">
 						<FormField
 							control={form.control}
+							name="attyName"
+							render={({ field }) => (
+								<FormItem className="md:col-span-2">
+									<FormLabel>Attorney Name</FormLabel>
+									<FormControl>
+										<Input placeholder="e.g., ATTY. MARIA ANGELICA M. DELA CRUZ-SAN FELIPE" {...field} />
+									</FormControl>
+									<FormMessage />
+								</FormItem>
+							)}
+						/>
+
+						<FormField
+							control={form.control}
 							name="commissionNo"
 							render={({ field }) => (
 								<FormItem>
 									<FormLabel>Commission No.</FormLabel>
 									<FormControl>
-										<Input placeholder="e.g., 123456" {...field} />
+										<Input placeholder="e.g., 2024 - 024" {...field} />
 									</FormControl>
 									<FormMessage />
 								</FormItem>
@@ -431,6 +473,20 @@ export function EnpProfileForm() {
 									</FormItem>
 								)
 							}}
+						/>
+
+						<FormField
+							control={form.control}
+							name="modeOfNotarization"
+							render={({ field }) => (
+								<FormItem>
+									<FormLabel>Mode of Notarization</FormLabel>
+									<FormControl>
+										<Input placeholder="e.g., REN" {...field} />
+									</FormControl>
+									<FormMessage />
+								</FormItem>
+							)}
 						/>
 					</div>
 				</div>

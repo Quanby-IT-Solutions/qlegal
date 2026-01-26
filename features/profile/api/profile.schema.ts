@@ -29,6 +29,12 @@ export const personalInformationSchema = z.object({
 
 export type PersonalInformationSchema = z.infer<typeof personalInformationSchema>
 
+export const addressSchema = z.object({
+	address: z.string().trim().min(1, "Address is required"),
+})
+
+export type AddressSchema = z.infer<typeof addressSchema>
+
 export const enpProfileSchema = z.object({
 	// Notary Seal Info
 	enpName: z.string().min(1, "ENP name is required").optional(),

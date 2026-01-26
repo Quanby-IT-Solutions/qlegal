@@ -17,8 +17,9 @@ export const users = createTable("user", t => ({
 	password: t.text(),
 	isTwoFactorEnabled: t.boolean().default(false),
 	phoneNumber: t.varchar({ length: 255 }),
+	address: t.text(), // Principal address for document signing records
 	role: userRoles().default("PRINCIPAL").notNull(),
-	status: userStatus().default("PENDING").notNull(),
+	status: userStatus().default("ACTIVE").notNull(),
 	// KYC Verification fields
 	kycTransactionId: t.varchar({ length: 255 }),
 	kycLink: t.text(), // Store the HyperVerge onboard link URL

@@ -48,10 +48,11 @@ export const ROUTE_CONFIG: RouteConfig = {
 	// Protected routes - require authentication and role-based access
 	protected: {
 		shared: [
-			{ path: "/auth/signature" },
 			{ path: "/auth/kyc", exact: true },
+			{ path: "/auth/signature" },
 			{ path: "/auth/status", exact: true },
 			{ path: "/browse" },
+			{ path: "/calendar" },
 			{ path: "/documents" },
 			{ path: "/documents/completed" },
 			{ path: "/documents/create" },
@@ -59,12 +60,12 @@ export const ROUTE_CONFIG: RouteConfig = {
 			{ path: "/documents/templates" },
 			{ path: "/envelope" },
 			{ path: "/envelopes" },
-			{ path: "/calendar" },
 			{ path: "/find-a-lawyer" },
 			{ path: "/kyc" },
 			{ path: "/liveness" },
 			{ path: "/meetings" },
 			{ path: "/messages" },
+			{ path: "/notarial-book" },
 			{ path: "/notarizations" },
 			{ path: "/notarizations/active" },
 			{ path: "/notarizations/history" },
@@ -74,8 +75,8 @@ export const ROUTE_CONFIG: RouteConfig = {
 			{ path: "/requests" },
 			{ path: "/requests/incoming" },
 			{ path: "/requests/my-requests" },
+			{ path: "/sessions" },
 			{ path: "/settings" },
-			{ path: "/notarial-book" },
 		],
 		byRole: {
 			ENP: [{ path: "/dashboard" }, { path: "/appointments" }],

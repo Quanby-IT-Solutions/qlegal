@@ -1,6 +1,8 @@
 "use client"
 
 import * as React from "react"
+import { usePathname } from "next/navigation"
+import { HugeiconsIcon } from "@hugeicons/react"
 
 import {
 	Tooltip,
@@ -14,8 +16,10 @@ import {
 	SidebarMenuItem,
 	useSidebar,
 } from "@/core/components/animate-ui/components/radix/sidebar"
-import type { NavItem } from "@/core/lib/nav/types"
-import { resolveIcon } from "@/core/lib/nav/utils"
+import type { NavItem, IconSvgObject } from "@/core/lib/nav/types"
+import { Badge } from "@/core/components/navbar/badges/badge"
+import { isRouteActive } from "@/core/lib/nav/utils"
+import { cn } from "@/core/lib/utils"
 
 type SidebarSecondaryNavProps = {
 	items: NavItem[]
@@ -23,25 +27,48 @@ type SidebarSecondaryNavProps = {
 
 export const SidebarSecondaryNav = ({ items }: SidebarSecondaryNavProps) => {
 	const { state: sidebarState } = useSidebar()
+	const pathname = usePathname()
+
+	const renderIcon = (icon?: typeof items[0]["icon"]) => {
+		if (!icon) return null
+		if (typeof icon === 'function') {
+			const IconComponent = icon as React.ComponentType<React.SVGProps<SVGSVGElement>>
+			return <IconComponent />
+		}
+		return <HugeiconsIcon icon={icon as IconSvgObject} size={16} />
+	}
+
+	const NavContent = ({ item }: { item: NavItem }) => (
+		<>
+			{item.icon && renderIcon(item.icon)}
+			<span>{item.title}</span>
+			{item.badge && <Badge variant={item.badge} />}
+		</>
+	)
 
 	return (
 		<SidebarGroup className="mt-auto">
 			<SidebarMenu>
 				{items.map((item: NavItem) => {
-					const IconComponent = (
-						resolveIcon as (icon?: string | React.ComponentType) => React.ComponentType | undefined
-					)(item.icon)
-					const hasIcon = IconComponent !== undefined
+					const isSoonBadge = item.badge === 'soon'
+					const isActive = isRouteActive(item.url, pathname)
+					const buttonClassName = cn(isSoonBadge && "text-muted-foreground hover:text-foreground")
+
 					return (
 						<SidebarMenuItem key={item.title}>
 							{sidebarState === "collapsed" ? (
 								<Tooltip side="right" align="center">
 									<TooltipTrigger asChild>
-										<SidebarMenuButton asChild>
-											<a href={item.url}>
-												{hasIcon && <IconComponent />}
-												<span>{item.title}</span>
-											</a>
+										<SidebarMenuButton asChild className={buttonClassName} isActive={!isSoonBadge && isActive}>
+											{isSoonBadge ? (
+												<button type="button" onClick={(e) => e.preventDefault()}>
+													<NavContent item={item} />
+												</button>
+											) : (
+												<a href={item.url}>
+													<NavContent item={item} />
+												</a>
+											)}
 										</SidebarMenuButton>
 									</TooltipTrigger>
 									<TooltipContent>
@@ -49,11 +76,16 @@ export const SidebarSecondaryNav = ({ items }: SidebarSecondaryNavProps) => {
 									</TooltipContent>
 								</Tooltip>
 							) : (
-								<SidebarMenuButton asChild>
-									<a href={item.url}>
-										{hasIcon && <IconComponent />}
-										<span>{item.title}</span>
-									</a>
+								<SidebarMenuButton asChild className={buttonClassName} isActive={!isSoonBadge && isActive}>
+									{isSoonBadge ? (
+										<button type="button" onClick={(e) => e.preventDefault()}>
+											<NavContent item={item} />
+										</button>
+									) : (
+										<a href={item.url}>
+											<NavContent item={item} />
+										</a>
+									)}
 								</SidebarMenuButton>
 							)}
 						</SidebarMenuItem>

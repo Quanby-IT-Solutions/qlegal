@@ -615,7 +615,7 @@ const SignerSelector = React.memo(function SignerSelector({
 }: {
 	participants: Array<{
 		userId: string
-		user: { id: string; name: string | null; email: string | null } | null
+		user: { id: string; name: string | null; email: string | null; role?: string | null } | null
 	}>
 	signerUserIds: string[]
 	onSignersChange: (userIds: string[]) => void
@@ -715,21 +715,34 @@ const SignerList = React.memo(function SignerList({
 	// Sort signers by sequence
 	const sortedSigners = [...signers].sort((a, b) => a.sequence - b.sequence)
 
+	// Helper function to check if a signer has signed (case-insensitive and checks both status and signedAt)
+	const isSignerSigned = (signer: {
+		status: string
+		signedAt: string | null
+	}): boolean => {
+		const statusUpper = signer.status?.toUpperCase() ?? ""
+		const hasSignedStatus = statusUpper === "SIGNED" || statusUpper === "COMPLETED"
+		const hasSignedAt = signer.signedAt !== null && signer.signedAt !== undefined && signer.signedAt !== ""
+		return hasSignedStatus || hasSignedAt
+	}
+
 	// Find the current signer (first one who hasn't signed yet)
-	const currentSignerIndex = sortedSigners.findIndex(s => s.status !== "SIGNED" && !s.signedAt)
+	const currentSignerIndex = sortedSigners.findIndex(s => !isSignerSigned(s))
+
+	// Count signed signers
+	const signedCount = sortedSigners.filter(isSignerSigned).length
 
 	return (
 		<div className="bg-muted/30 mb-3 space-y-1.5 rounded-lg border p-2.5">
 			<div className="mb-2 flex items-center gap-1.5">
 				<UsersIcon className="text-muted-foreground size-3.5" />
 				<span className="text-muted-foreground text-[11px] font-semibold tracking-wide uppercase">
-					Signers ({sortedSigners.filter(s => s.status === "SIGNED" || s.signedAt).length}/
-					{sortedSigners.length})
+					Signers ({signedCount}/{sortedSigners.length})
 				</span>
 			</div>
 			<div className="space-y-1">
 				{sortedSigners.map((signer, index) => {
-					const isSigned = signer.status === "SIGNED" || signer.signedAt !== null
+					const isSigned = isSignerSigned(signer)
 					const isCurrent = index === currentSignerIndex
 					const isWaiting = index > currentSignerIndex && currentSignerIndex !== -1
 
@@ -812,6 +825,8 @@ const DocumentActions = React.memo(function DocumentActions({
 	participants,
 	signerUserIds,
 	meetingId,
+	onCreateProject,
+	isCreatingProject,
 }: {
 	document: { id: string; name: string; docoChainProjectId: string | null }
 	onSignClick: (projectUuid: string | null, email: string, documentId: string) => void
@@ -832,12 +847,91 @@ const DocumentActions = React.memo(function DocumentActions({
 	}>
 	participants?: Array<{
 		userId: string
-		user: { id: string; name: string | null; email: string | null } | null
+		user: { id: string; name: string | null; email: string | null; role?: string | null } | null
 	}>
 	signerUserIds?: string[]
 	meetingId?: string
+	onCreateProject?: (documentId: string, meetingId: string) => void
+	isCreatingProject?: boolean
 }) {
 	const { data: session } = useSession()
+
+	// Helper function to check if a signer has signed (case-insensitive)
+	const isSignerSigned = (signer: {
+		status: string
+		signedAt: string | null
+	}): boolean => {
+		const statusUpper = signer.status?.toUpperCase() ?? ""
+		const hasSignedStatus = statusUpper === "SIGNED" || statusUpper === "COMPLETED"
+		const hasSignedAt = signer.signedAt !== null && signer.signedAt !== undefined && signer.signedAt !== ""
+		return hasSignedStatus || hasSignedAt
+	}
+
+	// Filter signers to only show those selected in the database (signerUserIds)
+	// Get participant emails for selected signers
+	const selectedSignerEmails = new Set<string>()
+	if (signerUserIds && participants) {
+		for (const userId of signerUserIds) {
+			const participant = participants.find(p => p.userId === userId)
+			if (participant?.user?.email) {
+				selectedSignerEmails.add(participant.user.email.toLowerCase())
+			}
+		}
+	}
+	
+	// Filter signers to only include those in the selected list
+	const filteredSigners = signers?.filter(signer => 
+		selectedSignerEmails.has(signer.email?.toLowerCase() ?? "")
+	) ?? []
+
+	// Check if all signers have signed
+	const allSignersSigned =
+		filteredSigners && filteredSigners.length > 0 && filteredSigners.every(isSignerSigned)
+
+	// Determine button state based on current user's signer status
+	const currentUserEmail = session?.user?.email ?? null
+	const currentUserSigner = currentUserEmail
+		? filteredSigners.find(s => s.email?.toLowerCase() === currentUserEmail.toLowerCase())
+		: null
+	const isUserAddedAsSigner = !!currentUserSigner
+	
+	// Check if user has completed signing (status SIGNED/COMPLETED or signedAt is set)
+	const hasUserSigned = currentUserSigner
+		? isSignerSigned({
+				status: currentUserSigner.status,
+				signedAt: currentUserSigner.signedAt,
+			})
+		: false
+	
+	// Check signer status to determine if they've plotted but not signed
+	// Statuses: PENDING, NEXT GROUP (not plotted), or other statuses might indicate plotted
+	const signerStatus = (currentUserSigner?.status ?? "").toUpperCase()
+	const isPendingOrNextGroup = signerStatus === "PENDING" || signerStatus === "NEXT GROUP"
+	
+	// Determine button text based on state:
+	// 1. Not added → "Start Signing" (adds user, generates edit draft link)
+	// 2. Added + PENDING/NEXT GROUP → "Plot Signature" (edit draft link exists, can plot)
+	// 3. Added + other status (plotted but not signed) → "Sign Document" (signature plotted, can sign)
+	// 4. Signed → button disabled (already completed)
+	const getButtonText = () => {
+		if (!isUserAddedAsSigner) {
+			// User not added yet - clicking will add them and generate edit draft link
+			return "Start Signing"
+		}
+		if (hasUserSigned) {
+			// User has completed signing - button should be disabled
+			return "Sign Document"
+		}
+		// Check if user has plotted (status is not PENDING/NEXT GROUP)
+		if (!isPendingOrNextGroup) {
+			// User has plotted signature marks but hasn't signed yet
+			return "Sign Document"
+		}
+		// User is added but still in PENDING/NEXT GROUP - edit draft link exists, can plot signature
+		return "Plot Signature"
+	}
+
+	const buttonText = getButtonText()
 
 	// Determine if Start Signing button should be disabled
 	const isSigningDisabledByOrder = isLocked && !isPreviousDocumentSigned && (documentIndex ?? 0) > 0
@@ -847,11 +941,13 @@ const DocumentActions = React.memo(function DocumentActions({
 	const isCurrentUserSigner =
 		currentUserId !== null && (signerUserIds?.includes(currentUserId) ?? false)
 	const userNotInSignerList = hasSigners && !isCurrentUserSigner
-	const isSigningDisabled = isSigningDisabledByOrder
+	const isSigningDisabled = allSignersSigned
 		? true
-		: hasNoSignersSelected
+		: isSigningDisabledByOrder
 			? true
-			: userNotInSignerList
+			: hasNoSignersSelected
+				? true
+				: userNotInSignerList
 
 	const handleSignersChange = useCallback(
 		(userIds: string[]) => {
@@ -863,8 +959,8 @@ const DocumentActions = React.memo(function DocumentActions({
 	return (
 		<div className="space-y-2">
 			{/* Before project exists: show signer selector. After: show DocoChain signer list */}
-			{document.docoChainProjectId && signers && signers.length > 0 ? (
-				<SignerList signers={signers} />
+			{document.docoChainProjectId && filteredSigners && filteredSigners.length > 0 ? (
+				<SignerList signers={filteredSigners} />
 			) : (
 				participants &&
 				participants.length > 0 &&
@@ -890,9 +986,35 @@ const DocumentActions = React.memo(function DocumentActions({
 				View Document
 			</Button>
 
+			{/* Show "Create Project" button if signers are set but project doesn't exist */}
+			{!document.docoChainProjectId && hasSigners && meetingId && onCreateProject && (
+				<Button
+					variant="default"
+					size="sm"
+					className="h-9 w-full text-xs shadow-sm"
+					onClick={() => {
+						if (meetingId) {
+							onCreateProject(document.id, meetingId)
+						}
+					}}
+					disabled={isCreatingProject}
+				>
+					{isCreatingProject ? (
+						<>
+							<div className="mr-2 size-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
+							Creating...
+						</>
+					) : (
+						<>
+							<FileSignature className="mr-1.5 size-3.5" />
+							Add Signer
+						</>
+					)}
+				</Button>
+			)}
+
 			{/* Show "Start Signing" button for all meeting participants */}
-			{/* Any participant (Principal, ENP, etc.) can click to sign */}
-			{/* Project will be created automatically when signing starts if it doesn't exist */}
+			{/* Project must exist before signing can start */}
 			<div className="space-y-1.5">
 				<Button
 					variant="default"
@@ -903,46 +1025,50 @@ const DocumentActions = React.memo(function DocumentActions({
 						if (userEmail) {
 							console.log("🔵 Initiating signing process for document:", document.name)
 							console.log("   - Document ID:", document.id)
-							console.log(
-								"   - DocoChain Project UUID:",
-								document.docoChainProjectId ?? "will be created"
-							)
+							console.log("   - DocoChain Project UUID:", document.docoChainProjectId)
 							console.log("   - User Email:", userEmail)
 
 							// User clicks to start signing - this will:
-							// 1. Create DocoChain project if it doesn't exist (download from Supabase)
-							// 2. Add user as signer using Add Project Signer API
-							// 3. Generate signing link
-							// 4. Redirect to DocoChain signing page
+							// 1. Add user as signer using Add Project Signer API
+							// 2. Generate Edit Draft Project Link
+							// 3. Redirect to DocoChain signing page
 							onSignClick(document.docoChainProjectId ?? null, userEmail, document.id)
 						} else {
 							toast.error("User email not found. Please sign in again.")
 						}
 					}}
-					disabled={isSigningPending || isSigningDisabled}
+					disabled={isSigningPending || isSigningDisabled || !document.docoChainProjectId}
 				>
 					{isSigningPending ? (
 						<>
 							<div className="mr-2 size-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
-							Starting...
+							{buttonText === "Start Signing"
+								? "Starting..."
+								: buttonText === "Plot Signature"
+									? "Plotting..."
+									: "Signing..."}
 						</>
 					) : (
 						<>
 							<FileSignature className="mr-1.5 size-3.5" />
-							Start Signing
+							{buttonText}
 						</>
 					)}
 				</Button>
 				{/* Show message when button is disabled */}
-				{isSigningDisabled && (
+				{(isSigningDisabled || !document.docoChainProjectId) && (
 					<p className="text-[10px] leading-tight text-amber-700 dark:text-amber-400">
-						{isSigningDisabledByOrder
-							? "Previous document must be signed first"
-							: hasNoSignersSelected
-								? "Select at least one signer for this document"
-								: userNotInSignerList
-									? "You must be added as a signer to start signing"
-									: ""}
+						{!document.docoChainProjectId
+							? "Add signer first after setting signers"
+							: allSignersSigned
+								? "All signers have completed signing"
+								: isSigningDisabledByOrder
+									? "Previous document must be signed first"
+									: hasNoSignersSelected
+										? "Select at least one signer for this document"
+										: userNotInSignerList
+											? "You must be added as a signer to start signing"
+											: ""}
 					</p>
 				)}
 			</div>
@@ -1057,10 +1183,14 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 					: typeof err === "object" && err !== null && "message" in err
 						? String(err.message)
 						: ""
+			const msgLower = msg.toLowerCase()
 			return (
 				msg.includes("E_UNAUTHORIZED_ACCESS") ||
-				msg.toLowerCase().includes("unauthorized") ||
-				msg.toLowerCase().includes("forbidden")
+				msgLower.includes("unauthorized") ||
+				msgLower.includes("forbidden") ||
+				msgLower.includes("don't have access") ||
+				msgLower.includes("created by a different user") ||
+				msgLower.includes("not part of this project")
 			)
 		}
 
@@ -1207,6 +1337,17 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 		},
 		onError: error => {
 			toast.error(error.message ?? "Failed to update signers")
+		},
+	})
+
+	// Mutation to create DocoChain project (after signers are set)
+	const createDocoChainProjectMutation = trpc.meetings.createDocoChainProject.useMutation({
+		onSuccess: () => {
+			void utils.meetings.getMeetingDocuments.invalidate(meetingId ?? "")
+			toast.success("DocoChain project created successfully!")
+		},
+		onError: error => {
+			toast.error(error.message ?? "Failed to create DocoChain project")
 		},
 	})
 
@@ -2265,7 +2406,14 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 								const signingStatus = doc.docoChainProjectId
 									? documentSigningStatus.get(doc.id)
 									: undefined
-								const isFullySigned = signingStatus?.isFullySigned ?? false
+								// Check if fully signed: either from API or by comparing signedCount to totalSigners
+								// This ensures the badge updates even if the API's isFullySigned is not set correctly
+								const isFullySigned =
+									signingStatus?.isFullySigned === true ||
+									((signingStatus?.totalSigners ?? 0) > 0 &&
+										(signingStatus?.signedCount ?? 0) === (signingStatus?.totalSigners ?? 0) &&
+										(signingStatus?.signedCount ?? 0) > 0) ||
+									false
 								const isDownloadingSigned =
 									!!doc.docoChainProjectId && downloadingProjectUuid === doc.docoChainProjectId
 								const isDownloadingCert =
@@ -2329,11 +2477,11 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 															Signed
 														</span>
 													</div>
-												) : signingStatus.signedCount > 0 ? (
+												) : (signingStatus.signedCount ?? 0) > 0 ? (
 													<div className="flex items-center gap-1 rounded-full bg-yellow-100 px-2 py-0.5 dark:bg-yellow-900/30">
 														<Clock className="size-3 text-yellow-600 dark:text-yellow-400" />
 														<span className="text-[10px] font-semibold text-yellow-700 dark:text-yellow-400">
-															{signingStatus.signedCount}/{signingStatus.totalSigners}
+															{signingStatus.signedCount ?? 0}/{signingStatus.totalSigners ?? 0}
 														</span>
 													</div>
 												) : (
@@ -2424,6 +2572,24 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 													<p className="text-muted-foreground mt-1 text-xs">
 														{(doc.size / 1024).toFixed(1)} KB • PDF
 													</p>
+													{doc.notarizationType && (
+														<p className="text-muted-foreground mt-1 text-xs font-medium">
+															{(() => {
+																switch (doc.notarizationType) {
+																	case "ACKNOWLEDGMENT":
+																		return "Acknowledgment"
+																	case "AFFIRMATION":
+																		return "Affirmation"
+																	case "JURAT":
+																		return "Jurat"
+																	case "SIGNATURE_WITNESSING":
+																		return "Signature Witnessing"
+																	default:
+																		return doc.notarizationType
+																}
+															})()}
+														</p>
+													)}
 												</div>
 											</div>
 											<DocumentActions
@@ -2438,6 +2604,10 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 												participants={meetingDetails?.participants ?? []}
 												signerUserIds={(doc as { signerUserIds?: string[] }).signerUserIds ?? []}
 												meetingId={meetingId ?? undefined}
+												onCreateProject={(documentId, meetingId) => {
+													createDocoChainProjectMutation.mutate({ documentId, meetingId })
+												}}
+												isCreatingProject={createDocoChainProjectMutation.isPending}
 											/>
 										</CardContent>
 									</Card>
