@@ -23,6 +23,8 @@ export async function createUsers() {
 		password: string
 		role: "PRINCIPAL" | "ENP" | "ENA" | "ADMIN"
 		status: "ACTIVE" | "PENDING" | "SUSPENDED"
+		kycStatus: "VERIFIED"
+		kycVerifiedAt: Date
 	}> = SEED_CONFIG.testAccounts.map((account, i) => ({
 		id: testAccountIds[i],
 		email: account.email,
@@ -32,6 +34,8 @@ export async function createUsers() {
 		password: hashedPassword,
 		role: account.role,
 		status: account.role === "ENP" ? ("PENDING" as const) : ("ACTIVE" as const),
+		kycStatus: "VERIFIED" as const,
+		kycVerifiedAt: new Date(),
 	}))
 
 	let insertedTestUsers: Array<{
@@ -48,6 +52,21 @@ export async function createUsers() {
 
 		// Insert test accounts
 		insertedTestUsers = await db.insert(users).values(testAccountData).returning()
+
+		// Update all test accounts to have verified KYC status
+		if (insertedTestUsers.length > 0) {
+			const testUserIds = insertedTestUsers.map(user => user.id).filter((id): id is string => id !== undefined)
+			if (testUserIds.length > 0) {
+				await db
+					.update(users)
+					.set({
+						kycStatus: "VERIFIED",
+						kycVerifiedAt: new Date(),
+					})
+					.where(inArray(users.id, testUserIds))
+				console.log(`✅ Set KYC status to VERIFIED for ${testUserIds.length} test account(s)`)
+			}
+		}
 
 		// Create ENP profiles for ENP test accounts (silently)
 		const enpUsers = insertedTestUsers.filter(account => account.role === "ENP")

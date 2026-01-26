@@ -3,6 +3,7 @@ import { PageHeader } from "@/core/components/navbar/page-header"
 
 import { auth } from "@/services/next-auth"
 import { HydrateClient, trpc } from "@/services/trpc/server"
+import type { RouterOutputs } from "@/services/trpc/client"
 
 import { RequestsClient } from "@/features/requests/components/requests-client"
 
@@ -12,19 +13,19 @@ export default async function RequestsPage() {
 
 	// Pre-fetch data on server
 	const incomingRequests = await trpc.requests.getIncomingRequests()
-	
+
 	// Only fetch appointments if user is an ENP
-	let incomingAppointments: typeof incomingRequests
+	type IncomingAppointmentsType = RouterOutputs['requests']['getIncomingAppointmentsForENP']
+
+	let incomingAppointments: IncomingAppointmentsType
 	if (isENP) {
-		const appointments = await trpc.requests.getIncomingAppointmentsForENP()
-		// Cast appointments to match request structure
-		incomingAppointments = appointments as typeof incomingRequests
+		incomingAppointments = await trpc.requests.getIncomingAppointmentsForENP()
 	} else {
 		incomingAppointments = []
 	}
 
 	// Merge requests and appointments into a single list
-	// Sort by creation date (newest first)
+	// Both return arrays that can be merged together
 	const allIncomingItems = [...incomingRequests, ...incomingAppointments]
 	
 	allIncomingItems.sort((a, b) => { 

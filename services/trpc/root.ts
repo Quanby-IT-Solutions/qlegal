@@ -4,6 +4,7 @@ import { authRouter } from "@/features/auth/api/auth.router"
 import { consultationsRouter } from "@/features/consultations/api/consultations.router"
 import { enpProfileRouter } from "@/features/consultations/api/enp-profile.router"
 import { dashboardRouter } from "@/features/dashboard/api/dashboard.router"
+import { documentsRouter } from "@/features/documents/api/documents.router"
 import { envelopeLiteRouter } from "@/features/envelopes-lite/api/envelope-lite.router"
 import { appointmentsRouter } from "@/features/lawyers/api/appointments.router"
 import { lawyersRouter } from "@/features/lawyers/api/lawyers.router"
@@ -48,9 +49,10 @@ export const appRouter = createTRPCRouter({
 	consultations: consultationsRouter,
 	enpProfile: enpProfileRouter,
 	dashboard: dashboardRouter,
+	documents: documentsRouter,
 	envelopeLite: envelopeLiteRouter,
-	appointments: appointmentsRouter,
 	lawyers: lawyersRouter,
+	appointments: appointmentsRouter,
 	legalRegistration: legalRegistrationRouter,
 	locationVerification: locationVerificationRouter,
 	meetings: meetingsRouter,
