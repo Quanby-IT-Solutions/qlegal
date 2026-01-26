@@ -207,6 +207,46 @@ export async function runDirectKycVerification(input: {
 		.where(eq(users.id, session.user.id))
 
 	try {
+		const isRecord = (v: unknown): v is Record<string, unknown> =>
+			typeof v === "object" && v !== null && !Array.isArray(v)
+
+		const pickOcrFieldsFromReadId = (raw: unknown): Record<string, unknown> | null => {
+			const maxDepth = 8
+			const maxNodes = 1500
+			let visited = 0
+
+			const walk = (node: unknown, depth: number): Record<string, unknown> | null => {
+				if (visited++ > maxNodes) return null
+				if (depth > maxDepth) return null
+
+				if (isRecord(node)) {
+					for (const [k, v] of Object.entries(node)) {
+						const key = k.toLowerCase()
+						if (
+							key === "fieldsextracted" ||
+							key === "fields_extracted" ||
+							key === "extractedfields" ||
+							key === "ocrfields" ||
+							key === "extracted"
+						) {
+							if (isRecord(v)) return v
+						}
+						const found = walk(v, depth + 1)
+						if (found) return found
+					}
+				} else if (Array.isArray(node)) {
+					for (const item of node) {
+						const found = walk(item, depth + 1)
+						if (found) return found
+					}
+				}
+
+				return null
+			}
+
+			return walk(raw, 0)
+		}
+
 		// 1) ID OCR/validation
 		const idResult = await readIdCard({
 			transactionId,
@@ -257,6 +297,11 @@ export async function runDirectKycVerification(input: {
 			message = "KYC verification failed."
 		}
 
+		// Persist OCR fields from Direct API readId (direct equivalent of Logs API module output).
+		// Keep it lightweight by storing only the extracted fields object when we can locate it.
+		const ocrFields = pickOcrFieldsFromReadId(idResult.raw)
+		const shouldStoreOcr = kycStatus !== "REJECTED" && !!ocrFields
+
 		await db
 			.update(users)
 			.set({
@@ -264,6 +309,8 @@ export async function runDirectKycVerification(input: {
 				kycVerifiedAt: kycStatus === "VERIFIED" ? new Date() : null,
 				kycReferenceIdImageBase64: kycStatus === "VERIFIED" ? input.idImageBase64 : null,
 				kycReferenceCreatedAt: kycStatus === "VERIFIED" ? new Date() : null,
+				kycOcrExtractedFieldsJson: shouldStoreOcr ? JSON.stringify(ocrFields) : null,
+				kycOcrCreatedAt: shouldStoreOcr ? new Date() : null,
 				// Auto-activate account when direct KYC is verified.
 				// Never override SUSPENDED here.
 				status: kycStatus === "VERIFIED" && existingUser.status === "PENDING" ? "ACTIVE" : existingUser.status,
