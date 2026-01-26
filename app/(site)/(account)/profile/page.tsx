@@ -3,14 +3,6 @@
 import { useSession } from "next-auth/react"
 
 import { PageHeader } from "@/core/components/navbar/page-header"
-import {
-	Card,
-	CardDescription,
-	CardHeader,
-	CardTitle,
-} from "@/core/components/ui/card"
-
-import { trpc } from "@/services/trpc/client"
 
 import { AvatarCard } from "@/features/profile/components/avatar-card"
 import { CertificationsCard } from "@/features/profile/components/certifications-card"
@@ -20,7 +12,6 @@ import { RollRegistrationCard } from "@/features/profile/components/roll-registr
 
 export default function Page() {
 	const { data: session } = useSession()
-	const { isLoading: enpProfileLoading } = trpc.profile.getEnpProfile.useQuery()
 
 	const isENP = session?.user?.role === "ENP"
 	return (
@@ -35,26 +26,15 @@ export default function Page() {
 						</p>
 					</div>
 
-				<AvatarCard />
-				<PersonalInformationCard />
-				{isENP &&
-					(enpProfileLoading ? (
-						<Card className="border-border/60 bg-card/80 dark:bg-card/70 border shadow-sm backdrop-blur-xl transition-all duration-300 hover:shadow-md">
-							<CardHeader className="px-8 pt-4">
-								<CardTitle className="text-lg font-medium">ENP Profile</CardTitle>
-								<CardDescription>
-									Loading profile information...
-								</CardDescription>
-							</CardHeader>
-						</Card>
-					) : (
-						<div className="space-y-6">
+					<AvatarCard />
+					<PersonalInformationCard />
+					{isENP && (
+						<>
 							<RollRegistrationCard />
 							<LicensingCard />
 							<CertificationsCard />
-						</div>
-					))}
-				{/* <DefaultSignatureCard /> */}
+						</>
+					)}
 				</div>
 			</main>
 		</div>
