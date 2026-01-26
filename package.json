@@ -146,5 +146,8 @@
 	"bugs": {
 		"url": "https://github.com/Quanby-IT-Solutions/quanby-legal/issues"
 	},
-	"homepage": "https://github.com/Quanby-IT-Solutions/quanby-legal#readme"
+	"homepage": "https://github.com/Quanby-IT-Solutions/quanby-legal#readme",
+	"directories": {
+		"doc": "docs"
+	}
 }
