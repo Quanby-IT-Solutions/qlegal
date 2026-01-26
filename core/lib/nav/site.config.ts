@@ -72,7 +72,7 @@ export const appSidebarSections: NavSection[] = [
 			},
 			{
 				title: "Documents",
-				url: "/appointments",
+				url: "/documents",
 				icon: DocumentValidationIcon,
 				roles: ["PRINCIPAL"],
 			},
