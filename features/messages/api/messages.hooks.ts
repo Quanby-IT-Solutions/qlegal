@@ -7,9 +7,7 @@ export function useMessages() {
 
 	return {
 		// Get all conversations
-		getConversations: trpc.messages.getConversations.useQuery(undefined, {
-			refetchInterval: 3000, // Poll every 3 seconds for real-time updates
-		}),
+		getConversations: trpc.messages.getConversations.useQuery(undefined),
 
 		// Get messages for a conversation
 		getMessages: (conversationId: string) =>
@@ -17,7 +15,6 @@ export function useMessages() {
 				{ conversationId, limit: 100 },
 				{
 					enabled: !!conversationId,
-					refetchInterval: 2000, // Poll every 2 seconds for new messages
 				}
 			),
 
