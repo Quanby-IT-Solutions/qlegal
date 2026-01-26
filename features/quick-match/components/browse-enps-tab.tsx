@@ -1,7 +1,9 @@
 "use client"
 
+import { useState, useMemo } from "react"
 import { AlertCircle } from "lucide-react"
 
+import { EnpFilters } from "./enp-filters"
 import { EnpCard } from "@/core/components/enp-card"
 import { Alert, AlertDescription, AlertTitle } from "@/core/components/ui/alert"
 import { Card, CardContent } from "@/core/components/ui/card"
@@ -9,42 +11,75 @@ import { Skeleton } from "@/core/components/ui/skeleton"
 
 import { trpc } from "@/services/trpc/client"
 
-interface ENP {
-	id: string
-	name: string
-	initials: string
-	rating: number
-	reviewCount: number
-	badges: string[]
-	specializations: string[]
-	location: string
-	rate: number
-	experience?: string
-	languages?: string[] | string
-	responseTime?: string
-	isAvailable?: boolean
-}
-
-interface ENPsData {
-	total: number
-	enps: ENP[]
-}
-
 export function BrowseENPsTab() {
-	const enpsQuery = trpc.quickMatch.getAvailableENPs.useQuery({
-		specialization: undefined,
-		minRating: undefined,
+	const [filters, setFilters] = useState({
+		searchTerm: "",
+		specialization: "all",
+		minRating: 0,
 		sortBy: "RATING",
+	})
+
+	const enpsQuery = trpc.quickMatch.getAvailableENPs.useQuery({
+		specialization: filters.specialization === "all" ? undefined : filters.specialization,
+		minRating: filters.minRating > 0 ? filters.minRating : undefined,
+		sortBy: filters.sortBy as "RATING" | "EXPERIENCE" | "RECENT" | "AVAILABILITY",
 		date: undefined,
 		limit: 20,
 		offset: 0,
-	}) as { data: ENPsData | undefined; isLoading: boolean }
+	})
 
 	const enpsData = enpsQuery.data
 	const isLoading = enpsQuery.isLoading
 
+	const filteredENPs = useMemo(() => {
+		if (!enpsData?.enps) return []
+
+		if (!filters.searchTerm.trim()) {
+			return enpsData.enps
+		}
+
+		const searchTerm = filters.searchTerm.toLowerCase()
+		return enpsData.enps.filter(enp => {
+			const nameMatch = enp.name.toLowerCase().includes(searchTerm)
+			const specializationMatch = enp.specializations.some(spec =>
+				spec.toLowerCase().includes(searchTerm)
+			)
+			const languages = Array.isArray(enp.languages) ? enp.languages : [enp.languages]
+			const languagesMatch = languages.some(
+				lang => typeof lang === "string" && lang.toLowerCase().includes(searchTerm)
+			)
+
+			return nameMatch || specializationMatch || languagesMatch
+		})
+	}, [enpsData?.enps, filters.searchTerm])
+
+	const handleClearFilters = () => {
+		setFilters({
+			searchTerm: "",
+			specialization: "all",
+			minRating: 0,
+			sortBy: "RATING",
+		})
+	}
+
 	return (
 		<div className="space-y-6">
+			<EnpFilters
+				searchTerm={filters.searchTerm}
+				setSearchTerm={term => setFilters(prev => ({ ...prev, searchTerm: term }))}
+				specializationFilter={filters.specialization}
+				setSpecializationFilter={spec =>
+					setFilters(prev => ({ ...prev, specialization: spec }))
+				}
+				minRating={filters.minRating}
+				setMinRating={rating => setFilters(prev => ({ ...prev, minRating: rating }))}
+				sortBy={filters.sortBy}
+				setSortBy={sort => setFilters(prev => ({ ...prev, sortBy: sort }))}
+				onClearFilters={handleClearFilters}
+				totalResults={enpsData?.enps.length ?? 0}
+				filteredResults={filteredENPs.length}
+			/>
+
 			{isLoading ? (
 				<div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
 					{Array.from({ length: 6 }).map((_, i) => (
@@ -58,9 +93,9 @@ export function BrowseENPsTab() {
 						</Card>
 					))}
 				</div>
-			) : enpsData && enpsData.enps.length > 0 ? (
+			) : filteredENPs.length > 0 ? (
 				<div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-					{enpsData.enps.map((enp: ENP) => (
+					{filteredENPs.map(enp => (
 						<EnpCard
 							key={enp.id}
 							variant="browse"
@@ -76,7 +111,6 @@ export function BrowseENPsTab() {
 								languages: enp.languages ?? [],
 								experience: enp.experience,
 								responseTime: enp.responseTime,
-								isAvailable: enp.isAvailable ?? true,
 								location: enp.location,
 								rate: enp.rate,
 								badges: enp.badges,
@@ -90,7 +124,9 @@ export function BrowseENPsTab() {
 					<AlertCircle className="size-4" />
 					<AlertTitle>No notaries found</AlertTitle>
 					<AlertDescription>
-						No notaries are currently available. Please check back later.
+						{filters.searchTerm || filters.specialization !== "all" || filters.minRating > 0
+							? "No notaries match your current filters. Try adjusting your search criteria or clearing filters."
+							: "No notaries are currently available. Please check back later."}
 					</AlertDescription>
 				</Alert>
 			)}
