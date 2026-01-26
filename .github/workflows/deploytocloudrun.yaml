@@ -187,7 +187,7 @@ jobs:
             AUTH_GOOGLE_SECRET=${{ secrets.AUTH_GOOGLE_SECRET }}
             AUTH_SECRET=${{ secrets.AUTH_SECRET }}
             AUTH_TRUST_HOST=true
-            AUTH_URL=${{ secrets.AUTH_URL }}
+            AUTH_URL=${{ vars.AUTH_URL }}
             DATABASE_URL=${{ secrets.DATABASE_URL }}
             DOCONCHAIN_API_URL=${{ vars.DOCONCHAIN_API_URL }}
             DOCONCHAIN_APP_URL=${{ vars.DOCONCHAIN_APP_URL }}
