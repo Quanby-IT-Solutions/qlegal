@@ -7,7 +7,6 @@ import { SiteNavbar } from "@/core/components/navbar/site-navbar"
 
 import { trpc } from "@/services/trpc/client"
 
-import { EnpProfileCard } from "@/features/profile/components/enp-profile-card"
 import { AddPasswordCard } from "@/features/settings/components/add-password-card"
 import { AddressCard } from "@/features/settings/components/address-card"
 import { AvailabilityToggleCard } from "@/features/settings/components/availability-toggle-card"
