@@ -11,7 +11,9 @@ import {
 
 import { trpc } from "@/services/trpc/client"
 
-import { EnpProfileForm } from "@/features/profile/components/forms/form.enp-profile"
+import { CertificationsCard } from "@/features/profile/components/certifications-card"
+import { LicensingCard } from "@/features/profile/components/licensing-card"
+import { RollRegistrationCard } from "@/features/profile/components/roll-registration-card"
 
 export function EnpProfileCard() {
 	const { data: session } = useSession()
@@ -32,5 +34,11 @@ export function EnpProfileCard() {
 		)
 	}
 
-	return <EnpProfileForm />
+	return (
+		<div className="space-y-6">
+			<RollRegistrationCard />
+			<LicensingCard />
+			<CertificationsCard />
+		</div>
+	)
 }

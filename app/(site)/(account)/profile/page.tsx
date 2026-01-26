@@ -11,7 +11,7 @@ export default function Page() {
 		<>
 			<SiteNavbar items={[{ label: "Profile", url: "/profile" as Route }]} showUserMenu={false} />
 
-			<div className="bg-muted/30 min-h-screen">
+			<div className="min-h-screen">
 				<main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
 					<div className="mb-8 space-y-2">
 						<h1 className="text-2xl font-semibold tracking-tight">Profile Settings</h1>

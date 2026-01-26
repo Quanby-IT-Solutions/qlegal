@@ -55,3 +55,32 @@ export const enpProfileSchema = z.object({
 })
 
 export type EnpProfileSchema = z.infer<typeof enpProfileSchema>
+
+// Partial update schemas for individual ENP profile sections
+export const rollRegistrationSchema = z.object({
+	rollNo: z.string().optional(),
+	rollNoDate: z.string().optional(),
+})
+
+export type RollRegistrationSchema = z.infer<typeof rollRegistrationSchema>
+
+export const licensingSchema = z.object({
+	commissionNo: z.string().optional(),
+	commissionNoValidUntil: z.string().optional(),
+	ptrNo: z.string().optional(),
+	ptrNoLocation: z.string().optional(),
+	ptrNoDate: z.string().optional(),
+	ibpNo: z.string().optional(),
+	ibpNoDate: z.string().optional(),
+	notaryAddress: z.string().optional(),
+})
+
+export type LicensingSchema = z.infer<typeof licensingSchema>
+
+export const certificationsSchema = z.object({
+	mcleNoPeriod: z.string().optional(),
+	mcleNo: z.string().optional(),
+	mcleNoDate: z.string().optional(),
+})
+
+export type CertificationsSchema = z.infer<typeof certificationsSchema>

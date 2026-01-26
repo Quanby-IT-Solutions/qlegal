@@ -10,8 +10,11 @@ import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
 import { deleteAvatar } from "@/features/profile/api/profile.actions"
 import {
 	addressSchema,
+	certificationsSchema,
 	enpProfileSchema,
+	licensingSchema,
 	personalInformationSchema,
+	rollRegistrationSchema,
 } from "@/features/profile/api/profile.schema"
 
 export const profileRouter = createTRPCRouter({
@@ -189,6 +192,112 @@ export const profileRouter = createTRPCRouter({
 
 		return { message: "ENP profile updated successfully" }
 	}),
+
+	updateRollRegistration: protectedProcedure
+		.input(rollRegistrationSchema)
+		.mutation(async ({ ctx, input }) => {
+			const existingProfile = await ctx.db.query.enpProfiles.findFirst({
+				where: eq(enpProfiles.userId, ctx.session.user.id),
+			})
+
+			const normalizeString = (value: string | undefined): string | null => {
+				if (value === undefined) return null
+				const trimmed = value.trim()
+				return trimmed === "" ? null : trimmed
+			}
+
+			const profileData = {
+				rollNo: normalizeString(input.rollNo),
+				rollNoDate: normalizeString(input.rollNoDate),
+			}
+
+			if (existingProfile) {
+				await ctx.db
+					.update(enpProfiles)
+					.set(profileData)
+					.where(eq(enpProfiles.userId, ctx.session.user.id))
+			} else {
+				await ctx.db.insert(enpProfiles).values({
+					userId: ctx.session.user.id,
+					...profileData,
+				})
+			}
+
+			return { message: "Roll registration updated successfully" }
+		}),
+
+	updateLicensing: protectedProcedure
+		.input(licensingSchema)
+		.mutation(async ({ ctx, input }) => {
+			const existingProfile = await ctx.db.query.enpProfiles.findFirst({
+				where: eq(enpProfiles.userId, ctx.session.user.id),
+			})
+
+			const normalizeString = (value: string | undefined): string | null => {
+				if (value === undefined) return null
+				const trimmed = value.trim()
+				return trimmed === "" ? null : trimmed
+			}
+
+			const profileData = {
+				commissionNo: normalizeString(input.commissionNo),
+				commissionNoValidUntil: normalizeString(input.commissionNoValidUntil),
+				ptrNo: normalizeString(input.ptrNo),
+				ptrNoLocation: normalizeString(input.ptrNoLocation),
+				ptrNoDate: normalizeString(input.ptrNoDate),
+				ibpNo: normalizeString(input.ibpNo),
+				ibpNoDate: normalizeString(input.ibpNoDate),
+				notaryAddress: normalizeString(input.notaryAddress),
+			}
+
+			if (existingProfile) {
+				await ctx.db
+					.update(enpProfiles)
+					.set(profileData)
+					.where(eq(enpProfiles.userId, ctx.session.user.id))
+			} else {
+				await ctx.db.insert(enpProfiles).values({
+					userId: ctx.session.user.id,
+					...profileData,
+				})
+			}
+
+			return { message: "Licensing information updated successfully" }
+		}),
+
+	updateCertifications: protectedProcedure
+		.input(certificationsSchema)
+		.mutation(async ({ ctx, input }) => {
+			const existingProfile = await ctx.db.query.enpProfiles.findFirst({
+				where: eq(enpProfiles.userId, ctx.session.user.id),
+			})
+
+			const normalizeString = (value: string | undefined): string | null => {
+				if (value === undefined) return null
+				const trimmed = value.trim()
+				return trimmed === "" ? null : trimmed
+			}
+
+			const profileData = {
+				mcleNoPeriod: normalizeString(input.mcleNoPeriod),
+				mcleNo: normalizeString(input.mcleNo),
+				mcleNoDate: normalizeString(input.mcleNoDate),
+			}
+
+			if (existingProfile) {
+				await ctx.db
+					.update(enpProfiles)
+					.set(profileData)
+					.where(eq(enpProfiles.userId, ctx.session.user.id))
+			} else {
+				await ctx.db.insert(enpProfiles).values({
+					userId: ctx.session.user.id,
+					...profileData,
+				})
+			}
+
+			return { message: "Certifications updated successfully" }
+		}),
 
 	getAddress: protectedProcedure.query(async ({ ctx }) => {
 		const user = await ctx.db.query.users.findFirst({
