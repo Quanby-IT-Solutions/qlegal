@@ -14,9 +14,10 @@
 
 # 1. Welcome to Quanby Legal
 
-## Slide 1: What is an Electronic Notarial Facility (ENF)?
+## Slide 1: ENF Overview & Requirements
 
-- An ENF is a digital platform for electronic notarization
+**Electronic Notarial Facility (ENF):**
+- Digital platform for electronic notarization
 - Quanby Legal is your ENF - connecting you with clients securely
 - Compliant with Supreme Court of the Philippines e-Notarization Rules
 - Same legal authority as traditional notarization, but with digital tools
@@ -28,12 +29,7 @@
 - Secure document handling and storage
 - Automated recording management
 
-<!-- Visual Suggestion: Diagram showing traditional notary office vs digital ENF -->
-
-## Slide 2: System Requirements
-
-**Before you start, ensure you have:**
-
+**System Requirements:**
 - Computer or tablet with camera and microphone
 - Stable internet connection (minimum 2 Mbps recommended)
 - Valid notarial commission from Supreme Court
@@ -41,28 +37,25 @@
 - Digital signature setup (for electronic notarial seal)
 - Dedicated space for IEN sessions (if applicable)
 
-**Technical Requirements:**
+**Technical & Legal Requirements:**
 - Google Chrome (recommended browser)
 - Microphone and camera for video sessions
 - Secure digital storage for documents
 - Payment method for receiving earnings
-
-**Legal Requirements:**
 - Valid notarial commission
 - Accreditation with Supreme Court
 - Completed ENP instructional materials
 - Certification of ENF platform training
 
-<!-- Visual Suggestion: Checklist showing requirements with icons -->
+<!-- Visual Suggestion: Checklist showing requirements with icons, diagram showing benefits -->
 
 ---
 
 # 2. Getting Started
 
-## Slide 3: Accreditation Process
+## Slide 2: Accreditation, Registration & Dashboard
 
-**Before Using the Platform:**
-
+**Accreditation Process:**
 1. Apply for electronic notarial commission
 2. Complete SC-mandated instructional materials
 3. Receive certification of training completion
@@ -71,24 +64,9 @@
 6. Receive ENF credentials
 7. Register on Quanby Legal
 
-**Supreme Court Verification:**
-- ENF provider verifies your commission credentials
-- After transitional period, automatic SC integration
-- Expired/cancelled/revoked commissions are blocked
-
-<!-- Visual Suggestion: Flow chart showing accreditation steps from application to platform access -->
-
-## Slide 4: Registration Process
-
-**Step-by-Step Registration:**
-
+**Registration Process:**
 1. Go to ENP registration page
-2. Enter your professional details:
-   - Full name (as on commission)
-   - Notarial commission number
-   - Commission expiration date
-   - PRC license number (if applicable)
-   - Contact information
+2. Enter your professional details: Full name, notarial commission number, expiration date, PRC license (if applicable), contact information
 3. Upload commission certificate
 4. Set up your digital signature and notarial seal
 5. Create account credentials
@@ -104,12 +82,7 @@
 - Configure availability calendar
 - Set Quick Match preferences
 
-<!-- Visual Suggestion: Screenshot of ENP registration form -->
-
-## Slide 5: Your Dashboard Overview
-
-**After logging in, you'll see:**
-
+**Dashboard Overview:**
 - **Today's Sessions** - Upcoming scheduled sessions
 - **Incoming Requests** - Booking requests (incl. Quick Match)
 - **Quick Actions** - Manage sessions, view notarial book
@@ -124,18 +97,21 @@
 - `/messages` - Chat with clients
 - `/profile` - Manage your account, rates, settings
 
-<!-- Visual Suggestion: Screenshot of ENP dashboard highlighting key sections -->
+<!-- Visual Suggestion: Flow chart for accreditation + screenshot of ENP dashboard -->
 
 ---
 
 # 3. Managing Requests
 
-## Slide 6: Types of Booking Requests
+## Slide 3: Request Types & Accepting
+
+**Types of Booking Requests:**
 
 **1. Browse & Select Requests**
 - Clients who browsed and specifically chose you
 - Shows client preferences and document details
 - You can accept, decline, or suggest new time
+- No immediate time limit
 
 **2. Quick Match Requests**
 - System matched client with you based on algorithm
@@ -148,45 +124,29 @@
 - After discussion, client requests session
 - You have more flexibility in responding
 
-<!-- Visual Suggestion: Three request type cards with example notifications -->
-
-## Slide 7: Accepting Booking Requests
-
 **How to Handle Requests:**
-
 1. You receive notification (email + in-app alert)
-2. Click to view request details:
-   - Client name and reliability score
-   - Service type (Consultation/Notarization)
-   - Session mode (REN/IEN/Hybrid)
-   - Documents uploaded
-   - Requested date/time
+2. Click to view request details: Client name and reliability score, service type, session mode, documents uploaded, requested date/time
 3. Review client profile and ratings
-4. Choose action:
-   - **Accept** - Confirm the booking
-   - **Decline** - Reject the request (with reason optional)
-   - **Suggest New Time** - Propose alternative
+4. Choose action: Accept (confirm booking), Decline (reject with reason optional), Suggest New Time (propose alternative)
 5. Client receives your response
 
-**Accept Time Limit:**
+**Accept Time Limits:**
 - Browse & Select: No immediate time limit
 - Quick Match: 60 seconds to respond
 - Message-Initiated: Flexible response time
 
-<!-- Visual Suggestion: Request detail modal with action buttons -->
+<!-- Visual Suggestion: Three request type cards with example notifications and action buttons -->
 
-## Slide 8: Quick Match Notifications
+## Slide 4: Quick Match Notifications
 
 **What is Quick Match?**
-
 - Smart matching algorithm pairs clients with best available ENP
 - Bidirectional scoring system (both you and client are scored)
 - You can opt-in or opt-out anytime
 - No penalty for opting out
 
 **Quick Match Request Details:**
-
-You see:
 - Client name and photo
 - Verification status (KYC completed)
 - Reliability score
@@ -210,12 +170,11 @@ You see:
    - Auto-declines after 60 seconds
    - Counts as decline (affects score)
 
-<!-- Visual Suggestion: Quick Match notification popup with timer -->
+<!-- Visual Suggestion: Quick Match notification popup with timer and action buttons -->
 
-## Slide 9: Scheduling Sessions
+## Slide 5: Scheduling & Document Review
 
 **Accepting Bookings:**
-
 1. Review request details
 2. Check your availability calendar
 3. If available, click "Accept"
@@ -223,58 +182,38 @@ You see:
 5. Client receives confirmation
 
 **Suggesting New Times:**
-
 1. From request, click "Suggest New Time"
 2. Select available time slots from your calendar
 3. Add optional note to client
 4. Send suggestion
 5. Client accepts or counter-offers
 
-**Rescheduling:**
-
-1. Go to `/sessions`
-2. Find the session
-3. Click "Reschedule"
-4. Propose new time(s)
-5. Client accepts or declines
-
-**Cancellation:**
-
+**Rescheduling/Cancellation:**
+- Go to `/sessions`, find session, click "Reschedule", propose new time(s), client accepts or declines
 - Can cancel sessions through `/sessions`
 - Inform client as early as possible
 - Consider your cancellation policy profile setting
 - Frequent cancellations may affect ratings
 
-<!-- Visual Suggestion: Calendar view showing scheduling interface -->
-
-## Slide 10: Document Review Process
+**Document Review Process:**
 
 **Reviewing Client-Uploaded Documents:**
-
 1. Client uploads document to session
 2. You receive notification
-3. Click to review document:
-   - Review content for accuracy
-   - Check for required notarial clauses
-   - Verify completeness
+3. Click to review: Review content for accuracy, check for required notarial clauses, verify completeness
 4. Add or correct document type tag
 5. Set your notarization fee for THIS document
-6. Click one of:
-   - **Approve** - Document ready for session
-   - **Request Changes** - Ask client to modify
-   - **Reject** - Document not acceptable
+6. Click: Approve (document ready for session), Request Changes (ask client to modify), Reject (document not acceptable)
 
 **Uploading Your Own Documents:**
-
 1. From session, click "Upload Document"
 2. Select file (PDF)
 3. Add document type tag (required)
-4. Set notarization fee for this document (required)
+4. Set notarization fee (required)
 5. Upload
 6. Client reviews and approves
 
 **Document Locking:**
-
 1. All documents reviewed (either you or client uploaded)
 2. Each has type tag and fee set
 3. Client has approved your uploaded docs
@@ -282,16 +221,15 @@ You see:
 5. No more edits allowed
 6. Signing order finalized
 
-<!-- Visual Suggestion: Document review interface with approve/request changes buttons -->
+<!-- Visual Suggestion: Calendar view + document review interface with approve/request changes buttons -->
 
 ---
 
 # 4. Conducting Sessions
 
-## Slide 11: Session Checklist
+## Slide 6: Session Checklist, Liveness & Guiding
 
 **Before Session Starts, Verify:**
-
 - [ ] All documents reviewed and locked
 - [ ] Client has completed KYC
 - [ ] All witnesses registered and KYC verified
@@ -302,86 +240,36 @@ You see:
 - [ ] Your notarial seal and signature ready
 - [ ] Session time confirmed
 
-**IEN-Specific:**
-- [ ] Physical space ready for in-person parties
-- [ ] Tablet/device prepared for signing
+**IEN-Specific:** [ ] Physical space ready for in-person parties, [ ] Tablet/device prepared for signing
 
-**REN-Specific:**
-- [ ] Recording enabled (if applicable)
-- [ ] Video call software tested
+**REN-Specific:** [ ] Recording enabled (if applicable), [ ] Video call software tested
 
-<!-- Visual Suggestion: Pre-session checklist with checkboxes -->
-
-## Slide 12: Liveness Verification
-
-**What You Do:**
-
+**Liveness Verification:**
 1. All parties join video call
-2. You conduct liveness checks (one by one):
-   - Click on participant
-   - System prompts them for liveness actions
-   - System verifies they are live
-   - Check passes
+2. You conduct liveness checks (one by one): Click on participant, system prompts for liveness actions, system verifies they are live, check passes
 3. Move to next participant
 4. All participants must pass before signing
 
-**Why Liveness Check Matters:**
-- Confirms each participant is real and present
-- Prevents fraud (photos, videos, masks)
-- Required by Supreme Court ENF standards
-- Protects your notarial practice
+**If Liveness Check Fails:** Ask participant to improve lighting, remove face coverings, face camera directly, allow them to retry, if persistent, consider rescheduling
 
-**If Liveness Check Fails:**
+**Guiding Principals and Witnesses:**
+1. **Verify Identities** - Confirm each participant matches their KYC, check government IDs
+2. **Present Documents** - Show documents one at a time (in locked order), share screen for all to see clearly, explain content if needed
+3. **Guide Signing** - Instruct participants when to sign, ensure everyone completes their signature, verify each signature is affixed
+4. **Affix Notarial Seal** - Sign last (after principal and witnesses), apply your electronic notarial seal, add notarial certificate if applicable
+5. **Repeat for Each Document** - Maintain signing order, ensure all documents are signed
 
-- Ask participant to:
-  - Improve lighting
-  - Remove face coverings
-  - Face camera directly
-- Allow them to retry
-- If persistent, consider rescheduling
+<!-- Visual Suggestion: Pre-session checklist + video call interface with liveness check -->
 
-<!-- Visual Suggestion: Video call interface with liveness check in progress -->
-
-## Slide 13: Guiding Principals and Witnesses
-
-**Your Role During Session:**
-
-1. **Verify Identities**
-   - Confirm each participant matches their KYC
-   - Check government IDs (visible or verified earlier)
-
-2. **Present Documents**
-   - Show documents one at a time (in locked order)
-   - Share screen for all to see clearly
-   - Explain content if needed
-
-3. **Guide Signing**
-   - Instruct participants when to sign
-   - Ensure everyone completes their signature
-   - Verify each signature is affixed
-
-4. **Affix Notarial Seal**
-   - Sign last (after principal and witnesses)
-   - Apply your electronic notarial seal
-   - Add notarial certificate if applicable
-
-5. **Repeat for Each Document**
-   - Maintain signing order
-   - Ensure all documents are signed
-
-<!-- Visual Suggestion: ENP interface showing document signing in progress -->
-
-## Slide 14: Affixing Notarial Seal
+## Slide 7: Affixing Notarial Seal
 
 **Electronic Notarial Seal:**
-
 - Your digital equivalent of physical seal
 - Applied automatically when you sign document
 - Contains your commission details
 - Tamper-evident (changes invalidate seal)
 
 **How to Affix:**
-
 1. After all principals and witnesses sign
 2. Review document one last time
 3. Click "Sign and Affix Notarial Seal"
@@ -402,17 +290,15 @@ You see:
 
 # 5. After Session
 
-## Slide 15: Notarial Book Entry (Automatic)
+## Slide 8: Notarial Book & Recordings
 
-**Automatic Entry Creation:**
-
+**Automatic Notarial Book Entry:**
 - System creates notarial book entry immediately upon session completion
 - Compliant with Section 2, Rule VIII (A.M. No. 24-10-14-SC)
 - Automatically populated in chronological order
 - Properly referenced with all required details
 
 **Entry Includes:**
-
 - Entry number (auto-generated)
 - Date and time
 - Document type
@@ -432,51 +318,27 @@ You see:
 - Search by date, document type, client name
 - Download notarial book export
 
-<!-- Visual Suggestion: Notarial book entry form with auto-filled fields -->
-
-## Slide 16: Recording Management
-
-**REN Session Recordings:**
-
+**Session Recordings:**
 - Sessions recorded (if enabled by you or client)
 - Stored securely per SC requirements
 - Client can download their copy
 - You maintain your copy
-
-**Recording Content:**
-- Video of all participants
-- Document presentation
-- Signing process
-- Your verification procedures
-
-**Where to Find Recordings:**
-
-- From `/sessions` view completed sessions
-- Click "View Recording"
+- Recording content: Video of all participants, document presentation, signing process, your verification procedures
+- Access from `/sessions` → completed sessions → "View Recording"
 - Download or playback options available
+- Stored per Supreme Court requirements, secure encrypted storage, accessible throughout retention period
 
-**Retention:**
-- Stored per Supreme Court requirements
-- Secure, encrypted storage
-- Accessible throughout retention period
+<!-- Visual Suggestion: Notarial book entry form with auto-filled fields + recording player interface -->
 
-<!-- Visual Suggestion: Recording player interface with playback controls -->
-
-## Slide 17: Payment Receipt
+## Slide 9: Payment & Analytics
 
 **Payment Split:**
-
-- **You receive 90%** of total fees
-- **Platform receives 10%** of total fees
+- You receive 90% of total fees
+- Platform receives 10% of total fees
 - Automatically calculated and transferred
-
-**Example:**
-- Total fees: ₱1,000
-- You receive: ₱900
-- Platform receives: ₱100
+- Example: Total ₱1,000 → You get ₱900, platform gets ₱100
 
 **Payment Process:**
-
 1. Client pays before session starts
 2. Payment confirmed in system
 3. Session completed
@@ -484,57 +346,31 @@ You see:
 5. Available for withdrawal
 
 **IEN Cash Payments:**
-
 - Client pays cash to you
 - You click "Client Paid Cash" button
 - Confirms payment in system
 - You receive full amount (100% - platform fee deducted separately)
 
 **Viewing Earnings:**
-
 - Go to `/profile` → "Earnings"
 - See all payments and balances
 - Request withdrawals
 - Download payment history
 
-<!-- Visual Suggestion: Pie chart showing 90/10 split with example amounts -->
+**Session Analytics:**
+- Track your performance: Total sessions conducted, earnings summary, client ratings average, session mode breakdown (REN/IEN/Hybrid), document types notarized, Quick Match statistics
+- Analytics available: Daily, weekly, monthly views, compare performance over time, identify busy periods, track badge progress
+- Use analytics to: Optimize your schedule, set better rates, improve client satisfaction, grow your practice
 
-## Slide 18: Session Analytics
-
-**Track Your Performance:**
-
-- Total sessions conducted
-- Earnings summary
-- Client ratings average
-- Session mode breakdown (REN/IEN/Hybrid)
-- Document types notarized
-- Quick Match statistics
-
-**Analytics Available:**
-
-- Daily, weekly, monthly views
-- Compare performance over time
-- Identify busy periods
-- Track badge progress
-
-**Use Analytics to:**
-
-- Optimize your schedule
-- Set better rates
-- Improve client satisfaction
-- Grow your practice
-
-<!-- Visual Suggestion: Dashboard showing charts and graphs of ENP performance -->
+<!-- Visual Suggestion: Pie chart showing 90/10 split + dashboard showing charts and graphs -->
 
 ---
 
 # 6. Quick Match Configuration
 
-## Slide 19: How Scoring Works
+## Slide 10: Scoring Algorithm & Settings
 
 **ENP Scoring Algorithm:**
-
-Your score is based on:
 
 1. **Rating Score** (25%)
    - Average client review rating
@@ -557,30 +393,18 @@ Your score is based on:
    - Ensures fair distribution across ENPs
 
 **Temporary Boosts:**
-
-- **New ENP Boost** (+15%): First 30 days
-- **Returning-from-Inactive Boost** (+10%): Back after 30+ days
-- **Rare Specialization Boost** (+10%): Unique expertise few others have
-
-<!-- Visual Suggestion: Score breakdown bar chart showing each component -->
-
-## Slide 20: Setting Preferences
+- New ENP Boost (+15%): First 30 days
+- Returning-from-Inactive Boost (+10%): Back after 30+ days
+- Rare Specialization Boost (+10%): Unique expertise few others have
 
 **Quick Match Settings:**
-
 Go to `/profile` → "Quick Match Preferences"
 
 **Options:**
-
 - [ ] Opt-in to Quick Match
 - Max Quick Match sessions per day: [5 ▼]
-- Accept requests for:
-  - [ ] Notarization
-  - [ ] Consultation
-- Accept modes:
-  - [ ] REN (Remote)
-  - [ ] IEN (In-Person)
-  - [ ] Hybrid
+- Accept requests for: [ ] Notarization, [ ] Consultation
+- Accept modes: [ ] REN (Remote), [ ] IEN (In-Person), [ ] Hybrid
 - Quiet hours (no Quick Match): [10:00 PM] to [7:00 AM]
 
 **Important:**
@@ -588,12 +412,11 @@ Go to `/profile` → "Quick Match Preferences"
 - Declining while opted-in AFFECTS your score
 - Adjust settings based on your availability
 
-<!-- Visual Suggestion: Settings page with Quick Match configuration -->
+<!-- Visual Suggestion: Score breakdown bar chart + settings page with Quick Match configuration -->
 
-## Slide 21: Opting In/Out
+## Slide 11: Opt-In/Out & Availability
 
 **Opt-In:**
-
 1. Go to Quick Match settings
 2. Check "Opt-in to Quick Match"
 3. Set your preferences
@@ -601,13 +424,12 @@ Go to `/profile` → "Quick Match Preferences"
 5. Receive Quick Match requests immediately
 
 **Opt-Out:**
-
 1. Go to Quick Match settings
 2. Uncheck "Opt-in to Quick Match"
 3. Save settings
 4. No more Quick Match requests
 5. Still receive Browse & Select requests
-6. **No penalty for opting out**
+6. No penalty for opting out
 
 **When to Opt-Out:**
 - You're on vacation or unavailable
@@ -615,174 +437,73 @@ Go to `/profile` → "Quick Match Preferences"
 - You're conducting complex sessions requiring focus
 - You prefer only Browse & Select requests
 
-<!-- Visual Suggestion: Toggle switch showing Opt-In/Opt-Out states -->
-
-## Slide 22: Managing Availability
-
-**Setting Your Calendar:**
-
+**Managing Availability:**
 1. Go to `/profile` → "Availability"
-2. Add available time slots:
-   - Select date range
-   - Set start and end times
-   - Repeat weekly/monthly if desired
-3. Set unavailability:
-   - Add vacation days
-   - Block specific time slots
-   - Add recurring unavailability
+2. Add available time slots: Select date range, set start and end times, repeat weekly/monthly if desired
+3. Set unavailability: Add vacation days, block specific time slots, add recurring unavailability
 
 **Availability Affects:**
-
 - What times clients can book you
 - When you receive Quick Match requests
 - Your appearance in search results
 
 **Best Practices:**
-
 - Keep calendar updated regularly
 - Block times you're unavailable
 - Provide enough notice for unavailability
 - Consider setting buffer time between sessions
 
-<!-- Visual Suggestion: Calendar interface showing available and blocked times -->
+<!-- Visual Suggestion: Toggle switch + calendar interface showing available and blocked times -->
 
 ---
 
 # 7. Badges & Reputation
 
-## Slide 23: Badge System Overview
+## Slide 12: Badges, Ratings & Trust Building
 
 **Why Badges Matter:**
-
 - Visual trust indicators for clients
-- Helps clients choose the right ENP
+- Helps clients choose right ENP
 - Demonstrates your expertise and reliability
 - Differentiates you from other ENPs
 
 **Badge Categories:**
-
 - Quality (Top Rated, Fast Responder)
 - Experience (100+ Sessions, 500+ Sessions, 1000+ Sessions)
 - Expertise (Specialist: Real Estate, etc.)
 - Newcomer (Rising Star)
 - Verification (SC Accredited - automatic)
 
-<!-- Visual Suggestion: Badge showcase with all badge types -->
+**How to Earn Badges:**
+- Top Rated: 4.8+ average rating, minimum 50 reviews, reviewed monthly
+- Fast Responder: Accept 90%+ of requests within time limit, average response time under 30 seconds, reviewed weekly
+- Session Milestones: 100+ Sessions, 500+ Sessions, 1000+ Sessions (permanent once earned)
+- Specialist Badges: 50+ sessions in specific document category, self-declared specialization, verified by session history
+- Rising Star: New ENP (first 30 days), 4.5+ rating in first 10 sessions
+- SC Accredited: Automatic for all verified ENPs, confirms valid commission under SC rules
 
-## Slide 24: How to Earn Badges
-
-**Top Rated Badge:**
-- 4.8+ average rating
-- Minimum 50 reviews
-- Reviewed monthly
-
-**Fast Responder Badge:**
-- Accept 90%+ of requests within time limit
-- Average response time under 30 seconds
-- Reviewed weekly
-
-**Session Milestones:**
-- 100+ Sessions: First milestone
-- 500+ Sessions: Second milestone
-- 1000+ Sessions: Third milestone
-- Permanent once earned
-
-**Specialist Badges:**
-- 50+ sessions in specific document category
-- Self-declared specialization
-- Verified by session history
-
-**Rising Star Badge:**
-- New ENP (first 30 days)
-- 4.5+ rating in first 10 sessions
-- Encourages clients to try you
-
-**SC Accredited Badge:**
-- Automatic for all verified ENPs
-- Confirms valid commission under SC rules
-- Default badge
-
-<!-- Visual Suggestion: Progress bars showing badge criteria -->
-
-## Slide 25: Rating System
-
-**Clients Rate You:**
-
-After each session, clients rate you on:
-- Professionalism
-- Timeliness
-- Communication
-- Overall satisfaction
-
-**You Rate Clients:**
-
-After each session, you can rate clients on:
-- Preparedness
-- Communication
-- Punctuality
-- Payment reliability
-
-**Why Ratings Matter:**
-
-- Your client ratings affect your ENP score
-- Your ratings affect Quick Match matching
+**Rating System:**
+- Clients rate you: Professionalism, Timeliness, Communication, Overall satisfaction
+- You rate clients: Preparedness, Communication, Punctuality, Payment reliability
+- Your client ratings affect your ENP score and Quick Match matching
 - Client reliability scores shown to you
-- Helps you make informed decisions
 - Builds reputation on platform
 
-**Handling Poor Ratings:**
-
-- Don't take it personally
-- Use as feedback for improvement
-- Respond professionally if possible
-- Focus on maintaining high average
-
-<!-- Visual Suggestion: Rating interface with star categories -->
-
-## Slide 26: Building Client Trust
-
 **Trust-Building Strategies:**
+1. Complete Your Profile - Professional photo, detailed qualifications, clear specializations, competitive rates
+2. Deliver Excellent Service - Start sessions on time, be responsive and professional, explain processes clearly, handle issues gracefully
+3. Earn Badges - Aim for Top Rated and Fast Responder, build session milestones, highlight specializations
+4. Maintain High Ratings - 4.5+ average rating target, respond quickly to requests, accept bookings you can fulfill
+5. Use Quick Match Effectively - Set realistic availability, opt-out when unavailable, build your initial client base
+6. Be Reliable - Show up on time, complete sessions properly, communicate clearly, respect client's time
 
-1. **Complete Your Profile**
-   - Professional photo
-   - Detailed qualifications
-   - Clear specializations
-   - Competitive rates
-
-2. **Deliver Excellent Service**
-   - Start sessions on time
-   - Be responsive and professional
-   - Explain processes clearly
-   - Handle issues gracefully
-
-3. **Earn Badges**
-   - Aim for Top Rated and Fast Responder
-   - Build session milestones
-   - Highlight specializations
-
-4. **Maintain High Ratings**
-   - 4.5+ average rating target
-   - Respond quickly to requests
-   - Accept bookings you can fulfill
-
-5. **Use Quick Match Effectively**
-   - Set realistic availability
-   - Opt-out when unavailable
-   - Build your initial client base
-
-6. **Be Reliable**
-   - Show up on time
-   - Complete sessions properly
-   - Communicate clearly
-   - Respect client's time
-
-<!-- Visual Suggestion: Trust-building roadmap with milestones -->
+<!-- Visual Suggestion: Badge showcase with progress bars + rating interface -->
 
 ---
 
 # 8. Common ENP Questions
 
-## Slide 27: Top ENP Questions
+## Slide 13: Top 10 ENP Questions
 
 **Q1: How do I set my rates?**
 - Go to `/profile` → "Fees"
@@ -837,7 +558,7 @@ After each session, you can rate clients on:
 - Chronological order, properly referenced
 - Access from `/notarial-book`
 
-**Q10: What's the difference between consultation and notarization?**
+**Q10: What's difference between consultation and notarization?**
 - Consultation: Advice, review, no official documents
 - Notarization: Official documents, notarial book entry
 - Can upgrade consultation to notarization
@@ -849,7 +570,7 @@ After each session, you can rate clients on:
 
 # 9. Security & Compliance
 
-## Slide 28: Access Management
+## Slide 14: Access Management & Privacy
 
 **System Restrictions:**
 
@@ -865,36 +586,19 @@ After each session, you can rate clients on:
 - Only verified users can participate
 
 **How It Works:**
-
 - System checks commission status periodically
 - SC integration verifies credentials (after transitional period)
 - Automatic blocking if commission expires
 - Re-enrollment required for new commissions
 
-<!-- Visual Suggestion: Access control diagram showing allowed/blocked states -->
-
-## Slide 29: Data Privacy & Security
-
 **Data Privacy Compliance:**
-
 - Compliant with Data Privacy Act of 2012 (RA 10173)
 - Registered with National Privacy Commission (NPC)
 - Information shared with SC per e-Notarization Data Sharing Guidelines
 
 **What We Collect:**
-
-From ENPs:
-- Commission credentials
-- Professional information
-- Session recordings
-- Notarial book entries
-- Earnings and tax information
-
-From Clients:
-- Name, contact information
-- ID documents (for KYC)
-- Biometric data (for liveness)
-- Documents being notarized
+From ENPs: Commission credentials, professional information, session recordings, notarial book entries, earnings and tax information
+From Clients: Name, contact information, ID documents (for KYC), biometric data (for liveness), documents being notarized
 
 **Security Measures:**
 - End-to-end encryption on all communications
@@ -902,9 +606,9 @@ From Clients:
 - Encrypted recordings
 - Tamper-evident notarial seals
 
-<!-- Visual Suggestion: Lock icon with privacy shield showing encryption -->
+<!-- Visual Suggestion: Access control diagram + lock icon with privacy shield -->
 
-## Slide 30: Supreme Court Integration
+## Slide 15: Supreme Court Integration
 
 **Automatic Transmissions:**
 
@@ -932,9 +636,9 @@ From Clients:
 
 # 10. Best Practices
 
-## Slide 31: Before Sessions
+## Slide 16: Before, During & After Sessions
 
-**Do:**
+**Before Sessions - Do:**
 - Review documents thoroughly
 - Respond quickly to booking requests
 - Keep your calendar updated
@@ -944,40 +648,32 @@ From Clients:
 - Set realistic availability
 - Opt-out of Quick Match when unavailable
 
-**Don't:**
+**Before Sessions - Don't:**
 - Accept bookings you can't fulfill
 - Leave requests unanswered
 - Forget to review documents
 - Have poor lighting for video calls
 - Overbook your schedule
 
-<!-- Visual Suggestion: Checkmark and X icons with do's and don'ts -->
-
-## Slide 32: During Sessions
-
-**Do:**
+**During Sessions - Do:**
 - Start sessions on time
 - Verify all participants' identities
-- Guide the process clearly
+- Guide process clearly
 - Explain legal concepts when needed
 - Be patient and professional
 - Affix notarial seal properly
 - Ensure all documents are signed
 - Address client concerns promptly
 
-**Don't:**
-- Rush the process
+**During Sessions - Don't:**
+- Rush process
 - Skip verification steps
 - Leave clients confused
 - Be dismissive of questions
 - Forget to notarize documents
 - End sessions early without completion
 
-<!-- Visual Suggestion: Video call interface with best practices highlighted -->
-
-## Slide 33: After Sessions
-
-**Do:**
+**After Sessions - Do:**
 - Ensure notarial book entry is complete
 - Verify payment received
 - Follow up with clients if needed
@@ -985,19 +681,21 @@ From Clients:
 - Maintain good records
 - Update your availability if needed
 
-**Don't:**
+**After Sessions - Don't:**
 - Forget to collect documents
 - Neglect poor ratings
 - Leave sessions unrecorded in notarial book
 - Ignore client follow-ups
 
-<!-- Visual Suggestion: File folder with completed session checklist -->
+<!-- Visual Suggestion: Timeline with do's and don'ts at each stage -->
 
 ---
 
-# 11. Tips & Troubleshooting
+# 11. Troubleshooting
 
-## Slide 34: Common Issues
+## Slide 17: Common Issues & Support
+
+**Common Issues:**
 
 **Quick Match Not Working:**
 - Check if you're opted-in
@@ -1029,19 +727,13 @@ From Clients:
 - Ensure document isn't locked incorrectly
 - Contact support if persistent
 
-<!-- Visual Suggestion: Troubleshooting flowchart with common issues and solutions -->
-
-## Slide 35: Where to Get Help
-
 **Support Channels:**
-
 1. **ENP Support** - Dedicated support for notaries
 2. **Technical Support** - Platform and integration issues
 3. **Legal Resources** - SC rules and compliance guidance
 4. **Community Forum** - Connect with other ENPs
 
 **When to Contact Support:**
-
 - Technical problems with platform
 - Payment or earnings issues
 - Notarial book synchronization problems
@@ -1049,19 +741,18 @@ From Clients:
 - Digital signature problems
 
 **When to Contact SC:**
-
 - Questions about notarial rules
 - Commission issues
 - Compliance concerns
 - e-Notarization guidelines
 
-<!-- Visual Suggestion: Contact options with icons (support, technical, legal, community) -->
+<!-- Visual Suggestion: Troubleshooting flowchart with common issues and solutions + contact options -->
 
 ---
 
 # 12. Summary
 
-## Slide 36: Your Journey Recap
+## Slide 18: Your Journey Recap
 
 **Complete Journey:**
 
@@ -1095,7 +786,7 @@ From Clients:
 - **IEN**: In-Person Electronic Notarization
 - **REN**: Remote Electronic Notarization
 - **KYC**: Know Your Customer (identity verification)
-- **SC**: Supreme Court of the Philippines
+- **SC**: Supreme Court of Philippines
 - **BSP**: Bangko Sentral ng Pilipinas
 - **NPC**: National Privacy Commission
 
@@ -1122,6 +813,6 @@ From Clients:
 
 ---
 
-_Document Version: 1.0_  
-_Last Updated: January 2026_  
+_Document Version: 1.0_
+_Last Updated: January 2026_
 _Author: Quanby Legal Product Team_

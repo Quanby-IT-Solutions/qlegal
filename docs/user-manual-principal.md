@@ -16,46 +16,37 @@
 
 ## Slide 1: What is Electronic Notarization?
 
-- Electronic notarization (e-notarization) is the digital version of traditional notarization
+**Electronic Notarization (e-notarization):**
+- Digital version of traditional notarization
 - Uses video technology for remote notarization (REN) or in-person with digital tools (IEN)
-- Legally recognized by the Supreme Court of the Philippines
+- Legally recognized by Supreme Court of the Philippines
 - Same legal validity as paper-based notarization
 
-**Benefits of E-Notarization:**
-- Sign from anywhere in the Philippines or at Philippine embassies abroad
+**Benefits:**
+- Sign from anywhere in Philippines or at Philippine embassies abroad
 - Faster processing time
 - Secure, tamper-evident documents
 - Digital storage of notarized documents
 - Access to session recordings
 
-<!-- Visual Suggestion: Split screen showing traditional notarization (paper, physical presence) vs e-notarization (video call, digital) -->
-
-## Slide 2: System Requirements
-
-**Before you start, ensure you have:**
-
+**System Requirements:**
 - Computer or mobile device with camera and microphone
 - Stable internet connection (minimum 2 Mbps recommended)
 - Valid government-issued ID (Philippine ID, Passport, Driver's License, etc.)
 - Email address and phone number
-- Documents ready for notarization (in PDF format)
+- Documents ready for notarization (PDF format)
 
-**Supported Browsers:**
-- Google Chrome (recommended)
-- Mozilla Firefox
-- Safari
-- Edge
+**Supported Browsers:** Google Chrome (recommended), Mozilla Firefox, Safari, Edge
 
-<!-- Visual Suggestion: Icons showing camera, internet speedometer, ID card, and browser logos -->
+<!-- Visual Suggestion: Split screen showing traditional vs e-notarization with icons for requirements -->
 
 ---
 
 # 2. Getting Started
 
-## Slide 3: Registration Process
+## Slide 2: Registration & KYC
 
-**Step-by-Step Registration:**
-
+**Registration Process:**
 1. Go to the registration page
 2. Enter your full legal name (must match your ID)
 3. Provide email address and phone number
@@ -65,41 +56,28 @@
 7. Check your email for verification link
 8. Click the verification link to activate your account
 
-**Important Notes:**
-- Use your legal name as it appears on government IDs
-- Keep your contact information updated
-- Your email is used for all notifications
-
-<!-- Visual Suggestion: Flow chart showing steps 1-8 in sequence with arrows -->
-
-## Slide 4: KYC Verification
-
-**What is KYC?**
-- KYC (Know Your Customer) is a one-time identity verification
-- Required by Bangko Sentral ng Pilipinas (BSP) regulations
-- You must complete KYC before using the platform
+**KYC (Know Your Customer) Verification:**
+- One-time identity verification required by BSP regulations
+- Must complete KYC before using the platform
 
 **KYC Process:**
-
 1. Upload your government-issued ID (front and back if applicable)
 2. Take a selfie photo
 3. System verifies your face matches your ID photo
 4. Wait for verification (usually instant)
 5. Receive "KYC Verified" status
 
-**Accepted IDs:**
-- Philippine ID (PhilID, UMID)
-- Passport
-- Driver's License
-- Professional Regulation Commission (PRC) ID
-- Other valid government-issued IDs
+**Accepted IDs:** Philippine ID (PhilID, UMID), Passport, Driver's License, PRC ID, other valid government-issued IDs
 
-<!-- Visual Suggestion: Split screen showing ID upload and selfie capture interface -->
+<!-- Visual Suggestion: Flow chart showing registration → verification → KYC complete -->
 
-## Slide 5: Your Dashboard Overview
+---
+
+# 3. Your Dashboard
+
+## Slide 3: Dashboard & Navigation
 
 **After logging in, you'll see:**
-
 - **Upcoming Sessions** - Your scheduled notarizations
 - **Quick Actions** - Book a session, browse ENPs, send messages
 - **Recent Documents** - Your recently notarized documents
@@ -116,9 +94,9 @@
 
 ---
 
-# 3. Finding an ENP
+# 4. Finding an ENP
 
-## Slide 6: Three Ways to Find an ENP
+## Slide 4: Three Ways to Find an ENP
 
 **1. Browse & Select**
 - View all available ENPs
@@ -130,7 +108,7 @@
 - System finds the best available ENP for you
 - Fastest way to get started
 - Based on fair scoring algorithm
-- You can accept or find another
+- You can accept or find another (max 2 times, then 10-min cooldown)
 
 **3. Message First**
 - Chat with ENPs before booking
@@ -140,100 +118,30 @@
 
 <!-- Visual Suggestion: Three cards side by side showing the three options with icons -->
 
-## Slide 7: Browse & Select
+## Slide 5: Browse & Select - Detailed Steps
 
-**Best for:**
-- You know exactly what you need
-- You want to choose a specific notary
-- You prefer someone with specific experience
+**Best for:** You know exactly what you need, want to choose a specific notary, or prefer someone with specific experience
 
 **How to Browse:**
+1. Go to `/browse` → "Browse ENPs" tab
+2. Use filters: Specialization, Rating, Location, Language
+3. Click on an ENP profile to view details
+4. Check availability calendar
+5. Select date and time slot
+6. Choose session type (Consultation/Notarization)
+7. Choose mode (REN/IEN/Hybrid)
+8. Submit booking request
+9. Wait for ENP to accept
 
-1. Go to `/browse`
-2. Select "Browse ENPs" tab
-3. Use filters to narrow down:
-   - Specialization (Real Estate, Contracts, etc.)
-   - Rating (4.0+, 4.5+, etc.)
-   - Location
-   - Language
-4. Click on an ENP profile to view details
-5. Check availability calendar
-6. Select date and time slot
-7. Choose session type (Consultation/Notarization)
-8. Choose mode (REN/IEN/Hybrid)
-9. Submit booking request
-10. Wait for ENP to accept
-
-**ENP Profile Information:**
-- Qualifications and credentials
-- Client reviews and ratings
-- Badges earned
-- Consultation/notarization fees
-- Specializations
+**ENP Profile Information:** Qualifications and credentials, client reviews and ratings, badges earned, fees, specializations
 
 <!-- Visual Suggestion: Screenshot of the Browse page showing ENP cards with filters -->
 
-## Slide 8: Quick Match
-
-**Best for:**
-- Urgent requests
-- No preference for specific ENP
-- Trust the system to find the best match
-
-**How to Use Quick Match:**
-
-1. Go to `/browse`
-2. Select "Quick Match" tab
-3. Choose service type:
-   - Consultation
-   - Notarization
-4. Select mode (REN/IEN/Hybrid)
-5. Choose time window (e.g., "Today 2-4 PM" or "ASAP")
-6. Click "Find Best Match"
-7. Review matched ENP profile
-8. Click "Confirm" or "Find Another"
-9. Wait for ENP to accept (60 seconds)
-
-**Quick Match Fairness:**
-- System considers ENP rating, speed, experience, and workload
-- New ENPs get priority initially
-- You can find another (max 2 times)
-- 10-minute cooldown after 2 attempts
-
-<!-- Visual Suggestion: Flow diagram showing Quick Match process -->
-
-## Slide 9: Message First
-
-**Best for:**
-- You have questions before committing
-- You want the ENP to review your documents first
-- Discussing complex requirements
-
-**How to Message First:**
-
-1. Go to `/browse` → "Browse ENPs" tab
-2. Select an ENP
-3. Click "Message" on their profile
-   OR go to `/messages` and search by name/email
-4. Start a conversation
-5. Ask questions and share documents
-6. When ready, click "Request Session" in chat
-7. Fill in session details
-8. Wait for ENP to accept
-
-**What to Discuss:**
-- Document type and complexity
-- Number of witnesses needed
-- Special requirements
-- Timeline expectations
-
-<!-- Visual Suggestion: Screenshot of messaging interface with "Request Session" button highlighted -->
-
 ---
 
-# 4. Session Types
+# 5. Session Types
 
-## Slide 10: Consultation vs Notarization
+## Slide 6: Consultation vs Notarization & Modes
 
 **Consultation**
 - Purpose: Ask questions, get legal advice, review documents
@@ -249,124 +157,54 @@
 - Duration: Varies by document count
 - Required: All parties present (principal, witnesses, ENP)
 
-<!-- Visual Suggestion: Comparison table showing Consultation vs Notarization -->
+**Session Modes:**
+- **REN (Remote)**: All parties join via video call from own locations (must be in Philippines or at embassy)
+- **IEN (In-Person)**: All parties physically present with ENP at ENP's office or designated location
+- **Hybrid**: Some parties remote, some in-person (e.g., OFW at embassy + family in Philippines)
 
-## Slide 11: REN, IEN, and Hybrid Modes
-
-**REN (Remote Electronic Notarization)**
-- All parties join via video call
-- Each at their own location
-- Must be in Philippines or at Philippine embassy/consular office
-- Best for: Remote locations, convenience, OFWs abroad
-
-**IEN (In-Person Electronic Notarization)**
-- All parties physically present with ENP
-- At ENP's office or designated location
-- Traditional preference with digital signing
-- Best for: High-value transactions, in-person preference
-
-**HYBRID (Mixed Mode)**
-- Some parties remote, some in-person
-- Video call connects all locations
-- Example: OFW at embassy + family in Philippines
-- Best for: OFWs signing with local family members
-
-<!-- Visual Suggestion: Three diagrams showing party arrangements for each mode -->
+<!-- Visual Suggestion: Comparison table for session types + three diagrams for modes -->
 
 ---
 
-# 5. Preparing for Your Session
+# 6. Preparing for Your Session
 
-## Slide 12: Document Upload
+## Slide 7: Documents, Witnesses & Fees
 
-**Who Can Upload?**
-- You can upload documents
-- ENP can also upload documents for you
+**Document Upload:**
+- You or ENP can upload documents (PDF format)
+- If you upload: ENP reviews, sets fee, may request changes
+- If ENP uploads: You review, approve or request changes
+- All documents must be locked before session
 
-**Upload Process:**
-
-1. From session details, click "Upload Document"
-2. Select your file (PDF format)
-3. Optional: Add document type tag
-4. Click upload
-
-**If You Upload:**
-- ENP reviews your document
-- ENP sets notarization fee for this document
-- ENP may request changes
-
-**If ENP Uploads:**
-- ENP includes document type and fee
-- You review the document
-- You approve or request changes
-
-<!-- Visual Suggestion: Screenshot of document upload interface -->
-
-## Slide 13: Inviting Witnesses
-
-**How to Add Witnesses:**
-
-1. From session details, click "Add Witness"
-2. Enter witness details:
-   - Full legal name
-   - Email address
-   - Phone number (optional)
-3. Select participation mode:
-   - Remote (joins via video)
-   - In-person (at ENP location or embassy)
-4. Click "Send Invitation"
-5. Witness receives email with instructions
-
-**Witness Requirements:**
+**Inviting Witnesses:**
+- From session details, click "Add Witness"
+- Enter witness details (name, email, phone optional)
+- Select participation mode (Remote or In-person)
+- Witnesses receive email with instructions
 - Must register and complete KYC before session
-- Must pass liveness check during session
-- Must be in Philippines or at Philippine embassy/consular
-- No separate fee (covered by your payment)
 - No limit on number of witnesses
+- No separate fee (covered by your payment)
 
-<!-- Visual Suggestion: Screenshot of "Add Witness" form -->
+**Understanding Fees:**
+- Document fees: Set by each ENP, varies by document type (e.g., Acknowledgment ₱500)
+- Additional: ₱50 per extra page, ₱100 per extra signatory
+- Platform fee: 10% of total (deducted automatically)
+- Payment split: ENP receives 90%, platform receives 10%
+- IEN option: Can pay cash (ENP clicks "Client Paid Cash")
+- Payment required BEFORE session starts to enable "Join Session"
 
-## Slide 14: Understanding Fees
+<!-- Visual Suggestion: Three-column layout for upload/witnesses/fees with icons -->
 
-**Document Fees**
-- Set by each ENP
-- Varies by document type
-- Example: Acknowledgment ₱500, Affidavit ₱500
-
-**Additional Fees**
-- Per additional page: ₱50
-- Per additional signatory: ₱100
-
-**Platform Fee**
-- 10% of total (deducted automatically)
-- Example: ₱500 document fee + ₱50 platform fee = ₱550 total
-
-**Payment Split**
-- ENP receives 90% of fees
-- Platform receives 10% of fees
-
-**IEN Cash Payment**
-- Can pay cash for IEN sessions
-- ENP clicks "Client Paid Cash" to confirm
-
-**Payment Timing**
-- Payment required BEFORE session starts
-- Pay after documents are locked and ready
-- Payment required to enable "Join Session"
-
-<!-- Visual Suggestion: Pie chart showing 90/10 split between ENP and platform -->
-
-## Slide 15: Pre-Session Checklist
+## Slide 8: Pre-Session Checklist
 
 **Before joining your session, ensure:**
-
-[ ] Stable internet connection (2 Mbps minimum)
-[ ] Working camera and microphone
-[ ] Good lighting on your face
-[ ] Valid government ID ready
-[ ] All documents reviewed and locked
-[ ] Payment completed
-[ ] All witnesses registered and KYC verified
+- [ ] Stable internet connection (2 Mbps minimum)
+- [ ] Working camera and microphone
+- [ ] Good lighting on your face
+- [ ] Valid government ID ready
+- [ ] All documents reviewed and locked
+- [ ] Payment completed
+- [ ] All witnesses registered and KYC verified
 
 **Security Checks Before Session:**
 - Liveness check (proves you are present now)
@@ -377,16 +215,15 @@
 - "Join Session" button becomes enabled
 - You can enter the video call
 
-<!-- Visual Suggestion: Checklist graphic with checkboxes -->
+<!-- Visual Suggestion: Checklist graphic with checkboxes and security icons -->
 
 ---
 
-# 6. During Session
+# 7. During Session
 
-## Slide 16: What to Expect (REN)
+## Slide 9: REN Session Flow & Liveness Check
 
 **REN Session Flow:**
-
 1. All parties join video call
 2. System verifies geolocation of all participants
 3. Each participant does liveness check (one by one)
@@ -398,60 +235,34 @@
 9. Session completes
 10. Documents distributed to all parties
 
-**Session Features:**
-- HD video quality (1280x720 minimum)
-- Recording (if enabled)
-- Secure document sharing
-- Real-time collaboration
-
-<!-- Visual Suggestion: Flow diagram showing REN session steps -->
-
-## Slide 17: Liveness Check
-
-**What is Liveness Check?**
-- Real-time face verification
-- Proves you are a real human, present now
-- Prevents fraud (pre-recorded videos, photos)
-
-**How It Works:**
-
-1. System prompts you to look at camera
-2. Follow on-screen instructions
-3. May ask you to:
-   - Blink
-   - Turn your head left/right
-   - Smile
-4. System verifies you are live
-5. Liveness check passes
-
-**Important:**
-- Every participant must pass before session
-- Done individually (one by one)
+**Liveness Check:**
+- Real-time face verification proving you are a real human, present now
+- Prevents fraud (pre-recorded videos, photos, masks)
+- Follow on-screen instructions (blink, turn head, smile)
 - Takes 30-60 seconds per person
+- Every participant must pass before session
 
-<!-- Visual Suggestion: Diagram showing face with checkmark icons around it -->
+<!-- Visual Suggestion: Flow diagram showing session steps with liveness check highlighted -->
 
-## Slide 18: Signing Process
+## Slide 10: Signing Process
 
 **Document Signing Order:**
-
 1. ENP presents Document 1
 2. You sign first (Principal)
 3. All witnesses sign
 4. ENP affixes notarial seal last
 5. Document 1 complete
 6. ENP presents Document 2
-7. Repeat signing for all documents
+7. Repeat for all documents
 
 **Signing Your Documents:**
-
 - Click "Sign" button
 - Use your electronic signature
 - Confirm each signature
 - Wait for all parties to complete
 - ENP signs last with notarial seal
 
-**Multiple Documents:**
+**Important:**
 - Signed in locked order
 - Cannot skip documents
 - All must be signed for session to complete
@@ -460,9 +271,9 @@
 
 ---
 
-# 7. After Session
+# 8. After Session
 
-## Slide 19: Receiving Documents
+## Slide 11: Documents, Recordings & Reviews
 
 **After Session Completion:**
 
@@ -482,125 +293,56 @@
 - Tamper-evident (any changes invalidate seal)
 - Legal proof of notarization
 
-<!-- Visual Suggestion: Screenshot of documents library page -->
-
-## Slide 20: Session Recordings
-
-**Access to Recordings:**
-
+**Session Recordings:**
 - Principals can create and download recordings
-- Instructions provided in user materials
 - Stored securely per SC requirements
-
-**When Recordings Are Available:**
-- REN sessions with recording enabled
-- After session completes
 - Accessible from `/sessions` or email link
+- Shows video of all participants and signing process
 
-**Recording Content:**
-- Video of all participants
-- Document signing process
-- ENP's verification procedures
+**Leave a Review:**
+- Rate the ENP (1-5 stars) on professionalism, timeliness, communication, satisfaction
+- Your review helps other clients choose the right ENP
+- ENPs can also rate you (affects your Reliability Score)
 
-<!-- Visual Suggestion: Video player interface showing playback controls -->
-
-## Slide 21: Leaving Reviews
-
-**After Your Session:**
-
-**Rate Your Experience:**
-- Rate the ENP (1-5 stars)
-- Provide feedback on:
-  - Professionalism
-  - Timeliness
-  - Communication
-  - Overall satisfaction
-
-**Your Review Helps:**
-- Other clients choose the right ENP
-- ENPs improve their service
-- System maintains quality
-
-**ENP Reviews of You:**
-- ENPs can also rate you
-- Affects your "Reliability Score"
-- Helps ENPs make informed decisions
-
-<!-- Visual Suggestion: Star rating interface with text feedback field -->
+<!-- Visual Suggestion: Three-column layout for documents/recordings/reviews -->
 
 ---
 
-# 8. Security Features
+# 9. Security Features
 
-## Slide 22: Liveness Detection
+## Slide 12: Security & Privacy
 
-**What It Does:**
+**Liveness Detection:**
 - Confirms you are a real person, present now
 - Prevents fraud (photos, videos, masks)
 - Required before every session
+- Anti-spoofing technology detects pre-recorded videos and photo attacks
 
-**How It Works:**
-- Camera captures your face
-- System analyzes real-time movements
-- Verifies liveness through prompts
-- Check must pass before session
-
-**Anti-Spoofing Technology:**
-- Detects pre-recorded videos
-- Identifies photo attacks
-- Prevents mask/fake identity attempts
-
-<!-- Visual Suggestion: Icon of face with shield symbol -->
-
-## Slide 23: Geolocation
-
-**What It Does:**
+**Geolocation:**
 - Verifies your physical location
 - Confirms you're in Philippines or at embassy
 - Blocks VPN usage
+- Principals and witnesses must be in Philippines or at PH embassy/consular
+- ENPs restricted from performing acts outside Philippines
 
-**Requirements:**
-- Principals: Must be in Philippines or at PH embassy/consular
-- Witnesses: Must be in Philippines or at PH embassy/consular
-- ENPs: Restricted from performing acts outside Philippines
-
-**How It Works:**
-- System checks GPS location
-- Compares to allowed locations
-- Blocks access from unauthorized locations
-- Detects and blocks VPN attempts
-
-<!-- Visual Suggestion: Map icon with location pin showing Philippines -->
-
-## Slide 24: Data Privacy
-
-**Your Data is Protected:**
-
+**Data Privacy:**
 - Compliant with Data Privacy Act of 2012 (RA 10173)
 - Registered with National Privacy Commission (NPC)
 - Information shared only with Supreme Court (per guidelines)
 - End-to-end encryption on all communications
+- Data privacy notice explains collection and SC data sharing requirements
 
-**Data Privacy Notice:**
-- Prompt appears before you use the system
-- Explains how your data is collected and used
-- Informs you of SC data sharing requirements
+**What We Collect:** Name, contact information, ID documents (for KYC), biometric data (for liveness), session recordings (if enabled)
 
-**What We Collect:**
-- Name, contact information
-- ID documents (for KYC)
-- Biometric data (for liveness check)
-- Session recordings (if enabled)
-
-<!-- Visual Suggestion: Lock icon with privacy shield -->
+<!-- Visual Suggestion: Security icons shield with privacy lock and location pin -->
 
 ---
 
-# 9. Tips & Best Practices
+# 10. Tips & Best Practices
 
-## Slide 25: Before Your Session
+## Slide 13: Before, During & After Your Session
 
-**Do:**
+**Before Session - Do:**
 - Complete KYC well in advance
 - Upload documents early for ENP review
 - Test your camera and microphone
@@ -610,17 +352,13 @@
 - Invite witnesses early so they can complete KYC
 - Pay before session starts
 
-**Don't:**
+**Before Session - Don't:**
 - Wait until last minute to upload documents
 - Book without having documents ready
 - Forget to add witnesses
 - Book during poor internet conditions
 
-<!-- Visual Suggestion: Checkmark and X icons with do's and don'ts -->
-
-## Slide 26: During Your Session
-
-**Do:**
+**During Session - Do:**
 - Join 5-10 minutes early
 - Have your ID visible
 - Follow ENP's instructions
@@ -629,18 +367,14 @@
 - Ask questions if you don't understand
 - Stay until session completes
 
-**Don't:**
+**During Session - Don't:**
 - Join late
 - Have background noise or distractions
 - Sign documents you haven't reviewed
 - Leave before session completes
 - Use VPN (it will be blocked)
 
-<!-- Visual Suggestion: Video call interface with best practices highlighted -->
-
-## Slide 27: After Your Session
-
-**Do:**
+**After Session - Do:**
 - Download your notarized documents
 - Save receipts and proofs
 - Access recordings (if enabled)
@@ -648,19 +382,21 @@
 - Check documents for accuracy
 - Store documents securely
 
-**Don't:**
+**After Session - Don't:**
 - Forget to download documents
 - Lose your receipts
 - Share recordings publicly
 - Alter notarized documents (invalidates seal)
 
-<!-- Visual Suggestion: File folder with secure lock icon -->
+<!-- Visual Suggestion: Timeline with do's and don'ts at each stage -->
 
 ---
 
-# 10. Troubleshooting
+# 11. Troubleshooting & FAQ
 
-## Slide 28: Common Issues
+## Slide 14: Common Issues & Support
+
+**Common Issues:**
 
 **KYC Verification Fails:**
 - Check that your ID is valid and not expired
@@ -692,36 +428,15 @@
 - Close other apps using bandwidth
 - ENP may reschedule if connection is poor
 
-<!-- Visual Suggestion: Troubleshooting flowchart with common issues and solutions -->
-
-## Slide 29: Where to Get Help
-
 **Support Channels:**
-
 1. **Help Center** - FAQ and guides
 2. **Live Chat** - Real-time support during business hours
 3. **Email Support** - Send questions, response within 24 hours
 4. **Contact ENP** - For session-specific issues
 
-**When to Contact Support:**
-- Technical problems with the platform
-- Payment or billing issues
-- Account access problems
-- KYC verification issues
+<!-- Visual Suggestion: Troubleshooting flowchart with common issues and solutions -->
 
-**When to Contact Your ENP:**
-- Session rescheduling
-- Document questions
-- Witness coordination
-- Post-session document issues
-
-<!-- Visual Suggestion: Contact options with icons (chat, email, phone, help center) -->
-
----
-
-# 11. FAQ
-
-## Slide 30: Top Questions for Principals
+## Slide 15: Top Questions for Principals
 
 **Q1: How long does notarization take?**
 - Typical session: 30-60 minutes
@@ -776,7 +491,7 @@
 
 # 12. Summary
 
-## Slide 31: Your Journey Recap
+## Slide 16: Your Journey Recap
 
 **Complete Journey:**
 
@@ -825,6 +540,6 @@
 
 ---
 
-_Document Version: 1.0_  
-_Last Updated: January 2026_  
+_Document Version: 1.0_
+_Last Updated: January 2026_
 _Author: Quanby Legal Product Team_
