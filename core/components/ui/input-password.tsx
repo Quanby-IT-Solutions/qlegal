@@ -3,12 +3,17 @@ import { Eye, EyeOff } from "lucide-react"
 
 import { cn } from "@/core/lib/utils"
 
-function InputPassword({ className, ...props }: React.ComponentProps<"input">) {
+const InputPassword = React.forwardRef<
+	HTMLInputElement,
+	React.ComponentProps<"input">
+>(({ className, id, ...props }, ref) => {
 	const [showPassword, setShowPassword] = React.useState(false)
 
 	return (
 		<div className="relative">
 			<input
+				ref={ref}
+				id={id}
 				type={showPassword ? "text" : "password"}
 				data-slot="input"
 				className={cn(
@@ -43,6 +48,8 @@ function InputPassword({ className, ...props }: React.ComponentProps<"input">) {
 			`}</style>
 		</div>
 	)
-}
+})
+
+InputPassword.displayName = "InputPassword"
 
 export { InputPassword }
