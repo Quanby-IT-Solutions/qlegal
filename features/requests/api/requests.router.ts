@@ -1,6 +1,5 @@
 import { TRPCError } from "@trpc/server"
 import { and, asc, desc, eq } from "drizzle-orm"
-
 import { z } from "zod/v4"
 
 import { getUrl } from "@/core/lib/get-url"
@@ -199,8 +198,9 @@ export const requestsRouter = createTRPCRouter({
 							email: true,
 							image: true,
 						},
+					},
 				},
-			}})
+			})
 
 			if (!request) {
 				throw new TRPCError({

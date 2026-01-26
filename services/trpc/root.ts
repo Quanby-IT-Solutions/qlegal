@@ -16,13 +16,12 @@ import { notarialBookRouter } from "@/features/notarial-book/api/notarial-book.r
 import { profileRouter } from "@/features/profile/api/profile.router"
 import { quickMatchRouter } from "@/features/quick-match/api/quick-match.router"
 import { requestsRouter } from "@/features/requests/api/requests.router"
-import { settingsRouter } from "@/features/settings/api/settings.router"
-import { signatureLiteRouter } from "@/features/signature-lite/api/new-signature.router"
-import { witnessesRouter } from "@/features/witnesses/api/witnesses.router"
-import { userManagementRouter } from "@/features/user-management/api/user-management.router"
-
 // Import schedule router
 import { scheduleRouter } from "@/features/schedule/api/schedule.router"
+import { settingsRouter } from "@/features/settings/api/settings.router"
+import { signatureLiteRouter } from "@/features/signature-lite/api/new-signature.router"
+import { userManagementRouter } from "@/features/user-management/api/user-management.router"
+import { witnessesRouter } from "@/features/witnesses/api/witnesses.router"
 
 /**
  * This is the primary router for your server.
@@ -67,7 +66,6 @@ export const appRouter = createTRPCRouter({
 	// Add schedule router
 	schedule: scheduleRouter,
 })
-
 
 /**
  * Create a server-side caller for the tRPC API.

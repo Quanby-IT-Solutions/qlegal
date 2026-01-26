@@ -1,14 +1,13 @@
 "use client"
 
 import { useMemo } from "react"
-
-import type { Appointment } from "@/services/drizzle/schema/appointments"
-import type { CalendarEvent, EventColor } from "../types"
-import type { EnpAvailability } from "@/services/drizzle/schema/enp-profiles"
-
-import { trpc } from "@/services/trpc/client"
 import { toast } from "sonner"
 
+import type { Appointment } from "@/services/drizzle/schema/appointments"
+import type { EnpAvailability } from "@/services/drizzle/schema/enp-profiles"
+import { trpc } from "@/services/trpc/client"
+
+import type { CalendarEvent, EventColor } from "../types"
 import { EventCalendar } from "./event-calendar"
 
 interface ScheduleClientProps {
@@ -82,14 +81,17 @@ export function ScheduleClient({ scheduleData }: ScheduleClientProps) {
 		const duration = Math.round((event.end.getTime() - event.start.getTime()) / (60 * 1000))
 
 		// Extract time strings (HH:MM format)
-		const startTime = `${event.start.getHours().toString().padStart(2, '0')}:${event.start.getMinutes().toString().padStart(2, '0')}`
-		const endTime = `${event.end.getHours().toString().padStart(2, '0')}:${event.end.getMinutes().toString().padStart(2, '0')}`
+		const startTime = `${event.start.getHours().toString().padStart(2, "0")}:${event.start.getMinutes().toString().padStart(2, "0")}`
+		const endTime = `${event.end.getHours().toString().padStart(2, "0")}:${event.end.getMinutes().toString().padStart(2, "0")}`
 
 		// Determine appointment type based on event type
 		const appointmentType = event.eventType === "notarization" ? "DOCUMENT_SIGNING" : "CONSULTATION"
 
 		// Determine workflow based on mode or type
-		const workflow = event.mode?.toLowerCase() === "ren" || (!event.location && event.eventType === "consultation") ? "REN" : "IEN"
+		const workflow =
+			event.mode?.toLowerCase() === "ren" || (!event.location && event.eventType === "consultation")
+				? "REN"
+				: "IEN"
 
 		createEnpEvent.mutate({
 			title: event.title.trim(),
@@ -110,11 +112,14 @@ export function ScheduleClient({ scheduleData }: ScheduleClientProps) {
 		const duration = Math.round((event.end.getTime() - event.start.getTime()) / (60 * 1000))
 
 		// Extract time strings (HH:MM format)
-		const startTime = `${event.start.getHours().toString().padStart(2, '0')}:${event.start.getMinutes().toString().padStart(2, '0')}`
-		const endTime = `${event.end.getHours().toString().padStart(2, '0')}:${event.end.getMinutes().toString().padStart(2, '0')}`
+		const startTime = `${event.start.getHours().toString().padStart(2, "0")}:${event.start.getMinutes().toString().padStart(2, "0")}`
+		const endTime = `${event.end.getHours().toString().padStart(2, "0")}:${event.end.getMinutes().toString().padStart(2, "0")}`
 
 		const appointmentType = event.eventType === "notarization" ? "DOCUMENT_SIGNING" : "CONSULTATION"
-		const workflow = event.mode?.toLowerCase() === "ren" || (!event.location && event.eventType === "consultation") ? "REN" : "IEN"
+		const workflow =
+			event.mode?.toLowerCase() === "ren" || (!event.location && event.eventType === "consultation")
+				? "REN"
+				: "IEN"
 
 		updateEnpEvent.mutate({
 			appointmentId: event.id,
@@ -145,7 +150,8 @@ export function ScheduleClient({ scheduleData }: ScheduleClientProps) {
 			const eventDate = new Date(apt.appointmentDate)
 			const notes = apt.notes?.split("\n")[0]
 			const color: EventColor = apt.type === "CONSULTATION" ? "sky" : "emerald"
-			const eventType: "consultation" | "notarization" = apt.type === "CONSULTATION" ? "consultation" : "notarization"
+			const eventType: "consultation" | "notarization" =
+				apt.type === "CONSULTATION" ? "consultation" : "notarization"
 			return {
 				id: apt.id,
 				title: notes ?? "Event",
@@ -166,22 +172,26 @@ export function ScheduleClient({ scheduleData }: ScheduleClientProps) {
 		})
 
 		// Merge myEvents with transformed requests
-		const allEvents: CalendarEvent[] = [...myEvents, ...transformedRequests.map(req => {
-			const reqDate = req.scheduledDate ?? new Date(req.createdAt)
-			const color: EventColor = req.status === "PENDING" ? "amber" : req.status === "COMPLETED" ? "emerald" : "rose"
-			return {
-				id: req.id,
-				title: req.title,
-				start: reqDate,
-				end: new Date(reqDate.getTime() + 60 * 60 * 1000),
-				allDay: false,
-				color,
-				metadata: {
-					type: "request",
-					status: req.status,
-				},
-			}
-		})]
+		const allEvents: CalendarEvent[] = [
+			...myEvents,
+			...transformedRequests.map(req => {
+				const reqDate = req.scheduledDate ?? new Date(req.createdAt)
+				const color: EventColor =
+					req.status === "PENDING" ? "amber" : req.status === "COMPLETED" ? "emerald" : "rose"
+				return {
+					id: req.id,
+					title: req.title,
+					start: reqDate,
+					end: new Date(reqDate.getTime() + 60 * 60 * 1000),
+					allDay: false,
+					color,
+					metadata: {
+						type: "request",
+						status: req.status,
+					},
+				}
+			}),
+		]
 
 		return allEvents
 	}, [scheduleData, transformedRequests])

@@ -3,7 +3,6 @@ import { redirect } from "next/navigation"
 import { PageHeader } from "@/core/components/navbar/page-header"
 
 import { auth } from "@/services/next-auth"
-
 import { HydrateClient, trpc } from "@/services/trpc/server"
 
 import { ScheduleClient } from "@/features/schedule/components/schedule-client"
@@ -29,7 +28,7 @@ export default async function SchedulePage() {
 				<PageHeader items={[{ label: "Schedule", href: "/schedule" }]} />
 				<main className="flex-1 p-4 md:p-6 lg:p-8">
 					<div className="mx-auto max-w-7xl space-y-8">
-							<ScheduleClient scheduleData={scheduleData} />
+						<ScheduleClient scheduleData={scheduleData} />
 					</div>
 				</main>
 			</div>

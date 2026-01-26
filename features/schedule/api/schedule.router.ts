@@ -1,15 +1,11 @@
 import { TRPCError } from "@trpc/server"
-import { eq, and, or, desc, asc } from "drizzle-orm"
+import { and, asc, desc, eq, or } from "drizzle-orm"
 
 import { appointments } from "@/services/drizzle/schema/appointments"
 import { users } from "@/services/drizzle/schema/auth"
 import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
 
-import {
-	createEnpEventSchema,
-	deleteEnpEventSchema,
-	updateEnpEventSchema,
-} from "./schedule.schema"
+import { createEnpEventSchema, deleteEnpEventSchema, updateEnpEventSchema } from "./schedule.schema"
 
 export const scheduleRouter = createTRPCRouter({
 	// Create ENP event (consultation or notarization)
@@ -45,7 +41,9 @@ export const scheduleRouter = createTRPCRouter({
 					: input.workflow === "IEN" && input.location
 						? "Workflow: In-Person Electronic Notarization (IEN)"
 						: "",
-			].filter(Boolean).join("\n")
+			]
+				.filter(Boolean)
+				.join("\n")
 
 			// Create self-appointment (client = lawyer = ENP)
 			const [appointment] = await ctx.db
@@ -59,7 +57,7 @@ export const scheduleRouter = createTRPCRouter({
 					notes: notes || null,
 					location:
 						input.type === "DOCUMENT_SIGNING" && input.workflow === "IEN"
-							? input.location ?? undefined
+							? (input.location ?? undefined)
 							: null,
 					meetingLink: null, // Set when confirmed
 					status: "CONFIRMED", // ENP-created events are auto-confirmed
@@ -102,7 +100,9 @@ export const scheduleRouter = createTRPCRouter({
 			}
 
 			// Parse appointment date with time
-			const appointmentDateTime = input.appointmentDate ? new Date(input.appointmentDate) : existing.appointmentDate
+			const appointmentDateTime = input.appointmentDate
+				? new Date(input.appointmentDate)
+				: existing.appointmentDate
 
 			if (input.startTime) {
 				const [hours, minutes] = input.startTime.split(":").map(Number)
@@ -126,7 +126,9 @@ export const scheduleRouter = createTRPCRouter({
 					: input.workflow === "IEN" && input.location
 						? "Workflow: In-Person Electronic Notarization (IEN)"
 						: "",
-			].filter(Boolean).join("\n")
+			]
+				.filter(Boolean)
+				.join("\n")
 
 			const [updated] = await ctx.db
 				.update(appointments)
@@ -135,7 +137,10 @@ export const scheduleRouter = createTRPCRouter({
 					appointmentDate: appointmentDateTime,
 					duration,
 					notes,
-					location: input.type === "DOCUMENT_SIGNING" && input.workflow === "IEN" ? input.location ?? existing.location : null,
+					location:
+						input.type === "DOCUMENT_SIGNING" && input.workflow === "IEN"
+							? (input.location ?? existing.location)
+							: null,
 					updatedAt: new Date(),
 				})
 				.where(eq(appointments.id, input.appointmentId))

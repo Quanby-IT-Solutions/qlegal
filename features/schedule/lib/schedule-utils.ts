@@ -1,13 +1,27 @@
 import { addDays, endOfMonth, startOfMonth } from "date-fns"
 
-import type { CalendarEvent } from "../types"
 import type { Appointment } from "@/services/drizzle/schema/appointments"
+
+import type { CalendarEvent } from "../types"
 
 export function transformScheduleToCalendarEvents(
 	schedule: {
 		regular: { dayOfWeek: number; startTime: string; endTime: string }[]
-		blocked: { id: string; date: string; startTime: string; endTime: string; reason: string | null }[]
-		recurringBlocked: { id: string; dayOfWeek: number; startTime: string; endTime: string; reason: string | null; isAllDays: boolean }[]
+		blocked: {
+			id: string
+			date: string
+			startTime: string
+			endTime: string
+			reason: string | null
+		}[]
+		recurringBlocked: {
+			id: string
+			dayOfWeek: number
+			startTime: string
+			endTime: string
+			reason: string | null
+			isAllDays: boolean
+		}[]
 		custom: { id: string; date: string; startTime: string; endTime: string }[]
 		myAppointments?: Array<Appointment>
 	},
@@ -28,7 +42,7 @@ export function transformScheduleToCalendarEvents(
 
 	// Add ENP's own appointments (consultations/notarizations)
 	if (schedule.myAppointments) {
-		schedule.myAppointments.forEach((apt) => {
+		schedule.myAppointments.forEach(apt => {
 			const eventDate = new Date(apt.appointmentDate)
 
 			// Only add for current month
@@ -43,7 +57,11 @@ export function transformScheduleToCalendarEvents(
 
 				events.push({
 					id: apt.id,
-					title: apt.notes ? apt.notes.split("\n")[0] : (isConsultation ? "Consultation" : "Document Signing"),
+					title: apt.notes
+						? apt.notes.split("\n")[0]
+						: isConsultation
+							? "Consultation"
+							: "Document Signing",
 					start: eventDate,
 					end: new Date(eventDate.getTime() + (apt.duration || 60) * 60 * 1000),
 					allDay: false,

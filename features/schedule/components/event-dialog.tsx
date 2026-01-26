@@ -80,27 +80,27 @@ export function EventDialog({ event, isOpen, onClose, onSave, onDelete }: EventD
 	const form = useForm<EventDialogSchema>({
 		resolver: zodResolver(eventDialogSchema),
 		defaultValues: {
-      title: event?.title ?? "",
-      description: event?.description ?? "",
-      allDay: event?.allDay ?? true,
-      dateRange: {
-        from: event?.start ?? new Date(),
-        to: event?.end ?? new Date(),
-      },
-      startHour: "09",
-      startMinute: "00",
-      startPeriod: "am",
-      endHour: "10",
-      endMinute: "00",
-      endPeriod: "am",
-      timezone: event?.metadata?.timezone ?? "UTC",
-      color: event?.color ?? "sky",
-      recurrence: event?.recurrence ?? "does-not-repeat",
-      eventType: event?.eventType ?? "consultation",
-      mode: event?.mode ?? "ren",
-      location: event?.location ?? "",
-      roomId: event?.metadata?.roomId ?? undefined,
-    },
+			title: event?.title ?? "",
+			description: event?.description ?? "",
+			allDay: event?.allDay ?? true,
+			dateRange: {
+				from: event?.start ?? new Date(),
+				to: event?.end ?? new Date(),
+			},
+			startHour: "09",
+			startMinute: "00",
+			startPeriod: "am",
+			endHour: "10",
+			endMinute: "00",
+			endPeriod: "am",
+			timezone: event?.metadata?.timezone ?? "UTC",
+			color: event?.color ?? "sky",
+			recurrence: event?.recurrence ?? "does-not-repeat",
+			eventType: event?.eventType ?? "consultation",
+			mode: event?.mode ?? "ren",
+			location: event?.location ?? "",
+			roomId: event?.metadata?.roomId ?? undefined,
+		},
 	})
 
 	const watchAllDay = form.watch("allDay")
@@ -212,10 +212,10 @@ export function EventDialog({ event, isOpen, onClose, onSave, onDelete }: EventD
 								render={({ field }) => (
 									<FormItem>
 										<FormLabel>All Day</FormLabel>
-											<Select
-												onValueChange={value => field.onChange(value === "true")}
-												defaultValue={field.value ? "true" : "false"}
-											>
+										<Select
+											onValueChange={value => field.onChange(value === "true")}
+											defaultValue={field.value ? "true" : "false"}
+										>
 											<FormControl>
 												<SelectTrigger>
 													<SelectValue placeholder="Select all day" />
