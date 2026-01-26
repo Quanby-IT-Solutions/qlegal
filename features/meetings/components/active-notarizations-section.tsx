@@ -28,6 +28,7 @@ import {
 import { Skeleton } from "@/core/components/ui/skeleton"
 
 import { trpc } from "@/services/trpc/client"
+import { isAfter, startOfDay } from "date-fns"
 
 function getMeetingStatusBadge(status: string) {
 	switch (status) {
@@ -94,33 +95,40 @@ export function ActiveNotarizationsSection() {
 			{ enabled: detailsOpen && !!detailsMeetingId }
 		)
 
+	const today = startOfDay(new Date())
+
 	const filteredMeetings = useMemo(() => {
-		const list = meetings
 		const q = searchTerm.trim().toLowerCase()
-
-		return list.filter(m => {
-			const matchesSearch =
-				!q ||
-				m.title.toLowerCase().includes(q) ||
-				(m.createdBy.name ?? "").toLowerCase().includes(q)
-
-			const matchesStatus = statusFilter === "ALL" || m.status === statusFilter
-			return matchesSearch && matchesStatus
+	  
+		return meetings.filter(meeting => {
+		  const meetingDate = startOfDay(new Date(meeting.createdAt)) // normalize to start of day
+	  
+		  // Only include meetings after today (strictly future dates)
+		  if (!isAfter(meetingDate, today)) return false
+	  
+		  // Apply search filter only
+		  if (q && !meeting.title.toLowerCase().includes(q) && !(meeting.createdBy.name ?? "").toLowerCase().includes(q)) {
+			return false
+		  }
+	  
+		  return true
 		})
-	}, [meetings, searchTerm, statusFilter])
+	  }, [meetings, searchTerm])
 
 	return (
 		<div className="space-y-6">
 			<div className="space-y-2">
-				<h2 className="text-2xl font-semibold tracking-tight">Active Notarizations</h2>
+				<h2 className="text-2xl font-semibold tracking-tight">Upcoming</h2>
 				<p className="text-muted-foreground text-sm">
-					One notarization entry per meeting (same as Meetings list), showing document signing
-					progress.
+				Upcoming meetings scheduled with participants for notarization sessions.
 				</p>
 			</div>
+			<h3 className="text-sm font-small pt-5">
+							{filteredMeetings.length} Meeting{filteredMeetings.length !== 1 ? "s" : ""} Found
+						</h3>
 
 			<Card>
-				<CardContent className="pt-6">
+				<CardContent>
 					<div className="grid grid-cols-1 gap-4 md:grid-cols-2">
 						<Input
 							placeholder="Search meetings..."
@@ -167,30 +175,6 @@ export function ActiveNotarizationsSection() {
 				</Card>
 			) : (
 				<div className="space-y-4">
-					<div className="flex items-center justify-between">
-						<h3 className="text-lg font-medium">
-							{filteredMeetings.length} Meeting{filteredMeetings.length !== 1 ? "s" : ""} Found
-						</h3>
-						<div className="flex items-center gap-2">
-							<Button
-								variant="outline"
-								size="sm"
-								onClick={() => setPage(p => Math.max(1, p - 1))}
-								disabled={page <= 1 || isLoading}
-							>
-								Prev
-							</Button>
-							<div className="text-muted-foreground text-sm">Page {page}</div>
-							<Button
-								variant="outline"
-								size="sm"
-								onClick={() => setPage(p => p + 1)}
-								disabled={!hasMore || isLoading}
-							>
-								Next
-							</Button>
-						</div>
-					</div>
 
 					{filteredMeetings.map(meeting => {
 						const scheduledLabel = meeting.createdAt
@@ -205,7 +189,7 @@ export function ActiveNotarizationsSection() {
 
 						return (
 							<Card key={meeting.id} className="transition-shadow hover:shadow-md">
-								<CardContent className="p-6">
+								<CardContent className="relative pl-10 pr-10">
 									<div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
 										<div className="min-w-0 flex-1">
 											<div className="mb-2 flex flex-wrap items-center gap-3">
@@ -297,6 +281,27 @@ export function ActiveNotarizationsSection() {
 							</Card>
 						)
 					})}
+					<div className="flex items-center justify-between">
+						<div className="flex items-center gap-2">
+							<Button
+								variant="outline"
+								size="sm"
+								onClick={() => setPage(p => Math.max(1, p - 1))}
+								disabled={page <= 1 || isLoading}
+							>
+								Prev
+							</Button>
+							<div className="text-muted-foreground text-sm">Page {page}</div>
+							<Button
+								variant="outline"
+								size="sm"
+								onClick={() => setPage(p => p + 1)}
+								disabled={!hasMore || isLoading}
+							>
+								Next
+							</Button>
+						</div>
+					</div>
 				</div>
 			)}
 

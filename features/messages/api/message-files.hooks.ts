@@ -12,7 +12,6 @@ export function useMessageFiles() {
 				{ conversationId, uploadType },
 				{
 					enabled: !!conversationId,
-					refetchInterval: 5000, // Poll every 5 seconds
 				}
 			),
 

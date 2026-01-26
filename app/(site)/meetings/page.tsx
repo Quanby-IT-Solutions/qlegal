@@ -2,7 +2,7 @@
 
 import { useRouter, useSearchParams } from "next/navigation"
 import { useEffect, useState } from "react"
-import { History, PenTool, Video } from "lucide-react"
+import { History, PenTool, Video, Clock } from "lucide-react"
 
 import { PageHeader } from "@/core/components/navbar/page-header"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/core/components/ui/tabs"
@@ -53,7 +53,7 @@ export default function MeetingsPage() {
 					{ label: "Meetings & Notarizations", href: "/meetings" },
 					{
 						label:
-							activeTab === "meetings" ? "Sessions" : activeTab === "active" ? "Active" : "History",
+							activeTab === "meetings" ? "Ongoing" : activeTab === "active" ? "Upcoming" : "Past",
 					},
 				]}
 			/>
@@ -62,7 +62,7 @@ export default function MeetingsPage() {
 				<div className="mx-auto max-w-7xl space-y-8">
 					{/* Header */}
 					<div className="space-y-2">
-						<h1 className="text-3xl font-bold tracking-tight">Meetings & Notarizations</h1>
+						<h1 className="text-3xl font-bold tracking-tight">Sessions</h1>
 						<p className="text-muted-foreground mt-2">
 							Manage your video meetings and notarization sessions
 						</p>
@@ -71,20 +71,20 @@ export default function MeetingsPage() {
 					<Tabs
 						value={hydrated ? activeTab : "meetings"}
 						onValueChange={handleTabChange}
-						className="space-y-8"
+						className="space-y-3"
 					>
 						<TabsList className="grid w-full max-w-2xl grid-cols-3">
 							<TabsTrigger value="meetings" className="gap-2">
 								<Video className="size-4" />
-								Sessions
+								Ongoing
 							</TabsTrigger>
 							<TabsTrigger value="active" className="gap-2">
-								<PenTool className="size-4" />
-								Active Notarizations
+								<Clock className="size-4" />
+								Upcoming
 							</TabsTrigger>
 							<TabsTrigger value="history" className="gap-2">
 								<History className="size-4" />
-								History
+								Past
 							</TabsTrigger>
 						</TabsList>
 

@@ -18,8 +18,6 @@ import {
 	CardHeader,
 	CardTitle,
 } from "@/core/components/ui/card"
-import { EventCalendar, type CalendarEvent } from "@/core/components/ui/event-calendar"
-import { Separator } from "@/core/components/ui/separator"
 import { getInitials } from "@/core/lib/utils"
 
 import { trpc, type RouterOutputs } from "@/services/trpc/client"
@@ -37,7 +35,7 @@ function normalizeDate(date: Date): Date {
 function getWorkflow(appointment: Appointment): "REN" | "IEN" {
 	if (appointment.meetingLink) return "REN"
 	if (appointment.location) return "IEN"
-	const notes = (appointment.notes || "").toLowerCase()
+	const notes = (appointment.notes ?? "").toLowerCase()
 	const hasRemote = notes.includes("ren") || notes.includes("remote")
 	return hasRemote ? "REN" : "IEN"
 }
@@ -92,36 +90,6 @@ export default function EnpCalendarPage() {
 	const hasData = (appointmentsForDay?.length ?? 0) > 0
 	const isBusy = isLoading || isFetching
 
-	// Transform appointments into calendar events
-	const calendarEvents = useMemo((): CalendarEvent[] => {
-		if (!enpAppointments) return []
-
-		return enpAppointments.map(apt => {
-			const workflow = getWorkflow(apt)
-			const startDate = new Date(apt.appointmentDate)
-			const endDate = new Date(startDate.getTime() + (apt.duration || 30) * 60 * 1000)
-
-			return {
-				id: apt.id,
-				title: `${apt.type === "DOCUMENT_SIGNING" ? "Document Signing" : "Consultation"} with ${apt.client?.name || "Client"}`,
-				start: startDate,
-				end: endDate,
-				metadata: {
-					type: "appointment",
-					appointmentType: apt.type,
-					status: apt.status,
-					workflow,
-					color:
-						apt.status === "CONFIRMED"
-							? "#3b82f6"
-							: apt.status === "PENDING"
-								? "#f59e0b"
-								: "#6b7280",
-				},
-			}
-		})
-	}, [enpAppointments])
-
 	return (
 		<div className="flex flex-1 flex-col">
 			<PageHeader items={[{ label: "My Calendar" }]} />
@@ -143,17 +111,6 @@ export default function EnpCalendarPage() {
 									<CardDescription>Days with bookings are highlighted.</CardDescription>
 								</CardHeader>
 								<CardContent className="space-y-4">
-									<EventCalendar
-										events={calendarEvents}
-										onDateClick={date => setSelectedDate(normalizeDate(date))}
-										defaultView="month"
-										defaultDate={selectedDate}
-										height={400}
-										className="bg-muted/30 rounded-2xl border p-4 shadow-sm"
-									/>
-
-									<Separator />
-
 									<div className="flex items-center justify-between">
 										<div className="space-y-1">
 											<p className="text-sm font-medium">Selected day</p>

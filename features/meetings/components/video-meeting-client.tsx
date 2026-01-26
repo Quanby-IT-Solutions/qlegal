@@ -4,6 +4,10 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { MeetingProvider, useMeeting, useParticipant, usePubSub } from "@videosdk.live/react-sdk"
 import {
 	AlertCircle,
+	ArrowDown,
+	ArrowLeft,
+	ArrowRight,
+	ArrowUp,
 	Camera,
 	CameraOff,
 	CheckCircle2,
@@ -607,6 +611,247 @@ type RecordingConsentRequest = {
 	requiredParticipantIds: string[]
 }
 
+// Signer Management Modal - Two-step process: Select signers, then order them
+const SignerManagementModal = React.memo(function SignerManagementModal({
+	participants,
+	signerUserIds,
+	onSignersChange,
+	isOpen,
+	onOpenChange,
+}: {
+	participants: Array<{
+		userId: string
+		user: { id: string; name: string | null; email: string | null; role?: string | null } | null
+	}>
+	signerUserIds: string[]
+	onSignersChange: (userIds: string[]) => void
+	isOpen: boolean
+	onOpenChange: (open: boolean) => void
+}) {
+	const { data: session } = useSession()
+	const isEnp = session?.user?.role === "ENP"
+	
+	const [step, setStep] = useState<"select" | "order">("select")
+	const [selectedUserIds, setSelectedUserIds] = useState<string[]>([])
+	
+	// Initialize selectedUserIds from prop when modal opens
+	useEffect(() => {
+		if (isOpen) {
+			setSelectedUserIds(Array.isArray(signerUserIds) ? [...signerUserIds] : [])
+			setStep("select")
+		}
+	}, [isOpen, signerUserIds])
+	
+	const selectedSet = useMemo(() => new Set(selectedUserIds), [selectedUserIds])
+	
+	const toggle = useCallback(
+		(userId: string, checked: boolean) => {
+			if (checked) {
+				setSelectedUserIds(prev => [...prev, userId])
+			} else {
+				setSelectedUserIds(prev => prev.filter(id => id !== userId))
+			}
+		},
+		[]
+	)
+	
+	const moveUp = useCallback(
+		(index: number) => {
+			if (index === 0) return
+			const newOrder = [...selectedUserIds]
+			const prev = newOrder[index - 1]
+			const curr = newOrder[index]
+			if (prev === undefined || curr === undefined) return
+			newOrder[index - 1] = curr
+			newOrder[index] = prev
+			setSelectedUserIds(newOrder)
+		},
+		[selectedUserIds]
+	)
+	
+	const moveDown = useCallback(
+		(index: number) => {
+			if (index === selectedUserIds.length - 1) return
+			const newOrder = [...selectedUserIds]
+			const curr = newOrder[index]
+			const next = newOrder[index + 1]
+			if (curr === undefined || next === undefined) return
+			newOrder[index] = next
+			newOrder[index + 1] = curr
+			setSelectedUserIds(newOrder)
+		},
+		[selectedUserIds]
+	)
+	
+	const handleNext = useCallback(() => {
+		if (selectedUserIds.length === 0) {
+			toast.error("Please select at least one signer")
+			return
+		}
+		setStep("order")
+	}, [selectedUserIds.length])
+	
+	const handleBack = useCallback(() => {
+		setStep("select")
+	}, [])
+	
+	const handleSave = useCallback(() => {
+		onSignersChange(selectedUserIds)
+		onOpenChange(false)
+		toast.success(`Saved ${selectedUserIds.length} signer(s)`)
+	}, [onSignersChange, onOpenChange, selectedUserIds])
+	
+	const handleCancel = useCallback(() => {
+		setSelectedUserIds(Array.isArray(signerUserIds) ? [...signerUserIds] : [])
+		setStep("select")
+		onOpenChange(false)
+	}, [onOpenChange, signerUserIds])
+	
+	// Get selected signers in order
+	const orderedSelected = useMemo(() => {
+		return selectedUserIds
+			.map(userId => participants.find(p => p.userId === userId))
+			.filter((p): p is NonNullable<typeof p> => p !== undefined)
+	}, [selectedUserIds, participants])
+	
+	return (
+		<Dialog open={isOpen} onOpenChange={onOpenChange}>
+			<DialogContent className="max-w-md">
+				<DialogHeader>
+					<DialogTitle className="flex items-center gap-2">
+						<UsersIcon className="text-primary size-5" />
+						{step === "select" ? "Select Signers" : "Set Signing Order"}
+					</DialogTitle>
+					<DialogDescription>
+						{step === "select"
+							? "Choose which participants must sign this document"
+							: "Arrange the order in which signers will sign (ENP only)"}
+					</DialogDescription>
+				</DialogHeader>
+				
+				<div className="space-y-4 py-4">
+					{step === "select" ? (
+						<div className="space-y-2">
+							<p className="text-muted-foreground text-sm">
+								Selected: {selectedUserIds.length} of {participants.length}
+							</p>
+							<div className="max-h-[400px] space-y-1.5 overflow-y-auto">
+								{participants.map(p => {
+									const checked = selectedSet.has(p.userId)
+									const name = p.user?.name ?? "Unknown"
+									const email = p.user?.email ?? ""
+									return (
+										<label
+											key={p.userId}
+											className={cn(
+												"hover:bg-muted/50 flex cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors",
+												checked && "bg-muted/50"
+											)}
+										>
+											<Checkbox
+												checked={checked}
+												onCheckedChange={c => toggle(p.userId, c === true)}
+												aria-label={`${name} (${email})`}
+											/>
+											<div className="min-w-0 flex-1">
+												<div className="flex items-center gap-1.5">
+													<User className="text-muted-foreground size-4 shrink-0" />
+													<span className="truncate font-medium">{name}</span>
+												</div>
+												<div className="text-muted-foreground truncate text-xs">{email}</div>
+											</div>
+										</label>
+									)
+								})}
+							</div>
+						</div>
+					) : (
+						<div className="space-y-2">
+							<p className="text-muted-foreground text-sm">
+								Drag or use arrows to reorder signers (ENP only)
+							</p>
+							<div className="max-h-[400px] space-y-1.5 overflow-y-auto">
+								{orderedSelected.map((p, index) => {
+									const name = p.user?.name ?? "Unknown"
+									const email = p.user?.email ?? ""
+									return (
+										<div
+											key={p.userId}
+											className="bg-muted/50 flex items-center gap-2 rounded-md px-3 py-2 text-sm"
+										>
+											<div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
+												{index + 1}
+											</div>
+											<div className="min-w-0 flex-1">
+												<div className="flex items-center gap-1.5">
+													<User className="text-muted-foreground size-4 shrink-0" />
+													<span className="truncate font-medium">{name}</span>
+												</div>
+												<div className="text-muted-foreground truncate text-xs">{email}</div>
+											</div>
+											{isEnp && (
+												<div className="flex shrink-0 flex-col gap-0.5">
+													<Button
+														variant="ghost"
+														size="sm"
+														className="h-5 w-5 p-0"
+														onClick={() => moveUp(index)}
+														disabled={index === 0}
+														aria-label="Move up"
+													>
+														<ArrowUp className="size-3" />
+													</Button>
+													<Button
+														variant="ghost"
+														size="sm"
+														className="h-5 w-5 p-0"
+														onClick={() => moveDown(index)}
+														disabled={index === orderedSelected.length - 1}
+														aria-label="Move down"
+													>
+														<ArrowDown className="size-3" />
+													</Button>
+												</div>
+											)}
+										</div>
+									)
+								})}
+							</div>
+						</div>
+					)}
+				</div>
+				
+				<DialogFooter className="flex-col gap-2 sm:flex-row">
+					{step === "select" ? (
+						<>
+							<Button variant="outline" onClick={handleCancel} className="w-full sm:w-auto">
+								Cancel
+							</Button>
+							<Button onClick={handleNext} className="w-full sm:w-auto">
+								Next
+								<ArrowRight className="ml-2 size-4" />
+							</Button>
+						</>
+					) : (
+						<>
+							<Button variant="outline" onClick={handleBack} className="w-full sm:w-auto">
+								<ArrowLeft className="mr-2 size-4" />
+								Back
+							</Button>
+							<Button variant="outline" onClick={handleCancel} className="w-full sm:w-auto">
+								Cancel
+							</Button>
+							<Button onClick={handleSave} className="w-full sm:w-auto">
+								Save
+							</Button>
+						</>
+					)}
+				</DialogFooter>
+			</DialogContent>
+		</Dialog>
+	)
+})
+
 // Signer Selector - Select which meeting participants are signers for this document (before plotting)
 const SignerSelector = React.memo(function SignerSelector({
 	participants,
@@ -620,22 +865,62 @@ const SignerSelector = React.memo(function SignerSelector({
 	signerUserIds: string[]
 	onSignersChange: (userIds: string[]) => void
 }) {
-	const selectedSet = useMemo(() => new Set(signerUserIds), [signerUserIds])
+	const { data: session } = useSession()
+	const isEnp = session?.user?.role === "ENP"
+	
+	// Ensure signerUserIds is always an array
+	const safeSignerUserIds = useMemo(() => Array.isArray(signerUserIds) ? signerUserIds : [], [signerUserIds])
+	const selectedSet = useMemo(() => new Set(safeSignerUserIds), [safeSignerUserIds])
 
 	const toggle = useCallback(
 		(userId: string, checked: boolean) => {
 			if (checked) {
-				onSignersChange([...signerUserIds, userId])
+				onSignersChange([...safeSignerUserIds, userId])
 			} else {
-				onSignersChange(signerUserIds.filter(id => id !== userId))
+				onSignersChange(safeSignerUserIds.filter(id => id !== userId))
 			}
 		},
-		[onSignersChange, signerUserIds]
+		[onSignersChange, safeSignerUserIds]
+	)
+
+	const moveUp = useCallback(
+		(index: number) => {
+			if (index === 0) return
+			const newOrder = [...safeSignerUserIds]
+			const prev = newOrder[index - 1]
+			const curr = newOrder[index]
+			if (prev === undefined || curr === undefined) return
+			newOrder[index - 1] = curr
+			newOrder[index] = prev
+			onSignersChange(newOrder)
+		},
+		[onSignersChange, safeSignerUserIds]
+	)
+
+	const moveDown = useCallback(
+		(index: number) => {
+			if (index === safeSignerUserIds.length - 1) return
+			const newOrder = [...safeSignerUserIds]
+			const curr = newOrder[index]
+			const next = newOrder[index + 1]
+			if (curr === undefined || next === undefined) return
+			newOrder[index] = next
+			newOrder[index + 1] = curr
+			onSignersChange(newOrder)
+		},
+		[onSignersChange, safeSignerUserIds]
 	)
 
 	const selected = participants.filter(p => selectedSet.has(p.userId))
 	const selectedCount = selected.length
 	const totalCount = participants.length
+
+	// Get selected signers in order - use safeSignerUserIds to ensure we have an array
+	const orderedSelected = useMemo(() => {
+		return safeSignerUserIds
+			.map(userId => participants.find(p => p.userId === userId))
+			.filter((p): p is NonNullable<typeof p> => p !== undefined)
+	}, [safeSignerUserIds, participants])
 
 	return (
 		<div className="bg-muted/30 mb-3 space-y-1.5 rounded-lg border p-2.5">
@@ -649,45 +934,89 @@ const SignerSelector = React.memo(function SignerSelector({
 				Select who must sign this document. Only selected signers will be added when you start
 				signing.
 			</p>
-			<div className="space-y-1.5">
-				{participants.map(p => {
-					const checked = selectedSet.has(p.userId)
-					const name = p.user?.name ?? "Unknown"
-					const email = p.user?.email ?? ""
-					return (
-						<label
-							key={p.userId}
-							className={cn(
-								"hover:bg-muted/50 flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-xs transition-colors",
-								checked && "bg-muted/50"
-							)}
-						>
-							<Checkbox
-								checked={checked}
-								onCheckedChange={c => toggle(p.userId, c === true)}
-								aria-label={`${name} (${email})`}
-							/>
-							<div className="min-w-0 flex-1">
-								<div className="flex items-center gap-1.5">
-									<User className="text-muted-foreground size-3 shrink-0" />
-									<span className="truncate font-medium">{name}</span>
+
+			{/* Show selected signers in order with order numbers (for ENP to reorder) */}
+			{orderedSelected.length > 0 && (
+				<div className="mb-3 space-y-1">
+					<p className="text-muted-foreground text-[10px] font-semibold">Signing Order:</p>
+					{orderedSelected.map((p, index) => {
+						const name = p.user?.name ?? "Unknown"
+						const email = p.user?.email ?? ""
+						return (
+							<div
+								key={p.userId}
+								className="bg-muted/50 flex items-center gap-2 rounded-md px-2 py-1.5 text-xs"
+							>
+								<div className="flex size-5 shrink-0 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
+									{index + 1}
 								</div>
-								<div className="text-muted-foreground truncate text-[10px]">{email}</div>
-							</div>
-							{checked && (
-								<div className="shrink-0">
-									<div className="flex items-center gap-1 rounded-full bg-gray-100 px-1.5 py-0.5 dark:bg-gray-800">
-										<Clock className="text-muted-foreground size-3" />
-										<span className="text-[10px] font-semibold text-gray-600 dark:text-gray-400">
-											Waiting
-										</span>
+								<div className="min-w-0 flex-1">
+									<div className="flex items-center gap-1.5">
+										<User className="text-muted-foreground size-3 shrink-0" />
+										<span className="truncate font-medium">{name}</span>
 									</div>
+									<div className="text-muted-foreground truncate text-[10px]">{email}</div>
 								</div>
-							)}
-						</label>
-					)
-				})}
-			</div>
+								{isEnp && (
+									<div className="flex shrink-0 flex-col gap-0.5">
+										<Button
+											variant="ghost"
+											size="sm"
+											className="h-4 w-4 p-0"
+											onClick={() => moveUp(index)}
+											disabled={index === 0}
+											aria-label="Move up"
+										>
+											<ArrowUp className="size-3" />
+										</Button>
+										<Button
+											variant="ghost"
+											size="sm"
+											className="h-4 w-4 p-0"
+											onClick={() => moveDown(index)}
+											disabled={index === orderedSelected.length - 1}
+											aria-label="Move down"
+										>
+											<ArrowDown className="size-3" />
+										</Button>
+									</div>
+								)}
+							</div>
+						)
+					})}
+				</div>
+			)}
+
+			{/* Unselected participants with checkboxes (selected ones are shown in Signing Order above) */}
+			{participants.filter(p => !selectedSet.has(p.userId)).length > 0 && (
+				<div className="space-y-1.5">
+					{participants
+						.filter(p => !selectedSet.has(p.userId))
+						.map(p => {
+							const name = p.user?.name ?? "Unknown"
+							const email = p.user?.email ?? ""
+							return (
+								<label
+									key={p.userId}
+									className="hover:bg-muted/50 flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-xs transition-colors"
+								>
+									<Checkbox
+										checked={false}
+										onCheckedChange={c => toggle(p.userId, c === true)}
+										aria-label={`${name} (${email})`}
+									/>
+									<div className="min-w-0 flex-1">
+										<div className="flex items-center gap-1.5">
+											<User className="text-muted-foreground size-3 shrink-0" />
+											<span className="truncate font-medium">{name}</span>
+										</div>
+										<div className="text-muted-foreground truncate text-[10px]">{email}</div>
+									</div>
+								</label>
+							)
+						})}
+				</div>
+			)}
 		</div>
 	)
 })
@@ -825,9 +1154,10 @@ const DocumentActions = React.memo(function DocumentActions({
 	meetingId,
 	onCreateProject,
 	isCreatingProject,
+	onPreGeneratedLink,
 }: {
 	document: { id: string; name: string; docoChainProjectId: string | null }
-	onSignClick: (projectUuid: string | null, email: string, documentId: string) => void
+	onSignClick: (projectUuid: string | null, email: string, documentId: string, isPlotting?: boolean) => void
 	onSignersChange?: (documentId: string, userIds: string[]) => void
 	isSigningPending: boolean
 	isLocked?: boolean
@@ -851,6 +1181,7 @@ const DocumentActions = React.memo(function DocumentActions({
 	meetingId?: string
 	onCreateProject?: (documentId: string, meetingId: string) => void
 	isCreatingProject?: boolean
+	onPreGeneratedLink?: (documentId: string, link: string, projectUuid: string) => void
 }) {
 	const { data: session } = useSession()
 
@@ -902,47 +1233,127 @@ const DocumentActions = React.memo(function DocumentActions({
 	// Statuses: PENDING, NEXT GROUP (not plotted), or other statuses might indicate plotted
 	const signerStatus = (currentUserSigner?.status ?? "").toUpperCase()
 	const isPendingOrNextGroup = signerStatus === "PENDING" || signerStatus === "NEXT GROUP"
+	const isEnp = session?.user?.role === "ENP"
+	const isPrincipal = session?.user?.role === "PRINCIPAL"
 
-	// Determine button text based on state:
-	// 1. Not added → "Start Signing" (adds user, generates edit draft link)
-	// 2. Added + PENDING/NEXT GROUP → "Plot Signature" (edit draft link exists, can plot)
-	// 3. Added + other status (plotted but not signed) → "Sign Document" (signature plotted, can sign)
-	// 4. Signed → button disabled (already completed)
-	const getButtonText = () => {
-		if (!isUserAddedAsSigner) {
-			// User not added yet - clicking will add them and generate edit draft link
+	// Determine if signer is "Current" (it's their turn to sign)
+	// Find the first signer who hasn't signed - if it's the current user, they're "Current"
+	const currentSignerIndex = filteredSigners.findIndex(s => !isSignerSigned(s))
+	const currentSigner = currentSignerIndex >= 0 ? filteredSigners[currentSignerIndex] : null
+	const isCurrentSigner = currentSigner?.email?.toLowerCase() === currentUserEmail?.toLowerCase()
+	
+	// Also check if ENP is first in signing order (based on signerUserIds array)
+	const currentUserId = session?.user?.id ?? null
+	const currentUserIndexInOrder = currentUserId ? signerUserIds?.indexOf(currentUserId) ?? -1 : -1
+	const isEnpFirstInOrder = isEnp && currentUserIndexInOrder === 0
+
+	// For ENP: After plotting, they should be able to sign.
+	// Detection logic:
+	// 1. If status is not PENDING/NEXT GROUP and not signed → plotted → show "Sign Document"
+	// 2. If ENP is current signer (from signer list) OR first in order → show "Sign Document" (they can plot then sign)
+	// 3. If status is PENDING/NEXT GROUP → show "Plot Signature" (not plotted yet)
+	const hasPlotted = !isPendingOrNextGroup && !hasUserSigned
+	const isEnpCurrentAndCanSign = isEnp && (isCurrentSigner || isEnpFirstInOrder) && !hasUserSigned
+
+	// Determine button text based on state and role:
+	// ENP: Start Signing → Plot Signature (ENP-only) → Sign Document. Principals never see Plot Signature.
+	// Principal: Start Signing only appears after ENP has plotted; before that, show "Start Signing" disabled (waiting for ENP).
+	const getButtonText = (): "Start Signing" | "Plot Signature" | "Sign Document" => {
+		if (hasUserSigned) return "Sign Document"
+		
+		// For ENP: After project is created, they must plot first, then sign
+		if (isEnp) {
+			// If project exists, ENP must plot first
+			if (document.docoChainProjectId) {
+				// Check actual plotting status - if status is NOT PENDING/NEXT GROUP, ENP has plotted
+				if (hasPlotted) {
+					return "Sign Document"
+				}
+				// Project exists but ENP hasn't plotted yet (status is still PENDING/NEXT GROUP) - show "Plot Signature"
+				return "Plot Signature"
+			}
+			// No project yet - show "Start Signing" (will create project and add as signer)
 			return "Start Signing"
 		}
-		if (hasUserSigned) {
-			// User has completed signing - button should be disabled
-			return "Sign Document"
-		}
-		// Check if user has plotted (status is not PENDING/NEXT GROUP)
-		if (!isPendingOrNextGroup) {
-			// User has plotted signature marks but hasn't signed yet
-			return "Sign Document"
-		}
-		// User is added but still in PENDING/NEXT GROUP - edit draft link exists, can plot signature
-		return "Plot Signature"
+		
+		// For non-ENP (Principal, etc.): show "Start Signing"
+		if (!isUserAddedAsSigner) return "Start Signing"
+		
+		// For Principal: if plotted, show "Start Signing", otherwise show "Start Signing" (disabled, waiting for ENP)
+		return "Start Signing"
 	}
 
 	const buttonText = getButtonText()
+	// Principal waiting for ENP to plot: not plotted yet, principal sees "Start Signing" but disabled
+	const isPrincipalWaitingForEnpToPlot = isPrincipal && isUserAddedAsSigner && isPendingOrNextGroup
+
+	// Check if previous signers (by signing order) have signed
+	// signerUserIds array is ordered by signingOrder (index 0 = order 1, index 1 = order 2, etc.)
+	// currentUserIndexInOrder was already calculated above in getButtonText logic
+	const currentUserIndex = currentUserIndexInOrder >= 0 ? currentUserIndexInOrder : (currentUserId ? signerUserIds?.indexOf(currentUserId) ?? -1 : -1)
+	const previousSignersHaveSigned = useMemo(() => {
+		if (currentUserIndex <= 0 || !signerUserIds || !participants || !filteredSigners) return true
+		
+		// Get all signers before current user (by order)
+		const previousUserIds = signerUserIds.slice(0, currentUserIndex)
+		
+		// Get emails of previous signers
+		const previousSignerEmails = new Set<string>()
+		for (const userId of previousUserIds) {
+			const participant = participants.find(p => p.userId === userId)
+			if (participant?.user?.email) {
+				previousSignerEmails.add(participant.user.email.toLowerCase())
+			}
+		}
+		
+		// Check if all previous signers have signed
+		const previousSigners = filteredSigners.filter(s =>
+			previousSignerEmails.has(s.email?.toLowerCase() ?? "")
+		)
+		
+		return previousSigners.length === previousSignerEmails.size && 
+			previousSigners.every(isSignerSigned)
+	}, [currentUserIndex, signerUserIds, participants, filteredSigners, isSignerSigned])
 
 	// Determine if Start Signing button should be disabled
 	const isSigningDisabledByOrder = isLocked && !isPreviousDocumentSigned && (documentIndex ?? 0) > 0
 	const hasNoSignersSelected = !document.docoChainProjectId && (signerUserIds?.length ?? 0) === 0
 	const hasSigners = (signerUserIds?.length ?? 0) > 0
-	const currentUserId = session?.user?.id ?? null
 	const isCurrentUserSigner =
 		currentUserId !== null && (signerUserIds?.includes(currentUserId) ?? false)
 	const userNotInSignerList = hasSigners && !isCurrentUserSigner
-	const isSigningDisabled = allSignersSigned
+	// "Previous signer must sign first" applies when button is "Start Signing" OR "Sign Document" (for ENP after plotting)
+	// It does NOT apply to "Plot Signature" (ENP can always plot, even if previous signers haven't signed)
+	// For ENP: After plotting, "Sign Document" should be disabled unless it's their turn (previous signers have signed)
+	const isSigningDisabledByPreviousSigners =
+		buttonText !== "Plot Signature" &&
+		(buttonText === "Start Signing" || buttonText === "Sign Document") &&
+		currentUserIndex > 0 &&
+		!previousSignersHaveSigned
+	
+	// For ENP: If button shows "Sign Document" but they haven't actually plotted yet (status still PENDING/NEXT GROUP),
+	// disable the button until they plot (status changes)
+	const isEnpNotPlottedYet = 
+		isEnp && 
+		buttonText === "Sign Document" && 
+		isPendingOrNextGroup && 
+		!hasUserSigned
+	
+	const isSigningDisabled = hasUserSigned
 		? true
-		: isSigningDisabledByOrder
+		: allSignersSigned
 			? true
-			: hasNoSignersSelected
+			: isSigningDisabledByOrder
 				? true
-				: userNotInSignerList
+				: hasNoSignersSelected
+					? true
+					: userNotInSignerList
+						? true
+						: isPrincipalWaitingForEnpToPlot
+							? true
+							: isEnpNotPlottedYet
+								? true
+								: isSigningDisabledByPreviousSigners
 
 	const handleSignersChange = useCallback(
 		(userIds: string[]) => {
@@ -951,21 +1362,111 @@ const DocumentActions = React.memo(function DocumentActions({
 		[onSignersChange, meetingId, document.id]
 	)
 
+	const [isSignerModalOpen, setIsSignerModalOpen] = useState(false)
+	
+	// Pre-generate links when button becomes available
+	const userEmail = session?.user?.email
+	const isButtonAvailable = !isSigningPending && !isSigningDisabled && !!document.docoChainProjectId && !!userEmail
+	
+	// Track if we've already initiated pre-generation to prevent duplicate calls
+	const preGenerationInitiatedRef = useRef<string | null>(null)
+	
+	// Pre-generate link mutation - call imperatively when button becomes available
+	const preGenerateLinkMutation = trpc.signatureRequests.initiateSigning.useMutation({
+		onSuccess: (data) => {
+			// Store the pre-generated link via callback
+			if (data.link && data.projectUuid && onPreGeneratedLink) {
+				onPreGeneratedLink(document.id, data.link, data.projectUuid)
+				console.log(`✅ Pre-generated link ready: ${data.link.substring(0, 50)}...`)
+			}
+			// Clear the ref after successful generation
+			preGenerationInitiatedRef.current = null
+		},
+		onError: () => {
+			// Silently fail - link will be generated on click if pre-generation fails
+			// Clear the ref on error so we can retry if conditions change
+			preGenerationInitiatedRef.current = null
+		},
+	})
+	
+	// Pre-generate Edit Draft Link when "Plot Signature" button becomes available
+	useEffect(() => {
+		const key = `plot-${document.id}-${document.docoChainProjectId}`
+		if (
+			isButtonAvailable &&
+			buttonText === "Plot Signature" &&
+			isEnp &&
+			document.docoChainProjectId &&
+			userEmail &&
+			preGenerationInitiatedRef.current !== key &&
+			!preGenerateLinkMutation.isPending
+		) {
+			console.log("🔵 Pre-generating Edit Draft Link for Plot Signature...")
+			preGenerationInitiatedRef.current = key
+			preGenerateLinkMutation.mutate({
+				projectUuid: document.docoChainProjectId,
+				email: userEmail,
+				isPlotting: true, // CRITICAL: Pass isPlotting=true to force Edit Draft Link
+			})
+		}
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [isButtonAvailable, buttonText, isEnp, document.docoChainProjectId, document.id, userEmail])
+	
+	// Pre-generate Sign Link when "Sign Document" button becomes available
+	useEffect(() => {
+		const key = `sign-${document.id}-${document.docoChainProjectId}`
+		if (
+			isButtonAvailable &&
+			buttonText === "Sign Document" &&
+			document.docoChainProjectId &&
+			userEmail &&
+			preGenerationInitiatedRef.current !== key &&
+			!preGenerateLinkMutation.isPending
+		) {
+			console.log("🔵 Pre-generating Sign Link for Sign Document...")
+			preGenerationInitiatedRef.current = key
+			preGenerateLinkMutation.mutate({
+				projectUuid: document.docoChainProjectId,
+				email: userEmail,
+			})
+		}
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [isButtonAvailable, buttonText, document.docoChainProjectId, document.id, userEmail])
+	
+	// Show selected signers count
+	const selectedSignersCount = signerUserIds?.length ?? 0
+	
 	return (
 		<div className="space-y-2">
-			{/* Before project exists: show signer selector. After: show DocoChain signer list */}
+			{/* Before project exists: show signer button and count. After: show DocoChain signer list */}
 			{document.docoChainProjectId && filteredSigners && filteredSigners.length > 0 ? (
 				<SignerList signers={filteredSigners} />
 			) : (
 				participants &&
 				participants.length > 0 &&
 				meetingId &&
-				onSignersChange && (
-					<SignerSelector
-						participants={participants}
-						signerUserIds={signerUserIds ?? []}
-						onSignersChange={handleSignersChange}
-					/>
+				onSignersChange &&
+				!isPrincipal && (
+					<>
+						<Button
+							variant="outline"
+							size="sm"
+							className="h-9 w-full text-xs shadow-sm"
+							onClick={() => setIsSignerModalOpen(true)}
+						>
+							<UsersIcon className="mr-1.5 size-3.5" />
+							{selectedSignersCount > 0
+								? `Signers (${selectedSignersCount})`
+								: "Add Signers"}
+						</Button>
+						<SignerManagementModal
+							participants={participants}
+							signerUserIds={signerUserIds ?? []}
+							onSignersChange={handleSignersChange}
+							isOpen={isSignerModalOpen}
+							onOpenChange={setIsSignerModalOpen}
+						/>
+					</>
 				)
 			)}
 			<Button
@@ -1002,7 +1503,7 @@ const DocumentActions = React.memo(function DocumentActions({
 					) : (
 						<>
 							<FileSignature className="mr-1.5 size-3.5" />
-							Add Signer
+							Create Project
 						</>
 					)}
 				</Button>
@@ -1022,12 +1523,14 @@ const DocumentActions = React.memo(function DocumentActions({
 							console.log("   - Document ID:", document.id)
 							console.log("   - DocoChain Project UUID:", document.docoChainProjectId)
 							console.log("   - User Email:", userEmail)
+							console.log("   - Action:", buttonText)
 
 							// User clicks to start signing - this will:
 							// 1. Add user as signer using Add Project Signer API
 							// 2. Generate Edit Draft Project Link
 							// 3. Redirect to DocoChain signing page
-							onSignClick(document.docoChainProjectId ?? null, userEmail, document.id)
+							const isPlotting = buttonText === "Plot Signature" && isEnp
+							onSignClick(document.docoChainProjectId ?? null, userEmail, document.id, isPlotting)
 						} else {
 							toast.error("User email not found. Please sign in again.")
 						}
@@ -1055,15 +1558,23 @@ const DocumentActions = React.memo(function DocumentActions({
 					<p className="text-[10px] leading-tight text-amber-700 dark:text-amber-400">
 						{!document.docoChainProjectId
 							? "Add signer first after setting signers"
-							: allSignersSigned
-								? "All signers have completed signing"
-								: isSigningDisabledByOrder
-									? "Previous document must be signed first"
-									: hasNoSignersSelected
-										? "Select at least one signer for this document"
-										: userNotInSignerList
-											? "You must be added as a signer to start signing"
-											: ""}
+							: hasUserSigned
+								? "You have completed signing"
+								: allSignersSigned
+									? "All signers have completed signing"
+									: isSigningDisabledByOrder
+										? "Previous document must be signed first"
+										: hasNoSignersSelected
+											? "Select at least one signer for this document"
+											: userNotInSignerList
+												? "You must be added as a signer to start signing"
+												: isPrincipalWaitingForEnpToPlot
+													? "Waiting for ENP to plot your signature"
+													: isEnpNotPlottedYet
+														? "Please plot your signature first"
+														: isSigningDisabledByPreviousSigners
+															? "Previous signer(s) must sign first"
+															: ""}
 					</p>
 				)}
 			</div>
@@ -1109,6 +1620,10 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 	const [isSendDialogOpen, setIsSendDialogOpen] = useState(false)
 	const [dismissedRequestIds, setDismissedRequestIds] = useState<Set<string>>(new Set())
 	const [signingDocumentId, setSigningDocumentId] = useState<string | null>(null)
+	const [isPlottingAction, setIsPlottingAction] = useState(false)
+	const isPlottingActionRef = useRef(false)
+	// Store pre-generated links per document (keyed by documentId)
+	const [preGeneratedLinks, setPreGeneratedLinks] = useState<Map<string, { link: string; projectUuid: string }>>(new Map())
 	const [draggedDocumentId, setDraggedDocumentId] = useState<string | null>(null)
 	const [dragOverDocumentId, setDragOverDocumentId] = useState<string | null>(null)
 	const [downloadingProjectUuid, setDownloadingProjectUuid] = useState<string | null>(null)
@@ -1139,8 +1654,8 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 		meetingId ?? "",
 		{
 			enabled: !!meetingId,
-			refetchInterval: 20000, // Refetch every 20 seconds to get new uploads
-			staleTime: 10000, // Consider data fresh for 10 seconds to avoid unnecessary refetches
+			refetchInterval: 10000, // Refetch every 10 seconds (reduced from 20s) for faster status updates
+			staleTime: 5000, // Consider data fresh for 5 seconds (reduced from 10s)
 		}
 	)
 
@@ -1293,10 +1808,11 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 
 		void refreshSigningStatuses()
 
-		// Slow + stable polling interval (avoids spamming when DocoChain is slow/unavailable).
+		// Faster polling interval for real-time signing status updates (reduced from 60s to 5s)
+		// This ensures users see status changes quickly when others sign
 		const interval = setInterval(() => {
 			void refreshSigningStatuses()
-		}, 60_000)
+		}, 5000) // Poll every 5 seconds for real-time updates
 
 		return () => clearInterval(interval)
 	}, [documents, refreshSigningStatuses, showDocuments])
@@ -1668,6 +2184,10 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 			console.log("   - Project UUID:", data.projectUuid)
 			console.log("   - Signing link:", signingLink)
 
+			// Capture ENP status at popup open time to avoid stale closure
+			const isEnpUser = session?.user?.role === "ENP"
+			const wasPlotting = isPlottingActionRef.current
+
 			// Open DocoChain signing page in popup window (iframe blocked by DocoChain)
 			// Open in popup window with specific dimensions (centered, almost fullscreen)
 			const width = Math.min(window.innerWidth - 40, 1400)
@@ -1687,11 +2207,24 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 					if (popup.closed) {
 						clearInterval(checkClosed)
 						setSigningDocumentId(null)
-						// Refresh docs + signing status immediately (don't wait for polling interval)
-						void refetchDocuments().then(() => {
-							void refreshSigningStatuses()
-						})
-						toast.success("Signing completed. Document status updated.")
+						setIsPlottingAction(false)
+						isPlottingActionRef.current = false
+						
+						// For ENP users after plotting, always refetch to update document status
+						if (isEnpUser && wasPlotting) {
+							console.log("🔄 ENP plotted signature - refreshing document status...")
+							// Refresh docs + signing status immediately (don't wait for polling interval)
+							void refetchDocuments().then(() => {
+								void refreshSigningStatuses()
+							})
+							toast.success("Signature plotted. Document status updated.")
+						} else {
+							// Refresh docs + signing status immediately (don't wait for polling interval)
+							void refetchDocuments().then(() => {
+								void refreshSigningStatuses()
+							})
+							toast.success("Signing completed. Document status updated.")
+						}
 					}
 				}, 1500)
 
@@ -1699,11 +2232,15 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 			} else {
 				toast.error("Popup blocked. Please allow popups for this site and try again.")
 				setSigningDocumentId(null) // Clear loading state
+				setIsPlottingAction(false) // Clear plotting state
+				isPlottingActionRef.current = false // Clear ref
 			}
 		},
 		onError: error => {
 			console.error("❌ Failed to initiate signing:", error)
 			setSigningDocumentId(null) // Clear loading state on error
+			setIsPlottingAction(false) // Clear plotting state on error
+			isPlottingActionRef.current = false // Clear ref
 			const errorMessage =
 				error instanceof Error
 					? error.message
@@ -1715,14 +2252,94 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 	})
 
 	const handleSignClick = useCallback(
-		(projectUuid: string | null, email: string, documentId: string) => {
+		(projectUuid: string | null, email: string, documentId: string, isPlotting?: boolean) => {
+			// Check if we have a pre-generated link for this document
+			const preGenerated = preGeneratedLinks.get(documentId)
+			if (preGenerated?.link) {
+				console.log("✅ Using pre-generated link for instant redirect!")
+				setSigningDocumentId(documentId)
+				const plotting = isPlotting ?? false
+				setIsPlottingAction(plotting)
+				isPlottingActionRef.current = plotting
+				
+				// Use pre-generated link immediately
+				let signingLink = preGenerated.link
+				signingLink = normalizeUrl(signingLink) ?? signingLink
+				
+				// Validate it's a proper URL
+				try {
+					new URL(signingLink)
+				} catch {
+					console.error("❌ Invalid URL format:", signingLink)
+					toast.error("Invalid URL format for signing link")
+					return
+				}
+				
+				// Open popup immediately with pre-generated link
+				const isEnpUser = session?.user?.role === "ENP"
+				const width = Math.min(window.innerWidth - 40, 1400)
+				const height = Math.min(window.innerHeight - 40, 900)
+				const left = (window.screen.width - width) / 2
+				const top = (window.screen.height - height) / 2
+				
+				const popup = window.open(
+					signingLink,
+					"DocoChainSigning",
+					`width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes,toolbar=no,location=no,menubar=no`
+				)
+				
+				if (popup) {
+					const checkClosed = setInterval(() => {
+						if (popup.closed) {
+							clearInterval(checkClosed)
+							setSigningDocumentId(null)
+							setIsPlottingAction(false)
+							isPlottingActionRef.current = false
+							
+							if (isEnpUser && plotting) {
+								console.log("🔄 ENP plotted signature - refreshing document status...")
+								void refetchDocuments().then(() => {
+									void refreshSigningStatuses()
+								})
+								toast.success("Signature plotted. Document status updated.")
+							} else {
+								void refetchDocuments().then(() => {
+									void refreshSigningStatuses()
+								})
+								toast.success("Signing completed. Document status updated.")
+							}
+						}
+					}, 1500)
+					toast.success("Opening signing interface in popup window...")
+					// Clear pre-generated link after use
+					setPreGeneratedLinks(prev => {
+						const next = new Map(prev)
+						next.delete(documentId)
+						return next
+					})
+				} else {
+					toast.error("Popup blocked. Please allow popups for this site and try again.")
+					setSigningDocumentId(null)
+					setIsPlottingAction(false)
+					isPlottingActionRef.current = false
+				}
+				return
+			}
+			
+			// No pre-generated link - use normal flow
 			setSigningDocumentId(documentId)
+			const plotting = isPlotting ?? false
+			setIsPlottingAction(plotting)
+			isPlottingActionRef.current = plotting
 			// If projectUuid exists, use it. Otherwise, pass documentId to create project
+			// CRITICAL: Pass isPlotting flag to mutation so it can force Edit Draft Link when plotting
 			initiateSigning.mutate(
-				projectUuid ? { projectUuid, email } : { documentId, email } // No project yet - will be created on signing
+				projectUuid
+					? { projectUuid, email, isPlotting: plotting }
+					: { documentId, email, isPlotting: plotting } // No project yet - will be created on signing
 			)
 		},
-		[initiateSigning]
+		[initiateSigning, preGeneratedLinks, session?.user?.role, refetchDocuments, refreshSigningStatuses]
 	)
 
 	// Get the first non-dismissed pending request
@@ -2603,6 +3220,13 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 													createDocoChainProjectMutation.mutate({ documentId, meetingId })
 												}}
 												isCreatingProject={createDocoChainProjectMutation.isPending}
+												onPreGeneratedLink={(documentId, link, projectUuid) => {
+													setPreGeneratedLinks(prev => {
+														const next = new Map(prev)
+														next.set(documentId, { link, projectUuid })
+														return next
+													})
+												}}
 											/>
 										</CardContent>
 									</Card>

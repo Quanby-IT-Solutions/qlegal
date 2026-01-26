@@ -499,7 +499,7 @@ export default function DashboardPage() {
 							>
 								{isPrincipal && (
 									<Link
-										href="/calendar"
+										href="/browse"
 										className={buttonVariants({
 											variant: "outline",
 											className: "h-auto flex-col items-start gap-2 p-4",
@@ -572,7 +572,7 @@ export default function DashboardPage() {
 									</div>
 								</Link>
 								<Link
-									href={isENP ? "/appointments" : "/calendar"}
+									href="/appointments"
 									className={buttonVariants({
 										variant: "outline",
 										className: "h-auto flex-col items-start gap-2 p-4",
@@ -1148,7 +1148,7 @@ export default function DashboardPage() {
 										</CardDescription>
 									</div>
 									<Link
-										href={isENP ? "/appointments" : "/calendar"}
+										href="/appointments"
 										className={buttonVariants({ variant: "ghost", size: "sm" })}
 									>
 										View All

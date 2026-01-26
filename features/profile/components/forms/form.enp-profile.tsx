@@ -26,6 +26,13 @@ import { trpc } from "@/services/trpc/client"
 
 import { enpProfileSchema, type EnpProfileSchema } from "@/features/profile/api/profile.schema"
 
+// Helper function to safely parse and format dates
+const parseDate = (dateString: string | null | undefined): Date | undefined => {
+	if (!dateString) return undefined
+	const parsed = new Date(dateString)
+	return Number.isNaN(parsed.getTime()) ? undefined : parsed
+}
+
 export function EnpProfileForm() {
 	// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
 	const { data: enpProfile } = trpc.profile.getEnpProfile.useQuery()
@@ -152,6 +159,7 @@ export function EnpProfileForm() {
 							render={({ field }) => {
 								const dateValue = field.value ? new Date(field.value) : undefined
 								const fieldId = `rollNoDate-${field.name}`
+
 
 								return (
 									<FormItem>

@@ -67,7 +67,7 @@ export function UserFilters({
 						</SelectTrigger>
 						<SelectContent>
 							<SelectItem value="all">All Roles</SelectItem>
-							<SelectItem value="PRINCIPAL">Client</SelectItem>
+							<SelectItem value="PRINCIPAL">Principal</SelectItem>
 							<SelectItem value="ADMIN">Administrator</SelectItem>
 							<SelectItem value="ENP">ENP</SelectItem>
 							<SelectItem value="ENA">ENA</SelectItem>

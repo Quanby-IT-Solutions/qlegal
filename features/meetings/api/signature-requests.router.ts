@@ -16,6 +16,7 @@ import {
 	invalidateToken,
 	normalizeUrl,
 	sendProject,
+	updateProjectSigner,
 } from "@/services/doconchain"
 import { db } from "@/services/drizzle/db"
 import { users } from "@/services/drizzle/schema/auth"
@@ -315,13 +316,14 @@ export const signatureRequestsRouter = createTRPCRouter({
 					projectUuid: z.string().optional(), // Optional - will be created if not provided
 					documentId: z.string().optional(), // Document ID to find/create project
 					email: z.string().email("Valid email is required"),
+					isPlotting: z.boolean().optional(), // True when ENP is plotting signature (must use Edit Draft Link)
 				})
 				.refine(data => !!(data.projectUuid ?? data.documentId), {
 					message: "Either projectUuid or documentId must be provided",
 				})
 		)
 		.mutation(async ({ input, ctx }) => {
-			const { projectUuid, documentId, email } = input
+			const { projectUuid, documentId, email, isPlotting } = input
 
 			try {
 				// Get document - either by projectUuid (existing project) or documentId (needs project creation)
@@ -330,7 +332,7 @@ export const signatureRequestsRouter = createTRPCRouter({
 					document = await db.query.documents.findFirst({
 						where: eq(documents.docoChainProjectId, projectUuid),
 						with: {
-							signers: { columns: { userId: true } },
+							signers: { columns: { userId: true, signingOrder: true } },
 							meeting: {
 								with: {
 									participants: {
@@ -359,7 +361,7 @@ export const signatureRequestsRouter = createTRPCRouter({
 					document = await db.query.documents.findFirst({
 						where: eq(documents.id, documentId),
 						with: {
-							signers: { columns: { userId: true } },
+							signers: { columns: { userId: true, signingOrder: true } },
 							meeting: {
 								with: {
 									participants: {
@@ -395,12 +397,30 @@ export const signatureRequestsRouter = createTRPCRouter({
 
 				const meeting = document.meeting
 				const allParticipants = meeting.participants ?? []
-				const signerUserIds = new Set((document.signers ?? []).map(s => s.userId))
+				
+				// Get signers with their signing order
+				const documentSigners = (document.signers ?? []).map(s => ({
+					userId: s.userId,
+					signingOrder: s.signingOrder ?? 999999, // nulls go last
+				}))
+				const signerUserIds = new Set(documentSigners.map(s => s.userId))
+				
+				// Create a map of userId -> signingOrder for quick lookup
+				const signingOrderMap = new Map(
+					documentSigners.map(s => [s.userId, s.signingOrder])
+				)
 
 				// Use only selected document signers when available; otherwise all participants (legacy).
+				// Sort by signingOrder to maintain the order set by ENP
 				const participantsToAdd =
 					signerUserIds.size > 0
-						? allParticipants.filter(p => signerUserIds.has(p.userId))
+						? allParticipants
+								.filter(p => signerUserIds.has(p.userId))
+								.sort((a, b) => {
+									const orderA = signingOrderMap.get(a.userId) ?? 999999
+									const orderB = signingOrderMap.get(b.userId) ?? 999999
+									return orderA - orderB
+								})
 						: allParticipants
 
 				if (participantsToAdd.length === 0) {
@@ -627,6 +647,64 @@ export const signatureRequestsRouter = createTRPCRouter({
 				console.log(`✅ Selected signers have been added to project`)
 				console.log(`   - Total signers: ${currentSigners.length}`)
 
+				// Step 2.5: Update signer sequences based on signingOrder
+				if (signerUserIds.size > 0 && actualProjectUuid) {
+					console.log("🔵 Step 2.5: Updating signer sequences based on signing order...")
+					try {
+						// Fetch current project details to get signer IDs
+						const projectDetails = await getProjectDetails(actualProjectUuid, creatorEmail)
+						const projectSigners = (projectDetails?.data?.signers as Array<{
+							id?: number
+							email?: string
+							first_name?: string
+							last_name?: string
+							signer_role?: string
+						}>) ?? []
+
+						// Update each signer's sequence based on their signingOrder
+						for (const participant of participantsToAdd) {
+							const participantEmail = participant.user?.email
+							if (!participantEmail) continue
+
+							const projectSigner = projectSigners.find(
+								s => s.email?.toLowerCase() === participantEmail.toLowerCase()
+							)
+							if (!projectSigner?.id) continue
+
+							const signingOrder = signingOrderMap.get(participant.userId) ?? 999999
+							if (signingOrder === 999999) continue // Skip if no order set
+
+							const participantNameParts = (participant.user?.name ?? "").split(" ")
+							const participantFirstName = participantNameParts[0] ?? "User"
+							const participantLastName = participantNameParts.slice(1).join(" ") || ""
+
+							try {
+								await updateProjectSigner({
+									projectUuid: actualProjectUuid,
+									signerId: projectSigner.id,
+									firstName: participantFirstName,
+									lastName: participantLastName,
+									sequence: signingOrder,
+									signerRole: "Signer",
+									userEmail: creatorEmail,
+								})
+								console.log(
+									`   ✅ Updated ${participantEmail} sequence to ${signingOrder}`
+								)
+							} catch (updateError) {
+								console.warn(
+									`   ⚠️ Failed to update sequence for ${participantEmail}:`,
+									updateError
+								)
+								// Continue - don't fail the whole operation
+							}
+						}
+					} catch (sequenceError) {
+						console.warn("⚠️ Failed to update signer sequences:", sequenceError)
+						// Continue - don't fail the whole operation if sequence update fails
+					}
+				}
+
 				// Step 3: Get signing link for user
 				// Strategy:
 				// - If project is Draft: Use Edit Draft Link or stored redirect URL
@@ -647,9 +725,33 @@ export const signatureRequestsRouter = createTRPCRouter({
 
 				let isProjectSent = false
 				let signerHasPlotted = false
+				
+				// CRITICAL: For newly created projects, the status check might fail because the project
+				// isn't fully initialized in DocoChain yet. Add retry logic with exponential backoff.
+				let projectDetails = null
+				const maxRetries = 3
+				let retryDelay = 500 // Start with 500ms delay
+				
+				for (let attempt = 0; attempt < maxRetries; attempt++) {
+					try {
+						projectDetails = await getProjectDetails(actualProjectUuid, creatorEmail)
+						// Success - break out of retry loop
+						break
+					} catch (retryError) {
+						if (attempt === maxRetries - 1) {
+							// Last attempt failed - will be handled by outer catch block
+							throw retryError
+						}
+						// Wait before retrying (exponential backoff)
+						console.log(
+							`⚠️ Project status check failed (attempt ${attempt + 1}/${maxRetries}), retrying in ${retryDelay}ms...`
+						)
+						await new Promise(resolve => setTimeout(resolve, retryDelay))
+						retryDelay *= 2 // Exponential backoff: 500ms, 1000ms, 2000ms
+					}
+				}
+				
 				try {
-					const projectDetails = await getProjectDetails(actualProjectUuid, creatorEmail)
-
 					projectStatus = projectDetails?.data?.status ?? "Draft"
 					// Check if project has been sent (sent_at field exists) or status indicates it's sent
 
@@ -697,13 +799,18 @@ export const signatureRequestsRouter = createTRPCRouter({
 						signerHasPlotted = false
 					}
 				} catch (statusError) {
-					console.warn("⚠️ Failed to get project status, assuming Draft:", statusError)
+					// If all retries failed, default to Draft (new projects are always Draft)
+					console.warn("⚠️ Failed to get project status after retries, assuming Draft:", statusError)
+					console.warn("   - This is normal for newly created projects that aren't fully initialized yet")
+					projectStatus = "Draft"
+					isProjectSent = false // Default to Draft, which uses Edit Draft Link
 				}
 
 				// Use Generate Sign Link API ONLY for sent projects (required for sent projects)
 				// For ALL Draft projects (regardless of plotting status), use Edit Draft Link for plotting/signing
-				// This ensures we always get a valid, fresh link with proper token validation
-				if (isProjectSent) {
+				// CRITICAL: If user is plotting (isPlotting=true), ALWAYS use Edit Draft Link regardless of status
+				// Plotting requires a draft project, so we must force Edit Draft Link even if status check is wrong
+				if (isProjectSent && !isPlotting) {
 					// Project is sent - must use Generate Sign Link API
 					console.log(
 						"🔵 Project is sent - using Generate Sign Link API (required for sent projects)..."
@@ -723,11 +830,14 @@ export const signatureRequestsRouter = createTRPCRouter({
 						signingLink = `${env.DOCONCHAIN_APP_URL}/${actualProjectUuid}?email=${encodeURIComponent(email)}&api=true`
 					}
 				} else {
-					// Project is Draft - ALWAYS use Edit Draft Link for plotting/signing
+					// Project is Draft OR user is plotting - ALWAYS use Edit Draft Link for plotting/signing
 					// This ensures we get a fresh, valid link every time (avoids expired one-time links)
 					// DO NOT use stored redirect URL - it's a one-time link that expires/invalidates
 					// after first use or after some time, causing "Session Ended" errors.
-					console.log("🔵 Project is Draft - generating Edit Draft Link (for plotting/signing)...")
+					// CRITICAL: If isPlotting=true, we're forcing Edit Draft Link even if status check said "Sent"
+					console.log("🔵 Project is Draft or user is plotting - generating Edit Draft Link (for plotting/signing)...")
+					console.log("   - Is Plotting:", isPlotting ?? false)
+					console.log("   - Project Status:", projectStatus)
 					console.log("   - Signer has plotted:", signerHasPlotted)
 
 					// Generate Edit Draft Project Link (allows plotting/editing/signing in draft)

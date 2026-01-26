@@ -67,18 +67,18 @@ export const appSidebarSections: NavSection[] = [
 			},
 			{
 				title: "Sessions",
-				url: "/appointments",
+				url: "/meetings",
 				icon: Video01Icon,
 			},
 			{
 				title: "Documents",
-				url: "/appointments",
+				url: "/documents",
 				icon: DocumentValidationIcon,
 				roles: ["PRINCIPAL"],
 			},
 			{
 				title: "Notarial Registry",
-				url: "/appointments",
+				url: "/notarial-book-2",
 				icon: BookOpen02Icon,
 				roles: ["ENP"],
 			},
