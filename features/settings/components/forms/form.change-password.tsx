@@ -54,7 +54,11 @@ export function ChangePasswordForm() {
 								<FormItem>
 									<FormLabel>Current Password</FormLabel>
 									<FormControl>
-										<InputPassword placeholder="Enter your current password" {...field} />
+										<InputPassword
+											placeholder="Enter your current password"
+											autoComplete="current-password"
+											{...field}
+										/>
 									</FormControl>
 									<FormMessage />
 								</FormItem>
@@ -69,7 +73,11 @@ export function ChangePasswordForm() {
 								<FormItem>
 									<FormLabel>New Password</FormLabel>
 									<FormControl>
-										<InputPassword placeholder="Enter your new password" {...field} />
+										<InputPassword
+											placeholder="Enter your new password"
+											autoComplete="new-password"
+											{...field}
+										/>
 									</FormControl>
 									<FormMessage />
 								</FormItem>
@@ -85,7 +93,11 @@ export function ChangePasswordForm() {
 								<FormItem>
 									<FormLabel>Confirm Password</FormLabel>
 									<FormControl>
-										<InputPassword placeholder="Confirm your new password" {...field} />
+										<InputPassword
+											placeholder="Confirm your new password"
+											autoComplete="new-password"
+											{...field}
+										/>
 									</FormControl>
 									<FormMessage />
 								</FormItem>

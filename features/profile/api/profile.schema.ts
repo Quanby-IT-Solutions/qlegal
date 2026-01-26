@@ -37,13 +37,10 @@ export type AddressSchema = z.infer<typeof addressSchema>
 
 export const enpProfileSchema = z.object({
 	// Notary Seal Info
-	enpName: z.string().min(1, "ENP name is required").optional(),
-	enpRoleNumber: z.string().optional(),
 	rollNo: z.string().optional(),
 	rollNoDate: z.string().optional(),
 
 	// Credentials
-	attyName: z.string().optional(),
 	commissionNo: z.string().optional(),
 	commissionNoValidUntil: z.string().optional(),
 	ptrNo: z.string().optional(),
@@ -51,12 +48,39 @@ export const enpProfileSchema = z.object({
 	ptrNoDate: z.string().optional(),
 	ibpNo: z.string().optional(),
 	ibpNoDate: z.string().optional(),
-	notaryEmail: z.string().email("Please enter a valid email address").optional().or(z.literal("")),
 	notaryAddress: z.string().optional(),
 	mcleNoPeriod: z.string().optional(),
 	mcleNo: z.string().optional(),
 	mcleNoDate: z.string().optional(),
-	modeOfNotarization: z.string().optional(),
 })
 
 export type EnpProfileSchema = z.infer<typeof enpProfileSchema>
+
+// Partial update schemas for individual ENP profile sections
+export const rollRegistrationSchema = z.object({
+	rollNo: z.string().optional(),
+	rollNoDate: z.string().optional(),
+})
+
+export type RollRegistrationSchema = z.infer<typeof rollRegistrationSchema>
+
+export const licensingSchema = z.object({
+	commissionNo: z.string().optional(),
+	commissionNoValidUntil: z.string().optional(),
+	ptrNo: z.string().optional(),
+	ptrNoLocation: z.string().optional(),
+	ptrNoDate: z.string().optional(),
+	ibpNo: z.string().optional(),
+	ibpNoDate: z.string().optional(),
+	notaryAddress: z.string().optional(),
+})
+
+export type LicensingSchema = z.infer<typeof licensingSchema>
+
+export const certificationsSchema = z.object({
+	mcleNoPeriod: z.string().optional(),
+	mcleNo: z.string().optional(),
+	mcleNoDate: z.string().optional(),
+})
+
+export type CertificationsSchema = z.infer<typeof certificationsSchema>

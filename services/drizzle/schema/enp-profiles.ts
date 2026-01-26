@@ -33,7 +33,6 @@ export const enpProfiles = createTable(
 		enpRoleNumber: t.varchar({ length: 100 }), // e.g., "123456"
 
 		// --- Notary Info (Document Stamp) ---
-		attyName: t.varchar({ length: 255 }), // e.g., "ATTY. Juan Dela Cruz"
 		rollNo: t.varchar({ length: 100 }), // Roll of Attorneys number
 		rollNoDate: t.varchar({ length: 100 }), // e.g., "5 June 2018"
 		commissionNo: t.varchar({ length: 100 }), // e.g., "2024 - 024"
@@ -43,12 +42,10 @@ export const enpProfiles = createTable(
 		ptrNoDate: t.varchar({ length: 100 }), // e.g., "Jan 02, 2025"
 		ibpNo: t.varchar({ length: 100 }), // Integrated Bar of the Philippines number
 		ibpNoDate: t.varchar({ length: 100 }), // e.g., "Dec 18, 2024 (for 2025)"
-		notaryEmail: t.varchar({ length: 255 }), // Official notary email
 		notaryAddress: t.text(), // Official notary address
 		mcleNoPeriod: t.varchar({ length: 50 }), // e.g., "VIII"
 		mcleNo: t.varchar({ length: 100 }), // MCLE Compliance number
 		mcleNoDate: t.varchar({ length: 100 }), // e.g., "Jun 12, 2024"
-		modeOfNotarization: t.varchar({ length: 50 }), // e.g., "REN" (Remote Electronic Notarization)
 
 		createdAt: t.timestamp({ mode: "date", withTimezone: true }).defaultNow().notNull(),
 		updatedAt: t

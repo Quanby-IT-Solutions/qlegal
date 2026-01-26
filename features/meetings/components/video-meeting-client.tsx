@@ -29,6 +29,7 @@ import {
 	Unlock,
 	User,
 	Users as UsersIcon,
+	WifiOff
 } from "lucide-react"
 import { useSession } from "next-auth/react"
 import { toast } from "sonner"
@@ -269,23 +270,23 @@ const MeetingControls = React.memo(function MeetingControls({
 					<Monitor className="size-4" />
 				</Button>
 
-				<Button
-					variant={localRecordingActive ? "destructive" : "outline"}
-					size="icon"
-					className={cn(
-						"size-9 rounded-full shadow-md transition-all hover:shadow-lg md:size-10",
-						localRecordingActive && "animate-pulse"
-					)}
-					onClick={handleToggleRecording}
-					title={
-						localRecordingActive ? `Stop recording (${localRecordingElapsed})` : "Start recording"
-					}
-				>
-					{localRecordingActive ? (
-						<Square className="size-4 fill-current" />
-					) : (
-						<CircleDot className="size-4" />
-					)}
+				<Button 
+				variant={localRecordingActive ? "destructive" : "outline"} 
+				size="icon" 
+				className={cn( "size-9 rounded-full shadow-md transition-all hover:shadow-lg md:size-10", 
+				localRecordingActive && "animate-pulse" )} 
+				onClick={handleToggleRecording} 
+				title={ 
+					localRecordingActive 
+					? 'Stop recording (${localRecordingElapsed}) '
+					: "Start recording" 
+				} 
+				> {localRecordingActive ? ( 
+				<Square className="size-4 fill-current" 
+				/> 
+				) : ( 
+				<CircleDot className="size-4" 
+				/> )} 
 				</Button>
 
 				{onUploadClick && (
@@ -921,7 +922,7 @@ const SignerSelector = React.memo(function SignerSelector({
 			.map(userId => participants.find(p => p.userId === userId))
 			.filter((p): p is NonNullable<typeof p> => p !== undefined)
 	}, [safeSignerUserIds, participants])
-
+	
 	return (
 		<div className="bg-muted/30 mb-3 space-y-1.5 rounded-lg border p-2.5">
 			<div className="mb-2 flex items-center gap-1.5">
@@ -1154,6 +1155,7 @@ const DocumentActions = React.memo(function DocumentActions({
 	meetingId,
 	onCreateProject,
 	isCreatingProject,
+	onPreGeneratedLink,
 }: {
 	document: { id: string; name: string; docoChainProjectId: string | null }
 	onSignClick: (projectUuid: string | null, email: string, documentId: string, isPlotting?: boolean) => void
@@ -1180,6 +1182,7 @@ const DocumentActions = React.memo(function DocumentActions({
 	meetingId?: string
 	onCreateProject?: (documentId: string, meetingId: string) => void
 	isCreatingProject?: boolean
+	onPreGeneratedLink?: (documentId: string, link: string, projectUuid: string) => void
 }) {
 	const { data: session } = useSession()
 
@@ -1361,6 +1364,75 @@ const DocumentActions = React.memo(function DocumentActions({
 	)
 
 	const [isSignerModalOpen, setIsSignerModalOpen] = useState(false)
+	
+	// Pre-generate links when button becomes available
+	const userEmail = session?.user?.email
+	const isButtonAvailable = !isSigningPending && !isSigningDisabled && !!document.docoChainProjectId && !!userEmail
+	
+	// Track if we've already initiated pre-generation to prevent duplicate calls
+	const preGenerationInitiatedRef = useRef<string | null>(null)
+	
+	// Pre-generate link mutation - call imperatively when button becomes available
+	const preGenerateLinkMutation = trpc.signatureRequests.initiateSigning.useMutation({
+		onSuccess: (data) => {
+			// Store the pre-generated link via callback
+			if (data.link && data.projectUuid && onPreGeneratedLink) {
+				onPreGeneratedLink(document.id, data.link, data.projectUuid)
+				console.log(`✅ Pre-generated link ready: ${data.link.substring(0, 50)}...`)
+			}
+			// Clear the ref after successful generation
+			preGenerationInitiatedRef.current = null
+		},
+		onError: () => {
+			// Silently fail - link will be generated on click if pre-generation fails
+			// Clear the ref on error so we can retry if conditions change
+			preGenerationInitiatedRef.current = null
+		},
+	})
+	
+	// Pre-generate Edit Draft Link when "Plot Signature" button becomes available
+	useEffect(() => {
+		const key = `plot-${document.id}-${document.docoChainProjectId}`
+		if (
+			isButtonAvailable &&
+			buttonText === "Plot Signature" &&
+			isEnp &&
+			document.docoChainProjectId &&
+			userEmail &&
+			preGenerationInitiatedRef.current !== key &&
+			!preGenerateLinkMutation.isPending
+		) {
+			console.log("🔵 Pre-generating Edit Draft Link for Plot Signature...")
+			preGenerationInitiatedRef.current = key
+			preGenerateLinkMutation.mutate({
+				projectUuid: document.docoChainProjectId,
+				email: userEmail,
+				isPlotting: true, // CRITICAL: Pass isPlotting=true to force Edit Draft Link
+			})
+		}
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [isButtonAvailable, buttonText, isEnp, document.docoChainProjectId, document.id, userEmail])
+	
+	// Pre-generate Sign Link when "Sign Document" button becomes available
+	useEffect(() => {
+		const key = `sign-${document.id}-${document.docoChainProjectId}`
+		if (
+			isButtonAvailable &&
+			buttonText === "Sign Document" &&
+			document.docoChainProjectId &&
+			userEmail &&
+			preGenerationInitiatedRef.current !== key &&
+			!preGenerateLinkMutation.isPending
+		) {
+			console.log("🔵 Pre-generating Sign Link for Sign Document...")
+			preGenerationInitiatedRef.current = key
+			preGenerateLinkMutation.mutate({
+				projectUuid: document.docoChainProjectId,
+				email: userEmail,
+			})
+		}
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [isButtonAvailable, buttonText, document.docoChainProjectId, document.id, userEmail])
 	
 	// Show selected signers count
 	const selectedSignersCount = signerUserIds?.length ?? 0
@@ -1551,6 +1623,8 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 	const [signingDocumentId, setSigningDocumentId] = useState<string | null>(null)
 	const [isPlottingAction, setIsPlottingAction] = useState(false)
 	const isPlottingActionRef = useRef(false)
+	// Store pre-generated links per document (keyed by documentId)
+	const [preGeneratedLinks, setPreGeneratedLinks] = useState<Map<string, { link: string; projectUuid: string }>>(new Map())
 	const [draggedDocumentId, setDraggedDocumentId] = useState<string | null>(null)
 	const [dragOverDocumentId, setDragOverDocumentId] = useState<string | null>(null)
 	const [downloadingProjectUuid, setDownloadingProjectUuid] = useState<string | null>(null)
@@ -1581,8 +1655,8 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 		meetingId ?? "",
 		{
 			enabled: !!meetingId,
-			refetchInterval: 20000, // Refetch every 20 seconds to get new uploads
-			staleTime: 10000, // Consider data fresh for 10 seconds to avoid unnecessary refetches
+			refetchInterval: 10000, // Refetch every 10 seconds (reduced from 20s) for faster status updates
+			staleTime: 5000, // Consider data fresh for 5 seconds (reduced from 10s)
 		}
 	)
 
@@ -1735,10 +1809,11 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 
 		void refreshSigningStatuses()
 
-		// Slow + stable polling interval (avoids spamming when DocoChain is slow/unavailable).
+		// Faster polling interval for real-time signing status updates (reduced from 60s to 5s)
+		// This ensures users see status changes quickly when others sign
 		const interval = setInterval(() => {
 			void refreshSigningStatuses()
-		}, 60_000)
+		}, 5000) // Poll every 5 seconds for real-time updates
 
 		return () => clearInterval(interval)
 	}, [documents, refreshSigningStatuses, showDocuments])
@@ -2179,16 +2254,93 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 
 	const handleSignClick = useCallback(
 		(projectUuid: string | null, email: string, documentId: string, isPlotting?: boolean) => {
+			// Check if we have a pre-generated link for this document
+			const preGenerated = preGeneratedLinks.get(documentId)
+			if (preGenerated?.link) {
+				console.log("✅ Using pre-generated link for instant redirect!")
+				setSigningDocumentId(documentId)
+				const plotting = isPlotting ?? false
+				setIsPlottingAction(plotting)
+				isPlottingActionRef.current = plotting
+				
+				// Use pre-generated link immediately
+				let signingLink = preGenerated.link
+				signingLink = normalizeUrl(signingLink) ?? signingLink
+				
+				// Validate it's a proper URL
+				try {
+					new URL(signingLink)
+				} catch {
+					console.error("❌ Invalid URL format:", signingLink)
+					toast.error("Invalid URL format for signing link")
+					return
+				}
+				
+				// Open popup immediately with pre-generated link
+				const isEnpUser = session?.user?.role === "ENP"
+				const width = Math.min(window.innerWidth - 40, 1400)
+				const height = Math.min(window.innerHeight - 40, 900)
+				const left = (window.screen.width - width) / 2
+				const top = (window.screen.height - height) / 2
+				
+				const popup = window.open(
+					signingLink,
+					"DocoChainSigning",
+					`width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes,toolbar=no,location=no,menubar=no`
+				)
+				
+				if (popup) {
+					const checkClosed = setInterval(() => {
+						if (popup.closed) {
+							clearInterval(checkClosed)
+							setSigningDocumentId(null)
+							setIsPlottingAction(false)
+							isPlottingActionRef.current = false
+							
+							if (isEnpUser && plotting) {
+								console.log("🔄 ENP plotted signature - refreshing document status...")
+								void refetchDocuments().then(() => {
+									void refreshSigningStatuses()
+								})
+								toast.success("Signature plotted. Document status updated.")
+							} else {
+								void refetchDocuments().then(() => {
+									void refreshSigningStatuses()
+								})
+								toast.success("Signing completed. Document status updated.")
+							}
+						}
+					}, 1500)
+					toast.success("Opening signing interface in popup window...")
+					// Clear pre-generated link after use
+					setPreGeneratedLinks(prev => {
+						const next = new Map(prev)
+						next.delete(documentId)
+						return next
+					})
+				} else {
+					toast.error("Popup blocked. Please allow popups for this site and try again.")
+					setSigningDocumentId(null)
+					setIsPlottingAction(false)
+					isPlottingActionRef.current = false
+				}
+				return
+			}
+			
+			// No pre-generated link - use normal flow
 			setSigningDocumentId(documentId)
 			const plotting = isPlotting ?? false
 			setIsPlottingAction(plotting)
 			isPlottingActionRef.current = plotting
 			// If projectUuid exists, use it. Otherwise, pass documentId to create project
+			// CRITICAL: Pass isPlotting flag to mutation so it can force Edit Draft Link when plotting
 			initiateSigning.mutate(
-				projectUuid ? { projectUuid, email } : { documentId, email } // No project yet - will be created on signing
+				projectUuid
+					? { projectUuid, email, isPlotting: plotting }
+					: { documentId, email, isPlotting: plotting } // No project yet - will be created on signing
 			)
 		},
-		[initiateSigning]
+		[initiateSigning, preGeneratedLinks, session?.user?.role, refetchDocuments, refreshSigningStatuses]
 	)
 
 	// Get the first non-dismissed pending request
@@ -2712,33 +2864,37 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 
 	// If I'm the initiator and everyone has accepted, start local recording (initiator only).
 	useEffect(() => {
-		if (!recordingConsentRequest) return
-		if (!localParticipantId) return
-
-		const isInitiator = recordingConsentRequest.initiatorName === (session?.user?.name ?? "Someone")
-		if (!isInitiator) return
-		if (recordingConsentDeclined) return
-
-		const required = recordingConsentRequest.requiredParticipantIds
-		if (!required || required.length === 0) return
-
-		const allAccepted = required.every(id => recordingConsentAcceptedIds.has(id))
-		if (!allAccepted) return
-
-		// Start recording as a direct consequence of the initiator's Accept click.
-		// NOTE: If the last accept came from a remote participant, this won't be a gesture.
-		// In practice, the initiator should click Accept last to satisfy getDisplayMedia gesture.
-		resetRecordingConsentUi()
-		void startLocalRecording()
+		if (!recordingConsentRequest || !localParticipantId) return;
+	
+		const requiredIds = recordingConsentRequest.requiredParticipantIds;
+		if (!requiredIds || requiredIds.length === 0) return;
+	
+		const allAccepted = requiredIds.every(id => recordingConsentAcceptedIds.has(id));
+	
+		// ✅ If all accepted, close modal and start recording (initiator only)
+		if (allAccepted) {
+			const isInitiator = recordingConsentRequest.initiatorName === (session?.user?.name ?? "Someone");
+			if (isInitiator) {
+				void startLocalRecording();
+			}
+			setRecordingConsentOpen(false);
+			resetRecordingConsentUi();
+		}
+	
+		// ❌ If anyone declined, close modal
+		if (recordingConsentDeclined) {
+			setRecordingConsentOpen(false);
+			resetRecordingConsentUi();
+		}
 	}, [
-		localParticipantId,
 		recordingConsentAcceptedIds,
 		recordingConsentDeclined,
 		recordingConsentRequest,
-		resetRecordingConsentUi,
+		localParticipantId,
 		session?.user?.name,
 		startLocalRecording,
-	])
+		resetRecordingConsentUi
+	]);	
 
 	// Memoize upload dialog open handler
 	const handleUploadClick = useCallback(() => {
@@ -3069,6 +3225,13 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 													createDocoChainProjectMutation.mutate({ documentId, meetingId })
 												}}
 												isCreatingProject={createDocoChainProjectMutation.isPending}
+												onPreGeneratedLink={(documentId, link, projectUuid) => {
+													setPreGeneratedLinks(prev => {
+														const next = new Map(prev)
+														next.set(documentId, { link, projectUuid })
+														return next
+													})
+												}}
 											/>
 										</CardContent>
 									</Card>
@@ -3429,36 +3592,85 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 							Decline
 						</Button>
 						<Button
-							disabled={recordingConsentDeclined || !localParticipantId}
-							onClick={async () => {
-								await acceptConsent()
-
-								if (!recordingConsentRequest || !localParticipantId) return
-
-								const isInitiator =
-									recordingConsentRequest.initiatorName === (session?.user?.name ?? "Someone")
-
-								if (!isInitiator) return
-								if (recordingConsentDeclined) return
-
-								const required = recordingConsentRequest.requiredParticipantIds
-								const allAccepted = required.every(id =>
-									id === localParticipantId ? true : recordingConsentAcceptedIds.has(id)
-								)
-
-								if (!allAccepted) return
-
-								resetRecordingConsentUi()
-								void startLocalRecording()
-							}}
-						>
-							Agree
-						</Button>
+	disabled={recordingConsentDeclined || !localParticipantId}
+	onClick={async () => {
+		await acceptConsent(); // adds your participant to acceptedIds
+	}}
+>
+	Agree
+</Button>
 					</DialogFooter>
 				</DialogContent>
 			</Dialog>
 		</div>
 	)
+}
+
+export default function InternetSpeedModal({ onDismiss }: { onDismiss?: () => void }) {
+	const [open, setOpen] = useState(false);
+	const [speedMbps, setSpeedMbps] = useState<number | null>(null);
+
+	useEffect(() => {
+		// Check session storage to show only once
+		const hasShown = sessionStorage.getItem("internetSpeedModalShown");
+		if (hasShown) return;
+
+		const testSpeed = async () => {
+			try {
+				const start = performance.now();
+				// Small file to test speed
+				const response = await fetch("https://speed.hetzner.de/100MB.bin", { method: "HEAD" });
+				const end = performance.now();
+
+				const fileSizeMB = 0.5; // size of file in MB (adjust if needed)
+				const durationSec = (end - start) / 1000;
+				const speed = fileSizeMB / durationSec; // MB/s
+				const speedMbps = speed * 8; // MB/s → Mbps
+
+				setSpeedMbps(speedMbps);
+
+				if (speedMbps < 2) {
+					setOpen(true);
+					sessionStorage.setItem("internetSpeedModalShown", "true"); // mark as shown
+				}
+			} catch (err) {
+				console.error("Internet speed test failed:", err);
+				setOpen(true);
+				sessionStorage.setItem("internetSpeedModalShown", "true");
+			}
+		};
+
+		void testSpeed();
+	}, []);
+
+	return (
+		<Dialog open={open} onOpenChange={setOpen}>
+			<DialogContent className="max-w-md text-center">
+				<DialogHeader>
+					<DialogTitle className="text-lg font-bold text-red-600">
+						⚠️ Low Internet Speed
+					</DialogTitle>
+					<DialogDescription className="mt-2 text-sm text-muted-foreground">
+						Your connection speed is {speedMbps?.toFixed(2) ?? "--"} Mbps.
+						<br />
+						A minimum of 2 Mbps is required for a smooth meeting experience.
+					</DialogDescription>
+				</DialogHeader>
+
+				<DialogFooter className="mt-4 flex justify-center">
+					<Button
+						variant="destructive"
+						onClick={() => {
+							setOpen(false);
+							onDismiss?.();
+						}}
+					>
+						Proceed Anyway
+					</Button>
+				</DialogFooter>
+			</DialogContent>
+		</Dialog>
+	);
 }
 
 // Main export component

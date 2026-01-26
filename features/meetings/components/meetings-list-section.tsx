@@ -58,6 +58,7 @@ import { useMeetings } from "@/features/meetings/api/meetings.hooks"
 import { MeetingRecordingsModal } from "@/features/meetings/components/meeting-recordings-modal"
 import { useMessages } from "@/features/messages/api/messages.hooks"
 import { trpc } from "@/services/trpc/client"
+import { isSameDay } from "date-fns"
 
 function MeetingDocumentSummary({
 	total,
@@ -135,13 +136,23 @@ export function MeetingsListSection() {
 	const { searchUsers } = useMessages()
 	const { data: searchResults } = searchUsers(userSearchQuery)
 
+	const today = new Date()
+
 	const filteredMeetings = meetings.filter(meeting => {
+		const meetingDate = new Date(meeting.createdAt)
+		const isToday = isSameDay(meetingDate, today)
+	  
 		const matchesSearch =
-			meeting.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-			meeting.createdBy.name?.toLowerCase().includes(searchTerm.toLowerCase())
+		  meeting.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+		  meeting.createdBy.name?.toLowerCase().includes(searchTerm.toLowerCase())
+	  
 		const matchesStatus = statusFilter === "ALL" || meeting.status === statusFilter
-		return matchesSearch && matchesStatus
-	})
+	  
+		// ✅ NEW: hide completed meetings
+		const notCompleted = meeting.status !== "COMPLETED" && meeting.status !== "CANCELLED"
+	  
+		return isToday && matchesSearch && matchesStatus && notCompleted
+	  })
 
 	const handleCreate = async () => {
 		if (!title.trim()) return
@@ -220,6 +231,24 @@ export function MeetingsListSection() {
 		}
 	}
 
+	type MeetingWithStats = {
+		id: string
+		title: string
+		status: string
+		createdBy: {
+		  id: string
+		  name: string | null
+		  image: string | null
+		}
+		participants: { user?: { id: string } }[]
+		createdAt?: string
+		documentStats?: {
+		  total?: number
+		  signed?: number
+		  isComplete?: boolean
+		}
+	  }	  
+
 	const getStatusBadge = (status: string) => {
 		switch (status) {
 			case "SCHEDULED":
@@ -251,18 +280,12 @@ export function MeetingsListSection() {
 		<div className="space-y-6">
 			<div className="flex items-center justify-between">
 				<div className="space-y-2">
-					<h2 className="text-2xl font-semibold tracking-tight">Video Meetings</h2>
+					<h2 className="text-2xl font-semibold tracking-tight">Ongoing</h2>
 					<p className="text-muted-foreground text-sm">
-						Create and join video meetings with participants for notarization sessions
+						Ongoing meetings with participants for notarization sessions
 					</p>
 				</div>
 				<Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-					<DialogTrigger asChild>
-						<Button size="lg" className="shadow-lg transition-shadow hover:shadow-xl">
-							<Plus className="mr-2 size-5" />
-							New Meeting
-						</Button>
-					</DialogTrigger>
 					<DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
 						<DialogHeader className="space-y-3 pb-4">
 							<div className="flex items-center gap-3">
@@ -443,8 +466,40 @@ export function MeetingsListSection() {
 				</Dialog>
 			</div>
 
+			<div className="flex items-center justify-between pt-4">
+						<h3 className="text-sm font-small">
+							{isLoading ? (
+								<Skeleton className="h-6 w-48" />
+							) : (
+								<>
+									{filteredMeetings.length} Meeting{filteredMeetings.length !== 1 ? "s" : ""} Found
+								</>
+							)}
+						</h3>
+						<div className="flex items-center gap-2">
+							<Button
+								variant={viewMode === "list" ? "default" : "outline"}
+								size="sm"
+								onClick={() => setViewMode("list")}
+								className="gap-2"
+							>
+								<LayoutList className="size-4" />
+								List
+							</Button>
+							<Button
+								variant={viewMode === "grid" ? "default" : "outline"}
+								size="sm"
+								onClick={() => setViewMode("grid")}
+								className="gap-2"
+							>
+								<Grid3x3 className="size-4" />
+								Grid
+							</Button>
+						</div>
+					</div>
+
 			<Card>
-				<CardContent className="pt-6">
+				<CardContent>
 					<div className="grid grid-cols-1 gap-4 md:grid-cols-2">
 						<Input
 							placeholder="Search meetings..."
@@ -516,16 +571,193 @@ export function MeetingsListSection() {
 				</Card>
 			) : (
 				<div className="space-y-4">
-					<div className="flex items-center justify-between">
-						<h3 className="text-lg font-medium">
-							{isLoading ? (
-								<Skeleton className="h-6 w-48" />
-							) : (
-								<>
-									{filteredMeetings.length} Meeting{filteredMeetings.length !== 1 ? "s" : ""} Found
-								</>
-							)}
-						</h3>
+
+					{viewMode === "list" ? (
+						<div className="space-y-4">
+							{filteredMeetings.map(meeting => {
+								const isHost = meeting.createdBy.id === session?.user?.id
+								const isParticipant = meeting.participants.some(
+									p => p.user?.id === session?.user?.id
+								)
+								const canJoin = meeting.status === "ONGOING"
+								const canStart = (isHost || isParticipant) && meeting.status === "SCHEDULED"
+								const canEnd = isHost && meeting.status === "ONGOING"
+								const scheduledLabel = meeting.createdAt
+									? format(new Date(meeting.createdAt), "PPp")
+									: "Not scheduled"
+
+							return (
+								<Card key={meeting.id} className="transition-shadow hover:shadow-md">
+									<CardContent className="relative">
+										<div className="flex items-start justify-between gap-4">
+
+											{/* LEFT SIDE */}
+											<div className="min-w-0 flex-1 space-y-3">
+
+											{/* Title + Status */}
+											<div className="flex flex-wrap items-center gap-2">
+												<h4 className="text-base font-semibold leading-tight truncate">
+												{meeting.title}
+												</h4>
+												{getStatusBadge(meeting.status)}
+											</div>
+
+											{/* Meta Info Row */}
+											<div className="text-muted-foreground flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
+												<div className="flex items-center gap-1">
+												<Users className="size-3.5 shrink-0" />
+												<span>
+													{meeting.participants.length} participant
+													{meeting.participants.length !== 1 ? "s" : ""}
+												</span>
+												</div>
+
+												<MeetingDocumentSummary
+												total={meeting.documentStats?.total ?? 0}
+												signed={meeting.documentStats?.signed ?? 0}
+												isComplete={meeting.documentStats?.isComplete}
+												className="text-xs"
+												/>
+
+												<div className="flex items-center gap-1">
+												<Calendar className="size-3.5 shrink-0" />
+												<span>{scheduledLabel}</span>
+												</div>
+
+												<div className="flex items-center gap-1">
+												<Clock className="size-3.5 shrink-0" />
+												<span>{meeting.createdBy.name}</span>
+												</div>
+											</div>
+
+											{/* Host Compact */}
+											<div className="flex items-center gap-2 pt-1">
+												<Avatar className="size-7">
+												<AvatarImage
+													src={meeting.createdBy.image ?? undefined}
+													alt={meeting.createdBy.name ?? "User"}
+												/>
+												<AvatarFallback>
+													{meeting.createdBy.name?.split(" ").map((n: string) => n[0]).join("") ?? "U"}
+												</AvatarFallback>
+												</Avatar>
+												<span className="text-xs font-medium">{meeting.createdBy.name}</span>
+												<span className="text-xs text-muted-foreground">• Host</span>
+											</div>
+											</div>
+
+											{/* RIGHT SIDE ACTIONS */}
+											<div className="flex shrink-0 flex-col items-end gap-2">
+
+											{/* Meeting Controls */}
+											<div className="flex flex-wrap justify-end gap-2">
+												{canStart && (
+												session?.user?.role === "PRINCIPAL" ? (
+													<Button size="sm" disabled className="h-8 text-xs opacity-70">
+													<PlayCircle className="size-3.5" />
+													Wait
+													</Button>
+												) : (
+													<Button
+													size="sm"
+													onClick={e => {
+														e.stopPropagation()
+														void handleStartMeeting(meeting.id)
+													}}
+													disabled={loadingMeetingId === meeting.id}
+													className="h-8 gap-1 text-xs"
+													>
+													<PlayCircle className="size-3.5" />
+													{loadingMeetingId === meeting.id ? "Starting..." : "Start"}
+													</Button>
+												)
+												)}
+
+												{canJoin && (
+												<Button
+													size="sm"
+													className="h-8 gap-1 text-xs text-black"
+													style={{ backgroundColor: "#33ff00" }}
+													onClick={e => {
+													e.stopPropagation()
+													setJoiningMeetingId(meeting.id)
+													router.push(`/meetings/${meeting.id}/lobby`)
+													}}
+													disabled={joiningMeetingId === meeting.id}
+												>
+													{joiningMeetingId === meeting.id ? (
+													<>
+														<Loader2 className="size-3.5 animate-spin" />
+														Joining
+													</>
+													) : (
+													<>
+														<Video className="size-3.5" />
+														Join
+													</>
+													)}
+												</Button>
+												)}
+
+												{canEnd && (
+												<Button
+													size="sm"
+													className="h-8 gap-1 bg-rose-500 text-xs text-white hover:bg-rose-600"
+													onClick={e => {
+													e.stopPropagation()
+													void handleEndMeeting(meeting.id)
+													}}
+													disabled={loadingMeetingId === meeting.id}
+												>
+													<StopCircle className="size-3.5" />
+													{loadingMeetingId === meeting.id ? "Ending..." : "End"}
+												</Button>
+												)}
+
+												{meeting.status === "COMPLETED" && (
+												<Button size="sm" variant="outline" disabled className="h-8 text-xs">
+													Ended
+												</Button>
+												)}
+
+												{isHost && (
+												<Button
+													variant="outline"
+													size="icon"
+													className="size-8"
+													onClick={e => {
+													e.stopPropagation()
+													void handleDelete(meeting.id)
+													}}
+												>
+													<Trash2 className="size-3.5" />
+												</Button>
+												)}
+											</div>
+
+											{/* Video Records Button */}
+											<Button
+												variant="ghost"
+												size="sm"
+												className="h-8 gap-1 text-xs"
+												onClick={e => {
+												e.stopPropagation()
+												setRecordingsModalMeeting({
+													id: meeting.id,
+													title: meeting.title,
+												})
+												setRecordingsModalOpen(true)
+												}}
+											>
+												<Film className="size-3.5" />
+												Records
+											</Button>
+											</div>
+										</div>
+										</CardContent>
+								</Card>
+							)
+						})}
 						<div className="flex items-center gap-2">
 							<Button
 								variant="outline"
@@ -545,188 +777,6 @@ export function MeetingsListSection() {
 								Next
 							</Button>
 						</div>
-						<div className="flex items-center gap-2">
-							<Button
-								variant={viewMode === "list" ? "default" : "outline"}
-								size="sm"
-								onClick={() => setViewMode("list")}
-								className="gap-2"
-							>
-								<LayoutList className="size-4" />
-								List
-							</Button>
-							<Button
-								variant={viewMode === "grid" ? "default" : "outline"}
-								size="sm"
-								onClick={() => setViewMode("grid")}
-								className="gap-2"
-							>
-								<Grid3x3 className="size-4" />
-								Grid
-							</Button>
-						</div>
-					</div>
-
-					{viewMode === "list" ? (
-						<div className="space-y-4">
-							{filteredMeetings.map(meeting => {
-								const isHost = meeting.createdBy.id === session?.user?.id
-								const isParticipant = meeting.participants.some(
-									p => p.user?.id === session?.user?.id
-								)
-								const canJoin = meeting.status === "ONGOING"
-								const canStart = (isHost || isParticipant) && meeting.status === "SCHEDULED"
-								const canEnd = isHost && meeting.status === "ONGOING"
-								const scheduledLabel = meeting.createdAt
-									? format(new Date(meeting.createdAt), "PPp")
-									: "Not scheduled"
-
-							return (
-								<Card key={meeting.id} className="transition-shadow hover:shadow-md">
-									<CardContent className="relative pl-10 pr-10">
-										<div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-											<div className="min-w-0 flex-1">
-												<div className="mb-2 flex flex-wrap items-center gap-3">
-													<h4 className="text-lg font-medium">{meeting.title}</h4>
-													{getStatusBadge(meeting.status)}
-												</div>
-
-													<div className="text-muted-foreground mb-3 flex flex-wrap items-center gap-4 text-sm">
-														<div className="flex items-center gap-1">
-															<Users className="size-4 shrink-0" />
-															<span>
-																{meeting.participants.length} participant
-																{meeting.participants.length !== 1 ? "s" : ""}
-															</span>
-														</div>
-														<MeetingDocumentSummary
-															total={meeting.documentStats?.total ?? 0}
-															signed={meeting.documentStats?.signed ?? 0}
-															isComplete={meeting.documentStats?.isComplete}
-														/>
-														<div className="flex items-center gap-1">
-															<Calendar className="size-4 shrink-0" />
-															<span>Scheduled {scheduledLabel}</span>
-														</div>
-														<div className="flex items-center gap-1">
-															<Clock className="size-4 shrink-0" />
-															<span>Created by {meeting.createdBy.name}</span>
-														</div>
-													</div>
-
-												<div className="flex flex-wrap items-center gap-4">
-													<div className="flex items-center gap-2">
-														<Avatar className="size-8">
-															<AvatarImage
-																src={meeting.createdBy.image ?? undefined}
-																alt={meeting.createdBy.name ?? "User"}
-															/>
-															<AvatarFallback>
-																{meeting.createdBy.name?.split(" ").map((n: string) => n[0]).join("") ?? "U"}
-															</AvatarFallback>
-														</Avatar>
-														<div className="text-sm">
-															<p className="font-medium">{meeting.createdBy.name}</p>
-															<p className="text-muted-foreground">Host</p>
-														</div>
-													</div>
-												</div>
-											</div>
-
-												<div className="flex shrink-0 flex-wrap items-center gap-2">
-													{canStart && (
-														<Button
-															onClick={e => {
-																e.stopPropagation()
-																void handleStartMeeting(meeting.id)
-															}}
-															disabled={loadingMeetingId === meeting.id}
-															className="flex items-center gap-2"
-														>
-															<PlayCircle className="size-4" />
-															{loadingMeetingId === meeting.id ? "Starting..." : "Start Meeting"}
-														</Button>
-													)}
-
-													{canJoin && (
-														<Button
-															className="flex items-center justify-center gap-2 text-white"
-															style={{ backgroundColor: "#313638" }}
-															onClick={e => {
-																e.stopPropagation()
-																setJoiningMeetingId(meeting.id)
-																router.push(`/meetings/${meeting.id}/lobby`)
-															}}
-															disabled={joiningMeetingId === meeting.id}
-														>
-															{joiningMeetingId === meeting.id ? (
-																<>
-																	<Loader2 className="size-4 animate-spin" />
-																	Joining...
-																</>
-															) : (
-																<>
-																	<Video className="size-4" />
-																	Join Meeting
-																</>
-															)}
-														</Button>
-													)}
-
-													{canEnd && (
-														<Button
-															className="flex items-center justify-center gap-2 bg-rose-500 text-white hover:bg-rose-600"
-															onClick={e => {
-																e.stopPropagation()
-																void handleEndMeeting(meeting.id)
-															}}
-															disabled={loadingMeetingId === meeting.id}
-														>
-															<StopCircle className="size-4" />
-															{loadingMeetingId === meeting.id ? "Ending..." : "End Meeting"}
-														</Button>
-													)}
-
-													{meeting.status === "COMPLETED" && (
-														<Button variant="outline" disabled>
-															Meeting Ended
-														</Button>
-													)}
-
-												{isHost && (
-													<Button
-														variant="outline"
-														size="sm"
-														onClick={e => {
-															e.stopPropagation()
-															void handleDelete(meeting.id)
-														}}
-													>
-														<Trash2 className="size-4" />
-													</Button>
-												)}
-											</div>
-											<Button
-												variant="outline"
-												size="sm"
-												className="absolute bottom-4 right-10 flex items-center gap-2"
-												onClick={e => {
-													e.stopPropagation()
-													setRecordingsModalMeeting({
-													id: meeting.id,
-													title: meeting.title,
-													})
-													setRecordingsModalOpen(true)
-												}}
-												>
-												<Film className="size-4" />
-												Video Records
-											</Button>
-										</div>
-									</CardContent>
-								</Card>
-							)
-						})}
 						</div>
 					) : (
 						<div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
