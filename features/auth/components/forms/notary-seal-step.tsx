@@ -15,12 +15,12 @@ import { type LawyerRegisterSchema } from "@/features/auth/api/auth.schemas"
 
 interface NotarySealStepProps {
 	form: UseFormReturn<LawyerRegisterSchema>
-	primaryName: string
 }
 
-export function NotarySealStep({ form, primaryName }: NotarySealStepProps) {
-	// const sealName = primaryName?.trim() || "No name provided yet"
-	const todayYmd = new Date().toISOString().slice(0, 10)
+export function NotarySealStep({ form }: NotarySealStepProps) {
+	const currentYear = new Date().getFullYear()
+	const minDate = new Date(currentYear - 10, 0, 1)
+	const maxDate = new Date(currentYear + 10, 11, 31)
 
 	return (
 		<div className="space-y-4">
@@ -54,15 +54,17 @@ export function NotarySealStep({ form, primaryName }: NotarySealStepProps) {
 				name="seal.rollNoDate"
 				render={({ field }) => {
 					const dateValue = field.value ? new Date(field.value) : undefined
-					const maxDate = new Date(todayYmd)
+					const fieldId = `rollNoDate-${field.name}`
 
 					return (
 						<FormItem>
-							<FormLabel>Roll No. Date</FormLabel>
+							<FormLabel htmlFor={fieldId}>Roll No. Date</FormLabel>
 							<FormControl>
 								<Popover>
 									<PopoverTrigger asChild>
 										<Button
+											id={fieldId}
+											type="button"
 											variant="outline"
 											data-empty={!dateValue}
 											className={cn(
@@ -82,7 +84,10 @@ export function NotarySealStep({ form, primaryName }: NotarySealStepProps) {
 												field.onChange(date?.toISOString())
 											}}
 											defaultMonth={dateValue}
-											disabled={date => date > maxDate}
+											fromDate={minDate}
+											toDate={maxDate}
+											fromYear={currentYear - 10}
+											toYear={currentYear + 10}
 											className="rounded-md border shadow-sm"
 											captionLayout="dropdown"
 										/>

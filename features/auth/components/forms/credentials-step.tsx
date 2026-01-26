@@ -15,12 +15,12 @@ import { type LawyerRegisterSchema } from "@/features/auth/api/auth.schemas"
 
 interface CredentialsStepProps {
 	form: UseFormReturn<LawyerRegisterSchema>
-	primaryName: string
 }
 
-export function CredentialsStep({ form, primaryName }: CredentialsStepProps) {
-	const attorneyName = primaryName?.trim() || "No name provided yet"
-	const todayYmd = new Date().toISOString().slice(0, 10)
+export function CredentialsStep({ form }: CredentialsStepProps) {
+	const currentYear = new Date().getFullYear()
+	const minDate = new Date(currentYear - 10, 0, 1)
+	const maxDate = new Date(currentYear + 10, 11, 31)
 
 	return (
 		<div className="space-y-4">
@@ -44,14 +44,17 @@ export function CredentialsStep({ form, primaryName }: CredentialsStepProps) {
 					name="notaryInfo.commissionNoValidUntil"
 					render={({ field }) => {
 						const dateValue = field.value ? new Date(field.value) : undefined
+						const fieldId = `commissionNoValidUntil-${field.name}`
 
 						return (
 							<FormItem>
-								<FormLabel>Commission Valid Until</FormLabel>
+								<FormLabel htmlFor={fieldId}>Commission Valid Until</FormLabel>
 								<FormControl>
 									<Popover>
 										<PopoverTrigger asChild>
 											<Button
+												id={fieldId}
+												type="button"
 												variant="outline"
 												data-empty={!dateValue}
 												className={cn(
@@ -71,6 +74,10 @@ export function CredentialsStep({ form, primaryName }: CredentialsStepProps) {
 													field.onChange(date?.toISOString())
 												}}
 												defaultMonth={dateValue}
+												fromDate={minDate}
+												toDate={maxDate}
+												fromYear={currentYear - 10}
+												toYear={currentYear + 10}
 												className="rounded-md border shadow-sm"
 												captionLayout="dropdown"
 											/>
@@ -119,15 +126,17 @@ export function CredentialsStep({ form, primaryName }: CredentialsStepProps) {
 				name="notaryInfo.ptrNoDate"
 				render={({ field }) => {
 					const dateValue = field.value ? new Date(field.value) : undefined
-					const maxDate = new Date(todayYmd)
+					const fieldId = `ptrNoDate-${field.name}`
 
 					return (
 						<FormItem>
-							<FormLabel>PTR Date</FormLabel>
+							<FormLabel htmlFor={fieldId}>PTR Date</FormLabel>
 							<FormControl>
 								<Popover>
 									<PopoverTrigger asChild>
 										<Button
+											id={fieldId}
+											type="button"
 											variant="outline"
 											data-empty={!dateValue}
 											className={cn(
@@ -147,7 +156,10 @@ export function CredentialsStep({ form, primaryName }: CredentialsStepProps) {
 												field.onChange(date?.toISOString())
 											}}
 											defaultMonth={dateValue}
-											disabled={date => date > maxDate}
+											fromDate={minDate}
+											toDate={maxDate}
+											fromYear={currentYear - 10}
+											toYear={currentYear + 10}
 											className="rounded-md border shadow-sm"
 											captionLayout="dropdown"
 										/>
@@ -180,15 +192,17 @@ export function CredentialsStep({ form, primaryName }: CredentialsStepProps) {
 					name="notaryInfo.ibpNoDate"
 					render={({ field }) => {
 						const dateValue = field.value ? new Date(field.value) : undefined
-						const maxDate = new Date(todayYmd)
+						const fieldId = `ibpNoDate-${field.name}`
 
 						return (
 							<FormItem>
-								<FormLabel>IBP Date</FormLabel>
+								<FormLabel htmlFor={fieldId}>IBP Date</FormLabel>
 								<FormControl>
 									<Popover>
 										<PopoverTrigger asChild>
 											<Button
+												id={fieldId}
+												type="button"
 												variant="outline"
 												data-empty={!dateValue}
 												className={cn(
@@ -208,7 +222,10 @@ export function CredentialsStep({ form, primaryName }: CredentialsStepProps) {
 													field.onChange(date?.toISOString())
 												}}
 												defaultMonth={dateValue}
-												disabled={date => date > maxDate}
+												fromDate={minDate}
+												toDate={maxDate}
+												fromYear={currentYear - 10}
+												toYear={currentYear + 10}
 												className="rounded-md border shadow-sm"
 												captionLayout="dropdown"
 											/>
@@ -242,15 +259,17 @@ export function CredentialsStep({ form, primaryName }: CredentialsStepProps) {
 					name="notaryInfo.mcleNoPeriod"
 					render={({ field }) => {
 						const dateValue = field.value ? new Date(field.value) : undefined
-						const maxDate = new Date(todayYmd)
+						const fieldId = `mcleNoPeriod-${field.name}`
 
 						return (
 							<FormItem>
-								<FormLabel>MCLE Period</FormLabel>
+								<FormLabel htmlFor={fieldId}>MCLE Period</FormLabel>
 								<FormControl>
 									<Popover>
 										<PopoverTrigger asChild>
 											<Button
+												id={fieldId}
+												type="button"
 												variant="outline"
 												data-empty={!dateValue}
 												className={cn(
@@ -270,7 +289,10 @@ export function CredentialsStep({ form, primaryName }: CredentialsStepProps) {
 													field.onChange(date?.toISOString())
 												}}
 												defaultMonth={dateValue}
-												disabled={date => date > maxDate}
+												fromDate={minDate}
+												toDate={maxDate}
+												fromYear={currentYear - 10}
+												toYear={currentYear + 10}
 												className="rounded-md border shadow-sm"
 												captionLayout="dropdown"
 											/>
@@ -303,15 +325,17 @@ export function CredentialsStep({ form, primaryName }: CredentialsStepProps) {
 				name="notaryInfo.mcleNoDate"
 				render={({ field }) => {
 					const dateValue = field.value ? new Date(field.value) : undefined
-					const maxDate = new Date(todayYmd)
+					const fieldId = `mcleNoDate-${field.name}`
 
 					return (
 						<FormItem>
-							<FormLabel>MCLE Date</FormLabel>
+							<FormLabel htmlFor={fieldId}>MCLE Date</FormLabel>
 							<FormControl>
 								<Popover>
 									<PopoverTrigger asChild>
 										<Button
+											id={fieldId}
+											type="button"
 											variant="outline"
 											data-empty={!dateValue}
 											className={cn(
@@ -331,7 +355,10 @@ export function CredentialsStep({ form, primaryName }: CredentialsStepProps) {
 												field.onChange(date?.toISOString())
 											}}
 											defaultMonth={dateValue}
-											disabled={date => date > maxDate}
+											fromDate={minDate}
+											toDate={maxDate}
+											fromYear={currentYear - 10}
+											toYear={currentYear + 10}
 											className="rounded-md border shadow-sm"
 											captionLayout="dropdown"
 										/>
