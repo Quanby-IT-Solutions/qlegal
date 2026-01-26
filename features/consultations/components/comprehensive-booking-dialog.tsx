@@ -208,16 +208,13 @@ export function ComprehensiveBookingDialog({
 	return (
 		<Dialog open={open} onOpenChange={setOpen}>
 			<DialogTrigger asChild>{trigger || <Button>Book Session</Button>}</DialogTrigger>
-			<DialogContent className="max-h-[90vh] w-[90vw] !max-w-none">
+			<DialogContent className="max-h-[90vh] w-[90vw] !max-w-4xl">
 				<DialogHeader>
 					<DialogTitle>
-						{bookingMode === "CONSULTATION" ? "Book Consultation" : "Book Signing Session"}
-						{enpName ? ` with ${enpName}` : ""}
+						Book Consultation{enpName ? ` with ${enpName}` : ""}
 					</DialogTitle>
 					<DialogDescription>
-						{bookingMode === "CONSULTATION"
-							? "Schedule a consultation with an Electronic Notary Public for your notarization needs."
-							: "Schedule a document signing session with an Electronic Notary Public."}
+						Schedule a consultation with an Electronic Notary Public for your notarization needs.
 					</DialogDescription>
 				</DialogHeader>
 
@@ -327,7 +324,7 @@ export function ComprehensiveBookingDialog({
 								</CardHeader>
 								<CardContent className="space-y-4">
 									<div className="flex items-center gap-4">
-										<Avatar className="h-16 w-16">
+										<Avatar className="size-16">
 											<AvatarImage
 												src={currentEnp.image ?? undefined}
 												alt={currentEnp.name ?? "ENP"}
@@ -336,14 +333,17 @@ export function ComprehensiveBookingDialog({
 												{currentEnp.name
 													?.split(" ")
 													.map(n => n[0])
-													.join("") ?? "EN"}
+													.join("")
+													.toUpperCase() ?? "EN"}
 											</AvatarFallback>
 										</Avatar>
 										<div>
 											<h4 className="font-medium">{currentEnp.name}</h4>
 											<p className="text-muted-foreground text-sm">Electronic Notary Public</p>
 											<div className="mt-1 flex items-center gap-1">
-												<span className="text-sm font-medium">{currentEnp.rating}</span>
+												<span className="text-sm font-medium">
+													{currentEnp.rating > 0 ? currentEnp.rating.toFixed(1) : "0"}
+												</span>
 												<span className="text-muted-foreground text-sm">
 													({currentEnp.reviewCount} reviews)
 												</span>
@@ -354,12 +354,12 @@ export function ComprehensiveBookingDialog({
 									<div className="space-y-3 text-sm">
 										{currentEnp.phoneNumber && (
 											<div className="flex items-center gap-2">
-												<Phone className="text-muted-foreground h-4 w-4" />
+												<Phone className="text-muted-foreground size-4" />
 												<span>{currentEnp.phoneNumber}</span>
 											</div>
 										)}
 										<div className="flex items-center gap-2">
-											<Mail className="text-muted-foreground h-4 w-4" />
+											<Mail className="text-muted-foreground size-4" />
 											<span>{currentEnp.email}</span>
 										</div>
 										<div>
@@ -368,7 +368,11 @@ export function ComprehensiveBookingDialog({
 										</div>
 										<div>
 											<p className="font-medium">Languages</p>
-											<p className="text-muted-foreground">{currentEnp.languages.join(", ")}</p>
+											<p className="text-muted-foreground">
+												{Array.isArray(currentEnp.languages)
+													? currentEnp.languages.join(", ")
+													: currentEnp.languages}
+											</p>
 										</div>
 										{currentEnp.experience && (
 											<div>
@@ -403,7 +407,7 @@ export function ComprehensiveBookingDialog({
 												variant="outline"
 												className="mt-2 w-full justify-start text-left font-normal"
 											>
-												<Calendar className="mr-2 h-4 w-4" />
+												<Calendar className="mr-2 size-4" />
 												{selectedDate ? format(selectedDate, "PPP") : "Pick a date"}
 											</Button>
 										</PopoverTrigger>
@@ -444,7 +448,7 @@ export function ComprehensiveBookingDialog({
 											</Label>
 											{isLoadingAvailability ? (
 												<div className="flex items-center justify-center py-4">
-													<Loader2 className="text-muted-foreground h-5 w-5 animate-spin" />
+													<Loader2 className="text-muted-foreground size-5 animate-spin" />
 												</div>
 											) : filteredSlots.length > 0 ? (
 												<div className="grid grid-cols-2 gap-2 md:grid-cols-3">
@@ -466,7 +470,7 @@ export function ComprehensiveBookingDialog({
 																className="justify-start"
 																size="sm"
 															>
-																<Clock className="mr-2 h-4 w-4" />
+																<Clock className="mr-2 size-4" />
 																{`${slot12Hour.hour}:${slot12Hour.minute} ${slot12Hour.period.toUpperCase()}`}
 															</Button>
 														)
@@ -514,12 +518,12 @@ export function ComprehensiveBookingDialog({
 					>
 						{isBookingPending ? (
 							<>
-								<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+								<Loader2 className="mr-2 size-4 animate-spin" />
 								Booking...
 							</>
 						) : (
 							<>
-								<Video className="mr-2 h-4 w-4" />
+								<Video className="mr-2 size-4" />
 								Confirm booking
 							</>
 						)}
