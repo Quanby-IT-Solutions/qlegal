@@ -3,13 +3,13 @@
 import { useMemo } from "react"
 
 import type { Appointment } from "@/services/drizzle/schema/appointments"
-import type { CalendarEvent } from "../types"
+import type { CalendarEvent, EventColor } from "../types"
 import type { EnpAvailability } from "@/services/drizzle/schema/enp-profiles"
-
-import { transformScheduleToCalendarEvents } from "@/features/requests/lib/schedule-utils"
 
 import { trpc } from "@/services/trpc/client"
 import { toast } from "sonner"
+
+import { EventCalendar } from "./event-calendar"
 
 interface ScheduleClientProps {
 	scheduleData: {
@@ -22,8 +22,7 @@ interface ScheduleClientProps {
 }
 
 export function ScheduleClient({ scheduleData }: ScheduleClientProps) {
-	const today = useMemo(() => new Date(), [])
-const utils = trpc.useUtils()
+	const utils = trpc.useUtils()
 
 	// Create event mutations
 	const createEnpEvent = trpc.schedule.createEnpEvent.useMutation({
@@ -71,9 +70,9 @@ const utils = trpc.useUtils()
 	// Transform incoming requests
 	const transformedRequests = incomingRequests.map(request => ({
 		id: request.id,
-		title: request.title,
+		title: request.title ?? "Request",
 		principal: { name: request.principal.name ?? "Unknown" },
-		scheduledDate: null, // Appointment relation is not loaded in this query
+		scheduledDate: null as Date | null, // Appointment relation is not loaded in this query
 		createdAt: request.createdAt.toISOString(),
 		status: request.status as "PENDING" | "COMPLETED" | "REJECTED" | "IN_PROGRESS",
 	}))
@@ -144,16 +143,19 @@ const utils = trpc.useUtils()
 		// Transform ENP appointments to calendar events
 		const myEvents = (scheduleData.myAppointments ?? []).map(apt => {
 			const eventDate = new Date(apt.appointmentDate)
+			const notes = apt.notes?.split("\n")[0]
+			const color: EventColor = apt.type === "CONSULTATION" ? "sky" : "emerald"
+			const eventType: "consultation" | "notarization" = apt.type === "CONSULTATION" ? "consultation" : "notarization"
 			return {
 				id: apt.id,
-				title: apt.notes ? apt.notes.split("\n")[0] : "Event",
+				title: notes ?? "Event",
 				start: eventDate,
-				end: new Date(eventDate.getTime() + (apt.duration || 60) * 60 * 1000),
-			allDay: false,
-			color: apt.type === "CONSULTATION" ? "sky" : "emerald",
-			location: apt.location ?? undefined,
-			recurrence: undefined,
-				eventType: apt.type === "CONSULTATION" ? "consultation" : "notarization",
+				end: new Date(eventDate.getTime() + (apt.duration ?? 60) * 60 * 1000),
+				allDay: false,
+				color,
+				location: apt.location ?? undefined,
+				recurrence: undefined,
+				eventType,
 				mode: undefined,
 				metadata: {
 					type: "enp-appointment",
@@ -163,16 +165,33 @@ const utils = trpc.useUtils()
 			}
 		})
 
-		return transformScheduleToCalendarEvents(
-			{
-				regular: [],
-				blocked: [],
-				recurringBlocked: [],
-				custom: [],
-			},
-			transformedRequests,
-			today.getMonth(),
-			today.getFullYear()
-		)
-	}, [scheduleData, transformedRequests, today])
+		// Merge myEvents with transformed requests
+		const allEvents: CalendarEvent[] = [...myEvents, ...transformedRequests.map(req => {
+			const reqDate = req.scheduledDate ?? new Date(req.createdAt)
+			const color: EventColor = req.status === "PENDING" ? "amber" : req.status === "COMPLETED" ? "emerald" : "rose"
+			return {
+				id: req.id,
+				title: req.title,
+				start: reqDate,
+				end: new Date(reqDate.getTime() + 60 * 60 * 1000),
+				allDay: false,
+				color,
+				metadata: {
+					type: "request",
+					status: req.status,
+				},
+			}
+		})]
+
+		return allEvents
+	}, [scheduleData, transformedRequests])
+
+	return (
+		<EventCalendar
+			events={calendarEvents}
+			onEventAdd={handleEventAdd}
+			onEventUpdate={handleEventUpdate}
+			onEventDelete={handleEventDelete}
+		/>
+	)
 }
