@@ -59,8 +59,6 @@ import { MeetingRecordingsModal } from "@/features/meetings/components/meeting-r
 import { useMessages } from "@/features/messages/api/messages.hooks"
 import { trpc } from "@/services/trpc/client"
 
-import { useMeetings } from "@/features/meetings/api/meetings.hooks"
-
 function MeetingDocumentSummary({
 	total,
 	signed,
