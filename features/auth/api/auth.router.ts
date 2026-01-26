@@ -97,6 +97,7 @@ export const authRouter = createTRPCRouter({
 						email,
 						password: hashedPassword,
 						role: "ENP",
+						status: "PENDING",
 					})
 					.returning({ id: users.id })
 
@@ -114,7 +115,6 @@ export const authRouter = createTRPCRouter({
 					enpName: seal.enpName,
 					enpRoleNumber: seal.enpRollNumber,
 					// Notary info
-					attyName: notaryInfo.attyName,
 					rollNo: seal.enpRollNumber,
 					rollNoDate: seal.rollNoDate,
 					commissionNo: notaryInfo.commissionNo,
@@ -124,12 +124,10 @@ export const authRouter = createTRPCRouter({
 					ptrNoDate: notaryInfo.ptrNoDate,
 					ibpNo: notaryInfo.ibpNo,
 					ibpNoDate: notaryInfo.ibpNoDate,
-					notaryEmail: notaryInfo.notaryEmail,
 					notaryAddress: notaryInfo.notaryAddress,
 					mcleNoPeriod: notaryInfo.mcleNoPeriod,
 					mcleNo: notaryInfo.mcleNo,
 					mcleNoDate: notaryInfo.mcleNoDate,
-					modeOfNotarization: notaryInfo.modeOfNotarization,
 					isAvailable: true,
 				})
 			})
