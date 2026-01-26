@@ -25,14 +25,14 @@ env:
   AUTH_GOOGLE_SECRET: ${{ secrets.AUTH_GOOGLE_SECRET }}
   AUTH_SECRET: ${{ secrets.AUTH_SECRET }}
   AUTH_TRUST_HOST: "true"
-  AUTH_URL: ${{ secrets.AUTH_URL }}
+  AUTH_URL: ${{ vars.AUTH_URL }}
 
   # Database
   DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
   # DocOnChain
-  DOCONCHAIN_API_URL: ${{ secrets.DOCONCHAIN_API_URL }}
-  DOCONCHAIN_APP_URL: ${{ secrets.DOCONCHAIN_APP_URL }}
+  DOCONCHAIN_API_URL: ${{ vars.DOCONCHAIN_API_URL }}
+  DOCONCHAIN_APP_URL: ${{ vars.DOCONCHAIN_APP_URL }}
   DOCONCHAIN_CLIENT_KEY: ${{ secrets.DOCONCHAIN_CLIENT_KEY }}
   DOCONCHAIN_CLIENT_SECRET: ${{ secrets.DOCONCHAIN_CLIENT_SECRET }}
   DOCONCHAIN_EMAIL: ${{ secrets.DOCONCHAIN_EMAIL }}
@@ -52,14 +52,14 @@ env:
 
   # Payment (HitPay)
   HITPAY_API_KEY: ${{ secrets.HITPAY_API_KEY }}
-  HITPAY_API_URL: ${{ secrets.HITPAY_API_URL }}
+  HITPAY_API_URL: ${{ vars.HITPAY_API_URL }}
   HITPAY_WEBHOOK_SALT: ${{ secrets.HITPAY_WEBHOOK_SALT }}
 
   # KYC (HyperVerge)
-  HYPERVERGE_API_URL: ${{ secrets.HYPERVERGE_API_URL }}
+  HYPERVERGE_API_URL: ${{ vars.HYPERVERGE_API_URL }}
   HYPERVERGE_APP_ID: ${{ secrets.HYPERVERGE_APP_ID }}
   HYPERVERGE_APP_KEY: ${{ secrets.HYPERVERGE_APP_KEY }}
-  HYPERVERGE_DIRECT_LIVENESS_ENABLED: ${{ secrets.HYPERVERGE_DIRECT_LIVENESS_ENABLED }}
+  HYPERVERGE_DIRECT_LIVENESS_ENABLED: ${{ vars.HYPERVERGE_DIRECT_LIVENESS_ENABLED }}
   HYPERVERGE_WORKFLOW_ID: ${{ secrets.HYPERVERGE_WORKFLOW_ID }}
 
   # Server Configuration
@@ -76,7 +76,7 @@ env:
   VIDEO_SDK_SECRET: ${{ secrets.VIDEO_SDK_SECRET }}
 
   # Public Site URL
-  NEXT_PUBLIC_SITE_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL }}
+  NEXT_PUBLIC_SITE_URL: ${{ vars.NEXT_PUBLIC_SITE_URL }}
 
 jobs:
   deploy:
@@ -125,7 +125,7 @@ jobs:
             --build-arg AUTH_GOOGLE_SECRET="${{ secrets.AUTH_GOOGLE_SECRET }}" \
             --build-arg AUTH_SECRET="${{ secrets.AUTH_SECRET }}" \
             --build-arg AUTH_TRUST_HOST="true" \
-            --build-arg AUTH_URL="${{ secrets.AUTH_URL }}" \
+            --build-arg AUTH_URL="${{ vars.AUTH_URL }}" \
             --build-arg DATABASE_URL="${{ secrets.DATABASE_URL }}" \
             --build-arg DOCONCHAIN_API_URL="${{ vars.DOCONCHAIN_API_URL }}" \
             --build-arg DOCONCHAIN_APP_URL="${{ vars.DOCONCHAIN_APP_URL }}" \
@@ -189,8 +189,8 @@ jobs:
             AUTH_TRUST_HOST=true
             AUTH_URL=${{ secrets.AUTH_URL }}
             DATABASE_URL=${{ secrets.DATABASE_URL }}
-            DOCONCHAIN_API_URL=${{ secrets.DOCONCHAIN_API_URL }}
-            DOCONCHAIN_APP_URL=${{ secrets.DOCONCHAIN_APP_URL }}
+            DOCONCHAIN_API_URL=${{ vars.DOCONCHAIN_API_URL }}
+            DOCONCHAIN_APP_URL=${{ vars.DOCONCHAIN_APP_URL }}
             DOCONCHAIN_CLIENT_KEY=${{ secrets.DOCONCHAIN_CLIENT_KEY }}
             DOCONCHAIN_CLIENT_SECRET=${{ secrets.DOCONCHAIN_CLIENT_SECRET }}
             DOCONCHAIN_EMAIL=${{ secrets.DOCONCHAIN_EMAIL }}
@@ -204,14 +204,14 @@ jobs:
             EMAIL_USER=${{ vars.EMAIL_USER }}
             GOOGLE_MAPS_API_KEY=${{ secrets.GOOGLE_MAPS_API_KEY }}
             HITPAY_API_KEY=${{ secrets.HITPAY_API_KEY }}
-            HITPAY_API_URL=${{ secrets.HITPAY_API_URL }}
+            HITPAY_API_URL=${{ vars.HITPAY_API_URL }}
             HITPAY_WEBHOOK_SALT=${{ secrets.HITPAY_WEBHOOK_SALT }}
-            HYPERVERGE_API_URL=${{ secrets.HYPERVERGE_API_URL }}
+            HYPERVERGE_API_URL=${{ vars.HYPERVERGE_API_URL }}
             HYPERVERGE_APP_ID=${{ secrets.HYPERVERGE_APP_ID }}
             HYPERVERGE_APP_KEY=${{ secrets.HYPERVERGE_APP_KEY }}
-            HYPERVERGE_DIRECT_LIVENESS_ENABLED=${{ secrets.HYPERVERGE_DIRECT_LIVENESS_ENABLED }}
+            HYPERVERGE_DIRECT_LIVENESS_ENABLED=${{ vars.HYPERVERGE_DIRECT_LIVENESS_ENABLED }}
             HYPERVERGE_WORKFLOW_ID=${{ secrets.HYPERVERGE_WORKFLOW_ID }}
-            NEXT_PUBLIC_SITE_URL=${{ secrets.NEXT_PUBLIC_SITE_URL }}
+            NEXT_PUBLIC_SITE_URL=${{ vars.NEXT_PUBLIC_SITE_URL }}
             NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
             NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
             NEXT_PUBLIC_VIDEO_SDK_API_KEY=${{ secrets.NEXT_PUBLIC_VIDEO_SDK_API_KEY }}
