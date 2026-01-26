@@ -11,6 +11,12 @@ import {
 	interpretStatus,
 	type OnboardLinkConfig,
 } from "@/services/hyperverge"
+import {
+	fetchImageUrlAsDataUrl,
+	getHyperVergeKycLogs,
+	pickBestFaceImageUrlFromLogs,
+	pickOcrFieldsFromLogs,
+} from "@/services/hyperverge/kyc-logs"
 import { checkLiveness } from "@/services/hyperverge/liveness"
 import { matchFaceSelfieToId, readIdCard } from "@/services/hyperverge/kyc-direct"
 import { auth } from "@/services/next-auth"
@@ -122,7 +128,7 @@ export async function createUserKycLink() {
 			})
 			.where(eq(users.id, session.user.id))
 
-		revalidatePath("/kyc")
+		revalidatePath("/auth/kyc")
 
 		return {
 			success: true,
@@ -264,7 +270,7 @@ export async function runDirectKycVerification(input: {
 			})
 			.where(eq(users.id, session.user.id))
 
-		revalidatePath("/kyc")
+		revalidatePath("/auth/kyc")
 
 		return {
 			success: true,
@@ -297,7 +303,7 @@ export async function runDirectKycVerification(input: {
 			})
 			.where(eq(users.id, session.user.id))
 
-		revalidatePath("/kyc")
+		revalidatePath("/auth/kyc")
 
 		return {
 			success: false,
@@ -326,6 +332,8 @@ export async function checkUserKycStatus() {
 			kycTransactionId: true,
 			kycStatus: true,
 			kycLink: true,
+			kycReferenceIdImageBase64: true,
+			kycOcrExtractedFieldsJson: true,
 			status: true,
 		},
 	})
@@ -343,8 +351,131 @@ export async function checkUserKycStatus() {
 	//   so HyperVerge "applicationStatus" may remain "started" even when checks have passed.
 	//   In that case, our DB is the source of truth and we must NOT overwrite VERIFIED -> PENDING.
 
-	// If our DB already has a final state, return it without polling HyperVerge.
+	const isRecord = (v: unknown): v is Record<string, unknown> =>
+		typeof v === "object" && v !== null && !Array.isArray(v)
+
+	const looksLikeUrl = (v: unknown): v is string =>
+		typeof v === "string" && /^https?:\/\/\S+$/i.test(v)
+
+	const findBestImageUrl = (root: unknown): string | null => {
+		// Prefer the documented field first.
+		if (isRecord(root)) {
+			const userDetails = root["userDetails"]
+			if (isRecord(userDetails) && looksLikeUrl(userDetails["croppedImageUrl"])) {
+				return userDetails["croppedImageUrl"]
+			}
+		}
+
+		// Fallback: search for any URL-like string under keys that look image-related.
+		const maxDepth = 6
+		const maxNodes = 400
+		let visited = 0
+
+		type Candidate = { url: string; score: number }
+		const candidates: Candidate[] = []
+
+		const scoreKey = (k: string): number => {
+			const key = k.toLowerCase()
+			if (key.includes("cropped")) return 100
+			if (key.includes("face")) return 80
+			if (key.includes("selfie")) return 60
+			if (key.includes("id")) return 50
+			if (key.includes("image")) return 40
+			if (key.includes("photo")) return 30
+			if (key.includes("url")) return 10
+			return 0
+		}
+
+		const walk = (node: unknown, depth: number, parentKey: string | null) => {
+			if (visited++ > maxNodes) return
+			if (depth > maxDepth) return
+
+			if (looksLikeUrl(node) && parentKey) {
+				const score = scoreKey(parentKey)
+				if (score > 0) candidates.push({ url: node, score })
+				return
+			}
+
+			if (Array.isArray(node)) {
+				for (const item of node) walk(item, depth + 1, parentKey)
+				return
+			}
+
+			if (isRecord(node)) {
+				for (const [k, v] of Object.entries(node)) {
+					walk(v, depth + 1, k)
+				}
+			}
+		}
+
+		walk(root, 0, null)
+
+		candidates.sort((a, b) => b.score - a.score)
+		return candidates[0]?.url ?? null
+	}
+
+	const fetchImageAsDataUrl = async (url: string): Promise<string | null> => {
+		try {
+			const imgRes = await fetch(url)
+			if (!imgRes.ok) return null
+
+			const contentType = imgRes.headers.get("content-type") ?? "image/jpeg"
+			const arrayBuffer = await imgRes.arrayBuffer()
+			const base64 = Buffer.from(arrayBuffer).toString("base64")
+			return `data:${contentType};base64,${base64}`
+		} catch {
+			return null
+		}
+	}
+
+	const needsHostedArtifacts =
+		!!user.kycLink && (!user.kycReferenceIdImageBase64 || !user.kycOcrExtractedFieldsJson)
+
+	// If our DB already has a final state:
+	// - normally we avoid remote calls
+	// - but for Hosted KYC, we want consistency: backfill face reference + OCR exactly once if missing
 	if (user.kycStatus === "VERIFIED") {
+		if (needsHostedArtifacts) {
+			try {
+				console.log("🧾 Fetching HyperVerge Logs API (backfill hosted KYC artifacts)...", {
+					transactionId: user.kycTransactionId,
+				})
+
+				const logs = await getHyperVergeKycLogs({ transactionId: user.kycTransactionId })
+				const update: {
+					kycReferenceIdImageBase64?: string | null
+					kycReferenceCreatedAt?: Date | null
+					kycOcrExtractedFieldsJson?: string | null
+					kycOcrCreatedAt?: Date | null
+				} = {}
+
+				if (!user.kycReferenceIdImageBase64) {
+					const imageUrl = pickBestFaceImageUrlFromLogs(logs)
+					if (imageUrl) {
+						const dataUrl = await fetchImageUrlAsDataUrl(imageUrl)
+						if (dataUrl) {
+							update.kycReferenceIdImageBase64 = dataUrl
+							update.kycReferenceCreatedAt = new Date()
+						}
+					}
+				}
+
+				if (!user.kycOcrExtractedFieldsJson) {
+					const ocr = pickOcrFieldsFromLogs(logs)
+					if (ocr) {
+						update.kycOcrExtractedFieldsJson = JSON.stringify(ocr)
+						update.kycOcrCreatedAt = new Date()
+					}
+				}
+
+				if (Object.keys(update).length > 0) {
+					await db.update(users).set(update).where(eq(users.id, session.user.id))
+				}
+			} catch {
+				// Non-fatal: status is already VERIFIED.
+			}
+		}
+
 		return {
 			success: true,
 			data: {
@@ -410,8 +541,15 @@ export async function checkUserKycStatus() {
 		const updateData: {
 			kycStatus: "PENDING" | "VERIFIED" | "REJECTED"
 			kycVerifiedAt?: Date
+			kycReferenceIdImageBase64?: string | null
+			kycReferenceCreatedAt?: Date | null
+			kycOcrExtractedFieldsJson?: string | null
+			kycOcrCreatedAt?: Date | null
 			status?: "ACTIVE" | "PENDING" | "SUSPENDED"
 		} = { kycStatus: "PENDING" }
+
+		const workflowDetails = result.result.workflowDetails ?? {}
+		const imageUrl = findBestImageUrl(workflowDetails)
 
 		if (interpretation.isApproved) {
 			newStatus = "VERIFIED"
@@ -424,17 +562,64 @@ export async function checkUserKycStatus() {
 			if (user.status === "PENDING") {
 				updateData.status = "ACTIVE"
 			}
-		} else if (applicationStatus === "auto_declined" || interpretation.needsReview) {
+
+			// Store a reference image once, for later selfie-vs-id checks.
+			// Per Output API docs: `userDetails.croppedImageUrl` is the cropped face image.
+			// Some workflows may expose other image URLs; we pick the best match we can find.
+			if (!user.kycReferenceIdImageBase64 && imageUrl) {
+				const dataUrl = await fetchImageAsDataUrl(imageUrl)
+				if (dataUrl) {
+					updateData.kycReferenceIdImageBase64 = dataUrl
+					updateData.kycReferenceCreatedAt = new Date()
+				}
+			}
+
+			// If Output API didn't provide artifacts, use Logs API (one-time) for Hosted KYC.
+			if (needsHostedArtifacts) {
+				try {
+					console.log("🧾 Fetching HyperVerge Logs API (hosted KYC artifacts)...", {
+						transactionId: user.kycTransactionId,
+					})
+
+					const logs = await getHyperVergeKycLogs({ transactionId: user.kycTransactionId })
+
+					if (!user.kycReferenceIdImageBase64 && !updateData.kycReferenceIdImageBase64) {
+						const bestUrl = pickBestFaceImageUrlFromLogs(logs)
+						if (bestUrl) {
+							const dataUrl = await fetchImageUrlAsDataUrl(bestUrl)
+							if (dataUrl) {
+								updateData.kycReferenceIdImageBase64 = dataUrl
+								updateData.kycReferenceCreatedAt = new Date()
+							}
+						}
+					}
+
+					if (!user.kycOcrExtractedFieldsJson) {
+						const ocr = pickOcrFieldsFromLogs(logs)
+						if (ocr) {
+							updateData.kycOcrExtractedFieldsJson = JSON.stringify(ocr)
+							updateData.kycOcrCreatedAt = new Date()
+						}
+					}
+				} catch (e) {
+					console.warn("⚠️ Hosted KYC Logs API fetch failed:", e)
+				}
+			}
+		} else if (applicationStatus === "auto_declined") {
 			newStatus = "REJECTED"
 			updateData.kycStatus = "REJECTED"
-			console.log("❌ KYC Rejected or Needs Review")
+			console.log("❌ KYC Rejected")
+		} else if (interpretation.needsReview) {
+			newStatus = "PENDING"
+			updateData.kycStatus = "PENDING"
+			console.log("🕵️ KYC Needs Review")
 		} else {
 			console.log("⏳ KYC Still Pending")
 		}
 
 		await db.update(users).set(updateData).where(eq(users.id, session.user.id))
 
-		revalidatePath("/kyc")
+		revalidatePath("/auth/kyc")
 
 		return {
 			success: true,
@@ -443,7 +628,7 @@ export async function checkUserKycStatus() {
 				status: applicationStatus,
 				kycStatus: newStatus,
 				...interpretation,
-				details: result.result.workflowDetails,
+				details: workflowDetails,
 			},
 		}
 	} catch (error) {
@@ -582,10 +767,12 @@ export async function resetUserKycStatus() {
 				kycLinkCreatedAt: null,
 				kycReferenceIdImageBase64: null,
 				kycReferenceCreatedAt: null,
+				kycOcrExtractedFieldsJson: null,
+				kycOcrCreatedAt: null,
 			})
 			.where(eq(users.id, session.user.id))
 
-		revalidatePath("/kyc")
+		revalidatePath("/auth/kyc")
 
 		return {
 			success: true,

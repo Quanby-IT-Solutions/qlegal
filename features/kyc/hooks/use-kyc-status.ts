@@ -25,28 +25,27 @@ interface UseKycStatusOptions {
 	 * Current KYC status - used to determine if polling should continue
 	 */
 	currentStatus?: string | null
-	/**
-	 * Polling interval in milliseconds (default: 30000 = 30 seconds)
-	 * Only polls when status is PENDING
-	 */
-	pollingInterval?: number
 }
 
 export function useKycStatus({
 	enabled = true,
 	currentStatus,
-	pollingInterval = 30000, // Default: 30 seconds
 }: UseKycStatusOptions = {}) {
 	const isPending = currentStatus === "PENDING"
 
 	return useQuery({
 		queryKey: ["kyc-status"],
+		enabled,
 		queryFn: async () => {
 			console.log("🔵 [TanStack Query] Checking KYC status")
 			return checkUserKycStatus()
 		},
-		// Only refetch when status is PENDING
-		refetchInterval: isPending ? pollingInterval : false,
+		// Avoid repeated Output API calls (/v1/output).
+		// We rely on:
+		// - initial check on mount
+		// - manual "Check Status" button
+		// - BroadcastChannel/webhook updates
+		refetchInterval: false,
 		// Reduce aggressive refetching
 		refetchOnWindowFocus: false,
 		refetchOnReconnect: false,

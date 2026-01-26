@@ -30,6 +30,9 @@ export const users = createTable("user", t => ({
 	// NOTE: This is temporary and should be migrated to private object storage later.
 	kycReferenceIdImageBase64: t.text(),
 	kycReferenceCreatedAt: t.timestamp({ mode: "date", withTimezone: true }),
+	// KYC OCR artifacts (hosted + direct). Stored as JSON string for now.
+	kycOcrExtractedFieldsJson: t.text(),
+	kycOcrCreatedAt: t.timestamp({ mode: "date", withTimezone: true }),
 	// Liveness Verification fields
 	livenessVerified: t.boolean().default(false),
 	livenessVerifiedAt: t.timestamp({ mode: "date", withTimezone: true }),

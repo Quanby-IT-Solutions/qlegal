@@ -16,6 +16,11 @@ import {
 	type LivenessDecisionResult,
 } from "@/services/hyperverge/liveness"
 import { matchFaceSelfieToId } from "@/services/hyperverge/kyc-direct"
+import {
+	fetchImageUrlAsDataUrl,
+	getHyperVergeKycLogs,
+	pickBestFaceImageUrlFromLogs,
+} from "@/services/hyperverge/kyc-logs"
 import { auth } from "@/services/next-auth"
 
 /**
@@ -105,8 +110,35 @@ export async function validateSelfieLiveness(imageBase64: string, meetingId?: st
 			columns: {
 				kycStatus: true,
 				kycReferenceIdImageBase64: true,
+				kycTransactionId: true,
 			},
 		})
+
+		let referenceImageBase64 = user?.kycReferenceIdImageBase64 ?? null
+
+		// If KYC is verified but reference image is missing (common for onboarding link),
+		// fetch Logs API once and store a face reference for later checks.
+		if (user?.kycStatus === "VERIFIED" && !referenceImageBase64 && user.kycTransactionId) {
+			try {
+				const logs = await getHyperVergeKycLogs({ transactionId: user.kycTransactionId })
+				const url = pickBestFaceImageUrlFromLogs(logs)
+				if (url) {
+					const dataUrl = await fetchImageUrlAsDataUrl(url)
+					if (dataUrl) {
+						referenceImageBase64 = dataUrl
+						await db
+							.update(users)
+							.set({
+								kycReferenceIdImageBase64: dataUrl,
+								kycReferenceCreatedAt: new Date(),
+							})
+							.where(eq(users.id, session.user.id))
+					}
+				}
+			} catch (e) {
+				console.warn("⚠️ Failed to populate KYC reference image from Logs API:", e)
+			}
+		}
 
 		let faceMatchPassed = true
 		let faceMatchMeta:
@@ -116,11 +148,11 @@ export async function validateSelfieLiveness(imageBase64: string, meetingId?: st
 			  }
 			| null = null
 
-		if (user?.kycStatus === "VERIFIED" && user.kycReferenceIdImageBase64) {
+		if (user?.kycStatus === "VERIFIED" && referenceImageBase64) {
 			const faceMatch = await matchFaceSelfieToId({
 				transactionId,
 				selfieBase64: imageBase64,
-				idBase64: user.kycReferenceIdImageBase64,
+				idBase64: referenceImageBase64,
 				returnScore: true,
 			})
 

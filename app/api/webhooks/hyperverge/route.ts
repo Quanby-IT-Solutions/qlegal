@@ -3,6 +3,12 @@ import { eq } from "drizzle-orm"
 
 import { db } from "@/services/drizzle/db"
 import { users } from "@/services/drizzle/schema/auth"
+import {
+	fetchImageUrlAsDataUrl,
+	getHyperVergeKycLogs,
+	pickBestFaceImageUrlFromLogs,
+	pickOcrFieldsFromLogs,
+} from "@/services/hyperverge/kyc-logs"
 
 /**
  * HyperVerge webhook payload structure
@@ -75,6 +81,8 @@ export async function POST(request: NextRequest) {
 				id: true,
 				email: true,
 				kycStatus: true,
+				kycReferenceIdImageBase64: true,
+				kycOcrExtractedFieldsJson: true,
 				status: true,
 			},
 		})
@@ -92,6 +100,10 @@ export async function POST(request: NextRequest) {
 		const updateData: {
 			kycStatus: "PENDING" | "VERIFIED" | "REJECTED"
 			kycVerifiedAt?: Date
+			kycReferenceIdImageBase64?: string | null
+			kycReferenceCreatedAt?: Date | null
+			kycOcrExtractedFieldsJson?: string | null
+			kycOcrCreatedAt?: Date | null
 			status?: "ACTIVE" | "PENDING" | "SUSPENDED"
 		} = {
 			kycStatus,
@@ -103,6 +115,35 @@ export async function POST(request: NextRequest) {
 			// Never override SUSPENDED here.
 			if (user.status === "PENDING") {
 				updateData.status = "ACTIVE"
+			}
+
+			// Store hosted-KYC artifacts once (reference face + OCR fields).
+			// We use Logs API (recommended for full module outputs) because Output API may return minimal payloads.
+			if (!user.kycReferenceIdImageBase64 || !user.kycOcrExtractedFieldsJson) {
+				try {
+					const logs = await getHyperVergeKycLogs({ transactionId })
+
+					if (!user.kycReferenceIdImageBase64) {
+						const imageUrl = pickBestFaceImageUrlFromLogs(logs)
+						if (imageUrl) {
+							const dataUrl = await fetchImageUrlAsDataUrl(imageUrl)
+							if (dataUrl) {
+								updateData.kycReferenceIdImageBase64 = dataUrl
+								updateData.kycReferenceCreatedAt = new Date()
+							}
+						}
+					}
+
+					if (!user.kycOcrExtractedFieldsJson) {
+						const ocr = pickOcrFieldsFromLogs(logs)
+						if (ocr) {
+							updateData.kycOcrExtractedFieldsJson = JSON.stringify(ocr)
+							updateData.kycOcrCreatedAt = new Date()
+						}
+					}
+				} catch (e) {
+					console.warn("⚠️ Failed to fetch/store hosted KYC artifacts from Logs API:", e)
+				}
 			}
 		}
 
