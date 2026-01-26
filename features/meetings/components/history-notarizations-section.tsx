@@ -247,9 +247,17 @@ export function HistoryNotarizationsSection() {
 					History of your completed and cancelled notarization sessions
 				</p>
 			</div>
-
+			<h3 className="text-sm font-small pt-5">
+					{isLoading ? (
+						<Skeleton className="h-6 w-48" />
+					) : (
+						<>
+							{filteredHistory.length} Notarization{filteredHistory.length !== 1 ? "s" : ""} Found
+						</>
+					)}
+				</h3>
 			<Card>
-				<CardContent className="pt-6">
+				<CardContent>
 					<div className="grid grid-cols-1 gap-4 md:grid-cols-4">
 						<Input
 							placeholder="Search notarizations..."
@@ -293,15 +301,7 @@ export function HistoryNotarizationsSection() {
 			</Card>
 
 			<div className="space-y-4">
-				<h3 className="text-lg font-medium">
-					{isLoading ? (
-						<Skeleton className="h-6 w-48" />
-					) : (
-						<>
-							{filteredHistory.length} Notarization{filteredHistory.length !== 1 ? "s" : ""} Found
-						</>
-					)}
-				</h3>
+				
 
 				{isLoading ? (
 					<div className="space-y-4">

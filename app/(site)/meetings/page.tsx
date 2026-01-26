@@ -71,7 +71,7 @@ export default function MeetingsPage() {
 					<Tabs
 						value={hydrated ? activeTab : "meetings"}
 						onValueChange={handleTabChange}
-						className="space-y-8"
+						className="space-y-3"
 					>
 						<TabsList className="grid w-full max-w-2xl grid-cols-3">
 							<TabsTrigger value="meetings" className="gap-2">

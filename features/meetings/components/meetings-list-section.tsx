@@ -466,8 +466,40 @@ export function MeetingsListSection() {
 				</Dialog>
 			</div>
 
+			<div className="flex items-center justify-between pt-4">
+						<h3 className="text-sm font-small">
+							{isLoading ? (
+								<Skeleton className="h-6 w-48" />
+							) : (
+								<>
+									{filteredMeetings.length} Meeting{filteredMeetings.length !== 1 ? "s" : ""} Found
+								</>
+							)}
+						</h3>
+						<div className="flex items-center gap-2">
+							<Button
+								variant={viewMode === "list" ? "default" : "outline"}
+								size="sm"
+								onClick={() => setViewMode("list")}
+								className="gap-2"
+							>
+								<LayoutList className="size-4" />
+								List
+							</Button>
+							<Button
+								variant={viewMode === "grid" ? "default" : "outline"}
+								size="sm"
+								onClick={() => setViewMode("grid")}
+								className="gap-2"
+							>
+								<Grid3x3 className="size-4" />
+								Grid
+							</Button>
+						</div>
+					</div>
+
 			<Card>
-				<CardContent className="pt-6">
+				<CardContent>
 					<div className="grid grid-cols-1 gap-4 md:grid-cols-2">
 						<Input
 							placeholder="Search meetings..."
@@ -539,56 +571,6 @@ export function MeetingsListSection() {
 				</Card>
 			) : (
 				<div className="space-y-4">
-					<div className="flex items-center justify-between">
-						<h3 className="text-lg font-medium">
-							{isLoading ? (
-								<Skeleton className="h-6 w-48" />
-							) : (
-								<>
-									{filteredMeetings.length} Meeting{filteredMeetings.length !== 1 ? "s" : ""} Found
-								</>
-							)}
-						</h3>
-						<div className="flex items-center gap-2">
-							<Button
-								variant="outline"
-								size="sm"
-								onClick={() => setPage(p => Math.max(1, p - 1))}
-								disabled={page <= 1 || isLoading}
-							>
-								Prev
-							</Button>
-							<div className="text-muted-foreground text-sm">Page {page}</div>
-							<Button
-								variant="outline"
-								size="sm"
-								onClick={() => setPage(p => p + 1)}
-								disabled={!hasMore || isLoading}
-							>
-								Next
-							</Button>
-						</div>
-						<div className="flex items-center gap-2">
-							<Button
-								variant={viewMode === "list" ? "default" : "outline"}
-								size="sm"
-								onClick={() => setViewMode("list")}
-								className="gap-2"
-							>
-								<LayoutList className="size-4" />
-								List
-							</Button>
-							<Button
-								variant={viewMode === "grid" ? "default" : "outline"}
-								size="sm"
-								onClick={() => setViewMode("grid")}
-								className="gap-2"
-							>
-								<Grid3x3 className="size-4" />
-								Grid
-							</Button>
-						</div>
-					</div>
 
 					{viewMode === "list" ? (
 						<div className="space-y-4">
@@ -760,6 +742,25 @@ export function MeetingsListSection() {
 								</Card>
 							)
 						})}
+						<div className="flex items-center gap-2">
+							<Button
+								variant="outline"
+								size="sm"
+								onClick={() => setPage(p => Math.max(1, p - 1))}
+								disabled={page <= 1 || isLoading}
+							>
+								Prev
+							</Button>
+							<div className="text-muted-foreground text-sm">Page {page}</div>
+							<Button
+								variant="outline"
+								size="sm"
+								onClick={() => setPage(p => p + 1)}
+								disabled={!hasMore || isLoading}
+							>
+								Next
+							</Button>
+						</div>
 						</div>
 					) : (
 						<div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
