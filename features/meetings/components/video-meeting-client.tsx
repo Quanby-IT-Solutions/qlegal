@@ -1257,24 +1257,25 @@ const DocumentActions = React.memo(function DocumentActions({
 	// ENP: Start Signing → Plot Signature (ENP-only) → Sign Document. Principals never see Plot Signature.
 	// Principal: Start Signing only appears after ENP has plotted; before that, show "Start Signing" disabled (waiting for ENP).
 	const getButtonText = (): "Start Signing" | "Plot Signature" | "Sign Document" => {
-		if (!isUserAddedAsSigner) return "Start Signing"
 		if (hasUserSigned) return "Sign Document"
 		
-		// For ENP:
-		// - If status indicates plotted (not PENDING/NEXT GROUP) → "Sign Document"
-		// - If signers are showing up on the card (filteredSigners exist) → "Sign Document" (plotting is done)
-		// - Otherwise → "Plot Signature" (ENP must plot first, regardless of position in order)
-		// Note: ENP can always plot, regardless of previous signers' status or their position
-		// After plotting, button changes to "Sign Document" but will be disabled if not their turn
+		// For ENP: After project is created, they must plot first, then sign
 		if (isEnp) {
-			// If ENP has plotted (status changed from PENDING/NEXT GROUP), show "Sign Document"
-			// OR if signers are showing up on the card (meaning plotting is done and signers were added)
-			if (hasPlotted || (filteredSigners.length > 0 && isUserAddedAsSigner)) {
-				return "Sign Document"
+			// If project exists, ENP must plot first
+			if (document.docoChainProjectId) {
+				// Check actual plotting status - if status is NOT PENDING/NEXT GROUP, ENP has plotted
+				if (hasPlotted) {
+					return "Sign Document"
+				}
+				// Project exists but ENP hasn't plotted yet (status is still PENDING/NEXT GROUP) - show "Plot Signature"
+				return "Plot Signature"
 			}
-			// ENP hasn't plotted yet - show "Plot Signature" (always enabled for ENP)
-			return "Plot Signature"
+			// No project yet - show "Start Signing" (will create project and add as signer)
+			return "Start Signing"
 		}
+		
+		// For non-ENP (Principal, etc.): show "Start Signing"
+		if (!isUserAddedAsSigner) return "Start Signing"
 		
 		// For Principal: if plotted, show "Start Signing", otherwise show "Start Signing" (disabled, waiting for ENP)
 		return "Start Signing"
@@ -1330,13 +1331,11 @@ const DocumentActions = React.memo(function DocumentActions({
 	
 	// For ENP: If button shows "Sign Document" but they haven't actually plotted yet (status still PENDING/NEXT GROUP),
 	// disable the button until they plot (status changes)
-	// BUT: If signers are already showing on the card, plotting is done, so don't show this message
 	const isEnpNotPlottedYet = 
 		isEnp && 
 		buttonText === "Sign Document" && 
 		isPendingOrNextGroup && 
-		!hasUserSigned &&
-		!(filteredSigners.length > 0 && isUserAddedAsSigner) // Don't show if signers are already showing (plotting done)
+		!hasUserSigned
 	
 	const isSigningDisabled = hasUserSigned
 		? true
