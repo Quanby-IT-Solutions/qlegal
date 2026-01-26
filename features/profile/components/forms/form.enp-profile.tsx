@@ -18,8 +18,13 @@ import {
 	FormMessage,
 } from "@/core/components/ui/form"
 import { Input } from "@/core/components/ui/input"
+import {
+	Card,
+	CardContent,
+	CardHeader,
+	CardTitle,
+} from "@/core/components/ui/card"
 import { Popover, PopoverContent, PopoverTrigger } from "@/core/components/ui/popover"
-import { Separator } from "@/core/components/ui/separator"
 import { cn } from "@/core/lib/utils"
 
 import { trpc } from "@/services/trpc/client"
@@ -70,23 +75,26 @@ export function EnpProfileForm() {
 	return (
 		<Form {...form}>
 			<form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-				{/* Notary Seal Section */}
-				<div className="space-y-4">
-					<h3 className="text-base font-semibold">Notary Seal</h3>
-				<div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-					<FormField
-						control={form.control}
-						name="rollNo"
-						render={({ field }) => (
-							<FormItem>
-								<FormLabel>Roll Number</FormLabel>
-								<FormControl>
-									<Input placeholder="e.g., 123456" autoComplete="off" {...field} />
-								</FormControl>
-								<FormMessage />
-							</FormItem>
-						)}
-					/>
+			{/* Roll Registration Section */}
+			<Card className="border-border/60 bg-card/80 dark:bg-card/70 border shadow-sm backdrop-blur-xl transition-all duration-300 hover:shadow-md">
+				<CardHeader className="px-8 pt-4">
+					<CardTitle className="text-lg font-medium">Roll Registration</CardTitle>
+				</CardHeader>
+				<CardContent className="px-8">
+					<div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+						<FormField
+							control={form.control}
+							name="rollNo"
+							render={({ field }) => (
+								<FormItem>
+									<FormLabel>Roll Number</FormLabel>
+									<FormControl>
+										<Input placeholder="e.g., 123456" autoComplete="off" {...field} />
+									</FormControl>
+									<FormMessage />
+								</FormItem>
+							)}
+						/>
 
 						<FormField
 							control={form.control}
@@ -102,30 +110,30 @@ export function EnpProfileForm() {
 											<Popover>
 												<PopoverTrigger asChild>
 													<Button
-														id={fieldId}
-														type="button"
-														variant="outline"
-														data-empty={!dateValue}
-														className={cn(
-															"data-[empty=true]:text-muted-foreground w-full justify-start text-left font-normal",
-															!dateValue && "text-muted-foreground"
-														)}
+															id={fieldId}
+															type="button"
+															variant="outline"
+															data-empty={!dateValue}
+															className={cn(
+																	"data-[empty=true]:text-muted-foreground w-full justify-start text-left font-normal",
+																	!dateValue && "text-muted-foreground"
+															)}
 													>
-														<CalendarIcon className="mr-2 size-4" />
-														{dateValue ? format(dateValue, "PPP") : <span>Pick a date</span>}
+															<CalendarIcon className="mr-2 size-4" />
+															{dateValue ? format(dateValue, "PPP") : <span>Pick a date</span>}
 													</Button>
 												</PopoverTrigger>
 												<PopoverContent className="w-auto p-0" align="start">
 													<Calendar
-														mode="single"
-														selected={dateValue}
-														onSelect={date => {
-															field.onChange(date?.toISOString())
-														}}
-														defaultMonth={dateValue}
-														disabled={date => date > maxDate}
-														className="rounded-md border shadow-sm"
-														captionLayout="dropdown"
+															mode="single"
+															selected={dateValue}
+															onSelect={date => {
+																	field.onChange(date?.toISOString())
+															}}
+															defaultMonth={dateValue}
+															disabled={date => date > maxDate}
+															className="rounded-md border shadow-sm"
+															captionLayout="dropdown"
 													/>
 												</PopoverContent>
 											</Popover>
@@ -136,13 +144,15 @@ export function EnpProfileForm() {
 							}}
 						/>
 					</div>
-				</div>
+				</CardContent>
+			</Card>
 
-				<Separator />
-
-				{/* Credentials Section */}
-				<div className="space-y-4">
-					<h3 className="text-base font-semibold">Credentials</h3>
+		{/* Licensing Section */}
+		<Card className="border-border/60 bg-card/80 dark:bg-card/70 border shadow-sm backdrop-blur-xl transition-all duration-300 hover:shadow-md">
+				<CardHeader className="px-8 pt-4">
+					<CardTitle className="text-lg font-medium">Licensing</CardTitle>
+				</CardHeader>
+				<CardContent className="px-8">
 					<div className="grid grid-cols-1 gap-4 md:grid-cols-2">
 						<FormField
 							control={form.control}
@@ -172,29 +182,29 @@ export function EnpProfileForm() {
 											<Popover>
 												<PopoverTrigger asChild>
 													<Button
-														id={fieldId}
-														type="button"
-														variant="outline"
-														data-empty={!dateValue}
-														className={cn(
-															"data-[empty=true]:text-muted-foreground w-full justify-start text-left font-normal",
-															!dateValue && "text-muted-foreground"
-														)}
+															id={fieldId}
+															type="button"
+															variant="outline"
+															data-empty={!dateValue}
+															className={cn(
+																	"data-[empty=true]:text-muted-foreground w-full justify-start text-left font-normal",
+																	!dateValue && "text-muted-foreground"
+															)}
 													>
-														<CalendarIcon className="mr-2 size-4" />
-														{dateValue ? format(dateValue, "PPP") : <span>Pick a date</span>}
+															<CalendarIcon className="mr-2 size-4" />
+															{dateValue ? format(dateValue, "PPP") : <span>Pick a date</span>}
 													</Button>
 												</PopoverTrigger>
 												<PopoverContent className="w-auto p-0" align="start">
 													<Calendar
-														mode="single"
-														selected={dateValue}
-														onSelect={date => {
-															field.onChange(date?.toISOString())
-														}}
-														defaultMonth={dateValue}
-														className="rounded-md border shadow-sm"
-														captionLayout="dropdown"
+															mode="single"
+															selected={dateValue}
+															onSelect={date => {
+																	field.onChange(date?.toISOString())
+															}}
+															defaultMonth={dateValue}
+															className="rounded-md border shadow-sm"
+															captionLayout="dropdown"
 													/>
 												</PopoverContent>
 											</Popover>
@@ -247,30 +257,30 @@ export function EnpProfileForm() {
 											<Popover>
 												<PopoverTrigger asChild>
 													<Button
-														id={fieldId}
-														type="button"
-														variant="outline"
-														data-empty={!dateValue}
-														className={cn(
-															"data-[empty=true]:text-muted-foreground w-full justify-start text-left font-normal",
-															!dateValue && "text-muted-foreground"
-														)}
+															id={fieldId}
+															type="button"
+															variant="outline"
+															data-empty={!dateValue}
+															className={cn(
+																	"data-[empty=true]:text-muted-foreground w-full justify-start text-left font-normal",
+																	!dateValue && "text-muted-foreground"
+															)}
 													>
-														<CalendarIcon className="mr-2 size-4" />
-														{dateValue ? format(dateValue, "PPP") : <span>Pick a date</span>}
+															<CalendarIcon className="mr-2 size-4" />
+															{dateValue ? format(dateValue, "PPP") : <span>Pick a date</span>}
 													</Button>
 												</PopoverTrigger>
 												<PopoverContent className="w-auto p-0" align="start">
 													<Calendar
-														mode="single"
-														selected={dateValue}
-														onSelect={date => {
-															field.onChange(date?.toISOString())
-														}}
-														defaultMonth={dateValue}
-														disabled={date => date > maxDate}
-														className="rounded-md border shadow-sm"
-														captionLayout="dropdown"
+															mode="single"
+															selected={dateValue}
+															onSelect={date => {
+																	field.onChange(date?.toISOString())
+															}}
+															defaultMonth={dateValue}
+															disabled={date => date > maxDate}
+															className="rounded-md border shadow-sm"
+															captionLayout="dropdown"
 													/>
 												</PopoverContent>
 											</Popover>
@@ -309,30 +319,30 @@ export function EnpProfileForm() {
 											<Popover>
 												<PopoverTrigger asChild>
 													<Button
-														id={fieldId}
-														type="button"
-														variant="outline"
-														data-empty={!dateValue}
-														className={cn(
-															"data-[empty=true]:text-muted-foreground w-full justify-start text-left font-normal",
-															!dateValue && "text-muted-foreground"
-														)}
+															id={fieldId}
+															type="button"
+															variant="outline"
+															data-empty={!dateValue}
+															className={cn(
+																	"data-[empty=true]:text-muted-foreground w-full justify-start text-left font-normal",
+																	!dateValue && "text-muted-foreground"
+															)}
 													>
-														<CalendarIcon className="mr-2 size-4" />
-														{dateValue ? format(dateValue, "PPP") : <span>Pick a date</span>}
+															<CalendarIcon className="mr-2 size-4" />
+															{dateValue ? format(dateValue, "PPP") : <span>Pick a date</span>}
 													</Button>
 												</PopoverTrigger>
 												<PopoverContent className="w-auto p-0" align="start">
 													<Calendar
-														mode="single"
-														selected={dateValue}
-														onSelect={date => {
-															field.onChange(date?.toISOString())
-														}}
-														defaultMonth={dateValue}
-														disabled={date => date > maxDate}
-														className="rounded-md border shadow-sm"
-														captionLayout="dropdown"
+															mode="single"
+															selected={dateValue}
+															onSelect={date => {
+																	field.onChange(date?.toISOString())
+															}}
+															defaultMonth={dateValue}
+															disabled={date => date > maxDate}
+															className="rounded-md border shadow-sm"
+															captionLayout="dropdown"
 													/>
 												</PopoverContent>
 											</Popover>
@@ -351,16 +361,26 @@ export function EnpProfileForm() {
 									<FormLabel>Notary Address</FormLabel>
 									<FormControl>
 										<Input
-											placeholder="Your notary office address"
-											autoComplete="street-address"
-											{...field}
+															placeholder="Your notary office address"
+															autoComplete="street-address"
+															{...field}
 										/>
 									</FormControl>
 									<FormMessage />
 								</FormItem>
 							)}
 						/>
+					</div>
+				</CardContent>
+			</Card>
 
+			{/* Certifications Section */}
+			<Card className="border-border/60 bg-card/80 dark:bg-card/70 border shadow-sm backdrop-blur-xl transition-all duration-300 hover:shadow-md">
+				<CardHeader className="px-8 pt-4">
+					<CardTitle className="text-lg font-medium">Certifications</CardTitle>
+				</CardHeader>
+				<CardContent className="px-8">
+					<div className="grid grid-cols-1 gap-4 md:grid-cols-2">
 						<FormField
 							control={form.control}
 							name="mcleNoPeriod"
@@ -403,30 +423,30 @@ export function EnpProfileForm() {
 											<Popover>
 												<PopoverTrigger asChild>
 													<Button
-														id={fieldId}
-														type="button"
-														variant="outline"
-														data-empty={!dateValue}
-														className={cn(
-															"data-[empty=true]:text-muted-foreground w-full justify-start text-left font-normal",
-															!dateValue && "text-muted-foreground"
-														)}
+															id={fieldId}
+															type="button"
+															variant="outline"
+															data-empty={!dateValue}
+															className={cn(
+																	"data-[empty=true]:text-muted-foreground w-full justify-start text-left font-normal",
+																	!dateValue && "text-muted-foreground"
+															)}
 													>
-														<CalendarIcon className="mr-2 size-4" />
-														{dateValue ? format(dateValue, "PPP") : <span>Pick a date</span>}
+															<CalendarIcon className="mr-2 size-4" />
+															{dateValue ? format(dateValue, "PPP") : <span>Pick a date</span>}
 													</Button>
 												</PopoverTrigger>
 												<PopoverContent className="w-auto p-0" align="start">
 													<Calendar
-														mode="single"
-														selected={dateValue}
-														onSelect={date => {
-															field.onChange(date?.toISOString())
-														}}
-														defaultMonth={dateValue}
-														disabled={date => date > maxDate}
-														className="rounded-md border shadow-sm"
-														captionLayout="dropdown"
+															mode="single"
+															selected={dateValue}
+															onSelect={date => {
+																	field.onChange(date?.toISOString())
+															}}
+															defaultMonth={dateValue}
+															disabled={date => date > maxDate}
+															className="rounded-md border shadow-sm"
+															captionLayout="dropdown"
 													/>
 												</PopoverContent>
 											</Popover>
@@ -437,7 +457,8 @@ export function EnpProfileForm() {
 							}}
 						/>
 					</div>
-				</div>
+				</CardContent>
+			</Card>
 
 				<div className="flex justify-end">
 					<Button type="submit" disabled={isPending}>
