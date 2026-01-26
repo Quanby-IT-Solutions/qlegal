@@ -67,7 +67,7 @@ export const appSidebarSections: NavSection[] = [
 			},
 			{
 				title: "Sessions",
-				url: "/appointments",
+				url: "/meetings",
 				icon: Video01Icon,
 			},
 			{
