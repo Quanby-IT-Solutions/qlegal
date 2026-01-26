@@ -1,4 +1,4 @@
-"use client"
+import { auth } from "@/services/next-auth"
 
 import { Compliance } from "@/features/home/components/compliance"
 import { CTA } from "@/features/home/components/cta"
@@ -8,15 +8,18 @@ import { Hero } from "@/features/home/components/hero"
 import { Navbar } from "@/features/home/components/navbar"
 import { TrustedBy } from "@/features/home/components/trusted-by"
 
-export default function Page() {
+export default async function Page() {
+	const session = await auth()
+	const isAuthenticated = !!session?.user
+
 	return (
 		<div className="relative">
-			<Navbar />
+			<Navbar isAuthenticated={isAuthenticated} />
 
 			{/* Hero Section */}
 			<div className="bg-background flex h-dvh w-full items-center">
 				<div className="w-full">
-					<Hero />
+					<Hero isAuthenticated={isAuthenticated} />
 				</div>
 			</div>
 

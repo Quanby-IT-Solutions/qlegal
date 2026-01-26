@@ -26,11 +26,14 @@ import { cn } from "@/core/lib/utils"
 
 import { ConsultationBookingDialog } from "@/features/consultations/components/consultation-booking-dialog"
 import { useMessages } from "@/features/messages/api/messages.hooks"
+import { useMessagesSubscriptions } from "@/features/messages/api/use-messages-subscriptions"
 import { FileUploadPanel } from "@/features/messages/components/file-upload-panel"
+import { trpc } from "@/services/trpc/client"
 
 export default function MessagesPage() {
 	const { data: session } = useSession()
 	const searchParams = useSearchParams()
+	const utils = trpc.useUtils()
 	const { getConversations, getMessages, sendMessage, startConversation, markAsRead, searchUsers } =
 		useMessages()
 	const { data: conversations, isLoading: loadingConversations } = getConversations
@@ -48,6 +51,14 @@ export default function MessagesPage() {
 	// Get messages for selected conversation
 	const messagesQuery = getMessages(selectedConversationId ?? "")
 	const { data: messages, isLoading: loadingMessages } = messagesQuery
+
+	// Real-time subscriptions (SSE)
+	useMessagesSubscriptions({
+		userId: session?.user?.id,
+		conversationId: selectedConversationId,
+		utils,
+		lastMessageId: messages && messages.length > 0 ? messages.at(-1)?.id : undefined,
+	})
 
 	// Get users for new chat search
 	const { data: searchResults } = searchUsers(userSearchQuery)
@@ -67,11 +78,11 @@ export default function MessagesPage() {
 	}, [conversations, selectedConversationId, searchParams])
 
 	// Mark conversation as read when selected
+	// Only depend on selectedConversationId; markAsRead is stable but comes from a new object each render.
 	useEffect(() => {
-		if (selectedConversationId) {
-			void markAsRead.mutateAsync({ conversationId: selectedConversationId })
-		}
-	}, [markAsRead, selectedConversationId])
+		if (!selectedConversationId) return
+		markAsRead.mutate({ conversationId: selectedConversationId })
+	}, [selectedConversationId]) // eslint-disable-line react-hooks/exhaustive-deps -- markAsRead from useMessages() is new ref each render; we only want to run when conversation changes
 
 	// Scroll to bottom when messages change
 	useEffect(() => {
@@ -94,8 +105,7 @@ export default function MessagesPage() {
 				content: messageInput.trim(),
 			})
 			setMessageInput("")
-			await messagesQuery.refetch()
-			await getConversations.refetch()
+			// Note: No manual refetch needed - mutation invalidation + subscription handles updates
 		} catch {
 			toast.error("Failed to send message")
 		}
@@ -157,8 +167,7 @@ export default function MessagesPage() {
 				conversationId: selectedConversationId,
 				content: `Book a consultation here: ${bookingLink}`,
 			})
-			await messagesQuery.refetch()
-			await getConversations.refetch()
+			// Note: No manual refetch needed - mutation invalidation + subscription handles updates
 		} catch {
 			toast.error("Failed to share booking link")
 		}

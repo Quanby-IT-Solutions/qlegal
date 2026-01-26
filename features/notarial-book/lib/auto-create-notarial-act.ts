@@ -456,12 +456,39 @@ export async function autoCreateNotarialAct(
 				ip_address?: string
 			} | null
 
-			// Get execution time from passport data (use completion time)
-			if (passportObj?.data?.completed_at) {
+			// Get execution time from passport data
+			// Priority: 1) Principal signer's signed_at (actual signing time), 2) completed_at, 3) latest history event
+			if (principal?.signedAt) {
+				// Use the principal signer's actual signing time
+				executedAt = new Date(principal.signedAt)
+				console.log("✅ Using principal signer's signed_at timestamp:", principal.signedAt)
+			} else if (allSigners && allSigners.length > 0) {
+				// Find the earliest or latest signer's signed_at timestamp
+				const signersWithTimestamp = allSigners
+					.filter(s => s.signedAt)
+					.map(s => ({ signedAt: s.signedAt!, timestamp: new Date(s.signedAt!).getTime() }))
+					.sort((a, b) => a.timestamp - b.timestamp) // Sort by earliest first
+
+				if (signersWithTimestamp.length > 0) {
+					const first = signersWithTimestamp[0]!
+					// Use the earliest signing time (when the document was first signed)
+					executedAt = new Date(first.signedAt)
+					console.log("✅ Using earliest signer's signed_at timestamp:", first.signedAt)
+				}
+			}
+
+			// Fallback to completed_at if no signer timestamps available
+			if (executedAt.getTime() === new Date().getTime() && passportObj?.data?.completed_at) {
 				executedAt = new Date(passportObj.data.completed_at)
-			} else if (passportObj?.completed_at) {
+				console.log("✅ Using completed_at timestamp:", passportObj.data.completed_at)
+			} else if (executedAt.getTime() === new Date().getTime() && passportObj?.completed_at) {
 				executedAt = new Date(passportObj.completed_at)
-			} else if (Array.isArray(passportObj?.data?.history) && passportObj.data.history.length > 0) {
+				console.log("✅ Using completed_at timestamp:", passportObj.completed_at)
+			} else if (
+				executedAt.getTime() === new Date().getTime() &&
+				Array.isArray(passportObj?.data?.history) &&
+				passportObj.data.history.length > 0
+			) {
 				// Get the latest timestamp from history
 				const lastEvent = passportObj.data.history[passportObj.data.history.length - 1]
 				if (
@@ -471,8 +498,13 @@ export async function autoCreateNotarialAct(
 					typeof lastEvent.timestamp === "string"
 				) {
 					executedAt = new Date(lastEvent.timestamp)
+					console.log("✅ Using latest history event timestamp:", lastEvent.timestamp)
 				}
-			} else if (Array.isArray(passportObj?.history) && passportObj.history.length > 0) {
+			} else if (
+				executedAt.getTime() === new Date().getTime() &&
+				Array.isArray(passportObj?.history) &&
+				passportObj.history.length > 0
+			) {
 				const lastEvent = passportObj.history[passportObj.history.length - 1]
 				if (
 					typeof lastEvent === "object" &&
@@ -481,6 +513,7 @@ export async function autoCreateNotarialAct(
 					typeof lastEvent.timestamp === "string"
 				) {
 					executedAt = new Date(lastEvent.timestamp)
+					console.log("✅ Using latest history event timestamp:", lastEvent.timestamp)
 				}
 			}
 
@@ -603,10 +636,22 @@ export async function autoCreateNotarialAct(
 			}
 		}
 
-		// Determine act type
+		// Determine act type - use document's notarizationType if available, otherwise determine from name/description
 		const documentName = (document as { name?: string }).name ?? ""
 		const documentDescription = (document as { description?: string | null }).description ?? null
-		const actType = determineActType(documentName, documentDescription, passportData)
+		const documentNotarizationType = (
+			document as {
+				notarizationType?:
+					| "ACKNOWLEDGMENT"
+					| "AFFIRMATION"
+					| "JURAT"
+					| "SIGNATURE_WITNESSING"
+					| null
+			}
+		).notarizationType
+
+		const actType =
+			documentNotarizationType ?? determineActType(documentName, documentDescription, passportData)
 
 		// Generate certificate number (unique reference)
 		const certificateNumber = `NB-${notarialBookId.substring(0, 4).toUpperCase()}-${executedAt.getTime().toString().slice(-6)}`

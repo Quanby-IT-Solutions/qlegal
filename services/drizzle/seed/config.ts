@@ -3,6 +3,8 @@ import { faker } from "@faker-js/faker"
 
 import type { UserRole } from "@/services/drizzle/schema/auth"
 
+import { env } from "@/env"
+
 interface TestAccount {
 	email: string
 	name: string
@@ -12,8 +14,8 @@ interface TestAccount {
 }
 
 export const SEED_CONFIG = {
-	seed: 12345,
-	userCount: 25,
+	seed: env.SEED_VALUE ?? 12345,
+	userCount: 10,
 	defaultPassword: "asdfasdf",
 	testAccounts: [
 		{

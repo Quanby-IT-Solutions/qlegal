@@ -60,7 +60,9 @@ export async function createUserKycLink() {
 	if (user?.kycStatus === "PENDING") {
 		// Handle legacy users who don't have kycLinkCreatedAt (treat as expired to allow new link)
 		if (!user.kycLinkCreatedAt) {
-			console.log("⚠️ Existing PENDING transaction without timestamp (legacy), allowing new link creation")
+			console.log(
+				"⚠️ Existing PENDING transaction without timestamp (legacy), allowing new link creation"
+			)
 		} else {
 			const linkAge = Date.now() - new Date(user.kycLinkCreatedAt).getTime()
 			const expirationTime = 24 * 60 * 60 * 1000 // 24 hours in milliseconds
@@ -70,7 +72,8 @@ export async function createUserKycLink() {
 				// Link is still valid, prevent creating a new one
 				return {
 					success: false,
-					error: "You already have a pending KYC verification. Please resume your existing verification or wait for it to complete.",
+					error:
+						"You already have a pending KYC verification. Please resume your existing verification or wait for it to complete.",
 					isExpired: false,
 				}
 			}
@@ -113,9 +116,10 @@ export async function createUserKycLink() {
 		})
 
 		const now = new Date()
-		const wasExpired = user?.kycStatus === "PENDING" && user.kycLinkCreatedAt
-			? Date.now() - new Date(user.kycLinkCreatedAt).getTime() > 24 * 60 * 60 * 1000
-			: false
+		const wasExpired =
+			user?.kycStatus === "PENDING" && user.kycLinkCreatedAt
+				? Date.now() - new Date(user.kycLinkCreatedAt).getTime() > 24 * 60 * 60 * 1000
+				: false
 
 		// Store the transaction ID, link, and creation timestamp in the database
 		await db

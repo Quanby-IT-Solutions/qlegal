@@ -28,3 +28,35 @@ export const personalInformationSchema = z.object({
 })
 
 export type PersonalInformationSchema = z.infer<typeof personalInformationSchema>
+
+export const addressSchema = z.object({
+	address: z.string().trim().min(1, "Address is required"),
+})
+
+export type AddressSchema = z.infer<typeof addressSchema>
+
+export const enpProfileSchema = z.object({
+	// Notary Seal Info
+	enpName: z.string().min(1, "ENP name is required").optional(),
+	enpRoleNumber: z.string().optional(),
+	rollNo: z.string().optional(),
+	rollNoDate: z.string().optional(),
+
+	// Credentials
+	attyName: z.string().optional(),
+	commissionNo: z.string().optional(),
+	commissionNoValidUntil: z.string().optional(),
+	ptrNo: z.string().optional(),
+	ptrNoLocation: z.string().optional(),
+	ptrNoDate: z.string().optional(),
+	ibpNo: z.string().optional(),
+	ibpNoDate: z.string().optional(),
+	notaryEmail: z.string().email("Please enter a valid email address").optional().or(z.literal("")),
+	notaryAddress: z.string().optional(),
+	mcleNoPeriod: z.string().optional(),
+	mcleNo: z.string().optional(),
+	mcleNoDate: z.string().optional(),
+	modeOfNotarization: z.string().optional(),
+})
+
+export type EnpProfileSchema = z.infer<typeof enpProfileSchema>

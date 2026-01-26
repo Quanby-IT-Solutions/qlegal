@@ -16,6 +16,13 @@ import {
 } from "@/core/components/ui/dialog"
 import { Input } from "@/core/components/ui/input"
 import { Label } from "@/core/components/ui/label"
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@/core/components/ui/select"
 import { Textarea } from "@/core/components/ui/textarea"
 
 import { trpc } from "@/services/trpc/client"
@@ -35,6 +42,9 @@ export function MeetingDocumentUpload({
 }: MeetingDocumentUploadProps) {
 	const [documentName, setDocumentName] = useState("")
 	const [description, setDescription] = useState("")
+	const [notarizationType, setNotarizationType] = useState<
+		"ACKNOWLEDGMENT" | "AFFIRMATION" | "JURAT" | "SIGNATURE_WITNESSING" | ""
+	>("")
 	const [selectedFile, setSelectedFile] = useState<File | null>(null)
 	const [isUploading, setIsUploading] = useState(false)
 
@@ -47,6 +57,7 @@ export function MeetingDocumentUpload({
 			setSelectedFile(null)
 			setDocumentName("")
 			setDescription("")
+			setNotarizationType("")
 			onClose()
 			onSuccess?.()
 		},
@@ -97,6 +108,11 @@ export function MeetingDocumentUpload({
 			return
 		}
 
+		if (!notarizationType) {
+			toast.error("Please select a notarization type")
+			return
+		}
+
 		setIsUploading(true)
 
 		try {
@@ -125,6 +141,11 @@ export function MeetingDocumentUpload({
 				mimeType: selectedFile.type,
 				size: selectedFile.size,
 				description: description.trim() || undefined,
+				notarizationType: notarizationType as
+					| "ACKNOWLEDGMENT"
+					| "AFFIRMATION"
+					| "JURAT"
+					| "SIGNATURE_WITNESSING",
 			})
 		} catch (error) {
 			console.error("Upload error:", error)
@@ -140,6 +161,7 @@ export function MeetingDocumentUpload({
 		setSelectedFile(null)
 		setDocumentName("")
 		setDescription("")
+		setNotarizationType("")
 		onClose()
 	}
 
@@ -151,6 +173,7 @@ export function MeetingDocumentUpload({
 			setSelectedFile(null)
 			setDocumentName("")
 			setDescription("")
+			setNotarizationType("")
 			onClose()
 		} else if (!open) {
 			// If uploading, just close without resetting (upload will handle reset)
@@ -231,33 +254,63 @@ export function MeetingDocumentUpload({
 						</div>
 					)}
 
-					{/* Document Details Form */}
-					{selectedFile && (
-						<div className="space-y-4">
-							<div className="space-y-2">
-								<Label htmlFor="document-name">Document Name</Label>
-								<Input
-									id="document-name"
-									value={documentName}
-									onChange={e => setDocumentName(e.target.value)}
-									placeholder="Enter document name"
-									disabled={isUploading}
-								/>
-							</div>
-
-							<div className="space-y-2">
-								<Label htmlFor="description">Description (Optional)</Label>
-								<Textarea
-									id="description"
-									value={description}
-									onChange={e => setDescription(e.target.value)}
-									placeholder="Enter a brief description of the document"
-									rows={3}
-									disabled={isUploading}
-								/>
-							</div>
+					{/* Document Details Form - Always visible */}
+					<div className="space-y-4">
+						<div className="space-y-2">
+							<Label htmlFor="document-name">Document Name</Label>
+							<Input
+								id="document-name"
+								value={documentName}
+								onChange={e => setDocumentName(e.target.value)}
+								placeholder="Enter document name"
+								disabled={isUploading || !selectedFile}
+							/>
 						</div>
-					)}
+
+						<div className="space-y-2">
+							<Label htmlFor="notarization-type">
+								Notarization Type <span className="text-red-500">*</span>
+							</Label>
+							<Select
+								value={notarizationType}
+								onValueChange={value =>
+									setNotarizationType(
+										value as "ACKNOWLEDGMENT" | "AFFIRMATION" | "JURAT" | "SIGNATURE_WITNESSING"
+									)
+								}
+								disabled={isUploading || !selectedFile}
+							>
+								<SelectTrigger id="notarization-type">
+									<SelectValue placeholder="Select notarization type" />
+								</SelectTrigger>
+								<SelectContent>
+									<SelectItem value="ACKNOWLEDGMENT">Acknowledgment by Electronic Means</SelectItem>
+									<SelectItem value="AFFIRMATION">
+										Affirmation or Oath by Electronic Means
+									</SelectItem>
+									<SelectItem value="JURAT">Jurat by Electronic Means</SelectItem>
+									<SelectItem value="SIGNATURE_WITNESSING">
+										Signature Witnessing by Electronic Means
+									</SelectItem>
+								</SelectContent>
+							</Select>
+							<p className="text-muted-foreground text-xs">
+								Required for notarial book entry (Rule IV, eNotarization)
+							</p>
+						</div>
+
+						<div className="space-y-2">
+							<Label htmlFor="description">Description (Optional)</Label>
+							<Textarea
+								id="description"
+								value={description}
+								onChange={e => setDescription(e.target.value)}
+								placeholder="Enter a brief description of the document"
+								rows={3}
+								disabled={isUploading || !selectedFile}
+							/>
+						</div>
+					</div>
 				</div>
 
 				<DialogFooter>
@@ -266,7 +319,7 @@ export function MeetingDocumentUpload({
 					</Button>
 					<Button
 						onClick={handleUpload}
-						disabled={isUploading || !selectedFile || !documentName.trim()}
+						disabled={isUploading || !selectedFile || !documentName.trim() || !notarizationType}
 					>
 						{isUploading ? (
 							<>

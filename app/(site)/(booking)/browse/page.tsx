@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 
-import { SiteNavbar } from "@/core/components/navbar/site-navbar"
+import { PageHeader } from "@/core/components/navbar/page-header"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/core/components/ui/tabs"
 
 import { MessageFirstTab } from "@/features/messages/components/message-first-tab"
@@ -13,18 +13,18 @@ export default function BrowsePage() {
 	const [activeTab, setActiveTab] = useState("browse")
 
 	return (
-		<>
-			<SiteNavbar
+		<div className="flex flex-1 flex-col">
+			<PageHeader
 				items={[
-					{ label: "Find & Book", url: "/browse" },
-					{ label: "Select Notary", url: "/browse" },
+					{ label: "Find & Book", href: "/browse" },
+					{ label: "Select Notary", href: "/browse" },
 				]}
 			/>
 
-			<div className="bg-muted/30 min-h-screen">
-				<div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+			<main className="flex-1 p-4 md:p-6 lg:p-8">
+				<div className="mx-auto max-w-6xl space-y-8">
 					{/* Header */}
-					<div className="mb-8">
+					<div>
 						<h1 className="text-3xl font-bold tracking-tight">Find & Book a Notary</h1>
 						<p className="text-muted-foreground mt-2">
 							Choose how you want to find a notary public. Browse our directory, use Quick Match for
@@ -56,7 +56,7 @@ export default function BrowsePage() {
 						</TabsContent>
 					</Tabs>
 				</div>
-			</div>
-		</>
+			</main>
+		</div>
 	)
 }

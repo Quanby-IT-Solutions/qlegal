@@ -1,4 +1,3 @@
-/* eslint-disable no-console */
 import { cache } from "react"
 import { initTRPC, TRPCError } from "@trpc/server"
 import SuperJSON from "superjson"
@@ -46,6 +45,9 @@ const t = initTRPC.context<typeof createTRPCContext>().create({
 				zodError: error.cause instanceof ZodError ? error.cause.flatten() : null,
 			},
 		}
+	},
+	sse: {
+		ping: { enabled: true, intervalMs: 2_000 },
 	},
 })
 

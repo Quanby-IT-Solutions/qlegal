@@ -9,6 +9,8 @@ import { addCustomHeaders } from "@/core/middleware/security"
 
 import { authConfig } from "@/services/next-auth/config"
 
+import { env } from "@/env"
+
 const { auth: proxy } = NextAuth(authConfig)
 
 // ============================================================================
@@ -22,18 +24,22 @@ export default proxy(req => {
 	const role = auth?.user?.role ?? null
 	const userId = auth?.user?.id
 
-	// Log access attempt
-	logAccess(path, role, true)
-
 	try {
 		// Determine if current route is authorized for user's role
 		const hasAccess = isRouteAuthorized(path, role)
 
+		// Log access attempt with actual authorization result
+		logAccess(path, role, hasAccess)
+
+		// Check if current path is a public route
+		const isPublicRoute = matchesAnyRoute(path, ROUTE_CONFIG.public)
+
 		// --- CALLBACK URL HANDLING ---
-		// Handle post-auth redirects for authenticated users
+		// Handle post-auth redirects for authenticated users only
+		// Skip callback handling for public routes (they don't need callbacks)
 		// BUT: Don't handle callback URLs on the signature page itself
 		const callbackUrl = nextUrl.searchParams.get("callbackUrl")
-		if (isAuth && callbackUrl && path !== "/auth/signature") {
+		if (isAuth && role && callbackUrl && !isPublicRoute && path !== "/auth/signature") {
 			const kycStatus = auth?.user?.kycStatus
 			// ts-expect-error augmented user field
 			const userStatus = auth?.user?.status
@@ -63,13 +69,13 @@ export default proxy(req => {
 					return NextResponse.redirect(callbackObj)
 				} else {
 					// CALLBACK DENIED: User lacks permission for callback URL
-					const redirectUrl = getDefaultRoute(role!)
+					const redirectUrl = getDefaultRoute(role)
 					logRedirect(path, redirectUrl, "callback not authorized")
 					return NextResponse.redirect(new URL(redirectUrl, nextUrl))
 				}
 			} catch {
 				// If callback URL is invalid, redirect to default route
-				const redirectUrl = getDefaultRoute(role!)
+				const redirectUrl = getDefaultRoute(role)
 				logRedirect(path, redirectUrl, "invalid callback URL")
 				return NextResponse.redirect(new URL(redirectUrl, nextUrl))
 			}
@@ -105,7 +111,7 @@ export default proxy(req => {
 				path !== "/auth/status" &&
 				!onAuthPage &&
 				path !== "/auth/kyc" &&
-				(userStatus !== "ACTIVE")
+				userStatus !== "ACTIVE"
 			) {
 				const statusUrl = new URL("/auth/status", nextUrl)
 				logRedirect(path, statusUrl.pathname, "user status gate - account not active")
@@ -118,7 +124,8 @@ export default proxy(req => {
 
 		// --- ACCESS DENIED (AUTHENTICATED) ---
 		// User is logged in but lacks permission for this route
-		if (isAuth) {
+		// Only treat as authenticated if they have a valid role
+		if (isAuth && role) {
 			const isPublicOnly = matchesAnyRoute(path, ROUTE_CONFIG.publicOnly)
 			const kycStatus = auth?.user?.kycStatus
 			const userStatus = auth?.user?.status
@@ -133,7 +140,7 @@ export default proxy(req => {
 					return "/auth/status"
 				}
 				// Default route
-				return getDefaultRoute(role!)
+				return getDefaultRoute(role)
 			}
 
 			if (isPublicOnly) {
@@ -151,9 +158,14 @@ export default proxy(req => {
 
 		// --- ACCESS DENIED (UNAUTHENTICATED) ---
 		// User must log in to access protected routes
+		// This includes users with no role (incomplete authentication)
 		const loginUrl = new URL("/auth/login", nextUrl)
-		const fullUrl = `${path}${nextUrl.search}`
-		loginUrl.searchParams.set("callbackUrl", fullUrl)
+		// Only set callbackUrl if the current path is a protected route (not public)
+		// This prevents callbackUrl pollution when navigating to public routes
+		if (!matchesAnyRoute(path, ROUTE_CONFIG.public)) {
+			const fullUrl = `${path}${nextUrl.search}`
+			loginUrl.searchParams.set("callbackUrl", fullUrl)
+		}
 		logRedirect(path, loginUrl.pathname, "authentication required")
 
 		return NextResponse.redirect(loginUrl)
@@ -161,8 +173,7 @@ export default proxy(req => {
 		logError(error, "middleware execution")
 
 		// Fail safely - redirect to error page in production
-		// eslint-disable-next-line no-restricted-properties
-		if (process.env.NODE_ENV === "production") {
+		if (env.NODE_ENV === "production") {
 			return NextResponse.redirect(new URL("/error", nextUrl))
 		}
 

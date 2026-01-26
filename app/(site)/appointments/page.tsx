@@ -1,9 +1,9 @@
 "use client"
 
+import { useRouter } from "next/navigation"
 import { useMemo, useState } from "react"
 import { format, startOfToday } from "date-fns"
 import { Calendar as CalendarIcon, Clock, Handshake, Loader2, MapPin, Video } from "lucide-react"
-import { useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
 import { toast } from "sonner"
 
@@ -11,7 +11,6 @@ import { PageHeader } from "@/core/components/navbar/page-header"
 import { Avatar, AvatarFallback, AvatarImage } from "@/core/components/ui/avatar"
 import { Badge } from "@/core/components/ui/badge"
 import { Button } from "@/core/components/ui/button"
-import { Calendar as CalendarComponent } from "@/core/components/ui/calendar"
 import {
 	Card,
 	CardContent,
@@ -19,7 +18,6 @@ import {
 	CardHeader,
 	CardTitle,
 } from "@/core/components/ui/card"
-import { Separator } from "@/core/components/ui/separator"
 import { getInitials } from "@/core/lib/utils"
 
 import { trpc, type RouterOutputs } from "@/services/trpc/client"
@@ -37,7 +35,7 @@ function normalizeDate(date: Date): Date {
 function getWorkflow(appointment: Appointment): "REN" | "IEN" {
 	if (appointment.meetingLink) return "REN"
 	if (appointment.location) return "IEN"
-	const notes = (appointment.notes || "").toLowerCase()
+	const notes = (appointment.notes ?? "").toLowerCase()
 	const hasRemote = notes.includes("ren") || notes.includes("remote")
 	return hasRemote ? "REN" : "IEN"
 }
@@ -113,19 +111,6 @@ export default function EnpCalendarPage() {
 									<CardDescription>Days with bookings are highlighted.</CardDescription>
 								</CardHeader>
 								<CardContent className="space-y-4">
-									<CalendarComponent
-										mode="single"
-										selected={selectedDate}
-										onSelect={date => date && setSelectedDate(normalizeDate(date))}
-										disabled={date => date < today}
-										initialFocus
-										className="bg-muted/30 w-full max-w-[380px] rounded-2xl border p-4 shadow-sm [--cell-size:2.6rem]"
-										modifiers={{ booked: bookedDates }}
-										modifiersClassNames={{ booked: "bg-primary/10 text-primary font-semibold" }}
-									/>
-
-									<Separator />
-
 									<div className="flex items-center justify-between">
 										<div className="space-y-1">
 											<p className="text-sm font-medium">Selected day</p>
@@ -271,12 +256,13 @@ function AppointmentCard({
 		const match = appointment.meetingLink?.match(/\/meetings\/([^/]+)/)
 		return match?.[1] ?? null
 	}, [appointment.meetingLink])
-	const { data: linkedMeeting, isLoading: isLoadingMeeting, refetch: refetchLinkedMeeting } = trpc.meetings.getById.useQuery(
-		meetingIdFromLink ?? "",
-		{
-			enabled: !!meetingIdFromLink,
-		}
-	)
+	const {
+		data: linkedMeeting,
+		isLoading: isLoadingMeeting,
+		refetch: refetchLinkedMeeting,
+	} = trpc.meetings.getById.useQuery(meetingIdFromLink ?? "", {
+		enabled: !!meetingIdFromLink,
+	})
 	const isMeetingLive = linkedMeeting?.status === "ONGOING"
 	const isMeetingScheduled = linkedMeeting?.status === "SCHEDULED"
 	const isLawyer = currentUser?.role === "ENP" && currentUser.id === appointment.lawyerId
@@ -291,7 +277,9 @@ function AppointmentCard({
 		workflow === "REN" &&
 		isLawyer &&
 		appointment.status === "CONFIRMED" &&
-		(!appointment.meetingLink || (isLoadingMeeting && !linkedMeeting) || (linkedMeeting && isMeetingScheduled)) &&
+		(!appointment.meetingLink ||
+			(isLoadingMeeting && !linkedMeeting) ||
+			(linkedMeeting && isMeetingScheduled)) &&
 		!isPastSlot
 	// Can join meeting if meeting exists and is ONGOING (and not loading)
 	const canJoinMeeting =
@@ -317,7 +305,7 @@ function AppointmentCard({
 		try {
 			// If meeting already exists (from accept), use it. Otherwise create new one.
 			let meetingId = meetingIdFromLink
-			
+
 			if (!meetingId) {
 				// Create new meeting if it doesn't exist
 				const title = `${appointment.type === "DOCUMENT_SIGNING" ? "Document Signing" : "Consultation"} with ${appointment.client?.name || "Client"}`
@@ -326,30 +314,30 @@ function AppointmentCard({
 					participantIds: [appointment.clientId],
 				})
 				meetingId = result.meeting.id
-				
+
 				// Update appointment with meeting link
 				await updateAppointment.mutateAsync({
 					appointmentId: appointment.id,
 					meetingLink: `/meetings/${meetingId}/lobby`,
 				})
 			}
-			
+
 			// Start the meeting
 			await startMeeting.mutateAsync(meetingId)
-			
+
 			// Invalidate and refetch meeting queries immediately
 			await utils.meetings.getById.invalidate(meetingId)
 			void utils.meetings.getUserMeetings.invalidate()
-			
+
 			// Refetch the linked meeting query if it exists
 			if (meetingId === meetingIdFromLink) {
 				await refetchLinkedMeeting()
 			}
-			
+
 			// Refetch appointments to update UI
 			await utils.appointments.getMyAppointments.invalidate()
 			onRefetch()
-			
+
 			toast.success("Meeting started")
 		} catch (error) {
 			console.error(error)

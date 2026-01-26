@@ -1,6 +1,9 @@
+import { TRPCError } from "@trpc/server"
 import { and, count, desc, eq, ilike, or } from "drizzle-orm"
+import { z } from "zod/v4"
 
 import { users } from "@/services/drizzle/schema/auth"
+import { enpProfiles } from "@/services/drizzle/schema/enp-profiles"
 import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
 
 import {
@@ -255,6 +258,67 @@ export const userManagementRouter = createTRPCRouter({
 
 		return { success: true, userId: input.id, status: "active" }
 	}),
+
+	// Admin: Set ENP availability (for approval workflow or suspension)
+	adminSetENPAvailability: protectedProcedure
+		.input(
+			z.object({
+				enpId: z.string(),
+				available: z.boolean(),
+			})
+		)
+		.mutation(async ({ ctx, input }) => {
+			// Only admins can control other ENPs' availability
+			if (ctx.session.user.role !== "ADMIN") {
+				throw new TRPCError({
+					code: "FORBIDDEN",
+					message: "Only admins can manage ENP availability",
+				})
+			}
+
+			// Verify the target user is an ENP
+			const targetUser = await ctx.db.query.users.findFirst({
+				where: eq(users.id, input.enpId),
+			})
+
+			if (!targetUser) {
+				throw new TRPCError({
+					code: "NOT_FOUND",
+					message: "User not found",
+				})
+			}
+
+			if (targetUser.role !== "ENP") {
+				throw new TRPCError({
+					code: "BAD_REQUEST",
+					message: "Target user is not an ENP",
+				})
+			}
+
+			// Check if ENP profile exists
+			const profile = await ctx.db.query.enpProfiles.findFirst({
+				where: eq(enpProfiles.userId, input.enpId),
+			})
+
+			if (!profile) {
+				throw new TRPCError({
+					code: "NOT_FOUND",
+					message: "ENP profile not found",
+				})
+			}
+
+			// Update availability
+			await ctx.db
+				.update(enpProfiles)
+				.set({ isAvailable: input.available, updatedAt: new Date() })
+				.where(eq(enpProfiles.userId, input.enpId))
+
+			console.log(
+				`[Admin] ${ctx.session.user.name} set ENP ${targetUser.name} availability to: ${input.available}`
+			)
+
+			return { success: true, enpId: input.enpId, isAvailable: input.available }
+		}),
 
 	// Get current user's default signature
 	getDefaultSignature: protectedProcedure.query(async ({ ctx }) => {

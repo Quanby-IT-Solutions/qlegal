@@ -8,6 +8,7 @@ export function useMeetings() {
 	const create = trpc.meetings.create.useMutation({
 		onSuccess: () => {
 			void utils.meetings.getUserMeetings.invalidate()
+			void utils.meetings.getUserMeetingsWithDocumentStats.invalidate()
 		},
 	})
 
@@ -31,6 +32,7 @@ export function useMeetings() {
 	const startMeeting = trpc.meetings.startMeeting.useMutation({
 		onSuccess: () => {
 			void utils.meetings.getUserMeetings.invalidate()
+			void utils.meetings.getUserMeetingsWithDocumentStats.invalidate()
 			// Also invalidate signing sessions so dashboard updates when meeting goes ONGOING
 			void utils.dashboard.getSigningSessions.invalidate()
 		},
@@ -45,6 +47,7 @@ export function useMeetings() {
 	const deleteMeeting = trpc.meetings.delete.useMutation({
 		onSuccess: () => {
 			void utils.meetings.getUserMeetings.invalidate()
+			void utils.meetings.getUserMeetingsWithDocumentStats.invalidate()
 		},
 	})
 

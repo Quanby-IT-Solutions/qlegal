@@ -1,6 +1,7 @@
 "use client"
 
 import { type Route } from "next"
+import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { useEffect, useMemo, useState } from "react"
 import {
@@ -41,7 +42,7 @@ import { SidebarTrigger } from "@/core/components/animate-ui/components/radix/si
 import { ModeToggle } from "@/core/components/mode-toggle"
 import { Avatar, AvatarFallback, AvatarImage } from "@/core/components/ui/avatar"
 import { Badge } from "@/core/components/ui/badge"
-import { Button } from "@/core/components/ui/button"
+import { Button, buttonVariants } from "@/core/components/ui/button"
 import {
 	Card,
 	CardContent,
@@ -61,9 +62,6 @@ import {
 	BreadcrumbList,
 	BreadcrumbPage,
 } from "@/features/home/components/ui/breadcrumb"
-
-import Link from "next/link"
-import { buttonVariants } from "@/core/components/ui/button"
 
 // Register Chart.js components
 ChartJS.register(
@@ -169,14 +167,17 @@ export default function DashboardPage() {
 	const { data: recentMeetings, isLoading: isLoadingMeetings } =
 		trpc.dashboard.getRecentMeetings.useQuery({ limit: 5 })
 	const { data: signingSessions, isLoading: isLoadingSessions } =
-		trpc.dashboard.getSigningSessions.useQuery({ limit: 5 }, {
-			// Refetch every 3 seconds to catch meeting status changes (SCHEDULED -> ONGOING)
-			refetchInterval: 3000,
-			// Also refetch when window regains focus
-			refetchOnWindowFocus: true,
-			// Don't use stale data
-			staleTime: 0,
-		})
+		trpc.dashboard.getSigningSessions.useQuery(
+			{ limit: 5 },
+			{
+				// Refetch every 3 seconds to catch meeting status changes (SCHEDULED -> ONGOING)
+				refetchInterval: 3000,
+				// Also refetch when window regains focus
+				refetchOnWindowFocus: true,
+				// Don't use stale data
+				staleTime: 0,
+			}
+		)
 	const { data: meetingInvites, isLoading: isLoadingInvites } =
 		trpc.dashboard.getMeetingInvites.useQuery({ limit: 5 })
 
@@ -493,97 +494,97 @@ export default function DashboardPage() {
 							<CardDescription>Common tasks to get you started</CardDescription>
 						</CardHeader>
 						<CardContent>
-						<div
-							className={`grid gap-4 sm:grid-cols-2 ${isENP ? "lg:grid-cols-5" : "lg:grid-cols-4"}`}
+							<div
+								className={`grid gap-4 sm:grid-cols-2 ${isENP ? "lg:grid-cols-5" : "lg:grid-cols-4"}`}
 							>
-							{isPrincipal && (
-								<Link
-								href="/calendar"
-								className={buttonVariants({ 
-									variant: "outline", 
-									className: "h-auto flex-col items-start gap-2 p-4" 
-								})}
-								>
-								<HugeiconsIcon icon={UserIcon} size={20} />
-								<div className="text-left">
-									<div className="font-semibold">Book a Notary</div>
-									<div className="text-muted-foreground text-xs">
-									View availability and book a time
-									</div>
-								</div>
-								</Link>
-							)}
-							{isENP && (
-								<Link
-								href="/requests/incoming"
-								className={buttonVariants({ 
-									variant: "outline", 
-									className: "relative h-auto flex-col items-start gap-2 overflow-visible p-4" 
-								})}
-								onClick={() => {
-									const currentCount = statistics?.pendingNotarizationRequests ?? 0
-									localStorage.setItem("enp_viewed_requests", "true")
-									localStorage.setItem("enp_last_viewed_count", currentCount.toString())
-									setHasViewedRequests(true)
-								}}
-								>
-								{(statistics?.pendingNotarizationRequests ?? 0) > 0 && !hasViewedRequests && (
-									<div className="border-background absolute -top-2 -right-2 z-20 h-4 w-4 animate-pulse rounded-full border-2 bg-red-500 shadow-lg" />
+								{isPrincipal && (
+									<Link
+										href="/browse"
+										className={buttonVariants({
+											variant: "outline",
+											className: "h-auto flex-col items-start gap-2 p-4",
+										})}
+									>
+										<HugeiconsIcon icon={UserIcon} size={20} />
+										<div className="text-left">
+											<div className="font-semibold">Book a Notary</div>
+											<div className="text-muted-foreground text-xs">
+												View availability and book a time
+											</div>
+										</div>
+									</Link>
 								)}
-								<HugeiconsIcon icon={ClipboardIcon} size={20} />
-								<div className="text-left">
-									<div className="font-semibold">Notarization Requests</div>
-									<div className="text-muted-foreground text-xs">
-									{statistics?.pendingNotarizationRequests ?? 0} pending request
-									{statistics?.pendingNotarizationRequests !== 1 ? "s" : ""}
+								{isENP && (
+									<Link
+										href="/requests"
+										className={buttonVariants({
+											variant: "outline",
+											className: "relative h-auto flex-col items-start gap-2 overflow-visible p-4",
+										})}
+										onClick={() => {
+											const currentCount = statistics?.pendingNotarizationRequests ?? 0
+											localStorage.setItem("enp_viewed_requests", "true")
+											localStorage.setItem("enp_last_viewed_count", currentCount.toString())
+											setHasViewedRequests(true)
+										}}
+									>
+										{(statistics?.pendingNotarizationRequests ?? 0) > 0 && !hasViewedRequests && (
+											<div className="border-background absolute -top-2 -right-2 z-20 h-4 w-4 animate-pulse rounded-full border-2 bg-red-500 shadow-lg" />
+										)}
+										<HugeiconsIcon icon={ClipboardIcon} size={20} />
+										<div className="text-left">
+											<div className="font-semibold">Notarization Requests</div>
+											<div className="text-muted-foreground text-xs">
+												{statistics?.pendingNotarizationRequests ?? 0} pending request
+												{statistics?.pendingNotarizationRequests !== 1 ? "s" : ""}
+											</div>
+										</div>
+									</Link>
+								)}
+								<Link
+									href={isENP ? "/appointments" : "/consultations"}
+									className={buttonVariants({
+										variant: "outline",
+										className: "h-auto flex-col items-start gap-2 p-4",
+									})}
+								>
+									<HugeiconsIcon icon={Calendar01Icon} size={20} />
+									<div className="text-left">
+										<div className="font-semibold">
+											{isENP ? "View Consultations" : "Book Consultation"}
+										</div>
+										<div className="text-muted-foreground text-xs">
+											{isENP ? "Manage consultation requests" : "Schedule a consultation"}
+										</div>
 									</div>
-								</div>
 								</Link>
-							)}
-							<Link
-								href={isENP ? "/appointments" : "/consultations"}
-								className={buttonVariants({ 
-								variant: "outline", 
-								className: "h-auto flex-col items-start gap-2 p-4" 
-								})}
-							>
-								<HugeiconsIcon icon={Calendar01Icon} size={20} />
-								<div className="text-left">
-								<div className="font-semibold">
-									{isENP ? "View Consultations" : "Book Consultation"}
-								</div>
-								<div className="text-muted-foreground text-xs">
-									{isENP ? "Manage consultation requests" : "Schedule a consultation"}
-								</div>
-								</div>
-							</Link>
-							<Link
-								href="/envelopes"
-								className={buttonVariants({ 
-								variant: "outline", 
-								className: "h-auto flex-col items-start gap-2 p-4" 
-								})}
-							>
-								<HugeiconsIcon icon={FileAddIcon} size={20} />
-								<div className="text-left">
-								<div className="font-semibold">Upload Document</div>
-								<div className="text-muted-foreground text-xs">Create new envelope</div>
-								</div>
-							</Link>
-							<Link
-								href={isENP ? "/appointments" : "/calendar"}
-								className={buttonVariants({ 
-								variant: "outline", 
-								className: "h-auto flex-col items-start gap-2 p-4" 
-								})}
-							>
-								<HugeiconsIcon icon={ClipboardIcon} size={20} />
-								<div className="text-left">
-								<div className="font-semibold">View Appointments</div>
-								<div className="text-muted-foreground text-xs">Manage your schedule</div>
-								</div>
-							</Link>
-							</div>	
+								<Link
+									href="/envelopes"
+									className={buttonVariants({
+										variant: "outline",
+										className: "h-auto flex-col items-start gap-2 p-4",
+									})}
+								>
+									<HugeiconsIcon icon={FileAddIcon} size={20} />
+									<div className="text-left">
+										<div className="font-semibold">Upload Document</div>
+										<div className="text-muted-foreground text-xs">Create new envelope</div>
+									</div>
+								</Link>
+								<Link
+									href="/appointments"
+									className={buttonVariants({
+										variant: "outline",
+										className: "h-auto flex-col items-start gap-2 p-4",
+									})}
+								>
+									<HugeiconsIcon icon={ClipboardIcon} size={20} />
+									<div className="text-left">
+										<div className="font-semibold">View Appointments</div>
+										<div className="text-muted-foreground text-xs">Manage your schedule</div>
+									</div>
+								</Link>
+							</div>
 						</CardContent>
 					</Card>
 
@@ -612,7 +613,7 @@ export default function DashboardPage() {
 									<Link
 										href="/appointments"
 										className={buttonVariants({ variant: "ghost", size: "sm" })}
-										>
+									>
 										View All
 										<HugeiconsIcon icon={ArrowRight01Icon} size={16} className="ml-2" />
 									</Link>
@@ -625,12 +626,9 @@ export default function DashboardPage() {
 										const canJoin = session.canJoin
 										const isConfirmed = session.status === "CONFIRMED"
 										const otherPartyName = isPrincipal ? session.lawyerName : session.clientName
-										
+
 										return (
-											<div
-												key={session.id}
-												className="flex flex-col gap-3 rounded-lg border p-4"
-											>
+											<div key={session.id} className="flex flex-col gap-3 rounded-lg border p-4">
 												<div className="flex items-start justify-between gap-2">
 													<div className="min-w-0 flex-1">
 														<div className="flex items-center gap-2">
@@ -639,19 +637,19 @@ export default function DashboardPage() {
 																<span className="flex h-2 w-2 shrink-0 animate-pulse rounded-full bg-green-500" />
 															)}
 														</div>
-														<p className="text-muted-foreground text-sm">
-															with {otherPartyName}
-														</p>
+														<p className="text-muted-foreground text-sm">with {otherPartyName}</p>
 													</div>
 													{canJoin ? (
-														<Badge className="bg-green-100 text-green-700 hover:bg-green-100 dark:bg-green-900/30 dark:text-green-400">Live</Badge>
+														<Badge className="bg-green-100 text-green-700 hover:bg-green-100 dark:bg-green-900/30 dark:text-green-400">
+															Live
+														</Badge>
 													) : isConfirmed ? (
 														<Badge variant="secondary">Confirmed</Badge>
 													) : (
 														<Badge variant="outline">Pending</Badge>
 													)}
 												</div>
-												
+
 												{/* Date and Time */}
 												<div className="text-muted-foreground flex items-center gap-4 text-sm">
 													<div className="flex items-center gap-1.5">
@@ -663,13 +661,15 @@ export default function DashboardPage() {
 														<span>{format(new Date(session.appointmentDate), "h:mm a")}</span>
 													</div>
 												</div>
-												
+
 												{/* Action button for live sessions */}
 												{canJoin && session.activeMeetingId && (
 													<Button
 														size="sm"
 														className="bg-green-600 hover:bg-green-700"
-														onClick={() => router.push(`/meetings/${session.activeMeetingId}/lobby` as Route)}
+														onClick={() =>
+															router.push(`/meetings/${session.activeMeetingId}/lobby` as Route)
+														}
 													>
 														<HugeiconsIcon icon={Video01Icon} size={16} className="mr-1.5" />
 														Join Meeting
@@ -956,10 +956,16 @@ export default function DashboardPage() {
 								) : (
 									<div className="flex h-[350px] flex-col items-center justify-center text-center">
 										<div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-blue-100 to-blue-200 dark:from-blue-900/30 dark:to-blue-800/30">
-											{ }
-											<HugeiconsIcon icon={BarChartIcon} size={32} className="text-blue-600 dark:text-blue-400" />
+											{}
+											<HugeiconsIcon
+												icon={BarChartIcon}
+												size={32}
+												className="text-blue-600 dark:text-blue-400"
+											/>
 										</div>
-										<p className="font-semibold text-slate-900 dark:text-slate-100">No appointment type data</p>
+										<p className="font-semibold text-slate-900 dark:text-slate-100">
+											No appointment type data
+										</p>
 										<p className="text-muted-foreground text-sm">
 											Appointment type distribution will appear here
 										</p>
@@ -1031,12 +1037,14 @@ export default function DashboardPage() {
 								<div className="flex items-center justify-between">
 									<div>
 										<CardTitle>Meeting Invitations</CardTitle>
-										<CardDescription>Invites to join meetings as a witness/participant</CardDescription>
+										<CardDescription>
+											Invites to join meetings as a witness/participant
+										</CardDescription>
 									</div>
 									<Link
 										href="/meetings"
 										className={buttonVariants({ variant: "ghost", size: "sm" })}
-										>
+									>
 										View Meetings
 										<HugeiconsIcon icon={ArrowRight01Icon} size={16} className="ml-2" />
 									</Link>
@@ -1057,8 +1065,7 @@ export default function DashboardPage() {
 													<div className="min-w-0 flex-1">
 														<p className="truncate font-semibold">{invite.meetingTitle}</p>
 														<p className="text-muted-foreground mt-1 text-xs">
-															Invited by{" "}
-															{invite.invitedBy?.name ?? invite.host?.name ?? "Host"}
+															Invited by {invite.invitedBy?.name ?? invite.host?.name ?? "Host"}
 														</p>
 														<div className="text-muted-foreground mt-2 flex items-center gap-2 text-xs">
 															<HugeiconsIcon icon={Clock01Icon} size={12} />
@@ -1115,7 +1122,11 @@ export default function DashboardPage() {
 									</div>
 								) : (
 									<div className="flex flex-col items-center justify-center py-8 text-center">
-										<HugeiconsIcon icon={Video01Icon} size={48} className="text-muted-foreground/50" />
+										<HugeiconsIcon
+											icon={Video01Icon}
+											size={48}
+											className="text-muted-foreground/50"
+										/>
 										<p className="text-muted-foreground mt-4 text-sm">No meeting invites</p>
 									</div>
 								)}
@@ -1137,9 +1148,9 @@ export default function DashboardPage() {
 										</CardDescription>
 									</div>
 									<Link
-										href={isENP ? "/appointments" : "/calendar"}
+										href="/appointments"
 										className={buttonVariants({ variant: "ghost", size: "sm" })}
-										>
+									>
 										View All
 										<HugeiconsIcon icon={ArrowRight01Icon} size={16} className="ml-2" />
 									</Link>
@@ -1209,8 +1220,12 @@ export default function DashboardPage() {
 										<p className="text-muted-foreground mt-4 text-sm">No upcoming appointments</p>
 										<Link
 											href="/consultations"
-											className={buttonVariants({ variant: "outline", size: "sm", className: "mt-4" })}
-											>
+											className={buttonVariants({
+												variant: "outline",
+												size: "sm",
+												className: "mt-4",
+											})}
+										>
 											Book Consultation
 										</Link>
 									</div>
@@ -1229,7 +1244,7 @@ export default function DashboardPage() {
 									<Link
 										href="/envelopes"
 										className={buttonVariants({ variant: "ghost", size: "sm" })}
-										>
+									>
 										View All
 										<HugeiconsIcon icon={ArrowRight01Icon} size={16} className="ml-2" />
 									</Link>
@@ -1257,7 +1272,6 @@ export default function DashboardPage() {
 												onClick={() => router.push(`/envelopes/${document.envelopeId}` as Route)}
 											>
 												<div className="flex h-10 w-10 items-center justify-center rounded bg-blue-50">
-												
 													<HugeiconsIcon icon={File01Icon} size={20} className="text-blue-600" />
 												</div>
 												<div className="flex-1 space-y-1">
@@ -1269,7 +1283,6 @@ export default function DashboardPage() {
 													</div>
 													<p className="text-muted-foreground text-sm">{document.envelopeTitle}</p>
 													<div className="text-muted-foreground flex items-center gap-2 text-xs">
-													
 														<HugeiconsIcon icon={Clock01Icon} size={12} />
 														{format(new Date(document.createdAt), "PPp")}
 													</div>
@@ -1280,17 +1293,20 @@ export default function DashboardPage() {
 								) : (
 									<div className="flex flex-col items-center justify-center py-8 text-center">
 										<HugeiconsIcon
-											
 											icon={File01Icon}
 											size={48}
 											className="text-muted-foreground/50"
 										/>
 										<p className="text-muted-foreground mt-4 text-sm">No documents yet</p>
 										<Link
-										href="/envelopes"
-										className={buttonVariants({ variant: "outline", size: "sm", className: "mt-4" })}
+											href="/envelopes"
+											className={buttonVariants({
+												variant: "outline",
+												size: "sm",
+												className: "mt-4",
+											})}
 										>
-										Upload Document
+											Upload Document
 										</Link>
 									</div>
 								)}
@@ -1306,10 +1322,7 @@ export default function DashboardPage() {
 									<CardTitle>Recent Video Meetings</CardTitle>
 									<CardDescription>Your latest video consultations</CardDescription>
 								</div>
-								<Link
-									href="/meetings"
-									className={buttonVariants({ variant: "ghost", size: "sm" })}
-									>
+								<Link href="/meetings" className={buttonVariants({ variant: "ghost", size: "sm" })}>
 									View All
 									<HugeiconsIcon icon={ArrowRight01Icon} size={16} className="ml-2" />
 								</Link>

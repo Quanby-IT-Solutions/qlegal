@@ -26,8 +26,22 @@
     {
       "idx": 3,
       "version": "7",
+      "when": 1769200000000,
+      "tag": "0005_enp_availability_type",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
       "when": 1769363956730,
       "tag": "0005_polite_raven",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1769363956731,
+      "tag": "0006_sincere_sparrow",
       "breakpoints": true
     }
   ]

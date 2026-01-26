@@ -1,4 +1,5 @@
 # System Architecture Audit Report
+
 ## Unused Pages and Components Analysis
 
 **Date:** Generated during system audit  
@@ -9,12 +10,14 @@
 ## Executive Summary
 
 This audit identified **41 page files** in the `app/(site)/` directory and cross-referenced them with:
+
 - Navigation configuration (`core/lib/nav/site.config.ts`)
 - Middleware route protection (`core/middleware/config.ts`)
 - Actual file existence
 - Workflow restrictions (REN/IEN)
 
 ### Key Findings:
+
 - **🔴 3 IEN-only pages** that should be removed (since IEN workflow is being removed)
 - **⚠️ 5 pages** commented out in navigation but still exist
 - **❌ 6+ pages** in navigation that don't exist (missing implementations)
@@ -198,6 +201,7 @@ These pages are protected by middleware but not shown in sidebar navigation:
 These pages are properly configured and actively used:
 
 #### Core Platform Pages:
+
 - `/dashboard` - ✅ All roles, in nav, in middleware
 - `/calendar` - ✅ PRINCIPAL, in nav, in middleware
 - `/appointments` - ✅ ENP, in nav, in middleware
@@ -209,6 +213,7 @@ These pages are properly configured and actively used:
 - `/notarial-book` - ✅ ENP, in nav, in middleware
 
 #### Document Management:
+
 - `/documents` - ✅ ENP/PRINCIPAL, in nav, in middleware
 - `/documents/create` - ✅ ENP, in nav, in middleware
 - `/documents/pending` - ✅ ENP/PRINCIPAL, in nav, in middleware
@@ -221,12 +226,14 @@ These pages are properly configured and actively used:
 - `/envelope/update` - ✅ ENP/PRINCIPAL, in middleware
 
 #### Account Pages:
+
 - `/profile` - ✅ All roles, in middleware
 - `/settings` - ✅ All roles, in nav, in middleware
 - `/notifications` - ✅ All roles, in middleware
 - `/kyc` - ✅ All roles, in middleware
 
 #### Admin Pages:
+
 - `/management` - ✅ Redirects to `/management/users`
 - `/management/users` - ✅ ENA/ADMIN, in nav, exists
 
@@ -311,8 +318,8 @@ These pages are properly configured and actively used:
 The system has several orphaned routes in navigation that don't have corresponding page implementations. The IEN-only pages should be removed as part of the workflow simplification. The requests pages are functional but hidden from navigation, which may be intentional or may need to be restored.
 
 **Priority cleanup:**
+
 1. Remove IEN-only pages and navigation entries
 2. Remove non-existent audit/management routes from navigation
 3. Clean up middleware for non-existent pages
 4. Delete empty directories
-

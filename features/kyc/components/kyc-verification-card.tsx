@@ -157,10 +157,12 @@ export function KycVerificationCard({
 			if (result.success && result.data) {
 				// Auto-open the KYC link
 				window.open(result.data.url, "_blank", "noopener,noreferrer")
-				
+
 				// Show appropriate message based on whether this was for an expired link
 				if (result.data.isExpiredLink) {
-					toast.success("New KYC verification link created (previous link expired). Opening in new window...")
+					toast.success(
+						"New KYC verification link created (previous link expired). Opening in new window..."
+					)
 				} else {
 					toast.success("KYC verification link created! Opening in new window...")
 				}

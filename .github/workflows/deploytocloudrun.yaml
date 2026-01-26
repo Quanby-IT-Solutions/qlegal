@@ -17,56 +17,66 @@ env:
   SERVICE: ${{ vars.CLOUD_RUN_SERVICE }}
 
   # ==========================================================
-  # QSIGN MAIN ENVS (store values in GitHub Secrets unless you intentionally want Vars)
+  # QLEGAL ENVS (store values in GitHub Secrets unless you intentionally want Vars)
   # ==========================================================
 
-  # Auth JS
+  # Auth
   AUTH_GOOGLE_ID: ${{ secrets.AUTH_GOOGLE_ID }}
   AUTH_GOOGLE_SECRET: ${{ secrets.AUTH_GOOGLE_SECRET }}
-  GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
   AUTH_SECRET: ${{ secrets.AUTH_SECRET }}
   AUTH_TRUST_HOST: "true"
-  AUTH_URL: ${{ secrets.AUTH_URL }}
+  AUTH_URL: ${{ vars.AUTH_URL }}
 
-  # Drizzle
+  # Database
   DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
-  # Supabase
-  NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-  NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-  SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-
-  # Email Configuration
-  EMAIL_HOST: ${{ vars.EMAIL_HOST }}
-  EMAIL_PORT: ${{ vars.EMAIL_PORT }}
-  EMAIL_USER: ${{ vars.EMAIL_USER }}
-  EMAIL_PASS: ${{ secrets.EMAIL_PASS }}
-  EMAIL_FROM: ${{ vars.EMAIL_FROM }}
-  EMAIL_FROM_NAME: ${{ vars.EMAIL_FROM_NAME }}
-
-  # Video SDK
-  VIDEO_SDK_API_KEY: ${{ secrets.VIDEO_SDK_API_KEY }}
-  VIDEO_SDK_SECRET: ${{ secrets.VIDEO_SDK_SECRET }}
-  NEXT_PUBLIC_VIDEO_SDK_API_KEY: ${{ secrets.NEXT_PUBLIC_VIDEO_SDK_API_KEY }}
-
-  # DocOnChain Configuration
+  # DocOnChain
+  DOCONCHAIN_API_URL: ${{ vars.DOCONCHAIN_API_URL }}
+  DOCONCHAIN_APP_URL: ${{ vars.DOCONCHAIN_APP_URL }}
   DOCONCHAIN_CLIENT_KEY: ${{ secrets.DOCONCHAIN_CLIENT_KEY }}
   DOCONCHAIN_CLIENT_SECRET: ${{ secrets.DOCONCHAIN_CLIENT_SECRET }}
   DOCONCHAIN_EMAIL: ${{ secrets.DOCONCHAIN_EMAIL }}
+  DOCONCHAIN_ORG_INVITE_CODE: ${{ secrets.DOCONCHAIN_ORG_INVITE_CODE }}
   DOCONCHAIN_ORGANIZATION_ID: ${{ secrets.DOCONCHAIN_ORGANIZATION_ID }}
-  DOCONCHAIN_API_URL: ${{ secrets.DOCONCHAIN_API_URL }}
-  DOCONCHAIN_API_TOKEN: ${{ secrets.DOCONCHAIN_API_TOKEN }}
-  DOCOCHAIN_API_TOKEN: ${{ secrets.DOCOCHAIN_API_TOKEN }}
 
-  # Hyperverge
+  # Email Configuration
+  EMAIL_FROM_NAME: ${{ vars.EMAIL_FROM_NAME }}
+  EMAIL_FROM: ${{ vars.EMAIL_FROM }}
+  EMAIL_HOST: ${{ vars.EMAIL_HOST }}
+  EMAIL_PASS: ${{ secrets.EMAIL_PASS }}
+  EMAIL_PORT: ${{ vars.EMAIL_PORT }}
+  EMAIL_USER: ${{ vars.EMAIL_USER }}
+
+  # Maps
+  GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
+
+  # Payment (HitPay)
+  HITPAY_API_KEY: ${{ secrets.HITPAY_API_KEY }}
+  HITPAY_API_URL: ${{ vars.HITPAY_API_URL }}
+  HITPAY_WEBHOOK_SALT: ${{ secrets.HITPAY_WEBHOOK_SALT }}
+
+  # KYC (HyperVerge)
+  HYPERVERGE_API_URL: ${{ vars.HYPERVERGE_API_URL }}
   HYPERVERGE_APP_ID: ${{ secrets.HYPERVERGE_APP_ID }}
   HYPERVERGE_APP_KEY: ${{ secrets.HYPERVERGE_APP_KEY }}
+  HYPERVERGE_DIRECT_LIVENESS_ENABLED: ${{ vars.HYPERVERGE_DIRECT_LIVENESS_ENABLED }}
   HYPERVERGE_WORKFLOW_ID: ${{ secrets.HYPERVERGE_WORKFLOW_ID }}
-  HYPERVERGE_API_URL: ${{ secrets.HYPERVERGE_API_URL }}
-  HYPERVERGE_DIRECT_LIVENESS_ENABLED: ${{ secrets.HYPERVERGE_DIRECT_LIVENESS_ENABLED }}
 
-  #Public Site URl
-  NEXT_PUBLIC_SITE_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL }}
+  # Server Configuration
+  NODE_ENV: "production"
+
+  # Storage (Supabase)
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+  NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+  SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+
+  # Video SDK (Meetings)
+  NEXT_PUBLIC_VIDEO_SDK_API_KEY: ${{ secrets.NEXT_PUBLIC_VIDEO_SDK_API_KEY }}
+  VIDEO_SDK_API_KEY: ${{ secrets.VIDEO_SDK_API_KEY }}
+  VIDEO_SDK_SECRET: ${{ secrets.VIDEO_SDK_SECRET }}
+
+  # Public Site URL
+  NEXT_PUBLIC_SITE_URL: ${{ vars.NEXT_PUBLIC_SITE_URL }}
 
 jobs:
   deploy:
@@ -111,37 +121,42 @@ jobs:
       - name: Build and Push Container
         run: |
           docker build \
-            --build-arg AUTH_GOOGLE_ID="${{ secrets.AUTH_GOOGLE_ID }}" \
+            --build-arg AUTH_GOOGLE_ID="${{ vars.AUTH_GOOGLE_ID }}" \
             --build-arg AUTH_GOOGLE_SECRET="${{ secrets.AUTH_GOOGLE_SECRET }}" \
-            --build-arg GOOGLE_MAPS_API_KEY="${{ secrets.GOOGLE_MAPS_API_KEY }}" \
             --build-arg AUTH_SECRET="${{ secrets.AUTH_SECRET }}" \
             --build-arg AUTH_TRUST_HOST="true" \
-            --build-arg AUTH_URL="${{ secrets.AUTH_URL }}" \
+            --build-arg AUTH_URL="${{ vars.AUTH_URL }}" \
             --build-arg DATABASE_URL="${{ secrets.DATABASE_URL }}" \
-            --build-arg NEXT_PUBLIC_SUPABASE_URL="${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}" \
-            --build-arg NEXT_PUBLIC_SUPABASE_ANON_KEY="${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}" \
-            --build-arg SUPABASE_SERVICE_ROLE_KEY="${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
-            --build-arg EMAIL_HOST="${{ vars.EMAIL_HOST }}" \
-            --build-arg EMAIL_PORT="${{ vars.EMAIL_PORT }}" \
-            --build-arg EMAIL_USER="${{ vars.EMAIL_USER }}" \
-            --build-arg EMAIL_PASS="${{ secrets.EMAIL_PASS }}" \
-            --build-arg EMAIL_FROM="${{ vars.EMAIL_FROM }}" \
-            --build-arg EMAIL_FROM_NAME="${{ vars.EMAIL_FROM_NAME }}" \
-            --build-arg VIDEO_SDK_API_KEY="${{ secrets.VIDEO_SDK_API_KEY }}" \
-            --build-arg VIDEO_SDK_SECRET="${{ secrets.VIDEO_SDK_SECRET }}" \
-            --build-arg NEXT_PUBLIC_VIDEO_SDK_API_KEY="${{ secrets.NEXT_PUBLIC_VIDEO_SDK_API_KEY }}" \
+            --build-arg DOCONCHAIN_API_URL="${{ vars.DOCONCHAIN_API_URL }}" \
+            --build-arg DOCONCHAIN_APP_URL="${{ vars.DOCONCHAIN_APP_URL }}" \
             --build-arg DOCONCHAIN_CLIENT_KEY="${{ secrets.DOCONCHAIN_CLIENT_KEY }}" \
             --build-arg DOCONCHAIN_CLIENT_SECRET="${{ secrets.DOCONCHAIN_CLIENT_SECRET }}" \
             --build-arg DOCONCHAIN_EMAIL="${{ secrets.DOCONCHAIN_EMAIL }}" \
+            --build-arg DOCONCHAIN_ORG_INVITE_CODE="${{ secrets.DOCONCHAIN_ORG_INVITE_CODE }}" \
             --build-arg DOCONCHAIN_ORGANIZATION_ID="${{ secrets.DOCONCHAIN_ORGANIZATION_ID }}" \
-            --build-arg DOCONCHAIN_API_URL="${{ secrets.DOCONCHAIN_API_URL }}" \
-            --build-arg DOCONCHAIN_API_TOKEN="${{ secrets.DOCONCHAIN_API_TOKEN }}" \
-            --build-arg DOCOCHAIN_API_TOKEN="${{ secrets.DOCOCHAIN_API_TOKEN }}" \
+            --build-arg EMAIL_FROM_NAME="${{ vars.EMAIL_FROM_NAME }}" \
+            --build-arg EMAIL_FROM="${{ vars.EMAIL_FROM }}" \
+            --build-arg EMAIL_HOST="${{ vars.EMAIL_HOST }}" \
+            --build-arg EMAIL_PASS="${{ secrets.EMAIL_PASS }}" \
+            --build-arg EMAIL_PORT="${{ vars.EMAIL_PORT }}" \
+            --build-arg EMAIL_USER="${{ vars.EMAIL_USER }}" \
+            --build-arg GOOGLE_MAPS_API_KEY="${{ secrets.GOOGLE_MAPS_API_KEY }}" \
+            --build-arg HITPAY_API_KEY="${{ secrets.HITPAY_API_KEY }}" \
+            --build-arg HITPAY_API_URL="${{ vars.HITPAY_API_URL }}" \
+            --build-arg HITPAY_WEBHOOK_SALT="${{ secrets.HITPAY_WEBHOOK_SALT }}" \
+            --build-arg HYPERVERGE_API_URL="${{ vars.HYPERVERGE_API_URL }}" \
             --build-arg HYPERVERGE_APP_ID="${{ secrets.HYPERVERGE_APP_ID }}" \
             --build-arg HYPERVERGE_APP_KEY="${{ secrets.HYPERVERGE_APP_KEY }}" \
+            --build-arg HYPERVERGE_DIRECT_LIVENESS_ENABLED="${{ vars.HYPERVERGE_DIRECT_LIVENESS_ENABLED }}" \
             --build-arg HYPERVERGE_WORKFLOW_ID="${{ secrets.HYPERVERGE_WORKFLOW_ID }}" \
-            --build-arg HYPERVERGE_API_URL="${{ secrets.HYPERVERGE_API_URL }}" \
-            --build-arg HYPERVERGE_DIRECT_LIVENESS_ENABLED="${{ secrets.HYPERVERGE_DIRECT_LIVENESS_ENABLED }}" \
+            --build-arg NEXT_PUBLIC_SITE_URL="${{ vars.NEXT_PUBLIC_SITE_URL }}" \
+            --build-arg NEXT_PUBLIC_SUPABASE_ANON_KEY="${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}" \
+            --build-arg NEXT_PUBLIC_SUPABASE_URL="${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}" \
+            --build-arg NEXT_PUBLIC_VIDEO_SDK_API_KEY="${{ secrets.NEXT_PUBLIC_VIDEO_SDK_API_KEY }}" \
+            --build-arg NODE_ENV="production" \
+            --build-arg SUPABASE_SERVICE_ROLE_KEY="${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
+            --build-arg VIDEO_SDK_API_KEY="${{ secrets.VIDEO_SDK_API_KEY }}" \
+            --build-arg VIDEO_SDK_SECRET="${{ secrets.VIDEO_SDK_SECRET }}" \
             -t "${{ env.GAR_LOCATION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.SERVICE }}:${{ github.sha }}" .
 
           docker push "${{ env.GAR_LOCATION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.SERVICE }}:${{ github.sha }}"
@@ -168,46 +183,42 @@ jobs:
           region: ${{ env.REGION }}
           image: ${{ env.GAR_LOCATION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.SERVICE }}:${{ github.sha }}
           env_vars: |
-            NODE_ENV=production
-            AUTH_TRUST_HOST=true
-
             AUTH_GOOGLE_ID=${{ secrets.AUTH_GOOGLE_ID }}
             AUTH_GOOGLE_SECRET=${{ secrets.AUTH_GOOGLE_SECRET }}
-            GOOGLE_MAPS_API_KEY=${{ secrets.GOOGLE_MAPS_API_KEY }}
             AUTH_SECRET=${{ secrets.AUTH_SECRET }}
-            AUTH_URL=${{ secrets.AUTH_URL }}
-
+            AUTH_TRUST_HOST=true
+            AUTH_URL=${{ vars.AUTH_URL }}
             DATABASE_URL=${{ secrets.DATABASE_URL }}
-
-            NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-            NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-            SUPABASE_SERVICE_ROLE_KEY=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-
-            EMAIL_HOST=${{ vars.EMAIL_HOST }}
-            EMAIL_PORT=${{ vars.EMAIL_PORT }}
-            EMAIL_USER=${{ vars.EMAIL_USER }}
-            EMAIL_PASS=${{ secrets.EMAIL_PASS }}
-            EMAIL_FROM=${{ vars.EMAIL_FROM }}
-            EMAIL_FROM_NAME=${{ vars.EMAIL_FROM_NAME }}
-
-            VIDEO_SDK_API_KEY=${{ secrets.VIDEO_SDK_API_KEY }}
-            VIDEO_SDK_SECRET=${{ secrets.VIDEO_SDK_SECRET }}
-            NEXT_PUBLIC_VIDEO_SDK_API_KEY=${{ secrets.NEXT_PUBLIC_VIDEO_SDK_API_KEY }}
-
+            DOCONCHAIN_API_URL=${{ vars.DOCONCHAIN_API_URL }}
+            DOCONCHAIN_APP_URL=${{ vars.DOCONCHAIN_APP_URL }}
             DOCONCHAIN_CLIENT_KEY=${{ secrets.DOCONCHAIN_CLIENT_KEY }}
             DOCONCHAIN_CLIENT_SECRET=${{ secrets.DOCONCHAIN_CLIENT_SECRET }}
             DOCONCHAIN_EMAIL=${{ secrets.DOCONCHAIN_EMAIL }}
+            DOCONCHAIN_ORG_INVITE_CODE=${{ secrets.DOCONCHAIN_ORG_INVITE_CODE }}
             DOCONCHAIN_ORGANIZATION_ID=${{ secrets.DOCONCHAIN_ORGANIZATION_ID }}
-            DOCONCHAIN_API_URL=${{ secrets.DOCONCHAIN_API_URL }}
-            DOCONCHAIN_API_TOKEN=${{ secrets.DOCONCHAIN_API_TOKEN }}
-            DOCOCHAIN_API_TOKEN=${{ secrets.DOCOCHAIN_API_TOKEN }}
-
+            EMAIL_FROM_NAME=${{ vars.EMAIL_FROM_NAME }}
+            EMAIL_FROM=${{ vars.EMAIL_FROM }}
+            EMAIL_HOST=${{ vars.EMAIL_HOST }}
+            EMAIL_PASS=${{ secrets.EMAIL_PASS }}
+            EMAIL_PORT=${{ vars.EMAIL_PORT }}
+            EMAIL_USER=${{ vars.EMAIL_USER }}
+            GOOGLE_MAPS_API_KEY=${{ secrets.GOOGLE_MAPS_API_KEY }}
+            HITPAY_API_KEY=${{ secrets.HITPAY_API_KEY }}
+            HITPAY_API_URL=${{ vars.HITPAY_API_URL }}
+            HITPAY_WEBHOOK_SALT=${{ secrets.HITPAY_WEBHOOK_SALT }}
+            HYPERVERGE_API_URL=${{ vars.HYPERVERGE_API_URL }}
             HYPERVERGE_APP_ID=${{ secrets.HYPERVERGE_APP_ID }}
             HYPERVERGE_APP_KEY=${{ secrets.HYPERVERGE_APP_KEY }}
+            HYPERVERGE_DIRECT_LIVENESS_ENABLED=${{ vars.HYPERVERGE_DIRECT_LIVENESS_ENABLED }}
             HYPERVERGE_WORKFLOW_ID=${{ secrets.HYPERVERGE_WORKFLOW_ID }}
-            HYPERVERGE_API_URL=${{ secrets.HYPERVERGE_API_URL }}
-            HYPERVERGE_DIRECT_LIVENESS_ENABLED=${{ secrets.HYPERVERGE_DIRECT_LIVENESS_ENABLED }}
-
+            NEXT_PUBLIC_SITE_URL=${{ vars.NEXT_PUBLIC_SITE_URL }}
+            NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+            NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+            NEXT_PUBLIC_VIDEO_SDK_API_KEY=${{ secrets.NEXT_PUBLIC_VIDEO_SDK_API_KEY }}
+            NODE_ENV=production
+            SUPABASE_SERVICE_ROLE_KEY=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+            VIDEO_SDK_API_KEY=${{ secrets.VIDEO_SDK_API_KEY }}
+            VIDEO_SDK_SECRET=${{ secrets.VIDEO_SDK_SECRET }}
             SKIP_ENV_VALIDATION=1
           flags: >
             --min-instances=0
