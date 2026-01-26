@@ -2,22 +2,20 @@
 
 import { Globe, Users } from "lucide-react"
 
-import {
-	Card,
-	CardContent,
-	CardDescription,
-	CardHeader,
-	CardTitle,
-} from "@/core/components/ui/card"
-import { Label } from "@/core/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/core/components/ui/radio-group"
+import {
+	Field,
+	FieldContent,
+	FieldDescription,
+	FieldLabel,
+	FieldTitle,
+} from "@/core/components/ui/field"
 
 interface SessionModeSelectorProps {
 	value: "REN" | "IEN"
 	onChange: (mode: "REN" | "IEN") => void
 	disabled?: boolean
 	showHeading?: boolean
-	showNote?: boolean
 }
 
 export function SessionModeSelector({
@@ -25,13 +23,12 @@ export function SessionModeSelector({
 	onChange,
 	disabled = false,
 	showHeading = true,
-	showNote = true,
 }: SessionModeSelectorProps) {
 	return (
 		<div className="space-y-4">
 			{showHeading && (
 				<div>
-					<Label className="text-base font-semibold">Session Mode</Label>
+					<label className="text-base font-semibold">Session Mode</label>
 					<p className="text-muted-foreground mt-1 text-sm">How will you meet with the notary?</p>
 				</div>
 			)}
@@ -40,77 +37,51 @@ export function SessionModeSelector({
 				value={value}
 				onValueChange={v => onChange(v as "REN" | "IEN")}
 				disabled={disabled}
-				className="w-full"
 			>
-				<div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-					{/* REN - Remote */}
-					<Card
-						className="hover:border-primary h-full cursor-pointer border-2 transition-all"
-						onClick={() => !disabled && onChange("REN")}
+				{/* REN - Remote */}
+				<FieldLabel htmlFor="ren-mode">
+					<Field
+						orientation="horizontal"
+						className="hover:border-primary border-2 p-4 rounded-md transition-all cursor-pointer"
 						style={{
 							borderColor: value === "REN" ? "hsl(var(--primary))" : undefined,
 							backgroundColor: value === "REN" ? "hsl(var(--primary) / 0.05)" : undefined,
 						}}
+						onClick={() => !disabled && onChange("REN")}
 					>
-						<CardHeader className="pb-3">
-							<div className="flex items-center gap-2">
-								<RadioGroupItem value="REN" id="ren-mode" disabled={disabled} />
-								<div className="flex items-center gap-2">
-									<Globe className="h-5 w-5 text-blue-600" />
-									<CardTitle className="text-base">REN (Remote)</CardTitle>
-								</div>
+						<FieldContent>
+							<div className="flex items-center gap-2 mb-2">
+								<Globe className="size-5 text-blue-600" />
+								<FieldTitle>REN (Remote)</FieldTitle>
 							</div>
-						</CardHeader>
-						<CardContent className="space-y-2">
-							<CardDescription>
-								Everyone joins via video call from their own location
-							</CardDescription>
-							<ul className="text-muted-foreground space-y-1 text-sm">
-								<li>✓ Convenient - join from anywhere</li>
-								<li>✓ For OFWs, different cities</li>
-								<li>✓ Instant scheduling</li>
-							</ul>
-						</CardContent>
-					</Card>
+							<FieldDescription>Everyone joins via video call from their own location</FieldDescription>
+						</FieldContent>
+						<RadioGroupItem value="REN" id="ren-mode" disabled={disabled} />
+					</Field>
+				</FieldLabel>
 
-					{/* IEN - In-Person */}
-					<Card
-						className="hover:border-primary h-full cursor-pointer border-2 transition-all"
-						onClick={() => !disabled && onChange("IEN")}
+				{/* IEN - In-Person */}
+				<FieldLabel htmlFor="ien-mode">
+					<Field
+						orientation="horizontal"
+						className="hover:border-primary border-2 p-4 rounded-md transition-all cursor-pointer"
 						style={{
 							borderColor: value === "IEN" ? "hsl(var(--primary))" : undefined,
 							backgroundColor: value === "IEN" ? "hsl(var(--primary) / 0.05)" : undefined,
 						}}
+						onClick={() => !disabled && onChange("IEN")}
 					>
-						<CardHeader className="pb-3">
-							<div className="flex items-center gap-2">
-								<RadioGroupItem value="IEN" id="ien-mode" disabled={disabled} />
-								<div className="flex items-center gap-2">
-									<Users className="h-5 w-5 text-green-600" />
-									<CardTitle className="text-base">IEN (In-Person)</CardTitle>
-								</div>
+						<FieldContent>
+							<div className="flex items-center gap-2 mb-2">
+								<Users className="size-5 text-green-600" />
+								<FieldTitle>IEN (In-Person)</FieldTitle>
 							</div>
-						</CardHeader>
-						<CardContent className="space-y-2">
-							<CardDescription>
-								Everyone meets physically at notary's office or location
-							</CardDescription>
-							<ul className="text-muted-foreground space-y-1 text-sm">
-								<li>✓ Traditional approach</li>
-								<li>✓ For complex documents</li>
-								<li>✓ Face-to-face trust</li>
-							</ul>
-						</CardContent>
-					</Card>
-				</div>
+							<FieldDescription>Everyone meets physically at notary's office or location</FieldDescription>
+						</FieldContent>
+						<RadioGroupItem value="IEN" id="ien-mode" disabled={disabled} />
+					</Field>
+				</FieldLabel>
 			</RadioGroup>
-
-			{showNote && (
-				<div className="rounded-lg bg-blue-50 p-3 text-sm text-blue-900">
-					<strong>⚠️ Location requirement:</strong> All participants must be in the Philippines or
-					at a Philippine embassy/consular office abroad.
-				</div>
-			)}
 		</div>
 	)
 }

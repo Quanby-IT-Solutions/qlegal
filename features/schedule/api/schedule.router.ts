@@ -50,24 +50,25 @@ export const scheduleRouter = createTRPCRouter({
 				.filter(Boolean)
 				.join("\n")
 
-			// Create self-appointment (client = lawyer = ENP)
-			const [appointment] = await ctx.db
-				.insert(appointments)
-				.values({
-					clientId: userId,
-					lawyerId: userId,
-					type: input.type,
-					appointmentDate: appointmentDateTime,
-					duration: duration ?? 60,
-					notes: notes || null,
-					location:
-						input.type === "DOCUMENT_SIGNING" && input.workflow === "IEN"
-							? (input.location ?? undefined)
-							: null,
-					meetingLink: null, // Set when confirmed
-					status: "CONFIRMED", // ENP-created events are auto-confirmed
-				})
-				.returning()
+		// Create self-appointment (client = lawyer = ENP)
+		const [appointment] = await ctx.db
+			.insert(appointments)
+			.values({
+				clientId: userId,
+				lawyerId: userId,
+				type: input.type,
+				appointmentDate: appointmentDateTime,
+				duration: duration ?? 60,
+				modeOfNotarization: input.workflow ?? "REN",
+				notes: notes || null,
+				location:
+					input.type === "DOCUMENT_SIGNING" && input.workflow === "IEN"
+						? (input.location ?? undefined)
+						: null,
+				meetingLink: null, // Set when confirmed
+				status: "CONFIRMED", // ENP-created events are auto-confirmed
+			})
+			.returning()
 
 			if (!appointment) {
 				throw new TRPCError({
@@ -139,20 +140,21 @@ export const scheduleRouter = createTRPCRouter({
 				.filter(Boolean)
 				.join("\n")
 
-			const [updated] = await ctx.db
-				.update(appointments)
-				.set({
-					appointmentDate: appointmentDateTime,
-					duration,
-					notes,
-					location:
-						input.type === "DOCUMENT_SIGNING" && input.workflow === "IEN"
-							? (input.location ?? existing.location)
-							: null,
-					updatedAt: new Date(),
-				})
-				.where(eq(appointments.id, input.appointmentId))
-				.returning()
+		const [updated] = await ctx.db
+			.update(appointments)
+			.set({
+				appointmentDate: appointmentDateTime,
+				duration,
+				modeOfNotarization: input.workflow ?? existing.modeOfNotarization,
+				notes,
+				location:
+					input.type === "DOCUMENT_SIGNING" && input.workflow === "IEN"
+						? (input.location ?? existing.location)
+						: null,
+				updatedAt: new Date(),
+			})
+			.where(eq(appointments.id, input.appointmentId))
+			.returning()
 
 			return updated
 		}),
