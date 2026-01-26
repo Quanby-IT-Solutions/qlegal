@@ -16,6 +16,7 @@ import {
 	invalidateToken,
 	normalizeUrl,
 	sendProject,
+	updateProjectSigner,
 } from "@/services/doconchain"
 import { db } from "@/services/drizzle/db"
 import { users } from "@/services/drizzle/schema/auth"
@@ -330,7 +331,7 @@ export const signatureRequestsRouter = createTRPCRouter({
 					document = await db.query.documents.findFirst({
 						where: eq(documents.docoChainProjectId, projectUuid),
 						with: {
-							signers: { columns: { userId: true } },
+							signers: { columns: { userId: true, signingOrder: true } },
 							meeting: {
 								with: {
 									participants: {
@@ -359,7 +360,7 @@ export const signatureRequestsRouter = createTRPCRouter({
 					document = await db.query.documents.findFirst({
 						where: eq(documents.id, documentId),
 						with: {
-							signers: { columns: { userId: true } },
+							signers: { columns: { userId: true, signingOrder: true } },
 							meeting: {
 								with: {
 									participants: {
@@ -395,12 +396,30 @@ export const signatureRequestsRouter = createTRPCRouter({
 
 				const meeting = document.meeting
 				const allParticipants = meeting.participants ?? []
-				const signerUserIds = new Set((document.signers ?? []).map(s => s.userId))
+				
+				// Get signers with their signing order
+				const documentSigners = (document.signers ?? []).map(s => ({
+					userId: s.userId,
+					signingOrder: s.signingOrder ?? 999999, // nulls go last
+				}))
+				const signerUserIds = new Set(documentSigners.map(s => s.userId))
+				
+				// Create a map of userId -> signingOrder for quick lookup
+				const signingOrderMap = new Map(
+					documentSigners.map(s => [s.userId, s.signingOrder])
+				)
 
 				// Use only selected document signers when available; otherwise all participants (legacy).
+				// Sort by signingOrder to maintain the order set by ENP
 				const participantsToAdd =
 					signerUserIds.size > 0
-						? allParticipants.filter(p => signerUserIds.has(p.userId))
+						? allParticipants
+								.filter(p => signerUserIds.has(p.userId))
+								.sort((a, b) => {
+									const orderA = signingOrderMap.get(a.userId) ?? 999999
+									const orderB = signingOrderMap.get(b.userId) ?? 999999
+									return orderA - orderB
+								})
 						: allParticipants
 
 				if (participantsToAdd.length === 0) {
@@ -626,6 +645,64 @@ export const signatureRequestsRouter = createTRPCRouter({
 
 				console.log(`✅ Selected signers have been added to project`)
 				console.log(`   - Total signers: ${currentSigners.length}`)
+
+				// Step 2.5: Update signer sequences based on signingOrder
+				if (signerUserIds.size > 0 && actualProjectUuid) {
+					console.log("🔵 Step 2.5: Updating signer sequences based on signing order...")
+					try {
+						// Fetch current project details to get signer IDs
+						const projectDetails = await getProjectDetails(actualProjectUuid, creatorEmail)
+						const projectSigners = (projectDetails?.data?.signers as Array<{
+							id?: number
+							email?: string
+							first_name?: string
+							last_name?: string
+							signer_role?: string
+						}>) ?? []
+
+						// Update each signer's sequence based on their signingOrder
+						for (const participant of participantsToAdd) {
+							const participantEmail = participant.user?.email
+							if (!participantEmail) continue
+
+							const projectSigner = projectSigners.find(
+								s => s.email?.toLowerCase() === participantEmail.toLowerCase()
+							)
+							if (!projectSigner?.id) continue
+
+							const signingOrder = signingOrderMap.get(participant.userId) ?? 999999
+							if (signingOrder === 999999) continue // Skip if no order set
+
+							const participantNameParts = (participant.user?.name ?? "").split(" ")
+							const participantFirstName = participantNameParts[0] ?? "User"
+							const participantLastName = participantNameParts.slice(1).join(" ") || ""
+
+							try {
+								await updateProjectSigner({
+									projectUuid: actualProjectUuid,
+									signerId: projectSigner.id,
+									firstName: participantFirstName,
+									lastName: participantLastName,
+									sequence: signingOrder,
+									signerRole: "Signer",
+									userEmail: creatorEmail,
+								})
+								console.log(
+									`   ✅ Updated ${participantEmail} sequence to ${signingOrder}`
+								)
+							} catch (updateError) {
+								console.warn(
+									`   ⚠️ Failed to update sequence for ${participantEmail}:`,
+									updateError
+								)
+								// Continue - don't fail the whole operation
+							}
+						}
+					} catch (sequenceError) {
+						console.warn("⚠️ Failed to update signer sequences:", sequenceError)
+						// Continue - don't fail the whole operation if sequence update fails
+					}
+				}
 
 				// Step 3: Get signing link for user
 				// Strategy:
