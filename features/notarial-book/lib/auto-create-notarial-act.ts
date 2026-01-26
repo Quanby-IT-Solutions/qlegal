@@ -484,7 +484,11 @@ export async function autoCreateNotarialAct(
 			} else if (executedAt.getTime() === new Date().getTime() && passportObj?.completed_at) {
 				executedAt = new Date(passportObj.completed_at)
 				console.log("✅ Using completed_at timestamp:", passportObj.completed_at)
-			} else if (executedAt.getTime() === new Date().getTime() && Array.isArray(passportObj?.data?.history) && passportObj.data.history.length > 0) {
+			} else if (
+				executedAt.getTime() === new Date().getTime() &&
+				Array.isArray(passportObj?.data?.history) &&
+				passportObj.data.history.length > 0
+			) {
 				// Get the latest timestamp from history
 				const lastEvent = passportObj.data.history[passportObj.data.history.length - 1]
 				if (
@@ -496,7 +500,11 @@ export async function autoCreateNotarialAct(
 					executedAt = new Date(lastEvent.timestamp)
 					console.log("✅ Using latest history event timestamp:", lastEvent.timestamp)
 				}
-			} else if (executedAt.getTime() === new Date().getTime() && Array.isArray(passportObj?.history) && passportObj.history.length > 0) {
+			} else if (
+				executedAt.getTime() === new Date().getTime() &&
+				Array.isArray(passportObj?.history) &&
+				passportObj.history.length > 0
+			) {
 				const lastEvent = passportObj.history[passportObj.history.length - 1]
 				if (
 					typeof lastEvent === "object" &&
@@ -631,11 +639,19 @@ export async function autoCreateNotarialAct(
 		// Determine act type - use document's notarizationType if available, otherwise determine from name/description
 		const documentName = (document as { name?: string }).name ?? ""
 		const documentDescription = (document as { description?: string | null }).description ?? null
-		const documentNotarizationType = (document as {
-			notarizationType?: "ACKNOWLEDGMENT" | "AFFIRMATION" | "JURAT" | "SIGNATURE_WITNESSING" | null
-		}).notarizationType
-		
-		const actType = documentNotarizationType ?? determineActType(documentName, documentDescription, passportData)
+		const documentNotarizationType = (
+			document as {
+				notarizationType?:
+					| "ACKNOWLEDGMENT"
+					| "AFFIRMATION"
+					| "JURAT"
+					| "SIGNATURE_WITNESSING"
+					| null
+			}
+		).notarizationType
+
+		const actType =
+			documentNotarizationType ?? determineActType(documentName, documentDescription, passportData)
 
 		// Generate certificate number (unique reference)
 		const certificateNumber = `NB-${notarialBookId.substring(0, 4).toUpperCase()}-${executedAt.getTime().toString().slice(-6)}`

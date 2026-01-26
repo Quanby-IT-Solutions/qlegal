@@ -37,9 +37,11 @@ export function EnpProfileCard() {
 		<Card className="border-border/60 bg-card/80 dark:bg-card/70 border shadow-sm backdrop-blur-xl transition-all duration-300 hover:shadow-md">
 			<CardHeader className="px-8 pt-4">
 				<CardTitle className="flex items-center gap-2 text-lg font-medium">
-                Electronic Notary Public Information
+					Electronic Notary Public Information
 				</CardTitle>
-				<CardDescription>Update your Electronic Notary Public credentials and information here.</CardDescription>
+				<CardDescription>
+					Update your Electronic Notary Public credentials and information here.
+				</CardDescription>
 			</CardHeader>
 			<CardContent className="px-8">
 				<EnpProfileForm />

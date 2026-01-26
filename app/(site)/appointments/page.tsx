@@ -1,9 +1,9 @@
 "use client"
 
+import { useRouter } from "next/navigation"
 import { useMemo, useState } from "react"
 import { format, startOfToday } from "date-fns"
 import { Calendar as CalendarIcon, Clock, Handshake, Loader2, MapPin, Video } from "lucide-react"
-import { useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
 import { toast } from "sonner"
 
@@ -11,7 +11,6 @@ import { PageHeader } from "@/core/components/navbar/page-header"
 import { Avatar, AvatarFallback, AvatarImage } from "@/core/components/ui/avatar"
 import { Badge } from "@/core/components/ui/badge"
 import { Button } from "@/core/components/ui/button"
-import { Calendar as CalendarComponent } from "@/core/components/ui/calendar"
 import {
 	Card,
 	CardContent,
@@ -19,6 +18,7 @@ import {
 	CardHeader,
 	CardTitle,
 } from "@/core/components/ui/card"
+import { EventCalendar, type CalendarEvent } from "@/core/components/ui/event-calendar"
 import { Separator } from "@/core/components/ui/separator"
 import { getInitials } from "@/core/lib/utils"
 
@@ -92,6 +92,36 @@ export default function EnpCalendarPage() {
 	const hasData = (appointmentsForDay?.length ?? 0) > 0
 	const isBusy = isLoading || isFetching
 
+	// Transform appointments into calendar events
+	const calendarEvents = useMemo((): CalendarEvent[] => {
+		if (!enpAppointments) return []
+
+		return enpAppointments.map(apt => {
+			const workflow = getWorkflow(apt)
+			const startDate = new Date(apt.appointmentDate)
+			const endDate = new Date(startDate.getTime() + (apt.duration || 30) * 60 * 1000)
+
+			return {
+				id: apt.id,
+				title: `${apt.type === "DOCUMENT_SIGNING" ? "Document Signing" : "Consultation"} with ${apt.client?.name || "Client"}`,
+				start: startDate,
+				end: endDate,
+				metadata: {
+					type: "appointment",
+					appointmentType: apt.type,
+					status: apt.status,
+					workflow,
+					color:
+						apt.status === "CONFIRMED"
+							? "#3b82f6"
+							: apt.status === "PENDING"
+								? "#f59e0b"
+								: "#6b7280",
+				},
+			}
+		})
+	}, [enpAppointments])
+
 	return (
 		<div className="flex flex-1 flex-col">
 			<PageHeader items={[{ label: "My Calendar" }]} />
@@ -113,15 +143,13 @@ export default function EnpCalendarPage() {
 									<CardDescription>Days with bookings are highlighted.</CardDescription>
 								</CardHeader>
 								<CardContent className="space-y-4">
-									<CalendarComponent
-										mode="single"
-										selected={selectedDate}
-										onSelect={date => date && setSelectedDate(normalizeDate(date))}
-										disabled={date => date < today}
-										initialFocus
-										className="bg-muted/30 w-full max-w-[380px] rounded-2xl border p-4 shadow-sm [--cell-size:2.6rem]"
-										modifiers={{ booked: bookedDates }}
-										modifiersClassNames={{ booked: "bg-primary/10 text-primary font-semibold" }}
+									<EventCalendar
+										events={calendarEvents}
+										onDateClick={date => setSelectedDate(normalizeDate(date))}
+										defaultView="month"
+										defaultDate={selectedDate}
+										height={400}
+										className="bg-muted/30 rounded-2xl border p-4 shadow-sm"
 									/>
 
 									<Separator />
@@ -271,12 +299,13 @@ function AppointmentCard({
 		const match = appointment.meetingLink?.match(/\/meetings\/([^/]+)/)
 		return match?.[1] ?? null
 	}, [appointment.meetingLink])
-	const { data: linkedMeeting, isLoading: isLoadingMeeting, refetch: refetchLinkedMeeting } = trpc.meetings.getById.useQuery(
-		meetingIdFromLink ?? "",
-		{
-			enabled: !!meetingIdFromLink,
-		}
-	)
+	const {
+		data: linkedMeeting,
+		isLoading: isLoadingMeeting,
+		refetch: refetchLinkedMeeting,
+	} = trpc.meetings.getById.useQuery(meetingIdFromLink ?? "", {
+		enabled: !!meetingIdFromLink,
+	})
 	const isMeetingLive = linkedMeeting?.status === "ONGOING"
 	const isMeetingScheduled = linkedMeeting?.status === "SCHEDULED"
 	const isLawyer = currentUser?.role === "ENP" && currentUser.id === appointment.lawyerId
@@ -291,7 +320,9 @@ function AppointmentCard({
 		workflow === "REN" &&
 		isLawyer &&
 		appointment.status === "CONFIRMED" &&
-		(!appointment.meetingLink || (isLoadingMeeting && !linkedMeeting) || (linkedMeeting && isMeetingScheduled)) &&
+		(!appointment.meetingLink ||
+			(isLoadingMeeting && !linkedMeeting) ||
+			(linkedMeeting && isMeetingScheduled)) &&
 		!isPastSlot
 	// Can join meeting if meeting exists and is ONGOING (and not loading)
 	const canJoinMeeting =
@@ -317,7 +348,7 @@ function AppointmentCard({
 		try {
 			// If meeting already exists (from accept), use it. Otherwise create new one.
 			let meetingId = meetingIdFromLink
-			
+
 			if (!meetingId) {
 				// Create new meeting if it doesn't exist
 				const title = `${appointment.type === "DOCUMENT_SIGNING" ? "Document Signing" : "Consultation"} with ${appointment.client?.name || "Client"}`
@@ -326,30 +357,30 @@ function AppointmentCard({
 					participantIds: [appointment.clientId],
 				})
 				meetingId = result.meeting.id
-				
+
 				// Update appointment with meeting link
 				await updateAppointment.mutateAsync({
 					appointmentId: appointment.id,
 					meetingLink: `/meetings/${meetingId}/lobby`,
 				})
 			}
-			
+
 			// Start the meeting
 			await startMeeting.mutateAsync(meetingId)
-			
+
 			// Invalidate and refetch meeting queries immediately
 			await utils.meetings.getById.invalidate(meetingId)
 			void utils.meetings.getUserMeetings.invalidate()
-			
+
 			// Refetch the linked meeting query if it exists
 			if (meetingId === meetingIdFromLink) {
 				await refetchLinkedMeeting()
 			}
-			
+
 			// Refetch appointments to update UI
 			await utils.appointments.getMyAppointments.invalidate()
 			onRefetch()
-			
+
 			toast.success("Meeting started")
 		} catch (error) {
 			console.error(error)

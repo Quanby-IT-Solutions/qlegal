@@ -8,7 +8,11 @@ import { enpProfiles } from "@/services/drizzle/schema/enp-profiles"
 import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
 
 import { deleteAvatar } from "@/features/profile/api/profile.actions"
-import { addressSchema, enpProfileSchema, personalInformationSchema } from "@/features/profile/api/profile.schema"
+import {
+	addressSchema,
+	enpProfileSchema,
+	personalInformationSchema,
+} from "@/features/profile/api/profile.schema"
 
 export const profileRouter = createTRPCRouter({
 	updateAvatar: protectedProcedure
@@ -102,8 +106,8 @@ export const profileRouter = createTRPCRouter({
 				.where(eq(users.id, ctx.session.user.id))
 				.returning()
 
-		return { message: "Personal information updated successfully", user }
-	}),
+			return { message: "Personal information updated successfully", user }
+		}),
 
 	getEnpProfile: protectedProcedure.query(async ({ ctx }) => {
 		const enpProfile = await ctx.db.query.enpProfiles.findFirst({
@@ -139,54 +143,52 @@ export const profileRouter = createTRPCRouter({
 		}
 	}),
 
-	updateEnpProfile: protectedProcedure
-		.input(enpProfileSchema)
-		.mutation(async ({ ctx, input }) => {
-			const existingProfile = await ctx.db.query.enpProfiles.findFirst({
-				where: eq(enpProfiles.userId, ctx.session.user.id),
+	updateEnpProfile: protectedProcedure.input(enpProfileSchema).mutation(async ({ ctx, input }) => {
+		const existingProfile = await ctx.db.query.enpProfiles.findFirst({
+			where: eq(enpProfiles.userId, ctx.session.user.id),
+		})
+
+		const normalizeString = (value: string | undefined): string | null => {
+			if (value === undefined) return null
+			const trimmed = value.trim()
+			return trimmed === "" ? null : trimmed
+		}
+
+		const profileData = {
+			enpName: normalizeString(input.enpName),
+			enpRoleNumber: normalizeString(input.enpRoleNumber),
+			rollNo: normalizeString(input.rollNo),
+			rollNoDate: normalizeString(input.rollNoDate),
+			attyName: normalizeString(input.attyName),
+			commissionNo: normalizeString(input.commissionNo),
+			commissionNoValidUntil: normalizeString(input.commissionNoValidUntil),
+			ptrNo: normalizeString(input.ptrNo),
+			ptrNoLocation: normalizeString(input.ptrNoLocation),
+			ptrNoDate: normalizeString(input.ptrNoDate),
+			ibpNo: normalizeString(input.ibpNo),
+			ibpNoDate: normalizeString(input.ibpNoDate),
+			notaryEmail: normalizeString(input.notaryEmail),
+			notaryAddress: normalizeString(input.notaryAddress),
+			mcleNoPeriod: normalizeString(input.mcleNoPeriod),
+			mcleNo: normalizeString(input.mcleNo),
+			mcleNoDate: normalizeString(input.mcleNoDate),
+			modeOfNotarization: normalizeString(input.modeOfNotarization),
+		}
+
+		if (existingProfile) {
+			await ctx.db
+				.update(enpProfiles)
+				.set(profileData)
+				.where(eq(enpProfiles.userId, ctx.session.user.id))
+		} else {
+			await ctx.db.insert(enpProfiles).values({
+				userId: ctx.session.user.id,
+				...profileData,
 			})
+		}
 
-			const normalizeString = (value: string | undefined): string | null => {
-				if (value === undefined) return null
-				const trimmed = value.trim()
-				return trimmed === "" ? null : trimmed
-			}
-
-			const profileData = {
-				enpName: normalizeString(input.enpName),
-				enpRoleNumber: normalizeString(input.enpRoleNumber),
-				rollNo: normalizeString(input.rollNo),
-				rollNoDate: normalizeString(input.rollNoDate),
-				attyName: normalizeString(input.attyName),
-				commissionNo: normalizeString(input.commissionNo),
-				commissionNoValidUntil: normalizeString(input.commissionNoValidUntil),
-				ptrNo: normalizeString(input.ptrNo),
-				ptrNoLocation: normalizeString(input.ptrNoLocation),
-				ptrNoDate: normalizeString(input.ptrNoDate),
-				ibpNo: normalizeString(input.ibpNo),
-				ibpNoDate: normalizeString(input.ibpNoDate),
-				notaryEmail: normalizeString(input.notaryEmail),
-				notaryAddress: normalizeString(input.notaryAddress),
-				mcleNoPeriod: normalizeString(input.mcleNoPeriod),
-				mcleNo: normalizeString(input.mcleNo),
-				mcleNoDate: normalizeString(input.mcleNoDate),
-				modeOfNotarization: normalizeString(input.modeOfNotarization),
-			}
-
-			if (existingProfile) {
-				await ctx.db
-					.update(enpProfiles)
-					.set(profileData)
-					.where(eq(enpProfiles.userId, ctx.session.user.id))
-			} else {
-				await ctx.db.insert(enpProfiles).values({
-					userId: ctx.session.user.id,
-					...profileData,
-				})
-			}
-
-			return { message: "ENP profile updated successfully" }
-		}),
+		return { message: "ENP profile updated successfully" }
+	}),
 
 	getAddress: protectedProcedure.query(async ({ ctx }) => {
 		const user = await ctx.db.query.users.findFirst({
@@ -201,17 +203,15 @@ export const profileRouter = createTRPCRouter({
 		}
 	}),
 
-	updateAddress: protectedProcedure
-		.input(addressSchema)
-		.mutation(async ({ ctx, input }) => {
-			const user = await ctx.db
-				.update(users)
-				.set({
-					address: input.address.trim() !== "" ? input.address.trim() : null,
-				})
-				.where(eq(users.id, ctx.session.user.id))
-				.returning()
+	updateAddress: protectedProcedure.input(addressSchema).mutation(async ({ ctx, input }) => {
+		const user = await ctx.db
+			.update(users)
+			.set({
+				address: input.address.trim() !== "" ? input.address.trim() : null,
+			})
+			.where(eq(users.id, ctx.session.user.id))
+			.returning()
 
-			return { message: "Address updated successfully", user }
-		}),
+		return { message: "Address updated successfully", user }
+	}),
 })

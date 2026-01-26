@@ -47,11 +47,7 @@ export const SiteSidebar = () => {
 
 			<SidebarContent className="overflow-x-hidden">
 				{getAppSidebarSections(userRole).map(section => (
-					<SidebarNavSection
-						key={section.label}
-						section={section}
-						userRole={userRole}
-					/>
+					<SidebarNavSection key={section.label} section={section} userRole={userRole} />
 				))}
 				<SidebarSecondaryNav items={navSecondary} />
 			</SidebarContent>

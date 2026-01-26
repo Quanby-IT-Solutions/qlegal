@@ -48,7 +48,9 @@ export function NotarialActDocumentDialog2({
 							<DialogTitle className="text-foreground truncate text-lg font-medium">
 								{documentName}
 							</DialogTitle>
-							<p className="text-muted-foreground text-sm">Signed Document (Programmatic Retrieval)</p>
+							<p className="text-muted-foreground text-sm">
+								Signed Document (Programmatic Retrieval)
+							</p>
 						</div>
 					</div>
 				</DialogHeader>

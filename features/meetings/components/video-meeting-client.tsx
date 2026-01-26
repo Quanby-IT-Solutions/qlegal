@@ -1045,13 +1045,11 @@ const SignerList = React.memo(function SignerList({
 	const sortedSigners = [...signers].sort((a, b) => a.sequence - b.sequence)
 
 	// Helper function to check if a signer has signed (case-insensitive and checks both status and signedAt)
-	const isSignerSigned = (signer: {
-		status: string
-		signedAt: string | null
-	}): boolean => {
+	const isSignerSigned = (signer: { status: string; signedAt: string | null }): boolean => {
 		const statusUpper = signer.status?.toUpperCase() ?? ""
 		const hasSignedStatus = statusUpper === "SIGNED" || statusUpper === "COMPLETED"
-		const hasSignedAt = signer.signedAt !== null && signer.signedAt !== undefined && signer.signedAt !== ""
+		const hasSignedAt =
+			signer.signedAt !== null && signer.signedAt !== undefined && signer.signedAt !== ""
 		return hasSignedStatus || hasSignedAt
 	}
 
@@ -1186,13 +1184,11 @@ const DocumentActions = React.memo(function DocumentActions({
 	const { data: session } = useSession()
 
 	// Helper function to check if a signer has signed (case-insensitive)
-	const isSignerSigned = (signer: {
-		status: string
-		signedAt: string | null
-	}): boolean => {
+	const isSignerSigned = (signer: { status: string; signedAt: string | null }): boolean => {
 		const statusUpper = signer.status?.toUpperCase() ?? ""
 		const hasSignedStatus = statusUpper === "SIGNED" || statusUpper === "COMPLETED"
-		const hasSignedAt = signer.signedAt !== null && signer.signedAt !== undefined && signer.signedAt !== ""
+		const hasSignedAt =
+			signer.signedAt !== null && signer.signedAt !== undefined && signer.signedAt !== ""
 		return hasSignedStatus || hasSignedAt
 	}
 
@@ -1207,11 +1203,10 @@ const DocumentActions = React.memo(function DocumentActions({
 			}
 		}
 	}
-	
+
 	// Filter signers to only include those in the selected list
-	const filteredSigners = signers?.filter(signer => 
-		selectedSignerEmails.has(signer.email?.toLowerCase() ?? "")
-	) ?? []
+	const filteredSigners =
+		signers?.filter(signer => selectedSignerEmails.has(signer.email?.toLowerCase() ?? "")) ?? []
 
 	// Check if all signers have signed
 	const allSignersSigned =
@@ -1223,7 +1218,7 @@ const DocumentActions = React.memo(function DocumentActions({
 		? filteredSigners.find(s => s.email?.toLowerCase() === currentUserEmail.toLowerCase())
 		: null
 	const isUserAddedAsSigner = !!currentUserSigner
-	
+
 	// Check if user has completed signing (status SIGNED/COMPLETED or signedAt is set)
 	const hasUserSigned = currentUserSigner
 		? isSignerSigned({
@@ -1231,7 +1226,7 @@ const DocumentActions = React.memo(function DocumentActions({
 				signedAt: currentUserSigner.signedAt,
 			})
 		: false
-	
+
 	// Check signer status to determine if they've plotted but not signed
 	// Statuses: PENDING, NEXT GROUP (not plotted), or other statuses might indicate plotted
 	const signerStatus = (currentUserSigner?.status ?? "").toUpperCase()

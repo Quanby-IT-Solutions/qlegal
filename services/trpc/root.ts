@@ -6,7 +6,6 @@ import { enpProfileRouter } from "@/features/consultations/api/enp-profile.route
 import { dashboardRouter } from "@/features/dashboard/api/dashboard.router"
 import { envelopeLiteRouter } from "@/features/envelopes-lite/api/envelope-lite.router"
 import { appointmentsRouter } from "@/features/lawyers/api/appointments.router"
-import { lawyersRouter } from "@/features/lawyers/api/lawyers.router"
 import { legalRegistrationRouter } from "@/features/legal-registration/api/legal-registration.router"
 import { locationVerificationRouter } from "@/features/meetings/api/location-verification.router"
 import { meetingsRouter } from "@/features/meetings/api/meetings.router"
@@ -17,6 +16,8 @@ import { notarialBookRouter } from "@/features/notarial-book/api/notarial-book.r
 import { profileRouter } from "@/features/profile/api/profile.router"
 import { quickMatchRouter } from "@/features/quick-match/api/quick-match.router"
 import { requestsRouter } from "@/features/requests/api/requests.router"
+// Import schedule router
+import { scheduleRouter } from "@/features/schedule/api/schedule.router"
 import { settingsRouter } from "@/features/settings/api/settings.router"
 import { signatureLiteRouter } from "@/features/signature-lite/api/new-signature.router"
 import { userManagementRouter } from "@/features/user-management/api/user-management.router"
@@ -24,27 +25,36 @@ import { witnessesRouter } from "@/features/witnesses/api/witnesses.router"
 
 /**
  * This is the primary router for your server.
+ * All feature routers are registered here.
  *
- * All routers added in /api/routers should be manually added here.
+ * To add a new router:
+ * 1. Create the router file in features/[feature-name]/api/[router-name].router.ts
+ * 2. Export the router from that file
+ * 3. Import it here and add it to the appRouter
+ *
+ * @example
+ * import { myFeatureRouter } from "@/features/my-feature/api/my-feature.router"
+ * export const appRouter = createTRPCRouter({
+ *   myFeature: myFeatureRouter,
+ * })
  */
-// Create the root router with proper typing
+
 export const appRouter = createTRPCRouter({
-	healthCheck: publicProcedure.query(() => {
+	thealthCheck: publicProcedure.query(() => {
 		return { status: "ok" }
 	}),
-	appointments: appointmentsRouter,
 	auth: authRouter,
 	consultations: consultationsRouter,
-	dashboard: dashboardRouter,
 	enpProfile: enpProfileRouter,
+	dashboard: dashboardRouter,
 	envelopeLite: envelopeLiteRouter,
-	lawyers: lawyersRouter,
-	legalRegistrations: legalRegistrationRouter,
+	appointments: appointmentsRouter,
+	legalRegistration: legalRegistrationRouter,
 	locationVerification: locationVerificationRouter,
 	meetings: meetingsRouter,
 	signatureRequests: signatureRequestsRouter,
-	messages: messagesRouter,
 	messageFiles: messageFilesRouter,
+	messages: messagesRouter,
 	notarialBook: notarialBookRouter,
 	profile: profileRouter,
 	quickMatch: quickMatchRouter,
@@ -53,10 +63,9 @@ export const appRouter = createTRPCRouter({
 	signatureLite: signatureLiteRouter,
 	witnesses: witnessesRouter,
 	userManagement: userManagementRouter,
+	// Add schedule router
+	schedule: scheduleRouter,
 })
-
-// export type definition of API
-export type AppRouter = typeof appRouter
 
 /**
  * Create a server-side caller for the tRPC API.
@@ -66,3 +75,5 @@ export type AppRouter = typeof appRouter
  *       ^? Post[]
  */
 export const createCaller = createCallerFactory(appRouter)
+
+export type AppRouter = typeof appRouter

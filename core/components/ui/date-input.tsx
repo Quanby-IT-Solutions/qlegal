@@ -30,7 +30,7 @@ export function DateInput({ value, onChange, ...props }: DateInputProps) {
 			{...props}
 			type="date"
 			value={ymdValue}
-			onChange={(e) => {
+			onChange={e => {
 				const next = e.target.value
 				if (!next) {
 					onChange?.(undefined)
@@ -43,4 +43,3 @@ export function DateInput({ value, onChange, ...props }: DateInputProps) {
 		/>
 	)
 }
-

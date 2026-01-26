@@ -17,7 +17,11 @@ import { enpProfiles } from "@/services/drizzle/schema/enp-profiles"
 import { meetingParticipants, meetings } from "@/services/drizzle/schema/meetings"
 import { getServiceRoleClient } from "@/services/supabase"
 import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
-import { createMeetingRoom, generateMeetingToken } from "@/services/video-sdk"
+import {
+	createMeetingRoom,
+	fetchRecordings,
+	generateMeetingToken,
+} from "@/services/video-sdk"
 
 function isEnpRole(role: unknown): boolean {
 	if (typeof role !== "string") return false
@@ -468,6 +472,44 @@ export const meetingsRouter = createTRPCRouter({
 		}
 	}),
 
+	// Fetch VideoSDK recordings for a meeting (user must have access)
+	getRecordings: protectedProcedure
+		.input(z.object({ meetingId: z.string() }))
+		.query(async ({ input, ctx }) => {
+			const meeting = await db.query.meetings.findFirst({
+				where: eq(meetings.id, input.meetingId),
+				columns: { id: true, roomId: true, createdById: true },
+				with: {
+					participants: {
+						columns: { userId: true, status: true },
+					},
+				},
+			})
+
+			if (!meeting) {
+				throw new TRPCError({
+					code: "NOT_FOUND",
+					message: "Meeting not found",
+				})
+			}
+
+			const isHost = meeting.createdById === ctx.session.user.id
+			const isAcceptedParticipant = meeting.participants.some(
+				p => p.userId === ctx.session.user.id && p.status === "ACCEPTED"
+			)
+			const hasAccess = isHost || isAcceptedParticipant
+
+			if (!hasAccess) {
+				throw new TRPCError({
+					code: "FORBIDDEN",
+					message: "You don't have access to this meeting",
+				})
+			}
+
+			const list = await fetchRecordings(meeting.roomId)
+			return list
+		}),
+
 	// Start meeting (change status to ONGOING)
 	startMeeting: protectedProcedure.input(z.string()).mutation(async ({ input, ctx }) => {
 		const meeting = await db.query.meetings.findFirst({
@@ -583,7 +625,12 @@ export const meetingsRouter = createTRPCRouter({
 				mimeType: z.string(),
 				size: z.number(),
 				description: z.string().optional(),
-				notarizationType: z.enum(["ACKNOWLEDGMENT", "AFFIRMATION", "JURAT", "SIGNATURE_WITNESSING"]),
+				notarizationType: z.enum([
+					"ACKNOWLEDGMENT",
+					"AFFIRMATION",
+					"JURAT",
+					"SIGNATURE_WITNESSING",
+				]),
 			})
 		)
 		.mutation(async ({ ctx, input }) => {
@@ -954,7 +1001,8 @@ export const meetingsRouter = createTRPCRouter({
 			if (!enpProfile.enpName || !enpProfile.enpRoleNumber || !enpProfile.attyName) {
 				throw new TRPCError({
 					code: "PRECONDITION_FAILED",
-					message: "ENP profile is incomplete. Please complete your seal and notary information in settings.",
+					message:
+						"ENP profile is incomplete. Please complete your seal and notary information in settings.",
 				})
 			}
 
@@ -1173,9 +1221,7 @@ export const meetingsRouter = createTRPCRouter({
 									// Continue - don't fail the whole operation
 								}
 							} else if (hasSigned) {
-								console.log(
-									`ℹ️ Skipping removal of ${signerEmail} - they have already signed`
-								)
+								console.log(`ℹ️ Skipping removal of ${signerEmail} - they have already signed`)
 							}
 						}
 					}
@@ -1208,14 +1254,14 @@ export const meetingsRouter = createTRPCRouter({
 					userIds.map((userId, index) => {
 						const user = userMap.get(userId)
 						const isPrincipal = user?.role === "PRINCIPAL"
-						
+
 						// Extract name and address for principals only
 						const signerName: string | null = isPrincipal && user?.name ? String(user.name) : null
 						const signerAddress: string | null =
 							isPrincipal && user?.address && typeof user.address === "string"
 								? String(user.address)
 								: null
-						
+
 						return {
 							documentId,
 							userId,

@@ -21,10 +21,7 @@ export const isRouteActive = (itemUrl: string, currentPath: string): boolean => 
 }
 
 // Role filtering utility
-export const canAccessNavItem = (
-	roles?: NotaryRole[],
-	userRole?: string
-): boolean => {
+export const canAccessNavItem = (roles?: NotaryRole[], userRole?: string): boolean => {
 	// Check role access
 	if (roles && roles.length > 0) {
 		if (!userRole || !roles.includes(userRole as NotaryRole)) return false
@@ -57,7 +54,10 @@ export function filterNavItemsByRole(navItems: NavItem[], userRole?: string): Na
 }
 
 // Filter navigation sections by role
-export function filterNavSectionsByRole(navSections: NavSection[], userRole?: string): NavSection[] {
+export function filterNavSectionsByRole(
+	navSections: NavSection[],
+	userRole?: string
+): NavSection[] {
 	return navSections
 		.map(section => ({
 			...section,

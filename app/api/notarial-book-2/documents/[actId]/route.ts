@@ -9,7 +9,7 @@ import { auth } from "@/services/next-auth"
 
 /**
  * API Route for Notarial Book 2 - Programmatic Document Retrieval
- * 
+ *
  * This route fetches signed documents with seal programmatically using downloadSignedDocument.
  * It's designed for testing programmatic retrieval of documents from DocoChain.
  */
@@ -113,15 +113,12 @@ export async function GET(
 		}
 
 		if (!projectUuid) {
-			return new NextResponse(
-				"Document URL not available. No DocoChain project UUID found.",
-				{
-					status: 404,
-					headers: {
-						"Content-Type": "text/plain",
-					},
-				}
-			)
+			return new NextResponse("Document URL not available. No DocoChain project UUID found.", {
+				status: 404,
+				headers: {
+					"Content-Type": "text/plain",
+				},
+			})
 		}
 
 		// CRITICAL: Verify document is fully signed BEFORE attempting to retrieve signed version
@@ -147,7 +144,9 @@ export async function GET(
 				)
 			}
 
-			console.log("✅ [Notarial Book 2] Document is fully signed, proceeding to retrieve signed version")
+			console.log(
+				"✅ [Notarial Book 2] Document is fully signed, proceeding to retrieve signed version"
+			)
 		} catch (statusError) {
 			console.error("⚠️ [Notarial Book 2] Error checking signing status:", statusError)
 			const statusErrorMessage =
@@ -181,7 +180,9 @@ export async function GET(
 		// 1. Uses Get Specific Project API (/my/projects/{uuid}) to get project details
 		// 2. Looks for files with type "Signed" or "Completed" in the files array
 		// 3. Downloads the signed document with seal and certificates
-		console.log("🔵 [Notarial Book 2] Programmatically downloading signed document with seal from DocoChain...")
+		console.log(
+			"🔵 [Notarial Book 2] Programmatically downloading signed document with seal from DocoChain..."
+		)
 		console.log("   - Project UUID:", projectUuid)
 		console.log("   - Using downloadSignedDocument API")
 
@@ -208,7 +209,10 @@ export async function GET(
 				},
 			})
 		} catch (downloadError) {
-			console.error("❌ [Notarial Book 2] Error downloading signed document from DocoChain:", downloadError)
+			console.error(
+				"❌ [Notarial Book 2] Error downloading signed document from DocoChain:",
+				downloadError
+			)
 
 			const errorMessage =
 				downloadError instanceof Error ? downloadError.message : String(downloadError)
@@ -230,10 +234,12 @@ export async function GET(
 			}
 
 			// Return error message
-			const statusCode = errorMessage.includes("404") || errorMessage.includes("not found") ? 404 : 503
-			const userMessage = errorMessage.includes("404") || errorMessage.includes("not found")
-				? "The signed document may not be available from DocoChain. Please ensure the document has been fully signed by all parties."
-				: "DocoChain API is temporarily unavailable. Please try again later."
+			const statusCode =
+				errorMessage.includes("404") || errorMessage.includes("not found") ? 404 : 503
+			const userMessage =
+				errorMessage.includes("404") || errorMessage.includes("not found")
+					? "The signed document may not be available from DocoChain. Please ensure the document has been fully signed by all parties."
+					: "DocoChain API is temporarily unavailable. Please try again later."
 
 			return new NextResponse(`Failed to retrieve signed document: ${userMessage}`, {
 				status: statusCode,

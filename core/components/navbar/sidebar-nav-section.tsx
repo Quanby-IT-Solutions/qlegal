@@ -15,17 +15,11 @@ type SidebarNavSectionProps = {
 	userRole?: string
 }
 
-export const SidebarNavSection = ({
-	section,
-	userRole,
-}: SidebarNavSectionProps) => {
+export const SidebarNavSection = ({ section, userRole }: SidebarNavSectionProps) => {
 	// Filter items by role
 	const accessibleItems = section.items.filter(item => {
 		// Handle union type: roles can be NotaryRole[] | UserRole[]
-		return canAccessNavItem(
-			item.roles as NotaryRole[] | undefined,
-			userRole
-		)
+		return canAccessNavItem(item.roles as NotaryRole[] | undefined, userRole)
 	})
 
 	// Don't render section if no accessible items
@@ -38,11 +32,7 @@ export const SidebarNavSection = ({
 			<SidebarGroupLabel>{section.label}</SidebarGroupLabel>
 			<SidebarMenu>
 				{accessibleItems.map(item => (
-					<SidebarNavItem
-						key={item.title}
-						item={item}
-						userRole={userRole}
-					/>
+					<SidebarNavItem key={item.title} item={item} userRole={userRole} />
 				))}
 			</SidebarMenu>
 		</SidebarGroup>

@@ -1,8 +1,8 @@
+import { table } from "console"
 import { faker } from "@faker-js/faker"
 import { hash } from "bcryptjs"
 import { inArray, not } from "drizzle-orm"
 import { seed } from "drizzle-seed"
-import { table } from "console"
 
 import { db } from "@/services/drizzle/db"
 import { users } from "@/services/drizzle/schema/auth"
@@ -168,7 +168,7 @@ export async function createUsers() {
 	)
 
 	console.log("\n📊 Seed Statistics")
-	console.log("=" .repeat(60))
+	console.log("=".repeat(60))
 	console.log(`Seed Value:         ${SEED_CONFIG.seed}`)
 	console.log(`Total Users:        ${totalUsers}`)
 	console.log(`  Test Accounts:    ${insertedTestUsers.length}`)
@@ -177,16 +177,13 @@ export async function createUsers() {
 	Object.entries(roleCounts).forEach(([role, count]) => {
 		console.log(`  ${role.padEnd(12)} ${count}`)
 	})
-	console.log("=" .repeat(60))
+	console.log("=".repeat(60))
 
 	// Display user table
 	if (allUsers.length > 0) {
 		console.log("\n👥 Generated Users")
-		console.log("=" .repeat(100))
-		table([
-			["Name", "Email", "Role"],
-			...allUsers.map(user => [user.name, user.email, user.role]),
-		])
-		console.log("=" .repeat(100))
+		console.log("=".repeat(100))
+		table([["Name", "Email", "Role"], ...allUsers.map(user => [user.name, user.email, user.role])])
+		console.log("=".repeat(100))
 	}
 }

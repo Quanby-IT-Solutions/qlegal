@@ -7,14 +7,13 @@ import { SiteNavbar } from "@/core/components/navbar/site-navbar"
 
 import { trpc } from "@/services/trpc/client"
 
+import { EnpProfileCard } from "@/features/profile/components/enp-profile-card"
 import { AddPasswordCard } from "@/features/settings/components/add-password-card"
 import { AddressCard } from "@/features/settings/components/address-card"
 import { AvailabilityToggleCard } from "@/features/settings/components/availability-toggle-card"
 import { ChangePasswordCard } from "@/features/settings/components/change-password-card"
 import { PasswordCardSkeleton } from "@/features/settings/components/password-card-skeleton"
 import { ToggleTwoFACard } from "@/features/settings/components/toggle-two-fa-card"
-
-import { EnpProfileCard } from "@/features/profile/components/enp-profile-card"
 
 export default function Page() {
 	const { data: session } = useSession()

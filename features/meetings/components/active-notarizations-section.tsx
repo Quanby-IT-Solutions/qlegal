@@ -114,7 +114,8 @@ export function ActiveNotarizationsSection() {
 			<div className="space-y-2">
 				<h2 className="text-2xl font-semibold tracking-tight">Active Notarizations</h2>
 				<p className="text-muted-foreground text-sm">
-					One notarization entry per meeting (same as Meetings list), showing document signing progress.
+					One notarization entry per meeting (same as Meetings list), showing document signing
+					progress.
 				</p>
 			</div>
 
@@ -192,7 +193,9 @@ export function ActiveNotarizationsSection() {
 					</div>
 
 					{filteredMeetings.map(meeting => {
-						const scheduledLabel = meeting.createdAt ? format(new Date(meeting.createdAt), "PPp") : "Not scheduled"
+						const scheduledLabel = meeting.createdAt
+							? format(new Date(meeting.createdAt), "PPp")
+							: "Not scheduled"
 
 						const totalDocuments = meeting.documentStats.total
 						const signedDocuments = meeting.documentStats.signed
@@ -307,9 +310,7 @@ export function ActiveNotarizationsSection() {
 				<DialogContent className="max-w-3xl">
 					<DialogHeader>
 						<DialogTitle>Notarization details</DialogTitle>
-						<DialogDescription>
-							Documents and signing status for this meeting.
-						</DialogDescription>
+						<DialogDescription>Documents and signing status for this meeting.</DialogDescription>
 					</DialogHeader>
 
 					{isDetailsLoading ? (
@@ -384,9 +385,7 @@ export function ActiveNotarizationsSection() {
 																	{signerTotal > 0 && (
 																		<div className="mt-3">
 																			<div className="mb-2 flex items-center justify-between text-xs">
-																				<span className="text-muted-foreground">
-																					Signers
-																				</span>
+																				<span className="text-muted-foreground">Signers</span>
 																				<span className="font-semibold">
 																					{signerSigned}/{signerTotal}
 																				</span>
@@ -418,4 +417,3 @@ export function ActiveNotarizationsSection() {
 		</div>
 	)
 }
-

@@ -32,14 +32,10 @@ export default async function UserStatusPage() {
 					<QuanbyLogo className="size-16" />
 				</div>
 				<CardTitle className="text-2xl">Account Status</CardTitle>
-                    <CardDescription>
-                        Your account is currently unavailable.
-                    </CardDescription>
+				<CardDescription>Your account is currently unavailable.</CardDescription>
 			</CardHeader>
 			<CardContent>
-				<UserStatusCard
-					status={userStatus as "PENDING" | "SUSPENDED"}
-				/>
+				<UserStatusCard status={userStatus as "PENDING" | "SUSPENDED"} />
 			</CardContent>
 		</Card>
 	)

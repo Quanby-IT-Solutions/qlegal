@@ -19,10 +19,7 @@ import { useSession } from "next-auth/react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/core/components/ui/avatar"
 import { Badge } from "@/core/components/ui/badge"
 import { Button } from "@/core/components/ui/button"
-import {
-	Card,
-	CardContent,
-} from "@/core/components/ui/card"
+import { Card, CardContent } from "@/core/components/ui/card"
 import { Input } from "@/core/components/ui/input"
 import {
 	Select,
@@ -59,7 +56,9 @@ function inferWorkflow(appointment: Appointment): WorkflowType {
 	const notesLower = (appointment.notes || "").toLowerCase()
 	const hasRemoteKeywords = notesLower.includes("remote") || notesLower.includes("ren")
 	const hasInPersonKeywords =
-		notesLower.includes("in-person") || notesLower.includes("ien") || notesLower.includes("in person")
+		notesLower.includes("in-person") ||
+		notesLower.includes("ien") ||
+		notesLower.includes("in person")
 
 	if (appointment.meetingLink) return "REN"
 	if (appointment.location) return "IEN"
@@ -144,7 +143,8 @@ export function HistoryNotarizationsSection() {
 			const documents = 0
 			const duration = appointment.duration || 30
 
-			const location = appointment.location || (workflow === "REN" ? "Remote Video Call" : "Location TBD")
+			const location =
+				appointment.location || (workflow === "REN" ? "Remote Video Call" : "Location TBD")
 
 			return {
 				id: appointment.id,
@@ -159,8 +159,10 @@ export function HistoryNotarizationsSection() {
 					name: principal?.name || "Unknown Client",
 					email: principal?.email || "",
 				},
-				completedAt: appointment.status === "COMPLETED" ? appointment.updatedAt.toISOString() : undefined,
-				cancelledAt: appointment.status === "CANCELLED" ? appointment.updatedAt.toISOString() : undefined,
+				completedAt:
+					appointment.status === "COMPLETED" ? appointment.updatedAt.toISOString() : undefined,
+				cancelledAt:
+					appointment.status === "CANCELLED" ? appointment.updatedAt.toISOString() : undefined,
 				duration,
 				documents,
 				location,
@@ -174,9 +176,12 @@ export function HistoryNotarizationsSection() {
 	const filteredHistory = useMemo(() => {
 		return historyItems.filter(item => {
 			const q = searchTerm.trim().toLowerCase()
-			if (q && !item.title.toLowerCase().includes(q) && 
-				!item.enp.name.toLowerCase().includes(q) && 
-				!item.principal.name.toLowerCase().includes(q)) {
+			if (
+				q &&
+				!item.title.toLowerCase().includes(q) &&
+				!item.enp.name.toLowerCase().includes(q) &&
+				!item.principal.name.toLowerCase().includes(q)
+			) {
 				return false
 			}
 			if (workflowFilter !== "ALL" && item.workflow !== workflowFilter) return false
@@ -222,7 +227,9 @@ export function HistoryNotarizationsSection() {
 	const workflowBadge = (workflow: WorkflowType) => (
 		<Badge
 			variant="outline"
-			className={workflow === "REN" ? "border-blue-600 text-blue-600" : "border-green-600 text-green-600"}
+			className={
+				workflow === "REN" ? "border-blue-600 text-blue-600" : "border-green-600 text-green-600"
+			}
 		>
 			{workflow}
 		</Badge>
@@ -323,7 +330,10 @@ export function HistoryNotarizationsSection() {
 							<FileText className="text-muted-foreground mx-auto mb-4 size-12" />
 							<h3 className="mb-2 text-lg font-medium">No notarizations found</h3>
 							<p className="text-muted-foreground mb-4">
-								{searchTerm || statusFilter !== "ALL" || workflowFilter !== "ALL" || dateFilter !== "ALL"
+								{searchTerm ||
+								statusFilter !== "ALL" ||
+								workflowFilter !== "ALL" ||
+								dateFilter !== "ALL"
 									? "Try adjusting your search criteria or filters."
 									: "You don't have any completed or cancelled notarizations yet."}
 							</p>
@@ -387,7 +397,8 @@ export function HistoryNotarizationsSection() {
 																<>
 																	<XCircle className="h-4 w-4 text-red-600" />
 																	<span className="text-red-600">
-																		Cancelled{item.cancellationReason ? `: ${item.cancellationReason}` : ""}
+																		Cancelled
+																		{item.cancellationReason ? `: ${item.cancellationReason}` : ""}
 																	</span>
 																</>
 															)}
@@ -411,7 +422,9 @@ export function HistoryNotarizationsSection() {
 															</div>
 															<div className="flex items-center gap-2">
 																<Avatar className="h-8 w-8">
-																	<AvatarFallback>{getInitials(item.principal.name)}</AvatarFallback>
+																	<AvatarFallback>
+																		{getInitials(item.principal.name)}
+																	</AvatarFallback>
 																</Avatar>
 																<div className="text-sm">
 																	<p className="font-medium">{item.principal.name}</p>
@@ -422,7 +435,11 @@ export function HistoryNotarizationsSection() {
 													</div>
 
 													<div className="flex shrink-0 flex-col gap-2">
-														<Button variant="outline" onClick={() => handleViewNotarization(item.id)} className="gap-2">
+														<Button
+															variant="outline"
+															onClick={() => handleViewNotarization(item.id)}
+															className="gap-2"
+														>
 															<Eye className="h-4 w-4" />
 															View details
 														</Button>
