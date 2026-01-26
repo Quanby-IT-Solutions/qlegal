@@ -1,9 +1,10 @@
 import { TRPCError } from "@trpc/server"
-import { and, asc, desc, eq } from "drizzle-orm"
+import { and, asc, desc, eq, gte, or } from "drizzle-orm"
 import { z } from "zod/v4"
 
 import { getUrl } from "@/core/lib/get-url"
 
+import { appointments } from "@/services/drizzle/schema/appointments"
 import { users } from "@/services/drizzle/schema/auth"
 import { enpAvailability } from "@/services/drizzle/schema/enp-profiles"
 import { notarizationRequests } from "@/services/drizzle/schema/notarization-requests"
@@ -31,6 +32,68 @@ const updateRequestStatusSchema = z.object({
 	rejectReason: z.string().optional(),
 })
 
+// Shared type for incoming items (both requests and appointments)
+// This ensures compatibility with both request and appointment structures
+export type IncomingItem = {
+	id: string
+	title: string
+	description: string | null
+	status: "PENDING" | "CONFIRMED" | "COMPLETED" | "REJECTED" | "CANCELLED" | "IN_PROGRESS"
+	workflow: "REN" | "IEN"
+	priority?: string
+	createdAt: Date
+	updatedAt: Date
+	enpId: string
+	principalId: string
+	appointmentId: string | null
+	rejectReason: string | null
+	principal?: {
+		name?: string | null
+		image?: string | null
+		email?: string | null
+	}
+	documents: number
+	source: "request" | "appointment"
+	requestData?: {
+		id: string
+		status: string
+		createdAt: Date
+		updatedAt: Date
+		description: string | null
+		title: string
+		enpId: string
+		workflow: string
+		priority: string
+		principalId: string
+		appointmentId: string | null
+		rejectReason: string | null
+		principal?: {
+			name?: string | null
+			email?: string | null
+			image?: string | null
+		}
+	}
+	appointmentData?: {
+		id: string
+		type: "DOCUMENT_SIGNING" | "CONSULTATION"
+		status: "PENDING" | "CONFIRMED" | "CANCELLED" | "COMPLETED"
+		appointmentDate: Date
+		duration: number
+		notes: string | null
+		location: string | null
+		meetingLink: string | null
+		cancelReason: string | null
+		createdAt: Date
+		updatedAt: Date
+		clientId: string
+		lawyerId: string
+		client?: {
+			name?: string | null
+			image?: string | null
+		}
+	}
+}
+
 export const requestsRouter = createTRPCRouter({
 	// Get my requests (requests created by current user as principal)
 	getMyRequests: protectedProcedure.query(async ({ ctx }) => {
@@ -52,8 +115,6 @@ export const requestsRouter = createTRPCRouter({
 		})
 
 		// Get document counts for each request
-		// Documents are linked via envelopes or meetings, not directly to requests
-		// For now, return 0 as documents are uploaded separately after request creation
 		const requestsWithCounts = myRequests.map(request => ({
 			...request,
 			documents: 0, // Documents are uploaded separately after request is created
@@ -90,13 +151,67 @@ export const requestsRouter = createTRPCRouter({
 			},
 		})
 
-		// Get document counts for each request
-		const requestsWithCounts = incomingRequests.map(request => ({
-			...request,
-			documents: 0, // Documents are uploaded separately after request is created
+		return incomingRequests
+	}),
+
+	// Get incoming appointments (appointments received by current user as ENP)
+	getIncomingAppointmentsForENP: protectedProcedure.query(async ({ ctx }) => {
+		const userId = ctx.session.user.id
+
+		// Verify user is an ENP
+		const user = await ctx.db.query.users.findFirst({
+			where: eq(users.id, userId),
+		})
+
+		if (user?.role !== "ENP") {
+			return []
+		}
+
+		// Get pending and confirmed appointments for this ENP
+		const incomingAppointments = await ctx.db.query.appointments.findMany({
+			where: and(
+				eq(appointments.lawyerId, userId),
+				or(eq(appointments.status, "PENDING"), eq(appointments.status, "CONFIRMED")),
+				gte(appointments.appointmentDate, new Date()) // Only upcoming appointments
+			),
+			orderBy: [asc(appointments.appointmentDate)],
+			with: {
+				client: {
+					columns: {
+						id: true,
+						name: true,
+						email: true,
+						image: true,
+					},
+				},
+			},
+		})
+
+		// Map appointments to same structure as requests for consistency
+		// We'll use a 'source' field to distinguish between requests and appointments
+		const appointmentsAsRequests = incomingAppointments.map(apt => ({
+			id: apt.id,
+			title: apt.type === "DOCUMENT_SIGNING" ? "Document Signing" : "Consultation",
+			description: apt.notes,
+			status: apt.status,
+			workflow: apt.meetingLink ? "REN" : "IEN",
+			priority: "NORMAL" as const,
+			createdAt: apt.createdAt,
+			updatedAt: apt.updatedAt,
+			enpId: apt.lawyerId,
+			principalId: apt.clientId,
+			appointmentId: apt.id, // Link back to appointment
+			rejectReason: apt.cancelReason,
+			principal: {
+				name: apt.client?.name,
+				image: apt.client?.image,
+			},
+			documents: 0,
+			source: "appointment" as const, // Mark as coming from appointment
+			appointmentData: apt, // Keep full appointment data for actions
 		}))
 
-		return requestsWithCounts
+		return appointmentsAsRequests
 	}),
 
 	// Create a new notarization request
@@ -179,10 +294,7 @@ export const requestsRouter = createTRPCRouter({
 			}
 		}
 
-		return {
-			...requestWithRelations!,
-			documents: 0, // Documents are uploaded separately after request is created
-		}
+		return requestWithRelations
 	}),
 
 	// Get request by ID
@@ -228,16 +340,11 @@ export const requestsRouter = createTRPCRouter({
 				})
 			}
 
-			return {
-				...request,
-				documents: 0, // Documents are uploaded separately after request is created
-			}
+			return request
 		}),
 
 	// Update request status
-	updateRequestStatus: protectedProcedure
-		.input(updateRequestStatusSchema)
-		.mutation(async ({ ctx, input }) => {
+	updateRequestStatus: protectedProcedure.input(updateRequestStatusSchema).mutation(async ({ ctx, input }) => {
 			const userId = ctx.session.user.id
 
 			const request = await ctx.db.query.notarizationRequests.findFirst({
@@ -419,9 +526,7 @@ export const requestsRouter = createTRPCRouter({
 		}),
 
 	// Unblock time slot
-	unblockTimeSlot: protectedProcedure
-		.input(z.object({ availabilityId: z.string().min(1) }))
-		.mutation(async ({ ctx, input }) => {
+	unblockTimeSlot: protectedProcedure.input(z.object({ availabilityId: z.string().min(1) })).mutation(async ({ ctx, input }) => {
 			const userId = ctx.session.user.id
 
 			// Verify user is ENP
