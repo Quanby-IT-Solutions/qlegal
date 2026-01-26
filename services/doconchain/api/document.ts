@@ -116,96 +116,17 @@ export async function downloadSignedDocument(
 			console.log(`   - Completed: ${isCompleted}`)
 			console.log(`   - Completed at: ${myProjectData.completed_at ?? "N/A"}`)
 
-			// Always check the files array for the signed/sealed document
-			// The files array contains: Original, Meta, QR, and Signed/Completed documents
-			// NOTE: The signed document with seal may not be in the files array if:
-			// 1. Document is not fully signed yet (status is "Draft" or "Pending")
-			// 2. Seal is being generated asynchronously (delay after completion)
-			// 3. Files array hasn't been updated yet
-			const files =
-				(myProjectData.files as Array<{
-					id?: number | string
-					file_name?: string | null
-					type?: string | null
-					url?: string | null
-				}>) ?? []
-
-			console.log(`   - Found ${files.length} files in project`)
-
-			// CRITICAL: Always prioritize "Document Completed" or "Completed" files - these have the seal
-			// Priority 1: Look for file with type containing "completed" (case-insensitive)
-			// This catches: "completed", "Completed", "Document Completed", "document completed", etc.
-			const completedFile = files.find(file => {
-				const type = String(file.type ?? "")
-					.toLowerCase()
-					.trim()
-				const fileName = String(file.file_name ?? "").toLowerCase()
-				// Check if type contains "completed" or filename contains "documentcompleted" or "completed"
-				return (
-					type.includes("completed") ||
-					fileName.includes("documentcompleted") ||
-					fileName.includes("completed")
-				)
-			})
-
-			// Priority 2: Look for file with type "Signed" (exact match, lowercase)
-			const signedFile =
-				completedFile ??
-				files.find(file => {
-					const type = String(file.type ?? "")
-						.toLowerCase()
-						.trim()
-					return type === "signed"
-				})
-
-			// Priority 3: Look for file with type containing "signed" or "seal" (but not "completed" - already checked)
-			const signedLikeFile =
-				signedFile ??
-				files.find(file => {
-					const type = String(file.type ?? "").toLowerCase()
-					const fileName = String(file.file_name ?? "").toLowerCase()
-					return (
-						type !== "original" &&
-						type !== "meta" &&
-						type !== "qr" &&
-						!type.includes("completed") && // Skip if already checked in Priority 1
-						!fileName.includes("original") &&
-						!fileName.includes("meta") &&
-						!fileName.includes("qr") &&
-						!fileName.includes("completed") && // Skip if already checked in Priority 1
-						(type.includes("signed") ||
-							type.includes("seal") ||
-							fileName.includes("signed") ||
-							fileName.includes("seal"))
-					)
-				})
-
-			// Priority 4: Look for any non-Original PDF file (fallback - should rarely be needed)
-			const nonOriginalFile =
-				signedLikeFile ??
-				files.find(
-					file =>
-						String(file.type ?? "").toLowerCase() !== "original" &&
-						String(file.file_name ?? "")
-							.toLowerCase()
-							.includes(".pdf")
-				)
-
-			if (nonOriginalFile?.url) {
-				signedDocumentUrl = nonOriginalFile.url
-				console.log("✅ Found signed document with seal from Get Specific Project API")
-				console.log("   - File type:", nonOriginalFile.type)
-				console.log("   - File name:", nonOriginalFile.file_name)
-				console.log("   - URL:", signedDocumentUrl)
-
-				// Download the document
-				let fileResponse = await fetch(signedDocumentUrl)
-
-				// If fetch fails with auth error, try with token
-				if (!fileResponse.ok && (fileResponse.status === 401 || fileResponse.status === 403)) {
-					console.log("   - Fetch failed with auth error, retrying with token...")
-					fileResponse = await apiCall(async token => {
-						return fetch(signedDocumentUrl!, {
+			// CRITICAL: For completed projects, ALWAYS use download API endpoint FIRST
+			// This guarantees we get the sealed document with the official seal
+			// The files array URLs may not always have the seal even if they say "Document Completed"
+			if (isCompleted && !buffer) {
+				const downloadApiUrl = `${env.DOCONCHAIN_API_URL}/api/v2/projects/${projectUuid}/download?user_type=ENTERPRISE_API`
+				console.log("🔵 Project is completed - using download API endpoint to get sealed document")
+				console.log("   - This ensures we get the official sealed document with certificates")
+				
+				try {
+					const apiResponse = await apiCall(async token => {
+						return fetch(downloadApiUrl, {
 							method: "GET",
 							headers: {
 								Authorization: `Bearer ${token}`,
@@ -213,152 +134,269 @@ export async function downloadSignedDocument(
 							},
 						})
 					}, userEmail)
-				}
 
-				if (fileResponse.ok) {
-					const arrayBuffer = await fileResponse.arrayBuffer()
-					buffer = Buffer.from(arrayBuffer)
-					console.log("✅ Successfully downloaded signed document with seal and certificates")
-					console.log("   - Document size:", buffer.length, "bytes")
-				} else {
-					console.warn(
-						`⚠️ Failed to download from file URL: ${fileResponse.status} ${fileResponse.statusText}`
+					if (apiResponse.ok) {
+						const arrayBuffer = await apiResponse.arrayBuffer()
+						buffer = Buffer.from(arrayBuffer)
+						signedDocumentUrl = downloadApiUrl
+						console.log("✅ Successfully downloaded sealed document with official seal and certificates from download API")
+						console.log("   - Document size:", buffer.length, "bytes")
+					} else {
+						console.warn(
+							`⚠️ Download API endpoint returned ${apiResponse.status} ${apiResponse.statusText} - will try files array as fallback`
+						)
+					}
+				} catch (error) {
+					console.warn("⚠️ Download API endpoint failed:", error)
+					console.log("   - Will try files array as fallback")
+				}
+			}
+
+			// Fallback: Check files array if download API didn't work or project is not completed yet
+			if (!buffer) {
+				// Always check the files array for the signed/sealed document
+				// The files array contains: Original, Meta, QR, and Signed/Completed documents
+				// NOTE: The signed document with seal may not be in the files array if:
+				// 1. Document is not fully signed yet (status is "Draft" or "Pending")
+				// 2. Seal is being generated asynchronously (delay after completion)
+				// 3. Files array hasn't been updated yet
+				const files =
+					(myProjectData.files as Array<{
+						id?: number | string
+						file_name?: string | null
+						type?: string | null
+						url?: string | null
+					}>) ?? []
+
+				console.log(`   - Found ${files.length} files in project`)
+
+				// CRITICAL: Always prioritize "Document Completed" or "Completed" files - these have the seal
+				// Priority 1: Look for file with type containing "completed" (case-insensitive)
+				// This catches: "completed", "Completed", "Document Completed", "document completed", etc.
+				const completedFile = files.find(file => {
+					const type = String(file.type ?? "")
+						.toLowerCase()
+						.trim()
+					const fileName = String(file.file_name ?? "").toLowerCase()
+					// Check if type contains "completed" or filename contains "documentcompleted" or "completed"
+					return (
+						type.includes("completed") ||
+						fileName.includes("documentcompleted") ||
+						fileName.includes("completed")
 					)
+				})
+
+				// Priority 2: Look for file with type "Signed" (exact match, lowercase)
+				const signedFile =
+					completedFile ??
+					files.find(file => {
+						const type = String(file.type ?? "")
+							.toLowerCase()
+							.trim()
+						return type === "signed"
+					})
+
+				// Priority 3: Look for file with type containing "signed" or "seal" (but not "completed" - already checked)
+				const signedLikeFile =
+					signedFile ??
+					files.find(file => {
+						const type = String(file.type ?? "").toLowerCase()
+						const fileName = String(file.file_name ?? "").toLowerCase()
+						return (
+							type !== "original" &&
+							type !== "meta" &&
+							type !== "qr" &&
+							!type.includes("completed") && // Skip if already checked in Priority 1
+							!fileName.includes("original") &&
+							!fileName.includes("meta") &&
+							!fileName.includes("qr") &&
+							!fileName.includes("completed") && // Skip if already checked in Priority 1
+							(type.includes("signed") ||
+								type.includes("seal") ||
+								fileName.includes("signed") ||
+								fileName.includes("seal"))
+						)
+					})
+
+				// Priority 4: Look for any non-Original PDF file (fallback - should rarely be needed)
+				const nonOriginalFile =
+					signedLikeFile ??
+					files.find(
+						file =>
+							String(file.type ?? "").toLowerCase() !== "original" &&
+							String(file.file_name ?? "")
+								.toLowerCase()
+								.includes(".pdf")
+					)
+
+				if (nonOriginalFile?.url) {
+					signedDocumentUrl = nonOriginalFile.url
+					console.log("✅ Found signed document from Get Specific Project API files array")
+					console.log("   - File type:", nonOriginalFile.type)
+					console.log("   - File name:", nonOriginalFile.file_name)
+					console.log("   - URL:", signedDocumentUrl)
+
+					// Download the document
+					let fileResponse = await fetch(signedDocumentUrl)
+
+					// If fetch fails with auth error, try with token
+					if (!fileResponse.ok && (fileResponse.status === 401 || fileResponse.status === 403)) {
+						console.log("   - Fetch failed with auth error, retrying with token...")
+						fileResponse = await apiCall(async token => {
+							return fetch(signedDocumentUrl!, {
+								method: "GET",
+								headers: {
+									Authorization: `Bearer ${token}`,
+									Accept: "application/pdf",
+								},
+							})
+						}, userEmail)
+					}
+
+					if (fileResponse.ok) {
+						const arrayBuffer = await fileResponse.arrayBuffer()
+						buffer = Buffer.from(arrayBuffer)
+						console.log("✅ Successfully downloaded signed document from files array")
+						console.log("   - Document size:", buffer.length, "bytes")
+					} else {
+						console.warn(
+							`⚠️ Failed to download from file URL: ${fileResponse.status} ${fileResponse.statusText}`
+						)
+					}
 				}
-			} else {
-				// If project is completed but "Completed" file isn't available yet, try download API endpoint with retries
-				// Seal generation is asynchronous and may take time after completion
-				if (isCompleted && !buffer) {
-					const maxRetries = 5
-					const baseDelayMs = 2000 // Start with 2 seconds
+			}
 
-					console.log("🔵 Project is completed but 'Completed' file not in files array yet")
-					console.log("   - Seal generation is asynchronous - will retry with exponential backoff")
-					console.log("   - Max retries:", maxRetries)
+			// If project is completed but we still don't have a buffer, try download API endpoint with retries
+			// Seal generation is asynchronous and may take time after completion
+			// CRITICAL: Always prioritize download API endpoint - it guarantees the sealed document
+			if (isCompleted && !buffer) {
+				const maxRetries = 5
+				const baseDelayMs = 2000 // Start with 2 seconds
 
-					for (let attempt = 0; attempt < maxRetries && !buffer; attempt++) {
-						const delayMs = baseDelayMs * Math.pow(2, attempt) // Exponential backoff: 2s, 4s, 8s, 16s, 32s
+				console.log("🔵 Project is completed but initial download failed")
+				console.log("   - Seal generation may be asynchronous - will retry download API endpoint with exponential backoff")
+				console.log("   - Max retries:", maxRetries)
+				console.log("   - Download API endpoint always returns the sealed document when ready")
 
-						if (attempt > 0) {
-							console.log(
-								`   - Retry attempt ${attempt}/${maxRetries - 1} - waiting ${delayMs}ms for seal generation...`
-							)
-							await new Promise(resolve => setTimeout(resolve, delayMs))
+				for (let attempt = 0; attempt < maxRetries && !buffer; attempt++) {
+					const delayMs = attempt > 0 ? baseDelayMs * Math.pow(2, attempt - 1) : 0 // Exponential backoff: 0s, 2s, 4s, 8s, 16s
 
-							// Refresh project details to check if seal is ready
-							try {
-								const refreshedDetails = await getMyProjectDetails(projectUuid, userEmail)
-								const refreshedData = refreshedDetails?.data
-								if (refreshedData?.files) {
-									const refreshedFiles =
-										(refreshedData.files as Array<{
-											id?: number | string
-											file_name?: string | null
-											type?: string | null
-											url?: string | null
-										}>) ?? []
+					if (attempt > 0) {
+						console.log(
+							`   - Retry attempt ${attempt}/${maxRetries - 1} - waiting ${delayMs}ms for seal generation...`
+						)
+						await new Promise(resolve => setTimeout(resolve, delayMs))
+					}
 
-									// Check if "Completed" or "Document Completed" file is now available
-									const newCompletedFile = refreshedFiles.find(file => {
-										const type = String(file.type ?? "")
-											.toLowerCase()
-											.trim()
-										const fileName = String(file.file_name ?? "").toLowerCase()
-										// Check if type contains "completed" or filename contains "documentcompleted" or "completed"
-										return (
-											type.includes("completed") ||
-											fileName.includes("documentcompleted") ||
-											fileName.includes("completed")
-										)
-									})
+					// PRIORITY 1: Always try download API endpoint first - it guarantees the sealed document
+					if (!buffer) {
+						try {
+							const downloadApiUrl = `${env.DOCONCHAIN_API_URL}/api/v2/projects/${projectUuid}/download?user_type=ENTERPRISE_API`
+							console.log(`   - Attempting download API endpoint (attempt ${attempt + 1}/${maxRetries})...`)
+							const apiResponse = await apiCall(async token => {
+								return fetch(downloadApiUrl, {
+									method: "GET",
+									headers: {
+										Authorization: `Bearer ${token}`,
+										Accept: "application/pdf",
+									},
+								})
+							}, userEmail)
 
-									if (newCompletedFile?.url) {
-										console.log("✅ 'Completed' file is now available after waiting!")
-										signedDocumentUrl = newCompletedFile.url
-										try {
-											let fileResponse = await fetch(signedDocumentUrl)
-											if (
-												!fileResponse.ok &&
-												(fileResponse.status === 401 || fileResponse.status === 403)
-											) {
-												fileResponse = await apiCall(async token => {
-													return fetch(signedDocumentUrl!, {
-														method: "GET",
-														headers: {
-															Authorization: `Bearer ${token}`,
-															Accept: "application/pdf",
-														},
-													})
-												}, userEmail)
-											}
-											if (fileResponse.ok) {
-												const arrayBuffer = await fileResponse.arrayBuffer()
-												buffer = Buffer.from(arrayBuffer)
-												console.log("✅ Successfully downloaded completed document with seal")
-												console.log("   - Document size:", buffer.length, "bytes")
-												break // Success - exit retry loop
-											}
-										} catch (fetchError) {
-											console.warn("⚠️ Failed to download completed file:", fetchError)
-										}
-									}
+							if (apiResponse.ok) {
+								const arrayBuffer = await apiResponse.arrayBuffer()
+								buffer = Buffer.from(arrayBuffer)
+								signedDocumentUrl = downloadApiUrl
+								console.log(
+									"✅ Successfully downloaded sealed document with official seal and certificates from download API endpoint"
+								)
+								console.log("   - Document size:", buffer.length, "bytes")
+								break // Success - exit retry loop
+							} else {
+								console.log(
+									`   - Download API endpoint returned: ${apiResponse.status} ${apiResponse.statusText}`
+								)
+								if (attempt < maxRetries - 1) {
+									console.log("   - Will retry after waiting for seal generation...")
 								}
-							} catch (refreshError) {
-								console.warn("⚠️ Failed to refresh project details:", refreshError)
 							}
-						}
-
-						// Try download API endpoint (may have seal even if files array doesn't show it yet)
-						if (!buffer) {
-							try {
-								const downloadApiUrl = `${env.DOCONCHAIN_API_URL}/api/v2/projects/${projectUuid}/download?user_type=ENTERPRISE_API`
-								const apiResponse = await apiCall(async token => {
-									return fetch(downloadApiUrl, {
-										method: "GET",
-										headers: {
-											Authorization: `Bearer ${token}`,
-											Accept: "application/pdf",
-										},
-									})
-								}, userEmail)
-
-								if (apiResponse.ok) {
-									const arrayBuffer = await apiResponse.arrayBuffer()
-									buffer = Buffer.from(arrayBuffer)
-									signedDocumentUrl = downloadApiUrl
-									console.log(
-										"✅ Downloaded sealed document with certificates from download API endpoint"
-									)
-									console.log("   - Document size:", buffer.length, "bytes")
-									break // Success - exit retry loop
-								} else if (attempt === 0) {
-									// Only log on first attempt to avoid spam
-									console.log(
-										`   - Download API endpoint returned: ${apiResponse.status} ${apiResponse.statusText}`
-									)
-									console.log("   - Will retry after waiting for seal generation...")
-								}
-							} catch (error) {
-								if (attempt === 0) {
-									console.warn("⚠️ Download API endpoint error:", error)
-									console.log("   - Will retry after waiting for seal generation...")
-								}
+						} catch (error) {
+							console.warn(`⚠️ Download API endpoint error (attempt ${attempt + 1}):`, error)
+							if (attempt < maxRetries - 1) {
+								console.log("   - Will retry after waiting for seal generation...")
 							}
 						}
 					}
 
-					if (!buffer) {
-						console.warn("⚠️ Seal generation may still be in progress after all retries")
-						console.log("   - Falling back to 'Original With Signature And QR' file...")
+					// PRIORITY 2: Fallback to files array only if download API still fails
+					// This is a fallback - download API should always work for completed projects
+					if (!buffer && attempt === maxRetries - 1) {
+						console.log("   - Download API failed after all retries, checking files array as final fallback...")
+						try {
+							const refreshedDetails = await getMyProjectDetails(projectUuid, userEmail)
+							const refreshedData = refreshedDetails?.data
+							if (refreshedData?.files) {
+								const refreshedFiles =
+									(refreshedData.files as Array<{
+										id?: number | string
+										file_name?: string | null
+										type?: string | null
+										url?: string | null
+									}>) ?? []
+
+								// Check if "Completed" or "Document Completed" file is now available
+								const newCompletedFile = refreshedFiles.find(file => {
+									const type = String(file.type ?? "")
+										.toLowerCase()
+										.trim()
+									const fileName = String(file.file_name ?? "").toLowerCase()
+									return (
+										type.includes("completed") ||
+										fileName.includes("documentcompleted") ||
+										fileName.includes("completed")
+									)
+								})
+
+								if (newCompletedFile?.url) {
+									console.log("✅ 'Completed' file found in files array as fallback")
+									signedDocumentUrl = newCompletedFile.url
+									try {
+										let fileResponse = await fetch(signedDocumentUrl)
+										if (
+											!fileResponse.ok &&
+											(fileResponse.status === 401 || fileResponse.status === 403)
+										) {
+											fileResponse = await apiCall(async token => {
+												return fetch(signedDocumentUrl!, {
+													method: "GET",
+													headers: {
+														Authorization: `Bearer ${token}`,
+														Accept: "application/pdf",
+													},
+												})
+											}, userEmail)
+										}
+										if (fileResponse.ok) {
+											const arrayBuffer = await fileResponse.arrayBuffer()
+											buffer = Buffer.from(arrayBuffer)
+											console.log("✅ Successfully downloaded completed document from files array (fallback)")
+											console.log("   - Document size:", buffer.length, "bytes")
+											break // Success - exit retry loop
+										}
+									} catch (fetchError) {
+										console.warn("⚠️ Failed to download completed file from files array:", fetchError)
+									}
+								}
+							}
+						} catch (refreshError) {
+							console.warn("⚠️ Failed to refresh project details for files array fallback:", refreshError)
+						}
 					}
 				}
 
 				if (!buffer) {
-					console.warn("⚠️ No signed document found in files array from Get Specific Project API")
-					console.log(
-						"   - Available files:",
-						files.map(f => ({ type: f.type, name: f.file_name }))
-					)
+					console.warn("⚠️ Seal generation may still be in progress after all retries")
+					console.log("   - Download API endpoint should be used when seal is ready")
 				}
 			}
 		} else {

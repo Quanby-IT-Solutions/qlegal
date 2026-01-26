@@ -316,13 +316,14 @@ export const signatureRequestsRouter = createTRPCRouter({
 					projectUuid: z.string().optional(), // Optional - will be created if not provided
 					documentId: z.string().optional(), // Document ID to find/create project
 					email: z.string().email("Valid email is required"),
+					isPlotting: z.boolean().optional(), // True when ENP is plotting signature (must use Edit Draft Link)
 				})
 				.refine(data => !!(data.projectUuid ?? data.documentId), {
 					message: "Either projectUuid or documentId must be provided",
 				})
 		)
 		.mutation(async ({ input, ctx }) => {
-			const { projectUuid, documentId, email } = input
+			const { projectUuid, documentId, email, isPlotting } = input
 
 			try {
 				// Get document - either by projectUuid (existing project) or documentId (needs project creation)
@@ -724,9 +725,33 @@ export const signatureRequestsRouter = createTRPCRouter({
 
 				let isProjectSent = false
 				let signerHasPlotted = false
+				
+				// CRITICAL: For newly created projects, the status check might fail because the project
+				// isn't fully initialized in DocoChain yet. Add retry logic with exponential backoff.
+				let projectDetails = null
+				const maxRetries = 3
+				let retryDelay = 500 // Start with 500ms delay
+				
+				for (let attempt = 0; attempt < maxRetries; attempt++) {
+					try {
+						projectDetails = await getProjectDetails(actualProjectUuid, creatorEmail)
+						// Success - break out of retry loop
+						break
+					} catch (retryError) {
+						if (attempt === maxRetries - 1) {
+							// Last attempt failed - will be handled by outer catch block
+							throw retryError
+						}
+						// Wait before retrying (exponential backoff)
+						console.log(
+							`⚠️ Project status check failed (attempt ${attempt + 1}/${maxRetries}), retrying in ${retryDelay}ms...`
+						)
+						await new Promise(resolve => setTimeout(resolve, retryDelay))
+						retryDelay *= 2 // Exponential backoff: 500ms, 1000ms, 2000ms
+					}
+				}
+				
 				try {
-					const projectDetails = await getProjectDetails(actualProjectUuid, creatorEmail)
-
 					projectStatus = projectDetails?.data?.status ?? "Draft"
 					// Check if project has been sent (sent_at field exists) or status indicates it's sent
 
@@ -774,13 +799,18 @@ export const signatureRequestsRouter = createTRPCRouter({
 						signerHasPlotted = false
 					}
 				} catch (statusError) {
-					console.warn("⚠️ Failed to get project status, assuming Draft:", statusError)
+					// If all retries failed, default to Draft (new projects are always Draft)
+					console.warn("⚠️ Failed to get project status after retries, assuming Draft:", statusError)
+					console.warn("   - This is normal for newly created projects that aren't fully initialized yet")
+					projectStatus = "Draft"
+					isProjectSent = false // Default to Draft, which uses Edit Draft Link
 				}
 
 				// Use Generate Sign Link API ONLY for sent projects (required for sent projects)
 				// For ALL Draft projects (regardless of plotting status), use Edit Draft Link for plotting/signing
-				// This ensures we always get a valid, fresh link with proper token validation
-				if (isProjectSent) {
+				// CRITICAL: If user is plotting (isPlotting=true), ALWAYS use Edit Draft Link regardless of status
+				// Plotting requires a draft project, so we must force Edit Draft Link even if status check is wrong
+				if (isProjectSent && !isPlotting) {
 					// Project is sent - must use Generate Sign Link API
 					console.log(
 						"🔵 Project is sent - using Generate Sign Link API (required for sent projects)..."
@@ -800,11 +830,14 @@ export const signatureRequestsRouter = createTRPCRouter({
 						signingLink = `${env.DOCONCHAIN_APP_URL}/${actualProjectUuid}?email=${encodeURIComponent(email)}&api=true`
 					}
 				} else {
-					// Project is Draft - ALWAYS use Edit Draft Link for plotting/signing
+					// Project is Draft OR user is plotting - ALWAYS use Edit Draft Link for plotting/signing
 					// This ensures we get a fresh, valid link every time (avoids expired one-time links)
 					// DO NOT use stored redirect URL - it's a one-time link that expires/invalidates
 					// after first use or after some time, causing "Session Ended" errors.
-					console.log("🔵 Project is Draft - generating Edit Draft Link (for plotting/signing)...")
+					// CRITICAL: If isPlotting=true, we're forcing Edit Draft Link even if status check said "Sent"
+					console.log("🔵 Project is Draft or user is plotting - generating Edit Draft Link (for plotting/signing)...")
+					console.log("   - Is Plotting:", isPlotting ?? false)
+					console.log("   - Project Status:", projectStatus)
 					console.log("   - Signer has plotted:", signerHasPlotted)
 
 					// Generate Edit Draft Project Link (allows plotting/editing/signing in draft)
