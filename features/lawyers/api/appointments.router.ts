@@ -51,21 +51,22 @@ export const appointmentsRouter = createTRPCRouter({
 				})
 			}
 
-			// Create appointment
-			const [appointment] = await ctx.db
-				.insert(appointments)
-				.values({
-					clientId,
-					lawyerId: input.lawyerId,
-					type: input.type,
-					appointmentDate: input.appointmentDate,
-					duration: input.duration,
-					notes: input.notes,
-					location: input.location,
-					meetingLink: input.meetingLink,
-					status: "PENDING",
-				})
-				.returning()
+		// Create appointment
+		const [appointment] = await ctx.db
+			.insert(appointments)
+			.values({
+				clientId,
+				lawyerId: input.lawyerId,
+				type: input.type,
+				appointmentDate: input.appointmentDate,
+				duration: input.duration,
+				modeOfNotarization: input.modeOfNotarization,
+				notes: input.notes,
+				location: input.location,
+				meetingLink: input.meetingLink,
+				status: "PENDING",
+			})
+			.returning()
 
 			return appointment
 		}),
