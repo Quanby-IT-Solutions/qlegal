@@ -6,6 +6,7 @@ import { enpProfileRouter } from "@/features/consultations/api/enp-profile.route
 import { dashboardRouter } from "@/features/dashboard/api/dashboard.router"
 import { envelopeLiteRouter } from "@/features/envelopes-lite/api/envelope-lite.router"
 import { appointmentsRouter } from "@/features/lawyers/api/appointments.router"
+import { lawyersRouter } from "@/features/lawyers/api/lawyers.router"
 import { legalRegistrationRouter } from "@/features/legal-registration/api/legal-registration.router"
 import { locationVerificationRouter } from "@/features/meetings/api/location-verification.router"
 import { meetingsRouter } from "@/features/meetings/api/meetings.router"
@@ -49,6 +50,7 @@ export const appRouter = createTRPCRouter({
 	dashboard: dashboardRouter,
 	envelopeLite: envelopeLiteRouter,
 	appointments: appointmentsRouter,
+	lawyers: lawyersRouter,
 	legalRegistration: legalRegistrationRouter,
 	locationVerification: locationVerificationRouter,
 	meetings: meetingsRouter,
