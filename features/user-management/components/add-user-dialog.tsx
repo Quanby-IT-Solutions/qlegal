@@ -126,9 +126,10 @@ export function AddUserDialog({ open, onOpenChange }: AddUserDialogProps) {
 										<SelectValue placeholder="Select role" />
 									</SelectTrigger>
 									<SelectContent>
-										<SelectItem value="CLIENT">Client</SelectItem>
+										<SelectItem value="CLIENT">Principal</SelectItem>
+										<SelectItem value="ENP">Electronic Notary Public</SelectItem>
+										<SelectItem value="ENA">Electronic Notary Administrator</SelectItem>
 										<SelectItem value="ADMIN">Administrator</SelectItem>
-										<SelectItem value="SUPER_ADMIN">Super Administrator</SelectItem>
 									</SelectContent>
 								</Select>
 							</div>
