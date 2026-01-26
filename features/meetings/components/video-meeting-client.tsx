@@ -1372,7 +1372,8 @@ const DocumentActions = React.memo(function DocumentActions({
 				participants &&
 				participants.length > 0 &&
 				meetingId &&
-				onSignersChange && (
+				onSignersChange &&
+				!isPrincipal && (
 					<>
 						<Button
 							variant="outline"

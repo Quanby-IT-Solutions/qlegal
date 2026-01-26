@@ -22,6 +22,8 @@ import {
 } from "@/core/components/ui/card"
 import type { ENPAvailableSlot, ENPProfile } from "@/core/lib/types/enp"
 
+import { ComprehensiveBookingDialog } from "@/features/consultations/components/comprehensive-booking-dialog"
+
 import { EnpAvailableSlots } from "./enp-available-slots"
 import { EnpAvatar } from "./enp-avatar"
 import { EnpContactInfo } from "./enp-contact-info"
@@ -139,9 +141,13 @@ export function EnpCard({
 				</CardContent>
 
 				<div className="space-y-2 border-t p-4">
-					<Button className="w-full" asChild>
-						<Link href={`/consultations?enp=${enp.id}`}>Book Session</Link>
-					</Button>
+					<ComprehensiveBookingDialog
+						enpId={enp.id}
+						enpName={enp.name}
+						trigger={
+							<Button className="w-full">Book Session</Button>
+						}
+					/>
 					<Button variant="outline" className="w-full" asChild>
 						<Link href={`/messages?userId=${enp.id}`}>
 							<MessageSquare className="mr-2 size-4" />
