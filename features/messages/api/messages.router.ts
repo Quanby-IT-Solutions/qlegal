@@ -1,7 +1,14 @@
-import { TRPCError } from "@trpc/server"
-import { and, desc, eq, gt, ne, or, sql } from "drizzle-orm"
+import { TRPCError, tracked } from "@trpc/server"
+import { and, asc, desc, eq, gt, ne, or, sql } from "drizzle-orm"
+import { on } from "node:events"
 import { z } from "zod/v4"
 
+import {
+	emitConversationUpdate,
+	emitMessageAdd,
+	messagesEmitter,
+	type MessageWithSender,
+} from "@/features/messages/lib/messages.emitter"
 import { db } from "@/services/drizzle/db"
 import { users } from "@/services/drizzle/schema/auth"
 import {
@@ -156,7 +163,7 @@ export const messagesRouter = createTRPCRouter({
 			}
 
 			// Insert message
-			const [message] = await db
+			const [inserted] = await db
 				.insert(messages)
 				.values({
 					conversationId: input.conversationId,
@@ -165,13 +172,47 @@ export const messagesRouter = createTRPCRouter({
 				})
 				.returning()
 
+			if (!inserted) {
+				throw new TRPCError({
+					code: "INTERNAL_SERVER_ERROR",
+					message: "Failed to insert message",
+				})
+			}
+
 			// Update conversation updated_at
 			await db
 				.update(conversations)
 				.set({ updatedAt: new Date() })
 				.where(eq(conversations.id, input.conversationId))
 
-			return message
+			// Fetch message with sender for SSE
+			const withSender = await db.query.messages.findFirst({
+				where: eq(messages.id, inserted.id),
+				with: {
+					sender: {
+						columns: {
+							id: true,
+							name: true,
+							email: true,
+							image: true,
+						},
+					},
+				},
+			})
+			const messagePayload = withSender as unknown as MessageWithSender
+			if (messagePayload) {
+				emitMessageAdd(input.conversationId, messagePayload)
+			}
+
+			// Notify both participants that conversations list changed
+			const participants = await db.query.conversationParticipants.findMany({
+				where: eq(conversationParticipants.conversationId, input.conversationId),
+				columns: { userId: true },
+			})
+			const affectedUserIds = participants.map(p => p.userId)
+			emitConversationUpdate(affectedUserIds)
+
+			return inserted
 		}),
 
 	// Start a new conversation with a user
@@ -249,6 +290,8 @@ export const messagesRouter = createTRPCRouter({
 				},
 			])
 
+			emitConversationUpdate([ctx.session.user.id, input.userId])
+
 			return { conversationId: conversation.id }
 		}),
 
@@ -270,7 +313,103 @@ export const messagesRouter = createTRPCRouter({
 					)
 				)
 
+			const participants = await db.query.conversationParticipants.findMany({
+				where: eq(conversationParticipants.conversationId, input.conversationId),
+				columns: { userId: true },
+			})
+			const affectedUserIds = participants.map(p => p.userId)
+			emitConversationUpdate(affectedUserIds)
+
 			return { success: true }
+		}),
+
+	onNewMessage: protectedProcedure
+		.input(
+			z.object({
+				conversationId: z.string(),
+				lastEventId: z.string().nullish(),
+			})
+		)
+		.subscription(async function* (opts) {
+			const { conversationId, lastEventId } = opts.input
+
+			const participant = await db.query.conversationParticipants.findFirst({
+				where: and(
+					eq(conversationParticipants.conversationId, conversationId),
+					eq(conversationParticipants.userId, opts.ctx.session.user.id)
+				),
+			})
+			if (!participant) {
+				throw new TRPCError({
+					code: "FORBIDDEN",
+					message: "You are not a participant in this conversation",
+				})
+			}
+
+			// Start listening FIRST to avoid missing events
+			const iterable = on(messagesEmitter, "message:add", {
+				signal: opts.signal,
+			}) as AsyncIterable<[string, MessageWithSender]>
+
+			let lastMessageCreatedAt: Date | null = null
+			
+			// Only fetch missed messages if lastEventId is provided
+			// If no lastEventId, skip catch-up (getMessages query handles initial load)
+			if (lastEventId) {
+				const lastMsg = await db.query.messages.findFirst({
+					where: eq(messages.id, lastEventId),
+				})
+				lastMessageCreatedAt = lastMsg?.createdAt ?? null
+
+				if (lastMessageCreatedAt) {
+					// Fetch ONLY messages created after lastMessageCreatedAt
+					const newSinceLast = await db.query.messages.findMany({
+						where: and(
+							eq(messages.conversationId, conversationId),
+							gt(messages.createdAt, lastMessageCreatedAt)
+						),
+						orderBy: [asc(messages.createdAt)],
+						with: {
+							sender: {
+								columns: {
+									id: true,
+									name: true,
+									email: true,
+									image: true,
+								},
+							},
+						},
+					})
+
+					for (const msg of newSinceLast) {
+						const payload = msg as unknown as MessageWithSender
+						yield tracked(payload.id, payload)
+						lastMessageCreatedAt = payload.createdAt
+					}
+				}
+			}
+
+			// Listen for new events (already started listening above)
+			for await (const [convId, msg] of iterable) {
+				if (convId !== conversationId) continue
+				if (lastMessageCreatedAt && msg.createdAt <= lastMessageCreatedAt) continue
+				yield tracked(msg.id, msg)
+				lastMessageCreatedAt = msg.createdAt
+			}
+		}),
+
+	onConversationsUpdate: protectedProcedure
+		.input(z.object({ lastEventId: z.string().nullish() }).optional())
+		.subscription(async function* (opts) {
+			const userId = opts.ctx.session.user.id
+			const iterable = on(messagesEmitter, "conversation:update", {
+				signal: opts.signal,
+			}) as AsyncIterable<[string[]]>
+
+			for await (const [affectedUserIds] of iterable) {
+				if (!affectedUserIds.includes(userId)) continue
+				yield tracked(`ts-${Date.now()}`, { type: "conversations_updated" as const })
+			}
 		}),
 
 	// Search users to start conversation

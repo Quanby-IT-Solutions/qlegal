@@ -1,7 +1,9 @@
-import { TRPCError } from "@trpc/server"
+import { TRPCError, tracked } from "@trpc/server"
 import { and, desc, eq } from "drizzle-orm"
+import { on } from "node:events"
 import { z } from "zod/v4"
 
+import { emitFilesUpdate, messagesEmitter } from "@/features/messages/lib/messages.emitter"
 import { db } from "@/services/drizzle/db"
 import { messageAttachments } from "@/services/drizzle/schema/message-attachments"
 import { conversationParticipants } from "@/services/drizzle/schema/messages"
@@ -94,6 +96,8 @@ export const messageFilesRouter = createTRPCRouter({
 					uploadType: input.uploadType,
 				})
 				.returning()
+
+			emitFilesUpdate(input.conversationId)
 
 			return attachment
 		}),
@@ -190,6 +194,41 @@ export const messageFilesRouter = createTRPCRouter({
 			// Delete from database
 			await db.delete(messageAttachments).where(eq(messageAttachments.id, input.fileId))
 
+			emitFilesUpdate(file.conversationId)
+
 			return { success: true }
+		}),
+
+	onFilesUpdate: protectedProcedure
+		.input(
+			z.object({
+				conversationId: z.string(),
+				lastEventId: z.string().nullish(),
+			})
+		)
+		.subscription(async function* (opts) {
+			const { conversationId } = opts.input
+
+			const participant = await db.query.conversationParticipants.findFirst({
+				where: and(
+					eq(conversationParticipants.conversationId, conversationId),
+					eq(conversationParticipants.userId, opts.ctx.session.user.id)
+				),
+			})
+			if (!participant) {
+				throw new TRPCError({
+					code: "FORBIDDEN",
+					message: "You are not a participant in this conversation",
+				})
+			}
+
+			const iterable = on(messagesEmitter, "files:update", {
+				signal: opts.signal,
+			}) as AsyncIterable<[string]>
+
+			for await (const [convId] of iterable) {
+				if (convId !== conversationId) continue
+				yield tracked(`${conversationId}-${Date.now()}`, { conversationId })
+			}
 		}),
 })

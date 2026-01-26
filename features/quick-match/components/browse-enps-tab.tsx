@@ -1,29 +1,10 @@
 "use client"
 
-import { useState } from "react"
-import { format } from "date-fns"
-import { AlertCircle, Filter, X } from "lucide-react"
+import { AlertCircle, FileText, Shield, Users } from "lucide-react"
 
 import { EnpCard } from "@/core/components/enp-card"
 import { Alert, AlertDescription, AlertTitle } from "@/core/components/ui/alert"
-import { Badge } from "@/core/components/ui/badge"
-import { Button } from "@/core/components/ui/button"
-import { Calendar } from "@/core/components/ui/calendar"
-import {
-	Card,
-	CardContent,
-	CardDescription,
-	CardHeader,
-	CardTitle,
-} from "@/core/components/ui/card"
-import { Label } from "@/core/components/ui/label"
-import {
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from "@/core/components/ui/select"
+import { Card, CardContent } from "@/core/components/ui/card"
 import { Skeleton } from "@/core/components/ui/skeleton"
 
 import { trpc } from "@/services/trpc/client"
@@ -50,173 +31,61 @@ interface ENPsData {
 }
 
 export function BrowseENPsTab() {
-	const [specialization, setSpecialization] = useState<string>("all")
-	const [minRating, setMinRating] = useState<number | undefined>()
-	const [sortBy, setSortBy] = useState<"RATING" | "EXPERIENCE" | "RECENT" | "AVAILABILITY">(
-		"RATING"
-	)
-	const [selectedDate, setSelectedDate] = useState<Date | undefined>()
-
 	const enpsQuery = trpc.quickMatch.getAvailableENPs.useQuery({
-		specialization: specialization ?? undefined,
-		minRating: minRating ?? undefined,
-		sortBy,
-		date: selectedDate,
+		specialization: undefined,
+		minRating: undefined,
+		sortBy: "RATING",
+		date: undefined,
 		limit: 20,
 		offset: 0,
 	}) as { data: ENPsData | undefined; isLoading: boolean }
 
 	const enpsData = enpsQuery.data
 	const isLoading = enpsQuery.isLoading
-	const selectedDateLabel = selectedDate ? format(selectedDate, "EEEE, MMM d") : null
-	const totalLabel = enpsData?.total ?? 0
 
 	return (
-		<div className="space-y-6">
-			{/* Filters Section */}
-			<Card>
-				<CardHeader>
-					<div className="flex items-center gap-2">
-						<Filter className="text-muted-foreground size-5" />
-						<CardTitle>Find Your Notary</CardTitle>
-					</div>
-					<CardDescription>
-						{enpsData ? `${totalLabel} notaries available` : "Loading..."}
-					</CardDescription>
-				</CardHeader>
-				<CardContent className="space-y-6">
-					<div>
-						<Label className="text-base font-semibold">Refine your search</Label>
-						<p className="text-muted-foreground mb-3 text-sm">
-							Filter by specialization, rating, and sorting preference
-						</p>
-						<div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-							<div className="space-y-2">
-								<Label htmlFor="specialization" className="text-sm">
-									Specialization
-								</Label>
-								<Select value={specialization} onValueChange={setSpecialization}>
-									<SelectTrigger id="specialization">
-										<SelectValue placeholder="All specializations" />
-									</SelectTrigger>
-									<SelectContent>
-										<SelectItem value="all">All Specializations</SelectItem>
-										<SelectItem value="real-estate">Real Estate</SelectItem>
-										<SelectItem value="business">Business Contracts</SelectItem>
-										<SelectItem value="family">Family Law</SelectItem>
-										<SelectItem value="corporate">Corporate</SelectItem>
-										<SelectItem value="international">International</SelectItem>
-									</SelectContent>
-								</Select>
-							</div>
-
-							<div className="space-y-2">
-								<Label htmlFor="min-rating" className="text-sm">
-									Minimum Rating
-								</Label>
-								<Select
-									value={minRating?.toString() ?? "all"}
-									onValueChange={value =>
-										setMinRating(
-											value === "all" ? undefined : value ? parseFloat(value) : undefined
-										)
-									}
-								>
-									<SelectTrigger id="min-rating">
-										<SelectValue placeholder="All ratings" />
-									</SelectTrigger>
-									<SelectContent>
-										<SelectItem value="all">Any Rating</SelectItem>
-										<SelectItem value="4.5">4.5+ Stars</SelectItem>
-										<SelectItem value="4.0">4.0+ Stars</SelectItem>
-										<SelectItem value="3.5">3.5+ Stars</SelectItem>
-									</SelectContent>
-								</Select>
-							</div>
-
-							<div className="space-y-2">
-								<Label htmlFor="sort" className="text-sm">
-									Sort By
-								</Label>
-								<Select
-									value={sortBy}
-									onValueChange={value =>
-										setSortBy(value as "RATING" | "EXPERIENCE" | "RECENT" | "AVAILABILITY")
-									}
-								>
-									<SelectTrigger id="sort">
-										<SelectValue />
-									</SelectTrigger>
-									<SelectContent>
-										<SelectItem value="RATING">Highest Rated</SelectItem>
-										<SelectItem value="EXPERIENCE">Most Experienced</SelectItem>
-										<SelectItem value="RECENT">Recently Active</SelectItem>
-										<SelectItem value="AVAILABILITY">Most Available</SelectItem>
-									</SelectContent>
-								</Select>
-							</div>
+		<div className="space-y-8">
+			{/* Page Header */}
+			<div className="relative overflow-hidden rounded-2xl border bg-gradient-to-br from-background via-background to-muted/20 p-8 shadow-sm">
+				<div className="relative space-y-4">
+					<div className="flex items-start gap-4">
+						<div className="bg-primary/10 flex size-14 shrink-0 items-center justify-center rounded-xl">
+							<FileText className="text-primary size-7" />
+						</div>
+						<div className="flex-1 space-y-2">
+							<h1 className="bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-4xl font-bold tracking-tight text-transparent">
+								Browse Notaries
+							</h1>
+							<p className="text-muted-foreground text-base leading-relaxed">
+								Explore our directory of certified notaries public. Find experienced professionals ready
+								to assist with your document notarization needs. Each notary is verified and available
+								to help you complete your important transactions.
+							</p>
 						</div>
 					</div>
-				</CardContent>
-			</Card>
 
-			{/* Calendar & Results Section */}
-			<div className="grid gap-6 lg:grid-cols-[420px,1fr]">
-				{/* Calendar Picker */}
-				<Card>
-					<CardHeader>
-						<CardTitle>Choose Appointment Date</CardTitle>
-						<CardDescription>
-							{selectedDateLabel
-								? `Showing notaries available on ${selectedDateLabel}`
-								: "Select a date to check availability"}
-						</CardDescription>
-					</CardHeader>
-					<CardContent className="space-y-4">
-						<Calendar
-							mode="single"
-							selected={selectedDate}
-							onSelect={setSelectedDate}
-							disabled={date => date < new Date()}
-							initialFocus
-							className="bg-muted/30 w-full max-w-[380px] rounded-2xl border p-4 shadow-sm [--cell-size:2.6rem]"
-						/>
-
-						{selectedDate && (
-							<Button
-								variant="outline"
-								size="sm"
-								className="w-full"
-								onClick={() => setSelectedDate(undefined)}
-							>
-								<X className="mr-2 size-4" />
-								Clear Date
-							</Button>
-						)}
-					</CardContent>
-				</Card>
-
-				{/* Results Section */}
-				<div className="space-y-4">
-					<Card className="border-none shadow-none">
-						<CardHeader className="px-0 pt-0">
-							<div className="flex items-center justify-between">
-								<CardTitle>Available Notaries</CardTitle>
-								{enpsData && (
-									<Badge variant="secondary" className="text-sm">
-										{totalLabel} found
-									</Badge>
-								)}
+					{/* Feature Highlights */}
+					<div className="flex flex-wrap items-center gap-6 pt-2">
+						<div className="flex items-center gap-2 text-sm">
+							<Shield className="text-primary size-4" />
+							<span className="text-muted-foreground font-medium">Certified Professionals</span>
+						</div>
+						<div className="flex items-center gap-2 text-sm">
+							<Users className="text-primary size-4" />
+							<span className="text-muted-foreground font-medium">Verified & Available</span>
+						</div>
+						{enpsData && (
+							<div className="text-muted-foreground ml-auto text-sm font-medium">
+								{enpsData.total} {enpsData.total === 1 ? "notary" : "notaries"} available
 							</div>
-							<CardDescription>
-								{selectedDateLabel
-									? "Showing notaries available on your selected date"
-									: "Browse all available notaries"}
-							</CardDescription>
-						</CardHeader>
-					</Card>
+						)}
+					</div>
+				</div>
+			</div>
 
-					{isLoading ? (
+			{/* Results Section */}
+			<div className="space-y-6">
+				{isLoading ? (
 						<div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
 							{Array.from({ length: 6 }).map((_, i) => (
 								<Card key={i} className="overflow-hidden">
@@ -230,7 +99,7 @@ export function BrowseENPsTab() {
 							))}
 						</div>
 					) : enpsData && enpsData.enps.length > 0 ? (
-						<div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+						<div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
 							{enpsData.enps.map((enp: ENP) => (
 								<EnpCard
 									key={enp.id}
@@ -261,11 +130,10 @@ export function BrowseENPsTab() {
 							<AlertCircle className="size-4" />
 							<AlertTitle>No notaries found</AlertTitle>
 							<AlertDescription>
-								Try adjusting your filters or selecting a different date to see more options.
+								No notaries are currently available. Please check back later.
 							</AlertDescription>
 						</Alert>
 					)}
-				</div>
 			</div>
 		</div>
 	)
