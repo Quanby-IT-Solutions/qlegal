@@ -34,6 +34,28 @@ function asNonEmptyEmail(email: unknown): string | undefined {
 	return trimmed.length > 0 ? trimmed : undefined
 }
 
+// Format date from ISO string or existing formatted string to readable format (e.g., "5 June 2018" or "Dec 31, 2025")
+function formatDateForStamp(dateString: string | null | undefined): string {
+	if (!dateString) return ""
+	
+	// Try to parse as ISO date
+	const date = new Date(dateString)
+	if (!Number.isNaN(date.getTime())) {
+		// Format as "d MMM yyyy" (e.g., "5 June 2018")
+		const day = date.getDate()
+		const monthNames = [
+			"January", "February", "March", "April", "May", "June",
+			"July", "August", "September", "October", "November", "December"
+		]
+		const month = monthNames[date.getMonth()]
+		const year = date.getFullYear()
+		return `${day} ${month} ${year}`
+	}
+	
+	// If not a valid date, return as-is (might already be formatted)
+	return dateString
+}
+
 function getDocoChainAuthEmailForMeeting(
 	meeting: {
 		createdBy?: { email?: string | null; role?: string | null } | null
@@ -603,7 +625,12 @@ export const meetingsRouter = createTRPCRouter({
 				mimeType: z.string(),
 				size: z.number(),
 				description: z.string().optional(),
-				notarizationType: z.enum(["ACKNOWLEDGMENT", "AFFIRMATION", "JURAT", "SIGNATURE_WITNESSING"]),
+				notarizationType: z.enum([
+					"ACKNOWLEDGMENT",
+					"AFFIRMATION",
+					"JURAT",
+					"SIGNATURE_WITNESSING",
+				]),
 			})
 		)
 		.mutation(async ({ ctx, input }) => {
@@ -765,7 +792,7 @@ export const meetingsRouter = createTRPCRouter({
 				participants: true,
 				documents: {
 					with: {
-						signers: { columns: { userId: true } },
+						signers: { columns: { userId: true, signingOrder: true } },
 					},
 				},
 			},
@@ -794,7 +821,7 @@ export const meetingsRouter = createTRPCRouter({
 
 		// Define type for document with nested signers
 		type DocumentWithSigners = InferSelectModel<typeof documents> & {
-			signers: { userId: string }[]
+			signers: { userId: string; signingOrder: number | null }[]
 		}
 
 		// Sort by order first (for manual reordering), then by createdAt (for upload sequence)
@@ -807,12 +834,19 @@ export const meetingsRouter = createTRPCRouter({
 			return createdAtA - createdAtB
 		})
 
-		// Map to include signerUserIds for each document
+		// Map to include signerUserIds for each document, ordered by signingOrder
 		return sorted.map(doc => {
 			const { signers, ...rest } = doc
+			// Sort signers by signingOrder (nulls last), then by userId for consistency
+			const sortedSigners = [...(signers ?? [])].sort((a, b) => {
+				const orderA = a.signingOrder ?? 999999
+				const orderB = b.signingOrder ?? 999999
+				if (orderA !== orderB) return orderA - orderB
+				return (a.userId ?? "").localeCompare(b.userId ?? "")
+			})
 			return {
 				...rest,
-				signerUserIds: (signers ?? []).map(s => s.userId),
+				signerUserIds: sortedSigners.map(s => s.userId),
 			}
 		})
 	}),
@@ -845,7 +879,7 @@ export const meetingsRouter = createTRPCRouter({
 					documents: {
 						where: eq(documents.id, documentId),
 						with: {
-							signers: { columns: { userId: true } },
+							signers: { columns: { userId: true, signingOrder: true } },
 						},
 					},
 					createdBy: {
@@ -967,7 +1001,8 @@ export const meetingsRouter = createTRPCRouter({
 			if (!enpProfile.enpName || !enpProfile.enpRoleNumber || !enpProfile.attyName) {
 				throw new TRPCError({
 					code: "PRECONDITION_FAILED",
-					message: "ENP profile is incomplete. Please complete your seal and notary information in settings.",
+					message:
+						"ENP profile is incomplete. Please complete your seal and notary information in settings.",
 				})
 			}
 
@@ -982,19 +1017,19 @@ export const meetingsRouter = createTRPCRouter({
 					type: "notary",
 					atty_name: enpProfile.attyName ?? "",
 					roll_no: enpProfile.rollNo ?? "",
-					roll_no_date: enpProfile.rollNoDate ?? "",
+					roll_no_date: formatDateForStamp(enpProfile.rollNoDate),
 					commission_no: enpProfile.commissionNo ?? "",
-					commission_no_valid_until: enpProfile.commissionNoValidUntil ?? "",
+					commission_no_valid_until: formatDateForStamp(enpProfile.commissionNoValidUntil),
 					PTR_no: enpProfile.ptrNo ?? "",
 					PTR_no_location: enpProfile.ptrNoLocation ?? "",
-					PTR_no_date: enpProfile.ptrNoDate ?? "",
+					PTR_no_date: formatDateForStamp(enpProfile.ptrNoDate),
 					IBP_no: enpProfile.ibpNo ?? "",
-					IBP_no_date: enpProfile.ibpNoDate ?? "",
+					IBP_no_date: formatDateForStamp(enpProfile.ibpNoDate),
 					email: enpProfile.notaryEmail ?? creatorEmail,
 					address: enpProfile.notaryAddress ?? "",
 					MCLE_no_period: enpProfile.mcleNoPeriod ?? "",
 					MCLE_no: enpProfile.mcleNo ?? "",
-					MCLE_no_date: enpProfile.mcleNoDate ?? "",
+					MCLE_no_date: formatDateForStamp(enpProfile.mcleNoDate),
 					mode_of_notarization: enpProfile.modeOfNotarization ?? "",
 				},
 			}
@@ -1039,12 +1074,12 @@ export const meetingsRouter = createTRPCRouter({
 		}),
 
 	// Set which meeting participants are signers for a given document (before plotting)
-	setDocumentSigners: protectedProcedure
+			setDocumentSigners: protectedProcedure
 		.input(
 			z.object({
 				documentId: z.string().min(1),
 				meetingId: z.string().min(1),
-				userIds: z.array(z.string().min(1)),
+				userIds: z.array(z.string().min(1)), // Array order represents signing order (first = 1, second = 2, etc.)
 			})
 		)
 		.mutation(async ({ ctx, input }) => {
@@ -1072,7 +1107,7 @@ export const meetingsRouter = createTRPCRouter({
 							docoChainProjectId: true,
 						},
 						with: {
-							signers: { columns: { userId: true } },
+							signers: { columns: { userId: true, signingOrder: true } },
 						},
 					},
 					createdBy: {
@@ -1186,9 +1221,7 @@ export const meetingsRouter = createTRPCRouter({
 									// Continue - don't fail the whole operation
 								}
 							} else if (hasSigned) {
-								console.log(
-									`ℹ️ Skipping removal of ${signerEmail} - they have already signed`
-								)
+								console.log(`ℹ️ Skipping removal of ${signerEmail} - they have already signed`)
 							}
 						}
 					}
@@ -1215,24 +1248,26 @@ export const meetingsRouter = createTRPCRouter({
 				// Create a map for quick lookup
 				const userMap = new Map(signerUsers.map(u => [u.id, u]))
 
-				// Insert signers with name and address for principals
+				// Insert signers with name, address, and signing order
+				// The array index + 1 represents the signing order (1 = first, 2 = second, etc.)
 				await db.insert(documentSigners).values(
-					userIds.map(userId => {
+					userIds.map((userId, index) => {
 						const user = userMap.get(userId)
 						const isPrincipal = user?.role === "PRINCIPAL"
-						
+
 						// Extract name and address for principals only
 						const signerName: string | null = isPrincipal && user?.name ? String(user.name) : null
 						const signerAddress: string | null =
 							isPrincipal && user?.address && typeof user.address === "string"
 								? String(user.address)
 								: null
-						
+
 						return {
 							documentId,
 							userId,
 							signerName,
 							signerAddress,
+							signingOrder: index + 1, // 1-based order
 						}
 					})
 				)

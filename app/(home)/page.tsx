@@ -19,7 +19,7 @@ export default async function Page() {
 			{/* Hero Section */}
 			<div className="bg-background flex h-dvh w-full items-center">
 				<div className="w-full">
-					<Hero />
+					<Hero isAuthenticated={isAuthenticated} />
 				</div>
 			</div>
 

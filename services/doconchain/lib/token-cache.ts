@@ -59,7 +59,7 @@ export async function generateToken(email?: string, forceRefresh = false): Promi
 		expiresAt: Date.now() + TOKEN_EXPIRATION_MS,
 		lastVerifiedAt: Date.now(),
 	})
-	
+
 	// Reset verification failure count when we generate a new token
 	verificationFailureCount.delete(cacheKey)
 
@@ -78,7 +78,8 @@ export async function getToken(email?: string, forceVerify = false): Promise<str
 		const timeUntilExpiration = cached.expiresAt - Date.now()
 		const shouldVerifyPeriodically = timeSinceLastVerify > TOKEN_VERIFY_INTERVAL_MS
 		// Also verify if token is close to expiration (within 15 minutes)
-		const shouldVerifyNearExpiration = timeUntilExpiration < 15 * 60 * 1000 && timeSinceLastVerify > 2 * 60 * 1000 // At least 2 min since last verify
+		const shouldVerifyNearExpiration =
+			timeUntilExpiration < 15 * 60 * 1000 && timeSinceLastVerify > 2 * 60 * 1000 // At least 2 min since last verify
 		const shouldVerify = shouldVerifyPeriodically || shouldVerifyNearExpiration || forceVerify
 		const failureCount = verificationFailureCount.get(cacheKey) ?? 0
 
@@ -104,18 +105,22 @@ export async function getToken(email?: string, forceVerify = false): Promise<str
 				// If forceVerify is false, still return cached token but log warning
 				// (will be regenerated when we get 401 error)
 				if (forceVerify) {
-					console.log(`⚠️ Token verification failed (status: ${status}) - regenerating proactively...`)
+					console.log(
+						`⚠️ Token verification failed (status: ${status}) - regenerating proactively...`
+					)
 					verificationFailureCount.delete(cacheKey) // Reset count since we're regenerating
 					// Invalidate and regenerate
 					tokenCache.delete(cacheKey)
 					return generateToken(email, true)
 				}
-				
+
 				// Not forcing verification - increment failure count but still return cached token
 				// Will be regenerated reactively when we get 401
 				verificationFailureCount.set(cacheKey, failureCount + 1)
 				tokenCache.set(cacheKey, { ...cached, lastVerifiedAt: Date.now() })
-				console.warn(`⚠️ Token verification failed (status: ${status}) but not forcing regeneration - will regenerate on 401`)
+				console.warn(
+					`⚠️ Token verification failed (status: ${status}) but not forcing regeneration - will regenerate on 401`
+				)
 				return cached.token
 			} catch (error) {
 				// Verification endpoint itself failed (network error, etc.)
@@ -150,10 +155,7 @@ interface VerifyTokenParams {
 	orgInviteCode: string
 }
 
-export async function verifyAuthToken({
-	token,
-	orgInviteCode,
-}: VerifyTokenParams): Promise<{
+export async function verifyAuthToken({ token, orgInviteCode }: VerifyTokenParams): Promise<{
 	message: string
 	data: {
 		redirect_to: string
@@ -165,9 +167,9 @@ export async function verifyAuthToken({
 		{
 			method: "POST",
 			headers: {
-				Authorization: `Bearer ${token}`,
+				"Authorization": `Bearer ${token}`,
 				"Content-Type": "application/json",
-				Accept: "application/json",
+				"Accept": "application/json",
 			},
 			body: JSON.stringify({
 				org_invite_code: orgInviteCode,

@@ -5,8 +5,8 @@ export default function MeetingLobbyLoading() {
 	return (
 		<>
 			{/* Fixed overlay that covers EVERYTHING including sidebar */}
-			<div className="fixed inset-0 z-[9999] bg-background">
-				<div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-background via-muted/20 to-background px-4 py-10">
+			<div className="bg-background fixed inset-0 z-[9999]">
+				<div className="from-background via-muted/20 to-background flex min-h-screen items-center justify-center bg-gradient-to-br px-4 py-10">
 					<div className="w-full max-w-2xl space-y-6">
 						{/* Logo Skeleton */}
 						<div className="flex justify-center">

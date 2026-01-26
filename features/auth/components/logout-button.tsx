@@ -1,7 +1,7 @@
 "use client"
 
-import { signOut } from "next-auth/react"
 import type { ReactNode } from "react"
+import { signOut } from "next-auth/react"
 
 import { Button } from "@/core/components/ui/button"
 import type { ButtonProps } from "@/core/components/ui/button"

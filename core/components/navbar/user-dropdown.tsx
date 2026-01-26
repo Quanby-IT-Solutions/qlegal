@@ -36,7 +36,7 @@ export const UserDropdown = ({ isMobile }: UserDropdownProps) => {
 					<DropdownMenuTrigger asChild>
 						<SidebarMenuButton
 							size="lg"
-							className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+							className="bg-background/60 hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50 data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground border shadow-xs backdrop-blur-sm transition-all"
 						>
 							<Avatar className="h-8 w-8 rounded-lg">
 								<AvatarImage src={session?.user?.image ?? ""} alt={session?.user?.name ?? ""} />
@@ -44,11 +44,11 @@ export const UserDropdown = ({ isMobile }: UserDropdownProps) => {
 									{session?.user?.name?.[0] ?? ""}
 								</AvatarFallback>
 							</Avatar>
-							<div className="grid flex-1 text-left text-sm leading-tight">
+							<div className="grid flex-1 text-left text-sm leading-tight group-data-[collapsible=icon]/sidebar-wrapper:hidden">
 								<span className="truncate font-semibold">{session?.user?.name ?? ""}</span>
 								<span className="truncate text-xs">{mapRoleToLabel(session?.user?.role)}</span>
 							</div>
-							<ChevronsUpDown className="ml-auto size-4" />
+							<ChevronsUpDown className="ml-auto size-4 group-data-[collapsible=icon]/sidebar-wrapper:hidden" />
 						</SidebarMenuButton>
 					</DropdownMenuTrigger>
 					<DropdownMenuContent

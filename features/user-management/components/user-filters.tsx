@@ -38,20 +38,20 @@ export function UserFilters({
 				<div className="flex flex-col gap-4 md:flex-row">
 					<div className="flex-1">
 						<div className="relative">
-							<Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+							<Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-gray-400" />
 
 							<Input
 								placeholder="Search by name, email, or organization..."
 								value={searchTerm}
 								onChange={e => setSearchTerm(e.target.value)}
-								className="pl-10 pr-10"
+								className="pr-10 pl-10"
 							/>
 
 							{searchTerm && (
 								<button
 									type="button"
 									onClick={() => setSearchTerm("")}
-									className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+									className="absolute top-1/2 right-3 -translate-y-1/2 text-gray-400 hover:text-gray-600"
 									aria-label="Clear search"
 								>
 									<X className="h-4 w-4" />

@@ -41,7 +41,7 @@ export async function createProject({
 	const formData = new FormData()
 	const documentBlob = new Blob([new Uint8Array(documentFile)], { type: "application/pdf" })
 	formData.append("file", documentBlob, fileName)
-	
+
 	// Optional parameters per API specification
 	if (userListEditable !== undefined) {
 		formData.append("user_list_editable", String(userListEditable))
@@ -59,28 +59,32 @@ export async function createProject({
 	console.log("🔵 Creating DocoChain project - generating fresh token for creator...")
 	console.log("   - Creator Email:", creatorEmail)
 	console.log("   - Invalidating any cached token and generating completely fresh token...")
-	
+
 	// Invalidate any existing token cache for this creator
 	invalidateToken(creatorEmail)
-	
+
 	// Generate a completely fresh token with full 1-hour validity
 	// This token will be cached and used for all subsequent operations on this project
 	await generateToken(creatorEmail, true)
-	
+
 	console.log("✅ Fresh token generated for creator - proceeding with project creation...")
-	
+
 	// Now create the project using the fresh token
 	// forceVerify=true ensures we use the token we just generated
-	const response = await apiCall(async token => {
-		return fetch(`${env.DOCONCHAIN_API_URL}/api/v2/projects?user_type=ENTERPRISE_API`, {
-			method: "POST",
-			headers: {
-				Authorization: `Bearer ${token}`,
-				Accept: "application/json",
-			},
-			body: formData,
-		})
-	}, creatorEmail, true) // Force verification to use the fresh token we just generated
+	const response = await apiCall(
+		async token => {
+			return fetch(`${env.DOCONCHAIN_API_URL}/api/v2/projects?user_type=ENTERPRISE_API`, {
+				method: "POST",
+				headers: {
+					Authorization: `Bearer ${token}`,
+					Accept: "application/json",
+				},
+				body: formData,
+			})
+		},
+		creatorEmail,
+		true
+	) // Force verification to use the fresh token we just generated
 
 	if (!response.ok) {
 		const errorText = await response.text()
@@ -276,16 +280,13 @@ export async function getMyProjectDetails(
 	meta?: Record<string, unknown>
 }> {
 	const response = await apiCall(async token => {
-		return fetch(
-			`${env.DOCONCHAIN_API_URL}/my/projects/${projectUuid}?user_type=ENTERPRISE_API`,
-			{
-				method: "GET",
-				headers: {
-					Authorization: `Bearer ${token}`,
-					Accept: "application/json",
-				},
-			}
-		)
+		return fetch(`${env.DOCONCHAIN_API_URL}/my/projects/${projectUuid}?user_type=ENTERPRISE_API`, {
+			method: "GET",
+			headers: {
+				Authorization: `Bearer ${token}`,
+				Accept: "application/json",
+			},
+		})
 	}, userEmail)
 
 	if (!response.ok) {

@@ -1,13 +1,13 @@
 "use client"
 
-import { Calendar as CalendarIcon } from "lucide-react"
 import { format } from "date-fns"
+import { Calendar as CalendarIcon } from "lucide-react"
 import { type UseFormReturn } from "react-hook-form"
 
-import { FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/core/components/ui/form"
-import { Input } from "@/core/components/ui/input"
 import { Button } from "@/core/components/ui/button"
 import { Calendar } from "@/core/components/ui/calendar"
+import { FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/core/components/ui/form"
+import { Input } from "@/core/components/ui/input"
 import { Popover, PopoverContent, PopoverTrigger } from "@/core/components/ui/popover"
 import { cn } from "@/core/lib/utils"
 
@@ -24,7 +24,6 @@ export function NotarySealStep({ form, primaryName }: NotarySealStepProps) {
 
 	return (
 		<div className="space-y-4">
-
 			<FormField
 				control={form.control}
 				name="seal.enpRollNumber"
@@ -39,7 +38,7 @@ export function NotarySealStep({ form, primaryName }: NotarySealStepProps) {
 								maxLength={6}
 								pattern="\d{6}"
 								{...field}
-								onChange={(e) => {
+								onChange={e => {
 									const digitsOnly = e.target.value.replace(/\D/g, "").slice(0, 6)
 									field.onChange(digitsOnly)
 								}}
@@ -79,11 +78,11 @@ export function NotarySealStep({ form, primaryName }: NotarySealStepProps) {
 										<Calendar
 											mode="single"
 											selected={dateValue}
-											onSelect={(date) => {
+											onSelect={date => {
 												field.onChange(date?.toISOString())
 											}}
 											defaultMonth={dateValue}
-											disabled={(date) => date > maxDate}
+											disabled={date => date > maxDate}
 											className="rounded-md border shadow-sm"
 											captionLayout="dropdown"
 										/>

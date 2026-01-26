@@ -70,7 +70,9 @@ export default function LivenessCallbackPage() {
 			}
 		} else if (queryError && !toastShownRef.current) {
 			toastShownRef.current = true
-			toast.error(queryError instanceof Error ? queryError.message : "Failed to fetch verification results")
+			toast.error(
+				queryError instanceof Error ? queryError.message : "Failed to fetch verification results"
+			)
 		} else if (!transactionId && !toastShownRef.current) {
 			toastShownRef.current = true
 			toast.error("Invalid callback: Missing transaction ID")
@@ -111,7 +113,9 @@ export default function LivenessCallbackPage() {
 				<div className="text-center">
 					<Loader2 className="text-primary mx-auto mb-4 h-10 w-10 animate-spin" />
 					<p className="text-muted-foreground text-sm">
-						{result.decision.isApproved ? "Redirecting to meeting..." : "Taking you back to try again..."}
+						{result.decision.isApproved
+							? "Redirecting to meeting..."
+							: "Taking you back to try again..."}
 					</p>
 				</div>
 			</div>
@@ -124,7 +128,7 @@ export default function LivenessCallbackPage() {
 			<div className="from-background via-muted/20 to-background flex min-h-screen items-center justify-center bg-gradient-to-br px-4">
 				<div className="w-full max-w-md space-y-4 text-center">
 					<div className="bg-destructive/10 mx-auto flex h-14 w-14 items-center justify-center rounded-full">
-						<XCircle className="h-7 w-7 text-destructive" />
+						<XCircle className="text-destructive h-7 w-7" />
 					</div>
 					<p className="text-sm font-medium">Something went wrong</p>
 					<p className="text-muted-foreground text-sm">{error}</p>
@@ -197,7 +201,11 @@ export default function LivenessCallbackPage() {
 								Back to Liveness
 							</Button>
 							{isApproved && (
-								<Button variant="outline" className="flex-1" onClick={() => router.push("/dashboard")}>
+								<Button
+									variant="outline"
+									className="flex-1"
+									onClick={() => router.push("/dashboard")}
+								>
 									Go to Dashboard
 								</Button>
 							)}

@@ -43,8 +43,6 @@ interface UserListProps {
 	statusFilter: string
 }
 
-
-
 const formatLastLogin = (dateString?: string | null) => {
 	if (!dateString) return "Never"
 
@@ -62,7 +60,6 @@ const formatLastLogin = (dateString?: string | null) => {
 
 	return `${month}-${day}-${year}, ${time}`
 }
-
 
 export function UserList({ searchTerm, roleFilter, statusFilter }: UserListProps) {
 	const [selectedUserId, setSelectedUserId] = useState<string | null>(null)
@@ -310,7 +307,7 @@ export function UserList({ searchTerm, roleFilter, statusFilter }: UserListProps
 					{users.map(user => (
 						<div
 							key={user.id}
-							className="flex flex-col gap-4 rounded-lg border p-4 transition-colors hover:bg-gray-50 dark:hover:bg-gray-800 sm:flex-row sm:items-center sm:justify-between"
+							className="flex flex-col gap-4 rounded-lg border p-4 transition-colors hover:bg-gray-50 sm:flex-row sm:items-center sm:justify-between dark:hover:bg-gray-800"
 						>
 							{/* Left section: Avatar and User Info */}
 							<div className="flex flex-1 items-start space-x-3 sm:items-center sm:space-x-4">
@@ -326,7 +323,7 @@ export function UserList({ searchTerm, roleFilter, statusFilter }: UserListProps
 								</Avatar>
 								<div className="min-w-0 flex-1">
 									<div className="mb-1 flex flex-wrap items-center gap-x-2 gap-y-1">
-										<h3 className="break-words font-medium text-gray-900 dark:text-white text-sm sm:text-base">
+										<h3 className="text-sm font-medium break-words text-gray-900 sm:text-base dark:text-white">
 											{user.name}
 										</h3>
 										{/* @ts-expect-error - title is not typed */}
@@ -338,16 +335,18 @@ export function UserList({ searchTerm, roleFilter, statusFilter }: UserListProps
 											/>
 										)}
 									</div>
-									<p className="break-all text-xs text-gray-600 dark:text-gray-400 sm:text-sm">
+									<p className="text-xs break-all text-gray-600 sm:text-sm dark:text-gray-400">
 										{user.email}
 									</p>
 									{user.organization && (
-										<p className="break-words text-xs text-gray-500 sm:text-sm">
+										<p className="text-xs break-words text-gray-500 sm:text-sm">
 											{user.organization}
 										</p>
 									)}
 									<div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500">
-										<span className="break-words">Last login: {formatLastLogin(user.lastActive)}</span>
+										<span className="break-words">
+											Last login: {formatLastLogin(user.lastActive)}
+										</span>
 										<span className="whitespace-nowrap">Documents: {user.documentsCount}</span>
 									</div>
 								</div>

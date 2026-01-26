@@ -45,7 +45,6 @@ import {
 import { Input } from "@/core/components/ui/input"
 import { Label } from "@/core/components/ui/label"
 import { ScrollArea } from "@/core/components/ui/scroll-area"
-import { Skeleton } from "@/core/components/ui/skeleton"
 import {
 	Select,
 	SelectContent,
@@ -53,6 +52,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/core/components/ui/select"
+import { Skeleton } from "@/core/components/ui/skeleton"
 
 import { useMeetings } from "@/features/meetings/api/meetings.hooks"
 import { MeetingRecordingsModal } from "@/features/meetings/components/meeting-recordings-modal"
@@ -70,7 +70,7 @@ function MeetingDocumentSummary({
 }) {
 	if (total === 0) {
 		return (
-			<div className="flex items-center gap-1 text-sm text-muted-foreground">
+			<div className="text-muted-foreground flex items-center gap-1 text-sm">
 				<FileText className="size-4 shrink-0" />
 				<span>No documents</span>
 			</div>
@@ -296,7 +296,9 @@ export function MeetingsListSection() {
 								<div className="flex items-center justify-between">
 									<Label className="text-base font-semibold">
 										Invite Participants
-										<span className="text-muted-foreground ml-2 text-sm font-normal">(Optional)</span>
+										<span className="text-muted-foreground ml-2 text-sm font-normal">
+											(Optional)
+										</span>
 									</Label>
 									{selectedUsers.length > 0 && (
 										<Badge variant="secondary" className="font-semibold">
@@ -377,7 +379,10 @@ export function MeetingsListSection() {
 															</p>
 														</div>
 																		{isSelected && (
-																			<Badge variant="secondary" className="bg-primary/10 text-primary">
+																			<Badge
+																				variant="secondary"
+																				className="bg-primary/10 text-primary"
+																			>
 																				Added
 																			</Badge>
 																		)}
@@ -564,17 +569,17 @@ export function MeetingsListSection() {
 
 					{viewMode === "list" ? (
 						<div className="space-y-4">
-						{filteredMeetings.map(meeting => {
-							const isHost = meeting.createdBy.id === session?.user?.id
-							const isParticipant = meeting.participants.some(
-								p => p.user?.id === session?.user?.id
-							)
-							const canJoin = meeting.status === "ONGOING"
-							const canStart = (isHost || isParticipant) && meeting.status === "SCHEDULED"
-							const canEnd = isHost && meeting.status === "ONGOING"
-							const scheduledLabel = meeting.createdAt
-								? format(new Date(meeting.createdAt), "PPp")
-								: "Not scheduled"
+							{filteredMeetings.map(meeting => {
+								const isHost = meeting.createdBy.id === session?.user?.id
+								const isParticipant = meeting.participants.some(
+									p => p.user?.id === session?.user?.id
+								)
+								const canJoin = meeting.status === "ONGOING"
+								const canStart = (isHost || isParticipant) && meeting.status === "SCHEDULED"
+								const canEnd = isHost && meeting.status === "ONGOING"
+								const scheduledLabel = meeting.createdAt
+									? format(new Date(meeting.createdAt), "PPp")
+									: "Not scheduled"
 
 							return (
 								<Card key={meeting.id} className="transition-shadow hover:shadow-md">
@@ -586,28 +591,28 @@ export function MeetingsListSection() {
 													{getStatusBadge(meeting.status)}
 												</div>
 
-												<div className="text-muted-foreground mb-3 flex flex-wrap items-center gap-4 text-sm">
-													<div className="flex items-center gap-1">
-														<Users className="size-4 shrink-0" />
-														<span>
-															{meeting.participants.length} participant
-															{meeting.participants.length !== 1 ? "s" : ""}
-														</span>
+													<div className="text-muted-foreground mb-3 flex flex-wrap items-center gap-4 text-sm">
+														<div className="flex items-center gap-1">
+															<Users className="size-4 shrink-0" />
+															<span>
+																{meeting.participants.length} participant
+																{meeting.participants.length !== 1 ? "s" : ""}
+															</span>
+														</div>
+														<MeetingDocumentSummary
+															total={meeting.documentStats?.total ?? 0}
+															signed={meeting.documentStats?.signed ?? 0}
+															isComplete={meeting.documentStats?.isComplete}
+														/>
+														<div className="flex items-center gap-1">
+															<Calendar className="size-4 shrink-0" />
+															<span>Scheduled {scheduledLabel}</span>
+														</div>
+														<div className="flex items-center gap-1">
+															<Clock className="size-4 shrink-0" />
+															<span>Created by {meeting.createdBy.name}</span>
+														</div>
 													</div>
-													<MeetingDocumentSummary
-														total={meeting.documentStats?.total ?? 0}
-														signed={meeting.documentStats?.signed ?? 0}
-														isComplete={meeting.documentStats?.isComplete}
-													/>
-													<div className="flex items-center gap-1">
-														<Calendar className="size-4 shrink-0" />
-														<span>Scheduled {scheduledLabel}</span>
-													</div>
-													<div className="flex items-center gap-1">
-														<Clock className="size-4 shrink-0" />
-														<span>Created by {meeting.createdBy.name}</span>
-													</div>
-												</div>
 
 												<div className="flex flex-wrap items-center gap-4">
 													<div className="flex items-center gap-2">
@@ -628,65 +633,65 @@ export function MeetingsListSection() {
 												</div>
 											</div>
 
-											<div className="flex shrink-0 flex-wrap items-center gap-2">
-												{canStart && (
-													<Button
-														onClick={e => {
-															e.stopPropagation()
-															void handleStartMeeting(meeting.id)
-														}}
-														disabled={loadingMeetingId === meeting.id}
-														className="flex items-center gap-2"
-													>
-														<PlayCircle className="size-4" />
-														{loadingMeetingId === meeting.id ? "Starting..." : "Start Meeting"}
-													</Button>
-												)}
+												<div className="flex shrink-0 flex-wrap items-center gap-2">
+													{canStart && (
+														<Button
+															onClick={e => {
+																e.stopPropagation()
+																void handleStartMeeting(meeting.id)
+															}}
+															disabled={loadingMeetingId === meeting.id}
+															className="flex items-center gap-2"
+														>
+															<PlayCircle className="size-4" />
+															{loadingMeetingId === meeting.id ? "Starting..." : "Start Meeting"}
+														</Button>
+													)}
 
-												{canJoin && (
-													<Button
-														className="flex items-center justify-center gap-2 text-white"
-														style={{ backgroundColor: "#313638" }}
-														onClick={e => {
-															e.stopPropagation()
-															setJoiningMeetingId(meeting.id)
-															router.push(`/meetings/${meeting.id}/lobby`)
-														}}
-														disabled={joiningMeetingId === meeting.id}
-													>
-														{joiningMeetingId === meeting.id ? (
-															<>
-																<Loader2 className="size-4 animate-spin" />
-																Joining...
-															</>
-														) : (
-															<>
-																<Video className="size-4" />
-																Join Meeting
-															</>
-														)}
-													</Button>
-												)}
+													{canJoin && (
+														<Button
+															className="flex items-center justify-center gap-2 text-white"
+															style={{ backgroundColor: "#313638" }}
+															onClick={e => {
+																e.stopPropagation()
+																setJoiningMeetingId(meeting.id)
+																router.push(`/meetings/${meeting.id}/lobby`)
+															}}
+															disabled={joiningMeetingId === meeting.id}
+														>
+															{joiningMeetingId === meeting.id ? (
+																<>
+																	<Loader2 className="size-4 animate-spin" />
+																	Joining...
+																</>
+															) : (
+																<>
+																	<Video className="size-4" />
+																	Join Meeting
+																</>
+															)}
+														</Button>
+													)}
 
-												{canEnd && (
-													<Button
-														className="flex items-center justify-center gap-2 bg-rose-500 text-white hover:bg-rose-600"
-														onClick={e => {
-															e.stopPropagation()
-															void handleEndMeeting(meeting.id)
-														}}
-														disabled={loadingMeetingId === meeting.id}
-													>
-														<StopCircle className="size-4" />
-														{loadingMeetingId === meeting.id ? "Ending..." : "End Meeting"}
-													</Button>
-												)}
+													{canEnd && (
+														<Button
+															className="flex items-center justify-center gap-2 bg-rose-500 text-white hover:bg-rose-600"
+															onClick={e => {
+																e.stopPropagation()
+																void handleEndMeeting(meeting.id)
+															}}
+															disabled={loadingMeetingId === meeting.id}
+														>
+															<StopCircle className="size-4" />
+															{loadingMeetingId === meeting.id ? "Ending..." : "End Meeting"}
+														</Button>
+													)}
 
-												{meeting.status === "COMPLETED" && (
-													<Button variant="outline" disabled>
-														Meeting Ended
-													</Button>
-												)}
+													{meeting.status === "COMPLETED" && (
+														<Button variant="outline" disabled>
+															Meeting Ended
+														</Button>
+													)}
 
 												{isHost && (
 													<Button
@@ -753,7 +758,9 @@ export function MeetingsListSection() {
 															</AvatarFallback>
 														</Avatar>
 														<div className="min-w-0 flex-1">
-															<CardTitle className="line-clamp-2 text-lg">{meeting.title}</CardTitle>
+															<CardTitle className="line-clamp-2 text-lg">
+																{meeting.title}
+															</CardTitle>
 															<CardDescription className="mt-1">
 																by {meeting.createdBy.name}
 															</CardDescription>

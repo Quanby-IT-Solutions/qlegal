@@ -25,9 +25,7 @@ export const livenessValidations = createTable(
 			.references(() => users.id, { onDelete: "cascade" }),
 
 		// Meeting reference (optional - for meeting-specific validations)
-		meetingId: t
-			.varchar({ length: 255 })
-			.references(() => meetings.id, { onDelete: "cascade" }),
+		meetingId: t.varchar({ length: 255 }).references(() => meetings.id, { onDelete: "cascade" }),
 
 		// HyperVerge transaction ID (use this to lookup details in HyperVerge dashboard)
 		transactionId: t.varchar({ length: 255 }).notNull().unique(),

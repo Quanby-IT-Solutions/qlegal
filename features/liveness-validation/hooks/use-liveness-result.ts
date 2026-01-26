@@ -19,14 +19,23 @@ interface UseLivenessResultOptions {
 	enabled?: boolean
 }
 
-export function useLivenessResult({ transactionId, meetingId, enabled = true }: UseLivenessResultOptions) {
+export function useLivenessResult({
+	transactionId,
+	meetingId,
+	enabled = true,
+}: UseLivenessResultOptions) {
 	return useQuery({
 		queryKey: ["liveness-result", transactionId, meetingId],
 		queryFn: async () => {
 			if (!transactionId) {
 				throw new Error("Transaction ID is required")
 			}
-			console.log("🔵 [TanStack Query] Fetching liveness result for:", transactionId, "meeting:", meetingId || "N/A")
+			console.log(
+				"🔵 [TanStack Query] Fetching liveness result for:",
+				transactionId,
+				"meeting:",
+				meetingId || "N/A"
+			)
 			return getHostedLivenessResult(transactionId, meetingId || undefined)
 		},
 		enabled: enabled && !!transactionId,

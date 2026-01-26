@@ -2,7 +2,15 @@
 
 import { useRouter } from "next/navigation"
 import { useEffect, useState, useTransition } from "react"
-import { ArrowLeft, Camera, CheckCircle2, ExternalLink, Loader2, Smartphone, XCircle } from "lucide-react"
+import {
+	ArrowLeft,
+	Camera,
+	CheckCircle2,
+	ExternalLink,
+	Loader2,
+	Smartphone,
+	XCircle,
+} from "lucide-react"
 import { toast } from "sonner"
 
 import { Badge } from "@/core/components/ui/badge"
@@ -38,11 +46,11 @@ interface ValidationResult {
 	timestamp: Date
 }
 
-export function LivenessValidationCard({ 
+export function LivenessValidationCard({
 	redirectUrl,
 	meetingId,
-	canGoBack = false
-}: { 
+	canGoBack = false,
+}: {
 	redirectUrl?: string
 	meetingId?: string
 	canGoBack?: boolean
@@ -158,16 +166,14 @@ export function LivenessValidationCard({
 						</div>
 						<div>
 							<CardTitle className="text-2xl">Face Verification</CardTitle>
-							<CardDescription className="mt-1">
-								Verify your identity to continue
-							</CardDescription>
+							<CardDescription className="mt-1">Verify your identity to continue</CardDescription>
 						</div>
 					</div>
 					{canGoBack && !showCapture && !validationResult && (
 						<Button
 							variant="ghost"
 							size="sm"
-							onClick={() => router.push('/meetings')}
+							onClick={() => router.push("/meetings")}
 							className="text-muted-foreground hover:text-foreground"
 						>
 							<ArrowLeft className="mr-2 h-4 w-4" />
@@ -204,11 +210,7 @@ export function LivenessValidationCard({
 										</p>
 									</div>
 								</div>
-								<Button 
-									onClick={() => setShowCapture(true)} 
-									className="w-full shadow-lg" 
-									size="lg"
-								>
+								<Button onClick={() => setShowCapture(true)} className="w-full shadow-lg" size="lg">
 									<Camera className="mr-2 h-5 w-5" />
 									Start Verification
 								</Button>
@@ -276,7 +278,9 @@ export function LivenessValidationCard({
 										: "text-red-900 dark:text-red-100"
 								}`}
 							>
-								{validationResult.decision.isApproved ? "Verification Complete!" : "Verification Failed"}
+								{validationResult.decision.isApproved
+									? "Verification Complete!"
+									: "Verification Failed"}
 							</h3>
 							<p
 								className={`text-sm ${

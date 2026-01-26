@@ -38,10 +38,7 @@ export function AddressForm() {
 	const { mutate, isPending } = trpc.profile.updateAddress.useMutation({
 		onSuccess: async data => {
 			router.refresh()
-			await Promise.all([
-				updateSession({ user: data.user }),
-				utils.profile.getAddress.invalidate(),
-			])
+			await Promise.all([updateSession({ user: data.user }), utils.profile.getAddress.invalidate()])
 			toast.success(data.message)
 		},
 		onError: err => toast.error(err.message),

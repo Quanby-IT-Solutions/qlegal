@@ -93,7 +93,6 @@ const PIE_COLORS = ["#3b82f6", "#8b5cf6", "#10b981", "#f59e0b", "#ef4444", "#06b
 type DashboardStatistics = RouterOutputs["dashboard"]["getStatistics"]
 
 export default function DashboardPage() {
-	
 	const router = useRouter()
 	const pathname = usePathname()
 	const { data: session } = useSession()
@@ -517,7 +516,7 @@ export default function DashboardPage() {
 								)}
 								{isENP && (
 									<Link
-										href="/requests/incoming"
+										href="/requests"
 										className={buttonVariants({
 											variant: "outline",
 											className: "relative h-auto flex-col items-start gap-2 overflow-visible p-4",

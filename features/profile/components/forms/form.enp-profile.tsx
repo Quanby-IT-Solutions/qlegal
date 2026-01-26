@@ -1,8 +1,8 @@
 "use client"
 
-import { Calendar as CalendarIcon } from "lucide-react"
-import { format } from "date-fns"
 import { zodResolver } from "@hookform/resolvers/zod"
+import { format } from "date-fns"
+import { Calendar as CalendarIcon } from "lucide-react"
 import { useForm } from "react-hook-form"
 import { toast } from "sonner"
 
@@ -24,6 +24,13 @@ import { cn } from "@/core/lib/utils"
 import { trpc } from "@/services/trpc/client"
 
 import { enpProfileSchema, type EnpProfileSchema } from "@/features/profile/api/profile.schema"
+
+// Helper function to safely parse and format dates
+const parseDate = (dateString: string | null | undefined): Date | undefined => {
+	if (!dateString) return undefined
+	const parsed = new Date(dateString)
+	return Number.isNaN(parsed.getTime()) ? undefined : parsed
+}
 
 export function EnpProfileForm() {
 	const { data: enpProfile } = trpc.profile.getEnpProfile.useQuery()
@@ -82,7 +89,10 @@ export function EnpProfileForm() {
 								<FormItem>
 									<FormLabel>ENP Name</FormLabel>
 									<FormControl>
-										<Input placeholder="e.g., Mariae Francine Geraldine Biglaen y Sibulop" {...field} />
+										<Input
+											placeholder="e.g., Mariae Francine Geraldine Biglaen y Sibulop"
+											{...field}
+										/>
 									</FormControl>
 									<FormMessage />
 								</FormItem>
@@ -121,7 +131,7 @@ export function EnpProfileForm() {
 							control={form.control}
 							name="rollNoDate"
 							render={({ field }) => {
-								const dateValue = field.value ? new Date(field.value) : undefined
+								const dateValue = parseDate(field.value)
 
 								return (
 									<FormItem>
@@ -177,7 +187,10 @@ export function EnpProfileForm() {
 								<FormItem className="md:col-span-2">
 									<FormLabel>Attorney Name</FormLabel>
 									<FormControl>
-										<Input placeholder="e.g., ATTY. MARIA ANGELICA M. DELA CRUZ-SAN FELIPE" {...field} />
+										<Input
+											placeholder="e.g., ATTY. MARIA ANGELICA M. DELA CRUZ-SAN FELIPE"
+											{...field}
+										/>
 									</FormControl>
 									<FormMessage />
 								</FormItem>
@@ -202,7 +215,7 @@ export function EnpProfileForm() {
 							control={form.control}
 							name="commissionNoValidUntil"
 							render={({ field }) => {
-								const dateValue = field.value ? new Date(field.value) : undefined
+								const dateValue = parseDate(field.value)
 
 								return (
 									<FormItem>
@@ -274,7 +287,7 @@ export function EnpProfileForm() {
 							control={form.control}
 							name="ptrNoDate"
 							render={({ field }) => {
-								const dateValue = field.value ? new Date(field.value) : undefined
+								const dateValue = parseDate(field.value)
 
 								return (
 									<FormItem>
@@ -333,7 +346,7 @@ export function EnpProfileForm() {
 							control={form.control}
 							name="ibpNoDate"
 							render={({ field }) => {
-								const dateValue = field.value ? new Date(field.value) : undefined
+								const dateValue = parseDate(field.value)
 
 								return (
 									<FormItem>
@@ -434,7 +447,7 @@ export function EnpProfileForm() {
 							control={form.control}
 							name="mcleNoDate"
 							render={({ field }) => {
-								const dateValue = field.value ? new Date(field.value) : undefined
+								const dateValue = parseDate(field.value)
 
 								return (
 									<FormItem>
