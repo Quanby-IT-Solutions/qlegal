@@ -57,6 +57,8 @@ export const notarialActs = createTable(
 		principalName: t.varchar({ length: 255 }).notNull(),
 		principalIdNumber: t.varchar({ length: 255 }),
 		principalAddress: t.text(),
+		principalIdImageBase64: t.text(), // Base64 image of principal's ID from KYC
+		principalIdType: t.varchar({ length: 100 }), // OCR document type (e.g., "Driver's License", "National ID", "Passport")
 
 		// Witness information (if applicable)
 		witnessName: t.varchar({ length: 255 }),
@@ -71,6 +73,7 @@ export const notarialActs = createTable(
 		location: t.varchar({ length: 255 }), // Location of notarization
 		ipAddress: t.varchar({ length: 255 }), // IP address from session
 		workflow: t.varchar({ length: 10 }), // REN or IEN
+		locationStatement: t.text(), // Statement that act was executed while all parties were in Philippines or Philippine embassy/consular office abroad
 
 		// Document information
 		documentName: t.varchar({ length: 255 }),
