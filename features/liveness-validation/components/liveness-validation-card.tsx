@@ -27,6 +27,7 @@ import {
 	startHostedLivenessWorkflow,
 } from "@/features/liveness-validation/api/liveness.actions"
 import { SelfieCapture } from "@/features/liveness-validation/components/selfie-capture"
+import { getLivenessFailureCopy } from "@/features/liveness-validation/lib/liveness-failure-copy"
 
 interface LivenessDecisionResult {
 	isLive: boolean
@@ -100,7 +101,7 @@ export function LivenessValidationCard({
 		}
 
 		if (!result.decision.isApproved) {
-			toast.error("Verification failed")
+			toast.error("We couldn’t confirm your liveness. Please try again.")
 		}
 		setValidationResult({ ...result, timestamp: new Date() })
 	}
@@ -302,17 +303,25 @@ export function LivenessValidationCard({
 										: "text-red-700 dark:text-red-300"
 								}`}
 							>
-								{validationResult.decision.message}
+								{validationResult.decision.isApproved
+									? "Your liveness was verified successfully."
+									: getLivenessFailureCopy({
+											message: validationResult.decision.message,
+											qualityIssues: validationResult.decision.qualityIssues,
+										}).description}
 							</p>
 
-							{validationResult.decision.qualityIssues.length > 0 && (
+							{!validationResult.decision.isApproved && (
 								<div className="mt-4 rounded-lg bg-white/50 p-4 dark:bg-black/20">
 									<p className="mb-2 text-xs font-medium text-red-800 dark:text-red-300">
-										Issues Detected:
+										Tips to improve the next try:
 									</p>
 									<ul className="space-y-1 text-xs text-red-600 dark:text-red-400">
-										{validationResult.decision.qualityIssues.map((issue, idx) => (
-											<li key={idx}>• {issue}</li>
+										{getLivenessFailureCopy({
+											message: validationResult.decision.message,
+											qualityIssues: validationResult.decision.qualityIssues,
+										}).tips.map(tip => (
+											<li key={tip}>• {tip}</li>
 										))}
 									</ul>
 								</div>

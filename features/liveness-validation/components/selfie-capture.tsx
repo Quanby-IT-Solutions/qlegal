@@ -15,6 +15,7 @@ import { toast } from "sonner"
 import { Button } from "@/core/components/ui/button"
 
 import { validateSelfieLiveness } from "@/features/liveness-validation/api/liveness.actions"
+import { getLivenessFailureCopy } from "@/features/liveness-validation/lib/liveness-failure-copy"
 
 interface LivenessDecisionResult {
 	isLive: boolean
@@ -56,6 +57,10 @@ export function SelfieCapture({ onSuccess, onError, onCancel, meetingId }: Selfi
 	const isApproved = validationResult?.decision?.isApproved === true
 	const hasValidationResult = validationResult !== null
 	const canStartCamera = !cameraActive && !capturedImage
+	const failureCopy = getLivenessFailureCopy({
+		message: validationResult?.decision?.message ?? validationResult?.message,
+		qualityIssues: validationResult?.decision?.qualityIssues,
+	})
 
 	// Start camera
 	const startCamera = useCallback(async () => {
@@ -87,11 +92,7 @@ export function SelfieCapture({ onSuccess, onError, onCancel, meetingId }: Selfi
 			}
 		} catch (error) {
 			console.error("Camera error:", error)
-			setCameraError(
-				error instanceof Error
-					? error.message
-					: "Failed to access camera. Please ensure camera permissions are granted."
-			)
+			setCameraError("Camera access is blocked. Please allow camera permissions and try again.")
 			setCameraActive(false)
 		}
 	}, [facingMode])
@@ -183,7 +184,7 @@ export function SelfieCapture({ onSuccess, onError, onCancel, meetingId }: Selfi
 							decision: result.data.decision,
 						})
 					} else {
-						toast.error(result.data.decision.message || "Liveness verification failed")
+						toast.error("We couldn’t confirm your liveness. Please retake and try again.")
 						onError?.(result.data.decision.message || "Verification failed")
 					}
 				} else {
@@ -191,7 +192,7 @@ export function SelfieCapture({ onSuccess, onError, onCancel, meetingId }: Selfi
 						success: false,
 						message: result.error || "Validation failed",
 					})
-					toast.error(result.error || "Validation failed")
+					toast.error("We couldn’t confirm your liveness. Please retake and try again.")
 					onError?.(result.error || "Validation failed")
 				}
 			} catch (error) {
@@ -200,7 +201,7 @@ export function SelfieCapture({ onSuccess, onError, onCancel, meetingId }: Selfi
 					success: false,
 					message: errorMessage,
 				})
-				toast.error(errorMessage)
+				toast.error("We couldn’t confirm your liveness. Please retake and try again.")
 				onError?.(errorMessage)
 			}
 		})
@@ -217,7 +218,7 @@ export function SelfieCapture({ onSuccess, onError, onCancel, meetingId }: Selfi
 			{/* Instructions */}
 			<div className="rounded-lg border border-blue-200 bg-blue-50 p-4 dark:border-blue-800 dark:bg-blue-950/20">
 				<p className="mb-2 text-sm font-medium text-blue-900 dark:text-blue-100">
-					📷 Live Selfie Capture
+					Live Selfie Capture
 				</p>
 				<ul className="list-inside list-disc space-y-1 text-xs text-blue-700 dark:text-blue-300">
 					<li>Ensure good lighting on your face</li>
@@ -339,16 +340,17 @@ export function SelfieCapture({ onSuccess, onError, onCancel, meetingId }: Selfi
 										: "text-red-700 dark:text-red-300"
 								}`}
 							>
-								{validationResult.decision?.message || validationResult.message}
+								{validationResult.success && validationResult.decision?.isApproved
+									? "Your liveness was verified successfully."
+									: failureCopy.description}
 							</p>
-							{validationResult.decision?.qualityIssues &&
-								validationResult.decision.qualityIssues.length > 0 && (
-									<ul className="mt-2 list-inside list-disc text-xs text-red-600 dark:text-red-400">
-										{validationResult.decision.qualityIssues.map((issue, idx) => (
-											<li key={idx}>{issue}</li>
-										))}
-									</ul>
-								)}
+							{!isApproved && (
+								<ul className="mt-2 list-inside list-disc text-xs text-red-600 dark:text-red-400">
+									{failureCopy.tips.map(tip => (
+										<li key={tip}>{tip}</li>
+									))}
+								</ul>
+							)}
 						</div>
 					</div>
 				</div>
