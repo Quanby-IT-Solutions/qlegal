@@ -186,18 +186,7 @@ export const appSidebarSections: NavSection[] = [
 				roles: ["ENA", "ADMIN"],
 			},
 		],
-	},
-	{
-		label: "Settings",
-		items: [
-			{
-				title: "Account Settings",
-				url: "/settings",
-				icon: Settings01Icon,
-				roles: ["ENP", "PRINCIPAL", "ENA", "ADMIN"],
-			},
-		],
-	},
+	}
 ]
 
 const siteUserConfig: NavItem[] = [
