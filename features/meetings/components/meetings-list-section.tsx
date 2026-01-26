@@ -7,6 +7,7 @@ import {
 	Calendar,
 	Clock,
 	FileText,
+	Film,
 	Grid3x3,
 	LayoutList,
 	Loader2,
@@ -53,6 +54,9 @@ import {
 } from "@/core/components/ui/select"
 import { Skeleton } from "@/core/components/ui/skeleton"
 
+import { useMeetings } from "@/features/meetings/api/meetings.hooks"
+import { MeetingRecordingsModal } from "@/features/meetings/components/meeting-recordings-modal"
+import { useMessages } from "@/features/messages/api/messages.hooks"
 import { trpc } from "@/services/trpc/client"
 
 import { useMeetings } from "@/features/meetings/api/meetings.hooks"
@@ -124,13 +128,14 @@ export function MeetingsListSection() {
 	const [statusFilter, setStatusFilter] = useState<string>("ALL")
 	const [searchTerm, setSearchTerm] = useState("")
 	const [viewMode, setViewMode] = useState<"list" | "grid">("list")
+	const [recordingsModalOpen, setRecordingsModalOpen] = useState(false)
+	const [recordingsModalMeeting, setRecordingsModalMeeting] = useState<{
+		id: string
+		title: string
+	} | null>(null)
 
-	// Only query user search when the dialog search field is used.
-	// Avoid pulling/polling conversations on this page.
-	const { data: searchResults } = trpc.messages.searchUsers.useQuery(
-		{ query: userSearchQuery || "" },
-		{ enabled: userSearchQuery.length > 0 }
-	)
+	const { searchUsers } = useMessages()
+	const { data: searchResults } = searchUsers(userSearchQuery)
 
 	const filteredMeetings = meetings.filter(meeting => {
 		const matchesSearch =
@@ -320,10 +325,7 @@ export function MeetingsListSection() {
 													<Avatar className="size-5">
 														<AvatarImage src={user.image ?? undefined} />
 														<AvatarFallback className="bg-primary text-primary-foreground text-xs">
-															{user.name
-																?.split(" ")
-																.map(n => n[0])
-																.join("")}
+															{user.name?.split(" ").map((n: string) => n[0]).join("")}
 														</AvatarFallback>
 													</Avatar>
 													<span className="font-medium">{user.name}</span>
@@ -357,7 +359,7 @@ export function MeetingsListSection() {
 												<div className="p-2">
 													{searchResults && searchResults.length > 0 ? (
 														<div className="space-y-1">
-															{searchResults.map(user => {
+															{searchResults.map((user: (typeof selectedUsers)[number]) => {
 																const isSelected = selectedUsers.some(u => u.id === user.id)
 																return (
 																	<button
@@ -369,18 +371,15 @@ export function MeetingsListSection() {
 																		<Avatar className="group-hover:ring-primary/20 size-12 ring-2 ring-transparent transition-all">
 																			<AvatarImage src={user.image ?? undefined} />
 																			<AvatarFallback className="bg-primary text-primary-foreground font-semibold">
-																				{user.name
-																					?.split(" ")
-																					.map(n => n[0])
-																					.join("")}
+																				{user.name?.split(" ").map((n: string) => n[0]).join("")}
 																			</AvatarFallback>
 																		</Avatar>
-																		<div className="flex-1 overflow-hidden">
-																			<p className="text-base font-semibold">{user.name}</p>
-																			<p className="text-muted-foreground truncate text-sm">
-																				{user.email}
-																			</p>
-																		</div>
+														<div className="flex-1 overflow-hidden">
+															<p className="text-base font-semibold">{user.name}</p>
+															<p className="text-muted-foreground truncate text-sm">
+																{user.email}
+															</p>
+														</div>
 																		{isSelected && (
 																			<Badge
 																				variant="secondary"
@@ -584,15 +583,15 @@ export function MeetingsListSection() {
 									? format(new Date(meeting.createdAt), "PPp")
 									: "Not scheduled"
 
-								return (
-									<Card key={meeting.id} className="transition-shadow hover:shadow-md">
-										<CardContent className="p-6">
-											<div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-												<div className="min-w-0 flex-1">
-													<div className="mb-2 flex flex-wrap items-center gap-3">
-														<h4 className="text-lg font-medium">{meeting.title}</h4>
-														{getStatusBadge(meeting.status)}
-													</div>
+							return (
+								<Card key={meeting.id} className="transition-shadow hover:shadow-md">
+									<CardContent className="relative pl-10 pr-10">
+										<div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+											<div className="min-w-0 flex-1">
+												<div className="mb-2 flex flex-wrap items-center gap-3">
+													<h4 className="text-lg font-medium">{meeting.title}</h4>
+													{getStatusBadge(meeting.status)}
+												</div>
 
 													<div className="text-muted-foreground mb-3 flex flex-wrap items-center gap-4 text-sm">
 														<div className="flex items-center gap-1">
@@ -617,27 +616,24 @@ export function MeetingsListSection() {
 														</div>
 													</div>
 
-													<div className="flex flex-wrap items-center gap-4">
-														<div className="flex items-center gap-2">
-															<Avatar className="size-8">
-																<AvatarImage
-																	src={meeting.createdBy.image ?? undefined}
-																	alt={meeting.createdBy.name ?? "User"}
-																/>
-																<AvatarFallback>
-																	{meeting.createdBy.name
-																		?.split(" ")
-																		.map(n => n[0])
-																		.join("") ?? "U"}
-																</AvatarFallback>
-															</Avatar>
-															<div className="text-sm">
-																<p className="font-medium">{meeting.createdBy.name}</p>
-																<p className="text-muted-foreground">Host</p>
-															</div>
+												<div className="flex flex-wrap items-center gap-4">
+													<div className="flex items-center gap-2">
+														<Avatar className="size-8">
+															<AvatarImage
+																src={meeting.createdBy.image ?? undefined}
+																alt={meeting.createdBy.name ?? "User"}
+															/>
+															<AvatarFallback>
+																{meeting.createdBy.name?.split(" ").map((n: string) => n[0]).join("") ?? "U"}
+															</AvatarFallback>
+														</Avatar>
+														<div className="text-sm">
+															<p className="font-medium">{meeting.createdBy.name}</p>
+															<p className="text-muted-foreground">Host</p>
 														</div>
 													</div>
 												</div>
+											</div>
 
 												<div className="flex shrink-0 flex-wrap items-center gap-2">
 													{canStart && (
@@ -699,24 +695,40 @@ export function MeetingsListSection() {
 														</Button>
 													)}
 
-													{isHost && (
-														<Button
-															variant="outline"
-															size="sm"
-															onClick={e => {
-																e.stopPropagation()
-																void handleDelete(meeting.id)
-															}}
-														>
-															<Trash2 className="size-4" />
-														</Button>
-													)}
-												</div>
+												{isHost && (
+													<Button
+														variant="outline"
+														size="sm"
+														onClick={e => {
+															e.stopPropagation()
+															void handleDelete(meeting.id)
+														}}
+													>
+														<Trash2 className="size-4" />
+													</Button>
+												)}
 											</div>
-										</CardContent>
-									</Card>
-								)
-							})}
+											<Button
+												variant="outline"
+												size="sm"
+												className="absolute bottom-4 right-10 flex items-center gap-2"
+												onClick={e => {
+													e.stopPropagation()
+													setRecordingsModalMeeting({
+													id: meeting.id,
+													title: meeting.title,
+													})
+													setRecordingsModalOpen(true)
+												}}
+												>
+												<Film className="size-4" />
+												Video Records
+											</Button>
+										</div>
+									</CardContent>
+								</Card>
+							)
+						})}
 						</div>
 					) : (
 						<div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -744,10 +756,7 @@ export function MeetingsListSection() {
 																alt={meeting.createdBy.name ?? "User"}
 															/>
 															<AvatarFallback className="bg-primary text-primary-foreground">
-																{meeting.createdBy.name
-																	?.split(" ")
-																	.map(n => n[0])
-																	.join("") ?? "U"}
+																{meeting.createdBy.name?.split(" ").map((n: string) => n[0]).join("") ?? "U"}
 															</AvatarFallback>
 														</Avatar>
 														<div className="min-w-0 flex-1">
@@ -854,6 +863,22 @@ export function MeetingsListSection() {
 														Meeting Ended
 													</Button>
 												)}
+
+												<Button
+													className="w-full"
+													variant="outline"
+													onClick={e => {
+														e.stopPropagation()
+														setRecordingsModalMeeting({
+															id: meeting.id,
+															title: meeting.title,
+														})
+														setRecordingsModalOpen(true)
+													}}
+												>
+													<Film className="mr-2 size-4" />
+													Video Records
+												</Button>
 											</div>
 										</CardContent>
 									</Card>
@@ -863,6 +888,15 @@ export function MeetingsListSection() {
 					)}
 				</div>
 			)}
+
+			<MeetingRecordingsModal
+				open={recordingsModalOpen}
+				onOpenChange={open => {
+					setRecordingsModalOpen(open)
+					if (!open) setRecordingsModalMeeting(null)
+				}}
+				meeting={recordingsModalMeeting}
+			/>
 		</div>
 	)
 }
