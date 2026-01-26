@@ -78,7 +78,7 @@ export const appSidebarSections: NavSection[] = [
 			},
 			{
 				title: "Notarial Registry",
-				url: "/appointments",
+				url: "/notarial-book-2",
 				icon: BookOpen02Icon,
 				roles: ["ENP"],
 			},

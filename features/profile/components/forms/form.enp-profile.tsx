@@ -25,6 +25,13 @@ import { trpc } from "@/services/trpc/client"
 
 import { enpProfileSchema, type EnpProfileSchema } from "@/features/profile/api/profile.schema"
 
+// Helper function to safely parse and format dates
+const parseDate = (dateString: string | null | undefined): Date | undefined => {
+	if (!dateString) return undefined
+	const parsed = new Date(dateString)
+	return Number.isNaN(parsed.getTime()) ? undefined : parsed
+}
+
 export function EnpProfileForm() {
 	const { data: enpProfile } = trpc.profile.getEnpProfile.useQuery()
 
@@ -124,7 +131,7 @@ export function EnpProfileForm() {
 							control={form.control}
 							name="rollNoDate"
 							render={({ field }) => {
-								const dateValue = field.value ? new Date(field.value) : undefined
+								const dateValue = parseDate(field.value)
 
 								return (
 									<FormItem>
@@ -208,7 +215,7 @@ export function EnpProfileForm() {
 							control={form.control}
 							name="commissionNoValidUntil"
 							render={({ field }) => {
-								const dateValue = field.value ? new Date(field.value) : undefined
+								const dateValue = parseDate(field.value)
 
 								return (
 									<FormItem>
@@ -280,7 +287,7 @@ export function EnpProfileForm() {
 							control={form.control}
 							name="ptrNoDate"
 							render={({ field }) => {
-								const dateValue = field.value ? new Date(field.value) : undefined
+								const dateValue = parseDate(field.value)
 
 								return (
 									<FormItem>
@@ -339,7 +346,7 @@ export function EnpProfileForm() {
 							control={form.control}
 							name="ibpNoDate"
 							render={({ field }) => {
-								const dateValue = field.value ? new Date(field.value) : undefined
+								const dateValue = parseDate(field.value)
 
 								return (
 									<FormItem>
@@ -440,7 +447,7 @@ export function EnpProfileForm() {
 							control={form.control}
 							name="mcleNoDate"
 							render={({ field }) => {
-								const dateValue = field.value ? new Date(field.value) : undefined
+								const dateValue = parseDate(field.value)
 
 								return (
 									<FormItem>
