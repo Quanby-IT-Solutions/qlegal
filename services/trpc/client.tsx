@@ -18,6 +18,7 @@ import SuperJSON from "superjson"
 
 import { getUrl } from "@/core/lib/get-url"
 
+import { type IncomingItem } from "@/features/requests/api/requests.router"
 import { makeQueryClient } from "@/services/trpc/query-client"
 import { type AppRouter } from "@/services/trpc/root"
 
@@ -124,3 +125,6 @@ export type RouterInputs = inferRouterInputs<AppRouter>
 export type RouterOutputs = inferRouterOutputs<AppRouter>
 
 export const trpc = createTRPCReact<AppRouter>()
+
+// Re-export types from routers for convenience
+export type { IncomingItem }
