@@ -77,7 +77,7 @@ export function ComprehensiveBookingDialog({
 			})
 			setOpen(false)
 			resetForm()
-			router.push("/dashboard" as Route)
+			router.push("/meetings" as Route)
 		},
 		onError: (error) => {
 			toast.error("Booking Failed", {
@@ -92,7 +92,7 @@ export function ComprehensiveBookingDialog({
 			toast.success("Signing session booked!")
 			setOpen(false)
 			resetForm()
-			router.push("/appointments" as Route)
+			router.push("/meetings" as Route)
 		},
 		onError: (error) => {
 			toast.error("Booking failed", {
