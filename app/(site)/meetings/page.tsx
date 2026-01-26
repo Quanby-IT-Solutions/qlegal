@@ -53,7 +53,7 @@ export default function MeetingsPage() {
 					{ label: "Meetings & Notarizations", href: "/meetings" },
 					{
 						label:
-							activeTab === "meetings" ? "Sessions" : activeTab === "active" ? "Active" : "History",
+							activeTab === "meetings" ? "Ongoing" : activeTab === "active" ? "Upcoming" : "Past",
 					},
 				]}
 			/>
@@ -62,7 +62,7 @@ export default function MeetingsPage() {
 				<div className="mx-auto max-w-7xl space-y-8">
 					{/* Header */}
 					<div className="space-y-2">
-						<h1 className="text-3xl font-bold tracking-tight">Meetings & Notarizations</h1>
+						<h1 className="text-3xl font-bold tracking-tight">Sessions</h1>
 						<p className="text-muted-foreground mt-2">
 							Manage your video meetings and notarization sessions
 						</p>
