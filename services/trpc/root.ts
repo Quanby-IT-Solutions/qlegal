@@ -53,6 +53,7 @@ export const appRouter = createTRPCRouter({
 	envelopeLite: envelopeLiteRouter,
 	lawyers: lawyersRouter,
 	appointments: appointmentsRouter,
+	lawyers: lawyersRouter,
 	legalRegistration: legalRegistrationRouter,
 	locationVerification: locationVerificationRouter,
 	meetings: meetingsRouter,
