@@ -10,6 +10,7 @@ export const createAppointmentSchema = z.object({
 		message: "Appointment date is required",
 	}),
 	duration: z.number().min(15).max(480).default(60), // 15 minutes to 8 hours
+	modeOfNotarization: z.enum(["REN", "IEN"]).default("REN"),
 	notes: z.string().optional(),
 	location: z.string().optional(),
 	meetingLink: z.string().url().optional().or(z.literal("")),

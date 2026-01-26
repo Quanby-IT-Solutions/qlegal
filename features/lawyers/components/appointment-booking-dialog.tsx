@@ -97,14 +97,13 @@ export function AppointmentBookingDialog({ lawyer, trigger }: AppointmentBooking
 		setLocation("")
 	}
 
-
 	const isBookingPending = createAppointment.isPending
 	const canSubmit = date && time
 
 	return (
 		<Dialog open={open} onOpenChange={setOpen}>
 			<DialogTrigger asChild>{trigger ?? <Button>Book Appointment</Button>}</DialogTrigger>
-			<DialogContent className="max-h-[90vh] w-[90vw] !max-w-4xl">
+			<DialogContent className="max-h-[90vh] w-[90vw] max-w-4xl!">
 				<DialogHeader>
 					<DialogTitle>Book Consultation with {lawyer.name}</DialogTitle>
 					<DialogDescription>
@@ -123,21 +122,15 @@ export function AppointmentBookingDialog({ lawyer, trigger }: AppointmentBooking
 								</CardDescription>
 							</CardHeader>
 							<CardContent className="space-y-4">
-								<RadioGroup
-									value={type}
-									onValueChange={value => setType(value as AppointmentType)}
-								>
+								<RadioGroup value={type} onValueChange={value => setType(value as AppointmentType)}>
 									<div className="grid grid-cols-1 gap-3 md:grid-cols-2">
 										<Card
 											className="hover:border-primary h-full cursor-pointer border-2 transition-all"
 											onClick={() => setType("CONSULTATION")}
 											style={{
-												borderColor:
-													type === "CONSULTATION" ? "hsl(var(--primary))" : undefined,
+												borderColor: type === "CONSULTATION" ? "hsl(var(--primary))" : undefined,
 												backgroundColor:
-													type === "CONSULTATION"
-														? "hsl(var(--primary) / 0.05)"
-														: undefined,
+													type === "CONSULTATION" ? "hsl(var(--primary) / 0.05)" : undefined,
 											}}
 										>
 											<CardHeader className="pb-3">
@@ -168,9 +161,7 @@ export function AppointmentBookingDialog({ lawyer, trigger }: AppointmentBooking
 												borderColor:
 													type === "DOCUMENT_SIGNING" ? "hsl(var(--primary))" : undefined,
 												backgroundColor:
-													type === "DOCUMENT_SIGNING"
-														? "hsl(var(--primary) / 0.05)"
-														: undefined,
+													type === "DOCUMENT_SIGNING" ? "hsl(var(--primary) / 0.05)" : undefined,
 											}}
 										>
 											<CardHeader className="pb-3">
@@ -291,9 +282,7 @@ export function AppointmentBookingDialog({ lawyer, trigger }: AppointmentBooking
 						<Card>
 							<CardHeader>
 								<CardTitle>Schedule your booking</CardTitle>
-								<CardDescription>
-									Select a date and time to confirm your booking.
-								</CardDescription>
+								<CardDescription>Select a date and time to confirm your booking.</CardDescription>
 							</CardHeader>
 							<CardContent className="space-y-6">
 								{/* Date Selection */}
@@ -390,7 +379,7 @@ export function AppointmentBookingDialog({ lawyer, trigger }: AppointmentBooking
 										placeholder="Add any additional information or requirements..."
 										value={notes}
 										onChange={e => setNotes(e.target.value)}
-										className="min-h-[100px] resize-none"
+										className="min-h-25 resize-none"
 										rows={4}
 									/>
 								</div>
@@ -429,8 +418,10 @@ export function AppointmentBookingDialog({ lawyer, trigger }: AppointmentBooking
 								type,
 								appointmentDate,
 								duration,
-								notes: notes || undefined,
-								location: location || undefined,
+								modeOfNotarization: sessionMode,
+								notes: type === "CONSULTATION" ? notes : undefined,
+								location:
+									type === "DOCUMENT_SIGNING" && sessionMode === "IEN" ? location : undefined,
 							})
 						}}
 						disabled={!canSubmit || isBookingPending}

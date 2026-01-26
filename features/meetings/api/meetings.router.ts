@@ -1,5 +1,5 @@
 import { TRPCError } from "@trpc/server"
-import { and, eq, inArray, type InferSelectModel } from "drizzle-orm"
+import { and, eq, inArray, or, type InferSelectModel } from "drizzle-orm"
 import { z } from "zod/v4"
 
 import {
@@ -10,6 +10,7 @@ import {
 	normalizeUrl,
 } from "@/services/doconchain"
 import { db } from "@/services/drizzle/db"
+import { appointments } from "@/services/drizzle/schema/appointments"
 import { users } from "@/services/drizzle/schema/auth"
 import { documents } from "@/services/drizzle/schema/document"
 import { documentSigners } from "@/services/drizzle/schema/document-signers"
@@ -17,11 +18,7 @@ import { enpProfiles } from "@/services/drizzle/schema/enp-profiles"
 import { meetingParticipants, meetings } from "@/services/drizzle/schema/meetings"
 import { getServiceRoleClient } from "@/services/supabase"
 import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
-import {
-	createMeetingRoom,
-	fetchRecordings,
-	generateMeetingToken,
-} from "@/services/video-sdk"
+import { createMeetingRoom, fetchRecordings, generateMeetingToken } from "@/services/video-sdk"
 
 function isEnpRole(role: unknown): boolean {
 	if (typeof role !== "string") return false
@@ -37,21 +34,31 @@ function asNonEmptyEmail(email: unknown): string | undefined {
 // Format date from ISO string or existing formatted string to readable format (e.g., "5 June 2018" or "Dec 31, 2025")
 function formatDateForStamp(dateString: string | null | undefined): string {
 	if (!dateString) return ""
-	
+
 	// Try to parse as ISO date
 	const date = new Date(dateString)
 	if (!Number.isNaN(date.getTime())) {
 		// Format as "d MMM yyyy" (e.g., "5 June 2018")
 		const day = date.getDate()
 		const monthNames = [
-			"January", "February", "March", "April", "May", "June",
-			"July", "August", "September", "October", "November", "December"
+			"January",
+			"February",
+			"March",
+			"April",
+			"May",
+			"June",
+			"July",
+			"August",
+			"September",
+			"October",
+			"November",
+			"December",
 		]
 		const month = monthNames[date.getMonth()]
 		const year = date.getFullYear()
 		return `${day} ${month} ${year}`
 	}
-	
+
 	// If not a valid date, return as-is (might already be formatted)
 	return dateString
 }
@@ -860,7 +867,7 @@ export const meetingsRouter = createTRPCRouter({
 			})
 		)
 		.mutation(async ({ ctx, input }) => {
-			const { documentId, meetingId} = input
+			const { documentId, meetingId } = input
 
 			const meeting = await db.query.meetings.findFirst({
 				where: eq(meetings.id, meetingId),
@@ -876,12 +883,12 @@ export const meetingsRouter = createTRPCRouter({
 							},
 						},
 					},
-				documents: {
-					where: eq(documents.id, documentId),
-					with: {
-						signers: { columns: { userId: true, signingOrder: true } },
+					documents: {
+						where: eq(documents.id, documentId),
+						with: {
+							signers: { columns: { userId: true, signingOrder: true } },
+						},
 					},
-				},
 					createdBy: {
 						columns: {
 							email: true,
@@ -894,6 +901,17 @@ export const meetingsRouter = createTRPCRouter({
 			if (!meeting) {
 				throw new TRPCError({ code: "NOT_FOUND", message: "Meeting not found" })
 			}
+
+			// Find appointment associated with this meeting to get mode of notarization
+			const appointment = await db.query.appointments.findFirst({
+				where: or(
+					eq(appointments.lawyerId, meeting.createdById),
+					eq(appointments.clientId, meeting.participants[0]?.userId ?? "")
+				),
+			})
+
+			// Get mode of notarization (REN or IEN) from appointment
+			const modeOfNotarization = appointment?.modeOfNotarization ?? "REN"
 
 			const isHost = meeting.createdById === ctx.session.user.id
 			const isAccepted = meeting.participants.some(
@@ -1030,7 +1048,7 @@ export const meetingsRouter = createTRPCRouter({
 					MCLE_no_period: enpProfile.mcleNoPeriod ?? "",
 					MCLE_no: enpProfile.mcleNo ?? "",
 					MCLE_no_date: formatDateForStamp(enpProfile.mcleNoDate),
-					mode_of_notarization: document.notarizationType ?? "",
+					mode_of_notarization: modeOfNotarization,
 				},
 			}
 
@@ -1074,7 +1092,7 @@ export const meetingsRouter = createTRPCRouter({
 		}),
 
 	// Set which meeting participants are signers for a given document (before plotting)
-			setDocumentSigners: protectedProcedure
+	setDocumentSigners: protectedProcedure
 		.input(
 			z.object({
 				documentId: z.string().min(1),

@@ -23,6 +23,7 @@ export const appointments = createTable("appointment", t => ({
 	status: appointmentStatus().default("PENDING").notNull(),
 	appointmentDate: t.timestamp({ mode: "date", withTimezone: true }).notNull(),
 	duration: t.integer().default(60).notNull(), // Duration in minutes
+	modeOfNotarization: t.varchar({ length: 10 }).notNull(), // "REN" or "IEN" - session mode selected during booking
 	notes: t.text(),
 	location: t.text(), // For in-person appointments
 	meetingLink: t.text(), // For remote appointments
