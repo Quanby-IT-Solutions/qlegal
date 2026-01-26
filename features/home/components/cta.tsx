@@ -52,7 +52,7 @@ export function CTA() {
 								size="lg"
 								className="border-border/50 bg-background/50 hover:border-border hover:bg-background/80 px-8 py-6 text-lg backdrop-blur-sm transition-all duration-300"
 							>
-								<Link href="/calendar">
+								<Link href="/browse">
 									<Users className="mr-2 h-5 w-5" />
 									Book a Notary
 								</Link>
