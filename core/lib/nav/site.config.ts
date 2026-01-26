@@ -1,11 +1,8 @@
 import {
 	BookOpen02Icon,
-	BookOpenIcon,
 	Calendar02Icon,
 	ChatIcon,
-	CheckmarkBadge01Icon,
 	CustomerSupportIcon,
-	DocumentAttachmentIcon,
 	DocumentValidationIcon,
 	Home01Icon,
 	Notification01Icon,
@@ -89,93 +86,93 @@ export const appSidebarSections: NavSection[] = [
 			},
 		],
 	},
-	{
-		label: "Old",
-		items: [
-			{
-				title: "Appointment Meeting",
-				url: "/appointments",
-				icon: Video01Icon,
-				roles: ["ENP"],
-			},
-			{
-				title: "Meetings & Notarization",
-				url: "/meetings",
-				icon: DocumentAttachmentIcon,
-				roles: ["ENP", "PRINCIPAL"],
-			},
-			{
-				title: "Documents",
-				url: "/documents",
-				icon: DocumentAttachmentIcon,
-				roles: ["ENP", "PRINCIPAL"],
-				items: [
-					{
-						title: "Create Envelope",
-						url: "/documents/create",
-						roles: ["ENP"],
-					},
-					{
-						title: "Pending Signatures",
-						url: "/documents/pending",
-						roles: ["ENP", "PRINCIPAL"],
-					},
-					{
-						title: "Completed Documents",
-						url: "/documents/completed",
-						roles: ["ENP", "PRINCIPAL"],
-					},
-					{
-						title: "Templates",
-						url: "/documents/templates",
-						roles: ["ENP"],
-					},
-				],
-			},
-			{
-				title: "Notarial Book",
-				url: "/notarial-book",
-				icon: BookOpenIcon,
-				roles: ["ENP"],
-				badge: "soon",
-			},
-			{
-				title: "Audit & Compliance",
-				url: "/audit",
-				icon: CheckmarkBadge01Icon,
-				roles: ["ENA", "ADMIN"],
-				items: [
-					{
-						title: "Notarial Records",
-						url: "/audit/records",
-						roles: ["ENA", "ADMIN"],
-					},
-					{
-						title: "Compliance Reports",
-						url: "/audit/reports",
-						roles: ["ENA", "ADMIN"],
-					},
-					{
-						title: "Violations",
-						url: "/audit/violations",
-						roles: ["ENA", "ADMIN"],
-					},
-				],
-			},
-			{
-				title: "Identity Verification",
-				url: "/verification/identity",
-				icon: UserIcon,
-				roles: ["ENP"],
-			},
-			{
-				title: "Witness Management",
-				url: "/verification/witness",
-				icon: UserGroupIcon,
-				roles: ["ENP"],
-			},
-		],
-	},
+	// {
+	// 	label: "Old",
+	// 	items: [
+	// 		{
+	// 			title: "Appointment Meeting",
+	// 			url: "/appointments",
+	// 			icon: Video01Icon,
+	// 			roles: ["ENP"],
+	// 		},
+	// 		{
+	// 			title: "Meetings & Notarization",
+	// 			url: "/meetings",
+	// 			icon: DocumentAttachmentIcon,
+	// 			roles: ["ENP", "PRINCIPAL"],
+	// 		},
+	// 		{
+	// 			title: "Documents",
+	// 			url: "/documents",
+	// 			icon: DocumentAttachmentIcon,
+	// 			roles: ["ENP", "PRINCIPAL"],
+	// 			items: [
+	// 				{
+	// 					title: "Create Envelope",
+	// 					url: "/documents/create",
+	// 					roles: ["ENP"],
+	// 				},
+	// 				{
+	// 					title: "Pending Signatures",
+	// 					url: "/documents/pending",
+	// 					roles: ["ENP", "PRINCIPAL"],
+	// 				},
+	// 				{
+	// 					title: "Completed Documents",
+	// 					url: "/documents/completed",
+	// 					roles: ["ENP", "PRINCIPAL"],
+	// 				},
+	// 				{
+	// 					title: "Templates",
+	// 					url: "/documents/templates",
+	// 					roles: ["ENP"],
+	// 				},
+	// 			],
+	// 		},
+	// 		{
+	// 			title: "Notarial Book",
+	// 			url: "/notarial-book",
+	// 			icon: BookOpenIcon,
+	// 			roles: ["ENP"],
+	// 			badge: "soon",
+	// 		},
+	// 		{
+	// 			title: "Audit & Compliance",
+	// 			url: "/audit",
+	// 			icon: CheckmarkBadge01Icon,
+	// 			roles: ["ENA", "ADMIN"],
+	// 			items: [
+	// 				{
+	// 					title: "Notarial Records",
+	// 					url: "/audit/records",
+	// 					roles: ["ENA", "ADMIN"],
+	// 				},
+	// 				{
+	// 					title: "Compliance Reports",
+	// 					url: "/audit/reports",
+	// 					roles: ["ENA", "ADMIN"],
+	// 				},
+	// 				{
+	// 					title: "Violations",
+	// 					url: "/audit/violations",
+	// 					roles: ["ENA", "ADMIN"],
+	// 				},
+	// 			],
+	// 		},
+	// 		{
+	// 			title: "Identity Verification",
+	// 			url: "/verification/identity",
+	// 			icon: UserIcon,
+	// 			roles: ["ENP"],
+	// 		},
+	// 		{
+	// 			title: "Witness Management",
+	// 			url: "/verification/witness",
+	// 			icon: UserGroupIcon,
+	// 			roles: ["ENP"],
+	// 		},
+	// 	],
+	// },
 	{
 		label: "Management",
 		items: [
