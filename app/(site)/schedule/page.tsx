@@ -17,7 +17,7 @@ export default async function SchedulePage() {
 	}
 
 	const today = new Date()
-	const scheduleData = await trpc.schedule.getEnpScheduleWithEvents({
+	const scheduleData = await trpc.requests.getEnpSchedule({
 		month: today.getMonth(),
 		year: today.getFullYear(),
 	})

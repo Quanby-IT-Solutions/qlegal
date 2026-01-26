@@ -51,6 +51,7 @@ export const ROUTE_CONFIG: RouteConfig = {
 			{ path: "/auth/kyc", exact: true },
 			{ path: "/auth/signature" },
 			{ path: "/auth/status", exact: true },
+      { path: "/appointments" },
 			{ path: "/browse" },
 			{ path: "/calendar" },
 			{ path: "/documents" },
@@ -79,7 +80,7 @@ export const ROUTE_CONFIG: RouteConfig = {
 			{ path: "/settings" },
 		],
 		byRole: {
-			ENP: [{ path: "/dashboard" }, { path: "/appointments" }, { path: "/schedule" }],
+			ENP: [{ path: "/dashboard" }, { path: "/schedule" }],
 			PRINCIPAL: [{ path: "/dashboard" }, { path: "/consultations" }],
 			ENA: [{ path: "/dashboard" }],
 			ADMIN: [{ path: "/dashboard" }, { path: "/management/users" }],
