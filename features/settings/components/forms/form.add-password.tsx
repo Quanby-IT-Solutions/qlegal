@@ -53,7 +53,11 @@ export function AddPasswordForm() {
 								<FormItem>
 									<FormLabel>New Password</FormLabel>
 									<FormControl>
-										<InputPassword placeholder="Enter your new password" {...field} />
+										<InputPassword
+											placeholder="Enter your new password"
+											autoComplete="new-password"
+											{...field}
+										/>
 									</FormControl>
 									<FormMessage />
 								</FormItem>
@@ -69,7 +73,11 @@ export function AddPasswordForm() {
 								<FormItem>
 									<FormLabel>Confirm Password</FormLabel>
 									<FormControl>
-										<InputPassword placeholder="Confirm your new password" {...field} />
+										<InputPassword
+											placeholder="Confirm your new password"
+											autoComplete="new-password"
+											{...field}
+										/>
 									</FormControl>
 									<FormMessage />
 								</FormItem>
