@@ -1,11 +1,13 @@
 "use server"
 
+import { eq } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 
 import { getUrl } from "@/core/lib/get-url"
 
 import { db } from "@/services/drizzle/db"
 import { livenessValidations } from "@/services/drizzle/schema/liveness"
+import { users } from "@/services/drizzle/schema/auth"
 import {
 	checkLiveness,
 	getWorkflowOutput,
@@ -13,6 +15,12 @@ import {
 	startHostedWorkflow,
 	type LivenessDecisionResult,
 } from "@/services/hyperverge/liveness"
+import { matchFaceSelfieToId } from "@/services/hyperverge/kyc-direct"
+import {
+	fetchImageUrlAsDataUrl,
+	getHyperVergeKycLogs,
+	pickBestFaceImageUrlFromLogs,
+} from "@/services/hyperverge/kyc-logs"
 import { auth } from "@/services/next-auth"
 
 /**
@@ -96,11 +104,89 @@ export async function validateSelfieLiveness(imageBase64: string, meetingId?: st
 			throw new Error("No decision returned from liveness check")
 		}
 
+		// Optional: Face match meeting selfie vs KYC reference (if available)
+		const user = await db.query.users.findFirst({
+			where: eq(users.id, session.user.id),
+			columns: {
+				kycStatus: true,
+				kycReferenceIdImageBase64: true,
+				kycTransactionId: true,
+			},
+		})
+
+		let referenceImageBase64 = user?.kycReferenceIdImageBase64 ?? null
+
+		// If KYC is verified but reference image is missing (common for onboarding link),
+		// fetch Logs API once and store a face reference for later checks.
+		if (user?.kycStatus === "VERIFIED" && !referenceImageBase64 && user.kycTransactionId) {
+			try {
+				const logs = await getHyperVergeKycLogs({ transactionId: user.kycTransactionId })
+				const url = pickBestFaceImageUrlFromLogs(logs)
+				if (url) {
+					const dataUrl = await fetchImageUrlAsDataUrl(url)
+					if (dataUrl) {
+						referenceImageBase64 = dataUrl
+						await db
+							.update(users)
+							.set({
+								kycReferenceIdImageBase64: dataUrl,
+								kycReferenceCreatedAt: new Date(),
+							})
+							.where(eq(users.id, session.user.id))
+					}
+				}
+			} catch (e) {
+				console.warn("⚠️ Failed to populate KYC reference image from Logs API:", e)
+			}
+		}
+
+		let faceMatchPassed = true
+		let faceMatchMeta:
+			| {
+					matchValue: "yes" | "no" | "unknown"
+					summaryAction: "pass" | "fail" | "manualReview" | "unknown"
+			  }
+			| null = null
+
+		if (user?.kycStatus === "VERIFIED" && referenceImageBase64) {
+			const faceMatch = await matchFaceSelfieToId({
+				transactionId,
+				selfieBase64: imageBase64,
+				idBase64: referenceImageBase64,
+				returnScore: true,
+			})
+
+			faceMatchMeta = {
+				matchValue: faceMatch.matchValue,
+				summaryAction: faceMatch.summaryAction,
+			}
+			faceMatchPassed = faceMatch.matchValue === "yes" && faceMatch.summaryAction === "pass"
+		}
+
+		const finalApproved = decision.isApproved && faceMatchPassed
+		const finalDecision: LivenessDecisionResult = finalApproved
+			? {
+					...decision,
+					isApproved: true,
+					message: "Liveness and face match verified successfully.",
+			  }
+			: faceMatchPassed
+				? {
+						...decision,
+						isApproved: false,
+				  }
+				: {
+						...decision,
+						isApproved: false,
+						message: "Face match failed. Please retake your selfie and try again.",
+				  }
+
 		console.log("📊 Liveness Decision:", {
 			liveFaceValue: decision.liveFaceValue,
 			summaryAction: decision.summaryAction,
 			isApproved: decision.isApproved,
 			qualityIssues: decision.qualityIssues,
+			faceMatchPassed,
 		})
 
 		// Save to database
@@ -109,8 +195,8 @@ export async function validateSelfieLiveness(imageBase64: string, meetingId?: st
 				userId: session.user.id,
 				meetingId: meetingId ?? null,
 				transactionId,
-				status: decision.isApproved ? "pass" : "fail",
-				errorMessage: decision.isApproved ? null : decision.message,
+				status: finalDecision.isApproved ? "pass" : "fail",
+				errorMessage: finalDecision.isApproved ? null : finalDecision.message,
 				attemptNumber: 1,
 			})
 			console.log(
@@ -128,17 +214,20 @@ export async function validateSelfieLiveness(imageBase64: string, meetingId?: st
 			success: true,
 			data: {
 				transactionId,
-				status: decision.isApproved ? "VERIFIED" : "REJECTED",
+				status: finalDecision.isApproved ? "VERIFIED" : "REJECTED",
 				decision: {
-					isLive: decision.isLive,
-					actionPassed: decision.actionPassed,
-					isApproved: decision.isApproved,
-					message: decision.message,
-					qualityIssues: decision.qualityIssues,
-					liveFaceValue: decision.liveFaceValue,
-					summaryAction: decision.summaryAction,
+					isLive: finalDecision.isLive,
+					actionPassed: finalDecision.actionPassed,
+					isApproved: finalDecision.isApproved,
+					message: finalDecision.message,
+					qualityIssues: finalDecision.qualityIssues,
+					liveFaceValue: finalDecision.liveFaceValue,
+					summaryAction: finalDecision.summaryAction,
 				} as LivenessDecisionResult,
-				metadata: result.metadata,
+				metadata: {
+					...result.metadata,
+					faceMatch: faceMatchMeta,
+				},
 			},
 		}
 	} catch (error) {

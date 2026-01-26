@@ -1,19 +1,25 @@
-import { type Route } from "next"
+"use client"
 
-import { SiteNavbar } from "@/core/components/navbar/site-navbar"
+import { useSession } from "next-auth/react"
+
+import { PageHeader } from "@/core/components/navbar/page-header"
 
 import { AvatarCard } from "@/features/profile/components/avatar-card"
-import { EnpProfileCard } from "@/features/profile/components/enp-profile-card"
+import { CertificationsCard } from "@/features/profile/components/certifications-card"
+import { LicensingCard } from "@/features/profile/components/licensing-card"
 import { PersonalInformationCard } from "@/features/profile/components/personal-information-card"
+import { RollRegistrationCard } from "@/features/profile/components/roll-registration-card"
 
 export default function Page() {
-	return (
-		<>
-			<SiteNavbar items={[{ label: "Profile", url: "/profile" as Route }]} showUserMenu={false} />
+	const { data: session } = useSession()
 
-			<div className="bg-muted/30 min-h-screen">
-				<main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-					<div className="mb-8 space-y-2">
+	const isENP = session?.user?.role === "ENP"
+	return (
+		<div className="flex flex-1 flex-col">
+			<PageHeader items={[{ label: "Profile", href: "/profile" }]} />
+			<main className="flex-1 p-4 md:p-6 lg:p-8">
+				<div className="mx-auto max-w-7xl space-y-8">
+					<div className="space-y-2">
 						<h1 className="text-2xl font-semibold tracking-tight">Profile Settings</h1>
 						<p className="text-muted-foreground text-sm">
 							Manage your profile information and settings here.
@@ -21,13 +27,16 @@ export default function Page() {
 					</div>
 
 					<AvatarCard />
-					<div className="h-8" />
 					<PersonalInformationCard />
-					<div className="h-8" />
-					<EnpProfileCard />
-					{/* <DefaultSignatureCard /> */}
-				</main>
-			</div>
-		</>
+					{isENP && (
+						<>
+							<RollRegistrationCard />
+							<LicensingCard />
+							<CertificationsCard />
+						</>
+					)}
+				</div>
+			</main>
+		</div>
 	)
 }

@@ -13,7 +13,6 @@ import {
 } from "lucide-react"
 import { toast } from "sonner"
 
-import { Badge } from "@/core/components/ui/badge"
 import { Button } from "@/core/components/ui/button"
 import {
 	Card,
@@ -28,6 +27,7 @@ import {
 	startHostedLivenessWorkflow,
 } from "@/features/liveness-validation/api/liveness.actions"
 import { SelfieCapture } from "@/features/liveness-validation/components/selfie-capture"
+import { getLivenessFailureCopy } from "@/features/liveness-validation/lib/liveness-failure-copy"
 
 interface LivenessDecisionResult {
 	isLive: boolean
@@ -64,12 +64,26 @@ export function LivenessValidationCard({
 
 	// Check liveness mode on mount
 	useEffect(() => {
-		getLivenessMode().then(result => {
-			if (result.success && result.data) {
-				setIsDirectModeEnabled(result.data.isDirectMode)
-			}
-			setIsLoading(false)
-		})
+		let isMounted = true
+
+		void getLivenessMode()
+			.then(result => {
+				if (!isMounted) return
+				if (result.success && result.data) {
+					setIsDirectModeEnabled(result.data.isDirectMode)
+				}
+			})
+			.catch(error => {
+				console.error("Failed to get liveness mode:", error)
+			})
+			.finally(() => {
+				if (!isMounted) return
+				setIsLoading(false)
+			})
+
+		return () => {
+			isMounted = false
+		}
 	}, [])
 
 	const handleSuccess = (result: {
@@ -87,7 +101,7 @@ export function LivenessValidationCard({
 		}
 
 		if (!result.decision.isApproved) {
-			toast.error("Verification failed")
+			toast.error("We couldn’t confirm your liveness. Please try again.")
 		}
 		setValidationResult({ ...result, timestamp: new Date() })
 	}
@@ -105,11 +119,11 @@ export function LivenessValidationCard({
 		startTransition(async () => {
 			try {
 				console.log("🔵 Starting hosted liveness workflow...")
-				console.log("   - Meeting ID:", meetingId || "N/A")
+				console.log("   - Meeting ID:", meetingId ?? "N/A")
 				const result = await startHostedLivenessWorkflow(redirectUrl, meetingId)
 
 				if (!result.success) {
-					throw new Error(result.error || "Failed to start hosted workflow")
+					throw new Error(result.error ?? "Failed to start hosted workflow")
 				}
 
 				if (!result.data?.redirectUrl) {
@@ -132,7 +146,7 @@ export function LivenessValidationCard({
 		return (
 			<Card className="w-full shadow-xl">
 				<CardContent className="flex items-center justify-center py-12">
-					<Loader2 className="text-primary h-8 w-8 animate-spin" />
+					<Loader2 className="text-primary size-8 animate-spin" />
 				</CardContent>
 			</Card>
 		)
@@ -161,8 +175,8 @@ export function LivenessValidationCard({
 			<CardHeader className="space-y-4">
 				<div className="flex items-start justify-between">
 					<div className="flex items-center gap-3">
-						<div className="bg-primary/10 flex h-12 w-12 items-center justify-center rounded-xl">
-							<Camera className="text-primary h-6 w-6" />
+						<div className="bg-primary/10 flex size-12 items-center justify-center rounded-xl">
+							<Camera className="text-primary size-6" />
 						</div>
 						<div>
 							<CardTitle className="text-2xl">Face Verification</CardTitle>
@@ -198,10 +212,10 @@ export function LivenessValidationCard({
 					<div className="space-y-4">
 						{/* Direct In-App Capture (if enabled) */}
 						{isDirectModeEnabled && (
-							<div className="group hover:border-primary/50 cursor-pointer rounded-xl border-2 border-transparent bg-gradient-to-br from-blue-50 to-indigo-50 p-6 transition-all dark:from-blue-950/20 dark:to-indigo-950/20">
+							<div className="group hover:border-primary/50 cursor-pointer rounded-xl border-2 border-transparent bg-linear-to-br from-blue-50 to-indigo-50 p-6 transition-all dark:from-blue-950/20 dark:to-indigo-950/20">
 								<div className="mb-4 flex items-start gap-4">
-									<div className="bg-primary/10 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg">
-										<Camera className="text-primary h-5 w-5" />
+									<div className="bg-primary/10 flex size-10 shrink-0 items-center justify-center rounded-lg">
+										<Camera className="text-primary size-5" />
 									</div>
 									<div className="flex-1">
 										<h3 className="mb-1 font-semibold">Quick Capture</h3>
@@ -218,10 +232,10 @@ export function LivenessValidationCard({
 						)}
 
 						{/* Hosted Workflow (Always Available) */}
-						<div className="group hover:border-primary/50 cursor-pointer rounded-xl border-2 border-transparent bg-gradient-to-br from-purple-50 to-pink-50 p-6 transition-all dark:from-purple-950/20 dark:to-pink-950/20">
+						<div className="group hover:border-primary/50 cursor-pointer rounded-xl border-2 border-transparent bg-linear-to-br from-purple-50 to-pink-50 p-6 transition-all dark:from-purple-950/20 dark:to-pink-950/20">
 							<div className="mb-4 flex items-start gap-4">
-								<div className="bg-primary/10 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg">
-									<Smartphone className="text-primary h-5 w-5" />
+								<div className="bg-primary/10 flex size-10 shrink-0 items-center justify-center rounded-lg">
+									<Smartphone className="text-primary size-5" />
 								</div>
 								<div className="flex-1">
 									<h3 className="mb-1 font-semibold">Hosted Verification</h3>
@@ -260,15 +274,15 @@ export function LivenessValidationCard({
 						<div
 							className={`rounded-2xl border-2 p-8 text-center ${
 								validationResult.decision.isApproved
-									? "border-green-500 bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950/20 dark:to-emerald-950/20"
-									: "border-red-500 bg-gradient-to-br from-red-50 to-rose-50 dark:from-red-950/20 dark:to-rose-950/20"
+									? "border-green-500 bg-linear-to-br from-green-50 to-emerald-50 dark:from-green-950/20 dark:to-emerald-950/20"
+									: "border-red-500 bg-linear-to-br from-red-50 to-rose-50 dark:from-red-950/20 dark:to-rose-950/20"
 							}`}
 						>
-							<div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-white/80 shadow-lg dark:bg-black/20">
+							<div className="mx-auto mb-4 flex size-16 items-center justify-center rounded-full bg-white/80 shadow-lg dark:bg-black/20">
 								{validationResult.decision.isApproved ? (
-									<CheckCircle2 className="h-8 w-8 text-green-600 dark:text-green-400" />
+									<CheckCircle2 className="size-8 text-green-600 dark:text-green-400" />
 								) : (
-									<XCircle className="h-8 w-8 text-red-600 dark:text-red-400" />
+									<XCircle className="size-8 text-red-600 dark:text-red-400" />
 								)}
 							</div>
 							<h3
@@ -289,17 +303,25 @@ export function LivenessValidationCard({
 										: "text-red-700 dark:text-red-300"
 								}`}
 							>
-								{validationResult.decision.message}
+								{validationResult.decision.isApproved
+									? "Your liveness was verified successfully."
+									: getLivenessFailureCopy({
+											message: validationResult.decision.message,
+											qualityIssues: validationResult.decision.qualityIssues,
+										}).description}
 							</p>
 
-							{validationResult.decision.qualityIssues.length > 0 && (
+							{!validationResult.decision.isApproved && (
 								<div className="mt-4 rounded-lg bg-white/50 p-4 dark:bg-black/20">
 									<p className="mb-2 text-xs font-medium text-red-800 dark:text-red-300">
-										Issues Detected:
+										Tips to improve the next try:
 									</p>
 									<ul className="space-y-1 text-xs text-red-600 dark:text-red-400">
-										{validationResult.decision.qualityIssues.map((issue, idx) => (
-											<li key={idx}>• {issue}</li>
+										{getLivenessFailureCopy({
+											message: validationResult.decision.message,
+											qualityIssues: validationResult.decision.qualityIssues,
+										}).tips.map(tip => (
+											<li key={tip}>• {tip}</li>
 										))}
 									</ul>
 								</div>

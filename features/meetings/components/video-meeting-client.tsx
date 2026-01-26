@@ -29,6 +29,7 @@ import {
 	Unlock,
 	User,
 	Users as UsersIcon,
+	WifiOff
 } from "lucide-react"
 import { useSession } from "next-auth/react"
 import { toast } from "sonner"
@@ -269,23 +270,23 @@ const MeetingControls = React.memo(function MeetingControls({
 					<Monitor className="size-4" />
 				</Button>
 
-				<Button
-					variant={localRecordingActive ? "destructive" : "outline"}
-					size="icon"
-					className={cn(
-						"size-9 rounded-full shadow-md transition-all hover:shadow-lg md:size-10",
-						localRecordingActive && "animate-pulse"
-					)}
-					onClick={handleToggleRecording}
-					title={
-						localRecordingActive ? `Stop recording (${localRecordingElapsed})` : "Start recording"
-					}
-				>
-					{localRecordingActive ? (
-						<Square className="size-4 fill-current" />
-					) : (
-						<CircleDot className="size-4" />
-					)}
+				<Button 
+				variant={localRecordingActive ? "destructive" : "outline"} 
+				size="icon" 
+				className={cn( "size-9 rounded-full shadow-md transition-all hover:shadow-lg md:size-10", 
+				localRecordingActive && "animate-pulse" )} 
+				onClick={handleToggleRecording} 
+				title={ 
+					localRecordingActive 
+					? 'Stop recording (${localRecordingElapsed}) '
+					: "Start recording" 
+				} 
+				> {localRecordingActive ? ( 
+				<Square className="size-4 fill-current" 
+				/> 
+				) : ( 
+				<CircleDot className="size-4" 
+				/> )} 
 				</Button>
 
 				{onUploadClick && (
@@ -921,7 +922,7 @@ const SignerSelector = React.memo(function SignerSelector({
 			.map(userId => participants.find(p => p.userId === userId))
 			.filter((p): p is NonNullable<typeof p> => p !== undefined)
 	}, [safeSignerUserIds, participants])
-
+	
 	return (
 		<div className="bg-muted/30 mb-3 space-y-1.5 rounded-lg border p-2.5">
 			<div className="mb-2 flex items-center gap-1.5">
@@ -2863,33 +2864,37 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 
 	// If I'm the initiator and everyone has accepted, start local recording (initiator only).
 	useEffect(() => {
-		if (!recordingConsentRequest) return
-		if (!localParticipantId) return
-
-		const isInitiator = recordingConsentRequest.initiatorName === (session?.user?.name ?? "Someone")
-		if (!isInitiator) return
-		if (recordingConsentDeclined) return
-
-		const required = recordingConsentRequest.requiredParticipantIds
-		if (!required || required.length === 0) return
-
-		const allAccepted = required.every(id => recordingConsentAcceptedIds.has(id))
-		if (!allAccepted) return
-
-		// Start recording as a direct consequence of the initiator's Accept click.
-		// NOTE: If the last accept came from a remote participant, this won't be a gesture.
-		// In practice, the initiator should click Accept last to satisfy getDisplayMedia gesture.
-		resetRecordingConsentUi()
-		void startLocalRecording()
+		if (!recordingConsentRequest || !localParticipantId) return;
+	
+		const requiredIds = recordingConsentRequest.requiredParticipantIds;
+		if (!requiredIds || requiredIds.length === 0) return;
+	
+		const allAccepted = requiredIds.every(id => recordingConsentAcceptedIds.has(id));
+	
+		// ✅ If all accepted, close modal and start recording (initiator only)
+		if (allAccepted) {
+			const isInitiator = recordingConsentRequest.initiatorName === (session?.user?.name ?? "Someone");
+			if (isInitiator) {
+				void startLocalRecording();
+			}
+			setRecordingConsentOpen(false);
+			resetRecordingConsentUi();
+		}
+	
+		// ❌ If anyone declined, close modal
+		if (recordingConsentDeclined) {
+			setRecordingConsentOpen(false);
+			resetRecordingConsentUi();
+		}
 	}, [
-		localParticipantId,
 		recordingConsentAcceptedIds,
 		recordingConsentDeclined,
 		recordingConsentRequest,
-		resetRecordingConsentUi,
+		localParticipantId,
 		session?.user?.name,
 		startLocalRecording,
-	])
+		resetRecordingConsentUi
+	]);	
 
 	// Memoize upload dialog open handler
 	const handleUploadClick = useCallback(() => {
@@ -3587,36 +3592,85 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 							Decline
 						</Button>
 						<Button
-							disabled={recordingConsentDeclined || !localParticipantId}
-							onClick={async () => {
-								await acceptConsent()
-
-								if (!recordingConsentRequest || !localParticipantId) return
-
-								const isInitiator =
-									recordingConsentRequest.initiatorName === (session?.user?.name ?? "Someone")
-
-								if (!isInitiator) return
-								if (recordingConsentDeclined) return
-
-								const required = recordingConsentRequest.requiredParticipantIds
-								const allAccepted = required.every(id =>
-									id === localParticipantId ? true : recordingConsentAcceptedIds.has(id)
-								)
-
-								if (!allAccepted) return
-
-								resetRecordingConsentUi()
-								void startLocalRecording()
-							}}
-						>
-							Agree
-						</Button>
+	disabled={recordingConsentDeclined || !localParticipantId}
+	onClick={async () => {
+		await acceptConsent(); // adds your participant to acceptedIds
+	}}
+>
+	Agree
+</Button>
 					</DialogFooter>
 				</DialogContent>
 			</Dialog>
 		</div>
 	)
+}
+
+export default function InternetSpeedModal({ onDismiss }: { onDismiss?: () => void }) {
+	const [open, setOpen] = useState(false);
+	const [speedMbps, setSpeedMbps] = useState<number | null>(null);
+
+	useEffect(() => {
+		// Check session storage to show only once
+		const hasShown = sessionStorage.getItem("internetSpeedModalShown");
+		if (hasShown) return;
+
+		const testSpeed = async () => {
+			try {
+				const start = performance.now();
+				// Small file to test speed
+				const response = await fetch("https://speed.hetzner.de/100MB.bin", { method: "HEAD" });
+				const end = performance.now();
+
+				const fileSizeMB = 0.5; // size of file in MB (adjust if needed)
+				const durationSec = (end - start) / 1000;
+				const speed = fileSizeMB / durationSec; // MB/s
+				const speedMbps = speed * 8; // MB/s → Mbps
+
+				setSpeedMbps(speedMbps);
+
+				if (speedMbps < 2) {
+					setOpen(true);
+					sessionStorage.setItem("internetSpeedModalShown", "true"); // mark as shown
+				}
+			} catch (err) {
+				console.error("Internet speed test failed:", err);
+				setOpen(true);
+				sessionStorage.setItem("internetSpeedModalShown", "true");
+			}
+		};
+
+		void testSpeed();
+	}, []);
+
+	return (
+		<Dialog open={open} onOpenChange={setOpen}>
+			<DialogContent className="max-w-md text-center">
+				<DialogHeader>
+					<DialogTitle className="text-lg font-bold text-red-600">
+						⚠️ Low Internet Speed
+					</DialogTitle>
+					<DialogDescription className="mt-2 text-sm text-muted-foreground">
+						Your connection speed is {speedMbps?.toFixed(2) ?? "--"} Mbps.
+						<br />
+						A minimum of 2 Mbps is required for a smooth meeting experience.
+					</DialogDescription>
+				</DialogHeader>
+
+				<DialogFooter className="mt-4 flex justify-center">
+					<Button
+						variant="destructive"
+						onClick={() => {
+							setOpen(false);
+							onDismiss?.();
+						}}
+					>
+						Proceed Anyway
+					</Button>
+				</DialogFooter>
+			</DialogContent>
+		</Dialog>
+	);
 }
 
 // Main export component
