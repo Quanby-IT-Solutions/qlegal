@@ -497,9 +497,9 @@ export default function DashboardPage() {
 							<div
 								className={`grid gap-4 sm:grid-cols-2 ${isENP ? "lg:grid-cols-5" : "lg:grid-cols-4"}`}
 							>
-								{/* {isPrincipal && (
+								{isPrincipal && (
 									<Link
-										href="/calendar"
+										href="/browse"
 										className={buttonVariants({
 											variant: "outline",
 											className: "h-auto flex-col items-start gap-2 p-4",
@@ -513,7 +513,7 @@ export default function DashboardPage() {
 											</div>
 										</div>
 									</Link>
-								)} */}
+								)}
 								{isENP && (
 									<Link
 										href="/requests"
@@ -571,8 +571,8 @@ export default function DashboardPage() {
 										<div className="text-muted-foreground text-xs">Create new envelope</div>
 									</div>
 								</Link>
-								{/* <Link
-									href={isENP ? "/appointments" : "/calendar"}
+								<Link
+									href="/appointments"
 									className={buttonVariants({
 										variant: "outline",
 										className: "h-auto flex-col items-start gap-2 p-4",
@@ -583,7 +583,7 @@ export default function DashboardPage() {
 										<div className="font-semibold">View Appointments</div>
 										<div className="text-muted-foreground text-xs">Manage your schedule</div>
 									</div>
-								</Link> */}
+								</Link>
 							</div>
 						</CardContent>
 					</Card>
@@ -1147,13 +1147,13 @@ export default function DashboardPage() {
 												: "Your scheduled consultations"}
 										</CardDescription>
 									</div>
-									{/* <Link
-										href={isENP ? "/appointments" : "/calendar"}
+									<Link
+										href="/appointments"
 										className={buttonVariants({ variant: "ghost", size: "sm" })}
 									>
 										View All
 										<HugeiconsIcon icon={ArrowRight01Icon} size={16} className="ml-2" />
-									</Link> */}
+									</Link>
 								</div>
 							</CardHeader>
 							<CardContent>
