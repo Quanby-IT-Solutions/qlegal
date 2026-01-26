@@ -13,11 +13,7 @@ import {
 } from "@/core/components/ui/card"
 import { getInitials } from "@/core/lib/utils"
 
-import type { RouterOutputs } from "@/services/trpc/client"
-
-import { AppointmentBookingDialog } from "./appointment-booking-dialog"
-
-type Lawyer = RouterOutputs["lawyers"]["getLawyers"][number]
+import { AppointmentBookingDialog, type Lawyer } from "./appointment-booking-dialog"
 
 interface LawyerCardProps {
 	lawyer: Lawyer

@@ -1156,7 +1156,7 @@ const DocumentActions = React.memo(function DocumentActions({
 	isCreatingProject,
 }: {
 	document: { id: string; name: string; docoChainProjectId: string | null }
-	onSignClick: (projectUuid: string | null, email: string, documentId: string) => void
+	onSignClick: (projectUuid: string | null, email: string, documentId: string, isPlotting?: boolean) => void
 	onSignersChange?: (documentId: string, userIds: string[]) => void
 	isSigningPending: boolean
 	isLocked?: boolean
@@ -1262,13 +1262,14 @@ const DocumentActions = React.memo(function DocumentActions({
 		
 		// For ENP:
 		// - If status indicates plotted (not PENDING/NEXT GROUP) → "Sign Document"
+		// - If signers are showing up on the card (filteredSigners exist) → "Sign Document" (plotting is done)
 		// - Otherwise → "Plot Signature" (ENP must plot first, regardless of position in order)
 		// Note: ENP can always plot, regardless of previous signers' status or their position
 		// After plotting, button changes to "Sign Document" but will be disabled if not their turn
 		if (isEnp) {
 			// If ENP has plotted (status changed from PENDING/NEXT GROUP), show "Sign Document"
-			// The button will be disabled if previous signers haven't signed yet
-			if (hasPlotted) {
+			// OR if signers are showing up on the card (meaning plotting is done and signers were added)
+			if (hasPlotted || (filteredSigners.length > 0 && isUserAddedAsSigner)) {
 				return "Sign Document"
 			}
 			// ENP hasn't plotted yet - show "Plot Signature" (always enabled for ENP)
@@ -1329,11 +1330,13 @@ const DocumentActions = React.memo(function DocumentActions({
 	
 	// For ENP: If button shows "Sign Document" but they haven't actually plotted yet (status still PENDING/NEXT GROUP),
 	// disable the button until they plot (status changes)
+	// BUT: If signers are already showing on the card, plotting is done, so don't show this message
 	const isEnpNotPlottedYet = 
 		isEnp && 
 		buttonText === "Sign Document" && 
 		isPendingOrNextGroup && 
-		!hasUserSigned
+		!hasUserSigned &&
+		!(filteredSigners.length > 0 && isUserAddedAsSigner) // Don't show if signers are already showing (plotting done)
 	
 	const isSigningDisabled = hasUserSigned
 		? true
@@ -1372,7 +1375,8 @@ const DocumentActions = React.memo(function DocumentActions({
 				participants &&
 				participants.length > 0 &&
 				meetingId &&
-				onSignersChange && (
+				onSignersChange &&
+				!isPrincipal && (
 					<>
 						<Button
 							variant="outline"
@@ -1449,12 +1453,14 @@ const DocumentActions = React.memo(function DocumentActions({
 							console.log("   - Document ID:", document.id)
 							console.log("   - DocoChain Project UUID:", document.docoChainProjectId)
 							console.log("   - User Email:", userEmail)
+							console.log("   - Action:", buttonText)
 
 							// User clicks to start signing - this will:
 							// 1. Add user as signer using Add Project Signer API
 							// 2. Generate Edit Draft Project Link
 							// 3. Redirect to DocoChain signing page
-							onSignClick(document.docoChainProjectId ?? null, userEmail, document.id)
+							const isPlotting = buttonText === "Plot Signature" && isEnp
+							onSignClick(document.docoChainProjectId ?? null, userEmail, document.id, isPlotting)
 						} else {
 							toast.error("User email not found. Please sign in again.")
 						}
@@ -1544,6 +1550,8 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 	const [isSendDialogOpen, setIsSendDialogOpen] = useState(false)
 	const [dismissedRequestIds, setDismissedRequestIds] = useState<Set<string>>(new Set())
 	const [signingDocumentId, setSigningDocumentId] = useState<string | null>(null)
+	const [isPlottingAction, setIsPlottingAction] = useState(false)
+	const isPlottingActionRef = useRef(false)
 	const [draggedDocumentId, setDraggedDocumentId] = useState<string | null>(null)
 	const [dragOverDocumentId, setDragOverDocumentId] = useState<string | null>(null)
 	const [downloadingProjectUuid, setDownloadingProjectUuid] = useState<string | null>(null)
@@ -2103,6 +2111,10 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 			console.log("   - Project UUID:", data.projectUuid)
 			console.log("   - Signing link:", signingLink)
 
+			// Capture ENP status at popup open time to avoid stale closure
+			const isEnpUser = session?.user?.role === "ENP"
+			const wasPlotting = isPlottingActionRef.current
+
 			// Open DocoChain signing page in popup window (iframe blocked by DocoChain)
 			// Open in popup window with specific dimensions (centered, almost fullscreen)
 			const width = Math.min(window.innerWidth - 40, 1400)
@@ -2122,11 +2134,24 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 					if (popup.closed) {
 						clearInterval(checkClosed)
 						setSigningDocumentId(null)
-						// Refresh docs + signing status immediately (don't wait for polling interval)
-						void refetchDocuments().then(() => {
-							void refreshSigningStatuses()
-						})
-						toast.success("Signing completed. Document status updated.")
+						setIsPlottingAction(false)
+						isPlottingActionRef.current = false
+						
+						// For ENP users after plotting, always refetch to update document status
+						if (isEnpUser && wasPlotting) {
+							console.log("🔄 ENP plotted signature - refreshing document status...")
+							// Refresh docs + signing status immediately (don't wait for polling interval)
+							void refetchDocuments().then(() => {
+								void refreshSigningStatuses()
+							})
+							toast.success("Signature plotted. Document status updated.")
+						} else {
+							// Refresh docs + signing status immediately (don't wait for polling interval)
+							void refetchDocuments().then(() => {
+								void refreshSigningStatuses()
+							})
+							toast.success("Signing completed. Document status updated.")
+						}
 					}
 				}, 1500)
 
@@ -2134,11 +2159,15 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 			} else {
 				toast.error("Popup blocked. Please allow popups for this site and try again.")
 				setSigningDocumentId(null) // Clear loading state
+				setIsPlottingAction(false) // Clear plotting state
+				isPlottingActionRef.current = false // Clear ref
 			}
 		},
 		onError: error => {
 			console.error("❌ Failed to initiate signing:", error)
 			setSigningDocumentId(null) // Clear loading state on error
+			setIsPlottingAction(false) // Clear plotting state on error
+			isPlottingActionRef.current = false // Clear ref
 			const errorMessage =
 				error instanceof Error
 					? error.message
@@ -2150,8 +2179,11 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 	})
 
 	const handleSignClick = useCallback(
-		(projectUuid: string | null, email: string, documentId: string) => {
+		(projectUuid: string | null, email: string, documentId: string, isPlotting?: boolean) => {
 			setSigningDocumentId(documentId)
+			const plotting = isPlotting ?? false
+			setIsPlottingAction(plotting)
+			isPlottingActionRef.current = plotting
 			// If projectUuid exists, use it. Otherwise, pass documentId to create project
 			initiateSigning.mutate(
 				projectUuid ? { projectUuid, email } : { documentId, email } // No project yet - will be created on signing

@@ -30,7 +30,8 @@ import { cn } from "@/core/lib/utils"
 
 import { trpc, type RouterOutputs } from "@/services/trpc/client"
 
-type Lawyer = RouterOutputs["lawyers"]["getLawyers"][number]
+// Define Lawyer type based on the router return structure
+export type Lawyer = RouterOutputs["lawyers"]["getLawyers"][number]
 
 interface AppointmentBookingDialogProps {
 	lawyer: Lawyer
@@ -56,7 +57,7 @@ export function AppointmentBookingDialog({ lawyer, trigger }: AppointmentBooking
 			resetForm()
 		},
 		onError: error => {
-			toast.error(error.message || "Failed to book appointment")
+			toast.error(error.message ?? "Failed to book appointment")
 		},
 	})
 
@@ -78,9 +79,11 @@ export function AppointmentBookingDialog({ lawyer, trigger }: AppointmentBooking
 		}
 
 		// Combine date and time
-		const [hours, minutes] = time.split(":").map(Number)
+		const timeParts = time.split(":").map(Number)
+		const hours = timeParts[0] ?? 0
+		const minutes = timeParts[1] ?? 0
 		const appointmentDate = new Date(date)
-		appointmentDate.setHours(hours!, minutes)
+		appointmentDate.setHours(hours, minutes)
 
 		createAppointment.mutate({
 			lawyerId: lawyer.id,
