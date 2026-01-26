@@ -143,10 +143,10 @@ function LawyerRegisterFormContent() {
 				{methods.current.id === "account" && <AccountInfoStep form={form} />}
 
 				{/* Step 2: Seal Info */}
-				{methods.current.id === "seal" && <NotarySealStep form={form} primaryName={name} />}
+				{methods.current.id === "seal" && <NotarySealStep form={form} />}
 
 				{/* Step 3: Notary Credentials */}
-				{methods.current.id === "notary" && <CredentialsStep form={form} primaryName={name} />}
+				{methods.current.id === "notary" && <CredentialsStep form={form} />}
 
 				{/* Step 4: Review */}
 				{methods.current.id === "review" && <ReviewStep form={form} error={error} data={data} />}
