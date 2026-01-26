@@ -22,6 +22,7 @@ import { matchFaceSelfieToId, readIdCard } from "@/services/hyperverge/kyc-direc
 import { auth } from "@/services/next-auth"
 
 import { env } from "@/env"
+import { saveIdCardDetails } from "@/features/kyc/lib/save-id-card-details"
 
 /**
  * Generate a unique transaction ID for KYC based on user ID
@@ -306,6 +307,23 @@ export async function runDirectKycVerification(input: {
 		const ocrFields = pickOcrFieldsFromReadId(idResult.raw)
 		const shouldStoreOcr = kycStatus !== "REJECTED" && !!ocrFields
 
+		// Save to new id_card_details table for structured access
+		if (shouldStoreOcr && ocrFields) {
+			await saveIdCardDetails(db, {
+				userId: session.user.id,
+				rawOcrData: ocrFields,
+				ocrTransactionId: transactionId,
+				ocrProvider: "hyperverge",
+				frontImageUrl: kycStatus === "VERIFIED" ? input.idImageBase64 : undefined,
+				faceImageUrl: kycStatus === "VERIFIED" ? input.selfieImageBase64 : undefined,
+				isVerified: kycStatus === "VERIFIED",
+				verifiedAt: kycStatus === "VERIFIED" ? new Date() : undefined,
+				verificationMethod: "kyc_desktop_camera",
+				countryId: input.countryId,
+				documentId: input.documentId,
+			})
+		}
+
 		await db
 			.update(users)
 			.set({
@@ -313,6 +331,7 @@ export async function runDirectKycVerification(input: {
 				kycVerifiedAt: kycStatus === "VERIFIED" ? new Date() : null,
 				kycReferenceIdImageBase64: kycStatus === "VERIFIED" ? input.idImageBase64 : null,
 				kycReferenceCreatedAt: kycStatus === "VERIFIED" ? new Date() : null,
+				// Keep legacy JSON field for backward compatibility
 				kycOcrExtractedFieldsJson: shouldStoreOcr ? JSON.stringify(ocrFields) : null,
 				kycOcrCreatedAt: shouldStoreOcr ? new Date() : null,
 				// Auto-activate account when direct KYC is verified.
@@ -516,6 +535,19 @@ export async function checkUserKycStatus() {
 					if (ocr) {
 						update.kycOcrExtractedFieldsJson = JSON.stringify(ocr)
 						update.kycOcrCreatedAt = new Date()
+
+						// Save to new id_card_details table
+						await saveIdCardDetails(db, {
+							userId: session.user.id,
+							rawOcrData: ocr,
+							ocrTransactionId: user.kycTransactionId,
+							ocrProvider: "hyperverge",
+							frontImageUrl: update.kycReferenceIdImageBase64 ?? undefined,
+							faceImageUrl: update.kycReferenceIdImageBase64 ?? undefined,
+							isVerified: true,
+							verifiedAt: new Date(),
+							verificationMethod: "kyc_mobile_link",
+						})
 					}
 				}
 
@@ -650,6 +682,19 @@ export async function checkUserKycStatus() {
 						if (ocr) {
 							updateData.kycOcrExtractedFieldsJson = JSON.stringify(ocr)
 							updateData.kycOcrCreatedAt = new Date()
+
+							// Save to new id_card_details table
+							await saveIdCardDetails(db, {
+								userId: session.user.id,
+								rawOcrData: ocr,
+								ocrTransactionId: user.kycTransactionId,
+								ocrProvider: "hyperverge",
+								frontImageUrl: updateData.kycReferenceIdImageBase64 ?? undefined,
+								faceImageUrl: updateData.kycReferenceIdImageBase64 ?? undefined,
+								isVerified: true,
+								verifiedAt: new Date(),
+								verificationMethod: "kyc_mobile_link",
+							})
 						}
 					}
 				} catch (e) {
