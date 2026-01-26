@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useRef, useState, useTransition } from "react"
+import { useCallback, useEffect, useRef, useState, useTransition } from "react"
 import {
 	Camera,
 	CameraOff,
@@ -15,6 +15,7 @@ import { toast } from "sonner"
 import { Button } from "@/core/components/ui/button"
 
 import { validateSelfieLiveness } from "@/features/liveness-validation/api/liveness.actions"
+import { getLivenessFailureCopy } from "@/features/liveness-validation/lib/liveness-failure-copy"
 
 interface LivenessDecisionResult {
 	isLive: boolean
@@ -53,6 +54,14 @@ export function SelfieCapture({ onSuccess, onError, onCancel, meetingId }: Selfi
 		message?: string
 	} | null>(null)
 
+	const isApproved = validationResult?.decision?.isApproved === true
+	const hasValidationResult = validationResult !== null
+	const canStartCamera = !cameraActive && !capturedImage
+	const failureCopy = getLivenessFailureCopy({
+		message: validationResult?.decision?.message ?? validationResult?.message,
+		qualityIssues: validationResult?.decision?.qualityIssues,
+	})
+
 	// Start camera
 	const startCamera = useCallback(async () => {
 		try {
@@ -83,11 +92,7 @@ export function SelfieCapture({ onSuccess, onError, onCancel, meetingId }: Selfi
 			}
 		} catch (error) {
 			console.error("Camera error:", error)
-			setCameraError(
-				error instanceof Error
-					? error.message
-					: "Failed to access camera. Please ensure camera permissions are granted."
-			)
+			setCameraError("Camera access is blocked. Please allow camera permissions and try again.")
 			setCameraActive(false)
 		}
 	}, [facingMode])
@@ -103,6 +108,11 @@ export function SelfieCapture({ onSuccess, onError, onCancel, meetingId }: Selfi
 		}
 		setCameraActive(false)
 	}, [])
+
+	// Always stop the camera on unmount
+	useEffect(() => {
+		return () => stopCamera()
+	}, [stopCamera])
 
 	// Flip camera
 	const flipCamera = useCallback(() => {
@@ -174,7 +184,7 @@ export function SelfieCapture({ onSuccess, onError, onCancel, meetingId }: Selfi
 							decision: result.data.decision,
 						})
 					} else {
-						toast.error(result.data.decision.message || "Liveness verification failed")
+						toast.error("We couldn’t confirm your liveness. Please retake and try again.")
 						onError?.(result.data.decision.message || "Verification failed")
 					}
 				} else {
@@ -182,7 +192,7 @@ export function SelfieCapture({ onSuccess, onError, onCancel, meetingId }: Selfi
 						success: false,
 						message: result.error || "Validation failed",
 					})
-					toast.error(result.error || "Validation failed")
+					toast.error("We couldn’t confirm your liveness. Please retake and try again.")
 					onError?.(result.error || "Validation failed")
 				}
 			} catch (error) {
@@ -191,11 +201,11 @@ export function SelfieCapture({ onSuccess, onError, onCancel, meetingId }: Selfi
 					success: false,
 					message: errorMessage,
 				})
-				toast.error(errorMessage)
+				toast.error("We couldn’t confirm your liveness. Please retake and try again.")
 				onError?.(errorMessage)
 			}
 		})
-	}, [capturedImage, onSuccess, onError])
+	}, [capturedImage, meetingId, onSuccess, onError])
 
 	// Cancel and go back
 	const handleCancel = useCallback(() => {
@@ -208,7 +218,7 @@ export function SelfieCapture({ onSuccess, onError, onCancel, meetingId }: Selfi
 			{/* Instructions */}
 			<div className="rounded-lg border border-blue-200 bg-blue-50 p-4 dark:border-blue-800 dark:bg-blue-950/20">
 				<p className="mb-2 text-sm font-medium text-blue-900 dark:text-blue-100">
-					📷 Live Selfie Capture
+					Live Selfie Capture
 				</p>
 				<ul className="list-inside list-disc space-y-1 text-xs text-blue-700 dark:text-blue-300">
 					<li>Ensure good lighting on your face</li>
@@ -220,7 +230,7 @@ export function SelfieCapture({ onSuccess, onError, onCancel, meetingId }: Selfi
 			</div>
 
 			{/* Camera View / Captured Image */}
-			<div className="relative aspect-[4/3] w-full overflow-hidden rounded-lg bg-black">
+			<div className="relative aspect-4/3 w-full overflow-hidden rounded-lg bg-black">
 				{/* Video Preview */}
 				<video
 					ref={videoRef}
@@ -247,7 +257,7 @@ export function SelfieCapture({ onSuccess, onError, onCancel, meetingId }: Selfi
 				{/* Camera Inactive Placeholder */}
 				{!cameraActive && !capturedImage && (
 					<div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-900 text-white">
-						<CameraOff className="mb-4 h-12 w-12 text-gray-400" />
+						<CameraOff className="mb-4 size-12 text-gray-400" />
 						<p className="text-sm text-gray-400">Camera is not active</p>
 						{cameraError && (
 							<p className="mt-2 px-4 text-center text-xs text-red-400">{cameraError}</p>
@@ -289,7 +299,7 @@ export function SelfieCapture({ onSuccess, onError, onCancel, meetingId }: Selfi
 				{/* Processing Overlay */}
 				{isPending && (
 					<div className="absolute inset-0 flex flex-col items-center justify-center bg-black/70">
-						<Loader2 className="mb-4 h-10 w-10 animate-spin text-white" />
+						<Loader2 className="mb-4 size-10 animate-spin text-white" />
 						<p className="text-sm text-white">Validating liveness...</p>
 						<p className="mt-1 text-xs text-white/70">This may take a few seconds</p>
 					</div>
@@ -307,9 +317,9 @@ export function SelfieCapture({ onSuccess, onError, onCancel, meetingId }: Selfi
 				>
 					<div className="flex items-start gap-3">
 						{validationResult.success && validationResult.decision?.isApproved ? (
-							<CheckCircle2 className="mt-0.5 h-5 w-5 flex-shrink-0 text-green-600 dark:text-green-400" />
+							<CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-green-600 dark:text-green-400" />
 						) : (
-							<XCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-red-600 dark:text-red-400" />
+							<XCircle className="mt-0.5 h-5 w-5 shrink-0 text-red-600 dark:text-red-400" />
 						)}
 						<div className="flex-1">
 							<p
@@ -330,64 +340,70 @@ export function SelfieCapture({ onSuccess, onError, onCancel, meetingId }: Selfi
 										: "text-red-700 dark:text-red-300"
 								}`}
 							>
-								{validationResult.decision?.message || validationResult.message}
+								{validationResult.success && validationResult.decision?.isApproved
+									? "Your liveness was verified successfully."
+									: failureCopy.description}
 							</p>
-							{validationResult.decision?.qualityIssues &&
-								validationResult.decision.qualityIssues.length > 0 && (
-									<ul className="mt-2 list-inside list-disc text-xs text-red-600 dark:text-red-400">
-										{validationResult.decision.qualityIssues.map((issue, idx) => (
-											<li key={idx}>{issue}</li>
-										))}
-									</ul>
-								)}
+							{!isApproved && (
+								<ul className="mt-2 list-inside list-disc text-xs text-red-600 dark:text-red-400">
+									{failureCopy.tips.map(tip => (
+										<li key={tip}>{tip}</li>
+									))}
+								</ul>
+							)}
 						</div>
 					</div>
 				</div>
 			)}
 
 			{/* Action Buttons */}
-			<div className="flex gap-3">
-				{!cameraActive && !capturedImage && (
+			<div className="flex flex-col gap-3 sm:flex-row">
+				{canStartCamera && (
 					<>
-						<Button onClick={startCamera} className="flex-1" size="lg">
+						<Button onClick={startCamera} className="w-full sm:flex-1" size="lg">
 							<Camera className="mr-2 h-5 w-5" />
 							Start Camera
 						</Button>
 						{onCancel && (
-							<Button onClick={handleCancel} variant="outline" size="lg">
+							<Button onClick={handleCancel} className="w-full sm:w-auto" variant="outline" size="lg">
 								Cancel
 							</Button>
 						)}
 					</>
 				)}
 
-				{capturedImage && !validationResult?.decision?.isApproved && (
+				{capturedImage && !isApproved && (
 					<>
-						<Button onClick={retakePhoto} variant="outline" className="flex-1" disabled={isPending}>
-							<RefreshCw className="mr-2 h-4 w-4" />
-							Retake
+						<Button
+							onClick={retakePhoto}
+							variant={hasValidationResult ? "default" : "outline"}
+							className="w-full sm:flex-1"
+							size="lg"
+							disabled={isPending}
+						>
+							<RefreshCw className="mr-2 h-5 w-5" />
+							{hasValidationResult ? "Retake Photo" : "Retake"}
 						</Button>
-						<Button onClick={submitForValidation} className="flex-1" disabled={isPending}>
+						<Button
+							onClick={submitForValidation}
+							variant={hasValidationResult ? "outline" : "default"}
+							className="w-full sm:flex-1"
+							size="lg"
+							disabled={isPending}
+						>
 							{isPending ? (
 								<>
-									<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+									<Loader2 className="mr-2 h-5 w-5 animate-spin" />
 									Validating...
 								</>
 							) : (
 								<>
-									<CheckCircle2 className="mr-2 h-4 w-4" />
-									Verify Liveness
+									<CheckCircle2 className="mr-2 h-5 w-5" />
+									{hasValidationResult ? "Verify Again" : "Verify Liveness"}
 								</>
 							)}
 						</Button>
 					</>
-				)}
-
-				{validationResult && !validationResult.decision?.isApproved && (
-					<Button onClick={retakePhoto} className="w-full" size="lg" disabled={isPending}>
-						<RefreshCw className="mr-2 h-5 w-5" />
-						Try Again
-					</Button>
 				)}
 			</div>
 		</div>
