@@ -54,8 +54,9 @@ export function LicensingForm() {
 
 	const onSubmit = (values: LicensingSchema) => mutate(values)
 
-	const todayYmd = new Date().toISOString().slice(0, 10)
-	const maxDate = new Date(todayYmd)
+	const currentYear = new Date().getFullYear()
+	const minDate = new Date(currentYear - 10, 0, 1)
+	const maxDate = new Date(currentYear + 10, 11, 31)
 
 	return (
 		<Form {...form}>
@@ -110,6 +111,10 @@ export function LicensingForm() {
 														field.onChange(date?.toISOString())
 													}}
 													defaultMonth={dateValue}
+													fromDate={minDate}
+													toDate={maxDate}
+													fromYear={currentYear - 10}
+													toYear={currentYear + 10}
 													className="rounded-md border shadow-sm"
 													captionLayout="dropdown"
 												/>
@@ -185,7 +190,10 @@ export function LicensingForm() {
 														field.onChange(date?.toISOString())
 													}}
 													defaultMonth={dateValue}
-													disabled={date => date > maxDate}
+													fromDate={minDate}
+													toDate={maxDate}
+													fromYear={currentYear - 10}
+													toYear={currentYear + 10}
 													className="rounded-md border shadow-sm"
 													captionLayout="dropdown"
 												/>
@@ -247,7 +255,10 @@ export function LicensingForm() {
 														field.onChange(date?.toISOString())
 													}}
 													defaultMonth={dateValue}
-													disabled={date => date > maxDate}
+													fromDate={minDate}
+													toDate={maxDate}
+													fromYear={currentYear - 10}
+													toYear={currentYear + 10}
 													className="rounded-md border shadow-sm"
 													captionLayout="dropdown"
 												/>

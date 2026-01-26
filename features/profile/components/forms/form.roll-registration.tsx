@@ -22,7 +22,10 @@ import { cn } from "@/core/lib/utils"
 
 import { trpc } from "@/services/trpc/client"
 
-import { rollRegistrationSchema, type RollRegistrationSchema } from "@/features/profile/api/profile.schema"
+import {
+	rollRegistrationSchema,
+	type RollRegistrationSchema,
+} from "@/features/profile/api/profile.schema"
 
 export function RollRegistrationForm() {
 	const { data: enpProfile } = trpc.profile.getEnpProfile.useQuery()
@@ -48,8 +51,9 @@ export function RollRegistrationForm() {
 
 	const onSubmit = (values: RollRegistrationSchema) => mutate(values)
 
-	const todayYmd = new Date().toISOString().slice(0, 10)
-	const maxDate = new Date(todayYmd)
+	const currentYear = new Date().getFullYear()
+	const minDate = new Date(currentYear - 10, 0, 1)
+	const maxDate = new Date(currentYear + 10, 11, 31)
 
 	return (
 		<Form {...form}>
@@ -104,7 +108,10 @@ export function RollRegistrationForm() {
 														field.onChange(date?.toISOString())
 													}}
 													defaultMonth={dateValue}
-													disabled={date => date > maxDate}
+													fromDate={minDate}
+													toDate={maxDate}
+													fromYear={currentYear - 10}
+													toYear={currentYear + 10}
 													className="rounded-md border shadow-sm"
 													captionLayout="dropdown"
 												/>
