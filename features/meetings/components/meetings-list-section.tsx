@@ -132,6 +132,7 @@ export function MeetingsListSection() {
 		title: string
 	} | null>(null)
 
+	const { searchUsers } = useMessages()
 	const { data: searchResults } = searchUsers(userSearchQuery)
 
 	const filteredMeetings = meetings.filter(meeting => {
@@ -320,7 +321,7 @@ export function MeetingsListSection() {
 													<Avatar className="size-5">
 														<AvatarImage src={user.image ?? undefined} />
 														<AvatarFallback className="bg-primary text-primary-foreground text-xs">
-															{user.name?.split(" ").map(n => n[0]).join("")}
+															{user.name?.split(" ").map((n: string) => n[0]).join("")}
 														</AvatarFallback>
 													</Avatar>
 													<span className="font-medium">{user.name}</span>
@@ -354,7 +355,7 @@ export function MeetingsListSection() {
 												<div className="p-2">
 													{searchResults && searchResults.length > 0 ? (
 														<div className="space-y-1">
-															{searchResults.map(user => {
+															{searchResults.map((user: (typeof selectedUsers)[number]) => {
 																const isSelected = selectedUsers.some(u => u.id === user.id)
 																return (
 																	<button
@@ -366,15 +367,15 @@ export function MeetingsListSection() {
 																		<Avatar className="group-hover:ring-primary/20 size-12 ring-2 ring-transparent transition-all">
 																			<AvatarImage src={user.image ?? undefined} />
 																			<AvatarFallback className="bg-primary text-primary-foreground font-semibold">
-																				{user.name?.split(" ").map(n => n[0]).join("")}
+																				{user.name?.split(" ").map((n: string) => n[0]).join("")}
 																			</AvatarFallback>
 																		</Avatar>
-																		<div className="flex-1 overflow-hidden">
-																			<p className="text-base font-semibold">{user.name}</p>
-																			<p className="text-muted-foreground truncate text-sm">
-																				{user.email}
-																			</p>
-																		</div>
+														<div className="flex-1 overflow-hidden">
+															<p className="text-base font-semibold">{user.name}</p>
+															<p className="text-muted-foreground truncate text-sm">
+																{user.email}
+															</p>
+														</div>
 																		{isSelected && (
 																			<Badge variant="secondary" className="bg-primary/10 text-primary">
 																				Added
@@ -616,7 +617,7 @@ export function MeetingsListSection() {
 																alt={meeting.createdBy.name ?? "User"}
 															/>
 															<AvatarFallback>
-																{meeting.createdBy.name?.split(" ").map(n => n[0]).join("") ?? "U"}
+																{meeting.createdBy.name?.split(" ").map((n: string) => n[0]).join("") ?? "U"}
 															</AvatarFallback>
 														</Avatar>
 														<div className="text-sm">
@@ -748,7 +749,7 @@ export function MeetingsListSection() {
 																alt={meeting.createdBy.name ?? "User"}
 															/>
 															<AvatarFallback className="bg-primary text-primary-foreground">
-																{meeting.createdBy.name?.split(" ").map(n => n[0]).join("") ?? "U"}
+																{meeting.createdBy.name?.split(" ").map((n: string) => n[0]).join("") ?? "U"}
 															</AvatarFallback>
 														</Avatar>
 														<div className="min-w-0 flex-1">

@@ -50,7 +50,7 @@ export function MeetingRecordingsModal({
 				<DialogHeader>
 					<DialogTitle className="flex items-center gap-2">
 						<Film className="size-5" />
-						All Video Records
+						Video recordings
 					</DialogTitle>
 					<DialogDescription>
 						{meeting?.title ? (
@@ -76,8 +76,9 @@ export function MeetingRecordingsModal({
 							{error.message}
 						</p>
 					) : !recordings?.length ? (
-						<p className="text-muted-foreground p-8 text-center text-sm">
-							No Records yet. Start a meeting and click the record button to record.
+						<p className="text-muted-foreground py-8 text-center text-sm">
+							No recordings yet. Start a meeting and use cloud recording to capture
+							videos.
 						</p>
 					) : (
 						<ScrollArea className="h-[min(50vh,400px)] pr-4">
@@ -95,9 +96,7 @@ export function MeetingRecordingsModal({
 										>
 											<div className="min-w-0 flex-1">
 												<p className="font-medium">
-													{recordings.length > 1
-														? `Recording ${i + 1}`
-														: "Recording"}
+													Recording {recordings.length > 1 ? i + 1 : ""}
 												</p>
 												<div className="text-muted-foreground mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm">
 													{createdAt && (
