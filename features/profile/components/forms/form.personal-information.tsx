@@ -79,7 +79,7 @@ export function PersonalInformationForm() {
 							<FormItem>
 								<FormLabel>Email</FormLabel>
 								<FormControl>
-									<Input type="email" placeholder="Enter your email" {...field} />
+									<Input type="email" placeholder="Enter your email" disabled {...field} />
 								</FormControl>
 								<FormMessage />
 							</FormItem>
