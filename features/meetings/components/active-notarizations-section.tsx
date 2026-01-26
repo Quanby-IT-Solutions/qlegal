@@ -189,95 +189,109 @@ export function ActiveNotarizationsSection() {
 
 						return (
 							<Card key={meeting.id} className="transition-shadow hover:shadow-md">
-								<CardContent className="relative pl-10 pr-10">
-									<div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-										<div className="min-w-0 flex-1">
-											<div className="mb-2 flex flex-wrap items-center gap-3">
-												<h4 className="text-lg font-medium">{meeting.title}</h4>
-												{getMeetingStatusBadge(meeting.status)}
-											</div>
+								<CardContent className="relative">
+									<div className="flex items-start justify-between gap-4">
 
-											<div className="text-muted-foreground mb-3 flex flex-wrap items-center gap-4 text-sm">
-												<div className="flex items-center gap-1">
-													<Users className="size-4 shrink-0" />
-													<span>
-														{meeting.participants.length} participant
-														{meeting.participants.length !== 1 ? "s" : ""}
-													</span>
-												</div>
+										{/* LEFT SIDE */}
+										<div className="min-w-0 flex-1 space-y-3">
 
-												<div className="flex items-center gap-1">
-													<FileText className="size-4 shrink-0" />
-													<span>
-														{totalDocuments} document{totalDocuments !== 1 ? "s" : ""}
-														{totalDocuments > 0 && (
-															<span className="text-muted-foreground ml-1">
-																• {signedDocuments} signed ({documentProgress}%)
-															</span>
-														)}
-													</span>
-													{!isComplete && (
-														<span className="text-muted-foreground ml-2 inline-flex items-center gap-1 text-xs">
-															<span className="inline-flex size-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
-															checking…
-														</span>
-													)}
-												</div>
-
-												<div className="flex items-center gap-1">
-													<Calendar className="size-4 shrink-0" />
-													<span>Scheduled {scheduledLabel}</span>
-												</div>
-
-												<div className="flex items-center gap-1">
-													<Clock className="size-4 shrink-0" />
-													<span>Created by {meeting.createdBy.name ?? "Unknown"}</span>
-												</div>
-											</div>
-
-											<div className="flex items-center gap-2">
-												<Avatar className="size-8">
-													<AvatarImage src={meeting.createdBy.image ?? undefined} />
-													<AvatarFallback>
-														{(meeting.createdBy.name ?? "Unknown")
-															.split(" ")
-															.map(n => n[0])
-															.join("")
-															.toUpperCase()}
-													</AvatarFallback>
-												</Avatar>
-												<div className="text-sm">
-													<p className="font-medium">{meeting.createdBy.name ?? "Unknown"}</p>
-													<p className="text-muted-foreground">Host</p>
-												</div>
-											</div>
-
-											{totalDocuments > 0 && (
-												<div className="mt-4">
-													<div className="mb-2 flex items-center justify-between text-sm">
-														<span className="font-medium">Document Signing Progress</span>
-														<span className="font-semibold">
-															{signedDocuments}/{totalDocuments} ({documentProgress}%)
-														</span>
-													</div>
-													<Progress value={documentProgress} className="h-2" />
-												</div>
-											)}
+										{/* Title + Status */}
+										<div className="flex flex-wrap items-center gap-2">
+											<h4 className="text-base font-semibold leading-tight truncate">
+											{meeting.title}
+											</h4>
+											{getMeetingStatusBadge(meeting.status)}
 										</div>
 
+										{/* Meta Row */}
+										<div className="text-muted-foreground flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
+
+											<div className="flex items-center gap-1">
+											<Users className="size-3.5 shrink-0" />
+											<span>
+												{meeting.participants.length} participant
+												{meeting.participants.length !== 1 ? "s" : ""}
+											</span>
+											</div>
+
+											<div className="flex items-center gap-1">
+											<FileText className="size-3.5 shrink-0" />
+											<span>
+												{totalDocuments} doc{totalDocuments !== 1 && "s"}
+												{totalDocuments > 0 && (
+												<span className="ml-1 text-muted-foreground">
+													• {signedDocuments} signed ({documentProgress}%)
+												</span>
+												)}
+											</span>
+
+											{!isComplete && (
+												<span className="ml-2 inline-flex items-center gap-1 text-[11px] text-muted-foreground">
+												<span className="inline-flex size-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
+												checking…
+												</span>
+											)}
+											</div>
+
+											<div className="flex items-center gap-1">
+											<Calendar className="size-3.5 shrink-0" />
+											<span>{scheduledLabel}</span>
+											</div>
+
+											<div className="flex items-center gap-1">
+											<Clock className="size-3.5 shrink-0" />
+											<span>{meeting.createdBy.name ?? "Unknown"}</span>
+											</div>
+										</div>
+
+										{/* Host Row (Compact) */}
+										<div className="flex items-center gap-2 pt-1">
+											<Avatar className="size-7">
+											<AvatarImage src={meeting.createdBy.image ?? undefined} />
+											<AvatarFallback>
+												{(meeting.createdBy.name ?? "Unknown")
+												.split(" ")
+												.map(n => n[0])
+												.join("")
+												.toUpperCase()}
+											</AvatarFallback>
+											</Avatar>
+											<span className="text-xs font-medium">
+											{meeting.createdBy.name ?? "Unknown"}
+											</span>
+											<span className="text-xs text-muted-foreground">• Host</span>
+										</div>
+
+										{/* Compact Progress */}
+										{totalDocuments > 0 && (
+											<div className="pt-2">
+											<div className="mb-1 flex items-center justify-between text-[11px] text-muted-foreground">
+												<span>Signing Progress</span>
+												<span className="font-medium text-foreground">
+												{signedDocuments}/{totalDocuments}
+												</span>
+											</div>
+											<Progress value={documentProgress} className="h-1.5" />
+											</div>
+										)}
+										</div>
+
+										{/* RIGHT SIDE BUTTON */}
 										<div className="shrink-0">
-											<Button
-												variant="outline"
-												onClick={() => {
-													setDetailsMeetingId(meeting.id)
-													setDetailsOpen(true)
-												}}
-											>
-												View details
-											</Button>
+										<Button
+											size="sm"
+											variant="outline"
+											onClick={() => {
+											setDetailsMeetingId(meeting.id)
+											setDetailsOpen(true)
+											}}
+											className="h-8 px-3 text-xs"
+										>
+											View
+										</Button>
 										</div>
 									</div>
-								</CardContent>
+									</CardContent>
 							</Card>
 						)
 					})}

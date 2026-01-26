@@ -2863,24 +2863,21 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 
 	// If I'm the initiator and everyone has accepted, start local recording (initiator only).
 	useEffect(() => {
-		if (!recordingConsentRequest) return
-		if (!localParticipantId) return
-
-		const isInitiator = recordingConsentRequest.initiatorName === (session?.user?.name ?? "Someone")
-		if (!isInitiator) return
-		if (recordingConsentDeclined) return
-
-		const required = recordingConsentRequest.requiredParticipantIds
-		if (!required || required.length === 0) return
-
-		const allAccepted = required.every(id => recordingConsentAcceptedIds.has(id))
-		if (!allAccepted) return
-
-		// Start recording as a direct consequence of the initiator's Accept click.
-		// NOTE: If the last accept came from a remote participant, this won't be a gesture.
-		// In practice, the initiator should click Accept last to satisfy getDisplayMedia gesture.
-		resetRecordingConsentUi()
-		void startLocalRecording()
+		if (!recordingConsentRequest || !localParticipantId) return;
+	
+		const isInitiator = recordingConsentRequest.initiatorName === (session?.user?.name ?? "Someone");
+		if (!isInitiator) return; // Only initiator starts recording
+		if (recordingConsentDeclined) return;
+	
+		const required = recordingConsentRequest.requiredParticipantIds;
+		if (!required || required.length === 0) return;
+	
+		const allAccepted = required.every(id => recordingConsentAcceptedIds.has(id));
+		if (!allAccepted) return;
+	
+		// ✅ Everyone accepted → start recording and close modal
+		resetRecordingConsentUi();
+		void startLocalRecording();
 	}, [
 		localParticipantId,
 		recordingConsentAcceptedIds,
@@ -2889,7 +2886,26 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 		resetRecordingConsentUi,
 		session?.user?.name,
 		startLocalRecording,
-	])
+	]);
+	
+	useEffect(() => {
+		if (!recordingConsentRequest) return;
+	
+		const required = recordingConsentRequest.requiredParticipantIds;
+		if (!required || required.length === 0) return;
+	
+		const allAccepted = required.every(id => recordingConsentAcceptedIds.has(id));
+	
+		// Hide modal if everyone accepted
+		if (allAccepted) {
+			setRecordingConsentOpen(false);
+		}
+	
+		// Hide modal if declined
+		if (recordingConsentDeclined) {
+			setRecordingConsentOpen(false);
+		}
+	}, [recordingConsentAcceptedIds, recordingConsentDeclined, recordingConsentRequest]);	
 
 	// Memoize upload dialog open handler
 	const handleUploadClick = useCallback(() => {
