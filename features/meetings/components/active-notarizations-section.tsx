@@ -28,6 +28,7 @@ import {
 import { Skeleton } from "@/core/components/ui/skeleton"
 
 import { trpc } from "@/services/trpc/client"
+import { isAfter, startOfDay } from "date-fns"
 
 function getMeetingStatusBadge(status: string) {
 	switch (status) {
@@ -94,28 +95,32 @@ export function ActiveNotarizationsSection() {
 			{ enabled: detailsOpen && !!detailsMeetingId }
 		)
 
+	const today = startOfDay(new Date())
+
 	const filteredMeetings = useMemo(() => {
-		const list = meetings
 		const q = searchTerm.trim().toLowerCase()
-
-		return list.filter(m => {
-			const matchesSearch =
-				!q ||
-				m.title.toLowerCase().includes(q) ||
-				(m.createdBy.name ?? "").toLowerCase().includes(q)
-
-			const matchesStatus = statusFilter === "ALL" || m.status === statusFilter
-			return matchesSearch && matchesStatus
+	  
+		return meetings.filter(meeting => {
+		  const meetingDate = startOfDay(new Date(meeting.createdAt)) // normalize to start of day
+	  
+		  // Only include meetings after today (strictly future dates)
+		  if (!isAfter(meetingDate, today)) return false
+	  
+		  // Apply search filter only
+		  if (q && !meeting.title.toLowerCase().includes(q) && !(meeting.createdBy.name ?? "").toLowerCase().includes(q)) {
+			return false
+		  }
+	  
+		  return true
 		})
-	}, [meetings, searchTerm, statusFilter])
+	  }, [meetings, searchTerm])
 
 	return (
 		<div className="space-y-6">
 			<div className="space-y-2">
-				<h2 className="text-2xl font-semibold tracking-tight">Active Notarizations</h2>
+				<h2 className="text-2xl font-semibold tracking-tight">Upcoming</h2>
 				<p className="text-muted-foreground text-sm">
-					One notarization entry per meeting (same as Meetings list), showing document signing
-					progress.
+				Upcoming meetings scheduled with participants for notarization sessions.
 				</p>
 			</div>
 

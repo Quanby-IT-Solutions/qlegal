@@ -58,6 +58,7 @@ import { useMeetings } from "@/features/meetings/api/meetings.hooks"
 import { MeetingRecordingsModal } from "@/features/meetings/components/meeting-recordings-modal"
 import { useMessages } from "@/features/messages/api/messages.hooks"
 import { trpc } from "@/services/trpc/client"
+import { isSameDay } from "date-fns"
 
 function MeetingDocumentSummary({
 	total,
@@ -135,13 +136,23 @@ export function MeetingsListSection() {
 	const { searchUsers } = useMessages()
 	const { data: searchResults } = searchUsers(userSearchQuery)
 
+	const today = new Date()
+
 	const filteredMeetings = meetings.filter(meeting => {
-		const matchesSearch =
-			meeting.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-			meeting.createdBy.name?.toLowerCase().includes(searchTerm.toLowerCase())
-		const matchesStatus = statusFilter === "ALL" || meeting.status === statusFilter
-		return matchesSearch && matchesStatus
+	// Only include meetings with the same scheduled date as today
+	const meetingDate = new Date(meeting.createdAt) // or meeting.scheduledAt if you have a separate field
+	const isToday = isSameDay(meetingDate, today)
+
+	// Apply search and status filters
+	const matchesSearch =
+		meeting.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+		meeting.createdBy.name?.toLowerCase().includes(searchTerm.toLowerCase())
+
+	const matchesStatus = statusFilter === "ALL" || meeting.status === statusFilter
+
+	return isToday && matchesSearch && matchesStatus
 	})
+
 
 	const handleCreate = async () => {
 		if (!title.trim()) return
@@ -220,6 +231,24 @@ export function MeetingsListSection() {
 		}
 	}
 
+	type MeetingWithStats = {
+		id: string
+		title: string
+		status: string
+		createdBy: {
+		  id: string
+		  name: string | null
+		  image: string | null
+		}
+		participants: { user?: { id: string } }[]
+		createdAt?: string
+		documentStats?: {
+		  total?: number
+		  signed?: number
+		  isComplete?: boolean
+		}
+	  }	  
+
 	const getStatusBadge = (status: string) => {
 		switch (status) {
 			case "SCHEDULED":
@@ -251,18 +280,12 @@ export function MeetingsListSection() {
 		<div className="space-y-6">
 			<div className="flex items-center justify-between">
 				<div className="space-y-2">
-					<h2 className="text-2xl font-semibold tracking-tight">Video Meetings</h2>
+					<h2 className="text-2xl font-semibold tracking-tight">Ongoing</h2>
 					<p className="text-muted-foreground text-sm">
-						Create and join video meetings with participants for notarization sessions
+						Ongoing meetings with participants for notarization sessions
 					</p>
 				</div>
 				<Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-					<DialogTrigger asChild>
-						<Button size="lg" className="shadow-lg transition-shadow hover:shadow-xl">
-							<Plus className="mr-2 size-5" />
-							New Meeting
-						</Button>
-					</DialogTrigger>
 					<DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
 						<DialogHeader className="space-y-3 pb-4">
 							<div className="flex items-center gap-3">
@@ -634,18 +657,28 @@ export function MeetingsListSection() {
 											</div>
 
 												<div className="flex shrink-0 flex-wrap items-center gap-2">
-													{canStart && (
+												{canStart && (
+													session?.user?.role === "PRINCIPAL" ? (
 														<Button
-															onClick={e => {
-																e.stopPropagation()
-																void handleStartMeeting(meeting.id)
-															}}
-															disabled={loadingMeetingId === meeting.id}
-															className="flex items-center gap-2"
+														disabled
+														className="flex items-center gap-2 cursor-not-allowed opacity-70"
 														>
-															<PlayCircle className="size-4" />
-															{loadingMeetingId === meeting.id ? "Starting..." : "Start Meeting"}
+														<PlayCircle className="size-4" />
+														Wait to start the meeting
 														</Button>
+													) : (
+														<Button
+														onClick={e => {
+															e.stopPropagation()
+															void handleStartMeeting(meeting.id)
+														}}
+														disabled={loadingMeetingId === meeting.id}
+														className="flex items-center gap-2"
+														>
+														<PlayCircle className="size-4" />
+														{loadingMeetingId === meeting.id ? "Starting..." : "Start Meeting"}
+														</Button>
+													)
 													)}
 
 													{canJoin && (

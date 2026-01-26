@@ -126,52 +126,41 @@ export function HistoryNotarizationsSection() {
 
 	const isENP = session?.user?.role === "ENP"
 
-	const historyItems = useMemo(() => {
+	const historyItems = useMemo<HistoryItem[]>(() => {
 		if (!appointments) return []
-
-		const historyAppointments = appointments.filter(
-			apt => apt.status === "COMPLETED" || apt.status === "CANCELLED"
-		)
-
-		return historyAppointments.map(appointment => {
-			const workflow = inferWorkflow(appointment)
-			const enp = appointment.lawyer
-			const principal = appointment.client
-
-			const principalName = principal?.name || "Client"
-			const title = inferTitle(appointment, principalName)
-			const documents = 0
-			const duration = appointment.duration || 30
-
-			const location =
-				appointment.location || (workflow === "REN" ? "Remote Video Call" : "Location TBD")
-
+	  
+		return appointments
+		  .filter(a => a.status === "COMPLETED" || a.status === "CANCELLED")
+		  .map(a => {
+			const workflow: WorkflowType = a.meetingLink ? "REN" : "IEN"
+	  
 			return {
-				id: appointment.id,
-				title,
-				status: appointment.status as "COMPLETED" | "CANCELLED",
-				workflow,
-				enp: {
-					name: enp?.name || "Unknown ENP",
-					avatar: enp?.image || undefined,
-				},
-				principal: {
-					name: principal?.name || "Unknown Client",
-					email: principal?.email || "",
-				},
-				completedAt:
-					appointment.status === "COMPLETED" ? appointment.updatedAt.toISOString() : undefined,
-				cancelledAt:
-					appointment.status === "CANCELLED" ? appointment.updatedAt.toISOString() : undefined,
-				duration,
-				documents,
-				location,
-				cancellationReason: appointment.cancelReason || undefined,
-				certificateUrl: undefined,
-				recordingUrl: undefined,
-			} satisfies HistoryItem
-		})
-	}, [appointments])
+			  id: a.id,
+			  title: a.notes?.trim() || `${a.type === "DOCUMENT_SIGNING" ? "Document Signing" : "Consultation"} - ${a.client?.name ?? "Client"}`,
+			  status: a.status as "COMPLETED" | "CANCELLED",
+			  workflow,
+	  
+			  enp: {
+				name: a.lawyer?.name ?? "Unknown ENP",
+				avatar: a.lawyer?.image ?? undefined,
+			  },
+	  
+			  principal: {
+				name: a.client?.name ?? "Unknown Client",
+				email: a.client?.email ?? undefined,
+			  },
+	  
+			  completedAt: a.status === "COMPLETED" ? new Date(a.updatedAt).toISOString() : undefined,
+			  cancelledAt: a.status === "CANCELLED" ? new Date(a.updatedAt).toISOString() : undefined,
+			  duration: a.duration ?? 30,
+			  documents: 0, // placeholder for now
+			  location: a.location ?? (workflow === "REN" ? "Remote Video Call" : "In-Person Meeting"),
+			  cancellationReason: a.cancelReason ?? undefined,
+			  certificateUrl: undefined,
+			  recordingUrl: undefined,
+			}
+		  })
+	  }, [appointments])	  
 
 	const filteredHistory = useMemo(() => {
 		return historyItems.filter(item => {
@@ -253,9 +242,9 @@ export function HistoryNotarizationsSection() {
 	return (
 		<div className="space-y-6">
 			<div className="space-y-2">
-				<h2 className="text-2xl font-semibold tracking-tight">Notarization History</h2>
+				<h2 className="text-2xl font-semibold tracking-tight">Past</h2>
 				<p className="text-muted-foreground text-sm">
-					View your completed and cancelled notarization sessions
+					History of your completed and cancelled notarization sessions
 				</p>
 			</div>
 
@@ -374,9 +363,9 @@ export function HistoryNotarizationsSection() {
 															<div className="flex items-center gap-1">
 																<Calendar className="h-4 w-4 shrink-0" />
 																<span>
-																	{item.status === "COMPLETED"
-																		? `Completed ${format(new Date(item.completedAt!), "MMM dd, yyyy")}`
-																		: `Cancelled ${format(new Date(item.cancelledAt!), "MMM dd, yyyy")}`}
+																{item.status === "COMPLETED"
+																	? `Completed ${format(new Date(item.completedAt!), "MMM dd, yyyy")}`
+																	: `Cancelled ${format(new Date(item.cancelledAt!), "MMM dd, yyyy")}`}
 																</span>
 															</div>
 															{item.duration > 0 && (

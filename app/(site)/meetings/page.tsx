@@ -2,7 +2,7 @@
 
 import { useRouter, useSearchParams } from "next/navigation"
 import { useEffect, useState } from "react"
-import { History, PenTool, Video } from "lucide-react"
+import { History, PenTool, Video, Clock } from "lucide-react"
 
 import { PageHeader } from "@/core/components/navbar/page-header"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/core/components/ui/tabs"
@@ -76,15 +76,15 @@ export default function MeetingsPage() {
 						<TabsList className="grid w-full max-w-2xl grid-cols-3">
 							<TabsTrigger value="meetings" className="gap-2">
 								<Video className="size-4" />
-								Sessions
+								Ongoing
 							</TabsTrigger>
 							<TabsTrigger value="active" className="gap-2">
-								<PenTool className="size-4" />
-								Active Notarizations
+								<Clock className="size-4" />
+								Upcoming
 							</TabsTrigger>
 							<TabsTrigger value="history" className="gap-2">
 								<History className="size-4" />
-								History
+								Past
 							</TabsTrigger>
 						</TabsList>
 
