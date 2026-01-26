@@ -51,8 +51,8 @@ interface IncomingRequest {
 interface RequestsListViewProps {
 	incomingRequests: IncomingRequest[]
 	isRequestsLoading: boolean
-	onAccept: (requestId: string) => void
-	onReject: (requestId: string) => void
+	onAccept: (request: IncomingRequest) => void
+	onReject: (request: IncomingRequest) => void
 	onComplete: (requestId: string) => void
 	processingId: string | null
 }
@@ -277,26 +277,26 @@ export function RequestsListView({
 											</AvatarFallback>
 										</Avatar>
 
-										{request.status === "PENDING" && (
-											<div className="flex gap-2">
-												<Button
-													size="sm"
-													variant="default"
-													onClick={() => onAccept(request.id)}
-													disabled={processingId === request.id}
-												>
-													{processingId === request.id ? "Processing..." : "Accept"}
-												</Button>
-												<Button
-													size="sm"
-													variant="destructive"
-													onClick={() => onReject(request.id)}
-													disabled={processingId === request.id}
-												>
-													Reject
-												</Button>
-											</div>
-										)}
+											{request.status === "PENDING" && (
+												<div className="flex gap-2">
+													<Button
+														size="sm"
+														variant="default"
+														onClick={() => onAccept(request)}
+														disabled={processingId === request.id}
+													>
+														{processingId === request.id ? "Processing..." : "Accept"}
+													</Button>
+													<Button
+														size="sm"
+														variant="destructive"
+														onClick={() => onReject(request)}
+														disabled={processingId === request.id}
+													>
+														Reject
+													</Button>
+												</div>
+											)}
 
 										{request.status === "IN_PROGRESS" && (
 											<Button
