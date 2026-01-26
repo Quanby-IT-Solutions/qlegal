@@ -25,7 +25,7 @@ export function useLegalRegistration() {
 		isLoading,
 		error,
 		refetch,
-	} = trpc.legalRegistrations.getMyApplication.useQuery()
+	} = trpc.legalRegistration.getMyApplication.useQuery()
 
 	// Auto-create draft application if none exists
 	const autoCreateDraft = trpc.legalRegistrations.getOrCreateDraft.useMutation({

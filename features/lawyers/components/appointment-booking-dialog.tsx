@@ -28,8 +28,7 @@ import {
 import { Textarea } from "@/core/components/ui/textarea"
 import { cn } from "@/core/lib/utils"
 
-import { trpc } from "@/services/trpc/client"
-import type { RouterOutputs } from "@/services/trpc/client"
+import { trpc, type RouterOutputs } from "@/services/trpc/client"
 
 type Lawyer = RouterOutputs["lawyers"]["getLawyers"][number]
 
@@ -51,8 +50,8 @@ export function AppointmentBookingDialog({ lawyer, trigger }: AppointmentBooking
 	const createAppointment = trpc.appointments.createAppointment.useMutation({
 		onSuccess: () => {
 			toast.success("Appointment booked successfully!")
-			utils.appointments.getMyAppointments.invalidate()
-			utils.appointments.getUpcomingAppointments.invalidate()
+			void utils.appointments.getMyAppointments.invalidate()
+			void utils.appointments.getUpcomingAppointments.invalidate()
 			setOpen(false)
 			resetForm()
 		},
@@ -81,7 +80,7 @@ export function AppointmentBookingDialog({ lawyer, trigger }: AppointmentBooking
 		// Combine date and time
 		const [hours, minutes] = time.split(":").map(Number)
 		const appointmentDate = new Date(date)
-		appointmentDate.setHours(hours!, minutes!)
+		appointmentDate.setHours(hours!, minutes)
 
 		createAppointment.mutate({
 			lawyerId: lawyer.id,
@@ -95,7 +94,7 @@ export function AppointmentBookingDialog({ lawyer, trigger }: AppointmentBooking
 
 	return (
 		<Dialog open={open} onOpenChange={setOpen}>
-			<DialogTrigger asChild>{trigger || <Button>Book Appointment</Button>}</DialogTrigger>
+			<DialogTrigger asChild>{trigger ?? <Button>Book Appointment</Button>}</DialogTrigger>
 			<DialogContent className="sm:max-w-[500px]">
 				<DialogHeader>
 					<DialogTitle>Book Appointment with {lawyer.name}</DialogTitle>
