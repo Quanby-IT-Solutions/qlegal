@@ -2061,23 +2061,6 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 				openingSignedDocumentToastIdRef.current = null
 			}
 
-			// Open a blank tab immediately to avoid popup blockers, then redirect once ready.
-			const popup = window.open("about:blank", "_blank", "noopener,noreferrer")
-			if (!popup) {
-				toast.error("Popup blocked. Please allow popups for this site and try again.")
-				setDownloadingProjectUuid(null)
-				return
-			}
-
-			// Optional: show a minimal message in the blank tab
-			try {
-				popup.document.title = "Preparing signed document…"
-				popup.document.body.innerHTML =
-					"<p style=\"font-family:system-ui,Segoe UI,Roboto,Arial; padding:16px;\">Preparing signed document…</p>"
-			} catch {
-				// Ignore if browser restricts access
-			}
-
 			openingSignedDocumentToastIdRef.current = toast.loading("Opening signed document…")
 
 			try {
@@ -2107,27 +2090,21 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 					toast.error(
 						"Signed document is still processing. Please try again in a moment."
 					)
-					try {
-						popup.close()
-					} catch {
-						// ignore
-					}
 					return
 				}
 
-				// Now redirect the blank tab to our server-streamed PDF.
+				// Only open once completed (ensures sealed document is available).
 				// This avoids relying on DocoChain guestToken and avoids leaking api_token in URLs.
 				const url = `/api/doconchain/projects/${encodeURIComponent(projectUuid)}/signed`
-				popup.location.href = url
+				const opened = window.open(url, "_blank", "noopener,noreferrer")
+				if (!opened) {
+					toast.error("Popup blocked. Please allow popups for this site and try again.")
+					return
+				}
 				toast.success("Opening signed document…")
 			} catch (error) {
 				console.error("Error opening signed document:", error)
 				toast.error(error instanceof Error ? error.message : "Failed to open signed document")
-				try {
-					popup.close()
-				} catch {
-					// ignore
-				}
 			} finally {
 				if (openingSignedDocumentToastIdRef.current !== null) {
 					toast.dismiss(openingSignedDocumentToastIdRef.current)
