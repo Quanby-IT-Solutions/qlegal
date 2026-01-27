@@ -81,6 +81,7 @@ export const consultationsRouter = createTRPCRouter({
 					type: "CONSULTATION",
 					appointmentDate: appointmentDateTime,
 					duration,
+					modeOfNotarization: input.workflowType,
 					notes: consultationNotes,
 					location: input.workflowType === "IEN" ? (input.location ?? "To be confirmed") : null,
 					meetingLink: null, // Will be set when confirmed

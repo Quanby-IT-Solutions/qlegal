@@ -4,9 +4,33 @@ import type { PostgresJsDatabase } from "drizzle-orm/postgres-js"
 import { checkSigningStatus, getPassportDocument } from "@/services/doconchain"
 import { users } from "@/services/drizzle/schema/auth"
 import { documents } from "@/services/drizzle/schema/document"
+import { documentSigners } from "@/services/drizzle/schema/document-signers"
 import { legalRegistrations } from "@/services/drizzle/schema/legal-registration"
 import { meetings } from "@/services/drizzle/schema/meetings"
 import { notarialActs, notarialBooks } from "@/services/drizzle/schema/notarial-book"
+
+/**
+ * Generate location statement for notarial act
+ * Statement that the electronic notarial act was executed while all parties were
+ * situated within the Philippines or in a Philippine embassy/consular office abroad
+ */
+function generateLocationStatement(location: string | undefined): string {
+	const locationLower = (location ?? "Philippines").toLowerCase()
+	
+	// Check if location indicates Philippine embassy/consular office abroad
+	const isPhilippineEmbassy = 
+		locationLower.includes("embassy") ||
+		locationLower.includes("consular") ||
+		locationLower.includes("consul") ||
+		locationLower.includes("honorary consul")
+	
+	if (isPhilippineEmbassy) {
+		return "I hereby certify that this electronic notarial act was executed while all parties concerned were situated within a Philippine embassy, consular office, or office of Philippine Honorary Consul abroad, in accordance with the limited extraterritorial performance of electronic notarial acts."
+	}
+	
+	// Default statement for acts executed within the Philippines
+	return "I hereby certify that this electronic notarial act was executed while all parties concerned were situated within the Philippines."
+}
 
 /**
  * Extract principal and witness information from passport data
@@ -391,6 +415,9 @@ export async function autoCreateNotarialAct(
 		let principalName = "Unknown"
 		let principalIdNumber: string | undefined
 		let principalAddress: string | undefined
+		let principalIdImageBase64: string | undefined
+		let principalIdType: string | undefined
+		let principalEmail: string | undefined
 
 		// Fetch passport data from DocoChain FIRST to get actual signer information
 		// Since the document is fully signed, passport data should have the signers
@@ -420,6 +447,7 @@ export async function autoCreateNotarialAct(
 				principalName = principal.name ?? "Unknown"
 				principalIdNumber = principal.idNumber
 				principalAddress = principal.address
+				principalEmail = principal.email
 				console.log("✅ Found principal from passport data (actual signer):", principalName)
 			} else if (allSigners && allSigners.length > 0) {
 				// If no principal identified, use the first signer (excluding ENP if possible)
@@ -433,6 +461,7 @@ export async function autoCreateNotarialAct(
 
 				if (nonEnpSigner) {
 					principalName = nonEnpSigner.name ?? "Unknown"
+					principalEmail = nonEnpSigner.email
 					console.log("✅ Found principal from passport signers:", principalName)
 				}
 			}
@@ -656,9 +685,156 @@ export async function autoCreateNotarialAct(
 		// Generate certificate number (unique reference)
 		const certificateNumber = `NB-${notarialBookId.substring(0, 4).toUpperCase()}-${executedAt.getTime().toString().slice(-6)}`
 
+		// Generate location statement
+		const locationStatement = generateLocationStatement(location)
+
 		const enpUserName = (enpUser as { name?: string }).name ?? "Unknown ENP"
 		const enpRollNumber = (legalRegistration as { rollOfAttorneysNumber?: string } | undefined)
 			?.rollOfAttorneysNumber
+
+		// Fetch principal's ID image from users table if we have principal email
+		if (principalEmail) {
+			try {
+				// @ts-expect-error - PostgresJsDatabase<any> doesn't provide proper types for query builder
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+				const principalUser = (await db.query.users.findFirst({
+					where: eq(users.email, principalEmail),
+					columns: {
+						kycReferenceIdImageBase64: true,
+						kycOcrExtractedFieldsJson: true,
+					},
+				})) as { kycReferenceIdImageBase64?: string | null; kycOcrExtractedFieldsJson?: string | null } | undefined
+
+				if (principalUser?.kycReferenceIdImageBase64) {
+					principalIdImageBase64 = String(principalUser.kycReferenceIdImageBase64)
+					console.log("✅ Found principal ID image from users table for:", principalEmail)
+				} else {
+					console.log("⚠️ No ID image found for principal:", principalEmail)
+				}
+
+				// Extract OCR document type from kycOcrExtractedFieldsJson
+				if (principalUser && typeof principalUser === "object" && "kycOcrExtractedFieldsJson" in principalUser) {
+					const ocrJson = principalUser.kycOcrExtractedFieldsJson
+					if (ocrJson && typeof ocrJson === "string") {
+						try {
+							const ocrFields = JSON.parse(ocrJson) as Record<string, unknown>
+							// Try to find document type in OCR fields
+							// Priority: documentId (stored during KYC) > documentType > idType > module name > other fields
+							const docType =
+								ocrFields.documentId ?? // Stored during direct KYC
+								ocrFields.documentType ??
+								ocrFields.idType ??
+								ocrFields.document_type ??
+								ocrFields.id_type ??
+								ocrFields.type ??
+								ocrFields.module ?? // Module name from HyperVerge
+								ocrFields.moduleName
+
+							if (docType && typeof docType === "string") {
+								// Map document ID codes to human-readable labels
+								const documentTypeMap: Record<string, string> = {
+									dl: "Driver's License",
+									national_id: "National ID",
+									passport: "Passport",
+									voter_id: "Voter ID",
+									"driver's license": "Driver's License",
+									"national id": "National ID",
+									"voter id": "Voter ID",
+								}
+
+								principalIdType =
+									documentTypeMap[docType.toLowerCase()] ??
+									docType.charAt(0).toUpperCase() + docType.slice(1).replace(/_/g, " ")
+								console.log("✅ Found principal ID type from OCR:", principalIdType, "from field:", docType)
+							} else {
+								console.log("⚠️ No document type found in OCR fields. Available fields:", Object.keys(ocrFields))
+							}
+						} catch (error) {
+							console.warn("Failed to parse OCR JSON:", error)
+						}
+					} else {
+						console.log("⚠️ OCR JSON is not a string for principal:", principalEmail)
+					}
+				} else {
+					console.log("⚠️ No OCR JSON found for principal:", principalEmail)
+				}
+			} catch (error) {
+				console.warn("Failed to fetch principal ID image:", error)
+			}
+		} else {
+			// Try to get principal from documentSigners table as fallback
+			try {
+				// @ts-expect-error - PostgresJsDatabase<any> doesn't provide proper types for query builder
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+				const signersList = (await db.query.documentSigners.findMany({
+					where: eq(documentSigners.documentId, documentId),
+					with: {
+						user: {
+							columns: {
+								id: true,
+								email: true,
+								kycReferenceIdImageBase64: true,
+								kycOcrExtractedFieldsJson: true,
+							},
+						},
+					},
+				})) as Array<{
+					user?: { id?: string; email?: string; kycReferenceIdImageBase64?: string | null; role?: string } | null
+				}> | undefined
+
+				// Find the principal (non-ENP signer)
+				const principalSigner = signersList?.find(s => {
+					return s?.user && typeof s.user === "object" && "role" in s.user && s.user.role !== "ENP"
+				})
+
+				if (principalSigner?.user?.kycReferenceIdImageBase64) {
+					principalIdImageBase64 = String(principalSigner.user.kycReferenceIdImageBase64)
+					console.log("✅ Found principal ID image from documentSigners")
+				}
+
+				// Extract OCR document type from documentSigners user
+				if (
+					principalSigner?.user &&
+					typeof principalSigner.user === "object" &&
+					"kycOcrExtractedFieldsJson" in principalSigner.user
+				) {
+					const ocrJson = principalSigner.user.kycOcrExtractedFieldsJson
+					if (ocrJson && typeof ocrJson === "string") {
+						try {
+							const ocrFields = JSON.parse(ocrJson) as Record<string, unknown>
+							const docType =
+								ocrFields.documentType ??
+								ocrFields.idType ??
+								ocrFields.document_type ??
+								ocrFields.id_type ??
+								ocrFields.type ??
+								ocrFields.documentId
+
+							if (docType && typeof docType === "string") {
+								const documentTypeMap: Record<string, string> = {
+									dl: "Driver's License",
+									national_id: "National ID",
+									passport: "Passport",
+									voter_id: "Voter ID",
+									"driver's license": "Driver's License",
+									"national id": "National ID",
+									"voter id": "Voter ID",
+								}
+
+								principalIdType =
+									documentTypeMap[docType.toLowerCase()] ??
+									docType.charAt(0).toUpperCase() + docType.slice(1).replace(/_/g, " ")
+								console.log("✅ Found principal ID type from documentSigners OCR:", principalIdType)
+							}
+						} catch (error) {
+							console.warn("Failed to parse OCR JSON from documentSigners:", error)
+						}
+					}
+				}
+			} catch (error) {
+				console.warn("Failed to fetch principal ID from documentSigners:", error)
+			}
+		}
 
 		// Create notarial act entry
 		// This is automatically populated in chronological order (via executedAt timestamp)
@@ -674,6 +850,8 @@ export async function autoCreateNotarialAct(
 				principalName,
 				principalIdNumber,
 				principalAddress,
+				principalIdImageBase64,
+				principalIdType,
 				witnessName,
 				witnessIdNumber,
 				enpName: enpUserName,
@@ -682,6 +860,7 @@ export async function autoCreateNotarialAct(
 				location,
 				ipAddress,
 				workflow,
+				locationStatement,
 				documentName,
 				documentDescription,
 				passportData: passportData ? JSON.stringify(passportData) : null,

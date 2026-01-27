@@ -2,15 +2,14 @@
 
 import { FileText, MessageSquare } from "lucide-react"
 
-import {
-	Card,
-	CardContent,
-	CardDescription,
-	CardHeader,
-	CardTitle,
-} from "@/core/components/ui/card"
-import { Label } from "@/core/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/core/components/ui/radio-group"
+import {
+	Field,
+	FieldContent,
+	FieldDescription,
+	FieldLabel,
+	FieldTitle,
+} from "@/core/components/ui/field"
 
 interface SessionTypeSelectorProps {
 	value: "CONSULTATION" | "NOTARIZATION"
@@ -29,7 +28,7 @@ export function SessionTypeSelector({
 		<div className="space-y-4">
 			{showHeading && (
 				<div>
-					<Label className="text-base font-semibold">Service Type</Label>
+					<label className="text-base font-semibold">Service Type</label>
 					<p className="text-muted-foreground mt-1 text-sm">What do you need?</p>
 				</div>
 			)}
@@ -38,67 +37,50 @@ export function SessionTypeSelector({
 				value={value}
 				onValueChange={v => onChange(v as "CONSULTATION" | "NOTARIZATION")}
 				disabled={disabled}
-				className="w-full"
 			>
-				<div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-					{/* Consultation */}
-					<Card
-						className="hover:border-primary h-full cursor-pointer border-2 transition-all"
-						onClick={() => !disabled && onChange("CONSULTATION")}
+				{/* Consultation */}
+				<FieldLabel htmlFor="consultation-type">
+					<Field
+						orientation="horizontal"
+						className="hover:border-primary border-2 p-4 rounded-md transition-all cursor-pointer"
 						style={{
 							borderColor: value === "CONSULTATION" ? "hsl(var(--primary))" : undefined,
 							backgroundColor: value === "CONSULTATION" ? "hsl(var(--primary) / 0.05)" : undefined,
 						}}
+						onClick={() => !disabled && onChange("CONSULTATION")}
 					>
-						<CardHeader className="pb-3">
-							<div className="flex items-center gap-2">
-								<RadioGroupItem value="CONSULTATION" id="consultation-type" disabled={disabled} />
-								<div className="flex items-center gap-2">
-									<MessageSquare className="h-5 w-5 text-indigo-600" />
-									<CardTitle className="text-base">Consultation</CardTitle>
-								</div>
+						<FieldContent>
+							<div className="flex items-center gap-2 mb-2">
+								<MessageSquare className="size-5 text-indigo-600" />
+								<FieldTitle>Consultation</FieldTitle>
 							</div>
-						</CardHeader>
-						<CardContent className="space-y-2">
-							<CardDescription>Ask questions and get guidance from a notary</CardDescription>
-							<ul className="text-muted-foreground space-y-1 text-sm">
-								<li>✓ Legal advice</li>
-								<li>✓ Document review</li>
-								<li>✓ No official notarization yet</li>
-								<li>✓ Pay per consultation rate</li>
-							</ul>
-						</CardContent>
-					</Card>
+							<FieldDescription>Ask questions and get guidance from a notary</FieldDescription>
+						</FieldContent>
+						<RadioGroupItem value="CONSULTATION" id="consultation-type" disabled={disabled} />
+					</Field>
+				</FieldLabel>
 
-					{/* Notarization */}
-					<Card
-						className="hover:border-primary h-full cursor-pointer border-2 transition-all"
-						onClick={() => !disabled && onChange("NOTARIZATION")}
+				{/* Notarization */}
+				<FieldLabel htmlFor="notarization-type">
+					<Field
+						orientation="horizontal"
+						className="hover:border-primary border-2 p-4 rounded-md transition-all cursor-pointer"
 						style={{
 							borderColor: value === "NOTARIZATION" ? "hsl(var(--primary))" : undefined,
 							backgroundColor: value === "NOTARIZATION" ? "hsl(var(--primary) / 0.05)" : undefined,
 						}}
+						onClick={() => !disabled && onChange("NOTARIZATION")}
 					>
-						<CardHeader className="pb-3">
-							<div className="flex items-center gap-2">
-								<RadioGroupItem value="NOTARIZATION" id="notarization-type" disabled={disabled} />
-								<div className="flex items-center gap-2">
-									<FileText className="h-5 w-5 text-emerald-600" />
-									<CardTitle className="text-base">Notarization</CardTitle>
-								</div>
+						<FieldContent>
+							<div className="flex items-center gap-2 mb-2">
+								<FileText className="size-5 text-emerald-600" />
+								<FieldTitle>Notarization</FieldTitle>
 							</div>
-						</CardHeader>
-						<CardContent className="space-y-2">
-							<CardDescription>Official notarization of documents</CardDescription>
-							<ul className="text-muted-foreground space-y-1 text-sm">
-								<li>✓ Legal binding</li>
-								<li>✓ Official records</li>
-								<li>✓ Audit trail</li>
-								<li>✓ Pay per document + platform fee</li>
-							</ul>
-						</CardContent>
-					</Card>
-				</div>
+							<FieldDescription>Official notarization of documents</FieldDescription>
+						</FieldContent>
+						<RadioGroupItem value="NOTARIZATION" id="notarization-type" disabled={disabled} />
+					</Field>
+				</FieldLabel>
 			</RadioGroup>
 		</div>
 	)

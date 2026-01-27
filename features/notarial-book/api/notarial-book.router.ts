@@ -37,6 +37,29 @@ const syncDocumentToNotarialBookSchema = z.object({
 })
 
 /**
+ * Generate location statement for notarial act
+ * Statement that the electronic notarial act was executed while all parties were
+ * situated within the Philippines or in a Philippine embassy/consular office abroad
+ */
+function generateLocationStatement(location: string | undefined | null): string {
+	const locationLower = (location ?? "Philippines").toLowerCase()
+	
+	// Check if location indicates Philippine embassy/consular office abroad
+	const isPhilippineEmbassy = 
+		locationLower.includes("embassy") ||
+		locationLower.includes("consular") ||
+		locationLower.includes("consul") ||
+		locationLower.includes("honorary consul")
+	
+	if (isPhilippineEmbassy) {
+		return "I hereby certify that this electronic notarial act was executed while all parties concerned were situated within a Philippine embassy, consular office, or office of Philippine Honorary Consul abroad, in accordance with the limited extraterritorial performance of electronic notarial acts."
+	}
+	
+	// Default statement for acts executed within the Philippines
+	return "I hereby certify that this electronic notarial act was executed while all parties concerned were situated within the Philippines."
+}
+
+/**
  * Extract principal and witness information from passport data
  */
 function extractSignerInfo(passportData: unknown) {
@@ -554,6 +577,91 @@ export const notarialBookRouter = createTRPCRouter({
 							? principals[0].idNumber
 							: null
 
+						// Fetch principal's ID image and type from users table
+						let principalIdImageBase64: string | null = null
+						let principalIdType: string | null = null
+						if (principals.length > 0 && allSigners.length > 0) {
+							// Try to find the principal's email from signers
+							// Match by name first, then by role
+							const principalSigner = allSigners.find(s => {
+								const roleUpper = s.role.toUpperCase()
+								const isPrincipal = !roleUpper.includes("ENP") &&
+									!roleUpper.includes("NOTARY") &&
+									!roleUpper.includes("WITNESS")
+								
+								// Try to match by name if we have principal names
+								if (principals.length > 0 && principals[0]?.name) {
+									return isPrincipal && s.name === principals[0].name
+								}
+								return isPrincipal
+							}) ?? allSigners.find(s => {
+								const roleUpper = s.role.toUpperCase()
+								return (
+									!roleUpper.includes("ENP") &&
+									!roleUpper.includes("NOTARY") &&
+									!roleUpper.includes("WITNESS")
+								)
+							})
+
+							if (principalSigner?.email) {
+								try {
+									const principalUser = await ctx.db.query.users.findFirst({
+										where: eq(users.email, principalSigner.email),
+										columns: {
+											kycReferenceIdImageBase64: true,
+											kycOcrExtractedFieldsJson: true,
+										},
+									})
+
+									if (principalUser?.kycReferenceIdImageBase64) {
+										principalIdImageBase64 = String(principalUser.kycReferenceIdImageBase64)
+									}
+
+									// Extract OCR document type
+									const ocrJson = principalUser?.kycOcrExtractedFieldsJson
+									if (ocrJson && typeof ocrJson === "string") {
+										try {
+											const ocrFields = JSON.parse(ocrJson) as Record<string, unknown>
+											// Priority: documentId (stored during KYC) > documentType > idType > module name
+											const docType =
+												ocrFields.documentId ?? // Stored during direct KYC
+												ocrFields.documentType ??
+												ocrFields.idType ??
+												ocrFields.document_type ??
+												ocrFields.id_type ??
+												ocrFields.type ??
+												ocrFields.module ?? // Module name from HyperVerge
+												ocrFields.moduleName
+
+											if (docType && typeof docType === "string") {
+												const documentTypeMap: Record<string, string> = {
+													dl: "Driver's License",
+													national_id: "National ID",
+													passport: "Passport",
+													voter_id: "Voter ID",
+													"driver's license": "Driver's License",
+													"national id": "National ID",
+													"voter id": "Voter ID",
+												}
+
+												principalIdType =
+													documentTypeMap[docType.toLowerCase()] ??
+													docType.charAt(0).toUpperCase() + docType.slice(1).replace(/_/g, " ")
+											}
+										} catch (error) {
+											console.warn("Failed to parse OCR JSON:", error)
+										}
+									}
+								} catch (error) {
+									console.warn("Failed to fetch principal ID image:", error)
+								}
+							}
+						}
+
+						// Generate location statement
+						const locationValue = "Philippines" // Default for API-based entries
+						const locationStatement = generateLocationStatement(locationValue)
+
 						return {
 							id: projectUuid, // Use project UUID as ID
 							notarialBookId: "", // Not needed for API-based entries
@@ -562,12 +670,15 @@ export const notarialBookRouter = createTRPCRouter({
 							docoChainProjectUuid: projectUuid,
 							principalName: principalNames,
 							principalIdNumber,
+							principalIdImageBase64,
+							principalIdType,
 							witnessName: witness?.name ?? null,
 							enpName: user.name ?? "Unknown ENP",
 							enpRollNumber: null,
 							executedAt,
-							location: "Philippines",
+							location: locationValue,
 							workflow: workflowType,
+							locationStatement,
 							documentName: projectData.file_name ?? projectData.name ?? project.name ?? "Untitled Document",
 							documentDescription: document?.description ?? null,
 							passportData: passportData ? JSON.stringify(passportData) : null,
@@ -908,6 +1019,92 @@ export const notarialBookRouter = createTRPCRouter({
 			// Generate certificate number
 			const certificateNumber = `NB-${notarialBook.id.substring(0, 4).toUpperCase()}-${Date.now().toString().slice(-6)}`
 
+			// Generate location statement
+			const locationStatement = generateLocationStatement(location)
+
+			// Fetch principal's ID type from OCR if available
+			// Try to get principal email from passport data or meeting participants
+			let principalEmailForOcr: string | undefined
+			if (principal && principal.email) {
+				principalEmailForOcr = principal.email
+			} else if (document.meetingId) {
+				try {
+					const meeting = await ctx.db.query.meetings.findFirst({
+						where: eq(meetings.id, document.meetingId),
+						with: {
+							participants: {
+								with: {
+									user: {
+										columns: {
+											email: true,
+											role: true,
+										},
+									},
+								},
+							},
+						},
+					})
+
+					const principalParticipant = meeting?.participants.find(
+						p => p.user.id !== userId && p.user.role !== "ENP"
+					)
+					if (principalParticipant?.user?.email) {
+						principalEmailForOcr = principalParticipant.user.email
+					}
+				} catch (error) {
+					console.warn("Failed to get principal email from meeting:", error)
+				}
+			}
+
+			let principalIdType: string | undefined
+			if (principalEmailForOcr) {
+				try {
+					const principalUser = await ctx.db.query.users.findFirst({
+						where: eq(users.email, principalEmailForOcr),
+						columns: {
+							kycOcrExtractedFieldsJson: true,
+						},
+					})
+
+					const ocrJson = principalUser?.kycOcrExtractedFieldsJson
+					if (ocrJson && typeof ocrJson === "string") {
+						try {
+							const ocrFields = JSON.parse(ocrJson) as Record<string, unknown>
+											// Priority: documentId (stored during KYC) > documentType > idType > module name
+											const docType =
+												ocrFields.documentId ?? // Stored during direct KYC
+												ocrFields.documentType ??
+												ocrFields.idType ??
+												ocrFields.document_type ??
+												ocrFields.id_type ??
+												ocrFields.type ??
+												ocrFields.module ?? // Module name from HyperVerge
+												ocrFields.moduleName
+
+							if (docType && typeof docType === "string") {
+								const documentTypeMap: Record<string, string> = {
+									dl: "Driver's License",
+									national_id: "National ID",
+									passport: "Passport",
+									voter_id: "Voter ID",
+									"driver's license": "Driver's License",
+									"national id": "National ID",
+									"voter id": "Voter ID",
+								}
+
+								principalIdType =
+									documentTypeMap[docType.toLowerCase()] ??
+									docType.charAt(0).toUpperCase() + docType.slice(1).replace(/_/g, " ")
+							}
+						} catch (parseError) {
+							console.warn("Failed to parse OCR JSON:", parseError)
+						}
+					}
+				} catch (fetchError) {
+					console.warn("Failed to fetch principal ID type:", fetchError)
+				}
+			}
+
 			const actData = {
 				notarialBookId: notarialBook.id,
 				actType,
@@ -915,12 +1112,14 @@ export const notarialBookRouter = createTRPCRouter({
 				docoChainProjectUuid: projectUuid,
 				principalName,
 				principalIdNumber,
+				principalIdType,
 				witnessName,
 				enpName,
 				enpRollNumber: enpRollNumber ?? undefined,
 				executedAt,
 				location,
 				workflow,
+				locationStatement,
 				documentName: document.name,
 				documentDescription: document.description ?? null,
 				passportData: passportData ? JSON.stringify(passportData) : null,
@@ -1198,9 +1397,22 @@ export const notarialBookRouter = createTRPCRouter({
 			}
 
 			// Try to find act in database first
-			const act = await ctx.db.query.notarialActs.findFirst({
-				where: eq(notarialActs.id, input.actId),
-			})
+			// Check if actId looks like a DocoChain project UUID (typically alphanumeric, 15+ chars)
+			// Database IDs are typically shorter UUIDs or different format
+			const looksLikeProjectUuid = input.actId.length >= 15 && /^[A-Za-z0-9]+$/.test(input.actId)
+			
+			let act = null
+			if (!looksLikeProjectUuid) {
+				// Only query database if it doesn't look like a project UUID
+				try {
+					act = await ctx.db.query.notarialActs.findFirst({
+						where: eq(notarialActs.id, input.actId),
+					})
+				} catch (error) {
+					console.warn("Failed to query notarial act from database:", error)
+					// Continue to treat as project UUID
+				}
+			}
 
 			let projectUuid: string | null = null
 			let documentName = "document.pdf"

@@ -8,6 +8,7 @@ import {
 	Eye,
 	FileCheck,
 	FileText,
+	IdCard,
 	LayoutGrid,
 	List,
 	RefreshCw,
@@ -53,6 +54,7 @@ import {
 import { trpc } from "@/services/trpc/client"
 
 import { NotarialActDocumentDialog2 } from "@/features/notarial-book/components/notarial-act-document-dialog-2"
+import { PrincipalIdDialog } from "@/features/notarial-book/components/principal-id-dialog"
 
 type ActTypeFilter =
 	| "ALL"
@@ -91,6 +93,9 @@ interface NotarialActRow {
 	workflow: string
 	principalName: string
 	principalIdNumber?: string | null
+	principalIdImageBase64?: string | null
+	principalIdType?: string | null
+	locationStatement?: string | null
 	witnessName?: string | null
 	documentName?: string | null
 	documentDescription?: string | null
@@ -105,11 +110,13 @@ function NotarialActCard({
 	entryIndex,
 	onViewDocument,
 	onViewCertificate,
+	onViewPrincipalId,
 }: {
 	act: NotarialActRow
 	entryIndex: number
 	onViewDocument: (actId: string, documentName?: string) => void
 	onViewCertificate: (actId: string) => void
+	onViewPrincipalId: (principalName: string, principalIdImageBase64: string | null | undefined) => void
 }) {
 	return (
 		<Card className="flex flex-col transition-shadow hover:shadow-md">
@@ -163,11 +170,21 @@ function NotarialActCard({
 			<CardContent className="flex flex-1 flex-col gap-3 pt-0">
 				<div className="space-y-1 text-sm">
 					<p className="font-medium">{act.principalName}</p>
+					{/* {act.principalIdType ? (
+						<p className="text-muted-foreground text-xs">{act.principalIdType}</p>
+					) : null} */}
 					{act.principalIdNumber && (
 						<p className="text-muted-foreground text-xs">ID: {act.principalIdNumber}</p>
 					)}
 					{act.witnessName && (
 						<p className="text-muted-foreground text-xs">Witness: {act.witnessName}</p>
+					)}
+					{act.locationStatement && (
+						<div className="mt-2 rounded-md border bg-muted/50 p-2">
+							<p className="text-muted-foreground text-xs italic leading-relaxed">
+								{act.locationStatement}
+							</p>
+						</div>
 					)}
 				</div>
 				<div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
@@ -181,32 +198,41 @@ function NotarialActCard({
 						</>
 					)}
 				</div>
-				{(act.documentId ?? act.docoChainProjectUuid) && (
-					<div className="mt-auto flex gap-2 pt-2">
-						{(act.documentId ?? act.docoChainProjectUuid) && (
-							<Button
-								variant="outline"
-								size="sm"
-								className="flex-1"
-								onClick={() => onViewDocument(act.id, act.documentName ?? undefined)}
-							>
-								<Eye className="mr-1.5 size-3.5" />
-								Document
-							</Button>
-						)}
-						{act.docoChainProjectUuid && (
-							<Button
-								variant="outline"
-								size="sm"
-								className="flex-1"
-								onClick={() => onViewCertificate(act.id)}
-							>
-								<FileCheck className="mr-1.5 size-3.5" />
-								Certificate
-							</Button>
-						)}
-					</div>
-				)}
+				<div className="mt-auto flex flex-wrap gap-2 pt-2">
+					{act.principalIdImageBase64 && (
+						<Button
+							variant="outline"
+							size="sm"
+							className="flex-1"
+							onClick={() => onViewPrincipalId(act.principalName, act.principalIdImageBase64)}
+						>
+							<IdCard className="mr-1.5 size-3.5" />
+							View ID
+						</Button>
+					)}
+					{(act.documentId ?? act.docoChainProjectUuid) && (
+						<Button
+							variant="outline"
+							size="sm"
+							className="flex-1"
+							onClick={() => onViewDocument(act.id, act.documentName ?? undefined)}
+						>
+							<Eye className="mr-1.5 size-3.5" />
+							Document
+						</Button>
+					)}
+					{act.docoChainProjectUuid && (
+						<Button
+							variant="outline"
+							size="sm"
+							className="flex-1"
+							onClick={() => onViewCertificate(act.id)}
+						>
+							<FileCheck className="mr-1.5 size-3.5" />
+							Certificate
+						</Button>
+					)}
+				</div>
 			</CardContent>
 		</Card>
 	)
@@ -224,6 +250,11 @@ export default function NotarialBook2Page() {
 	const [previewDocument, setPreviewDocument] = useState<{
 		actId: string
 		documentName: string
+	} | null>(null)
+
+	const [previewPrincipalId, setPreviewPrincipalId] = useState<{
+		principalName: string
+		principalIdImageBase64: string | null | undefined
 	} | null>(null)
 
 	// Fetch notarial book entries directly from DocoChain API (no sync required)
@@ -277,6 +308,14 @@ export default function NotarialBook2Page() {
 		setPreviewDocument({
 			actId,
 			documentName: documentName ?? "document.pdf",
+		})
+	}
+
+	// View principal ID handler
+	const handleViewPrincipalId = (principalName: string, principalIdImageBase64: string | null | undefined) => {
+		setPreviewPrincipalId({
+			principalName,
+			principalIdImageBase64,
 		})
 	}
 
@@ -461,6 +500,7 @@ export default function NotarialBook2Page() {
 												entryIndex={(page - 1) * perPage + index + 1}
 												onViewDocument={handleViewDocument}
 												onViewCertificate={handleViewCertificate}
+												onViewPrincipalId={handleViewPrincipalId}
 											/>
 										))}
 									</div>
@@ -509,6 +549,11 @@ export default function NotarialBook2Page() {
 															<TableCell>
 																<div className="min-w-0">
 																	<p className="font-medium text-xs sm:text-sm truncate">{act.principalName}</p>
+																	{/* {act.principalIdType && (
+																		<p className="text-muted-foreground text-xs truncate">
+																			{act.principalIdType}
+																		</p>
+																	)} */}
 																	{act.principalIdNumber && (
 																		<p className="text-muted-foreground text-xs truncate">
 																			ID: {act.principalIdNumber}
@@ -518,6 +563,20 @@ export default function NotarialBook2Page() {
 																		<p className="text-muted-foreground mt-1 text-xs truncate">
 																			Witness: {act.witnessName}
 																		</p>
+																	)}
+																	{act.locationStatement && (
+																		<TooltipProvider>
+																			<Tooltip>
+																				<TooltipTrigger asChild>
+																					<p className="text-muted-foreground mt-1 line-clamp-2 text-xs italic">
+																						{act.locationStatement}
+																					</p>
+																				</TooltipTrigger>
+																				<TooltipContent className="max-w-md">
+																					<p className="text-sm">{act.locationStatement}</p>
+																				</TooltipContent>
+																			</Tooltip>
+																		</TooltipProvider>
 																	)}
 																	{/* Show act type and workflow on mobile */}
 																	<div className="mt-1 flex gap-1 sm:hidden">
@@ -576,6 +635,19 @@ export default function NotarialBook2Page() {
 															</TableCell>
 															<TableCell>
 																<div className="flex items-center gap-1">
+																	{(act as NotarialActRow).principalIdImageBase64 && (
+																		<Button
+																			variant="ghost"
+																			size="sm"
+																			className="size-7 sm:size-8 p-0"
+																			onClick={() =>
+																				handleViewPrincipalId(act.principalName, (act as NotarialActRow).principalIdImageBase64)
+																			}
+																			title="View Principal ID"
+																		>
+																			<IdCard className="size-3.5 sm:size-4" />
+																		</Button>
+																	)}
 																	{(act.documentId ?? act.docoChainProjectUuid) && (
 																		<Button
 																			variant="ghost"
@@ -622,6 +694,14 @@ export default function NotarialBook2Page() {
 					onClose={() => setPreviewDocument(null)}
 					actId={previewDocument.actId}
 					documentName={previewDocument.documentName}
+				/>
+			)}
+			{previewPrincipalId && (
+				<PrincipalIdDialog
+					isOpen={!!previewPrincipalId}
+					onClose={() => setPreviewPrincipalId(null)}
+					principalName={previewPrincipalId.principalName}
+					principalIdImageBase64={previewPrincipalId.principalIdImageBase64}
 				/>
 			)}
 		</>

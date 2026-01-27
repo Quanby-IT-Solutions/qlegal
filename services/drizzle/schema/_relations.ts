@@ -6,6 +6,7 @@ import { documents } from "@/services/drizzle/schema/document"
 import { documentSigners } from "@/services/drizzle/schema/document-signers"
 import { enpAvailability, enpProfiles } from "@/services/drizzle/schema/enp-profiles"
 import { envelopes } from "@/services/drizzle/schema/envelope"
+import { idCardDetails } from "@/services/drizzle/schema/id-card-details"
 import { legalRegistrations } from "@/services/drizzle/schema/legal-registration"
 import { meetingParticipants, meetings } from "@/services/drizzle/schema/meetings"
 import { messageAttachments } from "@/services/drizzle/schema/message-attachments"
@@ -43,6 +44,7 @@ export const userRelations = relations(users, ({ one, many }) => ({
 		references: [legalRegistrations.applicantId],
 	}),
 	notarialBooks: many(notarialBooks),
+	idCardDetails: many(idCardDetails),
 }))
 
 // Document relations
@@ -236,5 +238,13 @@ export const notarialActsRelations = relations(notarialActs, ({ one }) => ({
 	document: one(documents, {
 		fields: [notarialActs.documentId],
 		references: [documents.id],
+	}),
+}))
+
+// ID Card Details relations
+export const idCardDetailsRelations = relations(idCardDetails, ({ one }) => ({
+	user: one(users, {
+		fields: [idCardDetails.userId],
+		references: [users.id],
 	}),
 }))
