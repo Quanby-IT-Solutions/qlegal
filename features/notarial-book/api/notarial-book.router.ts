@@ -662,6 +662,19 @@ export const notarialBookRouter = createTRPCRouter({
 						const locationValue = "Philippines" // Default for API-based entries
 						const locationStatement = generateLocationStatement(locationValue)
 
+						// Include fees from document (ENP-set during upload) when valid
+						const feesVal: number | null = (() => {
+							const raw = document?.fees
+							if (
+								raw === null ||
+								raw === undefined ||
+								typeof raw !== "number" ||
+								Number.isNaN(raw)
+							)
+								return null
+							return raw
+						})()
+
 						return {
 							id: projectUuid, // Use project UUID as ID
 							notarialBookId: "", // Not needed for API-based entries
@@ -684,6 +697,7 @@ export const notarialBookRouter = createTRPCRouter({
 							passportData: passportData ? JSON.stringify(passportData) : null,
 							certificateNumber,
 							certificateUrl: null,
+							fees: feesVal,
 							createdAt: new Date(project.created_at),
 							updatedAt: new Date(project.updated_at),
 						};

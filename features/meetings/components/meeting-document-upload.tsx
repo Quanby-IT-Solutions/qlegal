@@ -32,6 +32,7 @@ interface MeetingDocumentUploadProps {
 	isOpen: boolean
 	onClose: () => void
 	onSuccess?: () => void
+	isEnp?: boolean
 }
 
 export function MeetingDocumentUpload({
@@ -39,12 +40,14 @@ export function MeetingDocumentUpload({
 	isOpen,
 	onClose,
 	onSuccess,
+	isEnp = false,
 }: MeetingDocumentUploadProps) {
 	const [documentName, setDocumentName] = useState("")
 	const [description, setDescription] = useState("")
 	const [notarizationType, setNotarizationType] = useState<
 		"ACKNOWLEDGMENT" | "AFFIRMATION" | "JURAT" | "SIGNATURE_WITNESSING" | ""
 	>("")
+	const [fees, setFees] = useState("")
 	const [selectedFile, setSelectedFile] = useState<File | null>(null)
 	const [isUploading, setIsUploading] = useState(false)
 
@@ -58,6 +61,7 @@ export function MeetingDocumentUpload({
 			setDocumentName("")
 			setDescription("")
 			setNotarizationType("")
+			setFees("")
 			onClose()
 			onSuccess?.()
 		},
@@ -133,6 +137,13 @@ export function MeetingDocumentUpload({
 				reader.readAsDataURL(selectedFile)
 			})
 
+			const feesNum = fees.trim() !== "" ? parseFloat(fees) : undefined
+			if (feesNum !== undefined && (Number.isNaN(feesNum) || feesNum < 0)) {
+				toast.error("Fees must be a valid non-negative number")
+				setIsUploading(false)
+				return
+			}
+
 			// Upload document
 			uploadDocument.mutate({
 				meetingId,
@@ -146,6 +157,7 @@ export function MeetingDocumentUpload({
 					| "AFFIRMATION"
 					| "JURAT"
 					| "SIGNATURE_WITNESSING",
+				...(isEnp && feesNum !== undefined && { fees: feesNum }),
 			})
 		} catch (error) {
 			console.error("Upload error:", error)
@@ -162,6 +174,7 @@ export function MeetingDocumentUpload({
 		setDocumentName("")
 		setDescription("")
 		setNotarizationType("")
+		setFees("")
 		onClose()
 	}
 
@@ -174,6 +187,7 @@ export function MeetingDocumentUpload({
 			setDocumentName("")
 			setDescription("")
 			setNotarizationType("")
+			setFees("")
 			onClose()
 		} else if (!open) {
 			// If uploading, just close without resetting (upload will handle reset)
@@ -310,6 +324,22 @@ export function MeetingDocumentUpload({
 								disabled={isUploading || !selectedFile}
 							/>
 						</div>
+
+						{isEnp && (
+							<div className="space-y-2">
+								<Label htmlFor="fees">Fees</Label>
+								<Input
+									id="fees"
+									type="number"
+									step="0.01"
+									min={0}
+									value={fees}
+									onChange={e => setFees(e.target.value)}
+									placeholder="0.00"
+									disabled={isUploading || !selectedFile}
+								/>
+							</div>
+						)}
 					</div>
 				</div>
 

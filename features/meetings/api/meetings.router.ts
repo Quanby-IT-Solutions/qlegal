@@ -638,6 +638,7 @@ export const meetingsRouter = createTRPCRouter({
 					"JURAT",
 					"SIGNATURE_WITNESSING",
 				]),
+				fees: z.number().nonnegative().optional(), // ENP-only, set during upload
 			})
 		)
 		.mutation(async ({ ctx, input }) => {
@@ -733,6 +734,7 @@ export const meetingsRouter = createTRPCRouter({
 						docoChainProjectId: null, // No project yet - will be created after signers are set
 						docoChainRedirectUrl: null,
 						order: nextOrder, // Set order based on upload sequence
+						fees: input.fees ?? null,
 					})
 					.returning()
 
@@ -1433,6 +1435,14 @@ export const meetingsRouter = createTRPCRouter({
 
 				const isFullySigned = isSignedByRequests || isSignedByDocoChain
 
+				const rawFees = doc.fees
+				const feesVal: number | null =
+					rawFees !== null &&
+					rawFees !== undefined &&
+					typeof rawFees === "number" &&
+					!Number.isNaN(rawFees)
+						? rawFees
+						: null
 				return {
 					id: doc.id,
 					name: doc.name,
@@ -1440,6 +1450,7 @@ export const meetingsRouter = createTRPCRouter({
 					createdAt: doc.createdAt,
 					docoChainProjectId: doc.docoChainProjectId ?? null,
 					isFullySigned,
+					fees: feesVal,
 					signerSummary: {
 						total: signerTotal,
 						signed: signerSigned,

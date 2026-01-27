@@ -383,6 +383,12 @@ export function ActiveNotarizationsSection() {
 											{detailsData.documents.map(doc => {
 												const signerTotal = doc.signerSummary.total
 												const signerSigned = doc.signerSummary.signed
+												const showFees =
+													doc.isFullySigned &&
+													doc.fees !== null &&
+													doc.fees !== undefined &&
+													typeof doc.fees === "number" &&
+													!Number.isNaN(doc.fees)
 
 												return (
 													<Card key={doc.id}>
@@ -413,6 +419,12 @@ export function ActiveNotarizationsSection() {
 																				value={Math.round((signerSigned / signerTotal) * 100)}
 																				className="h-2"
 																			/>
+																		</div>
+																	)}
+
+																	{showFees && (
+																		<div className="text-muted-foreground mt-2 text-xs font-semibold">
+																			Fees: {Number(doc.fees).toFixed(2)}
 																		</div>
 																	)}
 																</div>

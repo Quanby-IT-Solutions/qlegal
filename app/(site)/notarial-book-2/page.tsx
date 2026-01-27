@@ -103,6 +103,7 @@ interface NotarialActRow {
 	certificateNumber?: string | null
 	documentId?: string | null
 	docoChainProjectUuid?: string | null
+	fees?: number | null
 }
 
 function NotarialActCard({
@@ -197,6 +198,15 @@ function NotarialActCard({
 							<span className="font-mono">{act.certificateNumber}</span>
 						</>
 					)}
+					{act.fees !== null &&
+						act.fees !== undefined &&
+						typeof act.fees === "number" &&
+						!Number.isNaN(act.fees) && (
+							<>
+								<span>·</span>
+								<span className="font-semibold">Fees: {act.fees.toFixed(2)}</span>
+							</>
+						)}
 				</div>
 				<div className="mt-auto flex flex-wrap gap-2 pt-2">
 					{act.principalIdImageBase64 && (
@@ -518,6 +528,7 @@ export default function NotarialBook2Page() {
 														<TableHead className="min-w-[160px] sm:min-w-[180px]">Document</TableHead>
 														<TableHead className="hidden min-w-[90px] lg:table-cell">Location</TableHead>
 														<TableHead className="hidden min-w-[110px] xl:table-cell">Certificate #</TableHead>
+														<TableHead className="hidden min-w-[70px] xl:table-cell">Fees</TableHead>
 														<TableHead className="w-20 sm:w-24">Actions</TableHead>
 													</TableRow>
 												</TableHeader>
@@ -632,6 +643,18 @@ export default function NotarialBook2Page() {
 																<span className="font-mono text-xs sm:text-sm whitespace-nowrap">
 																	{act.certificateNumber ?? "N/A"}
 																</span>
+															</TableCell>
+															<TableCell className="hidden xl:table-cell whitespace-nowrap">
+																{act.fees !== null &&
+																act.fees !== undefined &&
+																typeof act.fees === "number" &&
+																!Number.isNaN(act.fees) ? (
+																	<span className="text-xs sm:text-sm font-medium">
+																		{act.fees.toFixed(2)}
+																	</span>
+																) : (
+																	<span className="text-muted-foreground text-xs">—</span>
+																)}
 															</TableCell>
 															<TableCell>
 																<div className="flex items-center gap-1">

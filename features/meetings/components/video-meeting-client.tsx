@@ -3207,6 +3207,20 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 															})()}
 														</p>
 													)}
+													{(() => {
+														const fees = (doc as { fees?: number | null }).fees
+														const showFees =
+															isFullySigned &&
+															fees !== null &&
+															fees !== undefined &&
+															typeof fees === "number" &&
+															!Number.isNaN(fees)
+														return showFees ? (
+															<p className="text-muted-foreground mt-1 text-xs font-semibold">
+																Fees: {fees.toFixed(2)}
+															</p>
+														) : null
+													})()}
 												</div>
 											</div>
 											<DocumentActions
@@ -3323,6 +3337,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 						void refetchDocuments()
 						setShowDocuments(true)
 					}}
+					isEnp={session?.user?.role === "ENP"}
 				/>
 			)}
 
