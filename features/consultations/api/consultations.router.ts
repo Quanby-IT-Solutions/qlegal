@@ -518,16 +518,22 @@ export const consultationsRouter = createTRPCRouter({
 				})
 			}
 
-			const isRemote = existing.location === null || existing.location === undefined
-			const prefersChatOnly = (existing.notes ?? "").toLowerCase().includes("chat only")
+		const isRemote = existing.location === null || existing.location === undefined
+		const prefersChatOnly = (existing.notes ?? "").toLowerCase().includes("chat only")
 
-			let meetingLink = existing.meetingLink
+		let meetingLink = existing.meetingLink
 
-			// Create meeting on confirm if remote + not chat-only and no link yet
-			if (isRemote && !prefersChatOnly && !meetingLink) {
-				try {
+		// Use transaction to ensure atomicity - meeting creation and appointment update happen together
+		// If any step fails, rollback everything to prevent inconsistent state
+		const updated = await ctx.db.transaction(async tx => {
+			try {
+				// Create meeting on confirm if remote + not chat-only and no link yet
+				if (isRemote && !prefersChatOnly && !meetingLink) {
+					// Create VideoSDK room first
 					const { roomId: videoRoomId } = await createMeetingRoom()
-					const [meeting] = await ctx.db
+
+					// Create meeting in database
+					const [meeting] = await tx
 						.insert(meetings)
 						.values({
 							title: `Consultation with ${existing.lawyerId === userId ? "Client" : "ENP"}`,
@@ -536,56 +542,83 @@ export const consultationsRouter = createTRPCRouter({
 						})
 						.returning()
 
-					if (meeting) {
-						// Add both client and ENP as participants
-						await ctx.db.insert(meetingParticipants).values([
-							{
-								meetingId: meeting.id,
-								userId: existing.clientId,
-							},
-							{
-								meetingId: meeting.id,
-								userId: existing.lawyerId,
-							},
-						])
-
-						meetingLink = `${getUrl()}/meetings/${meeting.id}`
+					if (!meeting) {
+						throw new TRPCError({
+							code: "INTERNAL_SERVER_ERROR",
+							message: "Failed to create meeting record",
+						})
 					}
-				} catch (error) {
-					console.error("Failed to create meeting on confirmation:", error)
-				}
-			}
 
-			// Create conversation on confirm (one-time best effort)
-			try {
-				const [conversation] = await ctx.db.insert(conversations).values({}).returning()
-				if (conversation) {
-					await ctx.db.insert(conversationParticipants).values([
+					// Add both client and ENP as participants
+					await tx.insert(meetingParticipants).values([
 						{
-							conversationId: conversation.id,
+							meetingId: meeting.id,
 							userId: existing.clientId,
 						},
 						{
-							conversationId: conversation.id,
+							meetingId: meeting.id,
 							userId: existing.lawyerId,
 						},
 					])
+
+					// Set meeting link for appointment update
+					meetingLink = `${getUrl()}/meetings/${meeting.id}/lobby`
 				}
+
+				// Update consultation status to CONFIRMED - inside transaction for atomicity
+				const [updatedConsultation] = await tx
+					.update(appointments)
+					.set({
+						status: "CONFIRMED",
+						meetingLink: input.meetingLink ?? meetingLink ?? existing.meetingLink,
+						updatedAt: new Date(),
+					})
+					.where(eq(appointments.id, input.consultationId))
+					.returning()
+
+				if (!updatedConsultation) {
+					throw new TRPCError({
+						code: "INTERNAL_SERVER_ERROR",
+						message: "Failed to update consultation status",
+					})
+				}
+
+				return updatedConsultation as typeof existing
 			} catch (error) {
-				console.error("Failed to create conversation on confirmation:", error)
-			}
-
-			// Update consultation
-			const [updated] = await ctx.db
-				.update(appointments)
-				.set({
-					status: "CONFIRMED",
-					meetingLink: input.meetingLink ?? meetingLink ?? existing.meetingLink,
-					updatedAt: new Date(),
+				// Log the error for debugging
+				console.error("Failed to confirm consultation:", error)
+				// Re-throw to rollback transaction
+				if (error instanceof TRPCError) {
+					throw error
+				}
+				throw new TRPCError({
+					code: "INTERNAL_SERVER_ERROR",
+					message: "Failed to confirm consultation. Please try again.",
+					cause: error,
 				})
-				.where(eq(appointments.id, input.consultationId))
-				.returning()
+			}
+		})
 
-			return updated
+		// Create conversation on confirm (one-time best effort, outside transaction)
+		// This is non-critical, so we don't want to fail the confirmation if it fails
+		try {
+			const [conversation] = await ctx.db.insert(conversations).values({}).returning()
+			if (conversation) {
+				await ctx.db.insert(conversationParticipants).values([
+					{
+						conversationId: conversation.id,
+						userId: existing.clientId,
+					},
+					{
+						conversationId: conversation.id,
+						userId: existing.lawyerId,
+					},
+				])
+			}
+		} catch (error) {
+			console.error("Failed to create conversation on confirmation:", error)
+		}
+
+		return updated
 		}),
 })

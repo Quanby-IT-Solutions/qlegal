@@ -13,12 +13,16 @@ interface CachedToken {
 const tokenCache = new Map<string, CachedToken>()
 // Track verification failures to prevent infinite loops
 const verificationFailureCount = new Map<string, number>()
+// CRITICAL: Map project UUIDs to the tokens that were used to create them.
+// This ensures each project always uses the token it was created with,
+// preventing DocoChain session conflicts when multiple projects exist.
+// Key: project UUID, Value: token string
+const projectTokenCache = new Map<string, string>()
 
 function isTokenValid(entry: CachedToken | undefined): entry is CachedToken {
 	return !!entry && Date.now() < entry.expiresAt - TOKEN_REFRESH_BUFFER_MS
 }
 
-const TOKEN_VERIFY_INTERVAL_MS = 10 * 60 * 1000 // 10 minutes
 const MAX_VERIFICATION_FAILURES = 3 // Stop verifying after 3 consecutive failures
 
 export async function generateToken(email?: string, forceRefresh = false): Promise<string> {
@@ -70,72 +74,68 @@ export async function getToken(email?: string, forceVerify = false): Promise<str
 	const cacheKey = email ?? env.DOCONCHAIN_EMAIL
 	const cached = tokenCache.get(cacheKey)
 
-	if (cached && isTokenValid(cached)) {
-		// Proactively verify token validity with DocoChain periodically
-		// so we can refresh before it causes downstream failures.
-		// Only verify periodically, not on every call, to avoid performance issues
-		const timeSinceLastVerify = Date.now() - cached.lastVerifiedAt
-		const timeUntilExpiration = cached.expiresAt - Date.now()
-		const shouldVerifyPeriodically = timeSinceLastVerify > TOKEN_VERIFY_INTERVAL_MS
-		// Also verify if token is close to expiration (within 15 minutes)
-		const shouldVerifyNearExpiration =
-			timeUntilExpiration < 15 * 60 * 1000 && timeSinceLastVerify > 2 * 60 * 1000 // At least 2 min since last verify
-		const shouldVerify = shouldVerifyPeriodically || shouldVerifyNearExpiration || forceVerify
+	// If we have a cached token, verify it before using
+	if (cached) {
 		const failureCount = verificationFailureCount.get(cacheKey) ?? 0
 
 		// Skip verification if we've had too many consecutive failures
 		// This prevents infinite loops when verification endpoint is having issues
-		if (shouldVerify && failureCount < MAX_VERIFICATION_FAILURES) {
+		if (failureCount < MAX_VERIFICATION_FAILURES) {
 			try {
 				const verify = await verifyAuthToken({
 					token: cached.token,
 					orgInviteCode: env.DOCONCHAIN_ORG_INVITE_CODE,
 				})
 
-				const status = String(verify?.data?.status ?? "").toLowerCase()
-				if (status === "active") {
+				const status = String(verify?.data?.status ?? "").toLowerCase().trim()
+				// Token is valid unless status is explicitly inactive
+				// API may return "active", "valid", or other positive values
+				const isInvalid = status === "inactive" || status === "expired" || status === ""
+				if (!isInvalid) {
 					// Token is valid - reset failure count and update timestamp
 					verificationFailureCount.delete(cacheKey)
 					tokenCache.set(cacheKey, { ...cached, lastVerifiedAt: Date.now() })
 					return cached.token
 				}
 
-				// Status is not active - token is likely expired or invalid
-				// If forceVerify is true, regenerate proactively to avoid 401 errors
-				// If forceVerify is false, still return cached token but log warning
-				// (will be regenerated when we get 401 error)
+				// Status indicates invalid - regenerate token
+				console.log(
+					`⚠️ Token verification failed (status: ${status || "(empty)"}) - token is invalid, regenerating...`
+				)
+				verificationFailureCount.delete(cacheKey) // Reset count since we're regenerating
+				// Invalidate and regenerate
+				tokenCache.delete(cacheKey)
+				return generateToken(email, true)
+			} catch {
+				// Verification endpoint itself failed (network error, etc.)
+				// If forceVerify is true, regenerate to be safe
+				// Otherwise, return cached token (might still be valid)
 				if (forceVerify) {
-					console.log(
-						`⚠️ Token verification failed (status: ${status}) - regenerating proactively...`
+					console.warn(
+						`⚠️ Token verification endpoint failed - regenerating token due to forceVerify=true`
 					)
-					verificationFailureCount.delete(cacheKey) // Reset count since we're regenerating
-					// Invalidate and regenerate
+					verificationFailureCount.delete(cacheKey)
 					tokenCache.delete(cacheKey)
 					return generateToken(email, true)
 				}
-
-				// Not forcing verification - increment failure count but still return cached token
-				// Will be regenerated reactively when we get 401
-				verificationFailureCount.set(cacheKey, failureCount + 1)
-				tokenCache.set(cacheKey, { ...cached, lastVerifiedAt: Date.now() })
-				console.warn(
-					`⚠️ Token verification failed (status: ${status}) but not forcing regeneration - will regenerate on 401`
-				)
-				return cached.token
-			} catch (error) {
-				// Verification endpoint itself failed (network error, etc.)
 				// Increment failure count but don't regenerate token - it might still be valid
 				verificationFailureCount.set(cacheKey, failureCount + 1)
-				// Update timestamp to avoid spamming verification, but don't reset failure count
+				// Update timestamp to avoid spamming verification
 				tokenCache.set(cacheKey, { ...cached, lastVerifiedAt: Date.now() })
 				return cached.token
 			}
+		} else {
+			// Too many verification failures - regenerate token to be safe
+			console.warn(
+				`⚠️ Too many verification failures (${failureCount}) - regenerating token...`
+			)
+			verificationFailureCount.delete(cacheKey)
+			tokenCache.delete(cacheKey)
+			return generateToken(email, true)
 		}
-
-		return cached.token
 	}
 
-	// No valid cached token - generate a new one
+	// No cached token - generate a new one
 	return generateToken(email, true)
 }
 
@@ -148,6 +148,30 @@ export function invalidateToken(email?: string): void {
 	tokenCache.delete(cacheKey)
 	// Also clear verification failure count when invalidating
 	verificationFailureCount.delete(cacheKey)
+}
+
+/**
+ * Store the token that was used to create a project.
+ * This ensures we can always use the same token for that project's operations.
+ */
+export function setProjectToken(projectUuid: string, token: string): void {
+	projectTokenCache.set(projectUuid, token)
+	console.log(`🔵 Stored token for project ${projectUuid.substring(0, 8)}...`)
+}
+
+/**
+ * Get the token that was used to create a project.
+ * Returns undefined if no token was stored for this project.
+ */
+export function getProjectToken(projectUuid: string): string | undefined {
+	return projectTokenCache.get(projectUuid)
+}
+
+/**
+ * Clear the stored token for a project (e.g., when project is deleted).
+ */
+export function clearProjectToken(projectUuid: string): void {
+	projectTokenCache.delete(projectUuid)
 }
 
 interface VerifyTokenParams {
@@ -178,7 +202,6 @@ export async function verifyAuthToken({ token, orgInviteCode }: VerifyTokenParam
 	)
 
 	if (!response.ok) {
-		const errorText = await response.text()
 		// Don't throw - return a result indicating failure instead
 		// This prevents infinite loops when verification itself fails
 		return {

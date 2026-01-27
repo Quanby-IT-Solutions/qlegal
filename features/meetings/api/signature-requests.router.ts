@@ -13,7 +13,6 @@ import {
 	getPassportDocument,
 	getProjectDetails,
 	getToken,
-	invalidateToken,
 	normalizeUrl,
 	sendProject,
 	updateProjectSigner,
@@ -806,15 +805,27 @@ export const signatureRequestsRouter = createTRPCRouter({
 					isProjectSent = false // Default to Draft, which uses Edit Draft Link
 				}
 
-				// Use Generate Sign Link API ONLY for sent projects (required for sent projects)
-				// For ALL Draft projects (regardless of plotting status), use Edit Draft Link for plotting/signing
-				// CRITICAL: If user is plotting (isPlotting=true), ALWAYS use Edit Draft Link regardless of status
-				// Plotting requires a draft project, so we must force Edit Draft Link even if status check is wrong
-				if (isProjectSent && !isPlotting) {
+			// CRITICAL: If user is plotting (isPlotting=true), ALWAYS use Edit Draft Link regardless of status
+			// Plotting requires a draft project, so we must force Edit Draft Link even if status check says "Sent"
+			// This prevents ENPs from being redirected to generate sign link when clicking "Plot Signature"
+			if (isPlotting === true) {
+				console.log("🔵 User is plotting - FORCING Edit Draft Link (ignoring project status)...")
+				console.log("   - Is Plotting:", true)
+				console.log("   - Project Status (ignored):", projectStatus)
+				// Skip project status check and go straight to Edit Draft Link generation
+				isProjectSent = false // Force to Draft to use Edit Draft Link
+			}
+
+			// Use Generate Sign Link API ONLY for sent projects (required for sent projects)
+			// For ALL Draft projects (regardless of plotting status), use Edit Draft Link for plotting/signing
+			// Use explicit check: only use generateSignLink if project is sent AND we're explicitly NOT plotting
+			if (isProjectSent && isPlotting !== true) {
 					// Project is sent - must use Generate Sign Link API
 					console.log(
 						"🔵 Project is sent - using Generate Sign Link API (required for sent projects)..."
 					)
+					console.log("   - Is Plotting:", isPlotting ?? false)
+					console.log("   - Project Status:", projectStatus)
 					try {
 						// CRITICAL: Pass ENP's email (creatorEmail) for token generation
 						// The 'email' parameter is for the signer, but auth token must be ENP's
@@ -843,55 +854,53 @@ export const signatureRequestsRouter = createTRPCRouter({
 					// Generate Edit Draft Project Link (allows plotting/editing/signing in draft)
 					// POST /api/v2/projects/{uuid}/link?user_type=ENTERPRISE_API
 					// Use creator's token to generate the link (token validation handled by apiCall)
-					// CRITICAL: If token expires, retry with a fresh token before falling back
+					// CRITICAL: For brand-new projects, DocoChain can take a moment to fully initialize.
+					// When plotting, we intentionally wait + retry a few times so the returned link is stable
+					// before the client opens it (prevents immediate redirects to stg-app on first doc/new meeting).
 					let editDraftResult: { link: string } | null = null
 					let editDraftError: unknown = null
 
-					// First attempt
-					try {
-						editDraftResult = await generateEditDraftLink(actualProjectUuid, creatorEmail)
-						signingLink = editDraftResult.link
-						console.log(
-							"✅ Edit Draft Project Link generated successfully (for plotting/signing):",
-							signingLink
-						)
-					} catch (firstError) {
-						editDraftError = firstError
-						console.error("❌ First attempt to generate Edit Draft Link failed:", firstError)
+					// When plotting, do a few attempts with exponential backoff.
+					// For non-plotting, keep a single attempt (fast path).
+					const maxLinkAttempts = isPlotting === true ? 4 : 1
+					let linkRetryDelayMs = 600
 
-						// Check if it's a token/auth error - if so, invalidate token and retry once
-						const isAuthError =
-							firstError instanceof Error &&
-							(firstError.message.includes("401") ||
-								firstError.message.includes("Unauthorized") ||
-								firstError.message.includes("expired") ||
-								firstError.message.includes("session"))
-
-						if (isAuthError) {
+					for (let attempt = 0; attempt < maxLinkAttempts; attempt++) {
+						if (attempt > 0) {
 							console.log(
-								"🔵 Token/auth error detected - invalidating token and retrying with fresh token..."
+								`🔵 Retrying Edit Draft Link generation (attempt ${attempt + 1}/${maxLinkAttempts}) after ${linkRetryDelayMs}ms...`
 							)
-							// Invalidate token to force fresh generation on retry
-							invalidateToken(creatorEmail)
+							await new Promise(resolve => setTimeout(resolve, linkRetryDelayMs))
+							linkRetryDelayMs *= 2
+						}
 
-							// Retry once with fresh token
-							try {
-								editDraftResult = await generateEditDraftLink(actualProjectUuid, creatorEmail)
-								signingLink = editDraftResult.link
-								console.log(
-									"✅ Edit Draft Project Link generated successfully on retry (for plotting/signing):",
-									signingLink
-								)
-							} catch (retryError) {
-								console.error("❌ Retry attempt also failed:", retryError)
-								editDraftError = retryError
-							}
+						try {
+							editDraftResult = await generateEditDraftLink(actualProjectUuid, creatorEmail)
+							signingLink = editDraftResult.link
+							console.log(
+								`✅ Edit Draft Project Link generated successfully (attempt ${attempt + 1}/${maxLinkAttempts}):`,
+								signingLink
+							)
+							break
+						} catch (err) {
+							editDraftError = err
+							console.error(
+								`❌ Attempt ${attempt + 1}/${maxLinkAttempts} to generate Edit Draft Link failed:`,
+								err
+							)
 						}
 					}
 
 					// If both attempts failed, use fallback - but use link.doconchain.com domain, not stg-app
 					if (!editDraftResult) {
 						console.error("❌ Failed to generate Edit Draft Link after retry:", editDraftError)
+						// For Plot Signature, never return a guessed/fallback URL.
+						// It's better to fail and let the user retry than to open the wrong DocoChain page.
+						if (isPlotting === true) {
+							throw new Error(
+								"Unable to open plotting platform yet. Please try again in a moment."
+							)
+						}
 						// CRITICAL: Use link.doconchain.com domain for Edit Draft Links, not stg-app.doconchain.com
 						// Extract short code from project UUID or use project UUID directly
 						// The fallback should still be a valid Edit Draft Link format
@@ -917,12 +926,32 @@ export const signatureRequestsRouter = createTRPCRouter({
 						// CRITICAL: For Edit Draft Links (link.doconchain.com), remove unwanted parameters
 						// Edit Draft Links should ONLY have: api=true and api_token
 						// Remove: token, email, signer_role, page (these are for Sign Links, not Edit Draft Links)
+						// CRITICAL: When plotting, ensure we NEVER use stg-app.doconchain.com links - they redirect
 						if (url.hostname.includes("link.doconchain.com")) {
 							console.log("🔵 Cleaning Edit Draft Link - removing unwanted parameters...")
 							url.searchParams.delete("token") // Remove token parameter (not needed for Edit Draft Links)
 							url.searchParams.delete("email") // Remove email parameter (not needed for Edit Draft Links)
 							url.searchParams.delete("signer_role") // Remove signer_role parameter (not needed for Edit Draft Links)
 							url.searchParams.delete("page") // Remove page parameter (not needed for Edit Draft Links)
+							
+							// CRITICAL: When plotting, ensure link is link.doconchain.com (not stg-app.doconchain.com)
+							// If somehow we got a stg-app link, convert it to link.doconchain.com
+							if (isPlotting === true && url.hostname.includes("stg-app.doconchain.com")) {
+								console.warn("⚠️ Plotting detected stg-app.doconchain.com link - converting to link.doconchain.com")
+								url.hostname = "link.doconchain.com"
+							}
+						} else if (isPlotting === true && url.hostname.includes("stg-app.doconchain.com")) {
+							// CRITICAL: When plotting, we should NEVER get stg-app.doconchain.com links
+							// If we do, it means something went wrong - convert to link.doconchain.com
+							console.error("❌ Plotting action received stg-app.doconchain.com link - this should not happen!")
+							console.error("   - Original link:", signingLink)
+							console.error("   - Converting to link.doconchain.com to prevent redirect...")
+							url.hostname = "link.doconchain.com"
+							// Remove all sign link parameters
+							url.searchParams.delete("token")
+							url.searchParams.delete("email")
+							url.searchParams.delete("signer_role")
+							url.searchParams.delete("page")
 						}
 
 						// Ensure api=true is set
