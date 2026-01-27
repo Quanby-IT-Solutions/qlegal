@@ -206,14 +206,31 @@ export async function validateSelfieLiveness(imageBase64: string, meetingId?: st
 				status: finalDecision.isApproved ? "pass" : "fail",
 				errorMessage: finalDecision.isApproved ? null : finalDecision.message,
 				attemptNumber: 1,
+				decisionJson: JSON.stringify(finalDecision),
+				rawResultJson: JSON.stringify(result),
+				updatedAt: new Date(),
 			})
 			console.log(
 				"✅ Saved liveness validation to database",
 				meetingId ? `for meeting ${meetingId}` : ""
 			)
 		} catch (dbError) {
-			console.error("⚠️ Failed to save to database (non-critical):", dbError)
-			// Don't fail the whole operation if database save fails
+			console.error("⚠️ Failed to update existing liveness row, trying insert (non-critical):", dbError)
+			try {
+				await db.insert(livenessValidations).values({
+					userId: session.user.id,
+					meetingId: meetingId ?? null,
+					transactionId,
+					status: decision.isApproved ? "pass" : "fail",
+					errorMessage: decision.isApproved ? null : decision.message,
+					attemptNumber: 1,
+					decisionJson: JSON.stringify(decision),
+					rawResultJson: JSON.stringify(result),
+					updatedAt: new Date(),
+				})
+			} catch (e) {
+				console.error("⚠️ Failed to save to database (non-critical):", e)
+			}
 		}
 
 		revalidatePath("/liveness")
@@ -288,6 +305,23 @@ export async function startHostedLivenessWorkflow(
 	console.log("   - Callback URL:", callbackUrl)
 
 	try {
+		// Create a pending DB row so webhook/callback can be DB-first.
+		try {
+			await db.insert(livenessValidations).values({
+				userId: session.user.id,
+				meetingId: meetingId ?? null,
+				transactionId,
+				status: "pending",
+				errorMessage: null,
+				attemptNumber: 1,
+				decisionJson: null,
+				rawResultJson: null,
+				updatedAt: new Date(),
+			})
+		} catch (e) {
+			console.warn("⚠️ Failed to create pending liveness row (non-critical):", e)
+		}
+
 		// If the hosted workflow now includes face-match against KYC reference image, it may require
 		// an `inputsRequired` key like `inputImage`. We'll source it from the user's stored KYC reference.
 		const user = await db.query.users.findFirst({
@@ -473,7 +507,19 @@ export async function getHostedLivenessResult(transactionId: string, meetingId?:
 			),
 		})
 
-		if (existing) {
+		if (existing?.decisionJson && (existing.status === "pass" || existing.status === "fail")) {
+			const parsed = JSON.parse(existing.decisionJson) as LivenessDecisionResult
+			return {
+				success: true,
+				data: {
+					transactionId,
+					status: parsed.isApproved ? "VERIFIED" : "REJECTED",
+					decision: parsed,
+				},
+			}
+		}
+
+		if (existing && (existing.status === "pass" || existing.status === "fail")) {
 			const isApproved = existing.status === "pass"
 			return {
 				success: true,
@@ -514,14 +560,21 @@ export async function getHostedLivenessResult(transactionId: string, meetingId?:
 
 		// Save to database
 		try {
-			await db.insert(livenessValidations).values({
-				userId: session.user.id,
-				meetingId: meetingId ?? null,
-				transactionId,
-				status: decision.isApproved ? "pass" : "fail",
-				errorMessage: decision.isApproved ? null : decision.message,
-				attemptNumber: 1,
-			})
+			await db
+				.update(livenessValidations)
+				.set({
+					status: decision.isApproved ? "pass" : "fail",
+					errorMessage: decision.isApproved ? null : decision.message,
+					decisionJson: JSON.stringify(decision),
+					rawResultJson: JSON.stringify(result),
+					updatedAt: new Date(),
+				})
+				.where(
+					and(
+						eq(livenessValidations.userId, session.user.id),
+						eq(livenessValidations.transactionId, transactionId)
+					)
+				)
 			console.log(
 				"✅ Saved liveness validation to database",
 				meetingId ? `for meeting ${meetingId}` : ""
