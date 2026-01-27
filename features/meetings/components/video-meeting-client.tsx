@@ -1623,6 +1623,8 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 	const [signingDocumentId, setSigningDocumentId] = useState<string | null>(null)
 	const [isPlottingAction, setIsPlottingAction] = useState(false)
 	const isPlottingActionRef = useRef(false)
+	const openingPlatformToastIdRef = useRef<string | number | null>(null)
+	const openingSignedDocumentToastIdRef = useRef<string | number | null>(null)
 	// Store pre-generated links per document (keyed by documentId)
 	const [preGeneratedLinks, setPreGeneratedLinks] = useState<Map<string, { link: string; projectUuid: string }>>(new Map())
 	const [draggedDocumentId, setDraggedDocumentId] = useState<string | null>(null)
@@ -1819,10 +1821,11 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 	}, [documents, refreshSigningStatuses, showDocuments])
 
 	// Fetch meeting details to get participants and lock state
+	const queryId = meetingId?.trim() ?? ""
 	const { data: meetingDetails, refetch: refetchMeetingDetails } = trpc.meetings.getById.useQuery(
-		meetingId ?? "",
+		queryId,
 		{
-			enabled: !!meetingId && !!meetingId.trim(),
+			enabled: !!meetingId?.trim(),
 			retry: false,
 			refetchInterval: 15000, // Refetch every 15 seconds to sync lock state
 			staleTime: 8000, // Consider data fresh for 8 seconds
@@ -2047,23 +2050,94 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 		setDragOverDocumentId(null)
 	}, [])
 
-	// Handle signed document - open our server-streamed PDF
-	const handleDownloadSignedDocument = useCallback(async (projectUuid: string) => {
-		setDownloadingProjectUuid(projectUuid)
+	// Handle signed document - only open when fully processed (Completed)
+	const handleDownloadSignedDocument = useCallback(
+		async (projectUuid: string) => {
+			setDownloadingProjectUuid(projectUuid)
 
-		try {
-			// Open a QSign API route that streams the signed PDF.
-			// This avoids relying on DocoChain guestToken and avoids leaking api_token in URLs.
-			const url = `/api/doconchain/projects/${encodeURIComponent(projectUuid)}/signed`
-			window.open(url, "_blank", "noopener,noreferrer")
-			toast.success("Opening signed document...")
-		} catch (error) {
-			console.error("Error opening signed document:", error)
-			toast.error(error instanceof Error ? error.message : "Failed to open signed document")
-		} finally {
-			setDownloadingProjectUuid(null)
-		}
-	}, [])
+			// Clear any previous toast
+			if (openingSignedDocumentToastIdRef.current !== null) {
+				toast.dismiss(openingSignedDocumentToastIdRef.current)
+				openingSignedDocumentToastIdRef.current = null
+			}
+
+			// Open a blank tab immediately to avoid popup blockers, then redirect once ready.
+			const popup = window.open("about:blank", "_blank", "noopener,noreferrer")
+			if (!popup) {
+				toast.error("Popup blocked. Please allow popups for this site and try again.")
+				setDownloadingProjectUuid(null)
+				return
+			}
+
+			// Optional: show a minimal message in the blank tab
+			try {
+				popup.document.title = "Preparing signed document…"
+				popup.document.body.innerHTML =
+					"<p style=\"font-family:system-ui,Segoe UI,Roboto,Arial; padding:16px;\">Preparing signed document…</p>"
+			} catch {
+				// Ignore if browser restricts access
+			}
+
+			openingSignedDocumentToastIdRef.current = toast.loading("Opening signed document…")
+
+			try {
+				// Wait until DocoChain reports the project as completed (processing done)
+				const maxAttempts = 10
+				let delayMs = 1500
+
+				for (let attempt = 0; attempt < maxAttempts; attempt++) {
+					const status = await utils.signatureRequests.checkSigningStatus.fetch({ projectUuid })
+					const statusUpper = String(status?.projectStatus ?? "").toUpperCase()
+					const isCompleted = statusUpper === "COMPLETED" || status?.completedAt !== null
+
+					if (isCompleted) break
+
+					// Not ready yet: wait and retry
+					await new Promise(resolve => setTimeout(resolve, delayMs))
+					delayMs = Math.min(delayMs + 500, 4000)
+				}
+
+				// Final check (one last fetch) before opening
+				const finalStatus = await utils.signatureRequests.checkSigningStatus.fetch({ projectUuid })
+				const finalStatusUpper = String(finalStatus?.projectStatus ?? "").toUpperCase()
+				const isFinallyCompleted =
+					finalStatusUpper === "COMPLETED" || finalStatus?.completedAt !== null
+
+				if (!isFinallyCompleted) {
+					toast.error(
+						"Signed document is still processing. Please try again in a moment."
+					)
+					try {
+						popup.close()
+					} catch {
+						// ignore
+					}
+					return
+				}
+
+				// Now redirect the blank tab to our server-streamed PDF.
+				// This avoids relying on DocoChain guestToken and avoids leaking api_token in URLs.
+				const url = `/api/doconchain/projects/${encodeURIComponent(projectUuid)}/signed`
+				popup.location.href = url
+				toast.success("Opening signed document…")
+			} catch (error) {
+				console.error("Error opening signed document:", error)
+				toast.error(error instanceof Error ? error.message : "Failed to open signed document")
+				try {
+					popup.close()
+				} catch {
+					// ignore
+				}
+			} finally {
+				if (openingSignedDocumentToastIdRef.current !== null) {
+					toast.dismiss(openingSignedDocumentToastIdRef.current)
+					openingSignedDocumentToastIdRef.current = null
+				}
+				setDownloadingProjectUuid(null)
+			}
+		},
+		[utils.signatureRequests.checkSigningStatus]
+	)
 
 	// Handle certificate download
 	const handleDownloadCertificate = useCallback(
@@ -2159,7 +2233,24 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 
 	// ENP initiates signing - adds them as signer and embeds signing page
 	const initiateSigning = trpc.signatureRequests.initiateSigning.useMutation({
+		onMutate: variables => {
+			// Clear any previous toast
+			if (openingPlatformToastIdRef.current !== null) {
+				toast.dismiss(openingPlatformToastIdRef.current)
+				openingPlatformToastIdRef.current = null
+			}
+
+			if (variables.isPlotting === true) {
+				openingPlatformToastIdRef.current = toast.loading("Opening plotting platform…")
+			}
+		},
 		onSuccess: data => {
+			// Clear loading toast (if any)
+			if (openingPlatformToastIdRef.current !== null) {
+				toast.dismiss(openingPlatformToastIdRef.current)
+				openingPlatformToastIdRef.current = null
+			}
+
 			// Validate that we have a valid URL string
 			let signingLink = typeof data.link === "string" ? data.link : null
 
@@ -2229,7 +2320,9 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 					}
 				}, 1500)
 
-				toast.success("Opening signing interface in popup window...")
+				toast.success(
+					wasPlotting ? "Opening plotting platform in popup window..." : "Opening signing interface in popup window..."
+				)
 			} else {
 				toast.error("Popup blocked. Please allow popups for this site and try again.")
 				setSigningDocumentId(null) // Clear loading state
@@ -2239,6 +2332,11 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 		},
 		onError: error => {
 			console.error("❌ Failed to initiate signing:", error)
+			// Clear loading toast (if any)
+			if (openingPlatformToastIdRef.current !== null) {
+				toast.dismiss(openingPlatformToastIdRef.current)
+				openingPlatformToastIdRef.current = null
+			}
 			setSigningDocumentId(null) // Clear loading state on error
 			setIsPlottingAction(false) // Clear plotting state on error
 			isPlottingActionRef.current = false // Clear ref
@@ -2254,82 +2352,88 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 
 	const handleSignClick = useCallback(
 		(projectUuid: string | null, email: string, documentId: string, isPlotting?: boolean) => {
-			// Check if we have a pre-generated link for this document
-			const preGenerated = preGeneratedLinks.get(documentId)
-			if (preGenerated?.link) {
-				console.log("✅ Using pre-generated link for instant redirect!")
-				setSigningDocumentId(documentId)
-				const plotting = isPlotting ?? false
-				setIsPlottingAction(plotting)
-				isPlottingActionRef.current = plotting
-				
-				// Use pre-generated link immediately
-				let signingLink = preGenerated.link
-				signingLink = normalizeUrl(signingLink) ?? signingLink
-				
-				// Validate it's a proper URL
-				try {
-					new URL(signingLink)
-				} catch {
-					console.error("❌ Invalid URL format:", signingLink)
-					toast.error("Invalid URL format for signing link")
-					return
-				}
-				
-				// Open popup immediately with pre-generated link
-				const isEnpUser = session?.user?.role === "ENP"
-				const width = Math.min(window.innerWidth - 40, 1400)
-				const height = Math.min(window.innerHeight - 40, 900)
-				const left = (window.screen.width - width) / 2
-				const top = (window.screen.height - height) / 2
-				
-				const popup = window.open(
-					signingLink,
-					"DocoChainSigning",
-					`width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes,toolbar=no,location=no,menubar=no`
-				)
-				
-				if (popup) {
-					const checkClosed = setInterval(() => {
-						if (popup.closed) {
-							clearInterval(checkClosed)
-							setSigningDocumentId(null)
-							setIsPlottingAction(false)
-							isPlottingActionRef.current = false
-							
-							if (isEnpUser && plotting) {
-								console.log("🔄 ENP plotted signature - refreshing document status...")
-								void refetchDocuments().then(() => {
-									void refreshSigningStatuses()
-								})
-								toast.success("Signature plotted. Document status updated.")
-							} else {
+			const plotting = isPlotting ?? false
+			
+			// CRITICAL: When plotting, ALWAYS generate a fresh Edit Draft Link on click
+			// Never use pre-generated links for plotting - they may redirect if generated before project is fully initialized
+			// This ensures we get a fresh link that won't redirect to stg-app.doconchain.com
+			if (!plotting) {
+				// Check if we have a pre-generated link for this document (only for non-plotting actions)
+				const preGenerated = preGeneratedLinks.get(documentId)
+				if (preGenerated?.link) {
+					console.log("✅ Using pre-generated link for instant redirect!")
+					setSigningDocumentId(documentId)
+					setIsPlottingAction(false)
+					isPlottingActionRef.current = false
+					
+					// Use pre-generated link immediately
+					let signingLink = preGenerated.link
+					signingLink = normalizeUrl(signingLink) ?? signingLink
+					
+					// Validate it's a proper URL
+					try {
+						new URL(signingLink)
+					} catch {
+						console.error("❌ Invalid URL format:", signingLink)
+						toast.error("Invalid URL format for signing link")
+						return
+					}
+					
+					// Open popup immediately with pre-generated link
+					const isEnpUser = session?.user?.role === "ENP"
+					const width = Math.min(window.innerWidth - 40, 1400)
+					const height = Math.min(window.innerHeight - 40, 900)
+					const left = (window.screen.width - width) / 2
+					const top = (window.screen.height - height) / 2
+					
+					const popup = window.open(
+						signingLink,
+						"DocoChainSigning",
+						`width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes,toolbar=no,location=no,menubar=no`
+					)
+					
+					if (popup) {
+						const checkClosed = setInterval(() => {
+							if (popup.closed) {
+								clearInterval(checkClosed)
+								setSigningDocumentId(null)
+								setIsPlottingAction(false)
+								isPlottingActionRef.current = false
+								
 								void refetchDocuments().then(() => {
 									void refreshSigningStatuses()
 								})
 								toast.success("Signing completed. Document status updated.")
 							}
-						}
-					}, 1500)
-					toast.success("Opening signing interface in popup window...")
-					// Clear pre-generated link after use
-					setPreGeneratedLinks(prev => {
-						const next = new Map(prev)
-						next.delete(documentId)
-						return next
-					})
-				} else {
-					toast.error("Popup blocked. Please allow popups for this site and try again.")
-					setSigningDocumentId(null)
-					setIsPlottingAction(false)
-					isPlottingActionRef.current = false
+						}, 1500)
+						toast.success("Opening signing interface in popup window...")
+						// Clear pre-generated link after use
+						setPreGeneratedLinks(prev => {
+							const next = new Map(prev)
+							next.delete(documentId)
+							return next
+						})
+					} else {
+						toast.error("Popup blocked. Please allow popups for this site and try again.")
+						setSigningDocumentId(null)
+						setIsPlottingAction(false)
+						isPlottingActionRef.current = false
+					}
+					return
 				}
-				return
+			} else {
+				// Plotting action - skip pre-generated links and always generate fresh
+				console.log("🔵 Plotting action detected - generating fresh Edit Draft Link (skipping pre-generated link)...")
+				// Clear any pre-generated link for this document to force fresh generation
+				setPreGeneratedLinks(prev => {
+					const next = new Map(prev)
+					next.delete(documentId)
+					return next
+				})
 			}
 			
-			// No pre-generated link - use normal flow
+			// Generate fresh link (always for plotting, or when no pre-generated link exists)
 			setSigningDocumentId(documentId)
-			const plotting = isPlotting ?? false
 			setIsPlottingAction(plotting)
 			isPlottingActionRef.current = plotting
 			// If projectUuid exists, use it. Otherwise, pass documentId to create project
