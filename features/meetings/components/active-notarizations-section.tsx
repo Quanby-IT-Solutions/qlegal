@@ -28,8 +28,9 @@ import {
 import { Skeleton } from "@/core/components/ui/skeleton"
 
 import { trpc } from "@/services/trpc/client"
-import { isAfter, startOfDay } from "date-fns"
-
+import { isAfter, startOfDay, isSameDay } from "date-fns"
+import type { inferRouterOutputs } from "@trpc/server"
+  
 function getMeetingStatusBadge(status: string) {
 	switch (status) {
 		case "SCHEDULED":
@@ -68,7 +69,13 @@ function getDocumentSigningBadge(isFullySigned: boolean) {
 
 	return <Badge variant="secondary">Pending</Badge>
 }
-
+type Appointment = {
+	id: string
+	title?: string
+	scheduledAt?: Date
+	createdAt: Date
+	createdBy?: { name?: string; image?: string | null }
+  }  
 export function ActiveNotarizationsSection() {
 	// IMPORTANT: same ordering as Meetings page (server query orders by meetingParticipants.createdAt desc)
 	const PAGE_SIZE = 10
@@ -77,10 +84,9 @@ export function ActiveNotarizationsSection() {
 
 	const { data, isLoading } = trpc.meetings.getUserMeetingsWithDocumentStats.useQuery(
 		{ limit: PAGE_SIZE, offset },
-		{
-			refetchInterval: 10_000, // Refetch every 10 seconds for better real-time updates
-		}
-	)
+		{ refetchInterval: 5_000 }
+	  )
+	  
 	const meetings = data?.items ?? []
 	const hasMore = data?.hasMore ?? false
 
@@ -88,6 +94,12 @@ export function ActiveNotarizationsSection() {
 	const [statusFilter, setStatusFilter] = useState<string>("ALL")
 	const [detailsOpen, setDetailsOpen] = useState(false)
 	const [detailsMeetingId, setDetailsMeetingId] = useState<string | null>(null)
+	const today = startOfDay(new Date())
+
+	const { data: pendingAppointments = [] } =
+		trpc.appointments.getUpcomingAppointments.useQuery(undefined, {
+			refetchInterval: 10_000,
+		})
 
 	const { data: detailsData, isLoading: isDetailsLoading } =
 		trpc.meetings.getMeetingNotarizationDetails.useQuery(
@@ -95,25 +107,45 @@ export function ActiveNotarizationsSection() {
 			{ enabled: detailsOpen && !!detailsMeetingId }
 		)
 
-	const today = startOfDay(new Date())
+		const appointmentCards = useMemo(() => {
+			return pendingAppointments.map((appt: Appointment) => ({
+			  id: `appt-${appt.id}`,
+			  title: appt.title ?? "Pending Notarization Session",
+			  createdAt: (appt.scheduledAt ?? appt.createdAt).toISOString(),
+			  status: "PENDING", // optional, if you want to reuse meeting badges
+			  badgeStatus: appt.scheduledAt ? "CONFIRMED" : "PENDING_SESSION", // new field
+			  participants: [],
+			  documentStats: { total: 0, signed: 0, isComplete: true },
+			  createdBy: appt.createdBy ?? { name: "Unknown", image: null },
+			  isAppointment: true as const,
+			}))
+		  }, [pendingAppointments])
+		  
+	
+		  const combinedMeetings = useMemo(() => {
+			return [...appointmentCards, ...meetings]
+		  }, [appointmentCards, meetings])
 
-	const filteredMeetings = useMemo(() => {
-		const q = searchTerm.trim().toLowerCase()
-	  
-		return meetings.filter(meeting => {
-		  const meetingDate = startOfDay(new Date(meeting.createdAt)) // normalize to start of day
-	  
-		  // Only include meetings after today (strictly future dates)
-		  if (!isAfter(meetingDate, today)) return false
-	  
-		  // Apply search filter only
-		  if (q && !meeting.title.toLowerCase().includes(q) && !(meeting.createdBy.name ?? "").toLowerCase().includes(q)) {
-			return false
-		  }
-	  
-		  return true
-		})
-	  }, [meetings, searchTerm])
+			const filteredMeetings = useMemo(() => {
+			const q = searchTerm.trim().toLowerCase()
+
+			return combinedMeetings.filter(meeting => {
+				const meetingDate = startOfDay(new Date(meeting.createdAt))
+
+				// Include if today or in the future
+				if (!(isAfter(meetingDate, today) || isSameDay(meetingDate, today))) return false
+
+				if (
+				q &&
+				!meeting.title.toLowerCase().includes(q) &&
+				!(meeting.createdBy.name ?? "").toLowerCase().includes(q)
+				) {
+				return false
+				}
+
+				return true
+			})
+			}, [combinedMeetings, searchTerm, today]) 
 
 	return (
 		<div className="space-y-6">
@@ -200,7 +232,11 @@ export function ActiveNotarizationsSection() {
 											<h4 className="text-base font-semibold leading-tight truncate">
 											{meeting.title}
 											</h4>
-											{getMeetingStatusBadge(meeting.status)}
+											{"isAppointment" in meeting && meeting.isAppointment ? (
+												<Badge variant="secondary">Pending Session</Badge>
+											) : (
+												getMeetingStatusBadge(meeting.status)
+											)}
 										</div>
 
 										{/* Meta Row */}
@@ -251,7 +287,7 @@ export function ActiveNotarizationsSection() {
 											<AvatarFallback>
 												{(meeting.createdBy.name ?? "Unknown")
 												.split(" ")
-												.map(n => n[0])
+												.map((n: string) => n[0])
 												.join("")
 												.toUpperCase()}
 											</AvatarFallback>
