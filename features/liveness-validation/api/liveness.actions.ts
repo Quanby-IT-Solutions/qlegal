@@ -463,6 +463,40 @@ export async function getHostedLivenessResult(transactionId: string, meetingId?:
 	console.log("   - Meeting ID:", meetingId ?? "N/A")
 
 	try {
+		// Sanitary check: avoid multiple /v1/output calls for the same transactionId.
+		// If we've already stored a result row for this transactionId, return it directly.
+		const { eq, and } = await import("drizzle-orm")
+		const existing = await db.query.livenessValidations.findFirst({
+			where: and(
+				eq(livenessValidations.userId, session.user.id),
+				eq(livenessValidations.transactionId, transactionId)
+			),
+		})
+
+		if (existing) {
+			const isApproved = existing.status === "pass"
+			return {
+				success: true,
+				data: {
+					transactionId,
+					status: isApproved ? "VERIFIED" : "REJECTED",
+					decision: {
+						isLive: isApproved,
+						actionPassed: isApproved,
+						isApproved,
+						message:
+							existing.errorMessage ??
+							(isApproved
+								? "Liveness verification already completed successfully."
+								: "Liveness verification failed."),
+						qualityIssues: [],
+						liveFaceValue: "unknown",
+						summaryAction: isApproved ? "pass" : "fail",
+					} as LivenessDecisionResult,
+				},
+			}
+		}
+
 		const result = await getWorkflowOutput(transactionId)
 
 		const decision = result.decision

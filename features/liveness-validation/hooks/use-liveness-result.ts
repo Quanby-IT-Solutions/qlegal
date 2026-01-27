@@ -42,8 +42,7 @@ export function useLivenessResult({
 		// Prevent refetching - we only need the result once per transaction
 		staleTime: Infinity, // Data never becomes stale
 		gcTime: 1000 * 60 * 10, // Cache for 10 minutes (renamed from cacheTime in v5)
-		retry: 1, // Only retry once on failure
-		retryDelay: 2000, // Wait 2 seconds before retry
+		retry: 0, // Never retry automatically (avoid multiple /v1/output calls per transaction)
 		refetchOnWindowFocus: false, // Don't refetch when window regains focus
 		refetchOnReconnect: false, // Don't refetch on network reconnect
 		refetchOnMount: false, // Don't refetch on component mount if data exists
