@@ -894,6 +894,13 @@ export const signatureRequestsRouter = createTRPCRouter({
 					// If both attempts failed, use fallback - but use link.doconchain.com domain, not stg-app
 					if (!editDraftResult) {
 						console.error("❌ Failed to generate Edit Draft Link after retry:", editDraftError)
+						// For Plot Signature, never return a guessed/fallback URL.
+						// It's better to fail and let the user retry than to open the wrong DocoChain page.
+						if (isPlotting === true) {
+							throw new Error(
+								"Unable to open plotting platform yet. Please try again in a moment."
+							)
+						}
 						// CRITICAL: Use link.doconchain.com domain for Edit Draft Links, not stg-app.doconchain.com
 						// Extract short code from project UUID or use project UUID directly
 						// The fallback should still be a valid Edit Draft Link format

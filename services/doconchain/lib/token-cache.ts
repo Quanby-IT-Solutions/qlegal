@@ -13,6 +13,11 @@ interface CachedToken {
 const tokenCache = new Map<string, CachedToken>()
 // Track verification failures to prevent infinite loops
 const verificationFailureCount = new Map<string, number>()
+// CRITICAL: Map project UUIDs to the tokens that were used to create them.
+// This ensures each project always uses the token it was created with,
+// preventing DocoChain session conflicts when multiple projects exist.
+// Key: project UUID, Value: token string
+const projectTokenCache = new Map<string, string>()
 
 function isTokenValid(entry: CachedToken | undefined): entry is CachedToken {
 	return !!entry && Date.now() < entry.expiresAt - TOKEN_REFRESH_BUFFER_MS
@@ -143,6 +148,30 @@ export function invalidateToken(email?: string): void {
 	tokenCache.delete(cacheKey)
 	// Also clear verification failure count when invalidating
 	verificationFailureCount.delete(cacheKey)
+}
+
+/**
+ * Store the token that was used to create a project.
+ * This ensures we can always use the same token for that project's operations.
+ */
+export function setProjectToken(projectUuid: string, token: string): void {
+	projectTokenCache.set(projectUuid, token)
+	console.log(`🔵 Stored token for project ${projectUuid.substring(0, 8)}...`)
+}
+
+/**
+ * Get the token that was used to create a project.
+ * Returns undefined if no token was stored for this project.
+ */
+export function getProjectToken(projectUuid: string): string | undefined {
+	return projectTokenCache.get(projectUuid)
+}
+
+/**
+ * Clear the stored token for a project (e.g., when project is deleted).
+ */
+export function clearProjectToken(projectUuid: string): void {
+	projectTokenCache.delete(projectUuid)
 }
 
 interface VerifyTokenParams {
