@@ -32,6 +32,14 @@ function generateTransactionId(userId: string): string {
 	return `liveness_${userId}_${timestamp}_${random}`.toUpperCase()
 }
 
+function stripDataUrlPrefix(base64OrDataUrl: string): string {
+	if (base64OrDataUrl.startsWith("data:")) {
+		const parts = base64OrDataUrl.split(",")
+		return parts[1] || base64OrDataUrl
+	}
+	return base64OrDataUrl
+}
+
 /**
  * Get the current liveness mode configuration
  * Returns whether direct API mode is enabled (feature flag)
@@ -198,14 +206,31 @@ export async function validateSelfieLiveness(imageBase64: string, meetingId?: st
 				status: finalDecision.isApproved ? "pass" : "fail",
 				errorMessage: finalDecision.isApproved ? null : finalDecision.message,
 				attemptNumber: 1,
+				decisionJson: JSON.stringify(finalDecision),
+				rawResultJson: JSON.stringify(result),
+				updatedAt: new Date(),
 			})
 			console.log(
 				"✅ Saved liveness validation to database",
 				meetingId ? `for meeting ${meetingId}` : ""
 			)
 		} catch (dbError) {
-			console.error("⚠️ Failed to save to database (non-critical):", dbError)
-			// Don't fail the whole operation if database save fails
+			console.error("⚠️ Failed to update existing liveness row, trying insert (non-critical):", dbError)
+			try {
+				await db.insert(livenessValidations).values({
+					userId: session.user.id,
+					meetingId: meetingId ?? null,
+					transactionId,
+					status: decision.isApproved ? "pass" : "fail",
+					errorMessage: decision.isApproved ? null : decision.message,
+					attemptNumber: 1,
+					decisionJson: JSON.stringify(decision),
+					rawResultJson: JSON.stringify(result),
+					updatedAt: new Date(),
+				})
+			} catch (e) {
+				console.error("⚠️ Failed to save to database (non-critical):", e)
+			}
 		}
 
 		revalidatePath("/liveness")
@@ -263,12 +288,14 @@ export async function startHostedLivenessWorkflow(
 
 	const transactionId = generateTransactionId(session.user.id)
 	const baseUrl = getUrl()
-	let callbackUrl = `${baseUrl}/liveness/callback?transactionId=${transactionId}`
+	// Do NOT include transactionId here — HyperVerge automatically appends `transactionId` + `status`
+	// to redirectUrl upon completion. Including it ourselves causes duplicated query params.
+	let callbackUrl = `${baseUrl}/liveness/callback`
 	if (redirectAfterSuccess) {
-		callbackUrl += `&redirect=${encodeURIComponent(redirectAfterSuccess)}`
+		callbackUrl += `?redirect=${encodeURIComponent(redirectAfterSuccess)}`
 	}
 	if (meetingId) {
-		callbackUrl += `&meetingId=${encodeURIComponent(meetingId)}`
+		callbackUrl += `${callbackUrl.includes("?") ? "&" : "?"}meetingId=${encodeURIComponent(meetingId)}`
 	}
 
 	console.log("🔵 Starting hosted liveness workflow...")
@@ -278,19 +305,111 @@ export async function startHostedLivenessWorkflow(
 	console.log("   - Callback URL:", callbackUrl)
 
 	try {
-		const result = await startHostedWorkflow({
+		// Create a pending DB row so webhook/callback can be DB-first.
+		try {
+			await db.insert(livenessValidations).values({
+				userId: session.user.id,
+				meetingId: meetingId ?? null,
+				transactionId,
+				status: "pending",
+				errorMessage: null,
+				attemptNumber: 1,
+				decisionJson: null,
+				rawResultJson: null,
+				updatedAt: new Date(),
+			})
+		} catch (e) {
+			console.warn("⚠️ Failed to create pending liveness row (non-critical):", e)
+		}
+
+		// If the hosted workflow now includes face-match against KYC reference image, it may require
+		// an `inputsRequired` key like `inputImage`. We'll source it from the user's stored KYC reference.
+		const user = await db.query.users.findFirst({
+			where: eq(users.id, session.user.id),
+			columns: {
+				kycStatus: true,
+				kycReferenceIdImageBase64: true,
+				kycTransactionId: true,
+			},
+		})
+
+		let referenceImageBase64 = user?.kycReferenceIdImageBase64 ?? null
+
+		// If KYC is verified but reference image is missing, fetch Logs API once and store a face reference.
+		if (user?.kycStatus === "VERIFIED" && !referenceImageBase64 && user.kycTransactionId) {
+			try {
+				const logs = await getHyperVergeKycLogs({ transactionId: user.kycTransactionId })
+				const url = pickBestFaceImageUrlFromLogs(logs)
+				if (url) {
+					const dataUrl = await fetchImageUrlAsDataUrl(url)
+					if (dataUrl) {
+						referenceImageBase64 = dataUrl
+						await db
+							.update(users)
+							.set({
+								kycReferenceIdImageBase64: dataUrl,
+								kycReferenceCreatedAt: new Date(),
+							})
+							.where(eq(users.id, session.user.id))
+					}
+				}
+			} catch (e) {
+				console.warn("⚠️ Failed to populate KYC reference image from Logs API:", e)
+			}
+		}
+
+		// If workflow requires `inputImage` and we don't have it, fail early with a clear message
+		// (otherwise HyperKYC Web SDK will show a generic "Something went wrong" with errorCode 102).
+		if (!referenceImageBase64) {
+			return {
+				success: false,
+				error:
+					"Hosted verification needs your KYC reference ID photo (inputImage), but it’s missing. Please complete KYC first (or re-run KYC so we can fetch the reference image) and try again.",
+			}
+		}
+
+		const inputImage = stripDataUrlPrefix(referenceImageBase64)
+
+		// Many Web SDK workflows require an `inputsRequired` key (e.g. `inputImage`) to exist.
+		// We provide the user's KYC reference image to satisfy face-match workflows.
+		// If the workflow doesn't define it, HyperVerge returns an "Unexpected param" error and we retry without it.
+		const attemptConfig = {
 			workflowId: "workflow_liveness",
 			transactionId,
 			redirectUrl: callbackUrl,
-		})
+			validateWorkflowInputs: "yes" as const,
+			allowEmptyWorkflowInputs: "yes" as const,
+			forceLaunchSDK: "yes" as const,
+			inputs: { inputImage },
+		}
+
+		let result: Awaited<ReturnType<typeof startHostedWorkflow>>
+		try {
+			result = await startHostedWorkflow(attemptConfig)
+		} catch (e) {
+			const msg = e instanceof Error ? e.message : String(e)
+			if (msg.toLowerCase().includes("unexpected") && msg.toLowerCase().includes("inputimage")) {
+				result = await startHostedWorkflow({
+					...attemptConfig,
+					inputs: undefined,
+				})
+			} else {
+				throw e
+			}
+		}
+
+		const startUrl = result.result?.startKycUrl
+		if (!startUrl) {
+			throw new Error("No startKycUrl returned from HyperVerge")
+		}
 
 		console.log("✅ Hosted workflow started successfully")
-		console.log("   - Start URL:", result.result.startKycUrl)
+		console.log("   - Start URL:", startUrl)
 
 		return {
 			success: true,
 			data: {
-				redirectUrl: result.result.startKycUrl,
+				redirectUrl: startUrl,
 				transactionId,
 			},
 		}
@@ -378,6 +497,52 @@ export async function getHostedLivenessResult(transactionId: string, meetingId?:
 	console.log("   - Meeting ID:", meetingId ?? "N/A")
 
 	try {
+		// Sanitary check: avoid multiple /v1/output calls for the same transactionId.
+		// If we've already stored a result row for this transactionId, return it directly.
+		const { eq, and } = await import("drizzle-orm")
+		const existing = await db.query.livenessValidations.findFirst({
+			where: and(
+				eq(livenessValidations.userId, session.user.id),
+				eq(livenessValidations.transactionId, transactionId)
+			),
+		})
+
+		if (existing?.decisionJson && (existing.status === "pass" || existing.status === "fail")) {
+			const parsed = JSON.parse(existing.decisionJson) as LivenessDecisionResult
+			return {
+				success: true,
+				data: {
+					transactionId,
+					status: parsed.isApproved ? "VERIFIED" : "REJECTED",
+					decision: parsed,
+				},
+			}
+		}
+
+		if (existing && (existing.status === "pass" || existing.status === "fail")) {
+			const isApproved = existing.status === "pass"
+			return {
+				success: true,
+				data: {
+					transactionId,
+					status: isApproved ? "VERIFIED" : "REJECTED",
+					decision: {
+						isLive: isApproved,
+						actionPassed: isApproved,
+						isApproved,
+						message:
+							existing.errorMessage ??
+							(isApproved
+								? "Liveness verification already completed successfully."
+								: "Liveness verification failed."),
+						qualityIssues: [],
+						liveFaceValue: "unknown",
+						summaryAction: isApproved ? "pass" : "fail",
+					} as LivenessDecisionResult,
+				},
+			}
+		}
+
 		const result = await getWorkflowOutput(transactionId)
 
 		const decision = result.decision
@@ -395,14 +560,21 @@ export async function getHostedLivenessResult(transactionId: string, meetingId?:
 
 		// Save to database
 		try {
-			await db.insert(livenessValidations).values({
-				userId: session.user.id,
-				meetingId: meetingId ?? null,
-				transactionId,
-				status: decision.isApproved ? "pass" : "fail",
-				errorMessage: decision.isApproved ? null : decision.message,
-				attemptNumber: 1,
-			})
+			await db
+				.update(livenessValidations)
+				.set({
+					status: decision.isApproved ? "pass" : "fail",
+					errorMessage: decision.isApproved ? null : decision.message,
+					decisionJson: JSON.stringify(decision),
+					rawResultJson: JSON.stringify(result),
+					updatedAt: new Date(),
+				})
+				.where(
+					and(
+						eq(livenessValidations.userId, session.user.id),
+						eq(livenessValidations.transactionId, transactionId)
+					)
+				)
 			console.log(
 				"✅ Saved liveness validation to database",
 				meetingId ? `for meeting ${meetingId}` : ""

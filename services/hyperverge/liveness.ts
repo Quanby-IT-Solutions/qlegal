@@ -16,7 +16,12 @@ import { env } from "@/env"
 
 // HyperVerge API Configuration
 const DEFAULT_BASE_URL = "https://ind.idv.hyperverge.co"
-const CONFIGURED_BASE_URL = (env.HYPERVERGE_API_URL || DEFAULT_BASE_URL).replace(/\/$/, "")
+const CONFIGURED_BASE_URL = (() => {
+	const raw = (env.HYPERVERGE_API_URL || DEFAULT_BASE_URL).trim()
+	// We've seen configs using a non-resolving staging domain. Prefer the known-good base URL.
+	if (raw === "https://staging.ind.idv.hyperverge.co") return DEFAULT_BASE_URL
+	return raw.replace(/\/$/, "")
+})()
 const FALLBACK_BASE_URL = DEFAULT_BASE_URL
 
 const HYPERVERGE_APP_ID = env.HYPERVERGE_APP_ID || ""
@@ -197,17 +202,45 @@ export interface HostedWorkflowConfig {
 	transactionId: string
 	/** URL to redirect user after completion */
 	redirectUrl: string
+	/**
+	 * Optional workflow inputs (only if your workflow requires inputsRequired keys).
+	 * See onboard-links docs: /v1/link-kyc/start "inputs"
+	 */
+	inputs?: Record<string, unknown>
+	/** Validate and enforce workflow inputs (docs: "yes" | "no") */
+	validateWorkflowInputs?: "yes" | "no"
+	/**
+	 * When validateWorkflowInputs is "yes", this allows empty strings to satisfy required inputs.
+	 * Useful for workflows that require presence but will populate later in-journey.
+	 */
+	allowEmptyWorkflowInputs?: "yes" | "no"
+	/** Forces launching the SDK even if the link previously ended (docs: "yes" | "no") */
+	forceLaunchSDK?: "yes" | "no"
 }
 
 /**
  * Response from Hosted Workflow Start API (/v1/link-kyc/start)
  */
 export interface HostedWorkflowResponse {
-	status: "success" | "error"
-	result: {
+	status: "success" | "failure" | "error"
+	statusCode?: number
+	metadata?: { requestId: string }
+	result?: {
 		/** URL to redirect user to HyperVerge hosted page */
-		startKycUrl: string
+		startKycUrl?: string
+		error?: string
 	}
+}
+
+function parseHyperVergeErrorMessage(responseText: string): string {
+	try {
+		const parsed = JSON.parse(responseText) as HostedWorkflowResponse
+		const err = parsed?.result?.error
+		if (typeof err === "string" && err.trim()) return err
+	} catch {
+		// ignore
+	}
+	return responseText
 }
 
 /**
@@ -305,7 +338,13 @@ export async function startHostedWorkflow(
 		workflowId: config.workflowId,
 		transactionId: config.transactionId,
 		redirectUrl: config.redirectUrl,
-	}
+		...(config.inputs ? { inputs: config.inputs } : {}),
+		...(config.validateWorkflowInputs ? { validateWorkflowInputs: config.validateWorkflowInputs } : {}),
+		...(config.allowEmptyWorkflowInputs
+			? { allowEmptyWorkflowInputs: config.allowEmptyWorkflowInputs }
+			: {}),
+		...(config.forceLaunchSDK ? { forceLaunchSDK: config.forceLaunchSDK } : {}),
+	} satisfies Record<string, unknown>
 
 	try {
 		let response: Response
@@ -338,18 +377,23 @@ export async function startHostedWorkflow(
 		console.log("📡 Raw API response:", responseText)
 
 		if (!response.ok) {
-			console.error("❌ HyperVerge link-kyc failed:", responseText)
-			throw new Error(`HyperVerge link-kyc API error: ${response.status} - ${responseText}`)
+			const msg = parseHyperVergeErrorMessage(responseText)
+			console.error("❌ HyperVerge link-kyc failed:", msg)
+			throw new Error(`HyperVerge link-kyc API error: ${response.status} - ${msg}`)
 		}
 
 		const result = JSON.parse(responseText) as HostedWorkflowResponse
 
-		if (result.status !== "success" || !result.result?.startKycUrl) {
-			throw new Error(`HyperVerge link-kyc error: ${JSON.stringify(result)}`)
+		const startUrl = result.result?.startKycUrl
+		if (result.status !== "success" || !startUrl) {
+			const msg =
+				(result.result?.error && typeof result.result.error === "string" && result.result.error) ||
+				`Unexpected response: ${JSON.stringify(result)}`
+			throw new Error(`HyperVerge link-kyc error: ${msg}`)
 		}
 
 		console.log("✅ Hosted workflow started successfully")
-		console.log("   - Start URL:", result.result.startKycUrl)
+		console.log("   - Start URL:", startUrl)
 
 		return result
 	} catch (error) {
@@ -380,6 +424,8 @@ export async function getWorkflowOutput(transactionId: string): Promise<OutputAP
 
 	const requestBody = {
 		transactionId: transactionId,
+		// Helpful for diagnosing hosted workflow failures (adds debugInfo.latestModule on error/user_cancelled)
+		sendDebugInfo: "yes",
 	}
 
 	try {
