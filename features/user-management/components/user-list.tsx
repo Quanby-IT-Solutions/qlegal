@@ -31,6 +31,7 @@ import {
 } from "@/core/components/ui/select"
 
 import { trpc } from "@/services/trpc/client"
+import { getAvatarUrl } from "@/core/lib/utils"
 
 import { ConfirmationModal } from "./confirmation-modal"
 import { Pagination } from "./pagination"
@@ -41,6 +42,7 @@ interface UserListProps {
 	searchTerm: string
 	roleFilter: string
 	statusFilter: string
+	sortBy: string
 }
 
 const formatLastLogin = (dateString?: string | null) => {
@@ -61,7 +63,25 @@ const formatLastLogin = (dateString?: string | null) => {
 	return `${month}-${day}-${year}, ${time}`
 }
 
-export function UserList({ searchTerm, roleFilter, statusFilter }: UserListProps) {
+// Helper function to sort users (simplified - only name and email)
+const sortUsers = (users: any[], sortBy: string) => {
+	const sorted = [...users]
+
+	switch (sortBy) {
+		case "name-asc":
+			return sorted.sort((a, b) => a.name.localeCompare(b.name))
+		case "name-desc":
+			return sorted.sort((a, b) => b.name.localeCompare(a.name))
+		case "email-asc":
+			return sorted.sort((a, b) => a.email.localeCompare(b.email))
+		case "email-desc":
+			return sorted.sort((a, b) => b.email.localeCompare(a.email))
+		default:
+			return sorted
+	}
+}
+
+export function UserList({ searchTerm, roleFilter, statusFilter, sortBy }: UserListProps) {
 	const [selectedUserId, setSelectedUserId] = useState<string | null>(null)
 	const [currentPage, setCurrentPage] = useState(1)
 	const [pageSize, setPageSize] = useState(10)
@@ -96,9 +116,10 @@ export function UserList({ searchTerm, roleFilter, statusFilter }: UserListProps
 	// Reset to first page when filters change
 	useEffect(() => {
 		setCurrentPage(1)
-	}, [searchTerm, roleFilter, statusFilter])
+	}, [searchTerm, roleFilter, statusFilter, sortBy])
 
-	const users = userData?.users ?? []
+	// Apply sorting to users
+	const users = sortUsers(userData?.users ?? [], sortBy)
 	const pagination = userData?.pagination
 
 	const approveUserMutation = trpc.userManagement.approve.useMutation({
@@ -304,124 +325,130 @@ export function UserList({ searchTerm, roleFilter, statusFilter }: UserListProps
 			</CardHeader>
 			<CardContent>
 				<div className="space-y-4">
-					{users.map(user => (
-						<div
-							key={user.id}
-							className="flex flex-col gap-4 rounded-lg border p-4 transition-colors hover:bg-gray-50 sm:flex-row sm:items-center sm:justify-between dark:hover:bg-gray-800"
-						>
-							{/* Left section: Avatar and User Info */}
-							<div className="flex flex-1 items-start space-x-3 sm:items-center sm:space-x-4">
-								<Avatar className="h-10 w-10 shrink-0 sm:h-12 sm:w-12">
-									{user.avatar ? <AvatarImage src={user.avatar} alt={user.name} /> : null}
-									<AvatarFallback className="bg-muted text-muted-foreground text-xs font-medium sm:text-sm">
-										{user.name
-											.split(" ")
-											.map(n => n[0])
-											.join("")
-											.toUpperCase()}
-									</AvatarFallback>
-								</Avatar>
-								<div className="min-w-0 flex-1">
-									<div className="mb-1 flex flex-wrap items-center gap-x-2 gap-y-1">
-										<h3 className="text-sm font-medium break-words text-gray-900 sm:text-base dark:text-white">
-											{user.name}
-										</h3>
-										{/* @ts-expect-error - title is not typed */}
-										{user.verified && (
-											<Shield
-												className="h-3 w-3 shrink-0 text-blue-600 sm:h-4 sm:w-4"
-												// @ts-expect-error - title is not typed
-												title="Verified"
-											/>
-										)}
-									</div>
-									<p className="text-xs break-all text-gray-600 sm:text-sm dark:text-gray-400">
-										{user.email}
-									</p>
-									{user.organization && (
-										<p className="text-xs break-words text-gray-500 sm:text-sm">
-											{user.organization}
-										</p>
-									)}
-									<div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500">
-										<span className="break-words">
-											Last login: {formatLastLogin(user.lastActive)}
-										</span>
-										<span className="whitespace-nowrap">Documents: {user.documentsCount}</span>
-									</div>
-								</div>
-							</div>
-
-							{/* Right section: Badges and Actions */}
-							<div className="flex items-center justify-between gap-3 sm:justify-end">
-								<div className="flex flex-wrap items-center gap-2">
-									<Badge className={`${getRoleColor(user.role)} text-xs whitespace-nowrap`}>
-										{user.role.toUpperCase()}
-									</Badge>
-									<Badge className={`${getStatusColor(user.status)} text-xs whitespace-nowrap`}>
-										<div className="flex items-center space-x-1">
-											{getStatusIcon(user.status)}
-											<span>{user.status}</span>
+					{users.map(user => {
+						const avatarUrl = getAvatarUrl(user.avatar)
+						
+						return (
+							<div
+								key={user.id}
+								className="flex flex-col gap-4 rounded-lg border p-4 transition-colors hover:bg-gray-50 sm:flex-row sm:items-center sm:justify-between dark:hover:bg-gray-800"
+							>
+								{/* Left section: Avatar and User Info */}
+								<div className="flex flex-1 items-start space-x-3 sm:items-center sm:space-x-4">
+									<Avatar className="h-10 w-10 shrink-0 sm:h-12 sm:w-12">
+										{avatarUrl ? <AvatarImage src={avatarUrl} alt={user.name} /> : null}
+										<AvatarFallback className="bg-muted text-muted-foreground text-xs font-medium sm:text-sm">
+											{user.name
+												.split(" ")
+												.map(n => n[0])
+												.join("")
+												.toUpperCase()}
+										</AvatarFallback>
+									</Avatar>
+									<div className="min-w-0 flex-1">
+										<div className="mb-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+											<h3 className="text-sm font-medium break-words text-gray-900 sm:text-base dark:text-white">
+												{user.name}
+											</h3>
+											{/* @ts-expect-error - title is not typed */}
+											{user.verified && (
+												<Shield
+													className="h-3 w-3 shrink-0 text-blue-600 sm:h-4 sm:w-4"
+													// @ts-expect-error - title is not typed
+													title="Verified"
+												/>
+											)}
 										</div>
-									</Badge>
+										<p className="text-xs break-all text-gray-600 sm:text-sm dark:text-gray-400">
+											{user.email}
+										</p>
+										{user.organization && (
+											<p className="text-xs break-words text-gray-500 sm:text-sm">
+												{user.organization}
+											</p>
+										)}
+										<div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500">
+											<span className="break-words">
+												Last login: {formatLastLogin(user.lastActive)}
+											</span>
+											<span className="whitespace-nowrap">
+												Documents: {user.documentsCount ?? 0}
+											</span>
+										</div>
+									</div>
 								</div>
-								<DropdownMenu>
-									<DropdownMenuTrigger asChild>
-										<Button variant="ghost" size="icon" className="shrink-0">
-											<MoreVertical className="h-4 w-4" />
-										</Button>
-									</DropdownMenuTrigger>
-									<DropdownMenuContent align="end">
-										<DropdownMenuLabel>Actions</DropdownMenuLabel>
-										<DropdownMenuSeparator />
-										<DropdownMenuItem onClick={() => setSelectedUserId(user.id)}>
-											<Edit className="mr-2 h-4 w-4" />
-											Edit User
-										</DropdownMenuItem>
-										<UserProfileSheet
-											userId={user.id}
-											trigger={
-												<DropdownMenuItem onSelect={e => e.preventDefault()}>
-													<Shield className="mr-2 h-4 w-4" />
-													View Profile
+
+								{/* Right section: Badges and Actions */}
+								<div className="flex items-center justify-between gap-3 sm:justify-end">
+									<div className="flex flex-wrap items-center gap-2">
+										<Badge className={`${getRoleColor(user.role)} text-xs whitespace-nowrap`}>
+											{user.role.toUpperCase()}
+										</Badge>
+										<Badge className={`${getStatusColor(user.status)} text-xs whitespace-nowrap`}>
+											<div className="flex items-center space-x-1">
+												{getStatusIcon(user.status)}
+												<span>{user.status}</span>
+											</div>
+										</Badge>
+									</div>
+									<DropdownMenu>
+										<DropdownMenuTrigger asChild>
+											<Button variant="ghost" size="icon" className="shrink-0">
+												<MoreVertical className="h-4 w-4" />
+											</Button>
+										</DropdownMenuTrigger>
+										<DropdownMenuContent align="end">
+											<DropdownMenuLabel>Actions</DropdownMenuLabel>
+											<DropdownMenuSeparator />
+											<DropdownMenuItem onClick={() => setSelectedUserId(user.id)}>
+												<Edit className="mr-2 h-4 w-4" />
+												Edit User
+											</DropdownMenuItem>
+											<UserProfileSheet
+												userId={user.id}
+												trigger={
+													<DropdownMenuItem onSelect={e => e.preventDefault()}>
+														<Shield className="mr-2 h-4 w-4" />
+														View Profile
+													</DropdownMenuItem>
+												}
+											/>
+											{user.status === "pending" && (
+												<DropdownMenuItem onClick={() => handleApproveUser(user.id)}>
+													<CheckCircle className="mr-2 h-4 w-4" />
+													Approve User
 												</DropdownMenuItem>
-											}
-										/>
-										{user.status === "pending" && (
-											<DropdownMenuItem onClick={() => handleApproveUser(user.id)}>
-												<CheckCircle className="mr-2 h-4 w-4" />
-												Approve User
-											</DropdownMenuItem>
-										)}
-										{user.status === "active" && (
+											)}
+											{user.status === "active" && (
+												<DropdownMenuItem
+													onClick={() => openConfirmationModal("suspend", user.id, user.name)}
+												>
+													<AlertCircle className="mr-2 h-4 w-4" />
+													Suspend User
+												</DropdownMenuItem>
+											)}
+											{user.status === "suspended" && (
+												<DropdownMenuItem
+													onClick={() => openConfirmationModal("unsuspend", user.id, user.name)}
+												>
+													<CheckCircle className="mr-2 h-4 w-4" />
+													Unsuspend User
+												</DropdownMenuItem>
+											)}
+											<DropdownMenuSeparator />
 											<DropdownMenuItem
-												onClick={() => openConfirmationModal("suspend", user.id, user.name)}
+												className="text-red-600"
+												onClick={() => openConfirmationModal("delete", user.id, user.name)}
 											>
-												<AlertCircle className="mr-2 h-4 w-4" />
-												Suspend User
+												<Trash2 className="mr-2 h-4 w-4" />
+												Delete User
 											</DropdownMenuItem>
-										)}
-										{user.status === "suspended" && (
-											<DropdownMenuItem
-												onClick={() => openConfirmationModal("unsuspend", user.id, user.name)}
-											>
-												<CheckCircle className="mr-2 h-4 w-4" />
-												Unsuspend User
-											</DropdownMenuItem>
-										)}
-										<DropdownMenuSeparator />
-										<DropdownMenuItem
-											className="text-red-600"
-											onClick={() => openConfirmationModal("delete", user.id, user.name)}
-										>
-											<Trash2 className="mr-2 h-4 w-4" />
-											Delete User
-										</DropdownMenuItem>
-									</DropdownMenuContent>
-								</DropdownMenu>
+										</DropdownMenuContent>
+									</DropdownMenu>
+								</div>
 							</div>
-						</div>
-					))}
+						)
+					})}
 
 					{/* Pagination */}
 					{pagination && pagination.totalPages > 0 && (
