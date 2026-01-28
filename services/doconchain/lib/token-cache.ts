@@ -16,8 +16,15 @@ const verificationFailureCount = new Map<string, number>()
 // CRITICAL: Map project UUIDs to the tokens that were used to create them.
 // This ensures each project always uses the token it was created with,
 // preventing DocoChain session conflicts when multiple projects exist.
-// Key: project UUID, Value: token string
-const projectTokenCache = new Map<string, string>()
+// Key: project UUID, Value: { token, storedAt }
+interface ProjectTokenEntry {
+	token: string
+	storedAt: number
+}
+const projectTokenCache = new Map<string, ProjectTokenEntry>()
+
+// Refresh project token if it's older than this (2 minutes)
+const PROJECT_TOKEN_REFRESH_AGE_MS = 2 * 60 * 1000
 
 function isTokenValid(entry: CachedToken | undefined): entry is CachedToken {
 	return !!entry && Date.now() < entry.expiresAt - TOKEN_REFRESH_BUFFER_MS
@@ -155,7 +162,10 @@ export function invalidateToken(email?: string): void {
  * This ensures we can always use the same token for that project's operations.
  */
 export function setProjectToken(projectUuid: string, token: string): void {
-	projectTokenCache.set(projectUuid, token)
+	projectTokenCache.set(projectUuid, {
+		token,
+		storedAt: Date.now(),
+	})
 	console.log(`🔵 Stored token for project ${projectUuid.substring(0, 8)}...`)
 }
 
@@ -164,7 +174,35 @@ export function setProjectToken(projectUuid: string, token: string): void {
  * Returns undefined if no token was stored for this project.
  */
 export function getProjectToken(projectUuid: string): string | undefined {
-	return projectTokenCache.get(projectUuid)
+	const entry = projectTokenCache.get(projectUuid)
+	return entry?.token
+}
+
+/**
+ * Refresh the project token if it's older than PROJECT_TOKEN_REFRESH_AGE_MS.
+ * Returns the (possibly refreshed) token for the project.
+ */
+export async function getOrRefreshProjectToken(
+	projectUuid: string,
+	email?: string
+): Promise<string | undefined> {
+	const entry = projectTokenCache.get(projectUuid)
+	if (!entry) {
+		return undefined
+	}
+
+	const ageMs = Date.now() - entry.storedAt
+	if (ageMs > PROJECT_TOKEN_REFRESH_AGE_MS) {
+		console.log(
+			`🔄 Project token is ${Math.round(ageMs / 1000 / 60)} minutes old - refreshing...`
+		)
+		// Generate a fresh token and update the project token cache
+		const freshToken = await generateToken(email, true)
+		setProjectToken(projectUuid, freshToken)
+		return freshToken
+	}
+
+	return entry.token
 }
 
 /**

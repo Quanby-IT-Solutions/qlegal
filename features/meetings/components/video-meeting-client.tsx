@@ -24,6 +24,7 @@ import {
 	Monitor,
 	MoreVertical,
 	PhoneOff,
+	RefreshCw,
 	Send,
 	Square,
 	Unlock,
@@ -1681,14 +1682,15 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 	>(new Map())
 
 	// Fetch meeting documents
-	const { data: documents, refetch: refetchDocuments } = trpc.meetings.getMeetingDocuments.useQuery(
-		meetingId ?? "",
-		{
-			enabled: !!meetingId,
-			refetchInterval: 10000, // Refetch every 10 seconds (reduced from 20s) for faster status updates
-			staleTime: 5000, // Consider data fresh for 5 seconds (reduced from 10s)
-		}
-	)
+	const {
+		data: documents,
+		refetch: refetchDocuments,
+		isFetching: isDocumentsFetching,
+	} = trpc.meetings.getMeetingDocuments.useQuery(meetingId ?? "", {
+		enabled: !!meetingId,
+		refetchInterval: 10000, // Refetch every 10 seconds (reduced from 20s) for faster status updates
+		staleTime: 5000, // Consider data fresh for 5 seconds (reduced from 10s)
+	})
 
 	// Get tRPC utils for imperative calls
 	const utils = trpc.useUtils()
@@ -3072,6 +3074,24 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 									<Button
 										variant="ghost"
 										size="sm"
+										onClick={() => {
+											// Refresh documents - this always works
+											void refetchDocuments()
+											// Refresh signing statuses (will only run if documents panel is visible)
+											// This is fine - if hidden, statuses will refresh when panel is shown
+											void refreshSigningStatuses()
+										}}
+										disabled={isDocumentsFetching}
+										className="hover:bg-muted size-8 px-0 md:size-8 md:px-0"
+										title="Refresh documents and signing statuses"
+									>
+										<RefreshCw
+											className={cn("size-4 md:size-4", isDocumentsFetching && "animate-spin")}
+										/>
+									</Button>
+									<Button
+										variant="ghost"
+										size="sm"
 										onClick={() => setShowDocuments(!showDocuments)}
 										className="hover:bg-muted h-8 px-3 text-xs md:text-sm"
 									>
@@ -3369,8 +3389,11 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 		handleSignClick,
 		handleSignersChange,
 		initiateSigning.isPending,
+		isDocumentsFetching,
 		meetingDetails,
 		meetingId,
+		refetchDocuments,
+		refreshSigningStatuses,
 		session?.user?.id,
 		showDocuments,
 		signingDocumentId,
