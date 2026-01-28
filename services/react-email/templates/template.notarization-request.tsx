@@ -1,159 +1,162 @@
 import {
 	Body,
-	Button,
 	Container,
 	Head,
+	Heading,
 	Html,
-	Img,
+	Link,
 	Preview,
 	Section,
-	Tailwind,
 	Text,
 } from "@react-email/components"
 
-interface ClientSubmissionTemplateProps {
-	clientName?: string
-	bookingDate?: string
-	bookingTime?: string
-	sessionType?: "online" | "in-person"
-	reason?: string
-	confirmLink?: string
-	siteUrl?: string
+interface NotarizationRequestTemplateProps {
+	enpName: string
+	principalName: string
+	requestTitle: string
+	requestDescription?: string
+	workflow: "REN" | "IEN"
+	priority: "NORMAL" | "HIGH" | "URGENT"
+	requestUrl: string
 }
 
-export const ClientSubmissionTemplate = ({
-	clientName,
-	bookingDate,
-	bookingTime,
-	sessionType,
-	reason,
-	confirmLink,
-	siteUrl,
-}: ClientSubmissionTemplateProps) => {
-	const logoUrl = `${siteUrl}/LEGAL.png`
-	// Use lowercase for grammatical correctness in the sentence
-	const sessionTypeLabel = sessionType === "online" ? "online session" : "in-person meeting"
+export function NotarizationRequestTemplate({
+	enpName,
+	principalName,
+	requestTitle,
+	requestDescription,
+	workflow,
+	priority,
+	requestUrl,
+}: NotarizationRequestTemplateProps) {
+	const priorityLabels = {
+		NORMAL: "Normal",
+		HIGH: "High",
+		URGENT: "Urgent",
+	}
+
+	const workflowLabels = {
+		REN: "Remote Electronic Notarization (REN)",
+		IEN: "In-Person Electronic Notarization (IEN)",
+	}
 
 	return (
 		<Html>
 			<Head />
-			<Preview>Booking request submitted successfully</Preview>
-			<Tailwind>
-				<Body className="mx-auto my-auto bg-gray-50 p-6 font-sans text-gray-800">
-					<Container
-						className="mx-auto max-w-150 overflow-hidden rounded-lg border border-gray-200 bg-white"
-						style={{
-							border: "1px solid #e2e8f0",
-							boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
-						}}
-					>
-						{/* Header with enhanced gradient background */}
-						<Section
-							className="relative overflow-hidden py-12 text-center"
-							style={{
-								background: "linear-gradient(135deg, #FF5E7E 0%, #E22C9A 50%, #C300B0 100%)",
-							}}
-						>
-							{/* Subtle overlay pattern for depth */}
-							<div
-								className="absolute inset-0"
-								style={{
-									background:
-										"linear-gradient(135deg, rgba(255,255,255,0.05) 0%, transparent 50%, rgba(0,0,0,0.1) 100%)",
-								}}
-							/>
-							{/* Logo */}
-							<Img
-								src={logoUrl}
-								width="120"
-								height="120"
-								alt="Quanby Sign"
-								style={{
-									display: "block",
-									margin: "0 auto",
-									borderRadius: "16px",
-									maxWidth: "120px",
-								}}
-							/>
-						</Section>
+			<Preview>New notarization request from {principalName}</Preview>
+			<Body style={main}>
+				<Container style={container}>
+					<Heading style={h1}>New Notarization Request</Heading>
 
-						{/* Main content */}
-						<Section className="px-10 pb-10">
-							<Text className="my-10 text-center text-2xl font-bold tracking-tight text-gray-900">
-								Booking Request Submitted
-							</Text>
+					<Text style={text}>Hello {enpName},</Text>
 
-							{/* Dear John Doe... */}
-							<Text className="mb-6 text-base leading-relaxed text-gray-700">
-								Dear <strong className="font-bold text-gray-900">{clientName}</strong>, we are
-								pleased to inform you that your booking request has been successfully submitted.
-							</Text>
+					<Text style={text}>
+						You have received a new notarization request from <strong>{principalName}</strong>.
+					</Text>
 
-							{/* Your appointment is scheduled for... */}
-							<Text className="mb-6 text-base leading-relaxed text-gray-700">
-								Your appointment is scheduled for{" "}
-								<strong className="font-bold text-gray-900">
-									{bookingDate} at {bookingTime}
-								</strong>{" "}
-								and will be conducted as an{" "}
-								<strong className="font-bold text-gray-900">{sessionTypeLabel}</strong> for the
-								purpose of <strong className="font-bold text-gray-900">{reason}</strong>.
-							</Text>
+					<Section style={card}>
+						<Text style={label}>Request Title:</Text>
+						<Text style={value}>{requestTitle}</Text>
 
-							{/* Please note... */}
-							<Text className="mb-6 text-base leading-relaxed text-gray-700">
-								Please note that this schedule is subject to confirmation by the lawyer. Kindly wait
-								for the lawyer’s confirmation email with further instructions.
-							</Text>
+						{requestDescription && (
+							<>
+								<Text style={label}>Description:</Text>
+								<Text style={value}>{requestDescription}</Text>
+							</>
+						)}
 
-							{/* Thank you... */}
-							<Text className="mb-10 text-base leading-relaxed text-gray-700">
-								Thank you for choosing our services.
-							</Text>
+						<Text style={label}>Workflow Type:</Text>
+						<Text style={value}>{workflowLabels[workflow]}</Text>
 
-							{/* View Status Button */}
-							<Section className="my-10 text-center">
-								<Button
-									href={confirmLink}
-									className="rounded-lg px-8 py-4 text-center font-semibold tracking-wide text-white no-underline"
-									style={{
-										background: "linear-gradient(135deg, #FF5E7E 0%, #E22C9A 50%, #C300B0 100%)",
-										boxShadow: "0 4px 6px -1px rgba(255, 94, 126, 0.3)",
-									}}
-								>
-									View Booking Status
-								</Button>
-							</Section>
-						</Section>
+						<Text style={label}>Priority:</Text>
+						<Text style={value}>{priorityLabels[priority]}</Text>
+					</Section>
 
-						{/* Footer */}
-						<Section
-							className="rounded-b-lg border-t px-8 py-6 text-center"
-							style={{
-								background: "#f8fafc",
-								borderTop: "1px solid #e2e8f0",
-							}}
-						>
-							<Text className="m-0 text-xs font-medium text-gray-400">
-								This is an automated booking notification. Please do not reply to this email.
-								Contact support through your dashboard if you need help.
-							</Text>
-						</Section>
-					</Container>
-				</Body>
-			</Tailwind>
+					<Section style={buttonContainer}>
+						<Link href={requestUrl} style={button}>
+							View Request
+						</Link>
+					</Section>
+
+					<Text style={footer}>
+						This is an automated notification from Quanby Sign. Please log in to your account to
+						review and respond to this request.
+					</Text>
+				</Container>
+			</Body>
 		</Html>
 	)
 }
 
-ClientSubmissionTemplate.PreviewProps = {
-	clientName: "John Doe",
-	bookingDate: "January 30, 2026",
-	bookingTime: "2:00 PM",
-	sessionType: "online",
-	reason: "notarization of three (3) documents",
-	confirmLink: "http://localhost:3000/bookings/track/123456",
-	siteUrl: "https://qlegal.quanbyit.com/",
-} as ClientSubmissionTemplateProps
+const main = {
+	backgroundColor: "#f6f9fc",
+	fontFamily:
+		'-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Ubuntu,sans-serif',
+}
 
-export default ClientSubmissionTemplate
+const container = {
+	backgroundColor: "#ffffff",
+	margin: "0 auto",
+	padding: "20px 0 48px",
+	marginBottom: "64px",
+}
+
+const h1 = {
+	color: "#333",
+	fontSize: "24px",
+	fontWeight: "600",
+	lineHeight: "40px",
+	margin: "0 0 20px",
+}
+
+const text = {
+	color: "#333",
+	fontSize: "16px",
+	lineHeight: "26px",
+}
+
+const card = {
+	backgroundColor: "#f9fafb",
+	border: "1px solid #e5e7eb",
+	borderRadius: "8px",
+	padding: "20px",
+	margin: "20px 0",
+}
+
+const label = {
+	color: "#6b7280",
+	fontSize: "14px",
+	fontWeight: "600",
+	margin: "12px 0 4px",
+}
+
+const value = {
+	color: "#111827",
+	fontSize: "16px",
+	margin: "0 0 16px",
+}
+
+const buttonContainer = {
+	textAlign: "center" as const,
+	margin: "32px 0",
+}
+
+const button = {
+	backgroundColor: "#3b82f6",
+	borderRadius: "6px",
+	color: "#fff",
+	fontSize: "16px",
+	fontWeight: "600",
+	textDecoration: "none",
+	textAlign: "center" as const,
+	display: "inline-block",
+	padding: "12px 24px",
+}
+
+const footer = {
+	color: "#6b7280",
+	fontSize: "12px",
+	lineHeight: "20px",
+	marginTop: "32px",
+	textAlign: "center" as const,
+}
