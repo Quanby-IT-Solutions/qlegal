@@ -326,7 +326,7 @@ export async function runDirectKycVerification(input: {
 				countryId: input.countryId,
 				documentId: input.documentId,
 			})
-			idCardDetailId = idCardDetail.id
+			idCardDetailId = idCardDetail.idCardDetailId
 		}
 
 		// Update KYC session with result
@@ -566,7 +566,7 @@ export async function checkUserKycStatus() {
 					// Link session to id card detail
 					await db
 						.update(kycSessions)
-						.set({ idCardDetailId: idCardDetail.id })
+						.set({ idCardDetailId: idCardDetail.idCardDetailId })
 						.where(eq(kycSessions.id, kycSession.id))
 				}
 			} catch {
@@ -679,7 +679,7 @@ export async function checkUserKycStatus() {
 							.update(kycSessions)
 							.set({
 								status: newStatus,
-								idCardDetailId: idCardDetail.id,
+								idCardDetailId: idCardDetail.idCardDetailId,
 								verifiedAt: new Date(),
 								updatedAt: new Date(),
 							})
