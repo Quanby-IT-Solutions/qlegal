@@ -61,3 +61,28 @@ export function mapRoleToLabel(role?: string | null): string {
 				.trim()
 	}
 }
+
+/**
+ * Get the full URL for an avatar image from Supabase Storage
+ * @param avatar - Avatar path or URL
+ * @returns Full URL for the avatar or null if not provided
+ */
+export function getAvatarUrl(avatar?: string | null): string | null {
+	if (!avatar) return null
+	
+	// If already a full URL (starts with http:// or https://), return as-is
+	if (avatar.startsWith("http://") || avatar.startsWith("https://")) {
+		return avatar
+	}
+	
+	// Otherwise, construct the Supabase Storage public URL
+	// Format: https://[PROJECT_REF].supabase.co/storage/v1/object/public/[BUCKET_NAME]/[FILE_PATH]
+	const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+	
+	if (!supabaseUrl) {
+		console.error("NEXT_PUBLIC_SUPABASE_URL is not defined")
+		return null
+	}
+	
+	return `${supabaseUrl}/storage/v1/object/public/avatar/${avatar}`
+}
