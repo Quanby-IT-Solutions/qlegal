@@ -18,7 +18,6 @@ import { notarialBookRouter } from "@/features/notarial-book/api/notarial-book.r
 import { profileRouter } from "@/features/profile/api/profile.router"
 import { quickMatchRouter } from "@/features/quick-match/api/quick-match.router"
 import { requestsRouter } from "@/features/requests/api/requests.router"
-// Import schedule router
 import { scheduleRouter } from "@/features/schedule/api/schedule.router"
 import { settingsRouter } from "@/features/settings/api/settings.router"
 import { signatureLiteRouter } from "@/features/signature-lite/api/new-signature.router"
@@ -40,11 +39,7 @@ import { witnessesRouter } from "@/features/witnesses/api/witnesses.router"
  *   myFeature: myFeatureRouter,
  * })
  */
-
 export const appRouter = createTRPCRouter({
-	thealthCheck: publicProcedure.query(() => {
-		return { status: "ok" }
-	}),
 	auth: authRouter,
 	consultations: consultationsRouter,
 	enpProfile: enpProfileRouter,
@@ -53,7 +48,6 @@ export const appRouter = createTRPCRouter({
 	envelopeLite: envelopeLiteRouter,
 	lawyers: lawyersRouter,
 	appointments: appointmentsRouter,
-	lawyers: lawyersRouter,
 	legalRegistration: legalRegistrationRouter,
 	locationVerification: locationVerificationRouter,
 	meetings: meetingsRouter,
