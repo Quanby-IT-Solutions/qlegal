@@ -7,7 +7,9 @@ import { documentSigners } from "@/services/drizzle/schema/document-signers"
 import { enpAvailability, enpProfiles } from "@/services/drizzle/schema/enp-profiles"
 import { envelopes } from "@/services/drizzle/schema/envelope"
 import { idCardDetails } from "@/services/drizzle/schema/id-card-details"
+import { kycSessions } from "@/services/drizzle/schema/kyc-sessions"
 import { legalRegistrations } from "@/services/drizzle/schema/legal-registration"
+import { livenessValidations } from "@/services/drizzle/schema/liveness"
 import { meetingParticipants, meetings } from "@/services/drizzle/schema/meetings"
 import { messageAttachments } from "@/services/drizzle/schema/message-attachments"
 import {
@@ -45,6 +47,8 @@ export const userRelations = relations(users, ({ one, many }) => ({
 	}),
 	notarialBooks: many(notarialBooks),
 	idCardDetails: many(idCardDetails),
+	kycSessions: many(kycSessions),
+	livenessValidations: many(livenessValidations),
 }))
 
 // Document relations
@@ -246,5 +250,29 @@ export const idCardDetailsRelations = relations(idCardDetails, ({ one }) => ({
 	user: one(users, {
 		fields: [idCardDetails.userId],
 		references: [users.id],
+	}),
+}))
+
+// KYC Sessions relations
+export const kycSessionsRelations = relations(kycSessions, ({ one }) => ({
+	user: one(users, {
+		fields: [kycSessions.userId],
+		references: [users.id],
+	}),
+	idCardDetail: one(idCardDetails, {
+		fields: [kycSessions.idCardDetailId],
+		references: [idCardDetails.id],
+	}),
+}))
+
+// Liveness Validations relations
+export const livenessValidationsRelations = relations(livenessValidations, ({ one }) => ({
+	user: one(users, {
+		fields: [livenessValidations.userId],
+		references: [users.id],
+	}),
+	meeting: one(meetings, {
+		fields: [livenessValidations.meetingId],
+		references: [meetings.id],
 	}),
 }))

@@ -20,24 +20,9 @@ export const users = createTable("user", t => ({
 	address: t.text(), // Principal address for document signing records
 	role: userRoles().default("PRINCIPAL").notNull(),
 	status: userStatus().default("ACTIVE").notNull(),
-	// KYC Verification fields
-	kycTransactionId: t.varchar({ length: 255 }),
-	kycLink: t.text(), // Store the HyperVerge onboard link URL
+	// KYC status (simplified - detailed data in kyc_sessions and id_card_details tables)
 	kycStatus: kycStatus().default("NOT_STARTED"),
 	kycVerifiedAt: t.timestamp({ mode: "date", withTimezone: true }),
-	kycLinkCreatedAt: t.timestamp({ mode: "date", withTimezone: true }), // Track when KYC link was created to detect expiration
-	// KYC Reference (early-stage): store an ID image reference (base64/data URL)
-	// Used later for meeting liveness -> face match (selfie vs verified KYC ID).
-	// NOTE: This is temporary and should be migrated to private object storage later.
-	kycReferenceIdImageBase64: t.text(),
-	kycReferenceCreatedAt: t.timestamp({ mode: "date", withTimezone: true }),
-	// KYC OCR artifacts (hosted + direct). Stored as JSON string for now.
-	kycOcrExtractedFieldsJson: t.text(),
-	kycOcrCreatedAt: t.timestamp({ mode: "date", withTimezone: true }),
-	// Liveness Verification fields
-	livenessVerified: t.boolean().default(false),
-	livenessVerifiedAt: t.timestamp({ mode: "date", withTimezone: true }),
-	livenessTransactionId: t.varchar({ length: 255 }),
 })).enableRLS()
 
 export const accounts = createTable(

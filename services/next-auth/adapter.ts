@@ -12,11 +12,9 @@ import { accounts, sessions, users, verificationTokens } from "@/services/drizzl
 
 export function DrizzleCustomAdapter(): Adapter {
 	const pickAdapterUser = (user: typeof users.$inferSelect) => {
-		// Safely extract KYC fields - eslint-disable needed due to Drizzle type inference
+		// Safely extract KYC status field - eslint-disable needed due to Drizzle type inference
 		// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
 		const kycStatusValue = user.kycStatus
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-		const kycTransactionIdValue = user.kycTransactionId
 
 		return {
 			id: user.id,
@@ -24,12 +22,10 @@ export function DrizzleCustomAdapter(): Adapter {
 			email: user.email!,
 			emailVerified: user.emailVerified ?? null,
 			image: user.image ?? null,
-			// Include KYC fields so they're available in JWT callback
+			// Include KYC status so it's available in JWT callback
 			// ts-expect-error - extending AdapterUser with custom fields
 			kycStatus: (kycStatusValue ?? null) as string | null,
-			// ts-expect-error - extending AdapterUser with custom fields
-			kycTransactionId: (kycTransactionIdValue ?? null) as string | null,
-		} as AdapterUser & { kycStatus: string | null; kycTransactionId: string | null }
+		} as AdapterUser & { kycStatus: string | null }
 	}
 
 	const mapVerificationRowToToken = (row: typeof verificationTokens.$inferSelect) => ({
