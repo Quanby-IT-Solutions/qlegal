@@ -2,6 +2,8 @@
 
 import { addDays, format, isSameDay, isToday } from "date-fns"
 
+import { cn } from "@/core/lib/utils"
+
 import { AgendaDaysToShow } from "../constants"
 import type { CalendarEvent } from "../types"
 import { EventItem } from "./event-item"
@@ -34,7 +36,7 @@ export function AgendaView({ currentDate, events, onEventSelect }: AgendaViewPro
 
 	return (
 		<div data-slot="agenda-view" className="flex h-full flex-col">
-			{agendaDays.map((day, index) => {
+			{agendaDays.map(day => {
 				const dayEvents = getEventsForDay(day)
 
 				if (dayEvents.length === 0) {
@@ -44,7 +46,10 @@ export function AgendaView({ currentDate, events, onEventSelect }: AgendaViewPro
 				return (
 					<div key={day.toISOString()} className="border-b last:border-b-0">
 						<div
-							className={`bg-background dark:bg-input/30 dark:border-input border-b px-4 py-2 text-sm font-medium ${isToday(day) ? "text-primary" : "text-muted-foreground"}`}
+							className={cn(
+								"bg-background dark:bg-input/30 dark:border-input border-b px-4 py-2 text-sm font-medium",
+								isToday(day) ? "text-primary" : "text-muted-foreground"
+							)}
 						>
 							{format(day, "EEEE, MMMM d")}
 							{isToday(day) && <span className="ml-2 text-xs">(Today)</span>}
@@ -63,7 +68,7 @@ export function AgendaView({ currentDate, events, onEventSelect }: AgendaViewPro
 				)
 			})}
 			{agendaDays.every(day => getEventsForDay(day).length === 0) && (
-				<div className="text-muted-foreground flex flex-1 items-center justify-center">
+				<div className="text-muted-foreground bg-background dark:bg-input/30 flex flex-1 items-center justify-center rounded p-4 text-sm">
 					<p>No events scheduled for this period</p>
 				</div>
 			)}
