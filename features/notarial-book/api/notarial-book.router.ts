@@ -334,11 +334,13 @@ export const notarialBookRouter = createTRPCRouter({
 									// Use signerName from documentSigners if available, otherwise use user name
 									const name =
 										docSigner.signerName ?? signerUser.name ?? email.split("@")[0] ?? "Unknown"
-									const role = signerUser.role ?? "SIGNER"
 
-									// Get signed_at timestamp from project signers if available
+									// Get signed_at timestamp and signer_role from project signers if available
 									const projectSignerData = projectSignersMap.get(email.toLowerCase())
 									const signedAt = projectSignerData?.signed_at ?? undefined
+									// Prefer DocoChain's signer_role (e.g., "Signer" for principal) over user's DB role (e.g., "ENP")
+									// This ensures ENPs who sign as "Signer" in DocoChain are correctly identified
+									const role = projectSignerData?.signer_role ?? signerUser.role ?? "SIGNER"
 
 									allSigners.push({
 										name,
