@@ -3,7 +3,13 @@ import { z } from "zod/v4"
 import { env } from "@/env"
 
 import { apiCall } from "../lib/http-client"
-import { generateToken, getToken, getProjectToken, invalidateToken } from "../lib/token-cache"
+import {
+	generateToken,
+	getToken,
+	getProjectToken,
+	getOrRefreshProjectToken,
+	invalidateToken,
+} from "../lib/token-cache"
 
 const signLinkResponseSchema = z.union([
 	z.object({
@@ -140,11 +146,12 @@ export async function generateEditDraftLink(
 	console.log("   - User Email (for token):", userEmail ?? env.DOCONCHAIN_EMAIL)
 
 	// First, try to get the project-specific token (the one used during project creation)
-	const projectToken = getProjectToken(projectUuid)
+	// Refresh it if it's older than 2 minutes to prevent expired token issues
+	const projectToken = await getOrRefreshProjectToken(projectUuid, userEmail ?? env.DOCONCHAIN_EMAIL)
 	let response: Response
 
 	if (projectToken) {
-		console.log("   - Using project-specific token (stored during project creation)...")
+		console.log("   - Using project-specific token (stored during project creation, refreshed if stale)...")
 		// Use the project-specific token directly
 		response = await fetch(
 			`${env.DOCONCHAIN_API_URL}/api/v2/projects/${projectUuid}/link?user_type=ENTERPRISE_API`,
@@ -396,12 +403,13 @@ async function appendApiToken(
 		// CRITICAL: Use the project-specific token if available (the one used during project creation).
 		// This ensures each project always uses the token it was created with, preventing conflicts
 		// when multiple projects exist (each with their own token).
+		// Refresh token if it's older than 2 minutes to prevent expired token issues.
 		let apiToken: string
 		if (projectUuid) {
-			const projectToken = getProjectToken(projectUuid)
+			const projectToken = await getOrRefreshProjectToken(projectUuid, email)
 			if (projectToken) {
 				console.log(
-					"🔵 Using project-specific token for URL (same token used for project creation)..."
+					"🔵 Using project-specific token for URL (refreshed if stale, same token used for project creation)..."
 				)
 				apiToken = projectToken
 			} else {
@@ -430,10 +438,10 @@ async function appendApiToken(
 		console.error("❌ Failed to append API token to link:", normalizedLink, error)
 		// Fallback: try to append token manually
 		const separator = normalizedLink.includes("?") ? "&" : "?"
-		// Try project-specific token first, then fall back to email-based token
+		// Try project-specific token first (refresh if stale), then fall back to email-based token
 		let apiToken: string
 		if (projectUuid) {
-			const projectToken = getProjectToken(projectUuid)
+			const projectToken = await getOrRefreshProjectToken(projectUuid, email)
 			apiToken = projectToken ?? (await getToken(email, false))
 		} else {
 			apiToken = await getToken(email, false)
