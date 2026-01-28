@@ -5,30 +5,39 @@ import {
 	Head,
 	Html,
 	Img,
-	Link,
 	Preview,
 	Section,
 	Tailwind,
 	Text,
 } from "@react-email/components"
 
-interface PasswordResetTemplateProps {
-	email?: string
-	resetLink?: string
+interface ClientSubmissionTemplateProps {
+	clientName?: string
+	bookingDate?: string
+	bookingTime?: string
+	sessionType?: "online" | "in-person"
+	reason?: string
+	confirmLink?: string
 	siteUrl?: string
 }
 
-export const PasswordResetTemplate = ({
-	email,
-	resetLink,
+export const ClientSubmissionTemplate = ({
+	clientName,
+	bookingDate,
+	bookingTime,
+	sessionType,
+	reason,
+	confirmLink,
 	siteUrl,
-}: PasswordResetTemplateProps) => {
+}: ClientSubmissionTemplateProps) => {
 	const logoUrl = `${siteUrl}/LEGAL.png`
+	// Use lowercase for grammatical correctness in the sentence
+	const sessionTypeLabel = sessionType === "online" ? "online session" : "in-person meeting"
 
 	return (
 		<Html>
 			<Head />
-			<Preview>Reset your password</Preview>
+			<Preview>Booking request submitted successfully</Preview>
 			<Tailwind>
 				<Body className="mx-auto my-auto bg-gray-50 p-6 font-sans text-gray-800">
 					<Container
@@ -71,49 +80,50 @@ export const PasswordResetTemplate = ({
 						{/* Main content */}
 						<Section className="px-10 pb-10">
 							<Text className="my-10 text-center text-2xl font-bold tracking-tight text-gray-900">
-								Reset Your Password
+								Booking Request Submitted
 							</Text>
 
+							{/* Dear John Doe... */}
 							<Text className="mb-6 text-base leading-relaxed text-gray-700">
-								Hello <strong className="font-bold text-gray-900">{email}</strong>,
+								Dear <strong className="font-bold text-gray-900">{clientName}</strong>, we are
+								pleased to inform you that your booking request has been successfully submitted.
 							</Text>
 
+							{/* Your appointment is scheduled for... */}
 							<Text className="mb-6 text-base leading-relaxed text-gray-700">
-								We received a request to reset your password for your QSign account. If this was
-								you, you can set a new password by clicking the button below:
+								Your appointment is scheduled for{" "}
+								<strong className="font-bold text-gray-900">
+									{bookingDate} at {bookingTime}
+								</strong>{" "}
+								and will be conducted as an{" "}
+								<strong className="font-bold text-gray-900">{sessionTypeLabel}</strong> for the
+								purpose of <strong className="font-bold text-gray-900">{reason}</strong>.
 							</Text>
 
-							{/* Reset Button - UPDATED TO PINK */}
+							{/* Please note... */}
+							<Text className="mb-6 text-base leading-relaxed text-gray-700">
+								Please note that this schedule is subject to confirmation by the lawyer. Kindly wait
+								for the lawyer’s confirmation email with further instructions.
+							</Text>
+
+							{/* Thank you... */}
+							<Text className="mb-10 text-base leading-relaxed text-gray-700">
+								Thank you for choosing our services.
+							</Text>
+
+							{/* View Status Button */}
 							<Section className="my-10 text-center">
 								<Button
-									href={resetLink}
+									href={confirmLink}
 									className="rounded-lg px-8 py-4 text-center font-semibold tracking-wide text-white no-underline"
 									style={{
 										background: "linear-gradient(135deg, #FF5E7E 0%, #E22C9A 50%, #C300B0 100%)",
 										boxShadow: "0 4px 6px -1px rgba(255, 94, 126, 0.3)",
 									}}
 								>
-									Reset Password
+									View Booking Status
 								</Button>
 							</Section>
-
-							<Text className="mb-6 text-base leading-relaxed text-gray-700">
-								This password reset link will expire in 1 hour for security reasons. If you did not
-								request a password reset, please ignore this email.
-							</Text>
-
-							<Text className="text-base leading-relaxed text-gray-700">
-								If you do not want to change your password, please ignore this email or contact
-								support at{" "}
-								<Link
-									href="mailto:software@quanbyit.com"
-									className="font-semibold no-underline"
-									style={{ color: "#C300B0" }}
-								>
-									software@quanbyit.com
-								</Link>
-								.
-							</Text>
 						</Section>
 
 						{/* Footer */}
@@ -125,8 +135,8 @@ export const PasswordResetTemplate = ({
 							}}
 						>
 							<Text className="m-0 text-xs font-medium text-gray-400">
-								This is an automated security message. Please do not reply to this email. Contact
-								support through your dashboard if you need help.
+								This is an automated booking notification. Please do not reply to this email.
+								Contact support through your dashboard if you need help.
 							</Text>
 						</Section>
 					</Container>
@@ -136,10 +146,14 @@ export const PasswordResetTemplate = ({
 	)
 }
 
-PasswordResetTemplate.PreviewProps = {
-	email: "sample.email@quanby.com",
-	resetLink: "http://localhost:3000/reset-password/123456",
+ClientSubmissionTemplate.PreviewProps = {
+	clientName: "John Doe",
+	bookingDate: "January 30, 2026",
+	bookingTime: "2:00 PM",
+	sessionType: "online",
+	reason: "notarization of three (3) documents",
+	confirmLink: "http://localhost:3000/bookings/track/123456",
 	siteUrl: "https://qlegal.quanbyit.com/",
-} as PasswordResetTemplateProps
+} as ClientSubmissionTemplateProps
 
-export default PasswordResetTemplate
+export default ClientSubmissionTemplate
