@@ -7,6 +7,7 @@ import * as documentSignersSchema from "@/services/drizzle/schema/document-signe
 import * as enpProfilesSchema from "@/services/drizzle/schema/enp-profiles"
 import * as envelopeSchema from "@/services/drizzle/schema/envelope"
 import * as idCardDetailsSchema from "@/services/drizzle/schema/id-card-details"
+import * as kycSessionsSchema from "@/services/drizzle/schema/kyc-sessions"
 import * as legalRegistrationSchema from "@/services/drizzle/schema/legal-registration"
 import * as livenessSchema from "@/services/drizzle/schema/liveness"
 import * as meetingsSchema from "@/services/drizzle/schema/meetings"
@@ -26,6 +27,7 @@ export const schema = {
 	...enpProfilesSchema,
 	...envelopeSchema,
 	...idCardDetailsSchema,
+	...kycSessionsSchema,
 	...legalRegistrationSchema,
 	...livenessSchema,
 	...meetingsSchema,
