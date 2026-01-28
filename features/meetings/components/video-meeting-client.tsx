@@ -1156,6 +1156,7 @@ const DocumentActions = React.memo(function DocumentActions({
 	onCreateProject,
 	isCreatingProject,
 	onPreGeneratedLink,
+	plotLinkReady = true,
 }: {
 	document: { id: string; name: string; docoChainProjectId: string | null }
 	onSignClick: (projectUuid: string | null, email: string, documentId: string, isPlotting?: boolean) => void
@@ -1183,6 +1184,8 @@ const DocumentActions = React.memo(function DocumentActions({
 	onCreateProject?: (documentId: string, meetingId: string) => void
 	isCreatingProject?: boolean
 	onPreGeneratedLink?: (documentId: string, link: string, projectUuid: string) => void
+	/** When "Plot Signature", button stays loading until this is true (pre-generated link ready). */
+	plotLinkReady?: boolean
 }) {
 	const { data: session } = useSession()
 
@@ -1368,10 +1371,26 @@ const DocumentActions = React.memo(function DocumentActions({
 	// Pre-generate links when button becomes available
 	const userEmail = session?.user?.email
 	const isButtonAvailable = !isSigningPending && !isSigningDisabled && !!document.docoChainProjectId && !!userEmail
-	
+
+	// For "Plot Signature", keep button loading until pre-generated link is ready so the correct link opens every time
+	const isPlotSignatureWaiting =
+		buttonText === "Plot Signature" && plotLinkReady === false
+
 	// Track if we've already initiated pre-generation to prevent duplicate calls
 	const preGenerationInitiatedRef = useRef<string | null>(null)
-	
+	const hadPlotLinkRef = useRef(false)
+
+	// When link is consumed (e.g. user opened popup then closed without plotting), we delete it.
+	// Clear the pre-gen ref so we can pre-generate again – otherwise "Preparing..." stays forever.
+	useEffect(() => {
+		const hasLink = plotLinkReady === true
+		const hadLink = hadPlotLinkRef.current
+		hadPlotLinkRef.current = hasLink
+		if (hadLink && !hasLink) {
+			preGenerationInitiatedRef.current = null
+		}
+	}, [plotLinkReady])
+
 	// Pre-generate link mutation - call imperatively when button becomes available
 	const preGenerateLinkMutation = trpc.signatureRequests.initiateSigning.useMutation({
 		onSuccess: (data) => {
@@ -1391,6 +1410,7 @@ const DocumentActions = React.memo(function DocumentActions({
 	})
 	
 	// Pre-generate Edit Draft Link when "Plot Signature" button becomes available
+	// Also re-runs when plotLinkReady goes false (link was used/removed) so we can fetch again
 	useEffect(() => {
 		const key = `plot-${document.id}-${document.docoChainProjectId}`
 		if (
@@ -1411,9 +1431,10 @@ const DocumentActions = React.memo(function DocumentActions({
 			})
 		}
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [isButtonAvailable, buttonText, isEnp, document.docoChainProjectId, document.id, userEmail])
+	}, [isButtonAvailable, buttonText, isEnp, document.docoChainProjectId, document.id, userEmail, plotLinkReady])
 	
 	// Pre-generate Sign Link when "Sign Document" button becomes available
+	// Also re-runs when plotLinkReady changes (so both effects have same-sized dep arrays)
 	useEffect(() => {
 		const key = `sign-${document.id}-${document.docoChainProjectId}`
 		if (
@@ -1432,7 +1453,7 @@ const DocumentActions = React.memo(function DocumentActions({
 			})
 		}
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [isButtonAvailable, buttonText, document.docoChainProjectId, document.id, userEmail])
+	}, [isButtonAvailable, buttonText, document.docoChainProjectId, document.id, userEmail, plotLinkReady])
 	
 	// Show selected signers count
 	const selectedSignersCount = signerUserIds?.length ?? 0
@@ -1536,15 +1557,22 @@ const DocumentActions = React.memo(function DocumentActions({
 							toast.error("User email not found. Please sign in again.")
 						}
 					}}
-					disabled={isSigningPending || isSigningDisabled || !document.docoChainProjectId}
+					disabled={
+						isSigningPending ||
+						isSigningDisabled ||
+						!document.docoChainProjectId ||
+						isPlotSignatureWaiting
+					}
 				>
-					{isSigningPending ? (
+					{isSigningPending || isPlotSignatureWaiting ? (
 						<>
 							<div className="mr-2 size-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
 							{buttonText === "Start Signing"
 								? "Starting..."
 								: buttonText === "Plot Signature"
-									? "Plotting..."
+									? isPlotSignatureWaiting
+										? "Preparing..."
+										: "Plotting..."
 									: "Signing..."}
 						</>
 					) : (
@@ -2330,98 +2358,83 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 	const handleSignClick = useCallback(
 		(projectUuid: string | null, email: string, documentId: string, isPlotting?: boolean) => {
 			const plotting = isPlotting ?? false
-			
-			// CRITICAL: When plotting, ALWAYS generate a fresh Edit Draft Link on click
-			// Never use pre-generated links for plotting - they may redirect if generated before project is fully initialized
-			// This ensures we get a fresh link that won't redirect to stg-app.doconchain.com
-			if (!plotting) {
-				// Check if we have a pre-generated link for this document (only for non-plotting actions)
-				const preGenerated = preGeneratedLinks.get(documentId)
-				if (preGenerated?.link) {
-					console.log("✅ Using pre-generated link for instant redirect!")
-					setSigningDocumentId(documentId)
-					setIsPlottingAction(false)
-					isPlottingActionRef.current = false
-					
-					// Use pre-generated link immediately
-					let signingLink = preGenerated.link
-					signingLink = normalizeUrl(signingLink) ?? signingLink
-					
-					// Validate it's a proper URL
-					try {
-						new URL(signingLink)
-					} catch {
-						console.error("❌ Invalid URL format:", signingLink)
-						toast.error("Invalid URL format for signing link")
-						return
-					}
-					
-					// Open popup immediately with pre-generated link
-					const isEnpUser = session?.user?.role === "ENP"
-					const width = Math.min(window.innerWidth - 40, 1400)
-					const height = Math.min(window.innerHeight - 40, 900)
-					const left = (window.screen.width - width) / 2
-					const top = (window.screen.height - height) / 2
-					
-					const popup = window.open(
-						signingLink,
-						"DocoChainSigning",
-						`width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes,toolbar=no,location=no,menubar=no`
-					)
-					
-					if (popup) {
-						const checkClosed = setInterval(() => {
-							if (popup.closed) {
-								clearInterval(checkClosed)
-								setSigningDocumentId(null)
-								setIsPlottingAction(false)
-								isPlottingActionRef.current = false
-								
-								void refetchDocuments().then(() => {
-									void refreshSigningStatuses()
-								})
-								toast.success("Signing completed. Document status updated.")
-							}
-						}, 1500)
-						toast.success("Opening signing interface in popup window...")
-						// Clear pre-generated link after use
-						setPreGeneratedLinks(prev => {
-							const next = new Map(prev)
-							next.delete(documentId)
-							return next
-						})
-					} else {
-						toast.error("Popup blocked. Please allow popups for this site and try again.")
-						setSigningDocumentId(null)
-						setIsPlottingAction(false)
-						isPlottingActionRef.current = false
-					}
+			const preGenerated = preGeneratedLinks.get(documentId)
+
+			// Use pre-generated link when we have it (Plot Signature button is disabled until ready, so we always have it for plotting)
+			if (preGenerated?.link) {
+				console.log("✅ Using pre-generated link (correct link every time)")
+				setSigningDocumentId(documentId)
+				setIsPlottingAction(plotting)
+				isPlottingActionRef.current = plotting
+
+				let signingLink = preGenerated.link
+				signingLink = normalizeUrl(signingLink) ?? signingLink
+
+				try {
+					new URL(signingLink)
+				} catch {
+					console.error("❌ Invalid URL format:", signingLink)
+					toast.error("Invalid URL format for signing link")
 					return
 				}
-			} else {
-				// Plotting action - skip pre-generated links and always generate fresh
-				console.log("🔵 Plotting action detected - generating fresh Edit Draft Link (skipping pre-generated link)...")
-				// Clear any pre-generated link for this document to force fresh generation
-				setPreGeneratedLinks(prev => {
-					const next = new Map(prev)
-					next.delete(documentId)
-					return next
-				})
+
+				const width = Math.min(window.innerWidth - 40, 1400)
+				const height = Math.min(window.innerHeight - 40, 900)
+				const left = (window.screen.width - width) / 2
+				const top = (window.screen.height - height) / 2
+
+				const popup = window.open(
+					signingLink,
+					"DocoChainSigning",
+					`width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes,toolbar=no,location=no,menubar=no`
+				)
+
+				if (popup) {
+					const checkClosed = setInterval(() => {
+						if (popup.closed) {
+							clearInterval(checkClosed)
+							setSigningDocumentId(null)
+							setIsPlottingAction(false)
+							isPlottingActionRef.current = false
+
+							void refetchDocuments().then(() => {
+								void refreshSigningStatuses()
+							})
+							toast.success(
+								plotting ? "Signature plotted. Document status updated." : "Signing completed. Document status updated."
+							)
+						}
+					}, 1500)
+					toast.success(
+						plotting
+							? "Opening plotting platform in popup window..."
+							: "Opening signing interface in popup window..."
+					)
+					setPreGeneratedLinks(prev => {
+						const next = new Map(prev)
+						next.delete(documentId)
+						return next
+					})
+				} else {
+					toast.error("Popup blocked. Please allow popups for this site and try again.")
+					setSigningDocumentId(null)
+					setIsPlottingAction(false)
+					isPlottingActionRef.current = false
+				}
+				return
 			}
-			
-			// Generate fresh link (always for plotting, or when no pre-generated link exists)
+
+			// No pre-generated link — generate on demand (Start Signing, or fallback)
 			setSigningDocumentId(documentId)
 			setIsPlottingAction(plotting)
 			isPlottingActionRef.current = plotting
-			// If projectUuid exists, use it. Otherwise, pass documentId to create project
-			// CRITICAL: Pass isPlotting flag to mutation so it can force Edit Draft Link when plotting
 			initiateSigning.mutate(
 				projectUuid
 					? { projectUuid, email, isPlotting: plotting }
-					: { documentId, email, isPlotting: plotting } // No project yet - will be created on signing
+					: { documentId, email, isPlotting: plotting }
 			)
 		},
-		[initiateSigning, preGeneratedLinks, session?.user?.role, refetchDocuments, refreshSigningStatuses]
+		[initiateSigning, preGeneratedLinks, refetchDocuments, refreshSigningStatuses]
 	)
 
 	// Get the first non-dismissed pending request
@@ -3327,6 +3340,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 														return next
 													})
 												}}
+												plotLinkReady={!!preGeneratedLinks.get(doc.id)?.link}
 											/>
 										</CardContent>
 									</Card>
