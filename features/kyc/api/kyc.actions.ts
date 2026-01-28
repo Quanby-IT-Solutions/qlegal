@@ -5,6 +5,7 @@ import { eq } from "drizzle-orm"
 
 import { db } from "@/services/drizzle/db"
 import { users } from "@/services/drizzle/schema/auth"
+import { kycSessions } from "@/services/drizzle/schema/kyc-sessions"
 import {
 	createOnboardLink,
 	getTransactionStatus,
@@ -47,41 +48,30 @@ export async function createUserKycLink() {
 		}
 	}
 
-	// Check for existing pending transaction
-	const user = await db.query.users.findFirst({
-		where: eq(users.id, session.user.id),
-		columns: {
-			kycTransactionId: true,
-			kycStatus: true,
-			kycLinkCreatedAt: true,
-		},
+	// Check for existing pending KYC session
+	const existingSession = await db.query.kycSessions.findFirst({
+		where: eq(kycSessions.userId, session.user.id),
+		orderBy: (table, { desc }) => [desc(table.createdAt)],
 	})
 
-	// If there's a pending transaction, check if it's expired (24 hours)
-	if (user?.kycStatus === "PENDING") {
-		// Handle legacy users who don't have kycLinkCreatedAt (treat as expired to allow new link)
-		if (!user.kycLinkCreatedAt) {
-			console.log(
-				"⚠️ Existing PENDING transaction without timestamp (legacy), allowing new link creation"
-			)
-		} else {
-			const linkAge = Date.now() - new Date(user.kycLinkCreatedAt).getTime()
-			const expirationTime = 24 * 60 * 60 * 1000 // 24 hours in milliseconds
-			const isExpired = linkAge > expirationTime
+	// If there's a pending session, check if it's expired (24 hours)
+	if (existingSession?.status === "PENDING" && existingSession.hostedLink) {
+		const linkAge = Date.now() - new Date(existingSession.hostedLinkCreatedAt!).getTime()
+		const expirationTime = 24 * 60 * 60 * 1000 // 24 hours in milliseconds
+		const isExpired = linkAge > expirationTime
 
-			if (!isExpired) {
-				// Link is still valid, prevent creating a new one
-				return {
-					success: false,
-					error:
-						"You already have a pending KYC verification. Please resume your existing verification or wait for it to complete.",
-					isExpired: false,
-				}
+		if (!isExpired) {
+			// Link is still valid, prevent creating a new one
+			return {
+				success: false,
+				error:
+					"You already have a pending KYC verification. Please resume your existing verification or wait for it to complete.",
+				isExpired: false,
 			}
-
-			// Link is expired, allow creating a new one
-			console.log("⚠️ Existing KYC link has expired, creating new link")
 		}
+
+		// Link is expired, allow creating a new one
+		console.log("⚠️ Existing KYC link has expired, creating new link")
 	}
 
 	const transactionId = generateTransactionId(session.user.id)
@@ -118,18 +108,26 @@ export async function createUserKycLink() {
 
 		const now = new Date()
 		const wasExpired =
-			user?.kycStatus === "PENDING" && user.kycLinkCreatedAt
-				? Date.now() - new Date(user.kycLinkCreatedAt).getTime() > 24 * 60 * 60 * 1000
+			existingSession?.status === "PENDING" && existingSession.hostedLinkCreatedAt
+				? Date.now() - new Date(existingSession.hostedLinkCreatedAt).getTime() > 24 * 60 * 60 * 1000
 				: false
 
-		// Store the transaction ID, link, and creation timestamp in the database
+		// Create a new KYC session record
+		await db.insert(kycSessions).values({
+			userId: session.user.id,
+			transactionId: actualTransactionId,
+			sessionType: "hosted",
+			hostedLink: result.result.startKycUrl,
+			hostedLinkCreatedAt: now,
+			hostedLinkExpiresAt: new Date(now.getTime() + 24 * 60 * 60 * 1000), // 24 hours
+			status: "PENDING",
+		})
+
+		// Update user KYC status
 		await db
 			.update(users)
 			.set({
-				kycTransactionId: actualTransactionId,
-				kycLink: result.result.startKycUrl,
 				kycStatus: "PENDING",
-				kycLinkCreatedAt: now,
 			})
 			.where(eq(users.id, session.user.id))
 
@@ -200,14 +198,19 @@ export async function runDirectKycVerification(input: {
 
 	const transactionId = generateTransactionId(session.user.id)
 
-	// Mark as pending in DB immediately (so we can track transactionId even if a later step fails)
+	// Create a KYC session record immediately (so we can track transactionId even if a later step fails)
+	await db.insert(kycSessions).values({
+		userId: session.user.id,
+		transactionId,
+		sessionType: "direct",
+		status: "PENDING",
+	})
+
+	// Mark user as pending
 	await db
 		.update(users)
 		.set({
-			kycTransactionId: transactionId,
-			kycLink: null,
 			kycStatus: "PENDING",
-			kycLinkCreatedAt: new Date(),
 		})
 		.where(eq(users.id, session.user.id))
 
@@ -307,9 +310,10 @@ export async function runDirectKycVerification(input: {
 		const ocrFields = pickOcrFieldsFromReadId(idResult.raw)
 		const shouldStoreOcr = kycStatus !== "REJECTED" && !!ocrFields
 
-		// Save to new id_card_details table for structured access
+		// Save to id_card_details table for structured access
+		let idCardDetailId: string | undefined
 		if (shouldStoreOcr && ocrFields) {
-			await saveIdCardDetails(db, {
+			const idCardDetail = await saveIdCardDetails(db, {
 				userId: session.user.id,
 				rawOcrData: ocrFields,
 				ocrTransactionId: transactionId,
@@ -322,18 +326,26 @@ export async function runDirectKycVerification(input: {
 				countryId: input.countryId,
 				documentId: input.documentId,
 			})
+			idCardDetailId = idCardDetail.id
 		}
 
+		// Update KYC session with result
+		await db
+			.update(kycSessions)
+			.set({
+				status: kycStatus,
+				idCardDetailId: idCardDetailId ?? null,
+				verifiedAt: kycStatus === "VERIFIED" ? new Date() : null,
+				updatedAt: new Date(),
+			})
+			.where(eq(kycSessions.transactionId, transactionId))
+
+		// Update user status
 		await db
 			.update(users)
 			.set({
 				kycStatus,
 				kycVerifiedAt: kycStatus === "VERIFIED" ? new Date() : null,
-				kycReferenceIdImageBase64: kycStatus === "VERIFIED" ? input.idImageBase64 : null,
-				kycReferenceCreatedAt: kycStatus === "VERIFIED" ? new Date() : null,
-				// Keep legacy JSON field for backward compatibility
-				kycOcrExtractedFieldsJson: shouldStoreOcr ? JSON.stringify(ocrFields) : null,
-				kycOcrCreatedAt: shouldStoreOcr ? new Date() : null,
 				// Auto-activate account when direct KYC is verified.
 				// Never override SUSPENDED here.
 				status: kycStatus === "VERIFIED" && existingUser.status === "PENDING" ? "ACTIVE" : existingUser.status,
@@ -365,6 +377,16 @@ export async function runDirectKycVerification(input: {
 	} catch (error) {
 		console.error("Direct KYC failed:", error)
 
+		// Update session status
+		await db
+			.update(kycSessions)
+			.set({
+				status: "REJECTED",
+				updatedAt: new Date(),
+			})
+			.where(eq(kycSessions.transactionId, transactionId))
+
+		// Update user status
 		await db
 			.update(users)
 			.set({
@@ -399,16 +421,21 @@ export async function checkUserKycStatus() {
 	const user = await db.query.users.findFirst({
 		where: eq(users.id, session.user.id),
 		columns: {
-			kycTransactionId: true,
 			kycStatus: true,
-			kycLink: true,
-			kycReferenceIdImageBase64: true,
-			kycOcrExtractedFieldsJson: true,
 			status: true,
 		},
 	})
 
-	if (!user?.kycTransactionId) {
+	// Get the latest KYC session
+	const kycSession = await db.query.kycSessions.findFirst({
+		where: eq(kycSessions.userId, session.user.id),
+		orderBy: (table, { desc }) => [desc(table.createdAt)],
+		with: {
+			idCardDetail: true,
+		},
+	})
+
+	if (!kycSession) {
 		return {
 			success: false,
 			error: "No KYC verification found. Please start the verification process.",
@@ -499,60 +526,48 @@ export async function checkUserKycStatus() {
 	}
 
 	const needsHostedArtifacts =
-		!!user.kycLink && (!user.kycReferenceIdImageBase64 || !user.kycOcrExtractedFieldsJson)
+		kycSession.sessionType === "hosted" && !kycSession.idCardDetailId
 
 	// If our DB already has a final state:
 	// - normally we avoid remote calls
-	// - but for Hosted KYC, we want consistency: backfill face reference + OCR exactly once if missing
-	if (user.kycStatus === "VERIFIED") {
+	// - but for Hosted KYC, we want consistency: backfill ID card details exactly once if missing
+	if (kycSession.status === "VERIFIED") {
 		if (needsHostedArtifacts) {
 			try {
 				console.log("🧾 Fetching HyperVerge Logs API (backfill hosted KYC artifacts)...", {
-					transactionId: user.kycTransactionId,
+					transactionId: kycSession.transactionId,
 				})
 
-				const logs = await getHyperVergeKycLogs({ transactionId: user.kycTransactionId })
-				const update: {
-					kycReferenceIdImageBase64?: string | null
-					kycReferenceCreatedAt?: Date | null
-					kycOcrExtractedFieldsJson?: string | null
-					kycOcrCreatedAt?: Date | null
-				} = {}
+				const logs = await getHyperVergeKycLogs({ transactionId: kycSession.transactionId })
+				const imageUrl = pickBestFaceImageUrlFromLogs(logs)
+				const ocr = pickOcrFieldsFromLogs(logs)
 
-				if (!user.kycReferenceIdImageBase64) {
-					const imageUrl = pickBestFaceImageUrlFromLogs(logs)
+				if (ocr) {
+					let faceImageUrl: string | undefined
 					if (imageUrl) {
 						const dataUrl = await fetchImageUrlAsDataUrl(imageUrl)
 						if (dataUrl) {
-							update.kycReferenceIdImageBase64 = dataUrl
-							update.kycReferenceCreatedAt = new Date()
+							faceImageUrl = dataUrl
 						}
 					}
-				}
 
-				if (!user.kycOcrExtractedFieldsJson) {
-					const ocr = pickOcrFieldsFromLogs(logs)
-					if (ocr) {
-						update.kycOcrExtractedFieldsJson = JSON.stringify(ocr)
-						update.kycOcrCreatedAt = new Date()
+					// Save to id_card_details table
+					const idCardDetail = await saveIdCardDetails(db, {
+						userId: session.user.id,
+						rawOcrData: ocr,
+						ocrTransactionId: kycSession.transactionId,
+						ocrProvider: "hyperverge",
+						faceImageUrl,
+						isVerified: true,
+						verifiedAt: new Date(),
+						verificationMethod: "kyc_mobile_link",
+					})
 
-						// Save to new id_card_details table
-						await saveIdCardDetails(db, {
-							userId: session.user.id,
-							rawOcrData: ocr,
-							ocrTransactionId: user.kycTransactionId,
-							ocrProvider: "hyperverge",
-							frontImageUrl: update.kycReferenceIdImageBase64 ?? undefined,
-							faceImageUrl: update.kycReferenceIdImageBase64 ?? undefined,
-							isVerified: true,
-							verifiedAt: new Date(),
-							verificationMethod: "kyc_mobile_link",
-						})
-					}
-				}
-
-				if (Object.keys(update).length > 0) {
-					await db.update(users).set(update).where(eq(users.id, session.user.id))
+					// Link session to id card detail
+					await db
+						.update(kycSessions)
+						.set({ idCardDetailId: idCardDetail.id })
+						.where(eq(kycSessions.id, kycSession.id))
 				}
 			} catch {
 				// Non-fatal: status is already VERIFIED.
@@ -562,7 +577,7 @@ export async function checkUserKycStatus() {
 		return {
 			success: true,
 			data: {
-				transactionId: user.kycTransactionId,
+				transactionId: kycSession.transactionId,
 				status: "auto_approved",
 				kycStatus: "VERIFIED" as const,
 				isComplete: true,
@@ -574,11 +589,11 @@ export async function checkUserKycStatus() {
 		}
 	}
 
-	if (user.kycStatus === "REJECTED") {
+	if (kycSession.status === "REJECTED") {
 		return {
 			success: true,
 			data: {
-				transactionId: user.kycTransactionId,
+				transactionId: kycSession.transactionId,
 				status: "auto_declined",
 				kycStatus: "REJECTED" as const,
 				isComplete: true,
@@ -592,11 +607,11 @@ export async function checkUserKycStatus() {
 
 	// If it's PENDING but there is no hosted KYC link, assume this is the direct API flow.
 	// Do not poll HyperVerge workflow status because it may remain "started" indefinitely.
-	if (user.kycStatus === "PENDING" && !user.kycLink) {
+	if (kycSession.status === "PENDING" && kycSession.sessionType === "direct") {
 		return {
 			success: true,
 			data: {
-				transactionId: user.kycTransactionId,
+				transactionId: kycSession.transactionId,
 				status: "needs_review",
 				kycStatus: "PENDING" as const,
 				isComplete: false,
@@ -609,111 +624,128 @@ export async function checkUserKycStatus() {
 	}
 
 	try {
-		const result = await getTransactionStatus(user.kycTransactionId)
+		const result = await getTransactionStatus(kycSession.transactionId)
 		const applicationStatus = result.result.applicationStatus
 		const interpretation = interpretStatus(applicationStatus)
 
 		console.log("🔍 KYC Status Check:", {
-			transactionId: user.kycTransactionId,
+			transactionId: kycSession.transactionId,
 			applicationStatus,
 			interpretation,
 		})
 
 		// Update the KYC status in the database based on the result
 		let newStatus: "PENDING" | "VERIFIED" | "REJECTED" = "PENDING"
-		const updateData: {
-			kycStatus: "PENDING" | "VERIFIED" | "REJECTED"
-			kycVerifiedAt?: Date
-			kycReferenceIdImageBase64?: string | null
-			kycReferenceCreatedAt?: Date | null
-			kycOcrExtractedFieldsJson?: string | null
-			kycOcrCreatedAt?: Date | null
-			status?: "ACTIVE" | "PENDING" | "SUSPENDED"
-		} = { kycStatus: "PENDING" }
-
 		const workflowDetails = result.result.workflowDetails ?? {}
-		const imageUrl = findBestImageUrl(workflowDetails)
 
 		if (interpretation.isApproved) {
 			newStatus = "VERIFIED"
-			updateData.kycStatus = "VERIFIED"
-			updateData.kycVerifiedAt = new Date()
 			console.log("✅ KYC Approved - Updating to VERIFIED")
 
-			// If account was pending, auto-activate on successful KYC.
-			// Never override SUSPENDED here.
-			if (user.status === "PENDING") {
-				updateData.status = "ACTIVE"
-			}
-
-			// Store a reference image once, for later selfie-vs-id checks.
-			// Per Output API docs: `userDetails.croppedImageUrl` is the cropped face image.
-			// Some workflows may expose other image URLs; we pick the best match we can find.
-			if (!user.kycReferenceIdImageBase64 && imageUrl) {
-				const dataUrl = await fetchImageAsDataUrl(imageUrl)
-				if (dataUrl) {
-					updateData.kycReferenceIdImageBase64 = dataUrl
-					updateData.kycReferenceCreatedAt = new Date()
-				}
-			}
-
-			// If Output API didn't provide artifacts, use Logs API (one-time) for Hosted KYC.
-			if (needsHostedArtifacts) {
+			// Fetch and save ID card details if not already done
+			if (!kycSession.idCardDetailId) {
 				try {
 					console.log("🧾 Fetching HyperVerge Logs API (hosted KYC artifacts)...", {
-						transactionId: user.kycTransactionId,
+						transactionId: kycSession.transactionId,
 					})
 
-					const logs = await getHyperVergeKycLogs({ transactionId: user.kycTransactionId })
+					const logs = await getHyperVergeKycLogs({ transactionId: kycSession.transactionId })
+					const imageUrl = pickBestFaceImageUrlFromLogs(logs)
+					const ocr = pickOcrFieldsFromLogs(logs)
 
-					if (!user.kycReferenceIdImageBase64 && !updateData.kycReferenceIdImageBase64) {
-						const bestUrl = pickBestFaceImageUrlFromLogs(logs)
-						if (bestUrl) {
-							const dataUrl = await fetchImageUrlAsDataUrl(bestUrl)
+					if (ocr) {
+						let faceImageUrl: string | undefined
+						if (imageUrl) {
+							const dataUrl = await fetchImageUrlAsDataUrl(imageUrl)
 							if (dataUrl) {
-								updateData.kycReferenceIdImageBase64 = dataUrl
-								updateData.kycReferenceCreatedAt = new Date()
+								faceImageUrl = dataUrl
 							}
 						}
-					}
 
-					if (!user.kycOcrExtractedFieldsJson) {
-						const ocr = pickOcrFieldsFromLogs(logs)
-						if (ocr) {
-							updateData.kycOcrExtractedFieldsJson = JSON.stringify(ocr)
-							updateData.kycOcrCreatedAt = new Date()
+						// Save to id_card_details table
+						const idCardDetail = await saveIdCardDetails(db, {
+							userId: session.user.id,
+							rawOcrData: ocr,
+							ocrTransactionId: kycSession.transactionId,
+							ocrProvider: "hyperverge",
+							faceImageUrl,
+							isVerified: true,
+							verifiedAt: new Date(),
+							verificationMethod: "kyc_mobile_link",
+						})
 
-							// Save to new id_card_details table
-							await saveIdCardDetails(db, {
-								userId: session.user.id,
-								rawOcrData: ocr,
-								ocrTransactionId: user.kycTransactionId,
-								ocrProvider: "hyperverge",
-								frontImageUrl: updateData.kycReferenceIdImageBase64 ?? undefined,
-								faceImageUrl: updateData.kycReferenceIdImageBase64 ?? undefined,
-								isVerified: true,
+						// Update session with ID card detail reference
+						await db
+							.update(kycSessions)
+							.set({
+								status: newStatus,
+								idCardDetailId: idCardDetail.id,
 								verifiedAt: new Date(),
-								verificationMethod: "kyc_mobile_link",
+								updatedAt: new Date(),
 							})
-						}
+							.where(eq(kycSessions.id, kycSession.id))
 					}
 				} catch (e) {
 					console.warn("⚠️ Hosted KYC Logs API fetch failed:", e)
 				}
+			} else {
+				// Just update session status
+				await db
+					.update(kycSessions)
+					.set({
+						status: newStatus,
+						verifiedAt: new Date(),
+						updatedAt: new Date(),
+					})
+					.where(eq(kycSessions.id, kycSession.id))
 			}
+
+			// Update user status
+			await db
+				.update(users)
+				.set({
+					kycStatus: newStatus,
+					kycVerifiedAt: new Date(),
+					// If account was pending, auto-activate on successful KYC.
+					// Never override SUSPENDED here.
+					status: user?.status === "PENDING" ? "ACTIVE" : user?.status,
+				})
+				.where(eq(users.id, session.user.id))
 		} else if (applicationStatus === "auto_declined") {
 			newStatus = "REJECTED"
-			updateData.kycStatus = "REJECTED"
 			console.log("❌ KYC Rejected")
+
+			// Update session status
+			await db
+				.update(kycSessions)
+				.set({
+					status: newStatus,
+					updatedAt: new Date(),
+				})
+				.where(eq(kycSessions.id, kycSession.id))
+
+			// Update user status
+			await db
+				.update(users)
+				.set({
+					kycStatus: newStatus,
+				})
+				.where(eq(users.id, session.user.id))
 		} else if (interpretation.needsReview) {
 			newStatus = "PENDING"
-			updateData.kycStatus = "PENDING"
 			console.log("🕵️ KYC Needs Review")
+
+			// Update session
+			await db
+				.update(kycSessions)
+				.set({
+					status: newStatus,
+					updatedAt: new Date(),
+				})
+				.where(eq(kycSessions.id, kycSession.id))
 		} else {
 			console.log("⏳ KYC Still Pending")
 		}
-
-		await db.update(users).set(updateData).where(eq(users.id, session.user.id))
 
 		revalidatePath("/auth/kyc")
 
@@ -749,24 +781,19 @@ export async function getExistingKycLink() {
 		}
 	}
 
-	const user = await db.query.users.findFirst({
-		where: eq(users.id, session.user.id),
-		columns: {
-			kycTransactionId: true,
-			kycLink: true,
-			kycStatus: true,
-			kycLinkCreatedAt: true,
-		},
+	const kycSession = await db.query.kycSessions.findFirst({
+		where: eq(kycSessions.userId, session.user.id),
+		orderBy: (table, { desc }) => [desc(table.createdAt)],
 	})
 
-	if (!user?.kycTransactionId || !user?.kycLink) {
+	if (!kycSession?.hostedLink) {
 		return {
 			success: false,
 			error: "No KYC verification link found. Please start the verification process.",
 		}
 	}
 
-	if (user.kycStatus !== "PENDING") {
+	if (kycSession.status !== "PENDING") {
 		return {
 			success: false,
 			error: "KYC verification is not in pending state",
@@ -774,8 +801,8 @@ export async function getExistingKycLink() {
 	}
 
 	// Check if link is expired (24 hours)
-	if (user.kycLinkCreatedAt) {
-		const linkAge = Date.now() - new Date(user.kycLinkCreatedAt).getTime()
+	if (kycSession.hostedLinkCreatedAt) {
+		const linkAge = Date.now() - new Date(kycSession.hostedLinkCreatedAt).getTime()
 		const expirationTime = 24 * 60 * 60 * 1000 // 24 hours
 		if (linkAge > expirationTime) {
 			return {
@@ -785,13 +812,13 @@ export async function getExistingKycLink() {
 		}
 	}
 
-	console.log("🔗 Retrieved existing KYC link for transaction:", user.kycTransactionId)
+	console.log("🔗 Retrieved existing KYC link for transaction:", kycSession.transactionId)
 
 	return {
 		success: true,
 		data: {
-			transactionId: user.kycTransactionId,
-			url: user.kycLink,
+			transactionId: kycSession.transactionId,
+			url: kycSession.hostedLink,
 		},
 	}
 }
@@ -814,9 +841,7 @@ export async function getUserKycInfo() {
 		columns: {
 			name: true,
 			email: true,
-			kycTransactionId: true,
 			kycStatus: true,
-			kycLinkCreatedAt: true,
 		},
 	})
 
@@ -827,14 +852,19 @@ export async function getUserKycInfo() {
 		}
 	}
 
+	const kycSession = await db.query.kycSessions.findFirst({
+		where: eq(kycSessions.userId, session.user.id),
+		orderBy: (table, { desc }) => [desc(table.createdAt)],
+	})
+
 	return {
 		success: true,
 		data: {
 			name: user.name,
 			email: user.email,
-			transactionId: user.kycTransactionId,
+			transactionId: kycSession?.transactionId ?? null,
 			kycStatus: user.kycStatus,
-			kycLinkCreatedAt: user.kycLinkCreatedAt,
+			kycLinkCreatedAt: kycSession?.hostedLinkCreatedAt ?? null,
 		},
 	}
 }
@@ -853,18 +883,15 @@ export async function resetUserKycStatus() {
 	}
 
 	try {
+		// Delete all KYC sessions for this user
+		await db.delete(kycSessions).where(eq(kycSessions.userId, session.user.id))
+
+		// Reset user KYC status
 		await db
 			.update(users)
 			.set({
-				kycTransactionId: null,
-				kycLink: null,
 				kycStatus: "NOT_STARTED",
 				kycVerifiedAt: null,
-				kycLinkCreatedAt: null,
-				kycReferenceIdImageBase64: null,
-				kycReferenceCreatedAt: null,
-				kycOcrExtractedFieldsJson: null,
-				kycOcrCreatedAt: null,
 			})
 			.where(eq(users.id, session.user.id))
 

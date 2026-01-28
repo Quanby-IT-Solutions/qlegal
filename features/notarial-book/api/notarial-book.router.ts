@@ -13,6 +13,7 @@ import {
 import { users } from "@/services/drizzle/schema/auth"
 import { documents } from "@/services/drizzle/schema/document"
 import { documentSigners } from "@/services/drizzle/schema/document-signers"
+import { idCardDetails } from "@/services/drizzle/schema/id-card-details"
 import { legalRegistrations } from "@/services/drizzle/schema/legal-registration"
 import { meetings } from "@/services/drizzle/schema/meetings"
 import { notarialActs, notarialBooks } from "@/services/drizzle/schema/notarial-book"
@@ -605,23 +606,29 @@ export const notarialBookRouter = createTRPCRouter({
 
 							if (principalSigner?.email) {
 								try {
+									// Get user ID from email first
 									const principalUser = await ctx.db.query.users.findFirst({
 										where: eq(users.email, principalSigner.email),
 										columns: {
-											kycReferenceIdImageBase64: true,
-											kycOcrExtractedFieldsJson: true,
+											id: true,
 										},
 									})
 
-									if (principalUser?.kycReferenceIdImageBase64) {
-										principalIdImageBase64 = String(principalUser.kycReferenceIdImageBase64)
-									}
+									if (principalUser?.id) {
+										// Fetch ID card details from id_card_details table
+										const idCardDetail = await ctx.db.query.idCardDetails.findFirst({
+											where: eq(idCardDetails.userId, principalUser.id),
+											orderBy: (table, { desc }) => [desc(table.verifiedAt)],
+										})
 
-									// Extract OCR document type
-									const ocrJson = principalUser?.kycOcrExtractedFieldsJson
-									if (ocrJson && typeof ocrJson === "string") {
-										try {
-											const ocrFields = JSON.parse(ocrJson) as Record<string, unknown>
+										if (idCardDetail?.faceImageUrl) {
+											principalIdImageBase64 = String(idCardDetail.faceImageUrl)
+										}
+
+										// Extract OCR document type from rawOcrData
+										if (idCardDetail?.rawOcrData) {
+											try {
+												const ocrFields = idCardDetail.rawOcrData as Record<string, unknown>
 											// Priority: documentId (stored during KYC) > documentType > idType > module name
 											const docType =
 												ocrFields.documentId ?? // Stored during direct KYC
@@ -648,12 +655,18 @@ export const notarialBookRouter = createTRPCRouter({
 													documentTypeMap[docType.toLowerCase()] ??
 													docType.charAt(0).toUpperCase() + docType.slice(1).replace(/_/g, " ")
 											}
-										} catch (error) {
-											console.warn("Failed to parse OCR JSON:", error)
+
+												// Use documentType field directly if available
+												if (!principalIdType && idCardDetail.documentType) {
+													principalIdType = String(idCardDetail.documentType)
+												}
+											} catch (error) {
+												console.warn("Failed to parse OCR data:", error)
+											}
 										}
 									}
 								} catch (error) {
-									console.warn("Failed to fetch principal ID image:", error)
+									console.warn("Failed to fetch principal ID details:", error)
 								}
 							}
 						}
@@ -1059,17 +1072,24 @@ export const notarialBookRouter = createTRPCRouter({
 			let principalIdType: string | undefined
 			if (principalEmailForOcr) {
 				try {
+					// Get user ID from email
 					const principalUser = await ctx.db.query.users.findFirst({
 						where: eq(users.email, principalEmailForOcr),
 						columns: {
-							kycOcrExtractedFieldsJson: true,
+							id: true,
 						},
 					})
 
-					const ocrJson = principalUser?.kycOcrExtractedFieldsJson
-					if (ocrJson && typeof ocrJson === "string") {
-						try {
-							const ocrFields = JSON.parse(ocrJson) as Record<string, unknown>
+					if (principalUser?.id) {
+						// Fetch ID card details from id_card_details table
+						const idCardDetail = await ctx.db.query.idCardDetails.findFirst({
+							where: eq(idCardDetails.userId, principalUser.id),
+							orderBy: (table, { desc }) => [desc(table.verifiedAt)],
+						})
+
+						if (idCardDetail?.rawOcrData) {
+							try {
+								const ocrFields = idCardDetail.rawOcrData as Record<string, unknown>
 											// Priority: documentId (stored during KYC) > documentType > idType > module name
 											const docType =
 												ocrFields.documentId ?? // Stored during direct KYC
@@ -1096,12 +1116,18 @@ export const notarialBookRouter = createTRPCRouter({
 									documentTypeMap[docType.toLowerCase()] ??
 									docType.charAt(0).toUpperCase() + docType.slice(1).replace(/_/g, " ")
 							}
+
+							// Use documentType field directly if available
+							if (!principalIdType && idCardDetail.documentType) {
+								principalIdType = String(idCardDetail.documentType)
+							}
 						} catch (parseError) {
-							console.warn("Failed to parse OCR JSON:", parseError)
+							console.warn("Failed to parse OCR data:", parseError)
 						}
 					}
+				}
 				} catch (fetchError) {
-					console.warn("Failed to fetch principal ID type:", fetchError)
+					console.warn("Failed to fetch principal ID card details:", fetchError)
 				}
 			}
 

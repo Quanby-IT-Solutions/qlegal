@@ -8,6 +8,7 @@ import { getUrl } from "@/core/lib/get-url"
 import { db } from "@/services/drizzle/db"
 import { livenessValidations } from "@/services/drizzle/schema/liveness"
 import { users } from "@/services/drizzle/schema/auth"
+import { idCardDetails } from "@/services/drizzle/schema/id-card-details"
 import {
 	checkLiveness,
 	getWorkflowOutput,
@@ -117,30 +118,34 @@ export async function validateSelfieLiveness(imageBase64: string, meetingId?: st
 			where: eq(users.id, session.user.id),
 			columns: {
 				kycStatus: true,
-				kycReferenceIdImageBase64: true,
-				kycTransactionId: true,
 			},
 		})
 
-		let referenceImageBase64 = user?.kycReferenceIdImageBase64 ?? null
+		// Get the user's verified ID card details for face matching
+		const idCardDetail = await db.query.idCardDetails.findFirst({
+			where: eq(idCardDetails.userId, session.user.id),
+			orderBy: (table, { desc }) => [desc(table.verifiedAt)],
+		})
 
-		// If KYC is verified but reference image is missing (common for onboarding link),
-		// fetch Logs API once and store a face reference for later checks.
-		if (user?.kycStatus === "VERIFIED" && !referenceImageBase64 && user.kycTransactionId) {
+		let referenceImageBase64 = idCardDetail?.faceImageUrl ?? null
+
+		// If KYC is verified but reference image is missing, try to fetch from HyperVerge Logs API
+		if (user?.kycStatus === "VERIFIED" && !referenceImageBase64 && idCardDetail?.ocrTransactionId) {
 			try {
-				const logs = await getHyperVergeKycLogs({ transactionId: user.kycTransactionId })
+				const logs = await getHyperVergeKycLogs({ transactionId: idCardDetail.ocrTransactionId })
 				const url = pickBestFaceImageUrlFromLogs(logs)
 				if (url) {
 					const dataUrl = await fetchImageUrlAsDataUrl(url)
 					if (dataUrl) {
 						referenceImageBase64 = dataUrl
+						// Update id card detail with face image
 						await db
-							.update(users)
+							.update(idCardDetails)
 							.set({
-								kycReferenceIdImageBase64: dataUrl,
-								kycReferenceCreatedAt: new Date(),
+								faceImageUrl: dataUrl,
+								updatedAt: new Date(),
 							})
-							.where(eq(users.id, session.user.id))
+							.where(eq(idCardDetails.id, idCardDetail.id))
 					}
 				}
 			} catch (e) {
@@ -323,34 +328,39 @@ export async function startHostedLivenessWorkflow(
 		}
 
 		// If the hosted workflow now includes face-match against KYC reference image, it may require
-		// an `inputsRequired` key like `inputImage`. We'll source it from the user's stored KYC reference.
+		// an `inputsRequired` key like `inputImage`. We'll source it from the user's verified ID card.
 		const user = await db.query.users.findFirst({
 			where: eq(users.id, session.user.id),
 			columns: {
 				kycStatus: true,
-				kycReferenceIdImageBase64: true,
-				kycTransactionId: true,
 			},
 		})
 
-		let referenceImageBase64 = user?.kycReferenceIdImageBase64 ?? null
+		// Get the user's verified ID card details for face matching
+		const idCardDetail = await db.query.idCardDetails.findFirst({
+			where: eq(idCardDetails.userId, session.user.id),
+			orderBy: (table, { desc }) => [desc(table.verifiedAt)],
+		})
+
+		let referenceImageBase64 = idCardDetail?.faceImageUrl ?? null
 
 		// If KYC is verified but reference image is missing, fetch Logs API once and store a face reference.
-		if (user?.kycStatus === "VERIFIED" && !referenceImageBase64 && user.kycTransactionId) {
+		if (user?.kycStatus === "VERIFIED" && !referenceImageBase64 && idCardDetail?.ocrTransactionId) {
 			try {
-				const logs = await getHyperVergeKycLogs({ transactionId: user.kycTransactionId })
+				const logs = await getHyperVergeKycLogs({ transactionId: idCardDetail.ocrTransactionId })
 				const url = pickBestFaceImageUrlFromLogs(logs)
 				if (url) {
 					const dataUrl = await fetchImageUrlAsDataUrl(url)
 					if (dataUrl) {
 						referenceImageBase64 = dataUrl
+						// Update id card detail with face image
 						await db
-							.update(users)
+							.update(idCardDetails)
 							.set({
-								kycReferenceIdImageBase64: dataUrl,
-								kycReferenceCreatedAt: new Date(),
+								faceImageUrl: dataUrl,
+								updatedAt: new Date(),
 							})
-							.where(eq(users.id, session.user.id))
+							.where(eq(idCardDetails.id, idCardDetail.id))
 					}
 				}
 			} catch (e) {
