@@ -1,4 +1,4 @@
-import { createCallerFactory, createTRPCRouter, publicProcedure } from "@/services/trpc/init"
+import { createCallerFactory, createTRPCRouter } from "@/services/trpc/init"
 
 import { authRouter } from "@/features/auth/api/auth.router"
 import { consultationsRouter } from "@/features/consultations/api/consultations.router"
