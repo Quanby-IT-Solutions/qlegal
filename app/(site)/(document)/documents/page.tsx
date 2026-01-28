@@ -1,18 +1,26 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import { Calendar, Download, Eye, FileText, Search, User, Award, Loader2 } from "lucide-react"
 import { format } from "date-fns"
+import { Award, Calendar, Download, Eye, FileText, Loader2, Search, User } from "lucide-react"
 import { toast } from "sonner"
 
 import { Badge } from "@/core/components/ui/badge"
 import { Button } from "@/core/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/core/components/ui/card"
+import {
+	Card,
+	CardContent,
+	CardDescription,
+	CardHeader,
+	CardTitle,
+} from "@/core/components/ui/card"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/core/components/ui/dialog"
 import { Input } from "@/core/components/ui/input"
 import { Skeleton } from "@/core/components/ui/skeleton"
-import { SimplePdfViewer } from "@/features/envelopes-lite/components/simple-pdf-viewer"
+
 import { trpc } from "@/services/trpc/client"
+
+import { SimplePdfViewer } from "@/features/envelopes-lite/components/simple-pdf-viewer"
 
 function formatDate(date: Date | string): string {
 	const d = typeof date === "string" ? new Date(date) : date
@@ -128,15 +136,13 @@ export default function DocumentsPage() {
 		<div className="container mx-auto px-4 py-8">
 			<div className="mb-8">
 				<h1 className="mb-2 text-3xl font-bold">My Notarized Documents</h1>
-				<p className="text-muted-foreground">
-					View all documents that have been notarized for you
-				</p>
+				<p className="text-muted-foreground">View all documents that have been notarized for you</p>
 			</div>
 
 			{/* Search */}
 			<div className="mb-6">
 				<div className="relative">
-					<Search className="text-muted-foreground absolute left-3 top-1/2 size-4 -translate-y-1/2" />
+					<Search className="text-muted-foreground absolute top-1/2 left-3 size-4 -translate-y-1/2" />
 					<Input
 						type="text"
 						placeholder="Search by document name, notary, certificate number..."
@@ -280,9 +286,7 @@ export default function DocumentsPage() {
 			<Dialog open={!!viewingActId} onOpenChange={open => !open && setViewingActId(null)}>
 				<DialogContent className="max-w-6xl">
 					<DialogHeader>
-						<DialogTitle>
-							{viewingDocument?.documentName || "View Document"}
-						</DialogTitle>
+						<DialogTitle>{viewingDocument?.documentName ?? "View Document"}</DialogTitle>
 					</DialogHeader>
 					<div className="flex min-h-[600px] flex-col">
 						{isFetchingSignedDocument && (
