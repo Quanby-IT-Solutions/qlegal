@@ -12,6 +12,7 @@ import {
 	addressSchema,
 	certificationsSchema,
 	enpProfileSchema,
+	lawyerPricingSchema,
 	licensingSchema,
 	personalInformationSchema,
 	rollRegistrationSchema,
@@ -143,6 +144,13 @@ export const profileRouter = createTRPCRouter({
 			mcleNo: (enpProfile.mcleNo as string | null) ?? "",
 			mcleNoDate: (enpProfile.mcleNoDate as string | null) ?? "",
 			modeOfNotarization: (enpProfile.modeOfNotarization as string | null) ?? "",
+
+			// Pricing
+			consultationPrice: enpProfile.consultationPrice ?? null,
+			acknowledgmentPrice: enpProfile.acknowledgmentPrice ?? null,
+			affirmationPrice: enpProfile.affirmationPrice ?? null,
+			juratPrice: enpProfile.juratPrice ?? null,
+			signatureWitnessingPrice: enpProfile.signatureWitnessingPrice ?? null,
 		}
 	}),
 
@@ -297,6 +305,36 @@ export const profileRouter = createTRPCRouter({
 			}
 
 			return { message: "Certifications updated successfully" }
+		}),
+
+	updateLawyerPricing: protectedProcedure
+		.input(lawyerPricingSchema)
+		.mutation(async ({ ctx, input }) => {
+			const existingProfile = await ctx.db.query.enpProfiles.findFirst({
+				where: eq(enpProfiles.userId, ctx.session.user.id),
+			})
+
+			const profileData = {
+				consultationPrice: input.consultationPrice ?? null,
+				acknowledgmentPrice: input.acknowledgmentPrice ?? null,
+				affirmationPrice: input.affirmationPrice ?? null,
+				juratPrice: input.juratPrice ?? null,
+				signatureWitnessingPrice: input.signatureWitnessingPrice ?? null,
+			}
+
+			if (existingProfile) {
+				await ctx.db
+					.update(enpProfiles)
+					.set(profileData)
+					.where(eq(enpProfiles.userId, ctx.session.user.id))
+			} else {
+				await ctx.db.insert(enpProfiles).values({
+					userId: ctx.session.user.id,
+					...profileData,
+				})
+			}
+
+			return { message: "Lawyer pricing updated successfully" }
 		}),
 
 	getAddress: protectedProcedure.query(async ({ ctx }) => {

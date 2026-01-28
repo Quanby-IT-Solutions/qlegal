@@ -84,3 +84,14 @@ export const certificationsSchema = z.object({
 })
 
 export type CertificationsSchema = z.infer<typeof certificationsSchema>
+
+// Lawyer pricing schema for consultation and eNotarization services
+export const lawyerPricingSchema = z.object({
+	consultationPrice: z.number().positive("Consultation price must be positive").optional(),
+	acknowledgmentPrice: z.number().positive("Acknowledgment price must be positive").optional(),
+	affirmationPrice: z.number().positive("Affirmation price must be positive").optional(),
+	juratPrice: z.number().positive("Jurat price must be positive").optional(),
+	signatureWitnessingPrice: z.number().positive("Signature witnessing price must be positive").optional(),
+})
+
+export type LawyerPricingSchema = z.infer<typeof lawyerPricingSchema>
