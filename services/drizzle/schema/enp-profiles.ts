@@ -15,7 +15,7 @@ export const enpProfiles = createTable(
 			.varchar({ length: 255 })
 			.notNull()
 			.unique()
-			.references(() => users.id, { onDelete: "cascade" }),
+			.references(() => users.id, { onDelete: "cascade" }),	
 
 		// Basic profile info
 		specialization: t.text(), // e.g., "Legal Documents, Contracts, Real Estate"
@@ -46,6 +46,16 @@ export const enpProfiles = createTable(
 		mcleNoPeriod: t.varchar({ length: 50 }), // e.g., "VIII"
 		mcleNo: t.varchar({ length: 100 }), // MCLE Compliance number
 		mcleNoDate: t.varchar({ length: 100 }), // e.g., "Jun 12, 2024"
+
+		// --- Pricing Information ---
+		// Consultation pricing
+		consultationPrice: t.real(), // Price per consultation session
+
+		// eNotarization pricing (as per Rules on eNotarization, Rule IV)
+		acknowledgmentPrice: t.real(), // Section 1, Rule IV - Acknowledgment by Electronic Means
+		affirmationPrice: t.real(), // Section 2, Rule IV - Affirmation or Oath by Electronic Means
+		juratPrice: t.real(), // Section 3, Rule IV - Jurat by Electronic Means
+		signatureWitnessingPrice: t.real(), // Section 4, Rule IV - Signature Witnessing by Electronic Means
 
 		createdAt: t.timestamp({ mode: "date", withTimezone: true }).defaultNow().notNull(),
 		updatedAt: t
