@@ -52,7 +52,7 @@ export function SessionModeSelector({
 						<FieldContent>
 							<div className="flex items-center gap-2 mb-2">
 								<Globe className="size-5 text-blue-600" />
-								<FieldTitle>REN (Remote)</FieldTitle>
+								<FieldTitle>Remote</FieldTitle>
 							</div>
 							<FieldDescription>Everyone joins via video call from their own location</FieldDescription>
 						</FieldContent>
@@ -74,7 +74,7 @@ export function SessionModeSelector({
 						<FieldContent>
 							<div className="flex items-center gap-2 mb-2">
 								<Users className="size-5 text-green-600" />
-								<FieldTitle>IEN (In-Person)</FieldTitle>
+								<FieldTitle>In-Person</FieldTitle>
 							</div>
 							<FieldDescription>Everyone meets physically at notary's office or location</FieldDescription>
 						</FieldContent>

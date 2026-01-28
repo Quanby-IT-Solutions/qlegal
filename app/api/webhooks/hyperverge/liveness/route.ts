@@ -14,6 +14,10 @@
  */
 
 import { NextResponse, type NextRequest } from "next/server"
+import { eq } from "drizzle-orm"
+
+import { db } from "@/services/drizzle/db"
+import { livenessValidations } from "@/services/drizzle/schema/liveness"
 
 /**
  * HyperVerge Webhook Payload
@@ -122,15 +126,21 @@ export async function POST(request: NextRequest) {
 			summaryAction: decision.summaryAction,
 		})
 
-		// TODO: Store results in database for later retrieval
-		// const session = await auth() // Get user session if needed
-		// await db.insert(livenessValidations).values({
-		//   userId: session?.user?.id,
-		//   transactionId,
-		//   status: decision.isApproved ? "pass" : "fail",
-		//   errorMessage: decision.isApproved ? null : decision.message,
-		//   attemptNumber: 1,
-		// })
+		// Store results in database for later retrieval (DB-first, avoids extra /v1/output calls)
+		try {
+			await db
+				.update(livenessValidations)
+				.set({
+					status: decision.isApproved ? "pass" : "fail",
+					errorMessage: decision.isApproved ? null : decision.message,
+					decisionJson: JSON.stringify(decision),
+					rawResultJson: JSON.stringify(payload),
+					updatedAt: new Date(),
+				})
+				.where(eq(livenessValidations.transactionId, transactionId))
+		} catch (e) {
+			console.warn("⚠️ Failed to persist liveness webhook result (non-critical):", e)
+		}
 
 		// Return success to HyperVerge
 		return NextResponse.json({

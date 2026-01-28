@@ -9,18 +9,16 @@ export default function BrowsePage() {
 		<div className="flex flex-1 flex-col">
 			<PageHeader
 				items={[
-					{ label: "Find & Book", href: "/browse" },
-					{ label: "Select Notary", href: "/browse" },
+					{ label: "Browse", href: "/browse" },
 				]}
 			/>
 
 			<main className="flex-1 p-4 md:p-6 lg:p-8">
 				<div className="mx-auto max-w-6xl space-y-8">
 					<div>
-						<h1 className="text-3xl font-bold tracking-tight">Find & Book a Notary</h1>
+						<h1 className="text-3xl font-bold tracking-tight">Browse Available Lawyers</h1>
 						<p className="text-muted-foreground mt-2">
-							Choose how you want to find a notary public. Browse our directory, use Quick Match for
-							instant pairing, or message first to discuss.
+							Browse our directory of available lawyers and select the one that best suits your needs.
 						</p>
 					</div>
 
