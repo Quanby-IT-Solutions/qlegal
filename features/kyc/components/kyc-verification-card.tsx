@@ -9,24 +9,13 @@ import { Button } from "@/core/components/ui/button"
 import { Label } from "@/core/components/ui/label"
 import { useKycBroadcast } from "@/core/hooks/use-kyc-broadcast"
 
-import { DirectKycDialog } from "@/features/kyc/components/direct-kyc-dialog"
 import {
 	createUserKycLink,
 	getExistingKycLink,
 	resetUserKycStatus,
 } from "@/features/kyc/api/kyc.actions"
+import { DirectKycDialog } from "@/features/kyc/components/direct-kyc-dialog"
 import { useKycStatus } from "@/features/kyc/hooks/use-kyc-status"
-
-interface KycStatusResult {
-	transactionId: string
-	status: string
-	kycStatus: "PENDING" | "VERIFIED" | "REJECTED"
-	isComplete: boolean
-	isApproved: boolean
-	needsReview: boolean
-	message: string
-	details?: Record<string, unknown>
-}
 
 interface KycVerificationCardProps {
 	userInfo: {
@@ -65,11 +54,7 @@ export function KycVerificationCard({
 
 	// Option 1.5: Single check on mount, no polling
 	// Webhook handles real-time updates (primary method)
-	const {
-		data: statusQueryResult,
-		isLoading: isCheckingStatus,
-		refetch,
-	} = useKycStatus({
+	const { data: statusQueryResult, refetch } = useKycStatus({
 		currentStatus: effectiveStatus,
 		enabled: true,
 	})
@@ -100,7 +85,7 @@ export function KycVerificationCard({
 		if (effectiveStatus === "PENDING" && !isSupported()) {
 			const handleFocus = () => {
 				console.log("🔍 Window focused - checking status (fallback)")
-				refetch()
+				void refetch()
 			}
 
 			window.addEventListener("focus", handleFocus)
@@ -199,21 +184,6 @@ export function KycVerificationCard({
 			}
 		})
 	}
-
-	const handleManualCheckStatus = () => {
-		setError(null)
-		startTransition(async () => {
-			const result = await refetch()
-			if (result.data?.success) {
-				toast.success("Status updated!")
-			} else {
-				toast.error("Failed to check status")
-			}
-		})
-	}
-
-	// No polling - following HyperVerge best practices
-	// Webhook handles real-time updates, manual check is fallback only
 
 	const getStatusColor = (status: string) => {
 		switch (status) {
