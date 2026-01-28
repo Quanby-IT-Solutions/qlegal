@@ -1,8 +1,9 @@
 "use client"
 
+import type { Route } from "next"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useEffect, useState } from "react"
-import { History, PenTool, Video, Clock } from "lucide-react"
+import { Clock, History, Video } from "lucide-react"
 
 import { PageHeader } from "@/core/components/navbar/page-header"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/core/components/ui/tabs"
@@ -19,11 +20,8 @@ export default function MeetingsPage() {
 	const router = useRouter()
 	const hydrated = useHydrated()
 
-	// Initialize with default to avoid hydration mismatch
-	// Will be updated from URL params after hydration
 	const [activeTab, setActiveTab] = useState<TabValue>("meetings")
 
-	// Only read from URL after component hydrates (client-side only)
 	useEffect(() => {
 		if (!hydrated) return
 		const tabParam = searchParams?.get("tab")
@@ -43,7 +41,7 @@ export default function MeetingsPage() {
 			params.set("tab", newTab)
 		}
 		const newUrl = params.toString() ? `/meetings?${params.toString()}` : "/meetings"
-		router.push(newUrl as any)
+		router.push(newUrl as Route)
 	}
 
 	return (
