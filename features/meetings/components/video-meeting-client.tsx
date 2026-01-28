@@ -1698,23 +1698,28 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 	const [signingStatusPollingPausedUntil, setSigningStatusPollingPausedUntil] = useState<
 		number | null
 	>(null)
+	const [isRefreshingSigningStatus, setIsRefreshingSigningStatus] = useState(false)
 	const hasShownSigningStatusAuthErrorRef = useRef(false)
 	const hasShownSigningStatusFetchErrorRef = useRef(false)
 	const signingStatusInFlightRef = useRef(false)
 
-	const refreshSigningStatuses = useCallback(async () => {
-		// Only poll while the documents panel is visible; avoids re-render storms during video actions.
-		if (!showDocuments) return
+	// Core refresh logic extracted for reuse
+	const performSigningStatusRefresh = useCallback(async (force = false) => {
 		if (!documents || documents.length === 0) return
 
-		// Never overlap requests (can create token races + extra load + lag).
-		if (signingStatusInFlightRef.current) return
-
-		// Don't poll in background tabs.
-		if (typeof document !== "undefined" && document.visibilityState === "hidden") return
-
-		// If we recently got unauthorized, back off to avoid hammering the API + spamming logs.
-		if (signingStatusPollingPausedUntil && Date.now() < signingStatusPollingPausedUntil) return
+		// Wait for in-flight request to complete if forcing, otherwise skip if already in progress
+		if (signingStatusInFlightRef.current) {
+			if (!force) return
+			// Wait for current request to finish (max 10 seconds)
+			const startTime = Date.now()
+			while (signingStatusInFlightRef.current && Date.now() - startTime < 10000) {
+				await new Promise(resolve => setTimeout(resolve, 100))
+			}
+			if (signingStatusInFlightRef.current) {
+				console.warn("Signing status refresh timed out waiting for previous request")
+				return
+			}
+		}
 
 		const docsWithProjects = documents.filter(d => !!d.docoChainProjectId)
 		if (docsWithProjects.length === 0) return
@@ -1738,6 +1743,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 		}
 
 		signingStatusInFlightRef.current = true
+		setIsRefreshingSigningStatus(true)
 		try {
 			// Run status checks in parallel, but keep docId so we can reason about failures.
 			const results = await Promise.all(
@@ -1758,7 +1764,8 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 
 			// If any call errors, pause polling to avoid spamming console/network.
 			// Unauthorized gets a specific message; other errors (e.g. "fetch failed") get a generic one.
-			if (unauthorizedHit || anyErrorHit) {
+			// Only pause automatic polling, not manual refreshes
+			if (!force && (unauthorizedHit || anyErrorHit)) {
 				setSigningStatusPollingPausedUntil(Date.now() + 60_000)
 
 				if (unauthorizedHit && !hasShownSigningStatusAuthErrorRef.current) {
@@ -1826,13 +1833,34 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 			})
 		} finally {
 			signingStatusInFlightRef.current = false
+			setIsRefreshingSigningStatus(false)
 		}
-	}, [
-		documents,
-		showDocuments,
-		signingStatusPollingPausedUntil,
-		utils.signatureRequests.checkSigningStatus,
-	])
+	}, [documents, utils.signatureRequests.checkSigningStatus])
+
+	// Automatic polling refresh (respects visibility and pause state)
+	const refreshSigningStatuses = useCallback(async () => {
+		// Only poll while the documents panel is visible; avoids re-render storms during video actions.
+		if (!showDocuments) return
+
+		// Don't poll in background tabs.
+		if (typeof document !== "undefined" && document.visibilityState === "hidden") return
+
+		// If we recently got unauthorized, back off to avoid hammering the API + spamming logs.
+		if (signingStatusPollingPausedUntil && Date.now() < signingStatusPollingPausedUntil) return
+
+		await performSigningStatusRefresh(false)
+	}, [showDocuments, signingStatusPollingPausedUntil, performSigningStatusRefresh])
+
+	// Manual refresh function (bypasses checks and resets pause state)
+	const manualRefreshSigningStatuses = useCallback(async () => {
+		// Reset pause state when manually refreshing
+		setSigningStatusPollingPausedUntil(null)
+		// Reset error flags so errors can be shown again if they persist
+		hasShownSigningStatusAuthErrorRef.current = false
+		hasShownSigningStatusFetchErrorRef.current = false
+		// Force refresh even if panel is hidden or other conditions
+		await performSigningStatusRefresh(true)
+	}, [performSigningStatusRefresh])
 
 	// Check signing status for all documents with DocoChain project IDs
 	useEffect(() => {
@@ -2314,13 +2342,13 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 							console.log("🔄 ENP plotted signature - refreshing document status...")
 							// Refresh docs + signing status immediately (don't wait for polling interval)
 							void refetchDocuments().then(() => {
-								void refreshSigningStatuses()
+								void manualRefreshSigningStatuses()
 							})
 							toast.success("Signature plotted. Document status updated.")
 						} else {
 							// Refresh docs + signing status immediately (don't wait for polling interval)
 							void refetchDocuments().then(() => {
-								void refreshSigningStatuses()
+								void manualRefreshSigningStatuses()
 							})
 							toast.success("Signing completed. Document status updated.")
 						}
@@ -2400,7 +2428,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 							isPlottingActionRef.current = false
 
 							void refetchDocuments().then(() => {
-								void refreshSigningStatuses()
+								void manualRefreshSigningStatuses()
 							})
 							toast.success(
 								plotting ? "Signature plotted. Document status updated." : "Signing completed. Document status updated."
@@ -2436,7 +2464,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 					: { documentId, email, isPlotting: plotting }
 			)
 		},
-		[initiateSigning, preGeneratedLinks, refetchDocuments, refreshSigningStatuses]
+		[initiateSigning, preGeneratedLinks, refetchDocuments, manualRefreshSigningStatuses]
 	)
 
 	// Get the first non-dismissed pending request
@@ -3074,19 +3102,21 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 									<Button
 										variant="ghost"
 										size="sm"
-										onClick={() => {
+										onClick={async () => {
 											// Refresh documents - this always works
-											void refetchDocuments()
-											// Refresh signing statuses (will only run if documents panel is visible)
-											// This is fine - if hidden, statuses will refresh when panel is shown
-											void refreshSigningStatuses()
+											await refetchDocuments()
+											// Manual refresh signing statuses - bypasses all checks and resets pause state
+											await manualRefreshSigningStatuses()
 										}}
-										disabled={isDocumentsFetching}
+										disabled={isDocumentsFetching || isRefreshingSigningStatus}
 										className="hover:bg-muted size-8 px-0 md:size-8 md:px-0"
 										title="Refresh documents and signing statuses"
 									>
 										<RefreshCw
-											className={cn("size-4 md:size-4", isDocumentsFetching && "animate-spin")}
+											className={cn(
+												"size-4 md:size-4",
+												(isDocumentsFetching || isRefreshingSigningStatus) && "animate-spin"
+											)}
 										/>
 									</Button>
 									<Button
