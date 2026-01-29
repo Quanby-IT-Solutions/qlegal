@@ -101,3 +101,46 @@ export async function apiCall(
 	// This should never be reached, but TypeScript needs it
 	throw lastError ?? new Error("Unknown error in apiCall")
 }
+
+/**
+ * Execute an API call with an explicit token (e.g. meeting-scoped).
+ * No token lookup or 401-triggered regeneration. Use when the token was
+ * generated at join time (ENP) so project creation and Edit Draft links stay correct.
+ */
+export async function apiCallWithToken(fn: ApiCallFn, token: string): Promise<Response> {
+	const maxRetries = 3
+	let lastError: Error | null = null
+
+	for (let attempt = 0; attempt < maxRetries; attempt++) {
+		try {
+			const response = await fn(token)
+			if (response.status === 401) {
+				const errorText = await response.text().catch(() => "Unknown error")
+				throw new Error(
+					`Token unauthorized (use meeting-scoped token from ENP join): ${errorText}`
+				)
+			}
+			return response
+		} catch (error) {
+			lastError = error instanceof Error ? error : new Error(String(error))
+			const isNetworkError =
+				error instanceof Error &&
+				(error.message.includes("timeout") ||
+					error.message.includes("Timeout") ||
+					error.message.includes("ECONNRESET") ||
+					error.message.includes("ENOTFOUND") ||
+					error.message.includes("ECONNREFUSED") ||
+					error.message.includes("fetch failed") ||
+					(error as { code?: string }).code === "UND_ERR_CONNECT_TIMEOUT")
+
+			if (isNetworkError && attempt < maxRetries - 1) {
+				const delay = Math.pow(2, attempt) * 1000
+				await new Promise(resolve => setTimeout(resolve, delay))
+				continue
+			}
+			throw lastError
+		}
+	}
+
+	throw lastError ?? new Error("Unknown error in apiCallWithToken")
+}

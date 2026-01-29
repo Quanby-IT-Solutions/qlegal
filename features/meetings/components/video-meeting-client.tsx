@@ -73,6 +73,11 @@ function formatElapsedMs(diffMs: number) {
 	return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`
 }
 
+/** Pre-generated Plot/Sign links can go stale (api_token expires). Max age before we regenerate on click. */
+const PRE_GENERATED_LINK_MAX_AGE_MS = 2 * 60 * 1000
+/** Interval for proactively clearing stale links (ms). */
+const STALE_LINK_CHECK_INTERVAL_MS = 60_000
+
 // Memoized to prevent re-renders from parent state changes
 const MeetingControls = React.memo(function MeetingControls({
 	onUploadClick,
@@ -1242,55 +1247,30 @@ const DocumentActions = React.memo(function DocumentActions({
 	const isPrincipal = session?.user?.role === "PRINCIPAL"
 
 	// Determine if signer is "Current" (it's their turn to sign)
-	// Find the first signer who hasn't signed - if it's the current user, they're "Current"
+	const currentUserId = session?.user?.id ?? null
 	const currentSignerIndex = filteredSigners.findIndex(s => !isSignerSigned(s))
 	const currentSigner = currentSignerIndex >= 0 ? filteredSigners[currentSignerIndex] : null
 	const isCurrentSigner = currentSigner?.email?.toLowerCase() === currentUserEmail?.toLowerCase()
-	
-	// Also check if ENP is first in signing order (based on signerUserIds array)
-	const currentUserId = session?.user?.id ?? null
 	const currentUserIndexInOrder = currentUserId ? signerUserIds?.indexOf(currentUserId) ?? -1 : -1
-	const isEnpFirstInOrder = isEnp && currentUserIndexInOrder === 0
 
-	// For ENP: After plotting, they should be able to sign.
-	// Detection logic:
-	// 1. If status is not PENDING/NEXT GROUP and not signed → plotted → show "Sign Document"
-	// 2. If ENP is current signer (from signer list) OR first in order → show "Sign Document" (they can plot then sign)
-	// 3. If status is PENDING/NEXT GROUP → show "Plot Signature" (not plotted yet)
+	// Plotting vs signing phase (separate buttons, no shared logic)
 	const hasPlotted = !isPendingOrNextGroup && !hasUserSigned
-	const isEnpCurrentAndCanSign = isEnp && (isCurrentSigner || isEnpFirstInOrder) && !hasUserSigned
-
-	// Determine button text based on state and role:
-	// ENP: Start Signing → Plot Signature (ENP-only) → Sign Document. Principals never see Plot Signature.
-	// Principal: Start Signing only appears after ENP has plotted; before that, show "Start Signing" disabled (waiting for ENP).
-	const getButtonText = (): "Start Signing" | "Plot Signature" | "Sign Document" => {
-		if (hasUserSigned) return "Sign Document"
-		
-		// For ENP: After project is created, they must plot first, then sign
-		if (isEnp) {
-			// If project exists, ENP must plot first
-			if (document.docoChainProjectId) {
-				// Check actual plotting status - if status is NOT PENDING/NEXT GROUP, ENP has plotted
-				if (hasPlotted) {
-					return "Sign Document"
-				}
-				// Project exists but ENP hasn't plotted yet (status is still PENDING/NEXT GROUP) - show "Plot Signature"
-				return "Plot Signature"
-			}
-			// No project yet - show "Start Signing" (will create project and add as signer)
-			return "Start Signing"
-		}
-		
-		// For non-ENP (Principal, etc.): show "Start Signing"
-		if (!isUserAddedAsSigner) return "Start Signing"
-		
-		// For Principal: if plotted, show "Start Signing", otherwise show "Start Signing" (disabled, waiting for ENP)
-		return "Start Signing"
-	}
-
-	const buttonText = getButtonText()
-	// Principal waiting for ENP to plot: not plotted yet, principal sees "Start Signing" but disabled
+	const isPlottingPhase = isEnp && !!document.docoChainProjectId && !hasPlotted && !hasUserSigned
 	const isPrincipalWaitingForEnpToPlot = isPrincipal && isUserAddedAsSigner && isPendingOrNextGroup
+
+	// Both buttons visible when applicable. Disable by phase so the wrong link is never used.
+	// Plot Signature: ENP only, project exists, not signed. Uses Edit Draft link only.
+	const showPlotSignature =
+		isEnp &&
+		!!document.docoChainProjectId &&
+		!hasUserSigned &&
+		!allSignersSigned
+	// Sign Document: project exists, not all signed, user not yet signed, user is signer or ENP. Uses Sign link only.
+	const showSignDocument =
+		!!document.docoChainProjectId &&
+		!hasUserSigned &&
+		!allSignersSigned &&
+		(isEnp || isUserAddedAsSigner)
 
 	// Check if previous signers (by signing order) have signed
 	// signerUserIds array is ordered by signingOrder (index 0 = order 1, index 1 = order 2, etc.)
@@ -1327,38 +1307,39 @@ const DocumentActions = React.memo(function DocumentActions({
 	const isCurrentUserSigner =
 		currentUserId !== null && (signerUserIds?.includes(currentUserId) ?? false)
 	const userNotInSignerList = hasSigners && !isCurrentUserSigner
-	// "Previous signer must sign first" applies when button is "Start Signing" OR "Sign Document" (for ENP after plotting)
-	// It does NOT apply to "Plot Signature" (ENP can always plot, even if previous signers haven't signed)
-	// For ENP: After plotting, "Sign Document" should be disabled unless it's their turn (previous signers have signed)
+	// "Previous signer must sign first" applies to Sign Document only (never to Plot Signature)
 	const isSigningDisabledByPreviousSigners =
-		buttonText !== "Plot Signature" &&
-		(buttonText === "Start Signing" || buttonText === "Sign Document") &&
-		currentUserIndex > 0 &&
-		!previousSignersHaveSigned
-	
-	// For ENP: If button shows "Sign Document" but they haven't actually plotted yet (status still PENDING/NEXT GROUP),
-	// disable the button until they plot (status changes)
-	const isEnpNotPlottedYet = 
-		isEnp && 
-		buttonText === "Sign Document" && 
-		isPendingOrNextGroup && 
-		!hasUserSigned
-	
-	const isSigningDisabled = hasUserSigned
-		? true
-		: allSignersSigned
-			? true
-			: isSigningDisabledByOrder
-				? true
-				: hasNoSignersSelected
-					? true
-					: userNotInSignerList
-						? true
-						: isPrincipalWaitingForEnpToPlot
-							? true
-							: isEnpNotPlottedYet
-								? true
-								: isSigningDisabledByPreviousSigners
+		showSignDocument && currentUserIndex > 0 && !previousSignersHaveSigned
+
+	// Disable Plot Signature: only when pending or link not ready. Never use Sign link for this button.
+	const isPlotSignatureDisabled = !!isSigningPending || !plotLinkReady
+
+	// Disable Sign Document: order, no signers, not a signer, waiting for ENP, ENP in plotting phase, previous signers.
+	/* eslint-disable @typescript-eslint/prefer-nullish-coalescing -- boolean OR chains, not nullish default */
+	const isStartSigningDisabled =
+		!!isSigningPending ||
+		hasUserSigned ||
+		allSignersSigned ||
+		isSigningDisabledByOrder ||
+		hasNoSignersSelected ||
+		userNotInSignerList ||
+		isPrincipalWaitingForEnpToPlot ||
+		(isEnp && isPlottingPhase) ||
+		isSigningDisabledByPreviousSigners
+
+	const showSigningMessage =
+		!document.docoChainProjectId ||
+		hasUserSigned ||
+		allSignersSigned ||
+		isSigningDisabledByOrder ||
+		hasNoSignersSelected ||
+		userNotInSignerList ||
+		isPrincipalWaitingForEnpToPlot ||
+		(isEnp && isPlottingPhase) ||
+		isSigningDisabledByPreviousSigners ||
+		(showPlotSignature && isPlotSignatureDisabled) ||
+		(showSignDocument && isStartSigningDisabled)
+	/* eslint-enable @typescript-eslint/prefer-nullish-coalescing */
 
 	const handleSignersChange = useCallback(
 		(userIds: string[]) => {
@@ -1369,13 +1350,18 @@ const DocumentActions = React.memo(function DocumentActions({
 
 	const [isSignerModalOpen, setIsSignerModalOpen] = useState(false)
 	
-	// Pre-generate links when button becomes available
 	const userEmail = session?.user?.email
-	const isButtonAvailable = !isSigningPending && !isSigningDisabled && !!document.docoChainProjectId && !!userEmail
+	// Plot pre-gen: when Plot button would show and we're not pending. Sign pre-gen: when Start Signing would show and not disabled.
+	const isPlotButtonAvailableForPreGen =
+		showPlotSignature && !isSigningPending && !!document.docoChainProjectId && !!userEmail
+	const isSignButtonAvailableForPreGen =
+		showSignDocument &&
+		!isStartSigningDisabled &&
+		!!document.docoChainProjectId &&
+		!!userEmail
 
-	// For "Plot Signature", keep button loading until pre-generated link is ready so the correct link opens every time
-	const isPlotSignatureWaiting =
-		buttonText === "Plot Signature" && plotLinkReady === false
+	// Plot Signature shows "Preparing..." until Edit Draft link is ready
+	const isPlotSignatureWaiting = showPlotSignature && !plotLinkReady
 
 	// Track if we've already initiated pre-generation to prevent duplicate calls
 	const preGenerationInitiatedRef = useRef<string | null>(null)
@@ -1410,14 +1396,11 @@ const DocumentActions = React.memo(function DocumentActions({
 		},
 	})
 	
-	// Pre-generate Edit Draft Link when "Plot Signature" button becomes available
-	// Also re-runs when plotLinkReady goes false (link was used/removed) so we can fetch again
+	// Pre-generate Edit Draft Link only when Plot Signature button is shown (never for Start Signing)
 	useEffect(() => {
 		const key = `plot-${document.id}-${document.docoChainProjectId}`
 		if (
-			isButtonAvailable &&
-			buttonText === "Plot Signature" &&
-			isEnp &&
+			isPlotButtonAvailableForPreGen &&
 			document.docoChainProjectId &&
 			userEmail &&
 			preGenerationInitiatedRef.current !== key &&
@@ -1428,25 +1411,23 @@ const DocumentActions = React.memo(function DocumentActions({
 			preGenerateLinkMutation.mutate({
 				projectUuid: document.docoChainProjectId,
 				email: userEmail,
-				isPlotting: true, // CRITICAL: Pass isPlotting=true to force Edit Draft Link
+				isPlotting: true,
 			})
 		}
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [isButtonAvailable, buttonText, isEnp, document.docoChainProjectId, document.id, userEmail, plotLinkReady])
-	
-	// Pre-generate Sign Link when "Sign Document" button becomes available
-	// Also re-runs when plotLinkReady changes (so both effects have same-sized dep arrays)
+	}, [isPlotButtonAvailableForPreGen, document.docoChainProjectId, document.id, userEmail, plotLinkReady])
+
+	// Pre-generate Sign Link only when Start Signing button is shown (never for Plot Signature)
 	useEffect(() => {
 		const key = `sign-${document.id}-${document.docoChainProjectId}`
 		if (
-			isButtonAvailable &&
-			buttonText === "Sign Document" &&
+			isSignButtonAvailableForPreGen &&
 			document.docoChainProjectId &&
 			userEmail &&
 			preGenerationInitiatedRef.current !== key &&
 			!preGenerateLinkMutation.isPending
 		) {
-			console.log("🔵 Pre-generating Sign Link for Sign Document...")
+			console.log("🔵 Pre-generating Sign Link for Start Signing...")
 			preGenerationInitiatedRef.current = key
 			preGenerateLinkMutation.mutate({
 				projectUuid: document.docoChainProjectId,
@@ -1454,7 +1435,7 @@ const DocumentActions = React.memo(function DocumentActions({
 			})
 		}
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [isButtonAvailable, buttonText, document.docoChainProjectId, document.id, userEmail, plotLinkReady])
+	}, [isSignButtonAvailableForPreGen, document.docoChainProjectId, document.id, userEmail, plotLinkReady])
 	
 	// Show selected signers count
 	const selectedSignersCount = signerUserIds?.length ?? 0
@@ -1532,59 +1513,78 @@ const DocumentActions = React.memo(function DocumentActions({
 				</Button>
 			)}
 
-			{/* Show "Start Signing" button for all meeting participants */}
-			{/* Project must exist before signing can start */}
+			{/* Plot Signature (ENP only, Edit Draft link) and Sign Document (Sign link) – both visible, disabled by phase */}
 			<div className="space-y-1.5">
-				<Button
-					variant="default"
-					size="sm"
-					className="h-9 w-full text-xs shadow-sm"
-					onClick={() => {
-						const userEmail = session?.user?.email
-						if (userEmail) {
-							console.log("🔵 Initiating signing process for document:", document.name)
-							console.log("   - Document ID:", document.id)
-							console.log("   - DocoChain Project UUID:", document.docoChainProjectId)
-							console.log("   - User Email:", userEmail)
-							console.log("   - Action:", buttonText)
-
-							// User clicks to start signing - this will:
-							// 1. Add user as signer using Add Project Signer API
-							// 2. Generate Edit Draft Project Link
-							// 3. Redirect to DocoChain signing page
-							const isPlotting = buttonText === "Plot Signature" && isEnp
-							onSignClick(document.docoChainProjectId ?? null, userEmail, document.id, isPlotting)
-						} else {
-							toast.error("User email not found. Please sign in again.")
-						}
-					}}
-					disabled={
-						isSigningPending ||
-						isSigningDisabled ||
-						!document.docoChainProjectId ||
-						isPlotSignatureWaiting
-					}
-				>
-					{isSigningPending || isPlotSignatureWaiting ? (
-						<>
-							<div className="mr-2 size-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
-							{buttonText === "Start Signing"
-								? "Starting..."
-								: buttonText === "Plot Signature"
-									? isPlotSignatureWaiting
-										? "Preparing..."
-										: "Plotting..."
-									: "Signing..."}
-						</>
-					) : (
-						<>
-							<FileSignature className="mr-1.5 size-3.5" />
-							{buttonText}
-						</>
-					)}
-				</Button>
-				{/* Show message when button is disabled */}
-				{(isSigningDisabled || !document.docoChainProjectId) && (
+				{/* Plot Signature: ENP only, plotting phase. Always isPlotting=true → Edit Draft link only. */}
+				{showPlotSignature && (
+					<Button
+						variant="default"
+						size="sm"
+						className="h-9 w-full text-xs shadow-sm"
+						onClick={() => {
+							const email = session?.user?.email
+							if (email) {
+								onSignClick(
+									document.docoChainProjectId ?? null,
+									email,
+									document.id,
+									true
+								)
+							} else {
+								toast.error("User email not found. Please sign in again.")
+							}
+						}}
+						disabled={isPlotSignatureDisabled}
+					>
+						{isSigningPending || isPlotSignatureWaiting ? (
+							<>
+								<div className="mr-2 size-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
+								{isPlotSignatureWaiting ? "Preparing..." : "Plotting..."}
+							</>
+						) : (
+							<>
+								<FileSignature className="mr-1.5 size-3.5" />
+								Plot Signature
+							</>
+						)}
+					</Button>
+				)}
+				{/* Sign Document: always isPlotting=false → Sign link only. Disabled when plotting phase. */}
+				{showSignDocument && (
+					<Button
+						variant="default"
+						size="sm"
+						className="h-9 w-full text-xs shadow-sm"
+						onClick={() => {
+							const email = session?.user?.email
+							if (email) {
+								onSignClick(
+									document.docoChainProjectId ?? null,
+									email,
+									document.id,
+									false
+								)
+							} else {
+								toast.error("User email not found. Please sign in again.")
+							}
+						}}
+						disabled={isStartSigningDisabled}
+					>
+						{isSigningPending ? (
+							<>
+								<div className="mr-2 size-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
+								Signing...
+							</>
+						) : (
+							<>
+								<FileSignature className="mr-1.5 size-3.5" />
+								Sign Document
+							</>
+						)}
+					</Button>
+				)}
+				{/* Disabled-state message */}
+				{showSigningMessage && (
 					<p className="text-[10px] leading-tight text-amber-700 dark:text-amber-400">
 						{!document.docoChainProjectId
 							? "Add signer first after setting signers"
@@ -1600,7 +1600,7 @@ const DocumentActions = React.memo(function DocumentActions({
 												? "You must be added as a signer to start signing"
 												: isPrincipalWaitingForEnpToPlot
 													? "Waiting for ENP to plot your signature"
-													: isEnpNotPlottedYet
+													: isEnp && isPlottingPhase && showSignDocument
 														? "Please plot your signature first"
 														: isSigningDisabledByPreviousSigners
 															? "Previous signer(s) must sign first"
@@ -1654,8 +1654,29 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 	const isPlottingActionRef = useRef(false)
 	const openingPlatformToastIdRef = useRef<string | number | null>(null)
 	const openingSignedDocumentToastIdRef = useRef<string | number | null>(null)
-	// Store pre-generated links per document (keyed by documentId)
-	const [preGeneratedLinks, setPreGeneratedLinks] = useState<Map<string, { link: string; projectUuid: string }>>(new Map())
+	// Store pre-generated links per document (keyed by documentId). storedAt used to skip stale links on click.
+	const [preGeneratedLinks, setPreGeneratedLinks] = useState<
+		Map<string, { link: string; projectUuid: string; storedAt: number }>
+	>(new Map())
+
+	// Proactively clear stale links so pre-gen runs again and we keep a fresh link ready
+	useEffect(() => {
+		const interval = setInterval(() => {
+			setPreGeneratedLinks(prev => {
+				if (prev.size === 0) return prev
+				const now = Date.now()
+				const next = new Map(prev)
+				next.forEach((v, docId) => {
+					if (typeof v.storedAt === "number" && now - v.storedAt > PRE_GENERATED_LINK_MAX_AGE_MS) {
+						next.delete(docId)
+					}
+				})
+				return next.size === prev.size ? prev : next
+			})
+		}, STALE_LINK_CHECK_INTERVAL_MS)
+		return () => clearInterval(interval)
+	}, [STALE_LINK_CHECK_INTERVAL_MS])
+
 	const [draggedDocumentId, setDraggedDocumentId] = useState<string | null>(null)
 	const [dragOverDocumentId, setDragOverDocumentId] = useState<string | null>(null)
 	const [downloadingProjectUuid, setDownloadingProjectUuid] = useState<string | null>(null)
@@ -2390,9 +2411,20 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 			const plotting = isPlotting ?? false
 			const preGenerated = preGeneratedLinks.get(documentId)
 
-			// Use pre-generated link when we have it (Plot Signature button is disabled until ready, so we always have it for plotting)
-			if (preGenerated?.link) {
-				console.log("✅ Using pre-generated link (correct link every time)")
+			// Pre-generated link can go stale (api_token expires after ~2 min). Skip use when stale and regenerate.
+			const ageMs = typeof preGenerated?.storedAt === "number" ? Date.now() - preGenerated.storedAt : Infinity
+			const isStale = ageMs > PRE_GENERATED_LINK_MAX_AGE_MS
+			if (preGenerated?.link && isStale) {
+				setPreGeneratedLinks(prev => {
+					const next = new Map(prev)
+					next.delete(documentId)
+					return next
+				})
+			}
+
+			// Use pre-generated link only when we have it and it's fresh
+			if (preGenerated?.link && !isStale) {
+				console.log("✅ Using pre-generated link (fresh)")
 				setSigningDocumentId(documentId)
 				setIsPlottingAction(plotting)
 				isPlottingActionRef.current = plotting
@@ -2454,13 +2486,17 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 				return
 			}
 
-			// No pre-generated link — generate on demand (Start Signing, or fallback)
+			// No pre-generated link or stale — generate on demand (fresh link every time)
+			if (isStale && plotting) {
+				toast.info("Generating fresh link…")
+			}
 			setSigningDocumentId(documentId)
 			setIsPlottingAction(plotting)
 			isPlottingActionRef.current = plotting
+			const effectiveProjectUuid = preGenerated?.projectUuid ?? projectUuid
 			initiateSigning.mutate(
-				projectUuid
-					? { projectUuid, email, isPlotting: plotting }
+				effectiveProjectUuid
+					? { projectUuid: effectiveProjectUuid, email, isPlotting: plotting }
 					: { documentId, email, isPlotting: plotting }
 			)
 		},
@@ -3386,7 +3422,11 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 												onPreGeneratedLink={(documentId, link, projectUuid) => {
 													setPreGeneratedLinks(prev => {
 														const next = new Map(prev)
-														next.set(documentId, { link, projectUuid })
+														next.set(documentId, {
+															link,
+															projectUuid,
+															storedAt: Date.now(),
+														})
 														return next
 													})
 												}}
