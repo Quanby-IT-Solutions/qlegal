@@ -86,7 +86,7 @@ export function BrowseENP() {
 			) : enps.length > 0 ? (
 				<div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
 					{enps.map(enp => (
-						<EnpCard key={enp.id} enp={enp} hoverEffect />
+						<EnpCard key={enp.id} enp={enp} />
 					))}
 				</div>
 			) : (
