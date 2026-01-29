@@ -124,25 +124,25 @@ export const profileRouter = createTRPCRouter({
 
 		return {
 			// Notary Seal Info
-			enpName: (enpProfile.enpName as string | null) ?? "",
-			enpRoleNumber: (enpProfile.enpRoleNumber as string | null) ?? "",
-			rollNo: (enpProfile.rollNo as string | null) ?? "",
-			rollNoDate: (enpProfile.rollNoDate as string | null) ?? "",
+			enpName: enpProfile.enpName ?? "",
+			enpRoleNumber: enpProfile.enpRoleNumber ?? "",
+			rollNo: enpProfile.rollNo ?? "",
+			rollNoDate: enpProfile.rollNoDate ?? "",
 
 			// Credentials
 			attyName: (enpProfile.attyName as string | null) ?? "",
-			commissionNo: (enpProfile.commissionNo as string | null) ?? "",
-			commissionNoValidUntil: (enpProfile.commissionNoValidUntil as string | null) ?? "",
-			ptrNo: (enpProfile.ptrNo as string | null) ?? "",
-			ptrNoLocation: (enpProfile.ptrNoLocation as string | null) ?? "",
-			ptrNoDate: (enpProfile.ptrNoDate as string | null) ?? "",
-			ibpNo: (enpProfile.ibpNo as string | null) ?? "",
-			ibpNoDate: (enpProfile.ibpNoDate as string | null) ?? "",
+			commissionNo: enpProfile.commissionNo ?? "",
+			commissionNoValidUntil: enpProfile.commissionNoValidUntil ?? "",
+			ptrNo: enpProfile.ptrNo ?? "",
+			ptrNoLocation: enpProfile.ptrNoLocation ?? "",
+			ptrNoDate: enpProfile.ptrNoDate ?? "",
+			ibpNo: enpProfile.ibpNo ?? "",
+			ibpNoDate: enpProfile.ibpNoDate ?? "",
 			notaryEmail: (enpProfile.notaryEmail as string | null) ?? "",
-			notaryAddress: (enpProfile.notaryAddress as string | null) ?? "",
-			mcleNoPeriod: (enpProfile.mcleNoPeriod as string | null) ?? "",
-			mcleNo: (enpProfile.mcleNo as string | null) ?? "",
-			mcleNoDate: (enpProfile.mcleNoDate as string | null) ?? "",
+			notaryAddress: enpProfile.notaryAddress ?? "",
+			mcleNoPeriod: enpProfile.mcleNoPeriod ?? "",
+			mcleNo: enpProfile.mcleNo ?? "",
+			mcleNoDate: enpProfile.mcleNoDate ?? "",
 			modeOfNotarization: (enpProfile.modeOfNotarization as string | null) ?? "",
 
 			// Pricing
@@ -234,44 +234,42 @@ export const profileRouter = createTRPCRouter({
 			return { message: "Roll registration updated successfully" }
 		}),
 
-	updateLicensing: protectedProcedure
-		.input(licensingSchema)
-		.mutation(async ({ ctx, input }) => {
-			const existingProfile = await ctx.db.query.enpProfiles.findFirst({
-				where: eq(enpProfiles.userId, ctx.session.user.id),
+	updateLicensing: protectedProcedure.input(licensingSchema).mutation(async ({ ctx, input }) => {
+		const existingProfile = await ctx.db.query.enpProfiles.findFirst({
+			where: eq(enpProfiles.userId, ctx.session.user.id),
+		})
+
+		const normalizeString = (value: string | undefined): string | null => {
+			if (value === undefined) return null
+			const trimmed = value.trim()
+			return trimmed === "" ? null : trimmed
+		}
+
+		const profileData = {
+			commissionNo: normalizeString(input.commissionNo),
+			commissionNoValidUntil: normalizeString(input.commissionNoValidUntil),
+			ptrNo: normalizeString(input.ptrNo),
+			ptrNoLocation: normalizeString(input.ptrNoLocation),
+			ptrNoDate: normalizeString(input.ptrNoDate),
+			ibpNo: normalizeString(input.ibpNo),
+			ibpNoDate: normalizeString(input.ibpNoDate),
+			notaryAddress: normalizeString(input.notaryAddress),
+		}
+
+		if (existingProfile) {
+			await ctx.db
+				.update(enpProfiles)
+				.set(profileData)
+				.where(eq(enpProfiles.userId, ctx.session.user.id))
+		} else {
+			await ctx.db.insert(enpProfiles).values({
+				userId: ctx.session.user.id,
+				...profileData,
 			})
+		}
 
-			const normalizeString = (value: string | undefined): string | null => {
-				if (value === undefined) return null
-				const trimmed = value.trim()
-				return trimmed === "" ? null : trimmed
-			}
-
-			const profileData = {
-				commissionNo: normalizeString(input.commissionNo),
-				commissionNoValidUntil: normalizeString(input.commissionNoValidUntil),
-				ptrNo: normalizeString(input.ptrNo),
-				ptrNoLocation: normalizeString(input.ptrNoLocation),
-				ptrNoDate: normalizeString(input.ptrNoDate),
-				ibpNo: normalizeString(input.ibpNo),
-				ibpNoDate: normalizeString(input.ibpNoDate),
-				notaryAddress: normalizeString(input.notaryAddress),
-			}
-
-			if (existingProfile) {
-				await ctx.db
-					.update(enpProfiles)
-					.set(profileData)
-					.where(eq(enpProfiles.userId, ctx.session.user.id))
-			} else {
-				await ctx.db.insert(enpProfiles).values({
-					userId: ctx.session.user.id,
-					...profileData,
-				})
-			}
-
-			return { message: "Licensing information updated successfully" }
-		}),
+		return { message: "Licensing information updated successfully" }
+	}),
 
 	updateCertifications: protectedProcedure
 		.input(certificationsSchema)
