@@ -5,32 +5,28 @@ import { Edit2 } from "lucide-react"
 
 import { Button } from "@/core/components/ui/button"
 
+import { trpc } from "@/services/trpc/client"
+
 import { ProfessionalDetailsForm } from "./forms/form.professional-details"
+import { ProfessionalDetailsSkeleton } from "./ui/enp-details-skeleton"
 
-interface ProfessionalDetailsProps {
-	bio: string
-	experience: string
-	responseTime: string
-	rating: number
-	totalReviews: number
-}
-
-export function ProfessionalDetails({
-	bio,
-	experience,
-	responseTime,
-	rating,
-	totalReviews,
-}: ProfessionalDetailsProps) {
+export function ProfessionalDetails() {
 	const [isHovering, setIsHovering] = useState(false)
 	const [isEditing, setIsEditing] = useState(false)
 
-	// Store the current data (would be updated after successful save)
-	const [currentData, setCurrentData] = useState({
-		bio,
-		experience,
-		responseTime,
-	})
+	const { data, isLoading } = trpc.profile.getEnpProfile.useQuery()
+
+	if (isLoading) {
+		return <ProfessionalDetailsSkeleton />
+	}
+
+	const currentData = {
+		bio: data?.bio ?? "",
+		experience: data?.experience ?? "",
+		responseTime: data?.responseTime ?? "",
+	}
+	const rating = data?.rating ?? 0
+	const totalReviews = data?.reviewCount ?? 0
 
 	const handleEdit = () => {
 		setIsEditing(true)
@@ -41,9 +37,7 @@ export function ProfessionalDetails({
 	}
 
 	const handleSuccess = () => {
-		// Optionally update local state or refetch data
-		// For now, we'll just close the form
-		// In a real app, you might want to refetch the user's profile data
+		setIsEditing(false)
 	}
 
 	return (
@@ -85,21 +79,29 @@ export function ProfessionalDetails({
 					{/* BIO */}
 					<div className="pt-4">
 						<h4 className="text-foreground mb-2 font-semibold">Bio</h4>
-						<p className="text-muted-foreground text-sm leading-relaxed">{currentData.bio}</p>
+						<p className="text-muted-foreground text-sm leading-relaxed">
+							{currentData.bio || <span className="italic">No bio added yet.</span>}
+						</p>
 					</div>
 
 					{/* Experience Badge */}
 					<div>
 						<h4 className="text-foreground mb-3 font-semibold">Experience</h4>
-						<span className="bg-primary/10 text-primary inline-block rounded-full px-4 py-2 text-sm font-semibold">
-							{currentData.experience}
-						</span>
+						{currentData.experience ? (
+							<span className="bg-primary/10 text-primary inline-block rounded-full px-4 py-2 text-sm font-semibold">
+								{currentData.experience}
+							</span>
+						) : (
+							<span className="text-muted-foreground text-sm italic">No experience listed.</span>
+						)}
 					</div>
 
 					{/* Response Time */}
 					<div>
 						<h4 className="text-foreground mb-2 font-semibold">Response Time</h4>
-						<p className="text-muted-foreground text-sm">{currentData.responseTime}</p>
+						<p className="text-muted-foreground text-sm">
+							{currentData.responseTime || <span className="italic">Not specified.</span>}
+						</p>
 					</div>
 
 					{/* Rating with Stars (Read-only) */}
@@ -107,7 +109,7 @@ export function ProfessionalDetails({
 						<h4 className="text-foreground mb-3 font-semibold">Rating</h4>
 						<div className="flex items-center gap-2">
 							<div className="flex gap-1">
-								{[...Array(5)].map((_, i) => (
+								{[...Array<number>(5)].map((_, i) => (
 									<span
 										key={i}
 										className={`text-lg ${
@@ -123,7 +125,7 @@ export function ProfessionalDetails({
 								))}
 							</div>
 							<span className="text-foreground text-sm font-medium">{rating}</span>
-							<span className="text-muted-foreground text-xs">({totalReviews} reviews)</span>
+							<span className="text-muted-foreground text-xs">({totalReviews} review/s)</span>
 						</div>
 					</div>
 				</>
