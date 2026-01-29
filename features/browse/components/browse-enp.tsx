@@ -1,9 +1,8 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useMemo, useState } from "react"
 import { AlertCircle } from "lucide-react"
 
-import { EnpFilters } from "./enp-filters"
 import { EnpCard } from "@/core/components/enp-card"
 import { Alert, AlertDescription, AlertTitle } from "@/core/components/ui/alert"
 import { Card, CardContent } from "@/core/components/ui/card"
@@ -11,7 +10,9 @@ import { Skeleton } from "@/core/components/ui/skeleton"
 
 import { trpc } from "@/services/trpc/client"
 
-export function BrowseENPsTab() {
+import { EnpFilters } from "../../quick-match/components/enp-filters"
+
+export function BrowseENP() {
 	const [filters, setFilters] = useState({
 		searchTerm: "",
 		specialization: "all",
@@ -68,9 +69,7 @@ export function BrowseENPsTab() {
 				searchTerm={filters.searchTerm}
 				setSearchTerm={term => setFilters(prev => ({ ...prev, searchTerm: term }))}
 				specializationFilter={filters.specialization}
-				setSpecializationFilter={spec =>
-					setFilters(prev => ({ ...prev, specialization: spec }))
-				}
+				setSpecializationFilter={spec => setFilters(prev => ({ ...prev, specialization: spec }))}
 				minRating={filters.minRating}
 				setMinRating={rating => setFilters(prev => ({ ...prev, minRating: rating }))}
 				sortBy={filters.sortBy}

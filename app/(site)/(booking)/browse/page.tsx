@@ -1,8 +1,6 @@
-"use client"
-
 import { PageHeader } from "@/core/components/navbar/page-header"
 
-import { BrowseENPsTab } from "@/features/quick-match/components/browse-enps-tab"
+import { BrowseENP } from "@/features/browse/components/browse-enp"
 
 export default function BrowsePage() {
 	return (
@@ -19,7 +17,7 @@ export default function BrowsePage() {
 						</p>
 					</div>
 
-					<BrowseENPsTab />
+					<BrowseENP />
 				</div>
 			</main>
 		</div>
