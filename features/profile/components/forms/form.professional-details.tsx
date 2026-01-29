@@ -63,7 +63,7 @@ export function ProfessionalDetailsForm({
 				typeof err === "object" &&
 				err !== null &&
 				"message" in err &&
-				typeof (err as any).message === "string"
+				typeof (err as { message?: unknown }).message === "string"
 			) {
 				message = (err as { message: string }).message ?? message
 			}
