@@ -1337,7 +1337,10 @@ const DocumentActions = React.memo(function DocumentActions({
 		hasPlotted ||
 		(userConfirmedPlottedDocumentIds?.has(document.id) ?? false)
 
-	// Disable Sign Document: order, no signers, not a signer, waiting for ENP, ENP in plotting phase, previous signers.
+	// ENP in plotting phase = disable Sign Document. After "Yes, I'm done" it's signing time; don't disable for that.
+	const enpMustPlotFirst = isEnp && isPlottingPhase && !(userConfirmedPlottedDocumentIds?.has(document.id) ?? false)
+
+	// Disable Sign Document: order, no signers, not a signer, waiting for ENP, ENP must plot first, previous signers.
 	/* eslint-disable @typescript-eslint/prefer-nullish-coalescing -- boolean OR chains, not nullish default */
 	const isStartSigningDisabled =
 		!!isSigningPending ||
@@ -1347,7 +1350,7 @@ const DocumentActions = React.memo(function DocumentActions({
 		hasNoSignersSelected ||
 		userNotInSignerList ||
 		isPrincipalWaitingForEnpToPlot ||
-		(isEnp && isPlottingPhase) ||
+		enpMustPlotFirst ||
 		isSigningDisabledByPreviousSigners
 
 	const showSigningMessage =
@@ -1358,7 +1361,7 @@ const DocumentActions = React.memo(function DocumentActions({
 		hasNoSignersSelected ||
 		userNotInSignerList ||
 		isPrincipalWaitingForEnpToPlot ||
-		(isEnp && isPlottingPhase) ||
+		enpMustPlotFirst ||
 		isSigningDisabledByPreviousSigners ||
 		(showPlotSignature && isPlotSignatureDisabled) ||
 		(showSignDocument && isStartSigningDisabled)
@@ -1669,7 +1672,7 @@ const DocumentActions = React.memo(function DocumentActions({
 												? "You must be added as a signer to start signing"
 												: isPrincipalWaitingForEnpToPlot
 													? "Waiting for ENP to plot your signature"
-													: isEnp && isPlottingPhase && showSignDocument
+													: isEnp && isPlottingPhase && showSignDocument && !(userConfirmedPlottedDocumentIds?.has(document.id) ?? false)
 														? "Please plot your signature first"
 														: isSigningDisabledByPreviousSigners
 															? "Previous signer(s) must sign first"
