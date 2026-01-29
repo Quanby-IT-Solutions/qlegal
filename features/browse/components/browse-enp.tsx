@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useState } from "react"
 import { AlertCircle } from "lucide-react"
 
 import { EnpCard } from "@/core/components/enp-card"
@@ -8,75 +8,84 @@ import { Alert, AlertDescription, AlertTitle } from "@/core/components/ui/alert"
 import { Card, CardContent } from "@/core/components/ui/card"
 import { Skeleton } from "@/core/components/ui/skeleton"
 
-import { trpc } from "@/services/trpc/client"
-
+import { useBrowse } from "../api/browse.hooks"
 import { BrowseFilters } from "./browse-filters"
 
+type FilterState = {
+	searchTerm: string
+	specialization: string
+	minRating: number
+	sortBy: "RATING" | "EXPERIENCE" | "RECENT" | "AVAILABILITY"
+}
+
 export function BrowseENP() {
-	const [filters, setFilters] = useState({
+	const [filters, setFilters] = useState<FilterState>({
 		searchTerm: "",
 		specialization: "all",
 		minRating: 0,
 		sortBy: "RATING",
 	})
 
-	const enpsQuery = trpc.browse.getAvailableENPs.useQuery({
+	// Use custom hook for ENP data
+	const { getAvailableENPs } = useBrowse()
+	const enpsQuery = getAvailableENPs({
 		specialization: filters.specialization === "all" ? undefined : filters.specialization,
 		minRating: filters.minRating > 0 ? filters.minRating : undefined,
-		sortBy: filters.sortBy as "RATING" | "EXPERIENCE" | "RECENT" | "AVAILABILITY",
+		sortBy: filters.sortBy,
 		date: undefined,
 		limit: 20,
 		offset: 0,
+		// Pass search term to server for server-side filtering
+		searchTerm: filters.searchTerm || undefined,
 	})
 
 	const enpsData = enpsQuery.data
 	const isLoading = enpsQuery.isLoading
+	const enps = enpsData?.enps ?? []
 
-	const filteredENPs = useMemo(() => {
-		if (!enpsData?.enps) return []
+	// Map ENP type to ENPProfile format for EnpCard component
+	const updateFilter = <K extends keyof FilterState>(key: K, value: FilterState[K]) =>
+		setFilters(prev => ({ ...prev, [key]: value }))
 
-		if (!filters.searchTerm.trim()) {
-			return enpsData.enps
-		}
-
-		const searchTerm = filters.searchTerm.toLowerCase()
-		return enpsData.enps.filter(enp => {
-			const nameMatch = enp.name.toLowerCase().includes(searchTerm)
-			const specializationMatch = enp.specializations.some(spec =>
-				spec.toLowerCase().includes(searchTerm)
-			)
-			const languages = Array.isArray(enp.languages) ? enp.languages : [enp.languages]
-			const languagesMatch = languages.some(
-				lang => typeof lang === "string" && lang.toLowerCase().includes(searchTerm)
-			)
-
-			return nameMatch || specializationMatch || languagesMatch
-		})
-	}, [enpsData?.enps, filters.searchTerm])
+	const mappedEnps = enps.map(enp => ({
+		id: String(enp.id),
+		name: enp.name,
+		email: enp.email,
+		image: enp.image,
+		phoneNumber: enp.phoneNumber,
+		specialization: enp.specializations?.[0] ?? "General",
+		rating: enp.rating,
+		reviewCount: enp.reviewCount,
+		experience: enp.experience,
+		languages: enp.languages,
+		responseTime: enp.responseTime,
+		location: enp.location,
+		rate: enp.rate,
+		badges: enp.badges,
+		isAvailable: true,
+	}))
 
 	const handleClearFilters = () => {
-		setFilters({
-			searchTerm: "",
-			specialization: "all",
-			minRating: 0,
-			sortBy: "RATING",
-		})
+		updateFilter("specialization", "all")
+		updateFilter("minRating", 0)
+		updateFilter("sortBy", "RATING")
+		updateFilter("searchTerm", "")
 	}
 
 	return (
 		<div className="space-y-6">
 			<BrowseFilters
 				searchTerm={filters.searchTerm}
-				setSearchTerm={term => setFilters(prev => ({ ...prev, searchTerm: term }))}
+				setSearchTerm={value => setFilters(prev => ({ ...prev, searchTerm: value }))}
 				specializationFilter={filters.specialization}
-				setSpecializationFilter={spec => setFilters(prev => ({ ...prev, specialization: spec }))}
+				setSpecializationFilter={value => setFilters(prev => ({ ...prev, specialization: value }))}
 				minRating={filters.minRating}
-				setMinRating={rating => setFilters(prev => ({ ...prev, minRating: rating }))}
+				setMinRating={value => setFilters(prev => ({ ...prev, minRating: value }))}
 				sortBy={filters.sortBy}
-				setSortBy={sort => setFilters(prev => ({ ...prev, sortBy: sort }))}
+				setSortBy={value => setFilters(prev => ({ ...prev, sortBy: value }))}
 				onClearFilters={handleClearFilters}
-				totalResults={enpsData?.enps.length ?? 0}
-				filteredResults={filteredENPs.length}
+				totalResults={enpsData?.total ?? 0}
+				filteredResults={mappedEnps.length}
 			/>
 
 			{isLoading ? (
@@ -92,30 +101,10 @@ export function BrowseENP() {
 						</Card>
 					))}
 				</div>
-			) : filteredENPs.length > 0 ? (
+			) : mappedEnps.length > 0 ? (
 				<div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-					{filteredENPs.map(enp => (
-						<EnpCard
-							key={enp.id}
-							variant="browse"
-							enp={{
-								id: enp.id,
-								name: enp.name,
-								email: null,
-								image: null,
-								phoneNumber: null,
-								specialization: enp.specializations?.[0] ?? "General",
-								rating: enp.rating,
-								reviewCount: enp.reviewCount,
-								languages: enp.languages ?? [],
-								experience: enp.experience,
-								responseTime: enp.responseTime,
-								location: enp.location,
-								rate: enp.rate,
-								badges: enp.badges,
-							}}
-							hoverEffect
-						/>
+					{mappedEnps.map(enp => (
+						<EnpCard key={enp.id} variant="browse" enp={enp} hoverEffect />
 					))}
 				</div>
 			) : (

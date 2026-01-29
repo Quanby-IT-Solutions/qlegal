@@ -20,8 +20,8 @@ interface EnpFiltersProps {
 	setSpecializationFilter: (value: string) => void
 	minRating: number
 	setMinRating: (value: number) => void
-	sortBy: string
-	setSortBy: (value: string) => void
+	sortBy: "RATING" | "EXPERIENCE" | "RECENT" | "AVAILABILITY"
+	setSortBy: (value: "RATING" | "EXPERIENCE" | "RECENT" | "AVAILABILITY") => void
 	onClearFilters: () => void
 	totalResults: number
 	filteredResults: number
