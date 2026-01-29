@@ -10,7 +10,7 @@ import { Skeleton } from "@/core/components/ui/skeleton"
 
 import { trpc } from "@/services/trpc/client"
 
-import { EnpFilters } from "../../quick-match/components/enp-filters"
+import { BrowseFilters } from "./browse-filters"
 
 export function BrowseENP() {
 	const [filters, setFilters] = useState({
@@ -20,7 +20,7 @@ export function BrowseENP() {
 		sortBy: "RATING",
 	})
 
-	const enpsQuery = trpc.quickMatch.getAvailableENPs.useQuery({
+	const enpsQuery = trpc.browse.getAvailableENPs.useQuery({
 		specialization: filters.specialization === "all" ? undefined : filters.specialization,
 		minRating: filters.minRating > 0 ? filters.minRating : undefined,
 		sortBy: filters.sortBy as "RATING" | "EXPERIENCE" | "RECENT" | "AVAILABILITY",
@@ -65,7 +65,7 @@ export function BrowseENP() {
 
 	return (
 		<div className="space-y-6">
-			<EnpFilters
+			<BrowseFilters
 				searchTerm={filters.searchTerm}
 				setSearchTerm={term => setFilters(prev => ({ ...prev, searchTerm: term }))}
 				specializationFilter={filters.specialization}

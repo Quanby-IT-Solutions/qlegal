@@ -1,6 +1,7 @@
 import { createCallerFactory, createTRPCRouter } from "@/services/trpc/init"
 
 import { authRouter } from "@/features/auth/api/auth.router"
+import { browseRouter } from "@/features/browse/api/browse.router"
 import { consultationsRouter } from "@/features/consultations/api/consultations.router"
 import { enpProfileRouter } from "@/features/consultations/api/enp-profile.router"
 import { dashboardRouter } from "@/features/dashboard/api/dashboard.router"
@@ -16,7 +17,6 @@ import { messageFilesRouter } from "@/features/messages/api/message-files.router
 import { messagesRouter } from "@/features/messages/api/messages.router"
 import { notarialBookRouter } from "@/features/notarial-book/api/notarial-book.router"
 import { profileRouter } from "@/features/profile/api/profile.router"
-import { quickMatchRouter } from "@/features/quick-match/api/quick-match.router"
 import { requestsRouter } from "@/features/requests/api/requests.router"
 import { scheduleRouter } from "@/features/schedule/api/schedule.router"
 import { settingsRouter } from "@/features/settings/api/settings.router"
@@ -56,7 +56,7 @@ export const appRouter = createTRPCRouter({
 	messages: messagesRouter,
 	notarialBook: notarialBookRouter,
 	profile: profileRouter,
-	quickMatch: quickMatchRouter,
+	browse: browseRouter,
 	requests: requestsRouter,
 	settings: settingsRouter,
 	signatureLite: signatureLiteRouter,

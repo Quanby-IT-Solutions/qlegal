@@ -52,7 +52,7 @@ const SORT_OPTIONS = [
 	{ value: "AVAILABILITY", label: "Most Available" },
 ]
 
-export function EnpFilters({
+export function BrowseFilters({
 	searchTerm,
 	setSearchTerm,
 	specializationFilter,
@@ -65,14 +65,13 @@ export function EnpFilters({
 	totalResults,
 	filteredResults,
 }: EnpFiltersProps) {
-	const hasActiveFilters =
-		searchTerm || specializationFilter !== "all" || minRating > 0
+	const hasActiveFilters = searchTerm || specializationFilter !== "all" || minRating > 0
 
 	return (
 		<Card>
 			<CardHeader>
 				<div className="flex items-center justify-between">
-					<CardTitle className="text-lg flex items-center gap-2">
+					<CardTitle className="flex items-center gap-2 text-lg">
 						<Filter className="size-5" />
 						Filter Lawyers
 					</CardTitle>
@@ -89,7 +88,7 @@ export function EnpFilters({
 					{/* Search Input */}
 					<div className="flex-1">
 						<div className="relative">
-							<Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+							<Search className="text-muted-foreground absolute top-1/2 left-3 size-4 -translate-y-1/2" />
 							<Input
 								placeholder="Search by name or specialization..."
 								value={searchTerm}
@@ -100,7 +99,7 @@ export function EnpFilters({
 								<button
 									type="button"
 									onClick={() => setSearchTerm("")}
-									className="absolute top-1/2 right-3 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+									className="text-muted-foreground hover:text-foreground absolute top-1/2 right-3 -translate-y-1/2"
 									aria-label="Clear search"
 								>
 									<X className="size-4" />
@@ -125,7 +124,10 @@ export function EnpFilters({
 					</Select>
 
 					{/* Rating Filter */}
-					<Select value={minRating.toString()} onValueChange={v => setMinRating(Number.parseFloat(v))}>
+					<Select
+						value={minRating.toString()}
+						onValueChange={v => setMinRating(Number.parseFloat(v))}
+					>
 						<SelectTrigger className="w-full md:w-44">
 							<Star className="mr-2 size-4 fill-current" />
 							<SelectValue placeholder="Rating" />
@@ -156,9 +158,11 @@ export function EnpFilters({
 				</div>
 
 				{/* Results Count */}
-				<div className="mt-4 flex items-center gap-2 text-sm text-muted-foreground">
+				<div className="text-muted-foreground mt-4 flex items-center gap-2 text-sm">
 					{filteredResults === totalResults ? (
-						<span>Showing {filteredResults} lawyer{filteredResults !== 1 ? "s" : ""}</span>
+						<span>
+							Showing {filteredResults} lawyer{filteredResults !== 1 ? "s" : ""}
+						</span>
 					) : (
 						<span>
 							Showing {filteredResults} of {totalResults} lawyer{totalResults !== 1 ? "s" : ""}

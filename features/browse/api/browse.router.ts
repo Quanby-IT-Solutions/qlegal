@@ -26,7 +26,7 @@ interface ENPScoreBreakdown {
 	totalScore: number
 }
 
-export const quickMatchRouter = createTRPCRouter({
+export const browseRouter = createTRPCRouter({
 	/**
 	 * Calculate Quick Match - find best ENP for principal
 	 * Returns: matched ENP with score breakdown, or list of candidates if multiple equal
