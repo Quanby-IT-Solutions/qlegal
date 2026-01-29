@@ -196,8 +196,7 @@ export const browseRouter = createTRPCRouter({
 			})
 		)
 		.query(async ({ ctx, input }) => {
-			const { sessionMode, serviceType, specialization, minRating, date, sortBy, limit, offset } =
-				input
+			const { specialization, minRating, sortBy, limit, offset } = input
 
 			// Build where conditions - use INNER JOIN since we need enpProfiles to exist
 			const conditions = [eq(users.role, "ENP"), eq(enpProfiles.isAvailable, true)]
