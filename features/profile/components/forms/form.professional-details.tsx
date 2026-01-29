@@ -57,8 +57,17 @@ export function ProfessionalDetailsForm({
 				onCancel()
 			}, 1500)
 		},
-		onError: err => {
-			setFormError(err.message || "Failed to update professional details.")
+		onError: (err: unknown) => {
+			let message = "Failed to update professional details."
+			if (
+				typeof err === "object" &&
+				err !== null &&
+				"message" in err &&
+				typeof (err as any).message === "string"
+			) {
+				message = (err as { message: string }).message ?? message
+			}
+			setFormError(message)
 		},
 	})
 
