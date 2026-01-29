@@ -29,7 +29,6 @@ declare module "next-auth" {
 			role: UserRole
 			status?: string
 			kycStatus?: string
-			kycTransactionId?: string | null
 		}
 	}
 }
@@ -144,7 +143,6 @@ export const authConfig = {
 				session.user.role = user.role
 				session.user.status = (user.status ?? "PENDING") as string
 				session.user.kycStatus = (user.kycStatus ?? "NOT_STARTED") as string
-				session.user.kycTransactionId = user.kycTransactionId ?? null
 
 				// Convert Supabase storage paths to displayable URLs
 				const imagePath = user.image ?? session.user.image
@@ -179,12 +177,10 @@ export const authConfig = {
 				// Extract KYC and status fields safely - user may have extended properties from adapter
 				const userWithKyc = user as {
 					kycStatus?: string
-					kycTransactionId?: string | null
 					status?: string
 				}
 				token.status = userWithKyc.status ?? "PENDING"
 				token.kycStatus = userWithKyc.kycStatus ?? "NOT_STARTED"
-				token.kycTransactionId = userWithKyc.kycTransactionId ?? null
 			}
 
 			// On subsequent runs, enrich token with KYC from DB
@@ -199,7 +195,6 @@ export const authConfig = {
 					if (existing) {
 						token.status = (existing.status ?? "PENDING") as string
 						token.kycStatus = (existing.kycStatus ?? "NOT_STARTED") as string
-						token.kycTransactionId = existing.kycTransactionId ?? null
 					}
 				} catch {
 					// Silently fail - token will use existing values
