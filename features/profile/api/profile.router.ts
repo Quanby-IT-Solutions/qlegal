@@ -16,6 +16,7 @@ import {
 	licensingSchema,
 	personalInformationSchema,
 	rollRegistrationSchema,
+	updateProfessionalDetailsSchema,
 } from "@/features/profile/api/profile.schema"
 
 export const profileRouter = createTRPCRouter({
@@ -151,8 +152,43 @@ export const profileRouter = createTRPCRouter({
 			affirmationPrice: enpProfile.affirmationPrice ?? null,
 			juratPrice: enpProfile.juratPrice ?? null,
 			signatureWitnessingPrice: enpProfile.signatureWitnessingPrice ?? null,
+
+			// ADD THESE FIELDS:
+			bio: enpProfile.bio ?? "",
+			experience: enpProfile.experience ?? "",
+			responseTime: enpProfile.responseTime ?? "",
+			rating: enpProfile.rating ?? 0,
+			reviewCount: enpProfile.reviewCount ?? 0,
 		}
 	}),
+
+	updateProfessionalDetails: protectedProcedure
+		.input(updateProfessionalDetailsSchema)
+		.mutation(async ({ ctx, input }) => {
+			const existingProfile = await ctx.db.query.enpProfiles.findFirst({
+				where: eq(enpProfiles.userId, ctx.session.user.id),
+			})
+
+			const profileData = {
+				bio: input.bio,
+				experience: input.experience,
+				responseTime: input.responseTime,
+			}
+
+			if (existingProfile) {
+				await ctx.db
+					.update(enpProfiles)
+					.set(profileData)
+					.where(eq(enpProfiles.userId, ctx.session.user.id))
+			} else {
+				await ctx.db.insert(enpProfiles).values({
+					userId: ctx.session.user.id,
+					...profileData,
+				})
+			}
+
+			return { message: "Professional details updated successfully" }
+		}),
 
 	updateEnpProfile: protectedProcedure.input(enpProfileSchema).mutation(async ({ ctx, input }) => {
 		const existingProfile = await ctx.db.query.enpProfiles.findFirst({
