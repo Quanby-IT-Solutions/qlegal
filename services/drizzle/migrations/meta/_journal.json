@@ -43,6 +43,13 @@
       "when": 1769363956731,
       "tag": "0006_sincere_sparrow",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1769593516615,
+      "tag": "0006_slow_tarantula",
+      "breakpoints": true
     }
   ]
 }
