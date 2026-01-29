@@ -276,6 +276,17 @@ export async function ensureMeetingToken(meetingId: string, email: string): Prom
 	return token
 }
 
+/**
+ * Always call the DocoChain generate-token API and store the result as the meeting token.
+ * Use when ENP enters the room (e.g. getToken) so we explicitly hit the API at that moment.
+ * Does not reuse cached meeting token.
+ */
+export async function generateAndSetMeetingToken(meetingId: string, email: string): Promise<string> {
+	const token = await generateToken(email, true)
+	setMeetingToken(meetingId, email, token)
+	return token
+}
+
 interface VerifyTokenParams {
 	token: string
 	orgInviteCode: string
