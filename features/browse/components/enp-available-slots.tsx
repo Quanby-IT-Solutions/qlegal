@@ -14,7 +14,11 @@ interface EnpAvailableSlotsProps {
 
 export function EnpAvailableSlots({ slots, enpId, dateParam, className }: EnpAvailableSlotsProps) {
 	if (slots.length === 0) {
-		return <p className="text-muted-foreground text-sm">No open slots for this day.</p>
+		return (
+			<p className={`text-muted-foreground text-sm ${className ?? ""}`}>
+				No open slots for this day.
+			</p>
+		)
 	}
 
 	return (
@@ -42,7 +46,7 @@ export function EnpAvailableSlots({ slots, enpId, dateParam, className }: EnpAva
 							asChild
 						>
 							<Link href={`/consultations?${searchParams.toString()}`}>
-								<Clock className="size-4" />
+								<Clock className="size-4" aria-hidden="true" />
 								{slot.time}
 								<span className="text-muted-foreground text-xs">({slot.duration}m)</span>
 							</Link>

@@ -23,7 +23,7 @@ export function EnpRating({ rating, reviewCount, variant = "inline", className }
 			<Star className="size-4 fill-yellow-400 text-yellow-400" />
 			<span className="text-sm font-semibold">{rating.toFixed(1)}</span>
 			{reviewCount !== undefined && (
-				<span className="text-muted-foreground text-xs">({reviewCount} reviews)</span>
+				<span className="text-muted-foreground text-xs">({reviewCount})</span>
 			)}
 		</div>
 	)

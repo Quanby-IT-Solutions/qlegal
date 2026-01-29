@@ -28,8 +28,7 @@ interface EnpCardProps {
 	hoverEffect?: boolean
 }
 
-export function EnpCard({ enp, className, hoverEffect = false }: EnpCardProps) {
-	const cardClasses = `h-full ${hoverEffect ? "hover:shadow-lg transition-shadow" : ""} ${className ?? ""}`
+export function EnpCard({ enp, className }: EnpCardProps) {
 	const isAvailable = enp.isAvailable ?? true
 	const specializations =
 		enp.specializations && enp.specializations.length > 0
@@ -37,6 +36,7 @@ export function EnpCard({ enp, className, hoverEffect = false }: EnpCardProps) {
 			: enp.specialization
 				? [enp.specialization]
 				: []
+
 	const languages = Array.isArray(enp.languages)
 		? enp.languages
 		: enp.languages
@@ -44,44 +44,37 @@ export function EnpCard({ enp, className, hoverEffect = false }: EnpCardProps) {
 			: []
 
 	return (
-		<Card
-			className={cn(
-				cardClasses,
-				"group overflow-hidden transition-shadow duration-200 hover:shadow-xl"
-			)}
-		>
-			<CardHeader className="space-y-3 pb-3">
-				<div className="flex items-start justify-between">
-					<div className="flex flex-1 items-start gap-3">
-						<div className="relative">
-							<EnpAvatar name={enp.name} image={enp.image} />
-							{isAvailable && (
-								<div className="border-background absolute -right-1 -bottom-1 rounded-full border-2 bg-emerald-500 p-0.5">
-									<ShieldCheck className="size-3 text-white" />
-								</div>
-							)}
-						</div>
-						<div className="min-w-0 flex-1">
-							<div className="flex items-center gap-2">
-								<CardTitle className="truncate text-lg">
-									{enp.name ?? "Electronic Notary Public"}
-								</CardTitle>
-								{enp.initials && (
-									<Badge variant="outline" className="shrink-0 text-xs">
-										<User className="mr-1 size-2" />
-										{enp.initials}
-									</Badge>
-								)}
+		<Card className={cn("max-w-xs", className)}>
+			<CardHeader className="space-y-2 px-4">
+				<div className="flex items-center gap-3">
+					<div className="relative shrink-0">
+						<EnpAvatar name={enp.name} image={enp.image} isAvailable={isAvailable} />
+						{isAvailable && (
+							<div className="border-background absolute -right-1 -bottom-1 rounded-full border-2 bg-emerald-500 p-0.5">
+								<ShieldCheck className="size-3 text-white" aria-label="Available" />
 							</div>
-							{enp.rating > 0 && (
-								<EnpRating
-									rating={enp.rating}
-									reviewCount={enp.reviewCount}
-									variant="inline"
-									className="mt-1"
-								/>
+						)}
+					</div>
+					<div className="min-w-0 flex-1">
+						<div className="flex items-center gap-1.5">
+							<CardTitle className="truncate text-sm">
+								{enp.name ?? "Electronic Notary Public"}
+							</CardTitle>
+							{enp.initials && (
+								<Badge variant="secondary" className="shrink-0 text-xs">
+									<User className="mr-1 size-2.5" />
+									{enp.initials}
+								</Badge>
 							)}
 						</div>
+						{enp.rating > 0 && (
+							<EnpRating
+								rating={enp.rating}
+								reviewCount={enp.reviewCount}
+								variant="inline"
+								className="mt-0.5"
+							/>
+						)}
 					</div>
 				</div>
 
@@ -90,30 +83,38 @@ export function EnpCard({ enp, className, hoverEffect = false }: EnpCardProps) {
 
 			<Separator />
 
-			<CardContent className="flex-1 pt-4">
-				{/* Key Information */}
-				<div className="grid grid-cols-2 gap-3 text-sm">
+			<CardContent className="space-y-2 px-4 pt-2">
+				{/* Consultation Price */}
+				{enp.rate && (
+					<div className="flex items-center justify-between text-xs">
+						<span className="text-muted-foreground">Consultation Price</span>
+						<span className="font-semibold">₱{enp.rate}</span>
+					</div>
+				)}
+
+				{/* Key Information - Single Column */}
+				<div className="grid grid-cols-1 gap-1 text-xs">
 					{enp.location && (
-						<div className="text-muted-foreground flex items-center gap-2">
-							<MapPin className="text-muted-foreground/50 size-4 shrink-0" />
+						<div className="flex items-center gap-2">
+							<MapPin className="text-muted-foreground size-3 shrink-0" />
 							<span className="truncate">{enp.location}</span>
 						</div>
 					)}
 					{enp.experience && (
-						<div className="text-muted-foreground flex items-center gap-2">
-							<Briefcase className="text-muted-foreground/50 size-4 shrink-0" />
+						<div className="flex items-center gap-2">
+							<Briefcase className="text-muted-foreground size-3 shrink-0" />
 							<span className="truncate">{enp.experience}</span>
 						</div>
 					)}
 					{enp.responseTime && (
-						<div className="text-muted-foreground flex items-center gap-2">
-							<Clock3 className="text-muted-foreground/50 size-4 shrink-0" />
+						<div className="flex items-center gap-2">
+							<Clock3 className="text-muted-foreground size-3 shrink-0" />
 							<span className="truncate">Responds in {enp.responseTime}</span>
 						</div>
 					)}
 					{languages.length > 0 && (
-						<div className="text-muted-foreground flex items-center gap-2">
-							<Languages className="text-muted-foreground/50 size-4 shrink-0" />
+						<div className="flex items-center gap-2">
+							<Languages className="text-muted-foreground size-3 shrink-0" />
 							<span className="truncate">
 								{languages.slice(0, 2).join(", ")}
 								{languages.length > 2 && ` +${languages.length - 2}`}
@@ -122,17 +123,11 @@ export function EnpCard({ enp, className, hoverEffect = false }: EnpCardProps) {
 					)}
 				</div>
 
-				{enp.rate && (
-					<div className="bg-muted/50 mt-3 flex items-center justify-between rounded-lg px-3 py-2">
-						<span className="text-muted-foreground text-xs">Hourly Rate</span>
-						<span className="text-foreground font-semibold">₱{enp.rate}</span>
-					</div>
-				)}
-
+				{/* Qualifications Badges */}
 				{enp.badges && enp.badges.length > 0 && (
-					<div className="mt-3 flex flex-wrap gap-1.5">
+					<div className="flex flex-wrap gap-1">
 						{enp.badges.map(badge => (
-							<Badge key={badge} variant="secondary" className="text-xs font-normal">
+							<Badge key={badge} variant="secondary" className="text-[10px]">
 								{badge}
 							</Badge>
 						))}
@@ -142,16 +137,24 @@ export function EnpCard({ enp, className, hoverEffect = false }: EnpCardProps) {
 
 			<Separator />
 
-			<div className="space-y-2 p-4">
+			<div className="flex gap-1 p-2">
 				<ComprehensiveBookingDialog
 					enpId={enp.id}
 					enpName={enp.name}
-					trigger={<Button className="w-full shadow-sm">Book Session</Button>}
+					trigger={
+						<Button size="sm" className="flex-1 text-xs">
+							Book
+						</Button>
+					}
 				/>
-				<Button variant="outline" className="w-full" asChild>
+				<Button variant="outline" size="icon" asChild aria-label="Message">
 					<Link href={`/messages?userId=${enp.id}`}>
-						<MessageSquare className="mr-2 size-4" />
-						Message
+						<MessageSquare className="size-3.5" aria-hidden="true" />
+					</Link>
+				</Button>
+				<Button variant="outline" size="icon" asChild aria-label="View profile">
+					<Link href="/profile">
+						<User className="size-3.5" aria-hidden="true" />
 					</Link>
 				</Button>
 			</div>

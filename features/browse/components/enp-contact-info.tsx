@@ -1,4 +1,4 @@
-import { Mail, MapPin, Phone } from "lucide-react"
+import { Languages, Mail, Phone } from "lucide-react"
 
 interface EnpContactInfoProps {
 	phoneNumber?: string | null
@@ -17,9 +17,7 @@ export function EnpContactInfo({ phoneNumber, email, languages, className }: Enp
 	const languagesText = Array.isArray(languages) ? languages.join(", ") : languages
 
 	return (
-		<div
-			className={`text-muted-foreground flex flex-wrap items-center gap-3 text-sm ${className ?? ""}`}
-		>
+		<div className={`text-muted-foreground flex flex-wrap gap-3 text-sm ${className ?? ""}`}>
 			{phoneNumber && (
 				<span className="flex items-center gap-1">
 					<Phone className="size-4" />
@@ -34,7 +32,7 @@ export function EnpContactInfo({ phoneNumber, email, languages, className }: Enp
 			)}
 			{languagesText && (
 				<span className="flex items-center gap-1">
-					<MapPin className="size-4" />
+					<Languages className="size-4" />
 					{languagesText}
 				</span>
 			)}
