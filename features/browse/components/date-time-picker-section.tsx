@@ -36,7 +36,7 @@ export function DateTimePickerSection({
 	// Filter slots for the selected date
 	const filteredSlots =
 		selectedDate && availabilitySlots.length > 0
-			? availabilitySlots.filter((slot) => slot.date === format(selectedDate, "yyyy-MM-dd"))
+			? availabilitySlots.filter(slot => slot.date === format(selectedDate, "yyyy-MM-dd"))
 			: []
 
 	const handleSlotClick = (slotTime: string) => {
@@ -81,7 +81,7 @@ export function DateTimePickerSection({
 							mode="single"
 							selected={selectedDate}
 							onSelect={onDateChange}
-							disabled={(date) => date < today}
+							disabled={date => date < today}
 							initialFocus
 						/>
 					</PopoverContent>
@@ -101,18 +101,16 @@ export function DateTimePickerSection({
 					hour={selectedTime.hour}
 					minute={selectedTime.minute}
 					period={selectedTime.period}
-					onHourChange={(hour) => onTimeChange({ ...selectedTime, hour })}
-					onMinuteChange={(minute) => onTimeChange({ ...selectedTime, minute })}
-					onPeriodChange={(period) => onTimeChange({ ...selectedTime, period })}
+					onHourChange={hour => onTimeChange({ ...selectedTime, hour })}
+					onMinuteChange={minute => onTimeChange({ ...selectedTime, minute })}
+					onPeriodChange={period => onTimeChange({ ...selectedTime, period })}
 					disabled={disabled}
 				/>
 
 				{/* Suggested Slots */}
 				{selectedDate && (
 					<div className="space-y-2">
-						<Label className="text-muted-foreground text-sm font-medium">
-							Suggested slots
-						</Label>
+						<Label className="text-muted-foreground text-sm font-medium">Suggested slots</Label>
 						{isLoadingAvailability ? (
 							<div className="flex items-center justify-center py-4">
 								<Loader2 className="text-muted-foreground size-5 animate-spin" />

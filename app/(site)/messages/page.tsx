@@ -24,11 +24,12 @@ import { ScrollArea } from "@/core/components/ui/scroll-area"
 import { Skeleton } from "@/core/components/ui/skeleton"
 import { cn } from "@/core/lib/utils"
 
-import { ConsultationBookingDialog } from "@/features/consultations/components/consultation-booking-dialog"
+import { trpc } from "@/services/trpc/client"
+
+import { ConsultationBookingDialog } from "@/features/browse/components/consultation-booking-dialog"
 import { useMessages } from "@/features/messages/api/messages.hooks"
 import { useMessagesSubscriptions } from "@/features/messages/api/use-messages-subscriptions"
 import { FileUploadPanel } from "@/features/messages/components/file-upload-panel"
-import { trpc } from "@/services/trpc/client"
 
 export default function MessagesPage() {
 	const { data: session } = useSession()

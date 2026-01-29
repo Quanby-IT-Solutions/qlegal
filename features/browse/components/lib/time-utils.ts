@@ -11,11 +11,7 @@ export interface Time12Hour {
  * @param period - Either "am" or "pm"
  * @returns Time string in 24-hour format
  */
-export function convertTo24Hour(
-	hour: string,
-	minute: string,
-	period: "am" | "pm"
-): string {
+export function convertTo24Hour(hour: string, minute: string, period: "am" | "pm"): string {
 	let hours24 = parseInt(hour, 10)
 	if (period === "pm" && hours24 !== 12) {
 		hours24 += 12

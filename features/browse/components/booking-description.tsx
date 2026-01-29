@@ -7,18 +7,14 @@ interface BookingDescriptionProps {
 	disabled?: boolean
 }
 
-export function BookingDescription({
-	value,
-	onChange,
-	disabled = false,
-}: BookingDescriptionProps) {
+export function BookingDescription({ value, onChange, disabled = false }: BookingDescriptionProps) {
 	return (
 		<div className="space-y-2">
 			<Label className="text-base font-medium">Description (Optional)</Label>
 			<Textarea
 				placeholder="Add any additional notes or requirements for this booking..."
 				value={value}
-				onChange={(e) => onChange(e.target.value)}
+				onChange={e => onChange(e.target.value)}
 				className="min-h-[100px] resize-none"
 				rows={4}
 				disabled={disabled}

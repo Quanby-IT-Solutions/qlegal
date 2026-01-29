@@ -1,13 +1,11 @@
 import { createCallerFactory, createTRPCRouter } from "@/services/trpc/init"
 
+import { appointmentsRouter } from "@/features/appointments/api/appointments.router"
 import { authRouter } from "@/features/auth/api/auth.router"
 import { browseRouter } from "@/features/browse/api/browse.router"
-import { consultationsRouter } from "@/features/consultations/api/consultations.router"
-import { enpProfileRouter } from "@/features/consultations/api/enp-profile.router"
 import { dashboardRouter } from "@/features/dashboard/api/dashboard.router"
 import { documentsRouter } from "@/features/documents/api/documents.router"
 import { envelopeLiteRouter } from "@/features/envelopes-lite/api/envelope-lite.router"
-import { appointmentsRouter } from "@/features/lawyers/api/appointments.router"
 import { lawyersRouter } from "@/features/lawyers/api/lawyers.router"
 import { legalRegistrationRouter } from "@/features/legal-registration/api/legal-registration.router"
 import { locationVerificationRouter } from "@/features/meetings/api/location-verification.router"
@@ -41,13 +39,12 @@ import { witnessesRouter } from "@/features/witnesses/api/witnesses.router"
  */
 export const appRouter = createTRPCRouter({
 	auth: authRouter,
-	consultations: consultationsRouter,
-	enpProfile: enpProfileRouter,
+	browse: browseRouter,
+	appointments: appointmentsRouter,
+	lawyers: lawyersRouter,
 	dashboard: dashboardRouter,
 	documents: documentsRouter,
 	envelopeLite: envelopeLiteRouter,
-	lawyers: lawyersRouter,
-	appointments: appointmentsRouter,
 	legalRegistration: legalRegistrationRouter,
 	locationVerification: locationVerificationRouter,
 	meetings: meetingsRouter,
@@ -56,13 +53,11 @@ export const appRouter = createTRPCRouter({
 	messages: messagesRouter,
 	notarialBook: notarialBookRouter,
 	profile: profileRouter,
-	browse: browseRouter,
 	requests: requestsRouter,
 	settings: settingsRouter,
 	signatureLite: signatureLiteRouter,
 	witnesses: witnessesRouter,
 	userManagement: userManagementRouter,
-	// Add schedule router
 	schedule: scheduleRouter,
 })
 

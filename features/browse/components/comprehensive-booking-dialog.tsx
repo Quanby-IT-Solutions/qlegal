@@ -1,11 +1,11 @@
 "use client"
 
+import { type Route } from "next"
+import { useRouter } from "next/navigation"
 import { useState } from "react"
+import { format } from "date-fns"
 import { Loader2, Video } from "lucide-react"
 import { toast } from "sonner"
-import { useRouter } from "next/navigation"
-import { type Route } from "next"
-import { format } from "date-fns"
 
 import { Button } from "@/core/components/ui/button"
 import {
@@ -22,11 +22,12 @@ import { Separator } from "@/core/components/ui/separator"
 
 import { trpc } from "@/services/trpc/client"
 
+import { SessionModeSelector } from "@/features/booking/components/session-mode-selector"
+import { SessionTypeSelector } from "@/features/booking/components/session-type-selector"
+
 import { BookingDescription } from "./booking-description"
 import { DateTimePickerSection } from "./date-time-picker-section"
-import { SessionModeSelector } from "@/features/booking/components/session-mode-selector"
 import { convertTo24Hour, type Time12Hour } from "./lib/time-utils"
-import { SessionTypeSelector } from "@/features/booking/components/session-type-selector"
 
 type WorkflowType = "REN" | "IEN"
 type BookingMode = "CONSULTATION" | "NOTARIZATION"
@@ -58,7 +59,7 @@ export function ComprehensiveBookingDialog({
 
 	// Fetch ENP availability
 	const { data: availabilitySlots, isLoading: isLoadingAvailability } =
-		trpc.consultations.getEnpAvailability.useQuery(
+		trpc.browse.getEnpAvailability.useQuery(
 			{
 				enpId,
 				workflowType: selectedWorkflow,
@@ -69,7 +70,7 @@ export function ComprehensiveBookingDialog({
 		)
 
 	// Book consultation mutation
-	const bookConsultationMutation = trpc.consultations.bookConsultation.useMutation({
+	const bookConsultationMutation = trpc.browse.bookConsultation.useMutation({
 		onSuccess: () => {
 			toast.success("Consultation Booked!", {
 				description:
@@ -79,7 +80,7 @@ export function ComprehensiveBookingDialog({
 			resetForm()
 			router.push("/meetings" as Route)
 		},
-		onError: (error) => {
+		onError: error => {
 			toast.error("Booking Failed", {
 				description: error.message || "Failed to book consultation. Please try again.",
 			})
@@ -94,7 +95,7 @@ export function ComprehensiveBookingDialog({
 			resetForm()
 			router.push("/meetings" as Route)
 		},
-		onError: (error) => {
+		onError: error => {
 			toast.error("Booking failed", {
 				description: error.message || "Failed to book signing session. Please try again.",
 			})
@@ -148,25 +149,24 @@ export function ComprehensiveBookingDialog({
 		}
 	}
 
-	const isBookingPending =
-		bookConsultationMutation.isPending || bookSigningMutation.isPending
+	const isBookingPending = bookConsultationMutation.isPending || bookSigningMutation.isPending
 	const isSubmitDisabled = !selectedDate || isBookingPending
 
 	return (
 		<Dialog open={open} onOpenChange={setOpen}>
 			<DialogTrigger asChild>{trigger ?? <Button>Book Session</Button>}</DialogTrigger>
 			<DialogContent className="max-h-[90vh] w-[90vw] max-w-2xl!">
-			<DialogHeader>
-				<DialogTitle>
-					{bookingMode === "CONSULTATION" ? "Book Consultation" : "Book Notarization"}
-					{enpName ? ` with ${enpName}` : ""}
-				</DialogTitle>
-				<DialogDescription>
-					{bookingMode === "CONSULTATION"
-						? "Schedule a consultation with an Electronic Notary Public for your notarization needs."
-						: "Book a notarization session with an Electronic Notary Public for your documents."}
-				</DialogDescription>
-			</DialogHeader>
+				<DialogHeader>
+					<DialogTitle>
+						{bookingMode === "CONSULTATION" ? "Book Consultation" : "Book Notarization"}
+						{enpName ? ` with ${enpName}` : ""}
+					</DialogTitle>
+					<DialogDescription>
+						{bookingMode === "CONSULTATION"
+							? "Schedule a consultation with an Electronic Notary Public for your notarization needs."
+							: "Book a notarization session with an Electronic Notary Public for your documents."}
+					</DialogDescription>
+				</DialogHeader>
 
 				<ScrollArea className="max-h-[calc(90vh-200px)] pr-4">
 					<div className="space-y-6 py-4">
@@ -174,15 +174,13 @@ export function ComprehensiveBookingDialog({
 						<div className="space-y-4">
 							<div>
 								<h3 className="text-lg font-semibold">Service type</h3>
-								<p className="text-muted-foreground text-sm">
-									What do you need help with?
-								</p>
+								<p className="text-muted-foreground text-sm">What do you need help with?</p>
 							</div>
-						<SessionTypeSelector
-							value={bookingMode}
-							onChange={setBookingMode}
-							showHeading={false}
-						/>
+							<SessionTypeSelector
+								value={bookingMode}
+								onChange={setBookingMode}
+								showHeading={false}
+							/>
 						</div>
 
 						<Separator />
@@ -211,10 +209,12 @@ export function ComprehensiveBookingDialog({
 								onDateChange={setSelectedDate}
 								selectedTime={selectedTime}
 								onTimeChange={setSelectedTime}
-								availabilitySlots={availabilitySlots?.map(slot => ({
-									date: slot.date ?? format(new Date(), "yyyy-MM-dd"),
-									time: slot.time,
-								})) ?? []}
+								availabilitySlots={
+									availabilitySlots?.map(slot => ({
+										date: slot.date ?? format(new Date(), "yyyy-MM-dd"),
+										time: slot.time,
+									})) ?? []
+								}
 								isLoadingAvailability={isLoadingAvailability}
 								disabled={isBookingPending}
 							/>
@@ -248,11 +248,7 @@ export function ComprehensiveBookingDialog({
 					>
 						Cancel
 					</Button>
-					<Button
-						type="button"
-						onClick={handleBooking}
-						disabled={isSubmitDisabled}
-					>
+					<Button type="button" onClick={handleBooking} disabled={isSubmitDisabled}>
 						{isBookingPending ? (
 							<>
 								<Loader2 className="mr-2 size-4 animate-spin" />

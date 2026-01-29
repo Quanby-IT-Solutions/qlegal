@@ -11,8 +11,8 @@ import {
 } from "@/core/components/ui/tooltip"
 import { cn } from "@/core/lib/utils"
 
+import { ComprehensiveBookingDialog } from "@/features/browse/components/comprehensive-booking-dialog"
 import type { ENPDisplayData } from "@/features/browse/lib/enp-display.types"
-import { ComprehensiveBookingDialog } from "@/features/consultations/components/comprehensive-booking-dialog"
 
 import { EnpAvatar } from "./enp-avatar"
 import { EnpRating } from "./enp-rating"

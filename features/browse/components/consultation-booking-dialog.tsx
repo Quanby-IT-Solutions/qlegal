@@ -40,7 +40,7 @@ export function ConsultationBookingDialog({
 
 	// Fetch ENP availability when date is selected
 	const { data: availabilitySlots, isLoading: isLoadingAvailability } =
-		trpc.consultations.getEnpAvailability.useQuery(
+		trpc.browse.getEnpAvailability.useQuery(
 			{
 				enpId,
 				workflowType,
@@ -51,7 +51,7 @@ export function ConsultationBookingDialog({
 		)
 
 	// Book consultation mutation
-	const bookConsultationMutation = trpc.consultations.bookConsultation.useMutation({
+	const bookConsultationMutation = trpc.browse.bookConsultation.useMutation({
 		onSuccess: () => {
 			toast.success("Consultation Booked!", {
 				description:
