@@ -884,6 +884,7 @@ export const meetingsRouter = createTRPCRouter({
 		.mutation(async ({ ctx, input }) => {
 			const { documentId, meetingId } = input
 
+			try {
 			const meeting = await db.query.meetings.findFirst({
 				where: eq(meetings.id, meetingId),
 				with: {
@@ -917,16 +918,25 @@ export const meetingsRouter = createTRPCRouter({
 				throw new TRPCError({ code: "NOT_FOUND", message: "Meeting not found" })
 			}
 
-			// Find appointment associated with this meeting to get mode of notarization
-			const appointment = await db.query.appointments.findFirst({
-				where: or(
-					eq(appointments.lawyerId, meeting.createdById),
-					eq(appointments.clientId, meeting.participants[0]?.userId ?? "")
-				),
-			})
-
-			// Get mode of notarization (REN or IEN) from appointment
-			const modeOfNotarization = appointment?.modeOfNotarization ?? "REN"
+			// Get mode of notarization (REN or IEN) from appointment when possible; default REN.
+			let modeOfNotarization = "REN"
+			try {
+				const firstParticipantId = meeting.participants[0]?.userId
+				const appointment = await db.query.appointments.findFirst({
+					where:
+						firstParticipantId !== undefined &&
+						firstParticipantId !== null &&
+						firstParticipantId !== ""
+							? or(
+									eq(appointments.lawyerId, meeting.createdById),
+									eq(appointments.clientId, firstParticipantId)
+								)
+							: eq(appointments.lawyerId, meeting.createdById),
+				})
+				if (appointment?.modeOfNotarization) modeOfNotarization = appointment.modeOfNotarization
+			} catch (e) {
+				console.warn("Appointment lookup failed for createDocoChainProject, using REN:", e)
+			}
 
 			const isHost = meeting.createdById === ctx.session.user.id
 			const isAccepted = meeting.participants.some(
@@ -1121,6 +1131,27 @@ export const meetingsRouter = createTRPCRouter({
 				success: true,
 				projectUuid: docoChainProjectId,
 				redirectUrl: docoChainRedirectUrl,
+			}
+			} catch (e) {
+				if (e instanceof TRPCError) throw e
+				console.error("createDocoChainProject error:", e)
+				const message =
+					e instanceof Error ? e.message : "Unknown error during project creation"
+				const isUserFacing =
+					message.startsWith("Meeting not found") ||
+					message.startsWith("Document not found") ||
+					message.startsWith("You don't have access") ||
+					message.startsWith("DocoChain project already exists") ||
+					message.startsWith("Please select at least one signer") ||
+					message.startsWith("ENP ") ||
+					message.startsWith("Document file not found") ||
+					message.startsWith("Failed to download document")
+				throw new TRPCError({
+					code: "INTERNAL_SERVER_ERROR",
+					message: isUserFacing
+						? message
+						: "Failed to create DocoChain project. Please try again. If it persists, check your ENP profile and that the document was uploaded correctly.",
+				})
 			}
 		}),
 
