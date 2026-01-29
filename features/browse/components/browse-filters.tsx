@@ -13,6 +13,8 @@ import {
 	SelectValue,
 } from "@/core/components/ui/select"
 
+import { RATING_OPTIONS, SORT_OPTIONS, SPECIALIZATION_OPTIONS } from "../lib/browse.constants"
+
 interface EnpFiltersProps {
 	searchTerm: string
 	setSearchTerm: (value: string) => void
@@ -26,31 +28,6 @@ interface EnpFiltersProps {
 	totalResults: number
 	filteredResults: number
 }
-
-const SPECIALIZATION_OPTIONS = [
-	"All",
-	"Legal Documents",
-	"Contracts",
-	"Real Estate",
-	"Affidavits",
-	"Business Law",
-	"General",
-]
-
-const RATING_OPTIONS = [
-	{ value: 0, label: "All Ratings" },
-	{ value: 3, label: "3+ Stars" },
-	{ value: 4, label: "4+ Stars" },
-	{ value: 4.5, label: "4.5+ Stars" },
-	{ value: 4.8, label: "4.8+ Stars" },
-]
-
-const SORT_OPTIONS = [
-	{ value: "RATING", label: "Highest Rated" },
-	{ value: "EXPERIENCE", label: "Most Experienced" },
-	{ value: "RECENT", label: "Recently Added" },
-	{ value: "AVAILABILITY", label: "Most Available" },
-]
 
 export function BrowseFilters({
 	searchTerm,

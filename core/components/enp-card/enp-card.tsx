@@ -144,9 +144,7 @@ export function EnpCard({
 					<ComprehensiveBookingDialog
 						enpId={enp.id}
 						enpName={enp.name}
-						trigger={
-							<Button className="w-full">Book Session</Button>
-						}
+						trigger={<Button className="w-full">Book Session</Button>}
 					/>
 					<Button variant="outline" className="w-full" asChild>
 						<Link href={`/messages?userId=${enp.id}`}>

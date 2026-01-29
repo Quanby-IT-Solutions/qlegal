@@ -1,9 +1,19 @@
 import { eq, gte, ilike, or } from "drizzle-orm"
 
+import type { ENPProfile } from "@/core/lib/types/enp"
+
 import { users } from "@/services/drizzle/schema/auth"
 import { enpProfiles } from "@/services/drizzle/schema/enp-profiles"
 
-import { type ENP, type ENPCandidateWithScore, type ENPScoreBreakdown } from "../api/browse.schema"
+import { type ENPCandidateWithScore, type ENPScoreBreakdown } from "../api/browse.schema"
+import {
+	BADGE_LABELS,
+	BADGE_THRESHOLDS,
+	DEFAULT_ENP_VALUES,
+	NEW_ENP_DAYS_THRESHOLD,
+	SCORE_BOOSTS,
+	SCORE_WEIGHTS,
+} from "./browse.constants"
 
 // Helper: normalize rating 0..5 -> 0..1
 export function normalizeRating(r?: number | null) {
@@ -62,21 +72,21 @@ export function computeENPScore(
 	// Reward less recent workload (proxy using review count inverse)
 	const workloadNorm = 1 - Math.min(reviews / 100, 1)
 
-	const ratingScore = ratingNorm * 25
-	const speedScore = responseNorm * 20
-	const experienceScore = experienceNorm * 20
-	const specializationScore = specializationNorm * 15
-	const workloadScore = workloadNorm * 20
+	const ratingScore = ratingNorm * SCORE_WEIGHTS.RATING
+	const speedScore = responseNorm * SCORE_WEIGHTS.SPEED
+	const experienceScore = experienceNorm * SCORE_WEIGHTS.EXPERIENCE
+	const specializationScore = specializationNorm * SCORE_WEIGHTS.SPECIALIZATION
+	const workloadScore = workloadNorm * SCORE_WEIGHTS.WORKLOAD
 
 	// Boosts
 	let newENPBoost = 0
-	const returningBoost = 0
+	const returningBoost = SCORE_BOOSTS.RETURNING
 	let specialtyBoost = 0
 	if (candidate.createdAt) {
 		const days = (Date.now() - new Date(candidate.createdAt).getTime()) / (1000 * 60 * 60 * 24)
-		if (days <= 30) newENPBoost = 10
+		if (days <= NEW_ENP_DAYS_THRESHOLD) newENPBoost = SCORE_BOOSTS.NEW_ENP
 	}
-	if (specializationNorm >= 0.95) specialtyBoost = 5
+	if (specializationNorm >= 0.95) specialtyBoost = SCORE_BOOSTS.SPECIALTY
 
 	const totalScore =
 		ratingScore +
@@ -101,7 +111,7 @@ export function computeENPScore(
 	}
 }
 
-// Transform database ENP record to ENP type
+// Transform database ENP record to ENPProfile
 export function transformENPData(enp: {
 	id: number | string
 	name: string | null
@@ -116,18 +126,24 @@ export function transformENPData(enp: {
 	rating: number | null
 	reviewCount: number | null
 	createdAt: Date | null
-}): ENP {
+}): ENPProfile {
 	const rating = enp.rating ?? 0
 	const reviewCount = enp.reviewCount ?? 0
 	const badges: string[] = []
 
 	// Compute badges based on rating and review count
-	if (rating >= 4.8) badges.push("Top Rated")
-	if (reviewCount >= 50) badges.push("Verified Professional")
-	if (reviewCount >= 100) badges.push("Elite")
+	if (rating >= BADGE_THRESHOLDS.TOP_RATED_RATING) {
+		badges.push(BADGE_LABELS.TOP_RATED)
+	}
+	if (reviewCount >= BADGE_THRESHOLDS.VERIFIED_PROFESSIONAL_REVIEWS) {
+		badges.push(BADGE_LABELS.VERIFIED_PROFESSIONAL)
+	}
+	if (reviewCount >= BADGE_THRESHOLDS.ELITE_REVIEWS) {
+		badges.push(BADGE_LABELS.ELITE)
+	}
 
 	return {
-		id: enp.id,
+		id: String(enp.id),
 		name: enp.name ?? "Electronic Notary Public",
 		initials: enp.name
 			? enp.name
@@ -140,27 +156,31 @@ export function transformENPData(enp: {
 		email: enp.email,
 		image: enp.image,
 		phoneNumber: enp.phoneNumber,
-		specializations: enp.specialization ? [enp.specialization] : ["General"],
+		specialization: enp.specialization ?? "General",
+		specializations: enp.specialization
+			? [enp.specialization]
+			: [DEFAULT_ENP_VALUES.SPECIALIZATION],
 		rating,
 		reviewCount,
-		experience: enp.experience ?? "Experienced",
+		experience: enp.experience ?? DEFAULT_ENP_VALUES.EXPERIENCE,
 		languages: (() => {
 			const raw = enp.languages
-			if (!raw) return ["English"]
+			if (!raw) return [...DEFAULT_ENP_VALUES.LANGUAGES]
 			try {
 				const parsed = JSON.parse(raw) as unknown
 				if (Array.isArray(parsed)) {
 					return parsed.map(lang => String(lang))
 				}
-				return ["English"]
+				return [...DEFAULT_ENP_VALUES.LANGUAGES]
 			} catch {
-				return ["English"]
+				return [...DEFAULT_ENP_VALUES.LANGUAGES]
 			}
 		})(),
-		responseTime: enp.responseTime ?? "Within 24 hours",
+		responseTime: enp.responseTime ?? DEFAULT_ENP_VALUES.RESPONSE_TIME,
 		badges,
-		location: "Philippines", // TODO: Add location field to enpProfile schema
-		rate: 500, // TODO: Add hourly_rate field to enpProfile schema
+		location: DEFAULT_ENP_VALUES.LOCATION, // TODO: Add location field to enpProfile schema
+		rate: DEFAULT_ENP_VALUES.RATE, // TODO: Add hourly_rate field to enpProfile schema
+		isAvailable: true,
 	}
 }
 
@@ -174,7 +194,7 @@ export function buildENPWhereConditions({
 	minRating?: number
 	searchTerm?: string
 }) {
-	const conditions: ReturnType<typeof gte | typeof eq | typeof ilike>[] = []
+	const conditions: ReturnType<typeof gte | typeof ilike>[] = []
 
 	if (specialization && specialization !== "all") {
 		conditions.push(eq(enpProfiles.specialization, specialization))
@@ -185,7 +205,7 @@ export function buildENPWhereConditions({
 	}
 
 	// Add search term filter (search in name, specialization, or languages)
-	if (searchTerm && searchTerm.trim()) {
+	if (searchTerm?.trim()) {
 		const searchTermLower = `%${searchTerm.toLowerCase()}%`
 		conditions.push(
 			or(

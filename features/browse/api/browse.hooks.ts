@@ -1,10 +1,12 @@
 "use client"
 
+import { skipToken } from "@tanstack/react-query"
+
 import { trpc } from "@/services/trpc/client"
 
-export function useBrowse() {
-	const utils = trpc.useUtils()
+import { CACHE_TIMES } from "../lib/browse.constants"
 
+export function useBrowse() {
 	// Get available ENPs with filters
 	const getAvailableENPs = (input?: {
 		sessionMode?: "REN" | "IEN" | undefined
@@ -17,17 +19,18 @@ export function useBrowse() {
 		limit?: number | undefined
 		offset?: number | undefined
 	}) =>
-		trpc.browse.getAvailableENPs.useQuery(input, {
-			staleTime: 60_000, // Cache for 1 minute
+		trpc.browse.getAvailableENPs.useQuery(input ?? skipToken, {
+			staleTime: CACHE_TIMES.ENPS,
 		})
 
 	// Find best match for Quick Match
-	const findBestMatch = trpc.browse.findBestMatch.useMutation({
-		onSuccess: () => {
-			// Invalidate ENPs cache to ensure fresh data
-			void utils.browse.getAvailableENPs.invalidate()
-		},
-	})
+	const findBestMatch = (input: {
+		serviceType: "CONSULTATION" | "NOTARIZATION"
+		sessionMode: "REN" | "IEN"
+	}) =>
+		trpc.browse.findBestMatch.useQuery(input, {
+			staleTime: CACHE_TIMES.ENPS,
+		})
 
 	// Track Quick Match response
 	const trackQuickMatchResponse = trpc.browse.trackQuickMatchResponse.useMutation({
@@ -39,7 +42,7 @@ export function useBrowse() {
 	// Get principal score
 	const getPrincipalScore = () =>
 		trpc.browse.getPrincipalScore.useQuery(undefined, {
-			staleTime: 300_000, // Cache for 5 minutes
+			staleTime: CACHE_TIMES.PRINCIPAL_SCORE,
 		})
 
 	return {

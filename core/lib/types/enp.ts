@@ -1,10 +1,12 @@
 export interface ENPProfile {
 	id: string
 	name: string | null
+	initials: string
 	email: string | null
 	image: string | null
 	phoneNumber: string | null
 	specialization: string
+	specializations: string[]
 	rating: number
 	reviewCount: number
 	experience?: string

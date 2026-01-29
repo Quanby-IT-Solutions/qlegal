@@ -4,7 +4,12 @@ import { users } from "@/services/drizzle/schema/auth"
 import { enpProfiles } from "@/services/drizzle/schema/enp-profiles"
 import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
 
-import { buildENPWhereConditions, computeENPScore, transformENPData } from "../lib/browse.utils"
+import {
+	buildENPWhereConditions,
+	computeENPScore,
+	normalizeRating,
+	transformENPData,
+} from "../lib/browse.utils"
 import {
 	findBestMatchSchema,
 	getAvailableENPsSchema,
@@ -213,8 +218,3 @@ export const browseRouter = createTRPCRouter({
 			return { success: true }
 		}),
 })
-
-// Re-export normalizeRating for use in findBestMatch (needed inline)
-function normalizeRating(r?: number | null) {
-	return Math.min(Math.max((r ?? 0) / 5, 0), 1)
-}

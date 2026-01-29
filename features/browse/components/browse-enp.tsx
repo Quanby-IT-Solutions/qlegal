@@ -43,27 +43,9 @@ export function BrowseENP() {
 	const isLoading = enpsQuery.isLoading
 	const enps = enpsData?.enps ?? []
 
-	// Map ENP type to ENPProfile format for EnpCard component
+	// Filter state update helper
 	const updateFilter = <K extends keyof FilterState>(key: K, value: FilterState[K]) =>
 		setFilters(prev => ({ ...prev, [key]: value }))
-
-	const mappedEnps = enps.map(enp => ({
-		id: String(enp.id),
-		name: enp.name,
-		email: enp.email,
-		image: enp.image,
-		phoneNumber: enp.phoneNumber,
-		specialization: enp.specializations?.[0] ?? "General",
-		rating: enp.rating,
-		reviewCount: enp.reviewCount,
-		experience: enp.experience,
-		languages: enp.languages,
-		responseTime: enp.responseTime,
-		location: enp.location,
-		rate: enp.rate,
-		badges: enp.badges,
-		isAvailable: true,
-	}))
 
 	const handleClearFilters = () => {
 		updateFilter("specialization", "all")
@@ -85,7 +67,7 @@ export function BrowseENP() {
 				setSortBy={value => setFilters(prev => ({ ...prev, sortBy: value }))}
 				onClearFilters={handleClearFilters}
 				totalResults={enpsData?.total ?? 0}
-				filteredResults={mappedEnps.length}
+				filteredResults={enps.length}
 			/>
 
 			{isLoading ? (
@@ -101,9 +83,9 @@ export function BrowseENP() {
 						</Card>
 					))}
 				</div>
-			) : mappedEnps.length > 0 ? (
+			) : enps.length > 0 ? (
 				<div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-					{mappedEnps.map(enp => (
+					{enps.map(enp => (
 						<EnpCard key={enp.id} variant="browse" enp={enp} hoverEffect />
 					))}
 				</div>
