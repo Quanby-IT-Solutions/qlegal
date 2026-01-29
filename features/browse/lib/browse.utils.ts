@@ -1,9 +1,9 @@
 import { eq, gte, ilike, or } from "drizzle-orm"
 
-import type { ENPProfile } from "@/core/lib/types/enp"
-
 import { users } from "@/services/drizzle/schema/auth"
+import type { EnpAvailability, EnpProfile } from "@/services/drizzle/schema/enp-profiles"
 import { enpProfiles } from "@/services/drizzle/schema/enp-profiles"
+import { getAvatarPublicUrl } from "@/services/supabase/presigned-url"
 
 import { type ENPCandidateWithScore, type ENPScoreBreakdown } from "../api/browse.schema"
 import {
@@ -14,6 +14,7 @@ import {
 	SCORE_BOOSTS,
 	SCORE_WEIGHTS,
 } from "./browse.constants"
+import type { EnpCombined } from "./browse.types"
 
 // Helper: normalize rating 0..5 -> 0..1
 export function normalizeRating(r?: number | null) {
@@ -111,25 +112,30 @@ export function computeENPScore(
 	}
 }
 
-// Transform database ENP record to ENPProfile
-export function transformENPData(enp: {
-	id: number | string
+// Transform database ENP record to display format
+export async function transformENPData(enp: EnpCombined): Promise<{
+	id: string
 	name: string | null
+	initials: string
 	email: string | null
 	image: string | null
 	phoneNumber: string | null
-	specialization: string | null
-	bio: string | null
-	experience: string | null
-	languages: string | null
-	responseTime: string | null
-	rating: number | null
-	reviewCount: number | null
-	createdAt: Date | null
-}): ENPProfile {
+	specialization: string
+	specializations: string[]
+	rating: number
+	reviewCount: number
+	experience: string
+	languages: string[]
+	responseTime: string
+	badges: string[]
+	location: string
+	rate: number
+	isAvailable: boolean
+}> {
 	const rating = enp.rating ?? 0
 	const reviewCount = enp.reviewCount ?? 0
 	const badges: string[] = []
+	const imageUrl = await getAvatarPublicUrl(enp.image)
 
 	// Compute badges based on rating and review count
 	if (rating >= BADGE_THRESHOLDS.TOP_RATED_RATING) {
@@ -154,7 +160,7 @@ export function transformENPData(enp: {
 					.slice(0, 2)
 			: "EN",
 		email: enp.email,
-		image: enp.image,
+		image: imageUrl,
 		phoneNumber: enp.phoneNumber,
 		specialization: enp.specialization ?? "General",
 		specializations: enp.specialization

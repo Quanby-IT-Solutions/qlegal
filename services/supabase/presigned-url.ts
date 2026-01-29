@@ -51,3 +51,22 @@ export function usePresignedUrl() {
 		onError: error => toast.error(error.message),
 	})
 }
+
+// Convert Supabase storage path to public URL for avatar bucket
+export async function getAvatarPublicUrl(path: string | null): Promise<string | null> {
+	if (!path) return null
+
+	// If it's already a full URL, return it
+	if (path.startsWith("http://") || path.startsWith("https://")) {
+		return path
+	}
+
+	try {
+		const supabase = getPublicClient()
+		const { data } = await supabase.storage.from("avatar").getPublicUrl(path)
+		return data.publicUrl
+	} catch (error) {
+		console.error("Failed to get avatar public URL:", error)
+		return null
+	}
+}

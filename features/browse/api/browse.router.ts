@@ -164,8 +164,8 @@ export const browseRouter = createTRPCRouter({
 
 			console.log(`[Quick Match] Query returned ${enpsData.length} ENP records from database`)
 
-			// Transform data using utility function
-			const mappedEnps = enpsData.map(transformENPData)
+			// Transform data using utility function (now async to convert avatar paths to URLs)
+			const mappedEnps = await Promise.all(enpsData.map(transformENPData))
 
 			const response: GetAvailableENPsResponse = {
 				total: totalCount,

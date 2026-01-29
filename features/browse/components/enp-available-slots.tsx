@@ -2,7 +2,8 @@ import Link from "next/link"
 import { Clock } from "lucide-react"
 
 import { Button } from "@/core/components/ui/button"
-import type { ENPAvailableSlot } from "@/core/lib/types/enp"
+
+import type { ENPAvailableSlot } from "@/features/browse/lib/enp-display.types"
 
 interface EnpAvailableSlotsProps {
 	slots: ENPAvailableSlot[]

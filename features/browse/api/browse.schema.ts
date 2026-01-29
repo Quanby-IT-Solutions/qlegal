@@ -1,7 +1,5 @@
 import { z } from "zod/v4"
 
-import type { ENPProfile } from "@/core/lib/types/enp"
-
 // Find Best Match schema
 export const findBestMatchSchema = z.object({
 	serviceType: z.enum(["CONSULTATION", "NOTARIZATION"]),
@@ -69,8 +67,26 @@ export interface ENPCandidateWithScore {
 	breakdown: ENPScoreBreakdown
 }
 
-// Get Available ENPs response type - using ENPProfile from core/types
+// Get Available ENPs response type - computed display format from transformENPData
 export interface GetAvailableENPsResponse {
 	total: number
-	enps: ENPProfile[]
+	enps: Array<{
+		id: string
+		name: string | null
+		initials: string
+		email: string | null
+		image: string | null
+		phoneNumber: string | null
+		specialization: string
+		specializations: string[]
+		rating: number
+		reviewCount: number
+		experience: string
+		languages: string[]
+		responseTime: string
+		badges: string[]
+		location: string
+		rate: number
+		isAvailable: boolean
+	}>
 }

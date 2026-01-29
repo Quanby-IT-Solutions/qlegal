@@ -3,22 +3,22 @@
 import { useState } from "react"
 import { AlertCircle } from "lucide-react"
 
-import { EnpCard } from "@/core/components/enp-card"
 import { Alert, AlertDescription, AlertTitle } from "@/core/components/ui/alert"
 import { Card, CardContent } from "@/core/components/ui/card"
 import { Skeleton } from "@/core/components/ui/skeleton"
 
 import { useBrowse } from "../api/browse.hooks"
 import { BrowseFilters } from "./browse-filters"
-
-type FilterState = {
-	searchTerm: string
-	specialization: string
-	minRating: number
-	sortBy: "RATING" | "EXPERIENCE" | "RECENT" | "AVAILABILITY"
-}
+import { EnpCard } from "./enp-card"
 
 export function BrowseENP() {
+	type FilterState = {
+		searchTerm: string
+		specialization: string
+		minRating: number
+		sortBy: "RATING" | "EXPERIENCE" | "RECENT" | "AVAILABILITY"
+	}
+
 	const [filters, setFilters] = useState<FilterState>({
 		searchTerm: "",
 		specialization: "all",
@@ -86,7 +86,7 @@ export function BrowseENP() {
 			) : enps.length > 0 ? (
 				<div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
 					{enps.map(enp => (
-						<EnpCard key={enp.id} variant="browse" enp={enp} hoverEffect />
+						<EnpCard key={enp.id} enp={enp} hoverEffect />
 					))}
 				</div>
 			) : (
