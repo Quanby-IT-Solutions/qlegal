@@ -91,7 +91,41 @@ export const lawyerPricingSchema = z.object({
 	acknowledgmentPrice: z.number().positive("Acknowledgment price must be positive").optional(),
 	affirmationPrice: z.number().positive("Affirmation price must be positive").optional(),
 	juratPrice: z.number().positive("Jurat price must be positive").optional(),
-	signatureWitnessingPrice: z.number().positive("Signature witnessing price must be positive").optional(),
+	signatureWitnessingPrice: z
+		.number()
+		.positive("Signature witnessing price must be positive")
+		.optional(),
 })
 
 export type LawyerPricingSchema = z.infer<typeof lawyerPricingSchema>
+
+export const professionalDetailsSchema = z.object({
+	bio: z
+		.string()
+		.min(10, "Bio must be at least 10 characters")
+		.max(500, "Bio must not exceed 500 characters"),
+	experience: z.string().min(1, "Experience is required").max(50, "Experience is too long"),
+	responseTime: z.string().min(1, "Response time is required").max(50, "Response time is too long"),
+})
+
+export type ProfessionalDetailsSchema = z.infer<typeof professionalDetailsSchema>
+
+export const updateProfessionalDetailsSchema = z.object({
+	bio: z
+		.string()
+		.min(1, "You must put somehing for your bio")
+		.max(500, "Bio must not exceed 500 characters")
+		.optional(),
+	experience: z
+		.string()
+		.min(1, "Experience is required")
+		.max(50, "Experience is too long")
+		.optional(),
+	responseTime: z
+		.string()
+		.min(1, "Response time is required")
+		.max(50, "Response time is too long")
+		.optional(),
+})
+
+export type UpdateProfessionalDetailsInput = z.infer<typeof updateProfessionalDetailsSchema>

@@ -25,6 +25,7 @@ export async function sendNotarizationRequestNotification({
 	requestUrl: string
 }) {
 	try {
+		const siteUrl = env.NEXT_PUBLIC_SITE_URL
 		await emailTransporter.sendMail({
 			from: `Quanby Sign <${env.EMAIL_FROM}>`,
 			to: enpEmail,
@@ -38,6 +39,7 @@ export async function sendNotarizationRequestNotification({
 					workflow,
 					priority,
 					requestUrl,
+					siteUrl,
 				})
 			),
 		})

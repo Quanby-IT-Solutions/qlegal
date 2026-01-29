@@ -22,7 +22,7 @@ export async function sendClientSubmission(
 
 	await emailTransporter.sendMail({
 		from: `Quanby Sign <${env.EMAIL_FROM}>`,
-		to: email, // Sending to the client
+		to: email,
 		subject: `Booking Request Submitted Successfully`,
 		html: await render(
 			ClientSubmissionTemplate({

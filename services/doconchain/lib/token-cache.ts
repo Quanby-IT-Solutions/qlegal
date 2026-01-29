@@ -23,7 +23,16 @@ interface ProjectTokenEntry {
 }
 const projectTokenCache = new Map<string, ProjectTokenEntry>()
 
-// Refresh project token if it's older than this (2 minutes)
+// Meeting-scoped token: generated when ENP joins. Used for project creation + Edit Draft links.
+// Key: meeting ID, Value: { token, email, storedAt }
+interface MeetingTokenEntry {
+	token: string
+	email: string
+	storedAt: number
+}
+const meetingTokenCache = new Map<string, MeetingTokenEntry>()
+
+// Refresh project/meeting token if it's older than this (2 minutes)
 const PROJECT_TOKEN_REFRESH_AGE_MS = 2 * 60 * 1000
 
 function isTokenValid(entry: CachedToken | undefined): entry is CachedToken {
@@ -210,6 +219,61 @@ export async function getOrRefreshProjectToken(
  */
 export function clearProjectToken(projectUuid: string): void {
 	projectTokenCache.delete(projectUuid)
+}
+
+/**
+ * Store the DocoChain token for a meeting (generated when ENP joins).
+ * Used for project creation and Edit Draft link generation so the link is always correct.
+ */
+export function setMeetingToken(meetingId: string, email: string, token: string): void {
+	meetingTokenCache.set(meetingId, {
+		token,
+		email,
+		storedAt: Date.now(),
+	})
+	console.log(`🔵 Stored meeting-scoped DocoChain token for meeting ${meetingId.substring(0, 8)}... (ENP: ${email})`)
+}
+
+/**
+ * Get the meeting-scoped DocoChain token, if any.
+ */
+export function getMeetingToken(meetingId: string): { token: string; email: string } | undefined {
+	const entry = meetingTokenCache.get(meetingId)
+	return entry ? { token: entry.token, email: entry.email } : undefined
+}
+
+/**
+ * Get or refresh the meeting-scoped token. Returns undefined if none stored.
+ */
+export async function getOrRefreshMeetingToken(
+	meetingId: string,
+	email: string
+): Promise<string | undefined> {
+	const entry = meetingTokenCache.get(meetingId)
+	if (!entry) return undefined
+
+	const ageMs = Date.now() - entry.storedAt
+	if (ageMs > PROJECT_TOKEN_REFRESH_AGE_MS) {
+		console.log(
+			`🔄 Meeting token is ${Math.round(ageMs / 1000 / 60)} minutes old - refreshing...`
+		)
+		const freshToken = await generateToken(email, true)
+		setMeetingToken(meetingId, email, freshToken)
+		return freshToken
+	}
+	return entry.token
+}
+
+/**
+ * Ensure a meeting has a valid DocoChain token for the given ENP email.
+ * Call when ENP joins the meeting. Returns the token (existing or newly generated).
+ */
+export async function ensureMeetingToken(meetingId: string, email: string): Promise<string> {
+	const existing = await getOrRefreshMeetingToken(meetingId, email)
+	if (existing) return existing
+	const token = await generateToken(email, true)
+	setMeetingToken(meetingId, email, token)
+	return token
 }
 
 interface VerifyTokenParams {

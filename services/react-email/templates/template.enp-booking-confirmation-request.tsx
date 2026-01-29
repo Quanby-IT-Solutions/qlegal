@@ -50,14 +50,12 @@ export const BookingTemplate = ({
 							boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
 						}}
 					>
-						{/* Header with enhanced gradient background */}
 						<Section
 							className="relative overflow-hidden py-12 text-center"
 							style={{
 								background: "linear-gradient(135deg, #FF5E7E 0%, #E22C9A 50%, #C300B0 100%)",
 							}}
 						>
-							{/* Subtle overlay pattern for depth */}
 							<div
 								className="absolute inset-0"
 								style={{
@@ -80,7 +78,6 @@ export const BookingTemplate = ({
 							/>
 						</Section>
 
-						{/* Main content */}
 						<Section className="px-10 pb-10">
 							<Text className="my-10 text-center text-2xl font-bold tracking-tight text-gray-900">
 								Booking Request Received

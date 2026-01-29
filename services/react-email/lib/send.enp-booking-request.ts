@@ -19,7 +19,7 @@ export async function sendBookingConfirmation(
 	const confirmLink = `${getUrl()}/bookings/confirm`
 
 	await emailTransporter.sendMail({
-		from: `Quanby Bookings <${env.EMAIL_FROM}>`,
+		from: `Quanby Sign <${env.EMAIL_FROM}>`,
 		to: email,
 		subject: `New Booking Request from ${clientName}`,
 		html: await render(
