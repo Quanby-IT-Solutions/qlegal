@@ -9,7 +9,13 @@ import {
 	getProjectDetails,
 	normalizeUrl,
 } from "@/services/doconchain"
-import { generateToken, invalidateToken, setProjectToken } from "@/services/doconchain/lib/token-cache"
+import {
+	ensureMeetingToken,
+	generateToken,
+	getOrRefreshMeetingToken,
+	invalidateToken,
+	setProjectToken,
+} from "@/services/doconchain/lib/token-cache"
 import { db } from "@/services/drizzle/db"
 import { appointments } from "@/services/drizzle/schema/appointments"
 import { users } from "@/services/drizzle/schema/auth"
@@ -472,6 +478,12 @@ export const meetingsRouter = createTRPCRouter({
 				code: "FORBIDDEN",
 				message: "You don't have access to this meeting",
 			})
+		}
+
+		// When ENP joins, ensure a meeting-scoped DocoChain token exists. Use it for project
+		// creation and Edit Draft links so the link is always correct.
+		if (isEnpRole(ctx.session.user.role) && ctx.session.user.email) {
+			await ensureMeetingToken(input, ctx.session.user.email.trim().toLowerCase())
 		}
 
 		return {
@@ -1058,19 +1070,22 @@ export const meetingsRouter = createTRPCRouter({
 			console.log("🔵 Creating DocoChain project for document:", document.name)
 			console.log("   - Document ID:", documentId)
 			console.log("   - Creator Email:", creatorEmail)
-			console.log("   - Generating fresh token for this project...")
 
-			// CRITICAL: Generate a fresh token for each project creation.
-			// This ensures each project has its own token, preventing DocoChain session conflicts
-			// when generating Edit Draft Links for multiple projects in the same meeting.
-			// Without this, the 2nd/3rd projects would reuse the token from the 1st project,
-			// causing DocoChain to reject Edit Draft Link generation (redirects to token= sign-link).
-			invalidateToken(creatorEmail)
-			const projectToken = await generateToken(creatorEmail, true)
+			// Use meeting-scoped token when ENP joined via getToken (ensures Edit Draft link is always correct).
+			// Otherwise generate fresh token per project (legacy path).
+			const meetingToken = await getOrRefreshMeetingToken(meetingId, creatorEmail)
+			let projectToken: string
 
-			console.log("✅ Fresh token generated - proceeding with project creation...")
+			if (meetingToken) {
+				console.log("   - Using meeting-scoped token (from ENP join)...")
+				projectToken = meetingToken
+			} else {
+				console.log("   - No meeting token - generating fresh token for this project...")
+				invalidateToken(creatorEmail)
+				projectToken = await generateToken(creatorEmail, true)
+				console.log("✅ Fresh token generated - proceeding with project creation...")
+			}
 
-			// Create DocoChain project
 			const docoChainProject = await createProject({
 				title: document.name,
 				documentFile: fileBuffer,
@@ -1079,13 +1094,12 @@ export const meetingsRouter = createTRPCRouter({
 				creatorAsViewer: false,
 				documentStamp,
 				creatorEmail,
+				tokenOverride: meetingToken ?? undefined,
 			})
 
 			const docoChainProjectId = docoChainProject.uuid
 
-			// CRITICAL: Store the token that was used to create this project.
-			// This ensures we always use the same token for this project's operations,
-			// even if other projects are created later (which would replace the email-based cache).
+			// Store the token used to create this project so Edit Draft links use the same token.
 			setProjectToken(docoChainProjectId, projectToken)
 			console.log(`✅ Stored project-specific token for ${docoChainProjectId.substring(0, 8)}...`)
 			const docoChainRedirectUrl = normalizeUrl(docoChainProject.redirectUrl) ?? null

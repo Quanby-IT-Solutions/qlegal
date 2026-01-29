@@ -1,8 +1,7 @@
 import { env } from "@/env"
 
-import { apiCall } from "../lib/http-client"
+import { apiCall, apiCallWithToken } from "../lib/http-client"
 import { createProjectResponseSchema } from "../lib/schemas"
-import { generateToken, invalidateToken } from "../lib/token-cache"
 import { normalizeUrl } from "../lib/utils"
 
 interface DocumentStamp {
@@ -27,6 +26,8 @@ interface CreateProjectRequest {
 	userListEditable?: boolean
 	creatorAsViewer?: boolean
 	documentStamp?: DocumentStamp
+	/** When provided, use this token (e.g. meeting-scoped from ENP join) instead of email-based lookup. */
+	tokenOverride?: string
 }
 
 export async function createProject({
@@ -37,6 +38,7 @@ export async function createProject({
 	userListEditable = true,
 	creatorAsViewer = true,
 	documentStamp,
+	tokenOverride,
 }: CreateProjectRequest): Promise<{ uuid: string; id?: string | number; redirectUrl?: string }> {
 	const formData = new FormData()
 	const documentBlob = new Blob([new Uint8Array(documentFile)], { type: "application/pdf" })
@@ -53,22 +55,19 @@ export async function createProject({
 		formData.append("document_stamp", JSON.stringify(documentStamp))
 	}
 
-	// Use existing token (should be generated before calling createProject)
-	// getToken will verify the token and regenerate if invalid
-	const response = await apiCall(
-		async token => {
-			return fetch(`${env.DOCONCHAIN_API_URL}/api/v2/projects?user_type=ENTERPRISE_API`, {
-				method: "POST",
-				headers: {
-					Authorization: `Bearer ${token}`,
-					Accept: "application/json",
-				},
-				body: formData,
-			})
-		},
-		creatorEmail,
-		false
-	) // Don't force verify - getToken already verifies
+	const doFetch = (token: string) =>
+		fetch(`${env.DOCONCHAIN_API_URL}/api/v2/projects?user_type=ENTERPRISE_API`, {
+			method: "POST",
+			headers: {
+				Authorization: `Bearer ${token}`,
+				Accept: "application/json",
+			},
+			body: formData,
+		})
+
+	const response = tokenOverride
+		? await apiCallWithToken(doFetch, tokenOverride)
+		: await apiCall(doFetch, creatorEmail, false)
 
 	if (!response.ok) {
 		const errorText = await response.text()
