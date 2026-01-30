@@ -26,7 +26,7 @@ import { cn } from "@/core/lib/utils"
 
 import { trpc } from "@/services/trpc/client"
 
-import { ConsultationBookingDialog } from "@/features/browse/components/consultation-booking-dialog"
+import { BookingDialog } from "@/features/browse/components/booking-dialog"
 import { useMessages } from "@/features/messages/api/messages.hooks"
 import { useMessagesSubscriptions } from "@/features/messages/api/use-messages-subscriptions"
 import { FileUploadPanel } from "@/features/messages/components/file-upload-panel"
@@ -380,7 +380,7 @@ export default function MessagesPage() {
 							</div>
 							<div className="flex items-center gap-1.5">
 								{selectedConversation?.otherUser?.id ? (
-									<ConsultationBookingDialog
+									<BookingDialog
 										enpId={selectedConversation.otherUser.id}
 										enpName={selectedConversation.otherUser.name}
 										trigger={

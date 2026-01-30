@@ -39,8 +39,8 @@ import { SessionModeSelector } from "@/features/appointments/components/session-
 import { SessionTypeSelector } from "@/features/appointments/components/session-type-selector"
 import { TimeWheelPicker } from "@/features/appointments/components/time-wheel-picker"
 
-import { bookingDialogSchema, type BookingDialogSchema } from "./booking-dialog.schema"
-import { convertTo24Hour } from "./lib/time-utils"
+import { bookingDialogSchema, type BookingDialogSchema } from "@/features/browse/components/booking-dialog.schema"
+import { convertTo24Hour } from "@/features/browse/lib/time-utils"
 
 interface BookingDialogProps {
 	enpId: string

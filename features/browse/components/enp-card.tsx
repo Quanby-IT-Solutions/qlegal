@@ -1,6 +1,8 @@
 import Link from "next/link"
-import { Briefcase, Clock, Globe, MapPin, MessageSquare, ShieldCheck, User } from "lucide-react"
+import { Briefcase, Clock, Globe, MapPin, MessageSquare, ShieldCheck, Star, User } from "lucide-react"
 
+import { Avatar, AvatarFallback, AvatarImage } from "@/core/components/ui/avatar"
+import { Badge } from "@/core/components/ui/badge"
 import { Button } from "@/core/components/ui/button"
 import { Card, CardContent, CardFooter } from "@/core/components/ui/card"
 import {
@@ -9,17 +11,65 @@ import {
 	TooltipProvider,
 	TooltipTrigger,
 } from "@/core/components/ui/tooltip"
-import { cn } from "@/core/lib/utils"
+import { cn, getInitials } from "@/core/lib/utils"
 
 import { BookingDialog } from "@/features/browse/components/booking-dialog"
-import type { ENPDisplayData } from "@/features/browse/lib/enp-display.types"
 
-import { EnpAvatar } from "./enp-avatar"
-import { EnpRating } from "./enp-rating"
+// ENP display data type (co-located in enp-card.tsx)
+type ENPDisplayData = {
+	id: string
+	name: string | null
+	initials: string
+	email: string | null
+	image: string | null
+	phoneNumber: string | null
+	specialization: string
+	specializations: string[]
+	rating: number
+	reviewCount: number
+	experience: string
+	languages: string[]
+	responseTime: string
+	badges: string[]
+	location: string
+	rate: number
+	isAvailable: boolean
+}
 
 interface EnpCardProps {
 	enp: ENPDisplayData
 	className?: string
+}
+
+// Inline EnpAvatar component (previously in separate file)
+function EnpAvatar({ name, image, className }: { name: string | null; image?: string | null; className?: string }) {
+	return (
+		<Avatar className={cn("bg-muted", className)}>
+			<AvatarImage src={image ?? ""} alt={name ?? "ENP"} className="object-cover" />
+			<AvatarFallback className="text-muted-foreground font-medium">{getInitials(name ?? "ENP")}</AvatarFallback>
+		</Avatar>
+	)
+}
+
+// Inline EnpRating component (previously in separate file)
+function EnpRating({ rating, reviewCount, variant = "inline", className }: { rating: number; reviewCount?: number; variant?: "badge" | "inline"; className?: string }) {
+	if (variant === "badge") {
+		return (
+			<Badge variant="secondary" className={className}>
+				⭐ {rating.toFixed(1)}
+			</Badge>
+		)
+	}
+
+	return (
+		<div className={`flex items-center gap-1 ${className ?? ""}`}>
+			<Star className="size-3.5 fill-amber-400 text-amber-400" />
+			<span className="text-sm font-semibold">{rating.toFixed(1)}</span>
+			{reviewCount !== undefined && (
+				<span className="text-muted-foreground text-xs">({reviewCount})</span>
+			)}
+		</div>
+	)
 }
 
 export function EnpCard({ enp, className }: EnpCardProps) {

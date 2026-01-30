@@ -1,7 +1,6 @@
-import { eq, gte, ilike, or } from "drizzle-orm"
+import { eq, gte, ilike, or, type InferSelectModel } from "drizzle-orm"
 
 import { users } from "@/services/drizzle/schema/auth"
-import type { EnpAvailability, EnpProfile } from "@/services/drizzle/schema/enp-profiles"
 import { enpProfiles } from "@/services/drizzle/schema/enp-profiles"
 import { getAvatarPublicUrl } from "@/services/supabase/presigned-url"
 
@@ -14,7 +13,25 @@ import {
 	SCORE_BOOSTS,
 	SCORE_WEIGHTS,
 } from "./browse.constants"
-import type { EnpCombined } from "./browse.types"
+
+// Combined type for ENP data from user + enpProfiles tables (INNER JOIN result)
+type EnpCombined = Readonly<{
+	// From users table
+	id: InferSelectModel<typeof users>["id"]
+	name: InferSelectModel<typeof users>["name"]
+	email: InferSelectModel<typeof users>["email"]
+	image: InferSelectModel<typeof users>["image"]
+	phoneNumber: InferSelectModel<typeof users>["phoneNumber"]
+	// From enpProfiles table
+	specialization: InferSelectModel<typeof enpProfiles>["specialization"]
+	bio: InferSelectModel<typeof enpProfiles>["bio"]
+	experience: InferSelectModel<typeof enpProfiles>["experience"]
+	languages: InferSelectModel<typeof enpProfiles>["languages"]
+	responseTime: InferSelectModel<typeof enpProfiles>["responseTime"]
+	rating: InferSelectModel<typeof enpProfiles>["rating"]
+	reviewCount: InferSelectModel<typeof enpProfiles>["reviewCount"]
+	createdAt: InferSelectModel<typeof enpProfiles>["createdAt"]
+}>
 
 // Helper: normalize rating 0..5 -> 0..1
 export function normalizeRating(r?: number | null) {
