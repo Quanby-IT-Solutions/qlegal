@@ -1,14 +1,20 @@
 "use server"
 
-import { eq } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
+import { eq } from "drizzle-orm"
 
 import { getUrl } from "@/core/lib/get-url"
 
 import { db } from "@/services/drizzle/db"
-import { livenessValidations } from "@/services/drizzle/schema/liveness"
 import { users } from "@/services/drizzle/schema/auth"
 import { idCardDetails } from "@/services/drizzle/schema/id-card-details"
+import { livenessValidations } from "@/services/drizzle/schema/liveness"
+import { matchFaceSelfieToId } from "@/services/hyperverge/kyc-direct"
+import {
+	fetchImageUrlAsDataUrl,
+	getHyperVergeKycLogs,
+	pickBestFaceImageUrlFromLogs,
+} from "@/services/hyperverge/kyc-logs"
 import {
 	checkLiveness,
 	getWorkflowOutput,
@@ -16,12 +22,6 @@ import {
 	startHostedWorkflow,
 	type LivenessDecisionResult,
 } from "@/services/hyperverge/liveness"
-import { matchFaceSelfieToId } from "@/services/hyperverge/kyc-direct"
-import {
-	fetchImageUrlAsDataUrl,
-	getHyperVergeKycLogs,
-	pickBestFaceImageUrlFromLogs,
-} from "@/services/hyperverge/kyc-logs"
 import { auth } from "@/services/next-auth"
 
 /**
@@ -154,12 +154,10 @@ export async function validateSelfieLiveness(imageBase64: string, meetingId?: st
 		}
 
 		let faceMatchPassed = true
-		let faceMatchMeta:
-			| {
-					matchValue: "yes" | "no" | "unknown"
-					summaryAction: "pass" | "fail" | "manualReview" | "unknown"
-			  }
-			| null = null
+		let faceMatchMeta: {
+			matchValue: "yes" | "no" | "unknown"
+			summaryAction: "pass" | "fail" | "manualReview" | "unknown"
+		} | null = null
 
 		if (user?.kycStatus === "VERIFIED" && referenceImageBase64) {
 			const faceMatch = await matchFaceSelfieToId({
@@ -182,17 +180,17 @@ export async function validateSelfieLiveness(imageBase64: string, meetingId?: st
 					...decision,
 					isApproved: true,
 					message: "Liveness and face match verified successfully.",
-			  }
+				}
 			: faceMatchPassed
 				? {
 						...decision,
 						isApproved: false,
-				  }
+					}
 				: {
 						...decision,
 						isApproved: false,
 						message: "Face match failed. Please retake your selfie and try again.",
-				  }
+					}
 
 		console.log("📊 Liveness Decision:", {
 			liveFaceValue: decision.liveFaceValue,
@@ -220,7 +218,10 @@ export async function validateSelfieLiveness(imageBase64: string, meetingId?: st
 				meetingId ? `for meeting ${meetingId}` : ""
 			)
 		} catch (dbError) {
-			console.error("⚠️ Failed to update existing liveness row, trying insert (non-critical):", dbError)
+			console.error(
+				"⚠️ Failed to update existing liveness row, trying insert (non-critical):",
+				dbError
+			)
 			try {
 				await db.insert(livenessValidations).values({
 					userId: session.user.id,

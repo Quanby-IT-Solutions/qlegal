@@ -116,9 +116,7 @@ export async function apiCallWithToken(fn: ApiCallFn, token: string): Promise<Re
 			const response = await fn(token)
 			if (response.status === 401) {
 				const errorText = await response.text().catch(() => "Unknown error")
-				throw new Error(
-					`Token unauthorized (use meeting-scoped token from ENP join): ${errorText}`
-				)
+				throw new Error(`Token unauthorized (use meeting-scoped token from ENP join): ${errorText}`)
 			}
 			return response
 		} catch (error) {

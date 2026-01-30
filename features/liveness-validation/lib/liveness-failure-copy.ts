@@ -14,10 +14,15 @@ export function getLivenessFailureCopy(input: {
 
 	const mentionsMultipleFaces =
 		(mentions("multiple") || mentions("more than one") || mentions("many")) && mentions("face")
-	const mentionsNoFace = (mentions("no") || mentions("not")) && mentions("face") && mentions("detect")
+	const mentionsNoFace =
+		(mentions("no") || mentions("not")) && mentions("face") && mentions("detect")
 	const mentionsOcclusion = mentions("occlusion") || mentions("cover") || mentions("mask")
 	const mentionsLighting =
-		mentions("lighting") || mentions("dark") || mentions("low light") || mentions("glare") || mentions("backlit")
+		mentions("lighting") ||
+		mentions("dark") ||
+		mentions("low light") ||
+		mentions("glare") ||
+		mentions("backlit")
 	const mentionsBlur = mentions("blur") || mentions("blurry") || mentions("motion")
 
 	if (mentionsMultipleFaces) {
@@ -36,8 +41,6 @@ export function getLivenessFailureCopy(input: {
 		prioritizedTips.push("Hold still and keep the camera steady")
 	}
 
-
-
 	const tips = Array.from(new Set([...prioritizedTips])).slice(0, 4)
 
 	return {
@@ -46,4 +49,3 @@ export function getLivenessFailureCopy(input: {
 		tips,
 	}
 }
-

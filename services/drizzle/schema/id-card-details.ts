@@ -2,6 +2,7 @@ import { type InferSelectModel } from "drizzle-orm"
 import { index } from "drizzle-orm/pg-core"
 
 import { createTable, randomId } from "@/services/drizzle/utils"
+
 import { users } from "./auth"
 
 /**
@@ -92,10 +93,7 @@ export const idCardDetails = createTable(
 		verificationMethod: t.varchar({ length: 100 }), // "kyc_mobile_link", "kyc_desktop_camera", etc.
 
 		// Timestamps
-		createdAt: t
-			.timestamp({ mode: "date", withTimezone: true })
-			.notNull()
-			.defaultNow(),
+		createdAt: t.timestamp({ mode: "date", withTimezone: true }).notNull().defaultNow(),
 		updatedAt: t
 			.timestamp({ mode: "date", withTimezone: true })
 			.notNull()

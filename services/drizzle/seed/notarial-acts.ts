@@ -1,5 +1,5 @@
-import { eq } from "drizzle-orm"
 import { faker } from "@faker-js/faker"
+import { eq } from "drizzle-orm"
 
 import { db } from "@/services/drizzle/db"
 import { users } from "@/services/drizzle/schema/auth"
@@ -165,7 +165,9 @@ export async function createNotarialActs() {
 
 	const insertedActs = await db.insert(notarialActs).values(allActs).returning()
 
-	console.log(`✅ Created ${insertedActs.length} notarial acts (signed documents) for principal: ${principalName}`)
+	console.log(
+		`✅ Created ${insertedActs.length} notarial acts (signed documents) for principal: ${principalName}`
+	)
 	console.log(`   - Acts matched by name: ${notarialActsData.length}`)
 	console.log(`   - Acts matched by email: 1`)
 	console.log(`   - All acts include docoChainProjectUuid for signed document access`)

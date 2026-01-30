@@ -1,7 +1,7 @@
 "use client"
 
-import { useEffect, useState } from "react"
 import Link from "next/link"
+import { useEffect, useState } from "react"
 import { ArrowRight, CheckCircle, FileSignature, Scale, Shield, Users } from "lucide-react"
 import { motion } from "motion/react"
 import { useTheme } from "next-themes"

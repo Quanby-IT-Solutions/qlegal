@@ -22,15 +22,15 @@ export function AvailabilityToggleCard() {
 	const [isChanging, setIsChanging] = useState(false)
 
 	// Get current profile to check availability
-	const { data: profile, isLoading } = trpc.enpProfile.getMyProfile.useQuery()
+	const { data: profile, isLoading } = trpc.browse.getMyProfile.useQuery()
 
-	const updateAvailabilityMutation = trpc.enpProfile.updateAvailability.useMutation({
+	const updateAvailabilityMutation = trpc.browse.updateAvailability.useMutation({
 		onMutate: () => {
 			setIsChanging(true)
 		},
 		onSuccess: data => {
 			setIsChanging(false)
-			void utils.enpProfile.getMyProfile.invalidate()
+			void utils.browse.getMyProfile.invalidate()
 			toast.success(
 				data.isAvailable
 					? "You are now available for bookings"

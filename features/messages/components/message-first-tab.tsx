@@ -56,7 +56,7 @@ export function MessageFirstTab() {
 								Go to Messages
 							</Button>
 						</Link>
-						<Link href="/find-a-lawyer" className="flex-1">
+						<Link href="/browse" className="flex-1">
 							<Button variant="outline" className="w-full">
 								Browse Profiles
 							</Button>

@@ -127,16 +127,13 @@ export async function getProjectDetails(
 	message?: string
 }> {
 	const doFetch = (token: string) =>
-		fetch(
-			`${env.DOCONCHAIN_API_URL}/api/v2/projects/${projectUuid}?user_type=ENTERPRISE_API`,
-			{
-				method: "GET",
-				headers: {
-					Authorization: `Bearer ${token}`,
-					Accept: "application/json",
-				},
-			}
-		)
+		fetch(`${env.DOCONCHAIN_API_URL}/api/v2/projects/${projectUuid}?user_type=ENTERPRISE_API`, {
+			method: "GET",
+			headers: {
+				Authorization: `Bearer ${token}`,
+				Accept: "application/json",
+			},
+		})
 	const response = tokenOverride
 		? await apiCallWithToken(doFetch, tokenOverride)
 		: await apiCall(doFetch, userEmail)

@@ -6,7 +6,13 @@ import { toast } from "sonner"
 import { z } from "zod"
 
 import { Button } from "@/core/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/core/components/ui/card"
+import {
+	Card,
+	CardContent,
+	CardDescription,
+	CardHeader,
+	CardTitle,
+} from "@/core/components/ui/card"
 import {
 	Form,
 	FormControl,
@@ -25,7 +31,7 @@ import { trpc } from "@/services/trpc/client"
 const lawyerPricingSchema = z.object({
 	// Consultation
 	consultationPrice: z.string().min(1, "Consultation price is required"),
-	
+
 	// Notarial Acts (as per Rules on eNotarization, Rule IV)
 	acknowledgmentPrice: z.string().min(1, "Acknowledgment price is required"),
 	affirmationPrice: z.string().min(1, "Affirmation or Oath price is required"),
@@ -52,12 +58,12 @@ export function LawyerDetailsForm() {
 	const utils = trpc.useUtils()
 
 	const { mutate, isPending } = trpc.profile.updateLawyerPricing.useMutation({
-		onSuccess: async (data) => {
+		onSuccess: async data => {
 			await utils.profile.getEnpProfile.invalidate()
 			toast.success(data.message)
 			form.reset(form.getValues())
 		},
-		onError: (err) => toast.error(err.message),
+		onError: err => toast.error(err.message),
 	})
 
 	const onSubmit = (values: LawyerPricingSchema) => {
@@ -86,7 +92,7 @@ export function LawyerDetailsForm() {
 					<div className="space-y-4">
 						<div>
 							<h3 className="text-lg font-semibold">Consultation</h3>
-							<p className="text-sm text-muted-foreground">
+							<p className="text-muted-foreground text-sm">
 								Set your pricing for legal consultation services
 							</p>
 						</div>
@@ -99,7 +105,7 @@ export function LawyerDetailsForm() {
 										<FormLabel>Consultation Price</FormLabel>
 										<FormControl>
 											<div className="relative">
-												<span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+												<span className="text-muted-foreground absolute top-1/2 left-3 -translate-y-1/2">
 													₱
 												</span>
 												<Input
@@ -128,7 +134,7 @@ export function LawyerDetailsForm() {
 					<div className="space-y-4">
 						<div>
 							<h3 className="text-lg font-semibold">eNotarization Acts</h3>
-							<p className="text-sm text-muted-foreground">
+							<p className="text-muted-foreground text-sm">
 								Set your pricing for eNotarization services as per Rules on eNotarization, Rule IV
 							</p>
 						</div>
@@ -142,7 +148,7 @@ export function LawyerDetailsForm() {
 										<FormLabel>Acknowledgment</FormLabel>
 										<FormControl>
 											<div className="relative">
-												<span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+												<span className="text-muted-foreground absolute top-1/2 left-3 -translate-y-1/2">
 													₱
 												</span>
 												<Input
@@ -155,9 +161,7 @@ export function LawyerDetailsForm() {
 												/>
 											</div>
 										</FormControl>
-										<FormDescription className="text-xs">
-											Section 1, Rule IV
-										</FormDescription>
+										<FormDescription className="text-xs">Section 1, Rule IV</FormDescription>
 										<FormMessage />
 									</FormItem>
 								)}
@@ -171,7 +175,7 @@ export function LawyerDetailsForm() {
 										<FormLabel>Affirmation or Oath</FormLabel>
 										<FormControl>
 											<div className="relative">
-												<span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+												<span className="text-muted-foreground absolute top-1/2 left-3 -translate-y-1/2">
 													₱
 												</span>
 												<Input
@@ -184,9 +188,7 @@ export function LawyerDetailsForm() {
 												/>
 											</div>
 										</FormControl>
-										<FormDescription className="text-xs">
-											Section 2, Rule IV
-										</FormDescription>
+										<FormDescription className="text-xs">Section 2, Rule IV</FormDescription>
 										<FormMessage />
 									</FormItem>
 								)}
@@ -200,7 +202,7 @@ export function LawyerDetailsForm() {
 										<FormLabel>Jurat</FormLabel>
 										<FormControl>
 											<div className="relative">
-												<span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+												<span className="text-muted-foreground absolute top-1/2 left-3 -translate-y-1/2">
 													₱
 												</span>
 												<Input
@@ -213,9 +215,7 @@ export function LawyerDetailsForm() {
 												/>
 											</div>
 										</FormControl>
-										<FormDescription className="text-xs">
-											Section 3, Rule IV
-										</FormDescription>
+										<FormDescription className="text-xs">Section 3, Rule IV</FormDescription>
 										<FormMessage />
 									</FormItem>
 								)}
@@ -229,7 +229,7 @@ export function LawyerDetailsForm() {
 										<FormLabel>Signature Witnessing</FormLabel>
 										<FormControl>
 											<div className="relative">
-												<span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+												<span className="text-muted-foreground absolute top-1/2 left-3 -translate-y-1/2">
 													₱
 												</span>
 												<Input
@@ -242,9 +242,7 @@ export function LawyerDetailsForm() {
 												/>
 											</div>
 										</FormControl>
-										<FormDescription className="text-xs">
-											Section 4, Rule IV
-										</FormDescription>
+										<FormDescription className="text-xs">Section 4, Rule IV</FormDescription>
 										<FormMessage />
 									</FormItem>
 								)}

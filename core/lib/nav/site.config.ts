@@ -6,13 +6,13 @@ import {
 	DocumentValidationIcon,
 	Home01Icon,
 	Notification01Icon,
-	Search01Icon,
 	Sent02Icon,
 	Settings01Icon,
 	ShieldUserIcon,
 	Timer02Icon,
 	UserGroupIcon,
 	UserIcon,
+	UserMultipleIcon,
 	Video01Icon,
 } from "@hugeicons/core-free-icons"
 
@@ -47,7 +47,7 @@ export const appSidebarSections: NavSection[] = [
 			{
 				title: "Browse",
 				url: "/browse",
-				icon: Search01Icon,
+				icon: UserMultipleIcon,
 				roles: ["PRINCIPAL"],
 			},
 			{
@@ -183,7 +183,7 @@ export const appSidebarSections: NavSection[] = [
 				roles: ["ENA", "ADMIN"],
 			},
 		],
-	}
+	},
 ]
 
 const siteUserConfig: NavItem[] = [

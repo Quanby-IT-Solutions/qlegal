@@ -3,11 +3,7 @@ import { z } from "zod/v4"
 import { env } from "@/env"
 
 import { apiCall } from "../lib/http-client"
-import {
-	getToken,
-	getProjectToken,
-	getOrRefreshProjectToken,
-} from "../lib/token-cache"
+import { getOrRefreshProjectToken, getProjectToken, getToken } from "../lib/token-cache"
 
 const signLinkResponseSchema = z.union([
 	z.object({
@@ -161,9 +157,14 @@ export async function generateEditDraftLink(
 			}
 		)
 	} else {
-		const projectToken = await getOrRefreshProjectToken(projectUuid, userEmail ?? env.DOCONCHAIN_EMAIL)
+		const projectToken = await getOrRefreshProjectToken(
+			projectUuid,
+			userEmail ?? env.DOCONCHAIN_EMAIL
+		)
 		if (projectToken) {
-			console.log("   - Using project-specific token (stored during project creation, refreshed if stale)...")
+			console.log(
+				"   - Using project-specific token (stored during project creation, refreshed if stale)..."
+			)
 			token = projectToken
 			response = await fetch(
 				`${env.DOCONCHAIN_API_URL}/api/v2/projects/${projectUuid}/link?user_type=ENTERPRISE_API`,
@@ -176,7 +177,9 @@ export async function generateEditDraftLink(
 				}
 			)
 			if (response.status === 401) {
-				console.warn("⚠️ Project-specific token returned 401 - falling back to email-based token cache...")
+				console.warn(
+					"⚠️ Project-specific token returned 401 - falling back to email-based token cache..."
+				)
 				response = await apiCall(
 					async t => {
 						return fetch(
@@ -433,7 +436,11 @@ async function appendApiToken(
 			"✅ Added api_token to signing link (length:",
 			apiToken.length,
 			"chars, using",
-			tokenOverride ? "meeting override" : projectUuid && getProjectToken(projectUuid) ? "project-specific" : "email-based",
+			tokenOverride
+				? "meeting override"
+				: projectUuid && getProjectToken(projectUuid)
+					? "project-specific"
+					: "email-based",
 			"token)"
 		)
 
