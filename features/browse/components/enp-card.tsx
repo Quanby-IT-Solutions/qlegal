@@ -11,7 +11,7 @@ import {
 } from "@/core/components/ui/tooltip"
 import { cn } from "@/core/lib/utils"
 
-import { ComprehensiveBookingDialog } from "@/features/browse/components/comprehensive-booking-dialog"
+import { BookingDialog } from "@/features/browse/components/booking-dialog"
 import type { ENPDisplayData } from "@/features/browse/lib/enp-display.types"
 
 import { EnpAvatar } from "./enp-avatar"
@@ -140,7 +140,7 @@ export function EnpCard({ enp, className }: EnpCardProps) {
 			</CardContent>
 
 			<CardFooter className="bg-muted/5 grid grid-cols-[1fr_auto_auto] gap-2">
-				<ComprehensiveBookingDialog
+				<BookingDialog
 					enpId={enp.id}
 					enpName={enp.name}
 					trigger={

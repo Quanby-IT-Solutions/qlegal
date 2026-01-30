@@ -171,9 +171,6 @@ export function ScheduleClient({ scheduleData }: ScheduleClientProps) {
 			}
 		})
 
-	// DEBUG: Log transformation
-		console.log("DEBUG [schedule-client] Transformed events:", myEvents.length, "My appointments:", scheduleData.myAppointments?.length)
-
 		// Merge myEvents with transformed requests
 		const allEvents: CalendarEvent[] = [
 			...myEvents,
