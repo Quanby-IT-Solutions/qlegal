@@ -100,32 +100,19 @@ export const lawyerPricingSchema = z.object({
 export type LawyerPricingSchema = z.infer<typeof lawyerPricingSchema>
 
 export const professionalDetailsSchema = z.object({
-	bio: z
-		.string()
-		.min(10, "Bio must be at least 10 characters")
-		.max(500, "Bio must not exceed 500 characters"),
-	experience: z.string().min(1, "Experience is required").max(50, "Experience is too long"),
-	responseTime: z.string().min(1, "Response time is required").max(50, "Response time is too long"),
+	bio: z.string().max(500, "Bio must not exceed 500 characters").optional(),
+	experience: z.string().max(50, "Experience is too long").optional(),
+	responseTime: z.string().max(50, "Response time is too long").optional(),
+	rating: z.number().min(0).max(5),
+	reviewCount: z.number().min(0),
 })
 
 export type ProfessionalDetailsSchema = z.infer<typeof professionalDetailsSchema>
 
 export const updateProfessionalDetailsSchema = z.object({
-	bio: z
-		.string()
-		.min(1, "You must put somehing for your bio")
-		.max(500, "Bio must not exceed 500 characters")
-		.optional(),
-	experience: z
-		.string()
-		.min(1, "Experience is required")
-		.max(50, "Experience is too long")
-		.optional(),
-	responseTime: z
-		.string()
-		.min(1, "Response time is required")
-		.max(50, "Response time is too long")
-		.optional(),
+	bio: z.string().max(500, "Bio must not exceed 500 characters").optional(),
+	experience: z.string().max(50, "Experience is too long").optional(),
+	responseTime: z.string().max(50, "Response time is too long").optional(),
 })
 
-export type UpdateProfessionalDetailsInput = z.infer<typeof updateProfessionalDetailsSchema>
+export type UpdateProfessionalDetailsSchema = z.infer<typeof updateProfessionalDetailsSchema>

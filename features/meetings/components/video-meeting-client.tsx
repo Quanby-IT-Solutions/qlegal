@@ -39,6 +39,16 @@ import { Button } from "@/core/components/ui/button"
 import { Card, CardContent } from "@/core/components/ui/card"
 import { Checkbox } from "@/core/components/ui/checkbox"
 import {
+	AlertDialog,
+	AlertDialogAction,
+	AlertDialogCancel,
+	AlertDialogContent,
+	AlertDialogDescription,
+	AlertDialogFooter,
+	AlertDialogHeader,
+	AlertDialogTitle,
+} from "@/core/components/ui/alert-dialog"
+import {
 	Dialog,
 	DialogContent,
 	DialogDescription,
@@ -1163,6 +1173,7 @@ const DocumentActions = React.memo(function DocumentActions({
 	isCreatingProject,
 	onPreGeneratedLink,
 	plotLinkReady = true,
+	userConfirmedPlottedDocumentIds,
 }: {
 	document: { id: string; name: string; docoChainProjectId: string | null }
 	onSignClick: (projectUuid: string | null, email: string, documentId: string, isPlotting?: boolean) => void
@@ -1192,6 +1203,8 @@ const DocumentActions = React.memo(function DocumentActions({
 	onPreGeneratedLink?: (documentId: string, link: string, projectUuid: string) => void
 	/** When "Plot Signature", button stays loading until this is true (pre-generated link ready). */
 	plotLinkReady?: boolean
+	/** Document IDs for which user confirmed "Yes, I'm done" after closing plot popup – disable Plot for these. */
+	userConfirmedPlottedDocumentIds?: Set<string>
 }) {
 	const { data: session } = useSession()
 
@@ -1259,7 +1272,7 @@ const DocumentActions = React.memo(function DocumentActions({
 	const isPrincipalWaitingForEnpToPlot = isPrincipal && isUserAddedAsSigner && isPendingOrNextGroup
 
 	// Both buttons visible when applicable. Disable by phase so the wrong link is never used.
-	// Plot Signature: ENP only, project exists, not signed. Uses Edit Draft link only.
+	// Plot Signature: ENP only, project exists, not signed. Disabled after successful plotting.
 	const showPlotSignature =
 		isEnp &&
 		!!document.docoChainProjectId &&
@@ -1311,10 +1324,23 @@ const DocumentActions = React.memo(function DocumentActions({
 	const isSigningDisabledByPreviousSigners =
 		showSignDocument && currentUserIndex > 0 && !previousSignersHaveSigned
 
-	// Disable Plot Signature: only when pending or link not ready. Never use Sign link for this button.
-	const isPlotSignatureDisabled = !!isSigningPending || !plotLinkReady
+	// Plot pre-gen retry / give-up: avoid stuck "Preparing..." when pre-gen fails or after close-without-plot + refresh
+	const [plotPreGenGiveUp, setPlotPreGenGiveUp] = useState(false)
+	const [plotPreGenRetryTrigger, setPlotPreGenRetryTrigger] = useState(0)
+	const plotPreGenRetryCountRef = useRef(0)
+	const preGenKeyRef = useRef<string | null>(null)
 
-	// Disable Sign Document: order, no signers, not a signer, waiting for ENP, ENP in plotting phase, previous signers.
+	// Disable Plot Signature: pending, (no link and we haven't given up pre-gen), already plotted, or user confirmed "Yes, I'm done".
+	const isPlotSignatureDisabled =
+		!!isSigningPending ||
+		(!plotLinkReady && !plotPreGenGiveUp) ||
+		hasPlotted ||
+		(userConfirmedPlottedDocumentIds?.has(document.id) ?? false)
+
+	// ENP in plotting phase = disable Sign Document. After "Yes, I'm done" it's signing time; don't disable for that.
+	const enpMustPlotFirst = isEnp && isPlottingPhase && !(userConfirmedPlottedDocumentIds?.has(document.id) ?? false)
+
+	// Disable Sign Document: order, no signers, not a signer, waiting for ENP, ENP must plot first, previous signers.
 	/* eslint-disable @typescript-eslint/prefer-nullish-coalescing -- boolean OR chains, not nullish default */
 	const isStartSigningDisabled =
 		!!isSigningPending ||
@@ -1324,7 +1350,7 @@ const DocumentActions = React.memo(function DocumentActions({
 		hasNoSignersSelected ||
 		userNotInSignerList ||
 		isPrincipalWaitingForEnpToPlot ||
-		(isEnp && isPlottingPhase) ||
+		enpMustPlotFirst ||
 		isSigningDisabledByPreviousSigners
 
 	const showSigningMessage =
@@ -1335,7 +1361,7 @@ const DocumentActions = React.memo(function DocumentActions({
 		hasNoSignersSelected ||
 		userNotInSignerList ||
 		isPrincipalWaitingForEnpToPlot ||
-		(isEnp && isPlottingPhase) ||
+		enpMustPlotFirst ||
 		isSigningDisabledByPreviousSigners ||
 		(showPlotSignature && isPlotSignatureDisabled) ||
 		(showSignDocument && isStartSigningDisabled)
@@ -1349,73 +1375,113 @@ const DocumentActions = React.memo(function DocumentActions({
 	)
 
 	const [isSignerModalOpen, setIsSignerModalOpen] = useState(false)
-	
 	const userEmail = session?.user?.email
-	// Plot pre-gen: when Plot button would show and we're not pending. Sign pre-gen: when Start Signing would show and not disabled.
+
 	const isPlotButtonAvailableForPreGen =
-		showPlotSignature && !isSigningPending && !!document.docoChainProjectId && !!userEmail
+		showPlotSignature &&
+		!hasPlotted &&
+		!isSigningPending &&
+		!!document.docoChainProjectId &&
+		!!userEmail
 	const isSignButtonAvailableForPreGen =
 		showSignDocument &&
 		!isStartSigningDisabled &&
 		!!document.docoChainProjectId &&
 		!!userEmail
 
-	// Plot Signature shows "Preparing..." until Edit Draft link is ready
-	const isPlotSignatureWaiting = showPlotSignature && !plotLinkReady
+	// "Preparing..." only while waiting for pre-gen, haven't given up, and not already plotted/confirmed
+	const isPlotSignatureWaiting =
+		showPlotSignature &&
+		!hasPlotted &&
+		!(userConfirmedPlottedDocumentIds?.has(document.id) ?? false) &&
+		!plotLinkReady &&
+		!plotPreGenGiveUp
 
-	// Track if we've already initiated pre-generation to prevent duplicate calls
 	const preGenerationInitiatedRef = useRef<string | null>(null)
 	const hadPlotLinkRef = useRef(false)
 
-	// When link is consumed (e.g. user opened popup then closed without plotting), we delete it.
-	// Clear the pre-gen ref so we can pre-generate again – otherwise "Preparing..." stays forever.
+	// When link is consumed (user opened popup then closed without plotting), we delete it.
+	// Clear ref and reset give-up/retries so we pre-gen again.
 	useEffect(() => {
 		const hasLink = plotLinkReady === true
 		const hadLink = hadPlotLinkRef.current
 		hadPlotLinkRef.current = hasLink
 		if (hadLink && !hasLink) {
 			preGenerationInitiatedRef.current = null
+			plotPreGenRetryCountRef.current = 0
+			preGenKeyRef.current = null
+			setPlotPreGenGiveUp(false)
 		}
 	}, [plotLinkReady])
 
-	// Pre-generate link mutation - call imperatively when button becomes available
+	const plotPreGenKey = `plot-${document.id}-${document.docoChainProjectId}`
 	const preGenerateLinkMutation = trpc.signatureRequests.initiateSigning.useMutation({
 		onSuccess: (data) => {
-			// Store the pre-generated link via callback
 			if (data.link && data.projectUuid && onPreGeneratedLink) {
 				onPreGeneratedLink(document.id, data.link, data.projectUuid)
 				console.log(`✅ Pre-generated link ready: ${data.link.substring(0, 50)}...`)
 			}
-			// Clear the ref after successful generation
 			preGenerationInitiatedRef.current = null
+			plotPreGenRetryCountRef.current = 0
+			preGenKeyRef.current = null
+			setPlotPreGenGiveUp(false)
 		},
 		onError: () => {
-			// Silently fail - link will be generated on click if pre-generation fails
-			// Clear the ref on error so we can retry if conditions change
 			preGenerationInitiatedRef.current = null
+			plotPreGenRetryCountRef.current += 1
+			if (plotPreGenRetryCountRef.current >= 3) {
+				setPlotPreGenGiveUp(true)
+				toast.info("You can still click Plot Signature – the link will be generated when you do.")
+				return
+			}
+			setTimeout(() => setPlotPreGenRetryTrigger(r => r + 1), 2000)
 		},
 	})
-	
-	// Pre-generate Edit Draft Link only when Plot Signature button is shown (never for Start Signing)
+
+	// Pre-generate Edit Draft Link when Plot button is shown. Retry on failure; give up after 3 attempts.
 	useEffect(() => {
-		const key = `plot-${document.id}-${document.docoChainProjectId}`
+		const key = plotPreGenKey
 		if (
-			isPlotButtonAvailableForPreGen &&
-			document.docoChainProjectId &&
-			userEmail &&
-			preGenerationInitiatedRef.current !== key &&
-			!preGenerateLinkMutation.isPending
-		) {
-			console.log("🔵 Pre-generating Edit Draft Link for Plot Signature...")
-			preGenerationInitiatedRef.current = key
-			preGenerateLinkMutation.mutate({
-				projectUuid: document.docoChainProjectId,
-				email: userEmail,
-				isPlotting: true,
-			})
+			!isPlotButtonAvailableForPreGen ||
+			!document.docoChainProjectId ||
+			!userEmail ||
+			plotPreGenGiveUp ||
+			preGenerationInitiatedRef.current === key ||
+			preGenerateLinkMutation.isPending
+		)
+			return
+
+		// Reset retries and give-up when key changes (e.g. different doc)
+		if (preGenKeyRef.current !== key) {
+			preGenKeyRef.current = key
+			plotPreGenRetryCountRef.current = 0
+			setPlotPreGenGiveUp(false)
 		}
+
+		const retries = plotPreGenRetryCountRef.current
+		if (retries >= 3) {
+			setPlotPreGenGiveUp(true)
+			return
+		}
+
+		console.log(`🔵 Pre-generating Edit Draft Link for Plot Signature${retries > 0 ? ` (retry ${retries})` : ""}...`)
+		preGenerationInitiatedRef.current = key
+		preGenerateLinkMutation.mutate({
+			projectUuid: document.docoChainProjectId,
+			email: userEmail,
+			isPlotting: true,
+		})
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [isPlotButtonAvailableForPreGen, document.docoChainProjectId, document.id, userEmail, plotLinkReady])
+	}, [
+		isPlotButtonAvailableForPreGen,
+		document.docoChainProjectId,
+		document.id,
+		userEmail,
+		plotLinkReady,
+		plotPreGenGiveUp,
+		plotPreGenRetryTrigger,
+		plotPreGenKey,
+	])
 
 	// Pre-generate Sign Link only when Start Signing button is shown (never for Plot Signature)
 	useEffect(() => {
@@ -1536,7 +1602,13 @@ const DocumentActions = React.memo(function DocumentActions({
 						}}
 						disabled={isPlotSignatureDisabled}
 					>
-						{isSigningPending || isPlotSignatureWaiting ? (
+						{/* After "Yes, I'm done" always show "Plot Signature" (disabled), never Preparing/Plotting */}
+						{(userConfirmedPlottedDocumentIds?.has(document.id) ?? false) ? (
+							<>
+								<FileSignature className="mr-1.5 size-3.5" />
+								Plot Signature
+							</>
+						) : isSigningPending || isPlotSignatureWaiting ? (
 							<>
 								<div className="mr-2 size-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
 								{isPlotSignatureWaiting ? "Preparing..." : "Plotting..."}
@@ -1600,7 +1672,7 @@ const DocumentActions = React.memo(function DocumentActions({
 												? "You must be added as a signer to start signing"
 												: isPrincipalWaitingForEnpToPlot
 													? "Waiting for ENP to plot your signature"
-													: isEnp && isPlottingPhase && showSignDocument
+													: isEnp && isPlottingPhase && showSignDocument && !(userConfirmedPlottedDocumentIds?.has(document.id) ?? false)
 														? "Please plot your signature first"
 														: isSigningDisabledByPreviousSigners
 															? "Previous signer(s) must sign first"
@@ -1652,6 +1724,12 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 	const [signingDocumentId, setSigningDocumentId] = useState<string | null>(null)
 	const [isPlottingAction, setIsPlottingAction] = useState(false)
 	const isPlottingActionRef = useRef(false)
+	const [plotCloseConfirmOpen, setPlotCloseConfirmOpen] = useState(false)
+	const [plotCloseConfirmDocumentId, setPlotCloseConfirmDocumentId] = useState<string | null>(null)
+	const plotPopupDocumentIdRef = useRef<string | null>(null)
+	const [userConfirmedPlottedDocumentIds, setUserConfirmedPlottedDocumentIds] = useState<
+		Set<string>
+	>(new Set())
 	const openingPlatformToastIdRef = useRef<string | number | null>(null)
 	const openingSignedDocumentToastIdRef = useRef<string | number | null>(null)
 	// Store pre-generated links per document (keyed by documentId). storedAt used to skip stale links on click.
@@ -2332,8 +2410,6 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 			console.log("   - Project UUID:", data.projectUuid)
 			console.log("   - Signing link:", signingLink)
 
-			// Capture ENP status at popup open time to avoid stale closure
-			const isEnpUser = session?.user?.role === "ENP"
 			const wasPlotting = isPlottingActionRef.current
 
 			// Open DocoChain signing page in popup window (iframe blocked by DocoChain)
@@ -2357,17 +2433,13 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 						setSigningDocumentId(null)
 						setIsPlottingAction(false)
 						isPlottingActionRef.current = false
-						
-						// For ENP users after plotting, always refetch to update document status
-						if (isEnpUser && wasPlotting) {
-							console.log("🔄 ENP plotted signature - refreshing document status...")
-							// Refresh docs + signing status immediately (don't wait for polling interval)
-							void refetchDocuments().then(() => {
-								void manualRefreshSigningStatuses()
-							})
-							toast.success("Signature plotted. Document status updated.")
+
+						if (wasPlotting) {
+							const docId = plotPopupDocumentIdRef.current
+							setPlotCloseConfirmDocumentId(docId)
+							setPlotCloseConfirmOpen(true)
 						} else {
-							// Refresh docs + signing status immediately (don't wait for polling interval)
+							plotPopupDocumentIdRef.current = null
 							void refetchDocuments().then(() => {
 								void manualRefreshSigningStatuses()
 							})
@@ -2393,9 +2465,10 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 				toast.dismiss(openingPlatformToastIdRef.current)
 				openingPlatformToastIdRef.current = null
 			}
-			setSigningDocumentId(null) // Clear loading state on error
-			setIsPlottingAction(false) // Clear plotting state on error
-			isPlottingActionRef.current = false // Clear ref
+			setSigningDocumentId(null)
+			setIsPlottingAction(false)
+			isPlottingActionRef.current = false
+			plotPopupDocumentIdRef.current = null
 			const errorMessage =
 				error instanceof Error
 					? error.message
@@ -2428,6 +2501,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 				setSigningDocumentId(documentId)
 				setIsPlottingAction(plotting)
 				isPlottingActionRef.current = plotting
+				if (plotting) plotPopupDocumentIdRef.current = documentId
 
 				let signingLink = preGenerated.link
 				signingLink = normalizeUrl(signingLink) ?? signingLink
@@ -2459,12 +2533,16 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 							setIsPlottingAction(false)
 							isPlottingActionRef.current = false
 
-							void refetchDocuments().then(() => {
-								void manualRefreshSigningStatuses()
-							})
-							toast.success(
-								plotting ? "Signature plotted. Document status updated." : "Signing completed. Document status updated."
-							)
+							if (plotting) {
+								const docId = plotPopupDocumentIdRef.current
+								setPlotCloseConfirmDocumentId(docId)
+								setPlotCloseConfirmOpen(true)
+							} else {
+								void refetchDocuments().then(() => {
+									void manualRefreshSigningStatuses()
+								})
+								toast.success("Signing completed. Document status updated.")
+							}
 						}
 					}, 1500)
 					toast.success(
@@ -2482,6 +2560,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 					setSigningDocumentId(null)
 					setIsPlottingAction(false)
 					isPlottingActionRef.current = false
+					plotPopupDocumentIdRef.current = null
 				}
 				return
 			}
@@ -2493,6 +2572,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 			setSigningDocumentId(documentId)
 			setIsPlottingAction(plotting)
 			isPlottingActionRef.current = plotting
+			if (plotting) plotPopupDocumentIdRef.current = documentId
 			const effectiveProjectUuid = preGenerated?.projectUuid ?? projectUuid
 			initiateSigning.mutate(
 				effectiveProjectUuid
@@ -3468,6 +3548,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 		showDocuments,
 		signingDocumentId,
 		toggleLockMutation,
+		userConfirmedPlottedDocumentIds,
 	])
 
 	if (!joined) {
@@ -3642,6 +3723,53 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 					</DialogFooter>
 				</DialogContent>
 			</Dialog>
+
+			{/* Plot Signature close confirmation – "Did you plot?" before assuming done */}
+			<AlertDialog
+				open={plotCloseConfirmOpen}
+				onOpenChange={open => {
+					setPlotCloseConfirmOpen(open)
+					if (!open) plotPopupDocumentIdRef.current = null
+					// Do not clear plotCloseConfirmDocumentId here – Radix may run this before
+					// "Yes" onClick, so we’d clear it before the handler runs. Clear only in Yes/No.
+				}}
+			>
+				<AlertDialogContent>
+					<AlertDialogHeader>
+						<AlertDialogTitle>Did you plot your signature?</AlertDialogTitle>
+						<AlertDialogDescription>
+							You closed the Plot Signature window. Double-check that you&apos;ve plotted your
+							signature before confirming. If you closed by accident, you can click Plot
+							Signature again to reopen.
+						</AlertDialogDescription>
+					</AlertDialogHeader>
+					<AlertDialogFooter>
+						<AlertDialogCancel
+							onClick={() => {
+								toast.info("You can click Plot Signature again to reopen.")
+								setPlotCloseConfirmDocumentId(null)
+							}}
+						>
+							No, I closed by accident
+						</AlertDialogCancel>
+						<AlertDialogAction
+							onClick={() => {
+								const docId = plotCloseConfirmDocumentId
+								if (docId) {
+									setUserConfirmedPlottedDocumentIds(prev => new Set(prev).add(docId))
+								}
+								setPlotCloseConfirmDocumentId(null)
+								void refetchDocuments().then(() => {
+									void manualRefreshSigningStatuses()
+								})
+								toast.success("Signature plotted. Document status updated.")
+							}}
+						>
+							Yes, I&apos;m done
+						</AlertDialogAction>
+					</AlertDialogFooter>
+				</AlertDialogContent>
+			</AlertDialog>
 
 			{/* Signature Request Notification for ENP */}
 			{activeSignatureRequest && (

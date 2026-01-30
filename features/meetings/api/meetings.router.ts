@@ -11,9 +11,7 @@ import {
 } from "@/services/doconchain"
 import {
 	ensureMeetingToken,
-	generateToken,
-	getOrRefreshMeetingToken,
-	invalidateToken,
+	generateAndSetMeetingToken,
 	setProjectToken,
 } from "@/services/doconchain/lib/token-cache"
 import { db } from "@/services/drizzle/db"
@@ -438,6 +436,12 @@ export const meetingsRouter = createTRPCRouter({
 			})
 		}
 
+		// Ensure ENP has a meeting-scoped DocoChain token as soon as they view the meeting.
+		// Use it for project creation and Edit Draft links so the first document never gets Sign link.
+		if (isEnpRole(ctx.session.user.role) && ctx.session.user.email) {
+			await ensureMeetingToken(input, ctx.session.user.email.trim().toLowerCase())
+		}
+
 		const acceptedParticipants = meeting.participants.filter(p => p.status === "ACCEPTED")
 		const pendingInvites = meeting.participants.filter(p => p.status === "PENDING")
 
@@ -480,10 +484,10 @@ export const meetingsRouter = createTRPCRouter({
 			})
 		}
 
-		// When ENP joins, ensure a meeting-scoped DocoChain token exists. Use it for project
-		// creation and Edit Draft links so the link is always correct.
+		// When ENP enters the room, always call the DocoChain generate-token API and store
+		// the result. Use it for project creation and Edit Draft links so the link is correct.
 		if (isEnpRole(ctx.session.user.role) && ctx.session.user.email) {
-			await ensureMeetingToken(input, ctx.session.user.email.trim().toLowerCase())
+			await generateAndSetMeetingToken(input, ctx.session.user.email.trim().toLowerCase())
 		}
 
 		return {
@@ -841,6 +845,11 @@ export const meetingsRouter = createTRPCRouter({
 			})
 		}
 
+		// Ensure ENP has a meeting-scoped DocoChain token when fetching documents (same as getById).
+		if (isEnpRole(ctx.session.user.role) && ctx.session.user.email) {
+			await ensureMeetingToken(input, ctx.session.user.email.trim().toLowerCase())
+		}
+
 		// Define type for document with nested signers
 		type DocumentWithSigners = InferSelectModel<typeof documents> & {
 			signers: { userId: string; signingOrder: number | null }[]
@@ -884,6 +893,7 @@ export const meetingsRouter = createTRPCRouter({
 		.mutation(async ({ ctx, input }) => {
 			const { documentId, meetingId } = input
 
+			try {
 			const meeting = await db.query.meetings.findFirst({
 				where: eq(meetings.id, meetingId),
 				with: {
@@ -917,16 +927,25 @@ export const meetingsRouter = createTRPCRouter({
 				throw new TRPCError({ code: "NOT_FOUND", message: "Meeting not found" })
 			}
 
-			// Find appointment associated with this meeting to get mode of notarization
-			const appointment = await db.query.appointments.findFirst({
-				where: or(
-					eq(appointments.lawyerId, meeting.createdById),
-					eq(appointments.clientId, meeting.participants[0]?.userId ?? "")
-				),
-			})
-
-			// Get mode of notarization (REN or IEN) from appointment
-			const modeOfNotarization = appointment?.modeOfNotarization ?? "REN"
+			// Get mode of notarization (REN or IEN) from appointment when possible; default REN.
+			let modeOfNotarization = "REN"
+			try {
+				const firstParticipantId = meeting.participants[0]?.userId
+				const appointment = await db.query.appointments.findFirst({
+					where:
+						firstParticipantId !== undefined &&
+						firstParticipantId !== null &&
+						firstParticipantId !== ""
+							? or(
+									eq(appointments.lawyerId, meeting.createdById),
+									eq(appointments.clientId, firstParticipantId)
+								)
+							: eq(appointments.lawyerId, meeting.createdById),
+				})
+				if (appointment?.modeOfNotarization) modeOfNotarization = appointment.modeOfNotarization
+			} catch (e) {
+				console.warn("Appointment lookup failed for createDocoChainProject, using REN:", e)
+			}
 
 			const isHost = meeting.createdById === ctx.session.user.id
 			const isAccepted = meeting.participants.some(
@@ -1071,20 +1090,10 @@ export const meetingsRouter = createTRPCRouter({
 			console.log("   - Document ID:", documentId)
 			console.log("   - Creator Email:", creatorEmail)
 
-			// Use meeting-scoped token when ENP joined via getToken (ensures Edit Draft link is always correct).
-			// Otherwise generate fresh token per project (legacy path).
-			const meetingToken = await getOrRefreshMeetingToken(meetingId, creatorEmail)
-			let projectToken: string
-
-			if (meetingToken) {
-				console.log("   - Using meeting-scoped token (from ENP join)...")
-				projectToken = meetingToken
-			} else {
-				console.log("   - No meeting token - generating fresh token for this project...")
-				invalidateToken(creatorEmail)
-				projectToken = await generateToken(creatorEmail, true)
-				console.log("✅ Fresh token generated - proceeding with project creation...")
-			}
+			// Always ensure meeting-scoped token first (created when ENP enters via getById/getToken/getMeetingDocuments).
+			// Use it for project creation and Edit Draft so the first document never gets Sign link.
+			const projectToken = await ensureMeetingToken(meetingId, creatorEmail)
+			console.log("   - Using meeting-scoped token for project creation...")
 
 			const docoChainProject = await createProject({
 				title: document.name,
@@ -1094,12 +1103,12 @@ export const meetingsRouter = createTRPCRouter({
 				creatorAsViewer: false,
 				documentStamp,
 				creatorEmail,
-				tokenOverride: meetingToken ?? undefined,
+				tokenOverride: projectToken,
 			})
 
 			const docoChainProjectId = docoChainProject.uuid
 
-			// Store the token used to create this project so Edit Draft links use the same token.
+			// Store the same token so Edit Draft links use it (same as project creation).
 			setProjectToken(docoChainProjectId, projectToken)
 			console.log(`✅ Stored project-specific token for ${docoChainProjectId.substring(0, 8)}...`)
 			const docoChainRedirectUrl = normalizeUrl(docoChainProject.redirectUrl) ?? null
@@ -1121,6 +1130,27 @@ export const meetingsRouter = createTRPCRouter({
 				success: true,
 				projectUuid: docoChainProjectId,
 				redirectUrl: docoChainRedirectUrl,
+			}
+			} catch (e) {
+				if (e instanceof TRPCError) throw e
+				console.error("createDocoChainProject error:", e)
+				const message =
+					e instanceof Error ? e.message : "Unknown error during project creation"
+				const isUserFacing =
+					message.startsWith("Meeting not found") ||
+					message.startsWith("Document not found") ||
+					message.startsWith("You don't have access") ||
+					message.startsWith("DocoChain project already exists") ||
+					message.startsWith("Please select at least one signer") ||
+					message.startsWith("ENP ") ||
+					message.startsWith("Document file not found") ||
+					message.startsWith("Failed to download document")
+				throw new TRPCError({
+					code: "INTERNAL_SERVER_ERROR",
+					message: isUserFacing
+						? message
+						: "Failed to create DocoChain project. Please try again. If it persists, check your ENP profile and that the document was uploaded correctly.",
+				})
 			}
 		}),
 

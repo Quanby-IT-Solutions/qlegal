@@ -17,6 +17,7 @@ import {
 	sendProject,
 	updateProjectSigner,
 } from "@/services/doconchain"
+import { getOrRefreshMeetingToken } from "@/services/doconchain/lib/token-cache"
 import { db } from "@/services/drizzle/db"
 import { users } from "@/services/drizzle/schema/auth"
 import { documents } from "@/services/drizzle/schema/document"
@@ -860,8 +861,13 @@ export const signatureRequestsRouter = createTRPCRouter({
 					let editDraftResult: { link: string } | null = null
 					let editDraftError: unknown = null
 
+					// When plotting, use meeting-scoped token (from ENP join) so we never get Sign link.
+					const meetingToken =
+						isPlotting === true
+							? await getOrRefreshMeetingToken(meeting.id, creatorEmail)
+							: undefined
+
 					// When plotting, do a few attempts with exponential backoff.
-					// For non-plotting, keep a single attempt (fast path).
 					const maxLinkAttempts = isPlotting === true ? 4 : 1
 					let linkRetryDelayMs = 600
 
@@ -875,7 +881,11 @@ export const signatureRequestsRouter = createTRPCRouter({
 						}
 
 						try {
-							editDraftResult = await generateEditDraftLink(actualProjectUuid, creatorEmail)
+							editDraftResult = await generateEditDraftLink(
+								actualProjectUuid,
+								creatorEmail,
+								meetingToken ?? undefined
+							)
 							signingLink = editDraftResult.link
 							console.log(
 								`✅ Edit Draft Project Link generated successfully (attempt ${attempt + 1}/${maxLinkAttempts}):`,

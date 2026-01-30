@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useTransition } from "react"
+import { useState } from "react"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { Save, X } from "lucide-react"
 import { useForm, type SubmitHandler } from "react-hook-form"
@@ -17,10 +17,12 @@ import {
 import { Input } from "@/core/components/ui/input"
 import { Textarea } from "@/core/components/ui/textarea"
 
+import { trpc } from "@/services/trpc/client"
+
 import { FormResponse } from "@/features/auth/components/ui/form-response"
 import {
-	professionalDetailsSchema,
-	type ProfessionalDetailsSchema,
+	updateProfessionalDetailsSchema,
+	type UpdateProfessionalDetailsSchema,
 } from "@/features/profile/api/profile.schema"
 
 interface ProfessionalDetailsFormProps {
@@ -40,10 +42,37 @@ export function ProfessionalDetailsForm({
 }: ProfessionalDetailsFormProps) {
 	const [formSuccess, setFormSuccess] = useState<string | null>(null)
 	const [formError, setFormError] = useState<string | null>(null)
-	const [isPending, startTransition] = useTransition()
 
-	const form = useForm<ProfessionalDetailsSchema>({
-		resolver: zodResolver(professionalDetailsSchema),
+	const utils = trpc.useContext()
+
+	const mutation = trpc.profile.updateProfessionalDetails.useMutation({
+		onSuccess: () => {
+			void utils.profile.getEnpProfile.invalidate()
+
+			setFormSuccess("Professional details updated successfully!")
+
+			if (onSuccess) onSuccess()
+
+			void setTimeout(() => {
+				onCancel()
+			}, 1500)
+		},
+		onError: (err: unknown) => {
+			let message = "Failed to update professional details."
+			if (
+				typeof err === "object" &&
+				err !== null &&
+				"message" in err &&
+				typeof (err as { message?: unknown }).message === "string"
+			) {
+				message = (err as { message: string }).message ?? message
+			}
+			setFormError(message)
+		},
+	})
+
+	const form = useForm<UpdateProfessionalDetailsSchema>({
+		resolver: zodResolver(updateProfessionalDetailsSchema),
 		defaultValues: {
 			bio,
 			experience,
@@ -51,36 +80,10 @@ export function ProfessionalDetailsForm({
 		},
 	})
 
-	const onSubmit: SubmitHandler<ProfessionalDetailsSchema> = data => {
+	const onSubmit: SubmitHandler<UpdateProfessionalDetailsSchema> = data => {
 		setFormError(null)
 		setFormSuccess(null)
-
-		startTransition(async () => {
-			try {
-				// TODO: Replace with actual API call
-				// const response = await updateProfessionalDetails(data)
-
-				// Simulate API call
-				await new Promise(resolve => setTimeout(resolve, 1000))
-
-				console.log("Saving professional details:", data)
-
-				setFormSuccess("Professional details updated successfully!")
-
-				// Call onSuccess callback if provided
-				if (onSuccess) {
-					onSuccess()
-				}
-
-				// Auto-close after success
-				setTimeout(() => {
-					onCancel()
-				}, 1500)
-			} catch (error) {
-				setFormError("Failed to update professional details. Please try again.")
-				console.error("Error updating professional details:", error)
-			}
-		})
+		void mutation.mutate(data)
 	}
 
 	return (
@@ -144,15 +147,15 @@ export function ProfessionalDetailsForm({
 						type="button"
 						variant="outline"
 						onClick={onCancel}
-						disabled={isPending}
+						disabled={mutation.isPending}
 						className="flex-1"
 					>
 						<X className="mr-2 size-4" />
 						Cancel
 					</Button>
-					<Button type="submit" disabled={isPending} className="flex-1">
+					<Button type="submit" disabled={mutation.isPending} className="flex-1">
 						<Save className="mr-2 size-4" />
-						{isPending ? "Saving..." : "Save Changes"}
+						{mutation.isPending ? "Saving..." : "Save Changes"}
 					</Button>
 				</div>
 			</form>
