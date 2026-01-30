@@ -1,16 +1,11 @@
 import { isSameDay } from "date-fns"
 
 import type { CalendarEvent, EventColor } from "./schedule-types"
-
-// Re-export types for convenience
-export type { CalendarEvent } from "./schedule-types"
-export type { CalendarView, EventColor } from "./schedule-types"
-export {
-	EventGap,
+import {
 	EventHeight,
+	EventGap,
 	WeekCellsHeight,
 	AgendaDaysToShow,
-	DefaultStartHour,
 } from "./schedule-constants"
 
 /**

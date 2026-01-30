@@ -236,23 +236,6 @@ export const scheduleRouter = createTRPCRouter({
 				},
 			})
 
-			// DEBUG: Log filter results
-			console.log(
-				"DEBUG [schedule.router] Filtered by date range:",
-				startDate.toISOString(),
-				"to",
-				endDate.toISOString(),
-				"Found:",
-				myAppointments.length,
-				"appointments"
-			)
-
-			// DEBUG: Log returned appointments
-			console.log(
-				"DEBUG [schedule.router] Returning myAppointments:",
-				JSON.stringify(myAppointments, null, 2)
-			)
-
 			return {
 				myAppointments,
 			}

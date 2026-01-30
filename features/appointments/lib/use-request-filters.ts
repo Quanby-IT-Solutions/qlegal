@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react"
 
-import type { RequestFilters } from "../types/requests.types"
+import type { RequestFilters } from "./types"
 
 export function useRequestFilters() {
 	const [filters, setFilters] = useState<RequestFilters>({

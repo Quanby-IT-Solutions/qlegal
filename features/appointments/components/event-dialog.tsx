@@ -37,7 +37,7 @@ import { cn } from "@/core/lib/utils"
 
 import type { CalendarEvent, CalendarEventMetadata } from "../lib/schedule-types"
 import { eventDialogSchema, type EventDialogSchema } from "./event-dialog.schema"
-import { TimeWheelPicker } from "./time-wheel-picker"
+import { TimeWheelPicker } from "./schedule/time-wheel-picker"
 
 const TIMEZONES = [
 	"UTC",

@@ -3,9 +3,9 @@
 import { useMemo } from "react"
 import { format, startOfDay } from "date-fns"
 
-import { WeekCellsHeight } from "../lib/schedule-constants"
-import type { CalendarEvent } from "../lib/schedule-types"
-import { EventItem } from "./event-item"
+import { WeekCellsHeight } from "../../../lib/schedule-constants"
+import type { CalendarEvent } from "../../../lib/schedule-types"
+import { EventItem } from "../event-item"
 
 interface DayViewProps {
 	currentDate: Date

@@ -4,9 +4,9 @@ import { addDays, format, isSameDay, isToday } from "date-fns"
 
 import { cn } from "@/core/lib/utils"
 
-import { AgendaDaysToShow } from "../lib/schedule-constants"
-import type { CalendarEvent } from "../lib/schedule-types"
-import { EventItem } from "./event-item"
+import { AgendaDaysToShow } from "../../../lib/schedule-constants"
+import type { CalendarEvent } from "../../../lib/schedule-types"
+import { EventItem } from "../event-item"
 
 interface AgendaViewProps {
 	currentDate: Date

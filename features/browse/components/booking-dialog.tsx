@@ -35,9 +35,9 @@ import { cn } from "@/core/lib/utils"
 
 import { trpc } from "@/services/trpc/client"
 
-import { SessionModeSelector } from "@/features/appointments/components/session-mode-selector"
-import { SessionTypeSelector } from "@/features/appointments/components/session-type-selector"
-import { TimeWheelPicker } from "@/features/appointments/components/time-wheel-picker"
+import { SessionModeSelector } from "@/features/appointments/components/shared/session-mode-selector"
+import { SessionTypeSelector } from "@/features/appointments/components/shared/session-type-selector"
+import { TimeWheelPicker } from "@/features/appointments/components/schedule/time-wheel-picker"
 
 import { bookingDialogSchema, type BookingDialogSchema } from "@/features/browse/components/booking-dialog.schema"
 import { convertTo24Hour } from "@/features/browse/lib/time-utils"

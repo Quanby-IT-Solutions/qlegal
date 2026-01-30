@@ -1,7 +1,7 @@
 import { useMemo } from "react"
 import { isThisMonth, isThisWeek, isToday } from "date-fns"
 
-import type { AppointmentWithDetails, RequestFilters, RequestStats } from "../types/requests.types"
+import type { AppointmentWithDetails, RequestFilters, RequestStats } from "./types"
 
 export function useFilteredRequests(
 	appointments: AppointmentWithDetails[] | undefined,

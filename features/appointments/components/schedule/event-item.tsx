@@ -1,8 +1,6 @@
 "use client"
 
 import { useMemo } from "react"
-import type { DraggableAttributes } from "@dnd-kit/core"
-import type { SyntheticListenerMap } from "@dnd-kit/core/dist/hooks/utilities"
 import { differenceInMinutes, format, getMinutes, isPast } from "date-fns"
 
 import { cn } from "@/core/lib/utils"
@@ -10,8 +8,8 @@ import { cn } from "@/core/lib/utils"
 import {
 	getBorderRadiusClasses,
 	getEventColorClasses,
-} from "../lib/schedule-utils"
-import type { CalendarEvent } from "../lib/schedule-types"
+} from "../../lib/schedule-utils"
+import type { CalendarEvent } from "../../lib/schedule-types"
 
 // Using date-fns format with custom formatting:
 // 'h' - hours (1-12)
@@ -30,10 +28,6 @@ interface EventWrapperProps {
 	className?: string
 	children: React.ReactNode
 	currentTime?: Date
-	dndListeners?: SyntheticListenerMap
-	dndAttributes?: DraggableAttributes
-	onMouseDown?: (e: React.MouseEvent) => void
-	onTouchStart?: (e: React.TouchEvent) => void
 }
 
 // Shared wrapper component for event styling
@@ -46,10 +40,6 @@ function EventWrapper({
 	className,
 	children,
 	currentTime,
-	dndListeners,
-	dndAttributes,
-	onMouseDown,
-	onTouchStart,
 }: EventWrapperProps) {
 	// Always use currentTime (if provided) to determine if event is in the past
 	const displayEnd = currentTime
@@ -71,10 +61,6 @@ function EventWrapper({
 			data-dragging={isDragging || undefined}
 			data-past-event={isEventInPast || undefined}
 			onClick={onClick}
-			onMouseDown={onMouseDown}
-			onTouchStart={onTouchStart}
-			{...dndListeners}
-			{...dndAttributes}
 		>
 			{children}
 		</button>
@@ -92,10 +78,6 @@ interface EventItemProps {
 	isLastDay?: boolean
 	children?: React.ReactNode
 	className?: string
-	dndListeners?: SyntheticListenerMap
-	dndAttributes?: DraggableAttributes
-	onMouseDown?: (e: React.MouseEvent) => void
-	onTouchStart?: (e: React.TouchEvent) => void
 }
 
 export function EventItem({
@@ -109,10 +91,6 @@ export function EventItem({
 	isLastDay = true,
 	children,
 	className,
-	dndListeners,
-	dndAttributes,
-	onMouseDown,
-	onTouchStart,
 }: EventItemProps) {
 	const eventColor = event.color
 
@@ -158,10 +136,6 @@ export function EventItem({
 					className
 				)}
 				currentTime={currentTime}
-				dndListeners={dndListeners}
-				dndAttributes={dndAttributes}
-				onMouseDown={onMouseDown}
-				onTouchStart={onTouchStart}
 			>
 				{children || (
 					<span className="truncate">
@@ -192,10 +166,6 @@ export function EventItem({
 					className
 				)}
 				currentTime={currentTime}
-				dndListeners={dndListeners}
-				dndAttributes={dndAttributes}
-				onMouseDown={onMouseDown}
-				onTouchStart={onTouchStart}
 			>
 				{durationMinutes < 45 ? (
 					<div className="truncate">
@@ -226,10 +196,6 @@ export function EventItem({
 			)}
 			data-past-event={isPast(new Date(event.end)) || undefined}
 			onClick={onClick}
-			onMouseDown={onMouseDown}
-			onTouchStart={onTouchStart}
-			{...dndListeners}
-			{...dndAttributes}
 		>
 			<div className="text-sm font-medium">{event.title}</div>
 			<div className="text-xs opacity-70">
