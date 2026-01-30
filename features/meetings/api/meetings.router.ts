@@ -12,6 +12,7 @@ import {
 import {
 	ensureMeetingToken,
 	generateAndSetMeetingToken,
+	getMeetingToken,
 	setProjectToken,
 } from "@/services/doconchain/lib/token-cache"
 import { db } from "@/services/drizzle/db"
@@ -95,13 +96,17 @@ function getCachedIsFullySigned(projectUuid: string): boolean | undefined {
 	return cached.isFullySigned
 }
 
-async function getIsFullySignedCached(projectUuid: string, userEmail?: string): Promise<boolean> {
+async function getIsFullySignedCached(
+	projectUuid: string,
+	userEmail?: string,
+	tokenOverride?: string
+): Promise<boolean> {
 	const now = Date.now()
 	const cached = signingStatusCache.get(projectUuid)
 	if (cached && cached.expiresAtMs > now) return cached.isFullySigned
 
 	try {
-		const status = await checkSigningStatus(projectUuid, userEmail)
+		const status = await checkSigningStatus(projectUuid, userEmail, tokenOverride)
 		const isFullySigned = !!status.isFullySigned
 		signingStatusCache.set(projectUuid, { isFullySigned, expiresAtMs: now + 60_000 })
 		return isFullySigned
@@ -290,7 +295,11 @@ export const meetingsRouter = createTRPCRouter({
 			const userMeetings = hasMore ? rows.slice(0, limit) : rows
 
 			const externalSignedByProjectUuid = new Map<string, boolean>()
-			const projectUuidsToCheck: Array<{ projectUuid: string; authEmail?: string }> = []
+			const projectUuidsToCheck: Array<{
+				projectUuid: string
+				authEmail?: string
+				meetingId?: string
+			}> = []
 
 			// Build a limited list of project UUIDs to check (most recent meetings first).
 			for (const mp of userMeetings) {
@@ -327,13 +336,25 @@ export const meetingsRouter = createTRPCRouter({
 					// Avoid duplicates in the same response.
 					if (projectUuidsToCheck.some(p => p.projectUuid === projectUuid)) continue
 
-					projectUuidsToCheck.push({ projectUuid, authEmail })
+					projectUuidsToCheck.push({
+						projectUuid,
+						authEmail,
+						meetingId: meeting.id,
+					})
 				}
 			}
 
 			// Run limited external checks with moderate concurrency.
+			// Use meeting-scoped token when available (ENP joined) to avoid 401s from email-based token.
 			await asyncPool(projectUuidsToCheck, 6, async item => {
-				const isFullySigned = await getIsFullySignedCached(item.projectUuid, item.authEmail)
+				const meetingToken = item.meetingId
+					? getMeetingToken(item.meetingId)?.token
+					: undefined
+				const isFullySigned = await getIsFullySignedCached(
+					item.projectUuid,
+					item.authEmail,
+					meetingToken
+				)
 				externalSignedByProjectUuid.set(item.projectUuid, isFullySigned)
 			})
 
@@ -1461,6 +1482,7 @@ export const meetingsRouter = createTRPCRouter({
 
 			// Precompute DocoChain "fully signed" status per project UUID (cached)
 			const userEmail = getDocoChainAuthEmailForMeeting(meeting, ctx.session.user.email)
+			const meetingToken = getMeetingToken(meeting.id)?.token
 			const projectUuidsToCheck = new Set<string>()
 			for (const doc of meeting.documents ?? []) {
 				if (doc.docoChainProjectId) projectUuidsToCheck.add(doc.docoChainProjectId)
@@ -1468,7 +1490,11 @@ export const meetingsRouter = createTRPCRouter({
 
 			const externalSignedByProjectUuid = new Map<string, boolean>()
 			await asyncPool([...projectUuidsToCheck], 6, async projectUuid => {
-				const isFullySigned = await getIsFullySignedCached(projectUuid, userEmail)
+				const isFullySigned = await getIsFullySignedCached(
+					projectUuid,
+					userEmail,
+					meetingToken
+				)
 				externalSignedByProjectUuid.set(projectUuid, isFullySigned)
 			})
 

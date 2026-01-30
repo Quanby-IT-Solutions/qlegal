@@ -1419,7 +1419,6 @@ const DocumentActions = React.memo(function DocumentActions({
 		onSuccess: (data) => {
 			if (data.link && data.projectUuid && onPreGeneratedLink) {
 				onPreGeneratedLink(document.id, data.link, data.projectUuid)
-				console.log(`✅ Pre-generated link ready: ${data.link.substring(0, 50)}...`)
 			}
 			preGenerationInitiatedRef.current = null
 			plotPreGenRetryCountRef.current = 0
@@ -2406,9 +2405,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 				return
 			}
 
-			console.log("✅ Signing process initiated successfully!")
-			console.log("   - Project UUID:", data.projectUuid)
-			console.log("   - Signing link:", signingLink)
+			console.log("✅ Signing process initiated successfully! Project UUID:", data.projectUuid)
 
 			const wasPlotting = isPlottingActionRef.current
 
