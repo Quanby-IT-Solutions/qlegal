@@ -24,7 +24,7 @@ import {
 } from "./browse.schema"
 
 // Consulting booking schemas
-export const consultationWorkflowType = z.enum(["REN", "IEN"])
+export const consultationWorkflowType = z.enum(["REN", "IEN"]).optional()
 export type ConsultationWorkflowType = z.infer<typeof consultationWorkflowType>
 
 export const consultationType = z.enum(["INITIAL", "FOLLOWUP", "URGENT"])
@@ -35,7 +35,8 @@ export type MeetingPreference = z.infer<typeof meetingPreference>
 
 export const bookConsultationInputSchema = z.object({
 	enpId: z.string().min(1, "ENP ID is required"),
-	workflowType: consultationWorkflowType,
+	// workflowType is NOT required for consultations - they default to REN
+	workflowType: consultationWorkflowType.optional(),
 	appointmentDate: z.coerce.date({
 		message: "Appointment date is required",
 	}),
@@ -48,7 +49,8 @@ export const bookConsultationInputSchema = z.object({
 
 export const getEnpAvailabilityInputSchema = z.object({
 	enpId: z.string().min(1, "ENP ID is required"),
-	workflowType: consultationWorkflowType,
+	// Optional workflowType - only needed for NOTARIZATION availability
+	workflowType: consultationWorkflowType.optional(),
 	startDate: z.coerce.date().optional(),
 	endDate: z.coerce.date().optional(),
 })
@@ -286,14 +288,13 @@ export const browseRouter = createTRPCRouter({
 				})
 			}
 
-			// Determine duration based on workflow type
-			const duration = input.workflowType === "REN" ? 30 : 45
+			// Consultations are always 30 minutes duration
+			const duration = 30
 
 			// Create consultation notes
 			const consultationNotes = [
 				`Consultation Type: ${input.consultationType}`,
-				`Workflow: ${input.workflowType === "REN" ? "Remote Electronic Notarization" : "In-Person Electronic Notarization"}`,
-				input.workflowType === "REN" && input.meetingPreference
+				input.meetingPreference
 					? `Meeting Preference: ${input.meetingPreference === "VIDEO_CALL" ? "Video Call" : "Chat Only"}`
 					: "",
 				input.specialRequirements ? `Special Requirements: ${input.specialRequirements}` : "",
@@ -301,7 +302,7 @@ export const browseRouter = createTRPCRouter({
 				.filter(Boolean)
 				.join("\n")
 
-			// Create appointment
+			// Create appointment - modeOfNotarization is null for consultations
 			const [appointment] = await ctx.db
 				.insert(appointments)
 				.values({
@@ -310,9 +311,9 @@ export const browseRouter = createTRPCRouter({
 					type: "CONSULTATION",
 					appointmentDate: appointmentDateTime,
 					duration,
-					modeOfNotarization: input.workflowType,
+					modeOfNotarization: null, // No mode for consultations
 					notes: consultationNotes,
-					location: input.workflowType === "IEN" ? (input.location ?? "To be confirmed") : null,
+					location: null,
 					meetingLink: null, // Will be set when confirmed
 					status: "PENDING",
 				})
@@ -332,9 +333,6 @@ export const browseRouter = createTRPCRouter({
 				meetingId: null,
 				roomId: null,
 				conversationId: null,
-				workflowType: input.workflowType,
-				meetingPreference:
-					input.meetingPreference ?? (input.workflowType === "REN" ? "VIDEO_CALL" : undefined),
 			}
 		}),
 

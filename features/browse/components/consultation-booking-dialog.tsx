@@ -36,14 +36,13 @@ export function ConsultationBookingDialog({
 	const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined)
 	const [selectedTime, setSelectedTime] = useState<string>("")
 	const today = startOfToday()
-	const workflowType = "REN" // Default workflow type
 
-	// Fetch ENP availability when date is selected
+	// Fetch ENP availability when dialog is open (no workflowType needed for consultations)
 	const { data: availabilitySlots, isLoading: isLoadingAvailability } =
 		trpc.browse.getEnpAvailability.useQuery(
 			{
 				enpId,
-				workflowType,
+				// No workflowType - only needed for NOTARIZATION
 			},
 			{
 				enabled: !!enpId && open,
@@ -82,7 +81,7 @@ export function ConsultationBookingDialog({
 
 		await bookConsultationMutation.mutateAsync({
 			enpId,
-			workflowType,
+			workflowType: undefined, // No workflow type for consultations
 			appointmentDate: selectedDate,
 			appointmentTime: selectedTime,
 			consultationType: "INITIAL",
