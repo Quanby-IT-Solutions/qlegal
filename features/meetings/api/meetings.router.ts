@@ -517,6 +517,35 @@ export const meetingsRouter = createTRPCRouter({
 		}
 	}),
 
+	// Ensure a fresh DocoChain token for the meeting (ENP only). Use to gate "Create Project"
+	// so the button stays disabled with a loader until we have a valid fresh token.
+	ensureDocoChainToken: protectedProcedure
+		.input(z.object({ meetingId: z.string().min(1) }))
+		.query(async ({ input, ctx }) => {
+			const meeting = await db.query.meetings.findFirst({
+				where: eq(meetings.id, input.meetingId),
+				columns: { id: true, createdById: true },
+				with: { participants: { columns: { userId: true, status: true } } },
+			})
+			if (!meeting) {
+				throw new TRPCError({ code: "NOT_FOUND", message: "Meeting not found" })
+			}
+			const isHost = meeting.createdById === ctx.session.user.id
+			const isAccepted = meeting.participants.some(
+				p => p.userId === ctx.session.user.id && p.status === "ACCEPTED"
+			)
+			if (!isHost && !isAccepted) {
+				throw new TRPCError({ code: "FORBIDDEN", message: "You don't have access to this meeting" })
+			}
+			if (isEnpRole(ctx.session.user.role) && ctx.session.user.email) {
+				await generateAndSetMeetingToken(
+					input.meetingId,
+					ctx.session.user.email.trim().toLowerCase()
+				)
+			}
+			return { ready: true }
+		}),
+
 	// Fetch VideoSDK recordings for a meeting (user must have access)
 	getRecordings: protectedProcedure
 		.input(z.object({ meetingId: z.string() }))
