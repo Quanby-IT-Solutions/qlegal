@@ -5,11 +5,8 @@ import { differenceInMinutes, format, getMinutes, isPast } from "date-fns"
 
 import { cn } from "@/core/lib/utils"
 
-import {
-	getBorderRadiusClasses,
-	getEventColorClasses,
-} from "../../lib/schedule-utils"
 import type { CalendarEvent } from "../../lib/schedule-types"
+import { getBorderRadiusClasses, getEventColorClasses } from "../../lib/schedule-utils"
 
 // Using date-fns format with custom formatting:
 // 'h' - hours (1-12)
@@ -58,7 +55,7 @@ function EventWrapper({
 				getBorderRadiusClasses(isFirstDay, isLastDay),
 				className
 			)}
-			data-dragging={isDragging || undefined}
+			data-dragging={isDragging ?? undefined}
 			data-past-event={isEventInPast || undefined}
 			onClick={onClick}
 		>
@@ -96,7 +93,7 @@ export function EventItem({
 
 	// Use provided currentTime (for dragging) or event's actual time
 	const displayStart = useMemo(() => {
-		return currentTime || new Date(event.start)
+		return currentTime ?? new Date(event.start)
 	}, [currentTime, event.start])
 
 	const displayEnd = useMemo(() => {
@@ -132,12 +129,12 @@ export function EventItem({
 				isDragging={isDragging}
 				onClick={onClick}
 				className={cn(
-					"mt-[var(--event-gap)] h-[var(--event-height)] items-center text-[10px] sm:text-xs",
+					"mt-(--event-gap) h-(--event-height) items-center text-[10px] sm:text-xs",
 					className
 				)}
 				currentTime={currentTime}
 			>
-				{children || (
+				{children ?? (
 					<span className="truncate">
 						{!event.allDay && (
 							<span className="truncate font-normal opacity-70 sm:text-[11px]">
