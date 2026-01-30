@@ -26,19 +26,18 @@ import {
 	FormLabel,
 	FormMessage,
 } from "@/core/components/ui/form"
-import { Input } from "@/core/components/ui/input"
 import { ScrollArea } from "@/core/components/ui/scroll-area"
 import { Separator } from "@/core/components/ui/separator"
 import { Textarea } from "@/core/components/ui/textarea"
 
 import { trpc } from "@/services/trpc/client"
 
-import { SessionModeSelector } from "@/features/booking/components/session-mode-selector"
-import { SessionTypeSelector } from "@/features/booking/components/session-type-selector"
+import { SessionModeSelector } from "@/features/appointments/components/session-mode-selector"
+import { SessionTypeSelector } from "@/features/appointments/components/session-type-selector"
 
 import { bookingDialogSchema, type BookingDialogSchema } from "./booking-dialog.schema"
 import { DateTimePickerSection } from "./date-time-picker-section"
-import { convertTo12Hour, convertTo24Hour, type Time12Hour } from "./lib/time-utils"
+import { convertTo24Hour } from "./lib/time-utils"
 
 interface BookingDialogProps {
 	enpId: string
@@ -142,7 +141,7 @@ export function BookingDialog({ enpId, enpName, trigger }: BookingDialogProps) {
 				appointmentTime: time24,
 				consultationType: "INITIAL",
 				meetingPreference: undefined,
-				specialRequirements: description.trim() || undefined,
+				specialRequirements: description?.trim() ?? undefined,
 				location: undefined,
 			})
 		} else {
@@ -163,7 +162,7 @@ export function BookingDialog({ enpId, enpName, trigger }: BookingDialogProps) {
 				type: "DOCUMENT_SIGNING",
 				appointmentDate,
 				duration: workflowType === "REN" ? 45 : 60,
-				notes: description.trim() || undefined,
+				notes: description?.trim() ?? undefined,
 				location: undefined,
 				meetingLink: workflowType === "REN" ? "" : undefined,
 			})
@@ -246,7 +245,7 @@ export function BookingDialog({ enpId, enpName, trigger }: BookingDialogProps) {
 								<div className="space-y-4">
 									<DateTimePickerSection
 										selectedDate={watchSelectedDate}
-										onDateChange={date => form.setValue("selectedDate", date as Date)}
+										onDateChange={date => form.setValue("selectedDate", date!)}
 										selectedTime={{
 											hour: form.watch("selectedTime.hour"),
 											minute: form.watch("selectedTime.minute"),
@@ -254,10 +253,12 @@ export function BookingDialog({ enpId, enpName, trigger }: BookingDialogProps) {
 										}}
 										onTimeChange={time => form.setValue("selectedTime", time)}
 										availabilitySlots={
-											availabilityData?.map(slot => ({
-												date: slot.date,
-												time: slot.time,
-											})) ?? []
+											availabilityData
+												?.filter(slot => slot.date !== undefined)
+												.map(slot => ({
+													date: slot.date!,
+													time: slot.time,
+												})) ?? []
 										}
 										isLoadingAvailability={isLoadingAvailability}
 										disabled={isBookingPending}

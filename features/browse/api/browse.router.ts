@@ -1,21 +1,11 @@
 import { TRPCError } from "@trpc/server"
-import { and, count, desc, eq, gte, ilike, or } from "drizzle-orm"
-import { z } from "zod"
-
-import { getUrl } from "@/core/lib/get-url"
+import { and, count, desc, eq, ilike, or } from "drizzle-orm"
+import { z } from "zod/v4"
 
 import { appointments } from "@/services/drizzle/schema/appointments"
 import { users } from "@/services/drizzle/schema/auth"
 import { enpProfiles } from "@/services/drizzle/schema/enp-profiles"
-import {
-	conversationParticipants,
-	conversations,
-	meetingParticipants,
-	meetings,
-	messages,
-} from "@/services/drizzle/schema/meetings"
-import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
-import { createMeetingRoom } from "@/services/video-sdk"
+import { createTRPCRouter, protectedProcedure, publicProcedure } from "@/services/trpc/init"
 
 import {
 	buildENPWhereConditions,
@@ -26,6 +16,8 @@ import {
 import {
 	findBestMatchSchema,
 	getAvailableENPsSchema,
+	getLawyerByIdSchema,
+	searchLawyersSchema,
 	trackQuickMatchResponseSchema,
 	type ENPCandidateWithScore,
 	type GetAvailableENPsResponse,
@@ -504,4 +496,148 @@ export const browseRouter = createTRPCRouter({
 
 			return { success: true, isAvailable: input.available }
 		}),
+
+	// =================== ENP/Lawyers Search ===================
+
+	// Get all lawyers (ENP role users) with their profiles
+	getLawyers: publicProcedure.input(searchLawyersSchema).query(async ({ ctx, input }) => {
+		// Build where condition
+		const whereConditions = [eq(users.role, "ENP")]
+
+		// Add search filter if query provided
+		const searchQuery = (input as { query?: string }).query
+		if (searchQuery?.trim()) {
+			const searchTerm = `%${searchQuery.toLowerCase()}%`
+			const orCondition = or(
+				ilike(users.name, searchTerm),
+				ilike(users.email, searchTerm),
+				ilike(users.phoneNumber, searchTerm),
+				ilike(enpProfiles.specialization, searchTerm)
+			)
+			if (orCondition) {
+				whereConditions.push(orCondition)
+			}
+		}
+
+		// Fetch lawyers with their profiles (left join in case profile doesn't exist)
+		const lawyers = await ctx.db
+			.select({
+				id: users.id,
+				name: users.name,
+				email: users.email,
+				image: users.image,
+				phoneNumber: users.phoneNumber,
+				emailVerified: users.emailVerified,
+				// ENP Profile fields
+				specialization: enpProfiles.specialization,
+				bio: enpProfiles.bio,
+				experience: enpProfiles.experience,
+				languages: enpProfiles.languages,
+				responseTime: enpProfiles.responseTime,
+				rating: enpProfiles.rating,
+				reviewCount: enpProfiles.reviewCount,
+				isAvailable: enpProfiles.isAvailable,
+			})
+			.from(users)
+			.leftJoin(enpProfiles, eq(users.id, enpProfiles.userId))
+			.where(and(...whereConditions))
+			.limit((input as { limit: number }).limit)
+			.offset((input as { offset: number }).offset)
+			.orderBy(users.name)
+
+		// Transform the data to parse languages JSON and provide defaults
+		return lawyers.map(lawyer => ({
+			id: lawyer.id,
+			name: lawyer.name,
+			email: lawyer.email,
+			image: lawyer.image,
+			phoneNumber: lawyer.phoneNumber,
+			emailVerified: lawyer.emailVerified,
+			specialization: lawyer.specialization ?? null,
+			bio: lawyer.bio ?? null,
+			experience: lawyer.experience ?? null,
+			languages: lawyer.languages
+				? (() => {
+						try {
+							return JSON.parse(lawyer.languages) as string[]
+						} catch {
+							return []
+						}
+					})()
+				: [],
+			responseTime: lawyer.responseTime ?? null,
+			rating: lawyer.rating ?? 0,
+			reviewCount: lawyer.reviewCount ?? 0,
+			isAvailable: lawyer.isAvailable ?? true,
+		}))
+	}),
+
+	// Get lawyer by ID with profile
+	getLawyerById: publicProcedure.input(getLawyerByIdSchema).query(async ({ ctx, input }) => {
+		const { lawyerId } = input as { lawyerId: string }
+
+		const result = await ctx.db
+			.select({
+				id: users.id,
+				name: users.name,
+				email: users.email,
+				image: users.image,
+				phoneNumber: users.phoneNumber,
+				emailVerified: users.emailVerified,
+				role: users.role,
+				// ENP Profile fields
+				specialization: enpProfiles.specialization,
+				bio: enpProfiles.bio,
+				experience: enpProfiles.experience,
+				languages: enpProfiles.languages,
+				responseTime: enpProfiles.responseTime,
+				rating: enpProfiles.rating,
+				reviewCount: enpProfiles.reviewCount,
+				isAvailable: enpProfiles.isAvailable,
+			})
+			.from(users)
+			.leftJoin(enpProfiles, eq(users.id, enpProfiles.userId))
+			.where(eq(users.id, lawyerId))
+			.limit(1)
+
+		const lawyer = result[0]
+
+		if (lawyer?.role !== "ENP") {
+			return null
+		}
+
+		// Transform the data to parse languages JSON and provide defaults
+		return {
+			id: lawyer.id,
+			name: lawyer.name,
+			email: lawyer.email,
+			image: lawyer.image,
+			phoneNumber: lawyer.phoneNumber,
+			emailVerified: lawyer.emailVerified,
+			role: lawyer.role,
+			specialization: lawyer.specialization ?? null,
+			bio: lawyer.bio ?? null,
+			experience: lawyer.experience ?? null,
+			languages: lawyer.languages
+				? (() => {
+						try {
+							return JSON.parse(lawyer.languages) as string[]
+						} catch {
+							return []
+						}
+					})()
+				: [],
+			responseTime: lawyer.responseTime ?? null,
+			rating: lawyer.rating ?? 0,
+			reviewCount: lawyer.reviewCount ?? 0,
+			isAvailable: lawyer.isAvailable ?? true,
+		}
+	}),
+
+	// Get total count of lawyers
+	getLawyersCount: publicProcedure.query(async ({ ctx }) => {
+		const result = await ctx.db.select().from(users).where(eq(users.role, "ENP"))
+
+		return result.length
+	}),
 })

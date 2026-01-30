@@ -3,8 +3,8 @@ import { PageHeader } from "@/core/components/navbar/page-header"
 import { auth } from "@/services/next-auth"
 import { HydrateClient, trpc } from "@/services/trpc/server"
 
-import { type IncomingItem } from "@/features/requests/api/requests.router"
-import { RequestsClient } from "@/features/requests/components/requests-client"
+import { type IncomingItem } from "@/features/appointments/api/requests.router"
+import { RequestsClient } from "@/features/appointments/components/requests-client"
 
 export default async function RequestsPage() {
 	const session = await auth()

@@ -8,7 +8,7 @@ import { Calendar as CalendarComponent } from "@/core/components/ui/calendar"
 import { Label } from "@/core/components/ui/label"
 import { Popover, PopoverContent, PopoverTrigger } from "@/core/components/ui/popover"
 
-import { TimeWheelPicker } from "@/features/schedule/components/time-wheel-picker"
+import { TimeWheelPicker } from "@/features/appointments/components/time-wheel-picker"
 
 import { convertTo12Hour, formatTime12Hour, type Time12Hour } from "./lib/time-utils"
 

@@ -29,10 +29,24 @@ export const trackQuickMatchResponseSchema = z.object({
 	enpId: z.string().optional(),
 })
 
+// Search lawyers schema
+export const searchLawyersSchema = z.object({
+	query: z.string().optional(),
+	limit: z.number().min(1).max(100).default(50),
+	offset: z.number().min(0).default(0),
+})
+
+// Get lawyer by ID schema
+export const getLawyerByIdSchema = z.object({
+	lawyerId: z.string().min(1, "Lawyer ID is required"),
+})
+
 // Type exports
 export type FindBestMatchInput = z.infer<typeof findBestMatchSchema>
 export type GetAvailableENPsInput = z.infer<typeof getAvailableENPsSchema>
 export type TrackQuickMatchResponseInput = z.infer<typeof trackQuickMatchResponseSchema>
+export type SearchLawyersInput = z.infer<typeof searchLawyersSchema>
+export type GetLawyerByIdInput = z.infer<typeof getLawyerByIdSchema>
 
 // ENP Score Breakdown interface (used in Quick Match algorithm)
 export interface ENPScoreBreakdown {
