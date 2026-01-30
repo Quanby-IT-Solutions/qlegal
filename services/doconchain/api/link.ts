@@ -128,7 +128,7 @@ export async function generateSignLink({
 	console.log("🔵 Adding api_token to Generate Sign Link using email:", tokenEmail)
 
 	const finalLink = await appendApiToken(normalizedLink, tokenEmail, true)
-	console.log("✅ Generate Sign Link with api_token:", finalLink.substring(0, 100) + "...")
+	console.log("✅ Generate Sign Link with api_token ready")
 	return { link: finalLink }
 }
 
@@ -439,7 +439,7 @@ async function appendApiToken(
 
 		return url.toString()
 	} catch (error) {
-		console.error("❌ Failed to append API token to link:", normalizedLink, error)
+		console.error("❌ Failed to append API token to link:", error)
 		const separator = normalizedLink.includes("?") ? "&" : "?"
 		let apiToken: string
 		if (tokenOverride) {

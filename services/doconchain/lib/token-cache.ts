@@ -225,13 +225,24 @@ export function clearProjectToken(projectUuid: string): void {
  * Store the DocoChain token for a meeting (generated when ENP joins).
  * Used for project creation and Edit Draft link generation so the link is always correct.
  */
+function redactEmail(email: string): string {
+	const at = email.indexOf("@")
+	if (at <= 0) return "***"
+	const local = email.slice(0, at)
+	const domain = email.slice(at + 1)
+	const show = local.length <= 2 ? "**" : `${local.slice(0, 2)  }***`
+	return `${show}@${domain}`
+}
+
 export function setMeetingToken(meetingId: string, email: string, token: string): void {
 	meetingTokenCache.set(meetingId, {
 		token,
 		email,
 		storedAt: Date.now(),
 	})
-	console.log(`🔵 Stored meeting-scoped DocoChain token for meeting ${meetingId.substring(0, 8)}... (ENP: ${email})`)
+	console.log(
+		`🔵 Stored meeting-scoped DocoChain token for meeting ${meetingId.substring(0, 8)}... (ENP: ${redactEmail(email)})`
+	)
 }
 
 /**

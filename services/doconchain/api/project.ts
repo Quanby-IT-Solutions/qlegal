@@ -94,7 +94,8 @@ export async function createProject({
 
 export async function getProjectDetails(
 	projectUuid: string,
-	userEmail?: string
+	userEmail?: string,
+	tokenOverride?: string
 ): Promise<{
 	data?: {
 		uuid?: string
@@ -125,8 +126,8 @@ export async function getProjectDetails(
 	}
 	message?: string
 }> {
-	const response = await apiCall(async token => {
-		return fetch(
+	const doFetch = (token: string) =>
+		fetch(
 			`${env.DOCONCHAIN_API_URL}/api/v2/projects/${projectUuid}?user_type=ENTERPRISE_API`,
 			{
 				method: "GET",
@@ -136,7 +137,9 @@ export async function getProjectDetails(
 				},
 			}
 		)
-	}, userEmail)
+	const response = tokenOverride
+		? await apiCallWithToken(doFetch, tokenOverride)
+		: await apiCall(doFetch, userEmail)
 
 	if (!response.ok) {
 		const errorText = await response.text()

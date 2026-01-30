@@ -26,9 +26,10 @@ interface SigningStatusResult {
 
 export async function checkSigningStatus(
 	projectUuid: string,
-	userEmail?: string
+	userEmail?: string,
+	tokenOverride?: string
 ): Promise<SigningStatusResult> {
-	const projectDetails = await getProjectDetails(projectUuid, userEmail)
+	const projectDetails = await getProjectDetails(projectUuid, userEmail, tokenOverride)
 	const projectData = projectDetails?.data
 
 	if (!projectData) {
