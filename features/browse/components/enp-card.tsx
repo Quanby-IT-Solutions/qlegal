@@ -1,5 +1,14 @@
 import Link from "next/link"
-import { Briefcase, Clock, Globe, MapPin, MessageSquare, ShieldCheck, Star, User } from "lucide-react"
+import {
+	Briefcase,
+	Clock,
+	Globe,
+	MapPin,
+	MessageSquare,
+	ShieldCheck,
+	Star,
+	User,
+} from "lucide-react"
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/core/components/ui/avatar"
 import { Badge } from "@/core/components/ui/badge"
@@ -42,17 +51,37 @@ interface EnpCardProps {
 }
 
 // Inline EnpAvatar component (previously in separate file)
-function EnpAvatar({ name, image, className }: { name: string | null; image?: string | null; className?: string }) {
+function EnpAvatar({
+	name,
+	image,
+	className,
+}: {
+	name: string | null
+	image?: string | null
+	className?: string
+}) {
 	return (
 		<Avatar className={cn("bg-muted", className)}>
 			<AvatarImage src={image ?? ""} alt={name ?? "ENP"} className="object-cover" />
-			<AvatarFallback className="text-muted-foreground font-medium">{getInitials(name ?? "ENP")}</AvatarFallback>
+			<AvatarFallback className="text-muted-foreground font-medium">
+				{getInitials(name ?? "ENP")}
+			</AvatarFallback>
 		</Avatar>
 	)
 }
 
 // Inline EnpRating component (previously in separate file)
-function EnpRating({ rating, reviewCount, variant = "inline", className }: { rating: number; reviewCount?: number; variant?: "badge" | "inline"; className?: string }) {
+function EnpRating({
+	rating,
+	reviewCount,
+	variant = "inline",
+	className,
+}: {
+	rating: number
+	reviewCount?: number
+	variant?: "badge" | "inline"
+	className?: string
+}) {
 	if (variant === "badge") {
 		return (
 			<Badge variant="secondary" className={className}>

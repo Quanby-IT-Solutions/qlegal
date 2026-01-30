@@ -103,7 +103,9 @@ export async function getToken(email?: string, forceVerify = false): Promise<str
 					orgInviteCode: env.DOCONCHAIN_ORG_INVITE_CODE,
 				})
 
-				const status = String(verify?.data?.status ?? "").toLowerCase().trim()
+				const status = String(verify?.data?.status ?? "")
+					.toLowerCase()
+					.trim()
 				// Token is valid unless status is explicitly inactive
 				// API may return "active", "valid", or other positive values
 				const isInvalid = status === "inactive" || status === "expired" || status === ""
@@ -142,9 +144,7 @@ export async function getToken(email?: string, forceVerify = false): Promise<str
 			}
 		} else {
 			// Too many verification failures - regenerate token to be safe
-			console.warn(
-				`⚠️ Too many verification failures (${failureCount}) - regenerating token...`
-			)
+			console.warn(`⚠️ Too many verification failures (${failureCount}) - regenerating token...`)
 			verificationFailureCount.delete(cacheKey)
 			tokenCache.delete(cacheKey)
 			return generateToken(email, true)
@@ -202,9 +202,7 @@ export async function getOrRefreshProjectToken(
 
 	const ageMs = Date.now() - entry.storedAt
 	if (ageMs > PROJECT_TOKEN_REFRESH_AGE_MS) {
-		console.log(
-			`🔄 Project token is ${Math.round(ageMs / 1000 / 60)} minutes old - refreshing...`
-		)
+		console.log(`🔄 Project token is ${Math.round(ageMs / 1000 / 60)} minutes old - refreshing...`)
 		// Generate a fresh token and update the project token cache
 		const freshToken = await generateToken(email, true)
 		setProjectToken(projectUuid, freshToken)
@@ -230,7 +228,7 @@ function redactEmail(email: string): string {
 	if (at <= 0) return "***"
 	const local = email.slice(0, at)
 	const domain = email.slice(at + 1)
-	const show = local.length <= 2 ? "**" : `${local.slice(0, 2)  }***`
+	const show = local.length <= 2 ? "**" : `${local.slice(0, 2)}***`
 	return `${show}@${domain}`
 }
 
@@ -265,9 +263,7 @@ export async function getOrRefreshMeetingToken(
 
 	const ageMs = Date.now() - entry.storedAt
 	if (ageMs > PROJECT_TOKEN_REFRESH_AGE_MS) {
-		console.log(
-			`🔄 Meeting token is ${Math.round(ageMs / 1000 / 60)} minutes old - refreshing...`
-		)
+		console.log(`🔄 Meeting token is ${Math.round(ageMs / 1000 / 60)} minutes old - refreshing...`)
 		const freshToken = await generateToken(email, true)
 		setMeetingToken(meetingId, email, freshToken)
 		return freshToken
@@ -292,7 +288,10 @@ export async function ensureMeetingToken(meetingId: string, email: string): Prom
  * Use when ENP enters the room (e.g. getToken) so we explicitly hit the API at that moment.
  * Does not reuse cached meeting token.
  */
-export async function generateAndSetMeetingToken(meetingId: string, email: string): Promise<string> {
+export async function generateAndSetMeetingToken(
+	meetingId: string,
+	email: string
+): Promise<string> {
 	const token = await generateToken(email, true)
 	setMeetingToken(meetingId, email, token)
 	return token

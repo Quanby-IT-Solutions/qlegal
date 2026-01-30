@@ -44,17 +44,12 @@ import {
 } from "@/core/components/ui/tooltip"
 import { cn } from "@/core/lib/utils"
 
+import { AgendaDaysToShow, EventGap, EventHeight, WeekCellsHeight } from "../lib/schedule-constants"
 import type { CalendarEvent, CalendarView } from "../lib/schedule-types"
 import { addHoursToDate } from "../lib/schedule-utils"
-import {
-	AgendaDaysToShow,
-	EventGap,
-	EventHeight,
-	WeekCellsHeight,
-} from "../lib/schedule-constants"
+import { EventDialog } from "./event-dialog"
 import { AgendaView } from "./schedule/views/agenda-view"
 import { DayView } from "./schedule/views/day-view"
-import { EventDialog } from "./event-dialog"
 import { WeekView } from "./schedule/views/week-view"
 
 export interface EventCalendarProps {
@@ -93,17 +88,17 @@ export function EventCalendar({
 				return
 			}
 
-		switch (e.key.toLowerCase()) {
-			case "w":
-				setView("week")
-				break
-			case "d":
-				setView("day")
-				break
-			case "a":
-				setView("agenda")
-				break
-		}
+			switch (e.key.toLowerCase()) {
+				case "w":
+					setView("week")
+					break
+				case "d":
+					setView("day")
+					break
+				case "a":
+					setView("agenda")
+					break
+			}
 		}
 
 		window.addEventListener("keydown", handleKeyDown)
@@ -291,176 +286,172 @@ export function EventCalendar({
 					"--event-gap": `${EventGap}px`,
 					"--week-cells-height": `${WeekCellsHeight}px`,
 				} as React.CSSProperties
-		}
-	>
+			}
+		>
 			<div className={cn("flex items-center justify-between border-b p-2 sm:p-4", className)}>
-					<div className="flex items-center gap-1 sm:gap-4">
-						<div className="flex items-center sm:gap-2">
-							<Button variant="ghost" size="icon" onClick={handlePrevious} aria-label="Previous">
-								<ChevronLeftIcon size={16} aria-hidden="true" />
-							</Button>
-							<Button variant="ghost" size="icon" onClick={handleNext} aria-label="Next">
-								<ChevronRightIcon size={16} aria-hidden="true" />
-							</Button>
-						</div>
-						{/* Year selector - shown in all views */}
-						<Select value={currentDate.getFullYear().toString()} onValueChange={handleYearChange}>
-							<SelectTrigger className="w-24 sm:w-28">
-								<SelectValue />
+				<div className="flex items-center gap-1 sm:gap-4">
+					<div className="flex items-center sm:gap-2">
+						<Button variant="ghost" size="icon" onClick={handlePrevious} aria-label="Previous">
+							<ChevronLeftIcon size={16} aria-hidden="true" />
+						</Button>
+						<Button variant="ghost" size="icon" onClick={handleNext} aria-label="Next">
+							<ChevronRightIcon size={16} aria-hidden="true" />
+						</Button>
+					</div>
+					{/* Year selector - shown in all views */}
+					<Select value={currentDate.getFullYear().toString()} onValueChange={handleYearChange}>
+						<SelectTrigger className="w-24 sm:w-28">
+							<SelectValue />
+						</SelectTrigger>
+						<SelectContent>
+							{years.map(year => (
+								<SelectItem key={year} value={year.toString()}>
+									{year}
+								</SelectItem>
+							))}
+						</SelectContent>
+					</Select>
+					{/* Month selector - shown in all views */}
+					<Select value={months[currentDate.getMonth()]} onValueChange={handleMonthChange}>
+						<SelectTrigger className="w-32 sm:w-40">
+							<SelectValue />
+						</SelectTrigger>
+						<SelectContent>
+							{months.map(month => (
+								<SelectItem key={month} value={month}>
+									{month}
+								</SelectItem>
+							))}
+						</SelectContent>
+					</Select>
+					{/* Week selector - shown in week and day views */}
+					{(view === "week" || view === "day") && (
+						<Select
+							value={getWeek(currentDate, { weekStartsOn: 0 }).toString()}
+							onValueChange={handleWeekChange}
+						>
+							<SelectTrigger className="w-24 sm:w-32">
+								<SelectValue placeholder="Week" />
 							</SelectTrigger>
 							<SelectContent>
-								{years.map(year => (
-									<SelectItem key={year} value={year.toString()}>
-										{year}
+								{weeksInMonth.map(week => (
+									<SelectItem key={week.number} value={week.number.toString()}>
+										Week {week.number}
 									</SelectItem>
 								))}
 							</SelectContent>
 						</Select>
-						{/* Month selector - shown in all views */}
-						<Select value={months[currentDate.getMonth()]} onValueChange={handleMonthChange}>
-							<SelectTrigger className="w-32 sm:w-40">
-								<SelectValue />
-							</SelectTrigger>
-							<SelectContent>
-								{months.map(month => (
-									<SelectItem key={month} value={month}>
-										{month}
-									</SelectItem>
-								))}
-							</SelectContent>
-						</Select>
-						{/* Week selector - shown in week and day views */}
-						{(view === "week" || view === "day") && (
-							<Select
-								value={getWeek(currentDate, { weekStartsOn: 0 }).toString()}
-								onValueChange={handleWeekChange}
-							>
-								<SelectTrigger className="w-24 sm:w-32">
-									<SelectValue placeholder="Week" />
-								</SelectTrigger>
-								<SelectContent>
-									{weeksInMonth.map(week => (
-										<SelectItem key={week.number} value={week.number.toString()}>
-											Week {week.number}
-										</SelectItem>
-									))}
-								</SelectContent>
-							</Select>
-						)}
-						{/* Day selector - shown in day view only */}
-						{view === "day" && (
-							<Select value={currentDate.getDate().toString()} onValueChange={handleDayChange}>
-								<SelectTrigger className="w-20 sm:w-24">
-									<SelectValue placeholder="Day" />
-								</SelectTrigger>
-								<SelectContent>
-									{daysInMonth.map(day => (
-										<SelectItem key={day} value={day.toString()}>
-											{day}
-										</SelectItem>
-									))}
-								</SelectContent>
-							</Select>
-						)}
-						{/* Today button */}
-						<Button
-							variant="outline"
-							className="max-[479px]:aspect-square max-[479px]:p-0!"
-							onClick={handleToday}
-						>
-							<CalendarIcon className="min-[480px]:hidden" size={16} aria-hidden="true" />
-							<span className="max-[479px]:sr-only">Today</span>
-						</Button>
-					</div>
-					<div className="flex items-center gap-2">
-						<DropdownMenu>
-							<DropdownMenuTrigger asChild>
-								<Button variant="outline" className="gap-1.5 max-[479px]:h-8">
-									<span>
-										<span className="min-[480px]:hidden" aria-hidden="true">
-											{view.charAt(0).toUpperCase()}
-										</span>
-										<span className="max-[479px]:sr-only">
-											{view.charAt(0).toUpperCase() + view.slice(1)}
-										</span>
-									</span>
-									<ChevronDownIcon className="-me-1 opacity-60" size={16} aria-hidden="true" />
-								</Button>
-							</DropdownMenuTrigger>
-							<DropdownMenuContent align="end" className="min-w-32">
-								<DropdownMenuItem onClick={() => setView("week")}>
-									Week <DropdownMenuShortcut>W</DropdownMenuShortcut>
-								</DropdownMenuItem>
-								<DropdownMenuItem onClick={() => setView("day")}>
-									Day <DropdownMenuShortcut>D</DropdownMenuShortcut>
-								</DropdownMenuItem>
-								<DropdownMenuItem onClick={() => setView("agenda")}>
-									Agenda <DropdownMenuShortcut>A</DropdownMenuShortcut>
-								</DropdownMenuItem>
-							</DropdownMenuContent>
-						</DropdownMenu>
-						<TooltipProvider>
-							<Tooltip>
-								<TooltipTrigger asChild>
-									<div className="inline-block">
-										<Button
-											variant="outline"
-											size="sm"
-											className="max-[479px]:aspect-square max-[479px]:p-0!"
-											disabled
-										>
-											<span className="max-sm:sr-only">Block time</span>
-										</Button>
-									</div>
-								</TooltipTrigger>
-								<TooltipContent>Coming soon</TooltipContent>
-							</Tooltip>
-						</TooltipProvider>
-						<Button
-							className="max-[479px]:aspect-square max-[479px]:p-0!"
-							size="sm"
-							onClick={() => {
-								setSelectedEvent(null) // Ensure we're creating a new event
-								setIsEventDialogOpen(true)
-							}}
-						>
-							<PlusIcon className="opacity-60 sm:-ms-1" size={16} aria-hidden="true" />
-							<span className="max-sm:sr-only">New event</span>
-						</Button>
-					</div>
-				</div>
-				<div className="flex flex-1 flex-col p-2 sm:p-4">
-					{view === "week" && (
-						<WeekView
-							currentDate={currentDate}
-							events={events}
-							onEventSelect={handleEventSelect}
-							onEventCreate={handleEventCreate}
-						/>
 					)}
+					{/* Day selector - shown in day view only */}
 					{view === "day" && (
-						<DayView
-							currentDate={currentDate}
-							events={events}
-							onEventSelect={handleEventSelect}
-							onEventCreate={handleEventCreate}
-						/>
+						<Select value={currentDate.getDate().toString()} onValueChange={handleDayChange}>
+							<SelectTrigger className="w-20 sm:w-24">
+								<SelectValue placeholder="Day" />
+							</SelectTrigger>
+							<SelectContent>
+								{daysInMonth.map(day => (
+									<SelectItem key={day} value={day.toString()}>
+										{day}
+									</SelectItem>
+								))}
+							</SelectContent>
+						</Select>
 					)}
-					{view === "agenda" && (
-						<AgendaView
-							currentDate={currentDate}
-							events={events}
-							onEventSelect={handleEventSelect}
-						/>
-					)}
+					{/* Today button */}
+					<Button
+						variant="outline"
+						className="max-[479px]:aspect-square max-[479px]:p-0!"
+						onClick={handleToday}
+					>
+						<CalendarIcon className="min-[480px]:hidden" size={16} aria-hidden="true" />
+						<span className="max-[479px]:sr-only">Today</span>
+					</Button>
 				</div>
-				<EventDialog
-					event={selectedEvent}
-					isOpen={isEventDialogOpen}
-					onClose={() => {
-						setIsEventDialogOpen(false)
-						setSelectedEvent(null)
-					}}
+				<div className="flex items-center gap-2">
+					<DropdownMenu>
+						<DropdownMenuTrigger asChild>
+							<Button variant="outline" className="gap-1.5 max-[479px]:h-8">
+								<span>
+									<span className="min-[480px]:hidden" aria-hidden="true">
+										{view.charAt(0).toUpperCase()}
+									</span>
+									<span className="max-[479px]:sr-only">
+										{view.charAt(0).toUpperCase() + view.slice(1)}
+									</span>
+								</span>
+								<ChevronDownIcon className="-me-1 opacity-60" size={16} aria-hidden="true" />
+							</Button>
+						</DropdownMenuTrigger>
+						<DropdownMenuContent align="end" className="min-w-32">
+							<DropdownMenuItem onClick={() => setView("week")}>
+								Week <DropdownMenuShortcut>W</DropdownMenuShortcut>
+							</DropdownMenuItem>
+							<DropdownMenuItem onClick={() => setView("day")}>
+								Day <DropdownMenuShortcut>D</DropdownMenuShortcut>
+							</DropdownMenuItem>
+							<DropdownMenuItem onClick={() => setView("agenda")}>
+								Agenda <DropdownMenuShortcut>A</DropdownMenuShortcut>
+							</DropdownMenuItem>
+						</DropdownMenuContent>
+					</DropdownMenu>
+					<TooltipProvider>
+						<Tooltip>
+							<TooltipTrigger asChild>
+								<div className="inline-block">
+									<Button
+										variant="outline"
+										size="sm"
+										className="max-[479px]:aspect-square max-[479px]:p-0!"
+										disabled
+									>
+										<span className="max-sm:sr-only">Block time</span>
+									</Button>
+								</div>
+							</TooltipTrigger>
+							<TooltipContent>Coming soon</TooltipContent>
+						</Tooltip>
+					</TooltipProvider>
+					<Button
+						className="max-[479px]:aspect-square max-[479px]:p-0!"
+						size="sm"
+						onClick={() => {
+							setSelectedEvent(null) // Ensure we're creating a new event
+							setIsEventDialogOpen(true)
+						}}
+					>
+						<PlusIcon className="opacity-60 sm:-ms-1" size={16} aria-hidden="true" />
+						<span className="max-sm:sr-only">New event</span>
+					</Button>
+				</div>
+			</div>
+			<div className="flex flex-1 flex-col p-2 sm:p-4">
+				{view === "week" && (
+					<WeekView
+						currentDate={currentDate}
+						events={events}
+						onEventSelect={handleEventSelect}
+						onEventCreate={handleEventCreate}
+					/>
+				)}
+				{view === "day" && (
+					<DayView
+						currentDate={currentDate}
+						events={events}
+						onEventSelect={handleEventSelect}
+						onEventCreate={handleEventCreate}
+					/>
+				)}
+				{view === "agenda" && (
+					<AgendaView currentDate={currentDate} events={events} onEventSelect={handleEventSelect} />
+				)}
+			</div>
+			<EventDialog
+				event={selectedEvent}
+				isOpen={isEventDialogOpen}
+				onClose={() => {
+					setIsEventDialogOpen(false)
+					setSelectedEvent(null)
+				}}
 				onSave={handleEventSave}
 				onDelete={handleEventDelete}
 			/>

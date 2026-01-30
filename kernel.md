@@ -5,6 +5,7 @@ The KERNEL framework is a systematic approach to crafting effective AI prompts t
 ## Overview
 
 KERNEL stands for:
+
 - **K** - Keep it simple
 - **E** - Easy to verify
 - **R** - Reproducible results
@@ -63,6 +64,7 @@ Tell AI what NOT to do
 ### L - Logical structure
 
 Format every prompt like:
+
 - **Context** (input)
 - **Task** (function)
 - **Constraints** (parameters)
@@ -71,11 +73,13 @@ Format every prompt like:
 ## Real-World Example
 
 ### Before KERNEL:
+
 "Help me write a script to process some data files and make them more efficient"
 
 **Result:** 200 lines of generic, unusable code
 
 ### After KERNEL:
+
 ```
 Task: Python script to merge CSVs
 Input: Multiple CSVs, same columns
@@ -90,19 +94,20 @@ Verify: Run on test_data/
 
 Actual metrics from applying KERNEL to 1000 prompts:
 
-| Metric | Before KERNEL | After KERNEL | Improvement |
-|--------|---------------|--------------|-------------|
-| First-try success | 72% | 94% | +22% |
-| Time to useful result | Baseline | -67% | 67% faster |
-| Token usage | Baseline | -58% | 58% reduction |
-| Accuracy improvement | Baseline | +340% | 3.4x better |
-| Revisions needed | 3.2 | 0.4 | -87.5% |
+| Metric                | Before KERNEL | After KERNEL | Improvement   |
+| --------------------- | ------------- | ------------ | ------------- |
+| First-try success     | 72%           | 94%          | +22%          |
+| Time to useful result | Baseline      | -67%         | 67% faster    |
+| Token usage           | Baseline      | -58%         | 58% reduction |
+| Accuracy improvement  | Baseline      | +340%        | 3.4x better   |
+| Revisions needed      | 3.2           | 0.4          | -87.5%        |
 
 ## Advanced Tips
 
 **Chain multiple KERNEL prompts** instead of writing complex ones. Each prompt does one thing well, feeds into the next.
 
 **Example workflow:**
+
 1. Prompt 1: "Analyze this code for performance issues"
 2. Prompt 2: "Fix the top 3 issues found"
 3. Prompt 3: "Write tests for the fixes"
@@ -110,18 +115,23 @@ Actual metrics from applying KERNEL to 1000 prompts:
 ## Implementation Guidelines
 
 ### 1. Start with the end in mind
+
 Define what success looks like before writing the prompt
 
 ### 2. Be specific about inputs
+
 Specify exact file formats, data structures, or code patterns
 
 ### 3. Set measurable constraints
+
 Use numbers, file sizes, line counts, or performance metrics
 
 ### 4. Provide verification steps
+
 Include how to test or validate the output
 
 ### 5. Iterate and refine
+
 Start simple and add constraints based on initial results
 
 ## Common Mistakes to Avoid
@@ -135,6 +145,7 @@ Start simple and add constraints based on initial results
 ## Template Examples
 
 ### Code Generation Template
+
 ```
 Task: Create [specific function/feature]
 Input: [exact inputs and formats]
@@ -144,6 +155,7 @@ Verify: [test criteria]
 ```
 
 ### Documentation Template
+
 ```
 Task: Write [specific documentation type]
 Input: [code, API, or system to document]
@@ -153,6 +165,7 @@ Verify: [completeness criteria]
 ```
 
 ### Analysis Template
+
 ```
 Task: Analyze [specific subject]
 Input: [data, code, or system to analyze]

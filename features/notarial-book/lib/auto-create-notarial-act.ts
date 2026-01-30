@@ -17,18 +17,18 @@ import { notarialActs, notarialBooks } from "@/services/drizzle/schema/notarial-
  */
 function generateLocationStatement(location: string | undefined): string {
 	const locationLower = (location ?? "Philippines").toLowerCase()
-	
+
 	// Check if location indicates Philippine embassy/consular office abroad
-	const isPhilippineEmbassy = 
+	const isPhilippineEmbassy =
 		locationLower.includes("embassy") ||
 		locationLower.includes("consular") ||
 		locationLower.includes("consul") ||
 		locationLower.includes("honorary consul")
-	
+
 	if (isPhilippineEmbassy) {
 		return "I hereby certify that this electronic notarial act was executed while all parties concerned were situated within a Philippine embassy, consular office, or office of Philippine Honorary Consul abroad, in accordance with the limited extraterritorial performance of electronic notarial acts."
 	}
-	
+
 	// Default statement for acts executed within the Philippines
 	return "I hereby certify that this electronic notarial act was executed while all parties concerned were situated within the Philippines."
 }
@@ -713,11 +713,16 @@ export async function autoCreateNotarialAct(
 					const idCardDetail = (await db.query.idCardDetails.findFirst({
 						where: eq(idCardDetails.userId, principalUser.id),
 						orderBy: (table, { desc }) => [desc(table.verifiedAt)],
-					})) as { faceImageUrl?: string | null; rawOcrData?: unknown; documentType?: string } | undefined
+					})) as
+						| { faceImageUrl?: string | null; rawOcrData?: unknown; documentType?: string }
+						| undefined
 
 					if (idCardDetail?.faceImageUrl) {
 						principalIdImageBase64 = String(idCardDetail.faceImageUrl)
-						console.log("✅ Found principal ID image from id_card_details table for:", principalEmail)
+						console.log(
+							"✅ Found principal ID image from id_card_details table for:",
+							principalEmail
+						)
 					} else {
 						console.log("⚠️ No ID image found for principal:", principalEmail)
 					}
@@ -741,10 +746,10 @@ export async function autoCreateNotarialAct(
 							if (docType && typeof docType === "string") {
 								// Map document ID codes to human-readable labels
 								const documentTypeMap: Record<string, string> = {
-									dl: "Driver's License",
-									national_id: "National ID",
-									passport: "Passport",
-									voter_id: "Voter ID",
+									"dl": "Driver's License",
+									"national_id": "National ID",
+									"passport": "Passport",
+									"voter_id": "Voter ID",
 									"driver's license": "Driver's License",
 									"national id": "National ID",
 									"voter id": "Voter ID",
@@ -753,9 +758,17 @@ export async function autoCreateNotarialAct(
 								principalIdType =
 									documentTypeMap[docType.toLowerCase()] ??
 									docType.charAt(0).toUpperCase() + docType.slice(1).replace(/_/g, " ")
-								console.log("✅ Found principal ID type from OCR:", principalIdType, "from field:", docType)
+								console.log(
+									"✅ Found principal ID type from OCR:",
+									principalIdType,
+									"from field:",
+									docType
+								)
 							} else {
-								console.log("⚠️ No document type found in OCR fields. Available fields:", Object.keys(ocrFields))
+								console.log(
+									"⚠️ No document type found in OCR fields. Available fields:",
+									Object.keys(ocrFields)
+								)
 							}
 
 							// Use documentType field directly if available
@@ -789,9 +802,11 @@ export async function autoCreateNotarialAct(
 							},
 						},
 					},
-				})) as Array<{
-					user?: { id?: string; email?: string; role?: string } | null
-				}> | undefined
+				})) as
+					| Array<{
+							user?: { id?: string; email?: string; role?: string } | null
+					  }>
+					| undefined
 
 				// Find the principal (non-ENP signer)
 				const principalSigner = signersList?.find(s => {
@@ -805,7 +820,9 @@ export async function autoCreateNotarialAct(
 					const idCardDetail = (await db.query.idCardDetails.findFirst({
 						where: eq(idCardDetails.userId, principalSigner.user.id),
 						orderBy: (table, { desc }) => [desc(table.verifiedAt)],
-					})) as { faceImageUrl?: string | null; rawOcrData?: unknown; documentType?: string } | undefined
+					})) as
+						| { faceImageUrl?: string | null; rawOcrData?: unknown; documentType?: string }
+						| undefined
 
 					if (idCardDetail?.faceImageUrl) {
 						principalIdImageBase64 = String(idCardDetail.faceImageUrl)
@@ -826,10 +843,10 @@ export async function autoCreateNotarialAct(
 
 							if (docType && typeof docType === "string") {
 								const documentTypeMap: Record<string, string> = {
-									dl: "Driver's License",
-									national_id: "National ID",
-									passport: "Passport",
-									voter_id: "Voter ID",
+									"dl": "Driver's License",
+									"national_id": "National ID",
+									"passport": "Passport",
+									"voter_id": "Voter ID",
 									"driver's license": "Driver's License",
 									"national id": "National ID",
 									"voter id": "Voter ID",

@@ -29,9 +29,9 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/core/components/ui/select"
+import { getAvatarUrl } from "@/core/lib/utils"
 
 import { trpc } from "@/services/trpc/client"
-import { getAvatarUrl } from "@/core/lib/utils"
 
 import { ConfirmationModal } from "./confirmation-modal"
 import { Pagination } from "./pagination"
@@ -327,7 +327,7 @@ export function UserList({ searchTerm, roleFilter, statusFilter, sortBy }: UserL
 				<div className="space-y-4">
 					{users.map(user => {
 						const avatarUrl = getAvatarUrl(user.avatar)
-						
+
 						return (
 							<div
 								key={user.id}

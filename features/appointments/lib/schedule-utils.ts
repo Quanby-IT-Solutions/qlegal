@@ -1,12 +1,7 @@
 import { isSameDay } from "date-fns"
 
+import { AgendaDaysToShow, EventGap, EventHeight, WeekCellsHeight } from "./schedule-constants"
 import type { CalendarEvent, EventColor } from "./schedule-types"
-import {
-	EventHeight,
-	EventGap,
-	WeekCellsHeight,
-	AgendaDaysToShow,
-} from "./schedule-constants"
 
 /**
  * Get CSS classes for event colors

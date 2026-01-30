@@ -216,8 +216,12 @@ export function CameraCapture(props: {
 				{!cameraActive && !capturedImage && (
 					<div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-900 text-white">
 						<CameraOff className="mb-3 size-10 text-gray-400" />
-						<p className="text-sm text-gray-200">{isStarting ? "Starting camera…" : "Camera is not active"}</p>
-						{cameraError && <p className="mt-2 px-4 text-center text-xs text-red-300">{cameraError}</p>}
+						<p className="text-sm text-gray-200">
+							{isStarting ? "Starting camera…" : "Camera is not active"}
+						</p>
+						{cameraError && (
+							<p className="mt-2 px-4 text-center text-xs text-red-300">{cameraError}</p>
+						)}
 					</div>
 				)}
 
@@ -245,7 +249,13 @@ export function CameraCapture(props: {
 						>
 							<FlipHorizontal className="size-5 text-white" />
 						</Button>
-						<Button onClick={captureImage} variant="default" size="lg" className="rounded-full px-8" type="button">
+						<Button
+							onClick={captureImage}
+							variant="default"
+							size="lg"
+							className="rounded-full px-8"
+							type="button"
+						>
 							<Camera className="mr-2 size-5" />
 							Capture
 						</Button>
@@ -255,7 +265,12 @@ export function CameraCapture(props: {
 
 			<div className="flex gap-2">
 				{!cameraActive && !capturedImage && (
-					<Button onClick={() => void startCamera()} className="flex-1" type="button" disabled={isStarting}>
+					<Button
+						onClick={() => void startCamera()}
+						className="flex-1"
+						type="button"
+						disabled={isStarting}
+					>
 						<Camera className="mr-2 size-4" />
 						{isStarting ? "Starting…" : "Start Camera"}
 					</Button>
@@ -270,4 +285,3 @@ export function CameraCapture(props: {
 		</div>
 	)
 }
-

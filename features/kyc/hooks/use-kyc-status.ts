@@ -27,10 +27,7 @@ interface UseKycStatusOptions {
 	currentStatus?: string | null
 }
 
-export function useKycStatus({
-	enabled = true,
-	currentStatus,
-}: UseKycStatusOptions = {}) {
+export function useKycStatus({ enabled = true, currentStatus }: UseKycStatusOptions = {}) {
 	const isPending = currentStatus === "PENDING"
 
 	return useQuery({

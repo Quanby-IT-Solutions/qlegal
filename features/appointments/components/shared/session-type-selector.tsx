@@ -2,7 +2,6 @@
 
 import { FileText, MessageSquare } from "lucide-react"
 
-import { RadioGroup, RadioGroupItem } from "@/core/components/ui/radio-group"
 import {
 	Field,
 	FieldContent,
@@ -10,6 +9,7 @@ import {
 	FieldLabel,
 	FieldTitle,
 } from "@/core/components/ui/field"
+import { RadioGroup, RadioGroupItem } from "@/core/components/ui/radio-group"
 
 interface SessionTypeSelectorProps {
 	value: "CONSULTATION" | "NOTARIZATION"
@@ -42,14 +42,14 @@ export function SessionTypeSelector({
 				<FieldLabel htmlFor="consultation-type">
 					<Field
 						orientation="horizontal"
-						className="hover:border-primary border-2 p-4 rounded-md transition-all cursor-pointer"
+						className="hover:border-primary cursor-pointer rounded-md border-2 p-4 transition-all"
 						style={{
 							borderColor: value === "CONSULTATION" ? "hsl(var(--primary))" : undefined,
 							backgroundColor: value === "CONSULTATION" ? "hsl(var(--primary) / 0.05)" : undefined,
 						}}
 					>
 						<FieldContent>
-							<div className="flex items-center gap-2 mb-2">
+							<div className="mb-2 flex items-center gap-2">
 								<MessageSquare className="size-5 text-indigo-600" />
 								<FieldTitle>Consultation</FieldTitle>
 							</div>
@@ -63,14 +63,14 @@ export function SessionTypeSelector({
 				<FieldLabel htmlFor="notarization-type">
 					<Field
 						orientation="horizontal"
-						className="hover:border-primary border-2 p-4 rounded-md transition-all cursor-pointer"
+						className="hover:border-primary cursor-pointer rounded-md border-2 p-4 transition-all"
 						style={{
 							borderColor: value === "NOTARIZATION" ? "hsl(var(--primary))" : undefined,
 							backgroundColor: value === "NOTARIZATION" ? "hsl(var(--primary) / 0.05)" : undefined,
 						}}
 					>
 						<FieldContent>
-							<div className="flex items-center gap-2 mb-2">
+							<div className="mb-2 flex items-center gap-2">
 								<FileText className="size-5 text-emerald-600" />
 								<FieldTitle>Notarization</FieldTitle>
 							</div>

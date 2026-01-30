@@ -65,7 +65,7 @@ export function DayView({ currentDate, events, onEventSelect, onEventCreate }: D
 								{format(hourStart, "ha")}
 							</div>
 							<div
-								className="hover:bg-muted/50 dark:hover:bg-muted/10 bg-background p-0 text-left transition cursor-pointer"
+								className="hover:bg-muted/50 dark:hover:bg-muted/10 bg-background cursor-pointer p-0 text-left transition"
 								onClick={() => onEventCreate(hourStart)}
 							>
 								<div className="flex flex-col gap-(--event-gap) p-1">

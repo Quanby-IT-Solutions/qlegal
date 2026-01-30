@@ -46,10 +46,7 @@ export const kycSessions = createTable(
 		workflowMetadata: t.jsonb(),
 
 		// Timestamps
-		createdAt: t
-			.timestamp({ mode: "date", withTimezone: true })
-			.notNull()
-			.defaultNow(),
+		createdAt: t.timestamp({ mode: "date", withTimezone: true }).notNull().defaultNow(),
 		updatedAt: t
 			.timestamp({ mode: "date", withTimezone: true })
 			.notNull()

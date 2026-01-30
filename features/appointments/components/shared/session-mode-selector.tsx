@@ -2,7 +2,6 @@
 
 import { Globe, Users } from "lucide-react"
 
-import { RadioGroup, RadioGroupItem } from "@/core/components/ui/radio-group"
 import {
 	Field,
 	FieldContent,
@@ -10,6 +9,7 @@ import {
 	FieldLabel,
 	FieldTitle,
 } from "@/core/components/ui/field"
+import { RadioGroup, RadioGroupItem } from "@/core/components/ui/radio-group"
 
 interface SessionModeSelectorProps {
 	value?: "REN" | "IEN"
@@ -42,7 +42,7 @@ export function SessionModeSelector({
 				<FieldLabel htmlFor="ren-mode">
 					<Field
 						orientation="horizontal"
-						className="hover:border-primary border-2 p-4 rounded-md transition-all cursor-pointer"
+						className="hover:border-primary cursor-pointer rounded-md border-2 p-4 transition-all"
 						style={{
 							borderColor: value === "REN" ? "hsl(var(--primary))" : undefined,
 							backgroundColor: value === "REN" ? "hsl(var(--primary) / 0.05)" : undefined,
@@ -50,11 +50,13 @@ export function SessionModeSelector({
 						onClick={() => !disabled && onChange("REN")}
 					>
 						<FieldContent>
-							<div className="flex items-center gap-2 mb-2">
+							<div className="mb-2 flex items-center gap-2">
 								<Globe className="size-5 text-blue-600" />
 								<FieldTitle>Remote</FieldTitle>
 							</div>
-							<FieldDescription>Everyone joins via video call from their own location</FieldDescription>
+							<FieldDescription>
+								Everyone joins via video call from their own location
+							</FieldDescription>
 						</FieldContent>
 						<RadioGroupItem value="REN" id="ren-mode" disabled={disabled} />
 					</Field>
@@ -64,7 +66,7 @@ export function SessionModeSelector({
 				<FieldLabel htmlFor="ien-mode">
 					<Field
 						orientation="horizontal"
-						className="hover:border-primary border-2 p-4 rounded-md transition-all cursor-pointer"
+						className="hover:border-primary cursor-pointer rounded-md border-2 p-4 transition-all"
 						style={{
 							borderColor: value === "IEN" ? "hsl(var(--primary))" : undefined,
 							backgroundColor: value === "IEN" ? "hsl(var(--primary) / 0.05)" : undefined,
@@ -72,11 +74,13 @@ export function SessionModeSelector({
 						onClick={() => !disabled && onChange("IEN")}
 					>
 						<FieldContent>
-							<div className="flex items-center gap-2 mb-2">
+							<div className="mb-2 flex items-center gap-2">
 								<Users className="size-5 text-green-600" />
 								<FieldTitle>In-Person</FieldTitle>
 							</div>
-							<FieldDescription>Everyone meets physically at notary's office or location</FieldDescription>
+							<FieldDescription>
+								Everyone meets physically at notary's office or location
+							</FieldDescription>
 						</FieldContent>
 						<RadioGroupItem value="IEN" id="ien-mode" disabled={disabled} />
 					</Field>

@@ -36,4 +36,3 @@ export async function deleteAvatar(path: string) {
 
 	return true
 }
-

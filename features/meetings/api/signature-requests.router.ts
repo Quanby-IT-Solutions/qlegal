@@ -401,18 +401,16 @@ export const signatureRequestsRouter = createTRPCRouter({
 
 				const meeting = document.meeting
 				const allParticipants = meeting.participants ?? []
-				
+
 				// Get signers with their signing order
 				const documentSigners = (document.signers ?? []).map(s => ({
 					userId: s.userId,
 					signingOrder: s.signingOrder ?? 999999, // nulls go last
 				}))
 				const signerUserIds = new Set(documentSigners.map(s => s.userId))
-				
+
 				// Create a map of userId -> signingOrder for quick lookup
-				const signingOrderMap = new Map(
-					documentSigners.map(s => [s.userId, s.signingOrder])
-				)
+				const signingOrderMap = new Map(documentSigners.map(s => [s.userId, s.signingOrder]))
 
 				// Use only selected document signers when available; otherwise all participants (legacy).
 				// Sort by signingOrder to maintain the order set by ENP
@@ -657,13 +655,14 @@ export const signatureRequestsRouter = createTRPCRouter({
 					try {
 						// Fetch current project details to get signer IDs
 						const projectDetails = await getProjectDetails(actualProjectUuid, creatorEmail)
-						const projectSigners = (projectDetails?.data?.signers as Array<{
-							id?: number
-							email?: string
-							first_name?: string
-							last_name?: string
-							signer_role?: string
-						}>) ?? []
+						const projectSigners =
+							(projectDetails?.data?.signers as Array<{
+								id?: number
+								email?: string
+								first_name?: string
+								last_name?: string
+								signer_role?: string
+							}>) ?? []
 
 						// Update each signer's sequence based on their signingOrder
 						for (const participant of participantsToAdd) {
@@ -692,9 +691,7 @@ export const signatureRequestsRouter = createTRPCRouter({
 									signerRole: "Signer",
 									userEmail: creatorEmail,
 								})
-								console.log(
-									`   ✅ Updated ${participantEmail} sequence to ${signingOrder}`
-								)
+								console.log(`   ✅ Updated ${participantEmail} sequence to ${signingOrder}`)
 							} catch (updateError) {
 								console.warn(
 									`   ⚠️ Failed to update sequence for ${participantEmail}:`,
@@ -729,13 +726,13 @@ export const signatureRequestsRouter = createTRPCRouter({
 
 				let isProjectSent = false
 				let signerHasPlotted = false
-				
+
 				// CRITICAL: For newly created projects, the status check might fail because the project
 				// isn't fully initialized in DocoChain yet. Add retry logic with exponential backoff.
 				let projectDetails = null
 				const maxRetries = 3
 				let retryDelay = 500 // Start with 500ms delay
-				
+
 				for (let attempt = 0; attempt < maxRetries; attempt++) {
 					try {
 						projectDetails = await getProjectDetails(actualProjectUuid, creatorEmail)
@@ -754,7 +751,7 @@ export const signatureRequestsRouter = createTRPCRouter({
 						retryDelay *= 2 // Exponential backoff: 500ms, 1000ms, 2000ms
 					}
 				}
-				
+
 				try {
 					projectStatus = projectDetails?.data?.status ?? "Draft"
 					// Check if project has been sent (sent_at field exists) or status indicates it's sent
@@ -804,27 +801,32 @@ export const signatureRequestsRouter = createTRPCRouter({
 					}
 				} catch (statusError) {
 					// If all retries failed, default to Draft (new projects are always Draft)
-					console.warn("⚠️ Failed to get project status after retries, assuming Draft:", statusError)
-					console.warn("   - This is normal for newly created projects that aren't fully initialized yet")
+					console.warn(
+						"⚠️ Failed to get project status after retries, assuming Draft:",
+						statusError
+					)
+					console.warn(
+						"   - This is normal for newly created projects that aren't fully initialized yet"
+					)
 					projectStatus = "Draft"
 					isProjectSent = false // Default to Draft, which uses Edit Draft Link
 				}
 
-			// CRITICAL: If user is plotting (isPlotting=true), ALWAYS use Edit Draft Link regardless of status
-			// Plotting requires a draft project, so we must force Edit Draft Link even if status check says "Sent"
-			// This prevents ENPs from being redirected to generate sign link when clicking "Plot Signature"
-			if (isPlotting === true) {
-				console.log("🔵 User is plotting - FORCING Edit Draft Link (ignoring project status)...")
-				console.log("   - Is Plotting:", true)
-				console.log("   - Project Status (ignored):", projectStatus)
-				// Skip project status check and go straight to Edit Draft Link generation
-				isProjectSent = false // Force to Draft to use Edit Draft Link
-			}
+				// CRITICAL: If user is plotting (isPlotting=true), ALWAYS use Edit Draft Link regardless of status
+				// Plotting requires a draft project, so we must force Edit Draft Link even if status check says "Sent"
+				// This prevents ENPs from being redirected to generate sign link when clicking "Plot Signature"
+				if (isPlotting === true) {
+					console.log("🔵 User is plotting - FORCING Edit Draft Link (ignoring project status)...")
+					console.log("   - Is Plotting:", true)
+					console.log("   - Project Status (ignored):", projectStatus)
+					// Skip project status check and go straight to Edit Draft Link generation
+					isProjectSent = false // Force to Draft to use Edit Draft Link
+				}
 
-			// Use Generate Sign Link API ONLY for sent projects (required for sent projects)
-			// For ALL Draft projects (regardless of plotting status), use Edit Draft Link for plotting/signing
-			// Use explicit check: only use generateSignLink if project is sent AND we're explicitly NOT plotting
-			if (isProjectSent && isPlotting !== true) {
+				// Use Generate Sign Link API ONLY for sent projects (required for sent projects)
+				// For ALL Draft projects (regardless of plotting status), use Edit Draft Link for plotting/signing
+				// Use explicit check: only use generateSignLink if project is sent AND we're explicitly NOT plotting
+				if (isProjectSent && isPlotting !== true) {
 					// Project is sent - must use Generate Sign Link API
 					console.log(
 						"🔵 Project is sent - using Generate Sign Link API (required for sent projects)..."
@@ -851,7 +853,9 @@ export const signatureRequestsRouter = createTRPCRouter({
 					// DO NOT use stored redirect URL - it's a one-time link that expires/invalidates
 					// after first use or after some time, causing "Session Ended" errors.
 					// CRITICAL: If isPlotting=true, we're forcing Edit Draft Link even if status check said "Sent"
-					console.log("🔵 Project is Draft or user is plotting - generating Edit Draft Link (for plotting/signing)...")
+					console.log(
+						"🔵 Project is Draft or user is plotting - generating Edit Draft Link (for plotting/signing)..."
+					)
 					console.log("   - Is Plotting:", isPlotting ?? false)
 					console.log("   - Project Status:", projectStatus)
 					console.log("   - Signer has plotted:", signerHasPlotted)
@@ -869,9 +873,7 @@ export const signatureRequestsRouter = createTRPCRouter({
 					// Use `let` so we can regenerate on 401 and retry with a fresh token.
 					// ensureMeetingToken: use cached token if fresh, else create (e.g. ENP never called getToken).
 					let meetingToken: string | undefined =
-						isPlotting === true
-							? await ensureMeetingToken(meeting.id, creatorEmail)
-							: undefined
+						isPlotting === true ? await ensureMeetingToken(meeting.id, creatorEmail) : undefined
 
 					// When plotting, do a few attempts with exponential backoff.
 					// On 401, regenerate meeting token and retry (token may expire before Plot Signature).
@@ -902,13 +904,12 @@ export const signatureRequestsRouter = createTRPCRouter({
 							editDraftError = err
 							const is401 =
 								err instanceof Error &&
-								(err.message.includes("401") || err.message.includes("Token expired or unauthorized"))
-							if (
-								isPlotting === true &&
-								is401 &&
-								meetingToken !== undefined
-							) {
-								console.log("🔄 Meeting token expired (401) – generating fresh token for ENP and retrying...")
+								(err.message.includes("401") ||
+									err.message.includes("Token expired or unauthorized"))
+							if (isPlotting === true && is401 && meetingToken !== undefined) {
+								console.log(
+									"🔄 Meeting token expired (401) – generating fresh token for ENP and retrying..."
+								)
 								meetingToken = await generateAndSetMeetingToken(meeting.id, creatorEmail)
 							}
 							console.error(
@@ -924,9 +925,7 @@ export const signatureRequestsRouter = createTRPCRouter({
 						// For Plot Signature, never return a guessed/fallback URL.
 						// It's better to fail and let the user retry than to open the wrong DocoChain page.
 						if (isPlotting === true) {
-							throw new Error(
-								"Unable to open plotting platform yet. Please try again in a moment."
-							)
+							throw new Error("Unable to open plotting platform yet. Please try again in a moment.")
 						}
 						// CRITICAL: Use link.doconchain.com domain for Edit Draft Links, not stg-app.doconchain.com
 						// Extract short code from project UUID or use project UUID directly
@@ -960,17 +959,21 @@ export const signatureRequestsRouter = createTRPCRouter({
 							url.searchParams.delete("email") // Remove email parameter (not needed for Edit Draft Links)
 							url.searchParams.delete("signer_role") // Remove signer_role parameter (not needed for Edit Draft Links)
 							url.searchParams.delete("page") // Remove page parameter (not needed for Edit Draft Links)
-							
+
 							// CRITICAL: When plotting, ensure link is link.doconchain.com (not stg-app.doconchain.com)
 							// If somehow we got a stg-app link, convert it to link.doconchain.com
 							if (isPlotting === true && url.hostname.includes("stg-app.doconchain.com")) {
-								console.warn("⚠️ Plotting detected stg-app.doconchain.com link - converting to link.doconchain.com")
+								console.warn(
+									"⚠️ Plotting detected stg-app.doconchain.com link - converting to link.doconchain.com"
+								)
 								url.hostname = "link.doconchain.com"
 							}
 						} else if (isPlotting === true && url.hostname.includes("stg-app.doconchain.com")) {
 							// CRITICAL: When plotting, we should NEVER get stg-app.doconchain.com links
 							// If we do, it means something went wrong - convert to link.doconchain.com
-							console.error("❌ Plotting action received stg-app.doconchain.com link - this should not happen! Converting to link.doconchain.com...")
+							console.error(
+								"❌ Plotting action received stg-app.doconchain.com link - this should not happen! Converting to link.doconchain.com..."
+							)
 							url.hostname = "link.doconchain.com"
 							// Remove all sign link parameters
 							url.searchParams.delete("token")
@@ -1335,11 +1338,7 @@ export const signatureRequestsRouter = createTRPCRouter({
 					const meetingEntry = getMeetingToken(document.meetingId)
 					if (meetingEntry?.token) {
 						try {
-							const status = await checkSigningStatus(
-								projectUuid,
-								undefined,
-								meetingEntry.token
-							)
+							const status = await checkSigningStatus(projectUuid, undefined, meetingEntry.token)
 							return status
 						} catch {
 							// Fall through to possibleEmails loop

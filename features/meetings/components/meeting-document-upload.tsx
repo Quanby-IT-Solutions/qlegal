@@ -213,7 +213,7 @@ export function MeetingDocumentUpload({
 					{!selectedFile ? (
 						<div
 							{...getRootProps()}
-							className={`cursor-pointer rounded-lg border-2 border-dashed p-4 sm:p-6 text-center transition-colors ${
+							className={`cursor-pointer rounded-lg border-2 border-dashed p-4 text-center transition-colors sm:p-6 ${
 								isDragActive
 									? "border-primary bg-primary/10"
 									: "hover:border-primary border-gray-300 hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-900"
@@ -226,15 +226,19 @@ export function MeetingDocumentUpload({
 								</div>
 								{isDragActive ? (
 									<div>
-										<p className="text-primary text-base sm:text-lg font-medium">Drop your PDF here</p>
-										<p className="text-xs sm:text-sm text-gray-500">Release to upload the document</p>
+										<p className="text-primary text-base font-medium sm:text-lg">
+											Drop your PDF here
+										</p>
+										<p className="text-xs text-gray-500 sm:text-sm">
+											Release to upload the document
+										</p>
 									</div>
 								) : (
 									<div>
-										<p className="text-base sm:text-lg font-medium text-gray-900 dark:text-gray-100">
+										<p className="text-base font-medium text-gray-900 sm:text-lg dark:text-gray-100">
 											Drag & drop your PDF here
 										</p>
-										<p className="text-xs sm:text-sm text-gray-500">or click to browse files</p>
+										<p className="text-xs text-gray-500 sm:text-sm">or click to browse files</p>
 										<p className="mt-1 text-xs text-gray-400">Maximum file size: 10MB</p>
 									</div>
 								)}
