@@ -1162,6 +1162,7 @@ const DocumentActions = React.memo(function DocumentActions({
 	onSignClick,
 	onSignersChange,
 	isSigningPending,
+	isPlottingAction = false,
 	isLocked,
 	isPreviousDocumentSigned,
 	documentIndex,
@@ -1171,6 +1172,8 @@ const DocumentActions = React.memo(function DocumentActions({
 	meetingId,
 	onCreateProject,
 	isCreatingProject,
+	docoChainTokenReady = true,
+	docoChainTokenLoading = false,
 	onPreGeneratedLink,
 	plotLinkReady = true,
 	userConfirmedPlottedDocumentIds,
@@ -1179,6 +1182,8 @@ const DocumentActions = React.memo(function DocumentActions({
 	onSignClick: (projectUuid: string | null, email: string, documentId: string, isPlotting?: boolean) => void
 	onSignersChange?: (documentId: string, userIds: string[]) => void
 	isSigningPending: boolean
+	/** True when current pending action is Plot Signature (not Sign Document). */
+	isPlottingAction?: boolean
 	isLocked?: boolean
 	isPreviousDocumentSigned?: boolean
 	documentIndex?: number
@@ -1200,6 +1205,10 @@ const DocumentActions = React.memo(function DocumentActions({
 	meetingId?: string
 	onCreateProject?: (documentId: string, meetingId: string) => void
 	isCreatingProject?: boolean
+	/** Gate Create Project until we have a fresh DocoChain token. Default true so button stays enabled when not used. */
+	docoChainTokenReady?: boolean
+	/** Show "Preparing…" on Create Project while token is loading. */
+	docoChainTokenLoading?: boolean
 	onPreGeneratedLink?: (documentId: string, link: string, projectUuid: string) => void
 	/** When "Plot Signature", button stays loading until this is true (pre-generated link ready). */
 	plotLinkReady?: boolean
@@ -1562,12 +1571,17 @@ const DocumentActions = React.memo(function DocumentActions({
 							onCreateProject(document.id, meetingId)
 						}
 					}}
-					disabled={isCreatingProject}
+					disabled={!docoChainTokenReady || isCreatingProject}
 				>
 					{isCreatingProject ? (
 						<>
 							<div className="mr-2 size-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
 							Creating...
+						</>
+					) : docoChainTokenLoading ? (
+						<>
+							<div className="mr-2 size-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
+							Preparing...
 						</>
 					) : (
 						<>
@@ -1607,7 +1621,7 @@ const DocumentActions = React.memo(function DocumentActions({
 								<FileSignature className="mr-1.5 size-3.5" />
 								Plot Signature
 							</>
-						) : isSigningPending || isPlotSignatureWaiting ? (
+						) : isPlotSignatureWaiting || (isSigningPending && isPlottingAction) ? (
 							<>
 								<div className="mr-2 size-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
 								{isPlotSignatureWaiting ? "Preparing..." : "Plotting..."}
@@ -1641,7 +1655,7 @@ const DocumentActions = React.memo(function DocumentActions({
 						}}
 						disabled={isStartSigningDisabled}
 					>
-						{isSigningPending ? (
+						{isSigningPending && !isPlottingAction ? (
 							<>
 								<div className="mr-2 size-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
 								Signing...
@@ -2021,6 +2035,32 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 			toast.error(error.message ?? "Failed to create DocoChain project")
 		},
 	})
+
+	// Ensure fresh DocoChain token before enabling "Create Project". Loader shows until ready.
+	const hasAnyCreateProjectEligibleDoc =
+		(documents ?? []).some(
+			d =>
+				!d.docoChainProjectId &&
+				((d as { signerUserIds?: string[] }).signerUserIds?.length ?? 0) > 0
+		) ?? false
+	const isEnp = session?.user?.role === "ENP"
+	const {
+		data: ensureTokenData,
+		isSuccess: ensureTokenSuccess,
+		isFetching: ensureTokenFetching,
+	} = trpc.meetings.ensureDocoChainToken.useQuery(
+		{ meetingId: meetingId ?? "" },
+		{
+			enabled:
+				!!(meetingId ?? "").trim() &&
+				!!isEnp &&
+				!!hasAnyCreateProjectEligibleDoc,
+			retry: false,
+			staleTime: 60_000, // Treat as fresh for 1 min so we don't refetch constantly
+		}
+	)
+	const docoChainTokenReady = !!isEnp && (ensureTokenSuccess && !!ensureTokenData?.ready)
+	const docoChainTokenLoading = !!isEnp && !!hasAnyCreateProjectEligibleDoc && ensureTokenFetching
 
 	const handleSignersChange = useCallback(
 		(documentId: string, userIds: string[]) => {
@@ -3485,6 +3525,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 												onSignClick={handleSignClick}
 												onSignersChange={handleSignersChange}
 												isSigningPending={initiateSigning.isPending && signingDocumentId === doc.id}
+												isPlottingAction={signingDocumentId === doc.id ? isPlottingAction : false}
 												isLocked={isLocked}
 												isPreviousDocumentSigned={isPreviousDocumentSigned}
 												documentIndex={index}
@@ -3496,6 +3537,8 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 													createDocoChainProjectMutation.mutate({ documentId, meetingId })
 												}}
 												isCreatingProject={createDocoChainProjectMutation.isPending}
+												docoChainTokenReady={docoChainTokenReady}
+												docoChainTokenLoading={docoChainTokenLoading}
 												onPreGeneratedLink={(documentId, link, projectUuid) => {
 													setPreGeneratedLinks(prev => {
 														const next = new Map(prev)
@@ -3519,9 +3562,13 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 			</div>
 		)
 	}, [
-		documents,
+		createDocoChainProjectMutation,
 		documentSigningStatus,
+		documents,
+		docoChainTokenLoading,
+		docoChainTokenReady,
 		dragOverDocumentId,
+		isPlottingAction,
 		draggedDocumentId,
 		downloadingCertificateUuid,
 		downloadingProjectUuid,
@@ -3539,6 +3586,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 		isDocumentsFetching,
 		meetingDetails,
 		meetingId,
+		preGeneratedLinks,
 		refetchDocuments,
 		refreshSigningStatuses,
 		session?.user?.id,
