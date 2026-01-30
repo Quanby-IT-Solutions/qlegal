@@ -17,7 +17,11 @@ import {
 	sendProject,
 	updateProjectSigner,
 } from "@/services/doconchain"
-import { getOrRefreshMeetingToken } from "@/services/doconchain/lib/token-cache"
+import {
+	ensureMeetingToken,
+	generateAndSetMeetingToken,
+	getMeetingToken,
+} from "@/services/doconchain/lib/token-cache"
 import { db } from "@/services/drizzle/db"
 import { users } from "@/services/drizzle/schema/auth"
 import { documents } from "@/services/drizzle/schema/document"
@@ -836,7 +840,7 @@ export const signatureRequestsRouter = createTRPCRouter({
 							userEmail: creatorEmail, // ENP's email - for API token generation
 						})
 						signingLink = signLinkResult.link
-						console.log("✅ Signing link generated successfully:", signingLink)
+						console.log("✅ Signing link generated successfully")
 					} catch (signLinkError) {
 						console.error("❌ Failed to generate signing link:", signLinkError)
 						signingLink = `${env.DOCONCHAIN_APP_URL}/${actualProjectUuid}?email=${encodeURIComponent(email)}&api=true`
@@ -862,12 +866,15 @@ export const signatureRequestsRouter = createTRPCRouter({
 					let editDraftError: unknown = null
 
 					// When plotting, use meeting-scoped token (from ENP join) so we never get Sign link.
-					const meetingToken =
+					// Use `let` so we can regenerate on 401 and retry with a fresh token.
+					// ensureMeetingToken: use cached token if fresh, else create (e.g. ENP never called getToken).
+					let meetingToken: string | undefined =
 						isPlotting === true
-							? await getOrRefreshMeetingToken(meeting.id, creatorEmail)
+							? await ensureMeetingToken(meeting.id, creatorEmail)
 							: undefined
 
 					// When plotting, do a few attempts with exponential backoff.
+					// On 401, regenerate meeting token and retry (token may expire before Plot Signature).
 					const maxLinkAttempts = isPlotting === true ? 4 : 1
 					let linkRetryDelayMs = 600
 
@@ -884,16 +891,26 @@ export const signatureRequestsRouter = createTRPCRouter({
 							editDraftResult = await generateEditDraftLink(
 								actualProjectUuid,
 								creatorEmail,
-								meetingToken ?? undefined
+								meetingToken
 							)
 							signingLink = editDraftResult.link
 							console.log(
-								`✅ Edit Draft Project Link generated successfully (attempt ${attempt + 1}/${maxLinkAttempts}):`,
-								signingLink
+								`✅ Edit Draft Project Link generated successfully (attempt ${attempt + 1}/${maxLinkAttempts})`
 							)
 							break
 						} catch (err) {
 							editDraftError = err
+							const is401 =
+								err instanceof Error &&
+								(err.message.includes("401") || err.message.includes("Token expired or unauthorized"))
+							if (
+								isPlotting === true &&
+								is401 &&
+								meetingToken !== undefined
+							) {
+								console.log("🔄 Meeting token expired (401) – generating fresh token for ENP and retrying...")
+								meetingToken = await generateAndSetMeetingToken(meeting.id, creatorEmail)
+							}
 							console.error(
 								`❌ Attempt ${attempt + 1}/${maxLinkAttempts} to generate Edit Draft Link failed:`,
 								err
@@ -953,9 +970,7 @@ export const signatureRequestsRouter = createTRPCRouter({
 						} else if (isPlotting === true && url.hostname.includes("stg-app.doconchain.com")) {
 							// CRITICAL: When plotting, we should NEVER get stg-app.doconchain.com links
 							// If we do, it means something went wrong - convert to link.doconchain.com
-							console.error("❌ Plotting action received stg-app.doconchain.com link - this should not happen!")
-							console.error("   - Original link:", signingLink)
-							console.error("   - Converting to link.doconchain.com to prevent redirect...")
+							console.error("❌ Plotting action received stg-app.doconchain.com link - this should not happen! Converting to link.doconchain.com...")
 							url.hostname = "link.doconchain.com"
 							// Remove all sign link parameters
 							url.searchParams.delete("token")
@@ -1311,6 +1326,23 @@ export const signatureRequestsRouter = createTRPCRouter({
 						const user = participant.user as { email: string | null; role: string | null } | null
 						if (user?.email && !isEnpRole(user.role) && !possibleEmails.includes(user.email)) {
 							possibleEmails.push(user.email)
+						}
+					}
+				}
+
+				// Try meeting-scoped token first when available (ENP joined). Avoids 401s from email-based token.
+				if (document.meetingId) {
+					const meetingEntry = getMeetingToken(document.meetingId)
+					if (meetingEntry?.token) {
+						try {
+							const status = await checkSigningStatus(
+								projectUuid,
+								undefined,
+								meetingEntry.token
+							)
+							return status
+						} catch {
+							// Fall through to possibleEmails loop
 						}
 					}
 				}
