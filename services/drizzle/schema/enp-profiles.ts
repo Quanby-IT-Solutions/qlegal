@@ -15,7 +15,7 @@ export const enpProfiles = createTable(
 			.varchar({ length: 255 })
 			.notNull()
 			.unique()
-			.references(() => users.id, { onDelete: "cascade" }),	
+			.references(() => users.id, { onDelete: "cascade" }),
 
 		// Basic profile info
 		specialization: t.text(), // e.g., "Legal Documents, Contracts, Real Estate"

@@ -1,7 +1,8 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import { format } from "date-fns"
+import type { inferRouterOutputs } from "@trpc/server"
+import { format, isAfter, isSameDay, startOfDay } from "date-fns"
 import { Calendar, Clock, FileText, PlayCircle, Users, Video } from "lucide-react"
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/core/components/ui/avatar"
@@ -28,9 +29,7 @@ import {
 import { Skeleton } from "@/core/components/ui/skeleton"
 
 import { trpc } from "@/services/trpc/client"
-import { isAfter, startOfDay, isSameDay } from "date-fns"
-import type { inferRouterOutputs } from "@trpc/server"
-  
+
 function getMeetingStatusBadge(status: string) {
 	switch (status) {
 		case "SCHEDULED":
@@ -75,7 +74,7 @@ type Appointment = {
 	scheduledAt?: Date
 	createdAt: Date
 	createdBy?: { name?: string; image?: string | null }
-  }  
+}
 export function ActiveNotarizationsSection() {
 	// IMPORTANT: same ordering as Meetings page (server query orders by meetingParticipants.createdAt desc)
 	const PAGE_SIZE = 10
@@ -85,8 +84,8 @@ export function ActiveNotarizationsSection() {
 	const { data, isLoading } = trpc.meetings.getUserMeetingsWithDocumentStats.useQuery(
 		{ limit: PAGE_SIZE, offset },
 		{ refetchInterval: 5_000 }
-	  )
-	  
+	)
+
 	const meetings = data?.items ?? []
 	const hasMore = data?.hasMore ?? false
 
@@ -96,10 +95,12 @@ export function ActiveNotarizationsSection() {
 	const [detailsMeetingId, setDetailsMeetingId] = useState<string | null>(null)
 	const today = startOfDay(new Date())
 
-	const { data: pendingAppointments = [] } =
-		trpc.appointments.getUpcomingAppointments.useQuery(undefined, {
+	const { data: pendingAppointments = [] } = trpc.appointments.getUpcomingAppointments.useQuery(
+		undefined,
+		{
 			refetchInterval: 10_000,
-		})
+		}
+	)
 
 	const { data: detailsData, isLoading: isDetailsLoading } =
 		trpc.meetings.getMeetingNotarizationDetails.useQuery(
@@ -107,57 +108,56 @@ export function ActiveNotarizationsSection() {
 			{ enabled: detailsOpen && !!detailsMeetingId }
 		)
 
-		const appointmentCards = useMemo(() => {
-			return pendingAppointments.map((appt: Appointment) => ({
-			  id: `appt-${appt.id}`,
-			  title: appt.title ?? "Pending Notarization Session",
-			  createdAt: (appt.scheduledAt ?? appt.createdAt).toISOString(),
-			  status: "PENDING", // optional, if you want to reuse meeting badges
-			  badgeStatus: appt.scheduledAt ? "CONFIRMED" : "PENDING_SESSION", // new field
-			  participants: [],
-			  documentStats: { total: 0, signed: 0, isComplete: true },
-			  createdBy: appt.createdBy ?? { name: "Unknown", image: null },
-			  isAppointment: true as const,
-			}))
-		  }, [pendingAppointments])
-		  
-	
-		  const combinedMeetings = useMemo(() => {
-			return [...appointmentCards, ...meetings]
-		  }, [appointmentCards, meetings])
+	const appointmentCards = useMemo(() => {
+		return pendingAppointments.map((appt: Appointment) => ({
+			id: `appt-${appt.id}`,
+			title: appt.title ?? "Pending Notarization Session",
+			createdAt: (appt.scheduledAt ?? appt.createdAt).toISOString(),
+			status: "PENDING", // optional, if you want to reuse meeting badges
+			badgeStatus: appt.scheduledAt ? "CONFIRMED" : "PENDING_SESSION", // new field
+			participants: [],
+			documentStats: { total: 0, signed: 0, isComplete: true },
+			createdBy: appt.createdBy ?? { name: "Unknown", image: null },
+			isAppointment: true as const,
+		}))
+	}, [pendingAppointments])
 
-			const filteredMeetings = useMemo(() => {
-			const q = searchTerm.trim().toLowerCase()
+	const combinedMeetings = useMemo(() => {
+		return [...appointmentCards, ...meetings]
+	}, [appointmentCards, meetings])
 
-			return combinedMeetings.filter(meeting => {
-				const meetingDate = startOfDay(new Date(meeting.createdAt))
+	const filteredMeetings = useMemo(() => {
+		const q = searchTerm.trim().toLowerCase()
 
-				// Include if today or in the future
-				if (!(isAfter(meetingDate, today) || isSameDay(meetingDate, today))) return false
+		return combinedMeetings.filter(meeting => {
+			const meetingDate = startOfDay(new Date(meeting.createdAt))
 
-				if (
+			// Include if today or in the future
+			if (!(isAfter(meetingDate, today) || isSameDay(meetingDate, today))) return false
+
+			if (
 				q &&
 				!meeting.title.toLowerCase().includes(q) &&
 				!(meeting.createdBy.name ?? "").toLowerCase().includes(q)
-				) {
+			) {
 				return false
-				}
+			}
 
-				return true
-			})
-			}, [combinedMeetings, searchTerm, today]) 
+			return true
+		})
+	}, [combinedMeetings, searchTerm, today])
 
 	return (
 		<div className="space-y-6">
 			<div className="space-y-2">
 				<h2 className="text-2xl font-semibold tracking-tight">Upcoming</h2>
 				<p className="text-muted-foreground text-sm">
-				Upcoming meetings scheduled with participants for notarization sessions.
+					Upcoming meetings scheduled with participants for notarization sessions.
 				</p>
 			</div>
-			<h3 className="text-sm font-small pt-5">
-							{filteredMeetings.length} Meeting{filteredMeetings.length !== 1 ? "s" : ""} Found
-						</h3>
+			<h3 className="font-small pt-5 text-sm">
+				{filteredMeetings.length} Meeting{filteredMeetings.length !== 1 ? "s" : ""} Found
+			</h3>
 
 			<Card>
 				<CardContent>
@@ -207,7 +207,6 @@ export function ActiveNotarizationsSection() {
 				</Card>
 			) : (
 				<div className="space-y-4">
-
 					{filteredMeetings.map(meeting => {
 						const scheduledLabel = meeting.createdAt
 							? format(new Date(meeting.createdAt), "PPp")
@@ -223,111 +222,108 @@ export function ActiveNotarizationsSection() {
 							<Card key={meeting.id} className="transition-shadow hover:shadow-md">
 								<CardContent className="relative">
 									<div className="flex items-start justify-between gap-4">
-
 										{/* LEFT SIDE */}
 										<div className="min-w-0 flex-1 space-y-3">
-
-										{/* Title + Status */}
-										<div className="flex flex-wrap items-center gap-2">
-											<h4 className="text-base font-semibold leading-tight truncate">
-											{meeting.title}
-											</h4>
-											{"isAppointment" in meeting && meeting.isAppointment ? (
-												<Badge variant="secondary">Pending Session</Badge>
-											) : (
-												getMeetingStatusBadge(meeting.status)
-											)}
-										</div>
-
-										{/* Meta Row */}
-										<div className="text-muted-foreground flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
-
-											<div className="flex items-center gap-1">
-											<Users className="size-3.5 shrink-0" />
-											<span>
-												{meeting.participants.length} participant
-												{meeting.participants.length !== 1 ? "s" : ""}
-											</span>
-											</div>
-
-											<div className="flex items-center gap-1">
-											<FileText className="size-3.5 shrink-0" />
-											<span>
-												{totalDocuments} doc{totalDocuments !== 1 && "s"}
-												{totalDocuments > 0 && (
-												<span className="ml-1 text-muted-foreground">
-													• {signedDocuments} signed ({documentProgress}%)
-												</span>
+											{/* Title + Status */}
+											<div className="flex flex-wrap items-center gap-2">
+												<h4 className="truncate text-base leading-tight font-semibold">
+													{meeting.title}
+												</h4>
+												{"isAppointment" in meeting && meeting.isAppointment ? (
+													<Badge variant="secondary">Pending Session</Badge>
+												) : (
+													getMeetingStatusBadge(meeting.status)
 												)}
-											</span>
+											</div>
 
-											{!isComplete && (
-												<span className="ml-2 inline-flex items-center gap-1 text-[11px] text-muted-foreground">
-												<span className="inline-flex size-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
-												checking…
+											{/* Meta Row */}
+											<div className="text-muted-foreground flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
+												<div className="flex items-center gap-1">
+													<Users className="size-3.5 shrink-0" />
+													<span>
+														{meeting.participants.length} participant
+														{meeting.participants.length !== 1 ? "s" : ""}
+													</span>
+												</div>
+
+												<div className="flex items-center gap-1">
+													<FileText className="size-3.5 shrink-0" />
+													<span>
+														{totalDocuments} doc{totalDocuments !== 1 && "s"}
+														{totalDocuments > 0 && (
+															<span className="text-muted-foreground ml-1">
+																• {signedDocuments} signed ({documentProgress}%)
+															</span>
+														)}
+													</span>
+
+													{!isComplete && (
+														<span className="text-muted-foreground ml-2 inline-flex items-center gap-1 text-[11px]">
+															<span className="inline-flex size-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
+															checking…
+														</span>
+													)}
+												</div>
+
+												<div className="flex items-center gap-1">
+													<Calendar className="size-3.5 shrink-0" />
+													<span>{scheduledLabel}</span>
+												</div>
+
+												<div className="flex items-center gap-1">
+													<Clock className="size-3.5 shrink-0" />
+													<span>{meeting.createdBy.name ?? "Unknown"}</span>
+												</div>
+											</div>
+
+											{/* Host Row (Compact) */}
+											<div className="flex items-center gap-2 pt-1">
+												<Avatar className="size-7">
+													<AvatarImage src={meeting.createdBy.image ?? undefined} />
+													<AvatarFallback>
+														{(meeting.createdBy.name ?? "Unknown")
+															.split(" ")
+															.map((n: string) => n[0])
+															.join("")
+															.toUpperCase()}
+													</AvatarFallback>
+												</Avatar>
+												<span className="text-xs font-medium">
+													{meeting.createdBy.name ?? "Unknown"}
 												</span>
+												<span className="text-muted-foreground text-xs">• Host</span>
+											</div>
+
+											{/* Compact Progress */}
+											{totalDocuments > 0 && (
+												<div className="pt-2">
+													<div className="text-muted-foreground mb-1 flex items-center justify-between text-[11px]">
+														<span>Signing Progress</span>
+														<span className="text-foreground font-medium">
+															{signedDocuments}/{totalDocuments}
+														</span>
+													</div>
+													<Progress value={documentProgress} className="h-1.5" />
+												</div>
 											)}
-											</div>
-
-											<div className="flex items-center gap-1">
-											<Calendar className="size-3.5 shrink-0" />
-											<span>{scheduledLabel}</span>
-											</div>
-
-											<div className="flex items-center gap-1">
-											<Clock className="size-3.5 shrink-0" />
-											<span>{meeting.createdBy.name ?? "Unknown"}</span>
-											</div>
-										</div>
-
-										{/* Host Row (Compact) */}
-										<div className="flex items-center gap-2 pt-1">
-											<Avatar className="size-7">
-											<AvatarImage src={meeting.createdBy.image ?? undefined} />
-											<AvatarFallback>
-												{(meeting.createdBy.name ?? "Unknown")
-												.split(" ")
-												.map((n: string) => n[0])
-												.join("")
-												.toUpperCase()}
-											</AvatarFallback>
-											</Avatar>
-											<span className="text-xs font-medium">
-											{meeting.createdBy.name ?? "Unknown"}
-											</span>
-											<span className="text-xs text-muted-foreground">• Host</span>
-										</div>
-
-										{/* Compact Progress */}
-										{totalDocuments > 0 && (
-											<div className="pt-2">
-											<div className="mb-1 flex items-center justify-between text-[11px] text-muted-foreground">
-												<span>Signing Progress</span>
-												<span className="font-medium text-foreground">
-												{signedDocuments}/{totalDocuments}
-												</span>
-											</div>
-											<Progress value={documentProgress} className="h-1.5" />
-											</div>
-										)}
 										</div>
 
 										{/* RIGHT SIDE BUTTON */}
 										<div className="shrink-0">
-										<Button
-											size="sm"
-											variant="outline"
-											onClick={() => {
-											setDetailsMeetingId(meeting.id)
-											setDetailsOpen(true)
-											}}
-											className="h-8 px-3 text-xs"
-										>
-											View
-										</Button>
+											<Button
+												size="sm"
+												variant="outline"
+												onClick={() => {
+													setDetailsMeetingId(meeting.id)
+													setDetailsOpen(true)
+												}}
+												className="h-8 px-3 text-xs"
+											>
+												View
+											</Button>
 										</div>
 									</div>
-									</CardContent>
+								</CardContent>
 							</Card>
 						)
 					})}

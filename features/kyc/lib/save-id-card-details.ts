@@ -3,7 +3,7 @@
  * Handles saving parsed OCR data to the id_card_details table
  */
 
-import { eq, desc } from "drizzle-orm"
+import { desc, eq } from "drizzle-orm"
 import type { PostgresJsDatabase } from "drizzle-orm/postgres-js"
 
 import type { schema } from "@/services/drizzle/schema"
@@ -142,5 +142,5 @@ export async function getUserVerifiedIdCardDetails(db: DB, userId: string) {
 	})
 
 	// Return the most recent verified record
-	return allRecords.find((record) => record.isVerified) ?? null
+	return allRecords.find(record => record.isVerified) ?? null
 }

@@ -47,10 +47,7 @@ export const livenessValidations = createTable(
 
 		// Timestamp
 		createdAt: t.timestamp({ mode: "date", withTimezone: true }).notNull().defaultNow(),
-		updatedAt: t
-			.timestamp({ mode: "date", withTimezone: true })
-			.notNull()
-			.defaultNow(),
+		updatedAt: t.timestamp({ mode: "date", withTimezone: true }).notNull().defaultNow(),
 	}),
 	table => [
 		index("liveness_validation_user_id_idx").on(table.userId),

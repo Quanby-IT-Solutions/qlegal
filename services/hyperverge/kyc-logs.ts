@@ -67,8 +67,8 @@ export async function getHyperVergeKycLogs(config: {
 			method: "POST",
 			headers: {
 				"Content-Type": "application/json",
-				appId: HYPERVERGE_APP_ID,
-				appKey: HYPERVERGE_APP_KEY,
+				"appId": HYPERVERGE_APP_ID,
+				"appKey": HYPERVERGE_APP_KEY,
 			},
 			body: JSON.stringify(body),
 		})
@@ -78,8 +78,8 @@ export async function getHyperVergeKycLogs(config: {
 			method: "POST",
 			headers: {
 				"Content-Type": "application/json",
-				appId: HYPERVERGE_APP_ID,
-				appKey: HYPERVERGE_APP_KEY,
+				"appId": HYPERVERGE_APP_ID,
+				"appKey": HYPERVERGE_APP_KEY,
 			},
 			body: JSON.stringify(body),
 		})
@@ -96,7 +96,8 @@ export async function getHyperVergeKycLogs(config: {
 const isRecord = (v: unknown): v is Record<string, unknown> =>
 	typeof v === "object" && v !== null && !Array.isArray(v)
 
-const looksLikeUrl = (v: unknown): v is string => typeof v === "string" && /^https?:\/\/\S+$/i.test(v)
+const looksLikeUrl = (v: unknown): v is string =>
+	typeof v === "string" && /^https?:\/\/\S+$/i.test(v)
 
 export function pickBestFaceImageUrlFromLogs(logs: HyperVergeLogsApiResponse): string | null {
 	const root = logs.result ?? {}
@@ -147,7 +148,9 @@ export function pickBestFaceImageUrlFromLogs(logs: HyperVergeLogsApiResponse): s
 	return candidates[0]?.url ?? null
 }
 
-export function pickOcrFieldsFromLogs(logs: HyperVergeLogsApiResponse): Record<string, unknown> | null {
+export function pickOcrFieldsFromLogs(
+	logs: HyperVergeLogsApiResponse
+): Record<string, unknown> | null {
 	const results = logs.result?.results
 	if (!Array.isArray(results)) return null
 
@@ -227,4 +230,3 @@ export async function fetchImageUrlAsDataUrl(url: string): Promise<string | null
 		return null
 	}
 }
-

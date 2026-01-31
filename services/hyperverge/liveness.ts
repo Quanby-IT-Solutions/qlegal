@@ -339,7 +339,9 @@ export async function startHostedWorkflow(
 		transactionId: config.transactionId,
 		redirectUrl: config.redirectUrl,
 		...(config.inputs ? { inputs: config.inputs } : {}),
-		...(config.validateWorkflowInputs ? { validateWorkflowInputs: config.validateWorkflowInputs } : {}),
+		...(config.validateWorkflowInputs
+			? { validateWorkflowInputs: config.validateWorkflowInputs }
+			: {}),
 		...(config.allowEmptyWorkflowInputs
 			? { allowEmptyWorkflowInputs: config.allowEmptyWorkflowInputs }
 			: {}),

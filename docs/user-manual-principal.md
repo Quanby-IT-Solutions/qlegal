@@ -125,6 +125,7 @@ Quanby Legal provides electronic notarization - a digital version of traditional
 ## Appendix
 
 **Glossary**
+
 - **ENP**: Electronic Notary Public
 - **IEN**: In-Person Electronic Notarization
 - **REN**: Remote Electronic Notarization
@@ -132,11 +133,13 @@ Quanby Legal provides electronic notarization - a digital version of traditional
 - **SC**: Supreme Court of the Philippines
 
 **Contact Information**
+
 - Support Email: support@quanbylegal.com
 - Help Center: https://quanbylegal.com/help
 - Office Hours: Monday to Friday, 8 AM - 5 PM PHT
 
 **Resources**
+
 - System Flow Documentation: [system-flow.md](system-flow.md)
 - Supreme Court e-Notarization Rules: [SC website link]
 - Data Privacy Act: RA 10173

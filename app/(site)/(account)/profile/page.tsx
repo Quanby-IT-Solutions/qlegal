@@ -6,11 +6,10 @@ import { PageHeader } from "@/core/components/navbar/page-header"
 
 import { AvatarCard } from "@/features/profile/components/avatar-card"
 import { CertificationsCard } from "@/features/profile/components/certifications-card"
+import { LawyerDetailsCard } from "@/features/profile/components/lawyer-details-card"
 import { LicensingCard } from "@/features/profile/components/licensing-card"
 import { PersonalInformationCard } from "@/features/profile/components/personal-information-card"
 import { RollRegistrationCard } from "@/features/profile/components/roll-registration-card"
-import { LawyerDetailsCard } from "@/features/profile/components/lawyer-details-card"
-
 
 export default function Page() {
 	const { data: session } = useSession()
@@ -36,7 +35,6 @@ export default function Page() {
 							<RollRegistrationCard />
 							<LicensingCard />
 							<CertificationsCard />
-							
 						</>
 					)}
 				</div>

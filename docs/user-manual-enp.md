@@ -135,6 +135,7 @@ Quanby Legal is your Electronic Notarial Facility (ENF) - a secure, SC-compliant
 ## Appendix
 
 **Glossary**
+
 - **ENP**: Electronic Notary Public
 - **ENF**: Electronic Notarial Facility (the platform)
 - **IEN**: In-Person Electronic Notarization
@@ -145,12 +146,14 @@ Quanby Legal is your Electronic Notarial Facility (ENF) - a secure, SC-compliant
 - **NPC**: National Privacy Commission
 
 **Contact Information**
+
 - ENP Support: enp-support@quanbylegal.com
 - Technical Support: tech@quanbylegal.com
 - Help Center: https://quanbylegal.com/help-enp
 - Office Hours: Monday to Friday, 8 AM - 5 PM PHT
 
 **Resources**
+
 - System Flow Documentation: [system-flow.md](system-flow.md)
 - Supreme Court e-Notarization Rules: [SC website link]
 - Data Privacy Act: RA 10173

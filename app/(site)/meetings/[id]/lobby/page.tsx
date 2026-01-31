@@ -13,6 +13,7 @@ import {
 	MicOff,
 	Users,
 	Video,
+	Wifi,
 } from "lucide-react"
 import { useSession } from "next-auth/react"
 import { toast } from "sonner"
@@ -36,7 +37,6 @@ import { useMeetings } from "@/features/meetings/api/meetings.hooks"
 import { LocationErrorDialog } from "@/features/meetings/components/location-error-dialog"
 import { VpnDetectedDialog } from "@/features/meetings/components/vpn-detected-dialog"
 import type { LocationVerificationResult } from "@/features/meetings/lib/location-verification"
-import { Wifi } from "lucide-react"
 
 type LocationStatus =
 	| "checking"
@@ -615,19 +615,19 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 											</div>
 										</div>
 										<div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 dark:border-amber-800 dark:bg-amber-900/20">
-	<div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-900/40">
-		<Wifi className="size-3.5 text-amber-600 dark:text-amber-400" />
-	</div>
-	<div className="min-w-0">
-		<p className="text-[11px] font-semibold text-amber-800 dark:text-amber-300">
-			Internet Requirement
-		</p>
-		<p className="text-[11px] text-amber-700 dark:text-amber-400">
-			A minimum internet speed of <span className="font-semibold">2 Mbps</span> is required for a smooth video meeting and recording.
-		</p>
-	</div>
-</div>
-
+											<div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-900/40">
+												<Wifi className="size-3.5 text-amber-600 dark:text-amber-400" />
+											</div>
+											<div className="min-w-0">
+												<p className="text-[11px] font-semibold text-amber-800 dark:text-amber-300">
+													Internet Requirement
+												</p>
+												<p className="text-[11px] text-amber-700 dark:text-amber-400">
+													A minimum internet speed of <span className="font-semibold">2 Mbps</span>{" "}
+													is required for a smooth video meeting and recording.
+												</p>
+											</div>
+										</div>
 									</CardContent>
 								</Card>
 

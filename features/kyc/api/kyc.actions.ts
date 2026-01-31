@@ -12,6 +12,7 @@ import {
 	interpretStatus,
 	type OnboardLinkConfig,
 } from "@/services/hyperverge"
+import { matchFaceSelfieToId, readIdCard } from "@/services/hyperverge/kyc-direct"
 import {
 	fetchImageUrlAsDataUrl,
 	getHyperVergeKycLogs,
@@ -19,11 +20,11 @@ import {
 	pickOcrFieldsFromLogs,
 } from "@/services/hyperverge/kyc-logs"
 import { checkLiveness } from "@/services/hyperverge/liveness"
-import { matchFaceSelfieToId, readIdCard } from "@/services/hyperverge/kyc-direct"
 import { auth } from "@/services/next-auth"
 
-import { env } from "@/env"
 import { saveIdCardDetails } from "@/features/kyc/lib/save-id-card-details"
+
+import { env } from "@/env"
 
 /**
  * Generate a unique transaction ID for KYC based on user ID
@@ -282,7 +283,8 @@ export async function runDirectKycVerification(input: {
 
 		const idPass = idResult.summaryAction === "pass"
 		const livenessPass = livenessResult.decision?.isApproved === true
-		const faceMatchPass = faceMatchResult.matchValue === "yes" && faceMatchResult.summaryAction === "pass"
+		const faceMatchPass =
+			faceMatchResult.matchValue === "yes" && faceMatchResult.summaryAction === "pass"
 
 		// Conservative decisioning:
 		// - manualReview from readId/faceMatch -> treat as pending (needs review)
@@ -348,7 +350,10 @@ export async function runDirectKycVerification(input: {
 				kycVerifiedAt: kycStatus === "VERIFIED" ? new Date() : null,
 				// Auto-activate account when direct KYC is verified.
 				// Never override SUSPENDED here.
-				status: kycStatus === "VERIFIED" && existingUser.status === "PENDING" ? "ACTIVE" : existingUser.status,
+				status:
+					kycStatus === "VERIFIED" && existingUser.status === "PENDING"
+						? "ACTIVE"
+						: existingUser.status,
 			})
 			.where(eq(users.id, session.user.id))
 
@@ -525,8 +530,7 @@ export async function checkUserKycStatus() {
 		}
 	}
 
-	const needsHostedArtifacts =
-		kycSession.sessionType === "hosted" && !kycSession.idCardDetailId
+	const needsHostedArtifacts = kycSession.sessionType === "hosted" && !kycSession.idCardDetailId
 
 	// If our DB already has a final state:
 	// - normally we avoid remote calls
