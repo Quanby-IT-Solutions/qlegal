@@ -1,7 +1,15 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { DndContext, type DragEndEvent } from "@dnd-kit/core"
+import {
+	DndContext,
+	MouseSensor,
+	PointerSensor,
+	TouchSensor,
+	useSensor,
+	useSensors,
+	type DragEndEvent,
+} from "@dnd-kit/core"
 import {
 	addDays,
 	addMonths,
@@ -300,17 +308,77 @@ export function EventCalendar({
 		setCurrentDate(newDate)
 	}
 
+	// Configure sensors for better drag detection
+	const sensors = useSensors(
+		useSensor(MouseSensor, {
+			// Require mouse to move by 5px before activating
+			activationConstraint: {
+				distance: 5,
+			},
+		}),
+		useSensor(PointerSensor, {
+			// Require pointer to move by 5px before activating
+			activationConstraint: {
+				distance: 5,
+			},
+		}),
+		useSensor(TouchSensor, {
+			// Press delay of 250ms, with tolerance of 5px of movement
+			activationConstraint: {
+				delay: 250,
+				tolerance: 5,
+			},
+		}),
+	)
+
 	const handleDragEnd = (event: DragEndEvent) => {
 		const { active, over } = event
-		if (over && active?.id !== over?.id) {
-			// For now, we just log the drag operation
-			// In the future, this would trigger event move/update
-			console.log(`Dragged event ${active.id} to ${over.id}`)
+		if (!over || active?.id === over?.id) return
+
+		const draggedEvent = active.data.current?.event as CalendarEvent | undefined
+		const targetDate = over.data.current?.date as Date | undefined
+
+		if (draggedEvent && targetDate && onEventUpdate) {
+			const eventStart = new Date(draggedEvent.start)
+			
+			// Check if the target date is different from the original date
+			// Compare year, month, and day (ignore time)
+			const originalDate = new Date(eventStart)
+			const isSameDate =
+				originalDate.getFullYear() === targetDate.getFullYear() &&
+				originalDate.getMonth() === targetDate.getMonth() &&
+				originalDate.getDate() === targetDate.getDate()
+
+			// Only proceed if actually moving to a different date
+			if (isSameDate) return
+
+			const eventEnd = new Date(draggedEvent.end)
+			const duration = eventEnd.getTime() - eventStart.getTime()
+
+			// Preserve the event's original time, just change the date
+			const newStart = new Date(targetDate)
+			newStart.setHours(eventStart.getHours(), eventStart.getMinutes(), eventStart.getSeconds(), eventStart.getMilliseconds())
+
+			const newEnd = new Date(newStart.getTime() + duration)
+
+			const updatedEvent = {
+				...draggedEvent,
+				start: newStart,
+				end: newEnd,
+			}
+
+			onEventUpdate(updatedEvent)
+
+			// Show toast notification when an event is moved
+			toast(`Event "${draggedEvent.title}" moved`, {
+				description: format(newStart, "MMM d, yyyy"),
+				position: "bottom-left",
+			})
 		}
 	}
 
 	return (
-		<DndContext onDragEnd={handleDragEnd}>
+		<DndContext sensors={sensors} onDragEnd={handleDragEnd}>
 			<div
 				className="bg-card flex flex-col rounded-lg border has-data-[slot=month-view]:flex-1"
 				style={

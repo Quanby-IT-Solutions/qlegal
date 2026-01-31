@@ -2,6 +2,8 @@
 
 import { useMemo } from "react"
 import { differenceInMinutes, format, getMinutes, isPast } from "date-fns"
+import type { DraggableAttributes } from "@dnd-kit/core"
+import type { SyntheticListenerMap } from "@dnd-kit/core/dist/hooks/utilities"
 
 import { cn } from "@/core/lib/utils"
 
@@ -25,6 +27,8 @@ interface EventWrapperProps {
 	className?: string
 	children: React.ReactNode
 	currentTime?: Date
+	dndListeners?: SyntheticListenerMap
+	dndAttributes?: DraggableAttributes
 }
 
 // Shared wrapper component for event styling
@@ -37,6 +41,8 @@ function EventWrapper({
 	className,
 	children,
 	currentTime,
+	dndListeners,
+	dndAttributes,
 }: EventWrapperProps) {
 	// Always use currentTime (if provided) to determine if event is in the past
 	const displayEnd = currentTime
@@ -58,6 +64,8 @@ function EventWrapper({
 			data-dragging={isDragging ?? undefined}
 			data-past-event={isEventInPast || undefined}
 			onClick={onClick}
+			{...dndListeners}
+			{...dndAttributes}
 		>
 			{children}
 		</button>
@@ -75,6 +83,8 @@ interface EventItemProps {
 	isLastDay?: boolean
 	children?: React.ReactNode
 	className?: string
+	dndListeners?: SyntheticListenerMap
+	dndAttributes?: DraggableAttributes
 }
 
 export function EventItem({
@@ -88,6 +98,8 @@ export function EventItem({
 	isLastDay = true,
 	children,
 	className,
+	dndListeners,
+	dndAttributes,
 }: EventItemProps) {
 	const eventColor = event.color
 
@@ -133,6 +145,8 @@ export function EventItem({
 					className
 				)}
 				currentTime={currentTime}
+				dndListeners={dndListeners}
+				dndAttributes={dndAttributes}
 			>
 				{children ?? (
 					<span className="truncate">
@@ -163,6 +177,8 @@ export function EventItem({
 					className
 				)}
 				currentTime={currentTime}
+				dndListeners={dndListeners}
+				dndAttributes={dndAttributes}
 			>
 				{durationMinutes < 45 ? (
 					<div className="truncate">

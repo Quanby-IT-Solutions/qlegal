@@ -30,14 +30,14 @@ export function DraggableEvent({
 	return (
 		<div
 			ref={setNodeRef}
-			{...listeners}
-			{...attributes}
 			style={{ touchAction: "none" }}
 		>
 			<EventItem
 				event={event}
 				view={view}
 				onClick={onClick}
+				dndListeners={listeners}
+				dndAttributes={attributes}
 				isFirstDay={isFirstDay}
 				isLastDay={isLastDay}
 				isDragging={isDragging}
