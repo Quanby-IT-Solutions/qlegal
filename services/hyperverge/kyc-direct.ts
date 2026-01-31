@@ -87,7 +87,8 @@ export async function readIdCard(config: {
 	formData.append("image", imageBlob, "id.jpg")
 	formData.append("countryId", config.countryId)
 	formData.append("documentId", config.documentId)
-	if (config.expectedDocumentSide) formData.append("expectedDocumentSide", config.expectedDocumentSide)
+	if (config.expectedDocumentSide)
+		formData.append("expectedDocumentSide", config.expectedDocumentSide)
 
 	let response: Response
 	try {
@@ -203,4 +204,3 @@ export async function matchFaceSelfieToId(config: {
 
 	return { raw: parsed, matchValue, summaryAction }
 }
-

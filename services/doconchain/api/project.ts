@@ -1,8 +1,7 @@
 import { env } from "@/env"
 
-import { apiCall } from "../lib/http-client"
+import { apiCall, apiCallWithToken } from "../lib/http-client"
 import { createProjectResponseSchema } from "../lib/schemas"
-import { generateToken, invalidateToken } from "../lib/token-cache"
 import { normalizeUrl } from "../lib/utils"
 
 interface DocumentStamp {
@@ -27,6 +26,8 @@ interface CreateProjectRequest {
 	userListEditable?: boolean
 	creatorAsViewer?: boolean
 	documentStamp?: DocumentStamp
+	/** When provided, use this token (e.g. meeting-scoped from ENP join) instead of email-based lookup. */
+	tokenOverride?: string
 }
 
 export async function createProject({
@@ -37,6 +38,7 @@ export async function createProject({
 	userListEditable = true,
 	creatorAsViewer = true,
 	documentStamp,
+	tokenOverride,
 }: CreateProjectRequest): Promise<{ uuid: string; id?: string | number; redirectUrl?: string }> {
 	const formData = new FormData()
 	const documentBlob = new Blob([new Uint8Array(documentFile)], { type: "application/pdf" })
@@ -53,38 +55,19 @@ export async function createProject({
 		formData.append("document_stamp", JSON.stringify(documentStamp))
 	}
 
-	// CRITICAL: Generate a completely fresh token for project creation
-	// This ensures maximum token validity (full 1 hour) for all subsequent operations
-	// Every project creation gets a new token, which will be used for all operations on that project
-	console.log("🔵 Creating DocoChain project - generating fresh token for creator...")
-	console.log("   - Creator Email:", creatorEmail)
-	console.log("   - Invalidating any cached token and generating completely fresh token...")
+	const doFetch = (token: string) =>
+		fetch(`${env.DOCONCHAIN_API_URL}/api/v2/projects?user_type=ENTERPRISE_API`, {
+			method: "POST",
+			headers: {
+				Authorization: `Bearer ${token}`,
+				Accept: "application/json",
+			},
+			body: formData,
+		})
 
-	// Invalidate any existing token cache for this creator
-	invalidateToken(creatorEmail)
-
-	// Generate a completely fresh token with full 1-hour validity
-	// This token will be cached and used for all subsequent operations on this project
-	await generateToken(creatorEmail, true)
-
-	console.log("✅ Fresh token generated for creator - proceeding with project creation...")
-
-	// Now create the project using the fresh token
-	// forceVerify=true ensures we use the token we just generated
-	const response = await apiCall(
-		async token => {
-			return fetch(`${env.DOCONCHAIN_API_URL}/api/v2/projects?user_type=ENTERPRISE_API`, {
-				method: "POST",
-				headers: {
-					Authorization: `Bearer ${token}`,
-					Accept: "application/json",
-				},
-				body: formData,
-			})
-		},
-		creatorEmail,
-		true
-	) // Force verification to use the fresh token we just generated
+	const response = tokenOverride
+		? await apiCallWithToken(doFetch, tokenOverride)
+		: await apiCall(doFetch, creatorEmail, false)
 
 	if (!response.ok) {
 		const errorText = await response.text()
@@ -111,7 +94,8 @@ export async function createProject({
 
 export async function getProjectDetails(
 	projectUuid: string,
-	userEmail?: string
+	userEmail?: string,
+	tokenOverride?: string
 ): Promise<{
 	data?: {
 		uuid?: string
@@ -142,18 +126,17 @@ export async function getProjectDetails(
 	}
 	message?: string
 }> {
-	const response = await apiCall(async token => {
-		return fetch(
-			`${env.DOCONCHAIN_API_URL}/api/v2/projects/${projectUuid}?user_type=ENTERPRISE_API`,
-			{
-				method: "GET",
-				headers: {
-					Authorization: `Bearer ${token}`,
-					Accept: "application/json",
-				},
-			}
-		)
-	}, userEmail)
+	const doFetch = (token: string) =>
+		fetch(`${env.DOCONCHAIN_API_URL}/api/v2/projects/${projectUuid}?user_type=ENTERPRISE_API`, {
+			method: "GET",
+			headers: {
+				Authorization: `Bearer ${token}`,
+				Accept: "application/json",
+			},
+		})
+	const response = tokenOverride
+		? await apiCallWithToken(doFetch, tokenOverride)
+		: await apiCall(doFetch, userEmail)
 
 	if (!response.ok) {
 		const errorText = await response.text()

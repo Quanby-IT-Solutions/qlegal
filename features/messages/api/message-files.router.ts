@@ -1,14 +1,15 @@
-import { TRPCError, tracked } from "@trpc/server"
-import { and, desc, eq } from "drizzle-orm"
 import { on } from "node:events"
+import { tracked, TRPCError } from "@trpc/server"
+import { and, desc, eq } from "drizzle-orm"
 import { z } from "zod/v4"
 
-import { emitFilesUpdate, messagesEmitter } from "@/features/messages/lib/messages.emitter"
 import { db } from "@/services/drizzle/db"
 import { messageAttachments } from "@/services/drizzle/schema/message-attachments"
 import { conversationParticipants } from "@/services/drizzle/schema/messages"
 import { getServiceRoleClient } from "@/services/supabase"
 import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
+
+import { emitFilesUpdate, messagesEmitter } from "@/features/messages/lib/messages.emitter"
 
 export const messageFilesRouter = createTRPCRouter({
 	// Generate file path and return bucket info for direct upload

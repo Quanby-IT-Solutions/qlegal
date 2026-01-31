@@ -13,6 +13,7 @@ import {
 import { users } from "@/services/drizzle/schema/auth"
 import { documents } from "@/services/drizzle/schema/document"
 import { documentSigners } from "@/services/drizzle/schema/document-signers"
+import { idCardDetails } from "@/services/drizzle/schema/id-card-details"
 import { legalRegistrations } from "@/services/drizzle/schema/legal-registration"
 import { meetings } from "@/services/drizzle/schema/meetings"
 import { notarialActs, notarialBooks } from "@/services/drizzle/schema/notarial-book"
@@ -43,18 +44,18 @@ const syncDocumentToNotarialBookSchema = z.object({
  */
 function generateLocationStatement(location: string | undefined | null): string {
 	const locationLower = (location ?? "Philippines").toLowerCase()
-	
+
 	// Check if location indicates Philippine embassy/consular office abroad
-	const isPhilippineEmbassy = 
+	const isPhilippineEmbassy =
 		locationLower.includes("embassy") ||
 		locationLower.includes("consular") ||
 		locationLower.includes("consul") ||
 		locationLower.includes("honorary consul")
-	
+
 	if (isPhilippineEmbassy) {
 		return "I hereby certify that this electronic notarial act was executed while all parties concerned were situated within a Philippine embassy, consular office, or office of Philippine Honorary Consul abroad, in accordance with the limited extraterritorial performance of electronic notarial acts."
 	}
-	
+
 	// Default statement for acts executed within the Philippines
 	return "I hereby certify that this electronic notarial act was executed while all parties concerned were situated within the Philippines."
 }
@@ -298,19 +299,29 @@ export const notarialBookRouter = createTRPCRouter({
 
 							let principals: Array<{ name: string; signedAt?: string; idNumber?: string }> = []
 							let witness: { name: string; signedAt?: string } | undefined
-							let allSigners: Array<{ name: string; email: string; role: string; signedAt?: string; idNumber?: string }> = []
+							let allSigners: Array<{
+								name: string
+								email: string
+								role: string
+								signedAt?: string
+								idNumber?: string
+							}> = []
 
 							// Extract from documentSigners table (most reliable - stored in our database)
 							// Also get signed_at timestamps from projectData.signers
-							const projectSignersMap = new Map<string, { signed_at?: string | null; signer_role?: string }>()
-							const projectSigners = (projectData.signers as Array<{
-								email?: string
-								first_name?: string | null
-								last_name?: string | null
-								status?: string
-								signed_at?: string | null
-								signer_role?: string
-							}>) ?? []
+							const projectSignersMap = new Map<
+								string,
+								{ signed_at?: string | null; signer_role?: string }
+							>()
+							const projectSigners =
+								(projectData.signers as Array<{
+									email?: string
+									first_name?: string | null
+									last_name?: string | null
+									status?: string
+									signed_at?: string | null
+									signer_role?: string
+								}>) ?? []
 
 							// Create a map of email -> signer data for quick lookup
 							for (const signer of projectSigners) {
@@ -334,11 +345,13 @@ export const notarialBookRouter = createTRPCRouter({
 									// Use signerName from documentSigners if available, otherwise use user name
 									const name =
 										docSigner.signerName ?? signerUser.name ?? email.split("@")[0] ?? "Unknown"
-									const role = signerUser.role ?? "SIGNER"
 
-									// Get signed_at timestamp from project signers if available
+									// Get signed_at timestamp and signer_role from project signers if available
 									const projectSignerData = projectSignersMap.get(email.toLowerCase())
 									const signedAt = projectSignerData?.signed_at ?? undefined
+									// Prefer DocoChain's signer_role (e.g., "Signer" for principal) over user's DB role (e.g., "ENP")
+									// This ensures ENPs who sign as "Signer" in DocoChain are correctly identified
+									const role = projectSignerData?.signer_role ?? signerUser.role ?? "SIGNER"
 
 									allSigners.push({
 										name,
@@ -351,33 +364,33 @@ export const notarialBookRouter = createTRPCRouter({
 
 								// Identify ALL principals (non-ENP, non-NOTARY, non-WITNESS signers)
 								principals = allSigners
-								.filter(s => {
-									const roleUpper = s.role.toUpperCase()
-									return (
-										!roleUpper.includes("ENP") &&
-										!roleUpper.includes("NOTARY") &&
-										!roleUpper.includes("WITNESS")
-									)
-								})
-								.map(s => ({
-									name: s.name,
-									signedAt: s.signedAt,
-									idNumber: s.idNumber,
-								}))
+									.filter(s => {
+										const roleUpper = s.role.toUpperCase()
+										return (
+											!roleUpper.includes("ENP") &&
+											!roleUpper.includes("NOTARY") &&
+											!roleUpper.includes("WITNESS")
+										)
+									})
+									.map(s => ({
+										name: s.name,
+										signedAt: s.signedAt,
+										idNumber: s.idNumber,
+									}))
 
-							// If no principals found, use first signer as fallback
-							if (principals.length === 0 && allSigners.length > 0 && allSigners[0]) {
-								principals = [
-									{
-										name: allSigners[0].name,
-										signedAt: allSigners[0].signedAt,
-										idNumber: allSigners[0].idNumber,
-									},
-								]
+								// If no principals found, use first signer as fallback
+								if (principals.length === 0 && allSigners.length > 0 && allSigners[0]) {
+									principals = [
+										{
+											name: allSigners[0].name,
+											signedAt: allSigners[0].signedAt,
+											idNumber: allSigners[0].idNumber,
+										},
+									]
+								}
 							}
-						}
 
-						// Fallback 1: Try projectData.signers if documentSigners didn't work
+							// Fallback 1: Try projectData.signers if documentSigners didn't work
 							if (allSigners.length === 0 && projectSigners.length > 0) {
 								console.log(`✅ Found ${projectSigners.length} signer(s) in project details`)
 								for (const signer of projectSigners) {
@@ -429,270 +442,304 @@ export const notarialBookRouter = createTRPCRouter({
 							// Identify witness
 							witness = allSigners.find(s => s.role.toUpperCase().includes("WITNESS"))
 
-						// Fallback 2: Try passport data if both documentSigners and project signers didn't work
-						let passportData: unknown = null;
-						if (allSigners.length === 0) {
-							try {
-								passportData = await getPassportDocument(projectUuid, "history", user.email ?? undefined)
-								const passportSigners = extractSignerInfo(passportData)
-								if (passportSigners.allSigners.length > 0) {
-									allSigners = passportSigners.allSigners
-									// Extract all principals from passport data
-									principals = allSigners
-										.filter(s => {
-											const roleUpper = s.role.toUpperCase()
-											return (
-												!roleUpper.includes("ENP") &&
-												!roleUpper.includes("NOTARY") &&
-												!roleUpper.includes("WITNESS")
-											)
-										})
-										.map(s => ({
-											name: s.name,
-											signedAt: s.signedAt,
-											idNumber: s.idNumber,
-										}))
-									// Fallback to single principal if available
-									if (principals.length === 0 && passportSigners.principal) {
-										principals = [
-											{
-												name: passportSigners.principal.name,
-												signedAt: passportSigners.principal.signedAt,
-												idNumber: passportSigners.principal.idNumber,
-											},
-										]
-									}
-									witness = passportSigners.witness
-									console.log(`✅ Found ${allSigners.length} signer(s) from passport data, ${principals.length} principal(s)`)
-								}
-							} catch (error) {
-								console.warn(`⚠️ Could not fetch passport data for ${projectUuid}:`, error)
-								// Continue with empty signers - will use "Unknown" as principal
-							}
-						}
-
-						// Determine executedAt timestamp (priority: signer's signed_at > completed_at > created_at)
-						let executedAt = new Date(project.created_at)
-						// Use the earliest principal's signed_at if available
-						const principalWithTimestamp = principals
-							.filter(p => p.signedAt)
-							.map(p => ({ signedAt: p.signedAt!, timestamp: new Date(p.signedAt!).getTime() }))
-							.sort((a, b) => a.timestamp - b.timestamp)[0]
-						if (principalWithTimestamp) {
-							executedAt = new Date(principalWithTimestamp.signedAt)
-						} else if (allSigners && allSigners.length > 0) {
-							const signersWithTimestamp = allSigners
-								.filter(s => s.signedAt)
-								.map(s => ({ signedAt: s.signedAt!, timestamp: new Date(s.signedAt!).getTime() }))
-								.sort((a, b) => a.timestamp - b.timestamp)
-
-							if (signersWithTimestamp.length > 0 && signersWithTimestamp[0]) {
-								executedAt = new Date(signersWithTimestamp[0].signedAt)
-							}
-						} else if (projectData.completed_at) {
-							executedAt = new Date(projectData.completed_at)
-						}
-
-						// Determine workflow (default to IEN, can be enhanced with passport data)
-						let workflowType: "REN" | "IEN" = "IEN"
-						if (passportData && typeof passportData === "object") {
-							const passportText = JSON.stringify(passportData).toLowerCase()
-							if (
-								passportText.includes("remote") ||
-								passportText.includes("video") ||
-								passportText.includes("ren")
-							) {
-								workflowType = "REN"
-							}
-						}
-
-						// Determine act type from document.notarizationType (stored in database)
-						let actTypeValue:
-							| "ACKNOWLEDGMENT"
-							| "AFFIRMATION"
-							| "JURAT"
-							| "SIGNATURE_WITNESSING" = "ACKNOWLEDGMENT"
-
-						// Use notarizationType from document table if available
-						if (document?.notarizationType) {
-							actTypeValue = document.notarizationType as typeof actTypeValue
-							console.log(`✅ Using notarizationType from document: ${actTypeValue}`)
-						} else if (document) {
-							// Fallback: Try to determine from document name/description
-							const docName = (
-								document?.name ??
-								projectData.file_name ??
-								projectData.name ??
-								""
-							).toLowerCase()
-							const docDesc = (document?.description ?? null)?.toLowerCase() ?? ""
-							const combined = `${docName} ${docDesc}`
-
-							if (combined.includes("affirmation") || combined.includes("affirm")) {
-								actTypeValue = "AFFIRMATION"
-							} else if (combined.includes("jurat")) {
-								actTypeValue = "JURAT"
-							} else if (combined.includes("signature") && combined.includes("witness")) {
-								actTypeValue = "SIGNATURE_WITNESSING"
-							} else if (
-								combined.includes("acknowledgment") ||
-								combined.includes("acknowledge")
-							) {
-								actTypeValue = "ACKNOWLEDGMENT"
-							}
-							// Default remains ACKNOWLEDGMENT if nothing matches
-						}
-
-						// Apply filters
-						if (actType !== "ALL" && actTypeValue !== actType) {
-							return null
-						}
-						if (workflow !== "ALL" && workflowType !== workflow) {
-							return null
-						}
-
-						// Apply search filter
-						if (search) {
-							const searchLower = search.toLowerCase()
-							// Search across all principal names
-							const allPrincipalNames = principals.map(p => p.name).join(" ")
-							const principalNamesLower = allPrincipalNames.toLowerCase()
-							const documentName = projectData.file_name ?? projectData.name ?? project.name ?? ""
-							const matchesPrincipal = principalNamesLower.includes(searchLower)
-							const matchesDocument = documentName.toLowerCase().includes(searchLower)
-							if (!matchesPrincipal && !matchesDocument) {
-								return null
-							}
-						}
-
-						// Generate certificate number (using project UUID for uniqueness)
-						const certificateNumber = `NB-${projectUuid.substring(0, 4).toUpperCase()}-${Date.now().toString().slice(-6)}`
-
-						// Join all principal names with comma and space
-						const principalNames = principals.length > 0
-							? principals.map(p => p.name).join(", ")
-							: "Unknown"
-						// Use first principal's ID number (or combine if needed)
-						const principalIdNumber = principals.length > 0 && principals[0]?.idNumber
-							? principals[0].idNumber
-							: null
-
-						// Fetch principal's ID image and type from users table
-						let principalIdImageBase64: string | null = null
-						let principalIdType: string | null = null
-						if (principals.length > 0 && allSigners.length > 0) {
-							// Try to find the principal's email from signers
-							// Match by name first, then by role
-							const principalSigner = allSigners.find(s => {
-								const roleUpper = s.role.toUpperCase()
-								const isPrincipal = !roleUpper.includes("ENP") &&
-									!roleUpper.includes("NOTARY") &&
-									!roleUpper.includes("WITNESS")
-								
-								// Try to match by name if we have principal names
-								if (principals.length > 0 && principals[0]?.name) {
-									return isPrincipal && s.name === principals[0].name
-								}
-								return isPrincipal
-							}) ?? allSigners.find(s => {
-								const roleUpper = s.role.toUpperCase()
-								return (
-									!roleUpper.includes("ENP") &&
-									!roleUpper.includes("NOTARY") &&
-									!roleUpper.includes("WITNESS")
-								)
-							})
-
-							if (principalSigner?.email) {
+							// Fallback 2: Try passport data if both documentSigners and project signers didn't work
+							let passportData: unknown = null
+							if (allSigners.length === 0) {
 								try {
-									const principalUser = await ctx.db.query.users.findFirst({
-										where: eq(users.email, principalSigner.email),
-										columns: {
-											kycReferenceIdImageBase64: true,
-											kycOcrExtractedFieldsJson: true,
-										},
-									})
-
-									if (principalUser?.kycReferenceIdImageBase64) {
-										principalIdImageBase64 = String(principalUser.kycReferenceIdImageBase64)
-									}
-
-									// Extract OCR document type
-									const ocrJson = principalUser?.kycOcrExtractedFieldsJson
-									if (ocrJson && typeof ocrJson === "string") {
-										try {
-											const ocrFields = JSON.parse(ocrJson) as Record<string, unknown>
-											// Priority: documentId (stored during KYC) > documentType > idType > module name
-											const docType =
-												ocrFields.documentId ?? // Stored during direct KYC
-												ocrFields.documentType ??
-												ocrFields.idType ??
-												ocrFields.document_type ??
-												ocrFields.id_type ??
-												ocrFields.type ??
-												ocrFields.module ?? // Module name from HyperVerge
-												ocrFields.moduleName
-
-											if (docType && typeof docType === "string") {
-												const documentTypeMap: Record<string, string> = {
-													dl: "Driver's License",
-													national_id: "National ID",
-													passport: "Passport",
-													voter_id: "Voter ID",
-													"driver's license": "Driver's License",
-													"national id": "National ID",
-													"voter id": "Voter ID",
-												}
-
-												principalIdType =
-													documentTypeMap[docType.toLowerCase()] ??
-													docType.charAt(0).toUpperCase() + docType.slice(1).replace(/_/g, " ")
-											}
-										} catch (error) {
-											console.warn("Failed to parse OCR JSON:", error)
+									passportData = await getPassportDocument(
+										projectUuid,
+										"history",
+										user.email ?? undefined
+									)
+									const passportSigners = extractSignerInfo(passportData)
+									if (passportSigners.allSigners.length > 0) {
+										allSigners = passportSigners.allSigners
+										// Extract all principals from passport data
+										principals = allSigners
+											.filter(s => {
+												const roleUpper = s.role.toUpperCase()
+												return (
+													!roleUpper.includes("ENP") &&
+													!roleUpper.includes("NOTARY") &&
+													!roleUpper.includes("WITNESS")
+												)
+											})
+											.map(s => ({
+												name: s.name,
+												signedAt: s.signedAt,
+												idNumber: s.idNumber,
+											}))
+										// Fallback to single principal if available
+										if (principals.length === 0 && passportSigners.principal) {
+											principals = [
+												{
+													name: passportSigners.principal.name,
+													signedAt: passportSigners.principal.signedAt,
+													idNumber: passportSigners.principal.idNumber,
+												},
+											]
 										}
+										witness = passportSigners.witness
+										console.log(
+											`✅ Found ${allSigners.length} signer(s) from passport data, ${principals.length} principal(s)`
+										)
 									}
 								} catch (error) {
-									console.warn("Failed to fetch principal ID image:", error)
+									console.warn(`⚠️ Could not fetch passport data for ${projectUuid}:`, error)
+									// Continue with empty signers - will use "Unknown" as principal
 								}
 							}
+
+							// Determine executedAt timestamp (priority: signer's signed_at > completed_at > created_at)
+							let executedAt = new Date(project.created_at)
+							// Use the earliest principal's signed_at if available
+							const principalWithTimestamp = principals
+								.filter(p => p.signedAt)
+								.map(p => ({ signedAt: p.signedAt!, timestamp: new Date(p.signedAt!).getTime() }))
+								.sort((a, b) => a.timestamp - b.timestamp)[0]
+							if (principalWithTimestamp) {
+								executedAt = new Date(principalWithTimestamp.signedAt)
+							} else if (allSigners && allSigners.length > 0) {
+								const signersWithTimestamp = allSigners
+									.filter(s => s.signedAt)
+									.map(s => ({ signedAt: s.signedAt!, timestamp: new Date(s.signedAt!).getTime() }))
+									.sort((a, b) => a.timestamp - b.timestamp)
+
+								if (signersWithTimestamp.length > 0 && signersWithTimestamp[0]) {
+									executedAt = new Date(signersWithTimestamp[0].signedAt)
+								}
+							} else if (projectData.completed_at) {
+								executedAt = new Date(projectData.completed_at)
+							}
+
+							// Determine workflow (default to IEN, can be enhanced with passport data)
+							let workflowType: "REN" | "IEN" = "IEN"
+							if (passportData && typeof passportData === "object") {
+								const passportText = JSON.stringify(passportData).toLowerCase()
+								if (
+									passportText.includes("remote") ||
+									passportText.includes("video") ||
+									passportText.includes("ren")
+								) {
+									workflowType = "REN"
+								}
+							}
+
+							// Determine act type from document.notarizationType (stored in database)
+							let actTypeValue:
+								| "ACKNOWLEDGMENT"
+								| "AFFIRMATION"
+								| "JURAT"
+								| "SIGNATURE_WITNESSING" = "ACKNOWLEDGMENT"
+
+							// Use notarizationType from document table if available
+							if (document?.notarizationType) {
+								actTypeValue = document.notarizationType as typeof actTypeValue
+								console.log(`✅ Using notarizationType from document: ${actTypeValue}`)
+							} else if (document) {
+								// Fallback: Try to determine from document name/description
+								const docName = (
+									document?.name ??
+									projectData.file_name ??
+									projectData.name ??
+									""
+								).toLowerCase()
+								const docDesc = (document?.description ?? null)?.toLowerCase() ?? ""
+								const combined = `${docName} ${docDesc}`
+
+								if (combined.includes("affirmation") || combined.includes("affirm")) {
+									actTypeValue = "AFFIRMATION"
+								} else if (combined.includes("jurat")) {
+									actTypeValue = "JURAT"
+								} else if (combined.includes("signature") && combined.includes("witness")) {
+									actTypeValue = "SIGNATURE_WITNESSING"
+								} else if (
+									combined.includes("acknowledgment") ||
+									combined.includes("acknowledge")
+								) {
+									actTypeValue = "ACKNOWLEDGMENT"
+								}
+								// Default remains ACKNOWLEDGMENT if nothing matches
+							}
+
+							// Apply filters
+							if (actType !== "ALL" && actTypeValue !== actType) {
+								return null
+							}
+							if (workflow !== "ALL" && workflowType !== workflow) {
+								return null
+							}
+
+							// Apply search filter
+							if (search) {
+								const searchLower = search.toLowerCase()
+								// Search across all principal names
+								const allPrincipalNames = principals.map(p => p.name).join(" ")
+								const principalNamesLower = allPrincipalNames.toLowerCase()
+								const documentName = projectData.file_name ?? projectData.name ?? project.name ?? ""
+								const matchesPrincipal = principalNamesLower.includes(searchLower)
+								const matchesDocument = documentName.toLowerCase().includes(searchLower)
+								if (!matchesPrincipal && !matchesDocument) {
+									return null
+								}
+							}
+
+							// Generate certificate number (using project UUID for uniqueness)
+							const certificateNumber = `NB-${projectUuid.substring(0, 4).toUpperCase()}-${Date.now().toString().slice(-6)}`
+
+							// Join all principal names with comma and space
+							const principalNames =
+								principals.length > 0 ? principals.map(p => p.name).join(", ") : "Unknown"
+							// Use first principal's ID number (or combine if needed)
+							const principalIdNumber =
+								principals.length > 0 && principals[0]?.idNumber ? principals[0].idNumber : null
+
+							// Fetch principal's ID image and type from users table
+							let principalIdImageBase64: string | null = null
+							let principalIdType: string | null = null
+							if (principals.length > 0 && allSigners.length > 0) {
+								// Try to find the principal's email from signers
+								// Match by name first, then by role
+								const principalSigner =
+									allSigners.find(s => {
+										const roleUpper = s.role.toUpperCase()
+										const isPrincipal =
+											!roleUpper.includes("ENP") &&
+											!roleUpper.includes("NOTARY") &&
+											!roleUpper.includes("WITNESS")
+
+										// Try to match by name if we have principal names
+										if (principals.length > 0 && principals[0]?.name) {
+											return isPrincipal && s.name === principals[0].name
+										}
+										return isPrincipal
+									}) ??
+									allSigners.find(s => {
+										const roleUpper = s.role.toUpperCase()
+										return (
+											!roleUpper.includes("ENP") &&
+											!roleUpper.includes("NOTARY") &&
+											!roleUpper.includes("WITNESS")
+										)
+									})
+
+								if (principalSigner?.email) {
+									try {
+										// Get user ID from email first
+										const principalUser = await ctx.db.query.users.findFirst({
+											where: eq(users.email, principalSigner.email),
+											columns: {
+												id: true,
+											},
+										})
+
+										if (principalUser?.id) {
+											// Fetch ID card details from id_card_details table
+											const idCardDetail = await ctx.db.query.idCardDetails.findFirst({
+												where: eq(idCardDetails.userId, principalUser.id),
+												orderBy: (table, { desc }) => [desc(table.verifiedAt)],
+											})
+
+											if (idCardDetail?.faceImageUrl) {
+												principalIdImageBase64 = String(idCardDetail.faceImageUrl)
+											}
+
+											// Extract OCR document type from rawOcrData
+											if (idCardDetail?.rawOcrData) {
+												try {
+													const ocrFields = idCardDetail.rawOcrData as Record<string, unknown>
+													// Priority: documentId (stored during KYC) > documentType > idType > module name
+													const docType =
+														ocrFields.documentId ?? // Stored during direct KYC
+														ocrFields.documentType ??
+														ocrFields.idType ??
+														ocrFields.document_type ??
+														ocrFields.id_type ??
+														ocrFields.type ??
+														ocrFields.module ?? // Module name from HyperVerge
+														ocrFields.moduleName
+
+													if (docType && typeof docType === "string") {
+														const documentTypeMap: Record<string, string> = {
+															"dl": "Driver's License",
+															"national_id": "National ID",
+															"passport": "Passport",
+															"voter_id": "Voter ID",
+															"driver's license": "Driver's License",
+															"national id": "National ID",
+															"voter id": "Voter ID",
+														}
+
+														principalIdType =
+															documentTypeMap[docType.toLowerCase()] ??
+															docType.charAt(0).toUpperCase() + docType.slice(1).replace(/_/g, " ")
+													}
+
+													// Use documentType field directly if available
+													if (!principalIdType && idCardDetail.documentType) {
+														principalIdType = String(idCardDetail.documentType)
+													}
+												} catch (error) {
+													console.warn("Failed to parse OCR data:", error)
+												}
+											}
+										}
+									} catch (error) {
+										console.warn("Failed to fetch principal ID details:", error)
+									}
+								}
+							}
+
+							// Generate location statement
+							const locationValue = "Philippines" // Default for API-based entries
+							const locationStatement = generateLocationStatement(locationValue)
+
+							// Include fees from document (ENP-set during upload) when valid
+							const feesVal: number | null = (() => {
+								const raw = document?.fees
+								if (
+									raw === null ||
+									raw === undefined ||
+									typeof raw !== "number" ||
+									Number.isNaN(raw)
+								)
+									return null
+								return raw
+							})()
+
+							return {
+								id: projectUuid, // Use project UUID as ID
+								notarialBookId: "", // Not needed for API-based entries
+								actType: actTypeValue,
+								documentId: null,
+								docoChainProjectUuid: projectUuid,
+								principalName: principalNames,
+								principalIdNumber,
+								principalIdImageBase64,
+								principalIdType,
+								witnessName: witness?.name ?? null,
+								enpName: user.name ?? "Unknown ENP",
+								enpRollNumber: null,
+								executedAt,
+								location: locationValue,
+								workflow: workflowType,
+								locationStatement,
+								documentName:
+									projectData.file_name ?? projectData.name ?? project.name ?? "Untitled Document",
+								documentDescription: document?.description ?? null,
+								passportData: passportData ? JSON.stringify(passportData) : null,
+								certificateNumber,
+								certificateUrl: null,
+								fees: feesVal,
+								createdAt: new Date(project.created_at),
+								updatedAt: new Date(project.updated_at),
+							}
+						} catch (error) {
+							console.error(`❌ Error fetching details for project ${projectUuid}:`, error)
+							return null
 						}
-
-						// Generate location statement
-						const locationValue = "Philippines" // Default for API-based entries
-						const locationStatement = generateLocationStatement(locationValue)
-
-						return {
-							id: projectUuid, // Use project UUID as ID
-							notarialBookId: "", // Not needed for API-based entries
-							actType: actTypeValue,
-							documentId: null,
-							docoChainProjectUuid: projectUuid,
-							principalName: principalNames,
-							principalIdNumber,
-							principalIdImageBase64,
-							principalIdType,
-							witnessName: witness?.name ?? null,
-							enpName: user.name ?? "Unknown ENP",
-							enpRollNumber: null,
-							executedAt,
-							location: locationValue,
-							workflow: workflowType,
-							locationStatement,
-							documentName: projectData.file_name ?? projectData.name ?? project.name ?? "Untitled Document",
-							documentDescription: document?.description ?? null,
-							passportData: passportData ? JSON.stringify(passportData) : null,
-							certificateNumber,
-							certificateUrl: null,
-							createdAt: new Date(project.created_at),
-							updatedAt: new Date(project.updated_at),
-						};
-					} catch (error) {
-						console.error(`❌ Error fetching details for project ${projectUuid}:`, error)
-						return null
-					}
-				})
-			);
+					})
+				)
 
 				// Filter out null entries
 				const validActs = acts.filter((act): act is NonNullable<typeof act> => act !== null)
@@ -1059,49 +1106,62 @@ export const notarialBookRouter = createTRPCRouter({
 			let principalIdType: string | undefined
 			if (principalEmailForOcr) {
 				try {
+					// Get user ID from email
 					const principalUser = await ctx.db.query.users.findFirst({
 						where: eq(users.email, principalEmailForOcr),
 						columns: {
-							kycOcrExtractedFieldsJson: true,
+							id: true,
 						},
 					})
 
-					const ocrJson = principalUser?.kycOcrExtractedFieldsJson
-					if (ocrJson && typeof ocrJson === "string") {
-						try {
-							const ocrFields = JSON.parse(ocrJson) as Record<string, unknown>
-											// Priority: documentId (stored during KYC) > documentType > idType > module name
-											const docType =
-												ocrFields.documentId ?? // Stored during direct KYC
-												ocrFields.documentType ??
-												ocrFields.idType ??
-												ocrFields.document_type ??
-												ocrFields.id_type ??
-												ocrFields.type ??
-												ocrFields.module ?? // Module name from HyperVerge
-												ocrFields.moduleName
+					if (principalUser?.id) {
+						// Fetch ID card details from id_card_details table
+						const idCardDetail = await ctx.db.query.idCardDetails.findFirst({
+							where: eq(idCardDetails.userId, principalUser.id),
+							orderBy: (table, { desc }) => [desc(table.verifiedAt)],
+						})
 
-							if (docType && typeof docType === "string") {
-								const documentTypeMap: Record<string, string> = {
-									dl: "Driver's License",
-									national_id: "National ID",
-									passport: "Passport",
-									voter_id: "Voter ID",
-									"driver's license": "Driver's License",
-									"national id": "National ID",
-									"voter id": "Voter ID",
+						if (idCardDetail?.rawOcrData) {
+							try {
+								const ocrFields = idCardDetail.rawOcrData as Record<string, unknown>
+								// Priority: documentId (stored during KYC) > documentType > idType > module name
+								const docType =
+									ocrFields.documentId ?? // Stored during direct KYC
+									ocrFields.documentType ??
+									ocrFields.idType ??
+									ocrFields.document_type ??
+									ocrFields.id_type ??
+									ocrFields.type ??
+									ocrFields.module ?? // Module name from HyperVerge
+									ocrFields.moduleName
+
+								if (docType && typeof docType === "string") {
+									const documentTypeMap: Record<string, string> = {
+										"dl": "Driver's License",
+										"national_id": "National ID",
+										"passport": "Passport",
+										"voter_id": "Voter ID",
+										"driver's license": "Driver's License",
+										"national id": "National ID",
+										"voter id": "Voter ID",
+									}
+
+									principalIdType =
+										documentTypeMap[docType.toLowerCase()] ??
+										docType.charAt(0).toUpperCase() + docType.slice(1).replace(/_/g, " ")
 								}
 
-								principalIdType =
-									documentTypeMap[docType.toLowerCase()] ??
-									docType.charAt(0).toUpperCase() + docType.slice(1).replace(/_/g, " ")
+								// Use documentType field directly if available
+								if (!principalIdType && idCardDetail.documentType) {
+									principalIdType = String(idCardDetail.documentType)
+								}
+							} catch (parseError) {
+								console.warn("Failed to parse OCR data:", parseError)
 							}
-						} catch (parseError) {
-							console.warn("Failed to parse OCR JSON:", parseError)
 						}
 					}
 				} catch (fetchError) {
-					console.warn("Failed to fetch principal ID type:", fetchError)
+					console.warn("Failed to fetch principal ID card details:", fetchError)
 				}
 			}
 
@@ -1400,7 +1460,7 @@ export const notarialBookRouter = createTRPCRouter({
 			// Check if actId looks like a DocoChain project UUID (typically alphanumeric, 15+ chars)
 			// Database IDs are typically shorter UUIDs or different format
 			const looksLikeProjectUuid = input.actId.length >= 15 && /^[A-Za-z0-9]+$/.test(input.actId)
-			
+
 			let act = null
 			if (!looksLikeProjectUuid) {
 				// Only query database if it doesn't look like a project UUID

@@ -19,7 +19,6 @@ import {
 import { Profile } from "@/core/components/user-profile"
 import { useHydrated } from "@/core/hooks/use-hydrated"
 import { getSiteUserItems } from "@/core/lib/nav/site.config"
-import type { IconSvgObject } from "@/core/lib/nav/types"
 import { cn, mapRoleToLabel } from "@/core/lib/utils"
 
 export function SiteUser() {
@@ -31,13 +30,11 @@ export function SiteUser() {
 	// Helper to render icon - handles both React component and HugeIcons IconSvgObject
 	const renderIcon = (icon?: (typeof config)[0]["icon"]) => {
 		if (!icon) return null
-		// Check if it's a React component (function) or HugeIcons IconSvgObject (array)
 		if (typeof icon === "function") {
 			const IconComponent = icon as React.ComponentType<React.SVGProps<SVGSVGElement>>
 			return <IconComponent className="h-4 w-4" />
 		}
-		// It's a HugeIcons IconSvgObject
-		return <HugeiconsIcon icon={icon as IconSvgObject} size={16} />
+		return <HugeiconsIcon icon={icon} size={16} />
 	}
 
 	if (status === "loading" || !hydrated) {

@@ -1,14 +1,8 @@
-import { TRPCError, tracked } from "@trpc/server"
-import { and, asc, desc, eq, gt, ne, or, sql } from "drizzle-orm"
 import { on } from "node:events"
+import { tracked, TRPCError } from "@trpc/server"
+import { and, asc, desc, eq, gt, ne, or, sql } from "drizzle-orm"
 import { z } from "zod/v4"
 
-import {
-	emitConversationUpdate,
-	emitMessageAdd,
-	messagesEmitter,
-	type MessageWithSender,
-} from "@/features/messages/lib/messages.emitter"
 import { db } from "@/services/drizzle/db"
 import { users } from "@/services/drizzle/schema/auth"
 import {
@@ -17,6 +11,13 @@ import {
 	messages,
 } from "@/services/drizzle/schema/messages"
 import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
+
+import {
+	emitConversationUpdate,
+	emitMessageAdd,
+	messagesEmitter,
+	type MessageWithSender,
+} from "@/features/messages/lib/messages.emitter"
 
 export const messagesRouter = createTRPCRouter({
 	// Get all conversations for current user
@@ -352,7 +353,7 @@ export const messagesRouter = createTRPCRouter({
 			}) as AsyncIterable<[string, MessageWithSender]>
 
 			let lastMessageCreatedAt: Date | null = null
-			
+
 			// Only fetch missed messages if lastEventId is provided
 			// If no lastEventId, skip catch-up (getMessages query handles initial load)
 			if (lastEventId) {

@@ -24,16 +24,27 @@ import {
 	Monitor,
 	MoreVertical,
 	PhoneOff,
+	RefreshCw,
 	Send,
 	Square,
 	Unlock,
 	User,
 	Users as UsersIcon,
-	WifiOff
+	WifiOff,
 } from "lucide-react"
 import { useSession } from "next-auth/react"
 import { toast } from "sonner"
 
+import {
+	AlertDialog,
+	AlertDialogAction,
+	AlertDialogCancel,
+	AlertDialogContent,
+	AlertDialogDescription,
+	AlertDialogFooter,
+	AlertDialogHeader,
+	AlertDialogTitle,
+} from "@/core/components/ui/alert-dialog"
 import { Button } from "@/core/components/ui/button"
 import { Card, CardContent } from "@/core/components/ui/card"
 import { Checkbox } from "@/core/components/ui/checkbox"
@@ -71,6 +82,11 @@ function formatElapsedMs(diffMs: number) {
 	const seconds = totalSeconds % 60
 	return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`
 }
+
+/** Pre-generated Plot/Sign links can go stale (api_token expires). Max age before we regenerate on click. */
+const PRE_GENERATED_LINK_MAX_AGE_MS = 2 * 60 * 1000
+/** Interval for proactively clearing stale links (ms). */
+const STALE_LINK_CHECK_INTERVAL_MS = 60_000
 
 // Memoized to prevent re-renders from parent state changes
 const MeetingControls = React.memo(function MeetingControls({
@@ -270,23 +286,24 @@ const MeetingControls = React.memo(function MeetingControls({
 					<Monitor className="size-4" />
 				</Button>
 
-				<Button 
-				variant={localRecordingActive ? "destructive" : "outline"} 
-				size="icon" 
-				className={cn( "size-9 rounded-full shadow-md transition-all hover:shadow-lg md:size-10", 
-				localRecordingActive && "animate-pulse" )} 
-				onClick={handleToggleRecording} 
-				title={ 
-					localRecordingActive 
-					? 'Stop recording (${localRecordingElapsed}) '
-					: "Start recording" 
-				} 
-				> {localRecordingActive ? ( 
-				<Square className="size-4 fill-current" 
-				/> 
-				) : ( 
-				<CircleDot className="size-4" 
-				/> )} 
+				<Button
+					variant={localRecordingActive ? "destructive" : "outline"}
+					size="icon"
+					className={cn(
+						"size-9 rounded-full shadow-md transition-all hover:shadow-lg md:size-10",
+						localRecordingActive && "animate-pulse"
+					)}
+					onClick={handleToggleRecording}
+					title={
+						localRecordingActive ? "Stop recording (${localRecordingElapsed}) " : "Start recording"
+					}
+				>
+					{" "}
+					{localRecordingActive ? (
+						<Square className="size-4 fill-current" />
+					) : (
+						<CircleDot className="size-4" />
+					)}
 				</Button>
 
 				{onUploadClick && (
@@ -631,10 +648,10 @@ const SignerManagementModal = React.memo(function SignerManagementModal({
 }) {
 	const { data: session } = useSession()
 	const isEnp = session?.user?.role === "ENP"
-	
+
 	const [step, setStep] = useState<"select" | "order">("select")
 	const [selectedUserIds, setSelectedUserIds] = useState<string[]>([])
-	
+
 	// Initialize selectedUserIds from prop when modal opens
 	useEffect(() => {
 		if (isOpen) {
@@ -642,20 +659,17 @@ const SignerManagementModal = React.memo(function SignerManagementModal({
 			setStep("select")
 		}
 	}, [isOpen, signerUserIds])
-	
+
 	const selectedSet = useMemo(() => new Set(selectedUserIds), [selectedUserIds])
-	
-	const toggle = useCallback(
-		(userId: string, checked: boolean) => {
-			if (checked) {
-				setSelectedUserIds(prev => [...prev, userId])
-			} else {
-				setSelectedUserIds(prev => prev.filter(id => id !== userId))
-			}
-		},
-		[]
-	)
-	
+
+	const toggle = useCallback((userId: string, checked: boolean) => {
+		if (checked) {
+			setSelectedUserIds(prev => [...prev, userId])
+		} else {
+			setSelectedUserIds(prev => prev.filter(id => id !== userId))
+		}
+	}, [])
+
 	const moveUp = useCallback(
 		(index: number) => {
 			if (index === 0) return
@@ -669,7 +683,7 @@ const SignerManagementModal = React.memo(function SignerManagementModal({
 		},
 		[selectedUserIds]
 	)
-	
+
 	const moveDown = useCallback(
 		(index: number) => {
 			if (index === selectedUserIds.length - 1) return
@@ -683,7 +697,7 @@ const SignerManagementModal = React.memo(function SignerManagementModal({
 		},
 		[selectedUserIds]
 	)
-	
+
 	const handleNext = useCallback(() => {
 		if (selectedUserIds.length === 0) {
 			toast.error("Please select at least one signer")
@@ -691,30 +705,30 @@ const SignerManagementModal = React.memo(function SignerManagementModal({
 		}
 		setStep("order")
 	}, [selectedUserIds.length])
-	
+
 	const handleBack = useCallback(() => {
 		setStep("select")
 	}, [])
-	
+
 	const handleSave = useCallback(() => {
 		onSignersChange(selectedUserIds)
 		onOpenChange(false)
 		toast.success(`Saved ${selectedUserIds.length} signer(s)`)
 	}, [onSignersChange, onOpenChange, selectedUserIds])
-	
+
 	const handleCancel = useCallback(() => {
 		setSelectedUserIds(Array.isArray(signerUserIds) ? [...signerUserIds] : [])
 		setStep("select")
 		onOpenChange(false)
 	}, [onOpenChange, signerUserIds])
-	
+
 	// Get selected signers in order
 	const orderedSelected = useMemo(() => {
 		return selectedUserIds
 			.map(userId => participants.find(p => p.userId === userId))
 			.filter((p): p is NonNullable<typeof p> => p !== undefined)
 	}, [selectedUserIds, participants])
-	
+
 	return (
 		<Dialog open={isOpen} onOpenChange={onOpenChange}>
 			<DialogContent className="max-w-md">
@@ -729,7 +743,7 @@ const SignerManagementModal = React.memo(function SignerManagementModal({
 							: "Arrange the order in which signers will sign (ENP only)"}
 					</DialogDescription>
 				</DialogHeader>
-				
+
 				<div className="space-y-4 py-4">
 					{step === "select" ? (
 						<div className="space-y-2">
@@ -780,7 +794,7 @@ const SignerManagementModal = React.memo(function SignerManagementModal({
 											key={p.userId}
 											className="bg-muted/50 flex items-center gap-2 rounded-md px-3 py-2 text-sm"
 										>
-											<div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
+											<div className="bg-primary text-primary-foreground flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-bold">
 												{index + 1}
 											</div>
 											<div className="min-w-0 flex-1">
@@ -821,7 +835,7 @@ const SignerManagementModal = React.memo(function SignerManagementModal({
 						</div>
 					)}
 				</div>
-				
+
 				<DialogFooter className="flex-col gap-2 sm:flex-row">
 					{step === "select" ? (
 						<>
@@ -868,9 +882,12 @@ const SignerSelector = React.memo(function SignerSelector({
 }) {
 	const { data: session } = useSession()
 	const isEnp = session?.user?.role === "ENP"
-	
+
 	// Ensure signerUserIds is always an array
-	const safeSignerUserIds = useMemo(() => Array.isArray(signerUserIds) ? signerUserIds : [], [signerUserIds])
+	const safeSignerUserIds = useMemo(
+		() => (Array.isArray(signerUserIds) ? signerUserIds : []),
+		[signerUserIds]
+	)
 	const selectedSet = useMemo(() => new Set(safeSignerUserIds), [safeSignerUserIds])
 
 	const toggle = useCallback(
@@ -922,7 +939,7 @@ const SignerSelector = React.memo(function SignerSelector({
 			.map(userId => participants.find(p => p.userId === userId))
 			.filter((p): p is NonNullable<typeof p> => p !== undefined)
 	}, [safeSignerUserIds, participants])
-	
+
 	return (
 		<div className="bg-muted/30 mb-3 space-y-1.5 rounded-lg border p-2.5">
 			<div className="mb-2 flex items-center gap-1.5">
@@ -948,7 +965,7 @@ const SignerSelector = React.memo(function SignerSelector({
 								key={p.userId}
 								className="bg-muted/50 flex items-center gap-2 rounded-md px-2 py-1.5 text-xs"
 							>
-								<div className="flex size-5 shrink-0 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
+								<div className="bg-primary text-primary-foreground flex size-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold">
 									{index + 1}
 								</div>
 								<div className="min-w-0 flex-1">
@@ -1146,6 +1163,7 @@ const DocumentActions = React.memo(function DocumentActions({
 	onSignClick,
 	onSignersChange,
 	isSigningPending,
+	isPlottingAction = false,
 	isLocked,
 	isPreviousDocumentSigned,
 	documentIndex,
@@ -1155,12 +1173,23 @@ const DocumentActions = React.memo(function DocumentActions({
 	meetingId,
 	onCreateProject,
 	isCreatingProject,
+	docoChainTokenReady = true,
+	docoChainTokenLoading = false,
 	onPreGeneratedLink,
+	plotLinkReady = true,
+	userConfirmedPlottedDocumentIds,
 }: {
 	document: { id: string; name: string; docoChainProjectId: string | null }
-	onSignClick: (projectUuid: string | null, email: string, documentId: string, isPlotting?: boolean) => void
+	onSignClick: (
+		projectUuid: string | null,
+		email: string,
+		documentId: string,
+		isPlotting?: boolean
+	) => void
 	onSignersChange?: (documentId: string, userIds: string[]) => void
 	isSigningPending: boolean
+	/** True when current pending action is Plot Signature (not Sign Document). */
+	isPlottingAction?: boolean
 	isLocked?: boolean
 	isPreviousDocumentSigned?: boolean
 	documentIndex?: number
@@ -1182,7 +1211,15 @@ const DocumentActions = React.memo(function DocumentActions({
 	meetingId?: string
 	onCreateProject?: (documentId: string, meetingId: string) => void
 	isCreatingProject?: boolean
+	/** Gate Create Project until we have a fresh DocoChain token. Default true so button stays enabled when not used. */
+	docoChainTokenReady?: boolean
+	/** Show "Preparing…" on Create Project while token is loading. */
+	docoChainTokenLoading?: boolean
 	onPreGeneratedLink?: (documentId: string, link: string, projectUuid: string) => void
+	/** When "Plot Signature", button stays loading until this is true (pre-generated link ready). */
+	plotLinkReady?: boolean
+	/** Document IDs for which user confirmed "Yes, I'm done" after closing plot popup – disable Plot for these. */
+	userConfirmedPlottedDocumentIds?: Set<string>
 }) {
 	const { data: session } = useSession()
 
@@ -1238,66 +1275,43 @@ const DocumentActions = React.memo(function DocumentActions({
 	const isPrincipal = session?.user?.role === "PRINCIPAL"
 
 	// Determine if signer is "Current" (it's their turn to sign)
-	// Find the first signer who hasn't signed - if it's the current user, they're "Current"
+	const currentUserId = session?.user?.id ?? null
 	const currentSignerIndex = filteredSigners.findIndex(s => !isSignerSigned(s))
 	const currentSigner = currentSignerIndex >= 0 ? filteredSigners[currentSignerIndex] : null
 	const isCurrentSigner = currentSigner?.email?.toLowerCase() === currentUserEmail?.toLowerCase()
-	
-	// Also check if ENP is first in signing order (based on signerUserIds array)
-	const currentUserId = session?.user?.id ?? null
-	const currentUserIndexInOrder = currentUserId ? signerUserIds?.indexOf(currentUserId) ?? -1 : -1
-	const isEnpFirstInOrder = isEnp && currentUserIndexInOrder === 0
+	const currentUserIndexInOrder = currentUserId ? (signerUserIds?.indexOf(currentUserId) ?? -1) : -1
 
-	// For ENP: After plotting, they should be able to sign.
-	// Detection logic:
-	// 1. If status is not PENDING/NEXT GROUP and not signed → plotted → show "Sign Document"
-	// 2. If ENP is current signer (from signer list) OR first in order → show "Sign Document" (they can plot then sign)
-	// 3. If status is PENDING/NEXT GROUP → show "Plot Signature" (not plotted yet)
+	// Plotting vs signing phase (separate buttons, no shared logic)
 	const hasPlotted = !isPendingOrNextGroup && !hasUserSigned
-	const isEnpCurrentAndCanSign = isEnp && (isCurrentSigner || isEnpFirstInOrder) && !hasUserSigned
-
-	// Determine button text based on state and role:
-	// ENP: Start Signing → Plot Signature (ENP-only) → Sign Document. Principals never see Plot Signature.
-	// Principal: Start Signing only appears after ENP has plotted; before that, show "Start Signing" disabled (waiting for ENP).
-	const getButtonText = (): "Start Signing" | "Plot Signature" | "Sign Document" => {
-		if (hasUserSigned) return "Sign Document"
-		
-		// For ENP: After project is created, they must plot first, then sign
-		if (isEnp) {
-			// If project exists, ENP must plot first
-			if (document.docoChainProjectId) {
-				// Check actual plotting status - if status is NOT PENDING/NEXT GROUP, ENP has plotted
-				if (hasPlotted) {
-					return "Sign Document"
-				}
-				// Project exists but ENP hasn't plotted yet (status is still PENDING/NEXT GROUP) - show "Plot Signature"
-				return "Plot Signature"
-			}
-			// No project yet - show "Start Signing" (will create project and add as signer)
-			return "Start Signing"
-		}
-		
-		// For non-ENP (Principal, etc.): show "Start Signing"
-		if (!isUserAddedAsSigner) return "Start Signing"
-		
-		// For Principal: if plotted, show "Start Signing", otherwise show "Start Signing" (disabled, waiting for ENP)
-		return "Start Signing"
-	}
-
-	const buttonText = getButtonText()
-	// Principal waiting for ENP to plot: not plotted yet, principal sees "Start Signing" but disabled
+	const isPlottingPhase = isEnp && !!document.docoChainProjectId && !hasPlotted && !hasUserSigned
 	const isPrincipalWaitingForEnpToPlot = isPrincipal && isUserAddedAsSigner && isPendingOrNextGroup
+
+	// Both buttons visible when applicable. Disable by phase so the wrong link is never used.
+	// Plot Signature: ENP only, project exists, not signed. Disabled after successful plotting.
+	const showPlotSignature =
+		isEnp && !!document.docoChainProjectId && !hasUserSigned && !allSignersSigned
+	// Sign Document: project exists, not all signed, user not yet signed, user is signer or ENP. Uses Sign link only.
+	const showSignDocument =
+		!!document.docoChainProjectId &&
+		!hasUserSigned &&
+		!allSignersSigned &&
+		(isEnp || isUserAddedAsSigner)
 
 	// Check if previous signers (by signing order) have signed
 	// signerUserIds array is ordered by signingOrder (index 0 = order 1, index 1 = order 2, etc.)
 	// currentUserIndexInOrder was already calculated above in getButtonText logic
-	const currentUserIndex = currentUserIndexInOrder >= 0 ? currentUserIndexInOrder : (currentUserId ? signerUserIds?.indexOf(currentUserId) ?? -1 : -1)
+	const currentUserIndex =
+		currentUserIndexInOrder >= 0
+			? currentUserIndexInOrder
+			: currentUserId
+				? (signerUserIds?.indexOf(currentUserId) ?? -1)
+				: -1
 	const previousSignersHaveSigned = useMemo(() => {
 		if (currentUserIndex <= 0 || !signerUserIds || !participants || !filteredSigners) return true
-		
+
 		// Get all signers before current user (by order)
 		const previousUserIds = signerUserIds.slice(0, currentUserIndex)
-		
+
 		// Get emails of previous signers
 		const previousSignerEmails = new Set<string>()
 		for (const userId of previousUserIds) {
@@ -1306,14 +1320,15 @@ const DocumentActions = React.memo(function DocumentActions({
 				previousSignerEmails.add(participant.user.email.toLowerCase())
 			}
 		}
-		
+
 		// Check if all previous signers have signed
 		const previousSigners = filteredSigners.filter(s =>
 			previousSignerEmails.has(s.email?.toLowerCase() ?? "")
 		)
-		
-		return previousSigners.length === previousSignerEmails.size && 
-			previousSigners.every(isSignerSigned)
+
+		return (
+			previousSigners.length === previousSignerEmails.size && previousSigners.every(isSignerSigned)
+		)
 	}, [currentUserIndex, signerUserIds, participants, filteredSigners, isSignerSigned])
 
 	// Determine if Start Signing button should be disabled
@@ -1323,38 +1338,53 @@ const DocumentActions = React.memo(function DocumentActions({
 	const isCurrentUserSigner =
 		currentUserId !== null && (signerUserIds?.includes(currentUserId) ?? false)
 	const userNotInSignerList = hasSigners && !isCurrentUserSigner
-	// "Previous signer must sign first" applies when button is "Start Signing" OR "Sign Document" (for ENP after plotting)
-	// It does NOT apply to "Plot Signature" (ENP can always plot, even if previous signers haven't signed)
-	// For ENP: After plotting, "Sign Document" should be disabled unless it's their turn (previous signers have signed)
+	// "Previous signer must sign first" applies to Sign Document only (never to Plot Signature)
 	const isSigningDisabledByPreviousSigners =
-		buttonText !== "Plot Signature" &&
-		(buttonText === "Start Signing" || buttonText === "Sign Document") &&
-		currentUserIndex > 0 &&
-		!previousSignersHaveSigned
-	
-	// For ENP: If button shows "Sign Document" but they haven't actually plotted yet (status still PENDING/NEXT GROUP),
-	// disable the button until they plot (status changes)
-	const isEnpNotPlottedYet = 
-		isEnp && 
-		buttonText === "Sign Document" && 
-		isPendingOrNextGroup && 
-		!hasUserSigned
-	
-	const isSigningDisabled = hasUserSigned
-		? true
-		: allSignersSigned
-			? true
-			: isSigningDisabledByOrder
-				? true
-				: hasNoSignersSelected
-					? true
-					: userNotInSignerList
-						? true
-						: isPrincipalWaitingForEnpToPlot
-							? true
-							: isEnpNotPlottedYet
-								? true
-								: isSigningDisabledByPreviousSigners
+		showSignDocument && currentUserIndex > 0 && !previousSignersHaveSigned
+
+	// Plot pre-gen retry / give-up: avoid stuck "Preparing..." when pre-gen fails or after close-without-plot + refresh
+	const [plotPreGenGiveUp, setPlotPreGenGiveUp] = useState(false)
+	const [plotPreGenRetryTrigger, setPlotPreGenRetryTrigger] = useState(0)
+	const plotPreGenRetryCountRef = useRef(0)
+	const preGenKeyRef = useRef<string | null>(null)
+
+	// Disable Plot Signature: pending, (no link and we haven't given up pre-gen), already plotted, or user confirmed "Yes, I'm done".
+	const isPlotSignatureDisabled =
+		!!isSigningPending ||
+		(!plotLinkReady && !plotPreGenGiveUp) ||
+		hasPlotted ||
+		(userConfirmedPlottedDocumentIds?.has(document.id) ?? false)
+
+	// ENP in plotting phase = disable Sign Document. After "Yes, I'm done" it's signing time; don't disable for that.
+	const enpMustPlotFirst =
+		isEnp && isPlottingPhase && !(userConfirmedPlottedDocumentIds?.has(document.id) ?? false)
+
+	// Disable Sign Document: order, no signers, not a signer, waiting for ENP, ENP must plot first, previous signers.
+	/* eslint-disable @typescript-eslint/prefer-nullish-coalescing -- boolean OR chains, not nullish default */
+	const isStartSigningDisabled =
+		!!isSigningPending ||
+		hasUserSigned ||
+		allSignersSigned ||
+		isSigningDisabledByOrder ||
+		hasNoSignersSelected ||
+		userNotInSignerList ||
+		isPrincipalWaitingForEnpToPlot ||
+		enpMustPlotFirst ||
+		isSigningDisabledByPreviousSigners
+
+	const showSigningMessage =
+		!document.docoChainProjectId ||
+		hasUserSigned ||
+		allSignersSigned ||
+		isSigningDisabledByOrder ||
+		hasNoSignersSelected ||
+		userNotInSignerList ||
+		isPrincipalWaitingForEnpToPlot ||
+		enpMustPlotFirst ||
+		isSigningDisabledByPreviousSigners ||
+		(showPlotSignature && isPlotSignatureDisabled) ||
+		(showSignDocument && isStartSigningDisabled)
+	/* eslint-enable @typescript-eslint/prefer-nullish-coalescing */
 
 	const handleSignersChange = useCallback(
 		(userIds: string[]) => {
@@ -1364,67 +1394,123 @@ const DocumentActions = React.memo(function DocumentActions({
 	)
 
 	const [isSignerModalOpen, setIsSignerModalOpen] = useState(false)
-	
-	// Pre-generate links when button becomes available
 	const userEmail = session?.user?.email
-	const isButtonAvailable = !isSigningPending && !isSigningDisabled && !!document.docoChainProjectId && !!userEmail
-	
-	// Track if we've already initiated pre-generation to prevent duplicate calls
+
+	const isPlotButtonAvailableForPreGen =
+		showPlotSignature &&
+		!hasPlotted &&
+		!isSigningPending &&
+		!!document.docoChainProjectId &&
+		!!userEmail
+	const isSignButtonAvailableForPreGen =
+		showSignDocument && !isStartSigningDisabled && !!document.docoChainProjectId && !!userEmail
+
+	// "Preparing..." only while waiting for pre-gen, haven't given up, and not already plotted/confirmed
+	const isPlotSignatureWaiting =
+		showPlotSignature &&
+		!hasPlotted &&
+		!(userConfirmedPlottedDocumentIds?.has(document.id) ?? false) &&
+		!plotLinkReady &&
+		!plotPreGenGiveUp
+
 	const preGenerationInitiatedRef = useRef<string | null>(null)
-	
-	// Pre-generate link mutation - call imperatively when button becomes available
+	const hadPlotLinkRef = useRef(false)
+
+	// When link is consumed (user opened popup then closed without plotting), we delete it.
+	// Clear ref and reset give-up/retries so we pre-gen again.
+	useEffect(() => {
+		const hasLink = plotLinkReady === true
+		const hadLink = hadPlotLinkRef.current
+		hadPlotLinkRef.current = hasLink
+		if (hadLink && !hasLink) {
+			preGenerationInitiatedRef.current = null
+			plotPreGenRetryCountRef.current = 0
+			preGenKeyRef.current = null
+			setPlotPreGenGiveUp(false)
+		}
+	}, [plotLinkReady])
+
+	const plotPreGenKey = `plot-${document.id}-${document.docoChainProjectId}`
 	const preGenerateLinkMutation = trpc.signatureRequests.initiateSigning.useMutation({
-		onSuccess: (data) => {
-			// Store the pre-generated link via callback
+		onSuccess: data => {
 			if (data.link && data.projectUuid && onPreGeneratedLink) {
 				onPreGeneratedLink(document.id, data.link, data.projectUuid)
-				console.log(`✅ Pre-generated link ready: ${data.link.substring(0, 50)}...`)
 			}
-			// Clear the ref after successful generation
 			preGenerationInitiatedRef.current = null
+			plotPreGenRetryCountRef.current = 0
+			preGenKeyRef.current = null
+			setPlotPreGenGiveUp(false)
 		},
 		onError: () => {
-			// Silently fail - link will be generated on click if pre-generation fails
-			// Clear the ref on error so we can retry if conditions change
 			preGenerationInitiatedRef.current = null
+			plotPreGenRetryCountRef.current += 1
+			if (plotPreGenRetryCountRef.current >= 3) {
+				setPlotPreGenGiveUp(true)
+				toast.info("You can still click Plot Signature – the link will be generated when you do.")
+				return
+			}
+			setTimeout(() => setPlotPreGenRetryTrigger(r => r + 1), 2000)
 		},
 	})
-	
-	// Pre-generate Edit Draft Link when "Plot Signature" button becomes available
+
+	// Pre-generate Edit Draft Link when Plot button is shown. Retry on failure; give up after 3 attempts.
 	useEffect(() => {
-		const key = `plot-${document.id}-${document.docoChainProjectId}`
+		const key = plotPreGenKey
 		if (
-			isButtonAvailable &&
-			buttonText === "Plot Signature" &&
-			isEnp &&
-			document.docoChainProjectId &&
-			userEmail &&
-			preGenerationInitiatedRef.current !== key &&
-			!preGenerateLinkMutation.isPending
-		) {
-			console.log("🔵 Pre-generating Edit Draft Link for Plot Signature...")
-			preGenerationInitiatedRef.current = key
-			preGenerateLinkMutation.mutate({
-				projectUuid: document.docoChainProjectId,
-				email: userEmail,
-				isPlotting: true, // CRITICAL: Pass isPlotting=true to force Edit Draft Link
-			})
+			!isPlotButtonAvailableForPreGen ||
+			!document.docoChainProjectId ||
+			!userEmail ||
+			plotPreGenGiveUp ||
+			preGenerationInitiatedRef.current === key ||
+			preGenerateLinkMutation.isPending
+		)
+			return
+
+		// Reset retries and give-up when key changes (e.g. different doc)
+		if (preGenKeyRef.current !== key) {
+			preGenKeyRef.current = key
+			plotPreGenRetryCountRef.current = 0
+			setPlotPreGenGiveUp(false)
 		}
+
+		const retries = plotPreGenRetryCountRef.current
+		if (retries >= 3) {
+			setPlotPreGenGiveUp(true)
+			return
+		}
+
+		console.log(
+			`🔵 Pre-generating Edit Draft Link for Plot Signature${retries > 0 ? ` (retry ${retries})` : ""}...`
+		)
+		preGenerationInitiatedRef.current = key
+		preGenerateLinkMutation.mutate({
+			projectUuid: document.docoChainProjectId,
+			email: userEmail,
+			isPlotting: true,
+		})
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [isButtonAvailable, buttonText, isEnp, document.docoChainProjectId, document.id, userEmail])
-	
-	// Pre-generate Sign Link when "Sign Document" button becomes available
+	}, [
+		isPlotButtonAvailableForPreGen,
+		document.docoChainProjectId,
+		document.id,
+		userEmail,
+		plotLinkReady,
+		plotPreGenGiveUp,
+		plotPreGenRetryTrigger,
+		plotPreGenKey,
+	])
+
+	// Pre-generate Sign Link only when Start Signing button is shown (never for Plot Signature)
 	useEffect(() => {
 		const key = `sign-${document.id}-${document.docoChainProjectId}`
 		if (
-			isButtonAvailable &&
-			buttonText === "Sign Document" &&
+			isSignButtonAvailableForPreGen &&
 			document.docoChainProjectId &&
 			userEmail &&
 			preGenerationInitiatedRef.current !== key &&
 			!preGenerateLinkMutation.isPending
 		) {
-			console.log("🔵 Pre-generating Sign Link for Sign Document...")
+			console.log("🔵 Pre-generating Sign Link for Start Signing...")
 			preGenerationInitiatedRef.current = key
 			preGenerateLinkMutation.mutate({
 				projectUuid: document.docoChainProjectId,
@@ -1432,11 +1518,17 @@ const DocumentActions = React.memo(function DocumentActions({
 			})
 		}
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [isButtonAvailable, buttonText, document.docoChainProjectId, document.id, userEmail])
-	
+	}, [
+		isSignButtonAvailableForPreGen,
+		document.docoChainProjectId,
+		document.id,
+		userEmail,
+		plotLinkReady,
+	])
+
 	// Show selected signers count
 	const selectedSignersCount = signerUserIds?.length ?? 0
-	
+
 	return (
 		<div className="space-y-2">
 			{/* Before project exists: show signer button and count. After: show DocoChain signer list */}
@@ -1456,9 +1548,7 @@ const DocumentActions = React.memo(function DocumentActions({
 							onClick={() => setIsSignerModalOpen(true)}
 						>
 							<UsersIcon className="mr-1.5 size-3.5" />
-							{selectedSignersCount > 0
-								? `Signers (${selectedSignersCount})`
-								: "Add Signers"}
+							{selectedSignersCount > 0 ? `Signers (${selectedSignersCount})` : "Add Signers"}
 						</Button>
 						<SignerManagementModal
 							participants={participants}
@@ -1494,12 +1584,17 @@ const DocumentActions = React.memo(function DocumentActions({
 							onCreateProject(document.id, meetingId)
 						}
 					}}
-					disabled={isCreatingProject}
+					disabled={!docoChainTokenReady || isCreatingProject}
 				>
 					{isCreatingProject ? (
 						<>
 							<div className="mr-2 size-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
 							Creating...
+						</>
+					) : docoChainTokenLoading ? (
+						<>
+							<div className="mr-2 size-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
+							Preparing...
 						</>
 					) : (
 						<>
@@ -1510,52 +1605,74 @@ const DocumentActions = React.memo(function DocumentActions({
 				</Button>
 			)}
 
-			{/* Show "Start Signing" button for all meeting participants */}
-			{/* Project must exist before signing can start */}
+			{/* Plot Signature (ENP only, Edit Draft link) and Sign Document (Sign link) – both visible, disabled by phase */}
 			<div className="space-y-1.5">
-				<Button
-					variant="default"
-					size="sm"
-					className="h-9 w-full text-xs shadow-sm"
-					onClick={() => {
-						const userEmail = session?.user?.email
-						if (userEmail) {
-							console.log("🔵 Initiating signing process for document:", document.name)
-							console.log("   - Document ID:", document.id)
-							console.log("   - DocoChain Project UUID:", document.docoChainProjectId)
-							console.log("   - User Email:", userEmail)
-							console.log("   - Action:", buttonText)
-
-							// User clicks to start signing - this will:
-							// 1. Add user as signer using Add Project Signer API
-							// 2. Generate Edit Draft Project Link
-							// 3. Redirect to DocoChain signing page
-							const isPlotting = buttonText === "Plot Signature" && isEnp
-							onSignClick(document.docoChainProjectId ?? null, userEmail, document.id, isPlotting)
-						} else {
-							toast.error("User email not found. Please sign in again.")
-						}
-					}}
-					disabled={isSigningPending || isSigningDisabled || !document.docoChainProjectId}
-				>
-					{isSigningPending ? (
-						<>
-							<div className="mr-2 size-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
-							{buttonText === "Start Signing"
-								? "Starting..."
-								: buttonText === "Plot Signature"
-									? "Plotting..."
-									: "Signing..."}
-						</>
-					) : (
-						<>
-							<FileSignature className="mr-1.5 size-3.5" />
-							{buttonText}
-						</>
-					)}
-				</Button>
-				{/* Show message when button is disabled */}
-				{(isSigningDisabled || !document.docoChainProjectId) && (
+				{/* Plot Signature: ENP only, plotting phase. Always isPlotting=true → Edit Draft link only. */}
+				{showPlotSignature && (
+					<Button
+						variant="default"
+						size="sm"
+						className="h-9 w-full text-xs shadow-sm"
+						onClick={() => {
+							const email = session?.user?.email
+							if (email) {
+								onSignClick(document.docoChainProjectId ?? null, email, document.id, true)
+							} else {
+								toast.error("User email not found. Please sign in again.")
+							}
+						}}
+						disabled={isPlotSignatureDisabled}
+					>
+						{/* After "Yes, I'm done" always show "Plot Signature" (disabled), never Preparing/Plotting */}
+						{(userConfirmedPlottedDocumentIds?.has(document.id) ?? false) ? (
+							<>
+								<FileSignature className="mr-1.5 size-3.5" />
+								Plot Signature
+							</>
+						) : isPlotSignatureWaiting || (isSigningPending && isPlottingAction) ? (
+							<>
+								<div className="mr-2 size-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
+								{isPlotSignatureWaiting ? "Preparing..." : "Plotting..."}
+							</>
+						) : (
+							<>
+								<FileSignature className="mr-1.5 size-3.5" />
+								Plot Signature
+							</>
+						)}
+					</Button>
+				)}
+				{/* Sign Document: always isPlotting=false → Sign link only. Disabled when plotting phase. */}
+				{showSignDocument && (
+					<Button
+						variant="default"
+						size="sm"
+						className="h-9 w-full text-xs shadow-sm"
+						onClick={() => {
+							const email = session?.user?.email
+							if (email) {
+								onSignClick(document.docoChainProjectId ?? null, email, document.id, false)
+							} else {
+								toast.error("User email not found. Please sign in again.")
+							}
+						}}
+						disabled={isStartSigningDisabled}
+					>
+						{isSigningPending && !isPlottingAction ? (
+							<>
+								<div className="mr-2 size-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
+								Signing...
+							</>
+						) : (
+							<>
+								<FileSignature className="mr-1.5 size-3.5" />
+								Sign Document
+							</>
+						)}
+					</Button>
+				)}
+				{/* Disabled-state message */}
+				{showSigningMessage && (
 					<p className="text-[10px] leading-tight text-amber-700 dark:text-amber-400">
 						{!document.docoChainProjectId
 							? "Add signer first after setting signers"
@@ -1571,7 +1688,10 @@ const DocumentActions = React.memo(function DocumentActions({
 												? "You must be added as a signer to start signing"
 												: isPrincipalWaitingForEnpToPlot
 													? "Waiting for ENP to plot your signature"
-													: isEnpNotPlottedYet
+													: isEnp &&
+														  isPlottingPhase &&
+														  showSignDocument &&
+														  !(userConfirmedPlottedDocumentIds?.has(document.id) ?? false)
 														? "Please plot your signature first"
 														: isSigningDisabledByPreviousSigners
 															? "Previous signer(s) must sign first"
@@ -1623,8 +1743,37 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 	const [signingDocumentId, setSigningDocumentId] = useState<string | null>(null)
 	const [isPlottingAction, setIsPlottingAction] = useState(false)
 	const isPlottingActionRef = useRef(false)
-	// Store pre-generated links per document (keyed by documentId)
-	const [preGeneratedLinks, setPreGeneratedLinks] = useState<Map<string, { link: string; projectUuid: string }>>(new Map())
+	const [plotCloseConfirmOpen, setPlotCloseConfirmOpen] = useState(false)
+	const [plotCloseConfirmDocumentId, setPlotCloseConfirmDocumentId] = useState<string | null>(null)
+	const plotPopupDocumentIdRef = useRef<string | null>(null)
+	const [userConfirmedPlottedDocumentIds, setUserConfirmedPlottedDocumentIds] = useState<
+		Set<string>
+	>(new Set())
+	const openingPlatformToastIdRef = useRef<string | number | null>(null)
+	const openingSignedDocumentToastIdRef = useRef<string | number | null>(null)
+	// Store pre-generated links per document (keyed by documentId). storedAt used to skip stale links on click.
+	const [preGeneratedLinks, setPreGeneratedLinks] = useState<
+		Map<string, { link: string; projectUuid: string; storedAt: number }>
+	>(new Map())
+
+	// Proactively clear stale links so pre-gen runs again and we keep a fresh link ready
+	useEffect(() => {
+		const interval = setInterval(() => {
+			setPreGeneratedLinks(prev => {
+				if (prev.size === 0) return prev
+				const now = Date.now()
+				const next = new Map(prev)
+				next.forEach((v, docId) => {
+					if (typeof v.storedAt === "number" && now - v.storedAt > PRE_GENERATED_LINK_MAX_AGE_MS) {
+						next.delete(docId)
+					}
+				})
+				return next.size === prev.size ? prev : next
+			})
+		}, STALE_LINK_CHECK_INTERVAL_MS)
+		return () => clearInterval(interval)
+	}, [STALE_LINK_CHECK_INTERVAL_MS])
+
 	const [draggedDocumentId, setDraggedDocumentId] = useState<string | null>(null)
 	const [dragOverDocumentId, setDragOverDocumentId] = useState<string | null>(null)
 	const [downloadingProjectUuid, setDownloadingProjectUuid] = useState<string | null>(null)
@@ -1651,14 +1800,15 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 	>(new Map())
 
 	// Fetch meeting documents
-	const { data: documents, refetch: refetchDocuments } = trpc.meetings.getMeetingDocuments.useQuery(
-		meetingId ?? "",
-		{
-			enabled: !!meetingId,
-			refetchInterval: 10000, // Refetch every 10 seconds (reduced from 20s) for faster status updates
-			staleTime: 5000, // Consider data fresh for 5 seconds (reduced from 10s)
-		}
-	)
+	const {
+		data: documents,
+		refetch: refetchDocuments,
+		isFetching: isDocumentsFetching,
+	} = trpc.meetings.getMeetingDocuments.useQuery(meetingId ?? "", {
+		enabled: !!meetingId,
+		refetchInterval: 10000, // Refetch every 10 seconds (reduced from 20s) for faster status updates
+		staleTime: 5000, // Consider data fresh for 5 seconds (reduced from 10s)
+	})
 
 	// Get tRPC utils for imperative calls
 	const utils = trpc.useUtils()
@@ -1666,17 +1816,152 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 	const [signingStatusPollingPausedUntil, setSigningStatusPollingPausedUntil] = useState<
 		number | null
 	>(null)
+	const [isRefreshingSigningStatus, setIsRefreshingSigningStatus] = useState(false)
 	const hasShownSigningStatusAuthErrorRef = useRef(false)
 	const hasShownSigningStatusFetchErrorRef = useRef(false)
 	const signingStatusInFlightRef = useRef(false)
 
+	// Core refresh logic extracted for reuse
+	const performSigningStatusRefresh = useCallback(
+		async (force = false) => {
+			if (!documents || documents.length === 0) return
+
+			// Wait for in-flight request to complete if forcing, otherwise skip if already in progress
+			if (signingStatusInFlightRef.current) {
+				if (!force) return
+				// Wait for current request to finish (max 10 seconds)
+				const startTime = Date.now()
+				while (signingStatusInFlightRef.current && Date.now() - startTime < 10000) {
+					await new Promise(resolve => setTimeout(resolve, 100))
+				}
+				if (signingStatusInFlightRef.current) {
+					console.warn("Signing status refresh timed out waiting for previous request")
+					return
+				}
+			}
+
+			const docsWithProjects = documents.filter(d => !!d.docoChainProjectId)
+			if (docsWithProjects.length === 0) return
+
+			const isUnauthorized = (err: unknown) => {
+				const msg =
+					err instanceof Error
+						? err.message
+						: typeof err === "object" && err !== null && "message" in err
+							? String(err.message)
+							: ""
+				const msgLower = msg.toLowerCase()
+				return (
+					msg.includes("E_UNAUTHORIZED_ACCESS") ||
+					msgLower.includes("unauthorized") ||
+					msgLower.includes("forbidden") ||
+					msgLower.includes("don't have access") ||
+					msgLower.includes("created by a different user") ||
+					msgLower.includes("not part of this project")
+				)
+			}
+
+			signingStatusInFlightRef.current = true
+			setIsRefreshingSigningStatus(true)
+			try {
+				// Run status checks in parallel, but keep docId so we can reason about failures.
+				const results = await Promise.all(
+					docsWithProjects.map(async doc => {
+						try {
+							const status = await utils.signatureRequests.checkSigningStatus.fetch({
+								projectUuid: doc.docoChainProjectId!,
+							})
+							return { ok: true as const, docId: doc.id, status }
+						} catch (error: unknown) {
+							return { ok: false as const, docId: doc.id, error }
+						}
+					})
+				)
+
+				const unauthorizedHit = results.some(r => !r.ok && isUnauthorized(r.error))
+				const anyErrorHit = results.some(r => !r.ok)
+
+				// If any call errors, pause polling to avoid spamming console/network.
+				// Unauthorized gets a specific message; other errors (e.g. "fetch failed") get a generic one.
+				// Only pause automatic polling, not manual refreshes
+				if (!force && (unauthorizedHit || anyErrorHit)) {
+					setSigningStatusPollingPausedUntil(Date.now() + 60_000)
+
+					if (unauthorizedHit && !hasShownSigningStatusAuthErrorRef.current) {
+						hasShownSigningStatusAuthErrorRef.current = true
+						toast.error("Cannot check signing status (unauthorized). Pausing status updates.")
+					} else if (!unauthorizedHit && !hasShownSigningStatusFetchErrorRef.current) {
+						hasShownSigningStatusFetchErrorRef.current = true
+						toast.error("Signing status check failed. Pausing status updates.")
+					}
+					return
+				}
+
+				const statusMap = new Map<
+					string,
+					{
+						isFullySigned: boolean
+						signedCount: number
+						totalSigners: number
+						signers: Array<{
+							id: number
+							email: string
+							firstName: string
+							lastName: string
+							status: string
+							signedAt: string | null
+							sequence: number
+							signerRole: string
+						}>
+					}
+				>()
+
+				for (const result of results) {
+					if (result.ok) {
+						const { docId, status } = result
+						statusMap.set(docId, {
+							isFullySigned: status.isFullySigned,
+							signedCount: status.signedCount,
+							totalSigners: status.totalSigners,
+							signers: status.signers || [],
+						})
+					}
+				}
+
+				// Keep previous entries for docs that failed this round
+				setDocumentSigningStatus(prev => {
+					let changed = false
+					const merged = new Map(prev)
+
+					for (const [docId, entry] of statusMap.entries()) {
+						const current = merged.get(docId)
+						const same =
+							!!current &&
+							current.isFullySigned === entry.isFullySigned &&
+							current.signedCount === entry.signedCount &&
+							current.totalSigners === entry.totalSigners &&
+							current.signers.length === entry.signers.length
+
+						if (!same) {
+							changed = true
+							merged.set(docId, entry)
+						}
+					}
+
+					return changed ? merged : prev
+				})
+			} finally {
+				signingStatusInFlightRef.current = false
+				setIsRefreshingSigningStatus(false)
+			}
+		},
+		[documents, utils.signatureRequests.checkSigningStatus]
+	)
+
+	// Automatic polling refresh (respects visibility and pause state)
 	const refreshSigningStatuses = useCallback(async () => {
 		// Only poll while the documents panel is visible; avoids re-render storms during video actions.
 		if (!showDocuments) return
-		if (!documents || documents.length === 0) return
-
-		// Never overlap requests (can create token races + extra load + lag).
-		if (signingStatusInFlightRef.current) return
 
 		// Don't poll in background tabs.
 		if (typeof document !== "undefined" && document.visibilityState === "hidden") return
@@ -1684,123 +1969,19 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 		// If we recently got unauthorized, back off to avoid hammering the API + spamming logs.
 		if (signingStatusPollingPausedUntil && Date.now() < signingStatusPollingPausedUntil) return
 
-		const docsWithProjects = documents.filter(d => !!d.docoChainProjectId)
-		if (docsWithProjects.length === 0) return
+		await performSigningStatusRefresh(false)
+	}, [showDocuments, signingStatusPollingPausedUntil, performSigningStatusRefresh])
 
-		const isUnauthorized = (err: unknown) => {
-			const msg =
-				err instanceof Error
-					? err.message
-					: typeof err === "object" && err !== null && "message" in err
-						? String(err.message)
-						: ""
-			const msgLower = msg.toLowerCase()
-			return (
-				msg.includes("E_UNAUTHORIZED_ACCESS") ||
-				msgLower.includes("unauthorized") ||
-				msgLower.includes("forbidden") ||
-				msgLower.includes("don't have access") ||
-				msgLower.includes("created by a different user") ||
-				msgLower.includes("not part of this project")
-			)
-		}
-
-		signingStatusInFlightRef.current = true
-		try {
-			// Run status checks in parallel, but keep docId so we can reason about failures.
-			const results = await Promise.all(
-				docsWithProjects.map(async doc => {
-					try {
-						const status = await utils.signatureRequests.checkSigningStatus.fetch({
-							projectUuid: doc.docoChainProjectId!,
-						})
-						return { ok: true as const, docId: doc.id, status }
-					} catch (error: unknown) {
-						return { ok: false as const, docId: doc.id, error }
-					}
-				})
-			)
-
-			const unauthorizedHit = results.some(r => !r.ok && isUnauthorized(r.error))
-			const anyErrorHit = results.some(r => !r.ok)
-
-			// If any call errors, pause polling to avoid spamming console/network.
-			// Unauthorized gets a specific message; other errors (e.g. "fetch failed") get a generic one.
-			if (unauthorizedHit || anyErrorHit) {
-				setSigningStatusPollingPausedUntil(Date.now() + 60_000)
-
-				if (unauthorizedHit && !hasShownSigningStatusAuthErrorRef.current) {
-					hasShownSigningStatusAuthErrorRef.current = true
-					toast.error("Cannot check signing status (unauthorized). Pausing status updates.")
-				} else if (!unauthorizedHit && !hasShownSigningStatusFetchErrorRef.current) {
-					hasShownSigningStatusFetchErrorRef.current = true
-					toast.error("Signing status check failed. Pausing status updates.")
-				}
-				return
-			}
-
-			const statusMap = new Map<
-				string,
-				{
-					isFullySigned: boolean
-					signedCount: number
-					totalSigners: number
-					signers: Array<{
-						id: number
-						email: string
-						firstName: string
-						lastName: string
-						status: string
-						signedAt: string | null
-						sequence: number
-						signerRole: string
-					}>
-				}
-			>()
-
-			for (const result of results) {
-				if (result.ok) {
-					const { docId, status } = result
-					statusMap.set(docId, {
-						isFullySigned: status.isFullySigned,
-						signedCount: status.signedCount,
-						totalSigners: status.totalSigners,
-						signers: status.signers || [],
-					})
-				}
-			}
-
-			// Keep previous entries for docs that failed this round
-			setDocumentSigningStatus(prev => {
-				let changed = false
-				const merged = new Map(prev)
-
-				for (const [docId, entry] of statusMap.entries()) {
-					const current = merged.get(docId)
-					const same =
-						!!current &&
-						current.isFullySigned === entry.isFullySigned &&
-						current.signedCount === entry.signedCount &&
-						current.totalSigners === entry.totalSigners &&
-						current.signers.length === entry.signers.length
-
-					if (!same) {
-						changed = true
-						merged.set(docId, entry)
-					}
-				}
-
-				return changed ? merged : prev
-			})
-		} finally {
-			signingStatusInFlightRef.current = false
-		}
-	}, [
-		documents,
-		showDocuments,
-		signingStatusPollingPausedUntil,
-		utils.signatureRequests.checkSigningStatus,
-	])
+	// Manual refresh function (bypasses checks and resets pause state)
+	const manualRefreshSigningStatuses = useCallback(async () => {
+		// Reset pause state when manually refreshing
+		setSigningStatusPollingPausedUntil(null)
+		// Reset error flags so errors can be shown again if they persist
+		hasShownSigningStatusAuthErrorRef.current = false
+		hasShownSigningStatusFetchErrorRef.current = false
+		// Force refresh even if panel is hidden or other conditions
+		await performSigningStatusRefresh(true)
+	}, [performSigningStatusRefresh])
 
 	// Check signing status for all documents with DocoChain project IDs
 	useEffect(() => {
@@ -1819,10 +2000,11 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 	}, [documents, refreshSigningStatuses, showDocuments])
 
 	// Fetch meeting details to get participants and lock state
+	const queryId = meetingId?.trim() ?? ""
 	const { data: meetingDetails, refetch: refetchMeetingDetails } = trpc.meetings.getById.useQuery(
-		meetingId ?? "",
+		queryId,
 		{
-			enabled: !!meetingId && !!meetingId.trim(),
+			enabled: !!meetingId?.trim(),
 			retry: false,
 			refetchInterval: 15000, // Refetch every 15 seconds to sync lock state
 			staleTime: 8000, // Consider data fresh for 8 seconds
@@ -1862,6 +2044,29 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 			toast.error(error.message ?? "Failed to create DocoChain project")
 		},
 	})
+
+	// Ensure fresh DocoChain token before enabling "Create Project". Loader shows until ready.
+	const hasAnyCreateProjectEligibleDoc =
+		(documents ?? []).some(
+			d =>
+				!d.docoChainProjectId &&
+				((d as { signerUserIds?: string[] }).signerUserIds?.length ?? 0) > 0
+		) ?? false
+	const isEnp = session?.user?.role === "ENP"
+	const {
+		data: ensureTokenData,
+		isSuccess: ensureTokenSuccess,
+		isFetching: ensureTokenFetching,
+	} = trpc.meetings.ensureDocoChainToken.useQuery(
+		{ meetingId: meetingId ?? "" },
+		{
+			enabled: !!(meetingId ?? "").trim() && !!isEnp && !!hasAnyCreateProjectEligibleDoc,
+			retry: false,
+			staleTime: 60_000, // Treat as fresh for 1 min so we don't refetch constantly
+		}
+	)
+	const docoChainTokenReady = !!isEnp && ensureTokenSuccess && !!ensureTokenData?.ready
+	const docoChainTokenLoading = !!isEnp && !!hasAnyCreateProjectEligibleDoc && ensureTokenFetching
 
 	const handleSignersChange = useCallback(
 		(documentId: string, userIds: string[]) => {
@@ -2047,23 +2252,69 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 		setDragOverDocumentId(null)
 	}, [])
 
-	// Handle signed document - open our server-streamed PDF
-	const handleDownloadSignedDocument = useCallback(async (projectUuid: string) => {
-		setDownloadingProjectUuid(projectUuid)
+	// Handle signed document - only open when fully processed (Completed)
+	const handleDownloadSignedDocument = useCallback(
+		async (projectUuid: string) => {
+			setDownloadingProjectUuid(projectUuid)
 
-		try {
-			// Open a QSign API route that streams the signed PDF.
-			// This avoids relying on DocoChain guestToken and avoids leaking api_token in URLs.
-			const url = `/api/doconchain/projects/${encodeURIComponent(projectUuid)}/signed`
-			window.open(url, "_blank", "noopener,noreferrer")
-			toast.success("Opening signed document...")
-		} catch (error) {
-			console.error("Error opening signed document:", error)
-			toast.error(error instanceof Error ? error.message : "Failed to open signed document")
-		} finally {
-			setDownloadingProjectUuid(null)
-		}
-	}, [])
+			// Clear any previous toast
+			if (openingSignedDocumentToastIdRef.current !== null) {
+				toast.dismiss(openingSignedDocumentToastIdRef.current)
+				openingSignedDocumentToastIdRef.current = null
+			}
+
+			openingSignedDocumentToastIdRef.current = toast.loading("Opening signed document…")
+
+			try {
+				// Wait until DocoChain reports the project as completed (processing done)
+				const maxAttempts = 10
+				let delayMs = 1500
+
+				for (let attempt = 0; attempt < maxAttempts; attempt++) {
+					const status = await utils.signatureRequests.checkSigningStatus.fetch({ projectUuid })
+					const statusUpper = String(status?.projectStatus ?? "").toUpperCase()
+					const isCompleted = statusUpper === "COMPLETED" || status?.completedAt !== null
+
+					if (isCompleted) break
+
+					// Not ready yet: wait and retry
+					await new Promise(resolve => setTimeout(resolve, delayMs))
+					delayMs = Math.min(delayMs + 500, 4000)
+				}
+
+				// Final check (one last fetch) before opening
+				const finalStatus = await utils.signatureRequests.checkSigningStatus.fetch({ projectUuid })
+				const finalStatusUpper = String(finalStatus?.projectStatus ?? "").toUpperCase()
+				const isFinallyCompleted =
+					finalStatusUpper === "COMPLETED" || finalStatus?.completedAt !== null
+
+				if (!isFinallyCompleted) {
+					toast.error("Signed document is still processing. Please try again in a moment.")
+					return
+				}
+
+				// Only open once completed (ensures sealed document is available).
+				// This avoids relying on DocoChain guestToken and avoids leaking api_token in URLs.
+				const url = `/api/doconchain/projects/${encodeURIComponent(projectUuid)}/signed`
+				const opened = window.open(url, "_blank", "noopener,noreferrer")
+				if (!opened) {
+					toast.error("Popup blocked. Please allow popups for this site and try again.")
+					return
+				}
+				toast.success("Opening signed document…")
+			} catch (error) {
+				console.error("Error opening signed document:", error)
+				toast.error(error instanceof Error ? error.message : "Failed to open signed document")
+			} finally {
+				if (openingSignedDocumentToastIdRef.current !== null) {
+					toast.dismiss(openingSignedDocumentToastIdRef.current)
+					openingSignedDocumentToastIdRef.current = null
+				}
+				setDownloadingProjectUuid(null)
+			}
+		},
+		[utils.signatureRequests.checkSigningStatus]
+	)
 
 	// Handle certificate download
 	const handleDownloadCertificate = useCallback(
@@ -2159,7 +2410,24 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 
 	// ENP initiates signing - adds them as signer and embeds signing page
 	const initiateSigning = trpc.signatureRequests.initiateSigning.useMutation({
+		onMutate: variables => {
+			// Clear any previous toast
+			if (openingPlatformToastIdRef.current !== null) {
+				toast.dismiss(openingPlatformToastIdRef.current)
+				openingPlatformToastIdRef.current = null
+			}
+
+			if (variables.isPlotting === true) {
+				openingPlatformToastIdRef.current = toast.loading("Opening plotting platform…")
+			}
+		},
 		onSuccess: data => {
+			// Clear loading toast (if any)
+			if (openingPlatformToastIdRef.current !== null) {
+				toast.dismiss(openingPlatformToastIdRef.current)
+				openingPlatformToastIdRef.current = null
+			}
+
 			// Validate that we have a valid URL string
 			let signingLink = typeof data.link === "string" ? data.link : null
 
@@ -2181,12 +2449,8 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 				return
 			}
 
-			console.log("✅ Signing process initiated successfully!")
-			console.log("   - Project UUID:", data.projectUuid)
-			console.log("   - Signing link:", signingLink)
+			console.log("✅ Signing process initiated successfully! Project UUID:", data.projectUuid)
 
-			// Capture ENP status at popup open time to avoid stale closure
-			const isEnpUser = session?.user?.role === "ENP"
 			const wasPlotting = isPlottingActionRef.current
 
 			// Open DocoChain signing page in popup window (iframe blocked by DocoChain)
@@ -2210,26 +2474,26 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 						setSigningDocumentId(null)
 						setIsPlottingAction(false)
 						isPlottingActionRef.current = false
-						
-						// For ENP users after plotting, always refetch to update document status
-						if (isEnpUser && wasPlotting) {
-							console.log("🔄 ENP plotted signature - refreshing document status...")
-							// Refresh docs + signing status immediately (don't wait for polling interval)
-							void refetchDocuments().then(() => {
-								void refreshSigningStatuses()
-							})
-							toast.success("Signature plotted. Document status updated.")
+
+						if (wasPlotting) {
+							const docId = plotPopupDocumentIdRef.current
+							setPlotCloseConfirmDocumentId(docId)
+							setPlotCloseConfirmOpen(true)
 						} else {
-							// Refresh docs + signing status immediately (don't wait for polling interval)
+							plotPopupDocumentIdRef.current = null
 							void refetchDocuments().then(() => {
-								void refreshSigningStatuses()
+								void manualRefreshSigningStatuses()
 							})
 							toast.success("Signing completed. Document status updated.")
 						}
 					}
 				}, 1500)
 
-				toast.success("Opening signing interface in popup window...")
+				toast.success(
+					wasPlotting
+						? "Opening plotting platform in popup window..."
+						: "Opening signing interface in popup window..."
+				)
 			} else {
 				toast.error("Popup blocked. Please allow popups for this site and try again.")
 				setSigningDocumentId(null) // Clear loading state
@@ -2239,9 +2503,15 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 		},
 		onError: error => {
 			console.error("❌ Failed to initiate signing:", error)
-			setSigningDocumentId(null) // Clear loading state on error
-			setIsPlottingAction(false) // Clear plotting state on error
-			isPlottingActionRef.current = false // Clear ref
+			// Clear loading toast (if any)
+			if (openingPlatformToastIdRef.current !== null) {
+				toast.dismiss(openingPlatformToastIdRef.current)
+				openingPlatformToastIdRef.current = null
+			}
+			setSigningDocumentId(null)
+			setIsPlottingAction(false)
+			isPlottingActionRef.current = false
+			plotPopupDocumentIdRef.current = null
 			const errorMessage =
 				error instanceof Error
 					? error.message
@@ -2254,20 +2524,32 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 
 	const handleSignClick = useCallback(
 		(projectUuid: string | null, email: string, documentId: string, isPlotting?: boolean) => {
-			// Check if we have a pre-generated link for this document
+			const plotting = isPlotting ?? false
 			const preGenerated = preGeneratedLinks.get(documentId)
-			if (preGenerated?.link) {
-				console.log("✅ Using pre-generated link for instant redirect!")
+
+			// Pre-generated link can go stale (api_token expires after ~2 min). Skip use when stale and regenerate.
+			const ageMs =
+				typeof preGenerated?.storedAt === "number" ? Date.now() - preGenerated.storedAt : Infinity
+			const isStale = ageMs > PRE_GENERATED_LINK_MAX_AGE_MS
+			if (preGenerated?.link && isStale) {
+				setPreGeneratedLinks(prev => {
+					const next = new Map(prev)
+					next.delete(documentId)
+					return next
+				})
+			}
+
+			// Use pre-generated link only when we have it and it's fresh
+			if (preGenerated?.link && !isStale) {
+				console.log("✅ Using pre-generated link (fresh)")
 				setSigningDocumentId(documentId)
-				const plotting = isPlotting ?? false
 				setIsPlottingAction(plotting)
 				isPlottingActionRef.current = plotting
-				
-				// Use pre-generated link immediately
+				if (plotting) plotPopupDocumentIdRef.current = documentId
+
 				let signingLink = preGenerated.link
 				signingLink = normalizeUrl(signingLink) ?? signingLink
-				
-				// Validate it's a proper URL
+
 				try {
 					new URL(signingLink)
 				} catch {
@@ -2275,20 +2557,18 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 					toast.error("Invalid URL format for signing link")
 					return
 				}
-				
-				// Open popup immediately with pre-generated link
-				const isEnpUser = session?.user?.role === "ENP"
+
 				const width = Math.min(window.innerWidth - 40, 1400)
 				const height = Math.min(window.innerHeight - 40, 900)
 				const left = (window.screen.width - width) / 2
 				const top = (window.screen.height - height) / 2
-				
+
 				const popup = window.open(
 					signingLink,
 					"DocoChainSigning",
 					`width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes,toolbar=no,location=no,menubar=no`
 				)
-				
+
 				if (popup) {
 					const checkClosed = setInterval(() => {
 						if (popup.closed) {
@@ -2296,23 +2576,24 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 							setSigningDocumentId(null)
 							setIsPlottingAction(false)
 							isPlottingActionRef.current = false
-							
-							if (isEnpUser && plotting) {
-								console.log("🔄 ENP plotted signature - refreshing document status...")
-								void refetchDocuments().then(() => {
-									void refreshSigningStatuses()
-								})
-								toast.success("Signature plotted. Document status updated.")
+
+							if (plotting) {
+								const docId = plotPopupDocumentIdRef.current
+								setPlotCloseConfirmDocumentId(docId)
+								setPlotCloseConfirmOpen(true)
 							} else {
 								void refetchDocuments().then(() => {
-									void refreshSigningStatuses()
+									void manualRefreshSigningStatuses()
 								})
 								toast.success("Signing completed. Document status updated.")
 							}
 						}
 					}, 1500)
-					toast.success("Opening signing interface in popup window...")
-					// Clear pre-generated link after use
+					toast.success(
+						plotting
+							? "Opening plotting platform in popup window..."
+							: "Opening signing interface in popup window..."
+					)
 					setPreGeneratedLinks(prev => {
 						const next = new Map(prev)
 						next.delete(documentId)
@@ -2323,24 +2604,27 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 					setSigningDocumentId(null)
 					setIsPlottingAction(false)
 					isPlottingActionRef.current = false
+					plotPopupDocumentIdRef.current = null
 				}
 				return
 			}
-			
-			// No pre-generated link - use normal flow
+
+			// No pre-generated link or stale — generate on demand (fresh link every time)
+			if (isStale && plotting) {
+				toast.info("Generating fresh link…")
+			}
 			setSigningDocumentId(documentId)
-			const plotting = isPlotting ?? false
 			setIsPlottingAction(plotting)
 			isPlottingActionRef.current = plotting
-			// If projectUuid exists, use it. Otherwise, pass documentId to create project
-			// CRITICAL: Pass isPlotting flag to mutation so it can force Edit Draft Link when plotting
+			if (plotting) plotPopupDocumentIdRef.current = documentId
+			const effectiveProjectUuid = preGenerated?.projectUuid ?? projectUuid
 			initiateSigning.mutate(
-				projectUuid
-					? { projectUuid, email, isPlotting: plotting }
-					: { documentId, email, isPlotting: plotting } // No project yet - will be created on signing
+				effectiveProjectUuid
+					? { projectUuid: effectiveProjectUuid, email, isPlotting: plotting }
+					: { documentId, email, isPlotting: plotting }
 			)
 		},
-		[initiateSigning, preGeneratedLinks, session?.user?.role, refetchDocuments, refreshSigningStatuses]
+		[initiateSigning, preGeneratedLinks, refetchDocuments, manualRefreshSigningStatuses]
 	)
 
 	// Get the first non-dismissed pending request
@@ -2864,27 +3148,28 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 
 	// If I'm the initiator and everyone has accepted, start local recording (initiator only).
 	useEffect(() => {
-		if (!recordingConsentRequest || !localParticipantId) return;
-	
-		const requiredIds = recordingConsentRequest.requiredParticipantIds;
-		if (!requiredIds || requiredIds.length === 0) return;
-	
-		const allAccepted = requiredIds.every(id => recordingConsentAcceptedIds.has(id));
-	
+		if (!recordingConsentRequest || !localParticipantId) return
+
+		const requiredIds = recordingConsentRequest.requiredParticipantIds
+		if (!requiredIds || requiredIds.length === 0) return
+
+		const allAccepted = requiredIds.every(id => recordingConsentAcceptedIds.has(id))
+
 		// ✅ If all accepted, close modal and start recording (initiator only)
 		if (allAccepted) {
-			const isInitiator = recordingConsentRequest.initiatorName === (session?.user?.name ?? "Someone");
+			const isInitiator =
+				recordingConsentRequest.initiatorName === (session?.user?.name ?? "Someone")
 			if (isInitiator) {
-				void startLocalRecording();
+				void startLocalRecording()
 			}
-			setRecordingConsentOpen(false);
-			resetRecordingConsentUi();
+			setRecordingConsentOpen(false)
+			resetRecordingConsentUi()
 		}
-	
+
 		// ❌ If anyone declined, close modal
 		if (recordingConsentDeclined) {
-			setRecordingConsentOpen(false);
-			resetRecordingConsentUi();
+			setRecordingConsentOpen(false)
+			resetRecordingConsentUi()
 		}
 	}, [
 		recordingConsentAcceptedIds,
@@ -2893,8 +3178,8 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 		localParticipantId,
 		session?.user?.name,
 		startLocalRecording,
-		resetRecordingConsentUi
-	]);	
+		resetRecordingConsentUi,
+	])
 
 	// Memoize upload dialog open handler
 	const handleUploadClick = useCallback(() => {
@@ -2974,6 +3259,26 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 												Unlocked
 											</>
 										)}
+									</Button>
+									<Button
+										variant="ghost"
+										size="sm"
+										onClick={async () => {
+											// Refresh documents - this always works
+											await refetchDocuments()
+											// Manual refresh signing statuses - bypasses all checks and resets pause state
+											await manualRefreshSigningStatuses()
+										}}
+										disabled={isDocumentsFetching || isRefreshingSigningStatus}
+										className="hover:bg-muted size-8 px-0 md:size-8 md:px-0"
+										title="Refresh documents and signing statuses"
+									>
+										<RefreshCw
+											className={cn(
+												"size-4 md:size-4",
+												(isDocumentsFetching || isRefreshingSigningStatus) && "animate-spin"
+											)}
+										/>
 									</Button>
 									<Button
 										variant="ghost"
@@ -3207,6 +3512,20 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 															})()}
 														</p>
 													)}
+													{(() => {
+														const fees = (doc as { fees?: number | null }).fees
+														const showFees =
+															isFullySigned &&
+															fees !== null &&
+															fees !== undefined &&
+															typeof fees === "number" &&
+															!Number.isNaN(fees)
+														return showFees ? (
+															<p className="text-muted-foreground mt-1 text-xs font-semibold">
+																Fees: {fees.toFixed(2)}
+															</p>
+														) : null
+													})()}
 												</div>
 											</div>
 											<DocumentActions
@@ -3214,6 +3533,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 												onSignClick={handleSignClick}
 												onSignersChange={handleSignersChange}
 												isSigningPending={initiateSigning.isPending && signingDocumentId === doc.id}
+												isPlottingAction={signingDocumentId === doc.id ? isPlottingAction : false}
 												isLocked={isLocked}
 												isPreviousDocumentSigned={isPreviousDocumentSigned}
 												documentIndex={index}
@@ -3225,13 +3545,20 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 													createDocoChainProjectMutation.mutate({ documentId, meetingId })
 												}}
 												isCreatingProject={createDocoChainProjectMutation.isPending}
+												docoChainTokenReady={docoChainTokenReady}
+												docoChainTokenLoading={docoChainTokenLoading}
 												onPreGeneratedLink={(documentId, link, projectUuid) => {
 													setPreGeneratedLinks(prev => {
 														const next = new Map(prev)
-														next.set(documentId, { link, projectUuid })
+														next.set(documentId, {
+															link,
+															projectUuid,
+															storedAt: Date.now(),
+														})
 														return next
 													})
 												}}
+												plotLinkReady={!!preGeneratedLinks.get(doc.id)?.link}
 											/>
 										</CardContent>
 									</Card>
@@ -3243,9 +3570,13 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 			</div>
 		)
 	}, [
-		documents,
+		createDocoChainProjectMutation,
 		documentSigningStatus,
+		documents,
+		docoChainTokenLoading,
+		docoChainTokenReady,
 		dragOverDocumentId,
+		isPlottingAction,
 		draggedDocumentId,
 		downloadingCertificateUuid,
 		downloadingProjectUuid,
@@ -3260,12 +3591,17 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 		handleSignClick,
 		handleSignersChange,
 		initiateSigning.isPending,
+		isDocumentsFetching,
 		meetingDetails,
 		meetingId,
+		preGeneratedLinks,
+		refetchDocuments,
+		refreshSigningStatuses,
 		session?.user?.id,
 		showDocuments,
 		signingDocumentId,
 		toggleLockMutation,
+		userConfirmedPlottedDocumentIds,
 	])
 
 	if (!joined) {
@@ -3323,6 +3659,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 						void refetchDocuments()
 						setShowDocuments(true)
 					}}
+					isEnp={session?.user?.role === "ENP"}
 				/>
 			)}
 
@@ -3439,6 +3776,53 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 					</DialogFooter>
 				</DialogContent>
 			</Dialog>
+
+			{/* Plot Signature close confirmation – "Did you plot?" before assuming done */}
+			<AlertDialog
+				open={plotCloseConfirmOpen}
+				onOpenChange={open => {
+					setPlotCloseConfirmOpen(open)
+					if (!open) plotPopupDocumentIdRef.current = null
+					// Do not clear plotCloseConfirmDocumentId here – Radix may run this before
+					// "Yes" onClick, so we’d clear it before the handler runs. Clear only in Yes/No.
+				}}
+			>
+				<AlertDialogContent>
+					<AlertDialogHeader>
+						<AlertDialogTitle>Did you plot your signature?</AlertDialogTitle>
+						<AlertDialogDescription>
+							You closed the Plot Signature window. Double-check that you&apos;ve plotted your
+							signature before confirming. If you closed by accident, you can click Plot Signature
+							again to reopen.
+						</AlertDialogDescription>
+					</AlertDialogHeader>
+					<AlertDialogFooter>
+						<AlertDialogCancel
+							onClick={() => {
+								toast.info("You can click Plot Signature again to reopen.")
+								setPlotCloseConfirmDocumentId(null)
+							}}
+						>
+							No, I closed by accident
+						</AlertDialogCancel>
+						<AlertDialogAction
+							onClick={() => {
+								const docId = plotCloseConfirmDocumentId
+								if (docId) {
+									setUserConfirmedPlottedDocumentIds(prev => new Set(prev).add(docId))
+								}
+								setPlotCloseConfirmDocumentId(null)
+								void refetchDocuments().then(() => {
+									void manualRefreshSigningStatuses()
+								})
+								toast.success("Signature plotted. Document status updated.")
+							}}
+						>
+							Yes, I&apos;m done
+						</AlertDialogAction>
+					</AlertDialogFooter>
+				</AlertDialogContent>
+			</AlertDialog>
 
 			{/* Signature Request Notification for ENP */}
 			{activeSignatureRequest && (
@@ -3592,85 +3976,18 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 							Decline
 						</Button>
 						<Button
-	disabled={recordingConsentDeclined || !localParticipantId}
-	onClick={async () => {
-		await acceptConsent(); // adds your participant to acceptedIds
-	}}
->
-	Agree
-</Button>
+							disabled={recordingConsentDeclined || !localParticipantId}
+							onClick={async () => {
+								await acceptConsent() // adds your participant to acceptedIds
+							}}
+						>
+							Agree
+						</Button>
 					</DialogFooter>
 				</DialogContent>
 			</Dialog>
 		</div>
 	)
-}
-
-export default function InternetSpeedModal({ onDismiss }: { onDismiss?: () => void }) {
-	const [open, setOpen] = useState(false);
-	const [speedMbps, setSpeedMbps] = useState<number | null>(null);
-
-	useEffect(() => {
-		// Check session storage to show only once
-		const hasShown = sessionStorage.getItem("internetSpeedModalShown");
-		if (hasShown) return;
-
-		const testSpeed = async () => {
-			try {
-				const start = performance.now();
-				// Small file to test speed
-				const response = await fetch("https://speed.hetzner.de/100MB.bin", { method: "HEAD" });
-				const end = performance.now();
-
-				const fileSizeMB = 0.5; // size of file in MB (adjust if needed)
-				const durationSec = (end - start) / 1000;
-				const speed = fileSizeMB / durationSec; // MB/s
-				const speedMbps = speed * 8; // MB/s → Mbps
-
-				setSpeedMbps(speedMbps);
-
-				if (speedMbps < 2) {
-					setOpen(true);
-					sessionStorage.setItem("internetSpeedModalShown", "true"); // mark as shown
-				}
-			} catch (err) {
-				console.error("Internet speed test failed:", err);
-				setOpen(true);
-				sessionStorage.setItem("internetSpeedModalShown", "true");
-			}
-		};
-
-		void testSpeed();
-	}, []);
-
-	return (
-		<Dialog open={open} onOpenChange={setOpen}>
-			<DialogContent className="max-w-md text-center">
-				<DialogHeader>
-					<DialogTitle className="text-lg font-bold text-red-600">
-						⚠️ Low Internet Speed
-					</DialogTitle>
-					<DialogDescription className="mt-2 text-sm text-muted-foreground">
-						Your connection speed is {speedMbps?.toFixed(2) ?? "--"} Mbps.
-						<br />
-						A minimum of 2 Mbps is required for a smooth meeting experience.
-					</DialogDescription>
-				</DialogHeader>
-
-				<DialogFooter className="mt-4 flex justify-center">
-					<Button
-						variant="destructive"
-						onClick={() => {
-							setOpen(false);
-							onDismiss?.();
-						}}
-					>
-						Proceed Anyway
-					</Button>
-				</DialogFooter>
-			</DialogContent>
-		</Dialog>
-	);
 }
 
 // Main export component

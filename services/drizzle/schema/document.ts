@@ -20,6 +20,7 @@ export const documents = createTable("document", t => ({
 	envelopeId: t.varchar({ length: 255 }).references(() => envelopes.id),
 	meetingId: t.varchar({ length: 255 }).references(() => meetings.id, { onDelete: "cascade" }),
 	order: t.integer().default(0), // Order for drag and drop
+	fees: t.real(), // Optional fees (ENP only, set during upload)
 	createdAt: t.timestamp({ mode: "date", withTimezone: true }).defaultNow().notNull(),
 	updatedAt: t
 		.timestamp({ mode: "date", withTimezone: true })

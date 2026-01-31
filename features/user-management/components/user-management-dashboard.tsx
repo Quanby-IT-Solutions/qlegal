@@ -14,6 +14,7 @@ export function UserManagementDashboard() {
 	const [searchTerm, setSearchTerm] = useState("")
 	const [roleFilter, setRoleFilter] = useState("all")
 	const [statusFilter, setStatusFilter] = useState("all")
+	const [sortBy, setSortBy] = useState("name-asc")
 	const [isAddUserOpen, setIsAddUserOpen] = useState(false)
 
 	return (
@@ -48,12 +49,19 @@ export function UserManagementDashboard() {
 					setRoleFilter={setRoleFilter}
 					statusFilter={statusFilter}
 					setStatusFilter={setStatusFilter}
+					sortBy={sortBy}
+					setSortBy={setSortBy}
 				/>
 			</div>
 
 			{/* Users List */}
 			<div className="mt-4 px-4 pb-4 sm:mt-6 sm:px-6 sm:pb-6">
-				<UserList searchTerm={searchTerm} roleFilter={roleFilter} statusFilter={statusFilter} />
+				<UserList
+					searchTerm={searchTerm}
+					roleFilter={roleFilter}
+					statusFilter={statusFilter}
+					sortBy={sortBy}
+				/>
 			</div>
 
 			{/* Add User Dialog */}

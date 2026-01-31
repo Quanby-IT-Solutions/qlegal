@@ -12,6 +12,7 @@ import {
 	DialogTitle,
 } from "@/core/components/ui/dialog"
 import { ScrollArea } from "@/core/components/ui/scroll-area"
+
 import { trpc } from "@/services/trpc/client"
 
 function formatDuration(seconds: number | undefined): string {
@@ -39,7 +40,11 @@ export function MeetingRecordingsModal({
 	onOpenChange,
 	meeting,
 }: MeetingRecordingsModalProps) {
-	const { data: recordings, isLoading, error } = trpc.meetings.getRecordings.useQuery(
+	const {
+		data: recordings,
+		isLoading,
+		error,
+	} = trpc.meetings.getRecordings.useQuery(
 		{ meetingId: meeting?.id ?? "" },
 		{ enabled: open && !!meeting?.id }
 	)
@@ -63,22 +68,17 @@ export function MeetingRecordingsModal({
 
 				<div className="min-h-[200px]">
 					{!meeting ? (
-						<p className="text-muted-foreground py-8 text-center text-sm">
-							No meeting selected
-						</p>
+						<p className="text-muted-foreground py-8 text-center text-sm">No meeting selected</p>
 					) : isLoading ? (
 						<div className="flex flex-col items-center justify-center gap-3 py-12">
 							<Loader2 className="text-muted-foreground size-8 animate-spin" />
 							<p className="text-muted-foreground text-sm">Loading recordings…</p>
 						</div>
 					) : error ? (
-						<p className="text-destructive py-8 text-center text-sm">
-							{error.message}
-						</p>
+						<p className="text-destructive py-8 text-center text-sm">{error.message}</p>
 					) : !recordings?.length ? (
 						<p className="text-muted-foreground py-8 text-center text-sm">
-							No recordings yet. Start a meeting and use cloud recording to capture
-							videos.
+							No recordings yet. Start a meeting and use cloud recording to capture videos.
 						</p>
 					) : (
 						<ScrollArea className="h-[min(50vh,400px)] pr-4">
@@ -99,14 +99,8 @@ export function MeetingRecordingsModal({
 													Recording {recordings.length > 1 ? i + 1 : ""}
 												</p>
 												<div className="text-muted-foreground mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm">
-													{createdAt && (
-														<span>
-															{format(new Date(createdAt), "PPp")}
-														</span>
-													)}
-													{duration != null && (
-														<span>{formatDuration(duration)}</span>
-													)}
+													{createdAt && <span>{format(new Date(createdAt), "PPp")}</span>}
+													{duration != null && <span>{formatDuration(duration)}</span>}
 													{size != null && formatFileSize(size) && (
 														<span>{formatFileSize(size)}</span>
 													)}
@@ -123,9 +117,7 @@ export function MeetingRecordingsModal({
 													Download
 												</Button>
 											) : (
-												<span className="text-muted-foreground text-sm">
-													Processing…
-												</span>
+												<span className="text-muted-foreground text-sm">Processing…</span>
 											)}
 										</li>
 									)

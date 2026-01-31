@@ -365,7 +365,12 @@ export function SelfieCapture({ onSuccess, onError, onCancel, meetingId }: Selfi
 							Start Camera
 						</Button>
 						{onCancel && (
-							<Button onClick={handleCancel} className="w-full sm:w-auto" variant="outline" size="lg">
+							<Button
+								onClick={handleCancel}
+								className="w-full sm:w-auto"
+								variant="outline"
+								size="lg"
+							>
 								Cancel
 							</Button>
 						)}

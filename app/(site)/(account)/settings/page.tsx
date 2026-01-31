@@ -54,7 +54,6 @@ export default function Page() {
 							<div className="h-8" />
 							<AvailabilityToggleCard />
 							<div className="h-8" />
-							
 						</>
 					)}
 				</main>

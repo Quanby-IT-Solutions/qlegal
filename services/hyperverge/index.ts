@@ -246,7 +246,9 @@ function normalizeOutputApplicationStatus(rawStatus: unknown): ApplicationStatus
 		"pending",
 	]
 
-	return known.includes(normalized as ApplicationStatus) ? (normalized as ApplicationStatus) : "pending"
+	return known.includes(normalized as ApplicationStatus)
+		? (normalized as ApplicationStatus)
+		: "pending"
 }
 
 /**
@@ -338,7 +340,9 @@ export async function getTransactionStatus(
 		const rawResult = raw.result ?? {}
 		const applicationStatus = normalizeOutputApplicationStatus(rawResult["status"])
 		const resolvedTransactionId =
-			typeof rawResult["transactionId"] === "string" ? (rawResult["transactionId"] as string) : transactionId
+			typeof rawResult["transactionId"] === "string"
+				? (rawResult["transactionId"] as string)
+				: transactionId
 
 		const result: TransactionStatusResponse = {
 			status: raw.status,

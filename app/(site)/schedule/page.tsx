@@ -5,7 +5,7 @@ import { PageHeader } from "@/core/components/navbar/page-header"
 import { auth } from "@/services/next-auth"
 import { HydrateClient, trpc } from "@/services/trpc/server"
 
-import { ScheduleClient } from "@/features/schedule/components/schedule-client"
+import { ScheduleClient } from "@/features/appointments/components/schedule-client"
 
 export default async function SchedulePage() {
 	const session = await auth()
@@ -28,6 +28,10 @@ export default async function SchedulePage() {
 				<PageHeader items={[{ label: "Schedule", href: "/schedule" }]} />
 				<main className="flex-1 p-4 md:p-6 lg:p-8">
 					<div className="mx-auto max-w-7xl space-y-8">
+						<div className="space-y-2">
+							<h1 className="text-3xl font-bold tracking-tight">Your Schedule</h1>
+							<p className="text-muted-foreground mt-2">Manage your schedule and appointments</p>
+						</div>
 						<ScheduleClient scheduleData={scheduleData} />
 					</div>
 				</main>

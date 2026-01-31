@@ -21,7 +21,7 @@ interface PasswordResetTemplateProps {
 export const PasswordResetTemplate = ({
 	email,
 	resetLink,
-	siteUrl = "http://localhost:3000",
+	siteUrl,
 }: PasswordResetTemplateProps) => {
 	const logoUrl = `${siteUrl}/LEGAL.png`
 
@@ -139,7 +139,7 @@ export const PasswordResetTemplate = ({
 PasswordResetTemplate.PreviewProps = {
 	email: "sample.email@quanby.com",
 	resetLink: "http://localhost:3000/reset-password/123456",
-	siteUrl: "http://localhost:3000",
+	siteUrl: "https://qlegal.quanbyit.com/",
 } as PasswordResetTemplateProps
 
 export default PasswordResetTemplate

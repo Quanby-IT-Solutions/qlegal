@@ -1,6 +1,6 @@
+import { TRPCError } from "@trpc/server"
 import { desc, eq, ilike, or } from "drizzle-orm"
 import { z } from "zod"
-import { TRPCError } from "@trpc/server"
 
 import { checkSigningStatus, downloadSignedDocument } from "@/services/doconchain"
 import { notarialActs } from "@/services/drizzle/schema/notarial-book"
@@ -29,8 +29,7 @@ export const documentsRouter = createTRPCRouter({
 		}
 
 		// Build where condition - use or() if multiple conditions, otherwise use the single condition
-		const whereCondition =
-			conditions.length > 1 ? or(...conditions) : conditions[0]
+		const whereCondition = conditions.length > 1 ? or(...conditions) : conditions[0]
 
 		// Query notarialActs with document join
 		const acts = await ctx.db.query.notarialActs.findMany({
@@ -101,7 +100,8 @@ export const documentsRouter = createTRPCRouter({
 			if (!act.docoChainProjectUuid) {
 				throw new TRPCError({
 					code: "BAD_REQUEST",
-					message: "Signed document is not available. This document may not have been fully signed yet.",
+					message:
+						"Signed document is not available. This document may not have been fully signed yet.",
 				})
 			}
 
@@ -146,10 +146,8 @@ export const documentsRouter = createTRPCRouter({
 				// Otherwise, wrap it in a TRPCError
 				throw new TRPCError({
 					code: "INTERNAL_SERVER_ERROR",
-					message:
-						error instanceof Error ? error.message : "Failed to download signed document",
+					message: error instanceof Error ? error.message : "Failed to download signed document",
 				})
 			}
 		}),
 })
-

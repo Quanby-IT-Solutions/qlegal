@@ -3,7 +3,7 @@ import { z } from "zod/v4"
 import { env } from "@/env"
 
 import { apiCall } from "../lib/http-client"
-import { generateToken, getToken, invalidateToken } from "../lib/token-cache"
+import { getOrRefreshProjectToken, getProjectToken, getToken } from "../lib/token-cache"
 
 const signLinkResponseSchema = z.union([
 	z.object({
@@ -124,26 +124,49 @@ export async function generateSignLink({
 	console.log("🔵 Adding api_token to Generate Sign Link using email:", tokenEmail)
 
 	const finalLink = await appendApiToken(normalizedLink, tokenEmail, true)
-	console.log("✅ Generate Sign Link with api_token:", finalLink.substring(0, 100) + "...")
+	console.log("✅ Generate Sign Link with api_token ready")
 	return { link: finalLink }
 }
 
 export async function generateEditDraftLink(
 	projectUuid: string,
-	userEmail?: string
+	userEmail?: string,
+	tokenOverride?: string
 ): Promise<{ link: string }> {
-	// CRITICAL: Use the SAME token that was generated during project creation
-	// Don't force regeneration - use the cached token to ensure consistency
-	// The token was already generated fresh during project creation, so it has maximum validity
-	// Only regenerate if we get 401 (handled by apiCall)
+	// CRITICAL: Use the SAME token that was used to CREATE this project (or meeting token when plotting).
+	// tokenOverride = meeting-scoped token from ENP join; use it for Edit Draft when plotting.
 	console.log("🔵 Generating Edit Draft Project Link...")
 	console.log("   - Project UUID:", projectUuid)
 	console.log("   - User Email (for token):", userEmail ?? env.DOCONCHAIN_EMAIL)
-	console.log("   - Using cached token from project creation (same token for consistency)...")
+	console.log("   - Token override (meeting):", tokenOverride ? "yes" : "no")
 
-	const response = await apiCall(
-		async token => {
-			return fetch(
+	let token: string
+	let response: Response
+
+	if (tokenOverride) {
+		console.log("   - Using meeting-scoped token override (ENP join)...")
+		token = tokenOverride
+		response = await fetch(
+			`${env.DOCONCHAIN_API_URL}/api/v2/projects/${projectUuid}/link?user_type=ENTERPRISE_API`,
+			{
+				method: "POST",
+				headers: {
+					Authorization: `Bearer ${token}`,
+					Accept: "application/json",
+				},
+			}
+		)
+	} else {
+		const projectToken = await getOrRefreshProjectToken(
+			projectUuid,
+			userEmail ?? env.DOCONCHAIN_EMAIL
+		)
+		if (projectToken) {
+			console.log(
+				"   - Using project-specific token (stored during project creation, refreshed if stale)..."
+			)
+			token = projectToken
+			response = await fetch(
 				`${env.DOCONCHAIN_API_URL}/api/v2/projects/${projectUuid}/link?user_type=ENTERPRISE_API`,
 				{
 					method: "POST",
@@ -153,10 +176,43 @@ export async function generateEditDraftLink(
 					},
 				}
 			)
-		},
-		userEmail,
-		false
-	) // Use cached token from project creation, don't force regeneration
+			if (response.status === 401) {
+				console.warn(
+					"⚠️ Project-specific token returned 401 - falling back to email-based token cache..."
+				)
+				response = await apiCall(
+					async t => {
+						return fetch(
+							`${env.DOCONCHAIN_API_URL}/api/v2/projects/${projectUuid}/link?user_type=ENTERPRISE_API`,
+							{
+								method: "POST",
+								headers: { Authorization: `Bearer ${t}`, Accept: "application/json" },
+							}
+						)
+					},
+					userEmail,
+					false
+				)
+				token = "" // apiCall uses its own token; appendApiToken will use project/email
+			}
+		} else {
+			console.log("   - No project-specific token found - using email-based token cache...")
+			response = await apiCall(
+				async t => {
+					return fetch(
+						`${env.DOCONCHAIN_API_URL}/api/v2/projects/${projectUuid}/link?user_type=ENTERPRISE_API`,
+						{
+							method: "POST",
+							headers: { Authorization: `Bearer ${t}`, Accept: "application/json" },
+						}
+					)
+				},
+				userEmail,
+				false
+			)
+			token = ""
+		}
+	}
 
 	if (!response.ok) {
 		const errorText = await response.text()
@@ -214,8 +270,14 @@ export async function generateEditDraftLink(
 	// Normalize the link (removes status=Deleted and adds api=true)
 	const normalizedLink = normalizeLink(link)
 
-	// Add api_token if not present (pass true to indicate already normalized)
-	const finalLink = await appendApiToken(normalizedLink, userEmail ?? env.DOCONCHAIN_EMAIL, true)
+	// Add api_token if not present. Use tokenOverride (meeting token) when provided.
+	const finalLink = await appendApiToken(
+		normalizedLink,
+		userEmail ?? env.DOCONCHAIN_EMAIL,
+		true,
+		tokenOverride ? undefined : projectUuid,
+		tokenOverride
+	)
 
 	return { link: finalLink }
 }
@@ -327,7 +389,9 @@ function normalizeLink(link: string): string {
 async function appendApiToken(
 	link: string,
 	email: string,
-	alreadyNormalized = false
+	alreadyNormalized = false,
+	projectUuid?: string,
+	tokenOverride?: string
 ): Promise<string> {
 	// Only normalize if not already normalized
 	const normalizedLink = alreadyNormalized ? link : normalizeLink(link)
@@ -344,30 +408,57 @@ async function appendApiToken(
 			}
 		}
 
-		// CRITICAL: Use the SAME token that was used for project creation
-		// Don't invalidate/regenerate - use the cached token from project creation
-		// This ensures consistency: the token in the URL matches the token used for all project operations
-		// The token was already generated fresh during project creation, so it has maximum validity
-		console.log("🔵 Using cached token for URL (same token used for project creation)...")
-		const apiToken = await getToken(email, false) // Use cached token, don't force regeneration
+		let apiToken: string
+		if (tokenOverride) {
+			console.log("🔵 Using meeting-scoped token override for URL...")
+			apiToken = tokenOverride
+		} else if (projectUuid) {
+			const projectToken = await getOrRefreshProjectToken(projectUuid, email)
+			if (projectToken) {
+				console.log(
+					"🔵 Using project-specific token for URL (refreshed if stale, same token used for project creation)..."
+				)
+				apiToken = projectToken
+			} else {
+				console.log(
+					"🔵 No project-specific token found - using email-based cached token (fallback)..."
+				)
+				apiToken = await getToken(email, false)
+			}
+		} else {
+			console.log("🔵 Using email-based cached token for URL...")
+			apiToken = await getToken(email, false)
+		}
 
 		url.searchParams.set("api_token", apiToken)
 
 		console.log(
 			"✅ Added api_token to signing link (length:",
 			apiToken.length,
-			"chars, using token from project creation)"
+			"chars, using",
+			tokenOverride
+				? "meeting override"
+				: projectUuid && getProjectToken(projectUuid)
+					? "project-specific"
+					: "email-based",
+			"token)"
 		)
 
 		return url.toString()
 	} catch (error) {
-		console.error("❌ Failed to append API token to link:", normalizedLink, error)
-		// Fallback: try to append token manually
+		console.error("❌ Failed to append API token to link:", error)
 		const separator = normalizedLink.includes("?") ? "&" : "?"
-		// Use cached token for fallback too (same token from project creation)
-		const apiToken = await getToken(email, false)
+		let apiToken: string
+		if (tokenOverride) {
+			apiToken = tokenOverride
+		} else if (projectUuid) {
+			const projectToken = await getOrRefreshProjectToken(projectUuid, email)
+			apiToken = projectToken ?? (await getToken(email, false))
+		} else {
+			apiToken = await getToken(email, false)
+		}
 		const fallbackLink = `${normalizedLink}${separator}api_token=${encodeURIComponent(apiToken)}`
-		console.log("✅ Added api_token via fallback method (using token from project creation)")
+		console.log("✅ Added api_token via fallback method")
 		return fallbackLink
 	}
 }
