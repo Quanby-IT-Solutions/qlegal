@@ -1,7 +1,7 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import { format, isSameDay, isAfter, subDays } from "date-fns"
+import { format, isAfter, isSameDay, subDays } from "date-fns"
 import {
 	Calendar,
 	CheckCircle,
@@ -119,8 +119,7 @@ export function HistoryNotarizationsSection() {
 	const [statusFilter, setStatusFilter] = useState<"ALL" | "COMPLETED" | "CANCELLED">("ALL")
 	const [dateFilter, setDateFilter] = useState<"ALL" | "TODAY" | "WEEK" | "MONTH" | "YEAR">("ALL")
 
-	const { data: meetingsData } =
-	trpc.meetings.getUserMeetingsWithDocumentStats.useQuery({
+	const { data: meetingsData } = trpc.meetings.getUserMeetingsWithDocumentStats.useQuery({
 		limit: 50,
 		offset: 0,
 	})
@@ -138,77 +137,75 @@ export function HistoryNotarizationsSection() {
 		const items: HistoryItem[] = []
 
 		meetings
-    .filter(m => m.status === "COMPLETED")
-    .forEach(m => {
-      items.push({
-        id: m.id,
-        title: m.title,
-        status: "COMPLETED",
-        workflow: "REN", // meetings are remote notarizations
+			.filter(m => m.status === "COMPLETED")
+			.forEach(m => {
+				items.push({
+					id: m.id,
+					title: m.title,
+					status: "COMPLETED",
+					workflow: "REN", // meetings are remote notarizations
 
-        enp: {
-          name: m.createdBy?.name ?? "Unknown ENP",
-          avatar: m.createdBy?.image ?? undefined,
-        },
+					enp: {
+						name: m.createdBy?.name ?? "Unknown ENP",
+						avatar: m.createdBy?.image ?? undefined,
+					},
 
-        principal: {
-          name:
-            m.participants?.find(p => p.user?.role === "PRINCIPAL")?.user?.name ??
-            "Client",
-        },
+					principal: {
+						name: m.participants?.find(p => p.user?.role === "PRINCIPAL")?.user?.name ?? "Client",
+					},
 
-        completedAt: new Date(m.updatedAt ?? m.createdAt).toISOString(),
-        cancelledAt: undefined,
-        duration: 30,
-        documents: m.documentStats?.total ?? 0,
-        location: "Remote Video Call",
-        cancellationReason: undefined,
-        certificateUrl: undefined,
-        recordingUrl: undefined,
-      })
-    })
-	
-	if (appointments) {
-		appointments
-		  .filter(a => a.status === "CANCELLED")
-		  .forEach(a => {
-			const workflow: WorkflowType = a.meetingLink ? "REN" : "IEN"
-	
-			items.push({
-			  id: a.id,
-			  title:
-				a.notes?.trim() ||
-				`${a.type === "DOCUMENT_SIGNING" ? "Document Signing" : "Consultation"} - ${
-				  a.client?.name ?? "Client"
-				}`,
-			  status: "CANCELLED",
-			  workflow,
-	
-			  enp: {
-				name: a.lawyer?.name ?? "Unknown ENP",
-				avatar: a.lawyer?.image ?? undefined,
-			  },
-	
-			  principal: {
-				name: a.client?.name ?? "Unknown Client",
-				email: a.client?.email ?? undefined,
-			  },
-	
-			  completedAt: undefined,
-			  cancelledAt: new Date(a.updatedAt).toISOString(),
-			  duration: a.duration ?? 30,
-			  documents: 0,
-			  location:
-				a.location ?? (workflow === "REN" ? "Remote Video Call" : "In-Person Meeting"),
-			  cancellationReason: a.cancelReason ?? undefined,
-			  certificateUrl: undefined,
-			  recordingUrl: undefined,
+					completedAt: new Date(m.updatedAt ?? m.createdAt).toISOString(),
+					cancelledAt: undefined,
+					duration: 30,
+					documents: m.documentStats?.total ?? 0,
+					location: "Remote Video Call",
+					cancellationReason: undefined,
+					certificateUrl: undefined,
+					recordingUrl: undefined,
+				})
 			})
-		  })
-	  }
-	
-	  return items
-	  }, [appointments, meetings])	  
+
+		if (appointments) {
+			appointments
+				.filter(a => a.status === "CANCELLED")
+				.forEach(a => {
+					const workflow: WorkflowType = a.meetingLink ? "REN" : "IEN"
+
+					items.push({
+						id: a.id,
+						title:
+							a.notes?.trim() ||
+							`${a.type === "DOCUMENT_SIGNING" ? "Document Signing" : "Consultation"} - ${
+								a.client?.name ?? "Client"
+							}`,
+						status: "CANCELLED",
+						workflow,
+
+						enp: {
+							name: a.lawyer?.name ?? "Unknown ENP",
+							avatar: a.lawyer?.image ?? undefined,
+						},
+
+						principal: {
+							name: a.client?.name ?? "Unknown Client",
+							email: a.client?.email ?? undefined,
+						},
+
+						completedAt: undefined,
+						cancelledAt: new Date(a.updatedAt).toISOString(),
+						duration: a.duration ?? 30,
+						documents: 0,
+						location:
+							a.location ?? (workflow === "REN" ? "Remote Video Call" : "In-Person Meeting"),
+						cancellationReason: a.cancelReason ?? undefined,
+						certificateUrl: undefined,
+						recordingUrl: undefined,
+					})
+				})
+		}
+
+		return items
+	}, [appointments, meetings])
 
 	const filteredHistory = useMemo(() => {
 		return historyItems.filter(item => {
@@ -229,16 +226,16 @@ export function HistoryNotarizationsSection() {
 			const now = new Date()
 
 			switch (dateFilter) {
-			case "TODAY":
-				return isSameDay(date, now)
-			case "WEEK":
-				return isAfter(date, subDays(now, 7))
-			case "MONTH":
-				return isAfter(date, subDays(now, 30))
-			case "YEAR":
-				return isAfter(date, subDays(now, 365))
-			default:
-				return true
+				case "TODAY":
+					return isSameDay(date, now)
+				case "WEEK":
+					return isAfter(date, subDays(now, 7))
+				case "MONTH":
+					return isAfter(date, subDays(now, 30))
+				case "YEAR":
+					return isAfter(date, subDays(now, 365))
+				default:
+					return true
 			}
 		})
 	}, [historyItems, dateFilter, statusFilter, workflowFilter, searchTerm])
@@ -294,15 +291,15 @@ export function HistoryNotarizationsSection() {
 					History of your completed and cancelled notarization sessions
 				</p>
 			</div>
-			<h3 className="text-sm font-small pt-5">
-					{isLoading ? (
-						<Skeleton className="h-6 w-48" />
-					) : (
-						<>
-							{filteredHistory.length} Notarization{filteredHistory.length !== 1 ? "s" : ""} Found
-						</>
-					)}
-				</h3>
+			<h3 className="font-small pt-5 text-sm">
+				{isLoading ? (
+					<Skeleton className="h-6 w-48" />
+				) : (
+					<>
+						{filteredHistory.length} Notarization{filteredHistory.length !== 1 ? "s" : ""} Found
+					</>
+				)}
+			</h3>
 			<Card>
 				<CardContent>
 					<div className="grid grid-cols-1 gap-4 md:grid-cols-4">
@@ -348,8 +345,6 @@ export function HistoryNotarizationsSection() {
 			</Card>
 
 			<div className="space-y-4">
-				
-
 				{isLoading ? (
 					<div className="space-y-4">
 						{Array.from({ length: 3 }).map((_, i) => (
@@ -387,126 +382,133 @@ export function HistoryNotarizationsSection() {
 								<div className="space-y-4">
 									{group.items.map(item => (
 										<Card key={item.id} className="transition-shadow hover:shadow-md">
-											<CardContent >
+											<CardContent>
 												<div className="flex items-start justify-between gap-4">
-
 													{/* LEFT SIDE */}
 													<div className="flex-1 space-y-3">
-
-													{/* Title + Badges */}
-													<div className="flex flex-wrap items-center gap-2">
-														<h3 className="text-base font-semibold leading-tight">{item.title}</h3>
-														{statusBadge(item.status)}
-														{workflowBadge(item.workflow)}
-													</div>
-
-													{/* Meta Info Row */}
-													<div className="text-muted-foreground flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
-														<div className="flex items-center gap-1">
-														<User className="h-3.5 w-3.5" />
-														<span>{isENP ? item.principal.name : item.enp.name}</span>
+														{/* Title + Badges */}
+														<div className="flex flex-wrap items-center gap-2">
+															<h3 className="text-base leading-tight font-semibold">
+																{item.title}
+															</h3>
+															{statusBadge(item.status)}
+															{workflowBadge(item.workflow)}
 														</div>
 
-														<div className="flex items-center gap-1">
-														<FileText className="h-3.5 w-3.5" />
-														<span>{item.documents} doc{item.documents !== 1 && "s"}</span>
+														{/* Meta Info Row */}
+														<div className="text-muted-foreground flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
+															<div className="flex items-center gap-1">
+																<User className="h-3.5 w-3.5" />
+																<span>{isENP ? item.principal.name : item.enp.name}</span>
+															</div>
+
+															<div className="flex items-center gap-1">
+																<FileText className="h-3.5 w-3.5" />
+																<span>
+																	{item.documents} doc{item.documents !== 1 && "s"}
+																</span>
+															</div>
+
+															<div className="flex items-center gap-1">
+																<Calendar className="h-3.5 w-3.5" />
+																<span>
+																	{item.status === "COMPLETED"
+																		? format(new Date(item.completedAt!), "MMM dd, yyyy")
+																		: format(new Date(item.cancelledAt!), "MMM dd, yyyy")}
+																</span>
+															</div>
+
+															{item.duration > 0 && (
+																<div className="flex items-center gap-1">
+																	<Clock className="h-3.5 w-3.5" />
+																	<span>{item.duration} min</span>
+																</div>
+															)}
 														</div>
 
-														<div className="flex items-center gap-1">
-														<Calendar className="h-3.5 w-3.5" />
-														<span>
-															{item.status === "COMPLETED"
-															? format(new Date(item.completedAt!), "MMM dd, yyyy")
-															: format(new Date(item.cancelledAt!), "MMM dd, yyyy")}
-														</span>
+														{/* Status + Location Row */}
+														<div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
+															<div className="flex items-center gap-1">
+																{item.status === "COMPLETED" ? (
+																	<>
+																		<CheckCircle className="h-3.5 w-3.5 text-green-600" />
+																		<span className="text-green-600">Completed</span>
+																	</>
+																) : (
+																	<>
+																		<XCircle className="h-3.5 w-3.5 text-red-600" />
+																		<span className="text-red-600">
+																			Cancelled
+																			{item.cancellationReason
+																				? `: ${item.cancellationReason}`
+																				: ""}
+																		</span>
+																	</>
+																)}
+															</div>
+
+															<div className="text-muted-foreground flex items-center gap-1">
+																<MapPin className="h-3.5 w-3.5" />
+																<span>{item.location}</span>
+															</div>
 														</div>
 
-														{item.duration > 0 && (
-														<div className="flex items-center gap-1">
-															<Clock className="h-3.5 w-3.5" />
-															<span>{item.duration} min</span>
-														</div>
-														)}
-													</div>
+														{/* Participants Row (Compact) */}
+														<div className="flex items-center gap-4 pt-1">
+															<div className="flex items-center gap-2">
+																<Avatar className="h-7 w-7">
+																	<AvatarImage src={item.enp.avatar} />
+																	<AvatarFallback>{getInitials(item.enp.name)}</AvatarFallback>
+																</Avatar>
+																<span className="text-xs font-medium">{item.enp.name}</span>
+															</div>
 
-													{/* Status + Location Row */}
-													<div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
-														<div className="flex items-center gap-1">
-														{item.status === "COMPLETED" ? (
-															<>
-															<CheckCircle className="h-3.5 w-3.5 text-green-600" />
-															<span className="text-green-600">Completed</span>
-															</>
-														) : (
-															<>
-															<XCircle className="h-3.5 w-3.5 text-red-600" />
-															<span className="text-red-600">
-																Cancelled{item.cancellationReason ? `: ${item.cancellationReason}` : ""}
-															</span>
-															</>
-														)}
+															<div className="flex items-center gap-2">
+																<Avatar className="h-7 w-7">
+																	<AvatarFallback>
+																		{getInitials(item.principal.name)}
+																	</AvatarFallback>
+																</Avatar>
+																<span className="text-xs font-medium">{item.principal.name}</span>
+															</div>
 														</div>
-
-														<div className="text-muted-foreground flex items-center gap-1">
-														<MapPin className="h-3.5 w-3.5" />
-														<span>{item.location}</span>
-														</div>
-													</div>
-
-													{/* Participants Row (Compact) */}
-													<div className="flex items-center gap-4 pt-1">
-														<div className="flex items-center gap-2">
-														<Avatar className="h-7 w-7">
-															<AvatarImage src={item.enp.avatar} />
-															<AvatarFallback>{getInitials(item.enp.name)}</AvatarFallback>
-														</Avatar>
-														<span className="text-xs font-medium">{item.enp.name}</span>
-														</div>
-
-														<div className="flex items-center gap-2">
-														<Avatar className="h-7 w-7">
-															<AvatarFallback>{getInitials(item.principal.name)}</AvatarFallback>
-														</Avatar>
-														<span className="text-xs font-medium">{item.principal.name}</span>
-														</div>
-													</div>
 													</div>
 
 													{/* RIGHT SIDE ACTIONS */}
 													<div className="flex shrink-0 flex-col gap-2">
-													<Button
-														size="sm"
-														variant="outline"
-														onClick={() => handleViewNotarization(item.id)}
-														className="h-8 gap-1 px-3 text-xs"
-													>
-														<Eye className="h-3.5 w-3.5" />
-														Details
-													</Button>
-
-													{item.certificateUrl && (
 														<Button
-														size="sm"
-														variant="outline"
-														onClick={() => window.open(item.certificateUrl, "_blank")}
-														className="h-8 gap-1 px-3 text-xs"
+															size="sm"
+															variant="outline"
+															onClick={() => handleViewNotarization(item.id)}
+															className="h-8 gap-1 px-3 text-xs"
 														>
-														<Download className="h-3.5 w-3.5" />
-														Cert
+															<Eye className="h-3.5 w-3.5" />
+															Details
 														</Button>
-													)}
 
-													{item.recordingUrl && (
-														<Button
-														size="sm"
-														variant="outline"
-														onClick={() => window.open(item.recordingUrl, "_blank")}
-														className="h-8 gap-1 px-3 text-xs"
-														>
-														<Video className="h-3.5 w-3.5" />
-														Rec
-														</Button>
-													)}
+														{item.certificateUrl && (
+															<Button
+																size="sm"
+																variant="outline"
+																onClick={() => window.open(item.certificateUrl, "_blank")}
+																className="h-8 gap-1 px-3 text-xs"
+															>
+																<Download className="h-3.5 w-3.5" />
+																Cert
+															</Button>
+														)}
+
+														{item.recordingUrl && (
+															<Button
+																size="sm"
+																variant="outline"
+																onClick={() => window.open(item.recordingUrl, "_blank")}
+																className="h-8 gap-1 px-3 text-xs"
+															>
+																<Video className="h-3.5 w-3.5" />
+																Rec
+															</Button>
+														)}
 													</div>
 												</div>
 											</CardContent>

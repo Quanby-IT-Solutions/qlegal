@@ -126,7 +126,7 @@ export async function fetchRecordings(roomId: string): Promise<VideoSDKRecording
 	const response = await fetch(url.toString(), {
 		method: "GET",
 		headers: {
-			authorization: token,
+			"authorization": token,
 			"Content-Type": "application/json",
 		},
 	})

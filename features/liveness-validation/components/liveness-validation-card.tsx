@@ -152,24 +152,6 @@ export function LivenessValidationCard({
 		)
 	}
 
-	if (!isDirectModeEnabled) {
-		return (
-			<Card className="w-full shadow-xl">
-				<CardHeader>
-					<CardTitle>Liveness Verification Unavailable</CardTitle>
-					<CardDescription>Direct liveness mode is currently disabled.</CardDescription>
-				</CardHeader>
-				<CardContent>
-					<div className="rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950/20">
-						<p className="text-sm text-amber-900 dark:text-amber-100">
-							Contact your administrator to enable this feature.
-						</p>
-					</div>
-				</CardContent>
-			</Card>
-		)
-	}
-
 	return (
 		<Card className="w-full shadow-xl">
 			<CardHeader className="space-y-4">

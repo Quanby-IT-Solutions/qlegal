@@ -32,6 +32,7 @@ interface MeetingDocumentUploadProps {
 	isOpen: boolean
 	onClose: () => void
 	onSuccess?: () => void
+	isEnp?: boolean
 }
 
 export function MeetingDocumentUpload({
@@ -39,12 +40,14 @@ export function MeetingDocumentUpload({
 	isOpen,
 	onClose,
 	onSuccess,
+	isEnp = false,
 }: MeetingDocumentUploadProps) {
 	const [documentName, setDocumentName] = useState("")
 	const [description, setDescription] = useState("")
 	const [notarizationType, setNotarizationType] = useState<
 		"ACKNOWLEDGMENT" | "AFFIRMATION" | "JURAT" | "SIGNATURE_WITNESSING" | ""
 	>("")
+	const [fees, setFees] = useState("")
 	const [selectedFile, setSelectedFile] = useState<File | null>(null)
 	const [isUploading, setIsUploading] = useState(false)
 
@@ -58,6 +61,7 @@ export function MeetingDocumentUpload({
 			setDocumentName("")
 			setDescription("")
 			setNotarizationType("")
+			setFees("")
 			onClose()
 			onSuccess?.()
 		},
@@ -133,6 +137,13 @@ export function MeetingDocumentUpload({
 				reader.readAsDataURL(selectedFile)
 			})
 
+			const feesNum = fees.trim() !== "" ? parseFloat(fees) : undefined
+			if (feesNum !== undefined && (Number.isNaN(feesNum) || feesNum < 0)) {
+				toast.error("Fees must be a valid non-negative number")
+				setIsUploading(false)
+				return
+			}
+
 			// Upload document
 			uploadDocument.mutate({
 				meetingId,
@@ -146,6 +157,7 @@ export function MeetingDocumentUpload({
 					| "AFFIRMATION"
 					| "JURAT"
 					| "SIGNATURE_WITNESSING",
+				...(isEnp && feesNum !== undefined && { fees: feesNum }),
 			})
 		} catch (error) {
 			console.error("Upload error:", error)
@@ -162,6 +174,7 @@ export function MeetingDocumentUpload({
 		setDocumentName("")
 		setDescription("")
 		setNotarizationType("")
+		setFees("")
 		onClose()
 	}
 
@@ -174,6 +187,7 @@ export function MeetingDocumentUpload({
 			setDocumentName("")
 			setDescription("")
 			setNotarizationType("")
+			setFees("")
 			onClose()
 		} else if (!open) {
 			// If uploading, just close without resetting (upload will handle reset)
@@ -183,7 +197,7 @@ export function MeetingDocumentUpload({
 
 	return (
 		<Dialog open={isOpen} onOpenChange={handleOpenChange}>
-			<DialogContent className="max-w-2xl">
+			<DialogContent className="max-w-[95vw] sm:max-w-3xl lg:max-w-4xl">
 				<DialogHeader>
 					<DialogTitle className="flex items-center gap-2">
 						<Upload className="size-5" />
@@ -194,41 +208,45 @@ export function MeetingDocumentUpload({
 					</DialogDescription>
 				</DialogHeader>
 
-				<div className="space-y-6">
+				<div className="space-y-4">
 					{/* File Drop Zone */}
 					{!selectedFile ? (
 						<div
 							{...getRootProps()}
-							className={`cursor-pointer rounded-lg border-2 border-dashed p-8 text-center transition-colors ${
+							className={`cursor-pointer rounded-lg border-2 border-dashed p-4 text-center transition-colors sm:p-6 ${
 								isDragActive
 									? "border-primary bg-primary/10"
 									: "hover:border-primary border-gray-300 hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-900"
 							} ${isUploading ? "cursor-not-allowed opacity-50" : ""}`}
 						>
 							<input {...getInputProps()} />
-							<div className="flex flex-col items-center gap-4">
-								<div className="bg-primary/10 rounded-full p-4">
-									<FileText className="text-primary size-8" />
+							<div className="flex flex-col items-center gap-2 sm:gap-3">
+								<div className="bg-primary/10 rounded-full p-2 sm:p-3">
+									<FileText className="text-primary size-6 sm:size-7" />
 								</div>
 								{isDragActive ? (
 									<div>
-										<p className="text-primary text-lg font-medium">Drop your PDF here</p>
-										<p className="text-sm text-gray-500">Release to upload the document</p>
+										<p className="text-primary text-base font-medium sm:text-lg">
+											Drop your PDF here
+										</p>
+										<p className="text-xs text-gray-500 sm:text-sm">
+											Release to upload the document
+										</p>
 									</div>
 								) : (
 									<div>
-										<p className="text-lg font-medium text-gray-900 dark:text-gray-100">
+										<p className="text-base font-medium text-gray-900 sm:text-lg dark:text-gray-100">
 											Drag & drop your PDF here
 										</p>
-										<p className="text-sm text-gray-500">or click to browse files</p>
-										<p className="mt-2 text-xs text-gray-400">Maximum file size: 10MB</p>
+										<p className="text-xs text-gray-500 sm:text-sm">or click to browse files</p>
+										<p className="mt-1 text-xs text-gray-400">Maximum file size: 10MB</p>
 									</div>
 								)}
 							</div>
 						</div>
 					) : (
 						/* Selected File Display */
-						<div className="rounded-lg border border-gray-200 p-4 dark:border-gray-800">
+						<div className="rounded-lg border border-gray-200 p-3 sm:p-4 dark:border-gray-800">
 							<div className="flex items-center gap-3">
 								<div className="rounded bg-red-100 p-2 dark:bg-red-900/30">
 									<FileText className="size-5 text-red-600 dark:text-red-400" />
@@ -254,9 +272,9 @@ export function MeetingDocumentUpload({
 						</div>
 					)}
 
-					{/* Document Details Form - Always visible */}
-					<div className="space-y-4">
-						<div className="space-y-2">
+					{/* Document Details Form - Responsive grid layout */}
+					<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+						<div className="space-y-2 sm:col-span-2">
 							<Label htmlFor="document-name">Document Name</Label>
 							<Input
 								id="document-name"
@@ -267,7 +285,7 @@ export function MeetingDocumentUpload({
 							/>
 						</div>
 
-						<div className="space-y-2">
+						<div className="space-y-2 sm:col-span-2">
 							<Label htmlFor="notarization-type">
 								Notarization Type <span className="text-red-500">*</span>
 							</Label>
@@ -299,17 +317,34 @@ export function MeetingDocumentUpload({
 							</p>
 						</div>
 
-						<div className="space-y-2">
+						<div className="space-y-2 sm:col-span-2">
 							<Label htmlFor="description">Description (Optional)</Label>
 							<Textarea
 								id="description"
 								value={description}
 								onChange={e => setDescription(e.target.value)}
 								placeholder="Enter a brief description of the document"
-								rows={3}
+								rows={2}
 								disabled={isUploading || !selectedFile}
+								className="resize-none"
 							/>
 						</div>
+
+						{isEnp && (
+							<div className="space-y-2">
+								<Label htmlFor="fees">Fees</Label>
+								<Input
+									id="fees"
+									type="number"
+									step="0.01"
+									min={0}
+									value={fees}
+									onChange={e => setFees(e.target.value)}
+									placeholder="0.00"
+									disabled={isUploading || !selectedFile}
+								/>
+							</div>
+						)}
 					</div>
 				</div>
 

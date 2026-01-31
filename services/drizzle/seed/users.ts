@@ -55,7 +55,9 @@ export async function createUsers() {
 
 		// Update all test accounts to have verified KYC status
 		if (insertedTestUsers.length > 0) {
-			const testUserIds = insertedTestUsers.map(user => user.id).filter((id): id is string => id !== undefined)
+			const testUserIds = insertedTestUsers
+				.map(user => user.id)
+				.filter((id): id is string => id !== undefined)
 			if (testUserIds.length > 0) {
 				await db
 					.update(users)

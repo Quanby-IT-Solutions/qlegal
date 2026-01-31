@@ -19,15 +19,8 @@ import { KycVerificationCard } from "@/features/kyc/components/kyc-verification-
 
 export default async function KycRegisterPage() {
 	const session = await auth()
-	if (!session?.user?.id) {
-		redirect("/auth/login")
-	}
 
-	// If already verified, go to dashboard
-
-	if (session.user.kycStatus === "VERIFIED") {
-		redirect("/dashboard")
-	}
+	if (session!.user.kycStatus === "VERIFIED") redirect("/dashboard")
 
 	const kycInfoResult = await getUserKycInfo()
 	if (!kycInfoResult.success || !kycInfoResult.data) {

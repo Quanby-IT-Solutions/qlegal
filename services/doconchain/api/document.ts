@@ -26,9 +26,10 @@ interface SigningStatusResult {
 
 export async function checkSigningStatus(
 	projectUuid: string,
-	userEmail?: string
+	userEmail?: string,
+	tokenOverride?: string
 ): Promise<SigningStatusResult> {
-	const projectDetails = await getProjectDetails(projectUuid, userEmail)
+	const projectDetails = await getProjectDetails(projectUuid, userEmail, tokenOverride)
 	const projectData = projectDetails?.data
 
 	if (!projectData) {
@@ -123,7 +124,7 @@ export async function downloadSignedDocument(
 				const downloadApiUrl = `${env.DOCONCHAIN_API_URL}/api/v2/projects/${projectUuid}/download?user_type=ENTERPRISE_API`
 				console.log("🔵 Project is completed - using download API endpoint to get sealed document")
 				console.log("   - This ensures we get the official sealed document with certificates")
-				
+
 				try {
 					const apiResponse = await apiCall(async token => {
 						return fetch(downloadApiUrl, {
@@ -139,7 +140,9 @@ export async function downloadSignedDocument(
 						const arrayBuffer = await apiResponse.arrayBuffer()
 						buffer = Buffer.from(arrayBuffer)
 						signedDocumentUrl = downloadApiUrl
-						console.log("✅ Successfully downloaded sealed document with official seal and certificates from download API")
+						console.log(
+							"✅ Successfully downloaded sealed document with official seal and certificates from download API"
+						)
 						console.log("   - Document size:", buffer.length, "bytes")
 					} else {
 						console.warn(
@@ -274,7 +277,9 @@ export async function downloadSignedDocument(
 				const baseDelayMs = 2000 // Start with 2 seconds
 
 				console.log("🔵 Project is completed but initial download failed")
-				console.log("   - Seal generation may be asynchronous - will retry download API endpoint with exponential backoff")
+				console.log(
+					"   - Seal generation may be asynchronous - will retry download API endpoint with exponential backoff"
+				)
 				console.log("   - Max retries:", maxRetries)
 				console.log("   - Download API endpoint always returns the sealed document when ready")
 
@@ -292,7 +297,9 @@ export async function downloadSignedDocument(
 					if (!buffer) {
 						try {
 							const downloadApiUrl = `${env.DOCONCHAIN_API_URL}/api/v2/projects/${projectUuid}/download?user_type=ENTERPRISE_API`
-							console.log(`   - Attempting download API endpoint (attempt ${attempt + 1}/${maxRetries})...`)
+							console.log(
+								`   - Attempting download API endpoint (attempt ${attempt + 1}/${maxRetries})...`
+							)
 							const apiResponse = await apiCall(async token => {
 								return fetch(downloadApiUrl, {
 									method: "GET",
@@ -331,7 +338,9 @@ export async function downloadSignedDocument(
 					// PRIORITY 2: Fallback to files array only if download API still fails
 					// This is a fallback - download API should always work for completed projects
 					if (!buffer && attempt === maxRetries - 1) {
-						console.log("   - Download API failed after all retries, checking files array as final fallback...")
+						console.log(
+							"   - Download API failed after all retries, checking files array as final fallback..."
+						)
 						try {
 							const refreshedDetails = await getMyProjectDetails(projectUuid, userEmail)
 							const refreshedData = refreshedDetails?.data
@@ -379,17 +388,25 @@ export async function downloadSignedDocument(
 										if (fileResponse.ok) {
 											const arrayBuffer = await fileResponse.arrayBuffer()
 											buffer = Buffer.from(arrayBuffer)
-											console.log("✅ Successfully downloaded completed document from files array (fallback)")
+											console.log(
+												"✅ Successfully downloaded completed document from files array (fallback)"
+											)
 											console.log("   - Document size:", buffer.length, "bytes")
 											break // Success - exit retry loop
 										}
 									} catch (fetchError) {
-										console.warn("⚠️ Failed to download completed file from files array:", fetchError)
+										console.warn(
+											"⚠️ Failed to download completed file from files array:",
+											fetchError
+										)
 									}
 								}
 							}
 						} catch (refreshError) {
-							console.warn("⚠️ Failed to refresh project details for files array fallback:", refreshError)
+							console.warn(
+								"⚠️ Failed to refresh project details for files array fallback:",
+								refreshError
+							)
 						}
 					}
 				}

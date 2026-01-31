@@ -34,13 +34,20 @@ export const livenessValidations = createTable(
 		attemptNumber: t.integer().notNull().default(1),
 
 		// Validation result
-		status: t.varchar({ length: 50 }).notNull(), // "pass" | "fail"
+		status: t.varchar({ length: 50 }).notNull(), // "pending" | "pass" | "fail"
 
 		// Quick error reference (detailed info in HyperVerge)
 		errorMessage: t.text(),
 
+		// Stored decision payload (so UI can read DB without re-calling HyperVerge)
+		decisionJson: t.text(),
+
+		// Stored raw workflow output / webhook payload for debugging (optional)
+		rawResultJson: t.text(),
+
 		// Timestamp
 		createdAt: t.timestamp({ mode: "date", withTimezone: true }).notNull().defaultNow(),
+		updatedAt: t.timestamp({ mode: "date", withTimezone: true }).notNull().defaultNow(),
 	}),
 	table => [
 		index("liveness_validation_user_id_idx").on(table.userId),
@@ -48,6 +55,7 @@ export const livenessValidations = createTable(
 		index("liveness_validation_transaction_id_idx").on(table.transactionId),
 		index("liveness_validation_status_idx").on(table.status),
 		index("liveness_validation_created_at_idx").on(table.createdAt),
+		index("liveness_validation_updated_at_idx").on(table.updatedAt),
 		// Composite index for checking if user verified for specific meeting
 		index("liveness_validation_user_meeting_idx").on(table.userId, table.meetingId),
 	]

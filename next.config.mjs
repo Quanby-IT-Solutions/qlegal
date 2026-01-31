@@ -7,7 +7,7 @@ const nextConfig = {
 	// This avoids Windows symlink permission issues during local builds
 	// For Docker builds, set ENABLE_STANDALONE=true in the build environment
 	output: process.env.ENABLE_STANDALONE === "true" ? "standalone" : undefined,
-  typescript: { ignoreBuildErrors: true },
+	typescript: { ignoreBuildErrors: true },
 	typedRoutes: true,
 	reactCompiler: true,
 	devIndicators: {

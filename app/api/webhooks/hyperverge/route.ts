@@ -3,12 +3,15 @@ import { eq } from "drizzle-orm"
 
 import { db } from "@/services/drizzle/db"
 import { users } from "@/services/drizzle/schema/auth"
+import { kycSessions } from "@/services/drizzle/schema/kyc-sessions"
 import {
 	fetchImageUrlAsDataUrl,
 	getHyperVergeKycLogs,
 	pickBestFaceImageUrlFromLogs,
 	pickOcrFieldsFromLogs,
 } from "@/services/hyperverge/kyc-logs"
+
+import { saveIdCardDetails } from "@/features/kyc/lib/save-id-card-details"
 
 /**
  * HyperVerge webhook payload structure
@@ -74,21 +77,22 @@ export async function POST(request: NextRequest) {
 			console.log("⏳ KYC Needs Review via webhook")
 		}
 
-		// Find user by transaction ID
-		const user = await db.query.users.findFirst({
-			where: eq(users.kycTransactionId, transactionId),
-			columns: {
-				id: true,
-				email: true,
-				kycStatus: true,
-				kycReferenceIdImageBase64: true,
-				kycOcrExtractedFieldsJson: true,
-				status: true,
+		// Find KYC session by transaction ID
+		const kycSession = await db.query.kycSessions.findFirst({
+			where: eq(kycSessions.transactionId, transactionId),
+			with: {
+				user: {
+					columns: {
+						id: true,
+						email: true,
+						status: true,
+					},
+				},
 			},
 		})
 
-		if (!user) {
-			console.warn(`⚠️ No user found with transactionId: ${transactionId}`)
+		if (!kycSession || !kycSession.user) {
+			console.warn(`⚠️ No KYC session found with transactionId: ${transactionId}`)
 			// Still return 200 to acknowledge webhook receipt
 			return NextResponse.json({
 				success: true,
@@ -96,58 +100,86 @@ export async function POST(request: NextRequest) {
 			})
 		}
 
-		// Update user KYC status in database
-		const updateData: {
-			kycStatus: "PENDING" | "VERIFIED" | "REJECTED"
-			kycVerifiedAt?: Date
-			kycReferenceIdImageBase64?: string | null
-			kycReferenceCreatedAt?: Date | null
-			kycOcrExtractedFieldsJson?: string | null
-			kycOcrCreatedAt?: Date | null
-			status?: "ACTIVE" | "PENDING" | "SUSPENDED"
-		} = {
-			kycStatus,
-		}
+		const user = kycSession.user
 
+		// Update KYC session status
 		if (kycStatus === "VERIFIED") {
-			updateData.kycVerifiedAt = new Date()
-			// Auto-activate account on successful KYC.
-			// Never override SUSPENDED here.
-			if (user.status === "PENDING") {
-				updateData.status = "ACTIVE"
-			}
-
-			// Store hosted-KYC artifacts once (reference face + OCR fields).
-			// We use Logs API (recommended for full module outputs) because Output API may return minimal payloads.
-			if (!user.kycReferenceIdImageBase64 || !user.kycOcrExtractedFieldsJson) {
+			// Store hosted-KYC artifacts (reference face + OCR fields)
+			// We use Logs API (recommended for full module outputs)
+			let idCardDetailId: string | undefined
+			if (!kycSession.idCardDetailId) {
 				try {
 					const logs = await getHyperVergeKycLogs({ transactionId })
+					const imageUrl = pickBestFaceImageUrlFromLogs(logs)
+					const ocr = pickOcrFieldsFromLogs(logs)
 
-					if (!user.kycReferenceIdImageBase64) {
-						const imageUrl = pickBestFaceImageUrlFromLogs(logs)
+					if (ocr) {
+						let faceImageUrl: string | undefined
 						if (imageUrl) {
 							const dataUrl = await fetchImageUrlAsDataUrl(imageUrl)
 							if (dataUrl) {
-								updateData.kycReferenceIdImageBase64 = dataUrl
-								updateData.kycReferenceCreatedAt = new Date()
+								faceImageUrl = dataUrl
 							}
 						}
-					}
 
-					if (!user.kycOcrExtractedFieldsJson) {
-						const ocr = pickOcrFieldsFromLogs(logs)
-						if (ocr) {
-							updateData.kycOcrExtractedFieldsJson = JSON.stringify(ocr)
-							updateData.kycOcrCreatedAt = new Date()
-						}
+						// Save to id_card_details table
+						const idCardDetail = await saveIdCardDetails(db, {
+							userId: user.id,
+							rawOcrData: ocr,
+							ocrTransactionId: transactionId,
+							ocrProvider: "hyperverge",
+							faceImageUrl,
+							isVerified: true,
+							verifiedAt: new Date(),
+							verificationMethod: "kyc_mobile_link",
+						})
+						idCardDetailId = idCardDetail.id
 					}
 				} catch (e) {
 					console.warn("⚠️ Failed to fetch/store hosted KYC artifacts from Logs API:", e)
 				}
 			}
-		}
 
-		await db.update(users).set(updateData).where(eq(users.id, user.id))
+			// Update KYC session
+			await db
+				.update(kycSessions)
+				.set({
+					status: kycStatus,
+					idCardDetailId: idCardDetailId ?? kycSession.idCardDetailId,
+					verifiedAt: new Date(),
+					updatedAt: new Date(),
+				})
+				.where(eq(kycSessions.id, kycSession.id))
+
+			// Update user status
+			await db
+				.update(users)
+				.set({
+					kycStatus,
+					kycVerifiedAt: new Date(),
+					// Auto-activate account on successful KYC. Never override SUSPENDED.
+					status: user.status === "PENDING" ? "ACTIVE" : user.status,
+				})
+				.where(eq(users.id, user.id))
+		} else {
+			// Update KYC session for pending/rejected
+			await db
+				.update(kycSessions)
+				.set({
+					status: kycStatus,
+					updatedAt: new Date(),
+				})
+				.where(eq(kycSessions.id, kycSession.id))
+
+			// Update user status
+			await db
+				.update(users)
+				.set({
+					kycStatus,
+					kycVerifiedAt: kycStatus === "VERIFIED" ? new Date() : null,
+				})
+				.where(eq(users.id, user.id))
+		}
 
 		console.log(`✅ Updated user ${user.email} KYC status to ${kycStatus}`)
 

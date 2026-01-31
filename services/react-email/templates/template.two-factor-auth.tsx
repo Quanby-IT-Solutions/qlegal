@@ -17,11 +17,7 @@ interface TwoFactorAuthTemplateProps {
 	siteUrl?: string
 }
 
-export const TwoFactorAuthTemplate = ({
-	email,
-	token,
-	siteUrl = "http://localhost:3000",
-}: TwoFactorAuthTemplateProps) => {
+export const TwoFactorAuthTemplate = ({ email, token, siteUrl }: TwoFactorAuthTemplateProps) => {
 	const logoUrl = `${siteUrl}/LEGAL.png`
 
 	return (
@@ -150,7 +146,7 @@ export const TwoFactorAuthTemplate = ({
 TwoFactorAuthTemplate.PreviewProps = {
 	email: "john.doe@example.com",
 	token: "123456",
-	siteUrl: "http://localhost:3000",
+	siteUrl: "https://qlegal.quanbyit.com/",
 } as TwoFactorAuthTemplateProps
 
 export default TwoFactorAuthTemplate

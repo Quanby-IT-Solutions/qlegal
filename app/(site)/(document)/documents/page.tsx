@@ -1,18 +1,27 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import { Calendar, Download, Eye, FileText, Search, User, Award, Loader2 } from "lucide-react"
 import { format } from "date-fns"
+import { Award, Calendar, Download, Eye, FileText, Loader2, Search, User } from "lucide-react"
 import { toast } from "sonner"
 
+import { PageHeader } from "@/core/components/navbar/page-header"
 import { Badge } from "@/core/components/ui/badge"
 import { Button } from "@/core/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/core/components/ui/card"
+import {
+	Card,
+	CardContent,
+	CardDescription,
+	CardHeader,
+	CardTitle,
+} from "@/core/components/ui/card"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/core/components/ui/dialog"
 import { Input } from "@/core/components/ui/input"
 import { Skeleton } from "@/core/components/ui/skeleton"
-import { SimplePdfViewer } from "@/features/envelopes-lite/components/simple-pdf-viewer"
+
 import { trpc } from "@/services/trpc/client"
+
+import { SimplePdfViewer } from "@/features/envelopes-lite/components/simple-pdf-viewer"
 
 function formatDate(date: Date | string): string {
 	const d = typeof date === "string" ? new Date(date) : date
@@ -125,195 +134,202 @@ export default function DocumentsPage() {
 	}
 
 	return (
-		<div className="container mx-auto px-4 py-8">
-			<div className="mb-8">
-				<h1 className="mb-2 text-3xl font-bold">My Notarized Documents</h1>
-				<p className="text-muted-foreground">
-					View all documents that have been notarized for you
-				</p>
-			</div>
+		<div className="flex flex-1 flex-col">
+			{/* Header */}
+			<PageHeader items={[{ label: "Documents", href: "/documents" }]} />
 
-			{/* Search */}
-			<div className="mb-6">
-				<div className="relative">
-					<Search className="text-muted-foreground absolute left-3 top-1/2 size-4 -translate-y-1/2" />
-					<Input
-						type="text"
-						placeholder="Search by document name, notary, certificate number..."
-						value={searchQuery}
-						onChange={e => setSearchQuery(e.target.value)}
-						className="pl-10"
-					/>
-				</div>
-			</div>
+			{/* Main Content */}
+			<main className="flex-1 p-4 md:p-6 lg:p-8">
+				<div className="mx-auto max-w-7xl space-y-8">
+					{/* Title Section */}
+					<div className="space-y-2">
+						<h1 className="text-3xl font-bold tracking-tight">My Notarized Documents</h1>
+						<p className="text-muted-foreground mt-2">
+							View all documents that have been notarized for you
+						</p>
+					</div>
 
-			{/* Loading State */}
-			{isPending && (
-				<div className="space-y-4">
-					{Array.from({ length: 3 }).map((_, i) => (
-						<Card key={i}>
-							<CardContent className="p-6">
-								<Skeleton className="mb-4 h-6 w-3/4" />
-								<Skeleton className="mb-2 h-4 w-1/2" />
-								<Skeleton className="h-4 w-1/3" />
+					{/* Search */}
+					<div className="mb-6">
+						<div className="relative">
+							<Search className="text-muted-foreground absolute top-1/2 left-3 size-4 -translate-y-1/2" />
+							<Input
+								type="text"
+								placeholder="Search by document name, notary, certificate number..."
+								value={searchQuery}
+								onChange={e => setSearchQuery(e.target.value)}
+								className="pl-10"
+							/>
+						</div>
+					</div>
+
+					{/* Loading State */}
+					{isPending && (
+						<div className="space-y-4">
+							{Array.from({ length: 3 }).map((_, i) => (
+								<Card key={i}>
+									<CardContent className="p-6">
+										<Skeleton className="mb-4 h-6 w-3/4" />
+										<Skeleton className="mb-2 h-4 w-1/2" />
+										<Skeleton className="h-4 w-1/3" />
+									</CardContent>
+								</Card>
+							))}
+						</div>
+					)}
+
+					{/* Empty State */}
+					{!isPending && filteredDocuments.length === 0 && (
+						<Card>
+							<CardContent className="py-12 text-center">
+								<FileText className="text-muted-foreground mx-auto mb-4 size-12" />
+								<h3 className="mb-2 text-lg font-medium">No notarized documents found</h3>
+								<p className="text-muted-foreground">
+									{searchQuery
+										? "Try adjusting your search query."
+										: "You don't have any notarized documents yet."}
+								</p>
 							</CardContent>
 						</Card>
-					))}
-				</div>
-			)}
+					)}
 
-			{/* Empty State */}
-			{!isPending && filteredDocuments.length === 0 && (
-				<Card>
-					<CardContent className="py-12 text-center">
-						<FileText className="text-muted-foreground mx-auto mb-4 size-12" />
-						<h3 className="mb-2 text-lg font-medium">No notarized documents found</h3>
-						<p className="text-muted-foreground">
-							{searchQuery
-								? "Try adjusting your search query."
-								: "You don't have any notarized documents yet."}
-						</p>
-					</CardContent>
-				</Card>
-			)}
+					{/* Documents List */}
+					{!isPending && filteredDocuments.length > 0 && (
+						<div className="space-y-4">
+							{filteredDocuments.map(doc => {
+								const hasSignedDocument = !!doc.docoChainProjectUuid
+								const isDownloading = downloadingActId === doc.id
 
-			{/* Documents List */}
-			{!isPending && filteredDocuments.length > 0 && (
-				<div className="space-y-4">
-					{filteredDocuments.map(doc => {
-						const hasSignedDocument = !!doc.docoChainProjectUuid
-						const isDownloading = downloadingActId === doc.id
-
-						return (
-							<Card key={doc.id} className="transition-shadow hover:shadow-md">
-								<CardHeader>
-									<div className="flex items-start justify-between">
-										<div className="flex-1">
-											<CardTitle className="mb-2 flex items-center gap-2">
-												<FileText className="text-muted-foreground size-5" />
-												{doc.documentName}
-											</CardTitle>
-											<CardDescription className="flex flex-wrap items-center gap-4">
-												<span className="flex items-center gap-1.5">
-													<Calendar className="size-4" />
-													{formatDate(doc.executedAt)}
-												</span>
-												<span className="flex items-center gap-1.5">
-													<User className="size-4" />
-													{doc.enpName}
-												</span>
-												{doc.enpRollNumber && (
-													<span className="flex items-center gap-1.5">
-														<Award className="size-4" />
-														Roll #{doc.enpRollNumber}
-													</span>
-												)}
-											</CardDescription>
-										</div>
-										<Badge variant="outline">{getActTypeLabel(doc.actType)}</Badge>
-									</div>
-								</CardHeader>
-								<CardContent>
-									<div className="space-y-4">
-										<div className="space-y-2 text-sm">
-											{doc.certificateNumber && (
-												<div className="flex items-center gap-2">
-													<span className="text-muted-foreground font-medium">
-														Certificate Number:
-													</span>
-													<span className="font-mono">{doc.certificateNumber}</span>
+								return (
+									<Card key={doc.id} className="transition-shadow hover:shadow-md">
+										<CardHeader>
+											<div className="flex items-start justify-between">
+												<div className="flex-1">
+													<CardTitle className="mb-2 flex items-center gap-2">
+														<FileText className="text-muted-foreground size-5" />
+														{doc.documentName}
+													</CardTitle>
+													<CardDescription className="flex flex-wrap items-center gap-4">
+														<span className="flex items-center gap-1.5">
+															<Calendar className="size-4" />
+															{formatDate(doc.executedAt)}
+														</span>
+														<span className="flex items-center gap-1.5">
+															<User className="size-4" />
+															{doc.enpName}
+														</span>
+														{doc.enpRollNumber && (
+															<span className="flex items-center gap-1.5">
+																<Award className="size-4" />
+																Roll #{doc.enpRollNumber}
+															</span>
+														)}
+													</CardDescription>
 												</div>
-											)}
-											<div className="text-muted-foreground">
-												Notarized on {formatDate(doc.executedAt)}
+												<Badge variant="outline">{getActTypeLabel(doc.actType)}</Badge>
 											</div>
-										</div>
-										{/* View and Download Buttons */}
-										<div className="flex items-center gap-2">
-											<Button
-												variant="outline"
-												size="sm"
-												onClick={() => handleView(doc.id)}
-												disabled={!hasSignedDocument}
-												title={
-													hasSignedDocument
-														? "View signed document"
-														: "Signed document not available"
-												}
-											>
-												<Eye className="mr-2 size-4" />
-												View
-											</Button>
-											<Button
-												variant="outline"
-												size="sm"
-												onClick={() => handleDownload(doc.id, doc.documentName)}
-												disabled={!hasSignedDocument || isDownloading}
-												title={
-													hasSignedDocument
-														? "Download signed document"
-														: "Signed document not available"
-												}
-											>
-												{isDownloading ? (
-													<>
-														<Loader2 className="mr-2 size-4 animate-spin" />
-														Downloading...
-													</>
-												) : (
-													<>
-														<Download className="mr-2 size-4" />
-														Download
-													</>
-												)}
-											</Button>
+										</CardHeader>
+										<CardContent>
+											<div className="space-y-4">
+												<div className="space-y-2 text-sm">
+													{doc.certificateNumber && (
+														<div className="flex items-center gap-2">
+															<span className="text-muted-foreground font-medium">
+																Certificate Number:
+															</span>
+															<span className="font-mono">{doc.certificateNumber}</span>
+														</div>
+													)}
+													<div className="text-muted-foreground">
+														Notarized on {formatDate(doc.executedAt)}
+													</div>
+												</div>
+												{/* View and Download Buttons */}
+												<div className="flex items-center gap-2">
+													<Button
+														variant="outline"
+														size="sm"
+														onClick={() => handleView(doc.id)}
+														disabled={!hasSignedDocument}
+														title={
+															hasSignedDocument
+																? "View signed document"
+																: "Signed document not available"
+														}
+													>
+														<Eye className="mr-2 size-4" />
+														View
+													</Button>
+													<Button
+														variant="outline"
+														size="sm"
+														onClick={() => handleDownload(doc.id, doc.documentName)}
+														disabled={!hasSignedDocument || isDownloading}
+														title={
+															hasSignedDocument
+																? "Download signed document"
+																: "Signed document not available"
+														}
+													>
+														{isDownloading ? (
+															<>
+																<Loader2 className="mr-2 size-4 animate-spin" />
+																Downloading...
+															</>
+														) : (
+															<>
+																<Download className="mr-2 size-4" />
+																Download
+															</>
+														)}
+													</Button>
+												</div>
+											</div>
+										</CardContent>
+									</Card>
+								)
+							})}
+						</div>
+					)}
+
+					{/* Document View Dialog */}
+					<Dialog open={!!viewingActId} onOpenChange={open => !open && setViewingActId(null)}>
+						<DialogContent className="max-w-6xl">
+							<DialogHeader>
+								<DialogTitle>{viewingDocument?.documentName ?? "View Document"}</DialogTitle>
+							</DialogHeader>
+							<div className="flex min-h-[600px] flex-col">
+								{isFetchingSignedDocument && (
+									<div className="flex flex-1 items-center justify-center">
+										<div className="text-center">
+											<Loader2 className="mx-auto mb-4 size-8 animate-spin" />
+											<p className="text-muted-foreground">Loading document...</p>
 										</div>
 									</div>
-								</CardContent>
-							</Card>
-						)
-					})}
+								)}
+								{signedDocumentData?.documentUrl && !isFetchingSignedDocument && (
+									<div className="flex-1 overflow-hidden">
+										<SimplePdfViewer
+											fileUrl={signedDocumentData.documentUrl}
+											documentName={signedDocumentData.fileName}
+										/>
+									</div>
+								)}
+								{!signedDocumentData?.documentUrl && !isFetchingSignedDocument && viewingActId && (
+									<div className="flex flex-1 items-center justify-center">
+										<div className="text-center">
+											<FileText className="text-muted-foreground mx-auto mb-4 size-12" />
+											<p className="text-muted-foreground">
+												Unable to load document. Please try downloading it instead.
+											</p>
+										</div>
+									</div>
+								)}
+							</div>
+						</DialogContent>
+					</Dialog>
 				</div>
-			)}
-
-			{/* Document View Dialog */}
-			<Dialog open={!!viewingActId} onOpenChange={open => !open && setViewingActId(null)}>
-				<DialogContent className="max-w-6xl">
-					<DialogHeader>
-						<DialogTitle>
-							{viewingDocument?.documentName || "View Document"}
-						</DialogTitle>
-					</DialogHeader>
-					<div className="flex min-h-[600px] flex-col">
-						{isFetchingSignedDocument && (
-							<div className="flex flex-1 items-center justify-center">
-								<div className="text-center">
-									<Loader2 className="mx-auto mb-4 size-8 animate-spin" />
-									<p className="text-muted-foreground">Loading document...</p>
-								</div>
-							</div>
-						)}
-						{signedDocumentData?.documentUrl && !isFetchingSignedDocument && (
-							<div className="flex-1 overflow-hidden">
-								<SimplePdfViewer
-									fileUrl={signedDocumentData.documentUrl}
-									documentName={signedDocumentData.fileName}
-								/>
-							</div>
-						)}
-						{!signedDocumentData?.documentUrl && !isFetchingSignedDocument && viewingActId && (
-							<div className="flex flex-1 items-center justify-center">
-								<div className="text-center">
-									<FileText className="text-muted-foreground mx-auto mb-4 size-12" />
-									<p className="text-muted-foreground">
-										Unable to load document. Please try downloading it instead.
-									</p>
-								</div>
-							</div>
-						)}
-					</div>
-				</DialogContent>
-			</Dialog>
+			</main>
 		</div>
 	)
 }

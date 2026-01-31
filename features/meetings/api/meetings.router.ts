@@ -9,6 +9,12 @@ import {
 	getProjectDetails,
 	normalizeUrl,
 } from "@/services/doconchain"
+import {
+	ensureMeetingToken,
+	generateAndSetMeetingToken,
+	getMeetingToken,
+	setProjectToken,
+} from "@/services/doconchain/lib/token-cache"
 import { db } from "@/services/drizzle/db"
 import { appointments } from "@/services/drizzle/schema/appointments"
 import { users } from "@/services/drizzle/schema/auth"
@@ -90,13 +96,17 @@ function getCachedIsFullySigned(projectUuid: string): boolean | undefined {
 	return cached.isFullySigned
 }
 
-async function getIsFullySignedCached(projectUuid: string, userEmail?: string): Promise<boolean> {
+async function getIsFullySignedCached(
+	projectUuid: string,
+	userEmail?: string,
+	tokenOverride?: string
+): Promise<boolean> {
 	const now = Date.now()
 	const cached = signingStatusCache.get(projectUuid)
 	if (cached && cached.expiresAtMs > now) return cached.isFullySigned
 
 	try {
-		const status = await checkSigningStatus(projectUuid, userEmail)
+		const status = await checkSigningStatus(projectUuid, userEmail, tokenOverride)
 		const isFullySigned = !!status.isFullySigned
 		signingStatusCache.set(projectUuid, { isFullySigned, expiresAtMs: now + 60_000 })
 		return isFullySigned
@@ -285,7 +295,11 @@ export const meetingsRouter = createTRPCRouter({
 			const userMeetings = hasMore ? rows.slice(0, limit) : rows
 
 			const externalSignedByProjectUuid = new Map<string, boolean>()
-			const projectUuidsToCheck: Array<{ projectUuid: string; authEmail?: string }> = []
+			const projectUuidsToCheck: Array<{
+				projectUuid: string
+				authEmail?: string
+				meetingId?: string
+			}> = []
 
 			// Build a limited list of project UUIDs to check (most recent meetings first).
 			for (const mp of userMeetings) {
@@ -322,13 +336,23 @@ export const meetingsRouter = createTRPCRouter({
 					// Avoid duplicates in the same response.
 					if (projectUuidsToCheck.some(p => p.projectUuid === projectUuid)) continue
 
-					projectUuidsToCheck.push({ projectUuid, authEmail })
+					projectUuidsToCheck.push({
+						projectUuid,
+						authEmail,
+						meetingId: meeting.id,
+					})
 				}
 			}
 
 			// Run limited external checks with moderate concurrency.
+			// Use meeting-scoped token when available (ENP joined) to avoid 401s from email-based token.
 			await asyncPool(projectUuidsToCheck, 6, async item => {
-				const isFullySigned = await getIsFullySignedCached(item.projectUuid, item.authEmail)
+				const meetingToken = item.meetingId ? getMeetingToken(item.meetingId)?.token : undefined
+				const isFullySigned = await getIsFullySignedCached(
+					item.projectUuid,
+					item.authEmail,
+					meetingToken
+				)
 				externalSignedByProjectUuid.set(item.projectUuid, isFullySigned)
 			})
 
@@ -431,6 +455,12 @@ export const meetingsRouter = createTRPCRouter({
 			})
 		}
 
+		// Ensure ENP has a meeting-scoped DocoChain token as soon as they view the meeting.
+		// Use it for project creation and Edit Draft links so the first document never gets Sign link.
+		if (isEnpRole(ctx.session.user.role) && ctx.session.user.email) {
+			await ensureMeetingToken(input, ctx.session.user.email.trim().toLowerCase())
+		}
+
 		const acceptedParticipants = meeting.participants.filter(p => p.status === "ACCEPTED")
 		const pendingInvites = meeting.participants.filter(p => p.status === "PENDING")
 
@@ -473,11 +503,46 @@ export const meetingsRouter = createTRPCRouter({
 			})
 		}
 
+		// When ENP enters the room, always call the DocoChain generate-token API and store
+		// the result. Use it for project creation and Edit Draft links so the link is correct.
+		if (isEnpRole(ctx.session.user.role) && ctx.session.user.email) {
+			await generateAndSetMeetingToken(input, ctx.session.user.email.trim().toLowerCase())
+		}
+
 		return {
 			token: generateMeetingToken(),
 			roomId: meeting.roomId,
 		}
 	}),
+
+	// Ensure a fresh DocoChain token for the meeting (ENP only). Use to gate "Create Project"
+	// so the button stays disabled with a loader until we have a valid fresh token.
+	ensureDocoChainToken: protectedProcedure
+		.input(z.object({ meetingId: z.string().min(1) }))
+		.query(async ({ input, ctx }) => {
+			const meeting = await db.query.meetings.findFirst({
+				where: eq(meetings.id, input.meetingId),
+				columns: { id: true, createdById: true },
+				with: { participants: { columns: { userId: true, status: true } } },
+			})
+			if (!meeting) {
+				throw new TRPCError({ code: "NOT_FOUND", message: "Meeting not found" })
+			}
+			const isHost = meeting.createdById === ctx.session.user.id
+			const isAccepted = meeting.participants.some(
+				p => p.userId === ctx.session.user.id && p.status === "ACCEPTED"
+			)
+			if (!isHost && !isAccepted) {
+				throw new TRPCError({ code: "FORBIDDEN", message: "You don't have access to this meeting" })
+			}
+			if (isEnpRole(ctx.session.user.role) && ctx.session.user.email) {
+				await generateAndSetMeetingToken(
+					input.meetingId,
+					ctx.session.user.email.trim().toLowerCase()
+				)
+			}
+			return { ready: true }
+		}),
 
 	// Fetch VideoSDK recordings for a meeting (user must have access)
 	getRecordings: protectedProcedure
@@ -638,6 +703,7 @@ export const meetingsRouter = createTRPCRouter({
 					"JURAT",
 					"SIGNATURE_WITNESSING",
 				]),
+				fees: z.number().nonnegative().optional(), // ENP-only, set during upload
 			})
 		)
 		.mutation(async ({ ctx, input }) => {
@@ -733,6 +799,7 @@ export const meetingsRouter = createTRPCRouter({
 						docoChainProjectId: null, // No project yet - will be created after signers are set
 						docoChainRedirectUrl: null,
 						order: nextOrder, // Set order based on upload sequence
+						fees: input.fees ?? null,
 					})
 					.returning()
 
@@ -826,6 +893,11 @@ export const meetingsRouter = createTRPCRouter({
 			})
 		}
 
+		// Ensure ENP has a meeting-scoped DocoChain token when fetching documents (same as getById).
+		if (isEnpRole(ctx.session.user.role) && ctx.session.user.email) {
+			await ensureMeetingToken(input, ctx.session.user.email.trim().toLowerCase())
+		}
+
 		// Define type for document with nested signers
 		type DocumentWithSigners = InferSelectModel<typeof documents> & {
 			signers: { userId: string; signingOrder: number | null }[]
@@ -869,225 +941,266 @@ export const meetingsRouter = createTRPCRouter({
 		.mutation(async ({ ctx, input }) => {
 			const { documentId, meetingId } = input
 
-			const meeting = await db.query.meetings.findFirst({
-				where: eq(meetings.id, meetingId),
-				with: {
-					participants: {
-						with: {
-							user: {
-								columns: {
-									id: true,
-									email: true,
-									role: true,
+			try {
+				const meeting = await db.query.meetings.findFirst({
+					where: eq(meetings.id, meetingId),
+					with: {
+						participants: {
+							with: {
+								user: {
+									columns: {
+										id: true,
+										email: true,
+										role: true,
+									},
 								},
 							},
 						},
-					},
-					documents: {
-						where: eq(documents.id, documentId),
-						with: {
-							signers: { columns: { userId: true, signingOrder: true } },
+						documents: {
+							where: eq(documents.id, documentId),
+							with: {
+								signers: { columns: { userId: true, signingOrder: true } },
+							},
+						},
+						createdBy: {
+							columns: {
+								email: true,
+								role: true,
+							},
 						},
 					},
-					createdBy: {
-						columns: {
-							email: true,
-							role: true,
-						},
-					},
-				},
-			})
-
-			if (!meeting) {
-				throw new TRPCError({ code: "NOT_FOUND", message: "Meeting not found" })
-			}
-
-			// Find appointment associated with this meeting to get mode of notarization
-			const appointment = await db.query.appointments.findFirst({
-				where: or(
-					eq(appointments.lawyerId, meeting.createdById),
-					eq(appointments.clientId, meeting.participants[0]?.userId ?? "")
-				),
-			})
-
-			// Get mode of notarization (REN or IEN) from appointment
-			const modeOfNotarization = appointment?.modeOfNotarization ?? "REN"
-
-			const isHost = meeting.createdById === ctx.session.user.id
-			const isAccepted = meeting.participants.some(
-				p => p.userId === ctx.session.user.id && p.status === "ACCEPTED"
-			)
-			if (!isHost && !isAccepted) {
-				throw new TRPCError({ code: "FORBIDDEN", message: "You don't have access to this meeting" })
-			}
-
-			const document = meeting.documents.find(d => d.id === documentId)
-			if (!document) {
-				throw new TRPCError({ code: "NOT_FOUND", message: "Document not found in this meeting" })
-			}
-
-			// Check if project already exists
-			if (document.docoChainProjectId) {
-				throw new TRPCError({
-					code: "BAD_REQUEST",
-					message: "DocoChain project already exists for this document",
 				})
-			}
 
-			// Check if signers are set
-			const signerUserIds = new Set((document.signers ?? []).map(s => s.userId))
-			if (signerUserIds.size === 0) {
-				throw new TRPCError({
-					code: "BAD_REQUEST",
-					message: "Please select at least one signer before creating the project",
-				})
-			}
+				if (!meeting) {
+					throw new TRPCError({ code: "NOT_FOUND", message: "Meeting not found" })
+				}
 
-			// Get creator email (ENP)
-			let creatorEmail: string | undefined
-			if (isEnpRole(meeting.createdBy?.role)) {
-				creatorEmail = asNonEmptyEmail(meeting.createdBy?.email)
-			}
-			if (!creatorEmail) {
-				const enpParticipant = meeting.participants.find(
-					p => isEnpRole(p.user?.role) && !!p.user?.email
+				// Get mode of notarization (REN or IEN) from appointment when possible; default REN.
+				let modeOfNotarization = "REN"
+				try {
+					const firstParticipantId = meeting.participants[0]?.userId
+					const appointment = await db.query.appointments.findFirst({
+						where:
+							firstParticipantId !== undefined &&
+							firstParticipantId !== null &&
+							firstParticipantId !== ""
+								? or(
+										eq(appointments.lawyerId, meeting.createdById),
+										eq(appointments.clientId, firstParticipantId)
+									)
+								: eq(appointments.lawyerId, meeting.createdById),
+					})
+					if (appointment?.modeOfNotarization) modeOfNotarization = appointment.modeOfNotarization
+				} catch (e) {
+					console.warn("Appointment lookup failed for createDocoChainProject, using REN:", e)
+				}
+
+				const isHost = meeting.createdById === ctx.session.user.id
+				const isAccepted = meeting.participants.some(
+					p => p.userId === ctx.session.user.id && p.status === "ACCEPTED"
 				)
-				creatorEmail = asNonEmptyEmail(enpParticipant?.user?.email)
-			}
-			if (!creatorEmail && isEnpRole(ctx.session.user.role) && ctx.session.user.email) {
-				creatorEmail = asNonEmptyEmail(ctx.session.user.email)
-			}
+				if (!isHost && !isAccepted) {
+					throw new TRPCError({
+						code: "FORBIDDEN",
+						message: "You don't have access to this meeting",
+					})
+				}
 
-			if (!creatorEmail) {
-				throw new TRPCError({
-					code: "PRECONDITION_FAILED",
-					message: "ENP email is required for creating DocoChain project",
+				const document = meeting.documents.find(d => d.id === documentId)
+				if (!document) {
+					throw new TRPCError({ code: "NOT_FOUND", message: "Document not found in this meeting" })
+				}
+
+				// Check if project already exists
+				if (document.docoChainProjectId) {
+					throw new TRPCError({
+						code: "BAD_REQUEST",
+						message: "DocoChain project already exists for this document",
+					})
+				}
+
+				// Check if signers are set
+				const signerUserIds = new Set((document.signers ?? []).map(s => s.userId))
+				if (signerUserIds.size === 0) {
+					throw new TRPCError({
+						code: "BAD_REQUEST",
+						message: "Please select at least one signer before creating the project",
+					})
+				}
+
+				// Get creator email (ENP)
+				let creatorEmail: string | undefined
+				if (isEnpRole(meeting.createdBy?.role)) {
+					creatorEmail = asNonEmptyEmail(meeting.createdBy?.email)
+				}
+				if (!creatorEmail) {
+					const enpParticipant = meeting.participants.find(
+						p => isEnpRole(p.user?.role) && !!p.user?.email
+					)
+					creatorEmail = asNonEmptyEmail(enpParticipant?.user?.email)
+				}
+				if (!creatorEmail && isEnpRole(ctx.session.user.role) && ctx.session.user.email) {
+					creatorEmail = asNonEmptyEmail(ctx.session.user.email)
+				}
+
+				if (!creatorEmail) {
+					throw new TRPCError({
+						code: "PRECONDITION_FAILED",
+						message: "ENP email is required for creating DocoChain project",
+					})
+				}
+
+				// Download file from Supabase storage
+				if (!document.path) {
+					throw new TRPCError({
+						code: "BAD_REQUEST",
+						message: "Document file not found in storage. Please re-upload the document.",
+					})
+				}
+
+				const { getServiceRoleClient } = await import("@/services/supabase")
+				const supabase = getServiceRoleClient()
+				const { data: fileData, error: downloadError } = await supabase.storage
+					.from("documents")
+					.download(document.path)
+
+				if (downloadError || !fileData) {
+					throw new TRPCError({
+						code: "INTERNAL_SERVER_ERROR",
+						message: `Failed to download document from storage: ${downloadError?.message ?? "Unknown error"}`,
+					})
+				}
+
+				// Convert Blob to Buffer
+				const arrayBuffer = await fileData.arrayBuffer()
+				const fileBuffer = Buffer.from(arrayBuffer)
+
+				// Get ENP user ID from email
+				const enpUser = await db.query.users.findFirst({
+					where: eq(users.email, creatorEmail),
+					columns: { id: true },
 				})
-			}
 
-			// Download file from Supabase storage
-			if (!document.path) {
-				throw new TRPCError({
-					code: "BAD_REQUEST",
-					message: "Document file not found in storage. Please re-upload the document.",
+				if (!enpUser) {
+					throw new TRPCError({
+						code: "NOT_FOUND",
+						message: "ENP user not found",
+					})
+				}
+
+				// Get ENP profile
+				const enpProfile = await db.query.enpProfiles.findFirst({
+					where: eq(enpProfiles.userId, enpUser.id),
 				})
-			}
 
-			const { getServiceRoleClient } = await import("@/services/supabase")
-			const supabase = getServiceRoleClient()
-			const { data: fileData, error: downloadError } = await supabase.storage
-				.from("documents")
-				.download(document.path)
+				if (!enpProfile) {
+					throw new TRPCError({
+						code: "PRECONDITION_FAILED",
+						message: "ENP profile not found. Please complete your profile settings first.",
+					})
+				}
 
-			if (downloadError || !fileData) {
+				// Validate required fields
+				if (!enpProfile.enpName || !enpProfile.enpRoleNumber) {
+					throw new TRPCError({
+						code: "PRECONDITION_FAILED",
+						message:
+							"ENP profile is incomplete. Please complete your seal and notary information in settings.",
+					})
+				}
+
+				// Create document stamp from ENP profile
+				const documentStamp = {
+					seal: {
+						type: "seal",
+						enp_name: enpProfile.enpName,
+						enp_role_number: enpProfile.enpRoleNumber,
+					},
+					notary_info: {
+						type: "notary",
+						atty_name: enpProfile.enpName ?? "",
+						roll_no: enpProfile.rollNo ?? "",
+						roll_no_date: formatDateForStamp(enpProfile.rollNoDate),
+						commission_no: enpProfile.commissionNo ?? "",
+						commission_no_valid_until: formatDateForStamp(enpProfile.commissionNoValidUntil),
+						PTR_no: enpProfile.ptrNo ?? "",
+						PTR_no_location: enpProfile.ptrNoLocation ?? "",
+						PTR_no_date: formatDateForStamp(enpProfile.ptrNoDate),
+						IBP_no: enpProfile.ibpNo ?? "",
+						IBP_no_date: formatDateForStamp(enpProfile.ibpNoDate),
+						email: creatorEmail,
+						address: enpProfile.notaryAddress ?? "",
+						MCLE_no_period: enpProfile.mcleNoPeriod ?? "",
+						MCLE_no: enpProfile.mcleNo ?? "",
+						MCLE_no_date: formatDateForStamp(enpProfile.mcleNoDate),
+						mode_of_notarization: modeOfNotarization,
+					},
+				}
+
+				console.log("🔵 Creating DocoChain project for document:", document.name)
+				console.log("   - Document ID:", documentId)
+				console.log("   - Creator Email:", creatorEmail)
+
+				// Always ensure meeting-scoped token first (created when ENP enters via getById/getToken/getMeetingDocuments).
+				// Use it for project creation and Edit Draft so the first document never gets Sign link.
+				const projectToken = await ensureMeetingToken(meetingId, creatorEmail)
+				console.log("   - Using meeting-scoped token for project creation...")
+
+				const docoChainProject = await createProject({
+					title: document.name,
+					documentFile: fileBuffer,
+					fileName: document.name.endsWith(".pdf") ? document.name : `${document.name}.pdf`,
+					userListEditable: false,
+					creatorAsViewer: false,
+					documentStamp,
+					creatorEmail,
+					tokenOverride: projectToken,
+				})
+
+				const docoChainProjectId = docoChainProject.uuid
+
+				// Store the same token so Edit Draft links use it (same as project creation).
+				setProjectToken(docoChainProjectId, projectToken)
+				console.log(`✅ Stored project-specific token for ${docoChainProjectId.substring(0, 8)}...`)
+				const docoChainRedirectUrl = normalizeUrl(docoChainProject.redirectUrl) ?? null
+
+				// Update document with project UUID
+				await db
+					.update(documents)
+					.set({
+						docoChainProjectId,
+						docoChainRedirectUrl,
+					})
+					.where(eq(documents.id, documentId))
+
+				console.log("✅ DocoChain project created successfully!")
+				console.log("   - Project UUID:", docoChainProjectId)
+				console.log("   - Redirect URL:", docoChainRedirectUrl)
+
+				return {
+					success: true,
+					projectUuid: docoChainProjectId,
+					redirectUrl: docoChainRedirectUrl,
+				}
+			} catch (e) {
+				if (e instanceof TRPCError) throw e
+				console.error("createDocoChainProject error:", e)
+				const message = e instanceof Error ? e.message : "Unknown error during project creation"
+				const isUserFacing =
+					message.startsWith("Meeting not found") ||
+					message.startsWith("Document not found") ||
+					message.startsWith("You don't have access") ||
+					message.startsWith("DocoChain project already exists") ||
+					message.startsWith("Please select at least one signer") ||
+					message.startsWith("ENP ") ||
+					message.startsWith("Document file not found") ||
+					message.startsWith("Failed to download document")
 				throw new TRPCError({
 					code: "INTERNAL_SERVER_ERROR",
-					message: `Failed to download document from storage: ${downloadError?.message ?? "Unknown error"}`,
+					message: isUserFacing
+						? message
+						: "Failed to create DocoChain project. Please try again. If it persists, check your ENP profile and that the document was uploaded correctly.",
 				})
-			}
-
-			// Convert Blob to Buffer
-			const arrayBuffer = await fileData.arrayBuffer()
-			const fileBuffer = Buffer.from(arrayBuffer)
-
-			// Get ENP user ID from email
-			const enpUser = await db.query.users.findFirst({
-				where: eq(users.email, creatorEmail),
-				columns: { id: true },
-			})
-
-			if (!enpUser) {
-				throw new TRPCError({
-					code: "NOT_FOUND",
-					message: "ENP user not found",
-				})
-			}
-
-			// Get ENP profile
-			const enpProfile = await db.query.enpProfiles.findFirst({
-				where: eq(enpProfiles.userId, enpUser.id),
-			})
-
-			if (!enpProfile) {
-				throw new TRPCError({
-					code: "PRECONDITION_FAILED",
-					message: "ENP profile not found. Please complete your profile settings first.",
-				})
-			}
-
-			// Validate required fields
-			if (!enpProfile.enpName || !enpProfile.enpRoleNumber) {
-				throw new TRPCError({
-					code: "PRECONDITION_FAILED",
-					message:
-						"ENP profile is incomplete. Please complete your seal and notary information in settings.",
-				})
-			}
-
-			// Create document stamp from ENP profile
-			const documentStamp = {
-				seal: {
-					type: "seal",
-					enp_name: enpProfile.enpName,
-					enp_role_number: enpProfile.enpRoleNumber,
-				},
-				notary_info: {
-					type: "notary",
-					atty_name: enpProfile.enpName ?? "",
-					roll_no: enpProfile.rollNo ?? "",
-					roll_no_date: formatDateForStamp(enpProfile.rollNoDate),
-					commission_no: enpProfile.commissionNo ?? "",
-					commission_no_valid_until: formatDateForStamp(enpProfile.commissionNoValidUntil),
-					PTR_no: enpProfile.ptrNo ?? "",
-					PTR_no_location: enpProfile.ptrNoLocation ?? "",
-					PTR_no_date: formatDateForStamp(enpProfile.ptrNoDate),
-					IBP_no: enpProfile.ibpNo ?? "",
-					IBP_no_date: formatDateForStamp(enpProfile.ibpNoDate),
-					email: creatorEmail,
-					address: enpProfile.notaryAddress ?? "",
-					MCLE_no_period: enpProfile.mcleNoPeriod ?? "",
-					MCLE_no: enpProfile.mcleNo ?? "",
-					MCLE_no_date: formatDateForStamp(enpProfile.mcleNoDate),
-					mode_of_notarization: modeOfNotarization,
-				},
-			}
-
-			console.log("🔵 Creating DocoChain project for document:", document.name)
-			console.log("   - Document ID:", documentId)
-			console.log("   - Creator Email:", creatorEmail)
-			console.log("   - Ensuring token is valid...")
-
-			// Create DocoChain project
-			const docoChainProject = await createProject({
-				title: document.name,
-				documentFile: fileBuffer,
-				fileName: document.name.endsWith(".pdf") ? document.name : `${document.name}.pdf`,
-				userListEditable: false,
-				creatorAsViewer: false,
-				documentStamp,
-				creatorEmail,
-			})
-
-			const docoChainProjectId = docoChainProject.uuid
-			const docoChainRedirectUrl = normalizeUrl(docoChainProject.redirectUrl) ?? null
-
-			// Update document with project UUID
-			await db
-				.update(documents)
-				.set({
-					docoChainProjectId,
-					docoChainRedirectUrl,
-				})
-				.where(eq(documents.id, documentId))
-
-			console.log("✅ DocoChain project created successfully!")
-			console.log("   - Project UUID:", docoChainProjectId)
-			console.log("   - Redirect URL:", docoChainRedirectUrl)
-
-			return {
-				success: true,
-				projectUuid: docoChainProjectId,
-				redirectUrl: docoChainRedirectUrl,
 			}
 		}),
 
@@ -1398,6 +1511,7 @@ export const meetingsRouter = createTRPCRouter({
 
 			// Precompute DocoChain "fully signed" status per project UUID (cached)
 			const userEmail = getDocoChainAuthEmailForMeeting(meeting, ctx.session.user.email)
+			const meetingToken = getMeetingToken(meeting.id)?.token
 			const projectUuidsToCheck = new Set<string>()
 			for (const doc of meeting.documents ?? []) {
 				if (doc.docoChainProjectId) projectUuidsToCheck.add(doc.docoChainProjectId)
@@ -1405,7 +1519,7 @@ export const meetingsRouter = createTRPCRouter({
 
 			const externalSignedByProjectUuid = new Map<string, boolean>()
 			await asyncPool([...projectUuidsToCheck], 6, async projectUuid => {
-				const isFullySigned = await getIsFullySignedCached(projectUuid, userEmail)
+				const isFullySigned = await getIsFullySignedCached(projectUuid, userEmail, meetingToken)
 				externalSignedByProjectUuid.set(projectUuid, isFullySigned)
 			})
 
@@ -1433,6 +1547,14 @@ export const meetingsRouter = createTRPCRouter({
 
 				const isFullySigned = isSignedByRequests || isSignedByDocoChain
 
+				const rawFees = doc.fees
+				const feesVal: number | null =
+					rawFees !== null &&
+					rawFees !== undefined &&
+					typeof rawFees === "number" &&
+					!Number.isNaN(rawFees)
+						? rawFees
+						: null
 				return {
 					id: doc.id,
 					name: doc.name,
@@ -1440,6 +1562,7 @@ export const meetingsRouter = createTRPCRouter({
 					createdAt: doc.createdAt,
 					docoChainProjectId: doc.docoChainProjectId ?? null,
 					isFullySigned,
+					fees: feesVal,
 					signerSummary: {
 						total: signerTotal,
 						signed: signerSigned,

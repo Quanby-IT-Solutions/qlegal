@@ -13,12 +13,32 @@ interface CachedToken {
 const tokenCache = new Map<string, CachedToken>()
 // Track verification failures to prevent infinite loops
 const verificationFailureCount = new Map<string, number>()
+// CRITICAL: Map project UUIDs to the tokens that were used to create them.
+// This ensures each project always uses the token it was created with,
+// preventing DocoChain session conflicts when multiple projects exist.
+// Key: project UUID, Value: { token, storedAt }
+interface ProjectTokenEntry {
+	token: string
+	storedAt: number
+}
+const projectTokenCache = new Map<string, ProjectTokenEntry>()
+
+// Meeting-scoped token: generated when ENP joins. Used for project creation + Edit Draft links.
+// Key: meeting ID, Value: { token, email, storedAt }
+interface MeetingTokenEntry {
+	token: string
+	email: string
+	storedAt: number
+}
+const meetingTokenCache = new Map<string, MeetingTokenEntry>()
+
+// Refresh project/meeting token if it's older than this (2 minutes)
+const PROJECT_TOKEN_REFRESH_AGE_MS = 2 * 60 * 1000
 
 function isTokenValid(entry: CachedToken | undefined): entry is CachedToken {
 	return !!entry && Date.now() < entry.expiresAt - TOKEN_REFRESH_BUFFER_MS
 }
 
-const TOKEN_VERIFY_INTERVAL_MS = 10 * 60 * 1000 // 10 minutes
 const MAX_VERIFICATION_FAILURES = 3 // Stop verifying after 3 consecutive failures
 
 export async function generateToken(email?: string, forceRefresh = false): Promise<string> {
@@ -70,72 +90,68 @@ export async function getToken(email?: string, forceVerify = false): Promise<str
 	const cacheKey = email ?? env.DOCONCHAIN_EMAIL
 	const cached = tokenCache.get(cacheKey)
 
-	if (cached && isTokenValid(cached)) {
-		// Proactively verify token validity with DocoChain periodically
-		// so we can refresh before it causes downstream failures.
-		// Only verify periodically, not on every call, to avoid performance issues
-		const timeSinceLastVerify = Date.now() - cached.lastVerifiedAt
-		const timeUntilExpiration = cached.expiresAt - Date.now()
-		const shouldVerifyPeriodically = timeSinceLastVerify > TOKEN_VERIFY_INTERVAL_MS
-		// Also verify if token is close to expiration (within 15 minutes)
-		const shouldVerifyNearExpiration =
-			timeUntilExpiration < 15 * 60 * 1000 && timeSinceLastVerify > 2 * 60 * 1000 // At least 2 min since last verify
-		const shouldVerify = shouldVerifyPeriodically || shouldVerifyNearExpiration || forceVerify
+	// If we have a cached token, verify it before using
+	if (cached) {
 		const failureCount = verificationFailureCount.get(cacheKey) ?? 0
 
 		// Skip verification if we've had too many consecutive failures
 		// This prevents infinite loops when verification endpoint is having issues
-		if (shouldVerify && failureCount < MAX_VERIFICATION_FAILURES) {
+		if (failureCount < MAX_VERIFICATION_FAILURES) {
 			try {
 				const verify = await verifyAuthToken({
 					token: cached.token,
 					orgInviteCode: env.DOCONCHAIN_ORG_INVITE_CODE,
 				})
 
-				const status = String(verify?.data?.status ?? "").toLowerCase()
-				if (status === "active") {
+				const status = String(verify?.data?.status ?? "")
+					.toLowerCase()
+					.trim()
+				// Token is valid unless status is explicitly inactive
+				// API may return "active", "valid", or other positive values
+				const isInvalid = status === "inactive" || status === "expired" || status === ""
+				if (!isInvalid) {
 					// Token is valid - reset failure count and update timestamp
 					verificationFailureCount.delete(cacheKey)
 					tokenCache.set(cacheKey, { ...cached, lastVerifiedAt: Date.now() })
 					return cached.token
 				}
 
-				// Status is not active - token is likely expired or invalid
-				// If forceVerify is true, regenerate proactively to avoid 401 errors
-				// If forceVerify is false, still return cached token but log warning
-				// (will be regenerated when we get 401 error)
+				// Status indicates invalid - regenerate token
+				console.log(
+					`⚠️ Token verification failed (status: ${status || "(empty)"}) - token is invalid, regenerating...`
+				)
+				verificationFailureCount.delete(cacheKey) // Reset count since we're regenerating
+				// Invalidate and regenerate
+				tokenCache.delete(cacheKey)
+				return generateToken(email, true)
+			} catch {
+				// Verification endpoint itself failed (network error, etc.)
+				// If forceVerify is true, regenerate to be safe
+				// Otherwise, return cached token (might still be valid)
 				if (forceVerify) {
-					console.log(
-						`⚠️ Token verification failed (status: ${status}) - regenerating proactively...`
+					console.warn(
+						`⚠️ Token verification endpoint failed - regenerating token due to forceVerify=true`
 					)
-					verificationFailureCount.delete(cacheKey) // Reset count since we're regenerating
-					// Invalidate and regenerate
+					verificationFailureCount.delete(cacheKey)
 					tokenCache.delete(cacheKey)
 					return generateToken(email, true)
 				}
-
-				// Not forcing verification - increment failure count but still return cached token
-				// Will be regenerated reactively when we get 401
-				verificationFailureCount.set(cacheKey, failureCount + 1)
-				tokenCache.set(cacheKey, { ...cached, lastVerifiedAt: Date.now() })
-				console.warn(
-					`⚠️ Token verification failed (status: ${status}) but not forcing regeneration - will regenerate on 401`
-				)
-				return cached.token
-			} catch (error) {
-				// Verification endpoint itself failed (network error, etc.)
 				// Increment failure count but don't regenerate token - it might still be valid
 				verificationFailureCount.set(cacheKey, failureCount + 1)
-				// Update timestamp to avoid spamming verification, but don't reset failure count
+				// Update timestamp to avoid spamming verification
 				tokenCache.set(cacheKey, { ...cached, lastVerifiedAt: Date.now() })
 				return cached.token
 			}
+		} else {
+			// Too many verification failures - regenerate token to be safe
+			console.warn(`⚠️ Too many verification failures (${failureCount}) - regenerating token...`)
+			verificationFailureCount.delete(cacheKey)
+			tokenCache.delete(cacheKey)
+			return generateToken(email, true)
 		}
-
-		return cached.token
 	}
 
-	// No valid cached token - generate a new one
+	// No cached token - generate a new one
 	return generateToken(email, true)
 }
 
@@ -148,6 +164,137 @@ export function invalidateToken(email?: string): void {
 	tokenCache.delete(cacheKey)
 	// Also clear verification failure count when invalidating
 	verificationFailureCount.delete(cacheKey)
+}
+
+/**
+ * Store the token that was used to create a project.
+ * This ensures we can always use the same token for that project's operations.
+ */
+export function setProjectToken(projectUuid: string, token: string): void {
+	projectTokenCache.set(projectUuid, {
+		token,
+		storedAt: Date.now(),
+	})
+	console.log(`🔵 Stored token for project ${projectUuid.substring(0, 8)}...`)
+}
+
+/**
+ * Get the token that was used to create a project.
+ * Returns undefined if no token was stored for this project.
+ */
+export function getProjectToken(projectUuid: string): string | undefined {
+	const entry = projectTokenCache.get(projectUuid)
+	return entry?.token
+}
+
+/**
+ * Refresh the project token if it's older than PROJECT_TOKEN_REFRESH_AGE_MS.
+ * Returns the (possibly refreshed) token for the project.
+ */
+export async function getOrRefreshProjectToken(
+	projectUuid: string,
+	email?: string
+): Promise<string | undefined> {
+	const entry = projectTokenCache.get(projectUuid)
+	if (!entry) {
+		return undefined
+	}
+
+	const ageMs = Date.now() - entry.storedAt
+	if (ageMs > PROJECT_TOKEN_REFRESH_AGE_MS) {
+		console.log(`🔄 Project token is ${Math.round(ageMs / 1000 / 60)} minutes old - refreshing...`)
+		// Generate a fresh token and update the project token cache
+		const freshToken = await generateToken(email, true)
+		setProjectToken(projectUuid, freshToken)
+		return freshToken
+	}
+
+	return entry.token
+}
+
+/**
+ * Clear the stored token for a project (e.g., when project is deleted).
+ */
+export function clearProjectToken(projectUuid: string): void {
+	projectTokenCache.delete(projectUuid)
+}
+
+/**
+ * Store the DocoChain token for a meeting (generated when ENP joins).
+ * Used for project creation and Edit Draft link generation so the link is always correct.
+ */
+function redactEmail(email: string): string {
+	const at = email.indexOf("@")
+	if (at <= 0) return "***"
+	const local = email.slice(0, at)
+	const domain = email.slice(at + 1)
+	const show = local.length <= 2 ? "**" : `${local.slice(0, 2)}***`
+	return `${show}@${domain}`
+}
+
+export function setMeetingToken(meetingId: string, email: string, token: string): void {
+	meetingTokenCache.set(meetingId, {
+		token,
+		email,
+		storedAt: Date.now(),
+	})
+	console.log(
+		`🔵 Stored meeting-scoped DocoChain token for meeting ${meetingId.substring(0, 8)}... (ENP: ${redactEmail(email)})`
+	)
+}
+
+/**
+ * Get the meeting-scoped DocoChain token, if any.
+ */
+export function getMeetingToken(meetingId: string): { token: string; email: string } | undefined {
+	const entry = meetingTokenCache.get(meetingId)
+	return entry ? { token: entry.token, email: entry.email } : undefined
+}
+
+/**
+ * Get or refresh the meeting-scoped token. Returns undefined if none stored.
+ */
+export async function getOrRefreshMeetingToken(
+	meetingId: string,
+	email: string
+): Promise<string | undefined> {
+	const entry = meetingTokenCache.get(meetingId)
+	if (!entry) return undefined
+
+	const ageMs = Date.now() - entry.storedAt
+	if (ageMs > PROJECT_TOKEN_REFRESH_AGE_MS) {
+		console.log(`🔄 Meeting token is ${Math.round(ageMs / 1000 / 60)} minutes old - refreshing...`)
+		const freshToken = await generateToken(email, true)
+		setMeetingToken(meetingId, email, freshToken)
+		return freshToken
+	}
+	return entry.token
+}
+
+/**
+ * Ensure a meeting has a valid DocoChain token for the given ENP email.
+ * Call when ENP joins the meeting. Returns the token (existing or newly generated).
+ */
+export async function ensureMeetingToken(meetingId: string, email: string): Promise<string> {
+	const existing = await getOrRefreshMeetingToken(meetingId, email)
+	if (existing) return existing
+	const token = await generateToken(email, true)
+	setMeetingToken(meetingId, email, token)
+	return token
+}
+
+/**
+ * Always call the DocoChain generate-token API and store the result as the meeting token.
+ * Use when ENP enters the room (e.g. getToken) so we explicitly hit the API at that moment.
+ * Does not reuse cached meeting token.
+ */
+export async function generateAndSetMeetingToken(
+	meetingId: string,
+	email: string
+): Promise<string> {
+	const token = await generateToken(email, true)
+	setMeetingToken(meetingId, email, token)
+	return token
 }
 
 interface VerifyTokenParams {
@@ -178,7 +325,6 @@ export async function verifyAuthToken({ token, orgInviteCode }: VerifyTokenParam
 	)
 
 	if (!response.ok) {
-		const errorText = await response.text()
 		// Don't throw - return a result indicating failure instead
 		// This prevents infinite loops when verification itself fails
 		return {

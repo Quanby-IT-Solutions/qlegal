@@ -27,7 +27,7 @@ export const SiteSidebar = () => {
 	const userRole = session?.user?.role
 
 	return (
-		<Sidebar collapsible="icon" suppressHydrationWarning>
+		<Sidebar collapsible="icon" variant="sidebar" suppressHydrationWarning>
 			<SidebarHeader suppressHydrationWarning>
 				<SidebarMenu>
 					<SidebarMenuItem>

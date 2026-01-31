@@ -23,7 +23,7 @@ sequenceDiagram
     Router->>EE: emit("conversation:update", [userIds])
     Router-->>API: Return inserted message
     API-->>ClientA: Success response
-    
+
     Note over ClientA,ClientB: User B should receive update
     EE->>Router: Subscription receives event
     Router->>Router: Filter by conversationId
@@ -54,7 +54,8 @@ const newSinceLast = await db.query.messages.findMany({
 })
 ```
 
-**Impact**: 
+**Impact**:
+
 - On first subscription, ALL existing messages are re-sent via SSE
 - Creates duplicates in the UI
 - Wastes bandwidth and causes flickering
@@ -77,6 +78,7 @@ for await (const [convId, msg] of iterable) { ... }
 ```
 
 **Impact**: If a message is sent between when we query and when we start listening, it could be:
+
 - Missed entirely (if it arrives before we start listening)
 - Sent twice (if it's in DB query AND arrives as event)
 
@@ -117,12 +119,14 @@ for await (const [convId, msg] of iterable) { ... }
 **Location**: `app/(site)/messages/page.tsx` line 108-109
 
 **Problem**: After `sendMessage`, code manually refetches:
+
 ```typescript
 await messagesQuery.refetch()
 await getConversations.refetch()
 ```
 
-**Impact**: 
+**Impact**:
+
 - Mutation already invalidates these queries
 - Subscription will also invalidate them
 - Triple refetch is wasteful
@@ -142,14 +146,14 @@ onNewMessage: protectedProcedure
     }) as AsyncIterable<[string, MessageWithSender]>
 
     let lastMessageCreatedAt: Date | null = null
-    
+
     // Only fetch missed messages if lastEventId is provided
     if (opts.input.lastEventId) {
       const lastMsg = await db.query.messages.findFirst({
         where: eq(messages.id, opts.input.lastEventId),
       })
       lastMessageCreatedAt = lastMsg?.createdAt ?? null
-      
+
       if (lastMessageCreatedAt) {
         // Fetch ONLY messages created after lastMessageCreatedAt
         const newSinceLast = await db.query.messages.findMany({
@@ -160,7 +164,7 @@ onNewMessage: protectedProcedure
           orderBy: [asc(messages.createdAt)],
           with: { sender: { columns: {...} } },
         })
-        
+
         for (const msg of newSinceLast) {
           yield tracked(msg.id, msg)
           lastMessageCreatedAt = msg.createdAt
@@ -183,18 +187,18 @@ onNewMessage: protectedProcedure
 
 ```typescript
 trpc.messages.onNewMessage.useSubscription(
-  conversationId ? { conversationId, lastEventId: lastMessageId ?? undefined } : skipToken,
-  {
-    ...(conversationId && { enabled: true }),
-    onData: () => {
-      void utils.messages.getConversations.invalidate()
-      void utils.messages.getMessages.invalidate()
-    },
-    onError: (error) => {
-      console.error("Message subscription error:", error)
-      // Optionally: fallback to polling or show user notification
-    },
-  }
+	conversationId ? { conversationId, lastEventId: lastMessageId ?? undefined } : skipToken,
+	{
+		...(conversationId && { enabled: true }),
+		onData: () => {
+			void utils.messages.getConversations.invalidate()
+			void utils.messages.getMessages.invalidate()
+		},
+		onError: error => {
+			console.error("Message subscription error:", error)
+			// Optionally: fallback to polling or show user notification
+		},
+	}
 )
 ```
 
@@ -205,6 +209,7 @@ Remove manual `refetch()` calls after mutations - invalidation + subscription ha
 ### Fix 4: Ensure lastMessageId is Fresh
 
 Only pass `lastMessageId` when messages are loaded:
+
 ```typescript
 lastMessageId: messages && messages.length > 0 ? messages.at(-1)?.id : undefined
 ```

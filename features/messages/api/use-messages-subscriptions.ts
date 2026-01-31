@@ -28,9 +28,7 @@ export function useMessagesSubscriptions({
 	})
 
 	trpc.messages.onNewMessage.useSubscription(
-		conversationId
-			? { conversationId, lastEventId: lastMessageId ?? undefined }
-			: skipToken,
+		conversationId ? { conversationId, lastEventId: lastMessageId ?? undefined } : skipToken,
 		{
 			...(conversationId && { enabled: true }),
 			onData: () => {
