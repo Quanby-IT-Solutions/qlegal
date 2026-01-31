@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react"
 import {
 	addDays,
+	addMonths,
 	addWeeks,
 	endOfMonth,
 	endOfWeek,
@@ -10,6 +11,7 @@ import {
 	getWeek,
 	startOfMonth,
 	startOfWeek,
+	subMonths,
 	subWeeks,
 } from "date-fns"
 import {
@@ -20,6 +22,8 @@ import {
 	PlusIcon,
 } from "lucide-react"
 import { toast } from "sonner"
+
+import { DndContext, type DragEndEvent } from "@dnd-kit/core"
 
 import { Button } from "@/core/components/ui/button"
 import {
@@ -50,6 +54,7 @@ import { addHoursToDate } from "../lib/schedule-utils"
 import { EventDialog } from "./event-dialog"
 import { AgendaView } from "./schedule/views/agenda-view"
 import { DayView } from "./schedule/views/day-view"
+import { MonthView } from "./schedule/views/month-view"
 import { WeekView } from "./schedule/views/week-view"
 
 export interface EventCalendarProps {
@@ -67,7 +72,7 @@ export function EventCalendar({
 	onEventUpdate,
 	onEventDelete,
 	className,
-	initialView = "week",
+	initialView = "month",
 }: EventCalendarProps) {
 	const [currentDate, setCurrentDate] = useState<Date>(new Date())
 	const [view, setView] = useState<CalendarView>(initialView)
@@ -89,6 +94,9 @@ export function EventCalendar({
 			}
 
 			switch (e.key.toLowerCase()) {
+				case "m":
+					setView("month")
+					break
 				case "w":
 					setView("week")
 					break
@@ -108,7 +116,9 @@ export function EventCalendar({
 	}, [isEventDialogOpen])
 
 	const handlePrevious = () => {
-		if (view === "week") {
+		if (view === "month") {
+			setCurrentDate(subMonths(currentDate, 1))
+		} else if (view === "week") {
 			setCurrentDate(subWeeks(currentDate, 1))
 		} else if (view === "day") {
 			setCurrentDate(addDays(currentDate, -1))
@@ -119,7 +129,9 @@ export function EventCalendar({
 	}
 
 	const handleNext = () => {
-		if (view === "week") {
+		if (view === "month") {
+			setCurrentDate(addMonths(currentDate, 1))
+		} else if (view === "week") {
 			setCurrentDate(addWeeks(currentDate, 1))
 		} else if (view === "day") {
 			setCurrentDate(addDays(currentDate, 1))
@@ -277,17 +289,27 @@ export function EventCalendar({
 		setCurrentDate(newDate)
 	}
 
+	const handleDragEnd = (event: DragEndEvent) => {
+		const { active, over } = event
+		if (over && active?.id !== over?.id) {
+			// For now, we just log the drag operation
+			// In the future, this would trigger event move/update
+			console.log(`Dragged event ${active.id} to ${over.id}`)
+		}
+	}
+
 	return (
-		<div
-			className="bg-card flex flex-col rounded-lg border has-data-[slot=month-view]:flex-1"
-			style={
-				{
-					"--event-height": `${EventHeight}px`,
-					"--event-gap": `${EventGap}px`,
-					"--week-cells-height": `${WeekCellsHeight}px`,
-				} as React.CSSProperties
-			}
-		>
+		<DndContext onDragEnd={handleDragEnd}>
+			<div
+				className="bg-card flex flex-col rounded-lg border has-data-[slot=month-view]:flex-1"
+				style={
+					{
+						"--event-height": `${EventHeight}px`,
+						"--event-gap": `${EventGap}px`,
+						"--week-cells-height": `${WeekCellsHeight}px`,
+					} as React.CSSProperties
+				}
+			>
 			<div className={cn("flex items-center justify-between border-b p-2 sm:p-4", className)}>
 				<div className="flex items-center gap-1 sm:gap-4">
 					<div className="flex items-center sm:gap-2">
@@ -382,17 +404,20 @@ export function EventCalendar({
 								<ChevronDownIcon className="-me-1 opacity-60" size={16} aria-hidden="true" />
 							</Button>
 						</DropdownMenuTrigger>
-						<DropdownMenuContent align="end" className="min-w-32">
-							<DropdownMenuItem onClick={() => setView("week")}>
-								Week <DropdownMenuShortcut>W</DropdownMenuShortcut>
-							</DropdownMenuItem>
-							<DropdownMenuItem onClick={() => setView("day")}>
-								Day <DropdownMenuShortcut>D</DropdownMenuShortcut>
-							</DropdownMenuItem>
-							<DropdownMenuItem onClick={() => setView("agenda")}>
-								Agenda <DropdownMenuShortcut>A</DropdownMenuShortcut>
-							</DropdownMenuItem>
-						</DropdownMenuContent>
+					<DropdownMenuContent align="end" className="min-w-32">
+						<DropdownMenuItem onClick={() => setView("month")}>
+							Month <DropdownMenuShortcut>M</DropdownMenuShortcut>
+						</DropdownMenuItem>
+						<DropdownMenuItem onClick={() => setView("week")}>
+							Week <DropdownMenuShortcut>W</DropdownMenuShortcut>
+						</DropdownMenuItem>
+						<DropdownMenuItem onClick={() => setView("day")}>
+							Day <DropdownMenuShortcut>D</DropdownMenuShortcut>
+						</DropdownMenuItem>
+						<DropdownMenuItem onClick={() => setView("agenda")}>
+							Agenda <DropdownMenuShortcut>A</DropdownMenuShortcut>
+						</DropdownMenuItem>
+					</DropdownMenuContent>
 					</DropdownMenu>
 					<TooltipProvider>
 						<Tooltip>
@@ -424,27 +449,35 @@ export function EventCalendar({
 					</Button>
 				</div>
 			</div>
-			<div className="flex flex-1 flex-col p-2 sm:p-4">
-				{view === "week" && (
-					<WeekView
-						currentDate={currentDate}
-						events={events}
-						onEventSelect={handleEventSelect}
-						onEventCreate={handleEventCreate}
-					/>
-				)}
-				{view === "day" && (
-					<DayView
-						currentDate={currentDate}
-						events={events}
-						onEventSelect={handleEventSelect}
-						onEventCreate={handleEventCreate}
-					/>
-				)}
-				{view === "agenda" && (
-					<AgendaView currentDate={currentDate} events={events} onEventSelect={handleEventSelect} />
-				)}
-			</div>
+		<div className="flex flex-1 flex-col p-2 sm:p-4">
+			{view === "month" && (
+				<MonthView
+					currentDate={currentDate}
+					events={events}
+					onEventSelect={handleEventSelect}
+					onEventCreate={handleEventCreate}
+				/>
+			)}
+			{view === "week" && (
+				<WeekView
+					currentDate={currentDate}
+					events={events}
+					onEventSelect={handleEventSelect}
+					onEventCreate={handleEventCreate}
+				/>
+			)}
+			{view === "day" && (
+				<DayView
+					currentDate={currentDate}
+					events={events}
+					onEventSelect={handleEventSelect}
+					onEventCreate={handleEventCreate}
+				/>
+			)}
+			{view === "agenda" && (
+				<AgendaView currentDate={currentDate} events={events} onEventSelect={handleEventSelect} />
+			)}
+		</div>
 			<EventDialog
 				event={selectedEvent}
 				isOpen={isEventDialogOpen}
@@ -455,6 +488,7 @@ export function EventCalendar({
 				onSave={handleEventSave}
 				onDelete={handleEventDelete}
 			/>
-		</div>
+				</div>
+			</DndContext>
 	)
 }
