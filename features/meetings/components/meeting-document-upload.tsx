@@ -193,7 +193,7 @@ export function MeetingDocumentUpload({
 
 	return (
 		<Dialog open={isOpen} onOpenChange={handleOpenChange}>
-			<DialogContent className="max-w-[95vw] sm:max-w-3xl lg:max-w-4xl">
+			<DialogContent className="max-w-[95vw] sm:max-w-lg lg:max-w-xl">
 				<DialogHeader>
 					<DialogTitle className="flex items-center gap-2">
 						<Upload className="size-5" />
@@ -298,14 +298,10 @@ export function MeetingDocumentUpload({
 									<SelectValue placeholder="Select notarization type" />
 								</SelectTrigger>
 								<SelectContent>
-									<SelectItem value="ACKNOWLEDGMENT">Acknowledgment by Electronic Means</SelectItem>
-									<SelectItem value="AFFIRMATION">
-										Affirmation or Oath by Electronic Means
-									</SelectItem>
-									<SelectItem value="JURAT">Jurat by Electronic Means</SelectItem>
-									<SelectItem value="SIGNATURE_WITNESSING">
-										Signature Witnessing by Electronic Means
-									</SelectItem>
+									<SelectItem value="ACKNOWLEDGMENT">Acknowledgment</SelectItem>
+									<SelectItem value="AFFIRMATION">Affirmation or Oath</SelectItem>
+									<SelectItem value="JURAT">Jurat</SelectItem>
+									<SelectItem value="SIGNATURE_WITNESSING">Signature Witnessing</SelectItem>
 								</SelectContent>
 							</Select>
 							<p className="text-muted-foreground text-xs">
