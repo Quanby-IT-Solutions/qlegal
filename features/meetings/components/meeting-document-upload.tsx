@@ -152,11 +152,7 @@ export function MeetingDocumentUpload({
 				mimeType: selectedFile.type,
 				size: selectedFile.size,
 				description: description.trim() || undefined,
-				notarizationType: notarizationType as
-					| "ACKNOWLEDGMENT"
-					| "AFFIRMATION"
-					| "JURAT"
-					| "SIGNATURE_WITNESSING",
+				notarizationType,
 				...(isEnp && feesNum !== undefined && { fees: feesNum }),
 			})
 		} catch (error) {
