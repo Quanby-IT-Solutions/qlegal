@@ -88,6 +88,7 @@ function truncateFileName(fileName: string | null | undefined, maxLength = 20): 
 interface NotarialActRow {
 	id: string
 	executedAt: Date | string
+	meetingEndedAt?: Date | string | null
 	actType: string
 	workflow: string
 	principalName: string
@@ -196,9 +197,19 @@ function NotarialActCard({
 						<p className="text-muted-foreground text-xs">Witness: {act.witnessName}</p>
 					)}
 				</div>
+				<div className="text-muted-foreground flex flex-col gap-0.5 text-xs">
+					<span>
+						<strong className="text-foreground">Signed:</strong>{" "}
+						{format(new Date(act.executedAt), "MMM dd, yyyy · hh:mm a")}
+					</span>
+					{act.meetingEndedAt && (
+						<span>
+							<strong className="text-foreground">Meeting ended:</strong>{" "}
+							{format(new Date(act.meetingEndedAt), "MMM dd, yyyy · hh:mm a")}
+						</span>
+					)}
+				</div>
 				<div className="text-muted-foreground flex flex-wrap items-center gap-2 text-xs">
-					<span>{format(new Date(act.executedAt), "MMM dd, yyyy · hh:mm a")}</span>
-					<span>·</span>
 					<span>{act.location ?? "Philippines"}</span>
 					{act.certificateNumber && (
 						<>
@@ -285,19 +296,22 @@ export default function NotarialBook2Page() {
 		})
 	}, [])
 
-	// Fetch notarial book entries directly from DocoChain API (no sync required)
-	const {
-		data: notarialBookData,
-		isLoading,
-		isFetching,
-		refetch,
-	} = trpc.notarialBook.getNotarialBookFromAPI.useQuery({
+	// Only show DB notarial acts so entries appear only after "End Session" has been clicked.
+	// (DocoChain API returns "processing completed" when signing is done, which would show entries before End Session.)
+	const dbQuery = trpc.notarialBook.getNotarialBook.useQuery({
 		page,
 		perPage,
-		search: searchTerm || undefined,
+		search: searchTerm.trim() || undefined,
 		actType: actTypeFilter,
 		workflow: workflowFilter,
 	})
+
+	const notarialBookData = dbQuery.data
+	const isLoading = dbQuery.isLoading
+	const isFetching = dbQuery.isFetching
+	const refetch = useCallback(async () => {
+		await dbQuery.refetch()
+	}, [dbQuery])
 
 	// Export mutation (placeholder - can be enhanced to export from API data)
 	const exportMutation = trpc.notarialBook.exportNotarialBook.useMutation({
@@ -309,9 +323,13 @@ export default function NotarialBook2Page() {
 		},
 	})
 
-	const filteredActs = useMemo(() => {
-		// Search is already handled by the API endpoint
-		return notarialBookData?.acts ?? []
+	const filteredActs = useMemo((): NotarialActRow[] => {
+		const acts = (notarialBookData?.acts ?? []) as NotarialActRow[]
+		return [...acts].sort((a, b) => {
+			const dateA = new Date(a.executedAt).getTime()
+			const dateB = new Date(b.executedAt).getTime()
+			return dateB - dateA
+		})
 	}, [notarialBookData?.acts])
 
 	const handleExport = () => {
@@ -562,13 +580,18 @@ export default function NotarialBook2Page() {
 																		{(page - 1) * perPage + index + 1}
 																	</TableCell>
 																	<TableCell className="align-top whitespace-nowrap">
-																		<span className="text-xs sm:text-sm">
-																			{format(new Date(act.executedAt), "MMM dd, yyyy")}
-																		</span>
-																		<br />
-																		<span className="text-muted-foreground text-xs">
-																			{format(new Date(act.executedAt), "hh:mm a")}
-																		</span>
+																		<div className="text-xs sm:text-sm">
+																			<div>
+																				<span className="font-medium">Signed:</span>{" "}
+																				{format(new Date(act.executedAt), "MMM dd, yyyy · hh:mm a")}
+																			</div>
+																			{act.meetingEndedAt && (
+																				<div className="text-muted-foreground mt-0.5">
+																					<span className="font-medium">Meeting ended:</span>{" "}
+																					{format(new Date(act.meetingEndedAt), "MMM dd, yyyy · hh:mm a")}
+																				</div>
+																			)}
+																		</div>
 																	</TableCell>
 																	<TableCell className="min-w-0 align-top">
 																		<div className="flex items-center gap-1">

@@ -770,9 +770,11 @@ export const notarialBookRouter = createTRPCRouter({
 	 * Get notarial book entries for the current ENP
 	 * Uses Doc On Chain Passport API to fetch document history
 	 */
-	getNotarialBook: protectedProcedure.input(getNotarialBookSchema).query(async ({ ctx, input }) => {
+	getNotarialBook: protectedProcedure
+		.input(getNotarialBookSchema.optional().default({}))
+		.query(async ({ ctx, input }) => {
 		const userId = ctx.session.user.id
-		const { page, perPage, search, actType, workflow } = input
+		const { page, perPage, search, actType, workflow } = getNotarialBookSchema.parse(input ?? {})
 
 		// Verify user is an ENP
 		const user = await ctx.db.query.users.findFirst({

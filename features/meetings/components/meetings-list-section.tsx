@@ -714,7 +714,7 @@ export function MeetingsListSection() {
 																disabled={loadingMeetingId === meeting.id}
 															>
 																<StopCircle className="size-3.5" />
-																{loadingMeetingId === meeting.id ? "Ending..." : "End"}
+																{loadingMeetingId === meeting.id ? "Ending session..." : "End Session"}
 															</Button>
 														)}
 
@@ -909,7 +909,7 @@ export function MeetingsListSection() {
 														disabled={loadingMeetingId === meeting.id}
 													>
 														<StopCircle className="mr-2 size-4" />
-														{loadingMeetingId === meeting.id ? "Ending..." : "End Meeting"}
+														{loadingMeetingId === meeting.id ? "Ending session..." : "End Session"}
 													</Button>
 												)}
 

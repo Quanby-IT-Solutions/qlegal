@@ -328,22 +328,16 @@ function normalizeLink(link: string): string {
 	try {
 		const url = new URL(link)
 
-		// CRITICAL: Convert stg-app.doconchain.com to link.doconchain.com for Edit Draft Links
-		// Edit Draft Links should use link.doconchain.com, not stg-app.doconchain.com
-		// If the link has a short-code path (like /tJXEOq26), it should be an Edit Draft Link
-		const pathMatch = url.pathname.match(/^\/([a-zA-Z0-9]+)$/)
-		const isShortCodePath = pathMatch !== null
-
+		// CRITICAL: Always convert stg-app/app.doconchain.com to link.doconchain.com (never expose staging URL)
 		if (
-			isShortCodePath &&
-			(url.hostname.includes("stg-app.doconchain.com") ||
-				url.hostname.includes("app.doconchain.com"))
+			url.hostname.includes("stg-app.doconchain.com") ||
+			url.hostname.includes("app.doconchain.com")
 		) {
-			console.log("🔵 Converting stg-app.doconchain.com to link.doconchain.com for Edit Draft Link")
+			console.log("🔵 Converting stg-app/app.doconchain.com to link.doconchain.com")
 			url.hostname = "link.doconchain.com"
 		}
 
-		// CRITICAL: For Edit Draft Links (link.doconchain.com), clean up unwanted parameters
+		// CRITICAL: For link.doconchain.com, clean up unwanted parameters
 		// Edit Draft Links should ONLY have: api=true and api_token
 		// Remove parameters that are for Sign Links, not Edit Draft Links
 		if (url.hostname.includes("link.doconchain.com")) {
