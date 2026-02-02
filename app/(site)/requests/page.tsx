@@ -7,9 +7,6 @@ import { type IncomingItem } from "@/features/appointments/api/requests.router"
 import { RequestsClient } from "@/features/appointments/components/requests-client"
 
 export default async function RequestsPage() {
-	const session = await auth()
-	const isENP = session?.user?.role === "ENP"
-
 	const rawRequests = await trpc.requests.getIncomingRequests()
 
 	const incomingRequests = rawRequests.map(request => ({
@@ -33,13 +30,11 @@ export default async function RequestsPage() {
 
 	// Only fetch appointments if user is an ENP
 	let incomingAppointments: IncomingItem[] = []
-	if (isENP) {
-		const rawAppointments = await trpc.requests.getIncomingAppointmentsForENP()
-		incomingAppointments = rawAppointments.map(apt => ({
-			...apt,
-			workflow: apt.workflow as IncomingItem["workflow"],
-		})) as IncomingItem[]
-	}
+	const rawAppointments = await trpc.requests.getIncomingAppointmentsForENP()
+	incomingAppointments = rawAppointments.map(apt => ({
+		...apt,
+		workflow: apt.workflow as IncomingItem["workflow"],
+	})) as IncomingItem[]
 
 	const allIncomingItems = [...incomingRequests, ...incomingAppointments]
 
@@ -55,7 +50,7 @@ export default async function RequestsPage() {
 				<PageHeader items={[{ label: "Requests", href: "/requests" }]} />
 				<main className="flex-1 p-4 md:p-6 lg:p-8">
 					<div className="mx-auto max-w-7xl space-y-8">
-						<RequestsClient incomingRequests={allIncomingItems} isENP={isENP} />
+						<RequestsClient incomingRequests={allIncomingItems} />
 					</div>
 				</main>
 			</div>

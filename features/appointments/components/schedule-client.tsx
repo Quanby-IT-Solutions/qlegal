@@ -1,6 +1,7 @@
 "use client"
 
 import { useMemo } from "react"
+import { useSession } from "next-auth/react"
 import { toast } from "sonner"
 
 import type { Appointment } from "@/services/drizzle/schema/appointments"
@@ -21,6 +22,7 @@ interface ScheduleClientProps {
 }
 
 export function ScheduleClient({ scheduleData }: ScheduleClientProps) {
+	const { data: session } = useSession()
 	const utils = trpc.useUtils()
 
 	// Create event mutations
@@ -167,6 +169,7 @@ export function ScheduleClient({ scheduleData }: ScheduleClientProps) {
 					type: "enp-appointment",
 					appointmentType: apt.type,
 					status: apt.status,
+					ownerId: session?.user?.id,
 				},
 			}
 		})

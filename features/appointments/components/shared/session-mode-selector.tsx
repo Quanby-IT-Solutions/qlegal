@@ -47,7 +47,6 @@ export function SessionModeSelector({
 							borderColor: value === "REN" ? "hsl(var(--primary))" : undefined,
 							backgroundColor: value === "REN" ? "hsl(var(--primary) / 0.05)" : undefined,
 						}}
-						onClick={() => !disabled && onChange("REN")}
 					>
 						<FieldContent>
 							<div className="mb-2 flex items-center gap-2">
@@ -71,7 +70,6 @@ export function SessionModeSelector({
 							borderColor: value === "IEN" ? "hsl(var(--primary))" : undefined,
 							backgroundColor: value === "IEN" ? "hsl(var(--primary) / 0.05)" : undefined,
 						}}
-						onClick={() => !disabled && onChange("IEN")}
 					>
 						<FieldContent>
 							<div className="mb-2 flex items-center gap-2">

@@ -16,6 +16,7 @@ export interface CalendarEventMetadata {
 	status?: string
 	roomId?: string
 	timezone?: string
+	ownerId?: string
 }
 
 export interface CalendarEvent {

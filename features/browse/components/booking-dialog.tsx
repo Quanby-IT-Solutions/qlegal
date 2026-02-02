@@ -181,7 +181,7 @@ export function BookingDialog({ enpId, enpName, trigger }: BookingDialogProps) {
 	return (
 		<Dialog open={open} onOpenChange={setOpen}>
 			<DialogTrigger asChild>{trigger ?? <Button>Book Session</Button>}</DialogTrigger>
-			<DialogContent className="max-h-[90vh] w-[90vw] max-w-2xl!">
+			<DialogContent className="flex h-[85vh] max-h-[90vh] w-screen max-w-[1400px] flex-col">
 				<DialogHeader>
 					<DialogTitle>
 						{watchBookingMode === "CONSULTATION" ? "Book Consultation" : "Book Notarization"}
@@ -197,173 +197,173 @@ export function BookingDialog({ enpId, enpName, trigger }: BookingDialogProps) {
 				<Form {...form} key={open ? "booking-form" : "closed"}>
 					<form
 						onSubmit={form.handleSubmit(handleBooking)}
-						className="flex flex-1 flex-col gap-2 space-y-2 overflow-y-auto px-1"
+						className="flex flex-1 flex-col overflow-hidden"
 					>
-						{/* Service Type Selection */}
-						{/* Service Type Selection */}
-						<FormField
-							control={form.control}
-							name="bookingMode"
-							render={({ field }) => (
-								<FormItem>
-									<FormLabel className="text-base font-medium">Service Type</FormLabel>
-									<FormControl>
-										<div className="space-y-2">
-											<SessionTypeSelector
-												value={field.value}
-												onChange={field.onChange}
-												showHeading={false}
-											/>
-										</div>
-									</FormControl>
-									<FormMessage />
-								</FormItem>
-							)}
-						/>
-
-						{/* Session Mode Selection - Only for NOTARIZATION */}
-						{watchBookingMode === "NOTARIZATION" && (
-							<FormField
-								control={form.control}
-								name="workflowType"
-								render={({ field }) => (
-									<FormItem>
-										<FormLabel className="text-base font-medium">Session Mode</FormLabel>
-										<FormControl>
-											<div className="space-y-2">
-												<SessionModeSelector
+						{/* Scrollable form content */}
+						<div className="flex-1 overflow-y-auto px-1">
+							<div className="space-y-2 pr-1 pb-6">
+								{/* Service Type Selection */}
+								{/* Service Type Selection */}
+								<FormField
+									control={form.control}
+									name="bookingMode"
+									render={({ field }) => (
+										<FormItem>
+											<FormLabel className="text-base font-medium">Service Type</FormLabel>
+											<FormControl>
+												<SessionTypeSelector
 													value={field.value}
 													onChange={field.onChange}
 													showHeading={false}
 												/>
-											</div>
-										</FormControl>
-										<FormMessage />
-									</FormItem>
-								)}
-							/>
-						)}
-
-						{/* Date Selection */}
-						<FormField
-							control={form.control}
-							name="selectedDate"
-							render={({ field }) => (
-								<FormItem className="flex flex-col gap-2">
-									<FormLabel className="text-base font-medium">Date</FormLabel>
-									<Popover open={dateOpen} onOpenChange={setDateOpen}>
-										<PopoverTrigger asChild>
-											<FormControl>
-												<Button
-													variant="outline"
-													className={cn(
-														"w-full justify-start text-left font-normal",
-														!field.value && "text-muted-foreground"
-													)}
-												>
-													<CalendarIcon className="mr-2 size-4" />
-													{field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
-												</Button>
 											</FormControl>
-										</PopoverTrigger>
-										<PopoverContent className="w-auto p-0" align="start">
-											<Calendar
-												mode="single"
-												selected={field.value}
-												onSelect={value => {
-													field.onChange(value ?? new Date())
-													setDateOpen(false)
-												}}
-												initialFocus
-												disabled={date => date < new Date(new Date().setHours(0, 0, 0, 0))}
-											/>
-										</PopoverContent>
-									</Popover>
-									<FormMessage />
-								</FormItem>
-							)}
-						/>
+											<FormMessage />
+										</FormItem>
+									)}
+								/>
 
-						{/* Time Selection */}
-						{watchSelectedDate && (
-							<div className="space-y-4">
-								<div>
-									<label className="text-base font-medium">Time</label>
-								</div>
+								{/* Session Mode Selection - Only for NOTARIZATION */}
+								{watchBookingMode === "NOTARIZATION" && (
+									<FormField
+										control={form.control}
+										name="workflowType"
+										render={({ field }) => (
+											<FormItem>
+												<FormLabel className="text-base font-medium">Session Mode</FormLabel>
+												<FormControl>
+													<div className="space-y-2">
+														<SessionModeSelector
+															value={field.value}
+															onChange={field.onChange}
+															showHeading={false}
+														/>
+													</div>
+												</FormControl>
+												<FormMessage />
+											</FormItem>
+										)}
+									/>
+								)}
+
+								{/* Date Selection */}
 								<FormField
 									control={form.control}
-									name="hour"
+									name="selectedDate"
+									render={({ field }) => (
+										<FormItem className="flex flex-col gap-2">
+											<FormLabel className="text-base font-medium">Date</FormLabel>
+											<Popover open={dateOpen} onOpenChange={setDateOpen}>
+												<PopoverTrigger asChild>
+													<FormControl>
+														<Button
+															variant="outline"
+															className={cn(
+																"w-full justify-start text-left font-normal",
+																!field.value && "text-muted-foreground"
+															)}
+														>
+															<CalendarIcon className="mr-2 size-4" />
+															{field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
+														</Button>
+													</FormControl>
+												</PopoverTrigger>
+												<PopoverContent className="w-auto p-0" align="start">
+													<Calendar
+														mode="single"
+														selected={field.value}
+														onSelect={value => {
+															field.onChange(value ?? new Date())
+															setDateOpen(false)
+														}}
+														initialFocus
+														disabled={date => date < new Date(new Date().setHours(0, 0, 0, 0))}
+													/>
+												</PopoverContent>
+											</Popover>
+											<FormMessage />
+										</FormItem>
+									)}
+								/>
+
+								{/* Time Selection */}
+								{watchSelectedDate && (
+									<div className="space-y-4">
+										<div>
+											<label className="text-base font-medium">Time</label>
+										</div>
+										<FormField
+											control={form.control}
+											name="hour"
+											render={({ field }) => (
+												<FormItem>
+													<FormControl>
+														<div>
+															<FormField
+																control={form.control}
+																name="minute"
+																render={({ field: minuteField }) => (
+																	<FormItem>
+																		<FormControl>
+																			<Input type="hidden" {...minuteField} />
+																		</FormControl>
+																	</FormItem>
+																)}
+															/>
+															<FormField
+																control={form.control}
+																name="period"
+																render={({ field: periodField }) => (
+																	<FormItem>
+																		<FormControl>
+																			<Input type="hidden" {...periodField} />
+																		</FormControl>
+																	</FormItem>
+																)}
+															/>
+															<TimeWheelPicker
+																hour={field.value ?? "09"}
+																minute={form.watch("minute") ?? "00"}
+																period={form.watch("period") ?? "am"}
+																onHourChange={field.onChange}
+																onMinuteChange={value => form.setValue("minute", value)}
+																onPeriodChange={value => form.setValue("period", value)}
+																disabled={isBookingPending}
+															/>
+														</div>
+													</FormControl>
+													<FormMessage />
+												</FormItem>
+											)}
+										/>
+									</div>
+								)}
+
+								{/* Description */}
+								<FormField
+									control={form.control}
+									name="description"
 									render={({ field }) => (
 										<FormItem>
+											<FormLabel className="text-base font-medium">
+												Description (Optional)
+											</FormLabel>
 											<FormControl>
-												<div>
-													<FormField
-														control={form.control}
-														name="minute"
-														render={({ field: minuteField }) => (
-															<FormItem>
-																<FormControl>
-																	<Input type="hidden" {...minuteField} />
-																</FormControl>
-															</FormItem>
-														)}
-													/>
-													<FormField
-														control={form.control}
-														name="period"
-														render={({ field: periodField }) => (
-															<FormItem>
-																<FormControl>
-																	<Input type="hidden" {...periodField} />
-																</FormControl>
-															</FormItem>
-														)}
-													/>
-													<TimeWheelPicker
-														hour={field.value ?? "09"}
-														minute={form.watch("minute") ?? "00"}
-														period={form.watch("period") ?? "am"}
-														onHourChange={field.onChange}
-														onMinuteChange={value => form.setValue("minute", value)}
-														onPeriodChange={value => form.setValue("period", value)}
-														disabled={isBookingPending}
-													/>
-												</div>
+												<Textarea
+													placeholder="Add any additional notes or requirements for this booking..."
+													rows={3}
+													disabled={isBookingPending}
+													{...field}
+												/>
 											</FormControl>
 											<FormMessage />
 										</FormItem>
 									)}
 								/>
 							</div>
-						)}
+						</div>
 
-						{/* Description */}
-						<FormField
-							control={form.control}
-							name="description"
-							render={({ field }) => (
-								<FormItem>
-									<FormLabel className="text-base font-medium">Description (Optional)</FormLabel>
-									<FormControl>
-										<Textarea
-											placeholder="Add any additional notes or requirements for this booking..."
-											rows={3}
-											disabled={isBookingPending}
-											{...field}
-										/>
-									</FormControl>
-									<FormMessage />
-								</FormItem>
-							)}
-						/>
-
-						{/* !watchSelectedDate && (
-									<p className="text-muted-foreground text-center text-sm">
-										Please select a date and time to continue
-									</p>
-								) */}
-
-						<DialogFooter>
+						{/* Fixed Footer */}
+						<DialogFooter className="pt-2">
 							<Button
 								type="button"
 								variant="outline"
