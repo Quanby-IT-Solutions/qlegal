@@ -1287,9 +1287,13 @@ const DocumentActions = React.memo(function DocumentActions({
 	const isPrincipalWaitingForEnpToPlot = isPrincipal && isUserAddedAsSigner && isPendingOrNextGroup
 
 	// Both buttons visible when applicable. Disable by phase so the wrong link is never used.
-	// Plot Signature: ENP only, project exists, not signed. Disabled after successful plotting.
+	// Plot Signature: ENP only, project exists, not signed. Hide entirely after ENP confirms "Yes, I'm done".
 	const showPlotSignature =
-		isEnp && !!document.docoChainProjectId && !hasUserSigned && !allSignersSigned
+		isEnp &&
+		!!document.docoChainProjectId &&
+		!hasUserSigned &&
+		!allSignersSigned &&
+		!(userConfirmedPlottedDocumentIds?.has(document.id) ?? false)
 	// Sign Document: project exists, not all signed, user not yet signed, user is signer or ENP. Uses Sign link only.
 	const showSignDocument =
 		!!document.docoChainProjectId &&
@@ -3559,6 +3563,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 													})
 												}}
 												plotLinkReady={!!preGeneratedLinks.get(doc.id)?.link}
+												userConfirmedPlottedDocumentIds={userConfirmedPlottedDocumentIds}
 											/>
 										</CardContent>
 									</Card>
