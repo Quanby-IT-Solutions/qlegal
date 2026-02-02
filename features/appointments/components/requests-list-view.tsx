@@ -12,8 +12,6 @@ import {
 	XCircle,
 } from "lucide-react"
 
-import { PageHeader } from "@/core/components/navbar/page-header"
-import { Alert, AlertDescription } from "@/core/components/ui/alert"
 import { Avatar, AvatarFallback, AvatarImage } from "@/core/components/ui/avatar"
 import { Badge } from "@/core/components/ui/badge"
 import { Button } from "@/core/components/ui/button"
@@ -28,31 +26,13 @@ import {
 } from "@/core/components/ui/select"
 import { Skeleton } from "@/core/components/ui/skeleton"
 
-interface IncomingRequest {
-	id: string
-	title: string
-	description: string | null
-	status: string
-	workflow: string
-	priority?: string
-	createdAt: Date
-	updatedAt: Date
-	enpId: string
-	principalId: string
-	appointmentId: string | null
-	rejectReason: string | null
-	principal?: {
-		name?: string | null
-		image?: string | null
-	}
-	documents?: number
-}
+import type { IncomingItem } from "../api/requests.router"
 
 interface RequestsListViewProps {
-	incomingRequests: IncomingRequest[]
+	incomingRequests: IncomingItem[]
 	isRequestsLoading: boolean
-	onAccept: (request: IncomingRequest) => void
-	onReject: (request: IncomingRequest) => void
+	onAccept: (request: IncomingItem) => void
+	onReject: (request: IncomingItem) => void
 	onComplete: (requestId: string) => void
 	processingId: string | null
 }
@@ -78,10 +58,7 @@ export function RequestsListView({
 			!searchTerm ||
 			Boolean(request.title?.toLowerCase().includes(searchTerm.toLowerCase())) ||
 			Boolean(request.description?.toLowerCase().includes(searchTerm.toLowerCase())) ||
-			Boolean(
-				request.principal?.name &&
-				request.principal.name.toLowerCase().includes(searchTerm.toLowerCase())
-			)
+			Boolean(request.principal?.name?.toLowerCase().includes(searchTerm.toLowerCase()))
 		return matchesStatus && matchesWorkflow && matchesSearch
 	})
 

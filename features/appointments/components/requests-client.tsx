@@ -1,20 +1,17 @@
 "use client"
 
+import { useRouter } from "next/navigation"
 import { useState } from "react"
 import { toast } from "sonner"
 
-import { trpc, type IncomingItem } from "@/services/trpc/client"
+import { trpc } from "@/services/trpc/client"
 
+import type { IncomingItem } from "../api/requests.router"
 import { RejectDialog } from "./reject-dialog"
 import { RequestsListView } from "./requests-list-view"
 
-export function RequestsClient({
-	incomingRequests,
-	isENP,
-}: {
-	incomingRequests: IncomingItem[]
-	isENP: boolean
-}) {
+export function RequestsClient({ incomingRequests }: { incomingRequests: IncomingItem[] }) {
+	const router = useRouter()
 	const utils = trpc.useUtils()
 	const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null)
 	const [rejectDialogOpen, setRejectDialogOpen] = useState(false)
@@ -27,6 +24,7 @@ export function RequestsClient({
 			toast.success("Request status updated successfully!")
 			setRejectDialogOpen(false)
 			setProcessingId(null)
+			router.push("/meetings")
 		},
 		onError: error => {
 			toast.error("Failed to update request", {
@@ -42,6 +40,7 @@ export function RequestsClient({
 			await utils.requests.getIncomingAppointmentsForENP.invalidate()
 			toast.success("Appointment accepted successfully!")
 			setProcessingId(null)
+			router.push("/meetings")
 		},
 		onError: error => {
 			toast.error("Failed to accept appointment", {
@@ -73,7 +72,7 @@ export function RequestsClient({
 		if (item.source === "appointment") {
 			await confirmAppointmentMutation.mutateAsync({
 				appointmentId: item.id,
-				meetingLink: item.appointmentData?.meetingLink || "",
+				meetingLink: item.appointmentData?.meetingLink ?? "",
 			})
 		} else {
 			await updateStatusMutation.mutateAsync({
