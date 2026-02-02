@@ -66,6 +66,7 @@ export const appSidebarSections: NavSection[] = [
 				title: "Sessions",
 				url: "/meetings",
 				icon: Video01Icon,
+				roles: ["ENP", "PRINCIPAL"],
 			},
 			{
 				title: "Documents",
