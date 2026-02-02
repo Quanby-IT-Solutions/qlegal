@@ -84,7 +84,7 @@ export function BrowseENP() {
 					))}
 				</div>
 			) : enps.length > 0 ? (
-				<div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+				<div className="flex flex-wrap items-center justify-center gap-6 md:justify-start">
 					{enps.map(enp => (
 						<EnpCard key={enp.id} enp={enp} />
 					))}
