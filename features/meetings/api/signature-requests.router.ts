@@ -845,7 +845,10 @@ export const signatureRequestsRouter = createTRPCRouter({
 						console.log("✅ Signing link generated successfully")
 					} catch (signLinkError) {
 						console.error("❌ Failed to generate signing link:", signLinkError)
-						signingLink = `${env.DOCONCHAIN_APP_URL}/${actualProjectUuid}?email=${encodeURIComponent(email)}&api=true`
+						// Use link.doconchain.com (never stg-app) so the URL is not exposed with staging domain
+						const linkDomain =
+							env.DOCONCHAIN_API_URL.includes("stg") ? "https://link.doconchain.com" : "https://link.doconchain.com"
+						signingLink = `${linkDomain}/${actualProjectUuid}?api=true`
 					}
 				} else {
 					// Project is Draft OR user is plotting - ALWAYS use Edit Draft Link for plotting/signing
@@ -944,43 +947,25 @@ export const signatureRequestsRouter = createTRPCRouter({
 				if (signingLink) {
 					signingLink = normalizeUrl(signingLink) ?? signingLink
 
-					// Clean up the URL - ensure api=true is set and api_token is valid
-					// api_token is REQUIRED for document loading in all signing scenarios
+					// Clean up the URL: never expose stg-app, token, email, signer_role in the link
+					// api_token is still required for document loading (DocoChain requirement)
 					try {
 						const url = new URL(signingLink)
 
-						// CRITICAL: For Edit Draft Links (link.doconchain.com), remove unwanted parameters
-						// Edit Draft Links should ONLY have: api=true and api_token
-						// Remove: token, email, signer_role, page (these are for Sign Links, not Edit Draft Links)
-						// CRITICAL: When plotting, ensure we NEVER use stg-app.doconchain.com links - they redirect
-						if (url.hostname.includes("link.doconchain.com")) {
-							console.log("🔵 Cleaning Edit Draft Link - removing unwanted parameters...")
-							url.searchParams.delete("token") // Remove token parameter (not needed for Edit Draft Links)
-							url.searchParams.delete("email") // Remove email parameter (not needed for Edit Draft Links)
-							url.searchParams.delete("signer_role") // Remove signer_role parameter (not needed for Edit Draft Links)
-							url.searchParams.delete("page") // Remove page parameter (not needed for Edit Draft Links)
-
-							// CRITICAL: When plotting, ensure link is link.doconchain.com (not stg-app.doconchain.com)
-							// If somehow we got a stg-app link, convert it to link.doconchain.com
-							if (isPlotting === true && url.hostname.includes("stg-app.doconchain.com")) {
-								console.warn(
-									"⚠️ Plotting detected stg-app.doconchain.com link - converting to link.doconchain.com"
-								)
-								url.hostname = "link.doconchain.com"
-							}
-						} else if (isPlotting === true && url.hostname.includes("stg-app.doconchain.com")) {
-							// CRITICAL: When plotting, we should NEVER get stg-app.doconchain.com links
-							// If we do, it means something went wrong - convert to link.doconchain.com
-							console.error(
-								"❌ Plotting action received stg-app.doconchain.com link - this should not happen! Converting to link.doconchain.com..."
-							)
+						// ALWAYS convert stg-app.doconchain.com to link.doconchain.com (never expose staging URL)
+						if (
+							url.hostname.includes("stg-app.doconchain.com") ||
+							url.hostname.includes("app.doconchain.com")
+						) {
+							console.log("🔵 Converting stg-app/app.doconchain.com to link.doconchain.com")
 							url.hostname = "link.doconchain.com"
-							// Remove all sign link parameters
-							url.searchParams.delete("token")
-							url.searchParams.delete("email")
-							url.searchParams.delete("signer_role")
-							url.searchParams.delete("page")
 						}
+
+						// ALWAYS remove token, email, signer_role, page so they are not visible in the URL
+						url.searchParams.delete("token")
+						url.searchParams.delete("email")
+						url.searchParams.delete("signer_role")
+						url.searchParams.delete("page")
 
 						// Ensure api=true is set
 						url.searchParams.set("api", "true")

@@ -26,6 +26,8 @@ import { getServiceRoleClient } from "@/services/supabase"
 import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
 import { createMeetingRoom, fetchRecordings, generateMeetingToken } from "@/services/video-sdk"
 
+import { autoCreateNotarialAct } from "@/features/notarial-book/lib/auto-create-notarial-act"
+
 function isEnpRole(role: unknown): boolean {
 	if (typeof role !== "string") return false
 	return role.trim().toUpperCase() === "ENP"
@@ -658,6 +660,55 @@ export const meetingsRouter = createTRPCRouter({
 			.set({ status: "COMPLETED", updatedAt: new Date() })
 			.where(eq(meetings.id, input))
 			.returning()
+
+		// Populate notarial_book (one per ENP) and notarial_act (one per signed document) when the session ends.
+		// Entries appear on the notarial book page only after "End Session" has been clicked (not during signing).
+		try {
+			const meetingDocuments = await db.query.documents.findMany({
+				where: eq(documents.meetingId, input),
+				columns: { id: true, docoChainProjectId: true },
+			})
+			const docsWithProject = meetingDocuments.filter(
+				(doc): doc is typeof doc & { docoChainProjectId: string } => !!doc.docoChainProjectId
+			)
+			const enpUserId = ctx.session.user.id
+			const enpEmail = ctx.session.user.email ?? undefined
+			const meetingEndedAt = updatedMeeting?.updatedAt ?? new Date()
+			if (docsWithProject.length === 0) {
+				console.log(
+					"[endMeeting] No documents with docoChainProjectId for meeting",
+					input,
+					"- notarial book sync skipped"
+				)
+			} else {
+				const results = await Promise.allSettled(
+					docsWithProject.map(doc =>
+						autoCreateNotarialAct(
+							db,
+							doc.id,
+							doc.docoChainProjectId,
+							enpUserId,
+							enpEmail,
+							meetingEndedAt
+						)
+					)
+				)
+				const failed = results.filter(
+					(r): r is PromiseRejectedResult => r.status === "rejected"
+				)
+				if (failed.length > 0) {
+					console.error(
+						"[endMeeting] Notarial act creation failed for",
+						failed.length,
+						"document(s):",
+						failed.map(r => r.reason)
+					)
+				}
+			}
+		} catch (err) {
+			// Don't fail endMeeting if notarial sync fails (e.g. DocoChain API timeout in production)
+			console.error("[endMeeting] Notarial book sync failed:", err)
+		}
 
 		return { success: true, meeting: updatedMeeting }
 	}),

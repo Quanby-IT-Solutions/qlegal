@@ -292,6 +292,7 @@ function determineActType(
  * @param projectUuid - DocoChain project UUID
  * @param enpUserId - ID of the ENP who performed the notarial act
  * @param userEmail - Email of the ENP (for DocoChain API calls)
+ * @param meetingEndedAt - When the host clicked End Session (optional; set when creating from endMeeting)
  * @returns The created notarial act entry, or null if it already exists or creation fails
  */
 export async function autoCreateNotarialAct(
@@ -300,7 +301,8 @@ export async function autoCreateNotarialAct(
 	documentId: string,
 	projectUuid: string,
 	enpUserId: string,
-	userEmail?: string
+	userEmail?: string,
+	meetingEndedAt?: Date
 ): Promise<typeof notarialActs.$inferSelect | null> {
 	try {
 		// Get or create notarial book for this ENP
@@ -893,7 +895,8 @@ export async function autoCreateNotarialAct(
 				witnessIdNumber,
 				enpName: enpUserName,
 				enpRollNumber,
-				executedAt, // Used for chronological ordering
+				executedAt, // When document was signed completed (from signer/passport)
+				meetingEndedAt, // When the host clicked End Session
 				location,
 				ipAddress,
 				workflow,
