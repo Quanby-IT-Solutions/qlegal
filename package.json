@@ -13,6 +13,8 @@
 		"db:check": "drizzle-kit check",
 		"db:seed": "tsx services/drizzle/seed.ts",
 		"db:reset": "tsx services/drizzle/reset.ts",
+		"test:supreme-court": "cross-env SKIP_ENV_VALIDATION=1 tsx scripts/test-supreme-court-commission.ts",
+		"test:supreme-court-sync": "cross-env SKIP_ENV_VALIDATION=1 tsx scripts/test-supreme-court-sync.ts",
 		"check": "eslint && tsc --noEmit",
 		"build": "next build --turbopack",
 		"start": "next start",

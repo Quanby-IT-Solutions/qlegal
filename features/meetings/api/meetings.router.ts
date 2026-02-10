@@ -1111,14 +1111,39 @@ export const meetingsRouter = createTRPCRouter({
 
 				const { getServiceRoleClient } = await import("@/services/supabase")
 				const supabase = getServiceRoleClient()
-				const { data: fileData, error: downloadError } = await supabase.storage
+
+				// Try documents bucket first, then envelopes (signed docs may be in envelopes)
+				let fileData: Blob | null = null
+				let downloadError: { message?: string } | null = null
+
+				const { data: docData, error: docError } = await supabase.storage
 					.from("documents")
 					.download(document.path)
 
+				if (docData && !docError) {
+					fileData = docData
+				} else {
+					downloadError = docError
+					const { data: envelopeData, error: envelopeError } = await supabase.storage
+						.from("envelopes")
+						.download(document.path)
+
+					if (envelopeData && !envelopeError) {
+						fileData = envelopeData
+						downloadError = null
+					} else {
+						downloadError = envelopeError ?? docError
+					}
+				}
+
 				if (downloadError || !fileData) {
+					const errMsg =
+						typeof downloadError?.message === "string"
+							? downloadError.message
+							: JSON.stringify(downloadError ?? {})
 					throw new TRPCError({
-						code: "INTERNAL_SERVER_ERROR",
-						message: `Failed to download document from storage: ${downloadError?.message ?? "Unknown error"}`,
+						code: "NOT_FOUND",
+						message: `Document file not found in storage. Please re-upload the document. (${errMsg})`,
 					})
 				}
 

@@ -896,7 +896,8 @@ export const signatureRequestsRouter = createTRPCRouter({
 							editDraftResult = await generateEditDraftLink(
 								actualProjectUuid,
 								creatorEmail,
-								meetingToken
+								meetingToken,
+								isPlotting === true
 							)
 							signingLink = editDraftResult.link
 							console.log(
@@ -945,63 +946,58 @@ export const signatureRequestsRouter = createTRPCRouter({
 				}
 
 				if (signingLink) {
-					signingLink = normalizeUrl(signingLink) ?? signingLink
+					// For plotting: keep app URL and params (page, user_type, email, signer_role, api=true). Do not normalize.
+					// For signing: normalize to link.doconchain.com and remove token/email/signer_role/page.
+					if (isPlotting !== true) {
+						signingLink = normalizeUrl(signingLink) ?? signingLink
 
-					// Clean up the URL: never expose stg-app, token, email, signer_role in the link
-					// api_token is still required for document loading (DocoChain requirement)
-					try {
-						const url = new URL(signingLink)
+						try {
+							const url = new URL(signingLink)
 
-						// ALWAYS convert stg-app.doconchain.com to link.doconchain.com (never expose staging URL)
-						if (
-							url.hostname.includes("stg-app.doconchain.com") ||
-							url.hostname.includes("app.doconchain.com")
-						) {
-							console.log("🔵 Converting stg-app/app.doconchain.com to link.doconchain.com")
-							url.hostname = "link.doconchain.com"
-						}
-
-						// ALWAYS remove token, email, signer_role, page so they are not visible in the URL
-						url.searchParams.delete("token")
-						url.searchParams.delete("email")
-						url.searchParams.delete("signer_role")
-						url.searchParams.delete("page")
-
-						// Ensure api=true is set
-						url.searchParams.set("api", "true")
-
-						// Remove api_token ONLY if it's explicitly undefined or empty
-						if (url.searchParams.has("api_token")) {
-							const existingToken = url.searchParams.get("api_token")
-							if (!existingToken || existingToken === "undefined" || existingToken === "") {
-								url.searchParams.delete("api_token")
-								console.log("⚠️ Removed invalid/empty api_token from URL")
+							// Convert stg-app/app to link.doconchain.com for signing (not for plotting)
+							if (
+								url.hostname.includes("stg-app.doconchain.com") ||
+								url.hostname.includes("app.doconchain.com")
+							) {
+								console.log("🔵 Converting stg-app/app.doconchain.com to link.doconchain.com")
+								url.hostname = "link.doconchain.com"
 							}
-						}
 
-						// Always add api_token if missing (required for document loading)
-						// Use creator's email (ENP) for token generation as they own the project
-						// CRITICAL: Use the SAME token that was generated during project creation
-						// Don't invalidate/regenerate - use the cached token to ensure consistency
-						// The token was already generated fresh during project creation, so it has maximum validity
-						if (!url.searchParams.has("api_token")) {
-							console.log(
-								"🔵 Using cached token for signing link (same token from project creation)..."
-							)
-							const apiToken = await getToken(creatorEmail, false) // Use cached token, don't force regeneration
-							url.searchParams.set("api_token", apiToken)
-							console.log(
-								"✅ Added api_token to signing link (using token from project creation, required for document loading)"
-							)
-						}
+							url.searchParams.delete("token")
+							url.searchParams.delete("email")
+							url.searchParams.delete("signer_role")
+							url.searchParams.delete("page")
+							url.searchParams.set("api", "true")
 
-						signingLink = url.toString()
-					} catch {
-						// If URL parsing fails, signingLink is already normalized
+							if (url.searchParams.has("api_token")) {
+								const existingToken = url.searchParams.get("api_token")
+								if (!existingToken || existingToken === "undefined" || existingToken === "") {
+									url.searchParams.delete("api_token")
+									console.log("⚠️ Removed invalid/empty api_token from URL")
+								}
+							}
+
+							if (!url.searchParams.has("api_token")) {
+								console.log(
+									"🔵 Using cached token for signing link (same token from project creation)..."
+								)
+								const apiToken = await getToken(creatorEmail, false)
+								url.searchParams.set("api_token", apiToken)
+								console.log(
+									"✅ Added api_token to signing link (using token from project creation, required for document loading)"
+								)
+							}
+
+							signingLink = url.toString()
+						} catch {
+							// If URL parsing fails, signingLink is already normalized
+						}
 					}
 				}
 
-				const finalNormalizedLink = normalizeUrl(signingLink) ?? signingLink
+				// For plotting, return link as-is (app URL + page, user_type, email, signer_role, api=true). For signing, normalize.
+				const finalNormalizedLink =
+					isPlotting === true ? signingLink : (normalizeUrl(signingLink) ?? signingLink)
 
 				return {
 					success: true,

@@ -53,6 +53,7 @@ export const documentsRouter = createTRPCRouter({
 			id: act.id,
 			documentId: act.documentId,
 			documentName: act.documentName ?? act.document?.name ?? "Unknown Document",
+			documentDescription: act.documentDescription,
 			executedAt: act.executedAt,
 			enpName: act.enpName,
 			enpRollNumber: act.enpRollNumber,
@@ -60,6 +61,8 @@ export const documentsRouter = createTRPCRouter({
 			certificateUrl: act.certificateUrl,
 			docoChainProjectUuid: act.docoChainProjectUuid,
 			actType: act.actType as "ACKNOWLEDGMENT" | "AFFIRMATION" | "JURAT" | "SIGNATURE_WITNESSING",
+			workflow: act.workflow,
+			locationStatement: act.locationStatement,
 			document: act.document,
 		}))
 	}),

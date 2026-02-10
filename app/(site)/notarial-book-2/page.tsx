@@ -14,9 +14,11 @@ import {
 	Info,
 	LayoutGrid,
 	List,
+	Loader2,
 	RefreshCw,
+	User,
 } from "lucide-react"
-import { motion } from "motion/react"
+import { AnimatePresence, motion } from "motion/react"
 import { toast } from "sonner"
 
 import { PageHeader } from "@/core/components/navbar/page-header"
@@ -110,17 +112,21 @@ function NotarialActCard({
 	act,
 	entryIndex,
 	onViewDocument,
+	onDownloadDocument,
 	onViewCertificate,
 	onViewPrincipalId,
+	isDownloading,
 }: {
 	act: NotarialActRow
 	entryIndex: number
 	onViewDocument: (actId: string, documentName?: string) => void
+	onDownloadDocument: (actId: string, documentName?: string) => void
 	onViewCertificate: (actId: string) => void
 	onViewPrincipalId: (
 		principalName: string,
 		principalIdImageBase64: string | null | undefined
 	) => void
+	isDownloading?: boolean
 }) {
 	return (
 		<Card className="flex flex-col transition-shadow hover:shadow-md">
@@ -240,15 +246,35 @@ function NotarialActCard({
 						</Button>
 					)}
 					{(act.documentId ?? act.docoChainProjectUuid) && (
-						<Button
-							variant="outline"
-							size="sm"
-							className="flex-1"
-							onClick={() => onViewDocument(act.id, act.documentName ?? undefined)}
-						>
-							<Eye className="mr-1.5 size-3.5" />
-							Document
-						</Button>
+						<>
+							<Button
+								variant="outline"
+								size="sm"
+								className="flex-1"
+								onClick={() => onViewDocument(act.id, act.documentName ?? undefined)}
+							>
+								<Eye className="mr-1.5 size-3.5" />
+								Document
+							</Button>
+							{act.docoChainProjectUuid && (
+								<Button
+									variant="outline"
+									size="sm"
+									className="flex-1"
+									disabled={isDownloading}
+									onClick={() =>
+										onDownloadDocument(act.id, act.documentName ?? undefined)
+									}
+								>
+									{isDownloading ? (
+										<Loader2 className="mr-1.5 size-3.5 animate-spin" />
+									) : (
+										<Download className="mr-1.5 size-3.5" />
+									)}
+									{isDownloading ? "Downloading..." : "Download"}
+								</Button>
+							)}
+						</>
 					)}
 					{act.docoChainProjectUuid && (
 						<Button
@@ -264,6 +290,144 @@ function NotarialActCard({
 				</div>
 			</CardContent>
 		</Card>
+	)
+}
+
+function ExpandedActDetails({
+	act,
+	isExpanded,
+}: {
+	act: NotarialActRow
+	isExpanded: boolean
+}) {
+	const { data: signersData, isPending: isSignersLoading } =
+		trpc.notarialBook.getActSigners.useQuery(
+			{ actId: act.id },
+			{ enabled: isExpanded && !!act.docoChainProjectUuid }
+		)
+	const signers = signersData?.signers ?? []
+	const isSignerSigned = (s: { status?: string; signedAt?: string | null }) => {
+		const statusUpper = (s.status ?? "").toUpperCase()
+		return statusUpper === "SIGNED" || statusUpper === "COMPLETED" || !!s.signedAt
+	}
+
+	return (
+		<div className="space-y-4">
+			{/* Signatories section */}
+			<div>
+				<h4 className="mb-2 font-semibold text-sm">Signatories</h4>
+				{isSignersLoading ? (
+					<div className="flex items-center gap-2 py-2">
+						<Loader2 className="size-4 animate-spin" />
+						<span className="text-muted-foreground text-sm">Loading signers...</span>
+					</div>
+				) : signers.length === 0 ? (
+					<p className="text-muted-foreground py-2 text-sm">
+						No signer data available for this document.
+					</p>
+				) : (
+					<div className="space-y-2">
+						{signers.map(signer => {
+							const fullName = [signer.firstName, signer.lastName]
+								.filter(Boolean)
+								.join(" ")
+								.trim()
+							const displayName = fullName || signer.email || "Unknown"
+							const signed = isSignerSigned(signer)
+							return (
+								<div
+									key={signer.id}
+									className="bg-muted/50 flex items-center gap-3 rounded-lg border px-3 py-2"
+								>
+									<div className="bg-muted flex size-8 shrink-0 items-center justify-center rounded-full">
+										<User className="text-muted-foreground size-4" />
+									</div>
+									<div className="min-w-0 flex-1">
+										<p className="font-medium">{displayName}</p>
+										<p className="text-muted-foreground truncate text-xs">
+											{signer.email}
+											{signer.signedAt &&
+												!Number.isNaN(new Date(signer.signedAt).getTime()) && (
+													<>
+														{" "}
+														·{" "}
+														<span className="font-medium">Signed:</span>{" "}
+														{format(
+															new Date(signer.signedAt),
+															"MMM dd, yyyy · hh:mm a"
+														)}
+													</>
+												)}
+										</p>
+									</div>
+									<Badge
+										variant={signed ? "default" : "secondary"}
+										className={
+											signed
+												? "bg-green-600 text-xs dark:bg-green-700"
+												: "text-xs"
+										}
+									>
+										{signed ? "Signed" : signer.status ?? "Pending"}
+									</Badge>
+								</div>
+							)
+						})}
+					</div>
+				)}
+			</div>
+
+			{/* Act metadata row */}
+			<div className="text-muted-foreground flex flex-wrap items-baseline gap-x-3 gap-y-1.5 border-t pt-3 text-xs">
+				<span>
+					<span className="font-medium">Act type</span>{" "}
+					<Badge variant="outline" className="text-xs font-medium">
+						{act.actType}
+					</Badge>
+				</span>
+				<span>·</span>
+				<span>
+					<span className="font-medium">Workflow</span>{" "}
+					<Badge
+						variant={act.workflow === "REN" ? "default" : "secondary"}
+						className="text-xs font-medium"
+					>
+						{act.workflow}
+					</Badge>
+				</span>
+				<span>·</span>
+				<span>
+					<span className="font-medium">Location</span> {act.location ?? "Philippines"}
+				</span>
+				<span>·</span>
+				<span>
+					<span className="font-medium">Certificate #</span>{" "}
+					<span className="font-mono">{act.certificateNumber ?? "—"}</span>
+				</span>
+				{act.fees != null &&
+					typeof act.fees === "number" &&
+					!Number.isNaN(act.fees) && (
+						<>
+							<span>·</span>
+							<span>
+								<span className="font-medium">Fees</span> {act.fees.toFixed(2)}
+							</span>
+						</>
+					)}
+			</div>
+			{act.documentDescription && (
+				<div className="text-xs">
+					<span className="text-muted-foreground font-medium">Description:</span>{" "}
+					{act.documentDescription}
+				</div>
+			)}
+			{act.locationStatement && (
+				<div className="text-xs">
+					<span className="text-muted-foreground font-medium">Certification:</span>
+					<p className="text-foreground/90 mt-0.5 italic">{act.locationStatement}</p>
+				</div>
+			)}
+		</div>
 	)
 }
 
@@ -356,6 +520,42 @@ export default function NotarialBook2Page() {
 			documentName: documentName ?? "document.pdf",
 		})
 	}
+
+	// Download notarized document - fetch then trigger download, with loading state
+	const [downloadingActId, setDownloadingActId] = useState<string | null>(null)
+	const handleDownloadDocument = useCallback(
+		async (actId: string) => {
+			setDownloadingActId(actId)
+			try {
+				const url = `/api/notarial-book-2/documents/${actId}?download=1`
+				const res = await fetch(url, { credentials: "include" })
+				if (!res.ok) {
+					const text = await res.text()
+					throw new Error(text || `Download failed (${res.status})`)
+				}
+				const blob = await res.blob()
+				const contentDisposition = res.headers.get("Content-Disposition")
+				const fileNameMatch = contentDisposition?.match(/filename="?([^";\n]+)"?/)
+				const fileName = fileNameMatch?.[1] ?? "document.pdf"
+				const blobUrl = URL.createObjectURL(blob)
+				const a = document.createElement("a")
+				a.href = blobUrl
+				a.download = fileName
+				a.style.display = "none"
+				document.body.appendChild(a)
+				a.click()
+				document.body.removeChild(a)
+				URL.revokeObjectURL(blobUrl)
+			} catch (error) {
+				toast.error(
+					`Failed to download: ${error instanceof Error ? error.message : "Unknown error"}`
+				)
+			} finally {
+				setDownloadingActId(null)
+			}
+		},
+		[]
+	)
 
 	// View principal ID handler
 	const handleViewPrincipalId = (
@@ -538,21 +738,50 @@ export default function NotarialBook2Page() {
 												: "No completed notarial acts in the register yet."}
 										</p>
 									</div>
-								) : viewMode === "cards" ? (
-									<div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-										{filteredActs.map((act, index) => (
-											<NotarialActCard
-												key={act.id}
-												act={act}
-												entryIndex={(page - 1) * perPage + index + 1}
-												onViewDocument={handleViewDocument}
-												onViewCertificate={handleViewCertificate}
-												onViewPrincipalId={handleViewPrincipalId}
-											/>
-										))}
-									</div>
 								) : (
-									<div className="-mx-4 overflow-x-auto sm:mx-0">
+									<AnimatePresence mode="wait">
+										{viewMode === "cards" ? (
+											<motion.div
+												key="cards"
+												initial="hidden"
+												animate="visible"
+												exit="hidden"
+												variants={{
+													visible: { transition: { staggerChildren: 0.05 } },
+													hidden: {},
+												}}
+												className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3"
+											>
+												{filteredActs.map((act, index) => (
+													<motion.div
+														key={act.id}
+														variants={{
+															visible: { opacity: 1, y: 0 },
+															hidden: { opacity: 0, y: 12 },
+														}}
+														transition={{ duration: 0.25 }}
+													>
+														<NotarialActCard
+															act={act}
+															entryIndex={(page - 1) * perPage + index + 1}
+															onViewDocument={handleViewDocument}
+															onDownloadDocument={handleDownloadDocument}
+															onViewCertificate={handleViewCertificate}
+															onViewPrincipalId={handleViewPrincipalId}
+															isDownloading={downloadingActId === act.id}
+														/>
+													</motion.div>
+												))}
+											</motion.div>
+										) : (
+											<motion.div
+												key="table"
+												initial={{ opacity: 0 }}
+												animate={{ opacity: 1 }}
+												exit={{ opacity: 0 }}
+												transition={{ duration: 0.2 }}
+												className="-mx-4 overflow-x-auto sm:mx-0"
+											>
 										<div className="inline-block min-w-full align-middle">
 											<Table className="w-full">
 												<TableHeader>
@@ -670,6 +899,26 @@ export default function NotarialBook2Page() {
 																					variant="ghost"
 																					size="sm"
 																					className="size-7 p-0 sm:size-8"
+																					disabled={downloadingActId === act.id}
+																					onClick={() => handleDownloadDocument(act.id)}
+																					title={
+																						downloadingActId === act.id
+																							? "Downloading..."
+																							: "Download notarized document"
+																					}
+																				>
+																					{downloadingActId === act.id ? (
+																						<Loader2 className="size-3.5 animate-spin sm:size-4" />
+																					) : (
+																						<Download className="size-3.5 sm:size-4" />
+																					)}
+																				</Button>
+																			)}
+																			{act.docoChainProjectUuid && (
+																				<Button
+																					variant="ghost"
+																					size="sm"
+																					className="size-7 p-0 sm:size-8"
 																					onClick={() => handleViewCertificate(act.id)}
 																					title="View Certificate"
 																				>
@@ -711,91 +960,11 @@ export default function NotarialBook2Page() {
 																			}}
 																			className="overflow-hidden"
 																		>
-																			<div className="space-y-2.5 px-4 py-3 text-xs leading-snug sm:px-6">
-																				<div className="flex flex-wrap items-baseline gap-x-3 gap-y-1.5">
-																					<span>
-																						<span className="text-muted-foreground">Act type</span>{" "}
-																						<Badge
-																							variant="outline"
-																							className="text-xs font-medium"
-																						>
-																							{act.actType}
-																						</Badge>
-																					</span>
-																					<span className="text-muted-foreground">·</span>
-																					<span>
-																						<span className="text-muted-foreground">Workflow</span>{" "}
-																						<Badge
-																							variant={
-																								act.workflow === "REN" ? "default" : "secondary"
-																							}
-																							className="text-xs font-medium"
-																						>
-																							{act.workflow}
-																						</Badge>
-																					</span>
-																					<span className="text-muted-foreground">·</span>
-																					<span>
-																						<span className="text-muted-foreground">Location</span>{" "}
-																						{act.location ?? "Philippines"}
-																					</span>
-																					<span className="text-muted-foreground">·</span>
-																					<span>
-																						<span className="text-muted-foreground">
-																							Certificate #
-																						</span>{" "}
-																						<span className="font-mono">
-																							{act.certificateNumber ?? "—"}
-																						</span>
-																					</span>
-																					<span className="text-muted-foreground">·</span>
-																					<span>
-																						<span className="text-muted-foreground">Fees</span>{" "}
-																						{act.fees != null &&
-																						typeof act.fees === "number" &&
-																						!Number.isNaN(act.fees)
-																							? act.fees.toFixed(2)
-																							: "—"}
-																					</span>
-																					{act.principalIdNumber && (
-																						<>
-																							<span className="text-muted-foreground">·</span>
-																							<span>
-																								<span className="text-muted-foreground">ID</span>{" "}
-																								{act.principalIdNumber}
-																							</span>
-																						</>
-																					)}
-																					{act.witnessName && (
-																						<>
-																							<span className="text-muted-foreground">·</span>
-																							<span>
-																								<span className="text-muted-foreground">
-																									Witness
-																								</span>{" "}
-																								{act.witnessName}
-																							</span>
-																						</>
-																					)}
-																				</div>
-																				{act.documentDescription && (
-																					<p className="text-foreground/90">
-																						<span className="text-muted-foreground">
-																							Description:
-																						</span>{" "}
-																						{act.documentDescription}
-																					</p>
-																				)}
-																				{act.locationStatement && (
-																					<div>
-																						<span className="text-muted-foreground">
-																							Certification:
-																						</span>
-																						<p className="text-foreground/80 mt-0.5 italic">
-																							{act.locationStatement}
-																						</p>
-																					</div>
-																				)}
+																			<div className="px-4 py-3 sm:px-6">
+																				<ExpandedActDetails
+																					act={act as NotarialActRow}
+																					isExpanded={isExpanded}
+																				/>
 																			</div>
 																		</motion.div>
 																	</TableCell>
@@ -806,7 +975,9 @@ export default function NotarialBook2Page() {
 												</TableBody>
 											</Table>
 										</div>
-									</div>
+											</motion.div>
+										)}
+									</AnimatePresence>
 								)}
 							</CardContent>
 						</Card>

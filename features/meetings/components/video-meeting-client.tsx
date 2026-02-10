@@ -18,6 +18,7 @@ import {
 	FileText,
 	FileUp,
 	GripVertical,
+	Loader2,
 	Lock,
 	Mic,
 	MicOff,
@@ -1789,6 +1790,8 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 				isFullySigned: boolean
 				signedCount: number
 				totalSigners: number
+				projectStatus?: string
+				completedAt?: string | null
 				signers: Array<{
 					id: number
 					email: string
@@ -1907,6 +1910,8 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 						isFullySigned: boolean
 						signedCount: number
 						totalSigners: number
+						projectStatus?: string
+						completedAt?: string | null
 						signers: Array<{
 							id: number
 							email: string
@@ -1927,6 +1932,8 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 							isFullySigned: status.isFullySigned,
 							signedCount: status.signedCount,
 							totalSigners: status.totalSigners,
+							projectStatus: status.projectStatus,
+							completedAt: status.completedAt,
 							signers: status.signers || [],
 						})
 					}
@@ -1944,6 +1951,8 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 							current.isFullySigned === entry.isFullySigned &&
 							current.signedCount === entry.signedCount &&
 							current.totalSigners === entry.totalSigners &&
+							current.projectStatus === entry.projectStatus &&
+							current.completedAt === entry.completedAt &&
 							current.signers.length === entry.signers.length
 
 						if (!same) {
@@ -2049,7 +2058,8 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 		},
 	})
 
-	// Ensure fresh DocoChain token before enabling "Create Project". Loader shows until ready.
+	// Ensure DocoChain token as soon as ENP enters the meeting (not just when Create Project is needed).
+	// This fixes Edit Draft links being wrong until page refresh - token must be ready before any link generation.
 	const hasAnyCreateProjectEligibleDoc =
 		(documents ?? []).some(
 			d =>
@@ -2064,7 +2074,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 	} = trpc.meetings.ensureDocoChainToken.useQuery(
 		{ meetingId: meetingId ?? "" },
 		{
-			enabled: !!(meetingId ?? "").trim() && !!isEnp && !!hasAnyCreateProjectEligibleDoc,
+			enabled: !!(meetingId ?? "").trim() && !!isEnp,
 			retry: false,
 			staleTime: 60_000, // Treat as fresh for 1 min so we don't refetch constantly
 		}
@@ -2441,8 +2451,9 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 				return
 			}
 
-			// ALWAYS normalize the URL - ensure api=true is set
-			signingLink = normalizeUrl(signingLink) ?? signingLink
+			// For plotting, keep link as-is (app URL + page, user_type, email, signer_role, api=true). For signing, normalize.
+			const wasPlotting = isPlottingActionRef.current
+			if (!wasPlotting) signingLink = normalizeUrl(signingLink) ?? signingLink
 
 			// Validate it's a proper URL
 			try {
@@ -2454,8 +2465,6 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 			}
 
 			console.log("✅ Signing process initiated successfully! Project UUID:", data.projectUuid)
-
-			const wasPlotting = isPlottingActionRef.current
 
 			// Open DocoChain signing page in popup window (iframe blocked by DocoChain)
 			// Open in popup window with specific dimensions (centered, almost fullscreen)
@@ -2552,7 +2561,8 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 				if (plotting) plotPopupDocumentIdRef.current = documentId
 
 				let signingLink = preGenerated.link
-				signingLink = normalizeUrl(signingLink) ?? signingLink
+				// For plotting, keep link as-is (app URL + page, user_type, email, signer_role, api=true)
+				if (!plotting) signingLink = normalizeUrl(signingLink) ?? signingLink
 
 				try {
 					new URL(signingLink)
@@ -3340,6 +3350,12 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 										(signingStatus?.signedCount ?? 0) === (signingStatus?.totalSigners ?? 0) &&
 										(signingStatus?.signedCount ?? 0) > 0) ||
 									false
+								// Document is COMPLETED when DocoChain has finished processing (seal + signature applied)
+								const statusUpper = String(signingStatus?.projectStatus ?? "").toUpperCase()
+								const isCompleted =
+									statusUpper === "COMPLETED" || signingStatus?.completedAt != null
+								const isPreparingNotarized =
+									isFullySigned && !isCompleted && (signingStatus?.signedCount ?? 0) > 0
 								const isDownloadingSigned =
 									!!doc.docoChainProjectId && downloadingProjectUuid === doc.docoChainProjectId
 								const isDownloadingCert =
@@ -3432,22 +3448,28 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 													</DropdownMenuTrigger>
 													<DropdownMenuContent align="end" sideOffset={6} className="min-w-44">
 														<DropdownMenuItem
-															disabled={!isFullySigned || isDownloadingSigned}
+															disabled={!isCompleted || isDownloadingSigned}
 															onClick={() => {
 																if (doc.docoChainProjectId) {
 																	void handleDownloadSignedDocument(doc.docoChainProjectId)
 																}
 															}}
 														>
-															<FileText className="size-4" />
+															{isPreparingNotarized ? (
+																<Loader2 className="size-4 animate-spin" />
+															) : (
+																<FileText className="size-4" />
+															)}
 															<span>
 																{isDownloadingSigned
 																	? "Opening signed document..."
-																	: "View signed document"}
+																	: isPreparingNotarized
+																		? "Preparing notarized document..."
+																		: "View signed document"}
 															</span>
 														</DropdownMenuItem>
 														<DropdownMenuItem
-															disabled={!isFullySigned || isDownloadingCert}
+															disabled={!isCompleted || isDownloadingCert}
 															onClick={() => {
 																if (doc.docoChainProjectId) {
 																	void handleDownloadCertificate(doc.docoChainProjectId)
@@ -3552,6 +3574,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 												docoChainTokenReady={docoChainTokenReady}
 												docoChainTokenLoading={docoChainTokenLoading}
 												onPreGeneratedLink={(documentId, link, projectUuid) => {
+													// Store plot link as-is (app URL + page, user_type, email, signer_role, api=true)
 													setPreGeneratedLinks(prev => {
 														const next = new Map(prev)
 														next.set(documentId, {

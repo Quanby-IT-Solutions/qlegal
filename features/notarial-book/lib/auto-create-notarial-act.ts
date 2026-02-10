@@ -2,6 +2,7 @@ import { and, eq } from "drizzle-orm"
 import type { PostgresJsDatabase } from "drizzle-orm/postgres-js"
 
 import { checkSigningStatus, getPassportDocument } from "@/services/doconchain"
+import { enpProfiles } from "@/services/drizzle/schema/enp-profiles"
 import { users } from "@/services/drizzle/schema/auth"
 import { documents } from "@/services/drizzle/schema/document"
 import { documentSigners } from "@/services/drizzle/schema/document-signers"
@@ -9,6 +10,9 @@ import { idCardDetails } from "@/services/drizzle/schema/id-card-details"
 import { legalRegistrations } from "@/services/drizzle/schema/legal-registration"
 import { meetings } from "@/services/drizzle/schema/meetings"
 import { notarialActs, notarialBooks } from "@/services/drizzle/schema/notarial-book"
+import { syncNotarialActToSupremeCourt } from "@/services/supreme-court/lib/sync-notarial-act"
+import { isConfigured } from "@/services/supreme-court/lib/token-cache"
+import { getServiceRoleClient } from "@/services/supabase"
 
 /**
  * Generate location statement for notarial act
@@ -939,6 +943,95 @@ export async function autoCreateNotarialAct(
 			principalName: actPrincipalName,
 			executedAt: actExecutedAt,
 		})
+
+		// Sync to Supreme Court if configured and ENP has required fields
+		if (isConfigured() && createdAct) {
+			try {
+				// Get ENP profile to check for NPN/NFN/RN
+				// @ts-expect-error - PostgresJsDatabase<any> doesn't provide proper types for query builder
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+				const enpProfile = (await db.query.enpProfiles.findFirst({
+					where: eq(enpProfiles.userId, enpUserId),
+					columns: {
+						notaryPublicNumber: true,
+						notaryFacilityNumber: true,
+						rollNo: true,
+					},
+				})) as { notaryPublicNumber: string | null; notaryFacilityNumber: string | null; rollNo: string | null } | undefined
+
+				if (
+					enpProfile?.notaryPublicNumber &&
+					enpProfile?.notaryFacilityNumber &&
+					enpProfile?.rollNo
+				) {
+					console.log("🔵 Syncing notarial act to Supreme Court...")
+
+					// Download document file if available
+					let documentFile: Buffer | undefined
+					let documentFileName: string | undefined
+
+					if (documentId) {
+						// @ts-expect-error - PostgresJsDatabase<any> doesn't provide proper types for query builder
+						// eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+						const documentRecord = (await db.query.documents.findFirst({
+							where: eq(documents.id, documentId),
+							columns: { path: true, name: true },
+						})) as { path: string | null; name: string | null } | undefined
+
+						if (documentRecord?.path) {
+							try {
+								const supabase = getServiceRoleClient()
+								const { data: fileData, error: downloadError } = await supabase.storage
+									.from("documents")
+									.download(documentRecord.path)
+
+								if (!downloadError && fileData) {
+									const arrayBuffer = await fileData.arrayBuffer()
+									documentFile = Buffer.from(arrayBuffer)
+									documentFileName = documentRecord.name ?? "document.pdf"
+									console.log(`   - Downloaded document: ${documentFileName}`)
+								} else {
+									console.warn("   - Could not download document for sync:", downloadError?.message)
+								}
+							} catch (fileError) {
+								console.warn("   - Error downloading document for sync:", fileError)
+							}
+						}
+					}
+
+					// Sync to Supreme Court
+					const syncResult = await syncNotarialActToSupremeCourt({
+						act: createdAct,
+						notaryFacilityNumber: enpProfile.notaryFacilityNumber!,
+						notaryPublicNumber: enpProfile.notaryPublicNumber!,
+						rollNumber: enpProfile.rollNo!,
+						documentFile,
+						documentFileName,
+					})
+
+					// Update act with sync status
+					await db
+						.update(notarialActs)
+						.set({
+							syncedToSupremeCourt: true,
+							syncedAt: new Date(),
+						})
+						.where(eq(notarialActs.id, createdAct.id))
+
+					console.log("✅ Synced to Supreme Court:", {
+						nrid: syncResult.notarialRegistryID,
+						nrn: syncResult.notarialRegistryNumber,
+					})
+				} else {
+					console.log(
+						"⚠️ Skipping Supreme Court sync: ENP profile missing NPN/NFN/RN. Please complete profile settings."
+					)
+				}
+			} catch (syncError) {
+				console.error("❌ Failed to sync notarial act to Supreme Court:", syncError)
+				// Don't fail the whole operation if sync fails - act is still created
+			}
+		}
 
 		return createdAct
 	} catch (error) {

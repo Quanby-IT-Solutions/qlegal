@@ -1,5 +1,5 @@
 import { TRPCError } from "@trpc/server"
-import { and, count, desc, eq, isNotNull } from "drizzle-orm"
+import { and, count, desc, eq, inArray, isNotNull } from "drizzle-orm"
 import { z } from "zod/v4"
 
 import {
@@ -20,6 +20,9 @@ import { notarialActs, notarialBooks } from "@/services/drizzle/schema/notarial-
 import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
 
 import { autoCreateNotarialAct } from "@/features/notarial-book/lib/auto-create-notarial-act"
+import { getCommissionStatus } from "@/services/supreme-court/api/commission-status"
+import { getMeetingToken } from "@/services/doconchain/lib/token-cache"
+import { isConfigured } from "@/services/supreme-court/lib/token-cache"
 
 const getNotarialBookSchema = z.object({
 	page: z.number().min(1).default(1),
@@ -845,8 +848,61 @@ export const notarialBookRouter = createTRPCRouter({
 			)
 		}
 
+		// Enrich acts with fees from document table (fees are stored on document, not notarial_act)
+		const documentIds = [
+			...new Set(
+				filteredActs
+					.map(a => a.documentId)
+					.filter((id): id is string => typeof id === "string" && id.length > 0)
+			),
+		]
+		const docoChainUuids = [
+			...new Set(
+				filteredActs
+					.map(a => a.docoChainProjectUuid)
+					.filter((id): id is string => typeof id === "string" && id.length > 0)
+			),
+		]
+		const docFeesMap = new Map<string, number | null>()
+		if (documentIds.length > 0) {
+			const docs = await ctx.db
+				.select({ id: documents.id, fees: documents.fees })
+				.from(documents)
+				.where(inArray(documents.id, documentIds))
+			for (const d of docs) {
+				const raw = d.fees
+				docFeesMap.set(
+					d.id,
+					raw != null && typeof raw === "number" && !Number.isNaN(raw) ? raw : null
+				)
+			}
+		}
+		if (docoChainUuids.length > 0) {
+			const docsByProject = await ctx.db
+				.select({ docoChainProjectId: documents.docoChainProjectId, fees: documents.fees })
+				.from(documents)
+				.where(inArray(documents.docoChainProjectId, docoChainUuids))
+			for (const d of docsByProject) {
+				if (d.docoChainProjectId) {
+					const raw = d.fees
+					const val =
+						raw != null && typeof raw === "number" && !Number.isNaN(raw) ? raw : null
+					if (!docFeesMap.has(d.docoChainProjectId)) {
+						docFeesMap.set(d.docoChainProjectId, val)
+					}
+				}
+			}
+		}
+		const enrichedActs = filteredActs.map(act => {
+			const fees =
+				(act.documentId ? docFeesMap.get(act.documentId) : undefined) ??
+				(act.docoChainProjectUuid ? docFeesMap.get(act.docoChainProjectUuid) : undefined) ??
+				null
+			return { ...act, fees }
+		})
+
 		return {
-			acts: filteredActs,
+			acts: enrichedActs,
 			total,
 			page,
 			perPage,
@@ -1636,6 +1692,107 @@ export const notarialBookRouter = createTRPCRouter({
 				code: "NOT_FOUND",
 				message: "Certificate not available",
 			})
+		}),
+
+	/**
+	 * Get signers for a notarial act (from DocoChain project)
+	 */
+	getActSigners: protectedProcedure
+		.input(z.object({ actId: z.string() }))
+		.query(async ({ ctx, input }) => {
+			const userId = ctx.session.user.id
+
+			const user = await ctx.db.query.users.findFirst({
+				where: eq(users.id, userId),
+			})
+
+			if (user?.role !== "ENP") {
+				throw new TRPCError({
+					code: "FORBIDDEN",
+					message: "Only ENPs can access act signers",
+				})
+			}
+
+			const act = await ctx.db.query.notarialActs.findFirst({
+				where: eq(notarialActs.id, input.actId),
+			})
+
+			if (!act) {
+				throw new TRPCError({
+					code: "NOT_FOUND",
+					message: "Notarial act not found",
+				})
+			}
+
+			const notarialBook = await ctx.db.query.notarialBooks.findFirst({
+				where: eq(notarialBooks.id, act.notarialBookId),
+			})
+
+			if (notarialBook?.enpId !== userId) {
+				throw new TRPCError({
+					code: "FORBIDDEN",
+					message: "You don't have access to this act",
+				})
+			}
+
+			const projectUuid = act.docoChainProjectUuid
+			if (!projectUuid) {
+				return { signers: [] }
+			}
+
+			try {
+				let meetingId: string | null = null
+				if (act.documentId) {
+					const doc = await ctx.db.query.documents.findFirst({
+						where: eq(documents.id, act.documentId),
+						columns: { meetingId: true },
+					})
+					meetingId = doc?.meetingId ?? null
+				}
+				if (!meetingId && projectUuid) {
+					const doc = await ctx.db.query.documents.findFirst({
+						where: eq(documents.docoChainProjectId, projectUuid),
+						columns: { meetingId: true },
+					})
+					meetingId = doc?.meetingId ?? null
+				}
+
+				let status
+				const meetingEntry = meetingId ? getMeetingToken(meetingId) : undefined
+				if (meetingEntry?.token) {
+					status = await checkSigningStatus(projectUuid, undefined, meetingEntry.token)
+				} else {
+					status = await checkSigningStatus(projectUuid, user.email ?? undefined)
+				}
+
+				return {
+					signers: status.signers ?? [],
+				}
+			} catch (error) {
+				console.error("Error fetching act signers:", error)
+				return { signers: [] }
+			}
+		}),
+
+	/**
+	 * Get Notary Public Commission Status from Supreme Court eNotarization API.
+	 * Use this to verify a notary's commission is Active before syncing.
+	 */
+	getCommissionStatus: protectedProcedure
+		.input(
+			z.object({
+				npn: z.string().min(1, "NPN is required"),
+				rn: z.string().min(1, "RN is required"),
+			})
+		)
+		.query(async ({ input }) => {
+			if (!isConfigured()) {
+				throw new TRPCError({
+					code: "PRECONDITION_FAILED",
+					message: "Supreme Court API is not configured. Add credentials to .env",
+				})
+			}
+			return getCommissionStatus(input.npn, input.rn)
 		}),
 
 	/**
