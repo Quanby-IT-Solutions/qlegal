@@ -1,7 +1,6 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import type { inferRouterOutputs } from "@trpc/server"
 import { format, isAfter, isSameDay, startOfDay } from "date-fns"
 import { Calendar, Clock, FileText, PlayCircle, Users, Video } from "lucide-react"
 
@@ -28,6 +27,7 @@ import {
 } from "@/core/components/ui/select"
 import { Skeleton } from "@/core/components/ui/skeleton"
 
+import { getAvatarUrl, getInitials } from "@/core/lib/utils"
 import { trpc } from "@/services/trpc/client"
 
 function getMeetingStatusBadge(status: string) {
@@ -68,6 +68,9 @@ function getDocumentSigningBadge(isFullySigned: boolean) {
 
 	return <Badge variant="secondary">Pending</Badge>
 }
+
+const MEETING_ID_FROM_LINK_REGEX = /\/meetings\/([a-zA-Z0-9_-]+)/
+
 type Appointment = {
 	id: string
 	title?: string
@@ -108,23 +111,51 @@ export function ActiveNotarizationsSection() {
 			{ enabled: detailsOpen && !!detailsMeetingId }
 		)
 
+	const completedOrFullySignedMeetingIds = useMemo(() => {
+		const set = new Set<string>()
+		for (const m of meetings) {
+			const done =
+				m.status === "COMPLETED" ||
+				(m.documentStats.total > 0 && m.documentStats.signed >= m.documentStats.total)
+			if (done) set.add(m.id)
+		}
+		return set
+	}, [meetings])
+
 	const appointmentCards = useMemo(() => {
-		return pendingAppointments.map((appt: Appointment) => ({
-			id: `appt-${appt.id}`,
-			title: appt.title ?? "Pending Notarization Session",
-			createdAt: (appt.scheduledAt ?? appt.createdAt).toISOString(),
-			status: "PENDING", // optional, if you want to reuse meeting badges
-			badgeStatus: appt.scheduledAt ? "CONFIRMED" : "PENDING_SESSION", // new field
-			participants: [],
-			documentStats: { total: 0, signed: 0, isComplete: true },
-			createdBy: appt.createdBy ?? { name: "Unknown", image: null },
-			isAppointment: true as const,
-		}))
-	}, [pendingAppointments])
+		return pendingAppointments
+			.filter((appt: Appointment & { meetingLink?: string | null }) => {
+				const link = appt.meetingLink
+				if (!link || typeof link !== "string" || link.trim() === "") return true
+				const match = MEETING_ID_FROM_LINK_REGEX.exec(link)
+				const meetingId = match?.[1]
+				if (!meetingId) return true
+				return !completedOrFullySignedMeetingIds.has(meetingId)
+			})
+			.map((appt: Appointment) => ({
+				id: `appt-${appt.id}`,
+				title: appt.title ?? "Pending Notarization Session",
+				createdAt: (appt.scheduledAt ?? appt.createdAt).toISOString(),
+				status: "PENDING",
+				badgeStatus: appt.scheduledAt ? "CONFIRMED" : "PENDING_SESSION",
+				participants: [],
+				documentStats: { total: 0, signed: 0, isComplete: true },
+				createdBy: appt.createdBy ?? { name: "Unknown", image: null },
+				isAppointment: true as const,
+			}))
+	}, [pendingAppointments, completedOrFullySignedMeetingIds])
+
+	const upcomingOnlyMeetings = useMemo(() => {
+		return meetings.filter(
+			m =>
+				m.status !== "COMPLETED" &&
+				!(m.documentStats.total > 0 && m.documentStats.signed >= m.documentStats.total)
+		)
+	}, [meetings])
 
 	const combinedMeetings = useMemo(() => {
-		return [...appointmentCards, ...meetings]
-	}, [appointmentCards, meetings])
+		return [...appointmentCards, ...upcomingOnlyMeetings]
+	}, [appointmentCards, upcomingOnlyMeetings])
 
 	const filteredMeetings = useMemo(() => {
 		const q = searchTerm.trim().toLowerCase()
@@ -279,7 +310,7 @@ export function ActiveNotarizationsSection() {
 											{/* Host Row (Compact) */}
 											<div className="flex items-center gap-2 pt-1">
 												<Avatar className="size-7">
-													<AvatarImage src={meeting.createdBy.image ?? undefined} />
+													<AvatarImage src={getAvatarUrl(meeting.createdBy?.image) ?? undefined} />
 													<AvatarFallback>
 														{(meeting.createdBy.name ?? "Unknown")
 															.split(" ")
@@ -379,7 +410,15 @@ export function ActiveNotarizationsSection() {
 									<h4 className="text-lg font-semibold">{detailsData.meeting.title}</h4>
 									{getMeetingStatusBadge(detailsData.meeting.status)}
 								</div>
-								<div className="text-muted-foreground text-sm">
+								<div className="text-muted-foreground flex items-center gap-2 text-sm">
+									<Avatar className="size-6">
+										<AvatarImage
+											src={getAvatarUrl(detailsData.meeting.createdBy?.image) ?? undefined}
+										/>
+										<AvatarFallback>
+											{getInitials(detailsData.meeting.createdBy?.name)}
+										</AvatarFallback>
+									</Avatar>
 									Created by {detailsData.meeting.createdBy?.name ?? "Unknown"}
 								</div>
 							</div>
@@ -421,6 +460,15 @@ export function ActiveNotarizationsSection() {
 													doc.fees !== undefined &&
 													typeof doc.fees === "number" &&
 													!Number.isNaN(doc.fees)
+
+												const docType: string = "type" in doc && typeof doc.type === "string" ? doc.type : ""
+												const docName: string = "name" in doc && typeof doc.name === "string" ? doc.name : ""
+												const isPdf =
+													docType === "application/pdf" ||
+													docName.toLowerCase().endsWith(".pdf")
+												const isImage =
+													docType.startsWith("image/") ||
+													/\.(jpe?g|png|gif|webp)$/i.test(docName)
 
 												return (
 													<Card key={doc.id}>
@@ -465,6 +513,38 @@ export function ActiveNotarizationsSection() {
 																	{getDocumentSigningBadge(doc.isFullySigned)}
 																</div>
 															</div>
+
+															{"previewUrl" in doc && doc.previewUrl && (
+																<div className="mt-3 rounded-md border bg-muted/30">
+																	<div className="text-muted-foreground border-b px-2 py-1 text-xs font-medium">
+																		Preview
+																	</div>
+																	<div className="relative min-h-[200px] w-full overflow-hidden">
+																		{isPdf && (
+																			<iframe
+																				title={doc.name}
+																				src={doc.previewUrl}
+																				className="h-[280px] w-full border-0"
+																			/>
+																		)}
+																		{isImage && (
+																			// eslint-disable-next-line @next/next/no-img-element -- dynamic Supabase preview URL
+																			<img
+																				src={doc.previewUrl}
+																				alt={docName}
+																				className="max-h-[280px] w-full object-contain"
+																			/>
+																		)}
+																		{!isPdf && !isImage && (
+																			<iframe
+																				title={doc.name}
+																				src={doc.previewUrl}
+																				className="h-[280px] w-full border-0"
+																			/>
+																		)}
+																	</div>
+																</div>
+															)}
 														</CardContent>
 													</Card>
 												)

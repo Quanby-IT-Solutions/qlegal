@@ -20,7 +20,16 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/core/components/ui/avatar
 import { Badge } from "@/core/components/ui/badge"
 import { Button } from "@/core/components/ui/button"
 import { Card, CardContent } from "@/core/components/ui/card"
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogHeader,
+	DialogTitle,
+} from "@/core/components/ui/dialog"
 import { Input } from "@/core/components/ui/input"
+import { Progress } from "@/core/components/ui/progress"
+import { ScrollArea } from "@/core/components/ui/scroll-area"
 import {
 	Select,
 	SelectContent,
@@ -29,17 +38,19 @@ import {
 	SelectValue,
 } from "@/core/components/ui/select"
 import { Skeleton } from "@/core/components/ui/skeleton"
+import { getAvatarUrl, getInitials } from "@/core/lib/utils"
 
-import { trpc, type RouterOutputs } from "@/services/trpc/client"
+import { trpc } from "@/services/trpc/client"
 
 type WorkflowType = "REN" | "IEN"
-type Appointment = RouterOutputs["appointments"]["getMyAppointments"][number]
+// type Appointment = RouterOutputs["appointments"]["getMyAppointments"][number]
 
 type HistoryItem = {
 	id: string
 	title: string
 	status: "COMPLETED" | "CANCELLED"
 	workflow: WorkflowType
+	source: "meeting" | "appointment"
 	enp: { name: string; avatar?: string }
 	principal: { name: string; email?: string }
 	completedAt?: string
@@ -52,57 +63,47 @@ type HistoryItem = {
 	recordingUrl?: string
 }
 
-function inferWorkflow(appointment: Appointment): WorkflowType {
-	const notesLower = (appointment.notes || "").toLowerCase()
-	const hasRemoteKeywords = notesLower.includes("remote") || notesLower.includes("ren")
-	const hasInPersonKeywords =
-		notesLower.includes("in-person") ||
-		notesLower.includes("ien") ||
-		notesLower.includes("in person")
+// function inferWorkflow(appointment: Appointment): WorkflowType {
+// 	const notesLower = (appointment.notes ?? "").toLowerCase()
+// 	const hasRemoteKeywords = notesLower.includes("remote") || notesLower.includes("ren")
+// 	const hasInPersonKeywords =
+// 		notesLower.includes("in-person") ||
+// 		notesLower.includes("ien") ||
+// 		notesLower.includes("in person")
 
-	if (appointment.meetingLink) return "REN"
-	if (appointment.location) return "IEN"
-	if (hasRemoteKeywords && !hasInPersonKeywords) return "REN"
-	if (hasInPersonKeywords && !hasRemoteKeywords) return "IEN"
-	return hasRemoteKeywords ? "REN" : "IEN"
-}
+// 	if (appointment.meetingLink) return "REN"
+// 	if (appointment.location) return "IEN"
+// 	if (hasRemoteKeywords && !hasInPersonKeywords) return "REN"
+// 	if (hasInPersonKeywords && !hasRemoteKeywords) return "IEN"
+// 	return hasRemoteKeywords ? "REN" : "IEN"
+// }
 
-function inferTitle(appointment: Appointment, principalName: string): string {
-	let title = ""
-	if (appointment.notes) {
-		const cleanedNotes = appointment.notes
-			.replace(/Consultation Type:\s*/gi, "")
-			.replace(/Workflow:\s*/gi, "")
-			.replace(/Meeting Preference:\s*/gi, "")
-			.replace(/Remote Electronic Notarization/gi, "REN")
-			.replace(/In-Person Electronic Notarization/gi, "IEN")
-			.trim()
+// function inferTitle(appointment: Appointment, principalName: string): string {
+// 	let title = ""
+// 	if (appointment.notes) {
+// 		const cleanedNotes = appointment.notes
+// 			.replace(/Consultation Type:\s*/gi, "")
+// 			.replace(/Workflow:\s*/gi, "")
+// 			.replace(/Meeting Preference:\s*/gi, "")
+// 			.replace(/Remote Electronic Notarization/gi, "REN")
+// 			.replace(/In-Person Electronic Notarization/gi, "IEN")
+// 			.trim()
 
-		if (cleanedNotes.length > 60 || cleanedNotes.includes("\n")) {
-			const firstLine = cleanedNotes.split("\n")[0]?.trim() || ""
-			title = firstLine.length > 60 ? `${firstLine.substring(0, 57)}...` : firstLine
-		} else {
-			title = cleanedNotes
-		}
-	}
+// 		if (cleanedNotes.length > 60 || cleanedNotes.includes("\n")) {
+// 			const firstLine = cleanedNotes.split("\n")[0]?.trim() ?? ""
+// 			title = firstLine.length > 60 ? `${firstLine.substring(0, 57)}...` : firstLine
+// 		} else {
+// 			title = cleanedNotes
+// 		}
+// 	}
 
-	if (!title || title.length < 3) {
-		const typeLabel = appointment.type === "DOCUMENT_SIGNING" ? "Document Signing" : "Consultation"
-		title = `${typeLabel} - ${principalName || "Client"}`
-	}
+// 	if (!title || title.length < 3) {
+// 		const typeLabel = appointment.type === "DOCUMENT_SIGNING" ? "Document Signing" : "Consultation"
+// 		title = `${typeLabel} - ${principalName || "Client"}`
+// 	}
 
-	return title
-}
-
-function getInitials(name: string): string {
-	return name
-		.split(" ")
-		.filter(Boolean)
-		.slice(0, 2)
-		.map(part => part[0] ?? "")
-		.join("")
-		.toUpperCase()
-}
+// 	return title
+// }
 
 function monthKey(date: Date): string {
 	return format(date, "yyyy-MM")
@@ -112,24 +113,65 @@ function monthLabel(date: Date): string {
 	return format(date, "MMMM yyyy")
 }
 
+function getMeetingStatusBadge(status: string) {
+	switch (status) {
+		case "SCHEDULED":
+			return <Badge variant="secondary">Scheduled</Badge>
+		case "ONGOING":
+			return <Badge variant="default">Live</Badge>
+		case "COMPLETED":
+			return <Badge variant="outline">Completed</Badge>
+		case "CANCELLED":
+			return (
+				<Badge variant="outline" className="border-rose-600 text-rose-600">
+					Cancelled
+				</Badge>
+			)
+		default:
+			return null
+	}
+}
+
+function getDocumentSigningBadge(isFullySigned: boolean) {
+	if (isFullySigned) {
+		return (
+			<Badge variant="outline" className="border-emerald-600 text-emerald-700">
+				Signed
+			</Badge>
+		)
+	}
+	return <Badge variant="secondary">Pending</Badge>
+}
+
 export function HistoryNotarizationsSection() {
 	const { data: session } = useSession()
 	const [searchTerm, setSearchTerm] = useState("")
 	const [workflowFilter, setWorkflowFilter] = useState<"ALL" | WorkflowType>("ALL")
 	const [statusFilter, setStatusFilter] = useState<"ALL" | "COMPLETED" | "CANCELLED">("ALL")
 	const [dateFilter, setDateFilter] = useState<"ALL" | "TODAY" | "WEEK" | "MONTH" | "YEAR">("ALL")
+	const [detailsOpen, setDetailsOpen] = useState(false)
+	const [detailsMeetingId, setDetailsMeetingId] = useState<string | null>(null)
 
 	const { data: meetingsData } = trpc.meetings.getUserMeetingsWithDocumentStats.useQuery({
 		limit: 50,
 		offset: 0,
 	})
 
-	const meetings = meetingsData?.items ?? []
+	const meetings = useMemo(
+		() => meetingsData?.items ?? [],
+		[meetingsData?.items]
+	)
 
 	const { data: appointments, isLoading } = trpc.appointments.getMyAppointments.useQuery({
 		limit: 50,
 		offset: 0,
 	})
+
+	const { data: detailsData, isLoading: isDetailsLoading } =
+		trpc.meetings.getMeetingNotarizationDetails.useQuery(
+			{ meetingId: detailsMeetingId ?? "" },
+			{ enabled: detailsOpen && !!detailsMeetingId }
+		)
 
 	const isENP = session?.user?.role === "ENP"
 
@@ -143,7 +185,8 @@ export function HistoryNotarizationsSection() {
 					id: m.id,
 					title: m.title,
 					status: "COMPLETED",
-					workflow: "REN", // meetings are remote notarizations
+					workflow: "REN",
+					source: "meeting",
 
 					enp: {
 						name: m.createdBy?.name ?? "Unknown ENP",
@@ -174,12 +217,13 @@ export function HistoryNotarizationsSection() {
 					items.push({
 						id: a.id,
 						title:
-							a.notes?.trim() ||
+							a.notes?.trim() ??
 							`${a.type === "DOCUMENT_SIGNING" ? "Document Signing" : "Consultation"} - ${
 								a.client?.name ?? "Client"
 							}`,
 						status: "CANCELLED",
 						workflow,
+						source: "appointment",
 
 						enp: {
 							name: a.lawyer?.name ?? "Unknown ENP",
@@ -222,7 +266,7 @@ export function HistoryNotarizationsSection() {
 			if (statusFilter !== "ALL" && item.status !== statusFilter) return false
 
 			if (dateFilter === "ALL") return true
-			const date = new Date(item.completedAt || item.cancelledAt!)
+			const date = new Date(item.completedAt ?? item.cancelledAt!)
 			const now = new Date()
 
 			switch (dateFilter) {
@@ -243,7 +287,7 @@ export function HistoryNotarizationsSection() {
 	const historyGrouped = useMemo(() => {
 		const map = new Map<string, { label: string; items: HistoryItem[] }>()
 		for (const item of filteredHistory) {
-			const date = new Date(item.completedAt || item.cancelledAt || new Date().toISOString())
+			const date = new Date(item.completedAt ?? item.cancelledAt ?? new Date().toISOString())
 			const key = monthKey(date)
 			const existing = map.get(key)
 			if (!existing) {
@@ -279,8 +323,9 @@ export function HistoryNotarizationsSection() {
 		return <Badge variant="destructive">Cancelled</Badge>
 	}
 
-	const handleViewNotarization = (id: string) => {
-		window.location.href = `/notarize/${id}`
+	const handleOpenDetails = (meetingId: string) => {
+		setDetailsMeetingId(meetingId)
+		setDetailsOpen(true)
 	}
 
 	return (
@@ -308,7 +353,10 @@ export function HistoryNotarizationsSection() {
 							value={searchTerm}
 							onChange={e => setSearchTerm(e.target.value)}
 						/>
-						<Select value={workflowFilter} onValueChange={value => setWorkflowFilter(value as any)}>
+						<Select
+							value={workflowFilter}
+							onValueChange={value => setWorkflowFilter(value as unknown as WorkflowType)}
+						>
 							<SelectTrigger>
 								<SelectValue placeholder="All Workflows" />
 							</SelectTrigger>
@@ -318,7 +366,12 @@ export function HistoryNotarizationsSection() {
 								<SelectItem value="IEN">IEN (In-Person)</SelectItem>
 							</SelectContent>
 						</Select>
-						<Select value={statusFilter} onValueChange={value => setStatusFilter(value as any)}>
+						<Select
+							value={statusFilter}
+							onValueChange={value =>
+								setStatusFilter(value as unknown as "COMPLETED" | "CANCELLED" | "ALL")
+							}
+						>
 							<SelectTrigger>
 								<SelectValue placeholder="All Status" />
 							</SelectTrigger>
@@ -328,7 +381,12 @@ export function HistoryNotarizationsSection() {
 								<SelectItem value="CANCELLED">Cancelled</SelectItem>
 							</SelectContent>
 						</Select>
-						<Select value={dateFilter} onValueChange={value => setDateFilter(value as any)}>
+						<Select
+							value={dateFilter}
+							onValueChange={value =>
+								setDateFilter(value as unknown as "ALL" | "TODAY" | "WEEK" | "MONTH" | "YEAR")
+							}
+						>
 							<SelectTrigger>
 								<SelectValue placeholder="All Time" />
 							</SelectTrigger>
@@ -457,7 +515,7 @@ export function HistoryNotarizationsSection() {
 														<div className="flex items-center gap-4 pt-1">
 															<div className="flex items-center gap-2">
 																<Avatar className="h-7 w-7">
-																	<AvatarImage src={item.enp.avatar} />
+																	<AvatarImage src={getAvatarUrl(item.enp.avatar) ?? undefined} />
 																	<AvatarFallback>{getInitials(item.enp.name)}</AvatarFallback>
 																</Avatar>
 																<span className="text-xs font-medium">{item.enp.name}</span>
@@ -476,15 +534,17 @@ export function HistoryNotarizationsSection() {
 
 													{/* RIGHT SIDE ACTIONS */}
 													<div className="flex shrink-0 flex-col gap-2">
-														<Button
-															size="sm"
-															variant="outline"
-															onClick={() => handleViewNotarization(item.id)}
-															className="h-8 gap-1 px-3 text-xs"
-														>
-															<Eye className="h-3.5 w-3.5" />
-															Details
-														</Button>
+														{item.source === "meeting" && (
+															<Button
+																size="sm"
+																variant="outline"
+																onClick={() => handleOpenDetails(item.id)}
+																className="h-8 gap-1 px-3 text-xs"
+															>
+																<Eye className="h-3.5 w-3.5" />
+																Details
+															</Button>
+														)}
 
 														{item.certificateUrl && (
 															<Button
@@ -520,6 +580,180 @@ export function HistoryNotarizationsSection() {
 					</div>
 				)}
 			</div>
+
+			<Dialog
+				open={detailsOpen}
+				onOpenChange={open => {
+					setDetailsOpen(open)
+					if (!open) setDetailsMeetingId(null)
+				}}
+			>
+				<DialogContent className="max-w-3xl">
+					<DialogHeader>
+						<DialogTitle>Notarization details</DialogTitle>
+						<DialogDescription>Documents and signing status for this meeting.</DialogDescription>
+					</DialogHeader>
+
+					{isDetailsLoading ? (
+						<div className="space-y-3">
+							<Skeleton className="h-6 w-2/3" />
+							<Skeleton className="h-24 w-full" />
+							<Skeleton className="h-24 w-full" />
+						</div>
+					) : !detailsData ? (
+						<div className="text-muted-foreground text-sm">No details available.</div>
+					) : (
+						<div className="space-y-4">
+							<div className="space-y-1">
+								<div className="flex flex-wrap items-center gap-3">
+									<h4 className="text-lg font-semibold">{detailsData.meeting.title}</h4>
+									{getMeetingStatusBadge(detailsData.meeting.status)}
+								</div>
+								<div className="text-muted-foreground flex items-center gap-2 text-sm">
+									<Avatar className="size-6">
+										<AvatarImage
+											src={getAvatarUrl(detailsData.meeting.createdBy?.image) ?? undefined}
+										/>
+										<AvatarFallback>
+											{getInitials(detailsData.meeting.createdBy?.name)}
+										</AvatarFallback>
+									</Avatar>
+									Created by {detailsData.meeting.createdBy?.name ?? "Unknown"}
+								</div>
+							</div>
+
+							{detailsData.documentStats.total > 0 && (
+								<div>
+									<div className="mb-2 flex items-center justify-between text-sm">
+										<span className="font-medium">Overall document progress</span>
+										<span className="font-semibold">
+											{detailsData.documentStats.signed}/{detailsData.documentStats.total} (
+											{Math.round(
+												(detailsData.documentStats.signed / detailsData.documentStats.total) * 100
+											)}
+											%)
+										</span>
+									</div>
+									<Progress
+										value={Math.round(
+											(detailsData.documentStats.signed / detailsData.documentStats.total) * 100
+										)}
+										className="h-2"
+									/>
+								</div>
+							)}
+
+							<div className="space-y-2">
+								<div className="text-sm font-semibold">Documents</div>
+								{detailsData.documents.length === 0 ? (
+									<div className="text-muted-foreground text-sm">No documents uploaded.</div>
+								) : (
+									<ScrollArea className="h-[420px] pr-3">
+										<div className="space-y-3">
+											{detailsData.documents.map(doc => {
+												const signerTotal = doc.signerSummary.total
+												const signerSigned = doc.signerSummary.signed
+												const showFees =
+													doc.isFullySigned &&
+													doc.fees !== null &&
+													doc.fees !== undefined &&
+													typeof doc.fees === "number" &&
+													!Number.isNaN(doc.fees)
+
+												const docType = doc.type ?? ""
+												const docName = doc.name ?? ""
+												const isPdf =
+													docType === "application/pdf" || docName.toLowerCase().endsWith(".pdf")
+												const isImage =
+													docType.startsWith("image/") || /\.(jpe?g|png|gif|webp)$/i.test(docName)
+
+												return (
+													<Card key={doc.id}>
+														<CardContent className="p-4">
+															<div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+																<div className="min-w-0 flex-1">
+																	<div className="flex items-center gap-2">
+																		<FileText className="text-muted-foreground size-4 shrink-0" />
+																		<div className="min-w-0">
+																			<div className="truncate text-sm font-semibold">
+																				{doc.name}
+																			</div>
+																			<div className="text-muted-foreground text-xs">
+																				Status: {doc.status}
+																			</div>
+																		</div>
+																	</div>
+
+																	{signerTotal > 0 && (
+																		<div className="mt-3">
+																			<div className="mb-2 flex items-center justify-between text-xs">
+																				<span className="text-muted-foreground">Signers</span>
+																				<span className="font-semibold">
+																					{signerSigned}/{signerTotal}
+																				</span>
+																			</div>
+																			<Progress
+																				value={Math.round((signerSigned / signerTotal) * 100)}
+																				className="h-2"
+																			/>
+																		</div>
+																	)}
+
+																	{showFees && (
+																		<div className="text-muted-foreground mt-2 text-xs font-semibold">
+																			Fees: {Number(doc.fees).toFixed(2)}
+																		</div>
+																	)}
+																</div>
+
+																<div className="flex shrink-0 items-center gap-2">
+																	{getDocumentSigningBadge(doc.isFullySigned)}
+																</div>
+															</div>
+
+															{"previewUrl" in doc && doc.previewUrl && (
+																<div className="bg-muted/30 mt-3 rounded-md border">
+																	<div className="text-muted-foreground border-b px-2 py-1 text-xs font-medium">
+																		Preview
+																	</div>
+																	<div className="relative min-h-[200px] w-full overflow-hidden">
+																		{isPdf && (
+																			<iframe
+																				title={doc.name}
+																				src={doc.previewUrl}
+																				className="h-[280px] w-full border-0"
+																			/>
+																		)}
+																		{isImage && (
+																			// eslint-disable-next-line @next/next/no-img-element -- dynamic Supabase preview URL
+																			<img
+																				src={doc.previewUrl}
+																				alt={docName}
+																				className="max-h-[280px] w-full object-contain"
+																			/>
+																		)}
+																		{!isPdf && !isImage && (
+																			<iframe
+																				title={doc.name}
+																				src={doc.previewUrl}
+																				className="h-[280px] w-full border-0"
+																			/>
+																		)}
+																	</div>
+																</div>
+															)}
+														</CardContent>
+													</Card>
+												)
+											})}
+										</div>
+									</ScrollArea>
+								)}
+							</div>
+						</div>
+					)}
+				</DialogContent>
+			</Dialog>
 		</div>
 	)
 }

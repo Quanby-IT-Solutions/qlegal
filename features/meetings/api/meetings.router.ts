@@ -21,7 +21,8 @@ import { documents } from "@/services/drizzle/schema/document"
 import { documentSigners } from "@/services/drizzle/schema/document-signers"
 import { enpProfiles } from "@/services/drizzle/schema/enp-profiles"
 import { meetingParticipants, meetings } from "@/services/drizzle/schema/meetings"
-import { getServiceRoleClient } from "@/services/supabase"
+import { getPublicClient, getServiceRoleClient } from "@/services/supabase"
+import { getPublicUrl } from "@/services/supabase/signed-url"
 import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
 import { createMeetingRoom, fetchRecordings, generateMeetingToken } from "@/services/video-sdk"
 
@@ -31,6 +32,22 @@ import { autoCreateNotarialAct } from "@/features/notarial-book/lib/auto-create-
 function isEnpRole(role: unknown): boolean {
 	if (typeof role !== "string") return false
 	return role.trim().toUpperCase() === "ENP"
+}
+
+/** Resolve avatar storage path to public URL (same as next-auth session). */
+function resolveAvatarImage(image: string | null | undefined): string | null {
+	if (!image || typeof image !== "string") return image ?? null
+	const trimmed = image.trim()
+	if (!trimmed) return null
+	if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) return trimmed
+	try {
+		const supabase = getPublicClient()
+		const path = trimmed.replace(/^\/+/, "")
+		const { data } = supabase.storage.from("avatar").getPublicUrl(path)
+		return data.publicUrl ?? null
+	} catch {
+		return null
+	}
 }
 
 function asNonEmptyEmail(email: unknown): string | undefined {
@@ -368,6 +385,15 @@ export const meetingsRouter = createTRPCRouter({
 
 				return {
 					...meeting,
+					createdBy: meeting.createdBy
+						? { ...meeting.createdBy, image: resolveAvatarImage(meeting.createdBy.image) }
+						: meeting.createdBy,
+					participants: (meeting.participants ?? []).map(p => ({
+						...p,
+						user: p.user
+							? { ...p.user, image: resolveAvatarImage(p.user.image) }
+							: p.user,
+					})),
 					documentStats: { total, signed, isComplete },
 				}
 			})
@@ -435,11 +461,20 @@ export const meetingsRouter = createTRPCRouter({
 		const pendingInvites = meeting.participants.filter(p => p.status === "PENDING")
 
 		// Return accepted participants as "participants" (for normal meeting pages),
-		// and also expose pending invites for host UI (lobby invite list).
+		// and also expose pending invites for host UI (lobby invite list). Resolve avatar paths to URLs.
+		const resolveParticipant = (p: (typeof meeting.participants)[number]) => ({
+			...p,
+			user: p.user
+				? { ...p.user, image: resolveAvatarImage(p.user.image) }
+				: p.user,
+		})
 		return {
 			...meeting,
-			participants: acceptedParticipants,
-			pendingInvites,
+			createdBy: meeting.createdBy
+				? { ...meeting.createdBy, image: resolveAvatarImage(meeting.createdBy.image) }
+				: meeting.createdBy,
+			participants: acceptedParticipants.map(resolveParticipant),
+			pendingInvites: pendingInvites.map(resolveParticipant),
 		}
 	}),
 
@@ -1592,41 +1627,62 @@ export const meetingsRouter = createTRPCRouter({
 				return createdAtA - createdAtB
 			})
 
-			const documentsWithSigning = sortedDocuments.map(doc => {
-				const reqs = signatureRequestsByDocumentId.get(doc.id) ?? []
-				const signerTotal = reqs.length
-				const signerSigned = reqs.filter(r => r.status === "SIGNED").length
+			const documentsWithSigning = await Promise.all(
+				sortedDocuments.map(async doc => {
+					const reqs = signatureRequestsByDocumentId.get(doc.id) ?? []
+					const signerTotal = reqs.length
+					const signerSigned = reqs.filter(r => r.status === "SIGNED").length
 
-				const isSignedByRequests = signerTotal > 0 && signerSigned === signerTotal
-				const isSignedByDocoChain =
-					!!doc.docoChainProjectId &&
-					(externalSignedByProjectUuid.get(doc.docoChainProjectId) ?? false)
+					const isSignedByRequests = signerTotal > 0 && signerSigned === signerTotal
+					const isSignedByDocoChain =
+						!!doc.docoChainProjectId &&
+						(externalSignedByProjectUuid.get(doc.docoChainProjectId) ?? false)
 
-				const isFullySigned = isSignedByRequests || isSignedByDocoChain
+					const isFullySigned = isSignedByRequests || isSignedByDocoChain
 
-				const rawFees = doc.fees
-				const feesVal: number | null =
-					rawFees !== null &&
-					rawFees !== undefined &&
-					typeof rawFees === "number" &&
-					!Number.isNaN(rawFees)
-						? rawFees
-						: null
-				return {
-					id: doc.id,
-					name: doc.name,
-					status: doc.status,
-					createdAt: doc.createdAt,
-					docoChainProjectId: doc.docoChainProjectId ?? null,
-					isFullySigned,
-					fees: feesVal,
-					signerSummary: {
-						total: signerTotal,
-						signed: signerSigned,
-					},
-					signatureRequests: reqs,
-				}
-			})
+					const rawFees = doc.fees
+					const feesVal: number | null =
+						rawFees !== null &&
+						rawFees !== undefined &&
+						typeof rawFees === "number" &&
+						!Number.isNaN(rawFees)
+							? rawFees
+							: null
+
+					let previewUrl: string | null = null
+					if (doc.path?.trim()) {
+						try {
+							// Meeting documents are always in the "documents" bucket
+							previewUrl = await getPublicUrl("documents", doc.path)
+						} catch {
+							// Ignore preview URL resolution failures
+						}
+					}
+
+					return {
+						id: doc.id,
+						name: doc.name,
+						status: doc.status,
+						type: doc.type,
+						path: doc.path ?? null,
+						createdAt: doc.createdAt,
+						docoChainProjectId: doc.docoChainProjectId ?? null,
+						isFullySigned,
+						fees: feesVal,
+						previewUrl,
+						signerSummary: {
+							total: signerTotal,
+							signed: signerSigned,
+						},
+						signatureRequests: reqs.map(r => ({
+							...r,
+							signer: r.signer
+								? { ...r.signer, image: resolveAvatarImage(r.signer.image) }
+								: r.signer,
+						})),
+					}
+				})
+			)
 
 			const total = documentsWithSigning.length
 			const signed = documentsWithSigning.filter(d => d.isFullySigned).length
@@ -1637,8 +1693,15 @@ export const meetingsRouter = createTRPCRouter({
 					title: meeting.title,
 					status: meeting.status,
 					createdAt: meeting.createdAt,
-					createdBy: meeting.createdBy,
-					participants: meeting.participants,
+					createdBy: meeting.createdBy
+						? { ...meeting.createdBy, image: resolveAvatarImage(meeting.createdBy.image) }
+						: meeting.createdBy,
+					participants: (meeting.participants ?? []).map(p => ({
+						...p,
+						user: p.user
+							? { ...p.user, image: resolveAvatarImage(p.user.image) }
+							: p.user,
+					})),
 				},
 				documentStats: { total, signed },
 				documents: documentsWithSigning,
