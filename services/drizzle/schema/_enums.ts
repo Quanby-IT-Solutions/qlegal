@@ -37,6 +37,9 @@ export const meetingParticipantStatus = pgEnum("meeting_participant_status", [
 	"DECLINED",
 ])
 
+// Meeting participant role (e.g. invited as witness from lobby)
+export const meetingParticipantRole = pgEnum("meeting_participant_role", ["PRINCIPAL", "WITNESS"])
+
 // Appointment status enum
 export const appointmentStatus = pgEnum("appointment_status", [
 	"PENDING",

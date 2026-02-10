@@ -40,6 +40,11 @@ export async function generateToken(): Promise<string> {
 		)
 	}
 
+	console.log("🔵 [Supreme Court] Authenticating with Cognito...")
+	console.log("   URL:", cognitoUrl)
+	console.log("   ClientId:", clientId)
+	console.log("   Username:", username)
+
 	const response = await fetch(cognitoUrl, {
 		method: "POST",
 		headers: {
@@ -57,22 +62,143 @@ export async function generateToken(): Promise<string> {
 		}),
 	})
 
+	console.log("🔵 [Supreme Court] Cognito response status:", response.status, response.statusText)
+
 	if (!response.ok) {
 		const errorText = await response.text()
-		throw new Error(`Supreme Court Cognito auth failed: ${response.status} - ${errorText}`)
+		let errorMessage = `Supreme Court Cognito auth failed: ${response.status} - ${errorText}`
+		try {
+			const errorJson = JSON.parse(errorText)
+			if (errorJson.__type || errorJson.message) {
+				errorMessage = `Supreme Court Cognito auth failed: ${errorJson.__type || "Error"} - ${errorJson.message || errorText}`
+			}
+		} catch {
+			// Not JSON, use original error text
+		}
+		throw new Error(errorMessage)
 	}
 
-	const data = (await response.json()) as {
+	const responseText = await response.text()
+	console.log("🔵 [Supreme Court] Cognito response body:", responseText.substring(0, 500))
+
+	let data: {
 		AuthenticationResult?: {
 			AccessToken?: string
 			ExpiresIn?: number
 		}
+		ChallengeName?: string
+		Session?: string
+		ChallengeParameters?: {
+			USER_ID_FOR_SRP?: string
+			requiredAttributes?: string
+			userAttributes?: string
+		}
+		__type?: string
+		message?: string
+	}
+
+	try {
+		data = JSON.parse(responseText) as typeof data
+		console.log("🔵 [Supreme Court] Parsed response:", JSON.stringify(data, null, 2))
+	} catch (parseError) {
+		console.error("❌ [Supreme Court] Failed to parse response as JSON:", parseError)
+		throw new Error(
+			`Supreme Court Cognito auth response is not valid JSON: ${responseText.substring(0, 200)}`
+		)
+	}
+
+	// Handle NEW_PASSWORD_REQUIRED challenge
+	if (data.ChallengeName === "NEW_PASSWORD_REQUIRED" && data.Session) {
+		console.log("🔵 [Supreme Court] Handling NEW_PASSWORD_REQUIRED challenge...")
+		
+		// Respond to the challenge by setting the new password (using the same password)
+		const challengeResponse = await fetch(cognitoUrl, {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/x-amz-json-1.1",
+				"X-Amz-Target": "AWSCognitoIdentityProviderService.RespondToAuthChallenge",
+			},
+			body: JSON.stringify({
+				ChallengeName: "NEW_PASSWORD_REQUIRED",
+				ClientId: clientId,
+				ChallengeResponses: {
+					USERNAME: username,
+					NEW_PASSWORD: password, // Use the same password
+				},
+				Session: data.Session,
+			}),
+		})
+
+		if (!challengeResponse.ok) {
+			const errorText = await challengeResponse.text()
+			let errorMessage = `Supreme Court Cognito challenge response failed: ${challengeResponse.status} - ${errorText}`
+			try {
+				const errorJson = JSON.parse(errorText)
+				if (errorJson.__type || errorJson.message) {
+					errorMessage = `Supreme Court Cognito challenge failed: ${errorJson.__type || "Error"} - ${errorJson.message || errorText}`
+				}
+			} catch {
+				// Not JSON, use original error text
+			}
+			throw new Error(errorMessage)
+		}
+
+		const challengeResponseText = await challengeResponse.text()
+		console.log("🔵 [Supreme Court] Challenge response:", challengeResponseText.substring(0, 500))
+
+		const challengeData = JSON.parse(challengeResponseText) as {
+			AuthenticationResult?: {
+				AccessToken?: string
+				ExpiresIn?: number
+			}
+			__type?: string
+			message?: string
+		}
+
+		if (challengeData.__type || (challengeData.message && !challengeData.AuthenticationResult)) {
+			throw new Error(
+				`Supreme Court Cognito challenge error: ${challengeData.__type || "Unknown"} - ${challengeData.message || "Challenge failed"}`
+			)
+		}
+
+		const accessToken = challengeData.AuthenticationResult?.AccessToken
+		if (!accessToken) {
+			console.error("❌ [Supreme Court] AccessToken missing from challenge response")
+			console.error("   Challenge response:", JSON.stringify(challengeData, null, 2))
+			throw new Error(
+				`Supreme Court challenge response missing AccessToken. Response: ${JSON.stringify(challengeData).substring(0, 500)}`
+			)
+		}
+
+		console.log("✅ [Supreme Court] Successfully obtained AccessToken after challenge")
+
+		const expiresIn = challengeData.AuthenticationResult?.ExpiresIn ?? 3600
+		cachedToken = {
+			token: accessToken,
+			expiresAt: Date.now() + expiresIn * 1000,
+		}
+
+		return accessToken
+	}
+
+	// Check for Cognito error responses (they can return 200 with error in body)
+	if (data.__type || (data.message && !data.AuthenticationResult)) {
+		console.error("❌ [Supreme Court] Cognito returned error in response body")
+		throw new Error(
+			`Supreme Court Cognito auth error: ${data.__type || "Unknown"} - ${data.message || "Authentication failed"}`
+		)
 	}
 
 	const accessToken = data.AuthenticationResult?.AccessToken
 	if (!accessToken) {
-		throw new Error("Supreme Court auth response missing AccessToken")
+		console.error("❌ [Supreme Court] AccessToken missing from response")
+		console.error("   Full response structure:", JSON.stringify(data, null, 2))
+		throw new Error(
+			`Supreme Court auth response missing AccessToken. Response: ${JSON.stringify(data).substring(0, 500)}`
+		)
 	}
+
+	console.log("✅ [Supreme Court] Successfully obtained AccessToken")
 
 	const expiresIn = data.AuthenticationResult?.ExpiresIn ?? 3600
 	cachedToken = {
@@ -99,4 +225,54 @@ export async function getToken(forceRefresh = false): Promise<string> {
  */
 export function invalidateToken(): void {
 	cachedToken = null
+}
+
+/**
+ * Decode JWT token to extract user information (groups, username, etc.)
+ * This is a simple base64 decode - we don't verify the signature.
+ */
+export function decodeToken(token: string): {
+	username?: string
+	groups?: string[]
+	sub?: string
+	exp?: number
+	iat?: number
+} {
+	try {
+		const parts = token.split(".")
+		if (parts.length !== 3) {
+			return {}
+		}
+
+		// Decode the payload (second part)
+		const payload = parts[1]!
+		// Add padding if needed for base64 decode
+		const paddedPayload = payload + "=".repeat((4 - (payload.length % 4)) % 4)
+		const decoded = Buffer.from(paddedPayload, "base64").toString("utf-8")
+		const parsed = JSON.parse(decoded) as {
+			username?: string
+			"cognito:groups"?: string[]
+			sub?: string
+			exp?: number
+			iat?: number
+		}
+
+		return {
+			username: parsed.username,
+			groups: parsed["cognito:groups"],
+			sub: parsed.sub,
+			exp: parsed.exp,
+			iat: parsed.iat,
+		}
+	} catch (error) {
+		console.warn("Failed to decode token:", error)
+		return {}
+	}
+}
+
+/**
+ * Get the current cached token (for debugging).
+ */
+export function getCachedToken(): string | null {
+	return cachedToken?.token ?? null
 }

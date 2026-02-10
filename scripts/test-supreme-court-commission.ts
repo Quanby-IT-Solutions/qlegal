@@ -24,10 +24,29 @@ async function main() {
 		process.exit(1)
 	}
 
+	// Test data matching PDF example
+	const testNPN = process.argv[2] || "NPN-2"
+	const testRN = process.argv[3] || "RN-2"
+
+	console.log("📋 Test Configuration:")
+	console.log(`   NPN: ${testNPN}`)
+	console.log(`   RN: ${testRN}`)
+	console.log()
+
 	try {
-		const result = await getCommissionStatus("NPN-2", "RN-2")
+		console.log("🔵 Checking commission status...")
+		const result = await getCommissionStatus(testNPN, testRN)
+		
 		console.log("✅ Success!")
-		console.log("   Commission Status:", result.commissionStatus)
+		console.log(`   Commission Status: ${result.commissionStatus}`)
+		
+		if (result.commissionStatus === "Active") {
+			console.log("   ✅ Notary commission is Active - can proceed with notarization")
+		} else if (result.commissionStatus === "Inactive") {
+			console.log("   ⚠️  Notary commission is Inactive - cannot create notarial metadata")
+		} else {
+			console.log(`   ⚠️  Unknown status: ${result.commissionStatus}`)
+		}
 	} catch (error) {
 		console.error("❌ Failed:", error instanceof Error ? error.message : error)
 		process.exit(1)

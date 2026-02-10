@@ -595,6 +595,8 @@ export const signatureRequestsRouter = createTRPCRouter({
 							})
 						}
 
+						// Doconchain API only accepts "Signer" for signer_role (422 on "Witness").
+						// We track witness in meeting participantRole and show it in the UI via enriched signer data.
 						await addSignerToProject({
 							projectUuid: actualProjectUuid,
 							email: participantEmail,

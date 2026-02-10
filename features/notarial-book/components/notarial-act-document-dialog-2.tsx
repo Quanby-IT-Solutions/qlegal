@@ -74,12 +74,12 @@ export function NotarialActDocumentDialog2({
 	return (
 		<Dialog open={isOpen} onOpenChange={onClose}>
 			<DialogContent
-				className="!m-0 !flex !h-[96vh] !w-[96vw] !max-w-none flex-col !gap-0 overflow-hidden !rounded-lg !p-0"
-				style={{ maxWidth: "96vw" }}
+				className="!m-0 !flex !h-[85vh] !w-[90vw] !max-w-none flex-col !gap-0 overflow-hidden !rounded-lg !p-0"
+				style={{ maxWidth: "90vw" }}
 			>
-				<DialogHeader className="bg-background flex shrink-0 flex-row items-center justify-between border-b p-4">
-					<div className="flex items-center gap-3">
-						<div className="bg-muted rounded-lg p-2">
+				<DialogHeader className="bg-background flex shrink-0 flex-row items-center justify-between border-b p-4 pr-12">
+					<div className="flex min-w-0 flex-1 items-center gap-3">
+						<div className="bg-muted shrink-0 rounded-lg p-2">
 							<FileText className="text-muted-foreground h-5 w-5" />
 						</div>
 						<div className="min-w-0 flex-1 text-left">
@@ -87,10 +87,12 @@ export function NotarialActDocumentDialog2({
 								{documentName}
 							</DialogTitle>
 							<p className="text-muted-foreground text-sm">
-								Signed Document (Programmatic Retrieval)
+								Official notarized document with digital seal and certificate
 							</p>
 						</div>
-						{documentData?.url && !isPending && !error && (
+					</div>
+					{documentData?.url && !isPending && !error && (
+						<div className="ml-4 shrink-0">
 							<Button
 								variant="outline"
 								size="sm"
@@ -104,8 +106,8 @@ export function NotarialActDocumentDialog2({
 								)}
 								{isDownloading ? "Downloading..." : "Download"}
 							</Button>
-						)}
-					</div>
+						</div>
+					)}
 				</DialogHeader>
 
 				{/* Content Area - Fixed height to prevent layout shifts */}

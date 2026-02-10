@@ -66,6 +66,7 @@ export const ROUTE_CONFIG: RouteConfig = {
 			{ path: "/meetings" },
 			{ path: "/messages" },
 			{ path: "/notarial-book" },
+			{ path: "/notarial-registry" },
 			{ path: "/notarizations" },
 			{ path: "/notarizations/active" },
 			{ path: "/notarizations/history" },

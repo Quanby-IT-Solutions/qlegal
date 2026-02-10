@@ -151,6 +151,10 @@ export const profileRouter = createTRPCRouter({
 			mcleNo: enpProfile.mcleNo ?? "",
 			mcleNoDate: enpProfile.mcleNoDate ?? "",
 
+			// Supreme Court eNotarization API Fields
+			notaryPublicNumber: enpProfile.notaryPublicNumber ?? "",
+			notaryFacilityNumber: enpProfile.notaryFacilityNumber ?? "",
+
 			// Pricing
 			consultationPrice: enpProfile.consultationPrice ?? null,
 			acknowledgmentPrice: enpProfile.acknowledgmentPrice ?? null,
@@ -305,6 +309,9 @@ export const profileRouter = createTRPCRouter({
 				(input.ibpNoDate && formatDateForStamp(input.ibpNoDate)) ||
 				normalizeString(input.ibpNoDate),
 			notaryAddress: normalizeString(input.notaryAddress),
+			// Supreme Court eNotarization API Fields
+			notaryPublicNumber: normalizeString(input.notaryPublicNumber),
+			notaryFacilityNumber: normalizeString(input.notaryFacilityNumber),
 		}
 
 		if (existingProfile) {

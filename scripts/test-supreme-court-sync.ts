@@ -13,6 +13,7 @@ import { db } from "@/services/drizzle/db"
 import { enpProfiles } from "@/services/drizzle/schema/enp-profiles"
 import { documents } from "@/services/drizzle/schema/document"
 import { notarialActs, notarialBooks } from "@/services/drizzle/schema/notarial-book"
+import { users } from "@/services/drizzle/schema/auth"
 import { syncNotarialActToSupremeCourt } from "@/services/supreme-court/lib/sync-notarial-act"
 import { isConfigured } from "@/services/supreme-court/lib/token-cache"
 import { getServiceRoleClient } from "@/services/supabase"
@@ -65,9 +66,20 @@ async function main() {
 			process.exit(1)
 		}
 
+		// Get user info for debugging
+		const enpUser = await db.query.users.findFirst({
+			where: eq(users.id, notarialBook.enpId),
+			columns: {
+				id: true,
+				email: true,
+				name: true,
+			},
+		})
+
 		const enpProfile = await db.query.enpProfiles.findFirst({
 			where: eq(enpProfiles.userId, notarialBook.enpId),
 			columns: {
+				userId: true,
 				notaryPublicNumber: true,
 				notaryFacilityNumber: true,
 				rollNo: true,
@@ -75,9 +87,20 @@ async function main() {
 		})
 
 		if (!enpProfile) {
-			console.error(`❌ ENP profile not found`)
+			console.error(`❌ ENP profile not found for user: ${notarialBook.enpId}`)
+			if (enpUser) {
+				console.error(`   User: ${enpUser.name || enpUser.email || enpUser.id}`)
+			}
 			process.exit(1)
 		}
+
+		console.log(`📋 Checking ENP profile for:`)
+		console.log(`   - User ID: ${notarialBook.enpId}`)
+		if (enpUser) {
+			console.log(`   - Name: ${enpUser.name || "—"}`)
+			console.log(`   - Email: ${enpUser.email || "—"}`)
+		}
+		console.log()
 
 		if (!enpProfile.notaryPublicNumber || !enpProfile.notaryFacilityNumber || !enpProfile.rollNo) {
 			console.error("❌ ENP profile missing required fields:")
@@ -85,6 +108,10 @@ async function main() {
 			console.error(`   - Notary Facility Number (NFN): ${enpProfile.notaryFacilityNumber || "MISSING"}`)
 			console.error(`   - Roll Number (RN): ${enpProfile.rollNo || "MISSING"}`)
 			console.error("\n   Please update ENP profile settings with these values.")
+			if (enpUser) {
+				console.error(`\n   ⚠️  Make sure you're logged in as: ${enpUser.email || enpUser.name || enpUser.id}`)
+				console.error(`   The form saves to the currently logged-in user's profile.`)
+			}
 			process.exit(1)
 		}
 
