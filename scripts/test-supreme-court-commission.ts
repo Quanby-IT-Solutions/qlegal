@@ -24,9 +24,22 @@ async function main() {
 		process.exit(1)
 	}
 
-	// Test data matching PDF example
+	// Test data: NPN and RN (from your ENP profile / Supreme Court), not an act ID
 	const testNPN = process.argv[2] || "NPN-2"
 	const testRN = process.argv[3] || "RN-2"
+
+	// If first arg looks like a UUID (e.g. act ID), show correct usage
+	const looksLikeUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(testNPN)
+	if (looksLikeUuid) {
+		console.error("❌ This script expects NPN and RN (from your Licensing profile), not a notarial act ID.")
+		console.error("")
+		console.error("   Usage: pnpm test:supreme-court [NPN] [RN]")
+		console.error("   Example: pnpm test:supreme-court NPN-456 RN-2")
+		console.error("")
+		console.error("   Use the NPN and NFN/RN values from your Profile → Licensing form.")
+		console.error("   To test syncing an act, use: pnpm test:supreme-court-sync <act-id>")
+		process.exit(1)
+	}
 
 	console.log("📋 Test Configuration:")
 	console.log(`   NPN: ${testNPN}`)

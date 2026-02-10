@@ -1285,7 +1285,13 @@ const DocumentActions = React.memo(function DocumentActions({
 	// Plotting vs signing phase (separate buttons, no shared logic)
 	const hasPlotted = !isPendingOrNextGroup && !hasUserSigned
 	const isPlottingPhase = isEnp && !!document.docoChainProjectId && !hasPlotted && !hasUserSigned
-	const isPrincipalWaitingForEnpToPlot = isPrincipal && isUserAddedAsSigner && isPendingOrNextGroup
+	// Only the first signer (index 0) waits for ENP to plot. Signers 2, 3, ... (e.g. witness) do not
+	// see "Waiting for ENP to plot" — they see "Previous signer(s) must sign first" until it's their turn.
+	const isPrincipalWaitingForEnpToPlot =
+		isPrincipal &&
+		isUserAddedAsSigner &&
+		isPendingOrNextGroup &&
+		currentUserIndexInOrder === 0
 
 	// Both buttons visible when applicable. Disable by phase so the wrong link is never used.
 	// Plot Signature: ENP only, project exists, not signed. Hide entirely after ENP confirms "Yes, I'm done".

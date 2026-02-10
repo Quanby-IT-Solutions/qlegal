@@ -3,6 +3,7 @@ import { and, desc, eq, ilike, or } from "drizzle-orm"
 import { z } from "zod"
 
 import { checkSigningStatus, downloadSignedDocument } from "@/services/doconchain"
+import { users } from "@/services/drizzle/schema/auth"
 import { documents } from "@/services/drizzle/schema/document"
 import { meetingParticipants } from "@/services/drizzle/schema/meetings"
 import { notarialActs } from "@/services/drizzle/schema/notarial-book"
@@ -143,7 +144,35 @@ export const documentsRouter = createTRPCRouter({
 						? "Witness"
 						: (s.signerRole ?? "Signer"),
 				}))
-				return { signers: enriched }
+				// Fetch user address per signer
+				const signersWithAddress = await Promise.all(
+					enriched.map(async s => {
+						const signerUser = await ctx.db.query.users.findFirst({
+							where: eq(users.email, s.email),
+							columns: {
+								address: true,
+								homeStreet: true,
+								barangay: true,
+								cityProvince: true,
+							},
+						})
+						const parts = [
+							signerUser?.homeStreet,
+							signerUser?.barangay,
+							signerUser?.cityProvince,
+						].filter(Boolean) as string[]
+						const fullAddress =
+							signerUser?.address ?? (parts.length > 0 ? parts.join(", ") : null)
+						return {
+							...s,
+							fullAddress,
+							homeStreet: signerUser?.homeStreet ?? null,
+							barangay: signerUser?.barangay ?? null,
+							cityProvince: signerUser?.cityProvince ?? null,
+						}
+					})
+				)
+				return { signers: signersWithAddress }
 			} catch {
 				return { signers: [] }
 			}

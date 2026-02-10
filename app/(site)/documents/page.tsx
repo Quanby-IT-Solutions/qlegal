@@ -269,6 +269,22 @@ function ExpandedDocumentDetails({
 													</>
 												)}
 										</p>
+										{(() => {
+											const s = signer as {
+												fullAddress?: string | null
+												homeStreet?: string | null
+												barangay?: string | null
+												cityProvince?: string | null
+											}
+											const addr =
+												s.fullAddress ??
+												[s.homeStreet, s.barangay, s.cityProvince].filter(Boolean).join(", ")
+											return addr ? (
+												<p className="text-muted-foreground mt-0.5 truncate text-[11px]">
+													{addr}
+												</p>
+											) : null
+										})()}
 									</div>
 									<Badge
 										variant={signed ? "default" : "secondary"}

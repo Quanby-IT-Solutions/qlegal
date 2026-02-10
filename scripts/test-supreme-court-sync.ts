@@ -56,7 +56,7 @@ async function main() {
 
 		// Get ENP profile
 		// @ts-expect-error - PostgresJsDatabase<any> doesn't provide proper types for query builder
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+		 
 		const notarialBook = await db.query.notarialBooks.findFirst({
 			where: eq(notarialBooks.id, act.notarialBookId),
 		})
@@ -126,7 +126,7 @@ async function main() {
 
 		if (act.documentId) {
 			// @ts-expect-error - PostgresJsDatabase<any> doesn't provide proper types for query builder
-			// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+			 
 			const document = await db.query.documents.findFirst({
 				where: eq(documents.id, act.documentId),
 				columns: { path: true, name: true },
