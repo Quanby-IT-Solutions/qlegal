@@ -76,6 +76,49 @@ type SortBy =
 	| "workflow"
 type SortDir = "asc" | "desc"
 
+function titleCaseFromToken(token: string): string {
+	return token
+		.split(/\s+|_/g)
+		.filter(Boolean)
+		.map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+		.join(" ")
+}
+
+function formatActTypeLabel(actType: string | null | undefined): string {
+	if (!actType) return "Notarial act"
+	const normalized = String(actType).trim()
+	if (!normalized) return "Notarial act"
+	return titleCaseFromToken(normalized)
+}
+
+function formatWorkflowLabel(workflow: string | null | undefined): string {
+	const w = (workflow ?? "").trim().toUpperCase()
+	if (!w) return "—"
+	if (w === "REN") return "Remote Electronic Notarization"
+	if (w === "IEN") return "In-person Electronic Notarization"
+	return titleCaseFromToken(w)
+}
+
+function formatIdDocumentTypeLabel(documentType: string | null | undefined): string {
+	const raw = (documentType ?? "").trim()
+	if (!raw) return "—"
+	const upper = raw.toUpperCase()
+	const map: Record<string, string> = {
+		NATIONAL_ID: "National ID",
+		DRIVERS_LICENSE: "Driver's License",
+		PASSPORT: "Passport",
+		VOTERS_ID: "Voter's ID",
+		UMID: "UMID",
+		SSS_ID: "SSS ID",
+		PHILHEALTH_ID: "PhilHealth ID",
+		TIN_ID: "TIN ID",
+		POSTAL_ID: "Postal ID",
+		PRC_ID: "PRC ID",
+		OTHER: "Other",
+	}
+	return map[upper] ?? titleCaseFromToken(raw)
+}
+
 // Helper function to truncate file names intelligently
 function truncateFileName(fileName: string | null | undefined, maxLength = 20): string {
 	if (!fileName) return "Untitled Document"
@@ -146,10 +189,10 @@ function NotarialActCard({
 					</span>
 					<div className="flex gap-1">
 						<Badge variant="outline" className="text-xs">
-							{act.actType}
+							{formatActTypeLabel(act.actType)}
 						</Badge>
 						<Badge variant={act.workflow === "REN" ? "default" : "secondary"} className="text-xs">
-							{act.workflow}
+							{formatWorkflowLabel(act.workflow)}
 						</Badge>
 					</div>
 				</div>
@@ -161,7 +204,7 @@ function NotarialActCard({
 							</TooltipTrigger>
 							{act.documentName && act.documentName.length > 25 && (
 								<TooltipContent>
-									<p className="max-w-xs break-words">{act.documentName}</p>
+									<p className="max-w-xs wrap-break-word">{act.documentName}</p>
 								</TooltipContent>
 							)}
 						</Tooltip>
@@ -176,7 +219,7 @@ function NotarialActCard({
 								</TooltipTrigger>
 								{act.documentDescription.length > 50 && (
 									<TooltipContent>
-										<p className="max-w-xs break-words">{act.documentDescription}</p>
+										<p className="max-w-xs wrap-break-word">{act.documentDescription}</p>
 									</TooltipContent>
 								)}
 							</Tooltip>
@@ -273,9 +316,7 @@ function NotarialActCard({
 									size="sm"
 									className="flex-1"
 									disabled={isDownloading}
-									onClick={() =>
-										onDownloadDocument(act.id, act.documentName ?? undefined)
-									}
+									onClick={() => onDownloadDocument(act.id, act.documentName ?? undefined)}
 								>
 									{isDownloading ? (
 										<Loader2 className="mr-1.5 size-3.5 animate-spin" />
@@ -307,17 +348,37 @@ function NotarialActCard({
 function ExpandedActDetails({
 	act,
 	isExpanded,
+	onViewSignerId,
 }: {
 	act: NotarialActRow
 	isExpanded: boolean
+	onViewSignerId: (signerName: string, idFaceImageBase64: string) => void
 }) {
+	type ActSigner = {
+		id: number | string
+		email?: string | null
+		firstName?: string | null
+		lastName?: string | null
+		status?: string | null
+		signedAt?: string | null
+		signerRole?: string | null
+		fullAddress?: string | null
+		homeStreet?: string | null
+		barangay?: string | null
+		cityProvince?: string | null
+		idFaceImageBase64?: string | null
+		idDocumentType?: string | null
+		idDocumentNumber?: string | null
+		idVerified?: boolean | null
+	}
+
 	const { data: signersData, isPending: isSignersLoading } =
 		trpc.notarialBook.getActSigners.useQuery(
 			{ actId: act.id },
 			{ enabled: isExpanded && !!act.docoChainProjectUuid }
 		)
-	const signers = signersData?.signers ?? []
-	const isSignerSigned = (s: { status?: string; signedAt?: string | null }) => {
+	const signers = (signersData?.signers ?? []) as unknown as ActSigner[]
+	const isSignerSigned = (s: { status?: string | null; signedAt?: string | null }) => {
 		const statusUpper = (s.status ?? "").toUpperCase()
 		return statusUpper === "SIGNED" || statusUpper === "COMPLETED" || !!s.signedAt
 	}
@@ -326,7 +387,7 @@ function ExpandedActDetails({
 		<div className="space-y-4">
 			{/* Signatories section */}
 			<div>
-				<h4 className="mb-2 font-semibold text-sm">Signatories</h4>
+				<h4 className="mb-2 text-sm font-semibold">Signatories</h4>
 				{isSignersLoading ? (
 					<div className="flex items-center gap-2 py-2">
 						<Loader2 className="size-4 animate-spin" />
@@ -339,16 +400,31 @@ function ExpandedActDetails({
 				) : (
 					<div className="space-y-2">
 						{signers.map(signer => {
-							const fullName = [signer.firstName, signer.lastName]
-								.filter(Boolean)
-								.join(" ")
-								.trim()
+							const fullName = [signer.firstName, signer.lastName].filter(Boolean).join(" ").trim()
 							const displayName = fullName || signer.email || "Unknown"
 							const signed = isSignerSigned(signer)
 							const isWitness =
 								(signer as { signerRole?: string }).signerRole
 									?.toUpperCase()
 									?.includes("WITNESS") ?? false
+							const signerExtra = signer as {
+								fullAddress?: string | null
+								homeStreet?: string | null
+								barangay?: string | null
+								cityProvince?: string | null
+								idFaceImageBase64?: string | null
+								idDocumentType?: string | null
+								idDocumentNumber?: string | null
+								idVerified?: boolean | null
+							}
+							const addr =
+								signerExtra.fullAddress ??
+								[signerExtra.homeStreet, signerExtra.barangay, signerExtra.cityProvince]
+									.filter(Boolean)
+									.join(", ")
+							const evidenceType = formatIdDocumentTypeLabel(signerExtra.idDocumentType)
+							const evidenceNumber = (signerExtra.idDocumentNumber ?? "").trim()
+							const evidence = evidenceNumber ? `${evidenceType} · ${evidenceNumber}` : evidenceType
 							return (
 								<div
 									key={signer.id}
@@ -358,58 +434,72 @@ function ExpandedActDetails({
 										<User className="text-muted-foreground size-4" />
 									</div>
 									<div className="min-w-0 flex-1">
-										<p className="font-medium">
-											{displayName}
+										<div className="flex items-center gap-1">
+											<p className="font-medium">{displayName}</p>
 											{isWitness && (
-												<Badge
-													variant="outline"
-													className="ml-2 text-[10px] font-normal"
-												>
+												<Badge variant="outline" className="text-[10px] font-normal">
 													Witness
 												</Badge>
 											)}
-										</p>
+											{signerExtra.idFaceImageBase64 ? (
+												<Button
+													variant="ghost"
+													size="sm"
+													className="size-7 p-0 sm:size-8"
+													onClick={() => {
+														onViewSignerId(displayName, signerExtra.idFaceImageBase64 as string)
+													}}
+													title="View ID"
+												>
+													<IdCard className="size-3.5 sm:size-4" />
+												</Button>
+											) : null}
+											{act.locationStatement && (
+												<TooltipProvider>
+													<Tooltip>
+														<TooltipTrigger asChild>
+															<Info
+																className="text-muted-foreground size-3.5 shrink-0 cursor-help"
+																aria-label="View certification statement"
+															/>
+														</TooltipTrigger>
+														<TooltipContent className="max-w-md">
+															<p className="text-sm">{act.locationStatement}</p>
+														</TooltipContent>
+													</Tooltip>
+												</TooltipProvider>
+											)}
+										</div>
 										<p className="text-muted-foreground truncate text-xs">
 											{signer.email}
-											{signer.signedAt &&
-												!Number.isNaN(new Date(signer.signedAt).getTime()) && (
-													<>
-														{" "}
-														·{" "}
-														<span className="font-medium">Signed:</span>{" "}
-														{format(
-															new Date(signer.signedAt),
-															"MMM dd, yyyy · hh:mm a"
-														)}
-													</>
-												)}
+											{signer.signedAt && !Number.isNaN(new Date(signer.signedAt).getTime()) && (
+												<>
+													{" "}
+													· <span className="font-medium">Signed:</span>{" "}
+													{format(new Date(signer.signedAt), "MMM dd, yyyy · hh:mm a")}
+												</>
+											)}
 										</p>
-										{(() => {
-											const s = signer as {
-												fullAddress?: string | null
-												homeStreet?: string | null
-												barangay?: string | null
-												cityProvince?: string | null
-											}
-											const addr =
-												s.fullAddress ??
-												[s.homeStreet, s.barangay, s.cityProvince].filter(Boolean).join(", ")
-											return addr ? (
-												<p className="text-muted-foreground mt-0.5 truncate text-[11px]">
-													{addr}
-												</p>
-											) : null
-										})()}
+										{addr ? (
+											<p className="text-muted-foreground mt-0.5 text-[11px] wrap-break-word">
+												<span className="font-medium">Address:</span> {addr}
+											</p>
+										) : null}
+										<p className="text-muted-foreground mt-0.5 text-[11px] wrap-break-word">
+											<span className="font-medium">Competent evidence:</span> {evidence}
+											{typeof signerExtra.idVerified === "boolean" ? (
+												<span className="text-muted-foreground">
+													{" "}
+													· {signerExtra.idVerified ? "Verified" : "Unverified"}
+												</span>
+											) : null}
+										</p>
 									</div>
 									<Badge
 										variant={signed ? "default" : "secondary"}
-										className={
-											signed
-												? "bg-green-600 text-xs dark:bg-green-700"
-												: "text-xs"
-										}
+										className={signed ? "bg-green-600 text-xs dark:bg-green-700" : "text-xs"}
 									>
-										{signed ? "Signed" : signer.status ?? "Pending"}
+										{signed ? "Signed" : (signer.status ?? "Pending")}
 									</Badge>
 								</div>
 							)
@@ -423,17 +513,17 @@ function ExpandedActDetails({
 				<span>
 					<span className="font-medium">Act type</span>{" "}
 					<Badge variant="outline" className="text-xs font-medium">
-						{act.actType}
+						{formatActTypeLabel(act.actType)}
 					</Badge>
 				</span>
 				<span>·</span>
 				<span>
-					<span className="font-medium">Workflow</span>{" "}
+					<span className="font-medium">Mode of notarization</span>{" "}
 					<Badge
 						variant={act.workflow === "REN" ? "default" : "secondary"}
 						className="text-xs font-medium"
 					>
-						{act.workflow}
+						{formatWorkflowLabel(act.workflow)}
 					</Badge>
 				</span>
 				<span>·</span>
@@ -445,27 +535,19 @@ function ExpandedActDetails({
 					<span className="font-medium">Certificate #</span>{" "}
 					<span className="font-mono">{act.certificateNumber ?? "—"}</span>
 				</span>
-				{act.fees !== null &&
-					typeof act.fees === "number" &&
-					!Number.isNaN(act.fees) && (
-						<>
-							<span>·</span>
-							<span>
-								<span className="font-medium">Fees</span> {act.fees.toFixed(2)}
-							</span>
-						</>
-					)}
+				{act.fees !== null && typeof act.fees === "number" && !Number.isNaN(act.fees) && (
+					<>
+						<span>·</span>
+						<span>
+							<span className="font-medium">Fees</span> {act.fees.toFixed(2)}
+						</span>
+					</>
+				)}
 			</div>
 			{act.documentDescription && (
 				<div className="text-xs">
 					<span className="text-muted-foreground font-medium">Description:</span>{" "}
 					{act.documentDescription}
-				</div>
-			)}
-			{act.locationStatement && (
-				<div className="text-xs">
-					<span className="text-muted-foreground font-medium">Certification:</span>
-					<p className="text-foreground/90 mt-0.5 italic">{act.locationStatement}</p>
 				</div>
 			)}
 		</div>
@@ -570,39 +652,34 @@ export default function NotarialRegistryPage() {
 
 	// Download notarized document - fetch then trigger download, with loading state
 	const [downloadingActId, setDownloadingActId] = useState<string | null>(null)
-	const handleDownloadDocument = useCallback(
-		async (actId: string) => {
-			setDownloadingActId(actId)
-			try {
-				const url = `/api/notarial-book-2/documents/${actId}?download=1`
-				const res = await fetch(url, { credentials: "include" })
-				if (!res.ok) {
-					const text = await res.text()
-					throw new Error(text || `Download failed (${res.status})`)
-				}
-				const blob = await res.blob()
-				const contentDisposition = res.headers.get("Content-Disposition")
-				const fileNameMatch = contentDisposition?.match(/filename="?([^";\n]+)"?/)
-				const fileName = fileNameMatch?.[1] ?? "document.pdf"
-				const blobUrl = URL.createObjectURL(blob)
-				const a = document.createElement("a")
-				a.href = blobUrl
-				a.download = fileName
-				a.style.display = "none"
-				document.body.appendChild(a)
-				a.click()
-				document.body.removeChild(a)
-				URL.revokeObjectURL(blobUrl)
-			} catch (error) {
-				toast.error(
-					`Failed to download: ${error instanceof Error ? error.message : "Unknown error"}`
-				)
-			} finally {
-				setDownloadingActId(null)
+	const handleDownloadDocument = useCallback(async (actId: string) => {
+		setDownloadingActId(actId)
+		try {
+			const url = `/api/notarial-book-2/documents/${actId}?download=1`
+			const res = await fetch(url, { credentials: "include" })
+			if (!res.ok) {
+				const text = await res.text()
+				throw new Error(text || `Download failed (${res.status})`)
 			}
-		},
-		[]
-	)
+			const blob = await res.blob()
+			const contentDisposition = res.headers.get("Content-Disposition")
+			const fileNameMatch = contentDisposition?.match(/filename="?([^";\n]+)"?/)
+			const fileName = fileNameMatch?.[1] ?? "document.pdf"
+			const blobUrl = URL.createObjectURL(blob)
+			const a = document.createElement("a")
+			a.href = blobUrl
+			a.download = fileName
+			a.style.display = "none"
+			document.body.appendChild(a)
+			a.click()
+			document.body.removeChild(a)
+			URL.revokeObjectURL(blobUrl)
+		} catch (error) {
+			toast.error(`Failed to download: ${error instanceof Error ? error.message : "Unknown error"}`)
+		} finally {
+			setDownloadingActId(null)
+		}
+	}, [])
 
 	// View principal ID handler
 	const handleViewPrincipalId = (
@@ -719,7 +796,7 @@ export default function NotarialRegistryPage() {
 														setPage(1)
 													}}
 												>
-													<SelectTrigger className="md:w-[180px]">
+													<SelectTrigger className="md:w-45">
 														<SelectValue placeholder="All Workflows" />
 													</SelectTrigger>
 													<SelectContent>
@@ -732,7 +809,7 @@ export default function NotarialRegistryPage() {
 													variant="outline"
 													type="button"
 													onClick={clearFilters}
-													className="md:w-[140px]"
+													className="md:w-35"
 												>
 													Clear filters
 												</Button>
@@ -748,7 +825,7 @@ export default function NotarialRegistryPage() {
 															setPage(1)
 														}}
 													>
-														<SelectTrigger className="w-[170px]">
+														<SelectTrigger className="w-42.5">
 															<SelectValue placeholder="Sort by" />
 														</SelectTrigger>
 														<SelectContent>
@@ -769,7 +846,7 @@ export default function NotarialRegistryPage() {
 															setPage(1)
 														}}
 													>
-														<SelectTrigger className="w-[110px]">
+														<SelectTrigger className="w-27.5">
 															<SelectValue placeholder="Order" />
 														</SelectTrigger>
 														<SelectContent>
@@ -851,25 +928,25 @@ export default function NotarialRegistryPage() {
 												}}
 												className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3"
 											>
-												{filteredActs.map((act) => {
+												{filteredActs.map(act => {
 													return (
-													<motion.div
-														key={act.id}
-														variants={{
-															visible: { opacity: 1, y: 0 },
-															hidden: { opacity: 0, y: 12 },
-														}}
-														transition={{ duration: 0.25 }}
-													>
-														<NotarialActCard
-															act={act}
-															onViewDocument={handleViewDocument}
-															onDownloadDocument={handleDownloadDocument}
-															onViewCertificate={handleViewCertificate}
-															onViewPrincipalId={handleViewPrincipalId}
-															isDownloading={downloadingActId === act.id}
-														/>
-													</motion.div>
+														<motion.div
+															key={act.id}
+															variants={{
+																visible: { opacity: 1, y: 0 },
+																hidden: { opacity: 0, y: 12 },
+															}}
+															transition={{ duration: 0.25 }}
+														>
+															<NotarialActCard
+																act={act}
+																onViewDocument={handleViewDocument}
+																onDownloadDocument={handleDownloadDocument}
+																onViewCertificate={handleViewCertificate}
+																onViewPrincipalId={handleViewPrincipalId}
+																isDownloading={downloadingActId === act.id}
+															/>
+														</motion.div>
 													)
 												})}
 											</motion.div>
@@ -882,199 +959,200 @@ export default function NotarialRegistryPage() {
 												transition={{ duration: 0.2 }}
 												className="-mx-4 overflow-x-auto sm:mx-0"
 											>
-										<div className="inline-block min-w-full align-middle">
-											<Table className="w-full">
-												<TableHeader>
-													<TableRow>
-														<TableHead className="w-10 sm:w-12">#</TableHead>
-														<TableHead className="min-w-[100px] sm:min-w-[110px]">
-															Date & Time
-														</TableHead>
-														<TableHead className="min-w-[120px] sm:min-w-[140px]">
-															Principal
-														</TableHead>
-														<TableHead className="min-w-[120px] sm:min-w-[160px]">
-															Document
-														</TableHead>
-														<TableHead className="w-24 sm:w-28">Actions</TableHead>
-													</TableRow>
-												</TableHeader>
-												<TableBody>
-													{filteredActs.map((act) => {
-														const isExpanded = expandedActIds.has(act.id)
-														return (
-															<Fragment key={act.id}>
-																<TableRow className={isExpanded ? "border-b-0" : undefined}>
-																	<TableCell className="align-top font-mono text-xs font-medium sm:text-sm">
-																		{act.registryNumber ?? "—"}
-																	</TableCell>
-																	<TableCell className="align-top whitespace-nowrap">
-																		<div className="text-xs sm:text-sm">
-																			<div>
-																				<span className="font-medium">Signed:</span>{" "}
-																				{format(new Date(act.executedAt), "MMM dd, yyyy · hh:mm a")}
-																			</div>
-																			{act.meetingEndedAt && (
-																				<div className="text-muted-foreground mt-0.5">
-																					<span className="font-medium">Meeting ended:</span>{" "}
-																					{format(new Date(act.meetingEndedAt), "MMM dd, yyyy · hh:mm a")}
+												<div className="inline-block min-w-full align-middle">
+													<Table className="w-full">
+														<TableHeader>
+															<TableRow>
+																<TableHead className="w-10 sm:w-12">#</TableHead>
+																<TableHead className="min-w-37.5 sm:min-w-45">
+																	Notarial act
+																</TableHead>
+																<TableHead className="min-w-27.5 whitespace-nowrap sm:min-w-35">
+																	Date & time
+																</TableHead>
+																<TableHead className="min-w-45 sm:min-w-60">
+																	Title / description
+																</TableHead>
+																<TableHead className="min-w-22.5 whitespace-nowrap sm:min-w-27.5">
+																	Fee charged
+																</TableHead>
+																<TableHead className="min-w-42.5 sm:min-w-55">
+																	Mode of notarization
+																</TableHead>
+															</TableRow>
+														</TableHeader>
+														<TableBody>
+															{filteredActs.map(act => {
+																const isExpanded = expandedActIds.has(act.id)
+																return (
+																	<Fragment key={act.id}>
+																		<TableRow className={isExpanded ? "border-b-0" : undefined}>
+																			<TableCell className="align-top font-mono text-xs font-medium sm:text-sm">
+																				{act.registryNumber ?? "—"}
+																			</TableCell>
+																			<TableCell className="min-w-0 align-top">
+																				<p className="truncate text-xs font-medium sm:text-sm">
+																					{formatActTypeLabel(act.actType)}
+																				</p>
+																			</TableCell>
+																			<TableCell className="align-top whitespace-nowrap">
+																				<div className="text-xs sm:text-sm">
+																					<div>
+																						{format(
+																							new Date(act.executedAt),
+																							"MMM dd, yyyy · hh:mm a"
+																						)}
+																					</div>
 																				</div>
-																			)}
-																		</div>
-																	</TableCell>
-																	<TableCell className="min-w-0 align-top">
-																		<div className="flex items-center gap-1">
-																			<p className="truncate text-xs font-medium sm:text-sm">
-																				{act.principalName}
-																			</p>
-																			{act.locationStatement && (
-																				<TooltipProvider>
-																					<Tooltip>
-																						<TooltipTrigger asChild>
-																							<Info
-																								className="text-muted-foreground size-3.5 shrink-0 cursor-help"
-																								aria-label="View certification statement"
-																							/>
-																						</TooltipTrigger>
-																						<TooltipContent className="max-w-md">
-																							<p className="text-sm">{act.locationStatement}</p>
-																						</TooltipContent>
-																					</Tooltip>
-																				</TooltipProvider>
-																			)}
-																		</div>
-																	</TableCell>
-																	<TableCell className="max-w-[140px] min-w-0 align-top sm:max-w-[200px]">
-																		<TooltipProvider>
-																			<Tooltip>
-																				<TooltipTrigger asChild>
-																					<p className="cursor-help truncate text-xs font-medium sm:text-sm">
-																						{truncateFileName(act.documentName, 24)}
-																					</p>
-																				</TooltipTrigger>
-																				{act.documentName && act.documentName.length > 24 && (
-																					<TooltipContent className="max-w-xs">
-																						<p className="break-words">{act.documentName}</p>
-																					</TooltipContent>
-																				)}
-																			</Tooltip>
-																		</TooltipProvider>
-																	</TableCell>
-																	<TableCell className="align-top">
-																		<div className="flex items-center justify-end gap-0.5 sm:gap-1">
-																			{act.principalIdImageBase64 && (
-																				<Button
-																					variant="ghost"
-																					size="sm"
-																					className="size-7 p-0 sm:size-8"
-																					onClick={() =>
-																						handleViewPrincipalId(
-																							act.principalName,
-																							act.principalIdImageBase64
-																						)
-																					}
-																					title="View Principal ID"
-																				>
-																					<IdCard className="size-3.5 sm:size-4" />
-																				</Button>
-																			)}
-																			{(act.documentId ?? act.docoChainProjectUuid) && (
-																				<Button
-																					variant="ghost"
-																					size="sm"
-																					className="size-7 p-0 sm:size-8"
-																					onClick={() =>
-																						handleViewDocument(
-																							act.id,
-																							act.documentName ?? undefined
-																						)
-																					}
-																					title="View Document"
-																				>
-																					<Eye className="size-3.5 sm:size-4" />
-																				</Button>
-																			)}
-																			{act.docoChainProjectUuid && (
-																				<Button
-																					variant="ghost"
-																					size="sm"
-																					className="size-7 p-0 sm:size-8"
-																					disabled={downloadingActId === act.id}
-																					onClick={() => handleDownloadDocument(act.id)}
-																					title={
-																						downloadingActId === act.id
-																							? "Downloading..."
-																							: "Download notarized document"
-																					}
-																				>
-																					{downloadingActId === act.id ? (
-																						<Loader2 className="size-3.5 animate-spin sm:size-4" />
-																					) : (
-																						<Download className="size-3.5 sm:size-4" />
-																					)}
-																				</Button>
-																			)}
-																			{act.docoChainProjectUuid && (
-																				<Button
-																					variant="ghost"
-																					size="sm"
-																					className="size-7 p-0 sm:size-8"
-																					onClick={() => handleViewCertificate(act.id)}
-																					title="View Certificate"
-																				>
-																					<FileCheck className="size-3.5 sm:size-4" />
-																				</Button>
-																			)}
-																			<Button
-																				variant="ghost"
-																				size="sm"
-																				className="size-7 p-0 sm:size-8"
-																				onClick={() => toggleExpanded(act.id)}
-																				title={isExpanded ? "Collapse details" : "Expand details"}
-																				aria-expanded={isExpanded}
-																			>
-																				{isExpanded ? (
-																					<ChevronDown className="size-4" />
+																			</TableCell>
+																			<TableCell className="min-w-0 align-top">
+																				<div className="max-w-[320px] min-w-0">
+																					<TooltipProvider>
+																						<Tooltip>
+																							<TooltipTrigger asChild>
+																								<p className="cursor-help truncate text-xs font-medium sm:text-sm">
+																									{truncateFileName(act.documentName, 32)}
+																								</p>
+																							</TooltipTrigger>
+																							{act.documentName && act.documentName.length > 32 && (
+																								<TooltipContent className="max-w-xs">
+																									<p className="wrap-break-word">
+																										{act.documentName}
+																									</p>
+																								</TooltipContent>
+																							)}
+																						</Tooltip>
+																					</TooltipProvider>
+																					{act.documentDescription ? (
+																						<p className="text-muted-foreground mt-0.5 line-clamp-2 text-[11px]">
+																							{act.documentDescription}
+																						</p>
+																					) : null}
+																				</div>
+																			</TableCell>
+																			<TableCell className="align-top whitespace-nowrap">
+																				{act.fees !== null &&
+																				act.fees !== undefined &&
+																				typeof act.fees === "number" &&
+																				!Number.isNaN(act.fees) ? (
+																					<span className="text-xs font-medium sm:text-sm">
+																						₱ {act.fees.toFixed(2)}
+																					</span>
 																				) : (
-																					<ChevronRight className="size-4" />
+																					<span className="text-muted-foreground text-xs sm:text-sm">
+																						—
+																					</span>
 																				)}
-																			</Button>
-																		</div>
-																	</TableCell>
-																</TableRow>
-																<TableRow
-																	className="bg-muted/30 hover:bg-muted/30"
-																	aria-hidden={!isExpanded}
-																>
-																	<TableCell colSpan={5} className="p-0 align-top">
-																		<motion.div
-																			animate={{
-																				height: isExpanded ? "auto" : 0,
-																				opacity: isExpanded ? 1 : 0,
-																			}}
-																			transition={{
-																				type: "spring",
-																				stiffness: 300,
-																				damping: 30,
-																				mass: 0.8,
-																			}}
-																			className="overflow-hidden"
+																			</TableCell>
+																			<TableCell className="align-top">
+																				<div className="flex items-center justify-between gap-2">
+																					<span className="min-w-0 truncate text-xs font-medium sm:text-sm">
+																						{formatWorkflowLabel(act.workflow)}
+																					</span>
+																					<div className="flex shrink-0 items-center justify-end gap-0.5 sm:gap-1">
+																						{(act.documentId ?? act.docoChainProjectUuid) && (
+																							<Button
+																								variant="ghost"
+																								size="sm"
+																								className="size-7 p-0 sm:size-8"
+																								onClick={() =>
+																									handleViewDocument(
+																										act.id,
+																										act.documentName ?? undefined
+																									)
+																								}
+																								title="View Document"
+																							>
+																								<Eye className="size-3.5 sm:size-4" />
+																							</Button>
+																						)}
+																						{act.docoChainProjectUuid && (
+																							<Button
+																								variant="ghost"
+																								size="sm"
+																								className="size-7 p-0 sm:size-8"
+																								disabled={downloadingActId === act.id}
+																								onClick={() => handleDownloadDocument(act.id)}
+																								title={
+																									downloadingActId === act.id
+																										? "Downloading..."
+																										: "Download notarized document"
+																								}
+																							>
+																								{downloadingActId === act.id ? (
+																									<Loader2 className="size-3.5 animate-spin sm:size-4" />
+																								) : (
+																									<Download className="size-3.5 sm:size-4" />
+																								)}
+																							</Button>
+																						)}
+																						{act.docoChainProjectUuid && (
+																							<Button
+																								variant="ghost"
+																								size="sm"
+																								className="size-7 p-0 sm:size-8"
+																								onClick={() => handleViewCertificate(act.id)}
+																								title="View Certificate"
+																							>
+																								<FileCheck className="size-3.5 sm:size-4" />
+																							</Button>
+																						)}
+																						<Button
+																							variant="ghost"
+																							size="sm"
+																							className="size-7 p-0 sm:size-8"
+																							onClick={() => toggleExpanded(act.id)}
+																							title={
+																								isExpanded ? "Collapse details" : "Expand details"
+																							}
+																							aria-expanded={isExpanded}
+																						>
+																							{isExpanded ? (
+																								<ChevronDown className="size-4" />
+																							) : (
+																								<ChevronRight className="size-4" />
+																							)}
+																						</Button>
+																					</div>
+																				</div>
+																			</TableCell>
+																		</TableRow>
+																		<TableRow
+																			className="bg-muted/30 hover:bg-muted/30"
+																			aria-hidden={!isExpanded}
 																		>
-																			<div className="px-4 py-3 sm:px-6">
-																				<ExpandedActDetails
-																					act={act}
-																					isExpanded={isExpanded}
-																				/>
-																			</div>
-																		</motion.div>
-																	</TableCell>
-																</TableRow>
-															</Fragment>
-														)
-													})}
-												</TableBody>
-											</Table>
-										</div>
+																			<TableCell colSpan={6} className="p-0 align-top">
+																				<motion.div
+																					animate={{
+																						height: isExpanded ? "auto" : 0,
+																						opacity: isExpanded ? 1 : 0,
+																					}}
+																					transition={{
+																						type: "spring",
+																						stiffness: 300,
+																						damping: 30,
+																						mass: 0.8,
+																					}}
+																					className="overflow-hidden"
+																				>
+																					<div className="px-4 py-3 sm:px-6">
+																						<ExpandedActDetails
+																							act={act}
+																							isExpanded={isExpanded}
+																							onViewSignerId={(signerName, idFaceImageBase64) =>
+																								handleViewPrincipalId(signerName, idFaceImageBase64)
+																							}
+																						/>
+																					</div>
+																				</motion.div>
+																			</TableCell>
+																		</TableRow>
+																	</Fragment>
+																)
+															})}
+														</TableBody>
+													</Table>
+												</div>
 											</motion.div>
 										)}
 									</AnimatePresence>
@@ -1100,9 +1178,7 @@ export default function NotarialRegistryPage() {
 												variant="outline"
 												size="sm"
 												disabled={page >= notarialBookData.totalPages || isFetching}
-												onClick={() =>
-													setPage(p => Math.min(notarialBookData.totalPages, p + 1))
-												}
+												onClick={() => setPage(p => Math.min(notarialBookData.totalPages, p + 1))}
 											>
 												Next
 											</Button>

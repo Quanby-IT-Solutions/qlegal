@@ -1793,6 +1793,16 @@ export const notarialBookRouter = createTRPCRouter({
 	getActSigners: protectedProcedure
 		.input(z.object({ actId: z.string() }))
 		.query(async ({ ctx, input }) => {
+			type ActSigner = {
+				id?: number | string
+				email?: string
+				firstName?: string
+				lastName?: string
+				status?: string
+				signedAt?: string | null
+				sequence?: number
+				signerRole?: string
+			} & Record<string, unknown>
 			const userId = ctx.session.user.id
 
 			const user = await ctx.db.query.users.findFirst({
@@ -1852,9 +1862,7 @@ export const notarialBookRouter = createTRPCRouter({
 				}
 			}
 
-			const enrichSignerRole = (
-				s: { email?: string; signerRole?: string } & Record<string, unknown>
-			) => ({
+			const enrichSignerRole = (s: ActSigner) => ({
 				...s,
 				signerRole: witnessEmails.has((s.email ?? "").trim().toLowerCase())
 					? "Witness"
@@ -1881,6 +1889,7 @@ export const notarialBookRouter = createTRPCRouter({
 								const signerUser = await ctx.db.query.users.findFirst({
 									where: eq(users.email, signer.email),
 									columns: {
+										id: true,
 										homeStreet: true,
 										barangay: true,
 										cityProvince: true,
@@ -1888,12 +1897,26 @@ export const notarialBookRouter = createTRPCRouter({
 									},
 								})
 
+								const idCardDetail = signerUser?.id
+									? await ctx.db.query.idCardDetails.findFirst({
+											where: eq(idCardDetails.userId, signerUser.id),
+											orderBy: (table, { desc }) => [desc(table.verifiedAt)],
+										})
+									: null
+
 								return {
 									...signer,
 									homeStreet: signerUser?.homeStreet ?? null,
 									barangay: signerUser?.barangay ?? null,
 									cityProvince: signerUser?.cityProvince ?? null,
 									fullAddress: signerUser?.address ?? null,
+									idFaceImageBase64: idCardDetail?.faceImageUrl
+										? String(idCardDetail.faceImageUrl)
+										: null,
+									idDocumentType: idCardDetail?.documentType ?? null,
+									idDocumentNumber: idCardDetail?.documentNumber ?? null,
+									idVerified:
+										typeof idCardDetail?.isVerified === "boolean" ? idCardDetail.isVerified : null,
 								}
 							})
 						)
@@ -1938,7 +1961,7 @@ export const notarialBookRouter = createTRPCRouter({
 					status = await checkSigningStatus(projectUuid, user.email ?? undefined)
 				}
 
-				const signers = status.signers ?? []
+				const signers = (status.signers ?? []) as ActSigner[]
 				const enriched = signers.map(enrichSignerRole)
 				// Persist so next time we can return without calling DocoChain
 				if (signers.length > 0) {
@@ -1948,12 +1971,13 @@ export const notarialBookRouter = createTRPCRouter({
 						.where(eq(notarialActs.id, act.id))
 				}
 
-				// Fetch user data for each signer to get address information
+				// Fetch user data for each signer to get address + competent evidence information
 				const signersWithAddress = await Promise.all(
-					enriched.map(async (signer: { email?: string }) => {
+					enriched.map(async signer => {
 						const signerUser = await ctx.db.query.users.findFirst({
 							where: eq(users.email, signer.email ?? ""),
 							columns: {
+								id: true,
 								homeStreet: true,
 								barangay: true,
 								cityProvince: true,
@@ -1961,12 +1985,26 @@ export const notarialBookRouter = createTRPCRouter({
 							},
 						})
 
+						const idCardDetail = signerUser?.id
+							? await ctx.db.query.idCardDetails.findFirst({
+									where: eq(idCardDetails.userId, signerUser.id),
+									orderBy: (table, { desc }) => [desc(table.verifiedAt)],
+								})
+							: null
+
 						return {
 							...signer,
 							homeStreet: signerUser?.homeStreet ?? null,
 							barangay: signerUser?.barangay ?? null,
 							cityProvince: signerUser?.cityProvince ?? null,
 							fullAddress: signerUser?.address ?? null,
+							idFaceImageBase64: idCardDetail?.faceImageUrl
+								? String(idCardDetail.faceImageUrl)
+								: null,
+							idDocumentType: idCardDetail?.documentType ?? null,
+							idDocumentNumber: idCardDetail?.documentNumber ?? null,
+							idVerified:
+								typeof idCardDetail?.isVerified === "boolean" ? idCardDetail.isVerified : null,
 						}
 					})
 				)
