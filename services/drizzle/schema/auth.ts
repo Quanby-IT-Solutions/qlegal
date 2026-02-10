@@ -17,9 +17,13 @@ export const users = createTable("user", t => ({
 	password: t.text(),
 	isTwoFactorEnabled: t.boolean().default(false),
 	phoneNumber: t.varchar({ length: 255 }),
-	address: t.text(), // Principal address for document signing records
+	address: t.text(), // Principal address for document signing records (legacy - use separated fields below)
+	// Separated apnpddress fields from geolocation verification
+	homeStreet: t.text(), // Street address/building number
+	barangay: t.varchar({ length: 255 }), // Barangay
+	cityProvince: t.varchar({ length: 255 }), // City and Province
 	role: userRoles().default("PRINCIPAL").notNull(),
-	status: userStatus().default("ACTIVE").notNull(),
+	commissionStatus: userStatus().default("ACTIVE").notNull(),
 	// KYC status (simplified - detailed data in kyc_sessions and id_card_details tables)
 	kycStatus: kycStatus().default("NOT_STARTED"),
 	kycVerifiedAt: t.timestamp({ mode: "date", withTimezone: true }),

@@ -26,7 +26,6 @@ import { cn } from "@/core/lib/utils"
 
 import { trpc } from "@/services/trpc/client"
 
-import { BookingDialog } from "@/features/browse/components/booking-dialog"
 import { useMessages } from "@/features/messages/api/messages.hooks"
 import { useMessagesSubscriptions } from "@/features/messages/api/use-messages-subscriptions"
 import { FileUploadPanel } from "@/features/messages/components/file-upload-panel"
@@ -379,21 +378,6 @@ export default function MessagesPage() {
 								</div>
 							</div>
 							<div className="flex items-center gap-1.5">
-								{selectedConversation?.otherUser?.id ? (
-									<BookingDialog
-										enpId={selectedConversation.otherUser.id}
-										enpName={selectedConversation.otherUser.name}
-										trigger={
-											<Button variant="outline" size="sm">
-												Book consultation
-											</Button>
-										}
-									/>
-								) : (
-									<Button variant="outline" size="sm" disabled>
-										Book consultation
-									</Button>
-								)}
 								{session?.user?.role === "ENP" && (
 									<Button variant="ghost" size="sm" onClick={() => void handleShareBookingLink()}>
 										Share booking link

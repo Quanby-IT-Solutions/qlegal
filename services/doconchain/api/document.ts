@@ -156,13 +156,9 @@ export async function downloadSignedDocument(
 			}
 
 			// Fallback: Check files array if download API didn't work or project is not completed yet
+			// CRITICAL: When isCompleted, ONLY use "Document Completed" / "Completed" files - never "Signed"
+			// "Signed" files lack the notarial seal; seal is applied async after completion
 			if (!buffer) {
-				// Always check the files array for the signed/sealed document
-				// The files array contains: Original, Meta, QR, and Signed/Completed documents
-				// NOTE: The signed document with seal may not be in the files array if:
-				// 1. Document is not fully signed yet (status is "Draft" or "Pending")
-				// 2. Seal is being generated asynchronously (delay after completion)
-				// 3. Files array hasn't been updated yet
 				const files =
 					(myProjectData.files as Array<{
 						id?: number | string
@@ -173,15 +169,12 @@ export async function downloadSignedDocument(
 
 				console.log(`   - Found ${files.length} files in project`)
 
-				// CRITICAL: Always prioritize "Document Completed" or "Completed" files - these have the seal
-				// Priority 1: Look for file with type containing "completed" (case-insensitive)
-				// This catches: "completed", "Completed", "Document Completed", "document completed", etc.
+				// For completed projects: ONLY use files with "completed" in type/name (have the seal)
 				const completedFile = files.find(file => {
 					const type = String(file.type ?? "")
 						.toLowerCase()
 						.trim()
 					const fileName = String(file.file_name ?? "").toLowerCase()
-					// Check if type contains "completed" or filename contains "documentcompleted" or "completed"
 					return (
 						type.includes("completed") ||
 						fileName.includes("documentcompleted") ||
@@ -189,20 +182,24 @@ export async function downloadSignedDocument(
 					)
 				})
 
-				// Priority 2: Look for file with type "Signed" (exact match, lowercase)
+				// When isCompleted: only use completedFile (has seal). Never use "Signed" - it lacks the seal.
 				const signedFile =
-					completedFile ??
-					files.find(file => {
-						const type = String(file.type ?? "")
-							.toLowerCase()
-							.trim()
-						return type === "signed"
-					})
+					isCompleted && !completedFile
+						? null
+						: completedFile ??
+							files.find(file => {
+								const type = String(file.type ?? "")
+									.toLowerCase()
+									.trim()
+								return type === "signed"
+							})
 
-				// Priority 3: Look for file with type containing "signed" or "seal" (but not "completed" - already checked)
+				// When isCompleted: skip lower-priority fallbacks (they may lack the seal)
 				const signedLikeFile =
-					signedFile ??
-					files.find(file => {
+					isCompleted && !signedFile
+						? null
+						: signedFile ??
+							files.find(file => {
 						const type = String(file.type ?? "").toLowerCase()
 						const fileName = String(file.file_name ?? "").toLowerCase()
 						return (
@@ -221,16 +218,18 @@ export async function downloadSignedDocument(
 						)
 					})
 
-				// Priority 4: Look for any non-Original PDF file (fallback - should rarely be needed)
+				// Priority 4: Look for any non-Original PDF file (fallback - only when not isCompleted)
 				const nonOriginalFile =
 					signedLikeFile ??
-					files.find(
-						file =>
-							String(file.type ?? "").toLowerCase() !== "original" &&
-							String(file.file_name ?? "")
-								.toLowerCase()
-								.includes(".pdf")
-					)
+					(isCompleted
+						? null
+						: files.find(
+								file =>
+									String(file.type ?? "").toLowerCase() !== "original" &&
+									String(file.file_name ?? "")
+										.toLowerCase()
+										.includes(".pdf")
+							))
 
 				if (nonOriginalFile?.url) {
 					signedDocumentUrl = nonOriginalFile.url
@@ -414,12 +413,22 @@ export async function downloadSignedDocument(
 				if (!buffer) {
 					console.warn("⚠️ Seal generation may still be in progress after all retries")
 					console.log("   - Download API endpoint should be used when seal is ready")
+					throw new Error(
+						"Document is still being processed. The notarial seal is being applied. Please try again in a moment."
+					)
 				}
 			}
 		} else {
 			console.warn("⚠️ No project data returned from Get Specific Project API")
 		}
 	} catch (error) {
+		// Re-throw our "still processing" error so caller gets a clear message
+		if (
+			error instanceof Error &&
+			error.message.includes("Document is still being processed")
+		) {
+			throw error
+		}
 		console.warn("⚠️ Failed to get signed document from Get Specific Project API:", error)
 		// Fall back to existing methods
 	}

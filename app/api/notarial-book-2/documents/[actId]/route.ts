@@ -198,12 +198,17 @@ export async function GET(
 			console.log("   - Document size:", buffer.length, "bytes")
 			console.log("   - File name:", fileName || documentName)
 
+			// Use attachment disposition when ?download=1 to trigger browser download
+			const isDownload = request.nextUrl.searchParams.get("download") === "1"
+			const disposition = isDownload ? "attachment" : "inline"
+			const safeFileName = (fileName || documentName).replace(/[^\w\s.-]/g, "_")
+
 			// Return the PDF with appropriate headers
 			// Convert Buffer to Uint8Array for NextResponse compatibility
 			return new NextResponse(new Uint8Array(buffer), {
 				headers: {
 					"Content-Type": "application/pdf",
-					"Content-Disposition": `inline; filename="${fileName || documentName}"`,
+					"Content-Disposition": `${disposition}; filename="${safeFileName}"`,
 					"Cache-Control": "public, max-age=3600",
 					"X-Document-Source": "programmatic-download", // Header to indicate programmatic retrieval
 				},

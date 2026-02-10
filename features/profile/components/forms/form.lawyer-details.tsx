@@ -3,16 +3,9 @@
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import { toast } from "sonner"
-import { z } from "zod"
+import { z } from "zod/v4"
 
 import { Button } from "@/core/components/ui/button"
-import {
-	Card,
-	CardContent,
-	CardDescription,
-	CardHeader,
-	CardTitle,
-} from "@/core/components/ui/card"
 import {
 	Form,
 	FormControl,

@@ -28,12 +28,13 @@ export const enpProfiles = createTable(
 		commission: t.real().default(0), // Commission rate for ENP
 		isAvailable: t.boolean().default(true), // Whether accepting new consultations
 
-		// --- Notary Seal Info ---
-		enpName: t.varchar({ length: 255 }), // e.g., "Juan Dela Cruz"
-		enpRoleNumber: t.varchar({ length: 100 }), // e.g., "123456"
+		// --- Supreme Court eNotarization API Fields ---
+		notaryPublicNumber: t.varchar({ length: 100 }), // NPN - Notary Public Number (e.g., "NPN-123")
+		notaryFacilityNumber: t.varchar({ length: 100 }), // NFN - Notary Facility Number (e.g., "NFN-123")
+		// Note: rollNumber uses rollNo field below (RN - Roll Number)
 
 		// --- Notary Info (Document Stamp) ---
-		rollNo: t.varchar({ length: 100 }), // Roll of Attorneys number
+		rollNo: t.varchar({ length: 100 }), // Roll of Attorneys number (also used as RN for Supreme Court)
 		rollNoDate: t.varchar({ length: 100 }), // e.g., "5 June 2018"
 		commissionNo: t.varchar({ length: 100 }), // e.g., "2024 - 024"
 		commissionNoValidUntil: t.varchar({ length: 100 }), // e.g., "Dec 31, 2025"

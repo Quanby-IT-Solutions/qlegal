@@ -128,10 +128,30 @@ export async function generateSignLink({
 	return { link: finalLink }
 }
 
+/** Extract short code (first path segment only) from API link. Avoids including paths like "email-document-status" or query params like status=Deleted. */
+function extractPlotShortCode(link: string): string {
+	const trimmed = link.trim()
+	if (/^[a-zA-Z0-9]+$/.test(trimmed)) return trimmed
+	try {
+		const url = new URL(trimmed.startsWith("http") ? trimmed : `https://x${trimmed}`)
+		const path = url.pathname.replace(/^\/+/, "").replace(/\/+$/, "")
+		const firstSegment = path.split("/")[0]
+		if (firstSegment) return firstSegment
+		const segment = trimmed.replace(/^\/+/, "").split("?")[0]
+		const first = (segment ?? trimmed).split("/")[0]
+		return first ?? trimmed
+	} catch {
+		const path = trimmed.replace(/^\/+/, "").split("?")[0]
+		const first = (path ?? trimmed).split("/")[0]
+		return first ?? trimmed
+	}
+}
+
 export async function generateEditDraftLink(
 	projectUuid: string,
 	userEmail?: string,
-	tokenOverride?: string
+	tokenOverride?: string,
+	forPlotting?: boolean
 ): Promise<{ link: string }> {
 	// CRITICAL: Use the SAME token that was used to CREATE this project (or meeting token when plotting).
 	// tokenOverride = meeting-scoped token from ENP join; use it for Edit Draft when plotting.
@@ -139,6 +159,7 @@ export async function generateEditDraftLink(
 	console.log("   - Project UUID:", projectUuid)
 	console.log("   - User Email (for token):", userEmail ?? env.DOCONCHAIN_EMAIL)
 	console.log("   - Token override (meeting):", tokenOverride ? "yes" : "no")
+	console.log("   - For plotting (app URL + page/email/signer_role):", forPlotting ?? false)
 
 	let token: string
 	let response: Response
@@ -267,13 +288,40 @@ export async function generateEditDraftLink(
 		throw new Error("doconchain response missing link")
 	}
 
-	// Normalize the link (removes status=Deleted and adds api=true)
+	const email = userEmail ?? env.DOCONCHAIN_EMAIL
+
+	if (forPlotting) {
+		// Plotting: use link.doconchain.com (not stg-app) to avoid email-document-status?status=Deleted redirect bug
+		const shortCode = extractPlotShortCode(link)
+		const plotDomain = "https://link.doconchain.com"
+		const plotBase = `${plotDomain}/${shortCode}`
+		const plotUrl = new URL(plotBase)
+		plotUrl.searchParams.set("page", "1")
+		plotUrl.searchParams.set("user_type", "ENTERPRISE_API")
+		plotUrl.searchParams.set("email", email)
+		plotUrl.searchParams.set("signer_role", "Signer")
+		plotUrl.searchParams.set("api", "true")
+		// Ensure we never append status=Deleted (known DocoChain bug)
+		plotUrl.searchParams.delete("status")
+		const plotLinkStr = plotUrl.toString()
+		const finalLink = await appendApiToken(
+			plotLinkStr,
+			email,
+			true,
+			tokenOverride ? undefined : projectUuid,
+			tokenOverride
+		)
+		console.log("🔵 Built plot link (link.doconchain.com + page, user_type, email, signer_role, api=true)")
+		return { link: finalLink }
+	}
+
+	// Normalize the link (removes status=Deleted and adds api=true) for non-plotting edit-draft
 	const normalizedLink = normalizeLink(link)
 
 	// Add api_token if not present. Use tokenOverride (meeting token) when provided.
 	const finalLink = await appendApiToken(
 		normalizedLink,
-		userEmail ?? env.DOCONCHAIN_EMAIL,
+		email,
 		true,
 		tokenOverride ? undefined : projectUuid,
 		tokenOverride
@@ -291,26 +339,24 @@ function normalizeLink(link: string): string {
 	// Edit Draft Links use link.doconchain.com, not stg-app.doconchain.com
 	// Only use DOCONCHAIN_APP_URL if the link doesn't already have a domain
 
+	// Edit Draft Links must always use link.doconchain.com, never stg-app/app.doconchain.com
+	const editDraftDomain = "https://link.doconchain.com"
+
 	if (!link.startsWith("http")) {
-		// Check if it's a short-code link (like "tJXEOq26") - these should use link.doconchain.com
-		// Short codes are typically alphanumeric strings without slashes
+		// Check if it's a short-code link (like "tJXEOq26") or path - all use link.doconchain.com
 		const isShortCode = /^[a-zA-Z0-9]+$/.test(link.trim())
 
 		if (isShortCode) {
-			// Short-code links should use link.doconchain.com domain
-			// Determine the correct domain based on API URL (stg vs prod)
-			const linkDomain = env.DOCONCHAIN_API_URL.includes("stg")
-				? "https://link.doconchain.com"
-				: "https://link.doconchain.com"
-			link = `${linkDomain}/${link}`
+			link = `${editDraftDomain}/${link}`
 			console.log("🔵 Detected short-code link, using link.doconchain.com domain")
 		} else if (link.startsWith("/")) {
-			// Absolute path - check if it looks like a link.doconchain.com path
-			// If it's just a path without domain info, use DOCONCHAIN_APP_URL
-			link = `${env.DOCONCHAIN_APP_URL}${link}`
+			// Absolute path - use link.doconchain.com (never DOCONCHAIN_APP_URL / stg-app)
+			link = `${editDraftDomain}${link}`
+			console.log("🔵 Using link.doconchain.com for path-only Edit Draft Link")
 		} else {
 			// Relative path
-			link = `${env.DOCONCHAIN_APP_URL}/${link}`
+			link = `${editDraftDomain}/${link}`
+			console.log("🔵 Using link.doconchain.com for relative Edit Draft Link")
 		}
 	} else {
 		// Link already has http/https - check if it's link.doconchain.com and preserve it
@@ -328,22 +374,16 @@ function normalizeLink(link: string): string {
 	try {
 		const url = new URL(link)
 
-		// CRITICAL: Convert stg-app.doconchain.com to link.doconchain.com for Edit Draft Links
-		// Edit Draft Links should use link.doconchain.com, not stg-app.doconchain.com
-		// If the link has a short-code path (like /tJXEOq26), it should be an Edit Draft Link
-		const pathMatch = url.pathname.match(/^\/([a-zA-Z0-9]+)$/)
-		const isShortCodePath = pathMatch !== null
-
+		// CRITICAL: Always convert stg-app/app.doconchain.com to link.doconchain.com (never expose staging URL)
 		if (
-			isShortCodePath &&
-			(url.hostname.includes("stg-app.doconchain.com") ||
-				url.hostname.includes("app.doconchain.com"))
+			url.hostname.includes("stg-app.doconchain.com") ||
+			url.hostname.includes("app.doconchain.com")
 		) {
-			console.log("🔵 Converting stg-app.doconchain.com to link.doconchain.com for Edit Draft Link")
+			console.log("🔵 Converting stg-app/app.doconchain.com to link.doconchain.com")
 			url.hostname = "link.doconchain.com"
 		}
 
-		// CRITICAL: For Edit Draft Links (link.doconchain.com), clean up unwanted parameters
+		// CRITICAL: For link.doconchain.com, clean up unwanted parameters
 		// Edit Draft Links should ONLY have: api=true and api_token
 		// Remove parameters that are for Sign Links, not Edit Draft Links
 		if (url.hostname.includes("link.doconchain.com")) {

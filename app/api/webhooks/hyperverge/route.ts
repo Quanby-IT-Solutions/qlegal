@@ -85,13 +85,14 @@ export async function POST(request: NextRequest) {
 					columns: {
 						id: true,
 						email: true,
-						status: true,
+						role: true,
+						commissionStatus: true,
 					},
 				},
 			},
 		})
 
-		if (!kycSession || !kycSession.user) {
+		if (!kycSession?.user) {
 			console.warn(`⚠️ No KYC session found with transactionId: ${transactionId}`)
 			// Still return 200 to acknowledge webhook receipt
 			return NextResponse.json({
@@ -133,7 +134,7 @@ export async function POST(request: NextRequest) {
 							verifiedAt: new Date(),
 							verificationMethod: "kyc_mobile_link",
 						})
-						idCardDetailId = idCardDetail.id
+						idCardDetailId = idCardDetail.idCardDetailId
 					}
 				} catch (e) {
 					console.warn("⚠️ Failed to fetch/store hosted KYC artifacts from Logs API:", e)
@@ -157,8 +158,12 @@ export async function POST(request: NextRequest) {
 				.set({
 					kycStatus,
 					kycVerifiedAt: new Date(),
-					// Auto-activate account on successful KYC. Never override SUSPENDED.
-					status: user.status === "PENDING" ? "ACTIVE" : user.status,
+					// Auto-activate account on successful KYC for non-ENP users. Never override SUSPENDED.
+					// For ENP users, keep status as PENDING even after KYC verification.
+					commissionStatus:
+						user.commissionStatus === "PENDING" && user.role !== "ENP"
+							? "ACTIVE"
+							: user.commissionStatus,
 				})
 				.where(eq(users.id, user.id))
 		} else {
@@ -171,12 +176,12 @@ export async function POST(request: NextRequest) {
 				})
 				.where(eq(kycSessions.id, kycSession.id))
 
-			// Update user status
+			// Update user KYC status only (don't change commissionStatus for non-verified)
 			await db
 				.update(users)
 				.set({
 					kycStatus,
-					kycVerifiedAt: kycStatus === "VERIFIED" ? new Date() : null,
+					kycVerifiedAt: null,
 				})
 				.where(eq(users.id, user.id))
 		}

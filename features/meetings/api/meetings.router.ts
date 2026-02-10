@@ -11,7 +11,6 @@ import {
 } from "@/services/doconchain"
 import {
 	ensureMeetingToken,
-	generateAndSetMeetingToken,
 	getMeetingToken,
 	setProjectToken,
 } from "@/services/doconchain/lib/token-cache"
@@ -22,51 +21,39 @@ import { documents } from "@/services/drizzle/schema/document"
 import { documentSigners } from "@/services/drizzle/schema/document-signers"
 import { enpProfiles } from "@/services/drizzle/schema/enp-profiles"
 import { meetingParticipants, meetings } from "@/services/drizzle/schema/meetings"
-import { getServiceRoleClient } from "@/services/supabase"
+import { getPublicClient, getServiceRoleClient } from "@/services/supabase"
+import { getPublicUrl } from "@/services/supabase/signed-url"
 import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
 import { createMeetingRoom, fetchRecordings, generateMeetingToken } from "@/services/video-sdk"
+
+import { formatDateForStamp } from "@/core/lib/format-date-for-stamp"
+import { autoCreateNotarialAct } from "@/features/notarial-book/lib/auto-create-notarial-act"
 
 function isEnpRole(role: unknown): boolean {
 	if (typeof role !== "string") return false
 	return role.trim().toUpperCase() === "ENP"
 }
 
+/** Resolve avatar storage path to public URL (same as next-auth session). */
+function resolveAvatarImage(image: string | null | undefined): string | null {
+	if (!image || typeof image !== "string") return image ?? null
+	const trimmed = image.trim()
+	if (!trimmed) return null
+	if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) return trimmed
+	try {
+		const supabase = getPublicClient()
+		const path = trimmed.replace(/^\/+/, "")
+		const { data } = supabase.storage.from("avatar").getPublicUrl(path)
+		return data.publicUrl ?? null
+	} catch {
+		return null
+	}
+}
+
 function asNonEmptyEmail(email: unknown): string | undefined {
 	if (typeof email !== "string") return undefined
 	const trimmed = email.trim()
 	return trimmed.length > 0 ? trimmed : undefined
-}
-
-// Format date from ISO string or existing formatted string to readable format (e.g., "5 June 2018" or "Dec 31, 2025")
-function formatDateForStamp(dateString: string | null | undefined): string {
-	if (!dateString) return ""
-
-	// Try to parse as ISO date
-	const date = new Date(dateString)
-	if (!Number.isNaN(date.getTime())) {
-		// Format as "d MMM yyyy" (e.g., "5 June 2018")
-		const day = date.getDate()
-		const monthNames = [
-			"January",
-			"February",
-			"March",
-			"April",
-			"May",
-			"June",
-			"July",
-			"August",
-			"September",
-			"October",
-			"November",
-			"December",
-		]
-		const month = monthNames[date.getMonth()]
-		const year = date.getFullYear()
-		return `${day} ${month} ${year}`
-	}
-
-	// If not a valid date, return as-is (might already be formatted)
-	return dateString
 }
 
 function getDocoChainAuthEmailForMeeting(
@@ -398,6 +385,15 @@ export const meetingsRouter = createTRPCRouter({
 
 				return {
 					...meeting,
+					createdBy: meeting.createdBy
+						? { ...meeting.createdBy, image: resolveAvatarImage(meeting.createdBy.image) }
+						: meeting.createdBy,
+					participants: (meeting.participants ?? []).map(p => ({
+						...p,
+						user: p.user
+							? { ...p.user, image: resolveAvatarImage(p.user.image) }
+							: p.user,
+					})),
 					documentStats: { total, signed, isComplete },
 				}
 			})
@@ -465,11 +461,20 @@ export const meetingsRouter = createTRPCRouter({
 		const pendingInvites = meeting.participants.filter(p => p.status === "PENDING")
 
 		// Return accepted participants as "participants" (for normal meeting pages),
-		// and also expose pending invites for host UI (lobby invite list).
+		// and also expose pending invites for host UI (lobby invite list). Resolve avatar paths to URLs.
+		const resolveParticipant = (p: (typeof meeting.participants)[number]) => ({
+			...p,
+			user: p.user
+				? { ...p.user, image: resolveAvatarImage(p.user.image) }
+				: p.user,
+		})
 		return {
 			...meeting,
-			participants: acceptedParticipants,
-			pendingInvites,
+			createdBy: meeting.createdBy
+				? { ...meeting.createdBy, image: resolveAvatarImage(meeting.createdBy.image) }
+				: meeting.createdBy,
+			participants: acceptedParticipants.map(resolveParticipant),
+			pendingInvites: pendingInvites.map(resolveParticipant),
 		}
 	}),
 
@@ -503,10 +508,10 @@ export const meetingsRouter = createTRPCRouter({
 			})
 		}
 
-		// When ENP enters the room, always call the DocoChain generate-token API and store
-		// the result. Use it for project creation and Edit Draft links so the link is correct.
+		// When ENP enters the room, ensure we have a meeting-scoped DocoChain token.
+		// This should be stable for the meeting (refresh only when stale) to avoid session churn.
 		if (isEnpRole(ctx.session.user.role) && ctx.session.user.email) {
-			await generateAndSetMeetingToken(input, ctx.session.user.email.trim().toLowerCase())
+			await ensureMeetingToken(input, ctx.session.user.email.trim().toLowerCase())
 		}
 
 		return {
@@ -536,7 +541,7 @@ export const meetingsRouter = createTRPCRouter({
 				throw new TRPCError({ code: "FORBIDDEN", message: "You don't have access to this meeting" })
 			}
 			if (isEnpRole(ctx.session.user.role) && ctx.session.user.email) {
-				await generateAndSetMeetingToken(
+				await ensureMeetingToken(
 					input.meetingId,
 					ctx.session.user.email.trim().toLowerCase()
 				)
@@ -658,6 +663,55 @@ export const meetingsRouter = createTRPCRouter({
 			.set({ status: "COMPLETED", updatedAt: new Date() })
 			.where(eq(meetings.id, input))
 			.returning()
+
+		// Populate notarial_book (one per ENP) and notarial_act (one per signed document) when the session ends.
+		// Entries appear on the notarial book page only after "End Session" has been clicked (not during signing).
+		try {
+			const meetingDocuments = await db.query.documents.findMany({
+				where: eq(documents.meetingId, input),
+				columns: { id: true, docoChainProjectId: true },
+			})
+			const docsWithProject = meetingDocuments.filter(
+				(doc): doc is typeof doc & { docoChainProjectId: string } => !!doc.docoChainProjectId
+			)
+			const enpUserId = ctx.session.user.id
+			const enpEmail = ctx.session.user.email ?? undefined
+			const meetingEndedAt = updatedMeeting?.updatedAt ?? new Date()
+			if (docsWithProject.length === 0) {
+				console.log(
+					"[endMeeting] No documents with docoChainProjectId for meeting",
+					input,
+					"- notarial book sync skipped"
+				)
+			} else {
+				const results = await Promise.allSettled(
+					docsWithProject.map(doc =>
+						autoCreateNotarialAct(
+							db,
+							doc.id,
+							doc.docoChainProjectId,
+							enpUserId,
+							enpEmail,
+							meetingEndedAt
+						)
+					)
+				)
+				const failed = results.filter(
+					(r): r is PromiseRejectedResult => r.status === "rejected"
+				)
+				if (failed.length > 0) {
+					console.error(
+						"[endMeeting] Notarial act creation failed for",
+						failed.length,
+						"document(s):",
+						failed.map(r => (r.reason instanceof Error ? r.reason.message : String(r.reason)))
+					)
+				}
+			}
+		} catch (err) {
+			// Don't fail endMeeting if notarial sync fails (e.g. DocoChain API timeout in production)
+			console.error("[endMeeting] Notarial book sync failed:", err)
+		}
 
 		return { success: true, meeting: updatedMeeting }
 	}),
@@ -1060,14 +1114,39 @@ export const meetingsRouter = createTRPCRouter({
 
 				const { getServiceRoleClient } = await import("@/services/supabase")
 				const supabase = getServiceRoleClient()
-				const { data: fileData, error: downloadError } = await supabase.storage
+
+				// Try documents bucket first, then envelopes (signed docs may be in envelopes)
+				let fileData: Blob | null = null
+				let downloadError: { message?: string } | null = null
+
+				const { data: docData, error: docError } = await supabase.storage
 					.from("documents")
 					.download(document.path)
 
+				if (docData && !docError) {
+					fileData = docData
+				} else {
+					downloadError = docError
+					const { data: envelopeData, error: envelopeError } = await supabase.storage
+						.from("envelopes")
+						.download(document.path)
+
+					if (envelopeData && !envelopeError) {
+						fileData = envelopeData
+						downloadError = null
+					} else {
+						downloadError = envelopeError ?? docError
+					}
+				}
+
 				if (downloadError || !fileData) {
+					const errMsg =
+						typeof downloadError?.message === "string"
+							? downloadError.message
+							: JSON.stringify(downloadError ?? {})
 					throw new TRPCError({
-						code: "INTERNAL_SERVER_ERROR",
-						message: `Failed to download document from storage: ${downloadError?.message ?? "Unknown error"}`,
+						code: "NOT_FOUND",
+						message: `Document file not found in storage. Please re-upload the document. (${errMsg})`,
 					})
 				}
 
@@ -1088,20 +1167,28 @@ export const meetingsRouter = createTRPCRouter({
 					})
 				}
 
-				// Get ENP profile
-				const enpProfile = await db.query.enpProfiles.findFirst({
+				// Get ENP profile with user (for display name)
+				const enpResult = await db.query.enpProfiles.findFirst({
 					where: eq(enpProfiles.userId, enpUser.id),
+					with: {
+						user: {
+							columns: { name: true },
+						},
+					},
 				})
 
-				if (!enpProfile) {
+				if (!enpResult) {
 					throw new TRPCError({
 						code: "PRECONDITION_FAILED",
 						message: "ENP profile not found. Please complete your profile settings first.",
 					})
 				}
 
+				const enpProfile = enpResult
+				const enpName = enpResult.user?.name ?? ""
+
 				// Validate required fields
-				if (!enpProfile.enpName || !enpProfile.enpRoleNumber) {
+				if (!enpName || !enpProfile.rollNo) {
 					throw new TRPCError({
 						code: "PRECONDITION_FAILED",
 						message:
@@ -1113,12 +1200,12 @@ export const meetingsRouter = createTRPCRouter({
 				const documentStamp = {
 					seal: {
 						type: "seal",
-						enp_name: enpProfile.enpName,
-						enp_role_number: enpProfile.enpRoleNumber,
+						enp_name: enpName,
+						enp_role_number: enpProfile.rollNo,
 					},
 					notary_info: {
 						type: "notary",
-						atty_name: enpProfile.enpName ?? "",
+						atty_name: enpName,
 						roll_no: enpProfile.rollNo ?? "",
 						roll_no_date: formatDateForStamp(enpProfile.rollNoDate),
 						commission_no: enpProfile.commissionNo ?? "",
@@ -1130,7 +1217,12 @@ export const meetingsRouter = createTRPCRouter({
 						IBP_no_date: formatDateForStamp(enpProfile.ibpNoDate),
 						email: creatorEmail,
 						address: enpProfile.notaryAddress ?? "",
-						MCLE_no_period: enpProfile.mcleNoPeriod ?? "",
+						// MCLE period should be a period label (e.g. "VIII"). Never leak ISO timestamps into seals.
+						MCLE_no_period:
+							typeof enpProfile.mcleNoPeriod === "string" &&
+							/^\d{4}-\d{2}-\d{2}T/.test(enpProfile.mcleNoPeriod.trim())
+								? ""
+								: (enpProfile.mcleNoPeriod ?? ""),
 						MCLE_no: enpProfile.mcleNo ?? "",
 						MCLE_no_date: formatDateForStamp(enpProfile.mcleNoDate),
 						mode_of_notarization: modeOfNotarization,
@@ -1535,41 +1627,62 @@ export const meetingsRouter = createTRPCRouter({
 				return createdAtA - createdAtB
 			})
 
-			const documentsWithSigning = sortedDocuments.map(doc => {
-				const reqs = signatureRequestsByDocumentId.get(doc.id) ?? []
-				const signerTotal = reqs.length
-				const signerSigned = reqs.filter(r => r.status === "SIGNED").length
+			const documentsWithSigning = await Promise.all(
+				sortedDocuments.map(async doc => {
+					const reqs = signatureRequestsByDocumentId.get(doc.id) ?? []
+					const signerTotal = reqs.length
+					const signerSigned = reqs.filter(r => r.status === "SIGNED").length
 
-				const isSignedByRequests = signerTotal > 0 && signerSigned === signerTotal
-				const isSignedByDocoChain =
-					!!doc.docoChainProjectId &&
-					(externalSignedByProjectUuid.get(doc.docoChainProjectId) ?? false)
+					const isSignedByRequests = signerTotal > 0 && signerSigned === signerTotal
+					const isSignedByDocoChain =
+						!!doc.docoChainProjectId &&
+						(externalSignedByProjectUuid.get(doc.docoChainProjectId) ?? false)
 
-				const isFullySigned = isSignedByRequests || isSignedByDocoChain
+					const isFullySigned = isSignedByRequests || isSignedByDocoChain
 
-				const rawFees = doc.fees
-				const feesVal: number | null =
-					rawFees !== null &&
-					rawFees !== undefined &&
-					typeof rawFees === "number" &&
-					!Number.isNaN(rawFees)
-						? rawFees
-						: null
-				return {
-					id: doc.id,
-					name: doc.name,
-					status: doc.status,
-					createdAt: doc.createdAt,
-					docoChainProjectId: doc.docoChainProjectId ?? null,
-					isFullySigned,
-					fees: feesVal,
-					signerSummary: {
-						total: signerTotal,
-						signed: signerSigned,
-					},
-					signatureRequests: reqs,
-				}
-			})
+					const rawFees = doc.fees
+					const feesVal: number | null =
+						rawFees !== null &&
+						rawFees !== undefined &&
+						typeof rawFees === "number" &&
+						!Number.isNaN(rawFees)
+							? rawFees
+							: null
+
+					let previewUrl: string | null = null
+					if (doc.path?.trim()) {
+						try {
+							// Meeting documents are always in the "documents" bucket
+							previewUrl = await getPublicUrl("documents", doc.path)
+						} catch {
+							// Ignore preview URL resolution failures
+						}
+					}
+
+					return {
+						id: doc.id,
+						name: doc.name,
+						status: doc.status,
+						type: doc.type,
+						path: doc.path ?? null,
+						createdAt: doc.createdAt,
+						docoChainProjectId: doc.docoChainProjectId ?? null,
+						isFullySigned,
+						fees: feesVal,
+						previewUrl,
+						signerSummary: {
+							total: signerTotal,
+							signed: signerSigned,
+						},
+						signatureRequests: reqs.map(r => ({
+							...r,
+							signer: r.signer
+								? { ...r.signer, image: resolveAvatarImage(r.signer.image) }
+								: r.signer,
+						})),
+					}
+				})
+			)
 
 			const total = documentsWithSigning.length
 			const signed = documentsWithSigning.filter(d => d.isFullySigned).length
@@ -1580,8 +1693,15 @@ export const meetingsRouter = createTRPCRouter({
 					title: meeting.title,
 					status: meeting.status,
 					createdAt: meeting.createdAt,
-					createdBy: meeting.createdBy,
-					participants: meeting.participants,
+					createdBy: meeting.createdBy
+						? { ...meeting.createdBy, image: resolveAvatarImage(meeting.createdBy.image) }
+						: meeting.createdBy,
+					participants: (meeting.participants ?? []).map(p => ({
+						...p,
+						user: p.user
+							? { ...p.user, image: resolveAvatarImage(p.user.image) }
+							: p.user,
+					})),
 				},
 				documentStats: { total, signed },
 				documents: documentsWithSigning,
@@ -1754,6 +1874,7 @@ export const meetingsRouter = createTRPCRouter({
 				userId: user.id,
 				status: "PENDING",
 				invitedById: ctx.session.user.id,
+				participantRole: "WITNESS",
 			})
 
 			return {
