@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation"
 import { use } from "react"
 import { format } from "date-fns"
 import { AlertCircle, Calendar, Clock, MapPin, User, Video } from "lucide-react"
-import { useSession } from "next-auth/react"
 
 import { PageHeader } from "@/core/components/navbar/page-header"
 import { Alert, AlertDescription, AlertTitle } from "@/core/components/ui/alert"
@@ -35,7 +34,6 @@ function getWorkflowLabel(meetingLink?: string | null, location?: string | null)
 export default function AppointmentMeetingPage({ params }: { params: Promise<{ id: string }> }) {
 	const { id } = use(params)
 	const router = useRouter()
-	const { data: session } = useSession()
 
 	const {
 		data: appointment,

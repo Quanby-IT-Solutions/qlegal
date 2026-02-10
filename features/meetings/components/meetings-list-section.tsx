@@ -40,7 +40,6 @@ import {
 	DialogFooter,
 	DialogHeader,
 	DialogTitle,
-	DialogTrigger,
 } from "@/core/components/ui/dialog"
 import { Input } from "@/core/components/ui/input"
 import { Label } from "@/core/components/ui/label"
@@ -53,6 +52,7 @@ import {
 	SelectValue,
 } from "@/core/components/ui/select"
 import { Skeleton } from "@/core/components/ui/skeleton"
+import { getAvatarUrl, getInitials } from "@/core/lib/utils"
 
 import { trpc } from "@/services/trpc/client"
 
@@ -344,12 +344,9 @@ export function MeetingsListSection() {
 													className="hover:bg-secondary/80 gap-2 py-1.5 pr-2 text-sm transition-colors"
 												>
 													<Avatar className="size-5">
-														<AvatarImage src={user.image ?? undefined} />
+														<AvatarImage src={getAvatarUrl(user.image) ?? undefined} />
 														<AvatarFallback className="bg-primary text-primary-foreground text-xs">
-															{user.name
-																?.split(" ")
-																.map((n: string) => n[0])
-																.join("")}
+															{getInitials(user.name)}
 														</AvatarFallback>
 													</Avatar>
 													<span className="font-medium">{user.name}</span>
@@ -393,12 +390,9 @@ export function MeetingsListSection() {
 																		className="hover:bg-accent group flex w-full items-center gap-3 rounded-lg p-3 text-left transition-all disabled:cursor-not-allowed disabled:opacity-60"
 																	>
 																		<Avatar className="group-hover:ring-primary/20 size-12 ring-2 ring-transparent transition-all">
-																			<AvatarImage src={user.image ?? undefined} />
+																			<AvatarImage src={getAvatarUrl(user.image) ?? undefined} />
 																			<AvatarFallback className="bg-primary text-primary-foreground font-semibold">
-																				{user.name
-																					?.split(" ")
-																					.map((n: string) => n[0])
-																					.join("")}
+																				{getInitials(user.name)}
 																			</AvatarFallback>
 																		</Avatar>
 																		<div className="flex-1 overflow-hidden">
@@ -619,7 +613,6 @@ export function MeetingsListSection() {
 															total={meeting.documentStats?.total ?? 0}
 															signed={meeting.documentStats?.signed ?? 0}
 															isComplete={meeting.documentStats?.isComplete}
-															className="text-xs"
 														/>
 
 														<div className="flex items-center gap-1">
@@ -637,14 +630,11 @@ export function MeetingsListSection() {
 													<div className="flex items-center gap-2 pt-1">
 														<Avatar className="size-7">
 															<AvatarImage
-																src={meeting.createdBy.image ?? undefined}
-																alt={meeting.createdBy.name ?? "User"}
+																src={getAvatarUrl(meeting.createdBy?.image) ?? undefined}
+																alt={meeting.createdBy?.name ?? "User"}
 															/>
 															<AvatarFallback>
-																{meeting.createdBy.name
-																	?.split(" ")
-																	.map((n: string) => n[0])
-																	.join("") ?? "U"}
+																{getInitials(meeting.createdBy?.name) || "U"}
 															</AvatarFallback>
 														</Avatar>
 														<span className="text-xs font-medium">{meeting.createdBy.name}</span>
@@ -714,7 +704,9 @@ export function MeetingsListSection() {
 																disabled={loadingMeetingId === meeting.id}
 															>
 																<StopCircle className="size-3.5" />
-																{loadingMeetingId === meeting.id ? "Ending session..." : "End Session"}
+																{loadingMeetingId === meeting.id
+																	? "Ending session..."
+																	: "End Session"}
 															</Button>
 														)}
 
@@ -804,14 +796,11 @@ export function MeetingsListSection() {
 													<div className="flex items-start gap-3">
 														<Avatar className="size-12">
 															<AvatarImage
-																src={meeting.createdBy.image ?? undefined}
-																alt={meeting.createdBy.name ?? "User"}
+																src={getAvatarUrl(meeting.createdBy?.image) ?? undefined}
+																alt={meeting.createdBy?.name ?? "User"}
 															/>
 															<AvatarFallback className="bg-primary text-primary-foreground">
-																{meeting.createdBy.name
-																	?.split(" ")
-																	.map((n: string) => n[0])
-																	.join("") ?? "U"}
+																{getInitials(meeting.createdBy?.name) || "U"}
 															</AvatarFallback>
 														</Avatar>
 														<div className="min-w-0 flex-1">
