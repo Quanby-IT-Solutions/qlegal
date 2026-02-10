@@ -83,6 +83,9 @@ export const notarialActs = createTable(
 		// Passport data (stored as JSON for reference)
 		passportData: t.text(), // JSON string of passport data from DocoChain
 
+		// Signers from DocoChain (stored when we have token so registry can show them without calling API)
+		signersData: t.text(), // JSON array of { id, email, firstName, lastName, status, signedAt, sequence, signerRole }
+
 		// Certificate information
 		certificateNumber: t.varchar({ length: 255 }),
 		certificateUrl: t.text(),

@@ -62,10 +62,62 @@ export const documentsRouter = createTRPCRouter({
 			docoChainProjectUuid: act.docoChainProjectUuid,
 			actType: act.actType as "ACKNOWLEDGMENT" | "AFFIRMATION" | "JURAT" | "SIGNATURE_WITNESSING",
 			workflow: act.workflow,
+			location: act.location,
 			locationStatement: act.locationStatement,
 			document: act.document,
 		}))
 	}),
+
+	/** Get signers for a notarial act; only allowed when the current user is the principal. */
+	getActSigners: protectedProcedure
+		.input(z.object({ actId: z.string().min(1, "Act ID is required") }))
+		.query(async ({ ctx, input }) => {
+			const userName = ctx.session.user.name
+			const userEmail = ctx.session.user.email
+
+			const act = await ctx.db.query.notarialActs.findFirst({
+				where: eq(notarialActs.id, input.actId),
+				columns: { id: true, principalName: true, signersData: true },
+			})
+
+			if (!act) {
+				throw new TRPCError({
+					code: "NOT_FOUND",
+					message: "Notarial act not found",
+				})
+			}
+
+			const principalName = act.principalName.toLowerCase()
+			const hasAccess =
+				(userName && principalName.includes(userName.toLowerCase())) ||
+				(userEmail && principalName.includes(userEmail.toLowerCase()))
+
+			if (!hasAccess) {
+				throw new TRPCError({
+					code: "FORBIDDEN",
+					message: "You don't have access to this document",
+				})
+			}
+
+			if (!act.signersData) {
+				return { signers: [] }
+			}
+			try {
+				const stored = JSON.parse(act.signersData) as Array<{
+					id: number
+					email: string
+					firstName: string
+					lastName: string
+					status: string
+					signedAt: string | null
+					sequence: number
+					signerRole: string
+				}>
+				return { signers: Array.isArray(stored) ? stored : [] }
+			} catch {
+				return { signers: [] }
+			}
+		}),
 
 	getSignedDocument: protectedProcedure
 		.input(z.object({ actId: z.string().min(1, "Act ID is required") }))

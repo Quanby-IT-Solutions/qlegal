@@ -128,18 +128,22 @@ export async function generateSignLink({
 	return { link: finalLink }
 }
 
-/** Extract short code or path segment from API link (e.g. "vfZQagGsQxhlvuv", "/vfZQagGsQxhlvuv", or full URL). */
+/** Extract short code (first path segment only) from API link. Avoids including paths like "email-document-status" or query params like status=Deleted. */
 function extractPlotShortCode(link: string): string {
 	const trimmed = link.trim()
 	if (/^[a-zA-Z0-9]+$/.test(trimmed)) return trimmed
 	try {
 		const url = new URL(trimmed.startsWith("http") ? trimmed : `https://x${trimmed}`)
-		const path = url.pathname.replace(/^\/+/, "") || trimmed.replace(/^\/+/, "")
+		const path = url.pathname.replace(/^\/+/, "").replace(/\/+$/, "")
+		const firstSegment = path.split("/")[0]
+		if (firstSegment) return firstSegment
 		const segment = trimmed.replace(/^\/+/, "").split("?")[0]
-		return path || (segment ?? trimmed)
+		const first = (segment ?? trimmed).split("/")[0]
+		return first ?? trimmed
 	} catch {
 		const path = trimmed.replace(/^\/+/, "").split("?")[0]
-		return path ?? trimmed
+		const first = (path ?? trimmed).split("/")[0]
+		return first ?? trimmed
 	}
 }
 
@@ -287,15 +291,18 @@ export async function generateEditDraftLink(
 	const email = userEmail ?? env.DOCONCHAIN_EMAIL
 
 	if (forPlotting) {
-		// Plotting: use app URL (stg-app/app.doconchain.com) with required params for plot flow only
+		// Plotting: use link.doconchain.com (not stg-app) to avoid email-document-status?status=Deleted redirect bug
 		const shortCode = extractPlotShortCode(link)
-		const plotBase = `${env.DOCONCHAIN_APP_URL.replace(/\/+$/, "")}/${shortCode}`
+		const plotDomain = "https://link.doconchain.com"
+		const plotBase = `${plotDomain}/${shortCode}`
 		const plotUrl = new URL(plotBase)
 		plotUrl.searchParams.set("page", "1")
 		plotUrl.searchParams.set("user_type", "ENTERPRISE_API")
 		plotUrl.searchParams.set("email", email)
 		plotUrl.searchParams.set("signer_role", "Signer")
 		plotUrl.searchParams.set("api", "true")
+		// Ensure we never append status=Deleted (known DocoChain bug)
+		plotUrl.searchParams.delete("status")
 		const plotLinkStr = plotUrl.toString()
 		const finalLink = await appendApiToken(
 			plotLinkStr,
@@ -304,7 +311,7 @@ export async function generateEditDraftLink(
 			tokenOverride ? undefined : projectUuid,
 			tokenOverride
 		)
-		console.log("🔵 Built plot link (app URL + page, user_type, email, signer_role, api=true)")
+		console.log("🔵 Built plot link (link.doconchain.com + page, user_type, email, signer_role, api=true)")
 		return { link: finalLink }
 	}
 

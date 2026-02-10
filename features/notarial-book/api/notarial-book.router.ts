@@ -21,7 +21,7 @@ import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
 
 import { autoCreateNotarialAct } from "@/features/notarial-book/lib/auto-create-notarial-act"
 import { getCommissionStatus } from "@/services/supreme-court/api/commission-status"
-import { getMeetingToken } from "@/services/doconchain/lib/token-cache"
+import { getMeetingToken, getProjectToken } from "@/services/doconchain/lib/token-cache"
 import { isConfigured } from "@/services/supreme-court/lib/token-cache"
 
 const getNotarialBookSchema = z.object({
@@ -1735,6 +1735,27 @@ export const notarialBookRouter = createTRPCRouter({
 				})
 			}
 
+			// Return stored signers if we have them (avoids 401 when no meeting/project token)
+			if (act.signersData) {
+				try {
+					const stored = JSON.parse(act.signersData) as Array<{
+						id: number
+						email: string
+						firstName: string
+						lastName: string
+						status: string
+						signedAt: string | null
+						sequence: number
+						signerRole: string
+					}>
+					if (Array.isArray(stored) && stored.length > 0) {
+						return { signers: stored }
+					}
+				} catch {
+					// invalid JSON, fall through to fetch
+				}
+			}
+
 			const projectUuid = act.docoChainProjectUuid
 			if (!projectUuid) {
 				return { signers: [] }
@@ -1759,15 +1780,24 @@ export const notarialBookRouter = createTRPCRouter({
 
 				let status
 				const meetingEntry = meetingId ? getMeetingToken(meetingId) : undefined
+				const projectToken = getProjectToken(projectUuid)
 				if (meetingEntry?.token) {
 					status = await checkSigningStatus(projectUuid, undefined, meetingEntry.token)
+				} else if (projectToken) {
+					status = await checkSigningStatus(projectUuid, undefined, projectToken)
 				} else {
 					status = await checkSigningStatus(projectUuid, user.email ?? undefined)
 				}
 
-				return {
-					signers: status.signers ?? [],
+				const signers = status.signers ?? []
+				// Persist so next time we can return without calling DocoChain
+				if (signers.length > 0) {
+					await ctx.db
+						.update(notarialActs)
+						.set({ signersData: JSON.stringify(signers) })
+						.where(eq(notarialActs.id, act.id))
 				}
+				return { signers }
 			} catch (error) {
 				console.error("Error fetching act signers:", error)
 				return { signers: [] }

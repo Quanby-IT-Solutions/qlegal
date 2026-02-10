@@ -503,9 +503,10 @@ export default function NotarialBook2Page() {
 	const handleRefresh = async () => {
 		try {
 			const result = await refetch()
-			if (result.error) {
+			// Only treat as failure when the refetch actually returned an error (not a stale state)
+			if (result.isError && result.error) {
 				toast.error("Failed to refresh registry")
-			} else {
+			} else if (result.data !== undefined) {
 				toast.success("Registry refreshed")
 			}
 		} catch {
@@ -752,7 +753,10 @@ export default function NotarialBook2Page() {
 												}}
 												className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3"
 											>
-												{filteredActs.map((act, index) => (
+												{filteredActs.map((act, index) => {
+													const total = notarialBookData?.total ?? 0
+													const entryIndex = total - (page - 1) * perPage - index
+													return (
 													<motion.div
 														key={act.id}
 														variants={{
@@ -763,7 +767,7 @@ export default function NotarialBook2Page() {
 													>
 														<NotarialActCard
 															act={act}
-															entryIndex={(page - 1) * perPage + index + 1}
+															entryIndex={entryIndex}
 															onViewDocument={handleViewDocument}
 															onDownloadDocument={handleDownloadDocument}
 															onViewCertificate={handleViewCertificate}
@@ -771,7 +775,8 @@ export default function NotarialBook2Page() {
 															isDownloading={downloadingActId === act.id}
 														/>
 													</motion.div>
-												))}
+													)
+												})}
 											</motion.div>
 										) : (
 											<motion.div
@@ -802,11 +807,13 @@ export default function NotarialBook2Page() {
 												<TableBody>
 													{filteredActs.map((act, index) => {
 														const isExpanded = expandedActIds.has(act.id)
+														const total = notarialBookData?.total ?? 0
+														const entryIndex = total - (page - 1) * perPage - index
 														return (
 															<Fragment key={act.id}>
 																<TableRow className={isExpanded ? "border-b-0" : undefined}>
 																	<TableCell className="align-top font-mono text-xs font-medium sm:text-sm">
-																		{(page - 1) * perPage + index + 1}
+																		{entryIndex}
 																	</TableCell>
 																	<TableCell className="align-top whitespace-nowrap">
 																		<div className="text-xs sm:text-sm">

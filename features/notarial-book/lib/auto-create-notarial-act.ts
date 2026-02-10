@@ -361,7 +361,18 @@ export async function autoCreateNotarialAct(
 		}
 
 		// CRITICAL: Verify document is fully signed before creating notarial act entry
-		// This ensures only fully signed documents appear in the Notarial Book
+		// This ensures only fully signed documents appear in the Notarial Book.
+		// Store signers so we can persist them and show in registry without calling DocoChain again.
+		let signersForAct: Array<{
+			id: number
+			email: string
+			firstName: string
+			lastName: string
+			status: string
+			signedAt: string | null
+			sequence: number
+			signerRole: string
+		}> = []
 		try {
 			console.log("🔵 Verifying document is fully signed before creating notarial act entry...")
 			const signingStatus = await checkSigningStatus(projectUuid, userEmail)
@@ -377,6 +388,7 @@ export async function autoCreateNotarialAct(
 				return null // Don't create entry for unsigned documents
 			}
 
+			signersForAct = signingStatus.signers ?? []
 			console.log("✅ Document is fully signed, proceeding to create notarial act entry")
 		} catch (statusError) {
 			console.error("⚠️ Error checking signing status before creating notarial act:", statusError)
@@ -908,6 +920,8 @@ export async function autoCreateNotarialAct(
 				documentName,
 				documentDescription,
 				passportData: passportData ? JSON.stringify(passportData) : null,
+				signersData:
+					signersForAct.length > 0 ? JSON.stringify(signersForAct) : null,
 				certificateNumber, // Unique reference number
 			})
 			.returning()
