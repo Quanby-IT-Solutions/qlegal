@@ -85,9 +85,9 @@ function titleCaseFromToken(token: string): string {
 }
 
 function formatActTypeLabel(actType: string | null | undefined): string {
-	if (!actType) return "Notarial act"
+	if (!actType) return "Act type"
 	const normalized = String(actType).trim()
-	if (!normalized) return "Notarial act"
+	if (!normalized) return "Act type"
 	return titleCaseFromToken(normalized)
 }
 
@@ -176,7 +176,8 @@ function NotarialActCard({
 	onViewCertificate: (actId: string) => void
 	onViewPrincipalId: (
 		principalName: string,
-		principalIdImageBase64: string | null | undefined
+		principalIdImageBase64: string | null | undefined,
+		competentEvidence?: string | null
 	) => void
 	isDownloading?: boolean
 }) {
@@ -352,7 +353,11 @@ function ExpandedActDetails({
 }: {
 	act: NotarialActRow
 	isExpanded: boolean
-	onViewSignerId: (signerName: string, idFaceImageBase64: string) => void
+	onViewSignerId: (
+		signerName: string,
+		idFaceImageBase64: string,
+		competentEvidence?: string | null
+	) => void
 }) {
 	type ActSigner = {
 		id: number | string
@@ -425,6 +430,10 @@ function ExpandedActDetails({
 							const evidenceType = formatIdDocumentTypeLabel(signerExtra.idDocumentType)
 							const evidenceNumber = (signerExtra.idDocumentNumber ?? "").trim()
 							const evidence = evidenceNumber ? `${evidenceType} · ${evidenceNumber}` : evidenceType
+							const competentEvidence =
+								typeof signerExtra.idVerified === "boolean"
+									? `${evidence} · ${signerExtra.idVerified ? "Verified" : "Unverified"}`
+									: evidence
 							return (
 								<div
 									key={signer.id}
@@ -447,7 +456,11 @@ function ExpandedActDetails({
 													size="sm"
 													className="size-7 p-0 sm:size-8"
 													onClick={() => {
-														onViewSignerId(displayName, signerExtra.idFaceImageBase64 as string)
+														onViewSignerId(
+															displayName,
+															signerExtra.idFaceImageBase64 as string,
+															competentEvidence
+														)
 													}}
 													title="View ID"
 												>
@@ -485,15 +498,7 @@ function ExpandedActDetails({
 												<span className="font-medium">Address:</span> {addr}
 											</p>
 										) : null}
-										<p className="text-muted-foreground mt-0.5 text-[11px] wrap-break-word">
-											<span className="font-medium">Competent evidence:</span> {evidence}
-											{typeof signerExtra.idVerified === "boolean" ? (
-												<span className="text-muted-foreground">
-													{" "}
-													· {signerExtra.idVerified ? "Verified" : "Unverified"}
-												</span>
-											) : null}
-										</p>
+										{/* Competent evidence moved into the ID modal */}
 									</div>
 									<Badge
 										variant={signed ? "default" : "secondary"}
@@ -507,49 +512,6 @@ function ExpandedActDetails({
 					</div>
 				)}
 			</div>
-
-			{/* Act metadata row */}
-			<div className="text-muted-foreground flex flex-wrap items-baseline gap-x-3 gap-y-1.5 border-t pt-3 text-xs">
-				<span>
-					<span className="font-medium">Act type</span>{" "}
-					<Badge variant="outline" className="text-xs font-medium">
-						{formatActTypeLabel(act.actType)}
-					</Badge>
-				</span>
-				<span>·</span>
-				<span>
-					<span className="font-medium">Mode of notarization</span>{" "}
-					<Badge
-						variant={act.workflow === "REN" ? "default" : "secondary"}
-						className="text-xs font-medium"
-					>
-						{formatWorkflowLabel(act.workflow)}
-					</Badge>
-				</span>
-				<span>·</span>
-				<span>
-					<span className="font-medium">Location</span> {act.location ?? "Philippines"}
-				</span>
-				<span>·</span>
-				<span>
-					<span className="font-medium">Certificate #</span>{" "}
-					<span className="font-mono">{act.certificateNumber ?? "—"}</span>
-				</span>
-				{act.fees !== null && typeof act.fees === "number" && !Number.isNaN(act.fees) && (
-					<>
-						<span>·</span>
-						<span>
-							<span className="font-medium">Fees</span> {act.fees.toFixed(2)}
-						</span>
-					</>
-				)}
-			</div>
-			{act.documentDescription && (
-				<div className="text-xs">
-					<span className="text-muted-foreground font-medium">Description:</span>{" "}
-					{act.documentDescription}
-				</div>
-			)}
 		</div>
 	)
 }
@@ -573,6 +535,7 @@ export default function NotarialRegistryPage() {
 	const [previewPrincipalId, setPreviewPrincipalId] = useState<{
 		principalName: string
 		principalIdImageBase64: string | null | undefined
+		competentEvidence?: string | null
 	} | null>(null)
 
 	const [expandedActIds, setExpandedActIds] = useState<Set<string>>(new Set())
@@ -684,11 +647,13 @@ export default function NotarialRegistryPage() {
 	// View principal ID handler
 	const handleViewPrincipalId = (
 		principalName: string,
-		principalIdImageBase64: string | null | undefined
+		principalIdImageBase64: string | null | undefined,
+		competentEvidence?: string | null
 	) => {
 		setPreviewPrincipalId({
 			principalName,
 			principalIdImageBase64,
+			competentEvidence,
 		})
 	}
 
@@ -964,9 +929,7 @@ export default function NotarialRegistryPage() {
 														<TableHeader>
 															<TableRow>
 																<TableHead className="w-10 sm:w-12">#</TableHead>
-																<TableHead className="min-w-37.5 sm:min-w-45">
-																	Notarial act
-																</TableHead>
+																<TableHead className="min-w-37.5 sm:min-w-45">Act type</TableHead>
 																<TableHead className="min-w-27.5 whitespace-nowrap sm:min-w-35">
 																	Date & time
 																</TableHead>
@@ -1139,8 +1102,16 @@ export default function NotarialRegistryPage() {
 																						<ExpandedActDetails
 																							act={act}
 																							isExpanded={isExpanded}
-																							onViewSignerId={(signerName, idFaceImageBase64) =>
-																								handleViewPrincipalId(signerName, idFaceImageBase64)
+																							onViewSignerId={(
+																								signerName,
+																								idFaceImageBase64,
+																								competentEvidence
+																							) =>
+																								handleViewPrincipalId(
+																									signerName,
+																									idFaceImageBase64,
+																									competentEvidence
+																								)
 																							}
 																						/>
 																					</div>
@@ -1206,6 +1177,7 @@ export default function NotarialRegistryPage() {
 					onClose={() => setPreviewPrincipalId(null)}
 					principalName={previewPrincipalId.principalName}
 					principalIdImageBase64={previewPrincipalId.principalIdImageBase64}
+					competentEvidence={previewPrincipalId.competentEvidence}
 				/>
 			)}
 		</>
