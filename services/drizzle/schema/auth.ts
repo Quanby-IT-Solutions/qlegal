@@ -19,7 +19,7 @@ export const users = createTable("user", t => ({
 	phoneNumber: t.varchar({ length: 255 }),
 	address: t.text(), // Principal address for document signing records
 	role: userRoles().default("PRINCIPAL").notNull(),
-	status: userStatus().default("ACTIVE").notNull(),
+	commissionStatus: userStatus().default("ACTIVE").notNull(),
 	// KYC status (simplified - detailed data in kyc_sessions and id_card_details tables)
 	kycStatus: kycStatus().default("NOT_STARTED"),
 	kycVerifiedAt: t.timestamp({ mode: "date", withTimezone: true }),

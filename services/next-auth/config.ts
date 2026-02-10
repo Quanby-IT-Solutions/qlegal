@@ -141,7 +141,7 @@ export const authConfig = {
 				session.user.name = user.name ?? ""
 				session.user.email = user.email ?? ""
 				session.user.role = user.role
-				session.user.status = (user.status ?? "PENDING") as string
+				session.user.status = (user.commissionStatus ?? "PENDING") as string
 				session.user.kycStatus = (user.kycStatus ?? "NOT_STARTED") as string
 
 				// Convert Supabase storage paths to displayable URLs
@@ -177,9 +177,9 @@ export const authConfig = {
 				// Extract KYC and status fields safely - user may have extended properties from adapter
 				const userWithKyc = user as {
 					kycStatus?: string
-					status?: string
+					commissionStatus?: string
 				}
-				token.status = userWithKyc.status ?? "PENDING"
+				token.status = userWithKyc.commissionStatus ?? "PENDING"
 				token.kycStatus = userWithKyc.kycStatus ?? "NOT_STARTED"
 			}
 
@@ -193,7 +193,7 @@ export const authConfig = {
 					})
 
 					if (existing) {
-						token.status = (existing.status ?? "PENDING") as string
+						token.status = (existing.commissionStatus ?? "PENDING") as string
 						token.kycStatus = (existing.kycStatus ?? "NOT_STARTED") as string
 					}
 				} catch {

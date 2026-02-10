@@ -38,6 +38,20 @@ import { Pagination } from "./pagination"
 import { UserActions } from "./user-actions"
 import { UserProfileSheet } from "./user-profile-sheet"
 
+type User = {
+	id: string
+	name: string
+	email: string
+	role: string
+	organization: string | null
+	status: "active" | "pending" | "suspended"
+	joinDate: string | undefined
+	lastActive: string
+	documentsCount: number
+	avatar: string | null
+	verified?: boolean
+}
+
 interface UserListProps {
 	searchTerm: string
 	roleFilter: string
@@ -64,7 +78,7 @@ const formatLastLogin = (dateString?: string | null) => {
 }
 
 // Helper function to sort users (simplified - only name and email)
-const sortUsers = (users: any[], sortBy: string) => {
+const sortUsers = (users: User[], sortBy: string): User[] => {
 	const sorted = [...users]
 
 	switch (sortBy) {
@@ -340,35 +354,30 @@ export function UserList({ searchTerm, roleFilter, statusFilter, sortBy }: UserL
 										<AvatarFallback className="bg-muted text-muted-foreground text-xs font-medium sm:text-sm">
 											{user.name
 												.split(" ")
-												.map(n => n[0])
+												.map((n: string) => n[0])
 												.join("")
 												.toUpperCase()}
 										</AvatarFallback>
 									</Avatar>
 									<div className="min-w-0 flex-1">
 										<div className="mb-1 flex flex-wrap items-center gap-x-2 gap-y-1">
-											<h3 className="text-sm font-medium break-words text-gray-900 sm:text-base dark:text-white">
+											<h3 className="text-sm font-medium wrap-break-word text-gray-900 sm:text-base dark:text-white">
 												{user.name}
 											</h3>
-											{/* @ts-expect-error - title is not typed */}
 											{user.verified && (
-												<Shield
-													className="h-3 w-3 shrink-0 text-blue-600 sm:h-4 sm:w-4"
-													// @ts-expect-error - title is not typed
-													title="Verified"
-												/>
+												<Shield className="h-3 w-3 shrink-0 text-blue-600 sm:h-4 sm:w-4" />
 											)}
 										</div>
 										<p className="text-xs break-all text-gray-600 sm:text-sm dark:text-gray-400">
 											{user.email}
 										</p>
 										{user.organization && (
-											<p className="text-xs break-words text-gray-500 sm:text-sm">
+											<p className="text-xs wrap-break-word text-gray-500 sm:text-sm">
 												{user.organization}
 											</p>
 										)}
 										<div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500">
-											<span className="break-words">
+											<span className="wrap-break-word">
 												Last login: {formatLastLogin(user.lastActive)}
 											</span>
 											<span className="whitespace-nowrap">
