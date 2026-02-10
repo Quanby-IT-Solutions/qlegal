@@ -11,15 +11,6 @@ export function AvatarCard() {
 	const { data: session } = useSession()
 	const isENP = session?.user?.role === "ENP"
 
-	// Dummy data for ENP profile
-	const dummyENPData = {
-		bio: "Experienced legal professional specializing in corporate law and contract negotiations.",
-		experience: "10+ years",
-		responseTime: "2 hours",
-		rating: 4.8,
-		totalReviews: 127,
-	}
-
 	if (isENP) {
 		return (
 			<Card className="border-border/60 bg-card/80 dark:bg-card/70 border shadow-sm backdrop-blur-xl transition-all duration-300 hover:shadow-md">
@@ -28,13 +19,7 @@ export function AvatarCard() {
 					<AvatarSection />
 
 					{/* Right Section - Professional Details */}
-					<ProfessionalDetails
-						bio={dummyENPData.bio}
-						experience={dummyENPData.experience}
-						responseTime={dummyENPData.responseTime}
-						rating={dummyENPData.rating}
-						totalReviews={dummyENPData.totalReviews}
-					/>
+					<ProfessionalDetails />
 				</CardContent>
 			</Card>
 		)
