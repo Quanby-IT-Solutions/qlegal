@@ -115,23 +115,29 @@ export const profileRouter = createTRPCRouter({
 		}),
 
 	getEnpProfile: protectedProcedure.query(async ({ ctx }) => {
-		const enpProfile = await ctx.db.query.enpProfiles.findFirst({
+		const result = await ctx.db.query.enpProfiles.findFirst({
 			where: eq(enpProfiles.userId, ctx.session.user.id),
+			with: {
+				user: {
+					columns: { name: true },
+				},
+			},
 		})
 
-		if (!enpProfile) {
+		if (!result) {
 			return null
 		}
 
+		const { user, ...enpProfile } = result
+
 		return {
-			// Notary Seal Info
-			enpName: enpProfile.enpName ?? "",
-			enpRoleNumber: enpProfile.enpRoleNumber ?? "",
+			// Display name from user (canonical source)
+			enpName: user?.name ?? "",
 			rollNo: enpProfile.rollNo ?? "",
 			rollNoDate: enpProfile.rollNoDate ?? "",
 
-			// Credentials
-			attyName: (enpProfile.attyName as string | null) ?? "",
+			// Credentials (atty name from user - canonical source)
+			attyName: user?.name ?? "",
 			commissionNo: enpProfile.commissionNo ?? "",
 			commissionNoValidUntil: enpProfile.commissionNoValidUntil ?? "",
 			ptrNo: enpProfile.ptrNo ?? "",
@@ -139,12 +145,10 @@ export const profileRouter = createTRPCRouter({
 			ptrNoDate: enpProfile.ptrNoDate ?? "",
 			ibpNo: enpProfile.ibpNo ?? "",
 			ibpNoDate: enpProfile.ibpNoDate ?? "",
-			notaryEmail: (enpProfile.notaryEmail as string | null) ?? "",
 			notaryAddress: enpProfile.notaryAddress ?? "",
 			mcleNoPeriod: enpProfile.mcleNoPeriod ?? "",
 			mcleNo: enpProfile.mcleNo ?? "",
 			mcleNoDate: enpProfile.mcleNoDate ?? "",
-			modeOfNotarization: (enpProfile.modeOfNotarization as string | null) ?? "",
 
 			// Pricing
 			consultationPrice: enpProfile.consultationPrice ?? null,
@@ -202,11 +206,8 @@ export const profileRouter = createTRPCRouter({
 		}
 
 		const profileData = {
-			enpName: normalizeString(input.enpName),
-			enpRoleNumber: normalizeString(input.enpRoleNumber),
 			rollNo: normalizeString(input.rollNo),
 			rollNoDate: normalizeString(input.rollNoDate),
-			attyName: normalizeString(input.attyName),
 			commissionNo: normalizeString(input.commissionNo),
 			commissionNoValidUntil: normalizeString(input.commissionNoValidUntil),
 			ptrNo: normalizeString(input.ptrNo),
@@ -214,12 +215,10 @@ export const profileRouter = createTRPCRouter({
 			ptrNoDate: normalizeString(input.ptrNoDate),
 			ibpNo: normalizeString(input.ibpNo),
 			ibpNoDate: normalizeString(input.ibpNoDate),
-			notaryEmail: normalizeString(input.notaryEmail),
 			notaryAddress: normalizeString(input.notaryAddress),
 			mcleNoPeriod: normalizeString(input.mcleNoPeriod),
 			mcleNo: normalizeString(input.mcleNo),
 			mcleNoDate: normalizeString(input.mcleNoDate),
-			modeOfNotarization: normalizeString(input.modeOfNotarization),
 		}
 
 		if (existingProfile) {

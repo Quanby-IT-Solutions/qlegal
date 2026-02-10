@@ -1164,20 +1164,28 @@ export const meetingsRouter = createTRPCRouter({
 					})
 				}
 
-				// Get ENP profile
-				const enpProfile = await db.query.enpProfiles.findFirst({
+				// Get ENP profile with user (for display name)
+				const enpResult = await db.query.enpProfiles.findFirst({
 					where: eq(enpProfiles.userId, enpUser.id),
+					with: {
+						user: {
+							columns: { name: true },
+						},
+					},
 				})
 
-				if (!enpProfile) {
+				if (!enpResult) {
 					throw new TRPCError({
 						code: "PRECONDITION_FAILED",
 						message: "ENP profile not found. Please complete your profile settings first.",
 					})
 				}
 
+				const enpProfile = enpResult
+				const enpName = enpResult.user?.name ?? ""
+
 				// Validate required fields
-				if (!enpProfile.enpName || !enpProfile.enpRoleNumber) {
+				if (!enpName || !enpProfile.rollNo) {
 					throw new TRPCError({
 						code: "PRECONDITION_FAILED",
 						message:
@@ -1189,12 +1197,12 @@ export const meetingsRouter = createTRPCRouter({
 				const documentStamp = {
 					seal: {
 						type: "seal",
-						enp_name: enpProfile.enpName,
-						enp_role_number: enpProfile.enpRoleNumber,
+						enp_name: enpName,
+						enp_role_number: enpProfile.rollNo,
 					},
 					notary_info: {
 						type: "notary",
-						atty_name: enpProfile.enpName ?? "",
+						atty_name: enpName,
 						roll_no: enpProfile.rollNo ?? "",
 						roll_no_date: formatDateForStamp(enpProfile.rollNoDate),
 						commission_no: enpProfile.commissionNo ?? "",

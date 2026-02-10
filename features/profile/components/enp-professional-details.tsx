@@ -28,17 +28,11 @@ export function ProfessionalDetails() {
 	const rating = data?.rating ?? 0
 	const totalReviews = data?.reviewCount ?? 0
 
-	const handleEdit = () => {
-		setIsEditing(true)
-	}
+	const handleEdit = () => setIsEditing(true)
 
-	const handleCancel = () => {
-		setIsEditing(false)
-	}
+	const handleCancel = () => setIsEditing(false)
 
-	const handleSuccess = () => {
-		setIsEditing(false)
-	}
+	const handleSuccess = () => setIsEditing(false)
 
 	return (
 		<div
