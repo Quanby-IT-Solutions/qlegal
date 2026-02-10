@@ -4,6 +4,7 @@ import { notarialActs } from "@/services/drizzle/schema/notarial-book"
 
 import { createMetadata } from "@/services/supreme-court/api/metadata"
 import { getPresignedUrl, registerFileMetadata, uploadFileToS3 } from "@/services/supreme-court/api/file-upload"
+import { getCommissionStatus } from "@/services/supreme-court/api/commission-status"
 
 type NotarialAct = InferSelectModel<typeof notarialActs>
 
@@ -75,13 +76,17 @@ function parseAddress(addressText: string | null | undefined): {
 
 /**
  * Map our actType to SC API format.
+ * Per SC API v1.4: "Acknowledgment" | "Affirmation" | "Jurat" | "Signature Witnessing" | "Copy Certification"
  */
-function mapActType(actType: string): "Acknowledgment" | "Affirmation" | "Jurat" | "Signature Witnessing" {
+function mapActType(
+	actType: string
+): "Acknowledgment" | "Affirmation" | "Jurat" | "Signature Witnessing" | "Copy Certification" {
 	const upper = actType.toUpperCase()
 	if (upper === "ACKNOWLEDGMENT") return "Acknowledgment"
 	if (upper === "AFFIRMATION") return "Affirmation"
 	if (upper === "JURAT") return "Jurat"
 	if (upper === "SIGNATURE_WITNESSING") return "Signature Witnessing"
+	if (upper === "COPY_CERTIFICATION") return "Copy Certification"
 	// Default fallback
 	return "Acknowledgment"
 }
@@ -110,6 +115,31 @@ export async function syncNotarialActToSupremeCourt(
 ): Promise<SyncResult> {
 	const { act, notaryFacilityNumber, notaryPublicNumber, rollNumber, documentFile, documentFileName } =
 		options
+
+	// Validate commission status before syncing
+	// Per SC API v1.4: "The system rejects any request to create Notarial Metadata
+	// wherein either the Commission Status or Accreditation Status is classified as Inactive."
+	try {
+		const commissionStatus = await getCommissionStatus(notaryPublicNumber, rollNumber)
+		if (commissionStatus.commissionStatus !== "Active") {
+			throw new Error(
+				`Cannot sync to Supreme Court: Commission status is "${commissionStatus.commissionStatus}". Only "Active" commissions can create notarial metadata.`
+			)
+		}
+		console.log(`✅ Commission status verified: ${commissionStatus.commissionStatus}`)
+	} catch (error) {
+		// If commission status check fails, check if it's a validation error or API error
+		if (error instanceof Error && error.message.includes("Cannot sync")) {
+			// This is a validation error (status is inactive) - throw it
+			throw error
+		}
+		// If it's an API error (network, timeout, etc.), log warning but continue
+		// SC API will reject the request anyway if status is inactive
+		console.warn(
+			"⚠️ Could not verify commission status before sync (will proceed - SC API will reject if inactive):",
+			error instanceof Error ? error.message : error
+		)
+	}
 
 	// Map principal address
 	const principalAddress = parseAddress(act.principalAddress)
