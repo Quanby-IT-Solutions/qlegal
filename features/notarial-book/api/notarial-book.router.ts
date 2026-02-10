@@ -10,18 +10,18 @@ import {
 	getProcessingCompletedProjects,
 	getProjectDetails,
 } from "@/services/doconchain"
+import { getMeetingToken, getProjectToken } from "@/services/doconchain/lib/token-cache"
 import { users } from "@/services/drizzle/schema/auth"
 import { documents } from "@/services/drizzle/schema/document"
 import { idCardDetails } from "@/services/drizzle/schema/id-card-details"
 import { legalRegistrations } from "@/services/drizzle/schema/legal-registration"
 import { meetingParticipants, meetings } from "@/services/drizzle/schema/meetings"
 import { notarialActs, notarialBooks } from "@/services/drizzle/schema/notarial-book"
+import { getCommissionStatus } from "@/services/supreme-court/api/commission-status"
+import { isConfigured } from "@/services/supreme-court/lib/token-cache"
 import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
 
 import { autoCreateNotarialAct } from "@/features/notarial-book/lib/auto-create-notarial-act"
-import { getCommissionStatus } from "@/services/supreme-court/api/commission-status"
-import { getMeetingToken, getProjectToken } from "@/services/doconchain/lib/token-cache"
-import { isConfigured } from "@/services/supreme-court/lib/token-cache"
 
 const getNotarialBookSchema = z.object({
 	page: z.number().min(1).default(1),
@@ -788,209 +788,214 @@ export const notarialBookRouter = createTRPCRouter({
 	getNotarialBook: protectedProcedure
 		.input(getNotarialBookSchema.optional())
 		.query(async ({ ctx, input }) => {
-		const userId = ctx.session.user.id
-		const { page, perPage, search, actType, workflow, sortBy, sortDir } =
-			getNotarialBookSchema.parse(input ?? {})
+			const userId = ctx.session.user.id
+			const { page, perPage, search, actType, workflow, sortBy, sortDir } =
+				getNotarialBookSchema.parse(input ?? {})
 
-		// Verify user is an ENP
-		const user = await ctx.db.query.users.findFirst({
-			where: eq(users.id, userId),
-		})
-
-		if (user?.role !== "ENP") {
-			throw new TRPCError({
-				code: "FORBIDDEN",
-				message: "Only ENPs can access the notarial book",
+			// Verify user is an ENP
+			const user = await ctx.db.query.users.findFirst({
+				where: eq(users.id, userId),
 			})
-		}
 
-		// Get or create notarial book for this ENP
-		let notarialBook = await ctx.db.query.notarialBooks.findFirst({
-			where: eq(notarialBooks.enpId, userId),
-		})
-
-		if (!notarialBook) {
-			// Create notarial book if it doesn't exist
-			const [created] = await ctx.db
-				.insert(notarialBooks)
-				.values({
-					enpId: userId,
+			if (user?.role !== "ENP") {
+				throw new TRPCError({
+					code: "FORBIDDEN",
+					message: "Only ENPs can access the notarial book",
 				})
-				.returning()
-
-			notarialBook = created!
-		}
-
-		// Build query filters
-		const filters = [eq(notarialActs.notarialBookId, notarialBook.id)]
-
-		if (actType !== "ALL") {
-			filters.push(eq(notarialActs.actType, actType))
-		}
-
-		if (workflow !== "ALL") {
-			filters.push(eq(notarialActs.workflow, workflow))
-		}
-
-		// Search across as many registry details as possible (server-side, so pagination/total are correct).
-		// Note: signersData and passportData are stored as JSON strings (text) so we use ILIKE on them.
-		const trimmedSearch = (search ?? "").trim()
-		if (trimmedSearch.length > 0) {
-			const q = `%${trimmedSearch}%`
-			// Many fields are nullable; only include ILIKE conditions for non-null columns.
-			const searchClauses = [
-				ilike(notarialActs.principalName, q),
-				ilike(notarialActs.enpName, q),
-				ilike(notarialActs.actType, q),
-				ilike(notarialActs.workflow, q),
-				ilike(notarialActs.location, q),
-				ilike(notarialActs.certificateNumber, q),
-				ilike(notarialActs.documentName, q),
-				ilike(notarialActs.documentDescription, q),
-				ilike(notarialActs.principalIdNumber, q),
-				ilike(notarialActs.principalAddress, q),
-				ilike(notarialActs.principalIdType, q),
-				ilike(notarialActs.witnessName, q),
-				ilike(notarialActs.witnessIdNumber, q),
-				ilike(notarialActs.locationStatement, q),
-				ilike(notarialActs.ipAddress, q),
-				ilike(notarialActs.docoChainProjectUuid, q),
-				ilike(notarialActs.signersData, q),
-				ilike(notarialActs.passportData, q),
-			].filter((v): v is NonNullable<typeof v> => v !== undefined)
-
-			if (searchClauses.length > 0) {
-				filters.push(or(...searchClauses))
 			}
-		}
 
-		// Stable "registry number" should reflect chronological completion order across ALL acts,
-		// independent of sorting/filtering. Compute a map from the full notarial book list.
-		const allActsForNumbering = await ctx.db
-			.select({
-				id: notarialActs.id,
-				executedAt: notarialActs.executedAt,
-				createdAt: notarialActs.createdAt,
+			// Get or create notarial book for this ENP
+			let notarialBook = await ctx.db.query.notarialBooks.findFirst({
+				where: eq(notarialBooks.enpId, userId),
 			})
-			.from(notarialActs)
-			.where(eq(notarialActs.notarialBookId, notarialBook.id))
-			.orderBy(asc(notarialActs.executedAt), asc(notarialActs.createdAt))
 
-		const registryNumberByActId = new Map<string, number>()
-		for (let i = 0; i < allActsForNumbering.length; i++) {
-			const row = allActsForNumbering[i]
-			if (row) registryNumberByActId.set(row.id, i + 1)
-		}
+			if (!notarialBook) {
+				// Create notarial book if it doesn't exist
+				const [created] = await ctx.db
+					.insert(notarialBooks)
+					.values({
+						enpId: userId,
+					})
+					.returning()
 
-		const dir = sortDir === "asc" ? asc : desc
-		const orderBy = (() => {
-			switch (sortBy) {
-				case "registryNumber":
-					// Registry number is defined by executedAt/createdAt chronological order.
-					return [dir(notarialActs.executedAt), dir(notarialActs.createdAt)] as const
-				case "meetingEndedAt":
-					return [dir(notarialActs.meetingEndedAt), dir(notarialActs.createdAt)] as const
-				case "principalName":
-					return [dir(notarialActs.principalName), dir(notarialActs.executedAt)] as const
-				case "documentName":
-					return [dir(notarialActs.documentName), dir(notarialActs.executedAt)] as const
-				case "certificateNumber":
-					return [dir(notarialActs.certificateNumber), dir(notarialActs.executedAt)] as const
-				case "actType":
-					return [dir(notarialActs.actType), dir(notarialActs.executedAt)] as const
-				case "workflow":
-					return [dir(notarialActs.workflow), dir(notarialActs.executedAt)] as const
-				case "executedAt":
-				default:
-					return [dir(notarialActs.executedAt), dir(notarialActs.createdAt)] as const
+				notarialBook = created!
 			}
-		})()
 
-		// Get notarial acts with pagination + requested sorting
-		const acts = await ctx.db
-			.select()
-			.from(notarialActs)
-			.where(and(...filters))
-			.orderBy(...orderBy)
-			.limit(perPage)
-			.offset((page - 1) * perPage)
+			// Build query filters
+			const filters = [eq(notarialActs.notarialBookId, notarialBook.id)]
 
-		// Get total count using proper count function
-		const [totalResult] = await ctx.db
-			.select({ count: count() })
-			.from(notarialActs)
-			.where(and(...filters))
-
-		const total = totalResult?.count ?? 0
-
-		const filteredActs = acts
-
-		// Enrich acts with fees from document table (fees are stored on document, not notarial_act)
-		const documentIds = [
-			...new Set(
-				filteredActs
-					.map(a => a.documentId)
-					.filter((id): id is string => typeof id === "string" && id.length > 0)
-			),
-		]
-		const docoChainUuids = [
-			...new Set(
-				filteredActs
-					.map(a => a.docoChainProjectUuid)
-					.filter((id): id is string => typeof id === "string" && id.length > 0)
-			),
-		]
-		const docFeesMap = new Map<string, number | null>()
-		if (documentIds.length > 0) {
-			const docs = await ctx.db
-				.select({ id: documents.id, fees: documents.fees })
-				.from(documents)
-				.where(inArray(documents.id, documentIds))
-			for (const d of docs) {
-				const raw = d.fees
-				docFeesMap.set(
-					d.id,
-					raw !== null && raw !== undefined && typeof raw === "number" && !Number.isNaN(raw)
-						? raw
-						: null
-				)
+			if (actType !== "ALL") {
+				filters.push(eq(notarialActs.actType, actType))
 			}
-		}
-		if (docoChainUuids.length > 0) {
-			const docsByProject = await ctx.db
-				.select({ docoChainProjectId: documents.docoChainProjectId, fees: documents.fees })
-				.from(documents)
-				.where(inArray(documents.docoChainProjectId, docoChainUuids))
-			for (const d of docsByProject) {
-				if (d.docoChainProjectId) {
-					const raw = d.fees
-					const val =
-						raw !== null && raw !== undefined && typeof raw === "number" && !Number.isNaN(raw)
-							? raw
-							: null
-					if (!docFeesMap.has(d.docoChainProjectId)) {
-						docFeesMap.set(d.docoChainProjectId, val)
+
+			if (workflow !== "ALL") {
+				filters.push(eq(notarialActs.workflow, workflow))
+			}
+
+			// Search across as many registry details as possible (server-side, so pagination/total are correct).
+			// Note: signersData and passportData are stored as JSON strings (text) so we use ILIKE on them.
+			const trimmedSearch = (search ?? "").trim()
+			if (trimmedSearch.length > 0) {
+				const q = `%${trimmedSearch}%`
+				// Many fields are nullable; only include ILIKE conditions for non-null columns.
+				const searchClauses = [
+					ilike(notarialActs.principalName, q),
+					ilike(notarialActs.enpName, q),
+					ilike(notarialActs.actType, q),
+					ilike(notarialActs.workflow, q),
+					notarialActs.location ? ilike(notarialActs.location, q) : undefined,
+					notarialActs.certificateNumber ? ilike(notarialActs.certificateNumber, q) : undefined,
+					notarialActs.documentName ? ilike(notarialActs.documentName, q) : undefined,
+					notarialActs.documentDescription ? ilike(notarialActs.documentDescription, q) : undefined,
+					notarialActs.principalIdNumber ? ilike(notarialActs.principalIdNumber, q) : undefined,
+					notarialActs.principalAddress ? ilike(notarialActs.principalAddress, q) : undefined,
+					notarialActs.principalIdType ? ilike(notarialActs.principalIdType, q) : undefined,
+					notarialActs.witnessName ? ilike(notarialActs.witnessName, q) : undefined,
+					notarialActs.witnessIdNumber ? ilike(notarialActs.witnessIdNumber, q) : undefined,
+					notarialActs.locationStatement ? ilike(notarialActs.locationStatement, q) : undefined,
+					notarialActs.ipAddress ? ilike(notarialActs.ipAddress, q) : undefined,
+					notarialActs.docoChainProjectUuid
+						? ilike(notarialActs.docoChainProjectUuid, q)
+						: undefined,
+					notarialActs.signersData ? ilike(notarialActs.signersData, q) : undefined,
+					notarialActs.passportData ? ilike(notarialActs.passportData, q) : undefined,
+				].filter((v): v is NonNullable<typeof v> => v !== undefined && v !== null)
+
+				if (searchClauses.length > 0) {
+					const searchCondition = or(...searchClauses)
+					if (searchCondition) {
+						filters.push(searchCondition)
 					}
 				}
 			}
-		}
-		const enrichedActs = filteredActs.map(act => {
-			const fees =
-				(act.documentId ? docFeesMap.get(act.documentId) : undefined) ??
-				(act.docoChainProjectUuid ? docFeesMap.get(act.docoChainProjectUuid) : undefined) ??
-				null
-			const registryNumber = registryNumberByActId.get(act.id) ?? null
-			return { ...act, fees, registryNumber }
-		})
 
-		return {
-			acts: enrichedActs,
-			total,
-			page,
-			perPage,
-			totalPages: Math.ceil(total / perPage),
-		}
-	}),
+			// Stable "registry number" should reflect chronological completion order across ALL acts,
+			// independent of sorting/filtering. Compute a map from the full notarial book list.
+			const allActsForNumbering = await ctx.db
+				.select({
+					id: notarialActs.id,
+					executedAt: notarialActs.executedAt,
+					createdAt: notarialActs.createdAt,
+				})
+				.from(notarialActs)
+				.where(eq(notarialActs.notarialBookId, notarialBook.id))
+				.orderBy(asc(notarialActs.executedAt), asc(notarialActs.createdAt))
+
+			const registryNumberByActId = new Map<string, number>()
+			for (let i = 0; i < allActsForNumbering.length; i++) {
+				const row = allActsForNumbering[i]
+				if (row) registryNumberByActId.set(row.id, i + 1)
+			}
+
+			const dir = sortDir === "asc" ? asc : desc
+			const orderBy = (() => {
+				switch (sortBy) {
+					case "registryNumber":
+						// Registry number is defined by executedAt/createdAt chronological order.
+						return [dir(notarialActs.executedAt), dir(notarialActs.createdAt)] as const
+					case "meetingEndedAt":
+						return [dir(notarialActs.meetingEndedAt), dir(notarialActs.createdAt)] as const
+					case "principalName":
+						return [dir(notarialActs.principalName), dir(notarialActs.executedAt)] as const
+					case "documentName":
+						return [dir(notarialActs.documentName), dir(notarialActs.executedAt)] as const
+					case "certificateNumber":
+						return [dir(notarialActs.certificateNumber), dir(notarialActs.executedAt)] as const
+					case "actType":
+						return [dir(notarialActs.actType), dir(notarialActs.executedAt)] as const
+					case "workflow":
+						return [dir(notarialActs.workflow), dir(notarialActs.executedAt)] as const
+					case "executedAt":
+					default:
+						return [dir(notarialActs.executedAt), dir(notarialActs.createdAt)] as const
+				}
+			})()
+
+			// Get notarial acts with pagination + requested sorting
+			const acts = await ctx.db
+				.select()
+				.from(notarialActs)
+				.where(and(...filters))
+				.orderBy(...orderBy)
+				.limit(perPage)
+				.offset((page - 1) * perPage)
+
+			// Get total count using proper count function
+			const [totalResult] = await ctx.db
+				.select({ count: count() })
+				.from(notarialActs)
+				.where(and(...filters))
+
+			const total = totalResult?.count ?? 0
+
+			const filteredActs = acts
+
+			// Enrich acts with fees from document table (fees are stored on document, not notarial_act)
+			const documentIds = [
+				...new Set(
+					filteredActs
+						.map(a => a.documentId)
+						.filter((id): id is string => typeof id === "string" && id.length > 0)
+				),
+			]
+			const docoChainUuids = [
+				...new Set(
+					filteredActs
+						.map(a => a.docoChainProjectUuid)
+						.filter((id): id is string => typeof id === "string" && id.length > 0)
+				),
+			]
+			const docFeesMap = new Map<string, number | null>()
+			if (documentIds.length > 0) {
+				const docs = await ctx.db
+					.select({ id: documents.id, fees: documents.fees })
+					.from(documents)
+					.where(inArray(documents.id, documentIds))
+				for (const d of docs) {
+					const raw = d.fees
+					docFeesMap.set(
+						d.id,
+						raw !== null && raw !== undefined && typeof raw === "number" && !Number.isNaN(raw)
+							? raw
+							: null
+					)
+				}
+			}
+			if (docoChainUuids.length > 0) {
+				const docsByProject = await ctx.db
+					.select({ docoChainProjectId: documents.docoChainProjectId, fees: documents.fees })
+					.from(documents)
+					.where(inArray(documents.docoChainProjectId, docoChainUuids))
+				for (const d of docsByProject) {
+					if (d.docoChainProjectId) {
+						const raw = d.fees
+						const val =
+							raw !== null && raw !== undefined && typeof raw === "number" && !Number.isNaN(raw)
+								? raw
+								: null
+						if (!docFeesMap.has(d.docoChainProjectId)) {
+							docFeesMap.set(d.docoChainProjectId, val)
+						}
+					}
+				}
+			}
+			const enrichedActs = filteredActs.map(act => {
+				const fees =
+					(act.documentId ? docFeesMap.get(act.documentId) : undefined) ??
+					(act.docoChainProjectUuid ? docFeesMap.get(act.docoChainProjectUuid) : undefined) ??
+					null
+				const registryNumber = registryNumberByActId.get(act.id) ?? null
+				return { ...act, fees, registryNumber }
+			})
+
+			return {
+				acts: enrichedActs,
+				total,
+				page,
+				perPage,
+				totalPages: Math.ceil(total / perPage),
+			}
+		}),
 
 	/**
 	 * Sync a completed document to the notarial book
@@ -1857,7 +1862,7 @@ export const notarialBookRouter = createTRPCRouter({
 			})
 
 			// Return stored signers if we have them (avoids 401 when no meeting/project token)
-			if (act.signersData) {
+			if (act.signersData && typeof act.signersData === "string") {
 				try {
 					const stored = JSON.parse(act.signersData) as Array<{
 						id: number
@@ -1870,7 +1875,30 @@ export const notarialBookRouter = createTRPCRouter({
 						signerRole: string
 					}>
 					if (Array.isArray(stored) && stored.length > 0) {
-						return { signers: stored.map(enrichSignerRole) }
+						// Fetch user data for each signer to get address information
+						const signersWithAddress = await Promise.all(
+							stored.map(async signer => {
+								const signerUser = await ctx.db.query.users.findFirst({
+									where: eq(users.email, signer.email),
+									columns: {
+										homeStreet: true,
+										barangay: true,
+										cityProvince: true,
+										address: true,
+									},
+								})
+
+								return {
+									...signer,
+									homeStreet: signerUser?.homeStreet ?? null,
+									barangay: signerUser?.barangay ?? null,
+									cityProvince: signerUser?.cityProvince ?? null,
+									fullAddress: signerUser?.address ?? null,
+								}
+							})
+						)
+
+						return { signers: signersWithAddress }
 					}
 				} catch {
 					// invalid JSON, fall through to fetch
@@ -1919,7 +1947,31 @@ export const notarialBookRouter = createTRPCRouter({
 						.set({ signersData: JSON.stringify(enriched) })
 						.where(eq(notarialActs.id, act.id))
 				}
-				return { signers: enriched }
+
+				// Fetch user data for each signer to get address information
+				const signersWithAddress = await Promise.all(
+					signers.map(async (signer: { email?: string }) => {
+						const signerUser = await ctx.db.query.users.findFirst({
+							where: eq(users.email, signer.email ?? ""),
+							columns: {
+								homeStreet: true,
+								barangay: true,
+								cityProvince: true,
+								address: true,
+							},
+						})
+
+						return {
+							...signer,
+							homeStreet: signerUser?.homeStreet ?? null,
+							barangay: signerUser?.barangay ?? null,
+							cityProvince: signerUser?.cityProvince ?? null,
+							fullAddress: signerUser?.address ?? null,
+						}
+					})
+				)
+
+				return { signers: signersWithAddress }
 			} catch (error) {
 				console.error("Error fetching act signers:", error)
 				return { signers: [] }

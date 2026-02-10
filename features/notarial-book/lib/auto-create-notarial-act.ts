@@ -2,17 +2,17 @@ import { and, desc, eq } from "drizzle-orm"
 import type { PostgresJsDatabase } from "drizzle-orm/postgres-js"
 
 import { checkSigningStatus, getPassportDocument } from "@/services/doconchain"
-import { enpProfiles } from "@/services/drizzle/schema/enp-profiles"
 import { users } from "@/services/drizzle/schema/auth"
 import { documents } from "@/services/drizzle/schema/document"
 import { documentSigners } from "@/services/drizzle/schema/document-signers"
+import { enpProfiles } from "@/services/drizzle/schema/enp-profiles"
 import { idCardDetails } from "@/services/drizzle/schema/id-card-details"
 import { legalRegistrations } from "@/services/drizzle/schema/legal-registration"
 import { meetings } from "@/services/drizzle/schema/meetings"
 import { notarialActs, notarialBooks } from "@/services/drizzle/schema/notarial-book"
+import { getServiceRoleClient } from "@/services/supabase"
 import { syncNotarialActToSupremeCourt } from "@/services/supreme-court/lib/sync-notarial-act"
 import { isConfigured } from "@/services/supreme-court/lib/token-cache"
-import { getServiceRoleClient } from "@/services/supabase"
 
 /**
  * Generate location statement for notarial act
@@ -726,17 +726,44 @@ export async function autoCreateNotarialAct(
 		// Fetch principal's ID image and details from id_card_details table if we have principal email
 		if (principalEmail) {
 			try {
-				// First get user ID from email
+				// First get user ID from email and address fields
 				// @ts-expect-error - PostgresJsDatabase<any> doesn't provide proper types for query builder
 				// eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
 				const principalUser = (await db.query.users.findFirst({
 					where: eq(users.email, principalEmail),
 					columns: {
 						id: true,
+						address: true,
+						homeStreet: true,
+						barangay: true,
+						cityProvince: true,
 					},
-				})) as { id?: string } | undefined
+				})) as
+					| {
+							id?: string
+							address?: string | null
+							homeStreet?: string | null
+							barangay?: string | null
+							cityProvince?: string | null
+					  }
+					| undefined
 
 				if (principalUser?.id) {
+					// Construct principalAddress from separated fields
+					// Priority: Use new separated fields if available, fallback to legacy address field
+					if (principalUser.homeStreet || principalUser.barangay || principalUser.cityProvince) {
+						const addressParts: string[] = []
+						if (principalUser.homeStreet) addressParts.push(principalUser.homeStreet)
+						if (principalUser.barangay) addressParts.push(`Barangay ${principalUser.barangay}`)
+						if (principalUser.cityProvince) addressParts.push(principalUser.cityProvince)
+						principalAddress = addressParts.join(", ")
+						console.log("✅ Constructed principal address from separated fields:", principalAddress)
+					} else if (principalUser.address) {
+						// Fallback to legacy address field
+						principalAddress = principalUser.address
+						console.log("✅ Using legacy principal address:", principalAddress)
+					}
+
 					// Fetch ID card details
 					// @ts-expect-error - PostgresJsDatabase<any> doesn't provide proper types for query builder
 					// eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
@@ -932,8 +959,7 @@ export async function autoCreateNotarialAct(
 				documentName,
 				documentDescription,
 				passportData: passportData ? JSON.stringify(passportData) : null,
-				signersData:
-					signersForAct.length > 0 ? JSON.stringify(signersForAct) : null,
+				signersData: signersForAct.length > 0 ? JSON.stringify(signersForAct) : null,
 				certificateNumber, // Unique reference number
 			})
 			.returning()
@@ -983,7 +1009,13 @@ export async function autoCreateNotarialAct(
 						notaryFacilityNumber: true,
 						rollNo: true,
 					},
-				})) as { notaryPublicNumber: string | null; notaryFacilityNumber: string | null; rollNo: string | null } | undefined
+				})) as
+					| {
+							notaryPublicNumber: string | null
+							notaryFacilityNumber: string | null
+							rollNo: string | null
+					  }
+					| undefined
 
 				if (
 					enpProfile?.notaryPublicNumber &&
