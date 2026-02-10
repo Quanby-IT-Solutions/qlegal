@@ -1,6 +1,8 @@
 "use client"
 
+import { useState } from "react"
 import { Download, FileText, Loader2 } from "lucide-react"
+import { toast } from "sonner"
 
 import { Button } from "@/core/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/core/components/ui/dialog"
@@ -34,6 +36,41 @@ export function NotarialActDocumentDialog2({
 		}
 	)
 
+	const [isDownloading, setIsDownloading] = useState(false)
+	const handleDownload = async () => {
+		if (!documentData?.url) return
+		setIsDownloading(true)
+		try {
+			const downloadUrl = documentData.url.includes("?")
+				? `${documentData.url}&download=1`
+				: `${documentData.url}?download=1`
+			const res = await fetch(downloadUrl, { credentials: "include" })
+			if (!res.ok) {
+				const text = await res.text()
+				throw new Error(text || `Download failed (${res.status})`)
+			}
+			const blob = await res.blob()
+			const contentDisposition = res.headers.get("Content-Disposition")
+			const fileNameMatch = contentDisposition?.match(/filename="?([^";\n]+)"?/)
+			const fileName = fileNameMatch?.[1] ?? documentName
+			const blobUrl = URL.createObjectURL(blob)
+			const a = document.createElement("a")
+			a.href = blobUrl
+			a.download = fileName
+			a.style.display = "none"
+			document.body.appendChild(a)
+			a.click()
+			document.body.removeChild(a)
+			URL.revokeObjectURL(blobUrl)
+		} catch (err) {
+			toast.error(
+				`Failed to download: ${err instanceof Error ? err.message : "Unknown error"}`
+			)
+		} finally {
+			setIsDownloading(false)
+		}
+	}
+
 	return (
 		<Dialog open={isOpen} onOpenChange={onClose}>
 			<DialogContent
@@ -45,7 +82,7 @@ export function NotarialActDocumentDialog2({
 						<div className="bg-muted rounded-lg p-2">
 							<FileText className="text-muted-foreground h-5 w-5" />
 						</div>
-						<div className="min-w-0 text-left">
+						<div className="min-w-0 flex-1 text-left">
 							<DialogTitle className="text-foreground truncate text-lg font-medium">
 								{documentName}
 							</DialogTitle>
@@ -53,6 +90,21 @@ export function NotarialActDocumentDialog2({
 								Signed Document (Programmatic Retrieval)
 							</p>
 						</div>
+						{documentData?.url && !isPending && !error && (
+							<Button
+								variant="outline"
+								size="sm"
+								disabled={isDownloading}
+								onClick={() => void handleDownload()}
+							>
+								{isDownloading ? (
+									<Loader2 className="mr-2 size-4 animate-spin" />
+								) : (
+									<Download className="mr-2 size-4" />
+								)}
+								{isDownloading ? "Downloading..." : "Download"}
+							</Button>
+						)}
 					</div>
 				</DialogHeader>
 
