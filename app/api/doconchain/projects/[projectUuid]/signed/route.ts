@@ -19,7 +19,10 @@
 import { NextResponse, type NextRequest } from "next/server"
 import { eq } from "drizzle-orm"
 
-import { downloadSignedDocument } from "@/services/doconchain"
+import {
+	checkSigningStatus,
+	downloadSignedDocument,
+} from "@/services/doconchain"
 import { db } from "@/services/drizzle/db"
 import { documents } from "@/services/drizzle/schema/document"
 import { auth } from "@/services/next-auth"
@@ -73,7 +76,42 @@ export async function GET(
 		// Use meeting creator email for token generation (fallback to session user email)
 		const creatorEmail = document.meeting.createdBy?.email ?? session.user.email ?? undefined
 
-		const { buffer, fileName } = await downloadSignedDocument(projectUuid, creatorEmail)
+		// Server-side gate: Only serve when DocoChain reports COMPLETED (seal applied).
+		// Prevents serving unsealed docs when project is still processing after all signers signed.
+		const status = await checkSigningStatus(projectUuid, creatorEmail)
+		const statusUpper = String(status?.projectStatus ?? "").toUpperCase()
+		const isCompleted =
+			statusUpper === "COMPLETED" || (status?.completedAt ?? null) !== null
+
+		if (!isCompleted) {
+			return new NextResponse(
+				"Document is still being processed. Please wait a moment and try again.",
+				{
+					status: 425,
+					headers: { "Content-Type": "text/plain" },
+				}
+			)
+		}
+
+		let buffer: Buffer
+		let fileName: string
+		try {
+			const result = await downloadSignedDocument(projectUuid, creatorEmail)
+			buffer = result.buffer
+			fileName = result.fileName
+		} catch (error) {
+			const msg = error instanceof Error ? error.message : String(error)
+			if (msg.includes("Document is still being processed")) {
+				return new NextResponse(
+					"Document is still being processed. The notarial seal is being applied. Please try again in a moment.",
+					{
+						status: 425,
+						headers: { "Content-Type": "text/plain" },
+					}
+				)
+			}
+			throw error
+		}
 
 		// NextResponse expects a web BodyInit. Convert Buffer -> Uint8Array (ArrayBuffer-backed),
 		// then wrap in a Blob to satisfy TypeScript + runtime.

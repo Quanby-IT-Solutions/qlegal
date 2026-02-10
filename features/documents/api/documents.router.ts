@@ -1,8 +1,10 @@
 import { TRPCError } from "@trpc/server"
-import { desc, eq, ilike, or } from "drizzle-orm"
+import { and, desc, eq, ilike, or } from "drizzle-orm"
 import { z } from "zod"
 
 import { checkSigningStatus, downloadSignedDocument } from "@/services/doconchain"
+import { documents } from "@/services/drizzle/schema/document"
+import { meetingParticipants } from "@/services/drizzle/schema/meetings"
 import { notarialActs } from "@/services/drizzle/schema/notarial-book"
 import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
 
@@ -77,7 +79,7 @@ export const documentsRouter = createTRPCRouter({
 
 			const act = await ctx.db.query.notarialActs.findFirst({
 				where: eq(notarialActs.id, input.actId),
-				columns: { id: true, principalName: true, signersData: true },
+				columns: { id: true, documentId: true, principalName: true, signersData: true },
 			})
 
 			if (!act) {
@@ -99,6 +101,27 @@ export const documentsRouter = createTRPCRouter({
 				})
 			}
 
+			// Enrich with Witness role from meeting participants (DocoChain only accepts "Signer")
+			const witnessEmails = new Set<string>()
+			if (act.documentId) {
+				const doc = await ctx.db.query.documents.findFirst({
+					where: eq(documents.id, act.documentId),
+					columns: { meetingId: true },
+				})
+				if (doc?.meetingId) {
+					const witnessParticipants = await ctx.db.query.meetingParticipants.findMany({
+						where: and(
+							eq(meetingParticipants.meetingId, doc.meetingId),
+							eq(meetingParticipants.participantRole, "WITNESS")
+						),
+						with: { user: { columns: { email: true } } },
+					})
+					for (const p of witnessParticipants) {
+						if (p.user?.email) witnessEmails.add(p.user.email.trim().toLowerCase())
+					}
+				}
+			}
+
 			if (!act.signersData) {
 				return { signers: [] }
 			}
@@ -113,7 +136,14 @@ export const documentsRouter = createTRPCRouter({
 					sequence: number
 					signerRole: string
 				}>
-				return { signers: Array.isArray(stored) ? stored : [] }
+				const signers = Array.isArray(stored) ? stored : []
+				const enriched = signers.map(s => ({
+					...s,
+					signerRole: witnessEmails.has((s.email ?? "").trim().toLowerCase())
+						? "Witness"
+						: (s.signerRole ?? "Signer"),
+				}))
+				return { signers: enriched }
 			} catch {
 				return { signers: [] }
 			}

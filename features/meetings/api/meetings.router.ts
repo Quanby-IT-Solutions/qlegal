@@ -1811,6 +1811,7 @@ export const meetingsRouter = createTRPCRouter({
 				userId: user.id,
 				status: "PENDING",
 				invitedById: ctx.session.user.id,
+				participantRole: "WITNESS",
 			})
 
 			return {
