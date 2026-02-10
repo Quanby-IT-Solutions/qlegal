@@ -65,6 +65,16 @@ import { PrincipalIdDialog } from "@/features/notarial-book/components/principal
 type ActTypeFilter = "ALL" | "ACKNOWLEDGMENT" | "AFFIRMATION" | "JURAT" | "SIGNATURE_WITNESSING"
 
 type ViewMode = "table" | "cards"
+type SortBy =
+	| "executedAt"
+	| "meetingEndedAt"
+	| "registryNumber"
+	| "principalName"
+	| "documentName"
+	| "certificateNumber"
+	| "actType"
+	| "workflow"
+type SortDir = "asc" | "desc"
 
 // Helper function to truncate file names intelligently
 function truncateFileName(fileName: string | null | undefined, maxLength = 20): string {
@@ -106,11 +116,11 @@ interface NotarialActRow {
 	documentId?: string | null
 	docoChainProjectUuid?: string | null
 	fees?: number | null
+	registryNumber?: number | null
 }
 
 function NotarialActCard({
 	act,
-	entryIndex,
 	onViewDocument,
 	onDownloadDocument,
 	onViewCertificate,
@@ -118,7 +128,6 @@ function NotarialActCard({
 	isDownloading,
 }: {
 	act: NotarialActRow
-	entryIndex: number
 	onViewDocument: (actId: string, documentName?: string) => void
 	onDownloadDocument: (actId: string, documentName?: string) => void
 	onViewCertificate: (actId: string) => void
@@ -132,7 +141,9 @@ function NotarialActCard({
 		<Card className="flex flex-col transition-shadow hover:shadow-md">
 			<CardHeader className="pb-2">
 				<div className="flex flex-wrap items-center justify-between gap-2">
-					<span className="text-muted-foreground font-mono text-sm">#{entryIndex}</span>
+					<span className="text-muted-foreground font-mono text-sm">
+						#{act.registryNumber ?? "—"}
+					</span>
 					<div className="flex gap-1">
 						<Badge variant="outline" className="text-xs">
 							{act.actType}
@@ -435,8 +446,10 @@ export default function NotarialBook2Page() {
 	const [searchTerm, setSearchTerm] = useState("")
 	const [actTypeFilter, setActTypeFilter] = useState<ActTypeFilter>("ALL")
 	const [workflowFilter, setWorkflowFilter] = useState<"ALL" | "REN" | "IEN">("ALL")
+	const [sortBy, setSortBy] = useState<SortBy>("executedAt")
+	const [sortDir, setSortDir] = useState<SortDir>("desc")
 	const [page, setPage] = useState(1)
-	const [viewMode, setViewMode] = useState<ViewMode>("cards")
+	const [viewMode, setViewMode] = useState<ViewMode>("table")
 	const perPage = 50
 
 	// Document preview state - matches qsign-lite pattern
@@ -460,6 +473,17 @@ export default function NotarialBook2Page() {
 		})
 	}, [])
 
+	const clearFilters = useCallback(() => {
+		setSearchTerm("")
+		setActTypeFilter("ALL")
+		setWorkflowFilter("ALL")
+		setSortBy("executedAt")
+		setSortDir("desc")
+		setViewMode("table")
+		setExpandedActIds(new Set())
+		setPage(1)
+	}, [])
+
 	// Only show DB notarial acts so entries appear only after "End Session" has been clicked.
 	// (DocoChain API returns "processing completed" when signing is done, which would show entries before End Session.)
 	const dbQuery = trpc.notarialBook.getNotarialBook.useQuery({
@@ -468,6 +492,8 @@ export default function NotarialBook2Page() {
 		search: searchTerm.trim() || undefined,
 		actType: actTypeFilter,
 		workflow: workflowFilter,
+		sortBy,
+		sortDir,
 	})
 
 	const notarialBookData = dbQuery.data
@@ -488,12 +514,7 @@ export default function NotarialBook2Page() {
 	})
 
 	const filteredActs = useMemo((): NotarialActRow[] => {
-		const acts = (notarialBookData?.acts ?? []) as NotarialActRow[]
-		return [...acts].sort((a, b) => {
-			const dateA = new Date(a.executedAt).getTime()
-			const dateB = new Date(b.executedAt).getTime()
-			return dateB - dateA
-		})
+		return (notarialBookData?.acts ?? []) as NotarialActRow[]
 	}, [notarialBookData?.acts])
 
 	const handleExport = () => {
@@ -656,45 +677,97 @@ export default function NotarialBook2Page() {
 										</TabsList>
 									</div>
 									<TabsContent value={actTypeFilter} className="mt-0">
-										<div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-											<Input
-												placeholder="Search by principal, document, or certificate number..."
-												value={searchTerm}
-												onChange={e => {
-													setSearchTerm(e.target.value)
-													setPage(1)
-												}}
-											/>
-											<Select
-												value={workflowFilter}
-												onValueChange={value => {
-													setWorkflowFilter(value as "ALL" | "REN" | "IEN")
-													setPage(1)
-												}}
-											>
-												<SelectTrigger>
-													<SelectValue placeholder="All Workflows" />
-												</SelectTrigger>
-												<SelectContent>
-													<SelectItem value="ALL">All Workflows</SelectItem>
-													<SelectItem value="REN">REN</SelectItem>
-													<SelectItem value="IEN">IEN</SelectItem>
-												</SelectContent>
-											</Select>
-											<div className="flex items-center gap-2">
-												<span className="text-muted-foreground text-sm">View:</span>
-												<ToggleGroup
-													type="single"
-													value={viewMode}
-													onValueChange={v => v && setViewMode(v as ViewMode)}
+										<div className="space-y-3">
+											<div className="flex flex-col gap-3 md:flex-row md:items-center">
+												<Input
+													placeholder="Search any detail (principal, witness, doc, certificate, signers, location, etc.)..."
+													value={searchTerm}
+													onChange={e => {
+														setSearchTerm(e.target.value)
+														setPage(1)
+													}}
+												/>
+												<Select
+													value={workflowFilter}
+													onValueChange={value => {
+														setWorkflowFilter(value as "ALL" | "REN" | "IEN")
+														setPage(1)
+													}}
 												>
-													<ToggleGroupItem value="table" aria-label="Table view">
-														<List className="size-4" />
-													</ToggleGroupItem>
-													<ToggleGroupItem value="cards" aria-label="Cards view">
-														<LayoutGrid className="size-4" />
-													</ToggleGroupItem>
-												</ToggleGroup>
+													<SelectTrigger className="md:w-[180px]">
+														<SelectValue placeholder="All Workflows" />
+													</SelectTrigger>
+													<SelectContent>
+														<SelectItem value="ALL">All Workflows</SelectItem>
+														<SelectItem value="REN">REN</SelectItem>
+														<SelectItem value="IEN">IEN</SelectItem>
+													</SelectContent>
+												</Select>
+												<Button
+													variant="outline"
+													type="button"
+													onClick={clearFilters}
+													className="md:w-[140px]"
+												>
+													Clear filters
+												</Button>
+											</div>
+
+											<div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+												<div className="flex flex-wrap items-center gap-2">
+													<span className="text-muted-foreground text-sm">Sort:</span>
+													<Select
+														value={sortBy}
+														onValueChange={value => {
+															setSortBy(value as SortBy)
+															setPage(1)
+														}}
+													>
+														<SelectTrigger className="w-[170px]">
+															<SelectValue placeholder="Sort by" />
+														</SelectTrigger>
+														<SelectContent>
+															<SelectItem value="executedAt">Signed time</SelectItem>
+															<SelectItem value="meetingEndedAt">Meeting ended</SelectItem>
+															<SelectItem value="registryNumber">Registry #</SelectItem>
+															<SelectItem value="principalName">Principal</SelectItem>
+															<SelectItem value="documentName">Document</SelectItem>
+															<SelectItem value="certificateNumber">Certificate #</SelectItem>
+															<SelectItem value="actType">Act type</SelectItem>
+															<SelectItem value="workflow">Workflow</SelectItem>
+														</SelectContent>
+													</Select>
+													<Select
+														value={sortDir}
+														onValueChange={value => {
+															setSortDir(value as SortDir)
+															setPage(1)
+														}}
+													>
+														<SelectTrigger className="w-[110px]">
+															<SelectValue placeholder="Order" />
+														</SelectTrigger>
+														<SelectContent>
+															<SelectItem value="desc">Desc</SelectItem>
+															<SelectItem value="asc">Asc</SelectItem>
+														</SelectContent>
+													</Select>
+												</div>
+												<div className="flex items-center gap-2 md:justify-end">
+													<span className="text-muted-foreground text-sm">View:</span>
+													<ToggleGroup
+														type="single"
+														value={viewMode}
+														onValueChange={v => v && setViewMode(v as ViewMode)}
+													>
+														<ToggleGroupItem value="table" aria-label="Table view">
+															<List className="size-4" />
+														</ToggleGroupItem>
+														<ToggleGroupItem value="cards" aria-label="Cards view">
+															<LayoutGrid className="size-4" />
+														</ToggleGroupItem>
+													</ToggleGroup>
+												</div>
 											</div>
 										</div>
 									</TabsContent>
@@ -754,8 +827,6 @@ export default function NotarialBook2Page() {
 												className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3"
 											>
 												{filteredActs.map((act, index) => {
-													const total = notarialBookData?.total ?? 0
-													const entryIndex = total - (page - 1) * perPage - index
 													return (
 													<motion.div
 														key={act.id}
@@ -767,7 +838,6 @@ export default function NotarialBook2Page() {
 													>
 														<NotarialActCard
 															act={act}
-															entryIndex={entryIndex}
 															onViewDocument={handleViewDocument}
 															onDownloadDocument={handleDownloadDocument}
 															onViewCertificate={handleViewCertificate}
@@ -807,13 +877,11 @@ export default function NotarialBook2Page() {
 												<TableBody>
 													{filteredActs.map((act, index) => {
 														const isExpanded = expandedActIds.has(act.id)
-														const total = notarialBookData?.total ?? 0
-														const entryIndex = total - (page - 1) * perPage - index
 														return (
 															<Fragment key={act.id}>
 																<TableRow className={isExpanded ? "border-b-0" : undefined}>
 																	<TableCell className="align-top font-mono text-xs font-medium sm:text-sm">
-																		{entryIndex}
+																		{(act as NotarialActRow).registryNumber ?? "—"}
 																	</TableCell>
 																	<TableCell className="align-top whitespace-nowrap">
 																		<div className="text-xs sm:text-sm">
@@ -985,6 +1053,36 @@ export default function NotarialBook2Page() {
 											</motion.div>
 										)}
 									</AnimatePresence>
+								)}
+
+								{!isLoading && notarialBookData && notarialBookData.totalPages > 1 && (
+									<div className="mt-6 flex flex-col items-center justify-between gap-3 border-t pt-4 sm:flex-row">
+										<div className="text-muted-foreground text-xs">
+											Page {page} of {notarialBookData.totalPages} · {notarialBookData.total} total
+										</div>
+										<div className="flex items-center gap-2">
+											<Button
+												type="button"
+												variant="outline"
+												size="sm"
+												disabled={page <= 1 || isFetching}
+												onClick={() => setPage(p => Math.max(1, p - 1))}
+											>
+												Previous
+											</Button>
+											<Button
+												type="button"
+												variant="outline"
+												size="sm"
+												disabled={page >= notarialBookData.totalPages || isFetching}
+												onClick={() =>
+													setPage(p => Math.min(notarialBookData.totalPages, p + 1))
+												}
+											>
+												Next
+											</Button>
+										</div>
+									</div>
 								)}
 							</CardContent>
 						</Card>

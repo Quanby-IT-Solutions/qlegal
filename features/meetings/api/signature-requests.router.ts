@@ -650,7 +650,12 @@ export const signatureRequestsRouter = createTRPCRouter({
 				console.log(`   - Total signers: ${currentSigners.length}`)
 
 				// Step 2.5: Update signer sequences based on signingOrder
-				if (signerUserIds.size > 0 && actualProjectUuid) {
+				// IMPORTANT: Do NOT attempt to update signer sequences once the project is already sent/to-sign.
+				// DocoChain may reject updates or error (we've observed 500s from their side: CredentialsDecryption "salt").
+				const shouldUpdateSequences =
+					isPlotting === true || (typeof projectStatus === "string" && projectStatus === "Draft")
+
+				if (signerUserIds.size > 0 && actualProjectUuid && shouldUpdateSequences) {
 					console.log("🔵 Step 2.5: Updating signer sequences based on signing order...")
 					try {
 						// Fetch current project details to get signer IDs
@@ -704,6 +709,14 @@ export const signatureRequestsRouter = createTRPCRouter({
 						console.warn("⚠️ Failed to update signer sequences:", sequenceError)
 						// Continue - don't fail the whole operation if sequence update fails
 					}
+				} else if (signerUserIds.size > 0 && actualProjectUuid) {
+					console.log(
+						"ℹ️ Skipping signer sequence updates (project is not Draft / not plotting).",
+						{
+							projectStatus,
+							isPlotting: isPlotting ?? false,
+						}
+					)
 				}
 
 				// Step 3: Get signing link for user
@@ -998,6 +1011,33 @@ export const signatureRequestsRouter = createTRPCRouter({
 				// For plotting, return link as-is (app URL + page, user_type, email, signer_role, api=true). For signing, normalize.
 				const finalNormalizedLink =
 					isPlotting === true ? signingLink : (normalizeUrl(signingLink) ?? signingLink)
+
+				// SAFETY: When plotting, NEVER allow a sent-project signing link (stg-app/app + token param).
+				// Plotting must always use the Edit Draft plot link format (link.doconchain.com + api_token).
+				if (isPlotting === true) {
+					try {
+						const url = new URL(finalNormalizedLink)
+						const hasTokenParam = url.searchParams.has("token")
+						const isAppDomain =
+							url.hostname.includes("stg-app.doconchain.com") ||
+							url.hostname.includes("app.doconchain.com")
+
+						if (hasTokenParam || isAppDomain) {
+							console.error(
+								"❌ Plot Signature attempted to return a signing/app link. Blocking for safety.",
+								{
+									host: url.hostname,
+									hasTokenParam,
+								}
+							)
+							throw new Error(
+								"Plot Signature must open the draft plotting platform. Please click Plot Signature again."
+							)
+						}
+					} catch {
+						// If URL parsing fails, fall through (client will validate before opening).
+					}
+				}
 
 				return {
 					success: true,
