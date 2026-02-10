@@ -111,10 +111,7 @@ export const authRouter = createTRPCRouter({
 
 				await tx.insert(enpProfiles).values({
 					userId: newUser.id,
-					// Seal info
-					enpName: seal.enpName,
-					enpRoleNumber: seal.enpRollNumber,
-					// Notary info
+					// Notary info (roll no from seal)
 					rollNo: seal.enpRollNumber,
 					rollNoDate: seal.rollNoDate,
 					commissionNo: notaryInfo.commissionNo,
