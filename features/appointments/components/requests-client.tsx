@@ -108,14 +108,6 @@ export function RequestsClient({ incomingRequests }: { incomingRequests: Incomin
 		}
 	}
 
-	const handleComplete = async (requestId: string) => {
-		setProcessingId(requestId)
-		await updateStatusMutation.mutateAsync({
-			requestId,
-			status: "COMPLETED",
-		})
-	}
-
 	return (
 		<>
 			<RequestsListView
@@ -123,7 +115,6 @@ export function RequestsClient({ incomingRequests }: { incomingRequests: Incomin
 				isRequestsLoading={false}
 				onAccept={handleAccept}
 				onReject={handleRejectClick}
-				onComplete={handleComplete}
 				processingId={processingId}
 			/>
 
