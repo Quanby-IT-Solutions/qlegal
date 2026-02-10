@@ -28,10 +28,6 @@ export const enpProfiles = createTable(
 		commission: t.real().default(0), // Commission rate for ENP
 		isAvailable: t.boolean().default(true), // Whether accepting new consultations
 
-		// --- Notary Seal Info ---
-		enpName: t.varchar({ length: 255 }), // e.g., "Juan Dela Cruz"
-		enpRoleNumber: t.varchar({ length: 100 }), // e.g., "123456"
-
 		// --- Supreme Court eNotarization API Fields ---
 		notaryPublicNumber: t.varchar({ length: 100 }), // NPN - Notary Public Number (e.g., "NPN-123")
 		notaryFacilityNumber: t.varchar({ length: 100 }), // NFN - Notary Facility Number (e.g., "NFN-123")
