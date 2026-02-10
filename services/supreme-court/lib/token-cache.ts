@@ -45,22 +45,34 @@ export async function generateToken(): Promise<string> {
 	console.log("   ClientId:", clientId)
 	console.log("   Username:", username)
 
-	const response = await fetch(cognitoUrl, {
-		method: "POST",
-		headers: {
-			"Content-Type": "application/x-amz-json-1.1",
-			"X-Amz-Target": "AWSCognitoIdentityProviderService.InitiateAuth",
-		},
-		body: JSON.stringify({
-			AuthFlow: "USER_PASSWORD_AUTH",
-			AuthParameters: {
-				PASSWORD: password,
-				USERNAME: username,
+	let response: Response
+	try {
+		response = await fetch(cognitoUrl, {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/x-amz-json-1.1",
+				"X-Amz-Target": "AWSCognitoIdentityProviderService.InitiateAuth",
 			},
-			ClientId: clientId,
-			ClientMetadata: {},
-		}),
-	})
+			body: JSON.stringify({
+				AuthFlow: "USER_PASSWORD_AUTH",
+				AuthParameters: {
+					PASSWORD: password,
+					USERNAME: username,
+				},
+				ClientId: clientId,
+				ClientMetadata: {},
+			}),
+		})
+	} catch (err) {
+		const cause = err instanceof Error ? err.cause : undefined
+		const causeMsg = cause instanceof Error ? cause.message : String(cause ?? "")
+		const code = cause && typeof cause === "object" && "code" in cause ? (cause as { code: string }).code : ""
+		throw new Error(
+			`Supreme Court Cognito auth request failed (network error). ${causeMsg || (err instanceof Error ? err.message : String(err))}` +
+				(code ? ` (${code})` : "") +
+				`\n\n   Possible causes: no internet, firewall/VPN blocking, DNS failure, or wrong SUPREME_COURT_COGNITO_URL.`
+		)
+	}
 
 	console.log("🔵 [Supreme Court] Cognito response status:", response.status, response.statusText)
 

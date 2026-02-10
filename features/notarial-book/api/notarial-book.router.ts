@@ -1897,8 +1897,8 @@ export const notarialBookRouter = createTRPCRouter({
 								}
 							})
 						)
-
-						return { signers: signersWithAddress }
+						// Apply witness enrichment so UI shows Witness badge from participantRole
+						return { signers: signersWithAddress.map(enrichSignerRole) }
 					}
 				} catch {
 					// invalid JSON, fall through to fetch
@@ -1950,7 +1950,7 @@ export const notarialBookRouter = createTRPCRouter({
 
 				// Fetch user data for each signer to get address information
 				const signersWithAddress = await Promise.all(
-					signers.map(async (signer: { email?: string }) => {
+					enriched.map(async (signer: { email?: string }) => {
 						const signerUser = await ctx.db.query.users.findFirst({
 							where: eq(users.email, signer.email ?? ""),
 							columns: {
