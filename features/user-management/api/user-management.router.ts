@@ -35,7 +35,7 @@ export const userManagementRouter = createTRPCRouter({
 
 		// Apply status filter
 		if (input.status && input.status !== "all") {
-			conditions.push(eq(users.status, input.status))
+			conditions.push(eq(users.commissionStatus, input.status))
 		}
 
 		const whereCondition = conditions.length > 0 ? and(...conditions) : undefined
@@ -60,7 +60,7 @@ export const userManagementRouter = createTRPCRouter({
 				email: users.email,
 				role: users.role,
 				image: users.image,
-				status: users.status,
+				status: users.commissionStatus,
 				emailVerified: users.emailVerified,
 			})
 			.from(users)
@@ -105,19 +105,19 @@ export const userManagementRouter = createTRPCRouter({
 		const [activeResult] = await ctx.db
 			.select({ count: count() })
 			.from(users)
-			.where(eq(users.status, "ACTIVE"))
+			.where(eq(users.commissionStatus, "ACTIVE"))
 		const activeUsers = activeResult?.count ?? 0
 
 		const [pendingResult] = await ctx.db
 			.select({ count: count() })
 			.from(users)
-			.where(eq(users.status, "PENDING"))
+			.where(eq(users.commissionStatus, "PENDING"))
 		const pendingUsers = pendingResult?.count ?? 0
 
 		const [suspendedResult] = await ctx.db
 			.select({ count: count() })
 			.from(users)
-			.where(eq(users.status, "SUSPENDED"))
+			.where(eq(users.commissionStatus, "SUSPENDED"))
 		const suspendedUsers = suspendedResult?.count ?? 0
 
 		return {
@@ -138,7 +138,7 @@ export const userManagementRouter = createTRPCRouter({
 				email: true,
 				role: true,
 				image: true,
-				status: true,
+				commissionStatus: true,
 				emailVerified: true,
 			},
 		})
@@ -153,7 +153,7 @@ export const userManagementRouter = createTRPCRouter({
 			email: user.email ?? "no-email@example.com",
 			role: user.role.toLowerCase().replace("_", "-") as "client" | "admin" | "super-admin",
 			organization: null,
-			status: user.status.toLowerCase() as "active" | "pending" | "suspended",
+			status: user.commissionStatus.toLowerCase() as "active" | "pending" | "suspended",
 			joinDate:
 				user.emailVerified?.toISOString().split("T")[0] ?? new Date().toISOString().split("T")[0],
 			lastActive: user.emailVerified?.toISOString() ?? new Date().toISOString(),
@@ -189,7 +189,7 @@ export const userManagementRouter = createTRPCRouter({
 			email: newUser!.email ?? "no-email@example.com",
 			role: newUser!.role.toLowerCase().replace("_", "-") as "client" | "admin" | "super-admin",
 			organization: null,
-			status: newUser!.status.toLowerCase() as "active" | "pending" | "suspended",
+			status: newUser!.commissionStatus.toLowerCase() as "active" | "pending" | "suspended",
 			joinDate:
 				newUser!.emailVerified?.toISOString().split("T")[0] ??
 				new Date().toISOString().split("T")[0],
@@ -218,7 +218,7 @@ export const userManagementRouter = createTRPCRouter({
 			email: updatedUser!.email ?? "no-email@example.com",
 			role: updatedUser!.role.toLowerCase().replace("_", "-") as "client" | "admin" | "super-admin",
 			organization: null,
-			status: updatedUser!.status.toLowerCase() as "active" | "pending" | "suspended",
+			status: updatedUser!.commissionStatus.toLowerCase() as "active" | "pending" | "suspended",
 			joinDate:
 				updatedUser!.emailVerified?.toISOString().split("T")[0] ??
 				new Date().toISOString().split("T")[0],
@@ -239,7 +239,7 @@ export const userManagementRouter = createTRPCRouter({
 	approve: protectedProcedure.input(approveUserSchema).mutation(async ({ ctx, input }) => {
 		await ctx.db
 			.update(users)
-			.set({ emailVerified: new Date(), status: "ACTIVE" })
+			.set({ emailVerified: new Date(), commissionStatus: "ACTIVE" })
 			.where(eq(users.id, input.id))
 
 		return { success: true, userId: input.id, status: "active" }
@@ -247,14 +247,14 @@ export const userManagementRouter = createTRPCRouter({
 
 	// Suspend user
 	suspend: protectedProcedure.input(suspendUserSchema).mutation(async ({ ctx, input }) => {
-		await ctx.db.update(users).set({ status: "SUSPENDED" }).where(eq(users.id, input.id))
+		await ctx.db.update(users).set({ commissionStatus: "SUSPENDED" }).where(eq(users.id, input.id))
 
 		return { success: true, userId: input.id, status: "suspended" }
 	}),
 
 	// Unsuspend user
 	unsuspend: protectedProcedure.input(unsuspendUserSchema).mutation(async ({ ctx, input }) => {
-		await ctx.db.update(users).set({ status: "ACTIVE" }).where(eq(users.id, input.id))
+		await ctx.db.update(users).set({ commissionStatus: "ACTIVE" }).where(eq(users.id, input.id))
 
 		return { success: true, userId: input.id, status: "active" }
 	}),

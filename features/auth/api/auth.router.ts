@@ -97,7 +97,7 @@ export const authRouter = createTRPCRouter({
 						email,
 						password: hashedPassword,
 						role: "ENP",
-						status: "PENDING",
+						commissionStatus: "PENDING",
 					})
 					.returning({ id: users.id })
 

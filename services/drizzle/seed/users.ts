@@ -22,7 +22,7 @@ export async function createUsers() {
 		image: string
 		password: string
 		role: "PRINCIPAL" | "ENP" | "ENA" | "ADMIN"
-		status: "ACTIVE" | "PENDING" | "SUSPENDED"
+		commissionStatus: "ACTIVE" | "PENDING" | "SUSPENDED"
 		kycStatus: "VERIFIED"
 		kycVerifiedAt: Date
 	}> = SEED_CONFIG.testAccounts.map((account, i) => ({
@@ -33,7 +33,7 @@ export async function createUsers() {
 		image: account.image,
 		password: hashedPassword,
 		role: account.role,
-		status: account.role === "ENP" ? ("PENDING" as const) : ("ACTIVE" as const),
+		commissionStatus: account.role === "ENP" ? ("PENDING" as const) : ("ACTIVE" as const),
 		kycStatus: "VERIFIED" as const,
 		kycVerifiedAt: new Date(),
 	}))
@@ -137,28 +137,25 @@ export async function createUsers() {
 
 		const randomTestIds = generateTestIds(randomUserCount, "test")
 
-		await seed(db, { users }, { count: randomUserCount, seed: SEED_CONFIG.seed }).refine(
-			// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call
-			funcs => ({
-				users: {
-					columns: {
-						id: funcs.valuesFromArray({ values: randomTestIds, isUnique: true }),
-						email: funcs.email(),
-						name: funcs.fullName(),
-						emailVerified: funcs.date({
-							minDate: "2024-01-01T00:00:00.000Z",
-							maxDate: "2024-12-31T23:59:59.999Z",
-						}),
-						image: funcs.default({ defaultValue: faker.image.avatar() }),
-						password: funcs.default({ defaultValue: hashedPassword }),
-						role: funcs.default({ defaultValue: "PRINCIPAL" }),
-						status: funcs.valuesFromArray({
-							values: ["ACTIVE", "ACTIVE", "ACTIVE", "PENDING"],
-						}),
-					},
+		await seed(db, { users }, { count: randomUserCount, seed: SEED_CONFIG.seed }).refine(funcs => ({
+			users: {
+				columns: {
+					id: funcs.valuesFromArray({ values: randomTestIds, isUnique: true }),
+					email: funcs.email(),
+					name: funcs.fullName(),
+					emailVerified: funcs.date({
+						minDate: "2024-01-01T00:00:00.000Z",
+						maxDate: "2024-12-31T23:59:59.999Z",
+					}),
+					image: funcs.default({ defaultValue: faker.image.avatar() }),
+					password: funcs.default({ defaultValue: hashedPassword }),
+					role: funcs.default({ defaultValue: "PRINCIPAL" }),
+					status: funcs.valuesFromArray({
+						values: ["ACTIVE", "ACTIVE", "ACTIVE", "PENDING"],
+					}),
 				},
-			})
-		)
+			},
+		}))
 
 		// Fetch the newly created random users
 		insertedRandomUsers = await db
