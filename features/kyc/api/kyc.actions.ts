@@ -99,7 +99,7 @@ export async function createUserKycLink() {
 		const result = await createOnboardLink(config)
 
 		// Use the transaction ID returned by HyperVerge if available, otherwise use ours
-		const actualTransactionId = result.result.transactionId || transactionId
+		const actualTransactionId = result.result.transactionId ?? transactionId
 
 		console.log("📝 Transaction IDs:", {
 			generated: transactionId,
@@ -189,7 +189,8 @@ export async function runDirectKycVerification(input: {
 	const existingUser = await db.query.users.findFirst({
 		where: eq(users.id, session.user.id),
 		columns: {
-			status: true,
+			commissionStatus: true,
+			role: true,
 		},
 	})
 
@@ -348,12 +349,15 @@ export async function runDirectKycVerification(input: {
 			.set({
 				kycStatus,
 				kycVerifiedAt: kycStatus === "VERIFIED" ? new Date() : null,
-				// Auto-activate account when direct KYC is verified.
+				// Auto-activate account when direct KYC is verified for non-ENP users.
 				// Never override SUSPENDED here.
-				status:
-					kycStatus === "VERIFIED" && existingUser.status === "PENDING"
+				// For ENP users, keep status as PENDING even after KYC verification.
+				commissionStatus:
+					kycStatus === "VERIFIED" &&
+					existingUser.commissionStatus === "PENDING" &&
+					existingUser.role !== "ENP"
 						? "ACTIVE"
-						: existingUser.status,
+						: existingUser.commissionStatus,
 			})
 			.where(eq(users.id, session.user.id))
 
@@ -427,7 +431,8 @@ export async function checkUserKycStatus() {
 		where: eq(users.id, session.user.id),
 		columns: {
 			kycStatus: true,
-			status: true,
+			commissionStatus: true,
+			role: true,
 		},
 	})
 
@@ -452,83 +457,6 @@ export async function checkUserKycStatus() {
 	// - Direct API KYC (readId/checkLiveness/matchFace) does NOT go through the workflow engine,
 	//   so HyperVerge "applicationStatus" may remain "started" even when checks have passed.
 	//   In that case, our DB is the source of truth and we must NOT overwrite VERIFIED -> PENDING.
-
-	const isRecord = (v: unknown): v is Record<string, unknown> =>
-		typeof v === "object" && v !== null && !Array.isArray(v)
-
-	const looksLikeUrl = (v: unknown): v is string =>
-		typeof v === "string" && /^https?:\/\/\S+$/i.test(v)
-
-	const findBestImageUrl = (root: unknown): string | null => {
-		// Prefer the documented field first.
-		if (isRecord(root)) {
-			const userDetails = root["userDetails"]
-			if (isRecord(userDetails) && looksLikeUrl(userDetails["croppedImageUrl"])) {
-				return userDetails["croppedImageUrl"]
-			}
-		}
-
-		// Fallback: search for any URL-like string under keys that look image-related.
-		const maxDepth = 6
-		const maxNodes = 400
-		let visited = 0
-
-		type Candidate = { url: string; score: number }
-		const candidates: Candidate[] = []
-
-		const scoreKey = (k: string): number => {
-			const key = k.toLowerCase()
-			if (key.includes("cropped")) return 100
-			if (key.includes("face")) return 80
-			if (key.includes("selfie")) return 60
-			if (key.includes("id")) return 50
-			if (key.includes("image")) return 40
-			if (key.includes("photo")) return 30
-			if (key.includes("url")) return 10
-			return 0
-		}
-
-		const walk = (node: unknown, depth: number, parentKey: string | null) => {
-			if (visited++ > maxNodes) return
-			if (depth > maxDepth) return
-
-			if (looksLikeUrl(node) && parentKey) {
-				const score = scoreKey(parentKey)
-				if (score > 0) candidates.push({ url: node, score })
-				return
-			}
-
-			if (Array.isArray(node)) {
-				for (const item of node) walk(item, depth + 1, parentKey)
-				return
-			}
-
-			if (isRecord(node)) {
-				for (const [k, v] of Object.entries(node)) {
-					walk(v, depth + 1, k)
-				}
-			}
-		}
-
-		walk(root, 0, null)
-
-		candidates.sort((a, b) => b.score - a.score)
-		return candidates[0]?.url ?? null
-	}
-
-	const fetchImageAsDataUrl = async (url: string): Promise<string | null> => {
-		try {
-			const imgRes = await fetch(url)
-			if (!imgRes.ok) return null
-
-			const contentType = imgRes.headers.get("content-type") ?? "image/jpeg"
-			const arrayBuffer = await imgRes.arrayBuffer()
-			const base64 = Buffer.from(arrayBuffer).toString("base64")
-			return `data:${contentType};base64,${base64}`
-		} catch {
-			return null
-		}
-	}
 
 	const needsHostedArtifacts = kycSession.sessionType === "hosted" && !kycSession.idCardDetailId
 
@@ -710,9 +638,13 @@ export async function checkUserKycStatus() {
 				.set({
 					kycStatus: newStatus,
 					kycVerifiedAt: new Date(),
-					// If account was pending, auto-activate on successful KYC.
+					// If account was pending, auto-activate on successful KYC for non-ENP users.
 					// Never override SUSPENDED here.
-					status: user?.status === "PENDING" ? "ACTIVE" : user?.status,
+					// For ENP users, keep status as PENDING even after KYC verification.
+					commissionStatus:
+						user?.commissionStatus === "PENDING" && user?.role !== "ENP"
+							? "ACTIVE"
+							: user?.commissionStatus,
 				})
 				.where(eq(users.id, session.user.id))
 		} else if (applicationStatus === "auto_declined") {
