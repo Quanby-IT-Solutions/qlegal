@@ -1,6 +1,8 @@
 "use client"
 
+import { useState } from "react"
 import { Download, FileText, Loader2 } from "lucide-react"
+import { toast } from "sonner"
 
 import { Button } from "@/core/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/core/components/ui/dialog"
@@ -34,26 +36,78 @@ export function NotarialActDocumentDialog2({
 		}
 	)
 
+	const [isDownloading, setIsDownloading] = useState(false)
+	const handleDownload = async () => {
+		if (!documentData?.url) return
+		setIsDownloading(true)
+		try {
+			const downloadUrl = documentData.url.includes("?")
+				? `${documentData.url}&download=1`
+				: `${documentData.url}?download=1`
+			const res = await fetch(downloadUrl, { credentials: "include" })
+			if (!res.ok) {
+				const text = await res.text()
+				throw new Error(text || `Download failed (${res.status})`)
+			}
+			const blob = await res.blob()
+			const contentDisposition = res.headers.get("Content-Disposition")
+			const fileNameMatch = contentDisposition?.match(/filename="?([^";\n]+)"?/)
+			const fileName = fileNameMatch?.[1] ?? documentName
+			const blobUrl = URL.createObjectURL(blob)
+			const a = document.createElement("a")
+			a.href = blobUrl
+			a.download = fileName
+			a.style.display = "none"
+			document.body.appendChild(a)
+			a.click()
+			document.body.removeChild(a)
+			URL.revokeObjectURL(blobUrl)
+		} catch (err) {
+			toast.error(
+				`Failed to download: ${err instanceof Error ? err.message : "Unknown error"}`
+			)
+		} finally {
+			setIsDownloading(false)
+		}
+	}
+
 	return (
 		<Dialog open={isOpen} onOpenChange={onClose}>
 			<DialogContent
-				className="!m-0 !flex !h-[96vh] !w-[96vw] !max-w-none flex-col !gap-0 overflow-hidden !rounded-lg !p-0"
-				style={{ maxWidth: "96vw" }}
+				className="!m-0 !flex !h-[85vh] !w-[90vw] !max-w-none flex-col !gap-0 overflow-hidden !rounded-lg !p-0"
+				style={{ maxWidth: "90vw" }}
 			>
-				<DialogHeader className="bg-background flex shrink-0 flex-row items-center justify-between border-b p-4">
-					<div className="flex items-center gap-3">
-						<div className="bg-muted rounded-lg p-2">
+				<DialogHeader className="bg-background flex shrink-0 flex-row items-center justify-between border-b p-4 pr-12">
+					<div className="flex min-w-0 flex-1 items-center gap-3">
+						<div className="bg-muted shrink-0 rounded-lg p-2">
 							<FileText className="text-muted-foreground h-5 w-5" />
 						</div>
-						<div className="min-w-0 text-left">
+						<div className="min-w-0 flex-1 text-left">
 							<DialogTitle className="text-foreground truncate text-lg font-medium">
 								{documentName}
 							</DialogTitle>
 							<p className="text-muted-foreground text-sm">
-								Signed Document (Programmatic Retrieval)
+								Official notarized document with digital seal and certificate
 							</p>
 						</div>
 					</div>
+					{documentData?.url && !isPending && !error && (
+						<div className="ml-4 shrink-0">
+							<Button
+								variant="outline"
+								size="sm"
+								disabled={isDownloading}
+								onClick={() => void handleDownload()}
+							>
+								{isDownloading ? (
+									<Loader2 className="mr-2 size-4 animate-spin" />
+								) : (
+									<Download className="mr-2 size-4" />
+								)}
+								{isDownloading ? "Downloading..." : "Download"}
+							</Button>
+						</div>
+					)}
 				</DialogHeader>
 
 				{/* Content Area - Fixed height to prevent layout shifts */}

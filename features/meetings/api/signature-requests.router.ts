@@ -595,6 +595,8 @@ export const signatureRequestsRouter = createTRPCRouter({
 							})
 						}
 
+						// Doconchain API only accepts "Signer" for signer_role (422 on "Witness").
+						// We track witness in meeting participantRole and show it in the UI via enriched signer data.
 						await addSignerToProject({
 							projectUuid: actualProjectUuid,
 							email: participantEmail,
@@ -650,7 +652,12 @@ export const signatureRequestsRouter = createTRPCRouter({
 				console.log(`   - Total signers: ${currentSigners.length}`)
 
 				// Step 2.5: Update signer sequences based on signingOrder
-				if (signerUserIds.size > 0 && actualProjectUuid) {
+				// IMPORTANT: Do NOT attempt to update signer sequences once the project is already sent/to-sign.
+				// DocoChain may reject updates or error (we've observed 500s from their side: CredentialsDecryption "salt").
+				const shouldUpdateSequences =
+					isPlotting === true || (typeof projectStatus === "string" && projectStatus === "Draft")
+
+				if (signerUserIds.size > 0 && actualProjectUuid && shouldUpdateSequences) {
 					console.log("🔵 Step 2.5: Updating signer sequences based on signing order...")
 					try {
 						// Fetch current project details to get signer IDs
@@ -704,6 +711,14 @@ export const signatureRequestsRouter = createTRPCRouter({
 						console.warn("⚠️ Failed to update signer sequences:", sequenceError)
 						// Continue - don't fail the whole operation if sequence update fails
 					}
+				} else if (signerUserIds.size > 0 && actualProjectUuid) {
+					console.log(
+						"ℹ️ Skipping signer sequence updates (project is not Draft / not plotting).",
+						{
+							projectStatus,
+							isPlotting: isPlotting ?? false,
+						}
+					)
 				}
 
 				// Step 3: Get signing link for user
@@ -845,7 +860,10 @@ export const signatureRequestsRouter = createTRPCRouter({
 						console.log("✅ Signing link generated successfully")
 					} catch (signLinkError) {
 						console.error("❌ Failed to generate signing link:", signLinkError)
-						signingLink = `${env.DOCONCHAIN_APP_URL}/${actualProjectUuid}?email=${encodeURIComponent(email)}&api=true`
+						// Use link.doconchain.com (never stg-app) so the URL is not exposed with staging domain
+						const linkDomain =
+							env.DOCONCHAIN_API_URL.includes("stg") ? "https://link.doconchain.com" : "https://link.doconchain.com"
+						signingLink = `${linkDomain}/${actualProjectUuid}?api=true`
 					}
 				} else {
 					// Project is Draft OR user is plotting - ALWAYS use Edit Draft Link for plotting/signing
@@ -893,7 +911,8 @@ export const signatureRequestsRouter = createTRPCRouter({
 							editDraftResult = await generateEditDraftLink(
 								actualProjectUuid,
 								creatorEmail,
-								meetingToken
+								meetingToken,
+								isPlotting === true
 							)
 							signingLink = editDraftResult.link
 							console.log(
@@ -942,81 +961,85 @@ export const signatureRequestsRouter = createTRPCRouter({
 				}
 
 				if (signingLink) {
-					signingLink = normalizeUrl(signingLink) ?? signingLink
+					// For plotting: keep app URL and params (page, user_type, email, signer_role, api=true). Do not normalize.
+					// For signing: normalize to link.doconchain.com and remove token/email/signer_role/page.
+					if (isPlotting !== true) {
+						signingLink = normalizeUrl(signingLink) ?? signingLink
 
-					// Clean up the URL - ensure api=true is set and api_token is valid
-					// api_token is REQUIRED for document loading in all signing scenarios
-					try {
-						const url = new URL(signingLink)
+						try {
+							const url = new URL(signingLink)
 
-						// CRITICAL: For Edit Draft Links (link.doconchain.com), remove unwanted parameters
-						// Edit Draft Links should ONLY have: api=true and api_token
-						// Remove: token, email, signer_role, page (these are for Sign Links, not Edit Draft Links)
-						// CRITICAL: When plotting, ensure we NEVER use stg-app.doconchain.com links - they redirect
-						if (url.hostname.includes("link.doconchain.com")) {
-							console.log("🔵 Cleaning Edit Draft Link - removing unwanted parameters...")
-							url.searchParams.delete("token") // Remove token parameter (not needed for Edit Draft Links)
-							url.searchParams.delete("email") // Remove email parameter (not needed for Edit Draft Links)
-							url.searchParams.delete("signer_role") // Remove signer_role parameter (not needed for Edit Draft Links)
-							url.searchParams.delete("page") // Remove page parameter (not needed for Edit Draft Links)
-
-							// CRITICAL: When plotting, ensure link is link.doconchain.com (not stg-app.doconchain.com)
-							// If somehow we got a stg-app link, convert it to link.doconchain.com
-							if (isPlotting === true && url.hostname.includes("stg-app.doconchain.com")) {
-								console.warn(
-									"⚠️ Plotting detected stg-app.doconchain.com link - converting to link.doconchain.com"
-								)
+							// Convert stg-app/app to link.doconchain.com for signing (not for plotting)
+							if (
+								url.hostname.includes("stg-app.doconchain.com") ||
+								url.hostname.includes("app.doconchain.com")
+							) {
+								console.log("🔵 Converting stg-app/app.doconchain.com to link.doconchain.com")
 								url.hostname = "link.doconchain.com"
 							}
-						} else if (isPlotting === true && url.hostname.includes("stg-app.doconchain.com")) {
-							// CRITICAL: When plotting, we should NEVER get stg-app.doconchain.com links
-							// If we do, it means something went wrong - convert to link.doconchain.com
-							console.error(
-								"❌ Plotting action received stg-app.doconchain.com link - this should not happen! Converting to link.doconchain.com..."
-							)
-							url.hostname = "link.doconchain.com"
-							// Remove all sign link parameters
+
 							url.searchParams.delete("token")
 							url.searchParams.delete("email")
 							url.searchParams.delete("signer_role")
 							url.searchParams.delete("page")
-						}
+							url.searchParams.set("api", "true")
 
-						// Ensure api=true is set
-						url.searchParams.set("api", "true")
-
-						// Remove api_token ONLY if it's explicitly undefined or empty
-						if (url.searchParams.has("api_token")) {
-							const existingToken = url.searchParams.get("api_token")
-							if (!existingToken || existingToken === "undefined" || existingToken === "") {
-								url.searchParams.delete("api_token")
-								console.log("⚠️ Removed invalid/empty api_token from URL")
+							if (url.searchParams.has("api_token")) {
+								const existingToken = url.searchParams.get("api_token")
+								if (!existingToken || existingToken === "undefined" || existingToken === "") {
+									url.searchParams.delete("api_token")
+									console.log("⚠️ Removed invalid/empty api_token from URL")
+								}
 							}
-						}
 
-						// Always add api_token if missing (required for document loading)
-						// Use creator's email (ENP) for token generation as they own the project
-						// CRITICAL: Use the SAME token that was generated during project creation
-						// Don't invalidate/regenerate - use the cached token to ensure consistency
-						// The token was already generated fresh during project creation, so it has maximum validity
-						if (!url.searchParams.has("api_token")) {
-							console.log(
-								"🔵 Using cached token for signing link (same token from project creation)..."
-							)
-							const apiToken = await getToken(creatorEmail, false) // Use cached token, don't force regeneration
-							url.searchParams.set("api_token", apiToken)
-							console.log(
-								"✅ Added api_token to signing link (using token from project creation, required for document loading)"
-							)
-						}
+							if (!url.searchParams.has("api_token")) {
+								console.log(
+									"🔵 Using cached token for signing link (same token from project creation)..."
+								)
+								const apiToken = await getToken(creatorEmail, false)
+								url.searchParams.set("api_token", apiToken)
+								console.log(
+									"✅ Added api_token to signing link (using token from project creation, required for document loading)"
+								)
+							}
 
-						signingLink = url.toString()
-					} catch {
-						// If URL parsing fails, signingLink is already normalized
+							signingLink = url.toString()
+						} catch {
+							// If URL parsing fails, signingLink is already normalized
+						}
 					}
 				}
 
-				const finalNormalizedLink = normalizeUrl(signingLink) ?? signingLink
+				// For plotting, return link as-is (app URL + page, user_type, email, signer_role, api=true). For signing, normalize.
+				const finalNormalizedLink =
+					isPlotting === true ? signingLink : (normalizeUrl(signingLink) ?? signingLink)
+
+				// SAFETY: When plotting, NEVER allow a sent-project signing link (stg-app/app + token param).
+				// Plotting must always use the Edit Draft plot link format (link.doconchain.com + api_token).
+				if (isPlotting === true) {
+					try {
+						const url = new URL(finalNormalizedLink)
+						const hasTokenParam = url.searchParams.has("token")
+						const isAppDomain =
+							url.hostname.includes("stg-app.doconchain.com") ||
+							url.hostname.includes("app.doconchain.com")
+
+						if (hasTokenParam || isAppDomain) {
+							console.error(
+								"❌ Plot Signature attempted to return a signing/app link. Blocking for safety.",
+								{
+									host: url.hostname,
+									hasTokenParam,
+								}
+							)
+							throw new Error(
+								"Plot Signature must open the draft plotting platform. Please click Plot Signature again."
+							)
+						}
+					} catch {
+						// If URL parsing fails, fall through (client will validate before opening).
+					}
+				}
 
 				return {
 					success: true,

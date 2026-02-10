@@ -18,6 +18,7 @@ import {
 	FileText,
 	FileUp,
 	GripVertical,
+	Loader2,
 	Lock,
 	Mic,
 	MicOff,
@@ -1284,12 +1285,22 @@ const DocumentActions = React.memo(function DocumentActions({
 	// Plotting vs signing phase (separate buttons, no shared logic)
 	const hasPlotted = !isPendingOrNextGroup && !hasUserSigned
 	const isPlottingPhase = isEnp && !!document.docoChainProjectId && !hasPlotted && !hasUserSigned
-	const isPrincipalWaitingForEnpToPlot = isPrincipal && isUserAddedAsSigner && isPendingOrNextGroup
+	// Only the first signer (index 0) waits for ENP to plot. Signers 2, 3, ... (e.g. witness) do not
+	// see "Waiting for ENP to plot" — they see "Previous signer(s) must sign first" until it's their turn.
+	const isPrincipalWaitingForEnpToPlot =
+		isPrincipal &&
+		isUserAddedAsSigner &&
+		isPendingOrNextGroup &&
+		currentUserIndexInOrder === 0
 
 	// Both buttons visible when applicable. Disable by phase so the wrong link is never used.
-	// Plot Signature: ENP only, project exists, not signed. Disabled after successful plotting.
+	// Plot Signature: ENP only, project exists, not signed. Hide entirely after ENP confirms "Yes, I'm done".
 	const showPlotSignature =
-		isEnp && !!document.docoChainProjectId && !hasUserSigned && !allSignersSigned
+		isEnp &&
+		!!document.docoChainProjectId &&
+		!hasUserSigned &&
+		!allSignersSigned &&
+		!(userConfirmedPlottedDocumentIds?.has(document.id) ?? false)
 	// Sign Document: project exists, not all signed, user not yet signed, user is signer or ENP. Uses Sign link only.
 	const showSignDocument =
 		!!document.docoChainProjectId &&
@@ -1785,6 +1796,8 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 				isFullySigned: boolean
 				signedCount: number
 				totalSigners: number
+				projectStatus?: string
+				completedAt?: string | null
 				signers: Array<{
 					id: number
 					email: string
@@ -1903,6 +1916,8 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 						isFullySigned: boolean
 						signedCount: number
 						totalSigners: number
+						projectStatus?: string
+						completedAt?: string | null
 						signers: Array<{
 							id: number
 							email: string
@@ -1923,6 +1938,8 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 							isFullySigned: status.isFullySigned,
 							signedCount: status.signedCount,
 							totalSigners: status.totalSigners,
+							projectStatus: status.projectStatus,
+							completedAt: status.completedAt,
 							signers: status.signers || [],
 						})
 					}
@@ -1940,6 +1957,8 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 							current.isFullySigned === entry.isFullySigned &&
 							current.signedCount === entry.signedCount &&
 							current.totalSigners === entry.totalSigners &&
+							current.projectStatus === entry.projectStatus &&
+							current.completedAt === entry.completedAt &&
 							current.signers.length === entry.signers.length
 
 						if (!same) {
@@ -2045,7 +2064,8 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 		},
 	})
 
-	// Ensure fresh DocoChain token before enabling "Create Project". Loader shows until ready.
+	// Ensure DocoChain token as soon as ENP enters the meeting (not just when Create Project is needed).
+	// This fixes Edit Draft links being wrong until page refresh - token must be ready before any link generation.
 	const hasAnyCreateProjectEligibleDoc =
 		(documents ?? []).some(
 			d =>
@@ -2060,7 +2080,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 	} = trpc.meetings.ensureDocoChainToken.useQuery(
 		{ meetingId: meetingId ?? "" },
 		{
-			enabled: !!(meetingId ?? "").trim() && !!isEnp && !!hasAnyCreateProjectEligibleDoc,
+			enabled: !!(meetingId ?? "").trim() && !!isEnp,
 			retry: false,
 			staleTime: 60_000, // Treat as fresh for 1 min so we don't refetch constantly
 		}
@@ -2263,7 +2283,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 				openingSignedDocumentToastIdRef.current = null
 			}
 
-			openingSignedDocumentToastIdRef.current = toast.loading("Opening signed document…")
+			openingSignedDocumentToastIdRef.current = toast.loading("Opening notarized document…")
 
 			try {
 				// Wait until DocoChain reports the project as completed (processing done)
@@ -2301,10 +2321,10 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 					toast.error("Popup blocked. Please allow popups for this site and try again.")
 					return
 				}
-				toast.success("Opening signed document…")
+				toast.success("Opening notarized document…")
 			} catch (error) {
-				console.error("Error opening signed document:", error)
-				toast.error(error instanceof Error ? error.message : "Failed to open signed document")
+				console.error("Error opening notarized document:", error)
+				toast.error(error instanceof Error ? error.message : "Failed to open notarized document")
 			} finally {
 				if (openingSignedDocumentToastIdRef.current !== null) {
 					toast.dismiss(openingSignedDocumentToastIdRef.current)
@@ -2437,12 +2457,30 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 				return
 			}
 
-			// ALWAYS normalize the URL - ensure api=true is set
-			signingLink = normalizeUrl(signingLink) ?? signingLink
+			// For plotting, keep link as-is (app URL + page, user_type, email, signer_role, api=true). For signing, normalize.
+			const wasPlotting = isPlottingActionRef.current
+			if (!wasPlotting) signingLink = normalizeUrl(signingLink) ?? signingLink
 
 			// Validate it's a proper URL
 			try {
-				new URL(signingLink)
+				const url = new URL(signingLink)
+				// SAFETY: Plot Signature must never open a "signing" link (token=...) or app-domain link.
+				if (wasPlotting) {
+					const hasTokenParam = url.searchParams.has("token")
+					const isAppDomain =
+						url.hostname.includes("stg-app.doconchain.com") ||
+						url.hostname.includes("app.doconchain.com")
+					if (hasTokenParam || isAppDomain) {
+						toast.error(
+							"Plot Signature must open the draft plotting platform. Please click Plot Signature again."
+						)
+						setSigningDocumentId(null)
+						setIsPlottingAction(false)
+						isPlottingActionRef.current = false
+						plotPopupDocumentIdRef.current = null
+						return
+					}
+				}
 			} catch {
 				console.error("❌ Invalid URL format:", signingLink)
 				toast.error("Invalid URL format for signing link")
@@ -2450,8 +2488,6 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 			}
 
 			console.log("✅ Signing process initiated successfully! Project UUID:", data.projectUuid)
-
-			const wasPlotting = isPlottingActionRef.current
 
 			// Open DocoChain signing page in popup window (iframe blocked by DocoChain)
 			// Open in popup window with specific dimensions (centered, almost fullscreen)
@@ -2548,10 +2584,28 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 				if (plotting) plotPopupDocumentIdRef.current = documentId
 
 				let signingLink = preGenerated.link
-				signingLink = normalizeUrl(signingLink) ?? signingLink
+				// For plotting, keep link as-is (app URL + page, user_type, email, signer_role, api=true)
+				if (!plotting) signingLink = normalizeUrl(signingLink) ?? signingLink
 
 				try {
-					new URL(signingLink)
+					const url = new URL(signingLink)
+					// SAFETY: Plot Signature must never open a "signing" link (token=...) or app-domain link.
+					if (plotting) {
+						const hasTokenParam = url.searchParams.has("token")
+						const isAppDomain =
+							url.hostname.includes("stg-app.doconchain.com") ||
+							url.hostname.includes("app.doconchain.com")
+						if (hasTokenParam || isAppDomain) {
+							toast.error(
+								"Plot Signature must open the draft plotting platform. Please click Plot Signature again."
+							)
+							setSigningDocumentId(null)
+							setIsPlottingAction(false)
+							isPlottingActionRef.current = false
+							plotPopupDocumentIdRef.current = null
+							return
+						}
+					}
 				} catch {
 					console.error("❌ Invalid URL format:", signingLink)
 					toast.error("Invalid URL format for signing link")
@@ -3336,6 +3390,12 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 										(signingStatus?.signedCount ?? 0) === (signingStatus?.totalSigners ?? 0) &&
 										(signingStatus?.signedCount ?? 0) > 0) ||
 									false
+								// Document is COMPLETED when DocoChain has finished processing (seal + signature applied)
+								const statusUpper = String(signingStatus?.projectStatus ?? "").toUpperCase()
+								const isCompleted =
+									statusUpper === "COMPLETED" || signingStatus?.completedAt != null
+								const isPreparingNotarized =
+									isFullySigned && !isCompleted && (signingStatus?.signedCount ?? 0) > 0
 								const isDownloadingSigned =
 									!!doc.docoChainProjectId && downloadingProjectUuid === doc.docoChainProjectId
 								const isDownloadingCert =
@@ -3428,22 +3488,30 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 													</DropdownMenuTrigger>
 													<DropdownMenuContent align="end" sideOffset={6} className="min-w-44">
 														<DropdownMenuItem
-															disabled={!isFullySigned || isDownloadingSigned}
+															disabled={
+																!isCompleted || isDownloadingSigned || isPreparingNotarized
+															}
 															onClick={() => {
-																if (doc.docoChainProjectId) {
+																if (doc.docoChainProjectId && isCompleted) {
 																	void handleDownloadSignedDocument(doc.docoChainProjectId)
 																}
 															}}
 														>
-															<FileText className="size-4" />
+															{(isPreparingNotarized || isDownloadingSigned) ? (
+																<Loader2 className="size-4 animate-spin" />
+															) : (
+																<FileText className="size-4" />
+															)}
 															<span>
 																{isDownloadingSigned
-																	? "Opening signed document..."
-																	: "View signed document"}
+																	? "Opening notarized document..."
+																	: isPreparingNotarized
+																		? "Preparing Notarized Document"
+																		: "View notarized document"}
 															</span>
 														</DropdownMenuItem>
 														<DropdownMenuItem
-															disabled={!isFullySigned || isDownloadingCert}
+															disabled={!isCompleted || isDownloadingCert}
 															onClick={() => {
 																if (doc.docoChainProjectId) {
 																	void handleDownloadCertificate(doc.docoChainProjectId)
@@ -3548,6 +3616,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 												docoChainTokenReady={docoChainTokenReady}
 												docoChainTokenLoading={docoChainTokenLoading}
 												onPreGeneratedLink={(documentId, link, projectUuid) => {
+													// Store plot link as-is (app URL + page, user_type, email, signer_role, api=true)
 													setPreGeneratedLinks(prev => {
 														const next = new Map(prev)
 														next.set(documentId, {
@@ -3559,6 +3628,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 													})
 												}}
 												plotLinkReady={!!preGeneratedLinks.get(doc.id)?.link}
+												userConfirmedPlottedDocumentIds={userConfirmedPlottedDocumentIds}
 											/>
 										</CardContent>
 									</Card>

@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm"
 import { z } from "zod/v4"
 
+import { formatDateForStamp } from "@/core/lib/format-date-for-stamp"
 import { logError } from "@/core/middleware/logger"
 
 import { users } from "@/services/drizzle/schema/auth"
@@ -115,23 +116,29 @@ export const profileRouter = createTRPCRouter({
 		}),
 
 	getEnpProfile: protectedProcedure.query(async ({ ctx }) => {
-		const enpProfile = await ctx.db.query.enpProfiles.findFirst({
+		const result = await ctx.db.query.enpProfiles.findFirst({
 			where: eq(enpProfiles.userId, ctx.session.user.id),
+			with: {
+				user: {
+					columns: { name: true },
+				},
+			},
 		})
 
-		if (!enpProfile) {
+		if (!result) {
 			return null
 		}
 
+		const { user, ...enpProfile } = result
+
 		return {
-			// Notary Seal Info
-			enpName: enpProfile.enpName ?? "",
-			enpRoleNumber: enpProfile.enpRoleNumber ?? "",
+			// Display name from user (canonical source)
+			enpName: user?.name ?? "",
 			rollNo: enpProfile.rollNo ?? "",
 			rollNoDate: enpProfile.rollNoDate ?? "",
 
-			// Credentials
-			attyName: (enpProfile.attyName as string | null) ?? "",
+			// Credentials (atty name from user - canonical source)
+			attyName: user?.name ?? "",
 			commissionNo: enpProfile.commissionNo ?? "",
 			commissionNoValidUntil: enpProfile.commissionNoValidUntil ?? "",
 			ptrNo: enpProfile.ptrNo ?? "",
@@ -139,12 +146,14 @@ export const profileRouter = createTRPCRouter({
 			ptrNoDate: enpProfile.ptrNoDate ?? "",
 			ibpNo: enpProfile.ibpNo ?? "",
 			ibpNoDate: enpProfile.ibpNoDate ?? "",
-			notaryEmail: (enpProfile.notaryEmail as string | null) ?? "",
 			notaryAddress: enpProfile.notaryAddress ?? "",
 			mcleNoPeriod: enpProfile.mcleNoPeriod ?? "",
 			mcleNo: enpProfile.mcleNo ?? "",
 			mcleNoDate: enpProfile.mcleNoDate ?? "",
-			modeOfNotarization: (enpProfile.modeOfNotarization as string | null) ?? "",
+
+			// Supreme Court eNotarization API Fields
+			notaryPublicNumber: enpProfile.notaryPublicNumber ?? "",
+			notaryFacilityNumber: enpProfile.notaryFacilityNumber ?? "",
 
 			// Pricing
 			consultationPrice: enpProfile.consultationPrice ?? null,
@@ -201,25 +210,26 @@ export const profileRouter = createTRPCRouter({
 			return trimmed === "" ? null : trimmed
 		}
 
+		// Store dates in human-readable form so document seals never receive raw ISO
 		const profileData = {
-			enpName: normalizeString(input.enpName),
-			enpRoleNumber: normalizeString(input.enpRoleNumber),
 			rollNo: normalizeString(input.rollNo),
 			rollNoDate: normalizeString(input.rollNoDate),
-			attyName: normalizeString(input.attyName),
 			commissionNo: normalizeString(input.commissionNo),
-			commissionNoValidUntil: normalizeString(input.commissionNoValidUntil),
+			commissionNoValidUntil:
+				(input.commissionNoValidUntil &&
+					formatDateForStamp(input.commissionNoValidUntil)) ||
+				normalizeString(input.commissionNoValidUntil),
 			ptrNo: normalizeString(input.ptrNo),
 			ptrNoLocation: normalizeString(input.ptrNoLocation),
-			ptrNoDate: normalizeString(input.ptrNoDate),
+			ptrNoDate:
+				(input.ptrNoDate && formatDateForStamp(input.ptrNoDate)) ||
+				normalizeString(input.ptrNoDate),
 			ibpNo: normalizeString(input.ibpNo),
 			ibpNoDate: normalizeString(input.ibpNoDate),
-			notaryEmail: normalizeString(input.notaryEmail),
 			notaryAddress: normalizeString(input.notaryAddress),
 			mcleNoPeriod: normalizeString(input.mcleNoPeriod),
 			mcleNo: normalizeString(input.mcleNo),
 			mcleNoDate: normalizeString(input.mcleNoDate),
-			modeOfNotarization: normalizeString(input.modeOfNotarization),
 		}
 
 		if (existingProfile) {
@@ -252,7 +262,9 @@ export const profileRouter = createTRPCRouter({
 
 			const profileData = {
 				rollNo: normalizeString(input.rollNo),
-				rollNoDate: normalizeString(input.rollNoDate),
+				rollNoDate:
+					(input.rollNoDate && formatDateForStamp(input.rollNoDate)) ||
+					normalizeString(input.rollNoDate),
 			}
 
 			if (existingProfile) {
@@ -283,13 +295,23 @@ export const profileRouter = createTRPCRouter({
 
 		const profileData = {
 			commissionNo: normalizeString(input.commissionNo),
-			commissionNoValidUntil: normalizeString(input.commissionNoValidUntil),
+			commissionNoValidUntil:
+				(input.commissionNoValidUntil &&
+					formatDateForStamp(input.commissionNoValidUntil)) ||
+				normalizeString(input.commissionNoValidUntil),
 			ptrNo: normalizeString(input.ptrNo),
 			ptrNoLocation: normalizeString(input.ptrNoLocation),
-			ptrNoDate: normalizeString(input.ptrNoDate),
+			ptrNoDate:
+				(input.ptrNoDate && formatDateForStamp(input.ptrNoDate)) ||
+				normalizeString(input.ptrNoDate),
 			ibpNo: normalizeString(input.ibpNo),
-			ibpNoDate: normalizeString(input.ibpNoDate),
+			ibpNoDate:
+				(input.ibpNoDate && formatDateForStamp(input.ibpNoDate)) ||
+				normalizeString(input.ibpNoDate),
 			notaryAddress: normalizeString(input.notaryAddress),
+			// Supreme Court eNotarization API Fields
+			notaryPublicNumber: normalizeString(input.notaryPublicNumber),
+			notaryFacilityNumber: normalizeString(input.notaryFacilityNumber),
 		}
 
 		if (existingProfile) {
@@ -320,10 +342,23 @@ export const profileRouter = createTRPCRouter({
 				return trimmed === "" ? null : trimmed
 			}
 
+			// Store MCLE date in human-readable form so document seals never receive raw ISO
+			const mcleNoDateStored =
+				(input.mcleNoDate && formatDateForStamp(input.mcleNoDate)) ||
+				normalizeString(input.mcleNoDate)
+
+			// Guard: MCLE Period should be a period label (e.g. "VIII"), not an ISO timestamp.
+			// If an ISO string is accidentally sent (e.g., from an older UI), drop it to prevent ugly seals.
+			const mcleNoPeriodStoredRaw = normalizeString(input.mcleNoPeriod)
+			const mcleNoPeriodStored =
+				typeof mcleNoPeriodStoredRaw === "string" &&
+				/^\d{4}-\d{2}-\d{2}T/.test(mcleNoPeriodStoredRaw.trim())
+					? null
+					: mcleNoPeriodStoredRaw
 			const profileData = {
-				mcleNoPeriod: normalizeString(input.mcleNoPeriod),
+				mcleNoPeriod: mcleNoPeriodStored,
 				mcleNo: normalizeString(input.mcleNo),
-				mcleNoDate: normalizeString(input.mcleNoDate),
+				mcleNoDate: mcleNoDateStored,
 			}
 
 			if (existingProfile) {

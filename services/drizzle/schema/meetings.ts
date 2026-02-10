@@ -1,7 +1,11 @@
 import { type InferSelectModel } from "drizzle-orm"
 import { index } from "drizzle-orm/pg-core"
 
-import { meetingParticipantStatus, meetingStatus } from "@/services/drizzle/schema/_enums"
+import {
+	meetingParticipantRole,
+	meetingParticipantStatus,
+	meetingStatus,
+} from "@/services/drizzle/schema/_enums"
 import { users } from "@/services/drizzle/schema/auth"
 import { createTable, randomId } from "@/services/drizzle/utils"
 
@@ -48,6 +52,8 @@ export const meetingParticipants = createTable(
 		status: meetingParticipantStatus("status").default("ACCEPTED").notNull(),
 		// Optional: who invited this participant (typically the host)
 		invitedById: t.varchar({ length: 255 }).references(() => users.id, { onDelete: "set null" }),
+		// Role in this meeting: PRINCIPAL (default) or WITNESS (set when invited as witness from lobby)
+		participantRole: meetingParticipantRole("participant_role").default("PRINCIPAL").notNull(),
 		createdAt: t.timestamp({ mode: "date", withTimezone: true }).defaultNow().notNull(),
 	}),
 	t => [

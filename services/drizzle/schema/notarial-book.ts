@@ -69,7 +69,8 @@ export const notarialActs = createTable(
 		enpRollNumber: t.varchar({ length: 255 }),
 
 		// Execution details
-		executedAt: t.timestamp({ mode: "date", withTimezone: true }).defaultNow().notNull(),
+		executedAt: t.timestamp({ mode: "date", withTimezone: true }).defaultNow().notNull(), // When document was signed completed (from signer/passport)
+		meetingEndedAt: t.timestamp({ mode: "date", withTimezone: true }), // When the host clicked End Session
 		location: t.varchar({ length: 255 }), // Location of notarization
 		ipAddress: t.varchar({ length: 255 }), // IP address from session
 		workflow: t.varchar({ length: 10 }), // REN or IEN
@@ -81,6 +82,9 @@ export const notarialActs = createTable(
 
 		// Passport data (stored as JSON for reference)
 		passportData: t.text(), // JSON string of passport data from DocoChain
+
+		// Signers from DocoChain (stored when we have token so registry can show them without calling API)
+		signersData: t.text(), // JSON array of { id, email, firstName, lastName, status, signedAt, sequence, signerRole }
 
 		// Certificate information
 		certificateNumber: t.varchar({ length: 255 }),

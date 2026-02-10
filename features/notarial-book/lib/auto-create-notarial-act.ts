@@ -1,14 +1,18 @@
-import { and, eq } from "drizzle-orm"
+import { and, desc, eq } from "drizzle-orm"
 import type { PostgresJsDatabase } from "drizzle-orm/postgres-js"
 
 import { checkSigningStatus, getPassportDocument } from "@/services/doconchain"
 import { users } from "@/services/drizzle/schema/auth"
 import { documents } from "@/services/drizzle/schema/document"
 import { documentSigners } from "@/services/drizzle/schema/document-signers"
+import { enpProfiles } from "@/services/drizzle/schema/enp-profiles"
 import { idCardDetails } from "@/services/drizzle/schema/id-card-details"
 import { legalRegistrations } from "@/services/drizzle/schema/legal-registration"
 import { meetings } from "@/services/drizzle/schema/meetings"
 import { notarialActs, notarialBooks } from "@/services/drizzle/schema/notarial-book"
+import { getServiceRoleClient } from "@/services/supabase"
+import { syncNotarialActToSupremeCourt } from "@/services/supreme-court/lib/sync-notarial-act"
+import { isConfigured } from "@/services/supreme-court/lib/token-cache"
 
 /**
  * Generate location statement for notarial act
@@ -292,6 +296,7 @@ function determineActType(
  * @param projectUuid - DocoChain project UUID
  * @param enpUserId - ID of the ENP who performed the notarial act
  * @param userEmail - Email of the ENP (for DocoChain API calls)
+ * @param meetingEndedAt - When the host clicked End Session (optional; set when creating from endMeeting)
  * @returns The created notarial act entry, or null if it already exists or creation fails
  */
 export async function autoCreateNotarialAct(
@@ -300,7 +305,8 @@ export async function autoCreateNotarialAct(
 	documentId: string,
 	projectUuid: string,
 	enpUserId: string,
-	userEmail?: string
+	userEmail?: string,
+	meetingEndedAt?: Date
 ): Promise<typeof notarialActs.$inferSelect | null> {
 	try {
 		// Get or create notarial book for this ENP
@@ -355,7 +361,21 @@ export async function autoCreateNotarialAct(
 		}
 
 		// CRITICAL: Verify document is fully signed before creating notarial act entry
-		// This ensures only fully signed documents appear in the Notarial Book
+		// This ensures only fully signed documents appear in the Notarial Book.
+		// Store signers so we can persist them and show in registry without calling DocoChain again.
+		let signersForAct: Array<{
+			id: number
+			email: string
+			firstName: string
+			lastName: string
+			status: string
+			signedAt: string | null
+			sequence: number
+			signerRole: string
+		}> = []
+		// executedAt should reflect when the document was fully completed (all signers done),
+		// so registry numbering stays chronological. Compute from signingStatus signers when possible.
+		let executedAtFromSigners: Date | undefined
 		try {
 			console.log("🔵 Verifying document is fully signed before creating notarial act entry...")
 			const signingStatus = await checkSigningStatus(projectUuid, userEmail)
@@ -371,6 +391,20 @@ export async function autoCreateNotarialAct(
 				return null // Don't create entry for unsigned documents
 			}
 
+			signersForAct = signingStatus.signers ?? []
+			// Prefer completion time = latest signer signedAt (not earliest).
+			const signerCompletedMs = signersForAct
+				.map(s => s.signedAt)
+				.filter((v): v is string => typeof v === "string" && v.trim().length > 0)
+				.map(v => new Date(v).getTime())
+				.filter(ms => Number.isFinite(ms))
+			if (signerCompletedMs.length > 0) {
+				executedAtFromSigners = new Date(Math.max(...signerCompletedMs))
+				console.log(
+					"✅ Using completion timestamp from signingStatus.signers (latest signedAt):",
+					executedAtFromSigners.toISOString()
+				)
+			}
 			console.log("✅ Document is fully signed, proceeding to create notarial act entry")
 		} catch (statusError) {
 			console.error("⚠️ Error checking signing status before creating notarial act:", statusError)
@@ -425,7 +459,7 @@ export async function autoCreateNotarialAct(
 		let passportData: unknown = null
 		let witnessName: string | null = null
 		let witnessIdNumber: string | undefined
-		let executedAt = new Date()
+		let executedAt = executedAtFromSigners ?? new Date()
 		let workflow: "REN" | "IEN" = "REN"
 		let location = "Philippines"
 		let ipAddress: string | undefined
@@ -486,64 +520,60 @@ export async function autoCreateNotarialAct(
 				ip_address?: string
 			} | null
 
-			// Get execution time from passport data
-			// Priority: 1) Principal signer's signed_at (actual signing time), 2) completed_at, 3) latest history event
-			if (principal?.signedAt) {
-				// Use the principal signer's actual signing time
-				executedAt = new Date(principal.signedAt)
-				console.log("✅ Using principal signer's signed_at timestamp:", principal.signedAt)
-			} else if (allSigners && allSigners.length > 0) {
-				// Find the earliest or latest signer's signed_at timestamp
-				const signersWithTimestamp = allSigners
-					.filter(s => s.signedAt)
-					.map(s => ({ signedAt: s.signedAt!, timestamp: new Date(s.signedAt!).getTime() }))
-					.sort((a, b) => a.timestamp - b.timestamp) // Sort by earliest first
+			// If we couldn't derive completion time from signingStatus signers, use passport data.
+			// Priority: 1) latest signer signed_at, 2) completed_at, 3) latest history event timestamp
+			if (!executedAtFromSigners) {
+				if (allSigners && allSigners.length > 0) {
+					const signerCompletedMs = allSigners
+						.map(s => s.signedAt)
+						.filter((v): v is string => typeof v === "string" && v.trim().length > 0)
+						.map(v => new Date(v).getTime())
+						.filter(ms => Number.isFinite(ms))
 
-				if (signersWithTimestamp.length > 0) {
-					const first = signersWithTimestamp[0]!
-					// Use the earliest signing time (when the document was first signed)
-					executedAt = new Date(first.signedAt)
-					console.log("✅ Using earliest signer's signed_at timestamp:", first.signedAt)
+					if (signerCompletedMs.length > 0) {
+						executedAt = new Date(Math.max(...signerCompletedMs))
+						console.log("✅ Using completion timestamp from passport signers (latest signedAt)")
+					}
 				}
-			}
 
-			// Fallback to completed_at if no signer timestamps available
-			if (executedAt.getTime() === new Date().getTime() && passportObj?.data?.completed_at) {
-				executedAt = new Date(passportObj.data.completed_at)
-				console.log("✅ Using completed_at timestamp:", passportObj.data.completed_at)
-			} else if (executedAt.getTime() === new Date().getTime() && passportObj?.completed_at) {
-				executedAt = new Date(passportObj.completed_at)
-				console.log("✅ Using completed_at timestamp:", passportObj.completed_at)
-			} else if (
-				executedAt.getTime() === new Date().getTime() &&
-				Array.isArray(passportObj?.data?.history) &&
-				passportObj.data.history.length > 0
-			) {
-				// Get the latest timestamp from history
-				const lastEvent = passportObj.data.history[passportObj.data.history.length - 1]
-				if (
-					typeof lastEvent === "object" &&
-					lastEvent !== null &&
-					"timestamp" in lastEvent &&
-					typeof lastEvent.timestamp === "string"
-				) {
-					executedAt = new Date(lastEvent.timestamp)
-					console.log("✅ Using latest history event timestamp:", lastEvent.timestamp)
+				// Fallback to completed_at
+				if (passportObj?.data?.completed_at && !Number.isFinite(executedAt.getTime())) {
+					executedAt = new Date(passportObj.data.completed_at)
+					console.log("✅ Using completed_at timestamp:", passportObj.data.completed_at)
+				} else if (passportObj?.completed_at && !Number.isFinite(executedAt.getTime())) {
+					executedAt = new Date(passportObj.completed_at)
+					console.log("✅ Using completed_at timestamp:", passportObj.completed_at)
 				}
-			} else if (
-				executedAt.getTime() === new Date().getTime() &&
-				Array.isArray(passportObj?.history) &&
-				passportObj.history.length > 0
-			) {
-				const lastEvent = passportObj.history[passportObj.history.length - 1]
-				if (
-					typeof lastEvent === "object" &&
-					lastEvent !== null &&
-					"timestamp" in lastEvent &&
-					typeof lastEvent.timestamp === "string"
-				) {
-					executedAt = new Date(lastEvent.timestamp)
-					console.log("✅ Using latest history event timestamp:", lastEvent.timestamp)
+
+				// Fallback to latest history event
+				if (Array.isArray(passportObj?.data?.history) && passportObj.data.history.length > 0) {
+					const lastEvent = passportObj.data.history[passportObj.data.history.length - 1]
+					if (
+						typeof lastEvent === "object" &&
+						lastEvent !== null &&
+						"timestamp" in lastEvent &&
+						typeof lastEvent.timestamp === "string"
+					) {
+						const t = new Date(lastEvent.timestamp)
+						if (Number.isFinite(t.getTime())) {
+							executedAt = t
+							console.log("✅ Using latest history event timestamp:", lastEvent.timestamp)
+						}
+					}
+				} else if (Array.isArray(passportObj?.history) && passportObj.history.length > 0) {
+					const lastEvent = passportObj.history[passportObj.history.length - 1]
+					if (
+						typeof lastEvent === "object" &&
+						lastEvent !== null &&
+						"timestamp" in lastEvent &&
+						typeof lastEvent.timestamp === "string"
+					) {
+						const t = new Date(lastEvent.timestamp)
+						if (Number.isFinite(t.getTime())) {
+							executedAt = t
+							console.log("✅ Using latest history event timestamp:", lastEvent.timestamp)
+						}
+					}
 				}
 			}
 
@@ -696,23 +726,50 @@ export async function autoCreateNotarialAct(
 		// Fetch principal's ID image and details from id_card_details table if we have principal email
 		if (principalEmail) {
 			try {
-				// First get user ID from email
+				// First get user ID from email and address fields
 				// @ts-expect-error - PostgresJsDatabase<any> doesn't provide proper types for query builder
 				// eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
 				const principalUser = (await db.query.users.findFirst({
 					where: eq(users.email, principalEmail),
 					columns: {
 						id: true,
+						address: true,
+						homeStreet: true,
+						barangay: true,
+						cityProvince: true,
 					},
-				})) as { id?: string } | undefined
+				})) as
+					| {
+							id?: string
+							address?: string | null
+							homeStreet?: string | null
+							barangay?: string | null
+							cityProvince?: string | null
+					  }
+					| undefined
 
 				if (principalUser?.id) {
+					// Construct principalAddress from separated fields
+					// Priority: Use new separated fields if available, fallback to legacy address field
+					if (principalUser.homeStreet || principalUser.barangay || principalUser.cityProvince) {
+						const addressParts: string[] = []
+						if (principalUser.homeStreet) addressParts.push(principalUser.homeStreet)
+						if (principalUser.barangay) addressParts.push(`Barangay ${principalUser.barangay}`)
+						if (principalUser.cityProvince) addressParts.push(principalUser.cityProvince)
+						principalAddress = addressParts.join(", ")
+						console.log("✅ Constructed principal address from separated fields:", principalAddress)
+					} else if (principalUser.address) {
+						// Fallback to legacy address field
+						principalAddress = principalUser.address
+						console.log("✅ Using legacy principal address:", principalAddress)
+					}
+
 					// Fetch ID card details
 					// @ts-expect-error - PostgresJsDatabase<any> doesn't provide proper types for query builder
 					// eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
 					const idCardDetail = (await db.query.idCardDetails.findFirst({
 						where: eq(idCardDetails.userId, principalUser.id),
-						orderBy: (table, { desc }) => [desc(table.verifiedAt)],
+						orderBy: desc(idCardDetails.verifiedAt),
 					})) as
 						| { faceImageUrl?: string | null; rawOcrData?: unknown; documentType?: string }
 						| undefined
@@ -819,7 +876,7 @@ export async function autoCreateNotarialAct(
 					// eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
 					const idCardDetail = (await db.query.idCardDetails.findFirst({
 						where: eq(idCardDetails.userId, principalSigner.user.id),
-						orderBy: (table, { desc }) => [desc(table.verifiedAt)],
+						orderBy: desc(idCardDetails.verifiedAt),
 					})) as
 						| { faceImageUrl?: string | null; rawOcrData?: unknown; documentType?: string }
 						| undefined
@@ -893,7 +950,8 @@ export async function autoCreateNotarialAct(
 				witnessIdNumber,
 				enpName: enpUserName,
 				enpRollNumber,
-				executedAt, // Used for chronological ordering
+				executedAt, // When document was signed completed (from signer/passport)
+				meetingEndedAt, // When the host clicked End Session
 				location,
 				ipAddress,
 				workflow,
@@ -901,6 +959,7 @@ export async function autoCreateNotarialAct(
 				documentName,
 				documentDescription,
 				passportData: passportData ? JSON.stringify(passportData) : null,
+				signersData: signersForAct.length > 0 ? JSON.stringify(signersForAct) : null,
 				certificateNumber, // Unique reference number
 			})
 			.returning()
@@ -936,6 +995,101 @@ export async function autoCreateNotarialAct(
 			principalName: actPrincipalName,
 			executedAt: actExecutedAt,
 		})
+
+		// Sync to Supreme Court if configured and ENP has required fields
+		if (isConfigured() && createdAct) {
+			try {
+				// Get ENP profile to check for NPN/NFN/RN
+				// @ts-expect-error - PostgresJsDatabase<any> doesn't provide proper types for query builder
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+				const enpProfile = (await db.query.enpProfiles.findFirst({
+					where: eq(enpProfiles.userId, enpUserId),
+					columns: {
+						notaryPublicNumber: true,
+						notaryFacilityNumber: true,
+						rollNo: true,
+					},
+				})) as
+					| {
+							notaryPublicNumber: string | null
+							notaryFacilityNumber: string | null
+							rollNo: string | null
+					  }
+					| undefined
+
+				if (
+					enpProfile?.notaryPublicNumber &&
+					enpProfile?.notaryFacilityNumber &&
+					enpProfile?.rollNo
+				) {
+					console.log("🔵 Syncing notarial act to Supreme Court...")
+
+					// Download document file if available
+					let documentFile: Buffer | undefined
+					let documentFileName: string | undefined
+
+					if (documentId) {
+						// @ts-expect-error - PostgresJsDatabase<any> doesn't provide proper types for query builder
+						// eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+						const documentRecord = (await db.query.documents.findFirst({
+							where: eq(documents.id, documentId),
+							columns: { path: true, name: true },
+						})) as { path: string | null; name: string | null } | undefined
+
+						if (documentRecord?.path) {
+							try {
+								const supabase = getServiceRoleClient()
+								const { data: fileData, error: downloadError } = await supabase.storage
+									.from("documents")
+									.download(documentRecord.path)
+
+								if (!downloadError && fileData) {
+									const arrayBuffer = await fileData.arrayBuffer()
+									documentFile = Buffer.from(arrayBuffer)
+									documentFileName = documentRecord.name ?? "document.pdf"
+									console.log(`   - Downloaded document: ${documentFileName}`)
+								} else {
+									console.warn("   - Could not download document for sync:", downloadError?.message)
+								}
+							} catch (fileError) {
+								console.warn("   - Error downloading document for sync:", fileError)
+							}
+						}
+					}
+
+					// Sync to Supreme Court
+					const syncResult = await syncNotarialActToSupremeCourt({
+						act: createdAct,
+						notaryFacilityNumber: enpProfile.notaryFacilityNumber,
+						notaryPublicNumber: enpProfile.notaryPublicNumber,
+						rollNumber: enpProfile.rollNo,
+						documentFile,
+						documentFileName,
+					})
+
+					// Update act with sync status
+					await db
+						.update(notarialActs)
+						.set({
+							syncedToSupremeCourt: true,
+							syncedAt: new Date(),
+						})
+						.where(eq(notarialActs.id, createdAct.id))
+
+					console.log("✅ Synced to Supreme Court:", {
+						nrid: syncResult.notarialRegistryID,
+						nrn: syncResult.notarialRegistryNumber,
+					})
+				} else {
+					console.log(
+						"⚠️ Skipping Supreme Court sync: ENP profile missing NPN/NFN/RN. Please complete profile settings."
+					)
+				}
+			} catch (syncError) {
+				console.error("❌ Failed to sync notarial act to Supreme Court:", syncError)
+				// Don't fail the whole operation if sync fails - act is still created
+			}
+		}
 
 		return createdAct
 	} catch (error) {

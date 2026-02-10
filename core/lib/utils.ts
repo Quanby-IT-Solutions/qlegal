@@ -1,6 +1,8 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
 
+import { env } from "@/env"
+
 /**
  * Merge class names
  * @param inputs - Class values
@@ -64,25 +66,23 @@ export function mapRoleToLabel(role?: string | null): string {
 
 /**
  * Get the full URL for an avatar image from Supabase Storage
- * @param avatar - Avatar path or URL
+ * @param avatar - Avatar path or URL (e.g. "userId/1770757323301-woman.jpg")
  * @returns Full URL for the avatar or null if not provided
  */
 export function getAvatarUrl(avatar?: string | null): string | null {
-	if (!avatar) return null
+	const trimmed = typeof avatar === "string" ? avatar.trim() : ""
+	if (!trimmed) return null
 
 	// If already a full URL (starts with http:// or https://), return as-is
-	if (avatar.startsWith("http://") || avatar.startsWith("https://")) {
-		return avatar
+	if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
+		return trimmed
 	}
 
-	// Otherwise, construct the Supabase Storage public URL
-	// Format: https://[PROJECT_REF].supabase.co/storage/v1/object/public/[BUCKET_NAME]/[FILE_PATH]
-	const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+	// Same format as supabase.storage.from("avatar").getPublicUrl(path).data.publicUrl
+	const supabaseUrl = env.NEXT_PUBLIC_SUPABASE_URL
+	if (!supabaseUrl) return null
 
-	if (!supabaseUrl) {
-		console.error("NEXT_PUBLIC_SUPABASE_URL is not defined")
-		return null
-	}
-
-	return `${supabaseUrl}/storage/v1/object/public/avatar/${avatar}`
+	const base = supabaseUrl.replace(/\/+$/, "")
+	const path = trimmed.replace(/^\/+/, "")
+	return `${base}/storage/v1/object/public/avatar/${path}`
 }

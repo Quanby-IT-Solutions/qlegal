@@ -57,6 +57,13 @@ export const env = createEnv({
 		// Storage
 		SUPABASE_SERVICE_ROLE_KEY: z.string(),
 
+		// Supreme Court eNotarization API
+		SUPREME_COURT_API_URL: z.string().url().optional(),
+		SUPREME_COURT_COGNITO_URL: z.string().url().optional(),
+		SUPREME_COURT_CLIENT_ID: z.string().optional(),
+		SUPREME_COURT_USERNAME: z.string().optional(),
+		SUPREME_COURT_PASSWORD: z.string().optional(),
+
 		// Video SDK (Meetings)
 		VIDEO_SDK_API_KEY: z.string(),
 		VIDEO_SDK_SECRET: z.string(),
@@ -133,6 +140,13 @@ export const env = createEnv({
 
 		// Storage
 		SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
+
+		// Supreme Court eNotarization API
+		SUPREME_COURT_API_URL: process.env.SUPREME_COURT_API_URL,
+		SUPREME_COURT_COGNITO_URL: process.env.SUPREME_COURT_COGNITO_URL,
+		SUPREME_COURT_CLIENT_ID: process.env.SUPREME_COURT_CLIENT_ID,
+		SUPREME_COURT_USERNAME: process.env.SUPREME_COURT_USERNAME,
+		SUPREME_COURT_PASSWORD: process.env.SUPREME_COURT_PASSWORD,
 
 		// Video SDK (Meetings)
 		VIDEO_SDK_API_KEY: process.env.VIDEO_SDK_API_KEY,

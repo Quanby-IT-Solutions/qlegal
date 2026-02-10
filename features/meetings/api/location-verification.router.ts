@@ -1,5 +1,8 @@
+import { eq } from "drizzle-orm"
 import { z } from "zod/v4"
 
+import { db } from "@/services/drizzle/db"
+import { users } from "@/services/drizzle/schema/auth"
 import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
 
 import {
@@ -49,6 +52,16 @@ interface GeocodingResponse {
 		}
 	}>
 	error_message?: string
+}
+
+/**
+ * Parsed address components
+ */
+export interface ParsedAddress {
+	homeStreet: string | null
+	barangay: string | null
+	cityProvince: string | null
+	fullAddress: string | null
 }
 
 /**
@@ -119,6 +132,64 @@ async function checkVpnStatus(
 }
 
 /**
+ * Parse address components from Google Maps Geocoding API response
+ * Extracts street, barangay, city, and province
+ */
+function parseAddressComponents(result: GeocodingResponse["results"][0]): ParsedAddress {
+	if (!result) {
+		return {
+			homeStreet: null,
+			barangay: null,
+			cityProvince: null,
+			fullAddress: null,
+		}
+	}
+
+	const components = result.address_components
+	let streetNumber = ""
+	let route = ""
+	let barangay = ""
+	let city = ""
+	let province = ""
+
+	// Extract relevant address components
+	for (const component of components) {
+		const types = component.types
+
+		if (types.includes("street_number")) {
+			streetNumber = component.long_name
+		} else if (types.includes("route")) {
+			route = component.long_name
+		} else if (types.includes("sublocality") || types.includes("sublocality_level_1")) {
+			// In Philippines, this is often the barangay
+			barangay = component.long_name
+		} else if (types.includes("locality") || types.includes("administrative_area_level_2")) {
+			// City or Municipality
+			city = component.long_name
+		} else if (types.includes("administrative_area_level_1")) {
+			// Province
+			province = component.long_name
+		} else if (types.includes("neighborhood") && !barangay) {
+			// Fallback for barangay
+			barangay = component.long_name
+		}
+	}
+
+	// Construct street address
+	const homeStreet = [streetNumber, route].filter(Boolean).join(" ").trim() || null
+
+	// Construct city and province
+	const cityProvince = [city, province].filter(Boolean).join(", ").trim() || null
+
+	return {
+		homeStreet,
+		barangay: barangay || null,
+		cityProvince,
+		fullAddress: result.formatted_address,
+	}
+}
+
+/**
  * Get country code and formatted address from coordinates using Google Maps Geocoding API
  */
 async function getCountryFromCoordinates(
@@ -128,6 +199,7 @@ async function getCountryFromCoordinates(
 	countryCode: string | null
 	countryName: string | null
 	formattedAddress: string | null
+	parsedAddress: ParsedAddress | null
 }> {
 	try {
 		// Don't filter by result_type to get full address data
@@ -137,24 +209,27 @@ async function getCountryFromCoordinates(
 
 		if (!response.ok) {
 			console.error(`[Geocoding] Google Maps API returned status ${response.status}`)
-			return { countryCode: null, countryName: null, formattedAddress: null }
+			return { countryCode: null, countryName: null, formattedAddress: null, parsedAddress: null }
 		}
 
 		const data = (await response.json()) as GeocodingResponse
 
 		if (data.status !== "OK" || !data.results || data.results.length === 0) {
 			console.error(`[Geocoding] Google Maps API error: ${data.status} - ${data.error_message}`)
-			return { countryCode: null, countryName: null, formattedAddress: null }
+			return { countryCode: null, countryName: null, formattedAddress: null, parsedAddress: null }
 		}
 
 		// Get the first result for the most detailed address
 		const result = data.results[0]
 		if (!result) {
-			return { countryCode: null, countryName: null, formattedAddress: null }
+			return { countryCode: null, countryName: null, formattedAddress: null, parsedAddress: null }
 		}
 
 		// Extract formatted address
 		const formattedAddress = result.formatted_address ?? null
+
+		// Parse address into components
+		const parsedAddress = parseAddressComponents(result)
 
 		// Find the country component from any result
 		let countryComponent = result.address_components.find(component =>
@@ -175,10 +250,11 @@ async function getCountryFromCoordinates(
 			countryCode: countryComponent?.short_name ?? null,
 			countryName: countryComponent?.long_name ?? null,
 			formattedAddress,
+			parsedAddress,
 		}
 	} catch (error) {
 		console.error("[Geocoding] Error getting country from coordinates:", error)
-		return { countryCode: null, countryName: null, formattedAddress: null }
+		return { countryCode: null, countryName: null, formattedAddress: null, parsedAddress: null }
 	}
 }
 
@@ -204,7 +280,12 @@ export const locationVerificationRouter = createTRPCRouter({
 			async ({
 				input,
 				ctx,
-			}): Promise<LocationVerificationResult & { vpnDetails?: IpApiResponse | null }> => {
+			}): Promise<
+				LocationVerificationResult & {
+					vpnDetails?: IpApiResponse | null
+					parsedAddress?: ParsedAddress | null
+				}
+			> => {
 				const { latitude, longitude } = input
 				const userRole = ctx.session.user.role
 
@@ -231,7 +312,7 @@ export const locationVerificationRouter = createTRPCRouter({
 				}
 
 				// Step 3: Get country and address from coordinates using Google Maps Geocoding
-				const { countryCode, formattedAddress } = await getCountryFromCoordinates(
+				const { countryCode, formattedAddress, parsedAddress } = await getCountryFromCoordinates(
 					latitude,
 					longitude
 				)
@@ -270,7 +351,10 @@ export const locationVerificationRouter = createTRPCRouter({
 					}
 				}
 
-				return verificationResult
+				return {
+					...verificationResult,
+					parsedAddress,
+				}
 			}
 		),
 
@@ -303,4 +387,38 @@ export const locationVerificationRouter = createTRPCRouter({
 				: null,
 		}
 	}),
+
+	/**
+	 * Save user's location to their profile
+	 * Updates the separated address fields in the user table
+	 */
+	saveUserLocation: protectedProcedure
+		.input(
+			z.object({
+				homeStreet: z.string().nullable(),
+				barangay: z.string().nullable(),
+				cityProvince: z.string().nullable(),
+				fullAddress: z.string().nullable(),
+			})
+		)
+		.mutation(async ({ input, ctx }) => {
+			const userId = ctx.session.user.id
+
+			// Update user's address fields
+			await db
+				.update(users)
+				.set({
+					homeStreet: input.homeStreet,
+					barangay: input.barangay,
+					cityProvince: input.cityProvince,
+					// Also update the legacy address field with full address for backward compatibility
+					address: input.fullAddress,
+				})
+				.where(eq(users.id, userId))
+
+			return {
+				success: true,
+				message: "Location saved successfully",
+			}
+		}),
 })

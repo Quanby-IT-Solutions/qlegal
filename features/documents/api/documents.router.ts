@@ -1,8 +1,11 @@
 import { TRPCError } from "@trpc/server"
-import { desc, eq, ilike, or } from "drizzle-orm"
+import { and, desc, eq, ilike, or } from "drizzle-orm"
 import { z } from "zod"
 
 import { checkSigningStatus, downloadSignedDocument } from "@/services/doconchain"
+import { users } from "@/services/drizzle/schema/auth"
+import { documents } from "@/services/drizzle/schema/document"
+import { meetingParticipants } from "@/services/drizzle/schema/meetings"
 import { notarialActs } from "@/services/drizzle/schema/notarial-book"
 import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
 
@@ -53,6 +56,7 @@ export const documentsRouter = createTRPCRouter({
 			id: act.id,
 			documentId: act.documentId,
 			documentName: act.documentName ?? act.document?.name ?? "Unknown Document",
+			documentDescription: act.documentDescription,
 			executedAt: act.executedAt,
 			enpName: act.enpName,
 			enpRollNumber: act.enpRollNumber,
@@ -60,9 +64,119 @@ export const documentsRouter = createTRPCRouter({
 			certificateUrl: act.certificateUrl,
 			docoChainProjectUuid: act.docoChainProjectUuid,
 			actType: act.actType as "ACKNOWLEDGMENT" | "AFFIRMATION" | "JURAT" | "SIGNATURE_WITNESSING",
+			workflow: act.workflow,
+			location: act.location,
+			locationStatement: act.locationStatement,
 			document: act.document,
 		}))
 	}),
+
+	/** Get signers for a notarial act; only allowed when the current user is the principal. */
+	getActSigners: protectedProcedure
+		.input(z.object({ actId: z.string().min(1, "Act ID is required") }))
+		.query(async ({ ctx, input }) => {
+			const userName = ctx.session.user.name
+			const userEmail = ctx.session.user.email
+
+			const act = await ctx.db.query.notarialActs.findFirst({
+				where: eq(notarialActs.id, input.actId),
+				columns: { id: true, documentId: true, principalName: true, signersData: true },
+			})
+
+			if (!act) {
+				throw new TRPCError({
+					code: "NOT_FOUND",
+					message: "Notarial act not found",
+				})
+			}
+
+			const principalName = act.principalName.toLowerCase()
+			const hasAccess =
+				(userName && principalName.includes(userName.toLowerCase())) ||
+				(userEmail && principalName.includes(userEmail.toLowerCase()))
+
+			if (!hasAccess) {
+				throw new TRPCError({
+					code: "FORBIDDEN",
+					message: "You don't have access to this document",
+				})
+			}
+
+			// Enrich with Witness role from meeting participants (DocoChain only accepts "Signer")
+			const witnessEmails = new Set<string>()
+			if (act.documentId) {
+				const doc = await ctx.db.query.documents.findFirst({
+					where: eq(documents.id, act.documentId),
+					columns: { meetingId: true },
+				})
+				if (doc?.meetingId) {
+					const witnessParticipants = await ctx.db.query.meetingParticipants.findMany({
+						where: and(
+							eq(meetingParticipants.meetingId, doc.meetingId),
+							eq(meetingParticipants.participantRole, "WITNESS")
+						),
+						with: { user: { columns: { email: true } } },
+					})
+					for (const p of witnessParticipants) {
+						if (p.user?.email) witnessEmails.add(p.user.email.trim().toLowerCase())
+					}
+				}
+			}
+
+			if (!act.signersData) {
+				return { signers: [] }
+			}
+			try {
+				const stored = JSON.parse(act.signersData) as Array<{
+					id: number
+					email: string
+					firstName: string
+					lastName: string
+					status: string
+					signedAt: string | null
+					sequence: number
+					signerRole: string
+				}>
+				const signers = Array.isArray(stored) ? stored : []
+				const enriched = signers.map(s => ({
+					...s,
+					signerRole: witnessEmails.has((s.email ?? "").trim().toLowerCase())
+						? "Witness"
+						: (s.signerRole ?? "Signer"),
+				}))
+				// Fetch user address per signer
+				const signersWithAddress = await Promise.all(
+					enriched.map(async s => {
+						const signerUser = await ctx.db.query.users.findFirst({
+							where: eq(users.email, s.email),
+							columns: {
+								address: true,
+								homeStreet: true,
+								barangay: true,
+								cityProvince: true,
+							},
+						})
+						const parts = [
+							signerUser?.homeStreet,
+							signerUser?.barangay,
+							signerUser?.cityProvince,
+						].filter(Boolean) as string[]
+						const fullAddress =
+							signerUser?.address ?? (parts.length > 0 ? parts.join(", ") : null)
+						return {
+							...s,
+							fullAddress,
+							homeStreet: signerUser?.homeStreet ?? null,
+							barangay: signerUser?.barangay ?? null,
+							cityProvince: signerUser?.cityProvince ?? null,
+						}
+					})
+				)
+				return { signers: signersWithAddress }
+			} catch {
+				return { signers: [] }
+			}
+		}),
 
 	getSignedDocument: protectedProcedure
 		.input(z.object({ actId: z.string().min(1, "Act ID is required") }))
