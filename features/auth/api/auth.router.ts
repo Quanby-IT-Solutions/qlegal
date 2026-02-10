@@ -2,6 +2,7 @@ import { TRPCError } from "@trpc/server"
 import { hash } from "bcryptjs"
 import { eq } from "drizzle-orm"
 
+import { formatDateForStamp } from "@/core/lib/format-date-for-stamp"
 import { autoJoinOrganization, provisionUser } from "@/services/doconchain"
 import { passwordResetTokens, users, verificationTokens } from "@/services/drizzle/schema/auth"
 import { enpProfiles } from "@/services/drizzle/schema/enp-profiles"
@@ -109,22 +110,25 @@ export const authRouter = createTRPCRouter({
 				}
 				newUserId = newUser.id
 
+				// Store dates in human-readable form so document seals never receive raw ISO
 				await tx.insert(enpProfiles).values({
 					userId: newUser.id,
 					// Notary info (roll no from seal)
 					rollNo: seal.enpRollNumber,
-					rollNoDate: seal.rollNoDate,
+					rollNoDate: formatDateForStamp(seal.rollNoDate) || seal.rollNoDate,
 					commissionNo: notaryInfo.commissionNo,
-					commissionNoValidUntil: notaryInfo.commissionNoValidUntil,
+					commissionNoValidUntil:
+						formatDateForStamp(notaryInfo.commissionNoValidUntil) ||
+						notaryInfo.commissionNoValidUntil,
 					ptrNo: notaryInfo.ptrNo,
 					ptrNoLocation: notaryInfo.ptrNoLocation,
-					ptrNoDate: notaryInfo.ptrNoDate,
+					ptrNoDate: formatDateForStamp(notaryInfo.ptrNoDate) || notaryInfo.ptrNoDate,
 					ibpNo: notaryInfo.ibpNo,
-					ibpNoDate: notaryInfo.ibpNoDate,
+					ibpNoDate: formatDateForStamp(notaryInfo.ibpNoDate) || notaryInfo.ibpNoDate,
 					notaryAddress: notaryInfo.notaryAddress,
 					mcleNoPeriod: notaryInfo.mcleNoPeriod,
 					mcleNo: notaryInfo.mcleNo,
-					mcleNoDate: notaryInfo.mcleNoDate,
+					mcleNoDate: formatDateForStamp(notaryInfo.mcleNoDate) || notaryInfo.mcleNoDate,
 					isAvailable: true,
 				})
 			})
@@ -164,19 +168,24 @@ export const authRouter = createTRPCRouter({
 				type: "notary",
 				atty_name: notaryInfo.attyName,
 				roll_no: seal.enpRollNumber,
-				roll_no_date: seal.rollNoDate,
+				roll_no_date: formatDateForStamp(seal.rollNoDate),
 				commission_no: notaryInfo.commissionNo,
-				commission_no_valid_until: notaryInfo.commissionNoValidUntil,
+				commission_no_valid_until: formatDateForStamp(notaryInfo.commissionNoValidUntil),
 				PTR_no: notaryInfo.ptrNo,
 				PTR_no_location: notaryInfo.ptrNoLocation,
-				PTR_no_date: notaryInfo.ptrNoDate,
+				PTR_no_date: formatDateForStamp(notaryInfo.ptrNoDate),
 				IBP_no: notaryInfo.ibpNo,
-				IBP_no_date: notaryInfo.ibpNoDate,
+				IBP_no_date: formatDateForStamp(notaryInfo.ibpNoDate),
 				email: notaryInfo.notaryEmail,
 				address: notaryInfo.notaryAddress,
-				MCLE_no_period: notaryInfo.mcleNoPeriod,
+				// MCLE period should be a period label (e.g. "VIII"). Never leak ISO timestamps into seals.
+				MCLE_no_period:
+					typeof notaryInfo.mcleNoPeriod === "string" &&
+					/^\d{4}-\d{2}-\d{2}T/.test(notaryInfo.mcleNoPeriod.trim())
+						? ""
+						: notaryInfo.mcleNoPeriod,
 				MCLE_no: notaryInfo.mcleNo,
-				MCLE_no_date: notaryInfo.mcleNoDate,
+				MCLE_no_date: formatDateForStamp(notaryInfo.mcleNoDate),
 				mode_of_notarization: notaryInfo.modeOfNotarization,
 			},
 		}

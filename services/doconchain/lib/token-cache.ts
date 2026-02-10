@@ -276,8 +276,21 @@ export async function getOrRefreshMeetingToken(
  * Call when ENP joins the meeting. Returns the token (existing or newly generated).
  */
 export async function ensureMeetingToken(meetingId: string, email: string): Promise<string> {
+	// If we already have a meeting token but it belongs to a different ENP email,
+	// do NOT reuse it (prevents cross-user session conflicts).
+	const current = meetingTokenCache.get(meetingId)
+	if (current && current.email !== email) {
+		console.warn(
+			`⚠️ Meeting token email mismatch for meeting ${meetingId.substring(0, 8)}... (stored for ${redactEmail(current.email)}, requested ${redactEmail(email)}). Regenerating...`
+		)
+		const token = await generateToken(email, true)
+		setMeetingToken(meetingId, email, token)
+		return token
+	}
+
 	const existing = await getOrRefreshMeetingToken(meetingId, email)
 	if (existing) return existing
+
 	const token = await generateToken(email, true)
 	setMeetingToken(meetingId, email, token)
 	return token

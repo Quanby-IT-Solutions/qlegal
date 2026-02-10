@@ -94,6 +94,7 @@ interface DocumentRow {
 	docoChainProjectUuid?: string | null
 	actType: string
 	workflow?: string | null
+	location?: string | null
 	locationStatement?: string | null
 }
 
@@ -188,9 +189,91 @@ function DocumentCard({
 	)
 }
 
-function ExpandedDocumentDetails({ doc }: { doc: DocumentRow }) {
+function ExpandedDocumentDetails({
+	doc,
+	isExpanded,
+}: {
+	doc: DocumentRow
+	isExpanded: boolean
+}) {
+	const { data: signersData, isPending: isSignersLoading } =
+		trpc.documents.getActSigners.useQuery(
+			{ actId: doc.id },
+			{ enabled: isExpanded && !!doc.docoChainProjectUuid }
+		)
+	const signers = signersData?.signers ?? []
+	const isSignerSigned = (s: { status?: string; signedAt?: string | null }) => {
+		const statusUpper = (s.status ?? "").toUpperCase()
+		return statusUpper === "SIGNED" || statusUpper === "COMPLETED" || !!s.signedAt
+	}
+
 	return (
-		<div className="space-y-3">
+		<div className="space-y-4">
+			{/* Signatories section – same as ENP notarial registry */}
+			<div>
+				<h4 className="mb-2 font-semibold text-sm">Signatories</h4>
+				{isSignersLoading ? (
+					<div className="flex items-center gap-2 py-2">
+						<Loader2 className="size-4 animate-spin" />
+						<span className="text-muted-foreground text-sm">Loading signers...</span>
+					</div>
+				) : signers.length === 0 ? (
+					<p className="text-muted-foreground py-2 text-sm">
+						No signer data available for this document.
+					</p>
+				) : (
+					<div className="space-y-2">
+						{signers.map(signer => {
+							const fullName = [signer.firstName, signer.lastName]
+								.filter(Boolean)
+								.join(" ")
+								.trim()
+							const displayName = fullName || signer.email || "Unknown"
+							const signed = isSignerSigned(signer)
+							return (
+								<div
+									key={signer.id}
+									className="bg-muted/50 flex items-center gap-3 rounded-lg border px-3 py-2"
+								>
+									<div className="bg-muted flex size-8 shrink-0 items-center justify-center rounded-full">
+										<User className="text-muted-foreground size-4" />
+									</div>
+									<div className="min-w-0 flex-1">
+										<p className="font-medium">{displayName}</p>
+										<p className="text-muted-foreground truncate text-xs">
+											{signer.email}
+											{signer.signedAt &&
+												!Number.isNaN(new Date(signer.signedAt).getTime()) && (
+													<>
+														{" "}
+														·{" "}
+														<span className="font-medium">Signed:</span>{" "}
+														{format(
+															new Date(signer.signedAt),
+															"MMM dd, yyyy · hh:mm a"
+														)}
+													</>
+												)}
+										</p>
+									</div>
+									<Badge
+										variant={signed ? "default" : "secondary"}
+										className={
+											signed
+												? "bg-green-600 text-xs dark:bg-green-700"
+												: "text-xs"
+										}
+									>
+										{signed ? "Signed" : signer.status ?? "Pending"}
+									</Badge>
+								</div>
+							)
+						})}
+					</div>
+				)}
+			</div>
+
+			{/* Act metadata row – same layout as ENP notarial registry */}
 			<div className="text-muted-foreground flex flex-wrap items-baseline gap-x-3 gap-y-1.5 border-t pt-3 text-xs">
 				<span>
 					<span className="font-medium">Act type</span>{" "}
@@ -198,9 +281,9 @@ function ExpandedDocumentDetails({ doc }: { doc: DocumentRow }) {
 						{getActTypeLabel(doc.actType)}
 					</Badge>
 				</span>
+				<span>·</span>
 				{doc.workflow && (
 					<>
-						<span>·</span>
 						<span>
 							<span className="font-medium">Workflow</span>{" "}
 							<Badge
@@ -210,8 +293,12 @@ function ExpandedDocumentDetails({ doc }: { doc: DocumentRow }) {
 								{doc.workflow}
 							</Badge>
 						</span>
+						<span>·</span>
 					</>
 				)}
+				<span>
+					<span className="font-medium">Location</span> {doc.location ?? "Philippines"}
+				</span>
 				<span>·</span>
 				<span>
 					<span className="font-medium">Certificate #</span>{" "}
@@ -470,7 +557,10 @@ export default function DocumentsPage() {
 												}}
 												className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3"
 											>
-												{filteredDocuments.map((doc, index) => (
+												{filteredDocuments.map((doc, index) => {
+													const total = filteredDocuments.length
+													const entryIndex = total - index
+													return (
 													<motion.div
 														key={doc.id}
 														variants={{
@@ -481,13 +571,14 @@ export default function DocumentsPage() {
 													>
 														<DocumentCard
 															doc={doc}
-															entryIndex={index + 1}
+															entryIndex={entryIndex}
 															onViewDocument={handleViewDocument}
 															onDownloadDocument={handleDownloadDocument}
 															isDownloading={downloadingActId === doc.id}
 														/>
 													</motion.div>
-												))}
+													)
+												})}
 											</motion.div>
 										) : (
 											<motion.div
@@ -514,11 +605,13 @@ export default function DocumentsPage() {
 												<TableBody>
 													{filteredDocuments.map((doc, index) => {
 														const isExpanded = expandedDocIds.has(doc.id)
+														const total = filteredDocuments.length
+														const entryIndex = total - index
 														return (
 															<Fragment key={doc.id}>
 																<TableRow className={isExpanded ? "border-b-0" : undefined}>
 																	<TableCell className="align-top font-mono text-xs font-medium sm:text-sm">
-																		{index + 1}
+																		{entryIndex}
 																	</TableCell>
 																	<TableCell className="align-top whitespace-nowrap text-xs sm:text-sm">
 																		{format(new Date(doc.executedAt), "MMM dd, yyyy · hh:mm a")}
@@ -597,7 +690,10 @@ export default function DocumentsPage() {
 																			className="overflow-hidden"
 																		>
 																			<div className="px-4 py-3 sm:px-6">
-																				<ExpandedDocumentDetails doc={doc} />
+																				<ExpandedDocumentDetails
+																					doc={doc}
+																					isExpanded={isExpanded}
+																				/>
 																			</div>
 																		</motion.div>
 																	</TableCell>

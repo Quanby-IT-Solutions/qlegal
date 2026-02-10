@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm"
 import { z } from "zod/v4"
 
+import { formatDateForStamp } from "@/core/lib/format-date-for-stamp"
 import { logError } from "@/core/middleware/logger"
 
 import { users } from "@/services/drizzle/schema/auth"
@@ -205,14 +206,20 @@ export const profileRouter = createTRPCRouter({
 			return trimmed === "" ? null : trimmed
 		}
 
+		// Store dates in human-readable form so document seals never receive raw ISO
 		const profileData = {
 			rollNo: normalizeString(input.rollNo),
 			rollNoDate: normalizeString(input.rollNoDate),
 			commissionNo: normalizeString(input.commissionNo),
-			commissionNoValidUntil: normalizeString(input.commissionNoValidUntil),
+			commissionNoValidUntil:
+				(input.commissionNoValidUntil &&
+					formatDateForStamp(input.commissionNoValidUntil)) ||
+				normalizeString(input.commissionNoValidUntil),
 			ptrNo: normalizeString(input.ptrNo),
 			ptrNoLocation: normalizeString(input.ptrNoLocation),
-			ptrNoDate: normalizeString(input.ptrNoDate),
+			ptrNoDate:
+				(input.ptrNoDate && formatDateForStamp(input.ptrNoDate)) ||
+				normalizeString(input.ptrNoDate),
 			ibpNo: normalizeString(input.ibpNo),
 			ibpNoDate: normalizeString(input.ibpNoDate),
 			notaryAddress: normalizeString(input.notaryAddress),
@@ -251,7 +258,9 @@ export const profileRouter = createTRPCRouter({
 
 			const profileData = {
 				rollNo: normalizeString(input.rollNo),
-				rollNoDate: normalizeString(input.rollNoDate),
+				rollNoDate:
+					(input.rollNoDate && formatDateForStamp(input.rollNoDate)) ||
+					normalizeString(input.rollNoDate),
 			}
 
 			if (existingProfile) {
@@ -282,12 +291,19 @@ export const profileRouter = createTRPCRouter({
 
 		const profileData = {
 			commissionNo: normalizeString(input.commissionNo),
-			commissionNoValidUntil: normalizeString(input.commissionNoValidUntil),
+			commissionNoValidUntil:
+				(input.commissionNoValidUntil &&
+					formatDateForStamp(input.commissionNoValidUntil)) ||
+				normalizeString(input.commissionNoValidUntil),
 			ptrNo: normalizeString(input.ptrNo),
 			ptrNoLocation: normalizeString(input.ptrNoLocation),
-			ptrNoDate: normalizeString(input.ptrNoDate),
+			ptrNoDate:
+				(input.ptrNoDate && formatDateForStamp(input.ptrNoDate)) ||
+				normalizeString(input.ptrNoDate),
 			ibpNo: normalizeString(input.ibpNo),
-			ibpNoDate: normalizeString(input.ibpNoDate),
+			ibpNoDate:
+				(input.ibpNoDate && formatDateForStamp(input.ibpNoDate)) ||
+				normalizeString(input.ibpNoDate),
 			notaryAddress: normalizeString(input.notaryAddress),
 		}
 
@@ -319,10 +335,23 @@ export const profileRouter = createTRPCRouter({
 				return trimmed === "" ? null : trimmed
 			}
 
+			// Store MCLE date in human-readable form so document seals never receive raw ISO
+			const mcleNoDateStored =
+				(input.mcleNoDate && formatDateForStamp(input.mcleNoDate)) ||
+				normalizeString(input.mcleNoDate)
+
+			// Guard: MCLE Period should be a period label (e.g. "VIII"), not an ISO timestamp.
+			// If an ISO string is accidentally sent (e.g., from an older UI), drop it to prevent ugly seals.
+			const mcleNoPeriodStoredRaw = normalizeString(input.mcleNoPeriod)
+			const mcleNoPeriodStored =
+				typeof mcleNoPeriodStoredRaw === "string" &&
+				/^\d{4}-\d{2}-\d{2}T/.test(mcleNoPeriodStoredRaw.trim())
+					? null
+					: mcleNoPeriodStoredRaw
 			const profileData = {
-				mcleNoPeriod: normalizeString(input.mcleNoPeriod),
+				mcleNoPeriod: mcleNoPeriodStored,
 				mcleNo: normalizeString(input.mcleNo),
-				mcleNoDate: normalizeString(input.mcleNoDate),
+				mcleNoDate: mcleNoDateStored,
 			}
 
 			if (existingProfile) {

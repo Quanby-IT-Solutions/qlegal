@@ -2277,7 +2277,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 				openingSignedDocumentToastIdRef.current = null
 			}
 
-			openingSignedDocumentToastIdRef.current = toast.loading("Opening signed document…")
+			openingSignedDocumentToastIdRef.current = toast.loading("Opening notarized document…")
 
 			try {
 				// Wait until DocoChain reports the project as completed (processing done)
@@ -2315,10 +2315,10 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 					toast.error("Popup blocked. Please allow popups for this site and try again.")
 					return
 				}
-				toast.success("Opening signed document…")
+				toast.success("Opening notarized document…")
 			} catch (error) {
-				console.error("Error opening signed document:", error)
-				toast.error(error instanceof Error ? error.message : "Failed to open signed document")
+				console.error("Error opening notarized document:", error)
+				toast.error(error instanceof Error ? error.message : "Failed to open notarized document")
 			} finally {
 				if (openingSignedDocumentToastIdRef.current !== null) {
 					toast.dismiss(openingSignedDocumentToastIdRef.current)
@@ -3450,22 +3450,22 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 														<DropdownMenuItem
 															disabled={!isCompleted || isDownloadingSigned}
 															onClick={() => {
-																if (doc.docoChainProjectId) {
+																if (doc.docoChainProjectId && isCompleted) {
 																	void handleDownloadSignedDocument(doc.docoChainProjectId)
 																}
 															}}
 														>
-															{isPreparingNotarized ? (
+															{(isPreparingNotarized || isDownloadingSigned) ? (
 																<Loader2 className="size-4 animate-spin" />
 															) : (
 																<FileText className="size-4" />
 															)}
 															<span>
 																{isDownloadingSigned
-																	? "Opening signed document..."
+																	? "Opening notarized document..."
 																	: isPreparingNotarized
 																		? "Preparing notarized document..."
-																		: "View signed document"}
+																		: "View notarized document"}
 															</span>
 														</DropdownMenuItem>
 														<DropdownMenuItem

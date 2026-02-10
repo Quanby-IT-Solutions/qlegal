@@ -11,7 +11,6 @@ import {
 } from "@/services/doconchain"
 import {
 	ensureMeetingToken,
-	generateAndSetMeetingToken,
 	getMeetingToken,
 	setProjectToken,
 } from "@/services/doconchain/lib/token-cache"
@@ -26,6 +25,7 @@ import { getServiceRoleClient } from "@/services/supabase"
 import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
 import { createMeetingRoom, fetchRecordings, generateMeetingToken } from "@/services/video-sdk"
 
+import { formatDateForStamp } from "@/core/lib/format-date-for-stamp"
 import { autoCreateNotarialAct } from "@/features/notarial-book/lib/auto-create-notarial-act"
 
 function isEnpRole(role: unknown): boolean {
@@ -37,38 +37,6 @@ function asNonEmptyEmail(email: unknown): string | undefined {
 	if (typeof email !== "string") return undefined
 	const trimmed = email.trim()
 	return trimmed.length > 0 ? trimmed : undefined
-}
-
-// Format date from ISO string or existing formatted string to readable format (e.g., "5 June 2018" or "Dec 31, 2025")
-function formatDateForStamp(dateString: string | null | undefined): string {
-	if (!dateString) return ""
-
-	// Try to parse as ISO date
-	const date = new Date(dateString)
-	if (!Number.isNaN(date.getTime())) {
-		// Format as "d MMM yyyy" (e.g., "5 June 2018")
-		const day = date.getDate()
-		const monthNames = [
-			"January",
-			"February",
-			"March",
-			"April",
-			"May",
-			"June",
-			"July",
-			"August",
-			"September",
-			"October",
-			"November",
-			"December",
-		]
-		const month = monthNames[date.getMonth()]
-		const year = date.getFullYear()
-		return `${day} ${month} ${year}`
-	}
-
-	// If not a valid date, return as-is (might already be formatted)
-	return dateString
 }
 
 function getDocoChainAuthEmailForMeeting(
@@ -505,10 +473,10 @@ export const meetingsRouter = createTRPCRouter({
 			})
 		}
 
-		// When ENP enters the room, always call the DocoChain generate-token API and store
-		// the result. Use it for project creation and Edit Draft links so the link is correct.
+		// When ENP enters the room, ensure we have a meeting-scoped DocoChain token.
+		// This should be stable for the meeting (refresh only when stale) to avoid session churn.
 		if (isEnpRole(ctx.session.user.role) && ctx.session.user.email) {
-			await generateAndSetMeetingToken(input, ctx.session.user.email.trim().toLowerCase())
+			await ensureMeetingToken(input, ctx.session.user.email.trim().toLowerCase())
 		}
 
 		return {
@@ -538,7 +506,7 @@ export const meetingsRouter = createTRPCRouter({
 				throw new TRPCError({ code: "FORBIDDEN", message: "You don't have access to this meeting" })
 			}
 			if (isEnpRole(ctx.session.user.role) && ctx.session.user.email) {
-				await generateAndSetMeetingToken(
+				await ensureMeetingToken(
 					input.meetingId,
 					ctx.session.user.email.trim().toLowerCase()
 				)
@@ -701,7 +669,7 @@ export const meetingsRouter = createTRPCRouter({
 						"[endMeeting] Notarial act creation failed for",
 						failed.length,
 						"document(s):",
-						failed.map(r => r.reason)
+						failed.map(r => (r.reason instanceof Error ? r.reason.message : String(r.reason)))
 					)
 				}
 			}
@@ -1214,7 +1182,12 @@ export const meetingsRouter = createTRPCRouter({
 						IBP_no_date: formatDateForStamp(enpProfile.ibpNoDate),
 						email: creatorEmail,
 						address: enpProfile.notaryAddress ?? "",
-						MCLE_no_period: enpProfile.mcleNoPeriod ?? "",
+						// MCLE period should be a period label (e.g. "VIII"). Never leak ISO timestamps into seals.
+						MCLE_no_period:
+							typeof enpProfile.mcleNoPeriod === "string" &&
+							/^\d{4}-\d{2}-\d{2}T/.test(enpProfile.mcleNoPeriod.trim())
+								? ""
+								: (enpProfile.mcleNoPeriod ?? ""),
 						MCLE_no: enpProfile.mcleNo ?? "",
 						MCLE_no_date: formatDateForStamp(enpProfile.mcleNoDate),
 						mode_of_notarization: modeOfNotarization,
