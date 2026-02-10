@@ -834,7 +834,7 @@ export const notarialBookRouter = createTRPCRouter({
 
 		// Search across as many registry details as possible (server-side, so pagination/total are correct).
 		// Note: signersData and passportData are stored as JSON strings (text) so we use ILIKE on them.
-		const trimmedSearch = (search ?? "").trim()
+			const trimmedSearch = (search ?? "").trim()
 		if (trimmedSearch.length > 0) {
 			const q = `%${trimmedSearch}%`
 			// Many fields are nullable; only include ILIKE conditions for non-null columns.
@@ -843,24 +843,27 @@ export const notarialBookRouter = createTRPCRouter({
 				ilike(notarialActs.enpName, q),
 				ilike(notarialActs.actType, q),
 				ilike(notarialActs.workflow, q),
-				ilike(notarialActs.location, q),
-				ilike(notarialActs.certificateNumber, q),
-				ilike(notarialActs.documentName, q),
-				ilike(notarialActs.documentDescription, q),
-				ilike(notarialActs.principalIdNumber, q),
-				ilike(notarialActs.principalAddress, q),
-				ilike(notarialActs.principalIdType, q),
-				ilike(notarialActs.witnessName, q),
-				ilike(notarialActs.witnessIdNumber, q),
-				ilike(notarialActs.locationStatement, q),
-				ilike(notarialActs.ipAddress, q),
-				ilike(notarialActs.docoChainProjectUuid, q),
-				ilike(notarialActs.signersData, q),
-				ilike(notarialActs.passportData, q),
-			].filter((v): v is NonNullable<typeof v> => v !== undefined)
+				notarialActs.location ? ilike(notarialActs.location, q) : undefined,
+				notarialActs.certificateNumber ? ilike(notarialActs.certificateNumber, q) : undefined,
+				notarialActs.documentName ? ilike(notarialActs.documentName, q) : undefined,
+				notarialActs.documentDescription ? ilike(notarialActs.documentDescription, q) : undefined,
+				notarialActs.principalIdNumber ? ilike(notarialActs.principalIdNumber, q) : undefined,
+				notarialActs.principalAddress ? ilike(notarialActs.principalAddress, q) : undefined,
+				notarialActs.principalIdType ? ilike(notarialActs.principalIdType, q) : undefined,
+				notarialActs.witnessName ? ilike(notarialActs.witnessName, q) : undefined,
+				notarialActs.witnessIdNumber ? ilike(notarialActs.witnessIdNumber, q) : undefined,
+				notarialActs.locationStatement ? ilike(notarialActs.locationStatement, q) : undefined,
+				notarialActs.ipAddress ? ilike(notarialActs.ipAddress, q) : undefined,
+				notarialActs.docoChainProjectUuid ? ilike(notarialActs.docoChainProjectUuid, q) : undefined,
+				notarialActs.signersData ? ilike(notarialActs.signersData, q) : undefined,
+				notarialActs.passportData ? ilike(notarialActs.passportData, q) : undefined,
+			].filter((v): v is NonNullable<typeof v> => v !== undefined && v !== null)
 
 			if (searchClauses.length > 0) {
-				filters.push(or(...searchClauses))
+				const searchCondition = or(...searchClauses)
+				if (searchCondition) {
+					filters.push(searchCondition)
+				}
 			}
 		}
 
@@ -1824,7 +1827,7 @@ export const notarialBookRouter = createTRPCRouter({
 			}
 
 			// Return stored signers if we have them (avoids 401 when no meeting/project token)
-			if (act.signersData) {
+			if (act.signersData && typeof act.signersData === "string") {
 				try {
 					const stored = JSON.parse(act.signersData) as Array<{
 						id: number
@@ -1837,7 +1840,30 @@ export const notarialBookRouter = createTRPCRouter({
 						signerRole: string
 					}>
 					if (Array.isArray(stored) && stored.length > 0) {
-						return { signers: stored }
+						// Fetch user data for each signer to get address information
+						const signersWithAddress = await Promise.all(
+							stored.map(async signer => {
+								const signerUser = await ctx.db.query.users.findFirst({
+									where: eq(users.email, signer.email),
+									columns: {
+										homeStreet: true,
+										barangay: true,
+										cityProvince: true,
+										address: true,
+									},
+								})
+
+								return {
+									...signer,
+									homeStreet: signerUser?.homeStreet ?? null,
+									barangay: signerUser?.barangay ?? null,
+									cityProvince: signerUser?.cityProvince ?? null,
+									fullAddress: signerUser?.address ?? null,
+								}
+							})
+						)
+
+						return { signers: signersWithAddress }
 					}
 				} catch {
 					// invalid JSON, fall through to fetch
@@ -1885,7 +1911,31 @@ export const notarialBookRouter = createTRPCRouter({
 						.set({ signersData: JSON.stringify(signers) })
 						.where(eq(notarialActs.id, act.id))
 				}
-				return { signers }
+
+				// Fetch user data for each signer to get address information
+				const signersWithAddress = await Promise.all(
+					signers.map(async (signer: { email?: string }) => {
+						const signerUser = await ctx.db.query.users.findFirst({
+							where: eq(users.email, signer.email ?? ""),
+							columns: {
+								homeStreet: true,
+								barangay: true,
+								cityProvince: true,
+								address: true,
+							},
+						})
+
+						return {
+							...signer,
+							homeStreet: signerUser?.homeStreet ?? null,
+							barangay: signerUser?.barangay ?? null,
+							cityProvince: signerUser?.cityProvince ?? null,
+							fullAddress: signerUser?.address ?? null,
+						}
+					})
+				)
+
+				return { signers: signersWithAddress }
 			} catch (error) {
 				console.error("Error fetching act signers:", error)
 				return { signers: [] }

@@ -62,7 +62,7 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 	const { data: session } = useSession()
 	const { getById, inviteWitnessByEmail } = useMeetings()
 	const { data: meeting, isLoading, refetch: refetchMeeting } = getById(id)
-	const { verifyLocation } = useLocationVerification()
+	const { verifyLocation, saveUserLocation } = useLocationVerification()
 
 	const videoRef = useRef<HTMLVideoElement>(null)
 	const [stream, setStream] = useState<MediaStream | null>(null)
@@ -134,6 +134,12 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 					onSuccess: (
 						result: LocationVerificationResult & {
 							vpnDetails?: { isp?: string; org?: string; country?: string } | null
+							parsedAddress?: {
+								homeStreet: string | null
+								barangay: string | null
+								cityProvince: string | null
+								fullAddress: string | null
+							} | null
 						}
 					) => {
 						if (result.reason === "vpn_detected") {
@@ -148,6 +154,16 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 							}
 						} else if (result.allowed) {
 							setLocationStatus("verified")
+
+							// Save the parsed address to user table
+							if (result.parsedAddress) {
+								saveUserLocation.mutate({
+									homeStreet: result.parsedAddress.homeStreet,
+									barangay: result.parsedAddress.barangay,
+									cityProvince: result.parsedAddress.cityProvince,
+									fullAddress: result.parsedAddress.fullAddress,
+								})
+							}
 						} else {
 							setLocationStatus("error")
 						}
@@ -159,7 +175,7 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 				}
 			)
 		}
-	}, [position, hasAttemptedVerification, meeting, id, verifyLocation])
+	}, [position, hasAttemptedVerification, meeting, id, verifyLocation, saveUserLocation])
 
 	// Retry location verification
 	const retryVerification = useCallback(() => {
@@ -460,9 +476,7 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 									<Video className="text-primary size-4 sm:size-4" />
 								</div>
 								<div className="min-w-0 flex-1">
-									<h1 className="truncate text-sm font-semibold sm:text-base">
-										{meeting.title}
-									</h1>
+									<h1 className="truncate text-sm font-semibold sm:text-base">{meeting.title}</h1>
 									<p className="text-muted-foreground truncate text-[11px] sm:text-xs">
 										Get ready to join your meeting
 									</p>
@@ -470,7 +484,7 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 							</div>
 							<Badge
 								variant="default"
-								className="bg-emerald-600 shrink-0 px-1.5 py-0.5 text-[9px] font-medium"
+								className="shrink-0 bg-emerald-600 px-1.5 py-0.5 text-[9px] font-medium"
 							>
 								<span className="mr-1 size-1 animate-pulse rounded-full bg-white" />
 								Live Now
@@ -480,8 +494,8 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 				</header>
 
 				{/* Main Content */}
-				<main className="flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden">
-					<div className="mx-auto w-full min-w-0 max-w-7xl flex-1 p-3 pb-20 sm:p-4 md:pb-5 md:p-5">
+				<main className="flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto">
+					<div className="mx-auto w-full max-w-7xl min-w-0 flex-1 p-3 pb-20 sm:p-4 md:p-5 md:pb-5">
 						<div className="flex min-w-0 flex-col gap-4 md:flex-row md:gap-5">
 							{/* Left: Camera Preview */}
 							<div className="flex min-h-[160px] min-w-0 flex-1 flex-col sm:min-h-[200px] md:min-h-0">
@@ -501,7 +515,9 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 													<div className="flex flex-col items-center gap-1.5">
 														<div className="border-primary size-8 animate-spin rounded-full border-2 border-t-transparent" />
 														<div className="text-center">
-															<p className="text-xs font-medium text-foreground">Starting camera & mic</p>
+															<p className="text-foreground text-xs font-medium">
+																Starting camera & mic
+															</p>
 															<p className="text-muted-foreground mt-0.5 text-[11px]">
 																Allow browser permissions when prompted
 															</p>
@@ -509,7 +525,7 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 													</div>
 												) : (
 													<>
-														<div className="from-primary to-primary/90 text-primary-foreground mb-2 flex size-12 items-center justify-center rounded-lg bg-linear-to-br text-lg font-bold shadow-md ring-2 ring-primary/20 sm:size-14 sm:text-xl">
+														<div className="from-primary to-primary/90 text-primary-foreground ring-primary/20 mb-2 flex size-12 items-center justify-center rounded-lg bg-linear-to-br text-lg font-bold shadow-md ring-2 sm:size-14 sm:text-xl">
 															{session?.user?.name?.charAt(0).toUpperCase() ?? "?"}
 														</div>
 														<p className="text-center text-xs font-semibold sm:text-sm">
@@ -538,17 +554,21 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 											<Button
 												variant={isMicOn ? "default" : "destructive"}
 												size="icon"
-												className="size-10 min-h-10 min-w-10 shrink-0 rounded-full sm:size-7 md:size-8 sm:min-h-0 sm:min-w-0"
+												className="size-10 min-h-10 min-w-10 shrink-0 rounded-full sm:size-7 sm:min-h-0 sm:min-w-0 md:size-8"
 												onClick={toggleMic}
 												disabled={!stream}
 												title={isMicOn ? "Mute microphone" : "Unmute microphone"}
 											>
-												{isMicOn ? <Mic className="size-4 sm:size-3.5" /> : <MicOff className="size-4 sm:size-3.5" />}
+												{isMicOn ? (
+													<Mic className="size-4 sm:size-3.5" />
+												) : (
+													<MicOff className="size-4 sm:size-3.5" />
+												)}
 											</Button>
 											<Button
 												variant={isCameraOn ? "default" : "destructive"}
 												size="icon"
-												className="size-10 min-h-10 min-w-10 shrink-0 rounded-full sm:size-7 md:size-8 sm:min-h-0 sm:min-w-0"
+												className="size-10 min-h-10 min-w-10 shrink-0 rounded-full sm:size-7 sm:min-h-0 sm:min-w-0 md:size-8"
 												onClick={toggleCamera}
 												disabled={!stream}
 												title={isCameraOn ? "Turn off camera" : "Turn on camera"}
@@ -568,7 +588,7 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 							<div className="flex min-w-0 flex-col gap-3 md:w-[260px] md:shrink-0 lg:w-[280px] xl:w-[300px]">
 								{/* Location Verification Status */}
 								<Card className="border-border/50 overflow-hidden shadow-sm">
-									<CardHeader className="pb-1.5 pt-2.5">
+									<CardHeader className="pt-2.5 pb-1.5">
 										<CardTitle className="flex items-center gap-1.5 text-xs font-semibold">
 											<MapPin className="text-muted-foreground size-3.5 shrink-0" />
 											Location Verification
@@ -583,7 +603,7 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 											</div>
 											<div className="min-w-0 flex-1 space-y-0">
 												<p
-													className={`break-words text-xs font-medium ${locationStatusDisplay.color}`}
+													className={`text-xs font-medium break-words ${locationStatusDisplay.color}`}
 												>
 													{locationStatusDisplay.text}
 												</p>
@@ -602,10 +622,8 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 
 								{/* Meeting Details */}
 								<Card className="border-border/50 overflow-hidden shadow-sm">
-									<CardHeader className="pb-1.5 pt-2.5">
-										<CardTitle className="text-xs font-semibold">
-											Meeting Details
-										</CardTitle>
+									<CardHeader className="pt-2.5 pb-1.5">
+										<CardTitle className="text-xs font-semibold">Meeting Details</CardTitle>
 									</CardHeader>
 									<CardContent className="space-y-2.5">
 										{/* Host */}
@@ -617,12 +635,10 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 												</AvatarFallback>
 											</Avatar>
 											<div className="min-w-0 flex-1">
-												<p className="text-muted-foreground text-[9px] font-medium uppercase tracking-wider">
+												<p className="text-muted-foreground text-[9px] font-medium tracking-wider uppercase">
 													Host
 												</p>
-												<p className="truncate text-xs font-semibold">
-													{meeting.createdBy.name}
-												</p>
+												<p className="truncate text-xs font-semibold">{meeting.createdBy.name}</p>
 											</div>
 										</div>
 
@@ -634,7 +650,11 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 												Internet Requirement
 											</AlertTitle>
 											<AlertDescription className="text-[11px]">
-												Minimum <span className="font-semibold text-amber-900 dark:text-amber-100">2 Mbps</span> required for video and recording.
+												Minimum{" "}
+												<span className="font-semibold text-amber-900 dark:text-amber-100">
+													2 Mbps
+												</span>{" "}
+												required for video and recording.
 											</AlertDescription>
 										</Alert>
 									</CardContent>
@@ -642,7 +662,7 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 
 								{/* Participants List */}
 								<Card className="border-border/50 flex min-h-0 flex-1 flex-col overflow-hidden shadow-sm">
-									<CardHeader className="pb-1.5 pt-2.5">
+									<CardHeader className="pt-2.5 pb-1.5">
 										<CardTitle className="flex items-center gap-1.5 text-xs font-semibold">
 											<div className="bg-primary/10 flex size-5 shrink-0 items-center justify-center rounded-md">
 												<Users className="text-primary size-3" />
@@ -671,8 +691,7 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 														type="button"
 														size="xs"
 														disabled={
-															inviteWitnessByEmail.isPending ||
-															witnessEmail.trim().length === 0
+															inviteWitnessByEmail.isPending || witnessEmail.trim().length === 0
 														}
 														onClick={() => {
 															const email = witnessEmail.trim().toLowerCase()
@@ -695,9 +714,7 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 																		void refetchMeeting()
 																	},
 																	onError: err => {
-																		toast.error(
-																			err.message || "Failed to invite witness"
-																		)
+																		toast.error(err.message || "Failed to invite witness")
 																	},
 																}
 															)
@@ -718,7 +735,7 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 											<>
 												<Separator />
 												<div className="space-y-1">
-													<p className="text-muted-foreground text-[9px] font-semibold uppercase tracking-wider">
+													<p className="text-muted-foreground text-[9px] font-semibold tracking-wider uppercase">
 														Pending ({meeting.pendingInvites.length})
 													</p>
 													<div className="space-y-1">
@@ -803,7 +820,7 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 								</Card>
 
 								{/* Action Buttons - sticky on mobile so Join is always reachable when scrolling */}
-								<div className="sticky bottom-0 flex flex-col gap-1.5 border-t border-border/50 bg-background/95 py-2 backdrop-blur-sm md:border-t-0 md:bg-transparent md:py-0 md:backdrop-blur-none md:pt-2">
+								<div className="border-border/50 bg-background/95 sticky bottom-0 flex flex-col gap-1.5 border-t py-2 backdrop-blur-sm md:border-t-0 md:bg-transparent md:py-0 md:pt-2 md:backdrop-blur-none">
 									<Button
 										className="h-10 min-h-10 w-full gap-1.5 text-sm font-medium sm:min-h-0 md:h-9"
 										onClick={handleJoinMeeting}
@@ -824,7 +841,7 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 									</Button>
 									<Button
 										variant="outline"
-										className="h-9 min-h-9 w-full border-border/50 text-xs sm:min-h-0 md:h-8"
+										className="border-border/50 h-9 min-h-9 w-full text-xs sm:min-h-0 md:h-8"
 										size="sm"
 										onClick={() => router.push("/meetings")}
 									>

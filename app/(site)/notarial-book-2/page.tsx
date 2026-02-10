@@ -345,10 +345,20 @@ function ExpandedActDetails({
 								.trim()
 							const displayName = fullName || signer.email || "Unknown"
 							const signed = isSignerSigned(signer)
+
+							// Build address display
+							const addressParts = [
+								signer.homeStreet,
+								signer.barangay,
+								signer.cityProvince,
+							].filter(Boolean)
+							const hasAddress = addressParts.length > 0
+							const addressDisplay = addressParts.join(", ") || signer.fullAddress
+
 							return (
 								<div
 									key={signer.id}
-									className="bg-muted/50 flex items-center gap-3 rounded-lg border px-3 py-2"
+									className="bg-muted/50 flex items-start gap-3 rounded-lg border px-3 py-2"
 								>
 									<div className="bg-muted flex size-8 shrink-0 items-center justify-center rounded-full">
 										<User className="text-muted-foreground size-4" />
@@ -370,6 +380,29 @@ function ExpandedActDetails({
 													</>
 												)}
 										</p>
+										{hasAddress && (
+											<p className="text-muted-foreground mt-1 text-xs">
+												<span className="font-medium">Address:</span>{" "}
+												{signer.homeStreet && (
+													<>
+														{signer.homeStreet}
+														{(signer.barangay || signer.cityProvince) && ", "}
+													</>
+												)}
+												{signer.barangay && (
+													<>
+														{signer.barangay}
+														{signer.cityProvince && ", "}
+													</>
+												)}
+												{signer.cityProvince}
+											</p>
+										)}
+										{!hasAddress && addressDisplay && (
+											<p className="text-muted-foreground mt-1 text-xs">
+												<span className="font-medium">Address:</span> {addressDisplay}
+											</p>
+										)}
 									</div>
 									<Badge
 										variant={signed ? "default" : "secondary"}
