@@ -73,6 +73,9 @@ export const licensingSchema = z.object({
 	ibpNo: z.string().optional(),
 	ibpNoDate: z.string().optional(),
 	notaryAddress: z.string().optional(),
+	// Supreme Court eNotarization API Fields
+	notaryPublicNumber: z.string().optional(), // NPN - Notary Public Number
+	notaryFacilityNumber: z.string().optional(), // NFN - Notary Facility Number
 })
 
 export type LicensingSchema = z.infer<typeof licensingSchema>

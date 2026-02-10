@@ -2,7 +2,7 @@ import type { InferSelectModel } from "drizzle-orm"
 
 import { notarialActs } from "@/services/drizzle/schema/notarial-book"
 
-import { createMetadata } from "@/services/supreme-court/api/metadata"
+import { createMetadataConsolidated } from "@/services/supreme-court/api/metadata"
 import { getPresignedUrl, registerFileMetadata, uploadFileToS3 } from "@/services/supreme-court/api/file-upload"
 import { getCommissionStatus } from "@/services/supreme-court/api/commission-status"
 
@@ -106,7 +106,7 @@ function formatDate(date: Date | null | undefined): string {
  *
  * This function:
  * 1. Maps our notarialActs schema to SC API format
- * 2. Creates metadata with principals and witnesses (consolidated endpoint)
+ * 2. Creates metadata, principals, and witnesses via POST /public-use/consolidated (one call)
  * 3. Optionally uploads document file if provided
  * 4. Returns NRID and NRN for storage
  */
@@ -167,8 +167,8 @@ export async function syncNotarialActToSupremeCourt(
 	const modeOfNotarization: "In-person" | "Remote" =
 		act.workflow === "IEN" ? "Remote" : "In-person"
 
-	// Create metadata request
-	const metadataRequest = {
+	// Create consolidated request (POST /public-use/consolidated - metadata + principals + witnesses in one call)
+	const consolidatedRequest = {
 		notaryFacilityNumber,
 		notaryPublicNumber,
 		rollNumber,
@@ -186,9 +186,9 @@ export async function syncNotarialActToSupremeCourt(
 		listOfWitness: witnesses.length > 0 ? witnesses : undefined,
 	}
 
-	// Step 1: Create metadata (consolidated endpoint)
-	console.log("🔵 Creating metadata in Supreme Court...")
-	const metadataResult = await createMetadata(metadataRequest)
+	// Step 1: Create metadata, principals, and witnesses in one call (per PDF Section 6)
+	console.log("🔵 Creating metadata (consolidated) in Supreme Court...")
+	const metadataResult = await createMetadataConsolidated(consolidatedRequest)
 	const { notarialRegistryID, notarialRegistryNumber } = metadataResult
 
 	console.log(`✅ Metadata created: NRID=${notarialRegistryID}, NRN=${notarialRegistryNumber}`)

@@ -38,6 +38,8 @@ export function LicensingForm() {
 			ibpNo: enpProfile?.ibpNo ?? "",
 			ibpNoDate: enpProfile?.ibpNoDate ?? "",
 			notaryAddress: enpProfile?.notaryAddress ?? "",
+			notaryPublicNumber: enpProfile?.notaryPublicNumber ?? "",
+			notaryFacilityNumber: enpProfile?.notaryFacilityNumber ?? "",
 		},
 	})
 
@@ -285,6 +287,48 @@ export function LicensingForm() {
 									/>
 								</FormControl>
 								<FormMessage />
+							</FormItem>
+						)}
+					/>
+
+					<FormField
+						control={form.control}
+						name="notaryPublicNumber"
+						render={({ field }) => (
+							<FormItem>
+								<FormLabel>Notary Public Number (NPN)</FormLabel>
+								<FormControl>
+									<Input
+										placeholder="e.g., NPN-123"
+										autoComplete="off"
+										{...field}
+									/>
+								</FormControl>
+								<FormMessage />
+								<p className="text-muted-foreground text-xs">
+									Required for Supreme Court eNotarization API sync
+								</p>
+							</FormItem>
+						)}
+					/>
+
+					<FormField
+						control={form.control}
+						name="notaryFacilityNumber"
+						render={({ field }) => (
+							<FormItem>
+								<FormLabel>Notary Facility Number (NFN)</FormLabel>
+								<FormControl>
+									<Input
+										placeholder="e.g., NFN-123"
+										autoComplete="off"
+										{...field}
+									/>
+								</FormControl>
+								<FormMessage />
+								<p className="text-muted-foreground text-xs">
+									Required for Supreme Court eNotarization API sync
+								</p>
 							</FormItem>
 						)}
 					/>

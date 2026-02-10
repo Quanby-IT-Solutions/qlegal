@@ -14,7 +14,7 @@ import { users } from "@/services/drizzle/schema/auth"
 import { documents } from "@/services/drizzle/schema/document"
 import { idCardDetails } from "@/services/drizzle/schema/id-card-details"
 import { legalRegistrations } from "@/services/drizzle/schema/legal-registration"
-import { meetings } from "@/services/drizzle/schema/meetings"
+import { meetingParticipants, meetings } from "@/services/drizzle/schema/meetings"
 import { notarialActs, notarialBooks } from "@/services/drizzle/schema/notarial-book"
 import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
 
@@ -1823,6 +1823,39 @@ export const notarialBookRouter = createTRPCRouter({
 				})
 			}
 
+			// Resolve meetingId for witness enrichment (DocoChain only accepts "Signer"; we show Witness from participantRole)
+			let meetingIdForWitness: string | null = null
+			if (act.documentId) {
+				const doc = await ctx.db.query.documents.findFirst({
+					where: eq(documents.id, act.documentId),
+					columns: { meetingId: true },
+				})
+				meetingIdForWitness = doc?.meetingId ?? null
+			}
+
+			const witnessEmails = new Set<string>()
+			if (meetingIdForWitness) {
+				const witnessParticipants = await ctx.db.query.meetingParticipants.findMany({
+					where: and(
+						eq(meetingParticipants.meetingId, meetingIdForWitness),
+						eq(meetingParticipants.participantRole, "WITNESS")
+					),
+					with: { user: { columns: { email: true } } },
+				})
+				for (const p of witnessParticipants) {
+					if (p.user?.email) witnessEmails.add(p.user.email.trim().toLowerCase())
+				}
+			}
+
+			const enrichSignerRole = (
+				s: { email?: string; signerRole?: string } & Record<string, unknown>
+			) => ({
+				...s,
+				signerRole: witnessEmails.has((s.email ?? "").trim().toLowerCase())
+					? "Witness"
+					: (s.signerRole ?? "Signer"),
+			})
+
 			// Return stored signers if we have them (avoids 401 when no meeting/project token)
 			if (act.signersData) {
 				try {
@@ -1837,7 +1870,7 @@ export const notarialBookRouter = createTRPCRouter({
 						signerRole: string
 					}>
 					if (Array.isArray(stored) && stored.length > 0) {
-						return { signers: stored }
+						return { signers: stored.map(enrichSignerRole) }
 					}
 				} catch {
 					// invalid JSON, fall through to fetch
@@ -1878,14 +1911,15 @@ export const notarialBookRouter = createTRPCRouter({
 				}
 
 				const signers = status.signers ?? []
+				const enriched = signers.map(enrichSignerRole)
 				// Persist so next time we can return without calling DocoChain
 				if (signers.length > 0) {
 					await ctx.db
 						.update(notarialActs)
-						.set({ signersData: JSON.stringify(signers) })
+						.set({ signersData: JSON.stringify(enriched) })
 						.where(eq(notarialActs.id, act.id))
 				}
-				return { signers }
+				return { signers: enriched }
 			} catch (error) {
 				console.error("Error fetching act signers:", error)
 				return { signers: [] }
