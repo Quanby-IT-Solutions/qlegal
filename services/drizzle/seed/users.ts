@@ -102,9 +102,6 @@ export async function createUsers() {
 					reviewCount: faker.number.int({ min: 5, max: 150 }),
 					commission: faker.number.float({ min: 0.1, max: 0.3 }),
 					isAvailable: true,
-					enpName: enpUser.name,
-					enpRoleNumber: faker.string.alphanumeric(6).toUpperCase(),
-					attyName: `ATTY. ${enpUser.name}`,
 					rollNo: faker.string.alphanumeric(8).toUpperCase(),
 					rollNoDate: "5 June 2018",
 					commissionNo: `2024 - ${faker.string.numeric(3)}`,
@@ -114,12 +111,10 @@ export async function createUsers() {
 					ptrNoDate: "Jan 02, 2025",
 					ibpNo: faker.string.numeric(10),
 					ibpNoDate: "Dec 18, 2024 (for 2025)",
-					notaryEmail: enpUser.email,
 					notaryAddress: faker.location.streetAddress(),
 					mcleNoPeriod: "VIII",
 					mcleNo: faker.string.numeric(8),
 					mcleNoDate: "Jun 12, 2024",
-					modeOfNotarization: "REN",
 				}))
 
 			await db.insert(enpProfiles).values(enpProfileData)

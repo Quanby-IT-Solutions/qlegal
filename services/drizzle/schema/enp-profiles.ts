@@ -28,10 +28,6 @@ export const enpProfiles = createTable(
 		commission: t.real().default(0), // Commission rate for ENP
 		isAvailable: t.boolean().default(true), // Whether accepting new consultations
 
-		// --- Notary Seal Info ---
-		enpName: t.varchar({ length: 255 }), // e.g., "Juan Dela Cruz"
-		enpRoleNumber: t.varchar({ length: 100 }), // e.g., "123456"
-
 		// --- Notary Info (Document Stamp) ---
 		rollNo: t.varchar({ length: 100 }), // Roll of Attorneys number
 		rollNoDate: t.varchar({ length: 100 }), // e.g., "5 June 2018"
