@@ -2457,7 +2457,24 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 
 			// Validate it's a proper URL
 			try {
-				new URL(signingLink)
+				const url = new URL(signingLink)
+				// SAFETY: Plot Signature must never open a "signing" link (token=...) or app-domain link.
+				if (wasPlotting) {
+					const hasTokenParam = url.searchParams.has("token")
+					const isAppDomain =
+						url.hostname.includes("stg-app.doconchain.com") ||
+						url.hostname.includes("app.doconchain.com")
+					if (hasTokenParam || isAppDomain) {
+						toast.error(
+							"Plot Signature must open the draft plotting platform. Please click Plot Signature again."
+						)
+						setSigningDocumentId(null)
+						setIsPlottingAction(false)
+						isPlottingActionRef.current = false
+						plotPopupDocumentIdRef.current = null
+						return
+					}
+				}
 			} catch {
 				console.error("❌ Invalid URL format:", signingLink)
 				toast.error("Invalid URL format for signing link")
@@ -2565,7 +2582,24 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 				if (!plotting) signingLink = normalizeUrl(signingLink) ?? signingLink
 
 				try {
-					new URL(signingLink)
+					const url = new URL(signingLink)
+					// SAFETY: Plot Signature must never open a "signing" link (token=...) or app-domain link.
+					if (plotting) {
+						const hasTokenParam = url.searchParams.has("token")
+						const isAppDomain =
+							url.hostname.includes("stg-app.doconchain.com") ||
+							url.hostname.includes("app.doconchain.com")
+						if (hasTokenParam || isAppDomain) {
+							toast.error(
+								"Plot Signature must open the draft plotting platform. Please click Plot Signature again."
+							)
+							setSigningDocumentId(null)
+							setIsPlottingAction(false)
+							isPlottingActionRef.current = false
+							plotPopupDocumentIdRef.current = null
+							return
+						}
+					}
 				} catch {
 					console.error("❌ Invalid URL format:", signingLink)
 					toast.error("Invalid URL format for signing link")
@@ -3448,7 +3482,9 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 													</DropdownMenuTrigger>
 													<DropdownMenuContent align="end" sideOffset={6} className="min-w-44">
 														<DropdownMenuItem
-															disabled={!isCompleted || isDownloadingSigned}
+															disabled={
+																!isCompleted || isDownloadingSigned || isPreparingNotarized
+															}
 															onClick={() => {
 																if (doc.docoChainProjectId && isCompleted) {
 																	void handleDownloadSignedDocument(doc.docoChainProjectId)
@@ -3464,7 +3500,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 																{isDownloadingSigned
 																	? "Opening notarized document..."
 																	: isPreparingNotarized
-																		? "Preparing notarized document..."
+																		? "Preparing Notarized Document"
 																		: "View notarized document"}
 															</span>
 														</DropdownMenuItem>

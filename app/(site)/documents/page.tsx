@@ -325,7 +325,7 @@ export default function DocumentsPage() {
 	const [searchTerm, setSearchTerm] = useState("")
 	const [actTypeFilter, setActTypeFilter] = useState<ActTypeFilter>("ALL")
 	const [workflowFilter, setWorkflowFilter] = useState<"ALL" | "REN" | "IEN">("ALL")
-	const [viewMode, setViewMode] = useState<ViewMode>("cards")
+	const [viewMode, setViewMode] = useState<ViewMode>("table")
 	const [viewingActId, setViewingActId] = useState<string | null>(null)
 	const [downloadingActId, setDownloadingActId] = useState<string | null>(null)
 	const [expandedDocIds, setExpandedDocIds] = useState<Set<string>>(new Set())
@@ -416,6 +416,14 @@ export default function DocumentsPage() {
 		}
 	}, [refetch])
 
+	const clearFilters = useCallback(() => {
+		setSearchTerm("")
+		setActTypeFilter("ALL")
+		setWorkflowFilter("ALL")
+		setViewMode("table")
+		setExpandedDocIds(new Set())
+	}, [])
+
 	if (error) {
 		return (
 			<div className="container mx-auto px-4 py-8">
@@ -472,27 +480,38 @@ export default function DocumentsPage() {
 										</TabsList>
 									</div>
 									<TabsContent value={actTypeFilter} className="mt-0">
-										<div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-											<Input
-												placeholder="Search by document name, notary, or certificate number..."
-												value={searchTerm}
-												onChange={e => setSearchTerm(e.target.value)}
-											/>
-											<Select
-												value={workflowFilter}
-												onValueChange={v => setWorkflowFilter(v as "ALL" | "REN" | "IEN")}
-											>
-												<SelectTrigger>
-													<SelectValue placeholder="All Workflows" />
-												</SelectTrigger>
-												<SelectContent>
-													<SelectItem value="ALL">All Workflows</SelectItem>
-													<SelectItem value="REN">REN</SelectItem>
-													<SelectItem value="IEN">IEN</SelectItem>
-												</SelectContent>
-											</Select>
-											<div className="flex items-center gap-2">
-												<span className="text-muted-foreground text-sm">View:</span>
+										<div className="space-y-3">
+											<div className="flex flex-col gap-3 md:flex-row md:items-center">
+												<Input
+													placeholder="Search by document name, notary, or certificate number..."
+													value={searchTerm}
+													onChange={e => setSearchTerm(e.target.value)}
+												/>
+												<Select
+													value={workflowFilter}
+													onValueChange={v => setWorkflowFilter(v as "ALL" | "REN" | "IEN")}
+												>
+													<SelectTrigger className="md:w-[180px]">
+														<SelectValue placeholder="All Workflows" />
+													</SelectTrigger>
+													<SelectContent>
+														<SelectItem value="ALL">All Workflows</SelectItem>
+														<SelectItem value="REN">REN</SelectItem>
+														<SelectItem value="IEN">IEN</SelectItem>
+													</SelectContent>
+												</Select>
+												<Button
+													variant="outline"
+													type="button"
+													onClick={clearFilters}
+													className="md:w-[140px]"
+												>
+													Clear filters
+												</Button>
+											</div>
+
+											<div className="flex items-center justify-between gap-2">
+												<div className="text-muted-foreground text-sm">View:</div>
 												<ToggleGroup
 													type="single"
 													value={viewMode}

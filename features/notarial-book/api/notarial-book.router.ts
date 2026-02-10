@@ -1,5 +1,5 @@
 import { TRPCError } from "@trpc/server"
-import { and, count, desc, eq, inArray, isNotNull } from "drizzle-orm"
+import { and, asc, count, desc, eq, ilike, inArray, isNotNull, or } from "drizzle-orm"
 import { z } from "zod/v4"
 
 import {
@@ -12,7 +12,6 @@ import {
 } from "@/services/doconchain"
 import { users } from "@/services/drizzle/schema/auth"
 import { documents } from "@/services/drizzle/schema/document"
-import { documentSigners } from "@/services/drizzle/schema/document-signers"
 import { idCardDetails } from "@/services/drizzle/schema/id-card-details"
 import { legalRegistrations } from "@/services/drizzle/schema/legal-registration"
 import { meetings } from "@/services/drizzle/schema/meetings"
@@ -32,6 +31,19 @@ const getNotarialBookSchema = z.object({
 		.enum(["ALL", "ACKNOWLEDGMENT", "AFFIRMATION", "JURAT", "SIGNATURE_WITNESSING"])
 		.default("ALL"),
 	workflow: z.enum(["ALL", "REN", "IEN"]).default("ALL"),
+	sortBy: z
+		.enum([
+			"executedAt",
+			"meetingEndedAt",
+			"registryNumber",
+			"principalName",
+			"documentName",
+			"certificateNumber",
+			"actType",
+			"workflow",
+		])
+		.default("executedAt"),
+	sortDir: z.enum(["asc", "desc"]).default("desc"),
 })
 
 const syncDocumentToNotarialBookSchema = z.object({
@@ -774,10 +786,11 @@ export const notarialBookRouter = createTRPCRouter({
 	 * Uses Doc On Chain Passport API to fetch document history
 	 */
 	getNotarialBook: protectedProcedure
-		.input(getNotarialBookSchema.optional().default({}))
+		.input(getNotarialBookSchema.optional())
 		.query(async ({ ctx, input }) => {
 		const userId = ctx.session.user.id
-		const { page, perPage, search, actType, workflow } = getNotarialBookSchema.parse(input ?? {})
+		const { page, perPage, search, actType, workflow, sortBy, sortDir } =
+			getNotarialBookSchema.parse(input ?? {})
 
 		// Verify user is an ENP
 		const user = await ctx.db.query.users.findFirst({
@@ -819,12 +832,86 @@ export const notarialBookRouter = createTRPCRouter({
 			filters.push(eq(notarialActs.workflow, workflow))
 		}
 
-		// Get notarial acts with pagination
+		// Search across as many registry details as possible (server-side, so pagination/total are correct).
+		// Note: signersData and passportData are stored as JSON strings (text) so we use ILIKE on them.
+		const trimmedSearch = (search ?? "").trim()
+		if (trimmedSearch.length > 0) {
+			const q = `%${trimmedSearch}%`
+			// Many fields are nullable; only include ILIKE conditions for non-null columns.
+			const searchClauses = [
+				ilike(notarialActs.principalName, q),
+				ilike(notarialActs.enpName, q),
+				ilike(notarialActs.actType, q),
+				ilike(notarialActs.workflow, q),
+				ilike(notarialActs.location, q),
+				ilike(notarialActs.certificateNumber, q),
+				ilike(notarialActs.documentName, q),
+				ilike(notarialActs.documentDescription, q),
+				ilike(notarialActs.principalIdNumber, q),
+				ilike(notarialActs.principalAddress, q),
+				ilike(notarialActs.principalIdType, q),
+				ilike(notarialActs.witnessName, q),
+				ilike(notarialActs.witnessIdNumber, q),
+				ilike(notarialActs.locationStatement, q),
+				ilike(notarialActs.ipAddress, q),
+				ilike(notarialActs.docoChainProjectUuid, q),
+				ilike(notarialActs.signersData, q),
+				ilike(notarialActs.passportData, q),
+			].filter((v): v is NonNullable<typeof v> => v !== undefined)
+
+			if (searchClauses.length > 0) {
+				filters.push(or(...searchClauses))
+			}
+		}
+
+		// Stable "registry number" should reflect chronological completion order across ALL acts,
+		// independent of sorting/filtering. Compute a map from the full notarial book list.
+		const allActsForNumbering = await ctx.db
+			.select({
+				id: notarialActs.id,
+				executedAt: notarialActs.executedAt,
+				createdAt: notarialActs.createdAt,
+			})
+			.from(notarialActs)
+			.where(eq(notarialActs.notarialBookId, notarialBook.id))
+			.orderBy(asc(notarialActs.executedAt), asc(notarialActs.createdAt))
+
+		const registryNumberByActId = new Map<string, number>()
+		for (let i = 0; i < allActsForNumbering.length; i++) {
+			const row = allActsForNumbering[i]
+			if (row) registryNumberByActId.set(row.id, i + 1)
+		}
+
+		const dir = sortDir === "asc" ? asc : desc
+		const orderBy = (() => {
+			switch (sortBy) {
+				case "registryNumber":
+					// Registry number is defined by executedAt/createdAt chronological order.
+					return [dir(notarialActs.executedAt), dir(notarialActs.createdAt)] as const
+				case "meetingEndedAt":
+					return [dir(notarialActs.meetingEndedAt), dir(notarialActs.createdAt)] as const
+				case "principalName":
+					return [dir(notarialActs.principalName), dir(notarialActs.executedAt)] as const
+				case "documentName":
+					return [dir(notarialActs.documentName), dir(notarialActs.executedAt)] as const
+				case "certificateNumber":
+					return [dir(notarialActs.certificateNumber), dir(notarialActs.executedAt)] as const
+				case "actType":
+					return [dir(notarialActs.actType), dir(notarialActs.executedAt)] as const
+				case "workflow":
+					return [dir(notarialActs.workflow), dir(notarialActs.executedAt)] as const
+				case "executedAt":
+				default:
+					return [dir(notarialActs.executedAt), dir(notarialActs.createdAt)] as const
+			}
+		})()
+
+		// Get notarial acts with pagination + requested sorting
 		const acts = await ctx.db
 			.select()
 			.from(notarialActs)
 			.where(and(...filters))
-			.orderBy(desc(notarialActs.executedAt))
+			.orderBy(...orderBy)
 			.limit(perPage)
 			.offset((page - 1) * perPage)
 
@@ -836,17 +923,7 @@ export const notarialBookRouter = createTRPCRouter({
 
 		const total = totalResult?.count ?? 0
 
-		// Filter by search term if provided
-		let filteredActs = acts
-		if (search) {
-			const searchLower = search.toLowerCase()
-			filteredActs = acts.filter(
-				act =>
-					act.principalName.toLowerCase().includes(searchLower) ||
-					(act.documentName?.toLowerCase().includes(searchLower) ?? false) ||
-					(act.certificateNumber?.toLowerCase().includes(searchLower) ?? false)
-			)
-		}
+		const filteredActs = acts
 
 		// Enrich acts with fees from document table (fees are stored on document, not notarial_act)
 		const documentIds = [
@@ -873,7 +950,9 @@ export const notarialBookRouter = createTRPCRouter({
 				const raw = d.fees
 				docFeesMap.set(
 					d.id,
-					raw != null && typeof raw === "number" && !Number.isNaN(raw) ? raw : null
+					raw !== null && raw !== undefined && typeof raw === "number" && !Number.isNaN(raw)
+						? raw
+						: null
 				)
 			}
 		}
@@ -886,7 +965,9 @@ export const notarialBookRouter = createTRPCRouter({
 				if (d.docoChainProjectId) {
 					const raw = d.fees
 					const val =
-						raw != null && typeof raw === "number" && !Number.isNaN(raw) ? raw : null
+						raw !== null && raw !== undefined && typeof raw === "number" && !Number.isNaN(raw)
+							? raw
+							: null
 					if (!docFeesMap.has(d.docoChainProjectId)) {
 						docFeesMap.set(d.docoChainProjectId, val)
 					}
@@ -898,7 +979,8 @@ export const notarialBookRouter = createTRPCRouter({
 				(act.documentId ? docFeesMap.get(act.documentId) : undefined) ??
 				(act.docoChainProjectUuid ? docFeesMap.get(act.docoChainProjectUuid) : undefined) ??
 				null
-			return { ...act, fees }
+			const registryNumber = registryNumberByActId.get(act.id) ?? null
+			return { ...act, fees, registryNumber }
 		})
 
 		return {
@@ -996,9 +1078,10 @@ export const notarialBookRouter = createTRPCRouter({
 
 					if (meeting?.participants) {
 						// Find the participant who is NOT the ENP (the principal/uploader)
-						const principalParticipant = meeting.participants.find(
-							p => p.user.id !== userId && p.user.role !== "ENP"
-						)
+						const principalParticipant = meeting.participants.find(p => {
+							const role = p.user?.role ?? null
+							return p.userId !== userId && role !== "ENP"
+						})
 
 						if (principalParticipant?.user) {
 							principalName =
@@ -1017,6 +1100,9 @@ export const notarialBookRouter = createTRPCRouter({
 			let executedAt = new Date()
 			const location = "Philippines"
 			let workflow: "REN" | "IEN" = "REN"
+			let principalFromPassport:
+				| { name?: string; email?: string; signedAt?: string; idNumber?: string }
+				| undefined
 
 			try {
 				// Get history view for audit trail
@@ -1024,6 +1110,7 @@ export const notarialBookRouter = createTRPCRouter({
 
 				// Extract signer information for witness and additional principal details
 				const { principal, witness, allSigners } = extractSignerInfo(passportData)
+				principalFromPassport = principal
 
 				// Only use passport data for principal if we didn't find one from meeting participants
 				// This ensures the uploader (from meeting) takes precedence
@@ -1130,8 +1217,8 @@ export const notarialBookRouter = createTRPCRouter({
 			// Fetch principal's ID type from OCR if available
 			// Try to get principal email from passport data or meeting participants
 			let principalEmailForOcr: string | undefined
-			if (principal && principal.email) {
-				principalEmailForOcr = principal.email
+			if (principalFromPassport?.email) {
+				principalEmailForOcr = principalFromPassport.email
 			} else if (document.meetingId) {
 				try {
 					const meeting = await ctx.db.query.meetings.findFirst({
@@ -1150,9 +1237,10 @@ export const notarialBookRouter = createTRPCRouter({
 						},
 					})
 
-					const principalParticipant = meeting?.participants.find(
-						p => p.user.id !== userId && p.user.role !== "ENP"
-					)
+					const principalParticipant = meeting?.participants.find(p => {
+						const role = p.user?.role ?? null
+						return p.userId !== userId && role !== "ENP"
+					})
 					if (principalParticipant?.user?.email) {
 						principalEmailForOcr = principalParticipant.user.email
 					}
@@ -1176,7 +1264,7 @@ export const notarialBookRouter = createTRPCRouter({
 						// Fetch ID card details from id_card_details table
 						const idCardDetail = await ctx.db.query.idCardDetails.findFirst({
 							where: eq(idCardDetails.userId, principalUser.id),
-							orderBy: (table, { desc }) => [desc(table.verifiedAt)],
+							orderBy: desc(idCardDetails.verifiedAt),
 						})
 
 						if (idCardDetail?.rawOcrData) {
