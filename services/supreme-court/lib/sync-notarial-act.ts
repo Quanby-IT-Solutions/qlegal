@@ -28,49 +28,55 @@ interface SyncResult {
 	notarialRegistryNumber: string // NRN
 }
 
+/** SC API requires non-empty principalAddress fields; use this when value is missing */
+const ADDRESS_NOT_SPECIFIED = "Not specified"
+
 /**
  * Parse address string into SC API format.
- * Expected format: "Street, Barangay, City/Province" or similar
+ * Expected format: "Street, Barangay, City/Province" or similar.
+ * Returns non-empty strings for all fields (SC API requires homeStreet, barangay, cityProvince).
  */
 function parseAddress(addressText: string | null | undefined): {
 	homeStreet: string
 	barangay: string
 	cityProvince: string
 } {
-	if (!addressText) {
-		return {
-			homeStreet: "",
-			barangay: "",
-			cityProvince: "",
-		}
+	const empty = {
+		homeStreet: ADDRESS_NOT_SPECIFIED,
+		barangay: ADDRESS_NOT_SPECIFIED,
+		cityProvince: ADDRESS_NOT_SPECIFIED,
+	}
+
+	if (!addressText?.trim()) {
+		return empty
 	}
 
 	// Try to parse common formats
 	// Format 1: "Street, Barangay, City Province"
 	// Format 2: "Street Barangay City Province"
-	const parts = addressText.split(",").map(p => p.trim())
+	const parts = addressText.split(",").map(p => p.trim()).filter(Boolean)
 
 	if (parts.length >= 3) {
 		return {
-			homeStreet: parts[0] || "",
-			barangay: parts[1] || "",
-			cityProvince: parts.slice(2).join(", ") || "",
+			homeStreet: parts[0] || ADDRESS_NOT_SPECIFIED,
+			barangay: parts[1] || ADDRESS_NOT_SPECIFIED,
+			cityProvince: parts.slice(2).join(", ").trim() || ADDRESS_NOT_SPECIFIED,
 		}
 	}
 
 	if (parts.length === 2) {
 		return {
-			homeStreet: parts[0] || "",
-			barangay: "",
-			cityProvince: parts[1] || "",
+			homeStreet: parts[0] || ADDRESS_NOT_SPECIFIED,
+			barangay: ADDRESS_NOT_SPECIFIED,
+			cityProvince: parts[1] || ADDRESS_NOT_SPECIFIED,
 		}
 	}
 
-	// Fallback: put everything in homeStreet
+	// Single part: use as homeStreet, fill the rest so SC API accepts
 	return {
-		homeStreet: addressText,
-		barangay: "",
-		cityProvince: "",
+		homeStreet: addressText.trim(),
+		barangay: ADDRESS_NOT_SPECIFIED,
+		cityProvince: ADDRESS_NOT_SPECIFIED,
 	}
 }
 
@@ -183,7 +189,8 @@ export async function syncNotarialActToSupremeCourt(
 			dateUpdated: formatDate(act.updatedAt),
 		},
 		listOfPrincipals: principals,
-		listOfWitness: witnesses.length > 0 ? witnesses : undefined,
+		// SC API expects an array; sending undefined causes server to crash (reading 'map' of undefined)
+		listOfWitness: witnesses,
 	}
 
 	// Step 1: Create metadata, principals, and witnesses in one call (per PDF Section 6)

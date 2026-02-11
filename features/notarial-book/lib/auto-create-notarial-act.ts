@@ -1067,12 +1067,13 @@ export async function autoCreateNotarialAct(
 						documentFileName,
 					})
 
-					// Update act with sync status
+					// Update act with sync status and NRID
 					await db
 						.update(notarialActs)
 						.set({
 							syncedToSupremeCourt: true,
 							syncedAt: new Date(),
+							supremeCourtRegistryId: syncResult.notarialRegistryID,
 						})
 						.where(eq(notarialActs.id, createdAct.id))
 

@@ -90,9 +90,10 @@ export const notarialActs = createTable(
 		certificateNumber: t.varchar({ length: 255 }),
 		certificateUrl: t.text(),
 
-		// Sync status
+		// Sync status (Supreme Court eNotarization API)
 		syncedToSupremeCourt: t.boolean().default(false),
 		syncedAt: t.timestamp({ mode: "date", withTimezone: true }),
+		supremeCourtRegistryId: t.varchar({ length: 255 }), // NRID from SC after sync
 
 		createdAt: t.timestamp({ mode: "date", withTimezone: true }).defaultNow().notNull(),
 		updatedAt: t
