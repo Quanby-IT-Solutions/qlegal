@@ -75,6 +75,13 @@ env:
   VIDEO_SDK_API_KEY: ${{ secrets.VIDEO_SDK_API_KEY }}
   VIDEO_SDK_SECRET: ${{ secrets.VIDEO_SDK_SECRET }}
 
+  # Supreme Court eNotarization API
+  SUPREME_COURT_API_URL: ${{ vars.SUPREME_COURT_API_URL }}
+  SUPREME_COURT_COGNITO_URL: ${{ vars.SUPREME_COURT_COGNITO_URL }}
+  SUPREME_COURT_CLIENT_ID: ${{ secrets.SUPREME_COURT_CLIENT_ID }}
+  SUPREME_COURT_USERNAME: ${{ secrets.SUPREME_COURT_USERNAME }}
+  SUPREME_COURT_PASSWORD: ${{ secrets.SUPREME_COURT_PASSWORD }}
+
   # Public Site URL
   NEXT_PUBLIC_SITE_URL: ${{ vars.NEXT_PUBLIC_SITE_URL }}
 
@@ -157,6 +164,11 @@ jobs:
             --build-arg SUPABASE_SERVICE_ROLE_KEY="${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
             --build-arg VIDEO_SDK_API_KEY="${{ secrets.VIDEO_SDK_API_KEY }}" \
             --build-arg VIDEO_SDK_SECRET="${{ secrets.VIDEO_SDK_SECRET }}" \
+            --build-arg SUPREME_COURT_API_URL="${{ vars.SUPREME_COURT_API_URL }}" \
+            --build-arg SUPREME_COURT_COGNITO_URL="${{ vars.SUPREME_COURT_COGNITO_URL }}" \
+            --build-arg SUPREME_COURT_CLIENT_ID="${{ secrets.SUPREME_COURT_CLIENT_ID }}" \
+            --build-arg SUPREME_COURT_USERNAME="${{ secrets.SUPREME_COURT_USERNAME }}" \
+            --build-arg SUPREME_COURT_PASSWORD="${{ secrets.SUPREME_COURT_PASSWORD }}" \
             -t "${{ env.GAR_LOCATION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.SERVICE }}:${{ github.sha }}" .
 
           docker push "${{ env.GAR_LOCATION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.SERVICE }}:${{ github.sha }}"
@@ -219,6 +231,11 @@ jobs:
             SUPABASE_SERVICE_ROLE_KEY=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
             VIDEO_SDK_API_KEY=${{ secrets.VIDEO_SDK_API_KEY }}
             VIDEO_SDK_SECRET=${{ secrets.VIDEO_SDK_SECRET }}
+            SUPREME_COURT_API_URL=${{ vars.SUPREME_COURT_API_URL }}
+            SUPREME_COURT_COGNITO_URL=${{ vars.SUPREME_COURT_COGNITO_URL }}
+            SUPREME_COURT_CLIENT_ID=${{ secrets.SUPREME_COURT_CLIENT_ID }}
+            SUPREME_COURT_USERNAME=${{ secrets.SUPREME_COURT_USERNAME }}
+            SUPREME_COURT_PASSWORD=${{ secrets.SUPREME_COURT_PASSWORD }}
             SKIP_ENV_VALIDATION=1
           flags: >
             --min-instances=0
