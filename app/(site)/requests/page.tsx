@@ -1,6 +1,5 @@
 import { PageHeader } from "@/core/components/navbar/page-header"
 
-import { auth } from "@/services/next-auth"
 import { HydrateClient, trpc } from "@/services/trpc/server"
 
 import { type IncomingItem } from "@/features/appointments/api/requests.router"

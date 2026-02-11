@@ -17,68 +17,39 @@ export function RequestsClient({ incomingRequests }: { incomingRequests: Incomin
 	const [rejectDialogOpen, setRejectDialogOpen] = useState(false)
 	const [processingId, setProcessingId] = useState<string | null>(null)
 
-	const updateStatusMutation = trpc.requests.updateRequestStatus.useMutation({
-		onSuccess: async () => {
-			await utils.requests.getIncomingRequests.invalidate()
-			await utils.requests.getIncomingAppointmentsForENP.invalidate()
-			toast.success("Request status updated successfully!")
-			setRejectDialogOpen(false)
-			setProcessingId(null)
-			router.push("/meetings")
-		},
-		onError: error => {
-			toast.error("Failed to update request", {
-				description: error?.message ?? "An unexpected error occurred",
-			})
-			setProcessingId(null)
-		},
-	})
+	const updateStatusMutation = trpc.requests.updateRequestStatus.useMutation()
+	const confirmAppointmentMutation = trpc.appointments.confirmAppointment.useMutation()
+	const cancelAppointmentMutation = trpc.appointments.cancelAppointment.useMutation()
 
-	const confirmAppointmentMutation = trpc.appointments.confirmAppointment.useMutation({
-		onSuccess: async () => {
-			await utils.requests.getIncomingRequests.invalidate()
-			await utils.requests.getIncomingAppointmentsForENP.invalidate()
-			toast.success("Appointment accepted successfully!")
-			setProcessingId(null)
-			router.push("/meetings")
-		},
-		onError: error => {
-			toast.error("Failed to accept appointment", {
-				description: error?.message ?? "An unexpected error occurred",
-			})
-			setProcessingId(null)
-		},
-	})
-
-	const cancelAppointmentMutation = trpc.appointments.cancelAppointment.useMutation({
-		onSuccess: async () => {
-			await utils.requests.getIncomingRequests.invalidate()
-			await utils.requests.getIncomingAppointmentsForENP.invalidate()
-			toast.success("Appointment rejected!")
-			setRejectDialogOpen(false)
-			setProcessingId(null)
-		},
-		onError: error => {
-			toast.error("Failed to reject appointment", {
-				description: error?.message ?? "An unexpected error occurred",
-			})
-			setProcessingId(null)
-		},
-	})
+	const revalidate = async () => {
+		await utils.requests.getIncomingRequests.invalidate()
+		await utils.requests.getIncomingAppointmentsForENP.invalidate()
+		router.refresh()
+	}
 
 	const handleAccept = async (item: IncomingItem) => {
 		setProcessingId(item.id)
-		// Check if it's an appointment or request
-		if (item.source === "appointment") {
-			await confirmAppointmentMutation.mutateAsync({
-				appointmentId: item.id,
-				meetingLink: item.appointmentData?.meetingLink ?? "",
+		try {
+			if (item.source === "appointment") {
+				await confirmAppointmentMutation.mutateAsync({
+					appointmentId: item.id,
+					meetingLink: item.appointmentData?.meetingLink ?? "",
+				})
+			} else {
+				await updateStatusMutation.mutateAsync({
+					requestId: item.id,
+					status: "IN_PROGRESS",
+				})
+			}
+			toast.success("Request accepted successfully!")
+			await revalidate()
+			router.push("/sessions")
+		} catch (error) {
+			toast.error("Failed to accept request", {
+				description: error instanceof Error ? error.message : "An unexpected error occurred",
 			})
-		} else {
-			await updateStatusMutation.mutateAsync({
-				requestId: item.id,
-				status: "IN_PROGRESS",
-			})
+		} finally {
+			setProcessingId(null)
 		}
 	}
 
@@ -91,29 +62,31 @@ export function RequestsClient({ incomingRequests }: { incomingRequests: Incomin
 		if (!selectedRequestId) return
 		setProcessingId(selectedRequestId)
 
-		// Find the item to determine if it's an appointment or request
 		const item = incomingRequests.find(r => r.id === selectedRequestId)
 		if (!item) return
 
-		if (item.source === "appointment") {
-			await cancelAppointmentMutation.mutateAsync({
-				appointmentId: item.id,
-				cancelReason: "Rejected by ENP",
+		try {
+			if (item.source === "appointment") {
+				await cancelAppointmentMutation.mutateAsync({
+					appointmentId: item.id,
+					cancelReason: "Rejected by ENP",
+				})
+			} else {
+				await updateStatusMutation.mutateAsync({
+					requestId: selectedRequestId,
+					status: "REJECTED",
+				})
+			}
+			toast.success("Request rejected!")
+			setRejectDialogOpen(false)
+			await revalidate()
+		} catch (error) {
+			toast.error("Failed to reject request", {
+				description: error instanceof Error ? error.message : "An unexpected error occurred",
 			})
-		} else {
-			await updateStatusMutation.mutateAsync({
-				requestId: selectedRequestId,
-				status: "REJECTED",
-			})
+		} finally {
+			setProcessingId(null)
 		}
-	}
-
-	const handleComplete = async (requestId: string) => {
-		setProcessingId(requestId)
-		await updateStatusMutation.mutateAsync({
-			requestId,
-			status: "COMPLETED",
-		})
 	}
 
 	return (
@@ -123,7 +96,6 @@ export function RequestsClient({ incomingRequests }: { incomingRequests: Incomin
 				isRequestsLoading={false}
 				onAccept={handleAccept}
 				onReject={handleRejectClick}
-				onComplete={handleComplete}
 				processingId={processingId}
 			/>
 

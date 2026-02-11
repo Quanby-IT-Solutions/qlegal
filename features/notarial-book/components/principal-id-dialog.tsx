@@ -10,6 +10,7 @@ interface PrincipalIdDialogProps {
 	onClose: () => void
 	principalName: string
 	principalIdImageBase64: string | null | undefined
+	competentEvidence?: string | null
 }
 
 export function PrincipalIdDialog({
@@ -17,6 +18,7 @@ export function PrincipalIdDialog({
 	onClose,
 	principalName,
 	principalIdImageBase64,
+	competentEvidence,
 }: PrincipalIdDialogProps) {
 	return (
 		<Dialog open={isOpen} onOpenChange={onClose}>
@@ -41,6 +43,11 @@ export function PrincipalIdDialog({
 								className="max-w-full rounded-lg border shadow-sm"
 								style={{ maxHeight: "70vh" }}
 							/>
+							{competentEvidence ? (
+								<p className="text-muted-foreground w-full text-sm">
+									<span className="font-medium">Competent evidence:</span> {competentEvidence}
+								</p>
+							) : null}
 							<Button variant="outline" onClick={onClose} className="w-full sm:w-auto">
 								Close
 							</Button>
@@ -53,6 +60,11 @@ export function PrincipalIdDialog({
 							<p className="text-muted-foreground text-sm">
 								No ID image available for this principal.
 							</p>
+							{competentEvidence ? (
+								<p className="text-muted-foreground w-full text-sm">
+									<span className="font-medium">Competent evidence:</span> {competentEvidence}
+								</p>
+							) : null}
 							<Button variant="outline" onClick={onClose}>
 								Close
 							</Button>
