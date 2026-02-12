@@ -272,7 +272,7 @@ export const appointmentsRouter = createTRPCRouter({
 							{ meetingId: meeting.id, userId: existing.lawyerId },
 						])
 
-						meetingLink = `${getUrl()}/meetings/${meeting.id}`
+						meetingLink = `${getUrl()}/sessions/${meeting.id}`
 					}
 				} catch (error) {
 					console.error("Failed to create meeting on confirmation:", error)

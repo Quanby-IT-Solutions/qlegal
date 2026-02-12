@@ -17,7 +17,7 @@ import {
 	formatDistance,
 	getLocationRequirementMessage,
 	type LocationVerificationResult,
-} from "@/features/meetings/lib/location-verification"
+} from "@/features/sessions/lib/location-verification"
 
 type ErrorReason =
 	| LocationVerificationResult["reason"]
@@ -151,7 +151,7 @@ export function LocationErrorDialog({
 	const Icon = config.icon
 
 	const handleGoBack = () => {
-		router.push("/meetings")
+		router.push("/sessions")
 	}
 
 	return (

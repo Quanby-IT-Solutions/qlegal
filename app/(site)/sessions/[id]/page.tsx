@@ -9,12 +9,12 @@ import { Button } from "@/core/components/ui/button"
 import { Card, CardContent } from "@/core/components/ui/card"
 import { Skeleton } from "@/core/components/ui/skeleton"
 
-import { useMeetings } from "@/features/meetings/api/meetings.hooks"
+import { useMeetings } from "@/features/sessions/api/meetings.hooks"
 
 // Dynamically import VideoSDK component (client-only, no SSR)
 const VideoMeetingClient = dynamic(
 	() =>
-		import("@/features/meetings/components/video-meeting-client").then(
+		import("@/features/sessions/components/video-meeting-client").then(
 			mod => mod.VideoMeetingClient
 		),
 	{
@@ -41,12 +41,12 @@ export default function MeetingRoomPage({ params }: { params: Promise<{ id: stri
 
 	useEffect(() => {
 		if (!session) {
-			router.push(`/auth/login?callbackUrl=/meetings/${id}`)
+			router.push(`/auth/login?callbackUrl=/sessions/${id}`)
 		}
 	}, [session, router, id])
 
 	const handleLeave = () => {
-		router.push("/meetings")
+		router.push("/sessions")
 	}
 
 	if (isMeetingLoading || isTokenLoading) {
@@ -69,8 +69,8 @@ export default function MeetingRoomPage({ params }: { params: Promise<{ id: stri
 						<p className="text-muted-foreground mt-2">
 							The meeting you're looking for doesn't exist.
 						</p>
-						<Button className="mt-6" onClick={() => router.push("/meetings")}>
-							Back to Meetings
+						<Button className="mt-6" onClick={() => router.push("/sessions")}>
+							Back to Sessions
 						</Button>
 					</CardContent>
 				</Card>
@@ -90,7 +90,7 @@ export default function MeetingRoomPage({ params }: { params: Promise<{ id: stri
 								? "This meeting has not started yet. Please wait for the host to start the meeting."
 								: "This meeting has ended."}
 						</p>
-						<Button onClick={() => router.push("/meetings")}>Back to Meetings</Button>
+						<Button onClick={() => router.push("/sessions")}>Back to Sessions</Button>
 					</CardContent>
 				</Card>
 			</div>
@@ -104,8 +104,8 @@ export default function MeetingRoomPage({ params }: { params: Promise<{ id: stri
 					<CardContent className="p-8 text-center">
 						<h2 className="text-2xl font-bold">Meeting room not available</h2>
 						<p className="text-muted-foreground mt-4">This meeting has not been started yet</p>
-						<Button className="mt-6" onClick={() => router.push("/meetings")}>
-							Back to Meetings
+						<Button className="mt-6" onClick={() => router.push("/sessions")}>
+							Back to Sessions
 						</Button>
 					</CardContent>
 				</Card>

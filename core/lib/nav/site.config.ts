@@ -64,7 +64,7 @@ export const appSidebarSections: NavSection[] = [
 			},
 			{
 				title: "Sessions",
-				url: "/meetings",
+				url: "/sessions",
 				icon: Video01Icon,
 				roles: ["ENP", "PRINCIPAL"],
 			},
@@ -215,21 +215,13 @@ function isValidUserRole(role: string | null | undefined): role is UserRole {
 	return ["ENP", "PRINCIPAL", "ENA", "ADMIN"].includes(role)
 }
 
-function filterNavItemsByRole(navItems: NavItem[], userRole?: string | null): NavItem[] {
-	return navItems.filter(item => {
-		const roles = item.roles
+export function getSiteUserItems(userRole?: UserRole | null): NavItem[] {
+	return siteUserConfig.filter(item => {
+		const roles = item.roles as readonly UserRole[] | undefined
 		if (!roles || roles.length === 0) return true
 		if (!userRole || !isValidUserRole(userRole)) return false
-		return (roles as readonly string[]).includes(userRole)
+		return roles.includes(userRole)
 	})
-}
-
-export function getAppSidebarSections(): NavSection[] {
-	return appSidebarSections
-}
-
-export function getSiteUserItems(userRole?: UserRole | null): NavItem[] {
-	return filterNavItemsByRole(siteUserConfig, userRole)
 }
 
 export function getNavSecondary(): NavItem[] {

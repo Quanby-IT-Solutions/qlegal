@@ -8,7 +8,7 @@ import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
 import {
 	verifyLocationForRole,
 	type LocationVerificationResult,
-} from "@/features/meetings/lib/location-verification"
+} from "@/features/sessions/lib/location-verification"
 
 import { env } from "@/env"
 

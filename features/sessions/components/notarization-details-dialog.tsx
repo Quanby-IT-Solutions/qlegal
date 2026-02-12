@@ -19,7 +19,7 @@ import { trpc } from "@/services/trpc/client"
 import {
 	getDocumentSigningBadge,
 	getMeetingStatusBadge,
-} from "@/features/meetings/lib/meeting-badges"
+} from "@/features/sessions/lib/meeting-badges"
 
 interface NotarizationDetailsDialogProps {
 	isOpen: boolean

@@ -56,8 +56,8 @@ import { getAvatarUrl, getInitials } from "@/core/lib/utils"
 
 import { trpc } from "@/services/trpc/client"
 
-import { useMeetings } from "@/features/meetings/api/meetings.hooks"
-import { MeetingRecordingsModal } from "@/features/meetings/components/meeting-recordings-modal"
+import { useMeetings } from "@/features/sessions/api/meetings.hooks"
+import { MeetingRecordingsModal } from "@/features/sessions/components/meeting-recordings-modal"
 import { useMessages } from "@/features/messages/api/messages.hooks"
 
 function MeetingDocumentSummary({
@@ -675,7 +675,7 @@ export function MeetingsListSection() {
 																onClick={e => {
 																	e.stopPropagation()
 																	setJoiningMeetingId(meeting.id)
-																	router.push(`/meetings/${meeting.id}/lobby`)
+																	router.push(`/sessions/${meeting.id}/lobby`)
 																}}
 																disabled={joiningMeetingId === meeting.id}
 															>
@@ -870,7 +870,7 @@ export function MeetingsListSection() {
 														onClick={e => {
 															e.stopPropagation()
 															setJoiningMeetingId(meeting.id)
-															router.push(`/meetings/${meeting.id}/lobby`)
+															router.push(`/sessions/${meeting.id}/lobby`)
 														}}
 														disabled={joiningMeetingId === meeting.id}
 													>

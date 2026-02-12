@@ -26,7 +26,7 @@ export function VpnDetectedDialog({ open, ipInfo }: VpnDetectedDialogProps) {
 	const router = useRouter()
 
 	const handleGoBack = () => {
-		router.push("/meetings")
+		router.push("/sessions")
 	}
 
 	return (
@@ -87,7 +87,7 @@ export function VpnDetectedDialog({ open, ipInfo }: VpnDetectedDialogProps) {
 
 				<DialogFooter className="flex-col gap-2 sm:flex-col">
 					<Button onClick={handleGoBack} className="w-full">
-						Go Back to Meetings
+						Go Back to Sessions
 					</Button>
 					<p className="text-muted-foreground text-center text-xs">
 						If you believe this is an error, please contact support.

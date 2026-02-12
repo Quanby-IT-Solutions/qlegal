@@ -97,7 +97,7 @@ export default function LivenessCallbackPage() {
 	// Minimal flat "Verifying..." (matches liveness page)
 	if (isLoading) {
 		return (
-			<div className="from-background via-muted/20 to-background flex min-h-screen items-center justify-center bg-gradient-to-br px-4">
+			<div className="from-background via-muted/20 to-background flex min-h-screen items-center justify-center bg-linear-to-br px-4">
 				<div className="text-center">
 					<Loader2 className="text-primary mx-auto mb-4 h-10 w-10 animate-spin" />
 					<p className="text-muted-foreground text-sm">Verifying...</p>
@@ -109,7 +109,7 @@ export default function LivenessCallbackPage() {
 	// When we have redirectUrl: skip confirmation, useEffect already toasts + redirects. Show minimal "Redirecting..." only briefly.
 	if (result && redirectUrl) {
 		return (
-			<div className="from-background via-muted/20 to-background flex min-h-screen items-center justify-center bg-gradient-to-br px-4">
+			<div className="from-background via-muted/20 to-background flex min-h-screen items-center justify-center bg-linear-to-br px-4">
 				<div className="text-center">
 					<Loader2 className="text-primary mx-auto mb-4 h-10 w-10 animate-spin" />
 					<p className="text-muted-foreground text-sm">
@@ -125,16 +125,16 @@ export default function LivenessCallbackPage() {
 	// Error: minimal + back
 	if (error) {
 		return (
-			<div className="from-background via-muted/20 to-background flex min-h-screen items-center justify-center bg-gradient-to-br px-4">
+			<div className="from-background via-muted/20 to-background flex min-h-screen items-center justify-center bg-linear-to-br px-4">
 				<div className="w-full max-w-md space-y-4 text-center">
 					<div className="bg-destructive/10 mx-auto flex h-14 w-14 items-center justify-center rounded-full">
 						<XCircle className="text-destructive h-7 w-7" />
 					</div>
 					<p className="text-sm font-medium">Something went wrong</p>
 					<p className="text-muted-foreground text-sm">{error}</p>
-					<Button variant="outline" size="sm" onClick={() => router.push("/meetings")}>
+					<Button variant="outline" size="sm" onClick={() => router.push("/sessions")}>
 						<ArrowLeft className="mr-2 h-4 w-4" />
-						Back to Meetings
+						Back to Sessions
 					</Button>
 				</div>
 			</div>
@@ -144,7 +144,7 @@ export default function LivenessCallbackPage() {
 	// No result (no redirectUrl path)
 	if (!result) {
 		return (
-			<div className="from-background via-muted/20 to-background flex min-h-screen items-center justify-center bg-gradient-to-br px-4">
+			<div className="from-background via-muted/20 to-background bg-linear-to-brx-4 flex min-h-screen items-center justify-center">
 				<div className="w-full max-w-md space-y-4 text-center">
 					<p className="text-muted-foreground text-sm">Unable to retrieve verification results</p>
 					<Button variant="outline" size="sm" onClick={handleBackToHome}>
@@ -161,7 +161,7 @@ export default function LivenessCallbackPage() {
 	const isApproved = decision.isApproved
 
 	return (
-		<div className="from-background via-muted/20 to-background flex min-h-screen items-center justify-center bg-gradient-to-br px-4 py-10">
+		<div className="from-background via-muted/20 to-background flex min-h-screen items-center justify-center bg-linear-to-br px-4 py-10">
 			<div className="w-full max-w-2xl">
 				<Card className={isApproved ? "border-green-500" : "border-destructive"}>
 					<CardHeader className="text-center">
