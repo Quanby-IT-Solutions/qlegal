@@ -72,7 +72,6 @@ import {
 } from "@/core/components/ui/select"
 import { cn } from "@/core/lib/utils"
 
-import { normalizeUrl } from "@/services/doconchain"
 import { trpc } from "@/services/trpc/client"
 
 import { MeetingDocumentUpload } from "./meeting-document-upload"
@@ -88,6 +87,16 @@ function formatElapsedMs(diffMs: number) {
 const PRE_GENERATED_LINK_MAX_AGE_MS = 2 * 60 * 1000
 /** Interval for proactively clearing stale links (ms). */
 const STALE_LINK_CHECK_INTERVAL_MS = 60_000
+
+function forceApiTruePreservingParams(urlStr: string): string {
+	try {
+		const url = new URL(urlStr)
+		url.searchParams.set("api", "true")
+		return url.toString()
+	} catch {
+		return urlStr
+	}
+}
 
 // Memoized to prevent re-renders from parent state changes
 const MeetingControls = React.memo(function MeetingControls({
@@ -1216,7 +1225,12 @@ const DocumentActions = React.memo(function DocumentActions({
 	docoChainTokenReady?: boolean
 	/** Show "Preparing…" on Create Project while token is loading. */
 	docoChainTokenLoading?: boolean
-	onPreGeneratedLink?: (documentId: string, link: string, projectUuid: string) => void
+	onPreGeneratedLink?: (
+		documentId: string,
+		link: string,
+		projectUuid: string,
+		kind: "plot" | "sign"
+	) => void
 	/** When "Plot Signature", button stays loading until this is true (pre-generated link ready). */
 	plotLinkReady?: boolean
 	/** Document IDs for which user confirmed "Yes, I'm done" after closing plot popup – disable Plot for these. */
@@ -1442,10 +1456,10 @@ const DocumentActions = React.memo(function DocumentActions({
 	}, [plotLinkReady])
 
 	const plotPreGenKey = `plot-${document.id}-${document.docoChainProjectId}`
-	const preGenerateLinkMutation = trpc.signatureRequests.initiateSigning.useMutation({
+	const preGeneratePlotLinkMutation = trpc.signatureRequests.initiateSigning.useMutation({
 		onSuccess: data => {
 			if (data.link && data.projectUuid && onPreGeneratedLink) {
-				onPreGeneratedLink(document.id, data.link, data.projectUuid)
+				onPreGeneratedLink(document.id, data.link, data.projectUuid, "plot")
 			}
 			preGenerationInitiatedRef.current = null
 			plotPreGenRetryCountRef.current = 0
@@ -1464,6 +1478,18 @@ const DocumentActions = React.memo(function DocumentActions({
 		},
 	})
 
+	const preGenerateSignLinkMutation = trpc.signatureRequests.initiateSigning.useMutation({
+		onSuccess: data => {
+			if (data.link && data.projectUuid && onPreGeneratedLink) {
+				onPreGeneratedLink(document.id, data.link, data.projectUuid, "sign")
+			}
+			preGenerationInitiatedRef.current = null
+		},
+		onError: () => {
+			preGenerationInitiatedRef.current = null
+		},
+	})
+
 	// Pre-generate Edit Draft Link when Plot button is shown. Retry on failure; give up after 3 attempts.
 	useEffect(() => {
 		const key = plotPreGenKey
@@ -1473,7 +1499,7 @@ const DocumentActions = React.memo(function DocumentActions({
 			!userEmail ||
 			plotPreGenGiveUp ||
 			preGenerationInitiatedRef.current === key ||
-			preGenerateLinkMutation.isPending
+			preGeneratePlotLinkMutation.isPending
 		)
 			return
 
@@ -1494,7 +1520,7 @@ const DocumentActions = React.memo(function DocumentActions({
 			`🔵 Pre-generating Edit Draft Link for Plot Signature${retries > 0 ? ` (retry ${retries})` : ""}...`
 		)
 		preGenerationInitiatedRef.current = key
-		preGenerateLinkMutation.mutate({
+		preGeneratePlotLinkMutation.mutate({
 			projectUuid: document.docoChainProjectId,
 			email: userEmail,
 			isPlotting: true,
@@ -1519,11 +1545,11 @@ const DocumentActions = React.memo(function DocumentActions({
 			document.docoChainProjectId &&
 			userEmail &&
 			preGenerationInitiatedRef.current !== key &&
-			!preGenerateLinkMutation.isPending
+			!preGenerateSignLinkMutation.isPending
 		) {
 			console.log("🔵 Pre-generating Sign Link for Start Signing...")
 			preGenerationInitiatedRef.current = key
-			preGenerateLinkMutation.mutate({
+			preGenerateSignLinkMutation.mutate({
 				projectUuid: document.docoChainProjectId,
 				email: userEmail,
 			})
@@ -1762,15 +1788,20 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 	>(new Set())
 	const openingPlatformToastIdRef = useRef<string | number | null>(null)
 	const openingSignedDocumentToastIdRef = useRef<string | number | null>(null)
+	type PreGeneratedLinkEntry = { link: string; projectUuid: string; storedAt: number }
 	// Store pre-generated links per document (keyed by documentId). storedAt used to skip stale links on click.
-	const [preGeneratedLinks, setPreGeneratedLinks] = useState<
-		Map<string, { link: string; projectUuid: string; storedAt: number }>
+	// IMPORTANT: Plot and Sign links must NEVER share the same slot, otherwise Plot can accidentally open a Sign link (token=...).
+	const [preGeneratedPlotLinks, setPreGeneratedPlotLinks] = useState<
+		Map<string, PreGeneratedLinkEntry>
+	>(new Map())
+	const [preGeneratedSignLinks, setPreGeneratedSignLinks] = useState<
+		Map<string, PreGeneratedLinkEntry>
 	>(new Map())
 
 	// Proactively clear stale links so pre-gen runs again and we keep a fresh link ready
 	useEffect(() => {
 		const interval = setInterval(() => {
-			setPreGeneratedLinks(prev => {
+			const clearStale = (prev: Map<string, PreGeneratedLinkEntry>) => {
 				if (prev.size === 0) return prev
 				const now = Date.now()
 				const next = new Map(prev)
@@ -1780,7 +1811,9 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 					}
 				})
 				return next.size === prev.size ? prev : next
-			})
+			}
+			setPreGeneratedPlotLinks(clearStale)
+			setPreGeneratedSignLinks(clearStale)
 		}, STALE_LINK_CHECK_INTERVAL_MS)
 		return () => clearInterval(interval)
 	}, [STALE_LINK_CHECK_INTERVAL_MS])
@@ -2389,8 +2422,8 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 				return
 			}
 
-			// ALWAYS normalize the URL - ensure api=true is set
-			signingLink = normalizeUrl(signingLink) ?? signingLink
+			// For signing, preserve recipient token params; only force api=true.
+			signingLink = forceApiTruePreservingParams(signingLink)
 
 			try {
 				new URL(signingLink)
@@ -2457,20 +2490,29 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 				return
 			}
 
-			// For plotting, keep link as-is (app URL + page, user_type, email, signer_role, api=true). For signing, normalize.
+			// For plotting, keep link as-is (enterprise draft plotting URL). For signing, preserve token params; only force api=true.
 			const wasPlotting = isPlottingActionRef.current
-			if (!wasPlotting) signingLink = normalizeUrl(signingLink) ?? signingLink
+			if (!wasPlotting) signingLink = forceApiTruePreservingParams(signingLink)
+			// SAFETY: Always force api=true for plotting links (DocOnChain UI mode toggle).
+			// Some upstream links can omit it on first load; missing api=true shows the full sidebar/editor shell.
+			if (wasPlotting) {
+				try {
+					const url = new URL(signingLink)
+					url.searchParams.set("api", "true")
+					signingLink = url.toString()
+				} catch {
+					// Ignore if URL parsing fails; later validation will catch invalid URLs.
+				}
+			}
 
 			// Validate it's a proper URL
 			try {
 				const url = new URL(signingLink)
-				// SAFETY: Plot Signature must never open a "signing" link (token=...) or app-domain link.
+				// SAFETY: Plot Signature must never open a per-recipient "signing" link (token=...).
+				// stg-app / app domain is allowed for plot links (DOCONCHAIN_APP_URL).
 				if (wasPlotting) {
-					const hasTokenParam = url.searchParams.has("token")
-					const isAppDomain =
-						url.hostname.includes("stg-app.doconchain.com") ||
-						url.hostname.includes("app.doconchain.com")
-					if (hasTokenParam || isAppDomain) {
+					const hasSignerTokenParam = url.searchParams.has("token")
+					if (hasSignerTokenParam) {
 						toast.error(
 							"Plot Signature must open the draft plotting platform. Please click Plot Signature again."
 						)
@@ -2561,14 +2603,16 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 	const handleSignClick = useCallback(
 		(projectUuid: string | null, email: string, documentId: string, isPlotting?: boolean) => {
 			const plotting = isPlotting ?? false
-			const preGenerated = preGeneratedLinks.get(documentId)
+			const preGeneratedMap = plotting ? preGeneratedPlotLinks : preGeneratedSignLinks
+			const setPreGeneratedMap = plotting ? setPreGeneratedPlotLinks : setPreGeneratedSignLinks
+			const preGenerated = preGeneratedMap.get(documentId)
 
 			// Pre-generated link can go stale (api_token expires after ~2 min). Skip use when stale and regenerate.
 			const ageMs =
 				typeof preGenerated?.storedAt === "number" ? Date.now() - preGenerated.storedAt : Infinity
 			const isStale = ageMs > PRE_GENERATED_LINK_MAX_AGE_MS
 			if (preGenerated?.link && isStale) {
-				setPreGeneratedLinks(prev => {
+				setPreGeneratedMap(prev => {
 					const next = new Map(prev)
 					next.delete(documentId)
 					return next
@@ -2584,8 +2628,19 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 				if (plotting) plotPopupDocumentIdRef.current = documentId
 
 				let signingLink = preGenerated.link
-				// For plotting, keep link as-is (app URL + page, user_type, email, signer_role, api=true)
-				if (!plotting) signingLink = normalizeUrl(signingLink) ?? signingLink
+				// For plotting, keep link as-is (enterprise draft plotting URL). For signing, preserve token params.
+				if (!plotting) {
+					signingLink = forceApiTruePreservingParams(signingLink)
+				} else {
+					// SAFETY: Always force api=true for plotting links (ensures "no sidebar" DocOnChain view).
+					try {
+						const url = new URL(signingLink)
+						url.searchParams.set("api", "true")
+						signingLink = url.toString()
+					} catch {
+						// Ignore; validation below will handle invalid URLs.
+					}
+				}
 
 				try {
 					const url = new URL(signingLink)
@@ -2648,7 +2703,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 							? "Opening plotting platform in popup window..."
 							: "Opening signing interface in popup window..."
 					)
-					setPreGeneratedLinks(prev => {
+					setPreGeneratedMap(prev => {
 						const next = new Map(prev)
 						next.delete(documentId)
 						return next
@@ -2678,7 +2733,13 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 					: { documentId, email, isPlotting: plotting }
 			)
 		},
-		[initiateSigning, preGeneratedLinks, refetchDocuments, manualRefreshSigningStatuses]
+		[
+			initiateSigning,
+			preGeneratedPlotLinks,
+			preGeneratedSignLinks,
+			refetchDocuments,
+			manualRefreshSigningStatuses,
+		]
 	)
 
 	// Get the first non-dismissed pending request
@@ -3393,7 +3454,8 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 								// Document is COMPLETED when DocoChain has finished processing (seal + signature applied)
 								const statusUpper = String(signingStatus?.projectStatus ?? "").toUpperCase()
 								const isCompleted =
-									statusUpper === "COMPLETED" || signingStatus?.completedAt != null
+									statusUpper === "COMPLETED" ||
+									(signingStatus?.completedAt !== null && signingStatus?.completedAt !== undefined)
 								const isPreparingNotarized =
 									isFullySigned && !isCompleted && (signingStatus?.signedCount ?? 0) > 0
 								const isDownloadingSigned =
@@ -3615,19 +3677,16 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 												isCreatingProject={createDocoChainProjectMutation.isPending}
 												docoChainTokenReady={docoChainTokenReady}
 												docoChainTokenLoading={docoChainTokenLoading}
-												onPreGeneratedLink={(documentId, link, projectUuid) => {
-													// Store plot link as-is (app URL + page, user_type, email, signer_role, api=true)
-													setPreGeneratedLinks(prev => {
+												onPreGeneratedLink={(documentId, link, projectUuid, kind) => {
+													const setMap =
+														kind === "plot" ? setPreGeneratedPlotLinks : setPreGeneratedSignLinks
+													setMap(prev => {
 														const next = new Map(prev)
-														next.set(documentId, {
-															link,
-															projectUuid,
-															storedAt: Date.now(),
-														})
+														next.set(documentId, { link, projectUuid, storedAt: Date.now() })
 														return next
 													})
 												}}
-												plotLinkReady={!!preGeneratedLinks.get(doc.id)?.link}
+												plotLinkReady={!!preGeneratedPlotLinks.get(doc.id)?.link}
 												userConfirmedPlottedDocumentIds={userConfirmedPlottedDocumentIds}
 											/>
 										</CardContent>
@@ -3664,7 +3723,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 		isDocumentsFetching,
 		meetingDetails,
 		meetingId,
-		preGeneratedLinks,
+		preGeneratedPlotLinks,
 		refetchDocuments,
 		refreshSigningStatuses,
 		session?.user?.id,

@@ -161,6 +161,16 @@ async function main() {
 			documentFileName,
 		})
 
+		// Save NRID to the act so it shows in the notarial registry
+		await db
+			.update(notarialActs)
+			.set({
+				syncedToSupremeCourt: true,
+				syncedAt: new Date(),
+				supremeCourtRegistryId: result.notarialRegistryID,
+			})
+			.where(eq(notarialActs.id, actId))
+
 		console.log("\n✅ Sync successful!")
 		console.log(`   - Notarial Registry ID (NRID): ${result.notarialRegistryID}`)
 		console.log(`   - Notarial Registry Number (NRN): ${result.notarialRegistryNumber}`)

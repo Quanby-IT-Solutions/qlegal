@@ -1286,12 +1286,17 @@ export const meetingsRouter = createTRPCRouter({
 					message.startsWith("Please select at least one signer") ||
 					message.startsWith("ENP ") ||
 					message.startsWith("Document file not found") ||
-					message.startsWith("Failed to download document")
+					message.startsWith("Failed to download document") ||
+					message.startsWith("doconchain API error") ||
+					message.startsWith("Token unauthorized") ||
+					message.startsWith("Session expired") ||
+					message.startsWith("Unauthorized") ||
+					message.startsWith("doconchain did not return")
+				const fallbackMessage =
+					"Failed to create DocoChain project. Please try again. If it persists, check your ENP profile and that the document was uploaded correctly."
 				throw new TRPCError({
 					code: "INTERNAL_SERVER_ERROR",
-					message: isUserFacing
-						? message
-						: "Failed to create DocoChain project. Please try again. If it persists, check your ENP profile and that the document was uploaded correctly.",
+					message: isUserFacing ? message : `${fallbackMessage} (${message})`,
 				})
 			}
 		}),

@@ -24,11 +24,11 @@ async function main() {
 		process.exit(1)
 	}
 
-	// Test data matching PDF example
+	// Test data: real NPN/NFN/RN (commission Active, accredited Active)
 	const testRequest = {
-		notaryFacilityNumber: "NFN-101",
-		notaryPublicNumber: "NPN-101",
-		rollNumber: "RN-101",
+		notaryFacilityNumber: "NFN-2025-00017",
+		notaryPublicNumber: "NPN-2025-00019",
+		rollNumber: "RN-12341",
 		metaData: {
 			dateNotarized: "2025-06-03",
 			notarialActType: "Acknowledgment" as const,
