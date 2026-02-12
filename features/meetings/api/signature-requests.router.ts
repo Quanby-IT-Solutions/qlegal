@@ -12,7 +12,6 @@ import {
 	generateSignLink,
 	getPassportDocument,
 	getProjectDetails,
-	getToken,
 	normalizeUrl,
 	sendProject,
 	updateProjectSigner,
@@ -39,6 +38,16 @@ function asNonEmptyEmail(email: unknown): string | undefined {
 	if (typeof email !== "string") return undefined
 	const trimmed = email.trim()
 	return trimmed.length > 0 ? trimmed : undefined
+}
+
+function forceApiTruePreservingParams(urlStr: string): string {
+	try {
+		const url = new URL(urlStr)
+		url.searchParams.set("api", "true")
+		return url.toString()
+	} catch {
+		return urlStr
+	}
 }
 
 /**
@@ -857,6 +866,8 @@ export const signatureRequestsRouter = createTRPCRouter({
 							userEmail: creatorEmail, // ENP's email - for API token generation
 						})
 						signingLink = signLinkResult.link
+						// Ensure api=true without stripping signer token params
+						signingLink = forceApiTruePreservingParams(signingLink)
 						console.log("✅ Signing link generated successfully")
 					} catch (signLinkError) {
 						console.error("❌ Failed to generate signing link:", signLinkError)
@@ -866,153 +877,112 @@ export const signatureRequestsRouter = createTRPCRouter({
 						signingLink = `${linkDomain}/${actualProjectUuid}?api=true`
 					}
 				} else {
-					// Project is Draft OR user is plotting - ALWAYS use Edit Draft Link for plotting/signing
-					// This ensures we get a fresh, valid link every time (avoids expired one-time links)
-					// DO NOT use stored redirect URL - it's a one-time link that expires/invalidates
-					// after first use or after some time, causing "Session Ended" errors.
-					// CRITICAL: If isPlotting=true, we're forcing Edit Draft Link even if status check said "Sent"
-					console.log(
-						"🔵 Project is Draft or user is plotting - generating Edit Draft Link (for plotting/signing)..."
-					)
-					console.log("   - Is Plotting:", isPlotting ?? false)
-					console.log("   - Project Status:", projectStatus)
-					console.log("   - Signer has plotted:", signerHasPlotted)
+					// Project is Draft OR user is plotting.
+					// - Plotting MUST use Edit Draft Link (draft editor).
+					// - Signing SHOULD use per-recipient signing link (token=...) so DocOnChain shows the "close tab" completion screen.
+					//   If project is still Draft, we attempt to send/deploy first (ENP token required), then generate sign link.
 
-					// Generate Edit Draft Project Link (allows plotting/editing/signing in draft)
-					// POST /api/v2/projects/{uuid}/link?user_type=ENTERPRISE_API
-					// Use creator's token to generate the link (token validation handled by apiCall)
-					// CRITICAL: For brand-new projects, DocoChain can take a moment to fully initialize.
-					// When plotting, we intentionally wait + retry a few times so the returned link is stable
-					// before the client opens it (prevents immediate redirects to stg-app on first doc/new meeting).
-					let editDraftResult: { link: string } | null = null
-					let editDraftError: unknown = null
+					if (isPlotting === true) {
+						console.log(
+							"🔵 User is plotting - generating Edit Draft Link (for plotting only)..."
+						)
+						console.log("   - Project Status:", projectStatus)
 
-					// When plotting, use meeting-scoped token (from ENP join) so we never get Sign link.
-					// Use `let` so we can regenerate on 401 and retry with a fresh token.
-					// ensureMeetingToken: use cached token if fresh, else create (e.g. ENP never called getToken).
-					let meetingToken: string | undefined =
-						isPlotting === true ? await ensureMeetingToken(meeting.id, creatorEmail) : undefined
+						let editDraftResult: { link: string } | null = null
+						let editDraftError: unknown = null
 
-					// When plotting, do a few attempts with exponential backoff.
-					// On 401, regenerate meeting token and retry (token may expire before Plot Signature).
-					const maxLinkAttempts = isPlotting === true ? 4 : 1
-					let linkRetryDelayMs = 600
+						// When plotting, use meeting-scoped token (from ENP join) so we never get a Sign link.
+						let meetingToken: string | undefined = await ensureMeetingToken(meeting.id, creatorEmail)
 
-					for (let attempt = 0; attempt < maxLinkAttempts; attempt++) {
-						if (attempt > 0) {
-							console.log(
-								`🔵 Retrying Edit Draft Link generation (attempt ${attempt + 1}/${maxLinkAttempts}) after ${linkRetryDelayMs}ms...`
-							)
-							await new Promise(resolve => setTimeout(resolve, linkRetryDelayMs))
-							linkRetryDelayMs *= 2
+						const maxLinkAttempts = 4
+						let linkRetryDelayMs = 600
+						for (let attempt = 0; attempt < maxLinkAttempts; attempt++) {
+							if (attempt > 0) {
+								console.log(
+									`🔵 Retrying Edit Draft Link generation (attempt ${attempt + 1}/${maxLinkAttempts}) after ${linkRetryDelayMs}ms...`
+								)
+								await new Promise(resolve => setTimeout(resolve, linkRetryDelayMs))
+								linkRetryDelayMs *= 2
+							}
+							try {
+								editDraftResult = await generateEditDraftLink(
+									actualProjectUuid,
+									creatorEmail,
+									meetingToken,
+									true
+								)
+								signingLink = editDraftResult.link
+								console.log(
+									`✅ Edit Draft Project Link generated successfully (attempt ${attempt + 1}/${maxLinkAttempts})`
+								)
+								break
+							} catch (err) {
+								editDraftError = err
+								const is401 =
+									err instanceof Error &&
+									(err.message.includes("401") ||
+										err.message.includes("Token expired or unauthorized"))
+								if (is401 && meetingToken !== undefined) {
+									console.log(
+										"🔄 Meeting token expired (401) – generating fresh token for ENP and retrying..."
+									)
+									meetingToken = await generateAndSetMeetingToken(meeting.id, creatorEmail)
+								}
+								console.error(
+									`❌ Attempt ${attempt + 1}/${maxLinkAttempts} to generate Edit Draft Link failed:`,
+									err
+								)
+							}
+						}
+
+						if (!editDraftResult) {
+							console.error("❌ Failed to generate Edit Draft Link after retry:", editDraftError)
+							throw new Error("Unable to open plotting platform yet. Please try again in a moment.")
+						}
+					} else {
+						console.log(
+							"🔵 User is signing - ensuring project is sent, then generating per-recipient signing link..."
+						)
+						console.log("   - Project Status:", projectStatus)
+
+						// If Draft, send/deploy so Generate Sign Link is available and signer sees correct completion screen.
+						try {
+							await sendProject(actualProjectUuid, creatorEmail)
+						} catch {
+							// Best-effort: if already sent or DocoChain rejects, we'll still try generateSignLink.
 						}
 
 						try {
-							editDraftResult = await generateEditDraftLink(
+							const signLinkResult = await generateSignLink({
+								projectUuid: actualProjectUuid,
+								email,
+								userEmail: creatorEmail,
+							})
+							signingLink = forceApiTruePreservingParams(signLinkResult.link)
+							console.log("✅ Per-recipient signing link generated successfully")
+						} catch (err) {
+							console.error("❌ Failed to generate per-recipient signing link:", err)
+							// Last resort: fall back to Edit Draft link (may show "ready for signing" screen).
+							const editDraftResult = await generateEditDraftLink(
 								actualProjectUuid,
 								creatorEmail,
-								meetingToken,
-								isPlotting === true
+								undefined,
+								false
 							)
-							signingLink = editDraftResult.link
-							console.log(
-								`✅ Edit Draft Project Link generated successfully (attempt ${attempt + 1}/${maxLinkAttempts})`
-							)
-							break
-						} catch (err) {
-							editDraftError = err
-							const is401 =
-								err instanceof Error &&
-								(err.message.includes("401") ||
-									err.message.includes("Token expired or unauthorized"))
-							if (isPlotting === true && is401 && meetingToken !== undefined) {
-								console.log(
-									"🔄 Meeting token expired (401) – generating fresh token for ENP and retrying..."
-								)
-								meetingToken = await generateAndSetMeetingToken(meeting.id, creatorEmail)
-							}
-							console.error(
-								`❌ Attempt ${attempt + 1}/${maxLinkAttempts} to generate Edit Draft Link failed:`,
-								err
-							)
+							signingLink = forceApiTruePreservingParams(editDraftResult.link)
 						}
-					}
-
-					// If both attempts failed, use fallback - but use link.doconchain.com domain, not stg-app
-					if (!editDraftResult) {
-						console.error("❌ Failed to generate Edit Draft Link after retry:", editDraftError)
-						// For Plot Signature, never return a guessed/fallback URL.
-						// It's better to fail and let the user retry than to open the wrong DocoChain page.
-						if (isPlotting === true) {
-							throw new Error("Unable to open plotting platform yet. Please try again in a moment.")
-						}
-						// CRITICAL: Use link.doconchain.com domain for Edit Draft Links, not stg-app.doconchain.com
-						// Extract short code from project UUID or use project UUID directly
-						// The fallback should still be a valid Edit Draft Link format
-						const linkDomain = env.DOCONCHAIN_API_URL.includes("stg")
-							? "https://link.doconchain.com"
-							: "https://link.doconchain.com"
-						// Note: This fallback won't work without a valid short code, but at least uses correct domain
-						console.warn(
-							"⚠️ Using fallback URL with correct domain - this may not work without valid short code"
-						)
-						signingLink = `${linkDomain}/${actualProjectUuid}?api=true`
 					}
 				}
 
 				if (signingLink) {
-					// For plotting: keep app URL and params (page, user_type, email, signer_role, api=true). Do not normalize.
-					// For signing: normalize to link.doconchain.com and remove token/email/signer_role/page.
-					if (isPlotting !== true) {
-						signingLink = normalizeUrl(signingLink) ?? signingLink
-
-						try {
-							const url = new URL(signingLink)
-
-							// Convert stg-app/app to link.doconchain.com for signing (not for plotting)
-							if (
-								url.hostname.includes("stg-app.doconchain.com") ||
-								url.hostname.includes("app.doconchain.com")
-							) {
-								console.log("🔵 Converting stg-app/app.doconchain.com to link.doconchain.com")
-								url.hostname = "link.doconchain.com"
-							}
-
-							url.searchParams.delete("token")
-							url.searchParams.delete("email")
-							url.searchParams.delete("signer_role")
-							url.searchParams.delete("page")
-							url.searchParams.set("api", "true")
-
-							if (url.searchParams.has("api_token")) {
-								const existingToken = url.searchParams.get("api_token")
-								if (!existingToken || existingToken === "undefined" || existingToken === "") {
-									url.searchParams.delete("api_token")
-									console.log("⚠️ Removed invalid/empty api_token from URL")
-								}
-							}
-
-							if (!url.searchParams.has("api_token")) {
-								console.log(
-									"🔵 Using cached token for signing link (same token from project creation)..."
-								)
-								const apiToken = await getToken(creatorEmail, false)
-								url.searchParams.set("api_token", apiToken)
-								console.log(
-									"✅ Added api_token to signing link (using token from project creation, required for document loading)"
-								)
-							}
-
-							signingLink = url.toString()
-						} catch {
-							// If URL parsing fails, signingLink is already normalized
-						}
-					}
+					// For plotting: keep as-is (enterprise draft plotting URL).
+					// For signing: DO NOT strip recipient `token=` param; it drives the correct signing completion UX ("close tab").
+					if (isPlotting !== true) signingLink = forceApiTruePreservingParams(signingLink)
 				}
 
-				// For plotting, return link as-is (app URL + page, user_type, email, signer_role, api=true). For signing, normalize.
+				// For plotting, return link as-is. For signing, preserve parameters and just ensure api=true.
 				const finalNormalizedLink =
-					isPlotting === true ? signingLink : (normalizeUrl(signingLink) ?? signingLink)
+					isPlotting === true ? signingLink : forceApiTruePreservingParams(signingLink)
 
 				// SAFETY: When plotting, NEVER allow a sent-project signing link (stg-app/app + token param).
 				// Plotting must always use the Edit Draft plot link format (link.doconchain.com + api_token).
