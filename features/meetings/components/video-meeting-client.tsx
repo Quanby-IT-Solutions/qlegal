@@ -2508,13 +2508,11 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 			// Validate it's a proper URL
 			try {
 				const url = new URL(signingLink)
-				// SAFETY: Plot Signature must never open a "signing" link (token=...) or app-domain link.
+				// SAFETY: Plot Signature must never open a per-recipient "signing" link (token=...).
+				// stg-app / app domain is allowed for plot links (DOCONCHAIN_APP_URL).
 				if (wasPlotting) {
-					const hasTokenParam = url.searchParams.has("token")
-					const isAppDomain =
-						url.hostname.includes("stg-app.doconchain.com") ||
-						url.hostname.includes("app.doconchain.com")
-					if (hasTokenParam || isAppDomain) {
+					const hasSignerTokenParam = url.searchParams.has("token")
+					if (hasSignerTokenParam) {
 						toast.error(
 							"Plot Signature must open the draft plotting platform. Please click Plot Signature again."
 						)

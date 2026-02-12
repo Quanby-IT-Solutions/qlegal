@@ -147,6 +147,12 @@ function extractPlotShortCode(link: string): string {
 	}
 }
 
+/**
+ * Generate Edit Draft Project Link (Plot Signature).
+ * API: POST {DOCONCHAIN_API_URL}/api/v2/projects/:uuid/link?user_type=ENTERPRISE_API
+ * Response: { message: { message: "...", link: "https://link.doconchain.com/<shortCode>" } }
+ * We use the short code and build plot URL with page, user_type, email, signer_role, api=true + api_token.
+ */
 export async function generateEditDraftLink(
 	projectUuid: string,
 	userEmail?: string,
@@ -291,7 +297,9 @@ export async function generateEditDraftLink(
 	const email = userEmail ?? env.DOCONCHAIN_EMAIL
 
 	if (forPlotting) {
-		// Plotting: use link.doconchain.com (not stg-app) to avoid email-document-status?status=Deleted redirect bug
+		// Plotting: MUST use link.doconchain.com (not stg-app/app) to avoid DocoChain redirect to
+		// email-document-status?status=Deleted. Same query params: page=1, user_type=ENTERPRISE_API,
+		// email, signer_role=Signer, api=true (+ api_token appended).
 		const shortCode = extractPlotShortCode(link)
 		const plotDomain = "https://link.doconchain.com"
 		const plotBase = `${plotDomain}/${shortCode}`
@@ -311,7 +319,9 @@ export async function generateEditDraftLink(
 			tokenOverride ? undefined : projectUuid,
 			tokenOverride
 		)
-		console.log("🔵 Built plot link (link.doconchain.com + page, user_type, email, signer_role, api=true)")
+		console.log(
+			"🔵 Built plot link (link.doconchain.com + page, user_type, email, signer_role, api=true)"
+		)
 		return { link: finalLink }
 	}
 

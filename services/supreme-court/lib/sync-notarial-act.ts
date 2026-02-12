@@ -32,6 +32,21 @@ interface SyncResult {
 const ADDRESS_NOT_SPECIFIED = "Not specified"
 
 /**
+ * Normalize Supreme Court identifiers to expected format.
+ * Per SC API v1.4: System auto-prepends NPN-/NFN-/RN- if not included, but some
+ * implementations expect the prefix. Ensure consistent format.
+ */
+function normalizeIdentifier(value: string, prefix: "NPN" | "NFN" | "RN"): string {
+	const trimmed = value?.trim() ?? ""
+	if (!trimmed) return trimmed
+	const upperPrefix = `${prefix}-`
+	if (trimmed.toUpperCase().startsWith(upperPrefix)) return trimmed
+	// If value is just digits (e.g. "12341"), prepend prefix
+	if (/^\d+$/.test(trimmed)) return `${upperPrefix}${trimmed}`
+	return trimmed
+}
+
+/**
  * Parse address string into SC API format.
  * Expected format: "Street, Barangay, City/Province" or similar.
  * Returns non-empty strings for all fields (SC API requires homeStreet, barangay, cityProvince).
@@ -119,14 +134,18 @@ function formatDate(date: Date | null | undefined): string {
 export async function syncNotarialActToSupremeCourt(
 	options: SyncNotarialActOptions
 ): Promise<SyncResult> {
-	const { act, notaryFacilityNumber, notaryPublicNumber, rollNumber, documentFile, documentFileName } =
-		options
+	const { act, documentFile, documentFileName } = options
+
+	// Normalize identifiers to SC API format (NPN-, NFN-, RN- prefixes)
+	const nfn = normalizeIdentifier(options.notaryFacilityNumber, "NFN")
+	const npn = normalizeIdentifier(options.notaryPublicNumber, "NPN")
+	const rn = normalizeIdentifier(options.rollNumber, "RN")
 
 	// Validate commission status before syncing
 	// Per SC API v1.4: "The system rejects any request to create Notarial Metadata
 	// wherein either the Commission Status or Accreditation Status is classified as Inactive."
 	try {
-		const commissionStatus = await getCommissionStatus(notaryPublicNumber, rollNumber)
+		const commissionStatus = await getCommissionStatus(npn, rn)
 		if (commissionStatus.commissionStatus !== "Active") {
 			throw new Error(
 				`Cannot sync to Supreme Court: Commission status is "${commissionStatus.commissionStatus}". Only "Active" commissions can create notarial metadata.`
@@ -147,13 +166,21 @@ export async function syncNotarialActToSupremeCourt(
 		)
 	}
 
+	// Validate principal (SC API rejects empty principal)
+	const principalName = (act.principalName ?? "").trim()
+	if (!principalName) {
+		throw new Error(
+			"Cannot sync to Supreme Court: principalName is required. Please ensure the notarial act has principal information."
+		)
+	}
+
 	// Map principal address
 	const principalAddress = parseAddress(act.principalAddress)
 
 	// Build principals list
 	const principals = [
 		{
-			principalName: act.principalName,
+			principalName,
 			principalAddress,
 		},
 	]
@@ -175,17 +202,17 @@ export async function syncNotarialActToSupremeCourt(
 
 	// Create consolidated request (POST /public-use/consolidated - metadata + principals + witnesses in one call)
 	const consolidatedRequest = {
-		notaryFacilityNumber,
-		notaryPublicNumber,
-		rollNumber,
+		notaryFacilityNumber: nfn,
+		notaryPublicNumber: npn,
+		rollNumber: rn,
 		metaData: {
 			dateNotarized: formatDate(act.executedAt),
 			notarialActType: mapActType(act.actType),
 			notarialPageNumber: 1, // TODO: Calculate actual page number from notarial book
 			notarialBookNumber: 1, // TODO: Get actual book number
-			description: act.documentDescription || act.documentName || "Notarial Act",
+			description: (act.documentDescription ?? act.documentName ?? "Notarial Act").trim(),
 			modeOfNotarization,
-			remarks: act.locationStatement || undefined,
+			remarks: act.locationStatement?.trim() ?? undefined,
 			dateUpdated: formatDate(act.updatedAt),
 		},
 		listOfPrincipals: principals,
@@ -195,6 +222,9 @@ export async function syncNotarialActToSupremeCourt(
 
 	// Step 1: Create metadata, principals, and witnesses in one call (per PDF Section 6)
 	console.log("🔵 Creating metadata (consolidated) in Supreme Court...")
+	if (process.env.NODE_ENV === "development") {
+		console.log("📋 [SC Sync] Payload:", JSON.stringify(consolidatedRequest, null, 2))
+	}
 	const metadataResult = await createMetadataConsolidated(consolidatedRequest)
 	const { notarialRegistryID, notarialRegistryNumber } = metadataResult
 

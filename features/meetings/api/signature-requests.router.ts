@@ -18,8 +18,10 @@ import {
 } from "@/services/doconchain"
 import {
 	ensureMeetingToken,
-	generateAndSetMeetingToken,
+	generateToken,
 	getMeetingToken,
+	getOrRefreshProjectToken,
+	setProjectToken,
 } from "@/services/doconchain/lib/token-cache"
 import { db } from "@/services/drizzle/db"
 import { users } from "@/services/drizzle/schema/auth"
@@ -891,8 +893,19 @@ export const signatureRequestsRouter = createTRPCRouter({
 						let editDraftResult: { link: string } | null = null
 						let editDraftError: unknown = null
 
-						// When plotting, use meeting-scoped token (from ENP join) so we never get a Sign link.
-						let meetingToken: string | undefined = await ensureMeetingToken(meeting.id, creatorEmail)
+						// CRITICAL: Use the SAME token that was used to CREATE this project when generating
+						// the Edit Draft link. Otherwise (e.g. first meeting on a different server instance)
+						// we can get a meeting token from another instance and the link points to the wrong
+						// DocoChain session. Prefer project token (set at createDocoChainProject), fall back
+						// to meeting token when project token is not in this instance's cache.
+						let tokenForLink: string | undefined =
+							await getOrRefreshProjectToken(actualProjectUuid, creatorEmail)
+						if (!tokenForLink) {
+							tokenForLink = await ensureMeetingToken(meeting.id, creatorEmail)
+							console.log("   - Using meeting-scoped token (no project token in cache)")
+						} else {
+							console.log("   - Using project-scoped token (same as project creation)")
+						}
 
 						const maxLinkAttempts = 4
 						let linkRetryDelayMs = 600
@@ -908,7 +921,7 @@ export const signatureRequestsRouter = createTRPCRouter({
 								editDraftResult = await generateEditDraftLink(
 									actualProjectUuid,
 									creatorEmail,
-									meetingToken,
+									tokenForLink,
 									true
 								)
 								signingLink = editDraftResult.link
@@ -922,11 +935,13 @@ export const signatureRequestsRouter = createTRPCRouter({
 									err instanceof Error &&
 									(err.message.includes("401") ||
 										err.message.includes("Token expired or unauthorized"))
-								if (is401 && meetingToken !== undefined) {
+								if (is401 && tokenForLink !== undefined) {
 									console.log(
-										"🔄 Meeting token expired (401) – generating fresh token for ENP and retrying..."
+										"🔄 Token expired (401) – generating fresh token and retrying..."
 									)
-									meetingToken = await generateAndSetMeetingToken(meeting.id, creatorEmail)
+									const freshToken = await generateToken(creatorEmail, true)
+									setProjectToken(actualProjectUuid, freshToken)
+									tokenForLink = freshToken
 								}
 								console.error(
 									`❌ Attempt ${attempt + 1}/${maxLinkAttempts} to generate Edit Draft Link failed:`,
@@ -984,29 +999,26 @@ export const signatureRequestsRouter = createTRPCRouter({
 				const finalNormalizedLink =
 					isPlotting === true ? signingLink : forceApiTruePreservingParams(signingLink)
 
-				// SAFETY: When plotting, NEVER allow a sent-project signing link (stg-app/app + token param).
-				// Plotting must always use the Edit Draft plot link format (link.doconchain.com + api_token).
+				// SAFETY: When plotting, never allow a per-recipient signing link (has "token" param).
+				// Plot link must use api_token and correct params (page, user_type, email, signer_role, api=true).
+				// stg-app / app domain is allowed for plot links when using DOCONCHAIN_APP_URL.
 				if (isPlotting === true) {
 					try {
 						const url = new URL(finalNormalizedLink)
-						const hasTokenParam = url.searchParams.has("token")
-						const isAppDomain =
-							url.hostname.includes("stg-app.doconchain.com") ||
-							url.hostname.includes("app.doconchain.com")
+						const hasSignerTokenParam = url.searchParams.has("token")
 
-						if (hasTokenParam || isAppDomain) {
+						if (hasSignerTokenParam) {
 							console.error(
-								"❌ Plot Signature attempted to return a signing/app link. Blocking for safety.",
-								{
-									host: url.hostname,
-									hasTokenParam,
-								}
+								"❌ Plot Signature attempted to return a signing link (token param). Blocking for safety.",
+								{ host: url.hostname }
 							)
 							throw new Error(
 								"Plot Signature must open the draft plotting platform. Please click Plot Signature again."
 							)
 						}
-					} catch {
+					} catch (err) {
+						if (err instanceof Error && err.message.includes("Plot Signature must open"))
+							throw err
 						// If URL parsing fails, fall through (client will validate before opening).
 					}
 				}
