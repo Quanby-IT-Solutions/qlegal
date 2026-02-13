@@ -1,12 +1,7 @@
 "use client"
 
-import {
-	SidebarGroup,
-	SidebarGroupLabel,
-	SidebarMenu,
-} from "@/core/components/animate-ui/components/radix/sidebar"
-import type { NavSection, NotaryRole } from "@/core/lib/nav/types"
-import { canAccessNavItem } from "@/core/lib/nav/utils"
+import { SidebarGroup, SidebarGroupLabel, SidebarMenu } from "@/core/components/animate-ui/components/radix/sidebar"
+import type { NavSection } from "@/core/lib/nav/types"
 
 import { SidebarNavItem } from "./sidebar-nav-item"
 
@@ -16,14 +11,8 @@ type SidebarNavSectionProps = {
 }
 
 export const SidebarNavSection = ({ section, userRole }: SidebarNavSectionProps) => {
-	// Filter items by role
-	const accessibleItems = section.items.filter(item => {
-		// Handle union type: roles can be NotaryRole[] | UserRole[]
-		return canAccessNavItem(item.roles as NotaryRole[] | undefined, userRole)
-	})
-
-	// Don't render section if no accessible items
-	if (accessibleItems.length === 0) return null
+	// Sections returned from getAppSidebarSections are already filtered by role.
+	if (section.items.length === 0) return null
 
 	return (
 		<SidebarGroup
@@ -31,7 +20,7 @@ export const SidebarNavSection = ({ section, userRole }: SidebarNavSectionProps)
 		>
 			<SidebarGroupLabel>{section.label}</SidebarGroupLabel>
 			<SidebarMenu>
-				{accessibleItems.map(item => (
+				{section.items.map(item => (
 					<SidebarNavItem key={item.title} item={item} userRole={userRole} />
 				))}
 			</SidebarMenu>

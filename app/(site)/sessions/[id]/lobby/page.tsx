@@ -31,11 +31,11 @@ import { Skeleton } from "@/core/components/ui/skeleton"
 import { useGeolocation } from "@/core/hooks/use-geolocation"
 
 import { checkUserLivenessStatus } from "@/features/liveness-validation/api/liveness.actions"
-import { useLocationVerification } from "@/features/meetings/api/location-verification.hooks"
-import { useMeetings } from "@/features/meetings/api/meetings.hooks"
-import { LocationErrorDialog } from "@/features/meetings/components/location-error-dialog"
-import { VpnDetectedDialog } from "@/features/meetings/components/vpn-detected-dialog"
-import type { LocationVerificationResult } from "@/features/meetings/lib/location-verification"
+import { useLocationVerification } from "@/features/sessions/api/location-verification.hooks"
+import { useMeetings } from "@/features/sessions/api/meetings.hooks"
+import { LocationErrorDialog } from "@/features/sessions/components/location-error-dialog"
+import { VpnDetectedDialog } from "@/features/sessions/components/vpn-detected-dialog"
+import type { LocationVerificationResult } from "@/features/sessions/lib/location-verification"
 
 type LocationStatus =
 	| "checking"
@@ -164,7 +164,7 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 	// Check liveness verification and redirect if needed - runs IMMEDIATELY
 	useEffect(() => {
 		if (!session) {
-			router.push(`/auth/login?callbackUrl=/meetings/${id}/lobby`)
+			router.push(`/auth/login?callbackUrl=/sessions/${id}/lobby`)
 			return
 		}
 
@@ -174,7 +174,7 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 				const result = await checkUserLivenessStatus(id)
 				if (result.success && result.data && !result.data.isVerified) {
 					// User hasn't completed liveness verification for this meeting, redirect to liveness page
-					const redirectUrl = encodeURIComponent(`/meetings/${id}/lobby`)
+					const redirectUrl = encodeURIComponent(`/sessions/${id}/lobby`)
 					router.push(`/liveness?redirect=${redirectUrl}&meetingId=${id}`)
 				} else {
 					// Liveness check passed, show lobby
@@ -258,7 +258,7 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 		if (stream) {
 			stream.getTracks().forEach(track => track.stop())
 		}
-		router.push(`/meetings/${id}`)
+		router.push(`/sessions/${id}`)
 	}
 
 	// Cleanup on unmount
@@ -317,8 +317,8 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 		return (
 			<>
 				{/* Fixed overlay that covers EVERYTHING including sidebar */}
-				<div className="bg-background fixed inset-0 z-[9999]">
-					<div className="from-background via-muted/20 to-background flex min-h-screen items-center justify-center bg-gradient-to-br px-4 py-10">
+				<div className="bg-background fixed inset-0 z-9999">
+					<div className="from-background via-muted/20 to-background flex min-h-screen items-center justify-center bg-linear-to-br px-4 py-10">
 						<div className="w-full max-w-2xl space-y-6">
 							{/* Logo Skeleton */}
 							<div className="flex justify-center">
@@ -386,8 +386,8 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 						<p className="text-muted-foreground mt-2">
 							The meeting you&apos;re looking for doesn&apos;t exist.
 						</p>
-						<Button className="mt-6" onClick={() => router.push("/meetings")}>
-							Back to Meetings
+						<Button className="mt-6" onClick={() => router.push("/sessions")}>
+							Back to Sessions
 						</Button>
 					</CardContent>
 				</Card>
@@ -407,7 +407,7 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 						<p className="text-muted-foreground mb-6">
 							This meeting has not started yet. Please wait for the host to start the meeting.
 						</p>
-						<Button onClick={() => router.push("/meetings")}>Back to Meetings</Button>
+						<Button onClick={() => router.push("/sessions")}>Back to Sessions</Button>
 					</CardContent>
 				</Card>
 			</div>
@@ -662,7 +662,7 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 														inviteWitnessByEmail.mutate(
 															{ meetingId: id, email },
 															{
-																onSuccess: async result => {
+																onSuccess: result => {
 																	if (result.created) {
 																		toast.success("Invite sent")
 																		setWitnessEmail("")
@@ -673,7 +673,7 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 																				: "That user is already in this meeting"
 																		)
 																	}
-																	await refetchMeeting()
+																	void refetchMeeting()
 																},
 																onError: err => {
 																	toast.error(err.message || "Failed to invite witness")
@@ -781,7 +781,7 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 									<Button
 										variant="outline"
 										className="border-border/50 h-10 w-full text-sm sm:text-base"
-										onClick={() => router.push("/meetings")}
+										onClick={() => router.push("/sessions")}
 									>
 										Cancel
 									</Button>

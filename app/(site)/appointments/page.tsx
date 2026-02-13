@@ -22,7 +22,7 @@ import { getInitials } from "@/core/lib/utils"
 
 import { trpc, type RouterOutputs } from "@/services/trpc/client"
 
-import { useMeetings } from "@/features/meetings/api/meetings.hooks"
+import { useMeetings } from "@/features/sessions/api/meetings.hooks"
 
 type Appointment = RouterOutputs["appointments"]["getMyAppointments"][number]
 
@@ -253,7 +253,7 @@ function AppointmentCard({
 		onError: err => toast.error(err.message || "Failed to reject"),
 	})
 	const meetingIdFromLink = useMemo(() => {
-		const match = appointment.meetingLink?.match(/\/meetings\/([^/]+)/)
+		const match = appointment.meetingLink?.match(/\/sessions\/([^/]+)/)
 		return match?.[1] ?? null
 	}, [appointment.meetingLink])
 	const {
@@ -318,7 +318,7 @@ function AppointmentCard({
 				// Update appointment with meeting link
 				await updateAppointment.mutateAsync({
 					appointmentId: appointment.id,
-					meetingLink: `/meetings/${meetingId}/lobby`,
+					meetingLink: `/sessions/${meetingId}/lobby`,
 				})
 			}
 
@@ -349,7 +349,7 @@ function AppointmentCard({
 
 	const handleJoinMeeting = () => {
 		if (meetingIdFromLink) {
-			router.push(`/meetings/${meetingIdFromLink}/lobby`)
+			router.push(`/sessions/${meetingIdFromLink}/lobby`)
 		}
 	}
 
