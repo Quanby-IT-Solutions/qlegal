@@ -1,11 +1,16 @@
 import { PageHeader } from "@/core/components/navbar/page-header"
 
+import { auth } from "@/services/next-auth"
 import { HydrateClient, trpc } from "@/services/trpc/server"
 
 import { type IncomingItem } from "@/features/appointments/api/requests.router"
 import { RequestsClient } from "@/features/appointments/components/requests-client"
+import { RequestsScheduleClient } from "@/features/appointments/components/requests-schedule-client"
 
 export default async function RequestsPage() {
+	const session = await auth()
+	const isENP = session?.user?.role === "ENP"
+
 	const rawRequests = await trpc.requests.getIncomingRequests()
 
 	const incomingRequests = rawRequests.map(request => ({
@@ -27,13 +32,14 @@ export default async function RequestsPage() {
 		requestData: request,
 	})) as IncomingItem[]
 
-	// Only fetch appointments if user is an ENP
 	let incomingAppointments: IncomingItem[] = []
-	const rawAppointments = await trpc.requests.getIncomingAppointmentsForENP()
-	incomingAppointments = rawAppointments.map(apt => ({
-		...apt,
-		workflow: apt.workflow as IncomingItem["workflow"],
-	})) as IncomingItem[]
+	if (isENP) {
+		const rawAppointments = await trpc.requests.getIncomingAppointmentsForENP()
+		incomingAppointments = rawAppointments.map(apt => ({
+			...apt,
+			workflow: apt.workflow as IncomingItem["workflow"],
+		})) as IncomingItem[]
+	}
 
 	const allIncomingItems = [...incomingRequests, ...incomingAppointments]
 
@@ -43,13 +49,38 @@ export default async function RequestsPage() {
 		return dateB - dateA
 	})
 
+	const today = new Date()
+	const scheduleData = isENP
+		? await trpc.requests.getEnpSchedule({
+				month: today.getMonth(),
+				year: today.getFullYear(),
+			})
+		: null
+
 	return (
 		<HydrateClient>
 			<div className="flex flex-1 flex-col">
 				<PageHeader items={[{ label: "Requests", href: "/requests" }]} />
 				<main className="flex-1 p-4 md:p-6 lg:p-8">
 					<div className="mx-auto max-w-7xl space-y-8">
-						<RequestsClient incomingRequests={allIncomingItems} />
+						{isENP && scheduleData ? (
+							<>
+								<div className="space-y-2">
+									<h1 className="text-3xl font-bold tracking-tight">
+										Requests & Schedule
+									</h1>
+									<p className="text-muted-foreground">
+										Manage incoming requests and your appointments
+									</p>
+								</div>
+								<RequestsScheduleClient
+									scheduleData={scheduleData}
+									incomingRequests={allIncomingItems}
+								/>
+							</>
+						) : (
+							<RequestsClient incomingRequests={allIncomingItems} />
+						)}
 					</div>
 				</main>
 			</div>

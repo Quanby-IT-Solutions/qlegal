@@ -1,6 +1,5 @@
 import {
 	BookOpen02Icon,
-	Calendar02Icon,
 	ChatIcon,
 	CustomerSupportIcon,
 	DocumentValidationIcon,
@@ -49,12 +48,6 @@ export const appSidebarSections: NavSection[] = [
 				url: "/browse",
 				icon: UserMultipleIcon,
 				roles: ["PRINCIPAL"],
-			},
-			{
-				title: "Schedule",
-				url: "/schedule",
-				icon: Calendar02Icon,
-				roles: ["ENP"],
 			},
 			{
 				title: "Requests",
