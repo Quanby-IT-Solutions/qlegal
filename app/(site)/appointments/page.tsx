@@ -290,8 +290,8 @@ function AppointmentCard({
 		isMeetingLive
 	const isPendingConsultation =
 		appointment.type === "CONSULTATION" && appointment.status === "PENDING" && isLawyer
-	const isPendingSigning =
-		appointment.type === "DOCUMENT_SIGNING" && appointment.status === "PENDING" && isLawyer
+	const isPendingNotarization =
+		appointment.type === "NOTARIZATION" && appointment.status === "PENDING" && isLawyer
 	const startTimeLabel = format(new Date(appointment.appointmentDate), "h:mm a")
 	const dateLabel = format(new Date(appointment.appointmentDate), "PPP")
 
@@ -308,7 +308,7 @@ function AppointmentCard({
 
 			if (!meetingId) {
 				// Create new meeting if it doesn't exist
-				const title = `${appointment.type === "DOCUMENT_SIGNING" ? "Document Signing" : "Consultation"} with ${appointment.client?.name || "Client"}`
+				const title = `${appointment.type === "NOTARIZATION" ? "Notarization" : "Consultation"} with ${appointment.client?.name || "Client"}`
 				const result = await create.mutateAsync({
 					title,
 					participantIds: [appointment.clientId],
@@ -358,7 +358,7 @@ function AppointmentCard({
 			<CardHeader className="flex flex-row items-start justify-between space-y-0">
 				<div className="space-y-1">
 					<CardTitle className="text-lg">
-						{appointment.type === "DOCUMENT_SIGNING" ? "Document Signing" : "Consultation"}
+						{appointment.type === "NOTARIZATION" ? "Notarization" : "Consultation"}
 					</CardTitle>
 					<CardDescription>
 						{dateLabel} at {startTimeLabel}
@@ -422,7 +422,7 @@ function AppointmentCard({
 					</div>
 				</div>
 
-				{(isPendingConsultation || isPendingSigning) && (
+				{(isPendingConsultation || isPendingNotarization) && (
 					<div className="flex flex-wrap items-center gap-2">
 						<Button
 							size="sm"
@@ -432,7 +432,7 @@ function AppointmentCard({
 									void confirmConsultation.mutate({
 										consultationId: appointment.id,
 									})
-								} else if (isPendingSigning) {
+								} else if (isPendingNotarization) {
 									void confirmAppointment.mutate({
 										appointmentId: appointment.id,
 										meetingLink: appointment.meetingLink || "",
@@ -459,7 +459,7 @@ function AppointmentCard({
 										consultationId: appointment.id,
 										cancelReason: "Rejected by ENP",
 									})
-								} else if (isPendingSigning) {
+								} else if (isPendingNotarization) {
 									void cancelAppointment.mutate({
 										appointmentId: appointment.id,
 										cancelReason: "Rejected by ENP",

@@ -62,7 +62,7 @@ export const scheduleRouter = createTRPCRouter({
 					modeOfNotarization: input.workflow ?? "REN",
 					notes: notes || null,
 					location:
-						input.type === "DOCUMENT_SIGNING" && input.workflow === "IEN"
+						input.type === "NOTARIZATION" && input.workflow === "IEN"
 							? (input.location ?? undefined)
 							: null,
 					meetingLink: null, // Set when confirmed
@@ -148,7 +148,7 @@ export const scheduleRouter = createTRPCRouter({
 					modeOfNotarization: input.workflow ?? existing.modeOfNotarization,
 					notes,
 					location:
-						input.type === "DOCUMENT_SIGNING" && input.workflow === "IEN"
+						input.type === "NOTARIZATION" && input.workflow === "IEN"
 							? (input.location ?? existing.location)
 							: null,
 					updatedAt: new Date(),

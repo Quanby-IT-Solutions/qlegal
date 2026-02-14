@@ -256,9 +256,9 @@ export const appointmentsRouter = createTRPCRouter({
 						.insert(meetings)
 						.values({
 							title:
-								existing.type === "DOCUMENT_SIGNING"
-									? "Document Signing Session"
-									: "Consultation Meeting",
+						existing.type === "NOTARIZATION"
+							? "Notarization Session"
+							: "Consultation Meeting",
 							roomId,
 							createdById: userId, // Use ENP as creator - they accept and initiate
 							createdAt: existing.appointmentDate,

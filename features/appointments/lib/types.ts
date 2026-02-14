@@ -1,7 +1,7 @@
 export interface RequestFilters {
 	search: string
 	status: "ALL" | "PENDING" | "CONFIRMED" | "CANCELLED" | "COMPLETED"
-	type: "ALL" | "DOCUMENT_SIGNING" | "CONSULTATION"
+	type: "ALL" | "NOTARIZATION" | "CONSULTATION"
 	workflow: "ALL" | "REN" | "IEN"
 }
 
@@ -17,7 +17,7 @@ export interface RequestStats {
 
 export interface AppointmentWithDetails {
 	id: string
-	type: "DOCUMENT_SIGNING" | "CONSULTATION"
+	type: "NOTARIZATION" | "CONSULTATION"
 	status: "PENDING" | "CONFIRMED" | "CANCELLED" | "COMPLETED"
 	appointmentDate: Date
 	duration: number

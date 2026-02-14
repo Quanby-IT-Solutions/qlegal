@@ -66,9 +66,9 @@ const STATUS_CONSULTATION: Status = {
 	name: "Consultation",
 	color: "#0EA5E9",
 }
-const STATUS_DOCUMENT_SIGNING: Status = {
-	id: "document_signing",
-	name: "Document Signing",
+const STATUS_NOTARIZATION: Status = {
+	id: "notarization",
+	name: "Notarization",
 	color: "#10B981",
 }
 
@@ -86,7 +86,7 @@ function toCalendarEvent(apt: AppointmentWithClient, status: Status): CalendarEv
 	const notes = apt.notes?.split("\n")[0]
 	return {
 		id: apt.id,
-		title: notes ?? (apt.type === "DOCUMENT_SIGNING" ? "Document Signing" : "Consultation"),
+		title: notes ?? (apt.type === "NOTARIZATION" ? "Notarization" : "Consultation"),
 		description: apt.notes ?? undefined,
 		startAt: eventDate,
 		endAt: endDate,
@@ -383,7 +383,7 @@ export function RequestsScheduleClient({
 					? STATUS_PENDING
 					: apt.type === "CONSULTATION"
 						? STATUS_CONSULTATION
-						: STATUS_DOCUMENT_SIGNING
+						: STATUS_NOTARIZATION
 			add(toCalendarEvent(apt, status))
 		}
 
@@ -405,7 +405,7 @@ export function RequestsScheduleClient({
 		const startTime = `${event.start.getHours().toString().padStart(2, "0")}:${event.start.getMinutes().toString().padStart(2, "0")}`
 		const endTime = `${event.end.getHours().toString().padStart(2, "0")}:${event.end.getMinutes().toString().padStart(2, "0")}`
 
-		const appointmentType = event.eventType === "notarization" ? "DOCUMENT_SIGNING" : "CONSULTATION"
+		const appointmentType = event.eventType === "notarization" ? "NOTARIZATION" : "CONSULTATION"
 		const workflow =
 			event.mode?.toLowerCase() === "ren" || (!event.location && event.eventType === "consultation")
 				? "REN"

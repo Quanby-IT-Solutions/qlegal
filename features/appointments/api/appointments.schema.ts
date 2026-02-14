@@ -3,7 +3,7 @@ import { z } from "zod/v4"
 // Create appointment schema
 export const createAppointmentSchema = z.object({
 	lawyerId: z.string().min(1, "Lawyer ID is required"),
-	type: z.enum(["DOCUMENT_SIGNING", "CONSULTATION"], {
+	type: z.enum(["NOTARIZATION", "CONSULTATION"], {
 		message: "Appointment type is required",
 	}),
 	appointmentDate: z.coerce.date({
@@ -36,7 +36,7 @@ export const cancelAppointmentSchema = z.object({
 // Get appointments schema
 export const getAppointmentsSchema = z.object({
 	status: z.enum(["PENDING", "CONFIRMED", "CANCELLED", "COMPLETED"]).optional(),
-	type: z.enum(["DOCUMENT_SIGNING", "CONSULTATION"]).optional(),
+	type: z.enum(["NOTARIZATION", "CONSULTATION"]).optional(),
 	lawyerId: z.string().optional(),
 	limit: z.number().min(1).max(100).default(20),
 	offset: z.number().min(0).default(0),

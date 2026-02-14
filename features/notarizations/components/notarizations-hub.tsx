@@ -130,7 +130,7 @@ function inferTitle(appointment: Appointment, principalName: string): string {
 	}
 
 	if (!title || title.length < 3) {
-		const typeLabel = appointment.type === "DOCUMENT_SIGNING" ? "Document Signing" : "Consultation"
+		const typeLabel = appointment.type === "NOTARIZATION" ? "Notarization" : "Consultation"
 		title = `${typeLabel} - ${principalName || "Client"}`
 	}
 

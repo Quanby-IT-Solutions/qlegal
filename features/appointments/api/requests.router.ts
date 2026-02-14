@@ -75,7 +75,7 @@ export type IncomingItem = {
 	}
 	appointmentData?: {
 		id: string
-		type: "DOCUMENT_SIGNING" | "CONSULTATION"
+		type: "NOTARIZATION" | "CONSULTATION"
 		status: "PENDING" | "CONFIRMED" | "CANCELLED" | "COMPLETED"
 		appointmentDate: Date
 		duration: number
@@ -191,7 +191,7 @@ export const requestsRouter = createTRPCRouter({
 		// We'll use a 'source' field to distinguish between requests and appointments
 		const appointmentsAsRequests = incomingAppointments.map(apt => ({
 			id: apt.id,
-			title: apt.type === "DOCUMENT_SIGNING" ? "Document Signing" : "Consultation",
+			title: apt.type === "NOTARIZATION" ? "Notarization" : "Consultation",
 			description: apt.notes,
 			status: apt.status,
 			workflow: apt.meetingLink ? "REN" : "IEN",

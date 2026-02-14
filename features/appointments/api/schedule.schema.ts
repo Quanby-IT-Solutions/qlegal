@@ -16,7 +16,7 @@ export const createEnpEventSchema = z.object({
 	duration: z.number().optional().default(60),
 	allDay: z.boolean().default(false),
 	location: z.string().optional(),
-	type: z.enum(["CONSULTATION", "DOCUMENT_SIGNING"]),
+	type: z.enum(["CONSULTATION", "NOTARIZATION"]),
 	workflow: z.enum(["REN", "IEN"]).optional(),
 	notes: z.string().optional(),
 })
@@ -38,7 +38,7 @@ export const updateEnpEventSchema = z.object({
 	duration: z.number().optional(),
 	allDay: z.boolean().optional(),
 	location: z.string().optional(),
-	type: z.enum(["CONSULTATION", "DOCUMENT_SIGNING"]).optional(),
+	type: z.enum(["CONSULTATION", "NOTARIZATION"]).optional(),
 	workflow: z.enum(["REN", "IEN"]).optional(),
 	notes: z.string().optional(),
 })
