@@ -163,7 +163,7 @@ export function EventDialog({ event, isOpen, onClose, onSave, onDelete }: EventD
 
 	return (
 		<Dialog open={isOpen} onOpenChange={onClose}>
-			<DialogContent className="flex max-h-[90vh] flex-col sm:max-w-[600px]">
+			<DialogContent className="flex max-h-[90vh] flex-col sm:max-w-150">
 				<DialogHeader>
 					<DialogTitle>{event?.id ? "Edit Event" : "New Event"}</DialogTitle>
 				</DialogHeader>

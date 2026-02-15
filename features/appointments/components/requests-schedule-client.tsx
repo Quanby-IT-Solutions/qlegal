@@ -1,14 +1,13 @@
 "use client"
 
 import { useRouter } from "next/navigation"
-import { memo, useMemo, useState } from "react"
-import { ArrowRight01Icon } from "@hugeicons/core-free-icons"
-import { HugeiconsIcon } from "@hugeicons/react"
+import { useMemo, useState } from "react"
 import { toast } from "sonner"
 
 import {
 	CalendarScheduleBody,
 	CalendarScheduleDatePagination,
+	CalendarScheduleEventCard,
 	CalendarScheduleGoToToday,
 	CalendarScheduleHeader,
 	CalendarScheduleMonthPicker,
@@ -20,7 +19,6 @@ import {
 	type CalendarEvent,
 	type Status,
 } from "@/core/components/calendar-schedule"
-import { Avatar, AvatarFallback, AvatarImage } from "@/core/components/ui/avatar"
 import { Badge } from "@/core/components/ui/badge"
 import { Button } from "@/core/components/ui/button"
 import {
@@ -31,17 +29,8 @@ import {
 	CardHeader,
 	CardTitle,
 } from "@/core/components/ui/card"
-import {
-	Item,
-	ItemActions,
-	ItemContent,
-	ItemDescription,
-	ItemGroup,
-	ItemMedia,
-	ItemTitle,
-} from "@/core/components/ui/item"
+import { ItemGroup } from "@/core/components/ui/item"
 import { Separator } from "@/core/components/ui/separator"
-import { getAvatarUrl, getInitials } from "@/core/lib/utils"
 
 import type { Appointment } from "@/services/drizzle/schema/appointments"
 import type { EnpAvailability } from "@/services/drizzle/schema/enp-profiles"
@@ -72,34 +61,24 @@ const STATUS_NOTARIZATION: Status = {
 	color: "#10B981",
 }
 
-type CalendarEventWithPrincipal = CalendarEvent & {
-	principal?: { name?: string | null; image?: string | null }
-	appointmentType?: "NOTARIZATION" | "CONSULTATION"
-	source?: "request" | "appointment"
-	originalItem?: IncomingItem
-}
-
-type AppointmentWithClient = Appointment & {
-	client?: { name?: string | null; image?: string | null }
-}
-
-function toCalendarEvent(apt: AppointmentWithClient, status: Status): CalendarEventWithPrincipal {
+function toCalendarEvent(
+	apt: Appointment & { client?: { name?: string | null; image?: string | null } },
+	status: Status
+): CalendarEvent {
 	const eventDate = new Date(apt.appointmentDate)
-	const endDate = new Date(eventDate.getTime() + (apt.duration ?? 60) * 60 * 1000)
 	const notes = apt.notes?.split("\n")[0]
 	return {
 		id: apt.id,
 		title: notes ?? (apt.type === "NOTARIZATION" ? "Notarization" : "Consultation"),
 		description: apt.notes ?? undefined,
 		startAt: eventDate,
-		endAt: endDate,
 		status,
 		principal: apt.client ? { name: apt.client.name, image: apt.client.image } : undefined,
 		appointmentType: apt.type as "NOTARIZATION" | "CONSULTATION" | undefined,
 	}
 }
 
-function toCalendarEventFromIncomingItem(item: IncomingItem): CalendarEventWithPrincipal | null {
+function toCalendarEventFromIncomingItem(item: IncomingItem): CalendarEvent | null {
 	if (item.source === "appointment" && item.appointmentData) {
 		const apt = item.appointmentData
 		const status: Status =
@@ -110,26 +89,23 @@ function toCalendarEventFromIncomingItem(item: IncomingItem): CalendarEventWithP
 					: apt.status === "CANCELLED"
 						? STATUS_REJECTED
 						: STATUS_CONFIRMED
-		const ev = toCalendarEvent(
-			{
-				id: apt.id,
-				appointmentDate: apt.appointmentDate,
-				duration: apt.duration,
-				notes: apt.notes,
-				type: apt.type,
-				status: apt.status,
-			} as AppointmentWithClient,
-			status
-		)
-		ev.principal = apt.client ? { name: apt.client.name, image: apt.client.image } : undefined
-		ev.source = item.source
-		ev.appointmentType = apt.type
-		ev.originalItem = item
-		return ev
+		const eventDate = new Date(apt.appointmentDate)
+		return {
+			id: apt.id,
+			title:
+				apt.notes?.split("\n")[0] ??
+				(apt.type === "NOTARIZATION" ? "Notarization" : "Consultation"),
+			description: apt.notes ?? undefined,
+			startAt: eventDate,
+			status,
+			principal: apt.client ? { name: apt.client.name, image: apt.client.image } : undefined,
+			appointmentType: apt.type,
+			workflow: item.workflow as "REN" | "IEN" | undefined,
+			meta: { source: item.source, incomingItemId: item.id },
+		}
 	}
 	if (item.source === "request") {
 		const startAt = new Date(item.createdAt)
-		const endAt = new Date(startAt.getTime() + 60 * 60 * 1000)
 		const status: Status =
 			item.status === "PENDING"
 				? STATUS_PENDING
@@ -143,21 +119,15 @@ function toCalendarEventFromIncomingItem(item: IncomingItem): CalendarEventWithP
 			title: item.title ?? "Request",
 			description: item.description ?? undefined,
 			startAt,
-			endAt,
 			status,
 			principal: item.principal
 				? { name: item.principal.name, image: item.principal.image }
 				: undefined,
-			source: item.source,
-			originalItem: item,
+			workflow: item.workflow as "REN" | "IEN" | undefined,
+			meta: { source: item.source, incomingItemId: item.id },
 		}
 	}
 	return null
-}
-
-function formatAppointmentType(type?: "NOTARIZATION" | "CONSULTATION"): string {
-	if (!type) return "Request"
-	return type.charAt(0).toUpperCase() + type.slice(1).toLowerCase()
 }
 
 interface RequestsScheduleClientProps {
@@ -170,82 +140,6 @@ interface RequestsScheduleClientProps {
 	}
 	incomingRequests: IncomingItem[]
 }
-
-const UnifiedEventCard = memo(function UnifiedEventCard({
-	event,
-	formattedTime,
-	relativeLabel,
-	incomingItem,
-	onAccept,
-	onReject,
-	isProcessing,
-}: {
-	event: CalendarEventWithPrincipal
-	formattedTime: string
-	relativeLabel: string | null
-	incomingItem?: IncomingItem
-	onAccept?: (item: IncomingItem) => void
-	onReject?: (item: IncomingItem) => void
-	isProcessing?: boolean
-}) {
-	const isPending = event.status.id === "pending"
-	const typeName = formatAppointmentType(event.appointmentType)
-	const subtitle = [typeName, event.description].filter(Boolean).join(" · ")
-
-	return (
-		<Item variant="outline" size="sm" className="hover:bg-muted/50">
-			<ItemMedia>
-				<Avatar className="size-8">
-					<AvatarImage src={getAvatarUrl(event.principal?.image) ?? undefined} alt="" />
-					<AvatarFallback className="text-xs">
-						{getInitials(event.principal?.name ?? "?")}
-					</AvatarFallback>
-				</Avatar>
-			</ItemMedia>
-			<ItemContent className="min-w-0">
-				<ItemTitle className="flex items-center gap-1.5 truncate">
-					<span className="truncate">{event.principal?.name ?? event.title}</span>
-					<Badge
-						variant="outline"
-						className="shrink-0 px-1.5 py-0 text-[10px]"
-						style={{ borderColor: event.status.color, color: event.status.color }}
-					>
-						{event.status.name}
-					</Badge>
-				</ItemTitle>
-				<ItemDescription className="text-muted-foreground line-clamp-1 text-xs">
-					{subtitle}
-				</ItemDescription>
-				<ItemDescription className="text-muted-foreground line-clamp-1 text-[10px]">
-					{formattedTime}
-					{relativeLabel ? ` · ${relativeLabel}` : null}
-				</ItemDescription>
-			</ItemContent>
-			<ItemActions>
-				{isPending && incomingItem ? (
-					<>
-						<Button
-							variant="outline"
-							size="sm"
-							className="text-destructive hover:bg-destructive/10"
-							onClick={() => onReject?.(incomingItem)}
-							disabled={isProcessing}
-						>
-							Reject
-						</Button>
-						<Button size="sm" onClick={() => onAccept?.(incomingItem)} disabled={isProcessing}>
-							{isProcessing ? "..." : "Accept"}
-						</Button>
-					</>
-				) : (
-					<Button variant="ghost" size="icon">
-						<HugeiconsIcon icon={ArrowRight01Icon} size={16} strokeWidth={2} />
-					</Button>
-				)}
-			</ItemActions>
-		</Item>
-	)
-})
 
 function CalendarCardHeader() {
 	const { monthYear, eventCount } = useCalendarScheduleHeader()
@@ -348,18 +242,20 @@ function UnifiedSidebarList({
 	return (
 		<ItemGroup>
 			{sortedEvents.map(item => {
-				const ev = item.event as CalendarEventWithPrincipal
-				const incomingItem = itemLookup.get(ev.id)
+				const ev = item.event
+				const incomingItemId = (ev.meta?.incomingItemId as string | undefined) ?? ev.id
+				const incomingItem = itemLookup.get(ev.id) ?? itemLookup.get(incomingItemId)
+				const isProcessing = processingId === ev.id || processingId === incomingItem?.id
+
 				return (
-					<UnifiedEventCard
+					<CalendarScheduleEventCard
 						key={ev.id}
 						event={ev}
 						formattedTime={item.formattedTime}
 						relativeLabel={item.relativeLabel}
-						incomingItem={incomingItem}
-						onAccept={onAccept}
-						onReject={onReject}
-						isProcessing={processingId === ev.id || processingId === incomingItem?.id}
+						onAccept={incomingItem ? () => onAccept(incomingItem) : undefined}
+						onReject={incomingItem ? () => onReject(incomingItem) : undefined}
+						isProcessing={isProcessing}
 					/>
 				)
 			})}
@@ -462,11 +358,11 @@ export function RequestsScheduleClient({
 		}
 	}
 
-	const calendarEvents = useMemo((): CalendarEventWithPrincipal[] => {
+	const calendarEvents = useMemo((): CalendarEvent[] => {
 		const seen = new Set<string>()
-		const result: CalendarEventWithPrincipal[] = []
+		const result: CalendarEvent[] = []
 
-		const add = (e: CalendarEventWithPrincipal) => {
+		const add = (e: CalendarEvent) => {
 			if (seen.has(e.id)) return
 			seen.add(e.id)
 			result.push(e)

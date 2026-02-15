@@ -11,6 +11,7 @@ import {
 } from "date-fns"
 import { Check, ChevronLeftIcon, ChevronRightIcon, ChevronsUpDown } from "lucide-react"
 
+import { Avatar, AvatarFallback, AvatarImage } from "@/core/components/ui/avatar"
 import { Badge } from "@/core/components/ui/badge"
 import { Button } from "@/core/components/ui/button"
 import {
@@ -21,8 +22,16 @@ import {
 	CommandItem,
 	CommandList,
 } from "@/core/components/ui/command"
+import {
+	Item,
+	ItemActions,
+	ItemContent,
+	ItemDescription,
+	ItemMedia,
+	ItemTitle,
+} from "@/core/components/ui/item"
 import { Popover, PopoverContent, PopoverTrigger } from "@/core/components/ui/popover"
-import { cn } from "@/core/lib/utils"
+import { cn, getAvatarUrl, getInitials } from "@/core/lib/utils"
 
 export type Status = {
 	id: string
@@ -35,8 +44,16 @@ export type CalendarEvent = {
 	title: string
 	description?: string
 	startAt: Date
-	endAt: Date
+	endAt?: Date
+	allDay?: boolean
 	status: Status
+	principal?: {
+		name?: string | null
+		image?: string | null
+	}
+	appointmentType?: "NOTARIZATION" | "CONSULTATION"
+	workflow?: "REN" | "IEN"
+	meta?: Record<string, unknown>
 }
 
 type CalendarScheduleState = {
@@ -265,7 +282,7 @@ function CalendarScheduleYearPicker({ className }: { className?: string }) {
 		let latest = year
 		for (const e of events) {
 			const s = e.startAt.getFullYear()
-			const l = e.endAt.getFullYear()
+			const l = (e.endAt ?? e.startAt).getFullYear()
 			if (s < earliest) earliest = s
 			if (l > latest) latest = l
 		}
@@ -374,7 +391,7 @@ function CalendarScheduleBody({
 
 		for (const event of events) {
 			const start = new Date(event.startAt)
-			const end = new Date(event.endAt)
+			const end = new Date(event.endAt ?? event.startAt)
 			if (start > monthEnd || end < monthStart) continue
 
 			const first = Math.max(
@@ -476,23 +493,100 @@ function CalendarScheduleBody({
 	)
 }
 
-function CalendarScheduleItem({
+function formatAppointmentType(type?: "NOTARIZATION" | "CONSULTATION"): string {
+	if (!type) return "Request"
+	return type.charAt(0).toUpperCase() + type.slice(1).toLowerCase()
+}
+
+function CalendarScheduleEventCard({
 	event,
+	formattedTime,
+	relativeLabel,
+	onAccept,
+	onReject,
+	isProcessing,
 	className,
 	...props
-}: React.ComponentProps<"div"> & { event: CalendarEvent }) {
+}: React.ComponentProps<"div"> & {
+	event: CalendarEvent
+	formattedTime: string
+	relativeLabel?: string | null
+	onAccept?: () => void
+	onReject?: () => void
+	isProcessing?: boolean
+}) {
+	const isPending = event.status.id === "pending"
+	const typeName = formatAppointmentType(event.appointmentType)
+	const isRemote = event.workflow === "REN"
+	const showWorkflow = event.appointmentType === "NOTARIZATION"
+
+	const subtitle = [typeName, showWorkflow ? (isRemote ? "Remote" : "In Person") : null]
+		.filter(Boolean)
+		.join(" · ")
+
+	// Override relative label for rejected/rescheduled statuses
+	const displayLabel =
+		event.status.id === "rejected"
+			? "Rejected"
+			: event.status.id === "rescheduled"
+				? "Rescheduled"
+				: (relativeLabel ?? null)
+
 	return (
-		<div
-			data-slot="calendar-schedule-item"
-			className={cn("flex items-center gap-2", className)}
+		<Item
+			data-slot="calendar-schedule-event-card"
+			variant="outline"
+			size="sm"
+			className={cn("hover:bg-muted/50", className)}
 			{...props}
 		>
-			<div
-				className="size-2 shrink-0 rounded-full"
-				style={{ backgroundColor: event.status.color }}
-			/>
-			<span className="truncate">{event.title}</span>
-		</div>
+			<ItemMedia>
+				<Avatar className="size-8">
+					<AvatarImage src={getAvatarUrl(event.principal?.image) ?? undefined} alt="" />
+					<AvatarFallback className="text-xs">
+						{getInitials(event.principal?.name ?? "?")}
+					</AvatarFallback>
+				</Avatar>
+			</ItemMedia>
+			<ItemContent className="min-w-0">
+				<ItemTitle className="flex items-center gap-1.5 truncate">
+					<span className="truncate">{event.principal?.name ?? event.title}</span>
+					<Badge
+						variant="outline"
+						className="shrink-0 px-1.5 py-0 text-[10px]"
+						style={{
+							borderColor: event.status.color,
+							color: event.status.color,
+						}}
+					>
+						{event.status.name}
+					</Badge>
+				</ItemTitle>
+				<ItemDescription className="text-muted-foreground line-clamp-1 text-xs">
+					{subtitle}
+				</ItemDescription>
+				<ItemDescription className="text-muted-foreground line-clamp-1 text-[10px]">
+					{formattedTime}
+					{displayLabel ? ` · ${displayLabel}` : null}
+				</ItemDescription>
+			</ItemContent>
+			{isPending && onAccept && onReject ? (
+				<ItemActions>
+					<Button
+						variant="outline"
+						size="sm"
+						className="text-destructive hover:bg-destructive/10"
+						onClick={onReject}
+						disabled={isProcessing}
+					>
+						Reject
+					</Button>
+					<Button size="sm" onClick={onAccept} disabled={isProcessing}>
+						{isProcessing ? "..." : "Accept"}
+					</Button>
+				</ItemActions>
+			) : null}
+		</Item>
 	)
 }
 
@@ -508,7 +602,7 @@ function useCalendarScheduleHeader() {
 		const monthStart = new Date(year, month, 1)
 		const monthEnd = new Date(year, month + 1, 0, 23, 59, 59, 999)
 		const eventCount = events.filter(
-			e => new Date(e.startAt) <= monthEnd && new Date(e.endAt) >= monthStart
+			e => new Date(e.startAt) <= monthEnd && new Date(e.endAt ?? e.startAt) >= monthStart
 		).length
 
 		const formattedDate = selectedDate
@@ -565,12 +659,14 @@ function useSelectedDayEvents(): SelectedDayEvent[] {
 		const isToday = isSameDay(selectedDate, now)
 
 		return events
-			.filter(e => new Date(e.startAt) <= dayEnd && new Date(e.endAt) >= dayStart)
+			.filter(e => new Date(e.startAt) <= dayEnd && new Date(e.endAt ?? e.startAt) >= dayStart)
 			.toSorted((a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime())
 			.map(event => {
 				const start = new Date(event.startAt)
-				const end = new Date(event.endAt)
-				const formattedTime = `${timeFormatter.format(start)} - ${timeFormatter.format(end)}`
+				const end = event.endAt ? new Date(event.endAt) : null
+				const formattedTime = end
+					? `${timeFormatter.format(start)} - ${timeFormatter.format(end)}`
+					: timeFormatter.format(start)
 
 				let relativeLabel: string | null = null
 				if (isToday) {
@@ -578,8 +674,8 @@ function useSelectedDayEvents(): SelectedDayEvent[] {
 						relativeLabel = formatDistanceStrict(start, now, {
 							addSuffix: true,
 						})
-					else if (now <= end) relativeLabel = "Ongoing"
-					else
+					else if (end && now <= end) relativeLabel = "Ongoing"
+					else if (end)
 						relativeLabel = formatDistanceStrict(end, now, {
 							addSuffix: true,
 						})
@@ -598,7 +694,7 @@ export {
 	CalendarScheduleDatePagination,
 	CalendarScheduleHeader,
 	CalendarScheduleBody,
-	CalendarScheduleItem,
+	CalendarScheduleEventCard,
 	useCalendarSchedule,
 	useCalendarScheduleHeader,
 	useSelectedDayEvents,
