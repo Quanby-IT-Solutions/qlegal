@@ -74,6 +74,9 @@ const STATUS_NOTARIZATION: Status = {
 
 type CalendarEventWithPrincipal = CalendarEvent & {
 	principal?: { name?: string | null; image?: string | null }
+	appointmentType?: "NOTARIZATION" | "CONSULTATION"
+	source?: "request" | "appointment"
+	originalItem?: IncomingItem
 }
 
 type AppointmentWithClient = Appointment & {
@@ -92,6 +95,7 @@ function toCalendarEvent(apt: AppointmentWithClient, status: Status): CalendarEv
 		endAt: endDate,
 		status,
 		principal: apt.client ? { name: apt.client.name, image: apt.client.image } : undefined,
+		appointmentType: apt.type as "NOTARIZATION" | "CONSULTATION" | undefined,
 	}
 }
 
@@ -118,6 +122,9 @@ function toCalendarEventFromIncomingItem(item: IncomingItem): CalendarEventWithP
 			status
 		)
 		ev.principal = apt.client ? { name: apt.client.name, image: apt.client.image } : undefined
+		ev.source = item.source
+		ev.appointmentType = apt.type
+		ev.originalItem = item
 		return ev
 	}
 	if (item.source === "request") {
@@ -141,9 +148,16 @@ function toCalendarEventFromIncomingItem(item: IncomingItem): CalendarEventWithP
 			principal: item.principal
 				? { name: item.principal.name, image: item.principal.image }
 				: undefined,
+			source: item.source,
+			originalItem: item,
 		}
 	}
 	return null
+}
+
+function formatAppointmentType(type?: "NOTARIZATION" | "CONSULTATION"): string {
+	if (!type) return "Request"
+	return type.charAt(0).toUpperCase() + type.slice(1).toLowerCase()
 }
 
 interface RequestsScheduleClientProps {
@@ -157,22 +171,29 @@ interface RequestsScheduleClientProps {
 	incomingRequests: IncomingItem[]
 }
 
-const EventCard = memo(function EventCard({
+const UnifiedEventCard = memo(function UnifiedEventCard({
 	event,
+	formattedTime,
 	relativeLabel,
-	onClick,
+	incomingItem,
+	onAccept,
+	onReject,
+	isProcessing,
 }: {
 	event: CalendarEventWithPrincipal
+	formattedTime: string
 	relativeLabel: string | null
-	onClick?: () => void
+	incomingItem?: IncomingItem
+	onAccept?: (item: IncomingItem) => void
+	onReject?: (item: IncomingItem) => void
+	isProcessing?: boolean
 }) {
+	const isPending = event.status.id === "pending"
+	const typeName = formatAppointmentType(event.appointmentType)
+	const subtitle = [typeName, event.description].filter(Boolean).join(" · ")
+
 	return (
-		<Item
-			variant="outline"
-			size="sm"
-			className="hover:bg-muted/50 hover:cursor-pointer"
-			onClick={onClick}
-		>
+		<Item variant="outline" size="sm" className="hover:bg-muted/50">
 			<ItemMedia>
 				<Avatar className="size-8">
 					<AvatarImage src={getAvatarUrl(event.principal?.image) ?? undefined} alt="" />
@@ -181,18 +202,46 @@ const EventCard = memo(function EventCard({
 					</AvatarFallback>
 				</Avatar>
 			</ItemMedia>
-			<ItemContent>
-				<ItemTitle>{event.title}</ItemTitle>
-				{relativeLabel ? (
-					<ItemDescription className="text-muted-foreground line-clamp-1 text-xs">
-						{relativeLabel}
-					</ItemDescription>
-				) : null}
+			<ItemContent className="min-w-0">
+				<ItemTitle className="flex items-center gap-1.5 truncate">
+					<span className="truncate">{event.principal?.name ?? event.title}</span>
+					<Badge
+						variant="outline"
+						className="shrink-0 px-1.5 py-0 text-[10px]"
+						style={{ borderColor: event.status.color, color: event.status.color }}
+					>
+						{event.status.name}
+					</Badge>
+				</ItemTitle>
+				<ItemDescription className="text-muted-foreground line-clamp-1 text-xs">
+					{subtitle}
+				</ItemDescription>
+				<ItemDescription className="text-muted-foreground line-clamp-1 text-[10px]">
+					{formattedTime}
+					{relativeLabel ? ` · ${relativeLabel}` : null}
+				</ItemDescription>
 			</ItemContent>
 			<ItemActions>
-				<Button variant="ghost" size="icon">
-					<HugeiconsIcon icon={ArrowRight01Icon} size={16} strokeWidth={2} />
-				</Button>
+				{isPending && incomingItem ? (
+					<>
+						<Button
+							variant="outline"
+							size="sm"
+							className="text-destructive hover:bg-destructive/10"
+							onClick={() => onReject?.(incomingItem)}
+							disabled={isProcessing}
+						>
+							Reject
+						</Button>
+						<Button size="sm" onClick={() => onAccept?.(incomingItem)} disabled={isProcessing}>
+							{isProcessing ? "..." : "Accept"}
+						</Button>
+					</>
+				) : (
+					<Button variant="ghost" size="icon">
+						<HugeiconsIcon icon={ArrowRight01Icon} size={16} strokeWidth={2} />
+					</Button>
+				)}
 			</ItemActions>
 		</Item>
 	)
@@ -255,18 +304,65 @@ function AddEventSection({
 	)
 }
 
-function SidebarEventList() {
+function UnifiedSidebarList({
+	incomingRequests,
+	onAccept,
+	onReject,
+	processingId,
+}: {
+	incomingRequests: IncomingItem[]
+	onAccept: (item: IncomingItem) => void
+	onReject: (item: IncomingItem) => void
+	processingId: string | null
+}) {
 	const dayEvents = useSelectedDayEvents()
 
-	if (dayEvents.length === 0) {
+	// Build lookup maps from incomingRequests by both item.id and appointmentData.id
+	const itemLookup = useMemo(() => {
+		const map = new Map<string, IncomingItem>()
+		for (const item of incomingRequests) {
+			map.set(item.id, item)
+			if (item.source === "appointment" && item.appointmentData) {
+				map.set(item.appointmentData.id, item)
+			}
+		}
+		return map
+	}, [incomingRequests])
+
+	// Sort: pending items first, then by start time
+	const sortedEvents = useMemo(
+		() =>
+			[...dayEvents].sort((a, b) => {
+				const aPending = a.event.status.id === "pending" ? 0 : 1
+				const bPending = b.event.status.id === "pending" ? 0 : 1
+				if (aPending !== bPending) return aPending - bPending
+				return new Date(a.event.startAt).getTime() - new Date(b.event.startAt).getTime()
+			}),
+		[dayEvents]
+	)
+
+	if (sortedEvents.length === 0) {
 		return <p className="text-muted-foreground py-4 text-center text-sm">No events scheduled</p>
 	}
 
 	return (
 		<ItemGroup>
-			{dayEvents.map(item => (
-				<EventCard key={item.event.id} event={item.event} relativeLabel={item.relativeLabel} />
-			))}
+			{sortedEvents.map(item => {
+				const ev = item.event as CalendarEventWithPrincipal
+				const incomingItem = itemLookup.get(ev.id)
+				return (
+					<UnifiedEventCard
+						key={ev.id}
+						event={ev}
+						formattedTime={item.formattedTime}
+						relativeLabel={item.relativeLabel}
+						incomingItem={incomingItem}
+						onAccept={onAccept}
+						onReject={onReject}
+						isProcessing={processingId === ev.id || processingId === incomingItem?.id}
+					/>
+				)
+			})}
 		</ItemGroup>
 	)
 }
@@ -376,6 +472,12 @@ export function RequestsScheduleClient({
 			result.push(e)
 		}
 
+		// Process incoming requests first so pending items keep their originalItem reference
+		for (const item of incomingRequests) {
+			const ev = toCalendarEventFromIncomingItem(item)
+			if (ev) add(ev)
+		}
+
 		const myAppointments = scheduleData?.myAppointments ?? []
 		for (const apt of myAppointments) {
 			const status: Status =
@@ -387,18 +489,8 @@ export function RequestsScheduleClient({
 			add(toCalendarEvent(apt, status))
 		}
 
-		for (const item of incomingRequests) {
-			const ev = toCalendarEventFromIncomingItem(item)
-			if (ev) add(ev)
-		}
-
 		return result
 	}, [scheduleData, incomingRequests])
-
-	const pendingRequests = useMemo(
-		() => incomingRequests.filter(r => r.status === "PENDING"),
-		[incomingRequests]
-	)
 
 	const handleEventSave = (event: LegacyCalendarEvent, onComplete?: () => void) => {
 		const duration = Math.round((event.end.getTime() - event.start.getTime()) / (60 * 1000))
@@ -478,65 +570,13 @@ export function RequestsScheduleClient({
 						</CardAction>
 					</CardHeader>
 					<Separator />
-					<CardContent className="min-h-0 flex-1 space-y-4 overflow-y-auto">
-						{pendingRequests.length > 0 && (
-							<div className="space-y-2">
-								<h3 className="text-sm font-medium">Pending ({pendingRequests.length})</h3>
-								<div className="flex flex-col gap-2">
-									{pendingRequests.map(request => (
-										<Item
-											key={request.id}
-											variant="outline"
-											size="sm"
-											className="hover:bg-muted/50"
-										>
-											<ItemMedia>
-												<Avatar className="size-8">
-													<AvatarImage
-														src={getAvatarUrl(request.principal?.image) ?? undefined}
-														alt=""
-													/>
-													<AvatarFallback className="text-xs">
-														{getInitials(request.principal?.name ?? "?")}
-													</AvatarFallback>
-												</Avatar>
-											</ItemMedia>
-											<ItemContent className="min-w-0">
-												<ItemTitle className="truncate">
-													{request.principal?.name ?? "Unknown"}
-												</ItemTitle>
-												<ItemDescription className="line-clamp-1 text-xs">
-													{request.title}
-												</ItemDescription>
-											</ItemContent>
-											<ItemActions>
-												<Button
-													variant="outline"
-													size="sm"
-													className="text-destructive hover:bg-destructive/10"
-													onClick={() => handleRejectClick(request)}
-													disabled={processingId === request.id}
-												>
-													Reject
-												</Button>
-												<Button
-													size="sm"
-													onClick={() => handleAccept(request)}
-													disabled={processingId === request.id}
-												>
-													{processingId === request.id ? "..." : "Accept"}
-												</Button>
-											</ItemActions>
-										</Item>
-									))}
-								</div>
-							</div>
-						)}
-
-						<div className="space-y-2">
-							<h3 className="text-sm font-medium">Selected day</h3>
-							<SidebarEventList />
-						</div>
+					<CardContent className="min-h-0 flex-1 overflow-y-auto">
+						<UnifiedSidebarList
+							incomingRequests={incomingRequests}
+							onAccept={handleAccept}
+							onReject={handleRejectClick}
+							processingId={processingId}
+						/>
 					</CardContent>
 				</Card>
 			</CalendarScheduleProvider>
