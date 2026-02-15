@@ -33,7 +33,7 @@ const features = [
 		icon: Shield,
 		title: "e-KYC & Multi-Factor Authentication",
 		description:
-			"BSP-compliant electronic Know-Your-Customer with facial recognition, biometrics, OTP, and liveness detection",
+			"Compliant electronic Know-Your-Customer with facial recognition, biometrics, OTP, and liveness detection",
 		spotlightColor: "rgba(0, 255, 127, 0.2)", // Spring Green
 	},
 	{
@@ -45,9 +45,8 @@ const features = [
 	},
 	{
 		icon: BookOpen,
-		title: "Notarial Book & SC Integration",
-		description:
-			"Automated notarial book with automatic transmission to Supreme Court Central Notarial Database",
+		title: "Notarial Book & Registry Integration",
+		description: "Automated notarial book with automatic transmission to Central Notarial Registry",
 		spotlightColor: "rgba(138, 43, 226, 0.2)", // Blue Violet
 	},
 	{
@@ -88,8 +87,8 @@ export function Features() {
 							Full-Featured Electronic Notarization Facility
 						</h2>
 						<p className="text-muted-foreground mx-auto max-w-2xl text-lg lg:text-xl">
-							Comprehensive ENF platform compliant with Supreme Court Rules on Electronic
-							Notarization
+							Comprehensive ENF platform compliant with Electronic Notarization standards and
+							regulations
 						</p>
 					</motion.div>
 
