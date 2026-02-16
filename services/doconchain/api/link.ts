@@ -297,23 +297,28 @@ export async function generateEditDraftLink(
 	const email = userEmail ?? env.DOCONCHAIN_EMAIL
 
 	if (forPlotting) {
-		/**
-		 * Plot Signature (Edit Draft / plotting):
-		 * We intentionally return a *sanitized* short link for the UI:
-		 * - Always `link.doconchain.com/<shortCode>`
-		 * - Never include per-recipient `token=...`
-		 * - Never include `api_token`, `email`, `signer_role`, `page`, `user_type` (these leak into the address bar)
-		 *
-		 * Note: The DocoChain short link itself encapsulates the draft session. Extra query params are not required
-		 * for plotting and create very noisy / sensitive URLs, especially on staging.
-		 */
+		// Plotting: requires an enterprise `api_token` for access.
+		// We build a plotting URL from the short-code and append a *fresh* api_token (meeting/project scoped).
+		// NOTE: Even if we start from link.doconchain.com, DocoChain may redirect to stg-app/app on their side.
 		const shortCode = extractPlotShortCode(link)
 		const plotUrl = new URL(`https://link.doconchain.com/${shortCode}`)
+		plotUrl.searchParams.set("page", "1")
+		plotUrl.searchParams.set("user_type", "ENTERPRISE_API")
+		plotUrl.searchParams.set("email", email)
+		plotUrl.searchParams.set("signer_role", "Signer")
 		plotUrl.searchParams.set("api", "true")
 		plotUrl.searchParams.delete("status") // known DocoChain bug
-		const sanitized = plotUrl.toString()
-		console.log("🔵 Built sanitized plot link (link.doconchain.com + api=true only)")
-		return { link: sanitized }
+
+		const plotLinkStr = plotUrl.toString()
+		const finalLink = await appendApiToken(
+			plotLinkStr,
+			email,
+			true,
+			tokenOverride ? undefined : projectUuid,
+			tokenOverride
+		)
+		console.log("🔵 Built plot link (link.doconchain.com + params + api_token)")
+		return { link: finalLink }
 	}
 
 	// Normalize the link (removes status=Deleted and adds api=true) for non-plotting edit-draft

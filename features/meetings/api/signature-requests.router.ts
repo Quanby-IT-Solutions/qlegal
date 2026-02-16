@@ -733,8 +733,8 @@ export const signatureRequestsRouter = createTRPCRouter({
 				}
 
 				const normalizePlotLinkForUi = (raw: string): string => {
-					// Plot Signature must open a sanitized short link (never token/api_token/email/signer_role/etc).
-					// This prevents leaking staging hosts and credentials into the address bar.
+					// Plot Signature must NEVER open a per-recipient signing link (token=...).
+					// DO NOT strip api_token here: enterprise plotting requires it for access.
 					const cleaned = String(raw ?? "").trim()
 					try {
 						const url = new URL(cleaned)
@@ -742,23 +742,13 @@ export const signatureRequestsRouter = createTRPCRouter({
 							url.hostname = "link.doconchain.com"
 						}
 						url.searchParams.delete("token")
-						url.searchParams.delete("api_token")
-						url.searchParams.delete("email")
-						url.searchParams.delete("signer_role")
-						url.searchParams.delete("page")
-						url.searchParams.delete("user_type")
 						url.searchParams.set("api", "true")
 						if (url.searchParams.get("status") === "Deleted") url.searchParams.delete("status")
 						return url.toString()
 					} catch {
-						// Best-effort fallback: strip the most problematic params.
+						// Best-effort fallback: strip signing-only token param and normalize host.
 						let next = cleaned
 						next = next.replace(/[?&]token=[^&]*/g, "")
-						next = next.replace(/[?&]api_token=[^&]*/g, "")
-						next = next.replace(/[?&]email=[^&]*/g, "")
-						next = next.replace(/[?&]signer_role=[^&]*/g, "")
-						next = next.replace(/[?&]page=[^&]*/g, "")
-						next = next.replace(/[?&]user_type=[^&]*/g, "")
 						next = next.replace(
 							/https?:\/\/(stg-)?app\.doconchain\.com\//g,
 							"https://link.doconchain.com/"

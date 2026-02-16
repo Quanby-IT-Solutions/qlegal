@@ -2504,11 +2504,6 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 						url.hostname = "link.doconchain.com"
 					}
 					url.searchParams.delete("token")
-					url.searchParams.delete("api_token")
-					url.searchParams.delete("email")
-					url.searchParams.delete("signer_role")
-					url.searchParams.delete("page")
-					url.searchParams.delete("user_type")
 					url.searchParams.set("api", "true")
 					signingLink = url.toString()
 				} catch {
