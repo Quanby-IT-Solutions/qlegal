@@ -12,6 +12,7 @@ import {
 	Monitor,
 	PhoneOff,
 	Square,
+	Users,
 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -26,7 +27,8 @@ export const MeetingControls = React.memo(function MeetingControls({
 	onLocalRecordingToggle,
 	isLocalRecording,
 	localRecordingStartedAt,
-}: MeetingControlsProps) {
+	participantCount,
+}: MeetingControlsProps & { participantCount?: number }) {
 	const cameraSetterRef = useRef<((v: boolean) => void) | null>(null)
 	const meeting = useMeeting({
 		onError: ({ code, message }: { code: string; message: string }) => {
@@ -176,6 +178,18 @@ export const MeetingControls = React.memo(function MeetingControls({
 	return (
 		<>
 			<div className="flex items-center gap-1.5 md:gap-2">
+				{/* Participant count badge — left of controls */}
+				{participantCount !== undefined && (
+					<>
+						<div className="flex items-center gap-1.5 rounded-full px-2.5 py-1.5">
+							<Users className="text-muted-foreground size-3.5" />
+							<span className="text-muted-foreground text-xs font-semibold tabular-nums">
+								{participantCount}
+							</span>
+						</div>
+						<div className="bg-border h-5 w-px" />
+					</>
+				)}
 				<Button
 					variant={isCameraOn ? "outline" : "destructive"}
 					size="icon"

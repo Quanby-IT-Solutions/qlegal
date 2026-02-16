@@ -14,11 +14,11 @@ import {
 	RefreshCw,
 	Send,
 	Unlock,
-	Users as UsersIcon,
 } from "lucide-react"
 import { useSession } from "next-auth/react"
 import { toast } from "sonner"
 
+import { PageHeader } from "@/core/components/navbar/page-header"
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -2096,392 +2096,386 @@ export function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meet
 	}
 
 	return (
-		<div
-			ref={recordingContainerRef}
-			className="from-background via-muted/20 to-background flex h-screen flex-col bg-linear-to-br"
-		>
-			{/* Header with Controls */}
-			<div className="bg-card/50 flex flex-col items-center justify-between gap-3 border-b px-4 py-3 shadow-sm backdrop-blur-sm sm:flex-row sm:gap-4 md:px-6 md:py-4">
-				<div className="flex items-center gap-2">
-					<div className="bg-primary/10 flex h-8 w-8 items-center justify-center rounded-lg">
-						<FileSignature className="text-primary h-4 w-4" />
-					</div>
-					<h1 className="text-base font-bold md:text-lg">Signing Session</h1>
-				</div>
+		<div className="flex h-screen flex-col">
+			{/* Standard app header — outside recordingContainerRef so it's not captured */}
+			<PageHeader
+				items={[{ label: "Sessions", href: "/sessions" }, { label: "Signing Session" }]}
+			/>
 
-				<div className="bg-muted/50 flex items-center gap-2 rounded-lg px-3 py-1.5">
-					<UsersIcon className="text-muted-foreground size-4" />
-					<span className="text-xs font-medium md:text-sm">
-						{participantCount} {participantCount === 1 ? "participant" : "participants"}
-					</span>
-				</div>
-			</div>
-
-			{/* Document Upload Dialog */}
-			{meetingId && (
-				<MeetingDocumentUpload
-					meetingId={meetingId}
-					isOpen={isUploadDialogOpen}
-					onClose={() => setIsUploadDialogOpen(false)}
-					onSuccess={() => {
-						void refetchDocuments()
-						setShowDocuments(true)
-					}}
-					isEnp={session?.user?.role === "ENP"}
-				/>
-			)}
-
-			{/* Main Content: Signing-focused layout */}
-			<div className="flex flex-1 flex-col overflow-hidden">
-				<div className="relative flex-1 overflow-hidden p-3 md:p-4 lg:p-6">
-					<RecordingBanner
-						isLocalRecording={isLocalRecording}
-						localRecordingStartedAt={localRecordingStartedAt}
-						isAnyoneRecording={isAnyoneRecording}
-						recordingParticipantName={recordingParticipantName}
-						recordingStopped={recordingStopped}
-						stoppedElapsed={stoppedElapsed}
+			<div
+				ref={recordingContainerRef}
+				className="from-background via-muted/20 to-background flex flex-1 flex-col overflow-hidden bg-linear-to-br"
+			>
+				{/* Document Upload Dialog */}
+				{meetingId && (
+					<MeetingDocumentUpload
+						meetingId={meetingId}
+						isOpen={isUploadDialogOpen}
+						onClose={() => setIsUploadDialogOpen(false)}
+						onSuccess={() => {
+							void refetchDocuments()
+							setShowDocuments(true)
+						}}
+						isEnp={session?.user?.role === "ENP"}
 					/>
-					{participantIds.length === 0 ? (
-						<Card className="mx-auto max-w-xl shadow-md">
-							<CardContent className="text-muted-foreground p-6 text-center text-sm">
-								No participants yet. Turn on your camera to appear in the session.
-							</CardContent>
-						</Card>
-					) : (
-						<div className="relative flex h-full w-full flex-col overflow-y-auto pr-14">
-							{presenterId && (
-								<div className="mb-4 w-full">
-									<div className="border-border/70 bg-card/80 overflow-hidden rounded-xl border shadow-lg">
-										<ParticipantView participantId={presenterId} />
+				)}
+
+				{/* Main Content: Signing-focused layout */}
+				<div className="flex flex-1 flex-col overflow-hidden">
+					<div className="relative flex-1 overflow-hidden p-3 md:p-4 lg:p-6">
+						<RecordingBanner
+							isLocalRecording={isLocalRecording}
+							localRecordingStartedAt={localRecordingStartedAt}
+							isAnyoneRecording={isAnyoneRecording}
+							recordingParticipantName={recordingParticipantName}
+							recordingStopped={recordingStopped}
+							stoppedElapsed={stoppedElapsed}
+						/>
+						{participantIds.length === 0 ? (
+							<Card className="mx-auto max-w-xl shadow-md">
+								<CardContent className="text-muted-foreground p-6 text-center text-sm">
+									No participants yet. Turn on your camera to appear in the session.
+								</CardContent>
+							</Card>
+						) : (
+							<div className="relative flex h-full w-full flex-col overflow-y-auto pr-14">
+								{presenterId && (
+									<div className="mb-4 w-full">
+										<div className="border-border/70 bg-card/80 overflow-hidden rounded-xl border shadow-lg">
+											<ParticipantView participantId={presenterId} />
+										</div>
+									</div>
+								)}
+								<div
+									className={cn(
+										"grid w-full grid-cols-[repeat(auto-fit,minmax(240px,1fr))] gap-4 sm:gap-5",
+										"auto-rows-[minmax(260px,1fr)]",
+										showDocuments &&
+											"auto-rows-[minmax(220px,1fr)] md:auto-rows-[minmax(240px,1fr)]"
+									)}
+								>
+									{participantIds
+										.filter(id => id !== presenterId)
+										.map(participantId => (
+											<div key={participantId} className="min-h-65">
+												<ParticipantView participantId={participantId} />
+											</div>
+										))}
+								</div>
+
+								{/* Sticky Meeting Controls - Stays at bottom */}
+								<div className="pointer-events-none sticky bottom-0 z-50 flex justify-center py-4">
+									<div className="bg-card pointer-events-auto flex items-center gap-1.5 rounded-full p-2 shadow-2xl">
+										<MeetingControls
+											onUploadClick={handleUploadClick}
+											onRecordingToggle={handleRecordingToggle}
+											onLocalRecordingToggle={openConsentAndRequest}
+											localRecordingSupported={localRecordingSupported}
+											isRecording={isRecording}
+											isRecordingStarting={recordingStatus === "RECORDING_STARTING"}
+											isLocalRecording={isLocalRecording}
+											localRecordingStartedAt={localRecordingStartedAt}
+											participantCount={participantCount}
+										/>
 									</div>
 								</div>
-							)}
-							<div
-								className={cn(
-									"grid w-full grid-cols-[repeat(auto-fit,minmax(240px,1fr))] gap-4 sm:gap-5",
-									"auto-rows-[minmax(260px,1fr)]",
-									showDocuments && "auto-rows-[minmax(220px,1fr)] md:auto-rows-[minmax(240px,1fr)]"
-								)}
-							>
-								{participantIds
-									.filter(id => id !== presenterId)
-									.map(participantId => (
-										<div key={participantId} className="min-h-65">
-											<ParticipantView participantId={participantId} />
-										</div>
-									))}
 							</div>
+						)}
 
-							{/* Sticky Meeting Controls - Stays at bottom */}
-							<div className="pointer-events-none sticky bottom-0 z-50 flex justify-center py-4">
-								<div className="bg-card pointer-events-auto flex items-center gap-1.5 rounded-full p-2 shadow-2xl">
-									<MeetingControls
-										onUploadClick={handleUploadClick}
-										onRecordingToggle={handleRecordingToggle}
-										onLocalRecordingToggle={openConsentAndRequest}
-										localRecordingSupported={localRecordingSupported}
-										isRecording={isRecording}
-										isRecordingStarting={recordingStatus === "RECORDING_STARTING"}
-										isLocalRecording={isLocalRecording}
-										localRecordingStartedAt={localRecordingStartedAt}
-									/>
+						{/* Document Sidebar — overlay drawer, floats above participant grid */}
+						<DocumentSidebar
+							documents={sidebarDocuments}
+							documentSigningStatus={documentSigningStatus}
+							participants={meetingDetails?.participants ?? []}
+							onSignersChange={handleSignersChange}
+							isDocumentOrderLocked={meetingDetails?.isDocumentOrderLocked ?? false}
+							isRefreshing={isDocumentsFetching || isRefreshingSigningStatus}
+							onRefresh={handleSidebarRefresh}
+							onDownloadSigned={handleDownloadSignedDocument}
+							onDownloadCertificate={handleDownloadCertificate}
+							downloadingProjectUuid={downloadingProjectUuid}
+							downloadingCertificateUuid={downloadingCertificateUuid}
+						/>
+					</div>
+				</div>
+
+				{/* Send to ENP Dialog */}
+				<Dialog open={isSendDialogOpen} onOpenChange={setIsSendDialogOpen}>
+					<DialogContent className="max-w-md">
+						<DialogHeader>
+							<DialogTitle className="flex items-center gap-2">
+								<Send className="text-primary size-5" />
+								Send Document for Signature
+							</DialogTitle>
+							<DialogDescription>
+								Select which ENP participant should sign this document
+							</DialogDescription>
+						</DialogHeader>
+
+						<div className="space-y-4 py-4">
+							<div className="space-y-2">
+								<label className="text-sm font-medium">Select ENP Participant</label>
+								<Select value={selectedSignerId} onValueChange={setSelectedSignerId}>
+									<SelectTrigger className="w-full">
+										<SelectValue placeholder="Choose a participant" />
+									</SelectTrigger>
+									<SelectContent>
+										{meetingDetails?.participants
+											.filter(p => p.userId !== session?.user?.id)
+											.map(participant => (
+												<SelectItem key={participant.userId} value={participant.userId}>
+													{participant.user.name} - {participant.user.email}
+												</SelectItem>
+											))}
+									</SelectContent>
+								</Select>
+							</div>
+						</div>
+
+						<DialogFooter>
+							<Button variant="outline" onClick={() => setIsSendDialogOpen(false)}>
+								Cancel
+							</Button>
+							<Button
+								onClick={() => {
+									if (selectedDocumentId && selectedSignerId) {
+										createSignatureRequest.mutate({
+											meetingId: meetingId ?? "",
+											documentId: selectedDocumentId,
+											signerId: selectedSignerId,
+										})
+									}
+								}}
+								disabled={!selectedSignerId || createSignatureRequest.isPending}
+							>
+								{createSignatureRequest.isPending ? (
+									<>
+										<div className="mr-2 size-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
+										Sending...
+									</>
+								) : (
+									<>
+										<Send className="mr-2 size-3" />
+										Send Request
+									</>
+								)}
+							</Button>
+						</DialogFooter>
+					</DialogContent>
+				</Dialog>
+
+				{/* Plot Signature close confirmation – "Did you plot?" before assuming done */}
+				<AlertDialog
+					open={plotCloseConfirmOpen}
+					onOpenChange={open => {
+						setPlotCloseConfirmOpen(open)
+						if (!open) plotPopupDocumentIdRef.current = null
+						// Do not clear plotCloseConfirmDocumentId here – Radix may run this before
+						// "Yes" onClick, so we’d clear it before the handler runs. Clear only in Yes/No.
+					}}
+				>
+					<AlertDialogContent>
+						<AlertDialogHeader>
+							<AlertDialogTitle>Did you plot your signature?</AlertDialogTitle>
+							<AlertDialogDescription>
+								You closed the Plot Signature window. Double-check that you&apos;ve plotted your
+								signature before confirming. If you closed by accident, you can click Plot Signature
+								again to reopen.
+							</AlertDialogDescription>
+						</AlertDialogHeader>
+						<AlertDialogFooter>
+							<AlertDialogCancel
+								onClick={() => {
+									toast.info("You can click Plot Signature again to reopen.")
+									setPlotCloseConfirmDocumentId(null)
+								}}
+							>
+								No, I closed by accident
+							</AlertDialogCancel>
+							<AlertDialogAction
+								onClick={() => {
+									const docId = plotCloseConfirmDocumentId
+									if (docId) {
+										setUserConfirmedPlottedDocumentIds(prev => new Set(prev).add(docId))
+									}
+									setPlotCloseConfirmDocumentId(null)
+									void refetchDocuments().then(() => {
+										void manualRefreshSigningStatuses()
+									})
+									toast.success("Signature plotted. Document status updated.")
+								}}
+							>
+								Yes, I&apos;m done
+							</AlertDialogAction>
+						</AlertDialogFooter>
+					</AlertDialogContent>
+				</AlertDialog>
+
+				{/* Signature Request Notification for ENP */}
+				{activeSignatureRequest && (
+					<Dialog
+						open={true}
+						onOpenChange={open => {
+							if (!open) {
+								// Dismiss this request
+								setDismissedRequestIds(prev => new Set(prev).add(activeSignatureRequest.id))
+							}
+						}}
+					>
+						<DialogContent className="max-w-md">
+							<DialogHeader>
+								<DialogTitle className="flex items-center gap-2">
+									<FileSignature className="text-primary size-5" />
+									Signature Request
+								</DialogTitle>
+								<DialogDescription>You have been requested to sign a document</DialogDescription>
+							</DialogHeader>
+
+							<div className="space-y-4 py-4">
+								<div className="bg-muted/50 space-y-2 rounded-lg p-4">
+									<div>
+										<p className="text-muted-foreground text-xs">Document</p>
+										<p className="font-semibold">{activeSignatureRequest.document.name}</p>
+									</div>
+									<div>
+										<p className="text-muted-foreground text-xs">Requested by</p>
+										<p className="font-semibold">{activeSignatureRequest.requester.name}</p>
+									</div>
+									<div>
+										<p className="text-muted-foreground text-xs">Meeting</p>
+										<p className="font-semibold">{activeSignatureRequest.meeting.title}</p>
+									</div>
 								</div>
 							</div>
-						</div>
-					)}
 
-					{/* Document Sidebar — overlay drawer, floats above participant grid */}
-					<DocumentSidebar
-						documents={sidebarDocuments}
-						documentSigningStatus={documentSigningStatus}
-						participants={meetingDetails?.participants ?? []}
-						onSignersChange={handleSignersChange}
-						isDocumentOrderLocked={meetingDetails?.isDocumentOrderLocked ?? false}
-						isRefreshing={isDocumentsFetching || isRefreshingSigningStatus}
-						onRefresh={handleSidebarRefresh}
-						onDownloadSigned={handleDownloadSignedDocument}
-						onDownloadCertificate={handleDownloadCertificate}
-						downloadingProjectUuid={downloadingProjectUuid}
-						downloadingCertificateUuid={downloadingCertificateUuid}
-					/>
-				</div>
-			</div>
+							<DialogFooter className="flex-col gap-2 sm:flex-row">
+								<Button
+									variant="outline"
+									className="w-full sm:w-auto"
+									onClick={() => {
+										// Decline signature request
+										updateSignatureStatus.mutate({
+											requestId: activeSignatureRequest.id,
+											status: "DECLINED",
+										})
+										setDismissedRequestIds(prev => new Set(prev).add(activeSignatureRequest.id))
+									}}
+									disabled={updateSignatureStatus.isPending}
+								>
+									{updateSignatureStatus.isPending ? "Declining..." : "Decline"}
+								</Button>
+								<Button
+									className="w-full sm:w-auto"
+									onClick={() => {
+										const projectId = activeSignatureRequest.document.docoChainProjectId
+										const userEmail = session?.user?.email
 
-			{/* Send to ENP Dialog */}
-			<Dialog open={isSendDialogOpen} onOpenChange={setIsSendDialogOpen}>
-				<DialogContent className="max-w-md">
-					<DialogHeader>
-						<DialogTitle className="flex items-center gap-2">
-							<Send className="text-primary size-5" />
-							Send Document for Signature
-						</DialogTitle>
-						<DialogDescription>
-							Select which ENP participant should sign this document
-						</DialogDescription>
-					</DialogHeader>
+										console.log("Document:", activeSignatureRequest.document)
+										console.log("DocoChain Project ID:", projectId)
+										console.log("ENP Email:", userEmail)
 
-					<div className="space-y-4 py-4">
-						<div className="space-y-2">
-							<label className="text-sm font-medium">Select ENP Participant</label>
-							<Select value={selectedSignerId} onValueChange={setSelectedSignerId}>
-								<SelectTrigger className="w-full">
-									<SelectValue placeholder="Choose a participant" />
-								</SelectTrigger>
-								<SelectContent>
-									{meetingDetails?.participants
-										.filter(p => p.userId !== session?.user?.id)
-										.map(participant => (
-											<SelectItem key={participant.userId} value={participant.userId}>
-												{participant.user.name} - {participant.user.email}
-											</SelectItem>
-										))}
-								</SelectContent>
-							</Select>
-						</div>
-					</div>
+										if (projectId && userEmail) {
+											// Generate personalized signing link for this ENP
+											console.log("🔵 Generating personalized signing link for ENP...")
+											generateSigningLink.mutate({
+												projectUuid: projectId,
+												email: userEmail,
+											})
 
-					<DialogFooter>
-						<Button variant="outline" onClick={() => setIsSendDialogOpen(false)}>
-							Cancel
-						</Button>
-						<Button
-							onClick={() => {
-								if (selectedDocumentId && selectedSignerId) {
-									createSignatureRequest.mutate({
-										meetingId: meetingId ?? "",
-										documentId: selectedDocumentId,
-										signerId: selectedSignerId,
-									})
-								}
-							}}
-							disabled={!selectedSignerId || createSignatureRequest.isPending}
-						>
-							{createSignatureRequest.isPending ? (
-								<>
-									<div className="mr-2 size-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
-									Sending...
-								</>
-							) : (
-								<>
-									<Send className="mr-2 size-3" />
-									Send Request
-								</>
-							)}
-						</Button>
-					</DialogFooter>
-				</DialogContent>
-			</Dialog>
+											// Dismiss this request
+											setDismissedRequestIds(prev => new Set(prev).add(activeSignatureRequest.id))
+										} else {
+											console.error("Missing required data:", { projectId, userEmail })
+											toast.error(
+												!projectId
+													? "DocoChain project not found. Please ensure the document was uploaded correctly."
+													: "User email not found. Please sign in again."
+											)
+										}
+									}}
+									disabled={generateSigningLink.isPending}
+								>
+									<FileSignature className="mr-2 size-4" />
+									{generateSigningLink.isPending ? "Generating Link..." : "Sign Document"}
+								</Button>
+							</DialogFooter>
+						</DialogContent>
+					</Dialog>
+				)}
 
-			{/* Plot Signature close confirmation – "Did you plot?" before assuming done */}
-			<AlertDialog
-				open={plotCloseConfirmOpen}
-				onOpenChange={open => {
-					setPlotCloseConfirmOpen(open)
-					if (!open) plotPopupDocumentIdRef.current = null
-					// Do not clear plotCloseConfirmDocumentId here – Radix may run this before
-					// "Yes" onClick, so we’d clear it before the handler runs. Clear only in Yes/No.
-				}}
-			>
-				<AlertDialogContent>
-					<AlertDialogHeader>
-						<AlertDialogTitle>Did you plot your signature?</AlertDialogTitle>
-						<AlertDialogDescription>
-							You closed the Plot Signature window. Double-check that you&apos;ve plotted your
-							signature before confirming. If you closed by accident, you can click Plot Signature
-							again to reopen.
-						</AlertDialogDescription>
-					</AlertDialogHeader>
-					<AlertDialogFooter>
-						<AlertDialogCancel
-							onClick={() => {
-								toast.info("You can click Plot Signature again to reopen.")
-								setPlotCloseConfirmDocumentId(null)
-							}}
-						>
-							No, I closed by accident
-						</AlertDialogCancel>
-						<AlertDialogAction
-							onClick={() => {
-								const docId = plotCloseConfirmDocumentId
-								if (docId) {
-									setUserConfirmedPlottedDocumentIds(prev => new Set(prev).add(docId))
-								}
-								setPlotCloseConfirmDocumentId(null)
-								void refetchDocuments().then(() => {
-									void manualRefreshSigningStatuses()
-								})
-								toast.success("Signature plotted. Document status updated.")
-							}}
-						>
-							Yes, I&apos;m done
-						</AlertDialogAction>
-					</AlertDialogFooter>
-				</AlertDialogContent>
-			</AlertDialog>
-
-			{/* Signature Request Notification for ENP */}
-			{activeSignatureRequest && (
+				{/* Recording Consent Dialog (shown to all participants) */}
 				<Dialog
-					open={true}
+					open={recordingConsentOpen}
 					onOpenChange={open => {
-						if (!open) {
-							// Dismiss this request
-							setDismissedRequestIds(prev => new Set(prev).add(activeSignatureRequest.id))
+						// If user closes the modal manually, treat as decline to be safe.
+						if (!open && recordingConsentRequest && !recordingConsentDeclined) {
+							declineConsent()
 						}
+						setRecordingConsentOpen(open)
 					}}
 				>
 					<DialogContent className="max-w-md">
 						<DialogHeader>
 							<DialogTitle className="flex items-center gap-2">
-								<FileSignature className="text-primary size-5" />
-								Signature Request
+								<CircleDot className="text-destructive size-5" />
+								Start meeting recording?
 							</DialogTitle>
-							<DialogDescription>You have been requested to sign a document</DialogDescription>
+							<DialogDescription>
+								{recordingConsentRequest?.initiatorName ?? "Someone"} wants to start a screen
+								recording. Recording will begin only after everyone agrees.
+							</DialogDescription>
 						</DialogHeader>
 
-						<div className="space-y-4 py-4">
-							<div className="bg-muted/50 space-y-2 rounded-lg p-4">
-								<div>
-									<p className="text-muted-foreground text-xs">Document</p>
-									<p className="font-semibold">{activeSignatureRequest.document.name}</p>
+						<div className="space-y-3 py-2 text-sm">
+							<div className="bg-muted/50 rounded-lg border p-3">
+								<div className="flex items-center justify-between">
+									<span className="font-medium">Consents</span>
+									<span className="text-muted-foreground text-xs">
+										{recordingConsentRequest
+											? `${recordingConsentAcceptedIds.size}/${recordingConsentRequest.requiredParticipantIds.length}`
+											: "0/0"}
+									</span>
 								</div>
-								<div>
-									<p className="text-muted-foreground text-xs">Requested by</p>
-									<p className="font-semibold">{activeSignatureRequest.requester.name}</p>
-								</div>
-								<div>
-									<p className="text-muted-foreground text-xs">Meeting</p>
-									<p className="font-semibold">{activeSignatureRequest.meeting.title}</p>
-								</div>
+								{recordingConsentDeclined ? (
+									<p className="mt-2 text-sm text-red-600 dark:text-red-400">
+										Someone declined. Recording will not start.
+									</p>
+								) : (
+									<p className="text-muted-foreground mt-2 text-xs">
+										Click <span className="font-semibold">Agree</span> to consent, or{" "}
+										<span className="font-semibold">Decline</span> to cancel.
+									</p>
+								)}
 							</div>
 						</div>
 
 						<DialogFooter className="flex-col gap-2 sm:flex-row">
 							<Button
 								variant="outline"
-								className="w-full sm:w-auto"
 								onClick={() => {
-									// Decline signature request
-									updateSignatureStatus.mutate({
-										requestId: activeSignatureRequest.id,
-										status: "DECLINED",
-									})
-									setDismissedRequestIds(prev => new Set(prev).add(activeSignatureRequest.id))
-								}}
-								disabled={updateSignatureStatus.isPending}
-							>
-								{updateSignatureStatus.isPending ? "Declining..." : "Decline"}
-							</Button>
-							<Button
-								className="w-full sm:w-auto"
-								onClick={() => {
-									const projectId = activeSignatureRequest.document.docoChainProjectId
-									const userEmail = session?.user?.email
-
-									console.log("Document:", activeSignatureRequest.document)
-									console.log("DocoChain Project ID:", projectId)
-									console.log("ENP Email:", userEmail)
-
-									if (projectId && userEmail) {
-										// Generate personalized signing link for this ENP
-										console.log("🔵 Generating personalized signing link for ENP...")
-										generateSigningLink.mutate({
-											projectUuid: projectId,
-											email: userEmail,
-										})
-
-										// Dismiss this request
-										setDismissedRequestIds(prev => new Set(prev).add(activeSignatureRequest.id))
+									if (
+										recordingConsentRequest?.initiatorName === (session?.user?.name ?? "Someone")
+									) {
+										closeConsentAsInitiator()
 									} else {
-										console.error("Missing required data:", { projectId, userEmail })
-										toast.error(
-											!projectId
-												? "DocoChain project not found. Please ensure the document was uploaded correctly."
-												: "User email not found. Please sign in again."
-										)
+										declineConsent()
 									}
 								}}
-								disabled={generateSigningLink.isPending}
 							>
-								<FileSignature className="mr-2 size-4" />
-								{generateSigningLink.isPending ? "Generating Link..." : "Sign Document"}
+								Decline
+							</Button>
+							<Button
+								disabled={recordingConsentDeclined || !localParticipantId}
+								onClick={async () => {
+									await acceptConsent() // adds your participant to acceptedIds
+								}}
+							>
+								Agree
 							</Button>
 						</DialogFooter>
 					</DialogContent>
 				</Dialog>
-			)}
-
-			{/* Recording Consent Dialog (shown to all participants) */}
-			<Dialog
-				open={recordingConsentOpen}
-				onOpenChange={open => {
-					// If user closes the modal manually, treat as decline to be safe.
-					if (!open && recordingConsentRequest && !recordingConsentDeclined) {
-						declineConsent()
-					}
-					setRecordingConsentOpen(open)
-				}}
-			>
-				<DialogContent className="max-w-md">
-					<DialogHeader>
-						<DialogTitle className="flex items-center gap-2">
-							<CircleDot className="text-destructive size-5" />
-							Start meeting recording?
-						</DialogTitle>
-						<DialogDescription>
-							{recordingConsentRequest?.initiatorName ?? "Someone"} wants to start a screen
-							recording. Recording will begin only after everyone agrees.
-						</DialogDescription>
-					</DialogHeader>
-
-					<div className="space-y-3 py-2 text-sm">
-						<div className="bg-muted/50 rounded-lg border p-3">
-							<div className="flex items-center justify-between">
-								<span className="font-medium">Consents</span>
-								<span className="text-muted-foreground text-xs">
-									{recordingConsentRequest
-										? `${recordingConsentAcceptedIds.size}/${recordingConsentRequest.requiredParticipantIds.length}`
-										: "0/0"}
-								</span>
-							</div>
-							{recordingConsentDeclined ? (
-								<p className="mt-2 text-sm text-red-600 dark:text-red-400">
-									Someone declined. Recording will not start.
-								</p>
-							) : (
-								<p className="text-muted-foreground mt-2 text-xs">
-									Click <span className="font-semibold">Agree</span> to consent, or{" "}
-									<span className="font-semibold">Decline</span> to cancel.
-								</p>
-							)}
-						</div>
-					</div>
-
-					<DialogFooter className="flex-col gap-2 sm:flex-row">
-						<Button
-							variant="outline"
-							onClick={() => {
-								if (recordingConsentRequest?.initiatorName === (session?.user?.name ?? "Someone")) {
-									closeConsentAsInitiator()
-								} else {
-									declineConsent()
-								}
-							}}
-						>
-							Decline
-						</Button>
-						<Button
-							disabled={recordingConsentDeclined || !localParticipantId}
-							onClick={async () => {
-								await acceptConsent() // adds your participant to acceptedIds
-							}}
-						>
-							Agree
-						</Button>
-					</DialogFooter>
-				</DialogContent>
-			</Dialog>
+			</div>
 		</div>
 	)
 }
