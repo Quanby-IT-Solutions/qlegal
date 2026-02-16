@@ -153,16 +153,25 @@ export async function syncNotarialActToSupremeCourt(
 		}
 		console.log(`✅ Commission status verified: ${commissionStatus.commissionStatus}`)
 	} catch (error) {
-		// If commission status check fails, check if it's a validation error or API error
-		if (error instanceof Error && error.message.includes("Cannot sync")) {
-			// This is a validation error (status is inactive) - throw it
+		const message = error instanceof Error ? error.message : String(error)
+		// Validation error (status is inactive) - throw it
+		if (error instanceof Error && message.includes("Cannot sync")) {
 			throw error
 		}
-		// If it's an API error (network, timeout, etc.), log warning but continue
-		// SC API will reject the request anyway if status is inactive
+		// Cognito auth failure: do not continue (would trigger a second auth attempt and lock the account faster)
+		const isAuthError =
+			message.includes("Cognito") ||
+			message.includes("credentials") ||
+			message.includes("NotAuthorizedException") ||
+			message.includes("Password attempts") ||
+			message.includes("Incorrect username")
+		if (isAuthError) {
+			throw error
+		}
+		// Other API errors (network, timeout): log and continue; SC API will reject if status is inactive
 		console.warn(
 			"⚠️ Could not verify commission status before sync (will proceed - SC API will reject if inactive):",
-			error instanceof Error ? error.message : error
+			message
 		)
 	}
 

@@ -2498,6 +2498,17 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 			if (wasPlotting) {
 				try {
 					const url = new URL(signingLink)
+					// Plot Signature must NEVER leak sensitive/query-heavy params into the address bar.
+					// Backend already sanitizes, but keep client-side guardrails in case of stale cache / upstream surprises.
+					if (url.hostname.includes("stg-app.doconchain.com") || url.hostname.includes("app.doconchain.com")) {
+						url.hostname = "link.doconchain.com"
+					}
+					url.searchParams.delete("token")
+					url.searchParams.delete("api_token")
+					url.searchParams.delete("email")
+					url.searchParams.delete("signer_role")
+					url.searchParams.delete("page")
+					url.searchParams.delete("user_type")
 					url.searchParams.set("api", "true")
 					signingLink = url.toString()
 				} catch {
@@ -2509,10 +2520,13 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 			try {
 				const url = new URL(signingLink)
 				// SAFETY: Plot Signature must never open a per-recipient "signing" link (token=...).
-				// stg-app / app domain is allowed for plot links (DOCONCHAIN_APP_URL).
+				// Also never allow app/stg-app hosts for plotting (we require sanitized link.doconchain.com).
 				if (wasPlotting) {
 					const hasSignerTokenParam = url.searchParams.has("token")
-					if (hasSignerTokenParam) {
+					const isBadHost =
+						url.hostname.includes("stg-app.doconchain.com") ||
+						url.hostname.includes("app.doconchain.com")
+					if (hasSignerTokenParam || isBadHost) {
 						toast.error(
 							"Plot Signature must open the draft plotting platform. Please click Plot Signature again."
 						)

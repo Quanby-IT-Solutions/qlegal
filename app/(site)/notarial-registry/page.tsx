@@ -51,7 +51,6 @@ import {
 	TableHeader,
 	TableRow,
 } from "@/core/components/ui/table"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/core/components/ui/tabs"
 import { ToggleGroup, ToggleGroupItem } from "@/core/components/ui/toggle-group"
 import {
 	Tooltip,
@@ -814,131 +813,127 @@ export default function NotarialRegistryPage() {
 							</div>
 						</div>
 
-						{/* Act type tabs (swappable notarization view) + Filters */}
+						{/* Filters, sort, view — compact toolbar */}
 						<Card className="mb-8">
-							<CardContent className="pt-6">
-								<Tabs
-									value={actTypeFilter}
-									onValueChange={v => {
-										setActTypeFilter(v as ActTypeFilter)
-										setPage(1)
-									}}
-								>
-									<div className="mb-4">
-										<TabsList className="bg-muted/50 flex h-auto flex-wrap gap-1 p-1">
-											<TabsTrigger value="ALL" className="text-sm">
-												All
-											</TabsTrigger>
-											<TabsTrigger value="ACKNOWLEDGMENT" className="text-sm">
-												Acknowledgment
-											</TabsTrigger>
-											<TabsTrigger value="AFFIRMATION" className="text-sm">
-												Affirmation
-											</TabsTrigger>
-											<TabsTrigger value="JURAT" className="text-sm">
-												Jurat
-											</TabsTrigger>
-											<TabsTrigger value="SIGNATURE_WITNESSING" className="text-sm">
-												Signature Witnessing
-											</TabsTrigger>
-										</TabsList>
+							<CardContent className="px-3 py-2.5 sm:px-4 sm:py-3">
+								<div className="flex flex-col gap-2.5">
+									{/* Row 1: Filters */}
+									<div className="flex flex-wrap items-center gap-1.5">
+										<Select
+											value={actTypeFilter}
+											onValueChange={value => {
+												setActTypeFilter(value as ActTypeFilter)
+												setPage(1)
+											}}
+										>
+											<SelectTrigger className="h-7 w-full min-w-0 text-xs sm:w-[130px]">
+												<SelectValue placeholder="Act type" />
+											</SelectTrigger>
+											<SelectContent>
+												<SelectItem value="ALL">All</SelectItem>
+												<SelectItem value="ACKNOWLEDGMENT">Acknowledgment</SelectItem>
+												<SelectItem value="AFFIRMATION">Affirmation</SelectItem>
+												<SelectItem value="JURAT">Jurat</SelectItem>
+												<SelectItem value="SIGNATURE_WITNESSING">Signature Witnessing</SelectItem>
+											</SelectContent>
+										</Select>
+										<Input
+											placeholder="Search principal, witness, document…"
+											value={searchTerm}
+											onChange={e => {
+												setSearchTerm(e.target.value)
+												setPage(1)
+											}}
+											className="h-7 w-full min-w-0 max-w-full text-xs sm:w-[180px]"
+										/>
+										<Select
+											value={workflowFilter}
+											onValueChange={value => {
+												setWorkflowFilter(value as "ALL" | "REN" | "IEN")
+												setPage(1)
+											}}
+										>
+											<SelectTrigger className="h-7 w-[92px] text-xs">
+												<SelectValue placeholder="Workflow" />
+											</SelectTrigger>
+											<SelectContent>
+												<SelectItem value="ALL">All Workflows</SelectItem>
+												<SelectItem value="REN">REN</SelectItem>
+												<SelectItem value="IEN">IEN</SelectItem>
+											</SelectContent>
+										</Select>
+										<Button
+											variant="ghost"
+											size="sm"
+											type="button"
+											onClick={clearFilters}
+											className="h-7 shrink-0 px-1.5 text-[11px] text-muted-foreground hover:text-foreground"
+										>
+											Clear filters
+										</Button>
 									</div>
-									<TabsContent value={actTypeFilter} className="mt-0">
-										<div className="space-y-3">
-											<div className="flex flex-col gap-3 md:flex-row md:items-center">
-												<Input
-													placeholder="Search any detail (principal, witness, doc, certificate, signers, location, etc.)..."
-													value={searchTerm}
-													onChange={e => {
-														setSearchTerm(e.target.value)
-														setPage(1)
-													}}
-												/>
-												<Select
-													value={workflowFilter}
-													onValueChange={value => {
-														setWorkflowFilter(value as "ALL" | "REN" | "IEN")
-														setPage(1)
-													}}
-												>
-													<SelectTrigger className="md:w-45">
-														<SelectValue placeholder="All Workflows" />
-													</SelectTrigger>
-													<SelectContent>
-														<SelectItem value="ALL">All Workflows</SelectItem>
-														<SelectItem value="REN">REN</SelectItem>
-														<SelectItem value="IEN">IEN</SelectItem>
-													</SelectContent>
-												</Select>
-												<Button
-													variant="outline"
-													type="button"
-													onClick={clearFilters}
-													className="md:w-35"
-												>
-													Clear filters
-												</Button>
-											</div>
 
-											<div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-												<div className="flex flex-wrap items-center gap-2">
-													<span className="text-muted-foreground text-sm">Sort:</span>
-													<Select
-														value={sortBy}
-														onValueChange={value => {
-															setSortBy(value as SortBy)
-															setPage(1)
-														}}
-													>
-														<SelectTrigger className="w-42.5">
-															<SelectValue placeholder="Sort by" />
-														</SelectTrigger>
-														<SelectContent>
-															<SelectItem value="executedAt">Signed time</SelectItem>
-															<SelectItem value="meetingEndedAt">Meeting ended</SelectItem>
-															<SelectItem value="registryNumber">Registry #</SelectItem>
-															<SelectItem value="principalName">Principal</SelectItem>
-															<SelectItem value="documentName">Document</SelectItem>
-															<SelectItem value="certificateNumber">Certificate #</SelectItem>
-															<SelectItem value="actType">Act type</SelectItem>
-															<SelectItem value="workflow">Workflow</SelectItem>
-														</SelectContent>
-													</Select>
-													<Select
-														value={sortDir}
-														onValueChange={value => {
-															setSortDir(value as SortDir)
-															setPage(1)
-														}}
-													>
-														<SelectTrigger className="w-27.5">
-															<SelectValue placeholder="Order" />
-														</SelectTrigger>
-														<SelectContent>
-															<SelectItem value="desc">Desc</SelectItem>
-															<SelectItem value="asc">Asc</SelectItem>
-														</SelectContent>
-													</Select>
-												</div>
-												<div className="flex items-center gap-2 md:justify-end">
-													<span className="text-muted-foreground text-sm">View:</span>
-													<ToggleGroup
-														type="single"
-														value={viewMode}
-														onValueChange={v => v && setViewMode(v as ViewMode)}
-													>
-														<ToggleGroupItem value="table" aria-label="Table view">
-															<List className="size-4" />
-														</ToggleGroupItem>
-														<ToggleGroupItem value="cards" aria-label="Cards view">
-															<LayoutGrid className="size-4" />
-														</ToggleGroupItem>
-													</ToggleGroup>
-												</div>
-											</div>
+									{/* Row 2: Sort + View */}
+									<div className="flex flex-wrap items-center gap-3 border-t border-border/50 pt-2.5">
+										<div className="flex items-center gap-1.5">
+											<span className="text-muted-foreground shrink-0 text-[10px] font-medium uppercase tracking-wider">Sort</span>
+											<Select
+												value={sortBy}
+												onValueChange={value => {
+													setSortBy(value as SortBy)
+													setPage(1)
+												}}
+											>
+												<SelectTrigger className="h-7 w-[108px] text-xs">
+													<SelectValue placeholder="Sort by" />
+												</SelectTrigger>
+												<SelectContent>
+													<SelectItem value="executedAt">Signed time</SelectItem>
+													<SelectItem value="meetingEndedAt">Meeting ended</SelectItem>
+													<SelectItem value="registryNumber">Registry #</SelectItem>
+													<SelectItem value="principalName">Principal</SelectItem>
+													<SelectItem value="documentName">Document</SelectItem>
+													<SelectItem value="certificateNumber">Certificate #</SelectItem>
+													<SelectItem value="actType">Act type</SelectItem>
+													<SelectItem value="workflow">Workflow</SelectItem>
+												</SelectContent>
+											</Select>
+											<Select
+												value={sortDir}
+												onValueChange={value => {
+													setSortDir(value as SortDir)
+													setPage(1)
+												}}
+											>
+												<SelectTrigger className="h-7 w-[72px] text-xs">
+													<SelectValue placeholder="Order" />
+												</SelectTrigger>
+												<SelectContent>
+													<SelectItem value="desc">Desc</SelectItem>
+													<SelectItem value="asc">Asc</SelectItem>
+												</SelectContent>
+											</Select>
 										</div>
-									</TabsContent>
-								</Tabs>
+										<div className="flex items-center gap-1.5">
+											<span className="text-muted-foreground shrink-0 text-[10px] font-medium uppercase tracking-wider">View</span>
+											<ToggleGroup
+												type="single"
+												value={viewMode}
+												onValueChange={v => v && setViewMode(v as ViewMode)}
+												variant="outline"
+												size="sm"
+												className="[&_button]:h-7 [&_button]:min-w-7 [&_button]:px-1.5"
+											>
+												<ToggleGroupItem value="table" aria-label="Table view" className="size-7 p-0">
+													<List className="size-3.5" />
+												</ToggleGroupItem>
+												<ToggleGroupItem value="cards" aria-label="Cards view" className="size-7 p-0">
+													<LayoutGrid className="size-3.5" />
+												</ToggleGroupItem>
+											</ToggleGroup>
+										</div>
+									</div>
+								</div>
 							</CardContent>
 						</Card>
 

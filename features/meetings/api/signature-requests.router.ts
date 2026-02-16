@@ -732,6 +732,46 @@ export const signatureRequestsRouter = createTRPCRouter({
 					)
 				}
 
+				const normalizePlotLinkForUi = (raw: string): string => {
+					// Plot Signature must open a sanitized short link (never token/api_token/email/signer_role/etc).
+					// This prevents leaking staging hosts and credentials into the address bar.
+					const cleaned = String(raw ?? "").trim()
+					try {
+						const url = new URL(cleaned)
+						if (url.hostname.includes("stg-app.doconchain.com") || url.hostname.includes("app.doconchain.com")) {
+							url.hostname = "link.doconchain.com"
+						}
+						url.searchParams.delete("token")
+						url.searchParams.delete("api_token")
+						url.searchParams.delete("email")
+						url.searchParams.delete("signer_role")
+						url.searchParams.delete("page")
+						url.searchParams.delete("user_type")
+						url.searchParams.set("api", "true")
+						if (url.searchParams.get("status") === "Deleted") url.searchParams.delete("status")
+						return url.toString()
+					} catch {
+						// Best-effort fallback: strip the most problematic params.
+						let next = cleaned
+						next = next.replace(/[?&]token=[^&]*/g, "")
+						next = next.replace(/[?&]api_token=[^&]*/g, "")
+						next = next.replace(/[?&]email=[^&]*/g, "")
+						next = next.replace(/[?&]signer_role=[^&]*/g, "")
+						next = next.replace(/[?&]page=[^&]*/g, "")
+						next = next.replace(/[?&]user_type=[^&]*/g, "")
+						next = next.replace(
+							/https?:\/\/(stg-)?app\.doconchain\.com\//g,
+							"https://link.doconchain.com/"
+						)
+						const separator = next.includes("?") ? "&" : "?"
+						if (!/([?&])api=/.test(next)) next = `${next}${separator}api=true`
+						// Clean up separators
+						while (next.includes("&&")) next = next.replace(/&&/g, "&")
+						if (next.includes("?&")) next = next.replace(/\?&/g, "?")
+						return next.replace(/\?$/, "")
+					}
+				}
+
 				// Step 3: Get signing link for user
 				// Strategy:
 				// - If project is Draft: Use Edit Draft Link or stored redirect URL
@@ -995,19 +1035,22 @@ export const signatureRequestsRouter = createTRPCRouter({
 					if (isPlotting !== true) signingLink = forceApiTruePreservingParams(signingLink)
 				}
 
-				// For plotting, return link as-is. For signing, preserve parameters and just ensure api=true.
+				// For plotting, ALWAYS return sanitized short UI link. For signing, preserve parameters and ensure api=true.
 				const finalNormalizedLink =
-					isPlotting === true ? signingLink : forceApiTruePreservingParams(signingLink)
+					isPlotting === true
+						? normalizePlotLinkForUi(signingLink)
+						: forceApiTruePreservingParams(signingLink)
 
-				// SAFETY: When plotting, never allow a per-recipient signing link (has "token" param).
-				// Plot link must use api_token and correct params (page, user_type, email, signer_role, api=true).
-				// stg-app / app domain is allowed for plot links when using DOCONCHAIN_APP_URL.
+				// SAFETY: When plotting, never allow a per-recipient signing link (has `token` param)
+				// and never allow app/stg-app hostnames. Plotting must open a sanitized short link.
 				if (isPlotting === true) {
 					try {
 						const url = new URL(finalNormalizedLink)
 						const hasSignerTokenParam = url.searchParams.has("token")
+						const isBadHost =
+							url.hostname.includes("stg-app.doconchain.com") || url.hostname.includes("app.doconchain.com")
 
-						if (hasSignerTokenParam) {
+						if (hasSignerTokenParam || isBadHost) {
 							console.error(
 								"❌ Plot Signature attempted to return a signing link (token param). Blocking for safety.",
 								{ host: url.hostname }

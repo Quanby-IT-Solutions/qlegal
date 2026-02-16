@@ -297,32 +297,23 @@ export async function generateEditDraftLink(
 	const email = userEmail ?? env.DOCONCHAIN_EMAIL
 
 	if (forPlotting) {
-		// Plotting: MUST use link.doconchain.com (not stg-app/app) to avoid DocoChain redirect to
-		// email-document-status?status=Deleted. Same query params: page=1, user_type=ENTERPRISE_API,
-		// email, signer_role=Signer, api=true (+ api_token appended).
+		/**
+		 * Plot Signature (Edit Draft / plotting):
+		 * We intentionally return a *sanitized* short link for the UI:
+		 * - Always `link.doconchain.com/<shortCode>`
+		 * - Never include per-recipient `token=...`
+		 * - Never include `api_token`, `email`, `signer_role`, `page`, `user_type` (these leak into the address bar)
+		 *
+		 * Note: The DocoChain short link itself encapsulates the draft session. Extra query params are not required
+		 * for plotting and create very noisy / sensitive URLs, especially on staging.
+		 */
 		const shortCode = extractPlotShortCode(link)
-		const plotDomain = "https://link.doconchain.com"
-		const plotBase = `${plotDomain}/${shortCode}`
-		const plotUrl = new URL(plotBase)
-		plotUrl.searchParams.set("page", "1")
-		plotUrl.searchParams.set("user_type", "ENTERPRISE_API")
-		plotUrl.searchParams.set("email", email)
-		plotUrl.searchParams.set("signer_role", "Signer")
+		const plotUrl = new URL(`https://link.doconchain.com/${shortCode}`)
 		plotUrl.searchParams.set("api", "true")
-		// Ensure we never append status=Deleted (known DocoChain bug)
-		plotUrl.searchParams.delete("status")
-		const plotLinkStr = plotUrl.toString()
-		const finalLink = await appendApiToken(
-			plotLinkStr,
-			email,
-			true,
-			tokenOverride ? undefined : projectUuid,
-			tokenOverride
-		)
-		console.log(
-			"🔵 Built plot link (link.doconchain.com + page, user_type, email, signer_role, api=true)"
-		)
-		return { link: finalLink }
+		plotUrl.searchParams.delete("status") // known DocoChain bug
+		const sanitized = plotUrl.toString()
+		console.log("🔵 Built sanitized plot link (link.doconchain.com + api=true only)")
+		return { link: sanitized }
 	}
 
 	// Normalize the link (removes status=Deleted and adds api=true) for non-plotting edit-draft

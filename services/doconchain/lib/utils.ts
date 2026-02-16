@@ -7,7 +7,7 @@ export function splitName(fullName: string | undefined): { firstName: string; la
 
 /**
  * Normalize DocoChain URLs: convert stg-app/app to link.doconchain.com,
- * remove sensitive params (token, email, signer_role, page), ensure api=true.
+ * remove sensitive params (token, api_token, email, signer_role, page, user_type), ensure api=true.
  * CRITICAL: Prevents exposing staging URLs and credentials in the address bar.
  */
 export function normalizeUrl(url: string | null | undefined): string | null {
@@ -26,10 +26,13 @@ export function normalizeUrl(url: string | null | undefined): string | null {
 		}
 		// Remove sensitive params that should never appear in user-facing URLs
 		urlObj.searchParams.delete("token")
+		urlObj.searchParams.delete("api_token")
 		urlObj.searchParams.delete("email")
 		urlObj.searchParams.delete("signer_role")
 		urlObj.searchParams.delete("page")
+		urlObj.searchParams.delete("user_type")
 		urlObj.searchParams.set("api", "true")
+		if (urlObj.searchParams.get("status") === "Deleted") urlObj.searchParams.delete("status")
 		return urlObj.toString()
 	} catch {
 		// Fallback: manual cleanup when URL parsing fails
@@ -38,9 +41,11 @@ export function normalizeUrl(url: string | null | undefined): string | null {
 			normalized = `${normalized}${separator}api=true`
 		}
 		normalized = normalized.replace(/[?&]token=[^&]*/g, "")
+		normalized = normalized.replace(/[?&]api_token=[^&]*/g, "")
 		normalized = normalized.replace(/[?&]email=[^&]*/g, "")
 		normalized = normalized.replace(/[?&]signer_role=[^&]*/g, "")
 		normalized = normalized.replace(/[?&]page=[^&]*/g, "")
+		normalized = normalized.replace(/[?&]user_type=[^&]*/g, "")
 		normalized = normalized.replace(
 			/https?:\/\/(stg-)?app\.doconchain\.com\//g,
 			"https://link.doconchain.com/"
