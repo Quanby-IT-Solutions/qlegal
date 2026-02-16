@@ -1039,6 +1039,34 @@ export const signatureRequestsRouter = createTRPCRouter({
 						? normalizePlotLinkForUi(signingLink)
 						: forceApiTruePreservingParams(signingLink)
 
+				// Optional: provide a "clean" app URL (no token/api_token) for the popup address bar.
+				// This can work AFTER DocOnChain has established a session cookie from the first authorized navigation.
+				// IMPORTANT: Using stg-app/app domains here can trigger DocOnChain's buggy redirect to
+				// `/email-document-status?status=Deleted`. So we use `link.doconchain.com/<shortCode>` as the
+				// clean target instead.
+				// We still open `finalNormalizedLink` first to guarantee authorization.
+				const cleanPlotUrl =
+					isPlotting === true
+						? (() => {
+								try {
+									// Derive the short-code (first path segment) from the authorized plotting link.
+									const parsed = new URL(finalNormalizedLink)
+									const path = parsed.pathname.replace(/^\/+/, "").replace(/\/+$/, "")
+									const shortCode = path.split("/")[0] ?? actualProjectUuid
+
+									const url = new URL(`https://link.doconchain.com/${shortCode}`)
+									url.searchParams.set("page", "1")
+									url.searchParams.set("user_type", "ENTERPRISE_API")
+									url.searchParams.set("email", email)
+									url.searchParams.set("signer_role", "Signer")
+									url.searchParams.set("api", "true")
+									return url.toString()
+								} catch {
+									return undefined
+								}
+							})()
+						: undefined
+
 				// SAFETY: When plotting, never allow a per-recipient signing link (has `token` param)
 				// and never allow app/stg-app hostnames. Plotting must open a sanitized short link.
 				if (isPlotting === true) {
@@ -1068,6 +1096,7 @@ export const signatureRequestsRouter = createTRPCRouter({
 					success: true,
 					link: finalNormalizedLink,
 					projectUuid: actualProjectUuid, // Return project UUID for reference
+					cleanPlotUrl,
 				}
 			} catch (error) {
 				console.error("❌ Failed to initiate signing:", error)

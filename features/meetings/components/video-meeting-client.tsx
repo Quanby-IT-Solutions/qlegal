@@ -1229,7 +1229,8 @@ const DocumentActions = React.memo(function DocumentActions({
 		documentId: string,
 		link: string,
 		projectUuid: string,
-		kind: "plot" | "sign"
+		kind: "plot" | "sign",
+		cleanPlotUrl?: string
 	) => void
 	/** When "Plot Signature", button stays loading until this is true (pre-generated link ready). */
 	plotLinkReady?: boolean
@@ -1459,7 +1460,15 @@ const DocumentActions = React.memo(function DocumentActions({
 	const preGeneratePlotLinkMutation = trpc.signatureRequests.initiateSigning.useMutation({
 		onSuccess: data => {
 			if (data.link && data.projectUuid && onPreGeneratedLink) {
-				onPreGeneratedLink(document.id, data.link, data.projectUuid, "plot")
+				onPreGeneratedLink(
+					document.id,
+					data.link,
+					data.projectUuid,
+					"plot",
+					typeof (data as unknown as { cleanPlotUrl?: unknown }).cleanPlotUrl === "string"
+						? ((data as unknown as { cleanPlotUrl?: string }).cleanPlotUrl ?? undefined)
+						: undefined
+				)
 			}
 			preGenerationInitiatedRef.current = null
 			plotPreGenRetryCountRef.current = 0
@@ -1788,7 +1797,12 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 	>(new Set())
 	const openingPlatformToastIdRef = useRef<string | number | null>(null)
 	const openingSignedDocumentToastIdRef = useRef<string | number | null>(null)
-	type PreGeneratedLinkEntry = { link: string; projectUuid: string; storedAt: number }
+	type PreGeneratedLinkEntry = {
+		link: string
+		projectUuid: string
+		storedAt: number
+		cleanPlotUrl?: string
+	}
 	// Store pre-generated links per document (keyed by documentId). storedAt used to skip stale links on click.
 	// IMPORTANT: Plot and Sign links must NEVER share the same slot, otherwise Plot can accidentally open a Sign link (token=...).
 	const [preGeneratedPlotLinks, setPreGeneratedPlotLinks] = useState<
@@ -2483,6 +2497,10 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 
 			// Validate that we have a valid URL string
 			let signingLink = typeof data.link === "string" ? data.link : null
+			const cleanPlotUrl =
+				typeof (data as unknown as { cleanPlotUrl?: unknown }).cleanPlotUrl === "string"
+					? ((data as unknown as { cleanPlotUrl?: string }).cleanPlotUrl ?? undefined)
+					: undefined
 
 			if (!signingLink) {
 				console.error("❌ Invalid signing link received:", data)
@@ -2554,6 +2572,24 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 			)
 
 			if (popup) {
+				// Best-effort: after the first authorized navigation, replace the popup URL with a "clean" link
+				// (no api_token / token in the address bar). This depends on DocOnChain session cookies.
+				// We intentionally target `link.doconchain.com` here to avoid DocOnChain's `status=Deleted` redirect.
+				if (wasPlotting && cleanPlotUrl && cleanPlotUrl.includes("link.doconchain.com")) {
+					const tryReplace = (delayMs: number) => {
+						setTimeout(() => {
+							try {
+								if (!popup.closed) popup.location.replace(cleanPlotUrl)
+							} catch {
+								// Ignore - cross-origin navigation errors or popup closed.
+							}
+						}, delayMs)
+					}
+					tryReplace(1200)
+					tryReplace(3200)
+					tryReplace(6200)
+				}
+
 				// Monitor popup for closing - check every 1.5s is responsive enough
 				const checkClosed = setInterval(() => {
 					if (popup.closed) {
@@ -2688,6 +2724,23 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 				)
 
 				if (popup) {
+					// Same best-effort cleanup as the mutation onSuccess path.
+					if (plotting && preGenerated.cleanPlotUrl?.includes("link.doconchain.com")) {
+						const cleanPlotUrl = preGenerated.cleanPlotUrl
+						const tryReplace = (delayMs: number) => {
+							setTimeout(() => {
+								try {
+									if (!popup.closed) popup.location.replace(cleanPlotUrl)
+								} catch {
+									// Ignore
+								}
+							}, delayMs)
+						}
+						tryReplace(1200)
+						tryReplace(3200)
+						tryReplace(6200)
+					}
+
 					const checkClosed = setInterval(() => {
 						if (popup.closed) {
 							clearInterval(checkClosed)
@@ -3686,12 +3739,17 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 												isCreatingProject={createDocoChainProjectMutation.isPending}
 												docoChainTokenReady={docoChainTokenReady}
 												docoChainTokenLoading={docoChainTokenLoading}
-												onPreGeneratedLink={(documentId, link, projectUuid, kind) => {
+												onPreGeneratedLink={(documentId, link, projectUuid, kind, cleanPlotUrl) => {
 													const setMap =
 														kind === "plot" ? setPreGeneratedPlotLinks : setPreGeneratedSignLinks
 													setMap(prev => {
 														const next = new Map(prev)
-														next.set(documentId, { link, projectUuid, storedAt: Date.now() })
+														next.set(documentId, {
+															link,
+															projectUuid,
+															storedAt: Date.now(),
+															cleanPlotUrl: kind === "plot" ? cleanPlotUrl : undefined,
+														})
 														return next
 													})
 												}}
