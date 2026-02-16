@@ -9,7 +9,7 @@ export default async function NotarizationsPage({
 	const tabParam = resolvedSearchParams.tab
 	const tab = Array.isArray(tabParam) ? tabParam[0] : tabParam
 
-	// Redirect to meetings page with appropriate tab
+	// Redirect to sessions page with appropriate tab
 	const tabValue = tab === "history" ? "history" : "active"
-	redirect(`/meetings?tab=${tabValue}`)
+	redirect(`/sessions?tab=${tabValue}`)
 }

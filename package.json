@@ -16,6 +16,8 @@
 		"test:supreme-court": "tsx scripts/test-supreme-court-commission.ts",
 		"test:supreme-court-sync": "tsx scripts/test-supreme-court-sync.ts",
 		"test:supreme-court-metadata": "tsx scripts/test-supreme-court-metadata.ts",
+		"test:supreme-court-consolidated": "tsx scripts/test-supreme-court-consolidated.ts",
+		"test:supreme-court-upload-file": "tsx scripts/test-supreme-court-upload-file.ts",
 		"test:supreme-court-witness": "tsx scripts/test-supreme-court-witness.ts",
 		"test:supreme-court-principal": "tsx scripts/test-supreme-court-principal.ts",
 		"check:supreme-court-permissions": "tsx scripts/check-supreme-court-permissions.ts",

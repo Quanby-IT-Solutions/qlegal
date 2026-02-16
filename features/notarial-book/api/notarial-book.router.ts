@@ -13,12 +13,15 @@ import {
 import { getMeetingToken, getProjectToken } from "@/services/doconchain/lib/token-cache"
 import { users } from "@/services/drizzle/schema/auth"
 import { documents } from "@/services/drizzle/schema/document"
+import { enpProfiles } from "@/services/drizzle/schema/enp-profiles"
 import { idCardDetails } from "@/services/drizzle/schema/id-card-details"
 import { legalRegistrations } from "@/services/drizzle/schema/legal-registration"
 import { meetingParticipants, meetings } from "@/services/drizzle/schema/meetings"
 import { notarialActs, notarialBooks } from "@/services/drizzle/schema/notarial-book"
 import { getCommissionStatus } from "@/services/supreme-court/api/commission-status"
 import { isConfigured } from "@/services/supreme-court/lib/token-cache"
+import { syncNotarialActToSupremeCourt } from "@/services/supreme-court/lib/sync-notarial-act"
+import { getServiceRoleClient } from "@/services/supabase"
 import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
 
 import { autoCreateNotarialAct } from "@/features/notarial-book/lib/auto-create-notarial-act"
@@ -50,6 +53,10 @@ const syncDocumentToNotarialBookSchema = z.object({
 	documentId: z.string().min(1),
 	projectUuid: z.string().min(1),
 	actType: z.enum(["ACKNOWLEDGMENT", "AFFIRMATION", "JURAT", "SIGNATURE_WITNESSING"]),
+})
+
+const syncActToSupremeCourtSchema = z.object({
+	actId: z.string().min(1),
 })
 
 /**
@@ -994,6 +1001,107 @@ export const notarialBookRouter = createTRPCRouter({
 				page,
 				perPage,
 				totalPages: Math.ceil(total / perPage),
+			}
+		}),
+
+	/**
+	 * Sync a notarial act to Supreme Court (ENP only).
+	 * Returns notarialRegistryID (NRID) and notarialRegistryNumber (NRN).
+	 */
+	syncActToSupremeCourt: protectedProcedure
+		.input(syncActToSupremeCourtSchema)
+		.mutation(async ({ ctx, input }) => {
+			const userId = ctx.session.user.id
+			const { actId } = input
+
+			const user = await ctx.db.query.users.findFirst({
+				where: eq(users.id, userId),
+			})
+			if (user?.role !== "ENP") {
+				throw new TRPCError({
+					code: "FORBIDDEN",
+					message: "Only ENPs can sync acts to Supreme Court",
+				})
+			}
+
+			if (!isConfigured()) {
+				throw new TRPCError({
+					code: "PRECONDITION_FAILED",
+					message: "Supreme Court API is not configured",
+				})
+			}
+
+			const act = await ctx.db.query.notarialActs.findFirst({
+				where: eq(notarialActs.id, actId),
+			})
+			if (!act) {
+				throw new TRPCError({
+					code: "NOT_FOUND",
+					message: "Notarial act not found",
+				})
+			}
+
+			const book = await ctx.db.query.notarialBooks.findFirst({
+				where: eq(notarialBooks.id, act.notarialBookId),
+			})
+			if (book?.enpId !== userId) {
+				throw new TRPCError({
+					code: "FORBIDDEN",
+					message: "You do not own this notarial act",
+				})
+			}
+
+			const enpProfile = await ctx.db.query.enpProfiles.findFirst({
+				where: eq(enpProfiles.userId, userId),
+			})
+			if (!enpProfile?.notaryPublicNumber || !enpProfile?.notaryFacilityNumber || !enpProfile?.rollNo) {
+				throw new TRPCError({
+					code: "PRECONDITION_FAILED",
+					message: "ENP profile missing NPN, NFN, or RN",
+				})
+			}
+
+			let documentFile: Buffer | undefined
+			let documentFileName: string | undefined
+			if (act.documentId) {
+				const document = await ctx.db.query.documents.findFirst({
+					where: eq(documents.id, act.documentId),
+					columns: { path: true, name: true },
+				})
+				if (document?.path) {
+					const supabase = getServiceRoleClient()
+					const { data: fileData, error: downloadError } = await supabase.storage
+						.from("documents")
+						.download(document.path)
+					if (!downloadError && fileData) {
+						const arrayBuffer = await fileData.arrayBuffer()
+						documentFile = Buffer.from(arrayBuffer)
+						documentFileName = document.name ?? "document.pdf"
+					}
+				}
+			}
+
+			const result = await syncNotarialActToSupremeCourt({
+				act,
+				notaryFacilityNumber: enpProfile.notaryFacilityNumber,
+				notaryPublicNumber: enpProfile.notaryPublicNumber,
+				rollNumber: enpProfile.rollNo,
+				documentFile,
+				documentFileName,
+			})
+
+			await ctx.db
+				.update(notarialActs)
+				.set({
+					syncedToSupremeCourt: true,
+					syncedAt: new Date(),
+					supremeCourtRegistryId: result.notarialRegistryID,
+				})
+				.where(eq(notarialActs.id, actId))
+
+			return {
+				notarialRegistryID: result.notarialRegistryID,
+				notarialRegistryNumber: result.notarialRegistryNumber,
 			}
 		}),
 

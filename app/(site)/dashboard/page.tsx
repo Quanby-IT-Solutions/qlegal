@@ -542,7 +542,7 @@ export default function DashboardPage() {
 									</Link>
 								)}
 								<Link
-									href={isENP ? "/appointments" : "/consultations"}
+									href={{ pathname: "/consultations" }}
 									className={buttonVariants({
 										variant: "outline",
 										className: "h-auto flex-col items-start gap-2 p-4",
@@ -668,7 +668,7 @@ export default function DashboardPage() {
 														size="sm"
 														className="bg-green-600 hover:bg-green-700"
 														onClick={() =>
-															router.push(`/meetings/${session.activeMeetingId}/lobby` as Route)
+															router.push(`/sessions/${session.activeMeetingId}/lobby` as Route)
 														}
 													>
 														<HugeiconsIcon icon={Video01Icon} size={16} className="mr-1.5" />
@@ -955,7 +955,7 @@ export default function DashboardPage() {
 									</div>
 								) : (
 									<div className="flex h-[350px] flex-col items-center justify-center text-center">
-										<div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-blue-100 to-blue-200 dark:from-blue-900/30 dark:to-blue-800/30">
+										<div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-linear-to-br from-blue-100 to-blue-200 dark:from-blue-900/30 dark:to-blue-800/30">
 											{}
 											<HugeiconsIcon
 												icon={BarChartIcon}
@@ -1042,7 +1042,7 @@ export default function DashboardPage() {
 										</CardDescription>
 									</div>
 									<Link
-										href="/meetings"
+										href="/sessions"
 										className={buttonVariants({ variant: "ghost", size: "sm" })}
 									>
 										View Meetings
@@ -1085,7 +1085,7 @@ export default function DashboardPage() {
 																{
 																	onSuccess: () => {
 																		toast.success("Invite accepted")
-																		router.push(`/meetings/${invite.meetingId}/lobby` as Route)
+																		router.push(`/sessions/${invite.meetingId}/lobby` as Route)
 																	},
 																	onError: err => {
 																		toast.error(err.message || "Failed to accept invite")
@@ -1219,7 +1219,7 @@ export default function DashboardPage() {
 										/>
 										<p className="text-muted-foreground mt-4 text-sm">No upcoming appointments</p>
 										<Link
-											href="/consultations"
+											href={{ pathname: "/consultations" }}
 											className={buttonVariants({
 												variant: "outline",
 												size: "sm",
@@ -1322,7 +1322,7 @@ export default function DashboardPage() {
 									<CardTitle>Recent Video Meetings</CardTitle>
 									<CardDescription>Your latest video consultations</CardDescription>
 								</div>
-								<Link href="/meetings" className={buttonVariants({ variant: "ghost", size: "sm" })}>
+								<Link href="/sessions" className={buttonVariants({ variant: "ghost", size: "sm" })}>
 									View All
 									<HugeiconsIcon icon={ArrowRight01Icon} size={16} className="ml-2" />
 								</Link>

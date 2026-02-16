@@ -15,10 +15,10 @@ import { Skeleton } from "@/core/components/ui/skeleton"
 import { getAvatarUrl } from "@/core/lib/utils"
 import { trpc } from "@/services/trpc/client"
 
-import { getMeetingStatusBadge } from "@/features/meetings/lib/meeting-badges"
-import { NotarizationDetailsDialog } from "@/features/meetings/components/notarization-details-dialog"
+import { getMeetingStatusBadge } from "@/features/sessions/lib/meeting-badges"
+import { NotarizationDetailsDialog } from "@/features/sessions/components/notarization-details-dialog"
 
-const MEETING_ID_FROM_LINK_REGEX = /\/meetings\/([a-zA-Z0-9_-]+)/
+const MEETING_ID_FROM_LINK_REGEX = /\/sessions\/([a-zA-Z0-9_-]+)/
 const PAGE_SIZE = 10
 
 interface Appointment {

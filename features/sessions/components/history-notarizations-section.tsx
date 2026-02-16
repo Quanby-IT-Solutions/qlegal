@@ -33,7 +33,7 @@ import { Skeleton } from "@/core/components/ui/skeleton"
 import { getAvatarUrl, getInitials } from "@/core/lib/utils"
 import { trpc } from "@/services/trpc/client"
 
-import { NotarizationDetailsDialog } from "@/features/meetings/components/notarization-details-dialog"
+import { NotarizationDetailsDialog } from "@/features/sessions/components/notarization-details-dialog"
 
 type WorkflowType = "REN" | "IEN"
 

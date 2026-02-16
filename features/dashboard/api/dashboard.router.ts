@@ -288,8 +288,8 @@ export const dashboardRouter = createTRPCRouter({
 
 					if (apt.meetingLink && apt.meetingLink.trim().length > 0) {
 						// Extract meeting ID from the link
-						// Formats: /meetings/{id}/lobby, /meetings/{id}, http://host/meetings/{id}, http://host/meetings/{id}/lobby
-						const meetingIdRegex = /\/meetings\/([a-zA-Z0-9_-]+)/
+						// Formats: /sessions/{id}/lobby, /sessions/{id}, http://host/sessions/{id}, http://host/sessions/{id}/lobby
+						const meetingIdRegex = /\/sessions\/([a-zA-Z0-9_-]+)/
 						const meetingIdMatch = meetingIdRegex.exec(apt.meetingLink)
 						const potentialMeetingId = meetingIdMatch?.[1]
 
