@@ -3,8 +3,8 @@
 import React from "react"
 import { MeetingProvider } from "@videosdk.live/react-sdk"
 
-import type { VideoMeetingClientProps } from "../lib/video-meeting"
-import { MeetingView } from "./video-meeting/meeting-view"
+import type { VideoMeetingClientProps } from "../../lib/video-meeting"
+import { MeetingView } from "./meeting-view"
 
 export function VideoMeetingClient({
 	meetingId,
