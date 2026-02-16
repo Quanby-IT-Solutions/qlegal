@@ -17,8 +17,7 @@ import {
 	updateProjectSigner,
 } from "@/services/doconchain"
 import {
-	ensureMeetingToken,
-	generateToken,
+	generateAndSetMeetingToken,
 	getMeetingToken,
 	getOrRefreshProjectToken,
 	setProjectToken,
@@ -928,11 +927,17 @@ export const signatureRequestsRouter = createTRPCRouter({
 						// we can get a meeting token from another instance and the link points to the wrong
 						// DocoChain session. Prefer project token (set at createDocoChainProject), fall back
 						// to meeting token when project token is not in this instance's cache.
+						//
+						// IMPORTANT: DocoChain tokens can become unauthorized server-side unexpectedly.
+						// For plotting, we mint a fresh meeting-scoped token right before generating the link
+						// to reduce "E_UNAUTHORIZED_ACCESS" failures.
 						let tokenForLink: string | undefined =
 							await getOrRefreshProjectToken(actualProjectUuid, creatorEmail)
 						if (!tokenForLink) {
-							tokenForLink = await ensureMeetingToken(meeting.id, creatorEmail)
-							console.log("   - Using meeting-scoped token (no project token in cache)")
+							tokenForLink = await generateAndSetMeetingToken(meeting.id, creatorEmail)
+							// Keep token consistency for this project going forward (Edit Draft link generation relies on it).
+							setProjectToken(actualProjectUuid, tokenForLink)
+							console.log("   - Using fresh meeting-scoped token (no project token in cache)")
 						} else {
 							console.log("   - Using project-scoped token (same as project creation)")
 						}
@@ -967,11 +972,14 @@ export const signatureRequestsRouter = createTRPCRouter({
 										err.message.includes("Token expired or unauthorized"))
 								if (is401 && tokenForLink !== undefined) {
 									console.log(
-										"🔄 Token expired (401) – generating fresh token and retrying..."
+										"🔄 Token rejected (401) – generating fresh meeting token and retrying..."
 									)
-									const freshToken = await generateToken(creatorEmail, true)
-									setProjectToken(actualProjectUuid, freshToken)
-									tokenForLink = freshToken
+									const freshMeetingToken = await generateAndSetMeetingToken(
+										meeting.id,
+										creatorEmail
+									)
+									setProjectToken(actualProjectUuid, freshMeetingToken)
+									tokenForLink = freshMeetingToken
 								}
 								console.error(
 									`❌ Attempt ${attempt + 1}/${maxLinkAttempts} to generate Edit Draft Link failed:`,

@@ -11,6 +11,7 @@ import {
 } from "@/services/doconchain"
 import {
 	ensureMeetingToken,
+	generateAndSetMeetingToken,
 	getMeetingToken,
 	setProjectToken,
 } from "@/services/doconchain/lib/token-cache"
@@ -1235,19 +1236,56 @@ export const meetingsRouter = createTRPCRouter({
 
 				// Always ensure meeting-scoped token first (created when ENP enters via getById/getToken/getMeetingDocuments).
 				// Use it for project creation and Edit Draft so the first document never gets Sign link.
-				const projectToken = await ensureMeetingToken(meetingId, creatorEmail)
+				// Mint a fresh meeting token for project creation.
+				// DocoChain tokens can become unauthorized server-side; generating a new one here reduces 401s.
+				let projectToken = await generateAndSetMeetingToken(meetingId, creatorEmail)
 				console.log("   - Using meeting-scoped token for project creation...")
 
-				const docoChainProject = await createProject({
-					title: document.name,
-					documentFile: fileBuffer,
-					fileName: document.name.endsWith(".pdf") ? document.name : `${document.name}.pdf`,
-					userListEditable: false,
-					creatorAsViewer: false,
-					documentStamp,
-					creatorEmail,
-					tokenOverride: projectToken,
-				})
+				const isUnauthorizedTokenError = (err: unknown) => {
+					const msg =
+						err instanceof Error ? err.message : typeof err === "string" ? err : JSON.stringify(err)
+					const lower = msg.toLowerCase()
+					return (
+						msg.includes("Token unauthorized") ||
+						msg.includes("E_UNAUTHORIZED_ACCESS") ||
+						lower.includes("unauthorized access") ||
+						lower.includes("unauthorized")
+					)
+				}
+
+				let docoChainProject: Awaited<ReturnType<typeof createProject>>
+				try {
+					docoChainProject = await createProject({
+						title: document.name,
+						documentFile: fileBuffer,
+						fileName: document.name.endsWith(".pdf") ? document.name : `${document.name}.pdf`,
+						userListEditable: false,
+						creatorAsViewer: false,
+						documentStamp,
+						creatorEmail,
+						tokenOverride: projectToken,
+					})
+				} catch (err) {
+					// DocoChain sometimes invalidates tokens server-side. When it happens, the meeting-scoped token
+					// must be regenerated to restore access.
+					if (!isUnauthorizedTokenError(err)) throw err
+
+					console.warn(
+						"⚠️ Meeting-scoped token rejected by DocoChain. Regenerating meeting token and retrying project creation once..."
+					)
+					projectToken = await generateAndSetMeetingToken(meetingId, creatorEmail)
+
+					docoChainProject = await createProject({
+						title: document.name,
+						documentFile: fileBuffer,
+						fileName: document.name.endsWith(".pdf") ? document.name : `${document.name}.pdf`,
+						userListEditable: false,
+						creatorAsViewer: false,
+						documentStamp,
+						creatorEmail,
+						tokenOverride: projectToken,
+					})
+				}
 
 				const docoChainProjectId = docoChainProject.uuid
 

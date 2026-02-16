@@ -152,7 +152,30 @@ export async function getToken(email?: string, forceVerify = false): Promise<str
 	}
 
 	// No cached token - generate a new one
-	return generateToken(email, true)
+	const newlyGenerated = await generateToken(email, true)
+	if (!forceVerify) return newlyGenerated
+
+	// If caller requires verification, verify newly generated token too.
+	// Some DocoChain setups require org verification before project endpoints allow access.
+	try {
+		const verify = await verifyAuthToken({
+			token: newlyGenerated,
+			orgInviteCode: env.DOCONCHAIN_ORG_INVITE_CODE,
+		})
+		const status = String(verify?.data?.status ?? "")
+			.toLowerCase()
+			.trim()
+		const isInvalid = status === "inactive" || status === "expired" || status === ""
+		if (!isInvalid) return newlyGenerated
+		console.warn(
+			`⚠️ Newly generated token failed verification (status: ${status || "(empty)"}). Regenerating...`
+		)
+		tokenCache.delete(cacheKey)
+		return generateToken(email, true)
+	} catch {
+		// If verification endpoint fails, return token (best-effort) — upstream will handle 401.
+		return newlyGenerated
+	}
 }
 
 export const getCachedToken = cache(async (email?: string): Promise<string> => {
@@ -305,7 +328,8 @@ export async function generateAndSetMeetingToken(
 	meetingId: string,
 	email: string
 ): Promise<string> {
-	const token = await generateToken(email, true)
+	// Generate a verified token (ensures org verification when required).
+	const token = await getToken(email, true)
 	setMeetingToken(meetingId, email, token)
 	return token
 }
