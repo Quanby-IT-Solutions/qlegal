@@ -239,7 +239,7 @@ export const DocumentSidebar = React.memo(function DocumentSidebar({
 	)
 
 	const totalCost = useMemo(() => documents.reduce((s, d) => s + (d.cost ?? 0), 0), [documents])
-	const hasCosts = useMemo(() => documents.some(d => d.cost != null && d.cost > 0), [documents])
+	const hasCosts = useMemo(() => documents.some(d => d.cost !== undefined && d.cost !== null && d.cost > 0), [documents])
 	const defaultCurrency = documents.find(d => d.currency)?.currency ?? "PHP"
 	const toggleExpanded = useCallback(() => setIsExpanded(prev => !prev), [])
 
@@ -401,7 +401,7 @@ export const DocumentSidebar = React.memo(function DocumentSidebar({
 
 							// File metadata
 							const fileSizeLabel =
-								doc.size != null && doc.size > 0 ? formatFileSize(doc.size) : null
+								doc.size !== undefined && doc.size !== null && doc.size > 0 ? formatFileSize(doc.size) : null
 							const fileTypeLabel = formatFileType(doc.fileType)
 							const notarizationLabel = formatNotarizationType(doc.notarizationType)
 
@@ -593,7 +593,7 @@ export const DocumentSidebar = React.memo(function DocumentSidebar({
 									</div>
 
 									{/* ── Row 5: Cost ── */}
-									{doc.cost != null && doc.cost > 0 && (
+									{doc.cost !== undefined && doc.cost !== null && doc.cost > 0 && (
 										<div className="bg-muted/40 mt-2 flex items-center justify-between rounded-md px-2 py-1">
 											<span className="text-muted-foreground text-[10px]">Document cost</span>
 											<span className="text-foreground text-[11px] font-bold">
@@ -629,7 +629,7 @@ export const DocumentSidebar = React.memo(function DocumentSidebar({
 					</div>
 					<div className="mt-2 flex flex-wrap gap-1">
 						{documents
-							.filter(d => d.cost != null && d.cost > 0)
+							.filter(d => d.cost !== undefined && d.cost !== null && d.cost > 0)
 							.map(doc => (
 								<span
 									key={doc.id}
