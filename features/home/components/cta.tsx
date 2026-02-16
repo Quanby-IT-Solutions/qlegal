@@ -32,8 +32,8 @@ export function CTA() {
 							Ready for Compliant E-Notarization?
 						</h2>
 						<p className="text-muted-foreground text-lg lg:text-xl">
-							Join Quanby Legal, the Supreme Court accredited legal consultation and electronic
-							notarization platform trusted by Electronic Notaries Public.
+							Join Quanby Legal, the certified legal consultation and electronic notarization
+							platform trusted by notaries and legal professionals.
 						</p>
 						<div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
 							<Button
