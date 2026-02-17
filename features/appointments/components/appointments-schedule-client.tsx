@@ -35,10 +35,13 @@ export function AppointmentsScheduleClient({
 	const {
 		rejectDialogOpen,
 		processingId,
+		isCreatingEvent,
+		isDeletingEvent,
 		handleAccept,
 		handleRejectClick,
 		handleReject,
 		handleEventSave,
+		handleEventDelete,
 		setRejectDialogOpen,
 	} = useAppointmentsScheduleActions({ incomingRequests })
 
@@ -58,7 +61,12 @@ export function AppointmentsScheduleClient({
 					<CardHeader className="shrink-0">
 						<EventListHeader />
 						<CardAction>
-							<AddEventSection onSave={handleEventSave} />
+							<AddEventSection
+								onSave={handleEventSave}
+								onDelete={handleEventDelete}
+								isSaving={isCreatingEvent}
+								isDeleting={isDeletingEvent}
+							/>
 						</CardAction>
 					</CardHeader>
 					<Separator />

@@ -12,6 +12,7 @@ import {
 	DialogTitle,
 } from "@/core/components/ui/dialog"
 import { Label } from "@/core/components/ui/label"
+import { Spinner } from "@/core/components/ui/spinner"
 import { Textarea } from "@/core/components/ui/textarea"
 
 interface RejectDialogProps {
@@ -70,7 +71,14 @@ export function RejectDialog({ isOpen, onOpenChange, onConfirm, isProcessing }: 
 							disabled={isProcessing}
 							type="button"
 						>
-							{isProcessing ? "Processing..." : "Reject Request"}
+							{isProcessing ? (
+								<>
+									<Spinner className="size-4" />
+									Processing...
+								</>
+							) : (
+								"Reject Request"
+							)}
 						</Button>
 					</div>
 				</DialogFooter>

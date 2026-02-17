@@ -23,6 +23,7 @@ import {
 	FormMessage,
 } from "@/core/components/ui/form"
 import { Input } from "@/core/components/ui/input"
+import { Spinner } from "@/core/components/ui/spinner"
 import { Textarea } from "@/core/components/ui/textarea"
 
 import { TimeWheelPicker } from "./schedule/time-wheel-picker"
@@ -62,7 +63,9 @@ interface EventDialogProps {
 	isOpen: boolean
 	onClose: () => void
 	onSave: (event: CalendarEvent) => void
-	onDelete?: (eventId: string) => void
+	onDelete?: (eventId: string) => Promise<void>
+	isSaving?: boolean
+	isDeleting?: boolean
 }
 
 function constructDate(date: Date, hour: string, minute: string, period: "am" | "pm"): Date {
@@ -94,7 +97,15 @@ function generateEventTitle(
 	return "Notarization"
 }
 
-export function EventDialog({ event, isOpen, onClose, onSave, onDelete }: EventDialogProps) {
+export function EventDialog({
+	event,
+	isOpen,
+	onClose,
+	onSave,
+	onDelete,
+	isSaving,
+	isDeleting,
+}: EventDialogProps) {
 	// Map existing event to form values
 	const defaultServiceType: "CONSULTATION" | "NOTARIZATION" =
 		event?.appointmentType === "CONSULTATION"
@@ -160,12 +171,17 @@ export function EventDialog({ event, isOpen, onClose, onSave, onDelete }: EventD
 		}
 
 		onSave(updatedEvent)
-		onClose()
 	}
 
-	const handleDelete = () => {
+	const handleDelete = async () => {
 		if (event?.id && onDelete) {
-			onDelete(event.id)
+			try {
+				await onDelete(event.id)
+				onClose()
+			} catch {
+				// Keep dialog open so users can retry after seeing error feedback
+			}
+			return
 		}
 		onClose()
 	}
@@ -301,16 +317,35 @@ export function EventDialog({ event, isOpen, onClose, onSave, onDelete }: EventD
 								<Button
 									type="button"
 									variant="destructive"
-									onClick={handleDelete}
+									onClick={() => {
+										void handleDelete()
+									}}
 									className="mr-auto"
+									disabled={isSaving || isDeleting}
 								>
-									Delete
+									{isDeleting ? (
+										<>
+											<Spinner className="size-4" />
+											Deleting...
+										</>
+									) : (
+										"Delete"
+									)}
 								</Button>
 							)}
 							<Button type="button" variant="outline" onClick={onClose}>
 								Cancel
 							</Button>
-							<Button type="submit">Save</Button>
+							<Button type="submit" disabled={isSaving}>
+								{isSaving ? (
+									<>
+										<Spinner className="size-4" />
+										Saving...
+									</>
+								) : (
+									"Save"
+								)}
+							</Button>
 						</DialogFooter>
 					</form>
 				</Form>

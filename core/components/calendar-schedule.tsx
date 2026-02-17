@@ -31,6 +31,7 @@ import {
 	ItemTitle,
 } from "@/core/components/ui/item"
 import { Popover, PopoverContent, PopoverTrigger } from "@/core/components/ui/popover"
+import { Spinner } from "@/core/components/ui/spinner"
 import { cn, getAvatarUrl, getInitials } from "@/core/lib/utils"
 
 export type Status = {
@@ -582,7 +583,14 @@ function CalendarScheduleEventCard({
 						Reject
 					</Button>
 					<Button size="sm" onClick={onAccept} disabled={isProcessing}>
-						{isProcessing ? "..." : "Accept"}
+						{isProcessing ? (
+							<>
+								<Spinner className="size-4" />
+								Accepting...
+							</>
+						) : (
+							"Accept"
+						)}
 					</Button>
 				</ItemActions>
 			) : null}

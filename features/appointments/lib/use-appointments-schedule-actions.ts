@@ -37,6 +37,7 @@ export function useAppointmentsScheduleActions({
 			toast.error("Failed to create event", { description: error.message })
 		},
 	})
+	const deleteEnpEvent = trpc.schedule.deleteEnpEvent.useMutation()
 
 	const revalidate = async () => {
 		await utils.requests.getIncomingRequests.invalidate()
@@ -130,13 +131,29 @@ export function useAppointmentsScheduleActions({
 		)
 	}
 
+	const handleEventDelete = async (eventId: string) => {
+		try {
+			await deleteEnpEvent.mutateAsync({ appointmentId: eventId })
+			toast.success("Event deleted successfully")
+			await revalidate()
+		} catch (error) {
+			toast.error("Failed to delete event", {
+				description: error instanceof Error ? error.message : "An unexpected error occurred",
+			})
+			throw error
+		}
+	}
+
 	return {
 		rejectDialogOpen,
 		processingId,
+		isCreatingEvent: createEnpEvent.isPending,
+		isDeletingEvent: deleteEnpEvent.isPending,
 		handleAccept,
 		handleRejectClick,
 		handleReject,
 		handleEventSave,
+		handleEventDelete,
 		setRejectDialogOpen,
 	}
 }

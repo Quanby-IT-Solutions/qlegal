@@ -14,9 +14,12 @@ const STATUS_PENDING: Status = { id: "pending", name: "Pending", color: "#F59E0B
 
 interface AddEventSectionProps {
 	onSave: (event: CalendarEvent, onComplete?: () => void) => void
+	onDelete?: (eventId: string) => Promise<void>
+	isSaving?: boolean
+	isDeleting?: boolean
 }
 
-export function AddEventSection({ onSave }: AddEventSectionProps) {
+export function AddEventSection({ onSave, onDelete, isSaving, isDeleting }: AddEventSectionProps) {
 	const { selectedDate } = useCalendarSchedule()
 	const [isOpen, setIsOpen] = useState(false)
 
@@ -47,6 +50,9 @@ export function AddEventSection({ onSave }: AddEventSectionProps) {
 				isOpen={isOpen}
 				onClose={() => setIsOpen(false)}
 				onSave={ev => onSave(ev, () => setIsOpen(false))}
+				onDelete={onDelete}
+				isSaving={isSaving}
+				isDeleting={isDeleting}
 			/>
 		</>
 	)
