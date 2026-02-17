@@ -106,6 +106,21 @@ export async function getDoconchainApiToken(input?: {
 		try {
 			const { token } = await generateDoconchainToken({ email })
 			return token
+		} catch (error) {
+			// Common case: user exists in our app but is not yet auto-joined in DocOnChain.
+			// DocOnChain responds: 401 Unauthorized with {"message":"Kindly check the email parameter and try again."}
+			const msg = error instanceof Error ? error.message.toLowerCase() : ""
+			const looksLikeMissingUser =
+				msg.includes("kindly check the email parameter") || msg.includes("check the email parameter")
+			if (looksLikeMissingUser) {
+				const { autoJoinMemberInDoconchainOrganization } = await import(
+					"@/services/doconchain/organization/auto-join-member"
+				)
+				await autoJoinMemberInDoconchainOrganization({ email })
+				const { token } = await generateDoconchainToken({ email })
+				return token
+			}
+			throw error
 		} finally {
 			inFlightByEmail.delete(email)
 		}

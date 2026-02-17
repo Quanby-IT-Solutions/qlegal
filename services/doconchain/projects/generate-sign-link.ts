@@ -4,20 +4,24 @@ import {
 	invalidateDoconchainToken,
 } from "@/services/doconchain/auth/generate-token"
 
-type GenerateLinkResponse =
-	| { message?: { link?: string; message?: string } }
+type GenerateSignLinkResponse =
+	| { message?: { link?: string } }
 	| { link?: string }
 	| { data?: { link?: string } }
 
 function findFirstUrlLike(value: unknown): string | undefined {
 	if (typeof value === "string") {
 		const trimmed = value.trim()
+		// DocOnChain commonly returns short links under link.doconchain.com
 		if (/^https?:\/\/link\.doconchain\.com\//i.test(trimmed)) return trimmed
+		// Sometimes app URLs may be returned instead
 		if (/^https?:\/\/stg-app\.doconchain\.com\//i.test(trimmed)) return trimmed
 		return undefined
 	}
 
 	if (!value || typeof value !== "object") return undefined
+
+	// Walk objects/arrays recursively (bounded by structure size in practice).
 	if (Array.isArray(value)) {
 		for (const item of value) {
 			const found = findFirstUrlLike(item)
@@ -33,8 +37,13 @@ function findFirstUrlLike(value: unknown): string | undefined {
 	return undefined
 }
 
-async function postGenerateLink(params: { projectUuid: string; token: string }): Promise<string> {
-	const url = new URL(`/api/v2/projects/${params.projectUuid}/link`, env.DOCONCHAIN_API_URL)
+async function postGenerateSignLink(params: {
+	projectUuid: string
+	token: string
+	signerEmail: string
+}): Promise<string> {
+	const url = new URL(`/api/v2/projects/${params.projectUuid}/link/generate`, env.DOCONCHAIN_API_URL)
+	url.searchParams.set("email", params.signerEmail)
 	url.searchParams.set("user_type", "ENTERPRISE_API")
 
 	const res = await fetch(url.toString(), {
@@ -42,6 +51,7 @@ async function postGenerateLink(params: { projectUuid: string; token: string }):
 		headers: {
 			Authorization: `Bearer ${params.token}`,
 			accept: "application/json",
+			// DocOnChain expects JSON headers even with no body.
 			"content-type": "application/json",
 		},
 	})
@@ -49,20 +59,22 @@ async function postGenerateLink(params: { projectUuid: string; token: string }):
 	const text = await res.text().catch(() => "")
 	if (!res.ok) {
 		const err = new Error(
-			`DocOnChain generate edit draft link failed (${res.status} ${res.statusText})${text ? `: ${text}` : ""}`
+			`DocOnChain generate sign link failed (${res.status} ${res.statusText})${text ? `: ${text}` : ""}`
 		)
 		;(err as Error & { status?: number }).status = res.status
 		throw err
 	}
 
+	// Some DocOnChain responses are nested; try known shapes first then fall back to a deep URL search.
 	let parsed: unknown = {}
 	if (text.trim()) {
+		// If the API ever returns a raw URL string, accept it.
 		const raw = findFirstUrlLike(text)
 		if (raw) return raw
 		parsed = JSON.parse(text) as unknown
 	}
 
-	const json = parsed as GenerateLinkResponse
+	const json = parsed as GenerateSignLinkResponse
 	const link =
 		(typeof json === "object" && json !== null && "message" in json
 			? (json as { message?: { link?: string } }).message?.link
@@ -75,26 +87,26 @@ async function postGenerateLink(params: { projectUuid: string; token: string }):
 
 	if (!link) {
 		throw new Error(
-			`DocOnChain generate edit draft link response missing link.${text ? ` Raw response: ${text}` : ""}`
+			`DocOnChain generate sign link response missing link.${text ? ` Raw response: ${text}` : ""}`
 		)
 	}
 
 	return link
 }
 
-export async function generateDoconchainEditDraftProjectLink(input: {
+export async function generateDoconchainSignLink(input: {
 	projectUuid: string
-	userEmail: string
+	signerEmail: string
 }): Promise<string> {
 	const projectUuid = input.projectUuid.trim()
 	if (!projectUuid) throw new Error("Project UUID is required.")
 
-	const email = input.userEmail.trim().toLowerCase()
-	if (!email) throw new Error("User email is required to generate project link.")
+	const signerEmail = input.signerEmail.trim().toLowerCase()
+	if (!signerEmail) throw new Error("Signer email is required to generate sign link.")
 
 	const doRequest = async () => {
-		const token = await getDoconchainApiToken({ email, forceGenerated: true })
-		return await postGenerateLink({ projectUuid, token })
+		const token = await getDoconchainApiToken({ email: signerEmail, forceGenerated: true })
+		return await postGenerateSignLink({ projectUuid, token, signerEmail })
 	}
 
 	try {
@@ -102,7 +114,7 @@ export async function generateDoconchainEditDraftProjectLink(input: {
 	} catch (error) {
 		const status = error instanceof Error ? (error as Error & { status?: number }).status : undefined
 		if (status === 401) {
-			invalidateDoconchainToken(email)
+			invalidateDoconchainToken(signerEmail)
 			return await doRequest()
 		}
 		throw error

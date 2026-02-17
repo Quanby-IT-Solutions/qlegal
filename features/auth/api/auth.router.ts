@@ -8,7 +8,7 @@ import { enpProfiles } from "@/services/drizzle/schema/enp-profiles"
 import { sendPasswordResetToken } from "@/services/react-email/lib/send.password-reset-token"
 import { sendVerificationToken } from "@/services/react-email/lib/send.verification-token"
 import { createTRPCRouter, publicProcedure } from "@/services/trpc/init"
-import { addMemberInDoconchainOrganization } from "@/services/doconchain/organization/add-member"
+import { autoJoinMemberInDoconchainOrganization } from "@/services/doconchain/organization/auto-join-member"
 
 import {
 	forgotPasswordSchema,
@@ -54,7 +54,7 @@ export const authRouter = createTRPCRouter({
 		}
 
 		try {
-			await addMemberInDoconchainOrganization({ email, name, role: "Member" })
+			await autoJoinMemberInDoconchainOrganization({ email, name, role: "Member" })
 		} catch (error) {
 			// If external provisioning fails, clean up the created user so retry is safe.
 			await ctx.db.delete(users).where(eq(users.id, createdUser.id)).catch(() => undefined)
@@ -176,7 +176,7 @@ export const authRouter = createTRPCRouter({
 		}
 
 		try {
-			await addMemberInDoconchainOrganization({ email, name, role: "Member" })
+			await autoJoinMemberInDoconchainOrganization({ email, name, role: "Member" })
 		} catch (error) {
 			// Try to clean up the created ENP user so retry is safe.
 			if (newUserId) {

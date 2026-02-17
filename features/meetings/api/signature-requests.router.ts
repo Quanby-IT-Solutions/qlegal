@@ -7,33 +7,10 @@ import { db } from "@/services/drizzle/db"
 import { users } from "@/services/drizzle/schema/auth"
 import { documents } from "@/services/drizzle/schema/document"
 import { signatureRequests } from "@/services/drizzle/schema/signature-requests"
-import { getDoconchainApiToken, invalidateDoconchainToken } from "@/services/doconchain/auth/generate-token"
+import { invalidateDoconchainToken } from "@/services/doconchain/auth/generate-token"
 import { generateDoconchainEditDraftProjectLink } from "@/services/doconchain/projects/generate-edit-draft-link"
+import { generateDoconchainSignLink } from "@/services/doconchain/projects/generate-sign-link"
 import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
-
-function forceApiTruePreservingParams(urlStr: string): string {
-	try {
-		const url = new URL(urlStr)
-		url.searchParams.set("api", "true")
-		return url.toString()
-	} catch {
-		return urlStr
-	}
-}
-
-function buildDoconchainAppLink(input: {
-	projectUuid: string
-	appUrl: string
-	token: string
-	api?: boolean
-}): string {
-	const url = new URL(`/projects/${input.projectUuid}`, input.appUrl)
-	if (input.api !== false) {
-		url.searchParams.set("api", "true")
-	}
-	url.searchParams.set("token", input.token)
-	return url.toString()
-}
 
 export const signatureRequestsRouter = createTRPCRouter({
 	// Create a signature request
@@ -269,23 +246,9 @@ export const signatureRequestsRouter = createTRPCRouter({
 					return { link, cleanPlotUrl }
 				}
 
-				const token = await getDoconchainApiToken({ email, forceGenerated: true })
-
-				const rawLink = docRedirectUrl?.trim()
-					? forceApiTruePreservingParams(docRedirectUrl)
-					: buildDoconchainAppLink({ projectUuid, appUrl: appUrl!, token })
-
-				// Ensure token is the current user's token (overwrite if present)
-				try {
-					const url = new URL(rawLink)
-					url.searchParams.set("token", token)
-					url.searchParams.set("api", "true")
-					return { link: url.toString(), cleanPlotUrl: undefined }
-				} catch {
-					// If stored URL isn't parseable, fall back to constructed link.
-					const link = buildDoconchainAppLink({ projectUuid, appUrl: appUrl!, token })
-					return { link, cleanPlotUrl: undefined }
-				}
+				// Sign Document uses DocOnChain's official sign-link generator (order-aware).
+				const link = await generateDoconchainSignLink({ projectUuid, signerEmail: email })
+				return { link, cleanPlotUrl: undefined }
 			}
 
 			try {
@@ -330,28 +293,16 @@ export const signatureRequestsRouter = createTRPCRouter({
 		.mutation(async ({ input }) => {
 			const projectUuid = input.projectUuid.trim()
 			const email = input.email.trim().toLowerCase()
-			const appUrl = env.DOCONCHAIN_APP_URL
-			if (!appUrl) {
-				throw new TRPCError({
-					code: "PRECONDITION_FAILED",
-					message: "Missing DOCONCHAIN_APP_URL; unable to generate signing link.",
-				})
-			}
-
-			const doBuildLink = async () => {
-				const token = await getDoconchainApiToken({ email, forceGenerated: true })
-				return buildDoconchainAppLink({ projectUuid, appUrl, token })
-			}
 
 			try {
-				const link = await doBuildLink()
+				const link = await generateDoconchainSignLink({ projectUuid, signerEmail: email })
 				return { projectUuid, link, kind: "sign" as const }
 			} catch (error) {
 				const msg = error instanceof Error ? error.message.toLowerCase() : ""
 				if (msg.includes("401") || msg.includes("unauthorized")) {
 					const invalidate = invalidateDoconchainToken as (email: string) => void
 					invalidate(email)
-					const link = await doBuildLink()
+					const link = await generateDoconchainSignLink({ projectUuid, signerEmail: email })
 					return { projectUuid, link, kind: "sign" as const }
 				}
 				throw new TRPCError({

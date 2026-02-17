@@ -1,5 +1,5 @@
 import { TRPCError } from "@trpc/server"
-import { and, eq, inArray, type InferSelectModel } from "drizzle-orm"
+import { and, asc, eq, inArray, ne, type InferSelectModel } from "drizzle-orm"
 import { z } from "zod/v4"
 
 import { db } from "@/services/drizzle/db"
@@ -12,8 +12,11 @@ import { getPublicClient, getServiceRoleClient } from "@/services/supabase"
 import { getPublicUrl } from "@/services/supabase/signed-url"
 import { createDoconchainProject } from "@/services/doconchain/projects/create-project"
 import { addDoconchainProjectSigner } from "@/services/doconchain/projects/add-signer"
+import { generateDoconchainSignLink } from "@/services/doconchain/projects/generate-sign-link"
 import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
 import { createMeetingRoom, fetchRecordings, generateMeetingToken } from "@/services/video-sdk"
+
+import { sendSigningLinkEmail } from "@/services/react-email/lib/send.signing-link"
 
 function isEnpRole(role: unknown): boolean {
 	if (typeof role !== "string") return false
@@ -784,6 +787,117 @@ export const meetingsRouter = createTRPCRouter({
 					message: error instanceof Error ? error.message : "Upload failed",
 				})
 			}
+		}),
+
+	// Mark a document as plotted/sent (ENP only).
+	// We persist this using the existing document.status enum: READY = plotted & ready for signing.
+	markDocumentPlotted: protectedProcedure
+		.input(z.object({ meetingId: z.string().min(1), documentId: z.string().min(1) }))
+		.mutation(async ({ ctx, input }) => {
+			const meeting = await db.query.meetings.findFirst({
+				where: eq(meetings.id, input.meetingId),
+				with: {
+					participants: {
+						with: {
+							user: { columns: { id: true, role: true } },
+						},
+					},
+				},
+			})
+
+			if (!meeting) {
+				throw new TRPCError({ code: "NOT_FOUND", message: "Meeting not found" })
+			}
+
+			const isHost = meeting.createdById === ctx.session.user.id
+			const isAcceptedParticipant = meeting.participants.some(
+				p => p.userId === ctx.session.user.id && p.status === "ACCEPTED"
+			)
+			if (!isHost && !isAcceptedParticipant) {
+				throw new TRPCError({ code: "FORBIDDEN", message: "You don't have access to this meeting" })
+			}
+
+			// ENP only can mark plotted.
+			if (!isEnpRole(ctx.session.user.role)) {
+				throw new TRPCError({ code: "FORBIDDEN", message: "Only ENP can mark document as plotted" })
+			}
+
+			const doc = await db.query.documents.findFirst({
+				where: and(eq(documents.id, input.documentId), eq(documents.meetingId, input.meetingId)),
+				columns: { id: true, docoChainProjectId: true },
+			})
+
+			if (!doc) {
+				throw new TRPCError({ code: "NOT_FOUND", message: "Document not found in this meeting" })
+			}
+
+			if (!doc.docoChainProjectId) {
+				throw new TRPCError({
+					code: "PRECONDITION_FAILED",
+					message: "DocOnChain project must exist before marking plotted",
+				})
+			}
+
+			// Only transition to READY once (idempotent). If it was already READY, do nothing.
+			const [updated] = await db
+				.update(documents)
+				.set({ status: "READY" })
+				.where(and(eq(documents.id, doc.id), ne(documents.status, "READY")))
+				.returning({ id: documents.id, status: documents.status })
+
+			if (!updated) {
+				return { success: true, document: { id: doc.id, status: "READY" as const } }
+			}
+
+			// After plotting, generate sign links and email them to the selected signers (in order).
+			try {
+				const signerRows = await db.query.documentSigners.findMany({
+					where: eq(documentSigners.documentId, doc.id),
+					columns: { userId: true, signingOrder: true },
+					orderBy: [asc(documentSigners.signingOrder)],
+				})
+
+				if (signerRows.length > 0) {
+					const signerUsers = await db.query.users.findMany({
+						where: inArray(users.id, signerRows.map(s => s.userId)),
+						columns: { id: true, email: true, name: true },
+					})
+					const userById = new Map(signerUsers.map(u => [u.id, u]))
+
+					const documentRow = await db.query.documents.findFirst({
+						where: eq(documents.id, doc.id),
+						columns: { name: true, docoChainProjectId: true },
+					})
+
+					const projectUuid = documentRow?.docoChainProjectId ?? doc.docoChainProjectId
+					const documentName = documentRow?.name ?? "Document"
+
+					for (let i = 0; i < signerRows.length; i += 1) {
+						const row = signerRows[i]!
+						const signer = userById.get(row.userId)
+						const signerEmail = signer?.email?.trim()
+						if (!signerEmail || !projectUuid) continue
+
+						const link = await generateDoconchainSignLink({
+							projectUuid,
+							signerEmail,
+						})
+
+						await sendSigningLinkEmail({
+							to: signerEmail,
+							recipientName: (signer?.name ?? signerEmail).trim(),
+							documentName,
+							signingLink: link,
+							signOrderLabel: `Signer ${i + 1} of ${signerRows.length}`,
+						})
+					}
+				}
+			} catch (error) {
+				// Email/link generation failures should not break READY transition.
+				console.error("❌ Failed to send signing links after plotting:", error)
+			}
+
+			return { success: true, document: updated }
 		}),
 
 	// Get meeting documents (with per-document signer selection)
