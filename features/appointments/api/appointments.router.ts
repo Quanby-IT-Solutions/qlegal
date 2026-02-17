@@ -168,6 +168,17 @@ export const appointmentsRouter = createTRPCRouter({
 				})
 			}
 
+			// Runtime guard: IEN appointments must have a location
+			if (input.modeOfNotarization === "IEN") {
+				if (!input.location || input.location.trim().length === 0) {
+					throw new TRPCError({
+						code: "BAD_REQUEST",
+						message:
+							"Location is required for In-Person Electronic Notarization (IEN) appointments",
+					})
+				}
+			}
+
 			// Create appointment
 			const [appointment] = await ctx.db
 				.insert(appointments)
@@ -473,7 +484,7 @@ export const appointmentsRouter = createTRPCRouter({
 			title: apt.type === "NOTARIZATION" ? "Notarization" : "Consultation",
 			description: apt.notes,
 			status: apt.status,
-			workflow: (apt.meetingLink ? "REN" : "IEN") as "REN" | "IEN",
+			workflow: (apt.modeOfNotarization ?? (apt.meetingLink ? "REN" : "IEN")) as "REN" | "IEN",
 			priority: "NORMAL" as const,
 			createdAt: apt.createdAt,
 			updatedAt: apt.updatedAt,
@@ -564,12 +575,13 @@ export const appointmentsRouter = createTRPCRouter({
 				})
 			}
 
-			const isRemote = !existing.location // location null/undefined => remote
+			// Determine if this is a remote appointment using workflow flag instead of location
+			const isRemote = existing.modeOfNotarization === "REN"
 			const providedLink =
 				input.meetingLink && input.meetingLink.trim().length > 0 ? input.meetingLink : undefined
 			let meetingLink = providedLink ?? existing.meetingLink
 
-			// For remote appointments without a meeting yet, create one on accept
+			// For remote (REN) appointments without a meeting yet, create one on accept
 			if (isRemote && !meetingLink) {
 				try {
 					meetingLink = await createMeetingForAppointment(
@@ -881,12 +893,12 @@ export const appointmentsRouter = createTRPCRouter({
 				where: eq(enpProfiles.userId, enpUser.id),
 			})
 
-			// Get workflow (REN or IEN) - from notarization request if available, otherwise infer from appointment
+			// Get workflow (REN or IEN) - from notarization request if available, otherwise use appointment mode field
 			const workflow = notarizationRequest
 				? (notarizationRequest.workflow as "REN" | "IEN")
-				: appointment?.meetingLink
-					? ("REN" as const)
-					: ("IEN" as const)
+				: ((appointment?.modeOfNotarization ?? (appointment?.meetingLink ? "REN" : "IEN")) as
+						| "REN"
+						| "IEN")
 
 			// Get envelope associated with the appointment/request
 			// For now, we'll look for envelopes created by the principal around the appointment time
@@ -1337,12 +1349,16 @@ export const appointmentsRouter = createTRPCRouter({
 				duration = Math.round((endTimeDate.getTime() - appointmentDateTime.getTime()) / (60 * 1000))
 			}
 
+			// Resolve type and workflow, preferring input values over existing ones
+			const eventType = input.type ?? existing.type
+			const eventWorkflow = input.workflow ?? existing.modeOfNotarization
+
 			// Build notes
 			const notes = [
 				input.description ?? existing.notes,
-				input.workflow === "REN" || (input.type === "CONSULTATION" && !input.location)
+				eventWorkflow === "REN" || (eventType === "CONSULTATION" && !input.location)
 					? "Workflow: Remote Electronic Notarization (REN)"
-					: input.workflow === "IEN" && input.location
+					: eventWorkflow === "IEN" && input.location
 						? "Workflow: In-Person Electronic Notarization (IEN)"
 						: "",
 			]
@@ -1352,14 +1368,17 @@ export const appointmentsRouter = createTRPCRouter({
 			const [updated] = await ctx.db
 				.update(appointments)
 				.set({
+					type: input.type ?? existing.type,
 					appointmentDate: appointmentDateTime,
 					duration,
 					modeOfNotarization: input.workflow ?? existing.modeOfNotarization,
 					notes,
 					location:
-						input.type === "NOTARIZATION" && input.workflow === "IEN"
+						eventType === "NOTARIZATION" && eventWorkflow === "IEN"
 							? (input.location ?? existing.location)
-							: null,
+							: eventType === "CONSULTATION" && eventWorkflow === "REN"
+								? null
+								: existing.location,
 					updatedAt: new Date(),
 				})
 				.where(eq(appointments.id, input.appointmentId))

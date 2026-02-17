@@ -3,20 +3,34 @@ import { z } from "zod/v4"
 // =================== PRINCIPAL SCHEMAS ===================
 
 // Create appointment schema
-export const createAppointmentSchema = z.object({
-	lawyerId: z.string().min(1, "Lawyer ID is required"),
-	type: z.enum(["NOTARIZATION", "CONSULTATION"], {
-		message: "Appointment type is required",
-	}),
-	appointmentDate: z.coerce.date({
-		message: "Appointment date is required",
-	}),
-	duration: z.number().min(15).max(480).default(60), // 15 minutes to 8 hours
-	modeOfNotarization: z.enum(["REN", "IEN"]).default("REN"),
-	notes: z.string().optional(),
-	location: z.string().optional(),
-	meetingLink: z.string().url().optional().or(z.literal("")),
-})
+export const createAppointmentSchema = z
+	.object({
+		lawyerId: z.string().min(1, "Lawyer ID is required"),
+		type: z.enum(["NOTARIZATION", "CONSULTATION"], {
+			message: "Appointment type is required",
+		}),
+		appointmentDate: z.coerce.date({
+			message: "Appointment date is required",
+		}),
+		duration: z.number().min(15).max(480).default(60), // 15 minutes to 8 hours
+		modeOfNotarization: z.enum(["REN", "IEN"]).default("REN"),
+		notes: z.string().optional(),
+		location: z.string().optional(),
+		meetingLink: z.string().url().optional().or(z.literal("")),
+	})
+	.refine(
+		data => {
+			// IEN (In-Person Electronic Notarization) appointments must have a location
+			if (data.modeOfNotarization === "IEN") {
+				return !!data.location && data.location.trim().length > 0
+			}
+			return true
+		},
+		{
+			message: "Location is required for In-Person Electronic Notarization (IEN) appointments",
+			path: ["location"],
+		}
+	)
 
 // Get appointments schema
 export const getAppointmentsSchema = z.object({
