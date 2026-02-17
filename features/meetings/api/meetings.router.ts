@@ -8,6 +8,7 @@ import { documents } from "@/services/drizzle/schema/document"
 import { documentSigners } from "@/services/drizzle/schema/document-signers"
 import { enpProfiles } from "@/services/drizzle/schema/enp-profiles"
 import { meetingParticipants, meetings } from "@/services/drizzle/schema/meetings"
+import { signatureRequests } from "@/services/drizzle/schema/signature-requests"
 import { getPublicClient, getServiceRoleClient } from "@/services/supabase"
 import { getPublicUrl } from "@/services/supabase/signed-url"
 import { createDoconchainProject } from "@/services/doconchain/projects/create-project"
@@ -858,6 +859,45 @@ export const meetingsRouter = createTRPCRouter({
 				})
 
 				if (signerRows.length > 0) {
+					// Ensure we have internal signature request records for order gating + UI status.
+					// These are created once per (meeting, document, signer) and updated by the signer after signing.
+					try {
+						const existing = await db.query.signatureRequests.findMany({
+							where: and(
+								eq(signatureRequests.meetingId, input.meetingId),
+								eq(signatureRequests.documentId, doc.id)
+							),
+							columns: { signerId: true },
+						})
+						const existingSignerIds = new Set(existing.map(r => r.signerId))
+						const uniqueSignerIdsInOrder: string[] = []
+						const seen = new Set<string>()
+						for (const row of signerRows) {
+							if (!row?.userId) continue
+							if (seen.has(row.userId)) continue
+							seen.add(row.userId)
+							uniqueSignerIdsInOrder.push(row.userId)
+						}
+
+						const requesterId = meeting.createdById
+						const toInsert = uniqueSignerIdsInOrder
+							.filter(signerId => !existingSignerIds.has(signerId))
+							.map(signerId => ({
+								meetingId: input.meetingId,
+								documentId: doc.id,
+								requesterId,
+								signerId,
+								status: "PENDING",
+							}))
+
+						if (toInsert.length > 0) {
+							await db.insert(signatureRequests).values(toInsert)
+						}
+					} catch (error) {
+						// Internal request creation should not break READY transition.
+						console.error("❌ Failed to create internal signature requests after plotting:", error)
+					}
+
 					const signerUsers = await db.query.users.findMany({
 						where: inArray(users.id, signerRows.map(s => s.userId)),
 						columns: { id: true, email: true, name: true },
@@ -1221,6 +1261,7 @@ export const meetingsRouter = createTRPCRouter({
 					id: string
 					status: string
 					signedAt: Date | null
+					signerId: string
 					signer: {
 						id: string
 						name: string | null
@@ -1236,6 +1277,7 @@ export const meetingsRouter = createTRPCRouter({
 					id: req.id,
 					status: req.status,
 					signedAt: req.signedAt ?? null,
+					signerId: req.signerId,
 					signer: req.signer ?? null,
 				})
 				signatureRequestsByDocumentId.set(req.documentId, list)

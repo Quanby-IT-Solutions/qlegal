@@ -67,6 +67,8 @@ export const env = createEnv({
 		DOCONCHAIN_CLIENT_SECRET: z.string(),
 		DOCONCHAIN_EMAIL: z.string().email(),
 		DOCONCHAIN_ORG_INVITE_CODE: z.string().optional(),
+		// DocOnChain Webhooks (optional, but recommended)
+		DOCONCHAIN_WEBHOOK_SECRET: z.string().optional(),
 		// Bearer token used for DocOnChain API calls (portal calls this "user-token").
 		// If omitted, integration code should fail with a clear error.
 		DOCONCHAIN_API_TOKEN: z.string().optional(),
@@ -158,6 +160,7 @@ export const env = createEnv({
 		DOCONCHAIN_ORG_INVITE_CODE: process.env.DOCONCHAIN_ORG_INVITE_CODE,
 		DOCONCHAIN_API_TOKEN: process.env.DOCONCHAIN_API_TOKEN,
 		DOCONCHAIN_USER_TOKEN: process.env.DOCONCHAIN_USER_TOKEN,
+		DOCONCHAIN_WEBHOOK_SECRET: process.env.DOCONCHAIN_WEBHOOK_SECRET,
 
 		// Public Site URL
 		NEXT_PUBLIC_SITE_URL: process.env.NEXT_PUBLIC_SITE_URL,

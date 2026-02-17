@@ -4,10 +4,30 @@ import {
 	invalidateDoconchainToken,
 } from "@/services/doconchain/auth/generate-token"
 
-type GenerateSignLinkResponse =
-	| { message?: { link?: string } }
-	| { link?: string }
-	| { data?: { link?: string } }
+// NOTE: DocOnChain responses vary (sometimes nested, sometimes arrays). We parse defensively at runtime below.
+
+function maskEmailForLog(email: string): string {
+	const trimmed = email.trim()
+	const at = trimmed.indexOf("@")
+	if (at <= 0) return "***"
+	const name = trimmed.slice(0, at)
+	const domain = trimmed.slice(at + 1)
+	const prefix = name.slice(0, 2)
+	return `${prefix}${name.length > 2 ? "***" : "*"}@${domain}`
+}
+
+function redactDoconchainUrlForLog(urlString: string): string {
+	try {
+		const url = new URL(urlString)
+		for (const key of ["token", "api_token"]) {
+			if (url.searchParams.has(key)) url.searchParams.set(key, "***")
+		}
+		if (url.searchParams.has("email")) url.searchParams.set("email", "***")
+		return url.toString()
+	} catch {
+		return urlString
+	}
+}
 
 function findFirstUrlLike(value: unknown): string | undefined {
 	if (typeof value === "string") {
@@ -16,6 +36,8 @@ function findFirstUrlLike(value: unknown): string | undefined {
 		if (/^https?:\/\/link\.doconchain\.com\//i.test(trimmed)) return trimmed
 		// Sometimes app URLs may be returned instead
 		if (/^https?:\/\/stg-app\.doconchain\.com\//i.test(trimmed)) return trimmed
+		// Allow other DocOnChain app domains too (prod, alt envs)
+		if (/^https?:\/\/([a-z0-9-]+\.)?doconchain\.com\//i.test(trimmed)) return trimmed
 		return undefined
 	}
 
@@ -46,6 +68,12 @@ async function postGenerateSignLink(params: {
 	url.searchParams.set("email", params.signerEmail)
 	url.searchParams.set("user_type", "ENTERPRISE_API")
 
+	console.log("🟣 [DocOnChain] signLink:request", {
+		projectUuid: params.projectUuid,
+		email: maskEmailForLog(params.signerEmail),
+		endpoint: `/api/v2/projects/${params.projectUuid}/link/generate`,
+	})
+
 	const res = await fetch(url.toString(), {
 		method: "POST",
 		headers: {
@@ -58,6 +86,12 @@ async function postGenerateSignLink(params: {
 
 	const text = await res.text().catch(() => "")
 	if (!res.ok) {
+		console.error("🟣 [DocOnChain] signLink:response:notOk", {
+			projectUuid: params.projectUuid,
+			status: res.status,
+			statusText: res.statusText,
+			bodyPreview: text.slice(0, 500),
+		})
 		const err = new Error(
 			`DocOnChain generate sign link failed (${res.status} ${res.statusText})${text ? `: ${text}` : ""}`
 		)
@@ -70,27 +104,59 @@ async function postGenerateSignLink(params: {
 	if (text.trim()) {
 		// If the API ever returns a raw URL string, accept it.
 		const raw = findFirstUrlLike(text)
-		if (raw) return raw
+		if (raw) {
+			console.log("🟣 [DocOnChain] signLink:response:rawUrl", {
+				projectUuid: params.projectUuid,
+				link: redactDoconchainUrlForLog(raw),
+			})
+			return raw
+		}
 		parsed = JSON.parse(text) as unknown
 	}
 
-	const json = parsed as GenerateSignLinkResponse
-	const link =
-		(typeof json === "object" && json !== null && "message" in json
-			? (json as { message?: { link?: string } }).message?.link
-			: undefined) ??
-		(typeof json === "object" && json !== null && "link" in json ? (json as { link?: string }).link : undefined) ??
-		(typeof json === "object" && json !== null && "data" in json
-			? (json as { data?: { link?: string } }).data?.link
-			: undefined) ??
-		findFirstUrlLike(parsed)
+	// IMPORTANT: some APIs may return arrays. Using `"link" in json` on arrays will match Array.prototype.link (a function).
+	// Always prefer the recursive URL finder, and only read "link" props from plain objects with OWN properties.
+	const linkFromDeepSearch = findFirstUrlLike(parsed)
+	const linkFromObjectShape = (() => {
+		if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return undefined
+		const obj = parsed as Record<string, unknown>
+		if (Object.hasOwn(obj, "message")) {
+			const v = (obj as { message?: unknown }).message
+			if (v && typeof v === "object" && !Array.isArray(v) && Object.hasOwn(v as Record<string, unknown>, "link")) {
+				const maybe = (v as { link?: unknown }).link
+				return typeof maybe === "string" ? maybe : undefined
+			}
+		}
+		if (Object.hasOwn(obj, "link")) {
+			const maybe = (obj as { link?: unknown }).link
+			return typeof maybe === "string" ? maybe : undefined
+		}
+		if (Object.hasOwn(obj, "data")) {
+			const v = (obj as { data?: unknown }).data
+			if (v && typeof v === "object" && !Array.isArray(v) && Object.hasOwn(v as Record<string, unknown>, "link")) {
+				const maybe = (v as { link?: unknown }).link
+				return typeof maybe === "string" ? maybe : undefined
+			}
+		}
+		return undefined
+	})()
+
+	const link = linkFromObjectShape ?? linkFromDeepSearch
 
 	if (!link) {
+		console.error("🟣 [DocOnChain] signLink:response:missingLink", {
+			projectUuid: params.projectUuid,
+			bodyPreview: text.slice(0, 500),
+		})
 		throw new Error(
 			`DocOnChain generate sign link response missing link.${text ? ` Raw response: ${text}` : ""}`
 		)
 	}
 
+	console.log("🟣 [DocOnChain] signLink:response:ok", {
+		projectUuid: params.projectUuid,
+		link: redactDoconchainUrlForLog(link),
+	})
 	return link
 }
 
@@ -106,16 +172,17 @@ export async function generateDoconchainSignLink(input: {
 
 	const doRequest = async () => {
 		const token = await getDoconchainApiToken({ email: signerEmail, forceGenerated: true })
-		return await postGenerateSignLink({ projectUuid, token, signerEmail })
+		return postGenerateSignLink({ projectUuid, token, signerEmail })
 	}
 
 	try {
-		return await doRequest()
+		return doRequest()
 	} catch (error) {
 		const status = error instanceof Error ? (error as Error & { status?: number }).status : undefined
 		if (status === 401) {
-			invalidateDoconchainToken(signerEmail)
-			return await doRequest()
+			const invalidate = invalidateDoconchainToken as (email: string) => void
+			invalidate(signerEmail)
+			return doRequest()
 		}
 		throw error
 	}

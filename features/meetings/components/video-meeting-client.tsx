@@ -77,6 +77,65 @@ const PRE_GENERATED_LINK_MAX_AGE_MS = 2 * 60 * 1000
 /** Interval for proactively clearing stale links (ms). */
 const STALE_LINK_CHECK_INTERVAL_MS = 60_000
 
+function extractDoconchainLink(value: unknown): string | undefined {
+	if (typeof value === "string") {
+		const trimmed = value.trim()
+		if (!trimmed) return undefined
+		// Allow doconchain short-link and app URLs (staging + prod).
+		if (/^https?:\/\/link\.doconchain\.com\//i.test(trimmed)) return trimmed
+		if (/^https?:\/\/([a-z0-9-]+\.)?doconchain\.com\//i.test(trimmed)) return trimmed
+		return undefined
+	}
+
+	if (!value || typeof value !== "object") return undefined
+
+	// Common response shapes
+	const record = value as Record<string, unknown>
+	const direct = record.link ?? record.url
+	const directFound = extractDoconchainLink(direct)
+	if (directFound) return directFound
+
+	const messageFound = extractDoconchainLink(record.message)
+	if (messageFound) return messageFound
+
+	const dataFound = extractDoconchainLink(record.data)
+	if (dataFound) return dataFound
+
+	// Shallow scan as a last resort (bounded in practice).
+	for (const v of Object.values(record)) {
+		const found = extractDoconchainLink(v)
+		if (found) return found
+	}
+	return undefined
+}
+
+function redactDoconchainUrlForLog(urlString: string): string {
+	try {
+		const url = new URL(urlString)
+		for (const key of ["token", "api_token"]) {
+			if (url.searchParams.has(key)) url.searchParams.set(key, "***")
+		}
+		if (url.searchParams.has("email")) url.searchParams.set("email", "***")
+		return url.toString()
+	} catch {
+		return urlString
+	}
+}
+
+function sanitizeDoconchainPayloadForLog(value: unknown): unknown {
+	if (typeof value === "string") {
+		return extractDoconchainLink(value) ? redactDoconchainUrlForLog(value) : value
+	}
+	if (!value || typeof value !== "object") return value
+	if (Array.isArray(value)) return value.map(v => sanitizeDoconchainPayloadForLog(v))
+	const record = value as Record<string, unknown>
+	const out: Record<string, unknown> = {}
+	for (const [k, v] of Object.entries(record)) {
+		out[k] = sanitizeDoconchainPayloadForLog(v)
+	}
+	return out
+}
+
 // Memoized to prevent re-renders from parent state changes
 const MeetingControls = React.memo(function MeetingControls({
 	onUploadClick,
@@ -1157,6 +1216,7 @@ const DocumentActions = React.memo(function DocumentActions({
 	isPreviousDocumentSigned,
 	documentIndex,
 	signers,
+	signatureRequests,
 	participants,
 	signerUserIds,
 	meetingId,
@@ -1191,6 +1251,12 @@ const DocumentActions = React.memo(function DocumentActions({
 		signedAt: string | null
 		sequence: number
 		signerRole: string
+	}>
+	signatureRequests?: Array<{
+		id: string
+		status: string
+		signerId: string
+		signedAt: string | Date | null
 	}>
 	participants?: Array<{
 		userId: string
@@ -1259,13 +1325,58 @@ const DocumentActions = React.memo(function DocumentActions({
 	const isSignerBySelection =
 		currentUserId !== null && (signerUserIds?.includes(currentUserId) ?? false)
 
+	// Current user position is based on assigned signer order (signerUserIds).
+	const isCurrentUserSigner =
+		currentUserId !== null && (signerUserIds?.includes(currentUserId) ?? false)
+	const currentUserIndexInOrder = currentUserId ? (signerUserIds?.indexOf(currentUserId) ?? -1) : -1
+	const currentUserIndex =
+		currentUserIndexInOrder >= 0
+			? currentUserIndexInOrder
+			: currentUserId
+				? (signerUserIds?.indexOf(currentUserId) ?? -1)
+				: -1
+
 	// Check if user has completed signing (status SIGNED/COMPLETED or signedAt is set)
-	const hasUserSigned = currentUserSigner
+	const externalHasUserSigned = currentUserSigner
 		? isSignerSigned({
 				status: currentUserSigner.status,
 				signedAt: currentUserSigner.signedAt,
 			})
 		: false
+
+	// Internal signing state (based on signer assignment order + our DB signature requests)
+	const statusBySignerId = useMemo(() => {
+		const map = new Map<string, string>()
+		for (const r of signatureRequests ?? []) {
+			const key = (r?.signerId ?? "").trim()
+			if (!key) continue
+			map.set(key, String(r.status ?? "").toUpperCase())
+		}
+		return map
+	}, [signatureRequests])
+	const hasInternalSigningState = (signatureRequests?.length ?? 0) > 0
+	const internalHasUserSigned =
+		currentUserId !== null && currentUserId !== undefined
+			? statusBySignerId.get(currentUserId) === "SIGNED"
+			: false
+	const internalAllSignersSigned =
+		(signerUserIds?.length ?? 0) > 0 &&
+		(signerUserIds ?? []).every(id => statusBySignerId.get(id) === "SIGNED")
+
+	const internalPreviousSignersHaveSigned =
+		currentUserIndex <= 0
+			? true
+			: (signerUserIds ?? []).slice(0, currentUserIndex).every(id => statusBySignerId.get(id) === "SIGNED")
+
+	const isUsersTurnToSign =
+		hasInternalSigningState &&
+		isCurrentUserSigner &&
+		!internalHasUserSigned &&
+		!internalAllSignersSigned &&
+		internalPreviousSignersHaveSigned
+
+	// Prefer internal state when available; otherwise fall back to external signer status (if present).
+	const hasUserSigned = hasInternalSigningState ? internalHasUserSigned : externalHasUserSigned
 
 	// Check signer status to determine if they've plotted but not signed
 	// Statuses: PENDING, NEXT GROUP (not plotted), or other statuses might indicate plotted
@@ -1278,7 +1389,6 @@ const DocumentActions = React.memo(function DocumentActions({
 	const currentSignerIndex = filteredSigners.findIndex(s => !isSignerSigned(s))
 	const currentSigner = currentSignerIndex >= 0 ? filteredSigners[currentSignerIndex] : null
 	const isCurrentSigner = currentSigner?.email?.toLowerCase() === currentUserEmail?.toLowerCase()
-	const currentUserIndexInOrder = currentUserId ? (signerUserIds?.indexOf(currentUserId) ?? -1) : -1
 
 	// Plotting vs signing phase (separate buttons, no shared logic)
 	// IMPORTANT:
@@ -1310,18 +1420,13 @@ const DocumentActions = React.memo(function DocumentActions({
 	const showSignDocument =
 		!!document.docoChainProjectId &&
 		!hasUserSigned &&
-		!allSignersSigned &&
-		(isEnp || isUserAddedAsSigner || isSignerBySelection)
+		!(hasInternalSigningState ? internalAllSignersSigned : allSignersSigned) &&
+		// Sign button is strictly based on signer assignment order (signerUserIds).
+		isCurrentUserSigner
 
 	// Check if previous signers (by signing order) have signed
 	// signerUserIds array is ordered by signingOrder (index 0 = order 1, index 1 = order 2, etc.)
 	// currentUserIndexInOrder was already calculated above in getButtonText logic
-	const currentUserIndex =
-		currentUserIndexInOrder >= 0
-			? currentUserIndexInOrder
-			: currentUserId
-				? (signerUserIds?.indexOf(currentUserId) ?? -1)
-				: -1
 	const previousSignersHaveSigned = useMemo(() => {
 		if (currentUserIndex <= 0 || !signerUserIds || !participants || !filteredSigners) return true
 
@@ -1351,15 +1456,12 @@ const DocumentActions = React.memo(function DocumentActions({
 	const isSigningDisabledByOrder = isLocked && !isPreviousDocumentSigned && (documentIndex ?? 0) > 0
 	const hasNoSignersSelected = !document.docoChainProjectId && (signerUserIds?.length ?? 0) === 0
 	const hasSigners = (signerUserIds?.length ?? 0) > 0
-	const isCurrentUserSigner =
-		currentUserId !== null && (signerUserIds?.includes(currentUserId) ?? false)
 	const userNotInSignerList = hasSigners && !isCurrentUserSigner
 	// "Previous signer must sign first" applies to Sign Document only (never to Plot Signature)
 	const isSigningDisabledByPreviousSigners =
 		showSignDocument &&
 		currentUserIndex > 0 &&
-		// If we don't have external signer status yet, keep order strict (only signer #1 enabled).
-		(filteredSigners.length === 0 ? true : !previousSignersHaveSigned)
+		(hasInternalSigningState ? !internalPreviousSignersHaveSigned : true)
 
 	// Plot pre-gen retry / give-up: avoid stuck "Preparing..." when pre-gen fails or after close-without-plot + refresh
 	const [plotPreGenGiveUp, setPlotPreGenGiveUp] = useState(false)
@@ -1382,7 +1484,7 @@ const DocumentActions = React.memo(function DocumentActions({
 	const isStartSigningDisabled =
 		!!isSigningPending ||
 		hasUserSigned ||
-		allSignersSigned ||
+		(hasInternalSigningState ? internalAllSignersSigned : allSignersSigned) ||
 		isSigningDisabledByOrder ||
 		hasNoSignersSelected ||
 		userNotInSignerList ||
@@ -1393,7 +1495,7 @@ const DocumentActions = React.memo(function DocumentActions({
 	const showSigningMessage =
 		!document.docoChainProjectId ||
 		hasUserSigned ||
-		allSignersSigned ||
+		(hasInternalSigningState ? internalAllSignersSigned : allSignersSigned) ||
 		isSigningDisabledByOrder ||
 		hasNoSignersSelected ||
 		userNotInSignerList ||
@@ -1567,8 +1669,37 @@ const DocumentActions = React.memo(function DocumentActions({
 	// Show selected signers count
 	const selectedSignersCount = signerUserIds?.length ?? 0
 
+	const signingIndicator = hasUserSigned
+		? {
+				icon: CheckCircle2,
+				text: "You already signed this document",
+				className:
+					"border border-green-200 bg-green-50 text-green-800 dark:border-green-900/40 dark:bg-green-900/20 dark:text-green-200",
+			}
+		: isSigningDisabledByPreviousSigners
+			? {
+					icon: Clock,
+					text: "Wait for the other users to sign",
+					className:
+						"border border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-200",
+				}
+			: isUsersTurnToSign
+				? {
+						icon: AlertCircle,
+						text: "It's your turn to sign",
+						className:
+							"border border-blue-200 bg-blue-50 text-blue-800 dark:border-blue-900/40 dark:bg-blue-900/20 dark:text-blue-200",
+					}
+				: null
+
 	return (
 		<div className="space-y-2">
+			{signingIndicator && (
+				<div className={cn("flex items-center gap-1.5 rounded-md px-2 py-1 text-[10px] font-semibold", signingIndicator.className)}>
+					<signingIndicator.icon className="size-3" />
+					<span>{signingIndicator.text}</span>
+				</div>
+			)}
 			{/* Before project exists: show signer button and count. After: show signer list */}
 			{document.docoChainProjectId && filteredSigners && filteredSigners.length > 0 ? (
 				<SignerList signers={filteredSigners} />
@@ -1774,10 +1905,6 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 				"function")
 	const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false)
 	const [showDocuments, setShowDocuments] = useState(true)
-	const [selectedDocumentId, setSelectedDocumentId] = useState<string | null>(null)
-	const [selectedSignerId, setSelectedSignerId] = useState<string>("")
-	const [isSendDialogOpen, setIsSendDialogOpen] = useState(false)
-	const [dismissedRequestIds, setDismissedRequestIds] = useState<Set<string>>(new Set())
 	const [signingDocumentId, setSigningDocumentId] = useState<string | null>(null)
 	const [isPlottingAction, setIsPlottingAction] = useState(false)
 	const isPlottingActionRef = useRef(false)
@@ -1933,6 +2060,12 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 		}
 	)
 
+	// Signing status + per-document signature requests (internal gating by signer assignment order).
+	const { data: notarizationDetails } = trpc.meetings.getMeetingNotarizationDetails.useQuery(
+		{ meetingId: meetingId ?? "" },
+		{ enabled: !!meetingId?.trim() }
+	)
+
 	// Mutation to toggle document order lock
 	const toggleLockMutation = trpc.meetings.toggleDocumentOrderLock.useMutation({
 		onSuccess: () => {
@@ -1987,50 +2120,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 		[meetingId, setDocumentSignersMutation]
 	)
 
-	// Fetch pending signature requests for current user
-	const { data: pendingRequests } = trpc.signatureRequests.getPendingRequests.useQuery(
-		{ meetingId: meetingId ?? "" },
-		{
-			enabled: !!meetingId && !!meetingId.trim(),
-			refetchInterval: 5000, // Poll every 5 seconds for new requests (reduced from 3s, kept relatively fast for good UX)
-			retry: false,
-		}
-	)
-
-	// Create signature request mutation
-	const createSignatureRequest = trpc.signatureRequests.createRequest.useMutation({
-		onSuccess: () => {
-			toast.success("Signature request sent successfully!")
-			setIsSendDialogOpen(false)
-			setSelectedDocumentId(null)
-			setSelectedSignerId("")
-		},
-		onError: error => {
-			const errorMessage =
-				error instanceof Error
-					? error.message
-					: typeof error === "object" && error !== null && "message" in error
-						? String(error.message)
-						: "Failed to send signature request"
-			toast.error(errorMessage)
-		},
-	})
-
-	// Update signature request status mutation
-	const updateSignatureStatus = trpc.signatureRequests.updateStatus.useMutation({
-		onSuccess: () => {
-			toast.success("Signature request declined")
-		},
-		onError: error => {
-			const errorMessage =
-				error instanceof Error
-					? error.message
-					: typeof error === "object" && error !== null && "message" in error
-						? String(error.message)
-						: "Failed to update request"
-			toast.error(errorMessage)
-		},
-	})
+	// Signature request modal flow removed (order gating is based on assigned signers + signing status).
 
 	// Update document order mutation (for drag and drop)
 	const updateDocumentOrder = trpc.meetings.updateDocumentOrder.useMutation({
@@ -2192,6 +2282,20 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 		},
 	})
 
+	const markSignedForCurrentUser = trpc.signatureRequests.markSignedForCurrentUser.useMutation({
+		onSuccess: () => {
+			const id = meetingId?.trim()
+			if (id) {
+				void utils.meetings.getMeetingNotarizationDetails.invalidate({ meetingId: id })
+				void utils.signatureRequests.getPendingRequests.invalidate({ meetingId: id })
+			}
+			void refetchDocuments()
+		},
+		onError: error => {
+			console.warn("Failed to mark signed for current user:", error)
+		},
+	})
+
 	// ENP initiates signing - adds them as signer and embeds signing page
 	const initiateSigning = trpc.signatureRequests.initiateSigning.useMutation({
 		onMutate: variables => {
@@ -2240,8 +2344,27 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 			const kind = isPlotting === true ? "plot" : "sign"
 			const existing =
 				kind === "plot" ? preGeneratedPlotLinks.get(documentId) : preGeneratedSignLinks.get(documentId)
-			const linkFromCache =
-				existing?.link && existing.projectUuid === projectUuid ? existing.link : undefined
+
+			const nowMs = Date.now()
+			const isCachedLinkUsable =
+				kind === "sign" &&
+				!!existing?.link &&
+				existing.projectUuid === projectUuid &&
+				typeof existing.storedAt === "number" &&
+				nowMs - existing.storedAt <= PRE_GENERATED_LINK_MAX_AGE_MS
+
+			// We always generate a fresh Plot link on click (api_token can go stale quickly).
+			// For Sign links we allow a short-lived cache; if it's stale, drop it.
+			if (kind === "sign" && existing && !isCachedLinkUsable) {
+				setPreGeneratedSignLinks(prev => {
+					if (!prev.has(documentId)) return prev
+					const next = new Map(prev)
+					next.delete(documentId)
+					return next
+				})
+			}
+
+			const linkFromCache = isCachedLinkUsable ? existing?.link : undefined
 
 			setSigningDocumentId(documentId)
 			setIsPlottingAction(kind === "plot")
@@ -2261,11 +2384,20 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 							isPlotting: kind === "plot",
 						})
 
-				let link = data?.link
+				console.log(
+					"🟣 [DocOnChain] initiateSigning response (redacted)",
+					sanitizeDoconchainPayloadForLog(data)
+				)
+
+				let link = extractDoconchainLink(data)
 				if (!link && kind === "sign") {
 					// Fallback: if initiateSigning returned an unexpected shape, ask server for sign link directly.
 					const fallback = await generateSigningLink.mutateAsync({ projectUuid, email })
-					link = fallback?.link
+					console.log(
+						"🟣 [DocOnChain] generateSigningLink response (redacted)",
+						sanitizeDoconchainPayloadForLog(fallback)
+					)
+					link = extractDoconchainLink(fallback)
 				}
 				if (!link) throw new Error("Missing DocOnChain link.")
 
@@ -2330,7 +2462,33 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 						}
 					}, 800)
 				} else {
-					window.open(link, "_blank", "noopener,noreferrer")
+					// Open in a popup window so we can detect close and mark SIGNED (best-effort).
+					const popup = window.open(
+						link,
+						"doconchain-sign",
+						// Don't use noopener/noreferrer here; we need a window handle for close detection.
+						"width=1200,height=850"
+					)
+					if (!popup) {
+						// Fallback if popups are blocked
+						window.open(link, "_blank", "noopener,noreferrer")
+						return
+					}
+
+					const startedAt = Date.now()
+					const interval = window.setInterval(() => {
+						if (popup.closed) {
+							window.clearInterval(interval)
+							// Avoid instant-close false positives (popup blocked / immediate redirect)
+							if (!meetingId) return
+							const elapsedMs = Date.now() - startedAt
+							if (elapsedMs < 1500) return
+
+							markSignedForCurrentUser.mutate({ meetingId, documentId })
+							// Refresh local UI state that drives order gating
+							void refetchDocuments()
+						}
+					}, 800)
 				}
 			} catch (error) {
 				const errorMessage =
@@ -2360,8 +2518,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 		]
 	)
 
-	// Get the first non-dismissed pending request
-	const activeSignatureRequest = pendingRequests?.find(req => !dismissedRequestIds.has(req.id))
+	// Signature request modal flow removed
 
 	// Force re-render when participants change - VideoSDK mutates the Map in place
 	// so React doesn't detect changes. We increment this counter to trigger re-renders.
@@ -3286,6 +3443,10 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 												isPreviousDocumentSigned={isPreviousDocumentSigned}
 												documentIndex={index}
 												signers={documentSigningStatus.get(doc.id)?.signers}
+													signatureRequests={
+														(notarizationDetails?.documents ?? []).find(d => d.id === doc.id)
+															?.signatureRequests ?? []
+													}
 												participants={meetingDetails?.participants ?? []}
 												signerUserIds={(doc as { signerUserIds?: string[] }).signerUserIds ?? []}
 												meetingId={meetingId ?? undefined}
@@ -3463,163 +3624,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 				{/* Documents Panel at Bottom */}
 				{documentsPanel}
 			</div>
-
-			{/* Send to ENP Dialog */}
-			<Dialog open={isSendDialogOpen} onOpenChange={setIsSendDialogOpen}>
-				<DialogContent className="max-w-md">
-					<DialogHeader>
-						<DialogTitle className="flex items-center gap-2">
-							<Send className="text-primary size-5" />
-							Send Document for Signature
-						</DialogTitle>
-						<DialogDescription>
-							Select which ENP participant should sign this document
-						</DialogDescription>
-					</DialogHeader>
-
-					<div className="space-y-4 py-4">
-						<div className="space-y-2">
-							<label className="text-sm font-medium">Select ENP Participant</label>
-							<Select value={selectedSignerId} onValueChange={setSelectedSignerId}>
-								<SelectTrigger className="w-full">
-									<SelectValue placeholder="Choose a participant" />
-								</SelectTrigger>
-								<SelectContent>
-									{meetingDetails?.participants
-										.filter(p => p.userId !== session?.user?.id)
-										.map(participant => (
-											<SelectItem key={participant.userId} value={participant.userId}>
-												{participant.user.name} - {participant.user.email}
-											</SelectItem>
-										))}
-								</SelectContent>
-							</Select>
-						</div>
-					</div>
-
-					<DialogFooter>
-						<Button variant="outline" onClick={() => setIsSendDialogOpen(false)}>
-							Cancel
-						</Button>
-						<Button
-							onClick={() => {
-								if (selectedDocumentId && selectedSignerId) {
-									createSignatureRequest.mutate({
-										meetingId: meetingId ?? "",
-										documentId: selectedDocumentId,
-										signerId: selectedSignerId,
-									})
-								}
-							}}
-							disabled={!selectedSignerId || createSignatureRequest.isPending}
-						>
-							{createSignatureRequest.isPending ? (
-								<>
-									<div className="mr-2 size-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
-									Sending...
-								</>
-							) : (
-								<>
-									<Send className="mr-2 size-3" />
-									Send Request
-								</>
-							)}
-						</Button>
-					</DialogFooter>
-				</DialogContent>
-			</Dialog>
-
-			{/* Signature Request Notification for ENP */}
-			{activeSignatureRequest && (
-				<Dialog
-					open={true}
-					onOpenChange={open => {
-						if (!open) {
-							// Dismiss this request
-							setDismissedRequestIds(prev => new Set(prev).add(activeSignatureRequest.id))
-						}
-					}}
-				>
-					<DialogContent className="max-w-md">
-						<DialogHeader>
-							<DialogTitle className="flex items-center gap-2">
-								<FileSignature className="text-primary size-5" />
-								Signature Request
-							</DialogTitle>
-							<DialogDescription>You have been requested to sign a document</DialogDescription>
-						</DialogHeader>
-
-						<div className="space-y-4 py-4">
-							<div className="bg-muted/50 space-y-2 rounded-lg p-4">
-								<div>
-									<p className="text-muted-foreground text-xs">Document</p>
-									<p className="font-semibold">{activeSignatureRequest.document.name}</p>
-								</div>
-								<div>
-									<p className="text-muted-foreground text-xs">Requested by</p>
-									<p className="font-semibold">{activeSignatureRequest.requester.name}</p>
-								</div>
-								<div>
-									<p className="text-muted-foreground text-xs">Meeting</p>
-									<p className="font-semibold">{activeSignatureRequest.meeting.title}</p>
-								</div>
-							</div>
-						</div>
-
-						<DialogFooter className="flex-col gap-2 sm:flex-row">
-							<Button
-								variant="outline"
-								className="w-full sm:w-auto"
-								onClick={() => {
-									// Decline signature request
-									updateSignatureStatus.mutate({
-										requestId: activeSignatureRequest.id,
-										status: "DECLINED",
-									})
-									setDismissedRequestIds(prev => new Set(prev).add(activeSignatureRequest.id))
-								}}
-								disabled={updateSignatureStatus.isPending}
-							>
-								{updateSignatureStatus.isPending ? "Declining..." : "Decline"}
-							</Button>
-							<Button
-								className="w-full sm:w-auto"
-								onClick={() => {
-									const projectId = activeSignatureRequest.document.docoChainProjectId
-									const userEmail = session?.user?.email
-
-									console.log("Document:", activeSignatureRequest.document)
-									console.log("Signing Project ID:", projectId)
-									console.log("ENP Email:", userEmail)
-
-									if (projectId && userEmail) {
-										// Generate personalized signing link for this ENP
-										console.log("🔵 Generating personalized signing link for ENP...")
-										generateSigningLink.mutate({
-											projectUuid: projectId,
-											email: userEmail,
-										})
-
-										// Dismiss this request
-										setDismissedRequestIds(prev => new Set(prev).add(activeSignatureRequest.id))
-									} else {
-										console.error("Missing required data:", { projectId, userEmail })
-										toast.error(
-											!projectId
-												? "Signing project not found. Please ensure the document was uploaded correctly."
-												: "User email not found. Please sign in again."
-										)
-									}
-								}}
-								disabled={generateSigningLink.isPending}
-							>
-								<FileSignature className="mr-2 size-4" />
-								{generateSigningLink.isPending ? "Generating Link..." : "Sign Document"}
-							</Button>
-						</DialogFooter>
-					</DialogContent>
-				</Dialog>
-			)}
+		{/* Signature request modal flow removed */}
 
 			{/* Recording Consent Dialog (shown to all participants) */}
 			<Dialog

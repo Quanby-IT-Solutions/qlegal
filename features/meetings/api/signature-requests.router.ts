@@ -6,11 +6,38 @@ import { env } from "@/env"
 import { db } from "@/services/drizzle/db"
 import { users } from "@/services/drizzle/schema/auth"
 import { documents } from "@/services/drizzle/schema/document"
+import { documentSigners } from "@/services/drizzle/schema/document-signers"
+import { meetings } from "@/services/drizzle/schema/meetings"
 import { signatureRequests } from "@/services/drizzle/schema/signature-requests"
 import { invalidateDoconchainToken } from "@/services/doconchain/auth/generate-token"
 import { generateDoconchainEditDraftProjectLink } from "@/services/doconchain/projects/generate-edit-draft-link"
 import { generateDoconchainSignLink } from "@/services/doconchain/projects/generate-sign-link"
 import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
+
+function maskEmailForLog(email: string): string {
+	const trimmed = email.trim()
+	const at = trimmed.indexOf("@")
+	if (at <= 0) return "***"
+	const name = trimmed.slice(0, at)
+	const domain = trimmed.slice(at + 1)
+	const prefix = name.slice(0, 2)
+	return `${prefix}${name.length > 2 ? "***" : "*"}@${domain}`
+}
+
+function redactDoconchainUrlForLog(urlString: string): string {
+	try {
+		const url = new URL(urlString)
+		// Redact sensitive query params commonly present in DocOnChain links.
+		for (const key of ["token", "api_token"]) {
+			if (url.searchParams.has(key)) url.searchParams.set(key, "***")
+		}
+		// Email may appear as a query param too; avoid logging it.
+		if (url.searchParams.has("email")) url.searchParams.set("email", "***")
+		return url.toString()
+	} catch {
+		return urlString
+	}
+}
 
 export const signatureRequestsRouter = createTRPCRouter({
 	// Create a signature request
@@ -180,6 +207,89 @@ export const signatureRequestsRouter = createTRPCRouter({
 			}
 		}),
 
+	/**
+	 * Best-effort: mark the current user as SIGNED for a document in a meeting.
+	 * Used when the signer closes the DocOnChain signing window so UI order gating can advance
+	 * even if webhooks are not yet configured.
+	 */
+	markSignedForCurrentUser: protectedProcedure
+		.input(z.object({ meetingId: z.string().min(1), documentId: z.string().min(1) }))
+		.mutation(async ({ ctx, input }) => {
+			const meetingId = input.meetingId.trim()
+			const documentId = input.documentId.trim()
+
+			const meeting = await db.query.meetings.findFirst({
+				where: eq(meetings.id, meetingId),
+				columns: { id: true, createdById: true },
+				with: {
+					participants: { columns: { userId: true, status: true } },
+				},
+			})
+
+			if (!meeting) {
+				throw new TRPCError({ code: "NOT_FOUND", message: "Meeting not found" })
+			}
+
+			const isHost = meeting.createdById === ctx.session.user.id
+			const isAcceptedParticipant = meeting.participants.some(
+				p => p.userId === ctx.session.user.id && p.status === "ACCEPTED"
+			)
+			if (!isHost && !isAcceptedParticipant) {
+				throw new TRPCError({ code: "FORBIDDEN", message: "You don't have access to this meeting" })
+			}
+
+			const doc = await db.query.documents.findFirst({
+				where: and(eq(documents.id, documentId), eq(documents.meetingId, meetingId)),
+				columns: { id: true },
+			})
+			if (!doc) {
+				throw new TRPCError({ code: "NOT_FOUND", message: "Document not found in this meeting" })
+			}
+
+			// Must be an assigned signer.
+			const signerRow = await db.query.documentSigners.findFirst({
+				where: and(
+					eq(documentSigners.documentId, documentId),
+					eq(documentSigners.userId, ctx.session.user.id)
+				),
+				columns: { userId: true },
+			})
+			if (!signerRow?.userId) {
+				throw new TRPCError({ code: "FORBIDDEN", message: "You are not assigned as a signer for this document" })
+			}
+
+			const existing = await db.query.signatureRequests.findFirst({
+				where: and(
+					eq(signatureRequests.meetingId, meetingId),
+					eq(signatureRequests.documentId, documentId),
+					eq(signatureRequests.signerId, ctx.session.user.id)
+				),
+				columns: { id: true, status: true },
+			})
+
+			const signedAt = new Date()
+			if (existing?.id) {
+				if (String(existing.status ?? "").toUpperCase() === "SIGNED") {
+					return { success: true, alreadySigned: true }
+				}
+				await db
+					.update(signatureRequests)
+					.set({ status: "SIGNED", signedAt, updatedAt: new Date() })
+					.where(eq(signatureRequests.id, existing.id))
+				return { success: true, updated: true }
+			}
+
+			await db.insert(signatureRequests).values({
+				meetingId,
+				documentId,
+				requesterId: meeting.createdById,
+				signerId: ctx.session.user.id,
+				status: "SIGNED",
+				signedAt,
+			})
+			return { success: true, created: true }
+		}),
+
 	// Initiate signing (temporarily disabled)
 	initiateSigning: protectedProcedure
 		.input(
@@ -195,6 +305,13 @@ export const signatureRequestsRouter = createTRPCRouter({
 				})
 		)
 		.mutation(async ({ input }) => {
+			console.log("🟣 [DocOnChain] initiateSigning:start", {
+				projectUuidProvided: !!input.projectUuid?.trim(),
+				documentIdProvided: !!input.documentId?.trim(),
+				isPlotting: input.isPlotting === true,
+				email: maskEmailForLog(input.email),
+			})
+
 			const projectUuidFromInput = input.projectUuid?.trim()
 			const documentId = input.documentId?.trim()
 
@@ -208,6 +325,11 @@ export const signatureRequestsRouter = createTRPCRouter({
 				})
 				projectUuid = doc?.docoChainProjectId ?? undefined
 				docRedirectUrl = doc?.docoChainRedirectUrl
+				console.log("🟣 [DocOnChain] initiateSigning:resolvedProject", {
+					documentId,
+					projectUuidResolved: !!projectUuid,
+					hasStoredRedirectUrl: !!docRedirectUrl,
+				})
 			}
 
 			if (!projectUuid) {
@@ -230,9 +352,19 @@ export const signatureRequestsRouter = createTRPCRouter({
 			const doBuildLink = async () => {
 				// Plot Signature uses "Edit Draft" link endpoint (portal parity).
 				if (input.isPlotting === true) {
+					console.log("🟣 [DocOnChain] initiateSigning:buildLink", {
+						kind: "plot",
+						projectUuid,
+						email: maskEmailForLog(email),
+					})
 					const link = await generateDoconchainEditDraftProjectLink({
 						projectUuid,
 						userEmail: email,
+					})
+					console.log("🟣 [DocOnChain] initiateSigning:buildLink:success", {
+						kind: "plot",
+						projectUuid,
+						link: redactDoconchainUrlForLog(link),
 					})
 					const cleanPlotUrl = (() => {
 						try {
@@ -247,12 +379,28 @@ export const signatureRequestsRouter = createTRPCRouter({
 				}
 
 				// Sign Document uses DocOnChain's official sign-link generator (order-aware).
+				console.log("🟣 [DocOnChain] initiateSigning:buildLink", {
+					kind: "sign",
+					projectUuid,
+					email: maskEmailForLog(email),
+				})
 				const link = await generateDoconchainSignLink({ projectUuid, signerEmail: email })
+				console.log("🟣 [DocOnChain] initiateSigning:buildLink:success", {
+					kind: "sign",
+					projectUuid,
+					link: redactDoconchainUrlForLog(link),
+				})
 				return { link, cleanPlotUrl: undefined }
 			}
 
 			try {
 				const { link, cleanPlotUrl } = await doBuildLink()
+				console.log("🟣 [DocOnChain] initiateSigning:return", {
+					kind: input.isPlotting ? "plot" : "sign",
+					projectUuid,
+					hasLink: typeof link === "string" && link.length > 0,
+					cleanPlotUrl: cleanPlotUrl ? redactDoconchainUrlForLog(cleanPlotUrl) : undefined,
+				})
 				return {
 					projectUuid,
 					link,
@@ -262,10 +410,26 @@ export const signatureRequestsRouter = createTRPCRouter({
 			} catch (error) {
 				// If token was invalid, invalidate and retry once.
 				const msg = error instanceof Error ? error.message.toLowerCase() : ""
+				console.error("🟣 [DocOnChain] initiateSigning:error", {
+					kind: input.isPlotting ? "plot" : "sign",
+					projectUuid,
+					email: maskEmailForLog(email),
+					message: error instanceof Error ? error.message : String(error),
+				})
 				if (msg.includes("401") || msg.includes("unauthorized")) {
 					const invalidate = invalidateDoconchainToken as (email: string) => void
 					invalidate(email)
+					console.log("🟣 [DocOnChain] initiateSigning:retryAfter401", {
+						kind: input.isPlotting ? "plot" : "sign",
+						projectUuid,
+						email: maskEmailForLog(email),
+					})
 					const { link, cleanPlotUrl } = await doBuildLink()
+					console.log("🟣 [DocOnChain] initiateSigning:returnAfterRetry", {
+						kind: input.isPlotting ? "plot" : "sign",
+						projectUuid,
+						hasLink: typeof link === "string" && link.length > 0,
+					})
 					return {
 						projectUuid,
 						link,
@@ -294,15 +458,33 @@ export const signatureRequestsRouter = createTRPCRouter({
 			const projectUuid = input.projectUuid.trim()
 			const email = input.email.trim().toLowerCase()
 
+			console.log("🟣 [DocOnChain] generateSigningLink:start", {
+				projectUuid,
+				email: maskEmailForLog(email),
+			})
+
 			try {
 				const link = await generateDoconchainSignLink({ projectUuid, signerEmail: email })
+				console.log("🟣 [DocOnChain] generateSigningLink:success", {
+					projectUuid,
+					link: redactDoconchainUrlForLog(link),
+				})
 				return { projectUuid, link, kind: "sign" as const }
 			} catch (error) {
 				const msg = error instanceof Error ? error.message.toLowerCase() : ""
+				console.error("🟣 [DocOnChain] generateSigningLink:error", {
+					projectUuid,
+					email: maskEmailForLog(email),
+					message: error instanceof Error ? error.message : String(error),
+				})
 				if (msg.includes("401") || msg.includes("unauthorized")) {
 					const invalidate = invalidateDoconchainToken as (email: string) => void
 					invalidate(email)
 					const link = await generateDoconchainSignLink({ projectUuid, signerEmail: email })
+					console.log("🟣 [DocOnChain] generateSigningLink:successAfterRetry", {
+						projectUuid,
+						link: redactDoconchainUrlForLog(link),
+					})
 					return { projectUuid, link, kind: "sign" as const }
 				}
 				throw new TRPCError({
