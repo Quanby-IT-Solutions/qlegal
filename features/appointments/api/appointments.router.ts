@@ -1,5 +1,6 @@
 import { TRPCError } from "@trpc/server"
 import { and, asc, desc, eq, gte, inArray, lt, or } from "drizzle-orm"
+import { z } from "zod/v4"
 
 import { getUrl } from "@/core/lib/get-url"
 
@@ -25,11 +26,7 @@ import {
 	deleteEnpEventSchema,
 	getAppointmentByIdSchema,
 	getAppointmentsSchema,
-	getEnpScheduleSchema,
-	getEnpScheduleWithEventsSchema,
 	getNotarizationSessionSchema,
-	getRequestByIdSchema,
-	unblockTimeSlotSchema,
 	updateAppointmentSchema,
 	updateEnpEventSchema,
 	updateRequestStatusSchema,
@@ -111,7 +108,7 @@ async function createMeetingForAppointment(
 	userId: string,
 	title: string,
 	appointmentDate: Date,
-	participantIds?: string[]
+	participantIds: string[]
 ): Promise<string> {
 	const { roomId } = await createMeetingRoom()
 	const [meeting] = await ctx.db
@@ -128,17 +125,16 @@ async function createMeetingForAppointment(
 	if (!meeting) {
 		throw new TRPCError({
 			code: "INTERNAL_SERVER_ERROR",
-			message: "Failed to create meeting",
+			message: "Failed to create meeting room",
 		})
 	}
 
-	// Insert all provided participants
-	const participantsToInsert =
-		participantIds && participantIds.length > 0
-			? participantIds.map(id => ({ meetingId: meeting.id, userId: id }))
-			: [{ meetingId: meeting.id, userId }] // Fallback to creator if no participants provided
-
-	await ctx.db.insert(meetingParticipants).values(participantsToInsert)
+	await ctx.db.insert(meetingParticipants).values(
+		participantIds.map(id => ({
+			meetingId: meeting.id,
+			userId: id,
+		}))
+	)
 
 	return `${getUrl()}/sessions/${meeting.id}`
 }
@@ -359,48 +355,50 @@ export const appointmentsRouter = createTRPCRouter({
 	}),
 
 	// Get request by ID
-	getRequestById: protectedProcedure.input(getRequestByIdSchema).query(async ({ ctx, input }) => {
-		const userId = ctx.session.user.id
+	getRequestById: protectedProcedure
+		.input(z.object({ requestId: z.string().min(1) }))
+		.query(async ({ ctx, input }) => {
+			const userId = ctx.session.user.id
 
-		const request = await ctx.db.query.notarizationRequests.findFirst({
-			where: eq(notarizationRequests.id, input.requestId),
-			with: {
-				enp: {
-					columns: {
-						id: true,
-						name: true,
-						email: true,
-						image: true,
+			const request = await ctx.db.query.notarizationRequests.findFirst({
+				where: eq(notarizationRequests.id, input.requestId),
+				with: {
+					enp: {
+						columns: {
+							id: true,
+							name: true,
+							email: true,
+							image: true,
+						},
+					},
+					principal: {
+						columns: {
+							id: true,
+							name: true,
+							email: true,
+							image: true,
+						},
 					},
 				},
-				principal: {
-					columns: {
-						id: true,
-						name: true,
-						email: true,
-						image: true,
-					},
-				},
-			},
-		})
-
-		if (!request) {
-			throw new TRPCError({
-				code: "NOT_FOUND",
-				message: "Notarization request not found",
 			})
-		}
 
-		// Check permissions
-		if (request.principalId !== userId && request.enpId !== userId) {
-			throw new TRPCError({
-				code: "FORBIDDEN",
-				message: "You don't have access to this request",
-			})
-		}
+			if (!request) {
+				throw new TRPCError({
+					code: "NOT_FOUND",
+					message: "Notarization request not found",
+				})
+			}
 
-		return request
-	}),
+			// Check permissions
+			if (request.principalId !== userId && request.enpId !== userId) {
+				throw new TRPCError({
+					code: "FORBIDDEN",
+					message: "You don't have access to this request",
+				})
+			}
+
+			return request
+		}),
 
 	// =================== ENP PROCEDURES ===================
 
@@ -475,7 +473,7 @@ export const appointmentsRouter = createTRPCRouter({
 			title: apt.type === "NOTARIZATION" ? "Notarization" : "Consultation",
 			description: apt.notes,
 			status: apt.status,
-			workflow: apt.meetingLink ? "REN" : "IEN",
+			workflow: (apt.meetingLink ? "REN" : "IEN") as "REN" | "IEN",
 			priority: "NORMAL" as const,
 			createdAt: apt.createdAt,
 			updatedAt: apt.updatedAt,
@@ -579,7 +577,7 @@ export const appointmentsRouter = createTRPCRouter({
 						userId,
 						existing.type === "NOTARIZATION" ? "Notarization Session" : "Consultation Meeting",
 						existing.appointmentDate,
-						[existing.lawyerId, existing.clientId] // Add both ENP and client as participants
+						[existing.clientId, existing.lawyerId]
 					)
 				} catch (error) {
 					console.error("Failed to create meeting on confirmation:", error)
@@ -978,124 +976,224 @@ export const appointmentsRouter = createTRPCRouter({
 			}
 		}),
 
+	// ENP Schedule Management
+
 	// Get ENP's schedule including their own events
-	getEnpSchedule: protectedProcedure.input(getEnpScheduleSchema).query(async ({ ctx, input }) => {
-		const userId = ctx.session.user.id
+	getEnpSchedule: protectedProcedure
+		.input(z.object({ month: z.number(), year: z.number() }))
+		.query(async ({ ctx, input }) => {
+			const userId = ctx.session.user.id
 
-		// Verify user is ENP
-		const user = await ctx.db.query.users.findFirst({
-			where: eq(users.id, userId),
-		})
-
-		if (user?.role !== "ENP") {
-			throw new TRPCError({
-				code: "FORBIDDEN",
-				message: "Only ENPs can access schedule",
+			// Verify user is ENP
+			const user = await ctx.db.query.users.findFirst({
+				where: eq(users.id, userId),
 			})
-		}
 
-		// Get regular weekly availability
-		const regularAvailability = await ctx.db.query.enpAvailability.findMany({
-			where: and(eq(enpAvailability.enpId, userId), eq(enpAvailability.type, "REGULAR")),
-		})
+			if (user?.role !== "ENP") {
+				throw new TRPCError({
+					code: "FORBIDDEN",
+					message: "Only ENPs can access schedule",
+				})
+			}
 
-		// Get one-time blocked slots
-		const blockedSlots = await ctx.db.query.enpAvailability.findMany({
-			where: and(eq(enpAvailability.enpId, userId), eq(enpAvailability.type, "BLOCKED")),
-			orderBy: [asc(enpAvailability.date), asc(enpAvailability.startTime)],
-		})
+			// Get regular weekly availability
+			const regularAvailability = await ctx.db.query.enpAvailability.findMany({
+				where: and(eq(enpAvailability.enpId, userId), eq(enpAvailability.type, "REGULAR")),
+			})
 
-		// Get recurring blocked slots
-		const recurringBlocked = await ctx.db.query.enpAvailability.findMany({
-			where: and(eq(enpAvailability.enpId, userId), eq(enpAvailability.type, "RECURRING_BLOCKED")),
-			orderBy: [asc(enpAvailability.dayOfWeek), asc(enpAvailability.startTime)],
-		})
+			// Get one-time blocked slots
+			const blockedSlots = await ctx.db.query.enpAvailability.findMany({
+				where: and(eq(enpAvailability.enpId, userId), eq(enpAvailability.type, "BLOCKED")),
+				orderBy: [asc(enpAvailability.date), asc(enpAvailability.startTime)],
+			})
 
-		// Get custom availability overrides for month
-		const customAvailability = await ctx.db.query.enpAvailability.findMany({
-			where: and(eq(enpAvailability.enpId, userId), eq(enpAvailability.type, "CUSTOM")),
-			orderBy: [asc(enpAvailability.date), asc(enpAvailability.startTime)],
-		})
+			// Get recurring blocked slots
+			const recurringBlocked = await ctx.db.query.enpAvailability.findMany({
+				where: and(
+					eq(enpAvailability.enpId, userId),
+					eq(enpAvailability.type, "RECURRING_BLOCKED")
+				),
+				orderBy: [asc(enpAvailability.dayOfWeek), asc(enpAvailability.startTime)],
+			})
 
-		// Get ENP's appointments with lapsed status computation
-		const startDate = new Date(input.year, input.month, 1)
-		const endDate = new Date(input.year, input.month + 1, 0, 0, -1) // Last day of month
+			// Get custom availability overrides for month
+			const customAvailability = await ctx.db.query.enpAvailability.findMany({
+				where: and(eq(enpAvailability.enpId, userId), eq(enpAvailability.type, "CUSTOM")),
+				orderBy: [asc(enpAvailability.date), asc(enpAvailability.startTime)],
+			})
 
-		const myAppointments = await ctx.db.query.appointments.findMany({
-			where: and(
-				eq(appointments.lawyerId, userId),
-				or(eq(appointments.status, "CONFIRMED"), eq(appointments.status, "PENDING")),
-				gte(appointments.appointmentDate, startDate),
-				lt(appointments.appointmentDate, endDate)
-			),
-			orderBy: [asc(appointments.appointmentDate)],
-			with: {
-				client: {
-					columns: {
-						id: true,
-						name: true,
-						email: true,
-						image: true,
+			// Get ENP's appointments with lapsed status computation (inline getEnpScheduleWithEvents logic)
+			const startDate = new Date(input.year, input.month, 1)
+			const endDate = new Date(input.year, input.month + 1, 0, 0, -1) // Last day of month
+
+			const myAppointments = await ctx.db.query.appointments.findMany({
+				where: and(
+					eq(appointments.lawyerId, userId),
+					or(eq(appointments.status, "CONFIRMED"), eq(appointments.status, "PENDING")),
+					gte(appointments.appointmentDate, startDate),
+					lt(appointments.appointmentDate, endDate)
+				),
+				orderBy: [asc(appointments.appointmentDate)],
+				with: {
+					client: {
+						columns: {
+							id: true,
+							name: true,
+							email: true,
+							image: true,
+						},
 					},
 				},
-			},
-		})
+			})
 
-		// Compute lapsed status for each appointment (matching getEnpScheduleWithEvents logic)
-		const meetingIdFromLink = (meetingLink: string | null) => {
-			if (!meetingLink) return null
-			const match = /\/sessions\/([^/]+)/.exec(meetingLink)
-			return match?.[1] ?? null
-		}
+			// Compute lapsed status for each appointment
+			const meetingIdFromLink = (meetingLink: string | null) => {
+				if (!meetingLink) return null
+				const match = /\/sessions\/([^/]+)/.exec(meetingLink)
+				return match?.[1] ?? null
+			}
 
-		const meetingIds = myAppointments
-			.map(appointment => meetingIdFromLink(appointment.meetingLink))
-			.filter((meetingId): meetingId is string => !!meetingId)
+			const meetingIds = myAppointments
+				.map(appointment => meetingIdFromLink(appointment.meetingLink))
+				.filter((meetingId): meetingId is string => !!meetingId)
 
-		const uniqueMeetingIds = Array.from(new Set(meetingIds))
-		const meetingStatusById = new Map<string, string>()
+			const uniqueMeetingIds = Array.from(new Set(meetingIds))
+			const meetingStatusById = new Map<string, string>()
 
-		if (uniqueMeetingIds.length > 0) {
-			const meetingRows = await ctx.db.query.meetings.findMany({
-				where: inArray(meetings.id, uniqueMeetingIds),
-				columns: {
-					id: true,
-					status: true,
+			if (uniqueMeetingIds.length > 0) {
+				const meetingRows = await ctx.db.query.meetings.findMany({
+					where: inArray(meetings.id, uniqueMeetingIds),
+					columns: {
+						id: true,
+						status: true,
+					},
+				})
+
+				for (const meeting of meetingRows) {
+					meetingStatusById.set(meeting.id, meeting.status)
+				}
+			}
+
+			const now = Date.now()
+			const graceMs = 30 * 60 * 1000
+			const startedStatuses = new Set(["ONGOING", "COMPLETED"])
+
+			const myAppointmentsWithLapsed = myAppointments.map(appointment => {
+				const meetingId = meetingIdFromLink(appointment.meetingLink)
+				const meetingStatus = meetingId ? meetingStatusById.get(meetingId) : undefined
+				const meetingStarted = meetingStatus ? startedStatuses.has(meetingStatus) : false
+				const lapsed =
+					appointment.status === "CONFIRMED" &&
+					now > new Date(appointment.appointmentDate).getTime() + graceMs &&
+					(!meetingId || !meetingStarted)
+
+				return {
+					...appointment,
+					lapsed,
+				}
+			})
+
+			return {
+				regular: regularAvailability,
+				blocked: blockedSlots,
+				recurringBlocked,
+				custom: customAvailability,
+				myAppointments: myAppointmentsWithLapsed,
+			}
+		}),
+
+	// Get ENP's schedule with their events - FIXED TIMEZONE ISSUE
+	getEnpScheduleWithEvents: protectedProcedure
+		.input(z.object({ month: z.number(), year: z.number() }))
+		.query(async ({ ctx, input }) => {
+			const userId = ctx.session.user.id
+
+			// Verify user is ENP
+			const user = await ctx.db.query.users.findFirst({
+				where: eq(users.id, userId),
+			})
+
+			if (user?.role !== "ENP") {
+				throw new TRPCError({
+					code: "FORBIDDEN",
+					message: "Only ENPs can access schedule",
+				})
+			}
+
+			// Get ENP's appointments (all appointments where ENP is lawyer) - timezone-safe approach
+			const startDate = new Date(input.year, input.month, 1)
+			const endDate = new Date(input.year, input.month + 1, 0, 0, -1) // Last day of month
+
+			const myAppointments = await ctx.db.query.appointments.findMany({
+				where: and(
+					eq(appointments.lawyerId, userId),
+					or(eq(appointments.status, "CONFIRMED"), eq(appointments.status, "PENDING")),
+					gte(appointments.appointmentDate, startDate),
+					lt(appointments.appointmentDate, endDate)
+				),
+				orderBy: [asc(appointments.appointmentDate)],
+				with: {
+					client: {
+						columns: {
+							id: true,
+							name: true,
+							email: true,
+							image: true,
+						},
+					},
 				},
 			})
 
-			for (const meeting of meetingRows) {
-				meetingStatusById.set(meeting.id, meeting.status)
+			const meetingIdFromLink = (meetingLink: string | null) => {
+				if (!meetingLink) return null
+				const match = /\/sessions\/([^/]+)/.exec(meetingLink)
+				return match?.[1] ?? null
 			}
-		}
 
-		const now = Date.now()
-		const graceMs = 30 * 60 * 1000
-		const startedStatuses = new Set(["ONGOING", "COMPLETED"])
+			const meetingIds = myAppointments
+				.map(appointment => meetingIdFromLink(appointment.meetingLink))
+				.filter((meetingId): meetingId is string => !!meetingId)
 
-		const myAppointmentsWithLapsed = myAppointments.map(appointment => {
-			const meetingId = meetingIdFromLink(appointment.meetingLink)
-			const meetingStatus = meetingId ? meetingStatusById.get(meetingId) : undefined
-			const meetingStarted = meetingStatus ? startedStatuses.has(meetingStatus) : false
-			const lapsed =
-				appointment.status === "CONFIRMED" &&
-				now > new Date(appointment.appointmentDate).getTime() + graceMs &&
-				(!meetingId || !meetingStarted)
+			const uniqueMeetingIds = Array.from(new Set(meetingIds))
+			const meetingStatusById = new Map<string, string>()
+
+			if (uniqueMeetingIds.length > 0) {
+				const meetingRows = await ctx.db.query.meetings.findMany({
+					where: inArray(meetings.id, uniqueMeetingIds),
+					columns: {
+						id: true,
+						status: true,
+					},
+				})
+
+				for (const meeting of meetingRows) {
+					meetingStatusById.set(meeting.id, meeting.status)
+				}
+			}
+
+			const now = Date.now()
+			const graceMs = 30 * 60 * 1000
+			const startedStatuses = new Set(["ONGOING", "COMPLETED"])
+
+			const myAppointmentsWithLapsed = myAppointments.map(appointment => {
+				const meetingId = meetingIdFromLink(appointment.meetingLink)
+				const meetingStatus = meetingId ? meetingStatusById.get(meetingId) : undefined
+				const meetingStarted = meetingStatus ? startedStatuses.has(meetingStatus) : false
+				const lapsed =
+					appointment.status === "CONFIRMED" &&
+					now > new Date(appointment.appointmentDate).getTime() + graceMs &&
+					(!meetingId || !meetingStarted)
+
+				return {
+					...appointment,
+					lapsed,
+				}
+			})
 
 			return {
-				...appointment,
-				lapsed,
+				myAppointments: myAppointmentsWithLapsed,
 			}
-		})
-
-		return {
-			regular: regularAvailability,
-			blocked: blockedSlots,
-			recurringBlocked,
-			custom: customAvailability,
-			myAppointments: myAppointmentsWithLapsed,
-		}
-	}),
+		}),
 
 	// Create ENP event (consultation or notarization)
 	createEnpEvent: protectedProcedure
@@ -1152,7 +1250,8 @@ export const appointmentsRouter = createTRPCRouter({
 						input.type === "NOTARIZATION"
 							? "Remote Electronic Notarization"
 							: "Consultation Meeting",
-						appointmentDateTime
+						appointmentDateTime,
+						[userId]
 					)
 				} catch (error) {
 					console.error("Failed to create meeting for ENP event:", error)
@@ -1363,7 +1462,7 @@ export const appointmentsRouter = createTRPCRouter({
 
 	// Unblock time slot
 	unblockTimeSlot: protectedProcedure
-		.input(unblockTimeSlotSchema)
+		.input(z.object({ availabilityId: z.string().min(1) }))
 		.mutation(async ({ ctx, input }) => {
 			const userId = ctx.session.user.id
 
@@ -1396,99 +1495,6 @@ export const appointmentsRouter = createTRPCRouter({
 			return {
 				success: true,
 				message: "Time slot unblocked successfully",
-			}
-		}),
-
-	// Get ENP's schedule with their events - FIXED TIMEZONE ISSUE
-	getEnpScheduleWithEvents: protectedProcedure
-		.input(getEnpScheduleWithEventsSchema)
-		.query(async ({ ctx, input }) => {
-			const userId = ctx.session.user.id
-
-			// Verify user is ENP
-			const user = await ctx.db.query.users.findFirst({
-				where: eq(users.id, userId),
-			})
-
-			if (user?.role !== "ENP") {
-				throw new TRPCError({
-					code: "FORBIDDEN",
-					message: "Only ENPs can access schedule",
-				})
-			}
-
-			// Get ENP's appointments (all appointments where ENP is lawyer) - timezone-safe approach
-			const startDate = new Date(input.year, input.month, 1)
-			const endDate = new Date(input.year, input.month + 1, 0, 0, -1) // Last day of month
-
-			const myAppointments = await ctx.db.query.appointments.findMany({
-				where: and(
-					eq(appointments.lawyerId, userId),
-					or(eq(appointments.status, "CONFIRMED"), eq(appointments.status, "PENDING")),
-					gte(appointments.appointmentDate, startDate),
-					lt(appointments.appointmentDate, endDate)
-				),
-				orderBy: [asc(appointments.appointmentDate)],
-				with: {
-					client: {
-						columns: {
-							id: true,
-							name: true,
-							email: true,
-							image: true,
-						},
-					},
-				},
-			})
-
-			const meetingIdFromLink = (meetingLink: string | null) => {
-				if (!meetingLink) return null
-				const match = /\/sessions\/([^/]+)/.exec(meetingLink)
-				return match?.[1] ?? null
-			}
-
-			const meetingIds = myAppointments
-				.map(appointment => meetingIdFromLink(appointment.meetingLink))
-				.filter((meetingId): meetingId is string => !!meetingId)
-
-			const uniqueMeetingIds = Array.from(new Set(meetingIds))
-			const meetingStatusById = new Map<string, string>()
-
-			if (uniqueMeetingIds.length > 0) {
-				const meetingRows = await ctx.db.query.meetings.findMany({
-					where: inArray(meetings.id, uniqueMeetingIds),
-					columns: {
-						id: true,
-						status: true,
-					},
-				})
-
-				for (const meeting of meetingRows) {
-					meetingStatusById.set(meeting.id, meeting.status)
-				}
-			}
-
-			const now = Date.now()
-			const graceMs = 30 * 60 * 1000
-			const startedStatuses = new Set(["ONGOING", "COMPLETED"])
-
-			const myAppointmentsWithLapsed = myAppointments.map(appointment => {
-				const meetingId = meetingIdFromLink(appointment.meetingLink)
-				const meetingStatus = meetingId ? meetingStatusById.get(meetingId) : undefined
-				const meetingStarted = meetingStatus ? startedStatuses.has(meetingStatus) : false
-				const lapsed =
-					appointment.status === "CONFIRMED" &&
-					now > new Date(appointment.appointmentDate).getTime() + graceMs &&
-					(!meetingId || !meetingStarted)
-
-				return {
-					...appointment,
-					lapsed,
-				}
-			})
-
-			return {
-				myAppointments: myAppointmentsWithLapsed,
 			}
 		}),
 })
