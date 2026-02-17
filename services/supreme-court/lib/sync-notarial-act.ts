@@ -1,12 +1,23 @@
-import type { InferSelectModel } from "drizzle-orm"
-
-import { notarialActs } from "@/services/drizzle/schema/notarial-book"
+import { env } from "@/env"
 
 import { createMetadataConsolidated } from "@/services/supreme-court/api/metadata"
 import { getPresignedUrl, registerFileMetadata, uploadFileToS3 } from "@/services/supreme-court/api/file-upload"
 import { getCommissionStatus } from "@/services/supreme-court/api/commission-status"
 
-type NotarialAct = InferSelectModel<typeof notarialActs>
+type NotarialAct =
+	// Minimal shape we need from the `notarialActs` row for SC sync.
+	{
+		actType: string
+		workflow: string | null
+		principalName: string | null
+		principalAddress: string | null
+		witnessName: string | null
+		documentName: string | null
+		documentDescription: string | null
+		locationStatement: string | null
+		executedAt: Date
+		updatedAt: Date
+	}
 
 interface SyncNotarialActOptions {
 	/** Notarial act to sync */
@@ -72,18 +83,19 @@ function parseAddress(addressText: string | null | undefined): {
 	const parts = addressText.split(",").map(p => p.trim()).filter(Boolean)
 
 	if (parts.length >= 3) {
+		const cityProvince = parts.slice(2).join(", ").trim()
 		return {
-			homeStreet: parts[0] || ADDRESS_NOT_SPECIFIED,
-			barangay: parts[1] || ADDRESS_NOT_SPECIFIED,
-			cityProvince: parts.slice(2).join(", ").trim() || ADDRESS_NOT_SPECIFIED,
+			homeStreet: parts[0] ?? ADDRESS_NOT_SPECIFIED,
+			barangay: parts[1] ?? ADDRESS_NOT_SPECIFIED,
+			cityProvince: cityProvince || ADDRESS_NOT_SPECIFIED,
 		}
 	}
 
 	if (parts.length === 2) {
 		return {
-			homeStreet: parts[0] || ADDRESS_NOT_SPECIFIED,
+			homeStreet: parts[0] ?? ADDRESS_NOT_SPECIFIED,
 			barangay: ADDRESS_NOT_SPECIFIED,
-			cityProvince: parts[1] || ADDRESS_NOT_SPECIFIED,
+			cityProvince: parts[1] ?? ADDRESS_NOT_SPECIFIED,
 		}
 	}
 
@@ -154,9 +166,22 @@ export async function syncNotarialActToSupremeCourt(
 		console.log(`✅ Commission status verified: ${commissionStatus.commissionStatus}`)
 	} catch (error) {
 		const message = error instanceof Error ? error.message : String(error)
+		const status = error instanceof Error ? (error as Error & { status?: number }).status : undefined
 		// Validation error (status is inactive) - throw it
 		if (error instanceof Error && message.includes("Cannot sync")) {
 			throw error
+		}
+		// Input validation from SC (invalid NPN/RN) is a hard failure; don't continue to consolidated.
+		// Otherwise user sees a confusing "Rejected" later.
+		if (status === 400 || message.toLowerCase().includes("invalid notary public number")) {
+			throw new Error(
+				`Cannot sync to Supreme Court: your ENP profile identifiers (NPN/RN) are invalid or not recognized by the Supreme Court API.\n\n` +
+					`Provided identifiers:\n` +
+					`- NFN: ${nfn}\n` +
+					`- NPN: ${npn}\n` +
+					`- RN: ${rn}\n\n` +
+					`Fix: update the ENP profile to the official Supreme Court-issued numbers (or correct test credentials for the SC sandbox), then retry.`
+			)
 		}
 		// Cognito auth failure: do not continue (would trigger a second auth attempt and lock the account faster)
 		const isAuthError =
@@ -231,7 +256,7 @@ export async function syncNotarialActToSupremeCourt(
 
 	// Step 1: Create metadata, principals, and witnesses in one call (per PDF Section 6)
 	console.log("🔵 Creating metadata (consolidated) in Supreme Court...")
-	if (process.env.NODE_ENV === "development") {
+	if (env.NODE_ENV === "development") {
 		console.log("📋 [SC Sync] Payload:", JSON.stringify(consolidatedRequest, null, 2))
 	}
 	const metadataResult = await createMetadataConsolidated(consolidatedRequest)
