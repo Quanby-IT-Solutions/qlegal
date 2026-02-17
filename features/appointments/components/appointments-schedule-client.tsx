@@ -6,30 +6,16 @@ import { isBefore, startOfDay } from "date-fns"
 import { toast } from "sonner"
 
 import {
-	CalendarScheduleBody,
-	CalendarScheduleDatePagination,
 	CalendarScheduleEventCard,
-	CalendarScheduleGoToToday,
-	CalendarScheduleHeader,
-	CalendarScheduleMonthPicker,
 	CalendarScheduleProvider,
-	CalendarScheduleYearPicker,
 	useCalendarSchedule,
 	useCalendarScheduleHeader,
 	useSelectedDayEvents,
 	type CalendarEvent,
 	type Status,
 } from "@/core/components/calendar-schedule"
-import { Badge } from "@/core/components/ui/badge"
 import { Button } from "@/core/components/ui/button"
-import {
-	Card,
-	CardAction,
-	CardContent,
-	CardDescription,
-	CardHeader,
-	CardTitle,
-} from "@/core/components/ui/card"
+import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/core/components/ui/card"
 import { ItemGroup } from "@/core/components/ui/item"
 import { Separator } from "@/core/components/ui/separator"
 
@@ -39,6 +25,7 @@ import { trpc } from "@/services/trpc/client"
 
 import type { AppointmentItem } from "../api/appointments.router"
 import { addHoursToDate } from "../lib/schedule-utils"
+import { CalendarCard } from "./calendar/calendar-card"
 import { EventDialog } from "./event-dialog"
 import { RejectDialog } from "./reject-dialog"
 
@@ -131,18 +118,6 @@ interface AppointmentsScheduleClientProps {
 		myAppointments?: (Appointment & { lapsed?: boolean })[]
 	}
 	incomingRequests: AppointmentItem[]
-}
-
-function CalendarCardHeader() {
-	const { monthYear, eventCount } = useCalendarScheduleHeader()
-	return (
-		<>
-			<CardTitle>{monthYear}</CardTitle>
-			<CardDescription>
-				{eventCount} {eventCount === 1 ? "event" : "events"} this month
-			</CardDescription>
-		</>
-	)
 }
 
 function EventListHeader() {
@@ -422,40 +397,7 @@ export function AppointmentsScheduleClient({
 				events={calendarEvents}
 				className="mt-4 grid grid-cols-1 gap-y-4 lg:grid-cols-3 lg:items-start lg:gap-x-4 lg:gap-y-0"
 			>
-				<Card className="col-span-2 mb-4 lg:mb-0">
-					<CardHeader>
-						<CalendarCardHeader />
-					</CardHeader>
-					<Separator />
-					<CardContent>
-						<div className="mb-3 flex items-center justify-between">
-							<div className="flex flex-wrap items-center gap-1">
-								<CalendarScheduleMonthPicker />
-								<CalendarScheduleYearPicker />
-								<CalendarScheduleGoToToday />
-							</div>
-							<CalendarScheduleDatePagination />
-						</div>
-
-						<CalendarScheduleHeader />
-
-						<CalendarScheduleBody>
-							{({ event }) => {
-								return (
-									<div key={event.id} className="flex min-w-0 items-center gap-2">
-										<Badge variant="outline" className="truncate">
-											{event.title !== ""
-												? event.title
-												: event.appointmentType === "NOTARIZATION"
-													? "Notarization"
-													: "Consultation"}
-										</Badge>
-									</div>
-								)
-							}}
-						</CalendarScheduleBody>
-					</CardContent>
-				</Card>
+				<CalendarCard events={calendarEvents} />
 
 				<Card className="order-first col-span-1 lg:order-0 lg:col-span-1 lg:flex lg:max-h-[calc(100vh-12rem)] lg:flex-col">
 					<CardHeader className="shrink-0">
