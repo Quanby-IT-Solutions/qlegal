@@ -13,7 +13,6 @@ import {
 	CheckCircle2,
 	CircleDot,
 	Clock,
-	Download,
 	FileSignature,
 	FileText,
 	FileUp,
@@ -26,7 +25,6 @@ import {
 	MoreVertical,
 	PhoneOff,
 	RefreshCw,
-	Send,
 	Square,
 	Unlock,
 	User,
@@ -53,13 +51,6 @@ import {
 	DropdownMenuItem,
 	DropdownMenuTrigger,
 } from "@/core/components/ui/dropdown-menu"
-import {
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from "@/core/components/ui/select"
 import { cn } from "@/core/lib/utils"
 
 import { trpc } from "@/services/trpc/client"
@@ -2076,7 +2067,6 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 	const [draggedDocumentId, setDraggedDocumentId] = useState<string | null>(null)
 	const [dragOverDocumentId, setDragOverDocumentId] = useState<string | null>(null)
 	const [downloadingProjectUuid, setDownloadingProjectUuid] = useState<string | null>(null)
-	const [downloadingCertificateUuid, setDownloadingCertificateUuid] = useState<string | null>(null)
 	const [documentSigningStatus, setDocumentSigningStatus] = useState<
 		Map<
 			string,
@@ -2377,21 +2367,47 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 		setDragOverDocumentId(null)
 	}, [])
 
-	// Signed document retrieval is temporarily disabled while the signing integration is rebuilt.
-	const handleDownloadSignedDocument = useCallback(async (_projectUuid: string) => {
-		toast.error(
-			"Signed document retrieval is currently unavailable while we rebuild the signing integration."
-		)
-		setDownloadingProjectUuid(null)
-	}, [])
+	const handleViewNotarizedDocument = useCallback(
+		async (projectUuid: string) => {
+			if (!projectUuid?.trim()) return
+			try {
+				setDownloadingProjectUuid(projectUuid)
+				// Wait until DocOnChain reports the project as COMPLETED (seal applied).
+				const maxAttempts = 10
+				let delayMs = 1500
+				for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+					const status = await utils.signatureRequests.checkSigningStatus.fetch({ projectUuid })
+					const statusUpper = String(status?.projectStatus ?? "").toUpperCase()
+					const isCompleted = statusUpper === "COMPLETED" || (status?.completedAt ?? null) !== null
+					if (isCompleted) break
+					await new Promise(resolve => setTimeout(resolve, delayMs))
+					delayMs = Math.min(delayMs + 500, 4000)
+				}
 
-	// Certificate retrieval is temporarily disabled while the signing integration is rebuilt.
-	const handleDownloadCertificate = useCallback(async (_projectUuid: string) => {
-		toast.error(
-			"Certificate retrieval is currently unavailable while we rebuild the signing integration."
-		)
-		setDownloadingCertificateUuid(null)
-	}, [])
+				const finalStatus = await utils.signatureRequests.checkSigningStatus.fetch({ projectUuid })
+				const finalUpper = String(finalStatus?.projectStatus ?? "").toUpperCase()
+				const isFinallyCompleted = finalUpper === "COMPLETED" || (finalStatus?.completedAt ?? null) !== null
+				if (!isFinallyCompleted) {
+					toast.error("Signed document is still processing. Please try again in a moment.")
+					return
+				}
+
+				const url = `/api/doconchain/projects/${encodeURIComponent(projectUuid)}/signed`
+				const opened = window.open(url, "_blank", "noopener,noreferrer")
+				if (!opened) {
+					toast.error("Popup blocked. Please allow popups for this site and try again.")
+					return
+				}
+				toast.success("Opening notarized document…")
+			} catch (error) {
+				const msg = error instanceof Error ? error.message : "Failed to fetch notarized document."
+				toast.error(msg)
+			} finally {
+				setDownloadingProjectUuid(null)
+			}
+		},
+		[utils.signatureRequests.checkSigningStatus]
+	)
 
 	// Generate signing link mutation (for signature request dialog)
 	const generateSigningLink = trpc.signatureRequests.generateSigningLink.useMutation({
@@ -3350,17 +3366,8 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 										(signingStatus?.signedCount ?? 0) === (signingStatus?.totalSigners ?? 0) &&
 										(signingStatus?.signedCount ?? 0) > 0) ||
 									false
-								// Document is COMPLETED when signing processing has finished (seal + signature applied)
-								const statusUpper = String(signingStatus?.projectStatus ?? "").toUpperCase()
-								const isCompleted =
-									statusUpper === "COMPLETED" ||
-									(signingStatus?.completedAt !== null && signingStatus?.completedAt !== undefined)
-								const isPreparingNotarized =
-									isFullySigned && !isCompleted && (signingStatus?.signedCount ?? 0) > 0
 								const isDownloadingSigned =
 									!!doc.docoChainProjectId && downloadingProjectUuid === doc.docoChainProjectId
-								const isDownloadingCert =
-									!!doc.docoChainProjectId && downloadingCertificateUuid === doc.docoChainProjectId
 
 								return (
 									<Card
@@ -3411,30 +3418,32 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 											</div>
 										)}
 										{/* Signing status + actions - top right corner */}
-										{doc.docoChainProjectId && signingStatus && (
+										{doc.docoChainProjectId && (
 											<div className="absolute top-2 right-2 z-10 flex items-center gap-1.5">
-												{isFullySigned ? (
-													<div className="flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 dark:bg-green-900/30">
-														<CheckCircle2 className="size-3 text-green-600 dark:text-green-400" />
-														<span className="text-[10px] font-semibold text-green-700 dark:text-green-400">
-															Signed
-														</span>
-													</div>
-												) : (signingStatus.signedCount ?? 0) > 0 ? (
-													<div className="flex items-center gap-1 rounded-full bg-yellow-100 px-2 py-0.5 dark:bg-yellow-900/30">
-														<Clock className="size-3 text-yellow-600 dark:text-yellow-400" />
-														<span className="text-[10px] font-semibold text-yellow-700 dark:text-yellow-400">
-															{signingStatus.signedCount ?? 0}/{signingStatus.totalSigners ?? 0}
-														</span>
-													</div>
-												) : (
-													<div className="flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 dark:bg-gray-800">
-														<Clock className="size-3 text-gray-500 dark:text-gray-400" />
-														<span className="text-[10px] font-semibold text-gray-600 dark:text-gray-400">
-															Pending
-														</span>
-													</div>
-												)}
+												{signingStatus ? (
+													isFullySigned ? (
+														<div className="flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 dark:bg-green-900/30">
+															<CheckCircle2 className="size-3 text-green-600 dark:text-green-400" />
+															<span className="text-[10px] font-semibold text-green-700 dark:text-green-400">
+																Signed
+															</span>
+														</div>
+													) : (signingStatus.signedCount ?? 0) > 0 ? (
+														<div className="flex items-center gap-1 rounded-full bg-yellow-100 px-2 py-0.5 dark:bg-yellow-900/30">
+															<Clock className="size-3 text-yellow-600 dark:text-yellow-400" />
+															<span className="text-[10px] font-semibold text-yellow-700 dark:text-yellow-400">
+																{signingStatus.signedCount ?? 0}/{signingStatus.totalSigners ?? 0}
+															</span>
+														</div>
+													) : (
+														<div className="flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 dark:bg-gray-800">
+															<Clock className="size-3 text-gray-500 dark:text-gray-400" />
+															<span className="text-[10px] font-semibold text-gray-600 dark:text-gray-400">
+																Pending
+															</span>
+														</div>
+													)
+												) : null}
 
 												<DropdownMenu>
 													<DropdownMenuTrigger asChild>
@@ -3449,16 +3458,12 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 													</DropdownMenuTrigger>
 													<DropdownMenuContent align="end" sideOffset={6} className="min-w-44">
 														<DropdownMenuItem
-															disabled={
-																!isCompleted || isDownloadingSigned || isPreparingNotarized
-															}
+															disabled={isDownloadingSigned}
 															onClick={() => {
-																if (doc.docoChainProjectId && isCompleted) {
-																	void handleDownloadSignedDocument(doc.docoChainProjectId)
-																}
+																void handleViewNotarizedDocument(doc.docoChainProjectId)
 															}}
 														>
-															{(isPreparingNotarized || isDownloadingSigned) ? (
+															{isDownloadingSigned ? (
 																<Loader2 className="size-4 animate-spin" />
 															) : (
 																<FileText className="size-4" />
@@ -3466,24 +3471,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 															<span>
 																{isDownloadingSigned
 																	? "Opening notarized document..."
-																	: isPreparingNotarized
-																		? "Preparing Notarized Document"
-																		: "View notarized document"}
-															</span>
-														</DropdownMenuItem>
-														<DropdownMenuItem
-															disabled={!isCompleted || isDownloadingCert}
-															onClick={() => {
-																if (doc.docoChainProjectId) {
-																	void handleDownloadCertificate(doc.docoChainProjectId)
-																}
-															}}
-														>
-															<Download className="size-4" />
-															<span>
-																{isDownloadingCert
-																	? "Downloading certificate..."
-																	: "Download certificate"}
+																	: "View Notarized Document"}
 															</span>
 														</DropdownMenuItem>
 													</DropdownMenuContent>
@@ -3615,10 +3603,8 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 		dragOverDocumentId,
 		isPlottingAction,
 		draggedDocumentId,
-		downloadingCertificateUuid,
 		downloadingProjectUuid,
-		handleDownloadCertificate,
-		handleDownloadSignedDocument,
+		handleViewNotarizedDocument,
 		handleDragEnd,
 		handleDragEnter,
 		handleDragLeave,
@@ -3631,6 +3617,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 		isDocumentsFetching,
 		meetingDetails,
 		meetingId,
+		notarizationDetails,
 		preGeneratedPlotLinks,
 		refetchDocuments,
 		refreshSigningStatuses,

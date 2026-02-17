@@ -12,6 +12,9 @@ import { signatureRequests } from "@/services/drizzle/schema/signature-requests"
 import { invalidateDoconchainToken } from "@/services/doconchain/auth/generate-token"
 import { generateDoconchainEditDraftProjectLink } from "@/services/doconchain/projects/generate-edit-draft-link"
 import { generateDoconchainSignLink } from "@/services/doconchain/projects/generate-sign-link"
+import { getDoconchainProjectDetails } from "@/services/doconchain/projects/get-project-details"
+import { getDoconchainVaultItem } from "@/services/doconchain/vault/get-vault-item"
+import { getDoconchainVaultItems } from "@/services/doconchain/vault/get-vault-items"
 import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
 
 function maskEmailForLog(email: string): string {
@@ -290,6 +293,44 @@ export const signatureRequestsRouter = createTRPCRouter({
 			return { success: true, created: true }
 		}),
 
+	/**
+	 * List completed signature request projects in DocOnChain Vault.
+	 * NOTE: "sealed" content is represented by Vault completion; the returned item may include file URLs in details.
+	 */
+	getVaultItems: protectedProcedure
+		.input(
+			z
+				.object({
+					perPage: z.number().int().min(1).max(100).optional(),
+					page: z.number().int().min(1).max(10_000).optional(),
+					userItemsOnly: z.enum(["yes", "no"]).optional(),
+					apiIntegratedProjectsOnly: z.enum(["yes", "no"]).optional(),
+				})
+				.optional()
+		)
+		.query(async ({ ctx, input }) => {
+			const email = ctx.session.user.email?.trim().toLowerCase()
+			if (!email) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "User email is required." })
+
+			return getDoconchainVaultItems({
+				email,
+				perPage: input?.perPage,
+				page: input?.page,
+				userItemsOnly: input?.userItemsOnly,
+				apiIntegratedProjectsOnly: input?.apiIntegratedProjectsOnly,
+			})
+		}),
+
+	/** Get a specific vault project (usually by DocOnChain project uuid). */
+	getVaultItem: protectedProcedure
+		.input(z.object({ uuid: z.string().min(1) }))
+		.query(async ({ ctx, input }) => {
+			const email = ctx.session.user.email?.trim().toLowerCase()
+			if (!email) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "User email is required." })
+
+			return getDoconchainVaultItem({ email, uuid: input.uuid })
+		}),
+
 	// Initiate signing (temporarily disabled)
 	initiateSigning: protectedProcedure
 		.input(
@@ -516,12 +557,123 @@ export const signatureRequestsRouter = createTRPCRouter({
 				projectUuid: z.string().min(1, "Project UUID is required"),
 			})
 		)
-		.query(async () => {
-			throw new TRPCError({
-				code: "SERVICE_UNAVAILABLE",
-				message:
-					"Signing status checks are temporarily unavailable while we rebuild the signing integration.",
+		.query(async ({ ctx, input }) => {
+			// Resolve project → meeting creator email (DocOnChain org member).
+			const doc = await db.query.documents.findFirst({
+				where: eq(documents.docoChainProjectId, input.projectUuid.trim()),
+				with: {
+					meeting: {
+						with: {
+							participants: true,
+							createdBy: { columns: { email: true, id: true } },
+						},
+					},
+				},
 			})
+
+			if (!doc?.meeting) {
+				throw new TRPCError({ code: "NOT_FOUND", message: "Document not found for project UUID" })
+			}
+
+			const hasAccess = doc.meeting.participants.some(p => p.userId === ctx.session.user.id)
+			if (!hasAccess) {
+				throw new TRPCError({ code: "FORBIDDEN", message: "You don't have access to this document" })
+			}
+
+			const creatorEmail = doc.meeting.createdBy?.email?.trim().toLowerCase()
+			if (!creatorEmail) {
+				throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Missing meeting creator email" })
+			}
+
+			const details = await getDoconchainProjectDetails({
+				projectUuid: input.projectUuid.trim(),
+				email: creatorEmail,
+			})
+
+			const rawSigners = (details.raw?.data as unknown as { signers?: unknown } | undefined)?.signers
+			const signersArray = Array.isArray(rawSigners) ? rawSigners : []
+			const normalizedSigners = signersArray
+				.map((s): null | {
+					id: number
+					email: string
+					firstName: string
+					lastName: string
+					status: string
+					signedAt: string | null
+					sequence: number
+					signerRole: string
+				} => {
+					if (!s || typeof s !== "object") return null
+					const obj = s as Record<string, unknown>
+					const email = typeof obj.email === "string" ? obj.email : ""
+					if (!email) return null
+
+					const idRaw = obj.id
+					const id =
+						typeof idRaw === "number"
+							? idRaw
+							: typeof idRaw === "string"
+								? Number.parseInt(idRaw, 10)
+								: Number.NaN
+
+					const status = typeof obj.status === "string" ? obj.status : "PENDING"
+					const signedAt =
+						typeof obj.signed_at === "string"
+							? obj.signed_at
+							: typeof obj.signedAt === "string"
+								? obj.signedAt
+								: null
+
+					const sequenceRaw = obj.sequence
+					const sequence =
+						typeof sequenceRaw === "number"
+							? sequenceRaw
+							: typeof sequenceRaw === "string"
+								? Number.parseInt(sequenceRaw, 10)
+								: 0
+
+					const signerRole =
+						typeof obj.signer_role === "string"
+							? obj.signer_role
+							: typeof obj.role === "string"
+								? obj.role
+								: "SIGNER"
+
+					return {
+						id: Number.isFinite(id) ? id : 0,
+						email,
+						firstName: typeof obj.first_name === "string" ? obj.first_name : "",
+						lastName: typeof obj.last_name === "string" ? obj.last_name : "",
+						status,
+						signedAt,
+						sequence: Number.isFinite(sequence) ? sequence : 0,
+						signerRole,
+					}
+				})
+				.filter((s): s is NonNullable<typeof s> => Boolean(s))
+
+			const isSignerSigned = (s: (typeof normalizedSigners)[number]): boolean => {
+				const statusUpper = (s.status ?? "").toUpperCase()
+				const hasSignedStatus = statusUpper === "SIGNED" || statusUpper === "COMPLETED"
+				const hasSignedAt = s.signedAt !== null && s.signedAt !== ""
+				return hasSignedStatus || hasSignedAt
+			}
+			const signedSigners = normalizedSigners.filter(isSignerSigned)
+			const projectStatusUpper = String(details.projectStatus ?? "").toUpperCase()
+			const isFullySigned =
+				normalizedSigners.length > 0 &&
+				signedSigners.length === normalizedSigners.length &&
+				(projectStatusUpper === "COMPLETED" || details.completedAt !== null)
+
+			return {
+				projectUuid: input.projectUuid.trim(),
+				projectStatus: details.projectStatus,
+				completedAt: details.completedAt,
+				isFullySigned,
+				totalSigners: normalizedSigners.length,
+				signedCount: signedSigners.length,
+				signers: normalizedSigners,
+			}
 		}),
 
 	// Download the signed document from DocoChain
@@ -531,7 +683,7 @@ export const signatureRequestsRouter = createTRPCRouter({
 			throw new TRPCError({
 				code: "SERVICE_UNAVAILABLE",
 				message:
-					"Signed document download is temporarily unavailable while we rebuild the signing integration.",
+					"Use /api/doconchain/projects/:projectUuid/signed for notarized document streaming.",
 			})
 		}),
 
