@@ -82,7 +82,7 @@ export function AppointmentsListView({
 	}
 
 	return (
-		<div className="mx-auto max-w-7xl space-y-8">
+		<div className="animate-in fade-in mx-auto max-w-7xl space-y-8 duration-300 motion-reduce:animate-none">
 			{/* Header Section */}
 			<div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
 				<div className="space-y-1">

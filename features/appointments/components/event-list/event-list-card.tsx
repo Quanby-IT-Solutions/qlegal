@@ -68,7 +68,7 @@ export function UnifiedSidebarList({
 	if (sortedEvents.length === 0) {
 		if (incomingRequests.length === 0 && dayEvents.length === 0) {
 			return (
-				<Empty>
+				<Empty className="animate-in fade-in duration-300 motion-reduce:animate-none">
 					<EmptyHeader>
 						<EmptyMedia variant="icon">
 							<InboxIcon className="size-5" />
@@ -83,7 +83,7 @@ export function UnifiedSidebarList({
 		}
 
 		return (
-			<Empty>
+			<Empty className="animate-in fade-in duration-300 motion-reduce:animate-none">
 				<EmptyHeader>
 					<EmptyMedia variant="icon">
 						<CalendarIcon className="size-5" />
@@ -99,7 +99,7 @@ export function UnifiedSidebarList({
 	}
 
 	return (
-		<ItemGroup>
+		<ItemGroup className="animate-in fade-in duration-300 motion-reduce:animate-none">
 			{sortedEvents.map(item => {
 				const ev = item.event
 				const incomingItemId = (ev.meta?.incomingItemId as string | undefined) ?? ev.id

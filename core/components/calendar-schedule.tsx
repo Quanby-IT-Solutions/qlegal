@@ -538,7 +538,7 @@ function CalendarScheduleEventCard({
 			data-slot="calendar-schedule-event-card"
 			variant="outline"
 			size="sm"
-			className={cn("hover:bg-muted/50", className)}
+			className={cn("hover:bg-muted/50 transition-colors motion-reduce:transition-none", className)}
 			{...props}
 		>
 			<ItemMedia>

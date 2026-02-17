@@ -57,7 +57,7 @@ export function AppointmentsScheduleClient({
 			>
 				<CalendarCard events={calendarEvents} />
 
-				<Card className="order-first col-span-1 lg:order-0 lg:col-span-1 lg:flex lg:max-h-[calc(100vh-12rem)] lg:flex-col">
+				<Card className="animate-in fade-in order-first col-span-1 duration-300 motion-reduce:animate-none lg:order-0 lg:col-span-1 lg:flex lg:max-h-[calc(100vh-12rem)] lg:flex-col">
 					<CardHeader className="shrink-0">
 						<EventListHeader />
 						<CardAction>

@@ -39,7 +39,7 @@ interface CalendarCardProps {
 
 export function CalendarCard({ events }: CalendarCardProps) {
 	return (
-		<Card className="col-span-2 mb-4 lg:mb-0">
+		<Card className="animate-in fade-in col-span-2 mb-4 duration-300 motion-reduce:animate-none lg:mb-0">
 			<CardHeader>
 				<CalendarCardHeader />
 			</CardHeader>
