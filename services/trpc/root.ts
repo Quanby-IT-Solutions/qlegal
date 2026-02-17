@@ -9,13 +9,13 @@ import { dashboardRouter } from "@/features/dashboard/api/dashboard.router"
 import { documentsRouter } from "@/features/documents/api/documents.router"
 import { envelopeLiteRouter } from "@/features/envelopes-lite/api/envelope-lite.router"
 import { legalRegistrationRouter } from "@/features/legal-registration/api/legal-registration.router"
-import { locationVerificationRouter } from "@/features/sessions/api/location-verification.router"
-import { meetingsRouter } from "@/features/sessions/api/meetings.router"
-import { signatureRequestsRouter } from "@/features/sessions/api/signature-requests.router"
 import { messageFilesRouter } from "@/features/messages/api/message-files.router"
 import { messagesRouter } from "@/features/messages/api/messages.router"
 import { notarialBookRouter } from "@/features/notarial-book/api/notarial-book.router"
 import { profileRouter } from "@/features/profile/api/profile.router"
+import { locationVerificationRouter } from "@/features/sessions/api/location-verification.router"
+import { meetingsRouter } from "@/features/sessions/api/meetings.router"
+import { signatureRequestsRouter } from "@/features/sessions/api/signature-requests.router"
 import { settingsRouter } from "@/features/settings/api/settings.router"
 import { signatureLiteRouter } from "@/features/signature-lite/api/new-signature.router"
 import { userManagementRouter } from "@/features/user-management/api/user-management.router"
@@ -39,7 +39,7 @@ import { witnessesRouter } from "@/features/witnesses/api/witnesses.router"
 export const appRouter = createTRPCRouter({
 	auth: authRouter,
 	browse: browseRouter,
-	appointments: appointmentsRouter,
+	appointments: appointmentsRouter, // NEW consolidated router
 	dashboard: dashboardRouter,
 	documents: documentsRouter,
 	envelopeLite: envelopeLiteRouter,
@@ -51,12 +51,12 @@ export const appRouter = createTRPCRouter({
 	messages: messagesRouter,
 	notarialBook: notarialBookRouter,
 	profile: profileRouter,
-	requests: requestsRouter,
+	requests: requestsRouter, // KEEP temporarily for backward compatibility
 	settings: settingsRouter,
 	signatureLite: signatureLiteRouter,
 	witnesses: witnessesRouter,
 	userManagement: userManagementRouter,
-	schedule: scheduleRouter,
+	schedule: scheduleRouter, // KEEP temporarily for backward compatibility
 })
 
 /**
