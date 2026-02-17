@@ -1,4 +1,5 @@
 import { useMemo } from "react"
+import { CalendarIcon, InboxIcon } from "lucide-react"
 
 import {
 	CalendarScheduleEventCard,
@@ -6,6 +7,13 @@ import {
 	useSelectedDayEvents,
 } from "@/core/components/calendar-schedule"
 import { CardDescription, CardTitle } from "@/core/components/ui/card"
+import {
+	Empty,
+	EmptyDescription,
+	EmptyHeader,
+	EmptyMedia,
+	EmptyTitle,
+} from "@/core/components/ui/empty"
 import { ItemGroup } from "@/core/components/ui/item"
 
 import type { AppointmentItem } from "@/features/appointments/api/appointments.router"
@@ -58,7 +66,36 @@ export function UnifiedSidebarList({
 	)
 
 	if (sortedEvents.length === 0) {
-		return <p className="text-muted-foreground py-4 text-center text-sm">No events scheduled</p>
+		if (incomingRequests.length === 0 && dayEvents.length === 0) {
+			return (
+				<Empty>
+					<EmptyHeader>
+						<EmptyMedia variant="icon">
+							<InboxIcon className="size-5" />
+						</EmptyMedia>
+						<EmptyTitle>All caught up!</EmptyTitle>
+						<EmptyDescription>
+							You have no pending appointment requests at the moment. New requests will appear here.
+						</EmptyDescription>
+					</EmptyHeader>
+				</Empty>
+			)
+		}
+
+		return (
+			<Empty>
+				<EmptyHeader>
+					<EmptyMedia variant="icon">
+						<CalendarIcon className="size-5" />
+					</EmptyMedia>
+					<EmptyTitle>No events scheduled</EmptyTitle>
+					<EmptyDescription>
+						There are no appointments or events scheduled for this date. Select another date or
+						create a new event.
+					</EmptyDescription>
+				</EmptyHeader>
+			</Empty>
+		)
 	}
 
 	return (
