@@ -560,15 +560,17 @@ export const notarialBookRouter = createTRPCRouter({
 				})
 			}
 
-			if (!act.documentId) {
-				throw new TRPCError({
-					code: "NOT_FOUND",
-					message: "Document URL not available.",
-				})
+			// Prefer DocOnChain sealed/notarized document when available.
+			if (act.docoChainProjectUuid?.trim()) {
+				return {
+					url: `/api/notarial-book-2/documents/${act.id}`,
+					fileName: act.documentName ?? `notarized-document-${act.docoChainProjectUuid}.pdf`,
+					type: "document",
+				}
 			}
 
 			const doc = await ctx.db.query.documents.findFirst({
-				where: eq(documents.id, act.documentId),
+				where: act.documentId ? eq(documents.id, act.documentId) : undefined,
 				columns: { path: true, name: true },
 			})
 

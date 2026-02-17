@@ -18,6 +18,7 @@ import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
 import { createMeetingRoom, fetchRecordings, generateMeetingToken } from "@/services/video-sdk"
 
 import { sendSigningLinkEmail } from "@/services/react-email/lib/send.signing-link"
+import { populateNotarialRegistryOnMeetingEnd } from "@/features/notarial-book/server/populate-notarial-registry-on-meeting-end"
 
 function isEnpRole(role: unknown): boolean {
 	if (typeof role !== "string") return false
@@ -488,13 +489,24 @@ export const meetingsRouter = createTRPCRouter({
 			})
 		}
 
+		const meetingEndedAt = new Date()
 		const [updatedMeeting] = await db
 			.update(meetings)
-			.set({ status: "COMPLETED", updatedAt: new Date() })
+			.set({ status: "COMPLETED", updatedAt: meetingEndedAt })
 			.where(eq(meetings.id, input))
 			.returning()
 
-		// NOTE: Notarial book auto-population is temporarily disabled while the signing integration is rebuilt.
+		// Populate Notarial Registry entries for completed DocOnChain projects in this meeting.
+		// This runs ONLY when this specific meeting is ended (host clicks End Session).
+		try {
+			await populateNotarialRegistryOnMeetingEnd({
+				meetingId: input,
+				meetingEndedAt,
+			})
+		} catch (error) {
+			// Don't block "End Session" on DocOnChain availability; log and proceed.
+			console.warn("⚠️ Failed to populate notarial registry on meeting end:", error)
+		}
 
 		return { success: true, meeting: updatedMeeting }
 	}),
@@ -923,7 +935,14 @@ export const meetingsRouter = createTRPCRouter({
 							signerEmail,
 						})
 
-						await sendSigningLinkEmail({
+						const sendEmail = sendSigningLinkEmail as (input: {
+							to: string
+							recipientName: string
+							documentName: string
+							signingLink: string
+							signOrderLabel: string
+						}) => Promise<void>
+						await sendEmail({
 							to: signerEmail,
 							recipientName: (signer?.name ?? signerEmail).trim(),
 							documentName,
