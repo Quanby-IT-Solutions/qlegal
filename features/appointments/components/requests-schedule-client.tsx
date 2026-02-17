@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation"
 import { useMemo, useState } from "react"
+import { isBefore, startOfDay } from "date-fns"
 import { toast } from "sonner"
 
 import {
@@ -37,7 +38,6 @@ import type { EnpAvailability } from "@/services/drizzle/schema/enp-profiles"
 import { trpc } from "@/services/trpc/client"
 
 import type { IncomingItem } from "../api/requests.router"
-import type { CalendarEvent as LegacyCalendarEvent } from "../lib/schedule-types"
 import { addHoursToDate } from "../lib/schedule-utils"
 import { EventDialog } from "./event-dialog"
 import { RejectDialog } from "./reject-dialog"
@@ -50,16 +50,7 @@ const STATUS_IN_PROGRESS: Status = {
 	name: "In Progress",
 	color: "#3B82F6",
 }
-const STATUS_CONSULTATION: Status = {
-	id: "consultation",
-	name: "Consultation",
-	color: "#0EA5E9",
-}
-const STATUS_NOTARIZATION: Status = {
-	id: "notarization",
-	name: "Notarization",
-	color: "#10B981",
-}
+const STATUS_LAPSED: Status = { id: "lapsed", name: "Lapsed", color: "#D97706" }
 
 function toCalendarEvent(
 	apt: Appointment & { client?: { name?: string | null; image?: string | null } },
@@ -81,8 +72,9 @@ function toCalendarEvent(
 function toCalendarEventFromIncomingItem(item: IncomingItem): CalendarEvent | null {
 	if (item.source === "appointment" && item.appointmentData) {
 		const apt = item.appointmentData
-		const status: Status =
-			apt.status === "PENDING"
+		const status: Status = apt.lapsed
+			? STATUS_LAPSED
+			: apt.status === "PENDING"
 				? STATUS_PENDING
 				: apt.status === "CONFIRMED"
 					? STATUS_CONFIRMED
@@ -136,7 +128,7 @@ interface RequestsScheduleClientProps {
 		blocked: EnpAvailability[]
 		recurringBlocked: EnpAvailability[]
 		custom: EnpAvailability[]
-		myAppointments?: Appointment[]
+		myAppointments?: (Appointment & { lapsed?: boolean })[]
 	}
 	incomingRequests: IncomingItem[]
 }
@@ -166,28 +158,33 @@ function EventListHeader() {
 function AddEventSection({
 	onSave,
 }: {
-	onSave: (event: LegacyCalendarEvent, onComplete?: () => void) => void
+	onSave: (event: CalendarEvent, onComplete?: () => void) => void
 }) {
 	const { selectedDate } = useCalendarSchedule()
 	const [isOpen, setIsOpen] = useState(false)
 
-	const defaultEvent: LegacyCalendarEvent = useMemo(() => {
+	const defaultEvent: CalendarEvent | null = useMemo(() => {
 		const d = selectedDate ? new Date(selectedDate) : new Date()
 		d.setHours(9, 0, 0, 0)
 		return {
 			id: "",
 			title: "",
-			start: d,
-			end: addHoursToDate(d, 1),
-			allDay: false,
+			startAt: d,
+			status: STATUS_PENDING,
 		}
 	}, [selectedDate])
 
+	const isDateInPast = selectedDate
+		? isBefore(startOfDay(new Date(selectedDate)), startOfDay(new Date()))
+		: false
+
 	return (
 		<>
-			<Button variant="outline" onClick={() => setIsOpen(true)}>
-				Add Event
-			</Button>
+			{!isDateInPast && (
+				<Button variant="outline" onClick={() => setIsOpen(true)}>
+					Add Event
+				</Button>
+			)}
 			<EventDialog
 				event={defaultEvent}
 				isOpen={isOpen}
@@ -376,39 +373,37 @@ export function RequestsScheduleClient({
 
 		const myAppointments = scheduleData?.myAppointments ?? []
 		for (const apt of myAppointments) {
-			const status: Status =
-				apt.status === "PENDING"
+			const status: Status = apt.lapsed
+				? STATUS_LAPSED
+				: apt.status === "PENDING"
 					? STATUS_PENDING
-					: apt.type === "CONSULTATION"
-						? STATUS_CONSULTATION
-						: STATUS_NOTARIZATION
+					: STATUS_CONFIRMED
 			add(toCalendarEvent(apt, status))
 		}
 
 		return result
 	}, [scheduleData, incomingRequests])
 
-	const handleEventSave = (event: LegacyCalendarEvent, onComplete?: () => void) => {
-		const duration = Math.round((event.end.getTime() - event.start.getTime()) / (60 * 1000))
-		const startTime = `${event.start.getHours().toString().padStart(2, "0")}:${event.start.getMinutes().toString().padStart(2, "0")}`
-		const endTime = `${event.end.getHours().toString().padStart(2, "0")}:${event.end.getMinutes().toString().padStart(2, "0")}`
+	const handleEventSave = (event: CalendarEvent, onComplete?: () => void) => {
+		// Calculate duration (default 60 minutes if no endAt)
+		const endAt = event.endAt ?? addHoursToDate(event.startAt, 1)
+		const duration = Math.round((endAt.getTime() - event.startAt.getTime()) / (60 * 1000))
+		const startTime = `${event.startAt.getHours().toString().padStart(2, "0")}:${event.startAt.getMinutes().toString().padStart(2, "0")}`
+		const endTime = `${endAt.getHours().toString().padStart(2, "0")}:${endAt.getMinutes().toString().padStart(2, "0")}`
 
-		const appointmentType = event.eventType === "notarization" ? "NOTARIZATION" : "CONSULTATION"
-		const workflow =
-			event.mode?.toLowerCase() === "ren" || (!event.location && event.eventType === "consultation")
-				? "REN"
-				: "IEN"
+		const appointmentType = event.appointmentType ?? "CONSULTATION"
+		const workflow = event.workflow ?? (event.meta?.location ? "IEN" : "REN")
 
 		createEnpEvent.mutate(
 			{
 				title: event.title.trim(),
 				description: event.description?.trim(),
-				appointmentDate: event.start,
+				appointmentDate: event.startAt,
 				startTime,
 				endTime,
 				duration,
 				allDay: event.allDay ?? false,
-				location: event.location?.trim(),
+				location: (event.meta?.location as string | undefined)?.trim(),
 				type: appointmentType,
 				workflow,
 				notes: event.description?.trim(),
@@ -449,7 +444,11 @@ export function RequestsScheduleClient({
 								return (
 									<div key={event.id} className="flex min-w-0 items-center gap-2">
 										<Badge variant="outline" className="truncate">
-											{event.title}
+											{event.title !== ""
+												? event.title
+												: event.appointmentType === "NOTARIZATION"
+													? "Notarization"
+													: "Consultation"}
 										</Badge>
 									</div>
 								)

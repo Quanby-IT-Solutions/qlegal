@@ -1,10 +1,14 @@
 import { TRPCError } from "@trpc/server"
-import { and, asc, eq, gte, lt, or } from "drizzle-orm"
+import { and, asc, eq, gte, inArray, lt, or } from "drizzle-orm"
 import { z } from "zod/v4"
+
+import { getUrl } from "@/core/lib/get-url"
 
 import { appointments } from "@/services/drizzle/schema/appointments"
 import { users } from "@/services/drizzle/schema/auth"
+import { meetingParticipants, meetings } from "@/services/drizzle/schema/meetings"
 import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
+import { createMeetingRoom } from "@/services/video-sdk"
 
 import { createEnpEventSchema, deleteEnpEventSchema, updateEnpEventSchema } from "./schedule.schema"
 
@@ -50,6 +54,44 @@ export const scheduleRouter = createTRPCRouter({
 				.filter(Boolean)
 				.join("\n")
 
+			// Determine if this is a remote appointment (REN or consultation without location)
+			const isRemote =
+				input.workflow === "REN" || (input.type === "CONSULTATION" && !input.location)
+
+			// Generate meeting link for remote appointments
+			let meetingLink: string | null = null
+			if (isRemote) {
+				try {
+					const { roomId } = await createMeetingRoom()
+					const [meeting] = await ctx.db
+						.insert(meetings)
+						.values({
+							title:
+								input.type === "NOTARIZATION"
+									? "Remote Electronic Notarization"
+									: "Consultation Meeting",
+							roomId,
+							createdById: userId,
+							createdAt: appointmentDateTime,
+							updatedAt: appointmentDateTime,
+						})
+						.returning()
+
+					if (meeting) {
+						// Add ENP as participant
+						await ctx.db.insert(meetingParticipants).values({
+							meetingId: meeting.id,
+							userId,
+						})
+
+						meetingLink = `${getUrl()}/sessions/${meeting.id}`
+					}
+				} catch (error) {
+					console.error("Failed to create meeting for ENP event:", error)
+					// Continue without meeting link - appointment still created
+				}
+			}
+
 			// Create self-appointment (client = lawyer = ENP)
 			const [appointment] = await ctx.db
 				.insert(appointments)
@@ -65,7 +107,7 @@ export const scheduleRouter = createTRPCRouter({
 						input.type === "NOTARIZATION" && input.workflow === "IEN"
 							? (input.location ?? undefined)
 							: null,
-					meetingLink: null, // Set when confirmed
+					meetingLink,
 					status: "CONFIRMED", // ENP-created events are auto-confirmed
 				})
 				.returning()
@@ -236,8 +278,54 @@ export const scheduleRouter = createTRPCRouter({
 				},
 			})
 
+			const meetingIdFromLink = (meetingLink: string | null) => {
+				if (!meetingLink) return null
+				const match = /\/sessions\/([^/]+)/.exec(meetingLink)
+				return match?.[1] ?? null
+			}
+
+			const meetingIds = myAppointments
+				.map(appointment => meetingIdFromLink(appointment.meetingLink))
+				.filter((meetingId): meetingId is string => !!meetingId)
+
+			const uniqueMeetingIds = Array.from(new Set(meetingIds))
+			const meetingStatusById = new Map<string, string>()
+
+			if (uniqueMeetingIds.length > 0) {
+				const meetingRows = await ctx.db.query.meetings.findMany({
+					where: inArray(meetings.id, uniqueMeetingIds),
+					columns: {
+						id: true,
+						status: true,
+					},
+				})
+
+				for (const meeting of meetingRows) {
+					meetingStatusById.set(meeting.id, meeting.status)
+				}
+			}
+
+			const now = Date.now()
+			const graceMs = 30 * 60 * 1000
+			const startedStatuses = new Set(["ONGOING", "COMPLETED"])
+
+			const myAppointmentsWithLapsed = myAppointments.map(appointment => {
+				const meetingId = meetingIdFromLink(appointment.meetingLink)
+				const meetingStatus = meetingId ? meetingStatusById.get(meetingId) : undefined
+				const meetingStarted = meetingStatus ? startedStatuses.has(meetingStatus) : false
+				const lapsed =
+					appointment.status === "CONFIRMED" &&
+					now > new Date(appointment.appointmentDate).getTime() + graceMs &&
+					(!meetingId || !meetingStarted)
+
+				return {
+					...appointment,
+					lapsed,
+				}
+			})
+
 			return {
-				myAppointments,
+				myAppointments: myAppointmentsWithLapsed,
 			}
 		}),
 })

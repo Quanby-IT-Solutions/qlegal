@@ -1,13 +1,12 @@
 "use client"
 
-import { useState } from "react"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { format } from "date-fns"
-import { CalendarIcon } from "lucide-react"
 import { useForm } from "react-hook-form"
+import { z } from "zod/v4"
 
+import type { CalendarEvent } from "@/core/components/calendar-schedule"
 import { Button } from "@/core/components/ui/button"
-import { Calendar } from "@/core/components/ui/calendar"
 import {
 	Dialog,
 	DialogContent,
@@ -24,36 +23,39 @@ import {
 	FormMessage,
 } from "@/core/components/ui/form"
 import { Input } from "@/core/components/ui/input"
-import { Popover, PopoverContent, PopoverTrigger } from "@/core/components/ui/popover"
-import {
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from "@/core/components/ui/select"
 import { Textarea } from "@/core/components/ui/textarea"
-import { cn } from "@/core/lib/utils"
 
-import type { CalendarEvent, CalendarEventMetadata } from "../lib/schedule-types"
-import { eventDialogSchema, type EventDialogSchema } from "./event-dialog.schema"
 import { TimeWheelPicker } from "./schedule/time-wheel-picker"
+import { SessionModeSelector } from "./shared/session-mode-selector"
+import { SessionTypeSelector } from "./shared/session-type-selector"
 
-const TIMEZONES = [
-	"UTC",
-	"America/New_York",
-	"America/Chicago",
-	"America/Los_Angeles",
-	"America/Denver",
-	"America/Phoenix",
-	"Europe/London",
-	"Europe/Paris",
-	"Europe/Berlin",
-	"Asia/Tokyo",
-	"Asia/Shanghai",
-	"Asia/Singapore",
-	"Australia/Sydney",
-] as const
+// Inline schema following booking-dialog.tsx pattern
+const eventDialogSchema = z
+	.object({
+		serviceType: z.enum(["CONSULTATION", "NOTARIZATION"]),
+		workflowType: z.enum(["REN", "IEN"]).optional(),
+		hour: z.string(),
+		minute: z.string(),
+		period: z.enum(["am", "pm"]),
+		location: z.string().optional(),
+		description: z.string().optional(),
+		roomId: z.string().optional(),
+	})
+	.refine(
+		data => {
+			// If service type is NOTARIZATION, workflowType is required
+			if (data.serviceType === "NOTARIZATION") {
+				return !!data.workflowType
+			}
+			return true
+		},
+		{
+			message: "Session mode is required for notarization",
+			path: ["workflowType"],
+		}
+	)
+
+type EventDialogSchema = z.infer<typeof eventDialogSchema>
 
 interface EventDialogProps {
 	event: CalendarEvent | null
@@ -64,92 +66,97 @@ interface EventDialogProps {
 }
 
 function constructDate(date: Date, hour: string, minute: string, period: "am" | "pm"): Date {
-	const hours = period === "am" ? (hour === "12" ? 0 : parseInt(hour, 10)) : parseInt(hour, 10) + 12
+	let hours = parseInt(hour, 10)
+	if (period === "am") {
+		hours = hour === "12" ? 0 : hours
+	} else {
+		hours = hour === "12" ? 12 : hours + 12
+	}
 	const constructedDate = new Date(date)
-	constructedDate.setHours(hours)
-	constructedDate.setMinutes(parseInt(minute, 10))
-	constructedDate.setSeconds(0)
-	constructedDate.setMilliseconds(0)
+	constructedDate.setHours(hours, parseInt(minute, 10), 0, 0)
 	return constructedDate
 }
 
+// Auto-generate title based on service type and workflow
+function generateEventTitle(
+	serviceType: "CONSULTATION" | "NOTARIZATION",
+	workflowType?: "REN" | "IEN"
+): string {
+	if (serviceType === "CONSULTATION") {
+		return "Consultation"
+	}
+	if (workflowType === "REN") {
+		return "Remote Electronic Notarization"
+	}
+	if (workflowType === "IEN") {
+		return "In-Person Electronic Notarization"
+	}
+	return "Notarization"
+}
+
 export function EventDialog({ event, isOpen, onClose, onSave, onDelete }: EventDialogProps) {
-	const [dateRangeOpen, setDateRangeOpen] = useState(false)
+	// Map existing event to form values
+	const defaultServiceType: "CONSULTATION" | "NOTARIZATION" =
+		event?.appointmentType === "CONSULTATION"
+			? "CONSULTATION"
+			: event?.appointmentType === "NOTARIZATION"
+				? "NOTARIZATION"
+				: "CONSULTATION"
+
+	const defaultWorkflowType: "REN" | "IEN" | undefined = event?.workflow
+
+	// Extract time from existing event start date
+	const existingStart = event?.startAt ?? new Date()
+	const defaultHour = format(existingStart, "hh")
+	const defaultMinute = format(existingStart, "mm")
+	const defaultPeriod = format(existingStart, "a").toLowerCase() as "am" | "pm"
 
 	const form = useForm<EventDialogSchema>({
 		resolver: zodResolver(eventDialogSchema),
 		defaultValues: {
-			title: event?.title ?? "",
+			serviceType: defaultServiceType,
+			workflowType: defaultWorkflowType,
+			hour: defaultHour,
+			minute: defaultMinute,
+			period: defaultPeriod,
+			location: (event?.meta?.location as string) ?? "",
 			description: event?.description ?? "",
-			allDay: event?.allDay ?? true,
-			dateRange: {
-				from: event?.start ?? new Date(),
-				to: event?.end ?? new Date(),
-			},
-			startHour: "09",
-			startMinute: "00",
-			startPeriod: "am",
-			endHour: "10",
-			endMinute: "00",
-			endPeriod: "am",
-			timezone: event?.metadata?.timezone ?? "UTC",
-			color: event?.color ?? "sky",
-			recurrence: event?.recurrence ?? "does-not-repeat",
-			eventType: event?.eventType ?? "consultation",
-			mode: event?.mode ?? "ren",
-			location: event?.location ?? "",
-			roomId: event?.metadata?.roomId ?? undefined,
+			roomId: (event?.meta?.roomId as string) ?? undefined,
 		},
 	})
 
-	const watchAllDay = form.watch("allDay")
-	const watchEventType = form.watch("eventType")
+	const watchServiceType = form.watch("serviceType")
+	const watchWorkflowType = form.watch("workflowType")
 
 	const handleSave = (values: EventDialogSchema) => {
-		let start: Date
-		let end: Date
+		// Use the selected calendar date and combine with time
+		const baseDate = event?.startAt ?? new Date()
+		const startAt = constructDate(baseDate, values.hour, values.minute, values.period)
 
-		if (values.allDay) {
-			start = new Date(values.dateRange.from)
-			start.setHours(0, 0, 0, 0)
-			end = new Date(values.dateRange.to)
-			end.setHours(23, 59, 59, 999)
-		} else {
-			// Ensure time fields are defined (guaranteed by schema validation)
-			const startHour = values.startHour ?? "09"
-			const startMinute = values.startMinute ?? "00"
-			const startPeriod = values.startPeriod ?? "am"
-			const endHour = values.endHour ?? "10"
-			const endMinute = values.endMinute ?? "00"
-			const endPeriod = values.endPeriod ?? "am"
-
-			start = constructDate(values.dateRange.from, startHour, startMinute, startPeriod)
-			end = constructDate(values.dateRange.to, endHour, endMinute, endPeriod)
-		}
+		// Generate event title based on service type
+		const title = generateEventTitle(values.serviceType, values.workflowType)
 
 		const isNewEvent = !event?.id
 		const roomId = isNewEvent
 			? `room-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`
-			: (values.roomId ?? event?.metadata?.roomId)
+			: (values.roomId ?? (event?.meta?.roomId as string | undefined))
 
-		const metadata: CalendarEventMetadata = {
-			timezone: values.timezone,
+		// Store additional data in meta
+		const meta: Record<string, unknown> = {
 			...(roomId && { roomId }),
+			...(values.location && { location: values.location.trim() }),
 		}
 
 		const updatedEvent: CalendarEvent = {
 			id: event?.id ?? "",
-			title: values.title.trim(),
-			description: values.description?.trim() ?? undefined,
-			start,
-			end,
-			allDay: values.allDay,
-			color: values.color,
-			location: values.location?.trim() ?? undefined,
-			recurrence: values.recurrence,
-			eventType: values.eventType,
-			mode: values.mode,
-			metadata,
+			title,
+			description: values.description?.trim() ? values.description.trim() : undefined,
+			startAt,
+			// No endAt - optional field
+			status: event?.status ?? { id: "pending", name: "Pending", color: "#F59E0B" },
+			appointmentType: values.serviceType,
+			workflow: values.workflowType,
+			meta,
 		}
 
 		onSave(updatedEvent)
@@ -157,7 +164,9 @@ export function EventDialog({ event, isOpen, onClose, onSave, onDelete }: EventD
 	}
 
 	const handleDelete = () => {
-		if (event?.id && onDelete) onDelete(event.id)
+		if (event?.id && onDelete) {
+			onDelete(event.id)
+		}
 		onClose()
 	}
 
@@ -168,288 +177,95 @@ export function EventDialog({ event, isOpen, onClose, onSave, onDelete }: EventD
 					<DialogTitle>{event?.id ? "Edit Event" : "New Event"}</DialogTitle>
 				</DialogHeader>
 
-				<Form {...form} key={event?.id ?? "new"}>
+				<Form {...form}>
 					<form
 						onSubmit={form.handleSubmit(handleSave)}
-						className="flex flex-1 flex-col gap-2 space-y-2 overflow-y-auto px-1"
+						className="flex flex-1 flex-col gap-4 overflow-y-auto px-1"
 					>
-						{/* Title */}
+						{/* Service Type Selector */}
 						<FormField
 							control={form.control}
-							name="title"
+							name="serviceType"
 							render={({ field }) => (
 								<FormItem>
-									<FormLabel>Title</FormLabel>
 									<FormControl>
-										<Input placeholder="Event title" autoFocus {...field} />
+										<SessionTypeSelector
+											value={field.value}
+											onChange={value => {
+												field.onChange(value)
+												// Reset workflow type when switching service type
+												if (value === "CONSULTATION") {
+													form.setValue("workflowType", undefined)
+													form.setValue("location", "")
+												}
+											}}
+											showHeading={true}
+										/>
 									</FormControl>
 									<FormMessage />
 								</FormItem>
 							)}
 						/>
 
-						{/* Description */}
-						<FormField
-							control={form.control}
-							name="description"
-							render={({ field }) => (
-								<FormItem>
-									<FormLabel>Description</FormLabel>
-									<FormControl>
-										<Textarea placeholder="Add description" rows={3} {...field} />
-									</FormControl>
-									<FormMessage />
-								</FormItem>
-							)}
-						/>
-
-						<div className="flex gap-2">
-							{/* Duration */}
+						{/* Session Mode Selector - Only for Notarization */}
+						{watchServiceType === "NOTARIZATION" && (
 							<FormField
 								control={form.control}
-								name="allDay"
+								name="workflowType"
 								render={({ field }) => (
 									<FormItem>
-										<FormLabel>All Day</FormLabel>
-										<Select
-											onValueChange={value => field.onChange(value === "true")}
-											defaultValue={field.value ? "true" : "false"}
-										>
-											<FormControl>
-												<SelectTrigger>
-													<SelectValue placeholder="Select all day" />
-												</SelectTrigger>
-											</FormControl>
-											<SelectContent>
-												<SelectItem value="false">False</SelectItem>
-												<SelectItem value="true">True</SelectItem>
-											</SelectContent>
-										</Select>
+										<FormControl>
+											<SessionModeSelector
+												value={field.value}
+												onChange={value => {
+													field.onChange(value)
+													// Clear location when switching to REN
+													if (value === "REN") {
+														form.setValue("location", "")
+													}
+												}}
+												showHeading={true}
+											/>
+										</FormControl>
 										<FormMessage />
 									</FormItem>
 								)}
 							/>
+						)}
 
-							{/* Date Range */}
+						{/* Date Display (Read-Only) */}
+						<div className="space-y-2">
+							<FormLabel>Date</FormLabel>
+							<div className="border-input bg-muted rounded-md border px-3 py-2 text-sm">
+								{event?.startAt ? format(event.startAt, "PPP") : format(new Date(), "PPP")}
+							</div>
+							<p className="text-muted-foreground text-xs">Date is set by calendar selection</p>
+						</div>
+
+						{/* Time Picker */}
+						<div className="space-y-2">
+							<FormLabel>Time</FormLabel>
 							<FormField
 								control={form.control}
-								name="dateRange"
+								name="hour"
 								render={({ field }) => (
-									<FormItem className="flex flex-col gap-2">
-										<FormLabel>Date Range</FormLabel>
-										<Popover open={dateRangeOpen} onOpenChange={setDateRangeOpen}>
-											<PopoverTrigger asChild>
-												<FormControl>
-													<Button
-														variant="outline"
-														className={cn(
-															"w-full justify-start text-left font-normal",
-															!field.value && "text-muted-foreground"
-														)}
-													>
-														<CalendarIcon className="mr-2 size-4" />
-														{field.value?.from && field.value?.to ? (
-															<>
-																{format(field.value.from, "PPP")} - {format(field.value.to, "PPP")}
-															</>
-														) : (
-															<span>Pick a date range</span>
-														)}
-													</Button>
-												</FormControl>
-											</PopoverTrigger>
-											<PopoverContent className="w-auto p-0" align="start">
-												<Calendar
-													mode="range"
-													selected={field.value}
-													onSelect={value => {
-														field.onChange(value)
-														setDateRangeOpen(false)
-													}}
-													initialFocus
-													numberOfMonths={2}
-												/>
-											</PopoverContent>
-										</Popover>
+									<FormItem>
+										<FormControl>
+											<TimeWheelPicker
+												hour={field.value}
+												minute={form.watch("minute")}
+												period={form.watch("period")}
+												onHourChange={field.onChange}
+												onMinuteChange={value => form.setValue("minute", value)}
+												onPeriodChange={value => form.setValue("period", value)}
+											/>
+										</FormControl>
 										<FormMessage />
 									</FormItem>
 								)}
 							/>
 						</div>
-
-						{/* Time Selection - Only when not all day */}
-						{!watchAllDay && (
-							<div className="space-y-4">
-								<div className="grid grid-cols-[1fr_1fr_auto] items-center gap-4">
-									<FormField
-										control={form.control}
-										name="startHour"
-										render={({ field }) => (
-											<FormItem>
-												<FormLabel>Start Time</FormLabel>
-												<FormControl>
-													<div>
-														<FormField
-															control={form.control}
-															name="startMinute"
-															render={({ field: minuteField }) => (
-																<FormItem>
-																	<FormControl>
-																		<Input type="hidden" {...minuteField} />
-																	</FormControl>
-																</FormItem>
-															)}
-														/>
-														<FormField
-															control={form.control}
-															name="startPeriod"
-															render={({ field: periodField }) => (
-																<FormItem>
-																	<FormControl>
-																		<Input type="hidden" {...periodField} />
-																	</FormControl>
-																</FormItem>
-															)}
-														/>
-														<TimeWheelPicker
-															hour={field.value ?? "09"}
-															minute={form.watch("startMinute") ?? "00"}
-															period={form.watch("startPeriod") ?? "am"}
-															onHourChange={field.onChange}
-															onMinuteChange={value => form.setValue("startMinute", value)}
-															onPeriodChange={value => form.setValue("startPeriod", value)}
-														/>
-													</div>
-												</FormControl>
-												<FormMessage />
-											</FormItem>
-										)}
-									/>
-
-									<FormField
-										control={form.control}
-										name="endHour"
-										render={({ field }) => (
-											<FormItem>
-												<FormLabel>End Time</FormLabel>
-												<FormControl>
-													<div>
-														<FormField
-															control={form.control}
-															name="endMinute"
-															render={({ field: minuteField }) => (
-																<FormItem>
-																	<FormControl>
-																		<Input type="hidden" {...minuteField} />
-																	</FormControl>
-																</FormItem>
-															)}
-														/>
-														<FormField
-															control={form.control}
-															name="endPeriod"
-															render={({ field: periodField }) => (
-																<FormItem>
-																	<FormControl>
-																		<Input type="hidden" {...periodField} />
-																	</FormControl>
-																</FormItem>
-															)}
-														/>
-														<TimeWheelPicker
-															hour={field.value ?? "10"}
-															minute={form.watch("endMinute") ?? "00"}
-															period={form.watch("endPeriod") ?? "am"}
-															onHourChange={field.onChange}
-															onMinuteChange={value => form.setValue("endMinute", value)}
-															onPeriodChange={value => form.setValue("endPeriod", value)}
-														/>
-													</div>
-												</FormControl>
-												<FormMessage />
-											</FormItem>
-										)}
-									/>
-
-									{/* Timezone */}
-									<FormField
-										control={form.control}
-										name="timezone"
-										render={({ field }) => (
-											<FormItem>
-												<FormLabel>Timezone</FormLabel>
-												<Select onValueChange={field.onChange} defaultValue={field.value}>
-													<FormControl>
-														<SelectTrigger>
-															<SelectValue />
-														</SelectTrigger>
-													</FormControl>
-													<SelectContent>
-														{TIMEZONES.map(tz => (
-															<SelectItem key={tz} value={tz}>
-																{tz}
-															</SelectItem>
-														))}
-													</SelectContent>
-												</Select>
-												<FormMessage />
-											</FormItem>
-										)}
-									/>
-								</div>
-							</div>
-						)}
-
-						{/* Event Type */}
-						<FormField
-							control={form.control}
-							name="eventType"
-							render={({ field }) => (
-								<FormItem>
-									<FormLabel>Event Type</FormLabel>
-									<Select onValueChange={field.onChange} defaultValue={field.value}>
-										<FormControl>
-											<SelectTrigger>
-												<SelectValue />
-											</SelectTrigger>
-										</FormControl>
-										<SelectContent>
-											<SelectItem value="consultation">Consultation</SelectItem>
-											<SelectItem value="notarization">Notarization</SelectItem>
-										</SelectContent>
-									</Select>
-									<FormMessage />
-								</FormItem>
-							)}
-						/>
-
-						{/* Mode - Only for notarization */}
-						{watchEventType === "notarization" && (
-							<FormField
-								control={form.control}
-								name="mode"
-								render={({ field }) => (
-									<FormItem>
-										<FormLabel>Mode</FormLabel>
-										<Select onValueChange={field.onChange} defaultValue={field.value}>
-											<FormControl>
-												<SelectTrigger>
-													<SelectValue />
-												</SelectTrigger>
-											</FormControl>
-											<SelectContent>
-												<SelectItem value="ren">Remote Electronic Notarization (REN)</SelectItem>
-												<SelectItem value="ien">In-Person Electronic Notarization (IEN)</SelectItem>
-											</SelectContent>
-										</Select>
-										<FormMessage />
-									</FormItem>
-								)}
-							/>
-						)}
-
-						{/* Location - Only for IEN mode */}
-						{watchEventType === "notarization" && form.watch("mode") === "ien" && (
+						{watchServiceType === "NOTARIZATION" && watchWorkflowType === "IEN" && (
 							<FormField
 								control={form.control}
 								name="location"
@@ -457,7 +273,7 @@ export function EventDialog({ event, isOpen, onClose, onSave, onDelete }: EventD
 									<FormItem>
 										<FormLabel>Location</FormLabel>
 										<FormControl>
-											<Input placeholder="Add location" {...field} />
+											<Input placeholder="Enter meeting location" {...field} />
 										</FormControl>
 										<FormMessage />
 									</FormItem>
@@ -465,7 +281,22 @@ export function EventDialog({ event, isOpen, onClose, onSave, onDelete }: EventD
 							/>
 						)}
 
-						<DialogFooter>
+						{/* Description */}
+						<FormField
+							control={form.control}
+							name="description"
+							render={({ field }) => (
+								<FormItem>
+									<FormLabel>Description (Optional)</FormLabel>
+									<FormControl>
+										<Textarea placeholder="Add notes or additional details" rows={3} {...field} />
+									</FormControl>
+									<FormMessage />
+								</FormItem>
+							)}
+						/>
+
+						<DialogFooter className="mt-4">
 							{event?.id && onDelete && (
 								<Button
 									type="button"

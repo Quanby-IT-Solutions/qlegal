@@ -87,6 +87,7 @@ export type IncomingItem = {
 		updatedAt: Date
 		clientId: string
 		lawyerId: string
+		lapsed?: boolean
 		client?: {
 			name?: string | null
 			image?: string | null
@@ -208,7 +209,7 @@ export const requestsRouter = createTRPCRouter({
 			},
 			documents: 0,
 			source: "appointment" as const, // Mark as coming from appointment
-			appointmentData: apt, // Keep full appointment data for actions
+			appointmentData: { ...apt, lapsed: false }, // Keep full appointment data for actions
 		}))
 
 		return appointmentsAsRequests

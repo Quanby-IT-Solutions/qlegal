@@ -266,7 +266,14 @@ function AppointmentCard({
 	const isMeetingLive = linkedMeeting?.status === "ONGOING"
 	const isMeetingScheduled = linkedMeeting?.status === "SCHEDULED"
 	const isLawyer = currentUser?.role === "ENP" && currentUser.id === appointment.lawyerId
-	const isPastSlot = new Date(appointment.appointmentDate).getTime() < Date.now()
+	const graceMs = 30 * 60 * 1000
+	const appointmentStartMs = new Date(appointment.appointmentDate).getTime()
+	const lapsedAtMs = appointmentStartMs + graceMs
+	const isPastSlot = Date.now() > lapsedAtMs
+	const meetingStarted =
+		linkedMeeting?.status === "ONGOING" || linkedMeeting?.status === "COMPLETED"
+	const meetingInactive = !appointment.meetingLink || (!isLoadingMeeting && !meetingStarted)
+	const isLapsed = appointment.status === "CONFIRMED" && isPastSlot && meetingInactive
 	// Can start meeting if:
 	// 1. REN workflow
 	// 2. User is the lawyer (ENP)
@@ -375,9 +382,15 @@ function AppointmentCard({
 					>
 						{workflow === "REN" ? "Remote" : "In-Person"}
 					</Badge>
-					<Badge variant={appointment.status === "CONFIRMED" ? "default" : "secondary"}>
-						{appointment.status}
-					</Badge>
+					{isLapsed ? (
+						<Badge variant="outline" className="border-amber-600 text-amber-600">
+							Lapsed
+						</Badge>
+					) : (
+						<Badge variant={appointment.status === "CONFIRMED" ? "default" : "secondary"}>
+							{appointment.status}
+						</Badge>
+					)}
 					{meetingIdFromLink && (
 						<Badge
 							variant={isMeetingLive ? "default" : "secondary"}
@@ -514,10 +527,15 @@ function AppointmentCard({
 					</div>
 				)}
 
-				{!canStartMeeting && !canJoinMeeting && isPastSlot && !appointment.meetingLink && (
-					<Badge variant="outline" className="border-amber-600 text-amber-600">
-						Scheduled time has lapsed
-					</Badge>
+				{isLapsed && (
+					<div className="space-y-1">
+						<Badge variant="outline" className="border-amber-600 text-amber-600">
+							Scheduled time has lapsed
+						</Badge>
+						<p className="text-muted-foreground text-xs">
+							No activity detected. Consider ending or rescheduling this session.
+						</p>
+					</div>
 				)}
 			</CardContent>
 		</Card>
