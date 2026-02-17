@@ -3,9 +3,9 @@ import { PageHeader } from "@/core/components/navbar/page-header"
 import { auth } from "@/services/next-auth"
 import { HydrateClient, trpc } from "@/services/trpc/server"
 
-import { type IncomingItem } from "@/features/appointments/api/requests.router"
-import { RequestsClient } from "@/features/appointments/components/requests-client"
-import { RequestsScheduleClient } from "@/features/appointments/components/requests-schedule-client"
+import { type AppointmentItem } from "@/features/appointments/api/appointments.router"
+import { AppointmentsClient } from "@/features/appointments/components/appointments-client"
+import { AppointmentsScheduleClient } from "@/features/appointments/components/appointments-schedule-client"
 
 export default async function RequestsPage() {
 	const session = await auth()
@@ -17,8 +17,8 @@ export default async function RequestsPage() {
 		id: request.id,
 		title: request.title,
 		description: request.description,
-		status: request.status as IncomingItem["status"],
-		workflow: request.workflow as IncomingItem["workflow"],
+		status: request.status as AppointmentItem["status"],
+		workflow: request.workflow as AppointmentItem["workflow"],
 		priority: request.priority,
 		createdAt: request.createdAt,
 		updatedAt: request.updatedAt,
@@ -30,15 +30,15 @@ export default async function RequestsPage() {
 		documents: 0,
 		source: "request" as const,
 		requestData: request,
-	})) as IncomingItem[]
+	})) as AppointmentItem[]
 
-	let incomingAppointments: IncomingItem[] = []
+	let incomingAppointments: AppointmentItem[] = []
 	if (isENP) {
 		const rawAppointments = await trpc.requests.getIncomingAppointmentsForENP()
 		incomingAppointments = rawAppointments.map(apt => ({
 			...apt,
-			workflow: apt.workflow as IncomingItem["workflow"],
-		})) as IncomingItem[]
+			workflow: apt.workflow as AppointmentItem["workflow"],
+		})) as AppointmentItem[]
 	}
 
 	const allIncomingItems = [...incomingRequests, ...incomingAppointments]
@@ -66,20 +66,18 @@ export default async function RequestsPage() {
 						{isENP && scheduleData ? (
 							<>
 								<div className="space-y-2">
-									<h1 className="text-3xl font-bold tracking-tight">
-										Requests & Schedule
-									</h1>
+									<h1 className="text-3xl font-bold tracking-tight">Requests & Schedule</h1>
 									<p className="text-muted-foreground">
 										Manage incoming requests and your appointments
 									</p>
 								</div>
-								<RequestsScheduleClient
+								<AppointmentsScheduleClient
 									scheduleData={scheduleData}
 									incomingRequests={allIncomingItems}
 								/>
 							</>
 						) : (
-							<RequestsClient incomingRequests={allIncomingItems} />
+							<AppointmentsClient incomingRequests={allIncomingItems} />
 						)}
 					</div>
 				</main>

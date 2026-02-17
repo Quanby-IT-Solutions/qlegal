@@ -4,11 +4,8 @@ import { auth } from "@/services/next-auth"
 import { HydrateClient, trpc } from "@/services/trpc/server"
 
 import { type AppointmentItem } from "@/features/appointments/api/appointments.router"
-import { RequestsClient } from "@/features/appointments/components/requests-client"
-import { RequestsScheduleClient } from "@/features/appointments/components/requests-schedule-client"
-
-// Type alias for backward compatibility with existing components
-type IncomingItem = AppointmentItem
+import { AppointmentsClient } from "@/features/appointments/components/appointments-client"
+import { AppointmentsScheduleClient } from "@/features/appointments/components/appointments-schedule-client"
 
 export default async function AppointmentsPage() {
 	const session = await auth()
@@ -20,8 +17,8 @@ export default async function AppointmentsPage() {
 		id: request.id,
 		title: request.title,
 		description: request.description,
-		status: request.status as IncomingItem["status"],
-		workflow: request.workflow as IncomingItem["workflow"],
+		status: request.status as AppointmentItem["status"],
+		workflow: request.workflow as AppointmentItem["workflow"],
 		priority: request.priority,
 		createdAt: request.createdAt,
 		updatedAt: request.updatedAt,
@@ -33,15 +30,15 @@ export default async function AppointmentsPage() {
 		documents: 0,
 		source: "request" as const,
 		requestData: request,
-	})) as IncomingItem[]
+	})) as AppointmentItem[]
 
-	let incomingAppointments: IncomingItem[] = []
+	let incomingAppointments: AppointmentItem[] = []
 	if (isENP) {
 		const rawAppointments = await trpc.appointments.getIncomingAppointmentsForENP()
 		incomingAppointments = rawAppointments.map(apt => ({
 			...apt,
 			workflow: apt.workflow,
-		})) as IncomingItem[]
+		})) as AppointmentItem[]
 	}
 
 	const allIncomingItems = [...incomingRequests, ...incomingAppointments]
@@ -74,13 +71,13 @@ export default async function AppointmentsPage() {
 										Manage incoming requests and your appointments
 									</p>
 								</div>
-								<RequestsScheduleClient
+								<AppointmentsScheduleClient
 									scheduleData={scheduleData}
 									incomingRequests={allIncomingItems}
 								/>
 							</>
 						) : (
-							<RequestsClient incomingRequests={allIncomingItems} />
+							<AppointmentsClient incomingRequests={allIncomingItems} />
 						)}
 					</div>
 				</main>

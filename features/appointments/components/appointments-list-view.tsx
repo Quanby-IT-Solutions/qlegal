@@ -19,7 +19,7 @@ import {
 import { Skeleton } from "@/core/components/ui/skeleton"
 import { cn, getAvatarUrl, getInitials } from "@/core/lib/utils"
 
-import type { IncomingItem } from "../api/requests.router"
+import type { AppointmentItem } from "../api/appointments.router"
 
 function PrincipalAvatar({
 	name,
@@ -40,21 +40,21 @@ function PrincipalAvatar({
 	)
 }
 
-interface RequestsListViewProps {
-	incomingRequests: IncomingItem[]
+interface AppointmentsListViewProps {
+	incomingRequests: AppointmentItem[]
 	isRequestsLoading: boolean
-	onAccept: (request: IncomingItem) => void
-	onReject: (request: IncomingItem) => void
+	onAccept: (request: AppointmentItem) => void
+	onReject: (request: AppointmentItem) => void
 	processingId: string | null
 }
 
-export function RequestsListView({
+export function AppointmentsListView({
 	incomingRequests,
 	isRequestsLoading,
 	onAccept,
 	onReject,
 	processingId,
-}: RequestsListViewProps) {
+}: AppointmentsListViewProps) {
 	const [searchTerm, setSearchTerm] = useState("")
 	const [workflowFilter, setWorkflowFilter] = useState("ALL")
 

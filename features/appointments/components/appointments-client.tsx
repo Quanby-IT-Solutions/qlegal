@@ -6,11 +6,11 @@ import { toast } from "sonner"
 
 import { trpc } from "@/services/trpc/client"
 
-import type { IncomingItem } from "../api/requests.router"
+import type { AppointmentItem } from "../api/appointments.router"
+import { AppointmentsListView } from "./appointments-list-view"
 import { RejectDialog } from "./reject-dialog"
-import { RequestsListView } from "./requests-list-view"
 
-export function RequestsClient({ incomingRequests }: { incomingRequests: IncomingItem[] }) {
+export function AppointmentsClient({ incomingRequests }: { incomingRequests: AppointmentItem[] }) {
 	const router = useRouter()
 	const utils = trpc.useUtils()
 	const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null)
@@ -27,7 +27,7 @@ export function RequestsClient({ incomingRequests }: { incomingRequests: Incomin
 		router.refresh()
 	}
 
-	const handleAccept = async (item: IncomingItem) => {
+	const handleAccept = async (item: AppointmentItem) => {
 		setProcessingId(item.id)
 		try {
 			if (item.source === "appointment") {
@@ -53,7 +53,7 @@ export function RequestsClient({ incomingRequests }: { incomingRequests: Incomin
 		}
 	}
 
-	const handleRejectClick = (item: IncomingItem) => {
+	const handleRejectClick = (item: AppointmentItem) => {
 		setSelectedRequestId(item.id)
 		setRejectDialogOpen(true)
 	}
@@ -91,7 +91,7 @@ export function RequestsClient({ incomingRequests }: { incomingRequests: Incomin
 
 	return (
 		<>
-			<RequestsListView
+			<AppointmentsListView
 				incomingRequests={incomingRequests}
 				isRequestsLoading={false}
 				onAccept={handleAccept}

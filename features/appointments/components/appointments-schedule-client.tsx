@@ -37,7 +37,7 @@ import type { Appointment } from "@/services/drizzle/schema/appointments"
 import type { EnpAvailability } from "@/services/drizzle/schema/enp-profiles"
 import { trpc } from "@/services/trpc/client"
 
-import type { IncomingItem } from "../api/requests.router"
+import type { AppointmentItem } from "../api/appointments.router"
 import { addHoursToDate } from "../lib/schedule-utils"
 import { EventDialog } from "./event-dialog"
 import { RejectDialog } from "./reject-dialog"
@@ -69,7 +69,7 @@ function toCalendarEvent(
 	}
 }
 
-function toCalendarEventFromIncomingItem(item: IncomingItem): CalendarEvent | null {
+function toCalendarEventFromIncomingItem(item: AppointmentItem): CalendarEvent | null {
 	if (item.source === "appointment" && item.appointmentData) {
 		const apt = item.appointmentData
 		const status: Status = apt.lapsed
@@ -122,7 +122,7 @@ function toCalendarEventFromIncomingItem(item: IncomingItem): CalendarEvent | nu
 	return null
 }
 
-interface RequestsScheduleClientProps {
+interface AppointmentsScheduleClientProps {
 	scheduleData: {
 		regular: EnpAvailability[]
 		blocked: EnpAvailability[]
@@ -130,7 +130,7 @@ interface RequestsScheduleClientProps {
 		custom: EnpAvailability[]
 		myAppointments?: (Appointment & { lapsed?: boolean })[]
 	}
-	incomingRequests: IncomingItem[]
+	incomingRequests: AppointmentItem[]
 }
 
 function CalendarCardHeader() {
@@ -201,16 +201,16 @@ function UnifiedSidebarList({
 	onReject,
 	processingId,
 }: {
-	incomingRequests: IncomingItem[]
-	onAccept: (item: IncomingItem) => void
-	onReject: (item: IncomingItem) => void
+	incomingRequests: AppointmentItem[]
+	onAccept: (item: AppointmentItem) => void
+	onReject: (item: AppointmentItem) => void
 	processingId: string | null
 }) {
 	const dayEvents = useSelectedDayEvents()
 
 	// Build lookup maps from incomingRequests by both item.id and appointmentData.id
 	const itemLookup = useMemo(() => {
-		const map = new Map<string, IncomingItem>()
+		const map = new Map<string, AppointmentItem>()
 		for (const item of incomingRequests) {
 			map.set(item.id, item)
 			if (item.source === "appointment" && item.appointmentData) {
@@ -260,10 +260,10 @@ function UnifiedSidebarList({
 	)
 }
 
-export function RequestsScheduleClient({
+export function AppointmentsScheduleClient({
 	scheduleData,
 	incomingRequests,
-}: RequestsScheduleClientProps) {
+}: AppointmentsScheduleClientProps) {
 	const router = useRouter()
 	const utils = trpc.useUtils()
 	const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null)
@@ -293,7 +293,7 @@ export function RequestsScheduleClient({
 		router.refresh()
 	}
 
-	const handleAccept = async (item: IncomingItem) => {
+	const handleAccept = async (item: AppointmentItem) => {
 		setProcessingId(item.id)
 		try {
 			if (item.source === "appointment") {
@@ -319,7 +319,7 @@ export function RequestsScheduleClient({
 		}
 	}
 
-	const handleRejectClick = (item: IncomingItem) => {
+	const handleRejectClick = (item: AppointmentItem) => {
 		setSelectedRequestId(item.id)
 		setRejectDialogOpen(true)
 	}
