@@ -2,21 +2,14 @@
 
 import { useRouter } from "next/navigation"
 import { useMemo, useState } from "react"
-import { isBefore, startOfDay } from "date-fns"
 import { toast } from "sonner"
 
 import {
-	CalendarScheduleEventCard,
 	CalendarScheduleProvider,
-	useCalendarSchedule,
-	useCalendarScheduleHeader,
-	useSelectedDayEvents,
 	type CalendarEvent,
 	type Status,
 } from "@/core/components/calendar-schedule"
-import { Button } from "@/core/components/ui/button"
-import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/core/components/ui/card"
-import { ItemGroup } from "@/core/components/ui/item"
+import { Card, CardAction, CardContent, CardHeader } from "@/core/components/ui/card"
 import { Separator } from "@/core/components/ui/separator"
 
 import type { Appointment } from "@/services/drizzle/schema/appointments"
@@ -26,7 +19,8 @@ import { trpc } from "@/services/trpc/client"
 import type { AppointmentItem } from "../api/appointments.router"
 import { addHoursToDate } from "../lib/schedule-utils"
 import { CalendarCard } from "./calendar/calendar-card"
-import { EventDialog } from "./event-dialog"
+import { AddEventSection } from "./event-list/add-event-section"
+import { EventListHeader, UnifiedSidebarList } from "./event-list/event-list-card"
 import { RejectDialog } from "./reject-dialog"
 
 const STATUS_PENDING: Status = { id: "pending", name: "Pending", color: "#F59E0B" }
@@ -118,121 +112,6 @@ interface AppointmentsScheduleClientProps {
 		myAppointments?: (Appointment & { lapsed?: boolean })[]
 	}
 	incomingRequests: AppointmentItem[]
-}
-
-function EventListHeader() {
-	const { formattedDate, relativeDay } = useCalendarScheduleHeader()
-	return (
-		<>
-			<CardTitle>{formattedDate ?? "Select a date"}</CardTitle>
-			<CardDescription>{relativeDay ?? "Select a date to view"}</CardDescription>
-		</>
-	)
-}
-
-function AddEventSection({
-	onSave,
-}: {
-	onSave: (event: CalendarEvent, onComplete?: () => void) => void
-}) {
-	const { selectedDate } = useCalendarSchedule()
-	const [isOpen, setIsOpen] = useState(false)
-
-	const defaultEvent: CalendarEvent | null = useMemo(() => {
-		const d = selectedDate ? new Date(selectedDate) : new Date()
-		d.setHours(9, 0, 0, 0)
-		return {
-			id: "",
-			title: "",
-			startAt: d,
-			status: STATUS_PENDING,
-		}
-	}, [selectedDate])
-
-	const isDateInPast = selectedDate
-		? isBefore(startOfDay(new Date(selectedDate)), startOfDay(new Date()))
-		: false
-
-	return (
-		<>
-			{!isDateInPast && (
-				<Button variant="outline" onClick={() => setIsOpen(true)}>
-					Add Event
-				</Button>
-			)}
-			<EventDialog
-				event={defaultEvent}
-				isOpen={isOpen}
-				onClose={() => setIsOpen(false)}
-				onSave={ev => onSave(ev, () => setIsOpen(false))}
-			/>
-		</>
-	)
-}
-
-function UnifiedSidebarList({
-	incomingRequests,
-	onAccept,
-	onReject,
-	processingId,
-}: {
-	incomingRequests: AppointmentItem[]
-	onAccept: (item: AppointmentItem) => void
-	onReject: (item: AppointmentItem) => void
-	processingId: string | null
-}) {
-	const dayEvents = useSelectedDayEvents()
-
-	// Build lookup maps from incomingRequests by both item.id and appointmentData.id
-	const itemLookup = useMemo(() => {
-		const map = new Map<string, AppointmentItem>()
-		for (const item of incomingRequests) {
-			map.set(item.id, item)
-			if (item.source === "appointment" && item.appointmentData) {
-				map.set(item.appointmentData.id, item)
-			}
-		}
-		return map
-	}, [incomingRequests])
-
-	// Sort: pending items first, then by start time
-	const sortedEvents = useMemo(
-		() =>
-			[...dayEvents].sort((a, b) => {
-				const aPending = a.event.status.id === "pending" ? 0 : 1
-				const bPending = b.event.status.id === "pending" ? 0 : 1
-				if (aPending !== bPending) return aPending - bPending
-				return new Date(a.event.startAt).getTime() - new Date(b.event.startAt).getTime()
-			}),
-		[dayEvents]
-	)
-
-	if (sortedEvents.length === 0) {
-		return <p className="text-muted-foreground py-4 text-center text-sm">No events scheduled</p>
-	}
-
-	return (
-		<ItemGroup>
-			{sortedEvents.map(item => {
-				const ev = item.event
-				const incomingItemId = (ev.meta?.incomingItemId as string | undefined) ?? ev.id
-				const incomingItem = itemLookup.get(ev.id) ?? itemLookup.get(incomingItemId)
-				const isProcessing = processingId === ev.id || processingId === incomingItem?.id
-
-				return (
-					<CalendarScheduleEventCard
-						key={ev.id}
-						event={ev}
-						formattedTime={item.formattedTime}
-						relativeLabel={item.relativeLabel}
-						onAccept={incomingItem ? () => onAccept(incomingItem) : undefined}
-						onReject={incomingItem ? () => onReject(incomingItem) : undefined}
-						isProcessing={isProcessing}
-					/>
-				)
-			})}
-		</ItemGroup>
-	)
 }
 
 export function AppointmentsScheduleClient({
