@@ -31,10 +31,12 @@ export function useAppointmentsScheduleActions({
 			void utils.requests.getIncomingRequests.invalidate()
 			void utils.requests.getIncomingAppointmentsForENP.invalidate()
 			router.refresh()
-			toast.success("Event created successfully")
+			toast.success("Event created")
 		},
 		onError: error => {
-			toast.error("Failed to create event", { description: error.message })
+			toast.error("Unable to create event", {
+				description: error instanceof Error ? error.message : "An unexpected error occurred",
+			})
 		},
 	})
 	const deleteEnpEvent = trpc.schedule.deleteEnpEvent.useMutation()
@@ -48,6 +50,7 @@ export function useAppointmentsScheduleActions({
 
 	const handleAccept = async (item: AppointmentItem) => {
 		setProcessingId(item.id)
+		const toastId = toast.loading("Processing request...")
 		try {
 			if (item.source === "appointment") {
 				await confirmAppointmentMutation.mutateAsync({
@@ -57,11 +60,12 @@ export function useAppointmentsScheduleActions({
 			} else {
 				await updateStatusMutation.mutateAsync({ requestId: item.id, status: "IN_PROGRESS" })
 			}
-			toast.success("Request accepted successfully!")
+			toast.success("Request accepted", { id: toastId })
 			await revalidate()
 			router.push("/sessions")
 		} catch (error) {
-			toast.error("Failed to accept request", {
+			toast.error("Unable to accept request", {
+				id: toastId,
 				description: error instanceof Error ? error.message : "An unexpected error occurred",
 			})
 		} finally {
@@ -79,7 +83,12 @@ export function useAppointmentsScheduleActions({
 		setProcessingId(selectedRequestId)
 
 		const item = incomingRequests.find(request => request.id === selectedRequestId)
-		if (!item) return
+		if (!item) {
+			setProcessingId(null)
+			return
+		}
+
+		const toastId = toast.loading("Processing request...")
 
 		try {
 			if (item.source === "appointment") {
@@ -93,11 +102,12 @@ export function useAppointmentsScheduleActions({
 					status: "REJECTED",
 				})
 			}
-			toast.success("Request rejected!")
+			toast.success("Request rejected", { id: toastId })
 			setRejectDialogOpen(false)
 			await revalidate()
 		} catch (error) {
-			toast.error("Failed to reject request", {
+			toast.error("Unable to reject request", {
+				id: toastId,
 				description: error instanceof Error ? error.message : "An unexpected error occurred",
 			})
 		} finally {
@@ -112,6 +122,11 @@ export function useAppointmentsScheduleActions({
 		const endTime = `${endAt.getHours().toString().padStart(2, "0")}:${endAt.getMinutes().toString().padStart(2, "0")}`
 		const type = event.appointmentType ?? "CONSULTATION"
 		const workflow = event.workflow ?? (event.meta?.location ? "IEN" : "REN")
+
+		// TODO: Add updateEnpEvent flow when frontend event editing is implemented.
+		// Success: toast.success("Event updated")
+		// Error: toast.error("Unable to update event", { description: error.message })
+		// Differentiate create vs update based on event.id in this handler.
 
 		createEnpEvent.mutate(
 			{
@@ -132,12 +147,14 @@ export function useAppointmentsScheduleActions({
 	}
 
 	const handleEventDelete = async (eventId: string) => {
+		const toastId = toast.loading("Processing request...")
 		try {
 			await deleteEnpEvent.mutateAsync({ appointmentId: eventId })
-			toast.success("Event deleted successfully")
+			toast.success("Event deleted", { id: toastId })
 			await revalidate()
 		} catch (error) {
-			toast.error("Failed to delete event", {
+			toast.error("Unable to delete event", {
+				id: toastId,
 				description: error instanceof Error ? error.message : "An unexpected error occurred",
 			})
 			throw error
