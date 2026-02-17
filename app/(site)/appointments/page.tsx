@@ -224,20 +224,18 @@ function AppointmentCard({
 			onRefetch()
 		},
 	})
-	const confirmConsultation = trpc.consultations.confirmConsultation.useMutation({
-		onSuccess: () => {
-			toast.success("Consultation accepted")
-			onRefetch()
+	const confirmConsultation = {
+		mutate: (_input: unknown) => {
+			toast.error("Consultation actions are currently unavailable.")
 		},
-		onError: err => toast.error(err.message || "Failed to accept"),
-	})
-	const cancelConsultation = trpc.consultations.cancelConsultation.useMutation({
-		onSuccess: () => {
-			toast.success("Consultation rejected")
-			onRefetch()
+		isPending: false,
+	}
+	const cancelConsultation = {
+		mutate: (_input: unknown) => {
+			toast.error("Consultation actions are currently unavailable.")
 		},
-		onError: err => toast.error(err.message || "Failed to reject"),
-	})
+		isPending: false,
+	}
 	const confirmAppointment = trpc.appointments.confirmAppointment.useMutation({
 		onSuccess: () => {
 			toast.success("Signing session accepted")

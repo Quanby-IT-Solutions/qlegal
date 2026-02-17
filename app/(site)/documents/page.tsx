@@ -191,17 +191,21 @@ function DocumentCard({
 
 function ExpandedDocumentDetails({
 	doc,
-	isExpanded,
+	isExpanded: _isExpanded,
 }: {
 	doc: DocumentRow
 	isExpanded: boolean
 }) {
-	const { data: signersData, isPending: isSignersLoading } =
-		trpc.documents.getActSigners.useQuery(
-			{ actId: doc.id },
-			{ enabled: isExpanded && !!doc.docoChainProjectUuid }
-		)
-	const signers = signersData?.signers ?? []
+	const isSignersLoading = false
+	const signers: Array<{
+		id?: string | number
+		email?: string
+		firstName?: string
+		lastName?: string
+		status?: string
+		signedAt?: string | null
+		signerRole?: string
+	}> = []
 	const isSignerSigned = (s: { status?: string; signedAt?: string | null }) => {
 		const statusUpper = (s.status ?? "").toUpperCase()
 		return statusUpper === "SIGNED" || statusUpper === "COMPLETED" || !!s.signedAt
@@ -219,7 +223,7 @@ function ExpandedDocumentDetails({
 					</div>
 				) : signers.length === 0 ? (
 					<p className="text-muted-foreground py-2 text-sm">
-						No signer data available for this document.
+						Signer data is temporarily unavailable while we rebuild the signing integration.
 					</p>
 				) : (
 					<div className="space-y-2">
@@ -369,16 +373,10 @@ export default function DocumentsPage() {
 		})
 	}, [])
 
-	const utils = trpc.useUtils()
 	const { data: documents, isPending, error, refetch, isFetching } =
 		trpc.documents.getMyNotarizedDocuments.useQuery()
 
 	const viewingDocument = documents?.find(d => d.id === viewingActId)
-	const { data: signedDocumentData, isPending: isFetchingSignedDocument } =
-		trpc.documents.getSignedDocument.useQuery(
-			{ actId: viewingActId! },
-			{ enabled: !!viewingActId, retry: false }
-		)
 
 	const filteredDocuments = useMemo((): DocumentRow[] => {
 		if (!documents) return []
@@ -404,36 +402,24 @@ export default function DocumentsPage() {
 		return [...filtered].sort((a, b) => new Date(b.executedAt).getTime() - new Date(a.executedAt).getTime())
 	}, [documents, searchTerm, actTypeFilter, workflowFilter])
 
-	const handleViewDocument = useCallback((actId: string) => {
+	const handleViewDocument = useCallback((actId: string, _documentName?: string) => {
 		setViewingActId(actId)
 	}, [])
 
 	const handleDownloadDocument = useCallback(
-		async (actId: string, documentName: string) => {
+		async (actId: string, _documentName?: string) => {
 			setDownloadingActId(actId)
 			try {
-				const response = await utils.documents.getSignedDocument.fetch({ actId })
-				if (!response?.base64) throw new Error("No document data available")
-				const binaryString = atob(response.base64)
-				const bytes = new Uint8Array(binaryString.length)
-				for (let i = 0; i < binaryString.length; i++) bytes[i] = binaryString.charCodeAt(i)
-				const blob = new Blob([bytes], { type: "application/pdf" })
-				const url = URL.createObjectURL(blob)
-				const link = document.createElement("a")
-				link.href = url
-				link.download = response.fileName || `${documentName}.pdf`
-				document.body.appendChild(link)
-				link.click()
-				document.body.removeChild(link)
-				URL.revokeObjectURL(url)
-				toast.success("Document downloaded successfully")
+				toast.error(
+					"Signed document download is temporarily unavailable while we rebuild the signing integration."
+				)
 			} catch (err) {
 				toast.error(err instanceof Error ? err.message : "Failed to download document")
 			} finally {
 				setDownloadingActId(null)
 			}
 		},
-		[utils]
+		[]
 	)
 
 	const handleRefresh = useCallback(async () => {
@@ -772,32 +758,14 @@ export default function DocumentsPage() {
 						<DialogTitle>{viewingDocument?.documentName ?? "View Document"}</DialogTitle>
 					</DialogHeader>
 					<div className="flex min-h-0 flex-1 flex-col">
-						{isFetchingSignedDocument && (
-							<div className="flex flex-1 items-center justify-center">
-								<div className="text-center">
-									<Loader2 className="mx-auto mb-4 size-8 animate-spin" />
-									<p className="text-muted-foreground">Loading document...</p>
-								</div>
+						<div className="flex flex-1 items-center justify-center">
+							<div className="text-center">
+								<FileText className="text-muted-foreground mx-auto mb-4 size-12" />
+								<p className="text-muted-foreground">
+									Document viewing is temporarily unavailable while we rebuild the signing integration.
+								</p>
 							</div>
-						)}
-						{signedDocumentData?.documentUrl && !isFetchingSignedDocument && (
-							<div className="flex-1 overflow-hidden">
-								<SimplePdfViewer
-									fileUrl={signedDocumentData.documentUrl}
-									documentName={signedDocumentData.fileName}
-								/>
-							</div>
-						)}
-						{!signedDocumentData?.documentUrl && !isFetchingSignedDocument && viewingActId && (
-							<div className="flex flex-1 items-center justify-center">
-								<div className="text-center">
-									<FileText className="text-muted-foreground mx-auto mb-4 size-12" />
-									<p className="text-muted-foreground">
-										Unable to load document. Please try downloading it instead.
-									</p>
-								</div>
-							</div>
-						)}
+						</div>
 					</div>
 				</DialogContent>
 			</Dialog>

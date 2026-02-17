@@ -88,16 +88,6 @@ const PRE_GENERATED_LINK_MAX_AGE_MS = 2 * 60 * 1000
 /** Interval for proactively clearing stale links (ms). */
 const STALE_LINK_CHECK_INTERVAL_MS = 60_000
 
-function forceApiTruePreservingParams(urlStr: string): string {
-	try {
-		const url = new URL(urlStr)
-		url.searchParams.set("api", "true")
-		return url.toString()
-	} catch {
-		return urlStr
-	}
-}
-
 // Memoized to prevent re-renders from parent state changes
 const MeetingControls = React.memo(function MeetingControls({
 	onUploadClick,
@@ -1221,7 +1211,7 @@ const DocumentActions = React.memo(function DocumentActions({
 	meetingId?: string
 	onCreateProject?: (documentId: string, meetingId: string) => void
 	isCreatingProject?: boolean
-	/** Gate Create Project until we have a fresh DocoChain token. Default true so button stays enabled when not used. */
+	/** Gate Create Project until we have a fresh signing token. Default true so button stays enabled when not used. */
 	docoChainTokenReady?: boolean
 	/** Show "Preparing…" on Create Project while token is loading. */
 	docoChainTokenLoading?: boolean
@@ -1298,8 +1288,18 @@ const DocumentActions = React.memo(function DocumentActions({
 	const currentUserIndexInOrder = currentUserId ? (signerUserIds?.indexOf(currentUserId) ?? -1) : -1
 
 	// Plotting vs signing phase (separate buttons, no shared logic)
-	const hasPlotted = !isPendingOrNextGroup && !hasUserSigned
-	const isPlottingPhase = isEnp && !!document.docoChainProjectId && !hasPlotted && !hasUserSigned
+	// IMPORTANT:
+	// - ENP plotting is not represented by being a "signer" in the project. ENP is usually NOT in the signer list,
+	//   so signerStatus is meaningless for ENP. For ENP, plotting is controlled by the explicit UI confirmation
+	//   ("Yes, I'm done") after they close the plotting tab.
+	// - For non-ENP signers, "plotted" is inferred from their DocOnChain signer status.
+	const enpHasConfirmedPlot = userConfirmedPlottedDocumentIds?.has(document.id) ?? false
+	const hasPlotted = isEnp
+		? enpHasConfirmedPlot
+		: isUserAddedAsSigner
+			? !isPendingOrNextGroup && !hasUserSigned
+			: false
+	const isPlottingPhase = isEnp && !!document.docoChainProjectId && !enpHasConfirmedPlot
 	// Only the first signer (index 0) waits for ENP to plot. Signers 2, 3, ... (e.g. witness) do not
 	// see "Waiting for ENP to plot" — they see "Previous signer(s) must sign first" until it's their turn.
 	const isPrincipalWaitingForEnpToPlot =
@@ -1459,15 +1459,14 @@ const DocumentActions = React.memo(function DocumentActions({
 	const plotPreGenKey = `plot-${document.id}-${document.docoChainProjectId}`
 	const preGeneratePlotLinkMutation = trpc.signatureRequests.initiateSigning.useMutation({
 		onSuccess: data => {
-			if (data.link && data.projectUuid && onPreGeneratedLink) {
+			// Store pre-generated Plot link for this document (kept separate from Sign link).
+			if (data?.link && document.docoChainProjectId && onPreGeneratedLink) {
 				onPreGeneratedLink(
 					document.id,
 					data.link,
-					data.projectUuid,
+					data.projectUuid ?? document.docoChainProjectId,
 					"plot",
-					typeof (data as unknown as { cleanPlotUrl?: unknown }).cleanPlotUrl === "string"
-						? ((data as unknown as { cleanPlotUrl?: string }).cleanPlotUrl ?? undefined)
-						: undefined
+					data.cleanPlotUrl
 				)
 			}
 			preGenerationInitiatedRef.current = null
@@ -1489,8 +1488,9 @@ const DocumentActions = React.memo(function DocumentActions({
 
 	const preGenerateSignLinkMutation = trpc.signatureRequests.initiateSigning.useMutation({
 		onSuccess: data => {
-			if (data.link && data.projectUuid && onPreGeneratedLink) {
-				onPreGeneratedLink(document.id, data.link, data.projectUuid, "sign")
+			// Store pre-generated Sign link for this document (kept separate from Plot link).
+			if (data?.link && document.docoChainProjectId && onPreGeneratedLink) {
+				onPreGeneratedLink(document.id, data.link, data.projectUuid ?? document.docoChainProjectId, "sign")
 			}
 			preGenerationInitiatedRef.current = null
 		},
@@ -1577,7 +1577,7 @@ const DocumentActions = React.memo(function DocumentActions({
 
 	return (
 		<div className="space-y-2">
-			{/* Before project exists: show signer button and count. After: show DocoChain signer list */}
+			{/* Before project exists: show signer button and count. After: show signer list */}
 			{document.docoChainProjectId && filteredSigners && filteredSigners.length > 0 ? (
 				<SignerList signers={filteredSigners} />
 			) : (
@@ -1883,145 +1883,11 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 
 	// Core refresh logic extracted for reuse
 	const performSigningStatusRefresh = useCallback(
-		async (force = false) => {
-			if (!documents || documents.length === 0) return
-
-			// Wait for in-flight request to complete if forcing, otherwise skip if already in progress
-			if (signingStatusInFlightRef.current) {
-				if (!force) return
-				// Wait for current request to finish (max 10 seconds)
-				const startTime = Date.now()
-				while (signingStatusInFlightRef.current && Date.now() - startTime < 10000) {
-					await new Promise(resolve => setTimeout(resolve, 100))
-				}
-				if (signingStatusInFlightRef.current) {
-					console.warn("Signing status refresh timed out waiting for previous request")
-					return
-				}
-			}
-
-			const docsWithProjects = documents.filter(d => !!d.docoChainProjectId)
-			if (docsWithProjects.length === 0) return
-
-			const isUnauthorized = (err: unknown) => {
-				const msg =
-					err instanceof Error
-						? err.message
-						: typeof err === "object" && err !== null && "message" in err
-							? String(err.message)
-							: ""
-				const msgLower = msg.toLowerCase()
-				return (
-					msg.includes("E_UNAUTHORIZED_ACCESS") ||
-					msgLower.includes("unauthorized") ||
-					msgLower.includes("forbidden") ||
-					msgLower.includes("don't have access") ||
-					msgLower.includes("created by a different user") ||
-					msgLower.includes("not part of this project")
-				)
-			}
-
-			signingStatusInFlightRef.current = true
-			setIsRefreshingSigningStatus(true)
-			try {
-				// Run status checks in parallel, but keep docId so we can reason about failures.
-				const results = await Promise.all(
-					docsWithProjects.map(async doc => {
-						try {
-							const status = await utils.signatureRequests.checkSigningStatus.fetch({
-								projectUuid: doc.docoChainProjectId!,
-							})
-							return { ok: true as const, docId: doc.id, status }
-						} catch (error: unknown) {
-							return { ok: false as const, docId: doc.id, error }
-						}
-					})
-				)
-
-				const unauthorizedHit = results.some(r => !r.ok && isUnauthorized(r.error))
-				const anyErrorHit = results.some(r => !r.ok)
-
-				// If any call errors, pause polling to avoid spamming console/network.
-				// Unauthorized gets a specific message; other errors (e.g. "fetch failed") get a generic one.
-				// Only pause automatic polling, not manual refreshes
-				if (!force && (unauthorizedHit || anyErrorHit)) {
-					setSigningStatusPollingPausedUntil(Date.now() + 60_000)
-
-					if (unauthorizedHit && !hasShownSigningStatusAuthErrorRef.current) {
-						hasShownSigningStatusAuthErrorRef.current = true
-						toast.error("Cannot check signing status (unauthorized). Pausing status updates.")
-					} else if (!unauthorizedHit && !hasShownSigningStatusFetchErrorRef.current) {
-						hasShownSigningStatusFetchErrorRef.current = true
-						toast.error("Signing status check failed. Pausing status updates.")
-					}
-					return
-				}
-
-				const statusMap = new Map<
-					string,
-					{
-						isFullySigned: boolean
-						signedCount: number
-						totalSigners: number
-						projectStatus?: string
-						completedAt?: string | null
-						signers: Array<{
-							id: number
-							email: string
-							firstName: string
-							lastName: string
-							status: string
-							signedAt: string | null
-							sequence: number
-							signerRole: string
-						}>
-					}
-				>()
-
-				for (const result of results) {
-					if (result.ok) {
-						const { docId, status } = result
-						statusMap.set(docId, {
-							isFullySigned: status.isFullySigned,
-							signedCount: status.signedCount,
-							totalSigners: status.totalSigners,
-							projectStatus: status.projectStatus,
-							completedAt: status.completedAt,
-							signers: status.signers || [],
-						})
-					}
-				}
-
-				// Keep previous entries for docs that failed this round
-				setDocumentSigningStatus(prev => {
-					let changed = false
-					const merged = new Map(prev)
-
-					for (const [docId, entry] of statusMap.entries()) {
-						const current = merged.get(docId)
-						const same =
-							!!current &&
-							current.isFullySigned === entry.isFullySigned &&
-							current.signedCount === entry.signedCount &&
-							current.totalSigners === entry.totalSigners &&
-							current.projectStatus === entry.projectStatus &&
-							current.completedAt === entry.completedAt &&
-							current.signers.length === entry.signers.length
-
-						if (!same) {
-							changed = true
-							merged.set(docId, entry)
-						}
-					}
-
-					return changed ? merged : prev
-				})
-			} finally {
-				signingStatusInFlightRef.current = false
-				setIsRefreshingSigningStatus(false)
-			}
+		async (_force = false) => {
+			// External signing status polling is disabled while the signing integration is rebuilt.
+			return
 		},
-		[documents, utils.signatureRequests.checkSigningStatus]
+		[]
 	)
 
 	// Automatic polling refresh (respects visibility and pause state)
@@ -2049,7 +1915,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 		await performSigningStatusRefresh(true)
 	}, [performSigningStatusRefresh])
 
-	// Check signing status for all documents with DocoChain project IDs
+	// Check signing status for all documents with signing project IDs
 	useEffect(() => {
 		if (!showDocuments) return
 		if (!documents || documents.length === 0) return
@@ -2100,40 +1966,17 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 		},
 	})
 
-	// Mutation to create DocoChain project (after signers are set)
-	const createDocoChainProjectMutation = trpc.meetings.createDocoChainProject.useMutation({
-		onSuccess: () => {
-			void utils.meetings.getMeetingDocuments.invalidate(meetingId ?? "")
-			toast.success("DocoChain project created successfully!")
+	// External signing provider project creation + token warmup are disabled while the integration is rebuilt.
+	const createDocoChainProjectMutation = {
+		mutate: (_input: { documentId: string; meetingId: string }) => {
+			toast.error(
+				"Project creation is temporarily unavailable while we rebuild the signing integration."
+			)
 		},
-		onError: error => {
-			toast.error(error.message ?? "Failed to create DocoChain project")
-		},
-	})
-
-	// Ensure DocoChain token as soon as ENP enters the meeting (not just when Create Project is needed).
-	// This fixes Edit Draft links being wrong until page refresh - token must be ready before any link generation.
-	const hasAnyCreateProjectEligibleDoc =
-		(documents ?? []).some(
-			d =>
-				!d.docoChainProjectId &&
-				((d as { signerUserIds?: string[] }).signerUserIds?.length ?? 0) > 0
-		) ?? false
-	const isEnp = session?.user?.role === "ENP"
-	const {
-		data: ensureTokenData,
-		isSuccess: ensureTokenSuccess,
-		isFetching: ensureTokenFetching,
-	} = trpc.meetings.ensureDocoChainToken.useQuery(
-		{ meetingId: meetingId ?? "" },
-		{
-			enabled: !!(meetingId ?? "").trim() && !!isEnp,
-			retry: false,
-			staleTime: 60_000, // Treat as fresh for 1 min so we don't refetch constantly
-		}
-	)
-	const docoChainTokenReady = !!isEnp && ensureTokenSuccess && !!ensureTokenData?.ready
-	const docoChainTokenLoading = !!isEnp && !!hasAnyCreateProjectEligibleDoc && ensureTokenFetching
+		isPending: false,
+	}
+	const docoChainTokenReady = true
+	const docoChainTokenLoading = false
 
 	const handleSignersChange = useCallback(
 		(documentId: string, userIds: string[]) => {
@@ -2319,150 +2162,28 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 		setDragOverDocumentId(null)
 	}, [])
 
-	// Handle signed document - only open when fully processed (Completed)
-	const handleDownloadSignedDocument = useCallback(
-		async (projectUuid: string) => {
-			setDownloadingProjectUuid(projectUuid)
+	// Signed document retrieval is temporarily disabled while the signing integration is rebuilt.
+	const handleDownloadSignedDocument = useCallback(async (_projectUuid: string) => {
+		toast.error(
+			"Signed document retrieval is currently unavailable while we rebuild the signing integration."
+		)
+		setDownloadingProjectUuid(null)
+	}, [])
 
-			// Clear any previous toast
-			if (openingSignedDocumentToastIdRef.current !== null) {
-				toast.dismiss(openingSignedDocumentToastIdRef.current)
-				openingSignedDocumentToastIdRef.current = null
-			}
-
-			openingSignedDocumentToastIdRef.current = toast.loading("Opening notarized document…")
-
-			try {
-				// Wait until DocoChain reports the project as completed (processing done)
-				const maxAttempts = 10
-				let delayMs = 1500
-
-				for (let attempt = 0; attempt < maxAttempts; attempt++) {
-					const status = await utils.signatureRequests.checkSigningStatus.fetch({ projectUuid })
-					const statusUpper = String(status?.projectStatus ?? "").toUpperCase()
-					const isCompleted = statusUpper === "COMPLETED" || status?.completedAt !== null
-
-					if (isCompleted) break
-
-					// Not ready yet: wait and retry
-					await new Promise(resolve => setTimeout(resolve, delayMs))
-					delayMs = Math.min(delayMs + 500, 4000)
-				}
-
-				// Final check (one last fetch) before opening
-				const finalStatus = await utils.signatureRequests.checkSigningStatus.fetch({ projectUuid })
-				const finalStatusUpper = String(finalStatus?.projectStatus ?? "").toUpperCase()
-				const isFinallyCompleted =
-					finalStatusUpper === "COMPLETED" || finalStatus?.completedAt !== null
-
-				if (!isFinallyCompleted) {
-					toast.error("Signed document is still processing. Please try again in a moment.")
-					return
-				}
-
-				// Only open once completed (ensures sealed document is available).
-				// This avoids relying on DocoChain guestToken and avoids leaking api_token in URLs.
-				const url = `/api/doconchain/projects/${encodeURIComponent(projectUuid)}/signed`
-				const opened = window.open(url, "_blank", "noopener,noreferrer")
-				if (!opened) {
-					toast.error("Popup blocked. Please allow popups for this site and try again.")
-					return
-				}
-				toast.success("Opening notarized document…")
-			} catch (error) {
-				console.error("Error opening notarized document:", error)
-				toast.error(error instanceof Error ? error.message : "Failed to open notarized document")
-			} finally {
-				if (openingSignedDocumentToastIdRef.current !== null) {
-					toast.dismiss(openingSignedDocumentToastIdRef.current)
-					openingSignedDocumentToastIdRef.current = null
-				}
-				setDownloadingProjectUuid(null)
-			}
-		},
-		[utils.signatureRequests.checkSigningStatus]
-	)
-
-	// Handle certificate download
-	const handleDownloadCertificate = useCallback(
-		async (projectUuid: string) => {
-			setDownloadingCertificateUuid(projectUuid)
-
-			try {
-				// Fetch the certificate using tRPC utils
-				// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument
-				const result = await utils.signatureRequests.downloadCertificate.fetch(projectUuid as any)
-
-				if (result?.base64) {
-					// Convert base64 to blob and download
-					const byteCharacters = atob(result.base64)
-					const byteNumbers = new Array(byteCharacters.length)
-					for (let i = 0; i < byteCharacters.length; i++) {
-						byteNumbers[i] = byteCharacters.charCodeAt(i)
-					}
-					const byteArray = new Uint8Array(byteNumbers)
-					const blob = new Blob([byteArray], { type: "application/pdf" })
-
-					const url = window.URL.createObjectURL(blob)
-					const link = document.createElement("a")
-					link.href = url
-					link.download = result.fileName || `certificate-${projectUuid}.pdf`
-					document.body.appendChild(link)
-					link.click()
-					document.body.removeChild(link)
-					window.URL.revokeObjectURL(url)
-
-					toast.success("Certificate downloaded successfully!")
-				} else {
-					toast.error("Failed to download certificate")
-				}
-			} catch (error) {
-				console.error("Error downloading certificate:", error)
-				toast.error(error instanceof Error ? error.message : "Failed to download certificate")
-			} finally {
-				setDownloadingCertificateUuid(null)
-			}
-		},
-		[utils.signatureRequests.downloadCertificate]
-	)
+	// Certificate retrieval is temporarily disabled while the signing integration is rebuilt.
+	const handleDownloadCertificate = useCallback(async (_projectUuid: string) => {
+		toast.error(
+			"Certificate retrieval is currently unavailable while we rebuild the signing integration."
+		)
+		setDownloadingCertificateUuid(null)
+	}, [])
 
 	// Generate signing link mutation (for signature request dialog)
 	const generateSigningLink = trpc.signatureRequests.generateSigningLink.useMutation({
-		onSuccess: data => {
-			let signingLink = typeof data.link === "string" ? data.link : null
-
-			if (!signingLink) {
-				toast.error("Invalid signing link received")
-				return
-			}
-
-			// For signing, preserve recipient token params; only force api=true.
-			signingLink = forceApiTruePreservingParams(signingLink)
-
-			try {
-				new URL(signingLink)
-			} catch {
-				toast.error("Invalid URL format for signing link")
-				return
-			}
-
-			// Open DocoChain signing page in popup window
-			const width = Math.min(window.innerWidth - 40, 1400)
-			const height = Math.min(window.innerHeight - 40, 900)
-			const left = (window.screen.width - width) / 2
-			const top = (window.screen.height - height) / 2
-
-			const popup = window.open(
-				signingLink,
-				"DocoChainSigning",
-				`width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes,toolbar=no,location=no,menubar=no`
+		onSuccess: () => {
+			toast.error(
+				"Signing is temporarily unavailable while we rebuild the signing integration."
 			)
-
-			if (popup) {
-				toast.success("Opening signing interface...")
-			} else {
-				toast.error("Popup blocked. Please allow popups for this site and try again.")
-			}
 		},
 		onError: error => {
 			const errorMessage =
@@ -2488,142 +2209,6 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 				openingPlatformToastIdRef.current = toast.loading("Opening plotting platform…")
 			}
 		},
-		onSuccess: data => {
-			// Clear loading toast (if any)
-			if (openingPlatformToastIdRef.current !== null) {
-				toast.dismiss(openingPlatformToastIdRef.current)
-				openingPlatformToastIdRef.current = null
-			}
-
-			// Validate that we have a valid URL string
-			let signingLink = typeof data.link === "string" ? data.link : null
-			const cleanPlotUrl =
-				typeof (data as unknown as { cleanPlotUrl?: unknown }).cleanPlotUrl === "string"
-					? ((data as unknown as { cleanPlotUrl?: string }).cleanPlotUrl ?? undefined)
-					: undefined
-
-			if (!signingLink) {
-				console.error("❌ Invalid signing link received:", data)
-				toast.error("Invalid signing link received")
-				return
-			}
-
-			// For plotting, keep link as-is (enterprise draft plotting URL). For signing, preserve token params; only force api=true.
-			const wasPlotting = isPlottingActionRef.current
-			if (!wasPlotting) signingLink = forceApiTruePreservingParams(signingLink)
-			// SAFETY: Always force api=true for plotting links (DocOnChain UI mode toggle).
-			// Some upstream links can omit it on first load; missing api=true shows the full sidebar/editor shell.
-			if (wasPlotting) {
-				try {
-					const url = new URL(signingLink)
-					// Plot Signature must NEVER leak sensitive/query-heavy params into the address bar.
-					// Backend already sanitizes, but keep client-side guardrails in case of stale cache / upstream surprises.
-					if (url.hostname.includes("stg-app.doconchain.com") || url.hostname.includes("app.doconchain.com")) {
-						url.hostname = "link.doconchain.com"
-					}
-					url.searchParams.delete("token")
-					url.searchParams.set("api", "true")
-					signingLink = url.toString()
-				} catch {
-					// Ignore if URL parsing fails; later validation will catch invalid URLs.
-				}
-			}
-
-			// Validate it's a proper URL
-			try {
-				const url = new URL(signingLink)
-				// SAFETY: Plot Signature must never open a per-recipient "signing" link (token=...).
-				// Also never allow app/stg-app hosts for plotting (we require sanitized link.doconchain.com).
-				if (wasPlotting) {
-					const hasSignerTokenParam = url.searchParams.has("token")
-					const isBadHost =
-						url.hostname.includes("stg-app.doconchain.com") ||
-						url.hostname.includes("app.doconchain.com")
-					if (hasSignerTokenParam || isBadHost) {
-						toast.error(
-							"Plot Signature must open the draft plotting platform. Please click Plot Signature again."
-						)
-						setSigningDocumentId(null)
-						setIsPlottingAction(false)
-						isPlottingActionRef.current = false
-						plotPopupDocumentIdRef.current = null
-						return
-					}
-				}
-			} catch {
-				console.error("❌ Invalid URL format:", signingLink)
-				toast.error("Invalid URL format for signing link")
-				return
-			}
-
-			console.log("✅ Signing process initiated successfully! Project UUID:", data.projectUuid)
-
-			// Open DocoChain signing page in popup window (iframe blocked by DocoChain)
-			// Open in popup window with specific dimensions (centered, almost fullscreen)
-			const width = Math.min(window.innerWidth - 40, 1400)
-			const height = Math.min(window.innerHeight - 40, 900)
-			const left = (window.screen.width - width) / 2
-			const top = (window.screen.height - height) / 2
-
-			const popup = window.open(
-				signingLink,
-				"DocoChainSigning",
-				`width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes,toolbar=no,location=no,menubar=no`
-			)
-
-			if (popup) {
-				// Best-effort: after the first authorized navigation, replace the popup URL with a "clean" link
-				// (no api_token / token in the address bar). This depends on DocOnChain session cookies.
-				// We intentionally target `link.doconchain.com` here to avoid DocOnChain's `status=Deleted` redirect.
-				if (wasPlotting && cleanPlotUrl && cleanPlotUrl.includes("link.doconchain.com")) {
-					const tryReplace = (delayMs: number) => {
-						setTimeout(() => {
-							try {
-								if (!popup.closed) popup.location.replace(cleanPlotUrl)
-							} catch {
-								// Ignore - cross-origin navigation errors or popup closed.
-							}
-						}, delayMs)
-					}
-					tryReplace(1200)
-					tryReplace(3200)
-					tryReplace(6200)
-				}
-
-				// Monitor popup for closing - check every 1.5s is responsive enough
-				const checkClosed = setInterval(() => {
-					if (popup.closed) {
-						clearInterval(checkClosed)
-						setSigningDocumentId(null)
-						setIsPlottingAction(false)
-						isPlottingActionRef.current = false
-
-						if (wasPlotting) {
-							const docId = plotPopupDocumentIdRef.current
-							setPlotCloseConfirmDocumentId(docId)
-							setPlotCloseConfirmOpen(true)
-						} else {
-							plotPopupDocumentIdRef.current = null
-							void refetchDocuments().then(() => {
-								void manualRefreshSigningStatuses()
-							})
-							toast.success("Signing completed. Document status updated.")
-						}
-					}
-				}, 1500)
-
-				toast.success(
-					wasPlotting
-						? "Opening plotting platform in popup window..."
-						: "Opening signing interface in popup window..."
-				)
-			} else {
-				toast.error("Popup blocked. Please allow popups for this site and try again.")
-				setSigningDocumentId(null) // Clear loading state
-				setIsPlottingAction(false) // Clear plotting state
-				isPlottingActionRef.current = false // Clear ref
-			}
-		},
 		onError: error => {
 			console.error("❌ Failed to initiate signing:", error)
 			// Clear loading toast (if any)
@@ -2646,161 +2231,117 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 	})
 
 	const handleSignClick = useCallback(
-		(projectUuid: string | null, email: string, documentId: string, isPlotting?: boolean) => {
-			const plotting = isPlotting ?? false
-			const preGeneratedMap = plotting ? preGeneratedPlotLinks : preGeneratedSignLinks
-			const setPreGeneratedMap = plotting ? setPreGeneratedPlotLinks : setPreGeneratedSignLinks
-			const preGenerated = preGeneratedMap.get(documentId)
-
-			// Pre-generated link can go stale (api_token expires after ~2 min). Skip use when stale and regenerate.
-			const ageMs =
-				typeof preGenerated?.storedAt === "number" ? Date.now() - preGenerated.storedAt : Infinity
-			const isStale = ageMs > PRE_GENERATED_LINK_MAX_AGE_MS
-			if (preGenerated?.link && isStale) {
-				setPreGeneratedMap(prev => {
-					const next = new Map(prev)
-					next.delete(documentId)
-					return next
-				})
+		async (projectUuid: string | null, email: string, documentId: string, isPlotting?: boolean) => {
+			if (!projectUuid) {
+				toast.error("DocOnChain project not found. Please create the project first.")
+				return
 			}
-
-			// Use pre-generated link only when we have it and it's fresh
-			if (preGenerated?.link && !isStale) {
-				console.log("✅ Using pre-generated link (fresh)")
-				setSigningDocumentId(documentId)
-				setIsPlottingAction(plotting)
-				isPlottingActionRef.current = plotting
-				if (plotting) plotPopupDocumentIdRef.current = documentId
-
-				let signingLink = preGenerated.link
-				// For plotting, keep link as-is (enterprise draft plotting URL). For signing, preserve token params.
-				if (!plotting) {
-					signingLink = forceApiTruePreservingParams(signingLink)
-				} else {
-					// SAFETY: Always force api=true for plotting links (ensures "no sidebar" DocOnChain view).
-					try {
-						const url = new URL(signingLink)
-						url.searchParams.set("api", "true")
-						signingLink = url.toString()
-					} catch {
-						// Ignore; validation below will handle invalid URLs.
-					}
-				}
-
-				try {
-					const url = new URL(signingLink)
-					// SAFETY: Plot Signature must never open a "signing" link (token=...) or app-domain link.
-					if (plotting) {
-						const hasTokenParam = url.searchParams.has("token")
-						const isAppDomain =
-							url.hostname.includes("stg-app.doconchain.com") ||
-							url.hostname.includes("app.doconchain.com")
-						if (hasTokenParam || isAppDomain) {
-							toast.error(
-								"Plot Signature must open the draft plotting platform. Please click Plot Signature again."
-							)
-							setSigningDocumentId(null)
-							setIsPlottingAction(false)
-							isPlottingActionRef.current = false
-							plotPopupDocumentIdRef.current = null
-							return
-						}
-					}
-				} catch {
-					console.error("❌ Invalid URL format:", signingLink)
-					toast.error("Invalid URL format for signing link")
-					return
-				}
-
-				const width = Math.min(window.innerWidth - 40, 1400)
-				const height = Math.min(window.innerHeight - 40, 900)
-				const left = (window.screen.width - width) / 2
-				const top = (window.screen.height - height) / 2
-
-				const popup = window.open(
-					signingLink,
-					"DocoChainSigning",
-					`width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes,toolbar=no,location=no,menubar=no`
-				)
-
-				if (popup) {
-					// Same best-effort cleanup as the mutation onSuccess path.
-					if (plotting && preGenerated.cleanPlotUrl?.includes("link.doconchain.com")) {
-						const cleanPlotUrl = preGenerated.cleanPlotUrl
-						const tryReplace = (delayMs: number) => {
-							setTimeout(() => {
-								try {
-									if (!popup.closed) popup.location.replace(cleanPlotUrl)
-								} catch {
-									// Ignore
-								}
-							}, delayMs)
-						}
-						tryReplace(1200)
-						tryReplace(3200)
-						tryReplace(6200)
-					}
-
-					const checkClosed = setInterval(() => {
-						if (popup.closed) {
-							clearInterval(checkClosed)
-							setSigningDocumentId(null)
-							setIsPlottingAction(false)
-							isPlottingActionRef.current = false
-
-							if (plotting) {
-								const docId = plotPopupDocumentIdRef.current
-								setPlotCloseConfirmDocumentId(docId)
-								setPlotCloseConfirmOpen(true)
-							} else {
-								void refetchDocuments().then(() => {
-									void manualRefreshSigningStatuses()
-								})
-								toast.success("Signing completed. Document status updated.")
-							}
-						}
-					}, 1500)
-					toast.success(
-						plotting
-							? "Opening plotting platform in popup window..."
-							: "Opening signing interface in popup window..."
-					)
-					setPreGeneratedMap(prev => {
-						const next = new Map(prev)
-						next.delete(documentId)
-						return next
-					})
-				} else {
-					toast.error("Popup blocked. Please allow popups for this site and try again.")
-					setSigningDocumentId(null)
-					setIsPlottingAction(false)
-					isPlottingActionRef.current = false
-					plotPopupDocumentIdRef.current = null
-				}
+			if (!email) {
+				toast.error("User email not found. Please sign in again.")
 				return
 			}
 
-			// No pre-generated link or stale — generate on demand (fresh link every time)
-			if (isStale && plotting) {
-				toast.info("Generating fresh link…")
-			}
+			const kind = isPlotting === true ? "plot" : "sign"
+			const existing =
+				kind === "plot" ? preGeneratedPlotLinks.get(documentId) : preGeneratedSignLinks.get(documentId)
+			const linkFromCache =
+				existing?.link && existing.projectUuid === projectUuid ? existing.link : undefined
+
 			setSigningDocumentId(documentId)
-			setIsPlottingAction(plotting)
-			isPlottingActionRef.current = plotting
-			if (plotting) plotPopupDocumentIdRef.current = documentId
-			const effectiveProjectUuid = preGenerated?.projectUuid ?? projectUuid
-			initiateSigning.mutate(
-				effectiveProjectUuid
-					? { projectUuid: effectiveProjectUuid, email, isPlotting: plotting }
-					: { documentId, email, isPlotting: plotting }
-			)
+			setIsPlottingAction(kind === "plot")
+			isPlottingActionRef.current = kind === "plot"
+
+			try {
+				const data = linkFromCache
+					? {
+							projectUuid,
+							link: linkFromCache,
+							kind,
+							cleanPlotUrl: existing?.cleanPlotUrl,
+						}
+					: await initiateSigning.mutateAsync({
+							projectUuid,
+							email,
+							isPlotting: kind === "plot",
+						})
+
+				const link = data?.link
+				if (!link) {
+					throw new Error("Missing DocOnChain link.")
+				}
+
+				// Cache for subsequent clicks.
+				if (kind === "plot") {
+					setPreGeneratedPlotLinks(prev => {
+						const next = new Map(prev)
+						next.set(documentId, {
+							link,
+							projectUuid,
+							storedAt: Date.now(),
+							cleanPlotUrl: (data as { cleanPlotUrl?: string }).cleanPlotUrl,
+						})
+						return next
+					})
+				} else {
+					setPreGeneratedSignLinks(prev => {
+						const next = new Map(prev)
+						next.set(documentId, { link, projectUuid, storedAt: Date.now() })
+						return next
+					})
+				}
+
+				// Open platform.
+				if (openingPlatformToastIdRef.current !== null) {
+					toast.dismiss(openingPlatformToastIdRef.current)
+					openingPlatformToastIdRef.current = null
+				}
+
+				if (kind === "plot") {
+					// Open in a new tab (required for Plot Signature workflow).
+					// Note: some browsers intentionally return `null` when `noopener/noreferrer` are used,
+					// even though the tab was opened. Do NOT attempt a second open, or you’ll get 2 tabs.
+					const popup = window.open(link, "_blank", "noopener,noreferrer")
+					plotPopupDocumentIdRef.current = documentId
+
+					// If blocked, we can't track close; just inform the user.
+					if (!popup) {
+						toast.info("If nothing opened, allow pop-ups for this site and try again.")
+						return
+					}
+
+					// Detect close to prompt user confirmation.
+					const interval = window.setInterval(() => {
+						if (popup.closed) {
+							window.clearInterval(interval)
+							if (plotPopupDocumentIdRef.current === documentId) {
+								setPlotCloseConfirmDocumentId(documentId)
+								setPlotCloseConfirmOpen(true)
+							}
+						}
+					}, 800)
+				} else {
+					window.open(link, "_blank", "noopener,noreferrer")
+				}
+			} catch (error) {
+				const errorMessage =
+					error instanceof Error
+						? error.message
+						: typeof error === "object" && error !== null && "message" in error
+							? String((error as { message?: unknown }).message)
+							: "Failed to open signing platform"
+				toast.error(errorMessage)
+			} finally {
+				setSigningDocumentId(null)
+				setIsPlottingAction(false)
+				isPlottingActionRef.current = false
+			}
 		},
 		[
 			initiateSigning,
 			preGeneratedPlotLinks,
 			preGeneratedSignLinks,
-			refetchDocuments,
-			manualRefreshSigningStatuses,
+			setPreGeneratedPlotLinks,
+			setPreGeneratedSignLinks,
 		]
 	)
 
@@ -3513,7 +3054,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 										(signingStatus?.signedCount ?? 0) === (signingStatus?.totalSigners ?? 0) &&
 										(signingStatus?.signedCount ?? 0) > 0) ||
 									false
-								// Document is COMPLETED when DocoChain has finished processing (seal + signature applied)
+								// Document is COMPLETED when signing processing has finished (seal + signature applied)
 								const statusUpper = String(signingStatus?.projectStatus ?? "").toUpperCase()
 								const isCompleted =
 									statusUpper === "COMPLETED" ||
@@ -4080,7 +3621,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 									const userEmail = session?.user?.email
 
 									console.log("Document:", activeSignatureRequest.document)
-									console.log("DocoChain Project ID:", projectId)
+									console.log("Signing Project ID:", projectId)
 									console.log("ENP Email:", userEmail)
 
 									if (projectId && userEmail) {
@@ -4097,7 +3638,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 										console.error("Missing required data:", { projectId, userEmail })
 										toast.error(
 											!projectId
-												? "DocoChain project not found. Please ensure the document was uploaded correctly."
+												? "Signing project not found. Please ensure the document was uploaded correctly."
 												: "User email not found. Please sign in again."
 										)
 									}

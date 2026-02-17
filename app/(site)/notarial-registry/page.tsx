@@ -351,7 +351,7 @@ function NotarialActCard({
 								<Eye className="mr-1.5 size-3.5" />
 								Document
 							</Button>
-							{act.docoChainProjectUuid && (
+							{act.documentId && (
 								<Button
 									variant="outline"
 									size="sm"
@@ -374,7 +374,8 @@ function NotarialActCard({
 							variant="outline"
 							size="sm"
 							className="flex-1"
-							onClick={() => onViewCertificate(act.id)}
+							disabled
+							title="Temporarily unavailable while signing integration is rebuilt"
 						>
 							<FileCheck className="mr-1.5 size-3.5" />
 							Certificate
@@ -440,12 +441,8 @@ function ExpandedActDetails({
 		idVerified?: boolean | null
 	}
 
-	const { data: signersData, isPending: isSignersLoading } =
-		trpc.notarialBook.getActSigners.useQuery(
-			{ actId: act.id },
-			{ enabled: isExpanded && !!act.docoChainProjectUuid }
-		)
-	const signers = (signersData?.signers ?? []) as unknown as ActSigner[]
+	const isSignersLoading = false
+	const signers = [] as ActSigner[]
 	const isSignerSigned = (s: { status?: string | null; signedAt?: string | null }) => {
 		const statusUpper = (s.status ?? "").toUpperCase()
 		return statusUpper === "SIGNED" || statusUpper === "COMPLETED" || !!s.signedAt
@@ -463,7 +460,7 @@ function ExpandedActDetails({
 					</div>
 				) : signers.length === 0 ? (
 					<p className="text-muted-foreground py-1.5 text-xs">
-						No signer data available for this document.
+						Signer data is temporarily unavailable while we rebuild the signing integration.
 					</p>
 				) : (
 					<div className="space-y-1.5">
@@ -624,7 +621,7 @@ export default function NotarialRegistryPage() {
 	}, [])
 
 	// Only show DB notarial acts so entries appear only after "End Session" has been clicked.
-	// (DocoChain API returns "processing completed" when signing is done, which would show entries before End Session.)
+	// (External signing integration is currently being rebuilt.)
 	const dbQuery = trpc.notarialBook.getNotarialBook.useQuery({
 		page,
 		perPage,
@@ -760,18 +757,9 @@ export default function NotarialRegistryPage() {
 	}, [])
 
 	const handleViewCertificate = async (actId: string) => {
-		try {
-			const result = await utils.notarialBook.getCertificateUrl.fetch({ actId })
-			if (result?.url) {
-				window.open(result.url, "_blank")
-			} else {
-				toast.error("Certificate URL not available")
-			}
-		} catch (error) {
-			toast.error(
-				`Failed to get certificate: ${error instanceof Error ? error.message : "Unknown error"}`
-			)
-		}
+		toast.error(
+			"Certificate retrieval is temporarily unavailable while we rebuild the signing integration."
+		)
 	}
 
 	return (
@@ -1178,9 +1166,9 @@ export default function NotarialRegistryPage() {
 																							variant="ghost"
 																							size="sm"
 																							className="size-7 p-0"
-																							onClick={() => handleViewCertificate(act.id)}
+																							disabled
 																							aria-label="View certificate"
-																							title="View Certificate"
+																							title="Temporarily unavailable while signing integration is rebuilt"
 																						>
 																							<FileCheck className="size-4" />
 																						</Button>

@@ -1,3 +1,5 @@
-export default function Layout(props: LayoutProps<"/">) {
-	return <div className="min-h-screen">{props.children}</div>
+import type { ReactNode } from "react"
+
+export default function Layout({ children }: { children: ReactNode }) {
+	return <div className="min-h-screen">{children}</div>
 }

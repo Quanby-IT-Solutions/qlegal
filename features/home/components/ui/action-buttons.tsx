@@ -55,7 +55,7 @@ export const ActionButton = ({
 
 	return (
 		<Link
-			// @ts-expect-error - bypass Next.js 15.5 typed route
+			// @ts-ignore - bypass Next.js 15.5 typed route
 			href={href}
 			onClick={e => {
 				if (disabled) {

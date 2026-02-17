@@ -39,7 +39,7 @@ import { DocumentPreviewDialog } from "./document-preview-dialog"
 
 type ViewMode = "grid" | "list"
 
-// Extended document type to include DocoChain project properties
+// Extended document type to include signing project properties
 type CompletedDocument = {
 	id: string
 	name: string
@@ -119,8 +119,8 @@ export function CompletedDocumentsPage() {
 		}
 	)
 
-	const completedDocuments = useMemo(
-		() => completedData?.documents ?? [],
+	const completedDocuments = useMemo<CompletedDocument[]>(
+		() => (completedData?.documents ?? []) as CompletedDocument[],
 		[completedData?.documents]
 	)
 	const total = completedData?.total ?? 0
@@ -133,60 +133,7 @@ export function CompletedDocumentsPage() {
 		await refetch()
 	}
 
-	// Download signed document query
-	const downloadDocumentQuery = trpc.envelopeLite.downloadSignedDocument.useQuery(
-		{ projectUuid: downloadingProjectUuid ?? "" },
-		{
-			enabled: !!downloadingProjectUuid,
-		}
-	)
-
-	// Handle download result
-	useEffect(() => {
-		if (downloadDocumentQuery.data && downloadingProjectUuid) {
-			try {
-				const result = downloadDocumentQuery.data
-				if (result?.base64) {
-					// Convert base64 to blob
-					const byteCharacters = atob(result.base64)
-					const byteNumbers = new Array(byteCharacters.length)
-					for (let i = 0; i < byteCharacters.length; i++) {
-						byteNumbers[i] = byteCharacters.charCodeAt(i)
-					}
-					const byteArray = new Uint8Array(byteNumbers)
-					const blob = new Blob([byteArray], { type: "application/pdf" })
-
-					// Create download link
-					const url = window.URL.createObjectURL(blob)
-					const link = document.createElement("a")
-					link.href = url
-					link.download = result.fileName || "signed-document.pdf"
-					link.style.display = "none"
-
-					document.body.appendChild(link)
-					link.click()
-					document.body.removeChild(link)
-
-					// Clean up
-					window.URL.revokeObjectURL(url)
-					toast.success("Document downloaded successfully")
-				} else {
-					toast.error("Failed to get document data")
-				}
-			} catch (error) {
-				console.error("Download failed:", error)
-				toast.error("Failed to download document")
-			} finally {
-				setDownloadingProjectUuid(null)
-			}
-		}
-
-		if (downloadDocumentQuery.error && downloadingProjectUuid) {
-			console.error("Download failed:", downloadDocumentQuery.error)
-			toast.error(downloadDocumentQuery.error.message || "Failed to download document")
-			setDownloadingProjectUuid(null)
-		}
-	}, [downloadDocumentQuery.data, downloadDocumentQuery.error, downloadingProjectUuid])
+	// Signed document download is temporarily disabled while the signing integration is rebuilt.
 
 	// Handle download button click
 	const handleDownload = (projectUuid: string) => {
@@ -194,7 +141,9 @@ export function CompletedDocumentsPage() {
 			toast.error("Project UUID is required")
 			return
 		}
-		setDownloadingProjectUuid(projectUuid)
+		toast.error(
+			"Signed document download is temporarily unavailable while we rebuild the signing integration."
+		)
 	}
 
 	// Handle certificate view button click
@@ -203,10 +152,9 @@ export function CompletedDocumentsPage() {
 			toast.error("Project UUID is required")
 			return
 		}
-		setPreviewCertificate({
-			projectUuid,
-			certificateName: `${documentName} - Certificate`,
-		})
+		toast.error(
+			"Certificate retrieval is temporarily unavailable while we rebuild the signing integration."
+		)
 	}
 
 	// Filter and search documents
