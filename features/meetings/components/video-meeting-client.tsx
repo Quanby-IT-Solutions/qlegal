@@ -68,6 +68,68 @@ function formatElapsedMs(diffMs: number) {
 const PRE_GENERATED_LINK_MAX_AGE_MS = 2 * 60 * 1000
 /** Interval for proactively clearing stale links (ms). */
 const STALE_LINK_CHECK_INTERVAL_MS = 60_000
+/** After DocOnChain reports COMPLETED, give the seal a moment to apply. */
+const SEALED_DOCUMENT_SETTLE_DELAY_MS = 5_000
+
+const NotarizedDocumentMenuItem = React.memo(function NotarizedDocumentMenuItem({
+	projectUuid,
+	isOpening,
+	onOpen,
+}: {
+	projectUuid: string
+	isOpening: boolean
+	onOpen: (projectUuid: string) => Promise<void>
+}) {
+	const statusQuery = trpc.signatureRequests.checkSigningStatus.useQuery(
+		{ projectUuid },
+		{
+			enabled: projectUuid.trim().length > 0,
+			retry: false,
+			refetchInterval: query => {
+				const statusUpper = String(query.state.data?.projectStatus ?? "").toUpperCase()
+				const isCompleted =
+					statusUpper === "COMPLETED" || (query.state.data?.completedAt ?? null) !== null
+				return isCompleted ? false : 4_000
+			},
+			staleTime: 4_000,
+			refetchOnWindowFocus: false,
+		}
+	)
+
+	const statusUpper = String(statusQuery.data?.projectStatus ?? "").toUpperCase()
+	const isCompleted =
+		statusUpper === "COMPLETED" || (statusQuery.data?.completedAt ?? null) !== null
+	const hasError = Boolean(statusQuery.error)
+	const isDisabled = isOpening || hasError || !isCompleted
+
+	return (
+		<DropdownMenuItem
+			disabled={isDisabled}
+			onClick={() => {
+				void onOpen(projectUuid)
+			}}
+		>
+			{isOpening ? (
+				<Loader2 className="size-4 animate-spin" />
+			) : hasError ? (
+				<AlertCircle className="size-4" />
+			) : !isCompleted ? (
+				<Clock className="size-4" />
+			) : (
+				<FileText className="size-4" />
+			)}
+			<span className="ml-2">
+				{isOpening
+					? "Preparing sealed document..."
+					: hasError
+						? "Notarized document unavailable"
+						: !isCompleted
+							? "Notarized document processing..."
+							: "View Notarized Document"}
+			</span>
+		</DropdownMenuItem>
+	)
+})
 
 function extractDoconchainLink(value: unknown): string | undefined {
 	if (typeof value === "string") {
@@ -1522,6 +1584,7 @@ const DocumentActions = React.memo(function DocumentActions({
 	// Plot Signature: ENP only, project exists, not signed. After plotting is done it stays visible but disabled.
 	const showPlotSignature =
 		isEnp &&
+		(signerUserIds?.length ?? 0) > 0 &&
 		!!document.docoChainProjectId &&
 		!hasUserSigned &&
 		!allSignersSigned
@@ -1961,7 +2024,7 @@ const DocumentActions = React.memo(function DocumentActions({
 						{!document.docoChainProjectId
 							? "Add signer first after setting signers"
 							: hasUserSigned
-								? "You have completed signing"
+								? ""
 								: allSignersSigned
 									? "All signers have completed signing"
 									: isSigningDisabledByOrder
@@ -1976,9 +2039,9 @@ const DocumentActions = React.memo(function DocumentActions({
 														  isPlottingPhase &&
 														  showSignDocument &&
 														  !(userConfirmedPlottedDocumentIds?.has(document.id) ?? false)
-														? "Please plot your signature first"
+														? ""
 														: isSigningDisabledByPreviousSigners
-															? "Previous signer(s) must sign first"
+															? ""
 															: ""}
 					</p>
 				)}
@@ -2024,6 +2087,8 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 	const [isPlottingAction, setIsPlottingAction] = useState(false)
 	const isPlottingActionRef = useRef(false)
 	const plotPopupDocumentIdRef = useRef<string | null>(null)
+	const [plotConfirmDocumentId, setPlotConfirmDocumentId] = useState<string | null>(null)
+	const [isConfirmingPlot, setIsConfirmingPlot] = useState(false)
 	const [userConfirmedPlottedDocumentIds, setUserConfirmedPlottedDocumentIds] = useState<
 		Set<string>
 	>(new Set())
@@ -2372,25 +2437,17 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 			if (!projectUuid?.trim()) return
 			try {
 				setDownloadingProjectUuid(projectUuid)
-				// Wait until DocOnChain reports the project as COMPLETED (seal applied).
-				const maxAttempts = 10
-				let delayMs = 1500
-				for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
-					const status = await utils.signatureRequests.checkSigningStatus.fetch({ projectUuid })
-					const statusUpper = String(status?.projectStatus ?? "").toUpperCase()
-					const isCompleted = statusUpper === "COMPLETED" || (status?.completedAt ?? null) !== null
-					if (isCompleted) break
-					await new Promise(resolve => setTimeout(resolve, delayMs))
-					delayMs = Math.min(delayMs + 500, 4000)
-				}
-
-				const finalStatus = await utils.signatureRequests.checkSigningStatus.fetch({ projectUuid })
-				const finalUpper = String(finalStatus?.projectStatus ?? "").toUpperCase()
-				const isFinallyCompleted = finalUpper === "COMPLETED" || (finalStatus?.completedAt ?? null) !== null
-				if (!isFinallyCompleted) {
+				const status = await utils.signatureRequests.checkSigningStatus.fetch({ projectUuid })
+				const statusUpper = String(status?.projectStatus ?? "").toUpperCase()
+				const isCompleted = statusUpper === "COMPLETED" || (status?.completedAt ?? null) !== null
+				if (!isCompleted) {
 					toast.error("Signed document is still processing. Please try again in a moment.")
 					return
 				}
+
+				// DocOnChain may report COMPLETED slightly before the seal is fully visible.
+				// Give it a brief settle period so the first open reliably includes the seal.
+				await new Promise(resolve => setTimeout(resolve, SEALED_DOCUMENT_SETTLE_DELAY_MS))
 
 				const url = `/api/doconchain/projects/${encodeURIComponent(projectUuid)}/signed`
 				const opened = window.open(url, "_blank", "noopener,noreferrer")
@@ -2584,20 +2641,13 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 						return
 					}
 
-					// Detect close and mark plotted immediately (no confirmation).
+					// Detect close and ask for confirmation (failsafe: ENP may close accidentally without plotting).
 					const interval = window.setInterval(() => {
 						if (popup.closed) {
 							window.clearInterval(interval)
 							if (plotPopupDocumentIdRef.current === documentId) {
-								setUserConfirmedPlottedDocumentIds(prev => new Set(prev).add(documentId))
-								if (meetingId) {
-									markDocumentPlottedMutation.mutate({ meetingId, documentId })
-								}
 								plotPopupDocumentIdRef.current = null
-								void refetchDocuments().then(() => {
-									void manualRefreshSigningStatuses()
-								})
-								toast.success("Signature plotted. Document status updated.")
+								setPlotConfirmDocumentId(documentId)
 							}
 						}
 					}, 800)
@@ -2657,6 +2707,42 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 			setPreGeneratedSignLinks,
 		]
 	)
+
+	const plotConfirmDocumentName = useMemo(() => {
+		if (!plotConfirmDocumentId) return null
+		const doc = (documents ?? []).find(d => d.id === plotConfirmDocumentId)
+		return doc?.name ?? null
+	}, [documents, plotConfirmDocumentId])
+
+	const handleConfirmPlotDone = useCallback(async () => {
+		const documentId = plotConfirmDocumentId
+		const mId = meetingId
+		if (!documentId || !mId) {
+			setPlotConfirmDocumentId(null)
+			return
+		}
+		setIsConfirmingPlot(true)
+		try {
+			await markDocumentPlottedMutation.mutateAsync({ meetingId: mId, documentId })
+			setUserConfirmedPlottedDocumentIds(prev => new Set(prev).add(documentId))
+			void refetchDocuments().then(() => {
+				void manualRefreshSigningStatuses()
+			})
+			toast.success("Document marked as plotted. Signing can now begin.")
+		} catch (error) {
+			const msg = error instanceof Error ? error.message : "Failed to mark document as plotted."
+			toast.error(msg)
+		} finally {
+			setIsConfirmingPlot(false)
+			setPlotConfirmDocumentId(null)
+		}
+	}, [
+		manualRefreshSigningStatuses,
+		markDocumentPlottedMutation,
+		meetingId,
+		plotConfirmDocumentId,
+		refetchDocuments,
+	])
 
 	// Signature request modal flow removed
 
@@ -3457,23 +3543,11 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 														</Button>
 													</DropdownMenuTrigger>
 													<DropdownMenuContent align="end" sideOffset={6} className="min-w-44">
-														<DropdownMenuItem
-															disabled={isDownloadingSigned}
-															onClick={() => {
-																void handleViewNotarizedDocument(doc.docoChainProjectId)
-															}}
-														>
-															{isDownloadingSigned ? (
-																<Loader2 className="size-4 animate-spin" />
-															) : (
-																<FileText className="size-4" />
-															)}
-															<span>
-																{isDownloadingSigned
-																	? "Opening notarized document..."
-																	: "View Notarized Document"}
-															</span>
-														</DropdownMenuItem>
+														<NotarizedDocumentMenuItem
+															projectUuid={doc.docoChainProjectId}
+															isOpening={isDownloadingSigned}
+															onOpen={handleViewNotarizedDocument}
+														/>
 													</DropdownMenuContent>
 												</DropdownMenu>
 											</div>
@@ -3686,6 +3760,45 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 					isEnp={session?.user?.role === "ENP"}
 				/>
 			)}
+
+			{/* Plot Signature failsafe: confirm before marking READY */}
+			<Dialog
+				open={!!plotConfirmDocumentId}
+				onOpenChange={open => {
+					if (!open && !isConfirmingPlot) setPlotConfirmDocumentId(null)
+				}}
+			>
+				<DialogContent className="max-w-md">
+					<DialogHeader>
+						<DialogTitle>Confirm signature plotting</DialogTitle>
+						<DialogDescription>
+							Did you finish plotting signatures for{" "}
+							<strong>{plotConfirmDocumentName ?? "this document"}</strong>?
+							<br />
+							Only confirm if you actually placed the required signature fields in DocOnChain.
+						</DialogDescription>
+					</DialogHeader>
+					<DialogFooter className="gap-2 sm:justify-end">
+						<Button
+							variant="outline"
+							disabled={isConfirmingPlot}
+							onClick={() => setPlotConfirmDocumentId(null)}
+						>
+							Not yet
+						</Button>
+						<Button disabled={isConfirmingPlot} onClick={() => void handleConfirmPlotDone()}>
+							{isConfirmingPlot ? (
+								<>
+									<Loader2 className="mr-2 size-4 animate-spin" />
+									Marking…
+								</>
+							) : (
+								"Yes, I plotted"
+							)}
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
 
 			{/* Main Content: Signing-focused layout */}
 			<div className="flex flex-1 flex-col overflow-hidden">
