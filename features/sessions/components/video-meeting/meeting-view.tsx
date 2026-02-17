@@ -2074,7 +2074,10 @@ export function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meet
 			fileType: (doc as { fileType?: string | null }).fileType ?? null,
 			notarizationType: (doc as { notarizationType?: string | null }).notarizationType ?? null,
 			signerUserIds: (doc as { signerUserIds?: string[] | null }).signerUserIds ?? null,
-			cost: (doc as { cost?: number | null }).cost ?? null,
+			cost:
+				(doc as { fees?: number | null; cost?: number | null }).fees ??
+				(doc as { cost?: number | null }).cost ??
+				null,
 			currency: (doc as { currency?: string | null }).currency ?? "PHP",
 		}))
 	}, [documents])
@@ -2083,6 +2086,17 @@ export function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meet
 		await refetchDocuments()
 		await manualRefreshSigningStatuses()
 	}, [refetchDocuments, manualRefreshSigningStatuses])
+
+	const handleToggleLock = useCallback(() => {
+		const isPrincipal = meetingDetails?.createdBy.id === session?.user?.id
+		if (isPrincipal && meetingId) {
+			const isLocked = meetingDetails?.isDocumentOrderLocked ?? false
+			toggleLockMutation.mutate({
+				meetingId,
+				isLocked: !isLocked,
+			})
+		}
+	}, [meetingDetails, meetingId, session?.user?.id, toggleLockMutation])
 
 	if (!joined) {
 		return (
@@ -2189,6 +2203,8 @@ export function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meet
 							participants={meetingDetails?.participants ?? []}
 							onSignersChange={handleSignersChange}
 							isDocumentOrderLocked={meetingDetails?.isDocumentOrderLocked ?? false}
+							isPrincipal={meetingDetails?.createdBy.id === session?.user?.id}
+							onToggleLock={handleToggleLock}
 							isRefreshing={isDocumentsFetching || isRefreshingSigningStatus}
 							onRefresh={handleSidebarRefresh}
 							onDownloadSigned={handleDownloadSignedDocument}

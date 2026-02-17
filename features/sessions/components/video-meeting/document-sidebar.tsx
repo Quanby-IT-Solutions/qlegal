@@ -16,6 +16,8 @@ import {
 	Loader2,
 	Lock,
 	RefreshCw,
+	Trash2,
+	Unlock,
 	UserPlus,
 } from "lucide-react"
 
@@ -81,6 +83,12 @@ export interface DocumentSidebarProps {
 	onSignersChange: (documentId: string, userIds: string[]) => void
 	/** Whether document order is locked */
 	isDocumentOrderLocked?: boolean
+	/** Whether current user is the principal (meeting creator) */
+	isPrincipal?: boolean
+	/** Called when lock/unlock is toggled */
+	onToggleLock?: () => void
+	/** Called when a document is removed */
+	onRemoveDocument?: (documentId: string) => void
 	/** Whether we are currently fetching/refreshing */
 	isRefreshing?: boolean
 	onRefresh?: () => void
@@ -222,6 +230,9 @@ export const DocumentSidebar = React.memo(function DocumentSidebar({
 	participants,
 	onSignersChange,
 	isDocumentOrderLocked = false,
+	isPrincipal = false,
+	onToggleLock,
+	onRemoveDocument,
 	isRefreshing = false,
 	onRefresh,
 	onDownloadSigned,
@@ -239,7 +250,10 @@ export const DocumentSidebar = React.memo(function DocumentSidebar({
 	)
 
 	const totalCost = useMemo(() => documents.reduce((s, d) => s + (d.cost ?? 0), 0), [documents])
-	const hasCosts = useMemo(() => documents.some(d => d.cost !== undefined && d.cost !== null && d.cost > 0), [documents])
+	const hasCosts = useMemo(
+		() => documents.some(d => d.cost !== undefined && d.cost !== null && d.cost > 0),
+		[documents]
+	)
 	const defaultCurrency = documents.find(d => d.currency)?.currency ?? "PHP"
 	const toggleExpanded = useCallback(() => setIsExpanded(prev => !prev), [])
 
@@ -349,6 +363,43 @@ export const DocumentSidebar = React.memo(function DocumentSidebar({
 					)}
 				</div>
 				<div className="flex items-center gap-1">
+					{onToggleLock && (
+						<Tooltip>
+							<TooltipTrigger asChild>
+								<button
+									onClick={onToggleLock}
+									disabled={!isPrincipal}
+									className={cn(
+										"flex size-7 items-center justify-center rounded-md transition-colors",
+										isDocumentOrderLocked
+											? "bg-amber-100 text-amber-700 hover:bg-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:hover:bg-amber-900/50"
+											: "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
+										!isPrincipal && "cursor-not-allowed opacity-50"
+									)}
+									title={
+										!isPrincipal
+											? "Only the meeting creator can lock/unlock documents"
+											: isDocumentOrderLocked
+												? "Unlock order"
+												: "Lock order"
+									}
+								>
+									{isDocumentOrderLocked ? (
+										<Lock className="size-3.5" />
+									) : (
+										<Unlock className="size-3.5" />
+									)}
+								</button>
+							</TooltipTrigger>
+							<TooltipContent side="left" className="text-[11px]">
+								{!isPrincipal
+									? "Only the meeting creator can lock/unlock"
+									: isDocumentOrderLocked
+										? "Unlock document order - allows reordering"
+										: "Lock document order - enforces sequential signing"}
+							</TooltipContent>
+						</Tooltip>
+					)}
 					{onRefresh && (
 						<button
 							onClick={onRefresh}
@@ -401,7 +452,9 @@ export const DocumentSidebar = React.memo(function DocumentSidebar({
 
 							// File metadata
 							const fileSizeLabel =
-								doc.size !== undefined && doc.size !== null && doc.size > 0 ? formatFileSize(doc.size) : null
+								doc.size !== undefined && doc.size !== null && doc.size > 0
+									? formatFileSize(doc.size)
+									: null
 							const fileTypeLabel = formatFileType(doc.fileType)
 							const notarizationLabel = formatNotarizationType(doc.notarizationType)
 
@@ -436,12 +489,15 @@ export const DocumentSidebar = React.memo(function DocumentSidebar({
 												<Tooltip>
 													<TooltipTrigger asChild>
 														<button
-															onClick={() => setSignerModalDocId(doc.id)}
+															onClick={() => !isDocumentOrderLocked && setSignerModalDocId(doc.id)}
+															disabled={isDocumentOrderLocked}
 															className={cn(
 																"flex size-6 items-center justify-center rounded-md transition-colors",
-																hasNoSigners
-																	? "text-yellow-500 hover:bg-yellow-50 hover:text-yellow-600 dark:text-yellow-400 dark:hover:bg-yellow-900/20"
-																	: "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+																isDocumentOrderLocked
+																	? "cursor-not-allowed opacity-40"
+																	: hasNoSigners
+																		? "text-yellow-500 hover:bg-yellow-50 hover:text-yellow-600 dark:text-yellow-400 dark:hover:bg-yellow-900/20"
+																		: "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
 															)}
 															aria-label="Manage signers"
 														>
@@ -449,14 +505,16 @@ export const DocumentSidebar = React.memo(function DocumentSidebar({
 														</button>
 													</TooltipTrigger>
 													<TooltipContent side="left" className="max-w-44 text-[11px]">
-														{hasNoSigners
-															? "Add signer first before setting signers"
-															: `Manage signers (${doc.signerUserIds?.length ?? 0} selected)`}
+														{isDocumentOrderLocked
+															? "Unlock order to manage signers"
+															: hasNoSigners
+																? "Add signer first before setting signers"
+																: `Manage signers (${doc.signerUserIds?.length ?? 0} selected)`}
 													</TooltipContent>
 												</Tooltip>
 											)}
 
-											{/* View Document — opens /api/documents/:id exactly like DocumentActions */}
+											{/* View Document — always available regardless of lock */}
 											<Tooltip>
 												<TooltipTrigger asChild>
 													<button
@@ -532,6 +590,32 @@ export const DocumentSidebar = React.memo(function DocumentSidebar({
 															: isCompleted
 																? "Download certificate"
 																: "Available when completed"}
+													</TooltipContent>
+												</Tooltip>
+											)}
+
+											{/* Remove Document — only for principal, disabled when locked */}
+											{onRemoveDocument && isPrincipal && (
+												<Tooltip>
+													<TooltipTrigger asChild>
+														<button
+															onClick={() => !isDocumentOrderLocked && onRemoveDocument(doc.id)}
+															disabled={isDocumentOrderLocked}
+															className={cn(
+																"flex size-6 items-center justify-center rounded-md transition-colors",
+																isDocumentOrderLocked
+																	? "cursor-not-allowed opacity-40"
+																	: "text-muted-foreground hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-900/20 dark:hover:text-red-400"
+															)}
+															aria-label="Remove document"
+														>
+															<Trash2 className="size-3.5" />
+														</button>
+													</TooltipTrigger>
+													<TooltipContent side="left" className="text-[11px]">
+														{isDocumentOrderLocked
+															? "Unlock order to remove document"
+															: "Remove document"}
 													</TooltipContent>
 												</Tooltip>
 											)}
