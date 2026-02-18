@@ -108,8 +108,16 @@ async function fetchFromVaultFileUrl(params: {
 		;(err as Error & { status?: number }).status = 425
 		throw err
 	}
+	const filesWithUrl = (vaultRes.item?.files ?? []).filter(
+		(f): f is { file_name?: string; file_url: string } =>
+			typeof f?.file_url === "string" && f.file_url.trim().length > 0
+	)
+	// Prefer the file that looks like the sealed/completed notarized document (has seal applied).
+	const sealedLike = /completed|sealed|final|notarized|signed.*completed/i
+	const preferred = filesWithUrl.find(f => sealedLike.test(String(f.file_name ?? "")))
+	const chosen = preferred ?? filesWithUrl[0]
 	const urlString =
-		vaultRes.item?.files?.find(f => typeof f?.file_url === "string" && f.file_url.trim())?.file_url ??
+		chosen?.file_url?.trim() ??
 		(typeof (vaultRes.item as unknown as { url?: unknown } | null)?.url === "string"
 			? String((vaultRes.item as unknown as { url?: unknown } | null)?.url)
 			: null)
