@@ -572,7 +572,6 @@ function CalendarScheduleEventCard({
 			<Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
 				<SheetTrigger asChild>
 					<Item
-						asChild
 						data-slot="calendar-schedule-event-card"
 						variant="muted"
 						size="sm"
@@ -582,78 +581,76 @@ function CalendarScheduleEventCard({
 						)}
 						{...props}
 					>
-						<button type="button" className="contents">
-							<ItemMedia>
-								<Avatar className="size-8">
-									<AvatarImage src={getAvatarUrl(event.principal?.image) ?? undefined} alt="" />
-									<AvatarFallback className="text-xs">
-										{getInitials(event.principal?.name ?? "?")}
-									</AvatarFallback>
-								</Avatar>
-							</ItemMedia>
-							<ItemContent className="min-w-0 gap-0">
-								<ItemTitle className="flex items-center gap-1.5 truncate">
-									<span className="truncate">{event.principal?.name ?? event.title}</span>
-									<Badge
-										variant="secondary"
-										className="shrink-0 px-1.5 py-0 text-[10px]"
-										style={{
-											borderColor: event.status.color,
-											color: event.status.color,
+						<ItemMedia>
+							<Avatar className="size-8">
+								<AvatarImage src={getAvatarUrl(event.principal?.image) ?? undefined} alt="" />
+								<AvatarFallback className="text-xs">
+									{getInitials(event.principal?.name ?? "?")}
+								</AvatarFallback>
+							</Avatar>
+						</ItemMedia>
+						<ItemContent className="min-w-0 gap-0">
+							<ItemTitle className="flex items-center gap-1.5 truncate">
+								<span className="truncate">{event.principal?.name ?? event.title}</span>
+								<Badge
+									variant="secondary"
+									className="shrink-0 px-1.5 py-0 text-[10px]"
+									style={{
+										borderColor: event.status.color,
+										color: event.status.color,
+									}}
+								>
+									{event.status.name}
+								</Badge>
+							</ItemTitle>
+							<ItemDescription className="text-muted-foreground line-clamp-1 text-xs">
+								{subtitle}
+							</ItemDescription>
+						</ItemContent>
+						<ItemActions
+							className={cn(
+								"text-muted-foreground text-xs leading-tight",
+								isActionable ? "flex-row items-center gap-1.5" : "flex flex-col items-end gap-0"
+							)}
+						>
+							{isActionable ? (
+								<>
+									<Button
+										variant="outline"
+										size="xs"
+										className="text-destructive hover:bg-destructive/10 text-xs"
+										disabled={isProcessing}
+										onClick={e => {
+											e.stopPropagation()
+											setIsRejectDialogOpen(true)
 										}}
 									>
-										{event.status.name}
-									</Badge>
-								</ItemTitle>
-								<ItemDescription className="text-muted-foreground line-clamp-1 text-xs">
-									{subtitle}
-								</ItemDescription>
-							</ItemContent>
-							<ItemActions
-								className={cn(
-									"text-muted-foreground text-xs leading-tight",
-									isActionable ? "flex-row items-center gap-1.5" : "flex flex-col items-end gap-0"
-								)}
-							>
-								{isActionable ? (
-									<>
-										<Button
-											variant="outline"
-											size="xs"
-											className="text-destructive hover:bg-destructive/10 text-xs"
-											disabled={isProcessing}
-											onClick={e => {
-												e.stopPropagation()
-												setIsRejectDialogOpen(true)
-											}}
-										>
-											Reject
-										</Button>
-										<Button
-											size="xs"
-											disabled={isProcessing}
-											onClick={e => {
-												e.stopPropagation()
-												onAccept?.()
-											}}
-										>
-											{isProcessing ? (
-												<>
-													<Spinner className="size-3" /> Accepting…
-												</>
-											) : (
-												"Accept"
-											)}
-										</Button>
-									</>
-								) : (
-									<>
-										<span>{formattedTime}</span>
-										{displayLabel ? <span>{displayLabel}</span> : null}
-									</>
-								)}
-							</ItemActions>
-						</button>
+										Reject
+									</Button>
+									<Button
+										size="xs"
+										disabled={isProcessing}
+										onClick={e => {
+											e.stopPropagation()
+											onAccept?.()
+										}}
+									>
+										{isProcessing ? (
+											<>
+												<Spinner className="size-3" /> Accepting…
+											</>
+										) : (
+											"Accept"
+										)}
+									</Button>
+								</>
+							) : (
+								<>
+									<span>{formattedTime}</span>
+									{displayLabel ? <span>{displayLabel}</span> : null}
+								</>
+							)}
+						</ItemActions>
 					</Item>
 				</SheetTrigger>
 
