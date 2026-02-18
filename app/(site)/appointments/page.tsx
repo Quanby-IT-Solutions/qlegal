@@ -1,21 +1,15 @@
 import { Suspense } from "react"
-import { type inferRouterOutputs } from "@trpc/server"
 
 import { PageHeader } from "@/core/components/navbar/page-header"
 import { Skeleton } from "@/core/components/ui/skeleton"
 
 import { auth } from "@/services/next-auth"
-import { type AppRouter } from "@/services/trpc/root"
 import { HydrateClient, trpc } from "@/services/trpc/server"
 
 import { AppointmentsClient } from "@/features/appointments/components/appointments-client"
 import { AppointmentsScheduleClient } from "@/features/appointments/components/appointments-schedule-client"
 import { CalendarSkeleton } from "@/features/appointments/components/calendar/calendar-skeleton"
 import { EventListSkeleton } from "@/features/appointments/components/event-list/event-list-skeleton"
-
-type IncomingRequest = inferRouterOutputs<AppRouter>["appointments"]["getIncomingRequests"][number]
-type IncomingAppointment =
-	inferRouterOutputs<AppRouter>["appointments"]["getIncomingAppointmentsForENP"][number]
 
 function sortIncomingItems<T extends { createdAt: Date }>(items: T[]) {
 	items.sort((a, b) => {
@@ -98,8 +92,8 @@ async function ENPAppointmentsContent() {
 		trpc.appointments.getIncomingAppointmentsForENP(),
 	])
 
-	const incomingRequests = sortIncomingItems([...rawRequests]) as IncomingRequest[]
-	const incomingAppointments = sortIncomingItems([...rawAppointments]) as IncomingAppointment[]
+	const incomingRequests = sortIncomingItems([...rawRequests])
+	const incomingAppointments = sortIncomingItems([...rawAppointments])
 	const today = new Date()
 	const scheduleData = await trpc.appointments.getEnpSchedule({
 		month: today.getMonth(),
