@@ -22,14 +22,14 @@ export function useAppointmentsScheduleActions({
 	const [rejectDialogOpen, setRejectDialogOpen] = useState(false)
 	const [processingId, setProcessingId] = useState<string | null>(null)
 
-	const updateStatusMutation = trpc.requests.updateRequestStatus.useMutation()
+	const updateStatusMutation = trpc.appointments.updateRequestStatus.useMutation()
 	const confirmAppointmentMutation = trpc.appointments.confirmAppointment.useMutation()
 	const cancelAppointmentMutation = trpc.appointments.cancelAppointment.useMutation()
-	const createEnpEvent = trpc.schedule.createEnpEvent.useMutation({
+	const createEnpEvent = trpc.appointments.createEnpEvent.useMutation({
 		onSuccess: () => {
-			void utils.requests.getEnpSchedule.invalidate()
-			void utils.requests.getIncomingRequests.invalidate()
-			void utils.requests.getIncomingAppointmentsForENP.invalidate()
+			void utils.appointments.getEnpSchedule.invalidate()
+			void utils.appointments.getIncomingRequests.invalidate()
+			void utils.appointments.getIncomingAppointmentsForENP.invalidate()
 			router.refresh()
 			toast.success("Event created")
 		},
@@ -39,12 +39,12 @@ export function useAppointmentsScheduleActions({
 			})
 		},
 	})
-	const deleteEnpEvent = trpc.schedule.deleteEnpEvent.useMutation()
+	const deleteEnpEvent = trpc.appointments.deleteEnpEvent.useMutation()
 
 	const revalidate = async () => {
-		await utils.requests.getIncomingRequests.invalidate()
-		await utils.requests.getIncomingAppointmentsForENP.invalidate()
-		await utils.requests.getEnpSchedule.invalidate()
+		await utils.appointments.getIncomingRequests.invalidate()
+		await utils.appointments.getIncomingAppointmentsForENP.invalidate()
+		await utils.appointments.getEnpSchedule.invalidate()
 		router.refresh()
 	}
 

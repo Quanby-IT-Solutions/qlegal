@@ -11,7 +11,7 @@ export default async function RequestsPage() {
 	const session = await auth()
 	const isENP = session?.user?.role === "ENP"
 
-	const rawRequests = await trpc.requests.getIncomingRequests()
+	const rawRequests = await trpc.appointments.getIncomingRequests()
 
 	const incomingRequests = rawRequests.map(request => ({
 		id: request.id,
@@ -34,7 +34,7 @@ export default async function RequestsPage() {
 
 	let incomingAppointments: AppointmentItem[] = []
 	if (isENP) {
-		const rawAppointments = await trpc.requests.getIncomingAppointmentsForENP()
+		const rawAppointments = await trpc.appointments.getIncomingAppointmentsForENP()
 		incomingAppointments = rawAppointments.map(apt => ({
 			...apt,
 			workflow: apt.workflow as AppointmentItem["workflow"],
@@ -51,7 +51,7 @@ export default async function RequestsPage() {
 
 	const today = new Date()
 	const scheduleData = isENP
-		? await trpc.requests.getEnpSchedule({
+		? await trpc.appointments.getEnpSchedule({
 				month: today.getMonth(),
 				year: today.getFullYear(),
 			})

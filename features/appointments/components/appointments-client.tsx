@@ -17,13 +17,13 @@ export function AppointmentsClient({ incomingRequests }: { incomingRequests: App
 	const [rejectDialogOpen, setRejectDialogOpen] = useState(false)
 	const [processingId, setProcessingId] = useState<string | null>(null)
 
-	const updateStatusMutation = trpc.requests.updateRequestStatus.useMutation()
+	const updateStatusMutation = trpc.appointments.updateRequestStatus.useMutation()
 	const confirmAppointmentMutation = trpc.appointments.confirmAppointment.useMutation()
 	const cancelAppointmentMutation = trpc.appointments.cancelAppointment.useMutation()
 
 	const revalidate = async () => {
-		await utils.requests.getIncomingRequests.invalidate()
-		await utils.requests.getIncomingAppointmentsForENP.invalidate()
+		await utils.appointments.getIncomingRequests.invalidate()
+		await utils.appointments.getIncomingAppointmentsForENP.invalidate()
 		router.refresh()
 	}
 
