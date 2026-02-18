@@ -119,7 +119,7 @@ export function AppointmentsListView({
 					/>
 				</div>
 				<Select value={workflowFilter} onValueChange={setWorkflowFilter}>
-					<SelectTrigger className="bg-background w-[130px]">
+					<SelectTrigger className="bg-background w-32.5">
 						<SelectValue placeholder="Type" />
 					</SelectTrigger>
 					<SelectContent>
@@ -260,7 +260,7 @@ export function AppointmentsListView({
 					))}
 				</div>
 			) : (
-				<div className="animate-in fade-in-50 flex min-h-[300px] flex-col items-center justify-center rounded-lg border border-dashed p-8 text-center">
+				<div className="animate-in fade-in-50 flex min-h-75 flex-col items-center justify-center rounded-lg border border-dashed p-8 text-center">
 					<div className="bg-muted/50 mx-auto mb-4 flex size-12 items-center justify-center rounded-full">
 						<Search className="text-muted-foreground/50 size-6" aria-hidden />
 					</div>
