@@ -71,6 +71,43 @@ const STALE_LINK_CHECK_INTERVAL_MS = 60_000
 /** After DocOnChain reports COMPLETED, give the seal a moment to apply. */
 const SEALED_DOCUMENT_SETTLE_DELAY_MS = 5_000
 
+type PopupSizePreset = "signing"
+
+function openCenteredPopup(url: string, name: string, preset: PopupSizePreset = "signing") {
+	// Use screen's available area (excludes taskbars/docks).
+	const availW = Math.max(0, window.screen.availWidth || window.innerWidth || 0)
+	const availH = Math.max(0, window.screen.availHeight || window.innerHeight || 0)
+
+	// Size relative to screen, clamped to sane bounds for the signing UI.
+	const target = preset === "signing" ? { w: 0.88, h: 0.9 } : { w: 0.88, h: 0.9 }
+	const minW = 1024
+	const minH = 720
+	const maxW = 2200
+	const maxH = 1400
+
+	const width = Math.floor(Math.min(maxW, Math.max(minW, availW * target.w)))
+	const height = Math.floor(Math.min(maxH, Math.max(minH, availH * target.h)))
+
+	// Center on the current browser window (better on multi-monitor than pure screen centering).
+	const left = Math.floor(window.screenX + (window.outerWidth - width) / 2)
+	const top = Math.floor(window.screenY + (window.outerHeight - height) / 2)
+
+	// Don't use noopener/noreferrer here; callers rely on a window handle for close detection.
+	const features = [
+		`width=${width}`,
+		`height=${height}`,
+		`left=${left}`,
+		`top=${top}`,
+		"resizable=yes",
+		"scrollbars=yes",
+		"toolbar=no",
+		"location=no",
+		"menubar=no",
+	].join(",")
+
+	return window.open(url, name, features)
+}
+
 const NotarizedDocumentMenuItem = React.memo(function NotarizedDocumentMenuItem({
 	projectUuid,
 	isOpening,
@@ -2435,6 +2472,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 	const handleViewNotarizedDocument = useCallback(
 		async (projectUuid: string) => {
 			if (!projectUuid?.trim()) return
+			const toastId = toast.loading("Opening notarized document…")
 			try {
 				setDownloadingProjectUuid(projectUuid)
 				const status = await utils.signatureRequests.checkSigningStatus.fetch({ projectUuid })
@@ -2455,11 +2493,11 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 					toast.error("Popup blocked. Please allow popups for this site and try again.")
 					return
 				}
-				toast.success("Opening notarized document…")
 			} catch (error) {
 				const msg = error instanceof Error ? error.message : "Failed to fetch notarized document."
 				toast.error(msg)
 			} finally {
+				toast.dismiss(toastId)
 				setDownloadingProjectUuid(null)
 			}
 		},
@@ -2626,13 +2664,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 
 				if (kind === "plot") {
 					// Open in a popup window so we can detect close and mark READY automatically.
-					const popup = window.open(
-						link,
-						"doconchain-plot",
-						// Don't use noopener/noreferrer here: some browsers return `null` even when the popup opens,
-						// which breaks our close detection and READY persistence.
-						"width=1200,height=850"
-					)
+					const popup = openCenteredPopup(link, "doconchain-plot", "signing")
 					plotPopupDocumentIdRef.current = documentId
 
 					// If blocked, we can't track close; just inform the user.
@@ -2653,12 +2685,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 					}, 800)
 				} else {
 					// Open in a popup window so we can detect close and mark SIGNED (best-effort).
-					const popup = window.open(
-						link,
-						"doconchain-sign",
-						// Don't use noopener/noreferrer here; we need a window handle for close detection.
-						"width=1200,height=850"
-					)
+					const popup = openCenteredPopup(link, "doconchain-sign", "signing")
 					if (!popup) {
 						// Fallback if popups are blocked
 						window.open(link, "_blank", "noopener,noreferrer")

@@ -33,7 +33,7 @@ async function postCreateProject(params: {
 	const body = new FormData()
 
 	// undici FormData: use append() to include filename for Blob/Buffer parts
-	const blob = new Blob([params.fileBuffer], { type: params.mimeType })
+	const blob = new Blob([new Uint8Array(params.fileBuffer)], { type: params.mimeType })
 	body.append("file", blob, params.filename)
 
 	if (params.userListEditable !== undefined) {

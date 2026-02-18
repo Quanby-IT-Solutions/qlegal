@@ -162,7 +162,7 @@ export async function populateNotarialRegistryOnMeetingEnd(input: {
 	})
 	if (!book) {
 		const [created] = await db.insert(notarialBooks).values({ enpId }).returning()
-		book = created ?? null
+		book = created ?? undefined
 	}
 	if (!book) throw new Error("Failed to resolve notarial book")
 
