@@ -31,7 +31,6 @@ import {
 	ItemTitle,
 } from "@/core/components/ui/item"
 import { Popover, PopoverContent, PopoverTrigger } from "@/core/components/ui/popover"
-import { Spinner } from "@/core/components/ui/spinner"
 import { cn, getAvatarUrl, getInitials } from "@/core/lib/utils"
 
 export type Status = {
@@ -503,9 +502,9 @@ function CalendarScheduleEventCard({
 	event,
 	formattedTime,
 	relativeLabel,
-	onAccept,
-	onReject,
-	isProcessing,
+	onAccept: _onAccept,
+	onReject: _onReject,
+	isProcessing: _isProcessing,
 	className,
 	...props
 }: React.ComponentProps<"div"> & {
@@ -516,14 +515,13 @@ function CalendarScheduleEventCard({
 	onReject?: () => void
 	isProcessing?: boolean
 }) {
-	const isPending = event.status.id === "pending"
 	const typeName = formatAppointmentType(event.appointmentType)
 	const isRemote = event.workflow === "REN"
 	const showWorkflow = event.appointmentType === "NOTARIZATION"
 
-	const subtitle = [typeName, showWorkflow ? (isRemote ? "Remote" : "In Person") : null]
+	const subtitle = [showWorkflow ? (isRemote ? "Remote" : "In Person") : null, typeName]
 		.filter(Boolean)
-		.join(" · ")
+		.join(" ")
 
 	// Override relative label for rejected/rescheduled statuses
 	const displayLabel =
@@ -536,9 +534,12 @@ function CalendarScheduleEventCard({
 	return (
 		<Item
 			data-slot="calendar-schedule-event-card"
-			variant="outline"
+			variant="muted"
 			size="sm"
-			className={cn("hover:bg-muted/50 transition-colors motion-reduce:transition-none", className)}
+			className={cn(
+				"hover:bg-secondary border-input border transition-colors motion-reduce:transition-none",
+				className
+			)}
 			{...props}
 		>
 			<ItemMedia>
@@ -549,11 +550,11 @@ function CalendarScheduleEventCard({
 					</AvatarFallback>
 				</Avatar>
 			</ItemMedia>
-			<ItemContent className="min-w-0">
+			<ItemContent className="min-w-0 gap-0">
 				<ItemTitle className="flex items-center gap-1.5 truncate">
 					<span className="truncate">{event.principal?.name ?? event.title}</span>
 					<Badge
-						variant="outline"
+						variant="secondary"
 						className="shrink-0 px-1.5 py-0 text-[10px]"
 						style={{
 							borderColor: event.status.color,
@@ -566,23 +567,27 @@ function CalendarScheduleEventCard({
 				<ItemDescription className="text-muted-foreground line-clamp-1 text-xs">
 					{subtitle}
 				</ItemDescription>
-				<ItemDescription className="text-muted-foreground line-clamp-1 text-[10px]">
+				{/* <ItemDescription className="text-muted-foreground line-clamp-1 text-[10px]">
 					{formattedTime}
 					{displayLabel ? ` · ${displayLabel}` : null}
-				</ItemDescription>
+				</ItemDescription> */}
 			</ItemContent>
-			{isPending && onAccept && onReject ? (
+			<ItemActions className="text-muted-foreground flex flex-col items-end gap-0 text-xs leading-tight">
+				<span>{formattedTime}</span>
+				{displayLabel ? <span>{displayLabel}</span> : null}
+			</ItemActions>
+			{/* {isPending && onAccept && onReject ? (
 				<ItemActions>
 					<Button
 						variant="outline"
-						size="sm"
-						className="text-destructive hover:bg-destructive/10"
+						size="xs"
+						className="text-destructive hover:bg-destructive/10 text-xs"
 						onClick={onReject}
 						disabled={isProcessing}
 					>
 						Reject
 					</Button>
-					<Button size="sm" onClick={onAccept} disabled={isProcessing}>
+					<Button size="xs" onClick={onAccept} disabled={isProcessing} className="text-xs">
 						{isProcessing ? (
 							<>
 								<Spinner className="size-4" />
@@ -593,7 +598,7 @@ function CalendarScheduleEventCard({
 						)}
 					</Button>
 				</ItemActions>
-			) : null}
+			) : null} */}
 		</Item>
 	)
 }
@@ -664,7 +669,6 @@ function useSelectedDayEvents(): SelectedDayEvent[] {
 		const dayStart = new Date(y, m, d)
 		const dayEnd = new Date(y, m, d, 23, 59, 59, 999)
 		const now = new Date()
-		const isToday = isSameDay(selectedDate, now)
 
 		return events
 			.filter(e => new Date(e.startAt) <= dayEnd && new Date(e.endAt ?? e.startAt) >= dayStart)
@@ -677,16 +681,20 @@ function useSelectedDayEvents(): SelectedDayEvent[] {
 					: timeFormatter.format(start)
 
 				let relativeLabel: string | null = null
-				if (isToday) {
-					if (now < start)
-						relativeLabel = formatDistanceStrict(start, now, {
-							addSuffix: true,
-						})
-					else if (end && now <= end) relativeLabel = "Ongoing"
-					else if (end)
-						relativeLabel = formatDistanceStrict(end, now, {
-							addSuffix: true,
-						})
+				if (now < start) {
+					relativeLabel = formatDistanceStrict(start, now, {
+						addSuffix: true,
+					})
+				} else if (end && now <= end) {
+					relativeLabel = "Ongoing"
+				} else if (end) {
+					relativeLabel = formatDistanceStrict(end, now, {
+						addSuffix: true,
+					})
+				} else {
+					relativeLabel = formatDistanceStrict(start, now, {
+						addSuffix: true,
+					})
 				}
 
 				return { event, formattedTime, relativeLabel }
