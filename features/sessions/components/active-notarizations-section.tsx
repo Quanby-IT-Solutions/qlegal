@@ -1,6 +1,7 @@
 "use client"
 
 import { useMemo, useState } from "react"
+import { type inferRouterOutputs } from "@trpc/server"
 import { format, isAfter, isSameDay, startOfDay } from "date-fns"
 import { Calendar, Clock, FileText, Users, Video } from "lucide-react"
 
@@ -11,23 +12,19 @@ import { Card, CardContent } from "@/core/components/ui/card"
 import { Input } from "@/core/components/ui/input"
 import { Progress } from "@/core/components/ui/progress"
 import { Skeleton } from "@/core/components/ui/skeleton"
-
 import { getAvatarUrl } from "@/core/lib/utils"
-import { trpc } from "@/services/trpc/client"
 
-import { getMeetingStatusBadge } from "@/features/sessions/lib/meeting-badges"
+import { trpc } from "@/services/trpc/client"
+import { type AppRouter } from "@/services/trpc/root"
+
 import { NotarizationDetailsDialog } from "@/features/sessions/components/notarization-details-dialog"
+import { getMeetingStatusBadge } from "@/features/sessions/lib/meeting-badges"
 
 const MEETING_ID_FROM_LINK_REGEX = /\/sessions\/([a-zA-Z0-9_-]+)/
 const PAGE_SIZE = 10
 
-interface Appointment {
-	id: string
-	title?: string
-	scheduledAt?: Date
-	createdAt: Date
-	createdBy?: { name?: string; image?: string | null }
-}
+type UpcomingAppointment =
+	inferRouterOutputs<AppRouter>["appointments"]["getUpcomingAppointments"][number]
 
 function MeetingCardSkeleton() {
 	return (
@@ -75,7 +72,8 @@ function MeetingCard({ meeting, onViewDetails }: MeetingCardProps) {
 		: "Not scheduled"
 
 	const { total: totalDocuments, signed: signedDocuments } = meeting.documentStats
-	const documentProgress = totalDocuments > 0 ? Math.round((signedDocuments / totalDocuments) * 100) : 0
+	const documentProgress =
+		totalDocuments > 0 ? Math.round((signedDocuments / totalDocuments) * 100) : 0
 	const isComplete = meeting.documentStats.isComplete !== false
 
 	return (
@@ -85,9 +83,7 @@ function MeetingCard({ meeting, onViewDetails }: MeetingCardProps) {
 					<div className="min-w-0 flex-1 space-y-3">
 						{/* Title + Status */}
 						<div className="flex flex-wrap items-center gap-2">
-							<h4 className="truncate text-base leading-tight font-semibold">
-								{meeting.title}
-							</h4>
+							<h4 className="truncate text-base leading-tight font-semibold">{meeting.title}</h4>
 							{meeting.isAppointment ? (
 								<Badge variant="secondary">Pending Session</Badge>
 							) : (
@@ -146,9 +142,7 @@ function MeetingCard({ meeting, onViewDetails }: MeetingCardProps) {
 										.toUpperCase()}
 								</AvatarFallback>
 							</Avatar>
-							<span className="text-xs font-medium">
-								{meeting.createdBy.name ?? "Unknown"}
-							</span>
+							<span className="text-xs font-medium">{meeting.createdBy.name ?? "Unknown"}</span>
 							<span className="text-muted-foreground text-xs">&bull; Host</span>
 						</div>
 
@@ -251,7 +245,7 @@ export function ActiveNotarizationsSection() {
 
 	const appointmentCards = useMemo(() => {
 		return pendingAppointments
-			.filter((appt: Appointment & { meetingLink?: string | null }) => {
+			.filter((appt: UpcomingAppointment) => {
 				const link = appt.meetingLink
 				if (!link || typeof link !== "string" || link.trim() === "") return true
 				const match = MEETING_ID_FROM_LINK_REGEX.exec(link)
@@ -259,14 +253,15 @@ export function ActiveNotarizationsSection() {
 				if (!meetingId) return true
 				return !completedOrFullySignedMeetingIds.has(meetingId)
 			})
-			.map((appt: Appointment) => ({
+			.map((appt: UpcomingAppointment) => ({
 				id: `appt-${appt.id}`,
-				title: appt.title ?? "Pending Notarization Session",
-				createdAt: (appt.scheduledAt ?? appt.createdAt).toISOString(),
+				title:
+					appt.type === "NOTARIZATION" ? "Pending Notarization Session" : "Pending Consultation",
+				createdAt: appt.appointmentDate.toISOString(),
 				status: "PENDING",
 				participants: [],
 				documentStats: { total: 0, signed: 0, isComplete: true },
-				createdBy: appt.createdBy ?? { name: "Unknown", image: null },
+				createdBy: appt.lawyer ?? { name: "Unknown", image: null },
 				isAppointment: true as const,
 			}))
 	}, [pendingAppointments, completedOrFullySignedMeetingIds])
@@ -348,19 +343,10 @@ export function ActiveNotarizationsSection() {
 			) : (
 				<div className="space-y-4">
 					{filteredMeetings.map(meeting => (
-						<MeetingCard
-							key={meeting.id}
-							meeting={meeting}
-							onViewDetails={handleViewDetails}
-						/>
+						<MeetingCard key={meeting.id} meeting={meeting} onViewDetails={handleViewDetails} />
 					))}
 
-					<Pagination
-						page={page}
-						hasMore={hasMore}
-						isLoading={isLoading}
-						onPageChange={setPage}
-					/>
+					<Pagination page={page} hasMore={hasMore} isLoading={isLoading} onPageChange={setPage} />
 				</div>
 			)}
 
