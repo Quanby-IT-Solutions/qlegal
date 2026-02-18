@@ -225,7 +225,7 @@ export const dashboardRouter = createTRPCRouter({
 			return recentDocuments
 		}),
 
-	// Get signing session appointments (DOCUMENT_SIGNING type)
+	// Get notarization session appointments (NOTARIZATION type)
 	// Shows: PENDING (waiting for ENP to accept), CONFIRMED (accepted, waiting for ENP to start),
 	// and appointments with active meetings (ready to join)
 	getSigningSessions: protectedProcedure
@@ -241,7 +241,7 @@ export const dashboardRouter = createTRPCRouter({
 			const userRole = ctx.session.user.role
 			const isENP = userRole === "ENP"
 
-			// Get DOCUMENT_SIGNING appointments that are PENDING or CONFIRMED
+			// Get NOTARIZATION appointments that are PENDING or CONFIRMED
 			const signingAppointments = await ctx.db
 				.select({
 					id: appointments.id,
@@ -270,7 +270,7 @@ export const dashboardRouter = createTRPCRouter({
 				.where(
 					and(
 						isENP ? eq(appointments.lawyerId, userId) : eq(appointments.clientId, userId),
-						eq(appointments.type, "DOCUMENT_SIGNING"),
+						eq(appointments.type, "NOTARIZATION"),
 						or(eq(appointments.status, "PENDING"), eq(appointments.status, "CONFIRMED"))
 					)
 				)

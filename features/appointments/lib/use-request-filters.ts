@@ -1,6 +1,11 @@
 import { useCallback, useState } from "react"
 
-import type { RequestFilters } from "./types"
+export interface RequestFilters {
+	search: string
+	status: "ALL" | "PENDING" | "CONFIRMED" | "CANCELLED" | "COMPLETED"
+	type: "ALL" | "NOTARIZATION" | "CONSULTATION"
+	workflow: "ALL" | "REN" | "IEN"
+}
 
 export function useRequestFilters() {
 	const [filters, setFilters] = useState<RequestFilters>({
