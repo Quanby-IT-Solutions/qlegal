@@ -1663,6 +1663,8 @@ const DocumentActions = React.memo(function DocumentActions({
 
 	// Determine if Start Signing button should be disabled
 	const isSigningDisabledByOrder = isLocked && !isPreviousDocumentSigned && (documentIndex ?? 0) > 0
+	// When documents are locked, ENP must also plot in order (Doc 2 cannot be plotted until Doc 1 is fully signed).
+	const isPlottingDisabledByOrder = isLocked && !isPreviousDocumentSigned && (documentIndex ?? 0) > 0
 	const hasNoSignersSelected = !document.docoChainProjectId && (signerUserIds?.length ?? 0) === 0
 	const hasSigners = (signerUserIds?.length ?? 0) > 0
 	const userNotInSignerList = hasSigners && !isCurrentUserSigner
@@ -1681,6 +1683,7 @@ const DocumentActions = React.memo(function DocumentActions({
 	// Disable Plot Signature: pending, (no link and we haven't given up pre-gen), already plotted/READY.
 	const isPlotSignatureDisabled =
 		!!isSigningPending ||
+		isPlottingDisabledByOrder ||
 		(!plotLinkReady && !plotPreGenGiveUp) ||
 		hasPlotted ||
 		enpHasConfirmedPlot
@@ -1727,6 +1730,7 @@ const DocumentActions = React.memo(function DocumentActions({
 
 	const isPlotButtonAvailableForPreGen =
 		showPlotSignature &&
+		!isPlottingDisabledByOrder &&
 		!hasPlotted &&
 		!isSigningPending &&
 		!!document.docoChainProjectId &&
@@ -1737,6 +1741,7 @@ const DocumentActions = React.memo(function DocumentActions({
 	// "Preparing..." only while waiting for pre-gen, haven't given up, and not already plotted/READY
 	const isPlotSignatureWaiting =
 		showPlotSignature &&
+		!isPlottingDisabledByOrder &&
 		!hasPlotted &&
 		!enpHasConfirmedPlot &&
 		!plotLinkReady &&
@@ -1834,6 +1839,7 @@ const DocumentActions = React.memo(function DocumentActions({
 		preGenerationInitiatedRef.current = key
 		preGeneratePlotLinkMutation.mutate({
 			projectUuid: document.docoChainProjectId,
+			documentId: document.id,
 			email: userEmail,
 			isPlotting: true,
 		})
@@ -1863,6 +1869,7 @@ const DocumentActions = React.memo(function DocumentActions({
 			preGenerationInitiatedRef.current = key
 			preGenerateSignLinkMutation.mutate({
 				projectUuid: document.docoChainProjectId,
+				documentId: document.id,
 				email: userEmail,
 			})
 		}
@@ -2064,8 +2071,10 @@ const DocumentActions = React.memo(function DocumentActions({
 								? ""
 								: allSignersSigned
 									? "All signers have completed signing"
+									: isPlottingDisabledByOrder
+										? "Complete the previous document before plotting the next one"
 									: isSigningDisabledByOrder
-										? "Previous document must be signed first"
+										? ""
 										: hasNoSignersSelected
 											? "Select at least one signer for this document"
 											: userNotInSignerList
@@ -2615,6 +2624,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 						}
 					: await initiateSigning.mutateAsync({
 							projectUuid,
+							documentId,
 							email,
 							isPlotting: kind === "plot",
 						})
@@ -2664,7 +2674,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 
 				if (kind === "plot") {
 					// Open in a popup window so we can detect close and mark READY automatically.
-					const popup = openCenteredPopup(link, "doconchain-plot", "signing")
+					const popup = openCenteredPopup(link, `doconchain-plot-${documentId}`, "signing")
 					plotPopupDocumentIdRef.current = documentId
 
 					// If blocked, we can't track close; just inform the user.
@@ -2685,7 +2695,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 					}, 800)
 				} else {
 					// Open in a popup window so we can detect close and mark SIGNED (best-effort).
-					const popup = openCenteredPopup(link, "doconchain-sign", "signing")
+					const popup = openCenteredPopup(link, `doconchain-sign-${documentId}`, "signing")
 					if (!popup) {
 						// Fallback if popups are blocked
 						window.open(link, "_blank", "noopener,noreferrer")
@@ -3464,9 +3474,59 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 
 								// Check if previous document is signed (for sequential signing when locked)
 								const previousDoc = index > 0 ? documents[index - 1] : null
+								// Prefer internal signature-requests state for "previous doc is complete" since that
+								// drives the UI signers list (and updates even when external polling is paused).
+								type InternalSignatureRequest = { signerId?: unknown; status?: unknown; signedAt?: unknown }
+								type InternalNotarizationDoc = {
+									id?: unknown
+									signatureRequests?: unknown
+								}
+								const notarizationDocsRaw = (notarizationDetails as unknown as { documents?: unknown })
+									?.documents
+								const notarizationDocs = Array.isArray(notarizationDocsRaw)
+									? (notarizationDocsRaw as InternalNotarizationDoc[])
+									: []
+								const previousInternalRequestsRaw =
+									previousDoc?.id
+										? (notarizationDocs.find(d => d?.id === previousDoc.id)?.signatureRequests ?? [])
+										: []
+								const previousInternalRequests = Array.isArray(previousInternalRequestsRaw)
+									? (previousInternalRequestsRaw as InternalSignatureRequest[])
+									: []
+
+								// Mirror the UI's "Completed" logic (AssignedSignerList): we only consider the assigned
+								// signer list, not any extra DocOnChain/portal records that may appear in signatureRequests.
+								const previousSignerUserIdsRaw = (previousDoc as unknown as { signerUserIds?: unknown })
+									?.signerUserIds
+								const previousSignerUserIds = Array.isArray(previousSignerUserIdsRaw)
+									? (previousSignerUserIdsRaw as string[]).filter(v => typeof v === "string" && v.trim())
+									: []
+								const statusBySignerId = new Map<string, string>()
+								for (const req of previousInternalRequests) {
+									const id = typeof req?.signerId === "string" ? req.signerId.trim() : ""
+									if (!id) continue
+									statusBySignerId.set(id, typeof req?.status === "string" ? req.status.toUpperCase() : "")
+								}
+								const previousIsInternallySigned =
+									previousSignerUserIds.length > 0 &&
+									previousSignerUserIds.every(id => {
+										const s = statusBySignerId.get(id)
+										return s === "SIGNED" || s === "COMPLETED"
+									})
+
+								// External signing status (DocOnChain) as a fallback when internal requests aren't present.
+								const previousSigningStatus =
+									previousDoc?.docoChainProjectId ? documentSigningStatus.get(previousDoc.id) : undefined
+								const previousIsExternallySigned =
+									previousSigningStatus?.isFullySigned === true ||
+									(((previousSigningStatus?.totalSigners ?? 0) > 0 &&
+										(previousSigningStatus?.signedCount ?? 0) ===
+											(previousSigningStatus?.totalSigners ?? 0) &&
+										(previousSigningStatus?.signedCount ?? 0) > 0) ||
+										false)
+
 								const isPreviousDocumentSigned =
-									!previousDoc ||
-									(documentSigningStatus.get(previousDoc.id)?.isFullySigned ?? false)
+									!previousDoc || previousIsInternallySigned || previousIsExternallySigned
 
 								const signingStatus = doc.docoChainProjectId
 									? documentSigningStatus.get(doc.id)

@@ -61,6 +61,11 @@ export async function GET(_request: Request, { params }: { params: Promise<{ pro
 			return new NextResponse("Document is still being processed...", { status: 425 })
 		}
 
+		// DocOnChain may mark the project COMPLETED before the sealed PDF is ready. Wait so the
+		// download returns the version with the notarial seal applied.
+		const sealSettleMs = 5_000
+		await new Promise(resolve => setTimeout(resolve, sealSettleMs))
+
 		const result = await downloadDoconchainSealedProject({ projectUuid: uuid, email: creatorEmail })
 		const filename = result.filename ?? (doc.name?.toLowerCase().endsWith(".pdf") ? doc.name : `${doc.name}.pdf`)
 

@@ -491,7 +491,7 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 														disabled={isTestingDevices}
 													>
 														<Camera className="mr-2 size-4" />
-														Turn on camera
+														Turn on devices
 													</Button>
 												</>
 											)}
