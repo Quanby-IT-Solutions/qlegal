@@ -64,7 +64,7 @@ The Supreme Court has provided API integration documentation for the eNotarizati
 
 ### 4.1 New Service: `services/supreme-court/`
 
-Follow the existing pattern used by `services/doconchain/` and `services/hyperverge/`:
+Follow the existing pattern used by our other external-service clients (token cache + authenticated HTTP client):
 
 ```
 services/supreme-court/
@@ -80,9 +80,9 @@ services/supreme-court/
 
 ### 4.2 Token Management Strategy
 
-- **Cache:** In-memory cache similar to DocOnChain (single service account, no per-user tokens).
+- **Cache:** In-memory cache (single service account, no per-user tokens).
 - **Expiry:** Tokens expire in 3600 seconds; refresh 5 minutes before expiry.
-- **Retry:** On 401, invalidate cache and re-authenticate, then retry (mirror DocOnChain pattern).
+- **Retry:** On 401, invalidate cache and re-authenticate, then retry.
 - **No verification endpoint:** Cognito does not expose a token-verify API; we rely on expiry + 401 handling.
 
 ### 4.3 Environment Variables
@@ -135,7 +135,7 @@ Our `notarialActs` schema aligns with Supreme Court requirements. Likely mapping
 | `locationStatement` | Location certification |
 | `documentName`, `documentDescription` | Document info |
 | `certificateNumber` | Our reference number |
-| `docoChainProjectUuid` | Link to DocoChain project |
+| `docoChainProjectUuid` | Link to signing project (legacy) |
 
 **Note:** Exact field names and payload structure depend on the full API spec (Pages 5–22 of the documentation).
 
@@ -195,6 +195,6 @@ Our `notarialActs` schema aligns with Supreme Court requirements. Likely mapping
 
 - API System Integration Document, Version 1.4 (July 14, 2025), Supreme Court of the Philippines
 - Postman screenshots: Auth request/response, Headers, Authorization usage
-- Existing code: `services/doconchain/` (token-cache, http-client pattern)
+- Existing code: `services/hyperverge/` (http client patterns)
 - Schema: `services/drizzle/schema/notarial-book.ts` (`syncedToSupremeCourt`, `syncedAt`)
 - Feature: `features/notarial-book/` (router, auto-create, UI)

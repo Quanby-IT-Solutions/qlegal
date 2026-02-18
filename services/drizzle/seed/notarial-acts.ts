@@ -89,16 +89,18 @@ export async function createNotarialActs() {
 
 	const createdDocuments = []
 	for (let i = 0; i < documentNames.length; i++) {
+		const documentName = documentNames[i]
+		if (!documentName) continue
 		const [doc] = await db
 			.insert(documents)
 			.values({
-				name: documentNames[i],
-				description: `Test document: ${documentNames[i]}`,
+				name: documentName,
+				description: `Test document: ${documentName}`,
 				type: "application/pdf",
 				size: faker.number.int({ min: 10000, max: 500000 }),
 				path: `/documents/test-${i + 1}.pdf`,
 				status: "READY", // UNSIGNED document status
-				notarizationType: actTypes[i],
+				notarizationType: actTypes[i] ?? "ACKNOWLEDGMENT",
 			})
 			.returning()
 
@@ -124,7 +126,7 @@ export async function createNotarialActs() {
 
 		return {
 			notarialBookId: notarialBook.id,
-			actType: actTypes[index],
+			actType: actTypes[index] ?? "ACKNOWLEDGMENT",
 			documentId: doc.id, // Reference to the unsigned document
 			docoChainProjectUuid: mockProjectUuid, // Reference to the signed document in DocoChain
 			principalName: principalName, // Match against user's name

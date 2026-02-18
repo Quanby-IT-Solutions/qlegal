@@ -2,7 +2,6 @@ import { TRPCError } from "@trpc/server"
 import { and, desc, eq, ilike, or } from "drizzle-orm"
 import { z } from "zod"
 
-import { checkSigningStatus, downloadSignedDocument } from "@/services/doconchain"
 import { users } from "@/services/drizzle/schema/auth"
 import { documents } from "@/services/drizzle/schema/document"
 import { meetingParticipants } from "@/services/drizzle/schema/meetings"
@@ -181,7 +180,6 @@ export const documentsRouter = createTRPCRouter({
 	getSignedDocument: protectedProcedure
 		.input(z.object({ actId: z.string().min(1, "Act ID is required") }))
 		.query(async ({ ctx, input }) => {
-			const userId = ctx.session.user.id
 			const userName = ctx.session.user.name
 			const userEmail = ctx.session.user.email
 
@@ -219,49 +217,9 @@ export const documentsRouter = createTRPCRouter({
 				})
 			}
 
-			try {
-				// Verify document is fully signed
-				const signingStatus = await checkSigningStatus(
-					act.docoChainProjectUuid,
-					userEmail ?? undefined
-				)
-
-				if (!signingStatus.isFullySigned) {
-					throw new TRPCError({
-						code: "BAD_REQUEST",
-						message: `Document is not fully signed yet. Status: ${signingStatus.projectStatus}, Signed: ${signingStatus.signedCount}/${signingStatus.totalSigners}`,
-					})
-				}
-
-				// Download the signed document
-				const { buffer, fileName, url } = await downloadSignedDocument(
-					act.docoChainProjectUuid,
-					userEmail ?? undefined
-				)
-
-				// Convert buffer to base64 for transmission
-				const base64 = buffer.toString("base64")
-
-				return {
-					success: true,
-					fileName: fileName || act.documentName || "document.pdf",
-					documentUrl: url,
-					base64,
-					size: buffer.length,
-				}
-			} catch (error) {
-				console.error("❌ Error downloading signed document:", error)
-
-				// If it's already a TRPCError, re-throw it
-				if (error instanceof TRPCError) {
-					throw error
-				}
-
-				// Otherwise, wrap it in a TRPCError
-				throw new TRPCError({
-					code: "INTERNAL_SERVER_ERROR",
-					message: error instanceof Error ? error.message : "Failed to download signed document",
-				})
-			}
+			throw new TRPCError({
+				code: "SERVICE_UNAVAILABLE",
+				message: "Signed document retrieval is currently unavailable while we rebuild the signing integration.",
+			})
 		}),
 })

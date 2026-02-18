@@ -1,8 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-	experimental: {
-		optimizePackageImports: ["@services/doconchain"],
-	},
+	experimental: {},
 	// Only use standalone output when explicitly enabled via ENABLE_STANDALONE=true
 	// This avoids Windows symlink permission issues during local builds
 	// For Docker builds, set ENABLE_STANDALONE=true in the build environment

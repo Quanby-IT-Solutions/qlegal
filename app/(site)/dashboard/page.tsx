@@ -542,7 +542,8 @@ export default function DashboardPage() {
 									</Link>
 								)}
 								<Link
-									href={{ pathname: "/consultations" }}
+									// @ts-ignore Next.js typed routes (conditional href)
+									href={isENP ? "/appointments" : "/consultations"}
 									className={buttonVariants({
 										variant: "outline",
 										className: "h-auto flex-col items-start gap-2 p-4",
@@ -1219,7 +1220,8 @@ export default function DashboardPage() {
 										/>
 										<p className="text-muted-foreground mt-4 text-sm">No upcoming appointments</p>
 										<Link
-											href={{ pathname: "/consultations" }}
+											// @ts-ignore Next.js typed routes
+											href="/consultations"
 											className={buttonVariants({
 												variant: "outline",
 												size: "sm",

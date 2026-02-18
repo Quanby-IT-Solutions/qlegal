@@ -68,6 +68,18 @@ export function SimplePdfViewer({ fileUrl, documentName: _documentName }: Simple
 			return
 		}
 
+		// For our own authenticated streaming endpoints (notarized PDFs), skip the Range probe.
+		// The probe can cause a full PDF download when the server doesn't support Range caching,
+		// which makes the UI feel extremely slow (double-download before rendering).
+		if (
+			fileUrl.startsWith("/api/doconchain/projects/") ||
+			fileUrl.startsWith("/api/notarial-book-2/documents/") ||
+			fileUrl.startsWith("/api/notarial-book/documents/")
+		) {
+			setState(prev => ({ ...prev, isUrlValid: true, error: null }))
+			return
+		}
+
 		// Reset validation state when URL changes
 		setState(prev => ({ ...prev, isUrlValid: null, error: null }))
 

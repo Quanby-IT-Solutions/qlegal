@@ -78,14 +78,31 @@ export async function generateToken(): Promise<string> {
 
 	if (!response.ok) {
 		const errorText = await response.text()
-		let errorMessage = `Supreme Court Cognito auth failed: ${response.status} - ${errorText}`
+		console.log("🔵 [Supreme Court] Cognito error body:", errorText)
+		let errorMessage: string
 		try {
-			const errorJson = JSON.parse(errorText)
-			if (errorJson.__type || errorJson.message) {
-				errorMessage = `Supreme Court Cognito auth failed: ${errorJson.__type || "Error"} - ${errorJson.message || errorText}`
+			const errorJson = JSON.parse(errorText) as { __type?: string; message?: string }
+			const type = errorJson.__type ?? "Error"
+			const msg = (errorJson.message ?? errorText).trim()
+
+			if (type === "NotAuthorizedException") {
+				if (msg.toLowerCase().includes("password attempts exceeded")) {
+					errorMessage =
+						"Supreme Court sync is temporarily blocked: too many failed login attempts. Wait 15–30 minutes, then try again. If the problem continues, check SUPREME_COURT_USERNAME and SUPREME_COURT_PASSWORD in your .env."
+				} else if (
+					msg.toLowerCase().includes("incorrect username") ||
+					msg.toLowerCase().includes("incorrect password")
+				) {
+					errorMessage =
+						`Supreme Court credentials were rejected: ${msg}. Check SUPREME_COURT_USERNAME and SUPREME_COURT_PASSWORD in your .env and ensure they match the Supreme Court eNotarization portal.`
+				} else {
+					errorMessage = `Supreme Court Cognito auth failed: ${type} - ${msg}`
+				}
+			} else {
+				errorMessage = `Supreme Court Cognito auth failed: ${type} - ${msg}`
 			}
 		} catch {
-			// Not JSON, use original error text
+			errorMessage = `Supreme Court Cognito auth failed: ${response.status} - ${errorText}`
 		}
 		throw new Error(errorMessage)
 	}

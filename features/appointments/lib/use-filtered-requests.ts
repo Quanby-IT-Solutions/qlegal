@@ -15,8 +15,8 @@ export function useFilteredRequests(
 			const searchLower = filters.search.toLowerCase()
 			const matchesSearch =
 				!searchLower ||
-				appointment.client.name.toLowerCase().includes(searchLower) ||
-				appointment.lawyer.name.toLowerCase().includes(searchLower) ||
+				(appointment.client.name ?? "").toLowerCase().includes(searchLower) ||
+				(appointment.lawyer.name ?? "").toLowerCase().includes(searchLower) ||
 				appointment.notes?.toLowerCase().includes(searchLower) ||
 				appointment.location?.toLowerCase().includes(searchLower)
 
