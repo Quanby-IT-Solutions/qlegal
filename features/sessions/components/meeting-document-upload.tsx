@@ -34,6 +34,12 @@ interface MeetingDocumentUploadProps {
 	onClose: () => void
 	onSuccess?: () => void
 	isEnp?: boolean
+	/**
+	 * Called just before the dialog closes on a successful upload.
+	 * Receives the approximate screen coordinates of the dialog center
+	 * so the parent can position the flight animation origin.
+	 */
+	onUploadAnimationStart?: (originX: number, originY: number) => void
 }
 
 export function MeetingDocumentUpload({
@@ -42,6 +48,7 @@ export function MeetingDocumentUpload({
 	onClose,
 	onSuccess,
 	isEnp = false,
+	onUploadAnimationStart,
 }: MeetingDocumentUploadProps) {
 	const { data: session } = useSession()
 	const [documentName, setDocumentName] = useState("")
@@ -104,6 +111,13 @@ export function MeetingDocumentUpload({
 	const uploadDocument = trpc.meetings.uploadDocument.useMutation({
 		onSuccess: () => {
 			toast.success("Document uploaded successfully!")
+
+			// Fire the flight animation from the center of the viewport
+			// (the dialog is always roughly centered)
+			if (onUploadAnimationStart) {
+				onUploadAnimationStart(window.innerWidth / 2, window.innerHeight / 2)
+			}
+
 			// Reset form and state
 			setIsUploading(false)
 			setSelectedFile(null)

@@ -263,7 +263,7 @@ export const DocumentSidebar = React.memo(function DocumentSidebar({
 	// COLLAPSED  (48px strip)
 	// ─────────────────────────────────────────────────────────────────
 	const collapsedSidebar = (
-		<div className="border-border/60 bg-card/90 absolute top-0 right-0 z-40 flex h-full w-12 flex-col border-l shadow-2xl backdrop-blur-md">
+		<div className="border-border/60 bg-card/90 absolute top-0 right-0 z-40 flex h-full w-12 flex-col border-l shadow-2xl backdrop-blur-md dark:bg-black">
 			<button
 				onClick={toggleExpanded}
 				className="border-border/50 text-muted-foreground hover:bg-muted/50 hover:text-foreground flex h-11 w-full items-center justify-center border-b transition-colors"
@@ -291,30 +291,15 @@ export const DocumentSidebar = React.memo(function DocumentSidebar({
 							className="group hover:bg-muted/60 relative flex flex-col items-center rounded-lg p-1.5 transition-colors"
 							title={doc.name}
 						>
-							{isDocumentOrderLocked && (
-								<span className="absolute -top-0.5 -right-0.5 flex size-3.5 items-center justify-center rounded-full bg-amber-500 text-[8px] font-bold text-white">
-									{index + 1}
-								</span>
-							)}
 							{hasNoSigners && (
-								<span className="absolute -top-0.5 -left-0.5 flex size-3 items-center justify-center rounded-full bg-yellow-400">
-									<AlertTriangle className="size-2 text-yellow-900" />
+								<span className="absolute -top-0.5 -left-0.5 flex size-3 items-center justify-center">
+									<AlertTriangle className="mt-0.5 size-3 shrink-0 text-yellow-500" />
 								</span>
 							)}
 							<FileText
 								className={cn(
 									"group-hover:text-primary size-5 transition-colors",
 									colorMap[badge.color] ?? "text-muted-foreground"
-								)}
-							/>
-							<span
-								className={cn(
-									"mt-0.5 size-1.5 rounded-full",
-									badge.color === "emerald" || badge.color === "green"
-										? "bg-green-500"
-										: badge.color === "yellow"
-											? "bg-yellow-500"
-											: "bg-gray-400"
 								)}
 							/>
 						</button>
@@ -342,25 +327,14 @@ export const DocumentSidebar = React.memo(function DocumentSidebar({
 	// EXPANDED  (320px overlay drawer)
 	// ─────────────────────────────────────────────────────────────────
 	const expandedSidebar = (
-		<div className="border-border/60 bg-card/95 absolute top-0 right-0 z-40 flex h-full w-80 flex-col border-l shadow-2xl backdrop-blur-md">
+		<div className="border-border/60 bg-card/95 absolute top-0 right-0 z-40 flex h-full w-80 flex-col border-l shadow-2xl backdrop-blur-md dark:bg-black">
 			{/* Header */}
 			<div className="border-border/50 flex h-11 shrink-0 items-center justify-between border-b px-3">
 				<div className="flex items-center gap-2">
 					<div className="bg-primary/10 flex size-6 items-center justify-center rounded-md">
 						<FileText className="text-primary size-3.5" />
 					</div>
-					<span className="text-sm font-semibold">
-						Documents
-						<span className="bg-muted text-muted-foreground ml-1.5 inline-flex size-[18px] items-center justify-center rounded-full text-[10px] font-bold">
-							{documents.length}
-						</span>
-					</span>
-					{isDocumentOrderLocked && (
-						<span className="inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700 dark:border-amber-700 dark:bg-amber-900/20 dark:text-amber-400">
-							<Lock className="size-2.5" />
-							Locked
-						</span>
-					)}
+					<span className="text-sm font-semibold">Documents</span>
 				</div>
 				<div className="flex items-center gap-1">
 					{onToggleLock && (
@@ -370,10 +344,7 @@ export const DocumentSidebar = React.memo(function DocumentSidebar({
 									onClick={onToggleLock}
 									disabled={!isPrincipal}
 									className={cn(
-										"flex size-7 items-center justify-center rounded-md transition-colors",
-										isDocumentOrderLocked
-											? "bg-amber-100 text-amber-700 hover:bg-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:hover:bg-amber-900/50"
-											: "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
+										"transition-opacity",
 										!isPrincipal && "cursor-not-allowed opacity-50"
 									)}
 									title={
@@ -385,9 +356,15 @@ export const DocumentSidebar = React.memo(function DocumentSidebar({
 									}
 								>
 									{isDocumentOrderLocked ? (
-										<Lock className="size-3.5" />
+										<span className="inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700 dark:border-amber-700 dark:bg-amber-900/20 dark:text-amber-400">
+											<Lock className="size-2.5" />
+											Locked
+										</span>
 									) : (
-										<Unlock className="size-3.5" />
+										<span className="inline-flex items-center gap-1 rounded-full border border-blue-300 bg-blue-50 px-1.5 py-0.5 text-[10px] font-semibold text-blue-600 dark:border-blue-700 dark:bg-blue-900/20 dark:text-blue-400">
+											<Unlock className="size-2.5" />
+											Unlocked
+										</span>
 									)}
 								</button>
 							</TooltipTrigger>
@@ -423,7 +400,7 @@ export const DocumentSidebar = React.memo(function DocumentSidebar({
 			{/* Document cards */}
 			<div className="flex-1 overflow-y-auto">
 				<TooltipProvider delayDuration={300}>
-					<div className="divide-border/40 divide-y">
+					<div className="divide-border/40 divide-y dark:divide-gray-800">
 						{documents.map((doc, index) => {
 							const status = doc.docoChainProjectId ? documentSigningStatus.get(doc.id) : undefined
 							const badge = getSigningBadge(doc, status)
@@ -468,11 +445,7 @@ export const DocumentSidebar = React.memo(function DocumentSidebar({
 								>
 									{/* ── Row 1: Icon + name + action buttons ── */}
 									<div className="mb-2 flex items-start gap-2">
-										{isDocumentOrderLocked && (
-											<span className="mt-0.5 flex size-[18px] shrink-0 items-center justify-center rounded-full bg-amber-500 text-[9px] font-bold text-white">
-												{index + 1}
-											</span>
-										)}
+										{isDocumentOrderLocked && <span className="mt-0.5 flex"></span>}
 										<div className="bg-primary/10 flex size-7 shrink-0 items-center justify-center rounded-lg">
 											<FileText className="text-primary size-4" />
 										</div>
@@ -712,21 +685,33 @@ export const DocumentSidebar = React.memo(function DocumentSidebar({
 						</div>
 					</div>
 					<div className="mt-2 flex flex-wrap gap-1">
-						{documents
-							.filter(d => d.cost !== undefined && d.cost !== null && d.cost > 0)
-							.map(doc => (
-								<span
-									key={doc.id}
-									className="bg-muted/70 text-muted-foreground inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px]"
-									title={doc.name}
-								>
-									<FileText className="size-2.5 shrink-0" />
-									<span className="max-w-16 truncate">{doc.name.replace(/\.[^.]+$/, "")}</span>
-									<span className="text-foreground/80 font-semibold">
-										{formatCurrency(doc.cost!, doc.currency ?? defaultCurrency)}
+						{(() => {
+							const docsWithCost = documents.filter(
+								d => d.cost !== undefined && d.cost !== null && d.cost > 0
+							)
+							const first = docsWithCost[0]
+							const rest = docsWithCost.length - 1
+							if (!first) return null
+							return (
+								<>
+									<span
+										className="bg-muted/70 text-muted-foreground inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px]"
+										title={first.name}
+									>
+										<FileText className="size-2.5 shrink-0" />
+										<span className="max-w-16 truncate">{first.name.replace(/\.[^.]+$/, "")}</span>
+										<span className="text-foreground/80 font-semibold">
+											{formatCurrency(first.cost!, first.currency ?? defaultCurrency)}
+										</span>
 									</span>
-								</span>
-							))}
+									{rest > 0 && (
+										<span className="bg-muted/50 text-muted-foreground inline-flex items-center rounded-full px-2 py-0.5 text-[10px]">
+											+{rest} other{rest !== 1 ? "s" : ""}
+										</span>
+									)}
+								</>
+							)
+						})()}
 					</div>
 				</div>
 			)}

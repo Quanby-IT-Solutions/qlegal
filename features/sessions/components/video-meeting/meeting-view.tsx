@@ -67,6 +67,7 @@ import {
 import { MeetingDocumentUpload } from "../meeting-document-upload"
 import { DocumentActions } from "./document-action"
 import { DocumentSidebar } from "./document-sidebar"
+import { FileFlightAnimation } from "./file-flight-animation"
 import { MeetingControls } from "./meeting-controls"
 import { ParticipantView } from "./participant-view"
 import { RecordingBanner } from "./recording-banner"
@@ -2116,6 +2117,7 @@ export function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meet
 		},
 		[meetingId, removeDocumentMutation]
 	)
+	const [flyTrigger, setFlyTrigger] = useState(false)
 
 	if (!joined) {
 		return (
@@ -2149,9 +2151,11 @@ export function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meet
 							void refetchDocuments()
 							setShowDocuments(true)
 						}}
+						onUploadAnimationStart={() => setFlyTrigger(true)}
 						isEnp={session?.user?.role === "ENP"}
 					/>
 				)}
+				<FileFlightAnimation trigger={flyTrigger} onComplete={() => setFlyTrigger(false)} />
 
 				{/* Main Content: Signing-focused layout */}
 				<div className="flex flex-1 flex-col overflow-hidden">
