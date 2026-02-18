@@ -53,7 +53,7 @@ export function Footer() {
 								{section.items?.map((link, linkIndex) => (
 									<li key={linkIndex}>
 										<Link
-											// @ts-expect-error - bypass Next.js typed route for external URLs
+											// @ts-ignore - bypass Next.js typed route for external URLs
 											href={link.url}
 											className="text-muted-foreground hover:text-foreground text-sm transition-colors"
 										>

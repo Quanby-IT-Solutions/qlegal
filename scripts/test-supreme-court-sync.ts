@@ -55,7 +55,7 @@ async function main() {
 		console.log(`   - Already synced: ${act.syncedToSupremeCourt ? "Yes" : "No"}\n`)
 
 		// Get ENP profile
-		// @ts-expect-error - PostgresJsDatabase<any> doesn't provide proper types for query builder
+		// @ts-ignore - PostgresJsDatabase<any> doesn't provide proper types for query builder
 		 
 		const notarialBook = await db.query.notarialBooks.findFirst({
 			where: eq(notarialBooks.id, act.notarialBookId),
@@ -125,7 +125,7 @@ async function main() {
 		let documentFileName: string | undefined
 
 		if (act.documentId) {
-			// @ts-expect-error - PostgresJsDatabase<any> doesn't provide proper types for query builder
+			// @ts-ignore - PostgresJsDatabase<any> doesn't provide proper types for query builder
 			 
 			const document = await db.query.documents.findFirst({
 				where: eq(documents.id, act.documentId),
