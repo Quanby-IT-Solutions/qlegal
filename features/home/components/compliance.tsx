@@ -24,8 +24,8 @@ const staggerContainer = {
 const complianceItems = [
 	{
 		icon: Scale,
-		title: "A.M. No. 24-10-14-SC",
-		description: "Accredited ENF under Supreme Court Rules on Electronic Notarization",
+		title: "Certified ENF Provider",
+		description: "Accredited Electronic Notarization Facility with full regulatory compliance",
 		spotlightColor: "rgba(147, 51, 234, 0.2)", // Purple
 	},
 	{
@@ -36,14 +36,14 @@ const complianceItems = [
 	},
 	{
 		icon: BookText,
-		title: "SC Database Integration",
-		description: "Automatic transmission to Central Notarial Database with real-time syncing",
+		title: "Central Registry Integration",
+		description: "Automatic transmission to Central Notarial Registry with real-time syncing",
 		spotlightColor: "rgba(59, 130, 246, 0.2)", // Blue
 	},
 	{
 		icon: Shield,
 		title: "Data Privacy Compliant",
-		description: "NPC registered with end-to-end encryption and BSP-compliant security measures",
+		description: "Registered with end-to-end encryption and bank-level security measures",
 		spotlightColor: "rgba(236, 72, 153, 0.2)", // Pink
 	},
 ]
@@ -66,7 +66,7 @@ export function Compliance() {
 							Legally Compliant & Certified
 						</h2>
 						<p className="text-muted-foreground mx-auto max-w-2xl text-lg lg:text-xl">
-							Built to meet Philippine Supreme Court requirements and national data standards
+							Built to meet regulatory requirements and international data standards
 						</p>
 					</motion.div>
 

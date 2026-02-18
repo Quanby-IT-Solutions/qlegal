@@ -38,18 +38,18 @@ pnpm dev
 
 ## 📖 Usage
 
-### Creating a Meeting
+### Creating a Session
 
-1. Go to `/meetings`
-2. Click "New Meeting"
+1. Go to `/sessions`
+2. Click "New Session"
 3. Enter a title
-4. Click "Create Meeting"
-5. Share the meeting link with participants
+4. Click "Create Session"
+5. Share the session link with participants
 
-### Joining a Meeting
+### Joining a Session
 
-1. Click on any meeting card
-2. Click "Join Meeting"
+1. Click on any session card
+2. Click "Join Session"
 3. Your camera and microphone will be enabled
 4. Start collaborating!
 
@@ -63,15 +63,15 @@ pnpm dev
 ## 🏗️ Architecture
 
 ```
-features/meetings/
+features/sessions/
 ├── api/
-│   ├── meetings.router.ts    # tRPC router
-│   └── meetings.hooks.ts      # React hooks
+│   ├── meetings.router.ts    # tRPC router for sessions
+│   └── meetings.hooks.ts     # React hooks
 │
-app/(site)/meetings/
-├── page.tsx                   # Meeting list & creation
+app/(site)/sessions/
+├── page.tsx                  # Sessions list & creation
 └── [id]/
-    └── page.tsx              # Video meeting room
+    └── page.tsx             # Video session room
 ```
 
 ## 🔧 How It Works
@@ -116,8 +116,8 @@ meeting_participants {
 
 ## 📱 Routes
 
-- `/meetings` - List all meetings
-- `/meetings/[id]` - Join specific meeting
+- `/sessions` - List all sessions
+- `/sessions/[id]` - Join specific session
 
 ## 🎯 Tips
 

@@ -504,7 +504,7 @@ function ExpandedActDetails({
 									</div>
 									<div className="min-w-0 flex-1">
 										<div className="flex items-center gap-1">
-											<p className="text-xs font-medium leading-tight">{displayName}</p>
+											<p className="text-xs leading-tight font-medium">{displayName}</p>
 											{isWitness && (
 												<Badge variant="outline" className="text-[9px] font-normal">
 													Witness
@@ -554,7 +554,7 @@ function ExpandedActDetails({
 											)}
 										</p>
 										{addr ? (
-											<p className="text-muted-foreground mt-0.5 text-[10px] wrap-break-word leading-tight">
+											<p className="text-muted-foreground mt-0.5 text-[10px] leading-tight wrap-break-word">
 												<span className="font-medium">Address:</span> {addr}
 											</p>
 										) : null}
@@ -562,7 +562,9 @@ function ExpandedActDetails({
 									</div>
 									<Badge
 										variant={signed ? "default" : "secondary"}
-										className={signed ? "bg-green-600 text-[10px] dark:bg-green-700" : "text-[10px]"}
+										className={
+											signed ? "bg-green-600 text-[10px] dark:bg-green-700" : "text-[10px]"
+										}
 									>
 										{signed ? "Signed" : (signer.status ?? "Pending")}
 									</Badge>
@@ -1009,7 +1011,7 @@ export default function NotarialRegistryPage() {
 												animate={{ opacity: 1 }}
 												exit={{ opacity: 0 }}
 												transition={{ duration: 0.2 }}
-												className="min-w-0 [&_[data-slot=table-container]]:overflow-x-hidden"
+												className="min-w-0 **:data-[slot=table-container]:overflow-x-hidden"
 											>
 												<Table className="w-full max-w-full table-fixed">
 															<TableHeader>

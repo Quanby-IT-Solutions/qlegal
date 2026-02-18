@@ -80,7 +80,7 @@ export function BookingDialog({ enpId, enpName, trigger }: BookingDialogProps) {
 					"Your consultation request has been sent. The ENP will review and confirm your booking.",
 			})
 			closeDialog()
-			router.push("/meetings" as Route)
+			router.push("/sessions" as Route)
 		},
 		onError: error => {
 			toast.error("Booking Failed", {
@@ -94,7 +94,7 @@ export function BookingDialog({ enpId, enpName, trigger }: BookingDialogProps) {
 		onSuccess: () => {
 			toast.success("Signing session booked!")
 			closeDialog()
-			router.push("/meetings" as Route)
+			router.push("/sessions" as Route)
 		},
 		onError: error => {
 			toast.error("Booking failed", {
