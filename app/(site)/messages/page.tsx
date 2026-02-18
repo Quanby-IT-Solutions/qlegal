@@ -4,7 +4,7 @@ import type { Route } from "next"
 import { useSearchParams } from "next/navigation"
 import { useEffect, useRef, useState } from "react"
 import { format } from "date-fns"
-import { MessageSquare, Paperclip, Phone, Plus, Search, Send, Smile, Video } from "lucide-react"
+import { CalendarPlus, MessageSquare, Paperclip, Phone, Plus, Search, Send, Smile, Video } from "lucide-react"
 import { useSession } from "next-auth/react"
 import { toast } from "sonner"
 
@@ -26,15 +26,19 @@ import { cn } from "@/core/lib/utils"
 
 import { trpc } from "@/services/trpc/client"
 
+import { EventDialog } from "@/features/appointments/components/event-dialog"
+import type { CalendarEvent } from "@/features/appointments/lib/schedule-types"
 import { useMessages } from "@/features/messages/api/messages.hooks"
 import { useMessagesSubscriptions } from "@/features/messages/api/use-messages-subscriptions"
+import { ConsultationRequestCard } from "@/features/messages/components/consultation-request-card"
+import type { ConsultationRequestMetadata } from "@/features/messages/components/consultation-request-card"
 import { FileUploadPanel } from "@/features/messages/components/file-upload-panel"
 
 export default function MessagesPage() {
 	const { data: session } = useSession()
 	const searchParams = useSearchParams()
 	const utils = trpc.useUtils()
-	const { getConversations, getMessages, sendMessage, startConversation, markAsRead, searchUsers } =
+	const { getConversations, getMessages, sendMessage, startConversation, markAsRead, searchUsers, sendConsultationRequest } =
 		useMessages()
 	const { data: conversations, isLoading: loadingConversations } = getConversations
 
@@ -43,6 +47,7 @@ export default function MessagesPage() {
 	const [searchQuery, setSearchQuery] = useState("")
 	const [userSearchQuery, setUserSearchQuery] = useState("")
 	const [isNewChatDialogOpen, setIsNewChatDialogOpen] = useState(false)
+	const [isBookingModalOpen, setIsBookingModalOpen] = useState(false)
 	const [hasStartedFromQuery, setHasStartedFromQuery] = useState(false)
 	const messagesEndRef = useRef<HTMLDivElement>(null)
 	const autoStartInFlightRef = useRef(false)
@@ -170,6 +175,36 @@ export default function MessagesPage() {
 			// Note: No manual refetch needed - mutation invalidation + subscription handles updates
 		} catch {
 			toast.error("Failed to share booking link")
+		}
+	}
+
+	const handleBookConsultationSave = async (event: CalendarEvent) => {
+		if (!selectedConversationId) return
+
+		// Derive time strings and duration from the CalendarEvent
+		const startHour = event.start.getHours().toString().padStart(2, "0")
+		const startMin = event.start.getMinutes().toString().padStart(2, "0")
+		const endHour = event.end.getHours().toString().padStart(2, "0")
+		const endMin = event.end.getMinutes().toString().padStart(2, "0")
+		const duration = Math.round((event.end.getTime() - event.start.getTime()) / (1000 * 60))
+
+		try {
+			await sendConsultationRequest.mutateAsync({
+				conversationId: selectedConversationId,
+				title: event.title.trim(),
+				description: event.description?.trim(),
+				appointmentDate: event.start.toISOString(),
+				startTime: `${startHour}:${startMin}`,
+				endTime: `${endHour}:${endMin}`,
+				duration,
+				eventType: event.eventType ?? "consultation",
+				mode: (event.mode?.toLowerCase() as "ren" | "ien") ?? "ren",
+				location: event.location?.trim(),
+			})
+			setIsBookingModalOpen(false)
+			toast.success("Consultation request sent!")
+		} catch {
+			toast.error("Failed to send consultation request")
 		}
 	}
 
@@ -383,6 +418,17 @@ export default function MessagesPage() {
 										Share booking link
 									</Button>
 								)}
+								{session?.user?.role === "ENP" && (
+									<Button
+										variant="ghost"
+										size="sm"
+										className="gap-1"
+										onClick={() => setIsBookingModalOpen(true)}
+									>
+										<CalendarPlus className="size-4" />
+										Book Consultation
+									</Button>
+								)}
 								<Button variant="ghost" size="icon" className="size-7 rounded-full">
 									<Phone className="size-4" />
 								</Button>
@@ -402,6 +448,7 @@ export default function MessagesPage() {
 								<div className="space-y-2.5 pb-3">
 									{messages.map(message => {
 										const isSent = message.senderId === session?.user?.id
+										const isConsultationRequest = message.messageType === "consultation_request"
 										return (
 											<div
 												key={message.id}
@@ -422,14 +469,22 @@ export default function MessagesPage() {
 														</Avatar>
 													)}
 													<div className="space-y-0.5">
-														<Card
-															className={cn(
-																"px-3 py-1.5",
-																isSent ? "bg-primary text-primary-foreground" : "bg-muted"
-															)}
-														>
-															<p className="text-xs leading-relaxed">{message.content}</p>
-														</Card>
+														{isConsultationRequest ? (
+															<ConsultationRequestCard
+																messageId={message.id}
+																metadata={message.metadata as ConsultationRequestMetadata}
+																isOwnMessage={isSent}
+															/>
+														) : (
+															<Card
+																className={cn(
+																	"px-3 py-1.5",
+																	isSent ? "bg-primary text-primary-foreground" : "bg-muted"
+																)}
+															>
+																<p className="text-xs leading-relaxed">{message.content}</p>
+															</Card>
+														)}
 														<p
 															className={cn(
 																"text-muted-foreground text-[10px]",
@@ -511,6 +566,14 @@ export default function MessagesPage() {
 					</div>
 				</div>
 			)}
+
+			{/* Book Consultation modal – ENP only */}
+			<EventDialog
+				event={null}
+				isOpen={isBookingModalOpen}
+				onClose={() => setIsBookingModalOpen(false)}
+				onSave={event => void handleBookConsultationSave(event)}
+			/>
 		</div>
 	)
 }
