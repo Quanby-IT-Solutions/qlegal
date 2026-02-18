@@ -4,6 +4,7 @@ import { z } from "zod/v4"
 
 import { getUrl } from "@/core/lib/get-url"
 
+import { type db } from "@/services/drizzle/db"
 import { appointments } from "@/services/drizzle/schema/appointments"
 import { users } from "@/services/drizzle/schema/auth"
 import { documents } from "@/services/drizzle/schema/document"
@@ -36,75 +37,12 @@ import {
 const BLOCKED = "BLOCKED" as const
 const RECURRING_BLOCKED = "RECURRING_BLOCKED" as const
 
-// Shared type for incoming items (both requests and appointments)
-// Renamed from IncomingItem to AppointmentItem for better semantic clarity
-export type AppointmentItem = {
-	id: string
-	title: string
-	description: string | null
-	status: "PENDING" | "CONFIRMED" | "COMPLETED" | "REJECTED" | "CANCELLED" | "IN_PROGRESS"
-	workflow: "REN" | "IEN"
-	priority?: string
-	createdAt: Date
-	updatedAt: Date
-	enpId: string
-	principalId: string
-	appointmentId: string | null
-	rejectReason: string | null
-	principal?: {
-		name?: string | null
-		image?: string | null
-		email?: string | null
-	}
-	documents: number
-	source: "request" | "appointment"
-	requestData?: {
-		id: string
-		status: string
-		createdAt: Date
-		updatedAt: Date
-		description: string | null
-		title: string
-		enpId: string
-		workflow: string
-		priority: string
-		principalId: string
-		appointmentId: string | null
-		rejectReason: string | null
-		principal?: {
-			name?: string | null
-			email?: string | null
-			image?: string | null
-		}
-	}
-	appointmentData?: {
-		id: string
-		type: "NOTARIZATION" | "CONSULTATION"
-		status: "PENDING" | "CONFIRMED" | "CANCELLED" | "COMPLETED"
-		appointmentDate: Date
-		duration: number
-		notes: string | null
-		location: string | null
-		meetingLink: string | null
-		cancelReason: string | null
-		createdAt: Date
-		updatedAt: Date
-		clientId: string
-		lawyerId: string
-		lapsed?: boolean
-		client?: {
-			name?: string | null
-			image?: string | null
-		}
-	}
-}
-
 /**
  * Helper function to create a meeting for appointments
  * Extracts duplicated meeting creation logic for use in confirmAppointment and createEnpEvent procedures
  */
 async function createMeetingForAppointment(
-	ctx: any,
+	ctx: { db: typeof db },
 	userId: string,
 	title: string,
 	appointmentDate: Date,

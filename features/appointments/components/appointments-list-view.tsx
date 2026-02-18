@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { type inferRouterOutputs } from "@trpc/server"
 import { format } from "date-fns"
 import { Calendar, Clock, Globe, MapPin, Search } from "lucide-react"
 
@@ -19,7 +20,9 @@ import {
 import { Skeleton } from "@/core/components/ui/skeleton"
 import { cn, getAvatarUrl, getInitials } from "@/core/lib/utils"
 
-import type { AppointmentItem } from "../api/appointments.router"
+import { type AppRouter } from "@/services/trpc/root"
+
+type IncomingRequest = inferRouterOutputs<AppRouter>["appointments"]["getIncomingRequests"][number]
 
 function PrincipalAvatar({
 	name,
@@ -41,10 +44,10 @@ function PrincipalAvatar({
 }
 
 interface AppointmentsListViewProps {
-	incomingRequests: AppointmentItem[]
+	incomingRequests: IncomingRequest[]
 	isRequestsLoading: boolean
-	onAccept: (request: AppointmentItem) => void
-	onReject: (request: AppointmentItem) => void
+	onAccept: (request: IncomingRequest) => void
+	onReject: (request: IncomingRequest) => void
 	processingId: string | null
 }
 

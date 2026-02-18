@@ -1,6 +1,7 @@
 "use client"
 
 import { useMemo } from "react"
+import { type inferRouterOutputs } from "@trpc/server"
 
 import { CalendarScheduleProvider, type CalendarEvent } from "@/core/components/calendar-schedule"
 import { Card, CardAction, CardContent, CardHeader } from "@/core/components/ui/card"
@@ -8,8 +9,8 @@ import { Separator } from "@/core/components/ui/separator"
 
 import type { Appointment } from "@/services/drizzle/schema/appointments"
 import type { EnpAvailability } from "@/services/drizzle/schema/enp-profiles"
+import type { AppRouter } from "@/services/trpc/root"
 
-import type { AppointmentItem } from "../api/appointments.router"
 import { buildCalendarEvents } from "../lib/calendar-events"
 import { useAppointmentsScheduleActions } from "../lib/use-appointments-schedule-actions"
 import { CalendarCard } from "./calendar/calendar-card"
@@ -18,6 +19,8 @@ import { AddEventSection } from "./event-list/add-event-section"
 import { EventListHeader, UnifiedSidebarList } from "./event-list/event-list-card"
 
 interface AppointmentsScheduleClientProps {
+	incomingRequests: inferRouterOutputs<AppRouter>["appointments"]["getIncomingRequests"]
+	incomingAppointments: inferRouterOutputs<AppRouter>["appointments"]["getIncomingAppointmentsForENP"]
 	scheduleData: {
 		regular: EnpAvailability[]
 		blocked: EnpAvailability[]
@@ -25,16 +28,16 @@ interface AppointmentsScheduleClientProps {
 		custom: EnpAvailability[]
 		myAppointments?: (Appointment & { lapsed?: boolean })[]
 	}
-	incomingRequests: AppointmentItem[]
 }
 
 export function AppointmentsScheduleClient({
 	scheduleData,
 	incomingRequests,
+	incomingAppointments,
 }: AppointmentsScheduleClientProps) {
 	const {
 		rejectDialogOpen,
-		processingId,
+		processingKey,
 		isCreatingEvent,
 		isDeletingEvent,
 		handleAccept,
@@ -43,11 +46,15 @@ export function AppointmentsScheduleClient({
 		handleEventSave,
 		handleEventDelete,
 		setRejectDialogOpen,
-	} = useAppointmentsScheduleActions({ incomingRequests })
+	} = useAppointmentsScheduleActions()
 
 	const calendarEvents = useMemo((): CalendarEvent[] => {
-		return buildCalendarEvents(incomingRequests, scheduleData?.myAppointments ?? [])
-	}, [incomingRequests, scheduleData?.myAppointments])
+		return buildCalendarEvents(
+			incomingRequests,
+			incomingAppointments,
+			scheduleData?.myAppointments ?? []
+		)
+	}, [incomingRequests, incomingAppointments, scheduleData?.myAppointments])
 
 	return (
 		<>
@@ -73,9 +80,10 @@ export function AppointmentsScheduleClient({
 					<CardContent className="min-h-0 flex-1 overflow-y-auto">
 						<UnifiedSidebarList
 							incomingRequests={incomingRequests}
+							incomingAppointments={incomingAppointments}
 							onAccept={handleAccept}
 							onReject={handleRejectClick}
-							processingId={processingId}
+							processingKey={processingKey}
 						/>
 					</CardContent>
 				</Card>
@@ -85,7 +93,7 @@ export function AppointmentsScheduleClient({
 				isOpen={rejectDialogOpen}
 				onOpenChange={setRejectDialogOpen}
 				onConfirm={handleReject}
-				isProcessing={processingId !== null}
+				isProcessing={processingKey !== null}
 			/>
 		</>
 	)

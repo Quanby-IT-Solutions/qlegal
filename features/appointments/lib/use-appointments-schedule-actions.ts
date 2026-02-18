@@ -1,26 +1,31 @@
 import { useRouter } from "next/navigation"
 import { useState } from "react"
+import { type inferRouterOutputs } from "@trpc/server"
 import { toast } from "sonner"
 
 import type { CalendarEvent } from "@/core/components/calendar-schedule"
 
 import { trpc } from "@/services/trpc/client"
+import { type AppRouter } from "@/services/trpc/root"
 
-import type { AppointmentItem } from "../api/appointments.router"
 import { addHoursToDate } from "./schedule-utils"
 
-interface UseAppointmentsScheduleActionsParams {
-	incomingRequests: AppointmentItem[]
-}
+type IncomingRequest = inferRouterOutputs<AppRouter>["appointments"]["getIncomingRequests"][number]
+type IncomingAppointment =
+	inferRouterOutputs<AppRouter>["appointments"]["getIncomingAppointmentsForENP"][number]
 
-export function useAppointmentsScheduleActions({
-	incomingRequests,
-}: UseAppointmentsScheduleActionsParams) {
+export type ScheduleIncomingItem =
+	| { source: "request"; item: IncomingRequest }
+	| { source: "appointment"; item: IncomingAppointment }
+
+const toProcessingKey = (item: ScheduleIncomingItem) => `${item.source}:${item.item.id}`
+
+export function useAppointmentsScheduleActions() {
 	const router = useRouter()
 	const utils = trpc.useUtils()
-	const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null)
+	const [selectedItem, setSelectedItem] = useState<ScheduleIncomingItem | null>(null)
 	const [rejectDialogOpen, setRejectDialogOpen] = useState(false)
-	const [processingId, setProcessingId] = useState<string | null>(null)
+	const [processingKey, setProcessingKey] = useState<string | null>(null)
 
 	const updateStatusMutation = trpc.appointments.updateRequestStatus.useMutation()
 	const confirmAppointmentMutation = trpc.appointments.confirmAppointment.useMutation()
@@ -48,17 +53,20 @@ export function useAppointmentsScheduleActions({
 		router.refresh()
 	}
 
-	const handleAccept = async (item: AppointmentItem) => {
-		setProcessingId(item.id)
+	const handleAccept = async (selection: ScheduleIncomingItem) => {
+		setProcessingKey(toProcessingKey(selection))
 		const toastId = toast.loading("Processing request...")
 		try {
-			if (item.source === "appointment") {
+			if (selection.source === "appointment") {
 				await confirmAppointmentMutation.mutateAsync({
-					appointmentId: item.id,
-					meetingLink: item.appointmentData?.meetingLink ?? "",
+					appointmentId: selection.item.id,
+					meetingLink: selection.item.appointmentData?.meetingLink ?? "",
 				})
 			} else {
-				await updateStatusMutation.mutateAsync({ requestId: item.id, status: "IN_PROGRESS" })
+				await updateStatusMutation.mutateAsync({
+					requestId: selection.item.id,
+					status: "IN_PROGRESS",
+				})
 			}
 			toast.success("Request accepted", { id: toastId })
 			await revalidate()
@@ -69,41 +77,36 @@ export function useAppointmentsScheduleActions({
 				description: error instanceof Error ? error.message : "An unexpected error occurred",
 			})
 		} finally {
-			setProcessingId(null)
+			setProcessingKey(null)
 		}
 	}
 
-	const handleRejectClick = (item: AppointmentItem) => {
-		setSelectedRequestId(item.id)
+	const handleRejectClick = (selection: ScheduleIncomingItem) => {
+		setSelectedItem(selection)
 		setRejectDialogOpen(true)
 	}
 
 	const handleReject = async () => {
-		if (!selectedRequestId) return
-		setProcessingId(selectedRequestId)
-
-		const item = incomingRequests.find(request => request.id === selectedRequestId)
-		if (!item) {
-			setProcessingId(null)
-			return
-		}
+		if (!selectedItem) return
+		setProcessingKey(toProcessingKey(selectedItem))
 
 		const toastId = toast.loading("Processing request...")
 
 		try {
-			if (item.source === "appointment") {
+			if (selectedItem.source === "appointment") {
 				await cancelAppointmentMutation.mutateAsync({
-					appointmentId: item.id,
+					appointmentId: selectedItem.item.id,
 					cancelReason: "Rejected by ENP",
 				})
 			} else {
 				await updateStatusMutation.mutateAsync({
-					requestId: selectedRequestId,
+					requestId: selectedItem.item.id,
 					status: "REJECTED",
 				})
 			}
 			toast.success("Request rejected", { id: toastId })
 			setRejectDialogOpen(false)
+			setSelectedItem(null)
 			await revalidate()
 		} catch (error) {
 			toast.error("Unable to reject request", {
@@ -111,7 +114,7 @@ export function useAppointmentsScheduleActions({
 				description: error instanceof Error ? error.message : "An unexpected error occurred",
 			})
 		} finally {
-			setProcessingId(null)
+			setProcessingKey(null)
 		}
 	}
 
@@ -163,7 +166,7 @@ export function useAppointmentsScheduleActions({
 
 	return {
 		rejectDialogOpen,
-		processingId,
+		processingKey,
 		isCreatingEvent: createEnpEvent.isPending,
 		isDeletingEvent: deleteEnpEvent.isPending,
 		handleAccept,

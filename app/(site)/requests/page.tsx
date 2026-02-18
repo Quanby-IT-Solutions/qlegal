@@ -1,53 +1,42 @@
+import { type inferRouterOutputs } from "@trpc/server"
+
 import { PageHeader } from "@/core/components/navbar/page-header"
 
 import { auth } from "@/services/next-auth"
+import { type AppRouter } from "@/services/trpc/root"
 import { HydrateClient, trpc } from "@/services/trpc/server"
 
-import { type AppointmentItem } from "@/features/appointments/api/appointments.router"
 import { AppointmentsClient } from "@/features/appointments/components/appointments-client"
 import { AppointmentsScheduleClient } from "@/features/appointments/components/appointments-schedule-client"
+
+type IncomingRequest = inferRouterOutputs<AppRouter>["appointments"]["getIncomingRequests"][number]
+type IncomingAppointment =
+	inferRouterOutputs<AppRouter>["appointments"]["getIncomingAppointmentsForENP"][number]
+
+function sortIncomingItems<T extends { createdAt: Date }>(items: T[]) {
+	items.sort((a, b) => {
+		const dateA = new Date(a.createdAt).getTime()
+		const dateB = new Date(b.createdAt).getTime()
+		return dateB - dateA
+	})
+
+	return items
+}
 
 export default async function RequestsPage() {
 	const session = await auth()
 	const isENP = session?.user?.role === "ENP"
 
-	const rawRequests = await trpc.appointments.getIncomingRequests()
+	const incomingRequests = sortIncomingItems([
+		...((await trpc.appointments.getIncomingRequests()) ?? []),
+	]) as IncomingRequest[]
 
-	const incomingRequests = rawRequests.map(request => ({
-		id: request.id,
-		title: request.title,
-		description: request.description,
-		status: request.status as AppointmentItem["status"],
-		workflow: request.workflow as AppointmentItem["workflow"],
-		priority: request.priority,
-		createdAt: request.createdAt,
-		updatedAt: request.updatedAt,
-		enpId: request.enpId,
-		principalId: request.principalId,
-		appointmentId: request.appointmentId ?? null,
-		rejectReason: request.rejectReason,
-		principal: request.principal,
-		documents: 0,
-		source: "request" as const,
-		requestData: request,
-	})) as AppointmentItem[]
-
-	let incomingAppointments: AppointmentItem[] = []
+	let incomingAppointments: IncomingAppointment[] = []
 	if (isENP) {
-		const rawAppointments = await trpc.appointments.getIncomingAppointmentsForENP()
-		incomingAppointments = rawAppointments.map(apt => ({
-			...apt,
-			workflow: apt.workflow as AppointmentItem["workflow"],
-		})) as AppointmentItem[]
+		incomingAppointments = sortIncomingItems([
+			...((await trpc.appointments.getIncomingAppointmentsForENP()) ?? []),
+		]) as IncomingAppointment[]
 	}
-
-	const allIncomingItems = [...incomingRequests, ...incomingAppointments]
-
-	allIncomingItems.sort((a, b) => {
-		const dateA = new Date(a.createdAt).getTime()
-		const dateB = new Date(b.createdAt).getTime()
-		return dateB - dateA
-	})
 
 	const today = new Date()
 	const scheduleData = isENP
@@ -73,11 +62,12 @@ export default async function RequestsPage() {
 								</div>
 								<AppointmentsScheduleClient
 									scheduleData={scheduleData}
-									incomingRequests={allIncomingItems}
+									incomingRequests={incomingRequests}
+									incomingAppointments={incomingAppointments}
 								/>
 							</>
 						) : (
-							<AppointmentsClient incomingRequests={allIncomingItems} />
+							<AppointmentsClient incomingRequests={incomingRequests} />
 						)}
 					</div>
 				</main>

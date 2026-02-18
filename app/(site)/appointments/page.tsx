@@ -1,42 +1,23 @@
 import { Suspense } from "react"
+import { type inferRouterOutputs } from "@trpc/server"
 
 import { PageHeader } from "@/core/components/navbar/page-header"
 import { Skeleton } from "@/core/components/ui/skeleton"
 
 import { auth } from "@/services/next-auth"
-import type { RouterOutputs } from "@/services/trpc/client"
+import { type AppRouter } from "@/services/trpc/root"
 import { HydrateClient, trpc } from "@/services/trpc/server"
 
-import { type AppointmentItem } from "@/features/appointments/api/appointments.router"
 import { AppointmentsClient } from "@/features/appointments/components/appointments-client"
 import { AppointmentsScheduleClient } from "@/features/appointments/components/appointments-schedule-client"
 import { CalendarSkeleton } from "@/features/appointments/components/calendar/calendar-skeleton"
 import { EventListSkeleton } from "@/features/appointments/components/event-list/event-list-skeleton"
 
-function mapIncomingRequests(rawRequests: RouterOutputs["appointments"]["getIncomingRequests"]) {
-	return rawRequests.map(request => ({
-		id: request.id,
-		title: request.title,
-		description: request.description,
-		status:
-			request.status as RouterOutputs["appointments"]["getIncomingAppointmentsForENP"][number]["status"],
-		workflow:
-			request.workflow as RouterOutputs["appointments"]["getIncomingAppointmentsForENP"][number]["workflow"],
-		priority: request.priority,
-		createdAt: request.createdAt,
-		updatedAt: request.updatedAt,
-		enpId: request.enpId,
-		principalId: request.principalId,
-		appointmentId: request.appointmentId ?? null,
-		rejectReason: request.rejectReason,
-		principal: request.principal,
-		documents: 0,
-		source: "request" as const,
-		requestData: request,
-	})) as AppointmentItem[]
-}
+type IncomingRequest = inferRouterOutputs<AppRouter>["appointments"]["getIncomingRequests"][number]
+type IncomingAppointment =
+	inferRouterOutputs<AppRouter>["appointments"]["getIncomingAppointmentsForENP"][number]
 
-function sortIncomingItems(items: AppointmentItem[]) {
+function sortIncomingItems<T extends { createdAt: Date }>(items: T[]) {
 	items.sort((a, b) => {
 		const dateA = new Date(a.createdAt).getTime()
 		const dateB = new Date(b.createdAt).getTime()
@@ -117,13 +98,8 @@ async function ENPAppointmentsContent() {
 		trpc.appointments.getIncomingAppointmentsForENP(),
 	])
 
-	const incomingRequests = mapIncomingRequests(rawRequests)
-	const incomingAppointments = rawAppointments.map(apt => ({
-		...apt,
-		workflow: apt.workflow,
-	})) as AppointmentItem[]
-
-	const allIncomingItems = sortIncomingItems([...incomingRequests, ...incomingAppointments])
+	const incomingRequests = sortIncomingItems([...rawRequests]) as IncomingRequest[]
+	const incomingAppointments = sortIncomingItems([...rawAppointments]) as IncomingAppointment[]
 	const today = new Date()
 	const scheduleData = await trpc.appointments.getEnpSchedule({
 		month: today.getMonth(),
@@ -136,17 +112,21 @@ async function ENPAppointmentsContent() {
 				<h1 className="text-3xl font-bold tracking-tight">Appointments & Schedule</h1>
 				<p className="text-muted-foreground">Manage incoming requests and your appointments</p>
 			</div>
-			<AppointmentsScheduleClient scheduleData={scheduleData} incomingRequests={allIncomingItems} />
+			<AppointmentsScheduleClient
+				scheduleData={scheduleData}
+				incomingRequests={incomingRequests}
+				incomingAppointments={incomingAppointments}
+			/>
 		</>
 	)
 }
 
 async function StandardAppointmentsContent() {
-	const rawRequests = await trpc.appointments.getIncomingRequests()
-	const incomingRequests = mapIncomingRequests(rawRequests)
-	const allIncomingItems = sortIncomingItems([...incomingRequests])
+	const incomingRequests = sortIncomingItems([
+		...((await trpc.appointments.getIncomingRequests()) ?? []),
+	])
 
-	return <AppointmentsClient incomingRequests={allIncomingItems} />
+	return <AppointmentsClient incomingRequests={incomingRequests} />
 }
 
 export default async function AppointmentsPage() {

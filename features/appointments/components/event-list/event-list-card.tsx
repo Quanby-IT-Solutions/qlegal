@@ -1,4 +1,5 @@
 import { useMemo } from "react"
+import { type inferRouterOutputs } from "@trpc/server"
 import { CalendarIcon, InboxIcon } from "lucide-react"
 
 import {
@@ -16,7 +17,13 @@ import {
 } from "@/core/components/ui/empty"
 import { ItemGroup } from "@/core/components/ui/item"
 
-import type { AppointmentItem } from "@/features/appointments/api/appointments.router"
+import { type AppRouter } from "@/services/trpc/root"
+
+import type { ScheduleIncomingItem } from "@/features/appointments/lib/use-appointments-schedule-actions"
+
+type IncomingRequest = inferRouterOutputs<AppRouter>["appointments"]["getIncomingRequests"][number]
+type IncomingAppointment =
+	inferRouterOutputs<AppRouter>["appointments"]["getIncomingAppointmentsForENP"][number]
 
 export function EventListHeader() {
 	const { formattedDate, relativeDay } = useCalendarScheduleHeader()
@@ -29,30 +36,35 @@ export function EventListHeader() {
 }
 
 interface UnifiedSidebarListProps {
-	incomingRequests: AppointmentItem[]
-	onAccept: (item: AppointmentItem) => void
-	onReject: (item: AppointmentItem) => void
-	processingId: string | null
+	incomingRequests: IncomingRequest[]
+	incomingAppointments: IncomingAppointment[]
+	onAccept: (item: ScheduleIncomingItem) => void
+	onReject: (item: ScheduleIncomingItem) => void
+	processingKey: string | null
 }
 
 export function UnifiedSidebarList({
 	incomingRequests,
+	incomingAppointments,
 	onAccept,
 	onReject,
-	processingId,
+	processingKey,
 }: UnifiedSidebarListProps) {
 	const dayEvents = useSelectedDayEvents()
 
 	const itemLookup = useMemo(() => {
-		const map = new Map<string, AppointmentItem>()
-		for (const item of incomingRequests) {
-			map.set(item.id, item)
-			if (item.source === "appointment" && item.appointmentData) {
-				map.set(item.appointmentData.id, item)
-			}
+		const map = new Map<string, ScheduleIncomingItem>()
+		for (const request of incomingRequests) {
+			map.set(`request:${request.id}`, { source: "request", item: request })
+		}
+		for (const appointment of incomingAppointments) {
+			map.set(`appointment:${appointment.id}`, {
+				source: "appointment",
+				item: appointment,
+			})
 		}
 		return map
-	}, [incomingRequests])
+	}, [incomingRequests, incomingAppointments])
 
 	const sortedEvents = useMemo(
 		() =>
@@ -66,7 +78,11 @@ export function UnifiedSidebarList({
 	)
 
 	if (sortedEvents.length === 0) {
-		if (incomingRequests.length === 0 && dayEvents.length === 0) {
+		if (
+			incomingRequests.length === 0 &&
+			incomingAppointments.length === 0 &&
+			dayEvents.length === 0
+		) {
 			return (
 				<Empty className="animate-in fade-in duration-300 motion-reduce:animate-none">
 					<EmptyHeader>
@@ -103,8 +119,10 @@ export function UnifiedSidebarList({
 			{sortedEvents.map(item => {
 				const ev = item.event
 				const incomingItemId = (ev.meta?.incomingItemId as string | undefined) ?? ev.id
-				const incomingItem = itemLookup.get(ev.id) ?? itemLookup.get(incomingItemId)
-				const isProcessing = processingId === ev.id || processingId === incomingItem?.id
+				const source = ev.meta?.source as "request" | "appointment" | undefined
+				const lookupKey = source ? `${source}:${incomingItemId}` : null
+				const incomingItem = lookupKey ? itemLookup.get(lookupKey) : undefined
+				const isProcessing = lookupKey !== null && processingKey === lookupKey
 
 				return (
 					<CalendarScheduleEventCard
