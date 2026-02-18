@@ -3,12 +3,12 @@ import { hash } from "bcryptjs"
 import { eq } from "drizzle-orm"
 
 import { formatDateForStamp } from "@/core/lib/format-date-for-stamp"
-import { autoJoinOrganization, provisionUser } from "@/services/doconchain"
 import { passwordResetTokens, users, verificationTokens } from "@/services/drizzle/schema/auth"
 import { enpProfiles } from "@/services/drizzle/schema/enp-profiles"
 import { sendPasswordResetToken } from "@/services/react-email/lib/send.password-reset-token"
 import { sendVerificationToken } from "@/services/react-email/lib/send.verification-token"
 import { createTRPCRouter, publicProcedure } from "@/services/trpc/init"
+import { autoJoinMemberInDoconchainOrganization } from "@/services/doconchain/organization/auto-join-member"
 
 import {
 	forgotPasswordSchema,
@@ -53,16 +53,18 @@ export const authRouter = createTRPCRouter({
 			})
 		}
 
-		// BEST-EFFORT: provision the user in DoconChain (auto-join org + generate token).
-		// We do NOT block registration if DoconChain rejects/doesn't allow auto-join.
 		try {
-			await provisionUser({
-				email,
-				name,
-				role: "Member",
+			await autoJoinMemberInDoconchainOrganization({ email, name, role: "Member" })
+		} catch (error) {
+			// If external provisioning fails, clean up the created user so retry is safe.
+			await ctx.db.delete(users).where(eq(users.id, createdUser.id)).catch(() => undefined)
+			throw new TRPCError({
+				code: "INTERNAL_SERVER_ERROR",
+				message:
+					error instanceof Error
+						? `Failed to provision DocOnChain access: ${error.message}`
+						: "Failed to provision DocOnChain access.",
 			})
-		} catch {
-			// provisionUser is best-effort
 		}
 
 		const verificationToken = await generateVerificationToken(email)
@@ -140,23 +142,6 @@ export const authRouter = createTRPCRouter({
 			})
 		}
 
-		// Auto-join user to DocoChain organization
-		try {
-			const nameParts = name.split(" ")
-			const firstName = nameParts[0] ?? "User"
-			const lastName = nameParts.slice(1).join(" ") || ""
-
-			await autoJoinOrganization({
-				email,
-				firstName,
-				lastName,
-				role: "Member",
-			})
-			console.log("✅ Lawyer auto-joined to DocoChain organization")
-		} catch (error) {
-			console.warn("⚠️ Failed to auto-join lawyer to DocoChain organization:", error)
-		}
-
 		// Generate document_stamp payload for external API
 		const documentStamp = {
 			seal: {
@@ -188,6 +173,26 @@ export const authRouter = createTRPCRouter({
 				MCLE_no_date: formatDateForStamp(notaryInfo.mcleNoDate),
 				mode_of_notarization: notaryInfo.modeOfNotarization,
 			},
+		}
+
+		try {
+			await autoJoinMemberInDoconchainOrganization({ email, name, role: "Member" })
+		} catch (error) {
+			// Try to clean up the created ENP user so retry is safe.
+			if (newUserId) {
+				await ctx.db
+					.delete(enpProfiles)
+					.where(eq(enpProfiles.userId, newUserId))
+					.catch(() => undefined)
+				await ctx.db.delete(users).where(eq(users.id, newUserId)).catch(() => undefined)
+			}
+			throw new TRPCError({
+				code: "INTERNAL_SERVER_ERROR",
+				message:
+					error instanceof Error
+						? `Failed to provision DocOnChain access: ${error.message}`
+						: "Failed to provision DocOnChain access.",
+			})
 		}
 
 		// Send verification email

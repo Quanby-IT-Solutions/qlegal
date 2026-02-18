@@ -55,17 +55,8 @@ function DetailsSkeleton() {
 	)
 }
 
-function resolvePreviewUrl(doc: {
-	isFullySigned: boolean
-	docoChainProjectId?: string | null
-	previewUrl?: string | null
-}) {
-	const signedUrl =
-		doc.isFullySigned && doc.docoChainProjectId
-			? `/api/doconchain/projects/${encodeURIComponent(doc.docoChainProjectId)}/signed`
-			: null
-
-	return { url: signedUrl ?? doc.previewUrl ?? null, isSigned: !!signedUrl }
+function resolvePreviewUrl(doc: { previewUrl?: string | null }) {
+	return { url: doc.previewUrl ?? null, isSigned: false }
 }
 
 function DocumentViewer({

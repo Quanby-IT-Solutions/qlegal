@@ -47,7 +47,7 @@ async function main() {
 		console.log(`✅ Found notarial act: ${act.certificateNumber || act.id}`)
 
 		// Get notarial book
-		// @ts-expect-error - PostgresJsDatabase<any> doesn't provide proper types for query builder
+		// @ts-ignore - PostgresJsDatabase<any> doesn't provide proper types for query builder
 		// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
 		const notarialBook = await db.query.notarialBooks.findFirst({
 			where: eq(notarialBooks.id, act.notarialBookId),

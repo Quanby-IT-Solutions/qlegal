@@ -104,7 +104,7 @@ export function Hero({ isAuthenticated = false }: HeroProps) {
 							>
 								<Shield className="h-4 w-4 text-[rgb(91,26,128)]" />
 								<span className="text-muted-foreground text-sm font-medium">
-									🇵🇭 Supreme Court Accredited
+									Certified & Accredited Platform
 								</span>
 							</motion.div>
 
@@ -118,7 +118,7 @@ export function Hero({ isAuthenticated = false }: HeroProps) {
 
 						<div className="min-h-24">
 							<TextGenerateEffect
-								words="The Philippines' legal consultation and electronic notarization platform—secure, compliant, and trusted by legal professionals nationwide."
+								words="A comprehensive legal consultation and electronic notarization platform—secure, compliant, and trusted by legal professionals."
 								className="text-muted-foreground text-base leading-relaxed font-normal sm:text-lg lg:text-xl"
 							/>
 						</div>
