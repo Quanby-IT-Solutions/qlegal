@@ -216,13 +216,12 @@ export const profileRouter = createTRPCRouter({
 			rollNoDate: normalizeString(input.rollNoDate),
 			commissionNo: normalizeString(input.commissionNo),
 			commissionNoValidUntil:
-				(input.commissionNoValidUntil &&
-					formatDateForStamp(input.commissionNoValidUntil)) ||
+				(input.commissionNoValidUntil && formatDateForStamp(input.commissionNoValidUntil)) ??
 				normalizeString(input.commissionNoValidUntil),
 			ptrNo: normalizeString(input.ptrNo),
 			ptrNoLocation: normalizeString(input.ptrNoLocation),
 			ptrNoDate:
-				(input.ptrNoDate && formatDateForStamp(input.ptrNoDate)) ||
+				(input.ptrNoDate && formatDateForStamp(input.ptrNoDate)) ??
 				normalizeString(input.ptrNoDate),
 			ibpNo: normalizeString(input.ibpNo),
 			ibpNoDate: normalizeString(input.ibpNoDate),
@@ -263,7 +262,7 @@ export const profileRouter = createTRPCRouter({
 			const profileData = {
 				rollNo: normalizeString(input.rollNo),
 				rollNoDate:
-					(input.rollNoDate && formatDateForStamp(input.rollNoDate)) ||
+					(input.rollNoDate && formatDateForStamp(input.rollNoDate)) ??
 					normalizeString(input.rollNoDate),
 			}
 
@@ -296,17 +295,16 @@ export const profileRouter = createTRPCRouter({
 		const profileData = {
 			commissionNo: normalizeString(input.commissionNo),
 			commissionNoValidUntil:
-				(input.commissionNoValidUntil &&
-					formatDateForStamp(input.commissionNoValidUntil)) ||
+				(input.commissionNoValidUntil && formatDateForStamp(input.commissionNoValidUntil)) ??
 				normalizeString(input.commissionNoValidUntil),
 			ptrNo: normalizeString(input.ptrNo),
 			ptrNoLocation: normalizeString(input.ptrNoLocation),
 			ptrNoDate:
-				(input.ptrNoDate && formatDateForStamp(input.ptrNoDate)) ||
+				(input.ptrNoDate && formatDateForStamp(input.ptrNoDate)) ??
 				normalizeString(input.ptrNoDate),
 			ibpNo: normalizeString(input.ibpNo),
 			ibpNoDate:
-				(input.ibpNoDate && formatDateForStamp(input.ibpNoDate)) ||
+				(input.ibpNoDate && formatDateForStamp(input.ibpNoDate)) ??
 				normalizeString(input.ibpNoDate),
 			notaryAddress: normalizeString(input.notaryAddress),
 			// Supreme Court eNotarization API Fields
@@ -344,7 +342,7 @@ export const profileRouter = createTRPCRouter({
 
 			// Store MCLE date in human-readable form so document seals never receive raw ISO
 			const mcleNoDateStored =
-				(input.mcleNoDate && formatDateForStamp(input.mcleNoDate)) ||
+				(input.mcleNoDate && formatDateForStamp(input.mcleNoDate)) ??
 				normalizeString(input.mcleNoDate)
 
 			// Guard: MCLE Period should be a period label (e.g. "VIII"), not an ISO timestamp.

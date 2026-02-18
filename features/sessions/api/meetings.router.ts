@@ -2,6 +2,8 @@ import { TRPCError } from "@trpc/server"
 import { and, eq, inArray, or, type InferSelectModel } from "drizzle-orm"
 import { z } from "zod/v4"
 
+import { formatDateForStamp } from "@/core/lib/format-date-for-stamp"
+
 import {
 	checkSigningStatus,
 	createProject,
@@ -26,7 +28,6 @@ import { getPublicUrl } from "@/services/supabase/signed-url"
 import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
 import { createMeetingRoom, fetchRecordings, generateMeetingToken } from "@/services/video-sdk"
 
-import { formatDateForStamp } from "@/core/lib/format-date-for-stamp"
 import { autoCreateNotarialAct } from "@/features/notarial-book/lib/auto-create-notarial-act"
 
 function isEnpRole(role: unknown): boolean {
@@ -390,9 +391,7 @@ export const meetingsRouter = createTRPCRouter({
 						: meeting.createdBy,
 					participants: (meeting.participants ?? []).map(p => ({
 						...p,
-						user: p.user
-							? { ...p.user, image: resolveAvatarImage(p.user.image) }
-							: p.user,
+						user: p.user ? { ...p.user, image: resolveAvatarImage(p.user.image) } : p.user,
 					})),
 					documentStats: { total, signed, isComplete },
 				}
@@ -412,6 +411,17 @@ export const meetingsRouter = createTRPCRouter({
 						name: true,
 						email: true,
 						image: true,
+						role: true,
+					},
+					with: {
+						enpProfile: {
+							columns: {
+								acknowledgmentPrice: true,
+								affirmationPrice: true,
+								juratPrice: true,
+								signatureWitnessingPrice: true,
+							},
+						},
 					},
 				},
 				participants: {
@@ -423,6 +433,16 @@ export const meetingsRouter = createTRPCRouter({
 								email: true,
 								image: true,
 								role: true,
+							},
+							with: {
+								enpProfile: {
+									columns: {
+										acknowledgmentPrice: true,
+										affirmationPrice: true,
+										juratPrice: true,
+										signatureWitnessingPrice: true,
+									},
+								},
 							},
 						},
 					},
@@ -464,9 +484,7 @@ export const meetingsRouter = createTRPCRouter({
 		// and also expose pending invites for host UI (lobby invite list). Resolve avatar paths to URLs.
 		const resolveParticipant = (p: (typeof meeting.participants)[number]) => ({
 			...p,
-			user: p.user
-				? { ...p.user, image: resolveAvatarImage(p.user.image) }
-				: p.user,
+			user: p.user ? { ...p.user, image: resolveAvatarImage(p.user.image) } : p.user,
 		})
 		return {
 			...meeting,
@@ -541,10 +559,7 @@ export const meetingsRouter = createTRPCRouter({
 				throw new TRPCError({ code: "FORBIDDEN", message: "You don't have access to this meeting" })
 			}
 			if (isEnpRole(ctx.session.user.role) && ctx.session.user.email) {
-				await ensureMeetingToken(
-					input.meetingId,
-					ctx.session.user.email.trim().toLowerCase()
-				)
+				await ensureMeetingToken(input.meetingId, ctx.session.user.email.trim().toLowerCase())
 			}
 			return { ready: true }
 		}),
@@ -696,9 +711,7 @@ export const meetingsRouter = createTRPCRouter({
 						)
 					)
 				)
-				const failed = results.filter(
-					(r): r is PromiseRejectedResult => r.status === "rejected"
-				)
+				const failed = results.filter((r): r is PromiseRejectedResult => r.status === "rejected")
 				if (failed.length > 0) {
 					console.error(
 						"[endMeeting] Notarial act creation failed for",
@@ -1703,9 +1716,7 @@ export const meetingsRouter = createTRPCRouter({
 						: meeting.createdBy,
 					participants: (meeting.participants ?? []).map(p => ({
 						...p,
-						user: p.user
-							? { ...p.user, image: resolveAvatarImage(p.user.image) }
-							: p.user,
+						user: p.user ? { ...p.user, image: resolveAvatarImage(p.user.image) } : p.user,
 					})),
 				},
 				documentStats: { total, signed },
@@ -1802,6 +1813,83 @@ export const meetingsRouter = createTRPCRouter({
 				success: true,
 				isLocked: updatedMeeting?.isDocumentOrderLocked ?? false,
 			}
+		}),
+
+	// Remove a document from a meeting
+	removeDocument: protectedProcedure
+		.input(
+			z.object({
+				meetingId: z.string().min(1),
+				documentId: z.string().min(1),
+			})
+		)
+		.mutation(async ({ input, ctx }) => {
+			const { meetingId, documentId } = input
+
+			// Verify meeting exists and user has access
+			const meeting = await db.query.meetings.findFirst({
+				where: eq(meetings.id, meetingId),
+				with: {
+					participants: true,
+				},
+			})
+
+			if (!meeting) {
+				throw new TRPCError({
+					code: "NOT_FOUND",
+					message: "Meeting not found",
+				})
+			}
+
+			// Only the meeting creator can remove documents
+			if (meeting.createdById !== ctx.session.user.id) {
+				throw new TRPCError({
+					code: "FORBIDDEN",
+					message: "Only the meeting creator can remove documents",
+				})
+			}
+
+			// Verify document exists and belongs to this meeting
+			const document = await db.query.documents.findFirst({
+				where: eq(documents.id, documentId),
+			})
+
+			if (!document) {
+				throw new TRPCError({
+					code: "NOT_FOUND",
+					message: "Document not found",
+				})
+			}
+
+			if (document.meetingId !== meetingId) {
+				throw new TRPCError({
+					code: "BAD_REQUEST",
+					message: "Document does not belong to this meeting",
+				})
+			}
+
+			// Delete file from Supabase storage (log error but continue — file may already be gone)
+			if (document.path) {
+				try {
+					const supabase = getServiceRoleClient()
+					const { error: storageError } = await supabase.storage
+						.from("documents")
+						.remove([document.path])
+
+					if (storageError) {
+						console.error("[removeDocument] Storage deletion error:", storageError)
+					} else {
+						console.log("[removeDocument] Storage file removed:", document.path)
+					}
+				} catch (err) {
+					console.error("[removeDocument] Unexpected storage error:", err)
+				}
+			}
+
+			// Delete document record — cascade deletes documentSigners automatically
+			await db.delete(documents).where(eq(documents.id, documentId))
+
+			return { success: true }
 		}),
 
 	/**

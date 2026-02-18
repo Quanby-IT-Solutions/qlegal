@@ -62,7 +62,7 @@ export function MeetingDocumentUpload({
 	})
 
 	// Fetch meeting details to get ENP participants (for Principal users)
-	const { data: meetingDetails } = trpc.meetings.getMeetingDetails.useQuery(meetingId, {
+	const { data: meetingDetails } = trpc.meetings.getById.useQuery(meetingId, {
 		enabled: isOpen && !isEnp, // Only fetch if current user is NOT an ENP (Principal case)
 		staleTime: 5 * 60 * 1000,
 		refetchOnWindowFocus: false,

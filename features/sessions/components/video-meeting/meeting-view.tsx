@@ -406,6 +406,16 @@ export function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meet
 		},
 	})
 
+	const removeDocumentMutation = trpc.meetings.removeDocument.useMutation({
+		onSuccess: () => {
+			void refetchDocuments()
+			toast.success("Document removed successfully")
+		},
+		onError: error => {
+			toast.error(error.message ?? "Failed to remove document")
+		},
+	})
+
 	// Mutation to set per-document signers (before plotting)
 	const setDocumentSignersMutation = trpc.meetings.setDocumentSigners.useMutation({
 		onSuccess: () => {
@@ -2098,6 +2108,15 @@ export function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meet
 		}
 	}, [meetingDetails, meetingId, session?.user?.id, toggleLockMutation])
 
+	const handleRemoveDocument = useCallback(
+		(documentId: string) => {
+			if (meetingId) {
+				removeDocumentMutation.mutate({ meetingId, documentId })
+			}
+		},
+		[meetingId, removeDocumentMutation]
+	)
+
 	if (!joined) {
 		return (
 			<div className="from-background via-muted/30 to-background flex h-screen items-center justify-center bg-linear-to-br">
@@ -2205,6 +2224,7 @@ export function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meet
 							isDocumentOrderLocked={meetingDetails?.isDocumentOrderLocked ?? false}
 							isPrincipal={meetingDetails?.createdBy.id === session?.user?.id}
 							onToggleLock={handleToggleLock}
+							onRemoveDocument={handleRemoveDocument}
 							isRefreshing={isDocumentsFetching || isRefreshingSigningStatus}
 							onRefresh={handleSidebarRefresh}
 							onDownloadSigned={handleDownloadSignedDocument}

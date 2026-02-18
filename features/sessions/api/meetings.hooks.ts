@@ -57,6 +57,12 @@ export function useMeetings() {
 		},
 	})
 
+	const removeDocument = trpc.meetings.removeDocument.useMutation({
+		onSuccess: (_data, variables) => {
+			void utils.meetings.getMeetingDocuments.invalidate(variables.meetingId)
+		},
+	})
+
 	const getMeetingDocuments = (meetingId: string) =>
 		trpc.meetings.getMeetingDocuments.useQuery(meetingId, {
 			enabled: !!meetingId,
@@ -88,6 +94,7 @@ export function useMeetings() {
 		endMeeting,
 		deleteMeeting,
 		uploadDocument,
+		removeDocument,
 		getMeetingDocuments,
 		inviteWitnessByEmail,
 		respondToInvite,

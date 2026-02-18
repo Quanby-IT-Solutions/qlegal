@@ -182,7 +182,7 @@ export const DocumentCard: React.FC<DocumentCardProps> = ({
 						<div
 							className={cn(
 								"inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium",
-								badge.color === "emerald" ?? badge.color === "green"
+								badge.color === "emerald" || badge.color === "green"
 									? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
 									: badge.color === "yellow"
 										? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
@@ -274,12 +274,12 @@ export const DocumentCard: React.FC<DocumentCardProps> = ({
 					<Tooltip>
 						<TooltipTrigger asChild>
 							<button
-								disabled={!isCompleted ?? isDownloadingSigned ?? isPreparingNotarized}
+								disabled={!isCompleted || isDownloadingSigned || isPreparingNotarized}
 								onClick={onViewNotarized}
 								className="text-muted-foreground hover:bg-muted/70 hover:text-foreground flex size-8 items-center justify-center rounded-md transition-all duration-150 disabled:cursor-not-allowed disabled:opacity-40"
 								aria-label="View notarized document"
 							>
-								{isDownloadingSigned ?? isPreparingNotarized ? (
+								{isDownloadingSigned || isPreparingNotarized ? (
 									<Loader2 className="size-4 animate-spin" />
 								) : (
 									<ExternalLink className="size-4" />
@@ -303,7 +303,7 @@ export const DocumentCard: React.FC<DocumentCardProps> = ({
 					<Tooltip>
 						<TooltipTrigger asChild>
 							<button
-								disabled={!isCompleted ?? isDownloadingCert}
+								disabled={!isCompleted || isDownloadingCert}
 								onClick={onDownloadCertificate}
 								className="text-muted-foreground hover:bg-muted/70 hover:text-foreground flex size-8 items-center justify-center rounded-md transition-all duration-150 disabled:cursor-not-allowed disabled:opacity-40"
 								aria-label="Download certificate"
