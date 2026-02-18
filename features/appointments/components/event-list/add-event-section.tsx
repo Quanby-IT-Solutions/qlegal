@@ -8,7 +8,7 @@ import {
 } from "@/core/components/calendar-schedule"
 import { Button } from "@/core/components/ui/button"
 
-import { EventDialog } from "../event-dialog"
+import { EventDialog } from "../dialogs/event-dialog"
 
 const STATUS_PENDING: Status = { id: "pending", name: "Pending", color: "#F59E0B" }
 

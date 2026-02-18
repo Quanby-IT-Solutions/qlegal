@@ -13,9 +13,9 @@ import type { AppointmentItem } from "../api/appointments.router"
 import { buildCalendarEvents } from "../lib/calendar-events"
 import { useAppointmentsScheduleActions } from "../lib/use-appointments-schedule-actions"
 import { CalendarCard } from "./calendar/calendar-card"
+import { RejectDialog } from "./dialogs/reject-dialog"
 import { AddEventSection } from "./event-list/add-event-section"
 import { EventListHeader, UnifiedSidebarList } from "./event-list/event-list-card"
-import { RejectDialog } from "./reject-dialog"
 
 interface AppointmentsScheduleClientProps {
 	scheduleData: {

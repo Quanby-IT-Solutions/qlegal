@@ -8,7 +8,7 @@ import { trpc } from "@/services/trpc/client"
 
 import type { AppointmentItem } from "../api/appointments.router"
 import { AppointmentsListView } from "./appointments-list-view"
-import { RejectDialog } from "./reject-dialog"
+import { RejectDialog } from "./dialogs/reject-dialog"
 
 export function AppointmentsClient({ incomingRequests }: { incomingRequests: AppointmentItem[] }) {
 	const router = useRouter()

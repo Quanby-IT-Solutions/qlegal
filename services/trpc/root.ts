@@ -1,8 +1,6 @@
 import { createCallerFactory, createTRPCRouter } from "@/services/trpc/init"
 
 import { appointmentsRouter } from "@/features/appointments/api/appointments.router"
-import { requestsRouter } from "@/features/appointments/api/requests.router"
-import { scheduleRouter } from "@/features/appointments/api/schedule.router"
 import { authRouter } from "@/features/auth/api/auth.router"
 import { browseRouter } from "@/features/browse/api/browse.router"
 import { dashboardRouter } from "@/features/dashboard/api/dashboard.router"
@@ -51,12 +49,10 @@ export const appRouter = createTRPCRouter({
 	messages: messagesRouter,
 	notarialBook: notarialBookRouter,
 	profile: profileRouter,
-	requests: requestsRouter, // KEEP temporarily for backward compatibility
 	settings: settingsRouter,
 	signatureLite: signatureLiteRouter,
 	witnesses: witnessesRouter,
 	userManagement: userManagementRouter,
-	schedule: scheduleRouter, // KEEP temporarily for backward compatibility
 })
 
 /**

@@ -4,6 +4,7 @@ import { PageHeader } from "@/core/components/navbar/page-header"
 import { Skeleton } from "@/core/components/ui/skeleton"
 
 import { auth } from "@/services/next-auth"
+import type { RouterOutputs } from "@/services/trpc/client"
 import { HydrateClient, trpc } from "@/services/trpc/server"
 
 import { type AppointmentItem } from "@/features/appointments/api/appointments.router"
@@ -12,15 +13,15 @@ import { AppointmentsScheduleClient } from "@/features/appointments/components/a
 import { CalendarSkeleton } from "@/features/appointments/components/calendar/calendar-skeleton"
 import { EventListSkeleton } from "@/features/appointments/components/event-list/event-list-skeleton"
 
-function mapIncomingRequests(
-	rawRequests: Awaited<ReturnType<typeof trpc.appointments.getIncomingRequests>>
-) {
+function mapIncomingRequests(rawRequests: RouterOutputs["appointments"]["getIncomingRequests"]) {
 	return rawRequests.map(request => ({
 		id: request.id,
 		title: request.title,
 		description: request.description,
-		status: request.status as AppointmentItem["status"],
-		workflow: request.workflow as AppointmentItem["workflow"],
+		status:
+			request.status as RouterOutputs["appointments"]["getIncomingAppointmentsForENP"][number]["status"],
+		workflow:
+			request.workflow as RouterOutputs["appointments"]["getIncomingAppointmentsForENP"][number]["workflow"],
 		priority: request.priority,
 		createdAt: request.createdAt,
 		updatedAt: request.updatedAt,

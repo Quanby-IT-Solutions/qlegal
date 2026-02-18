@@ -1,10 +1,22 @@
 import { useMemo } from "react"
 import { isThisMonth, isThisWeek, isToday } from "date-fns"
 
-import type { AppointmentWithDetails, RequestFilters, RequestStats } from "./types"
+import type { RouterOutputs } from "@/services/trpc/client"
+
+import type { RequestFilters } from "./use-request-filters"
+
+interface RequestStats {
+	total: number
+	pending: number
+	confirmed: number
+	completed: number
+	cancelled: number
+	todayCount: number
+	upcomingCount: number
+}
 
 export function useFilteredRequests(
-	appointments: AppointmentWithDetails[] | undefined,
+	appointments: RouterOutputs["appointments"]["getMyAppointments"] | undefined,
 	filters: RequestFilters
 ) {
 	const filteredAppointments = useMemo(() => {

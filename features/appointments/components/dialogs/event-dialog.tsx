@@ -26,9 +26,9 @@ import { Input } from "@/core/components/ui/input"
 import { Spinner } from "@/core/components/ui/spinner"
 import { Textarea } from "@/core/components/ui/textarea"
 
-import { TimeWheelPicker } from "./schedule/time-wheel-picker"
-import { SessionModeSelector } from "./shared/session-mode-selector"
-import { SessionTypeSelector } from "./shared/session-type-selector"
+import { TimeWheelPicker } from "../schedule/time-wheel-picker"
+import { SessionModeSelector } from "../shared/session-mode-selector"
+import { SessionTypeSelector } from "../shared/session-type-selector"
 
 // Inline schema following booking-dialog.tsx pattern
 const eventDialogSchema = z
