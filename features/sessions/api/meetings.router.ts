@@ -2,7 +2,9 @@ import { TRPCError } from "@trpc/server"
 import { and, asc, eq, inArray, ne, type InferSelectModel } from "drizzle-orm"
 import { z } from "zod/v4"
 
-import { formatDateForStamp } from "@/core/lib/format-date-for-stamp"
+import { addDoconchainProjectSigner } from "@/services/doconchain/projects/add-signer"
+import { createDoconchainProject } from "@/services/doconchain/projects/create-project"
+import { generateDoconchainSignLink } from "@/services/doconchain/projects/generate-sign-link"
 import { db } from "@/services/drizzle/db"
 import { users } from "@/services/drizzle/schema/auth"
 import { documents } from "@/services/drizzle/schema/document"
@@ -10,15 +12,13 @@ import { documentSigners } from "@/services/drizzle/schema/document-signers"
 import { enpProfiles } from "@/services/drizzle/schema/enp-profiles"
 import { meetingParticipants, meetings } from "@/services/drizzle/schema/meetings"
 import { signatureRequests } from "@/services/drizzle/schema/signature-requests"
+import { sendSigningLinkEmail } from "@/services/react-email/lib/send.signing-link"
 import { getPublicClient, getServiceRoleClient } from "@/services/supabase"
 import { getPublicUrl } from "@/services/supabase/signed-url"
-import { createDoconchainProject } from "@/services/doconchain/projects/create-project"
-import { addDoconchainProjectSigner } from "@/services/doconchain/projects/add-signer"
-import { generateDoconchainSignLink } from "@/services/doconchain/projects/generate-sign-link"
 import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
 import { createMeetingRoom, fetchRecordings, generateMeetingToken } from "@/services/video-sdk"
 
-import { autoCreateNotarialAct } from "@/features/notarial-book/lib/auto-create-notarial-act"
+import { populateNotarialRegistryOnMeetingEnd } from "@/features/notarial-book/server/populate-notarial-registry-on-meeting-end"
 
 function isEnpRole(role: unknown): boolean {
 	if (typeof role !== "string") return false
@@ -393,9 +393,6 @@ export const meetingsRouter = createTRPCRouter({
 			)
 			if (!isHost && !isAccepted) {
 				throw new TRPCError({ code: "FORBIDDEN", message: "You don't have access to this meeting" })
-			}
-			if (isEnpRole(ctx.session.user.role) && ctx.session.user.email) {
-				await ensureMeetingToken(input.meetingId, ctx.session.user.email.trim().toLowerCase())
 			}
 			return { ready: true }
 		}),
@@ -804,9 +801,15 @@ export const meetingsRouter = createTRPCRouter({
 				} catch (error) {
 					// Keep our system consistent: remove uploaded file + DB record on project failure.
 					if (uploadData?.path) {
-						await supabase.storage.from("documents").remove([uploadData.path]).catch(() => undefined)
+						await supabase.storage
+							.from("documents")
+							.remove([uploadData.path])
+							.catch(() => undefined)
 					}
-					await db.delete(documents).where(eq(documents.id, document.id)).catch(() => undefined)
+					await db
+						.delete(documents)
+						.where(eq(documents.id, document.id))
+						.catch(() => undefined)
 					throw error
 				}
 
@@ -931,7 +934,10 @@ export const meetingsRouter = createTRPCRouter({
 					}
 
 					const signerUsers = await db.query.users.findMany({
-						where: inArray(users.id, signerRows.map(s => s.userId)),
+						where: inArray(
+							users.id,
+							signerRows.map(s => s.userId)
+						),
 						columns: { id: true, email: true, name: true },
 					})
 					const userById = new Map(signerUsers.map(u => [u.id, u]))

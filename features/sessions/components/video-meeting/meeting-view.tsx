@@ -302,7 +302,7 @@ export function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meet
 							isFullySigned: status.isFullySigned,
 							signedCount: status.signedCount,
 							totalSigners: status.totalSigners,
-							projectStatus: status.projectStatus,
+							projectStatus: status.projectStatus ?? undefined,
 							completedAt: status.completedAt,
 							signers: status.signers || [],
 						})
@@ -719,8 +719,10 @@ export function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meet
 
 			try {
 				// Fetch the certificate using tRPC utils
-				// eslint-disable-next-line @typescript-eslint/no-explicit-any
-				const result = await utils.signatureRequests.downloadCertificate.fetch(projectUuid as any)
+				if (typeof projectUuid !== "string") {
+					throw new Error("Invalid projectUuid: must be a string")
+				}
+				const result = await utils.signatureRequests.downloadCertificate.fetch(projectUuid) as { base64?: string; fileName?: string }
 
 				if (result?.base64) {
 					// Convert base64 to blob and download
@@ -735,7 +737,7 @@ export function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meet
 					const url = window.URL.createObjectURL(blob)
 					const link = document.createElement("a")
 					link.href = url
-					link.download = result.fileName || `certificate-${projectUuid}.pdf`
+					link.download = result.fileName ?? `certificate-${projectUuid}.pdf`
 					document.body.appendChild(link)
 					link.click()
 					document.body.removeChild(link)
