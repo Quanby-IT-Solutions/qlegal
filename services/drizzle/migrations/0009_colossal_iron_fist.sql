@@ -1,0 +1,1 @@
+ALTER TABLE "appointment" ADD COLUMN "color" varchar(7) DEFAULT '#F59E0B' NOT NULL;

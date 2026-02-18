@@ -131,6 +131,7 @@ export const appointmentsRouter = createTRPCRouter({
 					location: input.location,
 					meetingLink: input.meetingLink,
 					status: "PENDING",
+					color: "#F59E0B",
 				})
 				.returning()
 
@@ -539,6 +540,7 @@ export const appointmentsRouter = createTRPCRouter({
 				.update(appointments)
 				.set({
 					status: "CONFIRMED",
+					color: "#10B981",
 					meetingLink: meetingLink ?? existing.meetingLink ?? providedLink ?? "",
 					updatedAt: new Date(),
 				})
@@ -579,6 +581,7 @@ export const appointmentsRouter = createTRPCRouter({
 				.update(appointments)
 				.set({
 					status: "CANCELLED",
+					color: "#EF4444",
 					cancelReason: input.cancelReason,
 					updatedAt: new Date(),
 				})
@@ -594,6 +597,13 @@ export const appointmentsRouter = createTRPCRouter({
 		.mutation(async ({ ctx, input }) => {
 			const userId = ctx.session.user.id
 			const { appointmentId, ...updates } = input
+			const statusColorMap = {
+				PENDING: "#F59E0B",
+				CONFIRMED: "#10B981",
+				CANCELLED: "#EF4444",
+				COMPLETED: "#22C55E",
+			} as const
+			const color = updates.status ? statusColorMap[updates.status] : undefined
 
 			// Get existing appointment
 			const existing = await ctx.db.query.appointments.findFirst({
@@ -620,6 +630,7 @@ export const appointmentsRouter = createTRPCRouter({
 				.update(appointments)
 				.set({
 					...updates,
+					...(color ? { color } : {}),
 					updatedAt: new Date(),
 				})
 				.where(eq(appointments.id, appointmentId))
@@ -1226,6 +1237,7 @@ export const appointmentsRouter = createTRPCRouter({
 							: null,
 					meetingLink,
 					status: "CONFIRMED", // ENP-created events are auto-confirmed
+					color: "#10B981",
 				})
 				.returning()
 

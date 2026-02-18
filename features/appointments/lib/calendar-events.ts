@@ -31,6 +31,7 @@ export function toCalendarEvent(
 		description: apt.notes ?? undefined,
 		startAt: eventDate,
 		status,
+		color: apt.color ?? undefined,
 		principal: apt.client ? { name: apt.client.name, image: apt.client.image } : undefined,
 		appointmentType: apt.type as "NOTARIZATION" | "CONSULTATION" | undefined,
 	}
@@ -72,6 +73,7 @@ export function toCalendarEventFromIncomingAppointment(item: IncomingAppointment
 		description: appointment.notes ?? undefined,
 		startAt: eventDate,
 		status,
+		color: appointment.color ?? status.color,
 		principal: appointment.client
 			? { name: appointment.client.name, image: appointment.client.image }
 			: undefined,
@@ -98,6 +100,7 @@ export function toCalendarEventFromIncomingRequest(item: IncomingRequest): Calen
 		description: item.description ?? undefined,
 		startAt,
 		status,
+		color: status.color,
 		principal: item.principal
 			? { name: item.principal.name, image: item.principal.image }
 			: undefined,
