@@ -2,45 +2,38 @@
 
 import { useRouter } from "next/navigation"
 import { useState } from "react"
+import { type inferRouterOutputs } from "@trpc/server"
 import { toast } from "sonner"
 
 import { trpc } from "@/services/trpc/client"
+import { type AppRouter } from "@/services/trpc/root"
 
-import type { IncomingItem } from "../api/requests.router"
-import { RejectDialog } from "./reject-dialog"
-import { RequestsListView } from "./requests-list-view"
+import { AppointmentsListView } from "./appointments-list-view"
+import { RejectDialog } from "./dialogs/reject-dialog"
 
-export function RequestsClient({ incomingRequests }: { incomingRequests: IncomingItem[] }) {
+type IncomingRequest = inferRouterOutputs<AppRouter>["appointments"]["getIncomingRequests"][number]
+
+export function AppointmentsClient({ incomingRequests }: { incomingRequests: IncomingRequest[] }) {
 	const router = useRouter()
 	const utils = trpc.useUtils()
 	const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null)
 	const [rejectDialogOpen, setRejectDialogOpen] = useState(false)
 	const [processingId, setProcessingId] = useState<string | null>(null)
 
-	const updateStatusMutation = trpc.requests.updateRequestStatus.useMutation()
-	const confirmAppointmentMutation = trpc.appointments.confirmAppointment.useMutation()
-	const cancelAppointmentMutation = trpc.appointments.cancelAppointment.useMutation()
+	const updateStatusMutation = trpc.appointments.updateRequestStatus.useMutation()
 
 	const revalidate = async () => {
-		await utils.requests.getIncomingRequests.invalidate()
-		await utils.requests.getIncomingAppointmentsForENP.invalidate()
+		await utils.appointments.getIncomingRequests.invalidate()
 		router.refresh()
 	}
 
-	const handleAccept = async (item: IncomingItem) => {
+	const handleAccept = async (item: IncomingRequest) => {
 		setProcessingId(item.id)
 		try {
-			if (item.source === "appointment") {
-				await confirmAppointmentMutation.mutateAsync({
-					appointmentId: item.id,
-					meetingLink: item.appointmentData?.meetingLink ?? "",
-				})
-			} else {
-				await updateStatusMutation.mutateAsync({
-					requestId: item.id,
-					status: "IN_PROGRESS",
-				})
-			}
+			await updateStatusMutation.mutateAsync({
+				requestId: item.id,
+				status: "IN_PROGRESS",
+			})
 			toast.success("Request accepted successfully!")
 			await revalidate()
 			router.push("/sessions")
@@ -53,7 +46,7 @@ export function RequestsClient({ incomingRequests }: { incomingRequests: Incomin
 		}
 	}
 
-	const handleRejectClick = (item: IncomingItem) => {
+	const handleRejectClick = (item: IncomingRequest) => {
 		setSelectedRequestId(item.id)
 		setRejectDialogOpen(true)
 	}
@@ -66,17 +59,10 @@ export function RequestsClient({ incomingRequests }: { incomingRequests: Incomin
 		if (!item) return
 
 		try {
-			if (item.source === "appointment") {
-				await cancelAppointmentMutation.mutateAsync({
-					appointmentId: item.id,
-					cancelReason: "Rejected by ENP",
-				})
-			} else {
-				await updateStatusMutation.mutateAsync({
-					requestId: selectedRequestId,
-					status: "REJECTED",
-				})
-			}
+			await updateStatusMutation.mutateAsync({
+				requestId: selectedRequestId,
+				status: "REJECTED",
+			})
 			toast.success("Request rejected!")
 			setRejectDialogOpen(false)
 			await revalidate()
@@ -91,7 +77,7 @@ export function RequestsClient({ incomingRequests }: { incomingRequests: Incomin
 
 	return (
 		<>
-			<RequestsListView
+			<AppointmentsListView
 				incomingRequests={incomingRequests}
 				isRequestsLoading={false}
 				onAccept={handleAccept}

@@ -57,6 +57,7 @@ next-env.d.ts
 /.pi/skills
 /.roo/skills
 /.vibe/skills
+/.qoder/
 /AGENTS.md
 /AGENTS.md.bak
 /CLAUDE.md

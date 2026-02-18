@@ -1,0 +1,100 @@
+"use client"
+
+import { useMemo } from "react"
+import { type inferRouterOutputs } from "@trpc/server"
+
+import { CalendarScheduleProvider, type CalendarEvent } from "@/core/components/calendar-schedule"
+import { Card, CardAction, CardContent, CardHeader } from "@/core/components/ui/card"
+import { Separator } from "@/core/components/ui/separator"
+
+import type { Appointment } from "@/services/drizzle/schema/appointments"
+import type { EnpAvailability } from "@/services/drizzle/schema/enp-profiles"
+import type { AppRouter } from "@/services/trpc/root"
+
+import { buildCalendarEvents } from "../lib/calendar-events"
+import { useAppointmentsScheduleActions } from "../lib/use-appointments-schedule-actions"
+import { CalendarCard } from "./calendar/calendar-card"
+import { RejectDialog } from "./dialogs/reject-dialog"
+import { AddEventSection } from "./event-list/add-event-section"
+import { EventListHeader, UnifiedSidebarList } from "./event-list/event-list-card"
+
+interface AppointmentsScheduleClientProps {
+	incomingRequests: inferRouterOutputs<AppRouter>["appointments"]["getIncomingRequests"]
+	incomingAppointments: inferRouterOutputs<AppRouter>["appointments"]["getIncomingAppointmentsForENP"]
+	scheduleData: {
+		regular: EnpAvailability[]
+		blocked: EnpAvailability[]
+		recurringBlocked: EnpAvailability[]
+		custom: EnpAvailability[]
+		myAppointments?: (Appointment & { lapsed?: boolean })[]
+	}
+}
+
+export function AppointmentsScheduleClient({
+	scheduleData,
+	incomingRequests,
+	incomingAppointments,
+}: AppointmentsScheduleClientProps) {
+	const {
+		rejectDialogOpen,
+		processingKey,
+		isCreatingEvent,
+		isDeletingEvent,
+		handleAccept,
+		handleRejectClick,
+		handleReject,
+		handleEventSave,
+		handleEventDelete,
+		setRejectDialogOpen,
+	} = useAppointmentsScheduleActions()
+
+	const calendarEvents = useMemo((): CalendarEvent[] => {
+		return buildCalendarEvents(
+			incomingRequests,
+			incomingAppointments,
+			scheduleData?.myAppointments ?? []
+		)
+	}, [incomingRequests, incomingAppointments, scheduleData?.myAppointments])
+
+	return (
+		<>
+			<CalendarScheduleProvider
+				events={calendarEvents}
+				className="mt-4 grid grid-cols-1 gap-y-4 lg:grid-cols-3 lg:items-start lg:gap-x-4 lg:gap-y-0"
+			>
+				<CalendarCard events={calendarEvents} />
+
+				<Card className="animate-in fade-in order-first col-span-1 duration-300 motion-reduce:animate-none lg:order-0 lg:col-span-1 lg:flex lg:max-h-[calc(100vh-12rem)] lg:flex-col">
+					<CardHeader className="shrink-0">
+						<EventListHeader />
+						<CardAction>
+							<AddEventSection
+								onSave={handleEventSave}
+								onDelete={handleEventDelete}
+								isSaving={isCreatingEvent}
+								isDeleting={isDeletingEvent}
+							/>
+						</CardAction>
+					</CardHeader>
+					<Separator />
+					<CardContent className="min-h-0 flex-1 overflow-y-auto">
+						<UnifiedSidebarList
+							incomingRequests={incomingRequests}
+							incomingAppointments={incomingAppointments}
+							onAccept={handleAccept}
+							onReject={handleRejectClick}
+							processingKey={processingKey}
+						/>
+					</CardContent>
+				</Card>
+			</CalendarScheduleProvider>
+
+			<RejectDialog
+				isOpen={rejectDialogOpen}
+				onOpenChange={setRejectDialogOpen}
+				onConfirm={handleReject}
+				isProcessing={processingKey !== null}
+			/>
+		</>
+	)
+}
