@@ -26,8 +26,8 @@ import { cn } from "@/core/lib/utils"
 
 import { trpc } from "@/services/trpc/client"
 
-import { EventDialog } from "@/features/appointments/components/event-dialog"
-import type { CalendarEvent } from "@/features/appointments/lib/schedule-types"
+import { EventDialog } from "@/features/appointments/components/dialogs/event-dialog"
+import type { CalendarEvent } from "@/core/components/calendar-schedule"
 import { useMessages } from "@/features/messages/api/messages.hooks"
 import { useMessagesSubscriptions } from "@/features/messages/api/use-messages-subscriptions"
 import { ConsultationRequestCard } from "@/features/messages/components/consultation-request-card"
@@ -182,24 +182,25 @@ export default function MessagesPage() {
 		if (!selectedConversationId) return
 
 		// Derive time strings and duration from the CalendarEvent
-		const startHour = event.start.getHours().toString().padStart(2, "0")
-		const startMin = event.start.getMinutes().toString().padStart(2, "0")
-		const endHour = event.end.getHours().toString().padStart(2, "0")
-		const endMin = event.end.getMinutes().toString().padStart(2, "0")
-		const duration = Math.round((event.end.getTime() - event.start.getTime()) / (1000 * 60))
+		const startHour = event.startAt.getHours().toString().padStart(2, "0")
+		const startMin = event.startAt.getMinutes().toString().padStart(2, "0")
+		const endAt = event.endAt ?? new Date(event.startAt.getTime() + 60 * 60 * 1000)
+		const endHour = endAt.getHours().toString().padStart(2, "0")
+		const endMin = endAt.getMinutes().toString().padStart(2, "0")
+		const duration = Math.round((endAt.getTime() - event.startAt.getTime()) / (1000 * 60))
 
 		try {
 			await sendConsultationRequest.mutateAsync({
 				conversationId: selectedConversationId,
 				title: event.title.trim(),
 				description: event.description?.trim(),
-				appointmentDate: event.start.toISOString(),
+				appointmentDate: event.startAt.toISOString(),
 				startTime: `${startHour}:${startMin}`,
 				endTime: `${endHour}:${endMin}`,
 				duration,
-				eventType: event.eventType ?? "consultation",
-				mode: (event.mode?.toLowerCase() as "ren" | "ien") ?? "ren",
-				location: event.location?.trim(),
+				eventType: (event.appointmentType?.toLowerCase() as "consultation" | "notarization") ?? "consultation",
+				mode: (event.workflow?.toLowerCase() as "ren" | "ien") ?? "ren",
+				location: (event.meta?.location as string | undefined)?.trim(),
 			})
 			setIsBookingModalOpen(false)
 			toast.success("Consultation request sent!")
