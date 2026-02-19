@@ -1,5 +1,6 @@
 import { relations } from "drizzle-orm"
 
+import { appointmentParticipants } from "@/services/drizzle/schema/appointment-participants"
 import { appointments } from "@/services/drizzle/schema/appointments"
 import { users } from "@/services/drizzle/schema/auth"
 import { documents } from "@/services/drizzle/schema/document"
@@ -10,7 +11,7 @@ import { idCardDetails } from "@/services/drizzle/schema/id-card-details"
 import { kycSessions } from "@/services/drizzle/schema/kyc-sessions"
 import { legalRegistrations } from "@/services/drizzle/schema/legal-registration"
 import { livenessValidations } from "@/services/drizzle/schema/liveness"
-import { meetingParticipants, meetings } from "@/services/drizzle/schema/meetings"
+import { meetings } from "@/services/drizzle/schema/meetings"
 import { messageAttachments } from "@/services/drizzle/schema/message-attachments"
 import {
 	conversationParticipants,
@@ -20,7 +21,6 @@ import {
 import { notarialActs, notarialBooks } from "@/services/drizzle/schema/notarial-book"
 import { notarizationRequests } from "@/services/drizzle/schema/notarization-requests"
 import { signatureRequests } from "@/services/drizzle/schema/signature-requests"
-import { witnesses } from "@/services/drizzle/schema/witnesses"
 
 // Meeting relations
 export const meetingsRelations = relations(meetings, ({ one, many }) => ({
@@ -28,7 +28,7 @@ export const meetingsRelations = relations(meetings, ({ one, many }) => ({
 		fields: [meetings.createdById],
 		references: [users.id],
 	}),
-	participants: many(meetingParticipants),
+	appointments: many(appointments),
 	documents: many(documents),
 	signatureRequests: many(signatureRequests),
 }))
@@ -86,19 +86,19 @@ export const envelopeRelations = relations(envelopes, ({ one, many }) => ({
 	documents: many(documents),
 }))
 
-export const meetingParticipantsRelations = relations(meetingParticipants, ({ one }) => ({
-	meeting: one(meetings, {
-		fields: [meetingParticipants.meetingId],
-		references: [meetings.id],
+export const appointmentParticipantsRelations = relations(appointmentParticipants, ({ one }) => ({
+	appointment: one(appointments, {
+		fields: [appointmentParticipants.appointmentId],
+		references: [appointments.id],
 	}),
 	user: one(users, {
-		fields: [meetingParticipants.userId],
+		fields: [appointmentParticipants.userId],
 		references: [users.id],
 	}),
 	invitedBy: one(users, {
-		fields: [meetingParticipants.invitedById],
+		fields: [appointmentParticipants.invitedById],
 		references: [users.id],
-		relationName: "meetingParticipantInvitedBy",
+		relationName: "appointmentParticipantInvitedBy",
 	}),
 }))
 
@@ -143,17 +143,16 @@ export const messageAttachmentsRelations = relations(messageAttachments, ({ one 
 }))
 
 // Appointment relations
-export const appointmentsRelations = relations(appointments, ({ one }) => ({
-	client: one(users, {
-		fields: [appointments.clientId],
+export const appointmentsRelations = relations(appointments, ({ one, many }) => ({
+	createdBy: one(users, {
+		fields: [appointments.userId],
 		references: [users.id],
-		relationName: "clientAppointments",
 	}),
-	lawyer: one(users, {
-		fields: [appointments.lawyerId],
-		references: [users.id],
-		relationName: "lawyerAppointments",
+	meeting: one(meetings, {
+		fields: [appointments.meetingId],
+		references: [meetings.id],
 	}),
+	participants: many(appointmentParticipants),
 }))
 
 // Signature Request relations
@@ -191,18 +190,6 @@ export const enpAvailabilityRelations = relations(enpAvailability, ({ one }) => 
 	enp: one(users, {
 		fields: [enpAvailability.enpId],
 		references: [users.id],
-	}),
-}))
-
-// Witness relations
-export const witnessesRelations = relations(witnesses, ({ one }) => ({
-	enp: one(users, {
-		fields: [witnesses.enpId],
-		references: [users.id],
-	}),
-	appointment: one(appointments, {
-		fields: [witnesses.appointmentId],
-		references: [appointments.id],
 	}),
 }))
 
