@@ -18,9 +18,8 @@ import { trpc } from "@/services/trpc/client"
 import { type AppRouter } from "@/services/trpc/root"
 
 import { NotarizationDetailsDialog } from "@/features/sessions/components/notarization-details-dialog"
-import { getMeetingStatusBadge } from "@/features/sessions/lib/meeting-badges"
+import { getAppointmentStatusBadge } from "@/features/sessions/lib/meeting-badges"
 
-const MEETING_ID_FROM_LINK_REGEX = /\/sessions\/([a-zA-Z0-9_-]+)/
 const PAGE_SIZE = 10
 
 type UpcomingAppointment =
@@ -57,7 +56,7 @@ interface MeetingCardProps {
 		id: string
 		title: string
 		createdAt: string | Date
-		status: string
+		status?: string
 		participants: { id?: string; userId?: string }[]
 		documentStats: { total: number; signed: number; isComplete?: boolean }
 		createdBy: { name?: string | null; image?: string | null }
@@ -86,9 +85,9 @@ function MeetingCard({ meeting, onViewDetails }: MeetingCardProps) {
 							<h4 className="truncate text-base leading-tight font-semibold">{meeting.title}</h4>
 							{meeting.isAppointment ? (
 								<Badge variant="secondary">Pending Session</Badge>
-							) : (
-								getMeetingStatusBadge(meeting.status)
-							)}
+							) : meeting.status ? (
+								getAppointmentStatusBadge(meeting.status)
+							) : null}
 						</div>
 
 						{/* Meta Row */}
@@ -235,9 +234,7 @@ export function ActiveNotarizationsSection() {
 	const completedOrFullySignedMeetingIds = useMemo(() => {
 		const set = new Set<string>()
 		for (const m of meetings) {
-			const done =
-				m.status === "COMPLETED" ||
-				(m.documentStats.total > 0 && m.documentStats.signed >= m.documentStats.total)
+			const done = m.documentStats.total > 0 && m.documentStats.signed >= m.documentStats.total
 			if (done) set.add(m.id)
 		}
 		return set
@@ -246,12 +243,8 @@ export function ActiveNotarizationsSection() {
 	const appointmentCards = useMemo(() => {
 		return pendingAppointments
 			.filter((appt: UpcomingAppointment) => {
-				const link = appt.meetingLink
-				if (!link || typeof link !== "string" || link.trim() === "") return true
-				const match = MEETING_ID_FROM_LINK_REGEX.exec(link)
-				const meetingId = match?.[1]
-				if (!meetingId) return true
-				return !completedOrFullySignedMeetingIds.has(meetingId)
+				if (!appt.meetingId) return true
+				return !completedOrFullySignedMeetingIds.has(appt.meetingId)
 			})
 			.map((appt: UpcomingAppointment) => ({
 				id: `appt-${appt.id}`,
@@ -261,16 +254,14 @@ export function ActiveNotarizationsSection() {
 				status: "PENDING",
 				participants: [],
 				documentStats: { total: 0, signed: 0, isComplete: true },
-				createdBy: appt.lawyer ?? { name: "Unknown", image: null },
+				createdBy: appt.createdBy ?? { name: "Unknown", image: null },
 				isAppointment: true as const,
 			}))
 	}, [pendingAppointments, completedOrFullySignedMeetingIds])
 
 	const upcomingOnlyMeetings = useMemo(() => {
 		return meetings.filter(
-			m =>
-				m.status !== "COMPLETED" &&
-				!(m.documentStats.total > 0 && m.documentStats.signed >= m.documentStats.total)
+			m => !(m.documentStats.total > 0 && m.documentStats.signed >= m.documentStats.total)
 		)
 	}, [meetings])
 
@@ -283,13 +274,15 @@ export function ActiveNotarizationsSection() {
 
 		return combinedMeetings.filter(meeting => {
 			const meetingDate = startOfDay(new Date(meeting.createdAt))
+			const createdByName =
+				typeof meeting.createdBy?.name === "string" ? meeting.createdBy.name : ""
 
 			if (!(isAfter(meetingDate, today) || isSameDay(meetingDate, today))) return false
 
 			if (
 				q &&
 				!meeting.title.toLowerCase().includes(q) &&
-				!(meeting.createdBy.name ?? "").toLowerCase().includes(q)
+				!createdByName.toLowerCase().includes(q)
 			) {
 				return false
 			}

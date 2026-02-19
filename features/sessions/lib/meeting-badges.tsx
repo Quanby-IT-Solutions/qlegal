@@ -2,14 +2,16 @@ import { Calendar, PlayCircle } from "lucide-react"
 
 import { Badge } from "@/core/components/ui/badge"
 
-export function getMeetingStatusBadge(status: string) {
+export function getAppointmentStatusBadge(status: string) {
 	switch (status) {
-		case "SCHEDULED":
+		case "CONFIRMED":
 			return (
 				<Badge variant="secondary">
 					<Calendar className="mr-1 size-3" /> Scheduled
 				</Badge>
 			)
+		case "PENDING":
+			return <Badge variant="secondary">Pending</Badge>
 		case "ONGOING":
 			return (
 				<Badge variant="default" className="bg-emerald-600 hover:bg-emerald-700">
