@@ -2,15 +2,14 @@ import { TRPCError } from "@trpc/server"
 import { and, asc, desc, eq, gte, inArray, lt, or } from "drizzle-orm"
 import { z } from "zod/v4"
 
-import { getUrl } from "@/core/lib/get-url"
-
 import { type db } from "@/services/drizzle/db"
+import { appointmentParticipants } from "@/services/drizzle/schema/appointment-participants"
 import { appointments } from "@/services/drizzle/schema/appointments"
 import { users } from "@/services/drizzle/schema/auth"
 import { documents } from "@/services/drizzle/schema/document"
 import { enpAvailability, enpProfiles } from "@/services/drizzle/schema/enp-profiles"
 import { envelopes } from "@/services/drizzle/schema/envelope"
-import { meetingParticipants, meetings } from "@/services/drizzle/schema/meetings"
+import { meetings } from "@/services/drizzle/schema/meetings"
 import { notarizationRequests } from "@/services/drizzle/schema/notarization-requests"
 import { sendNotarizationRequestNotification } from "@/services/react-email/lib/send.notarization-request"
 import { getDocumentPublicUrl } from "@/services/supabase/signed-url"
@@ -43,20 +42,14 @@ const RECURRING_BLOCKED = "RECURRING_BLOCKED" as const
  */
 async function createMeetingForAppointment(
 	ctx: { db: typeof db },
-	userId: string,
-	title: string,
-	appointmentDate: Date,
-	participantIds: string[]
+createdById: string
 ): Promise<string> {
 	const { roomId } = await createMeetingRoom()
 	const [meeting] = await ctx.db
 		.insert(meetings)
 		.values({
-			title,
 			roomId,
-			createdById: userId,
-			createdAt: appointmentDate,
-			updatedAt: appointmentDate,
+			createdById,
 		})
 		.returning()
 
@@ -67,14 +60,18 @@ async function createMeetingForAppointment(
 		})
 	}
 
-	await ctx.db.insert(meetingParticipants).values(
-		participantIds.map(id => ({
-			meetingId: meeting.id,
-			userId: id,
-		}))
-	)
+	return meeting.id
+}
 
-	return `${getUrl()}/sessions/${meeting.id}`
+function computeLapsed(
+	appointment: { status: string; appointmentDate: Date },
+	now: number,
+	graceMs: number
+): boolean {
+	return (
+		appointment.status === "CONFIRMED" &&
+		now > new Date(appointment.appointmentDate).getTime() + graceMs
+	)
 }
 
 export const appointmentsRouter = createTRPCRouter({
@@ -84,17 +81,17 @@ export const appointmentsRouter = createTRPCRouter({
 	createAppointment: protectedProcedure
 		.input(createAppointmentSchema)
 		.mutation(async ({ ctx, input }) => {
-			const clientId = ctx.session.user.id
+			const principalId = ctx.session.user.id
 
-			// Verify the lawyer exists and has ENP role
-			const lawyer = await ctx.db.query.users.findFirst({
-				where: eq(users.id, input.lawyerId),
+			// Verify the ENP exists and has ENP role
+			const enp = await ctx.db.query.users.findFirst({
+				where: eq(users.id, input.enpId),
 			})
 
-			if (lawyer?.role !== "ENP") {
+			if (enp?.role !== "ENP") {
 				throw new TRPCError({
 					code: "NOT_FOUND",
-					message: "Lawyer not found",
+					message: "ENP not found",
 				})
 			}
 
@@ -121,19 +118,40 @@ export const appointmentsRouter = createTRPCRouter({
 			const [appointment] = await ctx.db
 				.insert(appointments)
 				.values({
-					clientId,
-					lawyerId: input.lawyerId,
+					userId: input.enpId,
+					title: input.title,
+					description: input.description ?? null,
 					type: input.type,
 					appointmentDate: input.appointmentDate,
 					duration: input.duration,
 					modeOfNotarization: input.modeOfNotarization,
-					notes: input.notes,
 					location: input.location,
-					meetingLink: input.meetingLink,
 					status: "PENDING",
 					color: "#F59E0B",
 				})
 				.returning()
+
+			if (!appointment) {
+				throw new TRPCError({
+					code: "INTERNAL_SERVER_ERROR",
+					message: "Failed to create appointment",
+				})
+			}
+
+			await ctx.db.insert(appointmentParticipants).values([
+				{
+					appointmentId: appointment.id,
+					userId: input.enpId,
+					participantRole: "HOST",
+					status: "ACCEPTED",
+				},
+				{
+					appointmentId: appointment.id,
+					userId: principalId,
+					participantRole: "PARTICIPANT",
+					status: "PENDING",
+				},
+			])
 
 			return appointment
 		}),
@@ -143,11 +161,17 @@ export const appointmentsRouter = createTRPCRouter({
 		.input(getAppointmentsSchema)
 		.query(async ({ ctx, input }) => {
 			const userId = ctx.session.user.id
-			const { status, type, lawyerId, limit, offset } = input
+			const { status, type, limit, offset } = input
 
 			// Build where conditions
 			const whereConditions = [
-				or(eq(appointments.clientId, userId), eq(appointments.lawyerId, userId))!,
+				inArray(
+					appointments.id,
+					ctx.db
+						.select({ id: appointmentParticipants.appointmentId })
+						.from(appointmentParticipants)
+						.where(eq(appointmentParticipants.userId, userId))
+				),
 			]
 
 			if (status) {
@@ -158,10 +182,6 @@ export const appointmentsRouter = createTRPCRouter({
 				whereConditions.push(eq(appointments.type, type))
 			}
 
-			if (lawyerId) {
-				whereConditions.push(eq(appointments.lawyerId, lawyerId))
-			}
-
 			// Fetch appointments with related user data
 			const results = await ctx.db.query.appointments.findMany({
 				where: and(...whereConditions),
@@ -169,22 +189,25 @@ export const appointmentsRouter = createTRPCRouter({
 				limit,
 				offset,
 				with: {
-					client: {
+					createdBy: {
 						columns: {
 							id: true,
 							name: true,
 							email: true,
 							image: true,
-							phoneNumber: true,
 						},
 					},
-					lawyer: {
-						columns: {
-							id: true,
-							name: true,
-							email: true,
-							image: true,
-							phoneNumber: true,
+					participants: {
+						with: {
+							user: {
+								columns: {
+									id: true,
+									name: true,
+									email: true,
+									image: true,
+									phoneNumber: true,
+								},
+							},
 						},
 					},
 				},
@@ -256,7 +279,7 @@ export const appointmentsRouter = createTRPCRouter({
 		// Send email notification to ENP
 		if (requestWithRelations?.enp?.email && requestWithRelations?.principalId) {
 			try {
-				const requestUrl = `${getUrl()}/requests`
+				const requestUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? ""}/requests`
 				await sendNotarizationRequestNotification({
 					enpEmail: requestWithRelations.enp.email,
 					enpName: requestWithRelations.enp.name ?? "Unknown",
@@ -399,18 +422,22 @@ export const appointmentsRouter = createTRPCRouter({
 		// Get pending and confirmed appointments for this ENP
 		const incomingAppointments = await ctx.db.query.appointments.findMany({
 			where: and(
-				eq(appointments.lawyerId, userId),
+				eq(appointments.userId, userId),
 				or(eq(appointments.status, "PENDING"), eq(appointments.status, "CONFIRMED")),
 				gte(appointments.appointmentDate, new Date()) // Only upcoming appointments
 			),
 			orderBy: [asc(appointments.appointmentDate)],
 			with: {
-				client: {
-					columns: {
-						id: true,
-						name: true,
-						email: true,
-						image: true,
+				participants: {
+					with: {
+						user: {
+							columns: {
+								id: true,
+								name: true,
+								email: true,
+								image: true,
+							},
+						},
 					},
 				},
 			},
@@ -418,27 +445,31 @@ export const appointmentsRouter = createTRPCRouter({
 
 		// Map appointments to same structure as requests for consistency
 		// We'll use a 'source' field to distinguish between requests and appointments
-		const appointmentsAsRequests = incomingAppointments.map(apt => ({
-			id: apt.id,
-			title: apt.type === "NOTARIZATION" ? "Notarization" : "Consultation",
-			description: apt.notes,
-			status: apt.status,
-			workflow: (apt.modeOfNotarization ?? (apt.meetingLink ? "REN" : "IEN")) as "REN" | "IEN",
-			priority: "NORMAL" as const,
-			createdAt: apt.createdAt,
-			updatedAt: apt.updatedAt,
-			enpId: apt.lawyerId,
-			principalId: apt.clientId,
-			appointmentId: apt.id, // Link back to appointment
-			rejectReason: apt.cancelReason,
-			principal: {
-				name: apt.client?.name,
-				image: apt.client?.image,
-			},
-			documents: 0,
-			source: "appointment" as const, // Mark as coming from appointment
-			appointmentData: { ...apt, lapsed: false }, // Keep full appointment data for actions
-		}))
+		const appointmentsAsRequests = incomingAppointments.map(apt => {
+			const participant = apt.participants.find(p => p.participantRole === "PARTICIPANT")
+
+			return {
+				id: apt.id,
+				title: apt.title,
+				description: apt.description,
+				status: apt.status,
+				workflow: (apt.modeOfNotarization ?? "REN") as "REN" | "IEN",
+				priority: "NORMAL" as const,
+				createdAt: apt.createdAt,
+				updatedAt: apt.updatedAt,
+				enpId: apt.userId,
+				principalId: participant?.userId ?? "",
+				appointmentId: apt.id, // Link back to appointment
+				rejectReason: apt.cancelReason,
+				principal: {
+					name: participant?.user?.name,
+					image: participant?.user?.image,
+				},
+				documents: 0,
+				source: "appointment" as const, // Mark as coming from appointment
+				appointmentData: { ...apt, lapsed: false }, // Keep full appointment data for actions
+			}
+		})
 
 		return appointmentsAsRequests
 	}),
@@ -506,30 +537,29 @@ export const appointmentsRouter = createTRPCRouter({
 				})
 			}
 
-			// Check if user is the lawyer
-			if (existing.lawyerId !== userId) {
+			const hostParticipant = await ctx.db.query.appointmentParticipants.findFirst({
+				where: and(
+					eq(appointmentParticipants.appointmentId, input.appointmentId),
+					eq(appointmentParticipants.userId, userId),
+					eq(appointmentParticipants.participantRole, "HOST")
+				),
+			})
+
+			if (!hostParticipant) {
 				throw new TRPCError({
 					code: "FORBIDDEN",
-					message: "Only the lawyer can confirm this appointment",
+					message: "Only the host can confirm this appointment",
 				})
 			}
 
 			// Determine if this is a remote appointment using workflow flag instead of location
 			const isRemote = existing.modeOfNotarization === "REN"
-			const providedLink =
-				input.meetingLink && input.meetingLink.trim().length > 0 ? input.meetingLink : undefined
-			let meetingLink = providedLink ?? existing.meetingLink
+			let meetingId: string | null = null
 
 			// For remote (REN) appointments without a meeting yet, create one on accept
-			if (isRemote && !meetingLink) {
+			if (isRemote && !existing.meetingId) {
 				try {
-					meetingLink = await createMeetingForAppointment(
-						ctx,
-						userId,
-						existing.type === "NOTARIZATION" ? "Notarization Session" : "Consultation Meeting",
-						existing.appointmentDate,
-						[existing.clientId, existing.lawyerId]
-					)
+					meetingId = await createMeetingForAppointment(ctx, userId)
 				} catch (error) {
 					console.error("Failed to create meeting on confirmation:", error)
 				}
@@ -541,7 +571,7 @@ export const appointmentsRouter = createTRPCRouter({
 				.set({
 					status: "CONFIRMED",
 					color: "#10B981",
-					meetingLink: meetingLink ?? existing.meetingLink ?? providedLink ?? "",
+					meetingId: meetingId ?? existing.meetingId ?? null,
 					updatedAt: new Date(),
 				})
 				.where(eq(appointments.id, input.appointmentId))
@@ -568,8 +598,14 @@ export const appointmentsRouter = createTRPCRouter({
 				})
 			}
 
-			// Check if user is part of this appointment
-			if (existing.clientId !== userId && existing.lawyerId !== userId) {
+			const participant = await ctx.db.query.appointmentParticipants.findFirst({
+				where: and(
+					eq(appointmentParticipants.appointmentId, input.appointmentId),
+					eq(appointmentParticipants.userId, userId)
+				),
+			})
+
+			if (!participant) {
 				throw new TRPCError({
 					code: "FORBIDDEN",
 					message: "You don't have permission to cancel this appointment",
@@ -600,6 +636,7 @@ export const appointmentsRouter = createTRPCRouter({
 			const statusColorMap = {
 				PENDING: "#F59E0B",
 				CONFIRMED: "#10B981",
+				ONGOING: "#3B82F6",
 				CANCELLED: "#EF4444",
 				COMPLETED: "#22C55E",
 			} as const
@@ -617,8 +654,14 @@ export const appointmentsRouter = createTRPCRouter({
 				})
 			}
 
-			// Check if user is the client or lawyer
-			if (existing.clientId !== userId && existing.lawyerId !== userId) {
+			const participant = await ctx.db.query.appointmentParticipants.findFirst({
+				where: and(
+					eq(appointmentParticipants.appointmentId, appointmentId),
+					eq(appointmentParticipants.userId, userId)
+				),
+			})
+
+			if (!participant) {
 				throw new TRPCError({
 					code: "FORBIDDEN",
 					message: "You don't have permission to update this appointment",
@@ -648,22 +691,25 @@ export const appointmentsRouter = createTRPCRouter({
 			const appointment = await ctx.db.query.appointments.findFirst({
 				where: eq(appointments.id, input.appointmentId),
 				with: {
-					client: {
+					createdBy: {
 						columns: {
 							id: true,
 							name: true,
 							email: true,
 							image: true,
-							phoneNumber: true,
 						},
 					},
-					lawyer: {
-						columns: {
-							id: true,
-							name: true,
-							email: true,
-							image: true,
-							phoneNumber: true,
+					participants: {
+						with: {
+							user: {
+								columns: {
+									id: true,
+									name: true,
+									email: true,
+									image: true,
+									phoneNumber: true,
+								},
+							},
 						},
 					},
 				},
@@ -676,8 +722,14 @@ export const appointmentsRouter = createTRPCRouter({
 				})
 			}
 
-			// Check if user is part of this appointment
-			if (appointment.clientId !== userId && appointment.lawyerId !== userId) {
+			const participant = await ctx.db.query.appointmentParticipants.findFirst({
+				where: and(
+					eq(appointmentParticipants.appointmentId, input.appointmentId),
+					eq(appointmentParticipants.userId, userId)
+				),
+			})
+
+			if (!participant) {
 				throw new TRPCError({
 					code: "FORBIDDEN",
 					message: "You don't have access to this appointment",
@@ -694,14 +746,20 @@ export const appointmentsRouter = createTRPCRouter({
 
 		const results = await ctx.db.query.appointments.findMany({
 			where: and(
-				or(eq(appointments.clientId, userId), eq(appointments.lawyerId, userId)),
+				inArray(
+					appointments.id,
+					ctx.db
+						.select({ id: appointmentParticipants.appointmentId })
+						.from(appointmentParticipants)
+						.where(eq(appointmentParticipants.userId, userId))
+				),
 				gte(appointments.appointmentDate, now),
 				or(eq(appointments.status, "PENDING"), eq(appointments.status, "CONFIRMED"))
 			),
 			orderBy: [appointments.appointmentDate],
 			limit: 10,
 			with: {
-				client: {
+				createdBy: {
 					columns: {
 						id: true,
 						name: true,
@@ -709,12 +767,16 @@ export const appointmentsRouter = createTRPCRouter({
 						image: true,
 					},
 				},
-				lawyer: {
-					columns: {
-						id: true,
-						name: true,
-						email: true,
-						image: true,
+				participants: {
+					with: {
+						user: {
+							columns: {
+								id: true,
+								name: true,
+								email: true,
+								image: true,
+							},
+						},
 					},
 				},
 			},
@@ -734,22 +796,25 @@ export const appointmentsRouter = createTRPCRouter({
 			let appointment = await ctx.db.query.appointments.findFirst({
 				where: eq(appointments.id, sessionId),
 				with: {
-					client: {
+					createdBy: {
 						columns: {
 							id: true,
 							name: true,
 							email: true,
 							image: true,
-							phoneNumber: true,
 						},
 					},
-					lawyer: {
-						columns: {
-							id: true,
-							name: true,
-							email: true,
-							image: true,
-							phoneNumber: true,
+					participants: {
+						with: {
+							user: {
+								columns: {
+									id: true,
+									name: true,
+									email: true,
+									image: true,
+									phoneNumber: true,
+								},
+							},
 						},
 					},
 				},
@@ -781,22 +846,25 @@ export const appointmentsRouter = createTRPCRouter({
 						},
 						appointment: {
 							with: {
-								client: {
+								createdBy: {
 									columns: {
 										id: true,
 										name: true,
 										email: true,
 										image: true,
-										phoneNumber: true,
 									},
 								},
-								lawyer: {
-									columns: {
-										id: true,
-										name: true,
-										email: true,
-										image: true,
-										phoneNumber: true,
+								participants: {
+									with: {
+										user: {
+											columns: {
+												id: true,
+												name: true,
+												email: true,
+												image: true,
+												phoneNumber: true,
+											},
+										},
 									},
 								},
 							},
@@ -819,8 +887,14 @@ export const appointmentsRouter = createTRPCRouter({
 			}
 
 			// Determine principal and ENP
-			const principal = appointment ? appointment.client : notarizationRequest?.principal
-			const enpUser = appointment ? appointment.lawyer : notarizationRequest?.enp
+			const appointmentHost = appointment?.participants.find(
+				participant => participant.participantRole === "HOST"
+			)
+			const appointmentPrincipal = appointment?.participants.find(
+				participant => participant.participantRole === "PARTICIPANT"
+			)
+			const principal = appointment ? appointmentPrincipal?.user : notarizationRequest?.principal
+			const enpUser = appointment ? appointmentHost?.user : notarizationRequest?.enp
 
 			if (!principal || !enpUser) {
 				throw new TRPCError({
@@ -845,9 +919,7 @@ export const appointmentsRouter = createTRPCRouter({
 			// Get workflow (REN or IEN) - from notarization request if available, otherwise use appointment mode field
 			const workflow = notarizationRequest
 				? (notarizationRequest.workflow as "REN" | "IEN")
-				: ((appointment?.modeOfNotarization ?? (appointment?.meetingLink ? "REN" : "IEN")) as
-						| "REN"
-						| "IEN")
+				: ((appointment?.modeOfNotarization ?? "REN") as "REN" | "IEN")
 
 			// Get envelope associated with the appointment/request
 			// For now, we'll look for envelopes created by the principal around the appointment time
@@ -989,68 +1061,36 @@ export const appointmentsRouter = createTRPCRouter({
 
 			const myAppointments = await ctx.db.query.appointments.findMany({
 				where: and(
-					eq(appointments.lawyerId, userId),
+					eq(appointments.userId, userId),
 					or(eq(appointments.status, "CONFIRMED"), eq(appointments.status, "PENDING")),
 					gte(appointments.appointmentDate, startDate),
 					lt(appointments.appointmentDate, endDate)
 				),
 				orderBy: [asc(appointments.appointmentDate)],
 				with: {
-					client: {
-						columns: {
-							id: true,
-							name: true,
-							email: true,
-							image: true,
+					participants: {
+						with: {
+							user: {
+								columns: {
+									id: true,
+									name: true,
+									email: true,
+									image: true,
+								},
+							},
 						},
 					},
 				},
 			})
 
 			// Compute lapsed status for each appointment
-			const meetingIdFromLink = (meetingLink: string | null) => {
-				if (!meetingLink) return null
-				const match = /\/sessions\/([^/]+)/.exec(meetingLink)
-				return match?.[1] ?? null
-			}
-
-			const meetingIds = myAppointments
-				.map(appointment => meetingIdFromLink(appointment.meetingLink))
-				.filter((meetingId): meetingId is string => !!meetingId)
-
-			const uniqueMeetingIds = Array.from(new Set(meetingIds))
-			const meetingStatusById = new Map<string, string>()
-
-			if (uniqueMeetingIds.length > 0) {
-				const meetingRows = await ctx.db.query.meetings.findMany({
-					where: inArray(meetings.id, uniqueMeetingIds),
-					columns: {
-						id: true,
-						status: true,
-					},
-				})
-
-				for (const meeting of meetingRows) {
-					meetingStatusById.set(meeting.id, meeting.status)
-				}
-			}
-
 			const now = Date.now()
 			const graceMs = 30 * 60 * 1000
-			const startedStatuses = new Set(["ONGOING", "COMPLETED"])
 
 			const myAppointmentsWithLapsed = myAppointments.map(appointment => {
-				const meetingId = meetingIdFromLink(appointment.meetingLink)
-				const meetingStatus = meetingId ? meetingStatusById.get(meetingId) : undefined
-				const meetingStarted = meetingStatus ? startedStatuses.has(meetingStatus) : false
-				const lapsed =
-					appointment.status === "CONFIRMED" &&
-					now > new Date(appointment.appointmentDate).getTime() + graceMs &&
-					(!meetingId || !meetingStarted)
-
 				return {
 					...appointment,
-					lapsed,
+					lapsed: computeLapsed(appointment, now, graceMs),
 				}
 			})
 
@@ -1087,67 +1127,35 @@ export const appointmentsRouter = createTRPCRouter({
 
 			const myAppointments = await ctx.db.query.appointments.findMany({
 				where: and(
-					eq(appointments.lawyerId, userId),
+					eq(appointments.userId, userId),
 					or(eq(appointments.status, "CONFIRMED"), eq(appointments.status, "PENDING")),
 					gte(appointments.appointmentDate, startDate),
 					lt(appointments.appointmentDate, endDate)
 				),
 				orderBy: [asc(appointments.appointmentDate)],
 				with: {
-					client: {
-						columns: {
-							id: true,
-							name: true,
-							email: true,
-							image: true,
+					participants: {
+						with: {
+							user: {
+								columns: {
+									id: true,
+									name: true,
+									email: true,
+									image: true,
+								},
+							},
 						},
 					},
 				},
 			})
 
-			const meetingIdFromLink = (meetingLink: string | null) => {
-				if (!meetingLink) return null
-				const match = /\/sessions\/([^/]+)/.exec(meetingLink)
-				return match?.[1] ?? null
-			}
-
-			const meetingIds = myAppointments
-				.map(appointment => meetingIdFromLink(appointment.meetingLink))
-				.filter((meetingId): meetingId is string => !!meetingId)
-
-			const uniqueMeetingIds = Array.from(new Set(meetingIds))
-			const meetingStatusById = new Map<string, string>()
-
-			if (uniqueMeetingIds.length > 0) {
-				const meetingRows = await ctx.db.query.meetings.findMany({
-					where: inArray(meetings.id, uniqueMeetingIds),
-					columns: {
-						id: true,
-						status: true,
-					},
-				})
-
-				for (const meeting of meetingRows) {
-					meetingStatusById.set(meeting.id, meeting.status)
-				}
-			}
-
 			const now = Date.now()
 			const graceMs = 30 * 60 * 1000
-			const startedStatuses = new Set(["ONGOING", "COMPLETED"])
 
 			const myAppointmentsWithLapsed = myAppointments.map(appointment => {
-				const meetingId = meetingIdFromLink(appointment.meetingLink)
-				const meetingStatus = meetingId ? meetingStatusById.get(meetingId) : undefined
-				const meetingStarted = meetingStatus ? startedStatuses.has(meetingStatus) : false
-				const lapsed =
-					appointment.status === "CONFIRMED" &&
-					now > new Date(appointment.appointmentDate).getTime() + graceMs &&
-					(!meetingId || !meetingStarted)
-
 				return {
 					...appointment,
-					lapsed,
+					lapsed: computeLapsed(appointment, now, graceMs),
 				}
 			})
 
@@ -1185,57 +1193,37 @@ export const appointmentsRouter = createTRPCRouter({
 				duration = Math.round((endTimeDate.getTime() - appointmentDateTime.getTime()) / (60 * 1000))
 			}
 
-			// Build notes from all available metadata
-			const notes = [
-				input.description,
-				input.workflow === "REN" || (input.type === "CONSULTATION" && !input.location)
-					? "Workflow: Remote Electronic Notarization (REN)"
-					: input.workflow === "IEN" && input.location
-						? "Workflow: In-Person Electronic Notarization (IEN)"
-						: "",
-			]
-				.filter(Boolean)
-				.join("\n")
-
 			// Determine if this is a remote appointment (REN or consultation without location)
 			const isRemote =
 				input.workflow === "REN" || (input.type === "CONSULTATION" && !input.location)
 
 			// Generate meeting link for remote appointments
-			let meetingLink: string | null = null
+			let meetingId: string | null = null
 			if (isRemote) {
 				try {
-					meetingLink = await createMeetingForAppointment(
-						ctx,
-						userId,
-						input.type === "NOTARIZATION"
-							? "Remote Electronic Notarization"
-							: "Consultation Meeting",
-						appointmentDateTime,
-						[userId]
-					)
+					meetingId = await createMeetingForAppointment(ctx, userId)
 				} catch (error) {
 					console.error("Failed to create meeting for ENP event:", error)
 					// Continue without meeting link - appointment still created
 				}
 			}
 
-			// Create self-appointment (client = lawyer = ENP)
+			// Create self-appointment for ENP
 			const [appointment] = await ctx.db
 				.insert(appointments)
 				.values({
-					clientId: userId,
-					lawyerId: userId,
+					userId: userId,
+					title: input.title,
+					description: input.description ?? null,
 					type: input.type,
 					appointmentDate: appointmentDateTime,
 					duration: duration ?? 60,
 					modeOfNotarization: input.workflow ?? "REN",
-					notes: notes || null,
 					location:
 						input.type === "NOTARIZATION" && input.workflow === "IEN"
 							? (input.location ?? undefined)
 							: null,
-					meetingLink,
+					meetingId,
 					status: "CONFIRMED", // ENP-created events are auto-confirmed
 					color: "#10B981",
 				})
@@ -1247,6 +1235,13 @@ export const appointmentsRouter = createTRPCRouter({
 					message: "Failed to create appointment",
 				})
 			}
+
+			await ctx.db.insert(appointmentParticipants).values({
+				appointmentId: appointment.id,
+				userId: userId,
+				participantRole: "HOST",
+				status: "ACCEPTED",
+			})
 
 			return appointment
 		}),
@@ -1269,7 +1264,7 @@ export const appointmentsRouter = createTRPCRouter({
 			}
 
 			// Check ownership (ENP can only update their own events)
-			if (existing.lawyerId !== userId || existing.clientId !== userId) {
+			if (existing.userId !== userId) {
 				throw new TRPCError({
 					code: "FORBIDDEN",
 					message: "You can only update your own events",
@@ -1303,26 +1298,15 @@ export const appointmentsRouter = createTRPCRouter({
 			const eventType = input.type ?? existing.type
 			const eventWorkflow = input.workflow ?? existing.modeOfNotarization
 
-			// Build notes
-			const notes = [
-				input.description ?? existing.notes,
-				eventWorkflow === "REN" || (eventType === "CONSULTATION" && !input.location)
-					? "Workflow: Remote Electronic Notarization (REN)"
-					: eventWorkflow === "IEN" && input.location
-						? "Workflow: In-Person Electronic Notarization (IEN)"
-						: "",
-			]
-				.filter(Boolean)
-				.join("\n")
-
 			const [updated] = await ctx.db
 				.update(appointments)
 				.set({
+					title: input.title ?? existing.title,
+					description: input.description ?? existing.description,
 					type: input.type ?? existing.type,
 					appointmentDate: appointmentDateTime,
 					duration,
 					modeOfNotarization: input.workflow ?? existing.modeOfNotarization,
-					notes,
 					location:
 						eventType === "NOTARIZATION" && eventWorkflow === "IEN"
 							? (input.location ?? existing.location)
@@ -1355,7 +1339,7 @@ export const appointmentsRouter = createTRPCRouter({
 			}
 
 			// Check ownership (ENP can only delete their own events)
-			if (existing.lawyerId !== userId || existing.clientId !== userId) {
+			if (existing.userId !== userId) {
 				throw new TRPCError({
 					code: "FORBIDDEN",
 					message: "You can only delete your own events",
