@@ -11,6 +11,7 @@ import {
 	MapPin,
 	Mic,
 	MicOff,
+	UserPlus,
 	Users,
 	Video,
 } from "lucide-react"
@@ -290,8 +291,8 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 						verificationResult?.reason === "near_embassy"
 							? `Verified at ${verificationResult.details?.nearbyEmbassy?.name ?? "embassy"}`
 							: (verificationResult?.details?.formattedAddress ?? "Location verified"),
-					color: "text-emerald-700 dark:text-emerald-400",
-					bgColor: "bg-emerald-50 dark:bg-emerald-950/20",
+					color: "text-emerald-600 dark:text-emerald-500",
+					bgColor: "bg-emerald-50/80 dark:bg-emerald-950/30",
 				}
 			case "vpn_detected":
 				return {
@@ -440,225 +441,254 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 				/>
 			)}
 
-			<div className="from-background via-muted/30 to-background flex h-screen flex-col bg-linear-to-br">
-				{/* Header */}
-				<div className="border-border/50 bg-card/80 border-b px-4 py-4 backdrop-blur-sm sm:px-6 sm:py-5">
-					<div className="mx-auto w-full max-w-7xl">
-						<div className="flex items-center gap-3">
-							<div className="bg-primary/10 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg">
-								<Video className="text-primary h-5 w-5" />
-							</div>
-							<div className="min-w-0 flex-1">
-								<h1 className="truncate text-lg font-semibold sm:text-xl">{meeting.title}</h1>
-								<p className="text-muted-foreground text-xs sm:text-sm">
-									Get ready to join your meeting
-								</p>
-							</div>
-						</div>
+			<div className="flex h-screen flex-col bg-background">
+				{/* Header — title only top left */}
+				<header className="border-b border-border bg-background px-4 py-3 sm:px-6">
+					<div className="mx-auto max-w-6xl">
+						<h1 className="truncate text-lg font-semibold text-foreground sm:text-xl">
+							{meeting.title}
+						</h1>
 					</div>
-				</div>
+				</header>
 
-				{/* Main Content */}
-				<div className="flex flex-1 overflow-y-auto">
-					<div className="mx-auto w-full max-w-7xl p-4 sm:p-6">
-						<div className="flex flex-col gap-4 lg:flex-row lg:gap-6">
-							{/* Left: Camera Preview */}
-							<div className="flex flex-1 flex-col lg:min-h-0">
-								<Card className="border-border/50 relative flex-1 overflow-hidden shadow-sm lg:min-h-[500px]">
-									<CardContent className="relative size-full min-h-[400px] p-0 sm:min-h-[500px]">
-										{isCameraOn && stream ? (
-											<video
-												ref={videoRef}
-												autoPlay
-												playsInline
-												muted
-												className="size-full scale-x-[-1] rounded-lg object-cover"
-											/>
-										) : (
-											<div className="from-muted/30 to-muted/10 flex size-full items-center justify-center bg-linear-to-br">
-												<div className="p-4 text-center">
-													{isTestingDevices ? (
-														<div>
-															<div className="border-primary mx-auto mb-3 size-12 animate-spin rounded-full border-b-4 md:size-16" />
-															<p className="text-muted-foreground text-sm font-medium md:text-base">
-																Starting camera...
-															</p>
-														</div>
-													) : (
-														<>
-															<div className="from-primary to-primary/80 text-primary-foreground mx-auto mb-4 flex size-24 items-center justify-center rounded-full bg-linear-to-br text-4xl font-bold shadow-xl md:mb-6 md:size-32 md:text-5xl">
-																{session?.user?.name?.charAt(0).toUpperCase() ?? "?"}
-															</div>
-															<p className="text-lg font-semibold sm:text-xl md:text-2xl">
-																{session?.user?.name}
-															</p>
-															<p className="text-muted-foreground mt-2 text-xs sm:text-sm md:text-base">
-																Camera is off
-															</p>
-															{!stream && (
-																<Button
-																	className="mt-4 text-sm shadow-sm sm:mt-6 sm:text-base"
-																	onClick={() => void startPreview()}
-																	size="default"
-																>
-																	<Camera className="mr-2 size-4" />
-																	Start Camera & Mic
-																</Button>
-															)}
-														</>
-													)}
-												</div>
-											</div>
-										)}
-
-										{/* Control Overlay */}
-										<div className="bg-card/95 border-border/50 absolute bottom-3 left-1/2 flex -translate-x-1/2 gap-2 rounded-full border p-2 shadow-lg backdrop-blur-md sm:bottom-4 sm:gap-3">
-											<Button
-												variant={isMicOn ? "default" : "destructive"}
-												size="icon"
-												className="size-9 rounded-full shadow-sm sm:size-10 md:size-12"
-												onClick={toggleMic}
-												disabled={!stream}
-												title={isMicOn ? "Mute microphone" : "Unmute microphone"}
-											>
-												{isMicOn ? <Mic className="size-4" /> : <MicOff className="size-4" />}
-											</Button>
-											<Button
-												variant={isCameraOn ? "default" : "destructive"}
-												size="icon"
-												className="size-9 rounded-full shadow-sm sm:size-10 md:size-12"
-												onClick={toggleCamera}
-												disabled={!stream}
-												title={isCameraOn ? "Turn off camera" : "Turn on camera"}
-											>
-												{isCameraOn ? (
-													<Camera className="size-4" />
-												) : (
-													<CameraOff className="size-4" />
-												)}
-											</Button>
+				{/* Main — left: video + controls + location/status cards; right: participants */}
+				<main className="flex min-h-0 flex-1 overflow-auto">
+					<div className="mx-auto flex w-full max-w-6xl flex-col gap-4 p-4 lg:flex-row lg:gap-6">
+						{/* Left column: ~2/3 — video card, then button row, then two info cards */}
+						<div className="flex min-w-0 flex-1 flex-col gap-4 lg:min-w-0">
+							{/* Video preview card — large rounded card */}
+							<Card className="overflow-hidden rounded-lg border border-border bg-card">
+								<CardContent className="relative flex aspect-video min-h-[240px] w-full p-0 sm:min-h-[320px]">
+									{isCameraOn && stream ? (
+										<video
+											ref={videoRef}
+											autoPlay
+											playsInline
+											muted
+											className="size-full scale-x-[-1] object-cover"
+										/>
+									) : (
+										<div className="flex size-full flex-col items-center justify-center gap-2 bg-muted/30 p-4">
+											{isTestingDevices ? (
+												<>
+													<div className="size-10 animate-spin rounded-full border-2 border-muted-foreground/20 border-t-muted-foreground/60" />
+													<span className="text-muted-foreground text-sm">Starting camera…</span>
+												</>
+											) : (
+												<>
+													<Avatar className="size-20 border border-border bg-muted sm:size-24">
+														<AvatarImage src={session?.user?.image ?? undefined} />
+														<AvatarFallback className="text-muted-foreground text-2xl font-medium">
+															{session?.user?.name?.charAt(0).toUpperCase() ?? "?"}
+														</AvatarFallback>
+													</Avatar>
+													<p className="text-muted-foreground text-sm">Camera is off</p>
+													<Button
+														variant="outline"
+														size="sm"
+														className="mt-2"
+														onClick={() => void startPreview()}
+														disabled={isTestingDevices}
+													>
+														<Camera className="mr-2 size-4" />
+														Turn on devices
+													</Button>
+												</>
+											)}
 										</div>
-									</CardContent>
-								</Card>
+									)}
+								</CardContent>
+							</Card>
+
+							{/* Control row: Camera | Mic | Join | Cancel — toggles only when preview is on */}
+							<div className="flex flex-wrap items-center gap-2">
+								<Button
+									variant={isCameraOn ? "secondary" : "outline"}
+									size="default"
+									className="rounded-lg"
+									onClick={toggleCamera}
+									disabled={!stream || isTestingDevices}
+									title={isCameraOn ? "Turn off camera" : "Turn on camera"}
+								>
+									{isCameraOn ? (
+										<Camera className="mr-2 size-4" />
+									) : (
+										<CameraOff className="mr-2 size-4" />
+									)}
+									{isCameraOn ? "Camera on" : "Camera off"}
+								</Button>
+								<Button
+									variant={isMicOn ? "secondary" : "destructive"}
+									size="default"
+									className="rounded-lg"
+									onClick={toggleMic}
+									disabled={!stream || isTestingDevices}
+									title={isMicOn ? "Mute microphone" : "Unmute microphone"}
+								>
+									{isMicOn ? <Mic className="mr-2 size-4" /> : <MicOff className="mr-2 size-4" />}
+									{isMicOn ? "Mic on" : "Mic off"}
+								</Button>
+								<Button
+									size="default"
+									className="rounded-lg"
+									onClick={handleJoinMeeting}
+									disabled={!canJoinMeeting}
+								>
+									{locationStatus === "checking" ? (
+										<>
+											<Loader2 className="mr-2 size-4 animate-spin" />
+											Verifying…
+										</>
+									) : (
+										<>
+											<Video className="mr-2 size-4" />
+											Join meeting
+										</>
+									)}
+								</Button>
+								<Button
+									variant="outline"
+									size="default"
+									className="rounded-lg"
+									onClick={() => router.push("/sessions")}
+								>
+									Cancel
+								</Button>
 							</div>
 
-							{/* Right: Meeting Info & Participants */}
-							<div className="flex flex-col gap-4 lg:w-80 lg:shrink-0 xl:w-96">
-								{/* Location Verification Status */}
-								<Card className="border-border/50 shadow-sm">
-									<CardHeader className="pb-3 sm:pb-4">
-										<CardTitle className="text-sm font-semibold sm:text-base">
-											Location Verification
+							{/* Two cards side by side: Location, Status */}
+							<div className="grid gap-4 sm:grid-cols-2">
+								<Card className="rounded-lg border border-border">
+									<CardHeader className="pb-2">
+										<CardTitle className="flex items-center gap-2 text-sm font-medium">
+											<MapPin className="text-muted-foreground size-4" />
+											Location
 										</CardTitle>
 									</CardHeader>
-									<CardContent className="space-y-3">
-										<div className="flex items-start gap-3">
-											<div
-												className={`flex size-6 shrink-0 items-center justify-center ${locationStatusDisplay.color}`}
-											>
-												<div className={locationStatusDisplay.color}>
-													{locationStatusDisplay.icon}
-												</div>
-											</div>
-											<div className="min-w-0 flex-1 space-y-1">
-												<p className={`text-sm font-medium ${locationStatusDisplay.color}`}>
-													{locationStatusDisplay.text}
-												</p>
+									<CardContent className="pt-0">
+										<div className={`flex items-start gap-2 ${locationStatusDisplay.color}`}>
+											{locationStatusDisplay.icon}
+											<div className="min-w-0 flex-1 space-y-0.5">
+												<p className="text-sm">{locationStatusDisplay.text}</p>
 												{locationStatus === "checking" &&
 													(isGeoLoading || verifyLocation.isPending) && (
 														<p className="text-muted-foreground text-xs">
-															{isGeoLoading
-																? "Getting your location..."
-																: "Verifying with server..."}
+															{isGeoLoading ? "Getting location…" : "Verifying…"}
 														</p>
 													)}
 											</div>
 										</div>
 									</CardContent>
 								</Card>
-
-								{/* Meeting Details */}
-								<Card className="border-border/50 shadow-sm">
-									<CardHeader className="pb-3 sm:pb-4">
-										<CardTitle className="text-sm font-semibold sm:text-base">
-											Meeting Details
+								<Card className="rounded-lg border border-border">
+									<CardHeader className="pb-2">
+										<CardTitle className="flex items-center gap-2 text-sm font-medium">
+											<Clock className="text-muted-foreground size-4" />
+											Status
 										</CardTitle>
 									</CardHeader>
-									<CardContent className="space-y-4">
-										{/* Host */}
-										<div className="space-y-2">
-											<p className="text-muted-foreground text-xs font-medium tracking-wider uppercase">
-												Host
-											</p>
-											<div className="flex items-center gap-3">
-												<Avatar className="ring-border size-9 ring-2 sm:size-10">
-													<AvatarImage src={meeting.createdBy.image ?? undefined} />
-													<AvatarFallback className="bg-primary text-primary-foreground text-xs font-semibold sm:text-sm">
-														{meeting.createdBy.name?.charAt(0).toUpperCase() ?? "M"}
-													</AvatarFallback>
-												</Avatar>
-												<p className="truncate text-sm font-semibold">{meeting.createdBy.name}</p>
-											</div>
-											<Avatar className="ring-primary/20 ml-2 size-8 shrink-0 ring-2">
-												<AvatarImage src={meeting.createdBy.image ?? undefined} />
-												<AvatarFallback className="bg-primary text-primary-foreground text-xs font-semibold">
-													{meeting.createdBy.name?.charAt(0).toUpperCase() ?? "?"}
-												</AvatarFallback>
-											</Avatar>
-										</div>
-										<div className="flex items-center gap-2 rounded-lg bg-emerald-50 p-2.5 dark:bg-emerald-950/20">
-											<div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/30">
-												<div className="size-2 animate-pulse rounded-full bg-emerald-500" />
-											</div>
-											<div className="min-w-0 flex-1">
-												<p className="text-muted-foreground text-[10px] font-medium tracking-wide uppercase">
-													Status
-												</p>
-												<p className="text-sm font-semibold text-emerald-700 dark:text-emerald-400">
-													Live Now
-												</p>
-											</div>
+									<CardContent className="pt-0">
+										<div className="flex items-center gap-2">
+											<span className="size-2 shrink-0 rounded-full bg-emerald-500" />
+											<span className="text-sm font-medium">Live</span>
 										</div>
 									</CardContent>
 								</Card>
+							</div>
+						</div>
 
-								{/* Participants List */}
-								<Card className="flex-1 overflow-hidden shadow-md">
-									<CardHeader className="pb-3">
-										<CardTitle className="flex items-center gap-2 text-base">
-											<div className="bg-primary/10 flex h-7 w-7 items-center justify-center rounded-lg">
-												<Users className="text-primary size-3.5" />
+						{/* Right column: Participants card only */}
+						<aside className="flex w-full flex-col lg:w-80 lg:shrink-0">
+							<Card className="flex min-h-0 flex-1 flex-col rounded-lg border border-border">
+								<CardHeader className="pb-3">
+									<CardTitle className="flex items-center gap-2 text-base font-medium">
+										<Users className="text-muted-foreground size-4" />
+										Participants ({meeting.participants.length})
+									</CardTitle>
+								</CardHeader>
+								<CardContent className="flex min-h-0 flex-1 flex-col gap-0 p-0 pt-0">
+									<div className="min-h-0 flex-1 overflow-y-auto">
+										{meeting.participants.map((participant, i) => (
+											<div
+												key={participant.id}
+												className={
+													i > 0
+														? "border-t border-border"
+														: ""
+												}
+											>
+												<div className="flex items-center gap-3 px-4 py-3">
+													<Avatar className="size-10 shrink-0 border border-border">
+														<AvatarImage src={participant.user.image ?? undefined} />
+														<AvatarFallback className="bg-muted text-muted-foreground text-sm font-medium">
+															{participant.user.name?.charAt(0).toUpperCase() ?? "?"}
+														</AvatarFallback>
+													</Avatar>
+													<div className="min-w-0 flex-1">
+														<div className="flex items-center gap-2">
+															<p className="truncate text-sm font-medium">
+																{participant.user.name}
+																{participant.userId === session?.user?.id && (
+																	<span className="text-muted-foreground font-normal"> (you)</span>
+																)}
+															</p>
+															{participant.userId === meeting.createdBy.id && (
+																<span className="bg-primary/10 text-primary shrink-0 rounded-full px-2 py-0.5 text-xs font-medium">
+																	Host
+																</span>
+															)}
+														</div>
+														<p className="text-muted-foreground truncate text-xs">
+															{participant.user.email}
+														</p>
+													</div>
+												</div>
 											</div>
-											Participants
-										</CardTitle>
-										<CardDescription className="text-xs">
-											{meeting.participants.length}{" "}
-											{meeting.participants.length === 1 ? "person" : "people"}
-										</CardDescription>
-									</CardHeader>
-									<CardContent className="space-y-3">
-										{/* Invite Witness (host only) */}
-										{isHost && (
-											<div className="flex items-center gap-2">
+										))}
+									</div>
+									{isHost && (
+										<>
+											{((meeting.pendingInvites?.length ?? 0) > 0 && (
+												<div className="border-t border-border px-4 py-2">
+													<p className="text-muted-foreground mb-1.5 text-xs font-medium">
+														Pending ({meeting.pendingInvites.length})
+													</p>
+													{meeting.pendingInvites.map(invite => (
+														<div key={invite.id} className="flex items-center gap-2 py-1">
+															<Avatar className="size-6">
+																<AvatarImage src={invite.user.image ?? undefined} />
+																<AvatarFallback className="text-[10px]">
+																	{invite.user.name?.charAt(0).toUpperCase() ?? "?"}
+																</AvatarFallback>
+															</Avatar>
+															<span className="text-muted-foreground truncate text-xs">
+																{invite.user.email}
+															</span>
+														</div>
+													))}
+												</div>
+											))}
+											<div className="border-t border-border p-3">
 												<Input
 													value={witnessEmail}
 													onChange={e => setWitnessEmail(e.target.value)}
-													placeholder="Witness email (e.g. witness@email.com)"
-													className="h-9 text-xs"
+													placeholder="Witness email"
+													title="Add witness by email"
+													className="mb-2 h-9 text-sm"
 													autoComplete="email"
 													inputMode="email"
 												/>
 												<Button
 													type="button"
+													variant="outline"
 													size="sm"
-													className="h-9"
+													className="h-9 w-full rounded-lg"
 													disabled={
 														inviteWitnessByEmail.isPending || witnessEmail.trim().length === 0
 													}
 													onClick={() => {
 														const email = witnessEmail.trim().toLowerCase()
 														if (!email) return
-
 														inviteWitnessByEmail.mutate(
 															{ meetingId: id, email },
 															{
@@ -670,126 +700,29 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 																		toast.message(
 																			result.status === "PENDING"
 																				? "Invite already sent"
-																				: "That user is already in this meeting"
+																				: "Already in meeting"
 																		)
 																	}
 																	void refetchMeeting()
 																},
 																onError: err => {
-																	toast.error(err.message || "Failed to invite witness")
+																	toast.error(err.message ?? "Failed to invite")
 																},
 															}
 														)
 													}}
 												>
-													{inviteWitnessByEmail.isPending ? "Inviting..." : "Invite"}
+													<UserPlus className="mr-2 size-4" />
+													Add witness by email
 												</Button>
 											</div>
-										)}
-
-										{/* Pending invites (host only) */}
-										{isHost && (meeting.pendingInvites?.length ?? 0) > 0 && (
-											<div className="bg-muted/20 rounded-lg border p-2">
-												<p className="text-muted-foreground mb-2 text-[10px] font-semibold tracking-wide uppercase">
-													Pending invites ({meeting.pendingInvites.length})
-												</p>
-												<div className="space-y-1.5">
-													{meeting.pendingInvites.map(invite => (
-														<div
-															key={invite.id}
-															className="flex items-center gap-2.5 rounded-md px-2 py-1.5"
-														>
-															<Avatar className="size-7 shrink-0">
-																<AvatarImage src={invite.user.image ?? undefined} />
-																<AvatarFallback className="bg-primary text-primary-foreground text-[10px] font-semibold">
-																	{invite.user.name?.charAt(0).toUpperCase() ?? "?"}
-																</AvatarFallback>
-															</Avatar>
-															<div className="min-w-0 flex-1">
-																<p className="truncate text-xs font-semibold">{invite.user.name}</p>
-																<p className="text-muted-foreground truncate text-[10px]">
-																	{invite.user.email}
-																</p>
-															</div>
-															<span className="shrink-0 rounded-full bg-yellow-100 px-2 py-0.5 text-[10px] font-semibold text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300">
-																Pending
-															</span>
-														</div>
-													))}
-												</div>
-											</div>
-										)}
-
-										<div className="max-h-48 overflow-y-auto">
-											<div className="space-y-1.5">
-												{meeting.participants.map(participant => (
-													<div
-														key={participant.id}
-														className="hover:bg-muted/50 flex items-center gap-2.5 rounded-lg p-2 transition-colors"
-													>
-														<Avatar className="hover:ring-primary/20 size-8 shrink-0 ring-2 ring-transparent transition-all">
-															<AvatarImage src={participant.user.image ?? undefined} />
-															<AvatarFallback className="bg-primary text-primary-foreground text-xs font-semibold">
-																{participant.user.name?.charAt(0).toUpperCase() ?? "?"}
-															</AvatarFallback>
-														</Avatar>
-														<div className="min-w-0 flex-1">
-															<p className="truncate text-xs font-semibold">
-																{participant.user.name}
-																{participant.userId === session?.user?.id && (
-																	<span className="text-muted-foreground ml-1.5 text-[10px] font-normal">
-																		(You)
-																	</span>
-																)}
-															</p>
-															<p className="text-muted-foreground truncate text-[10px]">
-																{participant.user.email}
-															</p>
-														</div>
-														{participant.userId === meeting.createdBy.id && (
-															<span className="bg-primary/10 text-primary shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold">
-																Host
-															</span>
-														)}
-													</div>
-												))}
-											</div>
-										</div>
-									</CardContent>
-								</Card>
-
-								{/* Action Buttons */}
-								<div className="space-y-2.5 pt-2">
-									<Button
-										className="h-11 w-full text-sm font-medium shadow-sm transition-all hover:shadow-md sm:text-base"
-										onClick={handleJoinMeeting}
-										disabled={!canJoinMeeting}
-										size="lg"
-									>
-										{locationStatus === "checking" ? (
-											<>
-												<Loader2 className="mr-2 size-4 animate-spin" />
-												Verifying Location...
-											</>
-										) : (
-											<>
-												<Video className="mr-2 size-4" />
-												Join Meeting Now
-											</>
-										)}
-									</Button>
-									<Button
-										variant="outline"
-										className="border-border/50 h-10 w-full text-sm sm:text-base"
-										onClick={() => router.push("/sessions")}
-									>
-										Cancel
-									</Button>
-								</div>
-							</div>
-						</div>
+										</>
+									)}
+								</CardContent>
+							</Card>
+						</aside>
 					</div>
-				</div>
+				</main>
 			</div>
 		</>
 	)

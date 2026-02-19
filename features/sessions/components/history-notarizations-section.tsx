@@ -307,7 +307,7 @@ export function HistoryNotarizationsSection() {
 					id: a.id,
 					title:
 						a.notes?.trim() ??
-						`${a.type === "DOCUMENT_SIGNING" ? "Document Signing" : "Consultation"} - ${
+						`${a.type === "NOTARIZATION" ? "Notarization" : "Consultation"} - ${
 							a.client?.name ?? "Client"
 						}`,
 					status: "CANCELLED",

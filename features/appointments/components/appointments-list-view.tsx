@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { type inferRouterOutputs } from "@trpc/server"
 import { format } from "date-fns"
 import { Calendar, Clock, Globe, MapPin, Search } from "lucide-react"
 
@@ -19,7 +20,9 @@ import {
 import { Skeleton } from "@/core/components/ui/skeleton"
 import { cn, getAvatarUrl, getInitials } from "@/core/lib/utils"
 
-import type { IncomingItem } from "../api/requests.router"
+import { type AppRouter } from "@/services/trpc/root"
+
+type IncomingRequest = inferRouterOutputs<AppRouter>["appointments"]["getIncomingRequests"][number]
 
 function PrincipalAvatar({
 	name,
@@ -40,21 +43,21 @@ function PrincipalAvatar({
 	)
 }
 
-interface RequestsListViewProps {
-	incomingRequests: IncomingItem[]
+interface AppointmentsListViewProps {
+	incomingRequests: IncomingRequest[]
 	isRequestsLoading: boolean
-	onAccept: (request: IncomingItem) => void
-	onReject: (request: IncomingItem) => void
+	onAccept: (request: IncomingRequest) => void
+	onReject: (request: IncomingRequest) => void
 	processingId: string | null
 }
 
-export function RequestsListView({
+export function AppointmentsListView({
 	incomingRequests,
 	isRequestsLoading,
 	onAccept,
 	onReject,
 	processingId,
-}: RequestsListViewProps) {
+}: AppointmentsListViewProps) {
 	const [searchTerm, setSearchTerm] = useState("")
 	const [workflowFilter, setWorkflowFilter] = useState("ALL")
 
@@ -82,7 +85,7 @@ export function RequestsListView({
 	}
 
 	return (
-		<div className="mx-auto max-w-7xl space-y-8">
+		<div className="animate-in fade-in mx-auto max-w-7xl space-y-8 duration-300 motion-reduce:animate-none">
 			{/* Header Section */}
 			<div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
 				<div className="space-y-1">
@@ -119,7 +122,7 @@ export function RequestsListView({
 					/>
 				</div>
 				<Select value={workflowFilter} onValueChange={setWorkflowFilter}>
-					<SelectTrigger className="bg-background w-[130px]">
+					<SelectTrigger className="bg-background w-32.5">
 						<SelectValue placeholder="Type" />
 					</SelectTrigger>
 					<SelectContent>
@@ -260,7 +263,7 @@ export function RequestsListView({
 					))}
 				</div>
 			) : (
-				<div className="animate-in fade-in-50 flex min-h-[300px] flex-col items-center justify-center rounded-lg border border-dashed p-8 text-center">
+				<div className="animate-in fade-in-50 flex min-h-75 flex-col items-center justify-center rounded-lg border border-dashed p-8 text-center">
 					<div className="bg-muted/50 mx-auto mb-4 flex size-12 items-center justify-center rounded-full">
 						<Search className="text-muted-foreground/50 size-6" aria-hidden />
 					</div>

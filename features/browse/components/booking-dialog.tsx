@@ -165,7 +165,7 @@ export function BookingDialog({ enpId, enpName, trigger }: BookingDialogProps) {
 
 			await bookSigningMutation.mutateAsync({
 				lawyerId: enpId,
-				type: "DOCUMENT_SIGNING",
+				type: "NOTARIZATION",
 				appointmentDate,
 				duration: workflowType === "REN" ? 45 : 60,
 				notes: description?.trim() ?? undefined,

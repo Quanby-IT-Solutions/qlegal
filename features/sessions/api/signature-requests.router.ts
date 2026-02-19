@@ -359,13 +359,26 @@ export const signatureRequestsRouter = createTRPCRouter({
 			let projectUuid = projectUuidFromInput
 			let docRedirectUrl: string | null | undefined = null
 
-			if (!projectUuid && documentId) {
+			// If a documentId is provided, always resolve the project UUID from the document record.
+			// This prevents opening the wrong DocOnChain project when the client passes a stale/mismatched projectUuid.
+			if (documentId) {
 				const doc = await db.query.documents.findFirst({
 					where: eq(documents.id, documentId),
 					columns: { docoChainProjectId: true, docoChainRedirectUrl: true },
 				})
-				projectUuid = doc?.docoChainProjectId ?? undefined
+				const resolvedProjectUuid = doc?.docoChainProjectId ?? undefined
 				docRedirectUrl = doc?.docoChainRedirectUrl
+
+				if (!projectUuid) {
+					projectUuid = resolvedProjectUuid
+				} else if (resolvedProjectUuid && resolvedProjectUuid !== projectUuid) {
+					console.warn("🟣 [DocOnChain] initiateSigning:projectUuidMismatch", {
+						documentId,
+						projectUuidFromInput: projectUuid,
+						projectUuidFromDb: resolvedProjectUuid,
+					})
+					projectUuid = resolvedProjectUuid
+				}
 				console.log("🟣 [DocOnChain] initiateSigning:resolvedProject", {
 					documentId,
 					projectUuidResolved: !!projectUuid,

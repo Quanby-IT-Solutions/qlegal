@@ -102,7 +102,7 @@ export default function AppointmentMeetingPage({ params }: { params: Promise<{ i
 							<CardHeader className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
 								<div>
 									<CardTitle className="text-xl">
-										{appointment.type === "DOCUMENT_SIGNING" ? "Document Signing" : "Consultation"}
+										{appointment.type === "NOTARIZATION" ? "Notarization" : "Consultation"}
 									</CardTitle>
 									<CardDescription>
 										{format(new Date(appointment.appointmentDate), "PPP")} at{" "}
