@@ -634,6 +634,7 @@ function CalendarScheduleEventCard({
 											e.stopPropagation()
 											onAccept?.()
 										}}
+										className="text-xs"
 									>
 										{isProcessing ? (
 											<>
