@@ -30,4 +30,3 @@ export async function sendSigningLinkEmail(input: {
 		console.error(`❌ Failed to send signing link email to ${input.to}:`, error)
 	}
 }
-
