@@ -2,20 +2,20 @@ import { TRPCError } from "@trpc/server"
 import { and, asc, count, desc, eq, ilike, inArray, isNotNull, or } from "drizzle-orm"
 import { z } from "zod/v4"
 
+import { appointmentParticipants } from "@/services/drizzle/schema/appointment-participants"
+import { appointments } from "@/services/drizzle/schema/appointments"
 import { users } from "@/services/drizzle/schema/auth"
 import { documents } from "@/services/drizzle/schema/document"
 import { enpProfiles } from "@/services/drizzle/schema/enp-profiles"
 import { idCardDetails } from "@/services/drizzle/schema/id-card-details"
 import { legalRegistrations } from "@/services/drizzle/schema/legal-registration"
-import { meetingParticipants, meetings } from "@/services/drizzle/schema/meetings"
 import { notarialActs, notarialBooks } from "@/services/drizzle/schema/notarial-book"
-import { getCommissionStatus } from "@/services/supreme-court/api/commission-status"
-import { isConfigured } from "@/services/supreme-court/lib/token-cache"
-import { syncNotarialActToSupremeCourt } from "@/services/supreme-court/lib/sync-notarial-act"
 import { getServiceRoleClient } from "@/services/supabase"
-import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
-
 import { getDocumentPublicUrl } from "@/services/supabase/signed-url"
+import { getCommissionStatus } from "@/services/supreme-court/api/commission-status"
+import { syncNotarialActToSupremeCourt } from "@/services/supreme-court/lib/sync-notarial-act"
+import { isConfigured } from "@/services/supreme-court/lib/token-cache"
+import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
 
 const getNotarialBookSchema = z.object({
 	page: z.number().min(1).default(1),
@@ -86,15 +86,13 @@ export const notarialBookRouter = createTRPCRouter({
 	 * Fetch notarial book entries from external signing provider.
 	 * Temporarily disabled while the signing integration is rebuilt.
 	 */
-	getNotarialBookFromAPI: protectedProcedure
-		.input(getNotarialBookSchema)
-		.query(async () => {
-			throw new TRPCError({
-				code: "SERVICE_UNAVAILABLE",
-				message:
-					"External notarial book sync is temporarily unavailable while we rebuild the signing integration.",
-			})
-		}),
+	getNotarialBookFromAPI: protectedProcedure.input(getNotarialBookSchema).query(async () => {
+		throw new TRPCError({
+			code: "SERVICE_UNAVAILABLE",
+			message:
+				"External notarial book sync is temporarily unavailable while we rebuild the signing integration.",
+		})
+	}),
 
 	/**
 	 * Get notarial book entries for the current ENP
@@ -362,7 +360,11 @@ export const notarialBookRouter = createTRPCRouter({
 			const enpProfile = await ctx.db.query.enpProfiles.findFirst({
 				where: eq(enpProfiles.userId, userId),
 			})
-			if (!enpProfile?.notaryPublicNumber || !enpProfile?.notaryFacilityNumber || !enpProfile?.rollNo) {
+			if (
+				!enpProfile?.notaryPublicNumber ||
+				!enpProfile?.notaryFacilityNumber ||
+				!enpProfile?.rollNo
+			) {
 				throw new TRPCError({
 					code: "PRECONDITION_FAILED",
 					message: "ENP profile missing NPN, NFN, or RN",
@@ -436,8 +438,7 @@ export const notarialBookRouter = createTRPCRouter({
 	autoSyncAllDocuments: protectedProcedure.mutation(async () => {
 		throw new TRPCError({
 			code: "SERVICE_UNAVAILABLE",
-			message:
-				"Auto-sync is temporarily unavailable while we rebuild the signing integration.",
+			message: "Auto-sync is temporarily unavailable while we rebuild the signing integration.",
 		})
 	}),
 
@@ -719,15 +720,21 @@ export const notarialBookRouter = createTRPCRouter({
 
 			const witnessEmails = new Set<string>()
 			if (meetingIdForWitness) {
-				const witnessParticipants = await ctx.db.query.meetingParticipants.findMany({
-					where: and(
-						eq(meetingParticipants.meetingId, meetingIdForWitness),
-						eq(meetingParticipants.participantRole, "WITNESS")
-					),
-					with: { user: { columns: { email: true } } },
+				const appointment = await ctx.db.query.appointments.findFirst({
+					where: eq(appointments.meetingId, meetingIdForWitness),
 				})
-				for (const p of witnessParticipants) {
-					if (p.user?.email) witnessEmails.add(p.user.email.trim().toLowerCase())
+
+				if (appointment) {
+					const witnessParticipants = await ctx.db.query.appointmentParticipants.findMany({
+						where: and(
+							eq(appointmentParticipants.appointmentId, appointment.id),
+							eq(appointmentParticipants.participantRole, "PARTICIPANT")
+						),
+						with: { user: { columns: { email: true } } },
+					})
+					for (const p of witnessParticipants) {
+						if (p.user?.email) witnessEmails.add(p.user.email.trim().toLowerCase())
+					}
 				}
 			}
 
