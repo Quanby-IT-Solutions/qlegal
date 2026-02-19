@@ -16,6 +16,8 @@ import { getDocumentPublicUrl } from "@/services/supabase/signed-url"
 import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
 import { createMeetingRoom } from "@/services/video-sdk"
 
+import { env } from "@/env"
+
 import {
 	blockTimeSlotSchema,
 	cancelAppointmentSchema,
@@ -42,7 +44,7 @@ const RECURRING_BLOCKED = "RECURRING_BLOCKED" as const
  */
 async function createMeetingForAppointment(
 	ctx: { db: typeof db },
-createdById: string
+	createdById: string
 ): Promise<string> {
 	const { roomId } = await createMeetingRoom()
 	const [meeting] = await ctx.db
@@ -279,7 +281,7 @@ export const appointmentsRouter = createTRPCRouter({
 		// Send email notification to ENP
 		if (requestWithRelations?.enp?.email && requestWithRelations?.principalId) {
 			try {
-				const requestUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? ""}/requests`
+				const requestUrl = `${env.NEXT_PUBLIC_SITE_URL ?? ""}/requests`
 				await sendNotarizationRequestNotification({
 					enpEmail: requestWithRelations.enp.email,
 					enpName: requestWithRelations.enp.name ?? "Unknown",
@@ -1212,7 +1214,7 @@ export const appointmentsRouter = createTRPCRouter({
 			const [appointment] = await ctx.db
 				.insert(appointments)
 				.values({
-					userId: userId,
+					userId,
 					title: input.title,
 					description: input.description ?? null,
 					type: input.type,
@@ -1238,7 +1240,7 @@ export const appointmentsRouter = createTRPCRouter({
 
 			await ctx.db.insert(appointmentParticipants).values({
 				appointmentId: appointment.id,
-				userId: userId,
+				userId,
 				participantRole: "HOST",
 				status: "ACCEPTED",
 			})
