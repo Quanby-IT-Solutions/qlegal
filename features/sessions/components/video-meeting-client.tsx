@@ -4057,7 +4057,6 @@ export function VideoMeetingClient({
 	participantName,
 	onLeave,
 }: VideoMeetingClientProps) {
-	// Only enable debug mode in development
 	const isDevelopment =
 		typeof window === "undefined" ? false : window.location.hostname === "localhost"
 
