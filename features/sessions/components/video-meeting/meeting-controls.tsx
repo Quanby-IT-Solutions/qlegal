@@ -166,11 +166,14 @@ export const MeetingControls = React.memo(function MeetingControls({
 
 	return (
 		<>
-			<div className="flex items-center gap-1.5 md:gap-2">
+			<div className="flex items-center gap-1 rounded-full border border-white/10 bg-black/65 px-2.5 py-2 shadow-2xl backdrop-blur-xl md:gap-1.5 md:px-3">
 				<Button
-					variant={isCameraOn ? "outline" : "destructive"}
+					variant={isCameraOn ? "ghost" : "destructive"}
 					size="icon"
-					className="size-9 rounded-full shadow-md transition-all hover:shadow-lg md:size-10"
+					className={cn(
+						"size-9 rounded-full transition-all md:size-10",
+						isCameraOn && "text-white/80 hover:bg-white/10 hover:text-white"
+					)}
 					onClick={handleToggleCamera}
 					title={isCameraOn ? "Turn off camera" : "Turn on camera"}
 				>
@@ -178,10 +181,11 @@ export const MeetingControls = React.memo(function MeetingControls({
 				</Button>
 
 				<Button
-					variant={isMicOn ? "outline" : "destructive"}
+					variant={isMicOn ? "ghost" : "destructive"}
 					size="icon"
 					className={cn(
-						"size-9 rounded-full shadow-md transition-all hover:shadow-lg md:size-10",
+						"size-9 rounded-full transition-all md:size-10",
+						isMicOn && "text-white/80 hover:bg-white/10 hover:text-white",
 						!isMicOn && "animate-pulse"
 					)}
 					onClick={handleToggleMic}
@@ -191,9 +195,12 @@ export const MeetingControls = React.memo(function MeetingControls({
 				</Button>
 
 				<Button
-					variant={isScreenSharing ? "destructive" : "outline"}
+					variant={isScreenSharing ? "destructive" : "ghost"}
 					size="icon"
-					className="size-9 rounded-full shadow-md transition-all hover:shadow-lg md:size-10"
+					className={cn(
+						"size-9 rounded-full transition-all md:size-10",
+						!isScreenSharing && "text-white/80 hover:bg-white/10 hover:text-white"
+					)}
 					onClick={handleToggleScreenShare}
 					title={isScreenSharing ? "Stop sharing" : "Share screen"}
 				>
@@ -201,10 +208,11 @@ export const MeetingControls = React.memo(function MeetingControls({
 				</Button>
 
 				<Button
-					variant={localRecordingActive ? "destructive" : "outline"}
+					variant={localRecordingActive ? "destructive" : "ghost"}
 					size="icon"
 					className={cn(
-						"size-9 rounded-full shadow-md transition-all hover:shadow-lg md:size-10",
+						"size-9 rounded-full transition-all md:size-10",
+						!localRecordingActive && "text-white/80 hover:bg-white/10 hover:text-white",
 						localRecordingActive && "animate-pulse"
 					)}
 					onClick={handleToggleRecording}
@@ -221,9 +229,9 @@ export const MeetingControls = React.memo(function MeetingControls({
 
 				{onUploadClick && (
 					<Button
-						variant="outline"
+						variant="ghost"
 						size="icon"
-						className="size-9 rounded-full shadow-md transition-all hover:shadow-lg md:size-10"
+						className="size-9 rounded-full text-white/80 transition-all hover:bg-white/10 hover:text-white md:size-10"
 						onClick={onUploadClick}
 						title="Upload document"
 					>
@@ -231,10 +239,13 @@ export const MeetingControls = React.memo(function MeetingControls({
 					</Button>
 				)}
 
+				{/* Divider before leave */}
+				<div className="mx-1 h-6 w-px bg-white/15" />
+
 				<Button
 					variant="destructive"
 					size="icon"
-					className="size-9 rounded-full shadow-md transition-all hover:shadow-lg md:size-10"
+					className="size-9 rounded-full transition-all md:size-10"
 					onClick={handleLeave}
 					title="Leave session"
 				>

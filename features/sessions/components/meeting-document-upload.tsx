@@ -33,6 +33,8 @@ interface MeetingDocumentUploadProps {
 	onClose: () => void
 	onSuccess?: () => void
 	isEnp?: boolean
+	/** Called with the dialog center coordinates when upload begins — use this to trigger the flight animation */
+	onUploadStart?: (originX: number, originY: number) => void
 }
 
 export function MeetingDocumentUpload({
@@ -41,6 +43,7 @@ export function MeetingDocumentUpload({
 	onClose,
 	onSuccess,
 	isEnp = false,
+	onUploadStart,
 }: MeetingDocumentUploadProps) {
 	const [documentName, setDocumentName] = useState("")
 	const [description, setDescription] = useState("")
@@ -118,6 +121,11 @@ export function MeetingDocumentUpload({
 		}
 
 		setIsUploading(true)
+
+		// Fire animation origin: center of the viewport (dialog is centered)
+		if (onUploadStart) {
+			onUploadStart(window.innerWidth / 2, window.innerHeight / 2)
+		}
 
 		try {
 			// Convert file to base64
