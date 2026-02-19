@@ -7,7 +7,7 @@ import { seed } from "drizzle-seed"
 import { db } from "@/services/drizzle/db"
 import { users } from "@/services/drizzle/schema/auth"
 import { enpProfiles } from "@/services/drizzle/schema/enp-profiles"
-import { generateTestIds, SEED_CONFIG } from "@/services/drizzle/seed/config"
+import { FIXED_TEST_ENPS, generateTestIds, SEED_CONFIG } from "@/services/drizzle/seed/config"
 
 export async function createUsers() {
 	const hashedPassword = await hash(SEED_CONFIG.defaultPassword, 10)
@@ -72,50 +72,67 @@ export async function createUsers() {
 
 		// Create ENP profiles for ENP test accounts (silently)
 		const enpUsers = insertedTestUsers.filter(account => account.role === "ENP")
+		const fixedEnpProfileByEmail = new Map(
+			FIXED_TEST_ENPS.map(enp => [
+				enp.email.toLowerCase(),
+				{
+					notaryPublicNumber: enp.notaryPublicNumber,
+					rollNo: enp.rollNo,
+				},
+			])
+		)
 
 		if (enpUsers.length > 0) {
 			const enpProfileData = enpUsers
 				.filter((enpUser): enpUser is typeof enpUser & { id: string } => enpUser.id !== undefined)
-				.map(enpUser => ({
-					userId: enpUser.id,
-					specialization: faker.helpers.arrayElement([
-						"real-estate",
-						"business",
-						"family",
-						"corporate",
-						"international",
-					]),
-					bio: faker.lorem.sentence(),
-					experience: faker.helpers.arrayElement([
-						"2+ years",
-						"5+ years",
-						"10+ years",
-						"15+ years",
-					]),
-					languages: JSON.stringify(["English", "Filipino"]),
-					responseTime: faker.helpers.arrayElement([
-						"Within 1 hour",
-						"Within 2 hours",
-						"Within 24 hours",
-					]),
-					rating: faker.number.float({ min: 3.5, max: 5.0 }),
-					reviewCount: faker.number.int({ min: 5, max: 150 }),
-					commission: faker.number.float({ min: 0.1, max: 0.3 }),
-					isAvailable: true,
-					rollNo: faker.string.alphanumeric(8).toUpperCase(),
-					rollNoDate: "5 June 2018",
-					commissionNo: `2024 - ${faker.string.numeric(3)}`,
-					commissionNoValidUntil: "Dec 31, 2025",
-					ptrNo: faker.string.numeric(8),
-					ptrNoLocation: "Manila",
-					ptrNoDate: "Jan 02, 2025",
-					ibpNo: faker.string.numeric(10),
-					ibpNoDate: "Dec 18, 2024 (for 2025)",
-					notaryAddress: faker.location.streetAddress(),
-					mcleNoPeriod: "VIII",
-					mcleNo: faker.string.numeric(8),
-					mcleNoDate: "Jun 12, 2024",
-				}))
+				.map(enpUser => {
+					const normalizedEmail = (enpUser.email ?? "").trim().toLowerCase()
+					const fixedProfile = fixedEnpProfileByEmail.get(normalizedEmail)
+
+					return {
+						userId: enpUser.id,
+						specialization: faker.helpers.arrayElement([
+							"real-estate",
+							"business",
+							"family",
+							"corporate",
+							"international",
+						]),
+						bio: faker.lorem.sentence(),
+						experience: faker.helpers.arrayElement([
+							"2+ years",
+							"5+ years",
+							"10+ years",
+							"15+ years",
+						]),
+						languages: JSON.stringify(["English", "Filipino"]),
+						responseTime: faker.helpers.arrayElement([
+							"Within 1 hour",
+							"Within 2 hours",
+							"Within 24 hours",
+						]),
+						rating: faker.number.float({ min: 3.5, max: 5.0 }),
+						reviewCount: faker.number.int({ min: 5, max: 150 }),
+						commission: faker.number.float({ min: 0.1, max: 0.3 }),
+						isAvailable: true,
+						notaryPublicNumber:
+							fixedProfile?.notaryPublicNumber ??
+							`NPN-2026-${faker.string.numeric({ length: 5, allowLeadingZeros: true })}`,
+						rollNo: fixedProfile?.rollNo ?? faker.string.alphanumeric(8).toUpperCase(),
+						rollNoDate: "5 June 2018",
+						commissionNo: `2024 - ${faker.string.numeric(3)}`,
+						commissionNoValidUntil: "Dec 31, 2025",
+						ptrNo: faker.string.numeric(8),
+						ptrNoLocation: "Manila",
+						ptrNoDate: "Jan 02, 2025",
+						ibpNo: faker.string.numeric(10),
+						ibpNoDate: "Dec 18, 2024 (for 2025)",
+						notaryAddress: faker.location.streetAddress(),
+						mcleNoPeriod: "VIII",
+						mcleNo: faker.string.numeric(8),
+						mcleNoDate: "Jun 12, 2024",
+					}
+				})
 
 			await db.insert(enpProfiles).values(enpProfileData)
 		}

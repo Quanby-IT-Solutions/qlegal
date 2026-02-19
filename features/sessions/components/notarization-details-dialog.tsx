@@ -16,10 +16,7 @@ import { Skeleton } from "@/core/components/ui/skeleton"
 
 import { trpc } from "@/services/trpc/client"
 
-import {
-	getDocumentSigningBadge,
-	getMeetingStatusBadge,
-} from "@/features/sessions/lib/meeting-badges"
+import { getDocumentSigningBadge } from "@/features/sessions/lib/meeting-badges"
 
 interface NotarizationDetailsDialogProps {
 	isOpen: boolean
@@ -137,9 +134,7 @@ export function NotarizationDetailsDialog({
 						</div>
 						<div className="min-w-0 flex-1">
 							<DialogTitle className="text-foreground truncate text-base font-semibold sm:text-lg">
-								{isLoading
-									? "Loading..."
-									: (activeDoc?.name ?? detailsData?.meeting.title ?? "Notarization Details")}
+								{isLoading ? "Loading..." : (activeDoc?.name ?? "Notarization Details")}
 							</DialogTitle>
 							<DialogDescription className="sr-only">
 								{isLoading
@@ -150,7 +145,6 @@ export function NotarizationDetailsDialog({
 					</div>
 
 					<div className="flex shrink-0 flex-wrap items-center gap-1.5 sm:gap-2">
-						{!isLoading && detailsData && getMeetingStatusBadge(detailsData.meeting.status)}
 						{!isLoading && activeDoc && getDocumentSigningBadge(activeDoc.isFullySigned)}
 					</div>
 				</DialogHeader>
@@ -169,7 +163,7 @@ export function NotarizationDetailsDialog({
 										className="h-7 shrink-0 gap-1 px-2 text-xs sm:gap-1.5 sm:px-2.5"
 									>
 										<FileText className="size-3 shrink-0" />
-										<span className="max-w-[80px] truncate sm:max-w-[120px]">{doc.name}</span>
+										<span className="max-w-20 truncate sm:max-w-30">{doc.name}</span>
 										{doc.isFullySigned && (
 											<Badge
 												variant="outline"

@@ -2,22 +2,24 @@ import { TRPCError } from "@trpc/server"
 import { and, asc, eq, inArray, ne, type InferSelectModel } from "drizzle-orm"
 import { z } from "zod/v4"
 
+import { addDoconchainProjectSigner } from "@/services/doconchain/projects/add-signer"
+import { createDoconchainProject } from "@/services/doconchain/projects/create-project"
+import { generateDoconchainSignLink } from "@/services/doconchain/projects/generate-sign-link"
 import { db } from "@/services/drizzle/db"
+import { appointmentParticipants } from "@/services/drizzle/schema/appointment-participants"
+import { appointments } from "@/services/drizzle/schema/appointments"
 import { users } from "@/services/drizzle/schema/auth"
 import { documents } from "@/services/drizzle/schema/document"
 import { documentSigners } from "@/services/drizzle/schema/document-signers"
 import { enpProfiles } from "@/services/drizzle/schema/enp-profiles"
-import { meetingParticipants, meetings } from "@/services/drizzle/schema/meetings"
+import { meetings } from "@/services/drizzle/schema/meetings"
 import { signatureRequests } from "@/services/drizzle/schema/signature-requests"
+import { sendSigningLinkEmail } from "@/services/react-email/lib/send.signing-link"
 import { getPublicClient, getServiceRoleClient } from "@/services/supabase"
 import { getPublicUrl } from "@/services/supabase/signed-url"
-import { createDoconchainProject } from "@/services/doconchain/projects/create-project"
-import { addDoconchainProjectSigner } from "@/services/doconchain/projects/add-signer"
-import { generateDoconchainSignLink } from "@/services/doconchain/projects/generate-sign-link"
 import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
 import { createMeetingRoom, fetchRecordings, generateMeetingToken } from "@/services/video-sdk"
 
-import { sendSigningLinkEmail } from "@/services/react-email/lib/send.signing-link"
 import { populateNotarialRegistryOnMeetingEnd } from "@/features/notarial-book/server/populate-notarial-registry-on-meeting-end"
 
 function isEnpRole(role: unknown): boolean {
@@ -47,81 +49,75 @@ function asNonEmptyEmail(email: unknown): string | undefined {
 	return trimmed.length > 0 ? trimmed : undefined
 }
 
+async function getAppointmentParticipantsByMeetingId(meetingId: string) {
+	const appointment = await db.query.appointments.findFirst({
+		where: eq(appointments.meetingId, meetingId),
+	})
+
+	if (!appointment) {
+		return { appointment: null, apParticipants: [] }
+	}
+
+	const apParticipants = await db.query.appointmentParticipants.findMany({
+		where: eq(appointmentParticipants.appointmentId, appointment.id),
+		with: {
+			user: {
+				columns: {
+					id: true,
+					name: true,
+					email: true,
+					image: true,
+					role: true,
+				},
+			},
+		},
+	})
+
+	return { appointment, apParticipants }
+}
+
 export const meetingsRouter = createTRPCRouter({
 	// Create a new meeting
-	create: protectedProcedure
-		.input(
-			z.object({
-				title: z.string().min(1).max(255),
-				participantIds: z.array(z.string()).optional(),
+	create: protectedProcedure.input(z.object({})).mutation(async ({ ctx }) => {
+		// Create VideoSDK room
+		const { roomId } = await createMeetingRoom()
+
+		// Create meeting in database
+		const [meeting] = await db
+			.insert(meetings)
+			.values({
+				roomId,
+				createdById: ctx.session.user.id,
 			})
-		)
-		.mutation(async ({ input, ctx }) => {
-			// Create VideoSDK room
-			const { roomId } = await createMeetingRoom()
+			.returning()
 
-			// Create meeting in database
-			const [meeting] = await db
-				.insert(meetings)
-				.values({
-					title: input.title,
-					roomId,
-					createdById: ctx.session.user.id,
-				})
-				.returning()
-
-			if (!meeting) {
-				throw new TRPCError({
-					code: "INTERNAL_SERVER_ERROR",
-					message: "Failed to create meeting",
-				})
-			}
-
-			// Add creator as participant
-			await db.insert(meetingParticipants).values({
-				meetingId: meeting.id,
-				userId: ctx.session.user.id,
+		if (!meeting) {
+			throw new TRPCError({
+				code: "INTERNAL_SERVER_ERROR",
+				message: "Failed to create meeting",
 			})
+		}
 
-			// Add other participants
-			if (input.participantIds && input.participantIds.length > 0) {
-				await db.insert(meetingParticipants).values(
-					input.participantIds.map(userId => ({
-						meetingId: meeting.id,
-						userId,
-					}))
-				)
-			}
-
-			return {
-				success: true,
-				meeting,
-				token: generateMeetingToken(),
-			}
-		}),
+		return {
+			success: true,
+			meeting,
+			token: generateMeetingToken(),
+		}
+	}),
 
 	// Get user's meetings
 	getUserMeetings: protectedProcedure.query(async ({ ctx }) => {
-		const userMeetings = await db.query.meetingParticipants.findMany({
+		const userMeetings = await db.query.appointmentParticipants.findMany({
 			where: and(
-				eq(meetingParticipants.userId, ctx.session.user.id),
-				eq(meetingParticipants.status, "ACCEPTED")
+				eq(appointmentParticipants.userId, ctx.session.user.id),
+				eq(appointmentParticipants.status, "ACCEPTED")
 			),
 			with: {
-				meeting: {
+				appointment: {
 					with: {
-						createdBy: {
-							columns: {
-								id: true,
-								name: true,
-								email: true,
-								image: true,
-								role: true,
-							},
-						},
-						participants: {
+						meeting: {
 							with: {
-								user: {
+								createdBy: {
 									columns: {
 										id: true,
 										name: true,
@@ -135,10 +131,12 @@ export const meetingsRouter = createTRPCRouter({
 					},
 				},
 			},
-			orderBy: (meetingParticipants, { desc }) => [desc(meetingParticipants.createdAt)],
+			orderBy: (ap, { desc }) => [desc(ap.createdAt)],
 		})
 
-		return userMeetings.map(mp => mp.meeting)
+		return userMeetings
+			.map(ap => ap.appointment?.meeting)
+			.filter((meeting): meeting is NonNullable<typeof meeting> => Boolean(meeting))
 	}),
 
 	// Get user's meetings (same order as meetings page), plus document stats
@@ -155,26 +153,17 @@ export const meetingsRouter = createTRPCRouter({
 			const limit = input?.limit ?? 10
 			const offset = input?.offset ?? 0
 
-			const rows = await db.query.meetingParticipants.findMany({
+			const rows = await db.query.appointmentParticipants.findMany({
 				where: and(
-					eq(meetingParticipants.userId, ctx.session.user.id),
-					eq(meetingParticipants.status, "ACCEPTED")
+					eq(appointmentParticipants.userId, ctx.session.user.id),
+					eq(appointmentParticipants.status, "ACCEPTED")
 				),
 				with: {
-					meeting: {
+					appointment: {
 						with: {
-							createdBy: {
-								columns: {
-									id: true,
-									name: true,
-									email: true,
-									image: true,
-									role: true,
-								},
-							},
-							participants: {
+							meeting: {
 								with: {
-									user: {
+									createdBy: {
 										columns: {
 											id: true,
 											name: true,
@@ -183,25 +172,25 @@ export const meetingsRouter = createTRPCRouter({
 											role: true,
 										},
 									},
-								},
-							},
-							documents: {
-								columns: {
-									id: true,
-									docoChainProjectId: true,
-								},
-							},
-							signatureRequests: {
-								columns: {
-									documentId: true,
-									status: true,
+									documents: {
+										columns: {
+											id: true,
+											docoChainProjectId: true,
+										},
+									},
+									signatureRequests: {
+										columns: {
+											documentId: true,
+											status: true,
+										},
+									},
 								},
 							},
 						},
 					},
 				},
 				// IMPORTANT: this is the same ordering the Meetings page uses
-				orderBy: (meetingParticipants, { desc }) => [desc(meetingParticipants.createdAt)],
+				orderBy: (ap, { desc }) => [desc(ap.createdAt)],
 				limit: limit + 1,
 				offset,
 			})
@@ -209,43 +198,40 @@ export const meetingsRouter = createTRPCRouter({
 			const hasMore = rows.length > limit
 			const userMeetings = hasMore ? rows.slice(0, limit) : rows
 
-			const items = userMeetings.map(mp => {
-				const meeting = mp.meeting
-				const documentsList = meeting.documents ?? []
-				const total = documentsList.length
+			const items = userMeetings
+				.filter(ap => ap.appointment?.meetingId)
+				.map(ap => ap.appointment?.meeting)
+				.filter((meeting): meeting is NonNullable<typeof meeting> => Boolean(meeting))
+				.map(meeting => {
+					const documentsList = meeting.documents ?? []
+					const total = documentsList.length
 
-				// A document is "signed" when all signature requests for it are SIGNED.
-				const requestsByDocumentId = new Map<string, string[]>()
-				for (const req of meeting.signatureRequests ?? []) {
-					const list = requestsByDocumentId.get(req.documentId) ?? []
-					list.push(req.status)
-					requestsByDocumentId.set(req.documentId, list)
-				}
-
-				let signed = 0
-				for (const doc of documentsList) {
-					const reqStatuses = requestsByDocumentId.get(doc.id) ?? []
-					const isSignedByRequests =
-						reqStatuses.length > 0 && reqStatuses.every(s => s === "SIGNED")
-					if (isSignedByRequests) {
-						signed += 1
+					// A document is "signed" when all signature requests for it are SIGNED.
+					const requestsByDocumentId = new Map<string, string[]>()
+					for (const req of meeting.signatureRequests ?? []) {
+						const list = requestsByDocumentId.get(req.documentId) ?? []
+						list.push(req.status)
+						requestsByDocumentId.set(req.documentId, list)
 					}
-				}
 
-				return {
-					...meeting,
-					createdBy: meeting.createdBy
-						? { ...meeting.createdBy, image: resolveAvatarImage(meeting.createdBy.image) }
-						: meeting.createdBy,
-					participants: (meeting.participants ?? []).map(p => ({
-						...p,
-						user: p.user
-							? { ...p.user, image: resolveAvatarImage(p.user.image) }
-							: p.user,
-					})),
-					documentStats: { total, signed, isComplete: true },
-				}
-			})
+					let signed = 0
+					for (const doc of documentsList) {
+						const reqStatuses = requestsByDocumentId.get(doc.id) ?? []
+						const isSignedByRequests =
+							reqStatuses.length > 0 && reqStatuses.every(s => s === "SIGNED")
+						if (isSignedByRequests) {
+							signed += 1
+						}
+					}
+
+					return {
+						...meeting,
+						createdBy: meeting.createdBy
+							? { ...meeting.createdBy, image: resolveAvatarImage(meeting.createdBy.image) }
+							: meeting.createdBy,
+						documentStats: { total, signed, isComplete: true },
+					}
+				})
 
 			return { items, hasMore }
 		}),
@@ -263,19 +249,6 @@ export const meetingsRouter = createTRPCRouter({
 						image: true,
 					},
 				},
-				participants: {
-					with: {
-						user: {
-							columns: {
-								id: true,
-								name: true,
-								email: true,
-								image: true,
-								role: true,
-							},
-						},
-					},
-				},
 			},
 		})
 
@@ -288,7 +261,9 @@ export const meetingsRouter = createTRPCRouter({
 
 		// Check if user has access (host OR accepted participant)
 		const isHost = meeting.createdById === ctx.session.user.id
-		const isAcceptedParticipant = meeting.participants.some(
+		const { apParticipants } = await getAppointmentParticipantsByMeetingId(input)
+
+		const isAcceptedParticipant = apParticipants.some(
 			p => p.userId === ctx.session.user.id && p.status === "ACCEPTED"
 		)
 		const hasAccess = isHost || isAcceptedParticipant
@@ -300,16 +275,14 @@ export const meetingsRouter = createTRPCRouter({
 			})
 		}
 
-		const acceptedParticipants = meeting.participants.filter(p => p.status === "ACCEPTED")
-		const pendingInvites = meeting.participants.filter(p => p.status === "PENDING")
+		const acceptedParticipants = apParticipants.filter(p => p.status === "ACCEPTED")
+		const pendingInvites = apParticipants.filter(p => p.status === "PENDING")
 
 		// Return accepted participants as "participants" (for normal meeting pages),
 		// and also expose pending invites for host UI (lobby invite list). Resolve avatar paths to URLs.
-		const resolveParticipant = (p: (typeof meeting.participants)[number]) => ({
+		const resolveParticipant = (p: (typeof apParticipants)[number]) => ({
 			...p,
-			user: p.user
-				? { ...p.user, image: resolveAvatarImage(p.user.image) }
-				: p.user,
+			user: p.user ? { ...p.user, image: resolveAvatarImage(p.user.image) } : p.user,
 		})
 		return {
 			...meeting,
@@ -325,9 +298,6 @@ export const meetingsRouter = createTRPCRouter({
 	getToken: protectedProcedure.input(z.string()).query(async ({ input, ctx }) => {
 		const meeting = await db.query.meetings.findFirst({
 			where: eq(meetings.id, input),
-			with: {
-				participants: true,
-			},
 		})
 
 		if (!meeting) {
@@ -339,7 +309,8 @@ export const meetingsRouter = createTRPCRouter({
 
 		// Check if user has access (host OR accepted participant)
 		const isHost = meeting.createdById === ctx.session.user.id
-		const isAcceptedParticipant = meeting.participants.some(
+		const { apParticipants } = await getAppointmentParticipantsByMeetingId(input)
+		const isAcceptedParticipant = apParticipants.some(
 			p => p.userId === ctx.session.user.id && p.status === "ACCEPTED"
 		)
 		const hasAccess = isHost || isAcceptedParticipant
@@ -365,13 +336,13 @@ export const meetingsRouter = createTRPCRouter({
 			const meeting = await db.query.meetings.findFirst({
 				where: eq(meetings.id, input.meetingId),
 				columns: { id: true, createdById: true },
-				with: { participants: { columns: { userId: true, status: true } } },
 			})
 			if (!meeting) {
 				throw new TRPCError({ code: "NOT_FOUND", message: "Meeting not found" })
 			}
 			const isHost = meeting.createdById === ctx.session.user.id
-			const isAccepted = meeting.participants.some(
+			const { apParticipants } = await getAppointmentParticipantsByMeetingId(input.meetingId)
+			const isAccepted = apParticipants.some(
 				p => p.userId === ctx.session.user.id && p.status === "ACCEPTED"
 			)
 			if (!isHost && !isAccepted) {
@@ -387,11 +358,6 @@ export const meetingsRouter = createTRPCRouter({
 			const meeting = await db.query.meetings.findFirst({
 				where: eq(meetings.id, input.meetingId),
 				columns: { id: true, roomId: true, createdById: true },
-				with: {
-					participants: {
-						columns: { userId: true, status: true },
-					},
-				},
 			})
 
 			if (!meeting) {
@@ -402,7 +368,8 @@ export const meetingsRouter = createTRPCRouter({
 			}
 
 			const isHost = meeting.createdById === ctx.session.user.id
-			const isAcceptedParticipant = meeting.participants.some(
+			const { apParticipants } = await getAppointmentParticipantsByMeetingId(input.meetingId)
+			const isAcceptedParticipant = apParticipants.some(
 				p => p.userId === ctx.session.user.id && p.status === "ACCEPTED"
 			)
 			const hasAccess = isHost || isAcceptedParticipant
@@ -422,9 +389,6 @@ export const meetingsRouter = createTRPCRouter({
 	startMeeting: protectedProcedure.input(z.string()).mutation(async ({ input, ctx }) => {
 		const meeting = await db.query.meetings.findFirst({
 			where: eq(meetings.id, input),
-			with: {
-				participants: true,
-			},
 		})
 
 		if (!meeting) {
@@ -435,7 +399,8 @@ export const meetingsRouter = createTRPCRouter({
 		}
 
 		const isHost = meeting.createdById === ctx.session.user.id
-		const isParticipant = meeting.participants.some(
+		const { appointment, apParticipants } = await getAppointmentParticipantsByMeetingId(input)
+		const isParticipant = apParticipants.some(
 			p => p.userId === ctx.session.user.id && p.status === "ACCEPTED"
 		)
 
@@ -446,18 +411,26 @@ export const meetingsRouter = createTRPCRouter({
 			})
 		}
 
-		if (meeting.status !== "SCHEDULED") {
+		if (!appointment) {
+			throw new TRPCError({
+				code: "NOT_FOUND",
+				message: "Appointment not found for this meeting",
+			})
+		}
+
+		if (appointment.status !== "CONFIRMED") {
 			throw new TRPCError({
 				code: "BAD_REQUEST",
 				message: "Meeting is already started or ended",
 			})
 		}
 
-		const [updatedMeeting] = await db
-			.update(meetings)
+		await db
+			.update(appointments)
 			.set({ status: "ONGOING", updatedAt: new Date() })
-			.where(eq(meetings.id, input))
-			.returning()
+			.where(eq(appointments.meetingId, input))
+
+		const updatedMeeting = await db.query.meetings.findFirst({ where: eq(meetings.id, input) })
 
 		return { success: true, meeting: updatedMeeting }
 	}),
@@ -475,14 +448,32 @@ export const meetingsRouter = createTRPCRouter({
 			})
 		}
 
-		if (meeting.createdById !== ctx.session.user.id) {
+		const meetingId = input
+		const { apParticipants } = await getAppointmentParticipantsByMeetingId(meetingId)
+		const isHost = meeting.createdById === ctx.session.user.id
+		const isAcceptedParticipant = apParticipants.some(
+			p => p.userId === ctx.session.user.id && p.status === "ACCEPTED"
+		)
+
+		if (!isHost && !isAcceptedParticipant) {
 			throw new TRPCError({
 				code: "FORBIDDEN",
-				message: "Only the host can end the meeting",
+				message: "Only meeting participants can end the meeting",
 			})
 		}
 
-		if (meeting.status !== "ONGOING") {
+		const appointment = await db.query.appointments.findFirst({
+			where: eq(appointments.meetingId, meetingId),
+		})
+
+		if (!appointment) {
+			throw new TRPCError({
+				code: "NOT_FOUND",
+				message: "Appointment not found for this meeting",
+			})
+		}
+
+		if (appointment.status !== "ONGOING") {
 			throw new TRPCError({
 				code: "BAD_REQUEST",
 				message: "Meeting is not ongoing",
@@ -490,11 +481,12 @@ export const meetingsRouter = createTRPCRouter({
 		}
 
 		const meetingEndedAt = new Date()
-		const [updatedMeeting] = await db
-			.update(meetings)
+		await db
+			.update(appointments)
 			.set({ status: "COMPLETED", updatedAt: meetingEndedAt })
-			.where(eq(meetings.id, input))
-			.returning()
+			.where(eq(appointments.meetingId, meetingId))
+
+		const updatedMeeting = await db.query.meetings.findFirst({ where: eq(meetings.id, input) })
 
 		// Populate Notarial Registry entries for completed DocOnChain projects in this meeting.
 		// This runs ONLY when this specific meeting is ended (host clicks End Session).
@@ -562,17 +554,6 @@ export const meetingsRouter = createTRPCRouter({
 			const meeting = await db.query.meetings.findFirst({
 				where: eq(meetings.id, meetingId),
 				with: {
-					participants: {
-						with: {
-							user: {
-								columns: {
-									id: true,
-									email: true,
-									role: true,
-								},
-							},
-						},
-					},
 					createdBy: {
 						columns: {
 							email: true,
@@ -591,7 +572,8 @@ export const meetingsRouter = createTRPCRouter({
 
 			// Check if user has access to the meeting
 			const isHost = meeting.createdById === ctx.session.user.id
-			const isAcceptedParticipant = meeting.participants.some(
+			const { apParticipants } = await getAppointmentParticipantsByMeetingId(meetingId)
+			const isAcceptedParticipant = apParticipants.some(
 				p => p.userId === ctx.session.user.id && p.status === "ACCEPTED"
 			)
 			const hasAccess = isHost || isAcceptedParticipant
@@ -624,7 +606,7 @@ export const meetingsRouter = createTRPCRouter({
 				const fileBuffer = Buffer.from(file, "base64")
 
 				// Determine which DocOnChain user should own the project (ENP).
-				const enpParticipant = meeting.participants.find(
+				const enpParticipant = apParticipants.find(
 					p => isEnpRole(p.user?.role) && !!asNonEmptyEmail(p.user?.email)
 				)
 				const enpEmail = asNonEmptyEmail(enpParticipant?.user?.email)
@@ -784,9 +766,15 @@ export const meetingsRouter = createTRPCRouter({
 				} catch (error) {
 					// Keep our system consistent: remove uploaded file + DB record on project failure.
 					if (uploadData?.path) {
-						await supabase.storage.from("documents").remove([uploadData.path]).catch(() => undefined)
+						await supabase.storage
+							.from("documents")
+							.remove([uploadData.path])
+							.catch(() => undefined)
 					}
-					await db.delete(documents).where(eq(documents.id, document.id)).catch(() => undefined)
+					await db
+						.delete(documents)
+						.where(eq(documents.id, document.id))
+						.catch(() => undefined)
 					throw error
 				}
 
@@ -809,13 +797,6 @@ export const meetingsRouter = createTRPCRouter({
 		.mutation(async ({ ctx, input }) => {
 			const meeting = await db.query.meetings.findFirst({
 				where: eq(meetings.id, input.meetingId),
-				with: {
-					participants: {
-						with: {
-							user: { columns: { id: true, role: true } },
-						},
-					},
-				},
 			})
 
 			if (!meeting) {
@@ -823,7 +804,8 @@ export const meetingsRouter = createTRPCRouter({
 			}
 
 			const isHost = meeting.createdById === ctx.session.user.id
-			const isAcceptedParticipant = meeting.participants.some(
+			const { apParticipants } = await getAppointmentParticipantsByMeetingId(input.meetingId)
+			const isAcceptedParticipant = apParticipants.some(
 				p => p.userId === ctx.session.user.id && p.status === "ACCEPTED"
 			)
 			if (!isHost && !isAcceptedParticipant) {
@@ -911,7 +893,10 @@ export const meetingsRouter = createTRPCRouter({
 					}
 
 					const signerUsers = await db.query.users.findMany({
-						where: inArray(users.id, signerRows.map(s => s.userId)),
+						where: inArray(
+							users.id,
+							signerRows.map(s => s.userId)
+						),
 						columns: { id: true, email: true, name: true },
 					})
 					const userById = new Map(signerUsers.map(u => [u.id, u]))
@@ -964,7 +949,6 @@ export const meetingsRouter = createTRPCRouter({
 		const meeting = await db.query.meetings.findFirst({
 			where: eq(meetings.id, input),
 			with: {
-				participants: true,
 				documents: {
 					with: {
 						signers: { columns: { userId: true, signingOrder: true } },
@@ -982,7 +966,8 @@ export const meetingsRouter = createTRPCRouter({
 
 		// Check if user has access (host OR accepted participant)
 		const isHost = meeting.createdById === ctx.session.user.id
-		const isAcceptedParticipant = meeting.participants.some(
+		const { apParticipants } = await getAppointmentParticipantsByMeetingId(input)
+		const isAcceptedParticipant = apParticipants.some(
 			p => p.userId === ctx.session.user.id && p.status === "ACCEPTED"
 		)
 		const hasAccess = isHost || isAcceptedParticipant
@@ -1057,17 +1042,6 @@ export const meetingsRouter = createTRPCRouter({
 			const meeting = await db.query.meetings.findFirst({
 				where: eq(meetings.id, meetingId),
 				with: {
-					participants: {
-						with: {
-							user: {
-								columns: {
-									id: true,
-									email: true,
-									role: true,
-								},
-							},
-						},
-					},
 					documents: {
 						where: eq(documents.id, documentId),
 						columns: {
@@ -1093,7 +1067,8 @@ export const meetingsRouter = createTRPCRouter({
 			}
 
 			const isHost = meeting.createdById === ctx.session.user.id
-			const isAccepted = meeting.participants.some(
+			const { apParticipants } = await getAppointmentParticipantsByMeetingId(meetingId)
+			const isAccepted = apParticipants.some(
 				p => p.userId === ctx.session.user.id && p.status === "ACCEPTED"
 			)
 			if (!isHost && !isAccepted) {
@@ -1106,7 +1081,7 @@ export const meetingsRouter = createTRPCRouter({
 			}
 
 			const acceptedIds = new Set(
-				meeting.participants.filter(p => p.status === "ACCEPTED").map(p => p.userId)
+				apParticipants.filter(p => p.status === "ACCEPTED").map(p => p.userId)
 			)
 			const invalid = userIds.filter(id => !acceptedIds.has(id))
 			if (invalid.length > 0) {
@@ -1160,7 +1135,7 @@ export const meetingsRouter = createTRPCRouter({
 
 				// If a DocOnChain project already exists, sync signers there using the ENP's token.
 				if (doc.docoChainProjectId) {
-					const enpParticipant = meeting.participants.find(
+					const enpParticipant = apParticipants.find(
 						p => isEnpRole(p.user?.role) && !!asNonEmptyEmail(p.user?.email)
 					)
 					const enpEmail = asNonEmptyEmail(enpParticipant?.user?.email)
@@ -1214,19 +1189,6 @@ export const meetingsRouter = createTRPCRouter({
 							role: true,
 						},
 					},
-					participants: {
-						with: {
-							user: {
-								columns: {
-									id: true,
-									name: true,
-									email: true,
-									image: true,
-									role: true,
-								},
-							},
-						},
-					},
 					documents: true,
 					signatureRequests: {
 						columns: {
@@ -1262,7 +1224,8 @@ export const meetingsRouter = createTRPCRouter({
 
 			// Check if user has access (host OR accepted participant)
 			const isHost = meeting.createdById === ctx.session.user.id
-			const isAcceptedParticipant = meeting.participants.some(
+			const { apParticipants } = await getAppointmentParticipantsByMeetingId(input.meetingId)
+			const isAcceptedParticipant = apParticipants.some(
 				p => p.userId === ctx.session.user.id && p.status === "ACCEPTED"
 			)
 			const hasAccess = isHost || isAcceptedParticipant
@@ -1372,17 +1335,17 @@ export const meetingsRouter = createTRPCRouter({
 			return {
 				meeting: {
 					id: meeting.id,
-					title: meeting.title,
-					status: meeting.status,
+					roomId: meeting.roomId,
+					createdById: meeting.createdById,
+					isDocumentOrderLocked: meeting.isDocumentOrderLocked,
 					createdAt: meeting.createdAt,
+					updatedAt: meeting.updatedAt,
 					createdBy: meeting.createdBy
 						? { ...meeting.createdBy, image: resolveAvatarImage(meeting.createdBy.image) }
 						: meeting.createdBy,
-					participants: (meeting.participants ?? []).map(p => ({
+					participants: apParticipants.map(p => ({
 						...p,
-						user: p.user
-							? { ...p.user, image: resolveAvatarImage(p.user.image) }
-							: p.user,
+						user: p.user ? { ...p.user, image: resolveAvatarImage(p.user.image) } : p.user,
 					})),
 				},
 				documentStats: { total, signed },
@@ -1402,7 +1365,6 @@ export const meetingsRouter = createTRPCRouter({
 			const meeting = await db.query.meetings.findFirst({
 				where: eq(meetings.id, input.meetingId),
 				with: {
-					participants: true,
 					documents: true,
 				},
 			})
@@ -1416,7 +1378,8 @@ export const meetingsRouter = createTRPCRouter({
 
 			// Check if user has access (host OR accepted participant)
 			const isHost = meeting.createdById === ctx.session.user.id
-			const isAcceptedParticipant = meeting.participants.some(
+			const { apParticipants } = await getAppointmentParticipantsByMeetingId(input.meetingId)
+			const isAcceptedParticipant = apParticipants.some(
 				p => p.userId === ctx.session.user.id && p.status === "ACCEPTED"
 			)
 			const hasAccess = isHost || isAcceptedParticipant
@@ -1497,9 +1460,6 @@ export const meetingsRouter = createTRPCRouter({
 		.mutation(async ({ input, ctx }) => {
 			const meeting = await db.query.meetings.findFirst({
 				where: eq(meetings.id, input.meetingId),
-				with: {
-					participants: true,
-				},
 			})
 
 			if (!meeting) {
@@ -1513,6 +1473,18 @@ export const meetingsRouter = createTRPCRouter({
 					message: "Only the meeting host can invite a witness",
 				})
 			}
+
+			const appointment = await db.query.appointments.findFirst({
+				where: eq(appointments.meetingId, input.meetingId),
+			})
+
+			if (!appointment) {
+				throw new TRPCError({ code: "NOT_FOUND", message: "Appointment not found" })
+			}
+
+			const existingParticipants = await db.query.appointmentParticipants.findMany({
+				where: eq(appointmentParticipants.appointmentId, appointment.id),
+			})
 
 			const email = input.email.trim().toLowerCase()
 
@@ -1542,7 +1514,7 @@ export const meetingsRouter = createTRPCRouter({
 				}
 			}
 
-			const existing = meeting.participants.find(p => p.userId === user.id)
+			const existing = existingParticipants.find(p => p.userId === user.id)
 			if (existing) {
 				return {
 					created: false,
@@ -1551,12 +1523,12 @@ export const meetingsRouter = createTRPCRouter({
 				}
 			}
 
-			await db.insert(meetingParticipants).values({
-				meetingId: meeting.id,
+			await db.insert(appointmentParticipants).values({
+				appointmentId: appointment.id,
 				userId: user.id,
 				status: "PENDING",
 				invitedById: ctx.session.user.id,
-				participantRole: "WITNESS",
+				participantRole: "PARTICIPANT",
 			})
 
 			return {
@@ -1577,16 +1549,27 @@ export const meetingsRouter = createTRPCRouter({
 		.mutation(async ({ input, ctx }) => {
 			const meeting = await db.query.meetings.findFirst({
 				where: eq(meetings.id, input.meetingId),
-				with: {
-					participants: true,
-				},
 			})
 
 			if (!meeting) {
 				throw new TRPCError({ code: "NOT_FOUND", message: "Meeting not found" })
 			}
 
-			const row = meeting.participants.find(p => p.userId === ctx.session.user.id)
+			const appointment = await db.query.appointments.findFirst({
+				where: eq(appointments.meetingId, input.meetingId),
+			})
+
+			if (!appointment) {
+				throw new TRPCError({ code: "NOT_FOUND", message: "Appointment not found" })
+			}
+
+			const row = await db.query.appointmentParticipants.findFirst({
+				where: and(
+					eq(appointmentParticipants.appointmentId, appointment.id),
+					eq(appointmentParticipants.userId, ctx.session.user.id),
+					eq(appointmentParticipants.status, "PENDING")
+				),
+			})
 
 			if (row?.status !== "PENDING") {
 				throw new TRPCError({
@@ -1598,9 +1581,12 @@ export const meetingsRouter = createTRPCRouter({
 			const newStatus = input.response === "ACCEPT" ? "ACCEPTED" : "DECLINED"
 
 			await db
-				.update(meetingParticipants)
-				.set({ status: newStatus })
-				.where(eq(meetingParticipants.id, row.id))
+				.update(appointmentParticipants)
+				.set({
+					status: newStatus,
+					...(newStatus === "ACCEPTED" ? { acceptedAt: new Date() } : {}),
+				})
+				.where(eq(appointmentParticipants.id, row.id))
 
 			return { success: true, status: newStatus }
 		}),
