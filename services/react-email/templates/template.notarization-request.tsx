@@ -1,34 +1,40 @@
 import {
 	Body,
+	Button,
 	Container,
 	Head,
-	Heading,
 	Html,
+	Img,
 	Link,
 	Preview,
 	Section,
+	Tailwind,
 	Text,
 } from "@react-email/components"
 
 interface NotarizationRequestTemplateProps {
 	enpName: string
 	principalName: string
+	principalEmail?: string
 	requestTitle: string
 	requestDescription?: string
 	workflow: "REN" | "IEN"
 	priority: "NORMAL" | "HIGH" | "URGENT"
 	requestUrl: string
+	siteUrl?: string
 }
 
-export function NotarizationRequestTemplate({
+export const NotarizationRequestTemplate = ({
 	enpName,
 	principalName,
+	principalEmail,
 	requestTitle,
 	requestDescription,
 	workflow,
 	priority,
 	requestUrl,
-}: NotarizationRequestTemplateProps) {
+	siteUrl = "https://qlegal.quanbyit.com/",
+}: NotarizationRequestTemplateProps) => {
 	const priorityLabels = {
 		NORMAL: "Normal",
 		HIGH: "High",
@@ -40,123 +46,197 @@ export function NotarizationRequestTemplate({
 		IEN: "In-Person Electronic Notarization (IEN)",
 	}
 
+	const logoUrl = `${siteUrl}/LEGAL.png`
+
 	return (
 		<Html>
 			<Head />
 			<Preview>New notarization request from {principalName}</Preview>
-			<Body style={main}>
-				<Container style={container}>
-					<Heading style={h1}>New Notarization Request</Heading>
+			<Tailwind>
+				<Body className="mx-auto my-auto bg-gray-100 p-4 font-sans text-gray-800">
+					<Container
+						className="mx-auto max-w-xl overflow-hidden rounded-lg border border-gray-200 bg-white"
+						style={{
+							boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
+						}}
+					>
+						{/* Header with gradient background */}
+						<Section
+							className="relative overflow-hidden py-12 text-center"
+							style={{
+								background: "linear-gradient(135deg, #FF5E7E 0%, #E22C9A 50%, #C300B0 100%)",
+							}}
+						>
+							{/* Logo */}
+							<Img
+								src={logoUrl}
+								width="100"
+								height="100"
+								alt="Logo"
+								style={{
+									display: "block",
+									margin: "0 auto",
+									borderRadius: "12px",
+									maxWidth: "100px",
+								}}
+							/>
+							<Text className="m-0 mt-4 text-2xl font-bold tracking-tight text-white">
+								Notarization Request
+							</Text>
+							<Text className="m-0 mt-1 text-sm text-pink-100">New Request Received</Text>
+						</Section>
 
-					<Text style={text}>Hello {enpName},</Text>
+						{/* Badge Section */}
+						<Section className="border-b border-gray-100 px-8 py-4 text-center">
+							<div
+								style={{
+									display: "inline-block",
+									borderRadius: "20px",
+									border: "2px solid #FF5E7E",
+									padding: "8px 16px",
+									backgroundColor: "transparent",
+								}}
+							>
+								<Text
+									className="m-0 text-xs font-bold tracking-widest text-pink-600"
+									style={{ letterSpacing: "1px" }}
+								>
+									✓ NOTARIZATION REQUEST
+								</Text>
+							</div>
+						</Section>
 
-					<Text style={text}>
-						You have received a new notarization request from <strong>{principalName}</strong>.
-					</Text>
+						{/* Main content */}
+						<Section className="px-8 py-10">
+							<Text className="mb-4 text-base font-semibold text-gray-900">Hello {enpName},</Text>
 
-					<Section style={card}>
-						<Text style={label}>Request Title:</Text>
-						<Text style={value}>{requestTitle}</Text>
+							<Text className="mb-6 text-sm leading-relaxed text-gray-700">
+								<strong>{principalName}</strong> has requested a notarization service.
+							</Text>
 
-						{requestDescription && (
-							<>
-								<Text style={label}>Description:</Text>
-								<Text style={value}>{requestDescription}</Text>
-							</>
-						)}
+							{/* Details Box */}
+							<Section
+								className="mb-8 rounded-lg border border-gray-200 bg-gray-50 p-6"
+								style={{
+									backgroundColor: "#f9fafb",
+									border: "1px solid #e5e7eb",
+								}}
+							>
+								<Text className="m-0 text-xs font-semibold tracking-wide text-gray-500 uppercase">
+									📋 Request Details
+								</Text>
+								<Text className="m-0 mt-3 text-sm text-gray-900">
+									<strong>Request Title:</strong> {requestTitle}
+								</Text>
+								{principalEmail && (
+									<Text className="m-0 mt-2 text-sm text-gray-900">
+										<strong>Principal Email:</strong> {principalEmail}
+									</Text>
+								)}
+								<Text className="m-0 mt-2 text-sm text-gray-900">
+									<strong>Workflow Type:</strong> {workflowLabels[workflow]}
+								</Text>
+								<Text className="m-0 mt-2 text-sm text-gray-900">
+									<strong>Priority:</strong> {priorityLabels[priority]}
+								</Text>
+								{requestDescription && (
+									<Text className="m-0 mt-3 text-sm text-gray-700">
+										<strong>Description:</strong> {requestDescription}
+									</Text>
+								)}
+							</Section>
 
-						<Text style={label}>Workflow Type:</Text>
-						<Text style={value}>{workflowLabels[workflow]}</Text>
+							{/* Confirm Button */}
+							<Section className="mb-8 text-center">
+								<Button
+									href={requestUrl}
+									className="rounded-lg px-8 py-4 text-center font-bold text-white no-underline"
+									style={{
+										background: "linear-gradient(135deg, #FF5E7E 0%, #E22C9A 50%, #C300B0 100%)",
+										boxShadow: "0 4px 12px rgba(255, 94, 126, 0.3)",
+										display: "inline-block",
+									}}
+								>
+									✓ View Request
+								</Button>
+							</Section>
 
-						<Text style={label}>Priority:</Text>
-						<Text style={value}>{priorityLabels[priority]}</Text>
-					</Section>
+							<Text className="text-center text-xs leading-relaxed text-gray-600">
+								Questions? Contact the requester directly or reach our support team at{" "}
+								<Link
+									href="mailto:software@quanbyit.com"
+									className="font-semibold text-pink-600 no-underline"
+									style={{ color: "#FF5E7E" }}
+								>
+									software@quanbyit.com
+								</Link>
+								.
+							</Text>
+						</Section>
 
-					<Section style={buttonContainer}>
-						<Link href={requestUrl} style={button}>
-							View Request
-						</Link>
-					</Section>
-
-					<Text style={footer}>
-						This is an automated notification from Quanby Sign. Please log in to your account to
-						review and respond to this request.
-					</Text>
-				</Container>
-			</Body>
+						{/* Footer */}
+						<Section
+							className="border-t px-8 py-8 text-center"
+							style={{
+								background: "#f3f4f6",
+								borderTop: "1px solid #e5e7eb",
+							}}
+						>
+							<Text className="m-0 mb-4 text-sm font-semibold text-gray-900">
+								Legal Notarization Management System
+							</Text>
+							<Text className="m-0 text-xs text-gray-500">
+								This is an automated message. Do not reply to this email.
+							</Text>
+							<div
+								style={{
+									margin: "8px 0 0 0",
+									paddingTop: "8px",
+									borderTop: "1px solid #d1d5db",
+								}}
+							>
+								<Link
+									href="https://example.com/privacy"
+									className="mx-2 text-xs text-pink-600 no-underline"
+									style={{ color: "#FF5E7E", textDecoration: "none" }}
+								>
+									Privacy Policy
+								</Link>
+								<span className="text-xs text-gray-400">|</span>
+								<Link
+									href="https://example.com/terms"
+									className="mx-2 text-xs text-pink-600 no-underline"
+									style={{ color: "#FF5E7E", textDecoration: "none" }}
+								>
+									Terms of Service
+								</Link>
+								<span className="text-xs text-gray-400">|</span>
+								<Link
+									href="https://example.com/support"
+									className="mx-2 text-xs text-pink-600 no-underline"
+									style={{ color: "#FF5E7E", textDecoration: "none" }}
+								>
+									Support
+								</Link>
+							</div>
+						</Section>
+					</Container>
+				</Body>
+			</Tailwind>
 		</Html>
 	)
 }
 
-const main = {
-	backgroundColor: "#f6f9fc",
-	fontFamily:
-		'-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Ubuntu,sans-serif',
-}
+export default NotarizationRequestTemplate
 
-const container = {
-	backgroundColor: "#ffffff",
-	margin: "0 auto",
-	padding: "20px 0 48px",
-	marginBottom: "64px",
-}
-
-const h1 = {
-	color: "#333",
-	fontSize: "24px",
-	fontWeight: "600",
-	lineHeight: "40px",
-	margin: "0 0 20px",
-}
-
-const text = {
-	color: "#333",
-	fontSize: "16px",
-	lineHeight: "26px",
-}
-
-const card = {
-	backgroundColor: "#f9fafb",
-	border: "1px solid #e5e7eb",
-	borderRadius: "8px",
-	padding: "20px",
-	margin: "20px 0",
-}
-
-const label = {
-	color: "#6b7280",
-	fontSize: "14px",
-	fontWeight: "600",
-	margin: "12px 0 4px",
-}
-
-const value = {
-	color: "#111827",
-	fontSize: "16px",
-	margin: "0 0 16px",
-}
-
-const buttonContainer = {
-	textAlign: "center" as const,
-	margin: "32px 0",
-}
-
-const button = {
-	backgroundColor: "#3b82f6",
-	borderRadius: "6px",
-	color: "#fff",
-	fontSize: "16px",
-	fontWeight: "600",
-	textDecoration: "none",
-	textAlign: "center" as const,
-	display: "inline-block",
-	padding: "12px 24px",
-}
-
-const footer = {
-	color: "#6b7280",
-	fontSize: "12px",
-	lineHeight: "20px",
-	marginTop: "32px",
-	textAlign: "center" as const,
-}
+NotarizationRequestTemplate.PreviewProps = {
+	enpName: "John Notary",
+	principalName: "Jane Smith",
+	principalEmail: "jane.smith@example.com",
+	requestTitle: "Document Notarization",
+	requestDescription: "Notarization for property deed",
+	workflow: "REN",
+	priority: "HIGH",
+	requestUrl: "http://localhost:3000/requests/123456",
+	siteUrl: "https://qlegal.quanbyit.com/",
+} as NotarizationRequestTemplateProps

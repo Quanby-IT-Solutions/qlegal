@@ -17,7 +17,7 @@ export async function sendClientSubmission(
 	sessionType: "online" | "in-person",
 	reason: string
 ) {
-	const confirmLink = `${getUrl()}/bookings`
+	const statusLink = `${getUrl()}/bookings`
 	const siteUrl = env.NEXT_PUBLIC_SITE_URL
 
 	await emailTransporter.sendMail({
@@ -27,11 +27,12 @@ export async function sendClientSubmission(
 		html: await render(
 			ClientSubmissionTemplate({
 				clientName,
+				clientEmail: email,
 				bookingDate,
 				bookingTime,
 				sessionType,
 				reason,
-				confirmLink,
+				statusLink,
 				siteUrl,
 			})
 		),
