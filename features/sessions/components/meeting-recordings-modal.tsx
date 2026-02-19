@@ -100,8 +100,8 @@ export function MeetingRecordingsModal({
 												</p>
 												<div className="text-muted-foreground mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm">
 													{createdAt && <span>{format(new Date(createdAt), "PPp")}</span>}
-													{duration != null && <span>{formatDuration(duration)}</span>}
-													{size != null && formatFileSize(size) && (
+													{duration !== null && <span>{formatDuration(duration)}</span>}
+													{size !== null && formatFileSize(size) && (
 														<span>{formatFileSize(size)}</span>
 													)}
 												</div>

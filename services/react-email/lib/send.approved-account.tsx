@@ -12,29 +12,23 @@ import {
 	Text,
 } from "@react-email/components"
 
-interface SigningLinkTemplateProps {
-	recipientName?: string
-	recipientEmail?: string
-	documentName?: string
-	signingLink?: string
-	signOrderLabel?: string
+interface AccountApprovalTemplateProps {
+	userEmail?: string
+	dashboardLink?: string
 	siteUrl?: string
 }
 
-export function SigningLinkTemplate({
-	recipientName,
-	recipientEmail,
-	documentName,
-	signingLink,
-	signOrderLabel,
+export const AccountApprovalTemplate = ({
+	userEmail,
+	dashboardLink,
 	siteUrl,
-}: SigningLinkTemplateProps) {
+}: AccountApprovalTemplateProps) => {
 	const logoUrl = `${siteUrl}/LEGAL.png`
 
 	return (
 		<Html>
 			<Head />
-			<Preview>Your document is ready for signing</Preview>
+			<Preview>Your QLegal account has been approved</Preview>
 			<Tailwind>
 				<Body className="mx-auto my-auto bg-gray-100 p-4 font-sans text-gray-800">
 					<Container
@@ -55,7 +49,7 @@ export function SigningLinkTemplate({
 								src={logoUrl}
 								width="100"
 								height="100"
-								alt="Logo"
+								alt="QLegal Logo"
 								style={{
 									display: "block",
 									margin: "0 auto",
@@ -64,9 +58,9 @@ export function SigningLinkTemplate({
 								}}
 							/>
 							<Text className="m-0 mt-4 text-2xl font-bold tracking-tight text-white">
-								Document Ready
+								Account Approved
 							</Text>
-							<Text className="m-0 mt-1 text-sm text-pink-100">Your signature is required</Text>
+							<Text className="m-0 mt-1 text-sm text-pink-100">Welcome to QLegal</Text>
 						</Section>
 
 						{/* Badge Section */}
@@ -84,34 +78,32 @@ export function SigningLinkTemplate({
 									className="m-0 text-xs font-bold tracking-widest text-pink-600"
 									style={{ letterSpacing: "1px" }}
 								>
-									✓ READY TO SIGN
+									✓ APPROVED
 								</Text>
 							</div>
 						</Section>
 
 						{/* Main content */}
 						<Section className="px-8 py-10">
+							<Text className="mb-6 text-2xl font-bold text-gray-900">Congratulations!</Text>
+
 							<Text className="mb-4 text-base font-semibold text-gray-900">
 								Hello{" "}
-								{recipientEmail ? (
-									<Link
-										href={`mailto:${recipientEmail}`}
-										style={{ color: "#FF5E7E", textDecoration: "underline" }}
-									>
-										{recipientName}
-									</Link>
-								) : (
-									recipientName
-								)}
+								<Link
+									href={`mailto:${userEmail}`}
+									style={{ color: "#FF5E7E", textDecoration: "underline" }}
+								>
+									{userEmail}
+								</Link>
 								,
 							</Text>
 
 							<Text className="mb-6 text-sm leading-relaxed text-gray-700">
-								The document <strong>{documentName}</strong> is ready for your signature. Please
-								review and sign the document using the link below.
+								We are pleased to inform you that your QLegal account has been successfully approved
+								by the Supreme Court.
 							</Text>
 
-							{/* Document Details Box */}
+							{/* Approval Details Box */}
 							<Section
 								className="mb-8 rounded-lg border border-gray-200 bg-gray-50 p-6"
 								style={{
@@ -120,24 +112,32 @@ export function SigningLinkTemplate({
 								}}
 							>
 								<Text className="m-0 text-xs font-semibold tracking-wide text-gray-500 uppercase">
-									📄 Document Details
+									📋 What You Can Now Do
 								</Text>
-								<Text className="m-0 mt-3 text-sm text-gray-900">
-									<strong>Document:</strong> {documentName}
+								<Text className="m-0 mt-4 text-sm text-gray-900">
+									✓ Access all QLegal features including online notarization
 								</Text>
 								<Text className="m-0 mt-2 text-sm text-gray-900">
-									<strong>Signing Order:</strong> {signOrderLabel}
+									✓ Perform digital document signing
 								</Text>
-								<Text className="m-0 mt-4 border-t border-gray-300 pt-4 text-sm text-gray-700">
-									If you are not the current signer, DocoChain will show a "Previous signer(s) must
-									sign first" message until it's your turn.
+								<Text className="m-0 mt-2 text-sm text-gray-900">
+									✓ Securely notarize documents through the platform
+								</Text>
+								<Text className="m-0 mt-3 text-sm text-gray-700">
+									Your account is fully authorized to provide notarization and signing services
+									through QLegal.
 								</Text>
 							</Section>
 
-							{/* Sign Document Button */}
+							<Text className="mb-8 text-sm leading-relaxed text-gray-700">
+								You may log in to your account at any time to begin using these features. Start
+								managing your documents and providing services to your clients today.
+							</Text>
+
+							{/* Login Button */}
 							<Section className="mb-8 text-center">
 								<Button
-									href={signingLink}
+									href={dashboardLink}
 									className="rounded-lg px-8 py-4 text-center font-bold text-white no-underline"
 									style={{
 										background: "linear-gradient(135deg, #FF5E7E 0%, #E22C9A 50%, #C300B0 100%)",
@@ -145,12 +145,13 @@ export function SigningLinkTemplate({
 										display: "inline-block",
 									}}
 								>
-									Open Signing Link
+									Go To Dashboard
 								</Button>
 							</Section>
 
 							<Text className="text-center text-xs leading-relaxed text-gray-600">
-								Questions? Contact our support team at{" "}
+								If you have any questions or need assistance, please do not hesitate to contact our
+								support team at{" "}
 								<Link
 									href="mailto:software@quanbyit.com"
 									className="font-semibold text-pink-600 no-underline"
@@ -159,6 +160,10 @@ export function SigningLinkTemplate({
 									software@quanbyit.com
 								</Link>
 								.
+							</Text>
+
+							<Text className="mt-4 text-center text-xs text-gray-600">
+								Thank you for choosing QLegal. We look forward to supporting your legal services.
 							</Text>
 						</Section>
 
@@ -171,7 +176,7 @@ export function SigningLinkTemplate({
 							}}
 						>
 							<Text className="m-0 mb-4 text-sm font-semibold text-gray-900">
-								Legal Document Management System
+								QLegal - Legal Services Platform
 							</Text>
 							<Text className="m-0 text-xs text-gray-500">
 								This is an automated message. Do not reply to this email.
@@ -215,13 +220,10 @@ export function SigningLinkTemplate({
 	)
 }
 
-SigningLinkTemplate.PreviewProps = {
-	recipientName: "John Doe",
-	recipientEmail: "john.doe@example.com",
-	documentName: "Affidavit of Support",
-	signingLink: "https://docochain.com/sign/abc123",
-	signOrderLabel: "Signer 1 of 3",
-	siteUrl: "https://qlegal.quanbyit.com",
-} as SigningLinkTemplateProps
-
-export default SigningLinkTemplate
+AccountApprovalTemplate.PreviewProps = {
+	userEmail: "lawyer@example.com",
+	userName: "John Doe",
+	loginLink: "https://qlegal.quanbyit.com/login",
+	siteUrl: "https://qlegal.quanbyit.com/",
+} as AccountApprovalTemplateProps
+export default AccountApprovalTemplate

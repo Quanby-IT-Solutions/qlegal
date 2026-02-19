@@ -781,6 +781,19 @@ export const meetingsRouter = createTRPCRouter({
 				// STEP 3: Create DocOnChain project using ENP token (this is the "portal parity" step).
 				const safeFilename = name.toLowerCase().endsWith(".pdf") ? name : `${name}.pdf`
 				try {
+					console.log(
+						"🔵 DocOnChain payload:",
+						JSON.stringify(
+							{
+								enpEmail,
+								filename: safeFilename,
+								mimeType,
+								documentStamp,
+							},
+							null,
+							2
+						)
+					)
 					const project = await createDoconchainProject({
 						enpEmail,
 						fileBuffer,

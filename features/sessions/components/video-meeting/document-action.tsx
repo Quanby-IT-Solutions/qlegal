@@ -1,3 +1,5 @@
+"use client"
+
 import { trpc } from "@/services/trpc/client";
 import { UsersIcon, FileText, FileSignature } from "lucide-react";
 import { useSession } from "next-auth/react";

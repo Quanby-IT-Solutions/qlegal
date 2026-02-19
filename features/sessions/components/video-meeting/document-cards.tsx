@@ -195,7 +195,7 @@ export const DocumentCard: React.FC<DocumentCardProps> = ({
 					)}
 					{cost !== undefined && cost !== null && cost > 0 && formatCurrency && (
 						<span className="text-foreground text-xs font-semibold">
-							{formatCurrency(cost, currency)}
+							{formatCurrency(cost, currency ?? "PHP")}
 						</span>
 					)}
 				</div>

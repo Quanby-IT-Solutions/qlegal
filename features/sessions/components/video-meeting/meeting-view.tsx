@@ -1,3 +1,5 @@
+"use client"
+
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useMeeting, usePubSub } from "@videosdk.live/react-sdk"
 import {
@@ -722,7 +724,10 @@ export function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meet
 				if (typeof projectUuid !== "string") {
 					throw new Error("Invalid projectUuid: must be a string")
 				}
-				const result = await utils.signatureRequests.downloadCertificate.fetch(projectUuid) as { base64?: string; fileName?: string }
+				const result = (await utils.signatureRequests.downloadCertificate.fetch(projectUuid)) as {
+					base64?: string
+					fileName?: string
+				}
 
 				if (result?.base64) {
 					// Convert base64 to blob and download
