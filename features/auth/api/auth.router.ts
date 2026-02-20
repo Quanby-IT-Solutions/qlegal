@@ -8,7 +8,6 @@ import { enpProfiles } from "@/services/drizzle/schema/enp-profiles"
 import { sendPasswordResetToken } from "@/services/react-email/lib/send.password-reset-token"
 import { sendVerificationToken } from "@/services/react-email/lib/send.verification-token"
 import { createTRPCRouter, publicProcedure } from "@/services/trpc/init"
-import { autoJoinMemberInDoconchainOrganization } from "@/services/doconchain/organization/auto-join-member"
 
 import {
 	forgotPasswordSchema,
@@ -53,19 +52,7 @@ export const authRouter = createTRPCRouter({
 			})
 		}
 
-		try {
-			await autoJoinMemberInDoconchainOrganization({ email, name, role: "Member" })
-		} catch (error) {
-			// If external provisioning fails, clean up the created user so retry is safe.
-			await ctx.db.delete(users).where(eq(users.id, createdUser.id)).catch(() => undefined)
-			throw new TRPCError({
-				code: "INTERNAL_SERVER_ERROR",
-				message:
-					error instanceof Error
-						? `Failed to provision DocOnChain access: ${error.message}`
-						: "Failed to provision DocOnChain access.",
-			})
-		}
+		// DocOnChain org membership is added on first login, not at registration.
 
 		const verificationToken = await generateVerificationToken(email)
 		await sendVerificationToken(verificationToken.email, verificationToken.token)
@@ -172,28 +159,10 @@ export const authRouter = createTRPCRouter({
 				MCLE_no: notaryInfo.mcleNo,
 				MCLE_no_date: formatDateForStamp(notaryInfo.mcleNoDate),
 				mode_of_notarization: notaryInfo.modeOfNotarization,
-			},
-		}
+		},
+	}
 
-		try {
-			await autoJoinMemberInDoconchainOrganization({ email, name, role: "Member" })
-		} catch (error) {
-			// Try to clean up the created ENP user so retry is safe.
-			if (newUserId) {
-				await ctx.db
-					.delete(enpProfiles)
-					.where(eq(enpProfiles.userId, newUserId))
-					.catch(() => undefined)
-				await ctx.db.delete(users).where(eq(users.id, newUserId)).catch(() => undefined)
-			}
-			throw new TRPCError({
-				code: "INTERNAL_SERVER_ERROR",
-				message:
-					error instanceof Error
-						? `Failed to provision DocOnChain access: ${error.message}`
-						: "Failed to provision DocOnChain access.",
-			})
-		}
+		// DocOnChain org membership is added on first login, not at registration.
 
 		// Send verification email
 		const verificationToken = await generateVerificationToken(email)

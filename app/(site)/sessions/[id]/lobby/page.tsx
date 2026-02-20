@@ -396,17 +396,19 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 		)
 	}
 
-	if (meeting.status !== "ONGOING") {
+	// Only block lobby for ended/cancelled meetings; CONFIRMED/SCHEDULED/ONGOING can use the lobby (waiting room)
+	const status = meeting.status ?? "CONFIRMED"
+	if (status === "COMPLETED" || status === "CANCELLED") {
 		return (
 			<div className="from-background via-muted/30 to-background flex h-screen items-center justify-center bg-linear-to-br">
 				<Card className="w-full max-w-md shadow-xl">
 					<CardContent className="p-8 text-center">
-						<div className="mx-auto mb-4 flex size-16 items-center justify-center rounded-full bg-yellow-100 dark:bg-yellow-900/20">
-							<Clock className="size-8 text-yellow-600 dark:text-yellow-500" />
+						<div className="mx-auto mb-4 flex size-16 items-center justify-center rounded-full bg-muted">
+							<Clock className="size-8 text-muted-foreground" />
 						</div>
 						<h2 className="mb-2 text-2xl font-semibold">{meeting.title}</h2>
 						<p className="text-muted-foreground mb-6">
-							This meeting has not started yet. Please wait for the host to start the meeting.
+							This meeting has ended.
 						</p>
 						<Button onClick={() => router.push("/sessions")}>Back to Sessions</Button>
 					</CardContent>

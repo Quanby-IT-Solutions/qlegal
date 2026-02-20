@@ -579,6 +579,17 @@ export const appointmentsRouter = createTRPCRouter({
 				.where(eq(appointments.id, input.appointmentId))
 				.returning()
 
+			// So the principal (and any invitees) see the meeting on their sessions page
+			await ctx.db
+				.update(appointmentParticipants)
+				.set({ status: "ACCEPTED", acceptedAt: new Date() })
+				.where(
+					and(
+						eq(appointmentParticipants.appointmentId, input.appointmentId),
+						eq(appointmentParticipants.status, "PENDING")
+					)
+				)
+
 			return updated
 		}),
 

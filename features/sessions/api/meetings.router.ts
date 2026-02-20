@@ -186,6 +186,18 @@ export const meetingsRouter = createTRPCRouter({
 									},
 								},
 							},
+							participants: {
+								with: {
+									user: {
+										columns: {
+											id: true,
+											name: true,
+											email: true,
+											image: true,
+										},
+									},
+								},
+							},
 						},
 					},
 				},
@@ -198,15 +210,17 @@ export const meetingsRouter = createTRPCRouter({
 			const hasMore = rows.length > limit
 			const userMeetings = hasMore ? rows.slice(0, limit) : rows
 
-			const items = userMeetings
-				.filter(ap => ap.appointment?.meetingId)
-				.map(ap => ap.appointment?.meeting)
-				.filter((meeting): meeting is NonNullable<typeof meeting> => Boolean(meeting))
-				.map(meeting => {
+			const rawItems = userMeetings
+				.filter(
+					(ap): ap is typeof ap & { appointment: NonNullable<typeof ap.appointment> & { meeting: NonNullable<NonNullable<typeof ap.appointment>["meeting"]> } } =>
+						Boolean(ap.appointment?.meetingId && ap.appointment?.meeting)
+				)
+				.map(ap => {
+					const meeting = ap.appointment.meeting
+					const appointment = ap.appointment
 					const documentsList = meeting.documents ?? []
 					const total = documentsList.length
 
-					// A document is "signed" when all signature requests for it are SIGNED.
 					const requestsByDocumentId = new Map<string, string[]>()
 					for (const req of meeting.signatureRequests ?? []) {
 						const list = requestsByDocumentId.get(req.documentId) ?? []
@@ -224,14 +238,42 @@ export const meetingsRouter = createTRPCRouter({
 						}
 					}
 
+					const participants = (appointment.participants ?? []).map(p => ({
+						user: p.user ? { ...p.user, image: resolveAvatarImage(p.user.image) } : p.user,
+					}))
+
+					// Role-aware title: principal books "Notarization with [ENP]"; when ENP views, show "Notarization with [principal]"
+					const currentUserId = ctx.session.user.id
+					const isAppointmentOwner = appointment.userId === currentUserId
+					let displayTitle = appointment.title ?? "Meeting"
+					if (isAppointmentOwner && participants.length > 0) {
+						const other = participants.find(p => p.user?.id !== currentUserId)?.user
+						const otherName = other?.name?.trim() ?? other?.email ?? "Client"
+						displayTitle =
+							(appointment.type === "NOTARIZATION" ? "Notarization with " : "Session with ") +
+							otherName
+					}
+
 					return {
 						...meeting,
+						title: displayTitle,
+						status: appointment.status ?? "CONFIRMED",
+						appointmentDate: appointment.appointmentDate,
 						createdBy: meeting.createdBy
 							? { ...meeting.createdBy, image: resolveAvatarImage(meeting.createdBy.image) }
 							: meeting.createdBy,
+						participants,
 						documentStats: { total, signed, isComplete: true },
 					}
 				})
+
+			// Dedupe by meeting id (same meeting can appear for multiple ACCEPTED participants)
+			const seenMeetingIds = new Set<string>()
+			const items = rawItems.filter(item => {
+				if (seenMeetingIds.has(item.id)) return false
+				seenMeetingIds.add(item.id)
+				return true
+			})
 
 			return { items, hasMore }
 		}),
@@ -261,7 +303,7 @@ export const meetingsRouter = createTRPCRouter({
 
 		// Check if user has access (host OR accepted participant)
 		const isHost = meeting.createdById === ctx.session.user.id
-		const { apParticipants } = await getAppointmentParticipantsByMeetingId(input)
+		const { appointment, apParticipants } = await getAppointmentParticipantsByMeetingId(input)
 
 		const isAcceptedParticipant = apParticipants.some(
 			p => p.userId === ctx.session.user.id && p.status === "ACCEPTED"
@@ -286,6 +328,8 @@ export const meetingsRouter = createTRPCRouter({
 		})
 		return {
 			...meeting,
+			title: appointment?.title ?? meeting.id,
+			status: appointment?.status ?? "CONFIRMED",
 			createdBy: meeting.createdBy
 				? { ...meeting.createdBy, image: resolveAvatarImage(meeting.createdBy.image) }
 				: meeting.createdBy,

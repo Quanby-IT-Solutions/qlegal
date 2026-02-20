@@ -56,6 +56,7 @@ interface MeetingCardProps {
 		id: string
 		title: string
 		createdAt: string | Date
+		appointmentDate?: string | Date
 		status?: string
 		participants: { id?: string; userId?: string }[]
 		documentStats: { total: number; signed: number; isComplete?: boolean }
@@ -66,8 +67,9 @@ interface MeetingCardProps {
 }
 
 function MeetingCard({ meeting, onViewDetails }: MeetingCardProps) {
-	const scheduledLabel = meeting.createdAt
-		? format(new Date(meeting.createdAt), "PPp")
+	const scheduledAt = meeting.appointmentDate ?? meeting.createdAt
+	const scheduledLabel = scheduledAt
+		? format(new Date(scheduledAt), "PPp")
 		: "Not scheduled"
 
 	const { total: totalDocuments, signed: signedDocuments } = meeting.documentStats
@@ -273,7 +275,9 @@ export function ActiveNotarizationsSection() {
 		const q = searchTerm.trim().toLowerCase()
 
 		return combinedMeetings.filter(meeting => {
-			const meetingDate = startOfDay(new Date(meeting.createdAt))
+			const dateForFilter =
+				(meeting as { appointmentDate?: string | Date }).appointmentDate ?? meeting.createdAt
+			const meetingDate = startOfDay(new Date(dateForFilter))
 			const createdByName =
 				typeof meeting.createdBy?.name === "string" ? meeting.createdBy.name : ""
 
