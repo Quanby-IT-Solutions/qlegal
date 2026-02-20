@@ -51,7 +51,7 @@ export function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meet
 	// ─── Recording state ────────────────────────────────────────
 	const [isRecording, setIsRecording] = useState(false)
 	const [recordingStatus, setRecordingStatus] = useState<string>("RECORDING_STOPPED")
-	const [setRecordingStartedAt] = useState<number | null>(null)
+	const [recordingStartedAt, setRecordingStartedAt] = useState<number | null>(null)
 	const [isLocalRecording, setIsLocalRecording] = useState(false)
 	const [localRecordingStartedAt, setLocalRecordingStartedAt] = useState<number | null>(null)
 	const [isAnyoneRecording, setIsAnyoneRecording] = useState(false)
