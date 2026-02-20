@@ -1,5 +1,5 @@
 import { TRPCError } from "@trpc/server"
-import { and, asc, eq, inArray, ne, type InferSelectModel } from "drizzle-orm"
+import { and, asc, desc, eq, inArray, ne, type InferSelectModel } from "drizzle-orm"
 import { z } from "zod/v4"
 
 import { addDoconchainProjectSigner } from "@/services/doconchain/projects/add-signer"
@@ -205,79 +205,127 @@ export const meetingsRouter = createTRPCRouter({
 			const limit = input?.limit ?? 10
 			const offset = input?.offset ?? 0
 
-			const rows = await db.query.appointmentParticipants.findMany({
-				where: and(
-					eq(appointmentParticipants.userId, ctx.session.user.id),
-					eq(appointmentParticipants.status, "ACCEPTED")
-				),
+			// NOTE: We intentionally avoid Drizzle relational `with:` on appointment participants here.
+			// Some DBs have a legacy mismatch between `participantRole` vs `participant_role`, and Drizzle
+			// will eagerly select that column even when we don't need it for the Sessions UI.
+			// By selecting only the columns we need, we avoid blowing up this query.
+			const participantLinks = await db
+				.select({
+					appointmentId: appointmentParticipants.appointmentId,
+					createdAt: appointmentParticipants.createdAt,
+				})
+				.from(appointmentParticipants)
+				.where(
+					and(
+						eq(appointmentParticipants.userId, ctx.session.user.id),
+						eq(appointmentParticipants.status, "ACCEPTED")
+					)
+				)
+				.orderBy(desc(appointmentParticipants.createdAt))
+				.limit(limit + 1)
+				.offset(offset)
+
+			const hasMore = participantLinks.length > limit
+			const pageLinks = hasMore ? participantLinks.slice(0, limit) : participantLinks
+			const appointmentIds = pageLinks.map(r => r.appointmentId)
+
+			if (appointmentIds.length === 0) {
+				return { items: [], hasMore }
+			}
+
+			const appts = await db.query.appointments.findMany({
+				where: inArray(appointments.id, appointmentIds),
 				with: {
-					appointment: {
+					meeting: {
 						with: {
-							meeting: {
-								with: {
-									createdBy: {
-										columns: {
-											id: true,
-											name: true,
-											email: true,
-											image: true,
-											role: true,
-										},
-									},
-									documents: {
-										columns: {
-											id: true,
-											docoChainProjectId: true,
-										},
-									},
-									signatureRequests: {
-										columns: {
-											documentId: true,
-											status: true,
-										},
-									},
-									appointments: {
-										with: {
-											participants: {
-												with: {
-													user: {
-														columns: {
-															id: true,
-															name: true,
-															image: true,
-														},
-													},
-												},
-											},
-										},
-									},
+							createdBy: {
+								columns: {
+									id: true,
+									name: true,
+									email: true,
+									image: true,
+									role: true,
+								},
+							},
+							documents: {
+								columns: {
+									id: true,
+									docoChainProjectId: true,
+								},
+							},
+							signatureRequests: {
+								columns: {
+									documentId: true,
+									status: true,
 								},
 							},
 						},
 					},
 				},
-				// IMPORTANT: this is the same ordering the Meetings page uses
-				orderBy: (ap, { desc }) => [desc(ap.createdAt)],
-				limit: limit + 1,
-				offset,
 			})
 
-			const hasMore = rows.length > limit
-			const userMeetings = hasMore ? rows.slice(0, limit) : rows
+			const apptById = new Map(appts.map(a => [a.id, a]))
 
-			const rawItems = userMeetings
+			// Fetch ACCEPTED participants for the appointments, without selecting participant role column.
+			const acceptedParticipantRows = await db
+				.select({
+					id: appointmentParticipants.id,
+					appointmentId: appointmentParticipants.appointmentId,
+					userId: appointmentParticipants.userId,
+					status: appointmentParticipants.status,
+					user: {
+						id: users.id,
+						name: users.name,
+						image: users.image,
+					},
+				})
+				.from(appointmentParticipants)
+				.innerJoin(users, eq(appointmentParticipants.userId, users.id))
+				.where(
+					and(
+						inArray(appointmentParticipants.appointmentId, appointmentIds),
+						eq(appointmentParticipants.status, "ACCEPTED")
+					)
+				)
+
+			const participantsByAppointmentId = new Map<
+				string,
+				Array<{
+					id: string
+					userId: string
+					status: "ACCEPTED" | "PENDING" | "DECLINED"
+					user: { id: string; name: string | null; image: string | null } | null
+				}>
+			>()
+
+			for (const row of acceptedParticipantRows) {
+				const list = participantsByAppointmentId.get(row.appointmentId) ?? []
+				list.push({
+					id: row.id,
+					userId: row.userId,
+					status: row.status,
+					user: row.user
+						? {
+								id: row.user.id,
+								name: row.user.name,
+								image: resolveAvatarImage(row.user.image),
+							}
+						: null,
+				})
+				participantsByAppointmentId.set(row.appointmentId, list)
+			}
+
+			const rawItems = pageLinks
+				.map(link => apptById.get(link.appointmentId))
 				.filter(
 					(
-						ap
-					): ap is typeof ap & {
-						appointment: NonNullable<typeof ap.appointment> & {
-							meeting: NonNullable<NonNullable<typeof ap.appointment>["meeting"]>
-						}
-					} => Boolean(ap.appointment?.meetingId && ap.appointment?.meeting)
+						appointment
+					): appointment is NonNullable<typeof appointment> & {
+						meeting: NonNullable<NonNullable<typeof appointment>["meeting"]>
+					} => Boolean(appointment?.meetingId && appointment?.meeting)
 				)
-				.map(ap => {
-					const meeting = ap.appointment.meeting
-					const appointment = ap.appointment
+				.map(appointment => {
+					const meeting = appointment.meeting
 					const documentsList = meeting.documents ?? []
 					const total = documentsList.length
 
@@ -293,32 +341,10 @@ export const meetingsRouter = createTRPCRouter({
 						const reqStatuses = requestsByDocumentId.get(doc.id) ?? []
 						const isSignedByRequests =
 							reqStatuses.length > 0 && reqStatuses.every(s => s === "SIGNED")
-						if (isSignedByRequests) {
-							signed += 1
-						}
+						if (isSignedByRequests) signed += 1
 					}
 
-					const seenParticipantUserIds = new Set<string>()
-					const participants = (meeting.appointments ?? [])
-						.flatMap(appointmentRow => appointmentRow.participants ?? [])
-						.filter(p => p.status === "ACCEPTED")
-						.filter(p => {
-							if (seenParticipantUserIds.has(p.userId)) return false
-							seenParticipantUserIds.add(p.userId)
-							return true
-						})
-						.map(p => ({
-							id: p.id,
-							userId: p.userId,
-							status: p.status,
-							user: p.user
-								? {
-										id: p.user.id,
-										name: p.user.name,
-										image: resolveAvatarImage(p.user.image),
-									}
-								: null,
-						}))
+					const participants = participantsByAppointmentId.get(appointment.id) ?? []
 
 					// Role-aware title: principal books "Notarization with [ENP]"; when ENP views, show "Notarization with [principal]"
 					const currentUserId = ctx.session.user.id

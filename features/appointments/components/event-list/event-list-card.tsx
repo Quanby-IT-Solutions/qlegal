@@ -20,6 +20,10 @@ import { ItemGroup } from "@/core/components/ui/item"
 import { type AppRouter } from "@/services/trpc/root"
 
 import type { ScheduleIncomingItem } from "@/features/appointments/lib/use-appointments-schedule-actions"
+import {
+	toCalendarEventFromIncomingAppointment,
+	toCalendarEventFromIncomingRequest,
+} from "@/features/appointments/lib/calendar-events"
 
 type IncomingRequest = inferRouterOutputs<AppRouter>["appointments"]["getIncomingRequests"][number]
 type IncomingAppointment =
@@ -66,6 +70,21 @@ export function UnifiedSidebarList({
 		return map
 	}, [incomingRequests, incomingAppointments])
 
+	const selectedDayEventIds = useMemo(() => {
+		return new Set(dayEvents.map(e => e.event.id))
+	}, [dayEvents])
+
+	const pendingInboxEvents = useMemo(() => {
+		const pendingRequests = incomingRequests.filter(r => r.status === "PENDING")
+		const pendingAppointments = incomingAppointments.filter(a => a.status === "PENDING")
+
+		return [
+			...pendingRequests.map(toCalendarEventFromIncomingRequest),
+			...pendingAppointments.map(toCalendarEventFromIncomingAppointment),
+		].toSorted((a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime())
+			.filter(e => !selectedDayEventIds.has(e.id))
+	}, [incomingAppointments, incomingRequests, selectedDayEventIds])
+
 	const sortedEvents = useMemo(
 		() =>
 			[...dayEvents].sort((a, b) => {
@@ -77,7 +96,7 @@ export function UnifiedSidebarList({
 		[dayEvents]
 	)
 
-	if (sortedEvents.length === 0) {
+	if (sortedEvents.length === 0 && pendingInboxEvents.length === 0) {
 		if (
 			incomingRequests.length === 0 &&
 			incomingAppointments.length === 0 &&
@@ -115,27 +134,60 @@ export function UnifiedSidebarList({
 	}
 
 	return (
-		<ItemGroup className="animate-in fade-in duration-300 motion-reduce:animate-none">
-			{sortedEvents.map(item => {
-				const ev = item.event
-				const incomingItemId = (ev.meta?.incomingItemId as string | undefined) ?? ev.id
-				const source = ev.meta?.source as "request" | "appointment" | undefined
-				const lookupKey = source ? `${source}:${incomingItemId}` : null
-				const incomingItem = lookupKey ? itemLookup.get(lookupKey) : undefined
-				const isProcessing = lookupKey !== null && processingKey === lookupKey
+		<div className="space-y-3">
+			{pendingInboxEvents.length > 0 ? (
+				<div className="space-y-2">
+					<div className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+						Pending requests
+					</div>
+					<ItemGroup className="animate-in fade-in duration-300 motion-reduce:animate-none">
+						{pendingInboxEvents.map(ev => {
+							const incomingItemId = (ev.meta?.incomingItemId as string | undefined) ?? ev.id
+							const source = ev.meta?.source as "request" | "appointment" | undefined
+							const lookupKey = source ? `${source}:${incomingItemId}` : null
+							const incomingItem = lookupKey ? itemLookup.get(lookupKey) : undefined
+							const isProcessing = lookupKey !== null && processingKey === lookupKey
 
-				return (
-					<CalendarScheduleEventCard
-						key={ev.id}
-						event={ev}
-						formattedTime={item.formattedTime}
-						relativeLabel={item.relativeLabel}
-						onAccept={incomingItem ? () => onAccept(incomingItem) : undefined}
-						onReject={incomingItem ? () => onReject(incomingItem) : undefined}
-						isProcessing={isProcessing}
-					/>
-				)
-			})}
-		</ItemGroup>
+							return (
+								<CalendarScheduleEventCard
+									key={`inbox:${ev.id}`}
+									event={ev}
+									formattedTime=""
+									relativeLabel={null}
+									onAccept={incomingItem ? () => onAccept(incomingItem) : undefined}
+									onReject={incomingItem ? () => onReject(incomingItem) : undefined}
+									isProcessing={isProcessing}
+								/>
+							)
+						})}
+					</ItemGroup>
+				</div>
+			) : null}
+
+			{sortedEvents.length > 0 ? (
+				<ItemGroup className="animate-in fade-in duration-300 motion-reduce:animate-none">
+					{sortedEvents.map(item => {
+						const ev = item.event
+						const incomingItemId = (ev.meta?.incomingItemId as string | undefined) ?? ev.id
+						const source = ev.meta?.source as "request" | "appointment" | undefined
+						const lookupKey = source ? `${source}:${incomingItemId}` : null
+						const incomingItem = lookupKey ? itemLookup.get(lookupKey) : undefined
+						const isProcessing = lookupKey !== null && processingKey === lookupKey
+
+						return (
+							<CalendarScheduleEventCard
+								key={ev.id}
+								event={ev}
+								formattedTime={item.formattedTime}
+								relativeLabel={item.relativeLabel}
+								onAccept={incomingItem ? () => onAccept(incomingItem) : undefined}
+								onReject={incomingItem ? () => onReject(incomingItem) : undefined}
+								isProcessing={isProcessing}
+							/>
+						)
+					})}
+				</ItemGroup>
+			) : null}
+		</div>
 	)
 }
