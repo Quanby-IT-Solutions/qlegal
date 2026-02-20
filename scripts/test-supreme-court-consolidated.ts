@@ -16,7 +16,7 @@ async function main() {
 
 	if (!isConfigured()) {
 		console.error("❌ Supreme Court API not configured. Add credentials to .env:")
-		console.error("   SUPREME_COURT_API_URL, SUPREME_COURT_COGNITO_URL,")
+		console.error("   SUPREME_COURT_API_URL, SUPREME_COURT_AUTH_URL,")
 		console.error("   SUPREME_COURT_CLIENT_ID, SUPREME_COURT_USERNAME, SUPREME_COURT_PASSWORD")
 		process.exit(1)
 	}
