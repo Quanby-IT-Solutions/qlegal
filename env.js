@@ -67,7 +67,6 @@ export const env = createEnv({
 		// Video SDK (Meetings)
 		VIDEO_SDK_API_KEY: z.string(),
 		VIDEO_SDK_SECRET: z.string(),
-
 	},
 
 	/**
