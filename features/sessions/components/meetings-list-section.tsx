@@ -139,16 +139,23 @@ export function MeetingsListSection() {
 	const today = new Date()
 
 	const filteredMeetings = meetings.filter(meeting => {
-		const meetingDate = new Date(meeting.createdAt)
+		if (!meeting) return false
+		const title = typeof meeting.title === "string" ? meeting.title : ""
+		const createdByName = meeting.createdBy?.name != null ? String(meeting.createdBy.name) : ""
+		const meetingDate = new Date(
+			(meeting as { appointmentDate?: string | Date }).appointmentDate ?? meeting.createdAt ?? 0
+		)
 		const isToday = isSameDay(meetingDate, today)
 
 		const matchesSearch =
-			meeting.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-			meeting.createdBy.name?.toLowerCase().includes(searchTerm.toLowerCase())
+			title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+			createdByName.toLowerCase().includes(searchTerm.toLowerCase())
 
-		const matchesStatus = statusFilter === "ALL" || meeting.status === statusFilter
+		const matchesStatus =
+			statusFilter === "ALL" ||
+			meeting.status === statusFilter ||
+			(statusFilter === "SCHEDULED" && meeting.status === "CONFIRMED")
 
-		// ✅ NEW: hide completed meetings
 		const notCompleted = meeting.status !== "COMPLETED" && meeting.status !== "CANCELLED"
 
 		return isToday && matchesSearch && matchesStatus && notCompleted
@@ -575,14 +582,19 @@ export function MeetingsListSection() {
 						<div className="space-y-4">
 							{filteredMeetings.map(meeting => {
 								const isHost = meeting.createdBy.id === session?.user?.id
-								const isParticipant = meeting.participants.some(
+								const isParticipant = (meeting.participants ?? []).some(
 									p => p.user?.id === session?.user?.id
 								)
 								const canJoin = meeting.status === "ONGOING"
-								const canStart = (isHost || isParticipant) && meeting.status === "SCHEDULED"
+								const canStart =
+									(isHost || isParticipant) &&
+									(meeting.status === "SCHEDULED" || meeting.status === "CONFIRMED")
 								const canEnd = isHost && meeting.status === "ONGOING"
-								const scheduledLabel = meeting.createdAt
-									? format(new Date(meeting.createdAt), "PPp")
+								const scheduledAt =
+									(meeting as { appointmentDate?: string | Date }).appointmentDate ??
+									meeting.createdAt
+								const scheduledLabel = scheduledAt
+									? format(new Date(scheduledAt), "PPp")
 									: "Not scheduled"
 
 								return (
@@ -604,8 +616,8 @@ export function MeetingsListSection() {
 														<div className="flex items-center gap-1">
 															<Users className="size-3.5 shrink-0" />
 															<span>
-																{meeting.participants.length} participant
-																{meeting.participants.length !== 1 ? "s" : ""}
+																{(meeting.participants ?? []).length} participant
+																{(meeting.participants ?? []).length !== 1 ? "s" : ""}
 															</span>
 														</div>
 
@@ -778,14 +790,19 @@ export function MeetingsListSection() {
 						<div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
 							{filteredMeetings.map(meeting => {
 								const isHost = meeting.createdBy.id === session?.user?.id
-								const isParticipant = meeting.participants.some(
+								const isParticipant = (meeting.participants ?? []).some(
 									p => p.user?.id === session?.user?.id
 								)
 								const canJoin = meeting.status === "ONGOING"
-								const canStart = (isHost || isParticipant) && meeting.status === "SCHEDULED"
+								const canStart =
+									(isHost || isParticipant) &&
+									(meeting.status === "SCHEDULED" || meeting.status === "CONFIRMED")
 								const canEnd = isHost && meeting.status === "ONGOING"
-								const scheduledLabel = meeting.createdAt
-									? format(new Date(meeting.createdAt), "PPP • h:mm a")
+								const scheduledAt =
+									(meeting as { appointmentDate?: string | Date }).appointmentDate ??
+									meeting.createdAt
+								const scheduledLabel = scheduledAt
+									? format(new Date(scheduledAt), "PPP • h:mm a")
 									: "Not scheduled"
 
 								return (
@@ -833,8 +850,8 @@ export function MeetingsListSection() {
 											<div className="text-muted-foreground flex items-center gap-2 text-sm">
 												<Users className="size-4" />
 												<span>
-													{meeting.participants.length} participant
-													{meeting.participants.length !== 1 ? "s" : ""}
+													{(meeting.participants ?? []).length} participant
+													{(meeting.participants ?? []).length !== 1 ? "s" : ""}
 												</span>
 											</div>
 											<MeetingDocumentSummary
