@@ -225,7 +225,9 @@ export const signatureRequestsRouter = createTRPCRouter({
 				where: eq(meetings.id, meetingId),
 				columns: { id: true, createdById: true },
 				with: {
-					participants: { columns: { userId: true, status: true } },
+					appointments: {
+						with: { participants: { columns: { userId: true, status: true } } },
+					},
 				},
 			})
 
@@ -234,9 +236,12 @@ export const signatureRequestsRouter = createTRPCRouter({
 			}
 
 			const isHost = meeting.createdById === ctx.session.user.id
-			const isAcceptedParticipant = meeting.participants.some(
-				p => p.userId === ctx.session.user.id && p.status === "ACCEPTED"
-			)
+			const isAcceptedParticipant =
+				(meeting.appointments ?? []).some(apt =>
+					(apt.participants ?? []).some(
+						p => p.userId === ctx.session.user.id && p.status === "ACCEPTED"
+					)
+				)
 			if (!isHost && !isAcceptedParticipant) {
 				throw new TRPCError({ code: "FORBIDDEN", message: "You don't have access to this meeting" })
 			}
@@ -358,6 +363,8 @@ export const signatureRequestsRouter = createTRPCRouter({
 
 			let projectUuid = projectUuidFromInput
 			let docRedirectUrl: string | null | undefined = null
+			/** Project owner (ENP) email when documentId is set. Used for sign link so principal does not need to be a DocOnChain user. */
+			let projectOwnerEmail: string | undefined
 
 			// If a documentId is provided, always resolve the project UUID from the document record.
 			// This prevents opening the wrong DocOnChain project when the client passes a stale/mismatched projectUuid.
@@ -365,9 +372,15 @@ export const signatureRequestsRouter = createTRPCRouter({
 				const doc = await db.query.documents.findFirst({
 					where: eq(documents.id, documentId),
 					columns: { docoChainProjectId: true, docoChainRedirectUrl: true },
+					with: {
+						meeting: {
+							with: { createdBy: { columns: { email: true } } },
+						},
+					},
 				})
 				const resolvedProjectUuid = doc?.docoChainProjectId ?? undefined
 				docRedirectUrl = doc?.docoChainRedirectUrl
+				projectOwnerEmail = doc?.meeting?.createdBy?.email?.trim().toLowerCase()
 
 				if (!projectUuid) {
 					projectUuid = resolvedProjectUuid
@@ -383,6 +396,7 @@ export const signatureRequestsRouter = createTRPCRouter({
 					documentId,
 					projectUuidResolved: !!projectUuid,
 					hasStoredRedirectUrl: !!docRedirectUrl,
+					hasProjectOwnerEmail: !!projectOwnerEmail,
 				})
 			}
 
@@ -432,13 +446,18 @@ export const signatureRequestsRouter = createTRPCRouter({
 					return { link, cleanPlotUrl }
 				}
 
-				// Sign Document uses DocOnChain's official sign-link generator (order-aware).
+				// Sign Document: use project owner (ENP) token so principal does not need to be a DocOnChain user.
 				console.log("🟣 [DocOnChain] initiateSigning:buildLink", {
 					kind: "sign",
 					projectUuid,
 					email: maskEmailForLog(email),
+					projectOwnerEmail: projectOwnerEmail ? maskEmailForLog(projectOwnerEmail) : undefined,
 				})
-				const link = await generateDoconchainSignLink({ projectUuid, signerEmail: email })
+				const link = await generateDoconchainSignLink({
+					projectUuid,
+					signerEmail: email,
+					projectOwnerEmail,
+				})
 				console.log("🟣 [DocOnChain] initiateSigning:buildLink:success", {
 					kind: "sign",
 					projectUuid,
@@ -577,7 +596,9 @@ export const signatureRequestsRouter = createTRPCRouter({
 				with: {
 					meeting: {
 						with: {
-							participants: true,
+							appointments: {
+								with: { participants: { columns: { userId: true } } },
+							},
 							createdBy: { columns: { email: true, id: true } },
 						},
 					},
@@ -588,7 +609,9 @@ export const signatureRequestsRouter = createTRPCRouter({
 				throw new TRPCError({ code: "NOT_FOUND", message: "Document not found for project UUID" })
 			}
 
-			const hasAccess = doc.meeting.participants.some(p => p.userId === ctx.session.user.id)
+			const hasAccess = (doc.meeting.appointments ?? []).some(apt =>
+				(apt.participants ?? []).some(p => p.userId === ctx.session.user.id)
+			)
 			if (!hasAccess) {
 				throw new TRPCError({ code: "FORBIDDEN", message: "You don't have access to this document" })
 			}

@@ -56,6 +56,7 @@ interface MeetingCardProps {
 		id: string
 		title: string
 		createdAt: string | Date
+		appointmentDate?: string | Date
 		status?: string
 		participants: { id?: string; userId?: string }[]
 		documentStats: { total: number; signed: number; isComplete?: boolean }
@@ -66,8 +67,9 @@ interface MeetingCardProps {
 }
 
 function MeetingCard({ meeting, onViewDetails }: MeetingCardProps) {
-	const scheduledLabel = meeting.createdAt
-		? format(new Date(meeting.createdAt), "PPp")
+	const scheduledAt = meeting.appointmentDate ?? meeting.createdAt
+	const scheduledLabel = scheduledAt
+		? format(new Date(scheduledAt), "PPp")
 		: "Not scheduled"
 
 	const { total: totalDocuments, signed: signedDocuments } = meeting.documentStats
@@ -231,20 +233,13 @@ export function ActiveNotarizationsSection() {
 		{ refetchInterval: 10_000 }
 	)
 
-	const completedOrFullySignedMeetingIds = useMemo(() => {
-		const set = new Set<string>()
-		for (const m of meetings) {
-			const done = m.documentStats.total > 0 && m.documentStats.signed >= m.documentStats.total
-			if (done) set.add(m.id)
-		}
-		return set
-	}, [meetings])
-
 	const appointmentCards = useMemo(() => {
 		return pendingAppointments
 			.filter((appt: UpcomingAppointment) => {
-				if (!appt.meetingId) return true
-				return !completedOrFullySignedMeetingIds.has(appt.meetingId)
+				// Only show in Upcoming if there is no session yet (pending ENP acceptance).
+				// Once ENP accepts, meetingId is set and the session appears under Ongoing.
+				if (appt.meetingId) return false
+				return true
 			})
 			.map((appt: UpcomingAppointment) => ({
 				id: `appt-${appt.id}`,
@@ -257,13 +252,21 @@ export function ActiveNotarizationsSection() {
 				createdBy: appt.createdBy ?? { name: "Unknown", image: null },
 				isAppointment: true as const,
 			}))
-	}, [pendingAppointments, completedOrFullySignedMeetingIds])
+	}, [pendingAppointments])
 
 	const upcomingOnlyMeetings = useMemo(() => {
-		return meetings.filter(
-			m => !(m.documentStats.total > 0 && m.documentStats.signed >= m.documentStats.total)
-		)
-	}, [meetings])
+		return meetings.filter(m => {
+			if (m.documentStats.total > 0 && m.documentStats.signed >= m.documentStats.total) {
+				return false
+			}
+			// Only show in Upcoming if the session is in the future. Today's accepted sessions
+			// belong in the Ongoing tab.
+			const appointmentDate = (m as { appointmentDate?: string | Date }).appointmentDate
+			if (!appointmentDate) return true
+			const meetingDay = startOfDay(new Date(appointmentDate))
+			return isAfter(meetingDay, today)
+		})
+	}, [meetings, today])
 
 	const combinedMeetings = useMemo(() => {
 		return [...appointmentCards, ...upcomingOnlyMeetings]
@@ -273,7 +276,9 @@ export function ActiveNotarizationsSection() {
 		const q = searchTerm.trim().toLowerCase()
 
 		return combinedMeetings.filter(meeting => {
-			const meetingDate = startOfDay(new Date(meeting.createdAt))
+			const dateForFilter =
+				(meeting as { appointmentDate?: string | Date }).appointmentDate ?? meeting.createdAt
+			const meetingDate = startOfDay(new Date(dateForFilter))
 			const createdByName =
 				typeof meeting.createdBy?.name === "string" ? meeting.createdBy.name : ""
 

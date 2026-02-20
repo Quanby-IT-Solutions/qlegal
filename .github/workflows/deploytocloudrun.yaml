@@ -30,6 +30,15 @@ env:
   # Database
   DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
+  # DocOnChain (Enterprise API)
+  DOCONCHAIN_API_URL: ${{ vars.DOCONCHAIN_API_URL }}
+  DOCONCHAIN_APP_URL: ${{ vars.DOCONCHAIN_APP_URL }}
+  DOCONCHAIN_CLIENT_KEY: ${{ secrets.DOCONCHAIN_CLIENT_KEY }}
+  DOCONCHAIN_CLIENT_SECRET: ${{ secrets.DOCONCHAIN_CLIENT_SECRET }}
+  DOCONCHAIN_EMAIL: ${{ secrets.DOCONCHAIN_EMAIL }}
+  DOCONCHAIN_ORGANIZATION_ID: ${{ secrets.DOCONCHAIN_ORGANIZATION_ID }}
+  DOCONCHAIN_ORG_INVITE_CODE: ${{ secrets.DOCONCHAIN_ORG_INVITE_CODE }}
+
   # Email Configuration
   EMAIL_FROM_NAME: ${{ vars.EMAIL_FROM_NAME }}
   EMAIL_FROM: ${{ vars.EMAIL_FROM }}
@@ -125,6 +134,13 @@ jobs:
             --build-arg AUTH_TRUST_HOST="true" \
             --build-arg AUTH_URL="${{ vars.AUTH_URL }}" \
             --build-arg DATABASE_URL="${{ secrets.DATABASE_URL }}" \
+            --build-arg DOCONCHAIN_API_URL="${{ vars.DOCONCHAIN_API_URL }}" \
+            --build-arg DOCONCHAIN_APP_URL="${{ vars.DOCONCHAIN_APP_URL }}" \
+            --build-arg DOCONCHAIN_CLIENT_KEY="${{ secrets.DOCONCHAIN_CLIENT_KEY }}" \
+            --build-arg DOCONCHAIN_CLIENT_SECRET="${{ secrets.DOCONCHAIN_CLIENT_SECRET }}" \
+            --build-arg DOCONCHAIN_EMAIL="${{ secrets.DOCONCHAIN_EMAIL }}" \
+            --build-arg DOCONCHAIN_ORGANIZATION_ID="${{ secrets.DOCONCHAIN_ORGANIZATION_ID }}" \
+            --build-arg DOCONCHAIN_ORG_INVITE_CODE="${{ secrets.DOCONCHAIN_ORG_INVITE_CODE }}" \
             --build-arg EMAIL_FROM_NAME="${{ vars.EMAIL_FROM_NAME }}" \
             --build-arg EMAIL_FROM="${{ vars.EMAIL_FROM }}" \
             --build-arg EMAIL_HOST="${{ vars.EMAIL_HOST }}" \
@@ -185,6 +201,13 @@ jobs:
             AUTH_TRUST_HOST=true
             AUTH_URL=${{ vars.AUTH_URL }}
             DATABASE_URL=${{ secrets.DATABASE_URL }}
+            DOCONCHAIN_API_URL=${{ vars.DOCONCHAIN_API_URL }}
+            DOCONCHAIN_APP_URL=${{ vars.DOCONCHAIN_APP_URL }}
+            DOCONCHAIN_CLIENT_KEY=${{ secrets.DOCONCHAIN_CLIENT_KEY }}
+            DOCONCHAIN_CLIENT_SECRET=${{ secrets.DOCONCHAIN_CLIENT_SECRET }}
+            DOCONCHAIN_EMAIL=${{ secrets.DOCONCHAIN_EMAIL }}
+            DOCONCHAIN_ORGANIZATION_ID=${{ secrets.DOCONCHAIN_ORGANIZATION_ID }}
+            DOCONCHAIN_ORG_INVITE_CODE=${{ secrets.DOCONCHAIN_ORG_INVITE_CODE }}
             EMAIL_FROM_NAME=${{ vars.EMAIL_FROM_NAME }}
             EMAIL_FROM=${{ vars.EMAIL_FROM }}
             EMAIL_HOST=${{ vars.EMAIL_HOST }}

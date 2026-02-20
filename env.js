@@ -17,6 +17,15 @@ export const env = createEnv({
 		// Database
 		DATABASE_URL: z.string(),
 
+		// DocOnChain (Enterprise API)
+		DOCONCHAIN_API_URL: z.string().url(),
+		DOCONCHAIN_APP_URL: z.string().url().optional(),
+		DOCONCHAIN_CLIENT_KEY: z.string(),
+		DOCONCHAIN_CLIENT_SECRET: z.string(),
+		DOCONCHAIN_EMAIL: z.string().email(),
+		DOCONCHAIN_ORGANIZATION_ID: z.coerce.number(),
+		DOCONCHAIN_ORG_INVITE_CODE: z.string().optional(),
+
 		// Email
 		EMAIL_FROM_NAME: z.string(),
 		EMAIL_FROM: z.string(),
@@ -58,22 +67,6 @@ export const env = createEnv({
 		// Video SDK (Meetings)
 		VIDEO_SDK_API_KEY: z.string(),
 		VIDEO_SDK_SECRET: z.string(),
-
-		// DocOnChain (Enterprise API)
-		DOCONCHAIN_API_URL: z.string().url(),
-		DOCONCHAIN_ORGANIZATION_ID: z.coerce.number(),
-		DOCONCHAIN_APP_URL: z.string().url().optional(),
-		DOCONCHAIN_CLIENT_KEY: z.string(),
-		DOCONCHAIN_CLIENT_SECRET: z.string(),
-		DOCONCHAIN_EMAIL: z.string().email(),
-		DOCONCHAIN_ORG_INVITE_CODE: z.string().optional(),
-		// DocOnChain Webhooks (optional, but recommended)
-		DOCONCHAIN_WEBHOOK_SECRET: z.string().optional(),
-		// Bearer token used for DocOnChain API calls (portal calls this "user-token").
-		// If omitted, integration code should fail with a clear error.
-		DOCONCHAIN_API_TOKEN: z.string().optional(),
-		// Backwards-compat alias (older name).
-		DOCONCHAIN_USER_TOKEN: z.string().optional(),
 	},
 
 	/**
@@ -107,6 +100,15 @@ export const env = createEnv({
 
 		// Database
 		DATABASE_URL: process.env.DATABASE_URL,
+
+		// DocOnChain (Enterprise API)
+		DOCONCHAIN_API_URL: process.env.DOCONCHAIN_API_URL,
+		DOCONCHAIN_APP_URL: process.env.DOCONCHAIN_APP_URL,
+		DOCONCHAIN_CLIENT_KEY: process.env.DOCONCHAIN_CLIENT_KEY,
+		DOCONCHAIN_CLIENT_SECRET: process.env.DOCONCHAIN_CLIENT_SECRET,
+		DOCONCHAIN_EMAIL: process.env.DOCONCHAIN_EMAIL,
+		DOCONCHAIN_ORGANIZATION_ID: process.env.DOCONCHAIN_ORGANIZATION_ID,
+		DOCONCHAIN_ORG_INVITE_CODE: process.env.DOCONCHAIN_ORG_INVITE_CODE,
 
 		// Email
 		EMAIL_FROM_NAME: process.env.EMAIL_FROM_NAME,
@@ -149,18 +151,6 @@ export const env = createEnv({
 		// Video SDK (Meetings)
 		VIDEO_SDK_API_KEY: process.env.VIDEO_SDK_API_KEY,
 		VIDEO_SDK_SECRET: process.env.VIDEO_SDK_SECRET,
-
-		// DocOnChain (Enterprise API)
-		DOCONCHAIN_API_URL: process.env.DOCONCHAIN_API_URL,
-		DOCONCHAIN_ORGANIZATION_ID: process.env.DOCONCHAIN_ORGANIZATION_ID,
-		DOCONCHAIN_APP_URL: process.env.DOCONCHAIN_APP_URL,
-		DOCONCHAIN_CLIENT_KEY: process.env.DOCONCHAIN_CLIENT_KEY,
-		DOCONCHAIN_CLIENT_SECRET: process.env.DOCONCHAIN_CLIENT_SECRET,
-		DOCONCHAIN_EMAIL: process.env.DOCONCHAIN_EMAIL,
-		DOCONCHAIN_ORG_INVITE_CODE: process.env.DOCONCHAIN_ORG_INVITE_CODE,
-		DOCONCHAIN_API_TOKEN: process.env.DOCONCHAIN_API_TOKEN,
-		DOCONCHAIN_USER_TOKEN: process.env.DOCONCHAIN_USER_TOKEN,
-		DOCONCHAIN_WEBHOOK_SECRET: process.env.DOCONCHAIN_WEBHOOK_SECRET,
 
 		// Public Site URL
 		NEXT_PUBLIC_SITE_URL: process.env.NEXT_PUBLIC_SITE_URL,

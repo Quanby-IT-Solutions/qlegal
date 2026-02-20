@@ -554,12 +554,10 @@ export const appointmentsRouter = createTRPCRouter({
 				})
 			}
 
-			// Determine if this is a remote appointment using workflow flag instead of location
-			const isRemote = existing.modeOfNotarization === "REN"
+			// Create/link a meeting on accept for both REN and IEN so accepted bookings
+			// show up under Sessions (Ongoing/Upcoming) consistently.
 			let meetingId: string | null = null
-
-			// For remote (REN) appointments without a meeting yet, create one on accept
-			if (isRemote && !existing.meetingId) {
+			if (!existing.meetingId) {
 				try {
 					meetingId = await createMeetingForAppointment(ctx, userId)
 				} catch (error) {
@@ -578,6 +576,17 @@ export const appointmentsRouter = createTRPCRouter({
 				})
 				.where(eq(appointments.id, input.appointmentId))
 				.returning()
+
+			// So the principal (and any invitees) see the meeting on their sessions page
+			await ctx.db
+				.update(appointmentParticipants)
+				.set({ status: "ACCEPTED", acceptedAt: new Date() })
+				.where(
+					and(
+						eq(appointmentParticipants.appointmentId, input.appointmentId),
+						eq(appointmentParticipants.status, "PENDING")
+					)
+				)
 
 			return updated
 		}),

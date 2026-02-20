@@ -56,8 +56,18 @@ export function MeetingDocumentUpload({
 
 	// tRPC mutation for uploading documents
 	const uploadDocument = trpc.meetings.uploadDocument.useMutation({
-		onSuccess: () => {
+		onSuccess: data => {
 			toast.success("Document uploaded successfully!")
+			if (data && typeof data === "object" && "docoChain" in data) {
+				const doco = (data as { docoChain?: { projectCreated?: boolean; error?: string } }).docoChain
+				if (doco && doco.projectCreated === false) {
+					toast.error("DocOnChain is temporarily unavailable", {
+						description:
+							doco.error ??
+							"Your PDF was uploaded, but project creation timed out. Please retry creating the project in a moment.",
+					})
+				}
+			}
 			// Reset form and state
 			setIsUploading(false)
 			setSelectedFile(null)

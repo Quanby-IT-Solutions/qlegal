@@ -9,6 +9,7 @@ import { twoFactorConfirmations, users, type UserRole } from "@/services/drizzle
 import { DrizzleCustomAdapter } from "@/services/next-auth/adapter"
 
 import { loginSchema } from "@/features/auth/api/auth.schemas"
+import { autoJoinMemberInDoconchainOrganization } from "@/services/doconchain/organization/auto-join-member"
 
 import { env } from "@/env"
 
@@ -85,7 +86,28 @@ export const authConfig = {
 	session: { strategy: "jwt" },
 	callbacks: {
 		async signIn({ account, user }) {
+			// Ensure user is in DocOnChain organization on login (idempotent; 409 = already member).
+			const ensureOrgMembership = async (userId: string) => {
+				const u = await db.query.users.findFirst({
+					where: (data, { eq }) => eq(data.id, userId),
+					columns: { email: true, name: true },
+				})
+				const email = u?.email?.trim()
+				if (email) {
+					void autoJoinMemberInDoconchainOrganization({
+						email,
+						name: u?.name ?? undefined,
+						role: "Member",
+					}).catch(() => {
+						// Do not block login; org sync is best-effort.
+					})
+				}
+			}
+
 			if (account?.provider !== "credentials") {
+				if (user.id) {
+					void ensureOrgMembership(user.id)
+				}
 				return true
 			}
 
@@ -103,6 +125,7 @@ export const authConfig = {
 			}
 
 			if (!existingUser.isTwoFactorEnabled) {
+				void ensureOrgMembership(userId)
 				return true
 			}
 
@@ -118,6 +141,7 @@ export const authConfig = {
 				.delete(twoFactorConfirmations)
 				.where(eq(twoFactorConfirmations.userId, existingUser.id))
 
+			void ensureOrgMembership(userId)
 			return true
 		},
 		async session({ session, token }) {

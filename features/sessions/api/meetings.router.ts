@@ -1,5 +1,5 @@
 import { TRPCError } from "@trpc/server"
-import { and, asc, eq, inArray, ne, type InferSelectModel } from "drizzle-orm"
+import { and, asc, desc, eq, inArray, ne, type InferSelectModel } from "drizzle-orm"
 import { z } from "zod/v4"
 
 import { addDoconchainProjectSigner } from "@/services/doconchain/projects/add-signer"
@@ -77,33 +77,85 @@ async function getAppointmentParticipantsByMeetingId(meetingId: string) {
 }
 
 export const meetingsRouter = createTRPCRouter({
-	// Create a new meeting
-	create: protectedProcedure.input(z.object({})).mutation(async ({ ctx }) => {
-		// Create VideoSDK room
-		const { roomId } = await createMeetingRoom()
-
-		// Create meeting in database
-		const [meeting] = await db
-			.insert(meetings)
-			.values({
-				roomId,
-				createdById: ctx.session.user.id,
+	// Create a new meeting (and linked appointment + participants so it shows in the list)
+	create: protectedProcedure
+		.input(
+			z.object({
+				title: z.string().min(1, "Title is required").optional().default("Ad-hoc meeting"),
+				participantIds: z.array(z.string().min(1)).optional().default([]),
 			})
-			.returning()
+		)
+		.mutation(async ({ ctx, input }) => {
+			const { roomId } = await createMeetingRoom()
 
-		if (!meeting) {
-			throw new TRPCError({
-				code: "INTERNAL_SERVER_ERROR",
-				message: "Failed to create meeting",
+			const [meeting] = await db
+				.insert(meetings)
+				.values({
+					roomId,
+					createdById: ctx.session.user.id,
+				})
+				.returning()
+
+			if (!meeting) {
+				throw new TRPCError({
+					code: "INTERNAL_SERVER_ERROR",
+					message: "Failed to create meeting",
+				})
+			}
+
+			const title = (input.title ?? "Ad-hoc meeting").trim() || "Ad-hoc meeting"
+			const participantIds = Array.isArray(input.participantIds)
+				? input.participantIds.filter((id): id is string => typeof id === "string" && id.length > 0)
+				: []
+
+			const [appointment] = await db
+				.insert(appointments)
+				.values({
+					userId: ctx.session.user.id,
+					meetingId: meeting.id,
+					title,
+					type: "CONSULTATION",
+					status: "CONFIRMED",
+					appointmentDate: new Date(),
+				})
+				.returning()
+
+			if (!appointment) {
+				throw new TRPCError({
+					code: "INTERNAL_SERVER_ERROR",
+					message: "Failed to create appointment for meeting",
+				})
+			}
+
+			// Creator as HOST / ACCEPTED
+			await db.insert(appointmentParticipants).values({
+				appointmentId: appointment.id,
+				userId: ctx.session.user.id,
+				status: "ACCEPTED",
+				participantRole: "HOST",
+				acceptedAt: new Date(),
 			})
-		}
 
-		return {
-			success: true,
-			meeting,
-			token: generateMeetingToken(),
-		}
-	}),
+			// Other participants (ACCEPTED so they see the meeting immediately in manual flow)
+			const otherIds = participantIds.filter(id => id !== ctx.session.user.id)
+			if (otherIds.length > 0) {
+				await db.insert(appointmentParticipants).values(
+					otherIds.map(userId => ({
+						appointmentId: appointment.id,
+						userId,
+						status: "ACCEPTED" as const,
+						participantRole: "PARTICIPANT" as const,
+						acceptedAt: new Date(),
+					}))
+				)
+			}
+
+			return {
+				success: true,
+				meeting,
+				token: generateMeetingToken(),
+			}
+		}),
 
 	// Get user's meetings
 	getUserMeetings: protectedProcedure.query(async ({ ctx }) => {
@@ -153,60 +205,130 @@ export const meetingsRouter = createTRPCRouter({
 			const limit = input?.limit ?? 10
 			const offset = input?.offset ?? 0
 
-			const rows = await db.query.appointmentParticipants.findMany({
-				where: and(
-					eq(appointmentParticipants.userId, ctx.session.user.id),
-					eq(appointmentParticipants.status, "ACCEPTED")
-				),
+			// NOTE: We intentionally avoid Drizzle relational `with:` on appointment participants here.
+			// Some DBs have a legacy mismatch between `participantRole` vs `participant_role`, and Drizzle
+			// will eagerly select that column even when we don't need it for the Sessions UI.
+			// By selecting only the columns we need, we avoid blowing up this query.
+			const participantLinks = await db
+				.select({
+					appointmentId: appointmentParticipants.appointmentId,
+					createdAt: appointmentParticipants.createdAt,
+				})
+				.from(appointmentParticipants)
+				.where(
+					and(
+						eq(appointmentParticipants.userId, ctx.session.user.id),
+						eq(appointmentParticipants.status, "ACCEPTED")
+					)
+				)
+				.orderBy(desc(appointmentParticipants.createdAt))
+				.limit(limit + 1)
+				.offset(offset)
+
+			const hasMore = participantLinks.length > limit
+			const pageLinks = hasMore ? participantLinks.slice(0, limit) : participantLinks
+			const appointmentIds = pageLinks.map(r => r.appointmentId)
+
+			if (appointmentIds.length === 0) {
+				return { items: [], hasMore }
+			}
+
+			const appts = await db.query.appointments.findMany({
+				where: inArray(appointments.id, appointmentIds),
 				with: {
-					appointment: {
+					meeting: {
 						with: {
-							meeting: {
-								with: {
-									createdBy: {
-										columns: {
-											id: true,
-											name: true,
-											email: true,
-											image: true,
-											role: true,
-										},
-									},
-									documents: {
-										columns: {
-											id: true,
-											docoChainProjectId: true,
-										},
-									},
-									signatureRequests: {
-										columns: {
-											documentId: true,
-											status: true,
-										},
-									},
+							createdBy: {
+								columns: {
+									id: true,
+									name: true,
+									email: true,
+									image: true,
+									role: true,
+								},
+							},
+							documents: {
+								columns: {
+									id: true,
+									docoChainProjectId: true,
+								},
+							},
+							signatureRequests: {
+								columns: {
+									documentId: true,
+									status: true,
 								},
 							},
 						},
 					},
 				},
-				// IMPORTANT: this is the same ordering the Meetings page uses
-				orderBy: (ap, { desc }) => [desc(ap.createdAt)],
-				limit: limit + 1,
-				offset,
 			})
 
-			const hasMore = rows.length > limit
-			const userMeetings = hasMore ? rows.slice(0, limit) : rows
+			const apptById = new Map(appts.map(a => [a.id, a]))
 
-			const items = userMeetings
-				.filter(ap => ap.appointment?.meetingId)
-				.map(ap => ap.appointment?.meeting)
-				.filter((meeting): meeting is NonNullable<typeof meeting> => Boolean(meeting))
-				.map(meeting => {
+			// Fetch ACCEPTED participants for the appointments, without selecting participant role column.
+			const acceptedParticipantRows = await db
+				.select({
+					id: appointmentParticipants.id,
+					appointmentId: appointmentParticipants.appointmentId,
+					userId: appointmentParticipants.userId,
+					status: appointmentParticipants.status,
+					user: {
+						id: users.id,
+						name: users.name,
+						image: users.image,
+					},
+				})
+				.from(appointmentParticipants)
+				.innerJoin(users, eq(appointmentParticipants.userId, users.id))
+				.where(
+					and(
+						inArray(appointmentParticipants.appointmentId, appointmentIds),
+						eq(appointmentParticipants.status, "ACCEPTED")
+					)
+				)
+
+			const participantsByAppointmentId = new Map<
+				string,
+				Array<{
+					id: string
+					userId: string
+					status: "ACCEPTED" | "PENDING" | "DECLINED"
+					user: { id: string; name: string | null; image: string | null } | null
+				}>
+			>()
+
+			for (const row of acceptedParticipantRows) {
+				const list = participantsByAppointmentId.get(row.appointmentId) ?? []
+				list.push({
+					id: row.id,
+					userId: row.userId,
+					status: row.status,
+					user: row.user
+						? {
+								id: row.user.id,
+								name: row.user.name,
+								image: resolveAvatarImage(row.user.image),
+							}
+						: null,
+				})
+				participantsByAppointmentId.set(row.appointmentId, list)
+			}
+
+			const rawItems = pageLinks
+				.map(link => apptById.get(link.appointmentId))
+				.filter(
+					(
+						appointment
+					): appointment is NonNullable<typeof appointment> & {
+						meeting: NonNullable<NonNullable<typeof appointment>["meeting"]>
+					} => Boolean(appointment?.meetingId && appointment?.meeting)
+				)
+				.map(appointment => {
+					const meeting = appointment.meeting
 					const documentsList = meeting.documents ?? []
 					const total = documentsList.length
 
-					// A document is "signed" when all signature requests for it are SIGNED.
 					const requestsByDocumentId = new Map<string, string[]>()
 					for (const req of meeting.signatureRequests ?? []) {
 						const list = requestsByDocumentId.get(req.documentId) ?? []
@@ -219,19 +341,43 @@ export const meetingsRouter = createTRPCRouter({
 						const reqStatuses = requestsByDocumentId.get(doc.id) ?? []
 						const isSignedByRequests =
 							reqStatuses.length > 0 && reqStatuses.every(s => s === "SIGNED")
-						if (isSignedByRequests) {
-							signed += 1
-						}
+						if (isSignedByRequests) signed += 1
+					}
+
+					const participants = participantsByAppointmentId.get(appointment.id) ?? []
+
+					// Role-aware title: principal books "Notarization with [ENP]"; when ENP views, show "Notarization with [principal]"
+					const currentUserId = ctx.session.user.id
+					const isAppointmentOwner = appointment.userId === currentUserId
+					let displayTitle = appointment.title ?? "Meeting"
+					if (isAppointmentOwner && participants.length > 0) {
+						const other = participants.find(p => p.user?.id !== currentUserId)?.user
+						const otherName = other?.name?.trim() ?? "Client"
+						displayTitle =
+							(appointment.type === "NOTARIZATION" ? "Notarization with " : "Session with ") +
+							otherName
 					}
 
 					return {
 						...meeting,
+						title: displayTitle,
+						status: appointment.status ?? "CONFIRMED",
+						appointmentDate: appointment.appointmentDate,
 						createdBy: meeting.createdBy
 							? { ...meeting.createdBy, image: resolveAvatarImage(meeting.createdBy.image) }
 							: meeting.createdBy,
+						participants,
 						documentStats: { total, signed, isComplete: true },
 					}
 				})
+
+			// Dedupe by meeting id (same meeting can appear for multiple ACCEPTED participants)
+			const seenMeetingIds = new Set<string>()
+			const items = rawItems.filter(item => {
+				if (seenMeetingIds.has(item.id)) return false
+				seenMeetingIds.add(item.id)
+				return true
+			})
 
 			return { items, hasMore }
 		}),
@@ -261,7 +407,7 @@ export const meetingsRouter = createTRPCRouter({
 
 		// Check if user has access (host OR accepted participant)
 		const isHost = meeting.createdById === ctx.session.user.id
-		const { apParticipants } = await getAppointmentParticipantsByMeetingId(input)
+		const { appointment, apParticipants } = await getAppointmentParticipantsByMeetingId(input)
 
 		const isAcceptedParticipant = apParticipants.some(
 			p => p.userId === ctx.session.user.id && p.status === "ACCEPTED"
@@ -286,6 +432,8 @@ export const meetingsRouter = createTRPCRouter({
 		})
 		return {
 			...meeting,
+			title: appointment?.title ?? meeting.id,
+			status: appointment?.status ?? "CONFIRMED",
 			createdBy: meeting.createdBy
 				? { ...meeting.createdBy, image: resolveAvatarImage(meeting.createdBy.image) }
 				: meeting.createdBy,
@@ -743,44 +891,57 @@ export const meetingsRouter = createTRPCRouter({
 					.where(eq(documents.id, document.id))
 					.returning()
 
-				// STEP 3: Create DocOnChain project using ENP token (this is the "portal parity" step).
+				// STEP 3: Create DocOnChain project using ENP token (best-effort).
+				// IMPORTANT: DocOnChain can be flaky (504/5xx). We keep the Supabase upload + DB record
+				// and allow retry via createDocoChainProject instead of deleting user data.
 				const safeFilename = name.toLowerCase().endsWith(".pdf") ? name : `${name}.pdf`
-				try {
-					const project = await createDoconchainProject({
-						enpEmail,
-						fileBuffer,
-						filename: safeFilename,
-						mimeType,
-						userListEditable: false,
-						creatorAsViewer: false,
-						documentStamp,
-					})
 
-					await db
-						.update(documents)
-						.set({
-							docoChainProjectId: project.uuid,
-							docoChainRedirectUrl: project.url,
+				let docoChain: { projectCreated: boolean; error?: string } = { projectCreated: false }
+				const transientAttempts = 2
+				for (let attempt = 0; attempt <= transientAttempts; attempt++) {
+					try {
+						const project = await createDoconchainProject({
+							enpEmail,
+							fileBuffer,
+							filename: safeFilename,
+							mimeType,
+							userListEditable: false,
+							creatorAsViewer: false,
+							documentStamp,
 						})
-						.where(eq(documents.id, document.id))
-				} catch (error) {
-					// Keep our system consistent: remove uploaded file + DB record on project failure.
-					if (uploadData?.path) {
-						await supabase.storage
-							.from("documents")
-							.remove([uploadData.path])
-							.catch(() => undefined)
+
+						await db
+							.update(documents)
+							.set({
+								docoChainProjectId: project.uuid,
+								docoChainRedirectUrl: project.url,
+							})
+							.where(eq(documents.id, document.id))
+
+						docoChain = { projectCreated: true }
+						break
+					} catch (error) {
+						const message = error instanceof Error ? error.message : "DocOnChain project creation failed"
+						docoChain = { projectCreated: false, error: message }
+
+						// Retry only for likely-transient upstream failures.
+						const isTransient =
+							typeof message === "string" &&
+							(message.includes("504") || message.includes("503") || message.includes("502"))
+
+						if (!isTransient || attempt >= transientAttempts) {
+							break
+						}
+
+						// small backoff (0.5s, 1s)
+						await new Promise(r => setTimeout(r, 500 * (attempt + 1)))
 					}
-					await db
-						.delete(documents)
-						.where(eq(documents.id, document.id))
-						.catch(() => undefined)
-					throw error
 				}
 
 				return {
 					...updatedDocument,
 					url: publicUrl,
+					docoChain,
 				}
 			} catch (error) {
 				throw new TRPCError({
