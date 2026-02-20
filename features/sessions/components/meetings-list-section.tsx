@@ -56,9 +56,9 @@ import { getAvatarUrl, getInitials } from "@/core/lib/utils"
 
 import { trpc, type RouterInputs, type RouterOutputs } from "@/services/trpc/client"
 
+import { useMessages } from "@/features/messages/api/messages.hooks"
 import { useMeetings } from "@/features/sessions/api/meetings.hooks"
 import { MeetingRecordingsModal } from "@/features/sessions/components/meeting-recordings-modal"
-import { useMessages } from "@/features/messages/api/messages.hooks"
 
 type MeetingWithStats =
 	RouterOutputs["meetings"]["getUserMeetingsWithDocumentStats"]["items"][number]
@@ -577,9 +577,7 @@ export function MeetingsListSection() {
 									p => p.user?.id === session?.user?.id
 								)
 								const canJoin = meeting.status === "ONGOING"
-								const canStart =
-									(isHost || isParticipant) &&
-									meeting.status === "CONFIRMED"
+								const canStart = (isHost || isParticipant) && meeting.status === "CONFIRMED"
 								const canEnd = isHost && meeting.status === "ONGOING"
 								const scheduledAt =
 									(meeting as { appointmentDate?: string | Date }).appointmentDate ??
@@ -785,9 +783,7 @@ export function MeetingsListSection() {
 									p => p.user?.id === session?.user?.id
 								)
 								const canJoin = meeting.status === "ONGOING"
-								const canStart =
-									(isHost || isParticipant) &&
-									meeting.status === "CONFIRMED"
+								const canStart = (isHost || isParticipant) && meeting.status === "CONFIRMED"
 								const canEnd = isHost && meeting.status === "ONGOING"
 								const scheduledAt =
 									(meeting as { appointmentDate?: string | Date }).appointmentDate ??
