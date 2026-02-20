@@ -236,16 +236,19 @@ export const meetingsRouter = createTRPCRouter({
 											status: true,
 										},
 									},
-								},
-							},
-							participants: {
-								with: {
-									user: {
-										columns: {
-											id: true,
-											name: true,
-											email: true,
-											image: true,
+									appointments: {
+										with: {
+											participants: {
+												with: {
+													user: {
+														columns: {
+															id: true,
+															name: true,
+															image: true,
+														},
+													},
+												},
+											},
 										},
 									},
 								},
@@ -264,8 +267,13 @@ export const meetingsRouter = createTRPCRouter({
 
 			const rawItems = userMeetings
 				.filter(
-					(ap): ap is typeof ap & { appointment: NonNullable<typeof ap.appointment> & { meeting: NonNullable<NonNullable<typeof ap.appointment>["meeting"]> } } =>
-						Boolean(ap.appointment?.meetingId && ap.appointment?.meeting)
+					(
+						ap
+					): ap is typeof ap & {
+						appointment: NonNullable<typeof ap.appointment> & {
+							meeting: NonNullable<NonNullable<typeof ap.appointment>["meeting"]>
+						}
+					} => Boolean(ap.appointment?.meetingId && ap.appointment?.meeting)
 				)
 				.map(ap => {
 					const meeting = ap.appointment.meeting
@@ -290,9 +298,27 @@ export const meetingsRouter = createTRPCRouter({
 						}
 					}
 
-					const participants = (appointment.participants ?? []).map(p => ({
-						user: p.user ? { ...p.user, image: resolveAvatarImage(p.user.image) } : p.user,
-					}))
+					const seenParticipantUserIds = new Set<string>()
+					const participants = (meeting.appointments ?? [])
+						.flatMap(appointmentRow => appointmentRow.participants ?? [])
+						.filter(p => p.status === "ACCEPTED")
+						.filter(p => {
+							if (seenParticipantUserIds.has(p.userId)) return false
+							seenParticipantUserIds.add(p.userId)
+							return true
+						})
+						.map(p => ({
+							id: p.id,
+							userId: p.userId,
+							status: p.status,
+							user: p.user
+								? {
+										id: p.user.id,
+										name: p.user.name,
+										image: resolveAvatarImage(p.user.image),
+									}
+								: null,
+						}))
 
 					// Role-aware title: principal books "Notarization with [ENP]"; when ENP views, show "Notarization with [principal]"
 					const currentUserId = ctx.session.user.id
@@ -300,7 +326,7 @@ export const meetingsRouter = createTRPCRouter({
 					let displayTitle = appointment.title ?? "Meeting"
 					if (isAppointmentOwner && participants.length > 0) {
 						const other = participants.find(p => p.user?.id !== currentUserId)?.user
-						const otherName = other?.name?.trim() ?? other?.email ?? "Client"
+						const otherName = other?.name?.trim() ?? "Client"
 						displayTitle =
 							(appointment.type === "NOTARIZATION" ? "Notarization with " : "Session with ") +
 							otherName
