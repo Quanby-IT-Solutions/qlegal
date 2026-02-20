@@ -5,8 +5,10 @@ import { z } from "zod/v4"
 import { appointmentParticipants } from "@/services/drizzle/schema/appointment-participants"
 import { appointments } from "@/services/drizzle/schema/appointments"
 import { users } from "@/services/drizzle/schema/auth"
+import { documentSigners } from "@/services/drizzle/schema/document-signers"
 import { documents } from "@/services/drizzle/schema/document"
 import { enpProfiles } from "@/services/drizzle/schema/enp-profiles"
+import { signatureRequests } from "@/services/drizzle/schema/signature-requests"
 import { idCardDetails } from "@/services/drizzle/schema/id-card-details"
 import { legalRegistrations } from "@/services/drizzle/schema/legal-registration"
 import { notarialActs, notarialBooks } from "@/services/drizzle/schema/notarial-book"
@@ -803,12 +805,178 @@ export const notarialBookRouter = createTRPCRouter({
 				}
 			}
 
-			if (act.docoChainProjectUuid) {
-				throw new TRPCError({
-					code: "SERVICE_UNAVAILABLE",
-					message:
-						"Signer retrieval from the signing provider is temporarily unavailable while we rebuild the integration.",
+			// Fallback: build signers from document_signers + signature_requests when no stored signersData
+			if (act.documentId) {
+				const docSigners = await ctx.db.query.documentSigners.findMany({
+					where: eq(documentSigners.documentId, act.documentId),
+					with: {
+						user: {
+							columns: {
+								id: true,
+								email: true,
+								name: true,
+								homeStreet: true,
+								barangay: true,
+								cityProvince: true,
+								address: true,
+							},
+						},
+					},
+					orderBy: [documentSigners.signingOrder, documentSigners.createdAt],
 				})
+
+				if (docSigners.length > 0) {
+					const signersFromDb = await Promise.all(
+						docSigners.map(async (ds, idx) => {
+							const email = ds.user?.email?.trim() ?? ""
+							const nameParts = (ds.signerName ?? ds.user?.name ?? "").trim().split(/\s+/)
+							const firstName = nameParts[0] ?? ""
+							const lastName = nameParts.slice(1).join(" ") || ""
+
+							let status = "PENDING"
+							let signedAt: string | null = null
+							if (ds.userId) {
+								const req = await ctx.db.query.signatureRequests.findFirst({
+									where: and(
+										eq(signatureRequests.documentId, act.documentId!),
+										eq(signatureRequests.signerId, ds.userId)
+									),
+									columns: { status: true, signedAt: true },
+								})
+								if (req) {
+									status = (req.status ?? "PENDING").toUpperCase()
+									signedAt = req.signedAt ? req.signedAt.toISOString() : null
+								}
+							}
+
+							const idCardDetail = ds.user?.id
+								? await ctx.db.query.idCardDetails.findFirst({
+										where: eq(idCardDetails.userId, ds.user.id),
+										orderBy: (table, { desc }) => [desc(table.verifiedAt)],
+									})
+								: null
+
+							return {
+								id: idx + 1,
+								email,
+								firstName: firstName || undefined,
+								lastName: lastName || undefined,
+								status,
+								signedAt,
+								sequence: ds.signingOrder ?? idx + 1,
+								signerRole: "Signer",
+								homeStreet: ds.user?.homeStreet ?? null,
+								barangay: ds.user?.barangay ?? null,
+								cityProvince: ds.user?.cityProvince ?? null,
+								fullAddress: ds.signerAddress ?? ds.user?.address ?? null,
+								idFaceImageBase64: idCardDetail?.faceImageUrl
+									? String(idCardDetail.faceImageUrl)
+									: null,
+								idDocumentType: idCardDetail?.documentType ?? null,
+								idDocumentNumber: idCardDetail?.documentNumber ?? null,
+								idVerified:
+									typeof idCardDetail?.isVerified === "boolean" ? idCardDetail.isVerified : null,
+							}
+						})
+					)
+					const signersEnriched = signersFromDb.map(enrichSignerRole)
+					// Backfill act so next time we have signersData
+					await ctx.db
+						.update(notarialActs)
+						.set({
+							signersData: JSON.stringify(
+								signersEnriched.map(s => ({
+									id: s.id,
+									email: s.email,
+									firstName: s.firstName,
+									lastName: s.lastName,
+									status: s.status,
+									signedAt: s.signedAt,
+									sequence: s.sequence,
+									signerRole: s.signerRole,
+								}))
+							),
+						})
+						.where(eq(notarialActs.id, act.id))
+					return { signers: signersEnriched }
+				}
+
+				// Fallback when no document_signers: build from signature_requests (e.g. principal-only signing)
+				const requests = await ctx.db.query.signatureRequests.findMany({
+					where: eq(signatureRequests.documentId, act.documentId),
+					with: {
+						signer: {
+							columns: {
+								id: true,
+								email: true,
+								name: true,
+								homeStreet: true,
+								barangay: true,
+								cityProvince: true,
+								address: true,
+							},
+						},
+					},
+				})
+				if (requests.length > 0) {
+					const signersFromRequests = await Promise.all(
+						requests.map(async (req, idx) => {
+							const u = req.signer
+							const email = u?.email?.trim() ?? ""
+							const nameParts = (u?.name ?? "").trim().split(/\s+/)
+							const firstName = nameParts[0] ?? ""
+							const lastName = nameParts.slice(1).join(" ") ?? ""
+							const status = (req.status ?? "PENDING").toUpperCase()
+							const signedAt = req.signedAt ? req.signedAt.toISOString() : null
+							const idCardDetail = u?.id
+								? await ctx.db.query.idCardDetails.findFirst({
+										where: eq(idCardDetails.userId, u.id),
+										orderBy: (table, { desc }) => [desc(table.verifiedAt)],
+									})
+								: null
+							return {
+								id: idx + 1,
+								email,
+								firstName: firstName || undefined,
+								lastName: lastName || undefined,
+								status,
+								signedAt,
+								sequence: idx + 1,
+								signerRole: "Signer",
+								homeStreet: u?.homeStreet ?? null,
+								barangay: u?.barangay ?? null,
+								cityProvince: u?.cityProvince ?? null,
+								fullAddress: u?.address ?? null,
+								idFaceImageBase64: idCardDetail?.faceImageUrl
+									? String(idCardDetail.faceImageUrl)
+									: null,
+								idDocumentType: idCardDetail?.documentType ?? null,
+								idDocumentNumber: idCardDetail?.documentNumber ?? null,
+								idVerified:
+									typeof idCardDetail?.isVerified === "boolean" ? idCardDetail.isVerified : null,
+							}
+						})
+					)
+					const signersEnriched = signersFromRequests.map(enrichSignerRole)
+					await ctx.db
+						.update(notarialActs)
+						.set({
+							signersData: JSON.stringify(
+								signersEnriched.map(s => ({
+									id: s.id,
+									email: s.email,
+									firstName: s.firstName,
+									lastName: s.lastName,
+									status: s.status,
+									signedAt: s.signedAt,
+									sequence: s.sequence,
+									signerRole: s.signerRole,
+								}))
+							),
+						})
+						.where(eq(notarialActs.id, act.id))
+					return { signers: signersEnriched }
+				}
 			}
 
 			return { signers: [] }
