@@ -554,12 +554,10 @@ export const appointmentsRouter = createTRPCRouter({
 				})
 			}
 
-			// Determine if this is a remote appointment using workflow flag instead of location
-			const isRemote = existing.modeOfNotarization === "REN"
+			// Create/link a meeting on accept for both REN and IEN so accepted bookings
+			// show up under Sessions (Ongoing/Upcoming) consistently.
 			let meetingId: string | null = null
-
-			// For remote (REN) appointments without a meeting yet, create one on accept
-			if (isRemote && !existing.meetingId) {
+			if (!existing.meetingId) {
 				try {
 					meetingId = await createMeetingForAppointment(ctx, userId)
 				} catch (error) {

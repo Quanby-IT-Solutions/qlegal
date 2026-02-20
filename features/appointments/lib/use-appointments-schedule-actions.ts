@@ -50,6 +50,9 @@ export function useAppointmentsScheduleActions() {
 		await utils.appointments.getIncomingRequests.invalidate()
 		await utils.appointments.getIncomingAppointmentsForENP.invalidate()
 		await utils.appointments.getEnpSchedule.invalidate()
+		// Sessions page uses these queries; invalidate so redirect shows fresh data immediately.
+		await utils.meetings.getUserMeetingsWithDocumentStats.invalidate()
+		await utils.appointments.getUpcomingAppointments.invalidate()
 		router.refresh()
 	}
 
