@@ -16,13 +16,13 @@ The Supreme Court has provided API integration documentation for the eNotarizati
 
 ## 2. API Overview (From Documentation)
 
-| Item | Value |
-|------|-------|
-| **Base URL** | `https://f2x313020c.execute-api.ap-southeast-1.amazonaws.com/dev` or `https://scenotarization-api.com` |
-| **Data Format** | JSON & Form-Data |
-| **Auth URL** | `https://cognito-idp.ap-southeast-1.amazonaws.com/ap-southeast-1_P86ZTewxH` |
-| **ClientId** | `22bvgqigoaq76s6aac5faugi90` |
-| **Credentials** | Username and password (to be emailed separately) |
+| Item            | Value                                                                                                  |
+| --------------- | ------------------------------------------------------------------------------------------------------ |
+| **Base URL**    | `https://f2x313020c.execute-api.ap-southeast-1.amazonaws.com/dev` or `https://scenotarization-api.com` |
+| **Data Format** | JSON & Form-Data                                                                                       |
+| **Auth URL**    | `https://cognito-idp.ap-southeast-1.amazonaws.com/ap-southeast-1_P86ZTewxH`                            |
+| **ClientId**    | `22bvgqigoaq76s6aac5faugi90`                                                                           |
+| **Credentials** | Username and password (to be emailed separately)                                                       |
 
 ---
 
@@ -31,6 +31,7 @@ The Supreme Court has provided API integration documentation for the eNotarizati
 ### 3.1 Obtain Access Token
 
 **Request:**
+
 - **Method:** `POST`
 - **URL:** `https://cognito-idp.ap-southeast-1.amazonaws.com/ap-southeast-1_P86ZTewxH`
 - **Headers:**
@@ -39,17 +40,18 @@ The Supreme Court has provided API integration documentation for the eNotarizati
 - **Body (JSON):**
   ```json
   {
-    "AuthFlow": "USER_PASSWORD_AUTH",
-    "AuthParameters": {
-      "PASSWORD": "<password>",
-      "USERNAME": "<username>"
-    },
-    "ClientId": "22bvgqigoaq76s6aac5faugi90",
-    "ClientMetadata": {}
+  	"AuthFlow": "USER_PASSWORD_AUTH",
+  	"AuthParameters": {
+  		"PASSWORD": "<password>",
+  		"USERNAME": "<username>"
+  	},
+  	"ClientId": "22bvgqigoaq76s6aac5faugi90",
+  	"ClientMetadata": {}
   }
   ```
 
 **Response:**
+
 - `AuthenticationResult.AccessToken` – JWT for subsequent API calls
 - `AuthenticationResult.ExpiresIn` – 3600 seconds (1 hour)
 - `AuthenticationResult.IdToken` – Identity token (if needed)
@@ -89,13 +91,13 @@ services/supreme-court/
 
 Add to `env.js` and `.env.example`:
 
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `SUPREME_COURT_API_URL` | Base URL for eNotarization API | `https://scenotarization-api.com` |
-| `SUPREME_COURT_COGNITO_URL` | Cognito Auth URL | `https://cognito-idp.ap-southeast-1.amazonaws.com/ap-southeast-1_P86ZTewxH` |
-| `SUPREME_COURT_CLIENT_ID` | Cognito Client ID | `22bvgqigoaq76s6aac5faugi90` |
-| `SUPREME_COURT_USERNAME` | API account username (from SC email) | *(sensitive)* |
-| `SUPREME_COURT_PASSWORD` | API account password (from SC email) | *(sensitive)* |
+| Variable                  | Description                          | Example                                                                     |
+| ------------------------- | ------------------------------------ | --------------------------------------------------------------------------- |
+| `SUPREME_COURT_API_URL`   | Base URL for eNotarization API       | `https://scenotarization-api.com`                                           |
+| `SUPREME_COURT_AUTH_URL`  | Cognito Auth URL                     | `https://cognito-idp.ap-southeast-1.amazonaws.com/ap-southeast-1_P86ZTewxH` |
+| `SUPREME_COURT_CLIENT_ID` | Cognito Client ID                    | `22bvgqigoaq76s6aac5faugi90`                                                |
+| `SUPREME_COURT_USERNAME`  | API account username (from SC email) | _(sensitive)_                                                               |
+| `SUPREME_COURT_PASSWORD`  | API account password (from SC email) | _(sensitive)_                                                               |
 
 ---
 
@@ -103,12 +105,12 @@ Add to `env.js` and `.env.example`:
 
 ### 5.1 When to Sync to Supreme Court
 
-| Trigger | Location | Action |
-|---------|----------|--------|
-| **Meeting ends** | `features/meetings/api/meetings.router.ts` → `autoCreateNotarialAct` | After creating notarial act, optionally call SC sync |
-| **Manual sync** | `features/notarial-book/api/notarial-book.router.ts` → `syncDocumentToNotarialBook` | After creating/updating act, sync to SC |
-| **Bulk sync** | `features/notarial-book/api/notarial-book.router.ts` → `syncAllDocumentsToNotarialBook` | Sync all unsynced acts |
-| **Background job** | *(Future)* Cron or queue | Periodic sync of `syncedToSupremeCourt = false` acts |
+| Trigger            | Location                                                                                | Action                                               |
+| ------------------ | --------------------------------------------------------------------------------------- | ---------------------------------------------------- |
+| **Meeting ends**   | `features/meetings/api/meetings.router.ts` → `autoCreateNotarialAct`                    | After creating notarial act, optionally call SC sync |
+| **Manual sync**    | `features/notarial-book/api/notarial-book.router.ts` → `syncDocumentToNotarialBook`     | After creating/updating act, sync to SC              |
+| **Bulk sync**      | `features/notarial-book/api/notarial-book.router.ts` → `syncAllDocumentsToNotarialBook` | Sync all unsynced acts                               |
+| **Background job** | _(Future)_ Cron or queue                                                                | Periodic sync of `syncedToSupremeCourt = false` acts |
 
 ### 5.2 Sync Flow (Proposed)
 
@@ -123,19 +125,19 @@ Add to `env.js` and `.env.example`:
 
 Our `notarialActs` schema aligns with Supreme Court requirements. Likely mapping:
 
-| Our Field | SC API Field (TBD) |
-|-----------|-------------------|
-| `actType` | ACKNOWLEDGMENT, AFFIRMATION, JURAT, SIGNATURE_WITNESSING |
-| `principalName` | Principal name |
-| `principalIdNumber` | Principal ID |
-| `principalIdType` | ID type |
-| `enpName`, `enpRollNumber` | ENP info |
-| `executedAt` | Execution timestamp |
-| `workflow` | REN / IEN |
-| `locationStatement` | Location certification |
-| `documentName`, `documentDescription` | Document info |
-| `certificateNumber` | Our reference number |
-| `docoChainProjectUuid` | Link to signing project (legacy) |
+| Our Field                             | SC API Field (TBD)                                       |
+| ------------------------------------- | -------------------------------------------------------- |
+| `actType`                             | ACKNOWLEDGMENT, AFFIRMATION, JURAT, SIGNATURE_WITNESSING |
+| `principalName`                       | Principal name                                           |
+| `principalIdNumber`                   | Principal ID                                             |
+| `principalIdType`                     | ID type                                                  |
+| `enpName`, `enpRollNumber`            | ENP info                                                 |
+| `executedAt`                          | Execution timestamp                                      |
+| `workflow`                            | REN / IEN                                                |
+| `locationStatement`                   | Location certification                                   |
+| `documentName`, `documentDescription` | Document info                                            |
+| `certificateNumber`                   | Our reference number                                     |
+| `docoChainProjectUuid`                | Link to signing project (legacy)                         |
 
 **Note:** Exact field names and payload structure depend on the full API spec (Pages 5–22 of the documentation).
 
@@ -171,14 +173,14 @@ Our `notarialActs` schema aligns with Supreme Court requirements. Likely mapping
 
 ## 7. Open Questions / Blockers
 
-| # | Question | Owner |
-|---|----------|-------|
-| 1 | **Full API spec** – Endpoints for submitting notarial acts, payload format, response format | Await SC documentation |
-| 2 | **Credentials** – Username and password to be emailed separately | Await SC email |
-| 3 | **Environment** – Use `dev` base URL or `scenotarization-api.com` for production? | Confirm with SC |
-| 4 | **Certificate URL** – Does SC return a certificate URL we should store in `certificateUrl`? | From full spec |
-| 5 | **Idempotency** – How to avoid duplicate submissions if we retry? | From full spec |
-| 6 | **Rate limits** – Any throttling we need to respect? | From full spec |
+| #   | Question                                                                                    | Owner                  |
+| --- | ------------------------------------------------------------------------------------------- | ---------------------- |
+| 1   | **Full API spec** – Endpoints for submitting notarial acts, payload format, response format | Await SC documentation |
+| 2   | **Credentials** – Username and password to be emailed separately                            | Await SC email         |
+| 3   | **Environment** – Use `dev` base URL or `scenotarization-api.com` for production?           | Confirm with SC        |
+| 4   | **Certificate URL** – Does SC return a certificate URL we should store in `certificateUrl`? | From full spec         |
+| 5   | **Idempotency** – How to avoid duplicate submissions if we retry?                           | From full spec         |
+| 6   | **Rate limits** – Any throttling we need to respect?                                        | From full spec         |
 
 ---
 
