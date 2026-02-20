@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useMeeting, usePubSub } from "@videosdk.live/react-sdk"
-import { CircleDot, FileSignature, FileText, Loader2, Users as UsersIcon } from "lucide-react"
+import { CircleDot, FileSignature, Loader2, Users as UsersIcon } from "lucide-react"
 import { useSession } from "next-auth/react"
 import { toast } from "sonner"
 
@@ -16,7 +16,6 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "@/core/components/ui/dialog"
-import { cn } from "@/core/lib/utils"
 
 import { trpc } from "@/services/trpc/client"
 
@@ -52,7 +51,7 @@ export function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meet
 	// ─── Recording state ────────────────────────────────────────
 	const [isRecording, setIsRecording] = useState(false)
 	const [recordingStatus, setRecordingStatus] = useState<string>("RECORDING_STOPPED")
-	const [recordingStartedAt, setRecordingStartedAt] = useState<number | null>(null)
+	const [setRecordingStartedAt] = useState<number | null>(null)
 	const [isLocalRecording, setIsLocalRecording] = useState(false)
 	const [localRecordingStartedAt, setLocalRecordingStartedAt] = useState<number | null>(null)
 	const [isAnyoneRecording, setIsAnyoneRecording] = useState(false)
