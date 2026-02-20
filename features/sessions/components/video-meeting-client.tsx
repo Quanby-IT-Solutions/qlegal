@@ -1478,7 +1478,7 @@ const DocumentActions = React.memo(function DocumentActions({
 	meetingId?: string
 	onCreateProject?: (documentId: string, meetingId: string) => void
 	isCreatingProject?: boolean
-	/** Gate Create Project until we have a fresh signing token. Default true so button stays enabled when not used. */
+	/** Gate Create Project (ENP only). Signers do not need a token—server generates sign/plot links from their email. Default true when unused. */
 	docoChainTokenReady?: boolean
 	/** Show "Preparing…" on Create Project while token is loading. */
 	docoChainTokenLoading?: boolean

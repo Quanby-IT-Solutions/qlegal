@@ -77,33 +77,85 @@ async function getAppointmentParticipantsByMeetingId(meetingId: string) {
 }
 
 export const meetingsRouter = createTRPCRouter({
-	// Create a new meeting
-	create: protectedProcedure.input(z.object({})).mutation(async ({ ctx }) => {
-		// Create VideoSDK room
-		const { roomId } = await createMeetingRoom()
-
-		// Create meeting in database
-		const [meeting] = await db
-			.insert(meetings)
-			.values({
-				roomId,
-				createdById: ctx.session.user.id,
+	// Create a new meeting (and linked appointment + participants so it shows in the list)
+	create: protectedProcedure
+		.input(
+			z.object({
+				title: z.string().min(1, "Title is required").optional().default("Ad-hoc meeting"),
+				participantIds: z.array(z.string().min(1)).optional().default([]),
 			})
-			.returning()
+		)
+		.mutation(async ({ ctx, input }) => {
+			const { roomId } = await createMeetingRoom()
 
-		if (!meeting) {
-			throw new TRPCError({
-				code: "INTERNAL_SERVER_ERROR",
-				message: "Failed to create meeting",
+			const [meeting] = await db
+				.insert(meetings)
+				.values({
+					roomId,
+					createdById: ctx.session.user.id,
+				})
+				.returning()
+
+			if (!meeting) {
+				throw new TRPCError({
+					code: "INTERNAL_SERVER_ERROR",
+					message: "Failed to create meeting",
+				})
+			}
+
+			const title = (input.title ?? "Ad-hoc meeting").trim() || "Ad-hoc meeting"
+			const participantIds = Array.isArray(input.participantIds)
+				? input.participantIds.filter((id): id is string => typeof id === "string" && id.length > 0)
+				: []
+
+			const [appointment] = await db
+				.insert(appointments)
+				.values({
+					userId: ctx.session.user.id,
+					meetingId: meeting.id,
+					title,
+					type: "CONSULTATION",
+					status: "CONFIRMED",
+					appointmentDate: new Date(),
+				})
+				.returning()
+
+			if (!appointment) {
+				throw new TRPCError({
+					code: "INTERNAL_SERVER_ERROR",
+					message: "Failed to create appointment for meeting",
+				})
+			}
+
+			// Creator as HOST / ACCEPTED
+			await db.insert(appointmentParticipants).values({
+				appointmentId: appointment.id,
+				userId: ctx.session.user.id,
+				status: "ACCEPTED",
+				participantRole: "HOST",
+				acceptedAt: new Date(),
 			})
-		}
 
-		return {
-			success: true,
-			meeting,
-			token: generateMeetingToken(),
-		}
-	}),
+			// Other participants (ACCEPTED so they see the meeting immediately in manual flow)
+			const otherIds = participantIds.filter(id => id !== ctx.session.user.id)
+			if (otherIds.length > 0) {
+				await db.insert(appointmentParticipants).values(
+					otherIds.map(userId => ({
+						appointmentId: appointment.id,
+						userId,
+						status: "ACCEPTED" as const,
+						participantRole: "PARTICIPANT" as const,
+						acceptedAt: new Date(),
+					}))
+				)
+			}
+
+			return {
+				success: true,
+				meeting,
+				token: generateMeetingToken(),
+			}
+		}),
 
 	// Get user's meetings
 	getUserMeetings: protectedProcedure.query(async ({ ctx }) => {

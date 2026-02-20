@@ -44,3 +44,8 @@ So: **Upcoming = today + future meetings you’re in, plus your pending/confirme
 - Confirm the principal’s participant row was set to **ACCEPTED** when the ENP confirmed (see `confirmAppointment` in `features/appointments/api/appointments.router.ts`).
 - The meeting is only created for **remote (REN)** appointments on confirm. **In-person (IEN)** appointments don’t get a meeting row, so they won’t appear in the video Sessions list.
 - The principal may need to **refresh** the Sessions page or wait for the next refetch to see the new meeting.
+
+## DocOnChain token and signing
+
+- **Signers (principals) do not need a DocOnChain token** in the app. When they click "Sign Document" or "Plot Signature," the client calls `signatureRequests.initiateSigning` with their email and project/document id. The **server** then obtains a DocOnChain token for that email (server-side) and uses it to generate the sign/plot link. The signer only receives the link and opens it in DocOnChain; no token is required in the browser.
+- **Create Project** is an ENP-only action and is the only UI gated on `docoChainTokenReady`. If you later wire that to a real token fetch, keep it ENP-only—do not require principals to have a token for signing.

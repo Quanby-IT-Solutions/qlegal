@@ -56,6 +56,31 @@ export function TRPCProvider(props: Readonly<{ children: React.ReactNode }>) {
 							return false
 						}
 
+						// Don't log initiateSigning validation/input errors (reduces console noise when pre-gen runs before email/project is ready)
+						if (
+							op.direction === "down" &&
+							op.result instanceof Error &&
+							opWithPath.path === "signatureRequests.initiateSigning" &&
+							(op.result.message.includes("Valid email is required") ||
+								op.result.message.includes("projectUuid or documentId must be provided") ||
+								op.result.message.includes("PRECONDITION_FAILED"))
+						) {
+							return false
+						}
+
+						// Don't log expected markSignedForCurrentUser failures (NOT_FOUND / FORBIDDEN when popup closes)
+						if (
+							op.direction === "down" &&
+							op.result instanceof Error &&
+							opWithPath.path === "signatureRequests.markSignedForCurrentUser" &&
+							(op.result.message.includes("Meeting not found") ||
+								op.result.message.includes("Document not found") ||
+								op.result.message.includes("don't have access") ||
+								op.result.message.includes("not assigned as a signer"))
+						) {
+							return false
+						}
+
 						// Log other errors and all operations in development
 						return op.direction === "down" && op.result instanceof Error
 					},

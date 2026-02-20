@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
-import { and, eq } from "drizzle-orm"
+import { eq } from "drizzle-orm"
 
 import { db } from "@/services/drizzle/db"
 import { documents } from "@/services/drizzle/schema/document"
-import { meetingParticipants, meetings } from "@/services/drizzle/schema/meetings"
 import { auth } from "@/services/next-auth"
 import { getServiceRoleClient } from "@/services/supabase"
 
@@ -22,7 +21,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 			with: {
 				meeting: {
 					with: {
-						participants: true,
+						appointments: {
+							with: { participants: { columns: { userId: true } } },
+						},
 					},
 				},
 			},
@@ -33,9 +34,11 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 		}
 
 		// Check if user has access to the document
-		// If document is associated with a meeting, check meeting access
+		// If document is associated with a meeting, check meeting access via appointment participants
 		if (document.meetingId && document.meeting) {
-			const hasAccess = document.meeting.participants.some(p => p.userId === session.user.id)
+			const hasAccess = (document.meeting.appointments ?? []).some(apt =>
+				(apt.participants ?? []).some(p => p.userId === session.user.id)
+			)
 
 			if (!hasAccess) {
 				return NextResponse.json(
