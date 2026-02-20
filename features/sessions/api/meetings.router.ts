@@ -891,44 +891,57 @@ export const meetingsRouter = createTRPCRouter({
 					.where(eq(documents.id, document.id))
 					.returning()
 
-				// STEP 3: Create DocOnChain project using ENP token (this is the "portal parity" step).
+				// STEP 3: Create DocOnChain project using ENP token (best-effort).
+				// IMPORTANT: DocOnChain can be flaky (504/5xx). We keep the Supabase upload + DB record
+				// and allow retry via createDocoChainProject instead of deleting user data.
 				const safeFilename = name.toLowerCase().endsWith(".pdf") ? name : `${name}.pdf`
-				try {
-					const project = await createDoconchainProject({
-						enpEmail,
-						fileBuffer,
-						filename: safeFilename,
-						mimeType,
-						userListEditable: false,
-						creatorAsViewer: false,
-						documentStamp,
-					})
 
-					await db
-						.update(documents)
-						.set({
-							docoChainProjectId: project.uuid,
-							docoChainRedirectUrl: project.url,
+				let docoChain: { projectCreated: boolean; error?: string } = { projectCreated: false }
+				const transientAttempts = 2
+				for (let attempt = 0; attempt <= transientAttempts; attempt++) {
+					try {
+						const project = await createDoconchainProject({
+							enpEmail,
+							fileBuffer,
+							filename: safeFilename,
+							mimeType,
+							userListEditable: false,
+							creatorAsViewer: false,
+							documentStamp,
 						})
-						.where(eq(documents.id, document.id))
-				} catch (error) {
-					// Keep our system consistent: remove uploaded file + DB record on project failure.
-					if (uploadData?.path) {
-						await supabase.storage
-							.from("documents")
-							.remove([uploadData.path])
-							.catch(() => undefined)
+
+						await db
+							.update(documents)
+							.set({
+								docoChainProjectId: project.uuid,
+								docoChainRedirectUrl: project.url,
+							})
+							.where(eq(documents.id, document.id))
+
+						docoChain = { projectCreated: true }
+						break
+					} catch (error) {
+						const message = error instanceof Error ? error.message : "DocOnChain project creation failed"
+						docoChain = { projectCreated: false, error: message }
+
+						// Retry only for likely-transient upstream failures.
+						const isTransient =
+							typeof message === "string" &&
+							(message.includes("504") || message.includes("503") || message.includes("502"))
+
+						if (!isTransient || attempt >= transientAttempts) {
+							break
+						}
+
+						// small backoff (0.5s, 1s)
+						await new Promise(r => setTimeout(r, 500 * (attempt + 1)))
 					}
-					await db
-						.delete(documents)
-						.where(eq(documents.id, document.id))
-						.catch(() => undefined)
-					throw error
 				}
 
 				return {
 					...updatedDocument,
 					url: publicUrl,
+					docoChain,
 				}
 			} catch (error) {
 				throw new TRPCError({
