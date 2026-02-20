@@ -11,6 +11,16 @@ import {
 } from "date-fns"
 import { Check, ChevronLeftIcon, ChevronRightIcon, ChevronsUpDown } from "lucide-react"
 
+import {
+	AlertDialog,
+	AlertDialogAction,
+	AlertDialogCancel,
+	AlertDialogContent,
+	AlertDialogDescription,
+	AlertDialogFooter,
+	AlertDialogHeader,
+	AlertDialogTitle,
+} from "@/core/components/ui/alert-dialog"
 import { Avatar, AvatarFallback, AvatarImage } from "@/core/components/ui/avatar"
 import { Badge } from "@/core/components/ui/badge"
 import { Button } from "@/core/components/ui/button"
@@ -31,6 +41,15 @@ import {
 	ItemTitle,
 } from "@/core/components/ui/item"
 import { Popover, PopoverContent, PopoverTrigger } from "@/core/components/ui/popover"
+import {
+	Sheet,
+	SheetContent,
+	SheetDescription,
+	SheetFooter,
+	SheetHeader,
+	SheetTitle,
+	SheetTrigger,
+} from "@/core/components/ui/sheet"
 import { Spinner } from "@/core/components/ui/spinner"
 import { cn, getAvatarUrl, getInitials } from "@/core/lib/utils"
 
@@ -48,6 +67,7 @@ export type CalendarEvent = {
 	endAt?: Date
 	allDay?: boolean
 	status: Status
+	color?: string
 	principal?: {
 		name?: string | null
 		image?: string | null
@@ -516,14 +536,19 @@ function CalendarScheduleEventCard({
 	onReject?: () => void
 	isProcessing?: boolean
 }) {
-	const isPending = event.status.id === "pending"
 	const typeName = formatAppointmentType(event.appointmentType)
 	const isRemote = event.workflow === "REN"
 	const showWorkflow = event.appointmentType === "NOTARIZATION"
+	const [isSheetOpen, setIsSheetOpen] = React.useState(false)
+	const [isRejectDialogOpen, setIsRejectDialogOpen] = React.useState(false)
+	const prevIsProcessingRef = React.useRef(false)
+	const isPending = event.status.id === "pending"
+	const isActionable = isPending && !!onAccept && !!onReject
+	const isAppointment = event.meta?.source === "appointment" || !!event.appointmentType
 
-	const subtitle = [typeName, showWorkflow ? (isRemote ? "Remote" : "In Person") : null]
+	const subtitle = [showWorkflow ? (isRemote ? "Remote" : "In Person") : null, typeName]
 		.filter(Boolean)
-		.join(" · ")
+		.join(" ")
 
 	// Override relative label for rejected/rescheduled statuses
 	const displayLabel =
@@ -533,68 +558,193 @@ function CalendarScheduleEventCard({
 				? "Rescheduled"
 				: (relativeLabel ?? null)
 
+	React.useEffect(() => {
+		const wasProcessing = prevIsProcessingRef.current
+		prevIsProcessingRef.current = isProcessing ?? false
+
+		if (wasProcessing && !isProcessing && event.status.id !== "pending") {
+			setIsSheetOpen(false)
+		}
+	}, [isProcessing, event.status.id])
+
 	return (
-		<Item
-			data-slot="calendar-schedule-event-card"
-			variant="outline"
-			size="sm"
-			className={cn("hover:bg-muted/50 transition-colors motion-reduce:transition-none", className)}
-			{...props}
-		>
-			<ItemMedia>
-				<Avatar className="size-8">
-					<AvatarImage src={getAvatarUrl(event.principal?.image) ?? undefined} alt="" />
-					<AvatarFallback className="text-xs">
-						{getInitials(event.principal?.name ?? "?")}
-					</AvatarFallback>
-				</Avatar>
-			</ItemMedia>
-			<ItemContent className="min-w-0">
-				<ItemTitle className="flex items-center gap-1.5 truncate">
-					<span className="truncate">{event.principal?.name ?? event.title}</span>
-					<Badge
-						variant="outline"
-						className="shrink-0 px-1.5 py-0 text-[10px]"
-						style={{
-							borderColor: event.status.color,
-							color: event.status.color,
-						}}
-					>
-						{event.status.name}
-					</Badge>
-				</ItemTitle>
-				<ItemDescription className="text-muted-foreground line-clamp-1 text-xs">
-					{subtitle}
-				</ItemDescription>
-				<ItemDescription className="text-muted-foreground line-clamp-1 text-[10px]">
-					{formattedTime}
-					{displayLabel ? ` · ${displayLabel}` : null}
-				</ItemDescription>
-			</ItemContent>
-			{isPending && onAccept && onReject ? (
-				<ItemActions>
-					<Button
-						variant="outline"
+		<>
+			<Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
+				<SheetTrigger asChild>
+					<Item
+						data-slot="calendar-schedule-event-card"
+						variant="muted"
 						size="sm"
-						className="text-destructive hover:bg-destructive/10"
-						onClick={onReject}
-						disabled={isProcessing}
-					>
-						Reject
-					</Button>
-					<Button size="sm" onClick={onAccept} disabled={isProcessing}>
-						{isProcessing ? (
-							<>
-								<Spinner className="size-4" />
-								Accepting...
-							</>
-						) : (
-							"Accept"
+						className={cn(
+							"hover:bg-secondary border-input border transition-colors motion-reduce:transition-none",
+							className
 						)}
-					</Button>
-				</ItemActions>
-			) : null}
-		</Item>
+						{...props}
+					>
+						<ItemMedia>
+							<Avatar className="size-8">
+								<AvatarImage src={getAvatarUrl(event.principal?.image) ?? undefined} alt="" />
+								<AvatarFallback className="text-xs">
+									{getInitials(event.principal?.name ?? "?")}
+								</AvatarFallback>
+							</Avatar>
+						</ItemMedia>
+						<ItemContent className="min-w-0 gap-0">
+							<ItemTitle className="flex items-center gap-1.5 truncate">
+								<span className="truncate">{event.principal?.name ?? event.title}</span>
+								<Badge
+									variant="secondary"
+									className="shrink-0 px-1.5 py-0 text-[10px]"
+									style={{
+										borderColor: event.status.color,
+										color: event.status.color,
+									}}
+								>
+									{event.status.name}
+								</Badge>
+							</ItemTitle>
+							<ItemDescription className="text-muted-foreground line-clamp-1 text-xs">
+								{subtitle}
+							</ItemDescription>
+						</ItemContent>
+						<ItemActions
+							className={cn(
+								"text-muted-foreground text-xs leading-tight",
+								isActionable ? "flex-row items-center gap-1.5" : "flex flex-col items-end gap-0"
+							)}
+						>
+							{isActionable ? (
+								<>
+									<Button
+										variant="outline"
+										size="xs"
+										className="text-destructive hover:bg-destructive/10 text-xs"
+										disabled={isProcessing}
+										onClick={e => {
+											e.stopPropagation()
+											setIsRejectDialogOpen(true)
+										}}
+									>
+										Reject
+									</Button>
+									<Button
+										size="xs"
+										disabled={isProcessing}
+										onClick={e => {
+											e.stopPropagation()
+											onAccept?.()
+										}}
+										className="text-xs"
+									>
+										{isProcessing ? (
+											<>
+												<Spinner className="size-3" /> Accepting…
+											</>
+										) : (
+											"Accept"
+										)}
+									</Button>
+								</>
+							) : (
+								<>
+									<span>{formattedTime}</span>
+									{displayLabel ? <span>{displayLabel}</span> : null}
+								</>
+							)}
+						</ItemActions>
+					</Item>
+				</SheetTrigger>
+
+				<SheetContent side="right">
+					<SheetHeader className="items-center text-center">
+						<Avatar className="size-14">
+							<AvatarImage src={getAvatarUrl(event.principal?.image) ?? undefined} alt="" />
+							<AvatarFallback className="text-sm">
+								{getInitials(event.principal?.name ?? "?")}
+							</AvatarFallback>
+						</Avatar>
+						<SheetTitle>{event.principal?.name ?? event.title}</SheetTitle>
+						<Badge
+							variant="secondary"
+							className="px-1.5 py-0 text-[10px]"
+							style={{ borderColor: event.status.color, color: event.status.color }}
+						>
+							{event.status.name}
+						</Badge>
+						<SheetDescription className="sr-only">
+							Detailed information and actions for this calendar event
+						</SheetDescription>
+					</SheetHeader>
+
+					<div className="flex flex-col gap-4 px-4">
+						<div className="flex flex-col gap-1">
+							<span className="text-muted-foreground text-[10px] tracking-wide uppercase">
+								Type
+							</span>
+							<span className="text-sm">{subtitle}</span>
+						</div>
+
+						<div className="flex flex-col gap-1">
+							<span className="text-muted-foreground text-[10px] tracking-wide uppercase">
+								Time
+							</span>
+							<span className="text-sm">
+								{formattedTime}
+								{displayLabel ? ` · ${displayLabel}` : null}
+							</span>
+						</div>
+
+						<div className="flex flex-col gap-1">
+							<span className="text-muted-foreground text-[10px] tracking-wide uppercase">
+								Description
+							</span>
+							{event.description ? (
+								<p className="text-sm">{event.description}</p>
+							) : (
+								<p className="text-muted-foreground text-sm italic">No description provided</p>
+							)}
+						</div>
+					</div>
+
+					{isActionable ? (
+						<SheetFooter className="flex-row gap-2">
+							<Button
+								variant="outline"
+								className="text-destructive hover:bg-destructive/10 flex-1"
+								disabled={isProcessing}
+								onClick={() => setIsRejectDialogOpen(true)}
+							>
+								Reject
+							</Button>
+							<Button className="flex-1" disabled={isProcessing} onClick={onAccept}>
+								{isProcessing ? (
+									<>
+										<Spinner className="size-3" /> Accepting…
+									</>
+								) : (
+									"Accept"
+								)}
+							</Button>
+						</SheetFooter>
+					) : null}
+				</SheetContent>
+			</Sheet>
+
+			<AlertDialog open={isRejectDialogOpen} onOpenChange={setIsRejectDialogOpen}>
+				<AlertDialogContent>
+					<AlertDialogHeader>
+						<AlertDialogTitle>
+							{isAppointment ? "Cancel this appointment?" : "Reject this request?"}
+						</AlertDialogTitle>
+						<AlertDialogDescription>This action cannot be undone.</AlertDialogDescription>
+					</AlertDialogHeader>
+					<AlertDialogFooter>
+						<AlertDialogCancel>Cancel</AlertDialogCancel>
+						<AlertDialogAction onClick={onReject}>Confirm</AlertDialogAction>
+					</AlertDialogFooter>
+				</AlertDialogContent>
+			</AlertDialog>
+		</>
 	)
 }
 
@@ -664,7 +814,6 @@ function useSelectedDayEvents(): SelectedDayEvent[] {
 		const dayStart = new Date(y, m, d)
 		const dayEnd = new Date(y, m, d, 23, 59, 59, 999)
 		const now = new Date()
-		const isToday = isSameDay(selectedDate, now)
 
 		return events
 			.filter(e => new Date(e.startAt) <= dayEnd && new Date(e.endAt ?? e.startAt) >= dayStart)
@@ -677,16 +826,20 @@ function useSelectedDayEvents(): SelectedDayEvent[] {
 					: timeFormatter.format(start)
 
 				let relativeLabel: string | null = null
-				if (isToday) {
-					if (now < start)
-						relativeLabel = formatDistanceStrict(start, now, {
-							addSuffix: true,
-						})
-					else if (end && now <= end) relativeLabel = "Ongoing"
-					else if (end)
-						relativeLabel = formatDistanceStrict(end, now, {
-							addSuffix: true,
-						})
+				if (now < start) {
+					relativeLabel = formatDistanceStrict(start, now, {
+						addSuffix: true,
+					})
+				} else if (end && now <= end) {
+					relativeLabel = "Ongoing"
+				} else if (end) {
+					relativeLabel = formatDistanceStrict(end, now, {
+						addSuffix: true,
+					})
+				} else {
+					relativeLabel = formatDistanceStrict(start, now, {
+						addSuffix: true,
+					})
 				}
 
 				return { event, formattedTime, relativeLabel }

@@ -1,11 +1,12 @@
-import { and, count, desc, eq, gte, or, sql } from "drizzle-orm"
+import { and, count, desc, eq, gte, inArray, isNotNull, or, sql } from "drizzle-orm"
 import { z } from "zod/v4"
 
+import { appointmentParticipants } from "@/services/drizzle/schema/appointment-participants"
 import { appointments } from "@/services/drizzle/schema/appointments"
 import { users } from "@/services/drizzle/schema/auth"
 import { documents } from "@/services/drizzle/schema/document"
 import { envelopes } from "@/services/drizzle/schema/envelope"
-import { meetingParticipants, meetings } from "@/services/drizzle/schema/meetings"
+import { meetings } from "@/services/drizzle/schema/meetings"
 import { notarizationRequests } from "@/services/drizzle/schema/notarization-requests"
 import { signatureRequests } from "@/services/drizzle/schema/signature-requests"
 import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
@@ -18,24 +19,25 @@ export const dashboardRouter = createTRPCRouter({
 
 		// Get counts based on user role
 		const isENP = userRole === "ENP"
-		// const isPrincipal = userRole === "PRINCIPAL"
+		const principalSubquery = ctx.db
+			.select({ id: appointmentParticipants.appointmentId })
+			.from(appointmentParticipants)
+			.where(eq(appointmentParticipants.userId, userId))
+		const appointmentScope = isENP
+			? eq(appointments.userId, userId)
+			: inArray(appointments.id, principalSubquery)
 
 		// Total appointments
 		const [appointmentsResult] = await ctx.db
 			.select({ count: count() })
 			.from(appointments)
-			.where(isENP ? eq(appointments.lawyerId, userId) : eq(appointments.clientId, userId))
+			.where(appointmentScope)
 
 		// Pending appointments
 		const [pendingAppointmentsResult] = await ctx.db
 			.select({ count: count() })
 			.from(appointments)
-			.where(
-				and(
-					isENP ? eq(appointments.lawyerId, userId) : eq(appointments.clientId, userId),
-					eq(appointments.status, "PENDING")
-				)
-			)
+			.where(and(appointmentScope, eq(appointments.status, "PENDING")))
 
 		// Total documents
 		const [documentsResult] = await ctx.db
@@ -76,12 +78,7 @@ export const dashboardRouter = createTRPCRouter({
 		const [completedAppointmentsResult] = await ctx.db
 			.select({ count: count() })
 			.from(appointments)
-			.where(
-				and(
-					isENP ? eq(appointments.lawyerId, userId) : eq(appointments.clientId, userId),
-					eq(appointments.status, "COMPLETED")
-				)
-			)
+			.where(and(appointmentScope, eq(appointments.status, "COMPLETED")))
 
 		return {
 			totalAppointments: appointmentsResult?.count ?? 0,
@@ -107,32 +104,28 @@ export const dashboardRouter = createTRPCRouter({
 			const userId = ctx.session.user.id
 			const userRole = ctx.session.user.role
 			const isENP = userRole === "ENP"
+			const principalSubquery = ctx.db
+				.select({ id: appointmentParticipants.appointmentId })
+				.from(appointmentParticipants)
+				.where(eq(appointmentParticipants.userId, userId))
+			const appointmentScope = isENP
+				? eq(appointments.userId, userId)
+				: inArray(appointments.id, principalSubquery)
 
 			const recentAppointments = await ctx.db
 				.select({
 					id: appointments.id,
 					type: appointments.type,
 					status: appointments.status,
+					title: appointments.title,
+					description: appointments.description,
 					appointmentDate: appointments.appointmentDate,
 					duration: appointments.duration,
-					notes: appointments.notes,
 					location: appointments.location,
 					createdAt: appointments.createdAt,
-					// Client info
-					clientId: appointments.clientId,
-					clientName: sql<string>`client.name`,
-					clientEmail: sql<string>`client.email`,
-					clientImage: sql<string>`client.image`,
-					// Lawyer info
-					lawyerId: appointments.lawyerId,
-					lawyerName: sql<string>`lawyer.name`,
-					lawyerEmail: sql<string>`lawyer.email`,
-					lawyerImage: sql<string>`lawyer.image`,
 				})
 				.from(appointments)
-				.innerJoin(sql`${users} as client`, eq(appointments.clientId, sql`client.id`))
-				.innerJoin(sql`${users} as lawyer`, eq(appointments.lawyerId, sql`lawyer.id`))
-				.where(isENP ? eq(appointments.lawyerId, userId) : eq(appointments.clientId, userId))
+				.where(appointmentScope)
 				.orderBy(desc(appointments.appointmentDate))
 				.limit(input?.limit ?? 5)
 
@@ -152,6 +145,13 @@ export const dashboardRouter = createTRPCRouter({
 			const userId = ctx.session.user.id
 			const userRole = ctx.session.user.role
 			const isENP = userRole === "ENP"
+			const principalSubquery = ctx.db
+				.select({ id: appointmentParticipants.appointmentId })
+				.from(appointmentParticipants)
+				.where(eq(appointmentParticipants.userId, userId))
+			const appointmentScope = isENP
+				? eq(appointments.userId, userId)
+				: inArray(appointments.id, principalSubquery)
 
 			const now = new Date()
 
@@ -160,28 +160,17 @@ export const dashboardRouter = createTRPCRouter({
 					id: appointments.id,
 					type: appointments.type,
 					status: appointments.status,
+					title: appointments.title,
+					description: appointments.description,
 					appointmentDate: appointments.appointmentDate,
 					duration: appointments.duration,
-					notes: appointments.notes,
 					location: appointments.location,
 					createdAt: appointments.createdAt,
-					// Client info
-					clientId: appointments.clientId,
-					clientName: sql<string>`client.name`,
-					clientEmail: sql<string>`client.email`,
-					clientImage: sql<string>`client.image`,
-					// Lawyer info
-					lawyerId: appointments.lawyerId,
-					lawyerName: sql<string>`lawyer.name`,
-					lawyerEmail: sql<string>`lawyer.email`,
-					lawyerImage: sql<string>`lawyer.image`,
 				})
 				.from(appointments)
-				.innerJoin(sql`${users} as client`, eq(appointments.clientId, sql`client.id`))
-				.innerJoin(sql`${users} as lawyer`, eq(appointments.lawyerId, sql`lawyer.id`))
 				.where(
 					and(
-						isENP ? eq(appointments.lawyerId, userId) : eq(appointments.clientId, userId),
+						appointmentScope,
 						gte(appointments.appointmentDate, now),
 						or(eq(appointments.status, "PENDING"), eq(appointments.status, "CONFIRMED"))
 					)
@@ -240,6 +229,13 @@ export const dashboardRouter = createTRPCRouter({
 			const userId = ctx.session.user.id
 			const userRole = ctx.session.user.role
 			const isENP = userRole === "ENP"
+			const principalSubquery = ctx.db
+				.select({ id: appointmentParticipants.appointmentId })
+				.from(appointmentParticipants)
+				.where(eq(appointmentParticipants.userId, userId))
+			const appointmentScope = isENP
+				? eq(appointments.userId, userId)
+				: inArray(appointments.id, principalSubquery)
 
 			// Get NOTARIZATION appointments that are PENDING or CONFIRMED
 			const signingAppointments = await ctx.db
@@ -247,77 +243,40 @@ export const dashboardRouter = createTRPCRouter({
 					id: appointments.id,
 					type: appointments.type,
 					status: appointments.status,
+					meetingId: appointments.meetingId,
+					title: appointments.title,
 					appointmentDate: appointments.appointmentDate,
 					duration: appointments.duration,
-					notes: appointments.notes,
 					location: appointments.location,
-					meetingLink: appointments.meetingLink,
 					createdAt: appointments.createdAt,
-					// Client info
-					clientId: appointments.clientId,
-					clientName: sql<string>`client.name`,
-					clientEmail: sql<string>`client.email`,
-					clientImage: sql<string>`client.image`,
-					// Lawyer/ENP info
-					lawyerId: appointments.lawyerId,
-					lawyerName: sql<string>`lawyer.name`,
-					lawyerEmail: sql<string>`lawyer.email`,
-					lawyerImage: sql<string>`lawyer.image`,
 				})
 				.from(appointments)
-				.innerJoin(sql`${users} as client`, eq(appointments.clientId, sql`client.id`))
-				.innerJoin(sql`${users} as lawyer`, eq(appointments.lawyerId, sql`lawyer.id`))
 				.where(
 					and(
-						isENP ? eq(appointments.lawyerId, userId) : eq(appointments.clientId, userId),
+						appointmentScope,
 						eq(appointments.type, "NOTARIZATION"),
-						or(eq(appointments.status, "PENDING"), eq(appointments.status, "CONFIRMED"))
+						or(
+							eq(appointments.status, "PENDING"),
+							eq(appointments.status, "CONFIRMED"),
+							eq(appointments.status, "ONGOING")
+						)
 					)
 				)
 				// Sort by most recently created/booked first so new bookings appear immediately
 				.orderBy(desc(appointments.createdAt))
 				.limit(input?.limit ?? 5)
 
-			// For each appointment, check if there's an active meeting the user can join
-			const appointmentsWithMeetingStatus = await Promise.all(
-				signingAppointments.map(async apt => {
-					// Check if there's an ONGOING meeting linked to this appointment (via meetingLink)
-					// The meetingLink contains the meeting ID when a meeting is created
-					let activeMeetingId: string | null = null
-					let linkedMeetingStatus: string | null = null
+			const appointmentsWithMeetingStatus = signingAppointments.map(apt => {
+				const activeMeetingId = apt.status === "ONGOING" ? apt.meetingId : null
+				const linkedMeetingStatus = apt.status
 
-					if (apt.meetingLink && apt.meetingLink.trim().length > 0) {
-						// Extract meeting ID from the link
-						// Formats: /sessions/{id}/lobby, /sessions/{id}, http://host/sessions/{id}, http://host/sessions/{id}/lobby
-						const meetingIdRegex = /\/sessions\/([a-zA-Z0-9_-]+)/
-						const meetingIdMatch = meetingIdRegex.exec(apt.meetingLink)
-						const potentialMeetingId = meetingIdMatch?.[1]
-
-						if (potentialMeetingId) {
-							// Check if this meeting exists and get its status
-							const [linkedMeeting] = await ctx.db
-								.select({ id: meetings.id, status: meetings.status })
-								.from(meetings)
-								.where(eq(meetings.id, potentialMeetingId))
-								.limit(1)
-
-							if (linkedMeeting) {
-								linkedMeetingStatus = linkedMeeting.status
-								if (linkedMeeting.status === "ONGOING") {
-									activeMeetingId = linkedMeeting.id
-								}
-							}
-						}
-					}
-
-					return {
-						...apt,
-						activeMeetingId,
-						linkedMeetingStatus,
-						canJoin: !!activeMeetingId,
-					}
-				})
-			)
+				return {
+					...apt,
+					activeMeetingId,
+					linkedMeetingStatus,
+					canJoin: !!activeMeetingId,
+				}
+			})
 
 			return appointmentsWithMeetingStatus
 		}),
@@ -338,22 +297,27 @@ export const dashboardRouter = createTRPCRouter({
 			const recentMeetings = await ctx.db
 				.select({
 					id: meetings.id,
-					title: meetings.title,
+					title: appointments.title,
 					roomId: meetings.roomId,
-					status: meetings.status,
+					status: appointments.status,
 					createdAt: meetings.createdAt,
-					createdById: meetings.createdById,
+					createdById: appointments.userId,
 					creatorName: users.name,
 					creatorEmail: users.email,
 					creatorImage: users.image,
 				})
-				.from(meetingParticipants)
-				.innerJoin(meetings, eq(meetingParticipants.meetingId, meetings.id))
-				.innerJoin(users, eq(meetings.createdById, users.id))
+				.from(appointmentParticipants)
+				.innerJoin(appointments, eq(appointmentParticipants.appointmentId, appointments.id))
+				.innerJoin(meetings, eq(appointments.meetingId, meetings.id))
+				.innerJoin(users, eq(appointments.userId, users.id))
 				.where(
-					and(eq(meetingParticipants.userId, userId), eq(meetingParticipants.status, "ACCEPTED"))
+					and(
+						eq(appointmentParticipants.userId, userId),
+						eq(appointmentParticipants.status, "ACCEPTED"),
+						isNotNull(appointments.meetingId)
+					)
 				)
-				.orderBy(desc(meetings.createdAt))
+				.orderBy(desc(appointments.createdAt))
 				.limit(input?.limit ?? 5)
 
 			return recentMeetings
@@ -371,19 +335,20 @@ export const dashboardRouter = createTRPCRouter({
 		.query(async ({ ctx, input }) => {
 			const userId = ctx.session.user.id
 
-			const invites = await ctx.db.query.meetingParticipants.findMany({
+			const invites = await ctx.db.query.appointmentParticipants.findMany({
 				where: and(
-					eq(meetingParticipants.userId, userId),
-					eq(meetingParticipants.status, "PENDING")
+					eq(appointmentParticipants.userId, userId),
+					eq(appointmentParticipants.status, "PENDING")
 				),
 				with: {
-					meeting: {
+					appointment: {
 						columns: {
 							id: true,
 							title: true,
 							status: true,
+							meetingId: true,
 							createdAt: true,
-							createdById: true,
+							userId: true,
 						},
 						with: {
 							createdBy: {
@@ -405,22 +370,23 @@ export const dashboardRouter = createTRPCRouter({
 						},
 					},
 				},
-				orderBy: (mp, { desc }) => [desc(mp.createdAt)],
+				orderBy: (ap, { desc }) => [desc(ap.createdAt)],
 				limit: input?.limit ?? 5,
 			})
 
 			return invites.map(invite => ({
 				id: invite.id,
 				createdAt: invite.createdAt,
-				meetingId: invite.meetingId,
-				meetingTitle: invite.meeting?.title ?? "Meeting",
-				meetingStatus: invite.meeting?.status ?? "SCHEDULED",
-				host: invite.meeting?.createdBy
+				appointmentId: invite.appointmentId,
+				appointmentTitle: invite.appointment?.title ?? "Appointment",
+				appointmentStatus: invite.appointment?.status ?? "PENDING",
+				meetingId: invite.appointment?.meetingId ?? null,
+				host: invite.appointment?.createdBy
 					? {
-							id: invite.meeting.createdBy.id,
-							name: invite.meeting.createdBy.name,
-							email: invite.meeting.createdBy.email,
-							image: invite.meeting.createdBy.image,
+							id: invite.appointment.createdBy.id,
+							name: invite.appointment.createdBy.name,
+							email: invite.appointment.createdBy.email,
+							image: invite.appointment.createdBy.image,
 						}
 					: null,
 				invitedBy: invite.invitedBy
@@ -447,6 +413,13 @@ export const dashboardRouter = createTRPCRouter({
 			const userId = ctx.session.user.id
 			const userRole = ctx.session.user.role
 			const isENP = userRole === "ENP"
+			const principalSubquery = ctx.db
+				.select({ id: appointmentParticipants.appointmentId })
+				.from(appointmentParticipants)
+				.where(eq(appointmentParticipants.userId, userId))
+			const appointmentScope = isENP
+				? eq(appointments.userId, userId)
+				: inArray(appointments.id, principalSubquery)
 
 			const days = input?.days ?? 30
 			const startDate = new Date()
@@ -459,12 +432,7 @@ export const dashboardRouter = createTRPCRouter({
 					count: count(),
 				})
 				.from(appointments)
-				.where(
-					and(
-						isENP ? eq(appointments.lawyerId, userId) : eq(appointments.clientId, userId),
-						gte(appointments.createdAt, startDate)
-					)
-				)
+				.where(and(appointmentScope, gte(appointments.createdAt, startDate)))
 				.groupBy(sql`DATE(${appointments.createdAt})`)
 				.orderBy(sql`DATE(${appointments.createdAt})`)
 
@@ -491,6 +459,13 @@ export const dashboardRouter = createTRPCRouter({
 		const userId = ctx.session.user.id
 		const userRole = ctx.session.user.role
 		const isENP = userRole === "ENP"
+		const principalSubquery = ctx.db
+			.select({ id: appointmentParticipants.appointmentId })
+			.from(appointmentParticipants)
+			.where(eq(appointmentParticipants.userId, userId))
+		const appointmentScope = isENP
+			? eq(appointments.userId, userId)
+			: inArray(appointments.id, principalSubquery)
 
 		const distribution = await ctx.db
 			.select({
@@ -498,7 +473,7 @@ export const dashboardRouter = createTRPCRouter({
 				count: count(),
 			})
 			.from(appointments)
-			.where(isENP ? eq(appointments.lawyerId, userId) : eq(appointments.clientId, userId))
+			.where(appointmentScope)
 			.groupBy(appointments.type)
 
 		return distribution
@@ -509,6 +484,13 @@ export const dashboardRouter = createTRPCRouter({
 		const userId = ctx.session.user.id
 		const userRole = ctx.session.user.role
 		const isENP = userRole === "ENP"
+		const principalSubquery = ctx.db
+			.select({ id: appointmentParticipants.appointmentId })
+			.from(appointmentParticipants)
+			.where(eq(appointmentParticipants.userId, userId))
+		const appointmentScope = isENP
+			? eq(appointments.userId, userId)
+			: inArray(appointments.id, principalSubquery)
 
 		const distribution = await ctx.db
 			.select({
@@ -516,7 +498,7 @@ export const dashboardRouter = createTRPCRouter({
 				count: count(),
 			})
 			.from(appointments)
-			.where(isENP ? eq(appointments.lawyerId, userId) : eq(appointments.clientId, userId))
+			.where(appointmentScope)
 			.groupBy(appointments.status)
 
 		return distribution

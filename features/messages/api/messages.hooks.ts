@@ -48,5 +48,21 @@ export function useMessages() {
 					enabled: query.length > 0,
 				}
 			),
+
+		// ENP sends a consultation request via chat
+		sendConsultationRequest: trpc.messages.sendConsultationRequest.useMutation({
+			onSuccess: () => {
+				void utils.messages.getConversations.invalidate()
+				void utils.messages.getMessages.invalidate()
+			},
+		}),
+
+		// Principal accepts or declines a consultation request
+		respondToConsultationRequest: trpc.messages.respondToConsultationRequest.useMutation({
+			onSuccess: () => {
+				void utils.messages.getConversations.invalidate()
+				void utils.messages.getMessages.invalidate()
+			},
+		}),
 	}
 }

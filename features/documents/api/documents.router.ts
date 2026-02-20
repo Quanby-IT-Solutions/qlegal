@@ -2,9 +2,10 @@ import { TRPCError } from "@trpc/server"
 import { and, desc, eq, ilike, or } from "drizzle-orm"
 import { z } from "zod"
 
+import { appointmentParticipants } from "@/services/drizzle/schema/appointment-participants"
+import { appointments } from "@/services/drizzle/schema/appointments"
 import { users } from "@/services/drizzle/schema/auth"
 import { documents } from "@/services/drizzle/schema/document"
-import { meetingParticipants } from "@/services/drizzle/schema/meetings"
 import { notarialActs } from "@/services/drizzle/schema/notarial-book"
 import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
 
@@ -109,15 +110,20 @@ export const documentsRouter = createTRPCRouter({
 					columns: { meetingId: true },
 				})
 				if (doc?.meetingId) {
-					const witnessParticipants = await ctx.db.query.meetingParticipants.findMany({
-						where: and(
-							eq(meetingParticipants.meetingId, doc.meetingId),
-							eq(meetingParticipants.participantRole, "WITNESS")
-						),
-						with: { user: { columns: { email: true } } },
+					const appointment = await ctx.db.query.appointments.findFirst({
+						where: eq(appointments.meetingId, doc.meetingId),
 					})
-					for (const p of witnessParticipants) {
-						if (p.user?.email) witnessEmails.add(p.user.email.trim().toLowerCase())
+					if (appointment) {
+						const witnessParticipants = await ctx.db.query.appointmentParticipants.findMany({
+							where: and(
+								eq(appointmentParticipants.appointmentId, appointment.id),
+								eq(appointmentParticipants.participantRole, "PARTICIPANT")
+							),
+							with: { user: { columns: { email: true } } },
+						})
+						for (const p of witnessParticipants) {
+							if (p.user?.email) witnessEmails.add(p.user.email.trim().toLowerCase())
+						}
 					}
 				}
 			}
@@ -160,8 +166,7 @@ export const documentsRouter = createTRPCRouter({
 							signerUser?.barangay,
 							signerUser?.cityProvince,
 						].filter(Boolean) as string[]
-						const fullAddress =
-							signerUser?.address ?? (parts.length > 0 ? parts.join(", ") : null)
+						const fullAddress = signerUser?.address ?? (parts.length > 0 ? parts.join(", ") : null)
 						return {
 							...s,
 							fullAddress,
@@ -219,7 +224,8 @@ export const documentsRouter = createTRPCRouter({
 
 			throw new TRPCError({
 				code: "SERVICE_UNAVAILABLE",
-				message: "Signed document retrieval is currently unavailable while we rebuild the signing integration.",
+				message:
+					"Signed document retrieval is currently unavailable while we rebuild the signing integration.",
 			})
 		}),
 })

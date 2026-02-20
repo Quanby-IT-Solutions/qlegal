@@ -2,12 +2,31 @@ import { type inferRouterOutputs } from "@trpc/server"
 
 import type { CalendarEvent, Status } from "@/core/components/calendar-schedule"
 
+import type { AppointmentParticipant as DrizzleAppointmentParticipant } from "@/services/drizzle/schema/appointment-participants"
 import type { Appointment } from "@/services/drizzle/schema/appointments"
+import type { User } from "@/services/drizzle/schema/auth"
 import type { AppRouter } from "@/services/trpc/root"
 
-type IncomingRequest = inferRouterOutputs<AppRouter>["appointments"]["getIncomingRequests"][number]
-type IncomingAppointment =
-	inferRouterOutputs<AppRouter>["appointments"]["getIncomingAppointmentsForENP"][number]
+type RouterOutputs = inferRouterOutputs<AppRouter>
+
+type IncomingRequest = RouterOutputs["appointments"]["getIncomingRequests"][number]
+type IncomingAppointment = RouterOutputs["appointments"]["getIncomingAppointmentsForENP"][number]
+
+type EventPrincipal = {
+	name?: User["name"] | undefined
+	image?: User["image"] | undefined
+}
+
+type AppointmentParticipantWithUser = Pick<DrizzleAppointmentParticipant, "participantRole"> & {
+	user?: EventPrincipal | null
+}
+
+type AppointmentWithPrincipal = Appointment & {
+	client?: EventPrincipal | null
+	principal?: EventPrincipal | null
+	participants?: AppointmentParticipantWithUser[] | null
+	lapsed?: boolean
+}
 
 export const STATUS_PENDING: Status = { id: "pending", name: "Pending", color: "#F59E0B" }
 export const STATUS_CONFIRMED: Status = { id: "confirmed", name: "Confirmed", color: "#10B981" }
@@ -19,19 +38,57 @@ export const STATUS_IN_PROGRESS: Status = {
 }
 export const STATUS_LAPSED: Status = { id: "lapsed", name: "Lapsed", color: "#D97706" }
 
-export function toCalendarEvent(
-	apt: Appointment & { client?: { name?: string | null; image?: string | null } },
-	status: Status
-): CalendarEvent {
+function toEventPrincipal(principal?: EventPrincipal | null): EventPrincipal | undefined {
+	if (!principal) return undefined
+	if (!principal.name && !principal.image) return undefined
+	return {
+		name: principal.name,
+		image: principal.image,
+	}
+}
+
+function getPrincipalFromParticipants(
+	participants?: AppointmentParticipantWithUser[] | null
+): EventPrincipal | undefined {
+	if (!participants?.length) return undefined
+
+	const participantUser = participants.find(
+		participant => participant.participantRole === "PARTICIPANT"
+	)?.user
+
+	if (participantUser?.name || participantUser?.image) {
+		return toEventPrincipal(participantUser)
+	}
+
+	const firstUser = participants.find(
+		participant => (participant.user?.name ?? participant.user?.image) !== null
+	)?.user
+	return toEventPrincipal(firstUser)
+}
+
+function resolvePrincipal(source: {
+	participants?: AppointmentParticipantWithUser[] | null
+	principal?: EventPrincipal | null
+	client?: EventPrincipal | null
+}): EventPrincipal | undefined {
+	return (
+		getPrincipalFromParticipants(source.participants) ??
+		toEventPrincipal(source.principal) ??
+		toEventPrincipal(source.client)
+	)
+}
+
+export function toCalendarEvent(apt: AppointmentWithPrincipal, status: Status): CalendarEvent {
 	const eventDate = new Date(apt.appointmentDate)
-	const notes = apt.notes?.split("\n")[0]
+	const summary = apt.description?.split("\n")[0]
 	return {
 		id: apt.id,
-		title: notes ?? (apt.type === "NOTARIZATION" ? "Notarization" : "Consultation"),
-		description: apt.notes ?? undefined,
+		title: summary ?? (apt.type === "NOTARIZATION" ? "Notarization" : "Consultation"),
+		description: apt.description ?? undefined,
 		startAt: eventDate,
 		status,
-		principal: apt.client ? { name: apt.client.name, image: apt.client.image } : undefined,
+		color: apt.color ?? undefined,
+		principal: resolvePrincipal(apt),
 		appointmentType: apt.type as "NOTARIZATION" | "CONSULTATION" | undefined,
 	}
 }
@@ -48,7 +105,7 @@ export function toCalendarEventFromIncomingAppointment(item: IncomingAppointment
 		type: item.title === "Notarization" ? "NOTARIZATION" : "CONSULTATION",
 		status: item.status,
 		appointmentDate: item.createdAt,
-		notes: item.description,
+		description: item.description,
 		client: item.principal,
 		lapsed: false,
 	}
@@ -67,14 +124,13 @@ export function toCalendarEventFromIncomingAppointment(item: IncomingAppointment
 	return {
 		id: appointment.id,
 		title:
-			appointment.notes?.split("\n")[0] ??
+			appointment.description?.split("\n")[0] ??
 			(appointment.type === "NOTARIZATION" ? "Notarization" : "Consultation"),
-		description: appointment.notes ?? undefined,
+		description: appointment.description ?? undefined,
 		startAt: eventDate,
 		status,
-		principal: appointment.client
-			? { name: appointment.client.name, image: appointment.client.image }
-			: undefined,
+		color: appointment.color ?? status.color,
+		principal: resolvePrincipal(appointment) ?? toEventPrincipal(item.principal),
 		appointmentType: appointment.type,
 		workflow: toWorkflow(item.workflow),
 		meta: { source: "appointment", incomingItemId: item.id },
@@ -98,6 +154,7 @@ export function toCalendarEventFromIncomingRequest(item: IncomingRequest): Calen
 		description: item.description ?? undefined,
 		startAt,
 		status,
+		color: status.color,
 		principal: item.principal
 			? { name: item.principal.name, image: item.principal.image }
 			: undefined,
@@ -109,7 +166,7 @@ export function toCalendarEventFromIncomingRequest(item: IncomingRequest): Calen
 export function buildCalendarEvents(
 	incomingRequests: IncomingRequest[],
 	incomingAppointments: IncomingAppointment[],
-	myAppointments: (Appointment & { lapsed?: boolean })[]
+	myAppointments: (AppointmentWithPrincipal & { lapsed?: boolean })[]
 ): CalendarEvent[] {
 	const seen = new Set<string>()
 	const result: CalendarEvent[] = []

@@ -33,8 +33,8 @@ import {
 import { useSession } from "next-auth/react"
 import { toast } from "sonner"
 
-import { Button } from "@/core/components/ui/button"
 import { Badge } from "@/core/components/ui/badge"
+import { Button } from "@/core/components/ui/button"
 import { Card, CardContent } from "@/core/components/ui/card"
 import { Checkbox } from "@/core/components/ui/checkbox"
 import {
@@ -1366,7 +1366,11 @@ const AssignedSignerList = React.memo(function AssignedSignerList({
 							<div
 								className={cn(
 									"flex size-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold",
-									signed ? "bg-green-600 text-white" : isCurrent ? "bg-blue-600 text-white" : "bg-muted text-muted-foreground"
+									signed
+										? "bg-green-600 text-white"
+										: isCurrent
+											? "bg-blue-600 text-white"
+											: "bg-muted text-muted-foreground"
 								)}
 							>
 								{idx + 1}
@@ -1574,7 +1578,9 @@ const DocumentActions = React.memo(function DocumentActions({
 	const internalPreviousSignersHaveSigned =
 		currentUserIndex <= 0
 			? true
-			: (signerUserIds ?? []).slice(0, currentUserIndex).every(id => statusBySignerId.get(id) === "SIGNED")
+			: (signerUserIds ?? [])
+					.slice(0, currentUserIndex)
+					.every(id => statusBySignerId.get(id) === "SIGNED")
 
 	const isUsersTurnToSign =
 		hasInternalSigningState &&
@@ -1615,7 +1621,10 @@ const DocumentActions = React.memo(function DocumentActions({
 	// Only the first signer (index 0) waits for ENP to plot. Signers 2, 3, ... (e.g. witness) do not
 	// see "Waiting for ENP to plot" — they see "Previous signer(s) must sign first" until it's their turn.
 	const isPrincipalWaitingForEnpToPlot =
-		isPrincipal && (isSignerBySelection || isUserAddedAsSigner) && currentUserIndexInOrder === 0 && !enpHasConfirmedPlot
+		isPrincipal &&
+		(isSignerBySelection || isUserAddedAsSigner) &&
+		currentUserIndexInOrder === 0 &&
+		!enpHasConfirmedPlot
 
 	// Both buttons visible when applicable. Disable by phase so the wrong link is never used.
 	// Plot Signature: ENP only, project exists, not signed. After plotting is done it stays visible but disabled.
@@ -1664,7 +1673,8 @@ const DocumentActions = React.memo(function DocumentActions({
 	// Determine if Start Signing button should be disabled
 	const isSigningDisabledByOrder = isLocked && !isPreviousDocumentSigned && (documentIndex ?? 0) > 0
 	// When documents are locked, ENP must also plot in order (Doc 2 cannot be plotted until Doc 1 is fully signed).
-	const isPlottingDisabledByOrder = isLocked && !isPreviousDocumentSigned && (documentIndex ?? 0) > 0
+	const isPlottingDisabledByOrder =
+		isLocked && !isPreviousDocumentSigned && (documentIndex ?? 0) > 0
 	const hasNoSignersSelected = !document.docoChainProjectId && (signerUserIds?.length ?? 0) === 0
 	const hasSigners = (signerUserIds?.length ?? 0) > 0
 	const userNotInSignerList = hasSigners && !isCurrentUserSigner
@@ -1798,7 +1808,12 @@ const DocumentActions = React.memo(function DocumentActions({
 		onSuccess: data => {
 			// Store pre-generated Sign link for this document (kept separate from Plot link).
 			if (data?.link && document.docoChainProjectId && onPreGeneratedLink) {
-				onPreGeneratedLink(document.id, data.link, data.projectUuid ?? document.docoChainProjectId, "sign")
+				onPreGeneratedLink(
+					document.id,
+					data.link,
+					data.projectUuid ?? document.docoChainProjectId,
+					"sign"
+				)
 			}
 			preGenerationInitiatedRef.current = null
 		},
@@ -1911,7 +1926,12 @@ const DocumentActions = React.memo(function DocumentActions({
 	return (
 		<div className="space-y-2">
 			{signingIndicator && (
-				<div className={cn("flex items-center gap-1.5 rounded-md px-2 py-1 text-[10px] font-semibold", signingIndicator.className)}>
+				<div
+					className={cn(
+						"flex items-center gap-1.5 rounded-md px-2 py-1 text-[10px] font-semibold",
+						signingIndicator.className
+					)}
+				>
 					<signingIndicator.icon className="size-3" />
 					<span>{signingIndicator.text}</span>
 				</div>
@@ -2073,22 +2093,22 @@ const DocumentActions = React.memo(function DocumentActions({
 									? "All signers have completed signing"
 									: isPlottingDisabledByOrder
 										? "Complete the previous document before plotting the next one"
-									: isSigningDisabledByOrder
-										? ""
-										: hasNoSignersSelected
-											? "Select at least one signer for this document"
-											: userNotInSignerList
-												? "You must be added as a signer to start signing"
-												: isPrincipalWaitingForEnpToPlot
-													? "Waiting for ENP to plot your signature"
-													: isEnp &&
-														  isPlottingPhase &&
-														  showSignDocument &&
-														  !(userConfirmedPlottedDocumentIds?.has(document.id) ?? false)
-														? ""
-														: isSigningDisabledByPreviousSigners
+										: isSigningDisabledByOrder
+											? ""
+											: hasNoSignersSelected
+												? "Select at least one signer for this document"
+												: userNotInSignerList
+													? "You must be added as a signer to start signing"
+													: isPrincipalWaitingForEnpToPlot
+														? "Waiting for ENP to plot your signature"
+														: isEnp &&
+															  isPlottingPhase &&
+															  showSignDocument &&
+															  !(userConfirmedPlottedDocumentIds?.has(document.id) ?? false)
 															? ""
-															: ""}
+															: isSigningDisabledByPreviousSigners
+																? ""
+																: ""}
 					</p>
 				)}
 			</div>
@@ -2224,13 +2244,10 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 	const signingStatusInFlightRef = useRef(false)
 
 	// Core refresh logic extracted for reuse
-	const performSigningStatusRefresh = useCallback(
-		async (_force = false) => {
-			// External signing status polling is disabled while the signing integration is rebuilt.
-			return
-		},
-		[]
-	)
+	const performSigningStatusRefresh = useCallback(async (_force = false) => {
+		// External signing status polling is disabled while the signing integration is rebuilt.
+		return
+	}, [])
 
 	// Automatic polling refresh (respects visibility and pause state)
 	const refreshSigningStatuses = useCallback(async () => {
@@ -2587,7 +2604,9 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 
 			const kind = isPlotting === true ? "plot" : "sign"
 			const existing =
-				kind === "plot" ? preGeneratedPlotLinks.get(documentId) : preGeneratedSignLinks.get(documentId)
+				kind === "plot"
+					? preGeneratedPlotLinks.get(documentId)
+					: preGeneratedSignLinks.get(documentId)
 
 			const nowMs = Date.now()
 			const isCachedLinkUsable =
@@ -3476,36 +3495,46 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 								const previousDoc = index > 0 ? documents[index - 1] : null
 								// Prefer internal signature-requests state for "previous doc is complete" since that
 								// drives the UI signers list (and updates even when external polling is paused).
-								type InternalSignatureRequest = { signerId?: unknown; status?: unknown; signedAt?: unknown }
+								type InternalSignatureRequest = {
+									signerId?: unknown
+									status?: unknown
+									signedAt?: unknown
+								}
 								type InternalNotarizationDoc = {
 									id?: unknown
 									signatureRequests?: unknown
 								}
-								const notarizationDocsRaw = (notarizationDetails as unknown as { documents?: unknown })
-									?.documents
+								const notarizationDocsRaw = (
+									notarizationDetails as unknown as { documents?: unknown }
+								)?.documents
 								const notarizationDocs = Array.isArray(notarizationDocsRaw)
 									? (notarizationDocsRaw as InternalNotarizationDoc[])
 									: []
-								const previousInternalRequestsRaw =
-									previousDoc?.id
-										? (notarizationDocs.find(d => d?.id === previousDoc.id)?.signatureRequests ?? [])
-										: []
+								const previousInternalRequestsRaw = previousDoc?.id
+									? (notarizationDocs.find(d => d?.id === previousDoc.id)?.signatureRequests ?? [])
+									: []
 								const previousInternalRequests = Array.isArray(previousInternalRequestsRaw)
 									? (previousInternalRequestsRaw as InternalSignatureRequest[])
 									: []
 
 								// Mirror the UI's "Completed" logic (AssignedSignerList): we only consider the assigned
 								// signer list, not any extra DocOnChain/portal records that may appear in signatureRequests.
-								const previousSignerUserIdsRaw = (previousDoc as unknown as { signerUserIds?: unknown })
-									?.signerUserIds
+								const previousSignerUserIdsRaw = (
+									previousDoc as unknown as { signerUserIds?: unknown }
+								)?.signerUserIds
 								const previousSignerUserIds = Array.isArray(previousSignerUserIdsRaw)
-									? (previousSignerUserIdsRaw as string[]).filter(v => typeof v === "string" && v.trim())
+									? (previousSignerUserIdsRaw as string[]).filter(
+											v => typeof v === "string" && v.trim()
+										)
 									: []
 								const statusBySignerId = new Map<string, string>()
 								for (const req of previousInternalRequests) {
 									const id = typeof req?.signerId === "string" ? req.signerId.trim() : ""
 									if (!id) continue
-									statusBySignerId.set(id, typeof req?.status === "string" ? req.status.toUpperCase() : "")
+									statusBySignerId.set(
+										id,
+										typeof req?.status === "string" ? req.status.toUpperCase() : ""
+									)
 								}
 								const previousIsInternallySigned =
 									previousSignerUserIds.length > 0 &&
@@ -3515,15 +3544,16 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 									})
 
 								// External signing status (DocOnChain) as a fallback when internal requests aren't present.
-								const previousSigningStatus =
-									previousDoc?.docoChainProjectId ? documentSigningStatus.get(previousDoc.id) : undefined
+								const previousSigningStatus = previousDoc?.docoChainProjectId
+									? documentSigningStatus.get(previousDoc.id)
+									: undefined
 								const previousIsExternallySigned =
 									previousSigningStatus?.isFullySigned === true ||
-									(((previousSigningStatus?.totalSigners ?? 0) > 0 &&
+									((previousSigningStatus?.totalSigners ?? 0) > 0 &&
 										(previousSigningStatus?.signedCount ?? 0) ===
 											(previousSigningStatus?.totalSigners ?? 0) &&
 										(previousSigningStatus?.signedCount ?? 0) > 0) ||
-										false)
+									false
 
 								const isPreviousDocumentSigned =
 									!previousDoc || previousIsInternallySigned || previousIsExternallySigned
@@ -3716,10 +3746,10 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 												isPreviousDocumentSigned={isPreviousDocumentSigned}
 												documentIndex={index}
 												signers={documentSigningStatus.get(doc.id)?.signers}
-													signatureRequests={
-														(notarizationDetails?.documents ?? []).find(d => d.id === doc.id)
-															?.signatureRequests ?? []
-													}
+												signatureRequests={
+													(notarizationDetails?.documents ?? []).find(d => d.id === doc.id)
+														?.signatureRequests ?? []
+												}
 												participants={meetingDetails?.participants ?? []}
 												signerUserIds={(doc as { signerUserIds?: string[] }).signerUserIds ?? []}
 												meetingId={meetingId ?? undefined}
@@ -3935,7 +3965,7 @@ function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?:
 				{/* Documents Panel at Bottom */}
 				{documentsPanel}
 			</div>
-		{/* Signature request modal flow removed */}
+			{/* Signature request modal flow removed */}
 
 			{/* Recording Consent Dialog (shown to all participants) */}
 			<Dialog
@@ -4027,7 +4057,6 @@ export function VideoMeetingClient({
 	participantName,
 	onLeave,
 }: VideoMeetingClientProps) {
-	// Only enable debug mode in development
 	const isDevelopment =
 		typeof window === "undefined" ? false : window.location.hostname === "localhost"
 

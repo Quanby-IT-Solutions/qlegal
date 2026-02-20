@@ -56,6 +56,10 @@ export const messages = createTable(
 			.notNull()
 			.references(() => users.id, { onDelete: "cascade" }),
 		content: t.text().notNull(),
+		/** Discriminates message kind: "text" | "consultation_request" */
+		messageType: t.varchar({ length: 50 }).default("text").notNull(),
+		/** JSON payload for structured messages (e.g. consultation request details) */
+		metadata: t.jsonb(),
 		createdAt: t.timestamp({ mode: "date", withTimezone: true }).defaultNow().notNull(),
 	}),
 	t => [

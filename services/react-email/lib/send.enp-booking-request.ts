@@ -17,6 +17,7 @@ export async function sendBookingConfirmation(
 	reason: string
 ) {
 	const confirmLink = `${getUrl()}/bookings/confirm`
+	const siteUrl = env.NEXT_PUBLIC_SITE_URL
 
 	await emailTransporter.sendMail({
 		from: `Quanby Sign <${env.EMAIL_FROM}>`,
@@ -32,6 +33,7 @@ export async function sendBookingConfirmation(
 				sessionType,
 				reason,
 				confirmLink,
+				siteUrl,
 			})
 		),
 	})

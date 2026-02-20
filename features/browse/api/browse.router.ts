@@ -2,6 +2,7 @@ import { TRPCError } from "@trpc/server"
 import { and, count, desc, eq, ilike, or } from "drizzle-orm"
 import { z } from "zod/v4"
 
+import { appointmentParticipants } from "@/services/drizzle/schema/appointment-participants"
 import { appointments } from "@/services/drizzle/schema/appointments"
 import { users } from "@/services/drizzle/schema/auth"
 import { enpProfiles } from "@/services/drizzle/schema/enp-profiles"
@@ -261,7 +262,7 @@ export const browseRouter = createTRPCRouter({
 	bookConsultation: protectedProcedure
 		.input(bookConsultationInputSchema)
 		.mutation(async ({ ctx, input }) => {
-			const clientId = ctx.session.user.id
+			const principalId = ctx.session.user.id
 
 			// Verify the ENP exists and has ENP role
 			const enp = await ctx.db.query.users.findFirst({
@@ -306,15 +307,13 @@ export const browseRouter = createTRPCRouter({
 			const [appointment] = await ctx.db
 				.insert(appointments)
 				.values({
-					clientId,
-					lawyerId: input.enpId,
+					userId: input.enpId,
+					title: consultationNotes || "Consultation",
 					type: "CONSULTATION",
 					appointmentDate: appointmentDateTime,
 					duration,
 					modeOfNotarization: null, // No mode for consultations
-					notes: consultationNotes,
 					location: null,
-					meetingLink: null, // Will be set when confirmed
 					status: "PENDING",
 				})
 				.returning()
@@ -325,6 +324,21 @@ export const browseRouter = createTRPCRouter({
 					message: "Failed to create consultation",
 				})
 			}
+
+			await ctx.db.insert(appointmentParticipants).values({
+				appointmentId: appointment.id,
+				userId: input.enpId,
+				participantRole: "HOST",
+				status: "ACCEPTED",
+			})
+
+			await ctx.db.insert(appointmentParticipants).values({
+				appointmentId: appointment.id,
+				userId: principalId,
+				participantRole: "PARTICIPANT",
+				status: "ACCEPTED",
+				invitedById: input.enpId,
+			})
 
 			// Meeting and conversation are created after ENP confirms to ensure acceptance first
 
@@ -358,7 +372,7 @@ export const browseRouter = createTRPCRouter({
 			// Get existing appointments for this ENP
 			const existingAppointments = await ctx.db.query.appointments.findMany({
 				where: and(
-					eq(appointments.lawyerId, input.enpId),
+					eq(appointments.userId, input.enpId),
 					or(eq(appointments.status, "PENDING"), eq(appointments.status, "CONFIRMED"))
 				),
 			})
