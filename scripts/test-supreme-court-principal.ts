@@ -27,12 +27,14 @@ async function main() {
 		process.exit(1)
 	}
 
-	// Get NRID from command line or use example from PDF
-	const notarialRegistryID = process.argv[2] || "NRID-683d5d1fb5ae63f47af30312"
+	// NRID must be from an existing notarial act in Supreme Court (e.g. from a recent sync)
+	const notarialRegistryID = process.argv[2]
 
-	if (!notarialRegistryID.startsWith("NRID-")) {
-		console.error("❌ Invalid NRID format. Must start with 'NRID-'")
-		console.error("   Example: NRID-683d5d1fb5ae63f47af30312")
+	if (!notarialRegistryID?.startsWith("NRID-")) {
+		console.error("❌ Pass a valid NRID from an existing act (e.g. from a recent sync).")
+		console.error("   Usage: pnpm test:supreme-court-principal <NRID>")
+		console.error("   Example: pnpm test:supreme-court-principal NRID-698bea057039a3a0d114650e")
+		console.error("   Get an NRID by running: pnpm test:supreme-court-sync <notarial-act-id>")
 		process.exit(1)
 	}
 

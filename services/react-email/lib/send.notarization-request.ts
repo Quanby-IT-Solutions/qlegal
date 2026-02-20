@@ -26,6 +26,7 @@ export async function sendNotarizationRequestNotification({
 }) {
 	try {
 		const siteUrl = env.NEXT_PUBLIC_SITE_URL
+
 		await emailTransporter.sendMail({
 			from: `Quanby Sign <${env.EMAIL_FROM}>`,
 			to: enpEmail,
@@ -46,6 +47,5 @@ export async function sendNotarizationRequestNotification({
 		console.log(`✅ Notarization request notification sent to ${enpEmail}`)
 	} catch (error) {
 		console.error(`❌ Failed to send notarization request notification to ${enpEmail}:`, error)
-		// Don't throw - email failure shouldn't break request creation
 	}
 }

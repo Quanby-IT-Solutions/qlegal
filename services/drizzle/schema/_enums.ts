@@ -22,34 +22,30 @@ export const documentStatusEnum = pgEnum("document_status", [
 	"ERROR",
 ])
 
-// Meeting status enum
-export const meetingStatus = pgEnum("meeting_status", [
-	"SCHEDULED",
-	"ONGOING",
-	"COMPLETED",
-	"CANCELLED",
-])
-
 // Meeting participant/invite status enum
-export const meetingParticipantStatus = pgEnum("meeting_participant_status", [
+export const appointmentParticipantStatus = pgEnum("appointment_participant_status", [
 	"PENDING",
 	"ACCEPTED",
 	"DECLINED",
 ])
 
 // Meeting participant role (e.g. invited as witness from lobby)
-export const meetingParticipantRole = pgEnum("meeting_participant_role", ["PRINCIPAL", "WITNESS"])
+export const appointmentParticipantRole = pgEnum("appointment_participant_role", [
+	"HOST",
+	"PARTICIPANT",
+])
 
 // Appointment status enum
 export const appointmentStatus = pgEnum("appointment_status", [
 	"PENDING",
 	"CONFIRMED",
+	"ONGOING",
 	"CANCELLED",
 	"COMPLETED",
 ])
 
 // Appointment type enum
-export const appointmentType = pgEnum("appointment_type", ["DOCUMENT_SIGNING", "CONSULTATION"])
+export const appointmentType = pgEnum("appointment_type", ["NOTARIZATION", "CONSULTATION"])
 
 // Legal application status enum
 export const legalApplicationStatus = pgEnum("legal_application_status", [

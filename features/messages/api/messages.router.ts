@@ -4,6 +4,7 @@ import { and, asc, desc, eq, gt, ne, or, sql } from "drizzle-orm"
 import { z } from "zod/v4"
 
 import { db } from "@/services/drizzle/db"
+import { appointments } from "@/services/drizzle/schema/appointments"
 import { users } from "@/services/drizzle/schema/auth"
 import {
 	conversationParticipants,
@@ -439,5 +440,191 @@ export const messagesRouter = createTRPCRouter({
 			})
 
 			return searchResults
+		}),
+
+	// ENP sends a consultation request card via chat
+	sendConsultationRequest: protectedProcedure
+		.input(
+			z.object({
+				conversationId: z.string(),
+				title: z.string().min(1),
+				description: z.string().optional(),
+				appointmentDate: z.string(), // ISO string
+				startTime: z.string(),
+				endTime: z.string(),
+				duration: z.number(),
+				eventType: z.enum(["consultation", "notarization"]),
+				mode: z.enum(["ren", "ien"]).optional(),
+				location: z.string().optional(),
+			})
+		)
+		.mutation(async ({ input, ctx }) => {
+			// Ensure sender is an ENP
+			const sender = await db.query.users.findFirst({
+				where: eq(users.id, ctx.session.user.id),
+				columns: { id: true, role: true },
+			})
+			if (!sender || sender.role !== "ENP") {
+				throw new TRPCError({ code: "FORBIDDEN", message: "Only ENP can send consultation requests" })
+			}
+
+			// Verify participant
+			const participant = await db.query.conversationParticipants.findFirst({
+				where: and(
+					eq(conversationParticipants.conversationId, input.conversationId),
+					eq(conversationParticipants.userId, ctx.session.user.id)
+				),
+			})
+			if (!participant) {
+				throw new TRPCError({ code: "FORBIDDEN", message: "You are not a participant in this conversation" })
+			}
+
+			const metadata = {
+				title: input.title,
+				description: input.description,
+				appointmentDate: input.appointmentDate,
+				startTime: input.startTime,
+				endTime: input.endTime,
+				duration: input.duration,
+				eventType: input.eventType,
+				mode: input.mode,
+				location: input.location,
+				status: "PENDING" as const, // PENDING | ACCEPTED | DECLINED
+				enpId: ctx.session.user.id,
+			}
+
+			const [inserted] = await db
+				.insert(messages)
+				.values({
+					conversationId: input.conversationId,
+					senderId: ctx.session.user.id,
+					content: `Consultation request: ${input.title}`,
+					messageType: "consultation_request",
+					metadata,
+				})
+				.returning()
+
+			if (!inserted) {
+				throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Failed to insert message" })
+			}
+
+			await db
+				.update(conversations)
+				.set({ updatedAt: new Date() })
+				.where(eq(conversations.id, input.conversationId))
+
+			const withSender = await db.query.messages.findFirst({
+				where: eq(messages.id, inserted.id),
+				with: {
+					sender: {
+						columns: { id: true, name: true, email: true, image: true },
+					},
+				},
+			})
+			const messagePayload = withSender as unknown as MessageWithSender
+			if (messagePayload) {
+				emitMessageAdd(input.conversationId, messagePayload)
+			}
+
+			const participants = await db.query.conversationParticipants.findMany({
+				where: eq(conversationParticipants.conversationId, input.conversationId),
+				columns: { userId: true },
+			})
+			emitConversationUpdate(participants.map(p => p.userId))
+
+			return inserted
+		}),
+
+	// Principal accepts or declines a consultation request
+	respondToConsultationRequest: protectedProcedure
+		.input(
+			z.object({
+				messageId: z.string(),
+				response: z.enum(["ACCEPTED", "DECLINED"]),
+			})
+		)
+		.mutation(async ({ input, ctx }) => {
+			// Fetch the message
+			const message = await db.query.messages.findFirst({
+				where: eq(messages.id, input.messageId),
+			})
+
+			if (!message || message.messageType !== "consultation_request") {
+				throw new TRPCError({ code: "NOT_FOUND", message: "Consultation request not found" })
+			}
+
+			// Verify responder is a participant
+			const participant = await db.query.conversationParticipants.findFirst({
+				where: and(
+					eq(conversationParticipants.conversationId, message.conversationId),
+					eq(conversationParticipants.userId, ctx.session.user.id)
+				),
+			})
+			if (!participant) {
+				throw new TRPCError({ code: "FORBIDDEN", message: "You are not a participant in this conversation" })
+			}
+
+			// Only the non-ENP (principal) can respond
+			if (ctx.session.user.id === (message.metadata as Record<string, unknown>)?.enpId) {
+				throw new TRPCError({ code: "FORBIDDEN", message: "The ENP cannot respond to their own request" })
+			}
+
+			const currentStatus = (message.metadata as Record<string, unknown>)?.status
+			if (currentStatus !== "PENDING") {
+				throw new TRPCError({ code: "BAD_REQUEST", message: "Request already responded to" })
+			}
+
+			const meta = message.metadata as Record<string, unknown>
+
+			// Update metadata status
+			const updatedMetadata = { ...meta, status: input.response }
+			await db
+				.update(messages)
+				.set({ metadata: updatedMetadata })
+				.where(eq(messages.id, input.messageId))
+
+			// If accepted → create the appointment
+			if (input.response === "ACCEPTED") {
+				const enpId = meta.enpId as string
+				const appointmentDate = new Date(meta.appointmentDate as string)
+				const duration = meta.duration as number
+				const eventType = meta.eventType as string
+				const mode = meta.mode as string | undefined
+				const location = meta.location as string | undefined
+				const title = meta.title as string
+
+				await db.insert(appointments).values({
+					clientId: ctx.session.user.id,
+					lawyerId: enpId,
+					type: eventType === "notarization" ? "DOCUMENT_SIGNING" : "CONSULTATION",
+					status: "CONFIRMED",
+					appointmentDate,
+					duration,
+					modeOfNotarization: mode?.toUpperCase(),
+					location,
+					notes: title,
+				})
+			}
+
+			// Emit update so the message refreshes for both participants
+			const participants = await db.query.conversationParticipants.findMany({
+				where: eq(conversationParticipants.conversationId, message.conversationId),
+				columns: { userId: true },
+			})
+			emitConversationUpdate(participants.map(p => p.userId))
+			// Re-broadcast message update by emitting a fake send so UI refetches
+			const withSender = await db.query.messages.findFirst({
+				where: eq(messages.id, input.messageId),
+				with: {
+					sender: {
+						columns: { id: true, name: true, email: true, image: true },
+					},
+				},
+			})
+			if (withSender) {
+				emitMessageAdd(message.conversationId, withSender as unknown as MessageWithSender)
+			}
+
+			return { success: true, response: input.response }
 		}),
 })

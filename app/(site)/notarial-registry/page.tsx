@@ -6,10 +6,13 @@ import {
 	BookOpen,
 	ChevronDown,
 	ChevronRight,
+	CloudUpload,
+	Copy,
 	Download,
 	Eye,
 	FileCheck,
 	FileText,
+	Hash,
 	IdCard,
 	Info,
 	LayoutGrid,
@@ -48,7 +51,6 @@ import {
 	TableHeader,
 	TableRow,
 } from "@/core/components/ui/table"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/core/components/ui/tabs"
 import { ToggleGroup, ToggleGroupItem } from "@/core/components/ui/toggle-group"
 import {
 	Tooltip,
@@ -160,6 +162,8 @@ interface NotarialActRow {
 	docoChainProjectUuid?: string | null
 	fees?: number | null
 	registryNumber?: number | null
+	supremeCourtRegistryId?: string | null
+	syncedToSupremeCourt?: boolean | null
 }
 
 function NotarialActCard({
@@ -168,7 +172,11 @@ function NotarialActCard({
 	onDownloadDocument,
 	onViewCertificate,
 	onViewPrincipalId,
+	onSyncToSupremeCourt,
+	onCopyNrid,
 	isDownloading,
+	isSyncing,
+	copiedNrid,
 }: {
 	act: NotarialActRow
 	onViewDocument: (actId: string, documentName?: string) => void
@@ -179,15 +187,47 @@ function NotarialActCard({
 		principalIdImageBase64: string | null | undefined,
 		competentEvidence?: string | null
 	) => void
+	onSyncToSupremeCourt: (actId: string) => void
+	onCopyNrid: (nrid: string) => void
 	isDownloading?: boolean
+	isSyncing?: boolean
+	copiedNrid?: string | null
 }) {
 	return (
 		<Card className="flex flex-col transition-shadow hover:shadow-md">
 			<CardHeader className="pb-2">
 				<div className="flex flex-wrap items-center justify-between gap-2">
-					<span className="text-muted-foreground font-mono text-sm">
-						#{act.registryNumber ?? "—"}
-					</span>
+					<div className="flex flex-wrap items-center gap-2">
+						<span className="text-muted-foreground font-mono text-sm">
+							#{act.registryNumber ?? "—"}
+						</span>
+						{act.supremeCourtRegistryId ? (
+							<TooltipProvider>
+								<Tooltip>
+									<TooltipTrigger asChild>
+										<div className="flex items-center gap-1">
+											<Hash className="text-muted-foreground size-3.5" />
+											<Button
+												variant="ghost"
+												size="sm"
+												className="h-5 px-0.5 text-xs"
+												onClick={() => onCopyNrid(act.supremeCourtRegistryId!)}
+											>
+												{copiedNrid === act.supremeCourtRegistryId ? (
+													<span className="text-green-600 dark:text-green-400">COPIED</span>
+												) : (
+													<Copy className="size-3" />
+												)}
+											</Button>
+										</div>
+									</TooltipTrigger>
+									<TooltipContent>
+										<p className="font-mono text-xs">{act.supremeCourtRegistryId}</p>
+									</TooltipContent>
+								</Tooltip>
+							</TooltipProvider>
+						) : null}
+					</div>
 					<div className="flex gap-1">
 						<Badge variant="outline" className="text-xs">
 							{formatActTypeLabel(act.actType)}
@@ -311,7 +351,7 @@ function NotarialActCard({
 								<Eye className="mr-1.5 size-3.5" />
 								Document
 							</Button>
-							{act.docoChainProjectUuid && (
+							{act.documentId && (
 								<Button
 									variant="outline"
 									size="sm"
@@ -334,11 +374,35 @@ function NotarialActCard({
 							variant="outline"
 							size="sm"
 							className="flex-1"
-							onClick={() => onViewCertificate(act.id)}
+							disabled
+							title="Temporarily unavailable while signing integration is rebuilt"
 						>
 							<FileCheck className="mr-1.5 size-3.5" />
 							Certificate
 						</Button>
+					)}
+					{!act.syncedToSupremeCourt && (
+						<Tooltip>
+							<TooltipTrigger asChild>
+								<Button
+									variant="outline"
+									size="sm"
+									className="flex-1"
+									disabled={!!isSyncing}
+									onClick={() => onSyncToSupremeCourt(act.id)}
+								>
+									{isSyncing ? (
+										<Loader2 className="mr-1.5 size-3.5 animate-spin" />
+									) : (
+										<CloudUpload className="mr-1.5 size-3.5" />
+									)}
+									{isSyncing ? "Syncing..." : "Sync"}
+								</Button>
+							</TooltipTrigger>
+							<TooltipContent>
+								<p>Sync this act to Supreme Court</p>
+							</TooltipContent>
+						</Tooltip>
 					)}
 				</div>
 			</CardContent>
@@ -377,36 +441,32 @@ function ExpandedActDetails({
 		idVerified?: boolean | null
 	}
 
-	const { data: signersData, isPending: isSignersLoading } =
-		trpc.notarialBook.getActSigners.useQuery(
-			{ actId: act.id },
-			{ enabled: isExpanded && !!act.docoChainProjectUuid }
-		)
-	const signers = (signersData?.signers ?? []) as unknown as ActSigner[]
+	const isSignersLoading = false
+	const signers = [] as ActSigner[]
 	const isSignerSigned = (s: { status?: string | null; signedAt?: string | null }) => {
 		const statusUpper = (s.status ?? "").toUpperCase()
 		return statusUpper === "SIGNED" || statusUpper === "COMPLETED" || !!s.signedAt
 	}
 
 	return (
-		<div className="space-y-4">
+		<div className="space-y-3">
 			{/* Signatories section */}
 			<div>
-				<h4 className="mb-2 text-sm font-semibold">Signatories</h4>
+				<h4 className="mb-1.5 text-xs font-semibold">Signatories</h4>
 				{isSignersLoading ? (
-					<div className="flex items-center gap-2 py-2">
-						<Loader2 className="size-4 animate-spin" />
-						<span className="text-muted-foreground text-sm">Loading signers...</span>
+					<div className="flex items-center gap-2 py-1.5">
+						<Loader2 className="size-3.5 animate-spin" />
+						<span className="text-muted-foreground text-xs">Loading signers...</span>
 					</div>
 				) : signers.length === 0 ? (
-					<p className="text-muted-foreground py-2 text-sm">
-						No signer data available for this document.
+					<p className="text-muted-foreground py-1.5 text-xs">
+						Signer data is temporarily unavailable while we rebuild the signing integration.
 					</p>
 				) : (
-					<div className="space-y-2">
+					<div className="space-y-1.5">
 						{signers.map(signer => {
 							const fullName = [signer.firstName, signer.lastName].filter(Boolean).join(" ").trim()
-							const displayName = fullName || signer.email || "Unknown"
+							const displayName = fullName ? fullName : (signer.email ?? "Unknown")
 							const signed = isSignerSigned(signer)
 							const isWitness =
 								(signer as { signerRole?: string }).signerRole
@@ -437,16 +497,16 @@ function ExpandedActDetails({
 							return (
 								<div
 									key={signer.id}
-									className="bg-muted/50 flex items-center gap-3 rounded-lg border px-3 py-2"
+									className="bg-muted/50 flex items-center gap-2 rounded-lg border px-2 py-1.5"
 								>
-									<div className="bg-muted flex size-8 shrink-0 items-center justify-center rounded-full">
-										<User className="text-muted-foreground size-4" />
+									<div className="bg-muted flex size-7 shrink-0 items-center justify-center rounded-full">
+										<User className="text-muted-foreground size-3.5" />
 									</div>
 									<div className="min-w-0 flex-1">
 										<div className="flex items-center gap-1">
-											<p className="font-medium">{displayName}</p>
+											<p className="text-xs leading-tight font-medium">{displayName}</p>
 											{isWitness && (
-												<Badge variant="outline" className="text-[10px] font-normal">
+												<Badge variant="outline" className="text-[9px] font-normal">
 													Witness
 												</Badge>
 											)}
@@ -454,17 +514,17 @@ function ExpandedActDetails({
 												<Button
 													variant="ghost"
 													size="sm"
-													className="size-7 p-0 sm:size-8"
+													className="size-6 p-0"
 													onClick={() => {
 														onViewSignerId(
 															displayName,
-															signerExtra.idFaceImageBase64 as string,
+															signerExtra.idFaceImageBase64!,
 															competentEvidence
 														)
 													}}
 													title="View ID"
 												>
-													<IdCard className="size-3.5 sm:size-4" />
+													<IdCard className="size-3" />
 												</Button>
 											) : null}
 											{act.locationStatement && (
@@ -472,7 +532,7 @@ function ExpandedActDetails({
 													<Tooltip>
 														<TooltipTrigger asChild>
 															<Info
-																className="text-muted-foreground size-3.5 shrink-0 cursor-help"
+																className="text-muted-foreground size-3 shrink-0 cursor-help"
 																aria-label="View certification statement"
 															/>
 														</TooltipTrigger>
@@ -483,7 +543,7 @@ function ExpandedActDetails({
 												</TooltipProvider>
 											)}
 										</div>
-										<p className="text-muted-foreground truncate text-xs">
+										<p className="text-muted-foreground truncate text-[10px] leading-tight">
 											{signer.email}
 											{signer.signedAt && !Number.isNaN(new Date(signer.signedAt).getTime()) && (
 												<>
@@ -494,7 +554,7 @@ function ExpandedActDetails({
 											)}
 										</p>
 										{addr ? (
-											<p className="text-muted-foreground mt-0.5 text-[11px] wrap-break-word">
+											<p className="text-muted-foreground mt-0.5 text-[10px] leading-tight wrap-break-word">
 												<span className="font-medium">Address:</span> {addr}
 											</p>
 										) : null}
@@ -502,7 +562,9 @@ function ExpandedActDetails({
 									</div>
 									<Badge
 										variant={signed ? "default" : "secondary"}
-										className={signed ? "bg-green-600 text-xs dark:bg-green-700" : "text-xs"}
+										className={
+											signed ? "bg-green-600 text-[10px] dark:bg-green-700" : "text-[10px]"
+										}
 									>
 										{signed ? "Signed" : (signer.status ?? "Pending")}
 									</Badge>
@@ -539,6 +601,7 @@ export default function NotarialRegistryPage() {
 	} | null>(null)
 
 	const [expandedActIds, setExpandedActIds] = useState<Set<string>>(new Set())
+	const [copiedNrid, setCopiedNrid] = useState<string | null>(null)
 	const toggleExpanded = useCallback((actId: string) => {
 		setExpandedActIds(prev => {
 			const next = new Set(prev)
@@ -560,7 +623,7 @@ export default function NotarialRegistryPage() {
 	}, [])
 
 	// Only show DB notarial acts so entries appear only after "End Session" has been clicked.
-	// (DocoChain API returns "processing completed" when signing is done, which would show entries before End Session.)
+	// (External signing integration is currently being rebuilt.)
 	const dbQuery = trpc.notarialBook.getNotarialBook.useQuery({
 		page,
 		perPage,
@@ -587,6 +650,30 @@ export default function NotarialRegistryPage() {
 			toast.error(`Failed to export: ${error.message}`)
 		},
 	})
+
+	const syncToSupremeCourtMutation = trpc.notarialBook.syncActToSupremeCourt.useMutation({
+		onSuccess: async data => {
+			await refetch()
+			toast.success(
+				`Synced to Supreme Court. NRID: ${data.notarialRegistryID}, NRN: ${data.notarialRegistryNumber}`
+			)
+		},
+		onError: error => {
+			toast.error(`Sync failed: ${error.message}`)
+		},
+	})
+	const [syncingActId, setSyncingActId] = useState<string | null>(null)
+	const handleSyncToSupremeCourt = useCallback(
+		async (actId: string) => {
+			setSyncingActId(actId)
+			try {
+				await syncToSupremeCourtMutation.mutateAsync({ actId })
+			} finally {
+				setSyncingActId(null)
+			}
+		},
+		[syncToSupremeCourtMutation]
+	)
 
 	const filteredActs = useMemo((): NotarialActRow[] => {
 		return (notarialBookData?.acts ?? []) as NotarialActRow[]
@@ -660,19 +747,21 @@ export default function NotarialRegistryPage() {
 	// Certificate viewing
 	const utils = trpc.useUtils()
 
-	const handleViewCertificate = async (actId: string) => {
+	const handleCopyNrid = useCallback(async (nrid: string) => {
 		try {
-			const result = await utils.notarialBook.getCertificateUrl.fetch({ actId })
-			if (result?.url) {
-				window.open(result.url, "_blank")
-			} else {
-				toast.error("Certificate URL not available")
-			}
-		} catch (error) {
-			toast.error(
-				`Failed to get certificate: ${error instanceof Error ? error.message : "Unknown error"}`
-			)
+			await navigator.clipboard.writeText(nrid)
+			setCopiedNrid(nrid)
+			toast.success("NRID copied to clipboard")
+			setTimeout(() => setCopiedNrid(null), 2000)
+		} catch {
+			toast.error("Failed to copy NRID")
 		}
+	}, [])
+
+	const handleViewCertificate = async (actId: string) => {
+		toast.error(
+			"Certificate retrieval is temporarily unavailable while we rebuild the signing integration."
+		)
 	}
 
 	return (
@@ -694,7 +783,7 @@ export default function NotarialRegistryPage() {
 									view documents and certificates, and export records.
 								</p>
 							</div>
-							<div className="flex shrink-0 gap-2">
+							<div className="flex shrink-0 flex-wrap gap-2">
 								<Button
 									onClick={() => void handleRefresh()}
 									variant="outline"
@@ -714,131 +803,127 @@ export default function NotarialRegistryPage() {
 							</div>
 						</div>
 
-						{/* Act type tabs (swappable notarization view) + Filters */}
+						{/* Filters, sort, view — compact toolbar */}
 						<Card className="mb-8">
-							<CardContent className="pt-6">
-								<Tabs
-									value={actTypeFilter}
-									onValueChange={v => {
-										setActTypeFilter(v as ActTypeFilter)
-										setPage(1)
-									}}
-								>
-									<div className="mb-4">
-										<TabsList className="bg-muted/50 flex h-auto flex-wrap gap-1 p-1">
-											<TabsTrigger value="ALL" className="text-sm">
-												All
-											</TabsTrigger>
-											<TabsTrigger value="ACKNOWLEDGMENT" className="text-sm">
-												Acknowledgment
-											</TabsTrigger>
-											<TabsTrigger value="AFFIRMATION" className="text-sm">
-												Affirmation
-											</TabsTrigger>
-											<TabsTrigger value="JURAT" className="text-sm">
-												Jurat
-											</TabsTrigger>
-											<TabsTrigger value="SIGNATURE_WITNESSING" className="text-sm">
-												Signature Witnessing
-											</TabsTrigger>
-										</TabsList>
+							<CardContent className="px-3 py-2.5 sm:px-4 sm:py-3">
+								<div className="flex flex-col gap-2.5">
+									{/* Row 1: Filters */}
+									<div className="flex flex-wrap items-center gap-1.5">
+										<Select
+											value={actTypeFilter}
+											onValueChange={value => {
+												setActTypeFilter(value as ActTypeFilter)
+												setPage(1)
+											}}
+										>
+											<SelectTrigger className="h-7 w-full min-w-0 text-xs sm:w-[130px]">
+												<SelectValue placeholder="Act type" />
+											</SelectTrigger>
+											<SelectContent>
+												<SelectItem value="ALL">All</SelectItem>
+												<SelectItem value="ACKNOWLEDGMENT">Acknowledgment</SelectItem>
+												<SelectItem value="AFFIRMATION">Affirmation</SelectItem>
+												<SelectItem value="JURAT">Jurat</SelectItem>
+												<SelectItem value="SIGNATURE_WITNESSING">Signature Witnessing</SelectItem>
+											</SelectContent>
+										</Select>
+										<Input
+											placeholder="Search principal, witness, document…"
+											value={searchTerm}
+											onChange={e => {
+												setSearchTerm(e.target.value)
+												setPage(1)
+											}}
+											className="h-7 w-full min-w-0 max-w-full text-xs sm:w-[180px]"
+										/>
+										<Select
+											value={workflowFilter}
+											onValueChange={value => {
+												setWorkflowFilter(value as "ALL" | "REN" | "IEN")
+												setPage(1)
+											}}
+										>
+											<SelectTrigger className="h-7 w-[92px] text-xs">
+												<SelectValue placeholder="Workflow" />
+											</SelectTrigger>
+											<SelectContent>
+												<SelectItem value="ALL">All Workflows</SelectItem>
+												<SelectItem value="REN">REN</SelectItem>
+												<SelectItem value="IEN">IEN</SelectItem>
+											</SelectContent>
+										</Select>
+										<Button
+											variant="ghost"
+											size="sm"
+											type="button"
+											onClick={clearFilters}
+											className="h-7 shrink-0 px-1.5 text-[11px] text-muted-foreground hover:text-foreground"
+										>
+											Clear filters
+										</Button>
 									</div>
-									<TabsContent value={actTypeFilter} className="mt-0">
-										<div className="space-y-3">
-											<div className="flex flex-col gap-3 md:flex-row md:items-center">
-												<Input
-													placeholder="Search any detail (principal, witness, doc, certificate, signers, location, etc.)..."
-													value={searchTerm}
-													onChange={e => {
-														setSearchTerm(e.target.value)
-														setPage(1)
-													}}
-												/>
-												<Select
-													value={workflowFilter}
-													onValueChange={value => {
-														setWorkflowFilter(value as "ALL" | "REN" | "IEN")
-														setPage(1)
-													}}
-												>
-													<SelectTrigger className="md:w-45">
-														<SelectValue placeholder="All Workflows" />
-													</SelectTrigger>
-													<SelectContent>
-														<SelectItem value="ALL">All Workflows</SelectItem>
-														<SelectItem value="REN">REN</SelectItem>
-														<SelectItem value="IEN">IEN</SelectItem>
-													</SelectContent>
-												</Select>
-												<Button
-													variant="outline"
-													type="button"
-													onClick={clearFilters}
-													className="md:w-35"
-												>
-													Clear filters
-												</Button>
-											</div>
 
-											<div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-												<div className="flex flex-wrap items-center gap-2">
-													<span className="text-muted-foreground text-sm">Sort:</span>
-													<Select
-														value={sortBy}
-														onValueChange={value => {
-															setSortBy(value as SortBy)
-															setPage(1)
-														}}
-													>
-														<SelectTrigger className="w-42.5">
-															<SelectValue placeholder="Sort by" />
-														</SelectTrigger>
-														<SelectContent>
-															<SelectItem value="executedAt">Signed time</SelectItem>
-															<SelectItem value="meetingEndedAt">Meeting ended</SelectItem>
-															<SelectItem value="registryNumber">Registry #</SelectItem>
-															<SelectItem value="principalName">Principal</SelectItem>
-															<SelectItem value="documentName">Document</SelectItem>
-															<SelectItem value="certificateNumber">Certificate #</SelectItem>
-															<SelectItem value="actType">Act type</SelectItem>
-															<SelectItem value="workflow">Workflow</SelectItem>
-														</SelectContent>
-													</Select>
-													<Select
-														value={sortDir}
-														onValueChange={value => {
-															setSortDir(value as SortDir)
-															setPage(1)
-														}}
-													>
-														<SelectTrigger className="w-27.5">
-															<SelectValue placeholder="Order" />
-														</SelectTrigger>
-														<SelectContent>
-															<SelectItem value="desc">Desc</SelectItem>
-															<SelectItem value="asc">Asc</SelectItem>
-														</SelectContent>
-													</Select>
-												</div>
-												<div className="flex items-center gap-2 md:justify-end">
-													<span className="text-muted-foreground text-sm">View:</span>
-													<ToggleGroup
-														type="single"
-														value={viewMode}
-														onValueChange={v => v && setViewMode(v as ViewMode)}
-													>
-														<ToggleGroupItem value="table" aria-label="Table view">
-															<List className="size-4" />
-														</ToggleGroupItem>
-														<ToggleGroupItem value="cards" aria-label="Cards view">
-															<LayoutGrid className="size-4" />
-														</ToggleGroupItem>
-													</ToggleGroup>
-												</div>
-											</div>
+									{/* Row 2: Sort + View */}
+									<div className="flex flex-wrap items-center gap-3 border-t border-border/50 pt-2.5">
+										<div className="flex items-center gap-1.5">
+											<span className="text-muted-foreground shrink-0 text-[10px] font-medium uppercase tracking-wider">Sort</span>
+											<Select
+												value={sortBy}
+												onValueChange={value => {
+													setSortBy(value as SortBy)
+													setPage(1)
+												}}
+											>
+												<SelectTrigger className="h-7 w-[108px] text-xs">
+													<SelectValue placeholder="Sort by" />
+												</SelectTrigger>
+												<SelectContent>
+													<SelectItem value="executedAt">Signed time</SelectItem>
+													<SelectItem value="meetingEndedAt">Meeting ended</SelectItem>
+													<SelectItem value="registryNumber">Registry #</SelectItem>
+													<SelectItem value="principalName">Principal</SelectItem>
+													<SelectItem value="documentName">Document</SelectItem>
+													<SelectItem value="certificateNumber">Certificate #</SelectItem>
+													<SelectItem value="actType">Act type</SelectItem>
+													<SelectItem value="workflow">Workflow</SelectItem>
+												</SelectContent>
+											</Select>
+											<Select
+												value={sortDir}
+												onValueChange={value => {
+													setSortDir(value as SortDir)
+													setPage(1)
+												}}
+											>
+												<SelectTrigger className="h-7 w-[72px] text-xs">
+													<SelectValue placeholder="Order" />
+												</SelectTrigger>
+												<SelectContent>
+													<SelectItem value="desc">Desc</SelectItem>
+													<SelectItem value="asc">Asc</SelectItem>
+												</SelectContent>
+											</Select>
 										</div>
-									</TabsContent>
-								</Tabs>
+										<div className="flex items-center gap-1.5">
+											<span className="text-muted-foreground shrink-0 text-[10px] font-medium uppercase tracking-wider">View</span>
+											<ToggleGroup
+												type="single"
+												value={viewMode}
+												onValueChange={v => v && setViewMode(v as ViewMode)}
+												variant="outline"
+												size="sm"
+												className="[&_button]:h-7 [&_button]:min-w-7 [&_button]:px-1.5"
+											>
+												<ToggleGroupItem value="table" aria-label="Table view" className="size-7 p-0">
+													<List className="size-3.5" />
+												</ToggleGroupItem>
+												<ToggleGroupItem value="cards" aria-label="Cards view" className="size-7 p-0">
+													<LayoutGrid className="size-3.5" />
+												</ToggleGroupItem>
+											</ToggleGroup>
+										</div>
+									</div>
+								</div>
 							</CardContent>
 						</Card>
 
@@ -909,7 +994,11 @@ export default function NotarialRegistryPage() {
 																onDownloadDocument={handleDownloadDocument}
 																onViewCertificate={handleViewCertificate}
 																onViewPrincipalId={handleViewPrincipalId}
+																onSyncToSupremeCourt={handleSyncToSupremeCourt}
+																onCopyNrid={handleCopyNrid}
 																isDownloading={downloadingActId === act.id}
+																isSyncing={syncingActId === act.id}
+																copiedNrid={copiedNrid}
 															/>
 														</motion.div>
 													)
@@ -922,58 +1011,83 @@ export default function NotarialRegistryPage() {
 												animate={{ opacity: 1 }}
 												exit={{ opacity: 0 }}
 												transition={{ duration: 0.2 }}
-												className="-mx-4 overflow-x-auto sm:mx-0"
+												className="min-w-0 **:data-[slot=table-container]:overflow-x-hidden"
 											>
-												<div className="inline-block min-w-full align-middle">
-													<Table className="w-full">
-														<TableHeader>
-															<TableRow>
-																<TableHead className="w-10 sm:w-12">#</TableHead>
-																<TableHead className="min-w-37.5 sm:min-w-45">Act type</TableHead>
-																<TableHead className="min-w-27.5 whitespace-nowrap sm:min-w-35">
-																	Date & time
-																</TableHead>
-																<TableHead className="min-w-45 sm:min-w-60">
-																	Title / description
-																</TableHead>
-																<TableHead className="min-w-22.5 whitespace-nowrap sm:min-w-27.5">
-																	Fee charged
-																</TableHead>
-																<TableHead className="min-w-42.5 sm:min-w-55">
-																	Mode of notarization
-																</TableHead>
-															</TableRow>
-														</TableHeader>
+												<Table className="w-full max-w-full table-fixed">
+															<TableHeader>
+																<TableRow>
+																	<TableHead className="w-12">#</TableHead>
+																	<TableHead className="w-16">NRID</TableHead>
+																	<TableHead className="w-28">Act type</TableHead>
+																	<TableHead className="w-36">Date & time</TableHead>
+																	<TableHead className="min-w-0 pr-1">Title / description</TableHead>
+																	<TableHead className="w-24 pl-1 text-left">Fee</TableHead>
+																	<TableHead className="w-44">Notarization</TableHead>
+																	<TableHead className="w-28 text-right">Actions</TableHead>
+																</TableRow>
+															</TableHeader>
 														<TableBody>
 															{filteredActs.map(act => {
 																const isExpanded = expandedActIds.has(act.id)
 																return (
 																	<Fragment key={act.id}>
 																		<TableRow className={isExpanded ? "border-b-0" : undefined}>
-																			<TableCell className="align-top font-mono text-xs font-medium sm:text-sm">
+																			<TableCell className="align-top font-mono text-xs font-medium">
 																				{act.registryNumber ?? "—"}
 																			</TableCell>
+																			<TableCell className="align-top">
+																				{act.supremeCourtRegistryId ? (
+																					<TooltipProvider>
+																						<Tooltip>
+																							<TooltipTrigger asChild>
+																								<div className="flex items-center gap-1">
+																									<Hash className="text-muted-foreground size-3.5" />
+																									<Button
+																										variant="ghost"
+																										size="sm"
+																										className="h-6 px-0.5 text-xs"
+																										onClick={() => handleCopyNrid(act.supremeCourtRegistryId!)}
+																									>
+																										{copiedNrid === act.supremeCourtRegistryId ? (
+																											<span className="text-green-600 text-xs dark:text-green-400">
+																												COPIED
+																											</span>
+																										) : (
+																											<Copy className="size-3" />
+																										)}
+																									</Button>
+																								</div>
+																							</TooltipTrigger>
+																							<TooltipContent>
+																								<p className="font-mono text-xs">{act.supremeCourtRegistryId}</p>
+																							</TooltipContent>
+																						</Tooltip>
+																					</TooltipProvider>
+																				) : (
+																					<span className="text-muted-foreground text-xs">—</span>
+																				)}
+																			</TableCell>
 																			<TableCell className="min-w-0 align-top">
-																				<p className="truncate text-xs font-medium sm:text-sm">
+																				<p className="truncate text-xs font-medium">
 																					{formatActTypeLabel(act.actType)}
 																				</p>
 																			</TableCell>
-																			<TableCell className="align-top whitespace-nowrap">
-																				<div className="text-xs sm:text-sm">
-																					<div>
-																						{format(
-																							new Date(act.executedAt),
-																							"MMM dd, yyyy · hh:mm a"
-																						)}
+																			<TableCell className="align-top">
+																				<div className="text-xs leading-tight">
+																					<div className="font-medium">
+																						{format(new Date(act.executedAt), "MMM dd, yyyy")}
+																					</div>
+																					<div className="text-muted-foreground">
+																						{format(new Date(act.executedAt), "hh:mm a")}
 																					</div>
 																				</div>
 																			</TableCell>
 																			<TableCell className="min-w-0 align-top">
-																				<div className="max-w-[320px] min-w-0">
+																				<div className="min-w-0">
 																					<TooltipProvider>
 																						<Tooltip>
 																							<TooltipTrigger asChild>
-																								<p className="cursor-help truncate text-xs font-medium sm:text-sm">
+																								<p className="cursor-help truncate text-xs font-medium">
 																									{truncateFileName(act.documentName, 32)}
 																								</p>
 																							</TooltipTrigger>
@@ -993,90 +1107,113 @@ export default function NotarialRegistryPage() {
 																					) : null}
 																				</div>
 																			</TableCell>
-																			<TableCell className="align-top whitespace-nowrap">
+																			<TableCell className="align-top pl-1 text-left">
 																				{act.fees !== null &&
 																				act.fees !== undefined &&
 																				typeof act.fees === "number" &&
 																				!Number.isNaN(act.fees) ? (
-																					<span className="text-xs font-medium sm:text-sm">
+																					<span className="text-xs font-medium">
 																						₱ {act.fees.toFixed(2)}
 																					</span>
 																				) : (
-																					<span className="text-muted-foreground text-xs sm:text-sm">
+																					<span className="text-muted-foreground text-xs">
 																						—
 																					</span>
 																				)}
 																			</TableCell>
 																			<TableCell className="align-top">
-																				<div className="flex items-center justify-between gap-2">
-																					<span className="min-w-0 truncate text-xs font-medium sm:text-sm">
-																						{formatWorkflowLabel(act.workflow)}
-																					</span>
-																					<div className="flex shrink-0 items-center justify-end gap-0.5 sm:gap-1">
-																						{(act.documentId ?? act.docoChainProjectUuid) && (
-																							<Button
-																								variant="ghost"
-																								size="sm"
-																								className="size-7 p-0 sm:size-8"
-																								onClick={() =>
-																									handleViewDocument(
-																										act.id,
-																										act.documentName ?? undefined
-																									)
-																								}
-																								title="View Document"
-																							>
-																								<Eye className="size-3.5 sm:size-4" />
-																							</Button>
-																						)}
-																						{act.docoChainProjectUuid && (
-																							<Button
-																								variant="ghost"
-																								size="sm"
-																								className="size-7 p-0 sm:size-8"
-																								disabled={downloadingActId === act.id}
-																								onClick={() => handleDownloadDocument(act.id)}
-																								title={
-																									downloadingActId === act.id
-																										? "Downloading..."
-																										: "Download notarized document"
-																								}
-																							>
-																								{downloadingActId === act.id ? (
-																									<Loader2 className="size-3.5 animate-spin sm:size-4" />
-																								) : (
-																									<Download className="size-3.5 sm:size-4" />
-																								)}
-																							</Button>
-																						)}
-																						{act.docoChainProjectUuid && (
-																							<Button
-																								variant="ghost"
-																								size="sm"
-																								className="size-7 p-0 sm:size-8"
-																								onClick={() => handleViewCertificate(act.id)}
-																								title="View Certificate"
-																							>
-																								<FileCheck className="size-3.5 sm:size-4" />
-																							</Button>
-																						)}
+																				<p className="text-xs font-medium leading-snug whitespace-normal break-words">
+																					{formatWorkflowLabel(act.workflow)}
+																				</p>
+																			</TableCell>
+																			<TableCell className="align-top">
+																				<div className="inline-flex w-full items-center justify-end gap-1">
+																					{(act.documentId ?? act.docoChainProjectUuid) && (
 																						<Button
 																							variant="ghost"
 																							size="sm"
-																							className="size-7 p-0 sm:size-8"
-																							onClick={() => toggleExpanded(act.id)}
-																							title={
-																								isExpanded ? "Collapse details" : "Expand details"
+																							className="size-7 p-0"
+																							onClick={() =>
+																								handleViewDocument(act.id, act.documentName ?? undefined)
 																							}
-																							aria-expanded={isExpanded}
+																							aria-label="View document"
+																							title="View Document"
 																						>
-																							{isExpanded ? (
-																								<ChevronDown className="size-4" />
+																							<Eye className="size-4" />
+																						</Button>
+																					)}
+																					{act.docoChainProjectUuid && (
+																						<Button
+																							variant="ghost"
+																							size="sm"
+																							className="size-7 p-0"
+																							disabled={downloadingActId === act.id}
+																							onClick={() => handleDownloadDocument(act.id)}
+																							aria-label="Download notarized document"
+																							title={
+																								downloadingActId === act.id
+																									? "Downloading..."
+																									: "Download notarized document"
+																							}
+																						>
+																							{downloadingActId === act.id ? (
+																								<Loader2 className="size-4 animate-spin" />
 																							) : (
-																								<ChevronRight className="size-4" />
+																								<Download className="size-4" />
 																							)}
 																						</Button>
-																					</div>
+																					)}
+																					{act.docoChainProjectUuid && (
+																						<Button
+																							variant="ghost"
+																							size="sm"
+																							className="size-7 p-0"
+																							disabled
+																							aria-label="View certificate"
+																							title="Temporarily unavailable while signing integration is rebuilt"
+																						>
+																							<FileCheck className="size-4" />
+																						</Button>
+																					)}
+																					{!act.syncedToSupremeCourt && (
+																						<Tooltip>
+																							<TooltipTrigger asChild>
+																								<Button
+																									variant="ghost"
+																									size="sm"
+																									className="size-7 p-0"
+																									disabled={syncingActId === act.id}
+																									onClick={() => handleSyncToSupremeCourt(act.id)}
+																									aria-label="Sync to Supreme Court"
+																									title={syncingActId === act.id ? "Syncing..." : "Sync to Supreme Court"}
+																								>
+																									{syncingActId === act.id ? (
+																										<Loader2 className="size-4 animate-spin" />
+																									) : (
+																										<CloudUpload className="size-4" />
+																									)}
+																								</Button>
+																							</TooltipTrigger>
+																							<TooltipContent>
+																								<p>Sync this act to Supreme Court</p>
+																							</TooltipContent>
+																						</Tooltip>
+																					)}
+																					<Button
+																						variant="ghost"
+																						size="sm"
+																						className="size-7 p-0"
+																						onClick={() => toggleExpanded(act.id)}
+																						aria-label={isExpanded ? "Collapse details" : "Expand details"}
+																						title={isExpanded ? "Collapse details" : "Expand details"}
+																						aria-expanded={isExpanded}
+																					>
+																						{isExpanded ? (
+																							<ChevronDown className="size-4" />
+																						) : (
+																							<ChevronRight className="size-4" />
+																						)}
+																					</Button>
 																				</div>
 																			</TableCell>
 																		</TableRow>
@@ -1084,7 +1221,7 @@ export default function NotarialRegistryPage() {
 																			className="bg-muted/30 hover:bg-muted/30"
 																			aria-hidden={!isExpanded}
 																		>
-																			<TableCell colSpan={6} className="p-0 align-top">
+																			<TableCell colSpan={8} className="p-0 align-top">
 																				<motion.div
 																					animate={{
 																						height: isExpanded ? "auto" : 0,
@@ -1098,7 +1235,7 @@ export default function NotarialRegistryPage() {
 																					}}
 																					className="overflow-hidden"
 																				>
-																					<div className="px-4 py-3 sm:px-6">
+																					<div className="px-3 py-2 sm:px-4">
 																						<ExpandedActDetails
 																							act={act}
 																							isExpanded={isExpanded}
@@ -1123,7 +1260,6 @@ export default function NotarialRegistryPage() {
 															})}
 														</TableBody>
 													</Table>
-												</div>
 											</motion.div>
 										)}
 									</AnimatePresence>

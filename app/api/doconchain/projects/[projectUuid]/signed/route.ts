@@ -1,135 +1,95 @@
-/**
- * Signed Document Streaming API Route
- *
- * This API route exists because tRPC cannot provide a navigable URL for browser operations.
- * It's used by `window.open()` calls in the meetings feature to open signed PDFs in new tabs.
- *
- * Why not use tRPC?
- * - tRPC returns JSON, not streamable binary data
- * - `window.open()` requires a URL that browsers can directly navigate to
- * - This route streams the PDF directly to the browser with proper Content-Type headers
- *
- * Security:
- * - Authenticates via NextAuth session (no DocoChain api_token exposed in URLs)
- * - Validates meeting participant access before serving the document
- *
- * @see /services/doconchain - Core DocoChain SDK (used by this route)
- * @see /features/meetings/components/video-meeting-client.tsx - Frontend consumer
- */
-import { NextResponse, type NextRequest } from "next/server"
+import { NextResponse } from "next/server"
 import { eq } from "drizzle-orm"
 
-import {
-	checkSigningStatus,
-	downloadSignedDocument,
-} from "@/services/doconchain"
 import { db } from "@/services/drizzle/db"
 import { documents } from "@/services/drizzle/schema/document"
+import { meetings } from "@/services/drizzle/schema/meetings"
+import { users } from "@/services/drizzle/schema/auth"
 import { auth } from "@/services/next-auth"
+import { getDoconchainProjectDetails } from "@/services/doconchain/projects/get-project-details"
+import { downloadDoconchainSealedProject } from "@/services/doconchain/projects/download-sealed-project"
 
-export async function GET(
-	request: NextRequest,
-	{ params }: { params: Promise<{ projectUuid: string }> }
-) {
+export async function GET(_request: Request, { params }: { params: Promise<{ projectUuid: string }> }) {
 	try {
 		const { projectUuid } = await params
-		const session = await auth()
+		const uuid = projectUuid.trim()
 
+		const session = await auth()
 		if (!session?.user?.id) {
-			// Return plain text error for PDF viewer compatibility
-			return new NextResponse("Unauthorized: Please log in to view signed documents.", {
-				status: 401,
-				headers: { "Content-Type": "text/plain" },
-			})
+			return new NextResponse("Unauthorized", { status: 401 })
 		}
 
-		// Find the document for this project and verify meeting access
-		const document = await db.query.documents.findFirst({
-			where: eq(documents.docoChainProjectId, projectUuid),
+		const doc = await db.query.documents.findFirst({
+			where: eq(documents.docoChainProjectId, uuid),
 			with: {
 				meeting: {
 					with: {
-						participants: true,
-						createdBy: {
-							columns: { email: true },
+						appointments: {
+							with: { participants: { columns: { userId: true } } },
 						},
 					},
 				},
 			},
 		})
 
-		if (!document?.meeting) {
-			return new NextResponse("Document or meeting not found.", {
-				status: 404,
-				headers: { "Content-Type": "text/plain" },
-			})
+		if (!doc?.id || !doc.meetingId || !doc.meeting) {
+			return new NextResponse("Document not found", { status: 404 })
 		}
 
-		const hasAccess = document.meeting.participants.some(p => p.userId === session.user.id)
+		const hasAccess = (doc.meeting.appointments ?? []).some(apt =>
+			(apt.participants ?? []).some(p => p.userId === session.user.id)
+		)
 		if (!hasAccess) {
-			return new NextResponse("Access denied: You don't have access to this document.", {
-				status: 403,
-				headers: { "Content-Type": "text/plain" },
-			})
+			return new NextResponse("Forbidden", { status: 403 })
 		}
 
-		// Use meeting creator email for token generation (fallback to session user email)
-		const creatorEmail = document.meeting.createdBy?.email ?? session.user.email ?? undefined
+		// Use meeting creator email for DocOnChain API calls (must be a DocOnChain org member).
+		const meeting = await db.query.meetings.findFirst({
+			where: eq(meetings.id, doc.meetingId),
+			columns: { createdById: true },
+		})
+		if (!meeting?.createdById) return new NextResponse("Meeting not found", { status: 404 })
 
-		// Server-side gate: Only serve when DocoChain reports COMPLETED (seal applied).
-		// Prevents serving unsealed docs when project is still processing after all signers signed.
-		const status = await checkSigningStatus(projectUuid, creatorEmail)
-		const statusUpper = String(status?.projectStatus ?? "").toUpperCase()
-		const isCompleted =
-			statusUpper === "COMPLETED" || (status?.completedAt ?? null) !== null
+		const creator = await db.query.users.findFirst({
+			where: eq(users.id, meeting.createdById),
+			columns: { email: true },
+		})
+		const creatorEmail = creator?.email?.trim().toLowerCase()
+		if (!creatorEmail) return new NextResponse("Missing creator email", { status: 500 })
 
+		// Ensure DocOnChain finished processing (seal applied).
+		const status = await getDoconchainProjectDetails({ projectUuid: uuid, email: creatorEmail })
+		const statusUpper = String(status.projectStatus ?? "").toUpperCase()
+		const isCompleted = statusUpper === "COMPLETED" || (status.completedAt ?? null) !== null
 		if (!isCompleted) {
-			return new NextResponse(
-				"Document is still being processed. Please wait a moment and try again.",
-				{
-					status: 425,
-					headers: { "Content-Type": "text/plain" },
-				}
-			)
+			return new NextResponse("Document is still being processed...", { status: 425 })
 		}
 
-		let buffer: Buffer
-		let fileName: string
-		try {
-			const result = await downloadSignedDocument(projectUuid, creatorEmail)
-			buffer = result.buffer
-			fileName = result.fileName
-		} catch (error) {
-			const msg = error instanceof Error ? error.message : String(error)
-			if (msg.includes("Document is still being processed")) {
-				return new NextResponse(
-					"Document is still being processed. The notarial seal is being applied. Please try again in a moment.",
-					{
-						status: 425,
-						headers: { "Content-Type": "text/plain" },
-					}
-				)
-			}
-			throw error
-		}
+		// DocOnChain may mark the project COMPLETED before the sealed PDF is ready. Wait so the
+		// download returns the version with the notarial seal applied.
+		const sealSettleMs = 5_000
+		await new Promise(resolve => setTimeout(resolve, sealSettleMs))
 
-		// NextResponse expects a web BodyInit. Convert Buffer -> Uint8Array (ArrayBuffer-backed),
-		// then wrap in a Blob to satisfy TypeScript + runtime.
-		const bytes = Uint8Array.from(buffer)
-		const body = new Blob([bytes], { type: "application/pdf" })
+		const result = await downloadDoconchainSealedProject({ projectUuid: uuid, email: creatorEmail })
+		const filename = result.filename ?? (doc.name?.toLowerCase().endsWith(".pdf") ? doc.name : `${doc.name}.pdf`)
 
-		return new NextResponse(body, {
+		return new NextResponse(new Uint8Array(result.buffer), {
 			headers: {
-				"Content-Type": "application/pdf",
-				"Content-Disposition": `inline; filename="${fileName}"`,
-				"Cache-Control": "private, max-age=0, no-store",
+				"Content-Type": result.contentType ?? "application/pdf",
+				"Content-Disposition": `inline; filename="${filename.replace(/"/g, "")}"`,
+				"Cache-Control": "no-store",
 			},
 		})
 	} catch (error) {
-		console.error("Error serving signed DocoChain PDF:", error)
-		return new NextResponse("Internal server error.", {
-			status: 500,
-			headers: { "Content-Type": "text/plain" },
-		})
+		console.error("DocOnChain signed stream error:", error)
+		const status = error instanceof Error ? (error as Error & { status?: number }).status : undefined
+		if (status === 425) {
+			return new NextResponse("Document is still being processed...", { status: 425 })
+		}
+		if (status === 404) {
+			return new NextResponse("Notarized document not found", { status: 404 })
+		}
+		return new NextResponse("Internal server error", { status: 500 })
 	}
 }
+

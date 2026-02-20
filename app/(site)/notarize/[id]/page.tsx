@@ -126,7 +126,7 @@ export default function NotarizePage() {
 	if (isLoading) {
 		return (
 			<>
-				<SiteNavbar items={[{ label: "Notarization", url: "/meetings" }]} />
+				<SiteNavbar items={[{ label: "Notarization", url: "/sessions" }]} />
 				<div className="flex min-h-screen items-center justify-center">
 					<Card className="w-96">
 						<CardContent className="py-12 text-center">
@@ -146,7 +146,7 @@ export default function NotarizePage() {
 	if (error || !notarization) {
 		return (
 			<>
-				<SiteNavbar items={[{ label: "Notarization", url: "/meetings" }]} />
+				<SiteNavbar items={[{ label: "Notarization", url: "/sessions" }]} />
 				<div className="flex min-h-screen items-center justify-center">
 					<Card className="w-96">
 						<CardContent className="py-12 text-center">

@@ -190,7 +190,7 @@ export function NotarialActDocumentDialog2({
 								</div>
 								<p className="text-muted-foreground text-sm">No document URL available</p>
 								<p className="text-muted-foreground mt-2 text-xs">
-									The document may not have been fully signed or may not exist in DocoChain.
+									The document may not have been fully signed or may not exist in the signing system.
 								</p>
 							</div>
 						</div>

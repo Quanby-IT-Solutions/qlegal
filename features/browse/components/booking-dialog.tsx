@@ -80,7 +80,7 @@ export function BookingDialog({ enpId, enpName, trigger }: BookingDialogProps) {
 					"Your consultation request has been sent. The ENP will review and confirm your booking.",
 			})
 			closeDialog()
-			router.push("/meetings" as Route)
+			router.push("/sessions" as Route)
 		},
 		onError: error => {
 			toast.error("Booking Failed", {
@@ -94,7 +94,7 @@ export function BookingDialog({ enpId, enpName, trigger }: BookingDialogProps) {
 		onSuccess: () => {
 			toast.success("Signing session booked!")
 			closeDialog()
-			router.push("/meetings" as Route)
+			router.push("/sessions" as Route)
 		},
 		onError: error => {
 			toast.error("Booking failed", {
@@ -164,13 +164,14 @@ export function BookingDialog({ enpId, enpName, trigger }: BookingDialogProps) {
 			)
 
 			await bookSigningMutation.mutateAsync({
-				lawyerId: enpId,
-				type: "DOCUMENT_SIGNING",
+				enpId,
+				title: enpName ? `Notarization with ${enpName}` : "Notarization Session",
+				type: "NOTARIZATION",
 				appointmentDate,
 				duration: workflowType === "REN" ? 45 : 60,
-				notes: description?.trim() ?? undefined,
-				location: undefined,
-				meetingLink: workflowType === "REN" ? "" : undefined,
+				modeOfNotarization: workflowType,
+				description: description?.trim() ?? undefined,
+				location: workflowType === "IEN" ? "In-person location to be confirmed" : undefined,
 			})
 		}
 	}
@@ -181,7 +182,7 @@ export function BookingDialog({ enpId, enpName, trigger }: BookingDialogProps) {
 	return (
 		<Dialog open={open} onOpenChange={setOpen}>
 			<DialogTrigger asChild>{trigger ?? <Button>Book Session</Button>}</DialogTrigger>
-			<DialogContent className="flex h-[85vh] max-h-[90vh] w-screen max-w-[1400px] flex-col">
+			<DialogContent className="flex h-[85vh] max-h-[90vh] w-screen max-w-350 flex-col">
 				<DialogHeader>
 					<DialogTitle>
 						{watchBookingMode === "CONSULTATION" ? "Book Consultation" : "Book Notarization"}
@@ -202,7 +203,6 @@ export function BookingDialog({ enpId, enpName, trigger }: BookingDialogProps) {
 						{/* Scrollable form content */}
 						<div className="flex-1 overflow-y-auto px-1">
 							<div className="space-y-2 pr-1 pb-6">
-								{/* Service Type Selection */}
 								{/* Service Type Selection */}
 								<FormField
 									control={form.control}

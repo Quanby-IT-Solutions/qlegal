@@ -4,12 +4,12 @@ import { type DefaultSession, type NextAuthConfig } from "next-auth"
 import Credentials from "next-auth/providers/credentials"
 import Google from "next-auth/providers/google"
 
-import { provisionUser } from "@/services/doconchain"
 import { db } from "@/services/drizzle/db"
 import { twoFactorConfirmations, users, type UserRole } from "@/services/drizzle/schema/auth"
 import { DrizzleCustomAdapter } from "@/services/next-auth/adapter"
 
 import { loginSchema } from "@/features/auth/api/auth.schemas"
+import { autoJoinMemberInDoconchainOrganization } from "@/services/doconchain/organization/auto-join-member"
 
 import { env } from "@/env"
 
@@ -86,7 +86,28 @@ export const authConfig = {
 	session: { strategy: "jwt" },
 	callbacks: {
 		async signIn({ account, user }) {
+			// Ensure user is in DocOnChain organization on login (idempotent; 409 = already member).
+			const ensureOrgMembership = async (userId: string) => {
+				const u = await db.query.users.findFirst({
+					where: (data, { eq }) => eq(data.id, userId),
+					columns: { email: true, name: true },
+				})
+				const email = u?.email?.trim()
+				if (email) {
+					void autoJoinMemberInDoconchainOrganization({
+						email,
+						name: u?.name ?? undefined,
+						role: "Member",
+					}).catch(() => {
+						// Do not block login; org sync is best-effort.
+					})
+				}
+			}
+
 			if (account?.provider !== "credentials") {
+				if (user.id) {
+					void ensureOrgMembership(user.id)
+				}
 				return true
 			}
 
@@ -104,6 +125,7 @@ export const authConfig = {
 			}
 
 			if (!existingUser.isTwoFactorEnabled) {
+				void ensureOrgMembership(userId)
 				return true
 			}
 
@@ -119,6 +141,7 @@ export const authConfig = {
 				.delete(twoFactorConfirmations)
 				.where(eq(twoFactorConfirmations.userId, existingUser.id))
 
+			void ensureOrgMembership(userId)
 			return true
 		},
 		async session({ session, token }) {
@@ -205,23 +228,6 @@ export const authConfig = {
 		},
 	},
 	events: {
-		/**
-		 * OAuth sign-up: when NextAuth creates a NEW user (e.g. Google sign-up),
-		 * auto-join them to the DocoChain organization (best-effort).
-		 */
-		async createUser({ user }) {
-			if (!user?.email) return
-
-			try {
-				await provisionUser({
-					email: user.email,
-					name: user.name,
-					role: "Member",
-				})
-			} catch {
-				// Don't fail OAuth signup if auto-join fails
-			}
-		},
 		async linkAccount({ user, profile }) {
 			if (!user.email) {
 				return
@@ -240,16 +246,6 @@ export const authConfig = {
 						image: existingUser.image ?? profile.image,
 					})
 					.where(eq(users.id, existingUser.id))
-			}
-
-			try {
-				await provisionUser({
-					email: userEmail,
-					name: user.name,
-					role: "Member",
-				})
-			} catch {
-				// Best-effort - don't fail account linking if provisioning fails
 			}
 		},
 	},

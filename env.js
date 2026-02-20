@@ -17,14 +17,14 @@ export const env = createEnv({
 		// Database
 		DATABASE_URL: z.string(),
 
-		// DocOnChain
+		// DocOnChain (Enterprise API)
 		DOCONCHAIN_API_URL: z.string().url(),
-		DOCONCHAIN_APP_URL: z.string().url(),
+		DOCONCHAIN_APP_URL: z.string().url().optional(),
 		DOCONCHAIN_CLIENT_KEY: z.string(),
 		DOCONCHAIN_CLIENT_SECRET: z.string(),
 		DOCONCHAIN_EMAIL: z.string().email(),
-		DOCONCHAIN_ORG_INVITE_CODE: z.string(),
-		DOCONCHAIN_ORGANIZATION_ID: z.string(),
+		DOCONCHAIN_ORGANIZATION_ID: z.coerce.number(),
+		DOCONCHAIN_ORG_INVITE_CODE: z.string().optional(),
 
 		// Email
 		EMAIL_FROM_NAME: z.string(),
@@ -54,15 +54,15 @@ export const env = createEnv({
 		PORT: z.coerce.number().optional(),
 		SEED_VALUE: z.coerce.number().optional(),
 
-		// Storage
-		SUPABASE_SERVICE_ROLE_KEY: z.string(),
-
 		// Supreme Court eNotarization API
 		SUPREME_COURT_API_URL: z.string().url().optional(),
 		SUPREME_COURT_COGNITO_URL: z.string().url().optional(),
 		SUPREME_COURT_CLIENT_ID: z.string().optional(),
 		SUPREME_COURT_USERNAME: z.string().optional(),
 		SUPREME_COURT_PASSWORD: z.string().optional(),
+
+		// Storage
+		SUPABASE_SERVICE_ROLE_KEY: z.string(),
 
 		// Video SDK (Meetings)
 		VIDEO_SDK_API_KEY: z.string(),
@@ -101,14 +101,14 @@ export const env = createEnv({
 		// Database
 		DATABASE_URL: process.env.DATABASE_URL,
 
-		// DocOnChain
+		// DocOnChain (Enterprise API)
 		DOCONCHAIN_API_URL: process.env.DOCONCHAIN_API_URL,
 		DOCONCHAIN_APP_URL: process.env.DOCONCHAIN_APP_URL,
 		DOCONCHAIN_CLIENT_KEY: process.env.DOCONCHAIN_CLIENT_KEY,
 		DOCONCHAIN_CLIENT_SECRET: process.env.DOCONCHAIN_CLIENT_SECRET,
 		DOCONCHAIN_EMAIL: process.env.DOCONCHAIN_EMAIL,
-		DOCONCHAIN_ORG_INVITE_CODE: process.env.DOCONCHAIN_ORG_INVITE_CODE,
 		DOCONCHAIN_ORGANIZATION_ID: process.env.DOCONCHAIN_ORGANIZATION_ID,
+		DOCONCHAIN_ORG_INVITE_CODE: process.env.DOCONCHAIN_ORG_INVITE_CODE,
 
 		// Email
 		EMAIL_FROM_NAME: process.env.EMAIL_FROM_NAME,
@@ -138,15 +138,15 @@ export const env = createEnv({
 		PORT: process.env.PORT,
 		SEED_VALUE: process.env.SEED_VALUE,
 
-		// Storage
-		SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
-
 		// Supreme Court eNotarization API
 		SUPREME_COURT_API_URL: process.env.SUPREME_COURT_API_URL,
 		SUPREME_COURT_COGNITO_URL: process.env.SUPREME_COURT_COGNITO_URL,
 		SUPREME_COURT_CLIENT_ID: process.env.SUPREME_COURT_CLIENT_ID,
 		SUPREME_COURT_USERNAME: process.env.SUPREME_COURT_USERNAME,
 		SUPREME_COURT_PASSWORD: process.env.SUPREME_COURT_PASSWORD,
+
+		// Storage
+		SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
 
 		// Video SDK (Meetings)
 		VIDEO_SDK_API_KEY: process.env.VIDEO_SDK_API_KEY,

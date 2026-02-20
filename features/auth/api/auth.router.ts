@@ -3,7 +3,6 @@ import { hash } from "bcryptjs"
 import { eq } from "drizzle-orm"
 
 import { formatDateForStamp } from "@/core/lib/format-date-for-stamp"
-import { autoJoinOrganization, provisionUser } from "@/services/doconchain"
 import { passwordResetTokens, users, verificationTokens } from "@/services/drizzle/schema/auth"
 import { enpProfiles } from "@/services/drizzle/schema/enp-profiles"
 import { sendPasswordResetToken } from "@/services/react-email/lib/send.password-reset-token"
@@ -53,17 +52,7 @@ export const authRouter = createTRPCRouter({
 			})
 		}
 
-		// BEST-EFFORT: provision the user in DoconChain (auto-join org + generate token).
-		// We do NOT block registration if DoconChain rejects/doesn't allow auto-join.
-		try {
-			await provisionUser({
-				email,
-				name,
-				role: "Member",
-			})
-		} catch {
-			// provisionUser is best-effort
-		}
+		// DocOnChain org membership is added on first login, not at registration.
 
 		const verificationToken = await generateVerificationToken(email)
 		await sendVerificationToken(verificationToken.email, verificationToken.token)
@@ -140,23 +129,6 @@ export const authRouter = createTRPCRouter({
 			})
 		}
 
-		// Auto-join user to DocoChain organization
-		try {
-			const nameParts = name.split(" ")
-			const firstName = nameParts[0] ?? "User"
-			const lastName = nameParts.slice(1).join(" ") || ""
-
-			await autoJoinOrganization({
-				email,
-				firstName,
-				lastName,
-				role: "Member",
-			})
-			console.log("✅ Lawyer auto-joined to DocoChain organization")
-		} catch (error) {
-			console.warn("⚠️ Failed to auto-join lawyer to DocoChain organization:", error)
-		}
-
 		// Generate document_stamp payload for external API
 		const documentStamp = {
 			seal: {
@@ -187,8 +159,10 @@ export const authRouter = createTRPCRouter({
 				MCLE_no: notaryInfo.mcleNo,
 				MCLE_no_date: formatDateForStamp(notaryInfo.mcleNoDate),
 				mode_of_notarization: notaryInfo.modeOfNotarization,
-			},
-		}
+		},
+	}
+
+		// DocOnChain org membership is added on first login, not at registration.
 
 		// Send verification email
 		const verificationToken = await generateVerificationToken(email)
