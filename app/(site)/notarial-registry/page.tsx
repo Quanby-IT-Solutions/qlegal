@@ -525,10 +525,18 @@ function ExpandedActDetails({
 							const fullName = [signer.firstName, signer.lastName].filter(Boolean).join(" ").trim()
 							const displayName = fullName ? fullName : (signer.email ?? "Unknown")
 							const signed = isSignerSigned(signer)
+							// Check if this signer is the principal (by name or email match)
+							const isPrincipal =
+								act.principalName &&
+								(displayName.toLowerCase() === act.principalName.toLowerCase() ||
+									(signer.email &&
+										act.principalName.toLowerCase().includes(signer.email.toLowerCase())))
+							// Only show Witness badge if signerRole includes WITNESS AND they're not the principal
 							const isWitness =
-								(signer as { signerRole?: string }).signerRole
+								!isPrincipal &&
+								((signer as { signerRole?: string }).signerRole
 									?.toUpperCase()
-									?.includes("WITNESS") ?? false
+									?.includes("WITNESS") ?? false)
 							const signerExtra = signer as {
 								fullAddress?: string | null
 								homeStreet?: string | null
