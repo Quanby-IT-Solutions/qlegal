@@ -152,6 +152,7 @@ interface NotarialActRow {
 	principalIdNumber?: string | null
 	principalIdImageBase64?: string | null
 	principalIdType?: string | null
+	principalAddress?: string | null
 	locationStatement?: string | null
 	witnessName?: string | null
 	documentName?: string | null
@@ -288,11 +289,14 @@ function NotarialActCard({
 							</TooltipProvider>
 						)}
 					</div>
-					{/* {act.principalIdType ? (
+					{act.principalIdType ? (
 						<p className="text-muted-foreground text-xs">{act.principalIdType}</p>
-					) : null} */}
+					) : null}
 					{act.principalIdNumber && (
 						<p className="text-muted-foreground text-xs">ID: {act.principalIdNumber}</p>
+					)}
+					{act.principalAddress && (
+						<p className="text-muted-foreground text-xs">Address: {act.principalAddress}</p>
 					)}
 					{act.witnessName && (
 						<p className="text-muted-foreground text-xs">Witness: {act.witnessName}</p>
@@ -441,15 +445,68 @@ function ExpandedActDetails({
 		idVerified?: boolean | null
 	}
 
-	const isSignersLoading = false
-	const signers = [] as ActSigner[]
+	const { data: signersData, isLoading: isSignersLoading } =
+		trpc.notarialBook.getActSigners.useQuery(
+			{ actId: act.id },
+			{ enabled: isExpanded && !!act.id }
+		)
+	const signers = (signersData?.signers ?? []) as ActSigner[]
 	const isSignerSigned = (s: { status?: string | null; signedAt?: string | null }) => {
 		const statusUpper = (s.status ?? "").toUpperCase()
 		return statusUpper === "SIGNED" || statusUpper === "COMPLETED" || !!s.signedAt
 	}
 
+	const principalCompetentEvidence = [act.principalIdType, act.principalIdNumber]
+		.filter(Boolean)
+		.join(" · ") || undefined
+
 	return (
 		<div className="space-y-3">
+			{/* Principal disclosure */}
+			{(act.principalName || act.principalIdNumber || act.principalAddress || act.principalIdImageBase64) && (
+				<div>
+					<h4 className="mb-1.5 text-xs font-semibold">Principal</h4>
+					<div className="bg-muted/50 flex items-center gap-2 rounded-lg border px-2 py-1.5">
+						<div className="bg-muted flex size-7 shrink-0 items-center justify-center rounded-full">
+							<User className="text-muted-foreground size-3.5" />
+						</div>
+						<div className="min-w-0 flex-1">
+							<div className="flex items-center gap-1">
+								<p className="text-xs font-medium leading-tight">{act.principalName || "—"}</p>
+								{act.principalIdImageBase64 && (
+									<Button
+										variant="ghost"
+										size="sm"
+										className="size-6 p-0"
+										onClick={() =>
+											onViewSignerId(
+												act.principalName || "Principal",
+												act.principalIdImageBase64!,
+												principalCompetentEvidence ?? null
+											)
+										}
+										title="View ID"
+									>
+										<IdCard className="size-3" />
+									</Button>
+								)}
+							</div>
+							{act.principalIdType && (
+								<p className="text-muted-foreground text-[10px] leading-tight">{act.principalIdType}</p>
+							)}
+							{act.principalIdNumber && (
+								<p className="text-muted-foreground text-[10px] leading-tight">ID: {act.principalIdNumber}</p>
+							)}
+							{act.principalAddress && (
+								<p className="text-muted-foreground mt-0.5 text-[10px] wrap-break-word leading-tight">
+									<span className="font-medium">Address:</span> {act.principalAddress}
+								</p>
+							)}
+						</div>
+					</div>
+				</div>
+			)}
+
 			{/* Signatories section */}
 			<div>
 				<h4 className="mb-1.5 text-xs font-semibold">Signatories</h4>
