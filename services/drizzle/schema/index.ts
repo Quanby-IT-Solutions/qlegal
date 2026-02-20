@@ -1,5 +1,6 @@
 import * as enumsSchema from "@/services/drizzle/schema/_enums"
 import * as relationsSchema from "@/services/drizzle/schema/_relations"
+import * as appointmentParticipantsSchema from "@/services/drizzle/schema/appointment-participants"
 import * as appointmentsSchema from "@/services/drizzle/schema/appointments"
 import * as authSchema from "@/services/drizzle/schema/auth"
 import * as documentSchema from "@/services/drizzle/schema/document"
@@ -16,11 +17,11 @@ import * as messagesSchema from "@/services/drizzle/schema/messages"
 import * as notarialBookSchema from "@/services/drizzle/schema/notarial-book"
 import * as notarizationRequestsSchema from "@/services/drizzle/schema/notarization-requests"
 import * as signatureRequestsSchema from "@/services/drizzle/schema/signature-requests"
-import * as witnessesSchema from "@/services/drizzle/schema/witnesses"
 
 export const schema = {
 	...enumsSchema,
 	...authSchema,
+	...appointmentParticipantsSchema,
 	...appointmentsSchema,
 	...documentSchema,
 	...documentSignersSchema,
@@ -36,6 +37,5 @@ export const schema = {
 	...notarialBookSchema,
 	...notarizationRequestsSchema,
 	...signatureRequestsSchema,
-	...witnessesSchema,
 	...relationsSchema,
 }

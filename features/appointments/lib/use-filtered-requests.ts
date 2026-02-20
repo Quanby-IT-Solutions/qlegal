@@ -27,9 +27,7 @@ export function useFilteredRequests(
 			const searchLower = filters.search.toLowerCase()
 			const matchesSearch =
 				!searchLower ||
-				(appointment.client.name ?? "").toLowerCase().includes(searchLower) ||
-				(appointment.lawyer.name ?? "").toLowerCase().includes(searchLower) ||
-				appointment.notes?.toLowerCase().includes(searchLower) ||
+				appointment.title.toLowerCase().includes(searchLower) ||
 				appointment.location?.toLowerCase().includes(searchLower)
 
 			// Status filter
@@ -42,9 +40,9 @@ export function useFilteredRequests(
 			let matchesWorkflow = true
 			if (filters.workflow !== "ALL") {
 				if (filters.workflow === "REN") {
-					matchesWorkflow = appointment.meetingLink !== null
+					matchesWorkflow = appointment.meetingId !== null
 				} else if (filters.workflow === "IEN") {
-					matchesWorkflow = appointment.location !== null
+					matchesWorkflow = appointment.meetingId === null
 				}
 			}
 

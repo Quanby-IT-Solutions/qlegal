@@ -29,8 +29,8 @@ import {
 	SelectValue,
 } from "@/core/components/ui/select"
 import { Skeleton } from "@/core/components/ui/skeleton"
-
 import { getAvatarUrl, getInitials } from "@/core/lib/utils"
+
 import { trpc } from "@/services/trpc/client"
 
 import { NotarizationDetailsDialog } from "@/features/sessions/components/notarization-details-dialog"
@@ -278,10 +278,12 @@ export function HistoryNotarizationsSection() {
 	const historyItems = useMemo<HistoryItem[]>(() => {
 		const items: HistoryItem[] = []
 
-		for (const m of meetings.filter(m => m.status === "COMPLETED")) {
+		for (const m of meetings.filter(
+			m => m.documentStats.total > 0 && m.documentStats.signed >= m.documentStats.total
+		)) {
 			items.push({
 				id: m.id,
-				title: m.title,
+				title: "Notarization Session",
 				status: "COMPLETED",
 				workflow: "REN",
 				source: "meeting",
@@ -290,7 +292,7 @@ export function HistoryNotarizationsSection() {
 					avatar: m.createdBy?.image ?? undefined,
 				},
 				principal: {
-					name: m.participants?.find(p => p.user?.role === "PRINCIPAL")?.user?.name ?? "Client",
+					name: "Client",
 				},
 				completedAt: new Date(m.updatedAt ?? m.createdAt).toISOString(),
 				duration: 30,
@@ -301,25 +303,26 @@ export function HistoryNotarizationsSection() {
 
 		if (appointments) {
 			for (const a of appointments.filter(a => a.status === "CANCELLED")) {
-				const workflow: WorkflowType = a.meetingLink ? "REN" : "IEN"
+				const workflow: WorkflowType = a.meetingId ? "REN" : "IEN"
+				const principalParticipant = a.participants?.find(p => p.participantRole === "PARTICIPANT")
 
 				items.push({
 					id: a.id,
 					title:
-						a.notes?.trim() ??
+						a.title ??
 						`${a.type === "NOTARIZATION" ? "Notarization" : "Consultation"} - ${
-							a.client?.name ?? "Client"
+							principalParticipant?.user?.name ?? "Client"
 						}`,
 					status: "CANCELLED",
 					workflow,
 					source: "appointment",
 					enp: {
-						name: a.lawyer?.name ?? "Unknown ENP",
-						avatar: a.lawyer?.image ?? undefined,
+						name: a.createdBy?.name ?? "Unknown ENP",
+						avatar: a.createdBy?.image ?? undefined,
 					},
 					principal: {
-						name: a.client?.name ?? "Unknown Client",
-						email: a.client?.email ?? undefined,
+						name: principalParticipant?.user?.name ?? "Unknown Client",
+						email: principalParticipant?.user?.email ?? undefined,
 					},
 					cancelledAt: new Date(a.updatedAt).toISOString(),
 					duration: a.duration ?? 30,
@@ -438,9 +441,7 @@ export function HistoryNotarizationsSection() {
 						</Select>
 						<Select
 							value={statusFilter}
-							onValueChange={value =>
-								setStatusFilter(value as "ALL" | "COMPLETED" | "CANCELLED")
-							}
+							onValueChange={value => setStatusFilter(value as "ALL" | "COMPLETED" | "CANCELLED")}
 						>
 							<SelectTrigger>
 								<SelectValue placeholder="All Status" />

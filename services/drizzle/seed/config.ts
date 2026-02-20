@@ -13,34 +13,64 @@ interface TestAccount {
 	role: UserRole
 }
 
+export const FIXED_TEST_ENPS = [
+	{
+		email: "abdinsa.s.sultan.enp@maildrop.cc",
+		name: "ABDINSA S. SULTAN",
+		notaryPublicNumber: "NPN-2026-00011",
+		rollNo: "57793",
+	},
+	{
+		email: "abdol.bryan.l.barte.enp@maildrop.cc",
+		name: "ABDOL BRYAN L. BARTE",
+		notaryPublicNumber: "NPN-2026-00012",
+		rollNo: "69750",
+	},
+	{
+		email: "abdua.s.jula.enp@maildrop.cc",
+		name: "ABDUA S. JULA",
+		notaryPublicNumber: "NPN-2026-00013",
+		rollNo: "29395",
+	},
+] as const
+
+const fixedTestEnpAccounts = FIXED_TEST_ENPS.map(enp => ({
+	email: enp.email,
+	name: enp.name,
+	emailVerified: new Date(Date.now()),
+	image: faker.image.avatar(),
+	role: "ENP" as const,
+}))
+
 export const SEED_CONFIG = {
 	seed: env.SEED_VALUE ?? 12345,
 	userCount: 10,
 	defaultPassword: "asdfasdf",
 	testAccounts: [
 		{
-			email: "principal@quanby.com",
+			email: "principal@maildrop.cc",
 			name: "Principal User",
 			emailVerified: new Date(Date.now()),
 			image: faker.image.avatar(),
 			role: "PRINCIPAL" as const,
 		},
 		{
-			email: "enp@quanby.com",
+			email: "enp@maildrop.cc",
 			name: "ENP User",
 			emailVerified: new Date(Date.now()),
 			image: faker.image.avatar(),
 			role: "ENP" as const,
 		},
+		...fixedTestEnpAccounts,
 		{
-			email: "ena@quanby.com",
+			email: "ena@maildrop.cc",
 			name: "ENA User",
 			emailVerified: new Date(Date.now()),
 			image: faker.image.avatar(),
 			role: "ENA" as const,
 		},
 		{
-			email: "admin@quanby.com",
+			email: "admin@maildrop.cc",
 			name: "Admin User",
 			emailVerified: new Date(Date.now()),
 			image: faker.image.avatar(),

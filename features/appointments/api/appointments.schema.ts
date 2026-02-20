@@ -5,7 +5,9 @@ import { z } from "zod/v4"
 // Create appointment schema
 export const createAppointmentSchema = z
 	.object({
-		lawyerId: z.string().min(1, "Lawyer ID is required"),
+		enpId: z.string().min(1, "ENP ID is required"),
+		title: z.string().min(1, "Title is required"),
+		description: z.string().optional(),
 		type: z.enum(["NOTARIZATION", "CONSULTATION"], {
 			message: "Appointment type is required",
 		}),
@@ -14,9 +16,7 @@ export const createAppointmentSchema = z
 		}),
 		duration: z.number().min(15).max(480).default(60), // 15 minutes to 8 hours
 		modeOfNotarization: z.enum(["REN", "IEN"]).default("REN"),
-		notes: z.string().optional(),
 		location: z.string().optional(),
-		meetingLink: z.string().url().optional().or(z.literal("")),
 	})
 	.refine(
 		data => {
@@ -34,9 +34,8 @@ export const createAppointmentSchema = z
 
 // Get appointments schema
 export const getAppointmentsSchema = z.object({
-	status: z.enum(["PENDING", "CONFIRMED", "CANCELLED", "COMPLETED"]).optional(),
+	status: z.enum(["PENDING", "CONFIRMED", "ONGOING", "CANCELLED", "COMPLETED"]).optional(),
 	type: z.enum(["NOTARIZATION", "CONSULTATION"]).optional(),
-	lawyerId: z.string().optional(),
 	limit: z.number().min(1).max(100).default(20),
 	offset: z.number().min(0).default(0),
 })
@@ -55,7 +54,6 @@ export const createRequestSchema = z.object({
 // Confirm appointment schema
 export const confirmAppointmentSchema = z.object({
 	appointmentId: z.string().min(1, "Appointment ID is required"),
-	meetingLink: z.string().url().optional().or(z.literal("")),
 })
 
 // Update request status schema (from requests.router.ts)
@@ -83,7 +81,6 @@ export const createEnpEventSchema = z.object({
 	location: z.string().optional(),
 	type: z.enum(["CONSULTATION", "NOTARIZATION"]),
 	workflow: z.enum(["REN", "IEN"]).optional(),
-	notes: z.string().optional(),
 })
 
 // Update ENP event schema (from schedule.schema.ts)
@@ -105,7 +102,6 @@ export const updateEnpEventSchema = z.object({
 	location: z.string().optional(),
 	type: z.enum(["CONSULTATION", "NOTARIZATION"]).optional(),
 	workflow: z.enum(["REN", "IEN"]).optional(),
-	notes: z.string().optional(),
 })
 
 // Delete ENP event schema (from schedule.schema.ts)
@@ -145,12 +141,12 @@ export const getEnpScheduleWithEventsSchema = z.object({
 // Update appointment schema
 export const updateAppointmentSchema = z.object({
 	appointmentId: z.string().min(1, "Appointment ID is required"),
-	status: z.enum(["PENDING", "CONFIRMED", "CANCELLED", "COMPLETED"]).optional(),
+	status: z.enum(["PENDING", "CONFIRMED", "ONGOING", "CANCELLED", "COMPLETED"]).optional(),
 	appointmentDate: z.coerce.date().optional(),
 	duration: z.number().min(15).max(480).optional(),
-	notes: z.string().optional(),
+	title: z.string().optional(),
+	description: z.string().optional(),
 	location: z.string().optional(),
-	meetingLink: z.string().url().optional().or(z.literal("")),
 })
 
 // Cancel appointment schema

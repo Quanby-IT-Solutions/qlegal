@@ -17,7 +17,6 @@ import { signatureRequestsRouter } from "@/features/sessions/api/signature-reque
 import { settingsRouter } from "@/features/settings/api/settings.router"
 import { signatureLiteRouter } from "@/features/signature-lite/api/new-signature.router"
 import { userManagementRouter } from "@/features/user-management/api/user-management.router"
-import { witnessesRouter } from "@/features/witnesses/api/witnesses.router"
 
 /**
  * This is the primary router for your server.
@@ -51,7 +50,6 @@ export const appRouter = createTRPCRouter({
 	profile: profileRouter,
 	settings: settingsRouter,
 	signatureLite: signatureLiteRouter,
-	witnesses: witnessesRouter,
 	userManagement: userManagementRouter,
 })
 
