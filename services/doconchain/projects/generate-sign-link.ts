@@ -160,9 +160,16 @@ async function postGenerateSignLink(params: {
 	return link
 }
 
+/**
+ * Generate a DocOnChain signing link for a signer.
+ * Uses projectOwnerEmail (ENP) token when provided so the signer does not need to be a DocOnChain user.
+ * If projectOwnerEmail is omitted, uses signerEmail token (signer must exist in DocOnChain).
+ */
 export async function generateDoconchainSignLink(input: {
 	projectUuid: string
 	signerEmail: string
+	/** When set, we use this user's token to request the link (project owner / ENP). Signer does not need to exist in DocOnChain. */
+	projectOwnerEmail?: string
 }): Promise<string> {
 	const projectUuid = input.projectUuid.trim()
 	if (!projectUuid) throw new Error("Project UUID is required.")
@@ -170,8 +177,10 @@ export async function generateDoconchainSignLink(input: {
 	const signerEmail = input.signerEmail.trim().toLowerCase()
 	if (!signerEmail) throw new Error("Signer email is required to generate sign link.")
 
+	const tokenEmail = input.projectOwnerEmail?.trim().toLowerCase() ?? signerEmail
+
 	const doRequest = async () => {
-		const token = await getDoconchainApiToken({ email: signerEmail, forceGenerated: true })
+		const token = await getDoconchainApiToken({ email: tokenEmail, forceGenerated: true })
 		return postGenerateSignLink({ projectUuid, token, signerEmail })
 	}
 
@@ -181,7 +190,7 @@ export async function generateDoconchainSignLink(input: {
 		const status = error instanceof Error ? (error as Error & { status?: number }).status : undefined
 		if (status === 401) {
 			const invalidate = invalidateDoconchainToken as (email: string) => void
-			invalidate(signerEmail)
+			invalidate(tokenEmail)
 			return doRequest()
 		}
 		throw error

@@ -1,10 +1,14 @@
 import { and, eq, inArray } from "drizzle-orm"
 
 import { db } from "@/services/drizzle/db"
+import { documents } from "@/services/drizzle/schema/document"
 import { enpProfiles } from "@/services/drizzle/schema/enp-profiles"
 import { meetings } from "@/services/drizzle/schema/meetings"
 import { notarialActs, notarialBooks } from "@/services/drizzle/schema/notarial-book"
 import { getDoconchainProjectDetails } from "@/services/doconchain/projects/get-project-details"
+import { getServiceRoleClient } from "@/services/supabase"
+import { isConfigured as isSupremeCourtConfigured } from "@/services/supreme-court/lib/token-cache"
+import { syncNotarialActToSupremeCourt } from "@/services/supreme-court/lib/sync-notarial-act"
 
 function asNonEmptyString(v: unknown): string | null {
 	if (typeof v !== "string") return null
@@ -109,14 +113,17 @@ export async function populateNotarialRegistryOnMeetingEnd(input: {
 	const meeting = await db.query.meetings.findFirst({
 		where: eq(meetings.id, meetingId),
 		with: {
-			participants: {
+			appointments: {
 				with: {
-					user: {
-						columns: {
-							id: true,
-							name: true,
-							email: true,
-							role: true,
+					createdBy: {
+						columns: { id: true, name: true, email: true, role: true },
+					},
+					participants: {
+						columns: { userId: true, status: true, participantRole: true },
+						with: {
+							user: {
+								columns: { id: true, name: true, email: true, role: true },
+							},
 						},
 					},
 				},
@@ -135,25 +142,28 @@ export async function populateNotarialRegistryOnMeetingEnd(input: {
 
 	if (!meeting) throw new Error("Meeting not found")
 
-	const acceptedParticipants = meeting.participants.filter(p => p.status === "ACCEPTED")
+	// ENP = appointment owner (createdBy). Principal = accepted PARTICIPANT (non-HOST).
+	const appointment = (meeting.appointments ?? [])[0]
+	if (!appointment?.createdBy) throw new Error("Appointment or ENP not found for this meeting")
 
-	const enp = acceptedParticipants.find(p => String(p.user?.role ?? "").trim().toUpperCase() === "ENP")
-	const enpId = enp?.user?.id ?? null
-	const enpEmail = asNonEmptyString(enp?.user?.email)?.toLowerCase() ?? null
+	const enpId = appointment.createdBy.id
+	const enpEmail = asNonEmptyString(appointment.createdBy.email)?.toLowerCase() ?? null
 	const enpName =
-		asNonEmptyString(enp?.user?.name) ??
-		asNonEmptyString(enp?.user?.email) ??
+		asNonEmptyString(appointment.createdBy.name) ??
+		asNonEmptyString(appointment.createdBy.email) ??
 		"ENP"
 
 	if (!enpId) throw new Error("ENP participant is required to populate notarial registry")
 	if (!enpEmail) throw new Error("ENP email is required to fetch DocOnChain project details")
 
-	const principal = acceptedParticipants.find(
-		p => String(p.user?.role ?? "").trim().toUpperCase() === "PRINCIPAL" || p.participantRole === "PRINCIPAL"
+	const acceptedParticipants = (appointment.participants ?? []).filter(p => p.status === "ACCEPTED")
+	const principalParticipant = acceptedParticipants.find(
+		p => p.participantRole === "PARTICIPANT" || p.userId !== enpId
 	)
 	const principalName =
-		asNonEmptyString(principal?.user?.name) ??
-		asNonEmptyString(principal?.user?.email) ??
+		asNonEmptyString(principalParticipant?.user?.name) ??
+		asNonEmptyString(principalParticipant?.user?.email) ??
+		asNonEmptyString(appointment.createdBy.name) ??
 		"Principal"
 
 	// Get/create notarial book for ENP
@@ -166,10 +176,10 @@ export async function populateNotarialRegistryOnMeetingEnd(input: {
 	}
 	if (!book) throw new Error("Failed to resolve notarial book")
 
-	// ENP profile (optional)
+	// ENP profile (for roll number and optional Supreme Court sync)
 	const profile = await db.query.enpProfiles.findFirst({
 		where: eq(enpProfiles.userId, enpId),
-		columns: { rollNo: true },
+		columns: { rollNo: true, notaryPublicNumber: true, notaryFacilityNumber: true },
 	})
 
 	const docsToConsider = (meeting.documents ?? []).filter(d => {
@@ -232,25 +242,77 @@ export async function populateNotarialRegistryOnMeetingEnd(input: {
 		const rawSigners = (details.raw?.data as unknown as { signers?: unknown } | undefined)?.signers
 		const signers = normalizeDoconchainSigners(rawSigners)
 
-		await db.insert(notarialActs).values({
-			notarialBookId: book.id,
-			actType,
-			documentId: doc.id,
-			docoChainProjectUuid: projectUuid,
-			principalName,
-			enpName,
-			enpRollNumber: asNonEmptyString(profile?.rollNo),
-			executedAt,
-			meetingEndedAt: input.meetingEndedAt,
-			workflow: "REN",
-			locationStatement: defaultLocationStatement(),
-			documentName: doc.name,
-			documentDescription: doc.description ?? null,
-			signersData: JSON.stringify(signers),
-		})
+		const locationStatement = defaultLocationStatement()
+		const [inserted] = await db
+			.insert(notarialActs)
+			.values({
+				notarialBookId: book.id,
+				actType,
+				documentId: doc.id,
+				docoChainProjectUuid: projectUuid,
+				principalName,
+				enpName,
+				enpRollNumber: asNonEmptyString(profile?.rollNo),
+				executedAt,
+				meetingEndedAt: input.meetingEndedAt,
+				workflow: "REN",
+				locationStatement,
+				documentName: doc.name,
+				documentDescription: doc.description ?? null,
+				signersData: JSON.stringify(signers),
+			})
+			.returning({ id: notarialActs.id })
 
 		existingProjectUuids.add(projectUuid)
 		createdCount += 1
+
+		// Optional: sync new act to Supreme Court when configured (best-effort; do not fail meeting end)
+		if (inserted?.id && isSupremeCourtConfigured() && profile?.notaryPublicNumber && profile?.notaryFacilityNumber && profile?.rollNo) {
+			try {
+				const actRow = await db.query.notarialActs.findFirst({
+					where: eq(notarialActs.id, inserted.id),
+				})
+				if (actRow) {
+					let documentFile: Buffer | undefined
+					let documentFileName: string | undefined
+					if (actRow.documentId) {
+						const document = await db.query.documents.findFirst({
+							where: eq(documents.id, actRow.documentId),
+							columns: { path: true, name: true },
+						})
+						if (document?.path) {
+							const supabase = getServiceRoleClient()
+							const { data: fileData, error: downloadError } = await supabase.storage
+								.from("documents")
+								.download(document.path)
+							if (!downloadError && fileData) {
+								const arrayBuffer = await fileData.arrayBuffer()
+								documentFile = Buffer.from(arrayBuffer)
+								documentFileName = document.name ?? "document.pdf"
+							}
+						}
+					}
+					const result = await syncNotarialActToSupremeCourt({
+						act: actRow,
+						notaryFacilityNumber: profile.notaryFacilityNumber,
+						notaryPublicNumber: profile.notaryPublicNumber,
+						rollNumber: profile.rollNo,
+						documentFile,
+						documentFileName,
+					})
+					await db
+						.update(notarialActs)
+						.set({
+							syncedToSupremeCourt: true,
+							syncedAt: new Date(),
+							supremeCourtRegistryId: result.notarialRegistryID,
+						})
+						.where(eq(notarialActs.id, inserted.id))
+				}
+			} catch (scError) {
+				console.warn("⚠️ Supreme Court sync skipped for new act:", scError)
+			}
+		}
 	}
 
 	return { createdCount, skippedCount }

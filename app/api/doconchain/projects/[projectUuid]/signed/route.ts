@@ -24,7 +24,9 @@ export async function GET(_request: Request, { params }: { params: Promise<{ pro
 			with: {
 				meeting: {
 					with: {
-						participants: true,
+						appointments: {
+							with: { participants: { columns: { userId: true } } },
+						},
 					},
 				},
 			},
@@ -34,7 +36,9 @@ export async function GET(_request: Request, { params }: { params: Promise<{ pro
 			return new NextResponse("Document not found", { status: 404 })
 		}
 
-		const hasAccess = doc.meeting.participants.some(p => p.userId === session.user.id)
+		const hasAccess = (doc.meeting.appointments ?? []).some(apt =>
+			(apt.participants ?? []).some(p => p.userId === session.user.id)
+		)
 		if (!hasAccess) {
 			return new NextResponse("Forbidden", { status: 403 })
 		}

@@ -102,16 +102,18 @@ export async function getDoconchainApiToken(input?: {
 		return await existingInFlight
 	}
 
-	const promise = (async () => {
+		const promise = (async () => {
 		try {
 			const { token } = await generateDoconchainToken({ email })
 			return token
 		} catch (error) {
-			// Common case: user exists in our app but is not yet auto-joined in DocOnChain.
-			// DocOnChain responds: 401 Unauthorized with {"message":"Kindly check the email parameter and try again."}
+			// User may not exist in DocOnChain yet. Auto-join to org then retry.
+			// DocOnChain can return: 401 "Kindly check the email parameter..." or 400 "User not found."
 			const msg = error instanceof Error ? error.message.toLowerCase() : ""
 			const looksLikeMissingUser =
-				msg.includes("kindly check the email parameter") || msg.includes("check the email parameter")
+				msg.includes("kindly check the email parameter") ||
+				msg.includes("check the email parameter") ||
+				msg.includes("user not found")
 			if (looksLikeMissingUser) {
 				const { autoJoinMemberInDoconchainOrganization } = await import(
 					"@/services/doconchain/organization/auto-join-member"

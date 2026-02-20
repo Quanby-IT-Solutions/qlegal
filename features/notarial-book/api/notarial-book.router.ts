@@ -84,13 +84,13 @@ function extractSignerInfo(_passportData: unknown) {
 export const notarialBookRouter = createTRPCRouter({
 	/**
 	 * Fetch notarial book entries from external signing provider.
-	 * Temporarily disabled while the signing integration is rebuilt.
+	 * Notarial acts are populated when you end a session; use getNotarialBook for the local registry and sync to Supreme Court from the registry.
 	 */
 	getNotarialBookFromAPI: protectedProcedure.input(getNotarialBookSchema).query(async () => {
 		throw new TRPCError({
 			code: "SERVICE_UNAVAILABLE",
 			message:
-				"External notarial book sync is temporarily unavailable while we rebuild the signing integration.",
+				"Use the Notarial Registry page: acts are populated when you end a session. Sync each act to Supreme Court from the registry.",
 		})
 	}),
 
@@ -416,10 +416,8 @@ export const notarialBookRouter = createTRPCRouter({
 		}),
 
 	/**
-	 * Sync a completed document to the notarial book
-	 * Syncs a completed document into the notarial book.
-	 *
-	 * Temporarily disabled while the signing integration is rebuilt.
+	 * Sync a completed document to the notarial book.
+	 * Notarial acts are auto-populated when you end a session; use the Notarial Registry to sync acts to Supreme Court.
 	 */
 	syncDocumentToNotarialBook: protectedProcedure
 		.input(syncDocumentToNotarialBookSchema)
@@ -427,18 +425,19 @@ export const notarialBookRouter = createTRPCRouter({
 			throw new TRPCError({
 				code: "SERVICE_UNAVAILABLE",
 				message:
-					"Notarial book sync is temporarily unavailable while we rebuild the signing integration.",
+					"Notarial acts are populated when you end a session. Use the Notarial Registry page and sync each act to Supreme Court there.",
 			})
 		}),
 
 	/**
-	 * Auto-sync all completed documents for the ENP
-	 * Temporarily disabled while the signing integration is rebuilt.
+	 * Auto-sync all completed documents for the ENP.
+	 * Notarial acts are auto-populated when you end a session; sync to Supreme Court from the registry.
 	 */
 	autoSyncAllDocuments: protectedProcedure.mutation(async () => {
 		throw new TRPCError({
 			code: "SERVICE_UNAVAILABLE",
-			message: "Auto-sync is temporarily unavailable while we rebuild the signing integration.",
+			message:
+				"Notarial acts are populated when you end a session. Use the Notarial Registry and sync each act to Supreme Court.",
 		})
 	}),
 
