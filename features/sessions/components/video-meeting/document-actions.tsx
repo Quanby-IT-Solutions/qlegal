@@ -59,7 +59,7 @@ interface DocumentActionsProps {
 	meetingId?: string
 	onCreateProject?: (documentId: string, meetingId: string) => void
 	isCreatingProject?: boolean
-	/** Only used to gate "Create Project" (ENP). Signers never need a token: the server generates sign/plot links using their email. */
+	/** Gate Create Project (ENP only). Signers do not need a token—server generates sign/plot links from their email. Default true when unused. */
 	docoChainTokenReady?: boolean
 	docoChainTokenLoading?: boolean
 	onPreGeneratedLink?: (
