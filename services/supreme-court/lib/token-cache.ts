@@ -18,7 +18,7 @@ function isTokenValid(entry: CachedToken | null): entry is CachedToken {
  */
 export function isConfigured(): boolean {
 	return !!(
-		env.SUPREME_COURT_COGNITO_URL &&
+		env.SUPREME_COURT_AUTH_URL &&
 		env.SUPREME_COURT_CLIENT_ID &&
 		env.SUPREME_COURT_USERNAME &&
 		env.SUPREME_COURT_PASSWORD
@@ -29,14 +29,14 @@ export function isConfigured(): boolean {
  * Generate a new access token via AWS Cognito InitiateAuth.
  */
 export async function generateToken(): Promise<string> {
-	const cognitoUrl = env.SUPREME_COURT_COGNITO_URL
+	const cognitoUrl = env.SUPREME_COURT_AUTH_URL
 	const clientId = env.SUPREME_COURT_CLIENT_ID
 	const username = env.SUPREME_COURT_USERNAME
 	const password = env.SUPREME_COURT_PASSWORD
 
 	if (!cognitoUrl || !clientId || !username || !password) {
 		throw new Error(
-			"Supreme Court API not configured: SUPREME_COURT_COGNITO_URL, CLIENT_ID, USERNAME, and PASSWORD are required"
+			"Supreme Court API not configured: SUPREME_COURT_AUTH_URL, CLIENT_ID, USERNAME, and PASSWORD are required"
 		)
 	}
 
@@ -66,11 +66,12 @@ export async function generateToken(): Promise<string> {
 	} catch (err) {
 		const cause = err instanceof Error ? err.cause : undefined
 		const causeMsg = cause instanceof Error ? cause.message : String(cause ?? "")
-		const code = cause && typeof cause === "object" && "code" in cause ? (cause as { code: string }).code : ""
+		const code =
+			cause && typeof cause === "object" && "code" in cause ? (cause as { code: string }).code : ""
 		throw new Error(
 			`Supreme Court Cognito auth request failed (network error). ${causeMsg || (err instanceof Error ? err.message : String(err))}` +
 				(code ? ` (${code})` : "") +
-				`\n\n   Possible causes: no internet, firewall/VPN blocking, DNS failure, or wrong SUPREME_COURT_COGNITO_URL.`
+				`\n\n   Possible causes: no internet, firewall/VPN blocking, DNS failure, or wrong SUPREME_COURT_AUTH_URL.`
 		)
 	}
 
@@ -93,8 +94,7 @@ export async function generateToken(): Promise<string> {
 					msg.toLowerCase().includes("incorrect username") ||
 					msg.toLowerCase().includes("incorrect password")
 				) {
-					errorMessage =
-						`Supreme Court credentials were rejected: ${msg}. Check SUPREME_COURT_USERNAME and SUPREME_COURT_PASSWORD in your .env and ensure they match the Supreme Court eNotarization portal.`
+					errorMessage = `Supreme Court credentials were rejected: ${msg}. Check SUPREME_COURT_USERNAME and SUPREME_COURT_PASSWORD in your .env and ensure they match the Supreme Court eNotarization portal.`
 				} else {
 					errorMessage = `Supreme Court Cognito auth failed: ${type} - ${msg}`
 				}
@@ -139,7 +139,7 @@ export async function generateToken(): Promise<string> {
 	// Handle NEW_PASSWORD_REQUIRED challenge
 	if (data.ChallengeName === "NEW_PASSWORD_REQUIRED" && data.Session) {
 		console.log("🔵 [Supreme Court] Handling NEW_PASSWORD_REQUIRED challenge...")
-		
+
 		// Respond to the challenge by setting the new password (using the same password)
 		const challengeResponse = await fetch(cognitoUrl, {
 			method: "POST",
@@ -279,11 +279,11 @@ export function decodeToken(token: string): {
 		const paddedPayload = payload + "=".repeat((4 - (payload.length % 4)) % 4)
 		const decoded = Buffer.from(paddedPayload, "base64").toString("utf-8")
 		const parsed = JSON.parse(decoded) as {
-			username?: string
+			"username"?: string
 			"cognito:groups"?: string[]
-			sub?: string
-			exp?: number
-			iat?: number
+			"sub"?: string
+			"exp"?: number
+			"iat"?: number
 		}
 
 		return {

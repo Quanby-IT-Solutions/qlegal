@@ -4,7 +4,7 @@
  *
  * Requires .env with:
  *   SUPREME_COURT_API_URL
- *   SUPREME_COURT_COGNITO_URL
+ *   SUPREME_COURT_AUTH_URL
  *   SUPREME_COURT_CLIENT_ID
  *   SUPREME_COURT_USERNAME
  *   SUPREME_COURT_PASSWORD
@@ -19,7 +19,7 @@ async function main() {
 
 	if (!isConfigured()) {
 		console.error("❌ Supreme Court API not configured. Add credentials to .env:")
-		console.error("   SUPREME_COURT_API_URL, SUPREME_COURT_COGNITO_URL,")
+		console.error("   SUPREME_COURT_API_URL, SUPREME_COURT_AUTH_URL,")
 		console.error("   SUPREME_COURT_CLIENT_ID, SUPREME_COURT_USERNAME, SUPREME_COURT_PASSWORD")
 		process.exit(1)
 	}
@@ -54,7 +54,7 @@ async function main() {
 	try {
 		console.log("🔵 Creating metadata...")
 		const result = await createMetadata(testRequest)
-		
+
 		console.log("✅ Success!")
 		console.log(`   Message: ${result.message}`)
 		console.log(`   Notarial Registry ID (NRID): ${result.notarialRegistryID}`)

@@ -7,7 +7,7 @@
  *
  * Requires .env with:
  *   SUPREME_COURT_API_URL
- *   SUPREME_COURT_COGNITO_URL
+ *   SUPREME_COURT_AUTH_URL
  *   SUPREME_COURT_CLIENT_ID
  *   SUPREME_COURT_USERNAME
  *   SUPREME_COURT_PASSWORD
@@ -22,7 +22,7 @@ async function main() {
 
 	if (!isConfigured()) {
 		console.error("❌ Supreme Court API not configured. Add credentials to .env:")
-		console.error("   SUPREME_COURT_API_URL, SUPREME_COURT_COGNITO_URL,")
+		console.error("   SUPREME_COURT_API_URL, SUPREME_COURT_AUTH_URL,")
 		console.error("   SUPREME_COURT_CLIENT_ID, SUPREME_COURT_USERNAME, SUPREME_COURT_PASSWORD")
 		process.exit(1)
 	}
@@ -63,14 +63,16 @@ async function main() {
 	console.log(`   Principals: ${testPrincipals.length}`)
 	testPrincipals.forEach((p, i) => {
 		console.log(`   ${i + 1}. ${p.principalName}`)
-		console.log(`      Address: ${p.principalAddress.homeStreet}, ${p.principalAddress.barangay}, ${p.principalAddress.cityProvince}`)
+		console.log(
+			`      Address: ${p.principalAddress.homeStreet}, ${p.principalAddress.barangay}, ${p.principalAddress.cityProvince}`
+		)
 	})
 	console.log()
 
 	try {
 		console.log("🔵 Creating principals...")
 		const result = await createPrincipals(notarialRegistryID, testPrincipals)
-		
+
 		console.log("✅ Success!")
 		console.log(`   Message: ${result.message}`)
 		console.log(`   NRID: ${notarialRegistryID}`)
