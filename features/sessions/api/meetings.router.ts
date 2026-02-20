@@ -49,6 +49,18 @@ function asNonEmptyEmail(email: unknown): string | undefined {
 	return trimmed.length > 0 ? trimmed : undefined
 }
 
+function stripUrlQueryAndHash(urlString: string | null | undefined): string | null {
+	if (!urlString || typeof urlString !== "string") return urlString ?? null
+	try {
+		const url = new URL(urlString)
+		url.search = ""
+		url.hash = ""
+		return url.toString()
+	} catch {
+		return urlString
+	}
+}
+
 async function getAppointmentParticipantsByMeetingId(meetingId: string) {
 	const appointment = await db.query.appointments.findFirst({
 		where: eq(appointments.meetingId, meetingId),
@@ -914,7 +926,8 @@ export const meetingsRouter = createTRPCRouter({
 							.update(documents)
 							.set({
 								docoChainProjectId: project.uuid,
-								docoChainRedirectUrl: project.url,
+								// Never persist tokenized DocOnChain app URLs (they may contain api_token/token/email).
+								docoChainRedirectUrl: stripUrlQueryAndHash(project.url),
 							})
 							.where(eq(documents.id, document.id))
 

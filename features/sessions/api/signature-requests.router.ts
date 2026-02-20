@@ -408,14 +408,6 @@ export const signatureRequestsRouter = createTRPCRouter({
 			}
 
 			const email = input.email.trim().toLowerCase()
-			const appUrl = env.DOCONCHAIN_APP_URL
-			if (!docRedirectUrl && !appUrl) {
-				throw new TRPCError({
-					code: "PRECONDITION_FAILED",
-					message:
-						"Missing DOCONCHAIN_APP_URL and no stored redirect URL is available for this document.",
-				})
-			}
 
 			const doBuildLink = async () => {
 				// Plot Signature uses "Edit Draft" link endpoint (portal parity).
