@@ -54,11 +54,14 @@ import {
 import { Skeleton } from "@/core/components/ui/skeleton"
 import { getAvatarUrl, getInitials } from "@/core/lib/utils"
 
-import { trpc } from "@/services/trpc/client"
+import { trpc, type RouterInputs, type RouterOutputs } from "@/services/trpc/client"
 
 import { useMeetings } from "@/features/sessions/api/meetings.hooks"
 import { MeetingRecordingsModal } from "@/features/sessions/components/meeting-recordings-modal"
 import { useMessages } from "@/features/messages/api/messages.hooks"
+
+type MeetingWithStats =
+	RouterOutputs["meetings"]["getUserMeetingsWithDocumentStats"]["items"][number]
 
 function MeetingDocumentSummary({
 	total,
@@ -114,7 +117,7 @@ export function MeetingsListSection() {
 			refetchInterval: 10_000, // Refetch every 10 seconds for better real-time updates
 		}
 	)
-	const meetings = data?.items ?? []
+	const meetings: MeetingWithStats[] = data?.items ?? []
 	const hasMore = data?.hasMore ?? false
 	const [isDialogOpen, setIsDialogOpen] = useState(false)
 	const [title, setTitle] = useState("")
@@ -141,7 +144,10 @@ export function MeetingsListSection() {
 	const filteredMeetings = meetings.filter(meeting => {
 		if (!meeting) return false
 		const title = typeof meeting.title === "string" ? meeting.title : ""
-		const createdByName = meeting.createdBy?.name != null ? String(meeting.createdBy.name) : ""
+		const createdByName =
+			meeting.createdBy?.name !== null && meeting.createdBy?.name !== undefined
+				? String(meeting.createdBy.name)
+				: ""
 		const meetingDate = new Date(
 			(meeting as { appointmentDate?: string | Date }).appointmentDate ?? meeting.createdAt ?? 0
 		)
@@ -164,10 +170,11 @@ export function MeetingsListSection() {
 	const handleCreate = async () => {
 		if (!title.trim()) return
 		try {
-			const result = await create.mutateAsync({
+			const payload: RouterInputs["meetings"]["create"] = {
 				title: title.trim(),
 				participantIds: selectedUsers.map(u => u.id),
-			})
+			}
+			const result = await create.mutateAsync(payload)
 			if (result.success) {
 				// Immediately refetch to show the new meeting
 				await utils.meetings.getUserMeetingsWithDocumentStats.refetch()
@@ -238,32 +245,16 @@ export function MeetingsListSection() {
 		}
 	}
 
-	type MeetingWithStats = {
-		id: string
-		title: string
-		status: string
-		createdBy: {
-			id: string
-			name: string | null
-			image: string | null
-		}
-		participants: { user?: { id: string } }[]
-		createdAt?: string
-		documentStats?: {
-			total?: number
-			signed?: number
-			isComplete?: boolean
-		}
-	}
-
 	const getStatusBadge = (status: string) => {
 		switch (status) {
-			case "SCHEDULED":
+			case "CONFIRMED":
 				return (
 					<Badge variant="secondary">
 						<Calendar className="mr-1 size-3" /> Scheduled
 					</Badge>
 				)
+			case "PENDING":
+				return <Badge variant="outline">Pending</Badge>
 			case "ONGOING":
 				return (
 					<Badge variant="default" className="bg-emerald-600 hover:bg-emerald-700">
@@ -588,7 +579,7 @@ export function MeetingsListSection() {
 								const canJoin = meeting.status === "ONGOING"
 								const canStart =
 									(isHost || isParticipant) &&
-									(meeting.status === "SCHEDULED" || meeting.status === "CONFIRMED")
+									meeting.status === "CONFIRMED"
 								const canEnd = isHost && meeting.status === "ONGOING"
 								const scheduledAt =
 									(meeting as { appointmentDate?: string | Date }).appointmentDate ??
@@ -796,7 +787,7 @@ export function MeetingsListSection() {
 								const canJoin = meeting.status === "ONGOING"
 								const canStart =
 									(isHost || isParticipant) &&
-									(meeting.status === "SCHEDULED" || meeting.status === "CONFIRMED")
+									meeting.status === "CONFIRMED"
 								const canEnd = isHost && meeting.status === "ONGOING"
 								const scheduledAt =
 									(meeting as { appointmentDate?: string | Date }).appointmentDate ??

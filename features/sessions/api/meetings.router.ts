@@ -78,32 +78,81 @@ async function getAppointmentParticipantsByMeetingId(meetingId: string) {
 
 export const meetingsRouter = createTRPCRouter({
 	// Create a new meeting
-	create: protectedProcedure.input(z.object({})).mutation(async ({ ctx }) => {
-		// Create VideoSDK room
-		const { roomId } = await createMeetingRoom()
-
-		// Create meeting in database
-		const [meeting] = await db
-			.insert(meetings)
-			.values({
-				roomId,
-				createdById: ctx.session.user.id,
+	create: protectedProcedure
+		.input(
+			z.object({
+				title: z.string().trim().min(1),
+				participantIds: z.array(z.string().min(1)).optional().default([]),
 			})
-			.returning()
+		)
+		.mutation(async ({ ctx, input }) => {
+			// Create VideoSDK room
+			const { roomId } = await createMeetingRoom()
 
-		if (!meeting) {
-			throw new TRPCError({
-				code: "INTERNAL_SERVER_ERROR",
-				message: "Failed to create meeting",
-			})
-		}
+			// Create meeting in database
+			const [meeting] = await db
+				.insert(meetings)
+				.values({
+					roomId,
+					createdById: ctx.session.user.id,
+				})
+				.returning()
 
-		return {
-			success: true,
-			meeting,
-			token: generateMeetingToken(),
-		}
-	}),
+			if (!meeting) {
+				throw new TRPCError({
+					code: "INTERNAL_SERVER_ERROR",
+					message: "Failed to create meeting",
+				})
+			}
+
+			const appointmentDate = new Date()
+			const [appointment] = await db
+				.insert(appointments)
+				.values({
+					userId: ctx.session.user.id,
+					meetingId: meeting.id,
+					title: input.title.trim(),
+					type: "NOTARIZATION",
+					status: "CONFIRMED",
+					appointmentDate,
+				})
+				.returning({ id: appointments.id })
+
+			if (!appointment) {
+				throw new TRPCError({
+					code: "INTERNAL_SERVER_ERROR",
+					message: "Failed to create appointment",
+				})
+			}
+
+			const uniqueParticipantIds = Array.from(
+				new Set(input.participantIds.filter(participantId => participantId !== ctx.session.user.id))
+			)
+
+			await db.insert(appointmentParticipants).values([
+				{
+					appointmentId: appointment.id,
+					userId: ctx.session.user.id,
+					status: "ACCEPTED",
+					participantRole: "HOST",
+					acceptedAt: new Date(),
+				},
+				...uniqueParticipantIds.map(participantId => ({
+					appointmentId: appointment.id,
+					userId: participantId,
+					status: "ACCEPTED" as const,
+					invitedById: ctx.session.user.id,
+					participantRole: "PARTICIPANT" as const,
+					acceptedAt: new Date(),
+				})),
+			])
+
+			return {
+				success: true,
+				meeting,
+				token: generateMeetingToken(),
+			}
+		}),
 
 	// Get user's meetings
 	getUserMeetings: protectedProcedure.query(async ({ ctx }) => {
@@ -184,16 +233,19 @@ export const meetingsRouter = createTRPCRouter({
 											status: true,
 										},
 									},
-								},
-							},
-							participants: {
-								with: {
-									user: {
-										columns: {
-											id: true,
-											name: true,
-											email: true,
-											image: true,
+									appointments: {
+										with: {
+											participants: {
+												with: {
+													user: {
+														columns: {
+															id: true,
+															name: true,
+															image: true,
+														},
+													},
+												},
+											},
 										},
 									},
 								},
@@ -212,8 +264,13 @@ export const meetingsRouter = createTRPCRouter({
 
 			const rawItems = userMeetings
 				.filter(
-					(ap): ap is typeof ap & { appointment: NonNullable<typeof ap.appointment> & { meeting: NonNullable<NonNullable<typeof ap.appointment>["meeting"]> } } =>
-						Boolean(ap.appointment?.meetingId && ap.appointment?.meeting)
+					(
+						ap
+					): ap is typeof ap & {
+						appointment: NonNullable<typeof ap.appointment> & {
+							meeting: NonNullable<NonNullable<typeof ap.appointment>["meeting"]>
+						}
+					} => Boolean(ap.appointment?.meetingId && ap.appointment?.meeting)
 				)
 				.map(ap => {
 					const meeting = ap.appointment.meeting
@@ -238,9 +295,27 @@ export const meetingsRouter = createTRPCRouter({
 						}
 					}
 
-					const participants = (appointment.participants ?? []).map(p => ({
-						user: p.user ? { ...p.user, image: resolveAvatarImage(p.user.image) } : p.user,
-					}))
+					const seenParticipantUserIds = new Set<string>()
+					const participants = (meeting.appointments ?? [])
+						.flatMap(appointmentRow => appointmentRow.participants ?? [])
+						.filter(p => p.status === "ACCEPTED")
+						.filter(p => {
+							if (seenParticipantUserIds.has(p.userId)) return false
+							seenParticipantUserIds.add(p.userId)
+							return true
+						})
+						.map(p => ({
+							id: p.id,
+							userId: p.userId,
+							status: p.status,
+							user: p.user
+								? {
+										id: p.user.id,
+										name: p.user.name,
+										image: resolveAvatarImage(p.user.image),
+									}
+								: null,
+						}))
 
 					// Role-aware title: principal books "Notarization with [ENP]"; when ENP views, show "Notarization with [principal]"
 					const currentUserId = ctx.session.user.id
@@ -248,7 +323,7 @@ export const meetingsRouter = createTRPCRouter({
 					let displayTitle = appointment.title ?? "Meeting"
 					if (isAppointmentOwner && participants.length > 0) {
 						const other = participants.find(p => p.user?.id !== currentUserId)?.user
-						const otherName = other?.name?.trim() ?? other?.email ?? "Client"
+						const otherName = other?.name?.trim() ?? "Client"
 						displayTitle =
 							(appointment.type === "NOTARIZATION" ? "Notarization with " : "Session with ") +
 							otherName
