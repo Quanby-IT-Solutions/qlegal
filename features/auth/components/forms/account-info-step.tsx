@@ -5,6 +5,7 @@ import { type UseFormReturn } from "react-hook-form"
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/core/components/ui/form"
 import { Input } from "@/core/components/ui/input"
 import { InputPassword } from "@/core/components/ui/input-password"
+import { PasswordRequirementsChecklist } from "@/core/components/password-requirements-checklist"
 
 import { type LawyerRegisterSchema } from "@/features/auth/api/auth.schemas"
 
@@ -13,6 +14,8 @@ interface AccountInfoStepProps {
 }
 
 export function AccountInfoStep({ form }: AccountInfoStepProps) {
+	const password = form.watch("password")
+
 	return (
 		<div className="space-y-4">
 			<FormField
@@ -52,6 +55,7 @@ export function AccountInfoStep({ form }: AccountInfoStepProps) {
 						<FormControl>
 							<InputPassword placeholder="Create a password" {...field} />
 						</FormControl>
+						<PasswordRequirementsChecklist password={password} />
 						<FormMessage />
 					</FormItem>
 				)}

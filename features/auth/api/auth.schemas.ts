@@ -13,15 +13,29 @@ const emailSchema = z
 	.trim()
 	.toLowerCase()
 
+// Simple password schema for login (existing passwords may not meet complexity rules)
 const passwordSchema = z
 	.string({ error: "Password is required" })
 	.trim()
 	.min(6, "Password must be at least 6 characters long")
 
-const confirmPasswordSchema = z
+// Complex password schema for new password creation (registration, reset, etc.)
+const complexPasswordSchema = z
+	.string({ error: "Password is required" })
+	.trim()
+	.min(12, "Password must be at least 12 characters")
+	.regex(/[A-Z]/, "Password must contain at least one uppercase letter")
+	.regex(/[a-z]/, "Password must contain at least one lowercase letter")
+	.regex(/\d/, "Password must contain at least one number")
+	.regex(
+		/[!@#$%^&*()_+\-=[\]{}|;:'",.<>?/\\`~]/,
+		"Password must contain at least one special character"
+	)
+
+const complexConfirmPasswordSchema = z
 	.string({ error: "Please confirm your password" })
 	.trim()
-	.min(6, "Password confirmation must be at least 6 characters long")
+	.min(12, "Password confirmation must be at least 12 characters")
 
 const agreeToTermsSchema = z.boolean({
 	error: "You must agree to the terms and conditions",
@@ -31,8 +45,8 @@ export const registerSchema = z
 	.object({
 		name: nameSchema,
 		email: emailSchema,
-		password: passwordSchema,
-		confirmPassword: confirmPasswordSchema,
+		password: complexPasswordSchema,
+		confirmPassword: complexConfirmPasswordSchema,
 		agreeToTerms: agreeToTermsSchema,
 	})
 	.superRefine((data, ctx) => {
@@ -74,8 +88,8 @@ export const forgotPasswordSchema = z.object({
 
 export const resetPasswordSchema = z
 	.object({
-		newPassword: passwordSchema,
-		confirmPassword: confirmPasswordSchema,
+		newPassword: complexPasswordSchema,
+		confirmPassword: complexConfirmPasswordSchema,
 		token: z.string().optional(),
 	})
 	.superRefine((data, ctx) => {
@@ -158,8 +172,8 @@ export const lawyerRegisterSchema = z
 		// Basic account info
 		name: nameSchema,
 		email: emailSchema,
-		password: passwordSchema,
-		confirmPassword: confirmPasswordSchema,
+		password: complexPasswordSchema,
+		confirmPassword: complexConfirmPasswordSchema,
 		agreeToTerms: agreeToTermsSchema,
 
 		// Notary seal info
