@@ -129,16 +129,34 @@ export const authRouter = createTRPCRouter({
 			})
 		}
 
-		// Generate document_stamp payload for external API
+		// Format attorney name for seal: "ATTY." prefix and uppercase
+		const formatAttorneyNameForSeal = (n: string | null | undefined): string => {
+			const base = (n ?? "").trim()
+			if (!base) return ""
+			const upper = base.toUpperCase()
+			return upper.startsWith("ATTY.") ? upper : `ATTY. ${upper}`
+		}
+		const attyNameForSeal = formatAttorneyNameForSeal(notaryInfo.attyName ?? seal.enpName)
+		const enpNameForSeal = formatAttorneyNameForSeal(seal.enpName)
+		// Seal expects "In-person" or "Remote"; REN = Remote (video), IEN = In-person
+		const modeRaw = (notaryInfo.modeOfNotarization ?? "").trim().toUpperCase()
+		const modeOfNotarization =
+			modeRaw === "REN" || modeRaw === "REMOTE" ? "Remote" : "In-person"
+
+		// Generate document_stamp payload for external API (send both snake_case and camelCase for DocOnChain)
 		const documentStamp = {
 			seal: {
 				type: "seal",
-				enp_name: seal.enpName,
+				enp_name: enpNameForSeal,
+				enpName: enpNameForSeal,
 				enp_role_number: seal.enpRollNumber,
 			},
 			notary_info: {
 				type: "notary",
-				atty_name: notaryInfo.attyName,
+				name: attyNameForSeal,
+				commission_number: notaryInfo.commissionNo ?? "",
+				atty_name: attyNameForSeal,
+				attyName: attyNameForSeal,
 				roll_no: seal.enpRollNumber,
 				roll_no_date: formatDateForStamp(seal.rollNoDate),
 				commission_no: notaryInfo.commissionNo,
@@ -158,9 +176,10 @@ export const authRouter = createTRPCRouter({
 						: notaryInfo.mcleNoPeriod,
 				MCLE_no: notaryInfo.mcleNo,
 				MCLE_no_date: formatDateForStamp(notaryInfo.mcleNoDate),
-				mode_of_notarization: notaryInfo.modeOfNotarization,
-		},
-	}
+				mode_of_notarization: modeOfNotarization,
+				modeOfNotarization,
+			},
+		}
 
 		// DocOnChain org membership is added on first login, not at registration.
 

@@ -230,9 +230,9 @@ export async function syncNotarialActToSupremeCourt(
 		})
 	}
 
-	// Map workflow to modeOfNotarization
+	// Map workflow to modeOfNotarization: REN = Remote (video), IEN = In-person
 	const modeOfNotarization: "In-person" | "Remote" =
-		act.workflow === "IEN" ? "Remote" : "In-person"
+		act.workflow === "REN" ? "Remote" : "In-person"
 
 	// Create consolidated request (POST /public-use/consolidated - metadata + principals + witnesses in one call)
 	const consolidatedRequest = {
