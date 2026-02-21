@@ -14,6 +14,7 @@ import {
 	FormMessage,
 } from "@/core/components/ui/form"
 import { InputPassword } from "@/core/components/ui/input-password"
+import { PasswordRequirementsChecklist } from "@/core/components/password-requirements-checklist"
 
 import { trpc } from "@/services/trpc/client"
 
@@ -41,6 +42,8 @@ export function AddPasswordForm() {
 
 	const onSubmit = (values: AddPasswordSchema) => mutate(values)
 
+	const newPassword = form.watch("newPassword")
+
 	return (
 		<Form {...form}>
 			<form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -59,6 +62,7 @@ export function AddPasswordForm() {
 											{...field}
 										/>
 									</FormControl>
+									<PasswordRequirementsChecklist password={newPassword} />
 									<FormMessage />
 								</FormItem>
 							)}
