@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useMeeting, usePubSub } from "@videosdk.live/react-sdk"
-import { CircleDot, FileSignature, FileText, Loader2, Users as UsersIcon } from "lucide-react"
+import { CircleDot, FileSignature, Loader2, Users as UsersIcon } from "lucide-react"
 import { useSession } from "next-auth/react"
 import { toast } from "sonner"
 
@@ -16,7 +16,6 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "@/core/components/ui/dialog"
-import { cn } from "@/core/lib/utils"
 
 import { trpc } from "@/services/trpc/client"
 
@@ -32,7 +31,8 @@ import {
 	type RecordingConsentRequest,
 } from "../../lib/utils"
 import { MeetingDocumentUpload } from "../meeting-document-upload"
-import { DocumentCards } from "./document-cards"
+import { DocumentCards, type DocumentCardsHandle } from "./document-cards"
+import { FileFlightAnimation } from "./file-flight-animation"
 import { MeetingControls } from "./meeting-controls"
 import { ParticipantView } from "./participant-view"
 import { RecordingBanner } from "./recording-banner"
@@ -72,6 +72,7 @@ export function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meet
 	const mediaRecorderRef = useRef<MediaRecorder | null>(null)
 	const localStreamRef = useRef<MediaStream | null>(null)
 	const recordingContainerRef = useRef<HTMLDivElement>(null)
+	const docCardsRef = useRef<DocumentCardsHandle>(null)
 
 	const localRecordingSupported =
 		(typeof navigator !== "undefined" && !!navigator.mediaDevices?.getDisplayMedia) ||
@@ -82,6 +83,10 @@ export function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meet
 	// ─── UI state ───────────────────────────────────────────────
 	const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false)
 	const [showDocuments, setShowDocuments] = useState(true)
+
+	const [flyTrigger, setFlyTrigger] = useState(false)
+	const [flyOrigin, setFlyOrigin] = useState({ x: 0, y: 0 })
+	const [flyTarget, setFlyTarget] = useState({ x: 0, y: 0 })
 
 	// ─── Signing state ──────────────────────────────────────────
 	const [signingDocumentId, setSigningDocumentId] = useState<string | null>(null)
@@ -1020,17 +1025,6 @@ export function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meet
 					<h1 className="text-base font-bold md:text-lg">Signing Session</h1>
 				</div>
 
-				<MeetingControls
-					onUploadClick={handleUploadClick}
-					onRecordingToggle={handleRecordingToggle}
-					onLocalRecordingToggle={openConsentAndRequest}
-					localRecordingSupported={localRecordingSupported}
-					isRecording={isRecording}
-					isRecordingStarting={recordingStatus === "RECORDING_STARTING"}
-					isLocalRecording={isLocalRecording}
-					localRecordingStartedAt={localRecordingStartedAt}
-				/>
-
 				<div className="bg-muted/50 flex items-center gap-2 rounded-lg px-3 py-1.5">
 					<UsersIcon className="text-muted-foreground size-4" />
 					<span className="text-xs font-medium md:text-sm">
@@ -1038,6 +1032,15 @@ export function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meet
 					</span>
 				</div>
 			</div>
+
+			{/* <FileFlightAnimation
+				trigger={flyTrigger}
+				onComplete={() => setFlyTrigger(false)}
+				originX={flyOrigin.x}
+				originY={flyOrigin.y}
+				targetX={flyTarget.x}
+				targetY={flyTarget.y}
+			/> */}
 
 			{/* Document Upload Dialog */}
 			{meetingId && (
@@ -1050,6 +1053,12 @@ export function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meet
 						setShowDocuments(true)
 					}}
 					isEnp={session?.user?.role === "ENP"}
+					onUploadStart={(x, y) => {
+						const target = docCardsRef.current?.getSidebarTarget()
+						if (target) setFlyTarget(target)
+						setFlyOrigin({ x, y })
+						setFlyTrigger(true)
+					}}
 				/>
 			)}
 
@@ -1092,110 +1101,114 @@ export function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meet
 				</DialogContent>
 			</Dialog>
 
-			{/* Main content */}
-			<div className="flex flex-1 flex-col overflow-hidden">
-				<div className="flex-1 overflow-hidden p-3 md:p-4 lg:p-6">
-					<RecordingBanner
-						isLocalRecording={isLocalRecording}
-						localRecordingStartedAt={localRecordingStartedAt}
-						isAnyoneRecording={isAnyoneRecording}
-						recordingParticipantName={recordingParticipantName}
-						recordingStopped={recordingStopped}
-						stoppedElapsed={stoppedElapsed}
-					/>
-					{participantIds.length === 0 ? (
-						<Card className="mx-auto max-w-xl shadow-md">
-							<CardContent className="text-muted-foreground p-6 text-center text-sm">
-								No participants yet. Turn on your camera to appear in the session.
-							</CardContent>
-						</Card>
-					) : (
-						<div className="flex h-full w-full flex-col gap-4 overflow-y-auto">
-							{presenterId && (
-								<div className="w-full">
-									<div className="border-border/70 bg-card/80 overflow-hidden rounded-xl border shadow-lg">
-										<ParticipantView participantId={presenterId} />
-									</div>
-								</div>
-							)}
-							<div
-								className={cn(
-									"grid h-full w-full grid-cols-[repeat(auto-fit,minmax(240px,1fr))] gap-4 sm:gap-5",
-									"auto-rows-[minmax(260px,1fr)]",
-									showDocuments && "auto-rows-[minmax(220px,1fr)] md:auto-rows-[minmax(240px,1fr)]"
-								)}
-							>
-								{participantIds
-									.filter(id => id !== presenterId)
-									.map(participantId => (
-										<div key={participantId} className="min-h-65">
-											<ParticipantView participantId={participantId} />
+			{/* Main content — video area + right sidebar */}
+			<div className="flex flex-1 overflow-hidden">
+				{/* Video area */}
+				<div className="flex flex-1 flex-col overflow-hidden">
+					<div className="flex-1 overflow-hidden p-3 md:p-4 lg:p-6">
+						<RecordingBanner
+							isLocalRecording={isLocalRecording}
+							localRecordingStartedAt={localRecordingStartedAt}
+							isAnyoneRecording={isAnyoneRecording}
+							recordingParticipantName={recordingParticipantName}
+							recordingStopped={recordingStopped}
+							stoppedElapsed={stoppedElapsed}
+						/>
+						{participantIds.length === 0 ? (
+							<Card className="mx-auto max-w-xl shadow-md">
+								<CardContent className="text-muted-foreground p-6 text-center text-sm">
+									No participants yet. Turn on your camera to appear in the session.
+								</CardContent>
+							</Card>
+						) : (
+							<div className="flex h-full w-full flex-col gap-4 overflow-y-auto">
+								{presenterId && (
+									<div className="w-full">
+										<div className="border-border/70 bg-card/80 overflow-hidden rounded-xl border shadow-lg">
+											<ParticipantView participantId={presenterId} />
 										</div>
-									))}
+									</div>
+								)}
+								<div className="grid h-full w-full auto-rows-[minmax(260px,1fr)] grid-cols-[repeat(auto-fit,minmax(240px,1fr))] gap-4 sm:gap-5">
+									{participantIds
+										.filter(id => id !== presenterId)
+										.map(participantId => (
+											<div key={participantId} className="min-h-65">
+												<ParticipantView participantId={participantId} />
+											</div>
+										))}
+								</div>
 							</div>
-						</div>
-					)}
-				</div>
-
-				{/* Documents Panel */}
-				{documents && documents.length > 0 && (
-					<div
-						className={cn(
-							"bg-card/50 shrink-0 border-t shadow-lg backdrop-blur-sm transition-all duration-300",
-							showDocuments ? "max-h-100 min-h-50" : "h-12 md:h-14"
 						)}
-					>
-						<DocumentCards
-							meetingId={meetingId}
-							documents={documents}
-							showDocuments={showDocuments}
-							onToggleShowDocuments={() => setShowDocuments(!showDocuments)}
-							isDocumentsFetching={isDocumentsFetching}
-							isRefreshingSigningStatus={isRefreshingSigningStatus}
-							documentSigningStatus={documentSigningStatus}
-							meetingDetails={meetingDetails}
-							notarizationDetails={notarizationDetails}
-							signingDocumentId={signingDocumentId}
-							isPlottingAction={isPlottingAction}
-							downloadingProjectUuid={downloadingProjectUuid}
-							preGeneratedPlotLinks={preGeneratedPlotLinks}
-							preGeneratedSignLinks={preGeneratedSignLinks}
-							userConfirmedPlottedDocumentIds={userConfirmedPlottedDocumentIds}
-							docoChainTokenReady={docoChainTokenReady}
-							docoChainTokenLoading={docoChainTokenLoading}
-							onSignClick={handleSignClick}
-							onSignersChange={handleSignersChange}
-							onCreateProject={(documentId, mId) => {
-								createDocoChainProjectMutation.mutate({ documentId, meetingId: mId })
-							}}
-							isCreatingProject={createDocoChainProjectMutation.isPending}
-							onPreGeneratedLink={(documentId, link, projectUuid, kind, cleanPlotUrl) => {
-								const setMap = kind === "plot" ? setPreGeneratedPlotLinks : setPreGeneratedSignLinks
-								setMap(prev => {
-									const next = new Map(prev)
-									next.set(documentId, {
-										link,
-										projectUuid,
-										storedAt: Date.now(),
-										cleanPlotUrl: kind === "plot" ? cleanPlotUrl : undefined,
-									})
-									return next
-								})
-							}}
-							onViewNotarizedDocument={handleViewNotarizedDocument}
-							onRefresh={async () => {
-								await refetchDocuments()
-								await manualRefreshSigningStatuses()
-							}}
-							onToggleLock={isLocked => {
-								if (meetingId) toggleLockMutation.mutate({ meetingId, isLocked })
-							}}
-							isTogglingLock={toggleLockMutation.isPending}
-							onUpdateDocumentOrder={documentIds => {
-								if (meetingId) updateDocumentOrder.mutate({ meetingId, documentIds })
-							}}
+					</div>
+
+					<div className="absolute bottom-6 left-1/2 z-50 -translate-x-1/2">
+						<MeetingControls
+							onUploadClick={handleUploadClick}
+							onRecordingToggle={handleRecordingToggle}
+							onLocalRecordingToggle={openConsentAndRequest}
+							localRecordingSupported={localRecordingSupported}
+							isRecording={isRecording}
+							isRecordingStarting={recordingStatus === "RECORDING_STARTING"}
+							isLocalRecording={isLocalRecording}
+							localRecordingStartedAt={localRecordingStartedAt}
 						/>
 					</div>
+				</div>
+
+				{/* Documents right sidebar */}
+				{documents && documents.length > 0 && (
+					<DocumentCards
+						ref={docCardsRef}
+						meetingId={meetingId}
+						documents={documents}
+						showDocuments={showDocuments}
+						onToggleShowDocuments={() => setShowDocuments(!showDocuments)}
+						isDocumentsFetching={isDocumentsFetching}
+						isRefreshingSigningStatus={isRefreshingSigningStatus}
+						documentSigningStatus={documentSigningStatus}
+						meetingDetails={meetingDetails}
+						notarizationDetails={notarizationDetails}
+						signingDocumentId={signingDocumentId}
+						isPlottingAction={isPlottingAction}
+						downloadingProjectUuid={downloadingProjectUuid}
+						preGeneratedPlotLinks={preGeneratedPlotLinks}
+						preGeneratedSignLinks={preGeneratedSignLinks}
+						userConfirmedPlottedDocumentIds={userConfirmedPlottedDocumentIds}
+						docoChainTokenReady={docoChainTokenReady}
+						docoChainTokenLoading={docoChainTokenLoading}
+						onSignClick={handleSignClick}
+						onSignersChange={handleSignersChange}
+						onCreateProject={(documentId, mId) => {
+							createDocoChainProjectMutation.mutate({ documentId, meetingId: mId })
+						}}
+						isCreatingProject={createDocoChainProjectMutation.isPending}
+						onPreGeneratedLink={(documentId, link, projectUuid, kind, cleanPlotUrl) => {
+							const setMap = kind === "plot" ? setPreGeneratedPlotLinks : setPreGeneratedSignLinks
+							setMap(prev => {
+								const next = new Map(prev)
+								next.set(documentId, {
+									link,
+									projectUuid,
+									storedAt: Date.now(),
+									cleanPlotUrl: kind === "plot" ? cleanPlotUrl : undefined,
+								})
+								return next
+							})
+						}}
+						onViewNotarizedDocument={handleViewNotarizedDocument}
+						onRefresh={async () => {
+							await refetchDocuments()
+							await manualRefreshSigningStatuses()
+						}}
+						onToggleLock={isLocked => {
+							if (meetingId) toggleLockMutation.mutate({ meetingId, isLocked })
+						}}
+						isTogglingLock={toggleLockMutation.isPending}
+						onUpdateDocumentOrder={documentIds => {
+							if (meetingId) updateDocumentOrder.mutate({ meetingId, documentIds })
+						}}
+					/>
 				)}
 			</div>
 

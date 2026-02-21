@@ -1,9 +1,10 @@
 "use client"
 
-import React, { useCallback, useMemo, useState } from "react"
+import React, { useCallback, useImperativeHandle, useMemo, useRef, useState } from "react"
 import {
-	AlertCircle,
 	CheckCircle2,
+	ChevronLeft,
+	ChevronRight,
 	Clock,
 	FileText,
 	GripVertical,
@@ -13,19 +14,15 @@ import {
 	Unlock,
 } from "lucide-react"
 import { useSession } from "next-auth/react"
-import { toast } from "sonner"
 
 import { Button } from "@/core/components/ui/button"
 import { Card, CardContent } from "@/core/components/ui/card"
 import {
 	DropdownMenu,
 	DropdownMenuContent,
-	DropdownMenuItem,
 	DropdownMenuTrigger,
 } from "@/core/components/ui/dropdown-menu"
 import { cn } from "@/core/lib/utils"
-
-import { trpc } from "@/services/trpc/client"
 
 import type { PreGeneratedLinkEntry } from "../../lib/utils"
 import { DocumentActions } from "./document-actions"
@@ -136,263 +133,340 @@ interface DocumentCardsProps {
 // Component
 // ─────────────────────────────────────────────────────────────
 
-export const DocumentCards = React.memo(function DocumentCards({
-	meetingId,
-	documents,
-	showDocuments,
-	onToggleShowDocuments,
-	isDocumentsFetching,
-	isRefreshingSigningStatus,
-	documentSigningStatus,
-	meetingDetails,
-	notarizationDetails,
-	signingDocumentId,
-	isPlottingAction,
-	downloadingProjectUuid,
-	preGeneratedPlotLinks,
-	userConfirmedPlottedDocumentIds,
-	docoChainTokenReady,
-	docoChainTokenLoading,
-	onSignClick,
-	onSignersChange,
-	onCreateProject,
-	isCreatingProject,
-	onPreGeneratedLink,
-	onViewNotarizedDocument,
-	onRefresh,
-	onToggleLock,
-	isTogglingLock,
-	onUpdateDocumentOrder,
-}: DocumentCardsProps) {
-	const { data: session } = useSession()
-	// A user can lock/unlock if they are the one who created this meeting,
-	// NOT based on their role. Matches the original: meetingDetails.createdBy.id === session.user.id
-	const isPrincipal = meetingDetails?.createdBy?.id === session?.user?.id
+export interface DocumentCardsHandle {
+	getSidebarTarget: () => { x: number; y: number } | null
+}
 
-	const isLocked = meetingDetails?.isDocumentOrderLocked ?? false
+export const DocumentCards = React.memo(
+	React.forwardRef<DocumentCardsHandle, DocumentCardsProps>(function DocumentCards(
+		{
+			meetingId,
+			documents,
+			showDocuments,
+			onToggleShowDocuments,
+			isDocumentsFetching,
+			isRefreshingSigningStatus,
+			documentSigningStatus,
+			meetingDetails,
+			notarizationDetails,
+			signingDocumentId,
+			isPlottingAction,
+			downloadingProjectUuid,
+			preGeneratedPlotLinks,
+			userConfirmedPlottedDocumentIds,
+			docoChainTokenReady,
+			docoChainTokenLoading,
+			onSignClick,
+			onSignersChange,
+			onCreateProject,
+			isCreatingProject,
+			onPreGeneratedLink,
+			onViewNotarizedDocument,
+			onRefresh,
+			onToggleLock,
+			isTogglingLock,
+			onUpdateDocumentOrder,
+		}: DocumentCardsProps,
+		ref: React.Ref<DocumentCardsHandle>
+	) {
+		const { data: session } = useSession()
+		// Lock/unlock is gated on being the meeting creator, not on user role
+		const isPrincipal = meetingDetails?.createdBy?.id === session?.user?.id
+		const isLocked = meetingDetails?.isDocumentOrderLocked ?? false
 
-	const [draggedDocumentId, setDraggedDocumentId] = useState<string | null>(null)
-	const [dragOverDocumentId, setDragOverDocumentId] = useState<string | null>(null)
+		const [draggedDocumentId, setDraggedDocumentId] = useState<string | null>(null)
+		const [dragOverDocumentId, setDragOverDocumentId] = useState<string | null>(null)
+		const collapsedStripRef = useRef<HTMLButtonElement>(null)
+		const drawerHeaderIconRef = useRef<HTMLDivElement>(null)
 
-	const handleDragStart = useCallback(
-		(e: React.DragEvent, documentId: string) => {
-			if (isLocked) {
+		// Expose getSidebarTarget imperatively for the flight animation
+		useImperativeHandle(ref, () => ({
+			getSidebarTarget: () => {
+				const el =
+					(showDocuments ? drawerHeaderIconRef.current : collapsedStripRef.current) ??
+					drawerHeaderIconRef.current ??
+					collapsedStripRef.current
+				if (!el) return null
+				const rect = el.getBoundingClientRect()
+				return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }
+			},
+		}))
+
+		// ─── Drag-and-drop handlers ────────────────────────────────
+
+		const handleDragStart = useCallback(
+			(e: React.DragEvent, documentId: string) => {
+				if (isLocked) {
+					e.preventDefault()
+					return
+				}
+				const target = e.target as HTMLElement
+				if (target.closest("button") || target.closest("a") || target.closest('[role="button"]')) {
+					e.preventDefault()
+					return
+				}
+				setDraggedDocumentId(documentId)
+				e.dataTransfer.effectAllowed = "move"
+				e.dataTransfer.setData("text/plain", documentId)
+			},
+			[isLocked]
+		)
+
+		const handleDragEnter = useCallback(
+			(e: React.DragEvent, targetDocumentId: string) => {
+				if (isLocked) {
+					e.preventDefault()
+					return
+				}
 				e.preventDefault()
-				return
-			}
-			const target = e.target as HTMLElement
-			if (target.closest("button") || target.closest("a") || target.closest('[role="button"]')) {
-				e.preventDefault()
-				return
-			}
-			setDraggedDocumentId(documentId)
-			e.dataTransfer.effectAllowed = "move"
-			e.dataTransfer.setData("text/plain", documentId)
-		},
-		[isLocked]
-	)
-
-	const handleDragEnter = useCallback(
-		(e: React.DragEvent, targetDocumentId: string) => {
-			if (isLocked) {
-				e.preventDefault()
-				return
-			}
-			e.preventDefault()
-			if (!draggedDocumentId || targetDocumentId === draggedDocumentId) return
-			setDragOverDocumentId(targetDocumentId)
-		},
-		[draggedDocumentId, isLocked]
-	)
-
-	const handleDragLeave = useCallback((e: React.DragEvent) => {
-		e.preventDefault()
-		const relatedTarget = e.relatedTarget as HTMLElement
-		if (!relatedTarget || !e.currentTarget.contains(relatedTarget)) {
-			setDragOverDocumentId(null)
-		}
-	}, [])
-
-	const handleDragOver = useCallback(
-		(e: React.DragEvent, targetDocumentId: string) => {
-			if (isLocked) {
-				e.preventDefault()
-				return
-			}
-			e.preventDefault()
-			e.dataTransfer.dropEffect = "move"
-			if (draggedDocumentId && targetDocumentId !== draggedDocumentId) {
+				if (!draggedDocumentId || targetDocumentId === draggedDocumentId) return
 				setDragOverDocumentId(targetDocumentId)
-			}
-		},
-		[draggedDocumentId, isLocked]
-	)
+			},
+			[draggedDocumentId, isLocked]
+		)
 
-	const handleDrop = useCallback(
-		(e: React.DragEvent, targetDocumentId: string) => {
-			if (isLocked) {
-				e.preventDefault()
-				setDraggedDocumentId(null)
-				setDragOverDocumentId(null)
-				return
-			}
+		const handleDragLeave = useCallback((e: React.DragEvent) => {
 			e.preventDefault()
-			setDragOverDocumentId(null)
-
-			if (!draggedDocumentId || !documents) {
-				setDraggedDocumentId(null)
-				return
+			const relatedTarget = e.relatedTarget as HTMLElement
+			if (!relatedTarget || !e.currentTarget.contains(relatedTarget)) {
+				setDragOverDocumentId(null)
 			}
+		}, [])
 
-			const sourceIndex = documents.findIndex(doc => doc.id === draggedDocumentId)
-			const targetIndex = documents.findIndex(doc => doc.id === targetDocumentId)
+		const handleDragOver = useCallback(
+			(e: React.DragEvent, targetDocumentId: string) => {
+				if (isLocked) {
+					e.preventDefault()
+					return
+				}
+				e.preventDefault()
+				e.dataTransfer.dropEffect = "move"
+				if (draggedDocumentId && targetDocumentId !== draggedDocumentId) {
+					setDragOverDocumentId(targetDocumentId)
+				}
+			},
+			[draggedDocumentId, isLocked]
+		)
 
-			if (sourceIndex === -1 || targetIndex === -1 || sourceIndex === targetIndex) {
+		const handleDrop = useCallback(
+			(e: React.DragEvent, targetDocumentId: string) => {
+				if (isLocked) {
+					e.preventDefault()
+					setDraggedDocumentId(null)
+					setDragOverDocumentId(null)
+					return
+				}
+				e.preventDefault()
+				setDragOverDocumentId(null)
+
+				if (!draggedDocumentId || !documents) {
+					setDraggedDocumentId(null)
+					return
+				}
+
+				const sourceIndex = documents.findIndex(doc => doc.id === draggedDocumentId)
+				const targetIndex = documents.findIndex(doc => doc.id === targetDocumentId)
+
+				if (sourceIndex === -1 || targetIndex === -1 || sourceIndex === targetIndex) {
+					setDraggedDocumentId(null)
+					return
+				}
+
+				const newOrder = [...documents]
+				const removed = newOrder.splice(sourceIndex, 1)[0]
+				if (!removed) {
+					setDraggedDocumentId(null)
+					return
+				}
+				newOrder.splice(targetIndex, 0, removed)
+				onUpdateDocumentOrder(newOrder.map(doc => doc.id))
 				setDraggedDocumentId(null)
-				return
-			}
+			},
+			[documents, draggedDocumentId, isLocked, onUpdateDocumentOrder]
+		)
 
-			const newOrder = [...documents]
-			const removed = newOrder.splice(sourceIndex, 1)[0]
-			if (!removed) {
-				setDraggedDocumentId(null)
-				return
-			}
-			newOrder.splice(targetIndex, 0, removed)
-			onUpdateDocumentOrder(newOrder.map(doc => doc.id))
+		const handleDragEnd = useCallback(() => {
 			setDraggedDocumentId(null)
-		},
-		[documents, draggedDocumentId, isLocked, onUpdateDocumentOrder]
-	)
+			setDragOverDocumentId(null)
+		}, [])
 
-	const handleDragEnd = useCallback(() => {
-		setDraggedDocumentId(null)
-		setDragOverDocumentId(null)
-	}, [])
+		// ─── Notarization docs lookup ──────────────────────────────
 
-	const notarizationDocs = useMemo(
-		() =>
-			Array.isArray((notarizationDetails as { documents?: unknown })?.documents)
-				? (
-						notarizationDetails as {
-							documents: Array<{ id?: unknown; signatureRequests?: unknown }>
-						}
-					).documents
-				: [],
-		[notarizationDetails]
-	)
+		const notarizationDocs = useMemo(
+			() =>
+				Array.isArray((notarizationDetails as { documents?: unknown })?.documents)
+					? (
+							notarizationDetails as {
+								documents: Array<{ id?: unknown; signatureRequests?: unknown }>
+							}
+						).documents
+					: [],
+			[notarizationDetails]
+		)
 
-	if (!documents || documents.length === 0) return null
+		if (!documents || documents.length === 0) return null
 
-	return (
-		<div className="bg-card/50 border-t backdrop-blur-sm">
-			{/* Panel Header */}
-			<div className="flex items-center justify-between border-b px-3 py-2 md:px-4 lg:px-6">
-				{(() => {
-					return (
-						<>
-							<div className="flex items-center gap-2">
-								<span className="text-sm font-semibold">Documents ({documents.length})</span>
-								{isLocked && (
-									<div className="flex items-center gap-1.5 rounded-full border border-amber-300 bg-amber-100 px-2.5 py-1 dark:border-amber-700 dark:bg-amber-900/30">
-										<Lock className="size-3 text-amber-700 dark:text-amber-400" />
-										<span className="text-[11px] font-semibold text-amber-700 dark:text-amber-400">
-											Order Locked
-										</span>
-									</div>
+		// ─── Collapsed: show a slim vertical tab on the right edge ─
+
+		if (!showDocuments) {
+			return (
+				<button
+					ref={collapsedStripRef}
+					onClick={onToggleShowDocuments}
+					className={cn(
+						"group relative flex h-full w-12 shrink-0 flex-col items-center justify-start gap-2 border-l pt-3",
+						"bg-card/60 hover:bg-card backdrop-blur-sm transition-colors",
+						"focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-inset"
+					)}
+					title={`Show documents panel (${documents.length} file${documents.length !== 1 ? "s" : ""})`}
+					aria-label="Show documents panel"
+				>
+					{/* Chevron arrow at top */}
+					<ChevronLeft className="text-muted-foreground group-hover:text-foreground size-4 shrink-0 transition-colors" />
+
+					{/* All file icons stacked below, no limit */}
+					<div className="flex w-full flex-col items-center gap-1 px-1">
+						{documents.map((_, i) => (
+							<div
+								key={i}
+								className={cn(
+									"flex w-full items-center justify-center rounded-md p-1.5 transition-colors",
+									i === 0
+										? "bg-primary/15 group-hover:bg-primary/20"
+										: "bg-muted/60 group-hover:bg-muted/80"
 								)}
-							</div>
-							<div className="flex items-center gap-2">
-								<Button
-									variant="ghost"
-									size="sm"
-									onClick={() => {
-										if (isPrincipal && meetingId) {
-											onToggleLock(!isLocked)
-										}
-									}}
-									disabled={!isPrincipal || isTogglingLock}
+							>
+								<FileText
 									className={cn(
-										"hover:bg-muted h-8 px-3 text-xs md:text-sm",
-										isLocked &&
-											"bg-amber-50 hover:bg-amber-100 dark:bg-amber-900/20 dark:hover:bg-amber-900/30",
-										!isPrincipal && "cursor-not-allowed opacity-50"
+										"size-3.5 shrink-0 transition-colors",
+										i === 0 ? "text-primary" : "text-muted-foreground group-hover:text-foreground"
 									)}
-									title={
-										!isPrincipal
-											? "Only the meeting creator (principal) can lock/unlock documents"
-											: isLocked
-												? "Unlock document order - allows reordering"
-												: "Lock document order - enforces sequential signing"
-									}
-								>
-									{isLocked ? (
-										<>
-											<Lock className="mr-1.5 size-3.5" />
-											Locked
-										</>
-									) : (
-										<>
-											<Unlock className="mr-1.5 size-3.5" />
-											Unlocked
-										</>
-									)}
-								</Button>
-								<Button
-									variant="ghost"
-									size="sm"
-									onClick={onRefresh}
-									disabled={isDocumentsFetching || isRefreshingSigningStatus}
-									className="hover:bg-muted size-8 px-0"
-									title="Refresh documents and signing statuses"
-								>
-									<RefreshCw
-										className={cn(
-											"size-4",
-											(isDocumentsFetching || isRefreshingSigningStatus) && "animate-spin"
-										)}
-									/>
-								</Button>
-								<Button
-									variant="ghost"
-									size="sm"
-									onClick={onToggleShowDocuments}
-									className="hover:bg-muted h-8 px-3 text-xs md:text-sm"
-								>
-									{showDocuments ? "Hide" : "Show"}
-								</Button>
+								/>
 							</div>
-						</>
-					)
-				})()}
-			</div>
+						))}
+					</div>
 
-			{/* Lock banner */}
-			{isLocked && showDocuments && (
-				<div className="border-b border-amber-200 bg-amber-50 px-3 py-2 md:px-4 lg:px-6 dark:border-amber-800 dark:bg-amber-900/10">
-					<p className="flex items-center gap-2 text-xs text-amber-800 dark:text-amber-300">
-						<Lock className="size-3.5 shrink-0" />
-						<span>
-							Documents are locked in signing order. Each document must be signed before the next
-							one can be started.
-						</span>
-					</p>
-				</div>
-			)}
+					{isLocked && <Lock className="mt-1 size-3 shrink-0 text-amber-500 dark:text-amber-400" />}
+				</button>
+			)
+		}
 
-			{showDocuments && (
-				<div className="max-h-87.5 overflow-y-auto px-3 py-4 md:px-4 lg:px-6">
-					<div className="grid grid-cols-1 gap-3 transition-all duration-300 sm:grid-cols-2 md:gap-4 lg:grid-cols-3 xl:grid-cols-4">
+		// ─── Expanded sidebar (drawer overlay — does not affect participant layout) ───
+
+		return (
+			<>
+				{/* Backdrop */}
+				<div
+					className="fixed inset-0 z-40 bg-black/20 backdrop-blur-[1px] transition-opacity"
+					onClick={onToggleShowDocuments}
+					aria-hidden="true"
+				/>
+
+				{/* Drawer panel */}
+				<div className="bg-card/95 fixed inset-y-0 right-0 z-50 flex w-72 shrink-0 flex-col border-l shadow-2xl backdrop-blur-md xl:w-80">
+					{/* ── Header ─────────────────────────────────────────── */}
+					<div className="flex shrink-0 items-center justify-between border-b px-3 py-2.5">
+						<div className="flex min-w-0 items-center gap-2">
+							<div
+								ref={drawerHeaderIconRef}
+								className="bg-primary/10 flex size-7 shrink-0 items-center justify-center rounded-lg"
+							>
+								<FileText className="text-primary size-4" />
+							</div>
+							<span className="truncate text-sm font-semibold">Documents ({documents.length})</span>
+							{isLocked && (
+								<div className="flex shrink-0 items-center gap-1 rounded-full border border-amber-300 bg-amber-100 px-2 py-0.5 dark:border-amber-700 dark:bg-amber-900/30">
+									<Lock className="size-2.5 text-amber-700 dark:text-amber-400" />
+									<span className="text-[10px] font-semibold text-amber-700 dark:text-amber-400">
+										Locked
+									</span>
+								</div>
+							)}
+						</div>
+
+						<div className="flex shrink-0 items-center gap-1">
+							{/* Lock / Unlock */}
+							<Button
+								variant="ghost"
+								size="sm"
+								onClick={() => {
+									if (isPrincipal && meetingId) onToggleLock(!isLocked)
+								}}
+								disabled={!isPrincipal || isTogglingLock}
+								className={cn(
+									"h-7 w-7 p-0",
+									isLocked && "text-amber-600 hover:text-amber-700 dark:text-amber-400",
+									!isPrincipal && "cursor-not-allowed opacity-40"
+								)}
+								title={
+									!isPrincipal
+										? "Only the meeting creator can lock/unlock document order"
+										: isLocked
+											? "Unlock document order"
+											: "Lock document order"
+								}
+							>
+								{isLocked ? <Lock className="size-3.5" /> : <Unlock className="size-3.5" />}
+							</Button>
+
+							{/* Refresh */}
+							<Button
+								variant="ghost"
+								size="sm"
+								onClick={onRefresh}
+								disabled={isDocumentsFetching || isRefreshingSigningStatus}
+								className="h-7 w-7 p-0"
+								title="Refresh documents"
+							>
+								<RefreshCw
+									className={cn(
+										"size-3.5",
+										(isDocumentsFetching || isRefreshingSigningStatus) && "animate-spin"
+									)}
+								/>
+							</Button>
+
+							{/* Collapse */}
+							<Button
+								variant="ghost"
+								size="sm"
+								onClick={onToggleShowDocuments}
+								className="h-7 w-7 p-0"
+								title="Hide documents panel"
+								aria-label="Hide documents panel"
+							>
+								<ChevronRight className="size-3.5" />
+							</Button>
+						</div>
+					</div>
+
+					{/* ── Lock-order banner ───────────────────────────────── */}
+					{isLocked && (
+						<div className="shrink-0 border-b border-amber-200 bg-amber-50 px-3 py-2 dark:border-amber-800 dark:bg-amber-900/10">
+							<p className="flex items-center gap-1.5 text-[11px] text-amber-800 dark:text-amber-300">
+								<Lock className="size-3 shrink-0" />
+								Each document must be signed before the next one can start.
+							</p>
+						</div>
+					)}
+
+					{/* ── Scrollable document list ────────────────────────── */}
+					<div className="flex-1 space-y-3 overflow-y-auto p-3">
 						{documents.map((doc, index) => {
 							const isDragged = draggedDocumentId === doc.id
 							const isDragOver = dragOverDocumentId === doc.id
 
+							// ── Previous-document-signed gate ──────────────────
 							const previousDoc = index > 0 ? documents[index - 1] : null
+
 							const previousInternalRequests = Array.isArray(
 								notarizationDocs.find(d => d?.id === previousDoc?.id)?.signatureRequests
 							)
 								? (notarizationDocs.find(d => d?.id === previousDoc?.id)
-										?.signatureRequests as Array<{ signerId?: unknown; status?: unknown }>)
+										?.signatureRequests as Array<{
+										signerId?: unknown
+										status?: unknown
+									}>)
 								: []
 
 							const previousSignerUserIds = Array.isArray(
@@ -403,11 +477,11 @@ export const DocumentCards = React.memo(function DocumentCards({
 									)
 								: []
 
-							const statusBySignerId = new Map<string, string>()
+							const prevStatusBySignerId = new Map<string, string>()
 							for (const req of previousInternalRequests) {
 								const id = typeof req?.signerId === "string" ? req.signerId.trim() : ""
 								if (!id) continue
-								statusBySignerId.set(
+								prevStatusBySignerId.set(
 									id,
 									typeof req?.status === "string" ? req.status.toUpperCase() : ""
 								)
@@ -416,24 +490,25 @@ export const DocumentCards = React.memo(function DocumentCards({
 							const previousIsInternallySigned =
 								previousSignerUserIds.length > 0 &&
 								previousSignerUserIds.every(id => {
-									const s = statusBySignerId.get(id)
+									const s = prevStatusBySignerId.get(id)
 									return s === "SIGNED" || s === "COMPLETED"
 								})
 
 							const previousSigningStatus = previousDoc?.docoChainProjectId
 								? documentSigningStatus.get(previousDoc.id)
 								: undefined
+
 							const previousIsExternallySigned =
 								previousSigningStatus?.isFullySigned === true ||
 								((previousSigningStatus?.totalSigners ?? 0) > 0 &&
 									(previousSigningStatus?.signedCount ?? 0) ===
 										(previousSigningStatus?.totalSigners ?? 0) &&
-									(previousSigningStatus?.signedCount ?? 0) > 0) ||
-								false
+									(previousSigningStatus?.signedCount ?? 0) > 0)
 
 							const isPreviousDocumentSigned =
 								!previousDoc || previousIsInternallySigned || previousIsExternallySigned
 
+							// ── This doc signing status ─────────────────────────
 							const signingStatus = doc.docoChainProjectId
 								? documentSigningStatus.get(doc.id)
 								: undefined
@@ -457,26 +532,26 @@ export const DocumentCards = React.memo(function DocumentCards({
 										opacity: isDragged && !isLocked ? 0.5 : 1,
 										transform:
 											isDragged && !isLocked
-												? "scale(0.95)"
+												? "scale(0.97)"
 												: isDragOver && !isLocked
-													? "scale(1.03)"
+													? "scale(1.02)"
 													: "scale(1)",
 										transition:
 											isDragged && !isLocked
 												? "opacity 0.2s ease-out, transform 0.2s ease-out"
-												: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+												: "all 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
 										zIndex: isDragged && !isLocked ? 50 : isDragOver && !isLocked ? 10 : 1,
 									}}
 									className={cn(
-										"relative border-2 shadow-md hover:shadow-lg",
+										"relative border-2 shadow-sm transition-shadow",
 										isDragged
-											? "cursor-grabbing shadow-2xl"
-											: "hover:border-primary/50 hover:shadow-xl",
+											? "cursor-grabbing shadow-xl"
+											: "hover:border-primary/40 hover:shadow-md",
 										isDragOver &&
 											!isDragged &&
 											!isLocked &&
-											"border-primary bg-primary/5 border-2 shadow-xl",
-										isLocked && "border-muted/50 opacity-90"
+											"border-primary bg-primary/5 shadow-lg",
+										isLocked && "border-muted/50"
 									)}
 									onDragEnter={e => {
 										if (!isLocked) handleDragEnter(e, doc.id)
@@ -489,38 +564,28 @@ export const DocumentCards = React.memo(function DocumentCards({
 										if (!isLocked) handleDrop(e, doc.id)
 									}}
 								>
-									{/* Order indicator when locked */}
-									{isLocked && (
-										<div className="absolute top-2 left-2 z-10 flex items-center gap-1.5 rounded-full border border-amber-300 bg-amber-100 px-2.5 py-1 shadow-sm dark:border-amber-700 dark:bg-amber-900/40">
-											<div className="flex size-4 items-center justify-center rounded-full bg-amber-600 text-[10px] font-bold text-white dark:bg-amber-500">
-												{index + 1}
-											</div>
-											<Lock className="size-3 text-amber-700 dark:text-amber-400" />
-										</div>
-									)}
-
-									{/* Signing status + actions - top right corner */}
+									{/* Signing status badge + overflow menu */}
 									{doc.docoChainProjectId && (
-										<div className="absolute top-2 right-2 z-10 flex items-center gap-1.5">
+										<div className="absolute top-2 right-2 z-10 flex items-center gap-1">
 											{signingStatus ? (
 												isFullySigned ? (
-													<div className="flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 dark:bg-green-900/30">
-														<CheckCircle2 className="size-3 text-green-600 dark:text-green-400" />
-														<span className="text-[10px] font-semibold text-green-700 dark:text-green-400">
+													<div className="flex items-center gap-1 rounded-full bg-green-100 px-1.5 py-0.5 dark:bg-green-900/30">
+														<CheckCircle2 className="size-2.5 text-green-600 dark:text-green-400" />
+														<span className="text-[9px] font-semibold text-green-700 dark:text-green-400">
 															Signed
 														</span>
 													</div>
 												) : (signingStatus.signedCount ?? 0) > 0 ? (
-													<div className="flex items-center gap-1 rounded-full bg-yellow-100 px-2 py-0.5 dark:bg-yellow-900/30">
-														<Clock className="size-3 text-yellow-600 dark:text-yellow-400" />
-														<span className="text-[10px] font-semibold text-yellow-700 dark:text-yellow-400">
-															{signingStatus.signedCount ?? 0}/{signingStatus.totalSigners ?? 0}
+													<div className="flex items-center gap-1 rounded-full bg-yellow-100 px-1.5 py-0.5 dark:bg-yellow-900/30">
+														<Clock className="size-2.5 text-yellow-600 dark:text-yellow-400" />
+														<span className="text-[9px] font-semibold text-yellow-700 dark:text-yellow-400">
+															{signingStatus.signedCount}/{signingStatus.totalSigners}
 														</span>
 													</div>
 												) : (
-													<div className="flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 dark:bg-gray-800">
-														<Clock className="size-3 text-gray-500 dark:text-gray-400" />
-														<span className="text-[10px] font-semibold text-gray-600 dark:text-gray-400">
+													<div className="flex items-center gap-1 rounded-full bg-gray-100 px-1.5 py-0.5 dark:bg-gray-800">
+														<Clock className="size-2.5 text-gray-500 dark:text-gray-400" />
+														<span className="text-[9px] font-semibold text-gray-600 dark:text-gray-400">
 															Pending
 														</span>
 													</div>
@@ -532,10 +597,10 @@ export const DocumentCards = React.memo(function DocumentCards({
 													<Button
 														variant="ghost"
 														size="icon"
-														className="h-7 w-7 rounded-full bg-black/5 hover:bg-black/10 dark:bg-white/5 dark:hover:bg-white/10"
+														className="h-6 w-6 rounded-full bg-black/5 hover:bg-black/10 dark:bg-white/5 dark:hover:bg-white/10"
 														title="More actions"
 													>
-														<MoreVertical className="size-4" />
+														<MoreVertical className="size-3" />
 													</Button>
 												</DropdownMenuTrigger>
 												<DropdownMenuContent align="end" sideOffset={6} className="min-w-44">
@@ -549,40 +614,52 @@ export const DocumentCards = React.memo(function DocumentCards({
 										</div>
 									)}
 
-									<CardContent className="p-4">
-										<div className="mb-3 flex items-start gap-3">
+									<CardContent className="p-3">
+										{/* Document header row */}
+										<div className="mb-3 flex items-start gap-2">
+											{/* Drag handle */}
 											<div
 												className={cn(
-													"relative mt-1 shrink-0 transition-colors",
+													"mt-1 shrink-0 transition-colors",
 													isLocked
-														? "cursor-not-allowed opacity-40"
+														? "cursor-not-allowed opacity-30"
 														: "text-muted-foreground hover:text-primary cursor-move"
 												)}
 												draggable={!isLocked}
 												onDragStart={e => handleDragStart(e, doc.id)}
 												onDragEnd={handleDragEnd}
-												title={
-													isLocked
-														? "Document order is locked - cannot reorder"
-														: "Drag to reorder documents"
-												}
+												title={isLocked ? "Document order is locked" : "Drag to reorder"}
 											>
-												<GripVertical
-													className={cn("size-4", isLocked && "text-muted-foreground/30")}
-												/>
+												<GripVertical className="size-4" />
 											</div>
-											<div className="bg-primary/10 shrink-0 rounded-lg p-2.5">
-												<FileText className="text-primary size-5" />
+
+											{/* File icon */}
+											<div className="bg-primary/10 mt-0.5 shrink-0 rounded-md p-2">
+												<FileText className="text-primary size-4" />
 											</div>
+
+											{/* Name + meta */}
 											<div className="min-w-0 flex-1">
-												<p className="truncate text-sm font-semibold" title={doc.name}>
+												{/* Lock order badge sits inline above the name when locked */}
+												{isLocked && (
+													<div className="mb-1 flex items-center gap-1">
+														<div className="flex size-3.5 items-center justify-center rounded-full bg-amber-600 text-[9px] font-bold text-white dark:bg-amber-500">
+															{index + 1}
+														</div>
+														<Lock className="size-2.5 text-amber-700 dark:text-amber-400" />
+													</div>
+												)}
+												<p
+													className="truncate text-sm leading-tight font-semibold"
+													title={doc.name}
+												>
 													{doc.name}
 												</p>
-												<p className="text-muted-foreground mt-1 text-xs">
-													{(doc.size / 1024).toFixed(1)} KB • PDF
+												<p className="text-muted-foreground mt-0.5 text-xs">
+													{(doc.size / 1024).toFixed(1)} KB · PDF
 												</p>
 												{doc.notarizationType && (
-													<p className="text-muted-foreground mt-1 text-xs font-medium">
+													<p className="text-muted-foreground mt-0.5 text-xs font-medium">
 														{(() => {
 															switch (doc.notarizationType) {
 																case "ACKNOWLEDGMENT":
@@ -608,7 +685,7 @@ export const DocumentCards = React.memo(function DocumentCards({
 														typeof fees === "number" &&
 														!Number.isNaN(fees)
 													return showFees ? (
-														<p className="text-muted-foreground mt-1 text-xs font-semibold">
+														<p className="text-muted-foreground mt-0.5 text-xs font-semibold">
 															Fees: {fees.toFixed(2)}
 														</p>
 													) : null
@@ -616,6 +693,7 @@ export const DocumentCards = React.memo(function DocumentCards({
 											</div>
 										</div>
 
+										{/* All signing controls, signer lists, action buttons */}
 										<DocumentActions
 											document={doc}
 											onSignClick={onSignClick}
@@ -652,7 +730,7 @@ export const DocumentCards = React.memo(function DocumentCards({
 						})}
 					</div>
 				</div>
-			)}
-		</div>
-	)
-})
+			</>
+		)
+	})
+)
