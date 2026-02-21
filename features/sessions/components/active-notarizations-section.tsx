@@ -20,8 +20,6 @@ import { type AppRouter } from "@/services/trpc/root"
 import { NotarizationDetailsDialog } from "@/features/sessions/components/notarization-details-dialog"
 import { getAppointmentStatusBadge } from "@/features/sessions/lib/meeting-badges"
 
-const PAGE_SIZE = 10
-
 type UpcomingAppointment =
 	inferRouterOutputs<AppRouter>["appointments"]["getUpcomingAppointments"][number]
 
@@ -212,32 +210,22 @@ function Pagination({
 }
 
 export function ActiveNotarizationsSection() {
-	const [page, setPage] = useState(1)
 	const [searchTerm, setSearchTerm] = useState("")
 	const [detailsOpen, setDetailsOpen] = useState(false)
 	const [detailsMeetingId, setDetailsMeetingId] = useState<string | null>(null)
 
-	const offset = (page - 1) * PAGE_SIZE
 	const today = startOfDay(new Date())
 
-	const { data, isLoading } = trpc.meetings.getUserMeetingsWithDocumentStats.useQuery(
-		{ limit: PAGE_SIZE, offset },
-		{ refetchInterval: 5_000 }
-	)
-
-	const meetings = useMemo(() => data?.items ?? [], [data?.items])
-	const hasMore = data?.hasMore ?? false
-
-	const { data: pendingAppointments = [] } = trpc.appointments.getUpcomingAppointments.useQuery(
-		undefined,
-		{ refetchInterval: 10_000 }
-	)
+	const { data: pendingAppointments = [], isLoading } =
+		trpc.appointments.getUpcomingAppointments.useQuery(undefined, {
+			refetchInterval: 10_000,
+		})
 
 	const appointmentCards = useMemo(() => {
 		return pendingAppointments
 			.filter((appt: UpcomingAppointment) => {
 				// Only show in Upcoming if there is no session yet (pending ENP acceptance).
-				// Once ENP accepts, meetingId is set and the session appears under Ongoing.
+				// Once ENP accepts, meetingId is set and the session appears under Ongoing only.
 				if (appt.meetingId) return false
 				return true
 			})
@@ -254,23 +242,11 @@ export function ActiveNotarizationsSection() {
 			}))
 	}, [pendingAppointments])
 
-	const upcomingOnlyMeetings = useMemo(() => {
-		return meetings.filter(m => {
-			if (m.documentStats.total > 0 && m.documentStats.signed >= m.documentStats.total) {
-				return false
-			}
-			// Only show in Upcoming if the session is in the future. Today's accepted sessions
-			// belong in the Ongoing tab.
-			const appointmentDate = (m as { appointmentDate?: string | Date }).appointmentDate
-			if (!appointmentDate) return true
-			const meetingDay = startOfDay(new Date(appointmentDate))
-			return isAfter(meetingDay, today)
-		})
-	}, [meetings, today])
-
+	// Upcoming shows only pending appointments (no ENP acceptance yet). Accepted sessions
+	// always go to Ongoing regardless of appointment date.
 	const combinedMeetings = useMemo(() => {
-		return [...appointmentCards, ...upcomingOnlyMeetings]
-	}, [appointmentCards, upcomingOnlyMeetings])
+		return [...appointmentCards]
+	}, [appointmentCards])
 
 	const filteredMeetings = useMemo(() => {
 		const q = searchTerm.trim().toLowerCase()
@@ -343,8 +319,6 @@ export function ActiveNotarizationsSection() {
 					{filteredMeetings.map(meeting => (
 						<MeetingCard key={meeting.id} meeting={meeting} onViewDetails={handleViewDetails} />
 					))}
-
-					<Pagination page={page} hasMore={hasMore} isLoading={isLoading} onPageChange={setPage} />
 				</div>
 			)}
 

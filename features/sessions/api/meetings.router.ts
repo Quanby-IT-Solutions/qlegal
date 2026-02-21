@@ -732,7 +732,7 @@ export const meetingsRouter = createTRPCRouter({
 
 			// Check if user has access to the meeting
 			const isHost = meeting.createdById === ctx.session.user.id
-			const { apParticipants } = await getAppointmentParticipantsByMeetingId(meetingId)
+			const { appointment, apParticipants } = await getAppointmentParticipantsByMeetingId(meetingId)
 			const isAcceptedParticipant = apParticipants.some(
 				p => p.userId === ctx.session.user.id && p.status === "ACCEPTED"
 			)
@@ -811,19 +811,37 @@ export const meetingsRouter = createTRPCRouter({
 						? ""
 						: (enpProfile?.mcleNoPeriod ?? "")
 
-				const enpName = (enpUser?.name ?? "").trim()
+				const enpNameRaw = (enpUser?.name ?? "").trim()
 				const rollNo = (enpProfile?.rollNo ?? "").trim()
+
+				// Format attorney name for seal: "ATTY." prefix and uppercase (matches auth registration seal)
+				const formatAttorneyNameForSeal = (n: string | null | undefined): string => {
+					const base = (n ?? "").trim()
+					if (!base) return ""
+					const upper = base.toUpperCase()
+					return upper.startsWith("ATTY.") ? upper : `ATTY. ${upper}`
+				}
+				const attyNameForSeal = formatAttorneyNameForSeal(enpNameRaw)
+
+				// Mode of notarization is set at booking (principal side); REN = Remote (video), IEN = In-person
+				const modeRaw = (appointment?.modeOfNotarization ?? "REN").trim().toUpperCase()
+				const modeOfNotarization =
+					modeRaw === "REN" || modeRaw === "REMOTE" ? "Remote" : "In-person"
+
 				const documentStamp =
-					enpName && rollNo
+					attyNameForSeal && rollNo
 						? {
 								seal: {
 									type: "seal",
-									enp_name: enpName,
+									enp_name: attyNameForSeal,
+									enpName: attyNameForSeal,
 									enp_role_number: rollNo,
 								},
 								notary_info: {
 									type: "notary",
-									atty_name: enpName,
+									name: attyNameForSeal,
+									atty_name: attyNameForSeal,
+									attyName: attyNameForSeal,
 									roll_no: rollNo,
 									roll_no_date: enpProfile?.rollNoDate ?? "",
 									commission_no: enpProfile?.commissionNo ?? "",
@@ -838,6 +856,8 @@ export const meetingsRouter = createTRPCRouter({
 									MCLE_no_period: mcleNoPeriod,
 									MCLE_no: enpProfile?.mcleNo ?? "",
 									MCLE_no_date: enpProfile?.mcleNoDate ?? "",
+									mode_of_notarization: modeOfNotarization,
+									modeOfNotarization,
 								},
 							}
 						: undefined

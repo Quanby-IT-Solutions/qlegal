@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation"
 import { useState } from "react"
-import { format, isSameDay } from "date-fns"
+import { format } from "date-fns"
 import {
 	Calendar,
 	Clock,
@@ -139,8 +139,7 @@ export function MeetingsListSection() {
 	const { searchUsers } = useMessages()
 	const { data: searchResults } = searchUsers(userSearchQuery)
 
-	const today = new Date()
-
+	// Show all accepted sessions (ENP accepted) in Ongoing regardless of appointment date
 	const filteredMeetings = meetings.filter(meeting => {
 		if (!meeting) return false
 		const title = typeof meeting.title === "string" ? meeting.title : ""
@@ -148,11 +147,6 @@ export function MeetingsListSection() {
 			meeting.createdBy?.name !== null && meeting.createdBy?.name !== undefined
 				? String(meeting.createdBy.name)
 				: ""
-		const meetingDate = new Date(
-			(meeting as { appointmentDate?: string | Date }).appointmentDate ?? meeting.createdAt ?? 0
-		)
-		const isToday = isSameDay(meetingDate, today)
-
 		const matchesSearch =
 			title.toLowerCase().includes(searchTerm.toLowerCase()) ||
 			createdByName.toLowerCase().includes(searchTerm.toLowerCase())
@@ -164,7 +158,7 @@ export function MeetingsListSection() {
 
 		const notCompleted = meeting.status !== "COMPLETED" && meeting.status !== "CANCELLED"
 
-		return isToday && matchesSearch && matchesStatus && notCompleted
+		return matchesSearch && matchesStatus && notCompleted
 	})
 
 	const handleCreate = async () => {
