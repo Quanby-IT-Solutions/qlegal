@@ -77,7 +77,7 @@ env:
 
   # Supreme Court eNotarization API
   SUPREME_COURT_API_URL: ${{ vars.SUPREME_COURT_API_URL }}
-  SUPREME_COURT_COGNITO_URL: ${{ vars.SUPREME_COURT_COGNITO_URL }}
+  SUPREME_COURT_AUTH_URL: ${{ vars.SUPREME_COURT_AUTH_URL }}
   SUPREME_COURT_CLIENT_ID: ${{ secrets.SUPREME_COURT_CLIENT_ID }}
   SUPREME_COURT_USERNAME: ${{ secrets.SUPREME_COURT_USERNAME }}
   SUPREME_COURT_PASSWORD: ${{ secrets.SUPREME_COURT_PASSWORD }}
@@ -165,7 +165,7 @@ jobs:
             --build-arg VIDEO_SDK_API_KEY="${{ secrets.VIDEO_SDK_API_KEY }}" \
             --build-arg VIDEO_SDK_SECRET="${{ secrets.VIDEO_SDK_SECRET }}" \
             --build-arg SUPREME_COURT_API_URL="${{ vars.SUPREME_COURT_API_URL }}" \
-            --build-arg SUPREME_COURT_COGNITO_URL="${{ vars.SUPREME_COURT_COGNITO_URL }}" \
+            --build-arg SUPREME_COURT_AUTH_URL="${{ vars.SUPREME_COURT_AUTH_URL }}" \
             --build-arg SUPREME_COURT_CLIENT_ID="${{ secrets.SUPREME_COURT_CLIENT_ID }}" \
             --build-arg SUPREME_COURT_USERNAME="${{ secrets.SUPREME_COURT_USERNAME }}" \
             --build-arg SUPREME_COURT_PASSWORD="${{ secrets.SUPREME_COURT_PASSWORD }}" \
@@ -232,7 +232,7 @@ jobs:
             VIDEO_SDK_API_KEY=${{ secrets.VIDEO_SDK_API_KEY }}
             VIDEO_SDK_SECRET=${{ secrets.VIDEO_SDK_SECRET }}
             SUPREME_COURT_API_URL=${{ vars.SUPREME_COURT_API_URL }}
-            SUPREME_COURT_COGNITO_URL=${{ vars.SUPREME_COURT_COGNITO_URL }}
+            SUPREME_COURT_AUTH_URL=${{ vars.SUPREME_COURT_AUTH_URL }}
             SUPREME_COURT_CLIENT_ID=${{ secrets.SUPREME_COURT_CLIENT_ID }}
             SUPREME_COURT_USERNAME=${{ secrets.SUPREME_COURT_USERNAME }}
             SUPREME_COURT_PASSWORD=${{ secrets.SUPREME_COURT_PASSWORD }}

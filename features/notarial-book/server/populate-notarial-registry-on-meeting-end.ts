@@ -1,8 +1,10 @@
-import { and, eq, inArray } from "drizzle-orm"
+import { and, desc, eq, inArray } from "drizzle-orm"
 
 import { db } from "@/services/drizzle/db"
+import { users } from "@/services/drizzle/schema/auth"
 import { documents } from "@/services/drizzle/schema/document"
 import { enpProfiles } from "@/services/drizzle/schema/enp-profiles"
+import { idCardDetails } from "@/services/drizzle/schema/id-card-details"
 import { meetings } from "@/services/drizzle/schema/meetings"
 import { notarialActs, notarialBooks } from "@/services/drizzle/schema/notarial-book"
 import { getDoconchainProjectDetails } from "@/services/doconchain/projects/get-project-details"
@@ -166,6 +168,73 @@ export async function populateNotarialRegistryOnMeetingEnd(input: {
 		asNonEmptyString(appointment.createdBy.name) ??
 		"Principal"
 
+	// Principal disclosure: ID number, ID image, ID type, address (for notarial registry)
+	let principalIdNumber: string | null = null
+	let principalIdImageBase64: string | null = null
+	let principalIdType: string | null = null
+	let principalAddress: string | null = null
+	const principalUserId = principalParticipant?.userId
+	if (principalUserId) {
+		const principalUser = await db.query.users.findFirst({
+			where: eq(users.id, principalUserId),
+			columns: {
+				address: true,
+				homeStreet: true,
+				barangay: true,
+				cityProvince: true,
+			},
+		})
+		if (principalUser) {
+			const fromParts = [principalUser.homeStreet, principalUser.barangay, principalUser.cityProvince]
+				.filter(Boolean)
+				.join(", ")
+			principalAddress =
+				asNonEmptyString(principalUser.address) ??
+				(asNonEmptyString(fromParts) || null)
+		}
+		const idCard = await db.query.idCardDetails.findFirst({
+			where: eq(idCardDetails.userId, principalUserId),
+			orderBy: [desc(idCardDetails.verifiedAt)],
+			columns: {
+				documentNumber: true,
+				faceImageUrl: true,
+				documentType: true,
+				rawOcrData: true,
+			},
+		})
+		if (idCard) {
+			principalIdNumber = asNonEmptyString(idCard.documentNumber)
+			principalIdImageBase64 = asNonEmptyString(idCard.faceImageUrl)
+			principalIdType = asNonEmptyString(idCard.documentType) ?? (() => {
+				try {
+					const ocr = idCard.rawOcrData as Record<string, unknown> | null | undefined
+					if (!ocr || typeof ocr !== "object") return null
+					const docType =
+						ocr.documentId ??
+						ocr.documentType ??
+						ocr.idType ??
+						ocr.document_type ??
+						ocr.id_type ??
+						ocr.type ??
+						ocr.module
+					if (typeof docType !== "string") return null
+					const map: Record<string, string> = {
+						dl: "Driver's License",
+						national_id: "National ID",
+						passport: "Passport",
+						voter_id: "Voter's ID",
+						"driver's license": "Driver's License",
+						"national id": "National ID",
+						"voter id": "Voter's ID",
+					}
+					return map[docType.toLowerCase()] ?? docType.charAt(0).toUpperCase() + docType.slice(1).replace(/_/g, " ")
+				} catch {
+					return null
+				}
+			})()
+		}
+	}
+
 	// Get/create notarial book for ENP
 	let book = await db.query.notarialBooks.findFirst({
 		where: eq(notarialBooks.enpId, enpId),
@@ -242,6 +311,16 @@ export async function populateNotarialRegistryOnMeetingEnd(input: {
 		const rawSigners = (details.raw?.data as unknown as { signers?: unknown } | undefined)?.signers
 		const signers = normalizeDoconchainSigners(rawSigners)
 
+		const witnessSigner = signers.find(s =>
+			(s.signerRole ?? "").toUpperCase().includes("WITNESS")
+		)
+		const witnessName = witnessSigner
+			? asNonEmptyString(
+					[witnessSigner.firstName, witnessSigner.lastName].filter(Boolean).join(" ") ||
+						witnessSigner.email
+				)
+			: null
+
 		const locationStatement = defaultLocationStatement()
 		const [inserted] = await db
 			.insert(notarialActs)
@@ -251,6 +330,11 @@ export async function populateNotarialRegistryOnMeetingEnd(input: {
 				documentId: doc.id,
 				docoChainProjectUuid: projectUuid,
 				principalName,
+				principalIdNumber: principalIdNumber ?? undefined,
+				principalAddress: principalAddress ?? undefined,
+				principalIdImageBase64: principalIdImageBase64 ?? undefined,
+				principalIdType: principalIdType ?? undefined,
+				witnessName: witnessName ?? undefined,
 				enpName,
 				enpRollNumber: asNonEmptyString(profile?.rollNo),
 				executedAt,

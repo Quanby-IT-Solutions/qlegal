@@ -9,15 +9,16 @@
  */
 import "dotenv/config"
 
+import { eq } from "drizzle-orm"
+
 import { db } from "@/services/drizzle/db"
-import { enpProfiles } from "@/services/drizzle/schema/enp-profiles"
-import { documents } from "@/services/drizzle/schema/document"
-import { notarialActs, notarialBooks } from "@/services/drizzle/schema/notarial-book"
 import { users } from "@/services/drizzle/schema/auth"
+import { documents } from "@/services/drizzle/schema/document"
+import { enpProfiles } from "@/services/drizzle/schema/enp-profiles"
+import { notarialActs, notarialBooks } from "@/services/drizzle/schema/notarial-book"
+import { getServiceRoleClient } from "@/services/supabase"
 import { syncNotarialActToSupremeCourt } from "@/services/supreme-court/lib/sync-notarial-act"
 import { isConfigured } from "@/services/supreme-court/lib/token-cache"
-import { getServiceRoleClient } from "@/services/supabase"
-import { eq } from "drizzle-orm"
 
 async function main() {
 	const actId = process.argv[2]
@@ -32,7 +33,7 @@ async function main() {
 
 	if (!isConfigured()) {
 		console.error("❌ Supreme Court API not configured. Add credentials to .env:")
-		console.error("   SUPREME_COURT_API_URL, SUPREME_COURT_COGNITO_URL,")
+		console.error("   SUPREME_COURT_API_URL, SUPREME_COURT_AUTH_URL,")
 		console.error("   SUPREME_COURT_CLIENT_ID, SUPREME_COURT_USERNAME, SUPREME_COURT_PASSWORD")
 		process.exit(1)
 	}
@@ -56,7 +57,7 @@ async function main() {
 
 		// Get ENP profile
 		// @ts-ignore - PostgresJsDatabase<any> doesn't provide proper types for query builder
-		 
+
 		const notarialBook = await db.query.notarialBooks.findFirst({
 			where: eq(notarialBooks.id, act.notarialBookId),
 		})
@@ -104,12 +105,18 @@ async function main() {
 
 		if (!enpProfile.notaryPublicNumber || !enpProfile.notaryFacilityNumber || !enpProfile.rollNo) {
 			console.error("❌ ENP profile missing required fields:")
-			console.error(`   - Notary Public Number (NPN): ${enpProfile.notaryPublicNumber || "MISSING"}`)
-			console.error(`   - Notary Facility Number (NFN): ${enpProfile.notaryFacilityNumber || "MISSING"}`)
+			console.error(
+				`   - Notary Public Number (NPN): ${enpProfile.notaryPublicNumber || "MISSING"}`
+			)
+			console.error(
+				`   - Notary Facility Number (NFN): ${enpProfile.notaryFacilityNumber || "MISSING"}`
+			)
 			console.error(`   - Roll Number (RN): ${enpProfile.rollNo || "MISSING"}`)
 			console.error("\n   Please update ENP profile settings with these values.")
 			if (enpUser) {
-				console.error(`\n   ⚠️  Make sure you're logged in as: ${enpUser.email || enpUser.name || enpUser.id}`)
+				console.error(
+					`\n   ⚠️  Make sure you're logged in as: ${enpUser.email || enpUser.name || enpUser.id}`
+				)
 				console.error(`   The form saves to the currently logged-in user's profile.`)
 			}
 			process.exit(1)
@@ -126,7 +133,7 @@ async function main() {
 
 		if (act.documentId) {
 			// @ts-ignore - PostgresJsDatabase<any> doesn't provide proper types for query builder
-			 
+
 			const document = await db.query.documents.findFirst({
 				where: eq(documents.id, act.documentId),
 				columns: { path: true, name: true },
@@ -143,7 +150,9 @@ async function main() {
 					const arrayBuffer = await fileData.arrayBuffer()
 					documentFile = Buffer.from(arrayBuffer)
 					documentFileName = document.name || "document.pdf"
-					console.log(`✅ Document downloaded: ${documentFileName} (${documentFile.length} bytes)\n`)
+					console.log(
+						`✅ Document downloaded: ${documentFileName} (${documentFile.length} bytes)\n`
+					)
 				} else {
 					console.warn(`⚠️ Could not download document: ${downloadError?.message}\n`)
 				}

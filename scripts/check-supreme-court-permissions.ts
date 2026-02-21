@@ -10,8 +10,9 @@
 
 import "dotenv/config"
 
-import { getToken, decodeToken, isConfigured } from "@/services/supreme-court/lib/token-cache"
 import { get, post } from "@/services/supreme-court/lib/http-client"
+import { decodeToken, getToken, isConfigured } from "@/services/supreme-court/lib/token-cache"
+
 import { env } from "@/env"
 
 interface EndpointTest {
@@ -92,16 +93,13 @@ async function testEndpoint(test: EndpointTest): Promise<{
 			// 403 means no permission, 400 means permission but validation error
 			const testBody = test.requiresBody ? {} : undefined
 			const response = await post(test.path, testBody ?? {})
-			
+
 			// 400/404/422 = we have permission but validation error (expected)
 			// 403 = no permission
 			// 401 = auth issue
-			const hasPermission = 
-				response.ok || 
-				response.status === 400 || 
-				response.status === 404 || 
-				response.status === 422
-			
+			const hasPermission =
+				response.ok || response.status === 400 || response.status === 404 || response.status === 422
+
 			if (!hasPermission && response.status === 403) {
 				const errorText = await response.text().catch(() => "Unknown error")
 				return {
@@ -110,7 +108,7 @@ async function testEndpoint(test: EndpointTest): Promise<{
 					error: errorText.substring(0, 200),
 				}
 			}
-			
+
 			return {
 				allowed: hasPermission,
 				status: response.status,
@@ -129,7 +127,7 @@ async function main() {
 
 	if (!isConfigured()) {
 		console.error("❌ Supreme Court API not configured. Add credentials to .env:")
-		console.error("   SUPREME_COURT_API_URL, SUPREME_COURT_COGNITO_URL,")
+		console.error("   SUPREME_COURT_API_URL, SUPREME_COURT_AUTH_URL,")
 		console.error("   SUPREME_COURT_CLIENT_ID, SUPREME_COURT_USERNAME, SUPREME_COURT_PASSWORD")
 		process.exit(1)
 	}
@@ -143,7 +141,7 @@ async function main() {
 		// Step 2: Decode token to show user info
 		console.log("📋 Step 2: Decoding token...")
 		const decoded = decodeToken(token)
-		
+
 		console.log("📊 User Information:")
 		console.log(`   - Username: ${decoded.username ?? "N/A"}`)
 		console.log(`   - User ID: ${decoded.sub ?? "N/A"}`)
@@ -212,11 +210,15 @@ async function main() {
 		if (decoded.groups?.includes("API-Guest")) {
 			console.log("   ⚠️  You are in the 'API-Guest' group, which typically has read-only access.")
 			console.log("   📧 Contact Supreme Court API administrators to request write permissions.")
-			console.log("   📝 Ask to be added to a group with write access (e.g., 'API-User' or 'API-Write').")
+			console.log(
+				"   📝 Ask to be added to a group with write access (e.g., 'API-User' or 'API-Write')."
+			)
 		}
 
 		if (denied.length > 0) {
-			console.log(`   📧 Contact Supreme Court API administrators to request access to ${denied.length} denied endpoint(s).`)
+			console.log(
+				`   📧 Contact Supreme Court API administrators to request access to ${denied.length} denied endpoint(s).`
+			)
 		}
 
 		if (allowed.length === endpointsToTest.length) {
