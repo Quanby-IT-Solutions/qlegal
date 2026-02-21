@@ -1033,14 +1033,14 @@ export function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meet
 				</div>
 			</div>
 
-			<FileFlightAnimation
+			{/* <FileFlightAnimation
 				trigger={flyTrigger}
 				onComplete={() => setFlyTrigger(false)}
 				originX={flyOrigin.x}
 				originY={flyOrigin.y}
 				targetX={flyTarget.x}
 				targetY={flyTarget.y}
-			/>
+			/> */}
 
 			{/* Document Upload Dialog */}
 			{meetingId && (
