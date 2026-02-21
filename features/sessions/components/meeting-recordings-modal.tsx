@@ -9,7 +9,7 @@ import {
 	DialogContent,
 	DialogDescription,
 	DialogHeader,
-	DialogTitle,io
+	DialogTitle,
 } from "@/core/components/ui/dialog"
 import { ScrollArea } from "@/core/components/ui/scroll-area"
 
