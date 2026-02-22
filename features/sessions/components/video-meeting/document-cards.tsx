@@ -308,62 +308,72 @@ export const DocumentCards = React.memo(
 
 		// ─── Collapsed: show a slim vertical tab on the right edge ─
 
-		if (!showDocuments) {
-			return (
-				<button
-					ref={collapsedStripRef}
-					onClick={onToggleShowDocuments}
-					className={cn(
-						"group relative flex h-full w-12 shrink-0 flex-col items-center justify-start gap-2 border-l pt-3",
-						"bg-card/60 hover:bg-card backdrop-blur-sm transition-colors",
-						"focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-inset"
-					)}
-					title={`Show documents panel (${documents.length} file${documents.length !== 1 ? "s" : ""})`}
-					aria-label="Show documents panel"
-				>
-					{/* Chevron arrow at top */}
-					<ChevronLeft className="text-muted-foreground group-hover:text-foreground size-4 shrink-0 transition-colors" />
+		// ─── Collapsed strip (visible when panel is closed) ───
+		const strip = !showDocuments ? (
+			<button
+				ref={collapsedStripRef}
+				onClick={onToggleShowDocuments}
+				className={cn(
+					"group relative flex h-full w-12 shrink-0 flex-col items-center justify-start gap-2 border-l pt-3",
+					"bg-card/60 hover:bg-card backdrop-blur-sm transition-colors",
+					"focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-inset"
+				)}
+				title={`Show documents panel (${documents.length} file${documents.length !== 1 ? "s" : ""})`}
+				aria-label="Show documents panel"
+			>
+				{/* Chevron arrow at top */}
+				<ChevronLeft className="text-muted-foreground group-hover:text-foreground size-4 shrink-0 transition-colors" />
 
-					{/* All file icons stacked below, no limit */}
-					<div className="flex w-full flex-col items-center gap-1 px-1">
-						{documents.map((_, i) => (
-							<div
-								key={i}
+				{/* All file icons stacked below, no limit */}
+				<div className="flex w-full flex-col items-center gap-1 px-1">
+					{documents.map((_, i) => (
+						<div
+							key={i}
+							className={cn(
+								"flex w-full items-center justify-center rounded-md p-1.5 transition-colors",
+								i === 0
+									? "bg-primary/15 group-hover:bg-primary/20"
+									: "bg-muted/60 group-hover:bg-muted/80"
+							)}
+						>
+							<FileText
 								className={cn(
-									"flex w-full items-center justify-center rounded-md p-1.5 transition-colors",
-									i === 0
-										? "bg-primary/15 group-hover:bg-primary/20"
-										: "bg-muted/60 group-hover:bg-muted/80"
+									"size-3.5 shrink-0 transition-colors",
+									i === 0 ? "text-primary" : "text-muted-foreground group-hover:text-foreground"
 								)}
-							>
-								<FileText
-									className={cn(
-										"size-3.5 shrink-0 transition-colors",
-										i === 0 ? "text-primary" : "text-muted-foreground group-hover:text-foreground"
-									)}
-								/>
-							</div>
-						))}
-					</div>
+							/>
+						</div>
+					))}
+				</div>
 
-					{isLocked && <Lock className="mt-1 size-3 shrink-0 text-amber-500 dark:text-amber-400" />}
-				</button>
-			)
-		}
+				{isLocked && <Lock className="mt-1 size-3 shrink-0 text-amber-500 dark:text-amber-400" />}
+			</button>
+		) : null
 
-		// ─── Expanded sidebar (drawer overlay — does not affect participant layout) ───
-
+		// ─── Backdrop + drawer (always mounted when we have documents; animated open/close) ───
 		return (
 			<>
-				{/* Backdrop */}
+				{strip}
+
+				{/* Backdrop — fades in/out */}
 				<div
-					className="fixed inset-0 z-40 bg-black/20 backdrop-blur-[1px] transition-opacity"
+					className={cn(
+						"fixed inset-0 z-40 bg-black/20 backdrop-blur-[1px] transition-opacity duration-200 ease-out",
+						showDocuments ? "opacity-100" : "pointer-events-none opacity-0"
+					)}
 					onClick={onToggleShowDocuments}
 					aria-hidden="true"
 				/>
 
-				{/* Drawer panel */}
-				<div className="bg-card/95 fixed inset-y-0 right-0 z-50 flex w-72 shrink-0 flex-col border-l shadow-2xl backdrop-blur-md xl:w-80">
+				{/* Drawer panel — slides in from right / out to right */}
+				<div
+					className={cn(
+						"bg-card/95 fixed inset-y-0 right-0 z-50 flex w-72 shrink-0 flex-col border-l shadow-2xl backdrop-blur-md xl:w-80",
+						"transition-transform duration-200 ease-out",
+						showDocuments ? "translate-x-0" : "translate-x-full",
+						showDocuments ? "pointer-events-auto" : "pointer-events-none"
+					)}
+				>
 					{/* ── Header ─────────────────────────────────────────── */}
 					<div className="flex shrink-0 items-center justify-between border-b px-3 py-2.5">
 						<div className="flex min-w-0 items-center gap-2">
