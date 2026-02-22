@@ -7,6 +7,7 @@ import {
 	CameraOff,
 	CircleDot,
 	FileUp,
+	Loader2,
 	Mic,
 	MicOff,
 	Monitor,
@@ -22,6 +23,8 @@ import { formatElapsedMs } from "../../lib/utils"
 
 interface MeetingControlsProps {
 	onUploadClick?: () => void
+	isUploadDisabled?: boolean
+	isUploadLoading?: boolean
 	onRecordingToggle?: () => Promise<void> | void
 	onLocalRecordingToggle?: () => Promise<void> | void
 	localRecordingSupported?: boolean
@@ -33,6 +36,8 @@ interface MeetingControlsProps {
 
 export const MeetingControls = React.memo(function MeetingControls({
 	onUploadClick,
+	isUploadDisabled,
+	isUploadLoading,
 	onLocalRecordingToggle,
 	isLocalRecording,
 	localRecordingStartedAt,
@@ -231,11 +236,19 @@ export const MeetingControls = React.memo(function MeetingControls({
 					<Button
 						variant="ghost"
 						size="icon"
-						className="size-9 rounded-full text-white/80 transition-all hover:bg-white/10 hover:text-white md:size-10"
+						className={cn(
+							"size-9 rounded-full text-white/80 transition-all hover:bg-white/10 hover:text-white md:size-10",
+							(isUploadDisabled || isUploadLoading) && "cursor-not-allowed opacity-60"
+						)}
 						onClick={onUploadClick}
+						disabled={isUploadDisabled || isUploadLoading}
 						title="Upload document"
 					>
-						<FileUp className="size-4" />
+						{isUploadLoading ? (
+							<Loader2 className="size-4 animate-spin" />
+						) : (
+							<FileUp className="size-4" />
+						)}
 					</Button>
 				)}
 
