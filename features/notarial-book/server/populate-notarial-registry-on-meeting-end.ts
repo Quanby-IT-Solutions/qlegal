@@ -137,6 +137,8 @@ export async function populateNotarialRegistryOnMeetingEnd(input: {
 					description: true,
 					notarizationType: true,
 					docoChainProjectId: true,
+					order: true,
+					createdAt: true,
 				},
 			},
 		},
@@ -251,7 +253,21 @@ export async function populateNotarialRegistryOnMeetingEnd(input: {
 		columns: { rollNo: true, notaryPublicNumber: true, notaryFacilityNumber: true },
 	})
 
-	const docsToConsider = (meeting.documents ?? []).filter(d => {
+	const docsToConsider = (meeting.documents ?? [])
+		.slice()
+		.sort((a, b) => {
+			// Deterministic: meeting document order first, then createdAt, then id.
+			const aOrder = typeof a.order === "number" ? a.order : 0
+			const bOrder = typeof b.order === "number" ? b.order : 0
+			if (aOrder !== bOrder) return aOrder - bOrder
+
+			const aCreated = a.createdAt instanceof Date ? a.createdAt.getTime() : 0
+			const bCreated = b.createdAt instanceof Date ? b.createdAt.getTime() : 0
+			if (aCreated !== bCreated) return aCreated - bCreated
+
+			return String(a.id).localeCompare(String(b.id))
+		})
+		.filter(d => {
 		const projectUuid = asNonEmptyString(d.docoChainProjectId)
 		const actType = asNonEmptyString(d.notarizationType)
 		return Boolean(projectUuid && actType)
