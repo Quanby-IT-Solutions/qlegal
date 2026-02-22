@@ -2,6 +2,7 @@ import { TRPCError } from "@trpc/server"
 import { and, asc, desc, eq, inArray, ne, type InferSelectModel } from "drizzle-orm"
 import { z } from "zod/v4"
 
+import { getDoconchainApiToken, invalidateDoconchainToken } from "@/services/doconchain/auth/generate-token"
 import { addDoconchainProjectSigner } from "@/services/doconchain/projects/add-signer"
 import { createDoconchainProject } from "@/services/doconchain/projects/create-project"
 import { generateDoconchainSignLink } from "@/services/doconchain/projects/generate-sign-link"
@@ -508,7 +509,26 @@ export const meetingsRouter = createTRPCRouter({
 			if (!isHost && !isAccepted) {
 				throw new TRPCError({ code: "FORBIDDEN", message: "You don't have access to this meeting" })
 			}
-			return { ready: true }
+
+			// Determine which DocOnChain user owns projects for this meeting (ENP participant).
+			const enpParticipant = apParticipants.find(p => isEnpRole(p.user?.role) && !!asNonEmptyEmail(p.user?.email))
+			const enpEmail = asNonEmptyEmail(enpParticipant?.user?.email)
+			if (!enpEmail) {
+				throw new TRPCError({
+					code: "PRECONDITION_FAILED",
+					message: "An ENP participant with an email is required to prepare DocOnChain.",
+				})
+			}
+
+			try {
+				// Force-refresh the cached token so the next DocOnChain call is not using a stale token.
+				invalidateDoconchainToken(enpEmail)
+				await getDoconchainApiToken({ email: enpEmail, forceGenerated: true })
+				return { ready: true }
+			} catch (error) {
+				const msg = error instanceof Error ? error.message : "Failed to prepare DocOnChain."
+				throw new TRPCError({ code: "SERVICE_UNAVAILABLE", message: msg })
+			}
 		}),
 
 	// Fetch VideoSDK recordings for a meeting (user must have access)

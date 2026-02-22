@@ -83,6 +83,7 @@ export function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meet
 	// ─── UI state ───────────────────────────────────────────────
 	const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false)
 	const [showDocuments, setShowDocuments] = useState(true)
+	const [isPreparingUpload, setIsPreparingUpload] = useState(false)
 
 	const [flyTrigger, setFlyTrigger] = useState(false)
 	const [flyOrigin, setFlyOrigin] = useState({ x: 0, y: 0 })
@@ -217,6 +218,14 @@ export function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meet
 	const { data: notarizationDetails } = trpc.meetings.getMeetingNotarizationDetails.useQuery(
 		{ meetingId: meetingId ?? "" },
 		{ enabled: !!meetingId?.trim() }
+	)
+
+	const {
+		refetch: ensureDoconchainToken,
+		isFetching: isEnsuringDoconchainToken,
+	} = trpc.meetings.ensureDocoChainToken.useQuery(
+		{ meetingId: meetingId ?? "" },
+		{ enabled: false, retry: false }
 	)
 
 	// ─── Mutations ───────────────────────────────────────────────
@@ -441,10 +450,12 @@ export function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meet
 				if (!link) throw new Error("Missing DocOnChain link.")
 
 				if (kind === "plot") {
+					const plotUrl =
+						(data as { cleanPlotUrl?: string } | null | undefined)?.cleanPlotUrl?.trim() || link
 					setPreGeneratedPlotLinks(prev => {
 						const next = new Map(prev)
 						next.set(documentId, {
-							link,
+							link: plotUrl,
 							projectUuid,
 							storedAt: Date.now(),
 							cleanPlotUrl: (data as { cleanPlotUrl?: string }).cleanPlotUrl,
@@ -465,7 +476,9 @@ export function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meet
 				}
 
 				if (kind === "plot") {
-					const popup = openCenteredPopup(link, `doconchain-plot-${documentId}`, "signing")
+					const plotUrl =
+						(data as { cleanPlotUrl?: string } | null | undefined)?.cleanPlotUrl?.trim() || link
+					const popup = openCenteredPopup(plotUrl, `doconchain-plot-${documentId}`, "signing")
 					plotPopupDocumentIdRef.current = documentId
 					if (!popup) {
 						toast.info("If nothing opened, allow pop-ups for this site and try again.")
@@ -992,9 +1005,26 @@ export function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meet
 		resetRecordingConsentUi,
 	])
 
-	const handleUploadClick = useCallback(() => {
-		setIsUploadDialogOpen(true)
-	}, [])
+	const handleUploadClick = useCallback(async () => {
+		if (!meetingId?.trim()) {
+			toast.error("Meeting not ready yet. Please try again.")
+			return
+		}
+		setIsPreparingUpload(true)
+		try {
+			const result = await ensureDoconchainToken()
+			if (result.data?.ready) {
+				setIsUploadDialogOpen(true)
+				return
+			}
+			toast.error("DocOnChain is still preparing. Please try again in a moment.")
+		} catch (error) {
+			const msg = error instanceof Error ? error.message : "Failed to prepare DocOnChain. Please try again."
+			toast.error(msg)
+		} finally {
+			setIsPreparingUpload(false)
+		}
+	}, [ensureDoconchainToken, meetingId])
 
 	// ─── Loading screen ──────────────────────────────────────────
 
@@ -1145,6 +1175,8 @@ export function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meet
 					<div className="absolute bottom-6 left-1/2 z-50 -translate-x-1/2">
 						<MeetingControls
 							onUploadClick={handleUploadClick}
+							isUploadDisabled={!meetingId?.trim()}
+							isUploadLoading={isPreparingUpload || isEnsuringDoconchainToken}
 							onRecordingToggle={handleRecordingToggle}
 							onLocalRecordingToggle={openConsentAndRequest}
 							localRecordingSupported={localRecordingSupported}
