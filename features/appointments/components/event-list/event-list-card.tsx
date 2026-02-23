@@ -134,13 +134,13 @@ export function UnifiedSidebarList({
 	}
 
 	return (
-		<div className="space-y-3">
+		<div className="space-y-6">
 			{pendingInboxEvents.length > 0 ? (
-				<div className="space-y-2">
-					<div className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+				<div className="space-y-3">
+					<h3 className="text-muted-foreground text-xs font-semibold uppercase tracking-wider">
 						Pending requests
-					</div>
-					<ItemGroup className="animate-in fade-in duration-300 motion-reduce:animate-none">
+					</h3>
+					<ItemGroup className="animate-in fade-in duration-300 motion-reduce:animate-none gap-2">
 						{pendingInboxEvents.map(ev => {
 							const incomingItemId = (ev.meta?.incomingItemId as string | undefined) ?? ev.id
 							const source = ev.meta?.source as "request" | "appointment" | undefined
@@ -165,8 +165,12 @@ export function UnifiedSidebarList({
 			) : null}
 
 			{sortedEvents.length > 0 ? (
-				<ItemGroup className="animate-in fade-in duration-300 motion-reduce:animate-none">
-					{sortedEvents.map(item => {
+				<div className="space-y-3">
+					<h3 className="text-muted-foreground text-xs font-semibold uppercase tracking-wider">
+						Schedule
+					</h3>
+					<ItemGroup className="animate-in fade-in duration-300 motion-reduce:animate-none gap-2">
+						{sortedEvents.map(item => {
 						const ev = item.event
 						const incomingItemId = (ev.meta?.incomingItemId as string | undefined) ?? ev.id
 						const source = ev.meta?.source as "request" | "appointment" | undefined
@@ -186,7 +190,8 @@ export function UnifiedSidebarList({
 							/>
 						)
 					})}
-				</ItemGroup>
+					</ItemGroup>
+				</div>
 			) : null}
 		</div>
 	)

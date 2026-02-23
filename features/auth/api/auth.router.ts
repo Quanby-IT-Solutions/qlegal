@@ -1,6 +1,6 @@
 import { TRPCError } from "@trpc/server"
 import { hash } from "bcryptjs"
-import { eq } from "drizzle-orm"
+import { eq, or } from "drizzle-orm"
 
 import { formatDateForStamp } from "@/core/lib/format-date-for-stamp"
 import { passwordResetTokens, users, verificationTokens } from "@/services/drizzle/schema/auth"
@@ -296,28 +296,22 @@ export const authRouter = createTRPCRouter({
 			})
 		}
 
-		// Decode the token in case it's URL encoded
+		// Decode the token in case it's URL encoded; try both raw and decoded for lookup
 		const decodedToken = decodeURIComponent(token)
-
-		console.log("🔵 Verifying email token...")
-		console.log("   - Token (raw):", token)
-		console.log("   - Token (decoded):", decodedToken)
+		const rawTrimmed = token.trim()
+		const decodedTrimmed = decodedToken.trim()
 
 		const existingToken = await ctx.db.query.verificationTokens.findFirst({
-			where: (data, { eq }) => eq(data.token, decodedToken),
+			where: (data, { eq, or }) =>
+				or(
+					eq(data.token, rawTrimmed),
+					eq(data.token, decodedTrimmed),
+					eq(data.token, token),
+					eq(data.token, decodedToken),
+				),
 		})
 
 		if (!existingToken) {
-			console.error("❌ Verification token not found in database")
-			// Try to find by email to help debug
-			const allTokens = await ctx.db.query.verificationTokens.findMany({
-				limit: 5,
-			})
-			console.log(
-				"   - Recent tokens in DB:",
-				allTokens.map(t => ({ email: t.email, token: `${t.token?.substring(0, 10)}...` }))
-			)
-
 			throw new TRPCError({
 				code: "NOT_FOUND",
 				message: "Verification token not found.",
