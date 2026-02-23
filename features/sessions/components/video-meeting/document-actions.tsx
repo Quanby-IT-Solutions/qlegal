@@ -252,7 +252,6 @@ export const DocumentActions = React.memo(function DocumentActions({
 	const isPlotSignatureDisabled =
 		!!isSigningPending ||
 		isPlottingDisabledByOrder ||
-		(!plotLinkReady && !plotPreGenGiveUp) ||
 		hasPlotted ||
 		enpHasConfirmedPlot
 
@@ -305,13 +304,7 @@ export const DocumentActions = React.memo(function DocumentActions({
 	const isSignButtonAvailableForPreGen =
 		showSignDocument && !isStartSigningDisabled && !!document.docoChainProjectId && !!userEmail
 
-	const isPlotSignatureWaiting =
-		showPlotSignature &&
-		!isPlottingDisabledByOrder &&
-		!hasPlotted &&
-		!enpHasConfirmedPlot &&
-		!plotLinkReady &&
-		!plotPreGenGiveUp
+	const isPlotSignatureWaiting = false
 
 	const preGenerationInitiatedRef = useRef<string | null>(null)
 	const hadPlotLinkRef = useRef(false)
@@ -376,6 +369,11 @@ export const DocumentActions = React.memo(function DocumentActions({
 	})
 
 	useEffect(() => {
+		// Plot links are extremely sensitive to token validity. We generate them on click to guarantee freshness.
+		// Keeping background pre-generation off also avoids any chance of invalidating the click-generated token.
+		const enablePlotPreGeneration = false
+		if (!enablePlotPreGeneration) return
+
 		const key = plotPreGenKey
 		if (
 			!isPlotButtonAvailableForPreGen ||
@@ -583,10 +581,10 @@ export const DocumentActions = React.memo(function DocumentActions({
 								<FileSignature className="mr-1.5 size-3.5" />
 								Plot Signature
 							</>
-						) : isPlotSignatureWaiting || (isSigningPending && isPlottingAction) ? (
+						) : isSigningPending && isPlottingAction ? (
 							<>
 								<div className="mr-2 size-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
-								{isPlotSignatureWaiting ? "Preparing..." : "Plotting..."}
+								Plotting...
 							</>
 						) : (
 							<>
