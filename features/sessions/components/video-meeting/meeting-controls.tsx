@@ -8,6 +8,7 @@ import {
 	CircleDot,
 	FileUp,
 	Loader2,
+	Loader2,
 	Mic,
 	MicOff,
 	Monitor,
@@ -38,6 +39,8 @@ interface MeetingControlsProps {
 
 export const MeetingControls = React.memo(function MeetingControls({
 	onUploadClick,
+	isUploadDisabled,
+	isUploadLoading,
 	isUploadDisabled,
 	isUploadLoading,
 	onLocalRecordingToggle,
@@ -247,6 +250,11 @@ export const MeetingControls = React.memo(function MeetingControls({
 						disabled={isUploadDisabled ?? isUploadLoading}
 						title="Upload document"
 					>
+						{isUploadLoading ? (
+							<Loader2 className="size-4 animate-spin" />
+						) : (
+							<FileUp className="size-4" />
+						)}
 						{isUploadLoading ? (
 							<Loader2 className="size-4 animate-spin" />
 						) : (

@@ -22,6 +22,8 @@ import { trpc } from "@/services/trpc/client"
 import { resetPasswordSchema, type ResetPasswordSchema } from "@/features/auth/api/auth.schemas"
 import { FormResponse } from "@/features/auth/components/ui/form-response"
 
+import { PasswordRequirementsChecklist } from "@/core/components/password-requirements-checklist"
+
 export const ResetPasswordForm = ({ token }: { token?: string }) => {
 	const router = useRouter()
 	const form = useForm({
@@ -41,6 +43,8 @@ export const ResetPasswordForm = ({ token }: { token?: string }) => {
 	})
 	const onSubmit: SubmitHandler<ResetPasswordSchema> = data => mutate(data)
 
+	const newPassword = form.watch("newPassword")
+
 	return (
 		<Form {...form}>
 			<form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
@@ -53,6 +57,7 @@ export const ResetPasswordForm = ({ token }: { token?: string }) => {
 							<FormControl>
 								<InputPassword placeholder="Create a password" {...field} />
 							</FormControl>
+							<PasswordRequirementsChecklist password={newPassword} />
 							<FormMessage />
 						</FormItem>
 					)}

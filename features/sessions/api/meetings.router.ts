@@ -2,6 +2,7 @@ import { TRPCError } from "@trpc/server"
 import { and, asc, desc, eq, inArray, ne, type InferSelectModel } from "drizzle-orm"
 import { z } from "zod/v4"
 
+import { getDoconchainApiToken, invalidateDoconchainToken } from "@/services/doconchain/auth/generate-token"
 import { addDoconchainProjectSigner } from "@/services/doconchain/projects/add-signer"
 import { createDoconchainProject } from "@/services/doconchain/projects/create-project"
 import { generateDoconchainSignLink } from "@/services/doconchain/projects/generate-sign-link"
@@ -518,7 +519,26 @@ export const meetingsRouter = createTRPCRouter({
 			if (!isHost && !isAccepted) {
 				throw new TRPCError({ code: "FORBIDDEN", message: "You don't have access to this meeting" })
 			}
-			return { ready: true }
+
+			// Determine which DocOnChain user owns projects for this meeting (ENP participant).
+			const enpParticipant = apParticipants.find(p => isEnpRole(p.user?.role) && !!asNonEmptyEmail(p.user?.email))
+			const enpEmail = asNonEmptyEmail(enpParticipant?.user?.email)
+			if (!enpEmail) {
+				throw new TRPCError({
+					code: "PRECONDITION_FAILED",
+					message: "An ENP participant with an email is required to prepare DocOnChain.",
+				})
+			}
+
+			try {
+				// Force-refresh the cached token so the next DocOnChain call is not using a stale token.
+				invalidateDoconchainToken(enpEmail)
+				await getDoconchainApiToken({ email: enpEmail, forceGenerated: true })
+				return { ready: true }
+			} catch (error) {
+				const msg = error instanceof Error ? error.message : "Failed to prepare DocOnChain."
+				throw new TRPCError({ code: "SERVICE_UNAVAILABLE", message: msg })
+			}
 		}),
 
 	// Fetch VideoSDK recordings for a meeting (user must have access)
@@ -742,7 +762,7 @@ export const meetingsRouter = createTRPCRouter({
 
 			// Check if user has access to the meeting
 			const isHost = meeting.createdById === ctx.session.user.id
-			const { apParticipants } = await getAppointmentParticipantsByMeetingId(meetingId)
+			const { appointment, apParticipants } = await getAppointmentParticipantsByMeetingId(meetingId)
 			const isAcceptedParticipant = apParticipants.some(
 				p => p.userId === ctx.session.user.id && p.status === "ACCEPTED"
 			)
@@ -821,19 +841,37 @@ export const meetingsRouter = createTRPCRouter({
 						? ""
 						: (enpProfile?.mcleNoPeriod ?? "")
 
-				const enpName = (enpUser?.name ?? "").trim()
+				const enpNameRaw = (enpUser?.name ?? "").trim()
 				const rollNo = (enpProfile?.rollNo ?? "").trim()
+
+				// Format attorney name for seal: "ATTY." prefix and uppercase (matches auth registration seal)
+				const formatAttorneyNameForSeal = (n: string | null | undefined): string => {
+					const base = (n ?? "").trim()
+					if (!base) return ""
+					const upper = base.toUpperCase()
+					return upper.startsWith("ATTY.") ? upper : `ATTY. ${upper}`
+				}
+				const attyNameForSeal = formatAttorneyNameForSeal(enpNameRaw)
+
+				// Mode of notarization is set at booking (principal side); REN = Remote (video), IEN = In-person
+				const modeRaw = (appointment?.modeOfNotarization ?? "REN").trim().toUpperCase()
+				const modeOfNotarization =
+					modeRaw === "REN" || modeRaw === "REMOTE" ? "Remote" : "In-person"
+
 				const documentStamp =
-					enpName && rollNo
+					attyNameForSeal && rollNo
 						? {
 								seal: {
 									type: "seal",
-									enp_name: enpName,
+									enp_name: attyNameForSeal,
+									enpName: attyNameForSeal,
 									enp_role_number: rollNo,
 								},
 								notary_info: {
 									type: "notary",
-									atty_name: enpName,
+									name: attyNameForSeal,
+									atty_name: attyNameForSeal,
+									attyName: attyNameForSeal,
 									roll_no: rollNo,
 									roll_no_date: enpProfile?.rollNoDate ?? "",
 									commission_no: enpProfile?.commissionNo ?? "",
@@ -848,6 +886,8 @@ export const meetingsRouter = createTRPCRouter({
 									MCLE_no_period: mcleNoPeriod,
 									MCLE_no: enpProfile?.mcleNo ?? "",
 									MCLE_no_date: enpProfile?.mcleNoDate ?? "",
+									mode_of_notarization: modeOfNotarization,
+									modeOfNotarization,
 								},
 							}
 						: undefined

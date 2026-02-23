@@ -27,6 +27,8 @@ import { registerSchema, type RegisterSchema } from "@/features/auth/api/auth.sc
 import { OAuthButton } from "@/features/auth/components/oauth-button"
 import { FormResponse } from "@/features/auth/components/ui/form-response"
 
+import { PasswordRequirementsChecklist } from "@/core/components/password-requirements-checklist"
+
 interface RegisterFormProps {
 	callbackUrl?: Route
 }
@@ -53,6 +55,8 @@ export function RegisterForm({ callbackUrl }: RegisterFormProps) {
 	})
 
 	const onSubmit = (values: RegisterSchema) => mutate(values)
+
+	const password = form.watch("password")
 
 	return (
 		<Form {...form}>
@@ -94,6 +98,7 @@ export function RegisterForm({ callbackUrl }: RegisterFormProps) {
 							<FormControl>
 								<InputPassword placeholder="Create a password" {...field} />
 							</FormControl>
+							<PasswordRequirementsChecklist password={password} />
 							<FormMessage />
 						</FormItem>
 					)}

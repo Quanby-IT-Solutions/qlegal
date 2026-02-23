@@ -14,6 +14,7 @@ import {
 	FormMessage,
 } from "@/core/components/ui/form"
 import { InputPassword } from "@/core/components/ui/input-password"
+import { PasswordRequirementsChecklist } from "@/core/components/password-requirements-checklist"
 
 import { trpc } from "@/services/trpc/client"
 
@@ -41,6 +42,8 @@ export function ChangePasswordForm() {
 	})
 
 	const onSubmit = (values: ChangePasswordSchema) => mutate(values)
+
+	const newPassword = form.watch("newPassword")
 
 	return (
 		<Form {...form}>
@@ -79,6 +82,7 @@ export function ChangePasswordForm() {
 											{...field}
 										/>
 									</FormControl>
+									<PasswordRequirementsChecklist password={newPassword} />
 									<FormMessage />
 								</FormItem>
 							)}

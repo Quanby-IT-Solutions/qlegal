@@ -1,6 +1,6 @@
 import { TRPCError } from "@trpc/server"
 import { hash } from "bcryptjs"
-import { eq } from "drizzle-orm"
+import { eq, or } from "drizzle-orm"
 
 import { formatDateForStamp } from "@/core/lib/format-date-for-stamp"
 import { passwordResetTokens, users, verificationTokens } from "@/services/drizzle/schema/auth"
@@ -129,16 +129,34 @@ export const authRouter = createTRPCRouter({
 			})
 		}
 
-		// Generate document_stamp payload for external API
+		// Format attorney name for seal: "ATTY." prefix and uppercase
+		const formatAttorneyNameForSeal = (n: string | null | undefined): string => {
+			const base = (n ?? "").trim()
+			if (!base) return ""
+			const upper = base.toUpperCase()
+			return upper.startsWith("ATTY.") ? upper : `ATTY. ${upper}`
+		}
+		const attyNameForSeal = formatAttorneyNameForSeal(notaryInfo.attyName ?? seal.enpName)
+		const enpNameForSeal = formatAttorneyNameForSeal(seal.enpName)
+		// Seal expects "In-person" or "Remote"; REN = Remote (video), IEN = In-person
+		const modeRaw = (notaryInfo.modeOfNotarization ?? "").trim().toUpperCase()
+		const modeOfNotarization =
+			modeRaw === "REN" || modeRaw === "REMOTE" ? "Remote" : "In-person"
+
+		// Generate document_stamp payload for external API (send both snake_case and camelCase for DocOnChain)
 		const documentStamp = {
 			seal: {
 				type: "seal",
-				enp_name: seal.enpName,
+				enp_name: enpNameForSeal,
+				enpName: enpNameForSeal,
 				enp_role_number: seal.enpRollNumber,
 			},
 			notary_info: {
 				type: "notary",
-				atty_name: notaryInfo.attyName,
+				name: attyNameForSeal,
+				commission_number: notaryInfo.commissionNo ?? "",
+				atty_name: attyNameForSeal,
+				attyName: attyNameForSeal,
 				roll_no: seal.enpRollNumber,
 				roll_no_date: formatDateForStamp(seal.rollNoDate),
 				commission_no: notaryInfo.commissionNo,
@@ -158,9 +176,10 @@ export const authRouter = createTRPCRouter({
 						: notaryInfo.mcleNoPeriod,
 				MCLE_no: notaryInfo.mcleNo,
 				MCLE_no_date: formatDateForStamp(notaryInfo.mcleNoDate),
-				mode_of_notarization: notaryInfo.modeOfNotarization,
-		},
-	}
+				mode_of_notarization: modeOfNotarization,
+				modeOfNotarization,
+			},
+		}
 
 		// DocOnChain org membership is added on first login, not at registration.
 
@@ -277,28 +296,22 @@ export const authRouter = createTRPCRouter({
 			})
 		}
 
-		// Decode the token in case it's URL encoded
+		// Decode the token in case it's URL encoded; try both raw and decoded for lookup
 		const decodedToken = decodeURIComponent(token)
-
-		console.log("🔵 Verifying email token...")
-		console.log("   - Token (raw):", token)
-		console.log("   - Token (decoded):", decodedToken)
+		const rawTrimmed = token.trim()
+		const decodedTrimmed = decodedToken.trim()
 
 		const existingToken = await ctx.db.query.verificationTokens.findFirst({
-			where: (data, { eq }) => eq(data.token, decodedToken),
+			where: (data, { eq, or }) =>
+				or(
+					eq(data.token, rawTrimmed),
+					eq(data.token, decodedTrimmed),
+					eq(data.token, token),
+					eq(data.token, decodedToken),
+				),
 		})
 
 		if (!existingToken) {
-			console.error("❌ Verification token not found in database")
-			// Try to find by email to help debug
-			const allTokens = await ctx.db.query.verificationTokens.findMany({
-				limit: 5,
-			})
-			console.log(
-				"   - Recent tokens in DB:",
-				allTokens.map(t => ({ email: t.email, token: `${t.token?.substring(0, 10)}...` }))
-			)
-
 			throw new TRPCError({
 				code: "NOT_FOUND",
 				message: "Verification token not found.",
