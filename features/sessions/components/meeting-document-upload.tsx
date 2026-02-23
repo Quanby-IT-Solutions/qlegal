@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { FileText, Upload, X } from "lucide-react"
 import { useDropzone } from "react-dropzone"
 import { toast } from "sonner"
@@ -54,13 +54,52 @@ export function MeetingDocumentUpload({
 	const [selectedFile, setSelectedFile] = useState<File | null>(null)
 	const [isUploading, setIsUploading] = useState(false)
 
+	// Fetch meeting details to find the ENP participant's pricing.
+	// getById already returns participants with enpProfile pricing columns
+	// (joined via getAppointmentParticipantsByMeetingId) for both ENP and Principal users.
+	const { data: meetingDetails } = trpc.meetings.getById.useQuery(meetingId, {
+		enabled: isOpen && !!meetingId,
+		staleTime: 5 * 60 * 1000,
+		refetchOnWindowFocus: false,
+	})
+
+	// For ENP: find their own profile in the participant list.
+	// For Principal: find the first ENP-role participant's pricing profile.
+	const pricingProfile = meetingDetails?.participants?.find(p => p.user?.role === "ENP")?.user
+		?.enpProfile
+
+	// Auto-fill fees whenever the notarization type changes and a pricing profile is available.
+	// Always overwrites so switching type always reflects the correct default price.
+	useEffect(() => {
+		if (!pricingProfile || !notarizationType) return
+
+		let defaultFee = 0
+		switch (notarizationType) {
+			case "ACKNOWLEDGMENT":
+				defaultFee = pricingProfile.acknowledgmentPrice ?? 0
+				break
+			case "AFFIRMATION":
+				defaultFee = pricingProfile.affirmationPrice ?? 0
+				break
+			case "JURAT":
+				defaultFee = pricingProfile.juratPrice ?? 0
+				break
+			case "SIGNATURE_WITNESSING":
+				defaultFee = pricingProfile.signatureWitnessingPrice ?? 0
+				break
+		}
+
+		setFees(defaultFee > 0 ? defaultFee.toFixed(2) : "")
+	}, [notarizationType, pricingProfile])
+
 	// tRPC mutation for uploading documents
 	const uploadDocument = trpc.meetings.uploadDocument.useMutation({
 		onSuccess: data => {
 			toast.success("Document uploaded successfully!")
 			if (data && typeof data === "object" && "docoChain" in data) {
-				const doco = (data as { docoChain?: { projectCreated?: boolean; error?: string } }).docoChain
-				if (doco && doco.projectCreated === false) {
+				const doco = (data as { docoChain?: { projectCreated?: boolean; error?: string } })
+					.docoChain
+				if (doco?.projectCreated === false) {
 					toast.error("DocOnChain is temporarily unavailable", {
 						description:
 							doco.error ??
@@ -155,8 +194,8 @@ export function MeetingDocumentUpload({
 				reader.readAsDataURL(selectedFile)
 			})
 
-			const feesNum = fees.trim() !== "" ? parseFloat(fees) : undefined
-			if (feesNum !== undefined && (Number.isNaN(feesNum) || feesNum < 0)) {
+			const feesNum = fees.trim() !== "" ? parseFloat(fees) : 0
+			if (Number.isNaN(feesNum) || feesNum < 0) {
 				toast.error("Fees must be a valid non-negative number")
 				setIsUploading(false)
 				return
@@ -171,7 +210,7 @@ export function MeetingDocumentUpload({
 				size: selectedFile.size,
 				description: description.trim() || undefined,
 				notarizationType,
-				...(isEnp && feesNum !== undefined && { fees: feesNum }),
+				fees: feesNum,
 			})
 		} catch (error) {
 			console.error("Upload error:", error)
@@ -340,21 +379,26 @@ export function MeetingDocumentUpload({
 							/>
 						</div>
 
-						{isEnp && (
-							<div className="space-y-2">
-								<Label htmlFor="fees">Fees</Label>
-								<Input
-									id="fees"
-									type="number"
-									step="0.01"
-									min={0}
-									value={fees}
-									onChange={e => setFees(e.target.value)}
-									placeholder="0.00"
-									disabled={isUploading || !selectedFile}
-								/>
-							</div>
-						)}
+						<div className="space-y-2">
+							<Label htmlFor="fees">Fees (PHP)</Label>
+							<Input
+								id="fees"
+								type="number"
+								step="0.01"
+								min={0}
+								value={fees}
+								onChange={e => setFees(e.target.value)}
+								placeholder="0.00"
+								disabled={isUploading || !selectedFile}
+							/>
+							<p className="text-muted-foreground text-xs">
+								{isEnp
+									? "Auto-filled from your profile pricing. You can adjust if needed."
+									: pricingProfile
+										? "Auto-filled from ENP participant's pricing. You can adjust if needed."
+										: "Enter the notarization fee for this document."}
+							</p>
+						</div>
 					</div>
 				</div>
 
