@@ -85,8 +85,6 @@ export function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meet
 	const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false)
 	const [showDocuments, setShowDocuments] = useState(true)
 	const [isPreparingUpload, setIsPreparingUpload] = useState(false)
-	const [isPreparingUpload, setIsPreparingUpload] = useState(false)
-
 	const [flyTrigger, setFlyTrigger] = useState(false)
 	const [flyOrigin, setFlyOrigin] = useState({ x: 0, y: 0 })
 	const [flyTarget, setFlyTarget] = useState({ x: 0, y: 0 })

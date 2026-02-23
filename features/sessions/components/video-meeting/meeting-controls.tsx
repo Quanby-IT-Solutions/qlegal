@@ -8,7 +8,6 @@ import {
 	CircleDot,
 	FileUp,
 	Loader2,
-	Loader2,
 	Mic,
 	MicOff,
 	Monitor,
@@ -39,8 +38,6 @@ interface MeetingControlsProps {
 
 export const MeetingControls = React.memo(function MeetingControls({
 	onUploadClick,
-	isUploadDisabled,
-	isUploadLoading,
 	isUploadDisabled,
 	isUploadLoading,
 	onLocalRecordingToggle,
