@@ -81,6 +81,16 @@ async function getAppointmentParticipantsByMeetingId(meetingId: string) {
 					image: true,
 					role: true,
 				},
+				with: {
+					enpProfile: {
+						columns: {
+							acknowledgmentPrice: true,
+							affirmationPrice: true,
+							juratPrice: true,
+							signatureWitnessingPrice: true,
+						},
+					},
+				},
 			},
 		},
 	})
@@ -934,7 +944,8 @@ export const meetingsRouter = createTRPCRouter({
 						docoChain = { projectCreated: true }
 						break
 					} catch (error) {
-						const message = error instanceof Error ? error.message : "DocOnChain project creation failed"
+						const message =
+							error instanceof Error ? error.message : "DocOnChain project creation failed"
 						docoChain = { projectCreated: false, error: message }
 
 						// Retry only for likely-transient upstream failures.
