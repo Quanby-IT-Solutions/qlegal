@@ -13,6 +13,7 @@ import {
 	Monitor,
 	PhoneOff,
 	Square,
+	Users,
 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -32,6 +33,7 @@ interface MeetingControlsProps {
 	isRecordingStarting?: boolean
 	isLocalRecording?: boolean
 	localRecordingStartedAt?: number | null
+	participantCount?: number
 }
 
 export const MeetingControls = React.memo(function MeetingControls({
@@ -41,6 +43,7 @@ export const MeetingControls = React.memo(function MeetingControls({
 	onLocalRecordingToggle,
 	isLocalRecording,
 	localRecordingStartedAt,
+	participantCount,
 }: MeetingControlsProps) {
 	const cameraSetterRef = useRef<((v: boolean) => void) | null>(null)
 	const meeting = useMeeting({
@@ -238,10 +241,10 @@ export const MeetingControls = React.memo(function MeetingControls({
 						size="icon"
 						className={cn(
 							"size-9 rounded-full text-white/80 transition-all hover:bg-white/10 hover:text-white md:size-10",
-							(isUploadDisabled || isUploadLoading) && "cursor-not-allowed opacity-60"
+							(isUploadDisabled ?? isUploadLoading) && "cursor-not-allowed opacity-60"
 						)}
 						onClick={onUploadClick}
-						disabled={isUploadDisabled || isUploadLoading}
+						disabled={isUploadDisabled ?? isUploadLoading}
 						title="Upload document"
 					>
 						{isUploadLoading ? (
@@ -250,6 +253,16 @@ export const MeetingControls = React.memo(function MeetingControls({
 							<FileUp className="size-4" />
 						)}
 					</Button>
+				)}
+
+				{/* Divider before leave */}
+				<div className="mx-1 h-6 w-px bg-white/15" />
+
+				{participantCount !== undefined && (
+					<div className="flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-white/80">
+						<Users className="size-3.5" />
+						<span className="text-xs font-medium tabular-nums">{participantCount}</span>
+					</div>
 				)}
 
 				{/* Divider before leave */}

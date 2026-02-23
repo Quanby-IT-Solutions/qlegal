@@ -2,10 +2,11 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useMeeting, usePubSub } from "@videosdk.live/react-sdk"
-import { CircleDot, FileSignature, Loader2, Users as UsersIcon } from "lucide-react"
+import { CircleDot, Loader2 } from "lucide-react"
 import { useSession } from "next-auth/react"
 import { toast } from "sonner"
 
+import { PageHeader } from "@/core/components/navbar/page-header"
 import { Button } from "@/core/components/ui/button"
 import { Card, CardContent } from "@/core/components/ui/card"
 import {
@@ -84,7 +85,6 @@ export function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meet
 	const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false)
 	const [showDocuments, setShowDocuments] = useState(true)
 	const [isPreparingUpload, setIsPreparingUpload] = useState(false)
-
 	const [flyTrigger, setFlyTrigger] = useState(false)
 	const [flyOrigin, setFlyOrigin] = useState({ x: 0, y: 0 })
 	const [flyTarget, setFlyTarget] = useState({ x: 0, y: 0 })
@@ -220,13 +220,11 @@ export function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meet
 		{ enabled: !!meetingId?.trim() }
 	)
 
-	const {
-		refetch: ensureDoconchainToken,
-		isFetching: isEnsuringDoconchainToken,
-	} = trpc.meetings.ensureDocoChainToken.useQuery(
-		{ meetingId: meetingId ?? "" },
-		{ enabled: false, retry: false }
-	)
+	const { refetch: ensureDoconchainToken, isFetching: isEnsuringDoconchainToken } =
+		trpc.meetings.ensureDocoChainToken.useQuery(
+			{ meetingId: meetingId ?? "" },
+			{ enabled: false, retry: false }
+		)
 
 	// ─── Mutations ───────────────────────────────────────────────
 
@@ -451,7 +449,7 @@ export function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meet
 
 				if (kind === "plot") {
 					const plotUrl =
-						(data as { cleanPlotUrl?: string } | null | undefined)?.cleanPlotUrl?.trim() || link
+						(data as { cleanPlotUrl?: string } | null | undefined)?.cleanPlotUrl?.trim() ?? link
 					setPreGeneratedPlotLinks(prev => {
 						const next = new Map(prev)
 						next.set(documentId, {
@@ -477,7 +475,7 @@ export function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meet
 
 				if (kind === "plot") {
 					const plotUrl =
-						(data as { cleanPlotUrl?: string } | null | undefined)?.cleanPlotUrl?.trim() || link
+						(data as { cleanPlotUrl?: string } | null | undefined)?.cleanPlotUrl?.trim() ?? link
 					const popup = openCenteredPopup(plotUrl, `doconchain-plot-${documentId}`, "signing")
 					plotPopupDocumentIdRef.current = documentId
 					if (!popup) {
@@ -1019,7 +1017,8 @@ export function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meet
 			}
 			toast.error("DocOnChain is still preparing. Please try again in a moment.")
 		} catch (error) {
-			const msg = error instanceof Error ? error.message : "Failed to prepare DocOnChain. Please try again."
+			const msg =
+				error instanceof Error ? error.message : "Failed to prepare DocOnChain. Please try again."
 			toast.error(msg)
 		} finally {
 			setIsPreparingUpload(false)
@@ -1047,21 +1046,9 @@ export function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meet
 			className="from-background via-muted/20 to-background flex h-screen flex-col bg-linear-to-br"
 		>
 			{/* Header */}
-			<div className="bg-card/50 flex flex-col items-center justify-between gap-3 border-b px-4 py-3 shadow-sm backdrop-blur-sm sm:flex-row sm:gap-4 md:px-6 md:py-4">
-				<div className="flex items-center gap-2">
-					<div className="bg-primary/10 flex h-8 w-8 items-center justify-center rounded-lg">
-						<FileSignature className="text-primary h-4 w-4" />
-					</div>
-					<h1 className="text-base font-bold md:text-lg">Signing Session</h1>
-				</div>
-
-				<div className="bg-muted/50 flex items-center gap-2 rounded-lg px-3 py-1.5">
-					<UsersIcon className="text-muted-foreground size-4" />
-					<span className="text-xs font-medium md:text-sm">
-						{participantCount} {participantCount === 1 ? "participant" : "participants"}
-					</span>
-				</div>
-			</div>
+			<PageHeader
+				items={[{ label: "Sessions", href: "/sessions" }, { label: "Signing Session" }]}
+			/>
 
 			{/* <FileFlightAnimation
 				trigger={flyTrigger}
@@ -1184,6 +1171,7 @@ export function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meet
 							isRecordingStarting={recordingStatus === "RECORDING_STARTING"}
 							isLocalRecording={isLocalRecording}
 							localRecordingStartedAt={localRecordingStartedAt}
+							participantCount={participantCount}
 						/>
 					</div>
 				</div>
