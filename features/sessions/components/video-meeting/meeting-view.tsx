@@ -395,20 +395,22 @@ export function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meet
 			}
 
 			const kind = isPlotting === true ? "plot" : "sign"
-			const existing =
-				kind === "plot"
-					? preGeneratedPlotLinks.get(documentId)
-					: preGeneratedSignLinks.get(documentId)
+			const existingSign = preGeneratedSignLinks.get(documentId)
 
 			const nowMs = Date.now()
-			const isCachedLinkUsable =
-				kind === "sign" &&
-				!!existing?.link &&
-				existing.projectUuid === projectUuid &&
-				typeof existing.storedAt === "number" &&
-				nowMs - existing.storedAt <= PRE_GENERATED_LINK_MAX_AGE_MS
+			const requestId = `${kind}-click-${documentId}-${nowMs.toString(36)}-${Math.random()
+				.toString(16)
+				.slice(2, 8)}`
 
-			if (kind === "sign" && existing && !isCachedLinkUsable) {
+			// Plot MUST always use a freshly generated link. Only Sign links can be cached briefly.
+			const isCachedSignLinkUsable =
+				kind === "sign" &&
+				!!existingSign?.link &&
+				existingSign.projectUuid === projectUuid &&
+				typeof existingSign.storedAt === "number" &&
+				nowMs - existingSign.storedAt <= PRE_GENERATED_LINK_MAX_AGE_MS
+
+			if (kind === "sign" && existingSign && !isCachedSignLinkUsable) {
 				setPreGeneratedSignLinks(prev => {
 					if (!prev.has(documentId)) return prev
 					const next = new Map(prev)
@@ -417,7 +419,7 @@ export function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meet
 				})
 			}
 
-			const linkFromCache = isCachedLinkUsable ? existing?.link : undefined
+			const linkFromCache = isCachedSignLinkUsable ? existingSign?.link : undefined
 
 			setSigningDocumentId(documentId)
 			setIsPlottingAction(kind === "plot")
@@ -425,12 +427,13 @@ export function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meet
 
 			try {
 				const data = linkFromCache
-					? { projectUuid, link: linkFromCache, kind, cleanPlotUrl: existing?.cleanPlotUrl }
+					? { projectUuid, link: linkFromCache, kind }
 					: await initiateSigning.mutateAsync({
 							projectUuid,
 							documentId,
 							email,
 							isPlotting: kind === "plot",
+							requestId,
 						})
 
 				console.log(
@@ -449,20 +452,7 @@ export function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meet
 				}
 				if (!link) throw new Error("Missing DocOnChain link.")
 
-				if (kind === "plot") {
-					const plotUrl =
-						(data as { cleanPlotUrl?: string } | null | undefined)?.cleanPlotUrl?.trim() || link
-					setPreGeneratedPlotLinks(prev => {
-						const next = new Map(prev)
-						next.set(documentId, {
-							link: plotUrl,
-							projectUuid,
-							storedAt: Date.now(),
-							cleanPlotUrl: (data as { cleanPlotUrl?: string }).cleanPlotUrl,
-						})
-						return next
-					})
-				} else {
+				if (kind === "sign") {
 					setPreGeneratedSignLinks(prev => {
 						const next = new Map(prev)
 						next.set(documentId, { link, projectUuid, storedAt: Date.now() })
@@ -476,9 +466,8 @@ export function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meet
 				}
 
 				if (kind === "plot") {
-					const plotUrl =
-						(data as { cleanPlotUrl?: string } | null | undefined)?.cleanPlotUrl?.trim() || link
-					const popup = openCenteredPopup(plotUrl, `doconchain-plot-${documentId}`, "signing")
+					// Always open the freshly-generated DocOnChain plot link (includes token params).
+					const popup = openCenteredPopup(link, `doconchain-plot-${documentId}`, "signing")
 					plotPopupDocumentIdRef.current = documentId
 					if (!popup) {
 						toast.info("If nothing opened, allow pop-ups for this site and try again.")
@@ -487,6 +476,13 @@ export function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meet
 					const interval = window.setInterval(() => {
 						if (popup.closed) {
 							window.clearInterval(interval)
+							// Consume any pre-generated plot link so the next click always fetches fresh.
+							setPreGeneratedPlotLinks(prev => {
+								if (!prev.has(documentId)) return prev
+								const next = new Map(prev)
+								next.delete(documentId)
+								return next
+							})
 							if (plotPopupDocumentIdRef.current === documentId) {
 								plotPopupDocumentIdRef.current = null
 								setPlotConfirmDocumentId(documentId)
