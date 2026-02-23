@@ -252,11 +252,6 @@ export const MeetingControls = React.memo(function MeetingControls({
 						) : (
 							<FileUp className="size-4" />
 						)}
-						{isUploadLoading ? (
-							<Loader2 className="size-4 animate-spin" />
-						) : (
-							<FileUp className="size-4" />
-						)}
 					</Button>
 				)}
 
