@@ -7,11 +7,13 @@ import {
 	CameraOff,
 	CircleDot,
 	FileUp,
+	Loader2,
 	Mic,
 	MicOff,
 	Monitor,
 	PhoneOff,
 	Square,
+	Users,
 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -22,6 +24,8 @@ import { formatElapsedMs } from "../../lib/utils"
 
 interface MeetingControlsProps {
 	onUploadClick?: () => void
+	isUploadDisabled?: boolean
+	isUploadLoading?: boolean
 	onRecordingToggle?: () => Promise<void> | void
 	onLocalRecordingToggle?: () => Promise<void> | void
 	localRecordingSupported?: boolean
@@ -29,13 +33,17 @@ interface MeetingControlsProps {
 	isRecordingStarting?: boolean
 	isLocalRecording?: boolean
 	localRecordingStartedAt?: number | null
+	participantCount?: number
 }
 
 export const MeetingControls = React.memo(function MeetingControls({
 	onUploadClick,
+	isUploadDisabled,
+	isUploadLoading,
 	onLocalRecordingToggle,
 	isLocalRecording,
 	localRecordingStartedAt,
+	participantCount,
 }: MeetingControlsProps) {
 	const cameraSetterRef = useRef<((v: boolean) => void) | null>(null)
 	const meeting = useMeeting({
@@ -231,12 +239,30 @@ export const MeetingControls = React.memo(function MeetingControls({
 					<Button
 						variant="ghost"
 						size="icon"
-						className="size-9 rounded-full text-white/80 transition-all hover:bg-white/10 hover:text-white md:size-10"
+						className={cn(
+							"size-9 rounded-full text-white/80 transition-all hover:bg-white/10 hover:text-white md:size-10",
+							(isUploadDisabled ?? isUploadLoading) && "cursor-not-allowed opacity-60"
+						)}
 						onClick={onUploadClick}
+						disabled={isUploadDisabled ?? isUploadLoading}
 						title="Upload document"
 					>
-						<FileUp className="size-4" />
+						{isUploadLoading ? (
+							<Loader2 className="size-4 animate-spin" />
+						) : (
+							<FileUp className="size-4" />
+						)}
 					</Button>
+				)}
+
+				{/* Divider before leave */}
+				<div className="mx-1 h-6 w-px bg-white/15" />
+
+				{participantCount !== undefined && (
+					<div className="flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-white/80">
+						<Users className="size-3.5" />
+						<span className="text-xs font-medium tabular-nums">{participantCount}</span>
+					</div>
 				)}
 
 				{/* Divider before leave */}
