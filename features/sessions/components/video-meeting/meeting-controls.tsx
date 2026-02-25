@@ -13,6 +13,7 @@ import {
 	Monitor,
 	PhoneOff,
 	Square,
+	UserPlus,
 	Users,
 } from "lucide-react"
 import { toast } from "sonner"
@@ -34,6 +35,7 @@ interface MeetingControlsProps {
 	isLocalRecording?: boolean
 	localRecordingStartedAt?: number | null
 	participantCount?: number
+	onInviteClick?: () => void
 }
 
 export const MeetingControls = React.memo(function MeetingControls({
@@ -44,6 +46,7 @@ export const MeetingControls = React.memo(function MeetingControls({
 	isLocalRecording,
 	localRecordingStartedAt,
 	participantCount,
+	onInviteClick,
 }: MeetingControlsProps) {
 	const cameraSetterRef = useRef<((v: boolean) => void) | null>(null)
 	const meeting = useMeeting({
@@ -252,6 +255,18 @@ export const MeetingControls = React.memo(function MeetingControls({
 						) : (
 							<FileUp className="size-4" />
 						)}
+					</Button>
+				)}
+
+				{onInviteClick && (
+					<Button
+						variant="ghost"
+						size="icon"
+						className="size-9 rounded-full text-white/80 transition-all hover:bg-white/10 hover:text-white md:size-10"
+						onClick={onInviteClick}
+						title="Add people"
+					>
+						<UserPlus className="size-4" />
 					</Button>
 				)}
 

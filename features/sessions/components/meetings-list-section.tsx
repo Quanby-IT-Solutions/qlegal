@@ -635,6 +635,7 @@ export function MeetingsListSection() {
 														<span className="text-xs font-medium">{meeting.createdBy.name}</span>
 														<span className="text-muted-foreground text-xs">• Host</span>
 													</div>
+
 												</div>
 
 												{/* RIGHT SIDE ACTIONS */}

@@ -386,6 +386,7 @@ export const meetingsRouter = createTRPCRouter({
 						title: displayTitle,
 						status: appointment.status ?? "CONFIRMED",
 						appointmentDate: appointment.appointmentDate,
+						allowPublicLink: appointment.allowPublicLink ?? false,
 						createdBy: meeting.createdBy
 							? { ...meeting.createdBy, image: resolveAvatarImage(meeting.createdBy.image) }
 							: meeting.createdBy,
@@ -457,6 +458,7 @@ export const meetingsRouter = createTRPCRouter({
 			...meeting,
 			title: appointment?.title ?? meeting.id,
 			status: appointment?.status ?? "CONFIRMED",
+			allowPublicLink: appointment?.allowPublicLink ?? false,
 			createdBy: meeting.createdBy
 				? { ...meeting.createdBy, image: resolveAvatarImage(meeting.createdBy.image) }
 				: meeting.createdBy,
@@ -1176,7 +1178,7 @@ export const meetingsRouter = createTRPCRouter({
 			with: {
 				documents: {
 					with: {
-						signers: { columns: { userId: true, signingOrder: true } },
+						signers: { columns: { userId: true, signingOrder: true, signerRole: true } },
 					},
 				},
 			},
@@ -1206,7 +1208,7 @@ export const meetingsRouter = createTRPCRouter({
 
 		// Define type for document with nested signers
 		type DocumentWithSigners = InferSelectModel<typeof documents> & {
-			signers: { userId: string; signingOrder: number | null }[]
+			signers: { userId: string; signingOrder: number | null; signerRole: string | null }[]
 		}
 
 		// Sort by order first (for manual reordering), then by createdAt (for upload sequence)
@@ -1219,19 +1221,27 @@ export const meetingsRouter = createTRPCRouter({
 			return createdAtA - createdAtB
 		})
 
-		// Map to include signerUserIds for each document, ordered by signingOrder
+		// Map to include signerUserIds and signerRoles for each document, ordered by signingOrder
 		return sorted.map(doc => {
 			const { signers, ...rest } = doc
-			// Sort signers by signingOrder (nulls last), then by userId for consistency
 			const sortedSigners = [...(signers ?? [])].sort((a, b) => {
 				const orderA = a.signingOrder ?? 999999
 				const orderB = b.signingOrder ?? 999999
 				if (orderA !== orderB) return orderA - orderB
 				return (a.userId ?? "").localeCompare(b.userId ?? "")
 			})
+			const signerRoles: Record<string, "principal" | "witness"> = {}
+			for (const s of sortedSigners) {
+				if (s.userId && (s.signerRole === "principal" || s.signerRole === "witness")) {
+					signerRoles[s.userId] = s.signerRole
+				} else if (s.userId) {
+					signerRoles[s.userId] = "principal"
+				}
+			}
 			return {
 				...rest,
 				signerUserIds: sortedSigners.map(s => s.userId),
+				signerRoles,
 			}
 		})
 	}),
@@ -1252,17 +1262,24 @@ export const meetingsRouter = createTRPCRouter({
 			})
 		}),
 
-	// Set which meeting participants are signers for a given document (before plotting)
+	// Set which meeting participants are signers for a given document (before plotting).
+	// Signers include role (principal | witness) assigned by ENP; order = array order.
 	setDocumentSigners: protectedProcedure
 		.input(
 			z.object({
 				documentId: z.string().min(1),
 				meetingId: z.string().min(1),
-				userIds: z.array(z.string().min(1)), // Array order represents signing order (first = 1, second = 2, etc.)
+				signers: z.array(
+					z.object({
+						userId: z.string().min(1),
+						role: z.enum(["principal", "witness"]),
+					})
+				),
 			})
 		)
 		.mutation(async ({ ctx, input }) => {
-			const { documentId, meetingId, userIds } = input
+			const { documentId, meetingId, signers: signerInputs } = input
+			const userIds = signerInputs.map(s => s.userId)
 
 			const meeting = await db.query.meetings.findFirst({
 				where: eq(meetings.id, meetingId),
@@ -1334,14 +1351,12 @@ export const meetingsRouter = createTRPCRouter({
 				// Create a map for quick lookup
 				const userMap = new Map(signerUsers.map(u => [u.id, u]))
 
-				// Insert signers with name, address, and signing order
-				// The array index + 1 represents the signing order (1 = first, 2 = second, etc.)
+				// Insert signers with name, address, role (assigned by ENP), and signing order
 				await db.insert(documentSigners).values(
-					userIds.map((userId, index) => {
+					signerInputs.map(({ userId, role }, index) => {
 						const user = userMap.get(userId)
-						const isPrincipal = user?.role === "PRINCIPAL"
+						const isPrincipal = role === "principal"
 
-						// Extract name and address for principals only
 						const signerName: string | null = isPrincipal && user?.name ? String(user.name) : null
 						const signerAddress: string | null =
 							isPrincipal && user?.address && typeof user.address === "string"
@@ -1353,7 +1368,8 @@ export const meetingsRouter = createTRPCRouter({
 							userId,
 							signerName,
 							signerAddress,
-							signingOrder: index + 1, // 1-based order
+							signerRole: role,
+							signingOrder: index + 1,
 						}
 					})
 				)
@@ -1761,6 +1777,92 @@ export const meetingsRouter = createTRPCRouter({
 				status: "PENDING" as const,
 				user,
 			}
+		}),
+
+	// Enable/disable public join link for this session (meeting creator only).
+	setAllowPublicLink: protectedProcedure
+		.input(
+			z.object({
+				meetingId: z.string().min(1),
+				allow: z.boolean(),
+			})
+		)
+		.mutation(async ({ input, ctx }) => {
+			const meeting = await db.query.meetings.findFirst({
+				where: eq(meetings.id, input.meetingId),
+				columns: { id: true, createdById: true },
+			})
+			if (!meeting) {
+				throw new TRPCError({ code: "NOT_FOUND", message: "Meeting not found" })
+			}
+			if (meeting.createdById !== ctx.session.user.id) {
+				throw new TRPCError({
+					code: "FORBIDDEN",
+					message: "Only the meeting host can change the public link setting",
+				})
+			}
+			const appointment = await db.query.appointments.findFirst({
+				where: eq(appointments.meetingId, input.meetingId),
+				columns: { id: true },
+			})
+			if (!appointment) {
+				throw new TRPCError({ code: "NOT_FOUND", message: "Appointment not found" })
+			}
+			await db
+				.update(appointments)
+				.set({ allowPublicLink: input.allow })
+				.where(eq(appointments.id, appointment.id))
+			return { allowPublicLink: input.allow }
+		}),
+
+	// Join a meeting via public link (adds current user as participant, then they go through liveness → lobby).
+	joinMeetingByLink: protectedProcedure
+		.input(z.object({ meetingId: z.string().min(1) }))
+		.mutation(async ({ input, ctx }) => {
+			const meeting = await db.query.meetings.findFirst({
+				where: eq(meetings.id, input.meetingId),
+				columns: { id: true },
+			})
+			if (!meeting) {
+				throw new TRPCError({ code: "NOT_FOUND", message: "Meeting not found" })
+			}
+			const appointment = await db.query.appointments.findFirst({
+				where: eq(appointments.meetingId, input.meetingId),
+				columns: { id: true, allowPublicLink: true },
+			})
+			if (!appointment) {
+				throw new TRPCError({ code: "NOT_FOUND", message: "Appointment not found" })
+			}
+			if (!appointment.allowPublicLink) {
+				throw new TRPCError({
+					code: "FORBIDDEN",
+					message: "This session is not open for link-based join",
+				})
+			}
+			const existing = await db.query.appointmentParticipants.findFirst({
+				where: and(
+					eq(appointmentParticipants.appointmentId, appointment.id),
+					eq(appointmentParticipants.userId, ctx.session.user.id)
+				),
+			})
+			if (existing) {
+				if (existing.status === "ACCEPTED") {
+					return { joined: false, alreadyAccepted: true }
+				}
+				await db
+					.update(appointmentParticipants)
+					.set({ status: "ACCEPTED", acceptedAt: new Date() })
+					.where(eq(appointmentParticipants.id, existing.id))
+				return { joined: true }
+			}
+			await db.insert(appointmentParticipants).values({
+				appointmentId: appointment.id,
+				userId: ctx.session.user.id,
+				status: "ACCEPTED",
+				acceptedAt: new Date(),
+				participantRole: "PARTICIPANT",
+			})
+			return { joined: true }
 		}),
 
 	// Respond to a meeting invite (accept/decline)

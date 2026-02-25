@@ -112,7 +112,11 @@ interface DocumentCardsProps {
 		documentId: string,
 		isPlotting?: boolean
 	) => Promise<void>
-	onSignersChange: (documentId: string, userIds: string[]) => void
+	onSignersChange: (
+		documentId: string,
+		userIds: string[],
+		roles: Record<string, "principal" | "witness">
+	) => void
 	onCreateProject: (documentId: string, meetingId: string) => void
 	isCreatingProject: boolean
 	onPreGeneratedLink: (
@@ -725,6 +729,7 @@ export const DocumentCards = React.memo(
 											}
 											participants={meetingDetails?.participants ?? []}
 											signerUserIds={docSignerUserIds}
+											signerRoles={(doc as { signerRoles?: Record<string, "principal" | "witness"> }).signerRoles}
 											meetingId={meetingId}
 											onCreateProject={onCreateProject}
 											isCreatingProject={isCreatingProject}

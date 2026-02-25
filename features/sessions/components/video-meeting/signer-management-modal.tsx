@@ -15,14 +15,24 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "@/core/components/ui/dialog"
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@/core/components/ui/select"
 import { cn } from "@/core/lib/utils"
 
 import type { SignerParticipant } from "./signer-selector"
 
+export type SignerRole = "principal" | "witness"
+
 interface SignerManagementModalProps {
 	participants: SignerParticipant[]
 	signerUserIds: string[]
-	onSignersChange: (userIds: string[]) => void
+	signerRoles?: Record<string, SignerRole>
+	onSignersChange: (userIds: string[], roles: Record<string, SignerRole>) => void
 	isOpen: boolean
 	onOpenChange: (open: boolean) => void
 }
@@ -30,6 +40,7 @@ interface SignerManagementModalProps {
 export const SignerManagementModal = React.memo(function SignerManagementModal({
 	participants,
 	signerUserIds,
+	signerRoles: initialSignerRoles,
 	onSignersChange,
 	isOpen,
 	onOpenChange,
@@ -37,15 +48,21 @@ export const SignerManagementModal = React.memo(function SignerManagementModal({
 	const { data: session } = useSession()
 	const isEnp = session?.user?.role === "ENP"
 
-	const [step, setStep] = useState<"select" | "order">("select")
+	const [step, setStep] = useState<"select" | "roles" | "order">("select")
 	const [selectedUserIds, setSelectedUserIds] = useState<string[]>([])
+	const [signerRoles, setSignerRoles] = useState<Record<string, SignerRole>>({})
 
 	useEffect(() => {
 		if (isOpen) {
 			setSelectedUserIds(Array.isArray(signerUserIds) ? [...signerUserIds] : [])
+			setSignerRoles(
+				typeof initialSignerRoles === "object" && initialSignerRoles !== null
+					? { ...initialSignerRoles }
+					: {}
+			)
 			setStep("select")
 		}
-	}, [isOpen, signerUserIds])
+	}, [isOpen, signerUserIds, initialSignerRoles])
 
 	const selectedSet = useMemo(() => new Set(selectedUserIds), [selectedUserIds])
 
@@ -85,29 +102,55 @@ export const SignerManagementModal = React.memo(function SignerManagementModal({
 		[selectedUserIds]
 	)
 
-	const handleNext = useCallback(() => {
+	const handleNextFromSelect = useCallback(() => {
 		if (selectedUserIds.length === 0) {
 			toast.error("Please select at least one signer")
 			return
 		}
+		// Default: ENP → witness (notary), others → principal; keep existing roles when re-opening
+		setSignerRoles(prev => {
+			const next = { ...prev }
+			for (const id of selectedUserIds) {
+				if (next[id] === undefined) {
+					const p = participants.find(x => x.userId === id)
+					next[id] = p?.user?.role === "ENP" ? "witness" : "principal"
+				}
+			}
+			return next
+		})
+		setStep("roles")
+	}, [selectedUserIds, participants])
+
+	const handleNextFromRoles = useCallback(() => {
 		setStep("order")
-	}, [selectedUserIds.length])
+	}, [])
 
 	const handleBack = useCallback(() => {
-		setStep("select")
+		setStep(prev => (prev === "order" ? "roles" : "select"))
 	}, [])
 
 	const handleSave = useCallback(() => {
-		onSignersChange(selectedUserIds)
+		const roles: Record<string, SignerRole> = {}
+		for (const id of selectedUserIds) {
+			const p = participants.find(x => x.userId === id)
+			roles[id] =
+				signerRoles[id] ??
+				(p?.user?.role === "ENP" ? "witness" : "principal")
+		}
+		onSignersChange(selectedUserIds, roles)
 		onOpenChange(false)
 		toast.success(`Saved ${selectedUserIds.length} signer(s)`)
-	}, [onSignersChange, onOpenChange, selectedUserIds])
+	}, [onSignersChange, onOpenChange, selectedUserIds, signerRoles, participants])
 
 	const handleCancel = useCallback(() => {
 		setSelectedUserIds(Array.isArray(signerUserIds) ? [...signerUserIds] : [])
 		setStep("select")
 		onOpenChange(false)
 	}, [onOpenChange, signerUserIds])
+
+	const setRoleForUser = useCallback((userId: string, role: SignerRole) => {
+		setSignerRoles(prev => ({ ...prev, [userId]: role }))
+	}, [])
 
 	const orderedSelected = useMemo(() => {
 		return selectedUserIds
@@ -121,17 +164,23 @@ export const SignerManagementModal = React.memo(function SignerManagementModal({
 				<DialogHeader>
 					<DialogTitle className="flex items-center gap-2">
 						<UsersIcon className="text-primary size-5" />
-						{step === "select" ? "Select Signers" : "Set Signing Order"}
+						{step === "select"
+							? "Select Signers"
+							: step === "roles"
+								? "Assign Roles"
+								: "Set Signing Order"}
 					</DialogTitle>
 					<DialogDescription>
 						{step === "select"
 							? "Choose which participants must sign this document"
-							: "Arrange the order in which signers will sign (ENP only)"}
+							: step === "roles"
+								? "Assign Principal or Witness for each signer (ENP is notary)"
+								: "Arrange the order in which signers will sign"}
 					</DialogDescription>
 				</DialogHeader>
 
 				<div className="space-y-4 py-4">
-					{step === "select" ? (
+					{step === "select" && (
 						<div className="space-y-2">
 							<p className="text-muted-foreground text-sm">
 								Selected: {selectedUserIds.length} of {participants.length}
@@ -166,15 +215,64 @@ export const SignerManagementModal = React.memo(function SignerManagementModal({
 								})}
 							</div>
 						</div>
-					) : (
+					)}
+					{step === "roles" && (
 						<div className="space-y-2">
 							<p className="text-muted-foreground text-sm">
-								Drag or use arrows to reorder signers (ENP only)
+								Assign Principal or Witness. ENP signs as notary and is not listed here.
+							</p>
+							<div className="max-h-[400px] space-y-1.5 overflow-y-auto">
+								{orderedSelected
+									.filter(p => p.user?.role !== "ENP")
+									.map(p => {
+										const name = p.user?.name ?? "Unknown"
+										const email = p.user?.email ?? ""
+										const role = signerRoles[p.userId] ?? "principal"
+										return (
+											<div
+												key={p.userId}
+												className="bg-muted/50 flex items-center gap-2 rounded-md px-3 py-2 text-sm"
+											>
+												<div className="min-w-0 flex-1">
+													<div className="flex items-center gap-1.5">
+														<User className="text-muted-foreground size-4 shrink-0" />
+														<span className="truncate font-medium">{name}</span>
+													</div>
+													<div className="text-muted-foreground truncate text-xs">{email}</div>
+												</div>
+												<Select
+													value={role}
+													onValueChange={(v: SignerRole) => setRoleForUser(p.userId, v)}
+												>
+													<SelectTrigger className="h-8 w-[120px] shrink-0">
+														<SelectValue />
+													</SelectTrigger>
+													<SelectContent>
+														<SelectItem value="principal">Principal</SelectItem>
+														<SelectItem value="witness">Witness</SelectItem>
+													</SelectContent>
+												</Select>
+											</div>
+										)
+									})}
+								{orderedSelected.filter(p => p.user?.role === "ENP").length > 0 && (
+									<p className="text-muted-foreground pt-1 text-xs">
+										ENP signs as notary and is not assigned a role.
+									</p>
+								)}
+							</div>
+						</div>
+					)}
+					{step === "order" && (
+						<div className="space-y-2">
+							<p className="text-muted-foreground text-sm">
+								Use arrows to reorder signers (first signs first)
 							</p>
 							<div className="max-h-[400px] space-y-1.5 overflow-y-auto">
 								{orderedSelected.map((p, index) => {
 									const name = p.user?.name ?? "Unknown"
 									const email = p.user?.email ?? ""
+									const role = signerRoles[p.userId] ?? "principal"
 									return (
 										<div
 											key={p.userId}
@@ -187,6 +285,9 @@ export const SignerManagementModal = React.memo(function SignerManagementModal({
 												<div className="flex items-center gap-1.5">
 													<User className="text-muted-foreground size-4 shrink-0" />
 													<span className="truncate font-medium">{name}</span>
+													<span className="text-muted-foreground shrink-0 text-xs capitalize">
+														({role})
+													</span>
 												</div>
 												<div className="text-muted-foreground truncate text-xs">{email}</div>
 											</div>
@@ -223,17 +324,30 @@ export const SignerManagementModal = React.memo(function SignerManagementModal({
 				</div>
 
 				<DialogFooter className="flex-col gap-2 sm:flex-row">
-					{step === "select" ? (
+					{step === "select" && (
 						<>
 							<Button variant="outline" onClick={handleCancel} className="w-full sm:w-auto">
 								Cancel
 							</Button>
-							<Button onClick={handleNext} className="w-full sm:w-auto">
+							<Button onClick={handleNextFromSelect} className="w-full sm:w-auto">
 								Next
 								<ArrowRight className="ml-2 size-4" />
 							</Button>
 						</>
-					) : (
+					)}
+					{step === "roles" && (
+						<>
+							<Button variant="outline" onClick={handleBack} className="w-full sm:w-auto">
+								<ArrowLeft className="mr-2 size-4" />
+								Back
+							</Button>
+							<Button onClick={handleNextFromRoles} className="w-full sm:w-auto">
+								Next
+								<ArrowRight className="ml-2 size-4" />
+							</Button>
+						</>
+					)}
+					{step === "order" && (
 						<>
 							<Button variant="outline" onClick={handleBack} className="w-full sm:w-auto">
 								<ArrowLeft className="mr-2 size-4" />

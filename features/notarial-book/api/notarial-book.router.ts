@@ -709,33 +709,18 @@ export const notarialBookRouter = createTRPCRouter({
 				})
 			}
 
-			// Resolve meetingId for witness enrichment (we show Witness from participantRole)
-			let meetingIdForWitness: string | null = null
-			if (act.documentId) {
-				const doc = await ctx.db.query.documents.findFirst({
-					where: eq(documents.id, act.documentId),
-					columns: { meetingId: true },
-				})
-				meetingIdForWitness = doc?.meetingId ?? null
-			}
-
+			// Witness/principal from document_signers (assigned by ENP when adding signers), not from invite/participantRole
 			const witnessEmails = new Set<string>()
-			if (meetingIdForWitness) {
-				const appointment = await ctx.db.query.appointments.findFirst({
-					where: eq(appointments.meetingId, meetingIdForWitness),
+			if (act.documentId) {
+				const docSignersForRole = await ctx.db.query.documentSigners.findMany({
+					where: and(
+						eq(documentSigners.documentId, act.documentId),
+						eq(documentSigners.signerRole, "witness")
+					),
+					with: { user: { columns: { email: true } } },
 				})
-
-				if (appointment) {
-					const witnessParticipants = await ctx.db.query.appointmentParticipants.findMany({
-						where: and(
-							eq(appointmentParticipants.appointmentId, appointment.id),
-							eq(appointmentParticipants.participantRole, "PARTICIPANT")
-						),
-						with: { user: { columns: { email: true } } },
-					})
-					for (const p of witnessParticipants) {
-						if (p.user?.email) witnessEmails.add(p.user.email.trim().toLowerCase())
-					}
+				for (const ds of docSignersForRole) {
+					if (ds.user?.email) witnessEmails.add(ds.user.email.trim().toLowerCase())
 				}
 			}
 
@@ -864,7 +849,12 @@ export const notarialBookRouter = createTRPCRouter({
 								status,
 								signedAt,
 								sequence: ds.signingOrder ?? idx + 1,
-								signerRole: "Signer",
+								signerRole:
+									ds.signerRole === "witness"
+										? "Witness"
+										: ds.signerRole === "principal"
+											? "Principal"
+											: "Signer",
 								homeStreet: ds.user?.homeStreet ?? null,
 								barangay: ds.user?.barangay ?? null,
 								cityProvince: ds.user?.cityProvince ?? null,

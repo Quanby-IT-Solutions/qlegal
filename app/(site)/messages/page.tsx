@@ -33,6 +33,7 @@ import { useMessagesSubscriptions } from "@/features/messages/api/use-messages-s
 import { ConsultationRequestCard } from "@/features/messages/components/consultation-request-card"
 import type { ConsultationRequestMetadata } from "@/features/messages/components/consultation-request-card"
 import { FileUploadPanel } from "@/features/messages/components/file-upload-panel"
+import { MessageContent } from "@/features/messages/components/message-content"
 
 export default function MessagesPage() {
 	const { data: session } = useSession()
@@ -483,7 +484,10 @@ export default function MessagesPage() {
 																	isSent ? "bg-primary text-primary-foreground" : "bg-muted"
 																)}
 															>
-																<p className="text-xs leading-relaxed">{message.content}</p>
+																<MessageContent
+																	content={message.content}
+																	className="text-xs leading-relaxed"
+																/>
 															</Card>
 														)}
 														<p

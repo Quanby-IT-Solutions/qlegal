@@ -11,7 +11,6 @@ import {
 	MapPin,
 	Mic,
 	MicOff,
-	UserPlus,
 	Users,
 	Video,
 } from "lucide-react"
@@ -27,7 +26,6 @@ import {
 	CardHeader,
 	CardTitle,
 } from "@/core/components/ui/card"
-import { Input } from "@/core/components/ui/input"
 import { Skeleton } from "@/core/components/ui/skeleton"
 import { useGeolocation } from "@/core/hooks/use-geolocation"
 
@@ -51,7 +49,7 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 	const { id } = use(params)
 	const router = useRouter()
 	const { data: session } = useSession()
-	const { getById, inviteWitnessByEmail } = useMeetings()
+	const { getById } = useMeetings()
 	const { data: meeting, isLoading, refetch: refetchMeeting } = getById(id)
 	const { verifyLocation } = useLocationVerification()
 
@@ -61,7 +59,6 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 	const [isMicOn, setIsMicOn] = useState(true)
 	const [isTestingDevices, setIsTestingDevices] = useState(false)
 
-	const [witnessEmail, setWitnessEmail] = useState("")
 
 	// Liveness verification state
 	const [isCheckingLiveness, setIsCheckingLiveness] = useState(true)
@@ -418,7 +415,6 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 	}
 
 	const userRole = session?.user?.role ?? "PRINCIPAL"
-	const isHost = meeting.createdBy.id === session?.user?.id
 
 	return (
 		<>
@@ -648,78 +644,6 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 											</div>
 										))}
 									</div>
-									{isHost && (
-										<>
-											{((meeting.pendingInvites?.length ?? 0) > 0 && (
-												<div className="border-t border-border px-4 py-2">
-													<p className="text-muted-foreground mb-1.5 text-xs font-medium">
-														Pending ({meeting.pendingInvites.length})
-													</p>
-													{meeting.pendingInvites.map(invite => (
-														<div key={invite.id} className="flex items-center gap-2 py-1">
-															<Avatar className="size-6">
-																<AvatarImage src={invite.user.image ?? undefined} />
-																<AvatarFallback className="text-[10px]">
-																	{invite.user.name?.charAt(0).toUpperCase() ?? "?"}
-																</AvatarFallback>
-															</Avatar>
-															<span className="text-muted-foreground truncate text-xs">
-																{invite.user.email}
-															</span>
-														</div>
-													))}
-												</div>
-											))}
-											<div className="border-t border-border p-3">
-												<Input
-													value={witnessEmail}
-													onChange={e => setWitnessEmail(e.target.value)}
-													placeholder="Witness email"
-													title="Add witness by email"
-													className="mb-2 h-9 text-sm"
-													autoComplete="email"
-													inputMode="email"
-												/>
-												<Button
-													type="button"
-													variant="outline"
-													size="sm"
-													className="h-9 w-full rounded-lg"
-													disabled={
-														inviteWitnessByEmail.isPending || witnessEmail.trim().length === 0
-													}
-													onClick={() => {
-														const email = witnessEmail.trim().toLowerCase()
-														if (!email) return
-														inviteWitnessByEmail.mutate(
-															{ meetingId: id, email },
-															{
-																onSuccess: result => {
-																	if (result.created) {
-																		toast.success("Invite sent")
-																		setWitnessEmail("")
-																	} else {
-																		toast.message(
-																			result.status === "PENDING"
-																				? "Invite already sent"
-																				: "Already in meeting"
-																		)
-																	}
-																	void refetchMeeting()
-																},
-																onError: err => {
-																	toast.error(err.message ?? "Failed to invite")
-																},
-															}
-														)
-													}}
-												>
-													<UserPlus className="mr-2 size-4" />
-													Add witness by email
-												</Button>
-											</div>
-										</>
-									)}
 								</CardContent>
 							</Card>
 						</aside>
