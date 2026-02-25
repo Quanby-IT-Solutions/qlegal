@@ -46,7 +46,12 @@ interface DocumentActionsProps {
 		documentId: string,
 		isPlotting?: boolean
 	) => void
-	onSignersChange?: (documentId: string, userIds: string[]) => void
+	onSignersChange?: (
+		documentId: string,
+		userIds: string[],
+		roles: Record<string, "principal" | "witness">
+	) => void
+	signerRoles?: Record<string, "principal" | "witness">
 	isSigningPending: boolean
 	isPlottingAction?: boolean
 	isLocked?: boolean
@@ -90,6 +95,7 @@ export const DocumentActions = React.memo(function DocumentActions({
 	signatureRequests,
 	participants,
 	signerUserIds,
+	signerRoles,
 	meetingId,
 	onCreateProject,
 	isCreatingProject,
@@ -284,8 +290,8 @@ export const DocumentActions = React.memo(function DocumentActions({
 	/* eslint-enable @typescript-eslint/prefer-nullish-coalescing */
 
 	const handleSignersChange = useCallback(
-		(userIds: string[]) => {
-			if (onSignersChange && meetingId) onSignersChange(document.id, userIds)
+		(userIds: string[], roles: Record<string, "principal" | "witness">) => {
+			if (onSignersChange && meetingId) onSignersChange(document.id, userIds, roles)
 		},
 		[onSignersChange, meetingId, document.id]
 	)
@@ -511,6 +517,7 @@ export const DocumentActions = React.memo(function DocumentActions({
 						<SignerManagementModal
 							participants={participants}
 							signerUserIds={signerUserIds ?? []}
+							signerRoles={signerRoles}
 							onSignersChange={handleSignersChange}
 							isOpen={isSignerModalOpen}
 							onOpenChange={setIsSignerModalOpen}
