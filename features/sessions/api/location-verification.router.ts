@@ -13,23 +13,23 @@ import {
 import { env } from "@/env"
 
 /**
- * Response from ip-api.com
+ * Response from proxycheck.io
  */
-interface IpApiResponse {
-	status: "success" | "fail"
-	message?: string
+interface ProxyCheckIpData {
+	status?: "ok" | "error"
+	proxy?: "yes" | "no"
+	type?: string
 	country?: string
-	countryCode?: string
-	region?: string
-	city?: string
-	lat?: number
-	lon?: number
-	timezone?: string
-	isp?: string
-	org?: string
-	as?: string
-	proxy?: boolean
-	hosting?: boolean
+	asn?: string
+	provider?: string
+	organisation?: string
+	[extra: string]: unknown
+}
+
+interface ProxyCheckResponse {
+	status?: string
+	message?: string
+	[ip: string]: ProxyCheckIpData | string | undefined
 }
 
 /**
@@ -69,39 +69,41 @@ export interface ParsedAddress {
  * Handles various proxy headers commonly used
  */
 function getClientIp(headers: Headers): string | null {
-	// Check common proxy headers
-	const forwardedFor = headers.get("x-forwarded-for")
-	if (forwardedFor) {
-		// x-forwarded-for can contain multiple IPs, take the first one
-		const ips = forwardedFor.split(",").map(ip => ip.trim())
-		return ips[0] ?? null
+	const cfConnectingIp = headers.get("cf-connecting-ip")
+	if (cfConnectingIp) {
+		return cfConnectingIp
 	}
 
-	// Check other common headers
 	const realIp = headers.get("x-real-ip")
 	if (realIp) {
 		return realIp
 	}
 
-	const cfConnectingIp = headers.get("cf-connecting-ip")
-	if (cfConnectingIp) {
-		return cfConnectingIp
+	const forwardedFor = headers.get("x-forwarded-for")
+	if (forwardedFor) {
+		const ips = forwardedFor
+			.split(",")
+			.map(ip => ip.trim())
+			.filter(Boolean)
+		return ips[ips.length - 1] ?? null
 	}
 
 	return null
 }
 
 /**
- * Check if an IP is a VPN/proxy using ip-api.com
+ * Check if an IP is a VPN/proxy using proxycheck.io
  */
 async function checkVpnStatus(
 	ip: string
-): Promise<{ isVpn: boolean; ipData: IpApiResponse | null }> {
+): Promise<{ isVpn: boolean; ipData: ProxyCheckIpData | null }> {
+	if (!env.PROXYCHECK_API_KEY) {
+		return { isVpn: false, ipData: null }
+	}
+
 	try {
-		// Use the free ip-api.com service
-		// Fields: proxy (boolean), hosting (boolean for datacenter IPs)
 		const response = await fetch(
-			`http://ip-api.com/json/${ip}?fields=status,message,country,countryCode,region,city,lat,lon,timezone,isp,org,as,proxy,hosting`,
+			`https://proxycheck.io/v2/${ip}?key=${env.PROXYCHECK_API_KEY}&vpn=1`,
 			{
 				headers: {
 					Accept: "application/json",
@@ -110,21 +112,26 @@ async function checkVpnStatus(
 		)
 
 		if (!response.ok) {
-			console.error(`[VPN Check] ip-api.com returned status ${response.status}`)
+			console.error(`[VPN Check] proxycheck.io returned status ${response.status}`)
 			return { isVpn: false, ipData: null }
 		}
 
-		const data = (await response.json()) as IpApiResponse
+		const data = (await response.json()) as ProxyCheckResponse
+		const ipPayload = data[ip]
 
-		if (data.status === "fail") {
-			console.error(`[VPN Check] ip-api.com error: ${data.message}`)
+		if (!ipPayload || typeof ipPayload === "string") {
+			console.error("[VPN Check] proxycheck.io response missing IP payload")
 			return { isVpn: false, ipData: null }
 		}
 
-		// Check if proxy or hosting (datacenter) is detected
-		const isVpn = data.proxy === true || data.hosting === true
+		if (ipPayload.status === "error") {
+			console.error(`[VPN Check] proxycheck.io error: ${data.message ?? "Unknown error"}`)
+			return { isVpn: false, ipData: null }
+		}
 
-		return { isVpn, ipData: data }
+		const isVpn = ipPayload.proxy === "yes"
+
+		return { isVpn, ipData: ipPayload }
 	} catch (error) {
 		console.error("[VPN Check] Error checking VPN status:", error)
 		return { isVpn: false, ipData: null }
@@ -264,7 +271,7 @@ export const locationVerificationRouter = createTRPCRouter({
 	 *
 	 * This procedure:
 	 * 1. Gets the user's IP address from request headers
-	 * 2. Checks if the IP is using a VPN/proxy via ip-api.com
+	 * 2. Checks if the IP is using a VPN/proxy via proxycheck.io
 	 * 3. Uses Google Maps Geocoding to determine the country from coordinates
 	 * 4. Verifies location based on user role (ENP must be in PH, PRINCIPAL can be at embassy)
 	 */
@@ -282,12 +289,14 @@ export const locationVerificationRouter = createTRPCRouter({
 				ctx,
 			}): Promise<
 				LocationVerificationResult & {
-					vpnDetails?: IpApiResponse | null
+					vpnDetails?: ProxyCheckIpData | null
 					parsedAddress?: ParsedAddress | null
+					clientIp?: string
 				}
 			> => {
 				const { latitude, longitude } = input
 				const userRole = ctx.session.user.role
+				let ipData: ProxyCheckIpData | null = null
 
 				// Step 1: Get client IP
 				const clientIp = getClientIp(ctx.headers)
@@ -299,14 +308,16 @@ export const locationVerificationRouter = createTRPCRouter({
 
 				// Step 2: Check for VPN/proxy usage
 				if (clientIp) {
-					const { isVpn, ipData } = await checkVpnStatus(clientIp)
+					const vpnCheckResult = await checkVpnStatus(clientIp)
+					ipData = vpnCheckResult.ipData
 
-					if (isVpn) {
+					if (vpnCheckResult.isVpn) {
 						console.log(`[Location Verification] VPN detected for IP: ${clientIp}`)
 						return {
 							allowed: false,
 							reason: "vpn_detected",
 							vpnDetails: ipData,
+							clientIp: clientIp ?? undefined,
 						}
 					}
 				}
@@ -326,6 +337,20 @@ export const locationVerificationRouter = createTRPCRouter({
 							isInPhilippines: false,
 							formattedAddress: formattedAddress ?? undefined,
 						},
+						clientIp: clientIp ?? undefined,
+					}
+				}
+
+				if (
+					ipData?.country &&
+					countryCode &&
+					ipData.country.toUpperCase() !== countryCode.toUpperCase()
+				) {
+					return {
+						allowed: false,
+						reason: "vpn_detected",
+						vpnDetails: ipData,
+						clientIp: clientIp ?? undefined,
 					}
 				}
 
@@ -354,6 +379,7 @@ export const locationVerificationRouter = createTRPCRouter({
 				return {
 					...verificationResult,
 					parsedAddress,
+					clientIp: clientIp ?? undefined,
 				}
 			}
 		),
@@ -380,8 +406,8 @@ export const locationVerificationRouter = createTRPCRouter({
 			isVpn,
 			ipInfo: isVpn
 				? {
-						isp: ipData?.isp,
-						org: ipData?.org,
+						isp: ipData?.provider,
+						org: ipData?.organisation,
 						country: ipData?.country,
 					}
 				: null,
