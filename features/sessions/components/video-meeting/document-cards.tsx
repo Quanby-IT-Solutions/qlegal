@@ -307,6 +307,19 @@ export const DocumentCards = React.memo(
 					: [],
 			[notarizationDetails]
 		)
+		const totalFees = useMemo(
+			() =>
+				documents.reduce((sum, doc) => {
+					const fees = doc.fees
+					const hasValidFees =
+						fees !== null &&
+						fees !== undefined &&
+						typeof fees === "number" &&
+						!Number.isNaN(fees)
+					return hasValidFees ? sum + fees : sum
+				}, 0),
+			[documents]
+		)
 
 		if (!documents || documents.length === 0) return null
 
@@ -693,14 +706,13 @@ export const DocumentCards = React.memo(
 												{(() => {
 													const fees = doc.fees
 													const showFees =
-														isFullySigned &&
 														fees !== null &&
 														fees !== undefined &&
 														typeof fees === "number" &&
 														!Number.isNaN(fees)
 													return showFees ? (
 														<p className="text-muted-foreground mt-0.5 text-xs font-semibold">
-															Fees: {fees.toFixed(2)}
+															Fees: PHP {fees.toFixed(2)}
 														</p>
 													) : null
 												})()}
@@ -744,6 +756,15 @@ export const DocumentCards = React.memo(
 							)
 						})}
 					</div>
+
+					{totalFees > 0 && (
+						<div className="bg-muted/30 shrink-0 border-t px-3 py-2.5">
+							<div className="flex items-center justify-between">
+								<span className="text-muted-foreground text-sm">Total Fees</span>
+								<span className="text-sm font-bold">PHP {totalFees.toFixed(2)}</span>
+							</div>
+						</div>
+					)}
 				</div>
 			</>
 		)
