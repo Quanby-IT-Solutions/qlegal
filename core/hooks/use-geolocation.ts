@@ -9,7 +9,7 @@ export interface GeolocationState {
 	clearWatch: () => void
 }
 
-export function useGeolocation(options?: PositionOptions): GeolocationState {
+export function useGeolocation(options?: PositionOptions, enabled = true): GeolocationState {
 	const [position, setPosition] = useState<GeolocationPosition | null>(null)
 	const [error, setError] = useState<GeolocationPositionError | null>(null)
 	const [isLoading, setIsLoading] = useState<boolean>(true)
@@ -24,6 +24,16 @@ export function useGeolocation(options?: PositionOptions): GeolocationState {
 	}, [])
 
 	useEffect(() => {
+		if (!enabled) {
+			clearWatch()
+			setPosition(null)
+			setError(null)
+			setIsLoading(false)
+			return
+		}
+
+		setIsLoading(true)
+
 		if (!("geolocation" in navigator)) {
 			setError({
 				code: 0,
@@ -53,7 +63,7 @@ export function useGeolocation(options?: PositionOptions): GeolocationState {
 		return () => {
 			clearWatch()
 		}
-	}, [options, clearWatch])
+	}, [options, enabled, clearWatch])
 
 	return { position, error, isLoading, clearWatch }
 }

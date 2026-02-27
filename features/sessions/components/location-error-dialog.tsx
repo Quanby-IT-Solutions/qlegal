@@ -82,6 +82,15 @@ function getErrorConfig(errorReason: ErrorReason, userRole: "ENP" | "PRINCIPAL" 
 			description: "VPN or proxy connections are not allowed during notarization sessions.",
 			showRetry: false,
 		},
+		vpn_check_unavailable: {
+			icon: AlertCircle,
+			iconColor: "text-red-600 dark:text-red-500",
+			iconBgColor: "bg-red-100 dark:bg-red-900/20",
+			title: "VPN Check Unavailable",
+			description:
+				"VPN validation is temporarily unavailable due to server configuration. Meeting entry is blocked.",
+			showRetry: false,
+		},
 		geolocation_error: {
 			icon: Navigation,
 			iconColor: "text-yellow-600 dark:text-yellow-500",
