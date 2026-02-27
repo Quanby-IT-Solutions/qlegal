@@ -85,7 +85,10 @@ function getClientIp(headers: Headers): string | null {
 			.split(",")
 			.map(ip => ip.trim())
 			.filter(Boolean)
-		return ips[ips.length - 1] ?? null
+		// Use the first IP in the chain (original client IP)
+		// The x-forwarded-for header format is: client, proxy1, proxy2, ...
+		// The first IP is the real client; the last is typically our infrastructure
+		return ips[0] ?? null
 	}
 
 	return null
@@ -96,9 +99,26 @@ function getClientIp(headers: Headers): string | null {
  */
 async function checkVpnStatus(
 	ip: string
-): Promise<{ isVpn: boolean; ipData: ProxyCheckIpData | null }> {
+): Promise<{
+	checked: boolean
+	isVpn: boolean
+	ipData: ProxyCheckIpData | null
+	message?: string
+}> {
 	if (!env.PROXYCHECK_API_KEY) {
-		return { isVpn: false, ipData: null }
+		// Warn in production if VPN check is disabled
+		if (env.NODE_ENV === "production") {
+			console.warn(
+				"[VPN Check] PROXYCHECK_API_KEY is not configured. VPN detection is disabled. " +
+					"Set PROXYCHECK_API_KEY in your environment variables to enable VPN blocking."
+			)
+		}
+		return {
+			checked: false,
+			isVpn: false,
+			ipData: null,
+			message: "PROXYCHECK_API_KEY is not configured",
+		}
 	}
 
 	try {
@@ -113,7 +133,7 @@ async function checkVpnStatus(
 
 		if (!response.ok) {
 			console.error(`[VPN Check] proxycheck.io returned status ${response.status}`)
-			return { isVpn: false, ipData: null }
+			return { checked: false, isVpn: false, ipData: null, message: "VPN check request failed" }
 		}
 
 		const data = (await response.json()) as ProxyCheckResponse
@@ -121,20 +141,25 @@ async function checkVpnStatus(
 
 		if (!ipPayload || typeof ipPayload === "string") {
 			console.error("[VPN Check] proxycheck.io response missing IP payload")
-			return { isVpn: false, ipData: null }
+			return { checked: false, isVpn: false, ipData: null, message: "Invalid VPN check response" }
 		}
 
 		if (ipPayload.status === "error") {
 			console.error(`[VPN Check] proxycheck.io error: ${data.message ?? "Unknown error"}`)
-			return { isVpn: false, ipData: null }
+			return {
+				checked: false,
+				isVpn: false,
+				ipData: null,
+				message: data.message ?? "VPN check provider error",
+			}
 		}
 
 		const isVpn = ipPayload.proxy === "yes"
 
-		return { isVpn, ipData: ipPayload }
+		return { checked: true, isVpn, ipData: ipPayload }
 	} catch (error) {
 		console.error("[VPN Check] Error checking VPN status:", error)
-		return { isVpn: false, ipData: null }
+		return { checked: false, isVpn: false, ipData: null, message: "VPN check error" }
 	}
 }
 
@@ -311,6 +336,13 @@ export const locationVerificationRouter = createTRPCRouter({
 					const vpnCheckResult = await checkVpnStatus(clientIp)
 					ipData = vpnCheckResult.ipData
 
+					if (!vpnCheckResult.checked) {
+						console.warn(
+							"[Location Verification] VPN check unavailable, proceeding with location-only verification"
+						)
+						// fall through — do not return early
+					}
+
 					if (vpnCheckResult.isVpn) {
 						console.log(`[Location Verification] VPN detected for IP: ${clientIp}`)
 						return {
@@ -399,16 +431,24 @@ export const locationVerificationRouter = createTRPCRouter({
 			}
 		}
 
-		const { isVpn, ipData } = await checkVpnStatus(clientIp)
+		const vpnCheckResult = await checkVpnStatus(clientIp)
+
+		if (!vpnCheckResult.checked) {
+			return {
+				checked: false,
+				isVpn: false,
+				message: vpnCheckResult.message ?? "VPN check unavailable",
+			}
+		}
 
 		return {
 			checked: true,
-			isVpn,
-			ipInfo: isVpn
+			isVpn: vpnCheckResult.isVpn,
+			ipInfo: vpnCheckResult.isVpn
 				? {
-						isp: ipData?.provider,
-						org: ipData?.organisation,
-						country: ipData?.country,
+						isp: vpnCheckResult.ipData?.provider,
+						org: vpnCheckResult.ipData?.organisation,
+						country: vpnCheckResult.ipData?.country,
 					}
 				: null,
 		}

@@ -24,7 +24,10 @@ import { useGeolocation } from "@/core/hooks/use-geolocation"
 import { useWebrtcLeakDetection } from "@/core/hooks/use-webrtc-leak-detection"
 
 import { checkUserLivenessStatus } from "@/features/liveness-validation/api/liveness.actions"
-import { useLocationVerification } from "@/features/sessions/api/location-verification.hooks"
+import {
+	useLocationVerification,
+	useQuickVpnCheck,
+} from "@/features/sessions/api/location-verification.hooks"
 import { useMeetings } from "@/features/sessions/api/meetings.hooks"
 import { LocationErrorDialog } from "@/features/sessions/components/location-error-dialog"
 import { VpnDetectedDialog } from "@/features/sessions/components/vpn-detected-dialog"
@@ -46,6 +49,7 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 	const { getById } = useMeetings()
 	const { data: meeting, isLoading } = getById(id)
 	const { verifyLocation } = useLocationVerification()
+	const { vpnCheckResult, isChecking: isVpnChecking, performVpnCheck } = useQuickVpnCheck()
 
 	const videoRef = useRef<HTMLVideoElement>(null)
 	const [stream, setStream] = useState<MediaStream | null>(null)
@@ -70,6 +74,7 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 	const [expectedIp, setExpectedIp] = useState<string | null>(null)
 	const [isClientValidationPending, setIsClientValidationPending] = useState(false)
 	const [hasAttemptedVerification, setHasAttemptedVerification] = useState(false)
+	const quickVpnCheckedForMeetingId = useRef<string | null>(null)
 	const webrtcLeak = useWebrtcLeakDetection(expectedIp)
 
 	// Geolocation options - high accuracy for better results
@@ -82,7 +87,13 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 		[]
 	)
 
-	const { position, error: geoError, isLoading: isGeoLoading } = useGeolocation(geolocationOptions)
+	const isQuickVpnCheckPassed =
+		vpnCheckResult !== null &&
+		!(vpnCheckResult.checked === true && vpnCheckResult.isVpn === true)
+	const { position, error: geoError, isLoading: isGeoLoading } = useGeolocation(
+		geolocationOptions,
+		isQuickVpnCheckPassed
+	)
 
 	// Handle geolocation errors
 	useEffect(() => {
@@ -238,6 +249,33 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 		void checkLiveness()
 	}, [session, router, id])
 
+	// Perform quick VPN check once per meeting load (before requesting geolocation)
+	useEffect(() => {
+		if (quickVpnCheckedForMeetingId.current === id) {
+			return
+		}
+		quickVpnCheckedForMeetingId.current = id
+		void performVpnCheck()
+	}, [id, performVpnCheck])
+
+	// Handle quick VPN check result before geolocation is enabled
+	useEffect(() => {
+		if (!vpnCheckResult) {
+			return
+		}
+
+		if (vpnCheckResult.checked && vpnCheckResult.isVpn) {
+			setLocationStatus("vpn_detected")
+			setVpnInfo({
+				isp: vpnCheckResult.ipInfo?.isp,
+				org: vpnCheckResult.ipInfo?.org,
+				country: vpnCheckResult.ipInfo?.country,
+			})
+			setHasAttemptedVerification(true)
+			return
+		}
+	}, [vpnCheckResult])
+
 	// Update video element when stream changes
 	useEffect(() => {
 		if (stream && videoRef.current && isCameraOn) {
@@ -327,7 +365,7 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 			case "checking":
 				return {
 					icon: <Loader2 className="size-4 animate-spin" />,
-					text: "Verifying location...",
+					text: isVpnChecking ? "Checking for VPN..." : "Verifying location...",
 					color: "text-muted-foreground",
 					bgColor: "bg-muted/50",
 				}
