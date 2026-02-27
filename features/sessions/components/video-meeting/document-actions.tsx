@@ -18,6 +18,13 @@ import { cn } from "@/core/lib/utils"
 import { trpc } from "@/services/trpc/client"
 
 import {
+	getProjectCreationLockedMessage,
+	getSignerEditLockedMessage,
+	MEETING_LOCK_HELPER_TEXT,
+	isMeetingLockActionBlocked,
+} from "@/features/sessions/lib/meeting-lock-contract"
+
+import {
 	AssignedSignerList,
 	isSignerSigned,
 	SignerList,
@@ -240,6 +247,8 @@ export const DocumentActions = React.memo(function DocumentActions({
 	const isSigningDisabledByOrder = isLocked && !isPreviousDocumentSigned && (documentIndex ?? 0) > 0
 	const isPlottingDisabledByOrder =
 		isLocked && !isPreviousDocumentSigned && (documentIndex ?? 0) > 0
+	const isSignerEditLocked = isMeetingLockActionBlocked("signerChanges", !!isLocked)
+	const isProjectCreationBlockedByLock = isMeetingLockActionBlocked("projectCreation", !!isLocked)
 	const hasNoSignersSelected = !document.docoChainProjectId && (signerUserIds?.length ?? 0) === 0
 	const hasSigners = (signerUserIds?.length ?? 0) > 0
 	const userNotInSignerList = hasSigners && !isCurrentUserSigner
@@ -255,11 +264,12 @@ export const DocumentActions = React.memo(function DocumentActions({
 	const plotPreGenRetryCountRef = useRef(0)
 	const preGenKeyRef = useRef<string | null>(null)
 
-	const isPlotSignatureDisabled =
-		!!isSigningPending ||
-		isPlottingDisabledByOrder ||
-		hasPlotted ||
-		enpHasConfirmedPlot
+	const isPlotSignatureDisabled = [
+		!!isSigningPending,
+		isPlottingDisabledByOrder,
+		hasPlotted,
+		enpHasConfirmedPlot,
+	].some(Boolean)
 
 	const enpMustPlotFirst = isEnp && isPlottingPhase && !enpHasConfirmedPlot
 
@@ -452,6 +462,11 @@ export const DocumentActions = React.memo(function DocumentActions({
 	])
 
 	const selectedSignersCount = signerUserIds?.length ?? 0
+	const isCreateProjectDisabled = [
+		!docoChainTokenReady,
+		!!isCreatingProject,
+		isProjectCreationBlockedByLock,
+	].some(Boolean)
 
 	const signingIndicator = hasUserSigned
 		? {
@@ -510,6 +525,8 @@ export const DocumentActions = React.memo(function DocumentActions({
 							size="sm"
 							className="h-9 w-full text-xs shadow-sm"
 							onClick={() => setIsSignerModalOpen(true)}
+							disabled={isSignerEditLocked}
+							title={isSignerEditLocked ? getSignerEditLockedMessage() : undefined}
 						>
 							<UsersIcon className="mr-1.5 size-3.5" />
 							{selectedSignersCount > 0 ? `Signers (${selectedSignersCount})` : "Add Signers"}
@@ -546,7 +563,10 @@ export const DocumentActions = React.memo(function DocumentActions({
 					onClick={() => {
 						if (meetingId) onCreateProject(document.id, meetingId)
 					}}
-					disabled={!docoChainTokenReady || isCreatingProject}
+					disabled={isCreateProjectDisabled}
+					title={
+						isProjectCreationBlockedByLock ? getProjectCreationLockedMessage() : undefined
+					}
 				>
 					{isCreatingProject ? (
 						<>
@@ -634,7 +654,9 @@ export const DocumentActions = React.memo(function DocumentActions({
 				{showSigningMessage && (
 					<p className="text-[10px] leading-tight text-amber-700 dark:text-amber-400">
 						{!document.docoChainProjectId
-							? "Add signer first after setting signers"
+							? isSignerEditLocked
+								? MEETING_LOCK_HELPER_TEXT
+								: "Add signer first after setting signers"
 							: hasUserSigned
 								? ""
 								: allSignersSigned
@@ -643,6 +665,8 @@ export const DocumentActions = React.memo(function DocumentActions({
 										? "Complete the previous document before plotting the next one"
 										: isSigningDisabledByOrder
 											? ""
+											: isProjectCreationBlockedByLock
+												? getProjectCreationLockedMessage()
 											: hasNoSignersSelected
 												? "Select at least one signer for this document"
 												: userNotInSignerList

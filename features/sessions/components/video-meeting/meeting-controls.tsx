@@ -19,6 +19,7 @@ import {
 import { toast } from "sonner"
 
 import { Button } from "@/core/components/ui/button"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/core/components/ui/tooltip"
 import { cn } from "@/core/lib/utils"
 
 import { formatElapsedMs } from "../../lib/utils"
@@ -27,6 +28,7 @@ interface MeetingControlsProps {
 	onUploadClick?: () => void
 	isUploadDisabled?: boolean
 	isUploadLoading?: boolean
+	uploadDisabledReason?: string
 	onRecordingToggle?: () => Promise<void> | void
 	onLocalRecordingToggle?: () => Promise<void> | void
 	localRecordingSupported?: boolean
@@ -42,12 +44,20 @@ export const MeetingControls = React.memo(function MeetingControls({
 	onUploadClick,
 	isUploadDisabled,
 	isUploadLoading,
+	uploadDisabledReason,
 	onLocalRecordingToggle,
 	isLocalRecording,
 	localRecordingStartedAt,
 	participantCount,
 	onInviteClick,
 }: MeetingControlsProps) {
+	const isUploadControlDisabled = Boolean(isUploadDisabled) || Boolean(isUploadLoading)
+	const uploadTitle = isUploadControlDisabled
+		? (uploadDisabledReason ?? (isUploadLoading ? "Preparing upload..." : "Upload document"))
+		: "Upload document"
+	const uploadTooltipMessage = uploadDisabledReason ?? ""
+	const shouldShowUploadTooltip = isUploadControlDisabled && uploadTooltipMessage.length > 0
+
 	const cameraSetterRef = useRef<((v: boolean) => void) | null>(null)
 	const meeting = useMeeting({
 		onError: ({ code, message }: { code: string; message: string }) => {
@@ -239,23 +249,32 @@ export const MeetingControls = React.memo(function MeetingControls({
 				</Button>
 
 				{onUploadClick && (
-					<Button
-						variant="ghost"
-						size="icon"
-						className={cn(
-							"size-9 rounded-full text-white/80 transition-all hover:bg-white/10 hover:text-white md:size-10",
-							(isUploadDisabled ?? isUploadLoading) && "cursor-not-allowed opacity-60"
+					<Tooltip>
+						<TooltipTrigger asChild>
+							<span className="inline-flex">
+								<Button
+									variant="ghost"
+									size="icon"
+									className={cn(
+										"size-9 rounded-full text-white/80 transition-all hover:bg-white/10 hover:text-white md:size-10",
+										isUploadControlDisabled && "cursor-not-allowed opacity-60"
+									)}
+									onClick={onUploadClick}
+									disabled={isUploadControlDisabled}
+									title={shouldShowUploadTooltip ? undefined : uploadTitle}
+								>
+									{isUploadLoading ? (
+										<Loader2 className="size-4 animate-spin" />
+									) : (
+										<FileUp className="size-4" />
+									)}
+								</Button>
+							</span>
+						</TooltipTrigger>
+						{shouldShowUploadTooltip && (
+							<TooltipContent side="top">{uploadTooltipMessage}</TooltipContent>
 						)}
-						onClick={onUploadClick}
-						disabled={isUploadDisabled ?? isUploadLoading}
-						title="Upload document"
-					>
-						{isUploadLoading ? (
-							<Loader2 className="size-4 animate-spin" />
-						) : (
-							<FileUp className="size-4" />
-						)}
-					</Button>
+					</Tooltip>
 				)}
 
 				{onInviteClick && (
