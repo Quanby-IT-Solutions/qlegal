@@ -13,10 +13,27 @@ import {
 import { env } from "@/env"
 
 /**
- * Response from ip-api.com
+ * Response from proxycheck.io
  */
+interface ProxyCheckIpData {
+	status?: "ok" | "error"
+	proxy?: "yes" | "no"
+	type?: string
+	country?: string
+	asn?: string
+	provider?: string
+	organisation?: string
+	[extra: string]: unknown
+}
+
+interface ProxyCheckResponse {
+	status?: string
+	message?: string
+	[ip: string]: ProxyCheckIpData | string | undefined
+}
+
 interface IpApiResponse {
-	status: "success" | "fail"
+	status?: "success" | "fail"
 	message?: string
 	country?: string
 	countryCode?: string
@@ -25,11 +42,24 @@ interface IpApiResponse {
 	lat?: number
 	lon?: number
 	timezone?: string
+	proxy?: boolean
+	hosting?: boolean
 	isp?: string
 	org?: string
 	as?: string
-	proxy?: boolean
-	hosting?: boolean
+}
+
+type IpApiTransportMode = "secure_https" | "insecure_http"
+
+interface IpApiCheckResult {
+	checked: boolean
+	isProxy: boolean
+	countryCode: string | null
+	isp: string | null
+	org: string | null
+	transportMode: IpApiTransportMode
+	authoritative: boolean
+	message?: string
 }
 
 /**
@@ -69,39 +99,61 @@ export interface ParsedAddress {
  * Handles various proxy headers commonly used
  */
 function getClientIp(headers: Headers): string | null {
-	// Check common proxy headers
-	const forwardedFor = headers.get("x-forwarded-for")
-	if (forwardedFor) {
-		// x-forwarded-for can contain multiple IPs, take the first one
-		const ips = forwardedFor.split(",").map(ip => ip.trim())
-		return ips[0] ?? null
+	const cfConnectingIp = headers.get("cf-connecting-ip")
+	if (cfConnectingIp) {
+		return cfConnectingIp
 	}
 
-	// Check other common headers
 	const realIp = headers.get("x-real-ip")
 	if (realIp) {
 		return realIp
 	}
 
-	const cfConnectingIp = headers.get("cf-connecting-ip")
-	if (cfConnectingIp) {
-		return cfConnectingIp
+	const forwardedFor = headers.get("x-forwarded-for")
+	if (forwardedFor) {
+		const ips = forwardedFor
+			.split(",")
+			.map(ip => ip.trim())
+			.filter(Boolean)
+		// Use the first IP in the chain (original client IP)
+		// The x-forwarded-for header format is: client, proxy1, proxy2, ...
+		// The first IP is the real client; the last is typically our infrastructure
+		return ips[0] ?? null
 	}
 
 	return null
 }
 
 /**
- * Check if an IP is a VPN/proxy using ip-api.com
+ * Check if an IP is a VPN/proxy using proxycheck.io
  */
 async function checkVpnStatus(
 	ip: string
-): Promise<{ isVpn: boolean; ipData: IpApiResponse | null }> {
+): Promise<{
+	checked: boolean
+	isVpn: boolean
+	ipData: ProxyCheckIpData | null
+	message?: string
+}> {
+	if (!env.PROXYCHECK_API_KEY) {
+		// Warn in production if VPN check is disabled
+		if (env.NODE_ENV === "production") {
+			console.warn(
+				"[VPN Check] PROXYCHECK_API_KEY is not configured. VPN detection is disabled. " +
+					"Set PROXYCHECK_API_KEY in your environment variables to enable VPN blocking."
+			)
+		}
+		return {
+			checked: false,
+			isVpn: false,
+			ipData: null,
+			message: "PROXYCHECK_API_KEY is not configured",
+		}
+	}
+
 	try {
-		// Use the free ip-api.com service
-		// Fields: proxy (boolean), hosting (boolean for datacenter IPs)
 		const response = await fetch(
-			`http://ip-api.com/json/${ip}?fields=status,message,country,countryCode,region,city,lat,lon,timezone,isp,org,as,proxy,hosting`,
+			`https://proxycheck.io/v2/${ip}?key=${env.PROXYCHECK_API_KEY}&vpn=1`,
 			{
 				headers: {
 					Accept: "application/json",
@@ -110,24 +162,104 @@ async function checkVpnStatus(
 		)
 
 		if (!response.ok) {
-			console.error(`[VPN Check] ip-api.com returned status ${response.status}`)
-			return { isVpn: false, ipData: null }
+			console.error(`[VPN Check] proxycheck.io returned status ${response.status}`)
+			return { checked: false, isVpn: false, ipData: null, message: "VPN check request failed" }
+		}
+
+		const data = (await response.json()) as ProxyCheckResponse
+		const ipPayload = data[ip]
+
+		if (!ipPayload || typeof ipPayload === "string") {
+			console.error("[VPN Check] proxycheck.io response missing IP payload")
+			return { checked: false, isVpn: false, ipData: null, message: "Invalid VPN check response" }
+		}
+
+		if (ipPayload.status === "error") {
+			console.error(`[VPN Check] proxycheck.io error: ${data.message ?? "Unknown error"}`)
+			return {
+				checked: false,
+				isVpn: false,
+				ipData: null,
+				message: data.message ?? "VPN check provider error",
+			}
+		}
+
+		const isVpn = ipPayload.proxy === "yes"
+
+		return { checked: true, isVpn, ipData: ipPayload }
+	} catch (error) {
+		console.error("[VPN Check] Error checking VPN status:", error)
+		return { checked: false, isVpn: false, ipData: null, message: "VPN check error" }
+	}
+}
+
+async function checkIpApi(ip: string): Promise<IpApiCheckResult> {
+	const baseUrl = "http://ip-api.com/json"
+	const transportMode: IpApiTransportMode = "insecure_http"
+	const authoritative = false
+
+	if (!authoritative) {
+		console.warn(
+			"[IP-API Check] Using insecure HTTP transport. ip-api proxy detections are advisory only and will not hard-block without proxycheck confirmation."
+		)
+	}
+
+	try {
+		const response = await fetch(
+			`${baseUrl}/${ip}?fields=status,message,country,countryCode,region,city,lat,lon,timezone,isp,org,as,proxy,hosting`
+		)
+
+		if (!response.ok) {
+			console.error(`[IP-API Check] ip-api.com returned status ${response.status}`)
+			return {
+				checked: false,
+				isProxy: false,
+				countryCode: null,
+				isp: null,
+				org: null,
+				transportMode,
+				authoritative,
+				message: "ip-api request failed",
+			}
 		}
 
 		const data = (await response.json()) as IpApiResponse
-
-		if (data.status === "fail") {
-			console.error(`[VPN Check] ip-api.com error: ${data.message}`)
-			return { isVpn: false, ipData: null }
+		if (data.status !== "success") {
+			return {
+				checked: false,
+				isProxy: false,
+				countryCode: null,
+				isp: null,
+				org: null,
+				transportMode,
+				authoritative,
+				message: data.message ?? "ip-api returned non-success status",
+			}
 		}
 
-		// Check if proxy or hosting (datacenter) is detected
-		const isVpn = data.proxy === true || data.hosting === true
+		const isProxy = data.proxy === true || data.hosting === true
 
-		return { isVpn, ipData: data }
+		return {
+			checked: true,
+			isProxy,
+			countryCode: data.countryCode ?? null,
+			isp: data.isp ?? null,
+			org: data.org ?? null,
+			transportMode,
+			authoritative,
+		}
 	} catch (error) {
-		console.error("[VPN Check] Error checking VPN status:", error)
-		return { isVpn: false, ipData: null }
+		console.error("[IP-API Check] Error checking IP reputation:", error)
+		return {
+			checked: false,
+			isProxy: false,
+			countryCode: null,
+			isp: null,
+			org: null,
+			transportMode,
+			authoritative,
+			message: "ip-api check error",
+		}
 	}
 }
 
@@ -264,7 +396,8 @@ export const locationVerificationRouter = createTRPCRouter({
 	 *
 	 * This procedure:
 	 * 1. Gets the user's IP address from request headers
-	 * 2. Checks if the IP is using a VPN/proxy via ip-api.com
+	 * 2a. Checks IP via ip-api.com (free, no key required) — blocks immediately if proxy/hosting detected
+	 * 2b. If ip-api.com passes, checks via proxycheck.io (pro layer, requires PROXYCHECK_API_KEY)
 	 * 3. Uses Google Maps Geocoding to determine the country from coordinates
 	 * 4. Verifies location based on user role (ENP must be in PH, PRINCIPAL can be at embassy)
 	 */
@@ -282,12 +415,25 @@ export const locationVerificationRouter = createTRPCRouter({
 				ctx,
 			}): Promise<
 				LocationVerificationResult & {
-					vpnDetails?: IpApiResponse | null
+					vpnDetails?: ProxyCheckIpData | null
+					ipApiDetails?: {
+						checked: boolean
+						isProxy: boolean
+						countryCode: string | null
+						isp: string | null
+						org: string | null
+						transportMode?: IpApiTransportMode
+						authoritative?: boolean
+						message?: string
+					} | null
 					parsedAddress?: ParsedAddress | null
+					clientIp?: string
 				}
 			> => {
 				const { latitude, longitude } = input
 				const userRole = ctx.session.user.role
+				let ipData: ProxyCheckIpData | null = null
+				let ipApiData: IpApiCheckResult | null = null
 
 				// Step 1: Get client IP
 				const clientIp = getClientIp(ctx.headers)
@@ -299,15 +445,45 @@ export const locationVerificationRouter = createTRPCRouter({
 
 				// Step 2: Check for VPN/proxy usage
 				if (clientIp) {
-					const { isVpn, ipData } = await checkVpnStatus(clientIp)
+					const ipApiCheckResult = await checkIpApi(clientIp)
+					ipApiData = ipApiCheckResult
 
-					if (isVpn) {
+					if (ipApiCheckResult.isProxy) {
+						if (ipApiCheckResult.authoritative) {
+							console.log(
+								`[Location Verification] Proxy/hosting detected by ip-api (secure transport) for IP: ${clientIp}`
+							)
+							return {
+								allowed: false,
+								reason: "vpn_detected",
+								ipApiDetails: ipApiCheckResult,
+								clientIp: clientIp ?? undefined,
+							}
+						}
+
+						console.warn(
+							`[Location Verification] ip-api reported proxy/hosting over ${ipApiCheckResult.transportMode}; treating as advisory until proxycheck confirms`
+						)
+					}
+
+					const vpnCheckResult = await checkVpnStatus(clientIp)
+					ipData = vpnCheckResult.ipData
+
+					if (vpnCheckResult.isVpn) {
 						console.log(`[Location Verification] VPN detected for IP: ${clientIp}`)
 						return {
 							allowed: false,
 							reason: "vpn_detected",
 							vpnDetails: ipData,
+							ipApiDetails: ipApiData,
+							clientIp: clientIp ?? undefined,
 						}
+					}
+
+					if (!ipApiCheckResult.checked && !vpnCheckResult.checked) {
+						console.warn(
+							"[Location Verification] VPN checks unavailable (ip-api + proxycheck), proceeding with location-only verification"
+						)
 					}
 				}
 
@@ -326,6 +502,23 @@ export const locationVerificationRouter = createTRPCRouter({
 							isInPhilippines: false,
 							formattedAddress: formattedAddress ?? undefined,
 						},
+						clientIp: clientIp ?? undefined,
+					}
+				}
+
+				const ipCountryCode = (
+					ipData?.country ??
+					(ipApiData?.authoritative ? ipApiData.countryCode : null) ??
+					null
+				)?.toUpperCase() ?? null
+
+				if (ipCountryCode && countryCode && ipCountryCode !== countryCode.toUpperCase()) {
+					return {
+						allowed: false,
+						reason: "vpn_detected",
+						vpnDetails: ipData,
+						ipApiDetails: ipApiData,
+						clientIp: clientIp ?? undefined,
 					}
 				}
 
@@ -353,7 +546,9 @@ export const locationVerificationRouter = createTRPCRouter({
 
 				return {
 					...verificationResult,
+					ipApiDetails: ipApiData,
 					parsedAddress,
+					clientIp: clientIp ?? undefined,
 				}
 			}
 		),
@@ -373,16 +568,55 @@ export const locationVerificationRouter = createTRPCRouter({
 			}
 		}
 
-		const { isVpn, ipData } = await checkVpnStatus(clientIp)
+		const ipApiCheckResult = await checkIpApi(clientIp)
+
+		if (ipApiCheckResult.isProxy && ipApiCheckResult.authoritative) {
+			return {
+				checked: true,
+				isVpn: true,
+				ipInfo: {
+					isp: ipApiCheckResult.isp ?? undefined,
+					org: ipApiCheckResult.org ?? undefined,
+					country: ipApiCheckResult.countryCode ?? undefined,
+				},
+			}
+		}
+
+		if (ipApiCheckResult.isProxy && !ipApiCheckResult.authoritative) {
+			console.warn(
+				`[Quick VPN Check] ip-api proxy signal is advisory only (${ipApiCheckResult.transportMode}); waiting for proxycheck confirmation`
+			)
+		}
+
+		const vpnCheckResult = await checkVpnStatus(clientIp)
+
+		if (!vpnCheckResult.checked && !ipApiCheckResult.checked) {
+			return {
+				checked: false,
+				isVpn: false,
+				message: vpnCheckResult.message ?? "VPN checks unavailable",
+			}
+		}
+
+		if (!vpnCheckResult.checked && ipApiCheckResult.isProxy && !ipApiCheckResult.authoritative) {
+			return {
+				checked: false,
+				isVpn: false,
+				message:
+					"ip-api returned advisory proxy signal over insecure transport; proxycheck confirmation unavailable",
+			}
+		}
+
+		const isVpn = vpnCheckResult.isVpn || (ipApiCheckResult.isProxy && ipApiCheckResult.authoritative)
 
 		return {
 			checked: true,
 			isVpn,
 			ipInfo: isVpn
 				? {
-						isp: ipData?.isp,
-						org: ipData?.org,
-						country: ipData?.country,
+						isp: vpnCheckResult.ipData?.provider ?? ipApiCheckResult.isp ?? undefined,
+						org: vpnCheckResult.ipData?.organisation ?? ipApiCheckResult.org ?? undefined,
+						country: vpnCheckResult.ipData?.country ?? ipApiCheckResult.countryCode ?? undefined,
 					}
 				: null,
 		}

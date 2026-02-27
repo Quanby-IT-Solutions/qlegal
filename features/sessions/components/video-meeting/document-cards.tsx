@@ -307,6 +307,19 @@ export const DocumentCards = React.memo(
 					: [],
 			[notarizationDetails]
 		)
+		const totalFees = useMemo(
+			() =>
+				documents.reduce((sum, doc) => {
+					const fees = doc.fees
+					const hasValidFees =
+						fees !== null &&
+						fees !== undefined &&
+						typeof fees === "number" &&
+						!Number.isNaN(fees)
+					return hasValidFees ? sum + fees : sum
+				}, 0),
+			[documents]
+		)
 
 		if (!documents || documents.length === 0) return null
 
@@ -663,12 +676,27 @@ export const DocumentCards = React.memo(
 														<Lock className="size-2.5 text-amber-700 dark:text-amber-400" />
 													</div>
 												)}
-												<p
-													className="truncate text-sm leading-tight font-semibold"
-													title={doc.name}
-												>
-													{doc.name}
-												</p>
+												<div className="flex items-center gap-2">
+													<p
+														className="truncate text-sm leading-tight font-semibold"
+														title={doc.name}
+													>
+														{doc.name}
+													</p>
+													{(() => {
+														const fees = doc.fees
+														const showFees =
+															fees !== null &&
+															fees !== undefined &&
+															typeof fees === "number" &&
+															!Number.isNaN(fees)
+														return showFees ? (
+															<span className="text-muted-foreground shrink-0 text-xs font-semibold">
+																PHP {fees.toFixed(2)}
+															</span>
+														) : null
+													})()}
+												</div>
 												<p className="text-muted-foreground mt-0.5 text-xs">
 													{(doc.size / 1024).toFixed(1)} KB · PDF
 												</p>
@@ -690,20 +718,6 @@ export const DocumentCards = React.memo(
 														})()}
 													</p>
 												)}
-												{(() => {
-													const fees = doc.fees
-													const showFees =
-														isFullySigned &&
-														fees !== null &&
-														fees !== undefined &&
-														typeof fees === "number" &&
-														!Number.isNaN(fees)
-													return showFees ? (
-														<p className="text-muted-foreground mt-0.5 text-xs font-semibold">
-															Fees: {fees.toFixed(2)}
-														</p>
-													) : null
-												})()}
 											</div>
 										</div>
 
@@ -744,6 +758,15 @@ export const DocumentCards = React.memo(
 							)
 						})}
 					</div>
+
+					{totalFees > 0 && (
+						<div className="bg-muted/30 shrink-0 border-t px-3 py-2.5">
+							<div className="flex items-center justify-between">
+								<span className="text-muted-foreground text-sm">Total Fees</span>
+								<span className="text-sm font-bold">PHP {totalFees.toFixed(2)}</span>
+							</div>
+						</div>
+					)}
 				</div>
 			</>
 		)
