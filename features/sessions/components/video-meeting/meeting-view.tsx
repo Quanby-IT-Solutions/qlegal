@@ -21,6 +21,11 @@ import {
 import { trpc } from "@/services/trpc/client"
 
 import {
+	MEETING_LOCK_API_MESSAGE,
+	isMeetingLockActionBlocked,
+} from "@/features/sessions/lib/meeting-lock-contract"
+
+import {
 	extractDoconchainLink,
 	formatElapsedMs,
 	openCenteredPopup,
@@ -221,6 +226,8 @@ export function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meet
 		{ meetingId: meetingId ?? "" },
 		{ enabled: !!meetingId?.trim() }
 	)
+	const isDocumentChangesLocked = meetingDetails?.isDocumentOrderLocked ?? false
+	const isUploadBlockedByLock = isMeetingLockActionBlocked("uploadAdd", isDocumentChangesLocked)
 
 	const { refetch: ensureDoconchainToken, isFetching: isEnsuringDoconchainToken } =
 		trpc.meetings.ensureDocoChainToken.useQuery(
@@ -234,7 +241,9 @@ export function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meet
 		onSuccess: () => {
 			void refetchMeetingDetails()
 			toast.success(
-				meetingDetails?.isDocumentOrderLocked ? "Document order unlocked" : "Document order locked"
+				meetingDetails?.isDocumentOrderLocked
+					? "Document changes unlocked"
+					: "Document changes locked"
 			)
 		},
 		onError: error => {
@@ -267,7 +276,7 @@ export function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meet
 			void utils.meetings.getMeetingDocuments.invalidate(meetingId ?? "")
 		},
 		onError: error => {
-			toast.error(error.message ?? "Failed to update signers")
+			toast.error(error.message === MEETING_LOCK_API_MESSAGE ? MEETING_LOCK_API_MESSAGE : "Failed to update signers")
 		},
 	})
 
@@ -323,7 +332,7 @@ export function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meet
 					: typeof error === "object" && error !== null && "message" in error
 						? String(error.message)
 						: "Failed to update document order"
-			toast.error(errorMessage)
+			toast.error(errorMessage === MEETING_LOCK_API_MESSAGE ? MEETING_LOCK_API_MESSAGE : errorMessage)
 		},
 	})
 
@@ -1037,6 +1046,10 @@ export function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meet
 			toast.error("Meeting not ready yet. Please try again.")
 			return
 		}
+		if (isUploadBlockedByLock) {
+			toast.error(MEETING_LOCK_API_MESSAGE)
+			return
+		}
 		setIsPreparingUpload(true)
 		try {
 			const result = await ensureDoconchainToken()
@@ -1052,7 +1065,7 @@ export function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meet
 		} finally {
 			setIsPreparingUpload(false)
 		}
-	}, [ensureDoconchainToken, meetingId])
+	}, [ensureDoconchainToken, isUploadBlockedByLock, meetingId])
 
 	// ─── Loading screen ──────────────────────────────────────────
 
@@ -1191,8 +1204,13 @@ export function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meet
 					<div className="absolute bottom-6 left-1/2 z-50 -translate-x-1/2">
 						<MeetingControls
 							onUploadClick={handleUploadClick}
-							isUploadDisabled={!meetingId?.trim()}
+							isUploadDisabled={!meetingId?.trim() || isUploadBlockedByLock}
 							isUploadLoading={isPreparingUpload || isEnsuringDoconchainToken}
+							uploadDisabledReason={
+								isUploadBlockedByLock
+									? "Can't upload a file while document changes are locked"
+									: undefined
+							}
 							onRecordingToggle={handleRecordingToggle}
 							onLocalRecordingToggle={openConsentAndRequest}
 							localRecordingSupported={localRecordingSupported}

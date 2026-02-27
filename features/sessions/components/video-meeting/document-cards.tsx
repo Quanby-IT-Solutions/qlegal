@@ -24,6 +24,13 @@ import {
 } from "@/core/components/ui/dropdown-menu"
 import { cn } from "@/core/lib/utils"
 
+import {
+	MEETING_LOCK_BADGE_LABEL,
+	MEETING_LOCK_HELPER_TEXT,
+	getDocumentReorderTitle,
+	getMeetingLockToggleLabel,
+} from "@/features/sessions/lib/meeting-lock-contract"
+
 import type { PreGeneratedLinkEntry } from "../../lib/utils"
 import { DocumentActions } from "./document-actions"
 import { NotarizedDocumentMenuItem } from "./notarized-document-menu-item"
@@ -174,9 +181,13 @@ export const DocumentCards = React.memo(
 		ref: React.Ref<DocumentCardsHandle>
 	) {
 		const { data: session } = useSession()
-		// Lock/unlock is gated on being the meeting creator, not on user role
+		// Lock/unlock is gated on being the meeting creator, not on role.
 		const isPrincipal = meetingDetails?.createdBy?.id === session?.user?.id
 		const isLocked = meetingDetails?.isDocumentOrderLocked ?? false
+		const lockToggleTitle: string = !isPrincipal
+			? "Only the meeting creator can lock or unlock document changes"
+			: getMeetingLockToggleLabel(Boolean(isLocked))
+		const reorderTitle: string = getDocumentReorderTitle(Boolean(isLocked))
 
 		const [draggedDocumentId, setDraggedDocumentId] = useState<string | null>(null)
 		const [dragOverDocumentId, setDragOverDocumentId] = useState<string | null>(null)
@@ -405,7 +416,7 @@ export const DocumentCards = React.memo(
 								<div className="flex shrink-0 items-center gap-1 rounded-full border border-amber-300 bg-amber-100 px-2 py-0.5 dark:border-amber-700 dark:bg-amber-900/30">
 									<Lock className="size-2.5 text-amber-700 dark:text-amber-400" />
 									<span className="text-[10px] font-semibold text-amber-700 dark:text-amber-400">
-										Locked
+										{MEETING_LOCK_BADGE_LABEL}
 									</span>
 								</div>
 							)}
@@ -425,13 +436,7 @@ export const DocumentCards = React.memo(
 									isLocked && "text-amber-600 hover:text-amber-700 dark:text-amber-400",
 									!isPrincipal && "cursor-not-allowed opacity-40"
 								)}
-								title={
-									!isPrincipal
-										? "Only the meeting creator can lock/unlock document order"
-										: isLocked
-											? "Unlock document order"
-											: "Lock document order"
-								}
+								title={lockToggleTitle}
 							>
 								{isLocked ? <Lock className="size-3.5" /> : <Unlock className="size-3.5" />}
 							</Button>
@@ -470,9 +475,12 @@ export const DocumentCards = React.memo(
 					{/* ── Lock-order banner ───────────────────────────────── */}
 					{isLocked && (
 						<div className="shrink-0 border-b border-amber-200 bg-amber-50 px-3 py-2 dark:border-amber-800 dark:bg-amber-900/10">
-							<p className="flex items-center gap-1.5 text-[11px] text-amber-800 dark:text-amber-300">
+							<p
+								data-testid="lock-helper-text"
+								className="flex items-center gap-1.5 text-[11px] text-amber-800 dark:text-amber-300"
+							>
 								<Lock className="size-3 shrink-0" />
-								Each document must be signed before the next one can start.
+								{MEETING_LOCK_HELPER_TEXT}
 							</p>
 						</div>
 					)}
@@ -655,7 +663,7 @@ export const DocumentCards = React.memo(
 												draggable={!isLocked}
 												onDragStart={e => handleDragStart(e, doc.id)}
 												onDragEnd={handleDragEnd}
-												title={isLocked ? "Document order is locked" : "Drag to reorder"}
+												title={reorderTitle}
 											>
 												<GripVertical className="size-4" />
 											</div>

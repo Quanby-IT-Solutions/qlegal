@@ -12,7 +12,8 @@ export const meetings = createTable(
 			.primaryKey()
 			.$defaultFn(() => randomId()),
 		roomId: t.varchar({ length: 255 }).notNull(), // VideoSDK room ID
-		isDocumentOrderLocked: t.boolean().default(false).notNull(), // Document signing order lock
+		// Full-freeze lock for document setup actions (upload/reorder/signer edits/project creation).
+		isDocumentOrderLocked: t.boolean().default(false).notNull(),
 		createdById: t
 			.varchar({ length: 255 })
 			.notNull()
