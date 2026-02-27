@@ -676,12 +676,27 @@ export const DocumentCards = React.memo(
 														<Lock className="size-2.5 text-amber-700 dark:text-amber-400" />
 													</div>
 												)}
-												<p
-													className="truncate text-sm leading-tight font-semibold"
-													title={doc.name}
-												>
-													{doc.name}
-												</p>
+												<div className="flex items-center gap-2">
+													<p
+														className="truncate text-sm leading-tight font-semibold"
+														title={doc.name}
+													>
+														{doc.name}
+													</p>
+													{(() => {
+														const fees = doc.fees
+														const showFees =
+															fees !== null &&
+															fees !== undefined &&
+															typeof fees === "number" &&
+															!Number.isNaN(fees)
+														return showFees ? (
+															<span className="text-muted-foreground shrink-0 text-xs font-semibold">
+																PHP {fees.toFixed(2)}
+															</span>
+														) : null
+													})()}
+												</div>
 												<p className="text-muted-foreground mt-0.5 text-xs">
 													{(doc.size / 1024).toFixed(1)} KB · PDF
 												</p>
@@ -703,19 +718,6 @@ export const DocumentCards = React.memo(
 														})()}
 													</p>
 												)}
-												{(() => {
-													const fees = doc.fees
-													const showFees =
-														fees !== null &&
-														fees !== undefined &&
-														typeof fees === "number" &&
-														!Number.isNaN(fees)
-													return showFees ? (
-														<p className="text-muted-foreground mt-0.5 text-xs font-semibold">
-															Fees: PHP {fees.toFixed(2)}
-														</p>
-													) : null
-												})()}
 											</div>
 										</div>
 
