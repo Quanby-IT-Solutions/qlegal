@@ -52,6 +52,7 @@ export const env = createEnv({
 
 		// Server Configuration
 		NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
+		LOCATION_VERIFICATION_DEBUG: z.enum(["true", "false"]).optional(),
 		PORT: z.coerce.number().optional(),
 		SEED_VALUE: z.coerce.number().optional(),
 
@@ -78,6 +79,7 @@ export const env = createEnv({
 	client: {
 		// Public Site URL
 		NEXT_PUBLIC_SITE_URL: z.string(),
+		NEXT_PUBLIC_LOCATION_VERIFICATION_DEBUG: z.enum(["true", "false"]).optional(),
 
 		// Storage (Supabase)
 		NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string(),
@@ -137,6 +139,7 @@ export const env = createEnv({
 
 		// Server Configuration
 		NODE_ENV: process.env.NODE_ENV,
+		LOCATION_VERIFICATION_DEBUG: process.env.LOCATION_VERIFICATION_DEBUG,
 		PORT: process.env.PORT,
 		SEED_VALUE: process.env.SEED_VALUE,
 
@@ -156,6 +159,7 @@ export const env = createEnv({
 
 		// Public Site URL
 		NEXT_PUBLIC_SITE_URL: process.env.NEXT_PUBLIC_SITE_URL,
+		NEXT_PUBLIC_LOCATION_VERIFICATION_DEBUG: process.env.NEXT_PUBLIC_LOCATION_VERIFICATION_DEBUG,
 
 		// Storage (Supabase)
 		NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,

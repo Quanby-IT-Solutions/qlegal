@@ -1,8 +1,10 @@
 "use client"
 
 import { useRouter } from "next/navigation"
-import { AlertCircle, Globe, MapPin, MapPinOff, Navigation } from "lucide-react"
+import { useMemo, useState } from "react"
+import { AlertCircle, ChevronDown, Globe, MapPin, MapPinOff, Navigation, Server } from "lucide-react"
 
+import { env } from "@/env"
 import { Button } from "@/core/components/ui/button"
 import {
 	Dialog,
@@ -30,6 +32,16 @@ interface LocationErrorDialogProps {
 	errorReason: ErrorReason
 	userRole: "ENP" | "PRINCIPAL" | "ENA" | "ADMIN"
 	details?: LocationVerificationResult["details"]
+	debugInfo?: {
+		errorCode?: string
+		errorMessage?: string
+		userMessage?: string
+		suggestedAction?: string
+		timestamp?: string
+		accuracyMeters?: number
+		apiStatusCode?: string
+		requestId?: string
+	}
 	onRetry?: () => void
 }
 
@@ -72,6 +84,33 @@ function getErrorConfig(errorReason: ErrorReason, userRole: "ENP" | "PRINCIPAL" 
 			title: "Unable to Verify Location",
 			description:
 				"We could not determine your location. Please ensure location services are enabled and try again.",
+			showRetry: true,
+		},
+		gps_accuracy_low: {
+			icon: Navigation,
+			iconColor: "text-yellow-600 dark:text-yellow-500",
+			iconBgColor: "bg-yellow-100 dark:bg-yellow-900/20",
+			title: "GPS Accuracy Too Low",
+			description:
+				"Your GPS signal is not accurate enough yet. Move outdoors, wait for a stronger signal, then try again.",
+			showRetry: true,
+		},
+		google_maps_api_error: {
+			icon: Server,
+			iconColor: "text-red-600 dark:text-red-500",
+			iconBgColor: "bg-red-100 dark:bg-red-900/20",
+			title: "Location Service Error",
+			description:
+				"The location verification service returned an API error. Please retry, or contact support if this continues.",
+			showRetry: true,
+		},
+		server_error: {
+			icon: Server,
+			iconColor: "text-red-600 dark:text-red-500",
+			iconBgColor: "bg-red-100 dark:bg-red-900/20",
+			title: "Server Error",
+			description:
+				"We could not complete location verification because of a server issue. Please try again.",
 			showRetry: true,
 		},
 		vpn_detected: {
@@ -153,11 +192,30 @@ export function LocationErrorDialog({
 	errorReason,
 	userRole,
 	details,
+	debugInfo,
 	onRetry,
 }: LocationErrorDialogProps) {
 	const router = useRouter()
 	const config = getErrorConfig(errorReason, userRole)
 	const Icon = config.icon
+	const [showTechnicalDetails, setShowTechnicalDetails] = useState(false)
+	const isDebugMode = env.NEXT_PUBLIC_LOCATION_VERIFICATION_DEBUG === "true"
+	const shouldShowTechnicalDetails = showTechnicalDetails || isDebugMode
+
+	const technicalDetailsText = useMemo(() => {
+		const lines = [
+			debugInfo?.errorCode ? `Error code: ${debugInfo.errorCode}` : null,
+			debugInfo?.errorMessage ? `Error message: ${debugInfo.errorMessage}` : null,
+			debugInfo?.apiStatusCode ? `API status: ${debugInfo.apiStatusCode}` : null,
+			debugInfo?.accuracyMeters !== undefined
+				? `GPS accuracy: ${debugInfo.accuracyMeters.toFixed(1)}m`
+				: null,
+			debugInfo?.requestId ? `Request ID: ${debugInfo.requestId}` : null,
+			debugInfo?.timestamp ? `Timestamp: ${debugInfo.timestamp}` : null,
+		].filter(Boolean)
+
+		return lines.join("\n")
+	}, [debugInfo])
 
 	const handleGoBack = () => {
 		router.push("/sessions")
@@ -178,7 +236,9 @@ export function LocationErrorDialog({
 						<Icon className={`size-8 ${config.iconColor}`} />
 					</div>
 					<DialogTitle className="text-xl">{config.title}</DialogTitle>
-					<DialogDescription className="text-center">{config.description}</DialogDescription>
+					<DialogDescription className="text-center">
+						{debugInfo?.userMessage ?? config.description}
+					</DialogDescription>
 				</DialogHeader>
 
 				<div className="space-y-4 py-4">
@@ -225,6 +285,58 @@ export function LocationErrorDialog({
 								<li>Change the setting to "Allow"</li>
 								<li>Refresh the page and try again</li>
 							</ol>
+						</div>
+					)}
+
+					{/* Accuracy-specific details */}
+					{errorReason === "gps_accuracy_low" && debugInfo?.accuracyMeters !== undefined && (
+						<div className="rounded-lg border border-yellow-200 bg-yellow-50 p-4 dark:border-yellow-900 dark:bg-yellow-950/30">
+							<p className="text-sm font-medium text-yellow-900 dark:text-yellow-200">
+								GPS accuracy: {debugInfo.accuracyMeters.toFixed(1)}m
+							</p>
+						</div>
+					)}
+
+					{debugInfo && (
+						<div className="rounded-lg border border-border/60">
+							<button
+								type="button"
+								className="flex w-full items-center justify-between px-4 py-3 text-left text-sm font-medium"
+								onClick={() => setShowTechnicalDetails(previous => !previous)}
+							>
+								<span>Technical Details</span>
+								<ChevronDown
+									className={`size-4 transition-transform ${shouldShowTechnicalDetails ? "rotate-180" : ""}`}
+								/>
+							</button>
+							{shouldShowTechnicalDetails && (
+								<div className="space-y-3 border-t border-border/60 px-4 py-3">
+									<div className="text-muted-foreground space-y-1 text-xs">
+										{debugInfo.errorCode && <p>Error code: {debugInfo.errorCode}</p>}
+										{debugInfo.errorMessage && <p>Error: {debugInfo.errorMessage}</p>}
+										{debugInfo.apiStatusCode && <p>API status: {debugInfo.apiStatusCode}</p>}
+										{debugInfo.accuracyMeters !== undefined && (
+											<p>GPS accuracy: {debugInfo.accuracyMeters.toFixed(1)}m</p>
+										)}
+										{debugInfo.requestId && <p>Request ID: {debugInfo.requestId}</p>}
+										{debugInfo.timestamp && <p>Timestamp: {debugInfo.timestamp}</p>}
+										{debugInfo.suggestedAction && (
+											<p>Suggested action: {debugInfo.suggestedAction}</p>
+										)}
+									</div>
+									<Button
+										type="button"
+										variant="outline"
+										size="sm"
+										onClick={async () => {
+											if (!technicalDetailsText) return
+											await navigator.clipboard.writeText(technicalDetailsText)
+										}}
+									>
+										Copy details
+									</Button>
+								</div>
+							)}
 						</div>
 					)}
 				</div>
