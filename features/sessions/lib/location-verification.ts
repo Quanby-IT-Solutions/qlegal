@@ -159,6 +159,7 @@ export interface LocationVerificationResult {
 		| "enp_at_embassy_abroad"
 		| "location_unknown"
 		| "vpn_detected"
+		| "vpn_check_unavailable"
 		| "geolocation_error"
 	details?: {
 		isInPhilippines?: boolean

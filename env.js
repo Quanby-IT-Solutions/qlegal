@@ -36,6 +36,7 @@ export const env = createEnv({
 
 		// Maps
 		GOOGLE_MAPS_API_KEY: z.string(),
+		PROXYCHECK_API_KEY: z.string().optional(),
 
 		// Payment (HitPay)
 		HITPAY_API_KEY: z.string(),
@@ -120,6 +121,7 @@ export const env = createEnv({
 
 		// Maps
 		GOOGLE_MAPS_API_KEY: process.env.GOOGLE_MAPS_API_KEY,
+		PROXYCHECK_API_KEY: process.env.PROXYCHECK_API_KEY,
 
 		// Payment (HitPay)
 		HITPAY_API_KEY: process.env.HITPAY_API_KEY,
