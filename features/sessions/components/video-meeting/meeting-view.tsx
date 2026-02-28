@@ -35,6 +35,7 @@ import { MeetingDocumentUpload } from "../meeting-document-upload"
 import { DocumentCards, type DocumentCardsHandle } from "./document-cards"
 import { FileFlightAnimation } from "./file-flight-animation"
 import { MeetingControls } from "./meeting-controls"
+import { MeetingInviteDialog } from "./meeting-invite-dialog"
 import { ParticipantView } from "./participant-view"
 import { RecordingBanner } from "./recording-banner"
 
@@ -83,6 +84,7 @@ export function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meet
 
 	// ─── UI state ───────────────────────────────────────────────
 	const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false)
+	const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false)
 	const [showDocuments, setShowDocuments] = useState(true)
 	const [isPreparingUpload, setIsPreparingUpload] = useState(false)
 	const [flyTrigger, setFlyTrigger] = useState(false)
@@ -240,6 +242,26 @@ export function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meet
 		},
 	})
 
+	const setAllowPublicLinkMutation = trpc.meetings.setAllowPublicLink.useMutation({
+		onSuccess: (_, variables) => {
+			void refetchMeetingDetails()
+			toast.success(variables.allow ? "Join link enabled" : "Join link disabled")
+		},
+		onError: error => toast.error(error.message ?? "Failed to update"),
+	})
+
+	const inviteWitnessByEmailMutation = trpc.meetings.inviteWitnessByEmail.useMutation({
+		onSuccess: (result, variables) => {
+			void refetchMeetingDetails()
+			if (result.created) toast.success("Invite sent")
+			else
+				toast.message(
+					result.status === "PENDING" ? "Invite already sent" : "Already in meeting"
+				)
+		},
+		onError: error => toast.error(error.message ?? "Failed to invite"),
+	})
+
 	const setDocumentSignersMutation = trpc.meetings.setDocumentSigners.useMutation({
 		onSuccess: () => {
 			void utils.meetings.getMeetingDocuments.invalidate(meetingId ?? "")
@@ -272,9 +294,20 @@ export function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meet
 	const docoChainTokenLoading = false
 
 	const handleSignersChange = useCallback(
-		(documentId: string, userIds: string[]) => {
+		(
+			documentId: string,
+			userIds: string[],
+			roles: Record<string, "principal" | "witness">
+		) => {
 			if (!meetingId) return
-			setDocumentSignersMutation.mutate({ documentId, meetingId, userIds })
+			setDocumentSignersMutation.mutate({
+				documentId,
+				meetingId,
+				signers: userIds.map(userId => ({
+					userId,
+					role: roles[userId] ?? "principal",
+				})),
+			})
 		},
 		[meetingId, setDocumentSignersMutation]
 	)
@@ -1168,6 +1201,11 @@ export function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meet
 							isLocalRecording={isLocalRecording}
 							localRecordingStartedAt={localRecordingStartedAt}
 							participantCount={participantCount}
+							onInviteClick={
+								meetingDetails?.createdBy?.id === session?.user?.id
+									? () => setIsInviteDialogOpen(true)
+									: undefined
+							}
 						/>
 					</div>
 				</div>
@@ -1295,6 +1333,28 @@ export function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meet
 					</DialogFooter>
 				</DialogContent>
 			</Dialog>
+
+			{/* Invite to meeting (host only) */}
+			{meetingId && (
+				<MeetingInviteDialog
+					open={isInviteDialogOpen}
+					onOpenChange={setIsInviteDialogOpen}
+					meetingId={meetingId}
+					allowPublicLink={meetingDetails?.allowPublicLink ?? false}
+					onSetAllowPublicLink={allow =>
+						setAllowPublicLinkMutation.mutate({ meetingId, allow })
+					}
+					isSettingAllowPublicLink={setAllowPublicLinkMutation.isPending}
+					onInviteByEmail={email =>
+						inviteWitnessByEmailMutation.mutate(
+							{ meetingId, email },
+							{ onSuccess: () => void refetchMeetingDetails() }
+						)
+					}
+					isInviting={inviteWitnessByEmailMutation.isPending}
+					onSuccess={() => void refetchMeetingDetails()}
+				/>
+			)}
 		</div>
 	)
 }

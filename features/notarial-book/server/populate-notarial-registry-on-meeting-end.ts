@@ -1,7 +1,8 @@
-import { and, desc, eq, inArray } from "drizzle-orm"
+import { and, asc, desc, eq, inArray } from "drizzle-orm"
 
 import { db } from "@/services/drizzle/db"
 import { users } from "@/services/drizzle/schema/auth"
+import { documentSigners } from "@/services/drizzle/schema/document-signers"
 import { documents } from "@/services/drizzle/schema/document"
 import { enpProfiles } from "@/services/drizzle/schema/enp-profiles"
 import { idCardDetails } from "@/services/drizzle/schema/id-card-details"
@@ -327,15 +328,81 @@ export async function populateNotarialRegistryOnMeetingEnd(input: {
 		const rawSigners = (details.raw?.data as unknown as { signers?: unknown } | undefined)?.signers
 		const signers = normalizeDoconchainSigners(rawSigners)
 
-		const witnessSigner = signers.find(s =>
-			(s.signerRole ?? "").toUpperCase().includes("WITNESS")
-		)
-		const witnessName = witnessSigner
-			? asNonEmptyString(
-					[witnessSigner.firstName, witnessSigner.lastName].filter(Boolean).join(" ") ||
-						witnessSigner.email
-				)
-			: null
+		// Principal and witness from document_signers (assigned by ENP when adding signers), not from invite/participantRole
+		let docPrincipalName = principalName
+		let docPrincipalIdNumber = principalIdNumber
+		let docPrincipalIdImageBase64 = principalIdImageBase64
+		let docPrincipalIdType = principalIdType
+		let docPrincipalAddress = principalAddress
+		let docWitnessName: string | null = null
+
+		const docSignersForAct = await db.query.documentSigners.findMany({
+			where: eq(documentSigners.documentId, doc.id),
+			orderBy: [asc(documentSigners.signingOrder)],
+			with: {
+				user: {
+					columns: {
+						id: true,
+						name: true,
+						email: true,
+						address: true,
+						homeStreet: true,
+						barangay: true,
+						cityProvince: true,
+					},
+				},
+			},
+		})
+		const principalDs = docSignersForAct.find(ds => ds.signerRole === "principal")
+		const witnessDs = docSignersForAct.find(ds => ds.signerRole === "witness")
+		if (principalDs?.user) {
+			docPrincipalName =
+				asNonEmptyString(principalDs.signerName) ??
+				asNonEmptyString(principalDs.user.name) ??
+				asNonEmptyString(principalDs.user.email) ??
+				"Principal"
+			docPrincipalAddress =
+				asNonEmptyString(principalDs.signerAddress) ??
+				asNonEmptyString(principalDs.user.address) ??
+				(principalDs.user.homeStreet || principalDs.user.barangay || principalDs.user.cityProvince
+					? [principalDs.user.homeStreet, principalDs.user.barangay, principalDs.user.cityProvince]
+							.filter(Boolean)
+							.join(", ")
+					: null)
+			if (principalDs.userId) {
+				const idCard = await db.query.idCardDetails.findFirst({
+					where: eq(idCardDetails.userId, principalDs.userId),
+					orderBy: [desc(idCardDetails.verifiedAt)],
+					columns: {
+						documentNumber: true,
+						faceImageUrl: true,
+						documentType: true,
+					},
+				})
+				if (idCard) {
+					docPrincipalIdNumber = asNonEmptyString(idCard.documentNumber)
+					docPrincipalIdImageBase64 = asNonEmptyString(idCard.faceImageUrl)
+					docPrincipalIdType = asNonEmptyString(idCard.documentType)
+				}
+			}
+		}
+		if (witnessDs?.user) {
+			docWitnessName =
+				asNonEmptyString(witnessDs.user.name) ??
+				asNonEmptyString(witnessDs.user.email) ??
+				null
+		}
+		if (!docWitnessName) {
+			const witnessSigner = signers.find(s =>
+				(s.signerRole ?? "").toUpperCase().includes("WITNESS")
+			)
+			docWitnessName = witnessSigner
+				? asNonEmptyString(
+						[witnessSigner.firstName, witnessSigner.lastName].filter(Boolean).join(" ") ||
+							witnessSigner.email
+					)
+				: null
+		}
 
 		const locationStatement = defaultLocationStatement()
 		const [inserted] = await db
@@ -345,12 +412,12 @@ export async function populateNotarialRegistryOnMeetingEnd(input: {
 				actType,
 				documentId: doc.id,
 				docoChainProjectUuid: projectUuid,
-				principalName,
-				principalIdNumber: principalIdNumber ?? undefined,
-				principalAddress: principalAddress ?? undefined,
-				principalIdImageBase64: principalIdImageBase64 ?? undefined,
-				principalIdType: principalIdType ?? undefined,
-				witnessName: witnessName ?? undefined,
+				principalName: docPrincipalName,
+				principalIdNumber: docPrincipalIdNumber ?? undefined,
+				principalAddress: docPrincipalAddress ?? undefined,
+				principalIdImageBase64: docPrincipalIdImageBase64 ?? undefined,
+				principalIdType: docPrincipalIdType ?? undefined,
+				witnessName: docWitnessName ?? undefined,
 				enpName,
 				enpRollNumber: asNonEmptyString(profile?.rollNo),
 				executedAt,

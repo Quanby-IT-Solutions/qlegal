@@ -2,10 +2,8 @@ import { TRPCError } from "@trpc/server"
 import { and, desc, eq, ilike, or } from "drizzle-orm"
 import { z } from "zod"
 
-import { appointmentParticipants } from "@/services/drizzle/schema/appointment-participants"
-import { appointments } from "@/services/drizzle/schema/appointments"
 import { users } from "@/services/drizzle/schema/auth"
-import { documents } from "@/services/drizzle/schema/document"
+import { documentSigners } from "@/services/drizzle/schema/document-signers"
 import { notarialActs } from "@/services/drizzle/schema/notarial-book"
 import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
 
@@ -102,29 +100,18 @@ export const documentsRouter = createTRPCRouter({
 				})
 			}
 
-			// Enrich with Witness role from meeting participants (DocoChain only accepts "Signer")
+			// Witness/principal from document_signers (assigned by ENP when adding signers)
 			const witnessEmails = new Set<string>()
 			if (act.documentId) {
-				const doc = await ctx.db.query.documents.findFirst({
-					where: eq(documents.id, act.documentId),
-					columns: { meetingId: true },
+				const witnessSignerRows = await ctx.db.query.documentSigners.findMany({
+					where: and(
+						eq(documentSigners.documentId, act.documentId),
+						eq(documentSigners.signerRole, "witness")
+					),
+					with: { user: { columns: { email: true } } },
 				})
-				if (doc?.meetingId) {
-					const appointment = await ctx.db.query.appointments.findFirst({
-						where: eq(appointments.meetingId, doc.meetingId),
-					})
-					if (appointment) {
-						const witnessParticipants = await ctx.db.query.appointmentParticipants.findMany({
-							where: and(
-								eq(appointmentParticipants.appointmentId, appointment.id),
-								eq(appointmentParticipants.participantRole, "PARTICIPANT")
-							),
-							with: { user: { columns: { email: true } } },
-						})
-						for (const p of witnessParticipants) {
-							if (p.user?.email) witnessEmails.add(p.user.email.trim().toLowerCase())
-						}
-					}
+				for (const ds of witnessSignerRows) {
+					if (ds.user?.email) witnessEmails.add(ds.user.email.trim().toLowerCase())
 				}
 			}
 

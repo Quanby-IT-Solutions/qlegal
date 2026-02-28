@@ -26,6 +26,7 @@ export const appointments = createTable("appointment", t => ({
 	location: t.text(), // For in-person appointments
 	cancelReason: t.text(),
 	color: t.varchar({ length: 7 }).default("#F59E0B").notNull(),
+	allowPublicLink: t.boolean().default(false).notNull(),
 	createdAt: t.timestamp({ mode: "date", withTimezone: true }).defaultNow().notNull(),
 	updatedAt: t
 		.timestamp({ mode: "date", withTimezone: true })

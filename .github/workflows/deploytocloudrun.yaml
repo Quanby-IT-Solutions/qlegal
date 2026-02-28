@@ -4,7 +4,16 @@ on:
   push:
     branches:
       - production
+      - staging
   workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        type: choice
+        required: true
+        options:
+          - staging
+          - production
 
 env:
   # Infra / Deploy config (unchanged)
@@ -87,7 +96,7 @@ env:
 
 jobs:
   deploy:
-    environment: production
+    environment: ${{ github.event.inputs.environment || (github.ref == 'refs/heads/production' && 'production' || 'staging') }}
     permissions:
       contents: "read"
       id-token: "write"
