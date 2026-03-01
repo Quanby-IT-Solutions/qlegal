@@ -1,5 +1,6 @@
 "use client"
 
+import { type Route } from "next"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { type UseFormReturn } from "react-hook-form"
@@ -171,7 +172,10 @@ export function ReviewStep({ form, error, data }: ReviewStepProps) {
 							<FormLabel className="text-muted-foreground text-xs">
 								I agree to the
 								<Link
-									href={`/terms-of-service?from=${encodeURIComponent(pathname)}`}
+									href={{
+										pathname: "/auth/terms-of-service" as Route,
+										query: { from: pathname },
+									}}
 									target="_blank"
 									className={cn(
 										buttonVariants({ variant: "link" }),
@@ -182,7 +186,10 @@ export function ReviewStep({ form, error, data }: ReviewStepProps) {
 								</Link>
 								and
 								<Link
-									href={`/privacy-policy?from=${encodeURIComponent(pathname)}`}
+									href={{
+										pathname: "/auth/privacy-policy" as Route,
+										query: { from: pathname },
+									}}
 									target="_blank"
 									className={cn(
 										buttonVariants({ variant: "link" }),

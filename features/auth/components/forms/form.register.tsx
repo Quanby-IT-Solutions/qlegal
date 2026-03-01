@@ -7,6 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import { toast } from "sonner"
 
+import { PasswordRequirementsChecklist } from "@/core/components/password-requirements-checklist"
 import { Button, buttonVariants } from "@/core/components/ui/button"
 import { Checkbox } from "@/core/components/ui/checkbox"
 import {
@@ -26,8 +27,6 @@ import { trpc } from "@/services/trpc/client"
 import { registerSchema, type RegisterSchema } from "@/features/auth/api/auth.schemas"
 import { OAuthButton } from "@/features/auth/components/oauth-button"
 import { FormResponse } from "@/features/auth/components/ui/form-response"
-
-import { PasswordRequirementsChecklist } from "@/core/components/password-requirements-checklist"
 
 interface RegisterFormProps {
 	callbackUrl?: Route
@@ -130,7 +129,10 @@ export function RegisterForm({ callbackUrl }: RegisterFormProps) {
 								<FormLabel className="text-muted-foreground text-xs">
 									I agree to the
 									<Link
-										href={`/terms-of-service?from=${encodeURIComponent(pathname)}`}
+										href={{
+											pathname: "/auth/terms-of-service",
+											query: { from: pathname },
+										}}
 										target="_blank"
 										className={cn(
 											buttonVariants({ variant: "link" }),
@@ -141,7 +143,10 @@ export function RegisterForm({ callbackUrl }: RegisterFormProps) {
 									</Link>
 									and
 									<Link
-										href={`/privacy-policy?from=${encodeURIComponent(pathname)}`}
+										href={{
+											pathname: "/auth/privacy-policy",
+											query: { from: pathname },
+										}}
 										target="_blank"
 										className={cn(
 											buttonVariants({ variant: "link" }),
