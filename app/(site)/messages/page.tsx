@@ -1,10 +1,9 @@
 "use client"
 
-import type { Route } from "next"
 import { useSearchParams } from "next/navigation"
 import { useEffect, useRef, useState } from "react"
 import { format } from "date-fns"
-import { CalendarPlus, MessageSquare, Paperclip, Phone, Plus, Search, Send, Smile, Video } from "lucide-react"
+import { CalendarPlus, MessageSquare, Paperclip, Phone, Plus, Search, Send, Smile, Video, ChevronLeft, Info } from "lucide-react"
 import { useSession } from "next-auth/react"
 import { toast } from "sonner"
 
@@ -30,10 +29,10 @@ import { EventDialog } from "@/features/appointments/components/dialogs/event-di
 import type { CalendarEvent } from "@/core/components/calendar-schedule"
 import { useMessages } from "@/features/messages/api/messages.hooks"
 import { useMessagesSubscriptions } from "@/features/messages/api/use-messages-subscriptions"
-import { ConsultationRequestCard } from "@/features/messages/components/consultation-request-card"
-import type { ConsultationRequestMetadata } from "@/features/messages/components/consultation-request-card"
+import { ConsultationRequestCard, type ConsultationRequestMetadata } from "@/features/messages/components/consultation-request-card"
 import { FileUploadPanel } from "@/features/messages/components/file-upload-panel"
 import { MessageContent } from "@/features/messages/components/message-content"
+import { PageHeader } from "@/core/components/navbar/page-header"
 
 export default function MessagesPage() {
 	const { data: session } = useSession()
@@ -50,9 +49,28 @@ export default function MessagesPage() {
 	const [isNewChatDialogOpen, setIsNewChatDialogOpen] = useState(false)
 	const [isBookingModalOpen, setIsBookingModalOpen] = useState(false)
 	const [hasStartedFromQuery, setHasStartedFromQuery] = useState(false)
+	const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+	const [isParticipantPanelOpen, setIsParticipantPanelOpen] = useState(false)
 	const messagesEndRef = useRef<HTMLDivElement>(null)
 	const autoStartInFlightRef = useRef(false)
 	const autoStartHandledUserIdRef = useRef<string | null>(null)
+
+	// On mobile, show conversations list first when opening Messages page
+	useEffect(() => {
+		const mediaQuery = window.matchMedia("(max-width: 767px)")
+
+		const syncSidebarForViewport = (event?: MediaQueryListEvent) => {
+			const isMobile = event ? event.matches : mediaQuery.matches
+			setIsSidebarOpen(isMobile)
+		}
+
+		syncSidebarForViewport()
+		mediaQuery.addEventListener("change", syncSidebarForViewport)
+
+		return () => {
+			mediaQuery.removeEventListener("change", syncSidebarForViewport)
+		}
+	}, [])
 
 	// Get messages for selected conversation
 	const messagesQuery = getMessages(selectedConversationId ?? "")
@@ -101,6 +119,18 @@ export default function MessagesPage() {
 	)
 
 	const selectedConversation = conversations?.find(c => c.id === selectedConversationId)
+	const panelParticipant = selectedConversation?.otherUser as
+		| {
+				id: string
+				name: string | null
+				email: string | null
+				image: string | null
+				role?: string
+				status?: "online" | "offline" | "away" | "ACTIVE" | "INACTIVE" | "SUSPENDED" | "PENDING"
+				bio?: string | null
+				joinedAt?: Date
+		  }
+		| undefined
 
 	const handleSendMessage = async () => {
 		if (!messageInput.trim() || !selectedConversationId) return
@@ -164,20 +194,6 @@ export default function MessagesPage() {
 		sendMessage,
 		startConversation,
 	])
-
-	const handleShareBookingLink = async () => {
-		if (!selectedConversationId || !selectedConversation?.otherUser?.id) return
-		try {
-			const bookingLink = `/consultations?enp=${selectedConversation.otherUser.id}` as Route
-			await sendMessage.mutateAsync({
-				conversationId: selectedConversationId,
-				content: `Book a consultation here: ${bookingLink}`,
-			})
-			// Note: No manual refetch needed - mutation invalidation + subscription handles updates
-		} catch {
-			toast.error("Failed to share booking link")
-		}
-	}
 
 	const handleBookConsultationSave = async (event: CalendarEvent) => {
 		if (!selectedConversationId) return
@@ -253,72 +269,101 @@ export default function MessagesPage() {
 	}
 
 	return (
-		<div className="bg-background flex h-screen overflow-hidden">
+		<div className="bg-background flex flex-col md:flex-row h-screen overflow-hidden">
+			{/* Main Layout Container */}
+			<div className="flex flex-1 w-full overflow-hidden">
+				{/* Mobile Sidebar Overlay Backdrop */}
+				{isSidebarOpen && (
+					<div 
+						className="fixed inset-0 z-30 bg-black/50 md:hidden"
+						onClick={() => setIsSidebarOpen(false)}
+					/>
+				)}
+
 			{/* Sidebar - Conversations List */}
-			<div className="flex w-80 flex-col overflow-hidden border-r">
+			<div className={cn(
+				"flex flex-col overflow-hidden border-r bg-background w-full md:w-80",
+				"fixed inset-y-0 left-0 z-40 md:static md:z-auto",
+				isSidebarOpen ? "block" : "hidden md:block"
+			)}>
+				{/* Page Header - Mobile only inside sidebar */}
+				<div className="md:hidden">
+					<PageHeader items={[{ label: "Messages" }]} />
+				</div>
+
 				{/* Sidebar Header */}
 				<div className="border-b p-3">
 					<div className="mb-3 flex items-center justify-between">
 						<h1 className="text-lg font-semibold">Messages</h1>
-						<Dialog open={isNewChatDialogOpen} onOpenChange={setIsNewChatDialogOpen}>
-							<DialogTrigger asChild>
-								<Button variant="ghost" size="icon" className="size-7 rounded-full">
-									<Plus className="size-4" />
-								</Button>
-							</DialogTrigger>
-							<DialogContent>
-								<DialogHeader>
-									<DialogTitle>New Message</DialogTitle>
-									<DialogDescription>Search for a user to start a conversation</DialogDescription>
-								</DialogHeader>
-								<div className="space-y-4">
-									<div className="relative">
-										<Search className="text-muted-foreground absolute top-1/2 left-3 size-4 -translate-y-1/2" />
-										<Input
-											placeholder="Search users..."
-											value={userSearchQuery}
-											onChange={e => setUserSearchQuery(e.target.value)}
-											className="pl-10"
-										/>
-									</div>
-									<ScrollArea className="h-64">
-										<div className="space-y-2">
-											{searchResults && searchResults.length > 0 ? (
-												searchResults.map(user => (
-													<button
-														key={user.id}
-														onClick={() => void handleStartConversation(user.id)}
-														className="hover:bg-accent flex w-full items-center gap-3 rounded-lg p-3 text-left transition-colors"
-													>
-														<Avatar className="size-10">
-															<AvatarImage src={user.image ?? undefined} />
-															<AvatarFallback className="bg-primary text-primary-foreground">
-																{user.name
-																	?.split(" ")
-																	.map(n => n[0])
-																	.join("")}
-															</AvatarFallback>
-														</Avatar>
-														<div className="flex-1 overflow-hidden">
-															<p className="font-semibold">{user.name}</p>
-															<p className="text-muted-foreground truncate text-sm">{user.email}</p>
-														</div>
-													</button>
-												))
-											) : userSearchQuery.length > 0 ? (
-												<p className="text-muted-foreground p-4 text-center text-sm">
-													No users found
-												</p>
-											) : (
-												<p className="text-muted-foreground p-4 text-center text-sm">
-													Start typing to search users
-												</p>
-											)}
+						<div className="flex items-center gap-1">
+							<Button 
+								variant="ghost" 
+								size="icon" 
+								className="md:hidden" 
+								onClick={() => setIsSidebarOpen(false)}
+							>
+								<ChevronLeft className="size-4" />
+							</Button>
+							<Dialog open={isNewChatDialogOpen} onOpenChange={setIsNewChatDialogOpen}>
+								<DialogTrigger asChild>
+									<Button variant="ghost" size="icon" className="size-7 rounded-full">
+										<Plus className="size-4" />
+									</Button>
+								</DialogTrigger>
+								<DialogContent>
+									<DialogHeader>
+										<DialogTitle>New Message</DialogTitle>
+										<DialogDescription>Search for a user to start a conversation</DialogDescription>
+									</DialogHeader>
+									<div className="space-y-4">
+										<div className="relative">
+											<Search className="text-muted-foreground absolute top-1/2 left-3 size-4 -translate-y-1/2" />
+											<Input
+												placeholder="Search users..."
+												value={userSearchQuery}
+												onChange={e => setUserSearchQuery(e.target.value)}
+												className="pl-10"
+											/>
 										</div>
-									</ScrollArea>
-								</div>
-							</DialogContent>
-						</Dialog>
+										<ScrollArea className="h-64">
+											<div className="space-y-2">
+												{searchResults && searchResults.length > 0 ? (
+													searchResults.map(user => (
+														<button
+															key={user.id}
+															onClick={() => void handleStartConversation(user.id)}
+															className="hover:bg-accent flex w-full items-center gap-3 rounded-lg p-3 text-left transition-colors"
+														>
+															<Avatar className="size-10">
+																<AvatarImage src={user.image ?? undefined} />
+																<AvatarFallback className="bg-primary text-primary-foreground">
+																	{user.name
+																		?.split(" ")
+																		.map(n => n[0])
+																		.join("")}
+																</AvatarFallback>
+															</Avatar>
+															<div className="flex-1 overflow-hidden">
+																<p className="font-semibold">{user.name}</p>
+																<p className="text-muted-foreground truncate text-sm">{user.email}</p>
+															</div>
+														</button>
+													))
+												) : userSearchQuery.length > 0 ? (
+													<p className="text-muted-foreground p-4 text-center text-sm">
+														No users found
+													</p>
+												) : (
+													<p className="text-muted-foreground p-4 text-center text-sm">
+														Start typing to search users
+													</p>
+												)}
+											</div>
+										</ScrollArea>
+									</div>
+								</DialogContent>
+							</Dialog>
+						</div>
 					</div>
 					{/* Search Bar */}
 					<div className="relative">
@@ -339,13 +384,16 @@ export default function MessagesPage() {
 							filteredConversations.map(conversation => (
 								<button
 									key={conversation.id}
-									onClick={() => setSelectedConversationId(conversation.id)}
+									onClick={() => {
+										setSelectedConversationId(conversation.id)
+										setIsSidebarOpen(false)
+									}}
 									className={cn(
 										"hover:bg-accent flex w-full items-center gap-2.5 rounded-lg p-2 text-left transition-colors",
 										selectedConversationId === conversation.id && "bg-accent"
 									)}
 								>
-									<div className="relative flex-shrink-0">
+									<div className="relative shrink-0">
 										<Avatar className="size-10">
 											<AvatarImage src={conversation.otherUser?.image ?? undefined} />
 											<AvatarFallback className="bg-primary text-primary-foreground text-xs">
@@ -361,7 +409,7 @@ export default function MessagesPage() {
 											<h3 className="truncate text-sm font-medium">
 												{conversation.otherUser?.name}
 											</h3>
-											<span className="text-muted-foreground flex-shrink-0 text-[10px] whitespace-nowrap">
+											<span className="text-muted-foreground shrink-0 text-[10px] whitespace-nowrap">
 												{formatTime(conversation.lastMessageTime)}
 											</span>
 										</div>
@@ -370,7 +418,7 @@ export default function MessagesPage() {
 												{conversation.lastMessage ?? "No messages yet"}
 											</p>
 											{conversation.unreadCount > 0 && (
-												<span className="bg-primary text-primary-foreground ml-1 flex size-4 flex-shrink-0 items-center justify-center rounded-full text-[10px] font-medium">
+												<span className="bg-primary text-primary-foreground ml-1 flex shrink-0 size-4 items-center justify-center rounded-full text-[10px] font-medium">
 													{conversation.unreadCount}
 												</span>
 											)}
@@ -394,11 +442,19 @@ export default function MessagesPage() {
 			{/* Main Chat Area */}
 			{selectedConversation ? (
 				<>
-					<div className="flex flex-1 flex-col overflow-hidden">
+					<div className="flex flex-1 flex-col overflow-hidden w-full">
 						{/* Chat Header */}
-						<div className="flex flex-shrink-0 items-center justify-between border-b p-3">
-							<div className="flex items-center gap-2.5">
-								<Avatar className="size-8">
+						<div className="flex shrink-0 items-center justify-between border-b p-3 gap-2">
+							<div className="flex items-center gap-2 min-w-0 flex-1">
+								<Button 
+									variant="ghost" 
+									size="icon" 
+									className="md:hidden shrink-0"
+									onClick={() => setIsSidebarOpen(true)}
+								>
+									<ChevronLeft className="size-4" />
+								</Button>
+								<Avatar className="size-8 shrink-0">
 									<AvatarImage src={selectedConversation.otherUser?.image ?? undefined} />
 									<AvatarFallback className="bg-primary text-primary-foreground text-xs">
 										{selectedConversation.otherUser?.name
@@ -407,35 +463,48 @@ export default function MessagesPage() {
 											.join("")}
 									</AvatarFallback>
 								</Avatar>
-								<div>
-									<h2 className="text-sm font-medium">{selectedConversation.otherUser?.name}</h2>
-									<p className="text-muted-foreground text-[10px]">
+								<div className="min-w-0 flex-1">
+									<h2 className="text-sm font-medium truncate">{selectedConversation.otherUser?.name}</h2>
+									<p className="text-muted-foreground text-[10px] truncate">
 										{selectedConversation.otherUser?.email}
 									</p>
 								</div>
 							</div>
-							<div className="flex items-center gap-1.5">
+							<div className="flex items-center gap-1.5 shrink-0">
 								{session?.user?.role === "ENP" && (
-									<Button variant="ghost" size="sm" onClick={() => void handleShareBookingLink()}>
-										Share booking link
-									</Button>
+									<>
+										<Button
+											variant="ghost"
+											size="sm"
+											className="gap-1 hidden sm:flex"
+											onClick={() => setIsBookingModalOpen(true)}
+										>
+											<CalendarPlus className="size-4" />
+											<span>Book</span>
+										</Button>
+										<Button
+											variant="ghost"
+											size="icon"
+											className="size-7 rounded-full sm:hidden"
+											onClick={() => setIsBookingModalOpen(true)}
+										>
+											<CalendarPlus className="size-4" />
+										</Button>
+									</>
 								)}
-								{session?.user?.role === "ENP" && (
-									<Button
-										variant="ghost"
-										size="sm"
-										className="gap-1"
-										onClick={() => setIsBookingModalOpen(true)}
-									>
-										<CalendarPlus className="size-4" />
-										Book Consultation
-									</Button>
-								)}
-								<Button variant="ghost" size="icon" className="size-7 rounded-full">
+								{/* <Button variant="ghost" size="icon" className="size-7 rounded-full hidden sm:flex">
 									<Phone className="size-4" />
 								</Button>
-								<Button variant="ghost" size="icon" className="size-7 rounded-full">
+								<Button variant="ghost" size="icon" className="size-7 rounded-full hidden sm:flex">
 									<Video className="size-4" />
+								</Button> */}
+								<Button 
+									variant="ghost" 
+									size="icon" 
+									className="size-7 rounded-full sm:hidden"
+									onClick={() => setIsParticipantPanelOpen(true)}
+								>
+									<Info className="size-4" />
 								</Button>
 							</div>
 						</div>
@@ -458,7 +527,7 @@ export default function MessagesPage() {
 											>
 												<div className={cn("flex max-w-[70%] gap-2", isSent && "flex-row-reverse")}>
 													{!isSent && (
-														<Avatar className="size-7 flex-shrink-0">
+														<Avatar className="size-7 shrink-0">
 															<AvatarImage
 																src={selectedConversation.otherUser?.image ?? undefined}
 															/>
@@ -519,9 +588,9 @@ export default function MessagesPage() {
 						</div>
 
 						{/* Message Input */}
-						<div className="flex-shrink-0 border-t p-2.5">
+						<div className="shrink-0 border-t p-2.5">
 							<div className="flex items-center gap-1.5">
-								<Button variant="ghost" size="icon" className="size-7 rounded-full">
+								<Button variant="ghost" size="icon" className="size-7 rounded-full hidden sm:flex">
 									<Paperclip className="size-4" />
 								</Button>
 								<div className="relative flex-1">
@@ -540,7 +609,7 @@ export default function MessagesPage() {
 									<Button
 										variant="ghost"
 										size="icon"
-										className="absolute top-1/2 right-1 size-6 -translate-y-1/2 rounded-full"
+										className="absolute top-1/2 right-1 size-6 -translate-y-1/2 rounded-full hidden sm:flex"
 									>
 										<Smile className="size-3.5" />
 									</Button>
@@ -557,12 +626,37 @@ export default function MessagesPage() {
 						</div>
 					</div>
 
-					{/* Right Panel - File Uploads */}
-					<FileUploadPanel conversationId={selectedConversationId ?? ""} />
+					{/* Right Panel - File Uploads (Hidden on mobile and tablet, visible on lg+) */}
+					<div className="hidden lg:flex">
+						<FileUploadPanel
+							conversationId={selectedConversationId ?? ""}
+							participant={panelParticipant}
+						/>
+					</div>
+
+					{/* Mobile Participant Panel Overlay */}
+					{isParticipantPanelOpen && (
+						<div 
+							className="fixed inset-0 z-30 bg-black/50 sm:hidden"
+							onClick={() => setIsParticipantPanelOpen(false)}
+						/>
+					)}
+					<div className={cn(
+						"fixed inset-y-0 right-0 z-40 sm:hidden overflow-y-auto w-full max-w-sm",
+						isParticipantPanelOpen ? "block" : "hidden"
+					)}>
+						<div className="flex flex-col h-full">
+							<FileUploadPanel
+								conversationId={selectedConversationId ?? ""}
+								participant={panelParticipant}
+								onClose={() => setIsParticipantPanelOpen(false)}
+							/>
+						</div>
+					</div>
 				</>
 			) : (
 				<div className="flex flex-1 items-center justify-center">
-					<div className="text-center">
+					<div className="text-center px-4">
 						<MessageSquare className="text-muted-foreground mx-auto mb-3 size-10" />
 						<h3 className="text-sm font-medium">Select a conversation</h3>
 						<p className="text-muted-foreground mt-1.5 text-xs">
@@ -579,6 +673,7 @@ export default function MessagesPage() {
 				onClose={() => setIsBookingModalOpen(false)}
 				onSave={event => void handleBookConsultationSave(event)}
 			/>
+			</div>
 		</div>
 	)
 }
