@@ -1,6 +1,6 @@
 "use client"
 
-import { Mail, Phone, User } from "lucide-react"
+import { Mail, Phone, User, X } from "lucide-react"
 
 import { Badge } from "@/core/components/ui/badge"
 import { Button } from "@/core/components/ui/button"
@@ -21,9 +21,10 @@ interface FileUploadPanelProps {
 		bio?: string | null
 		joinedAt?: Date
 	}
+	onClose?: () => void
 }
 
-export function FileUploadPanel({ conversationId: _conversationId, participant }: FileUploadPanelProps) {
+export function FileUploadPanel({ conversationId: _conversationId, participant, onClose }: FileUploadPanelProps) {
 	const displayParticipant = participant
 
 	const getInitials = (name?: string | null) => {
@@ -44,11 +45,23 @@ export function FileUploadPanel({ conversationId: _conversationId, participant }
 
 	return (
 		<>
-			<div className="bg-background flex h-screen w-80 flex-col border-l">
+			<div className="bg-background flex h-screen w-full sm:w-80 flex-col border-l">
 				{/* Header */}
-				<div className="shrink-0 border-b p-4">
-					<h2 className="text-lg font-semibold">Chat Details</h2>
-					<p className="text-muted-foreground text-xs">Participant information</p>
+				<div className="shrink-0 border-b p-4 flex items-center justify-between">
+					<div>
+						<h2 className="text-lg font-semibold">Chat Details</h2>
+						<p className="text-muted-foreground text-xs">Participant information</p>
+					</div>
+					{onClose && (
+						<Button 
+							variant="ghost" 
+							size="icon"
+							onClick={onClose}
+							className="sm:hidden"
+						>
+							<X className="size-5" />
+						</Button>
+					)}
 				</div>
 
 				{/* Participant Details - Scrollable container */}

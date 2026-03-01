@@ -481,7 +481,7 @@ export const messagesRouter = createTRPCRouter({
 				where: eq(users.id, ctx.session.user.id),
 				columns: { id: true, role: true },
 			})
-			if (!sender || sender.role !== "ENP") {
+			if (sender?.role !== "ENP") {
 				throw new TRPCError({ code: "FORBIDDEN", message: "Only ENP can send consultation requests" })
 			}
 
@@ -566,7 +566,7 @@ export const messagesRouter = createTRPCRouter({
 				where: eq(messages.id, input.messageId),
 			})
 
-			if (!message || message.messageType !== "consultation_request") {
+			if (message?.messageType !== "consultation_request") {
 				throw new TRPCError({ code: "NOT_FOUND", message: "Consultation request not found" })
 			}
 
@@ -612,7 +612,7 @@ export const messagesRouter = createTRPCRouter({
 
 				await db.insert(appointments).values({
 					userId: enpId,
-					type: eventType === "notarization" ? "DOCUMENT_SIGNING" : "CONSULTATION",
+					type: eventType === "notarization" ? "NOTARIZATION" : "CONSULTATION",
 					status: "CONFIRMED",
 					title,
 					description: `Consultation appointment with ${ctx.session.user.name || "Client"}`,
