@@ -6,6 +6,7 @@ import { z } from "zod/v4"
 import { db } from "@/services/drizzle/db"
 import { appointments } from "@/services/drizzle/schema/appointments"
 import { users } from "@/services/drizzle/schema/auth"
+import { enpProfiles } from "@/services/drizzle/schema/enp-profiles"
 import {
 	conversationParticipants,
 	conversations,
@@ -37,6 +38,8 @@ export const messagesRouter = createTRPCRouter({
 										name: true,
 										email: true,
 										image: true,
+										role: true,
+										commissionStatus: true,
 									},
 								},
 							},
@@ -60,6 +63,13 @@ export const messagesRouter = createTRPCRouter({
 				)
 				const lastMessage = conversation.messages[0]
 
+				const profile = otherParticipant
+					? await db.query.enpProfiles.findFirst({
+							where: eq(enpProfiles.userId, otherParticipant.userId),
+							columns: { bio: true },
+						})
+					: null
+
 				// Get user's last read time
 				const userParticipant = conversation.participants.find(
 					p => p.userId === ctx.session.user.id
@@ -82,7 +92,14 @@ export const messagesRouter = createTRPCRouter({
 
 				return {
 					id: conversation.id,
-					otherUser: otherParticipant?.user,
+					otherUser: otherParticipant
+						? {
+							...otherParticipant.user,
+							status: otherParticipant.user.commissionStatus,
+							bio: profile?.bio ?? null,
+							joinedAt: otherParticipant.joinedAt,
+						}
+						: null,
 					lastMessage: lastMessage?.content,
 					lastMessageTime: lastMessage?.createdAt,
 					unreadCount: unreadMessages.length,
@@ -594,15 +611,15 @@ export const messagesRouter = createTRPCRouter({
 				const title = meta.title as string
 
 				await db.insert(appointments).values({
-					clientId: ctx.session.user.id,
-					lawyerId: enpId,
+					userId: enpId,
 					type: eventType === "notarization" ? "DOCUMENT_SIGNING" : "CONSULTATION",
 					status: "CONFIRMED",
+					title,
+					description: `Consultation appointment with ${ctx.session.user.name || "Client"}`,
 					appointmentDate,
 					duration,
 					modeOfNotarization: mode?.toUpperCase(),
 					location,
-					notes: title,
 				})
 			}
 
@@ -626,5 +643,44 @@ export const messagesRouter = createTRPCRouter({
 			}
 
 			return { success: true, response: input.response }
+		}),
+
+	getParticipant: protectedProcedure
+		.input(z.object({ conversationId: z.string() }))
+		.query(async ({ input, ctx }) => {
+			const participants = await db.query.conversationParticipants.findMany({
+				where: eq(conversationParticipants.conversationId, input.conversationId),
+				with: {
+					user: {
+						columns: {
+							id: true,
+							name: true,
+							email: true,
+							image: true,
+							role: true,
+							commissionStatus: true,
+						},
+					},
+				},
+			})
+
+			const otherParticipant = participants.find(p => p.userId !== ctx.session.user.id)
+			if (!otherParticipant) return null
+
+			const enpProfile = await db.query.enpProfiles.findFirst({
+				where: eq(enpProfiles.userId, otherParticipant.user.id),
+				columns: { bio: true },
+			})
+
+			return {
+				id: otherParticipant.user.id,
+				name: otherParticipant.user.name,
+				email: otherParticipant.user.email,
+				image: otherParticipant.user.image,
+				role: otherParticipant.user.role,
+				status: otherParticipant.user.commissionStatus,
+				bio: enpProfile?.bio ?? null,
+				joinedAt: otherParticipant.joinedAt,
+			}
 		}),
 })

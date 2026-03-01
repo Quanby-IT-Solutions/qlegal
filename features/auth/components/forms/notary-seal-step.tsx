@@ -31,18 +31,18 @@ export function NotarySealStep({ form }: NotarySealStepProps) {
 					<FormItem>
 						<FormLabel>Roll Number</FormLabel>
 						<FormControl>
-							<Input
-								placeholder="e.g., 123456"
-								inputMode="numeric"
-								autoComplete="off"
-								maxLength={6}
-								pattern="\d{6}"
-								{...field}
-								onChange={e => {
-									const digitsOnly = e.target.value.replace(/\D/g, "").slice(0, 6)
-									field.onChange(digitsOnly)
-								}}
-							/>
+						<Input
+							placeholder="e.g., 12345"
+							inputMode="numeric"
+							autoComplete="off"
+							maxLength={5}
+							pattern="\d{5}"
+							{...field}
+							onChange={e => {
+								const digitsOnly = e.target.value.replace(/\D/g, "").slice(0, 5)
+								field.onChange(digitsOnly)
+							}}
+						/>
 						</FormControl>
 						<FormMessage />
 					</FormItem>

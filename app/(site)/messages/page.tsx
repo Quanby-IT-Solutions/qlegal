@@ -30,8 +30,7 @@ import { EventDialog } from "@/features/appointments/components/dialogs/event-di
 import type { CalendarEvent } from "@/core/components/calendar-schedule"
 import { useMessages } from "@/features/messages/api/messages.hooks"
 import { useMessagesSubscriptions } from "@/features/messages/api/use-messages-subscriptions"
-import { ConsultationRequestCard } from "@/features/messages/components/consultation-request-card"
-import type { ConsultationRequestMetadata } from "@/features/messages/components/consultation-request-card"
+import { ConsultationRequestCard, type ConsultationRequestMetadata } from "@/features/messages/components/consultation-request-card"
 import { FileUploadPanel } from "@/features/messages/components/file-upload-panel"
 import { MessageContent } from "@/features/messages/components/message-content"
 
@@ -101,6 +100,18 @@ export default function MessagesPage() {
 	)
 
 	const selectedConversation = conversations?.find(c => c.id === selectedConversationId)
+	const panelParticipant = selectedConversation?.otherUser as
+		| {
+				id: string
+				name: string | null
+				email: string | null
+				image: string | null
+				role?: string
+				status?: "online" | "offline" | "away" | "ACTIVE" | "INACTIVE" | "SUSPENDED" | "PENDING"
+				bio?: string | null
+				joinedAt?: Date
+		  }
+		| undefined
 
 	const handleSendMessage = async () => {
 		if (!messageInput.trim() || !selectedConversationId) return
@@ -415,11 +426,11 @@ export default function MessagesPage() {
 								</div>
 							</div>
 							<div className="flex items-center gap-1.5">
-								{session?.user?.role === "ENP" && (
+								{/* {session?.user?.role === "ENP" && (
 									<Button variant="ghost" size="sm" onClick={() => void handleShareBookingLink()}>
 										Share booking link
 									</Button>
-								)}
+								)} */}
 								{session?.user?.role === "ENP" && (
 									<Button
 										variant="ghost"
@@ -558,7 +569,10 @@ export default function MessagesPage() {
 					</div>
 
 					{/* Right Panel - File Uploads */}
-					<FileUploadPanel conversationId={selectedConversationId ?? ""} />
+					<FileUploadPanel
+						conversationId={selectedConversationId ?? ""}
+						participant={panelParticipant}
+					/>
 				</>
 			) : (
 				<div className="flex flex-1 items-center justify-center">
