@@ -25,10 +25,8 @@ export const ROUTE_CONFIG: RouteConfig = {
 	public: [
 		{ path: "/test" },
 		{ path: "/liveness-validation" }, // Testing route for liveness validation
-		{ path: "/privacy-policy" },
-		{ path: "/terms-of-service" },
-		{ path: "/legal/privacy-policy" },
-		{ path: "/legal/terms-of-service" },
+		{ path: "/auth/privacy-policy", exact: true },
+		{ path: "/auth/terms-of-service", exact: true },
 		{ path: "/preview-email" },
 	],
 

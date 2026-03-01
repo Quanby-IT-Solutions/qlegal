@@ -60,11 +60,11 @@ const footerConfig: NavGroups = {
 		items: [
 			{
 				title: "Data Privacy",
-				url: "/privacy-policy",
+				url: "/auth/privacy-policy",
 			},
 			{
 				title: "Terms of Service",
-				url: "/terms-of-service",
+				url: "/auth/terms-of-service",
 			},
 			{
 				title: "Mission & Vision",

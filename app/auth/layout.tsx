@@ -1,8 +1,13 @@
 "use client"
 
+import { usePathname } from "next/navigation"
+
 import { Spotlight } from "@/core/components/ui/spotlight-new"
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
+	const pathname = usePathname()
+	const isLegalPage = pathname === "/auth/privacy-policy" || pathname === "/auth/terms-of-service"
+
 	return (
 		<div className="relative min-h-screen w-full overflow-hidden">
 			{/* Background Elements */}
@@ -21,13 +26,17 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
 			<div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_20%,hsl(var(--background))_70%)]" />
 
 			{/* Floating Orbs */}
-			<div className="pointer-events-none absolute bottom-[-20%] left-[-10%] h-80 w-80 rounded-full bg-linear-to-r from-[rgb(91,26,128)]/20 to-[rgb(233,30,140)]/20 blur-3xl" />
+			<div className="pointer-events-none absolute bottom-[-20%] left-[-10%] size-80 rounded-full bg-linear-to-r from-[rgb(91,26,128)]/20 to-[rgb(233,30,140)]/20 blur-3xl" />
 
-			<div className="pointer-events-none absolute -right-25 bottom-[20%] h-80 w-80 rounded-full bg-linear-to-r from-[rgb(233,30,140)]/15 to-[rgb(91,26,128)]/15 blur-3xl" />
+			<div className="pointer-events-none absolute -right-25 bottom-[20%] size-80 rounded-full bg-linear-to-r from-[rgb(233,30,140)]/15 to-[rgb(91,26,128)]/15 blur-3xl" />
 
-			<div className="pointer-events-none absolute top-[-10%] left-[25%] h-80 w-80 rounded-full bg-linear-to-r from-[rgb(91,26,128)]/20 to-[rgb(233,30,140)]/20 blur-3xl" />
+			<div className="pointer-events-none absolute top-[-10%] left-[25%] size-80 rounded-full bg-linear-to-r from-[rgb(91,26,128)]/20 to-[rgb(233,30,140)]/20 blur-3xl" />
 
-			<div className="relative z-10 flex min-h-screen items-center justify-center p-4">
+			<div
+				className={`relative z-10 flex min-h-screen p-4 ${
+					isLegalPage ? "items-start justify-center pt-8" : "items-center justify-center"
+				}`}
+			>
 				{children}
 			</div>
 		</div>
