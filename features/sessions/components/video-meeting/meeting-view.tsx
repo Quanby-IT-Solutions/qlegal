@@ -1163,7 +1163,7 @@ export function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meet
 			{/* Main content — video area + right sidebar */}
 			<div className="flex flex-1 overflow-hidden">
 				{/* Video area */}
-				<div className="flex flex-1 flex-col overflow-hidden">
+				<div className="relative flex flex-1 flex-col overflow-hidden">
 					<div className="flex-1 overflow-hidden p-3 md:p-4 lg:p-6">
 						<RecordingBanner
 							isLocalRecording={isLocalRecording}
@@ -1219,11 +1219,8 @@ export function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meet
 							isLocalRecording={isLocalRecording}
 							localRecordingStartedAt={localRecordingStartedAt}
 							participantCount={participantCount}
-							onInviteClick={
-								meetingDetails?.createdBy?.id === session?.user?.id
-									? () => setIsInviteDialogOpen(true)
-									: undefined
-							}
+							canInvitePeople={meetingDetails?.createdBy?.id === session?.user?.id}
+							onInvitePeopleClick={() => setIsInviteDialogOpen(true)}
 						/>
 					</div>
 				</div>
