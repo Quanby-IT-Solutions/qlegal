@@ -46,7 +46,7 @@ export default async function RootLayout({
 								variant="default"
 								position="bottom-right"
 								glass
-								learnMoreHref="/privacy-policy"
+								learnMoreHref="/auth/privacy-policy"
 							/>
 							<Toaster richColors closeButton />
 						</ThemeProvider>

@@ -653,20 +653,37 @@ function CalendarScheduleEventCard({
 					</div>
 				</SheetTrigger>
 
-				<SheetContent side="right" className="flex flex-col">
-					<SheetHeader className="space-y-4 border-b pb-6">
-						<div className="flex flex-col items-center gap-3">
-							<Avatar className="size-16 ring-2 ring-border/80">
-								<AvatarImage src={getAvatarUrl(event.principal?.image) ?? undefined} alt="" />
-								<AvatarFallback className="bg-muted text-muted-foreground text-lg font-medium">
-									{getInitials(event.principal?.name ?? "?")}
-								</AvatarFallback>
-							</Avatar>
+				<SheetContent 
+					side="right" 
+					className="flex flex-col gap-0 rounded-l-2xl border-l-2 shadow-2xl backdrop-blur-sm sm:max-w-md"
+				>
+					<SheetHeader className="relative space-y-6 border-b pt-8">
+						<div className="flex flex-col items-center gap-4">
+							<div className="relative">
+								<Avatar className="size-20 ring-4 ring-background shadow-lg">
+									<AvatarImage src={getAvatarUrl(event.principal?.image) ?? undefined} alt="" />
+									<AvatarFallback className="bg-primary/10 text-primary text-xl font-semibold">
+										{getInitials(event.principal?.name ?? "?")}
+									</AvatarFallback>
+								</Avatar>
+								<div className="bg-background absolute -bottom-1 -right-1 rounded-full p-1.5 shadow-md">
+									<span
+										className={cn(
+											"flex size-3 rounded-full",
+											statusClassName.includes("pending") 
+												? "bg-amber-500" 
+												: statusClassName.includes("rejected") || statusClassName.includes("rescheduled")
+												? "bg-muted-foreground" 
+												: "bg-primary"
+										)}
+									/>
+								</div>
+							</div>
 							<div className="text-center">
-								<SheetTitle className="text-lg">{event.principal?.name ?? event.title}</SheetTitle>
+								<SheetTitle className="text-xl font-bold">{event.principal?.name ?? event.title}</SheetTitle>
 								<span
 									className={cn(
-										"mt-1.5 inline-block rounded-full border px-2.5 py-0.5 text-xs font-medium uppercase tracking-wide",
+										"mt-2 inline-block rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-wider shadow-sm",
 										statusClassName
 									)}
 								>
@@ -679,28 +696,45 @@ function CalendarScheduleEventCard({
 						</SheetDescription>
 					</SheetHeader>
 
-					<div className="flex flex-1 flex-col gap-6 py-6">
-						<div className="space-y-1">
-							<p className="text-muted-foreground text-xs font-medium uppercase tracking-wider">
+					<div className="flex flex-1 flex-col gap-4 overflow-y-auto px-6 py-6">
+						<div className="bg-muted/40 space-y-2 rounded-xl border p-4 shadow-sm transition-all hover:shadow-md">
+							<p className="text-muted-foreground flex items-center gap-2 text-xs font-semibold uppercase tracking-wider">
+								<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+									<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+									<circle cx="9" cy="7" r="4" />
+									<path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+									<path d="M16 3.13a4 4 0 0 1 0 7.75" />
+								</svg>
 								Type
 							</p>
-							<p className="text-sm font-medium">{subtitle}</p>
+							<p className="text-base font-semibold">{subtitle}</p>
 						</div>
 
-						<div className="space-y-1">
-							<p className="text-muted-foreground text-xs font-medium uppercase tracking-wider">
+						<div className="bg-muted/40 space-y-2 rounded-xl border p-4 shadow-sm transition-all hover:shadow-md">
+							<p className="text-muted-foreground flex items-center gap-2 text-xs font-semibold uppercase tracking-wider">
+								<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+									<circle cx="12" cy="12" r="10" />
+									<polyline points="12 6 12 12 16 14" />
+								</svg>
 								Time
 							</p>
-							<p className="text-sm">
+							<p className="text-base font-semibold">
 								{formattedTime}
 								{displayLabel ? (
-									<span className="text-muted-foreground"> · {displayLabel}</span>
+									<span className="text-muted-foreground ml-1 text-sm font-normal"> · {displayLabel}</span>
 								) : null}
 							</p>
 						</div>
 
-						<div className="space-y-1">
-							<p className="text-muted-foreground text-xs font-medium uppercase tracking-wider">
+						<div className="bg-muted/40 space-y-2 rounded-xl border p-4 shadow-sm transition-all hover:shadow-md">
+							<p className="text-muted-foreground flex items-center gap-2 text-xs font-semibold uppercase tracking-wider">
+								<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+									<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+									<polyline points="14 2 14 8 20 8" />
+									<line x1="16" y1="13" x2="8" y2="13" />
+									<line x1="16" y1="17" x2="8" y2="17" />
+									<polyline points="10 9 9 9 8 9" />
+								</svg>
 								Description
 							</p>
 							{event.description ? (
@@ -712,24 +746,30 @@ function CalendarScheduleEventCard({
 					</div>
 
 					{isActionable ? (
-						<SheetFooter className="flex gap-2 border-t pt-4">
-							<Button
-								variant="outline"
-								className="text-destructive hover:bg-destructive/10 flex-1"
-								disabled={isProcessing}
-								onClick={() => setIsRejectDialogOpen(true)}
-							>
-								Reject
-							</Button>
-							<Button className="flex-1" disabled={isProcessing} onClick={onAccept}>
-								{isProcessing ? (
-									<>
-										<Spinner className="size-3.5" /> Accepting…
-									</>
-								) : (
-									"Accept"
-								)}
-							</Button>
+						<SheetFooter className="border-t px-6 py-5">
+							<div className="flex w-full gap-3">
+								<Button
+									variant="outline"
+									className="text-destructive hover:bg-destructive hover:text-destructive-foreground flex-1 transition-all hover:shadow-md"
+									disabled={isProcessing}
+									onClick={() => setIsRejectDialogOpen(true)}
+								>
+									Reject
+								</Button>
+								<Button 
+									className="flex-1 shadow-md transition-all hover:shadow-lg" 
+									disabled={isProcessing} 
+									onClick={onAccept}
+								>
+									{isProcessing ? (
+										<>
+											<Spinner className="size-4" /> Accepting…
+										</>
+									) : (
+										"Accept"
+									)}
+								</Button>
+							</div>
 						</SheetFooter>
 					) : null}
 				</SheetContent>

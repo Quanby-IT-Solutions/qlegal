@@ -2,10 +2,21 @@
 
 import { zodResolver } from "@hookform/resolvers/zod"
 import { format } from "date-fns"
+import { useState } from "react"
 import { useForm } from "react-hook-form"
 import { z } from "zod/v4"
 
 import type { CalendarEvent } from "@/core/components/calendar-schedule"
+import {
+	AlertDialog,
+	AlertDialogAction,
+	AlertDialogCancel,
+	AlertDialogContent,
+	AlertDialogDescription,
+	AlertDialogFooter,
+	AlertDialogHeader,
+	AlertDialogTitle,
+} from "@/core/components/ui/alert-dialog"
 import { Button } from "@/core/components/ui/button"
 import {
 	Dialog,
@@ -106,6 +117,9 @@ export function EventDialog({
 	isSaving,
 	isDeleting,
 }: EventDialogProps) {
+	const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false)
+	const [pendingEvent, setPendingEvent] = useState<CalendarEvent | null>(null)
+
 	// Map existing event to form values
 	const defaultServiceType: "CONSULTATION" | "NOTARIZATION" =
 		event?.appointmentType === "CONSULTATION"
@@ -170,7 +184,17 @@ export function EventDialog({
 			meta,
 		}
 
-		onSave(updatedEvent)
+		// Show confirmation dialog before saving
+		setPendingEvent(updatedEvent)
+		setIsConfirmDialogOpen(true)
+	}
+
+	const handleConfirmSave = () => {
+		if (pendingEvent) {
+			onSave(pendingEvent)
+			setIsConfirmDialogOpen(false)
+			setPendingEvent(null)
+		}
 	}
 
 	const handleDelete = async () => {
@@ -187,7 +211,8 @@ export function EventDialog({
 	}
 
 	return (
-		<Dialog open={isOpen} onOpenChange={onClose}>
+		<>
+			<Dialog open={isOpen} onOpenChange={onClose}>
 			<DialogContent className="flex max-h-[90vh] flex-col sm:max-w-150">
 				<DialogHeader>
 					<DialogTitle>{event?.id ? "Edit Event" : "New Event"}</DialogTitle>
@@ -351,5 +376,56 @@ export function EventDialog({
 				</Form>
 			</DialogContent>
 		</Dialog>
+
+		{/* Confirmation Dialog */}
+		<AlertDialog open={isConfirmDialogOpen} onOpenChange={setIsConfirmDialogOpen}>
+			<AlertDialogContent>
+				<AlertDialogHeader>
+					<AlertDialogTitle>Confirm Booking</AlertDialogTitle>
+					<AlertDialogDescription>
+						Please review your booking details before confirming.
+					</AlertDialogDescription>
+				</AlertDialogHeader>
+				{pendingEvent && (() => {
+					const location = typeof pendingEvent.meta?.location === "string" 
+						? pendingEvent.meta.location 
+						: undefined
+
+					return (
+						<div className="space-y-2 py-4">
+							<div className="bg-muted rounded-md p-3 space-y-2">
+								<div>
+									<p className="text-sm font-medium">Event Type</p>
+									<p className="text-sm text-muted-foreground">{pendingEvent.title}</p>
+								</div>
+								<div>
+									<p className="text-sm font-medium">Date & Time</p>
+									<p className="text-sm text-muted-foreground">
+										{format(pendingEvent.startAt, "PPP 'at' p")}
+									</p>
+								</div>
+								{location && (
+									<div>
+										<p className="text-sm font-medium">Location</p>
+										<p className="text-sm text-muted-foreground">{location}</p>
+									</div>
+								)}
+								{pendingEvent.description && (
+									<div>
+										<p className="text-sm font-medium">Description</p>
+										<p className="text-sm text-muted-foreground">{pendingEvent.description}</p>
+									</div>
+								)}
+							</div>
+						</div>
+					)
+				})()}
+				<AlertDialogFooter>
+					<AlertDialogCancel>Cancel</AlertDialogCancel>
+					<AlertDialogAction onClick={handleConfirmSave}>Confirm Booking</AlertDialogAction>
+				</AlertDialogFooter>
+			</AlertDialogContent>
+		</AlertDialog>
+		</>
 	)
 }
