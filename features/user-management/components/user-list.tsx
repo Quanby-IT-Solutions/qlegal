@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { AlertCircle, CheckCircle, Clock, Edit, MoreVertical, Shield, Trash2 } from "lucide-react"
+import { AlertCircle, CheckCircle, ChevronLeft, ChevronRight, Clock, Edit, MoreVertical, Shield, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/core/components/ui/avatar"
@@ -34,7 +34,6 @@ import { getAvatarUrl } from "@/core/lib/utils"
 import { trpc } from "@/services/trpc/client"
 
 import { ConfirmationModal } from "./confirmation-modal"
-import { Pagination } from "./pagination"
 import { UserActions } from "./user-actions"
 import { UserProfileSheet } from "./user-profile-sheet"
 
@@ -279,31 +278,25 @@ export function UserList({ searchTerm, roleFilter, statusFilter, sortBy }: UserL
 		return (
 			<Card>
 				<CardHeader>
-					<div className="flex flex-col space-y-3 sm:flex-row sm:items-center sm:justify-between sm:space-y-0">
-						<div>
-							<CardTitle>Users</CardTitle>
-							<CardDescription>Loading users...</CardDescription>
-						</div>
-						<div className="flex items-center space-x-2">
-							<span className="text-muted-foreground text-sm">Show:</span>
-							<div className="bg-muted h-9 w-20 animate-pulse rounded-md" />
-						</div>
+					<div>
+						<CardTitle>Users</CardTitle>
+						<CardDescription>Loading users...</CardDescription>
 					</div>
 				</CardHeader>
 				<CardContent>
-					<div className="space-y-4">
+					<div className="space-y-3 sm:space-y-4">
 						{Array.from({ length: 3 }).map((_, i) => (
-							<div key={i} className="flex items-center justify-between rounded-lg border p-4">
-								<div className="flex items-center space-x-4">
-									<div className="bg-muted h-12 w-12 animate-pulse rounded-full" />
+							<div key={i} className="flex items-center justify-between rounded-lg border p-3 sm:p-4">
+								<div className="flex items-center space-x-3">
+									<div className="bg-muted h-10 w-10 shrink-0 animate-pulse rounded-full sm:h-12 sm:w-12" />
 									<div className="space-y-2">
-										<div className="bg-muted h-4 w-32 animate-pulse rounded" />
-										<div className="bg-muted h-3 w-48 animate-pulse rounded" />
+										<div className="bg-muted h-4 w-24 animate-pulse rounded sm:w-32" />
+										<div className="bg-muted h-3 w-40 animate-pulse rounded sm:w-48" />
 									</div>
 								</div>
 								<div className="space-y-2">
-									<div className="bg-muted h-6 w-16 animate-pulse rounded" />
-									<div className="bg-muted h-6 w-20 animate-pulse rounded" />
+									<div className="bg-muted h-6 w-12 animate-pulse rounded sm:w-16" />
+									<div className="bg-muted h-6 w-16 animate-pulse rounded sm:w-20" />
 								</div>
 							</div>
 						))}
@@ -316,93 +309,33 @@ export function UserList({ searchTerm, roleFilter, statusFilter, sortBy }: UserL
 	return (
 		<Card suppressHydrationWarning>
 			<CardHeader>
-				<div className="flex flex-col space-y-3 sm:flex-row sm:items-center sm:justify-between sm:space-y-0">
-					<div>
-						<CardTitle>Users</CardTitle>
-						<CardDescription>{pagination?.totalCount ?? 0} user(s) found</CardDescription>
-					</div>
-					<div className="flex items-center space-x-2">
-						<span className="text-muted-foreground text-sm">Show:</span>
-						<Select value={pageSize.toString()} onValueChange={value => setPageSize(Number(value))}>
-							<SelectTrigger className="w-20">
-								<SelectValue />
-							</SelectTrigger>
-							<SelectContent>
-								<SelectItem value="5">5</SelectItem>
-								<SelectItem value="10">10</SelectItem>
-								<SelectItem value="20">20</SelectItem>
-								<SelectItem value="50">50</SelectItem>
-							</SelectContent>
-						</Select>
-					</div>
+				<div>
+					<CardTitle>Users</CardTitle>
+					<CardDescription>{pagination?.totalCount ?? 0} user(s) found</CardDescription>
 				</div>
 			</CardHeader>
 			<CardContent>
-				<div className="space-y-4">
-					{users.map(user => {
-						const avatarUrl = getAvatarUrl(user.avatar)
+				<div className="space-y-3 sm:space-y-4">
+					{users.length === 0 ? (
+						<div className="flex min-h-75 flex-col items-center justify-center py-8 sm:py-12 text-center">
+							<div className="text-muted-foreground space-y-2">
+								<p className="text-sm">No users found.</p>
+							</div>
+						</div>
+					) : (
+						users.map(user => {
+							const avatarUrl = getAvatarUrl(user.avatar)
 
-						return (
+							return (
 							<div
 								key={user.id}
-								className="flex flex-col gap-4 rounded-lg border p-4 transition-colors hover:bg-gray-50 sm:flex-row sm:items-center sm:justify-between dark:hover:bg-gray-800"
+								className="relative flex flex-col gap-2 rounded-lg border p-3 transition-colors hover:bg-gray-50 sm:gap-3 sm:p-4 dark:hover:bg-gray-800"
 							>
-								{/* Left section: Avatar and User Info */}
-								<div className="flex flex-1 items-start space-x-3 sm:items-center sm:space-x-4">
-									<Avatar className="h-10 w-10 shrink-0 sm:h-12 sm:w-12">
-										{avatarUrl ? <AvatarImage src={avatarUrl} alt={user.name} /> : null}
-										<AvatarFallback className="bg-muted text-muted-foreground text-xs font-medium sm:text-sm">
-											{user.name
-												.split(" ")
-												.map((n: string) => n[0])
-												.join("")
-												.toUpperCase()}
-										</AvatarFallback>
-									</Avatar>
-									<div className="min-w-0 flex-1">
-										<div className="mb-1 flex flex-wrap items-center gap-x-2 gap-y-1">
-											<h3 className="text-sm font-medium wrap-break-word text-gray-900 sm:text-base dark:text-white">
-												{user.name}
-											</h3>
-											{user.verified && (
-												<Shield className="h-3 w-3 shrink-0 text-blue-600 sm:h-4 sm:w-4" />
-											)}
-										</div>
-										<p className="text-xs break-all text-gray-600 sm:text-sm dark:text-gray-400">
-											{user.email}
-										</p>
-										{user.organization && (
-											<p className="text-xs wrap-break-word text-gray-500 sm:text-sm">
-												{user.organization}
-											</p>
-										)}
-										<div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500">
-											<span className="wrap-break-word">
-												Last login: {formatLastLogin(user.lastActive)}
-											</span>
-											<span className="whitespace-nowrap">
-												Documents: {user.documentsCount ?? 0}
-											</span>
-										</div>
-									</div>
-								</div>
-
-								{/* Right section: Badges and Actions */}
-								<div className="flex items-center justify-between gap-3 sm:justify-end">
-									<div className="flex flex-wrap items-center gap-2">
-										<Badge className={`${getRoleColor(user.role)} text-xs whitespace-nowrap`}>
-											{user.role.toUpperCase()}
-										</Badge>
-										<Badge className={`${getStatusColor(user.status)} text-xs whitespace-nowrap`}>
-											<div className="flex items-center space-x-1">
-												{getStatusIcon(user.status)}
-												<span>{user.status}</span>
-											</div>
-										</Badge>
-									</div>
+								{/* Kebab menu - Top Right */}
+								<div className="absolute top-2 right-2 sm:top-3 sm:right-3">
 									<DropdownMenu>
 										<DropdownMenuTrigger asChild>
-											<Button variant="ghost" size="icon" className="shrink-0">
+											<Button variant="ghost" size="icon" className="shrink-0 h-8 w-8">
 												<MoreVertical className="h-4 w-4" />
 											</Button>
 										</DropdownMenuTrigger>
@@ -455,18 +388,106 @@ export function UserList({ searchTerm, roleFilter, statusFilter, sortBy }: UserL
 										</DropdownMenuContent>
 									</DropdownMenu>
 								</div>
+
+								{/* User Avatar and Info */}
+								<div className="flex flex-1 items-start space-x-3 pr-8 sm:pr-0">
+									<Avatar className="h-10 w-10 shrink-0 sm:h-12 sm:w-12">
+										{avatarUrl ? <AvatarImage src={avatarUrl} alt={user.name} /> : null}
+										<AvatarFallback className="bg-muted text-muted-foreground text-xs font-medium sm:text-sm">
+											{user.name
+												.split(" ")
+												.map((n: string) => n[0])
+												.join("")
+												.toUpperCase()}
+										</AvatarFallback>
+									</Avatar>
+									<div className="min-w-0 flex-1">
+										<div className="flex flex-wrap items-center gap-x-2 gap-y-1 mb-1">
+											<h3 className="text-sm font-semibold text-gray-900 dark:text-white">
+												{user.name}
+											</h3>
+											{user.verified && (
+												<Shield className="h-3 w-3 shrink-0 text-blue-600 sm:h-4 sm:w-4" />
+											)}
+										</div>
+										<p className="text-xs text-gray-600 dark:text-gray-400 mb-1">
+											{user.email}
+										</p>
+										{user.organization && (
+											<p className="text-xs text-gray-500 mb-2">
+												{user.organization}
+											</p>
+										)}
+										<div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-gray-500">
+											<span className="hidden sm:inline">
+												Last login: {formatLastLogin(user.lastActive)}
+											</span>
+											<span className="hidden sm:inline">
+												Documents: {user.documentsCount ?? 0}
+											</span>
+										</div>
+									</div>
+								</div>
+
+								{/* Badges */}
+								<div className="flex flex-wrap items-center gap-2">
+									<Badge className={`${getRoleColor(user.role)} text-xs`}>
+										{user.role.toUpperCase()}
+									</Badge>
+									<Badge className={`${getStatusColor(user.status)} text-xs`}>
+										<div className="flex items-center space-x-1">
+											{getStatusIcon(user.status)}
+											<span>{user.status}</span>
+										</div>
+									</Badge>
+								</div>
 							</div>
 						)
-					})}
+					})
+					)}
 
 					{/* Pagination */}
 					{pagination && pagination.totalPages > 0 && (
-						<div className="mt-6 border-t pt-4">
-							<Pagination
-								currentPage={pagination.page}
-								totalPages={pagination.totalPages}
-								onPageChange={setCurrentPage}
-							/>
+						<div className="mt-4 border-t pt-3 sm:mt-6 sm:pt-4">
+							<div className="flex flex-row items-center justify-between gap-2 sm:gap-4">
+								<div className="flex items-center space-x-1 sm:space-x-2">
+									<Button
+										variant="outline"
+										size="sm"
+										onClick={() => setCurrentPage(pagination.page - 1)}
+										disabled={pagination.page <= 1}
+										className="h-8 w-8 p-0"
+									>
+										<ChevronLeft className="h-4 w-4" />
+									</Button>
+									<Button
+										variant="outline"
+										size="sm"
+										onClick={() => setCurrentPage(pagination.page + 1)}
+										disabled={pagination.page >= pagination.totalPages}
+										className="h-8 w-8 p-0"
+									>
+										<ChevronRight className="h-4 w-4" />
+									</Button>
+								</div>
+								<div className="text-muted-foreground flex-1 text-center text-xs sm:text-sm">
+									Page {pagination.page} of {pagination.totalPages}
+								</div>
+								<div className="flex items-center space-x-1 sm:space-x-2">
+									<span className="text-muted-foreground text-xs sm:text-sm">Show:</span>
+									<Select value={pageSize.toString()} onValueChange={value => setPageSize(Number(value))}>
+										<SelectTrigger className="h-8 w-17 sm:h-9 sm:w-16">
+											<SelectValue />
+										</SelectTrigger>
+										<SelectContent>
+											<SelectItem value="5">5</SelectItem>
+											<SelectItem value="10">10</SelectItem>
+											<SelectItem value="20">20</SelectItem>
+											<SelectItem value="50">50</SelectItem>
+										</SelectContent>
+									</Select>
+								</div>
+							</div>
 						</div>
 					)}
 				</div>
