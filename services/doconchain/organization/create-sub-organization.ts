@@ -3,12 +3,30 @@ import { getDoconchainApiToken } from "@/services/doconchain/auth/generate-token
 
 type CreateSubOrganizationResponse = {
 	id?: string
+	uuid?: string
 	name?: string
 	address?: string
 	photo_url?: string
 	sub_organization_type_name?: string
 	organization_uuid?: string
 	created_at?: string
+	data?: {
+		id?: string
+		uuid?: string
+		name?: string
+		address?: string
+		photo_url?: string
+		created_at?: string
+		/** DocOnChain actual shape: data.sub_org_data */
+		sub_org_data?: {
+			id?: number
+			uuid?: string
+			name?: string
+			address?: string
+			created_at?: string
+			photo?: string
+		}
+	}
 }
 
 export async function createDoconchainSubOrganization(input: {
@@ -17,11 +35,19 @@ export async function createDoconchainSubOrganization(input: {
 	subOrganizationTypeName?: string
 	photo?: Blob | Buffer
 	photoFilename?: string
-}): Promise<{ id: string; name: string; raw: CreateSubOrganizationResponse }> {
+}): Promise<{ id: string; name: string; subOrgNumericId?: number; raw: CreateSubOrganizationResponse }> {
 	const name = input.name.trim()
 	const address = input.address.trim()
 	if (!name || !address) {
 		throw new Error("DocOnChain create sub-organization requires name and address.")
+	}
+
+	// Create Sub Org endpoint requires parent organization_uuid (UUID format), not numeric ID.
+	const parentUuid = (env.DOCONCHAIN_ORGANIZATION_UUID ?? "").trim()
+	if (!parentUuid) {
+		throw new Error(
+			"DocOnChain create sub-organization requires DOCONCHAIN_ORGANIZATION_UUID (parent org UUID). The API does not accept numeric ID."
+		)
 	}
 
 	const url = new URL("/api/v2/organizations/sub", env.DOCONCHAIN_API_URL)
@@ -32,7 +58,7 @@ export async function createDoconchainSubOrganization(input: {
 		form.set("name", name)
 		form.set("address", address)
 		form.set("sub_organization_type_name", input.subOrganizationTypeName ?? "Department")
-		form.set("organization_uuid", String(env.DOCONCHAIN_ORGANIZATION_ID))
+		form.set("organization_uuid", parentUuid)
 		if (input.photo) {
 			const blob =
 				input.photo instanceof Blob
@@ -81,7 +107,7 @@ export async function createDoconchainSubOrganization(input: {
 		retryBody.set("name", name)
 		retryBody.set("address", address)
 		retryBody.set("sub_organization_type_name", input.subOrganizationTypeName ?? "Department")
-		retryBody.set("organization_uuid", String(env.DOCONCHAIN_ORGANIZATION_ID))
+		retryBody.set("organization_uuid", parentUuid)
 		res = await doRequest(token, retryBody)
 	}
 
@@ -93,9 +119,19 @@ export async function createDoconchainSubOrganization(input: {
 	}
 
 	const raw = (text ? (JSON.parse(text) as CreateSubOrganizationResponse) : {}) as CreateSubOrganizationResponse
-	const id = raw.id
+	// DocOnChain returns { message, data: { sub_org_data: { uuid, id, name, ... } } }
+	const sub = raw.data?.sub_org_data
+	const id = sub?.uuid ?? (sub?.id != null ? String(sub.id) : null) ?? raw.id ?? raw.uuid ?? raw.data?.id ?? raw.data?.uuid
+	const resolvedName = sub?.name ?? raw.name ?? raw.data?.name ?? name
 	if (!id) {
-		throw new Error("DocOnChain create sub-organization response missing id.")
+		throw new Error(
+			`DocOnChain create sub-organization response missing id. Response: ${text ? text.slice(0, 500) : "empty"}`
+		)
 	}
-	return { id: String(id), name: raw.name ?? name, raw }
+	return {
+		id: String(id),
+		name: resolvedName,
+		subOrgNumericId: sub?.id,
+		raw,
+	}
 }

@@ -2,6 +2,7 @@ import { TRPCError } from "@trpc/server"
 import { and, asc, count, desc, eq, ilike, inArray, isNotNull, or } from "drizzle-orm"
 import { z } from "zod/v4"
 
+import { getFullName } from "@/core/lib/utils"
 import { appointmentParticipants } from "@/services/drizzle/schema/appointment-participants"
 import { appointments } from "@/services/drizzle/schema/appointments"
 import { users } from "@/services/drizzle/schema/auth"
@@ -814,7 +815,7 @@ export const notarialBookRouter = createTRPCRouter({
 					const signersFromDb = await Promise.all(
 						docSigners.map(async (ds, idx) => {
 							const email = ds.user?.email?.trim() ?? ""
-							const nameParts = (ds.signerName ?? ds.user?.name ?? "").trim().split(/\s+/)
+							const nameParts = (ds.signerName ?? getFullName(ds.user) ?? "").trim().split(/\s+/)
 							const firstName = nameParts[0] ?? ""
 							const lastName = nameParts.slice(1).join(" ") || ""
 
@@ -913,7 +914,7 @@ export const notarialBookRouter = createTRPCRouter({
 						requests.map(async (req, idx) => {
 							const u = req.signer
 							const email = u?.email?.trim() ?? ""
-							const nameParts = (u?.name ?? "").trim().split(/\s+/)
+							const nameParts = getFullName(u).trim().split(/\s+/)
 							const firstName = nameParts[0] ?? ""
 							const lastName = nameParts.slice(1).join(" ") ?? ""
 							const status = (req.status ?? "PENDING").toUpperCase()

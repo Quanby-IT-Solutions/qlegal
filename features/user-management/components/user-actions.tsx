@@ -57,11 +57,32 @@ export function UserActions({ userId, open, onOpenChange, onSuccess }: UserActio
 		},
 	})
 
+	function namePartsFromUser(u: { firstName?: string | null; middleName?: string | null; lastName?: string | null; name?: string | null }) {
+		if (u.firstName != null || u.lastName != null) {
+			return {
+				firstName: u.firstName ?? "",
+				middleName: u.middleName ?? "",
+				lastName: u.lastName ?? "",
+			}
+		}
+		const name = (u.name ?? "").trim()
+		if (!name) return { firstName: "", middleName: "", lastName: "" }
+		const parts = name.split(/\s+/)
+		if (parts.length === 1) return { firstName: parts[0] ?? "", middleName: "", lastName: "" }
+		return {
+			firstName: parts[0] ?? "",
+			middleName: parts.slice(1, -1).join(" "),
+			lastName: parts[parts.length - 1] ?? "",
+		}
+	}
+
 	const form = useForm<UpdateUserInput>({
 		resolver: zodResolver(updateUserSchema),
 		defaultValues: {
 			id: userId,
-			name: "",
+			firstName: "",
+			middleName: "",
+			lastName: "",
 			email: "",
 			role: "PRINCIPAL",
 		},
@@ -70,9 +91,12 @@ export function UserActions({ userId, open, onOpenChange, onSuccess }: UserActio
 	// Update form values when user data loads
 	useEffect(() => {
 		if (user) {
+			const { firstName, middleName, lastName } = namePartsFromUser(user)
 			form.reset({
 				id: userId,
-				name: user.name ?? "",
+				firstName,
+				middleName,
+				lastName,
 				email: user.email ?? "",
 				role: user.role as "PRINCIPAL" | "ADMIN" | "ENP" | "ENA",
 			})
@@ -84,7 +108,9 @@ export function UserActions({ userId, open, onOpenChange, onSuccess }: UserActio
 		try {
 			await updateUserMutation.mutateAsync({
 				id: userId,
-				name: data.name,
+				firstName: data.firstName,
+				middleName: data.middleName,
+				lastName: data.lastName,
 				email: data.email,
 				role: data.role,
 			})
@@ -121,13 +147,32 @@ export function UserActions({ userId, open, onOpenChange, onSuccess }: UserActio
 				</DialogHeader>
 				<form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
 					<div className="grid grid-cols-4 items-center gap-4">
-						<Label htmlFor="name" className="text-right">
-							Name
+						<Label htmlFor="firstName" className="text-right">
+							First name
 						</Label>
-						<Input id="name" {...form.register("name")} className="col-span-3" />
+						<Input id="firstName" {...form.register("firstName")} className="col-span-3" />
 					</div>
-					{form.formState.errors.name && (
-						<p className="col-span-4 text-sm text-red-500">{form.formState.errors.name.message}</p>
+					{form.formState.errors.firstName && (
+						<p className="col-span-4 text-sm text-red-500">
+							{form.formState.errors.firstName.message}
+						</p>
+					)}
+					<div className="grid grid-cols-4 items-center gap-4">
+						<Label htmlFor="middleName" className="text-right">
+							Middle name
+						</Label>
+						<Input id="middleName" {...form.register("middleName")} className="col-span-3" />
+					</div>
+					<div className="grid grid-cols-4 items-center gap-4">
+						<Label htmlFor="lastName" className="text-right">
+							Last name
+						</Label>
+						<Input id="lastName" {...form.register("lastName")} className="col-span-3" />
+					</div>
+					{form.formState.errors.lastName && (
+						<p className="col-span-4 text-sm text-red-500">
+							{form.formState.errors.lastName.message}
+						</p>
 					)}
 
 					<div className="grid grid-cols-4 items-center gap-4">

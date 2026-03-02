@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm"
 import { z } from "zod/v4"
 
 import { formatDateForStamp } from "@/core/lib/format-date-for-stamp"
+import { getFullName } from "@/core/lib/utils"
 import { logError } from "@/core/middleware/logger"
 
 import { users } from "@/services/drizzle/schema/auth"
@@ -71,13 +72,11 @@ export const profileRouter = createTRPCRouter({
 	getSummary: protectedProcedure.query(async ({ ctx }) => {
 		const user = await ctx.db.query.users.findFirst({
 			where: eq(users.id, ctx.session.user.id),
-			columns: {
-				name: true,
-			},
+			columns: { firstName: true, middleName: true, lastName: true },
 		})
 
 		return {
-			organization: user?.name ?? "",
+			organization: getFullName(user) ?? "",
 		}
 	}),
 
@@ -85,14 +84,16 @@ export const profileRouter = createTRPCRouter({
 		const user = await ctx.db.query.users.findFirst({
 			where: eq(users.id, ctx.session.user.id),
 			columns: {
-				name: true,
+				firstName: true,
+				middleName: true,
+				lastName: true,
 				email: true,
 				phoneNumber: true,
 			},
 		})
 
 		return {
-			name: user?.name ?? "",
+			name: getFullName(user) ?? "",
 			email: user?.email ?? "",
 			phoneNumber: user?.phoneNumber ?? "",
 		}
@@ -101,10 +102,18 @@ export const profileRouter = createTRPCRouter({
 	updatePersonalInformation: protectedProcedure
 		.input(personalInformationSchema)
 		.mutation(async ({ ctx, input }) => {
-			const user = await ctx.db
+			// Split single name field into first, middle, last for storage
+			const parts = (input.name ?? "").trim().split(/\s+/)
+			const firstName = parts[0] ?? ""
+			const lastName = parts.length > 1 ? (parts[parts.length - 1] ?? "") : ""
+			const middleName = parts.length > 2 ? parts.slice(1, -1).join(" ") : ""
+
+			const [user] = await ctx.db
 				.update(users)
 				.set({
-					name: input.name,
+					firstName: firstName || null,
+					middleName: middleName || null,
+					lastName: lastName || null,
 					email: input.email,
 					phoneNumber:
 						input.phoneNumber && input.phoneNumber.trim() !== "" ? input.phoneNumber : null,
@@ -120,7 +129,7 @@ export const profileRouter = createTRPCRouter({
 			where: eq(enpProfiles.userId, ctx.session.user.id),
 			with: {
 				user: {
-					columns: { name: true },
+					columns: { firstName: true, middleName: true, lastName: true },
 				},
 			},
 		})
@@ -130,15 +139,16 @@ export const profileRouter = createTRPCRouter({
 		}
 
 		const { user, ...enpProfile } = result
+		const displayName = getFullName(user) ?? ""
 
 		return {
 			// Display name from user (canonical source)
-			enpName: user?.name ?? "",
+			enpName: displayName,
 			rollNo: enpProfile.rollNo ?? "",
 			rollNoDate: enpProfile.rollNoDate ?? "",
 
 			// Credentials (atty name from user - canonical source)
-			attyName: user?.name ?? "",
+			attyName: displayName,
 			commissionNo: enpProfile.commissionNo ?? "",
 			commissionNoValidUntil: enpProfile.commissionNoValidUntil ?? "",
 			ptrNo: enpProfile.ptrNo ?? "",

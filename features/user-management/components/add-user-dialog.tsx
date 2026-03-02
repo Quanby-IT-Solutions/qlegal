@@ -55,7 +55,9 @@ export function AddUserDialog({ open, onOpenChange }: AddUserDialogProps) {
 	const form = useForm<CreateUserInput>({
 		resolver: zodResolver(createUserSchema),
 		defaultValues: {
-			name: "",
+			firstName: "",
+			middleName: "",
+			lastName: "",
 			email: "",
 			role: "PRINCIPAL",
 		},
@@ -81,18 +83,47 @@ export function AddUserDialog({ open, onOpenChange }: AddUserDialogProps) {
 				</DialogHeader>
 				<form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
 					<div className="grid grid-cols-4 items-center gap-4">
-						<Label htmlFor="name" className="text-right">
-							Name *
+						<Label htmlFor="firstName" className="text-right">
+							First name *
 						</Label>
 						<Input
-							id="name"
-							{...form.register("name")}
+							id="firstName"
+							{...form.register("firstName")}
 							className="col-span-3"
-							placeholder="Enter full name"
+							placeholder="Enter first name"
 						/>
 					</div>
-					{form.formState.errors.name && (
-						<p className="col-span-4 text-sm text-red-500">{form.formState.errors.name.message}</p>
+					{form.formState.errors.firstName && (
+						<p className="col-span-4 text-sm text-red-500">
+							{form.formState.errors.firstName.message}
+						</p>
+					)}
+					<div className="grid grid-cols-4 items-center gap-4">
+						<Label htmlFor="middleName" className="text-right">
+							Middle name
+						</Label>
+						<Input
+							id="middleName"
+							{...form.register("middleName")}
+							className="col-span-3"
+							placeholder="Enter middle name (optional)"
+						/>
+					</div>
+					<div className="grid grid-cols-4 items-center gap-4">
+						<Label htmlFor="lastName" className="text-right">
+							Last name *
+						</Label>
+						<Input
+							id="lastName"
+							{...form.register("lastName")}
+							className="col-span-3"
+							placeholder="Enter last name"
+						/>
+					</div>
+					{form.formState.errors.lastName && (
+						<p className="col-span-4 text-sm text-red-500">
+							{form.formState.errors.lastName.message}
+						</p>
 					)}
 
 					<div className="grid grid-cols-4 items-center gap-4">

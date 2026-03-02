@@ -37,7 +37,9 @@ export function RegisterForm({ callbackUrl }: RegisterFormProps) {
 	const form = useForm({
 		resolver: zodResolver(registerSchema),
 		defaultValues: {
-			name: "",
+			firstName: "",
+			middleName: "",
+			lastName: "",
 			email: "",
 			password: "",
 			confirmPassword: "",
@@ -62,12 +64,38 @@ export function RegisterForm({ callbackUrl }: RegisterFormProps) {
 			<form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
 				<FormField
 					control={form.control}
-					name="name"
+					name="firstName"
 					render={({ field }) => (
 						<FormItem>
-							<FormLabel>Name</FormLabel>
+							<FormLabel>First name</FormLabel>
 							<FormControl>
-								<Input placeholder="Enter your name" {...field} />
+								<Input placeholder="Enter your first name" {...field} />
+							</FormControl>
+							<FormMessage />
+						</FormItem>
+					)}
+				/>
+				<FormField
+					control={form.control}
+					name="middleName"
+					render={({ field }) => (
+						<FormItem>
+							<FormLabel>Middle name</FormLabel>
+							<FormControl>
+								<Input placeholder="Enter your middle name (optional)" {...field} />
+							</FormControl>
+							<FormMessage />
+						</FormItem>
+					)}
+				/>
+				<FormField
+					control={form.control}
+					name="lastName"
+					render={({ field }) => (
+						<FormItem>
+							<FormLabel>Last name</FormLabel>
+							<FormControl>
+								<Input placeholder="Enter your last name" {...field} />
 							</FormControl>
 							<FormMessage />
 						</FormItem>

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache"
 import { eq } from "drizzle-orm"
 
+import { getFullName } from "@/core/lib/utils"
 import { db } from "@/services/drizzle/db"
 import { users } from "@/services/drizzle/schema/auth"
 import { kycSessions } from "@/services/drizzle/schema/kyc-sessions"
@@ -775,7 +776,9 @@ export async function getUserKycInfo() {
 	const user = await db.query.users.findFirst({
 		where: eq(users.id, session.user.id),
 		columns: {
-			name: true,
+			firstName: true,
+			middleName: true,
+			lastName: true,
 			email: true,
 			kycStatus: true,
 		},
@@ -796,7 +799,7 @@ export async function getUserKycInfo() {
 	return {
 		success: true,
 		data: {
-			name: user.name,
+			name: getFullName(user),
 			email: user.email,
 			transactionId: kycSession?.transactionId ?? null,
 			kycStatus: user.kycStatus,

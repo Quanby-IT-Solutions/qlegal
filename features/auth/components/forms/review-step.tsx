@@ -55,7 +55,11 @@ export function ReviewStep({ form, error, data }: ReviewStepProps) {
 				<div className="bg-muted/40 rounded-lg border p-4">
 					<h4 className="text-sm font-semibold">Account</h4>
 					<div className="text-muted-foreground mt-2 text-sm">
-						<p className="text-foreground font-medium">{form.getValues("name") || "—"}</p>
+						<p className="text-foreground font-medium">
+							{[form.getValues("firstName"), form.getValues("middleName"), form.getValues("lastName")]
+								.filter(Boolean)
+								.join(" ") || "—"}
+						</p>
 						<p>{form.getValues("email") || "—"}</p>
 					</div>
 				</div>

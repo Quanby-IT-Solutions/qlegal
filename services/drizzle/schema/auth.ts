@@ -10,7 +10,9 @@ export const users = createTable("user", t => ({
 		.varchar({ length: 255 })
 		.primaryKey()
 		.$defaultFn(() => randomId()),
-	name: t.varchar({ length: 255 }),
+	firstName: t.varchar({ length: 255 }),
+	middleName: t.varchar({ length: 255 }),
+	lastName: t.varchar({ length: 255 }),
 	email: t.varchar({ length: 255 }).unique(),
 	emailVerified: t.timestamp({ mode: "date", withTimezone: true }),
 	image: t.text(),
