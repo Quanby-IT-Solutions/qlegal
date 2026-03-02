@@ -33,6 +33,8 @@ import { LocationErrorDialog } from "@/features/sessions/components/location-err
 import { VpnDetectedDialog } from "@/features/sessions/components/vpn-detected-dialog"
 import type { LocationVerificationResult } from "@/features/sessions/lib/location-verification"
 
+import { env } from "@/env"
+
 type LocationStatus =
 	| "checking"
 	| "verified"
@@ -57,7 +59,6 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 	const [isMicOn, setIsMicOn] = useState(true)
 	const [isTestingDevices, setIsTestingDevices] = useState(false)
 
-
 	// Liveness verification state
 	const [isCheckingLiveness, setIsCheckingLiveness] = useState(true)
 
@@ -74,8 +75,11 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 	const [expectedIp, setExpectedIp] = useState<string | null>(null)
 	const [isClientValidationPending, setIsClientValidationPending] = useState(false)
 	const [hasAttemptedVerification, setHasAttemptedVerification] = useState(false)
+	const [errorShowDelay, setErrorShowDelay] = useState(false)
+	const [isRetryingLocation, setIsRetryingLocation] = useState(false)
 	const quickVpnCheckedForMeetingId = useRef<string | null>(null)
 	const webrtcLeak = useWebrtcLeakDetection(expectedIp)
+	const isLocationVerificationDebug = env.NEXT_PUBLIC_LOCATION_VERIFICATION_DEBUG === "true"
 
 	// Geolocation options - high accuracy for better results
 	const geolocationOptions = useMemo(
@@ -88,16 +92,19 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 	)
 
 	const isQuickVpnCheckPassed =
-		vpnCheckResult !== null &&
-		!(vpnCheckResult.checked === true && vpnCheckResult.isVpn === true)
-	const { position, error: geoError, isLoading: isGeoLoading } = useGeolocation(
-		geolocationOptions,
-		isQuickVpnCheckPassed
-	)
+		vpnCheckResult !== null && !(vpnCheckResult.checked === true && vpnCheckResult.isVpn === true)
+	const {
+		position,
+		error: geoError,
+		isLoading: isGeoLoading,
+	} = useGeolocation(geolocationOptions, isQuickVpnCheckPassed)
 
 	// Handle geolocation errors
 	useEffect(() => {
 		if (geoError && !hasAttemptedVerification) {
+			if (isLocationVerificationDebug) {
+				console.log("[Location Verification Debug] Geolocation error", geoError)
+			}
 			// Map geolocation error codes to our status
 			if (geoError.code === 1) {
 				// PERMISSION_DENIED
@@ -110,10 +117,32 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 				setLocationStatus("timeout")
 			} else {
 				setLocationStatus("error")
+				setVerificationResult({
+					allowed: false,
+					reason: "geolocation_error",
+					debugInfo: {
+						errorCode: `GEOLOCATION_ERROR_${geoError.code}`,
+						errorMessage: geoError.message || "Unknown geolocation error",
+						userMessage:
+							"Your device reported a geolocation error. Please check browser compatibility and location settings.",
+						suggestedAction:
+							"Try a supported browser, enable location services, and retry verification.",
+						timestamp: new Date().toISOString(),
+					},
+				})
 			}
 			setHasAttemptedVerification(true)
 		}
-	}, [geoError, hasAttemptedVerification])
+	}, [geoError, hasAttemptedVerification, isLocationVerificationDebug])
+
+	useEffect(() => {
+		if (locationStatus === "error") {
+			const timer = setTimeout(() => setErrorShowDelay(true), 3000)
+			return () => clearTimeout(timer)
+		}
+
+		setErrorShowDelay(false)
+	}, [locationStatus])
 
 	// Verify location when position is available
 	useEffect(() => {
@@ -121,22 +150,37 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 			setHasAttemptedVerification(true)
 
 			const accuracy = position.coords.accuracy
-			if (accuracy > 100) {
+			if (accuracy > 200) {
 				setLocationStatus("error")
 				setVerificationResult({
 					allowed: false,
-					reason: "location_unknown",
-					details: {
-						formattedAddress: "Location accuracy too low. Please ensure GPS is enabled.",
+					reason: "gps_accuracy_low",
+					debugInfo: {
+						errorCode: "GPS_ACCURACY_LOW",
+						errorMessage: `GPS accuracy is ${accuracy.toFixed(1)}m, above the 200m threshold`,
+						userMessage: "Your GPS signal is too weak to verify location accurately.",
+						suggestedAction: "Move outdoors, wait for stronger signal, then retry.",
+						timestamp: new Date().toISOString(),
+						accuracyMeters: accuracy,
 					},
 				})
 				return
+			}
+
+			if (isLocationVerificationDebug) {
+				console.log("[Location Verification Debug] Submitting verification", {
+					latitude: position.coords.latitude,
+					longitude: position.coords.longitude,
+					accuracyMeters: accuracy,
+					meetingId: id,
+				})
 			}
 
 			verifyLocation.mutate(
 				{
 					latitude: position.coords.latitude,
 					longitude: position.coords.longitude,
+					accuracyMeters: accuracy,
 					meetingId: id,
 				},
 				{
@@ -149,11 +193,11 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 							} | null
 							clientIp?: string
 						}
-						) => {
-							setExpectedIp(result.clientIp ?? null)
+					) => {
+						setExpectedIp(result.clientIp ?? null)
 
-							if (result.reason === "vpn_detected") {
-								setLocationStatus("vpn_detected")
+						if (result.reason === "vpn_detected") {
+							setLocationStatus("vpn_detected")
 							// Extract VPN info from the result if available
 							if (result.vpnDetails) {
 								setVpnInfo({
@@ -174,13 +218,27 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 						}
 						setVerificationResult(result)
 					},
-					onError: () => {
+					onError: error => {
+						if (isLocationVerificationDebug) {
+							console.log("[Location Verification Debug] Mutation error", error)
+						}
 						setLocationStatus("error")
+						setVerificationResult({
+							allowed: false,
+							reason: "server_error",
+							debugInfo: {
+								errorCode: "LOCATION_VERIFICATION_MUTATION_ERROR",
+								errorMessage: error.message,
+								userMessage: "We could not complete location verification due to a server error.",
+								suggestedAction: "Please retry. If this keeps happening, contact support.",
+								timestamp: new Date().toISOString(),
+							},
+						})
 					},
 				}
 			)
 		}
-	}, [position, hasAttemptedVerification, meeting, id, verifyLocation])
+	}, [position, hasAttemptedVerification, meeting, id, verifyLocation, isLocationVerificationDebug])
 
 	useEffect(() => {
 		if (!isClientValidationPending || webrtcLeak.isLoading) {
@@ -209,16 +267,21 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 
 	// Retry location verification
 	const retryVerification = useCallback(() => {
+		if (isRetryingLocation) {
+			return
+		}
+		setIsRetryingLocation(true)
 		setHasAttemptedVerification(false)
 		setLocationStatus("checking")
 		setVerificationResult(null)
 		setVpnInfo(null)
 		setExpectedIp(null)
 		setIsClientValidationPending(false)
+		setErrorShowDelay(false)
 		// Force re-request geolocation by reloading the page
 		// This is necessary because the geolocation hook caches the result
 		window.location.reload()
-	}, [])
+	}, [isRetryingLocation])
 
 	// Check liveness verification and redirect if needed - runs IMMEDIATELY
 	useEffect(() => {
@@ -263,6 +326,9 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 		if (!vpnCheckResult) {
 			return
 		}
+		if (isLocationVerificationDebug) {
+			console.log("[Location Verification Debug] Quick VPN result", vpnCheckResult)
+		}
 
 		if (vpnCheckResult.checked && vpnCheckResult.isVpn) {
 			setLocationStatus("vpn_detected")
@@ -274,7 +340,7 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 			setHasAttemptedVerification(true)
 			return
 		}
-	}, [vpnCheckResult])
+	}, [vpnCheckResult, isLocationVerificationDebug])
 
 	// Update video element when stream changes
 	useEffect(() => {
@@ -488,13 +554,11 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 			<div className="from-background via-muted/30 to-background flex h-screen items-center justify-center bg-linear-to-br">
 				<Card className="w-full max-w-md shadow-xl">
 					<CardContent className="p-8 text-center">
-						<div className="mx-auto mb-4 flex size-16 items-center justify-center rounded-full bg-muted">
-							<Clock className="size-8 text-muted-foreground" />
+						<div className="bg-muted mx-auto mb-4 flex size-16 items-center justify-center rounded-full">
+							<Clock className="text-muted-foreground size-8" />
 						</div>
 						<h2 className="mb-2 text-2xl font-semibold">{meeting.title}</h2>
-						<p className="text-muted-foreground mb-6">
-							This meeting has ended.
-						</p>
+						<p className="text-muted-foreground mb-6">This meeting has ended.</p>
 						<Button onClick={() => router.push("/sessions")}>Back to Sessions</Button>
 					</CardContent>
 				</Card>
@@ -510,7 +574,7 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 			<VpnDetectedDialog open={locationStatus === "vpn_detected"} ipInfo={vpnInfo} />
 
 			{/* Location Error Dialog */}
-			{(locationStatus === "error" ||
+			{((errorShowDelay && locationStatus === "error") ||
 				locationStatus === "permission_denied" ||
 				locationStatus === "unavailable" ||
 				locationStatus === "timeout") && (
@@ -523,15 +587,17 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 					}
 					userRole={userRole}
 					details={verificationResult?.details}
+					debugInfo={verificationResult?.debugInfo}
 					onRetry={retryVerification}
+					isRetrying={isRetryingLocation}
 				/>
 			)}
 
-			<div className="flex h-screen flex-col bg-background">
+			<div className="bg-background flex h-screen flex-col">
 				{/* Header — title only top left */}
-				<header className="border-b border-border bg-background px-4 py-3 sm:px-6">
+				<header className="border-border bg-background border-b px-4 py-3 sm:px-6">
 					<div className="mx-auto max-w-6xl">
-						<h1 className="truncate text-lg font-semibold text-foreground sm:text-xl">
+						<h1 className="text-foreground truncate text-lg font-semibold sm:text-xl">
 							{meeting.title}
 						</h1>
 					</div>
@@ -543,7 +609,7 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 						{/* Left column: ~2/3 — video card, then button row, then two info cards */}
 						<div className="flex min-w-0 flex-1 flex-col gap-4 lg:min-w-0">
 							{/* Video preview card — large rounded card */}
-							<Card className="overflow-hidden rounded-lg border border-border bg-card">
+							<Card className="border-border bg-card overflow-hidden rounded-lg border">
 								<CardContent className="relative flex aspect-video min-h-[240px] w-full p-0 sm:min-h-[320px]">
 									{isCameraOn && stream ? (
 										<video
@@ -554,15 +620,15 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 											className="size-full scale-x-[-1] object-cover"
 										/>
 									) : (
-										<div className="flex size-full flex-col items-center justify-center gap-2 bg-muted/30 p-4">
+										<div className="bg-muted/30 flex size-full flex-col items-center justify-center gap-2 p-4">
 											{isTestingDevices ? (
 												<>
-													<div className="size-10 animate-spin rounded-full border-2 border-muted-foreground/20 border-t-muted-foreground/60" />
+													<div className="border-muted-foreground/20 border-t-muted-foreground/60 size-10 animate-spin rounded-full border-2" />
 													<span className="text-muted-foreground text-sm">Starting camera…</span>
 												</>
 											) : (
 												<>
-													<Avatar className="size-20 border border-border bg-muted sm:size-24">
+													<Avatar className="border-border bg-muted size-20 border sm:size-24">
 														<AvatarImage src={session?.user?.image ?? undefined} />
 														<AvatarFallback className="text-muted-foreground text-2xl font-medium">
 															{session?.user?.name?.charAt(0).toUpperCase() ?? "?"}
@@ -644,7 +710,7 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 
 							{/* Two cards side by side: Location, Status */}
 							<div className="grid gap-4 sm:grid-cols-2">
-								<Card className="rounded-lg border border-border">
+								<Card className="border-border rounded-lg border">
 									<CardHeader className="pb-2">
 										<CardTitle className="flex items-center gap-2 text-sm font-medium">
 											<MapPin className="text-muted-foreground size-4" />
@@ -666,7 +732,7 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 										</div>
 									</CardContent>
 								</Card>
-								<Card className="rounded-lg border border-border">
+								<Card className="border-border rounded-lg border">
 									<CardHeader className="pb-2">
 										<CardTitle className="flex items-center gap-2 text-sm font-medium">
 											<Clock className="text-muted-foreground size-4" />
@@ -685,7 +751,7 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 
 						{/* Right column: Participants card only */}
 						<aside className="flex w-full flex-col lg:w-80 lg:shrink-0">
-							<Card className="flex min-h-0 flex-1 flex-col rounded-lg border border-border">
+							<Card className="border-border flex min-h-0 flex-1 flex-col rounded-lg border">
 								<CardHeader className="pb-3">
 									<CardTitle className="flex items-center gap-2 text-base font-medium">
 										<Users className="text-muted-foreground size-4" />
@@ -695,16 +761,9 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 								<CardContent className="flex min-h-0 flex-1 flex-col gap-0 p-0 pt-0">
 									<div className="min-h-0 flex-1 overflow-y-auto">
 										{meeting.participants.map((participant, i) => (
-											<div
-												key={participant.id}
-												className={
-													i > 0
-														? "border-t border-border"
-														: ""
-												}
-											>
+											<div key={participant.id} className={i > 0 ? "border-border border-t" : ""}>
 												<div className="flex items-center gap-3 px-4 py-3">
-													<Avatar className="size-10 shrink-0 border border-border">
+													<Avatar className="border-border size-10 shrink-0 border">
 														<AvatarImage src={participant.user.image ?? undefined} />
 														<AvatarFallback className="bg-muted text-muted-foreground text-sm font-medium">
 															{participant.user.name?.charAt(0).toUpperCase() ?? "?"}

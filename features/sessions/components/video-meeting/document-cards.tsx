@@ -25,10 +25,9 @@ import {
 import { cn } from "@/core/lib/utils"
 
 import {
-	MEETING_LOCK_BADGE_LABEL,
-	MEETING_LOCK_HELPER_TEXT,
 	getDocumentReorderTitle,
 	getMeetingLockToggleLabel,
+	MEETING_LOCK_BADGE_LABEL,
 } from "@/features/sessions/lib/meeting-lock-contract"
 
 import type { PreGeneratedLinkEntry } from "../../lib/utils"
@@ -185,9 +184,9 @@ export const DocumentCards = React.memo(
 		const isPrincipal = meetingDetails?.createdBy?.id === session?.user?.id
 		const isLocked = meetingDetails?.isDocumentOrderLocked ?? false
 		const lockToggleTitle: string = !isPrincipal
-			? "Only the meeting creator can lock or unlock document changes"
+			? "Only the meeting creator can lock or unlock document uploads"
 			: getMeetingLockToggleLabel(Boolean(isLocked))
-		const reorderTitle: string = getDocumentReorderTitle(Boolean(isLocked))
+		const reorderTitle: string = getDocumentReorderTitle()
 
 		const [draggedDocumentId, setDraggedDocumentId] = useState<string | null>(null)
 		const [dragOverDocumentId, setDragOverDocumentId] = useState<string | null>(null)
@@ -209,35 +208,24 @@ export const DocumentCards = React.memo(
 
 		// ─── Drag-and-drop handlers ────────────────────────────────
 
-		const handleDragStart = useCallback(
-			(e: React.DragEvent, documentId: string) => {
-				if (isLocked) {
-					e.preventDefault()
-					return
-				}
-				const target = e.target as HTMLElement
-				if (target.closest("button") || target.closest("a") || target.closest('[role="button"]')) {
-					e.preventDefault()
-					return
-				}
-				setDraggedDocumentId(documentId)
-				e.dataTransfer.effectAllowed = "move"
-				e.dataTransfer.setData("text/plain", documentId)
-			},
-			[isLocked]
-		)
+		const handleDragStart = useCallback((e: React.DragEvent, documentId: string) => {
+			const target = e.target as HTMLElement
+			if (target.closest("button") || target.closest("a") || target.closest('[role="button"]')) {
+				e.preventDefault()
+				return
+			}
+			setDraggedDocumentId(documentId)
+			e.dataTransfer.effectAllowed = "move"
+			e.dataTransfer.setData("text/plain", documentId)
+		}, [])
 
 		const handleDragEnter = useCallback(
 			(e: React.DragEvent, targetDocumentId: string) => {
-				if (isLocked) {
-					e.preventDefault()
-					return
-				}
 				e.preventDefault()
 				if (!draggedDocumentId || targetDocumentId === draggedDocumentId) return
 				setDragOverDocumentId(targetDocumentId)
 			},
-			[draggedDocumentId, isLocked]
+			[draggedDocumentId]
 		)
 
 		const handleDragLeave = useCallback((e: React.DragEvent) => {
@@ -250,27 +238,17 @@ export const DocumentCards = React.memo(
 
 		const handleDragOver = useCallback(
 			(e: React.DragEvent, targetDocumentId: string) => {
-				if (isLocked) {
-					e.preventDefault()
-					return
-				}
 				e.preventDefault()
 				e.dataTransfer.dropEffect = "move"
 				if (draggedDocumentId && targetDocumentId !== draggedDocumentId) {
 					setDragOverDocumentId(targetDocumentId)
 				}
 			},
-			[draggedDocumentId, isLocked]
+			[draggedDocumentId]
 		)
 
 		const handleDrop = useCallback(
 			(e: React.DragEvent, targetDocumentId: string) => {
-				if (isLocked) {
-					e.preventDefault()
-					setDraggedDocumentId(null)
-					setDragOverDocumentId(null)
-					return
-				}
 				e.preventDefault()
 				setDragOverDocumentId(null)
 
@@ -297,7 +275,7 @@ export const DocumentCards = React.memo(
 				onUpdateDocumentOrder(newOrder.map(doc => doc.id))
 				setDraggedDocumentId(null)
 			},
-			[documents, draggedDocumentId, isLocked, onUpdateDocumentOrder]
+			[documents, draggedDocumentId, onUpdateDocumentOrder]
 		)
 
 		const handleDragEnd = useCallback(() => {
@@ -323,10 +301,7 @@ export const DocumentCards = React.memo(
 				documents.reduce((sum, doc) => {
 					const fees = doc.fees
 					const hasValidFees =
-						fees !== null &&
-						fees !== undefined &&
-						typeof fees === "number" &&
-						!Number.isNaN(fees)
+						fees !== null && fees !== undefined && typeof fees === "number" && !Number.isNaN(fees)
 					return hasValidFees ? sum + fees : sum
 				}, 0),
 			[documents]
@@ -472,19 +447,6 @@ export const DocumentCards = React.memo(
 						</div>
 					</div>
 
-					{/* ── Lock-order banner ───────────────────────────────── */}
-					{isLocked && (
-						<div className="shrink-0 border-b border-amber-200 bg-amber-50 px-3 py-2 dark:border-amber-800 dark:bg-amber-900/10">
-							<p
-								data-testid="lock-helper-text"
-								className="flex items-center gap-1.5 text-[11px] text-amber-800 dark:text-amber-300"
-							>
-								<Lock className="size-3 shrink-0" />
-								{MEETING_LOCK_HELPER_TEXT}
-							</p>
-						</div>
-					)}
-
 					{/* ── Scrollable document list ────────────────────────── */}
 					<div className="flex-1 space-y-3 overflow-y-auto p-3">
 						{documents.map((doc, index) => {
@@ -564,40 +526,24 @@ export const DocumentCards = React.memo(
 								<Card
 									key={doc.id}
 									style={{
-										opacity: isDragged && !isLocked ? 0.5 : 1,
-										transform:
-											isDragged && !isLocked
-												? "scale(0.97)"
-												: isDragOver && !isLocked
-													? "scale(1.02)"
-													: "scale(1)",
-										transition:
-											isDragged && !isLocked
-												? "opacity 0.2s ease-out, transform 0.2s ease-out"
-												: "all 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
-										zIndex: isDragged && !isLocked ? 50 : isDragOver && !isLocked ? 10 : 1,
+										opacity: isDragged ? 0.5 : 1,
+										transform: isDragged ? "scale(0.97)" : isDragOver ? "scale(1.02)" : "scale(1)",
+										transition: isDragged
+											? "opacity 0.2s ease-out, transform 0.2s ease-out"
+											: "all 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
+										zIndex: isDragged ? 50 : isDragOver ? 10 : 1,
 									}}
 									className={cn(
 										"relative border-2 shadow-sm transition-shadow",
 										isDragged
 											? "cursor-grabbing shadow-xl"
 											: "hover:border-primary/40 hover:shadow-md",
-										isDragOver &&
-											!isDragged &&
-											!isLocked &&
-											"border-primary bg-primary/5 shadow-lg",
-										isLocked && "border-muted/50"
+										isDragOver && !isDragged && "border-primary bg-primary/5 shadow-lg"
 									)}
-									onDragEnter={e => {
-										if (!isLocked) handleDragEnter(e, doc.id)
-									}}
+									onDragEnter={e => handleDragEnter(e, doc.id)}
 									onDragLeave={handleDragLeave}
-									onDragOver={e => {
-										if (!isLocked) handleDragOver(e, doc.id)
-									}}
-									onDrop={e => {
-										if (!isLocked) handleDrop(e, doc.id)
-									}}
+									onDragOver={e => handleDragOver(e, doc.id)}
+									onDrop={e => handleDrop(e, doc.id)}
 								>
 									{/* Signing status badge + overflow menu */}
 									{doc.docoChainProjectId && (
@@ -656,11 +602,9 @@ export const DocumentCards = React.memo(
 											<div
 												className={cn(
 													"mt-1 shrink-0 transition-colors",
-													isLocked
-														? "cursor-not-allowed opacity-30"
-														: "text-muted-foreground hover:text-primary cursor-move"
+													"text-muted-foreground hover:text-primary cursor-move"
 												)}
-												draggable={!isLocked}
+												draggable
 												onDragStart={e => handleDragStart(e, doc.id)}
 												onDragEnd={handleDragEnd}
 												title={reorderTitle}
@@ -675,15 +619,6 @@ export const DocumentCards = React.memo(
 
 											{/* Name + meta */}
 											<div className="min-w-0 flex-1">
-												{/* Lock order badge sits inline above the name when locked */}
-												{isLocked && (
-													<div className="mb-1 flex items-center gap-1">
-														<div className="flex size-3.5 items-center justify-center rounded-full bg-amber-600 text-[9px] font-bold text-white dark:bg-amber-500">
-															{index + 1}
-														</div>
-														<Lock className="size-2.5 text-amber-700 dark:text-amber-400" />
-													</div>
-												)}
 												<div className="flex items-center gap-2">
 													<p
 														className="truncate text-sm leading-tight font-semibold"
@@ -751,7 +686,10 @@ export const DocumentCards = React.memo(
 											}
 											participants={meetingDetails?.participants ?? []}
 											signerUserIds={docSignerUserIds}
-											signerRoles={(doc as { signerRoles?: Record<string, "principal" | "witness"> }).signerRoles}
+											signerRoles={
+												(doc as { signerRoles?: Record<string, "principal" | "witness"> })
+													.signerRoles
+											}
 											meetingId={meetingId}
 											onCreateProject={onCreateProject}
 											isCreatingProject={isCreatingProject}

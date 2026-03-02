@@ -28,6 +28,8 @@ services:
         EMAIL_PASS: ${EMAIL_PASS}
         EMAIL_PORT: ${EMAIL_PORT}
         EMAIL_USER: ${EMAIL_USER}
+        # VPN/Proxy Detection
+        PROXYCHECK_API_KEY: ${PROXYCHECK_API_KEY}
         # Maps
         GOOGLE_MAPS_API_KEY: ${GOOGLE_MAPS_API_KEY}
         # Payment (HitPay)
