@@ -150,14 +150,14 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 			setHasAttemptedVerification(true)
 
 			const accuracy = position.coords.accuracy
-			if (accuracy > 100) {
+			if (accuracy > 200) {
 				setLocationStatus("error")
 				setVerificationResult({
 					allowed: false,
 					reason: "gps_accuracy_low",
 					debugInfo: {
 						errorCode: "GPS_ACCURACY_LOW",
-						errorMessage: `GPS accuracy is ${accuracy.toFixed(1)}m, above the 100m threshold`,
+						errorMessage: `GPS accuracy is ${accuracy.toFixed(1)}m, above the 200m threshold`,
 						userMessage: "Your GPS signal is too weak to verify location accurately.",
 						suggestedAction: "Move outdoors, wait for stronger signal, then retry.",
 						timestamp: new Date().toISOString(),

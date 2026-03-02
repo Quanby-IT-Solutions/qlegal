@@ -487,16 +487,16 @@ export const locationVerificationRouter = createTRPCRouter({
 				let ipApiData: IpApiCheckResult | null = null
 
 				try {
-					if (accuracyMeters !== undefined && accuracyMeters > 100) {
+					if (accuracyMeters !== undefined && accuracyMeters > 200) {
 						console.warn(
-							`[Location Verification] GPS_ACCURACY_LOW: userId=${userId}, meetingId=${meetingId}, accuracy=${accuracyMeters}m, timestamp=${timestamp}`
+							`[Location Verification] ssGPS_ACCURACY_LOW: userId=${userId}, meetingId=${meetingId}, accuracy=${accuracyMeters}m, timestamp=${timestamp}`
 						)
 						return {
 							allowed: false,
 							reason: "gps_accuracy_low",
 							debugInfo: {
 								errorCode: "GPS_ACCURACY_LOW",
-								errorMessage: `GPS accuracy is ${accuracyMeters.toFixed(1)}m, above the 100m threshold`,
+								errorMessage: `GPS accuracy is ${accuracyMeters.toFixed(1)}m, above the 200m threshold`,
 								userMessage:
 									"Your GPS signal is currently too weak to verify location precisely.",
 								suggestedAction:
