@@ -42,6 +42,18 @@ export const unsuspendUserSchema = z.object({
 	id: z.string(),
 })
 
+export const provisionEnpDoconchainSubOrgSchema = z.object({
+	enpId: z.string().min(1),
+	name: z.string().min(1).optional(),
+	address: z.string().min(1).optional(),
+	subOrganizationTypeName: z.string().min(1).optional(),
+})
+
+export const transferEnpDoconchainCreditsSchema = z.object({
+	enpId: z.string().min(1),
+	credits: z.coerce.number().int().positive(),
+})
+
 // Type exports for frontend use
 export type CreateUserInput = z.infer<typeof createUserSchema>
 export type UpdateUserInput = z.infer<typeof updateUserSchema>
@@ -51,3 +63,5 @@ export type DeleteUserInput = z.infer<typeof deleteUserSchema>
 export type ApproveUserInput = z.infer<typeof approveUserSchema>
 export type SuspendUserInput = z.infer<typeof suspendUserSchema>
 export type UnsuspendUserInput = z.infer<typeof unsuspendUserSchema>
+export type ProvisionEnpDoconchainSubOrgInput = z.infer<typeof provisionEnpDoconchainSubOrgSchema>
+export type TransferEnpDoconchainCreditsInput = z.infer<typeof transferEnpDoconchainCreditsSchema>

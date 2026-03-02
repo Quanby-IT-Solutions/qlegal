@@ -4,6 +4,9 @@ import { z } from "zod/v4"
 
 import { users } from "@/services/drizzle/schema/auth"
 import { enpProfiles } from "@/services/drizzle/schema/enp-profiles"
+import { createDoconchainSubOrganization } from "@/services/doconchain/organization/create-sub-organization"
+import { transferDoconchainCreditsToSubOrg } from "@/services/doconchain/organization/transfer-credits"
+import { autoJoinMemberInDoconchainOrganization } from "@/services/doconchain/organization/auto-join-member"
 import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
 
 import {
@@ -11,7 +14,9 @@ import {
 	createUserSchema,
 	deleteUserSchema,
 	getUserByIdSchema,
+	provisionEnpDoconchainSubOrgSchema,
 	suspendUserSchema,
+	transferEnpDoconchainCreditsSchema,
 	unsuspendUserSchema,
 	updateUserSchema,
 	userListInputSchema,
@@ -147,6 +152,21 @@ export const userManagementRouter = createTRPCRouter({
 			throw new Error("User not found")
 		}
 
+		const enpProfile =
+			user.role === "ENP"
+				? await ctx.db.query.enpProfiles.findFirst({
+						where: eq(enpProfiles.userId, user.id),
+						columns: {
+							notaryAddress: true,
+							doconchainSubOrgId: true,
+							doconchainSubOrgName: true,
+							doconchainSubOrgAddress: true,
+							doconchainSubOrgCreatedAt: true,
+							isAvailable: true,
+						},
+					})
+				: null
+
 		return {
 			id: user.id,
 			name: user.name ?? "Unknown User",
@@ -159,6 +179,17 @@ export const userManagementRouter = createTRPCRouter({
 			lastActive: user.emailVerified?.toISOString() ?? new Date().toISOString(),
 			documentsCount: 0, // TODO: Calculate actual document count
 			avatar: user.image ?? null,
+			enpProfile:
+				user.role === "ENP" && enpProfile
+					? {
+							notaryAddress: enpProfile.notaryAddress,
+							isAvailable: enpProfile.isAvailable,
+							doconchainSubOrgId: enpProfile.doconchainSubOrgId,
+							doconchainSubOrgName: enpProfile.doconchainSubOrgName,
+							doconchainSubOrgAddress: enpProfile.doconchainSubOrgAddress,
+							doconchainSubOrgCreatedAt: enpProfile.doconchainSubOrgCreatedAt?.toISOString() ?? null,
+						}
+					: null,
 		}
 	}),
 
@@ -318,6 +349,130 @@ export const userManagementRouter = createTRPCRouter({
 			)
 
 			return { success: true, enpId: input.enpId, isAvailable: input.available }
+		}),
+
+	// Admin: Create (and optionally fund) a DocOnChain sub-organization for an ENP.
+	provisionEnpDoconchainSubOrganization: protectedProcedure
+		.input(provisionEnpDoconchainSubOrgSchema)
+		.mutation(async ({ ctx, input }) => {
+			if (ctx.session.user.role !== "ADMIN") {
+				throw new TRPCError({
+					code: "FORBIDDEN",
+					message: "Only admins can create ENP sub-organizations.",
+				})
+			}
+
+			const targetUser = await ctx.db.query.users.findFirst({
+				where: eq(users.id, input.enpId),
+				columns: { id: true, name: true, email: true, role: true },
+			})
+			if (!targetUser) {
+				throw new TRPCError({ code: "NOT_FOUND", message: "User not found" })
+			}
+			if (targetUser.role !== "ENP") {
+				throw new TRPCError({ code: "BAD_REQUEST", message: "Target user is not an ENP" })
+			}
+			if (!targetUser.email) {
+				throw new TRPCError({ code: "BAD_REQUEST", message: "ENP is missing an email address." })
+			}
+
+			const enpProfile = await ctx.db.query.enpProfiles.findFirst({
+				where: eq(enpProfiles.userId, targetUser.id),
+			})
+			if (!enpProfile) {
+				throw new TRPCError({ code: "NOT_FOUND", message: "ENP profile not found" })
+			}
+
+			if (enpProfile.doconchainSubOrgId) {
+				return {
+					created: false,
+					subOrgId: enpProfile.doconchainSubOrgId,
+					subOrgName: enpProfile.doconchainSubOrgName ?? null,
+				}
+			}
+
+			const subOrgName = (input.name ?? targetUser.name ?? "").trim() || `ENP ${targetUser.id}`
+			const subOrgAddress =
+				(input.address ?? enpProfile.notaryAddress ?? "").trim() || "Not provided"
+
+			let createdAtIso: string | null = null
+			const created = await createDoconchainSubOrganization({
+				name: subOrgName,
+				address: subOrgAddress,
+				subOrganizationTypeName: input.subOrganizationTypeName ?? "Department",
+			})
+			createdAtIso = created.raw.created_at ?? null
+
+			// Ensure the ENP is a member of their sub-org (so their token generation / actions can be scoped correctly).
+			await autoJoinMemberInDoconchainOrganization({
+				email: targetUser.email,
+				name: targetUser.name ?? undefined,
+				role: "Member",
+				organizationIdOverride: created.id,
+			})
+
+			await ctx.db
+				.update(enpProfiles)
+				.set({
+					doconchainSubOrgId: created.id,
+					doconchainSubOrgName: created.name,
+					doconchainSubOrgAddress: subOrgAddress,
+					doconchainSubOrgCreatedAt: createdAtIso ? new Date(createdAtIso) : new Date(),
+					updatedAt: new Date(),
+				})
+				.where(eq(enpProfiles.userId, targetUser.id))
+
+			return {
+				created: true,
+				subOrgId: created.id,
+				subOrgName: created.name,
+			}
+		}),
+
+	// Admin: Transfer credits from Quanby (parent org) to an ENP's sub-org.
+	transferCreditsToEnpSubOrganization: protectedProcedure
+		.input(transferEnpDoconchainCreditsSchema)
+		.mutation(async ({ ctx, input }) => {
+			if (ctx.session.user.role !== "ADMIN") {
+				throw new TRPCError({
+					code: "FORBIDDEN",
+					message: "Only admins can transfer ENP sub-organization credits.",
+				})
+			}
+
+			const targetUser = await ctx.db.query.users.findFirst({
+				where: eq(users.id, input.enpId),
+				columns: { id: true, role: true },
+			})
+			if (!targetUser) {
+				throw new TRPCError({ code: "NOT_FOUND", message: "User not found" })
+			}
+			if (targetUser.role !== "ENP") {
+				throw new TRPCError({ code: "BAD_REQUEST", message: "Target user is not an ENP" })
+			}
+
+			const enpProfile = await ctx.db.query.enpProfiles.findFirst({
+				where: eq(enpProfiles.userId, targetUser.id),
+				columns: { doconchainSubOrgId: true },
+			})
+			if (!enpProfile?.doconchainSubOrgId) {
+				throw new TRPCError({
+					code: "BAD_REQUEST",
+					message: "ENP does not have a DocOnChain sub-organization yet.",
+				})
+			}
+
+			const result = await transferDoconchainCreditsToSubOrg({
+				subOrgUuid: enpProfile.doconchainSubOrgId,
+				credits: input.credits,
+			})
+
+			return {
+				success: true,
+				subOrgId: enpProfile.doconchainSubOrgId,
+				transferredCredits: result.transferredCredits,
+				remainingCredits: result.remainingCredits ?? null,
+			}
 		}),
 
 	// Get current user's default signature
