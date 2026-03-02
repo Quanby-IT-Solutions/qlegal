@@ -1318,8 +1318,6 @@ export const meetingsRouter = createTRPCRouter({
 			if (!isHost && !isAccepted) {
 				throw new TRPCError({ code: "FORBIDDEN", message: "You don't have access to this meeting" })
 			}
-			assertMeetingUnlockedForDocumentMutations(meeting)
-
 			const doc = meeting.documents.find(d => d.id === documentId)
 			if (!doc) {
 				throw new TRPCError({ code: "NOT_FOUND", message: "Document not found in this meeting" })
@@ -1634,8 +1632,6 @@ export const meetingsRouter = createTRPCRouter({
 					message: "You don't have access to this meeting",
 				})
 			}
-			assertMeetingUnlockedForDocumentMutations(meeting)
-
 			// Update order for each document
 			await Promise.all(
 				input.documentIds.map((documentId, index) =>
@@ -1670,7 +1666,7 @@ export const meetingsRouter = createTRPCRouter({
 			if (meeting.createdById !== ctx.session.user.id) {
 				throw new TRPCError({
 					code: "FORBIDDEN",
-					message: "Only the meeting creator can lock/unlock document order",
+					message: "Only the meeting creator can lock/unlock document uploads",
 				})
 			}
 
