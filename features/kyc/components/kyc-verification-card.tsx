@@ -24,6 +24,8 @@ interface KycVerificationCardProps {
 		transactionId: string | null
 		kycStatus: string | null
 		kycLinkCreatedAt?: Date | null
+		hasHostedLink?: boolean
+		sessionType?: "hosted" | "direct" | null
 	}
 	minimal?: boolean
 	redirectUrlOnSkip?: string
@@ -332,46 +334,82 @@ export function KycVerificationCard({
 									We&apos;re reviewing your identity documents. This usually takes a few minutes.
 								</p>
 								<p className="mt-2 text-xs text-blue-600 dark:text-blue-400">
-									You&apos;ll be automatically redirected when your verification is complete. You
-									can resume the verification or log out below.
+									You&apos;ll be automatically redirected when your verification is complete.
 								</p>
 							</div>
 						</div>
 					</div>
-					<div className="grid gap-3">
-						<Button
-							onClick={handleResumeVerification}
-							disabled={isPending}
-							variant="default"
-							className="w-full"
-							size="lg"
-						>
-							{isPending ? (
-								<>
-									<Loader2 className="mr-2 h-4 w-4 animate-spin" />
-									Loading...
-								</>
-							) : (
-								<>
-									<PlayCircle className="mr-2 h-5 w-5" />
-									Resume Verification
-								</>
-							)}
-						</Button>
-						<DirectKycDialog disabled={isPending} variant="secondary" />
 
-						{/* Subtle backup option for expired links */}
-						<div className="flex justify-center border-t pt-3">
-							<button
-								onClick={handleCreateLink}
+					{/* Hosted workflow (mobile link) PENDING: allow resuming link */}
+					{userInfo.hasHostedLink ? (
+						<div className="grid gap-3">
+							<Button
+								onClick={handleResumeVerification}
 								disabled={isPending}
-								className="text-muted-foreground hover:text-foreground text-xs underline-offset-4 transition-colors hover:underline disabled:pointer-events-none disabled:opacity-50"
+								variant="default"
+								className="w-full"
+								size="lg"
+							>
+								{isPending ? (
+									<>
+										<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+										Loading...
+									</>
+								) : (
+									<>
+										<PlayCircle className="mr-2 h-5 w-5" />
+										Resume Verification
+									</>
+								)}
+							</Button>
+							<DirectKycDialog disabled={isPending} variant="secondary" />
+
+							{/* Subtle backup option for expired links */}
+							<div className="flex justify-center border-t pt-3">
+								<button
+									onClick={handleCreateLink}
+									disabled={isPending}
+									className="text-muted-foreground hover:text-foreground text-xs underline-offset-4 transition-colors hover:underline disabled:pointer-events-none disabled:opacity-50"
+									type="button"
+								>
+									Link expired? Create new verification link
+								</button>
+							</div>
+						</div>
+					) : (
+						// Direct in-browser KYC PENDING: no link to resume, offer clean retry
+						<div className="space-y-3">
+							<p className="text-xs text-muted-foreground">
+								If you prefer, you can start a new verification with fresh photos. Your previous
+								attempt will be cleared.
+							</p>
+							<Button
+								onClick={async () => {
+									if (
+										confirm(
+											"Start a new verification? Your previous attempt will be cleared and you can submit new photos."
+										)
+									) {
+										const result = await resetUserKycStatus()
+										if (result.success) {
+											toast.success("Ready to start a new verification")
+											window.location.reload()
+										} else {
+											toast.error(result.error ?? "Failed to reset. Please contact support.")
+										}
+									}
+								}}
+								disabled={isPending}
+								variant="default"
+								size="lg"
+								className="w-full"
 								type="button"
 							>
-								Link expired? Create new verification link
-							</button>
+								<ShieldCheck className="mr-2 h-5 w-5" />
+								Try Again with New Documents
+							</Button>
 						</div>
-					</div>
+					)}
 				</div>
 			)}
 
