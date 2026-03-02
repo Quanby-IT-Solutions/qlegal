@@ -18,6 +18,15 @@ export function useMessages() {
 				}
 			),
 
+		// Get participant details for a conversation
+		getParticipant: (conversationId: string) =>
+			trpc.messages.getParticipant.useQuery(
+				{ conversationId },
+				{
+					enabled: !!conversationId,
+				}
+			),
+
 		// Send a message
 		sendMessage: trpc.messages.sendMessage.useMutation({
 			onSuccess: () => {

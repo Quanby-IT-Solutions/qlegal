@@ -42,7 +42,7 @@ Quanby Legal is your Electronic Notarial Facility (ENF) - a secure, SC-compliant
 
 **Document Review Process**: Clients may upload documents for you to review, or you can upload documents yourself. When reviewing client uploads, verify content accuracy, check for required notarial clauses, ensure completeness, add or correct the document type tag, set your notarization fee, then Approve, Request Changes, or Reject. When uploading your own documents, select the PDF file, add a document type tag, set the notarization fee, upload, and wait for client review and approval.
 
-**Document Locking**: Once all documents are reviewed (by either you or the client), each has a type tag and fee set, and the client has approved your uploaded documents, click "Lock All Documents." This prevents any further edits and finalizes the signing order. No new documents can be added after locking.
+**Document Locking**: Once all documents are reviewed (by either you or the client), each has a type tag and fee set, and the client has approved your uploaded documents, click "Lock All Documents." Quanby uses a full document-freeze lock contract: upload/add, reorder, signer edits, and project creation are blocked while locked, while signing progression is still allowed in the locked order. See [Meeting Document Lock Contract](lock-contract.md) for the authoritative rules.
 
 **Pre-Session Checklist**: Verify all documents are reviewed and locked, client has completed KYC, all witnesses are registered and KYC verified, and payment is confirmed. For all sessions, ensure your camera and microphone are working, you have good lighting, and your internet connection is stable (minimum 2 Mbps). For IEN sessions, prepare your physical space for in-person parties and have your tablet/device ready. For REN sessions, ensure recording is enabled if applicable and video call software is tested.
 
@@ -129,6 +129,16 @@ Quanby Legal is your Electronic Notarial Facility (ENF) - a secure, SC-compliant
 **Common Issues**: If Quick Match isn't working, check if you're opted-in, verify your availability calendar, ensure your ENP score isn't too low, and check your internet connection. For payment issues, verify your payment method is set up, check your earnings balance, confirm bank account details, and contact support if needed. Liveness check failures usually require better lighting, asking participants to face the camera directly, removing face coverings, and allowing retries. Document upload issues often stem from file size problems (use PDF), incomplete documents, missing document type tags, or unset fees. Can't affix notarial seal? Verify your digital signature is set up, check that all parties have signed, ensure documents aren't locked incorrectly, and contact support if persistent.
 
 **Support Channels**: Contact ENP Support for notary-specific issues, Technical Support for platform problems, Legal Resources for SC rules and compliance guidance, or the Community Forum to connect with other ENPs. Reach out for technical platform issues, payment or earnings problems, notarial book synchronization issues, SC integration issues, or digital signature problems. Contact the Supreme Court directly for questions about notarial rules, commission issues, compliance concerns, or e-notarization guidelines.
+
+---
+
+## 11. Release Checklist
+
+Before any release that changes meeting lock behavior, complete all items below:
+
+- Review and update [Meeting Document Lock Contract](lock-contract.md) if lock rules changed.
+- Review and update this manual (`docs/user-manual-enp.md`) whenever lock-related API or UI behavior changes.
+- Verify API lock guards and UI disabled states match the contract exactly.
 
 ---
 

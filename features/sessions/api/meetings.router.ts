@@ -22,6 +22,7 @@ import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
 import { createMeetingRoom, fetchRecordings, generateMeetingToken } from "@/services/video-sdk"
 
 import { populateNotarialRegistryOnMeetingEnd } from "@/features/notarial-book/server/populate-notarial-registry-on-meeting-end"
+import { assertMeetingUnlockedForDocumentMutations } from "./meeting-lock-guard"
 
 function isEnpRole(role: unknown): boolean {
 	if (typeof role !== "string") return false
@@ -776,6 +777,7 @@ export const meetingsRouter = createTRPCRouter({
 					message: "You don't have access to this meeting",
 				})
 			}
+			assertMeetingUnlockedForDocumentMutations(meeting)
 
 			try {
 				// Validate file type - only PDF is supported for document signing
@@ -1316,6 +1318,7 @@ export const meetingsRouter = createTRPCRouter({
 			if (!isHost && !isAccepted) {
 				throw new TRPCError({ code: "FORBIDDEN", message: "You don't have access to this meeting" })
 			}
+			assertMeetingUnlockedForDocumentMutations(meeting)
 
 			const doc = meeting.documents.find(d => d.id === documentId)
 			if (!doc) {
@@ -1631,6 +1634,7 @@ export const meetingsRouter = createTRPCRouter({
 					message: "You don't have access to this meeting",
 				})
 			}
+			assertMeetingUnlockedForDocumentMutations(meeting)
 
 			// Update order for each document
 			await Promise.all(

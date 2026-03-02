@@ -3,8 +3,7 @@ import Link from "next/link"
 import { ChevronLeftIcon } from "lucide-react"
 
 import { Button } from "@/core/components/ui/button"
-
-import { Navbar } from "@/features/home/components/navbar"
+import { Card, CardContent, CardFooter, CardHeader } from "@/core/components/ui/card"
 
 const termsSections = [
 	{
@@ -99,31 +98,21 @@ interface PageProps {
 	searchParams: Promise<{ from?: string }>
 }
 
-export default async function TermsOfServicePublicPage({ searchParams }: PageProps) {
+export default async function TermsOfServicePage({ searchParams }: PageProps) {
 	const params = await searchParams
-	const backHref = (params.from ? decodeURIComponent(params.from) : "/") as Route
+	const backHref = (params.from ? decodeURIComponent(params.from) : "/auth/login") as Route
 
 	return (
-		<div className="relative min-h-screen w-full overflow-hidden">
-			<Navbar />
+		<main className="mx-auto w-full max-w-5xl space-y-6 px-4 py-12 sm:px-6 lg:px-8">
+			<Button variant="ghost" size="sm" asChild className="mb-2 w-fit">
+				<Link href={backHref}>
+					<ChevronLeftIcon className="size-4" />
+					Go Back
+				</Link>
+			</Button>
 
-			{/* Background Elements (similar to auth) */}
-			<div className="via-background absolute inset-0 bg-linear-to-br from-[rgb(91,26,128)]/5 to-[rgb(233,30,140)]/5" />
-			<div className="absolute inset-0 bg-[linear-gradient(to_right,#8080800a_1px,transparent_1px),linear-gradient(to_bottom,#8080800a_1px,transparent_1px)] bg-size-[14px_24px]" />
-			<div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_20%,hsl(var(--background))_70%)]" />
-			<div className="pointer-events-none absolute bottom-[-20%] left-[-10%] size-80 rounded-full bg-linear-to-r from-[rgb(91,26,128)]/20 to-[rgb(233,30,140)]/20 blur-3xl" />
-			<div className="pointer-events-none absolute -right-25 bottom-[20%] size-80 rounded-full bg-linear-to-r from-[rgb(233,30,140)]/15 to-[rgb(91,26,128)]/15 blur-3xl" />
-			<div className="pointer-events-none absolute top-[-10%] left-[25%] size-80 rounded-full bg-linear-to-r from-[rgb(91,26,128)]/20 to-[rgb(233,30,140)]/20 blur-3xl" />
-
-			<main className="relative z-10 mx-auto flex min-h-screen max-w-5xl flex-col gap-10 px-4 pt-24 pb-12 sm:px-6 lg:px-8">
-				<Button variant="ghost" size="sm" asChild className="mb-4 w-fit">
-					<Link href={backHref}>
-						<ChevronLeftIcon className="size-4" />
-						Go Back
-					</Link>
-				</Button>
-
-				<header className="space-y-4">
+			<Card className="w-full">
+				<CardHeader className="space-y-4">
 					<p className="text-primary text-xs font-semibold tracking-wide uppercase">
 						User Agreement
 					</p>
@@ -133,9 +122,9 @@ export default async function TermsOfServicePublicPage({ searchParams }: PagePro
 						these conditions alongside our Privacy Policy and applicable professional and regulatory
 						requirements.
 					</p>
-				</header>
+				</CardHeader>
 
-				<div className="space-y-10">
+				<CardContent className="space-y-10">
 					{termsSections.map(section => (
 						<section key={section.title} className="space-y-3">
 							<h2 className="text-xl leading-tight font-semibold">{section.title}</h2>
@@ -149,19 +138,22 @@ export default async function TermsOfServicePublicPage({ searchParams }: PagePro
 							</ul>
 						</section>
 					))}
-				</div>
+				</CardContent>
 
-				<footer className="border-border/60 text-muted-foreground mt-4 space-y-4 border-t pt-6 text-sm">
+				<CardFooter className="border-border/60 text-muted-foreground mt-2 flex-col items-start space-y-4 border-t pt-6 text-sm">
 					<div className="pb-4">
 						<p>Last updated: January 2026</p>
 					</div>
 					<div className="flex gap-4 text-sm">
-						<Link href="/privacy-policy" className="hover:text-foreground transition-colors">
+						<Link
+							href={"/auth/privacy-policy" as Route}
+							className="hover:text-foreground transition-colors"
+						>
 							Privacy Policy
 						</Link>
 					</div>
-				</footer>
-			</main>
-		</div>
+				</CardFooter>
+			</Card>
+		</main>
 	)
 }

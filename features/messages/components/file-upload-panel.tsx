@@ -1,264 +1,155 @@
 "use client"
 
-import { useState } from "react"
-import { format } from "date-fns"
-import { Download, Eye, FileIcon, Trash2, Upload } from "lucide-react"
-import { toast } from "sonner"
+import { Mail, Phone, User, X } from "lucide-react"
 
+import { Badge } from "@/core/components/ui/badge"
 import { Button } from "@/core/components/ui/button"
 import { Card } from "@/core/components/ui/card"
-import { ScrollArea } from "@/core/components/ui/scroll-area"
+import { Avatar, AvatarFallback, AvatarImage } from "@/core/components/ui/avatar"
 import { Separator } from "@/core/components/ui/separator"
-import { Skeleton } from "@/core/components/ui/skeleton"
 import { cn } from "@/core/lib/utils"
-
-import { useMessageFiles } from "@/features/messages/api/message-files.hooks"
-
-import { MultiFileUploadDialog } from "./multi-file-upload-dialog"
 
 interface FileUploadPanelProps {
 	conversationId: string
+	participant?: {
+		id: string
+		name: string | null
+		email: string | null
+		image: string | null
+		role?: string
+		status?: "online" | "offline" | "away" | "ACTIVE" | "INACTIVE" | "SUSPENDED" | "PENDING"
+		bio?: string | null
+		joinedAt?: Date
+	}
+	onClose?: () => void
 }
 
-export function FileUploadPanel({ conversationId }: FileUploadPanelProps) {
-	const { getFiles, deleteFile } = useMessageFiles()
-	const [uploadDialogOpen, setUploadDialogOpen] = useState(false)
-	const [uploadType, setUploadType] = useState<"general" | "principal" | "enp">("general")
+export function FileUploadPanel({ conversationId: _conversationId, participant, onClose }: FileUploadPanelProps) {
+	const displayParticipant = participant
 
-	// Get files for each category
-	const { data: generalFiles, isLoading: loadingGeneral } = getFiles(conversationId, "general")
-	const { data: principalFiles, isLoading: loadingPrincipal } = getFiles(
-		conversationId,
-		"principal"
-	)
-	const { data: enpFiles, isLoading: loadingEnp } = getFiles(conversationId, "enp")
-
-	const handleDelete = async (fileId: string) => {
-		try {
-			await deleteFile.mutateAsync({ fileId })
-			toast.success("File deleted successfully")
-		} catch (error) {
-			toast.error("Failed to delete file")
-		}
+	const getInitials = (name?: string | null) => {
+		if (!name) return "?"
+		const parts = name.split(" ")
+		return parts.map(p => p[0]).join("").toUpperCase()
 	}
 
-	const handleUploadClick = (type: "general" | "principal" | "enp") => {
-		setUploadType(type)
-		setUploadDialogOpen(true)
-	}
-
-	const handleDownload = async (filePath: string, fileName: string) => {
-		try {
-			const { getSupabaseBrowserClient } = await import("@/services/supabase/client")
-			const supabase = getSupabaseBrowserClient()
-
-			const { data, error } = await supabase.storage.from("documents").download(filePath)
-
-			if (error) {
-				throw error
-			}
-
-			// Create a download link
-			const url = window.URL.createObjectURL(data)
-			const a = document.createElement("a")
-			a.href = url
-			a.download = fileName
-			document.body.appendChild(a)
-			a.click()
-			window.URL.revokeObjectURL(url)
-			document.body.removeChild(a)
-
-			toast.success("File downloaded successfully")
-		} catch (error) {
-			console.error("Download error:", error)
-			toast.error("Failed to download file")
-		}
-	}
-
-	const handleView = async (filePath: string) => {
-		try {
-			const { getSupabaseBrowserClient } = await import("@/services/supabase/client")
-			const supabase = getSupabaseBrowserClient()
-
-			const { data, error } = await supabase.storage.from("documents").download(filePath)
-
-			if (error) {
-				throw error
-			}
-
-			// Create a blob URL and open in new tab
-			const url = window.URL.createObjectURL(data)
-			window.open(url, "_blank")
-
-			// Clean up the URL after a delay
-			setTimeout(() => {
-				window.URL.revokeObjectURL(url)
-			}, 100)
-
-			toast.success("Opening file in new tab")
-		} catch (error) {
-			console.error("View error:", error)
-			toast.error("Failed to open file")
-		}
-	}
-
-	const formatFileSize = (bytes: number) => {
-		if (bytes === 0) return "0 Bytes"
-		const k = 1024
-		const sizes = ["Bytes", "KB", "MB", "GB"]
-		const i = Math.floor(Math.log(bytes) / Math.log(k))
-		return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + " " + sizes[i]
-	}
-
-	const FileItem = ({
-		file,
-	}: {
-		file: {
-			id: string
-			fileName: string
-			fileSize: number
-			filePath: string
-			fileUrl: string | null
-			createdAt: Date
-			uploadedBy: { name: string | null } | null
-		}
-	}) => (
-		<Card className="hover:bg-accent p-3 transition-colors">
-			<div className="flex items-start gap-3">
-				<div className="bg-primary/10 flex size-10 shrink-0 items-center justify-center rounded-lg">
-					<FileIcon className="text-primary size-5" />
-				</div>
-				<div className="min-w-0 flex-1">
-					<p className="truncate text-sm font-medium">{file.fileName}</p>
-					<p className="text-muted-foreground text-xs">{formatFileSize(file.fileSize)}</p>
-					<p className="text-muted-foreground text-xs">
-						{file.uploadedBy?.name} • {format(new Date(file.createdAt), "MMM d, h:mm a")}
-					</p>
-				</div>
-				<div className="flex shrink-0 gap-1">
-					<Button
-						variant="ghost"
-						size="icon"
-						className="size-8"
-						onClick={() => void handleView(file.filePath)}
-						title="View file"
-					>
-						<Eye className="size-4" />
-					</Button>
-					<Button
-						variant="ghost"
-						size="icon"
-						className="size-8"
-						onClick={() => void handleDownload(file.filePath, file.fileName)}
-						title="Download file"
-					>
-						<Download className="size-4" />
-					</Button>
-					<Button
-						variant="ghost"
-						size="icon"
-						className="text-destructive hover:bg-destructive/10 hover:text-destructive size-8"
-						onClick={() => void handleDelete(file.id)}
-						disabled={deleteFile.isPending}
-						title="Delete file"
-					>
-						<Trash2 className="size-4" />
-					</Button>
-				</div>
-			</div>
-		</Card>
-	)
-
-	const FileSection = ({
-		title,
-		files,
-		isLoading,
-		uploadType,
-		showUploadButton = true,
-	}: {
-		title: string
-		files: any[] | undefined
-		isLoading: boolean
-		uploadType: "general" | "principal" | "enp"
-		showUploadButton?: boolean
-	}) => (
-		<div className="flex flex-col space-y-3">
-			<div className="flex items-center justify-between">
-				<h3 className="text-sm font-semibold">{title}</h3>
-				{showUploadButton && (
-					<Button
-						variant="ghost"
-						size="sm"
-						className="size-8 p-0"
-						onClick={() => handleUploadClick(uploadType)}
-					>
-						<Upload className="size-4" />
-					</Button>
-				)}
-			</div>
-			{isLoading ? (
-				<div className="space-y-2">
-					<Skeleton className="h-20 w-full" />
-					<Skeleton className="h-20 w-full" />
-				</div>
-			) : files && files.length > 0 ? (
-				<div className="space-y-2">
-					{files.map(file => (
-						<FileItem key={file.id} file={file} />
-					))}
-				</div>
-			) : (
-				<Card className="p-6 text-center">
-					<FileIcon className="text-muted-foreground mx-auto mb-2 size-8" />
-					<p className="text-muted-foreground text-xs">No files uploaded yet</p>
-				</Card>
-			)}
-		</div>
-	)
+	const statusColor = {
+		ACTIVE: "bg-green-500",
+		INACTIVE: "bg-gray-500",
+		SUSPENDED: "bg-yellow-500",
+		PENDING: "bg-yellow-500",
+		online: "bg-green-500",
+		offline: "bg-gray-500",
+		away: "bg-yellow-500",
+	}[displayParticipant?.status ?? "INACTIVE"]
 
 	return (
 		<>
-			<div className="bg-background flex h-screen w-80 flex-col border-l">
+			<div className="bg-background flex h-screen w-full sm:w-80 flex-col border-l">
 				{/* Header */}
-				<div className="shrink-0 border-b p-4">
-					<h2 className="text-lg font-semibold">Files</h2>
-					<p className="text-muted-foreground text-xs">Manage conversation files</p>
+				<div className="shrink-0 border-b p-4 flex items-center justify-between">
+					<div>
+						<h2 className="text-lg font-semibold">Chat Details</h2>
+						<p className="text-muted-foreground text-xs">Participant information</p>
+					</div>
+					{onClose && (
+						<Button 
+							variant="ghost" 
+							size="icon"
+							onClick={onClose}
+							className="sm:hidden"
+						>
+							<X className="size-5" />
+						</Button>
+					)}
 				</div>
 
-				{/* File Sections - Scrollable container */}
+				{/* Participant Details - Scrollable container */}
 				<div className="flex-1 overflow-y-auto p-4">
 					<div className="space-y-6">
-						<FileSection
-							title="Uploaded Files"
-							files={generalFiles}
-							isLoading={loadingGeneral}
-							uploadType="general"
-							showUploadButton={false}
-						/>
+						{/* Profile Card */}
+						<Card className="p-6 text-center">
+							<div className="flex flex-col items-center gap-4">
+								<div className="relative">
+									<Avatar className="size-24 ring-4 ring-background shadow-lg">
+										<AvatarImage src={displayParticipant?.image ?? undefined} alt={displayParticipant?.name ?? "User"} />
+										<AvatarFallback className="bg-primary/10 text-primary text-lg font-semibold">
+											{getInitials(displayParticipant?.name)}
+										</AvatarFallback>
+									</Avatar>
+									<div className={cn(
+										"absolute -bottom-1 -right-1 size-4 rounded-full border-2 border-background shadow-md",
+										statusColor
+									)} />
+								</div>
+								<div>
+									<h3 className="text-lg font-semibold">{displayParticipant?.name ?? "Unknown User"}</h3>
+									{displayParticipant?.role && (
+										<Badge variant="secondary" className="mt-2">
+											{displayParticipant.role}
+										</Badge>
+									)}
+								</div>
+							</div>
+						</Card>
+
 						<Separator />
-						<FileSection
-							title="PRINCIPAL Uploads"
-							files={principalFiles}
-							isLoading={loadingPrincipal}
-							uploadType="principal"
-						/>
+
+						{/* Contact Information */}
+						<div className="space-y-3">
+							<h4 className="text-sm font-semibold">Contact Information</h4>
+
+							<div className="space-y-2 rounded-lg bg-muted/40 p-3">
+								<div className="flex items-center gap-2">
+									<Mail className="text-primary size-4 shrink-0" />
+									<p className="text-xs font-medium text-muted-foreground">Email</p>
+								</div>
+								<p className="truncate text-sm">{displayParticipant?.email ?? "-"}</p>
+							</div>
+
+							<div className="space-y-2 rounded-lg bg-muted/40 p-3">
+								<p className="text-xs font-medium text-muted-foreground">Role</p>
+								<p className="text-sm">{displayParticipant?.role ?? "-"}</p>
+							</div>
+
+							<div className="space-y-2 rounded-lg bg-muted/40 p-3">
+								<p className="text-xs font-medium text-muted-foreground">Joined Date</p>
+								<p className="text-sm">
+									{displayParticipant?.joinedAt
+										? new Date(displayParticipant.joinedAt).toLocaleDateString("en-US", {
+												year: "numeric",
+												month: "long",
+												day: "numeric",
+											})
+										: "-"}
+								</p>
+							</div>
+
+							<div className="space-y-2 rounded-lg bg-muted/40 p-3">
+								<p className="text-xs font-medium text-muted-foreground">Bio</p>
+								<p className="text-sm leading-relaxed">{displayParticipant?.bio ?? "No bio provided"}</p>
+							</div>
+						</div>
+
 						<Separator />
-						<FileSection
-							title="ENP Uploads"
-							files={enpFiles}
-							isLoading={loadingEnp}
-							uploadType="enp"
-						/>
+
+						{/* Actions */}
+						<div className="space-y-3">
+							<h4 className="text-sm font-semibold">Actions</h4>
+							<div className="flex flex-col gap-2">
+								<Button variant="outline" className="w-full justify-start gap-2">
+									<Phone className="size-4" />
+									Start Call
+								</Button>
+								<Button variant="outline" className="w-full justify-start gap-2">
+									<User className="size-4" />
+									View File
+								</Button>
+							</div>
+						</div>
 					</div>
 				</div>
 			</div>
-
-			<MultiFileUploadDialog
-				conversationId={conversationId}
-				uploadType={uploadType}
-				open={uploadDialogOpen}
-				onOpenChange={setUploadDialogOpen}
-			/>
 		</>
 	)
 }

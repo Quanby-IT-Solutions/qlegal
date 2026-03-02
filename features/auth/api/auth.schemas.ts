@@ -129,7 +129,7 @@ const notarySealSchema = z.object({
 	enpRollNumber: z
 		.string()
 		.trim()
-		.regex(/^\d{6}$/, "ENP roll number must be exactly 6 digits"),
+		.regex(/^\d{5}$/, "ENP roll number must be exactly 5 digits"),
 	rollNoDate: z
 		.string()
 		.min(1, "Roll number date is required")
