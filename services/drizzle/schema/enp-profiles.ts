@@ -58,6 +58,12 @@ export const enpProfiles = createTable(
 		juratPrice: t.real(), // Section 3, Rule IV - Jurat by Electronic Means
 		signatureWitnessingPrice: t.real(), // Section 4, Rule IV - Signature Witnessing by Electronic Means
 
+		// --- DocOnChain Sub-Organization (per ENP) ---
+		doconchainSubOrgId: t.varchar({ length: 255 }),
+		doconchainSubOrgName: t.text(),
+		doconchainSubOrgAddress: t.text(),
+		doconchainSubOrgCreatedAt: t.timestamp({ mode: "date", withTimezone: true }),
+
 		createdAt: t.timestamp({ mode: "date", withTimezone: true }).defaultNow().notNull(),
 		updatedAt: t
 			.timestamp({ mode: "date", withTimezone: true })

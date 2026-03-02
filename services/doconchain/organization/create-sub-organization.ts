@@ -1,0 +1,101 @@
+import { env } from "@/env"
+import { getDoconchainApiToken } from "@/services/doconchain/auth/generate-token"
+
+type CreateSubOrganizationResponse = {
+	id?: string
+	name?: string
+	address?: string
+	photo_url?: string
+	sub_organization_type_name?: string
+	organization_uuid?: string
+	created_at?: string
+}
+
+export async function createDoconchainSubOrganization(input: {
+	name: string
+	address: string
+	subOrganizationTypeName?: string
+	photo?: Blob | Buffer
+	photoFilename?: string
+}): Promise<{ id: string; name: string; raw: CreateSubOrganizationResponse }> {
+	const name = input.name.trim()
+	const address = input.address.trim()
+	if (!name || !address) {
+		throw new Error("DocOnChain create sub-organization requires name and address.")
+	}
+
+	const url = new URL("/api/v2/organizations/sub", env.DOCONCHAIN_API_URL)
+	url.searchParams.set("user_type", "ENTERPRISE_API")
+
+	const buildBody = (): FormData => {
+		const form = new FormData()
+		form.set("name", name)
+		form.set("address", address)
+		form.set("sub_organization_type_name", input.subOrganizationTypeName ?? "Department")
+		form.set("organization_uuid", String(env.DOCONCHAIN_ORGANIZATION_ID))
+		if (input.photo) {
+			const blob =
+				input.photo instanceof Blob
+					? input.photo
+					: new Blob([new Uint8Array(input.photo)], { type: "image/png" })
+			form.append("photo", blob, input.photoFilename ?? "logo.png")
+		}
+		return form
+	}
+
+	const doRequest = async (token: string, bodyOverride?: FormData): Promise<Response> => {
+		const controller = new AbortController()
+		const timeoutId = setTimeout(() => controller.abort(), 90_000)
+		try {
+			return await fetch(url.toString(), {
+				method: "POST",
+				headers: { Authorization: `Bearer ${token}` },
+				body: bodyOverride ?? buildBody(),
+				signal: controller.signal,
+			})
+		} catch (err) {
+			clearTimeout(timeoutId)
+			if (err instanceof Error && err.name === "AbortError") {
+				throw new Error(
+					"DocOnChain create sub-organization timed out (90s). The DocOnChain API may be slow; try again."
+				)
+			}
+			throw err
+		} finally {
+			clearTimeout(timeoutId)
+		}
+	}
+
+	const isGatewayError = (r: Response) => r.status === 502 || r.status === 503 || r.status === 504
+
+	let token = await getDoconchainApiToken({ email: env.DOCONCHAIN_EMAIL })
+	let res = await doRequest(token)
+	if (res.status === 401) {
+		token = await getDoconchainApiToken({ email: env.DOCONCHAIN_EMAIL, forceGenerated: true })
+		res = await doRequest(token)
+	}
+	// On 502/503/504, retry once without photo so the request is smaller and more likely to complete.
+	if (isGatewayError(res)) {
+		await new Promise(r => setTimeout(r, 2000))
+		const retryBody = new FormData()
+		retryBody.set("name", name)
+		retryBody.set("address", address)
+		retryBody.set("sub_organization_type_name", input.subOrganizationTypeName ?? "Department")
+		retryBody.set("organization_uuid", String(env.DOCONCHAIN_ORGANIZATION_ID))
+		res = await doRequest(token, retryBody)
+	}
+
+	const text = await res.text().catch(() => "")
+	if (!res.ok) {
+		throw new Error(
+			`DocOnChain create sub-organization failed (${res.status} ${res.statusText})${text ? `: ${text}` : ""}`
+		)
+	}
+
+	const raw = (text ? (JSON.parse(text) as CreateSubOrganizationResponse) : {}) as CreateSubOrganizationResponse
+	const id = raw.id
+	if (!id) {
+		throw new Error("DocOnChain create sub-organization response missing id.")
+	}
+	return { id: String(id), name: raw.name ?? name, raw }
+}
