@@ -76,6 +76,7 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 	const [isClientValidationPending, setIsClientValidationPending] = useState(false)
 	const [hasAttemptedVerification, setHasAttemptedVerification] = useState(false)
 	const [errorShowDelay, setErrorShowDelay] = useState(false)
+	const [isRetryingLocation, setIsRetryingLocation] = useState(false)
 	const quickVpnCheckedForMeetingId = useRef<string | null>(null)
 	const webrtcLeak = useWebrtcLeakDetection(expectedIp)
 	const isLocationVerificationDebug = env.NEXT_PUBLIC_LOCATION_VERIFICATION_DEBUG === "true"
@@ -266,6 +267,10 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 
 	// Retry location verification
 	const retryVerification = useCallback(() => {
+		if (isRetryingLocation) {
+			return
+		}
+		setIsRetryingLocation(true)
 		setHasAttemptedVerification(false)
 		setLocationStatus("checking")
 		setVerificationResult(null)
@@ -276,7 +281,7 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 		// Force re-request geolocation by reloading the page
 		// This is necessary because the geolocation hook caches the result
 		window.location.reload()
-	}, [])
+	}, [isRetryingLocation])
 
 	// Check liveness verification and redirect if needed - runs IMMEDIATELY
 	useEffect(() => {
@@ -584,6 +589,7 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 					details={verificationResult?.details}
 					debugInfo={verificationResult?.debugInfo}
 					onRetry={retryVerification}
+					isRetrying={isRetryingLocation}
 				/>
 			)}
 

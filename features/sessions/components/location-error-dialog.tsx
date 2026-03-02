@@ -2,7 +2,16 @@
 
 import { useRouter } from "next/navigation"
 import { useMemo, useState } from "react"
-import { AlertCircle, ChevronDown, Globe, MapPin, MapPinOff, Navigation, Server } from "lucide-react"
+import {
+	AlertCircle,
+	ChevronDown,
+	Globe,
+	Loader2,
+	MapPin,
+	MapPinOff,
+	Navigation,
+	Server,
+} from "lucide-react"
 
 import { env } from "@/env"
 import { Button } from "@/core/components/ui/button"
@@ -43,6 +52,7 @@ interface LocationErrorDialogProps {
 		requestId?: string
 	}
 	onRetry?: () => void
+	isRetrying?: boolean
 }
 
 function getErrorConfig(errorReason: ErrorReason, userRole: "ENP" | "PRINCIPAL" | "ENA" | "ADMIN") {
@@ -194,6 +204,7 @@ export function LocationErrorDialog({
 	details,
 	debugInfo,
 	onRetry,
+	isRetrying = false,
 }: LocationErrorDialogProps) {
 	const router = useRouter()
 	const config = getErrorConfig(errorReason, userRole)
@@ -201,6 +212,7 @@ export function LocationErrorDialog({
 	const [showTechnicalDetails, setShowTechnicalDetails] = useState(false)
 	const isDebugMode = env.NEXT_PUBLIC_LOCATION_VERIFICATION_DEBUG === "true"
 	const shouldShowTechnicalDetails = showTechnicalDetails || isDebugMode
+	const isAccuracyLowState = errorReason === "gps_accuracy_low" && debugInfo?.accuracyMeters !== undefined
 
 	const technicalDetailsText = useMemo(() => {
 		const lines = [
@@ -289,7 +301,7 @@ export function LocationErrorDialog({
 					)}
 
 					{/* Accuracy-specific details */}
-					{errorReason === "gps_accuracy_low" && debugInfo?.accuracyMeters !== undefined && (
+					{isAccuracyLowState && (
 						<div className="rounded-lg border border-yellow-200 bg-yellow-50 p-4 dark:border-yellow-900 dark:bg-yellow-950/30">
 							<p className="text-sm font-medium text-yellow-900 dark:text-yellow-200">
 								GPS accuracy: {debugInfo.accuracyMeters.toFixed(1)}m
@@ -343,8 +355,15 @@ export function LocationErrorDialog({
 
 				<DialogFooter className="flex-col gap-2 sm:flex-col">
 					{config.showRetry && onRetry && (
-						<Button onClick={onRetry} className="w-full">
-							Try Again
+						<Button onClick={onRetry} className="w-full" disabled={isRetrying}>
+							{isRetrying ? (
+								<>
+									<Loader2 className="mr-2 size-4 animate-spin" />
+									Retrying...
+								</>
+							) : (
+								"Try Again"
+							)}
 						</Button>
 					)}
 					<Button
