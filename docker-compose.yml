@@ -28,8 +28,6 @@ services:
         EMAIL_PASS: ${EMAIL_PASS}
         EMAIL_PORT: ${EMAIL_PORT}
         EMAIL_USER: ${EMAIL_USER}
-        # VPN/Proxy Detection
-        PROXYCHECK_API_KEY: ${PROXYCHECK_API_KEY}
         # Maps
         GOOGLE_MAPS_API_KEY: ${GOOGLE_MAPS_API_KEY}
         # Payment (HitPay)
@@ -53,7 +51,10 @@ services:
         # Video SDK (Meetings)
         NEXT_PUBLIC_VIDEO_SDK_API_KEY: ${NEXT_PUBLIC_VIDEO_SDK_API_KEY}
         VIDEO_SDK_API_KEY: ${VIDEO_SDK_API_KEY}
-        VIDEO_SDK_SECRET: ${VIDEO_SDK_SECRET}
+        VIDEO_SDK_SECRET:
+          ${VIDEO_SDK_SECRET}
+          # VPN/Proxy Detection
+        PROXYCHECK_API_KEY: ${PROXYCHECK_API_KEY}
         # Supreme Court eNotarization API
         SUPREME_COURT_API_URL: ${SUPREME_COURT_API_URL}
         SUPREME_COURT_AUTH_URL: ${SUPREME_COURT_AUTH_URL}

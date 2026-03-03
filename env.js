@@ -132,7 +132,6 @@ export const env = createEnv({
 
 		// Maps
 		GOOGLE_MAPS_API_KEY: process.env.GOOGLE_MAPS_API_KEY,
-		PROXYCHECK_API_KEY: process.env.PROXYCHECK_API_KEY,
 
 		// Payment (HitPay)
 		HITPAY_API_KEY: process.env.HITPAY_API_KEY,
@@ -151,6 +150,9 @@ export const env = createEnv({
 		LOCATION_VERIFICATION_DEBUG: process.env.LOCATION_VERIFICATION_DEBUG,
 		PORT: process.env.PORT,
 		SEED_VALUE: process.env.SEED_VALUE,
+
+		// VPN/Proxy Detection
+		PROXYCHECK_API_KEY: process.env.PROXYCHECK_API_KEY,
 
 		// Supreme Court eNotarization API
 		SUPREME_COURT_API_URL: process.env.SUPREME_COURT_API_URL,
