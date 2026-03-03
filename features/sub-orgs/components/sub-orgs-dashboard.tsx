@@ -3,7 +3,8 @@
 import { useState } from "react"
 import { Building01Icon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { ChevronDownIcon } from "lucide-react"
+import { ChevronDownIcon, CopyIcon, EyeIcon, EyeOffIcon } from "lucide-react"
+import { toast } from "sonner"
 
 import { Button } from "@/core/components/ui/button"
 import {
@@ -13,7 +14,9 @@ import {
 	CardHeader,
 	CardTitle,
 } from "@/core/components/ui/card"
+import { Badge } from "@/core/components/ui/badge"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/core/components/ui/collapsible"
+import { Input } from "@/core/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/core/components/ui/table"
 import { cn } from "@/core/lib/utils"
 import { trpc } from "@/services/trpc/client"
@@ -128,6 +131,7 @@ export function SubOrgsDashboard() {
 										{sub.createdAt.toLocaleDateString()}
 									</p>
 									<SubOrgMembersDisclosure subOrgId={sub.id} />
+									<SubOrgCredentialsDisclosure subOrgId={sub.id} />
 								</CardContent>
 							</Card>
 						))}
@@ -138,11 +142,105 @@ export function SubOrgsDashboard() {
 	)
 }
 
+function maskSecret(value: string): string {
+	if (!value) return ""
+	if (value.length <= 8) return "••••••••"
+	return `${value.slice(0, 4)}••••••••${value.slice(-4)}`
+}
+
+function CopyButton({ value, label }: { value: string; label: string }) {
+	return (
+		<Button
+			type="button"
+			variant="outline"
+			size="sm"
+			onClick={async () => {
+				try {
+					await navigator.clipboard.writeText(value)
+					toast.success(`${label} copied`)
+				} catch {
+					toast.error("Copy failed")
+				}
+			}}
+			disabled={!value}
+		>
+			<CopyIcon className="mr-2 size-4" />
+			Copy
+		</Button>
+	)
+}
+
+function SubOrgCredentialsDisclosure({ subOrgId }: { subOrgId: string }) {
+	const [open, setOpen] = useState(false)
+	const [reveal, setReveal] = useState(false)
+	const { data, isLoading, isError, error } = trpc.subOrgs.credentials.useQuery(
+		{ subOrgId },
+		{ enabled: open }
+	)
+
+	const clientKey = data?.clientKey ?? ""
+	const clientSecret = data?.clientSecret ?? ""
+
+	return (
+		<Collapsible open={open} onOpenChange={next => (setOpen(next), next ? setReveal(false) : null)} className="mt-2">
+			<CollapsibleTrigger asChild>
+				<Button variant="ghost" size="sm" className="flex w-full items-center justify-between px-0">
+					<span className="text-sm font-medium">Credentials</span>
+					<ChevronDownIcon className={cn("size-4 transition-transform", open && "rotate-180")} />
+				</Button>
+			</CollapsibleTrigger>
+			<CollapsibleContent className="pt-3">
+				{isLoading ? (
+					<p className="text-muted-foreground text-sm">Loading credentials…</p>
+				) : isError ? (
+					<p className="text-sm text-red-600 dark:text-red-400">
+						{error.message ?? "Failed to load credentials."}
+					</p>
+				) : !clientKey || !clientSecret ? (
+					<div className="space-y-2">
+						<p className="text-muted-foreground text-sm">
+							DocOnChain didn’t return sub-org credentials for this sub-org.
+						</p>
+						<Badge variant="outline">Ask DocOnChain to enable client key/secret on this endpoint</Badge>
+					</div>
+				) : (
+					<div className="grid gap-3 sm:grid-cols-2">
+						<div className="space-y-2">
+							<div className="flex items-center justify-between gap-2">
+								<p className="text-sm font-medium">Client key</p>
+								<CopyButton value={clientKey} label="Client key" />
+							</div>
+							<Input readOnly value={reveal ? clientKey : maskSecret(clientKey)} className="font-mono text-xs" />
+						</div>
+						<div className="space-y-2">
+							<div className="flex items-center justify-between gap-2">
+								<p className="text-sm font-medium">Client secret</p>
+								<CopyButton value={clientSecret} label="Client secret" />
+							</div>
+							<Input
+								readOnly
+								value={reveal ? clientSecret : maskSecret(clientSecret)}
+								className="font-mono text-xs"
+							/>
+						</div>
+						<div className="sm:col-span-2 flex items-center justify-end">
+							<Button type="button" variant="outline" size="sm" onClick={() => setReveal(r => !r)}>
+								{reveal ? <EyeOffIcon className="mr-2 size-4" /> : <EyeIcon className="mr-2 size-4" />}
+								{reveal ? "Hide" : "Reveal"}
+							</Button>
+						</div>
+					</div>
+				)}
+			</CollapsibleContent>
+		</Collapsible>
+	)
+}
+
 function SubOrgMembersDisclosure({ subOrgId }: { subOrgId: string }) {
 	const [open, setOpen] = useState(false)
 	const { data, isLoading, isError, error } = trpc.subOrgs.members.useQuery(
 		{ subOrgId },
-		{ enabled: open }
+		{ enabled: open && !!subOrgId }
 	)
 
 	const count = data?.length ?? 0

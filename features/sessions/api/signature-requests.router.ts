@@ -3,6 +3,7 @@ import { and, eq } from "drizzle-orm"
 import { z } from "zod/v4"
 
 import { env } from "@/env"
+import { getSubOrgCredsForMemberEmail } from "@/features/sub-orgs/server/get-sub-org-creds-for-member"
 import { db } from "@/services/drizzle/db"
 import { users } from "@/services/drizzle/schema/auth"
 import { documents } from "@/services/drizzle/schema/document"
@@ -420,6 +421,7 @@ export const signatureRequestsRouter = createTRPCRouter({
 					const link = await generateDoconchainEditDraftProjectLink({
 						projectUuid,
 						userEmail: email,
+						getSubOrgCredsForEmail: (em) => getSubOrgCredsForMemberEmail(em, db),
 					})
 					console.log("🟣 [DocOnChain] initiateSigning:buildLink:success", {
 						kind: "plot",

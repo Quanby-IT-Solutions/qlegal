@@ -3,6 +3,7 @@ import { and, asc, desc, eq, inArray, ne, type InferSelectModel } from "drizzle-
 import { z } from "zod/v4"
 
 import { getFullName } from "@/core/lib/utils"
+import { getSubOrgCredsForMemberEmail } from "@/features/sub-orgs/server/get-sub-org-creds-for-member"
 import { getDoconchainApiToken, invalidateDoconchainToken } from "@/services/doconchain/auth/generate-token"
 import { addDoconchainProjectSigner } from "@/services/doconchain/projects/add-signer"
 import { createDoconchainProject } from "@/services/doconchain/projects/create-project"
@@ -547,7 +548,11 @@ export const meetingsRouter = createTRPCRouter({
 			try {
 				// Force-refresh the cached token so the next DocOnChain call is not using a stale token.
 				invalidateDoconchainToken(enpEmail)
-				await getDoconchainApiToken({ email: enpEmail, forceGenerated: true })
+				await getDoconchainApiToken({
+					email: enpEmail,
+					forceGenerated: true,
+					getSubOrgCredsForEmail: (em) => getSubOrgCredsForMemberEmail(em, db),
+				})
 				return { ready: true }
 			} catch (error) {
 				const msg = error instanceof Error ? error.message : "Failed to prepare DocOnChain."

@@ -15,6 +15,14 @@ export const listSubOrgMembersSchema = z.object({
 	subOrgId: z.string().min(1, "Sub-org is required"),
 })
 
+export const getSubOrgCredentialsSchema = z.object({
+	subOrgId: z.string().min(1, "Sub-org is required"),
+})
+
+export const getSubOrgCreditsSchema = z.object({
+	subOrgId: z.string().min(1, "Sub-org is required"),
+})
+
 export const transferCreditsToSubOrgSchema = z.object({
 	subOrgId: z.string().min(1, "Sub-org is required"),
 	credits: z.coerce.number().int().min(1, "Credits must be at least 1"),
