@@ -3,11 +3,19 @@ import {
 	getDoconchainApiToken,
 	getDoconchainApiTokenWithEnterpriseCreds,
 } from "@/services/doconchain/auth/generate-token"
+import { getDoconchainOrganizationCredits } from "@/services/doconchain/organization/get-organization-credits"
 
 type SubOrgDetailsResponse = {
 	message?: string
 	data?: Record<string, unknown>
 } | Record<string, unknown>
+
+export type SubOrgCreditsResult = {
+	credits: number | null
+	totalCredits: number | null
+	usedCredits: number | null
+	raw?: SubOrgDetailsResponse
+}
 
 function getNumericCredits(obj: Record<string, unknown>): number | null {
 	const keys = [
@@ -36,19 +44,146 @@ function getNumericCredits(obj: Record<string, unknown>): number | null {
 	return null
 }
 
+type CreditsDataItem = {
+	uuid?: string
+	id?: number | string
+	remaining_credits?: number
+	allocated_credits?: number
+	used_credits?: number
+	total_credits?: number
+	[key: string]: unknown
+}
+
+/** GET /api/v2/organizations/credits with a given token. Parse flat or data[] response. */
+async function fetchCreditsWithToken(
+	token: string,
+	subOrgUuid: string
+): Promise<SubOrgCreditsResult> {
+	const url = new URL("/api/v2/organizations/credits", env.DOCONCHAIN_API_URL)
+	url.searchParams.set("user_type", "ENTERPRISE_API")
+	const res = await fetch(url.toString(), {
+		method: "GET",
+		headers: { Authorization: `Bearer ${token}`, accept: "application/json" },
+	})
+	const text = await res.text().catch(() => "")
+	if (!res.ok) {
+		throw new Error(
+			`DocOnChain get organization credits failed (${res.status})${text ? `: ${text.slice(0, 200)}` : ""}`
+		)
+	}
+	const raw = (text ? (JSON.parse(text) as Record<string, unknown>) : {}) as Record<string, unknown>
+
+	// Sub-org token returns { message, data: [ { uuid, remaining_credits, allocated_credits, ... } ] }. Use only credits.
+	if (Array.isArray(raw.data) && raw.data.length > 0) {
+		const items = raw.data as CreditsDataItem[]
+		const match =
+			items.find(
+				row => String(row.uuid ?? "").trim() === subOrgUuid || String(row.id ?? "") === subOrgUuid
+			) ?? items[0]
+		const remaining =
+			typeof match.remaining_credits === "number" && Number.isFinite(match.remaining_credits)
+				? Math.floor(match.remaining_credits)
+				: null
+		const allocated =
+			typeof match.allocated_credits === "number" && Number.isFinite(match.allocated_credits)
+				? Math.floor(match.allocated_credits)
+				: null
+		const used =
+			typeof match.used_credits === "number" && Number.isFinite(match.used_credits)
+				? Math.floor(match.used_credits)
+				: remaining !== null && allocated !== null
+					? Math.max(0, allocated - remaining)
+					: null
+		return {
+			credits: remaining,
+			totalCredits: allocated,
+			usedCredits: used,
+			raw: raw as SubOrgDetailsResponse,
+		}
+	}
+
+	// Flat response: { total_credits, used_credits, remaining_credits }
+	const totalCredits =
+		typeof raw.total_credits === "number" && Number.isFinite(raw.total_credits)
+			? Math.floor(raw.total_credits)
+			: null
+	const usedCredits =
+		typeof raw.used_credits === "number" && Number.isFinite(raw.used_credits)
+			? Math.floor(raw.used_credits)
+			: null
+	const credits =
+		typeof raw.remaining_credits === "number" && Number.isFinite(raw.remaining_credits)
+			? Math.floor(raw.remaining_credits)
+			: null
+	return { credits, totalCredits, usedCredits, raw: raw as SubOrgDetailsResponse }
+}
+
 /**
  * Fetch current credits/balance for a DocOnChain sub-organization.
- * Uses GET sub-org details; parses credits from response (credits, balance, available_credits, etc.).
- * When parent token returns 401, retries with sub-org clientKey/clientSecret if provided.
+ * Prefer: generate token with sub-org clientKey/clientSecret + ENP email, then GET /organizations/credits.
+ * Fallback: parent-org credits endpoint or GET sub-org details.
  */
 export async function getDoconchainSubOrgCredits(input: {
 	subOrganizationUuid: string
 	clientKey?: string | null
 	clientSecret?: string | null
-}): Promise<{ credits: number | null; raw?: SubOrgDetailsResponse }> {
+	/** Email of an ENP in that sub-org (used to generate sub-org scoped token). Falls back to DOCONCHAIN_EMAIL. */
+	enpEmail?: string | null
+}): Promise<SubOrgCreditsResult> {
 	const uuid = input.subOrganizationUuid.trim()
 	if (!uuid) throw new Error("DocOnChain get sub-org credits requires subOrganizationUuid.")
 
+	const email = (input.enpEmail ?? env.DOCONCHAIN_EMAIL).trim() || env.DOCONCHAIN_EMAIL
+
+	// Prefer: sub-org clientKey + clientSecret + ENP email → generate token → GET /organizations/credits.
+	if (input.clientKey && input.clientSecret && email) {
+		try {
+			const token = await getDoconchainApiTokenWithEnterpriseCreds({
+				email,
+				clientKey: input.clientKey,
+				clientSecret: input.clientSecret,
+			})
+			return await fetchCreditsWithToken(token, uuid)
+		} catch {
+			// Fall through to parent-org or sub-org details.
+		}
+	}
+
+	// Fallback: parent-org credits (may return main-org summary or per-sub-org rows).
+	try {
+		const orgCredits = await getDoconchainOrganizationCredits()
+		const match = orgCredits.items.find(row => {
+			const rowUuid = String(row.uuid ?? "").trim()
+			const rowId = String(row.id ?? "").trim()
+			return rowUuid === uuid || (rowUuid && uuid === rowUuid) || (rowId && rowId === uuid)
+		})
+		if (match) {
+			const remaining =
+				typeof match.remaining_credits === "number"
+					? match.remaining_credits
+					: typeof match.allocated_credits === "number"
+						? match.allocated_credits
+						: null
+			return {
+				credits: remaining,
+				totalCredits: typeof match.total_credits === "number" ? match.total_credits : null,
+				usedCredits: typeof match.used_credits === "number" ? match.used_credits : null,
+				raw: (orgCredits.raw ?? undefined) as SubOrgDetailsResponse | undefined,
+			}
+		}
+		if (orgCredits.summary.remainingCredits !== null) {
+			return {
+				credits: orgCredits.summary.remainingCredits,
+				totalCredits: orgCredits.summary.totalCredits,
+				usedCredits: orgCredits.summary.usedCredits,
+				raw: (orgCredits.raw ?? undefined) as SubOrgDetailsResponse | undefined,
+			}
+		}
+	} catch {
+		// Fall through to GET sub-org details.
+	}
+
+	// Legacy: GET sub-org details and parse credits from response.
 	const url = new URL(`/api/v2/organizations/sub/${uuid}`, env.DOCONCHAIN_API_URL)
 	url.searchParams.set("user_type", "ENTERPRISE_API")
 
@@ -58,26 +193,32 @@ export async function getDoconchainSubOrgCredits(input: {
 			headers: { Authorization: `Bearer ${token}`, accept: "application/json" },
 		})
 
-	let token = await getDoconchainApiToken({ email: env.DOCONCHAIN_EMAIL })
-	let res = await doRequest(token)
-	if (res.status === 401) {
-		token = await getDoconchainApiToken({ email: env.DOCONCHAIN_EMAIL, forceGenerated: true })
-		res = await doRequest(token)
+	let token: string | null = null
+	try {
+		token = await getDoconchainApiToken({ email: env.DOCONCHAIN_EMAIL })
+	} catch {
+		// ignore
 	}
+	if (!token) {
+		return { credits: null, totalCredits: null, usedCredits: null }
+	}
+	let res = await doRequest(token)
 	if (res.status === 401 && input.clientKey && input.clientSecret) {
-		const scoped = await getDoconchainApiTokenWithEnterpriseCreds({
-			email: env.DOCONCHAIN_EMAIL,
-			clientKey: input.clientKey,
-			clientSecret: input.clientSecret,
-		})
-		res = await doRequest(scoped)
+		try {
+			token = await getDoconchainApiTokenWithEnterpriseCreds({
+				email: env.DOCONCHAIN_EMAIL,
+				clientKey: input.clientKey,
+				clientSecret: input.clientSecret,
+			})
+			res = await doRequest(token)
+		} catch {
+			// ignore
+		}
 	}
 
 	const text = await res.text().catch(() => "")
 	if (!res.ok) {
-		throw new Error(
-			`DocOnChain get sub-org credits failed (${res.status} ${res.statusText})${text ? `: ${text.slice(0, 300)}` : ""}`
-		)
+		return { credits: null, totalCredits: null, usedCredits: null }
 	}
 
 	const raw = (text ? (JSON.parse(text) as SubOrgDetailsResponse) : {}) as SubOrgDetailsResponse
@@ -89,5 +230,5 @@ export async function getDoconchainSubOrgCredits(input: {
 			: ({} as Record<string, unknown>)
 
 	const credits = getNumericCredits(data)
-	return { credits, raw }
+	return { credits, totalCredits: null, usedCredits: null, raw }
 }

@@ -2,6 +2,7 @@ import { TRPCError } from "@trpc/server"
 import { desc, eq } from "drizzle-orm"
 
 import { doconchainSubOrganizations } from "@/services/drizzle/schema/doconchain-sub-organizations"
+import { enpProfiles } from "@/services/drizzle/schema/enp-profiles"
 import { env } from "@/env"
 import { createDoconchainSubOrganization } from "@/services/doconchain/organization/create-sub-organization"
 import { autoJoinMemberInDoconchainOrganization } from "@/services/doconchain/organization/auto-join-member"
@@ -84,7 +85,8 @@ const doconchain = {
 		subOrganizationUuid: string
 		clientKey?: string | null
 		clientSecret?: string | null
-	}) => Promise<{ credits: number | null }>,
+		enpEmail?: string | null
+	}) => Promise<{ credits: number | null; totalCredits: number | null; usedCredits: number | null }>,
 }
 
 function requireManagementRole(ctx: { session: { user: { role?: string } } }) {
@@ -195,13 +197,11 @@ export const subOrgsRouter = createTRPCRouter({
 
 		// Prefer stored values (recorded at create time), but fall back to DocOnChain API.
 		if (subOrg.clientKey && subOrg.clientSecret) {
-			const clientKey = subOrg.clientKey as string
-			const clientSecret = subOrg.clientSecret as string
 			return {
 				subOrgId: subOrg.id,
 				subOrgUuid: subOrg.uuid,
-				clientKey,
-				clientSecret,
+				clientKey: subOrg.clientKey,
+				clientSecret: subOrg.clientSecret,
 			}
 		}
 
@@ -229,12 +229,43 @@ export const subOrgsRouter = createTRPCRouter({
 			})
 		}
 
-		const { credits } = await doconchain.getSubOrgCredits({
-			subOrganizationUuid: subOrg.uuid,
-			clientKey: subOrg.clientKey ?? null,
-			clientSecret: subOrg.clientSecret ?? null,
-		})
-		return { credits }
+		// Resolve one ENP email in this sub-org for token generation (sub-org creds + that email → GET /credits).
+		let enpEmail: string | null = null
+		const storedTokenEmail = (subOrg.tokenEmail ?? "").trim()
+		if (storedTokenEmail) {
+			enpEmail = storedTokenEmail
+		}
+
+		// Fallback: try an ENP assigned to this sub-org.
+		const enpRow = await ctx.db
+			.select({ email: users.email })
+			.from(enpProfiles)
+			.innerJoin(users, eq(enpProfiles.userId, users.id))
+			// enp_profile.doconchainSubOrgId stores the DocOnChain sub-org UUID (not our internal DB id)
+			.where(eq(enpProfiles.doconchainSubOrgId, subOrg.uuid))
+			.limit(1)
+		if (!enpEmail && enpRow[0]?.email) enpEmail = enpRow[0].email
+		// Fallback: sometimes the sub-org has no ENP assigned yet; try current session email.
+		if (!enpEmail && typeof ctx.session.user.email === "string" && ctx.session.user.email.trim()) {
+			enpEmail = ctx.session.user.email.trim()
+		}
+
+		try {
+			const result = await doconchain.getSubOrgCredits({
+				subOrganizationUuid: subOrg.uuid,
+				clientKey: subOrg.clientKey ?? null,
+				clientSecret: subOrg.clientSecret ?? null,
+				enpEmail,
+			})
+			return {
+				credits: result.credits,
+				totalCredits: result.totalCredits ?? null,
+				usedCredits: result.usedCredits ?? null,
+			}
+		} catch (err) {
+			console.error("subOrgs.credits failed:", err)
+			return { credits: null, totalCredits: null, usedCredits: null }
+		}
 	}),
 
 	create: protectedProcedure.input(createSubOrgSchema).mutation(async ({ ctx, input }) => {
@@ -358,6 +389,16 @@ export const subOrgsRouter = createTRPCRouter({
 			targetOrganizationId: subOrg.numericId,
 			role: "Member",
 		})
+
+		// Store the member email for future sub-org token generation (credits, etc.).
+		try {
+			await ctx.db
+				.update(doconchainSubOrganizations)
+				.set({ tokenEmail: input.email.trim().toLowerCase() })
+				.where(eq(doconchainSubOrganizations.id, subOrg.id))
+		} catch {
+			// Non-blocking; credits can still work via ENP profile or session email.
+		}
 
 		return {
 			success: true,

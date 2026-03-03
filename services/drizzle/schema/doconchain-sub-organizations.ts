@@ -19,6 +19,13 @@ export const doconchainSubOrganizations = createTable(
 		name: t.varchar({ length: 255 }).notNull(),
 		address: t.text().notNull(),
 		subOrganizationTypeName: t.varchar({ length: 255 }).default("Department"),
+		/** DocOnChain branding image URL (set after uploading via PUT sub-org). */
+		photoUrl: t.text(),
+		/**
+		 * Email of a member inside this sub-org, used to generate a sub-org scoped token
+		 * (clientKey/clientSecret + email) for endpoints that require a user-token (e.g. credits).
+		 */
+		tokenEmail: t.text(),
 		/**
 		 * Sub-org scoped Enterprise API credentials (returned by DocOnChain).
 		 * Required for generating tokens for members inside this sub-org.

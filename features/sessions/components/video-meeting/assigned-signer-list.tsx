@@ -4,13 +4,21 @@ import React from "react"
 import { AlertCircle, CheckCircle2, Clock, User, Users as UsersIcon } from "lucide-react"
 
 import { Badge } from "@/core/components/ui/badge"
-import { cn } from "@/core/lib/utils"
+import { cn, getFullName } from "@/core/lib/utils"
 
 export interface AssignedSignerListProps {
 	signerUserIds: string[]
 	participants: Array<{
 		userId: string
-		user: { id: string; name: string | null; email: string | null } | null
+		user: {
+			id: string
+			firstName?: string | null
+			middleName?: string | null
+			lastName?: string | null
+			/** Back-compat for older session payloads */
+			name?: string | null
+			email: string | null
+		} | null
 	}>
 	signatureRequests?: Array<{ signerId: string; status: string; signedAt: string | Date | null }>
 }
@@ -62,8 +70,8 @@ export const AssignedSignerList = React.memo(function AssignedSignerList({
 			<div className="space-y-1">
 				{signerUserIds.map((userId, idx) => {
 					const p = participantById.get(userId)
-					const name = (p?.user?.name ?? "Unknown").trim()
 					const email = (p?.user?.email ?? "").trim()
+					const name = (getFullName(p?.user) || email || "Unknown").trim()
 					const signed = isSigned(userId)
 					const isCurrent = !allSigned && currentIndex === idx
 					const waiting = !signed && !isCurrent

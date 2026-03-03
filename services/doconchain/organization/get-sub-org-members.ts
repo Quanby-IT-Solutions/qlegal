@@ -41,37 +41,65 @@ export async function getDoconchainSubOrgMembers(input: {
 	const url = new URL(`/api/v2/sub-organizations/${uuid}/members`, env.DOCONCHAIN_API_URL)
 	url.searchParams.set("user_type", "ENTERPRISE_API")
 
-	let token = await getDoconchainApiToken({ email: env.DOCONCHAIN_EMAIL })
-	let res = await fetch(url.toString(), {
-		method: "GET",
-		headers: { Authorization: `Bearer ${token}`, accept: "application/json" },
-	})
-	if (res.status === 401) {
-		// Retry with a fresh token first
-		token = await getDoconchainApiToken({ email: env.DOCONCHAIN_EMAIL, forceGenerated: true })
-		res = await fetch(url.toString(), {
+	const doRequest = (t: string) =>
+		fetch(url.toString(), {
 			method: "GET",
-			headers: { Authorization: `Bearer ${token}`, accept: "application/json" },
+			headers: { Authorization: `Bearer ${t}`, accept: "application/json" },
 		})
 
-		// If still unauthorized, DocOnChain may require sub-org scoped enterprise creds for this endpoint.
-		if (res.status === 401 && input.clientKey && input.clientSecret) {
-			const scoped = await getDoconchainApiTokenWithEnterpriseCreds({
+	// Prefer sub-org scoped token when we have creds (avoids "User not found" when DOCONCHAIN_EMAIL
+	// is only in the sub-org). Fall back to parent/explicit token if sub-org generate fails or returns 401.
+	let res: Response
+	const getToken = async (): Promise<string | null> => {
+		try {
+			return await getDoconchainApiToken({ email: env.DOCONCHAIN_EMAIL })
+		} catch {
+			return null
+		}
+	}
+	if (input.clientKey && input.clientSecret) {
+		let token: string | null = null
+		try {
+			token = await getDoconchainApiTokenWithEnterpriseCreds({
 				email: env.DOCONCHAIN_EMAIL,
 				clientKey: input.clientKey,
 				clientSecret: input.clientSecret,
 			})
-			res = await fetch(url.toString(), {
-				method: "GET",
-				headers: { Authorization: `Bearer ${scoped}`, accept: "application/json" },
-			})
+		} catch {
+			// Sub-org generate can return "User not found" if email isn't in sub-org; try parent/explicit.
+			token = await getToken()
+		}
+		if (token) {
+			res = await doRequest(token)
+			if (res.status === 401) {
+				token = await getDoconchainApiToken({ email: env.DOCONCHAIN_EMAIL, forceGenerated: true }).catch(() => null)
+				if (token) res = await doRequest(token)
+			}
+		} else {
+			token = await getToken()
+			res = token ? await doRequest(token) : new Response("", { status: 401 })
+		}
+	} else {
+		let token = await getToken()
+		if (!token) {
+			res = new Response("", { status: 401 })
+		} else {
+			res = await doRequest(token)
+			if (res.status === 401) {
+				token = await getDoconchainApiToken({ email: env.DOCONCHAIN_EMAIL, forceGenerated: true }).catch(() => null)
+				if (token) res = await doRequest(token)
+			}
 		}
 	}
 
 	const text = await res.text().catch(() => "")
 	if (!res.ok) {
+		const hint =
+			res.status === 401
+				? " Set DOCONCHAIN_USER_TOKEN to a Bearer token from DocOnChain, or ensure DOCONCHAIN_EMAIL is a member of the parent or sub-org."
+				: ""
 		throw new Error(
-			`DocOnChain get sub-org members failed (${res.status} ${res.statusText})${text ? `: ${text.slice(0, 300)}` : ""}`
+			`DocOnChain get sub-org members failed (${res.status} ${res.statusText})${text ? `: ${text.slice(0, 300)}` : ""}${hint}`
 		)
 	}
 
