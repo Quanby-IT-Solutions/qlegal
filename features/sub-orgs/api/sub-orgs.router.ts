@@ -8,14 +8,19 @@ import { autoJoinMemberInDoconchainOrganization } from "@/services/doconchain/or
 import {
 	findOrganizationMemberIdByEmail,
 } from "@/services/doconchain/organization/get-parent-org-members"
+import { getDoconchainSubOrgCredits } from "@/services/doconchain/organization/get-sub-org-credits"
 import { getDoconchainSubOrgMembers } from "@/services/doconchain/organization/get-sub-org-members"
+import { getDoconchainSubOrganizationDetails } from "@/services/doconchain/organization/get-sub-organization"
 import { moveDoconchainMemberToSubOrg } from "@/services/doconchain/organization/move-member-to-sub-org"
 import { transferDoconchainCreditsToSubOrg } from "@/services/doconchain/organization/transfer-credits"
 import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
+import { users } from "@/services/drizzle/schema/auth"
 
 import {
 	addMemberToSubOrgSchema,
 	createSubOrgSchema,
+	getSubOrgCredentialsSchema,
+	getSubOrgCreditsSchema,
 	listSubOrgMembersSchema,
 	transferCreditsToSubOrgSchema,
 } from "./sub-orgs.schema"
@@ -28,7 +33,13 @@ const doconchain = {
 		name: string
 		address: string
 		subOrganizationTypeName?: string
-	}) => Promise<{ id: string; name: string; subOrgNumericId?: number }>,
+	}) => Promise<{
+		id: string
+		name: string
+		subOrgNumericId?: number
+		clientKey: string | null
+		clientSecret: string | null
+	}>,
 	autoJoin: autoJoinMemberInDoconchainOrganization as (input: {
 		email: string
 		name?: string
@@ -48,6 +59,8 @@ const doconchain = {
 	}) => Promise<unknown>,
 	getSubOrgMembers: getDoconchainSubOrgMembers as (input: {
 		subOrganizationUuid: string
+		clientKey?: string | null
+		clientSecret?: string | null
 	}) => Promise<
 		Array<{
 			email?: string
@@ -64,6 +77,14 @@ const doconchain = {
 		subOrgUuid: string
 		credits: number
 	}) => Promise<{ success: boolean; transferredCredits: number; remainingCredits?: number }>,
+	getSubOrgDetails: getDoconchainSubOrganizationDetails as (input: {
+		subOrganizationUuid: string
+	}) => Promise<{ uuid: string; clientKey: string | null; clientSecret: string | null }>,
+	getSubOrgCredits: getDoconchainSubOrgCredits as (input: {
+		subOrganizationUuid: string
+		clientKey?: string | null
+		clientSecret?: string | null
+	}) => Promise<{ credits: number | null }>,
 }
 
 function requireManagementRole(ctx: { session: { user: { role?: string } } }) {
@@ -120,23 +141,33 @@ export const subOrgsRouter = createTRPCRouter({
 			})
 		}
 
-		const members = await doconchain.getSubOrgMembers({ subOrganizationUuid: subOrg.uuid })
+		const members = await doconchain.getSubOrgMembers({
+			subOrganizationUuid: subOrg.uuid,
+			clientKey: subOrg.clientKey ?? null,
+			clientSecret: subOrg.clientSecret ?? null,
+		})
 		const excludeEmail = env.DOCONCHAIN_EMAIL.trim().toLowerCase()
 
 		const cleaned = members
 			.map(m => {
+				const r = m as Record<string, unknown>
 				const email = (m.email ?? "").trim()
 				if (!email) return null
 				if (excludeEmail && email.toLowerCase() === excludeEmail) return null
 
-				const first = (m.first_name ?? "").trim()
-				const last = (m.last_name ?? "").trim()
-				const fullName = (m.name ?? `${first} ${last}`.trim()).trim()
+				const first = String((m.first_name ?? r.firstName ?? "") as string).trim()
+				const last = String((m.last_name ?? r.lastName ?? "") as string).trim()
+				const joinedName = [first, last].filter(Boolean).join(" ").trim()
+				const rawName = String((m.name ?? r.full_name ?? "") as string).trim()
+
+				const emailLocal = (email.split("@")[0] ?? "").trim()
+				const derivedFromEmail = emailLocal.replace(/[._-]+/g, " ").trim()
+				const displayName = joinedName || rawName || derivedFromEmail || email
 
 				return {
 					key: email,
 					email,
-					name: fullName || email,
+					name: displayName,
 					role: ((m.access_level ?? m.role) ?? "").trim() || "Member",
 					status: (m.status ?? "").trim() || "",
 				}
@@ -145,6 +176,65 @@ export const subOrgsRouter = createTRPCRouter({
 			.sort((a, b) => a.email.localeCompare(b.email))
 
 		return cleaned
+	}),
+
+	credentials: protectedProcedure.input(getSubOrgCredentialsSchema).query(async ({ ctx, input }) => {
+		requireManagementRole(ctx)
+
+		const subOrgId = (input as { subOrgId: string }).subOrgId
+		const subOrg = await ctx.db.query.doconchainSubOrganizations.findFirst({
+			where: eq(doconchainSubOrganizations.id, subOrgId),
+		})
+
+		if (!subOrg) {
+			throw new TRPCError({
+				code: "NOT_FOUND",
+				message: "Sub-organization not found.",
+			})
+		}
+
+		// Prefer stored values (recorded at create time), but fall back to DocOnChain API.
+		if (subOrg.clientKey && subOrg.clientSecret) {
+			const clientKey = subOrg.clientKey as string
+			const clientSecret = subOrg.clientSecret as string
+			return {
+				subOrgId: subOrg.id,
+				subOrgUuid: subOrg.uuid,
+				clientKey,
+				clientSecret,
+			}
+		}
+
+		const details = await doconchain.getSubOrgDetails({ subOrganizationUuid: subOrg.uuid })
+		return {
+			subOrgId: subOrg.id,
+			subOrgUuid: subOrg.uuid,
+			clientKey: details.clientKey,
+			clientSecret: details.clientSecret,
+		}
+	}),
+
+	credits: protectedProcedure.input(getSubOrgCreditsSchema).query(async ({ ctx, input }) => {
+		requireManagementRole(ctx)
+
+		const subOrgId = (input as { subOrgId: string }).subOrgId
+		const subOrg = await ctx.db.query.doconchainSubOrganizations.findFirst({
+			where: eq(doconchainSubOrganizations.id, subOrgId),
+		})
+
+		if (!subOrg) {
+			throw new TRPCError({
+				code: "NOT_FOUND",
+				message: "Sub-organization not found.",
+			})
+		}
+
+		const { credits } = await doconchain.getSubOrgCredits({
+			subOrganizationUuid: subOrg.uuid,
+			clientKey: subOrg.clientKey ?? null,
+			clientSecret: subOrg.clientSecret ?? null,
+		})
+		return { credits }
 	}),
 
 	create: protectedProcedure.input(createSubOrgSchema).mutation(async ({ ctx, input }) => {
@@ -163,6 +253,13 @@ export const subOrgsRouter = createTRPCRouter({
 			})
 		}
 
+		// Persist sub-org scoped Enterprise API credentials (returned by create response).
+		// If absent, they can still be fetched later via `subOrgs.credentials`.
+		const { clientKey, clientSecret } = created as {
+			clientKey: string | null
+			clientSecret: string | null
+		}
+
 		const [row] = await ctx.db
 			.insert(doconchainSubOrganizations)
 			.values({
@@ -171,6 +268,8 @@ export const subOrgsRouter = createTRPCRouter({
 				name: created.name,
 				address: input.address.trim(),
 				subOrganizationTypeName: input.subOrganizationTypeName || "Department",
+				clientKey,
+				clientSecret,
 			})
 			.returning()
 
@@ -205,6 +304,15 @@ export const subOrgsRouter = createTRPCRouter({
 			})
 		}
 
+		// Try to resolve local user name so DocOnChain stores a proper first/last name.
+		const localUser = await ctx.db.query.users.findFirst({
+			where: eq(users.email, input.email.trim().toLowerCase()),
+			columns: { firstName: true, middleName: true, lastName: true },
+		})
+		const localFullName = localUser
+			? [localUser.firstName, localUser.middleName, localUser.lastName].filter(Boolean).join(" ").trim()
+			: ""
+
 		// Parent org: from env for now; can later come from subOrg.parentOrgId or input
 		const parentOrgId = env.DOCONCHAIN_ORGANIZATION_ID
 		let clientId: number | null = await doconchain.findMemberIdByEmail({
@@ -216,6 +324,7 @@ export const subOrgsRouter = createTRPCRouter({
 			try {
 				await doconchain.autoJoin({
 					email: input.email,
+					name: localFullName || undefined,
 					role: "Member",
 					organizationIdOverride: String(parentOrgId),
 				})

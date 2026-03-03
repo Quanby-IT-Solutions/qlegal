@@ -1,4 +1,5 @@
 import { env } from "@/env"
+import type { GetSubOrgCredsForEmail } from "@/services/doconchain/auth/generate-token"
 import {
 	getDoconchainApiToken,
 	invalidateDoconchainToken,
@@ -74,6 +75,8 @@ export async function addDoconchainProjectSigner(input: {
 		name: string
 		role: "Signer" | "Approver" | "Viewer" | "Issuee"
 	}
+	/** Optional: resolve sub-org enterprise creds for this ENP to avoid unauthorized parent-org token flows. */
+	getSubOrgCredsForEmail?: GetSubOrgCredsForEmail
 }): Promise<void> {
 	const email = input.enpEmail.trim().toLowerCase()
 	if (!email) throw new Error("ENP email is required to add DocOnChain signers.")
@@ -92,7 +95,11 @@ export async function addDoconchainProjectSigner(input: {
 	}
 
 	const doRequest = async () => {
-		const token = await getDoconchainApiToken({ email, forceGenerated: true })
+		const token = await getDoconchainApiToken({
+			email,
+			forceGenerated: true,
+			getSubOrgCredsForEmail: input.getSubOrgCredsForEmail,
+		})
 		await postAddSigner({ projectUuid: input.projectUuid, token, payload })
 	}
 

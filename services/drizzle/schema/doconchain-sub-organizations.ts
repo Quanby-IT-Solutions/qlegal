@@ -19,6 +19,12 @@ export const doconchainSubOrganizations = createTable(
 		name: t.varchar({ length: 255 }).notNull(),
 		address: t.text().notNull(),
 		subOrganizationTypeName: t.varchar({ length: 255 }).default("Department"),
+		/**
+		 * Sub-org scoped Enterprise API credentials (returned by DocOnChain).
+		 * Required for generating tokens for members inside this sub-org.
+		 */
+		clientKey: t.text(),
+		clientSecret: t.text(),
 		createdAt: t.timestamp({ mode: "date", withTimezone: true }).defaultNow().notNull(),
 	}),
 	t => []
