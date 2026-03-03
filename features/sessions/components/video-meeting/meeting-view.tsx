@@ -242,8 +242,8 @@ export function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meet
 			void refetchMeetingDetails()
 			toast.success(
 				meetingDetails?.isDocumentOrderLocked
-					? "Document changes unlocked"
-					: "Document changes locked"
+					? "Document uploads unlocked"
+					: "Document uploads locked"
 			)
 		},
 		onError: error => {
@@ -1208,7 +1208,7 @@ export function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meet
 							isUploadLoading={isPreparingUpload || isEnsuringDoconchainToken}
 							uploadDisabledReason={
 								isUploadBlockedByLock
-									? "Can't upload a file while document changes are locked"
+									? "Can't upload a file while document uploads are locked"
 									: undefined
 							}
 							onRecordingToggle={handleRecordingToggle}

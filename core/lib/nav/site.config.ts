@@ -14,6 +14,7 @@ import {
 	UserIcon,
 	UserMultipleIcon,
 	Video01Icon,
+  	ShieldIcon, 
 } from "@hugeicons/core-free-icons"
 
 import type { UserRole } from "@/services/drizzle/schema/auth"
@@ -91,6 +92,10 @@ export const appSidebarSections: NavSection[] = [
 				roles: ["ENA", "ADMIN"],
 			},
 			{
+				title: "ENP Management",
+				url: "/management/enp-management",
+				icon: ShieldIcon,
+				roles: ["ADMIN"],
 				title: "Sub-Orgs",
 				url: "/management/sub-orgs",
 				icon: Building01Icon,

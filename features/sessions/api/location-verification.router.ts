@@ -1,4 +1,5 @@
 import { eq } from "drizzle-orm"
+import { randomUUID } from "node:crypto"
 import { z } from "zod/v4"
 
 import { db } from "@/services/drizzle/db"
@@ -82,6 +83,20 @@ interface GeocodingResponse {
 		}
 	}>
 	error_message?: string
+}
+
+interface GeocodingErrorDetails {
+	status: string
+	statusCode?: number
+	message?: string
+}
+
+interface GeocodingLookupResult {
+	countryCode: string | null
+	countryName: string | null
+	formattedAddress: string | null
+	parsedAddress: ParsedAddress | null
+	error?: GeocodingErrorDetails
 }
 
 /**
@@ -327,12 +342,7 @@ function parseAddressComponents(result: GeocodingResponse["results"][0]): Parsed
 async function getCountryFromCoordinates(
 	lat: number,
 	lng: number
-): Promise<{
-	countryCode: string | null
-	countryName: string | null
-	formattedAddress: string | null
-	parsedAddress: ParsedAddress | null
-}> {
+): Promise<GeocodingLookupResult> {
 	try {
 		// Don't filter by result_type to get full address data
 		const response = await fetch(
@@ -341,20 +351,48 @@ async function getCountryFromCoordinates(
 
 		if (!response.ok) {
 			console.error(`[Geocoding] Google Maps API returned status ${response.status}`)
-			return { countryCode: null, countryName: null, formattedAddress: null, parsedAddress: null }
+			return {
+				countryCode: null,
+				countryName: null,
+				formattedAddress: null,
+				parsedAddress: null,
+				error: {
+					status: "HTTP_ERROR",
+					statusCode: response.status,
+					message: "Google Maps Geocoding HTTP request failed",
+				},
+			}
 		}
 
 		const data = (await response.json()) as GeocodingResponse
 
 		if (data.status !== "OK" || !data.results || data.results.length === 0) {
 			console.error(`[Geocoding] Google Maps API error: ${data.status} - ${data.error_message}`)
-			return { countryCode: null, countryName: null, formattedAddress: null, parsedAddress: null }
+			return {
+				countryCode: null,
+				countryName: null,
+				formattedAddress: null,
+				parsedAddress: null,
+				error: {
+					status: data.status,
+					message: data.error_message ?? "Google Maps Geocoding returned no results",
+				},
+			}
 		}
 
 		// Get the first result for the most detailed address
 		const result = data.results[0]
 		if (!result) {
-			return { countryCode: null, countryName: null, formattedAddress: null, parsedAddress: null }
+			return {
+				countryCode: null,
+				countryName: null,
+				formattedAddress: null,
+				parsedAddress: null,
+				error: {
+					status: "NO_PRIMARY_RESULT",
+					message: "Google Maps response did not contain a primary result",
+				},
+			}
 		}
 
 		// Extract formatted address
@@ -386,7 +424,16 @@ async function getCountryFromCoordinates(
 		}
 	} catch (error) {
 		console.error("[Geocoding] Error getting country from coordinates:", error)
-		return { countryCode: null, countryName: null, formattedAddress: null, parsedAddress: null }
+		return {
+			countryCode: null,
+			countryName: null,
+			formattedAddress: null,
+			parsedAddress: null,
+			error: {
+				status: "NETWORK_ERROR",
+				message: error instanceof Error ? error.message : "Unknown geocoding error",
+			},
+		}
 	}
 }
 
@@ -406,6 +453,7 @@ export const locationVerificationRouter = createTRPCRouter({
 			z.object({
 				latitude: z.number().min(-90).max(90),
 				longitude: z.number().min(-180).max(180),
+				accuracyMeters: z.number().min(0).optional(),
 				meetingId: z.string().min(1),
 			})
 		)
@@ -430,47 +478,225 @@ export const locationVerificationRouter = createTRPCRouter({
 					clientIp?: string
 				}
 			> => {
-				const { latitude, longitude } = input
+				const { latitude, longitude, accuracyMeters, meetingId } = input
 				const userRole = ctx.session.user.role
+				const userId = ctx.session.user.id
+				const timestamp = new Date().toISOString()
+				const requestId = randomUUID()
 				let ipData: ProxyCheckIpData | null = null
 				let ipApiData: IpApiCheckResult | null = null
 
-				// Step 1: Get client IP
-				const clientIp = getClientIp(ctx.headers)
+				try {
+					if (accuracyMeters !== undefined && accuracyMeters > 200) {
+						console.warn(
+							`[Location Verification] ssGPS_ACCURACY_LOW: userId=${userId}, meetingId=${meetingId}, accuracy=${accuracyMeters}m, timestamp=${timestamp}`
+						)
+						return {
+							allowed: false,
+							reason: "gps_accuracy_low",
+							debugInfo: {
+								errorCode: "GPS_ACCURACY_LOW",
+								errorMessage: `GPS accuracy is ${accuracyMeters.toFixed(1)}m, above the 200m threshold`,
+								userMessage:
+									"Your GPS signal is currently too weak to verify location precisely.",
+								suggestedAction:
+									"Move outdoors, wait for a stronger signal, and retry location verification.",
+								timestamp,
+								accuracyMeters,
+								requestId,
+							},
+						}
+					}
 
-				if (!clientIp) {
-					console.warn("[Location Verification] Could not determine client IP")
-					// Continue without VPN check if IP cannot be determined
-				}
+					// Step 1: Get client IP
+					const clientIp = getClientIp(ctx.headers)
 
-				// Step 2: Check for VPN/proxy usage
-				if (clientIp) {
-					const ipApiCheckResult = await checkIpApi(clientIp)
-					ipApiData = ipApiCheckResult
+					if (!clientIp) {
+						console.warn(
+							`[Location Verification] CLIENT_IP_UNKNOWN: userId=${userId}, meetingId=${meetingId}, timestamp=${timestamp}`
+						)
+						// Continue without VPN check if IP cannot be determined
+					}
 
-					if (ipApiCheckResult.isProxy) {
-						if (ipApiCheckResult.authoritative) {
+					// Step 2: Check for VPN/proxy usage
+					if (clientIp) {
+						const ipApiCheckResult = await checkIpApi(clientIp)
+						ipApiData = ipApiCheckResult
+
+						if (ipApiCheckResult.isProxy) {
+							if (ipApiCheckResult.authoritative) {
+								console.log(
+									`[Location Verification] VPN_DETECTED_IP_API: userId=${userId}, meetingId=${meetingId}, clientIp=${clientIp}, timestamp=${timestamp}`
+								)
+								return {
+									allowed: false,
+									reason: "vpn_detected",
+									ipApiDetails: ipApiCheckResult,
+									clientIp: clientIp ?? undefined,
+								}
+							}
+
+							console.warn(
+								`[Location Verification] IP_API_ADVISORY_PROXY: userId=${userId}, meetingId=${meetingId}, transport=${ipApiCheckResult.transportMode}, timestamp=${timestamp}`
+							)
+						}
+
+						const vpnCheckResult = await checkVpnStatus(clientIp)
+						ipData = vpnCheckResult.ipData
+
+						if (vpnCheckResult.isVpn) {
 							console.log(
-								`[Location Verification] Proxy/hosting detected by ip-api (secure transport) for IP: ${clientIp}`
+								`[Location Verification] VPN_DETECTED_PROXYCHECK: userId=${userId}, meetingId=${meetingId}, clientIp=${clientIp}, timestamp=${timestamp}`
 							)
 							return {
 								allowed: false,
 								reason: "vpn_detected",
-								ipApiDetails: ipApiCheckResult,
+								vpnDetails: ipData,
+								ipApiDetails: ipApiData,
 								clientIp: clientIp ?? undefined,
 							}
 						}
 
-						console.warn(
-							`[Location Verification] ip-api reported proxy/hosting over ${ipApiCheckResult.transportMode}; treating as advisory until proxycheck confirms`
-						)
+						if (!ipApiCheckResult.checked && !vpnCheckResult.checked) {
+							console.warn(
+								`[Location Verification] VPN_CHECK_UNAVAILABLE: userId=${userId}, meetingId=${meetingId}, timestamp=${timestamp}`
+							)
+						}
 					}
 
-					const vpnCheckResult = await checkVpnStatus(clientIp)
-					ipData = vpnCheckResult.ipData
+					// Step 3: Get country and address from coordinates using Google Maps Geocoding
+					const { countryCode, formattedAddress, parsedAddress, error } =
+						await getCountryFromCoordinates(latitude, longitude)
 
-					if (vpnCheckResult.isVpn) {
-						console.log(`[Location Verification] VPN detected for IP: ${clientIp}`)
+					if (!countryCode) {
+						const geocodingStatus = error?.status ?? "UNKNOWN"
+						const geocodingMessage =
+							error?.message ?? "Unable to determine country from coordinates"
+
+						console.error(
+							`[Location Verification] GOOGLE_MAPS_LOOKUP_FAILED: status=${geocodingStatus}, statusCode=${error?.statusCode ?? "n/a"}, userId=${userId}, meetingId=${meetingId}, timestamp=${timestamp}`
+						)
+
+						if (geocodingStatus === "OVER_DAILY_LIMIT" || geocodingStatus === "OVER_QUERY_LIMIT") {
+							return {
+								allowed: false,
+								reason: "google_maps_api_error",
+								details: {
+									isInPhilippines: false,
+									formattedAddress: formattedAddress ?? undefined,
+								},
+								debugInfo: {
+									errorCode: "GOOGLE_MAPS_QUOTA_EXCEEDED",
+									errorMessage: geocodingMessage,
+									userMessage:
+										"Location verification service is temporarily at capacity.",
+									suggestedAction:
+										"Please retry in a few minutes or contact support if this persists.",
+									timestamp,
+									apiStatusCode: geocodingStatus,
+									requestId,
+								},
+								clientIp: clientIp ?? undefined,
+							}
+						}
+
+						if (geocodingStatus === "REQUEST_DENIED") {
+							return {
+								allowed: false,
+								reason: "google_maps_api_error",
+								details: {
+									isInPhilippines: false,
+									formattedAddress: formattedAddress ?? undefined,
+								},
+								debugInfo: {
+									errorCode: "GOOGLE_MAPS_REQUEST_DENIED",
+									errorMessage: geocodingMessage,
+									userMessage: "Location service configuration is currently unavailable.",
+									suggestedAction:
+										"Please contact support and share the request ID shown in technical details.",
+									timestamp,
+									apiStatusCode: geocodingStatus,
+									requestId,
+								},
+								clientIp: clientIp ?? undefined,
+							}
+						}
+
+						if (geocodingStatus === "ZERO_RESULTS") {
+							return {
+								allowed: false,
+								reason: "location_unknown",
+								details: {
+									isInPhilippines: false,
+									formattedAddress: formattedAddress ?? undefined,
+								},
+								debugInfo: {
+									errorCode: "GOOGLE_MAPS_ZERO_RESULTS",
+									errorMessage: "Coordinates appear to be in an unmapped area",
+									userMessage:
+										"We could not match your coordinates to a known address.",
+									suggestedAction:
+										"Move to an open area with stronger GPS signal and try again.",
+									timestamp,
+									apiStatusCode: geocodingStatus,
+									requestId,
+								},
+								clientIp: clientIp ?? undefined,
+							}
+						}
+
+						if (geocodingStatus === "NETWORK_ERROR" || geocodingStatus === "HTTP_ERROR") {
+							return {
+								allowed: false,
+								reason: "server_error",
+								details: {
+									isInPhilippines: false,
+									formattedAddress: formattedAddress ?? undefined,
+								},
+								debugInfo: {
+									errorCode: "LOCATION_SERVICE_NETWORK_ERROR",
+									errorMessage: geocodingMessage,
+									userMessage:
+										"We could not reach the location verification service.",
+									suggestedAction: "Please check your connection and retry.",
+									timestamp,
+									apiStatusCode: geocodingStatus,
+									requestId,
+								},
+								clientIp: clientIp ?? undefined,
+							}
+						}
+
+						return {
+							allowed: false,
+							reason: "google_maps_api_error",
+							details: {
+								isInPhilippines: false,
+								formattedAddress: formattedAddress ?? undefined,
+							},
+							debugInfo: {
+								errorCode: "GOOGLE_MAPS_API_ERROR",
+								errorMessage: geocodingMessage,
+								userMessage: "Location verification is temporarily unavailable.",
+								suggestedAction: "Please retry shortly.",
+								timestamp,
+								apiStatusCode: geocodingStatus,
+								requestId,
+							},
+							clientIp: clientIp ?? undefined,
+						}
+					}
+
+					const ipCountryCode = (
+						ipData?.country ??
+						(ipApiData?.authoritative ? ipApiData.countryCode : null) ??
+						null
+					)?.toUpperCase() ?? null
+
+					if (ipCountryCode && countryCode && ipCountryCode !== countryCode.toUpperCase()) {
+						console.warn(
+							`[Location Verification] VPN_COUNTRY_MISMATCH: userId=${userId}, meetingId=${meetingId}, ipCountry=${ipCountryCode}, geoCountry=${countryCode}, timestamp=${timestamp}`
+						)
 						return {
 							allowed: false,
 							reason: "vpn_detected",
@@ -480,75 +706,51 @@ export const locationVerificationRouter = createTRPCRouter({
 						}
 					}
 
-					if (!ipApiCheckResult.checked && !vpnCheckResult.checked) {
-						console.warn(
-							"[Location Verification] VPN checks unavailable (ip-api + proxycheck), proceeding with location-only verification"
-						)
-					}
-				}
+					// Check if user is in Philippines
+					const isInPhilippines = countryCode === "PH"
 
-				// Step 3: Get country and address from coordinates using Google Maps Geocoding
-				const { countryCode, formattedAddress, parsedAddress } = await getCountryFromCoordinates(
-					latitude,
-					longitude
-				)
+					// Step 4: Verify location based on user role
+					const verificationResult = verifyLocationForRole(
+						userRole,
+						latitude,
+						longitude,
+						isInPhilippines
+					)
 
-				if (!countryCode) {
-					console.warn("[Location Verification] Could not determine country from coordinates")
-					return {
-						allowed: false,
-						reason: "location_unknown",
-						details: {
-							isInPhilippines: false,
+					// Add country code and formatted address to details
+					if (verificationResult.details) {
+						verificationResult.details.countryCode = countryCode
+						verificationResult.details.formattedAddress = formattedAddress ?? undefined
+					} else {
+						verificationResult.details = {
+							countryCode,
 							formattedAddress: formattedAddress ?? undefined,
-						},
+						}
+					}
+
+					return {
+						...verificationResult,
+						ipApiDetails: ipApiData,
+						parsedAddress,
 						clientIp: clientIp ?? undefined,
 					}
-				}
-
-				const ipCountryCode = (
-					ipData?.country ??
-					(ipApiData?.authoritative ? ipApiData.countryCode : null) ??
-					null
-				)?.toUpperCase() ?? null
-
-				if (ipCountryCode && countryCode && ipCountryCode !== countryCode.toUpperCase()) {
+				} catch (error) {
+					console.error(
+						`[Location Verification] SERVER_ERROR: userId=${userId}, meetingId=${meetingId}, timestamp=${timestamp}`,
+						error
+					)
 					return {
 						allowed: false,
-						reason: "vpn_detected",
-						vpnDetails: ipData,
-						ipApiDetails: ipApiData,
-						clientIp: clientIp ?? undefined,
+						reason: "server_error",
+						debugInfo: {
+							errorCode: "SERVER_ERROR",
+							errorMessage: error instanceof Error ? error.message : "Unknown server error",
+							userMessage: "An unexpected server error occurred during location verification.",
+							suggestedAction: "Please retry. If the issue persists, contact support.",
+							timestamp,
+							requestId,
+						},
 					}
-				}
-
-				// Check if user is in Philippines
-				const isInPhilippines = countryCode === "PH"
-
-				// Step 4: Verify location based on user role
-				const verificationResult = verifyLocationForRole(
-					userRole,
-					latitude,
-					longitude,
-					isInPhilippines
-				)
-
-				// Add country code and formatted address to details
-				if (verificationResult.details) {
-					verificationResult.details.countryCode = countryCode
-					verificationResult.details.formattedAddress = formattedAddress ?? undefined
-				} else {
-					verificationResult.details = {
-						countryCode,
-						formattedAddress: formattedAddress ?? undefined,
-					}
-				}
-
-				return {
-					...verificationResult,
-					ipApiDetails: ipApiData,
-					parsedAddress,
-					clientIp: clientIp ?? undefined,
 				}
 			}
 		),

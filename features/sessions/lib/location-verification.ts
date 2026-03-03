@@ -161,12 +161,28 @@ export interface LocationVerificationResult {
 		| "vpn_detected"
 		| "vpn_check_unavailable"
 		| "geolocation_error"
+		| "permission_denied"
+		| "unavailable"
+		| "timeout"
+		| "gps_accuracy_low"
+		| "google_maps_api_error"
+		| "server_error"
 	details?: {
 		isInPhilippines?: boolean
 		nearbyEmbassy?: EmbassyLocation
 		distanceToEmbassyKm?: number
 		countryCode?: string
 		formattedAddress?: string
+	}
+	debugInfo?: {
+		errorCode?: string
+		errorMessage?: string
+		userMessage?: string
+		suggestedAction?: string
+		timestamp?: string
+		accuracyMeters?: number
+		apiStatusCode?: string
+		requestId?: string
 	}
 }
 

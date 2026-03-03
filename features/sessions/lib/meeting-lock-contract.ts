@@ -1,18 +1,15 @@
-export const MEETING_LOCK_CONTRACT_VERSION = "2026-02-27"
+export const MEETING_LOCK_CONTRACT_VERSION = "2026-03-02"
 
 export const MEETING_LOCK_API_MESSAGE =
-	"Document changes are locked for this meeting. Unlock to upload documents, reorder documents, or edit signers."
+	"Document uploads are locked for this meeting. Unlock to add documents."
 
 export const MEETING_LOCK_BADGE_LABEL = "Locked"
 
-export const MEETING_LOCK_HELPER_TEXT =
-	"Locked: upload, reorder, signer edits, and project creation are blocked. Signing can continue in the current order."
-
 export const MEETING_LOCK_ACTIONS = {
-	reorder: { blockedWhileLocked: true },
+	reorder: { blockedWhileLocked: false },
 	uploadAdd: { blockedWhileLocked: true },
-	signerChanges: { blockedWhileLocked: true },
-	projectCreation: { blockedWhileLocked: true },
+	signerChanges: { blockedWhileLocked: false },
+	projectCreation: { blockedWhileLocked: false },
 	signingProgression: { blockedWhileLocked: false },
 } as const
 
@@ -25,17 +22,17 @@ export function isMeetingLockActionBlocked(
 }
 
 export function getMeetingLockToggleLabel(isLocked: boolean): string {
-	return isLocked ? "Unlock document changes" : "Lock document changes"
+	return isLocked ? "Unlock document uploads" : "Lock document uploads"
 }
 
-export function getDocumentReorderTitle(isLocked: boolean): string {
-	return isLocked ? "Document changes are locked" : "Drag to reorder"
+export function getDocumentReorderTitle(): string {
+	return "Drag to reorder"
 }
 
 export function getSignerEditLockedMessage(): string {
-	return "Unlock document changes to edit signers"
+	return "Signer edits remain available while uploads are locked"
 }
 
 export function getProjectCreationLockedMessage(): string {
-	return "Unlock document changes to create a project"
+	return "Project creation remains available while uploads are locked"
 }
