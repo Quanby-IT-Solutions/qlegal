@@ -24,7 +24,13 @@ export const env = createEnv({
 		DOCONCHAIN_CLIENT_SECRET: z.string(),
 		DOCONCHAIN_EMAIL: z.string().email(),
 		DOCONCHAIN_ORGANIZATION_ID: z.coerce.number(),
+		/** Parent org UUID for Create Sub Organization API (must be UUID, not numeric ID). */
+		DOCONCHAIN_ORGANIZATION_UUID: z.string().optional(),
 		DOCONCHAIN_ORG_INVITE_CODE: z.string().optional(),
+		/** Optional. Bearer token from an org-admin account (e.g. from DocOnChain app). Used when generated token lacks permission (e.g. transfer credits). */
+		DOCONCHAIN_USER_TOKEN: z.string().optional(),
+		/** Optional. Alias for DOCONCHAIN_USER_TOKEN. */
+		DOCONCHAIN_API_TOKEN: z.string().optional(),
 
 		// Email
 		EMAIL_FROM_NAME: z.string(),
@@ -111,7 +117,10 @@ export const env = createEnv({
 		DOCONCHAIN_CLIENT_SECRET: process.env.DOCONCHAIN_CLIENT_SECRET,
 		DOCONCHAIN_EMAIL: process.env.DOCONCHAIN_EMAIL,
 		DOCONCHAIN_ORGANIZATION_ID: process.env.DOCONCHAIN_ORGANIZATION_ID,
+		DOCONCHAIN_ORGANIZATION_UUID: process.env.DOCONCHAIN_ORGANIZATION_UUID,
 		DOCONCHAIN_ORG_INVITE_CODE: process.env.DOCONCHAIN_ORG_INVITE_CODE,
+		DOCONCHAIN_USER_TOKEN: process.env.DOCONCHAIN_USER_TOKEN,
+		DOCONCHAIN_API_TOKEN: process.env.DOCONCHAIN_API_TOKEN,
 
 		// Email
 		EMAIL_FROM_NAME: process.env.EMAIL_FROM_NAME,

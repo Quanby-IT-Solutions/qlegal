@@ -1,5 +1,6 @@
-import { eq, gte, ilike, or, type InferSelectModel } from "drizzle-orm"
+import { eq, gte, ilike, or, sql, type InferSelectModel } from "drizzle-orm"
 
+import { getFullName } from "@/core/lib/utils"
 import { users } from "@/services/drizzle/schema/auth"
 import { enpProfiles } from "@/services/drizzle/schema/enp-profiles"
 import { getAvatarPublicUrl } from "@/services/supabase/presigned-url"
@@ -18,7 +19,9 @@ import {
 type EnpCombined = Readonly<{
 	// From users table
 	id: InferSelectModel<typeof users>["id"]
-	name: InferSelectModel<typeof users>["name"]
+	firstName: InferSelectModel<typeof users>["firstName"]
+	middleName: InferSelectModel<typeof users>["middleName"]
+	lastName: InferSelectModel<typeof users>["lastName"]
 	email: InferSelectModel<typeof users>["email"]
 	image: InferSelectModel<typeof users>["image"]
 	phoneNumber: InferSelectModel<typeof users>["phoneNumber"]
@@ -165,11 +168,12 @@ export async function transformENPData(enp: EnpCombined): Promise<{
 		badges.push(BADGE_LABELS.ELITE)
 	}
 
+	const fullName = getFullName(enp) || "Electronic Notary Public"
 	return {
 		id: String(enp.id),
-		name: enp.name ?? "Electronic Notary Public",
-		initials: enp.name
-			? enp.name
+		name: fullName,
+		initials: fullName
+			? fullName
 					.split(" ")
 					.map(word => word[0])
 					.join("")
@@ -227,12 +231,15 @@ export function buildENPWhereConditions({
 		conditions.push(gte(enpProfiles.rating, minRating))
 	}
 
-	// Add search term filter (search in name, specialization, or languages)
+	// Add search term filter (search in full name, specialization, or languages)
 	if (searchTerm?.trim()) {
 		const searchTermLower = `%${searchTerm.toLowerCase()}%`
 		conditions.push(
 			or(
-				ilike(users.name, searchTermLower),
+				ilike(
+					sql`concat_ws(' ', coalesce(${users.firstName},''), coalesce(${users.middleName},''), coalesce(${users.lastName},''))`,
+					searchTermLower
+				),
 				ilike(enpProfiles.specialization, searchTermLower),
 				ilike(enpProfiles.languages, searchTermLower)
 			)!

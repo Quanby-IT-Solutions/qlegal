@@ -15,6 +15,7 @@ import { locationVerificationRouter } from "@/features/sessions/api/location-ver
 import { meetingsRouter } from "@/features/sessions/api/meetings.router"
 import { signatureRequestsRouter } from "@/features/sessions/api/signature-requests.router"
 import { settingsRouter } from "@/features/settings/api/settings.router"
+import { subOrgsRouter } from "@/features/sub-orgs/api/sub-orgs.router"
 import { signatureLiteRouter } from "@/features/signature-lite/api/new-signature.router"
 import { userManagementRouter } from "@/features/user-management/api/user-management.router"
 
@@ -50,6 +51,7 @@ export const appRouter = createTRPCRouter({
 	profile: profileRouter,
 	settings: settingsRouter,
 	signatureLite: signatureLiteRouter,
+	subOrgs: subOrgsRouter,
 	userManagement: userManagementRouter,
 })
 

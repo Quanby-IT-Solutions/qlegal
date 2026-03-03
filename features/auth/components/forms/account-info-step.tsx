@@ -20,12 +20,38 @@ export function AccountInfoStep({ form }: AccountInfoStepProps) {
 		<div className="space-y-4">
 			<FormField
 				control={form.control}
-				name="name"
+				name="firstName"
 				render={({ field }) => (
 					<FormItem>
-						<FormLabel>Full Name</FormLabel>
+						<FormLabel>First name</FormLabel>
 						<FormControl>
-							<Input placeholder="Enter your full name" {...field} />
+							<Input placeholder="Enter your first name" {...field} />
+						</FormControl>
+						<FormMessage />
+					</FormItem>
+				)}
+			/>
+			<FormField
+				control={form.control}
+				name="middleName"
+				render={({ field }) => (
+					<FormItem>
+						<FormLabel>Middle name</FormLabel>
+						<FormControl>
+							<Input placeholder="Enter your middle name (optional)" {...field} />
+						</FormControl>
+						<FormMessage />
+					</FormItem>
+				)}
+			/>
+			<FormField
+				control={form.control}
+				name="lastName"
+				render={({ field }) => (
+					<FormItem>
+						<FormLabel>Last name</FormLabel>
+						<FormControl>
+							<Input placeholder="Enter your last name" {...field} />
 						</FormControl>
 						<FormMessage />
 					</FormItem>

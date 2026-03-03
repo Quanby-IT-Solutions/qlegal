@@ -1,6 +1,7 @@
 import {
 	Appointment02Icon,
 	BookOpen02Icon,
+	Building01Icon,
 	ChatIcon,
 	CustomerSupportIcon,
 	DocumentValidationIcon,
@@ -95,6 +96,10 @@ export const appSidebarSections: NavSection[] = [
 				url: "/management/enp-management",
 				icon: ShieldIcon,
 				roles: ["ADMIN"],
+				title: "Sub-Orgs",
+				url: "/management/sub-orgs",
+				icon: Building01Icon,
+				roles: ["ENA", "ADMIN"],
 			},
 		],
 	},

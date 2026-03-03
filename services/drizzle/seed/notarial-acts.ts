@@ -1,10 +1,12 @@
 import { faker } from "@faker-js/faker"
 import { eq } from "drizzle-orm"
 
+import { getFullName } from "@/core/lib/utils"
 import { db } from "@/services/drizzle/db"
 import { users } from "@/services/drizzle/schema/auth"
 import { documents } from "@/services/drizzle/schema/document"
 import { notarialActs, notarialBooks } from "@/services/drizzle/schema/notarial-book"
+import { SEED_CONFIG } from "@/services/drizzle/seed/config"
 
 /**
  * Seed notarial acts and related documents
@@ -23,13 +25,20 @@ import { notarialActs, notarialBooks } from "@/services/drizzle/schema/notarial-
 export async function createNotarialActs() {
 	console.log("🌱 Seeding notarial acts...")
 
-	// Get test users
+	const principalEmail = SEED_CONFIG.testAccounts.find(a => a.role === "PRINCIPAL")?.email
+	const enpEmail = SEED_CONFIG.testAccounts.find(a => a.role === "ENP")?.email
+
+	if (!principalEmail || !enpEmail) {
+		console.log("⚠️  Principal or ENP not in SEED_CONFIG. Skipping notarial acts.")
+		return
+	}
+
 	const principalUser = await db.query.users.findFirst({
-		where: eq(users.email, "principal@quanby.com"),
+		where: eq(users.email, principalEmail),
 	})
 
 	const enpUser = await db.query.users.findFirst({
-		where: eq(users.email, "enp@quanby.com"),
+		where: eq(users.email, enpEmail),
 	})
 
 	if (!principalUser || !enpUser) {
@@ -112,8 +121,8 @@ export async function createNotarialActs() {
 	console.log(`✅ Created ${createdDocuments.length} test documents (unsigned)`)
 
 	// Create notarial acts (SIGNED - these reference the signed documents)
-	const principalName = principalUser.name ?? principalUser.email ?? "Principal User"
-	const enpName = enpUser.name ?? "ENP User"
+	const principalName = (getFullName(principalUser) || principalUser.email) ?? "Principal User"
+	const enpName = getFullName(enpUser) || "ENP User"
 	const enpRollNumber = "ENP-12345"
 
 	const notarialActsData = createdDocuments.map((doc, index) => {

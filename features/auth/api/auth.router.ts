@@ -1,6 +1,6 @@
 import { TRPCError } from "@trpc/server"
 import { hash } from "bcryptjs"
-import { eq, or } from "drizzle-orm"
+import { eq } from "drizzle-orm"
 
 import { formatDateForStamp } from "@/core/lib/format-date-for-stamp"
 import { passwordResetTokens, users, verificationTokens } from "@/services/drizzle/schema/auth"
@@ -20,7 +20,7 @@ import { generatePasswordResetToken, generateVerificationToken } from "@/feature
 
 export const authRouter = createTRPCRouter({
 	register: publicProcedure.input(registerSchema).mutation(async ({ ctx, input }) => {
-		const { name, email, password } = input
+		const { firstName, middleName, lastName, email, password } = input
 
 		const existingUser = await ctx.db.query.users.findFirst({
 			where: (data, { eq }) => eq(data.email, email),
@@ -39,7 +39,9 @@ export const authRouter = createTRPCRouter({
 		const [createdUser] = await ctx.db
 			.insert(users)
 			.values({
-				name,
+				firstName,
+				middleName: middleName ?? null,
+				lastName,
 				email,
 				password: hashedPassword,
 			})
@@ -61,7 +63,7 @@ export const authRouter = createTRPCRouter({
 	}),
 
 	registerLawyer: publicProcedure.input(lawyerRegisterSchema).mutation(async ({ ctx, input }) => {
-		const { name, email, password, seal, notaryInfo } = input
+		const { firstName, middleName, lastName, email, password, seal, notaryInfo } = input
 
 		// Check if user already exists
 		const existingUser = await ctx.db.query.users.findFirst({
@@ -83,7 +85,9 @@ export const authRouter = createTRPCRouter({
 				const [newUser] = await tx
 					.insert(users)
 					.values({
-						name,
+						firstName,
+						middleName: middleName ?? null,
+						lastName,
 						email,
 						password: hashedPassword,
 						role: "ENP",
