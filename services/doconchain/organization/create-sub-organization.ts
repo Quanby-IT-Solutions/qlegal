@@ -1,5 +1,8 @@
 import { env } from "@/env"
-import { getDoconchainApiToken } from "@/services/doconchain/auth/generate-token"
+import {
+	getDoconchainApiToken,
+	invalidateDoconchainToken,
+} from "@/services/doconchain/auth/generate-token"
 
 type CreateSubOrganizationResponse = {
 	id?: string
@@ -11,6 +14,8 @@ type CreateSubOrganizationResponse = {
 	organization_uuid?: string
 	created_at?: string
 	data?: {
+		client_key?: string
+		client_secret?: string
 		id?: string
 		uuid?: string
 		name?: string
@@ -35,7 +40,14 @@ export async function createDoconchainSubOrganization(input: {
 	subOrganizationTypeName?: string
 	photo?: Blob | Buffer
 	photoFilename?: string
-}): Promise<{ id: string; name: string; subOrgNumericId?: number; raw: CreateSubOrganizationResponse }> {
+}): Promise<{
+	id: string
+	name: string
+	subOrgNumericId?: number
+	clientKey: string | null
+	clientSecret: string | null
+	raw: CreateSubOrganizationResponse
+}> {
 	const name = input.name.trim()
 	const address = input.address.trim()
 	if (!name || !address) {
@@ -94,7 +106,9 @@ export async function createDoconchainSubOrganization(input: {
 
 	const isGatewayError = (r: Response) => r.status === 502 || r.status === 503 || r.status === 504
 
-	let token = await getDoconchainApiToken({ email: env.DOCONCHAIN_EMAIL })
+	// Always generate a fresh admin token for create-sub-org to avoid expired tokens.
+	invalidateDoconchainToken(env.DOCONCHAIN_EMAIL)
+	let token = await getDoconchainApiToken({ email: env.DOCONCHAIN_EMAIL, forceGenerated: true })
 	let res = await doRequest(token)
 	if (res.status === 401) {
 		token = await getDoconchainApiToken({ email: env.DOCONCHAIN_EMAIL, forceGenerated: true })
@@ -123,6 +137,8 @@ export async function createDoconchainSubOrganization(input: {
 	const sub = raw.data?.sub_org_data
 	const id = sub?.uuid ?? (sub?.id != null ? String(sub.id) : null) ?? raw.id ?? raw.uuid ?? raw.data?.id ?? raw.data?.uuid
 	const resolvedName = sub?.name ?? raw.name ?? raw.data?.name ?? name
+	const clientKey = (raw.data?.client_key ?? "").trim() || null
+	const clientSecret = (raw.data?.client_secret ?? "").trim() || null
 	if (!id) {
 		throw new Error(
 			`DocOnChain create sub-organization response missing id. Response: ${text ? text.slice(0, 500) : "empty"}`
@@ -132,6 +148,8 @@ export async function createDoconchainSubOrganization(input: {
 		id: String(id),
 		name: resolvedName,
 		subOrgNumericId: sub?.id,
+		clientKey,
+		clientSecret,
 		raw,
 	}
 }

@@ -1,4 +1,5 @@
 import { env } from "@/env"
+import type { GetSubOrgCredsForEmail } from "@/services/doconchain/auth/generate-token"
 import {
 	getDoconchainApiToken,
 	invalidateDoconchainToken,
@@ -74,6 +75,8 @@ export async function createDoconchainProject(input: {
 	userListEditable?: boolean
 	creatorAsViewer?: boolean
 	documentStamp?: unknown
+	/** Optional: resolve sub-org enterprise creds for this ENP to avoid unauthorized parent-org token flows. */
+	getSubOrgCredsForEmail?: GetSubOrgCredsForEmail
 }): Promise<{ uuid: string; url: string | null; raw: DoconchainCreateProjectResponse }> {
 	const email = input.enpEmail.trim().toLowerCase()
 	if (!email) {
@@ -81,7 +84,11 @@ export async function createDoconchainProject(input: {
 	}
 
 	const doRequest = async (): Promise<DoconchainCreateProjectResponse> => {
-		const token = await getDoconchainApiToken({ email, forceGenerated: true })
+		const token = await getDoconchainApiToken({
+			email,
+			forceGenerated: true,
+			getSubOrgCredsForEmail: input.getSubOrgCredsForEmail,
+		})
 		return await postCreateProject({
 			token,
 			fileBuffer: input.fileBuffer,
