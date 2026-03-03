@@ -1,12 +1,18 @@
 import { NextResponse } from "next/server"
 import { eq } from "drizzle-orm"
 
+import { getFullName } from "@/core/lib/utils"
 import { auth } from "@/services/next-auth"
 import { db } from "@/services/drizzle/db"
 import { users } from "@/services/drizzle/schema/auth"
 import { enpProfiles } from "@/services/drizzle/schema/enp-profiles"
 import { createDoconchainSubOrganization } from "@/services/doconchain/organization/create-sub-organization"
 import { autoJoinMemberInDoconchainOrganization } from "@/services/doconchain/organization/auto-join-member"
+import {
+	findParentOrgMemberIdByEmail,
+	getParentOrgMembers,
+} from "@/services/doconchain/organization/get-parent-org-members"
+import { moveDoconchainMemberToSubOrg } from "@/services/doconchain/organization/move-member-to-sub-org"
 
 export const runtime = "nodejs"
 
@@ -46,7 +52,7 @@ export async function POST(request: Request) {
 
 		const targetUser = await db.query.users.findFirst({
 			where: eq(users.id, enpId),
-			columns: { id: true, role: true, email: true, name: true },
+			columns: { id: true, role: true, email: true, firstName: true, middleName: true, lastName: true },
 		})
 		if (!targetUser) {
 			return NextResponse.json({ error: "User not found." }, { status: 404 })
@@ -80,14 +86,37 @@ export async function POST(request: Request) {
 			photoFilename: photoFile?.name,
 		})
 
-		await autoJoinMemberInDoconchainOrganization({
-			email: targetUser.email,
-			name: targetUser.name ?? undefined,
-			role: "Member",
-			organizationIdOverride: created.id,
-		})
+		try {
+			await autoJoinMemberInDoconchainOrganization({
+				email: targetUser.email,
+				name: getFullName(targetUser) || undefined,
+				role: "Member",
+				organizationIdOverride: created.id,
+			})
+		} catch (autoJoinErr) {
+			const msg = autoJoinErr instanceof Error ? autoJoinErr.message : String(autoJoinErr)
+			// ENP already in parent org: move them to the new sub-org instead
+			if ((msg.includes("already exist") || msg.includes("already exists")) && created.subOrgNumericId) {
+				try {
+					const members = await getParentOrgMembers()
+					const memberId = findParentOrgMemberIdByEmail(members, targetUser.email)
+					if (memberId != null) {
+						await moveDoconchainMemberToSubOrg({
+							memberId,
+							targetOrganizationId: created.subOrgNumericId,
+							role: "Member",
+						})
+					}
+				} catch {
+					// Move failed; sub-org still created and saved below
+				}
+			} else if (!msg.includes("already exist") && !msg.includes("already exists")) {
+				throw autoJoinErr
+			}
+		}
 
-		const createdAtIso = created.raw.created_at ?? null
+		const createdAtIso =
+			created.raw.data?.sub_org_data?.created_at ?? created.raw.created_at ?? null
 		await db
 			.update(enpProfiles)
 			.set({

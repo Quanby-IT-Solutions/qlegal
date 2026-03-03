@@ -32,6 +32,7 @@ export async function transferDoconchainCreditsToSubOrg(input: {
 	}
 
 	const url = new URL("/api/v2/organizations/transfer/credits", env.DOCONCHAIN_API_URL)
+	url.searchParams.set("user_type", "ENTERPRISE_API")
 
 	const doRequest = async (token: string): Promise<Response> => {
 		const body = new FormData()
@@ -54,12 +55,21 @@ export async function transferDoconchainCreditsToSubOrg(input: {
 	const text = await res.text().catch(() => "")
 	const raw = (text ? (JSON.parse(text) as TransferCreditsResponse) : {}) as TransferCreditsResponse
 	if (!res.ok) {
-		throw new Error(
+		const baseMessage =
 			raw.message ??
-				`DocOnChain transfer credits failed (${res.status} ${res.statusText})${text ? `: ${text}` : ""}`
-		)
+			`DocOnChain transfer credits failed (${res.status} ${res.statusText})${text ? `: ${text}` : ""}`
+		if (res.status === 401) {
+			throw new Error(
+				`${baseMessage} Ensure DOCONCHAIN_EMAIL is an org admin in DocOnChain, or set DOCONCHAIN_USER_TOKEN to a token from an admin account (e.g. from DocOnChain app).`
+			)
+		}
+		throw new Error(baseMessage)
 	}
-	if (!raw.success) {
+	// DocOnChain may return 200 with message "Credits added successful." but omit success: true
+	const message = (raw.message ?? "").toLowerCase()
+	const looksSuccess =
+		raw.success === true || message.includes("successful") || message.includes("transferred")
+	if (!looksSuccess) {
 		throw new Error(raw.message ?? "DocOnChain transfer credits failed.")
 	}
 	return {

@@ -75,6 +75,14 @@ export function UserProfileSheet({ userId, trigger }: UserProfileSheetProps) {
 		onError: err => toast.error(err.message || "Failed to transfer credits."),
 	})
 
+	const clearSubOrgMutation = trpc.userManagement.clearEnpDoconchainSubOrg.useMutation({
+		onSuccess: async () => {
+			toast.success("Sub-org cleared from profile. You can create a new one.")
+			await utils.userManagement.getById.invalidate({ id: userId })
+		},
+		onError: err => toast.error(err.message || "Failed to clear sub-org."),
+	})
+
 	const provisionWithOptionalPhoto = async () => {
 		if (!subOrgName.trim() || !subOrgAddress.trim()) return
 
@@ -323,6 +331,19 @@ export function UserProfileSheet({ userId, trigger }: UserProfileSheetProps) {
 															Transfer
 														</Button>
 													</div>
+												</div>
+												<div className="border-t pt-3">
+													<Button
+														type="button"
+														variant="outline"
+														size="sm"
+														disabled={clearSubOrgMutation.isPending}
+														onClick={() => clearSubOrgMutation.mutate({ enpId: userId })}
+													>
+														{clearSubOrgMutation.isPending
+															? "Clearing..."
+															: "Clear sub-org (e.g. deleted in DocOnChain)"}
+													</Button>
 												</div>
 											</>
 										) : (

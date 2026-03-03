@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache"
 import { eq } from "drizzle-orm"
 
+import { getFullName } from "@/core/lib/utils"
 import { db } from "@/services/drizzle/db"
 import { users } from "@/services/drizzle/schema/auth"
 import { kycSessions } from "@/services/drizzle/schema/kyc-sessions"
@@ -722,10 +723,21 @@ export async function getExistingKycLink() {
 		orderBy: (table, { desc }) => [desc(table.createdAt)],
 	})
 
-	if (!kycSession?.hostedLink) {
+	if (!kycSession) {
 		return {
 			success: false,
 			error: "No KYC verification link found. Please start the verification process.",
+		}
+	}
+
+	if (!kycSession.hostedLink) {
+		const isDirectSession = kycSession.sessionType === "direct"
+
+		return {
+			success: false,
+			error: isDirectSession
+				? "This verification was completed in-browser and does not have a link to resume. Please wait for review or start a new verification."
+				: "No KYC verification link found. Please start the verification process.",
 		}
 	}
 
@@ -775,7 +787,9 @@ export async function getUserKycInfo() {
 	const user = await db.query.users.findFirst({
 		where: eq(users.id, session.user.id),
 		columns: {
-			name: true,
+			firstName: true,
+			middleName: true,
+			lastName: true,
 			email: true,
 			kycStatus: true,
 		},
@@ -796,11 +810,13 @@ export async function getUserKycInfo() {
 	return {
 		success: true,
 		data: {
-			name: user.name,
+			name: getFullName(user),
 			email: user.email,
 			transactionId: kycSession?.transactionId ?? null,
 			kycStatus: user.kycStatus,
 			kycLinkCreatedAt: kycSession?.hostedLinkCreatedAt ?? null,
+			hasHostedLink: !!kycSession?.hostedLink,
+			sessionType: kycSession?.sessionType ?? null,
 		},
 	}
 }

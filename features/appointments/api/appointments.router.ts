@@ -2,6 +2,7 @@ import { TRPCError } from "@trpc/server"
 import { and, asc, desc, eq, gte, inArray, lt, or } from "drizzle-orm"
 import { z } from "zod/v4"
 
+import { getFullName } from "@/core/lib/utils"
 import { type db } from "@/services/drizzle/db"
 import { appointmentParticipants } from "@/services/drizzle/schema/appointment-participants"
 import { appointments } from "@/services/drizzle/schema/appointments"
@@ -284,8 +285,8 @@ export const appointmentsRouter = createTRPCRouter({
 				const requestUrl = `${env.NEXT_PUBLIC_SITE_URL ?? ""}/requests`
 				await sendNotarizationRequestNotification({
 					enpEmail: requestWithRelations.enp.email,
-					enpName: requestWithRelations.enp.name ?? "Unknown",
-					principalName: requestWithRelations.principal?.name ?? "Unknown",
+					enpName: getFullName(requestWithRelations.enp) || "Unknown",
+					principalName: getFullName(requestWithRelations.principal) || "Unknown",
 					requestTitle: input.title,
 					requestDescription: input.description,
 					workflow: input.workflow,
@@ -464,7 +465,7 @@ export const appointmentsRouter = createTRPCRouter({
 				appointmentId: apt.id, // Link back to appointment
 				rejectReason: apt.cancelReason,
 				principal: {
-					name: participant?.user?.name,
+					name: participant?.user ? getFullName(participant.user) : undefined,
 					image: participant?.user?.image,
 				},
 				documents: 0,
@@ -995,7 +996,7 @@ export const appointmentsRouter = createTRPCRouter({
 				workflow,
 				enp: {
 					id: enpUser.id,
-					name: enpUser.name ?? "Electronic Notary Public",
+					name: getFullName(enpUser) || "Electronic Notary Public",
 					title: enpProfile?.specialization ?? "Electronic Notary Public",
 					avatar: enpUser.image ?? null,
 					phone: enpUser.phoneNumber ?? null,
@@ -1003,7 +1004,7 @@ export const appointmentsRouter = createTRPCRouter({
 				},
 				principal: {
 					id: principal.id,
-					name: principal.name ?? "Principal",
+					name: getFullName(principal) || "Principal",
 					email: principal.email ?? null,
 					phone: principal.phoneNumber ?? null,
 				},

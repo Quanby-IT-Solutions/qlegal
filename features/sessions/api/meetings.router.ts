@@ -2,6 +2,7 @@ import { TRPCError } from "@trpc/server"
 import { and, asc, desc, eq, inArray, ne, type InferSelectModel } from "drizzle-orm"
 import { z } from "zod/v4"
 
+import { getFullName } from "@/core/lib/utils"
 import { getDoconchainApiToken, invalidateDoconchainToken } from "@/services/doconchain/auth/generate-token"
 import { addDoconchainProjectSigner } from "@/services/doconchain/projects/add-signer"
 import { createDoconchainProject } from "@/services/doconchain/projects/create-project"
@@ -78,7 +79,9 @@ async function getAppointmentParticipantsByMeetingId(meetingId: string) {
 			user: {
 				columns: {
 					id: true,
-					name: true,
+					firstName: true,
+					middleName: true,
+					lastName: true,
 					email: true,
 					image: true,
 					role: true,
@@ -196,7 +199,9 @@ export const meetingsRouter = createTRPCRouter({
 								createdBy: {
 									columns: {
 										id: true,
-										name: true,
+										firstName: true,
+										middleName: true,
+										lastName: true,
 										email: true,
 										image: true,
 										role: true,
@@ -265,7 +270,9 @@ export const meetingsRouter = createTRPCRouter({
 							createdBy: {
 								columns: {
 									id: true,
-									name: true,
+									firstName: true,
+									middleName: true,
+									lastName: true,
 									email: true,
 									image: true,
 									role: true,
@@ -299,7 +306,9 @@ export const meetingsRouter = createTRPCRouter({
 					status: appointmentParticipants.status,
 					user: {
 						id: users.id,
-						name: users.name,
+						firstName: users.firstName,
+						middleName: users.middleName,
+						lastName: users.lastName,
 						image: users.image,
 					},
 				})
@@ -331,7 +340,7 @@ export const meetingsRouter = createTRPCRouter({
 					user: row.user
 						? {
 								id: row.user.id,
-								name: row.user.name,
+								name: getFullName(row.user),
 								image: resolveAvatarImage(row.user.image),
 							}
 						: null,
@@ -415,7 +424,9 @@ export const meetingsRouter = createTRPCRouter({
 				createdBy: {
 					columns: {
 						id: true,
-						name: true,
+						firstName: true,
+						middleName: true,
+						lastName: true,
 						email: true,
 						image: true,
 					},
@@ -540,6 +551,17 @@ export const meetingsRouter = createTRPCRouter({
 				return { ready: true }
 			} catch (error) {
 				const msg = error instanceof Error ? error.message : "Failed to prepare DocOnChain."
+				const lower = msg.toLowerCase()
+
+				// Don't block document upload UX if DocOnChain auto-join is temporarily unauthorized.
+				// Uploading to QSign can still proceed; DocOnChain project creation can be retried later.
+				const looksLikeDoconchainUnauthorized =
+					lower.includes("e_unauthorized_access") ||
+					(lower.includes("doconchain auto-join failed") && lower.includes("unauthorized"))
+				if (looksLikeDoconchainUnauthorized) {
+					return { ready: true, doconchainDegraded: true }
+				}
+
 				throw new TRPCError({ code: "SERVICE_UNAVAILABLE", message: msg })
 			}
 		}),
@@ -817,7 +839,7 @@ export const meetingsRouter = createTRPCRouter({
 				const [enpUser, enpProfile] = await Promise.all([
 					db.query.users.findFirst({
 						where: eq(users.id, enpUserId),
-						columns: { name: true, email: true },
+						columns: { firstName: true, middleName: true, lastName: true, email: true },
 					}),
 					db.query.enpProfiles.findFirst({
 						where: eq(enpProfiles.userId, enpUserId),
@@ -845,7 +867,7 @@ export const meetingsRouter = createTRPCRouter({
 						? ""
 						: (enpProfile?.mcleNoPeriod ?? "")
 
-				const enpNameRaw = (enpUser?.name ?? "").trim()
+				const enpNameRaw = getFullName(enpUser).trim()
 				const rollNo = (enpProfile?.rollNo ?? "").trim()
 
 				// Format attorney name for seal: "ATTY." prefix and uppercase (matches auth registration seal)
@@ -1126,7 +1148,7 @@ export const meetingsRouter = createTRPCRouter({
 							users.id,
 							signerRows.map(s => s.userId)
 						),
-						columns: { id: true, email: true, name: true },
+						columns: { id: true, email: true, firstName: true, middleName: true, lastName: true },
 					})
 					const userById = new Map(signerUsers.map(u => [u.id, u]))
 
@@ -1158,7 +1180,7 @@ export const meetingsRouter = createTRPCRouter({
 						}) => Promise<void>
 						await sendEmail({
 							to: signerEmail,
-							recipientName: (signer?.name ?? signerEmail).trim(),
+							recipientName: (getFullName(signer) || signerEmail).trim(),
 							documentName,
 							signingLink: link,
 							signOrderLabel: `Signer ${i + 1} of ${signerRows.length}`,
@@ -1342,7 +1364,9 @@ export const meetingsRouter = createTRPCRouter({
 					where: inArray(users.id, userIds),
 					columns: {
 						id: true,
-						name: true,
+						firstName: true,
+						middleName: true,
+						lastName: true,
 						email: true,
 						address: true,
 						role: true,
@@ -1358,7 +1382,7 @@ export const meetingsRouter = createTRPCRouter({
 						const user = userMap.get(userId)
 						const isPrincipal = role === "principal"
 
-						const signerName: string | null = isPrincipal && user?.name ? String(user.name) : null
+						const signerName: string | null = isPrincipal && user ? getFullName(user) || null : null
 						const signerAddress: string | null =
 							isPrincipal && user?.address && typeof user.address === "string"
 								? String(user.address)
@@ -1404,7 +1428,7 @@ export const meetingsRouter = createTRPCRouter({
 							enpEmail,
 							signer: {
 								email: signerEmail,
-								name: String(user?.name ?? signerEmail),
+								name: getFullName(user) || signerEmail,
 								role: "Signer",
 							},
 						})
@@ -1425,7 +1449,9 @@ export const meetingsRouter = createTRPCRouter({
 					createdBy: {
 						columns: {
 							id: true,
-							name: true,
+							firstName: true,
+							middleName: true,
+							lastName: true,
 							email: true,
 							image: true,
 							role: true,
@@ -1447,7 +1473,9 @@ export const meetingsRouter = createTRPCRouter({
 							signer: {
 								columns: {
 									id: true,
-									name: true,
+									firstName: true,
+									middleName: true,
+									lastName: true,
 									email: true,
 									image: true,
 								},
@@ -1502,7 +1530,9 @@ export const meetingsRouter = createTRPCRouter({
 					status: req.status,
 					signedAt: req.signedAt ?? null,
 					signerId: req.signerId,
-					signer: req.signer ?? null,
+					signer: req.signer
+						? { ...req.signer, name: getFullName(req.signer) }
+						: null,
 				})
 				signatureRequestsByDocumentId.set(req.documentId, list)
 			}
@@ -1733,7 +1763,9 @@ export const meetingsRouter = createTRPCRouter({
 				where: eq(users.email, email),
 				columns: {
 					id: true,
-					name: true,
+					firstName: true,
+					middleName: true,
+					lastName: true,
 					email: true,
 					image: true,
 				},

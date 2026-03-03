@@ -1,5 +1,6 @@
 import { and, asc, desc, eq, inArray } from "drizzle-orm"
 
+import { getFullName } from "@/core/lib/utils"
 import { db } from "@/services/drizzle/db"
 import { users } from "@/services/drizzle/schema/auth"
 import { documentSigners } from "@/services/drizzle/schema/document-signers"
@@ -358,7 +359,7 @@ export async function populateNotarialRegistryOnMeetingEnd(input: {
 		if (principalDs?.user) {
 			docPrincipalName =
 				asNonEmptyString(principalDs.signerName) ??
-				asNonEmptyString(principalDs.user.name) ??
+				asNonEmptyString(getFullName(principalDs.user)) ??
 				asNonEmptyString(principalDs.user.email) ??
 				"Principal"
 			docPrincipalAddress =
@@ -388,7 +389,7 @@ export async function populateNotarialRegistryOnMeetingEnd(input: {
 		}
 		if (witnessDs?.user) {
 			docWitnessName =
-				asNonEmptyString(witnessDs.user.name) ??
+				asNonEmptyString(getFullName(witnessDs.user)) ??
 				asNonEmptyString(witnessDs.user.email) ??
 				null
 		}

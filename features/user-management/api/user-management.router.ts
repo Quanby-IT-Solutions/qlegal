@@ -1,16 +1,23 @@
 import { TRPCError } from "@trpc/server"
-import { and, count, desc, eq, ilike, or } from "drizzle-orm"
+import { and, count, desc, eq, ilike, or, sql } from "drizzle-orm"
 import { z } from "zod/v4"
 
+import { getFullName } from "@/core/lib/utils"
 import { users } from "@/services/drizzle/schema/auth"
 import { enpProfiles } from "@/services/drizzle/schema/enp-profiles"
 import { createDoconchainSubOrganization } from "@/services/doconchain/organization/create-sub-organization"
 import { transferDoconchainCreditsToSubOrg } from "@/services/doconchain/organization/transfer-credits"
 import { autoJoinMemberInDoconchainOrganization } from "@/services/doconchain/organization/auto-join-member"
+import {
+	findParentOrgMemberIdByEmail,
+	getParentOrgMembers,
+} from "@/services/doconchain/organization/get-parent-org-members"
+import { moveDoconchainMemberToSubOrg } from "@/services/doconchain/organization/move-member-to-sub-org"
 import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
 
 import {
 	approveUserSchema,
+	clearEnpDoconchainSubOrgSchema,
 	createUserSchema,
 	deleteUserSchema,
 	getUserByIdSchema,
@@ -27,10 +34,18 @@ export const userManagementRouter = createTRPCRouter({
 	list: protectedProcedure.input(userListInputSchema).query(async ({ ctx, input }) => {
 		const conditions = []
 
-		// Apply search filter
+		// Apply search filter (full name = first + middle + last)
 		if (input.search) {
 			const searchTerm = `%${input.search}%`
-			conditions.push(or(ilike(users.name, searchTerm), ilike(users.email, searchTerm)))
+			conditions.push(
+				or(
+					ilike(
+						sql`concat_ws(' ', coalesce(${users.firstName},''), coalesce(${users.middleName},''), coalesce(${users.lastName},''))`,
+						searchTerm
+					),
+					ilike(users.email, searchTerm)
+				)
+			)
 		}
 
 		// Apply role filter
@@ -61,7 +76,9 @@ export const userManagementRouter = createTRPCRouter({
 		const userList = await ctx.db
 			.select({
 				id: users.id,
-				name: users.name,
+				firstName: users.firstName,
+				middleName: users.middleName,
+				lastName: users.lastName,
 				email: users.email,
 				role: users.role,
 				image: users.image,
@@ -77,7 +94,7 @@ export const userManagementRouter = createTRPCRouter({
 		// Transform to match the expected frontend format
 		const transformedUsers = userList.map(user => ({
 			id: user.id,
-			name: user.name ?? "Unknown User",
+			name: getFullName(user) || "Unknown User",
 			email: user.email ?? "no-email@example.com",
 			role: user.role.toLowerCase().replace("_", "-") as "client" | "admin" | "super-admin",
 			organization: null,
@@ -134,12 +151,14 @@ export const userManagementRouter = createTRPCRouter({
 	}),
 
 	// Get single user by ID
-	getById: protectedProcedure.input(getUserByIdSchema).query(async ({ ctx, input }) => {
+		getById: protectedProcedure.input(getUserByIdSchema).query(async ({ ctx, input }) => {
 		const user = await ctx.db.query.users.findFirst({
 			where: eq(users.id, input.id),
 			columns: {
 				id: true,
-				name: true,
+				firstName: true,
+				middleName: true,
+				lastName: true,
 				email: true,
 				role: true,
 				image: true,
@@ -169,7 +188,7 @@ export const userManagementRouter = createTRPCRouter({
 
 		return {
 			id: user.id,
-			name: user.name ?? "Unknown User",
+			name: getFullName(user) || "Unknown User",
 			email: user.email ?? "no-email@example.com",
 			role: user.role.toLowerCase().replace("_", "-") as "client" | "admin" | "super-admin",
 			organization: null,
@@ -179,6 +198,9 @@ export const userManagementRouter = createTRPCRouter({
 			lastActive: user.emailVerified?.toISOString() ?? new Date().toISOString(),
 			documentsCount: 0, // TODO: Calculate actual document count
 			avatar: user.image ?? null,
+			firstName: user.firstName,
+			middleName: user.middleName,
+			lastName: user.lastName,
 			enpProfile:
 				user.role === "ENP" && enpProfile
 					? {
@@ -207,7 +229,9 @@ export const userManagementRouter = createTRPCRouter({
 		const [newUser] = await ctx.db
 			.insert(users)
 			.values({
-				name: input.name,
+				firstName: input.firstName,
+				middleName: input.middleName ?? null,
+				lastName: input.lastName,
 				email: input.email,
 				role: input.role,
 				password: "temporary-password", // TODO: Implement proper password generation
@@ -216,7 +240,7 @@ export const userManagementRouter = createTRPCRouter({
 
 		return {
 			id: newUser!.id,
-			name: newUser!.name ?? "Unknown User",
+			name: getFullName(newUser!) || "Unknown User",
 			email: newUser!.email ?? "no-email@example.com",
 			role: newUser!.role.toLowerCase().replace("_", "-") as "client" | "admin" | "super-admin",
 			organization: null,
@@ -233,9 +257,27 @@ export const userManagementRouter = createTRPCRouter({
 	// Update user
 	update: protectedProcedure.input(updateUserSchema).mutation(async ({ ctx, input }) => {
 		const updateData: Partial<typeof users.$inferInsert> = {}
-		if (input.name !== undefined) updateData.name = input.name
+		if (input.firstName !== undefined) updateData.firstName = input.firstName
+		if (input.middleName !== undefined) updateData.middleName = input.middleName ?? null
+		if (input.lastName !== undefined) updateData.lastName = input.lastName
 		if (input.email !== undefined) updateData.email = input.email
 		if (input.role !== undefined) updateData.role = input.role
+
+		// If any name part is being updated, recompute full name (fetch current if only some parts sent)
+		const namePartsUpdated =
+			input.firstName !== undefined ||
+			input.middleName !== undefined ||
+			input.lastName !== undefined
+		if (namePartsUpdated) {
+			const current = await ctx.db.query.users.findFirst({
+				where: eq(users.id, input.id),
+				columns: { firstName: true, middleName: true, lastName: true },
+			})
+			const firstName = input.firstName ?? current?.firstName ?? ""
+			const middleName = input.middleName ?? current?.middleName ?? ""
+			const lastName = input.lastName ?? current?.lastName ?? ""
+			updateData.name = [firstName, middleName, lastName].filter(Boolean).join(" ").trim()
+		}
 
 		const [updatedUser] = await ctx.db
 			.update(users)
@@ -245,7 +287,7 @@ export const userManagementRouter = createTRPCRouter({
 
 		return {
 			id: updatedUser!.id,
-			name: updatedUser!.name ?? "Unknown User",
+			name: getFullName(updatedUser!) || "Unknown User",
 			email: updatedUser!.email ?? "no-email@example.com",
 			role: updatedUser!.role.toLowerCase().replace("_", "-") as "client" | "admin" | "super-admin",
 			organization: null,
@@ -345,7 +387,7 @@ export const userManagementRouter = createTRPCRouter({
 				.where(eq(enpProfiles.userId, input.enpId))
 
 			console.log(
-				`[Admin] ${ctx.session.user.name} set ENP ${targetUser.name} availability to: ${input.available}`
+				`[Admin] ${ctx.session.user.name} set ENP ${getFullName(targetUser)} availability to: ${input.available}`
 			)
 
 			return { success: true, enpId: input.enpId, isAvailable: input.available }
@@ -364,7 +406,7 @@ export const userManagementRouter = createTRPCRouter({
 
 			const targetUser = await ctx.db.query.users.findFirst({
 				where: eq(users.id, input.enpId),
-				columns: { id: true, name: true, email: true, role: true },
+				columns: { id: true, firstName: true, middleName: true, lastName: true, email: true, role: true },
 			})
 			if (!targetUser) {
 				throw new TRPCError({ code: "NOT_FOUND", message: "User not found" })
@@ -391,7 +433,7 @@ export const userManagementRouter = createTRPCRouter({
 				}
 			}
 
-			const subOrgName = (input.name ?? targetUser.name ?? "").trim() || `ENP ${targetUser.id}`
+			const subOrgName = (input.name ?? getFullName(targetUser) ?? "").trim() || `ENP ${targetUser.id}`
 			const subOrgAddress =
 				(input.address ?? enpProfile.notaryAddress ?? "").trim() || "Not provided"
 
@@ -401,15 +443,37 @@ export const userManagementRouter = createTRPCRouter({
 				address: subOrgAddress,
 				subOrganizationTypeName: input.subOrganizationTypeName ?? "Department",
 			})
-			createdAtIso = created.raw.created_at ?? null
+			createdAtIso =
+				created.raw.data?.sub_org_data?.created_at ?? created.raw.created_at ?? null
 
-			// Ensure the ENP is a member of their sub-org (so their token generation / actions can be scoped correctly).
-			await autoJoinMemberInDoconchainOrganization({
-				email: targetUser.email,
-				name: targetUser.name ?? undefined,
-				role: "Member",
-				organizationIdOverride: created.id,
-			})
+			// Ensure the ENP is a member of their sub-org. If already in parent org, move them to sub-org.
+			try {
+				await autoJoinMemberInDoconchainOrganization({
+					email: targetUser.email,
+					name: getFullName(targetUser) || undefined,
+					role: "Member",
+					organizationIdOverride: created.id,
+				})
+			} catch (autoJoinErr) {
+				const msg = autoJoinErr instanceof Error ? autoJoinErr.message : String(autoJoinErr)
+				if ((msg.includes("already exist") || msg.includes("already exists")) && created.subOrgNumericId) {
+					try {
+						const members = await getParentOrgMembers()
+						const memberId = findParentOrgMemberIdByEmail(members, targetUser.email)
+						if (memberId != null) {
+							await moveDoconchainMemberToSubOrg({
+								memberId,
+								targetOrganizationId: created.subOrgNumericId,
+								role: "Member",
+							})
+						}
+					} catch {
+						// Move failed; sub-org still created and saved below
+					}
+				} else if (!msg.includes("already exist") && !msg.includes("already exists")) {
+					throw autoJoinErr
+				}
+			}
 
 			await ctx.db
 				.update(enpProfiles)
@@ -475,6 +539,50 @@ export const userManagementRouter = createTRPCRouter({
 			}
 		}),
 
+	// Admin: Clear stored DocOnChain sub-org from ENP profile (e.g. after sub-org was deleted in DocOnChain).
+	clearEnpDoconchainSubOrg: protectedProcedure
+		.input(clearEnpDoconchainSubOrgSchema)
+		.mutation(async ({ ctx, input }) => {
+			if (ctx.session.user.role !== "ADMIN") {
+				throw new TRPCError({
+					code: "FORBIDDEN",
+					message: "Only admins can clear ENP sub-organization.",
+				})
+			}
+
+			const targetUser = await ctx.db.query.users.findFirst({
+				where: eq(users.id, input.enpId),
+				columns: { id: true, role: true },
+			})
+			if (!targetUser) {
+				throw new TRPCError({ code: "NOT_FOUND", message: "User not found" })
+			}
+			if (targetUser.role !== "ENP") {
+				throw new TRPCError({ code: "BAD_REQUEST", message: "Target user is not an ENP" })
+			}
+
+			const profile = await ctx.db.query.enpProfiles.findFirst({
+				where: eq(enpProfiles.userId, targetUser.id),
+				columns: { userId: true },
+			})
+			if (!profile) {
+				throw new TRPCError({ code: "NOT_FOUND", message: "ENP profile not found" })
+			}
+
+			await ctx.db
+				.update(enpProfiles)
+				.set({
+					doconchainSubOrgId: null,
+					doconchainSubOrgName: null,
+					doconchainSubOrgAddress: null,
+					doconchainSubOrgCreatedAt: null,
+					updatedAt: new Date(),
+				})
+				.where(eq(enpProfiles.userId, targetUser.id))
+
+			return { success: true, enpId: input.enpId }
+		}),
+
 	// Get current user's default signature
 	getDefaultSignature: protectedProcedure.query(async ({ ctx }) => {
 		const userId = ctx.session.user.id
@@ -484,7 +592,9 @@ export const userManagementRouter = createTRPCRouter({
 			columns: {
 				id: true,
 				email: true,
-				name: true,
+				firstName: true,
+				middleName: true,
+				lastName: true,
 			},
 		})
 
@@ -496,7 +606,7 @@ export const userManagementRouter = createTRPCRouter({
 		return {
 			id: user.id,
 			email: user.email,
-			name: user.name,
+			name: getFullName(user),
 			defaultSignature: null,
 			hasDefaultSignature: false,
 		}

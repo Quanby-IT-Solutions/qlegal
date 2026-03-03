@@ -1,11 +1,15 @@
 import { z } from "zod/v4"
 
 // Base validation schemas - Single responsibility principle
-const nameSchema = z
-	.string({ error: "Name is required" })
+const firstNameSchema = z
+	.string({ error: "First name is required" })
 	.trim()
-	.min(1, "Name cannot be empty")
+	.min(1, "First name cannot be empty")
+const middleNameSchema = z.string().trim().optional()
+const lastNameSchema = z
+	.string({ error: "Last name is required" })
 	.trim()
+	.min(1, "Last name cannot be empty")
 
 const emailSchema = z
 	.email("Please enter a valid email address")
@@ -43,7 +47,9 @@ const agreeToTermsSchema = z.boolean({
 
 export const registerSchema = z
 	.object({
-		name: nameSchema,
+		firstName: firstNameSchema,
+		middleName: middleNameSchema,
+		lastName: lastNameSchema,
 		email: emailSchema,
 		password: complexPasswordSchema,
 		confirmPassword: complexConfirmPasswordSchema,
@@ -170,7 +176,9 @@ const notaryInfoSchema = z.object({
 export const lawyerRegisterSchema = z
 	.object({
 		// Basic account info
-		name: nameSchema,
+		firstName: firstNameSchema,
+		middleName: middleNameSchema,
+		lastName: lastNameSchema,
 		email: emailSchema,
 		password: complexPasswordSchema,
 		confirmPassword: complexConfirmPasswordSchema,

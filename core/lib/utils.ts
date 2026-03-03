@@ -12,6 +12,28 @@ export function cn(...inputs: ClassValue[]) {
 	return twMerge(clsx(inputs))
 }
 
+/** User-like object with optional name parts (and legacy full name for backward compat) */
+export interface UserNameParts {
+	firstName?: string | null
+	middleName?: string | null
+	lastName?: string | null
+	name?: string | null
+}
+
+/**
+ * Build full display name from first, middle, last (or legacy name).
+ * Use this whenever you need a user's display name after the name column is removed.
+ */
+export function getFullName(user: UserNameParts | null | undefined): string {
+	if (!user) return ""
+	const first = user.firstName?.trim() ?? ""
+	const middle = user.middleName?.trim() ?? ""
+	const last = user.lastName?.trim() ?? ""
+	const fromParts = [first, middle, last].filter(Boolean).join(" ").trim()
+	if (fromParts) return fromParts
+	return (user.name ?? "").trim()
+}
+
 /**
  * Get initials from a name string
  * @param name - Full name string

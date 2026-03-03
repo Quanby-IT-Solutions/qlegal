@@ -4,6 +4,7 @@ import { type DefaultSession, type NextAuthConfig } from "next-auth"
 import Credentials from "next-auth/providers/credentials"
 import Google from "next-auth/providers/google"
 
+import { getFullName } from "@/core/lib/utils"
 import { db } from "@/services/drizzle/db"
 import { twoFactorConfirmations, users, type UserRole } from "@/services/drizzle/schema/auth"
 import { DrizzleCustomAdapter } from "@/services/next-auth/adapter"
@@ -90,13 +91,13 @@ export const authConfig = {
 			const ensureOrgMembership = async (userId: string) => {
 				const u = await db.query.users.findFirst({
 					where: (data, { eq }) => eq(data.id, userId),
-					columns: { email: true, name: true },
+					columns: { email: true, firstName: true, middleName: true, lastName: true },
 				})
 				const email = u?.email?.trim()
 				if (email) {
 					void autoJoinMemberInDoconchainOrganization({
 						email,
-						name: u?.name ?? undefined,
+						name: getFullName(u) || undefined,
 						role: "Member",
 					}).catch(() => {
 						// Do not block login; org sync is best-effort.
@@ -161,7 +162,7 @@ export const authConfig = {
 				}
 
 				session.user.id = userId
-				session.user.name = user.name ?? ""
+				session.user.name = getFullName(user) ?? ""
 				session.user.email = user.email ?? ""
 				session.user.role = user.role
 				session.user.status = (user.commissionStatus ?? "PENDING") as string

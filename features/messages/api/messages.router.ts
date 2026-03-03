@@ -1,6 +1,7 @@
 import { on } from "node:events"
 import { tracked, TRPCError } from "@trpc/server"
 import { and, asc, desc, eq, gt, ne, or, sql } from "drizzle-orm"
+import { getFullName } from "@/core/lib/utils"
 import { z } from "zod/v4"
 
 import { env } from "@/env"
@@ -470,13 +471,15 @@ export const messagesRouter = createTRPCRouter({
 				where: and(
 					ne(users.id, ctx.session.user.id), // Exclude current user
 					or(
-						sql`lower(${users.name}) like lower(${`%${input.query}%`})`,
+						sql`lower(concat_ws(' ', coalesce(${users.firstName},''), coalesce(${users.middleName},''), coalesce(${users.lastName},''))) like lower(${`%${input.query}%`})`,
 						sql`lower(${users.email}) like lower(${`%${input.query}%`})`
 					)
 				),
 				columns: {
 					id: true,
-					name: true,
+					firstName: true,
+					middleName: true,
+					lastName: true,
 					email: true,
 					image: true,
 				},
@@ -485,6 +488,7 @@ export const messagesRouter = createTRPCRouter({
 
 			return searchResults.map(user => ({
 				...user,
+				name: getFullName(user),
 				image: resolveAvatarUrl(user.image),
 			}))
 		}),
@@ -665,12 +669,13 @@ export const messagesRouter = createTRPCRouter({
 				where: eq(messages.id, input.messageId),
 				with: {
 					sender: {
-						columns: { id: true, name: true, email: true, image: true },
+						columns: { id: true, firstName: true, middleName: true, lastName: true, email: true, image: true },
 					},
 				},
 			})
 			if (withSender) {
 				const messagePayload = withSender as unknown as MessageWithSender
+				;(messagePayload.sender as { name?: string }).name = getFullName(messagePayload.sender)
 				messagePayload.sender.image = resolveAvatarUrl(messagePayload.sender.image)
 				emitMessageAdd(message.conversationId, messagePayload)
 			}
@@ -687,7 +692,9 @@ export const messagesRouter = createTRPCRouter({
 					user: {
 						columns: {
 							id: true,
-							name: true,
+							firstName: true,
+							middleName: true,
+							lastName: true,
 							email: true,
 							image: true,
 							role: true,
@@ -707,7 +714,7 @@ export const messagesRouter = createTRPCRouter({
 
 			return {
 				id: otherParticipant.user.id,
-				name: otherParticipant.user.name,
+				name: getFullName(otherParticipant.user),
 				email: otherParticipant.user.email,
 				image: resolveAvatarUrl(otherParticipant.user.image),
 				role: otherParticipant.user.role,

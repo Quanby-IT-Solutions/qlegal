@@ -2,14 +2,18 @@ import { z } from "zod/v4"
 
 // Input schemas for validation
 export const createUserSchema = z.object({
-	name: z.string().min(1, "Name is required"),
+	firstName: z.string().min(1, "First name is required"),
+	middleName: z.string().optional(),
+	lastName: z.string().min(1, "Last name is required"),
 	email: z.string().email("Invalid email address"),
 	role: z.enum(["ENP", "PRINCIPAL", "ENA", "ADMIN"]),
 })
 
 export const updateUserSchema = z.object({
 	id: z.string(),
-	name: z.string().min(1).optional(),
+	firstName: z.string().min(1).optional(),
+	middleName: z.string().optional(),
+	lastName: z.string().min(1).optional(),
 	email: z.string().email().optional(),
 	role: z.enum(["ENP", "PRINCIPAL", "ENA", "ADMIN"]).optional(),
 })
@@ -54,6 +58,10 @@ export const transferEnpDoconchainCreditsSchema = z.object({
 	credits: z.coerce.number().int().positive(),
 })
 
+export const clearEnpDoconchainSubOrgSchema = z.object({
+	enpId: z.string().min(1),
+})
+
 // Type exports for frontend use
 export type CreateUserInput = z.infer<typeof createUserSchema>
 export type UpdateUserInput = z.infer<typeof updateUserSchema>
@@ -65,3 +73,4 @@ export type SuspendUserInput = z.infer<typeof suspendUserSchema>
 export type UnsuspendUserInput = z.infer<typeof unsuspendUserSchema>
 export type ProvisionEnpDoconchainSubOrgInput = z.infer<typeof provisionEnpDoconchainSubOrgSchema>
 export type TransferEnpDoconchainCreditsInput = z.infer<typeof transferEnpDoconchainCreditsSchema>
+export type ClearEnpDoconchainSubOrgInput = z.infer<typeof clearEnpDoconchainSubOrgSchema>
