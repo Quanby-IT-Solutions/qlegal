@@ -1,8 +1,10 @@
-import { and, isNotNull } from "drizzle-orm"
+import { and, eq, isNotNull } from "drizzle-orm"
 
 import { getDoconchainSubOrgMembers } from "@/services/doconchain/organization/get-sub-org-members"
 import type { db as dbType } from "@/services/drizzle/db"
+import { users } from "@/services/drizzle/schema/auth"
 import { doconchainSubOrganizations } from "@/services/drizzle/schema/doconchain-sub-organizations"
+import { enpProfiles } from "@/services/drizzle/schema/enp-profiles"
 
 /**
  * Find stored sub-org credentials for a member by email.
@@ -17,6 +19,37 @@ export async function getSubOrgCredsForMemberEmail(
 	try {
 		const normalized = email.trim().toLowerCase()
 		if (!normalized) return null
+
+		// Fast-path: if this email is an ENP with an explicitly provisioned sub-org (stored on ENP profile),
+		// return that sub-org's stored enterprise credentials. This prevents picking the "wrong" sub-org when
+		// a user exists in multiple sub-orgs (which can cause credit/branding mismatches).
+		try {
+			const user = await db.query.users.findFirst({
+				where: eq(users.email, normalized),
+				columns: { id: true, role: true },
+			})
+			if (user?.id && String(user.role ?? "").trim().toUpperCase() === "ENP") {
+				const profile = await db.query.enpProfiles.findFirst({
+					where: eq(enpProfiles.userId, user.id),
+					columns: { doconchainSubOrgId: true },
+				})
+				const subOrgUuid = (profile?.doconchainSubOrgId ?? "").trim()
+				if (subOrgUuid) {
+					const row = await db.query.doconchainSubOrganizations.findFirst({
+						where: eq(doconchainSubOrganizations.uuid, subOrgUuid),
+						columns: {
+							clientKey: doconchainSubOrganizations.clientKey,
+							clientSecret: doconchainSubOrganizations.clientSecret,
+						},
+					})
+					const key = row?.clientKey ?? null
+					const secret = row?.clientSecret ?? null
+					if (key && secret) return { clientKey: key, clientSecret: secret }
+				}
+			}
+		} catch {
+			// Ignore and fall back to scanning DB sub-orgs.
+		}
 
 		const rows = await db
 			.select({

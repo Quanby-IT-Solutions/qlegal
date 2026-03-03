@@ -375,13 +375,39 @@ export const signatureRequestsRouter = createTRPCRouter({
 					columns: { docoChainProjectId: true, docoChainRedirectUrl: true },
 					with: {
 						meeting: {
-							with: { createdBy: { columns: { email: true } } },
+							with: {
+								createdBy: { columns: { email: true } },
+								appointments: {
+									columns: { id: true },
+									with: {
+										participants: {
+											columns: { status: true },
+											with: {
+												user: {
+													columns: { email: true, role: true },
+												},
+											},
+										},
+									},
+								},
+							},
 						},
 					},
 				})
 				const resolvedProjectUuid = doc?.docoChainProjectId ?? undefined
 				docRedirectUrl = doc?.docoChainRedirectUrl
-				projectOwnerEmail = doc?.meeting?.createdBy?.email?.trim().toLowerCase()
+				const meetingParticipants = (doc?.meeting?.appointments ?? [])
+					.flatMap(a => a.participants ?? [])
+					.filter(p => (p.status ?? "").toUpperCase() === "ACCEPTED")
+					.map(p => p.user)
+					.filter((u): u is NonNullable<typeof u> => Boolean(u))
+
+				const enpOwner = meetingParticipants.find(
+					u => String(u.role ?? "").trim().toUpperCase() === "ENP" && !!u.email?.trim()
+				)
+				projectOwnerEmail =
+					enpOwner?.email?.trim().toLowerCase() ??
+					doc?.meeting?.createdBy?.email?.trim().toLowerCase()
 
 				if (!projectUuid) {
 					projectUuid = resolvedProjectUuid
@@ -451,6 +477,7 @@ export const signatureRequestsRouter = createTRPCRouter({
 					projectUuid,
 					signerEmail: email,
 					projectOwnerEmail,
+					getSubOrgCredsForEmail: (em) => getSubOrgCredsForMemberEmail(em, db),
 				})
 				console.log("🟣 [DocOnChain] initiateSigning:buildLink:success", {
 					kind: "sign",
@@ -531,7 +558,11 @@ export const signatureRequestsRouter = createTRPCRouter({
 			})
 
 			try {
-				const link = await generateDoconchainSignLink({ projectUuid, signerEmail: email })
+				const link = await generateDoconchainSignLink({
+					projectUuid,
+					signerEmail: email,
+					getSubOrgCredsForEmail: (em) => getSubOrgCredsForMemberEmail(em, db),
+				})
 				console.log("🟣 [DocOnChain] generateSigningLink:success", {
 					projectUuid,
 					link: redactDoconchainUrlForLog(link),
@@ -547,7 +578,11 @@ export const signatureRequestsRouter = createTRPCRouter({
 				if (msg.includes("401") || msg.includes("unauthorized")) {
 					const invalidate = invalidateDoconchainToken as (email: string) => void
 					invalidate(email)
-					const link = await generateDoconchainSignLink({ projectUuid, signerEmail: email })
+					const link = await generateDoconchainSignLink({
+						projectUuid,
+						signerEmail: email,
+						getSubOrgCredsForEmail: (em) => getSubOrgCredsForMemberEmail(em, db),
+					})
 					console.log("🟣 [DocOnChain] generateSigningLink:successAfterRetry", {
 						projectUuid,
 						link: redactDoconchainUrlForLog(link),

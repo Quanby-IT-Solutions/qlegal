@@ -1001,6 +1001,7 @@ export const meetingsRouter = createTRPCRouter({
 							userListEditable: false,
 							creatorAsViewer: false,
 							documentStamp,
+							getSubOrgCredsForEmail: (em) => getSubOrgCredsForMemberEmail(em, db),
 						})
 
 						await db
@@ -1436,6 +1437,7 @@ export const meetingsRouter = createTRPCRouter({
 								name: getFullName(user) || signerEmail,
 								role: "Signer",
 							},
+							getSubOrgCredsForEmail: (em) => getSubOrgCredsForMemberEmail(em, db),
 						})
 					}
 				}

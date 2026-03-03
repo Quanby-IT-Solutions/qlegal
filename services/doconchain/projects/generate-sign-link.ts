@@ -3,6 +3,7 @@ import {
 	getDoconchainApiToken,
 	invalidateDoconchainToken,
 } from "@/services/doconchain/auth/generate-token"
+import type { GetSubOrgCredsForEmail } from "@/services/doconchain/auth/generate-token"
 
 // NOTE: DocOnChain responses vary (sometimes nested, sometimes arrays). We parse defensively at runtime below.
 
@@ -170,6 +171,8 @@ export async function generateDoconchainSignLink(input: {
 	signerEmail: string
 	/** When set, we use this user's token to request the link (project owner / ENP). Signer does not need to exist in DocOnChain. */
 	projectOwnerEmail?: string
+	/** Optional: resolve sub-org enterprise creds for the token email (usually the ENP owner). */
+	getSubOrgCredsForEmail?: GetSubOrgCredsForEmail
 }): Promise<string> {
 	const projectUuid = input.projectUuid.trim()
 	if (!projectUuid) throw new Error("Project UUID is required.")
@@ -180,7 +183,11 @@ export async function generateDoconchainSignLink(input: {
 	const tokenEmail = input.projectOwnerEmail?.trim().toLowerCase() ?? signerEmail
 
 	const doRequest = async () => {
-		const token = await getDoconchainApiToken({ email: tokenEmail, forceGenerated: true })
+		const token = await getDoconchainApiToken({
+			email: tokenEmail,
+			forceGenerated: true,
+			getSubOrgCredsForEmail: input.getSubOrgCredsForEmail,
+		})
 		return postGenerateSignLink({ projectUuid, token, signerEmail })
 	}
 
