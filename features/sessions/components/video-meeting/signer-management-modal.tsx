@@ -22,7 +22,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/core/components/ui/select"
-import { cn } from "@/core/lib/utils"
+import { cn, getFullName } from "@/core/lib/utils"
 
 import type { SignerParticipant } from "./signer-selector"
 
@@ -188,8 +188,8 @@ export const SignerManagementModal = React.memo(function SignerManagementModal({
 							<div className="max-h-[400px] space-y-1.5 overflow-y-auto">
 								{participants.map(p => {
 									const checked = selectedSet.has(p.userId)
-									const name = p.user?.name ?? "Unknown"
-									const email = p.user?.email ?? ""
+									const email = (p.user?.email ?? "").trim()
+									const name = getFullName(p.user) || email || "Unknown"
 									return (
 										<label
 											key={p.userId}
@@ -225,8 +225,8 @@ export const SignerManagementModal = React.memo(function SignerManagementModal({
 								{orderedSelected
 									.filter(p => p.user?.role !== "ENP")
 									.map(p => {
-										const name = p.user?.name ?? "Unknown"
-										const email = p.user?.email ?? ""
+										const email = (p.user?.email ?? "").trim()
+										const name = getFullName(p.user) || email || "Unknown"
 										const role = signerRoles[p.userId] ?? "principal"
 										return (
 											<div
@@ -270,8 +270,8 @@ export const SignerManagementModal = React.memo(function SignerManagementModal({
 							</p>
 							<div className="max-h-[400px] space-y-1.5 overflow-y-auto">
 								{orderedSelected.map((p, index) => {
-									const name = p.user?.name ?? "Unknown"
-									const email = p.user?.email ?? ""
+									const email = (p.user?.email ?? "").trim()
+									const name = getFullName(p.user) || email || "Unknown"
 									const role = signerRoles[p.userId] ?? "principal"
 									return (
 										<div

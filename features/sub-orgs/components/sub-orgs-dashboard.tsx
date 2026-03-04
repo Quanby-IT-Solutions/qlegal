@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { Building01Icon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { ChevronDownIcon, CopyIcon, EyeIcon, EyeOffIcon } from "lucide-react"
+import { ChevronDownIcon, CopyIcon, EditIcon, EyeIcon, EyeOffIcon } from "lucide-react"
 import { toast } from "sonner"
 
 import { Button } from "@/core/components/ui/button"
@@ -16,7 +16,17 @@ import {
 } from "@/core/components/ui/card"
 import { Badge } from "@/core/components/ui/badge"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/core/components/ui/collapsible"
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+	DialogTrigger,
+} from "@/core/components/ui/dialog"
 import { Input } from "@/core/components/ui/input"
+import { Label } from "@/core/components/ui/label"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/core/components/ui/table"
 import { cn } from "@/core/lib/utils"
 import { trpc } from "@/services/trpc/client"
@@ -105,11 +115,24 @@ export function SubOrgsDashboard() {
 						{subOrgs.map(sub => (
 							<Card key={sub.id}>
 								<CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-									<div>
-										<CardTitle className="text-lg">{sub.name}</CardTitle>
-										<CardDescription className="mt-1 font-mono text-xs">
-											{sub.uuid}
-										</CardDescription>
+									<div className="flex min-w-0 flex-1 items-center gap-3">
+										{sub.photoUrl ? (
+											<img
+												src={sub.photoUrl}
+												alt=""
+												className="size-12 shrink-0 rounded-md object-cover"
+											/>
+										) : (
+											<div className="flex size-12 shrink-0 items-center justify-center rounded-md bg-muted">
+												<HugeiconsIcon icon={Building01Icon} className="size-6 text-muted-foreground" />
+											</div>
+										)}
+										<div className="min-w-0 flex-1">
+											<CardTitle className="text-lg">{sub.name}</CardTitle>
+											<CardDescription className="mt-1 font-mono text-xs">
+												{sub.uuid}
+											</CardDescription>
+										</div>
 									</div>
 									<div className="flex flex-wrap items-center gap-2">
 										<TransferCreditsDialog
@@ -130,8 +153,10 @@ export function SubOrgsDashboard() {
 										Type: {sub.subOrganizationTypeName ?? "Department"} · Created{" "}
 										{sub.createdAt.toLocaleDateString()}
 									</p>
+									<SubOrgCreditsLine subOrgId={sub.id} />
 									<SubOrgMembersDisclosure subOrgId={sub.id} />
 									<SubOrgCredentialsDisclosure subOrgId={sub.id} />
+									<UploadPhotoDialog subOrgUuid={sub.uuid} onSuccess={() => refetch()} />
 								</CardContent>
 							</Card>
 						))}
@@ -294,3 +319,136 @@ function SubOrgMembersDisclosure({ subOrgId }: { subOrgId: string }) {
 		</Collapsible>
 	)
 }
+
+function SubOrgCreditsLine({ subOrgId }: { subOrgId: string }) {
+	const { data, isLoading, isError } = trpc.subOrgs.credits.useQuery(
+		{ subOrgId },
+		{ staleTime: 30_000 }
+	)
+
+	if (isLoading) {
+		return (
+			<p className="text-muted-foreground mt-1 text-xs">
+				Credits: <span className="opacity-70">Checking…</span>
+			</p>
+		)
+	}
+
+	if (isError || data?.credits == null) {
+		return (
+			<p className="text-muted-foreground mt-1 text-xs">
+				Credits: <span className="opacity-70">Unavailable</span>
+			</p>
+		)
+	}
+
+	const usedTotal =
+		data.usedCredits != null && data.totalCredits != null
+			? ` (${data.usedCredits} used / ${data.totalCredits} total)`
+			: ""
+
+	return (
+		<p className="text-muted-foreground mt-1 text-xs">
+			Credits: <span className="font-medium">{data.credits}</span> remaining{usedTotal}
+		</p>
+	)
+}
+
+interface UploadPhotoDialogProps {
+	subOrgUuid: string
+	onSuccess: () => void
+}
+
+function UploadPhotoDialog({ subOrgUuid, onSuccess }: UploadPhotoDialogProps) {
+	const utils = trpc.useUtils()
+	const [open, setOpen] = useState(false)
+	const [photo, setPhoto] = useState<File | null>(null)
+	const [isSaving, setIsSaving] = useState(false)
+
+	const handleOpenChange = (next: boolean) => {
+		if (!next) setPhoto(null)
+		setOpen(next)
+	}
+
+	const handleSubmit = async (e: React.FormEvent) => {
+		e.preventDefault()
+		if (!photo) {
+			toast.error("Choose an image to upload.")
+			return
+		}
+
+		setIsSaving(true)
+		try {
+			const form = new FormData()
+			form.set("photo", photo, photo.name)
+
+			const res = await fetch(`/api/doconchain/organizations/sub/${encodeURIComponent(subOrgUuid)}`, {
+				method: "PUT",
+				body: form,
+			})
+			const json = (await res.json().catch(() => null)) as null | { error?: string }
+			if (!res.ok) {
+				throw new Error(json?.error || `Failed to upload photo (${res.status}).`)
+			}
+
+			toast.success("Photo updated.")
+			await Promise.all([
+				utils.subOrgs.list.invalidate(),
+				utils.subOrgs.credits.invalidate(),
+			])
+			onSuccess()
+			setOpen(false)
+		} catch (err) {
+			toast.error(err instanceof Error ? err.message : "Failed to upload photo.")
+		} finally {
+			setIsSaving(false)
+		}
+	}
+
+	return (
+		<div className="mt-3">
+			<Dialog open={open} onOpenChange={handleOpenChange}>
+				<DialogTrigger asChild>
+					<Button type="button" variant="outline" size="sm" className="mt-2">
+						<EditIcon className="mr-2 size-4" />
+						Upload photo
+					</Button>
+				</DialogTrigger>
+				<DialogContent>
+					<DialogHeader>
+						<DialogTitle>Upload sub-org photo</DialogTitle>
+						<DialogDescription>
+							Choose an image to use as the branding photo for this sub-org. It will appear on the card
+							and in DocOnChain. Max 5MB.
+						</DialogDescription>
+					</DialogHeader>
+					<form onSubmit={handleSubmit} className="grid gap-4 py-4">
+						<div className="grid gap-2">
+							<Label htmlFor="upload-suborg-photo">Image</Label>
+							<Input
+								id="upload-suborg-photo"
+								type="file"
+								accept="image/*"
+								onChange={e => setPhoto(e.target.files?.[0] ?? null)}
+							/>
+						</div>
+						<DialogFooter>
+							<Button
+								type="button"
+								variant="outline"
+								onClick={() => handleOpenChange(false)}
+								disabled={isSaving}
+							>
+								Cancel
+							</Button>
+							<Button type="submit" disabled={isSaving || !photo}>
+								{isSaving ? "Uploading…" : "Upload"}
+							</Button>
+						</DialogFooter>
+					</form>
+				</DialogContent>
+			</Dialog>
+		</div>
+	)
+}
+

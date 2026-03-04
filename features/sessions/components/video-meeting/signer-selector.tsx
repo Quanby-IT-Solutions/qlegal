@@ -6,11 +6,20 @@ import { useSession } from "next-auth/react"
 
 import { Button } from "@/core/components/ui/button"
 import { Checkbox } from "@/core/components/ui/checkbox"
-import { cn } from "@/core/lib/utils"
+import { cn, getFullName } from "@/core/lib/utils"
 
 export interface SignerParticipant {
 	userId: string
-	user: { id: string; name: string | null; email: string | null; role?: string | null } | null
+	user: {
+		id: string
+		firstName?: string | null
+		middleName?: string | null
+		lastName?: string | null
+		/** Back-compat for older session payloads */
+		name?: string | null
+		email: string | null
+		role?: string | null
+	} | null
 }
 
 interface SignerSelectorProps {
@@ -98,8 +107,8 @@ export const SignerSelector = React.memo(function SignerSelector({
 				<div className="mb-3 space-y-1">
 					<p className="text-muted-foreground text-[10px] font-semibold">Signing Order:</p>
 					{orderedSelected.map((p, index) => {
-						const name = p.user?.name ?? "Unknown"
-						const email = p.user?.email ?? ""
+						const email = (p.user?.email ?? "").trim()
+						const name = getFullName(p.user) || email || "Unknown"
 						return (
 							<div
 								key={p.userId}
@@ -150,8 +159,8 @@ export const SignerSelector = React.memo(function SignerSelector({
 					{participants
 						.filter(p => !selectedSet.has(p.userId))
 						.map(p => {
-							const name = p.user?.name ?? "Unknown"
-							const email = p.user?.email ?? ""
+							const email = (p.user?.email ?? "").trim()
+							const name = getFullName(p.user) || email || "Unknown"
 							return (
 								<label
 									key={p.userId}

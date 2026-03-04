@@ -461,6 +461,31 @@ export function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meet
 
 			const linkFromCache = isCachedSignLinkUsable ? existingSign?.link : undefined
 
+			// iOS Safari only allows popups when window.open is called
+			// synchronously in direct response to a user gesture. To make
+			// "Plot Signature" reliable on iOS, we eagerly open a blank popup
+			// before any awaits, then later navigate it once the link is ready.
+			const popupWindowName =
+				kind === "plot" ? `doconchain-plot-${documentId}` : `doconchain-sign-${documentId}`
+			let eagerPopup: Window | null = null
+			if (typeof window !== "undefined") {
+				const ua = window.navigator?.userAgent ?? ""
+				const isIOS =
+					/iP(hone|od|ad)/i.test(ua) ||
+					(typeof navigator !== "undefined" &&
+						navigator.platform === "MacIntel" &&
+						// iPadOS reports Mac platform + touch points
+						(navigator as unknown as { maxTouchPoints?: number }).maxTouchPoints &&
+						(navigator as unknown as { maxTouchPoints?: number }).maxTouchPoints! > 1)
+				if (isIOS && kind === "plot") {
+					try {
+						eagerPopup = openCenteredPopup("about:blank", popupWindowName, "signing")
+					} catch {
+						eagerPopup = null
+					}
+				}
+			}
+
 			setSigningDocumentId(documentId)
 			setIsPlottingAction(kind === "plot")
 			isPlottingActionRef.current = kind === "plot"
@@ -507,11 +532,21 @@ export function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meet
 
 				if (kind === "plot") {
 					// Always open the freshly-generated DocOnChain plot link (includes token params).
-					const popup = openCenteredPopup(link, `doconchain-plot-${documentId}`, "signing")
+					const popup =
+						eagerPopup && !eagerPopup.closed
+							? eagerPopup
+							: openCenteredPopup(link, `doconchain-plot-${documentId}`, "signing")
 					plotPopupDocumentIdRef.current = documentId
 					if (!popup) {
 						toast.info("If nothing opened, allow pop-ups for this site and try again.")
 						return
+					}
+					if (popup === eagerPopup) {
+						try {
+							popup.location.href = link
+						} catch {
+							// Ignore navigation errors and let the polling/close logic handle UX.
+						}
 					}
 					const interval = window.setInterval(() => {
 						if (popup.closed) {
@@ -530,10 +565,20 @@ export function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meet
 						}
 					}, 800)
 				} else {
-					const popup = openCenteredPopup(link, `doconchain-sign-${documentId}`, "signing")
+					const popup =
+						eagerPopup && !eagerPopup.closed
+							? eagerPopup
+							: openCenteredPopup(link, `doconchain-sign-${documentId}`, "signing")
 					if (!popup) {
 						window.open(link, "_blank", "noopener,noreferrer")
 						return
+					}
+					if (popup === eagerPopup) {
+						try {
+							popup.location.href = link
+						} catch {
+							// Ignore navigation errors; user still has manually opened window.
+						}
 					}
 					const startedAt = Date.now()
 					const interval = window.setInterval(() => {
