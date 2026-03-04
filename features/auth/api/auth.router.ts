@@ -9,6 +9,17 @@ import { sendPasswordResetToken } from "@/services/react-email/lib/send.password
 import { sendVerificationToken } from "@/services/react-email/lib/send.verification-token"
 import { createTRPCRouter, publicProcedure } from "@/services/trpc/init"
 
+/**
+ * Mask an email address for display: first char + asterisks + last char before @, full domain.
+ * e.g. "recovery@gmail.com" → "r******y@gmail.com"
+ */
+function maskEmail(email: string): string {
+	const [local, domain] = email.split("@")
+	if (!local || !domain) return email
+	if (local.length <= 2) return `${local[0]}***@${domain}`
+	return `${local[0]}${"*".repeat(local.length - 2)}${local[local.length - 1]}@${domain}`
+}
+
 import {
 	forgotPasswordSchema,
 	lawyerRegisterSchema,
@@ -220,21 +231,39 @@ export const authRouter = createTRPCRouter({
 		return { message: "Password reset email sent!" }
 	}),
 
-	forgotPasswordRecovery: publicProcedure
+	forgotPasswordViaRecovery: publicProcedure
 		.input(forgotPasswordSchema)
 		.mutation(async ({ ctx, input }) => {
 			const { email } = input
 
 			const user = await ctx.db.query.users.findFirst({
 				where: (data, { eq }) => eq(data.email, email),
-				columns: { id: true, email: true, name: true },
+				columns: {
+					id: true,
+					email: true,
+					recoveryEmail: true,
+					recoveryEmailVerified: true,
+				},
 			})
 
-			if (!user) {
+			// Generic error for all failure cases to prevent account enumeration
+			if (!user || !user.recoveryEmail || !user.recoveryEmailVerified) {
 				throw new TRPCError({
 					code: "NOT_FOUND",
-					message: "User not found",
+					message:
+						"No recovery email is set up for this account. Please contact support.",
 				})
+			}
+
+			// Generate a password reset token for the user's primary email
+			const passwordResetToken = await generatePasswordResetToken(email)
+
+			// Send the reset email to the recovery address (not primary)
+			await sendPasswordResetToken(user.recoveryEmail, passwordResetToken.token)
+
+			return {
+				message: "Password reset email sent to your recovery email.",
+				maskedRecoveryEmail: maskEmail(user.recoveryEmail),
 			}
 		}),
 

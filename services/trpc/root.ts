@@ -7,6 +7,7 @@ import { dashboardRouter } from "@/features/dashboard/api/dashboard.router"
 import { documentsRouter } from "@/features/documents/api/documents.router"
 import { envelopeLiteRouter } from "@/features/envelopes-lite/api/envelope-lite.router"
 import { legalRegistrationRouter } from "@/features/legal-registration/api/legal-registration.router"
+import { onboardingRouter } from "@/features/onboarding/api/onboarding.router"
 import { messageFilesRouter } from "@/features/messages/api/message-files.router"
 import { messagesRouter } from "@/features/messages/api/messages.router"
 import { notarialBookRouter } from "@/features/notarial-book/api/notarial-book.router"
@@ -43,6 +44,7 @@ export const appRouter = createTRPCRouter({
 	envelopeLite: envelopeLiteRouter,
 	legalRegistration: legalRegistrationRouter,
 	locationVerification: locationVerificationRouter,
+	onboarding: onboardingRouter,
 	meetings: meetingsRouter,
 	signatureRequests: signatureRequestsRouter,
 	messageFiles: messageFilesRouter,
