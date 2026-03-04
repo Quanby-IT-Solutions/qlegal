@@ -17,7 +17,8 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "@/core/components/ui/dialog"
-import { SidebarProvider } from "@/core/components/ui/sidebar"
+import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/core/components/ui/sidebar"
+import { useSessionIsMobile } from "@/core/hooks/use-session-mobile"
 
 import { trpc } from "@/services/trpc/client"
 
@@ -1086,11 +1087,6 @@ export function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meet
 			ref={recordingContainerRef}
 			className="from-background via-muted/20 to-background flex h-screen flex-col bg-linear-to-br"
 		>
-			{/* Header */}
-			<PageHeader
-				items={[{ label: "Sessions", href: "/sessions" }, { label: "Signing Session" }]}
-			/>
-
 			{/* <FileFlightAnimation
 				trigger={flyTrigger}
 				onComplete={() => setFlyTrigger(false)}
@@ -1159,8 +1155,9 @@ export function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meet
 				</DialogContent>
 			</Dialog>
 
-			{/* Main content — video area + right sidebar */}
+			{/* Main content — header + video area + right sidebar */}
 			<SidebarProvider
+				useIsMobileHook={useSessionIsMobile}
 				open={showDocuments}
 				onOpenChange={setShowDocuments}
 				className="flex min-h-0 flex-1 overflow-hidden"
@@ -1171,125 +1168,131 @@ export function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meet
 					} as React.CSSProperties
 				}
 			>
-				<div className="flex flex-1 overflow-hidden">
-					{/* Video area */}
-					<div className="relative flex flex-1 flex-col overflow-hidden">
-						<div className="flex-1 overflow-hidden p-3 md:p-4 lg:p-6">
-							<RecordingBanner
-								isLocalRecording={isLocalRecording}
-								localRecordingStartedAt={localRecordingStartedAt}
-								isAnyoneRecording={isAnyoneRecording}
-								recordingParticipantName={recordingParticipantName}
-								recordingStopped={recordingStopped}
-								stoppedElapsed={stoppedElapsed}
-							/>
-							{participantIds.length === 0 ? (
-								<Card className="mx-auto max-w-xl shadow-md">
-									<CardContent className="text-muted-foreground p-6 text-center text-sm">
-										No participants yet. Turn on your camera to appear in the session.
-									</CardContent>
-								</Card>
-							) : (
-								<div className="flex h-full w-full flex-col gap-4 overflow-y-auto">
-									{presenterId && (
-										<div className="w-full">
-											<div className="border-border/70 bg-card/80 overflow-hidden rounded-xl border shadow-lg">
-												<ParticipantView participantId={presenterId} />
-											</div>
-										</div>
-									)}
-									<div className="grid h-full w-full auto-rows-[minmax(260px,1fr)] grid-cols-[repeat(auto-fit,minmax(240px,1fr))] gap-4 sm:gap-5">
-										{participantIds
-											.filter(id => id !== presenterId)
-											.map(participantId => (
-												<div key={participantId} className="min-h-65">
-													<ParticipantView participantId={participantId} />
+				<SidebarInset className="flex min-h-0 flex-1 flex-col overflow-hidden">
+					<PageHeader
+						items={[{ label: "Sessions", href: "/sessions" }, { label: "Signing Session" }]}
+						actions={documents && documents.length > 0 ? <SidebarTrigger /> : null}
+					/>
+					<div className="flex min-h-0 flex-1 overflow-hidden">
+						{/* Video area */}
+						<div className="relative flex flex-1 flex-col overflow-hidden">
+							<div className="flex-1 overflow-hidden p-3 md:p-4 lg:p-6">
+								<RecordingBanner
+									isLocalRecording={isLocalRecording}
+									localRecordingStartedAt={localRecordingStartedAt}
+									isAnyoneRecording={isAnyoneRecording}
+									recordingParticipantName={recordingParticipantName}
+									recordingStopped={recordingStopped}
+									stoppedElapsed={stoppedElapsed}
+								/>
+								{participantIds.length === 0 ? (
+									<Card className="mx-auto max-w-xl shadow-md">
+										<CardContent className="text-muted-foreground p-6 text-center text-sm">
+											No participants yet. Turn on your camera to appear in the session.
+										</CardContent>
+									</Card>
+								) : (
+									<div className="flex h-full w-full flex-col gap-4 overflow-y-auto">
+										{presenterId && (
+											<div className="w-full">
+												<div className="border-border/70 bg-card/80 overflow-hidden rounded-xl border shadow-lg">
+													<ParticipantView participantId={presenterId} />
 												</div>
-											))}
+											</div>
+										)}
+										<div className="grid h-full w-full auto-rows-[minmax(260px,1fr)] grid-cols-[repeat(auto-fit,minmax(240px,1fr))] gap-4 sm:gap-5">
+											{participantIds
+												.filter(id => id !== presenterId)
+												.map(participantId => (
+													<div key={participantId} className="min-h-65">
+														<ParticipantView participantId={participantId} />
+													</div>
+												))}
+										</div>
 									</div>
-								</div>
-							)}
-						</div>
+								)}
+							</div>
 
-						<div className="absolute bottom-6 left-1/2 z-50 -translate-x-1/2">
-							<MeetingControls
-								onUploadClick={handleUploadClick}
-								isUploadDisabled={!meetingId?.trim() || isUploadBlockedByLock}
-								isUploadLoading={isPreparingUpload || isEnsuringDoconchainToken}
-								uploadDisabledReason={
-									isUploadBlockedByLock
-										? "Can't upload a file while document uploads are locked"
-										: undefined
-								}
-								onRecordingToggle={handleRecordingToggle}
-								onLocalRecordingToggle={openConsentAndRequest}
-								localRecordingSupported={localRecordingSupported}
-								isRecording={isRecording}
-								isRecordingStarting={recordingStatus === "RECORDING_STARTING"}
-								isLocalRecording={isLocalRecording}
-								localRecordingStartedAt={localRecordingStartedAt}
-								participantCount={participantCount}
-								canInvitePeople={meetingDetails?.createdBy?.id === session?.user?.id}
-								onInvitePeopleClick={() => setIsInviteDialogOpen(true)}
-							/>
+							<div className="absolute bottom-6 left-1/2 z-50 -translate-x-1/2">
+								<MeetingControls
+									onUploadClick={handleUploadClick}
+									isUploadDisabled={!meetingId?.trim() || isUploadBlockedByLock}
+									isUploadLoading={isPreparingUpload || isEnsuringDoconchainToken}
+									uploadDisabledReason={
+										isUploadBlockedByLock
+											? "Can't upload a file while document uploads are locked"
+											: undefined
+									}
+									onRecordingToggle={handleRecordingToggle}
+									onLocalRecordingToggle={openConsentAndRequest}
+									localRecordingSupported={localRecordingSupported}
+									isRecording={isRecording}
+									isRecordingStarting={recordingStatus === "RECORDING_STARTING"}
+									isLocalRecording={isLocalRecording}
+									localRecordingStartedAt={localRecordingStartedAt}
+									participantCount={participantCount}
+									canInvitePeople={meetingDetails?.createdBy?.id === session?.user?.id}
+									onInvitePeopleClick={() => setIsInviteDialogOpen(true)}
+								/>
+							</div>
 						</div>
 					</div>
+				</SidebarInset>
 
-					{/* Documents right sidebar */}
-					{documents && documents.length > 0 && (
-						<DocumentCards
-							ref={docCardsRef}
-							meetingId={meetingId}
-							documents={documents}
-							showDocuments={showDocuments}
-							onToggleShowDocuments={() => setShowDocuments(!showDocuments)}
-							isDocumentsFetching={isDocumentsFetching}
-							isRefreshingSigningStatus={isRefreshingSigningStatus}
-							documentSigningStatus={documentSigningStatus}
-							meetingDetails={meetingDetails}
-							notarizationDetails={notarizationDetails}
-							signingDocumentId={signingDocumentId}
-							isPlottingAction={isPlottingAction}
-							downloadingProjectUuid={downloadingProjectUuid}
-							preGeneratedPlotLinks={preGeneratedPlotLinks}
-							preGeneratedSignLinks={preGeneratedSignLinks}
-							userConfirmedPlottedDocumentIds={userConfirmedPlottedDocumentIds}
-							docoChainTokenReady={docoChainTokenReady}
-							docoChainTokenLoading={docoChainTokenLoading}
-							onSignClick={handleSignClick}
-							onSignersChange={handleSignersChange}
-							onCreateProject={(documentId, mId) => {
-								createDocoChainProjectMutation.mutate({ documentId, meetingId: mId })
-							}}
-							isCreatingProject={createDocoChainProjectMutation.isPending}
-							onPreGeneratedLink={(documentId, link, projectUuid, kind, cleanPlotUrl) => {
-								const setMap = kind === "plot" ? setPreGeneratedPlotLinks : setPreGeneratedSignLinks
-								setMap(prev => {
-									const next = new Map(prev)
-									next.set(documentId, {
-										link,
-										projectUuid,
-										storedAt: Date.now(),
-										cleanPlotUrl: kind === "plot" ? cleanPlotUrl : undefined,
-									})
-									return next
+				{/* Documents right sidebar */}
+				{documents && documents.length > 0 && (
+					<DocumentCards
+						ref={docCardsRef}
+						meetingId={meetingId}
+						documents={documents}
+						showDocuments={showDocuments}
+						onToggleShowDocuments={() => setShowDocuments(!showDocuments)}
+						isDocumentsFetching={isDocumentsFetching}
+						isRefreshingSigningStatus={isRefreshingSigningStatus}
+						documentSigningStatus={documentSigningStatus}
+						meetingDetails={meetingDetails}
+						notarizationDetails={notarizationDetails}
+						signingDocumentId={signingDocumentId}
+						isPlottingAction={isPlottingAction}
+						downloadingProjectUuid={downloadingProjectUuid}
+						preGeneratedPlotLinks={preGeneratedPlotLinks}
+						preGeneratedSignLinks={preGeneratedSignLinks}
+						userConfirmedPlottedDocumentIds={userConfirmedPlottedDocumentIds}
+						docoChainTokenReady={docoChainTokenReady}
+						docoChainTokenLoading={docoChainTokenLoading}
+						onSignClick={handleSignClick}
+						onSignersChange={handleSignersChange}
+						onCreateProject={(documentId, mId) => {
+							createDocoChainProjectMutation.mutate({ documentId, meetingId: mId })
+						}}
+						isCreatingProject={createDocoChainProjectMutation.isPending}
+						onPreGeneratedLink={(documentId, link, projectUuid, kind, cleanPlotUrl) => {
+							const setMap = kind === "plot" ? setPreGeneratedPlotLinks : setPreGeneratedSignLinks
+							setMap(prev => {
+								const next = new Map(prev)
+								next.set(documentId, {
+									link,
+									projectUuid,
+									storedAt: Date.now(),
+									cleanPlotUrl: kind === "plot" ? cleanPlotUrl : undefined,
 								})
-							}}
-							onViewNotarizedDocument={handleViewNotarizedDocument}
-							onRefresh={async () => {
-								await refetchDocuments()
-								await manualRefreshSigningStatuses()
-							}}
-							onToggleLock={isLocked => {
-								if (meetingId) toggleLockMutation.mutate({ meetingId, isLocked })
-							}}
-							isTogglingLock={toggleLockMutation.isPending}
-							onUpdateDocumentOrder={documentIds => {
-								if (meetingId) updateDocumentOrder.mutate({ meetingId, documentIds })
-							}}
-						/>
-					)}
-				</div>
+								return next
+							})
+						}}
+						onViewNotarizedDocument={handleViewNotarizedDocument}
+						onRefresh={async () => {
+							await refetchDocuments()
+							await manualRefreshSigningStatuses()
+						}}
+						onToggleLock={isLocked => {
+							if (meetingId) toggleLockMutation.mutate({ meetingId, isLocked })
+						}}
+						isTogglingLock={toggleLockMutation.isPending}
+						onUpdateDocumentOrder={documentIds => {
+							if (meetingId) updateDocumentOrder.mutate({ meetingId, documentIds })
+						}}
+					/>
+				)}
 			</SidebarProvider>
 
 			{/* Recording Consent Dialog */}

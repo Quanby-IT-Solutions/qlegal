@@ -8,7 +8,6 @@ import {
 	GripVertical,
 	Lock,
 	MoreVertical,
-	PanelLeftIcon,
 	RefreshCw,
 	Unlock,
 } from "lucide-react"
@@ -29,7 +28,7 @@ import {
 	SidebarMenu,
 	SidebarMenuButton,
 	SidebarMenuItem,
-	useSidebar,
+	SidebarRail,
 } from "@/core/components/ui/sidebar"
 import { cn } from "@/core/lib/utils"
 
@@ -181,7 +180,6 @@ export const DocumentCards = React.memo(
 		ref: React.Ref<DocumentCardsHandle>
 	) {
 		const { data: session } = useSession()
-		const { toggleSidebar } = useSidebar()
 
 		const isPrincipal = meetingDetails?.createdBy?.id === session?.user?.id
 		const isLocked = meetingDetails?.isDocumentOrderLocked ?? false
@@ -309,7 +307,7 @@ export const DocumentCards = React.memo(
 
 		return (
 			<Sidebar side="right" collapsible="icon" variant="sidebar" className="border-l">
-				<SidebarHeader className="flex shrink-0 items-center border-b px-3 py-2.5">
+				<SidebarHeader className="mb-3 flex shrink-0 items-center px-3 py-2.5">
 					<div className="flex min-w-0 flex-wrap items-center gap-1.5">
 						<div
 							ref={drawerHeaderIconRef}
@@ -366,36 +364,11 @@ export const DocumentCards = React.memo(
 				</SidebarHeader>
 
 				<SidebarContent className="space-y-3 p-3">
-					<div className="group-data-[collapsible=icon]:hidden">
-						<Button
-							variant="ghost"
-							size="sm"
-							onClick={toggleSidebar}
-							className="h-8 w-full justify-start"
-							title="Hide documents panel"
-							aria-label="Hide documents panel"
-						>
-							<PanelLeftIcon className="mr-2 size-4" />
-							<span>Hide Documents</span>
-						</Button>
-					</div>
-
 					<SidebarMenu className="hidden group-data-[collapsible=icon]:flex">
-						<SidebarMenuItem>
-							<SidebarMenuButton
-								ref={collapsedIconRef}
-								tooltip="Expand documents panel"
-								onClick={toggleSidebar}
-								className="justify-center group-data-[collapsible=icon]:justify-center"
-								aria-label="Expand documents panel"
-							>
-								<PanelLeftIcon className="size-4" />
-								<span className="sr-only">Expand documents panel</span>
-							</SidebarMenuButton>
-						</SidebarMenuItem>
-						{documents.map(doc => (
+						{documents.map((doc, index) => (
 							<SidebarMenuItem key={`icon-${doc.id}`}>
 								<SidebarMenuButton
+									ref={index === 0 ? collapsedIconRef : undefined}
 									tooltip={doc.name}
 									className="justify-center group-data-[collapsible=icon]:justify-center"
 									aria-label={doc.name}
@@ -665,6 +638,7 @@ export const DocumentCards = React.memo(
 						</div>
 					</SidebarFooter>
 				)}
+				<SidebarRail />
 			</Sidebar>
 		)
 	})
