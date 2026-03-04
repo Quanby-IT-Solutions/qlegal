@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { Building01Icon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { ChevronDownIcon, CopyIcon, EditIcon, EyeIcon, EyeOffIcon } from "lucide-react"
+import { CopyIcon, EyeIcon, EyeOffIcon, Lock } from "lucide-react"
 import { toast } from "sonner"
 
 import { Button } from "@/core/components/ui/button"
@@ -15,7 +15,6 @@ import {
 	CardTitle,
 } from "@/core/components/ui/card"
 import { Badge } from "@/core/components/ui/badge"
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/core/components/ui/collapsible"
 import {
 	Dialog,
 	DialogContent,
@@ -27,8 +26,8 @@ import {
 } from "@/core/components/ui/dialog"
 import { Input } from "@/core/components/ui/input"
 import { Label } from "@/core/components/ui/label"
+import { Separator } from "@/core/components/ui/separator"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/core/components/ui/table"
-import { cn } from "@/core/lib/utils"
 import { trpc } from "@/services/trpc/client"
 
 import { AddMemberDialog } from "./add-member-dialog"
@@ -111,30 +110,16 @@ export function SubOrgsDashboard() {
 						</CardContent>
 					</Card>
 				) : (
-					<div className="space-y-4">
+					<div className="grid gap-4 md:grid-cols-2">
 						{subOrgs.map(sub => (
-							<Card key={sub.id}>
-								<CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-									<div className="flex min-w-0 flex-1 items-center gap-3">
-										{sub.photoUrl ? (
-											<img
-												src={sub.photoUrl}
-												alt=""
-												className="size-12 shrink-0 rounded-md object-cover"
-											/>
-										) : (
-											<div className="flex size-12 shrink-0 items-center justify-center rounded-md bg-muted">
-												<HugeiconsIcon icon={Building01Icon} className="size-6 text-muted-foreground" />
-											</div>
-										)}
-										<div className="min-w-0 flex-1">
-											<CardTitle className="text-lg">{sub.name}</CardTitle>
-											<CardDescription className="mt-1 font-mono text-xs">
-												{sub.uuid}
-											</CardDescription>
-										</div>
+							<Card key={sub.id} className="gap-0 overflow-hidden rounded-xl py-0 shadow-sm">
+								<CardHeader className="space-y-2 border-b bg-muted/30 pb-3 pt-4">
+									<div className="space-y-1">
+										<CardTitle className="text-lg font-bold leading-snug">{sub.name}</CardTitle>
+										<CardDescription className="font-mono text-[11px] leading-none">{sub.uuid}</CardDescription>
 									</div>
-									<div className="flex flex-wrap items-center gap-2">
+
+									<div className="flex flex-wrap gap-2 pt-1">
 										<TransferCreditsDialog
 											subOrgId={sub.id}
 											subOrgName={sub.name}
@@ -145,18 +130,39 @@ export function SubOrgsDashboard() {
 											subOrgName={sub.name}
 											onSuccess={() => handleMemberAdded(sub.id)}
 										/>
+										<UploadPhotoDialog subOrgUuid={sub.uuid} onSuccess={refetch} />
 									</div>
 								</CardHeader>
-								<CardContent>
-									<p className="text-muted-foreground text-sm">{sub.address}</p>
-									<p className="text-muted-foreground mt-1 text-xs">
-										Type: {sub.subOrganizationTypeName ?? "Department"} · Created{" "}
-										{sub.createdAt.toLocaleDateString()}
-									</p>
-									<SubOrgCreditsLine subOrgId={sub.id} />
-									<SubOrgMembersDisclosure subOrgId={sub.id} />
-									<SubOrgCredentialsDisclosure subOrgId={sub.id} />
-									<UploadPhotoDialog subOrgUuid={sub.uuid} onSuccess={() => refetch()} />
+
+								<CardContent className="space-y-3 px-4 pb-4 pt-4 sm:px-6">
+									<div className="space-y-0.5">
+										<div className="flex items-center justify-between text-sm">
+											<span className="text-muted-foreground">Owner</span>
+											<span className="max-w-[60%] truncate text-right font-semibold">
+												{sub.address}
+											</span>
+										</div>
+										<p className="text-muted-foreground text-[11px]">
+											Type: {sub.subOrganizationTypeName ?? "Department"} · Created{" "}
+											{sub.createdAt.toLocaleDateString()}
+										</p>
+									</div>
+
+									<SubOrgCreditsCard subOrgId={sub.id} />
+
+									<div className="space-y-1.5">
+										<SubOrgMembersTable subOrgId={sub.id} />
+									</div>
+
+									<Separator />
+
+									<div className="space-y-2.5">
+										<p className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide">
+											<Lock className="size-3.5" />
+											Credentials
+										</p>
+										<SubOrgCredentialsFields subOrgId={sub.id} />
+									</div>
 								</CardContent>
 							</Card>
 						))}
@@ -173,154 +179,169 @@ function maskSecret(value: string): string {
 	return `${value.slice(0, 4)}••••••••${value.slice(-4)}`
 }
 
-function CopyButton({ value, label }: { value: string; label: string }) {
-	return (
-		<Button
-			type="button"
-			variant="outline"
-			size="sm"
-			onClick={async () => {
-				try {
-					await navigator.clipboard.writeText(value)
-					toast.success(`${label} copied`)
-				} catch {
-					toast.error("Copy failed")
-				}
-			}}
-			disabled={!value}
-		>
-			<CopyIcon className="mr-2 size-4" />
-			Copy
-		</Button>
-	)
-}
-
-function SubOrgCredentialsDisclosure({ subOrgId }: { subOrgId: string }) {
-	const [open, setOpen] = useState(false)
-	const [reveal, setReveal] = useState(false)
-	const { data, isLoading, isError, error } = trpc.subOrgs.credentials.useQuery(
-		{ subOrgId },
-		{ enabled: open }
-	)
+function SubOrgCredentialsFields({ subOrgId }: { subOrgId: string }) {
+	const [revealKey, setRevealKey] = useState(false)
+	const [revealSecret, setRevealSecret] = useState(false)
+	const { data, isLoading, isError, error } = trpc.subOrgs.credentials.useQuery({ subOrgId })
 
 	const clientKey = data?.clientKey ?? ""
 	const clientSecret = data?.clientSecret ?? ""
 
+	if (isLoading) {
+		return <p className="text-muted-foreground text-sm">Loading credentials…</p>
+	}
+
+	if (isError) {
+		return <p className="text-sm text-destructive">{error.message ?? "Failed to load credentials."}</p>
+	}
+
+	if (!clientKey || !clientSecret) {
+		return (
+			<div className="space-y-2">
+				<p className="text-muted-foreground text-sm">
+					DocOnChain didn’t return sub-org credentials for this sub-org.
+				</p>
+				<Badge variant="outline">Ask DocOnChain to enable client key/secret on this endpoint</Badge>
+			</div>
+		)
+	}
+
 	return (
-		<Collapsible open={open} onOpenChange={next => (setOpen(next), next ? setReveal(false) : null)} className="mt-2">
-			<CollapsibleTrigger asChild>
-				<Button variant="ghost" size="sm" className="flex w-full items-center justify-between px-0">
-					<span className="text-sm font-medium">Credentials</span>
-					<ChevronDownIcon className={cn("size-4 transition-transform", open && "rotate-180")} />
-				</Button>
-			</CollapsibleTrigger>
-			<CollapsibleContent className="pt-3">
-				{isLoading ? (
-					<p className="text-muted-foreground text-sm">Loading credentials…</p>
-				) : isError ? (
-					<p className="text-sm text-red-600 dark:text-red-400">
-						{error.message ?? "Failed to load credentials."}
-					</p>
-				) : !clientKey || !clientSecret ? (
-					<div className="space-y-2">
-						<p className="text-muted-foreground text-sm">
-							DocOnChain didn’t return sub-org credentials for this sub-org.
-						</p>
-						<Badge variant="outline">Ask DocOnChain to enable client key/secret on this endpoint</Badge>
-					</div>
-				) : (
-					<div className="grid gap-3 sm:grid-cols-2">
-						<div className="space-y-2">
-							<div className="flex items-center justify-between gap-2">
-								<p className="text-sm font-medium">Client key</p>
-								<CopyButton value={clientKey} label="Client key" />
-							</div>
-							<Input readOnly value={reveal ? clientKey : maskSecret(clientKey)} className="font-mono text-xs" />
-						</div>
-						<div className="space-y-2">
-							<div className="flex items-center justify-between gap-2">
-								<p className="text-sm font-medium">Client secret</p>
-								<CopyButton value={clientSecret} label="Client secret" />
-							</div>
-							<Input
-								readOnly
-								value={reveal ? clientSecret : maskSecret(clientSecret)}
-								className="font-mono text-xs"
-							/>
-						</div>
-						<div className="sm:col-span-2 flex items-center justify-end">
-							<Button type="button" variant="outline" size="sm" onClick={() => setReveal(r => !r)}>
-								{reveal ? <EyeOffIcon className="mr-2 size-4" /> : <EyeIcon className="mr-2 size-4" />}
-								{reveal ? "Hide" : "Reveal"}
-							</Button>
-						</div>
-					</div>
-				)}
-			</CollapsibleContent>
-		</Collapsible>
+		<div className="space-y-4">
+			<div className="space-y-2">
+				<Label className="text-sm font-medium">Client key</Label>
+				<div className="flex items-center gap-2">
+					<Input
+						readOnly
+						value={revealKey ? clientKey : maskSecret(clientKey)}
+						className="bg-muted font-mono text-xs"
+					/>
+					<Button
+						type="button"
+						variant="ghost"
+						size="icon-sm"
+						onClick={async () => {
+							try {
+								await navigator.clipboard.writeText(clientKey)
+								toast.success("Client key copied")
+							} catch {
+								toast.error("Copy failed")
+							}
+						}}
+					>
+						<CopyIcon className="size-4" />
+					</Button>
+					<Button type="button" variant="ghost" size="icon-sm" onClick={() => setRevealKey(k => !k)}>
+						{revealKey ? <EyeOffIcon className="size-4" /> : <EyeIcon className="size-4" />}
+					</Button>
+				</div>
+			</div>
+
+			<div className="space-y-2">
+				<Label className="text-sm font-medium">Client secret</Label>
+				<div className="flex items-center gap-2">
+					<Input
+						readOnly
+						value={revealSecret ? clientSecret : maskSecret(clientSecret)}
+						className="bg-muted font-mono text-xs"
+					/>
+					<Button
+						type="button"
+						variant="ghost"
+						size="icon-sm"
+						onClick={async () => {
+							try {
+								await navigator.clipboard.writeText(clientSecret)
+								toast.success("Client secret copied")
+							} catch {
+								toast.error("Copy failed")
+							}
+						}}
+					>
+						<CopyIcon className="size-4" />
+					</Button>
+					<Button type="button" variant="ghost" size="icon-sm" onClick={() => setRevealSecret(s => !s)}>
+						{revealSecret ? <EyeOffIcon className="size-4" /> : <EyeIcon className="size-4" />}
+					</Button>
+				</div>
+			</div>
+		</div>
 	)
 }
 
-function SubOrgMembersDisclosure({ subOrgId }: { subOrgId: string }) {
-	const [open, setOpen] = useState(false)
-	const { data, isLoading, isError, error } = trpc.subOrgs.members.useQuery(
-		{ subOrgId },
-		{ enabled: open && !!subOrgId }
-	)
+function SubOrgMembersTable({ subOrgId }: { subOrgId: string }) {
+	const { data, isLoading, isError, error } = trpc.subOrgs.members.useQuery({ subOrgId })
 
 	const count = data?.length ?? 0
 
+	if (isLoading) {
+		return (
+			<>
+				<p className="text-[11px] font-bold uppercase tracking-wide">Members</p>
+				<p className="text-muted-foreground text-sm">Loading members…</p>
+			</>
+		)
+	}
+
+	if (isError) {
+		return (
+			<>
+				<p className="text-[11px] font-bold uppercase tracking-wide">Members</p>
+				<p className="text-sm text-destructive">{error.message ?? "Failed to load members."}</p>
+			</>
+		)
+	}
+
+	if (!count) {
+		return (
+			<>
+				<p className="text-[11px] font-bold uppercase tracking-wide">Members</p>
+				<p className="text-muted-foreground text-sm">No members yet.</p>
+			</>
+		)
+	}
+
 	return (
-		<Collapsible open={open} onOpenChange={setOpen} className="mt-4">
-			<CollapsibleTrigger asChild>
-				<Button
-					variant="ghost"
-					size="sm"
-					className="flex w-full items-center justify-between px-0"
-				>
-					<span className="text-sm font-medium">
-						Members{open ? "" : count ? ` (${count})` : ""}
-					</span>
-					<ChevronDownIcon className={cn("size-4 transition-transform", open && "rotate-180")} />
-				</Button>
-			</CollapsibleTrigger>
-			<CollapsibleContent className="pt-3">
-				{isLoading ? (
-					<p className="text-muted-foreground text-sm">Loading members…</p>
-				) : isError ? (
-					<p className="text-sm text-red-600 dark:text-red-400">
-						{error.message ?? "Failed to load members."}
-					</p>
-				) : !count ? (
-					<p className="text-muted-foreground text-sm">No members yet.</p>
-				) : (
-					<Table>
-						<TableHeader>
-							<TableRow>
-								<TableHead>Name</TableHead>
-								<TableHead>Email</TableHead>
-								<TableHead>Role</TableHead>
-								<TableHead>Status</TableHead>
+		<>
+			<p className="text-[11px] font-bold uppercase tracking-wide">Members {count > 0 ? `(${count})` : ""}</p>
+			<div className="max-h-44 overflow-y-auto overflow-x-auto rounded-md border border-border/60">
+				<Table className="min-w-full text-sm">
+					<TableHeader>
+						<TableRow className="bg-muted/60 hover:bg-muted/60">
+							<TableHead className="whitespace-nowrap">Name</TableHead>
+							<TableHead className="whitespace-nowrap">Email</TableHead>
+							<TableHead className="whitespace-nowrap">Role</TableHead>
+							<TableHead className="text-right whitespace-nowrap">Status</TableHead>
+						</TableRow>
+					</TableHeader>
+					<TableBody>
+						{data.map(m => (
+							<TableRow key={m.key} className="[&_td]:py-2">
+								<TableCell className="max-w-[120px] truncate py-2 font-medium sm:max-w-none" title={m.name}>
+									{m.name}
+								</TableCell>
+								<TableCell className="max-w-[140px] truncate py-2 font-mono text-[11px] sm:max-w-none" title={m.email}>
+									{m.email}
+								</TableCell>
+								<TableCell className="whitespace-nowrap py-2">{m.role}</TableCell>
+								<TableCell className="text-right whitespace-nowrap py-2">
+									<Badge
+										variant="secondary"
+										className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
+									>
+										{m.status || "—"}
+									</Badge>
+								</TableCell>
 							</TableRow>
-						</TableHeader>
-						<TableBody>
-							{data.map(m => (
-								<TableRow key={m.key}>
-									<TableCell className="font-medium">{m.name}</TableCell>
-									<TableCell className="font-mono text-xs">{m.email}</TableCell>
-									<TableCell>{m.role}</TableCell>
-									<TableCell className="text-muted-foreground">{m.status || "—"}</TableCell>
-								</TableRow>
-							))}
-						</TableBody>
-					</Table>
-				)}
-			</CollapsibleContent>
-		</Collapsible>
+						))}
+					</TableBody>
+				</Table>
+			</div>
+		</>
 	)
 }
 
-function SubOrgCreditsLine({ subOrgId }: { subOrgId: string }) {
+function SubOrgCreditsCard({ subOrgId }: { subOrgId: string }) {
 	const { data, isLoading, isError } = trpc.subOrgs.credits.useQuery(
 		{ subOrgId },
 		{ staleTime: 30_000 }
@@ -328,29 +349,39 @@ function SubOrgCreditsLine({ subOrgId }: { subOrgId: string }) {
 
 	if (isLoading) {
 		return (
-			<p className="text-muted-foreground mt-1 text-xs">
-				Credits: <span className="opacity-70">Checking…</span>
-			</p>
+			<div className="rounded-lg bg-muted/30 px-4 py-3">
+				<p className="text-sm font-medium">Credits</p>
+				<p className="text-muted-foreground text-[11px]">Checking…</p>
+			</div>
 		)
 	}
 
 	if (isError || data?.credits == null) {
 		return (
-			<p className="text-muted-foreground mt-1 text-xs">
-				Credits: <span className="opacity-70">Unavailable</span>
-			</p>
+			<div className="rounded-lg bg-muted/30 px-4 py-3">
+				<p className="text-sm font-medium">Credits</p>
+				<p className="text-muted-foreground text-[11px]">Unavailable</p>
+			</div>
 		)
 	}
 
-	const usedTotal =
-		data.usedCredits != null && data.totalCredits != null
-			? ` (${data.usedCredits} used / ${data.totalCredits} total)`
-			: ""
+	const used = data.usedCredits ?? 0
+	const total = data.totalCredits ?? 0
+	const remaining = data.credits ?? 0
 
 	return (
-		<p className="text-muted-foreground mt-1 text-xs">
-			Credits: <span className="font-medium">{data.credits}</span> remaining{usedTotal}
-		</p>
+		<div className="rounded-lg bg-muted/30 px-4 py-3">
+			<div className="flex items-start justify-between gap-4">
+				<div>
+					<p className="text-sm font-medium">Credits</p>
+					<p className="mt-0.5 text-xl font-bold tabular-nums">{remaining}</p>
+				</div>
+				<div className="text-muted-foreground text-right text-[11px] leading-5">
+					<p>used {used}</p>
+					<p>total {total}</p>
+				</div>
+			</div>
+		</div>
 	)
 }
 
@@ -406,49 +437,46 @@ function UploadPhotoDialog({ subOrgUuid, onSuccess }: UploadPhotoDialogProps) {
 	}
 
 	return (
-		<div className="mt-3">
-			<Dialog open={open} onOpenChange={handleOpenChange}>
-				<DialogTrigger asChild>
-					<Button type="button" variant="outline" size="sm" className="mt-2">
-						<EditIcon className="mr-2 size-4" />
-						Upload photo
-					</Button>
-				</DialogTrigger>
-				<DialogContent>
-					<DialogHeader>
-						<DialogTitle>Upload sub-org photo</DialogTitle>
-						<DialogDescription>
-							Choose an image to use as the branding photo for this sub-org. It will appear on the card
-							and in DocOnChain. Max 5MB.
-						</DialogDescription>
-					</DialogHeader>
-					<form onSubmit={handleSubmit} className="grid gap-4 py-4">
-						<div className="grid gap-2">
-							<Label htmlFor="upload-suborg-photo">Image</Label>
-							<Input
-								id="upload-suborg-photo"
-								type="file"
-								accept="image/*"
-								onChange={e => setPhoto(e.target.files?.[0] ?? null)}
-							/>
-						</div>
-						<DialogFooter>
-							<Button
-								type="button"
-								variant="outline"
-								onClick={() => handleOpenChange(false)}
-								disabled={isSaving}
-							>
-								Cancel
-							</Button>
-							<Button type="submit" disabled={isSaving || !photo}>
-								{isSaving ? "Uploading…" : "Upload"}
-							</Button>
-						</DialogFooter>
-					</form>
-				</DialogContent>
-			</Dialog>
-		</div>
+		<Dialog open={open} onOpenChange={handleOpenChange}>
+			<DialogTrigger asChild>
+				<Button type="button" variant="outline" size="xs" className="border-dashed">
+					Upload photo
+				</Button>
+			</DialogTrigger>
+			<DialogContent>
+				<DialogHeader>
+					<DialogTitle>Upload sub-org photo</DialogTitle>
+					<DialogDescription>
+						Choose an image to use as the branding photo for this sub-org. It will appear on the card
+						and in DocOnChain. Max 5MB.
+					</DialogDescription>
+				</DialogHeader>
+				<form onSubmit={handleSubmit} className="grid gap-4 py-4">
+					<div className="grid gap-2">
+						<Label htmlFor="upload-suborg-photo">Image</Label>
+						<Input
+							id="upload-suborg-photo"
+							type="file"
+							accept="image/*"
+							onChange={e => setPhoto(e.target.files?.[0] ?? null)}
+						/>
+					</div>
+					<DialogFooter>
+						<Button
+							type="button"
+							variant="outline"
+							onClick={() => handleOpenChange(false)}
+							disabled={isSaving}
+						>
+							Cancel
+						</Button>
+						<Button type="submit" disabled={isSaving || !photo}>
+							{isSaving ? "Uploading…" : "Upload"}
+						</Button>
+					</DialogFooter>
+				</form>
+			</DialogContent>
+		</Dialog>
 	)
 }
 
