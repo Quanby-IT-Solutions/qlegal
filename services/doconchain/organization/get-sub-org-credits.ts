@@ -51,7 +51,21 @@ type CreditsDataItem = {
 	allocated_credits?: number
 	used_credits?: number
 	total_credits?: number
+	sub_organizations?: CreditsDataItem[]
 	[key: string]: unknown
+}
+
+/** Collect all org rows from items and their nested sub_organizations for lookup by uuid. */
+function flattenCreditsItems(items: CreditsDataItem[]): CreditsDataItem[] {
+	const out: CreditsDataItem[] = []
+	for (const row of items) {
+		out.push(row)
+		const subs = row.sub_organizations
+		if (Array.isArray(subs) && subs.length > 0) {
+			out.push(...flattenCreditsItems(subs))
+		}
+	}
+	return out
 }
 
 /** GET /api/v2/organizations/credits with a given token. Parse flat or data[] response. */
@@ -149,10 +163,11 @@ export async function getDoconchainSubOrgCredits(input: {
 		}
 	}
 
-	// Fallback: parent-org credits (may return main-org summary or per-sub-org rows).
+	// Fallback: parent-org credits (main org in data[0], sub-orgs in data[0].sub_organizations).
 	try {
 		const orgCredits = await getDoconchainOrganizationCredits()
-		const match = orgCredits.items.find(row => {
+		const flat = flattenCreditsItems(orgCredits.items as CreditsDataItem[])
+		const match = flat.find(row => {
 			const rowUuid = String(row.uuid ?? "").trim()
 			const rowId = String(row.id ?? "").trim()
 			return rowUuid === uuid || (rowUuid && uuid === rowUuid) || (rowId && rowId === uuid)
@@ -164,10 +179,18 @@ export async function getDoconchainSubOrgCredits(input: {
 					: typeof match.allocated_credits === "number"
 						? match.allocated_credits
 						: null
+			const allocated =
+				typeof match.allocated_credits === "number" ? match.allocated_credits : null
+			const used =
+				typeof match.used_credits === "number"
+					? match.used_credits
+					: allocated !== null && remaining !== null
+						? Math.max(0, allocated - remaining)
+						: null
 			return {
 				credits: remaining,
-				totalCredits: typeof match.total_credits === "number" ? match.total_credits : null,
-				usedCredits: typeof match.used_credits === "number" ? match.used_credits : null,
+				totalCredits: allocated ?? (typeof match.total_credits === "number" ? match.total_credits : null),
+				usedCredits: used,
 				raw: (orgCredits.raw ?? undefined) as SubOrgDetailsResponse | undefined,
 			}
 		}

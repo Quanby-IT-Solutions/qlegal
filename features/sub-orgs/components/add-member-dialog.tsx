@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { UserPlusIcon } from "lucide-react"
+import { Plus } from "lucide-react"
 import { toast } from "sonner"
 
 import { Button } from "@/core/components/ui/button"
@@ -52,8 +52,8 @@ export function AddMemberDialog({ subOrgId, subOrgName, onSuccess }: AddMemberDi
 	return (
 		<Dialog open={open} onOpenChange={setOpen}>
 			<DialogTrigger asChild>
-				<Button variant="outline" size="sm">
-					<UserPlusIcon className="mr-2 size-4" />
+				<Button variant="secondary" size="sm">
+					<Plus className="mr-2 size-4" />
 					Add member
 				</Button>
 			</DialogTrigger>
