@@ -30,6 +30,7 @@ declare module "next-auth" {
 			role: UserRole
 			status?: string
 			kycStatus?: string
+			onboardingComplete: boolean
 		}
 	}
 }
@@ -167,6 +168,7 @@ export const authConfig = {
 				session.user.role = user.role
 				session.user.status = (user.commissionStatus ?? "PENDING") as string
 				session.user.kycStatus = (user.kycStatus ?? "NOT_STARTED") as string
+				session.user.onboardingComplete = !!user.onboardingCompletedAt
 
 				// Convert Supabase storage paths to displayable URLs
 				const imagePath = user.image ?? session.user.image
@@ -187,6 +189,7 @@ export const authConfig = {
 				if (token.kycStatus) {
 					session.user.kycStatus = token.kycStatus as string
 				}
+				session.user.onboardingComplete = !!token.onboardingComplete
 			}
 
 			return session
@@ -219,6 +222,7 @@ export const authConfig = {
 					if (existing) {
 						token.status = (existing.commissionStatus ?? "PENDING") as string
 						token.kycStatus = (existing.kycStatus ?? "NOT_STARTED") as string
+						token.onboardingComplete = !!existing.onboardingCompletedAt
 					}
 				} catch {
 					// Silently fail - token will use existing values
