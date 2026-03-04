@@ -50,8 +50,10 @@ export const SiteSidebar = () => {
 				{getAppSidebarSections(userRole).map(section => (
 					<SidebarNavSection key={section.label} section={section} userRole={userRole} />
 				))}
-				<SidebarPlanCard />
-				<SidebarSecondaryNav items={navSecondary} />
+				<div className="mt-auto space-y-2">
+					<SidebarPlanCard />
+					<SidebarSecondaryNav items={navSecondary} />
+				</div>
 			</SidebarContent>
 
 			<SidebarFooter>

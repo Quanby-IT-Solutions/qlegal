@@ -47,7 +47,7 @@ export const SidebarSecondaryNav = ({ items }: SidebarSecondaryNavProps) => {
 	)
 
 	return (
-		<SidebarGroup className="mt-2">
+		<SidebarGroup>
 			<SidebarMenu>
 				{items.map((item: NavItem) => {
 					const isSoonBadge = item.badge === "soon"

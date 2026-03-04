@@ -1,26 +1,56 @@
 "use client"
 
 import { useState } from "react"
-import { Diamond01Icon } from "@hugeicons/core-free-icons"
+import { BookOpen01Icon, Diamond01Icon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
+import { ArrowRight } from "lucide-react"
 
-import { SidebarGroup } from "@/core/components/animate-ui/components/radix/sidebar"
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipTrigger,
+} from "@/core/components/animate-ui/components/animate/tooltip"
+import {
+	SidebarGroup,
+	SidebarMenu,
+	SidebarMenuButton,
+	SidebarMenuItem,
+	useSidebar,
+} from "@/core/components/animate-ui/components/radix/sidebar"
 import { Button } from "@/core/components/ui/button"
 import {
 	Dialog,
 	DialogContent,
 	DialogDescription,
-	DialogFooter,
 	DialogHeader,
 	DialogTitle,
 } from "@/core/components/ui/dialog"
 
 export const SidebarPlanCard = () => {
 	const [open, setOpen] = useState(false)
+	const { state: sidebarState } = useSidebar()
+	const handleJoinCourse = () => {
+		setOpen(false)
+	}
 
 	return (
-		<SidebarGroup className="mt-auto">
-			<div className="group-data-[collapsible=icon]/sidebar-wrapper:hidden">
+		<SidebarGroup>
+			{sidebarState === "collapsed" ? (
+				<SidebarMenu>
+					<SidebarMenuItem>
+						<Tooltip side="right" align="center">
+							<TooltipTrigger asChild>
+								<SidebarMenuButton onClick={() => setOpen(true)}>
+									<HugeiconsIcon icon={BookOpen01Icon} size={16} />
+								</SidebarMenuButton>
+							</TooltipTrigger>
+							<TooltipContent>
+								<p>Want to be an ENP?</p>
+							</TooltipContent>
+						</Tooltip>
+					</SidebarMenuItem>
+				</SidebarMenu>
+			) : (
 				<div className="border-sidebar-border/60 space-y-3 rounded-lg border bg-gradient-to-br from-slate-400/15 via-slate-300/10 to-slate-400/15 p-3 backdrop-blur-md">
 					<div className="flex items-center gap-2">
 						<div className="bg-primary/10 text-primary rounded-md p-1.5">
@@ -29,44 +59,45 @@ export const SidebarPlanCard = () => {
 						<p className="text-sm font-semibold">Want to be an ENP?</p>
 					</div>
 					<p className="text-muted-foreground text-xs leading-relaxed">
-						Unlock advanced legal workflows and premium collaboration tools.
+						Unlock advanced legal workflows by finishing our ENP course.
 					</p>
 					<Button size="sm" className="w-full" onClick={() => setOpen(true)}>
 						Learn More
 					</Button>
 				</div>
-			</div>
+			)}
 
 			<Dialog open={open} onOpenChange={setOpen}>
-				<DialogContent>
-					<DialogHeader>
-						<DialogTitle>Choose a plan that fits your legal team</DialogTitle>
-						<DialogDescription>
-							Scale from solo practice to multi-office operations with the right toolkit.
+				<DialogContent className="bg-card max-w-md border-0 shadow-lg">
+					<DialogHeader className="space-y-4">
+						<DialogTitle className="text-2xl font-semibold">Want to become an ENP?</DialogTitle>
+						<DialogDescription className="text-muted-foreground text-base">
+							Finish this course to become an ENP and unlock advanced legal workflows and premium
+							collaboration tools.
 						</DialogDescription>
 					</DialogHeader>
 
-					<div className="space-y-4 text-sm">
-						<div className="rounded-lg border p-3">
-							<p className="font-semibold">Pro Plan</p>
-							<p className="text-muted-foreground text-xs">
-								Unlimited sessions, priority support, and advanced document automation.
-							</p>
-						</div>
-						<div className="rounded-lg border p-3">
-							<p className="font-semibold">Enterprise Plan</p>
-							<p className="text-muted-foreground text-xs">
-								Custom roles, compliance controls, and dedicated account management.
-							</p>
-						</div>
+					<div className="space-y-3 pt-4">
+						<button
+							onClick={() => setOpen(false)}
+							className="group bg-card w-full rounded-lg border p-4 transition-all duration-200 hover:border-gray-300 active:scale-95"
+						>
+							<div className="flex items-center justify-between">
+								<div className="flex items-center gap-3">
+									<div className="rounded-lg bg-orange-50 p-2 dark:bg-orange-900/20">
+										<HugeiconsIcon icon={BookOpen01Icon} size={20} className="text-orange-600" />
+									</div>
+									<div className="text-left">
+										<p className="font-medium text-orange-600">ENP Course</p>
+									</div>
+								</div>
+								<span className="text-primary flex items-center gap-2 font-medium">
+									Course Preview
+									<ArrowRight className="h-5 w-5 text-gray-400" />
+								</span>
+							</div>
+						</button>
 					</div>
-
-					<DialogFooter>
-						<Button variant="outline" onClick={() => setOpen(false)}>
-							Close
-						</Button>
-						<Button onClick={() => setOpen(false)}>Contact Sales</Button>
-					</DialogFooter>
 				</DialogContent>
 			</Dialog>
 		</SidebarGroup>
