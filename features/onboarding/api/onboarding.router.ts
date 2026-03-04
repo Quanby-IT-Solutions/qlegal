@@ -8,6 +8,8 @@ import { createTRPCRouter, protectedProcedure, publicProcedure } from "@/service
 import { generateRecoveryEmailVerificationToken } from "@/features/auth/lib/token"
 import {
 	submitRecoveryEmailSchema,
+	updateAvatarSchema,
+	updateProfileSchema,
 	verifyRecoveryEmailSchema,
 } from "@/features/onboarding/api/onboarding.schemas"
 
@@ -139,6 +141,49 @@ export const onboardingRouter = createTRPCRouter({
 			}
 		}),
 
+	updateProfile: protectedProcedure
+		.input(updateProfileSchema)
+		.mutation(async ({ ctx, input }) => {
+			const { db, session } = ctx
+
+			await db
+				.update(users)
+				.set({
+					phoneNumber:
+						input.phoneNumber && input.phoneNumber.trim() !== ""
+							? input.phoneNumber
+							: null,
+					homeStreet:
+						input.homeStreet && input.homeStreet.trim() !== ""
+							? input.homeStreet
+							: null,
+					barangay:
+						input.barangay && input.barangay.trim() !== ""
+							? input.barangay
+							: null,
+					cityProvince:
+						input.cityProvince && input.cityProvince.trim() !== ""
+							? input.cityProvince
+							: null,
+				})
+				.where(eq(users.id, session.user.id))
+
+			return { message: "Profile updated successfully." }
+		}),
+
+	updateAvatar: protectedProcedure
+		.input(updateAvatarSchema)
+		.mutation(async ({ ctx, input }) => {
+			const { db, session } = ctx
+
+			await db
+				.update(users)
+				.set({ image: input.imagePath })
+				.where(eq(users.id, session.user.id))
+
+			return { message: "Avatar updated successfully." }
+		}),
+
 	completeOnboarding: protectedProcedure.mutation(async ({ ctx }) => {
 		const { db, session } = ctx
 
@@ -159,6 +204,11 @@ export const onboardingRouter = createTRPCRouter({
 				onboardingCompletedAt: true,
 				recoveryEmail: true,
 				recoveryEmailVerified: true,
+				phoneNumber: true,
+				homeStreet: true,
+				barangay: true,
+				cityProvince: true,
+				image: true,
 			},
 		})
 
@@ -170,6 +220,11 @@ export const onboardingRouter = createTRPCRouter({
 			onboardingCompletedAt: user.onboardingCompletedAt,
 			recoveryEmail: user.recoveryEmail,
 			recoveryEmailVerified: user.recoveryEmailVerified,
+			phoneNumber: user.phoneNumber,
+			homeStreet: user.homeStreet,
+			barangay: user.barangay,
+			cityProvince: user.cityProvince,
+			image: user.image,
 		}
 	}),
 })

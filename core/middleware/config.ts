@@ -48,6 +48,7 @@ export const ROUTE_CONFIG: RouteConfig = {
 			{ path: "/auth/kyc", exact: true },
 			{ path: "/auth/signature" },
 			{ path: "/auth/status", exact: true },
+			{ path: "/onboarding", exact: true },
 			{ path: "/appointments" },
 			{ path: "/browse" },
 			{ path: "/calendar" },

@@ -118,6 +118,23 @@ export default proxy(req => {
 				return NextResponse.redirect(statusUrl)
 			}
 
+			// ONBOARDING GATE: Redirect unonboarded users to onboarding wizard
+			// ADMIN and ENA roles bypass the onboarding gate (not applicable to them)
+			if (
+				isAuth &&
+				path !== "/onboarding" &&
+				!onAuthPage &&
+				path !== "/auth/kyc" &&
+				path !== "/auth/status" &&
+				role !== "ADMIN" &&
+				role !== "ENA" &&
+				!auth?.user?.onboardingComplete
+			) {
+				const onboardingUrl = new URL("/onboarding", nextUrl)
+				logRedirect(path, onboardingUrl.pathname, "onboarding gate - wizard required")
+				return NextResponse.redirect(onboardingUrl)
+			}
+
 			const response = NextResponse.next()
 			return addCustomHeaders(response, userId, path)
 		}
