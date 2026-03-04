@@ -14,6 +14,7 @@ import {
 	SidebarRail,
 } from "@/core/components/animate-ui/components/radix/sidebar"
 import { SidebarNavSection } from "@/core/components/navbar/sidebar-nav-section"
+import { SidebarPlanCard } from "@/core/components/navbar/sidebar-plan-card"
 import { SidebarSecondaryNav } from "@/core/components/navbar/sidebar-secondary-nav"
 import { UserDropdown } from "@/core/components/navbar/user-dropdown"
 import { QuanbyLogo } from "@/core/components/quanby-logo"
@@ -49,6 +50,7 @@ export const SiteSidebar = () => {
 				{getAppSidebarSections(userRole).map(section => (
 					<SidebarNavSection key={section.label} section={section} userRole={userRole} />
 				))}
+				<SidebarPlanCard />
 				<SidebarSecondaryNav items={navSecondary} />
 			</SidebarContent>
 
