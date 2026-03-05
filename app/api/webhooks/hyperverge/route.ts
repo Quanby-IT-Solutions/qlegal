@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server"
-import { eq } from "drizzle-orm"
+import { desc, eq } from "drizzle-orm"
 
 import { db } from "@/services/drizzle/db"
 import { users } from "@/services/drizzle/schema/auth"
@@ -25,6 +25,42 @@ interface HyperVergeWebhookPayload {
 		transactionId?: string
 		workflowDetails?: Record<string, unknown>
 	}
+}
+
+function hasNameValue(value: string | null | undefined) {
+	return Boolean(value && value.trim() !== "")
+}
+
+function coalesceNameValue(
+	currentValue: string | null | undefined,
+	candidateValue: string | null | undefined
+) {
+	if (hasNameValue(currentValue)) return currentValue
+	if (hasNameValue(candidateValue)) return candidateValue?.trim()
+	return currentValue ?? null
+}
+
+function extractAdditionalFieldString(
+	additionalFields: unknown,
+	keys: readonly string[]
+): string | undefined {
+	if (
+		!additionalFields ||
+		typeof additionalFields !== "object" ||
+		Array.isArray(additionalFields)
+	) {
+		return undefined
+	}
+
+	const record = additionalFields as Record<string, unknown>
+	for (const key of keys) {
+		const value = record[key]
+		if (typeof value === "string" && value.trim() !== "") {
+			return value.trim()
+		}
+	}
+
+	return undefined
 }
 
 /**
@@ -87,6 +123,11 @@ export async function POST(request: NextRequest) {
 						email: true,
 						role: true,
 						commissionStatus: true,
+						firstName: true,
+						middleName: true,
+						lastName: true,
+						prefix: true,
+						suffix: true,
 					},
 				},
 			},
@@ -152,12 +193,39 @@ export async function POST(request: NextRequest) {
 				})
 				.where(eq(kycSessions.id, kycSession.id))
 
-			// Update user status
+			const latestIdCardDetails = await db.query.idCardDetails.findFirst({
+				where: (data, { eq }) => eq(data.userId, user.id),
+				orderBy: (table, { desc }) => [desc(table.updatedAt)],
+				columns: {
+					firstName: true,
+					middleName: true,
+					lastName: true,
+					additionalFields: true,
+				},
+			})
+
+			const latestPrefix = extractAdditionalFieldString(latestIdCardDetails?.additionalFields, [
+				"prefix",
+				"namePrefix",
+				"name_prefix",
+			])
+			const latestSuffix = extractAdditionalFieldString(latestIdCardDetails?.additionalFields, [
+				"suffix",
+				"nameSuffix",
+				"name_suffix",
+			])
+
+			// Update user status and hydrate missing names from verified ID details.
 			await db
 				.update(users)
 				.set({
 					kycStatus,
 					kycVerifiedAt: new Date(),
+					firstName: coalesceNameValue(user.firstName, latestIdCardDetails?.firstName),
+					middleName: coalesceNameValue(user.middleName, latestIdCardDetails?.middleName),
+					lastName: coalesceNameValue(user.lastName, latestIdCardDetails?.lastName),
+					prefix: coalesceNameValue(user.prefix, latestPrefix),
+					suffix: coalesceNameValue(user.suffix, latestSuffix),
 					// Auto-activate account on successful KYC for non-ENP users. Never override SUSPENDED.
 					// For ENP users, keep status as PENDING even after KYC verification.
 					commissionStatus:

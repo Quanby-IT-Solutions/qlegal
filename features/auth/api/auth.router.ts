@@ -3,11 +3,21 @@ import { hash } from "bcryptjs"
 import { eq } from "drizzle-orm"
 
 import { formatDateForStamp } from "@/core/lib/format-date-for-stamp"
+
 import { passwordResetTokens, users, verificationTokens } from "@/services/drizzle/schema/auth"
 import { enpProfiles } from "@/services/drizzle/schema/enp-profiles"
 import { sendPasswordResetToken } from "@/services/react-email/lib/send.password-reset-token"
 import { sendVerificationToken } from "@/services/react-email/lib/send.verification-token"
 import { createTRPCRouter, publicProcedure } from "@/services/trpc/init"
+
+import {
+	forgotPasswordSchema,
+	lawyerRegisterSchema,
+	registerSchema,
+	resetPasswordSchema,
+	verifyEmailSchema,
+} from "@/features/auth/api/auth.schemas"
+import { generatePasswordResetToken, generateVerificationToken } from "@/features/auth/lib/token"
 
 /**
  * Mask an email address for display: first char + asterisks + last char before @, full domain.
@@ -20,18 +30,9 @@ function maskEmail(email: string): string {
 	return `${local[0]}${"*".repeat(local.length - 2)}${local[local.length - 1]}@${domain}`
 }
 
-import {
-	forgotPasswordSchema,
-	lawyerRegisterSchema,
-	registerSchema,
-	resetPasswordSchema,
-	verifyEmailSchema,
-} from "@/features/auth/api/auth.schemas"
-import { generatePasswordResetToken, generateVerificationToken } from "@/features/auth/lib/token"
-
 export const authRouter = createTRPCRouter({
 	register: publicProcedure.input(registerSchema).mutation(async ({ ctx, input }) => {
-		const { firstName, middleName, lastName, email, password } = input
+		const { email, password } = input
 
 		const existingUser = await ctx.db.query.users.findFirst({
 			where: (data, { eq }) => eq(data.email, email),
@@ -50,9 +51,6 @@ export const authRouter = createTRPCRouter({
 		const [createdUser] = await ctx.db
 			.insert(users)
 			.values({
-				firstName,
-				middleName: middleName ?? null,
-				lastName,
 				email,
 				password: hashedPassword,
 			})
@@ -155,8 +153,7 @@ export const authRouter = createTRPCRouter({
 		const enpNameForSeal = formatAttorneyNameForSeal(seal.enpName)
 		// Seal expects "In-person" or "Remote"; REN = Remote (video), IEN = In-person
 		const modeRaw = (notaryInfo.modeOfNotarization ?? "").trim().toUpperCase()
-		const modeOfNotarization =
-			modeRaw === "REN" || modeRaw === "REMOTE" ? "Remote" : "In-person"
+		const modeOfNotarization = modeRaw === "REN" || modeRaw === "REMOTE" ? "Remote" : "In-person"
 
 		// Generate document_stamp payload for external API (send both snake_case and camelCase for DocOnChain)
 		const documentStamp = {
@@ -250,8 +247,7 @@ export const authRouter = createTRPCRouter({
 			if (!user || !user.recoveryEmail || !user.recoveryEmailVerified) {
 				throw new TRPCError({
 					code: "NOT_FOUND",
-					message:
-						"No recovery email is set up for this account. Please contact support.",
+					message: "No recovery email is set up for this account. Please contact support.",
 				})
 			}
 
@@ -340,7 +336,7 @@ export const authRouter = createTRPCRouter({
 					eq(data.token, rawTrimmed),
 					eq(data.token, decodedTrimmed),
 					eq(data.token, token),
-					eq(data.token, decodedToken),
+					eq(data.token, decodedToken)
 				),
 		})
 

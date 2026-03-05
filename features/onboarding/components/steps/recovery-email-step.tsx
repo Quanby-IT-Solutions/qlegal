@@ -28,7 +28,7 @@ export function RecoveryEmailStep({ onNext, onBack, existingEmail }: RecoveryEma
 				onNext()
 			}, 1500)
 		},
-		onError: (err) => toast.error(err.message),
+		onError: err => toast.error(err.message),
 	})
 
 	const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
@@ -45,8 +45,8 @@ export function RecoveryEmailStep({ onNext, onBack, existingEmail }: RecoveryEma
 			</p>
 			<h2 className="text-xl font-semibold">Add a recovery email</h2>
 			<p className="text-muted-foreground mt-1.5 mb-6 text-sm leading-relaxed">
-				If you ever lose access to your primary email, we&apos;ll send your password reset
-				link here instead.
+				If you ever lose access to your primary email, we&apos;ll send your password reset link here
+				instead.
 			</p>
 
 			<div className="space-y-1.5">
@@ -56,7 +56,7 @@ export function RecoveryEmailStep({ onNext, onBack, existingEmail }: RecoveryEma
 					type="email"
 					placeholder="e.g. yourname@gmail.com"
 					value={email}
-					onChange={(e) => setEmail(e.target.value)}
+					onChange={e => setEmail(e.target.value)}
 					disabled={submitRecoveryEmail.isPending || submitted}
 				/>
 			</div>
@@ -65,9 +65,8 @@ export function RecoveryEmailStep({ onNext, onBack, existingEmail }: RecoveryEma
 				<div className="mt-4 flex gap-2 rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-700 dark:border-blue-800 dark:bg-blue-950/30 dark:text-blue-300">
 					<InfoIcon className="mt-0.5 size-4 shrink-0" />
 					<span>
-						A verification link was sent to <strong>{email}</strong>. You can continue
-						setting up your profile while we wait — your recovery email will activate once
-						you click the link.
+						A verification link was sent to <strong>{email}</strong>. You can continue setting up
+						your profile while we wait — your recovery email will activate once you click the link.
 					</span>
 				</div>
 			)}
@@ -77,12 +76,17 @@ export function RecoveryEmailStep({ onNext, onBack, existingEmail }: RecoveryEma
 					<ChevronLeftIcon className="mr-1 size-4" />
 					Back
 				</Button>
-				<Button
-					onClick={handleSubmit}
-					disabled={!isValidEmail || submitRecoveryEmail.isPending || submitted}
-				>
-					{submitRecoveryEmail.isPending ? "Sending…" : "Continue"}
-				</Button>
+				<div className="flex items-center gap-2">
+					<Button type="button" variant="ghost" size="sm" onClick={onNext}>
+						Skip for now
+					</Button>
+					<Button
+						onClick={handleSubmit}
+						disabled={!isValidEmail || submitRecoveryEmail.isPending || submitted}
+					>
+						{submitRecoveryEmail.isPending ? "Sending…" : "Continue"}
+					</Button>
+				</div>
 			</div>
 		</div>
 	)

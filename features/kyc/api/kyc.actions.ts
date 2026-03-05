@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache"
 import { eq } from "drizzle-orm"
 
 import { getFullName } from "@/core/lib/utils"
+
 import { db } from "@/services/drizzle/db"
 import { users } from "@/services/drizzle/schema/auth"
 import { kycSessions } from "@/services/drizzle/schema/kyc-sessions"
@@ -34,6 +35,42 @@ function generateTransactionId(userId: string): string {
 	const timestamp = Date.now().toString(36)
 	const random = Math.random().toString(36).substring(2, 8)
 	return `kyc_${userId}_${timestamp}_${random}`.toUpperCase()
+}
+
+function hasNameValue(value: string | null | undefined) {
+	return Boolean(value && value.trim() !== "")
+}
+
+function coalesceNameValue(
+	currentValue: string | null | undefined,
+	candidateValue: string | null | undefined
+) {
+	if (hasNameValue(currentValue)) return currentValue
+	if (hasNameValue(candidateValue)) return candidateValue?.trim()
+	return currentValue ?? null
+}
+
+function extractAdditionalFieldString(
+	additionalFields: unknown,
+	keys: readonly string[]
+): string | undefined {
+	if (
+		!additionalFields ||
+		typeof additionalFields !== "object" ||
+		Array.isArray(additionalFields)
+	) {
+		return undefined
+	}
+
+	const record = additionalFields as Record<string, unknown>
+	for (const key of keys) {
+		const value = record[key]
+		if (typeof value === "string" && value.trim() !== "") {
+			return value.trim()
+		}
+	}
+
+	return undefined
 }
 
 /**
@@ -192,6 +229,11 @@ export async function runDirectKycVerification(input: {
 		columns: {
 			commissionStatus: true,
 			role: true,
+			firstName: true,
+			middleName: true,
+			lastName: true,
+			prefix: true,
+			suffix: true,
 		},
 	})
 
@@ -344,12 +386,57 @@ export async function runDirectKycVerification(input: {
 			})
 			.where(eq(kycSessions.transactionId, transactionId))
 
-		// Update user status
+		const latestIdCardDetails =
+			kycStatus === "VERIFIED"
+				? await db.query.idCardDetails.findFirst({
+						where: (data, { eq }) => eq(data.userId, session.user.id),
+						orderBy: (table, { desc }) => [desc(table.updatedAt)],
+						columns: {
+							firstName: true,
+							middleName: true,
+							lastName: true,
+							additionalFields: true,
+						},
+					})
+				: null
+
+		const latestPrefix = extractAdditionalFieldString(latestIdCardDetails?.additionalFields, [
+			"prefix",
+			"namePrefix",
+			"name_prefix",
+		])
+		const latestSuffix = extractAdditionalFieldString(latestIdCardDetails?.additionalFields, [
+			"suffix",
+			"nameSuffix",
+			"name_suffix",
+		])
+
+		// Update user status and hydrate missing names from verified ID details.
 		await db
 			.update(users)
 			.set({
 				kycStatus,
 				kycVerifiedAt: kycStatus === "VERIFIED" ? new Date() : null,
+				firstName:
+					kycStatus === "VERIFIED"
+						? coalesceNameValue(existingUser.firstName, latestIdCardDetails?.firstName)
+						: existingUser.firstName,
+				middleName:
+					kycStatus === "VERIFIED"
+						? coalesceNameValue(existingUser.middleName, latestIdCardDetails?.middleName)
+						: existingUser.middleName,
+				lastName:
+					kycStatus === "VERIFIED"
+						? coalesceNameValue(existingUser.lastName, latestIdCardDetails?.lastName)
+						: existingUser.lastName,
+				prefix:
+					kycStatus === "VERIFIED"
+						? coalesceNameValue(existingUser.prefix, latestPrefix)
+						: existingUser.prefix,
+				suffix:
+					kycStatus === "VERIFIED"
+						? coalesceNameValue(existingUser.suffix, latestSuffix)
+						: existingUser.suffix,
 				// Auto-activate account when direct KYC is verified for non-ENP users.
 				// Never override SUSPENDED here.
 				// For ENP users, keep status as PENDING even after KYC verification.
@@ -434,6 +521,11 @@ export async function checkUserKycStatus() {
 			kycStatus: true,
 			commissionStatus: true,
 			role: true,
+			firstName: true,
+			middleName: true,
+			lastName: true,
+			prefix: true,
+			suffix: true,
 		},
 	})
 
@@ -633,12 +725,39 @@ export async function checkUserKycStatus() {
 					.where(eq(kycSessions.id, kycSession.id))
 			}
 
-			// Update user status
+			const latestIdCardDetails = await db.query.idCardDetails.findFirst({
+				where: (data, { eq }) => eq(data.userId, session.user.id),
+				orderBy: (table, { desc }) => [desc(table.updatedAt)],
+				columns: {
+					firstName: true,
+					middleName: true,
+					lastName: true,
+					additionalFields: true,
+				},
+			})
+
+			const latestPrefix = extractAdditionalFieldString(latestIdCardDetails?.additionalFields, [
+				"prefix",
+				"namePrefix",
+				"name_prefix",
+			])
+			const latestSuffix = extractAdditionalFieldString(latestIdCardDetails?.additionalFields, [
+				"suffix",
+				"nameSuffix",
+				"name_suffix",
+			])
+
+			// Update user status and hydrate missing names from verified ID details.
 			await db
 				.update(users)
 				.set({
 					kycStatus: newStatus,
 					kycVerifiedAt: new Date(),
+					firstName: coalesceNameValue(user?.firstName, latestIdCardDetails?.firstName),
+					middleName: coalesceNameValue(user?.middleName, latestIdCardDetails?.middleName),
+					lastName: coalesceNameValue(user?.lastName, latestIdCardDetails?.lastName),
+					prefix: coalesceNameValue(user?.prefix, latestPrefix),
+					suffix: coalesceNameValue(user?.suffix, latestSuffix),
 					// If account was pending, auto-activate on successful KYC for non-ENP users.
 					// Never override SUSPENDED here.
 					// For ENP users, keep status as PENDING even after KYC verification.

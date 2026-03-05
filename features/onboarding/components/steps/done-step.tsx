@@ -35,26 +35,21 @@ export function DoneStep({
 
 			<h2 className="text-xl font-semibold">You&apos;re all set!</h2>
 			<p className="text-muted-foreground mx-auto mt-2 max-w-sm text-sm leading-relaxed">
-				Your account is ready. You can update any of this information later from your profile
-				and settings.
+				Your account is ready. You can update any of this information later from your profile and
+				settings. Recovery email is optional.
 			</p>
 
 			{showReminder && (
 				<div className="mt-5 flex gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-left text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
 					<AlertTriangleIcon className="mt-0.5 size-4 shrink-0" />
 					<span>
-						Don&apos;t forget to verify your recovery email — check your inbox when you
-						get a chance.
+						Don&apos;t forget to verify your recovery email — check your inbox when you get a
+						chance.
 					</span>
 				</div>
 			)}
 
-			<Button
-				onClick={onComplete}
-				disabled={isCompleting}
-				className="mt-8 w-full"
-				size="lg"
-			>
+			<Button onClick={onComplete} disabled={isCompleting} className="mt-8 w-full" size="lg">
 				{isCompleting ? "Setting up…" : "Go to Dashboard"}
 			</Button>
 		</div>

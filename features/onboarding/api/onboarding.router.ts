@@ -13,6 +13,28 @@ import {
 	verifyRecoveryEmailSchema,
 } from "@/features/onboarding/api/onboarding.schemas"
 
+const ONBOARDING_SNOOZE_DAYS = 7
+
+function hasValue(value: string | null | undefined) {
+	return Boolean(value && value.trim() !== "")
+}
+
+function isOnboardingDetailsComplete(details: {
+	phoneNumber?: string | null
+	homeStreet?: string | null
+	barangay?: string | null
+	cityProvince?: string | null
+	image?: string | null
+}) {
+	return (
+		hasValue(details.phoneNumber) &&
+		hasValue(details.homeStreet) &&
+		hasValue(details.barangay) &&
+		hasValue(details.cityProvince) &&
+		hasValue(details.image)
+	)
+}
+
 export const onboardingRouter = createTRPCRouter({
 	submitRecoveryEmail: protectedProcedure
 		.input(submitRecoveryEmailSchema)
@@ -74,7 +96,7 @@ export const onboardingRouter = createTRPCRouter({
 						eq(data.token, rawTrimmed),
 						eq(data.token, decodedTrimmed),
 						eq(data.token, token),
-						eq(data.token, decodedToken),
+						eq(data.token, decodedToken)
 					),
 			})
 
@@ -125,10 +147,7 @@ export const onboardingRouter = createTRPCRouter({
 			}
 
 			// Mark recovery email as verified
-			await db
-				.update(users)
-				.set({ recoveryEmailVerified: new Date() })
-				.where(eq(users.id, user.id))
+			await db.update(users).set({ recoveryEmailVerified: new Date() }).where(eq(users.id, user.id))
 
 			// Delete the consumed token
 			await db
@@ -141,58 +160,125 @@ export const onboardingRouter = createTRPCRouter({
 			}
 		}),
 
-	updateProfile: protectedProcedure
-		.input(updateProfileSchema)
-		.mutation(async ({ ctx, input }) => {
-			const { db, session } = ctx
+	updateProfile: protectedProcedure.input(updateProfileSchema).mutation(async ({ ctx, input }) => {
+		const { db, session } = ctx
 
-			await db
-				.update(users)
-				.set({
-					phoneNumber:
-						input.phoneNumber && input.phoneNumber.trim() !== ""
-							? input.phoneNumber
-							: null,
-					homeStreet:
-						input.homeStreet && input.homeStreet.trim() !== ""
-							? input.homeStreet
-							: null,
-					barangay:
-						input.barangay && input.barangay.trim() !== ""
-							? input.barangay
-							: null,
-					cityProvince:
-						input.cityProvince && input.cityProvince.trim() !== ""
-							? input.cityProvince
-							: null,
-				})
-				.where(eq(users.id, session.user.id))
+		const existingUser = await db.query.users.findFirst({
+			where: (data, { eq }) => eq(data.id, session.user.id),
+			columns: { image: true },
+		})
 
-			return { message: "Profile updated successfully." }
-		}),
+		const phoneNumber =
+			input.phoneNumber && input.phoneNumber.trim() !== "" ? input.phoneNumber : null
+		const homeStreet = input.homeStreet && input.homeStreet.trim() !== "" ? input.homeStreet : null
+		const barangay = input.barangay && input.barangay.trim() !== "" ? input.barangay : null
+		const cityProvince =
+			input.cityProvince && input.cityProvince.trim() !== "" ? input.cityProvince : null
 
-	updateAvatar: protectedProcedure
-		.input(updateAvatarSchema)
-		.mutation(async ({ ctx, input }) => {
-			const { db, session } = ctx
+		const detailsComplete = isOnboardingDetailsComplete({
+			phoneNumber,
+			homeStreet,
+			barangay,
+			cityProvince,
+			image: existingUser?.image,
+		})
 
-			await db
-				.update(users)
-				.set({ image: input.imagePath })
-				.where(eq(users.id, session.user.id))
+		await db
+			.update(users)
+			.set({
+				phoneNumber,
+				homeStreet,
+				barangay,
+				cityProvince,
+				onboardingDetailsCompletedAt: detailsComplete ? new Date() : null,
+				...(detailsComplete ? { onboardingSnoozedUntil: null } : {}),
+			})
+			.where(eq(users.id, session.user.id))
 
-			return { message: "Avatar updated successfully." }
-		}),
+		return { message: "Profile updated successfully." }
+	}),
+
+	updateAvatar: protectedProcedure.input(updateAvatarSchema).mutation(async ({ ctx, input }) => {
+		const { db, session } = ctx
+
+		const existingUser = await db.query.users.findFirst({
+			where: (data, { eq }) => eq(data.id, session.user.id),
+			columns: {
+				phoneNumber: true,
+				homeStreet: true,
+				barangay: true,
+				cityProvince: true,
+			},
+		})
+
+		const detailsComplete = isOnboardingDetailsComplete({
+			phoneNumber: existingUser?.phoneNumber,
+			homeStreet: existingUser?.homeStreet,
+			barangay: existingUser?.barangay,
+			cityProvince: existingUser?.cityProvince,
+			image: input.imagePath,
+		})
+
+		await db
+			.update(users)
+			.set({
+				image: input.imagePath,
+				onboardingDetailsCompletedAt: detailsComplete ? new Date() : null,
+				...(detailsComplete ? { onboardingSnoozedUntil: null } : {}),
+			})
+			.where(eq(users.id, session.user.id))
+
+		return { message: "Avatar updated successfully." }
+	}),
 
 	completeOnboarding: protectedProcedure.mutation(async ({ ctx }) => {
 		const { db, session } = ctx
 
+		const existingUser = await db.query.users.findFirst({
+			where: (data, { eq }) => eq(data.id, session.user.id),
+			columns: {
+				phoneNumber: true,
+				homeStreet: true,
+				barangay: true,
+				cityProvince: true,
+				image: true,
+			},
+		})
+
+		const detailsComplete = isOnboardingDetailsComplete({
+			phoneNumber: existingUser?.phoneNumber,
+			homeStreet: existingUser?.homeStreet,
+			barangay: existingUser?.barangay,
+			cityProvince: existingUser?.cityProvince,
+			image: existingUser?.image,
+		})
+
 		await db
 			.update(users)
-			.set({ onboardingCompletedAt: new Date() })
+			.set({
+				onboardingCompletedAt: new Date(),
+				onboardingDetailsCompletedAt: detailsComplete ? new Date() : null,
+				...(detailsComplete ? { onboardingSnoozedUntil: null } : {}),
+			})
 			.where(eq(users.id, session.user.id))
 
 		return { message: "Onboarding completed successfully." }
+	}),
+
+	snoozeOnboarding: protectedProcedure.mutation(async ({ ctx }) => {
+		const { db, session } = ctx
+
+		const snoozedUntil = new Date(Date.now() + ONBOARDING_SNOOZE_DAYS * 24 * 60 * 60 * 1000)
+
+		await db
+			.update(users)
+			.set({ onboardingSnoozedUntil: snoozedUntil })
+			.where(eq(users.id, session.user.id))
+
+		return {
+			message: `Onboarding reminders snoozed for ${ONBOARDING_SNOOZE_DAYS} days.`,
+			snoozedUntil,
+		}
 	}),
 
 	getStatus: protectedProcedure.query(async ({ ctx }) => {
@@ -202,6 +288,8 @@ export const onboardingRouter = createTRPCRouter({
 			where: (data, { eq }) => eq(data.id, session.user.id),
 			columns: {
 				onboardingCompletedAt: true,
+				onboardingDetailsCompletedAt: true,
+				onboardingSnoozedUntil: true,
 				recoveryEmail: true,
 				recoveryEmailVerified: true,
 				phoneNumber: true,
@@ -216,8 +304,19 @@ export const onboardingRouter = createTRPCRouter({
 			throw new TRPCError({ code: "NOT_FOUND", message: "User not found." })
 		}
 
+		const detailsComplete = isOnboardingDetailsComplete({
+			phoneNumber: user.phoneNumber,
+			homeStreet: user.homeStreet,
+			barangay: user.barangay,
+			cityProvince: user.cityProvince,
+			image: user.image,
+		})
+
 		return {
 			onboardingCompletedAt: user.onboardingCompletedAt,
+			onboardingDetailsCompletedAt: user.onboardingDetailsCompletedAt,
+			onboardingSnoozedUntil: user.onboardingSnoozedUntil,
+			isDetailsComplete: detailsComplete,
 			recoveryEmail: user.recoveryEmail,
 			recoveryEmailVerified: user.recoveryEmailVerified,
 			phoneNumber: user.phoneNumber,
