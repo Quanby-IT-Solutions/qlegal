@@ -12,6 +12,7 @@ import { AddressCard } from "@/features/settings/components/address-card"
 import { AvailabilityToggleCard } from "@/features/settings/components/availability-toggle-card"
 import { ChangePasswordCard } from "@/features/settings/components/change-password-card"
 import { PasswordCardSkeleton } from "@/features/settings/components/password-card-skeleton"
+import { RecoveryEmailCard } from "@/features/settings/components/recovery-email-card"
 import { ToggleTwoFACard } from "@/features/settings/components/toggle-two-fa-card"
 
 export default function Page() {
@@ -41,6 +42,8 @@ export default function Page() {
 					) : (
 						<AddPasswordCard />
 					)}
+					<div className="h-8" />
+					<RecoveryEmailCard />
 					<div className="h-8" />
 					<ToggleTwoFACard />
 					{isPrincipal && (
