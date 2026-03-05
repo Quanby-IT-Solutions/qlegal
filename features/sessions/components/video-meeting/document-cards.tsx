@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useCallback, useImperativeHandle, useMemo, useRef, useState } from "react"
+import React, { useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react"
 import {
 	CheckCircle2,
 	Clock,
@@ -20,17 +20,8 @@ import {
 	DropdownMenuContent,
 	DropdownMenuTrigger,
 } from "@/core/components/ui/dropdown-menu"
-import {
-	Sidebar,
-	SidebarContent,
-	SidebarFooter,
-	SidebarHeader,
-	SidebarMenu,
-	SidebarMenuButton,
-	SidebarMenuItem,
-	SidebarProvider,
-	SidebarRail,
-} from "@/core/components/ui/sidebar"
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/core/components/ui/sheet"
+import { useIsMobile } from "@/core/hooks/use-mobile"
 import { cn } from "@/core/lib/utils"
 
 import {
@@ -53,6 +44,7 @@ type MeetingDocument = {
 	fees?: number | null
 	signerUserIds?: string[]
 }
+const DOCUMENT_OVERLAY_BREAKPOINT = 900
 
 interface SigningStatus {
 	isFullySigned: boolean
@@ -76,7 +68,6 @@ interface DocumentCardsProps {
 	meetingId: string | undefined
 	documents: MeetingDocument[]
 	showDocuments: boolean
-	bounded?: boolean
 	onToggleShowDocuments: () => void
 	isDocumentsFetching: boolean
 	isRefreshingSigningStatus: boolean
@@ -159,8 +150,7 @@ export const DocumentCards = React.memo(
 			meetingId,
 			documents,
 			showDocuments,
-			bounded = false,
-			onToggleShowDocuments: _onToggleShowDocuments,
+			onToggleShowDocuments,
 			isDocumentsFetching,
 			isRefreshingSigningStatus,
 			documentSigningStatus,
@@ -187,6 +177,16 @@ export const DocumentCards = React.memo(
 		ref: React.Ref<DocumentCardsHandle>
 	) {
 		const { data: session } = useSession()
+		const isMobile = useIsMobile()
+		const [isOverlayViewport, setIsOverlayViewport] = useState(false)
+
+		useEffect(() => {
+			const mediaQuery = window.matchMedia(`(max-width: ${DOCUMENT_OVERLAY_BREAKPOINT}px)`)
+			const onChange = () => setIsOverlayViewport(mediaQuery.matches)
+			onChange()
+			mediaQuery.addEventListener("change", onChange)
+			return () => mediaQuery.removeEventListener("change", onChange)
+		}, [])
 
 		const isPrincipal = meetingDetails?.createdBy?.id === session?.user?.id
 		const isLocked = meetingDetails?.isDocumentOrderLocked ?? false
@@ -197,15 +197,11 @@ export const DocumentCards = React.memo(
 
 		const [draggedDocumentId, setDraggedDocumentId] = useState<string | null>(null)
 		const [dragOverDocumentId, setDragOverDocumentId] = useState<string | null>(null)
-		const collapsedIconRef = useRef<HTMLButtonElement>(null)
 		const drawerHeaderIconRef = useRef<HTMLDivElement>(null)
 
 		useImperativeHandle(ref, () => ({
 			getSidebarTarget: () => {
-				const el =
-					(showDocuments ? drawerHeaderIconRef.current : collapsedIconRef.current) ??
-					drawerHeaderIconRef.current ??
-					collapsedIconRef.current
+				const el = drawerHeaderIconRef.current
 				if (!el) return null
 				const rect = el.getBoundingClientRect()
 				return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }
@@ -314,7 +310,7 @@ export const DocumentCards = React.memo(
 
 		const panelContent = (
 			<>
-				<SidebarHeader className="mb-3 flex shrink-0 items-center px-3 py-2.5">
+				<div className="mb-3 flex shrink-0 items-center border-b px-3 py-2.5">
 					<div className="flex min-w-0 flex-wrap items-center gap-1.5">
 						<div
 							ref={drawerHeaderIconRef}
@@ -322,11 +318,9 @@ export const DocumentCards = React.memo(
 						>
 							<FileText className="text-primary size-4" />
 						</div>
-						<span className="truncate text-sm font-semibold group-data-[collapsible=icon]:hidden">
-							Documents ({documents.length})
-						</span>
+						<span className="truncate text-sm font-semibold">Documents ({documents.length})</span>
 						{isLocked && (
-							<div className="flex shrink-0 items-center gap-1 rounded-full border border-amber-300 bg-amber-100 px-2 py-0.5 group-data-[collapsible=icon]:hidden dark:border-amber-700 dark:bg-amber-900/30">
+							<div className="flex shrink-0 items-center gap-1 rounded-full border border-amber-300 bg-amber-100 px-2 py-0.5 dark:border-amber-700 dark:bg-amber-900/30">
 								<Lock className="size-2.5 text-amber-700 dark:text-amber-400" />
 								<span className="text-[10px] font-semibold text-amber-700 dark:text-amber-400">
 									{MEETING_LOCK_BADGE_LABEL}
@@ -344,8 +338,7 @@ export const DocumentCards = React.memo(
 							className={cn(
 								"h-7 w-7 p-0",
 								isLocked && "text-amber-600 hover:text-amber-700 dark:text-amber-400",
-								!isPrincipal && "cursor-not-allowed opacity-40",
-								"group-data-[collapsible=icon]:hidden"
+								!isPrincipal && "cursor-not-allowed opacity-40"
 							)}
 							title={lockToggleTitle}
 						>
@@ -357,7 +350,7 @@ export const DocumentCards = React.memo(
 							size="sm"
 							onClick={onRefresh}
 							disabled={isDocumentsFetching || isRefreshingSigningStatus}
-							className="h-7 w-7 p-0 group-data-[collapsible=icon]:hidden"
+							className="h-7 w-7 p-0"
 							title="Refresh documents"
 						>
 							<RefreshCw
@@ -368,26 +361,10 @@ export const DocumentCards = React.memo(
 							/>
 						</Button>
 					</div>
-				</SidebarHeader>
+				</div>
 
-				<SidebarContent className="space-y-3 p-3">
-					<SidebarMenu className="hidden group-data-[collapsible=icon]:flex">
-						{documents.map((doc, index) => (
-							<SidebarMenuItem key={`icon-${doc.id}`}>
-								<SidebarMenuButton
-									ref={index === 0 ? collapsedIconRef : undefined}
-									tooltip={doc.name}
-									className="justify-center group-data-[collapsible=icon]:justify-center"
-									aria-label={doc.name}
-								>
-									<FileText className="size-4" />
-									<span className="sr-only">{doc.name}</span>
-								</SidebarMenuButton>
-							</SidebarMenuItem>
-						))}
-					</SidebarMenu>
-
-					<div className="space-y-3 group-data-[collapsible=icon]:hidden">
+				<div className="flex min-h-0 flex-1 flex-col overflow-hidden p-3">
+					<div className="space-y-3 overflow-y-auto [scrollbar-width:thin] [scrollbar-color:transparent_transparent] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-transparent hover:[scrollbar-color:rgba(148,163,184,0.45)_transparent] hover:[&::-webkit-scrollbar-thumb]:bg-white/25">
 						{documents.map((doc, index) => {
 							const isDragged = draggedDocumentId === doc.id
 							const isDragOver = dragOverDocumentId === doc.id
@@ -635,34 +612,55 @@ export const DocumentCards = React.memo(
 							)
 						})}
 					</div>
-				</SidebarContent>
+				</div>
 
 				{totalFees > 0 && (
-					<SidebarFooter className="bg-muted/30 shrink-0 border-t px-3 py-2.5 group-data-[collapsible=icon]:hidden">
+					<div className="bg-muted/30 shrink-0 border-t px-3 py-2.5">
 						<div className="flex items-center justify-between">
 							<span className="text-muted-foreground text-sm">Total Fees</span>
 							<span className="text-sm font-bold">PHP {totalFees.toFixed(2)}</span>
 						</div>
-					</SidebarFooter>
+					</div>
 				)}
 			</>
 		)
 
-		if (bounded) {
+		if (isMobile || isOverlayViewport) {
 			return (
-				<aside className="bg-sidebar text-sidebar-foreground hidden w-[20rem] shrink-0 border-l md:flex md:min-h-0 md:flex-col">
-					<SidebarProvider defaultOpen className="min-h-0 h-full">
-						{panelContent}
-					</SidebarProvider>
-				</aside>
+				<Sheet
+					open={showDocuments}
+					onOpenChange={open => {
+						if (open !== showDocuments) onToggleShowDocuments()
+					}}
+				>
+					<SheetContent side="right" className="w-[20rem] p-0">
+						<SheetHeader className="sr-only">
+							<SheetTitle>Documents</SheetTitle>
+						</SheetHeader>
+						<div className="bg-sidebar text-sidebar-foreground flex h-full flex-col">
+							{panelContent}
+						</div>
+					</SheetContent>
+				</Sheet>
 			)
 		}
 
 		return (
-			<Sidebar side="right" collapsible="icon" variant="sidebar" className="border-l">
-				{panelContent}
-				<SidebarRail />
-			</Sidebar>
+			<div
+				className={cn(
+					"hidden h-full shrink-0 overflow-hidden pt-3 pb-1.5 transition-[width,padding,opacity] duration-300 ease-in-out md:flex md:min-h-0 md:flex-col md:pt-4 md:pb-2 lg:pt-6 lg:pb-3",
+					showDocuments ? "w-[20rem] pr-3 opacity-100 md:pr-4 lg:pr-6" : "w-0 pr-0 opacity-0"
+				)}
+			>
+				<div
+					className={cn(
+						"bg-sidebar text-sidebar-foreground border-border/70 flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border shadow-lg transition-transform duration-300 ease-in-out",
+						showDocuments ? "translate-x-0" : "translate-x-6"
+					)}
+				>
+					{panelContent}
+				</div>
+			</div>
 		)
 	})
 )
