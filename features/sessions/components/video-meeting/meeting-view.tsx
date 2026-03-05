@@ -1220,7 +1220,7 @@ export function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meet
 					/>
 					<div className="flex min-h-0 flex-1 overflow-hidden">
 						{/* Video area */}
-						<div className="relative flex flex-1 flex-col overflow-hidden">
+						<div className="flex flex-1 flex-col overflow-hidden">
 							<div className="flex-1 overflow-hidden p-3 md:p-4 lg:p-6">
 								<RecordingBanner
 									isLocalRecording={isLocalRecording}
@@ -1258,7 +1258,7 @@ export function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meet
 								)}
 							</div>
 
-							<div className="absolute bottom-6 left-1/2 z-50 -translate-x-1/2">
+							<div className="bg-background/90 flex items-center justify-center px-4 py-3 backdrop-blur-sm">
 								<MeetingControls
 									onUploadClick={handleUploadClick}
 									isUploadDisabled={!meetingId?.trim() || isUploadBlockedByLock}
