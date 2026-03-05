@@ -82,13 +82,13 @@ export const SidebarCourseCard = () => {
 									</SidebarMenuButton>
 								</TooltipTrigger>
 								<TooltipContent>
-									<p>Course</p>
+									<p>ENP Course</p>
 								</TooltipContent>
 							</Tooltip>
 						) : (
 							<SidebarMenuButton onClick={handleRestoreCard}>
 								<HugeiconsIcon icon={BookOpen01Icon} size={16} />
-								<span>Course</span>
+								<span>ENP Course</span>
 							</SidebarMenuButton>
 						)}
 					</SidebarMenuItem>
