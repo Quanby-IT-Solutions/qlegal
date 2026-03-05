@@ -68,8 +68,15 @@ type FormItemContextValue = {
 
 const FormItemContext = React.createContext<FormItemContextValue>({} as FormItemContextValue)
 
+function toSafeFieldId(name: string) {
+	return name.replace(/[^a-zA-Z0-9_-]/g, "-")
+}
+
 function FormItem({ className, ...props }: React.ComponentProps<"div">) {
-	const id = React.useId()
+	const fieldContext = React.useContext(FormFieldContext)
+	const fieldName = fieldContext?.name
+	const deterministicId = fieldName ? `field-${toSafeFieldId(String(fieldName))}` : undefined
+	const id = props.id ?? deterministicId ?? React.useId()
 
 	return (
 		<FormItemContext.Provider value={{ id }}>
