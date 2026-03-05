@@ -13,8 +13,8 @@ import {
 	SidebarMenuItem,
 	SidebarRail,
 } from "@/core/components/animate-ui/components/radix/sidebar"
+import { SidebarCourseCard } from "@/core/components/navbar/sidebar-course-card"
 import { SidebarNavSection } from "@/core/components/navbar/sidebar-nav-section"
-import { SidebarPlanCard } from "@/core/components/navbar/sidebar-plan-card"
 import { SidebarSecondaryNav } from "@/core/components/navbar/sidebar-secondary-nav"
 import { UserDropdown } from "@/core/components/navbar/user-dropdown"
 import { QuanbyLogo } from "@/core/components/quanby-logo"
@@ -51,8 +51,8 @@ export const SiteSidebar = () => {
 					<SidebarNavSection key={section.label} section={section} userRole={userRole} />
 				))}
 				<div className="mt-auto space-y-2">
-					<SidebarPlanCard />
 					<SidebarSecondaryNav items={navSecondary} />
+					<SidebarCourseCard />
 				</div>
 			</SidebarContent>
 

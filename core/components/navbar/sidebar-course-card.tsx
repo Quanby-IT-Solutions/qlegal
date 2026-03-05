@@ -1,9 +1,9 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { BookOpen01Icon, Diamond01Icon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { ArrowRight } from "lucide-react"
+import { ArrowRight, X } from "lucide-react"
 
 import {
 	Tooltip,
@@ -26,16 +26,74 @@ import {
 	DialogTitle,
 } from "@/core/components/ui/dialog"
 
-export const SidebarPlanCard = () => {
+const PLAN_CARD_COOKIE = "sidebar-plan-card-dismissed"
+const PLAN_CARD_COOKIE_VALUE = "true"
+const PLAN_CARD_COOKIE_EXPIRES = "Fri, 31 Dec 9999 23:59:59 GMT"
+
+const setPlanCardDismissed = () => {
+	document.cookie = `${PLAN_CARD_COOKIE}=${PLAN_CARD_COOKIE_VALUE}; expires=${PLAN_CARD_COOKIE_EXPIRES}; path=/`
+}
+
+const clearPlanCardDismissed = () => {
+	document.cookie = `${PLAN_CARD_COOKIE}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`
+}
+
+const isPlanCardDismissed = (): boolean => {
+	if (typeof document === "undefined") return false
+	try {
+		return document.cookie.includes(`${PLAN_CARD_COOKIE}=${PLAN_CARD_COOKIE_VALUE}`)
+	} catch {
+		return false
+	}
+}
+
+export const SidebarCourseCard = () => {
 	const [open, setOpen] = useState(false)
+	const [dismissed, setDismissed] = useState<boolean | null>(null)
 	const { state: sidebarState } = useSidebar()
-	const handleJoinCourse = () => {
-		setOpen(false)
+
+	useEffect(() => {
+		setDismissed(isPlanCardDismissed())
+	}, [])
+
+	const handleDismiss = () => {
+		setPlanCardDismissed()
+		setDismissed(true)
+	}
+	const handleRestoreCard = () => {
+		clearPlanCardDismissed()
+		setDismissed(false)
+	}
+
+	if (dismissed === null) {
+		return null
 	}
 
 	return (
 		<SidebarGroup>
-			{sidebarState === "collapsed" ? (
+			{dismissed ? (
+				<SidebarMenu>
+					<SidebarMenuItem>
+						{sidebarState === "collapsed" ? (
+							<Tooltip side="right" align="center">
+								<TooltipTrigger asChild>
+									<SidebarMenuButton onClick={handleRestoreCard}>
+										<HugeiconsIcon icon={BookOpen01Icon} size={16} />
+									</SidebarMenuButton>
+								</TooltipTrigger>
+								<TooltipContent>
+									<p>Course</p>
+								</TooltipContent>
+							</Tooltip>
+						) : (
+							<SidebarMenuButton onClick={handleRestoreCard}>
+								<HugeiconsIcon icon={BookOpen01Icon} size={16} />
+								<span>Course</span>
+							</SidebarMenuButton>
+						)}
+					</SidebarMenuItem>
+				</SidebarMenu>
+			) : sidebarState === "collapsed" ? (
 				<SidebarMenu>
 					<SidebarMenuItem>
 						<Tooltip side="right" align="center">
@@ -52,11 +110,17 @@ export const SidebarPlanCard = () => {
 				</SidebarMenu>
 			) : (
 				<div className="border-sidebar-border/60 space-y-3 rounded-lg border bg-gradient-to-br from-slate-400/15 via-slate-300/10 to-slate-400/15 p-3 backdrop-blur-md">
-					<div className="flex items-center gap-2">
-						<div className="bg-primary/10 text-primary rounded-md p-1.5">
-							<HugeiconsIcon icon={Diamond01Icon} size={16} />
+					<div className="flex items-center justify-between">
+						<div className="flex items-center gap-2">
+							<div className="bg-primary/10 text-primary rounded-md p-1.5">
+								<HugeiconsIcon icon={Diamond01Icon} size={16} />
+							</div>
+							<p className="text-sm font-semibold">Want to be an ENP?</p>
 						</div>
-						<p className="text-sm font-semibold">Want to be an ENP?</p>
+						<Button variant="ghost" size="icon" className="size-7" onClick={handleDismiss}>
+							<X className="size-4" />
+							<span className="sr-only">Dismiss ENP card</span>
+						</Button>
 					</div>
 					<p className="text-muted-foreground text-xs leading-relaxed">
 						Unlock advanced legal workflows by finishing our ENP course.
