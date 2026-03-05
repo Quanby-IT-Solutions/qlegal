@@ -7,5 +7,5 @@ interface MeetingLobbyPageProps {
 }
 
 export default function MeetingLobbyPage({ params }: MeetingLobbyPageProps) {
-	redirect(`/sessions/${params.id}/lobby`)
+	redirect(`/sessions/${params.id}`)
 }

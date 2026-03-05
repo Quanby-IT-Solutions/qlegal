@@ -205,19 +205,15 @@ export const MeetingControls = React.memo(function MeetingControls({
 		onInvitePeopleClick?.()
 	}
 
-	const glassCircleButtonClass =
-		"size-11 rounded-full border border-white/10 bg-black/65 text-white/80 shadow-2xl backdrop-blur-xl transition-all hover:bg-white/10 hover:text-white md:size-12"
-
 	return (
 		<>
-			<div className="flex items-center gap-2 md:gap-3">
+			<div className="flex items-center gap-1 rounded-2xl border border-white/10 bg-zinc-900/90 px-4 py-2 shadow-xl backdrop-blur-md">
 				<Button
 					variant={isCameraOn ? "ghost" : "destructive"}
-					size="icon"
 					className={cn(
 						isCameraOn
-							? glassCircleButtonClass
-							: "size-11 rounded-full shadow-2xl transition-all md:size-12"
+							? "h-10 rounded-xl px-3 text-white/80 hover:bg-white/10 hover:text-white"
+							: "h-10 rounded-xl px-3"
 					)}
 					onClick={handleToggleCamera}
 					title={isCameraOn ? "Turn off camera" : "Turn on camera"}
@@ -227,11 +223,10 @@ export const MeetingControls = React.memo(function MeetingControls({
 
 				<Button
 					variant={isMicOn ? "ghost" : "destructive"}
-					size="icon"
 					className={cn(
 						isMicOn
-							? glassCircleButtonClass
-							: "size-11 rounded-full shadow-2xl transition-all md:size-12",
+							? "h-10 rounded-xl px-3 text-white/80 hover:bg-white/10 hover:text-white"
+							: "h-10 rounded-xl px-3",
 						!isMicOn && "animate-pulse"
 					)}
 					onClick={handleToggleMic}
@@ -242,11 +237,10 @@ export const MeetingControls = React.memo(function MeetingControls({
 
 				<Button
 					variant={isScreenSharing ? "destructive" : "ghost"}
-					size="icon"
 					className={cn(
 						!isScreenSharing
-							? glassCircleButtonClass
-							: "size-11 rounded-full shadow-2xl transition-all md:size-12"
+							? "h-10 rounded-xl px-3 text-white/80 hover:bg-white/10 hover:text-white"
+							: "h-10 rounded-xl px-3"
 					)}
 					onClick={handleToggleScreenShare}
 					title={isScreenSharing ? "Stop sharing" : "Share screen"}
@@ -256,11 +250,10 @@ export const MeetingControls = React.memo(function MeetingControls({
 
 				<Button
 					variant={localRecordingActive ? "destructive" : "ghost"}
-					size="icon"
 					className={cn(
 						!localRecordingActive
-							? glassCircleButtonClass
-							: "size-11 rounded-full shadow-2xl transition-all md:size-12",
+							? "h-10 rounded-xl px-3 text-white/80 hover:bg-white/10 hover:text-white"
+							: "h-10 rounded-xl px-3",
 						localRecordingActive && "animate-pulse"
 					)}
 					onClick={handleToggleRecording}
@@ -277,12 +270,11 @@ export const MeetingControls = React.memo(function MeetingControls({
 
 				<Button
 					variant="destructive"
-					size="icon"
-					className="size-11 rounded-full border border-red-400/50 shadow-2xl transition-all md:size-16"
+					className="h-10 rounded-xl px-3"
 					onClick={handleLeave}
 					title="Leave session"
 				>
-					<PhoneOff className="size-5" />
+					<PhoneOff className="size-4" />
 				</Button>
 
 				{onUploadClick && (
@@ -291,9 +283,8 @@ export const MeetingControls = React.memo(function MeetingControls({
 							<span className="inline-flex">
 								<Button
 									variant="ghost"
-									size="icon"
 									className={cn(
-										glassCircleButtonClass,
+										"h-10 rounded-xl px-3 text-white/80 hover:bg-white/10 hover:text-white",
 										isUploadControlDisabled && "cursor-not-allowed opacity-60"
 									)}
 									onClick={onUploadClick}
@@ -314,12 +305,11 @@ export const MeetingControls = React.memo(function MeetingControls({
 					</Tooltip>
 				)}
 
-				{/* Participant pill — same glass style as other buttons */}
 				<div
 					ref={participantControlRef}
-					className="flex h-11 items-center overflow-hidden rounded-full border border-white/10 bg-black/65 text-white/80 shadow-2xl backdrop-blur-xl md:h-12"
+					className="ml-1 flex h-10 items-center overflow-hidden border-l border-white/10 pl-2 text-white/80"
 				>
-					<div title="Participants in session" className="flex h-full items-center gap-1.5 px-3.5">
+					<div title="Participants in session" className="flex h-full items-center gap-1.5 px-3">
 						<Users className="size-4" />
 						<span className="text-xs leading-none font-medium tabular-nums">
 							{participantCount}
