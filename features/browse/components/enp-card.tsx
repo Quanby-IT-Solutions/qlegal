@@ -22,6 +22,8 @@ import {
 } from "@/core/components/ui/tooltip"
 import { cn, getInitials } from "@/core/lib/utils"
 
+import { UserProfileSheet } from "@/features/user-management/components/user-profile-sheet"
+
 import { BookingDialog } from "@/features/browse/components/booking-dialog"
 
 // ENP display data type (co-located in enp-card.tsx)
@@ -248,16 +250,18 @@ export function EnpCard({ enp, className }: EnpCardProps) {
 
 					<Tooltip>
 						<TooltipTrigger asChild>
-							<Button
-								variant="outline"
-								size="icon"
-								className="bg-background hover:bg-muted size-9 shrink-0"
-								asChild
-							>
-								<Link href="/profile">
-									<User className="text-muted-foreground size-4" />
-								</Link>
-							</Button>
+							<UserProfileSheet
+								userId={enp.id}
+								trigger={
+									<Button
+										variant="outline"
+										size="icon"
+										className="bg-background hover:bg-muted size-9 shrink-0"
+									>
+										<User className="text-muted-foreground size-4" />
+									</Button>
+								}
+							/>
 						</TooltipTrigger>
 						<TooltipContent>View Profile</TooltipContent>
 					</Tooltip>
