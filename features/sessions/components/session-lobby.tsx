@@ -1,7 +1,7 @@
 "use client"
 
 import { useRouter } from "next/navigation"
-import { use, useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
 	Camera,
 	CameraOff,
@@ -44,8 +44,12 @@ type LocationStatus =
 	| "unavailable"
 	| "timeout"
 
-export default function MeetingLobbyPage({ params }: { params: Promise<{ id: string }> }) {
-	const { id } = use(params)
+interface SessionLobbyProps {
+	id: string
+	onJoin: () => void
+}
+
+export function SessionLobby({ id, onJoin }: SessionLobbyProps) {
 	const router = useRouter()
 	const { data: session } = useSession()
 	const { getById } = useMeetings()
@@ -286,7 +290,7 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 	// Check liveness verification and redirect if needed - runs IMMEDIATELY
 	useEffect(() => {
 		if (!session) {
-			router.push(`/auth/login?callbackUrl=/sessions/${id}/lobby`)
+			router.push(`/auth/login?callbackUrl=/sessions/${id}`)
 			return
 		}
 
@@ -296,7 +300,7 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 				const result = await checkUserLivenessStatus(id)
 				if (result.success && result.data && !result.data.isVerified) {
 					// User hasn't completed liveness verification for this meeting, redirect to liveness page
-					const redirectUrl = encodeURIComponent(`/sessions/${id}/lobby`)
+					const redirectUrl = encodeURIComponent(`/sessions/${id}`)
 					router.push(`/liveness?redirect=${redirectUrl}&meetingId=${id}`)
 				} else {
 					// Liveness check passed, show lobby
@@ -410,7 +414,7 @@ export default function MeetingLobbyPage({ params }: { params: Promise<{ id: str
 		if (stream) {
 			stream.getTracks().forEach(track => track.stop())
 		}
-		router.push(`/sessions/${id}`)
+		onJoin()
 	}
 
 	// Cleanup on unmount

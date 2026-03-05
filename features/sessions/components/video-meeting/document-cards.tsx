@@ -28,6 +28,7 @@ import {
 	SidebarMenu,
 	SidebarMenuButton,
 	SidebarMenuItem,
+	SidebarProvider,
 	SidebarRail,
 } from "@/core/components/ui/sidebar"
 import { cn } from "@/core/lib/utils"
@@ -75,6 +76,7 @@ interface DocumentCardsProps {
 	meetingId: string | undefined
 	documents: MeetingDocument[]
 	showDocuments: boolean
+	bounded?: boolean
 	onToggleShowDocuments: () => void
 	isDocumentsFetching: boolean
 	isRefreshingSigningStatus: boolean
@@ -157,6 +159,7 @@ export const DocumentCards = React.memo(
 			meetingId,
 			documents,
 			showDocuments,
+			bounded = false,
 			onToggleShowDocuments: _onToggleShowDocuments,
 			isDocumentsFetching,
 			isRefreshingSigningStatus,
@@ -309,8 +312,8 @@ export const DocumentCards = React.memo(
 
 		if (!documents || documents.length === 0) return null
 
-		return (
-			<Sidebar side="right" collapsible="icon" variant="sidebar" className="border-l">
+		const panelContent = (
+			<>
 				<SidebarHeader className="mb-3 flex shrink-0 items-center px-3 py-2.5">
 					<div className="flex min-w-0 flex-wrap items-center gap-1.5">
 						<div
@@ -642,6 +645,22 @@ export const DocumentCards = React.memo(
 						</div>
 					</SidebarFooter>
 				)}
+			</>
+		)
+
+		if (bounded) {
+			return (
+				<aside className="bg-sidebar text-sidebar-foreground hidden w-[20rem] shrink-0 border-l md:flex md:min-h-0 md:flex-col">
+					<SidebarProvider defaultOpen className="min-h-0 h-full">
+						{panelContent}
+					</SidebarProvider>
+				</aside>
+			)
+		}
+
+		return (
+			<Sidebar side="right" collapsible="icon" variant="sidebar" className="border-l">
+				{panelContent}
 				<SidebarRail />
 			</Sidebar>
 		)

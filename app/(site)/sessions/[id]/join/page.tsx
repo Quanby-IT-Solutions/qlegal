@@ -22,7 +22,7 @@ export default function SessionJoinPage({ params }: { params: Promise<{ id: stri
 
 	useEffect(() => {
 		if (status === "unauthenticated") {
-			const callbackUrl = encodeURIComponent(`/sessions/${id}/join`)
+			const callbackUrl = encodeURIComponent(`/sessions/${id}`)
 			router.replace(`/auth/login?callbackUrl=${callbackUrl}`)
 			return
 		}
@@ -31,8 +31,7 @@ export default function SessionJoinPage({ params }: { params: Promise<{ id: stri
 		void (async () => {
 			try {
 				await joinByLink.mutateAsync({ meetingId: id })
-				const lobbyUrl = `/sessions/${id}/lobby`
-				const redirectUrl = encodeURIComponent(lobbyUrl)
+				const redirectUrl = encodeURIComponent(`/sessions/${id}`)
 				router.replace(`/liveness?redirect=${redirectUrl}&meetingId=${id}`)
 			} catch {
 				// Error already surfaced via onError

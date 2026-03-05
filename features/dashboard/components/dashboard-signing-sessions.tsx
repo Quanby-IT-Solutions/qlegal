@@ -114,7 +114,7 @@ export function DashboardSigningSessions({
 										size="sm"
 										className="bg-green-600 hover:bg-green-700"
 										onClick={() =>
-											router.push(`/sessions/${session.activeMeetingId}/lobby` as Route)
+											router.push(`/sessions/${session.activeMeetingId}` as Route)
 										}
 									>
 										<HugeiconsIcon icon={Video01Icon} size={16} className="mr-1.5" />
