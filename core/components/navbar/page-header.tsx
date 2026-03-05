@@ -53,8 +53,8 @@ export function PageHeader({ items, actions }: PageHeaderProps) {
 				</Breadcrumb>
 			</div>
 			<div className="flex items-center gap-2 px-4">
-				{actions}
 				<ModeToggle />
+				{actions}
 			</div>
 		</header>
 	)

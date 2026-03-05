@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { CoinsIcon } from "lucide-react"
+import { Send } from "lucide-react"
 import { toast } from "sonner"
 
 import { Button } from "@/core/components/ui/button"
@@ -60,8 +60,8 @@ export function TransferCreditsDialog({
 	return (
 		<Dialog open={open} onOpenChange={setOpen}>
 			<DialogTrigger asChild>
-				<Button variant="outline" size="sm">
-					<CoinsIcon className="mr-2 size-4" />
+				<Button size="sm">
+					<Send className="mr-2 size-4" />
 					Transfer credits
 				</Button>
 			</DialogTrigger>

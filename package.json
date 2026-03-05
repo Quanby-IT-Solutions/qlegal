@@ -22,6 +22,7 @@
 		"test:supreme-court-principal": "tsx scripts/test-supreme-court-principal.ts",
 		"check:supreme-court-permissions": "tsx scripts/check-supreme-court-permissions.ts",
 		"list:notarial-acts": "cross-env SKIP_ENV_VALIDATION=1 tsx scripts/list-notarial-acts.ts",
+		"log:doconchain-credits": "cross-env SKIP_ENV_VALIDATION=1 tsx scripts/log-doconchain-org-credits.ts",
 		"update:enp-supreme-court-fields": "cross-env SKIP_ENV_VALIDATION=1 tsx scripts/update-enp-supreme-court-fields.ts",
 		"check": "eslint && tsc --noEmit",
 		"build": "next build --turbopack",
