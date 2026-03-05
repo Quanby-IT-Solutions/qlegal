@@ -6,8 +6,14 @@ import { useSession } from "next-auth/react"
 import { toast } from "sonner"
 
 import { QuanbyLogo } from "@/core/components/quanby-logo"
-import { Card, CardContent } from "@/core/components/ui/card"
-import { cn } from "@/core/lib/utils"
+import {
+	Card,
+	CardContent,
+	CardDescription,
+	CardHeader,
+	CardTitle,
+} from "@/core/components/ui/card"
+import { defineStepper } from "@/core/components/ui/stepper"
 
 import { trpc } from "@/services/trpc/client"
 
@@ -19,23 +25,21 @@ import { PhotoStep } from "@/features/onboarding/components/steps/photo-step"
 import { RecoveryEmailStep } from "@/features/onboarding/components/steps/recovery-email-step"
 import { WelcomeStep } from "@/features/onboarding/components/steps/welcome-step"
 
-const STEPS = [
-	{ id: "kyc", label: "KYC" },
-	{ id: "recovery-email", label: "Recovery Email" },
-	{ id: "phone", label: "Phone" },
-	{ id: "photo", label: "Photo" },
-	{ id: "address", label: "Address" },
-	{ id: "done", label: "Done" },
-] as const
+const { useStepper, steps, StepperProvider, StepperNavigation, StepperStep, StepperTitle } =
+	defineStepper(
+		{ id: "kyc", title: "KYC", description: "Identity verification" },
+		{ id: "recovery-email", title: "Recovery Email", description: "Account recovery" },
+		{ id: "phone", title: "Phone", description: "Contact details" },
+		{ id: "photo", title: "Photo", description: "Profile image" },
+		{ id: "address", title: "Address", description: "Home details" },
+		{ id: "done", title: "Done", description: "Finish onboarding" }
+	)
 
 export function OnboardingWizard() {
 	const router = useRouter()
 	const { data: session, update: updateSession } = useSession()
 	const [hasStarted, setHasStarted] = useState(false)
-	const [currentStepIndex, setCurrentStepIndex] = useState(0)
 	const [recoveryEmailSubmitted, setRecoveryEmailSubmitted] = useState(false)
-
-	const currentStep = STEPS[currentStepIndex]!
 
 	const { data: status, refetch: refetchStatus } = trpc.onboarding.getStatus.useQuery()
 
@@ -57,21 +61,6 @@ export function OnboardingWizard() {
 		onError: err => toast.error(err.message),
 	})
 
-	const goNext = () => {
-		if (currentStepIndex < STEPS.length - 1) {
-			setCurrentStepIndex(i => i + 1)
-		}
-	}
-
-	const goBack = () => {
-		if (currentStepIndex === 0) {
-			setHasStarted(false)
-			return
-		}
-
-		setCurrentStepIndex(i => i - 1)
-	}
-
 	const handleComplete = () => {
 		completeOnboarding.mutate()
 	}
@@ -86,109 +75,175 @@ export function OnboardingWizard() {
 
 	const handleStart = () => {
 		setHasStarted(true)
-		setCurrentStepIndex(0)
 	}
 
 	return (
-		<Card className="w-full max-w-130 overflow-hidden border shadow-lg">
-			{hasStarted && (
-				<>
-					{/* Progress Bar */}
-					<div className="px-8 pt-5">
-						<p className="text-muted-foreground mb-2 text-xs">
-							Step {currentStepIndex + 1} of {STEPS.length}
-						</p>
-						<div className="flex gap-1.5">
-							{STEPS.map((step, index) => (
-								<div
-									key={step.id}
-									className={cn(
-										"h-1 flex-1 rounded-full transition-all duration-300",
-										index < currentStepIndex
-											? "bg-primary/60"
-											: index === currentStepIndex
-												? "bg-primary"
-												: "bg-muted"
-									)}
-								/>
-							))}
-						</div>
-					</div>
-				</>
-			)}
-
-			<CardContent className="px-8 pt-6 pb-8">
-				{/* Logo */}
-				<div className="mb-6 flex items-center gap-2">
-					<QuanbyLogo className="size-8" />
-					<span className="text-sm font-semibold">Quanby Sign</span>
+		<Card className="w-full max-w-xl overflow-hidden border shadow-lg">
+			<CardHeader className="text-center">
+				<div className="mb-2 flex justify-center">
+					<QuanbyLogo className="size-14" />
 				</div>
+				<CardTitle className="text-2xl">Account Onboarding</CardTitle>
+				<CardDescription>
+					Complete your profile setup to unlock the full Quanby Sign experience.
+				</CardDescription>
+			</CardHeader>
 
-				{!hasStarted && <WelcomeStep onNext={handleStart} />}
-
-				{hasStarted && currentStep.id === "kyc" && (
-					<KycStep
-						onNext={goNext}
-						onBack={goBack}
-						kycStatus={session?.user?.kycStatus}
-						onGoToKyc={handleGoToKyc}
-					/>
-				)}
-
-				{hasStarted && currentStep.id === "recovery-email" && (
-					<RecoveryEmailStep
-						onNext={() => {
-							setRecoveryEmailSubmitted(true)
-							goNext()
-						}}
-						onBack={goBack}
-						existingEmail={status?.recoveryEmail ?? undefined}
-					/>
-				)}
-
-				{hasStarted && currentStep.id === "phone" && (
-					<PhoneStep
-						onNext={goNext}
-						onBack={goBack}
-						existingPhone={status?.phoneNumber ?? undefined}
-					/>
-				)}
-
-				{hasStarted && currentStep.id === "photo" && <PhotoStep onNext={goNext} onBack={goBack} />}
-
-				{hasStarted && currentStep.id === "address" && (
-					<AddressStep
-						onNext={goNext}
-						onBack={goBack}
-						existingAddress={{
-							homeStreet: status?.homeStreet ?? undefined,
-							barangay: status?.barangay ?? undefined,
-							cityProvince: status?.cityProvince ?? undefined,
-						}}
-					/>
-				)}
-
-				{hasStarted && currentStep.id === "done" && (
-					<DoneStep
-						onComplete={handleComplete}
-						isCompleting={completeOnboarding.isPending}
+			{!hasStarted ? (
+				<CardContent className="pb-8">
+					<WelcomeStep onNext={handleStart} />
+				</CardContent>
+			) : (
+				<StepperProvider variant="horizontal" className="space-y-6 px-4 pb-8 sm:px-6">
+					<OnboardingWizardContent
+						sessionKycStatus={session?.user?.kycStatus}
+						recoveryEmail={status?.recoveryEmail ?? undefined}
+						phoneNumber={status?.phoneNumber ?? undefined}
+						homeStreet={status?.homeStreet ?? undefined}
+						barangay={status?.barangay ?? undefined}
+						cityProvince={status?.cityProvince ?? undefined}
 						recoveryEmailVerified={!!status?.recoveryEmailVerified}
 						recoveryEmailSubmitted={recoveryEmailSubmitted}
+						onRecoveryEmailSubmitted={() => setRecoveryEmailSubmitted(true)}
+						onRestartWelcome={() => setHasStarted(false)}
+						onGoToKyc={handleGoToKyc}
+						onComplete={handleComplete}
+						isCompleting={completeOnboarding.isPending}
 						onRefreshStatus={() => void refetchStatus()}
+						onSnooze={handleSnoozeForSevenDays}
+						isSnoozing={snoozeOnboarding.isPending}
+					/>
+				</StepperProvider>
+			)}
+		</Card>
+	)
+}
+
+interface OnboardingWizardContentProps {
+	sessionKycStatus?: string
+	recoveryEmail?: string
+	phoneNumber?: string
+	homeStreet?: string
+	barangay?: string
+	cityProvince?: string
+	recoveryEmailVerified: boolean
+	recoveryEmailSubmitted: boolean
+	onRecoveryEmailSubmitted: () => void
+	onRestartWelcome: () => void
+	onGoToKyc: () => void
+	onComplete: () => void
+	isCompleting: boolean
+	onRefreshStatus: () => void
+	onSnooze: () => void
+	isSnoozing: boolean
+}
+
+function OnboardingWizardContent({
+	sessionKycStatus,
+	recoveryEmail,
+	phoneNumber,
+	homeStreet,
+	barangay,
+	cityProvince,
+	recoveryEmailVerified,
+	recoveryEmailSubmitted,
+	onRecoveryEmailSubmitted,
+	onRestartWelcome,
+	onGoToKyc,
+	onComplete,
+	isCompleting,
+	onRefreshStatus,
+	onSnooze,
+	isSnoozing,
+}: OnboardingWizardContentProps) {
+	const methods = useStepper()
+	const currentIndex = steps.findIndex(step => step.id === methods.current.id)
+
+	const handleBack = () => {
+		if (methods.isFirst) {
+			onRestartWelcome()
+			return
+		}
+
+		methods.prev()
+	}
+
+	const handleNext = () => {
+		if (!methods.isLast) {
+			methods.next()
+		}
+	}
+
+	return (
+		<>
+			<StepperNavigation>
+				{steps.map((step, index) => (
+					<StepperStep key={step.id} of={step.id} disabled={index > currentIndex}>
+						<StepperTitle>{step.title}</StepperTitle>
+					</StepperStep>
+				))}
+			</StepperNavigation>
+
+			<CardContent>
+				{methods.current.id === "kyc" && (
+					<KycStep
+						onNext={handleNext}
+						onBack={handleBack}
+						kycStatus={sessionKycStatus ?? undefined}
+						onGoToKyc={onGoToKyc}
 					/>
 				)}
 
-				{hasStarted && currentStep.id !== "done" && (
+				{methods.current.id === "recovery-email" && (
+					<RecoveryEmailStep
+						onNext={() => {
+							onRecoveryEmailSubmitted()
+							handleNext()
+						}}
+						onBack={handleBack}
+						existingEmail={recoveryEmail}
+					/>
+				)}
+
+				{methods.current.id === "phone" && (
+					<PhoneStep onNext={handleNext} onBack={handleBack} existingPhone={phoneNumber} />
+				)}
+
+				{methods.current.id === "photo" && <PhotoStep onNext={handleNext} onBack={handleBack} />}
+
+				{methods.current.id === "address" && (
+					<AddressStep
+						onNext={handleNext}
+						onBack={handleBack}
+						existingAddress={{
+							homeStreet,
+							barangay,
+							cityProvince,
+						}}
+					/>
+				)}
+
+				{methods.current.id === "done" && (
+					<DoneStep
+						onComplete={onComplete}
+						isCompleting={isCompleting}
+						recoveryEmailVerified={recoveryEmailVerified}
+						recoveryEmailSubmitted={recoveryEmailSubmitted}
+						onRefreshStatus={onRefreshStatus}
+					/>
+				)}
+
+				{methods.current.id !== "done" && (
 					<button
 						type="button"
-						onClick={handleSnoozeForSevenDays}
-						disabled={snoozeOnboarding.isPending}
+						onClick={onSnooze}
+						disabled={isSnoozing}
 						className="text-muted-foreground hover:text-foreground mt-6 w-full text-center text-xs underline-offset-4 transition-colors hover:underline disabled:pointer-events-none disabled:opacity-50"
 					>
-						{snoozeOnboarding.isPending ? "Pausing reminders…" : "Skip for 7 days"}
+						{isSnoozing ? "Pausing reminders…" : "Skip for 7 days"}
 					</button>
 				)}
 			</CardContent>
-		</Card>
+		</>
 	)
 }
