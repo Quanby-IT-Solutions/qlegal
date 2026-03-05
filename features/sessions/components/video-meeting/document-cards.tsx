@@ -3,8 +3,6 @@
 import React, { useCallback, useImperativeHandle, useMemo, useRef, useState } from "react"
 import {
 	CheckCircle2,
-	ChevronLeft,
-	ChevronRight,
 	Clock,
 	FileText,
 	GripVertical,
@@ -22,6 +20,16 @@ import {
 	DropdownMenuContent,
 	DropdownMenuTrigger,
 } from "@/core/components/ui/dropdown-menu"
+import {
+	Sidebar,
+	SidebarContent,
+	SidebarFooter,
+	SidebarHeader,
+	SidebarMenu,
+	SidebarMenuButton,
+	SidebarMenuItem,
+	SidebarRail,
+} from "@/core/components/ui/sidebar"
 import { cn } from "@/core/lib/utils"
 
 import {
@@ -33,10 +41,6 @@ import {
 import type { PreGeneratedLinkEntry } from "../../lib/utils"
 import { DocumentActions } from "./document-actions"
 import { NotarizedDocumentMenuItem } from "./notarized-document-menu-item"
-
-// ─────────────────────────────────────────────────────────────
-// Types
-// ─────────────────────────────────────────────────────────────
 
 type MeetingDocument = {
 	id: string
@@ -143,10 +147,6 @@ interface DocumentCardsProps {
 	onUpdateDocumentOrder: (documentIds: string[]) => void
 }
 
-// ─────────────────────────────────────────────────────────────
-// Component
-// ─────────────────────────────────────────────────────────────
-
 export interface DocumentCardsHandle {
 	getSidebarTarget: () => { x: number; y: number } | null
 }
@@ -157,7 +157,7 @@ export const DocumentCards = React.memo(
 			meetingId,
 			documents,
 			showDocuments,
-			onToggleShowDocuments,
+			onToggleShowDocuments: _onToggleShowDocuments,
 			isDocumentsFetching,
 			isRefreshingSigningStatus,
 			documentSigningStatus,
@@ -184,7 +184,7 @@ export const DocumentCards = React.memo(
 		ref: React.Ref<DocumentCardsHandle>
 	) {
 		const { data: session } = useSession()
-		// Lock/unlock is gated on being the meeting creator, not on role.
+
 		const isPrincipal = meetingDetails?.createdBy?.id === session?.user?.id
 		const isLocked = meetingDetails?.isDocumentOrderLocked ?? false
 		const lockToggleTitle: string = !isPrincipal
@@ -194,23 +194,20 @@ export const DocumentCards = React.memo(
 
 		const [draggedDocumentId, setDraggedDocumentId] = useState<string | null>(null)
 		const [dragOverDocumentId, setDragOverDocumentId] = useState<string | null>(null)
-		const collapsedStripRef = useRef<HTMLButtonElement>(null)
+		const collapsedIconRef = useRef<HTMLButtonElement>(null)
 		const drawerHeaderIconRef = useRef<HTMLDivElement>(null)
 
-		// Expose getSidebarTarget imperatively for the flight animation
 		useImperativeHandle(ref, () => ({
 			getSidebarTarget: () => {
 				const el =
-					(showDocuments ? drawerHeaderIconRef.current : collapsedStripRef.current) ??
+					(showDocuments ? drawerHeaderIconRef.current : collapsedIconRef.current) ??
 					drawerHeaderIconRef.current ??
-					collapsedStripRef.current
+					collapsedIconRef.current
 				if (!el) return null
 				const rect = el.getBoundingClientRect()
 				return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }
 			},
 		}))
-
-		// ─── Drag-and-drop handlers ────────────────────────────────
 
 		const handleDragStart = useCallback((e: React.DragEvent, documentId: string) => {
 			const target = e.target as HTMLElement
@@ -287,8 +284,6 @@ export const DocumentCards = React.memo(
 			setDragOverDocumentId(null)
 		}, [])
 
-		// ─── Notarization docs lookup ──────────────────────────────
-
 		const notarizationDocs = useMemo(
 			() =>
 				Array.isArray((notarizationDetails as { documents?: unknown })?.documents)
@@ -300,6 +295,7 @@ export const DocumentCards = React.memo(
 					: [],
 			[notarizationDetails]
 		)
+
 		const totalFees = useMemo(
 			() =>
 				documents.reduce((sum, doc) => {
@@ -313,151 +309,86 @@ export const DocumentCards = React.memo(
 
 		if (!documents || documents.length === 0) return null
 
-		// ─── Collapsed: show a slim vertical tab on the right edge ─
-
-		// ─── Collapsed strip (visible when panel is closed) ───
-		const strip = !showDocuments ? (
-			<button
-				ref={collapsedStripRef}
-				onClick={onToggleShowDocuments}
-				className={cn(
-					"group relative flex h-full w-12 shrink-0 flex-col items-center justify-start gap-2 border-l pt-3",
-					"bg-card/60 hover:bg-card backdrop-blur-sm transition-colors",
-					"focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-inset"
-				)}
-				title={`Show documents panel (${documents.length} file${documents.length !== 1 ? "s" : ""})`}
-				aria-label="Show documents panel"
-			>
-				{/* Chevron arrow at top */}
-				<ChevronLeft className="text-muted-foreground group-hover:text-foreground size-4 shrink-0 transition-colors" />
-
-				{/* All file icons stacked below, no limit */}
-				<div className="flex w-full flex-col items-center gap-1 px-1">
-					{documents.map((_, i) => (
+		return (
+			<Sidebar side="right" collapsible="icon" variant="sidebar" className="border-l">
+				<SidebarHeader className="mb-3 flex shrink-0 items-center px-3 py-2.5">
+					<div className="flex min-w-0 flex-wrap items-center gap-1.5">
 						<div
-							key={i}
-							className={cn(
-								"flex w-full items-center justify-center rounded-md p-1.5 transition-colors",
-								i === 0
-									? "bg-primary/15 group-hover:bg-primary/20"
-									: "bg-muted/60 group-hover:bg-muted/80"
-							)}
+							ref={drawerHeaderIconRef}
+							className="bg-primary/10 flex size-7 shrink-0 items-center justify-center rounded-lg"
 						>
-							<FileText
+							<FileText className="text-primary size-4" />
+						</div>
+						<span className="truncate text-sm font-semibold group-data-[collapsible=icon]:hidden">
+							Documents ({documents.length})
+						</span>
+						{isLocked && (
+							<div className="flex shrink-0 items-center gap-1 rounded-full border border-amber-300 bg-amber-100 px-2 py-0.5 group-data-[collapsible=icon]:hidden dark:border-amber-700 dark:bg-amber-900/30">
+								<Lock className="size-2.5 text-amber-700 dark:text-amber-400" />
+								<span className="text-[10px] font-semibold text-amber-700 dark:text-amber-400">
+									{MEETING_LOCK_BADGE_LABEL}
+								</span>
+							</div>
+						)}
+
+						<Button
+							variant="ghost"
+							size="sm"
+							onClick={() => {
+								if (isPrincipal && meetingId) onToggleLock(!isLocked)
+							}}
+							disabled={!isPrincipal || isTogglingLock}
+							className={cn(
+								"h-7 w-7 p-0",
+								isLocked && "text-amber-600 hover:text-amber-700 dark:text-amber-400",
+								!isPrincipal && "cursor-not-allowed opacity-40",
+								"group-data-[collapsible=icon]:hidden"
+							)}
+							title={lockToggleTitle}
+						>
+							{isLocked ? <Lock className="size-3.5" /> : <Unlock className="size-3.5" />}
+						</Button>
+
+						<Button
+							variant="ghost"
+							size="sm"
+							onClick={onRefresh}
+							disabled={isDocumentsFetching || isRefreshingSigningStatus}
+							className="h-7 w-7 p-0 group-data-[collapsible=icon]:hidden"
+							title="Refresh documents"
+						>
+							<RefreshCw
 								className={cn(
-									"size-3.5 shrink-0 transition-colors",
-									i === 0 ? "text-primary" : "text-muted-foreground group-hover:text-foreground"
+									"size-3.5",
+									(isDocumentsFetching || isRefreshingSigningStatus) && "animate-spin"
 								)}
 							/>
-						</div>
-					))}
-				</div>
-
-				{isLocked && <Lock className="mt-1 size-3 shrink-0 text-amber-500 dark:text-amber-400" />}
-			</button>
-		) : null
-
-		// ─── Backdrop + drawer (always mounted when we have documents; animated open/close) ───
-		return (
-			<>
-				{strip}
-
-				{/* Backdrop — fades in/out */}
-				<div
-					className={cn(
-						"fixed inset-0 z-40 bg-black/20 backdrop-blur-[1px] transition-opacity duration-200 ease-out",
-						showDocuments ? "opacity-100" : "pointer-events-none opacity-0"
-					)}
-					onClick={onToggleShowDocuments}
-					aria-hidden="true"
-				/>
-
-				{/* Drawer panel — slides in from right / out to right */}
-				<div
-					className={cn(
-						"bg-card/95 fixed inset-y-0 right-0 z-50 flex w-72 shrink-0 flex-col border-l shadow-2xl backdrop-blur-md xl:w-80",
-						"transition-transform duration-200 ease-out",
-						showDocuments ? "translate-x-0" : "translate-x-full",
-						showDocuments ? "pointer-events-auto" : "pointer-events-none"
-					)}
-				>
-					{/* ── Header ─────────────────────────────────────────── */}
-					<div className="flex shrink-0 items-center justify-between border-b px-3 py-2.5">
-						<div className="flex min-w-0 items-center gap-2">
-							<div
-								ref={drawerHeaderIconRef}
-								className="bg-primary/10 flex size-7 shrink-0 items-center justify-center rounded-lg"
-							>
-								<FileText className="text-primary size-4" />
-							</div>
-							<span className="truncate text-sm font-semibold">Documents ({documents.length})</span>
-							{isLocked && (
-								<div className="flex shrink-0 items-center gap-1 rounded-full border border-amber-300 bg-amber-100 px-2 py-0.5 dark:border-amber-700 dark:bg-amber-900/30">
-									<Lock className="size-2.5 text-amber-700 dark:text-amber-400" />
-									<span className="text-[10px] font-semibold text-amber-700 dark:text-amber-400">
-										{MEETING_LOCK_BADGE_LABEL}
-									</span>
-								</div>
-							)}
-						</div>
-
-						<div className="flex shrink-0 items-center gap-1">
-							{/* Lock / Unlock */}
-							<Button
-								variant="ghost"
-								size="sm"
-								onClick={() => {
-									if (isPrincipal && meetingId) onToggleLock(!isLocked)
-								}}
-								disabled={!isPrincipal || isTogglingLock}
-								className={cn(
-									"h-7 w-7 p-0",
-									isLocked && "text-amber-600 hover:text-amber-700 dark:text-amber-400",
-									!isPrincipal && "cursor-not-allowed opacity-40"
-								)}
-								title={lockToggleTitle}
-							>
-								{isLocked ? <Lock className="size-3.5" /> : <Unlock className="size-3.5" />}
-							</Button>
-
-							{/* Refresh */}
-							<Button
-								variant="ghost"
-								size="sm"
-								onClick={onRefresh}
-								disabled={isDocumentsFetching || isRefreshingSigningStatus}
-								className="h-7 w-7 p-0"
-								title="Refresh documents"
-							>
-								<RefreshCw
-									className={cn(
-										"size-3.5",
-										(isDocumentsFetching || isRefreshingSigningStatus) && "animate-spin"
-									)}
-								/>
-							</Button>
-
-							{/* Collapse */}
-							<Button
-								variant="ghost"
-								size="sm"
-								onClick={onToggleShowDocuments}
-								className="h-7 w-7 p-0"
-								title="Hide documents panel"
-								aria-label="Hide documents panel"
-							>
-								<ChevronRight className="size-3.5" />
-							</Button>
-						</div>
+						</Button>
 					</div>
+				</SidebarHeader>
 
-					{/* ── Scrollable document list ────────────────────────── */}
-					<div className="flex-1 space-y-3 overflow-y-auto p-3">
+				<SidebarContent className="space-y-3 p-3">
+					<SidebarMenu className="hidden group-data-[collapsible=icon]:flex">
+						{documents.map((doc, index) => (
+							<SidebarMenuItem key={`icon-${doc.id}`}>
+								<SidebarMenuButton
+									ref={index === 0 ? collapsedIconRef : undefined}
+									tooltip={doc.name}
+									className="justify-center group-data-[collapsible=icon]:justify-center"
+									aria-label={doc.name}
+								>
+									<FileText className="size-4" />
+									<span className="sr-only">{doc.name}</span>
+								</SidebarMenuButton>
+							</SidebarMenuItem>
+						))}
+					</SidebarMenu>
+
+					<div className="space-y-3 group-data-[collapsible=icon]:hidden">
 						{documents.map((doc, index) => {
 							const isDragged = draggedDocumentId === doc.id
 							const isDragOver = dragOverDocumentId === doc.id
 
-							// ── Previous-document-signed gate ──────────────────
 							const previousDoc = index > 0 ? documents[index - 1] : null
 
 							const previousInternalRequests = Array.isArray(
@@ -509,7 +440,6 @@ export const DocumentCards = React.memo(
 							const isPreviousDocumentSigned =
 								!previousDoc || previousIsInternallySigned || previousIsExternallySigned
 
-							// ── This doc signing status ─────────────────────────
 							const signingStatus = doc.docoChainProjectId
 								? documentSigningStatus.get(doc.id)
 								: undefined
@@ -549,7 +479,6 @@ export const DocumentCards = React.memo(
 									onDragOver={e => handleDragOver(e, doc.id)}
 									onDrop={e => handleDrop(e, doc.id)}
 								>
-									{/* Signing status badge + overflow menu */}
 									{doc.docoChainProjectId && (
 										<div className="absolute top-2 right-2 z-10 flex items-center gap-1">
 											{signingStatus ? (
@@ -600,9 +529,7 @@ export const DocumentCards = React.memo(
 									)}
 
 									<CardContent className="p-3">
-										{/* Document header row */}
 										<div className="mb-3 flex items-start gap-2">
-											{/* Drag handle */}
 											<div
 												className={cn(
 													"mt-1 shrink-0 transition-colors",
@@ -616,12 +543,10 @@ export const DocumentCards = React.memo(
 												<GripVertical className="size-4" />
 											</div>
 
-											{/* File icon */}
 											<div className="bg-primary/10 mt-0.5 shrink-0 rounded-md p-2">
 												<FileText className="text-primary size-4" />
 											</div>
 
-											{/* Name + meta */}
 											<div className="min-w-0 flex-1">
 												<div className="flex items-center gap-2">
 													<p
@@ -668,7 +593,6 @@ export const DocumentCards = React.memo(
 											</div>
 										</div>
 
-										{/* All signing controls, signer lists, action buttons */}
 										<DocumentActions
 											document={doc}
 											onSignClick={onSignClick}
@@ -708,17 +632,18 @@ export const DocumentCards = React.memo(
 							)
 						})}
 					</div>
+				</SidebarContent>
 
-					{totalFees > 0 && (
-						<div className="bg-muted/30 shrink-0 border-t px-3 py-2.5">
-							<div className="flex items-center justify-between">
-								<span className="text-muted-foreground text-sm">Total Fees</span>
-								<span className="text-sm font-bold">PHP {totalFees.toFixed(2)}</span>
-							</div>
+				{totalFees > 0 && (
+					<SidebarFooter className="bg-muted/30 shrink-0 border-t px-3 py-2.5 group-data-[collapsible=icon]:hidden">
+						<div className="flex items-center justify-between">
+							<span className="text-muted-foreground text-sm">Total Fees</span>
+							<span className="text-sm font-bold">PHP {totalFees.toFixed(2)}</span>
 						</div>
-					)}
-				</div>
-			</>
+					</SidebarFooter>
+				)}
+				<SidebarRail />
+			</Sidebar>
 		)
 	})
 )

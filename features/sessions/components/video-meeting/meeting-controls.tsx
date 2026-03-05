@@ -37,7 +37,8 @@ interface MeetingControlsProps {
 	isLocalRecording?: boolean
 	localRecordingStartedAt?: number | null
 	participantCount?: number
-	onInviteClick?: () => void
+	canInvitePeople?: boolean
+	onInvitePeopleClick?: () => void
 }
 
 export const MeetingControls = React.memo(function MeetingControls({
@@ -48,8 +49,9 @@ export const MeetingControls = React.memo(function MeetingControls({
 	onLocalRecordingToggle,
 	isLocalRecording,
 	localRecordingStartedAt,
-	participantCount,
-	onInviteClick,
+	participantCount = 0,
+	canInvitePeople = false,
+	onInvitePeopleClick,
 }: MeetingControlsProps) {
 	const isUploadControlDisabled = Boolean(isUploadDisabled) || Boolean(isUploadLoading)
 	const uploadTitle = isUploadControlDisabled
@@ -83,6 +85,8 @@ export const MeetingControls = React.memo(function MeetingControls({
 	const [isMicOn, setIsMicOn] = useState(() => localMicOn ?? false)
 	const [isScreenSharing, setIsScreenSharing] = useState(() => localScreenShareOn ?? false)
 	const [isRecordingLocal, setIsRecordingLocal] = useState(false)
+	const [isInviteActionOpen, setIsInviteActionOpen] = useState(false)
+	const participantControlRef = useRef<HTMLDivElement | null>(null)
 
 	useEffect(() => {
 		if (meeting?.localWebcamOn !== undefined) setIsCameraOn(meeting.localWebcamOn)
@@ -103,6 +107,17 @@ export const MeetingControls = React.memo(function MeetingControls({
 			setIsRecordingLocal(recording)
 		}
 	}, [recordingState])
+
+	useEffect(() => {
+		if (!isInviteActionOpen) return
+		const handlePointerDown = (event: MouseEvent) => {
+			if (!participantControlRef.current) return
+			if (participantControlRef.current.contains(event.target as Node)) return
+			setIsInviteActionOpen(false)
+		}
+		document.addEventListener("mousedown", handlePointerDown)
+		return () => document.removeEventListener("mousedown", handlePointerDown)
+	}, [isInviteActionOpen])
 
 	const localRecordingActive = isLocalRecording ?? false
 	const [localRecordingElapsed, setLocalRecordingElapsed] = useState("00:00")
@@ -185,15 +200,24 @@ export const MeetingControls = React.memo(function MeetingControls({
 		}
 	}
 
+	const handleInvitePeopleClick = () => {
+		setIsInviteActionOpen(false)
+		onInvitePeopleClick?.()
+	}
+
+	const glassCircleButtonClass =
+		"size-11 rounded-full border border-white/10 bg-black/65 text-white/80 shadow-2xl backdrop-blur-xl transition-all hover:bg-white/10 hover:text-white md:size-12"
+
 	return (
 		<>
-			<div className="flex items-center gap-1 rounded-full border border-white/10 bg-black/65 px-2.5 py-2 shadow-2xl backdrop-blur-xl md:gap-1.5 md:px-3">
+			<div className="flex items-center gap-2 md:gap-3">
 				<Button
 					variant={isCameraOn ? "ghost" : "destructive"}
 					size="icon"
 					className={cn(
-						"size-9 rounded-full transition-all md:size-10",
-						isCameraOn && "text-white/80 hover:bg-white/10 hover:text-white"
+						isCameraOn
+							? glassCircleButtonClass
+							: "size-11 rounded-full shadow-2xl transition-all md:size-12"
 					)}
 					onClick={handleToggleCamera}
 					title={isCameraOn ? "Turn off camera" : "Turn on camera"}
@@ -205,8 +229,9 @@ export const MeetingControls = React.memo(function MeetingControls({
 					variant={isMicOn ? "ghost" : "destructive"}
 					size="icon"
 					className={cn(
-						"size-9 rounded-full transition-all md:size-10",
-						isMicOn && "text-white/80 hover:bg-white/10 hover:text-white",
+						isMicOn
+							? glassCircleButtonClass
+							: "size-11 rounded-full shadow-2xl transition-all md:size-12",
 						!isMicOn && "animate-pulse"
 					)}
 					onClick={handleToggleMic}
@@ -219,8 +244,9 @@ export const MeetingControls = React.memo(function MeetingControls({
 					variant={isScreenSharing ? "destructive" : "ghost"}
 					size="icon"
 					className={cn(
-						"size-9 rounded-full transition-all md:size-10",
-						!isScreenSharing && "text-white/80 hover:bg-white/10 hover:text-white"
+						!isScreenSharing
+							? glassCircleButtonClass
+							: "size-11 rounded-full shadow-2xl transition-all md:size-12"
 					)}
 					onClick={handleToggleScreenShare}
 					title={isScreenSharing ? "Stop sharing" : "Share screen"}
@@ -232,8 +258,9 @@ export const MeetingControls = React.memo(function MeetingControls({
 					variant={localRecordingActive ? "destructive" : "ghost"}
 					size="icon"
 					className={cn(
-						"size-9 rounded-full transition-all md:size-10",
-						!localRecordingActive && "text-white/80 hover:bg-white/10 hover:text-white",
+						!localRecordingActive
+							? glassCircleButtonClass
+							: "size-11 rounded-full shadow-2xl transition-all md:size-12",
 						localRecordingActive && "animate-pulse"
 					)}
 					onClick={handleToggleRecording}
@@ -248,6 +275,16 @@ export const MeetingControls = React.memo(function MeetingControls({
 					)}
 				</Button>
 
+				<Button
+					variant="destructive"
+					size="icon"
+					className="size-11 rounded-full border border-red-400/50 shadow-2xl transition-all md:size-16"
+					onClick={handleLeave}
+					title="Leave session"
+				>
+					<PhoneOff className="size-5" />
+				</Button>
+
 				{onUploadClick && (
 					<Tooltip>
 						<TooltipTrigger asChild>
@@ -256,7 +293,7 @@ export const MeetingControls = React.memo(function MeetingControls({
 									variant="ghost"
 									size="icon"
 									className={cn(
-										"size-9 rounded-full text-white/80 transition-all hover:bg-white/10 hover:text-white md:size-10",
+										glassCircleButtonClass,
 										isUploadControlDisabled && "cursor-not-allowed opacity-60"
 									)}
 									onClick={onUploadClick}
@@ -277,40 +314,27 @@ export const MeetingControls = React.memo(function MeetingControls({
 					</Tooltip>
 				)}
 
-				{onInviteClick && (
-					<Button
-						variant="ghost"
-						size="icon"
-						className="size-9 rounded-full text-white/80 transition-all hover:bg-white/10 hover:text-white md:size-10"
-						onClick={onInviteClick}
-						title="Add people"
-					>
-						<UserPlus className="size-4" />
-					</Button>
-				)}
-
-				{/* Divider before leave */}
-				<div className="mx-1 h-6 w-px bg-white/15" />
-
-				{participantCount !== undefined && (
-					<div className="flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-white/80">
-						<Users className="size-3.5" />
-						<span className="text-xs font-medium tabular-nums">{participantCount}</span>
-					</div>
-				)}
-
-				{/* Divider before leave */}
-				<div className="mx-1 h-6 w-px bg-white/15" />
-
-				<Button
-					variant="destructive"
-					size="icon"
-					className="size-9 rounded-full transition-all md:size-10"
-					onClick={handleLeave}
-					title="Leave session"
+				{/* Participant pill — same glass style as other buttons */}
+				<div
+					ref={participantControlRef}
+					className="flex h-11 items-center overflow-hidden rounded-full border border-white/10 bg-black/65 text-white/80 shadow-2xl backdrop-blur-xl md:h-12"
 				>
-					<PhoneOff className="size-4" />
-				</Button>
+					<div title="Participants in session" className="flex h-full items-center gap-1.5 px-3.5">
+						<Users className="size-4" />
+						<span className="text-xs leading-none font-medium tabular-nums">
+							{participantCount}
+						</span>
+					</div>
+					{canInvitePeople && onInvitePeopleClick && (
+						<button
+							onClick={handleInvitePeopleClick}
+							title="Add people"
+							className="flex h-full items-center border-l border-white/10 px-3 transition-colors hover:bg-white/10 hover:text-white"
+						>
+							<UserPlus className="size-4" />
+						</button>
+					)}
+				</div>
 			</div>
 		</>
 	)
