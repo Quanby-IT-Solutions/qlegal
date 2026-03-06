@@ -1,16 +1,23 @@
 "use client"
 
 import { useRouter } from "next/navigation"
-import { useState } from "react"
+import { useEffect, useState } from "react"
+import { zodResolver } from "@hookform/resolvers/zod"
 import { useSession } from "next-auth/react"
+import { useForm } from "react-hook-form"
 import { toast } from "sonner"
 
 import { QuanbyLogo } from "@/core/components/quanby-logo"
 import { CardContent, CardDescription, CardHeader, CardTitle } from "@/core/components/ui/card"
+import { Form } from "@/core/components/ui/form"
 import { defineStepper } from "@/core/components/ui/stepper"
 
 import { trpc } from "@/services/trpc/client"
 
+import {
+	onboardingWizardSchema,
+	type OnboardingWizardSchema,
+} from "@/features/onboarding/api/onboarding.schemas"
 import { DoneStep } from "@/features/onboarding/components/steps/done-step"
 import { KycStep } from "@/features/onboarding/components/steps/kyc-step"
 import { PhoneStep } from "@/features/onboarding/components/steps/phone-step"
@@ -31,10 +38,28 @@ interface OnboardingWizardContentProps {
 }
 
 export function OnboardingWizardContent({ onRestartWelcome }: OnboardingWizardContentProps) {
+	return (
+		<StepperProvider variant="horizontal" className="space-y-4">
+			<OnboardingWizardContentBody onRestartWelcome={onRestartWelcome} />
+		</StepperProvider>
+	)
+}
+
+function OnboardingWizardContentBody({ onRestartWelcome }: OnboardingWizardContentProps) {
 	const router = useRouter()
 	const { data: session, update: updateSession } = useSession()
-	const [recoveryEmailSubmitted, setRecoveryEmailSubmitted] = useState(false)
+	const [recoveryEmailSubmittedInSession, setRecoveryEmailSubmittedInSession] = useState(false)
 	const { data: status, refetch: refetchStatus } = trpc.onboarding.getStatus.useQuery()
+	const form = useForm<OnboardingWizardSchema>({
+		resolver: zodResolver(onboardingWizardSchema),
+		values: {
+			recoveryEmail: status?.recoveryEmail ?? "",
+			phoneNumber: status?.phoneNumber ?? "",
+		},
+	})
+	const submitRecoveryEmail = trpc.onboarding.submitRecoveryEmail.useMutation()
+	const updateProfile = trpc.onboarding.updateProfile.useMutation()
+	const updateAvatar = trpc.onboarding.updateAvatar.useMutation()
 	const completeOnboarding = trpc.onboarding.completeOnboarding.useMutation({
 		onSuccess: async () => {
 			await updateSession()
@@ -56,8 +81,17 @@ export function OnboardingWizardContent({ onRestartWelcome }: OnboardingWizardCo
 	const handleGoToKyc = () => router.push("/auth/kyc")
 
 	const methods = useStepper()
+	const currentStepId = methods.current.id
 	const currentIndex = steps.findIndex(step => step.id === methods.current.id)
 	const currentStep = steps[currentIndex]
+	const hasPendingRecoveryEmail = !!status?.recoveryEmail && !status?.recoveryEmailVerified
+	const recoveryEmailSubmitted = recoveryEmailSubmittedInSession || hasPendingRecoveryEmail
+
+	useEffect(() => {
+		if (currentStepId === "done") {
+			void refetchStatus()
+		}
+	}, [currentStepId, refetchStatus])
 
 	const getCurrentStepContent = () => {
 		switch (methods.current.id) {
@@ -114,67 +148,140 @@ export function OnboardingWizardContent({ onRestartWelcome }: OnboardingWizardCo
 		if (!methods.isLast) methods.next()
 	}
 
+	const handleRecoveryEmailContinue = async () => {
+		const isValid = await form.trigger("recoveryEmail")
+
+		if (!isValid) return
+
+		const recoveryEmail = form.getValues("recoveryEmail").trim()
+
+		if (!recoveryEmail) {
+			handleNext()
+			return
+		}
+
+		try {
+			const result = await submitRecoveryEmail.mutateAsync({ recoveryEmail })
+			setRecoveryEmailSubmittedInSession(true)
+			toast.success(result.message)
+			void refetchStatus()
+			handleNext()
+		} catch (error) {
+			toast.error(error instanceof Error ? error.message : "Failed to save recovery email.")
+		}
+	}
+
+	const handlePhoneContinue = async () => {
+		const isValid = await form.trigger("phoneNumber")
+
+		if (!isValid) return
+
+		const phoneNumber = form.getValues("phoneNumber").trim()
+
+		if (!phoneNumber) {
+			handleNext()
+			return
+		}
+
+		try {
+			const result = await updateProfile.mutateAsync({ phoneNumber })
+			toast.success(result.message)
+			void refetchStatus()
+			handleNext()
+		} catch (error) {
+			toast.error(error instanceof Error ? error.message : "Failed to save phone number.")
+		}
+	}
+
+	const handlePhotoSave = async (imagePath: string) => {
+		await updateAvatar.mutateAsync({ imagePath })
+		void refetchStatus()
+	}
+
+	const handleCurrentStepSubmit = async () => {
+		if (methods.current.id === "recovery-email") {
+			await handleRecoveryEmailContinue()
+			return
+		}
+
+		if (methods.current.id === "phone") await handlePhoneContinue()
+	}
+
 	return (
-		<StepperProvider variant="horizontal" className="space-y-4">
-			<CardHeader className="text-center">
-				<div className="mb-2 flex justify-center">
-					<QuanbyLogo className="size-14" />
-				</div>
-				<CardTitle>{currentTitle}</CardTitle>
-				<CardDescription>{currentDescription}</CardDescription>
-			</CardHeader>
+		<Form {...form}>
+			<form
+				onSubmit={event => {
+					event.preventDefault()
+					void handleCurrentStepSubmit()
+				}}
+				className="space-y-4"
+			>
+				<CardHeader className="text-center">
+					<div className="mb-2 flex justify-center">
+						<QuanbyLogo className="size-14" />
+					</div>
+					<CardTitle>{currentTitle}</CardTitle>
+					<CardDescription>{currentDescription}</CardDescription>
+				</CardHeader>
 
-			<CardContent>
-				<StepperNavigation>
-					{steps.map((step, index) => (
-						<StepperStep key={step.id} of={step.id} disabled={index > currentIndex}>
-							<StepperTitle>{step.title}</StepperTitle>
-						</StepperStep>
-					))}
-				</StepperNavigation>
-			</CardContent>
+				<CardContent>
+					<StepperNavigation>
+						{steps.map((step, index) => (
+							<StepperStep key={step.id} of={step.id} disabled={index > currentIndex}>
+								<StepperTitle>{step.title}</StepperTitle>
+							</StepperStep>
+						))}
+					</StepperNavigation>
+				</CardContent>
 
-			{methods.current.id === "kyc" && (
-				<KycStep
-					onNext={handleNext}
-					onBack={handleBack}
-					kycStatus={session?.user?.kycStatus ?? undefined}
-					onGoToKyc={handleGoToKyc}
-				/>
-			)}
+				{methods.current.id === "kyc" && (
+					<KycStep
+						onNext={handleNext}
+						onBack={handleBack}
+						kycStatus={session?.user?.kycStatus ?? undefined}
+						onGoToKyc={handleGoToKyc}
+					/>
+				)}
 
-			{methods.current.id === "recovery-email" && (
-				<RecoveryEmailStep
-					onNext={() => {
-						setRecoveryEmailSubmitted(true)
-						handleNext()
-					}}
-					onBack={handleBack}
-					existingEmail={status?.recoveryEmail ?? undefined}
-				/>
-			)}
+				{methods.current.id === "recovery-email" && (
+					<RecoveryEmailStep
+						control={form.control}
+						onBack={handleBack}
+						onSkip={handleNext}
+						isSubmitting={submitRecoveryEmail.isPending}
+						hasPendingRecoveryEmail={hasPendingRecoveryEmail}
+					/>
+				)}
 
-			{methods.current.id === "phone" && (
-				<PhoneStep
-					onNext={handleNext}
-					onBack={handleBack}
-					existingPhone={status?.phoneNumber ?? undefined}
-				/>
-			)}
+				{methods.current.id === "phone" && (
+					<PhoneStep
+						control={form.control}
+						onBack={handleBack}
+						onSkip={handleNext}
+						isSubmitting={updateProfile.isPending}
+					/>
+				)}
 
-			{methods.current.id === "photo" && <PhotoStep onNext={handleNext} onBack={handleBack} />}
+				{methods.current.id === "photo" && (
+					<PhotoStep
+						onNext={handleNext}
+						onBack={handleBack}
+						onSaveImagePath={handlePhotoSave}
+						isSaving={updateAvatar.isPending}
+					/>
+				)}
 
-			{methods.current.id === "done" && (
-				<DoneStep
-					onComplete={handleComplete}
-					isCompleting={completeOnboarding.isPending}
-					recoveryEmailVerified={!!status?.recoveryEmailVerified}
-					recoveryEmailSubmitted={recoveryEmailSubmitted}
-					onRefreshStatus={() => void refetchStatus()}
-					onSnooze={handleSnoozeForSevenDays}
-					isSnoozing={snoozeOnboarding.isPending}
-				/>
-			)}
-		</StepperProvider>
+				{methods.current.id === "done" && (
+					<DoneStep
+						onComplete={handleComplete}
+						isCompleting={completeOnboarding.isPending}
+						recoveryEmailVerified={!!status?.recoveryEmailVerified}
+						recoveryEmailSubmitted={recoveryEmailSubmitted}
+						onSnooze={handleSnoozeForSevenDays}
+						isSnoozing={snoozeOnboarding.isPending}
+					/>
+				)}
+			</form>
+		</Form>
 	)
 }

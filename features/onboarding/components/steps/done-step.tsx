@@ -1,21 +1,14 @@
 "use client"
 
-import { useRouter } from "next/navigation"
-import { useEffect } from "react"
 import { AlertTriangleIcon, CheckCircle2Icon } from "lucide-react"
-import { useSession } from "next-auth/react"
-import { toast } from "sonner"
 
 import { Button } from "@/core/components/ui/button"
-
-import { trpc } from "@/services/trpc/client"
 
 interface DoneStepProps {
 	onComplete: () => void
 	isCompleting: boolean
 	recoveryEmailVerified: boolean
 	recoveryEmailSubmitted: boolean
-	onRefreshStatus: () => void
 	onSnooze?: () => void
 	isSnoozing?: boolean
 }
@@ -25,27 +18,9 @@ export function DoneStep({
 	isCompleting,
 	recoveryEmailVerified,
 	recoveryEmailSubmitted,
-	onRefreshStatus,
 	onSnooze,
 	isSnoozing,
 }: DoneStepProps) {
-	const router = useRouter()
-	const { update: updateSession } = useSession()
-
-	const snoozeOnboarding = trpc.onboarding.snoozeOnboarding.useMutation({
-		onSuccess: async () => {
-			await updateSession()
-			toast.success("Onboarding reminders paused for 7 days.")
-			router.push("/dashboard")
-		},
-		onError: err => toast.error(err.message),
-	})
-
-	// Re-fetch status on mount to check if recovery email was verified
-	useEffect(() => {
-		onRefreshStatus()
-	}, [onRefreshStatus])
-
 	const showReminder = recoveryEmailSubmitted && !recoveryEmailVerified
 
 	return (
@@ -65,16 +40,16 @@ export function DoneStep({
 			)}
 
 			<div className="flex items-center gap-2">
+				<Button type="button" variant="outline" onClick={onSnooze} disabled={isSnoozing} size="lg">
+					{isSnoozing ? "Pausing reminders…" : "Skip for 7 days"}
+				</Button>
 				<Button
 					type="button"
-					variant="outline"
-					onClick={onSnooze ?? (() => snoozeOnboarding.mutate())}
-					disabled={isSnoozing ?? snoozeOnboarding.isPending}
+					onClick={onComplete}
+					disabled={isCompleting}
+					className="flex-1"
 					size="lg"
 				>
-					{(isSnoozing ?? snoozeOnboarding.isPending) ? "Pausing reminders…" : "Skip for 7 days"}
-				</Button>
-				<Button onClick={onComplete} disabled={isCompleting} className="flex-1" size="lg">
 					{isCompleting ? "Setting up…" : "Go to Dashboard"}
 				</Button>
 			</div>

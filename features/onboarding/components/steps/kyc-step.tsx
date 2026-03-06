@@ -38,11 +38,11 @@ export function KycStep({ onNext, onBack, kycStatus, onGoToKyc }: KycStepProps) 
 					Back
 				</Button>
 				{isVerified ? (
-					<Button onClick={onNext} size="sm">
+					<Button type="button" onClick={onNext} size="sm">
 						Continue
 					</Button>
 				) : (
-					<Button onClick={onGoToKyc} size="sm">
+					<Button type="button" onClick={onGoToKyc} size="sm">
 						Complete KYC
 					</Button>
 				)}

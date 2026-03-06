@@ -10,8 +10,6 @@ import { Button } from "@/core/components/ui/button"
 import { Profile } from "@/core/components/user-profile"
 import { cn } from "@/core/lib/utils"
 
-import { trpc } from "@/services/trpc/client"
-
 import type { FileWithPreview } from "@/features/profile/api/profile.types"
 import { ImageCropper } from "@/features/profile/components/ui/image-cropper"
 import { useAvatarUpload } from "@/features/profile/hooks/use-avatar-upload"
@@ -19,16 +17,17 @@ import { useAvatarUpload } from "@/features/profile/hooks/use-avatar-upload"
 interface PhotoStepProps {
 	onNext: () => void
 	onBack: () => void
+	onSaveImagePath: (imagePath: string) => Promise<void>
+	isSaving: boolean
 }
 
-export function PhotoStep({ onNext, onBack }: PhotoStepProps) {
+export function PhotoStep({ onNext, onBack, onSaveImagePath, isSaving }: PhotoStepProps) {
 	const [selectedFile, setSelectedFile] = useState<FileWithPreview | null>(null)
 	const [isDialogOpen, setDialogOpen] = useState(false)
 	const [uploaded, setUploaded] = useState(false)
 
 	const { data: session, update: updateSession } = useSession()
 	const { uploadAvatar, isUploading } = useAvatarUpload()
-	const updateAvatarMutation = trpc.onboarding.updateAvatar.useMutation()
 
 	const handleCrop = useCallback(
 		async (croppedImageDataUrl: string) => {
@@ -40,7 +39,7 @@ export function PhotoStep({ onNext, onBack }: PhotoStepProps) {
 				const file = new File([blob], originalName, { type: blob.type || "image/png" })
 
 				const path = await uploadAvatar(file)
-				await updateAvatarMutation.mutateAsync({ imagePath: path })
+				await onSaveImagePath(path)
 
 				toast.success("Profile photo updated!")
 				setSelectedFile(null)
@@ -51,7 +50,7 @@ export function PhotoStep({ onNext, onBack }: PhotoStepProps) {
 				toast.error("Failed to upload photo. Please try again.")
 			}
 		},
-		[uploadAvatar, updateAvatarMutation, updateSession, selectedFile]
+		[onSaveImagePath, uploadAvatar, updateSession, selectedFile]
 	)
 
 	const onDrop = useCallback((acceptedFiles: FileWithPath[]) => {
@@ -72,7 +71,7 @@ export function PhotoStep({ onNext, onBack }: PhotoStepProps) {
 		maxFiles: 1,
 	})
 
-	const isProcessing = isUploading || updateAvatarMutation.isPending
+	const isProcessing = isUploading || isSaving
 
 	return (
 		<div>
@@ -100,7 +99,7 @@ export function PhotoStep({ onNext, onBack }: PhotoStepProps) {
 						className="ring-ring ring-offset-border ring-2 ring-offset-2"
 					/>
 					<p className="text-muted-foreground text-sm">Looking great!</p>
-					<Button variant="outline" size="sm" {...getRootProps()}>
+					<Button type="button" variant="outline" size="sm" {...getRootProps()}>
 						<input {...getInputProps()} />
 						Change photo
 					</Button>
@@ -130,14 +129,10 @@ export function PhotoStep({ onNext, onBack }: PhotoStepProps) {
 					Back
 				</Button>
 				<div className="flex items-center gap-4">
-					<button
-						type="button"
-						className="text-muted-foreground hover:text-foreground text-sm underline transition-colors"
-						onClick={onNext}
-					>
+					<Button type="button" variant="ghost" size="sm" onClick={onNext}>
 						Skip for now
-					</button>
-					<Button onClick={onNext} disabled={isProcessing}>
+					</Button>
+					<Button type="button" onClick={onNext} disabled={isProcessing}>
 						Continue
 					</Button>
 				</div>
