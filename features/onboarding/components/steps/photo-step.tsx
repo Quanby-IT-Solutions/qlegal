@@ -79,11 +79,6 @@ export function PhotoStep({ onNext, onBack }: PhotoStepProps) {
 			<p className="text-muted-foreground mb-1 text-[11px] font-semibold tracking-wider uppercase">
 				Profile
 			</p>
-			<h2 className="text-xl font-semibold">Add a profile photo</h2>
-			<p className="text-muted-foreground mt-1.5 mb-6 text-sm leading-relaxed">
-				Help others recognise you. You can always change this later from your profile
-				settings.
-			</p>
 
 			{selectedFile ? (
 				<ImageCropper
@@ -105,11 +100,7 @@ export function PhotoStep({ onNext, onBack }: PhotoStepProps) {
 						className="ring-ring ring-offset-border ring-2 ring-offset-2"
 					/>
 					<p className="text-muted-foreground text-sm">Looking great!</p>
-					<Button
-						variant="outline"
-						size="sm"
-						{...getRootProps()}
-					>
+					<Button variant="outline" size="sm" {...getRootProps()}>
 						<input {...getInputProps()} />
 						Change photo
 					</Button>
@@ -128,12 +119,8 @@ export function PhotoStep({ onNext, onBack }: PhotoStepProps) {
 					<div className="bg-muted mb-3 flex size-12 items-center justify-center rounded-full">
 						<CameraIcon className="text-muted-foreground size-6" />
 					</div>
-					<p className="text-sm font-medium">
-						Drag & drop or click to upload
-					</p>
-					<p className="text-muted-foreground mt-1 text-xs">
-						JPG, PNG or GIF · Max 5 MB
-					</p>
+					<p className="text-sm font-medium">Drag & drop or click to upload</p>
+					<p className="text-muted-foreground mt-1 text-xs">JPG, PNG or GIF · Max 5 MB</p>
 				</div>
 			)}
 

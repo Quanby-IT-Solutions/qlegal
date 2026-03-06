@@ -24,11 +24,14 @@ export function PhoneStep({ onNext, onBack, existingPhone }: PhoneStepProps) {
 			toast.success("Phone number saved!")
 			onNext()
 		},
-		onError: (err) => toast.error(err.message),
+		onError: err => toast.error(err.message),
 	})
 
 	const handleContinue = () => {
-		if (!phone.trim()) return
+		if (!phone.trim()) {
+			onNext()
+			return
+		}
 		updateProfile.mutate({ phoneNumber: phone })
 	}
 
@@ -36,10 +39,6 @@ export function PhoneStep({ onNext, onBack, existingPhone }: PhoneStepProps) {
 		<div>
 			<p className="text-muted-foreground mb-1 text-[11px] font-semibold tracking-wider uppercase">
 				Profile
-			</p>
-			<h2 className="text-xl font-semibold">Add your phone number</h2>
-			<p className="text-muted-foreground mt-1.5 mb-6 text-sm leading-relaxed">
-				We may use this to contact you about important account updates.
 			</p>
 
 			<div className="space-y-1.5">
@@ -49,7 +48,7 @@ export function PhoneStep({ onNext, onBack, existingPhone }: PhoneStepProps) {
 					type="tel"
 					placeholder="e.g. +63 912 345 6789"
 					value={phone}
-					onChange={(e) => setPhone(e.target.value)}
+					onChange={e => setPhone(e.target.value)}
 					disabled={updateProfile.isPending}
 				/>
 			</div>
@@ -67,10 +66,7 @@ export function PhoneStep({ onNext, onBack, existingPhone }: PhoneStepProps) {
 					>
 						Skip for now
 					</button>
-					<Button
-						onClick={handleContinue}
-						disabled={!phone.trim() || updateProfile.isPending}
-					>
+					<Button onClick={handleContinue} disabled={updateProfile.isPending}>
 						{updateProfile.isPending ? "Saving…" : "Continue"}
 					</Button>
 				</div>

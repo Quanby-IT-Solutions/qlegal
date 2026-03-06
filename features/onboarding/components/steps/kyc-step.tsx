@@ -1,8 +1,11 @@
 "use client"
 
-import { ShieldCheckIcon } from "lucide-react"
+import { CircleCheck, CircleDot } from "@hugeicons/core-free-icons"
+import { HugeiconsIcon } from "@hugeicons/react"
 
+import { Alert, AlertDescription, AlertTitle } from "@/core/components/ui/alert"
 import { Button } from "@/core/components/ui/button"
+import { CardContent, CardFooter } from "@/core/components/ui/card"
 
 interface KycStepProps {
 	onNext: () => void
@@ -15,27 +18,35 @@ export function KycStep({ onNext, onBack, kycStatus, onGoToKyc }: KycStepProps) 
 	const isVerified = kycStatus === "VERIFIED"
 
 	return (
-		<div>
-			<div className="mb-5 flex size-14 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-950/30">
-				<ShieldCheckIcon className="size-7 text-blue-600 dark:text-blue-400" />
-			</div>
+		<>
+			<CardContent className="px-2!">
+				<Alert className="bg-background/70">
+					<HugeiconsIcon icon={isVerified ? CircleCheck : CircleDot} />
+					<AlertTitle>
+						{isVerified ? "Your identity is verified" : "Identity verification pending"}
+					</AlertTitle>
+					<AlertDescription>
+						{isVerified
+							? "You can continue to the next step."
+							: "Complete identity verification to continue with onboarding."}
+					</AlertDescription>
+				</Alert>
+			</CardContent>
 
-			<h2 className="text-xl font-semibold">Identity verification (KYC)</h2>
-			<p className="text-muted-foreground mt-2 text-sm leading-relaxed">
-				KYC is required before using the platform.{" "}
-				{isVerified ? "Great news — you're verified." : "You still need to complete verification."}
-			</p>
-
-			<div className="mt-7 flex items-center justify-between">
+			<CardFooter className="flex items-center justify-end gap-2">
 				<Button type="button" variant="ghost" size="sm" onClick={onBack}>
 					Back
 				</Button>
 				{isVerified ? (
-					<Button onClick={onNext}>Continue</Button>
+					<Button onClick={onNext} size="sm">
+						Continue
+					</Button>
 				) : (
-					<Button onClick={onGoToKyc}>Complete KYC</Button>
+					<Button onClick={onGoToKyc} size="sm">
+						Complete KYC
+					</Button>
 				)}
-			</div>
-		</div>
+			</CardFooter>
+		</>
 	)
 }

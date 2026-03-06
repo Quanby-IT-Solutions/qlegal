@@ -30,7 +30,7 @@ export function AddressStep({ onNext, onBack, existingAddress }: AddressStepProp
 			toast.success("Address saved!")
 			onNext()
 		},
-		onError: (err) => toast.error(err.message),
+		onError: err => toast.error(err.message),
 	})
 
 	const hasAnyField = homeStreet.trim() || barangay.trim() || cityProvince.trim()
@@ -45,10 +45,6 @@ export function AddressStep({ onNext, onBack, existingAddress }: AddressStepProp
 			<p className="text-muted-foreground mb-1 text-[11px] font-semibold tracking-wider uppercase">
 				Profile
 			</p>
-			<h2 className="text-xl font-semibold">Add your address</h2>
-			<p className="text-muted-foreground mt-1.5 mb-6 text-sm leading-relaxed">
-				Your address may be needed for document signing and delivery purposes.
-			</p>
 
 			<div className="space-y-4">
 				<div className="space-y-1.5">
@@ -57,7 +53,7 @@ export function AddressStep({ onNext, onBack, existingAddress }: AddressStepProp
 						id="home-street"
 						placeholder="e.g. 123 Mabini Street"
 						value={homeStreet}
-						onChange={(e) => setHomeStreet(e.target.value)}
+						onChange={e => setHomeStreet(e.target.value)}
 						disabled={updateProfile.isPending}
 					/>
 				</div>
@@ -67,7 +63,7 @@ export function AddressStep({ onNext, onBack, existingAddress }: AddressStepProp
 						id="barangay"
 						placeholder="e.g. Barangay San Antonio"
 						value={barangay}
-						onChange={(e) => setBarangay(e.target.value)}
+						onChange={e => setBarangay(e.target.value)}
 						disabled={updateProfile.isPending}
 					/>
 				</div>
@@ -77,7 +73,7 @@ export function AddressStep({ onNext, onBack, existingAddress }: AddressStepProp
 						id="city-province"
 						placeholder="e.g. Makati City, Metro Manila"
 						value={cityProvince}
-						onChange={(e) => setCityProvince(e.target.value)}
+						onChange={e => setCityProvince(e.target.value)}
 						disabled={updateProfile.isPending}
 					/>
 				</div>
@@ -96,10 +92,7 @@ export function AddressStep({ onNext, onBack, existingAddress }: AddressStepProp
 					>
 						Skip for now
 					</button>
-					<Button
-						onClick={handleContinue}
-						disabled={!hasAnyField || updateProfile.isPending}
-					>
+					<Button onClick={handleContinue} disabled={!hasAnyField || updateProfile.isPending}>
 						{updateProfile.isPending ? "Saving…" : "Continue"}
 					</Button>
 				</div>
