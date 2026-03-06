@@ -315,7 +315,6 @@ export const DocumentCards = React.memo(
 				}, 0),
 			[documents]
 		)
-		if (!documents || documents.length === 0) return null
 
 		const panelContent = (
 			<>
@@ -374,8 +373,13 @@ export const DocumentCards = React.memo(
 				{showDocuments ? (
 					<>
 						<div className="flex min-h-0 flex-1 flex-col overflow-hidden p-3">
-							<div className="space-y-3 overflow-y-auto [scrollbar-color:transparent_transparent] [scrollbar-width:thin] hover:[scrollbar-color:rgba(148,163,184,0.45)_transparent] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-transparent hover:[&::-webkit-scrollbar-thumb]:bg-white/25 [&::-webkit-scrollbar-track]:bg-transparent">
-								{documents.map((doc, index) => {
+							{documents.length === 0 ? (
+								<div className="flex min-h-0 flex-1 items-center justify-center p-3">
+									<p className="text-muted-foreground text-sm">No Documents Uploaded yet</p>
+								</div>
+							) : (
+								<div className="space-y-3 overflow-y-auto [scrollbar-color:transparent_transparent] [scrollbar-width:thin] hover:[scrollbar-color:rgba(148,163,184,0.45)_transparent] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-transparent hover:[&::-webkit-scrollbar-thumb]:bg-white/25 [&::-webkit-scrollbar-track]:bg-transparent">
+									{documents.map((doc, index) => {
 									const isDragged = draggedDocumentId === doc.id
 									const isDragOver = dragOverDocumentId === doc.id
 
@@ -624,8 +628,9 @@ export const DocumentCards = React.memo(
 											</CardContent>
 										</Card>
 									)
-								})}
-							</div>
+									})}
+								</div>
+							)}
 						</div>
 
 						{totalFees > 0 && (

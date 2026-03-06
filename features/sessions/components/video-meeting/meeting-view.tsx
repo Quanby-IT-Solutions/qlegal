@@ -129,50 +129,48 @@ export function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meet
 						</div>
 					</div>
 
-					{meetingData.documents && meetingData.documents.length > 0 && (
-						<DocumentCards
-							ref={docCardsRef}
-							meetingId={meetingId}
-							documents={meetingData.documents}
-							sidePanel={sidePanel}
-							onPanelOpenChange={open => setSidePanel(open ? (sidePanel ?? "documents") : null)}
-							isDocumentsFetching={meetingData.isDocumentsFetching}
-							isRefreshingSigningStatus={documentSigning.isRefreshingSigningStatus}
-							documentSigningStatus={documentSigning.documentSigningStatus}
-							meetingDetails={meetingData.meetingDetails}
-							notarizationDetails={meetingData.notarizationDetails}
-							signingDocumentId={documentSigning.signingDocumentId}
-							isPlottingAction={documentSigning.isPlottingAction}
-							downloadingProjectUuid={documentSigning.downloadingProjectUuid}
-							preGeneratedPlotLinks={documentSigning.preGeneratedPlotLinks}
-							preGeneratedSignLinks={documentSigning.preGeneratedSignLinks}
-							userConfirmedPlottedDocumentIds={documentSigning.userConfirmedPlottedDocumentIds}
-							docoChainTokenReady={meetingData.docoChainTokenReady}
-							docoChainTokenLoading={meetingData.docoChainTokenLoading}
-							onSignClick={documentSigning.handleSignClick}
-							onSignersChange={meetingData.handleSignersChange}
-							onCreateProject={(documentId, mId) => {
-								meetingData.createDocoChainProjectMutation.mutate({
-									documentId,
-									meetingId: mId,
-								})
-							}}
-							isCreatingProject={meetingData.createDocoChainProjectMutation.isPending}
-							onPreGeneratedLink={documentSigning.onPreGeneratedLink}
-							onViewNotarizedDocument={documentSigning.handleViewNotarizedDocument}
-							onRefresh={async () => {
-								await meetingData.refetchDocuments()
-								await documentSigning.manualRefreshSigningStatuses()
-							}}
-							onToggleLock={isLocked => {
-								if (meetingId) meetingData.toggleLockMutation.mutate({ meetingId, isLocked })
-							}}
-							isTogglingLock={meetingData.toggleLockMutation.isPending}
-							onUpdateDocumentOrder={documentIds => {
-								if (meetingId) meetingData.updateDocumentOrder.mutate({ meetingId, documentIds })
-							}}
-						/>
-					)}
+					<DocumentCards
+						ref={docCardsRef}
+						meetingId={meetingId}
+						documents={meetingData.documents ?? []}
+						sidePanel={sidePanel}
+						onPanelOpenChange={open => setSidePanel(open ? (sidePanel ?? "documents") : null)}
+						isDocumentsFetching={meetingData.isDocumentsFetching}
+						isRefreshingSigningStatus={documentSigning.isRefreshingSigningStatus}
+						documentSigningStatus={documentSigning.documentSigningStatus}
+						meetingDetails={meetingData.meetingDetails}
+						notarizationDetails={meetingData.notarizationDetails}
+						signingDocumentId={documentSigning.signingDocumentId}
+						isPlottingAction={documentSigning.isPlottingAction}
+						downloadingProjectUuid={documentSigning.downloadingProjectUuid}
+						preGeneratedPlotLinks={documentSigning.preGeneratedPlotLinks}
+						preGeneratedSignLinks={documentSigning.preGeneratedSignLinks}
+						userConfirmedPlottedDocumentIds={documentSigning.userConfirmedPlottedDocumentIds}
+						docoChainTokenReady={meetingData.docoChainTokenReady}
+						docoChainTokenLoading={meetingData.docoChainTokenLoading}
+						onSignClick={documentSigning.handleSignClick}
+						onSignersChange={meetingData.handleSignersChange}
+						onCreateProject={(documentId, mId) => {
+							meetingData.createDocoChainProjectMutation.mutate({
+								documentId,
+								meetingId: mId,
+							})
+						}}
+						isCreatingProject={meetingData.createDocoChainProjectMutation.isPending}
+						onPreGeneratedLink={documentSigning.onPreGeneratedLink}
+						onViewNotarizedDocument={documentSigning.handleViewNotarizedDocument}
+						onRefresh={async () => {
+							await meetingData.refetchDocuments()
+							await documentSigning.manualRefreshSigningStatuses()
+						}}
+						onToggleLock={isLocked => {
+							if (meetingId) meetingData.toggleLockMutation.mutate({ meetingId, isLocked })
+						}}
+						isTogglingLock={meetingData.toggleLockMutation.isPending}
+						onUpdateDocumentOrder={documentIds => {
+							if (meetingId) meetingData.updateDocumentOrder.mutate({ meetingId, documentIds })
+						}}
+					/>
 				</div>
 				<div className="bg-background/90 relative flex items-center justify-center px-4 py-3 backdrop-blur-sm">
 					<MeetingControls
