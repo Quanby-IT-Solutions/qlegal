@@ -133,9 +133,7 @@ export const SignerManagementModal = React.memo(function SignerManagementModal({
 		const roles: Record<string, SignerRole> = {}
 		for (const id of selectedUserIds) {
 			const p = participants.find(x => x.userId === id)
-			roles[id] =
-				signerRoles[id] ??
-				(p?.user?.role === "ENP" ? "witness" : "principal")
+			roles[id] = signerRoles[id] ?? (p?.user?.role === "ENP" ? "witness" : "principal")
 		}
 		onSignersChange(selectedUserIds, roles)
 		onOpenChange(false)
