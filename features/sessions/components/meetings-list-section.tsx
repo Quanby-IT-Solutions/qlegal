@@ -671,7 +671,7 @@ export function MeetingsListSection() {
 																onClick={e => {
 																	e.stopPropagation()
 																	setJoiningMeetingId(meeting.id)
-																	router.push(`/sessions/${meeting.id}/lobby`)
+																	router.push(`/sessions/${meeting.id}`)
 																}}
 																disabled={joiningMeetingId === meeting.id}
 															>
@@ -869,7 +869,7 @@ export function MeetingsListSection() {
 														onClick={e => {
 															e.stopPropagation()
 															setJoiningMeetingId(meeting.id)
-															router.push(`/sessions/${meeting.id}/lobby`)
+															router.push(`/sessions/${meeting.id}`)
 														}}
 														disabled={joiningMeetingId === meeting.id}
 													>

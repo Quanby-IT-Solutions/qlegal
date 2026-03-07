@@ -189,7 +189,7 @@ export function DashboardContent() {
 			{
 				onSuccess: () => {
 					toast.success("Invite accepted")
-					router.push(`/sessions/${meetingId}/lobby` as Route)
+					router.push(`/sessions/${meetingId}` as Route)
 				},
 				onError: err => {
 					toast.error(err.message || "Failed to accept invite")

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { Activity, Calendar, CheckCircle, Clock, Mail, MapPin, Shield, User } from "lucide-react"
+import { useSession } from "next-auth/react"
 import { toast } from "sonner"
 
 import { Alert, AlertDescription } from "@/core/components/ui/alert"
@@ -28,7 +29,11 @@ interface UserProfileSheetProps {
 
 export function UserProfileSheet({ userId, trigger }: UserProfileSheetProps) {
 	const [open, setOpen] = useState(false)
+	const { data: session } = useSession()
 	const utils = trpc.useUtils()
+
+	const isAdmin =
+		session?.user?.role === "ADMIN" || session?.user?.role === "SUPER_ADMIN"
 
 	const { data: user, isLoading } = trpc.userManagement.getById.useQuery(
 		{ id: userId },
@@ -294,7 +299,7 @@ export function UserProfileSheet({ userId, trigger }: UserProfileSheetProps) {
 								</CardContent>
 							</Card>
 
-							{user.role.toUpperCase() === "ENP" ? (
+							{user.role.toUpperCase() === "ENP" && isAdmin ? (
 								<Card>
 									<CardHeader className="pb-3">
 										<CardTitle className="text-base">DocOnChain Sub-Organization</CardTitle>

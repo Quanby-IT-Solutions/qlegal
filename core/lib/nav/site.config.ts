@@ -9,12 +9,12 @@ import {
 	Notification01Icon,
 	Sent02Icon,
 	Settings01Icon,
+	ShieldIcon,
 	ShieldUserIcon,
 	UserGroupIcon,
 	UserIcon,
 	UserMultipleIcon,
 	Video01Icon,
-  	ShieldIcon, 
 } from "@hugeicons/core-free-icons"
 
 import type { UserRole } from "@/services/drizzle/schema/auth"

@@ -147,7 +147,7 @@ export const SidebarNavItem = ({ item, userRole }: SidebarNavItemProps) => {
 	}
 
 	return (
-		<Collapsible asChild defaultOpen={item.isActive || isActive} className="group/collapsible">
+		<Collapsible asChild defaultOpen={item.isActive ?? isActive} className="group/collapsible">
 			<SidebarMenuItem>
 				{sidebarState === "collapsed" ? (
 					<Tooltip side="right" align="center">
