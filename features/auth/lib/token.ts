@@ -5,8 +5,10 @@ import { v4 as uuidv4 } from "uuid"
 import { db } from "@/services/drizzle/db"
 import {
 	passwordResetTokens,
+	recoveryEmailVerificationTokens,
 	twoFactorTokens,
 	verificationTokens,
+	type RecoveryEmailVerificationToken,
 	type VerificationToken,
 } from "@/services/drizzle/schema/auth"
 
@@ -92,4 +94,36 @@ export const generateVerificationToken = async (email: string): Promise<Verifica
 	}
 
 	return verificationToken
+}
+
+export const generateRecoveryEmailVerificationToken = async (
+	email: string
+): Promise<RecoveryEmailVerificationToken> => {
+	const token = uuidv4()
+	const expires = new Date(Date.now() + 3600 * 1000) // 1 hour
+
+	const existingToken = await db.query.recoveryEmailVerificationTokens.findFirst({
+		where: (data, { eq }) => eq(data.email, email),
+	})
+
+	if (existingToken && !(existingToken instanceof Error)) {
+		await db
+			.delete(recoveryEmailVerificationTokens)
+			.where(eq(recoveryEmailVerificationTokens.id, existingToken.id))
+	}
+
+	const [recoveryToken] = await db
+		.insert(recoveryEmailVerificationTokens)
+		.values({
+			email,
+			token,
+			expires,
+		})
+		.returning()
+
+	if (!recoveryToken) {
+		throw new Error("Failed to create recovery email verification token")
+	}
+
+	return recoveryToken
 }

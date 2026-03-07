@@ -118,6 +118,33 @@ export default proxy(req => {
 				return NextResponse.redirect(statusUrl)
 			}
 
+			// ONBOARDING REMINDER GATE:
+			// After KYC, users are reminded to complete optional profile details.
+			// They can snooze reminders for 7 days from onboarding.
+			const onboardingSnoozedUntilRaw = auth?.user?.onboardingSnoozedUntil
+			const onboardingSnoozedUntil =
+				typeof onboardingSnoozedUntilRaw === "string" ? new Date(onboardingSnoozedUntilRaw) : null
+			const isOnboardingSnoozed =
+				onboardingSnoozedUntil !== null &&
+				!Number.isNaN(onboardingSnoozedUntil.getTime()) &&
+				onboardingSnoozedUntil.getTime() > Date.now()
+
+			if (
+				isAuth &&
+				path !== "/onboarding" &&
+				!onAuthPage &&
+				path !== "/auth/kyc" &&
+				path !== "/auth/status" &&
+				role !== "ADMIN" &&
+				role !== "ENA" &&
+				!auth?.user?.onboardingDetailsComplete &&
+				!isOnboardingSnoozed
+			) {
+				const onboardingUrl = new URL("/onboarding", nextUrl)
+				logRedirect(path, onboardingUrl.pathname, "onboarding reminder gate")
+				return NextResponse.redirect(onboardingUrl)
+			}
+
 			const response = NextResponse.next()
 			return addCustomHeaders(response, userId, path)
 		}

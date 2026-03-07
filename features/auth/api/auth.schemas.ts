@@ -47,9 +47,6 @@ const agreeToTermsSchema = z.boolean({
 
 export const registerSchema = z
 	.object({
-		firstName: firstNameSchema,
-		middleName: middleNameSchema,
-		lastName: lastNameSchema,
 		email: emailSchema,
 		password: complexPasswordSchema,
 		confirmPassword: complexConfirmPasswordSchema,

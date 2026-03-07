@@ -13,6 +13,8 @@ export const users = createTable("user", t => ({
 	firstName: t.varchar({ length: 255 }),
 	middleName: t.varchar({ length: 255 }),
 	lastName: t.varchar({ length: 255 }),
+	prefix: t.varchar({ length: 50 }),
+	suffix: t.varchar({ length: 50 }),
 	email: t.varchar({ length: 255 }).unique(),
 	emailVerified: t.timestamp({ mode: "date", withTimezone: true }),
 	image: t.text(),
@@ -29,6 +31,11 @@ export const users = createTable("user", t => ({
 	// KYC status (simplified - detailed data in kyc_sessions and id_card_details tables)
 	kycStatus: kycStatus().default("NOT_STARTED"),
 	kycVerifiedAt: t.timestamp({ mode: "date", withTimezone: true }),
+	recoveryEmail: t.varchar({ length: 255 }).unique(),
+	recoveryEmailVerified: t.timestamp({ mode: "date", withTimezone: true }),
+	onboardingCompletedAt: t.timestamp({ mode: "date", withTimezone: true }),
+	onboardingDetailsCompletedAt: t.timestamp({ mode: "date", withTimezone: true }),
+	onboardingSnoozedUntil: t.timestamp({ mode: "date", withTimezone: true }),
 })).enableRLS()
 
 export const accounts = createTable(
@@ -114,6 +121,22 @@ export const verificationTokens = createTable("verification_token", t => ({
 	expires: t.timestamp({ mode: "date", withTimezone: true }).notNull(),
 })).enableRLS()
 
+export const recoveryEmailVerificationTokens = createTable(
+	"recovery_email_verification_token",
+	t => ({
+		id: t
+			.varchar({ length: 255 })
+			.primaryKey()
+			.$defaultFn(() => randomId()),
+		email: t
+			.varchar({ length: 255 })
+			.notNull()
+			.references(() => users.email, { onDelete: "cascade" }),
+		token: t.varchar({ length: 255 }).notNull(),
+		expires: t.timestamp({ mode: "date", withTimezone: true }).notNull(),
+	})
+).enableRLS()
+
 export type UserRole = InferSelectModel<typeof users>["role"]
 export type User = InferSelectModel<typeof users>
 export type Account = InferSelectModel<typeof accounts>
@@ -121,3 +144,6 @@ export type Session = InferSelectModel<typeof sessions>
 export type PasswordResetToken = InferSelectModel<typeof passwordResetTokens>
 export type TwoFactorToken = InferSelectModel<typeof twoFactorTokens>
 export type VerificationToken = InferSelectModel<typeof verificationTokens>
+export type RecoveryEmailVerificationToken = InferSelectModel<
+	typeof recoveryEmailVerificationTokens
+>
