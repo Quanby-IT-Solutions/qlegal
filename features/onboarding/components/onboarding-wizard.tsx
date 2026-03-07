@@ -5,15 +5,26 @@ import { useState } from "react"
 import { QuanbyLogo } from "@/core/components/quanby-logo"
 import { Button } from "@/core/components/ui/button"
 import { Card, CardDescription, CardHeader, CardTitle } from "@/core/components/ui/card"
+import { cn } from "@/core/lib/utils"
 
 import { OnboardingWizardContent } from "./onboarding-wizzard-content"
 
 export function OnboardingWizard() {
 	const [hasStarted, setHasStarted] = useState(false)
+	const [isSummaryStep, setIsSummaryStep] = useState(false)
 	const handleStart = () => setHasStarted(true)
+	const handleRestartWelcome = () => {
+		setIsSummaryStep(false)
+		setHasStarted(false)
+	}
 
 	return (
-		<Card className="w-full max-w-md border shadow-lg">
+		<Card
+			className={cn(
+				"w-full border shadow-lg transition-[max-width] duration-300 ease-in-out",
+				isSummaryStep ? "max-w-md md:max-w-5xl" : "max-w-md"
+			)}
+		>
 			{!hasStarted && (
 				<CardHeader className="flex-col text-center">
 					<div className="mb-2 flex justify-center">
@@ -30,7 +41,12 @@ export function OnboardingWizard() {
 				</CardHeader>
 			)}
 
-			{hasStarted && <OnboardingWizardContent onRestartWelcome={() => setHasStarted(false)} />}
+			{hasStarted && (
+				<OnboardingWizardContent
+					onRestartWelcome={handleRestartWelcome}
+					onSummaryStepChange={setIsSummaryStep}
+				/>
+			)}
 		</Card>
 	)
 }

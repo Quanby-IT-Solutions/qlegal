@@ -1,8 +1,10 @@
 "use client"
 
+import { useMemo } from "react"
 import { CircleCheck, InformationCircleIcon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import {
+	ArrowLeftIcon,
 	CameraIcon,
 	CheckCircle2Icon,
 	MailIcon,
@@ -12,6 +14,17 @@ import {
 } from "lucide-react"
 
 import { Alert, AlertDescription, AlertTitle } from "@/core/components/reui/alert"
+import {
+	AlertDialog,
+	AlertDialogAction,
+	AlertDialogCancel,
+	AlertDialogContent,
+	AlertDialogDescription,
+	AlertDialogFooter,
+	AlertDialogHeader,
+	AlertDialogTitle,
+	AlertDialogTrigger,
+} from "@/core/components/ui/alert-dialog"
 import { Badge } from "@/core/components/ui/badge"
 import { Button } from "@/core/components/ui/button"
 import { CardContent, CardFooter } from "@/core/components/ui/card"
@@ -19,6 +32,7 @@ import { Profile } from "@/core/components/user-profile"
 import { cn } from "@/core/lib/utils"
 
 interface DoneStepProps {
+	onBack: () => void
 	onComplete: () => void
 	isCompleting: boolean
 	kycVerified: boolean
@@ -42,6 +56,7 @@ interface SummaryItem {
 }
 
 export function DoneStep({
+	onBack,
 	onComplete,
 	isCompleting,
 	kycVerified,
@@ -57,6 +72,15 @@ export function DoneStep({
 }: DoneStepProps) {
 	const showReminder = recoveryEmailSubmitted && !recoveryEmailVerified
 	const canSnoozeReminder = showReminder && !!onSnooze
+	const completedItemsCount = useMemo(
+		() =>
+			[kycVerified, recoveryEmailVerified, !!phoneNumber, hasProfilePhoto].filter(Boolean).length,
+		[hasProfilePhoto, kycVerified, phoneNumber, recoveryEmailVerified]
+	)
+	const optionalItemsCount = useMemo(
+		() => [!recoveryEmailSubmitted, !phoneNumber, !hasProfilePhoto].filter(Boolean).length,
+		[hasProfilePhoto, phoneNumber, recoveryEmailSubmitted]
+	)
 	const summaryItems: SummaryItem[] = [
 		{
 			label: "Identity verification",
@@ -125,81 +149,103 @@ export function DoneStep({
 		<>
 			<div className="space-y-2">
 				<CardContent className="px-2!">
-					<div className="from-success/10 via-background to-background space-y-4 rounded-2xl border bg-linear-to-br p-5">
-						<div className="flex items-start gap-4">
-							<div className="bg-success/10 text-success flex size-12 shrink-0 items-center justify-center rounded-2xl border border-current/15">
-								<HugeiconsIcon icon={CircleCheck} className="size-6" />
+					<div className="grid gap-4 md:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)] md:items-start">
+						<div className="from-success/10 via-background to-background space-y-4 rounded-2xl border bg-linear-to-br p-5">
+							<div className="flex items-start gap-4 md:gap-3">
+								<div className="bg-success/10 text-success flex size-12 shrink-0 items-center justify-center rounded-2xl border border-current/15 md:size-11">
+									<HugeiconsIcon icon={CircleCheck} className="size-6 md:size-5" />
+								</div>
+
+								<div className="space-y-1.5 md:space-y-1">
+									<p className="text-muted-foreground text-[11px] font-semibold tracking-wider uppercase">
+										Ready to go
+									</p>
+									<h3 className="text-lg font-semibold tracking-tight md:text-xl">
+										Your Quanby account is set up
+									</h3>
+									<p className="text-muted-foreground text-sm leading-6">
+										You&apos;re ready to start signing, reviewing, and managing documents with a
+										clean, secure profile.
+									</p>
+									<div className="flex flex-wrap items-center gap-2 pt-1">
+										<Badge
+											variant="outline"
+											className="border-success/25 bg-success/8 text-success"
+										>
+											{completedItemsCount}/4 completed
+										</Badge>
+										{optionalItemsCount > 0 ? (
+											<Badge variant="outline" className="bg-background/70 text-muted-foreground">
+												{optionalItemsCount} optional item{optionalItemsCount > 1 ? "s" : ""}
+											</Badge>
+										) : (
+											<Badge variant="outline" className="bg-background/70 text-muted-foreground">
+												Everything essential is in place
+											</Badge>
+										)}
+									</div>
+								</div>
 							</div>
 
+							<div className="bg-background/80 flex items-center gap-3 rounded-xl border px-3 py-3">
+								<Profile url={userImage ?? null} name={userName} size="lg" />
+								<div className="min-w-0 space-y-1 text-left">
+									<p className="truncate text-sm font-medium">{userName}</p>
+									<p className="text-muted-foreground text-sm leading-5">
+										Your setup summary is below, and you can refine any of it later from settings.
+									</p>
+								</div>
+							</div>
+						</div>
+
+						<div className="bg-background/70 space-y-3 rounded-2xl border p-4">
 							<div className="space-y-1">
 								<p className="text-muted-foreground text-[11px] font-semibold tracking-wider uppercase">
-									Ready to go
+									Onboarding summary
 								</p>
-								<h3 className="text-lg font-semibold tracking-tight">
-									Your Quanby account is set up
-								</h3>
-								<p className="text-muted-foreground text-sm leading-6">
-									You&apos;re ready to start signing, reviewing, and managing documents with a
-									clean, secure profile.
-								</p>
+								<p className="text-sm font-medium">Everything important, at a glance.</p>
 							</div>
-						</div>
 
-						<div className="bg-background/80 flex items-center gap-3 rounded-xl border px-3 py-3">
-							<Profile url={userImage ?? null} name={userName} size="lg" />
-							<div className="min-w-0 space-y-1 text-left">
-								<p className="truncate text-sm font-medium">{userName}</p>
-								<p className="text-muted-foreground text-sm">
-									Your setup summary is below, and you can refine any of it later from settings.
-								</p>
-							</div>
-						</div>
-					</div>
-				</CardContent>
+							<div className="space-y-2">
+								{summaryItems.map(item => {
+									const ItemIcon = item.icon
 
-				<CardContent className="px-2!">
-					<div className="bg-background/70 space-y-3 rounded-2xl border p-4">
-						<div className="space-y-1">
-							<p className="text-muted-foreground text-[11px] font-semibold tracking-wider uppercase">
-								Onboarding summary
-							</p>
-							<p className="text-sm font-medium">Everything important, at a glance.</p>
-						</div>
-
-						<div className="space-y-2">
-							{summaryItems.map(item => {
-								const ItemIcon = item.icon
-
-								return (
-									<div
-										key={item.label}
-										className="bg-background/80 flex items-start justify-between gap-3 rounded-xl border px-3 py-3"
-									>
-										<div className="flex min-w-0 items-start gap-3">
-											<div className="bg-muted flex size-9 shrink-0 items-center justify-center rounded-full border">
-												<ItemIcon className="text-muted-foreground size-4" />
-											</div>
-
-											<div className="min-w-0 space-y-1 text-left">
-												<div className="flex items-center gap-2">
-													<p className="text-sm font-medium">{item.label}</p>
-													{item.statusTone === "complete" ? (
-														<CheckCircle2Icon className="text-success size-4" />
-													) : null}
-												</div>
-												<p className="text-muted-foreground text-sm leading-5">{item.detail}</p>
-											</div>
-										</div>
-
-										<Badge
-											className={cn("mt-0.5", getBadgeClassName(item.statusTone))}
-											variant="outline"
+									return (
+										<div
+											key={item.label}
+											className="bg-background/80 flex min-w-0 flex-col gap-3 rounded-xl border px-3 py-3 sm:flex-row sm:items-start sm:justify-between"
 										>
-											{item.statusLabel}
-										</Badge>
-									</div>
-								)
-							})}
+											<div className="flex min-w-0 items-start gap-3">
+												<div className="bg-muted flex size-9 shrink-0 items-center justify-center rounded-full border">
+													<ItemIcon className="text-muted-foreground size-4" />
+												</div>
+
+												<div className="min-w-0 space-y-1 text-left">
+													<div className="flex flex-wrap items-center gap-2">
+														<p className="text-sm font-medium">{item.label}</p>
+														{item.statusTone === "complete" ? (
+															<CheckCircle2Icon className="text-success size-4" />
+														) : null}
+													</div>
+													<p className="text-muted-foreground text-sm leading-5 wrap-break-word">
+														{item.detail}
+													</p>
+												</div>
+											</div>
+
+											<Badge
+												className={cn(
+													"shrink-0 self-start sm:mt-0.5 sm:self-center",
+													getBadgeClassName(item.statusTone)
+												)}
+												variant="outline"
+											>
+												{item.statusLabel}
+											</Badge>
+										</div>
+									)
+								})}
+							</div>
 						</div>
 					</div>
 				</CardContent>
@@ -220,25 +266,45 @@ export function DoneStep({
 
 			<CardFooter
 				className={cn(
-					"flex items-center gap-2",
-					canSnoozeReminder ? "justify-between" : "justify-end"
+					"flex flex-col gap-3 border-t pt-4 sm:flex-row sm:items-center sm:justify-between",
+					!canSnoozeReminder && "sm:justify-between"
 				)}
 			>
-				{canSnoozeReminder ? (
-					<Button
-						type="button"
-						variant="outline"
-						onClick={onSnooze}
-						disabled={isSnoozing}
-						size="sm"
-					>
-						{isSnoozing ? "Pausing reminders…" : "Remind me in 7 days"}
+				<div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+					<Button type="button" variant="ghost" onClick={onBack} size="sm">
+						<ArrowLeftIcon className="size-4" />
+						Back
 					</Button>
-				) : null}
 
-				<Button type="button" onClick={onComplete} disabled={isCompleting} size="sm">
-					{isCompleting ? "Setting up…" : "Go to Dashboard"}
-				</Button>
+					{canSnoozeReminder ? (
+						<AlertDialog>
+							<AlertDialogTrigger asChild>
+								<Button type="button" variant="outline" disabled={isSnoozing} size="sm">
+									{isSnoozing ? "Pausing reminders…" : "Remind me in 7 days"}
+								</Button>
+							</AlertDialogTrigger>
+							<AlertDialogContent>
+								<AlertDialogHeader>
+									<AlertDialogTitle>Pause onboarding reminders for 7 days?</AlertDialogTitle>
+									<AlertDialogDescription>
+										We&apos;ll stop nudging you about verifying your recovery email for the next 7
+										days. You can still finish onboarding anytime from your account.
+									</AlertDialogDescription>
+								</AlertDialogHeader>
+								<AlertDialogFooter>
+									<AlertDialogCancel>Keep reminders on</AlertDialogCancel>
+									<AlertDialogAction onClick={onSnooze}>Pause for 7 days</AlertDialogAction>
+								</AlertDialogFooter>
+							</AlertDialogContent>
+						</AlertDialog>
+					) : null}
+				</div>
+
+				<div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+					<Button type="button" onClick={onComplete} disabled={isCompleting} size="sm">
+						{isCompleting ? "Setting up…" : "Go to Dashboard"}
+					</Button>
+				</div>
 			</CardFooter>
 		</>
 	)

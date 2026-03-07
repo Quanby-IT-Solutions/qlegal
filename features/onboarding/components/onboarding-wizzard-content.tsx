@@ -35,17 +35,27 @@ const { useStepper, steps, StepperProvider, StepperNavigation, StepperStep, Step
 
 interface OnboardingWizardContentProps {
 	onRestartWelcome: () => void
+	onSummaryStepChange?: (isSummaryStep: boolean) => void
 }
 
-export function OnboardingWizardContent({ onRestartWelcome }: OnboardingWizardContentProps) {
+export function OnboardingWizardContent({
+	onRestartWelcome,
+	onSummaryStepChange,
+}: OnboardingWizardContentProps) {
 	return (
 		<StepperProvider variant="horizontal" className="space-y-4">
-			<OnboardingWizardContentBody onRestartWelcome={onRestartWelcome} />
+			<OnboardingWizardContentBody
+				onRestartWelcome={onRestartWelcome}
+				onSummaryStepChange={onSummaryStepChange}
+			/>
 		</StepperProvider>
 	)
 }
 
-function OnboardingWizardContentBody({ onRestartWelcome }: OnboardingWizardContentProps) {
+function OnboardingWizardContentBody({
+	onRestartWelcome,
+	onSummaryStepChange,
+}: OnboardingWizardContentProps) {
 	const router = useRouter()
 	const { data: session, update: updateSession } = useSession()
 	const [recoveryEmailSubmittedInSession, setRecoveryEmailSubmittedInSession] = useState(false)
@@ -95,6 +105,10 @@ function OnboardingWizardContentBody({ onRestartWelcome }: OnboardingWizardConte
 			void refetchStatus()
 		}
 	}, [currentStepId, refetchStatus])
+
+	useEffect(() => {
+		onSummaryStepChange?.(currentStepId === "done")
+	}, [currentStepId, onSummaryStepChange])
 
 	const getCurrentStepContent = () => {
 		switch (methods.current.id) {
@@ -276,6 +290,7 @@ function OnboardingWizardContentBody({ onRestartWelcome }: OnboardingWizardConte
 
 				{methods.current.id === "done" && (
 					<DoneStep
+						onBack={handleBack}
 						onComplete={handleComplete}
 						isCompleting={completeOnboarding.isPending}
 						kycVerified={isKycVerified}
