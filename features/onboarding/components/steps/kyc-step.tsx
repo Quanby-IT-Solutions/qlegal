@@ -3,7 +3,7 @@
 import { CircleCheck, CircleDot } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 
-import { Alert, AlertDescription, AlertTitle } from "@/core/components/ui/alert"
+import { Alert, AlertDescription, AlertTitle } from "@/core/components/reui/alert"
 import { Button } from "@/core/components/ui/button"
 import { CardContent, CardFooter } from "@/core/components/ui/card"
 
@@ -20,7 +20,7 @@ export function KycStep({ onNext, onBack, kycStatus, onGoToKyc }: KycStepProps) 
 	return (
 		<>
 			<CardContent className="px-2!">
-				<Alert className="bg-background/70">
+				<Alert variant={"success"}>
 					<HugeiconsIcon icon={isVerified ? CircleCheck : CircleDot} />
 					<AlertTitle>
 						{isVerified ? "Your identity is verified" : "Identity verification pending"}

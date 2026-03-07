@@ -27,10 +27,10 @@ import { RecoveryEmailStep } from "@/features/onboarding/components/steps/recove
 const { useStepper, steps, StepperProvider, StepperNavigation, StepperStep, StepperTitle } =
 	defineStepper(
 		{ id: "kyc", title: "KYC", description: "Identity verification" },
-		{ id: "recovery-email", title: "Recovery Email", description: "Account recovery" },
+		{ id: "recovery-email", title: "Recovery", description: "Account recovery" },
 		{ id: "phone", title: "Phone", description: "Contact details" },
 		{ id: "photo", title: "Photo", description: "Profile image" },
-		{ id: "done", title: "Done", description: "Finish onboarding" }
+		{ id: "done", title: "Summary", description: "Review your setup" }
 	)
 
 interface OnboardingWizardContentProps {
@@ -86,6 +86,9 @@ function OnboardingWizardContentBody({ onRestartWelcome }: OnboardingWizardConte
 	const currentStep = steps[currentIndex]
 	const hasPendingRecoveryEmail = !!status?.recoveryEmail && !status?.recoveryEmailVerified
 	const recoveryEmailSubmitted = recoveryEmailSubmittedInSession || hasPendingRecoveryEmail
+	const isKycVerified = session?.user?.kycStatus === "VERIFIED"
+	const hasPhoneNumber = !!status?.phoneNumber?.trim()
+	const hasProfilePhoto = !!session?.user?.image
 
 	useEffect(() => {
 		if (currentStepId === "done") {
@@ -122,9 +125,9 @@ function OnboardingWizardContentBody({ onRestartWelcome }: OnboardingWizardConte
 				}
 			case "done":
 				return {
-					title: "You're all set!",
+					title: "Review your setup",
 					description:
-						"Your account is ready. You can update any of this information later from your profile and settings. Recovery email is optional.",
+						"Everything looks good. Here’s a quick summary before you head to your dashboard.",
 				}
 			default:
 				return {
@@ -275,8 +278,14 @@ function OnboardingWizardContentBody({ onRestartWelcome }: OnboardingWizardConte
 					<DoneStep
 						onComplete={handleComplete}
 						isCompleting={completeOnboarding.isPending}
+						kycVerified={isKycVerified}
 						recoveryEmailVerified={!!status?.recoveryEmailVerified}
 						recoveryEmailSubmitted={recoveryEmailSubmitted}
+						recoveryEmail={status?.recoveryEmail}
+						phoneNumber={hasPhoneNumber ? status?.phoneNumber : undefined}
+						hasProfilePhoto={hasProfilePhoto}
+						userName={session?.user?.name ?? "Your profile"}
+						userImage={session?.user?.image}
 						onSnooze={handleSnoozeForSevenDays}
 						isSnoozing={snoozeOnboarding.isPending}
 					/>

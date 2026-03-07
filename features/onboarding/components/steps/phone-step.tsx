@@ -5,14 +5,7 @@ import type { Control } from "react-hook-form"
 import { Button } from "@/core/components/ui/button"
 import { CardContent, CardFooter } from "@/core/components/ui/card"
 import { FieldGroup } from "@/core/components/ui/field"
-import {
-	FormControl,
-	FormDescription,
-	FormField,
-	FormItem,
-	FormLabel,
-	FormMessage,
-} from "@/core/components/ui/form"
+import { FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/core/components/ui/form"
 import { Input } from "@/core/components/ui/input"
 
 import { type OnboardingWizardSchema } from "@/features/onboarding/api/onboarding.schemas"
@@ -49,9 +42,6 @@ export function PhoneStep({ onBack, onSkip, control, isSubmitting }: PhoneStepPr
 										disabled={isSubmitting}
 									/>
 								</FormControl>
-								<FormDescription>
-									Optional. We may use this for important account and document-related updates.
-								</FormDescription>
 								<FormMessage />
 							</FormItem>
 						)}

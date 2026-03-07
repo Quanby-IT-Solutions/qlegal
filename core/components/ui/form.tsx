@@ -75,8 +75,9 @@ function toSafeFieldId(name: string) {
 function FormItem({ className, ...props }: React.ComponentProps<"div">) {
 	const fieldContext = React.useContext(FormFieldContext)
 	const fieldName = fieldContext?.name
+	const generatedId = React.useId()
 	const deterministicId = fieldName ? `field-${toSafeFieldId(String(fieldName))}` : undefined
-	const id = props.id ?? deterministicId ?? React.useId()
+	const id = props.id ?? deterministicId ?? generatedId
 
 	return (
 		<FormItemContext.Provider value={{ id }}>

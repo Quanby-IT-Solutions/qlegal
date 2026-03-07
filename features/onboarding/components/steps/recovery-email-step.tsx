@@ -1,19 +1,14 @@
 "use client"
 
-import { InfoIcon } from "lucide-react"
+import { InformationCircleIcon } from "@hugeicons/core-free-icons"
+import { HugeiconsIcon } from "@hugeicons/react"
 import type { Control } from "react-hook-form"
 
+import { Alert, AlertDescription, AlertTitle } from "@/core/components/reui/alert"
 import { Button } from "@/core/components/ui/button"
 import { CardContent, CardFooter } from "@/core/components/ui/card"
 import { FieldGroup } from "@/core/components/ui/field"
-import {
-	FormControl,
-	FormDescription,
-	FormField,
-	FormItem,
-	FormLabel,
-	FormMessage,
-} from "@/core/components/ui/form"
+import { FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/core/components/ui/form"
 import { Input } from "@/core/components/ui/input"
 
 import { type OnboardingWizardSchema } from "@/features/onboarding/api/onboarding.schemas"
@@ -38,9 +33,9 @@ export function RecoveryEmailStep({
 			<div className="space-y-2">
 				<CardContent className="px-2!">
 					<FieldGroup className="bg-background/70 rounded-md border p-4">
-						{/* <p className="text-muted-foreground mb-1 text-[11px] font-semibold tracking-wider uppercase">
-						Account Security
-					</p> */}
+						<p className="text-muted-foreground mb-1 text-[11px] font-semibold tracking-wider uppercase">
+							Account Security
+						</p>
 
 						<FormField
 							control={control}
@@ -58,37 +53,24 @@ export function RecoveryEmailStep({
 											disabled={isSubmitting}
 										/>
 									</FormControl>
-									{/* <FormDescription>
-									Optional. We&apos;ll send a verification link here so you can recover your account
-									if you lose access to your primary email.
-								</FormDescription> */}
+
 									<FormMessage />
 								</FormItem>
 							)}
 						/>
-						{/* {hasPendingRecoveryEmail ? (
-						<div className="mt-0 px-2!">
-							<div className="flex gap-2 rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-700 dark:border-blue-800 dark:bg-blue-950/30 dark:text-blue-300">
-								<InfoIcon className="mt-0.5 size-4 shrink-0" />
-								<span>
-									A verification link is already pending for this recovery email. You can continue
-									setup now and verify it from your inbox anytime.
-								</span>
-							</div>
-						</div>
-					) : null} */}
 					</FieldGroup>
 				</CardContent>
 
 				{hasPendingRecoveryEmail ? (
-					<CardContent className="mt-0 px-2!">
-						<div className="flex gap-2 rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-700 dark:border-blue-800 dark:bg-blue-950/30 dark:text-blue-300">
-							<InfoIcon className="mt-0.5 size-4 shrink-0" />
-							<span>
+					<CardContent className="px-2!">
+						<Alert variant={"info"}>
+							<HugeiconsIcon icon={InformationCircleIcon} />
+							<AlertTitle>Pending recovery email verification</AlertTitle>
+							<AlertDescription>
 								A verification link is already pending for this recovery email. You can continue
 								setup now and verify it from your inbox anytime.
-							</span>
-						</div>
+							</AlertDescription>
+						</Alert>
 					</CardContent>
 				) : null}
 			</div>
