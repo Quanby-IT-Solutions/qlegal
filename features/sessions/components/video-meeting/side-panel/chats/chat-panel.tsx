@@ -1,6 +1,6 @@
 "use client"
 
-import { FormEvent, useMemo, useState } from "react"
+import { useMemo, useState, type FormEvent } from "react"
 import { MessageSquare, Send } from "lucide-react"
 
 import { Button } from "@/core/components/ui/button"
@@ -99,7 +99,7 @@ export function ChatPanel({
 	}
 
 	return (
-		<aside className="hidden w-[20rem] shrink-0 border-l bg-background md:flex md:min-h-0 md:flex-col">
+		<aside className="bg-background hidden w-[20rem] shrink-0 border-l md:flex md:min-h-0 md:flex-col">
 			<div className="border-b px-4 py-3">
 				<div className="flex items-center gap-2 text-sm font-semibold">
 					<MessageSquare className="size-4" />
@@ -114,13 +114,8 @@ export function ChatPanel({
 						sortedMessages.map(item => {
 							const isSelf = item.senderId && currentParticipantId === item.senderId
 							return (
-								<div
-									key={item.id}
-									className="bg-muted/60 rounded-lg border px-3 py-2"
-								>
-									<p className="text-xs font-medium">
-										{isSelf ? "You" : item.senderName}
-									</p>
+								<div key={item.id} className="bg-muted/60 rounded-lg border px-3 py-2">
+									<p className="text-xs font-medium">{isSelf ? "You" : item.senderName}</p>
 									<p className="text-sm">{item.message}</p>
 								</div>
 							)

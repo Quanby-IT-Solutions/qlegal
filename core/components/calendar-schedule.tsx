@@ -580,12 +580,12 @@ function CalendarScheduleEventCard({
 							}
 						}}
 						className={cn(
-							"border-border bg-card flex cursor-pointer items-center gap-2.5 rounded-lg border px-3 py-2 shadow-sm transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none",
+							"border-border bg-card hover:bg-muted/40 focus-visible:ring-ring flex cursor-pointer items-center gap-2.5 rounded-lg border px-3 py-2 shadow-sm transition-colors focus-visible:ring-2 focus-visible:outline-none motion-reduce:transition-none",
 							className
 						)}
 						{...props}
 					>
-						<Avatar className="size-8 shrink-0 ring-2 ring-border/80">
+						<Avatar className="ring-border/80 size-8 shrink-0 ring-2">
 							<AvatarImage src={getAvatarUrl(event.principal?.image) ?? undefined} alt="" />
 							<AvatarFallback className="bg-muted text-muted-foreground text-xs font-medium">
 								{getInitials(event.principal?.name ?? "?")}
@@ -595,14 +595,14 @@ function CalendarScheduleEventCard({
 						<div className="min-w-0 flex-1">
 							<div className="flex items-center gap-1.5">
 								<span
-									className="truncate text-sm font-semibold text-foreground"
+									className="text-foreground truncate text-sm font-semibold"
 									title={event.principal?.name ?? event.title}
 								>
 									{event.principal?.name ?? event.title}
 								</span>
 								<span
 									className={cn(
-										"shrink-0 rounded-full border px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide",
+										"shrink-0 rounded-full border px-1.5 py-0.5 text-[10px] font-medium tracking-wide uppercase",
 										statusClassName
 									)}
 								>
@@ -617,7 +617,7 @@ function CalendarScheduleEventCard({
 								<Button
 									variant="ghost"
 									size="xs"
-									className="h-7 text-destructive hover:bg-destructive/10 hover:text-destructive text-xs"
+									className="text-destructive hover:bg-destructive/10 hover:text-destructive h-7 text-xs"
 									disabled={isProcessing}
 									onClick={e => {
 										e.stopPropagation()
@@ -628,7 +628,7 @@ function CalendarScheduleEventCard({
 								</Button>
 								<Button
 									size="xs"
-									className="h-7 min-w-[60px] text-xs"
+									className="h-7 min-w-15 text-xs"
 									disabled={isProcessing}
 									onClick={e => {
 										e.stopPropagation()
@@ -646,44 +646,47 @@ function CalendarScheduleEventCard({
 							</div>
 						) : (
 							<div className="text-muted-foreground flex shrink-0 flex-col items-end gap-0 text-right text-xs">
-								<span className="font-medium text-foreground">{formattedTime}</span>
+								<span className="text-foreground font-medium">{formattedTime}</span>
 								{displayLabel ? <span>{displayLabel}</span> : null}
 							</div>
 						)}
 					</div>
 				</SheetTrigger>
 
-				<SheetContent 
-					side="right" 
+				<SheetContent
+					side="right"
 					className="flex flex-col gap-0 rounded-l-2xl border-l-2 shadow-2xl backdrop-blur-sm sm:max-w-md"
 				>
 					<SheetHeader className="relative space-y-6 border-b pt-8">
 						<div className="flex flex-col items-center gap-4">
 							<div className="relative">
-								<Avatar className="size-20 ring-4 ring-background shadow-lg">
+								<Avatar className="ring-background size-20 shadow-lg ring-4">
 									<AvatarImage src={getAvatarUrl(event.principal?.image) ?? undefined} alt="" />
 									<AvatarFallback className="bg-primary/10 text-primary text-xl font-semibold">
 										{getInitials(event.principal?.name ?? "?")}
 									</AvatarFallback>
 								</Avatar>
-								<div className="bg-background absolute -bottom-1 -right-1 rounded-full p-1.5 shadow-md">
+								<div className="bg-background absolute -right-1 -bottom-1 rounded-full p-1.5 shadow-md">
 									<span
 										className={cn(
 											"flex size-3 rounded-full",
-											statusClassName.includes("pending") 
-												? "bg-amber-500" 
-												: statusClassName.includes("rejected") || statusClassName.includes("rescheduled")
-												? "bg-muted-foreground" 
-												: "bg-primary"
+											statusClassName.includes("pending")
+												? "bg-amber-500"
+												: statusClassName.includes("rejected") ||
+													  statusClassName.includes("rescheduled")
+													? "bg-muted-foreground"
+													: "bg-primary"
 										)}
 									/>
 								</div>
 							</div>
 							<div className="text-center">
-								<SheetTitle className="text-xl font-bold">{event.principal?.name ?? event.title}</SheetTitle>
+								<SheetTitle className="text-xl font-bold">
+									{event.principal?.name ?? event.title}
+								</SheetTitle>
 								<span
 									className={cn(
-										"mt-2 inline-block rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-wider shadow-sm",
+										"mt-2 inline-block rounded-full border px-3 py-1 text-xs font-semibold tracking-wider uppercase shadow-sm",
 										statusClassName
 									)}
 								>
@@ -698,8 +701,18 @@ function CalendarScheduleEventCard({
 
 					<div className="flex flex-1 flex-col gap-4 overflow-y-auto px-6 py-6">
 						<div className="bg-muted/40 space-y-2 rounded-xl border p-4 shadow-sm transition-all hover:shadow-md">
-							<p className="text-muted-foreground flex items-center gap-2 text-xs font-semibold uppercase tracking-wider">
-								<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+							<p className="text-muted-foreground flex items-center gap-2 text-xs font-semibold tracking-wider uppercase">
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									width="14"
+									height="14"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									strokeWidth="2"
+									strokeLinecap="round"
+									strokeLinejoin="round"
+								>
 									<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
 									<circle cx="9" cy="7" r="4" />
 									<path d="M22 21v-2a4 4 0 0 0-3-3.87" />
@@ -711,8 +724,18 @@ function CalendarScheduleEventCard({
 						</div>
 
 						<div className="bg-muted/40 space-y-2 rounded-xl border p-4 shadow-sm transition-all hover:shadow-md">
-							<p className="text-muted-foreground flex items-center gap-2 text-xs font-semibold uppercase tracking-wider">
-								<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+							<p className="text-muted-foreground flex items-center gap-2 text-xs font-semibold tracking-wider uppercase">
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									width="14"
+									height="14"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									strokeWidth="2"
+									strokeLinecap="round"
+									strokeLinejoin="round"
+								>
 									<circle cx="12" cy="12" r="10" />
 									<polyline points="12 6 12 12 16 14" />
 								</svg>
@@ -721,14 +744,27 @@ function CalendarScheduleEventCard({
 							<p className="text-base font-semibold">
 								{formattedTime}
 								{displayLabel ? (
-									<span className="text-muted-foreground ml-1 text-sm font-normal"> · {displayLabel}</span>
+									<span className="text-muted-foreground ml-1 text-sm font-normal">
+										{" "}
+										· {displayLabel}
+									</span>
 								) : null}
 							</p>
 						</div>
 
 						<div className="bg-muted/40 space-y-2 rounded-xl border p-4 shadow-sm transition-all hover:shadow-md">
-							<p className="text-muted-foreground flex items-center gap-2 text-xs font-semibold uppercase tracking-wider">
-								<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+							<p className="text-muted-foreground flex items-center gap-2 text-xs font-semibold tracking-wider uppercase">
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									width="14"
+									height="14"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									strokeWidth="2"
+									strokeLinecap="round"
+									strokeLinejoin="round"
+								>
 									<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
 									<polyline points="14 2 14 8 20 8" />
 									<line x1="16" y1="13" x2="8" y2="13" />
@@ -756,9 +792,9 @@ function CalendarScheduleEventCard({
 								>
 									Reject
 								</Button>
-								<Button 
-									className="flex-1 shadow-md transition-all hover:shadow-lg" 
-									disabled={isProcessing} 
+								<Button
+									className="flex-1 shadow-md transition-all hover:shadow-lg"
+									disabled={isProcessing}
 									onClick={onAccept}
 								>
 									{isProcessing ? (

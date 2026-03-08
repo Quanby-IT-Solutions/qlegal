@@ -5,12 +5,13 @@ import Credentials from "next-auth/providers/credentials"
 import Google from "next-auth/providers/google"
 
 import { getFullName } from "@/core/lib/utils"
+
+import { autoJoinMemberInDoconchainOrganization } from "@/services/doconchain/organization/auto-join-member"
 import { db } from "@/services/drizzle/db"
 import { twoFactorConfirmations, users, type UserRole } from "@/services/drizzle/schema/auth"
 import { DrizzleCustomAdapter } from "@/services/next-auth/adapter"
 
 import { loginSchema } from "@/features/auth/api/auth.schemas"
-import { autoJoinMemberInDoconchainOrganization } from "@/services/doconchain/organization/auto-join-member"
 
 import { env } from "@/env"
 
@@ -30,6 +31,9 @@ declare module "next-auth" {
 			role: UserRole
 			status?: string
 			kycStatus?: string
+			onboardingComplete: boolean
+			onboardingDetailsComplete: boolean
+			onboardingSnoozedUntil?: string | null
 		}
 	}
 }
@@ -167,6 +171,11 @@ export const authConfig = {
 				session.user.role = user.role
 				session.user.status = (user.commissionStatus ?? "PENDING") as string
 				session.user.kycStatus = (user.kycStatus ?? "NOT_STARTED") as string
+				session.user.onboardingComplete = !!user.onboardingCompletedAt
+				session.user.onboardingDetailsComplete = !!user.onboardingDetailsCompletedAt
+				session.user.onboardingSnoozedUntil = user.onboardingSnoozedUntil
+					? user.onboardingSnoozedUntil.toISOString()
+					: null
 
 				// Convert Supabase storage paths to displayable URLs
 				const imagePath = user.image ?? session.user.image
@@ -187,6 +196,10 @@ export const authConfig = {
 				if (token.kycStatus) {
 					session.user.kycStatus = token.kycStatus as string
 				}
+				session.user.onboardingComplete = !!token.onboardingComplete
+				session.user.onboardingDetailsComplete = !!token.onboardingDetailsComplete
+				session.user.onboardingSnoozedUntil =
+					typeof token.onboardingSnoozedUntil === "string" ? token.onboardingSnoozedUntil : null
 			}
 
 			return session
@@ -202,9 +215,17 @@ export const authConfig = {
 				const userWithKyc = user as {
 					kycStatus?: string
 					commissionStatus?: string
+					onboardingCompletedAt?: Date | null
+					onboardingDetailsCompletedAt?: Date | null
+					onboardingSnoozedUntil?: Date | null
 				}
 				token.status = userWithKyc.commissionStatus ?? "PENDING"
 				token.kycStatus = userWithKyc.kycStatus ?? "NOT_STARTED"
+				token.onboardingComplete = !!userWithKyc.onboardingCompletedAt
+				token.onboardingDetailsComplete = !!userWithKyc.onboardingDetailsCompletedAt
+				token.onboardingSnoozedUntil = userWithKyc.onboardingSnoozedUntil
+					? userWithKyc.onboardingSnoozedUntil.toISOString()
+					: null
 			}
 
 			// On subsequent runs, enrich token with KYC from DB
@@ -219,6 +240,11 @@ export const authConfig = {
 					if (existing) {
 						token.status = (existing.commissionStatus ?? "PENDING") as string
 						token.kycStatus = (existing.kycStatus ?? "NOT_STARTED") as string
+						token.onboardingComplete = !!existing.onboardingCompletedAt
+						token.onboardingDetailsComplete = !!existing.onboardingDetailsCompletedAt
+						token.onboardingSnoozedUntil = existing.onboardingSnoozedUntil
+							? existing.onboardingSnoozedUntil.toISOString()
+							: null
 					}
 				} catch {
 					// Silently fail - token will use existing values

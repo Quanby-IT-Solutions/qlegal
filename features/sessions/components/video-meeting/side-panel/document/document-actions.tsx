@@ -453,10 +453,7 @@ export const DocumentActions = React.memo(function DocumentActions({
 	])
 
 	const selectedSignersCount = signerUserIds?.length ?? 0
-	const isCreateProjectDisabled = [
-		!docoChainTokenReady,
-		!!isCreatingProject,
-	].some(Boolean)
+	const isCreateProjectDisabled = [!docoChainTokenReady, !!isCreatingProject].some(Boolean)
 
 	const signingIndicator = hasUserSigned
 		? {

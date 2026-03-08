@@ -3,6 +3,7 @@ import { hash } from "bcryptjs"
 import { eq } from "drizzle-orm"
 
 import { formatDateForStamp } from "@/core/lib/format-date-for-stamp"
+
 import { passwordResetTokens, users, verificationTokens } from "@/services/drizzle/schema/auth"
 import { enpProfiles } from "@/services/drizzle/schema/enp-profiles"
 import { sendPasswordResetToken } from "@/services/react-email/lib/send.password-reset-token"
@@ -18,9 +19,20 @@ import {
 } from "@/features/auth/api/auth.schemas"
 import { generatePasswordResetToken, generateVerificationToken } from "@/features/auth/lib/token"
 
+/**
+ * Mask an email address for display: first char + asterisks + last char before @, full domain.
+ * e.g. "recovery@gmail.com" → "r******y@gmail.com"
+ */
+function maskEmail(email: string): string {
+	const [local, domain] = email.split("@")
+	if (!local || !domain) return email
+	if (local.length <= 2) return `${local[0]}***@${domain}`
+	return `${local[0]}${"*".repeat(local.length - 2)}${local[local.length - 1]}@${domain}`
+}
+
 export const authRouter = createTRPCRouter({
 	register: publicProcedure.input(registerSchema).mutation(async ({ ctx, input }) => {
-		const { firstName, middleName, lastName, email, password } = input
+		const { email, password } = input
 
 		const existingUser = await ctx.db.query.users.findFirst({
 			where: (data, { eq }) => eq(data.email, email),
@@ -39,9 +51,6 @@ export const authRouter = createTRPCRouter({
 		const [createdUser] = await ctx.db
 			.insert(users)
 			.values({
-				firstName,
-				middleName: middleName ?? null,
-				lastName,
 				email,
 				password: hashedPassword,
 			})
@@ -144,8 +153,7 @@ export const authRouter = createTRPCRouter({
 		const enpNameForSeal = formatAttorneyNameForSeal(seal.enpName)
 		// Seal expects "In-person" or "Remote"; REN = Remote (video), IEN = In-person
 		const modeRaw = (notaryInfo.modeOfNotarization ?? "").trim().toUpperCase()
-		const modeOfNotarization =
-			modeRaw === "REN" || modeRaw === "REMOTE" ? "Remote" : "In-person"
+		const modeOfNotarization = modeRaw === "REN" || modeRaw === "REMOTE" ? "Remote" : "In-person"
 
 		// Generate document_stamp payload for external API (send both snake_case and camelCase for DocOnChain)
 		const documentStamp = {
@@ -220,21 +228,38 @@ export const authRouter = createTRPCRouter({
 		return { message: "Password reset email sent!" }
 	}),
 
-	forgotPasswordRecovery: publicProcedure
+	forgotPasswordViaRecovery: publicProcedure
 		.input(forgotPasswordSchema)
 		.mutation(async ({ ctx, input }) => {
 			const { email } = input
 
 			const user = await ctx.db.query.users.findFirst({
 				where: (data, { eq }) => eq(data.email, email),
-				columns: { id: true, email: true, name: true },
+				columns: {
+					id: true,
+					email: true,
+					recoveryEmail: true,
+					recoveryEmailVerified: true,
+				},
 			})
 
-			if (!user) {
+			// Generic error for all failure cases to prevent account enumeration
+			if (!user || !user.recoveryEmail || !user.recoveryEmailVerified) {
 				throw new TRPCError({
 					code: "NOT_FOUND",
-					message: "User not found",
+					message: "No recovery email is set up for this account. Please contact support.",
 				})
+			}
+
+			// Generate a password reset token for the user's primary email
+			const passwordResetToken = await generatePasswordResetToken(email)
+
+			// Send the reset email to the recovery address (not primary)
+			await sendPasswordResetToken(user.recoveryEmail, passwordResetToken.token)
+
+			return {
+				message: "Password reset email sent to your recovery email.",
+				maskedRecoveryEmail: maskEmail(user.recoveryEmail),
 			}
 		}),
 
@@ -311,7 +336,7 @@ export const authRouter = createTRPCRouter({
 					eq(data.token, rawTrimmed),
 					eq(data.token, decodedTrimmed),
 					eq(data.token, token),
-					eq(data.token, decodedToken),
+					eq(data.token, decodedToken)
 				),
 		})
 
