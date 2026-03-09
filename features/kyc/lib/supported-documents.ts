@@ -13,6 +13,11 @@ interface DocumentType {
 
 interface CountryEntry {
 	label: string
+	/**
+	 * ISO 3166-1 alpha-2 code for flag rendering (e.g. \"ph\" for Philippines).
+	 * Not all entries need to specify this; when omitted we fall back to a lookup map.
+	 */
+	code2?: string
 	documents: DocumentType[]
 }
 
@@ -1137,6 +1142,7 @@ const SUPPORTED_DOCUMENTS: Record<string, CountryEntry> = {
 	},
 	phl: {
 		label: "Philippines",
+		code2: "ph",
 		documents: [
 			{ value: "passport", label: "Passport" },
 			{ value: "national_id", label: "Identity Card" },
@@ -1539,6 +1545,7 @@ const SUPPORTED_DOCUMENTS: Record<string, CountryEntry> = {
 	},
 	usa: {
 		label: "United States of America",
+		code2: "us",
 		documents: [
 			{ value: "passport", label: "Passport" },
 			{ value: "state_id", label: "State ID Card" },
@@ -1621,8 +1628,82 @@ const SUPPORTED_DOCUMENTS: Record<string, CountryEntry> = {
 	},
 }
 
+// Minimal ISO 3166-1 alpha-3 -> alpha-2 mapping for flag rendering.
+// For entries without an explicit code2, we fall back to this map.
+const ISO3_TO_ISO2: Record<string, string> = {
+	afg: "af",
+	ala: "ax",
+	alb: "al",
+	dza: "dz",
+	asm: "as",
+	and: "ad",
+	ago: "ao",
+	aia: "ai",
+	arg: "ar",
+	aus: "au",
+	aut: "at",
+	bgd: "bd",
+	bel: "be",
+	ben: "bj",
+	bol: "bo",
+	bra: "br",
+	can: "ca",
+	chl: "cl",
+	chn: "cn",
+	col: "co",
+	cri: "cr",
+	cze: "cz",
+	deu: "de",
+	ind: "in",
+	idn: "id",
+	irn: "ir",
+	irq: "iq",
+	irl: "ie",
+	isr: "il",
+	ita: "it",
+	jam: "jm",
+	jpn: "jp",
+	jor: "jo",
+	ken: "ke",
+	lao: "la",
+	lva: "lv",
+	lbn: "lb",
+	lux: "lu",
+	mex: "mx",
+	nld: "nl",
+	nzl: "nz",
+	nor: "no",
+	omn: "om",
+	pan: "pa",
+	per: "pe",
+	phl: "ph",
+	pol: "pl",
+	prt: "pt",
+	qat: "qa",
+	reu: "re",
+	rou: "ro",
+	rus: "ru",
+	zaf: "za",
+	esp: "es",
+	swe: "se",
+	che: "ch",
+	tha: "th",
+	tur: "tr",
+	uga: "ug",
+	ukr: "ua",
+	are: "ae",
+	gbr: "gb",
+	usa: "us",
+	ven: "ve",
+	vnm: "vn",
+}
+
 const countriesSorted = Object.entries(SUPPORTED_DOCUMENTS)
-	.map(([value, entry]) => ({ value, label: entry.label }))
+	.map(([value, entry]) => ({
+		value,
+		label: entry.label,
+		code: (entry.code2 ?? ISO3_TO_ISO2[value] ?? value.slice(0, 2)).toLowerCase(),
+	}))
 	.sort((a, b) => a.label.localeCompare(b.label))
 
 export function getCountries() {

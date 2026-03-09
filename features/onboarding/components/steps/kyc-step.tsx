@@ -18,13 +18,6 @@ import { Button } from "@/core/components/ui/button"
 import { CardContent, CardFooter } from "@/core/components/ui/card"
 import { FieldGroup } from "@/core/components/ui/field"
 import { Label } from "@/core/components/ui/label"
-import {
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from "@/core/components/ui/select"
 import { useKycBroadcast } from "@/core/hooks/use-kyc-broadcast"
 
 import {
@@ -35,6 +28,8 @@ import {
 	runDirectKycVerification,
 } from "@/features/kyc/api/kyc.actions"
 import { CameraCapture } from "@/features/kyc/components/camera-capture"
+import { CountryCombobox } from "@/features/kyc/components/country-combobox"
+import { DocumentTypeCombobox } from "@/features/kyc/components/document-type-combobox"
 import { useKycStatus } from "@/features/kyc/hooks/use-kyc-status"
 import { getCountries, getDocumentTypes } from "@/features/kyc/lib/supported-documents"
 
@@ -548,44 +543,17 @@ function KycDesktopFlow({ onNext, onBack, onExpandChange }: KycDesktopFlowProps)
 
 						{step !== "result" && (
 							<div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-								<div className="space-y-2">
-									<Label htmlFor="countryId" className="text-sm font-medium">
-										Country
-									</Label>
-									<Select
-										value={countryId}
-										onValueChange={handleCountryChange}
-										disabled={isSubmitting}
-									>
-										<SelectTrigger id="countryId" className="h-11">
-											<SelectValue placeholder="Select country" />
-										</SelectTrigger>
-										<SelectContent>
-											{COUNTRIES.map(country => (
-												<SelectItem key={country.value} value={country.value}>
-													{country.label}
-												</SelectItem>
-											))}
-										</SelectContent>
-									</Select>
-								</div>
-								<div className="space-y-2">
-									<Label htmlFor="documentId" className="text-sm font-medium">
-										Document Type
-									</Label>
-									<Select value={documentId} onValueChange={setDocumentId} disabled={isSubmitting}>
-										<SelectTrigger id="documentId" className="h-11">
-											<SelectValue placeholder="Select document" />
-										</SelectTrigger>
-										<SelectContent>
-											{documentTypes.map(doc => (
-												<SelectItem key={doc.value} value={doc.value}>
-													{doc.label}
-												</SelectItem>
-											))}
-										</SelectContent>
-									</Select>
-								</div>
+								<CountryCombobox
+									value={countryId}
+									onChange={handleCountryChange}
+									disabled={isSubmitting}
+								/>
+								<DocumentTypeCombobox
+									countryId={countryId}
+									value={documentId}
+									onChange={setDocumentId}
+									disabled={isSubmitting}
+								/>
 							</div>
 						)}
 
