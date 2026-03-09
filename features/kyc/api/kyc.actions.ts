@@ -117,7 +117,7 @@ export async function createUserKycLink() {
 
 	// Build redirect URL - use callback page that closes the window
 	const baseUrl = env.AUTH_URL ?? "http://localhost:3000"
-	const redirectUrl = `${baseUrl}/auth/kyc/callback`
+	const redirectUrl = `${baseUrl}/onboarding/callback`
 
 	console.log("🔗 Creating KYC link with redirect:", redirectUrl)
 
@@ -170,7 +170,7 @@ export async function createUserKycLink() {
 			})
 			.where(eq(users.id, session.user.id))
 
-		revalidatePath("/auth/kyc")
+		revalidatePath("/onboarding")
 
 		return {
 			success: true,
@@ -449,7 +449,7 @@ export async function runDirectKycVerification(input: {
 			})
 			.where(eq(users.id, session.user.id))
 
-		revalidatePath("/auth/kyc")
+		revalidatePath("/onboarding")
 
 		return {
 			success: true,
@@ -492,7 +492,7 @@ export async function runDirectKycVerification(input: {
 			})
 			.where(eq(users.id, session.user.id))
 
-		revalidatePath("/auth/kyc")
+		revalidatePath("/onboarding")
 
 		return {
 			success: false,
@@ -803,7 +803,7 @@ export async function checkUserKycStatus() {
 			console.log("⏳ KYC Still Pending")
 		}
 
-		revalidatePath("/auth/kyc")
+		revalidatePath("/onboarding")
 
 		return {
 			success: true,
@@ -966,7 +966,7 @@ export async function resetUserKycStatus() {
 			})
 			.where(eq(users.id, session.user.id))
 
-		revalidatePath("/auth/kyc")
+		revalidatePath("/onboarding")
 
 		return {
 			success: true,

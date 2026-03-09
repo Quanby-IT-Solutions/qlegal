@@ -30,7 +30,7 @@ export default function KycCallbackPage() {
 					document.body.innerHTML = `
 						<div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; font-family: system-ui;">
 							<h1 style="font-size: 24px; font-weight: bold; margin-bottom: 16px;">✓ Verification Complete!</h1>
-							<p style="color: #666; margin-bottom: 8px;">Status: ${status || "processing"}</p>
+							<p style="color: #666; margin-bottom: 8px;">Status: ${status ?? "processing"}</p>
 							<p style="color: #666; margin-bottom: 24px;">You can close this tab and return to the main page.</p>
 							<button 
 								onclick="window.close()" 

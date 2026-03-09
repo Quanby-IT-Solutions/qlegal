@@ -46,9 +46,9 @@ export default proxy(req => {
 
 			// STRICT KYC: If not verified, always redirect to KYC first, regardless of callback
 			if (kycStatus === "NOT_STARTED" || kycStatus === "PENDING") {
-				const kycUrl = new URL("/auth/kyc", nextUrl)
-				logRedirect(path, kycUrl.pathname, "kyc required before callback")
-				return NextResponse.redirect(kycUrl)
+				const onboardingUrl = new URL("/onboarding", nextUrl)
+				logRedirect(path, onboardingUrl.pathname, "kyc required before callback")
+				return NextResponse.redirect(onboardingUrl)
 			}
 
 			// USER STATUS: If user has not active status, redirect to status page
@@ -96,13 +96,13 @@ export default proxy(req => {
 			// - KYC status is NOT_STARTED or PENDING (not yet VERIFIED)
 			if (
 				isAuth &&
-				path !== "/auth/kyc" &&
+				!path.startsWith("/onboarding") &&
 				!onAuthPage &&
 				(kycStatus === "NOT_STARTED" || kycStatus === "PENDING")
 			) {
-				const kycUrl = new URL("/auth/kyc", nextUrl)
-				logRedirect(path, kycUrl.pathname, "strict kyc gate - verification required")
-				return NextResponse.redirect(kycUrl)
+				const onboardingUrl = new URL("/onboarding", nextUrl)
+				logRedirect(path, onboardingUrl.pathname, "strict kyc gate - verification required")
+				return NextResponse.redirect(onboardingUrl)
 			}
 
 			const userStatus = auth?.user?.status
@@ -110,7 +110,7 @@ export default proxy(req => {
 				isAuth &&
 				path !== "/auth/status" &&
 				!onAuthPage &&
-				path !== "/auth/kyc" &&
+				!path.startsWith("/onboarding") &&
 				userStatus !== "ACTIVE"
 			) {
 				const statusUrl = new URL("/auth/status", nextUrl)
@@ -131,9 +131,8 @@ export default proxy(req => {
 
 			if (
 				isAuth &&
-				path !== "/onboarding" &&
+				!path.startsWith("/onboarding") &&
 				!onAuthPage &&
-				path !== "/auth/kyc" &&
 				path !== "/auth/status" &&
 				role !== "ADMIN" &&
 				role !== "ENA" &&
@@ -161,7 +160,7 @@ export default proxy(req => {
 			const getRedirectRoute = () => {
 				// KYC takes priority
 				if (kycStatus === "NOT_STARTED" || kycStatus === "PENDING") {
-					return "/auth/kyc"
+					return "/onboarding"
 				}
 				if (userStatus !== "ACTIVE") {
 					return "/auth/status"

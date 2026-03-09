@@ -11,10 +11,10 @@ import { OnboardingWizardContent } from "./onboarding-wizzard-content"
 
 export function OnboardingWizard() {
 	const [hasStarted, setHasStarted] = useState(false)
-	const [isSummaryStep, setIsSummaryStep] = useState(false)
+	const [isExpanded, setIsExpanded] = useState(false)
 	const handleStart = () => setHasStarted(true)
 	const handleRestartWelcome = () => {
-		setIsSummaryStep(false)
+		setIsExpanded(false)
 		setHasStarted(false)
 	}
 
@@ -22,7 +22,7 @@ export function OnboardingWizard() {
 		<Card
 			className={cn(
 				"w-full border shadow-lg transition-[max-width] duration-300 ease-in-out",
-				isSummaryStep ? "max-w-md md:max-w-5xl" : "max-w-md"
+				isExpanded ? "max-w-md md:max-w-5xl" : "max-w-md"
 			)}
 		>
 			{!hasStarted && (
@@ -44,7 +44,7 @@ export function OnboardingWizard() {
 			{hasStarted && (
 				<OnboardingWizardContent
 					onRestartWelcome={handleRestartWelcome}
-					onSummaryStepChange={setIsSummaryStep}
+					onExpandChange={setIsExpanded}
 				/>
 			)}
 		</Card>

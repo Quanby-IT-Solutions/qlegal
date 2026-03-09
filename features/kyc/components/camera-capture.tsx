@@ -125,23 +125,49 @@ export function CameraCapture(props: {
 		}
 	}, [facingMode])
 
-	const flipCamera = useCallback(() => {
-		setFacingMode(prev => (prev === "user" ? "environment" : "user"))
-	}, [])
+	const flipCamera = useCallback(async () => {
+		const newMode: FacingMode = facingMode === "user" ? "environment" : "user"
+
+		try {
+			// Get the new stream first, before tearing down the old one
+			let newStream: MediaStream
+			try {
+				newStream = await getStream(newMode)
+			} catch {
+				// If the requested mode isn't available, try the other one
+				newStream = await getStream(facingMode)
+				// Couldn't actually flip — bail out quietly
+				return
+			}
+
+			// Stop old tracks
+			if (streamRef.current) {
+				streamRef.current.getTracks().forEach(track => track.stop())
+			}
+
+			// Attach the new stream without going through the "camera off" state
+			streamRef.current = newStream
+			await attachStreamToVideo(newStream)
+			setFacingMode(newMode)
+			// Keep prevFacingModeRef in sync so the old effect guard doesn't fire
+			prevFacingModeRef.current = newMode
+		} catch (err) {
+			console.warn("Failed to flip camera:", err)
+		}
+	}, [facingMode])
 
 	useEffect(() => {
-		// Only restart when the user actually changes facingMode while active.
-		// Avoid restarting on initial start or on internal fallback transitions.
+		// Guard: only restart when facingMode was changed externally (not via flipCamera).
 		const prev = prevFacingModeRef.current
 		prevFacingModeRef.current = facingMode
 		if (!cameraActive) return
 		if (prev === null) return
 		if (prev === facingMode) return
 
-		stopCamera()
-		const t = setTimeout(() => void startCamera(), 150)
-		return () => clearTimeout(t)
-	}, [facingMode, cameraActive, startCamera, stopCamera])
+		// This path is now only hit by the internal fallback in startCamera
+		// (which already updates the ref), so in practice it won't trigger.
+		void startCamera()
+	}, [facingMode, cameraActive, startCamera])
 
 	useEffect(() => {
 		return () => stopCamera()

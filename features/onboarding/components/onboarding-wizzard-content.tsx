@@ -35,18 +35,18 @@ const { useStepper, steps, StepperProvider, StepperNavigation, StepperStep, Step
 
 interface OnboardingWizardContentProps {
 	onRestartWelcome: () => void
-	onSummaryStepChange?: (isSummaryStep: boolean) => void
+	onExpandChange?: (expanded: boolean) => void
 }
 
 export function OnboardingWizardContent({
 	onRestartWelcome,
-	onSummaryStepChange,
+	onExpandChange,
 }: OnboardingWizardContentProps) {
 	return (
 		<StepperProvider variant="horizontal" className="space-y-4">
 			<OnboardingWizardContentBody
 				onRestartWelcome={onRestartWelcome}
-				onSummaryStepChange={onSummaryStepChange}
+				onExpandChange={onExpandChange}
 			/>
 		</StepperProvider>
 	)
@@ -54,7 +54,7 @@ export function OnboardingWizardContent({
 
 function OnboardingWizardContentBody({
 	onRestartWelcome,
-	onSummaryStepChange,
+	onExpandChange,
 }: OnboardingWizardContentProps) {
 	const router = useRouter()
 	const { data: session, update: updateSession } = useSession()
@@ -88,7 +88,6 @@ function OnboardingWizardContentBody({
 	})
 	const handleComplete = () => completeOnboarding.mutate()
 	const handleSnoozeForSevenDays = () => snoozeOnboarding.mutate()
-	const handleGoToKyc = () => router.push("/auth/kyc")
 
 	const methods = useStepper()
 	const currentStepId = methods.current.id
@@ -107,8 +106,13 @@ function OnboardingWizardContentBody({
 	}, [currentStepId, refetchStatus])
 
 	useEffect(() => {
-		onSummaryStepChange?.(currentStepId === "done")
-	}, [currentStepId, onSummaryStepChange])
+		if (currentStepId === "done") {
+			onExpandChange?.(true)
+		} else if (currentStepId !== "kyc") {
+			// KYC step manages its own expansion via onExpandChange prop
+			onExpandChange?.(false)
+		}
+	}, [currentStepId, onExpandChange])
 
 	const getCurrentStepContent = () => {
 		switch (methods.current.id) {
@@ -256,7 +260,7 @@ function OnboardingWizardContentBody({
 						onNext={handleNext}
 						onBack={handleBack}
 						kycStatus={session?.user?.kycStatus ?? undefined}
-						onGoToKyc={handleGoToKyc}
+						onExpandChange={onExpandChange}
 					/>
 				)}
 

@@ -33,7 +33,7 @@ export const OAuthButton = ({
 	const handleClick = async () => {
 		setIsLoading(true)
 		await signIn(provider, {
-			callbackUrl: callbackUrl ?? "/auth/kyc",
+			callbackUrl: callbackUrl ?? "/onboarding",
 			prompt: "select_account",
 		})
 	}
