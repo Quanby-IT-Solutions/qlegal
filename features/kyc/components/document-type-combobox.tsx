@@ -1,6 +1,6 @@
 "use client"
 
-import { ChevronDown } from "lucide-react"
+import { Check, ChevronDown } from "lucide-react"
 
 import {
 	Combobox,
@@ -64,9 +64,14 @@ export function DocumentTypeCombobox({
 						<ComboboxInput showTrigger={false} placeholder="Search document" />
 						<ComboboxEmpty>No documents found.</ComboboxEmpty>
 						<ComboboxList>
-							{item => (
+							{(item, isSelected) => (
 								<ComboboxItem key={item.value} value={item}>
-									<span>{item.label}</span>
+									<div className="flex w-full items-center justify-between gap-2">
+										<span className="text-sm">{item.label}</span>
+										{isSelected ? (
+											<Check className="text-primary size-4 shrink-0" aria-hidden="true" />
+										) : null}
+									</div>
 								</ComboboxItem>
 							)}
 						</ComboboxList>

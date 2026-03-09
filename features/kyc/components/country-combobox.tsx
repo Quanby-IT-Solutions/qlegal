@@ -1,7 +1,7 @@
 "use client"
 
 import Image from "next/image"
-import { ChevronDown } from "lucide-react"
+import { Check, ChevronDown } from "lucide-react"
 
 import { Button } from "@/core/components/ui/button"
 import {
@@ -73,16 +73,23 @@ export function CountryCombobox({ value, onChange, disabled }: CountryComboboxPr
 						<ComboboxInput showTrigger={false} placeholder="Search country" />
 						<ComboboxEmpty>No countries found.</ComboboxEmpty>
 						<ComboboxList>
-							{item => (
+							{(item, isSelected) => (
 								<ComboboxItem<CountryItem> key={item.value} value={item}>
-									<Image
-										src={`https://flagcdn.com/${item.code.toLowerCase()}.svg`}
-										alt=""
-										width={16}
-										height={12}
-										className="rounded-xs"
-									/>
-									<span className="ml-2">{item.label}</span>
+									<div className="flex w-full items-center justify-between gap-2">
+										<span className="flex items-center gap-2">
+											<Image
+												src={`https://flagcdn.com/${item.code.toLowerCase()}.svg`}
+												alt=""
+												width={16}
+												height={12}
+												className="rounded-xs"
+											/>
+											<span className="ml-1 text-sm">{item.label}</span>
+										</span>
+										{isSelected ? (
+											<Check className="text-primary size-4 shrink-0" aria-hidden="true" />
+										) : null}
+									</div>
 								</ComboboxItem>
 							)}
 						</ComboboxList>

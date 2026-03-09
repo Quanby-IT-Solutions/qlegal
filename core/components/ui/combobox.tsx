@@ -21,6 +21,7 @@ interface ComboboxContextValue<TItem extends BaseItem> {
 	value: TItem | null
 	onChange: (item: TItem | null) => void
 	itemToStringValue?: (item: TItem) => string
+	setOpen: (open: boolean) => void
 }
 
 const ComboboxContext = React.createContext<ComboboxContextValue<BaseItem> | null>(null)
@@ -70,8 +71,9 @@ function ComboboxRoot<TItem extends BaseItem>({
 			value,
 			onChange: handleChange,
 			itemToStringValue,
+			setOpen,
 		}),
-		[items, value, handleChange, itemToStringValue]
+		[items, value, handleChange, itemToStringValue, setOpen]
 	)
 
 	return (
@@ -158,15 +160,33 @@ function ComboboxEmpty(props: React.ComponentProps<typeof CommandEmpty>) {
 	return <CommandEmpty {...props} />
 }
 
-function ComboboxList({ children }: { children: (item: BaseItem) => React.ReactNode }) {
-	const { items, itemToStringValue } = useComboboxContext<BaseItem>()
+function ComboboxList({
+	children,
+}: {
+	children: (item: BaseItem, isSelected: boolean) => React.ReactNode
+}) {
+	const { items, itemToStringValue, value } = useComboboxContext<BaseItem>()
+
+	const isSameItem = (a: BaseItem | null, b: BaseItem | null) => {
+		if (!a || !b) return false
+		if (itemToStringValue) {
+			return itemToStringValue(a) === itemToStringValue(b)
+		}
+		const av = (a as any).value
+		const bv = (b as any).value
+		if (av === undefined || bv === undefined) return false
+		return av === bv
+	}
 
 	return (
 		<CommandList>
 			<CommandGroup>
 				{items.map(item => (
-					<ComboboxItem key={itemToStringValue ? itemToStringValue(item) : (item as any).value ?? JSON.stringify(item)} value={item}>
-						{children(item)}
+					<ComboboxItem
+						key={itemToStringValue ? itemToStringValue(item) : (item as any).value ?? JSON.stringify(item)}
+						value={item}
+					>
+						{children(item, isSameItem(item, value))}
 					</ComboboxItem>
 				))}
 			</CommandGroup>
@@ -174,18 +194,20 @@ function ComboboxList({ children }: { children: (item: BaseItem) => React.ReactN
 	)
 }
 
-interface ComboboxItemProps<TItem extends BaseItem> extends React.ComponentProps<typeof CommandItem> {
+interface ComboboxItemProps<TItem extends BaseItem>
+	extends React.ComponentProps<typeof CommandItem> {
 	value: TItem
 	children: React.ReactNode
 }
 
 function ComboboxItem<TItem extends BaseItem>({ value, children, ...props }: ComboboxItemProps<TItem>) {
-	const { onChange, itemToStringValue } = useComboboxContext<TItem>()
+	const { onChange, itemToStringValue, setOpen } = useComboboxContext<TItem>()
 
 	return (
 		<CommandItem
 			onSelect={() => {
 				onChange(value)
+				setOpen(false)
 			}}
 			value={itemToStringValue ? itemToStringValue(value) : String((value as any).value ?? "")}
 			{...props}
