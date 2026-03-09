@@ -402,8 +402,8 @@ function KycDesktopFlow({ onNext, onBack, onExpandChange }: KycDesktopFlowProps)
 	const { update: updateSession } = useSession()
 
 	const [step, setStep] = useState<DesktopStep>("id")
-	const [countryId, setCountryId] = useState("phl")
-	const [documentId, setDocumentId] = useState("passport")
+	const [countryId, setCountryId] = useState("")
+	const [documentId, setDocumentId] = useState("")
 	const [idImage, setIdImage] = useState<string | null>(null)
 	const [selfieImage, setSelfieImage] = useState<string | null>(null)
 	const [result, setResult] = useState<{
@@ -421,7 +421,7 @@ function KycDesktopFlow({ onNext, onBack, onExpandChange }: KycDesktopFlowProps)
 		setCountryId(newCountryId)
 		const newDocs = getDocumentTypes(newCountryId)
 		if (!newDocs.some(d => d.value === documentId)) {
-			setDocumentId(newDocs[0]?.value ?? "passport")
+			setDocumentId(newDocs[0]?.value ?? "")
 		}
 	}
 

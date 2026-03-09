@@ -1,5 +1,7 @@
 "use client"
 
+import { ChevronDown } from "lucide-react"
+
 import {
 	Combobox,
 	ComboboxContent,
@@ -29,7 +31,7 @@ export function DocumentTypeCombobox({
 	disabled,
 }: DocumentTypeComboboxProps) {
 	const items = getDocumentTypes(countryId)
-	const selected = items.find(d => d.value === value) ?? items[0]
+	const selected = items.find(d => d.value === value) ?? null
 
 	return (
 		<Field data-slot="document-type-combobox">
@@ -38,7 +40,8 @@ export function DocumentTypeCombobox({
 				<Combobox
 					items={items}
 					value={selected}
-					onChange={item => onChange(item?.value ?? selected?.value ?? "")}
+					defaultValue={items[0]}
+					onChange={item => onChange(item?.value ?? "")}
 					itemToStringValue={item => item.label}
 				>
 					<ComboboxTrigger
@@ -47,13 +50,16 @@ export function DocumentTypeCombobox({
 								variant="outline"
 								className="h-11 w-full justify-between font-normal"
 								disabled={disabled}
-							/>
+							>
+								<span className="flex min-w-0 flex-1 items-center text-left">
+									<ComboboxValue placeholder="Select document">
+										{item => <span className="truncate">{item.label}</span>}
+									</ComboboxValue>
+								</span>
+								<ChevronDown className="text-muted-foreground ml-2 size-4 shrink-0" />
+							</Button>
 						}
-					>
-						<ComboboxValue placeholder="Select document">
-							{item => <span>{item.label}</span>}
-						</ComboboxValue>
-					</ComboboxTrigger>
+					/>
 					<ComboboxContent>
 						<ComboboxInput showTrigger={false} placeholder="Search document" />
 						<ComboboxEmpty>No documents found.</ComboboxEmpty>

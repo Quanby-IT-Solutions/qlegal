@@ -1,6 +1,7 @@
 "use client"
 
 import Image from "next/image"
+import { ChevronDown } from "lucide-react"
 
 import { Button } from "@/core/components/ui/button"
 import {
@@ -28,7 +29,7 @@ interface CountryComboboxProps {
 }
 
 export function CountryCombobox({ value, onChange, disabled }: CountryComboboxProps) {
-	const selectedItem = countries.find(c => c.value === value) ?? countries[0]
+	const selectedItem = countries.find(c => c.value === value) ?? null
 
 	return (
 		<Field data-slot="country-combobox">
@@ -37,7 +38,8 @@ export function CountryCombobox({ value, onChange, disabled }: CountryComboboxPr
 				<Combobox<CountryItem>
 					items={countries}
 					value={selectedItem}
-					onChange={item => onChange(item?.value ?? selectedItem.value)}
+					defaultValue={countries[0]}
+					onChange={item => onChange(item?.value ?? "")}
 					itemToStringValue={item => item.label}
 				>
 					<ComboboxTrigger
@@ -46,24 +48,27 @@ export function CountryCombobox({ value, onChange, disabled }: CountryComboboxPr
 								variant="outline"
 								className="h-11 w-full justify-between font-normal"
 								disabled={disabled}
-							/>
+							>
+								<span className="flex min-w-0 flex-1 items-center gap-2 text-left">
+									<ComboboxValue<CountryItem> placeholder="Select country">
+										{item => (
+											<span className="flex items-center gap-2">
+												<Image
+													src={`https://flagcdn.com/${item.code.toLowerCase()}.svg`}
+													alt=""
+													width={16}
+													height={16}
+													className="rounded-xs"
+												/>
+												<span className="truncate">{item.label}</span>
+											</span>
+										)}
+									</ComboboxValue>
+								</span>
+								<ChevronDown className="text-muted-foreground ml-2 size-4 shrink-0" />
+							</Button>
 						}
-					>
-						<ComboboxValue<CountryItem> placeholder="Select country">
-							{item => (
-								<span className="flex items-center gap-2">
-									<Image
-										src={`https://flagcdn.com/${item.code.toLowerCase()}.svg`}
-										alt=""
-										width={16}
-										height={16}
-										className="rounded-xs"
-									/>
-									<span>{item.label}</span>
-                                </span>
-							)}
-						</ComboboxValue>
-					</ComboboxTrigger>
+					/>
 					<ComboboxContent>
 						<ComboboxInput showTrigger={false} placeholder="Search country" />
 						<ComboboxEmpty>No countries found.</ComboboxEmpty>
