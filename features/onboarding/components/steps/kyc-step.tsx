@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useTransition } from "react"
+import { useEffect, useMemo, useState, useTransition } from "react"
 import {
 	ArrowLeft,
 	CheckCircle2,
@@ -36,23 +36,9 @@ import {
 } from "@/features/kyc/api/kyc.actions"
 import { CameraCapture } from "@/features/kyc/components/camera-capture"
 import { useKycStatus } from "@/features/kyc/hooks/use-kyc-status"
+import { getCountries, getDocumentTypes } from "@/features/kyc/lib/supported-documents"
 
-const COUNTRIES = [
-	{ value: "phl", label: "Philippines" },
-	{ value: "ind", label: "India" },
-	{ value: "usa", label: "United States" },
-	{ value: "gbr", label: "United Kingdom" },
-	{ value: "sgp", label: "Singapore" },
-	{ value: "aus", label: "Australia" },
-	{ value: "can", label: "Canada" },
-] as const
-
-const DOCUMENT_TYPES = [
-	{ value: "dl", label: "Driver's License" },
-	{ value: "national_id", label: "National ID" },
-	{ value: "passport", label: "Passport" },
-	{ value: "voter_id", label: "Voter ID" },
-] as const
+const COUNTRIES = getCountries()
 
 const DESKTOP_STEP_CONFIG = {
 	id: { number: 1, total: 3, title: "Capture ID Document" },
@@ -422,7 +408,7 @@ function KycDesktopFlow({ onNext, onBack, onExpandChange }: KycDesktopFlowProps)
 
 	const [step, setStep] = useState<DesktopStep>("id")
 	const [countryId, setCountryId] = useState("phl")
-	const [documentId, setDocumentId] = useState("dl")
+	const [documentId, setDocumentId] = useState("passport")
 	const [idImage, setIdImage] = useState<string | null>(null)
 	const [selfieImage, setSelfieImage] = useState<string | null>(null)
 	const [result, setResult] = useState<{
@@ -433,6 +419,16 @@ function KycDesktopFlow({ onNext, onBack, onExpandChange }: KycDesktopFlowProps)
 	} | null>(null)
 	const [isSubmitting, startSubmitTransition] = useTransition()
 	const [isFullscreen, setIsFullscreen] = useState(false)
+
+	const documentTypes = useMemo(() => getDocumentTypes(countryId), [countryId])
+
+	const handleCountryChange = (newCountryId: string) => {
+		setCountryId(newCountryId)
+		const newDocs = getDocumentTypes(newCountryId)
+		if (!newDocs.some(d => d.value === documentId)) {
+			setDocumentId(newDocs[0]?.value ?? "passport")
+		}
+	}
 
 	const canContinue =
 		step === "id"
@@ -556,7 +552,11 @@ function KycDesktopFlow({ onNext, onBack, onExpandChange }: KycDesktopFlowProps)
 									<Label htmlFor="countryId" className="text-sm font-medium">
 										Country
 									</Label>
-									<Select value={countryId} onValueChange={setCountryId} disabled={isSubmitting}>
+									<Select
+										value={countryId}
+										onValueChange={handleCountryChange}
+										disabled={isSubmitting}
+									>
 										<SelectTrigger id="countryId" className="h-11">
 											<SelectValue placeholder="Select country" />
 										</SelectTrigger>
@@ -578,7 +578,7 @@ function KycDesktopFlow({ onNext, onBack, onExpandChange }: KycDesktopFlowProps)
 											<SelectValue placeholder="Select document" />
 										</SelectTrigger>
 										<SelectContent>
-											{DOCUMENT_TYPES.map(doc => (
+											{documentTypes.map(doc => (
 												<SelectItem key={doc.value} value={doc.value}>
 													{doc.label}
 												</SelectItem>
