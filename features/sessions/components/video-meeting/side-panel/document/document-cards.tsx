@@ -33,6 +33,7 @@ import { Input } from "@/core/components/ui/input"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/core/components/ui/sheet"
 import { useIsMobile } from "@/core/hooks/use-mobile"
 import { cn } from "@/core/lib/utils"
+import { trpc } from "@/services/trpc/client"
 
 import {
 	getDocumentReorderTitle,
@@ -230,12 +231,53 @@ export const DocumentCards = React.memo(
 
 		const currentUserName = session?.user?.name ?? "Someone"
 
-		const { publish: publishChatMessage } = usePubSub("MEETING_CHAT", {
-			onMessageReceived: (event: { message: string; senderId?: string; senderName?: string }) => {
-				const raw = event.message
-				if (typeof raw !== "string") return
+		const { data: persistedMessages, refetch: refetchMeetingMessages } =
+			trpc.meetings.getMeetingMessages.useQuery(
+				{ meetingId: meetingId ?? "" },
+				{
+					enabled: !!meetingId?.trim(),
+					refetchInterval: sidePanel === "chat" ? 3000 : false,
+				}
+			)
+		const sendMeetingMessageMutation = trpc.meetings.sendMeetingMessage.useMutation()
 
-				const [kind, id, tsStr, ...textParts] = raw.split(":")
+		// Load latest messages as soon as the user opens the Messages panel
+		useEffect(() => {
+			if (sidePanel === "chat" && meetingId?.trim()) {
+				void refetchMeetingMessages()
+			}
+		}, [sidePanel, meetingId, refetchMeetingMessages])
+
+		useEffect(() => {
+			if (persistedMessages === undefined) return
+			setChatMessages(prev => {
+				const fromApi = persistedMessages ?? []
+				const ids = new Set(fromApi.map(m => m.id))
+				const extra = prev.filter(m => !ids.has(m.id))
+				const merged = [...fromApi, ...extra].sort((a, b) => a.timestamp - b.timestamp)
+				return merged
+			})
+		}, [persistedMessages])
+
+		const addIncomingMessage = useCallback((payload: ChatMessage) => {
+			setChatMessages(prev => {
+				if (prev.some(m => m.id === payload.id)) return prev
+				const next = [...prev, payload]
+				next.sort((a, b) => a.timestamp - b.timestamp)
+				return next
+			})
+		}, [])
+
+		const { publish: publishChatMessage } = usePubSub("MEETING_CHAT", {
+			onMessageReceived: (event: { message: unknown; senderId?: string; senderName?: string }) => {
+				let raw = event.message
+				if (raw !== null && typeof raw === "object" && "message" in raw) {
+					raw = (raw as { message: unknown }).message
+				}
+				const rawStr = typeof raw === "string" ? raw : String(raw ?? "")
+				if (!rawStr.trim()) return
+
+				const [kind, id, tsStr, ...textParts] = rawStr.split(":")
 				if (kind !== "CHAT" || !id) return
 
 				const text = textParts.join(":").trim()
@@ -246,35 +288,27 @@ export const DocumentCards = React.memo(
 				const senderName = event.senderName ?? "Someone"
 				const isSelf = !!localParticipantId && senderId === localParticipantId
 
-				const payload: ChatMessage = {
+				addIncomingMessage({
 					id,
 					text,
 					senderId,
 					senderName,
 					timestamp,
 					isSelf,
-				}
-
-				setChatMessages(prev => {
-					if (prev.some(m => m.id === payload.id)) return prev
-					const next = [...prev, payload]
-					next.sort((a, b) => a.timestamp - b.timestamp)
-					return next
 				})
 			},
 		})
 
 		const handleSendMessage = useCallback(() => {
 			const text = chatInput.trim()
-			if (!text) return
+			if (!text || !meetingId?.trim()) return
 
+			const pendingId = `pending-${Date.now()}-${Math.random().toString(16).slice(2)}`
 			const now = Date.now()
-			const id = `${now}-${Math.random().toString(16).slice(2)}`
-
 			setChatMessages(prev => [
 				...prev,
 				{
-					id,
+					id: pendingId,
 					text,
 					senderId: localParticipantId ?? null,
 					senderName: currentUserName,
@@ -284,13 +318,42 @@ export const DocumentCards = React.memo(
 			])
 			setChatInput("")
 
-			try {
-				const payload = `CHAT:${id}:${now}:${text}`
-				publishChatMessage(payload, { persist: true })
-			} catch {
-				// Ignore publish failures in UI for now
-			}
-		}, [chatInput, currentUserName, localParticipantId, publishChatMessage])
+			sendMeetingMessageMutation.mutate(
+				{ meetingId, content: text },
+				{
+					onSuccess: (msg) => {
+						setChatMessages(prev => {
+							const withoutPending = prev.filter(m => !m.id.startsWith("pending-"))
+							withoutPending.push({
+								id: msg.id,
+								text: msg.text,
+								senderId: msg.senderId,
+								senderName: msg.senderName,
+								timestamp: msg.timestamp,
+								isSelf: true,
+							})
+							withoutPending.sort((a, b) => a.timestamp - b.timestamp)
+							return withoutPending
+						})
+						try {
+							publishChatMessage(`CHAT:${msg.id}:${msg.timestamp}:${msg.text}`, { persist: false })
+						} catch {
+							// ignore
+						}
+					},
+					onError: () => {
+						setChatMessages(prev => prev.filter(m => m.id !== pendingId))
+					},
+				}
+			)
+		}, [
+			chatInput,
+			meetingId,
+			currentUserName,
+			localParticipantId,
+			publishChatMessage,
+			sendMeetingMessageMutation,
+		])
 
 		useImperativeHandle(ref, () => ({
 			getSidebarTarget: () => {
