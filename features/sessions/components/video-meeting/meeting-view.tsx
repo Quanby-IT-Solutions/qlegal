@@ -170,6 +170,7 @@ export function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meet
 						onUpdateDocumentOrder={documentIds => {
 							if (meetingId) meetingData.updateDocumentOrder.mutate({ meetingId, documentIds })
 						}}
+						localParticipantId={localParticipantId}
 					/>
 				</div>
 				<div className="bg-background/90 relative flex flex-col items-center gap-2 px-4 py-3 backdrop-blur-sm lg:flex-row lg:justify-center lg:gap-4">
