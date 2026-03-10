@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState, useTransition } from "react"
+import { useEffect, useState, useTransition } from "react"
 import {
 	ArrowLeft,
 	CheckCircle2,
@@ -31,9 +31,7 @@ import { CameraCapture } from "@/features/kyc/components/camera-capture"
 import { CountryCombobox } from "@/features/kyc/components/country-combobox"
 import { DocumentTypeCombobox } from "@/features/kyc/components/document-type-combobox"
 import { useKycStatus } from "@/features/kyc/hooks/use-kyc-status"
-import { getCountries, getDocumentTypes } from "@/features/kyc/lib/supported-documents"
-
-const COUNTRIES = getCountries()
+import { getDocumentTypes } from "@/features/kyc/lib/supported-documents"
 
 const DESKTOP_STEP_CONFIG = {
 	id: { number: 1, total: 3, title: "Capture ID Document" },
@@ -414,8 +412,6 @@ function KycDesktopFlow({ onNext, onBack, onExpandChange }: KycDesktopFlowProps)
 	} | null>(null)
 	const [isSubmitting, startSubmitTransition] = useTransition()
 	const [isFullscreen, setIsFullscreen] = useState(false)
-
-	const documentTypes = useMemo(() => getDocumentTypes(countryId), [countryId])
 
 	const handleCountryChange = (newCountryId: string) => {
 		setCountryId(newCountryId)

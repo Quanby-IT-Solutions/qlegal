@@ -1,9 +1,7 @@
 "use client"
 
 import Image from "next/image"
-import { Check, ChevronDown } from "lucide-react"
 
-import { Button } from "@/core/components/ui/button"
 import {
 	Combobox,
 	ComboboxContent,
@@ -11,12 +9,10 @@ import {
 	ComboboxInput,
 	ComboboxItem,
 	ComboboxList,
-	ComboboxTrigger,
-	ComboboxValue,
 } from "@/core/components/ui/combobox"
 import { Field, FieldContent, FieldTitle } from "@/core/components/ui/field"
 
-import { getCountries } from "../lib/supported-documents"
+import { getCountries } from "@/features/kyc/lib/supported-documents"
 
 const countries = getCountries()
 
@@ -38,58 +34,24 @@ export function CountryCombobox({ value, onChange, disabled }: CountryComboboxPr
 				<Combobox<CountryItem>
 					items={countries}
 					value={selectedItem}
-					defaultValue={countries[0]}
-					onChange={item => onChange(item?.value ?? "")}
-					itemToStringValue={item => item.label}
+					itemToStringValue={(item: CountryItem | null) => item?.label ?? ""}
 				>
-					<ComboboxTrigger
-						render={
-							<Button
-								variant="outline"
-								className="h-11 w-full justify-between font-normal"
-								disabled={disabled}
-							>
-								<span className="flex min-w-0 flex-1 items-center gap-2 text-left">
-									<ComboboxValue<CountryItem> placeholder="Select country">
-										{item => (
-											<span className="flex items-center gap-2">
-												<Image
-													src={`https://flagcdn.com/${item.code.toLowerCase()}.svg`}
-													alt=""
-													width={16}
-													height={16}
-													className="rounded-xs"
-												/>
-												<span className="truncate">{item.label}</span>
-											</span>
-										)}
-									</ComboboxValue>
-								</span>
-								<ChevronDown className="text-muted-foreground ml-2 size-4 shrink-0" />
-							</Button>
-						}
-					/>
+					<ComboboxInput placeholder="Select country" disabled={disabled} />
 					<ComboboxContent>
-						<ComboboxInput showTrigger={false} placeholder="Search country" />
 						<ComboboxEmpty>No countries found.</ComboboxEmpty>
 						<ComboboxList>
-							{(item, isSelected) => (
-								<ComboboxItem<CountryItem> key={item.value} value={item}>
-									<div className="flex w-full items-center justify-between gap-2">
-										<span className="flex items-center gap-2">
-											<Image
-												src={`https://flagcdn.com/${item.code.toLowerCase()}.svg`}
-												alt=""
-												width={16}
-												height={12}
-												className="rounded-xs"
-											/>
-											<span className="ml-1 text-sm">{item.label}</span>
-										</span>
-										{isSelected ? (
-											<Check className="text-primary size-4 shrink-0" aria-hidden="true" />
-										) : null}
-									</div>
+							{(item: CountryItem) => (
+								<ComboboxItem key={item.value} value={item} onClick={() => onChange(item.value)}>
+									<span className="flex items-center gap-2 text-sm">
+										<Image
+											src={`https://flagcdn.com/${item.code.toLowerCase()}.svg`}
+											alt=""
+											width={16}
+											height={12}
+											className="rounded-xs"
+										/>
+										<span>{item.label}</span>
+									</span>
 								</ComboboxItem>
 							)}
 						</ComboboxList>
@@ -99,4 +61,3 @@ export function CountryCombobox({ value, onChange, disabled }: CountryComboboxPr
 		</Field>
 	)
 }
-
