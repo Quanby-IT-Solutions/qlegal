@@ -172,7 +172,7 @@ export function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meet
 						}}
 					/>
 				</div>
-				<div className="bg-background/90 relative flex items-center justify-center px-4 py-3 backdrop-blur-sm">
+				<div className="bg-background/90 relative flex flex-col items-center gap-2 px-4 py-3 backdrop-blur-sm lg:flex-row lg:justify-center lg:gap-4">
 					<MeetingControls
 						onUploadClick={handleUploadClick}
 						isUploadDisabled={!meetingId?.trim() || meetingData.isUploadBlockedByLock}

@@ -49,7 +49,7 @@ export const appSidebarSections: NavSection[] = [
 				title: "Browse",
 				url: "/browse",
 				icon: UserMultipleIcon,
-				roles: ["PRINCIPAL"],
+				roles: ["PRINCIPAL", "ENP"],
 			},
 			{
 				title: "Appointments",
@@ -67,7 +67,7 @@ export const appSidebarSections: NavSection[] = [
 				title: "Documents",
 				url: "/documents",
 				icon: DocumentValidationIcon,
-				roles: ["PRINCIPAL"],
+				roles: ["PRINCIPAL", "ENP"],
 			},
 			{
 				title: "Notarial Registry",
@@ -96,6 +96,8 @@ export const appSidebarSections: NavSection[] = [
 				url: "/management/enp-management",
 				icon: ShieldIcon,
 				roles: ["ADMIN"],
+			},
+			{
 				title: "Sub-Orgs",
 				url: "/management/sub-orgs",
 				icon: Building01Icon,
