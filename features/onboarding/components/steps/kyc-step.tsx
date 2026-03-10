@@ -14,6 +14,7 @@ import {
 import { useSession } from "next-auth/react"
 import { toast } from "sonner"
 
+import { Alert, AlertDescription, AlertTitle } from "@/core/components/reui/alert"
 import { Button } from "@/core/components/ui/button"
 import { CardContent, CardFooter } from "@/core/components/ui/card"
 import { FieldGroup } from "@/core/components/ui/field"
@@ -655,31 +656,37 @@ function KycDesktopFlow({ onNext, onBack, onExpandChange }: KycDesktopFlowProps)
 						)}
 
 						{step === "result" && (
-							<div
-								className={`rounded-lg border p-8 shadow-sm ${
-									result?.ok
-										? "border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950/30"
-										: "border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950/30"
-								}`}
+							<Alert
+								variant={
+									result?.status === "VERIFIED"
+										? "success"
+										: result?.status === "PENDING"
+											? "warning"
+											: "destructive"
+								}
+								className="px-4 py-3"
 							>
-								<div className="flex flex-col items-center gap-4 text-center">
-									{result?.ok ? (
-										<div className="rounded-full bg-green-100 p-3 dark:bg-green-900/30">
-											<CheckCircle2 className="size-10 text-green-600 dark:text-green-400" />
-										</div>
-									) : (
-										<div className="rounded-full bg-red-100 p-3 dark:bg-red-900/30">
-											<XCircle className="size-10 text-red-600 dark:text-red-400" />
-										</div>
-									)}
-									<div className="space-y-2">
-										<h3 className="text-xl font-semibold">
-											{result?.ok ? "Verification Successful!" : "Verification Failed"}
-										</h3>
-										<p className="text-muted-foreground text-sm">{result?.message}</p>
-									</div>
-								</div>
-							</div>
+								{result?.status === "VERIFIED" ? (
+									<CheckCircle2 className="size-4" />
+								) : result?.status === "PENDING" ? (
+									<Loader2 className="size-4 animate-spin" />
+								) : (
+									<XCircle className="size-4" />
+								)}
+								<AlertTitle>
+									{result?.status === "VERIFIED"
+										? "Verification successful"
+										: result?.status === "PENDING"
+											? "Verification submitted"
+											: "Verification failed"}
+								</AlertTitle>
+								<AlertDescription>
+									{result?.message ? <p>{result.message}</p> : null}
+									{result?.status === "PENDING" ? (
+										<p>Your submission needs manual review. We’ll notify you when it’s complete.</p>
+									) : null}
+								</AlertDescription>
+							</Alert>
 						)}
 					</div>
 				</FieldGroup>
