@@ -6,6 +6,8 @@
  * Document IDs follow HyperVerge readId API conventions.
  */
 
+import { PHILIPPINE_EMBASSIES } from "@/features/sessions/lib/philippine-embassies"
+
 interface DocumentType {
 	value: string
 	label: string
@@ -1703,10 +1705,45 @@ const countriesSorted = Object.entries(SUPPORTED_DOCUMENTS)
 	}))
 	.sort((a, b) => a.label.localeCompare(b.label))
 
+const EMBASSY_COUNTRY_NAME_TO_ISO3: Record<string, string> = {
+	"united states": "usa",
+	"russia": "rus",
+	"czech republic": "cze",
+	"south korea": "kor",
+	"laos": "lao",
+	"brunei": "brn",
+}
+
+const allowedCountryIds = (() => {
+	const embassyCountryNames = new Set(
+		PHILIPPINE_EMBASSIES.map(e => e.country.trim().toLowerCase())
+	)
+
+	const allowed = new Set<string>(["phl"])
+
+	for (const countryName of embassyCountryNames) {
+		const mappedIso3 = EMBASSY_COUNTRY_NAME_TO_ISO3[countryName]
+		if (mappedIso3 !== undefined) {
+			allowed.add(mappedIso3)
+			continue
+		}
+
+		const match = countriesSorted.find(c => c.label.trim().toLowerCase() === countryName)
+		if (match !== undefined) {
+			allowed.add(match.value)
+		}
+	}
+
+	return allowed
+})()
+
 export function getCountries() {
-	return countriesSorted
+	return countriesSorted.filter(c => allowedCountryIds.has(c.value))
 }
 
 export function getDocumentTypes(countryId: string) {
+	if (!allowedCountryIds.has(countryId)) {
+		return [{ value: "passport", label: "Passport" }]
+	}
 	return SUPPORTED_DOCUMENTS[countryId]?.documents ?? [{ value: "passport", label: "Passport" }]
 }

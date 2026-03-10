@@ -1,6 +1,7 @@
 "use client"
 
 import Image from "next/image"
+import * as React from "react"
 
 import {
 	Combobox,
@@ -25,7 +26,15 @@ interface CountryComboboxProps {
 }
 
 export function CountryCombobox({ value, onChange, disabled }: CountryComboboxProps) {
-	const selectedItem = countries.find(c => c.value === value) ?? null
+	React.useEffect(() => {
+		if (disabled) return
+		if (value) return
+
+		const philippines = countries.find(c => c.value === "phl")
+		if (philippines) onChange(philippines.value)
+	}, [disabled, onChange, value])
+
+	const selectedItem = countries.find(c => c.value === (value || "phl")) ?? null
 
 	return (
 		<Field data-slot="country-combobox">

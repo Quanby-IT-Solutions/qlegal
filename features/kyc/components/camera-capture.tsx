@@ -27,6 +27,48 @@ export function CameraCapture(props: {
 	const [capturedImage, setCapturedImage] = useState<string | null>(null)
 	const [facingMode, setFacingMode] = useState<FacingMode>(props.initialFacingMode ?? "environment")
 
+	const waitForVideoFrame = async (video: HTMLVideoElement) => {
+		// Ensure metadata is ready and the element has actual frame dimensions.
+		if (video.readyState < 2) {
+			await new Promise<void>(resolve => {
+				const onReady = () => {
+					video.removeEventListener("loadeddata", onReady)
+					video.removeEventListener("canplay", onReady)
+					resolve()
+				}
+				video.addEventListener("loadeddata", onReady, { once: true })
+				video.addEventListener("canplay", onReady, { once: true })
+			})
+		}
+
+		// Give the browser a tick to render a real frame.
+		await new Promise<void>(resolve => requestAnimationFrame(() => resolve()))
+	}
+
+	const isMostlyBlack = (ctx: CanvasRenderingContext2D, width: number, height: number) => {
+		// Sample a small downscaled image to detect blank/black captures.
+		const sampleW = 32
+		const sampleH = 24
+		const imageData = ctx.getImageData(
+			Math.floor((width - sampleW) / 2),
+			Math.floor((height - sampleH) / 2),
+			sampleW,
+			sampleH
+		)
+
+		let dark = 0
+		const total = sampleW * sampleH
+		for (let i = 0; i < imageData.data.length; i += 4) {
+			const r = imageData.data[i] ?? 0
+			const g = imageData.data[i + 1] ?? 0
+			const b = imageData.data[i + 2] ?? 0
+			const luminance = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255
+			if (luminance < 0.05) dark += 1
+		}
+
+		return dark / total > 0.9
+	}
+
 	const stopCamera = useCallback(() => {
 		if (streamRef.current) {
 			streamRef.current.getTracks().forEach(track => track.stop())
@@ -182,29 +224,52 @@ export function CameraCapture(props: {
 	}, [props.autoStart])
 
 	const captureImage = useCallback(() => {
-		if (!videoRef.current || !canvasRef.current) return
+		void (async () => {
+			if (!videoRef.current || !canvasRef.current) return
 
-		const video = videoRef.current
-		const canvas = canvasRef.current
-		const ctx = canvas.getContext("2d")
-		if (!ctx) return
+			const video = videoRef.current
+			const canvas = canvasRef.current
+			const ctx = canvas.getContext("2d", { willReadFrequently: true })
+			if (!ctx) return
 
-		canvas.width = video.videoWidth
-		canvas.height = video.videoHeight
+			try {
+				await waitForVideoFrame(video)
+			} catch {
+				// ignore
+			}
 
-		if (facingMode === "user") {
-			ctx.save()
-			ctx.scale(-1, 1)
-			ctx.drawImage(video, -canvas.width, 0, canvas.width, canvas.height)
-			ctx.restore()
-		} else {
-			ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
-		}
+			const trackSettings = streamRef.current?.getVideoTracks?.()?.[0]?.getSettings?.()
+			const width = video.videoWidth || trackSettings?.width || 1280
+			const height = video.videoHeight || trackSettings?.height || 720
 
-		const imageDataUrl = canvas.toDataURL("image/jpeg", 0.9)
-		setCapturedImage(imageDataUrl)
-		stopCamera()
-		props.onCapture(imageDataUrl)
+			if (!width || !height) {
+				setCameraError("Camera is still starting. Please try again.")
+				return
+			}
+
+			canvas.width = width
+			canvas.height = height
+
+			if (facingMode === "user") {
+				ctx.save()
+				ctx.scale(-1, 1)
+				ctx.drawImage(video, -canvas.width, 0, canvas.width, canvas.height)
+				ctx.restore()
+			} else {
+				ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+			}
+
+			// Reject blank captures (common when width/height were 0 or frame not ready).
+			if (isMostlyBlack(ctx, canvas.width, canvas.height)) {
+				setCameraError("Captured image is too dark/blank. Please retake in better lighting.")
+				return
+			}
+
+			const imageDataUrl = canvas.toDataURL("image/jpeg", 0.9)
+			setCapturedImage(imageDataUrl)
+			stopCamera()
+			props.onCapture(imageDataUrl)
+		})()
 	}, [facingMode, props, stopCamera])
 
 	const retake = useCallback(() => {
@@ -219,7 +284,7 @@ export function CameraCapture(props: {
 				{props.description && <p className="text-muted-foreground text-xs">{props.description}</p>}
 			</div>
 
-			<div className="relative aspect-[4/3] w-full overflow-hidden rounded-lg bg-black">
+			<div className="relative aspect-4/3 w-full overflow-hidden rounded-lg bg-black">
 				<video
 					ref={videoRef}
 					autoPlay
