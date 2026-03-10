@@ -1,5 +1,5 @@
 import { TRPCError } from "@trpc/server"
-import { and, count, desc, eq, ilike, or, sql } from "drizzle-orm"
+import { and, count, desc, eq, ilike, ne, or, sql } from "drizzle-orm"
 import { z } from "zod/v4"
 
 import { getFullName } from "@/core/lib/utils"
@@ -74,6 +74,10 @@ export const browseRouter = createTRPCRouter({
 	findBestMatch: protectedProcedure.input(findBestMatchSchema).query(async ({ ctx, input }) => {
 		// Query available ENPs
 		const conditions = [eq(users.role, "ENP"), eq(enpProfiles.isAvailable, true)]
+		// When caller is an ENP (e.g. booking another ENP), exclude themselves
+		if (ctx.session.user.role === "ENP") {
+			conditions.push(ne(users.id, ctx.session.user.id))
+		}
 
 		const candidates = await ctx.db
 			.select({
@@ -104,10 +108,28 @@ export const browseRouter = createTRPCRouter({
 		}
 
 		// Compute scores
-		const scored: ENPCandidateWithScore[] = candidates.map(c => ({
-			candidate: c,
-			breakdown: computeENPScore(c, input.documentType),
-		}))
+		const scored: ENPCandidateWithScore[] = candidates.map(c => {
+			const candidateForScoring: ENPCandidateWithScore["candidate"] = {
+				id: c.id,
+				name: getFullName(c),
+				email: c.email,
+				image: c.image,
+				phoneNumber: c.phoneNumber,
+				specialization: c.specialization,
+				bio: c.bio,
+				experience: c.experience,
+				languages: c.languages,
+				responseTime: c.responseTime,
+				rating: c.rating,
+				reviewCount: c.reviewCount,
+				createdAt: c.createdAt ?? null,
+			}
+
+			return {
+				candidate: candidateForScoring,
+				breakdown: computeENPScore(candidateForScoring, input.documentType),
+			}
+		})
 
 		// Select best by score then rating
 		const best = scored.sort((a, b) => {
@@ -136,13 +158,20 @@ export const browseRouter = createTRPCRouter({
 	 * Get available ENPs list (for Browse tab)
 	 * Returns: filterable list of all active ENPs with scores
 	 */
-	getAvailableENPs: protectedProcedure
+		getAvailableENPs: protectedProcedure
 		.input(getAvailableENPsSchema)
 		.query(async ({ ctx, input }) => {
 			const { specialization, minRating, searchTerm, sortBy, limit, offset } = input
+			const currentUserId = ctx.session.user.id
+			const currentUserRole = ctx.session.user.role
 
 			// Build where conditions
 			const baseConditions = [eq(users.role, "ENP"), eq(enpProfiles.isAvailable, true)]
+
+			// When viewer is an ENP (e.g. booking another ENP for notarization), exclude themselves from the list
+			if (currentUserRole === "ENP") {
+				baseConditions.push(ne(users.id, currentUserId))
+			}
 
 			// Add specialization, rating, and search filters using utility function
 			const filterConditions = buildENPWhereConditions({
