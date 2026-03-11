@@ -693,6 +693,20 @@ function KycDesktopFlow({ onNext, onBack, onExpandChange }: KycDesktopFlowProps)
 			</CardContent>
 
 			<CardFooter className="flex items-center justify-between gap-2">
+				{step !== "result" ? (
+					<Button
+						type="button"
+						variant="ghost"
+						size="sm"
+						onClick={reset}
+						disabled={isSubmitting}
+					>
+						Reset
+					</Button>
+				) : (
+					<div />
+				)}
+
 				<div className="flex items-center gap-2">
 					{step === "result" ? (
 						<Button
@@ -707,31 +721,17 @@ function KycDesktopFlow({ onNext, onBack, onExpandChange }: KycDesktopFlowProps)
 							Back to options
 						</Button>
 					) : (
-						<>
-							<Button
-								type="button"
-								variant="ghost"
-								size="sm"
-								onClick={handleBack}
-								disabled={isSubmitting}
-							>
-								<ArrowLeft className="mr-1 size-4" />
-								Back
-							</Button>
-							<Button
-								type="button"
-								variant="ghost"
-								size="sm"
-								onClick={reset}
-								disabled={isSubmitting}
-							>
-								Reset
-							</Button>
-						</>
+						<Button
+							type="button"
+							variant="ghost"
+							size="sm"
+							onClick={handleBack}
+							disabled={isSubmitting}
+						>
+							<ArrowLeft className="mr-1 size-4" />
+							Back
+						</Button>
 					)}
-				</div>
-
-				<div>
 					{step === "result" ? (
 						result?.ok ? (
 							<Button type="button" onClick={onNext} size="sm">
