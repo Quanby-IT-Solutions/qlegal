@@ -63,7 +63,7 @@ export function useKycBroadcast() {
 			}
 		}
 
-		return () => {}
+		return undefined
 	}
 
 	const isSupported = () => {
