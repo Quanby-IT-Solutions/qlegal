@@ -13,6 +13,7 @@ import {
 	createUserKycLink,
 	getExistingKycLink,
 	getUserKycInfo,
+	softResetUserKycStatus,
 } from "@/features/kyc/api/kyc.actions"
 import { useKycStatus } from "@/features/kyc/hooks/use-kyc-status"
 
@@ -186,6 +187,48 @@ export function KycStep({ onNext, onBack, kycStatus, onExpandChange }: KycStepPr
 		})
 	}
 
+	const handleContinueOnMobileFromDesktop = () => {
+		startMobileTransition(async () => {
+			setHostedEvent(null)
+			const result = await createUserKycLink()
+
+			if (result.success && result.data) {
+				window.open(result.data.url, "_blank", "noopener,noreferrer")
+				toast.success("Opening mobile verification…")
+				setMode("mobile-pending")
+				await refreshUserInfo()
+				return
+			}
+
+			if (result.error?.includes("already have a pending")) {
+				const existing = await getExistingKycLink()
+				if (existing.success && existing.data) {
+					window.open(existing.data.url, "_blank", "noopener,noreferrer")
+					toast.success("Reopening your existing verification link…")
+					setMode("mobile-pending")
+					await refreshUserInfo()
+				} else {
+					toast.error(existing.error ?? "Failed to resume existing verification")
+				}
+				return
+			}
+
+			toast.error(result.error ?? "Failed to create KYC link")
+		})
+	}
+
+	const handleStartOverFromDesktop = async () => {
+		setHostedEvent(null)
+		const res = await softResetUserKycStatus()
+		if (res.success) {
+			toast.success("Ready to try again")
+			setMode("choose")
+			await refreshUserInfo()
+			return
+		}
+		toast.error(res.error ?? "Failed to reset")
+	}
+
 	if (isVerified) {
 		return (
 			<>
@@ -218,6 +261,8 @@ export function KycStep({ onNext, onBack, kycStatus, onExpandChange }: KycStepPr
 				onNext={onNext}
 				onBack={() => setMode("choose")}
 				onExpandChange={onExpandChange}
+				onContinueOnMobile={handleContinueOnMobileFromDesktop}
+				onStartOver={handleStartOverFromDesktop}
 			/>
 		)
 	}

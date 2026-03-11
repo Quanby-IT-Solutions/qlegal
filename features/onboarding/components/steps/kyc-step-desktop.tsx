@@ -489,6 +489,13 @@ export function KycDesktopFlow({
 								type="button"
 								size="sm"
 								onClick={async () => {
+									if (onStartOver) {
+										await onStartOver()
+										reset()
+										onBack()
+										return
+									}
+
 									const res = await resetUserKycStatus()
 									if (res.success) {
 										toast.success("Ready to try again")
