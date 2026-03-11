@@ -153,14 +153,6 @@ export function KycDesktopFlow({ onNext, onBack, onExpandChange }: KycDesktopFlo
 
 					<div className="space-y-5">
 						{step !== "result" && (
-							<div>
-								<p className="text-muted-foreground text-sm">
-									Step {currentStepInfo.number} of {currentStepInfo.total}: {currentStepInfo.title}
-								</p>
-							</div>
-						)}
-
-						{step !== "result" && (
 							<div className="grid grid-cols-1 gap-4 md:grid-cols-2">
 								<CountryCombobox
 									value={countryId}
