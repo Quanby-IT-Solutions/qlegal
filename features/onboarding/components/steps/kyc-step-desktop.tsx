@@ -132,42 +132,31 @@ export function KycDesktopFlow({ onNext, onBack, onExpandChange }: KycDesktopFlo
 		<>
 			<CardContent className="px-2!">
 				<FieldGroup className="bg-background/70 gap-4 rounded-md border p-4 sm:gap-5">
-					<p className="text-muted-foreground mb-1 text-[11px] font-semibold tracking-wider uppercase">
-						Desktop verification
-					</p>
+					<div className="flex items-center justify-between">
+						<p className="text-muted-foreground mb-1 text-[11px] font-semibold tracking-wider uppercase">
+							Desktop verification
+						</p>
+
+						{step !== "result" ? (
+							<Button
+								type="button"
+								variant="ghost"
+								size="icon"
+								className="size-7"
+								onClick={() => setIsFullscreen(prev => !prev)}
+								title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
+							>
+								{isFullscreen ? <Minimize2 className="size-3.5" /> : <Maximize2 className="size-3.5" />}
+							</Button>
+						) : null}
+					</div>
 
 					<div className="space-y-5">
 						{step !== "result" && (
-							<div className="flex items-center justify-between">
+							<div>
 								<p className="text-muted-foreground text-sm">
 									Step {currentStepInfo.number} of {currentStepInfo.total}: {currentStepInfo.title}
 								</p>
-								<div className="flex items-center gap-2">
-									<Button
-										type="button"
-										variant="ghost"
-										size="icon"
-										className="size-7"
-										onClick={() => setIsFullscreen(prev => !prev)}
-										title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
-									>
-										{isFullscreen ? (
-											<Minimize2 className="size-3.5" />
-										) : (
-											<Maximize2 className="size-3.5" />
-										)}
-									</Button>
-									<div className="flex gap-1">
-										{DESKTOP_STEPS.map((s, idx) => (
-											<div
-												key={s}
-												className={`h-1.5 w-10 rounded-full transition-colors ${
-													idx < DESKTOP_STEPS.indexOf(step) + 1 ? "bg-primary" : "bg-muted"
-												}`}
-											/>
-										))}
-									</div>
-								</div>
 							</div>
 						)}
 
@@ -362,6 +351,21 @@ export function KycDesktopFlow({ onNext, onBack, onExpandChange }: KycDesktopFlo
 							</Alert>
 						)}
 					</div>
+
+					{step !== "result" ? (
+						<div className="flex justify-center">
+							<div className="flex gap-1">
+								{DESKTOP_STEPS.map((s, idx) => (
+									<div
+										key={s}
+										className={`h-1.5 w-10 rounded-full transition-colors ${
+											idx < DESKTOP_STEPS.indexOf(step) + 1 ? "bg-primary" : "bg-muted"
+										}`}
+									/>
+								))}
+							</div>
+						</div>
+					) : null}
 				</FieldGroup>
 			</CardContent>
 
