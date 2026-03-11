@@ -1,20 +1,29 @@
 "use client"
 
-import { useCallback, useEffect, useRef, useState } from "react"
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from "react"
 import { Camera, CameraOff, FlipHorizontal, RefreshCw } from "lucide-react"
 
 import { Button } from "@/core/components/ui/button"
 
 type FacingMode = "user" | "environment"
 
-export function CameraCapture(props: {
-	title: string
-	description?: string
-	initialFacingMode?: FacingMode
-	overlayVariant?: "face" | "document"
-	autoStart?: boolean
-	onCapture: (imageDataUrl: string) => void
-}) {
+export interface CameraCaptureHandle {
+	capture: () => void
+}
+
+export const CameraCapture = forwardRef<
+	CameraCaptureHandle,
+	{
+		title: string
+		description?: string
+		initialFacingMode?: FacingMode
+		overlayVariant?: "face" | "document"
+		autoStart?: boolean
+		captureButtonInFooter?: boolean
+		onFacingModeChange?: (mode: FacingMode) => void
+		onCapture: (imageDataUrl: string) => void
+	}
+>(function CameraCapture(props, ref) {
 	const videoRef = useRef<HTMLVideoElement>(null)
 	const canvasRef = useRef<HTMLCanvasElement>(null)
 	const streamRef = useRef<MediaStream | null>(null)
@@ -25,7 +34,7 @@ export function CameraCapture(props: {
 	const [cameraError, setCameraError] = useState<string | null>(null)
 	const [isStarting, setIsStarting] = useState(false)
 	const [capturedImage, setCapturedImage] = useState<string | null>(null)
-	const [facingMode, setFacingMode] = useState<FacingMode>(props.initialFacingMode ?? "environment")
+	const [facingMode, setFacingMode] = useState<FacingMode>(props.initialFacingMode ?? "user")
 
 	const waitForVideoFrame = async (video: HTMLVideoElement) => {
 		// Ensure metadata is ready and the element has actual frame dimensions.
@@ -139,6 +148,7 @@ export function CameraCapture(props: {
 				if (facingMode === "environment") {
 					stream = await getStream("user")
 					setFacingMode("user")
+					props.onFacingModeChange?.("user")
 				} else {
 					// Final fallback: ask browser to pick any camera
 					stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false })
@@ -165,7 +175,7 @@ export function CameraCapture(props: {
 			setIsStarting(false)
 			startInFlightRef.current = false
 		}
-	}, [facingMode])
+	}, [facingMode, props])
 
 	const flipCamera = useCallback(async () => {
 		const newMode: FacingMode = facingMode === "user" ? "environment" : "user"
@@ -191,12 +201,12 @@ export function CameraCapture(props: {
 			streamRef.current = newStream
 			await attachStreamToVideo(newStream)
 			setFacingMode(newMode)
-			// Keep prevFacingModeRef in sync so the old effect guard doesn't fire
 			prevFacingModeRef.current = newMode
+			props.onFacingModeChange?.(newMode)
 		} catch (err) {
 			console.warn("Failed to flip camera:", err)
 		}
-	}, [facingMode])
+	}, [facingMode, props])
 
 	useEffect(() => {
 		// Guard: only restart when facingMode was changed externally (not via flipCamera).
@@ -277,6 +287,8 @@ export function CameraCapture(props: {
 		void startCamera()
 	}, [startCamera])
 
+	useImperativeHandle(ref, () => ({ capture: captureImage }), [captureImage])
+
 	return (
 		<div className="space-y-3">
 			<div className="space-y-1">
@@ -340,16 +352,18 @@ export function CameraCapture(props: {
 						>
 							<FlipHorizontal className="size-5 text-white" />
 						</Button>
-						<Button
-							onClick={captureImage}
-							variant="default"
-							size="lg"
-							className="rounded-full px-8"
-							type="button"
-						>
-							<Camera className="mr-2 size-5" />
-							Capture
-						</Button>
+						{!props.captureButtonInFooter && (
+							<Button
+								onClick={captureImage}
+								variant="default"
+								size="lg"
+								className="rounded-full px-8"
+								type="button"
+							>
+								<Camera className="mr-2 size-5" />
+								Capture
+							</Button>
+						)}
 					</div>
 				)}
 			</div>
@@ -375,4 +389,4 @@ export function CameraCapture(props: {
 			</div>
 		</div>
 	)
-}
+})

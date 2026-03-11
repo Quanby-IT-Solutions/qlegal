@@ -1,8 +1,7 @@
 "use client"
 
-import { useEffect, useState, useTransition } from "react"
+import { useEffect, useRef, useState, useTransition } from "react"
 import {
-	ArrowLeft,
 	CheckCircle2,
 	Loader2,
 	Maximize2,
@@ -29,7 +28,7 @@ import {
 	resetUserKycStatus,
 	runDirectKycVerification,
 } from "@/features/kyc/api/kyc.actions"
-import { CameraCapture } from "@/features/kyc/components/camera-capture"
+import { CameraCapture, type CameraCaptureHandle } from "@/features/kyc/components/camera-capture"
 import { CountryCombobox } from "@/features/kyc/components/country-combobox"
 import { DocumentTypeCombobox } from "@/features/kyc/components/document-type-combobox"
 import { useKycStatus } from "@/features/kyc/hooks/use-kyc-status"
@@ -414,6 +413,9 @@ function KycDesktopFlow({ onNext, onBack, onExpandChange }: KycDesktopFlowProps)
 	} | null>(null)
 	const [isSubmitting, startSubmitTransition] = useTransition()
 	const [isFullscreen, setIsFullscreen] = useState(false)
+	const [cameraFacingMode, setCameraFacingMode] = useState<"user" | "environment">("user")
+	const idCaptureRef = useRef<CameraCaptureHandle>(null)
+	const selfieCaptureRef = useRef<CameraCaptureHandle>(null)
 
 	const handleCountryChange = (newCountryId: string) => {
 		setCountryId(newCountryId)
@@ -583,11 +585,14 @@ function KycDesktopFlow({ onNext, onBack, onExpandChange }: KycDesktopFlowProps)
 										</>
 									) : (
 										<CameraCapture
+											ref={idCaptureRef}
 											title=""
 											description=""
 											overlayVariant="document"
-											initialFacingMode="environment"
+											initialFacingMode={cameraFacingMode}
+											onFacingModeChange={setCameraFacingMode}
 											autoStart
+											captureButtonInFooter
 											onCapture={setIdImage}
 										/>
 									)}
@@ -623,11 +628,14 @@ function KycDesktopFlow({ onNext, onBack, onExpandChange }: KycDesktopFlowProps)
 										</>
 									) : (
 										<CameraCapture
+											ref={selfieCaptureRef}
 											title=""
 											description=""
 											overlayVariant="face"
-											initialFacingMode="user"
+											initialFacingMode={cameraFacingMode}
+											onFacingModeChange={setCameraFacingMode}
 											autoStart
+											captureButtonInFooter
 											onCapture={setSelfieImage}
 										/>
 									)}
@@ -704,9 +712,21 @@ function KycDesktopFlow({ onNext, onBack, onExpandChange }: KycDesktopFlowProps)
 											: "Verification failed"}
 								</AlertTitle>
 								<AlertDescription>
-									{result?.message ? <p>{result.message}</p> : null}
 									{result?.status === "PENDING" ? (
-										<p>Your submission needs manual review. We’ll notify you when it’s complete.</p>
+										<>
+											{result?.message ? <p>{result.message}</p> : null}
+											<p>
+												Your submission needs manual review. We’ll notify you when it’s complete.
+											</p>
+										</>
+									) : result?.status !== "VERIFIED" && result?.message ? (
+										<p>
+											{result.message.includes("API error") ||
+											result.message.includes("{") ||
+											result.message.length > 200
+												? "We couldn't complete verification. Please check your photos and try again."
+												: result.message}
+										</p>
 									) : null}
 								</AlertDescription>
 							</Alert>
@@ -769,7 +789,6 @@ function KycDesktopFlow({ onNext, onBack, onExpandChange }: KycDesktopFlowProps)
 							onClick={handleBack}
 							disabled={isSubmitting}
 						>
-							<ArrowLeft className="mr-1 size-4" />
 							Back
 						</Button>
 					)}
@@ -795,6 +814,24 @@ function KycDesktopFlow({ onNext, onBack, onExpandChange }: KycDesktopFlowProps)
 								Try Again
 							</Button>
 						)
+					) : step === "id" && !idImage ? (
+						<Button
+							type="button"
+							size="sm"
+							onClick={() => idCaptureRef.current?.capture()}
+							disabled={isSubmitting}
+						>
+							Capture
+						</Button>
+					) : step === "selfie" && !selfieImage ? (
+						<Button
+							type="button"
+							size="sm"
+							onClick={() => selfieCaptureRef.current?.capture()}
+							disabled={isSubmitting}
+						>
+							Capture
+						</Button>
 					) : step === "review" ? (
 						<Button
 							type="button"
@@ -815,7 +852,7 @@ function KycDesktopFlow({ onNext, onBack, onExpandChange }: KycDesktopFlowProps)
 						<Button
 							type="button"
 							onClick={() => setStep(step === "id" ? "selfie" : "review")}
-							disabled={!canContinue || isSubmitting}
+							disabled={isSubmitting}
 							size="sm"
 						>
 							Continue
