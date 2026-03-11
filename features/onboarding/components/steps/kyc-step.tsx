@@ -219,14 +219,15 @@ export function KycStep({ onNext, onBack, kycStatus, onExpandChange }: KycStepPr
 
 	const handleStartOverFromDesktop = async () => {
 		setHostedEvent(null)
-		const res = await softResetUserKycStatus()
+		const res: Awaited<ReturnType<typeof softResetUserKycStatus>> =
+			await softResetUserKycStatus()
 		if (res.success) {
 			toast.success("Ready to try again")
-			setMode("choose")
+			setMode("desktop")
 			await refreshUserInfo()
 			return
 		}
-		toast.error(res.error ?? "Failed to reset")
+		toast.error(res.error)
 	}
 
 	if (isVerified) {

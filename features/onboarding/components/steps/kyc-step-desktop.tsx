@@ -333,13 +333,10 @@ export function KycDesktopFlow({
 								</AlertTitle>
 								<AlertDescription>
 									{result?.status === "PENDING" ? (
-										<>
-											{result?.message ? <p className="mb-2">{result.message}</p> : null}
-											<p className="text-muted-foreground">
-												This result requires manual review. Desktop verification can’t complete
-												manual review with our current provider setup.
-											</p>
-										</>
+										<p className="text-muted-foreground">
+											Your verification is pending manual review. We&apos;ll notify you once it&apos;s
+											complete.
+										</p>
 									) : result?.status !== "VERIFIED" && result?.message ? (
 										<p>
 											{result.message.includes("API error") ||
@@ -402,6 +399,18 @@ export function KycDesktopFlow({
 						<RefreshCw className="mr-1 size-4" />
 						Retake
 					</Button>
+				) : step === "result" ? (
+					<Button
+						type="button"
+						variant="ghost"
+						size="sm"
+						onClick={() => {
+							reset()
+							onBack()
+						}}
+					>
+						Back to options
+					</Button>
 				) : (
 					<div />
 				)}
@@ -420,111 +429,55 @@ export function KycDesktopFlow({
 					)}
 					{step === "result" ? (
 						result?.status === "PENDING" ? (
-							<>
-								<Button
-									type="button"
-									variant="ghost"
-									size="sm"
-									onClick={() => {
+							<Button
+								type="button"
+								size="sm"
+								onClick={async () => {
+									if (onStartOver) {
+										await onStartOver()
 										reset()
 										onBack()
-									}}
-								>
-									Back to options
-								</Button>
-								<Button
-									type="button"
-									variant="outline"
-									size="sm"
-									onClick={async () => {
-										if (onStartOver) {
-											await onStartOver()
-											reset()
-											onBack()
-											return
-										}
+										return
+									}
 
-										const res = await resetUserKycStatus()
-										if (res.success) {
-											toast.success("Ready to try again")
-											reset()
-											onBack()
-										} else {
-											toast.error(res.error ?? "Failed to reset")
-										}
-									}}
-								>
-									Start over
-								</Button>
-								<Button
-									type="button"
-									size="sm"
-									onClick={() => {
-										if (onContinueOnMobile) {
-											onContinueOnMobile()
-											return
-										}
-										toast.message("Go back and choose mobile verification to continue.")
+									const res = await resetUserKycStatus()
+									if (res.success) {
+										toast.success("Ready to try again")
 										reset()
 										onBack()
-									}}
-								>
-									Continue on mobile (recommended)
-								</Button>
-							</>
+									} else {
+										toast.error(res.error ?? "Failed to reset")
+									}
+								}}
+							>
+								Start over
+							</Button>
 						) : result?.ok ? (
-							<>
-								<Button
-									type="button"
-									variant="ghost"
-									size="sm"
-									onClick={() => {
-										reset()
-										onBack()
-									}}
-								>
-									Back to options
-								</Button>
-								<Button type="button" onClick={onNext} size="sm">
-									Next
-								</Button>
-							</>
+							<Button type="button" onClick={onNext} size="sm">
+								Next
+							</Button>
 						) : (
-							<>
-								<Button
-									type="button"
-									variant="ghost"
-									size="sm"
-									onClick={() => {
+							<Button
+								type="button"
+								size="sm"
+								onClick={async () => {
+									if (onStartOver) {
+										await onStartOver()
 										reset()
-										onBack()
-									}}
-								>
-									Back to options
-								</Button>
-								<Button
-									type="button"
-									size="sm"
-									onClick={async () => {
-										if (onStartOver) {
-											await onStartOver()
-											reset()
-											onBack()
-											return
-										}
+										return
+									}
 
-										const res = await resetUserKycStatus()
-										if (res.success) {
-											toast.success("Ready to try again")
-											reset()
-										} else {
-											toast.error(res.error ?? "Failed to reset")
-										}
-									}}
-								>
-									Try Again
-								</Button>
-							</>
+									const res = await resetUserKycStatus()
+									if (res.success) {
+										toast.success("Ready to try again")
+										reset()
+									} else {
+										toast.error(res.error ?? "Failed to reset")
+									}
+								}}
+							>
+								Try Again
+							</Button>
 						)
 					) : step === "id" && !idImage ? (
 						<Button

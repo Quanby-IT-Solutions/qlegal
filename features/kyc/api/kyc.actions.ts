@@ -988,7 +988,11 @@ export async function resetUserKycStatus() {
  * - Marks any active PENDING session(s) as REJECTED with metadata reason "user_restarted"
  *   so the UI no longer treats the user as pending.
  */
-export async function softResetUserKycStatus() {
+export type SoftResetUserKycStatusResult =
+	| { success: true; message: string }
+	| { success: false; error: string }
+
+export async function softResetUserKycStatus(): Promise<SoftResetUserKycStatusResult> {
 	const session = await auth()
 
 	if (!session?.user?.id) {
