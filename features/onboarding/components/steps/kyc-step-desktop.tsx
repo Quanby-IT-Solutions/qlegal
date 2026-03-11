@@ -130,19 +130,15 @@ export function KycDesktopFlow({ onNext, onBack, onExpandChange }: KycDesktopFlo
 
 	const captureSuccessBanner =
 		step === "id" && idImage ? (
-			<div className="rounded-lg border bg-green-50 p-3 dark:bg-green-950/30">
-				<div className="flex items-center gap-2 text-sm text-green-900 dark:text-green-100">
-					<CheckCircle2 className="size-4" />
-					Photo captured successfully
-				</div>
-			</div>
+			<Alert variant="success">
+				<CheckCircle2 className="size-4" />
+				<AlertTitle>Photo captured successfully</AlertTitle>
+			</Alert>
 		) : step === "selfie" && selfieImage ? (
-			<div className="rounded-lg border bg-green-50 p-3 dark:bg-green-950/30">
-				<div className="flex items-center gap-2 text-sm text-green-900 dark:text-green-100">
-					<CheckCircle2 className="size-4" />
-					Selfie captured successfully
-				</div>
-			</div>
+			<Alert variant="success">
+				<CheckCircle2 className="size-4" />
+				<AlertTitle>Selfie captured successfully</AlertTitle>
+			</Alert>
 		) : null
 
 	return (
