@@ -8,6 +8,7 @@ import {
 	Maximize2,
 	Minimize2,
 	Monitor,
+	RefreshCw,
 	Smartphone,
 	XCircle,
 } from "lucide-react"
@@ -563,22 +564,33 @@ function KycDesktopFlow({ onNext, onBack, onExpandChange }: KycDesktopFlowProps)
 									</p>
 								</div>
 								<div className="space-y-4">
-									<CameraCapture
-										title=""
-										description=""
-										overlayVariant="document"
-										initialFacingMode="environment"
-										autoStart
-										onCapture={setIdImage}
-									/>
 									{idImage ? (
-										<div className="rounded-lg border bg-green-50 p-3 dark:bg-green-950/30">
-											<div className="flex items-center gap-2 text-sm text-green-900 dark:text-green-100">
-												<CheckCircle2 className="size-4" />
-												Photo captured successfully
+										<>
+											<div className="overflow-hidden rounded-lg border shadow-sm">
+												{/* eslint-disable-next-line @next/next/no-img-element */}
+												<img
+													src={idImage}
+													alt="ID document"
+													className="aspect-4/3 w-full object-cover"
+												/>
 											</div>
-										</div>
-									) : null}
+											<div className="rounded-lg border bg-green-50 p-3 dark:bg-green-950/30">
+												<div className="flex items-center gap-2 text-sm text-green-900 dark:text-green-100">
+													<CheckCircle2 className="size-4" />
+													Photo captured successfully
+												</div>
+											</div>
+										</>
+									) : (
+										<CameraCapture
+											title=""
+											description=""
+											overlayVariant="document"
+											initialFacingMode="environment"
+											autoStart
+											onCapture={setIdImage}
+										/>
+									)}
 								</div>
 							</div>
 						)}
@@ -592,22 +604,33 @@ function KycDesktopFlow({ onNext, onBack, onExpandChange }: KycDesktopFlowProps)
 									</p>
 								</div>
 								<div className="space-y-4">
-									<CameraCapture
-										title=""
-										description=""
-										overlayVariant="face"
-										initialFacingMode="user"
-										autoStart
-										onCapture={setSelfieImage}
-									/>
 									{selfieImage ? (
-										<div className="rounded-lg border bg-green-50 p-3 dark:bg-green-950/30">
-											<div className="flex items-center gap-2 text-sm text-green-900 dark:text-green-100">
-												<CheckCircle2 className="size-4" />
-												Selfie captured successfully
+										<>
+											<div className="overflow-hidden rounded-lg border shadow-sm">
+												{/* eslint-disable-next-line @next/next/no-img-element */}
+												<img
+													src={selfieImage}
+													alt="Selfie"
+													className="aspect-4/3 w-full object-cover"
+												/>
 											</div>
-										</div>
-									) : null}
+											<div className="rounded-lg border bg-green-50 p-3 dark:bg-green-950/30">
+												<div className="flex items-center gap-2 text-sm text-green-900 dark:text-green-100">
+													<CheckCircle2 className="size-4" />
+													Selfie captured successfully
+												</div>
+											</div>
+										</>
+									) : (
+										<CameraCapture
+											title=""
+											description=""
+											overlayVariant="face"
+											initialFacingMode="user"
+											autoStart
+											onCapture={setSelfieImage}
+										/>
+									)}
 								</div>
 							</div>
 						)}
@@ -693,15 +716,33 @@ function KycDesktopFlow({ onNext, onBack, onExpandChange }: KycDesktopFlowProps)
 			</CardContent>
 
 			<CardFooter className="flex items-center justify-between gap-2">
-				{step !== "result" ? (
+				{step === "id" ? (
 					<Button
 						type="button"
 						variant="ghost"
 						size="sm"
-						onClick={reset}
+						onClick={() => {
+							setIdImage(null)
+							setIsFullscreen(false)
+						}}
 						disabled={isSubmitting}
 					>
-						Reset
+						<RefreshCw className="mr-1 size-4" />
+						Retake
+					</Button>
+				) : step === "selfie" ? (
+					<Button
+						type="button"
+						variant="ghost"
+						size="sm"
+						onClick={() => {
+							setSelfieImage(null)
+							setIsFullscreen(false)
+						}}
+						disabled={isSubmitting}
+					>
+						<RefreshCw className="mr-1 size-4" />
+						Retake
 					</Button>
 				) : (
 					<div />
