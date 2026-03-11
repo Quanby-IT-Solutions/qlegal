@@ -980,3 +980,81 @@ export async function resetUserKycStatus() {
 		}
 	}
 }
+
+/**
+ * Soft-reset KYC status for the authenticated user (preserves history).
+ *
+ * - Keeps existing `kycSessions` rows for audit/history.
+ * - Marks any active PENDING session(s) as REJECTED with metadata reason "user_restarted"
+ *   so the UI no longer treats the user as pending.
+ */
+export async function softResetUserKycStatus() {
+	const session = await auth()
+
+	if (!session?.user?.id) {
+		return {
+			success: false,
+			error: "User not authenticated",
+		}
+	}
+
+	try {
+		const pendingSessions = await db.query.kycSessions.findMany({
+			where: (table, { and, eq }) =>
+				and(eq(table.userId, session.user.id), eq(table.status, "PENDING")),
+			orderBy: (table, { desc }) => [desc(table.createdAt)],
+			columns: {
+				id: true,
+				workflowMetadata: true,
+			},
+		})
+
+		const restartMetadataBase = {
+			reason: "user_restarted",
+			at: new Date().toISOString(),
+			previousStatus: "PENDING",
+		} as const
+
+		for (const s of pendingSessions) {
+			const existing =
+				s.workflowMetadata && typeof s.workflowMetadata === "object" && !Array.isArray(s.workflowMetadata)
+					? (s.workflowMetadata as Record<string, unknown>)
+					: undefined
+
+			await db
+				.update(kycSessions)
+				.set({
+					status: "REJECTED",
+					verifiedAt: null,
+					workflowMetadata: {
+						...existing,
+						...restartMetadataBase,
+					},
+					updatedAt: new Date(),
+				})
+				.where(eq(kycSessions.id, s.id))
+		}
+
+		// Reset user KYC status
+		await db
+			.update(users)
+			.set({
+				kycStatus: "NOT_STARTED",
+				kycVerifiedAt: null,
+			})
+			.where(eq(users.id, session.user.id))
+
+		revalidatePath("/onboarding")
+
+		return {
+			success: true,
+			message: "KYC status reset successfully",
+		}
+	} catch (error) {
+		console.error("Failed to soft reset KYC status:", error)
+		return {
+			success: false,
+			error: error instanceof Error ? error.message : "Failed to soft reset KYC status",
+		}
+	}
+}
