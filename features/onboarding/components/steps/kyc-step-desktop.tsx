@@ -32,9 +32,17 @@ interface KycDesktopFlowProps {
 	onNext: () => void
 	onBack: () => void
 	onExpandChange?: (expanded: boolean) => void
+	onContinueOnMobile?: () => void
+	onStartOver?: () => void | Promise<void>
 }
 
-export function KycDesktopFlow({ onNext, onBack, onExpandChange }: KycDesktopFlowProps) {
+export function KycDesktopFlow({
+	onNext,
+	onBack,
+	onExpandChange,
+	onContinueOnMobile,
+	onStartOver,
+}: KycDesktopFlowProps) {
 	const { update: updateSession } = useSession()
 
 	const [step, setStep] = useState<DesktopStep>("id")
@@ -326,10 +334,60 @@ export function KycDesktopFlow({ onNext, onBack, onExpandChange }: KycDesktopFlo
 								<AlertDescription>
 									{result?.status === "PENDING" ? (
 										<>
-											{result?.message ? <p>{result.message}</p> : null}
-											<p>
-												Your submission needs manual review. We'll notify you when it's complete.
+											{result?.message ? <p className="mb-2">{result.message}</p> : null}
+											<p className="text-muted-foreground">
+												This result requires manual review. Desktop verification can’t complete
+												manual review with our current provider setup.
 											</p>
+											<div className="mt-3 flex flex-wrap gap-2">
+												<Button
+													type="button"
+													size="sm"
+													onClick={() => {
+														if (onContinueOnMobile) {
+															onContinueOnMobile()
+															return
+														}
+														toast.message("Go back and choose mobile verification to continue.")
+														reset()
+														onBack()
+													}}
+												>
+													Continue on mobile (recommended)
+												</Button>
+												<Button
+													type="button"
+													size="sm"
+													variant="outline"
+													onClick={async () => {
+														if (onStartOver) {
+															await onStartOver()
+															return
+														}
+														const res = await resetUserKycStatus()
+														if (res.success) {
+															toast.success("Ready to try again")
+															reset()
+															onBack()
+														} else {
+															toast.error(res.error ?? "Failed to reset")
+														}
+													}}
+												>
+													Start over
+												</Button>
+												<Button
+													type="button"
+													size="sm"
+													variant="ghost"
+													onClick={() => {
+														reset()
+														onBack()
+													}}
+												>
+													Back to options
+												</Button>
+											</div>
 										</>
 									) : result?.status !== "VERIFIED" && result?.message ? (
 										<p>
