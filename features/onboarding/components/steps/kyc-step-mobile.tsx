@@ -1,6 +1,6 @@
 "use client"
 
-import { Loader2, Monitor, Smartphone } from "lucide-react"
+import { Loader2, Monitor, Smartphone, XCircle } from "lucide-react"
 
 import { Button } from "@/core/components/ui/button"
 import { CardContent, CardFooter } from "@/core/components/ui/card"
@@ -14,6 +14,7 @@ interface KycMobileFlowProps {
 	onSelectDesktop: () => void
 	isMobilePending: boolean
 	showPendingBanner: boolean
+	showCancelledBanner?: boolean
 	hasHostedLink?: boolean
 	hasExpiredLink: boolean
 }
@@ -26,6 +27,7 @@ export function KycMobileFlow({
 	onSelectDesktop,
 	isMobilePending,
 	showPendingBanner,
+	showCancelledBanner,
 	hasHostedLink,
 	hasExpiredLink,
 }: KycMobileFlowProps) {
@@ -38,6 +40,22 @@ export function KycMobileFlow({
 					</p>
 
 					<div className="grid gap-3">
+						{showCancelledBanner ? (
+							<div className="rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-900/70 dark:bg-amber-950/25">
+								<div className="flex items-start gap-3">
+									<XCircle className="mt-0.5 size-5 shrink-0 text-amber-700 dark:text-amber-300" />
+									<div className="flex-1">
+										<p className="mb-1 text-sm font-medium text-amber-900 dark:text-amber-100">
+											Verification cancelled
+										</p>
+										<p className="text-sm text-amber-800/90 dark:text-amber-200/90">
+											You closed the verification window. You can try again anytime.
+										</p>
+									</div>
+								</div>
+							</div>
+						) : null}
+
 						<Button
 							onClick={hasHostedLink ? onResumeMobileLink : onCreateMobileLink}
 							disabled={isMobilePending}

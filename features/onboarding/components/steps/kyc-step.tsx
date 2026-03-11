@@ -46,6 +46,7 @@ export function KycStep({ onNext, onBack, kycStatus, onExpandChange }: KycStepPr
 
 	const [userInfo, setUserInfo] = useState<UserKycInfo | null>(null)
 	const [mode, setMode] = useState<KycMode>("choose")
+	const [hostedEvent, setHostedEvent] = useState<"cancelled" | null>(null)
 	const [isMobilePending, startMobileTransition] = useTransition()
 
 	const effectiveStatus = userInfo?.kycStatus ?? kycStatus ?? null
@@ -101,6 +102,22 @@ export function KycStep({ onNext, onBack, kycStatus, onExpandChange }: KycStepPr
 				toast.success("KYC verified!")
 				void updateSession()
 				window.location.reload()
+				return
+			}
+
+			if (message.type === "KYC_REJECTED") {
+				toast.error("KYC verification was declined. Please try again.")
+				setHostedEvent(null)
+				setMode("choose")
+				void refreshUserInfo()
+				return
+			}
+
+			if (message.type === "KYC_CANCELLED") {
+				toast.message("Verification cancelled.")
+				setHostedEvent("cancelled")
+				setMode("choose")
+				void refreshUserInfo()
 			}
 		})
 		return unsubscribe
@@ -128,6 +145,7 @@ export function KycStep({ onNext, onBack, kycStatus, onExpandChange }: KycStepPr
 
 	const handleCreateMobileLink = () => {
 		startMobileTransition(async () => {
+			setHostedEvent(null)
 			const result = await createUserKycLink()
 
 			if (result.success && result.data) {
@@ -157,6 +175,7 @@ export function KycStep({ onNext, onBack, kycStatus, onExpandChange }: KycStepPr
 
 	const handleResumeMobileLink = () => {
 		startMobileTransition(async () => {
+			setHostedEvent(null)
 			const result = await getExistingKycLink()
 			if (result.success && result.data) {
 				window.open(result.data.url, "_blank", "noopener,noreferrer")
@@ -214,6 +233,7 @@ export function KycStep({ onNext, onBack, kycStatus, onExpandChange }: KycStepPr
 			onSelectDesktop={() => setMode("desktop")}
 			isMobilePending={isMobilePending}
 			showPendingBanner={showPendingBanner}
+			showCancelledBanner={hostedEvent === "cancelled"}
 			hasHostedLink={userInfo?.hasHostedLink && effectiveStatus === "PENDING"}
 			hasExpiredLink={hasExpiredLink}
 		/>
