@@ -7,6 +7,7 @@ import { getFullName } from "@/core/lib/utils"
 
 import { db } from "@/services/drizzle/db"
 import { users } from "@/services/drizzle/schema/auth"
+import { idCardDetails } from "@/services/drizzle/schema/id-card-details"
 import { kycSessions } from "@/services/drizzle/schema/kyc-sessions"
 import {
 	createOnboardLink,
@@ -128,6 +129,75 @@ function resolveNameFieldsFromIdCardDetails(details: {
 		middleName: normalizeNameValue(details.middleName) ?? fromFullName.middleName,
 		lastName: normalizeNameValue(details.lastName) ?? fromFullName.lastName,
 	}
+}
+
+function joinDefined(parts: Array<string | null | undefined>, separator: string) {
+	return parts
+		.map(part => (typeof part === "string" ? part.trim() : ""))
+		.filter(Boolean)
+		.join(separator)
+}
+
+type AddressDetails = {
+	addressLine1?: string | null
+	addressLine2?: string | null
+	city?: string | null
+	province?: string | null
+	postalCode?: string | null
+	country?: string | null
+	additionalFields?: unknown
+}
+
+function formatAddressLine(details: AddressDetails): string | null {
+	const line1 = normalizeNameValue(details.addressLine1)
+	const line2 = normalizeNameValue(details.addressLine2)
+	const city = normalizeNameValue(details.city)
+	const province = normalizeNameValue(details.province)
+	const postalCode = normalizeNameValue(details.postalCode)
+	const country = normalizeNameValue(details.country)
+
+	const cityProvince = joinDefined([city, province], ", ")
+	const cityProvincePostal = joinDefined([cityProvince, postalCode], " ")
+	const main = joinDefined([line1, line2], ", ")
+
+	const full = joinDefined([main, cityProvincePostal, country], ", ")
+	return full ? full : null
+}
+
+function formatStreetLine(details: AddressDetails): string | null {
+	const line1 = normalizeNameValue(details.addressLine1)
+	const line2 = normalizeNameValue(details.addressLine2)
+	const street = joinDefined([line1, line2], ", ")
+	return street ? street : null
+}
+
+function extractBarangayFromAdditionalFields(additionalFields: unknown): string | null {
+	if (
+		!additionalFields ||
+		typeof additionalFields !== "object" ||
+		Array.isArray(additionalFields)
+	) {
+		return null
+	}
+
+	const record = additionalFields as Record<string, unknown>
+	const candidates = ["barangay", "brgy", "brgyName", "brgy_name"]
+
+	for (const key of candidates) {
+		const value = record[key]
+		if (typeof value === "string" && value.trim()) {
+			return value.trim()
+		}
+	}
+
+	return null
+}
+
+function formatCityProvince(details: AddressDetails): string | null {
+	const city = normalizeNameValue(details.city)
+	const province = normalizeNameValue(details.province)
+	const cityProvince = joinDefined([city, province], ", ")
+	return cityProvince ? cityProvince : null
 }
 
 /**
@@ -291,6 +361,10 @@ export async function runDirectKycVerification(input: {
 			lastName: true,
 			prefix: true,
 			suffix: true,
+			address: true,
+			homeStreet: true,
+			barangay: true,
+			cityProvince: true,
 		},
 	})
 
@@ -453,6 +527,12 @@ export async function runDirectKycVerification(input: {
 							middleName: true,
 							lastName: true,
 							fullName: true,
+							addressLine1: true,
+							addressLine2: true,
+							city: true,
+							province: true,
+							postalCode: true,
+							country: true,
 							additionalFields: true,
 						},
 					})
@@ -474,6 +554,38 @@ export async function runDirectKycVerification(input: {
 			lastName: latestIdCardDetails?.lastName,
 			fullName: latestIdCardDetails?.fullName,
 		})
+		const resolvedAddress = latestIdCardDetails
+			? {
+					address: formatAddressLine({
+						addressLine1: latestIdCardDetails.addressLine1,
+						addressLine2: latestIdCardDetails.addressLine2,
+						city: latestIdCardDetails.city,
+						province: latestIdCardDetails.province,
+						postalCode: latestIdCardDetails.postalCode,
+						country: latestIdCardDetails.country,
+						additionalFields: latestIdCardDetails.additionalFields,
+					}),
+					homeStreet: formatStreetLine({
+						addressLine1: latestIdCardDetails.addressLine1,
+						addressLine2: latestIdCardDetails.addressLine2,
+						city: null,
+						province: null,
+						postalCode: null,
+						country: null,
+						additionalFields: latestIdCardDetails.additionalFields,
+					}),
+					barangay: extractBarangayFromAdditionalFields(latestIdCardDetails.additionalFields),
+					cityProvince: formatCityProvince({
+						addressLine1: null,
+						addressLine2: null,
+						city: latestIdCardDetails.city,
+						province: latestIdCardDetails.province,
+						postalCode: null,
+						country: null,
+						additionalFields: latestIdCardDetails.additionalFields,
+					}),
+				}
+			: null
 
 		// Update user status and hydrate missing names from verified ID details.
 		await db
@@ -501,6 +613,22 @@ export async function runDirectKycVerification(input: {
 					kycStatus === "VERIFIED"
 						? coalesceNameValue(existingUser.suffix, latestSuffix)
 						: existingUser.suffix,
+				address:
+					kycStatus === "VERIFIED" && resolvedAddress
+						? coalesceNameValue(existingUser.address, resolvedAddress.address)
+						: existingUser.address,
+				homeStreet:
+					kycStatus === "VERIFIED" && resolvedAddress
+						? coalesceNameValue(existingUser.homeStreet, resolvedAddress.homeStreet)
+						: existingUser.homeStreet,
+				barangay:
+					kycStatus === "VERIFIED" && resolvedAddress
+						? coalesceNameValue(existingUser.barangay, resolvedAddress.barangay ?? null)
+						: existingUser.barangay,
+				cityProvince:
+					kycStatus === "VERIFIED" && resolvedAddress
+						? coalesceNameValue(existingUser.cityProvince, resolvedAddress.cityProvince)
+						: existingUser.cityProvince,
 				// Auto-activate account when direct KYC is verified for non-ENP users.
 				// Never override SUSPENDED here.
 				// For ENP users, keep status as PENDING even after KYC verification.
@@ -590,6 +718,10 @@ export async function checkUserKycStatus() {
 			lastName: true,
 			prefix: true,
 			suffix: true,
+			address: true,
+			homeStreet: true,
+			barangay: true,
+			cityProvince: true,
 		},
 	})
 
@@ -664,7 +796,9 @@ export async function checkUserKycStatus() {
 		}
 
 		const shouldHydrateMissingNames =
-			!hasNameValue(user?.firstName) || !hasNameValue(user?.lastName) || !hasNameValue(user?.middleName)
+			!hasNameValue(user?.firstName) ||
+			!hasNameValue(user?.lastName) ||
+			!hasNameValue(user?.middleName)
 
 		if (shouldHydrateMissingNames) {
 			const latestIdCardDetails = await db.query.idCardDetails.findFirst({
@@ -675,6 +809,12 @@ export async function checkUserKycStatus() {
 					middleName: true,
 					lastName: true,
 					fullName: true,
+					addressLine1: true,
+					addressLine2: true,
+					city: true,
+					province: true,
+					postalCode: true,
+					country: true,
 					additionalFields: true,
 				},
 			})
@@ -695,6 +835,38 @@ export async function checkUserKycStatus() {
 				lastName: latestIdCardDetails?.lastName,
 				fullName: latestIdCardDetails?.fullName,
 			})
+			const resolvedAddress = latestIdCardDetails
+				? {
+						address: formatAddressLine({
+							addressLine1: latestIdCardDetails.addressLine1,
+							addressLine2: latestIdCardDetails.addressLine2,
+							city: latestIdCardDetails.city,
+							province: latestIdCardDetails.province,
+							postalCode: latestIdCardDetails.postalCode,
+							country: latestIdCardDetails.country,
+							additionalFields: latestIdCardDetails.additionalFields,
+						}),
+						homeStreet: formatStreetLine({
+							addressLine1: latestIdCardDetails.addressLine1,
+							addressLine2: latestIdCardDetails.addressLine2,
+							city: null,
+							province: null,
+							postalCode: null,
+							country: null,
+							additionalFields: latestIdCardDetails.additionalFields,
+						}),
+						barangay: extractBarangayFromAdditionalFields(latestIdCardDetails.additionalFields),
+						cityProvince: formatCityProvince({
+							addressLine1: null,
+							addressLine2: null,
+							city: latestIdCardDetails.city,
+							province: latestIdCardDetails.province,
+							postalCode: null,
+							country: null,
+							additionalFields: latestIdCardDetails.additionalFields,
+						}),
+					}
+				: null
 
 			await db
 				.update(users)
@@ -704,6 +876,18 @@ export async function checkUserKycStatus() {
 					lastName: coalesceNameValue(user?.lastName, resolvedNameFields.lastName),
 					prefix: coalesceNameValue(user?.prefix, latestPrefix),
 					suffix: coalesceNameValue(user?.suffix, latestSuffix),
+					address: resolvedAddress
+						? coalesceNameValue(user?.address, resolvedAddress.address)
+						: (user?.address ?? null),
+					homeStreet: resolvedAddress
+						? coalesceNameValue(user?.homeStreet, resolvedAddress.homeStreet)
+						: (user?.homeStreet ?? null),
+					barangay: resolvedAddress
+						? coalesceNameValue(user?.barangay, resolvedAddress.barangay ?? null)
+						: (user?.barangay ?? null),
+					cityProvince: resolvedAddress
+						? coalesceNameValue(user?.cityProvince, resolvedAddress.cityProvince)
+						: (user?.cityProvince ?? null),
 				})
 				.where(eq(users.id, session.user.id))
 		}
@@ -842,6 +1026,12 @@ export async function checkUserKycStatus() {
 					middleName: true,
 					lastName: true,
 					fullName: true,
+					addressLine1: true,
+					addressLine2: true,
+					city: true,
+					province: true,
+					postalCode: true,
+					country: true,
 					additionalFields: true,
 				},
 			})
@@ -862,6 +1052,38 @@ export async function checkUserKycStatus() {
 				lastName: latestIdCardDetails?.lastName,
 				fullName: latestIdCardDetails?.fullName,
 			})
+			const resolvedAddress = latestIdCardDetails
+				? {
+						address: formatAddressLine({
+							addressLine1: latestIdCardDetails.addressLine1,
+							addressLine2: latestIdCardDetails.addressLine2,
+							city: latestIdCardDetails.city,
+							province: latestIdCardDetails.province,
+							postalCode: latestIdCardDetails.postalCode,
+							country: latestIdCardDetails.country,
+							additionalFields: latestIdCardDetails.additionalFields,
+						}),
+						homeStreet: formatStreetLine({
+							addressLine1: latestIdCardDetails.addressLine1,
+							addressLine2: latestIdCardDetails.addressLine2,
+							city: null,
+							province: null,
+							postalCode: null,
+							country: null,
+							additionalFields: latestIdCardDetails.additionalFields,
+						}),
+						barangay: extractBarangayFromAdditionalFields(latestIdCardDetails.additionalFields),
+						cityProvince: formatCityProvince({
+							addressLine1: null,
+							addressLine2: null,
+							city: latestIdCardDetails.city,
+							province: latestIdCardDetails.province,
+							postalCode: null,
+							country: null,
+							additionalFields: latestIdCardDetails.additionalFields,
+						}),
+					}
+				: null
 
 			// Update user status and hydrate missing names from verified ID details.
 			await db
@@ -874,6 +1096,18 @@ export async function checkUserKycStatus() {
 					lastName: coalesceNameValue(user?.lastName, resolvedNameFields.lastName),
 					prefix: coalesceNameValue(user?.prefix, latestPrefix),
 					suffix: coalesceNameValue(user?.suffix, latestSuffix),
+					address: resolvedAddress
+						? coalesceNameValue(user?.address, resolvedAddress.address)
+						: (user?.address ?? null),
+					homeStreet: resolvedAddress
+						? coalesceNameValue(user?.homeStreet, resolvedAddress.homeStreet)
+						: (user?.homeStreet ?? null),
+					barangay: resolvedAddress
+						? coalesceNameValue(user?.barangay, resolvedAddress.barangay ?? null)
+						: (user?.barangay ?? null),
+					cityProvince: resolvedAddress
+						? coalesceNameValue(user?.cityProvince, resolvedAddress.cityProvince)
+						: (user?.cityProvince ?? null),
 					// If account was pending, auto-activate on successful KYC for non-ENP users.
 					// Never override SUSPENDED here.
 					// For ENP users, keep status as PENDING even after KYC verification.
@@ -1042,6 +1276,74 @@ export async function getUserKycInfo() {
 		orderBy: (table, { desc }) => [desc(table.createdAt)],
 	})
 
+	const latestIdCard = await db.query.idCardDetails.findFirst({
+		where: eq(idCardDetails.userId, session.user.id),
+		orderBy: (table, { desc }) => [desc(table.updatedAt)],
+		columns: {
+			firstName: true,
+			middleName: true,
+			lastName: true,
+			fullName: true,
+			addressLine1: true,
+			addressLine2: true,
+			city: true,
+			province: true,
+			postalCode: true,
+			country: true,
+			additionalFields: true,
+			documentType: true,
+			documentCountry: true,
+			ocrTransactionId: true,
+			isVerified: true,
+		},
+	})
+
+	const resolvedIdName = latestIdCard
+		? resolveNameFieldsFromIdCardDetails({
+				firstName: latestIdCard.firstName,
+				middleName: latestIdCard.middleName,
+				lastName: latestIdCard.lastName,
+				fullName: latestIdCard.fullName,
+			})
+		: null
+
+	const previewAddress = latestIdCard
+		? formatAddressLine({
+				addressLine1: latestIdCard.addressLine1,
+				addressLine2: latestIdCard.addressLine2,
+				city: latestIdCard.city,
+				province: latestIdCard.province,
+				postalCode: latestIdCard.postalCode,
+				country: latestIdCard.country,
+				additionalFields: latestIdCard.additionalFields,
+			})
+		: null
+	const previewHomeStreet = latestIdCard
+		? formatStreetLine({
+				addressLine1: latestIdCard.addressLine1,
+				addressLine2: latestIdCard.addressLine2,
+				city: null,
+				province: null,
+				postalCode: null,
+				country: null,
+				additionalFields: latestIdCard.additionalFields,
+			})
+		: null
+	const previewBarangay = latestIdCard
+		? extractBarangayFromAdditionalFields(latestIdCard.additionalFields)
+		: null
+	const previewCityProvince = latestIdCard
+		? formatCityProvince({
+				addressLine1: null,
+				addressLine2: null,
+				city: latestIdCard.city,
+				province: latestIdCard.province,
+				postalCode: null,
+				country: null,
+				additionalFields: latestIdCard.additionalFields,
+			})
+		: null
+
 	return {
 		success: true,
 		data: {
@@ -1052,6 +1354,21 @@ export async function getUserKycInfo() {
 			kycLinkCreatedAt: kycSession?.hostedLinkCreatedAt ?? null,
 			hasHostedLink: !!kycSession?.hostedLink,
 			sessionType: kycSession?.sessionType ?? null,
+			kycPreview:
+				latestIdCard && (latestIdCard.isVerified || user.kycStatus === "VERIFIED")
+					? {
+							firstName: resolvedIdName?.firstName ?? null,
+							middleName: resolvedIdName?.middleName ?? null,
+							lastName: resolvedIdName?.lastName ?? null,
+							address: previewAddress,
+							homeStreet: previewHomeStreet,
+							barangay: previewBarangay,
+							cityProvince: previewCityProvince,
+							documentType: latestIdCard.documentType ?? null,
+							documentCountry: latestIdCard.documentCountry ?? null,
+							ocrTransactionId: latestIdCard.ocrTransactionId ?? null,
+						}
+					: null,
 		},
 	}
 }
@@ -1137,7 +1454,9 @@ export async function softResetUserKycStatus(): Promise<SoftResetUserKycStatusRe
 
 		for (const s of pendingSessions) {
 			const existing =
-				s.workflowMetadata && typeof s.workflowMetadata === "object" && !Array.isArray(s.workflowMetadata)
+				s.workflowMetadata &&
+				typeof s.workflowMetadata === "object" &&
+				!Array.isArray(s.workflowMetadata)
 					? (s.workflowMetadata as Record<string, unknown>)
 					: undefined
 

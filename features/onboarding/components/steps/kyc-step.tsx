@@ -5,6 +5,7 @@ import { CheckCircle2 } from "lucide-react"
 import { useSession } from "next-auth/react"
 import { toast } from "sonner"
 
+import { Button } from "@/core/components/ui/button"
 import { CardContent } from "@/core/components/ui/card"
 import { useKycBroadcast } from "@/core/hooks/use-kyc-broadcast"
 
@@ -38,6 +39,18 @@ interface UserKycInfo {
 	kycLinkCreatedAt?: Date | null
 	hasHostedLink?: boolean
 	sessionType?: "hosted" | "direct" | null
+	kycPreview?: {
+		firstName: string | null
+		middleName: string | null
+		lastName: string | null
+		address: string | null
+		homeStreet: string | null
+		barangay: string | null
+		cityProvince: string | null
+		documentType: string | null
+		documentCountry: string | null
+		ocrTransactionId: string | null
+	} | null
 }
 
 export function KycStep({ onNext, onBack, kycStatus, onExpandChange }: KycStepProps) {
@@ -148,8 +161,8 @@ export function KycStep({ onNext, onBack, kycStatus, onExpandChange }: KycStepPr
 		if (!isVerified || hasAutoAdvancedRef.current) return
 		hasAutoAdvancedRef.current = true
 
-		toast.success("Verification complete. Continuing to the next step…")
-		void updateSession().finally(onNext)
+		void updateSession()
+		void refreshUserInfo()
 	}, [isVerified, onNext, updateSession])
 
 	const handleCreateMobileLink = () => {
@@ -239,17 +252,92 @@ export function KycStep({ onNext, onBack, kycStatus, onExpandChange }: KycStepPr
 	}
 
 	if (isVerified) {
+		const previewFirstName = userInfo?.kycPreview?.firstName ?? null
+		const previewMiddleName = userInfo?.kycPreview?.middleName ?? null
+		const previewLastName = userInfo?.kycPreview?.lastName ?? null
+		const previewAddress = userInfo?.kycPreview?.address ?? null
+		const previewHomeStreet = userInfo?.kycPreview?.homeStreet ?? null
+		const previewBarangay = userInfo?.kycPreview?.barangay ?? null
+		const previewCityProvince = userInfo?.kycPreview?.cityProvince ?? null
+
 		return (
 			<>
 				<CardContent className="px-2!">
-					<div className="rounded-lg border border-green-200 bg-green-50 p-4 text-center dark:border-green-800 dark:bg-green-950/20">
-						<CheckCircle2 className="mx-auto mb-2 size-8 text-green-600 dark:text-green-400" />
-						<p className="font-medium text-green-900 dark:text-green-100">
-							Identity verified
-						</p>
-						<p className="text-sm text-green-700 dark:text-green-300">
-							We are moving you to the next step.
-						</p>
+					<div className="rounded-lg border border-green-200 bg-green-50 p-4 dark:border-green-800 dark:bg-green-950/20">
+						<div className="mb-3 flex items-center gap-2">
+							<CheckCircle2 className="size-5 text-green-600 dark:text-green-400" />
+							<p className="font-medium text-green-900 dark:text-green-100">
+								Identity verified
+							</p>
+						</div>
+
+						<div className="grid gap-3 rounded-md border border-green-200/70 bg-white/70 p-3 text-sm dark:border-green-900/60 dark:bg-black/20">
+							<div className="grid gap-1">
+								<p className="text-xs font-medium text-green-800/80 dark:text-green-200/80">
+									First name
+								</p>
+								<p className="font-medium text-green-950 dark:text-green-50">
+									{previewFirstName ?? "—"}
+								</p>
+							</div>
+							<div className="grid gap-1">
+								<p className="text-xs font-medium text-green-800/80 dark:text-green-200/80">
+									Middle name
+								</p>
+								<p className="font-medium text-green-950 dark:text-green-50">
+									{previewMiddleName ?? "—"}
+								</p>
+							</div>
+							<div className="grid gap-1">
+								<p className="text-xs font-medium text-green-800/80 dark:text-green-200/80">
+									Last name
+								</p>
+								<p className="font-medium text-green-950 dark:text-green-50">
+									{previewLastName ?? "—"}
+								</p>
+							</div>
+							<div className="grid gap-1">
+								<p className="text-xs font-medium text-green-800/80 dark:text-green-200/80">
+									Address
+								</p>
+								<p className="text-green-900 dark:text-green-100">
+									{previewAddress ?? "—"}
+								</p>
+							</div>
+							<div className="grid gap-1">
+								<p className="text-xs font-medium text-green-800/80 dark:text-green-200/80">
+									Home street
+								</p>
+								<p className="text-green-900 dark:text-green-100">
+									{previewHomeStreet ?? "—"}
+								</p>
+							</div>
+							<div className="grid gap-1">
+								<p className="text-xs font-medium text-green-800/80 dark:text-green-200/80">
+									Barangay
+								</p>
+								<p className="text-green-900 dark:text-green-100">
+									{previewBarangay ?? "—"}
+								</p>
+							</div>
+							<div className="grid gap-1">
+								<p className="text-xs font-medium text-green-800/80 dark:text-green-200/80">
+									City / Province
+								</p>
+								<p className="text-green-900 dark:text-green-100">
+									{previewCityProvince ?? "—"}
+								</p>
+							</div>
+						</div>
+
+						<div className="mt-4 flex items-center justify-end gap-2">
+							<Button type="button" variant="ghost" size="sm" onClick={onBack}>
+								Back
+							</Button>
+							<Button type="button" size="sm" onClick={onNext}>
+								Next
+							</Button>
+						</div>
 					</div>
 				</CardContent>
 			</>
