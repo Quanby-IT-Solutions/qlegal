@@ -64,6 +64,21 @@ export const onboardingRouter = createTRPCRouter({
 				})
 			}
 
+			const currentUser = await db.query.users.findFirst({
+				where: (data, { eq }) => eq(data.id, session.user.id),
+				columns: { recoveryEmail: true, recoveryEmailVerified: true },
+			})
+
+			if (
+				currentUser?.recoveryEmail === recoveryEmail &&
+				currentUser.recoveryEmailVerified === null
+			) {
+				return {
+					changed: false,
+					message: "Recovery email already pending verification.",
+				}
+			}
+
 			// Generate token using the user's primary email (FK to users.email)
 			const token = await generateRecoveryEmailVerificationToken(session.user.email)
 
@@ -76,7 +91,10 @@ export const onboardingRouter = createTRPCRouter({
 			// Send verification email to the recovery address
 			await sendRecoveryEmailVerification(recoveryEmail, token.token)
 
-			return { message: "Verification email sent to your recovery email address." }
+			return {
+				changed: true,
+				message: "Verification email sent to your recovery email address.",
+			}
 		}),
 
 	verifyRecoveryEmail: publicProcedure
@@ -165,8 +183,22 @@ export const onboardingRouter = createTRPCRouter({
 
 		const existingUser = await db.query.users.findFirst({
 			where: (data, { eq }) => eq(data.id, session.user.id),
-			columns: { image: true },
+			columns: {
+				image: true,
+				firstName: true,
+				middleName: true,
+				lastName: true,
+				phoneNumber: true,
+				homeStreet: true,
+				barangay: true,
+				cityProvince: true,
+				onboardingDetailsCompletedAt: true,
+			},
 		})
+
+		if (!existingUser) {
+			throw new TRPCError({ code: "NOT_FOUND", message: "User not found." })
+		}
 
 		const firstName =
 			input.firstName && input.firstName.trim() !== "" ? input.firstName.trim() : undefined
@@ -187,8 +219,22 @@ export const onboardingRouter = createTRPCRouter({
 			homeStreet,
 			barangay,
 			cityProvince,
-			image: existingUser?.image,
+			image: existingUser.image,
 		})
+
+		const noChange =
+			(firstName ?? existingUser.firstName) === existingUser.firstName &&
+			(middleName ?? existingUser.middleName) === existingUser.middleName &&
+			(lastName ?? existingUser.lastName) === existingUser.lastName &&
+			phoneNumber === existingUser.phoneNumber &&
+			homeStreet === existingUser.homeStreet &&
+			barangay === existingUser.barangay &&
+			cityProvince === existingUser.cityProvince &&
+			detailsComplete === !!existingUser.onboardingDetailsCompletedAt
+
+		if (noChange) {
+			return { changed: false, message: "No changes detected." }
+		}
 
 		await db
 			.update(users)
@@ -205,7 +251,7 @@ export const onboardingRouter = createTRPCRouter({
 			})
 			.where(eq(users.id, session.user.id))
 
-		return { message: "Profile updated successfully." }
+		return { changed: true, message: "Profile updated successfully." }
 	}),
 
 	updateAvatar: protectedProcedure.input(updateAvatarSchema).mutation(async ({ ctx, input }) => {
@@ -218,16 +264,29 @@ export const onboardingRouter = createTRPCRouter({
 				homeStreet: true,
 				barangay: true,
 				cityProvince: true,
+				image: true,
+				onboardingDetailsCompletedAt: true,
 			},
 		})
 
+		if (!existingUser) {
+			throw new TRPCError({ code: "NOT_FOUND", message: "User not found." })
+		}
+
 		const detailsComplete = isOnboardingDetailsComplete({
-			phoneNumber: existingUser?.phoneNumber,
-			homeStreet: existingUser?.homeStreet,
-			barangay: existingUser?.barangay,
-			cityProvince: existingUser?.cityProvince,
+			phoneNumber: existingUser.phoneNumber,
+			homeStreet: existingUser.homeStreet,
+			barangay: existingUser.barangay,
+			cityProvince: existingUser.cityProvince,
 			image: input.imagePath,
 		})
+
+		if (
+			existingUser.image === input.imagePath &&
+			detailsComplete === !!existingUser.onboardingDetailsCompletedAt
+		) {
+			return { changed: false, message: "No changes detected." }
+		}
 
 		await db
 			.update(users)
@@ -238,7 +297,7 @@ export const onboardingRouter = createTRPCRouter({
 			})
 			.where(eq(users.id, session.user.id))
 
-		return { message: "Avatar updated successfully." }
+		return { changed: true, message: "Avatar updated successfully." }
 	}),
 
 	completeOnboarding: protectedProcedure.mutation(async ({ ctx }) => {
