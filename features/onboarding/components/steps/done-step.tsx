@@ -61,7 +61,11 @@ export function DoneStep({
 	isSnoozing,
 }: DoneStepProps) {
 	const showReminder = recoveryEmailSubmitted && !recoveryEmailVerified
-	const canSnoozeReminder = showReminder && !!onSnooze
+	const hasPhoneConfigured = !!phoneNumber?.trim()
+	const hasPhoto = !!userImage?.trim()
+	const isSetupComplete =
+		kycVerified && recoveryEmailVerified && hasPhoneConfigured && hasPhoto
+	const canSnooze = !isSetupComplete && !!onSnooze
 	const summaryItems: SummaryItem[] = [
 		{
 			label: "Recovery email",
@@ -88,11 +92,11 @@ export function DoneStep({
 		},
 		{
 			label: "Phone number",
-			detail: phoneNumber
+			detail: hasPhoneConfigured
 				? `${phoneNumber} is saved for important account updates.`
 				: "Skipped for now — you can add a number anytime from your profile.",
-			statusLabel: phoneNumber ? "Added" : "Skipped",
-			statusTone: phoneNumber ? "complete" : "optional",
+			statusLabel: hasPhoneConfigured ? "Added" : "Skipped",
+			statusTone: hasPhoneConfigured ? "complete" : "optional",
 			icon: PhoneIcon,
 		},
 	]
@@ -211,33 +215,40 @@ export function DoneStep({
 						Back
 					</Button>
 
-					{canSnoozeReminder ? (
-						<AlertDialog>
-							<AlertDialogTrigger asChild>
-								<Button type="button" variant="outline" disabled={isSnoozing} size="sm">
-									{isSnoozing ? "Pausing reminders…" : "Remind me in 7 days"}
-								</Button>
-							</AlertDialogTrigger>
-							<AlertDialogContent>
-								<AlertDialogHeader>
-									<AlertDialogTitle>Pause onboarding reminders for 7 days?</AlertDialogTitle>
-									<AlertDialogDescription>
-										We&apos;ll stop nudging you about verifying your recovery email for the next 7
-										days. You can still finish onboarding anytime from your account.
-									</AlertDialogDescription>
-								</AlertDialogHeader>
-								<AlertDialogFooter>
-									<AlertDialogCancel>Keep reminders on</AlertDialogCancel>
-									<AlertDialogAction onClick={onSnooze}>Pause for 7 days</AlertDialogAction>
-								</AlertDialogFooter>
-							</AlertDialogContent>
-						</AlertDialog>
+					{showReminder && !canSnooze ? (
+						<Badge variant="outline" className="border-warning/30 bg-warning/10 text-warning">
+							Recovery email pending
+						</Badge>
 					) : null}
 				</div>
 
-				<Button type="button" onClick={onComplete} disabled={isCompleting} size="sm">
-					{isCompleting ? "Setting up…" : "Go to Dashboard"}
-				</Button>
+				{canSnooze ? (
+					<AlertDialog>
+						<AlertDialogTrigger asChild>
+							<Button type="button" disabled={isSnoozing} size="sm">
+								{isSnoozing ? "Skipping…" : "Skip for 7 days"}
+							</Button>
+						</AlertDialogTrigger>
+						<AlertDialogContent>
+							<AlertDialogHeader>
+								<AlertDialogTitle>Skip onboarding for 7 days?</AlertDialogTitle>
+								<AlertDialogDescription>
+									You still have pending setup items. We&apos;ll pause reminders for 7 days and
+									bring onboarding back after that, or sooner once all required items are
+									completed.
+								</AlertDialogDescription>
+							</AlertDialogHeader>
+							<AlertDialogFooter>
+								<AlertDialogCancel>Keep setup open</AlertDialogCancel>
+								<AlertDialogAction onClick={onSnooze}>Skip for 7 days</AlertDialogAction>
+							</AlertDialogFooter>
+						</AlertDialogContent>
+					</AlertDialog>
+				) : (
+					<Button type="button" onClick={onComplete} disabled={isCompleting} size="sm">
+						{isCompleting ? "Setting up…" : "Go to Dashboard"}
+					</Button>
+				)}
 			</CardFooter>
 		</>
 	)
