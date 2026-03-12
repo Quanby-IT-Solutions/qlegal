@@ -20,6 +20,7 @@ import {
 	Unlock,
 } from "lucide-react"
 import { useSession } from "next-auth/react"
+import { usePubSub } from "@videosdk.live/react-sdk"
 
 import { Button } from "@/core/components/ui/button"
 import { Card, CardContent } from "@/core/components/ui/card"
@@ -28,9 +29,11 @@ import {
 	DropdownMenuContent,
 	DropdownMenuTrigger,
 } from "@/core/components/ui/dropdown-menu"
+import { Input } from "@/core/components/ui/input"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/core/components/ui/sheet"
 import { useIsMobile } from "@/core/hooks/use-mobile"
 import { cn } from "@/core/lib/utils"
+import { trpc } from "@/services/trpc/client"
 
 import {
 	getDocumentReorderTitle,
@@ -146,10 +149,23 @@ interface DocumentCardsProps {
 	onToggleLock: (isLocked: boolean) => void
 	isTogglingLock: boolean
 	onUpdateDocumentOrder: (documentIds: string[]) => void
+	localParticipantId?: string | null
 }
 
 export interface DocumentCardsHandle {
 	getSidebarTarget: () => { x: number; y: number } | null
+}
+
+interface ChatPayload {
+	id: string
+	text: string
+	senderId: string | null
+	senderName: string
+	timestamp: number
+}
+
+interface ChatMessage extends ChatPayload {
+	isSelf: boolean
 }
 
 export const DocumentCards = React.memo(
@@ -181,6 +197,7 @@ export const DocumentCards = React.memo(
 			onToggleLock,
 			isTogglingLock,
 			onUpdateDocumentOrder,
+			localParticipantId,
 		}: DocumentCardsProps,
 		ref: React.Ref<DocumentCardsHandle>
 	) {
@@ -208,6 +225,135 @@ export const DocumentCards = React.memo(
 		const drawerHeaderIconRef = useRef<HTMLDivElement>(null)
 		const showDocuments = sidePanel === "documents"
 		const isPanelOpen = sidePanel !== null
+
+		const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
+		const [chatInput, setChatInput] = useState("")
+
+		const currentUserName = session?.user?.name ?? "Someone"
+
+		const { data: persistedMessages, refetch: refetchMeetingMessages } =
+			trpc.meetings.getMeetingMessages.useQuery(
+				{ meetingId: meetingId ?? "" },
+				{
+					enabled: !!meetingId?.trim(),
+					refetchInterval: sidePanel === "chat" ? 3000 : false,
+				}
+			)
+		const sendMeetingMessageMutation = trpc.meetings.sendMeetingMessage.useMutation()
+
+		// Load latest messages as soon as the user opens the Messages panel
+		useEffect(() => {
+			if (sidePanel === "chat" && meetingId?.trim()) {
+				void refetchMeetingMessages()
+			}
+		}, [sidePanel, meetingId, refetchMeetingMessages])
+
+		useEffect(() => {
+			if (persistedMessages === undefined) return
+			setChatMessages(prev => {
+				const fromApi = persistedMessages ?? []
+				const ids = new Set(fromApi.map(m => m.id))
+				const extra = prev.filter(m => !ids.has(m.id))
+				const merged = [...fromApi, ...extra].sort((a, b) => a.timestamp - b.timestamp)
+				return merged
+			})
+		}, [persistedMessages])
+
+		const addIncomingMessage = useCallback((payload: ChatMessage) => {
+			setChatMessages(prev => {
+				if (prev.some(m => m.id === payload.id)) return prev
+				const next = [...prev, payload]
+				next.sort((a, b) => a.timestamp - b.timestamp)
+				return next
+			})
+		}, [])
+
+		const { publish: publishChatMessage } = usePubSub("MEETING_CHAT", {
+			onMessageReceived: (event: { message: unknown; senderId?: string; senderName?: string }) => {
+				let raw = event.message
+				if (raw !== null && typeof raw === "object" && "message" in raw) {
+					raw = (raw as { message: unknown }).message
+				}
+				const rawStr = typeof raw === "string" ? raw : String(raw ?? "")
+				if (!rawStr.trim()) return
+
+				const [kind, id, tsStr, ...textParts] = rawStr.split(":")
+				if (kind !== "CHAT" || !id) return
+
+				const text = textParts.join(":").trim()
+				if (!text) return
+
+				const timestamp = Number(tsStr) || Date.now()
+				const senderId = event.senderId ?? null
+				const senderName = event.senderName ?? "Someone"
+				const isSelf = !!localParticipantId && senderId === localParticipantId
+
+				addIncomingMessage({
+					id,
+					text,
+					senderId,
+					senderName,
+					timestamp,
+					isSelf,
+				})
+			},
+		})
+
+		const handleSendMessage = useCallback(() => {
+			const text = chatInput.trim()
+			if (!text || !meetingId?.trim()) return
+
+			const pendingId = `pending-${Date.now()}-${Math.random().toString(16).slice(2)}`
+			const now = Date.now()
+			setChatMessages(prev => [
+				...prev,
+				{
+					id: pendingId,
+					text,
+					senderId: localParticipantId ?? null,
+					senderName: currentUserName,
+					timestamp: now,
+					isSelf: true,
+				},
+			])
+			setChatInput("")
+
+			sendMeetingMessageMutation.mutate(
+				{ meetingId, content: text },
+				{
+					onSuccess: (msg) => {
+						setChatMessages(prev => {
+							const withoutPending = prev.filter(m => !m.id.startsWith("pending-"))
+							withoutPending.push({
+								id: msg.id,
+								text: msg.text,
+								senderId: msg.senderId,
+								senderName: msg.senderName,
+								timestamp: msg.timestamp,
+								isSelf: true,
+							})
+							withoutPending.sort((a, b) => a.timestamp - b.timestamp)
+							return withoutPending
+						})
+						try {
+							publishChatMessage(`CHAT:${msg.id}:${msg.timestamp}:${msg.text}`, { persist: false })
+						} catch {
+							// ignore
+						}
+					},
+					onError: () => {
+						setChatMessages(prev => prev.filter(m => m.id !== pendingId))
+					},
+				}
+			)
+		}, [
+			chatInput,
+			meetingId,
+			currentUserName,
+			localParticipantId,
+			publishChatMessage,
+			sendMeetingMessageMutation,
+		])
 
 		useImperativeHandle(ref, () => ({
 			getSidebarTarget: () => {
@@ -324,9 +470,15 @@ export const DocumentCards = React.memo(
 							ref={drawerHeaderIconRef}
 							className="bg-primary/10 flex size-7 shrink-0 items-center justify-center rounded-lg"
 						>
-							<FileText className="text-primary size-4" />
+							{showDocuments ? (
+								<FileText className="text-primary size-4" />
+							) : (
+								<MessageSquare className="text-primary size-4" />
+							)}
 						</div>
-						<span className="truncate text-sm font-semibold">Documents ({documents.length})</span>
+						<span className="truncate text-sm font-semibold">
+							{showDocuments ? `Documents (${documents.length})` : "Messages"}
+						</span>
 						{isLocked && (
 							<div className="flex shrink-0 items-center gap-1 rounded-full border border-amber-300 bg-amber-100 px-2 py-0.5 dark:border-amber-700 dark:bg-amber-900/30">
 								<Lock className="size-2.5 text-amber-700 dark:text-amber-400" />
@@ -643,14 +795,60 @@ export const DocumentCards = React.memo(
 						)}
 					</>
 				) : (
-					<div className="flex min-h-0 flex-1 items-center justify-center p-6">
-						<div className="flex flex-col items-center gap-3 text-center">
-							<div className="bg-primary/10 rounded-full p-3">
-								<MessageSquare className="text-primary size-6" />
+					<div className="flex min-h-0 flex-1 flex-col p-3">
+						<div className="border-border bg-background/40 flex min-h-0 flex-1 flex-col rounded-lg border">
+							<div className="flex-1 space-y-2 overflow-y-auto p-3 [scrollbar-color:transparent_transparent] [scrollbar-width:thin] hover:[scrollbar-color:rgba(148,163,184,0.45)_transparent] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-transparent hover:[&::-webkit-scrollbar-thumb]:bg-white/25 [&::-webkit-scrollbar-track]:bg-transparent">
+								{chatMessages.length === 0 ? (
+									<div className="text-muted-foreground flex h-full items-center justify-center text-sm">
+										No messages yet. Start the conversation.
+									</div>
+								) : (
+									chatMessages.map(message => (
+										<div
+											key={message.id}
+											className={cn(
+												"flex gap-2 text-sm",
+												message.isSelf ? "justify-end" : "justify-start"
+											)}
+										>
+											<div
+												className={cn(
+													"max-w-[80%] rounded-2xl px-3 py-1.5",
+													message.isSelf
+														? "bg-primary text-primary-foreground rounded-br-sm"
+														: "bg-muted text-foreground rounded-bl-sm"
+												)}
+											>
+												<p className="text-xs font-semibold opacity-80">
+													{message.isSelf ? "You" : message.senderName}
+												</p>
+												<p className="break-words text-[13px] leading-snug">{message.text}</p>
+											</div>
+										</div>
+									))
+								)}
 							</div>
-							<div>
-								<p className="text-sm font-semibold">Messages</p>
-								<p className="text-muted-foreground text-sm">Coming soon</p>
+							<div className="border-t-border flex items-center gap-2 border-t px-3 py-2.5">
+								<Input
+									placeholder="Type a message"
+									value={chatInput}
+									onChange={e => setChatInput(e.target.value)}
+									onKeyDown={e => {
+										if (e.key === "Enter" && !e.shiftKey) {
+											e.preventDefault()
+											handleSendMessage()
+										}
+									}}
+									className="text-sm"
+								/>
+								<Button
+									size="sm"
+									disabled={!chatInput.trim()}
+									onClick={handleSendMessage}
+									className="shrink-0"
+								>
+									Send
+								</Button>
 							</div>
 						</div>
 					</div>

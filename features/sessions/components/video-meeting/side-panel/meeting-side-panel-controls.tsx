@@ -16,7 +16,7 @@ export function MeetingSidePanelControls({
 	const showDocuments = sidePanel === "documents"
 
 	return (
-		<div className="absolute right-4 hidden items-center rounded-2xl border border-white/10 bg-zinc-900/90 px-2 py-2 shadow-xl backdrop-blur-md lg:flex">
+		<div className="flex items-center rounded-2xl border border-white/10 bg-zinc-900/90 px-2 py-2 shadow-xl backdrop-blur-md">
 			<Button
 				variant="ghost"
 				className={

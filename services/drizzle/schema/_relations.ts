@@ -11,6 +11,7 @@ import { idCardDetails } from "@/services/drizzle/schema/id-card-details"
 import { kycSessions } from "@/services/drizzle/schema/kyc-sessions"
 import { legalRegistrations } from "@/services/drizzle/schema/legal-registration"
 import { livenessValidations } from "@/services/drizzle/schema/liveness"
+import { meetingMessages } from "@/services/drizzle/schema/meeting-messages"
 import { meetings } from "@/services/drizzle/schema/meetings"
 import { messageAttachments } from "@/services/drizzle/schema/message-attachments"
 import {
@@ -30,7 +31,20 @@ export const meetingsRelations = relations(meetings, ({ one, many }) => ({
 	}),
 	appointments: many(appointments),
 	documents: many(documents),
+	meetingMessages: many(meetingMessages),
 	signatureRequests: many(signatureRequests),
+}))
+
+// Meeting message relations
+export const meetingMessagesRelations = relations(meetingMessages, ({ one }) => ({
+	meeting: one(meetings, {
+		fields: [meetingMessages.meetingId],
+		references: [meetings.id],
+	}),
+	sender: one(users, {
+		fields: [meetingMessages.senderId],
+		references: [users.id],
+	}),
 }))
 
 // Auth relations

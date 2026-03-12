@@ -15,6 +15,7 @@ import { users } from "@/services/drizzle/schema/auth"
 import { documents } from "@/services/drizzle/schema/document"
 import { documentSigners } from "@/services/drizzle/schema/document-signers"
 import { enpProfiles } from "@/services/drizzle/schema/enp-profiles"
+import { meetingMessages } from "@/services/drizzle/schema/meeting-messages"
 import { meetings } from "@/services/drizzle/schema/meetings"
 import { signatureRequests } from "@/services/drizzle/schema/signature-requests"
 import { sendSigningLinkEmail } from "@/services/react-email/lib/send.signing-link"
@@ -720,8 +721,86 @@ export const meetingsRouter = createTRPCRouter({
 			console.warn("⚠️ Failed to populate notarial registry on meeting end:", error)
 		}
 
+		// Delete in-meeting chat messages when session ends (retention policy).
+		await db.delete(meetingMessages).where(eq(meetingMessages.meetingId, meetingId))
+
 		return { success: true, meeting: updatedMeeting }
 	}),
+
+	// Get meeting chat messages (for rejoin / refresh). Deleted when meeting ends.
+	getMeetingMessages: protectedProcedure
+		.input(z.object({ meetingId: z.string().min(1) }))
+		.query(async ({ input, ctx }) => {
+			const meeting = await db.query.meetings.findFirst({
+				where: eq(meetings.id, input.meetingId),
+			})
+			if (!meeting) {
+				throw new TRPCError({ code: "NOT_FOUND", message: "Meeting not found" })
+			}
+			const rows = await db.query.meetingMessages.findMany({
+				where: eq(meetingMessages.meetingId, input.meetingId),
+				orderBy: [asc(meetingMessages.createdAt)],
+				with: {
+					sender: {
+						columns: {
+							id: true,
+							firstName: true,
+							middleName: true,
+							lastName: true,
+						},
+					},
+				},
+			})
+			const currentUserId = ctx.session.user.id
+			return rows.map(row => ({
+				id: row.id,
+				text: row.content,
+				senderId: row.senderId,
+				senderName: row.sender ? getFullName(row.sender) : "Someone",
+				timestamp: row.createdAt.getTime(),
+				isSelf: row.senderId === currentUserId,
+			}))
+		}),
+
+	// Send a meeting chat message (persisted until meeting ends).
+	sendMeetingMessage: protectedProcedure
+		.input(
+			z.object({
+				meetingId: z.string().min(1),
+				content: z.string().min(1).max(5000),
+			})
+		)
+		.mutation(async ({ input, ctx }) => {
+			const meeting = await db.query.meetings.findFirst({
+				where: eq(meetings.id, input.meetingId),
+			})
+			if (!meeting) {
+				throw new TRPCError({ code: "NOT_FOUND", message: "Meeting not found" })
+			}
+			const [inserted] = await db
+				.insert(meetingMessages)
+				.values({
+					meetingId: input.meetingId,
+					senderId: ctx.session.user.id,
+					content: input.content.trim(),
+				})
+				.returning()
+			if (!inserted) {
+				throw new TRPCError({
+					code: "INTERNAL_SERVER_ERROR",
+					message: "Failed to send message",
+				})
+			}
+			const senderName = (ctx.session.user as { name?: string }).name ?? "Someone"
+			return {
+				id: inserted.id,
+				text: inserted.content,
+				senderId: inserted.senderId,
+				senderName: String(senderName),
+				timestamp: inserted.createdAt.getTime(),
+				isSelf: true,
+			}
+		}),
 
 	// Delete meeting
 	delete: protectedProcedure.input(z.string()).mutation(async ({ input, ctx }) => {
