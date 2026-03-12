@@ -86,24 +86,34 @@ function normalizeNameValue(value: string | null | undefined): string | undefine
 	return normalized || undefined
 }
 
+/** Capitalize first letter of each word only (title case) for DB display. */
+function toTitleCaseWords(value: string | null | undefined): string | undefined {
+	const trimmed = normalizeNameValue(value)
+	if (!trimmed) return undefined
+	return trimmed
+		.split(/\s+/)
+		.map(w => (w.length ? w.charAt(0).toUpperCase() + w.slice(1).toLowerCase() : w))
+		.join(" ")
+}
+
 function parseNameFromFullName(fullName: string): ParsedNameFields {
 	const normalizedFullName = normalizeNameValue(fullName)
 	if (!normalizedFullName) return {}
 
-	const fullNameParts = normalizedFullName.split(" ").filter(Boolean)
-	const lastWord = fullNameParts.length > 0 ? fullNameParts[fullNameParts.length - 1] : undefined
-
+	// Format: "LASTNAME, FIRSTNAME ... MIDDLENAME" (middleName = last word after comma)
 	if (normalizedFullName.includes(",")) {
 		const [rawLastName, ...rest] = normalizedFullName.split(",")
-		const lastName = normalizeNameValue(lastWord ?? rawLastName)
-		const remaining = normalizeNameValue(rest.join(" "))
-		const parts = remaining?.split(" ").filter(Boolean) ?? []
+		const lastName = normalizeNameValue(rawLastName)
+		const trailing = normalizeNameValue(rest.join(" "))
+		const trailingParts = trailing?.split(/\s+/).filter(Boolean) ?? []
 
-		if (parts.length === 0) return { lastName }
+		if (trailingParts.length === 0) return lastName ? { lastName } : {}
 
+		const middleName = trailingParts[trailingParts.length - 1]
+		const firstName = trailingParts.length > 1 ? trailingParts.slice(0, -1).join(" ") : undefined
 		return {
-			firstName: parts[0],
-			middleName: parts.slice(1).join(" ") || undefined,
+			firstName: firstName ?? trailingParts[0],
+			middleName: trailingParts.length > 1 ? middleName : undefined,
 			lastName,
 		}
 	}
@@ -590,7 +600,7 @@ export async function runDirectKycVerification(input: {
 				}
 			: null
 
-		// Update user status and hydrate missing names from verified ID details.
+		// Update user status and hydrate missing names from verified ID details (title-cased).
 		await db
 			.update(users)
 			.set({
@@ -598,15 +608,15 @@ export async function runDirectKycVerification(input: {
 				kycVerifiedAt: kycStatus === "VERIFIED" ? new Date() : null,
 				firstName:
 					kycStatus === "VERIFIED"
-						? coalesceNameValue(existingUser.firstName, resolvedNameFields.firstName)
+						? coalesceNameValue(existingUser.firstName, toTitleCaseWords(resolvedNameFields.firstName))
 						: existingUser.firstName,
 				middleName:
 					kycStatus === "VERIFIED"
-						? coalesceNameValue(existingUser.middleName, resolvedNameFields.middleName)
+						? coalesceNameValue(existingUser.middleName, toTitleCaseWords(resolvedNameFields.middleName))
 						: existingUser.middleName,
 				lastName:
 					kycStatus === "VERIFIED"
-						? coalesceNameValue(existingUser.lastName, resolvedNameFields.lastName)
+						? coalesceNameValue(existingUser.lastName, toTitleCaseWords(resolvedNameFields.lastName))
 						: existingUser.lastName,
 				prefix:
 					kycStatus === "VERIFIED"
@@ -874,9 +884,9 @@ export async function checkUserKycStatus() {
 			await db
 				.update(users)
 				.set({
-					firstName: coalesceNameValue(user?.firstName, resolvedNameFields.firstName),
-					middleName: coalesceNameValue(user?.middleName, resolvedNameFields.middleName),
-					lastName: coalesceNameValue(user?.lastName, resolvedNameFields.lastName),
+					firstName: coalesceNameValue(user?.firstName, toTitleCaseWords(resolvedNameFields.firstName)),
+					middleName: coalesceNameValue(user?.middleName, toTitleCaseWords(resolvedNameFields.middleName)),
+					lastName: coalesceNameValue(user?.lastName, toTitleCaseWords(resolvedNameFields.lastName)),
 					prefix: coalesceNameValue(user?.prefix, latestPrefix),
 					suffix: coalesceNameValue(user?.suffix, latestSuffix),
 					address: resolvedAddress
@@ -1088,15 +1098,15 @@ export async function checkUserKycStatus() {
 					}
 				: null
 
-			// Update user status and hydrate missing names from verified ID details.
+			// Update user status and hydrate missing names from verified ID details (title-cased).
 			await db
 				.update(users)
 				.set({
 					kycStatus: newStatus,
 					kycVerifiedAt: new Date(),
-					firstName: coalesceNameValue(user?.firstName, resolvedNameFields.firstName),
-					middleName: coalesceNameValue(user?.middleName, resolvedNameFields.middleName),
-					lastName: coalesceNameValue(user?.lastName, resolvedNameFields.lastName),
+					firstName: coalesceNameValue(user?.firstName, toTitleCaseWords(resolvedNameFields.firstName)),
+					middleName: coalesceNameValue(user?.middleName, toTitleCaseWords(resolvedNameFields.middleName)),
+					lastName: coalesceNameValue(user?.lastName, toTitleCaseWords(resolvedNameFields.lastName)),
 					prefix: coalesceNameValue(user?.prefix, latestPrefix),
 					suffix: coalesceNameValue(user?.suffix, latestSuffix),
 					address: resolvedAddress
@@ -1262,6 +1272,7 @@ export async function getUserKycInfo() {
 			firstName: true,
 			middleName: true,
 			lastName: true,
+			address: true,
 			email: true,
 			kycStatus: true,
 		},
@@ -1360,10 +1371,11 @@ export async function getUserKycInfo() {
 			kycPreview:
 				latestIdCard && (latestIdCard.isVerified || user.kycStatus === "VERIFIED")
 					? {
-							firstName: resolvedIdName?.firstName ?? null,
-							middleName: resolvedIdName?.middleName ?? null,
-							lastName: resolvedIdName?.lastName ?? null,
-							address: previewAddress,
+							// Prefer saved DB values when verified (auto-saved after KYC)
+							firstName: user.kycStatus === "VERIFIED" ? (user.firstName ?? resolvedIdName?.firstName ?? null) : (resolvedIdName?.firstName ?? null),
+							middleName: user.kycStatus === "VERIFIED" ? (user.middleName ?? resolvedIdName?.middleName ?? null) : (resolvedIdName?.middleName ?? null),
+							lastName: user.kycStatus === "VERIFIED" ? (user.lastName ?? resolvedIdName?.lastName ?? null) : (resolvedIdName?.lastName ?? null),
+							address: user.kycStatus === "VERIFIED" ? (user.address ?? previewAddress) : previewAddress,
 							homeStreet: previewHomeStreet,
 							barangay: previewBarangay,
 							cityProvince: previewCityProvince,

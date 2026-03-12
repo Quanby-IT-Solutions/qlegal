@@ -187,23 +187,22 @@ function parseNamePartsFromFullName(value: string): ParsedNameParts {
 	const fullName = value.replace(/\s+/g, " ").trim()
 	if (!fullName) return {}
 
-	const fullNameParts = fullName.split(" ").filter(Boolean)
-	const lastWord = fullNameParts.length > 0 ? fullNameParts[fullNameParts.length - 1] : undefined
-
-	// Common OCR format: LASTNAME, FIRSTNAME MIDDLENAME
+	// Format: "LASTNAME, FIRSTNAME ... MIDDLENAME" (middleName = last word after comma)
 	if (fullName.includes(",")) {
 		const [rawLastName, ...rest] = fullName.split(",")
-		const lastName = (lastWord ?? rawLastName)?.trim()
+		const lastName = rawLastName?.trim() || undefined
 		const trailing = rest.join(" ").trim()
 		const trailingParts = trailing.split(/\s+/).filter(Boolean)
 
 		if (trailingParts.length === 0) {
-			return { lastName }
+			return lastName ? { lastName } : {}
 		}
 
+		const middleName = trailingParts[trailingParts.length - 1]
+		const firstName = trailingParts.length > 1 ? trailingParts.slice(0, -1).join(" ") : trailingParts[0]
 		return {
-			firstName: trailingParts[0],
-			middleName: trailingParts.slice(1).join(" ") || undefined,
+			firstName,
+			middleName: trailingParts.length > 1 ? middleName : undefined,
 			lastName,
 		}
 	}

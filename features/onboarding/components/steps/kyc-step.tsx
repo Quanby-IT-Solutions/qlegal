@@ -308,7 +308,7 @@ export function KycStep({ onNext, onBack, kycStatus, onExpandChange }: KycStepPr
 					<CardContent className="px-2!">
 						<FieldGroup className="bg-background/70 rounded-md border p-4">
 							<p className="text-muted-foreground mb-1 text-[11px] font-semibold tracking-wider uppercase">
-								Welcome inside
+								Review details
 							</p>
 
 							<div className="grid gap-4">
@@ -343,12 +343,16 @@ export function KycStep({ onNext, onBack, kycStatus, onExpandChange }: KycStepPr
 									/>
 								</div>
 
-								{previewAddress ? (
-									<div className="space-y-1.5">
-										<p className="text-xs font-medium text-foreground/80">KYC address</p>
-										<p className="text-sm text-muted-foreground">{previewAddress}</p>
-									</div>
-								) : null}
+								<div className="space-y-1.5">
+									<p className="text-xs font-medium text-foreground/80">Address (from your ID)</p>
+									<Input
+										value={previewAddress ?? ""}
+										readOnly
+										disabled
+										className="bg-muted/50"
+										aria-label="Address from KYC"
+									/>
+								</div>
 							</div>
 						</FieldGroup>
 					</CardContent>
