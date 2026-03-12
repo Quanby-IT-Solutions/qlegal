@@ -58,8 +58,9 @@ function OnboardingWizardContentBody({
 }: OnboardingWizardContentProps) {
 	const router = useRouter()
 	const { data: session, update: updateSession } = useSession()
+	const utils = trpc.useUtils()
 	const [recoveryEmailSubmittedInSession, setRecoveryEmailSubmittedInSession] = useState(false)
-	const { data: status, refetch: refetchStatus } = trpc.onboarding.getStatus.useQuery()
+	const { data: status } = trpc.onboarding.getStatus.useQuery()
 	const form = useForm<OnboardingWizardSchema>({
 		resolver: zodResolver(onboardingWizardSchema),
 		values: {
@@ -97,13 +98,6 @@ function OnboardingWizardContentBody({
 	const recoveryEmailSubmitted = recoveryEmailSubmittedInSession || hasPendingRecoveryEmail
 	const isKycVerified = session?.user?.kycStatus === "VERIFIED"
 	const hasPhoneNumber = !!status?.phoneNumber?.trim()
-
-
-	useEffect(() => {
-		if (currentStepId === "done") {
-			void refetchStatus()
-		}
-	}, [currentStepId, refetchStatus])
 
 	useEffect(() => {
 		if (currentStepId !== "kyc") {
@@ -179,11 +173,19 @@ function OnboardingWizardContentBody({
 			return
 		}
 
+		const unchanged =
+			recoveryEmail === (status?.recoveryEmail ?? "") && hasPendingRecoveryEmail
+		if (unchanged) {
+			toast.info("No changes - moving on.")
+			handleNext()
+			return
+		}
+
 		try {
 			const result = await submitRecoveryEmail.mutateAsync({ recoveryEmail })
 			setRecoveryEmailSubmittedInSession(true)
 			toast.success(result.message)
-			void refetchStatus()
+			void utils.onboarding.getStatus.invalidate()
 			handleNext()
 		} catch (error) {
 			toast.error(error instanceof Error ? error.message : "Failed to save recovery email.")
@@ -202,10 +204,15 @@ function OnboardingWizardContentBody({
 			return
 		}
 
+		if (phoneNumber === (status?.phoneNumber ?? "")) {
+			handleNext()
+			return
+		}
+
 		try {
 			const result = await updateProfile.mutateAsync({ phoneNumber })
 			toast.success(result.message)
-			void refetchStatus()
+			void utils.onboarding.getStatus.invalidate()
 			handleNext()
 		} catch (error) {
 			toast.error(error instanceof Error ? error.message : "Failed to save phone number.")
@@ -214,7 +221,7 @@ function OnboardingWizardContentBody({
 
 	const handlePhotoSave = async (imagePath: string) => {
 		await updateAvatar.mutateAsync({ imagePath })
-		void refetchStatus()
+		void utils.onboarding.getStatus.invalidate()
 	}
 
 	const handleCurrentStepSubmit = async () => {
