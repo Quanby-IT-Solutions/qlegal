@@ -6,7 +6,10 @@ import { useSession } from "next-auth/react"
 import { toast } from "sonner"
 
 import { Button } from "@/core/components/ui/button"
-import { CardContent } from "@/core/components/ui/card"
+import { CardContent, CardFooter } from "@/core/components/ui/card"
+import { FieldGroup } from "@/core/components/ui/field"
+import { Input } from "@/core/components/ui/input"
+import { Alert, AlertDescription, AlertTitle } from "@/core/components/reui/alert"
 import { useKycBroadcast } from "@/core/hooks/use-kyc-broadcast"
 
 import {
@@ -16,6 +19,8 @@ import {
 	softResetUserKycStatus,
 } from "@/features/kyc/api/kyc.actions"
 import { useKycStatus } from "@/features/kyc/hooks/use-kyc-status"
+
+import { trpc } from "@/services/trpc/client"
 
 import { KycDesktopFlow } from "./kyc-step-desktop"
 import { KycMobileFlow } from "./kyc-step-mobile"
@@ -61,6 +66,16 @@ export function KycStep({ onNext, onBack, kycStatus, onExpandChange }: KycStepPr
 	const [hostedEvent, setHostedEvent] = useState<"cancelled" | null>(null)
 	const [isMobilePending, startMobileTransition] = useTransition()
 	const hasAutoAdvancedRef = useRef(false)
+
+	const [firstName, setFirstName] = useState("")
+	const [middleName, setMiddleName] = useState("")
+	const [lastName, setLastName] = useState("")
+	const [hasInitializedNameFields, setHasInitializedNameFields] = useState(false)
+
+	const updateProfile = trpc.onboarding.updateProfile.useMutation({
+		onError: error =>
+			toast.error(error instanceof Error ? error.message : "Failed to save your details."),
+	})
 
 	const effectiveStatus = userInfo?.kycStatus ?? kycStatus ?? null
 	const isVerified = effectiveStatus === "VERIFIED"
@@ -108,6 +123,16 @@ export function KycStep({ onNext, onBack, kycStatus, onExpandChange }: KycStepPr
 			}
 		})()
 	}, [])
+
+	useEffect(() => {
+		if (!isVerified || hasInitializedNameFields || !userInfo?.kycPreview) return
+
+		const preview = userInfo.kycPreview
+		setFirstName(preview.firstName ?? "")
+		setMiddleName(preview.middleName ?? "")
+		setLastName(preview.lastName ?? "")
+		setHasInitializedNameFields(true)
+	}, [isVerified, hasInitializedNameFields, userInfo])
 
 	useEffect(() => {
 		if (!shouldPoll) return
@@ -252,94 +277,107 @@ export function KycStep({ onNext, onBack, kycStatus, onExpandChange }: KycStepPr
 	}
 
 	if (isVerified) {
-		const previewFirstName = userInfo?.kycPreview?.firstName ?? null
-		const previewMiddleName = userInfo?.kycPreview?.middleName ?? null
-		const previewLastName = userInfo?.kycPreview?.lastName ?? null
 		const previewAddress = userInfo?.kycPreview?.address ?? null
-		const previewHomeStreet = userInfo?.kycPreview?.homeStreet ?? null
-		const previewBarangay = userInfo?.kycPreview?.barangay ?? null
-		const previewCityProvince = userInfo?.kycPreview?.cityProvince ?? null
+
+		const handleSaveAndNext = async () => {
+			const trimmedFirstName = firstName.trim()
+			const trimmedMiddleName = middleName.trim()
+			const trimmedLastName = lastName.trim()
+
+			if (!trimmedFirstName || !trimmedLastName) {
+				toast.error("Please confirm your first and last name before continuing.")
+				return
+			}
+
+			try {
+				await updateProfile.mutateAsync({
+					firstName: trimmedFirstName,
+					middleName: trimmedMiddleName,
+					lastName: trimmedLastName,
+				})
+				toast.success("Your details have been saved.")
+				onNext()
+			} catch {
+				// Error already handled in mutation onError
+			}
+		}
 
 		return (
 			<>
-				<CardContent className="px-2!">
-					<div className="rounded-lg border border-green-200 bg-green-50 p-4 dark:border-green-800 dark:bg-green-950/20">
-						<div className="mb-3 flex items-center gap-2">
-							<CheckCircle2 className="size-5 text-green-600 dark:text-green-400" />
-							<p className="font-medium text-green-900 dark:text-green-100">
-								Identity verified
+				<div className="space-y-2">
+					<CardContent className="px-2!">
+						<FieldGroup className="bg-background/70 rounded-md border p-4">
+							<p className="text-muted-foreground mb-1 text-[11px] font-semibold tracking-wider uppercase">
+								Welcome inside
 							</p>
-						</div>
 
-						<div className="grid gap-3 rounded-md border border-green-200/70 bg-white/70 p-3 text-sm dark:border-green-900/60 dark:bg-black/20">
-							<div className="grid gap-1">
-								<p className="text-xs font-medium text-green-800/80 dark:text-green-200/80">
-									First name
-								</p>
-								<p className="font-medium text-green-950 dark:text-green-50">
-									{previewFirstName ?? "—"}
-								</p>
-							</div>
-							<div className="grid gap-1">
-								<p className="text-xs font-medium text-green-800/80 dark:text-green-200/80">
-									Middle name
-								</p>
-								<p className="font-medium text-green-950 dark:text-green-50">
-									{previewMiddleName ?? "—"}
-								</p>
-							</div>
-							<div className="grid gap-1">
-								<p className="text-xs font-medium text-green-800/80 dark:text-green-200/80">
-									Last name
-								</p>
-								<p className="font-medium text-green-950 dark:text-green-50">
-									{previewLastName ?? "—"}
-								</p>
-							</div>
-							<div className="grid gap-1">
-								<p className="text-xs font-medium text-green-800/80 dark:text-green-200/80">
-									Address
-								</p>
-								<p className="text-green-900 dark:text-green-100">
-									{previewAddress ?? "—"}
-								</p>
-							</div>
-							<div className="grid gap-1">
-								<p className="text-xs font-medium text-green-800/80 dark:text-green-200/80">
-									Home street
-								</p>
-								<p className="text-green-900 dark:text-green-100">
-									{previewHomeStreet ?? "—"}
-								</p>
-							</div>
-							<div className="grid gap-1">
-								<p className="text-xs font-medium text-green-800/80 dark:text-green-200/80">
-									Barangay
-								</p>
-								<p className="text-green-900 dark:text-green-100">
-									{previewBarangay ?? "—"}
-								</p>
-							</div>
-							<div className="grid gap-1">
-								<p className="text-xs font-medium text-green-800/80 dark:text-green-200/80">
-									City / Province
-								</p>
-								<p className="text-green-900 dark:text-green-100">
-									{previewCityProvince ?? "—"}
-								</p>
-							</div>
-						</div>
+							<div className="grid gap-4">
+								<div className="space-y-1.5">
+									<p className="text-xs font-medium text-foreground/80">First name</p>
+									<Input
+										value={firstName}
+										onChange={event => setFirstName(event.target.value)}
+										placeholder="First name"
+										disabled={updateProfile.isPending}
+										autoComplete="given-name"
+									/>
+								</div>
+								<div className="space-y-1.5">
+									<p className="text-xs font-medium text-foreground/80">Middle name</p>
+									<Input
+										value={middleName}
+										onChange={event => setMiddleName(event.target.value)}
+										placeholder="Middle name (optional)"
+										disabled={updateProfile.isPending}
+										autoComplete="additional-name"
+									/>
+								</div>
+								<div className="space-y-1.5">
+									<p className="text-xs font-medium text-foreground/80">Last name</p>
+									<Input
+										value={lastName}
+										onChange={event => setLastName(event.target.value)}
+										placeholder="Last name"
+										disabled={updateProfile.isPending}
+										autoComplete="family-name"
+									/>
+								</div>
 
-						<div className="mt-4 flex items-center justify-end gap-2">
-							<Button type="button" variant="ghost" size="sm" onClick={onBack}>
-								Back
-							</Button>
-							<Button type="button" size="sm" onClick={onNext}>
-								Next
-							</Button>
-						</div>
-					</div>
-				</CardContent>
+								{previewAddress ? (
+									<div className="space-y-1.5">
+										<p className="text-xs font-medium text-foreground/80">KYC address</p>
+										<p className="text-sm text-muted-foreground">{previewAddress}</p>
+									</div>
+								) : null}
+							</div>
+						</FieldGroup>
+					</CardContent>
+
+					<CardContent className="px-2!">
+						<Alert variant="success">
+							<CheckCircle2 className="size-5" />
+							<AlertTitle>Identity verified</AlertTitle>
+							<AlertDescription>
+								Your identity has been successfully verified. Please confirm your name details
+								before moving on.
+							</AlertDescription>
+						</Alert>
+					</CardContent>
+				</div>
+
+				<CardFooter className="justify-between">
+					<Button type="button" variant="ghost" size="sm" onClick={onBack}>
+						Back
+					</Button>
+					<Button
+						type="button"
+						size="sm"
+						onClick={handleSaveAndNext}
+						disabled={updateProfile.isPending}
+					>
+						{updateProfile.isPending ? "Saving…" : "Continue"}
+					</Button>
+				</CardFooter>
 			</>
 		)
 	}

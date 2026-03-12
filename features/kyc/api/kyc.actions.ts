@@ -90,9 +90,12 @@ function parseNameFromFullName(fullName: string): ParsedNameFields {
 	const normalizedFullName = normalizeNameValue(fullName)
 	if (!normalizedFullName) return {}
 
+	const fullNameParts = normalizedFullName.split(" ").filter(Boolean)
+	const lastWord = fullNameParts.length > 0 ? fullNameParts[fullNameParts.length - 1] : undefined
+
 	if (normalizedFullName.includes(",")) {
 		const [rawLastName, ...rest] = normalizedFullName.split(",")
-		const lastName = normalizeNameValue(rawLastName)
+		const lastName = normalizeNameValue(lastWord ?? rawLastName)
 		const remaining = normalizeNameValue(rest.join(" "))
 		const parts = remaining?.split(" ").filter(Boolean) ?? []
 

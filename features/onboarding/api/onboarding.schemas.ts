@@ -15,6 +15,9 @@ export const verifyRecoveryEmailSchema = z.object({
 
 export const updateProfileSchema = z.object({
 	phoneNumber: z.string().trim().optional().or(z.literal("")),
+	firstName: z.string().trim().optional().or(z.literal("")),
+	middleName: z.string().trim().optional().or(z.literal("")),
+	lastName: z.string().trim().optional().or(z.literal("")),
 	homeStreet: z.string().trim().optional().or(z.literal("")),
 	barangay: z.string().trim().optional().or(z.literal("")),
 	cityProvince: z.string().trim().optional().or(z.literal("")),

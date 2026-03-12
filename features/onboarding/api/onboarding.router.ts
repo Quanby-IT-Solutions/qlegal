@@ -168,6 +168,13 @@ export const onboardingRouter = createTRPCRouter({
 			columns: { image: true },
 		})
 
+		const firstName =
+			input.firstName && input.firstName.trim() !== "" ? input.firstName.trim() : undefined
+		const middleName =
+			input.middleName && input.middleName.trim() !== "" ? input.middleName.trim() : undefined
+		const lastName =
+			input.lastName && input.lastName.trim() !== "" ? input.lastName.trim() : undefined
+
 		const phoneNumber =
 			input.phoneNumber && input.phoneNumber.trim() !== "" ? input.phoneNumber : null
 		const homeStreet = input.homeStreet && input.homeStreet.trim() !== "" ? input.homeStreet : null
@@ -186,6 +193,9 @@ export const onboardingRouter = createTRPCRouter({
 		await db
 			.update(users)
 			.set({
+				...(firstName !== undefined ? { firstName } : {}),
+				...(middleName !== undefined ? { middleName } : {}),
+				...(lastName !== undefined ? { lastName } : {}),
 				phoneNumber,
 				homeStreet,
 				barangay,
