@@ -1,7 +1,7 @@
 "use client"
 
 import { useSearchParams } from "next/navigation"
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { CheckCircle2, Info, Loader2, XCircle } from "lucide-react"
 
 import { Button } from "@/core/components/ui/button"
@@ -13,52 +13,82 @@ import { useKycBroadcast, type KycBroadcastMessage } from "@/core/hooks/use-kyc-
 export default function KycCallbackPage() {
 	const searchParams = useSearchParams()
 	const [showFallback, setShowFallback] = useState(false)
+	const hasBroadcastRef = useRef(false)
 
-	const status = useMemo(() => searchParams.get("status"), [searchParams])
-	const transactionId = useMemo(() => searchParams.get("transactionId"), [searchParams])
+	const status = searchParams.get("status")
+	const transactionId = searchParams.get("transactionId")
 
-	const broadcastType = useMemo<KycBroadcastMessage["type"]>(() => {
-		if (!status) return "KYC_PENDING"
+	const broadcastType: KycBroadcastMessage["type"] = (() => {
+		if (!status) {
+			return "KYC_PENDING"
+		}
+
 		const normalized = status.trim().toLowerCase()
-
-		if (normalized === "user_cancelled") return "KYC_CANCELLED"
+		if (normalized === "user_cancelled") {
+			return "KYC_CANCELLED"
+		}
 		if (["approved", "success", "succeeded", "verified", "completed"].includes(normalized))
 			return "KYC_VERIFIED"
-		if (["rejected", "declined", "failed", "error"].includes(normalized)) return "KYC_REJECTED"
+		if (["rejected", "declined", "failed", "error"].includes(normalized)) {
+			return "KYC_REJECTED"
+		}
 
 		return "KYC_PENDING"
-	}, [status])
+	})()
 
-	const statusHint = useMemo(() => {
-		if (!status) return null
+	const statusHint = (() => {
+		if (!status) {
+			return null
+		}
+
 		const normalized = status.trim().toLowerCase()
-		if (normalized === "user_cancelled") return "You cancelled the verification flow."
+		if (normalized === "user_cancelled") {
+			return "You cancelled the verification flow."
+		}
+
 		if (["approved", "success", "succeeded", "verified", "completed"].includes(normalized))
 			return "Your verification was completed successfully."
-		if (["rejected", "declined", "failed", "error"].includes(normalized))
+		if (["rejected", "declined", "failed", "error"].includes(normalized)) {
 			return "Your verification could not be completed."
+		}
+
 		return null
-	}, [status])
+	})()
 
-	const statusAlertVariant = useMemo(() => {
-		if (broadcastType === "KYC_VERIFIED") return "success" as const
-		if (broadcastType === "KYC_REJECTED") return "destructive" as const
-		if (broadcastType === "KYC_CANCELLED") return "warning" as const
+	const statusAlertVariant = (() => {
+		if (broadcastType === "KYC_VERIFIED") {
+			return "success" as const
+		}
+		if (broadcastType === "KYC_REJECTED") {
+			return "destructive" as const
+		}
+		if (broadcastType === "KYC_CANCELLED") {
+			return "warning" as const
+		}
 		return "info" as const
-	}, [broadcastType])
+	})()
 
-	const statusAlertIcon = useMemo(() => {
-		if (broadcastType === "KYC_VERIFIED") return <CheckCircle2 className="size-4" />
-		if (broadcastType === "KYC_REJECTED") return <XCircle className="size-4" />
-		if (broadcastType === "KYC_CANCELLED") return <XCircle className="size-4" />
+	const statusAlertIcon = (() => {
+		if (broadcastType === "KYC_VERIFIED") {
+			return <CheckCircle2 className="size-4" />
+		}
+		if (broadcastType === "KYC_REJECTED") {
+			return <XCircle className="size-4" />
+		}
+		if (broadcastType === "KYC_CANCELLED") {
+			return <XCircle className="size-4" />
+		}
 		return <Info className="size-4" />
-	}, [broadcastType])
+	})()
 
 	const { broadcast } = useKycBroadcast()
 
 	useEffect(() => {
-		// Log the status received from HyperVerge
-		console.log("✅ KYC flow completed with status:", status)
+		if (hasBroadcastRef.current) {
+			return
+		}
+
+		hasBroadcastRef.current = true
 
 		broadcast({
 			type: broadcastType,
@@ -66,15 +96,13 @@ export default function KycCallbackPage() {
 			transactionId: transactionId ?? undefined,
 		})
 
-		// Close this window/tab after KYC completion
-		// Add small delay to ensure webhook has time to process
-		setTimeout(() => {
+		const closeTimer = setTimeout(() => {
 			window.close()
-
-			// If window.close() doesn't work (some browsers block it), show fallback UI.
 			setTimeout(() => setShowFallback(true), 500)
-		}, 2000) // 2 second delay to allow webhook processing
-	}, [status, broadcast, broadcastType, transactionId])
+		}, 2000)
+
+		return () => clearTimeout(closeTimer)
+	}, [broadcast, broadcastType, transactionId])
 
 	return (
 		<div className="relative min-h-screen w-full overflow-hidden">
