@@ -1,24 +1,19 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import type { Route } from "next"
 import Link from "next/link"
-import {
-	AlertTriangleIcon,
-	CheckCircle2Icon,
-	InfoIcon,
-	LoaderIcon,
-	MailIcon,
-} from "lucide-react"
+import { useEffect, useRef, useState } from "react"
+import { AlertTriangleIcon, CheckCircle2Icon, InfoIcon, LoaderIcon, MailIcon } from "lucide-react"
 import { toast } from "sonner"
 
 import { Button, buttonVariants } from "@/core/components/ui/button"
 import { cn } from "@/core/lib/utils"
 
 import { trpc } from "@/services/trpc/client"
-import type { Route } from "next"
 
 export function VerifyRecoveryEmailForm({ token }: { token?: string }) {
 	const [hasResent, setHasResent] = useState(false)
+	const hasVerifiedRef = useRef(false)
 
 	const verify = trpc.onboarding.verifyRecoveryEmail.useMutation()
 	const status = trpc.onboarding.getStatus.useQuery(undefined, {
@@ -29,15 +24,14 @@ export function VerifyRecoveryEmailForm({ token }: { token?: string }) {
 			setHasResent(true)
 			toast.success("Verification email resent successfully.")
 		},
-		onError: (err) => toast.error(err.message),
+		onError: err => toast.error(err.message),
 	})
 
 	useEffect(() => {
-		if (token) {
-			verify.mutate({ token })
-		}
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [token])
+		if (!token || hasVerifiedRef.current) return
+		hasVerifiedRef.current = true
+		verify.mutate({ token })
+	}, [token, verify])
 
 	const handleResend = async () => {
 		const result = await status.refetch()
@@ -53,8 +47,8 @@ export function VerifyRecoveryEmailForm({ token }: { token?: string }) {
 	if (!token) {
 		return (
 			<div className="flex flex-col items-center gap-3 py-4 text-center">
-				<div className="flex size-12 items-center justify-center rounded-full bg-destructive/10">
-					<AlertTriangleIcon className="size-6 text-destructive" />
+				<div className="bg-destructive/10 flex size-12 items-center justify-center rounded-full">
+					<AlertTriangleIcon className="text-destructive size-6" />
 				</div>
 				<p className="text-sm font-medium">Invalid or missing token.</p>
 				<p className="text-muted-foreground text-sm">
@@ -68,7 +62,7 @@ export function VerifyRecoveryEmailForm({ token }: { token?: string }) {
 	if (verify.isPending) {
 		return (
 			<div className="flex flex-col items-center gap-3 py-8">
-				<LoaderIcon className="size-6 animate-spin text-muted-foreground" />
+				<LoaderIcon className="text-muted-foreground size-6 animate-spin" />
 				<p className="text-muted-foreground text-sm">Verifying your recovery email…</p>
 			</div>
 		)
@@ -78,8 +72,8 @@ export function VerifyRecoveryEmailForm({ token }: { token?: string }) {
 	if (verify.error) {
 		return (
 			<div className="flex flex-col items-center gap-4 py-4 text-center">
-				<div className="flex size-12 items-center justify-center rounded-full bg-destructive/10">
-					<AlertTriangleIcon className="size-6 text-destructive" />
+				<div className="bg-destructive/10 flex size-12 items-center justify-center rounded-full">
+					<AlertTriangleIcon className="text-destructive size-6" />
 				</div>
 				<div className="space-y-1">
 					<p className="text-sm font-medium">Verification failed</p>
@@ -92,11 +86,7 @@ export function VerifyRecoveryEmailForm({ token }: { token?: string }) {
 					disabled={resend.isPending || hasResent}
 				>
 					<MailIcon className="mr-2 size-4" />
-					{resend.isPending
-						? "Sending…"
-						: hasResent
-							? "Email sent"
-							: "Resend verification email"}
+					{resend.isPending ? "Sending…" : hasResent ? "Email sent" : "Resend verification email"}
 				</Button>
 			</div>
 		)
@@ -115,10 +105,7 @@ export function VerifyRecoveryEmailForm({ token }: { token?: string }) {
 						This recovery email has already been verified.
 					</p>
 				</div>
-				<Link
-					href="/settings"
-					className={cn(buttonVariants({ size: "sm" }), "mt-1")}
-				>
+				<Link href="/settings" className={cn(buttonVariants({ size: "sm" }), "mt-1")}>
 					Go to Settings
 				</Link>
 			</div>
@@ -137,8 +124,8 @@ export function VerifyRecoveryEmailForm({ token }: { token?: string }) {
 				<div className="space-y-1">
 					<p className="text-sm font-medium">Recovery email verified!</p>
 					<p className="text-muted-foreground text-sm">
-						Your recovery email has been successfully verified. You can use it to
-						recover your account if you lose access to your primary email.
+						Your recovery email has been successfully verified. You can use it to recover your
+						account if you lose access to your primary email.
 					</p>
 				</div>
 				<div className="flex flex-col gap-2 sm:flex-row">
