@@ -70,7 +70,6 @@ export function KycStep({ onNext, onBack, kycStatus, onExpandChange }: KycStepPr
 	const [firstName, setFirstName] = useState("")
 	const [middleName, setMiddleName] = useState("")
 	const [lastName, setLastName] = useState("")
-	const [hasInitializedNameFields, setHasInitializedNameFields] = useState(false)
 
 	const updateProfile = trpc.onboarding.updateProfile.useMutation({
 		onError: error =>
@@ -106,10 +105,6 @@ export function KycStep({ onNext, onBack, kycStatus, onExpandChange }: KycStepPr
 	}
 
 	useEffect(() => {
-		if (mode !== "desktop") onExpandChange?.(false)
-	}, [mode, onExpandChange])
-
-	useEffect(() => {
 		void (async () => {
 			const result = await getUserKycInfo()
 			if (result.success && result.data) {
@@ -118,21 +113,17 @@ export function KycStep({ onNext, onBack, kycStatus, onExpandChange }: KycStepPr
 					sessionType: result.data.sessionType as "hosted" | "direct" | null,
 				})
 				if (result.data.kycStatus === "PENDING" && result.data.hasHostedLink) {
+					onExpandChange?.(false)
 					setMode("mobile-pending")
+				}
+				if (result.data.kycStatus === "VERIFIED" && result.data.kycPreview) {
+					setFirstName(result.data.kycPreview.firstName ?? "")
+					setMiddleName(result.data.kycPreview.middleName ?? "")
+					setLastName(result.data.kycPreview.lastName ?? "")
 				}
 			}
 		})()
-	}, [])
-
-	useEffect(() => {
-		if (!isVerified || hasInitializedNameFields || !userInfo?.kycPreview) return
-
-		const preview = userInfo.kycPreview
-		setFirstName(preview.firstName ?? "")
-		setMiddleName(preview.middleName ?? "")
-		setLastName(preview.lastName ?? "")
-		setHasInitializedNameFields(true)
-	}, [isVerified, hasInitializedNameFields, userInfo])
+	}, [onExpandChange])
 
 	useEffect(() => {
 		if (!shouldPoll) return
@@ -147,6 +138,7 @@ export function KycStep({ onNext, onBack, kycStatus, onExpandChange }: KycStepPr
 			if (message.type === "KYC_REJECTED") {
 				toast.error("KYC verification was declined. Please try again.")
 				setHostedEvent(null)
+				onExpandChange?.(false)
 				setMode("choose")
 				void refreshUserInfo()
 				return
@@ -155,19 +147,24 @@ export function KycStep({ onNext, onBack, kycStatus, onExpandChange }: KycStepPr
 			if (message.type === "KYC_CANCELLED") {
 				toast.message("Verification cancelled.")
 				setHostedEvent("cancelled")
+				onExpandChange?.(false)
 				setMode("choose")
 				void refreshUserInfo()
 			}
 		})
-		return unsubscribe
-	}, [shouldPoll, listen, updateSession])
 
-	useEffect(() => {
-		if (!shouldPoll || isSupported()) return
-		const handleFocus = () => void refetch()
-		window.addEventListener("focus", handleFocus)
-		return () => window.removeEventListener("focus", handleFocus)
-	}, [shouldPoll, isSupported, refetch])
+		let removeFocusListener: (() => void) | undefined
+		if (!isSupported()) {
+			const handleFocus = () => void refetch()
+			window.addEventListener("focus", handleFocus)
+			removeFocusListener = () => window.removeEventListener("focus", handleFocus)
+		}
+
+		return () => {
+			unsubscribe?.()
+			removeFocusListener?.()
+		}
+	}, [shouldPoll, listen, isSupported, refetch, updateSession, onExpandChange])
 
 	useEffect(() => {
 		if (!statusResult) return
@@ -175,20 +172,17 @@ export function KycStep({ onNext, onBack, kycStatus, onExpandChange }: KycStepPr
 			toast.success("KYC verification approved!")
 			setUserInfo(prev => (prev ? { ...prev, kycStatus: "VERIFIED" } : prev))
 			void updateSession()
+			if (!hasAutoAdvancedRef.current) {
+				hasAutoAdvancedRef.current = true
+				void refreshUserInfo()
+			}
 		} else if (statusResult.kycStatus === "REJECTED") {
 			toast.error("KYC verification was declined. Please try again.")
+			onExpandChange?.(false)
 			void refreshUserInfo()
 			setMode("choose")
 		}
-	}, [statusResult, updateSession])
-
-	useEffect(() => {
-		if (!isVerified || hasAutoAdvancedRef.current) return
-		hasAutoAdvancedRef.current = true
-
-		void updateSession()
-		void refreshUserInfo()
-	}, [isVerified, onNext, updateSession])
+	}, [statusResult, updateSession, onExpandChange])
 
 	const handleCreateMobileLink = () => {
 		startMobileTransition(async () => {
@@ -198,6 +192,7 @@ export function KycStep({ onNext, onBack, kycStatus, onExpandChange }: KycStepPr
 			if (result.success && result.data) {
 				window.open(result.data.url, "_blank", "noopener,noreferrer")
 				toast.success("KYC verification link created! Opening in new window...")
+				onExpandChange?.(false)
 				setMode("mobile-pending")
 				await refreshUserInfo()
 				return
@@ -208,6 +203,7 @@ export function KycStep({ onNext, onBack, kycStatus, onExpandChange }: KycStepPr
 				if (existing.success && existing.data) {
 					window.open(existing.data.url, "_blank", "noopener,noreferrer")
 					toast.success("Reopening your existing verification link...")
+					onExpandChange?.(false)
 					setMode("mobile-pending")
 					await refreshUserInfo()
 				} else {
@@ -241,6 +237,7 @@ export function KycStep({ onNext, onBack, kycStatus, onExpandChange }: KycStepPr
 			if (result.success && result.data) {
 				window.open(result.data.url, "_blank", "noopener,noreferrer")
 				toast.success("Opening mobile verification…")
+				onExpandChange?.(false)
 				setMode("mobile-pending")
 				await refreshUserInfo()
 				return
@@ -251,6 +248,7 @@ export function KycStep({ onNext, onBack, kycStatus, onExpandChange }: KycStepPr
 				if (existing.success && existing.data) {
 					window.open(existing.data.url, "_blank", "noopener,noreferrer")
 					toast.success("Reopening your existing verification link…")
+					onExpandChange?.(false)
 					setMode("mobile-pending")
 					await refreshUserInfo()
 				} else {
@@ -390,7 +388,10 @@ export function KycStep({ onNext, onBack, kycStatus, onExpandChange }: KycStepPr
 		return (
 			<KycDesktopFlow
 				onNext={onNext}
-				onBack={() => setMode("choose")}
+				onBack={() => {
+					onExpandChange?.(false)
+					setMode("choose")
+				}}
 				onExpandChange={onExpandChange}
 				onContinueOnMobile={handleContinueOnMobileFromDesktop}
 				onStartOver={handleStartOverFromDesktop}

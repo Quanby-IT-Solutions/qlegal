@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState, useTransition } from "react"
+import { useRef, useState, useTransition } from "react"
 import { CheckCircle2, Loader2, Maximize2, Minimize2, RefreshCw, XCircle } from "lucide-react"
 import { useSession } from "next-auth/react"
 import { toast } from "sonner"
@@ -16,13 +16,6 @@ import { CameraCapture, type CameraCaptureHandle } from "@/features/kyc/componen
 import { CountryCombobox } from "@/features/kyc/components/country-combobox"
 import { DocumentTypeCombobox } from "@/features/kyc/components/document-type-combobox"
 import { getDocumentTypes } from "@/features/kyc/lib/supported-documents"
-
-const DESKTOP_STEP_CONFIG = {
-	id: { number: 1, total: 3, title: "Capture ID Document" },
-	selfie: { number: 2, total: 3, title: "Capture Selfie" },
-	review: { number: 3, total: 3, title: "Review & Submit" },
-	result: { number: 3, total: 3, title: "Verification Result" },
-} as const
 
 const DESKTOP_STEPS = ["id", "selfie", "review"] as const
 
@@ -40,7 +33,7 @@ export function KycDesktopFlow({
 	onNext,
 	onBack,
 	onExpandChange,
-	onContinueOnMobile,
+	onContinueOnMobile: _onContinueOnMobile,
 	onStartOver,
 }: KycDesktopFlowProps) {
 	const { update: updateSession } = useSession()
@@ -70,11 +63,13 @@ export function KycDesktopFlow({
 		}
 	}
 
-	const currentStepInfo = DESKTOP_STEP_CONFIG[step]
-
-	useEffect(() => {
-		onExpandChange?.(isFullscreen)
-	}, [isFullscreen, onExpandChange])
+	const toggleFullscreen = () => {
+		setIsFullscreen(prev => {
+			const next = !prev
+			onExpandChange?.(next)
+			return next
+		})
+	}
 
 	const reset = () => {
 		setStep("id")
@@ -82,6 +77,7 @@ export function KycDesktopFlow({
 		setSelfieImage(null)
 		setResult(null)
 		setIsFullscreen(false)
+		onExpandChange?.(false)
 	}
 
 	const handleBack = () => {
@@ -164,7 +160,7 @@ export function KycDesktopFlow({
 								variant="ghost"
 								size="icon"
 								className="size-7"
-								onClick={() => setIsFullscreen(prev => !prev)}
+								onClick={toggleFullscreen}
 								title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
 							>
 								{isFullscreen ? <Minimize2 className="size-3.5" /> : <Maximize2 className="size-3.5" />}
@@ -379,6 +375,7 @@ export function KycDesktopFlow({
 						onClick={() => {
 							setIdImage(null)
 							setIsFullscreen(false)
+							onExpandChange?.(false)
 						}}
 						disabled={isSubmitting}
 					>
@@ -393,6 +390,7 @@ export function KycDesktopFlow({
 						onClick={() => {
 							setSelfieImage(null)
 							setIsFullscreen(false)
+							onExpandChange?.(false)
 						}}
 						disabled={isSubmitting}
 					>
