@@ -97,7 +97,7 @@ function OnboardingWizardContentBody({
 	const recoveryEmailSubmitted = recoveryEmailSubmittedInSession || hasPendingRecoveryEmail
 	const isKycVerified = session?.user?.kycStatus === "VERIFIED"
 	const hasPhoneNumber = !!status?.phoneNumber?.trim()
-	const hasProfilePhoto = !!session?.user?.image
+
 
 	useEffect(() => {
 		if (currentStepId === "done") {
@@ -106,9 +106,7 @@ function OnboardingWizardContentBody({
 	}, [currentStepId, refetchStatus])
 
 	useEffect(() => {
-		if (currentStepId === "done") {
-			onExpandChange?.(true)
-		} else if (currentStepId !== "kyc") {
+		if (currentStepId !== "kyc") {
 			// KYC step manages its own expansion via onExpandChange prop
 			onExpandChange?.(false)
 		}
@@ -307,7 +305,6 @@ function OnboardingWizardContentBody({
 						recoveryEmailSubmitted={recoveryEmailSubmitted}
 						recoveryEmail={status?.recoveryEmail}
 						phoneNumber={hasPhoneNumber ? status?.phoneNumber : undefined}
-						hasProfilePhoto={hasProfilePhoto}
 						userName={session?.user?.name ?? "Your profile"}
 						userImage={session?.user?.image}
 						onSnooze={handleSnoozeForSevenDays}
