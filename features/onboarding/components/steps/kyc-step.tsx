@@ -39,6 +39,9 @@ interface KycStepProps {
 interface UserKycInfo {
 	name: string | null
 	email: string | null
+	profileFirstName?: string | null
+	profileMiddleName?: string | null
+	profileLastName?: string | null
 	transactionId: string | null
 	kycStatus: string | null
 	kycLinkCreatedAt?: Date | null
@@ -287,13 +290,37 @@ export function KycStep({ onNext, onBack, kycStatus, onExpandChange }: KycStepPr
 				return
 			}
 
+			const persistedFirstName = userInfo?.profileFirstName?.trim() ?? ""
+			const persistedMiddleName = userInfo?.profileMiddleName?.trim() ?? ""
+			const persistedLastName = userInfo?.profileLastName?.trim() ?? ""
+
+			const unchanged =
+				trimmedFirstName === persistedFirstName &&
+				trimmedMiddleName === persistedMiddleName &&
+				trimmedLastName === persistedLastName
+
+			if (unchanged) {
+				onNext()
+				return
+			}
+
 			try {
-				await updateProfile.mutateAsync({
+				const result = await updateProfile.mutateAsync({
 					firstName: trimmedFirstName,
 					middleName: trimmedMiddleName,
 					lastName: trimmedLastName,
 				})
-				toast.success("Your details have been saved.")
+				setUserInfo(prev =>
+					prev
+						? {
+								...prev,
+								profileFirstName: trimmedFirstName,
+								profileMiddleName: trimmedMiddleName,
+								profileLastName: trimmedLastName,
+							}
+						: prev
+				)
+				toast.success(result.message)
 				onNext()
 			} catch {
 				// Error already handled in mutation onError

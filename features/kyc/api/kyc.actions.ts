@@ -1363,6 +1363,9 @@ export async function getUserKycInfo() {
 		data: {
 			name: getFullName(user),
 			email: user.email,
+			profileFirstName: user.firstName,
+			profileMiddleName: user.middleName,
+			profileLastName: user.lastName,
 			transactionId: kycSession?.transactionId ?? null,
 			kycStatus: user.kycStatus,
 			kycLinkCreatedAt: kycSession?.hostedLinkCreatedAt ?? null,
