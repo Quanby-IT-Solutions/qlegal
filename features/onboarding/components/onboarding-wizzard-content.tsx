@@ -68,11 +68,18 @@ function OnboardingWizardContentBody({
 			phoneNumber: status?.phoneNumber ?? "",
 		},
 	})
-	const submitRecoveryEmail = trpc.onboarding.submitRecoveryEmail.useMutation()
-	const updateProfile = trpc.onboarding.updateProfile.useMutation()
-	const updateAvatar = trpc.onboarding.updateAvatar.useMutation()
+	const submitRecoveryEmail = trpc.onboarding.submitRecoveryEmail.useMutation({
+		onSuccess: () => void utils.onboarding.getStatus.invalidate(),
+	})
+	const updateProfile = trpc.onboarding.updateProfile.useMutation({
+		onSuccess: () => void utils.onboarding.getStatus.invalidate(),
+	})
+	const updateAvatar = trpc.onboarding.updateAvatar.useMutation({
+		onSuccess: () => void utils.onboarding.getStatus.invalidate(),
+	})
 	const completeOnboarding = trpc.onboarding.completeOnboarding.useMutation({
 		onSuccess: async () => {
+			void utils.onboarding.getStatus.invalidate()
 			await updateSession()
 			toast.success("Welcome aboard! Redirecting to your dashboard…")
 			router.push("/dashboard")
@@ -81,6 +88,7 @@ function OnboardingWizardContentBody({
 	})
 	const snoozeOnboarding = trpc.onboarding.snoozeOnboarding.useMutation({
 		onSuccess: async () => {
+			void utils.onboarding.getStatus.invalidate()
 			await updateSession()
 			toast.success("Onboarding reminders paused for 7 days.")
 			router.push("/dashboard")
@@ -185,7 +193,6 @@ function OnboardingWizardContentBody({
 			const result = await submitRecoveryEmail.mutateAsync({ recoveryEmail })
 			setRecoveryEmailSubmittedInSession(true)
 			toast.success(result.message)
-			void utils.onboarding.getStatus.invalidate()
 			handleNext()
 		} catch (error) {
 			toast.error(error instanceof Error ? error.message : "Failed to save recovery email.")
@@ -212,7 +219,6 @@ function OnboardingWizardContentBody({
 		try {
 			const result = await updateProfile.mutateAsync({ phoneNumber })
 			toast.success(result.message)
-			void utils.onboarding.getStatus.invalidate()
 			handleNext()
 		} catch (error) {
 			toast.error(error instanceof Error ? error.message : "Failed to save phone number.")
@@ -221,7 +227,6 @@ function OnboardingWizardContentBody({
 
 	const handlePhotoSave = async (imagePath: string) => {
 		await updateAvatar.mutateAsync({ imagePath })
-		void utils.onboarding.getStatus.invalidate()
 	}
 
 	const handleCurrentStepSubmit = async () => {
