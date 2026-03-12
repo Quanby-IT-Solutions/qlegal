@@ -1,10 +1,8 @@
 "use client"
 
-import { useMemo } from "react"
-import { CircleCheck, InformationCircleIcon } from "@hugeicons/core-free-icons"
+import { InformationCircleIcon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import {
-	ArrowLeftIcon,
 	CameraIcon,
 	CheckCircle2Icon,
 	MailIcon,
@@ -28,6 +26,7 @@ import {
 import { Badge } from "@/core/components/ui/badge"
 import { Button } from "@/core/components/ui/button"
 import { CardContent, CardFooter } from "@/core/components/ui/card"
+import { FieldGroup } from "@/core/components/ui/field"
 import { Profile } from "@/core/components/user-profile"
 import { cn } from "@/core/lib/utils"
 
@@ -72,15 +71,6 @@ export function DoneStep({
 }: DoneStepProps) {
 	const showReminder = recoveryEmailSubmitted && !recoveryEmailVerified
 	const canSnoozeReminder = showReminder && !!onSnooze
-	const completedItemsCount = useMemo(
-		() =>
-			[kycVerified, recoveryEmailVerified, !!phoneNumber, hasProfilePhoto].filter(Boolean).length,
-		[hasProfilePhoto, kycVerified, phoneNumber, recoveryEmailVerified]
-	)
-	const optionalItemsCount = useMemo(
-		() => [!recoveryEmailSubmitted, !phoneNumber, !hasProfilePhoto].filter(Boolean).length,
-		[hasProfilePhoto, phoneNumber, recoveryEmailSubmitted]
-	)
 	const summaryItems: SummaryItem[] = [
 		{
 			label: "Identity verification",
@@ -149,105 +139,76 @@ export function DoneStep({
 		<>
 			<div className="space-y-2">
 				<CardContent className="px-2!">
-					<div className="grid gap-4 md:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)] md:items-start">
-						<div className="from-success/10 via-background to-background space-y-4 rounded-2xl border bg-linear-to-br p-5">
-							<div className="flex items-start gap-4 md:gap-3">
-								<div className="bg-success/10 text-success flex size-12 shrink-0 items-center justify-center rounded-2xl border border-current/15 md:size-11">
-									<HugeiconsIcon icon={CircleCheck} className="size-6 md:size-5" />
-								</div>
+					<FieldGroup className="bg-background/70 space-y-4 rounded-md border p-4">
+						<p className="text-muted-foreground mb-1 text-[11px] font-semibold tracking-wider uppercase">
+							Setup summary
+						</p>
 
-								<div className="space-y-1.5 md:space-y-1">
-									<p className="text-muted-foreground text-[11px] font-semibold tracking-wider uppercase">
-										Ready to go
-									</p>
-									<h3 className="text-lg font-semibold tracking-tight md:text-xl">
-										Your Quanby account is set up
-									</h3>
-									<p className="text-muted-foreground text-sm leading-6">
-										You&apos;re ready to start signing, reviewing, and managing documents with a
-										clean, secure profile.
-									</p>
-									<div className="flex flex-wrap items-center gap-2 pt-1">
-										<Badge
-											variant="outline"
-											className="border-success/25 bg-success/8 text-success"
-										>
-											{completedItemsCount}/4 completed
-										</Badge>
-										{optionalItemsCount > 0 ? (
-											<Badge variant="outline" className="bg-background/70 text-muted-foreground">
-												{optionalItemsCount} optional item{optionalItemsCount > 1 ? "s" : ""}
-											</Badge>
-										) : (
-											<Badge variant="outline" className="bg-background/70 text-muted-foreground">
-												Everything essential is in place
-											</Badge>
-										)}
+						<div className="space-y-3">
+							<div className="bg-background flex min-w-0 flex-col gap-3 rounded-md border px-3 py-3 sm:flex-row sm:items-start sm:justify-between">
+								<div className="flex min-w-0 items-start gap-3">
+									<div className="bg-muted flex size-9 shrink-0 items-center justify-center rounded-full border">
+										<Profile
+											url={userImage ?? null}
+											name={userName}
+											size="default"
+											className="bg-muted border-0"
+										/>
+									</div>
+
+									<div className="min-w-0 space-y-1 text-left">
+										<div className="flex min-w-0 flex-wrap items-center gap-2">
+											<p className="truncate text-sm font-medium">{userName}</p>
+											<CheckCircle2Icon className="text-success size-4 shrink-0" />
+										</div>
+										<p className="text-muted-foreground text-sm leading-5">
+											Your setup summary is below, and you can update these later from your
+											profile settings.
+										</p>
 									</div>
 								</div>
 							</div>
 
-							<div className="bg-background/80 flex items-center gap-3 rounded-xl border px-3 py-3">
-								<Profile url={userImage ?? null} name={userName} size="lg" />
-								<div className="min-w-0 space-y-1 text-left">
-									<p className="truncate text-sm font-medium">{userName}</p>
-									<p className="text-muted-foreground text-sm leading-5">
-										Your setup summary is below, and you can refine any of it later from settings.
-									</p>
-								</div>
-							</div>
-						</div>
+							{summaryItems.map(item => {
+								const ItemIcon = item.icon
 
-						<div className="bg-background/70 space-y-3 rounded-2xl border p-4">
-							<div className="space-y-1">
-								<p className="text-muted-foreground text-[11px] font-semibold tracking-wider uppercase">
-									Onboarding summary
-								</p>
-								<p className="text-sm font-medium">Everything important, at a glance.</p>
-							</div>
-
-							<div className="space-y-2">
-								{summaryItems.map(item => {
-									const ItemIcon = item.icon
-
-									return (
-										<div
-											key={item.label}
-											className="bg-background/80 flex min-w-0 flex-col gap-3 rounded-xl border px-3 py-3 sm:flex-row sm:items-start sm:justify-between"
-										>
-											<div className="flex min-w-0 items-start gap-3">
-												<div className="bg-muted flex size-9 shrink-0 items-center justify-center rounded-full border">
-													<ItemIcon className="text-muted-foreground size-4" />
-												</div>
-
-												<div className="min-w-0 space-y-1 text-left">
-													<div className="flex flex-wrap items-center gap-2">
-														<p className="text-sm font-medium">{item.label}</p>
-														{item.statusTone === "complete" ? (
-															<CheckCircle2Icon className="text-success size-4" />
-														) : null}
-													</div>
-													<p className="text-muted-foreground text-sm leading-5 wrap-break-word">
-														{item.detail}
-													</p>
-												</div>
+								return (
+									<div
+										key={item.label}
+										className="bg-background flex min-w-0 flex-col gap-3 rounded-md border px-3 py-3 sm:flex-row sm:items-start sm:justify-between"
+									>
+										<div className="flex min-w-0 items-start gap-3">
+											<div className="bg-muted flex size-9 shrink-0 items-center justify-center rounded-full border">
+												<ItemIcon className="text-muted-foreground size-4" />
 											</div>
 
-											<Badge
-												className={cn(
-													"shrink-0 self-start sm:mt-0.5 sm:self-center",
-													getBadgeClassName(item.statusTone)
-												)}
-												variant="outline"
-											>
-												{item.statusLabel}
-											</Badge>
+											<div className="min-w-0 space-y-1 text-left">
+												<div className="flex flex-wrap items-center gap-2">
+													<p className="text-sm font-medium">{item.label}</p>
+													{item.statusTone === "complete" ? (
+														<CheckCircle2Icon className="text-success size-4" />
+													) : null}
+												</div>
+												<p className="text-muted-foreground text-sm leading-5 wrap-break-word">
+													{item.detail}
+												</p>
+											</div>
 										</div>
-									)
-								})}
-							</div>
+
+										<Badge
+											className={cn(
+												"shrink-0 self-start sm:mt-0.5 sm:self-center",
+												getBadgeClassName(item.statusTone)
+											)}
+											variant="outline"
+										>
+											{item.statusLabel}
+										</Badge>
+									</div>
+								)
+							})}
 						</div>
-					</div>
+					</FieldGroup>
 				</CardContent>
 
 				{showReminder ? (
@@ -264,15 +225,9 @@ export function DoneStep({
 				) : null}
 			</div>
 
-			<CardFooter
-				className={cn(
-					"flex flex-col gap-3 border-t pt-4 sm:flex-row sm:items-center sm:justify-between",
-					!canSnoozeReminder && "sm:justify-between"
-				)}
-			>
-				<div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+			<CardFooter className="justify-between">
+				<div className="flex items-center gap-2">
 					<Button type="button" variant="ghost" onClick={onBack} size="sm">
-						<ArrowLeftIcon className="size-4" />
 						Back
 					</Button>
 
@@ -300,11 +255,9 @@ export function DoneStep({
 					) : null}
 				</div>
 
-				<div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
-					<Button type="button" onClick={onComplete} disabled={isCompleting} size="sm">
-						{isCompleting ? "Setting up…" : "Go to Dashboard"}
-					</Button>
-				</div>
+				<Button type="button" onClick={onComplete} disabled={isCompleting} size="sm">
+					{isCompleting ? "Setting up…" : "Go to Dashboard"}
+				</Button>
 			</CardFooter>
 		</>
 	)

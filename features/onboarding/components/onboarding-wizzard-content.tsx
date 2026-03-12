@@ -225,6 +225,11 @@ function OnboardingWizardContentBody({
 			return
 		}
 
+		if (methods.current.id === "photo") {
+			handleNext()
+			return
+		}
+
 		if (methods.current.id === "phone") await handlePhoneContinue()
 	}
 
