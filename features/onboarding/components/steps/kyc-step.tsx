@@ -1,12 +1,11 @@
 "use client"
 
-import { useEffect, useState, useTransition } from "react"
+import { useEffect, useRef, useState, useTransition } from "react"
 import { CheckCircle2 } from "lucide-react"
 import { useSession } from "next-auth/react"
 import { toast } from "sonner"
 
-import { Button } from "@/core/components/ui/button"
-import { CardContent, CardFooter } from "@/core/components/ui/card"
+import { CardContent } from "@/core/components/ui/card"
 import { useKycBroadcast } from "@/core/hooks/use-kyc-broadcast"
 
 import {
@@ -43,14 +42,15 @@ interface UserKycInfo {
 
 export function KycStep({ onNext, onBack, kycStatus, onExpandChange }: KycStepProps) {
 	const { update: updateSession } = useSession()
-	const isVerified = kycStatus === "VERIFIED"
 
 	const [userInfo, setUserInfo] = useState<UserKycInfo | null>(null)
 	const [mode, setMode] = useState<KycMode>("choose")
 	const [hostedEvent, setHostedEvent] = useState<"cancelled" | null>(null)
 	const [isMobilePending, startMobileTransition] = useTransition()
+	const hasAutoAdvancedRef = useRef(false)
 
 	const effectiveStatus = userInfo?.kycStatus ?? kycStatus ?? null
+	const isVerified = effectiveStatus === "VERIFIED"
 	const shouldPoll = mode === "mobile-pending" || effectiveStatus === "PENDING"
 
 	const { data: statusQueryResult, refetch } = useKycStatus({
@@ -135,14 +135,22 @@ export function KycStep({ onNext, onBack, kycStatus, onExpandChange }: KycStepPr
 		if (!statusResult) return
 		if (statusResult.kycStatus === "VERIFIED") {
 			toast.success("KYC verification approved!")
+			setUserInfo(prev => (prev ? { ...prev, kycStatus: "VERIFIED" } : prev))
 			void updateSession()
-			setTimeout(() => window.location.reload(), 1500)
 		} else if (statusResult.kycStatus === "REJECTED") {
 			toast.error("KYC verification was declined. Please try again.")
 			void refreshUserInfo()
 			setMode("choose")
 		}
 	}, [statusResult, updateSession])
+
+	useEffect(() => {
+		if (!isVerified || hasAutoAdvancedRef.current) return
+		hasAutoAdvancedRef.current = true
+
+		toast.success("Verification complete. Continuing to the next step…")
+		void updateSession().finally(onNext)
+	}, [isVerified, onNext, updateSession])
 
 	const handleCreateMobileLink = () => {
 		startMobileTransition(async () => {
@@ -237,21 +245,13 @@ export function KycStep({ onNext, onBack, kycStatus, onExpandChange }: KycStepPr
 					<div className="rounded-lg border border-green-200 bg-green-50 p-4 text-center dark:border-green-800 dark:bg-green-950/20">
 						<CheckCircle2 className="mx-auto mb-2 size-8 text-green-600 dark:text-green-400" />
 						<p className="font-medium text-green-900 dark:text-green-100">
-							Your identity is verified
+							Identity verified
 						</p>
 						<p className="text-sm text-green-700 dark:text-green-300">
-							You can continue to the next step.
+							We are moving you to the next step.
 						</p>
 					</div>
 				</CardContent>
-				<CardFooter className="flex items-center justify-end gap-2">
-					<Button type="button" variant="ghost" size="sm" onClick={onBack}>
-						Back
-					</Button>
-					<Button type="button" onClick={onNext} size="sm">
-						Next
-					</Button>
-				</CardFooter>
 			</>
 		)
 	}

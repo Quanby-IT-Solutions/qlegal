@@ -73,6 +73,63 @@ function extractAdditionalFieldString(
 	return undefined
 }
 
+interface ParsedNameFields {
+	firstName?: string
+	middleName?: string
+	lastName?: string
+}
+
+function normalizeNameValue(value: string | null | undefined): string | undefined {
+	if (!value) return undefined
+	const normalized = value.replace(/\s+/g, " ").trim()
+	return normalized || undefined
+}
+
+function parseNameFromFullName(fullName: string): ParsedNameFields {
+	const normalizedFullName = normalizeNameValue(fullName)
+	if (!normalizedFullName) return {}
+
+	if (normalizedFullName.includes(",")) {
+		const [rawLastName, ...rest] = normalizedFullName.split(",")
+		const lastName = normalizeNameValue(rawLastName)
+		const remaining = normalizeNameValue(rest.join(" "))
+		const parts = remaining?.split(" ").filter(Boolean) ?? []
+
+		if (parts.length === 0) return { lastName }
+
+		return {
+			firstName: parts[0],
+			middleName: parts.slice(1).join(" ") || undefined,
+			lastName,
+		}
+	}
+
+	const parts = normalizedFullName.split(" ").filter(Boolean)
+	if (parts.length === 1) return { firstName: parts[0] }
+	if (parts.length === 2) return { firstName: parts[0], lastName: parts[1] }
+
+	return {
+		firstName: parts[0],
+		middleName: parts.slice(1, -1).join(" "),
+		lastName: parts[parts.length - 1],
+	}
+}
+
+function resolveNameFieldsFromIdCardDetails(details: {
+	firstName?: string | null
+	middleName?: string | null
+	lastName?: string | null
+	fullName?: string | null
+}): ParsedNameFields {
+	const fromFullName = details.fullName ? parseNameFromFullName(details.fullName) : {}
+
+	return {
+		firstName: normalizeNameValue(details.firstName) ?? fromFullName.firstName,
+		middleName: normalizeNameValue(details.middleName) ?? fromFullName.middleName,
+		lastName: normalizeNameValue(details.lastName) ?? fromFullName.lastName,
+	}
+}
+
 /**
  * Create a new KYC onboard link for the authenticated user
  * Prevents creating multiple pending transactions by checking for existing valid (non-expired) pending transactions
@@ -395,6 +452,7 @@ export async function runDirectKycVerification(input: {
 							firstName: true,
 							middleName: true,
 							lastName: true,
+							fullName: true,
 							additionalFields: true,
 						},
 					})
@@ -410,6 +468,12 @@ export async function runDirectKycVerification(input: {
 			"nameSuffix",
 			"name_suffix",
 		])
+		const resolvedNameFields = resolveNameFieldsFromIdCardDetails({
+			firstName: latestIdCardDetails?.firstName,
+			middleName: latestIdCardDetails?.middleName,
+			lastName: latestIdCardDetails?.lastName,
+			fullName: latestIdCardDetails?.fullName,
+		})
 
 		// Update user status and hydrate missing names from verified ID details.
 		await db
@@ -419,15 +483,15 @@ export async function runDirectKycVerification(input: {
 				kycVerifiedAt: kycStatus === "VERIFIED" ? new Date() : null,
 				firstName:
 					kycStatus === "VERIFIED"
-						? coalesceNameValue(existingUser.firstName, latestIdCardDetails?.firstName)
+						? coalesceNameValue(existingUser.firstName, resolvedNameFields.firstName)
 						: existingUser.firstName,
 				middleName:
 					kycStatus === "VERIFIED"
-						? coalesceNameValue(existingUser.middleName, latestIdCardDetails?.middleName)
+						? coalesceNameValue(existingUser.middleName, resolvedNameFields.middleName)
 						: existingUser.middleName,
 				lastName:
 					kycStatus === "VERIFIED"
-						? coalesceNameValue(existingUser.lastName, latestIdCardDetails?.lastName)
+						? coalesceNameValue(existingUser.lastName, resolvedNameFields.lastName)
 						: existingUser.lastName,
 				prefix:
 					kycStatus === "VERIFIED"
@@ -599,6 +663,51 @@ export async function checkUserKycStatus() {
 			}
 		}
 
+		const shouldHydrateMissingNames =
+			!hasNameValue(user?.firstName) || !hasNameValue(user?.lastName) || !hasNameValue(user?.middleName)
+
+		if (shouldHydrateMissingNames) {
+			const latestIdCardDetails = await db.query.idCardDetails.findFirst({
+				where: (data, { eq }) => eq(data.userId, session.user.id),
+				orderBy: (table, { desc }) => [desc(table.updatedAt)],
+				columns: {
+					firstName: true,
+					middleName: true,
+					lastName: true,
+					fullName: true,
+					additionalFields: true,
+				},
+			})
+
+			const latestPrefix = extractAdditionalFieldString(latestIdCardDetails?.additionalFields, [
+				"prefix",
+				"namePrefix",
+				"name_prefix",
+			])
+			const latestSuffix = extractAdditionalFieldString(latestIdCardDetails?.additionalFields, [
+				"suffix",
+				"nameSuffix",
+				"name_suffix",
+			])
+			const resolvedNameFields = resolveNameFieldsFromIdCardDetails({
+				firstName: latestIdCardDetails?.firstName,
+				middleName: latestIdCardDetails?.middleName,
+				lastName: latestIdCardDetails?.lastName,
+				fullName: latestIdCardDetails?.fullName,
+			})
+
+			await db
+				.update(users)
+				.set({
+					firstName: coalesceNameValue(user?.firstName, resolvedNameFields.firstName),
+					middleName: coalesceNameValue(user?.middleName, resolvedNameFields.middleName),
+					lastName: coalesceNameValue(user?.lastName, resolvedNameFields.lastName),
+					prefix: coalesceNameValue(user?.prefix, latestPrefix),
+					suffix: coalesceNameValue(user?.suffix, latestSuffix),
+				})
+				.where(eq(users.id, session.user.id))
+		}
+
 		return {
 			success: true,
 			data: {
@@ -732,6 +841,7 @@ export async function checkUserKycStatus() {
 					firstName: true,
 					middleName: true,
 					lastName: true,
+					fullName: true,
 					additionalFields: true,
 				},
 			})
@@ -746,6 +856,12 @@ export async function checkUserKycStatus() {
 				"nameSuffix",
 				"name_suffix",
 			])
+			const resolvedNameFields = resolveNameFieldsFromIdCardDetails({
+				firstName: latestIdCardDetails?.firstName,
+				middleName: latestIdCardDetails?.middleName,
+				lastName: latestIdCardDetails?.lastName,
+				fullName: latestIdCardDetails?.fullName,
+			})
 
 			// Update user status and hydrate missing names from verified ID details.
 			await db
@@ -753,9 +869,9 @@ export async function checkUserKycStatus() {
 				.set({
 					kycStatus: newStatus,
 					kycVerifiedAt: new Date(),
-					firstName: coalesceNameValue(user?.firstName, latestIdCardDetails?.firstName),
-					middleName: coalesceNameValue(user?.middleName, latestIdCardDetails?.middleName),
-					lastName: coalesceNameValue(user?.lastName, latestIdCardDetails?.lastName),
+					firstName: coalesceNameValue(user?.firstName, resolvedNameFields.firstName),
+					middleName: coalesceNameValue(user?.middleName, resolvedNameFields.middleName),
+					lastName: coalesceNameValue(user?.lastName, resolvedNameFields.lastName),
 					prefix: coalesceNameValue(user?.prefix, latestPrefix),
 					suffix: coalesceNameValue(user?.suffix, latestSuffix),
 					// If account was pending, auto-activate on successful KYC for non-ENP users.
