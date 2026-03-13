@@ -1,6 +1,6 @@
 "use client"
 
-import { useRef, useState, useTransition } from "react"
+import { useEffect, useRef, useState, useTransition } from "react"
 import { CheckCircle2, Loader2, Maximize2, Minimize2, RefreshCw, XCircle } from "lucide-react"
 import { useSession } from "next-auth/react"
 import { toast } from "sonner"
@@ -63,12 +63,12 @@ export function KycDesktopFlow({
 		}
 	}
 
+	useEffect(() => {
+		onExpandChange?.(isFullscreen)
+	}, [isFullscreen, onExpandChange])
+
 	const toggleFullscreen = () => {
-		setIsFullscreen(prev => {
-			const next = !prev
-			onExpandChange?.(next)
-			return next
-		})
+		setIsFullscreen(prev => !prev)
 	}
 
 	const reset = () => {
@@ -77,7 +77,6 @@ export function KycDesktopFlow({
 		setSelfieImage(null)
 		setResult(null)
 		setIsFullscreen(false)
-		onExpandChange?.(false)
 	}
 
 	const handleBack = () => {
@@ -160,8 +159,9 @@ export function KycDesktopFlow({
 								variant="ghost"
 								size="icon"
 								className="size-7"
-								onClick={toggleFullscreen}
+							onClick={toggleFullscreen}
 								title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
+								aria-label={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
 							>
 								{isFullscreen ? <Minimize2 className="size-3.5" /> : <Maximize2 className="size-3.5" />}
 							</Button>
@@ -372,11 +372,10 @@ export function KycDesktopFlow({
 						type="button"
 						variant="ghost"
 						size="sm"
-						onClick={() => {
-							setIdImage(null)
-							setIsFullscreen(false)
-							onExpandChange?.(false)
-						}}
+					onClick={() => {
+						setIdImage(null)
+						setIsFullscreen(false)
+					}}
 						disabled={isSubmitting}
 					>
 						<RefreshCw className="mr-1 size-4" />
@@ -387,11 +386,10 @@ export function KycDesktopFlow({
 						type="button"
 						variant="ghost"
 						size="sm"
-						onClick={() => {
-							setSelfieImage(null)
-							setIsFullscreen(false)
-							onExpandChange?.(false)
-						}}
+					onClick={() => {
+						setSelfieImage(null)
+						setIsFullscreen(false)
+					}}
 						disabled={isSubmitting}
 					>
 						<RefreshCw className="mr-1 size-4" />
