@@ -35,18 +35,18 @@ const { useStepper, steps, StepperProvider, StepperNavigation, StepperStep, Step
 
 interface OnboardingWizardContentProps {
 	onRestartWelcome: () => void
-	onSummaryStepChange?: (isSummaryStep: boolean) => void
+	onExpandChange?: (expanded: boolean) => void
 }
 
 export function OnboardingWizardContent({
 	onRestartWelcome,
-	onSummaryStepChange,
+	onExpandChange,
 }: OnboardingWizardContentProps) {
 	return (
 		<StepperProvider variant="horizontal" className="space-y-4">
 			<OnboardingWizardContentBody
 				onRestartWelcome={onRestartWelcome}
-				onSummaryStepChange={onSummaryStepChange}
+				onExpandChange={onExpandChange}
 			/>
 		</StepperProvider>
 	)
@@ -54,12 +54,13 @@ export function OnboardingWizardContent({
 
 function OnboardingWizardContentBody({
 	onRestartWelcome,
-	onSummaryStepChange,
+	onExpandChange,
 }: OnboardingWizardContentProps) {
 	const router = useRouter()
 	const { data: session, update: updateSession } = useSession()
+	const utils = trpc.useUtils()
 	const [recoveryEmailSubmittedInSession, setRecoveryEmailSubmittedInSession] = useState(false)
-	const { data: status, refetch: refetchStatus } = trpc.onboarding.getStatus.useQuery()
+	const { data: status } = trpc.onboarding.getStatus.useQuery()
 	const form = useForm<OnboardingWizardSchema>({
 		resolver: zodResolver(onboardingWizardSchema),
 		values: {
@@ -67,11 +68,18 @@ function OnboardingWizardContentBody({
 			phoneNumber: status?.phoneNumber ?? "",
 		},
 	})
-	const submitRecoveryEmail = trpc.onboarding.submitRecoveryEmail.useMutation()
-	const updateProfile = trpc.onboarding.updateProfile.useMutation()
-	const updateAvatar = trpc.onboarding.updateAvatar.useMutation()
+	const submitRecoveryEmail = trpc.onboarding.submitRecoveryEmail.useMutation({
+		onSuccess: () => void utils.onboarding.getStatus.invalidate(),
+	})
+	const updateProfile = trpc.onboarding.updateProfile.useMutation({
+		onSuccess: () => void utils.onboarding.getStatus.invalidate(),
+	})
+	const updateAvatar = trpc.onboarding.updateAvatar.useMutation({
+		onSuccess: () => void utils.onboarding.getStatus.invalidate(),
+	})
 	const completeOnboarding = trpc.onboarding.completeOnboarding.useMutation({
 		onSuccess: async () => {
+			void utils.onboarding.getStatus.invalidate()
 			await updateSession()
 			toast.success("Welcome aboard! Redirecting to your dashboard…")
 			router.push("/dashboard")
@@ -80,6 +88,7 @@ function OnboardingWizardContentBody({
 	})
 	const snoozeOnboarding = trpc.onboarding.snoozeOnboarding.useMutation({
 		onSuccess: async () => {
+			void utils.onboarding.getStatus.invalidate()
 			await updateSession()
 			toast.success("Onboarding reminders paused for 7 days.")
 			router.push("/dashboard")
@@ -88,7 +97,6 @@ function OnboardingWizardContentBody({
 	})
 	const handleComplete = () => completeOnboarding.mutate()
 	const handleSnoozeForSevenDays = () => snoozeOnboarding.mutate()
-	const handleGoToKyc = () => router.push("/auth/kyc")
 
 	const methods = useStepper()
 	const currentStepId = methods.current.id
@@ -98,17 +106,13 @@ function OnboardingWizardContentBody({
 	const recoveryEmailSubmitted = recoveryEmailSubmittedInSession || hasPendingRecoveryEmail
 	const isKycVerified = session?.user?.kycStatus === "VERIFIED"
 	const hasPhoneNumber = !!status?.phoneNumber?.trim()
-	const hasProfilePhoto = !!session?.user?.image
 
 	useEffect(() => {
-		if (currentStepId === "done") {
-			void refetchStatus()
+		if (currentStepId !== "kyc") {
+			// KYC step manages its own expansion via onExpandChange prop
+			onExpandChange?.(false)
 		}
-	}, [currentStepId, refetchStatus])
-
-	useEffect(() => {
-		onSummaryStepChange?.(currentStepId === "done")
-	}, [currentStepId, onSummaryStepChange])
+	}, [currentStepId, onExpandChange])
 
 	const getCurrentStepContent = () => {
 		switch (methods.current.id) {
@@ -177,11 +181,18 @@ function OnboardingWizardContentBody({
 			return
 		}
 
+		const unchanged =
+			recoveryEmail === (status?.recoveryEmail ?? "") && hasPendingRecoveryEmail
+		if (unchanged) {
+			toast.info("No changes - moving on.")
+			handleNext()
+			return
+		}
+
 		try {
 			const result = await submitRecoveryEmail.mutateAsync({ recoveryEmail })
 			setRecoveryEmailSubmittedInSession(true)
 			toast.success(result.message)
-			void refetchStatus()
 			handleNext()
 		} catch (error) {
 			toast.error(error instanceof Error ? error.message : "Failed to save recovery email.")
@@ -200,10 +211,14 @@ function OnboardingWizardContentBody({
 			return
 		}
 
+		if (phoneNumber === (status?.phoneNumber ?? "")) {
+			handleNext()
+			return
+		}
+
 		try {
 			const result = await updateProfile.mutateAsync({ phoneNumber })
 			toast.success(result.message)
-			void refetchStatus()
 			handleNext()
 		} catch (error) {
 			toast.error(error instanceof Error ? error.message : "Failed to save phone number.")
@@ -212,12 +227,16 @@ function OnboardingWizardContentBody({
 
 	const handlePhotoSave = async (imagePath: string) => {
 		await updateAvatar.mutateAsync({ imagePath })
-		void refetchStatus()
 	}
 
 	const handleCurrentStepSubmit = async () => {
 		if (methods.current.id === "recovery-email") {
 			await handleRecoveryEmailContinue()
+			return
+		}
+
+		if (methods.current.id === "photo") {
+			handleNext()
 			return
 		}
 
@@ -256,7 +275,7 @@ function OnboardingWizardContentBody({
 						onNext={handleNext}
 						onBack={handleBack}
 						kycStatus={session?.user?.kycStatus ?? undefined}
-						onGoToKyc={handleGoToKyc}
+						onExpandChange={onExpandChange}
 					/>
 				)}
 
@@ -298,7 +317,6 @@ function OnboardingWizardContentBody({
 						recoveryEmailSubmitted={recoveryEmailSubmitted}
 						recoveryEmail={status?.recoveryEmail}
 						phoneNumber={hasPhoneNumber ? status?.phoneNumber : undefined}
-						hasProfilePhoto={hasProfilePhoto}
 						userName={session?.user?.name ?? "Your profile"}
 						userImage={session?.user?.image}
 						onSnooze={handleSnoozeForSevenDays}

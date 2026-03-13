@@ -22,7 +22,7 @@ export const users = createTable("user", t => ({
 	isTwoFactorEnabled: t.boolean().default(false),
 	phoneNumber: t.varchar({ length: 255 }),
 	address: t.text(), // Principal address for document signing records (legacy - use separated fields below)
-	// Separated apnpddress fields from geolocation verification
+	// Separated address fields from geolocation verification
 	homeStreet: t.text(), // Street address/building number
 	barangay: t.varchar({ length: 255 }), // Barangay
 	cityProvince: t.varchar({ length: 255 }), // City and Province

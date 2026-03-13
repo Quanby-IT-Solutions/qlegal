@@ -46,7 +46,6 @@ export const ROUTE_CONFIG: RouteConfig = {
 	protected: {
 		shared: [
 			{ path: "/appointments" },
-			{ path: "/auth/kyc", exact: true },
 			{ path: "/auth/signature" },
 			{ path: "/auth/status", exact: true },
 			{ path: "/auth/verify-recovery-email", exact: true },
@@ -69,7 +68,7 @@ export const ROUTE_CONFIG: RouteConfig = {
 			{ path: "/notarizations/history" },
 			{ path: "/notarize" },
 			{ path: "/notifications" },
-			{ path: "/onboarding", exact: true },
+			{ path: "/onboarding" },
 			{ path: "/profile" },
 			{ path: "/requests" },
 			{ path: "/requests/incoming" },
