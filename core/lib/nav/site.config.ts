@@ -46,12 +46,6 @@ export const appSidebarSections: NavSection[] = [
 				icon: Home01Icon,
 			},
 			{
-				title: "Browse",
-				url: "/browse",
-				icon: UserMultipleIcon,
-				roles: ["PRINCIPAL", "ENP"],
-			},
-			{
 				title: "Appointments",
 				url: "/requests",
 				icon: Appointment02Icon,
@@ -64,12 +58,6 @@ export const appSidebarSections: NavSection[] = [
 				roles: ["ENP", "PRINCIPAL"],
 			},
 			{
-				title: "Documents",
-				url: "/documents",
-				icon: DocumentValidationIcon,
-				roles: ["PRINCIPAL", "ENP"],
-			},
-			{
 				title: "Notarial Registry",
 				url: "/notarial-registry",
 				icon: BookOpen02Icon,
@@ -79,6 +67,23 @@ export const appSidebarSections: NavSection[] = [
 				title: "Messages",
 				url: "/messages",
 				icon: ChatIcon,
+			},
+		],
+	},
+	{
+		label: "Browse & Documents",
+		items: [
+			{
+				title: "Browse",
+				url: "/browse",
+				icon: UserMultipleIcon,
+				roles: ["PRINCIPAL", "ENP"],
+			},
+			{
+				title: "Documents",
+				url: "/documents",
+				icon: DocumentValidationIcon,
+				roles: ["PRINCIPAL", "ENP"],
 			},
 		],
 	},
