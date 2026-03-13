@@ -66,9 +66,23 @@ export function filterNavSectionsByRole(
 		.filter(section => section.items.length > 0)
 }
 
-// Get filtered app sidebar sections
+// Get filtered app sidebar sections.
+// ENP: Platform and "Browse & Documents" as separate sections. Principal (and others): combined into one Platform section.
 export function getAppSidebarSections(userRole?: string): NavSection[] {
-	return filterNavSectionsByRole(appSidebarSections, userRole)
+	const filtered = filterNavSectionsByRole(appSidebarSections, userRole)
+	if (userRole === "ENP") return filtered
+
+	// For Principal and other roles: merge "Browse & Documents" into "Platform", remove the separate section
+	const platform = filtered.find(s => s.label === "Platform")
+	const browseAndDocs = filtered.find(s => s.label === "Browse & Documents")
+	const rest = filtered.filter(s => s.label !== "Platform" && s.label !== "Browse & Documents")
+
+	if (!platform) return filtered
+	const mergedPlatform: NavSection = {
+		label: "Platform",
+		items: browseAndDocs ? [...platform.items, ...browseAndDocs.items] : platform.items,
+	}
+	return [mergedPlatform, ...rest]
 }
 
 // Get filtered nav sections (generic function)

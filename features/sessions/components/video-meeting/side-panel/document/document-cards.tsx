@@ -464,19 +464,32 @@ export const DocumentCards = React.memo(
 
 		const panelContent = (
 			<>
-				<div className="flex shrink-0 items-center border-b px-3 py-2.5">
-					<div className="flex min-w-0 flex-wrap items-center gap-1.5">
+				<div
+					className={cn(
+						"flex shrink-0 items-center border-b",
+						showDocuments ? "px-4 py-3" : "px-5 py-4"
+					)}
+				>
+					<div className="flex min-w-0 flex-wrap items-center gap-2">
 						<div
 							ref={drawerHeaderIconRef}
-							className="bg-primary/10 flex size-7 shrink-0 items-center justify-center rounded-lg"
+							className={cn(
+								"bg-primary/10 flex shrink-0 items-center justify-center rounded-lg",
+								showDocuments ? "size-8" : "size-9"
+							)}
 						>
 							{showDocuments ? (
 								<FileText className="text-primary size-4" />
 							) : (
-								<MessageSquare className="text-primary size-4" />
+								<MessageSquare className="text-primary size-5" />
 							)}
 						</div>
-						<span className="truncate text-sm font-semibold">
+						<span
+							className={cn(
+								"truncate font-semibold",
+								showDocuments ? "text-sm" : "text-base"
+							)}
+						>
 							{showDocuments ? `Documents (${documents.length})` : "Messages"}
 						</span>
 						{isLocked && (
@@ -795,11 +808,11 @@ export const DocumentCards = React.memo(
 						)}
 					</>
 				) : (
-					<div className="flex min-h-0 flex-1 flex-col p-3">
-						<div className="border-border bg-background/40 flex min-h-0 flex-1 flex-col rounded-lg border">
-							<div className="flex-1 space-y-2 overflow-y-auto p-3 [scrollbar-color:transparent_transparent] [scrollbar-width:thin] hover:[scrollbar-color:rgba(148,163,184,0.45)_transparent] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-transparent hover:[&::-webkit-scrollbar-thumb]:bg-white/25 [&::-webkit-scrollbar-track]:bg-transparent">
+					<div className="flex min-h-0 flex-1 flex-col p-5">
+						<div className="border-border bg-background/40 flex min-h-0 flex-1 flex-col rounded-xl border">
+							<div className="flex-1 space-y-5 overflow-y-auto p-5 [scrollbar-color:transparent_transparent] [scrollbar-width:thin] hover:[scrollbar-color:rgba(148,163,184,0.45)_transparent] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-transparent hover:[&::-webkit-scrollbar-thumb]:bg-white/25 [&::-webkit-scrollbar-track]:bg-transparent">
 								{chatMessages.length === 0 ? (
-									<div className="text-muted-foreground flex h-full items-center justify-center text-sm">
+									<div className="text-muted-foreground flex h-full items-center justify-center px-6 py-12 text-base">
 										No messages yet. Start the conversation.
 									</div>
 								) : (
@@ -807,19 +820,19 @@ export const DocumentCards = React.memo(
 										<div
 											key={message.id}
 											className={cn(
-												"flex gap-2 text-sm",
+												"flex text-sm",
 												message.isSelf ? "justify-end" : "justify-start"
 											)}
 										>
 											<div
 												className={cn(
-													"max-w-[80%] rounded-2xl px-3 py-1.5",
+													"max-w-[88%] rounded-xl px-3.5 py-2 shadow-sm",
 													message.isSelf
 														? "bg-primary text-primary-foreground rounded-br-sm"
 														: "bg-muted text-foreground rounded-bl-sm"
 												)}
 											>
-												<p className="text-xs font-semibold opacity-80">
+												<p className="mb-0.5 text-xs font-semibold opacity-90">
 													{message.isSelf ? "You" : message.senderName}
 												</p>
 												<p className="break-words text-[13px] leading-snug">{message.text}</p>
@@ -828,7 +841,7 @@ export const DocumentCards = React.memo(
 									))
 								)}
 							</div>
-							<div className="border-t-border flex items-center gap-2 border-t px-3 py-2.5">
+							<div className="flex items-center gap-4 border-t border-border px-5 py-4">
 								<Input
 									placeholder="Type a message"
 									value={chatInput}
@@ -839,13 +852,13 @@ export const DocumentCards = React.memo(
 											handleSendMessage()
 										}
 									}}
-									className="text-sm"
+									className="min-h-12 flex-1 py-3 text-base"
 								/>
 								<Button
 									size="sm"
 									disabled={!chatInput.trim()}
 									onClick={handleSendMessage}
-									className="shrink-0"
+									className="h-12 shrink-0 px-5 text-sm"
 								>
 									Send
 								</Button>
@@ -859,7 +872,7 @@ export const DocumentCards = React.memo(
 		if (isMobile || isOverlayViewport) {
 			return (
 				<Sheet open={isPanelOpen} onOpenChange={open => onPanelOpenChange(open)}>
-					<SheetContent side="right" className="w-[20rem] p-0">
+					<SheetContent side="right" className="w-[24rem] p-0">
 						<SheetHeader className="sr-only">
 							<SheetTitle>Meeting Side Panel</SheetTitle>
 						</SheetHeader>
@@ -875,7 +888,7 @@ export const DocumentCards = React.memo(
 			<div
 				className={cn(
 					"hidden h-full shrink-0 overflow-hidden pt-3 pb-1.5 transition-[width,padding,opacity] duration-300 ease-in-out md:flex md:min-h-0 md:flex-col md:pt-4 md:pb-2 lg:pt-6 lg:pb-3",
-					isPanelOpen ? "w-[20rem] pr-3 opacity-100 md:pr-4 lg:pr-6" : "w-0 pr-0 opacity-0"
+					isPanelOpen ? "w-[24rem] pr-3 opacity-100 md:pr-4 lg:pr-6" : "w-0 pr-0 opacity-0"
 				)}
 			>
 				<div
