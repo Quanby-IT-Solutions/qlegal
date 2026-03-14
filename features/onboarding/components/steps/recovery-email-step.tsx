@@ -19,6 +19,13 @@ interface RecoveryEmailStepProps {
 	control: Control<OnboardingWizardSchema>
 	isSubmitting: boolean
 	hasPendingRecoveryEmail: boolean
+	cooldownRemaining: number
+}
+
+function formatCooldown(seconds: number) {
+	const m = Math.floor(seconds / 60)
+	const s = seconds % 60
+	return `${m}:${String(s).padStart(2, "0")}`
 }
 
 export function RecoveryEmailStep({
@@ -27,7 +34,9 @@ export function RecoveryEmailStep({
 	control,
 	isSubmitting,
 	hasPendingRecoveryEmail,
+	cooldownRemaining,
 }: RecoveryEmailStepProps) {
+	const isCooldownActive = cooldownRemaining > 0
 	return (
 		<>
 			<div className="space-y-2">
@@ -83,8 +92,18 @@ export function RecoveryEmailStep({
 					<Button type="button" variant="ghost" size="sm" onClick={onBack}>
 						Back
 					</Button>
-					<Button type="submit" disabled={isSubmitting} size="sm">
-						{isSubmitting ? "Sending…" : "Continue"}
+					<Button
+						type="submit"
+						disabled={isSubmitting || isCooldownActive}
+						size="sm"
+					>
+						{isSubmitting
+							? "Sending…"
+							: isCooldownActive
+								? `Resend in ${formatCooldown(cooldownRemaining)}`
+								: hasPendingRecoveryEmail
+									? "Resend verification"
+									: "Continue"}
 					</Button>
 				</div>
 			</CardFooter>

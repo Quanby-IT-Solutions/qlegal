@@ -1,7 +1,7 @@
 "use client"
 
 import { useRouter } from "next/navigation"
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useSession } from "next-auth/react"
 import { useForm } from "react-hook-form"
@@ -98,6 +98,38 @@ function OnboardingWizardContentBody({
 	const handleComplete = () => completeOnboarding.mutate()
 	const handleSnoozeForSevenDays = () => snoozeOnboarding.mutate()
 
+	const RECOVERY_EMAIL_COOLDOWN_SECONDS = 90
+	const [cooldownEndTime, setCooldownEndTime] = useState<number | null>(null)
+	const [cooldownRemaining, setCooldownRemaining] = useState(0)
+	const cooldownIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+	useEffect(() => {
+		if (cooldownIntervalRef.current) clearInterval(cooldownIntervalRef.current)
+
+		if (!cooldownEndTime) {
+			setCooldownRemaining(0)
+			return
+		}
+
+		const tick = () => {
+			const remaining = Math.max(0, Math.ceil((cooldownEndTime - Date.now()) / 1000))
+			setCooldownRemaining(remaining)
+			if (remaining <= 0) {
+				setCooldownEndTime(null)
+			}
+		}
+
+		tick()
+		cooldownIntervalRef.current = setInterval(tick, 1000)
+		return () => {
+			if (cooldownIntervalRef.current) clearInterval(cooldownIntervalRef.current)
+		}
+	}, [cooldownEndTime])
+
+	const startCooldown = useCallback(() => {
+		setCooldownEndTime(Date.now() + RECOVERY_EMAIL_COOLDOWN_SECONDS * 1000)
+	}, [])
+
 	const methods = useStepper()
 	const currentStepId = methods.current.id
 	const currentIndex = steps.findIndex(step => step.id === methods.current.id)
@@ -183,9 +215,18 @@ function OnboardingWizardContentBody({
 
 		const unchanged =
 			recoveryEmail === (status?.recoveryEmail ?? "") && hasPendingRecoveryEmail
+
 		if (unchanged) {
-			toast.info("No changes - moving on.")
-			handleNext()
+			try {
+				const result = await submitRecoveryEmail.mutateAsync({ recoveryEmail })
+				setRecoveryEmailSubmittedInSession(true)
+				toast.success(result.message)
+				startCooldown()
+			} catch (error) {
+				toast.error(
+					error instanceof Error ? error.message : "Failed to resend verification."
+				)
+			}
 			return
 		}
 
@@ -193,6 +234,7 @@ function OnboardingWizardContentBody({
 			const result = await submitRecoveryEmail.mutateAsync({ recoveryEmail })
 			setRecoveryEmailSubmittedInSession(true)
 			toast.success(result.message)
+			startCooldown()
 			handleNext()
 		} catch (error) {
 			toast.error(error instanceof Error ? error.message : "Failed to save recovery email.")
@@ -279,15 +321,16 @@ function OnboardingWizardContentBody({
 					/>
 				)}
 
-				{methods.current.id === "recovery-email" && (
-					<RecoveryEmailStep
-						control={form.control}
-						onBack={handleBack}
-						onSkip={handleNext}
-						isSubmitting={submitRecoveryEmail.isPending}
-						hasPendingRecoveryEmail={hasPendingRecoveryEmail}
-					/>
-				)}
+			{methods.current.id === "recovery-email" && (
+				<RecoveryEmailStep
+					control={form.control}
+					onBack={handleBack}
+					onSkip={handleNext}
+					isSubmitting={submitRecoveryEmail.isPending}
+					hasPendingRecoveryEmail={hasPendingRecoveryEmail}
+					cooldownRemaining={cooldownRemaining}
+				/>
+			)}
 
 				{methods.current.id === "phone" && (
 					<PhoneStep
