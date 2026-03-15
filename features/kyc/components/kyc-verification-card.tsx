@@ -10,11 +10,13 @@ import { Label } from "@/core/components/ui/label"
 import { useKycBroadcast } from "@/core/hooks/use-kyc-broadcast"
 
 import {
-	createUserKycLink,
-	getExistingKycLink,
-	resetUserKycStatus,
-} from "@/features/kyc/api/kyc.actions"
-import { DirectKycDialog } from "@/features/kyc/components/direct-kyc-dialog"
+	Dialog,
+	DialogContent,
+	DialogHeader,
+	DialogTitle,
+} from "@/core/components/ui/dialog"
+import { resetUserKycStatus } from "@/features/kyc/api/kyc.actions"
+import { HyperVergeWebSdkLauncher } from "@/features/kyc/components/hyperverge-web-sdk-launcher"
 import { useKycStatus } from "@/features/kyc/hooks/use-kyc-status"
 
 interface KycVerificationCardProps {
@@ -39,6 +41,7 @@ export function KycVerificationCard({
 	const [isPending, startTransition] = useTransition()
 	const [error, setError] = useState<string | null>(null)
 	const [showManualCheck, setShowManualCheck] = useState(false)
+	const [showWebSdkLauncher, setShowWebSdkLauncher] = useState(false)
 	const toastShownRef = useRef<Set<string>>(new Set())
 
 	// Check if there's an expired link (24 hours old)
@@ -135,56 +138,9 @@ export function KycVerificationCard({
 		}
 	}, [statusResult])
 
-	const handleCreateLink = () => {
+	const handleStartVerification = () => {
 		setError(null)
-		// keep hasExpiredLink memo for UI, no additional state needed
-
-		startTransition(async () => {
-			const result = await createUserKycLink()
-			if (result.success && result.data) {
-				// Auto-open the KYC link
-				window.open(result.data.url, "_blank", "noopener,noreferrer")
-
-				// Show appropriate message based on whether this was for an expired link
-				if (result.data.isExpiredLink) {
-					toast.success(
-						"New KYC verification link created (previous link expired). Opening in new window..."
-					)
-				} else {
-					toast.success("KYC verification link created! Opening in new window...")
-				}
-
-				// User completes KYC in new window, then redirects back with ?status=complete
-				// Single status check will happen automatically when they return
-				console.log("✅ KYC link created. Waiting for user to complete verification...")
-			} else {
-				// Check if error is about existing pending transaction
-				if (result.error?.includes("already have a pending")) {
-					toast.error(result.error)
-					setError(result.error)
-				} else {
-					setError(result.error ?? "Failed to create KYC link")
-					toast.error(result.error ?? "Failed to create KYC link")
-				}
-			}
-		})
-	}
-
-	const handleResumeVerification = () => {
-		setError(null)
-
-		startTransition(async () => {
-			const result = await getExistingKycLink()
-			if (result.success && result.data) {
-				// Open the stored KYC link
-				window.open(result.data.url, "_blank", "noopener,noreferrer")
-				toast.success("Resuming KYC verification...")
-				console.log("🔄 Resuming KYC verification with transaction:", result.data.transactionId)
-			} else {
-				setError(result.error ?? "Failed to resume KYC verification")
-				toast.error(result.error ?? "Failed to resume KYC verification")
-			}
-		})
+		setShowWebSdkLauncher(true)
 	}
 
 	const getStatusColor = (status: string) => {
@@ -302,20 +258,15 @@ export function KycVerificationCard({
 						</div>
 					)}
 					<div className="grid gap-3">
-						<Button onClick={handleCreateLink} disabled={isPending} className="w-full" size="lg">
-							{isPending ? (
-								<>
-									<Loader2 className="mr-2 h-4 w-4 animate-spin" />
-									Creating Link...
-								</>
-							) : (
-								<>
-									<ShieldCheck className="mr-2 h-5 w-5" />
-									Mobile Link Verification
-								</>
-							)}
+						<Button
+							onClick={handleStartVerification}
+							disabled={showWebSdkLauncher}
+							className="w-full"
+							size="lg"
+						>
+							<ShieldCheck className="mr-2 h-5 w-5" />
+							Start verification
 						</Button>
-						<DirectKycDialog disabled={isPending} variant="secondary" />
 					</div>
 				</div>
 			)}
@@ -340,76 +291,18 @@ export function KycVerificationCard({
 						</div>
 					</div>
 
-					{/* Hosted workflow (mobile link) PENDING: allow resuming link */}
-					{userInfo.hasHostedLink ? (
-						<div className="grid gap-3">
-							<Button
-								onClick={handleResumeVerification}
-								disabled={isPending}
-								variant="default"
-								className="w-full"
-								size="lg"
-							>
-								{isPending ? (
-									<>
-										<Loader2 className="mr-2 h-4 w-4 animate-spin" />
-										Loading...
-									</>
-								) : (
-									<>
-										<PlayCircle className="mr-2 h-5 w-5" />
-										Resume Verification
-									</>
-								)}
-							</Button>
-							<DirectKycDialog disabled={isPending} variant="secondary" />
-
-							{/* Subtle backup option for expired links */}
-							<div className="flex justify-center border-t pt-3">
-								<button
-									onClick={handleCreateLink}
-									disabled={isPending}
-									className="text-muted-foreground hover:text-foreground text-xs underline-offset-4 transition-colors hover:underline disabled:pointer-events-none disabled:opacity-50"
-									type="button"
-								>
-									Link expired? Create new verification link
-								</button>
-							</div>
-						</div>
-					) : (
-						// Direct in-browser KYC PENDING: no link to resume, offer clean retry
-						<div className="space-y-3">
-							<p className="text-xs text-muted-foreground">
-								If you prefer, you can start a new verification with fresh photos. Your previous
-								attempt will be cleared.
-							</p>
-							<Button
-								onClick={async () => {
-									if (
-										confirm(
-											"Start a new verification? Your previous attempt will be cleared and you can submit new photos."
-										)
-									) {
-										const result = await resetUserKycStatus()
-										if (result.success) {
-											toast.success("Ready to start a new verification")
-											window.location.reload()
-										} else {
-											toast.error(result.error ?? "Failed to reset. Please contact support.")
-										}
-									}
-								}}
-								disabled={isPending}
-								variant="default"
-								size="lg"
-								className="w-full"
-								type="button"
-							>
-								<ShieldCheck className="mr-2 h-5 w-5" />
-								Try Again with New Documents
-							</Button>
-						</div>
-					)}
+					<div className="grid gap-3">
+						<Button
+							onClick={handleStartVerification}
+							disabled={showWebSdkLauncher}
+							variant="default"
+							className="w-full"
+							size="lg"
+						>
+							<PlayCircle className="mr-2 h-5 w-5" />
+							Resume verification
+						</Button>
+					</div>
 				</div>
 			)}
 
@@ -465,15 +358,17 @@ export function KycVerificationCard({
 						</div>
 					</div>
 					<Button
-						onClick={async () => {
+						onClick={() => {
 							if (confirm("Start a new verification? Your previous attempt will be cleared.")) {
-								const result = await resetUserKycStatus()
-								if (result.success) {
-									toast.success("Ready to start new verification")
-									window.location.reload()
-								} else {
-									toast.error(result.error ?? "Failed to reset. Please contact support.")
-								}
+								startTransition(async () => {
+									const result = await resetUserKycStatus()
+									if (result.success) {
+										toast.success("Ready to start new verification")
+										window.location.reload()
+									} else {
+										toast.error(result.error ?? "Failed to reset. Please contact support.")
+									}
+								})
 							}
 						}}
 						disabled={isPending}
@@ -518,6 +413,22 @@ export function KycVerificationCard({
 					</div>
 				</div>
 			)}
+
+			<Dialog open={showWebSdkLauncher} onOpenChange={setShowWebSdkLauncher}>
+				<DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
+					<DialogHeader>
+						<DialogTitle>Identity verification</DialogTitle>
+					</DialogHeader>
+					<HyperVergeWebSdkLauncher
+						autoLaunch
+						redirectOnSuccess="/dashboard"
+						onComplete={() => {
+							setShowWebSdkLauncher(false)
+							void refetch()
+						}}
+					/>
+				</DialogContent>
+			</Dialog>
 		</div>
 	)
 }
