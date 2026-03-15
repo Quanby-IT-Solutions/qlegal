@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState, useTransition } from "react"
+import { useEffect, useRef, useState } from "react"
 import { CheckCircle2 } from "lucide-react"
 import { useSession } from "next-auth/react"
 import { toast } from "sonner"
@@ -12,22 +12,21 @@ import { Input } from "@/core/components/ui/input"
 import { Alert, AlertDescription, AlertTitle } from "@/core/components/reui/alert"
 import { useKycBroadcast } from "@/core/hooks/use-kyc-broadcast"
 
-import {
-	createUserKycLink,
-	getExistingKycLink,
-	getUserKycInfo,
-	softResetUserKycStatus,
-} from "@/features/kyc/api/kyc.actions"
+import { getUserKycInfo } from "@/features/kyc/api/kyc.actions"
+import { HyperVergeWebSdkLauncher } from "@/features/kyc/components/hyperverge-web-sdk-launcher"
 import { useKycStatus } from "@/features/kyc/hooks/use-kyc-status"
 
 import { trpc } from "@/services/trpc/client"
 
-import { KycDesktopFlow } from "./kyc-step-desktop"
+import {
+	Dialog,
+	DialogContent,
+	DialogHeader,
+	DialogTitle,
+} from "@/core/components/ui/dialog"
 import { KycMobileFlow } from "./kyc-step-mobile"
 
-const ONE_DAY_MS = 24 * 60 * 60 * 1000
-
-type KycMode = "choose" | "mobile-pending" | "desktop"
+type KycMode = "choose" | "mobile-pending"
 
 interface KycStepProps {
 	onNext: () => void
@@ -67,7 +66,7 @@ export function KycStep({ onNext, onBack, kycStatus, onExpandChange }: KycStepPr
 	const [userInfo, setUserInfo] = useState<UserKycInfo | null>(null)
 	const [mode, setMode] = useState<KycMode>("choose")
 	const [hostedEvent, setHostedEvent] = useState<"cancelled" | null>(null)
-	const [isMobilePending, startMobileTransition] = useTransition()
+	const [showWebSdkLauncher, setShowWebSdkLauncher] = useState(false)
 	const hasAutoAdvancedRef = useRef(false)
 
 	const [firstName, setFirstName] = useState("")
@@ -91,12 +90,6 @@ export function KycStep({ onNext, onBack, kycStatus, onExpandChange }: KycStepPr
 
 	const { listen, isSupported } = useKycBroadcast()
 
-	const hasExpiredLink =
-		userInfo?.kycStatus === "PENDING" &&
-		userInfo?.kycLinkCreatedAt !== null &&
-		userInfo.kycLinkCreatedAt !== undefined &&
-		Date.now() - new Date(userInfo.kycLinkCreatedAt).getTime() > ONE_DAY_MS
-
 	const refreshUserInfo = async () => {
 		const result = await getUserKycInfo()
 		if (result.success && result.data) {
@@ -115,7 +108,7 @@ export function KycStep({ onNext, onBack, kycStatus, onExpandChange }: KycStepPr
 					...result.data,
 					sessionType: result.data.sessionType as "hosted" | "direct" | null,
 				})
-				if (result.data.kycStatus === "PENDING" && result.data.hasHostedLink) {
+				if (result.data.kycStatus === "PENDING") {
 					onExpandChange?.(false)
 					setMode("mobile-pending")
 				}
@@ -187,94 +180,11 @@ export function KycStep({ onNext, onBack, kycStatus, onExpandChange }: KycStepPr
 		}
 	}, [statusResult, updateSession, onExpandChange])
 
-	const handleCreateMobileLink = () => {
-		startMobileTransition(async () => {
-			setHostedEvent(null)
-			const result = await createUserKycLink()
-
-			if (result.success && result.data) {
-				window.open(result.data.url, "_blank", "noopener,noreferrer")
-				toast.success("KYC verification link created! Opening in new window...")
-				onExpandChange?.(false)
-				setMode("mobile-pending")
-				await refreshUserInfo()
-				return
-			}
-
-			if (result.error?.includes("already have a pending")) {
-				const existing = await getExistingKycLink()
-				if (existing.success && existing.data) {
-					window.open(existing.data.url, "_blank", "noopener,noreferrer")
-					toast.success("Reopening your existing verification link...")
-					onExpandChange?.(false)
-					setMode("mobile-pending")
-					await refreshUserInfo()
-				} else {
-					toast.error(existing.error ?? "Failed to resume existing verification")
-				}
-				return
-			}
-
-			toast.error(result.error ?? "Failed to create KYC link")
-		})
-	}
-
-	const handleResumeMobileLink = () => {
-		startMobileTransition(async () => {
-			setHostedEvent(null)
-			const result = await getExistingKycLink()
-			if (result.success && result.data) {
-				window.open(result.data.url, "_blank", "noopener,noreferrer")
-				toast.success("Resuming KYC verification...")
-			} else {
-				toast.error(result.error ?? "Failed to resume KYC verification")
-			}
-		})
-	}
-
-	const handleContinueOnMobileFromDesktop = () => {
-		startMobileTransition(async () => {
-			setHostedEvent(null)
-			const result = await createUserKycLink()
-
-			if (result.success && result.data) {
-				window.open(result.data.url, "_blank", "noopener,noreferrer")
-				toast.success("Opening mobile verification…")
-				onExpandChange?.(false)
-				setMode("mobile-pending")
-				await refreshUserInfo()
-				return
-			}
-
-			if (result.error?.includes("already have a pending")) {
-				const existing = await getExistingKycLink()
-				if (existing.success && existing.data) {
-					window.open(existing.data.url, "_blank", "noopener,noreferrer")
-					toast.success("Reopening your existing verification link…")
-					onExpandChange?.(false)
-					setMode("mobile-pending")
-					await refreshUserInfo()
-				} else {
-					toast.error(existing.error ?? "Failed to resume existing verification")
-				}
-				return
-			}
-
-			toast.error(result.error ?? "Failed to create KYC link")
-		})
-	}
-
-	const handleStartOverFromDesktop = async () => {
+	const handleStartVerification = () => {
 		setHostedEvent(null)
-		const res: Awaited<ReturnType<typeof softResetUserKycStatus>> =
-			await softResetUserKycStatus()
-		if (res.success) {
-			toast.success("Ready to try again")
-			setMode("desktop")
-			await refreshUserInfo()
-			return
-		}
-		toast.error(res.error)
+		setShowWebSdkLauncher(true)
+		onExpandChange?.(false)
+		setMode("mobile-pending")
 	}
 
 	if (isVerified) {
@@ -411,35 +321,35 @@ export function KycStep({ onNext, onBack, kycStatus, onExpandChange }: KycStepPr
 		)
 	}
 
-	if (mode === "desktop") {
-		return (
-			<KycDesktopFlow
-				onNext={onNext}
-				onBack={() => {
-					onExpandChange?.(false)
-					setMode("choose")
-				}}
-				onExpandChange={onExpandChange}
-				onContinueOnMobile={handleContinueOnMobileFromDesktop}
-				onStartOver={handleStartOverFromDesktop}
-			/>
-		)
-	}
-
 	const showPendingBanner = mode === "mobile-pending"
 
 	return (
-		<KycMobileFlow
-			onBack={onBack}
-			onNext={onNext}
-			onCreateMobileLink={handleCreateMobileLink}
-			onResumeMobileLink={handleResumeMobileLink}
-			onSelectDesktop={() => setMode("desktop")}
-			isMobilePending={isMobilePending}
-			showPendingBanner={showPendingBanner}
-			showCancelledBanner={hostedEvent === "cancelled"}
-			hasHostedLink={userInfo?.hasHostedLink && effectiveStatus === "PENDING"}
-			hasExpiredLink={hasExpiredLink}
-		/>
+		<>
+			<KycMobileFlow
+				onBack={onBack}
+				onNext={onNext}
+				onStartVerification={handleStartVerification}
+				isPending={showWebSdkLauncher}
+				showPendingBanner={showPendingBanner}
+				showCancelledBanner={hostedEvent === "cancelled"}
+			/>
+			<Dialog open={showWebSdkLauncher} onOpenChange={setShowWebSdkLauncher}>
+				<DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
+					<DialogHeader>
+						<DialogTitle>Identity verification</DialogTitle>
+					</DialogHeader>
+					<HyperVergeWebSdkLauncher
+						autoLaunch
+						redirectOnSuccess=""
+						onComplete={async () => {
+							setShowWebSdkLauncher(false)
+							await refreshUserInfo()
+							void updateSession()
+							window.location.reload()
+						}}
+					/>
+				</DialogContent>
+			</Dialog>
+		</>
 	)
 }

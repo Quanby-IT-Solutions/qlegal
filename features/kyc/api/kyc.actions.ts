@@ -1,7 +1,7 @@
 "use server"
 
 import { revalidatePath } from "next/cache"
-import { eq } from "drizzle-orm"
+import { and, eq } from "drizzle-orm"
 
 import { getFullName } from "@/core/lib/utils"
 
@@ -11,10 +11,12 @@ import { idCardDetails } from "@/services/drizzle/schema/id-card-details"
 import { kycSessions } from "@/services/drizzle/schema/kyc-sessions"
 import {
 	createOnboardLink,
+	extractIdentifierFromStartKycUrl,
 	getTransactionStatus,
 	interpretStatus,
 	type OnboardLinkConfig,
 } from "@/services/hyperverge"
+import { getHyperVergeAuthToken } from "@/services/hyperverge/auth-token"
 import { matchFaceSelfieToId, readIdCard } from "@/services/hyperverge/kyc-direct"
 import {
 	fetchImageUrlAsDataUrl,
@@ -325,6 +327,59 @@ export async function createUserKycLink() {
 		return {
 			success: false,
 			error: error instanceof Error ? error.message : "Failed to create KYC link",
+		}
+	}
+}
+
+/**
+ * Create or reuse a KYC session for the HyperVerge Web SDK.
+ * Returns authToken and transactionId so the client can launch HyperKYCModule.launch().
+ */
+export async function getKycWebSdkSession() {
+	const session = await auth()
+
+	if (!session?.user?.id) {
+		return { success: false as const, error: "User not authenticated" }
+	}
+
+	const existingSession = await db.query.kycSessions.findFirst({
+		where: eq(kycSessions.userId, session.user.id),
+		orderBy: (table, { desc }) => [desc(table.createdAt)],
+	})
+
+	let transactionId: string
+
+	if (
+		existingSession?.status === "PENDING" &&
+		existingSession.sessionType === "web_sdk"
+	) {
+		transactionId = existingSession.transactionId
+	} else {
+		transactionId = generateTransactionId(session.user.id)
+		await db.insert(kycSessions).values({
+			userId: session.user.id,
+			transactionId,
+			sessionType: "web_sdk",
+			status: "PENDING",
+		})
+		await db
+			.update(users)
+			.set({ kycStatus: "PENDING" })
+			.where(eq(users.id, session.user.id))
+	}
+
+	try {
+		const authToken = await getHyperVergeAuthToken({ transactionId })
+		revalidatePath("/onboarding")
+		return {
+			success: true as const,
+			data: { authToken, transactionId },
+		}
+	} catch (error) {
+		console.error("Failed to get KYC Web SDK session:", error)
+		return {
+			success: false as const,
+			error: error instanceof Error ? error.message : "Failed to get verification session",
 		}
 	}
 }
@@ -955,7 +1010,12 @@ export async function checkUserKycStatus() {
 	}
 
 	try {
-		const result = await getTransactionStatus(kycSession.transactionId)
+		const hypervergeIdentifier = kycSession.hostedLink
+			? extractIdentifierFromStartKycUrl(kycSession.hostedLink)
+			: undefined
+		const result = await getTransactionStatus(kycSession.transactionId, {
+			hypervergeIdentifier: hypervergeIdentifier ?? undefined,
+		})
 		const applicationStatus = result.result.applicationStatus
 		const interpretation = interpretStatus(applicationStatus)
 
@@ -1185,6 +1245,66 @@ export async function checkUserKycStatus() {
 			error: error instanceof Error ? error.message : "Failed to check KYC status",
 		}
 	}
+}
+
+/**
+ * Sync KYC status from the HyperVerge redirect callback (e.g. ?transactionId=...&status=auto_approved).
+ * Call this when the user lands on /onboarding/callback so the DB is updated even when the Output API
+ * is unavailable (e.g. fallback region).
+ */
+export async function syncKycStatusFromCallback(transactionId: string, status: string) {
+	const session = await auth()
+	if (!session?.user?.id) {
+		return { success: false, error: "Not authenticated" }
+	}
+	if (!transactionId?.trim() || !status?.trim()) {
+		return { success: false, error: "Missing transactionId or status" }
+	}
+
+	const normalized = status.trim().toLowerCase()
+	let newStatus: "PENDING" | "VERIFIED" | "REJECTED" = "PENDING"
+	if (
+		["auto_approved", "approved", "success", "succeeded", "verified", "completed"].includes(
+			normalized
+		)
+	) {
+		newStatus = "VERIFIED"
+	} else if (
+		["auto_declined", "rejected", "declined", "failed", "error"].includes(normalized)
+	) {
+		newStatus = "REJECTED"
+	}
+	// user_cancelled, needs_review, or unknown -> leave as PENDING
+
+	const kycSession = await db.query.kycSessions.findFirst({
+		where: and(
+			eq(kycSessions.userId, session.user.id),
+			eq(kycSessions.transactionId, transactionId.trim())
+		),
+		columns: { id: true, status: true },
+	})
+
+	if (!kycSession) {
+		return { success: false, error: "KYC session not found" }
+	}
+	if (newStatus === "PENDING") {
+		return { success: true } // no DB update for pending/cancelled
+	}
+	if (kycSession.status === "VERIFIED" || kycSession.status === "REJECTED") {
+		return { success: true } // already final
+	}
+
+	await db
+		.update(kycSessions)
+		.set({ status: newStatus, updatedAt: new Date() })
+		.where(eq(kycSessions.id, kycSession.id))
+	await db
+		.update(users)
+		.set({ kycStatus: newStatus })
+		.where(eq(users.id, session.user.id))
+
+	revalidatePath("/onboarding")
+	return { success: true }
 }
 
 /**
