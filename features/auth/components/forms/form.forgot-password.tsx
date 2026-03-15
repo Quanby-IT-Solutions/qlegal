@@ -6,6 +6,7 @@ import { LoaderIcon } from "lucide-react"
 import { useForm, type SubmitHandler } from "react-hook-form"
 
 import { Button } from "@/core/components/ui/button"
+import { Separator } from "@/core/components/ui/separator"
 import {
 	Form,
 	FormControl,
@@ -23,6 +24,7 @@ import { FormResponse } from "@/features/auth/components/ui/form-response"
 
 export const ForgotPasswordForm = () => {
 	const [isRecoverySectionOpen, setIsRecoverySectionOpen] = useState(false)
+	const [hasAttemptedPrimary, setHasAttemptedPrimary] = useState(false)
 	const [activeSubmission, setActiveSubmission] = useState<"primary" | "recovery" | null>(null)
 
 	const form = useForm({
@@ -49,6 +51,7 @@ export const ForgotPasswordForm = () => {
 	} = trpc.auth.forgotPasswordViaRecovery.useMutation()
 
 	const onSubmit: SubmitHandler<ForgotPasswordSchema> = data => {
+		setHasAttemptedPrimary(true)
 		setActiveSubmission("primary")
 		resetPrimaryMutation()
 		resetRecoveryMutation()
@@ -72,16 +75,23 @@ export const ForgotPasswordForm = () => {
 		: recoveryData?.message
 
 	const isSubmitting = isPrimaryPending || isRecoveryPending
+	const suppressUserEnumerationMessage = "User with this email not found."
+	const shouldSuppressPrimaryError =
+		activeSubmission === "primary" && primaryError?.message === suppressUserEnumerationMessage
+	const safePrimaryFeedback =
+		activeSubmission === "primary" && primaryError?.message === suppressUserEnumerationMessage
+			? "If an account exists for that email, you’ll receive a reset link shortly."
+			: null
 
 	return (
 		<Form {...form}>
-			<form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+			<form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
 				<FormField
 					control={form.control}
 					name="email"
 					render={({ field }) => (
 						<FormItem>
-							<FormLabel className="text-card-foreground">Find your account</FormLabel>
+							<FormLabel className="text-card-foreground">Email</FormLabel>
 							<FormControl>
 								<Input
 									placeholder="Enter your email"
@@ -96,63 +106,76 @@ export const ForgotPasswordForm = () => {
 				/>
 
 				<Button className="w-full rounded-xl" disabled={isSubmitting}>
-					{isPrimaryPending && <LoaderIcon className="animate-spin" />}
-					Send reset email
+					{isPrimaryPending && <LoaderIcon className="size-4 animate-spin" />}
+					{isPrimaryPending ? "Sending..." : "Send reset email"}
 				</Button>
-
-				<button
-					type="button"
-					onClick={() => setIsRecoverySectionOpen(state => !state)}
-					className="text-muted-foreground hover:text-foreground mx-auto block text-sm underline"
-					disabled={isSubmitting}
-				>
-					I no longer have access to this email
-				</button>
-
-				{isRecoverySectionOpen ? (
-					<div className="bg-muted/40 space-y-4 rounded-xl border p-4">
-						<p className="text-muted-foreground text-xs font-semibold tracking-wide uppercase">
-							Recovery Email
-						</p>
-						<p className="text-muted-foreground text-sm">
-							Enter your account email for lookup. We&apos;ll send the password reset link to your
-							recovery email instead.
-						</p>
-
-						<div className="space-y-2">
-							<FormLabel className="text-card-foreground">Your account email</FormLabel>
-							<Input
-								placeholder="Enter your primary account email"
-								type="email"
-								autoComplete="email"
-								value={form.watch("email")}
-								onChange={event =>
-									form.setValue("email", event.target.value, { shouldValidate: true })
-								}
-							/>
-						</div>
-
-						<Button
-							type="button"
-							variant="outline"
-							className="w-full rounded-xl"
-							onClick={onRecoverySubmit}
-							disabled={isSubmitting}
-						>
-							{isRecoveryPending && <LoaderIcon className="animate-spin" />}
-							Send to recovery email
-						</Button>
-					</div>
-				) : null}
 
 				<FormResponse
 					type="error"
-					message={activeSubmission === "primary" ? primaryError?.message : recoveryError?.message}
+					className="items-start"
+					message={
+						activeSubmission === "primary"
+							? shouldSuppressPrimaryError
+								? null
+								: primaryError?.message
+							: recoveryError?.message
+					}
 				/>
 				<FormResponse
 					type="success"
-					message={activeSubmission === "primary" ? primaryData?.message : recoverySuccessMessage}
+					className="items-start"
+					message={
+						activeSubmission === "primary"
+							? primaryData?.message ?? safePrimaryFeedback
+							: recoverySuccessMessage
+					}
 				/>
+
+				{hasAttemptedPrimary && (
+					<div className="space-y-3">
+						<Separator />
+						<div className="space-y-2">
+							<div className="flex items-center justify-between gap-4">
+								<p className="text-foreground text-sm font-medium">Need help?</p>
+								<Button
+									type="button"
+									variant="link"
+									onClick={() => setIsRecoverySectionOpen(state => !state)}
+									disabled={isSubmitting}
+									className="text-primary hover:text-primary/80 h-fit px-1.5 py-0.5 text-sm"
+								>
+									{isRecoverySectionOpen ? "Hide options" : "Try recovery email"}
+								</Button>
+							</div>
+							<p className="text-muted-foreground text-sm">
+								If you can’t access your inbox, we can send the reset link to your recovery email.
+							</p>
+
+							{isRecoverySectionOpen && (
+								<div className="bg-muted/40 space-y-3 rounded-xl border p-4">
+									<div className="space-y-1">
+										<p className="text-foreground text-sm font-medium">Send to recovery email</p>
+										<p className="text-muted-foreground text-sm">
+											We’ll look up your account and deliver the reset link to the recovery address
+											on file.
+										</p>
+									</div>
+
+									<Button
+										type="button"
+										variant="outline"
+										className="w-full rounded-xl"
+										onClick={onRecoverySubmit}
+										disabled={isSubmitting}
+									>
+										{isRecoveryPending && <LoaderIcon className="size-4 animate-spin" />}
+										Send to recovery email
+									</Button>
+								</div>
+							)}
+						</div>
+					</div>
+				)}
 			</form>
 		</Form>
 	)

@@ -26,7 +26,7 @@ export default function Page() {
 		<Card className="w-full max-w-md">
 			<CardHeader className="text-center">
 				<div className="mb-4 flex justify-center">
-					<QuanbyLogo className="h-16 w-16" />
+					<QuanbyLogo className="size-16" />
 				</div>
 				<CardTitle className="text-2xl">Forgot your password?</CardTitle>
 				<CardDescription>Enter your email address to reset your password.</CardDescription>
