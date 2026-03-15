@@ -5,6 +5,7 @@ import { Send } from "lucide-react"
 import { toast } from "sonner"
 
 import { Button } from "@/core/components/ui/button"
+import { trpc } from "@/services/trpc/client"
 import {
 	Dialog,
 	DialogContent,
@@ -16,7 +17,6 @@ import {
 } from "@/core/components/ui/dialog"
 import { Input } from "@/core/components/ui/input"
 import { Label } from "@/core/components/ui/label"
-import { trpc } from "@/services/trpc/client"
 
 interface TransferCreditsDialogProps {
 	subOrgId: string
@@ -31,15 +31,17 @@ export function TransferCreditsDialog({
 }: TransferCreditsDialogProps) {
 	const [open, setOpen] = useState(false)
 	const [credits, setCredits] = useState("")
+	const utils = trpc.useUtils()
 
 	const transferMutation = trpc.subOrgs.transferCredits.useMutation({
-		onSuccess: data => {
+		onSuccess: async data => {
 			toast.success(
 				`Transferred ${data.transferredCredits} credit${data.transferredCredits === 1 ? "" : "s"} to ${subOrgName}.` +
 					(data.remainingCredits != null ? ` Parent org has ${data.remainingCredits} credits left.` : "")
 			)
 			setCredits("")
 			setOpen(false)
+			await utils.subOrgs.credits.invalidate()
 			onSuccess?.()
 		},
 		onError: e => {
