@@ -9,7 +9,7 @@ import {
 	SidebarFooter,
 	SidebarHeader,
 	SidebarMenu,
-	SidebarMenuButton,                                                                                                  
+	SidebarMenuButton,
 	SidebarMenuItem,
 	SidebarRail,
 } from "@/core/components/animate-ui/components/radix/sidebar"
