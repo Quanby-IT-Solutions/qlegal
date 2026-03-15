@@ -808,61 +808,59 @@ export const DocumentCards = React.memo(
 						)}
 					</>
 				) : (
-					<div className="flex min-h-0 flex-1 flex-col p-5">
-						<div className="border-border bg-background/40 flex min-h-0 flex-1 flex-col rounded-xl border">
-							<div className="flex-1 space-y-5 overflow-y-auto p-5 [scrollbar-color:transparent_transparent] [scrollbar-width:thin] hover:[scrollbar-color:rgba(148,163,184,0.45)_transparent] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-transparent hover:[&::-webkit-scrollbar-thumb]:bg-white/25 [&::-webkit-scrollbar-track]:bg-transparent">
-								{chatMessages.length === 0 ? (
-									<div className="text-muted-foreground flex h-full items-center justify-center px-6 py-12 text-base">
-										No messages yet. Start the conversation.
-									</div>
-								) : (
-									chatMessages.map(message => (
+					<div className="flex min-h-0 flex-1 flex-col">
+						<div className="flex-1 space-y-5 overflow-y-auto p-3 [scrollbar-color:transparent_transparent] [scrollbar-width:thin] hover:[scrollbar-color:rgba(148,163,184,0.45)_transparent] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-transparent hover:[&::-webkit-scrollbar-thumb]:bg-white/25 [&::-webkit-scrollbar-track]:bg-transparent">
+							{chatMessages.length === 0 ? (
+								<div className="text-muted-foreground flex h-full items-center justify-center px-4 py-8 text-sm">
+									No messages yet. Start the conversation.
+								</div>
+							) : (
+								chatMessages.map(message => (
+									<div
+										key={message.id}
+										className={cn(
+											"flex text-sm",
+											message.isSelf ? "justify-end" : "justify-start"
+										)}
+									>
 										<div
-											key={message.id}
 											className={cn(
-												"flex text-sm",
-												message.isSelf ? "justify-end" : "justify-start"
+												"max-w-[88%] rounded-xl px-3.5 py-2 shadow-sm",
+												message.isSelf
+													? "bg-primary text-primary-foreground rounded-br-sm"
+													: "bg-muted text-foreground rounded-bl-sm"
 											)}
 										>
-											<div
-												className={cn(
-													"max-w-[88%] rounded-xl px-3.5 py-2 shadow-sm",
-													message.isSelf
-														? "bg-primary text-primary-foreground rounded-br-sm"
-														: "bg-muted text-foreground rounded-bl-sm"
-												)}
-											>
-												<p className="mb-0.5 text-xs font-semibold opacity-90">
-													{message.isSelf ? "You" : message.senderName}
-												</p>
-												<p className="break-words text-[13px] leading-snug">{message.text}</p>
-											</div>
+											<p className="mb-0.5 text-xs font-semibold opacity-90">
+												{message.isSelf ? "You" : message.senderName}
+											</p>
+											<p className="break-words text-[13px] leading-snug">{message.text}</p>
 										</div>
-									))
-								)}
-							</div>
-							<div className="flex items-center gap-4 border-t border-border px-5 py-4">
-								<Input
-									placeholder="Type a message"
-									value={chatInput}
-									onChange={e => setChatInput(e.target.value)}
-									onKeyDown={e => {
-										if (e.key === "Enter" && !e.shiftKey) {
-											e.preventDefault()
-											handleSendMessage()
-										}
-									}}
-									className="min-h-12 flex-1 py-3 text-base"
-								/>
-								<Button
-									size="sm"
-									disabled={!chatInput.trim()}
-									onClick={handleSendMessage}
-									className="h-12 shrink-0 px-5 text-sm"
-								>
-									Send
-								</Button>
-							</div>
+									</div>
+								))
+							)}
+						</div>
+						<div className="flex items-center gap-2 border-t border-border px-3 py-2.5">
+							<Input
+								placeholder="Type a message"
+								value={chatInput}
+								onChange={e => setChatInput(e.target.value)}
+								onKeyDown={e => {
+									if (e.key === "Enter" && !e.shiftKey) {
+										e.preventDefault()
+										handleSendMessage()
+									}
+								}}
+								className="min-h-9 flex-1 py-2 text-sm"
+							/>
+							<Button
+								size="sm"
+								disabled={!chatInput.trim()}
+								onClick={handleSendMessage}
+								className="h-9 shrink-0 px-3 text-sm"
+							>
+								Send
+							</Button>
 						</div>
 					</div>
 				)}
