@@ -213,8 +213,15 @@ function OnboardingWizardContentBody({
 			return
 		}
 
-		const unchanged =
-			recoveryEmail === (status?.recoveryEmail ?? "") && hasPendingRecoveryEmail
+		const isVerifiedAndUnchanged =
+			recoveryEmail === (status?.recoveryEmail ?? "") && !!status?.recoveryEmailVerified
+
+		if (isVerifiedAndUnchanged) {
+			handleNext()
+			return
+		}
+
+		const unchanged = recoveryEmail === (status?.recoveryEmail ?? "") && hasPendingRecoveryEmail
 
 		if (unchanged) {
 			try {
@@ -223,9 +230,7 @@ function OnboardingWizardContentBody({
 				toast.success(result.message)
 				startCooldown()
 			} catch (error) {
-				toast.error(
-					error instanceof Error ? error.message : "Failed to resend verification."
-				)
+				toast.error(error instanceof Error ? error.message : "Failed to resend verification.")
 			}
 			return
 		}
@@ -321,16 +326,16 @@ function OnboardingWizardContentBody({
 					/>
 				)}
 
-			{methods.current.id === "recovery-email" && (
-				<RecoveryEmailStep
-					control={form.control}
-					onBack={handleBack}
-					onSkip={handleNext}
-					isSubmitting={submitRecoveryEmail.isPending}
-					hasPendingRecoveryEmail={hasPendingRecoveryEmail}
-					cooldownRemaining={cooldownRemaining}
-				/>
-			)}
+				{methods.current.id === "recovery-email" && (
+					<RecoveryEmailStep
+						control={form.control}
+						onBack={handleBack}
+						onSkip={handleNext}
+						isSubmitting={submitRecoveryEmail.isPending}
+						hasPendingRecoveryEmail={hasPendingRecoveryEmail}
+						cooldownRemaining={cooldownRemaining}
+					/>
+				)}
 
 				{methods.current.id === "phone" && (
 					<PhoneStep
