@@ -1,7 +1,8 @@
 "use client"
 
-import { Fragment, useCallback, useMemo, useState } from "react"
+import { Fragment, useCallback, useMemo, useRef, useState } from "react"
 import { format } from "date-fns"
+import { PDFDocument, StandardFonts } from "pdf-lib"
 import {
 	BookOpen,
 	ChevronDown,
@@ -34,6 +35,12 @@ import {
 	CardHeader,
 	CardTitle,
 } from "@/core/components/ui/card"
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuTrigger,
+} from "@/core/components/ui/dropdown-menu"
 import { Input } from "@/core/components/ui/input"
 import {
 	Select,
@@ -140,6 +147,94 @@ function truncateFileName(fileName: string | null | undefined, maxLength = 20): 
 
 	// No extension, just truncate
 	return `${fileName.substring(0, maxLength - 3)}...`
+}
+
+/** Build a simple PDF of notarial acts for download (used by Export as PDF). */
+async function buildNotarialRegistryPdf(
+	acts: Array<Record<string, unknown>>
+): Promise<Uint8Array> {
+	const doc = await PDFDocument.create()
+	const font = await doc.embedFont(StandardFonts.Helvetica)
+	const fontBold = await doc.embedFont(StandardFonts.HelveticaBold)
+	const margin = 40
+	const pageWidth = 595
+	const pageHeight = 842
+	const contentWidth = pageWidth - margin * 2
+	const titleSize = 14
+	const headerSize = 8
+	const rowSize = 7
+	const rowHeight = 11
+
+	const cols = [
+		{ key: "executedAt", label: "Date", w: 70 },
+		{ key: "actType", label: "Act Type", w: 58 },
+		{ key: "workflow", label: "Workflow", w: 38 },
+		{ key: "principalName", label: "Principal", w: 100 },
+		{ key: "documentName", label: "Document", w: 110 },
+		{ key: "supremeCourtRegistryId", label: "NRID", w: 109 },
+	] as const
+
+	let page = doc.addPage([pageWidth, pageHeight])
+	let y = pageHeight - margin
+
+	const drawText = (
+		p: ReturnType<typeof doc.addPage>,
+		text: string,
+		x: number,
+		yVal: number,
+		size: number,
+		useBold = false
+	) => {
+		const f = useBold ? fontBold : font
+		const safe = String(text).slice(0, 80)
+		p.drawText(safe, { x, y: yVal, size, font: f })
+	}
+
+	// Title
+	drawText(page, "Notarial Registry Export", margin, y, titleSize, true)
+	y -= titleSize + 8
+	drawText(page, `Generated ${format(new Date(), "PPpp")} · ${acts.length} record(s)`, margin, y, 9)
+	y -= rowHeight * 2
+
+	for (let i = 0; i < acts.length; i++) {
+		if (y < margin + rowHeight * 2) {
+			page = doc.addPage([pageWidth, pageHeight])
+			y = pageHeight - margin
+			// Repeat header
+			let x = margin
+			for (const c of cols) {
+				drawText(page, c.label, x, y, headerSize, true)
+				x += c.w
+			}
+			y -= rowHeight
+		}
+
+		const act = acts[i]!
+		if (i === 0 || y === pageHeight - margin) {
+			let x = margin
+			for (const c of cols) {
+				drawText(page, c.label, x, y, headerSize, true)
+				x += c.w
+			}
+			y -= rowHeight
+		}
+
+		let x = margin
+		for (const c of cols) {
+			const raw = act[c.key]
+			const val =
+				raw instanceof Date
+					? format(raw, "yyyy-MM-dd HH:mm")
+					: raw != null
+						? String(raw)
+						: ""
+			drawText(page, val, x, y, rowSize)
+			x += c.w
+		}
+		y -= rowHeight
+	}
+
+	return doc.save()
 }
 
 interface NotarialActRow {
@@ -706,10 +801,82 @@ export default function NotarialRegistryPage() {
 		await dbQuery.refetch()
 	}, [dbQuery])
 
-	// Export mutation (placeholder - can be enhanced to export from API data)
+	// Export format chosen before calling mutation; used in onSuccess to build CSV or PDF
+	const exportFormatRef = useRef<"csv" | "pdf">("csv")
+
+	// Export mutation: backend returns acts; we build CSV or PDF and trigger download
 	const exportMutation = trpc.notarialBook.exportNotarialBook.useMutation({
-		onSuccess: () => {
-			toast.success("Notarial book export generated successfully")
+		onSuccess: async data => {
+			const acts = data.acts as Array<Record<string, unknown>>
+			if (!acts.length) {
+				toast.info("No records to export")
+				return
+			}
+			const timestamp = format(new Date(), "yyyy-MM-dd-HHmm")
+			const formatChoice = exportFormatRef.current
+
+			if (formatChoice === "csv") {
+				const csvColumns = [
+					"executedAt",
+					"actType",
+					"workflow",
+					"principalName",
+					"principalIdType",
+					"principalIdNumber",
+					"principalAddress",
+					"witnessName",
+					"witnessIdNumber",
+					"documentName",
+					"documentDescription",
+					"certificateNumber",
+					"location",
+					"enpName",
+					"enpRollNumber",
+					"meetingEndedAt",
+					"syncedToSupremeCourt",
+					"supremeCourtRegistryId",
+					"createdAt",
+				] as const
+				const escapeCsv = (v: unknown): string => {
+					if (v == null) return ""
+					const s = typeof v === "string" ? v : String(v)
+					if (s.includes(",") || s.includes('"') || s.includes("\n")) return `"${s.replace(/"/g, '""')}"`
+					return s
+				}
+				const header = csvColumns.join(",")
+				const rows = acts.map(act =>
+					csvColumns.map(col => escapeCsv(act[col])).join(",")
+				)
+				const csv = [header, ...rows].join("\r\n")
+				const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" })
+				const url = URL.createObjectURL(blob)
+				const a = document.createElement("a")
+				a.href = url
+				a.download = `notarial-registry-export-${timestamp}.csv`
+				a.style.display = "none"
+				document.body.appendChild(a)
+				a.click()
+				document.body.removeChild(a)
+				URL.revokeObjectURL(url)
+			} else {
+				try {
+					const pdfBytes = await buildNotarialRegistryPdf(acts)
+					const blob = new Blob([pdfBytes], { type: "application/pdf" })
+					const url = URL.createObjectURL(blob)
+					const a = document.createElement("a")
+					a.href = url
+					a.download = `notarial-registry-export-${timestamp}.pdf`
+					a.style.display = "none"
+					document.body.appendChild(a)
+					a.click()
+					document.body.removeChild(a)
+					URL.revokeObjectURL(url)
+				} catch (err) {
+					toast.error(`Failed to generate PDF: ${err instanceof Error ? err.message : "Unknown error"}`)
+					return
+				}
+			}
+			toast.success("Export downloaded successfully")
 		},
 		onError: error => {
 			toast.error(`Failed to export: ${error.message}`)
@@ -744,7 +911,12 @@ export default function NotarialRegistryPage() {
 		return (notarialBookData?.acts ?? []) as NotarialActRow[]
 	}, [notarialBookData?.acts])
 
-	const handleExport = () => {
+	const handleExportCsv = () => {
+		exportFormatRef.current = "csv"
+		exportMutation.mutate()
+	}
+	const handleExportPdf = () => {
+		exportFormatRef.current = "pdf"
 		exportMutation.mutate()
 	}
 
@@ -857,14 +1029,32 @@ export default function NotarialRegistryPage() {
 									<RefreshCw className={`mr-2 size-4 ${isFetching ? "animate-spin" : ""}`} />
 									{isFetching ? "Refreshing..." : "Refresh"}
 								</Button>
-								<Button
-									onClick={handleExport}
-									variant="outline"
-									disabled={exportMutation.isPending}
-								>
-									<Download className="mr-2 size-4" />
-									Export Records
-								</Button>
+								<DropdownMenu>
+									<DropdownMenuTrigger asChild>
+										<Button
+											variant="outline"
+											disabled={exportMutation.isPending}
+										>
+											{exportMutation.isPending ? (
+												<Loader2 className="mr-2 size-4 animate-spin" />
+											) : (
+												<Download className="mr-2 size-4" />
+											)}
+											Export Records
+											<ChevronDown className="ml-2 size-4 opacity-50" />
+										</Button>
+									</DropdownMenuTrigger>
+									<DropdownMenuContent align="end">
+										<DropdownMenuItem onClick={handleExportCsv}>
+											<List className="mr-2 size-4" />
+											Export as CSV
+										</DropdownMenuItem>
+										<DropdownMenuItem onClick={handleExportPdf}>
+											<FileText className="mr-2 size-4" />
+											Export as PDF
+										</DropdownMenuItem>
+									</DropdownMenuContent>
+								</DropdownMenu>
 							</div>
 						</div>
 
