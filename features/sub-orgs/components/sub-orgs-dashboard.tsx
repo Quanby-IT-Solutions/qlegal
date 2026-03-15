@@ -371,12 +371,12 @@ function SubOrgCreditsCard({ subOrgId }: { subOrgId: string }) {
 
 	return (
 		<div className="rounded-lg bg-muted/30 px-4 py-3">
-			<div className="flex items-start justify-between gap-4">
-				<div>
+			<div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+				<div className="min-w-0">
 					<p className="text-sm font-medium">Credits</p>
 					<p className="mt-0.5 text-xl font-bold tabular-nums">{remaining}</p>
 				</div>
-				<div className="text-muted-foreground text-right text-[11px] leading-5">
+				<div className="text-muted-foreground shrink-0 text-[11px] leading-5 sm:text-right">
 					<p>used {used}</p>
 					<p>total {total}</p>
 				</div>
