@@ -1281,7 +1281,7 @@ export async function syncKycStatusFromCallback(transactionId: string, status: s
 			eq(kycSessions.userId, session.user.id),
 			eq(kycSessions.transactionId, transactionId.trim())
 		),
-		columns: { id: true, status: true },
+		columns: { id: true, status: true, idCardDetailId: true, sessionType: true, transactionId: true },
 	})
 
 	if (!kycSession) {
@@ -1302,6 +1302,115 @@ export async function syncKycStatusFromCallback(transactionId: string, status: s
 		.update(users)
 		.set({ kycStatus: newStatus })
 		.where(eq(users.id, session.user.id))
+
+	// Backfill id_card_details from HyperVerge Logs when VERIFIED and not yet linked (e.g. Web SDK flow)
+	if (newStatus === "VERIFIED" && !kycSession.idCardDetailId && kycSession.transactionId) {
+		try {
+			console.log("🧾 Fetching HyperVerge Logs API (backfill KYC artifacts from callback)...", {
+				transactionId: kycSession.transactionId,
+			})
+			const logs = await getHyperVergeKycLogs({ transactionId: kycSession.transactionId })
+			const imageUrl = pickBestFaceImageUrlFromLogs(logs)
+			const ocr = pickOcrFieldsFromLogs(logs)
+
+			if (ocr) {
+				let faceImageUrl: string | undefined
+				if (imageUrl) {
+					const dataUrl = await fetchImageUrlAsDataUrl(imageUrl)
+					if (dataUrl) faceImageUrl = dataUrl
+				}
+				const verificationMethod =
+					kycSession.sessionType === "web_sdk" ? "kyc_web_sdk" : "kyc_mobile_link"
+				const idCardDetail = await saveIdCardDetails(db, {
+					userId: session.user.id,
+					rawOcrData: ocr,
+					ocrTransactionId: kycSession.transactionId,
+					ocrProvider: "hyperverge",
+					faceImageUrl,
+					isVerified: true,
+					verifiedAt: new Date(),
+					verificationMethod,
+				})
+
+				if (idCardDetail.idCardDetailId) {
+					await db
+						.update(kycSessions)
+						.set({
+							idCardDetailId: idCardDetail.idCardDetailId,
+							verifiedAt: new Date(),
+							updatedAt: new Date(),
+						})
+						.where(eq(kycSessions.id, kycSession.id))
+
+					// Hydrate user profile from id card when name/address are empty
+					const user = await db.query.users.findFirst({
+						where: eq(users.id, session.user.id),
+						columns: { firstName: true, middleName: true, lastName: true, address: true },
+					})
+					const latestIdCardDetails = await db.query.idCardDetails.findFirst({
+						where: eq(idCardDetails.userId, session.user.id),
+						orderBy: (table, { desc }) => [desc(table.updatedAt)],
+						columns: {
+							firstName: true,
+							middleName: true,
+							lastName: true,
+							fullName: true,
+							addressLine1: true,
+							addressLine2: true,
+							city: true,
+							province: true,
+							postalCode: true,
+							country: true,
+							additionalFields: true,
+						},
+					})
+					const shouldHydrate =
+						user &&
+						latestIdCardDetails &&
+						(!hasNameValue(user.firstName) ||
+							!hasNameValue(user.lastName) ||
+							!hasNameValue(user.address))
+					if (shouldHydrate && latestIdCardDetails) {
+						const resolvedNameFields = resolveNameFieldsFromIdCardDetails({
+							firstName: latestIdCardDetails.firstName,
+							middleName: latestIdCardDetails.middleName,
+							lastName: latestIdCardDetails.lastName,
+							fullName: latestIdCardDetails.fullName,
+						})
+						const resolvedAddress = formatAddressLine({
+							addressLine1: latestIdCardDetails.addressLine1,
+							addressLine2: latestIdCardDetails.addressLine2,
+							city: latestIdCardDetails.city,
+							province: latestIdCardDetails.province,
+							postalCode: latestIdCardDetails.postalCode,
+							country: latestIdCardDetails.country,
+							additionalFields: latestIdCardDetails.additionalFields,
+						})
+						await db
+							.update(users)
+							.set({
+								firstName: coalesceNameValue(
+									user?.firstName,
+									toTitleCaseWords(resolvedNameFields.firstName)
+								),
+								middleName: coalesceNameValue(
+									user?.middleName,
+									toTitleCaseWords(resolvedNameFields.middleName)
+								),
+								lastName: coalesceNameValue(
+									user?.lastName,
+									toTitleCaseWords(resolvedNameFields.lastName)
+								),
+								address: coalesceNameValue(user?.address, resolvedAddress),
+							})
+							.where(eq(users.id, session.user.id))
+					}
+				}
+			}
+		} catch (err) {
+			console.warn("⚠️ KYC callback backfill failed (non-fatal):", err)
+		}
+	}
 
 	revalidatePath("/onboarding")
 	return { success: true }
