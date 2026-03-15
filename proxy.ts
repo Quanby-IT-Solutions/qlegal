@@ -129,6 +129,7 @@ export default proxy(req => {
 				!Number.isNaN(onboardingSnoozedUntil.getTime()) &&
 				onboardingSnoozedUntil.getTime() > Date.now()
 
+			// Allow through if user completed the wizard (onboardingComplete) or all details (onboardingDetailsComplete) or snoozed
 			if (
 				isAuth &&
 				!path.startsWith("/onboarding") &&
@@ -137,6 +138,7 @@ export default proxy(req => {
 				role !== "ADMIN" &&
 				role !== "ENA" &&
 				!auth?.user?.onboardingDetailsComplete &&
+				!auth?.user?.onboardingComplete &&
 				!isOnboardingSnoozed
 			) {
 				const onboardingUrl = new URL("/onboarding", nextUrl)
