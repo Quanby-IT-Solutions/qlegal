@@ -79,14 +79,15 @@ export function ChatPanel({
 									})
 								)}
 							</div>
-							<form onSubmit={handleSend} className="border-t p-3">
+							<form onSubmit={handleSend} className="border-t p-2.5">
 								<div className="flex items-center gap-2">
 									<Input
 										value={draft}
 										onChange={e => setDraft(e.target.value)}
 										placeholder="Type a message"
+										className="min-h-9 py-2 text-sm"
 									/>
-									<Button type="submit" size="icon" disabled={!draft.trim()}>
+									<Button type="submit" size="icon" disabled={!draft.trim()} className="size-9 shrink-0">
 										<Send className="size-4" />
 									</Button>
 								</div>
@@ -122,14 +123,15 @@ export function ChatPanel({
 						})
 					)}
 				</div>
-				<form onSubmit={handleSend} className="border-t p-3">
+				<form onSubmit={handleSend} className="border-t p-2.5">
 					<div className="flex items-center gap-2">
 						<Input
 							value={draft}
 							onChange={e => setDraft(e.target.value)}
 							placeholder="Type a message"
+							className="min-h-9 py-2 text-sm"
 						/>
-						<Button type="submit" size="icon" disabled={!draft.trim()}>
+						<Button type="submit" size="icon" disabled={!draft.trim()} className="size-9 shrink-0">
 							<Send className="size-4" />
 						</Button>
 					</div>

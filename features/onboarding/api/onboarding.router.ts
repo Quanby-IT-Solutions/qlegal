@@ -69,18 +69,28 @@ export const onboardingRouter = createTRPCRouter({
 				columns: { recoveryEmail: true, recoveryEmailVerified: true },
 			})
 
-		if (
-			currentUser?.recoveryEmail === recoveryEmail &&
-			currentUser.recoveryEmailVerified === null
-		) {
-			const token = await generateRecoveryEmailVerificationToken(session.user.email)
-			await sendRecoveryEmailVerification(recoveryEmail, token.token)
+			if (
+				currentUser?.recoveryEmail === recoveryEmail &&
+				currentUser.recoveryEmailVerified === null
+			) {
+				const token = await generateRecoveryEmailVerificationToken(session.user.email)
+				await sendRecoveryEmailVerification(recoveryEmail, token.token)
 
-			return {
-				changed: false,
-				message: "Verification email resent to your recovery email address.",
+				return {
+					changed: false,
+					message: "Verification email resent to your recovery email address.",
+				}
 			}
-		}
+
+			if (
+				currentUser?.recoveryEmail === recoveryEmail &&
+				currentUser.recoveryEmailVerified !== null
+			) {
+				return {
+					changed: false,
+					message: "Recovery email is already verified.",
+				}
+			}
 
 			// Generate token using the user's primary email (FK to users.email)
 			const token = await generateRecoveryEmailVerificationToken(session.user.email)
