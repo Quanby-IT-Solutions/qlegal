@@ -96,7 +96,7 @@ export async function createOnboardLink(config: OnboardLinkConfig): Promise<Onbo
 
 	validateCredentials()
 
-	const workflowId = config.workflowId || HYPERVERGE_WORKFLOW_ID
+	const workflowId = config.workflowId ?? HYPERVERGE_WORKFLOW_ID
 
 	if (!workflowId) {
 		throw new Error(
@@ -252,16 +252,40 @@ function normalizeOutputApplicationStatus(rawStatus: unknown): ApplicationStatus
 }
 
 /**
+ * Extract the full identifier from a HyperVerge startKycUrl (e.g. from link-kyc.idv.hyperverge.co).
+ * The fallback /v1/output API may require this identifier instead of the short transactionId.
+ */
+export function extractIdentifierFromStartKycUrl(startKycUrl: string | null | undefined): string | null {
+	if (!startKycUrl?.trim()) return null
+	try {
+		const url = new URL(startKycUrl)
+		const id = url.searchParams.get("identifier")
+		return id?.trim() ? id : null
+	} catch {
+		return null
+	}
+}
+
+/** Options for getTransactionStatus (e.g. when using fallback region) */
+export interface GetTransactionStatusOptions {
+	/** Retry attempt count (internal use) */
+	retryCount?: number
+	/** Full identifier from startKycUrl (e.g. UUID_TXNID). Fallback /v1/output may require this. */
+	hypervergeIdentifier?: string
+}
+
+/**
  * Get the status of a KYC transaction
  *
  * @param transactionId - The transaction ID to check
- * @param retryCount - Number of retries (for internal use)
+ * @param options - Optional retry count and full HyperVerge identifier (from startKycUrl) for fallback region
  * @returns The transaction status details
  */
 export async function getTransactionStatus(
 	transactionId: string,
-	retryCount = 0
+	options: GetTransactionStatusOptions = {}
 ): Promise<TransactionStatusResponse> {
+	const { retryCount = 0, hypervergeIdentifier } = options
 	console.log("🔵 Getting HyperVerge transaction status...")
 	console.log("   - Transaction ID:", transactionId)
 	console.log("   - Retry attempt:", retryCount)
@@ -315,11 +339,79 @@ export async function getTransactionStatus(
 			})
 		}
 
-		const responseText = await response.text()
+		let responseText = await response.text()
 		console.log("📡 HyperVerge status response:", response.status)
 		console.log("📡 Response body:", responseText)
 
+		// Some regions (e.g. fallback ind.idv.hyperverge.co) return "WorkflowId not found" when
+		// workflowId is sent but not registered there. Retry with only transactionId.
+		if (
+			!response.ok &&
+			response.status === 400 &&
+			responseText.includes("WorkflowId not found") &&
+			requestBody.workflowId
+		) {
+			const outputUrl = response.url || HYPERVERGE_API_RESULTS_URL_FALLBACK
+			console.log("   - Retrying output request without workflowId...")
+			const bodyWithoutWorkflow = { transactionId }
+			response = await fetch(outputUrl, {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					"appId": HYPERVERGE_APP_ID,
+					"appKey": HYPERVERGE_APP_KEY,
+				},
+				body: JSON.stringify(bodyWithoutWorkflow),
+			})
+			responseText = await response.text()
+			console.log("📡 HyperVerge status response (no workflowId):", response.status)
+			console.log("📡 Response body:", responseText)
+		}
+
+		// Fallback /v1/output may key by full identifier from startKycUrl (e.g. UUID_TXNID). Retry with it.
+		if (
+			!response.ok &&
+			response.status === 400 &&
+			responseText.includes("TransactionId not found") &&
+			hypervergeIdentifier &&
+			hypervergeIdentifier !== transactionId
+		) {
+			const outputUrl = response.url || HYPERVERGE_API_RESULTS_URL_FALLBACK
+			console.log("   - Retrying output request with full HyperVerge identifier...")
+			response = await fetch(outputUrl, {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					"appId": HYPERVERGE_APP_ID,
+					"appKey": HYPERVERGE_APP_KEY,
+				},
+				body: JSON.stringify({ transactionId: hypervergeIdentifier }),
+			})
+			responseText = await response.text()
+			console.log("📡 HyperVerge status response (with identifier):", response.status)
+			console.log("📡 Response body:", responseText)
+		}
+
 		if (!response.ok) {
+			// Fallback /v1/output often returns "TransactionId not found" until the user completes
+			// the flow (or the transaction is not yet in their system). Return pending so the UI
+			// can keep polling or the callback can update state when the user lands with ?status=...
+			if (
+				response.status === 400 &&
+				responseText.includes("TransactionId not found")
+			) {
+				console.log("   - Treating 'TransactionId not found' as pending (user may not have completed yet)")
+				return {
+					status: "success",
+					statusCode: 200,
+					result: {
+						transactionId,
+						applicationStatus: "pending" as const,
+						workflowDetails: {},
+					},
+				}
+			}
+
 			console.error("❌ HyperVerge status check failed:", responseText)
 
 			// If 404 and we haven't retried much, it might be processing delay
@@ -327,7 +419,7 @@ export async function getTransactionStatus(
 				const delay = Math.pow(2, retryCount) * 2000 // 2s, 4s, 8s
 				console.log(`⏳ Transaction not found yet, waiting ${delay}ms before retry...`)
 				await new Promise(resolve => setTimeout(resolve, delay))
-				return getTransactionStatus(transactionId, retryCount + 1)
+				return getTransactionStatus(transactionId, { ...options, retryCount: retryCount + 1 })
 			}
 
 			throw new Error(`HyperVerge API error: ${response.status} - ${responseText}`)
@@ -338,11 +430,9 @@ export async function getTransactionStatus(
 		// Output API shape (Jan 2026 docs):
 		// raw.result.status (application status) + raw.result.transactionId + other summary details.
 		const rawResult = raw.result ?? {}
-		const applicationStatus = normalizeOutputApplicationStatus(rawResult["status"])
+		const applicationStatus = normalizeOutputApplicationStatus(rawResult.status)
 		const resolvedTransactionId =
-			typeof rawResult["transactionId"] === "string"
-				? (rawResult["transactionId"] as string)
-				: transactionId
+			typeof rawResult.transactionId === "string" ? rawResult.transactionId : transactionId
 
 		const result: TransactionStatusResponse = {
 			status: raw.status,
