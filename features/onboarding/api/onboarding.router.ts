@@ -344,7 +344,11 @@ export const onboardingRouter = createTRPCRouter({
 			})
 			.where(eq(users.id, session.user.id))
 
-		return { message: "Onboarding completed successfully." }
+		return {
+			message: "Onboarding completed successfully.",
+			onboardingComplete: true,
+			onboardingDetailsComplete: detailsComplete,
+		}
 	}),
 
 	snoozeOnboarding: protectedProcedure.mutation(async ({ ctx }) => {

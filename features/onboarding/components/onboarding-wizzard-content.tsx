@@ -78,9 +78,15 @@ function OnboardingWizardContentBody({
 		onSuccess: () => void utils.onboarding.getStatus.invalidate(),
 	})
 	const completeOnboarding = trpc.onboarding.completeOnboarding.useMutation({
-		onSuccess: async () => {
+		onSuccess: async data => {
 			void utils.onboarding.getStatus.invalidate()
-			await updateSession()
+			// Update session with new onboarding flags so middleware sees them on redirect
+			await updateSession({
+				user: {
+					onboardingComplete: data.onboardingComplete,
+					onboardingDetailsComplete: data.onboardingDetailsComplete,
+				},
+			})
 			toast.success("Welcome aboard! Redirecting to your dashboard…")
 			router.push("/dashboard")
 		},

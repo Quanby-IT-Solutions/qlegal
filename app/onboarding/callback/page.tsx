@@ -10,6 +10,8 @@ import { Alert, AlertDescription, AlertTitle } from "@/core/components/reui/aler
 import { Spotlight } from "@/core/components/ui/spotlight-new"
 import { useKycBroadcast, type KycBroadcastMessage } from "@/core/hooks/use-kyc-broadcast"
 
+import { syncKycStatusFromCallback } from "@/features/kyc/api/kyc.actions"
+
 export default function KycCallbackPage() {
 	const searchParams = useSearchParams()
 	const [showFallback, setShowFallback] = useState(false)
@@ -27,9 +29,20 @@ export default function KycCallbackPage() {
 		if (normalized === "user_cancelled") {
 			return "KYC_CANCELLED"
 		}
-		if (["approved", "success", "succeeded", "verified", "completed"].includes(normalized))
+		if (
+			[
+				"auto_approved",
+				"approved",
+				"success",
+				"succeeded",
+				"verified",
+				"completed",
+			].includes(normalized)
+		)
 			return "KYC_VERIFIED"
-		if (["rejected", "declined", "failed", "error"].includes(normalized)) {
+		if (
+			["auto_declined", "rejected", "declined", "failed", "error"].includes(normalized)
+		) {
 			return "KYC_REJECTED"
 		}
 
@@ -46,9 +59,20 @@ export default function KycCallbackPage() {
 			return "You cancelled the verification flow."
 		}
 
-		if (["approved", "success", "succeeded", "verified", "completed"].includes(normalized))
+		if (
+			[
+				"auto_approved",
+				"approved",
+				"success",
+				"succeeded",
+				"verified",
+				"completed",
+			].includes(normalized)
+		)
 			return "Your verification was completed successfully."
-		if (["rejected", "declined", "failed", "error"].includes(normalized)) {
+		if (
+			["auto_declined", "rejected", "declined", "failed", "error"].includes(normalized)
+		) {
 			return "Your verification could not be completed."
 		}
 
@@ -90,6 +114,13 @@ export default function KycCallbackPage() {
 
 		hasBroadcastRef.current = true
 
+		// Persist status from redirect (needed when Output API is unavailable e.g. fallback region)
+		if (transactionId && status) {
+			syncKycStatusFromCallback(transactionId, status).catch(() => {
+				// Non-blocking; broadcast still notifies other tab
+			})
+		}
+
 		broadcast({
 			type: broadcastType,
 			timestamp: Date.now(),
@@ -102,7 +133,7 @@ export default function KycCallbackPage() {
 		}, 2000)
 
 		return () => clearTimeout(closeTimer)
-	}, [broadcast, broadcastType, transactionId])
+	}, [broadcast, broadcastType, transactionId, status])
 
 	return (
 		<div className="relative min-h-screen w-full overflow-hidden">
