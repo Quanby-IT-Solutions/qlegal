@@ -620,18 +620,12 @@ function ExpandedActDetails({
 							const fullName = [signer.firstName, signer.lastName].filter(Boolean).join(" ").trim()
 							const displayName = fullName ? fullName : (signer.email ?? "Unknown")
 							const signed = isSignerSigned(signer)
-							// Check if this signer is the principal (by name or email match)
-							const isPrincipal =
-								act.principalName &&
-								(displayName.toLowerCase() === act.principalName.toLowerCase() ||
-									(signer.email &&
-										act.principalName.toLowerCase().includes(signer.email.toLowerCase())))
-							// Only show Witness badge if signerRole includes WITNESS AND they're not the principal
-							const isWitness =
-								!isPrincipal &&
-								((signer as { signerRole?: string }).signerRole
-									?.toUpperCase()
-									?.includes("WITNESS") ?? false)
+							const signerRoleUpper = ((signer as { signerRole?: string }).signerRole ?? "")
+								.toString()
+								.toUpperCase()
+							const isNotary = signerRoleUpper === "NOTARY"
+							const isPrincipal = signerRoleUpper === "PRINCIPAL"
+							const isWitness = signerRoleUpper.includes("WITNESS")
 							const signerExtra = signer as {
 								fullAddress?: string | null
 								homeStreet?: string | null
@@ -665,7 +659,17 @@ function ExpandedActDetails({
 									<div className="min-w-0 flex-1">
 										<div className="flex items-center gap-1">
 											<p className="text-xs leading-tight font-medium">{displayName}</p>
-											{isWitness && (
+											{isNotary && (
+												<Badge variant="outline" className="text-[9px] font-normal">
+													Notary
+												</Badge>
+											)}
+											{isPrincipal && (
+												<Badge variant="outline" className="text-[9px] font-normal">
+													Principal
+												</Badge>
+											)}
+											{isWitness && !isPrincipal && !isNotary && (
 												<Badge variant="outline" className="text-[9px] font-normal">
 													Witness
 												</Badge>

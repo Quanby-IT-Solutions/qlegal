@@ -102,6 +102,7 @@ export const documentsRouter = createTRPCRouter({
 
 			// Witness/principal from document_signers (assigned by ENP when adding signers)
 			const witnessEmails = new Set<string>()
+			const principalEmails = new Set<string>()
 			if (act.documentId) {
 				const witnessSignerRows = await ctx.db.query.documentSigners.findMany({
 					where: and(
@@ -112,6 +113,17 @@ export const documentsRouter = createTRPCRouter({
 				})
 				for (const ds of witnessSignerRows) {
 					if (ds.user?.email) witnessEmails.add(ds.user.email.trim().toLowerCase())
+				}
+
+				const principalSignerRows = await ctx.db.query.documentSigners.findMany({
+					where: and(
+						eq(documentSigners.documentId, act.documentId),
+						eq(documentSigners.signerRole, "principal")
+					),
+					with: { user: { columns: { email: true } } },
+				})
+				for (const ds of principalSignerRows) {
+					if (ds.user?.email) principalEmails.add(ds.user.email.trim().toLowerCase())
 				}
 			}
 
@@ -130,12 +142,20 @@ export const documentsRouter = createTRPCRouter({
 					signerRole: string
 				}>
 				const signers = Array.isArray(stored) ? stored : []
-				const enriched = signers.map(s => ({
-					...s,
-					signerRole: witnessEmails.has((s.email ?? "").trim().toLowerCase())
-						? "Witness"
-						: (s.signerRole ?? "Signer"),
-				}))
+				const enriched = signers.map(s => {
+					const emailLower = (s.email ?? "").trim().toLowerCase()
+					const baseRole = (s.signerRole ?? "Signer").trim()
+
+					if (principalEmails.has(emailLower)) {
+						return { ...s, signerRole: "Principal" }
+					}
+
+					if (witnessEmails.has(emailLower)) {
+						return { ...s, signerRole: "Witness" }
+					}
+
+					return { ...s, signerRole: baseRole || "Signer" }
+				})
 				// Fetch user address per signer
 				const signersWithAddress = await Promise.all(
 					enriched.map(async s => {

@@ -712,6 +712,20 @@ export const notarialBookRouter = createTRPCRouter({
 
 			// Witness/principal from document_signers (assigned by ENP when adding signers), not from invite/participantRole
 			const witnessEmails = new Set<string>()
+			const principalEmails = new Set<string>()
+			const enpEmailLower =
+				typeof notarialBook?.enpId === "string"
+					? (
+							(
+								await ctx.db.query.users.findFirst({
+									where: eq(users.id, notarialBook.enpId),
+									columns: { email: true },
+								})
+							)?.email ?? ""
+						)
+							.trim()
+							.toLowerCase()
+					: ""
 			if (act.documentId) {
 				const docSignersForRole = await ctx.db.query.documentSigners.findMany({
 					where: and(
@@ -723,14 +737,42 @@ export const notarialBookRouter = createTRPCRouter({
 				for (const ds of docSignersForRole) {
 					if (ds.user?.email) witnessEmails.add(ds.user.email.trim().toLowerCase())
 				}
+
+				const principalDocSigners = await ctx.db.query.documentSigners.findMany({
+					where: and(
+						eq(documentSigners.documentId, act.documentId),
+						eq(documentSigners.signerRole, "principal")
+					),
+					with: { user: { columns: { email: true } } },
+				})
+				for (const ds of principalDocSigners) {
+					if (ds.user?.email) principalEmails.add(ds.user.email.trim().toLowerCase())
+				}
 			}
 
-			const enrichSignerRole = (s: ActSigner) => ({
-				...s,
-				signerRole: witnessEmails.has((s.email ?? "").trim().toLowerCase())
-					? "Witness"
-					: (s.signerRole ?? "Signer"),
-			})
+			const enrichSignerRole = (s: ActSigner) => {
+				const emailLower = (s.email ?? "").trim().toLowerCase()
+				const baseRole = (s.signerRole ?? "Signer").trim()
+
+				// ENP is always the Notary in notarial registry context.
+				if (emailLower && enpEmailLower && emailLower === enpEmailLower) {
+					return { ...s, signerRole: "Notary" }
+				}
+
+				// Principal(s) for this document (can be principal or witness during session, but principal here).
+				if (principalEmails.has(emailLower)) {
+					return { ...s, signerRole: "Principal" }
+				}
+
+				// Only use our own witness mapping from document_signers; ignore upstream signerRole
+				// so ENP (notary) never incorrectly appears as a Witness.
+				if (witnessEmails.has(emailLower)) {
+					return { ...s, signerRole: "Witness" }
+				}
+
+				// Fall back to the original (or generic) signer role.
+				return { ...s, signerRole: baseRole || "Signer" }
+			}
 
 			// Return stored signers if we have them (avoids 401 when no meeting/project token)
 			if (act.signersData && typeof act.signersData === "string") {
