@@ -234,10 +234,12 @@ function ExpandedDocumentDetails({
 								.trim()
 							const displayName = fullName || signer.email || "Unknown"
 							const signed = isSignerSigned(signer)
-							const isWitness =
-								(signer as { signerRole?: string }).signerRole
-									?.toUpperCase()
-									?.includes("WITNESS") ?? false
+							const signerRoleUpper = ((signer as { signerRole?: string }).signerRole ?? "")
+								.toString()
+								.toUpperCase()
+							const isNotary = signerRoleUpper === "NOTARY"
+							const isPrincipal = signerRoleUpper === "PRINCIPAL"
+							const isWitness = signerRoleUpper.includes("WITNESS")
 							return (
 								<div
 									key={signer.id}
@@ -249,7 +251,23 @@ function ExpandedDocumentDetails({
 									<div className="min-w-0 flex-1">
 										<p className="font-medium">
 											{displayName}
-											{isWitness && (
+											{isNotary && (
+												<Badge
+													variant="outline"
+													className="ml-2 text-[10px] font-normal"
+												>
+													Notary
+												</Badge>
+											)}
+											{isPrincipal && (
+												<Badge
+													variant="outline"
+													className="ml-2 text-[10px] font-normal"
+												>
+													Principal
+												</Badge>
+											)}
+											{isWitness && !isPrincipal && !isNotary && (
 												<Badge
 													variant="outline"
 													className="ml-2 text-[10px] font-normal"

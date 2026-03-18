@@ -107,18 +107,35 @@ export const SignerManagementModal = React.memo(function SignerManagementModal({
 			toast.error("Please select at least one signer")
 			return
 		}
-		// Default: ENP → witness (notary), others → principal; keep existing roles when re-opening
+
+		// Require at least one non-ENP signer; ENP signs only as notary
+		const nonEnpSelected = selectedUserIds.filter(id => {
+			const p = participants.find(x => x.userId === id)
+			return p?.user?.role !== "ENP"
+		})
+
+		if (nonEnpSelected.length === 0) {
+			toast.error("Please select at least one principal or witness (non-ENP)")
+			return
+		}
+
+		// Default: non-ENP signers → principal; keep existing roles when re-opening
 		setSignerRoles(prev => {
 			const next = { ...prev }
-			for (const id of selectedUserIds) {
+			for (const id of nonEnpSelected) {
 				if (next[id] === undefined) {
-					const p = participants.find(x => x.userId === id)
-					next[id] = p?.user?.role === "ENP" ? "witness" : "principal"
+					next[id] = "principal"
 				}
 			}
 			return next
 		})
 		setStep("roles")
+	}, [selectedUserIds, participants])
+
+	const orderedSelected = useMemo(() => {
+		return selectedUserIds
+			.map(userId => participants.find(p => p.userId === userId))
+			.filter((p): p is NonNullable<typeof p> => p !== undefined)
 	}, [selectedUserIds, participants])
 
 	const handleNextFromRoles = useCallback(() => {
@@ -131,14 +148,27 @@ export const SignerManagementModal = React.memo(function SignerManagementModal({
 
 	const handleSave = useCallback(() => {
 		const roles: Record<string, SignerRole> = {}
-		for (const id of selectedUserIds) {
-			const p = participants.find(x => x.userId === id)
-			roles[id] = signerRoles[id] ?? (p?.user?.role === "ENP" ? "witness" : "principal")
+		// All selected participants (including ENP) are signers.
+		const finalSelected = orderedSelected
+		const finalUserIds = finalSelected.map(p => p.userId)
+
+		for (const p of finalSelected) {
+			const id = p.userId
+			const isEnpSigner = p.user?.role === "ENP"
+			// ENP is a signer but has no principal/witness role in the UI.
+			// Persist as "principal" internally so schema constraints are satisfied,
+			// but we never label ENP as principal or witness in the UI.
+			if (isEnpSigner) {
+				roles[id] = "principal"
+			} else {
+				roles[id] = signerRoles[id] ?? "principal"
+			}
 		}
-		onSignersChange(selectedUserIds, roles)
+
+		onSignersChange(finalUserIds, roles)
 		onOpenChange(false)
-		toast.success(`Saved ${selectedUserIds.length} signer(s)`)
-	}, [onSignersChange, onOpenChange, selectedUserIds, signerRoles, participants])
+		toast.success(`Saved ${finalUserIds.length} signer(s)`)
+	}, [onSignersChange, onOpenChange, orderedSelected, signerRoles])
 
 	const handleCancel = useCallback(() => {
 		setSelectedUserIds(Array.isArray(signerUserIds) ? [...signerUserIds] : [])
@@ -149,12 +179,6 @@ export const SignerManagementModal = React.memo(function SignerManagementModal({
 	const setRoleForUser = useCallback((userId: string, role: SignerRole) => {
 		setSignerRoles(prev => ({ ...prev, [userId]: role }))
 	}, [])
-
-	const orderedSelected = useMemo(() => {
-		return selectedUserIds
-			.map(userId => participants.find(p => p.userId === userId))
-			.filter((p): p is NonNullable<typeof p> => p !== undefined)
-	}, [selectedUserIds, participants])
 
 	return (
 		<Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -253,11 +277,6 @@ export const SignerManagementModal = React.memo(function SignerManagementModal({
 											</div>
 										)
 									})}
-								{orderedSelected.filter(p => p.user?.role === "ENP").length > 0 && (
-									<p className="text-muted-foreground pt-1 text-xs">
-										ENP signs as notary and is not assigned a role.
-									</p>
-								)}
 							</div>
 						</div>
 					)}
@@ -270,7 +289,8 @@ export const SignerManagementModal = React.memo(function SignerManagementModal({
 								{orderedSelected.map((p, index) => {
 									const email = (p.user?.email ?? "").trim()
 									const name = getFullName(p.user) || email || "Unknown"
-									const role = signerRoles[p.userId] ?? "principal"
+									const isEnpSigner = p.user?.role === "ENP"
+									const role = isEnpSigner ? "notary" : (signerRoles[p.userId] ?? "principal")
 									return (
 										<div
 											key={p.userId}

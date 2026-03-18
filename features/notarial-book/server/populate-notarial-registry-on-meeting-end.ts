@@ -350,12 +350,21 @@ export async function populateNotarialRegistryOnMeetingEnd(input: {
 						homeStreet: true,
 						barangay: true,
 						cityProvince: true,
+						role: true,
 					},
 				},
 			},
 		})
-		const principalDs = docSignersForAct.find(ds => ds.signerRole === "principal")
-		const witnessDs = docSignersForAct.find(ds => ds.signerRole === "witness")
+
+		// Principal/witness are derived from ENP-assigned document signer roles,
+		// but we must never treat the ENP (notary) as principal/witness even if
+		// they appear in document_signers for signing workflow purposes.
+		const nonEnpDocSignersForAct = docSignersForAct.filter(
+			ds => (ds.user?.role ?? "").toUpperCase() !== "ENP"
+		)
+
+		const principalDs = nonEnpDocSignersForAct.find(ds => ds.signerRole === "principal")
+		const witnessDs = nonEnpDocSignersForAct.find(ds => ds.signerRole === "witness")
 		if (principalDs?.user) {
 			docPrincipalName =
 				asNonEmptyString(principalDs.signerName) ??
