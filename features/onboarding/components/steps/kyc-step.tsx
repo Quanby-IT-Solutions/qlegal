@@ -1,29 +1,25 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
+import { useQueryClient } from "@tanstack/react-query"
 import { CheckCircle2 } from "lucide-react"
 import { useSession } from "next-auth/react"
 import { toast } from "sonner"
 
+import { Alert, AlertDescription, AlertTitle } from "@/core/components/reui/alert"
 import { Button } from "@/core/components/ui/button"
 import { CardContent, CardFooter } from "@/core/components/ui/card"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/core/components/ui/dialog"
 import { FieldGroup } from "@/core/components/ui/field"
 import { Input } from "@/core/components/ui/input"
-import { Alert, AlertDescription, AlertTitle } from "@/core/components/reui/alert"
 import { useKycBroadcast } from "@/core/hooks/use-kyc-broadcast"
-
-import { getUserKycInfo } from "@/features/kyc/api/kyc.actions"
-import { HyperVergeWebSdkLauncher } from "@/features/kyc/components/hyperverge-web-sdk-launcher"
-import { useKycStatus } from "@/features/kyc/hooks/use-kyc-status"
 
 import { trpc } from "@/services/trpc/client"
 
-import {
-	Dialog,
-	DialogContent,
-	DialogHeader,
-	DialogTitle,
-} from "@/core/components/ui/dialog"
+import { getUserKycInfo, softResetUserKycStatus } from "@/features/kyc/api/kyc.actions"
+import { HyperVergeWebSdkLauncher } from "@/features/kyc/components/hyperverge-web-sdk-launcher"
+import { useKycStatus } from "@/features/kyc/hooks/use-kyc-status"
+
 import { KycMobileFlow } from "./kyc-step-mobile"
 
 type KycMode = "choose" | "mobile-pending"
@@ -62,6 +58,7 @@ interface UserKycInfo {
 
 export function KycStep({ onNext, onBack, kycStatus, onExpandChange }: KycStepProps) {
 	const { update: updateSession } = useSession()
+	const queryClient = useQueryClient()
 
 	const [userInfo, setUserInfo] = useState<UserKycInfo | null>(null)
 	const [mode, setMode] = useState<KycMode>("choose")
@@ -81,12 +78,22 @@ export function KycStep({ onNext, onBack, kycStatus, onExpandChange }: KycStepPr
 	const effectiveStatus = userInfo?.kycStatus ?? kycStatus ?? null
 	const isVerified = effectiveStatus === "VERIFIED"
 	const shouldPoll = mode === "mobile-pending" || effectiveStatus === "PENDING"
+	const shouldFetchStatus = shouldPoll || effectiveStatus === "REJECTED"
 
-	const { data: statusQueryResult, refetch } = useKycStatus({
+	const {
+		data: statusQueryResult,
+		refetch,
+		isCheckingStatus,
+	} = useKycStatus({
 		currentStatus: effectiveStatus,
-		enabled: shouldPoll,
+		enabled: shouldFetchStatus,
 	})
 	const statusResult = statusQueryResult?.success ? statusQueryResult.data : null
+	const isNeedsReview = statusResult?.needsReview ?? statusResult?.status === "needs_review"
+	const isStatusLoading = Boolean(shouldFetchStatus && isCheckingStatus)
+	const isRejected = statusResult?.kycStatus === "REJECTED"
+	const rejectedVariant: "auto" | "manual" =
+		statusResult?.status === "auto_declined" ? "auto" : "manual"
 
 	const { listen, isSupported } = useKycBroadcast()
 
@@ -99,6 +106,11 @@ export function KycStep({ onNext, onBack, kycStatus, onExpandChange }: KycStepPr
 			})
 		}
 	}
+
+	useEffect(() => {
+		if (!shouldFetchStatus) return
+		void queryClient.invalidateQueries({ queryKey: ["kyc-status"] })
+	}, [queryClient, shouldFetchStatus])
 
 	useEffect(() => {
 		void (async () => {
@@ -173,7 +185,12 @@ export function KycStep({ onNext, onBack, kycStatus, onExpandChange }: KycStepPr
 				void refreshUserInfo()
 			}
 		} else if (statusResult.kycStatus === "REJECTED") {
-			toast.error("KYC verification was declined. Please try again.")
+			const autoDeclined = statusResult.status === "auto_declined"
+			toast.error(
+				autoDeclined
+					? "Your KYC verification was automatically declined by our verification provider. Please try again with clearer documents."
+					: "KYC verification was declined. Please try again."
+			)
 			onExpandChange?.(false)
 			void refreshUserInfo()
 			setMode("choose")
@@ -185,6 +202,17 @@ export function KycStep({ onNext, onBack, kycStatus, onExpandChange }: KycStepPr
 		setShowWebSdkLauncher(true)
 		onExpandChange?.(false)
 		setMode("mobile-pending")
+	}
+
+	const handleTryAgain = async () => {
+		const result = await softResetUserKycStatus()
+		if (result.success) {
+			toast.success("Ready to start a new verification.")
+			await refreshUserInfo()
+			setMode("choose")
+		} else {
+			toast.error(result.error ?? "Could not reset. Please try again or contact support.")
+		}
 	}
 
 	if (isVerified) {
@@ -248,7 +276,7 @@ export function KycStep({ onNext, onBack, kycStatus, onExpandChange }: KycStepPr
 
 							<div className="grid gap-4">
 								<div className="space-y-1.5">
-									<p className="text-xs font-medium text-foreground/80">First name</p>
+									<p className="text-foreground/80 text-xs font-medium">First name</p>
 									<Input
 										value={firstName}
 										onChange={event => setFirstName(event.target.value)}
@@ -258,7 +286,7 @@ export function KycStep({ onNext, onBack, kycStatus, onExpandChange }: KycStepPr
 									/>
 								</div>
 								<div className="space-y-1.5">
-									<p className="text-xs font-medium text-foreground/80">Middle name</p>
+									<p className="text-foreground/80 text-xs font-medium">Middle name</p>
 									<Input
 										value={middleName}
 										onChange={event => setMiddleName(event.target.value)}
@@ -268,7 +296,7 @@ export function KycStep({ onNext, onBack, kycStatus, onExpandChange }: KycStepPr
 									/>
 								</div>
 								<div className="space-y-1.5">
-									<p className="text-xs font-medium text-foreground/80">Last name</p>
+									<p className="text-foreground/80 text-xs font-medium">Last name</p>
 									<Input
 										value={lastName}
 										onChange={event => setLastName(event.target.value)}
@@ -279,7 +307,7 @@ export function KycStep({ onNext, onBack, kycStatus, onExpandChange }: KycStepPr
 								</div>
 
 								<div className="space-y-1.5">
-									<p className="text-xs font-medium text-foreground/80">Address (from your ID)</p>
+									<p className="text-foreground/80 text-xs font-medium">Address (from your ID)</p>
 									<Input
 										value={previewAddress ?? ""}
 										readOnly
@@ -321,7 +349,9 @@ export function KycStep({ onNext, onBack, kycStatus, onExpandChange }: KycStepPr
 		)
 	}
 
-	const showPendingBanner = mode === "mobile-pending"
+	const showPendingBanner = mode === "mobile-pending" && !isNeedsReview && !isStatusLoading
+	const showNeedsReviewBanner = isNeedsReview && !isStatusLoading
+	const showRejectedBanner = isRejected && !isStatusLoading
 
 	return (
 		<>
@@ -329,9 +359,13 @@ export function KycStep({ onNext, onBack, kycStatus, onExpandChange }: KycStepPr
 				onBack={onBack}
 				onNext={onNext}
 				onStartVerification={handleStartVerification}
-				isPending={showWebSdkLauncher}
+				onTryAgain={handleTryAgain}
+				isPending={Boolean(showWebSdkLauncher || isStatusLoading)}
 				showPendingBanner={showPendingBanner}
 				showCancelledBanner={hostedEvent === "cancelled"}
+				showNeedsReviewBanner={showNeedsReviewBanner}
+				showRejectedBanner={showRejectedBanner}
+				rejectedVariant={isRejected ? rejectedVariant : undefined}
 			/>
 			<Dialog open={showWebSdkLauncher} onOpenChange={setShowWebSdkLauncher}>
 				<DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">

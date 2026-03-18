@@ -6,15 +6,10 @@ import { toast } from "sonner"
 
 import { Badge } from "@/core/components/ui/badge"
 import { Button } from "@/core/components/ui/button"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/core/components/ui/dialog"
 import { Label } from "@/core/components/ui/label"
 import { useKycBroadcast } from "@/core/hooks/use-kyc-broadcast"
 
-import {
-	Dialog,
-	DialogContent,
-	DialogHeader,
-	DialogTitle,
-} from "@/core/components/ui/dialog"
 import { resetUserKycStatus } from "@/features/kyc/api/kyc.actions"
 import { HyperVergeWebSdkLauncher } from "@/features/kyc/components/hyperverge-web-sdk-launcher"
 import { useKycStatus } from "@/features/kyc/hooks/use-kyc-status"
@@ -59,12 +54,18 @@ export function KycVerificationCard({
 
 	// Option 1.5: Single check on mount, no polling
 	// Webhook handles real-time updates (primary method)
-	const { data: statusQueryResult, refetch } = useKycStatus({
+	const {
+		data: statusQueryResult,
+		refetch,
+		isCheckingStatus,
+	} = useKycStatus({
 		currentStatus: effectiveStatus,
 		enabled: true,
 	})
 
 	const statusResult = statusQueryResult?.success ? statusQueryResult.data : null
+	const isStatusLoading = isCheckingStatus
+	const isNeedsReview = statusResult?.needsReview ?? statusResult?.status === "needs_review"
 
 	// Cross-tab communication: Listen for verification events from other tabs (0 API calls)
 	const { listen, isSupported } = useKycBroadcast()
@@ -134,7 +135,12 @@ export function KycVerificationCard({
 		} else if (statusResult.kycStatus === "REJECTED" && !toastShownRef.current.has(toastKey)) {
 			toastShownRef.current.add(toastKey)
 			console.log("❌ KYC Rejected")
-			toast.error("KYC verification was declined. Please try again or contact support.")
+			const autoDeclined = statusResult.status === "auto_declined"
+			toast.error(
+				autoDeclined
+					? "Your KYC verification was automatically declined by our verification provider. Please try again with clearer documents or contact support."
+					: "KYC verification was declined. Please try again or contact support."
+			)
 		}
 	}, [statusResult])
 
@@ -184,6 +190,13 @@ export function KycVerificationCard({
 						Pending
 					</Badge>
 				)
+			case "NEEDS_REVIEW":
+				return (
+					<Badge variant="secondary">
+						<Loader2 className="mr-1 h-3 w-3 animate-spin" />
+						Needs manual review
+					</Badge>
+				)
 			case "NOT_STARTED":
 				return <Badge variant="outline">Not Started</Badge>
 			default:
@@ -194,7 +207,14 @@ export function KycVerificationCard({
 	// Show existing status if available
 	// If there's an expired PENDING link, treat it as NOT_STARTED for UI purposes
 	const rawStatus = statusResult?.kycStatus ?? userInfo.kycStatus ?? "NOT_STARTED"
-	const currentStatus = hasExpiredLink && rawStatus === "PENDING" ? "NOT_STARTED" : rawStatus
+	const normalizedStatus =
+		isNeedsReview && rawStatus !== "VERIFIED" && rawStatus !== "REJECTED"
+			? "NEEDS_REVIEW"
+			: rawStatus
+	const currentStatus =
+		hasExpiredLink && normalizedStatus === "PENDING" ? "NOT_STARTED" : normalizedStatus
+	const showStatusLoadingBanner =
+		isStatusLoading && (currentStatus === "PENDING" || currentStatus === "NOT_STARTED")
 
 	return (
 		<div className="space-y-6">
@@ -222,6 +242,18 @@ export function KycVerificationCard({
 								<span className="font-mono text-xs">{userInfo.transactionId}</span>
 							</div>
 						)}
+					</div>
+				</div>
+			)}
+
+			{/* Status Loading Banner */}
+			{showStatusLoadingBanner && (
+				<div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm dark:border-blue-800 dark:bg-blue-950/20">
+					<div className="flex items-center gap-2">
+						<Loader2 className="size-4 animate-spin text-blue-600 dark:text-blue-400" />
+						<p className="text-blue-800 dark:text-blue-100">
+							Checking your verification status. This should only take a moment.
+						</p>
 					</div>
 				</div>
 			)}
@@ -260,12 +292,21 @@ export function KycVerificationCard({
 					<div className="grid gap-3">
 						<Button
 							onClick={handleStartVerification}
-							disabled={showWebSdkLauncher}
+							disabled={showWebSdkLauncher || isStatusLoading}
 							className="w-full"
 							size="lg"
 						>
-							<ShieldCheck className="mr-2 h-5 w-5" />
-							Start verification
+							{isStatusLoading ? (
+								<>
+									<Loader2 className="mr-2 h-5 w-5 animate-spin" />
+									Checking verification status…
+								</>
+							) : (
+								<>
+									<ShieldCheck className="mr-2 h-5 w-5" />
+									Start verification
+								</>
+							)}
 						</Button>
 					</div>
 				</div>
@@ -302,6 +343,30 @@ export function KycVerificationCard({
 							<PlayCircle className="mr-2 h-5 w-5" />
 							Resume verification
 						</Button>
+					</div>
+				</div>
+			)}
+
+			{/* NEEDS_REVIEW State */}
+			{currentStatus === "NEEDS_REVIEW" && (
+				<div className="space-y-4">
+					<div className="rounded-lg border border-yellow-200 bg-yellow-50 p-4 dark:border-yellow-800 dark:bg-yellow-950/20">
+						<div className="flex items-start gap-3">
+							<Loader2 className="mt-0.5 h-5 w-5 shrink-0 animate-spin text-yellow-600 dark:text-yellow-400" />
+							<div className="flex-1">
+								<p className="mb-1 font-medium text-yellow-900 dark:text-yellow-100">
+									Verification under manual review
+								</p>
+								<p className="text-sm text-yellow-800 dark:text-yellow-200">
+									Your documents have been submitted and are currently being reviewed by our team
+									and our verification partner. This may take longer than automated checks.
+								</p>
+								<p className="mt-2 text-xs text-yellow-800/80 dark:text-yellow-200/80">
+									You don&apos;t need to start a new verification. We&apos;ll notify you once the
+									review is complete.
+								</p>
+							</div>
+						</div>
 					</div>
 				</div>
 			)}
@@ -350,6 +415,19 @@ export function KycVerificationCard({
 									Your identity verification was not approved. This could be due to unclear
 									documents or mismatched information.
 								</p>
+								{statusResult?.status === "auto_declined" && (
+									<p className="mb-2 text-xs text-red-700/90 dark:text-red-300/90">
+										Our verification provider automatically declined this attempt based on its
+										automated checks. Please review your documents and try again, or contact support
+										if you believe this is an error.
+									</p>
+								)}
+								{statusResult?.status !== "auto_declined" && (
+									<p className="mb-2 text-xs text-red-700/90 dark:text-red-300/90">
+										Your verification was declined after manual review. Please try again or contact
+										support.
+									</p>
+								)}
 								<p className="text-xs text-red-600 dark:text-red-400">
 									Please ensure your ID is clear, well-lit, and all information is visible before
 									retrying.
