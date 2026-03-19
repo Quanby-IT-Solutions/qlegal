@@ -96,8 +96,6 @@ export const ROUTE_CONFIG: RouteConfig = {
 // CONSTANTS
 // ============================================================================
 
-export const CUSTOM_HEADERS = {} as const
-
 export const DEFAULT_ROUTES: Record<UserRole, string> = {
 	ENP: "/dashboard",
 	PRINCIPAL: "/dashboard",

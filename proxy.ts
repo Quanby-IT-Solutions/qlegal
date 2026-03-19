@@ -3,15 +3,36 @@ import NextAuth from "next-auth"
 
 import { getDefaultRoute, isRouteAuthorized } from "@/core/middleware/authorization"
 import { ROUTE_CONFIG } from "@/core/middleware/config"
-import { logAccess, logError, logRedirect } from "@/core/middleware/logger"
 import { matchesAnyRoute } from "@/core/middleware/route-matcher"
-import { addCustomHeaders } from "@/core/middleware/security"
 
 import { authConfig } from "@/services/next-auth/config"
 
 import { env } from "@/env"
 
 const { auth: proxy } = NextAuth(authConfig)
+
+const ENP_LAWYER_ROUTE_PREFIXES = ["/requests", "/notarial-registry", "/sessions"] as const
+
+function isEnpLawyerRoute(path: string): boolean {
+	return ENP_LAWYER_ROUTE_PREFIXES.some(prefix => path === prefix || path.startsWith(`${prefix}/`))
+}
+
+function logAccess(path: string, role: string | null, authorized: boolean): void {
+	if (env.NODE_ENV === "development") {
+		console.log(`\n[Middleware] ${path} | Role: ${role ?? "anonymous"} | Authorized: ${authorized}`)
+	}
+}
+
+function logRedirect(from: string, to: string, reason: string): void {
+	if (env.NODE_ENV === "development") {
+		console.log(`[Middleware] Redirect: ${from} -> ${to} (${reason})`)
+	}
+}
+
+function logError(error: unknown, context?: string): void {
+	const contextInfo = context ? `[${context}] ` : ""
+	console.error(`[Middleware] ${contextInfo}Error:`, error)
+}
 
 // ============================================================================
 // MIDDLEWARE FUNCTION
@@ -51,16 +72,15 @@ export default proxy(req => {
 				return NextResponse.redirect(onboardingUrl)
 			}
 
-			// USER STATUS: If user has not active status, redirect to status page
-			if (userStatus !== "ACTIVE") {
-				const statusUrl = new URL("/auth/status", nextUrl)
-				logRedirect(path, statusUrl.pathname, "user status required before callback")
-				return NextResponse.redirect(statusUrl)
-			}
-
 			try {
 				const callbackObj = new URL(callbackUrl, nextUrl.origin)
 				const callbackPath = callbackObj.pathname
+
+				if (role === "ENP" && userStatus !== "ACTIVE" && isEnpLawyerRoute(callbackPath)) {
+					const statusUrl = new URL("/auth/status", nextUrl)
+					logRedirect(path, statusUrl.pathname, "ENP approval required for callback route")
+					return NextResponse.redirect(statusUrl)
+				}
 
 				const callbackAuth = isRouteAuthorized(callbackPath, role)
 				if (callbackAuth) {
@@ -106,15 +126,9 @@ export default proxy(req => {
 			}
 
 			const userStatus = auth?.user?.status
-			if (
-				isAuth &&
-				path !== "/auth/status" &&
-				!onAuthPage &&
-				!path.startsWith("/onboarding") &&
-				userStatus !== "ACTIVE"
-			) {
+			if (isAuth && role === "ENP" && userStatus !== "ACTIVE" && isEnpLawyerRoute(path)) {
 				const statusUrl = new URL("/auth/status", nextUrl)
-				logRedirect(path, statusUrl.pathname, "user status gate - account not active")
+				logRedirect(path, statusUrl.pathname, "ENP approval required for lawyer route")
 				return NextResponse.redirect(statusUrl)
 			}
 
@@ -147,7 +161,13 @@ export default proxy(req => {
 			}
 
 			const response = NextResponse.next()
-			return addCustomHeaders(response, userId, path)
+
+			if (userId) {
+				response.headers.set("X-User-ID", userId)
+			}
+			response.headers.set("x-current-path", path)
+
+			return response
 		}
 
 		// --- ACCESS DENIED (AUTHENTICATED) ---
@@ -164,7 +184,7 @@ export default proxy(req => {
 				if (kycStatus === "NOT_STARTED" || kycStatus === "PENDING") {
 					return "/onboarding"
 				}
-				if (userStatus !== "ACTIVE") {
+				if (role === "ENP" && userStatus !== "ACTIVE" && isEnpLawyerRoute(path)) {
 					return "/auth/status"
 				}
 				// Default route

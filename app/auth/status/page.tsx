@@ -25,14 +25,22 @@ export default async function UserStatusPage() {
 		redirect("/dashboard")
 	}
 
+	const isSuspended = userStatus === "SUSPENDED"
+
 	return (
 		<Card className="w-full max-w-xl">
 			<CardHeader className="text-center">
 				<div className="mb-4 flex justify-center">
 					<QuanbyLogo className="size-16" />
 				</div>
-				<CardTitle className="text-2xl">Account Status</CardTitle>
-				<CardDescription>Your account is currently unavailable.</CardDescription>
+				<CardTitle className="text-2xl">
+					{isSuspended ? "Account Status" : "ENP Approval Required"}
+				</CardTitle>
+				<CardDescription>
+					{isSuspended
+						? "Your account is currently unavailable."
+						: "To access lawyer routes, please complete your Supreme Court requirements first."}
+				</CardDescription>
 			</CardHeader>
 			<CardContent>
 				<UserStatusCard status={userStatus as "PENDING" | "SUSPENDED"} />
