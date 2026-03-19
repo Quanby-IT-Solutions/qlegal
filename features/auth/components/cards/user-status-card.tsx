@@ -19,10 +19,11 @@ export function UserStatusCard({ status }: UserStatusCardProps) {
 			{isPending ? (
 				<div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-center dark:border-amber-800 dark:bg-amber-950/20">
 					<p className="mb-1 text-sm font-semibold text-amber-900 dark:text-amber-100">
-						Pending Approval
+						Approval Pending
 					</p>
 					<p className="text-xs text-amber-700 dark:text-amber-300">
-						Your account is under review. You’ll be notified once it’s approved.
+						Please upload your required documents to the Supreme Court. Once approved, you can
+						access lawyer-related routes such as requests, sessions, and notarial registry.
 					</p>
 				</div>
 			) : (
@@ -38,7 +39,7 @@ export function UserStatusCard({ status }: UserStatusCardProps) {
 			{/* Logout Button */}
 			<CardFooter>
 				<LogoutButton callbackUrl="/auth/login" variant="link" className="w-full">
-					<LogOut className="mr-2 h-4 w-4" />
+					<LogOut className="mr-2 size-4" />
 					Log Out
 				</LogoutButton>
 			</CardFooter>
