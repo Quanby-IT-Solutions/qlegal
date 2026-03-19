@@ -1,4 +1,3 @@
-/* eslint-disable no-console */
 import { useMutation } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { z } from "zod/v4"
