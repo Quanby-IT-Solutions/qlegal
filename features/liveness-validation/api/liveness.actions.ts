@@ -36,7 +36,7 @@ function generateTransactionId(userId: string): string {
 function stripDataUrlPrefix(base64OrDataUrl: string): string {
 	if (base64OrDataUrl.startsWith("data:")) {
 		const parts = base64OrDataUrl.split(",")
-		return parts[1] || base64OrDataUrl
+		return parts[1] ?? base64OrDataUrl
 	}
 	return base64OrDataUrl
 }
@@ -466,7 +466,7 @@ export async function checkUserLivenessStatus(meetingId?: string) {
 				isVerified: !!validation,
 				verifiedAt: validation?.createdAt,
 				transactionId: validation?.transactionId,
-				meetingId: (validation?.meetingId ?? null) as string | null,
+				meetingId: validation?.meetingId ?? null,
 			},
 		}
 	} catch (error) {
