@@ -349,10 +349,7 @@ export async function getKycWebSdkSession() {
 
 	let transactionId: string
 
-	if (
-		existingSession?.status === "PENDING" &&
-		existingSession.sessionType === "web_sdk"
-	) {
+	if (existingSession?.status === "PENDING" && existingSession.sessionType === "web_sdk") {
 		transactionId = existingSession.transactionId
 	} else {
 		transactionId = generateTransactionId(session.user.id)
@@ -362,10 +359,7 @@ export async function getKycWebSdkSession() {
 			sessionType: "web_sdk",
 			status: "PENDING",
 		})
-		await db
-			.update(users)
-			.set({ kycStatus: "PENDING" })
-			.where(eq(users.id, session.user.id))
+		await db.update(users).set({ kycStatus: "PENDING" }).where(eq(users.id, session.user.id))
 	}
 
 	try {
@@ -663,15 +657,24 @@ export async function runDirectKycVerification(input: {
 				kycVerifiedAt: kycStatus === "VERIFIED" ? new Date() : null,
 				firstName:
 					kycStatus === "VERIFIED"
-						? coalesceNameValue(existingUser.firstName, toTitleCaseWords(resolvedNameFields.firstName))
+						? coalesceNameValue(
+								existingUser.firstName,
+								toTitleCaseWords(resolvedNameFields.firstName)
+							)
 						: existingUser.firstName,
 				middleName:
 					kycStatus === "VERIFIED"
-						? coalesceNameValue(existingUser.middleName, toTitleCaseWords(resolvedNameFields.middleName))
+						? coalesceNameValue(
+								existingUser.middleName,
+								toTitleCaseWords(resolvedNameFields.middleName)
+							)
 						: existingUser.middleName,
 				lastName:
 					kycStatus === "VERIFIED"
-						? coalesceNameValue(existingUser.lastName, toTitleCaseWords(resolvedNameFields.lastName))
+						? coalesceNameValue(
+								existingUser.lastName,
+								toTitleCaseWords(resolvedNameFields.lastName)
+							)
 						: existingUser.lastName,
 				prefix:
 					kycStatus === "VERIFIED"
@@ -939,9 +942,18 @@ export async function checkUserKycStatus() {
 			await db
 				.update(users)
 				.set({
-					firstName: coalesceNameValue(user?.firstName, toTitleCaseWords(resolvedNameFields.firstName)),
-					middleName: coalesceNameValue(user?.middleName, toTitleCaseWords(resolvedNameFields.middleName)),
-					lastName: coalesceNameValue(user?.lastName, toTitleCaseWords(resolvedNameFields.lastName)),
+					firstName: coalesceNameValue(
+						user?.firstName,
+						toTitleCaseWords(resolvedNameFields.firstName)
+					),
+					middleName: coalesceNameValue(
+						user?.middleName,
+						toTitleCaseWords(resolvedNameFields.middleName)
+					),
+					lastName: coalesceNameValue(
+						user?.lastName,
+						toTitleCaseWords(resolvedNameFields.lastName)
+					),
 					prefix: coalesceNameValue(user?.prefix, latestPrefix),
 					suffix: coalesceNameValue(user?.suffix, latestSuffix),
 					address: resolvedAddress
@@ -1164,9 +1176,18 @@ export async function checkUserKycStatus() {
 				.set({
 					kycStatus: newStatus,
 					kycVerifiedAt: new Date(),
-					firstName: coalesceNameValue(user?.firstName, toTitleCaseWords(resolvedNameFields.firstName)),
-					middleName: coalesceNameValue(user?.middleName, toTitleCaseWords(resolvedNameFields.middleName)),
-					lastName: coalesceNameValue(user?.lastName, toTitleCaseWords(resolvedNameFields.lastName)),
+					firstName: coalesceNameValue(
+						user?.firstName,
+						toTitleCaseWords(resolvedNameFields.firstName)
+					),
+					middleName: coalesceNameValue(
+						user?.middleName,
+						toTitleCaseWords(resolvedNameFields.middleName)
+					),
+					lastName: coalesceNameValue(
+						user?.lastName,
+						toTitleCaseWords(resolvedNameFields.lastName)
+					),
 					prefix: coalesceNameValue(user?.prefix, latestPrefix),
 					suffix: coalesceNameValue(user?.suffix, latestSuffix),
 					address: resolvedAddress
@@ -1269,9 +1290,7 @@ export async function syncKycStatusFromCallback(transactionId: string, status: s
 		)
 	) {
 		newStatus = "VERIFIED"
-	} else if (
-		["auto_declined", "rejected", "declined", "failed", "error"].includes(normalized)
-	) {
+	} else if (["auto_declined", "rejected", "declined", "failed", "error"].includes(normalized)) {
 		newStatus = "REJECTED"
 	}
 	// user_cancelled, needs_review, or unknown -> leave as PENDING
@@ -1281,7 +1300,13 @@ export async function syncKycStatusFromCallback(transactionId: string, status: s
 			eq(kycSessions.userId, session.user.id),
 			eq(kycSessions.transactionId, transactionId.trim())
 		),
-		columns: { id: true, status: true, idCardDetailId: true, sessionType: true, transactionId: true },
+		columns: {
+			id: true,
+			status: true,
+			idCardDetailId: true,
+			sessionType: true,
+			transactionId: true,
+		},
 	})
 
 	if (!kycSession) {
@@ -1298,10 +1323,7 @@ export async function syncKycStatusFromCallback(transactionId: string, status: s
 		.update(kycSessions)
 		.set({ status: newStatus, updatedAt: new Date() })
 		.where(eq(kycSessions.id, kycSession.id))
-	await db
-		.update(users)
-		.set({ kycStatus: newStatus })
-		.where(eq(users.id, session.user.id))
+	await db.update(users).set({ kycStatus: newStatus }).where(eq(users.id, session.user.id))
 
 	// Backfill id_card_details from HyperVerge Logs when VERIFIED and not yet linked (e.g. Web SDK flow)
 	if (newStatus === "VERIFIED" && !kycSession.idCardDetailId && kycSession.transactionId) {
@@ -1604,10 +1626,20 @@ export async function getUserKycInfo() {
 				latestIdCard && (latestIdCard.isVerified || user.kycStatus === "VERIFIED")
 					? {
 							// Prefer saved DB values when verified (auto-saved after KYC)
-							firstName: user.kycStatus === "VERIFIED" ? (user.firstName ?? resolvedIdName?.firstName ?? null) : (resolvedIdName?.firstName ?? null),
-							middleName: user.kycStatus === "VERIFIED" ? (user.middleName ?? resolvedIdName?.middleName ?? null) : (resolvedIdName?.middleName ?? null),
-							lastName: user.kycStatus === "VERIFIED" ? (user.lastName ?? resolvedIdName?.lastName ?? null) : (resolvedIdName?.lastName ?? null),
-							address: user.kycStatus === "VERIFIED" ? (user.address ?? previewAddress) : previewAddress,
+							firstName:
+								user.kycStatus === "VERIFIED"
+									? (user.firstName ?? resolvedIdName?.firstName ?? null)
+									: (resolvedIdName?.firstName ?? null),
+							middleName:
+								user.kycStatus === "VERIFIED"
+									? (user.middleName ?? resolvedIdName?.middleName ?? null)
+									: (resolvedIdName?.middleName ?? null),
+							lastName:
+								user.kycStatus === "VERIFIED"
+									? (user.lastName ?? resolvedIdName?.lastName ?? null)
+									: (resolvedIdName?.lastName ?? null),
+							address:
+								user.kycStatus === "VERIFIED" ? (user.address ?? previewAddress) : previewAddress,
 							homeStreet: previewHomeStreet,
 							barangay: previewBarangay,
 							cityProvince: previewCityProvince,
