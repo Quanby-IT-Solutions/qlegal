@@ -3,6 +3,7 @@ import { and, asc, count, desc, eq, ilike, inArray, isNotNull, or } from "drizzl
 import { z } from "zod/v4"
 
 import { getFullName } from "@/core/lib/utils"
+import { env } from "@/env"
 import { appointmentParticipants } from "@/services/drizzle/schema/appointment-participants"
 import { appointments } from "@/services/drizzle/schema/appointments"
 import { users } from "@/services/drizzle/schema/auth"
@@ -363,14 +364,15 @@ export const notarialBookRouter = createTRPCRouter({
 			const enpProfile = await ctx.db.query.enpProfiles.findFirst({
 				where: eq(enpProfiles.userId, userId),
 			})
+			const nfn = env.SUPREME_COURT_NFN
 			if (
 				!enpProfile?.notaryPublicNumber ||
-				!enpProfile?.notaryFacilityNumber ||
+				!nfn ||
 				!enpProfile?.rollNo
 			) {
 				throw new TRPCError({
 					code: "PRECONDITION_FAILED",
-					message: "ENP profile missing NPN, NFN, or RN",
+					message: "ENP profile missing NPN or RN, or SUPREME_COURT_NFN not set",
 				})
 			}
 
@@ -396,7 +398,7 @@ export const notarialBookRouter = createTRPCRouter({
 
 			const result = await syncNotarialActToSupremeCourt({
 				act,
-				notaryFacilityNumber: enpProfile.notaryFacilityNumber,
+				notaryFacilityNumber: nfn,
 				notaryPublicNumber: enpProfile.notaryPublicNumber,
 				rollNumber: enpProfile.rollNo,
 				documentFile,

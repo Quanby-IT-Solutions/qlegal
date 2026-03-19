@@ -17,6 +17,7 @@ interface UseMeetingDataParams {
 
 export function useMeetingData({ meetingId }: UseMeetingDataParams) {
 	const [isPreparingUpload, setIsPreparingUpload] = useState(false)
+	const debugLogsEnabled = process.env.NODE_ENV !== "production"
 
 	const {
 		data: documents,
@@ -144,31 +145,91 @@ export function useMeetingData({ meetingId }: UseMeetingDataParams) {
 	const docoChainTokenLoading = false
 
 	const handleUploadClick = useCallback(async () => {
+		const startMs = performance.now()
+		if (debugLogsEnabled) {
+			console.log("[sessions][upload] click", {
+				meetingId: meetingId ?? null,
+				isUploadBlockedByLock,
+				isDocumentChangesLocked,
+			})
+		}
 		if (!meetingId?.trim()) {
 			toast.error("Meeting not ready yet. Please try again.")
+			if (debugLogsEnabled) {
+				console.log("[sessions][upload] blocked: meetingId not ready", {
+					meetingId: meetingId ?? null,
+					totalMs: Math.round(performance.now() - startMs),
+				})
+			}
 			return
 		}
 		if (isUploadBlockedByLock) {
 			toast.error(MEETING_LOCK_API_MESSAGE)
+			if (debugLogsEnabled) {
+				console.log("[sessions][upload] blocked: meeting locked", {
+					meetingId,
+					totalMs: Math.round(performance.now() - startMs),
+				})
+			}
 			return
 		}
-		setIsPreparingUpload(true)
-		try {
-			const result = await ensureDoconchainToken()
-			if (result.data?.ready) {
-				return true
+		// IMPORTANT: Do not block opening the upload dialog on DocOnChain prep.
+		// Uploading to QSign should remain responsive; DocOnChain can be prepared in the background.
+		void (async () => {
+			setIsPreparingUpload(true)
+			const ensureStartMs = performance.now()
+			if (debugLogsEnabled) {
+				console.log("[sessions][upload] ensureDocoChainToken start (background)", { meetingId })
 			}
-			toast.error("DocOnChain is still preparing. Please try again in a moment.")
-			return false
-		} catch (error) {
-			const msg =
-				error instanceof Error ? error.message : "Failed to prepare DocOnChain. Please try again."
-			toast.error(msg)
-			return false
-		} finally {
-			setIsPreparingUpload(false)
+			try {
+				const result = await ensureDoconchainToken()
+				if (debugLogsEnabled) {
+					console.log("[sessions][upload] ensureDocoChainToken end (background)", {
+						meetingId,
+						ready: result.data?.ready ?? null,
+						ensureMs: Math.round(performance.now() - ensureStartMs),
+					})
+				}
+				if (result.data?.ready) return
+				toast.error("DocOnChain is still preparing. You can upload now, and retry project creation later.")
+			} catch (error) {
+				const msg =
+					error instanceof Error
+						? error.message
+						: "Failed to prepare DocOnChain. You can upload now, and retry project creation later."
+				if (debugLogsEnabled) {
+					console.log("[sessions][upload] ensureDocoChainToken error (background)", {
+						meetingId: meetingId ?? null,
+						message: msg,
+						ensureMs: Math.round(performance.now() - ensureStartMs),
+					})
+				}
+			} finally {
+				setIsPreparingUpload(false)
+				if (debugLogsEnabled) {
+					console.log("[sessions][upload] ensureDocoChainToken done (background)", {
+						meetingId: meetingId ?? null,
+						ensureMs: Math.round(performance.now() - ensureStartMs),
+						totalMs: Math.round(performance.now() - startMs),
+					})
+				}
+			}
+		})()
+
+		if (debugLogsEnabled) {
+			console.log("[sessions][upload] open dialog immediately", {
+				meetingId,
+				totalMs: Math.round(performance.now() - startMs),
+			})
 		}
-	}, [ensureDoconchainToken, isUploadBlockedByLock, meetingId])
+		return true
+	}, [
+		debugLogsEnabled,
+		ensureDoconchainToken,
+		isDocumentChangesLocked,
+		isUploadBlockedByLock,
+		meetingId,
+	])
 
 	return {
 		documents,

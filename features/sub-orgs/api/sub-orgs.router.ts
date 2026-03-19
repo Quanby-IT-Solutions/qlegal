@@ -14,6 +14,7 @@ import { getDoconchainSubOrgMembers } from "@/services/doconchain/organization/g
 import { getDoconchainSubOrganizationDetails } from "@/services/doconchain/organization/get-sub-organization"
 import { moveDoconchainMemberToSubOrg } from "@/services/doconchain/organization/move-member-to-sub-org"
 import { transferDoconchainCreditsToSubOrg } from "@/services/doconchain/organization/transfer-credits"
+import { getDoconchainApiTokenWithEnterpriseCreds } from "@/services/doconchain/auth/generate-token"
 import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
 import { users } from "@/services/drizzle/schema/auth"
 
@@ -23,6 +24,7 @@ import {
 	getSubOrgCredentialsSchema,
 	getSubOrgCreditsSchema,
 	listSubOrgMembersSchema,
+	setSubOrgTokenEmailSchema,
 	transferCreditsToSubOrgSchema,
 } from "./sub-orgs.schema"
 
@@ -62,6 +64,7 @@ const doconchain = {
 		subOrganizationUuid: string
 		clientKey?: string | null
 		clientSecret?: string | null
+		tokenEmail?: string | null
 	}) => Promise<
 		Array<{
 			email?: string
@@ -143,10 +146,25 @@ export const subOrgsRouter = createTRPCRouter({
 			})
 		}
 
+		// Prefer a known member email inside this sub-org to generate a sub-org scoped token.
+		// This avoids "User not found" when DOCONCHAIN_EMAIL is not a member of the sub-org.
+		let tokenEmail: string | null = (subOrg.tokenEmail ?? "").trim() || null
+		if (!tokenEmail) {
+			const enpRow = await ctx.db
+				.select({ email: users.email })
+				.from(enpProfiles)
+				.innerJoin(users, eq(enpProfiles.userId, users.id))
+				// enp_profile.doconchainSubOrgId stores the DocOnChain sub-org UUID (not our internal DB id)
+				.where(eq(enpProfiles.doconchainSubOrgId, subOrg.uuid))
+				.limit(1)
+			if (enpRow[0]?.email) tokenEmail = enpRow[0].email
+		}
+
 		const members = await doconchain.getSubOrgMembers({
 			subOrganizationUuid: subOrg.uuid,
 			clientKey: subOrg.clientKey ?? null,
 			clientSecret: subOrg.clientSecret ?? null,
+			tokenEmail,
 		})
 		const excludeEmail = env.DOCONCHAIN_EMAIL.trim().toLowerCase()
 
@@ -441,5 +459,58 @@ export const subOrgsRouter = createTRPCRouter({
 				subOrgId: subOrg.id,
 				subOrgName: subOrg.name,
 			}
+		}),
+
+	setTokenEmail: protectedProcedure
+		.input(setSubOrgTokenEmailSchema)
+		.mutation(async ({ ctx, input }) => {
+			requireManagementRole(ctx)
+
+			const tokenEmail = input.tokenEmail.trim().toLowerCase()
+			const subOrg = await ctx.db.query.doconchainSubOrganizations.findFirst({
+				where: eq(doconchainSubOrganizations.id, input.subOrgId),
+			})
+
+			if (!subOrg) {
+				throw new TRPCError({
+					code: "NOT_FOUND",
+					message: "Sub-organization not found.",
+				})
+			}
+
+			const key = (subOrg.clientKey ?? "").trim()
+			const secret = (subOrg.clientSecret ?? "").trim()
+			if (!key || !secret) {
+				throw new TRPCError({
+					code: "PRECONDITION_FAILED",
+					message:
+						"This sub-org is missing stored DocOnChain client key/secret. Fetch credentials first, then retry.",
+				})
+			}
+
+			// Validate that this email can actually generate a token using this sub-org’s enterprise creds.
+			// This implicitly verifies the email exists within (or is scoped to) the sub-org.
+			try {
+				await getDoconchainApiTokenWithEnterpriseCreds({
+					email: tokenEmail,
+					clientKey: key,
+					clientSecret: secret,
+				})
+			} catch (err) {
+				const msg = err instanceof Error ? err.message : String(err)
+				throw new TRPCError({
+					code: "BAD_REQUEST",
+					message:
+						`Unable to generate a DocOnChain token for that email using this sub-org credentials. ` +
+						`Make sure the email is a member of this sub-org. (${msg})`,
+				})
+			}
+
+			await ctx.db
+				.update(doconchainSubOrganizations)
+				.set({ tokenEmail })
+				.where(eq(doconchainSubOrganizations.id, subOrg.id))
+
+			return { success: true, subOrgId: subOrg.id, tokenEmail }
 		}),
 })

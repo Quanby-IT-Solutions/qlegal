@@ -39,7 +39,6 @@ export function LicensingForm() {
 			ibpNoDate: enpProfile?.ibpNoDate ?? "",
 			notaryAddress: enpProfile?.notaryAddress ?? "",
 			notaryPublicNumber: enpProfile?.notaryPublicNumber ?? "",
-			notaryFacilityNumber: enpProfile?.notaryFacilityNumber ?? "",
 		},
 	})
 
@@ -312,26 +311,9 @@ export function LicensingForm() {
 						)}
 					/>
 
-					<FormField
-						control={form.control}
-						name="notaryFacilityNumber"
-						render={({ field }) => (
-							<FormItem>
-								<FormLabel>Notary Facility Number (NFN)</FormLabel>
-								<FormControl>
-									<Input
-										placeholder="e.g., NFN-123"
-										autoComplete="off"
-										{...field}
-									/>
-								</FormControl>
-								<FormMessage />
-								<p className="text-muted-foreground text-xs">
-									Required for Supreme Court eNotarization API sync
-								</p>
-							</FormItem>
-						)}
-					/>
+					<p className="text-muted-foreground col-span-full text-xs">
+						Notary Facility Number (NFN) is set in environment (SUPREME_COURT_NFN). Only NPN and Roll Number differ per ENP.
+					</p>
 				</div>
 
 				<Button type="submit" disabled={isPending}>

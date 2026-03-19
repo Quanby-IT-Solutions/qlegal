@@ -19,6 +19,23 @@ type CachedEnterpriseCreds = {
 const cachedEnterpriseCredsByEmail = new Map<string, CachedEnterpriseCreds>()
 const CREDS_TTL_MS = 15 * 60 * 1000
 
+const debugLogsEnabled = env.NODE_ENV !== "production"
+const DOCONCHAIN_FETCH_TIMEOUT_MS = 15_000
+
+async function fetchWithTimeout(
+	url: string,
+	init: RequestInit,
+	timeoutMs: number
+): Promise<Response> {
+	const controller = new AbortController()
+	const timeoutId: ReturnType<typeof setTimeout> = setTimeout(() => controller.abort(), timeoutMs)
+	try {
+		return await fetch(url, { ...init, signal: controller.signal })
+	} finally {
+		clearTimeout(timeoutId)
+	}
+}
+
 function parseJwtExpMs(token: string): number | undefined {
 	const parts = token.split(".")
 	if (parts.length < 2) {
@@ -45,21 +62,60 @@ async function generateDoconchainTokenWithCreds(input: {
 	clientSecret: string
 }): Promise<{ token: string }> {
 	const url = new URL("/api/v2/generate/token", env.DOCONCHAIN_API_URL)
-	// DocOnChain frequently scopes behavior by user_type.
-	url.searchParams.set("user_type", "ENTERPRISE_API")
 
 	const body = new FormData()
 	body.set("client_key", input.clientKey)
 	body.set("client_secret", input.clientSecret)
 	body.set("email", input.email)
 
-	const res = await fetch(url.toString(), {
-		method: "POST",
-		body,
-	})
+	const startMs = Date.now()
+	if (debugLogsEnabled) {
+		console.log("[doconchain][token] generate start", {
+			email: input.email,
+			url: url.toString(),
+		})
+	}
+
+	let res: Response
+	try {
+		res = await fetchWithTimeout(
+			url.toString(),
+			{
+				method: "POST",
+				headers: {
+					accept: "application/json",
+				},
+				body,
+			},
+			DOCONCHAIN_FETCH_TIMEOUT_MS
+		)
+	} catch (error) {
+		const isAbort = error instanceof Error && error.name === "AbortError"
+		const msg = isAbort
+			? `DocOnChain generate token timed out after ${DOCONCHAIN_FETCH_TIMEOUT_MS}ms`
+			: error instanceof Error
+				? error.message
+				: String(error)
+		if (debugLogsEnabled) {
+			console.log("[doconchain][token] generate error", {
+				email: input.email,
+				message: msg,
+				totalMs: Date.now() - startMs,
+			})
+		}
+		throw new Error(msg)
+	}
 
 	const text = await res.text().catch(() => "")
 	if (!res.ok) {
+		if (debugLogsEnabled) {
+			console.log("[doconchain][token] generate non-200", {
+				email: input.email,
+				status: res.status,
+				statusText: res.statusText,
+				totalMs: Date.now() - startMs,
+			})
+		}
 		throw new Error(
 			`DocOnChain generate token failed (${res.status} ${res.statusText})${text ? `: ${text}` : ""}`
 		)
@@ -74,11 +130,24 @@ async function generateDoconchainTokenWithCreds(input: {
 		(json && typeof json === "object" && "data" in json ? (json as { data?: { token?: string } }).data?.token : undefined)
 
 	if (!token) {
+		if (debugLogsEnabled) {
+			console.log("[doconchain][token] generate missing token", {
+				email: input.email,
+				totalMs: Date.now() - startMs,
+			})
+		}
 		throw new Error("DocOnChain generate token response missing token.")
 	}
 
 	const expMs = parseJwtExpMs(token)
 	cachedTokensByEmail.set(input.email, { token, expiresAtMs: expMs, cachedAtMs: Date.now() })
+	if (debugLogsEnabled) {
+		console.log("[doconchain][token] generate ok", {
+			email: input.email,
+			hasExp: typeof expMs === "number",
+			totalMs: Date.now() - startMs,
+		})
+	}
 
 	return { token }
 }
@@ -149,17 +218,36 @@ export async function getDoconchainApiToken(input?: {
 	const now = Date.now()
 	const cached = cachedTokensByEmail.get(email)
 	if (cached?.token && isCachedTokenUsable(cached, now)) {
+		if (debugLogsEnabled) {
+			console.log("[doconchain][token] cache hit", { email })
+		}
 		return cached.token
 	}
 
 	const existingInFlight = inFlightByEmail.get(email)
 	if (existingInFlight) {
+		if (debugLogsEnabled) {
+			console.log("[doconchain][token] in-flight await", { email })
+		}
 		return await existingInFlight
 	}
 
 	const promise = (async () => {
+		const startMs = Date.now()
 		try {
+			if (debugLogsEnabled) {
+				console.log("[doconchain][token] getDoconchainApiToken start", {
+					email,
+					forceGenerated: Boolean(input?.forceGenerated),
+				})
+			}
 			const { token } = await generateDoconchainToken({ email })
+			if (debugLogsEnabled) {
+				console.log("[doconchain][token] primary generate ok", {
+					email,
+					totalMs: Date.now() - startMs,
+				})
+			}
 			return token
 		} catch (error) {
 			// User may not exist in parent org or is in a sub-org. Try sub-org creds first, then auto-join.
@@ -172,6 +260,21 @@ export async function getDoconchainApiToken(input?: {
 				msg.includes("e_unauthorized_access") ||
 				(msg.includes("401") && msg.includes("unauthorized"))
 			if (looksLikeMissingUserOrUnauthorized) {
+				// Avoid deadlocks: the fallback sub-org discovery can call APIs that themselves need
+				// a token generated for DOCONCHAIN_EMAIL, which would re-enter this function and
+				// await the same in-flight promise.
+				const normalizedEnvEmail = env.DOCONCHAIN_EMAIL.trim().toLowerCase()
+				if (email === normalizedEnvEmail) {
+					throw error
+				}
+
+				if (debugLogsEnabled) {
+					console.log("[doconchain][token] missing/unauthorized; fallback path", {
+						email,
+						message: error instanceof Error ? error.message : String(error),
+						totalMs: Date.now() - startMs,
+					})
+				}
 				// If the user is already under a sub-org, DocOnChain may require using that sub-org's
 				// client_key/client_secret to generate a token.
 				try {
@@ -180,8 +283,14 @@ export async function getDoconchainApiToken(input?: {
 					// Prefer stored sub-org creds from our DB (avoids 401 from list orgs / get details).
 					const resolver = input?.getSubOrgCredsForEmail
 					if (resolver) {
+						if (debugLogsEnabled) {
+							console.log("[doconchain][token] trying DB sub-org creds resolver", { email })
+						}
 						const creds = await resolver(email)
 						if (creds) {
+							if (debugLogsEnabled) {
+								console.log("[doconchain][token] resolver returned creds", { email })
+							}
 							cachedEnterpriseCredsByEmail.set(email, {
 								subOrgUuid: "",
 								clientKey: creds.clientKey,
@@ -193,20 +302,38 @@ export async function getDoconchainApiToken(input?: {
 								clientKey: creds.clientKey,
 								clientSecret: creds.clientSecret,
 							})
+							if (debugLogsEnabled) {
+								console.log("[doconchain][token] token via resolver creds ok", {
+									email,
+									totalMs: Date.now() - startMs,
+								})
+							}
 							return token
 						}
 					}
 
 					const cachedCreds = cachedEnterpriseCredsByEmail.get(email)
 					if (cachedCreds && now < cachedCreds.cachedAtMs + CREDS_TTL_MS) {
+						if (debugLogsEnabled) {
+							console.log("[doconchain][token] using cached enterprise creds", { email })
+						}
 						const { token } = await generateDoconchainTokenWithCreds({
 							email,
 							clientKey: cachedCreds.clientKey,
 							clientSecret: cachedCreds.clientSecret,
 						})
+						if (debugLogsEnabled) {
+							console.log("[doconchain][token] token via cached enterprise creds ok", {
+								email,
+								totalMs: Date.now() - startMs,
+							})
+						}
 						return token
 					}
 
+					if (debugLogsEnabled) {
+						console.log("[doconchain][token] listing orgs for sub-org lookup", { email })
+					}
 					const orgs = await listDoconchainOrganizations()
 					const subOrgs = orgs
 						.map(o => ({ uuid: String(o.uuid ?? "").trim(), parentId: o.parent_id }))
@@ -222,6 +349,12 @@ export async function getDoconchainApiToken(input?: {
 						const found = members.some(m => (m.email ?? "").trim().toLowerCase() === email)
 						if (!found) continue
 
+						if (debugLogsEnabled) {
+							console.log("[doconchain][token] found member in sub-org", {
+								email,
+								subOrgUuid: o.uuid,
+							})
+						}
 						const details = await getDoconchainSubOrganizationDetails({ subOrganizationUuid: o.uuid })
 						if (!details.clientKey || !details.clientSecret) break
 
@@ -236,18 +369,49 @@ export async function getDoconchainApiToken(input?: {
 							clientKey: details.clientKey,
 							clientSecret: details.clientSecret,
 						})
+						if (debugLogsEnabled) {
+							console.log("[doconchain][token] token via sub-org details ok", {
+								email,
+								subOrgUuid: o.uuid,
+								totalMs: Date.now() - startMs,
+							})
+						}
 						return token
 					}
 				} catch {
 					// Ignore and fall back to auto-join logic below.
 				}
 
+				if (debugLogsEnabled) {
+					console.log("[doconchain][token] auto-join fallback", { email })
+				}
 				const { autoJoinMemberInDoconchainOrganization } = await import(
 					"@/services/doconchain/organization/auto-join-member"
 				)
-				await autoJoinMemberInDoconchainOrganization({ email })
+				try {
+					await autoJoinMemberInDoconchainOrganization({ email })
+				} catch (e) {
+					// DocOnChain sometimes returns 400 for "already exists in your or another organization".
+					// Treat that as idempotent and continue to token generation.
+					if (!looksLikeDoconchainAlreadyMemberError(e)) {
+						throw e
+					}
+				}
 				const { token } = await generateDoconchainToken({ email })
+				if (debugLogsEnabled) {
+					console.log("[doconchain][token] token after auto-join ok", {
+						email,
+						totalMs: Date.now() - startMs,
+					})
+				}
 				return token
+			}
+			if (debugLogsEnabled) {
+				console.log("[doconchain][token] non-fallback error", {
+					email,
+					message: error instanceof Error ? error.message : String(error),
+					totalMs: Date.now() - startMs,
+				})
 			}
 			throw error
 		} finally {
@@ -257,5 +421,17 @@ export async function getDoconchainApiToken(input?: {
 
 	inFlightByEmail.set(email, promise)
 	return await promise
+}
+
+function looksLikeDoconchainAlreadyMemberError(error: unknown): boolean {
+	const msg = error instanceof Error ? error.message.toLowerCase() : ""
+	return (
+		msg.includes("auto-join failed") &&
+		(msg.includes("(400") || msg.includes(" 400 ")) &&
+		(msg.includes("already exist") ||
+			msg.includes("already exists") ||
+			msg.includes("cannot add an email") ||
+			msg.includes("email that already"))
+	)
 }
 

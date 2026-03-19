@@ -55,9 +55,23 @@ export function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meet
 	})
 
 	const handleUploadClick = useCallback(async () => {
+		const debugLogsEnabled = process.env.NODE_ENV !== "production"
+		const startMs = performance.now()
+		if (debugLogsEnabled) {
+			console.log("[sessions][upload] MeetingView.handleUploadClick start", {
+				meetingId: meetingId ?? null,
+			})
+		}
 		const ready = await meetingData.handleUploadClick()
+		if (debugLogsEnabled) {
+			console.log("[sessions][upload] MeetingView.handleUploadClick done", {
+				meetingId: meetingId ?? null,
+				ready,
+				totalMs: Math.round(performance.now() - startMs),
+			})
+		}
 		if (ready) setIsUploadDialogOpen(true)
-	}, [meetingData])
+	}, [meetingData, meetingId])
 
 	const isConsentInitiator =
 		recordingConsent.recordingConsentRequest?.initiatorName === (session?.user?.name ?? "Someone")

@@ -68,6 +68,8 @@ export const env = createEnv({
 		SUPREME_COURT_CLIENT_ID: z.string().optional(),
 		SUPREME_COURT_USERNAME: z.string().optional(),
 		SUPREME_COURT_PASSWORD: z.string().optional(),
+		/** Notary Facility Number (NFN); constant per deployment. Per-ENP values are NPN and Roll Number only. */
+		SUPREME_COURT_NFN: z.string().optional(),
 
 		// Storage
 		SUPABASE_SERVICE_ROLE_KEY: z.string(),
@@ -160,6 +162,7 @@ export const env = createEnv({
 		SUPREME_COURT_CLIENT_ID: process.env.SUPREME_COURT_CLIENT_ID,
 		SUPREME_COURT_USERNAME: process.env.SUPREME_COURT_USERNAME,
 		SUPREME_COURT_PASSWORD: process.env.SUPREME_COURT_PASSWORD,
+		SUPREME_COURT_NFN: process.env.SUPREME_COURT_NFN,
 
 		// Storage
 		SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,

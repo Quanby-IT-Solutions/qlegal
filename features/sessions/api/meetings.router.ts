@@ -3,6 +3,7 @@ import { and, asc, desc, eq, inArray, ne, type InferSelectModel } from "drizzle-
 import { z } from "zod/v4"
 
 import { getFullName } from "@/core/lib/utils"
+import { env } from "@/env"
 import { getSubOrgCredsForMemberEmail } from "@/features/sub-orgs/server/get-sub-org-creds-for-member"
 import { getDoconchainApiToken, invalidateDoconchainToken } from "@/services/doconchain/auth/generate-token"
 import { addDoconchainProjectSigner } from "@/services/doconchain/projects/add-signer"
@@ -520,6 +521,14 @@ export const meetingsRouter = createTRPCRouter({
 	ensureDocoChainToken: protectedProcedure
 		.input(z.object({ meetingId: z.string().min(1) }))
 		.query(async ({ input, ctx }) => {
+			const debugLogsEnabled = env.NODE_ENV !== "production"
+			const startMs = Date.now()
+			if (debugLogsEnabled) {
+				console.log("[sessions][doconchain] ensureDocoChainToken start", {
+					meetingId: input.meetingId,
+					userId: ctx.session.user.id,
+				})
+			}
 			const meeting = await db.query.meetings.findFirst({
 				where: eq(meetings.id, input.meetingId),
 				columns: { id: true, createdById: true },
@@ -545,18 +554,54 @@ export const meetingsRouter = createTRPCRouter({
 					message: "An ENP participant with an email is required to prepare DocOnChain.",
 				})
 			}
+			if (debugLogsEnabled) {
+				console.log("[sessions][doconchain] ensureDocoChainToken resolved ENP", {
+					meetingId: input.meetingId,
+					enpEmail,
+					totalMs: Date.now() - startMs,
+				})
+			}
 
 			try {
 				// Force-refresh the cached token so the next DocOnChain call is not using a stale token.
+				const tokenStartMs = Date.now()
+				if (debugLogsEnabled) {
+					console.log("[sessions][doconchain] invalidateDoconchainToken", {
+						meetingId: input.meetingId,
+						enpEmail,
+					})
+				}
 				invalidateDoconchainToken(enpEmail)
+				if (debugLogsEnabled) {
+					console.log("[sessions][doconchain] getDoconchainApiToken start", {
+						meetingId: input.meetingId,
+						enpEmail,
+					})
+				}
 				await getDoconchainApiToken({
 					email: enpEmail,
 					forceGenerated: true,
 					getSubOrgCredsForEmail: (em) => getSubOrgCredsForMemberEmail(em, db),
 				})
+				if (debugLogsEnabled) {
+					console.log("[sessions][doconchain] getDoconchainApiToken ok", {
+						meetingId: input.meetingId,
+						enpEmail,
+						tokenMs: Date.now() - tokenStartMs,
+						totalMs: Date.now() - startMs,
+					})
+				}
 				return { ready: true }
 			} catch (error) {
 				const msg = error instanceof Error ? error.message : "Failed to prepare DocOnChain."
+				if (debugLogsEnabled) {
+					console.log("[sessions][doconchain] ensureDocoChainToken error", {
+						meetingId: input.meetingId,
+						enpEmail,
+						message: msg,
+						totalMs: Date.now() - startMs,
+					})
+				}
 				const lower = msg.toLowerCase()
 
 				// Don't block document upload UX if DocOnChain auto-join is temporarily unauthorized.

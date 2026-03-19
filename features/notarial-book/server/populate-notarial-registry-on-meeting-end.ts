@@ -1,6 +1,7 @@
 import { and, asc, desc, eq, inArray } from "drizzle-orm"
 
 import { getFullName } from "@/core/lib/utils"
+import { env } from "@/env"
 import { db } from "@/services/drizzle/db"
 import { users } from "@/services/drizzle/schema/auth"
 import { documentSigners } from "@/services/drizzle/schema/document-signers"
@@ -249,10 +250,10 @@ export async function populateNotarialRegistryOnMeetingEnd(input: {
 	}
 	if (!book) throw new Error("Failed to resolve notarial book")
 
-	// ENP profile (for roll number and optional Supreme Court sync)
+	// ENP profile (for roll number and optional Supreme Court sync; NFN comes from env)
 	const profile = await db.query.enpProfiles.findFirst({
 		where: eq(enpProfiles.userId, enpId),
-		columns: { rollNo: true, notaryPublicNumber: true, notaryFacilityNumber: true },
+		columns: { rollNo: true, notaryPublicNumber: true },
 	})
 
 	const docsToConsider = (meeting.documents ?? [])
@@ -444,7 +445,8 @@ export async function populateNotarialRegistryOnMeetingEnd(input: {
 		createdCount += 1
 
 		// Optional: sync new act to Supreme Court when configured (best-effort; do not fail meeting end)
-		if (inserted?.id && isSupremeCourtConfigured() && profile?.notaryPublicNumber && profile?.notaryFacilityNumber && profile?.rollNo) {
+		const nfn = env.SUPREME_COURT_NFN
+		if (inserted?.id && isSupremeCourtConfigured() && nfn && profile?.notaryPublicNumber && profile?.rollNo) {
 			try {
 				const actRow = await db.query.notarialActs.findFirst({
 					where: eq(notarialActs.id, inserted.id),
@@ -471,7 +473,7 @@ export async function populateNotarialRegistryOnMeetingEnd(input: {
 					}
 					const result = await syncNotarialActToSupremeCourt({
 						act: actRow,
-						notaryFacilityNumber: profile.notaryFacilityNumber,
+						notaryFacilityNumber: nfn,
 						notaryPublicNumber: profile.notaryPublicNumber,
 						rollNumber: profile.rollNo,
 						documentFile,

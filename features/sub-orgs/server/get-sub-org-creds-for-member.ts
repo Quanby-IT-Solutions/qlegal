@@ -1,6 +1,6 @@
 import { and, eq, isNotNull } from "drizzle-orm"
 
-import { getDoconchainSubOrgMembers } from "@/services/doconchain/organization/get-sub-org-members"
+import { getDoconchainApiTokenWithEnterpriseCreds } from "@/services/doconchain/auth/generate-token"
 import type { db as dbType } from "@/services/drizzle/db"
 import { users } from "@/services/drizzle/schema/auth"
 import { doconchainSubOrganizations } from "@/services/drizzle/schema/doconchain-sub-organizations"
@@ -37,10 +37,7 @@ export async function getSubOrgCredsForMemberEmail(
 				if (subOrgUuid) {
 					const row = await db.query.doconchainSubOrganizations.findFirst({
 						where: eq(doconchainSubOrganizations.uuid, subOrgUuid),
-						columns: {
-							clientKey: doconchainSubOrganizations.clientKey,
-							clientSecret: doconchainSubOrganizations.clientSecret,
-						},
+						columns: { clientKey: true, clientSecret: true },
 					})
 					const key = row?.clientKey ?? null
 					const secret = row?.clientSecret ?? null
@@ -70,13 +67,15 @@ export async function getSubOrgCredsForMemberEmail(
 			const secret = row.clientSecret
 			if (!key || !secret) continue
 			try {
-				const members = await getDoconchainSubOrgMembers({
-					subOrganizationUuid: row.uuid,
+				// Instead of listing members (which requires DOCONCHAIN_EMAIL to exist in that sub-org),
+				// directly attempt token generation for the member email using this sub-org's creds.
+				// If it succeeds, this is the correct sub-org.
+				await getDoconchainApiTokenWithEnterpriseCreds({
+					email: normalized,
 					clientKey: key,
 					clientSecret: secret,
 				})
-				const found = members.some(m => (m.email ?? "").trim().toLowerCase() === normalized)
-				if (found) return { clientKey: key, clientSecret: secret }
+				return { clientKey: key, clientSecret: secret }
 			} catch {
 				// Skip this sub-org and try the next
 				continue
