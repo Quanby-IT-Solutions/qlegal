@@ -45,6 +45,7 @@ export function MeetingDocumentUpload({
 	isEnp = false,
 	onUploadStart,
 }: MeetingDocumentUploadProps) {
+	const debugLogsEnabled = process.env.NODE_ENV !== "production"
 	const [documentName, setDocumentName] = useState("")
 	const [description, setDescription] = useState("")
 	const [notarizationType, setNotarizationType] = useState<
@@ -53,6 +54,15 @@ export function MeetingDocumentUpload({
 	const [fees, setFees] = useState("")
 	const [selectedFile, setSelectedFile] = useState<File | null>(null)
 	const [isUploading, setIsUploading] = useState(false)
+
+	useEffect(() => {
+		if (!debugLogsEnabled) return
+		console.log("[sessions][upload] MeetingDocumentUpload open-state", {
+			meetingId,
+			isOpen,
+			ts: new Date().toISOString(),
+		})
+	}, [debugLogsEnabled, isOpen, meetingId])
 
 	// Fetch meeting details to find the ENP participant's pricing.
 	// getById already returns participants with enpProfile pricing columns
@@ -154,18 +164,45 @@ export function MeetingDocumentUpload({
 	})
 
 	const handleUpload = async () => {
+		const startMs = performance.now()
+		if (debugLogsEnabled) {
+			console.log("[sessions][upload] handleUpload click", {
+				meetingId,
+				hasSelectedFile: Boolean(selectedFile),
+				documentName: documentName.trim() || null,
+				notarizationType: notarizationType || null,
+			})
+		}
 		if (!selectedFile) {
 			toast.error("Please select a file")
+			if (debugLogsEnabled) {
+				console.log("[sessions][upload] handleUpload blocked: no file", {
+					meetingId,
+					totalMs: Math.round(performance.now() - startMs),
+				})
+			}
 			return
 		}
 
 		if (!documentName.trim()) {
 			toast.error("Please enter a document name")
+			if (debugLogsEnabled) {
+				console.log("[sessions][upload] handleUpload blocked: no documentName", {
+					meetingId,
+					totalMs: Math.round(performance.now() - startMs),
+				})
+			}
 			return
 		}
 
 		if (!notarizationType) {
 			toast.error("Please select a notarization type")
+			if (debugLogsEnabled) {
+				console.log("[sessions][upload] handleUpload blocked: no notarizationType", {
+					meetingId,
+					totalMs: Math.round(performance.now() - startMs),
+				})
+			}
 			return
 		}
 
@@ -178,6 +215,7 @@ export function MeetingDocumentUpload({
 
 		try {
 			// Convert file to base64
+			const base64StartMs = performance.now()
 			const base64 = await new Promise<string>((resolve, reject) => {
 				const reader = new FileReader()
 				reader.onload = () => {
@@ -193,15 +231,38 @@ export function MeetingDocumentUpload({
 				reader.onerror = reject
 				reader.readAsDataURL(selectedFile)
 			})
+			if (debugLogsEnabled) {
+				console.log("[sessions][upload] base64 ready", {
+					meetingId,
+					base64Ms: Math.round(performance.now() - base64StartMs),
+					fileSizeBytes: selectedFile.size,
+				})
+			}
 
 			const feesNum = fees.trim() !== "" ? parseFloat(fees) : 0
 			if (Number.isNaN(feesNum) || feesNum < 0) {
 				toast.error("Fees must be a valid non-negative number")
 				setIsUploading(false)
+				if (debugLogsEnabled) {
+					console.log("[sessions][upload] handleUpload blocked: invalid fees", {
+						meetingId,
+						feesRaw: fees,
+						totalMs: Math.round(performance.now() - startMs),
+					})
+				}
 				return
 			}
 
 			// Upload document
+			if (debugLogsEnabled) {
+				console.log("[sessions][upload] uploadDocument.mutate start", {
+					meetingId,
+					name: documentName.trim(),
+					mimeType: selectedFile.type,
+					size: selectedFile.size,
+					fees: feesNum,
+				})
+			}
 			uploadDocument.mutate({
 				meetingId,
 				name: documentName.trim(),
@@ -216,6 +277,13 @@ export function MeetingDocumentUpload({
 			console.error("Upload error:", error)
 			toast.error("Failed to upload document")
 			setIsUploading(false)
+			if (debugLogsEnabled) {
+				console.log("[sessions][upload] handleUpload error", {
+					meetingId,
+					message: error instanceof Error ? error.message : String(error),
+					totalMs: Math.round(performance.now() - startMs),
+				})
+			}
 		}
 	}
 
@@ -233,6 +301,13 @@ export function MeetingDocumentUpload({
 
 	// Reset state when dialog closes
 	const handleOpenChange = (open: boolean) => {
+		if (debugLogsEnabled) {
+			console.log("[sessions][upload] dialog onOpenChange", {
+				meetingId,
+				open,
+				isUploading,
+			})
+		}
 		if (!open && !isUploading) {
 			// Reset state when dialog is closed (only if not uploading)
 			setIsUploading(false)

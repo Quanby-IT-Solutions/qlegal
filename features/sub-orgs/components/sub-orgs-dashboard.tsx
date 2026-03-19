@@ -270,7 +270,20 @@ function SubOrgCredentialsFields({ subOrgId }: { subOrgId: string }) {
 }
 
 function SubOrgMembersTable({ subOrgId }: { subOrgId: string }) {
+	const utils = trpc.useUtils()
 	const { data, isLoading, isError, error } = trpc.subOrgs.members.useQuery({ subOrgId })
+	const setTokenEmailMutation = trpc.subOrgs.setTokenEmail.useMutation({
+		onSuccess: async () => {
+			await utils.subOrgs.members.invalidate({ subOrgId })
+			toast.success("Token email saved. Retrying members…")
+		},
+		onError: err => {
+			toast.error(err.message || "Failed to save token email.")
+		},
+	})
+
+	const [setTokenEmailOpen, setSetTokenEmailOpen] = useState(false)
+	const [tokenEmail, setTokenEmail] = useState("")
 
 	const count = data?.length ?? 0
 
@@ -284,10 +297,60 @@ function SubOrgMembersTable({ subOrgId }: { subOrgId: string }) {
 	}
 
 	if (isError) {
+		const message = error.message ?? "Failed to load members."
+		const likelyAuthIssue =
+			/token|bearer|unauthorized|401|doconchain_email/i.test(message) ||
+			message.includes("DocOnChain get sub-org members failed")
 		return (
 			<>
 				<p className="text-[11px] font-bold uppercase tracking-wide">Members</p>
-				<p className="text-sm text-destructive">{error.message ?? "Failed to load members."}</p>
+				<p className="text-sm text-destructive">{message}</p>
+				{likelyAuthIssue && (
+					<div className="mt-2 flex flex-col gap-2">
+						<Button type="button" variant="outline" size="sm" onClick={() => setSetTokenEmailOpen(true)}>
+							Set token email
+						</Button>
+						<Dialog open={setTokenEmailOpen} onOpenChange={setSetTokenEmailOpen}>
+							<DialogContent className="sm:max-w-md">
+								<DialogHeader>
+									<DialogTitle>Set token email</DialogTitle>
+									<DialogDescription>
+										Enter an email that is a member of this DocOnChain sub-org. We’ll use it to
+										generate a sub-org scoped token to fetch members/credits reliably.
+									</DialogDescription>
+								</DialogHeader>
+								<div className="space-y-2">
+									<Label htmlFor={`token-email-${subOrgId}`}>Member email</Label>
+									<Input
+										id={`token-email-${subOrgId}`}
+										value={tokenEmail}
+										onChange={e => setTokenEmail(e.target.value)}
+										placeholder="someone@company.com"
+									/>
+								</div>
+								<DialogFooter>
+									<Button
+										type="button"
+										variant="outline"
+										onClick={() => setSetTokenEmailOpen(false)}
+										disabled={setTokenEmailMutation.isPending}
+									>
+										Cancel
+									</Button>
+									<Button
+										type="button"
+										onClick={() => {
+											setTokenEmailMutation.mutate({ subOrgId, tokenEmail })
+										}}
+										disabled={setTokenEmailMutation.isPending || !tokenEmail.trim()}
+									>
+										{setTokenEmailMutation.isPending ? "Saving…" : "Save"}
+									</Button>
+								</DialogFooter>
+							</DialogContent>
+						</Dialog>
+					</div>
+				)}
 			</>
 		)
 	}

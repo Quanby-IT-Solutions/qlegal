@@ -1,5 +1,6 @@
 import { env } from "@/env"
 import { getDoconchainApiToken, invalidateDoconchainToken } from "@/services/doconchain/auth/generate-token"
+import type { GetSubOrgCredsForEmail } from "@/services/doconchain/auth/generate-token"
 
 type DoconchainVaultItem = {
 	id?: number
@@ -74,6 +75,8 @@ export async function getDoconchainVaultItems(input: {
 	page?: number
 	userItemsOnly?: "yes" | "no"
 	apiIntegratedProjectsOnly?: "yes" | "no"
+	/** Optional: resolve sub-org enterprise creds for this token email (usually the ENP owner). */
+	getSubOrgCredsForEmail?: GetSubOrgCredsForEmail
 }): Promise<{ items: DoconchainVaultItem[]; meta: DoconchainVaultItemsResponse["meta"] }> {
 	const email = input.email.trim().toLowerCase()
 	if (!email) throw new Error("Email is required to fetch vault items.")
@@ -85,7 +88,7 @@ export async function getDoconchainVaultItems(input: {
 
 	const doRequest = async () => {
 		// Prefer explicit user-token (DOCONCHAIN_API_TOKEN) if configured; otherwise generate.
-		const token = await getDoconchainApiToken({ email })
+		const token = await getDoconchainApiToken({ email, getSubOrgCredsForEmail: input.getSubOrgCredsForEmail })
 		return await fetchVaultItems({ token, perPage, page, userItemsOnly, apiIntegratedProjectsOnly })
 	}
 

@@ -319,9 +319,8 @@ export const profileRouter = createTRPCRouter({
 				(input.ibpNoDate && formatDateForStamp(input.ibpNoDate)) ||
 				normalizeString(input.ibpNoDate),
 			notaryAddress: normalizeString(input.notaryAddress),
-			// Supreme Court eNotarization API Fields
+			// Supreme Court eNotarization API Fields (NFN is from SUPREME_COURT_NFN env)
 			notaryPublicNumber: normalizeString(input.notaryPublicNumber),
-			notaryFacilityNumber: normalizeString(input.notaryFacilityNumber),
 		}
 
 		if (existingProfile) {
