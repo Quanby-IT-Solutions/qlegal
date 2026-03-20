@@ -160,42 +160,72 @@ export const subOrgsRouter = createTRPCRouter({
 			if (enpRow[0]?.email) tokenEmail = enpRow[0].email
 		}
 
-		const members = await doconchain.getSubOrgMembers({
-			subOrganizationUuid: subOrg.uuid,
-			clientKey: subOrg.clientKey ?? null,
-			clientSecret: subOrg.clientSecret ?? null,
-			tokenEmail,
-		})
-		const excludeEmail = env.DOCONCHAIN_EMAIL.trim().toLowerCase()
-
-		const cleaned = members
-			.map(m => {
-				const r = m as Record<string, unknown>
-				const email = (m.email ?? "").trim()
-				if (!email) return null
-				if (excludeEmail && email.toLowerCase() === excludeEmail) return null
-
-				const first = String((m.first_name ?? r.firstName ?? "") as string).trim()
-				const last = String((m.last_name ?? r.lastName ?? "") as string).trim()
-				const joinedName = [first, last].filter(Boolean).join(" ").trim()
-				const rawName = String((m.name ?? r.full_name ?? "") as string).trim()
-
-				const emailLocal = (email.split("@")[0] ?? "").trim()
-				const derivedFromEmail = emailLocal.replace(/[._-]+/g, " ").trim()
-				const displayName = joinedName || rawName || derivedFromEmail || email
-
-				return {
-					key: email,
-					email,
-					name: displayName,
-					role: ((m.access_level ?? m.role) ?? "").trim() || "Member",
-					status: (m.status ?? "").trim() || "",
-				}
+		try {
+			const members = await doconchain.getSubOrgMembers({
+				subOrganizationUuid: subOrg.uuid,
+				clientKey: subOrg.clientKey ?? null,
+				clientSecret: subOrg.clientSecret ?? null,
+				tokenEmail,
 			})
-			.filter((m): m is NonNullable<typeof m> => m !== null)
-			.sort((a, b) => a.email.localeCompare(b.email))
+			const excludeEmail = env.DOCONCHAIN_EMAIL.trim().toLowerCase()
 
-		return cleaned
+			const cleaned = members
+				.map(m => {
+					const r = m as Record<string, unknown>
+					const email = (m.email ?? "").trim()
+					if (!email) return null
+					if (excludeEmail && email.toLowerCase() === excludeEmail) return null
+
+					const first = String((m.first_name ?? r.firstName ?? "") as string).trim()
+					const last = String((m.last_name ?? r.lastName ?? "") as string).trim()
+					const joinedName = [first, last].filter(Boolean).join(" ").trim()
+					const rawName = String((m.name ?? r.full_name ?? "") as string).trim()
+
+					const emailLocal = (email.split("@")[0] ?? "").trim()
+					const derivedFromEmail = emailLocal.replace(/[._-]+/g, " ").trim()
+					const displayName = joinedName || rawName || derivedFromEmail || email
+
+					return {
+						key: email,
+						email,
+						name: displayName,
+						role: ((m.access_level ?? m.role) ?? "").trim() || "Member",
+						status: (m.status ?? "").trim() || "",
+					}
+				})
+				.filter((m): m is NonNullable<typeof m> => m !== null)
+				.sort((a, b) => a.email.localeCompare(b.email))
+
+			return {
+				ok: true as const,
+				members: cleaned,
+				tokenEmailUsed: tokenEmail,
+				message: null as string | null,
+				needsTokenEmail: false as const,
+			}
+		} catch (err) {
+			const message = err instanceof Error ? err.message : String(err)
+			const lower = message.toLowerCase()
+			const needsTokenEmail =
+				lower.includes("requires a token email") ||
+				lower.includes("e_unauthorized_access") ||
+				lower.includes("unauthorized") ||
+				lower.includes("(401")
+
+			return {
+				ok: false as const,
+				members: [] as Array<{
+					key: string
+					email: string
+					name: string
+					role: string
+					status: string
+				}>,
+				tokenEmailUsed: tokenEmail,
+				message,
+				needsTokenEmail,
+			}
+		}
 	}),
 
 	credentials: protectedProcedure.input(getSubOrgCredentialsSchema).query(async ({ ctx, input }) => {

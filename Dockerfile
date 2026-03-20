@@ -85,6 +85,7 @@ ARG SUPREME_COURT_AUTH_URL
 ARG SUPREME_COURT_CLIENT_ID
 ARG SUPREME_COURT_USERNAME
 ARG SUPREME_COURT_PASSWORD
+ARG SUPREME_COURT_NFN
 
 # Public Site URL
 ARG NEXT_PUBLIC_SITE_URL
@@ -156,6 +157,7 @@ ENV SUPREME_COURT_AUTH_URL=${SUPREME_COURT_AUTH_URL}
 ENV SUPREME_COURT_CLIENT_ID=${SUPREME_COURT_CLIENT_ID}
 ENV SUPREME_COURT_USERNAME=${SUPREME_COURT_USERNAME}
 ENV SUPREME_COURT_PASSWORD=${SUPREME_COURT_PASSWORD}
+ENV SUPREME_COURT_NFN=${SUPREME_COURT_NFN}
 
 # Public Site URL
 ENV NEXT_PUBLIC_SITE_URL=${NEXT_PUBLIC_SITE_URL}
@@ -170,6 +172,12 @@ RUN corepack enable pnpm && pnpm db:generate && pnpm build
 # Production image, copy all the files and run next
 FROM base AS runner
 WORKDIR /app
+
+# Re-declare build args for final image metadata
+ARG SUPREME_COURT_NFN
+
+# Default runtime env (can be overridden at deploy time)
+ENV SUPREME_COURT_NFN=${SUPREME_COURT_NFN}
 
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
