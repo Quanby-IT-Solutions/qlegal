@@ -173,6 +173,12 @@ RUN corepack enable pnpm && pnpm db:generate && pnpm build
 FROM base AS runner
 WORKDIR /app
 
+# Re-declare build args for final image metadata
+ARG SUPREME_COURT_NFN
+
+# Default runtime env (can be overridden at deploy time)
+ENV SUPREME_COURT_NFN=${SUPREME_COURT_NFN}
+
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 

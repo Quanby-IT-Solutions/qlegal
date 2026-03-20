@@ -57,68 +57,128 @@ function parseJwtExpMs(token: string): number | undefined {
 }
 
 async function generateDoconchainTokenWithCreds(input: {
-	email: string
+	/**
+	 * Cache key for this token. We still cache per "requested email" even when the DocOnChain
+	 * token endpoint does not require `email` in the payload for main-org credentials.
+	 */
+	cacheKeyEmail: string
+	/**
+	 * Optional email to include in the token payload.
+	 * DocOnChain requirement (per DocOnChain devs):
+	 * - main-org client_key/secret: DO NOT include email
+	 * - sub-org client_key/secret: include member/admin email
+	 */
+	payloadEmail?: string | null
 	clientKey: string
 	clientSecret: string
 }): Promise<{ token: string }> {
-	const url = new URL("/api/v2/generate/token", env.DOCONCHAIN_API_URL)
+	const payloadEmail = (input.payloadEmail ?? "").trim()
+	const baseUrl = new URL("/api/v2/generate/token", env.DOCONCHAIN_API_URL)
 
 	const body = new FormData()
 	body.set("client_key", input.clientKey)
 	body.set("client_secret", input.clientSecret)
-	body.set("email", input.email)
+	if (payloadEmail) body.set("email", payloadEmail)
+
+	const queryUrl = new URL(baseUrl.toString())
+	queryUrl.searchParams.set("client_key", input.clientKey)
+	queryUrl.searchParams.set("client_secret", input.clientSecret)
+	if (payloadEmail) queryUrl.searchParams.set("email", payloadEmail)
 
 	const startMs = Date.now()
 	if (debugLogsEnabled) {
 		console.log("[doconchain][token] generate start", {
-			email: input.email,
-			url: url.toString(),
+			cacheKeyEmail: input.cacheKeyEmail,
+			payloadEmail: payloadEmail ? "***" : null,
+			url: baseUrl.toString(),
 		})
 	}
 
-	let res: Response
-	try {
-		res = await fetchWithTimeout(
-			url.toString(),
-			{
-				method: "POST",
-				headers: {
-					accept: "application/json",
-				},
-				body,
-			},
-			DOCONCHAIN_FETCH_TIMEOUT_MS
-		)
-	} catch (error) {
-		const isAbort = error instanceof Error && error.name === "AbortError"
-		const msg = isAbort
-			? `DocOnChain generate token timed out after ${DOCONCHAIN_FETCH_TIMEOUT_MS}ms`
-			: error instanceof Error
-				? error.message
-				: String(error)
+	const tryRequest = async (variant: "multipart" | "query"): Promise<{ text: string }> => {
+		const url = variant === "multipart" ? baseUrl.toString() : queryUrl.toString()
 		if (debugLogsEnabled) {
-			console.log("[doconchain][token] generate error", {
-				email: input.email,
-				message: msg,
-				totalMs: Date.now() - startMs,
+			console.log("[doconchain][token] generate request", {
+				cacheKeyEmail: input.cacheKeyEmail,
+				variant,
+				url,
+				hasPayloadEmail: Boolean(payloadEmail),
 			})
 		}
-		throw new Error(msg)
+
+		let res: Response
+		try {
+			res = await fetchWithTimeout(
+				url,
+				variant === "multipart"
+					? {
+							method: "POST",
+							headers: { accept: "application/json" },
+							body,
+						}
+					: {
+							method: "POST",
+							headers: { accept: "application/json" },
+						},
+				DOCONCHAIN_FETCH_TIMEOUT_MS
+			)
+		} catch (error) {
+			const isAbort = error instanceof Error && error.name === "AbortError"
+			const msg = isAbort
+				? `DocOnChain generate token timed out after ${DOCONCHAIN_FETCH_TIMEOUT_MS}ms`
+				: error instanceof Error
+					? error.message
+					: String(error)
+			if (debugLogsEnabled) {
+				console.log("[doconchain][token] generate error", {
+					cacheKeyEmail: input.cacheKeyEmail,
+					variant,
+					message: msg,
+					totalMs: Date.now() - startMs,
+				})
+			}
+			throw new Error(msg)
+		}
+
+		const text = await res.text().catch(() => "")
+		if (!res.ok) {
+			if (debugLogsEnabled) {
+				console.log("[doconchain][token] generate non-200", {
+					cacheKeyEmail: input.cacheKeyEmail,
+					variant,
+					status: res.status,
+					statusText: res.statusText,
+					totalMs: Date.now() - startMs,
+					bodyPreview: text.slice(0, 300),
+				})
+			}
+			const err = new Error(
+				`DocOnChain generate token failed (${res.status} ${res.statusText})${text ? `: ${text}` : ""}`
+			)
+			;(err as Error & { status?: number }).status = res.status
+			throw err
+		}
+		return { text }
 	}
 
-	const text = await res.text().catch(() => "")
-	if (!res.ok) {
-		if (debugLogsEnabled) {
-			console.log("[doconchain][token] generate non-200", {
-				email: input.email,
-				status: res.status,
-				statusText: res.statusText,
-				totalMs: Date.now() - startMs,
-			})
+	let text: string
+	try {
+		// Primary attempt: multipart (matches their older docs/curl examples)
+		;({ text } = await tryRequest("multipart"))
+	} catch (e) {
+		const msg = e instanceof Error ? e.message.toLowerCase() : ""
+		const status = e instanceof Error ? (e as Error & { status?: number }).status : undefined
+		const looksLikeFormatMismatch =
+			status === 400 ||
+			status === 415 ||
+			msg.includes("must provide the email parameter") ||
+			msg.includes("belongs to an organization")
+
+		// Fallback attempt: querystring POST (matches DocOnChain dev guidance)
+		if (looksLikeFormatMismatch) {
+			;({ text } = await tryRequest("query"))
+		} else {
+			throw e
 		}
-		throw new Error(
-			`DocOnChain generate token failed (${res.status} ${res.statusText})${text ? `: ${text}` : ""}`
-		)
 	}
 
 	const json = (text ? (JSON.parse(text) as unknown) : null) as
@@ -132,7 +192,7 @@ async function generateDoconchainTokenWithCreds(input: {
 	if (!token) {
 		if (debugLogsEnabled) {
 			console.log("[doconchain][token] generate missing token", {
-				email: input.email,
+				cacheKeyEmail: input.cacheKeyEmail,
 				totalMs: Date.now() - startMs,
 			})
 		}
@@ -140,10 +200,11 @@ async function generateDoconchainTokenWithCreds(input: {
 	}
 
 	const expMs = parseJwtExpMs(token)
-	cachedTokensByEmail.set(input.email, { token, expiresAtMs: expMs, cachedAtMs: Date.now() })
+	const cacheKey = input.cacheKeyEmail.trim().toLowerCase()
+	cachedTokensByEmail.set(cacheKey, { token, expiresAtMs: expMs, cachedAtMs: Date.now() })
 	if (debugLogsEnabled) {
 		console.log("[doconchain][token] generate ok", {
-			email: input.email,
+			cacheKeyEmail: input.cacheKeyEmail,
 			hasExp: typeof expMs === "number",
 			totalMs: Date.now() - startMs,
 		})
@@ -164,7 +225,8 @@ export async function getDoconchainApiTokenWithEnterpriseCreds(input: {
 	const email = input.email.trim().toLowerCase()
 	if (!email) throw new Error("DocOnChain token generation requires a non-empty email.")
 	const { token } = await generateDoconchainTokenWithCreds({
-		email,
+		cacheKeyEmail: email,
+		payloadEmail: email,
 		clientKey: input.clientKey,
 		clientSecret: input.clientSecret,
 	})
@@ -174,9 +236,13 @@ export async function getDoconchainApiTokenWithEnterpriseCreds(input: {
 export async function generateDoconchainToken(input?: {
 	email?: string
 }): Promise<{ token: string }> {
+	// DocOnChain environments vary. Some require `email` even for main-org credentials.
+	// We always include it here to satisfy those environments (and because our caching is per-email).
 	const email = (input?.email ?? env.DOCONCHAIN_EMAIL).trim().toLowerCase()
+	if (!email) throw new Error("DocOnChain token generation requires a non-empty email.")
 	return await generateDoconchainTokenWithCreds({
-		email,
+		cacheKeyEmail: email,
+		payloadEmail: email,
 		clientKey: env.DOCONCHAIN_CLIENT_KEY,
 		clientSecret: env.DOCONCHAIN_CLIENT_SECRET,
 	})
@@ -298,7 +364,8 @@ export async function getDoconchainApiToken(input?: {
 								cachedAtMs: now,
 							})
 							const { token } = await generateDoconchainTokenWithCreds({
-								email,
+								cacheKeyEmail: email,
+								payloadEmail: email,
 								clientKey: creds.clientKey,
 								clientSecret: creds.clientSecret,
 							})
@@ -318,7 +385,8 @@ export async function getDoconchainApiToken(input?: {
 							console.log("[doconchain][token] using cached enterprise creds", { email })
 						}
 						const { token } = await generateDoconchainTokenWithCreds({
-							email,
+							cacheKeyEmail: email,
+							payloadEmail: email,
 							clientKey: cachedCreds.clientKey,
 							clientSecret: cachedCreds.clientSecret,
 						})
@@ -365,7 +433,8 @@ export async function getDoconchainApiToken(input?: {
 							cachedAtMs: now,
 						})
 						const { token } = await generateDoconchainTokenWithCreds({
-							email,
+							cacheKeyEmail: email,
+							payloadEmail: email,
 							clientKey: details.clientKey,
 							clientSecret: details.clientSecret,
 						})

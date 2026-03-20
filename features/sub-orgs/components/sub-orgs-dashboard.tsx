@@ -285,7 +285,11 @@ function SubOrgMembersTable({ subOrgId }: { subOrgId: string }) {
 	const [setTokenEmailOpen, setSetTokenEmailOpen] = useState(false)
 	const [tokenEmail, setTokenEmail] = useState("")
 
-	const count = data?.length ?? 0
+	const ok = data?.ok === true
+	const members = ok ? data.members : []
+	const count = members.length
+	const needsTokenEmail = data?.ok === false ? data.needsTokenEmail === true : false
+	const message = data?.ok === false ? (data.message ?? "Unable to load members.") : null
 
 	if (isLoading) {
 		return (
@@ -297,15 +301,20 @@ function SubOrgMembersTable({ subOrgId }: { subOrgId: string }) {
 	}
 
 	if (isError) {
-		const message = error.message ?? "Failed to load members."
-		const likelyAuthIssue =
-			/token|bearer|unauthorized|401|doconchain_email/i.test(message) ||
-			message.includes("DocOnChain get sub-org members failed")
+		return (
+			<>
+				<p className="text-[11px] font-bold uppercase tracking-wide">Members</p>
+				<p className="text-sm text-destructive">{error.message ?? "Failed to load members."}</p>
+			</>
+		)
+	}
+
+	if (!ok) {
 		return (
 			<>
 				<p className="text-[11px] font-bold uppercase tracking-wide">Members</p>
 				<p className="text-sm text-destructive">{message}</p>
-				{likelyAuthIssue && (
+				{needsTokenEmail && (
 					<div className="mt-2 flex flex-col gap-2">
 						<Button type="button" variant="outline" size="sm" onClick={() => setSetTokenEmailOpen(true)}>
 							Set token email
@@ -378,7 +387,7 @@ function SubOrgMembersTable({ subOrgId }: { subOrgId: string }) {
 						</TableRow>
 					</TableHeader>
 					<TableBody>
-						{data.map(m => (
+						{members.map(m => (
 							<TableRow key={m.key} className="[&_td]:py-2">
 								<TableCell className="max-w-[120px] truncate py-2 font-medium sm:max-w-none" title={m.name}>
 									{m.name}
