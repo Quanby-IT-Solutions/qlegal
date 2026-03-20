@@ -9,7 +9,6 @@ import { toast } from "sonner"
 import { Alert, AlertDescription, AlertTitle } from "@/core/components/reui/alert"
 import { Button } from "@/core/components/ui/button"
 import { CardContent, CardFooter } from "@/core/components/ui/card"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/core/components/ui/dialog"
 import { FieldGroup } from "@/core/components/ui/field"
 import { Input } from "@/core/components/ui/input"
 import { useKycBroadcast } from "@/core/hooks/use-kyc-broadcast"
@@ -17,7 +16,7 @@ import { useKycBroadcast } from "@/core/hooks/use-kyc-broadcast"
 import { trpc } from "@/services/trpc/client"
 
 import { getUserKycInfo, softResetUserKycStatus } from "@/features/kyc/api/kyc.actions"
-import { HyperVergeWebSdkLauncher } from "@/features/kyc/components/hyperverge-web-sdk-launcher"
+import { useHyperVergeSDK } from "@/features/kyc/hooks/use-hyperverge-sdk"
 import { useKycStatus } from "@/features/kyc/hooks/use-kyc-status"
 
 import { KycMobileFlow } from "./kyc-step-mobile"
@@ -63,12 +62,33 @@ export function KycStep({ onNext, onBack, kycStatus, onExpandChange }: KycStepPr
 	const [userInfo, setUserInfo] = useState<UserKycInfo | null>(null)
 	const [mode, setMode] = useState<KycMode>("choose")
 	const [hostedEvent, setHostedEvent] = useState<"cancelled" | null>(null)
-	const [showWebSdkLauncher, setShowWebSdkLauncher] = useState(false)
 	const hasAutoAdvancedRef = useRef(false)
 
 	const [firstName, setFirstName] = useState("")
 	const [middleName, setMiddleName] = useState("")
 	const [lastName, setLastName] = useState("")
+
+	const refreshUserInfo = async () => {
+		const result = await getUserKycInfo()
+		if (result.success && result.data) {
+			setUserInfo({
+				...result.data,
+				sessionType: result.data.sessionType as "hosted" | "direct" | null,
+			})
+		}
+	}
+
+	const { launch: launchSdk, isLoading: isLaunchingSdk } = useHyperVergeSDK({
+		redirectOnSuccess: "", // Do not redirect via href, we will handle it with state update / location reload
+		onComplete: status => {
+			void refreshUserInfo().then(() => {
+				if (status === "auto_approved") {
+					void updateSession()
+					window.location.reload()
+				}
+			})
+		},
+	})
 
 	const updateProfile = trpc.onboarding.updateProfile.useMutation({
 		onError: error =>
@@ -96,16 +116,6 @@ export function KycStep({ onNext, onBack, kycStatus, onExpandChange }: KycStepPr
 		statusResult?.status === "auto_declined" ? "auto" : "manual"
 
 	const { listen, isSupported } = useKycBroadcast()
-
-	const refreshUserInfo = async () => {
-		const result = await getUserKycInfo()
-		if (result.success && result.data) {
-			setUserInfo({
-				...result.data,
-				sessionType: result.data.sessionType as "hosted" | "direct" | null,
-			})
-		}
-	}
 
 	useEffect(() => {
 		if (!shouldFetchStatus) return
@@ -199,9 +209,9 @@ export function KycStep({ onNext, onBack, kycStatus, onExpandChange }: KycStepPr
 
 	const handleStartVerification = () => {
 		setHostedEvent(null)
-		setShowWebSdkLauncher(true)
 		onExpandChange?.(false)
 		setMode("mobile-pending")
+		void launchSdk()
 	}
 
 	const handleTryAgain = async () => {
@@ -360,30 +370,13 @@ export function KycStep({ onNext, onBack, kycStatus, onExpandChange }: KycStepPr
 				onNext={onNext}
 				onStartVerification={handleStartVerification}
 				onTryAgain={handleTryAgain}
-				isPending={Boolean(showWebSdkLauncher || isStatusLoading)}
+				isPending={Boolean(isLaunchingSdk || isStatusLoading)}
 				showPendingBanner={showPendingBanner}
 				showCancelledBanner={hostedEvent === "cancelled"}
 				showNeedsReviewBanner={showNeedsReviewBanner}
 				showRejectedBanner={showRejectedBanner}
 				rejectedVariant={isRejected ? rejectedVariant : undefined}
 			/>
-			<Dialog open={showWebSdkLauncher} onOpenChange={setShowWebSdkLauncher}>
-				<DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
-					<DialogHeader>
-						<DialogTitle>Identity verification</DialogTitle>
-					</DialogHeader>
-					<HyperVergeWebSdkLauncher
-						autoLaunch
-						redirectOnSuccess=""
-						onComplete={async () => {
-							setShowWebSdkLauncher(false)
-							await refreshUserInfo()
-							void updateSession()
-							window.location.reload()
-						}}
-					/>
-				</DialogContent>
-			</Dialog>
 		</>
 	)
 }

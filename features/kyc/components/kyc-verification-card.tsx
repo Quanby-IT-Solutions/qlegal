@@ -6,12 +6,11 @@ import { toast } from "sonner"
 
 import { Badge } from "@/core/components/ui/badge"
 import { Button } from "@/core/components/ui/button"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/core/components/ui/dialog"
 import { Label } from "@/core/components/ui/label"
 import { useKycBroadcast } from "@/core/hooks/use-kyc-broadcast"
 
 import { resetUserKycStatus } from "@/features/kyc/api/kyc.actions"
-import { HyperVergeWebSdkLauncher } from "@/features/kyc/components/hyperverge-web-sdk-launcher"
+import { useHyperVergeSDK } from "@/features/kyc/hooks/use-hyperverge-sdk"
 import { useKycStatus } from "@/features/kyc/hooks/use-kyc-status"
 
 interface KycVerificationCardProps {
@@ -36,8 +35,14 @@ export function KycVerificationCard({
 	const [isPending, startTransition] = useTransition()
 	const [error, setError] = useState<string | null>(null)
 	const [showManualCheck, setShowManualCheck] = useState(false)
-	const [showWebSdkLauncher, setShowWebSdkLauncher] = useState(false)
 	const toastShownRef = useRef<Set<string>>(new Set())
+
+	const { launch: launchSdk, isLoading: isLaunchingSdk } = useHyperVergeSDK({
+		redirectOnSuccess: "/dashboard",
+		onComplete: () => {
+			void refetch()
+		},
+	})
 
 	// Check if there's an expired link (24 hours old)
 	const hasExpiredLink = useMemo(() => {
@@ -146,7 +151,7 @@ export function KycVerificationCard({
 
 	const handleStartVerification = () => {
 		setError(null)
-		setShowWebSdkLauncher(true)
+		void launchSdk()
 	}
 
 	const getStatusColor = (status: string) => {
@@ -292,7 +297,7 @@ export function KycVerificationCard({
 					<div className="grid gap-3">
 						<Button
 							onClick={handleStartVerification}
-							disabled={showWebSdkLauncher || isStatusLoading}
+							disabled={isLaunchingSdk || isStatusLoading}
 							className="w-full"
 							size="lg"
 						>
@@ -335,7 +340,7 @@ export function KycVerificationCard({
 					<div className="grid gap-3">
 						<Button
 							onClick={handleStartVerification}
-							disabled={showWebSdkLauncher}
+							disabled={isLaunchingSdk}
 							variant="default"
 							className="w-full"
 							size="lg"
@@ -491,22 +496,6 @@ export function KycVerificationCard({
 					</div>
 				</div>
 			)}
-
-			<Dialog open={showWebSdkLauncher} onOpenChange={setShowWebSdkLauncher}>
-				<DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
-					<DialogHeader>
-						<DialogTitle>Identity verification</DialogTitle>
-					</DialogHeader>
-					<HyperVergeWebSdkLauncher
-						autoLaunch
-						redirectOnSuccess="/dashboard"
-						onComplete={() => {
-							setShowWebSdkLauncher(false)
-							void refetch()
-						}}
-					/>
-				</DialogContent>
-			</Dialog>
 		</div>
 	)
 }

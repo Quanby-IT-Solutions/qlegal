@@ -67,8 +67,7 @@ export function KycMobileFlow({
 							<div className="flex min-w-0 flex-1 flex-col items-start gap-0.5">
 								<span className="text-sm leading-snug font-medium">Start KYC</span>
 								<span className="text-muted-foreground text-xs leading-snug wrap-break-word">
-									Complete verification in the window that opened. This page will update
-									automatically.
+									Complete verification on your screen. This page will update automatically.
 								</span>
 							</div>
 						</Button>
