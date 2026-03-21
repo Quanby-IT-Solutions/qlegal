@@ -30,7 +30,7 @@ interface UseKycStatusOptions {
 export function useKycStatus({ enabled = true, currentStatus }: UseKycStatusOptions = {}) {
 	const isPending = currentStatus === "PENDING"
 
-	return useQuery({
+	const query = useQuery({
 		queryKey: ["kyc-status"],
 		enabled,
 		queryFn: async () => {
@@ -48,9 +48,18 @@ export function useKycStatus({ enabled = true, currentStatus }: UseKycStatusOpti
 		refetchOnReconnect: false,
 		refetchOnMount: "always", // Always check on mount (but deduped if already fetching)
 		// Cache configuration
-		staleTime: isPending ? 5000 : Infinity, // 5 seconds stale time when pending
+		// When status is pending we always want a fresh check when the hook is enabled,
+		// so treat cached results as immediately stale.
+		staleTime: isPending ? 0 : Infinity,
 		gcTime: 1000 * 60 * 5, // Cache for 5 minutes
 		retry: 1,
 		retryDelay: 3000,
 	})
+
+	const isCheckingStatus = enabled && (query.isLoading || query.isFetching)
+
+	return {
+		...query,
+		isCheckingStatus,
+	}
 }

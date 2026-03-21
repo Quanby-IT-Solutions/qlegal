@@ -11,19 +11,35 @@ interface KycMobileFlowProps {
 	onBack: () => void
 	onNext: () => void
 	onStartVerification: () => void
+	onTryAgain?: () => void
 	isPending: boolean
 	showPendingBanner: boolean
 	showCancelledBanner?: boolean
+	showNeedsReviewBanner?: boolean
+	showRejectedBanner?: boolean
+	rejectedVariant?: "auto" | "manual"
+	isStatusLoading?: boolean
 }
 
 export function KycMobileFlow({
 	onBack,
 	onNext,
 	onStartVerification,
+	onTryAgain,
 	isPending,
-	showPendingBanner,
+	showPendingBanner: _showPendingBanner,
 	showCancelledBanner,
+	showNeedsReviewBanner,
+	showRejectedBanner,
+	rejectedVariant,
+	isStatusLoading,
 }: KycMobileFlowProps) {
+	const handleStartClick = showRejectedBanner
+		? (onTryAgain ?? onStartVerification)
+		: onStartVerification
+	const shouldDisableStartButton =
+		[isPending, showNeedsReviewBanner, isStatusLoading].some(Boolean) && !showRejectedBanner
+
 	return (
 		<>
 			<CardContent className="px-2!">
@@ -34,41 +50,58 @@ export function KycMobileFlow({
 
 					<div className="grid gap-3">
 						<Button
-							onClick={onStartVerification}
-							disabled={isPending}
-							variant="default"
-							className="w-full"
+							onClick={handleStartClick}
+							disabled={shouldDisableStartButton}
+							variant="outline"
+							className="h-auto w-full cursor-pointer items-start justify-start gap-3 px-4 py-3 text-left whitespace-normal"
 							size="lg"
 							type="button"
 						>
-							{isPending ? (
-								<>
-									<Loader2 className="mr-2 size-5 animate-spin" />
-									Starting...
-								</>
-							) : (
-								<>
-									<ShieldCheck className="mr-2 size-5" />
-									Start verification
-								</>
-							)}
+							<div className="bg-muted flex size-9 shrink-0 items-center justify-center rounded-md border sm:size-10">
+								{isStatusLoading ? (
+									<Loader2 className="size-5 animate-spin" />
+								) : (
+									<ShieldCheck className="size-5" />
+								)}
+							</div>
+							<div className="flex min-w-0 flex-1 flex-col items-start gap-0.5">
+								<span className="text-sm leading-snug font-medium">Start KYC</span>
+								<span className="text-muted-foreground text-xs leading-snug wrap-break-word">
+									Complete verification on your screen. This page will update automatically.
+								</span>
+							</div>
 						</Button>
-
-						{showPendingBanner && (
-							<div className="rounded-lg border border-blue-200 bg-blue-50 p-4 dark:border-blue-800 dark:bg-blue-950/20">
+						{showNeedsReviewBanner && !isStatusLoading && (
+							<div className="rounded-lg border border-yellow-200 bg-yellow-50 p-4 dark:border-yellow-800 dark:bg-yellow-950/20">
 								<div className="flex items-start gap-3">
-									<Loader2 className="mt-0.5 size-5 shrink-0 animate-spin text-blue-600 dark:text-blue-400" />
+									<ShieldCheck className="mt-0.5 size-5 shrink-0 text-yellow-600 dark:text-yellow-400" />
 									<div className="flex-1">
-										<p className="mb-1 text-sm font-medium text-blue-900 dark:text-blue-100">
-											Verification in progress
+										<p className="mb-1 text-sm font-medium text-yellow-900 dark:text-yellow-100">
+											Verification under manual review
 										</p>
-										<p className="text-sm text-blue-700 dark:text-blue-300">
-											Complete verification in the window that opened. This page will update
-											automatically.
+										<p className="text-sm text-yellow-800 dark:text-yellow-200">
+											Your documents have been submitted and are being reviewed. You don&apos;t need
+											to start a new verification. We&apos;ll notify you once the review is
+											complete.
 										</p>
 									</div>
 								</div>
 							</div>
+						)}
+						{showRejectedBanner && !isStatusLoading && (
+							<Alert variant="destructive" className="rounded-lg">
+								<XCircle className="size-4" />
+								<AlertTitle>
+									{rejectedVariant === "auto"
+										? "Verification automatically declined"
+										: "Verification declined after review"}
+								</AlertTitle>
+								<AlertDescription>
+									{rejectedVariant === "auto"
+										? "Our verification provider declined based on automated checks. Please try again with clearer documents or contact support."
+										: "Your verification was declined after manual review. Please try again or contact support."}
+								</AlertDescription>
+							</Alert>
 						)}
 					</div>
 				</FieldGroup>

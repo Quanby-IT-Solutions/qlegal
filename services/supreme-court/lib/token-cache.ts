@@ -1,6 +1,6 @@
 import { env } from "@/env"
 
-import { TOKEN_EXPIRATION_MS, TOKEN_REFRESH_BUFFER_MS } from "./config"
+import { TOKEN_REFRESH_BUFFER_MS } from "./config"
 
 interface CachedToken {
 	token: string
@@ -69,9 +69,9 @@ export async function generateToken(): Promise<string> {
 		const code =
 			cause && typeof cause === "object" && "code" in cause ? (cause as { code: string }).code : ""
 		throw new Error(
-			`Supreme Court Cognito auth request failed (network error). ${causeMsg || (err instanceof Error ? err.message : String(err))}` +
-				(code ? ` (${code})` : "") +
-				`\n\n   Possible causes: no internet, firewall/VPN blocking, DNS failure, or wrong SUPREME_COURT_AUTH_URL.`
+			`Supreme Court Cognito auth request failed (network error). ${causeMsg || (err instanceof Error ? err.message : String(err))}${
+				code ? ` (${code})` : ""
+			}\n\n   Possible causes: no internet, firewall/VPN blocking, DNS failure, or wrong SUPREME_COURT_AUTH_URL.`
 		)
 	}
 
@@ -164,7 +164,7 @@ export async function generateToken(): Promise<string> {
 			try {
 				const errorJson = JSON.parse(errorText)
 				if (errorJson.__type || errorJson.message) {
-					errorMessage = `Supreme Court Cognito challenge failed: ${errorJson.__type || "Error"} - ${errorJson.message || errorText}`
+					errorMessage = `Supreme Court Cognito challenge failed: ${errorJson.__type ?? "Error"} - ${errorJson.message ?? errorText}`
 				}
 			} catch {
 				// Not JSON, use original error text
@@ -186,7 +186,7 @@ export async function generateToken(): Promise<string> {
 
 		if (challengeData.__type || (challengeData.message && !challengeData.AuthenticationResult)) {
 			throw new Error(
-				`Supreme Court Cognito challenge error: ${challengeData.__type || "Unknown"} - ${challengeData.message || "Challenge failed"}`
+				`Supreme Court Cognito challenge error: ${challengeData.__type ?? "Unknown"} - ${challengeData.message ?? "Challenge failed"}`
 			)
 		}
 
@@ -214,7 +214,7 @@ export async function generateToken(): Promise<string> {
 	if (data.__type || (data.message && !data.AuthenticationResult)) {
 		console.error("❌ [Supreme Court] Cognito returned error in response body")
 		throw new Error(
-			`Supreme Court Cognito auth error: ${data.__type || "Unknown"} - ${data.message || "Authentication failed"}`
+			`Supreme Court Cognito auth error: ${data.__type ?? "Unknown"} - ${data.message ?? "Authentication failed"}`
 		)
 	}
 
@@ -243,7 +243,7 @@ export async function generateToken(): Promise<string> {
  */
 export async function getToken(forceRefresh = false): Promise<string> {
 	if (!forceRefresh && isTokenValid(cachedToken)) {
-		return cachedToken!.token
+		return cachedToken.token
 	}
 
 	return generateToken()

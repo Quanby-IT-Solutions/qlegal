@@ -1,7 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useRef, useState } from "react"
-import { Loader2 } from "lucide-react"
+import { useCallback, useRef, useState } from "react"
 import { toast } from "sonner"
 
 import { useKycBroadcast } from "@/core/hooks/use-kyc-broadcast"
@@ -28,8 +27,17 @@ declare global {
 	}
 }
 
+interface UseHyperVergeSDKOptions {
+	onComplete?: (status: string) => void
+	redirectOnSuccess?: string
+}
+
 function loadScript(src: string): Promise<void> {
 	return new Promise((resolve, reject) => {
+		if (typeof window === "undefined") {
+			resolve()
+			return
+		}
 		if (document.querySelector(`script[src="${src}"]`)) {
 			resolve()
 			return
@@ -43,20 +51,10 @@ function loadScript(src: string): Promise<void> {
 	})
 }
 
-interface HyperVergeWebSdkLauncherProps {
-	/** When true, fetches session and launches SDK on mount */
-	autoLaunch?: boolean
-	/** Called after SDK closes (success or cancel) */
-	onComplete?: () => void
-	/** Redirect URL after successful verification (e.g. /dashboard). If set, window.location.href is used. */
-	redirectOnSuccess?: string
-}
-
-export function HyperVergeWebSdkLauncher({
-	autoLaunch = true,
+export function useHyperVergeSDK({
 	onComplete,
 	redirectOnSuccess = "/dashboard",
-}: HyperVergeWebSdkLauncherProps) {
+}: UseHyperVergeSDKOptions = {}) {
 	const [status, setStatus] = useState<"idle" | "loading" | "launching" | "done">("idle")
 	const [error, setError] = useState<string | null>(null)
 	const hasLaunchedRef = useRef(false)
@@ -68,37 +66,26 @@ export function HyperVergeWebSdkLauncher({
 			await syncKycStatusFromCallback(transactionId, s)
 
 			if (s === "auto_approved") {
-				broadcast({
-					type: "KYC_VERIFIED",
-					timestamp: Date.now(),
-					transactionId,
-				})
-				toast.success("Verification approved! Redirecting...")
+				broadcast({ type: "KYC_VERIFIED", timestamp: Date.now(), transactionId })
+				toast.success("Verification approved!")
 				if (redirectOnSuccess) {
 					window.location.href = redirectOnSuccess
 				}
 			} else if (s === "auto_declined") {
-				broadcast({
-					type: "KYC_REJECTED",
-					timestamp: Date.now(),
-					transactionId,
-				})
+				broadcast({ type: "KYC_REJECTED", timestamp: Date.now(), transactionId })
 				toast.error("Verification was declined. Please try again or contact support.")
 			} else if (s === "needs_review") {
 				toast.message("Verification is under review. We'll notify you once complete.")
 			} else if (s === "user_cancelled") {
-				broadcast({
-					type: "KYC_CANCELLED",
-					timestamp: Date.now(),
-					transactionId,
-				})
+				broadcast({ type: "KYC_CANCELLED", timestamp: Date.now(), transactionId })
 				toast.message("Verification cancelled.")
 			} else if (s === "error") {
 				toast.error("Something went wrong. Please try again.")
 			}
 
+			hasLaunchedRef.current = false // reset for retry
 			setStatus("done")
-			onComplete?.()
+			onComplete?.(s)
 		},
 		[broadcast, redirectOnSuccess, onComplete]
 	)
@@ -115,8 +102,9 @@ export function HyperVergeWebSdkLauncher({
 			const msg = err instanceof Error ? err.message : "Failed to load verification"
 			setError(msg)
 			toast.error(msg)
+			hasLaunchedRef.current = false
 			setStatus("done")
-			onComplete?.()
+			onComplete?.("error")
 			return
 		}
 
@@ -125,8 +113,9 @@ export function HyperVergeWebSdkLauncher({
 			const msg = sessionResult.error ?? "Failed to start verification"
 			setError(msg)
 			toast.error(msg)
+			hasLaunchedRef.current = false
 			setStatus("done")
-			onComplete?.()
+			onComplete?.("error")
 			return
 		}
 
@@ -138,8 +127,9 @@ export function HyperVergeWebSdkLauncher({
 			const msg = "Verification SDK not available. Please refresh and try again."
 			setError(msg)
 			toast.error(msg)
+			hasLaunchedRef.current = false
 			setStatus("done")
-			onComplete?.()
+			onComplete?.("error")
 			return
 		}
 
@@ -154,30 +144,9 @@ export function HyperVergeWebSdkLauncher({
 		})
 	}, [handleSdkCallback, onComplete])
 
-	useEffect(() => {
-		if (autoLaunch && status === "idle") {
-			void launch()
-		}
-	}, [autoLaunch, status, launch])
-
-	if (error) {
-		return (
-			<div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
-				{error}
-			</div>
-		)
+	return {
+		launch,
+		isLoading: status === "loading" || status === "launching",
+		error,
 	}
-
-	if (status === "loading" || status === "launching") {
-		return (
-			<div className="flex flex-col items-center justify-center gap-4 py-8">
-				<Loader2 className="size-10 animate-spin text-muted-foreground" />
-				<p className="text-sm text-muted-foreground">
-					{status === "loading" ? "Starting verification..." : "Verification window opening..."}
-				</p>
-			</div>
-		)
-	}
-
-	return null
 }

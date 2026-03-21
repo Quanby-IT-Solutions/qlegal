@@ -63,7 +63,7 @@ export async function getAvatarPublicUrl(path: string | null): Promise<string | 
 
 	try {
 		const supabase = getPublicClient()
-		const { data } = await supabase.storage.from("avatar").getPublicUrl(path)
+		const { data } = supabase.storage.from("avatar").getPublicUrl(path)
 		return data.publicUrl
 	} catch (error) {
 		console.error("Failed to get avatar public URL:", error)
