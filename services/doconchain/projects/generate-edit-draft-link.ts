@@ -10,6 +10,57 @@ type GenerateLinkResponse =
 	| { link?: string }
 	| { data?: { link?: string } }
 
+function addApiTrueParam(urlString: string): string {
+	try {
+		const url = new URL(urlString)
+		// Only mutate DocOnChain web app links (not API endpoints).
+		if (!/(\.|^)doconchain\.com$/i.test(url.hostname)) return urlString
+		if (url.pathname.startsWith("/api/")) return urlString
+		if (url.searchParams.get("api") !== "true") url.searchParams.set("api", "true")
+		return url.toString()
+	} catch {
+		return urlString
+	}
+}
+
+async function resolveDoconchainRedirects(urlString: string, maxHops = 5): Promise<string> {
+	let current = urlString
+	for (let hop = 0; hop < maxHops; hop += 1) {
+		let url: URL
+		try {
+			url = new URL(current)
+		} catch {
+			return current
+		}
+
+		// Only attempt to resolve DocOnChain short links (they usually 302 to stg-app / app).
+		if (!/^link\.doconchain\.com$/i.test(url.hostname)) return current
+
+		const res = await fetch(current, {
+			method: "GET",
+			redirect: "manual",
+			cache: "no-store",
+			headers: {
+				accept: "text/html,application/xhtml+xml,application/json;q=0.9,*/*;q=0.8",
+			},
+		})
+
+		const status = res.status
+		if (status !== 301 && status !== 302 && status !== 303 && status !== 307 && status !== 308) {
+			return current
+		}
+
+		const location = res.headers.get("location")?.trim()
+		if (!location) return current
+		try {
+			current = new URL(location, current).toString()
+		} catch {
+			return current
+		}
+	}
+	return current
+}
+
 function maskEmailForLog(email: string): string {
 	const trimmed = email.trim()
 	const at = trimmed.indexOf("@")
@@ -148,7 +199,18 @@ async function postGenerateLink(params: { projectUuid: string; token: string }):
 		projectUuid: params.projectUuid,
 		link: redactDoconchainUrlForLog(link),
 	})
-	return link
+
+	// Plot signature links must open the API-integrated DocOnChain app experience.
+	// DocOnChain sometimes returns short links; resolve them to the final app URL so we can reliably add `api=true`.
+	const resolved = await resolveDoconchainRedirects(link)
+	const normalized = addApiTrueParam(resolved)
+	if (normalized !== link) {
+		console.log("🟣 [DocOnChain] editDraftLink:normalized", {
+			projectUuid: params.projectUuid,
+			link: redactDoconchainUrlForLog(normalized),
+		})
+	}
+	return normalized
 }
 
 export async function generateDoconchainEditDraftProjectLink(input: {

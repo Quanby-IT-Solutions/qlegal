@@ -34,6 +34,12 @@ export async function getDoconchainSubOrgMembers(input: {
 	subOrganizationUuid: string
 	clientKey?: string | null
 	clientSecret?: string | null
+	/**
+	 * Optional: an email known to be a member of this sub-org.
+	 * When sub-org enterprise creds are used, DocOnChain often requires the token be generated
+	 * with a member/admin email that exists in that sub-org.
+	 */
+	tokenEmail?: string | null
 }): Promise<SubOrgMemberItem[]> {
 	const uuid = input.subOrganizationUuid.trim()
 	if (!uuid) throw new Error("DocOnChain sub-org members requires subOrganizationUuid.")
@@ -44,7 +50,11 @@ export async function getDoconchainSubOrgMembers(input: {
 	const doRequest = (t: string) =>
 		fetch(url.toString(), {
 			method: "GET",
-			headers: { Authorization: `Bearer ${t}`, accept: "application/json" },
+			headers: {
+				Authorization: `Bearer ${t}`,
+				accept: "application/json",
+				"content-type": "application/json",
+			},
 		})
 
 	// Prefer sub-org scoped token when we have creds (avoids "User not found" when DOCONCHAIN_EMAIL
@@ -52,6 +62,8 @@ export async function getDoconchainSubOrgMembers(input: {
 	let res: Response
 	const getToken = async (): Promise<string | null> => {
 		try {
+			// If an explicit token is configured, email here doesn't matter; otherwise this will
+			// generate a token for the configured parent-org email.
 			return await getDoconchainApiToken({ email: env.DOCONCHAIN_EMAIL })
 		} catch {
 			return null
@@ -59,9 +71,10 @@ export async function getDoconchainSubOrgMembers(input: {
 	}
 	if (input.clientKey && input.clientSecret) {
 		let token: string | null = null
+		const tokenEmail = (input.tokenEmail ?? "").trim().toLowerCase() || env.DOCONCHAIN_EMAIL.trim().toLowerCase()
 		try {
 			token = await getDoconchainApiTokenWithEnterpriseCreds({
-				email: env.DOCONCHAIN_EMAIL,
+				email: tokenEmail,
 				clientKey: input.clientKey,
 				clientSecret: input.clientSecret,
 			})
