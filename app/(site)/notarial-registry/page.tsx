@@ -2,7 +2,7 @@
 
 import { Fragment, useCallback, useMemo, useRef, useState } from "react"
 import { format } from "date-fns"
-import { PDFDocument, StandardFonts } from "pdf-lib"
+import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf-lib"
 import {
 	BookOpen,
 	ChevronDown,
@@ -149,89 +149,217 @@ function truncateFileName(fileName: string | null | undefined, maxLength = 20): 
 	return `${fileName.substring(0, maxLength - 3)}...`
 }
 
-/** Build a simple PDF of notarial acts for download (used by Export as PDF). */
+/** Word-wrap a single cell to a max width (pdf-lib measures in points). */
+function wrapTextToWidth(text: string, maxWidth: number, font: PDFFont, fontSize: number): string[] {
+	const normalized = String(text ?? "")
+		.replace(/\s+/g, " ")
+		.trim()
+	if (!normalized) return [""]
+
+	const words = normalized.split(" ")
+	const lines: string[] = []
+	let current = ""
+
+	for (const word of words) {
+		const candidate = current ? `${current} ${word}` : word
+		if (font.widthOfTextAtSize(candidate, fontSize) <= maxWidth) {
+			current = candidate
+			continue
+		}
+		if (current) {
+			lines.push(current)
+			current = ""
+		}
+		if (font.widthOfTextAtSize(word, fontSize) <= maxWidth) {
+			current = word
+			continue
+		}
+		let rest = word
+		while (rest.length > 0) {
+			let len = rest.length
+			while (len > 1 && font.widthOfTextAtSize(rest.slice(0, len), fontSize) > maxWidth) {
+				len--
+			}
+			lines.push(rest.slice(0, len))
+			rest = rest.slice(len)
+		}
+	}
+	if (current) lines.push(current)
+	return lines
+}
+
+function formatActForPdfCell(
+	act: Record<string, unknown>,
+	key: string
+): string {
+	const raw = act[key]
+	if (raw === null || raw === undefined) return ""
+	if (raw instanceof Date) return format(raw, "yyyy-MM-dd HH:mm")
+	let s: string
+	if (typeof raw === "string") s = raw
+	else if (typeof raw === "number" || typeof raw === "boolean" || typeof raw === "bigint") s = String(raw)
+	else s = JSON.stringify(raw)
+	if (key === "actType") return formatActTypeLabel(s)
+	if (key === "workflow") return formatWorkflowLabel(s)
+	return s
+}
+
+/** Build a readable PDF table of notarial acts (Export as PDF). */
 async function buildNotarialRegistryPdf(
 	acts: Array<Record<string, unknown>>
 ): Promise<Uint8Array> {
 	const doc = await PDFDocument.create()
 	const font = await doc.embedFont(StandardFonts.Helvetica)
 	const fontBold = await doc.embedFont(StandardFonts.HelveticaBold)
-	const margin = 40
-	const pageWidth = 595
-	const pageHeight = 842
+
+	// Landscape A4 — room for aligned columns without overlap
+	const pageWidth = 842
+	const pageHeight = 595
+	const margin = 48
 	const contentWidth = pageWidth - margin * 2
-	const titleSize = 14
-	const headerSize = 8
-	const rowSize = 7
-	const rowHeight = 11
+	const gutter = 6
 
 	const cols = [
-		{ key: "executedAt", label: "Date", w: 70 },
-		{ key: "actType", label: "Act Type", w: 58 },
-		{ key: "workflow", label: "Workflow", w: 38 },
-		{ key: "principalName", label: "Principal", w: 100 },
-		{ key: "documentName", label: "Document", w: 110 },
-		{ key: "supremeCourtRegistryId", label: "NRID", w: 109 },
+		{ key: "executedAt", label: "Date / time", w: 78 },
+		{ key: "actType", label: "Act type", w: 72 },
+		{ key: "workflow", label: "Mode", w: 62 },
+		{ key: "principalName", label: "Principal", w: 128 },
+		{ key: "documentName", label: "Document", w: 188 },
+		{ key: "certificateNumber", label: "Certificate #", w: 86 },
+		{ key: "supremeCourtRegistryId", label: "NRID (SC)", w: 96 },
 	] as const
 
-	let page = doc.addPage([pageWidth, pageHeight])
-	let y = pageHeight - margin
-
-	const drawText = (
-		p: ReturnType<typeof doc.addPage>,
-		text: string,
-		x: number,
-		yVal: number,
-		size: number,
-		useBold = false
-	) => {
-		const f = useBold ? fontBold : font
-		const safe = String(text).slice(0, 80)
-		p.drawText(safe, { x, y: yVal, size, font: f })
+	const colXs: number[] = []
+	let xCursor = margin
+	for (let i = 0; i < cols.length; i++) {
+		colXs.push(xCursor)
+		xCursor += cols[i]!.w + (i < cols.length - 1 ? gutter : 0)
 	}
 
-	// Title
-	drawText(page, "Notarial Registry Export", margin, y, titleSize, true)
-	y -= titleSize + 8
-	drawText(page, `Generated ${format(new Date(), "PPpp")} · ${acts.length} record(s)`, margin, y, 9)
-	y -= rowHeight * 2
+	const titleSize = 16
+	const metaSize = 9
+	const headerFontSize = 8
+	const bodyFontSize = 8
+	const lineHeight = 10
+	const headerRowHeight = 22
+	const minBottom = margin + 28
 
-	for (let i = 0; i < acts.length; i++) {
-		if (y < margin + rowHeight * 2) {
-			page = doc.addPage([pageWidth, pageHeight])
-			y = pageHeight - margin
-			// Repeat header
-			let x = margin
-			for (const c of cols) {
-				drawText(page, c.label, x, y, headerSize, true)
-				x += c.w
+	const headerBg = rgb(0.93, 0.93, 0.94)
+	const borderColor = rgb(0.78, 0.78, 0.8)
+	const mutedColor = rgb(0.35, 0.35, 0.38)
+
+	let page: PDFPage = doc.addPage([pageWidth, pageHeight])
+	let yTop = pageHeight - margin
+
+	const drawText = (
+		p: PDFPage,
+		text: string,
+		x: number,
+		baselineY: number,
+		size: number,
+		f: PDFFont,
+		color = rgb(0, 0, 0)
+	) => {
+		p.drawText(text, { x, y: baselineY, size, font: f, color })
+	}
+
+	const drawColumnHeaders = (p: PDFPage, topY: number): number => {
+		const bottomY = topY - headerRowHeight
+		p.drawRectangle({
+			x: margin,
+			y: bottomY,
+			width: contentWidth,
+			height: headerRowHeight,
+			color: headerBg,
+			borderColor,
+			borderWidth: 0.4,
+		})
+		const labelBaseline = topY - 14
+		for (let i = 0; i < cols.length; i++) {
+			const c = cols[i]!
+			const label = c.label.length > 22 ? `${c.label.slice(0, 20)}…` : c.label
+			drawText(p, label, colXs[i]!, labelBaseline, headerFontSize, fontBold)
+		}
+		p.drawLine({
+			start: { x: margin, y: bottomY },
+			end: { x: margin + contentWidth, y: bottomY },
+			thickness: 0.5,
+			color: borderColor,
+		})
+		return bottomY
+	}
+
+	// Title block
+	drawText(page, "Notarial registry export", margin, yTop, titleSize, fontBold)
+	yTop -= titleSize + 6
+	const meta = `Generated ${format(new Date(), "PPpp")}  ·  ${acts.length} record(s)  ·  Quanby Sign`
+	drawText(page, meta, margin, yTop, metaSize, font, mutedColor)
+	yTop -= metaSize + 18
+
+	let tableBottom = drawColumnHeaders(page, yTop)
+	yTop = tableBottom - 8
+
+	const ensureSpace = (neededFromTop: number) => {
+		if (yTop - neededFromTop >= minBottom) return
+		page = doc.addPage([pageWidth, pageHeight])
+		yTop = pageHeight - margin
+		tableBottom = drawColumnHeaders(page, yTop)
+		yTop = tableBottom - 8
+	}
+
+	for (let rowIndex = 0; rowIndex < acts.length; rowIndex++) {
+		const act = acts[rowIndex]!
+
+		const cellLines = cols.map(c =>
+			wrapTextToWidth(formatActForPdfCell(act, c.key), c.w, font, bodyFontSize)
+		)
+		const maxLines = Math.max(1, ...cellLines.map(l => l.length))
+		const rowBodyHeight = maxLines * lineHeight
+		const rowPadding = 6
+		const rowTotalHeight = rowBodyHeight + rowPadding
+
+		ensureSpace(rowTotalHeight + 4)
+
+		const rowTop = yTop
+		const rowBottom = rowTop - rowTotalHeight
+
+		if (rowIndex % 2 === 0) {
+			page.drawRectangle({
+				x: margin,
+				y: rowBottom,
+				width: contentWidth,
+				height: rowTotalHeight,
+				color: rgb(0.985, 0.985, 0.99),
+			})
+		}
+
+		const firstBaseline = rowTop - 11
+		for (let ci = 0; ci < cols.length; ci++) {
+			const lines = cellLines[ci]!
+			const colX = colXs[ci]!
+			for (let li = 0; li < lines.length; li++) {
+				const baseline = firstBaseline - li * lineHeight
+				drawText(page, lines[li]!, colX, baseline, bodyFontSize, font)
 			}
-			y -= rowHeight
 		}
 
-		const act = acts[i]!
-		if (i === 0 || y === pageHeight - margin) {
-			let x = margin
-			for (const c of cols) {
-				drawText(page, c.label, x, y, headerSize, true)
-				x += c.w
-			}
-			y -= rowHeight
-		}
+		page.drawLine({
+			start: { x: margin, y: rowBottom },
+			end: { x: margin + contentWidth, y: rowBottom },
+			thickness: 0.25,
+			color: rgb(0.9, 0.9, 0.92),
+		})
 
-		let x = margin
-		for (const c of cols) {
-			const raw = act[c.key]
-			const val =
-				raw instanceof Date
-					? format(raw, "yyyy-MM-dd HH:mm")
-					: raw != null
-						? String(raw)
-						: ""
-			drawText(page, val, x, y, rowSize)
-			x += c.w
-		}
-		y -= rowHeight
+		yTop = rowBottom - 2
+	}
+
+	const pages = doc.getPages()
+	const totalPages = pages.length
+	for (let pi = 0; pi < totalPages; pi++) {
+		const p = pages[pi]!
+		const footer = `Page ${pi + 1} of ${totalPages}`
+		const w = font.widthOfTextAtSize(footer, 8)
+		drawText(p, footer, (pageWidth - w) / 2, margin / 2 + 4, 8, font, mutedColor)
 	}
 
 	return doc.save()
@@ -551,14 +679,17 @@ function ExpandedActDetails({
 		return statusUpper === "SIGNED" || statusUpper === "COMPLETED" || !!s.signedAt
 	}
 
-	const principalCompetentEvidence = [act.principalIdType, act.principalIdNumber]
-		.filter(Boolean)
-		.join(" · ") || undefined
+	// const principalCompetentEvidence = [act.principalIdType, act.principalIdNumber]
+	// 	.filter(Boolean)
+	// 	.join(" · ") || undefined
 
 	return (
 		<div className="space-y-3">
-			{/* Principal disclosure */}
-			{(act.principalName || act.principalIdNumber || act.principalAddress || act.principalIdImageBase64) && (
+			{/* Principal disclosure (commented out)
+			{(act.principalName ||
+				act.principalIdNumber ||
+				act.principalAddress ||
+				act.principalIdImageBase64) && (
 				<div>
 					<h4 className="mb-1.5 text-xs font-semibold">Principal</h4>
 					<div className="bg-muted/50 flex items-center gap-2 rounded-lg border px-2 py-1.5">
@@ -601,6 +732,7 @@ function ExpandedActDetails({
 					</div>
 				</div>
 			)}
+			*/}
 
 			{/* Signatories section */}
 			<div>
@@ -842,8 +974,12 @@ export default function NotarialRegistryPage() {
 					"createdAt",
 				] as const
 				const escapeCsv = (v: unknown): string => {
-					if (v == null) return ""
-					const s = typeof v === "string" ? v : String(v)
+					if (v === null || v === undefined) return ""
+					let s: string
+					if (typeof v === "string") s = v
+					else if (v instanceof Date) s = format(v, "yyyy-MM-dd HH:mm")
+					else if (typeof v === "number" || typeof v === "boolean" || typeof v === "bigint") s = String(v)
+					else s = JSON.stringify(v)
 					if (s.includes(",") || s.includes('"') || s.includes("\n")) return `"${s.replace(/"/g, '""')}"`
 					return s
 				}
@@ -865,7 +1001,7 @@ export default function NotarialRegistryPage() {
 			} else {
 				try {
 					const pdfBytes = await buildNotarialRegistryPdf(acts)
-					const blob = new Blob([pdfBytes], { type: "application/pdf" })
+					const blob = new Blob([new Uint8Array(pdfBytes)], { type: "application/pdf" })
 					const url = URL.createObjectURL(blob)
 					const a = document.createElement("a")
 					a.href = url
