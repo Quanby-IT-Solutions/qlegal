@@ -1,7 +1,9 @@
 "use client"
 
-import { LogOut } from "lucide-react"
+import Link from "next/link"
+import { ArrowRight, LogOut } from "lucide-react"
 
+import { Button } from "@/core/components/ui/button"
 import { CardFooter } from "@/core/components/ui/card"
 
 import { LogoutButton } from "../logout-button"
@@ -36,12 +38,21 @@ export function UserStatusCard({ status }: UserStatusCardProps) {
 					</p>
 				</div>
 			)}
-			{/* Logout Button */}
+			{/* Status action */}
 			<CardFooter>
-				<LogoutButton callbackUrl="/auth/login" variant="link" className="w-full">
-					<LogOut className="mr-2 size-4" />
-					Log Out
-				</LogoutButton>
+				{isPending ? (
+					<Button asChild variant="link" className="w-full">
+						<Link href="/dashboard">
+							<ArrowRight className="mr-2 size-4" />
+							Go to Dashboard
+						</Link>
+					</Button>
+				) : (
+					<LogoutButton callbackUrl="/auth/login" variant="link" className="w-full">
+						<LogOut className="mr-2 size-4" />
+						Log Out
+					</LogoutButton>
+				)}
 			</CardFooter>
 		</div>
 	)
