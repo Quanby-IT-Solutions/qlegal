@@ -191,7 +191,7 @@ export function BookingDialog({ enpId, enpName, trigger }: BookingDialogProps) {
 	return (
 		<Dialog open={open} onOpenChange={setOpen}>
 			<DialogTrigger asChild>{trigger ?? <Button>Book Session</Button>}</DialogTrigger>
-			<DialogContent className="flex h-[85vh] max-h-[90vh] w-screen max-w-350 flex-col">
+			<DialogContent className="flex max-h-[90dvh] w-screen max-w-350 flex-col overflow-hidden">
 				<DialogHeader>
 					<DialogTitle>
 						{watchBookingMode === "CONSULTATION" ? "Book Consultation" : "Book Notarization"}
@@ -207,10 +207,10 @@ export function BookingDialog({ enpId, enpName, trigger }: BookingDialogProps) {
 				<Form {...form} key={open ? "booking-form" : "closed"}>
 					<form
 						onSubmit={form.handleSubmit(handleBooking)}
-						className="flex flex-1 flex-col overflow-hidden"
+						className="flex min-h-0 flex-col overflow-hidden"
 					>
 						{/* Scrollable form content */}
-						<div className="flex-1 overflow-y-auto px-1">
+						<div className="overflow-y-auto px-1">
 							<div className="space-y-4 pr-1 pb-6">
 								{/* Title */}
 								<FormField
