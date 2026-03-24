@@ -37,12 +37,13 @@ export function SessionTypeSelector({
 				value={value}
 				onValueChange={v => onChange(v as "CONSULTATION" | "NOTARIZATION")}
 				disabled={disabled}
+				className="flex"
 			>
 				{/* Consultation */}
 				<FieldLabel htmlFor="consultation-type">
 					<Field
 						orientation="horizontal"
-						className="hover:border-primary cursor-pointer rounded-md border-2 p-4 transition-all"
+						className="cursor-pointer"
 						style={{
 							borderColor: value === "CONSULTATION" ? "hsl(var(--primary))" : undefined,
 							backgroundColor: value === "CONSULTATION" ? "hsl(var(--primary) / 0.05)" : undefined,
@@ -53,7 +54,7 @@ export function SessionTypeSelector({
 								<MessageSquare className="size-5 text-indigo-600" />
 								<FieldTitle>Consultation</FieldTitle>
 							</div>
-							<FieldDescription>Ask questions and get guidance from a notary</FieldDescription>
+							<FieldDescription>Get guidance from a notary</FieldDescription>
 						</FieldContent>
 						<RadioGroupItem value="CONSULTATION" id="consultation-type" disabled={disabled} />
 					</Field>
@@ -63,7 +64,7 @@ export function SessionTypeSelector({
 				<FieldLabel htmlFor="notarization-type">
 					<Field
 						orientation="horizontal"
-						className="hover:border-primary cursor-pointer rounded-md border-2 p-4 transition-all"
+						className="cursor-pointer"
 						style={{
 							borderColor: value === "NOTARIZATION" ? "hsl(var(--primary))" : undefined,
 							backgroundColor: value === "NOTARIZATION" ? "hsl(var(--primary) / 0.05)" : undefined,
@@ -74,7 +75,7 @@ export function SessionTypeSelector({
 								<FileText className="size-5 text-emerald-600" />
 								<FieldTitle>Notarization</FieldTitle>
 							</div>
-							<FieldDescription>Official notarization of documents</FieldDescription>
+							<FieldDescription>Notarize your documents</FieldDescription>
 						</FieldContent>
 						<RadioGroupItem value="NOTARIZATION" id="notarization-type" disabled={disabled} />
 					</Field>

@@ -3,6 +3,7 @@ import { and, asc, desc, eq, gte, inArray, lt, or } from "drizzle-orm"
 import { z } from "zod/v4"
 
 import { getFullName } from "@/core/lib/utils"
+
 import { type db } from "@/services/drizzle/db"
 import { appointmentParticipants } from "@/services/drizzle/schema/appointment-participants"
 import { appointments } from "@/services/drizzle/schema/appointments"
@@ -195,7 +196,9 @@ export const appointmentsRouter = createTRPCRouter({
 					createdBy: {
 						columns: {
 							id: true,
-							name: true,
+							firstName: true,
+							middleName: true,
+							lastName: true,
 							email: true,
 							image: true,
 						},
@@ -205,7 +208,9 @@ export const appointmentsRouter = createTRPCRouter({
 							user: {
 								columns: {
 									id: true,
-									name: true,
+									firstName: true,
+									middleName: true,
+									lastName: true,
 									email: true,
 									image: true,
 									phoneNumber: true,
@@ -263,7 +268,9 @@ export const appointmentsRouter = createTRPCRouter({
 				enp: {
 					columns: {
 						id: true,
-						name: true,
+						firstName: true,
+						middleName: true,
+						lastName: true,
 						email: true,
 						image: true,
 					},
@@ -271,7 +278,9 @@ export const appointmentsRouter = createTRPCRouter({
 				principal: {
 					columns: {
 						id: true,
-						name: true,
+						firstName: true,
+						middleName: true,
+						lastName: true,
 						email: true,
 						image: true,
 					},
@@ -293,8 +302,8 @@ export const appointmentsRouter = createTRPCRouter({
 					priority: input.priority,
 					requestUrl,
 				})
-			} catch (error) {
-				console.error("Failed to send notification email:", error)
+			} catch (e: unknown) {
+				console.error("Failed to send notification email:", e)
 				// Don't fail the request creation if email fails
 			}
 		}
@@ -313,7 +322,9 @@ export const appointmentsRouter = createTRPCRouter({
 				enp: {
 					columns: {
 						id: true,
-						name: true,
+						firstName: true,
+						middleName: true,
+						lastName: true,
 						email: true,
 						image: true,
 					},
@@ -342,7 +353,9 @@ export const appointmentsRouter = createTRPCRouter({
 					enp: {
 						columns: {
 							id: true,
-							name: true,
+							firstName: true,
+							middleName: true,
+							lastName: true,
 							email: true,
 							image: true,
 						},
@@ -350,7 +363,9 @@ export const appointmentsRouter = createTRPCRouter({
 					principal: {
 						columns: {
 							id: true,
-							name: true,
+							firstName: true,
+							middleName: true,
+							lastName: true,
 							email: true,
 							image: true,
 						},
@@ -398,7 +413,9 @@ export const appointmentsRouter = createTRPCRouter({
 				principal: {
 					columns: {
 						id: true,
-						name: true,
+						firstName: true,
+						middleName: true,
+						lastName: true,
 						email: true,
 						image: true,
 					},
@@ -422,21 +439,19 @@ export const appointmentsRouter = createTRPCRouter({
 			return []
 		}
 
-		// Get pending and confirmed appointments for this ENP
+		// Get all appointments for this ENP (including past/completed)
 		const incomingAppointments = await ctx.db.query.appointments.findMany({
-			where: and(
-				eq(appointments.userId, userId),
-				or(eq(appointments.status, "PENDING"), eq(appointments.status, "CONFIRMED")),
-				gte(appointments.appointmentDate, new Date()) // Only upcoming appointments
-			),
-			orderBy: [asc(appointments.appointmentDate)],
+			where: eq(appointments.userId, userId),
+			orderBy: [desc(appointments.appointmentDate)],
 			with: {
 				participants: {
 					with: {
 						user: {
 							columns: {
 								id: true,
-								name: true,
+								firstName: true,
+								middleName: true,
+								lastName: true,
 								email: true,
 								image: true,
 							},
@@ -706,7 +721,9 @@ export const appointmentsRouter = createTRPCRouter({
 					createdBy: {
 						columns: {
 							id: true,
-							name: true,
+							firstName: true,
+							middleName: true,
+							lastName: true,
 							email: true,
 							image: true,
 						},
@@ -716,7 +733,9 @@ export const appointmentsRouter = createTRPCRouter({
 							user: {
 								columns: {
 									id: true,
-									name: true,
+									firstName: true,
+									middleName: true,
+									lastName: true,
 									email: true,
 									image: true,
 									phoneNumber: true,
@@ -774,7 +793,9 @@ export const appointmentsRouter = createTRPCRouter({
 				createdBy: {
 					columns: {
 						id: true,
-						name: true,
+						firstName: true,
+						middleName: true,
+						lastName: true,
 						email: true,
 						image: true,
 					},
@@ -784,7 +805,9 @@ export const appointmentsRouter = createTRPCRouter({
 						user: {
 							columns: {
 								id: true,
-								name: true,
+								firstName: true,
+								middleName: true,
+								lastName: true,
 								email: true,
 								image: true,
 							},
@@ -811,7 +834,9 @@ export const appointmentsRouter = createTRPCRouter({
 					createdBy: {
 						columns: {
 							id: true,
-							name: true,
+							firstName: true,
+							middleName: true,
+							lastName: true,
 							email: true,
 							image: true,
 						},
@@ -821,7 +846,9 @@ export const appointmentsRouter = createTRPCRouter({
 							user: {
 								columns: {
 									id: true,
-									name: true,
+									firstName: true,
+									middleName: true,
+									lastName: true,
 									email: true,
 									image: true,
 									phoneNumber: true,
@@ -841,7 +868,9 @@ export const appointmentsRouter = createTRPCRouter({
 						principal: {
 							columns: {
 								id: true,
-								name: true,
+								firstName: true,
+								middleName: true,
+								lastName: true,
 								email: true,
 								image: true,
 								phoneNumber: true,
@@ -850,7 +879,9 @@ export const appointmentsRouter = createTRPCRouter({
 						enp: {
 							columns: {
 								id: true,
-								name: true,
+								firstName: true,
+								middleName: true,
+								lastName: true,
 								email: true,
 								image: true,
 								phoneNumber: true,
@@ -861,7 +892,9 @@ export const appointmentsRouter = createTRPCRouter({
 								createdBy: {
 									columns: {
 										id: true,
-										name: true,
+										firstName: true,
+										middleName: true,
+										lastName: true,
 										email: true,
 										image: true,
 									},
@@ -871,7 +904,9 @@ export const appointmentsRouter = createTRPCRouter({
 										user: {
 											columns: {
 												id: true,
-												name: true,
+												firstName: true,
+												middleName: true,
+												lastName: true,
 												email: true,
 												image: true,
 												phoneNumber: true,
@@ -1085,7 +1120,9 @@ export const appointmentsRouter = createTRPCRouter({
 							user: {
 								columns: {
 									id: true,
-									name: true,
+									firstName: true,
+									middleName: true,
+									lastName: true,
 									email: true,
 									image: true,
 								},
@@ -1151,7 +1188,9 @@ export const appointmentsRouter = createTRPCRouter({
 							user: {
 								columns: {
 									id: true,
-									name: true,
+									firstName: true,
+									middleName: true,
+									lastName: true,
 									email: true,
 									image: true,
 								},

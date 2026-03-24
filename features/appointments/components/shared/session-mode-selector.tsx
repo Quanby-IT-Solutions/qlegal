@@ -37,12 +37,13 @@ export function SessionModeSelector({
 				value={value}
 				onValueChange={v => onChange(v as "REN" | "IEN")}
 				disabled={disabled}
+				className="flex"
 			>
 				{/* REN - Remote */}
 				<FieldLabel htmlFor="ren-mode">
 					<Field
 						orientation="horizontal"
-						className="hover:border-primary cursor-pointer rounded-md border-2 p-4 transition-all"
+						className="cursor-pointer"
 						style={{
 							borderColor: value === "REN" ? "hsl(var(--primary))" : undefined,
 							backgroundColor: value === "REN" ? "hsl(var(--primary) / 0.05)" : undefined,
@@ -53,9 +54,7 @@ export function SessionModeSelector({
 								<Globe className="size-5 text-blue-600" />
 								<FieldTitle>Remote</FieldTitle>
 							</div>
-							<FieldDescription>
-								Everyone joins via video call from their own location
-							</FieldDescription>
+							<FieldDescription>Join by video call</FieldDescription>
 						</FieldContent>
 						<RadioGroupItem value="REN" id="ren-mode" disabled={disabled} />
 					</Field>
@@ -65,7 +64,7 @@ export function SessionModeSelector({
 				<FieldLabel htmlFor="ien-mode">
 					<Field
 						orientation="horizontal"
-						className="hover:border-primary cursor-pointer rounded-md border-2 p-4 transition-all"
+						className="cursor-pointer"
 						style={{
 							borderColor: value === "IEN" ? "hsl(var(--primary))" : undefined,
 							backgroundColor: value === "IEN" ? "hsl(var(--primary) / 0.05)" : undefined,
@@ -76,9 +75,7 @@ export function SessionModeSelector({
 								<Users className="size-5 text-green-600" />
 								<FieldTitle>In-Person</FieldTitle>
 							</div>
-							<FieldDescription>
-								Everyone meets physically at notary's office or location
-							</FieldDescription>
+							<FieldDescription>Meet at the notary office</FieldDescription>
 						</FieldContent>
 						<RadioGroupItem value="IEN" id="ien-mode" disabled={disabled} />
 					</Field>

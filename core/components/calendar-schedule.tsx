@@ -545,9 +545,11 @@ function CalendarScheduleEventCard({
 	const displayLabel =
 		event.status.id === "rejected"
 			? "Rejected"
-			: event.status.id === "rescheduled"
-				? "Rescheduled"
-				: (relativeLabel ?? null)
+			: event.status.id === "cancelled"
+				? "Cancelled"
+				: event.status.id === "rescheduled"
+					? "Rescheduled"
+					: (relativeLabel ?? null)
 
 	React.useEffect(() => {
 		const wasProcessing = prevIsProcessingRef.current
@@ -559,11 +561,23 @@ function CalendarScheduleEventCard({
 	}, [isProcessing, event.status.id])
 
 	const statusClassName =
-		event.status.id === "pending"
-			? "border-amber-500/50 bg-amber-500/10 text-amber-700 dark:text-amber-400 dark:bg-amber-500/15"
-			: event.status.id === "rejected" || event.status.id === "rescheduled"
-				? "border-muted-foreground/30 text-muted-foreground"
-				: "border-primary/30 bg-primary/5 text-primary"
+		{
+			pending:
+				"border-amber-500/50 bg-amber-500/10 text-amber-700 dark:text-amber-400 dark:bg-amber-500/15",
+			confirmed:
+				"border-emerald-500/50 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 dark:bg-emerald-500/15",
+			ongoing:
+				"border-violet-500/50 bg-violet-500/10 text-violet-700 dark:text-violet-400 dark:bg-violet-500/15",
+			in_progress:
+				"border-blue-500/50 bg-blue-500/10 text-blue-700 dark:text-blue-400 dark:bg-blue-500/15",
+			completed:
+				"border-emerald-500/50 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 dark:bg-emerald-500/15",
+			cancelled:
+				"border-red-500/50 bg-red-500/10 text-red-700 dark:text-red-400 dark:bg-red-500/15",
+			rejected: "border-red-500/50 bg-red-500/10 text-red-700 dark:text-red-400 dark:bg-red-500/15",
+			lapsed:
+				"border-orange-500/50 bg-orange-500/10 text-orange-700 dark:text-orange-400 dark:bg-orange-500/15",
+		}[event.status.id] ?? "border-primary/30 bg-primary/5 text-primary"
 
 	return (
 		<>
@@ -670,12 +684,16 @@ function CalendarScheduleEventCard({
 									<span
 										className={cn(
 											"flex size-3 rounded-full",
-											statusClassName.includes("pending")
-												? "bg-amber-500"
-												: statusClassName.includes("rejected") ||
-													  statusClassName.includes("rescheduled")
-													? "bg-muted-foreground"
-													: "bg-primary"
+											{
+												pending: "bg-amber-500",
+												confirmed: "bg-emerald-500",
+												ongoing: "bg-violet-500",
+												in_progress: "bg-blue-500",
+												completed: "bg-emerald-500",
+												cancelled: "bg-red-500",
+												rejected: "bg-red-500",
+												lapsed: "bg-orange-500",
+											}[event.status.id] ?? "bg-primary"
 										)}
 									/>
 								</div>

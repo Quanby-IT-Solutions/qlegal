@@ -3,6 +3,7 @@ import { and, count, desc, eq, ilike, ne, or, sql } from "drizzle-orm"
 import { z } from "zod/v4"
 
 import { getFullName } from "@/core/lib/utils"
+
 import { appointmentParticipants } from "@/services/drizzle/schema/appointment-participants"
 import { appointments } from "@/services/drizzle/schema/appointments"
 import { users } from "@/services/drizzle/schema/auth"
@@ -37,6 +38,7 @@ export type MeetingPreference = z.infer<typeof meetingPreference>
 
 export const bookConsultationInputSchema = z.object({
 	enpId: z.string().min(1, "ENP ID is required"),
+	title: z.string().min(1, "Title is required"),
 	// workflowType is NOT required for consultations - they default to REN
 	workflowType: consultationWorkflowType.optional(),
 	appointmentDate: z.coerce.date({
@@ -158,7 +160,7 @@ export const browseRouter = createTRPCRouter({
 	 * Get available ENPs list (for Browse tab)
 	 * Returns: filterable list of all active ENPs with scores
 	 */
-		getAvailableENPs: protectedProcedure
+	getAvailableENPs: protectedProcedure
 		.input(getAvailableENPsSchema)
 		.query(async ({ ctx, input }) => {
 			const { specialization, minRating, searchTerm, sortBy, limit, offset } = input
@@ -342,7 +344,8 @@ export const browseRouter = createTRPCRouter({
 				.insert(appointments)
 				.values({
 					userId: input.enpId,
-					title: consultationNotes || "Consultation",
+					title: input.title,
+					description: consultationNotes || null,
 					type: "CONSULTATION",
 					appointmentDate: appointmentDateTime,
 					duration,
