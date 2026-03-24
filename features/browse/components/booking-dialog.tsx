@@ -211,14 +211,14 @@ export function BookingDialog({ enpId, enpName, trigger }: BookingDialogProps) {
 					>
 						{/* Scrollable form content */}
 						<div className="flex-1 overflow-y-auto px-1">
-							<div className="space-y-2 pr-1 pb-6">
+							<div className="space-y-4 pr-1 pb-6">
 								{/* Title */}
 								<FormField
 									control={form.control}
 									name="title"
 									render={({ field }) => (
 										<FormItem>
-											<FormLabel className="text-base font-medium">Title</FormLabel>
+											<FormLabel>Title</FormLabel>
 											<FormControl>
 												<Input
 													placeholder="e.g., Property Deed Notarization"
@@ -236,9 +236,7 @@ export function BookingDialog({ enpId, enpName, trigger }: BookingDialogProps) {
 									name="description"
 									render={({ field }) => (
 										<FormItem>
-											<FormLabel className="text-base font-medium">
-												Description (Optional)
-											</FormLabel>
+											<FormLabel>Description (Optional)</FormLabel>
 											<FormControl>
 												<Textarea
 													placeholder="Add any additional notes or requirements for this booking..."
@@ -257,7 +255,7 @@ export function BookingDialog({ enpId, enpName, trigger }: BookingDialogProps) {
 									name="bookingMode"
 									render={({ field }) => (
 										<FormItem>
-											<FormLabel className="text-base font-medium">Service Type</FormLabel>
+											<FormLabel>Service Type</FormLabel>
 											<FormControl>
 												<SessionTypeSelector
 													value={field.value}
@@ -276,7 +274,7 @@ export function BookingDialog({ enpId, enpName, trigger }: BookingDialogProps) {
 										name="workflowType"
 										render={({ field }) => (
 											<FormItem>
-												<FormLabel className="text-base font-medium">Session Mode</FormLabel>
+												<FormLabel>Session Mode</FormLabel>
 												<FormControl>
 													<div className="space-y-2">
 														<SessionModeSelector
