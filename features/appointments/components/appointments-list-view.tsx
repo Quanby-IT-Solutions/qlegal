@@ -7,8 +7,8 @@ import {
 	Ban,
 	Calendar,
 	CheckCircle2,
-	Circle,
 	Clock,
+	FileText,
 	Globe,
 	MapPin,
 	Play,
@@ -29,7 +29,7 @@ import {
 	SelectValue,
 } from "@/core/components/ui/select"
 import { Skeleton } from "@/core/components/ui/skeleton"
-import { cn, getAvatarUrl, getInitials } from "@/core/lib/utils"
+import { cn, getAvatarUrl, getFullName, getInitials } from "@/core/lib/utils"
 
 import { type AppRouter } from "@/services/trpc/root"
 
@@ -145,7 +145,7 @@ export function AppointmentsListView({
 			!searchTerm ||
 			Boolean(request.title?.toLowerCase().includes(searchTerm.toLowerCase())) ||
 			Boolean(request.description?.toLowerCase().includes(searchTerm.toLowerCase())) ||
-			Boolean(request.principal?.name?.toLowerCase().includes(searchTerm.toLowerCase()))
+			getFullName(request.principal).toLowerCase().includes(searchTerm.toLowerCase())
 		return matchesStatus && matchesWorkflow && matchesSearch
 	})
 
@@ -272,7 +272,7 @@ export function AppointmentsListView({
 									{/* Avatar Overlap */}
 									<div className="relative -mt-16 mb-3 flex justify-center">
 										<PrincipalAvatar
-											name={request.principal?.name ?? ""}
+											name={getFullName(request.principal) || null}
 											image={getAvatarUrl(request.principal?.image)}
 											className="border-background size-20 border-4 shadow-sm"
 										/>
@@ -281,8 +281,13 @@ export function AppointmentsListView({
 									{/* Main Info */}
 									<div className="mb-5 flex w-full flex-col items-center space-y-1">
 										<h3 className="text-foreground w-full truncate px-2 text-lg font-bold tracking-tight">
-											{request.principal?.name ?? "Unknown User"}
+											{getFullName(request.principal) || "Unknown User"}
 										</h3>
+										{request.title && (
+											<p className="text-foreground/80 w-full truncate px-2 text-sm font-medium">
+												{request.title}
+											</p>
+										)}
 										<p className="text-muted-foreground/70 mt-1 line-clamp-2 px-2 text-xs">
 											{request.description ?? "No description provided"}
 										</p>
@@ -292,15 +297,11 @@ export function AppointmentsListView({
 									<div className="bg-muted/40 mt-auto grid w-full grid-cols-2 gap-x-2 gap-y-4 rounded-xl p-3">
 										<div className="flex flex-col items-center justify-start gap-1">
 											<span className="text-muted-foreground flex items-center gap-1.5 text-[10px] font-bold tracking-wider uppercase opacity-70">
-												{request.workflow === "REN" ? (
-													<Globe className="size-3" />
-												) : (
-													<MapPin className="size-3" />
-												)}
+												<FileText className="size-3" />
 												Type
 											</span>
 											<span className="w-full truncate px-1 text-xs font-semibold">
-												{request.title}
+												Notarization
 											</span>
 										</div>
 

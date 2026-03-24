@@ -37,12 +37,13 @@ export function SessionTypeSelector({
 				value={value}
 				onValueChange={v => onChange(v as "CONSULTATION" | "NOTARIZATION")}
 				disabled={disabled}
+				className="flex"
 			>
 				{/* Consultation */}
 				<FieldLabel htmlFor="consultation-type">
 					<Field
 						orientation="horizontal"
-						className="hover:border-primary cursor-pointer rounded-md border-2 p-4 transition-all"
+						className="cursor-pointer"
 						style={{
 							borderColor: value === "CONSULTATION" ? "hsl(var(--primary))" : undefined,
 							backgroundColor: value === "CONSULTATION" ? "hsl(var(--primary) / 0.05)" : undefined,
@@ -63,7 +64,7 @@ export function SessionTypeSelector({
 				<FieldLabel htmlFor="notarization-type">
 					<Field
 						orientation="horizontal"
-						className="hover:border-primary cursor-pointer rounded-md border-2 p-4 transition-all"
+						className="cursor-pointer"
 						style={{
 							borderColor: value === "NOTARIZATION" ? "hsl(var(--primary))" : undefined,
 							backgroundColor: value === "NOTARIZATION" ? "hsl(var(--primary) / 0.05)" : undefined,

@@ -81,6 +81,7 @@ export function ConsultationBookingDialog({
 
 		await bookConsultationMutation.mutateAsync({
 			enpId,
+			title: enpName ? `Consultation with ${enpName}` : "Consultation",
 			workflowType: undefined, // No workflow type for consultations
 			appointmentDate: selectedDate,
 			appointmentTime: selectedTime,
@@ -99,7 +100,7 @@ export function ConsultationBookingDialog({
 	return (
 		<Dialog open={open} onOpenChange={setOpen}>
 			<DialogTrigger asChild>{trigger || <Button>Book Consultation</Button>}</DialogTrigger>
-			<DialogContent className="sm:max-w-[500px]">
+			<DialogContent className="sm:max-w-125">
 				<DialogHeader>
 					<DialogTitle>Book Consultation{enpName ? ` with ${enpName}` : ""}</DialogTitle>
 					<DialogDescription>

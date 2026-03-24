@@ -59,13 +59,14 @@ export function BookingDialog({ enpId, enpName, trigger }: BookingDialogProps) {
 	const form = useForm<BookingDialogSchema>({
 		resolver: zodResolver(bookingDialogSchema),
 		defaultValues: {
+			title: "",
+			description: "",
 			bookingMode: "CONSULTATION",
 			workflowType: undefined,
 			selectedDate: new Date(),
 			hour: "09",
 			minute: "00",
 			period: "am" as const,
-			description: "",
 		},
 	})
 
@@ -120,7 +121,8 @@ export function BookingDialog({ enpId, enpName, trigger }: BookingDialogProps) {
 	}
 
 	const handleBooking = async (values: BookingDialogSchema) => {
-		const { bookingMode, selectedDate, hour, minute, period, description, workflowType } = values
+		const { bookingMode, selectedDate, hour, minute, period, description, workflowType, title } =
+			values
 
 		if (!selectedDate) {
 			toast.error("Missing Information", {
@@ -139,6 +141,7 @@ export function BookingDialog({ enpId, enpName, trigger }: BookingDialogProps) {
 
 			await bookConsultationMutation.mutateAsync({
 				enpId,
+				title,
 				workflowType: undefined, // No workflow type for consultations
 				appointmentDate,
 				appointmentTime: time24,
@@ -165,7 +168,7 @@ export function BookingDialog({ enpId, enpName, trigger }: BookingDialogProps) {
 
 			await bookSigningMutation.mutateAsync({
 				enpId,
-				title: enpName ? `Notarization with ${enpName}` : "Notarization Session",
+				title,
 				type: "NOTARIZATION",
 				appointmentDate,
 				duration: workflowType === "REN" ? 45 : 60,
@@ -177,7 +180,8 @@ export function BookingDialog({ enpId, enpName, trigger }: BookingDialogProps) {
 	}
 
 	const isBookingPending = bookConsultationMutation.isPending || bookSigningMutation.isPending
-	const isSubmitDisabled = !form.watch("selectedDate") || isBookingPending
+	const isSubmitDisabled =
+		!form.watch("selectedDate") || !form.watch("title")?.trim() || isBookingPending
 
 	return (
 		<Dialog open={open} onOpenChange={setOpen}>
@@ -203,6 +207,45 @@ export function BookingDialog({ enpId, enpName, trigger }: BookingDialogProps) {
 						{/* Scrollable form content */}
 						<div className="flex-1 overflow-y-auto px-1">
 							<div className="space-y-2 pr-1 pb-6">
+								{/* Title */}
+								<FormField
+									control={form.control}
+									name="title"
+									render={({ field }) => (
+										<FormItem>
+											<FormLabel className="text-base font-medium">Title</FormLabel>
+											<FormControl>
+												<Input
+													placeholder="e.g., Property Deed Notarization"
+													disabled={isBookingPending}
+													{...field}
+												/>
+											</FormControl>
+											<FormMessage />
+										</FormItem>
+									)}
+								/>
+								{/* Description */}
+								<FormField
+									control={form.control}
+									name="description"
+									render={({ field }) => (
+										<FormItem>
+											<FormLabel className="text-base font-medium">
+												Description (Optional)
+											</FormLabel>
+											<FormControl>
+												<Textarea
+													placeholder="Add any additional notes or requirements for this booking..."
+													rows={3}
+													disabled={isBookingPending}
+													{...field}
+												/>
+											</FormControl>
+											<FormMessage />
+										</FormItem>
+									)}
+								/>
 								{/* Service Type Selection */}
 								<FormField
 									control={form.control}
@@ -221,7 +264,6 @@ export function BookingDialog({ enpId, enpName, trigger }: BookingDialogProps) {
 										</FormItem>
 									)}
 								/>
-
 								{/* Session Mode Selection - Only for NOTARIZATION */}
 								{watchBookingMode === "NOTARIZATION" && (
 									<FormField
@@ -244,7 +286,6 @@ export function BookingDialog({ enpId, enpName, trigger }: BookingDialogProps) {
 										)}
 									/>
 								)}
-
 								{/* Date Selection */}
 								<FormField
 									control={form.control}
@@ -284,7 +325,6 @@ export function BookingDialog({ enpId, enpName, trigger }: BookingDialogProps) {
 										</FormItem>
 									)}
 								/>
-
 								{/* Time Selection */}
 								{watchSelectedDate && (
 									<div className="space-y-4">
@@ -337,28 +377,6 @@ export function BookingDialog({ enpId, enpName, trigger }: BookingDialogProps) {
 										/>
 									</div>
 								)}
-
-								{/* Description */}
-								<FormField
-									control={form.control}
-									name="description"
-									render={({ field }) => (
-										<FormItem>
-											<FormLabel className="text-base font-medium">
-												Description (Optional)
-											</FormLabel>
-											<FormControl>
-												<Textarea
-													placeholder="Add any additional notes or requirements for this booking..."
-													rows={3}
-													disabled={isBookingPending}
-													{...field}
-												/>
-											</FormControl>
-											<FormMessage />
-										</FormItem>
-									)}
-								/>
 							</div>
 						</div>
 
