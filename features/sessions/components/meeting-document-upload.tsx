@@ -52,6 +52,7 @@ export function MeetingDocumentUpload({
 		"ACKNOWLEDGMENT" | "AFFIRMATION" | "JURAT" | "SIGNATURE_WITNESSING" | ""
 	>("")
 	const [fees, setFees] = useState("")
+	const [feesError, setFeesError] = useState<string | null>(null)
 	const [selectedFile, setSelectedFile] = useState<File | null>(null)
 	const [isUploading, setIsUploading] = useState(false)
 
@@ -124,6 +125,7 @@ export function MeetingDocumentUpload({
 			setDescription("")
 			setNotarizationType("")
 			setFees("")
+			setFeesError(null)
 			onClose()
 			onSuccess?.()
 		},
@@ -206,6 +208,52 @@ export function MeetingDocumentUpload({
 			return
 		}
 
+		const feesTrimmed = fees.trim()
+		if (feesTrimmed === "") {
+			const msg =
+				"Please enter the notarization fee in PHP. It is required for the notarial book entry."
+			setFeesError(msg)
+			toast.error(msg)
+			if (debugLogsEnabled) {
+				console.log("[sessions][upload] handleUpload blocked: empty fees", {
+					meetingId,
+					totalMs: Math.round(performance.now() - startMs),
+				})
+			}
+			return
+		}
+
+		const feesNum = Number.parseFloat(feesTrimmed.replace(/,/g, ""))
+		if (!Number.isFinite(feesNum) || feesNum < 0) {
+			const msg = "Fees must be a valid non-negative number."
+			setFeesError(msg)
+			toast.error(msg)
+			if (debugLogsEnabled) {
+				console.log("[sessions][upload] handleUpload blocked: invalid fees", {
+					meetingId,
+					feesRaw: fees,
+					totalMs: Math.round(performance.now() - startMs),
+				})
+			}
+			return
+		}
+
+		if (feesNum <= 0) {
+			const msg =
+				"Enter a fee greater than zero (PHP). If your profile has no default price for this act, type the amount here."
+			setFeesError(msg)
+			toast.error(msg)
+			if (debugLogsEnabled) {
+				console.log("[sessions][upload] handleUpload blocked: zero fees", {
+					meetingId,
+					feesRaw: fees,
+					totalMs: Math.round(performance.now() - startMs),
+				})
+			}
+			return
+		}
+
+		setFeesError(null)
 		setIsUploading(true)
 
 		// Fire animation origin: center of the viewport (dialog is centered)
@@ -237,20 +285,6 @@ export function MeetingDocumentUpload({
 					base64Ms: Math.round(performance.now() - base64StartMs),
 					fileSizeBytes: selectedFile.size,
 				})
-			}
-
-			const feesNum = fees.trim() !== "" ? parseFloat(fees) : 0
-			if (Number.isNaN(feesNum) || feesNum < 0) {
-				toast.error("Fees must be a valid non-negative number")
-				setIsUploading(false)
-				if (debugLogsEnabled) {
-					console.log("[sessions][upload] handleUpload blocked: invalid fees", {
-						meetingId,
-						feesRaw: fees,
-						totalMs: Math.round(performance.now() - startMs),
-					})
-				}
-				return
 			}
 
 			// Upload document
@@ -296,6 +330,7 @@ export function MeetingDocumentUpload({
 		setDescription("")
 		setNotarizationType("")
 		setFees("")
+		setFeesError(null)
 		onClose()
 	}
 
@@ -316,6 +351,7 @@ export function MeetingDocumentUpload({
 			setDescription("")
 			setNotarizationType("")
 			setFees("")
+			setFeesError(null)
 			onClose()
 		} else if (!open) {
 			// If uploading, just close without resetting (upload will handle reset)
@@ -455,24 +491,37 @@ export function MeetingDocumentUpload({
 						</div>
 
 						<div className="space-y-2">
-							<Label htmlFor="fees">Fees (PHP)</Label>
+							<Label htmlFor="fees">
+								Fees (PHP) <span className="text-red-500">*</span>
+							</Label>
 							<Input
 								id="fees"
 								type="number"
 								step="0.01"
 								min={0}
 								value={fees}
-								onChange={e => setFees(e.target.value)}
+								onChange={e => {
+									setFees(e.target.value)
+									setFeesError(null)
+								}}
 								placeholder="0.00"
 								disabled={isUploading || !selectedFile}
+								aria-invalid={feesError ? true : undefined}
+								aria-describedby={feesError ? "fees-error" : undefined}
 							/>
-							<p className="text-muted-foreground text-xs">
-								{isEnp
-									? "Auto-filled from your profile pricing. You can adjust if needed."
-									: pricingProfile
-										? "Auto-filled from ENP participant's pricing. You can adjust if needed."
-										: "Enter the notarization fee for this document."}
-							</p>
+							{feesError ? (
+								<p id="fees-error" className="text-destructive text-xs" role="alert">
+									{feesError}
+								</p>
+							) : (
+								<p className="text-muted-foreground text-xs">
+									{isEnp
+										? "Auto-filled from your profile pricing when available. You must enter a fee greater than zero."
+										: pricingProfile
+											? "Auto-filled from ENP participant's pricing when available. You must enter a fee greater than zero."
+											: "Enter the notarization fee for this document (required, greater than zero)."}
+								</p>
+							)}
 						</div>
 					</div>
 				</div>

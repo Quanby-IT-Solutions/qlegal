@@ -53,6 +53,7 @@ export const authRouter = createTRPCRouter({
 			.values({
 				email,
 				password: hashedPassword,
+				commissionStatus: "PENDING",
 			})
 			.returning({ id: users.id })
 
@@ -212,7 +213,7 @@ export const authRouter = createTRPCRouter({
 
 		const existingUser = await ctx.db.query.users.findFirst({
 			where: (data, { eq }) => eq(data.email, email),
-			columns: { id: true, email: true, name: true },
+			columns: { id: true, email: true },
 		})
 
 		if (!existingUser) {
@@ -244,7 +245,7 @@ export const authRouter = createTRPCRouter({
 			})
 
 			// Generic error for all failure cases to prevent account enumeration
-			if (!user || !user.recoveryEmail || !user.recoveryEmailVerified) {
+			if (!user?.recoveryEmail || !user?.recoveryEmailVerified) {
 				throw new TRPCError({
 					code: "NOT_FOUND",
 					message: "No recovery email is set up for this account. Please contact support.",
