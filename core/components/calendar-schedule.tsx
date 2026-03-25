@@ -11,16 +11,6 @@ import {
 } from "date-fns"
 import { Check, ChevronLeftIcon, ChevronRightIcon, ChevronsUpDown } from "lucide-react"
 
-import {
-	AlertDialog,
-	AlertDialogAction,
-	AlertDialogCancel,
-	AlertDialogContent,
-	AlertDialogDescription,
-	AlertDialogFooter,
-	AlertDialogHeader,
-	AlertDialogTitle,
-} from "@/core/components/ui/alert-dialog"
 import { Avatar, AvatarFallback, AvatarImage } from "@/core/components/ui/avatar"
 import { Badge } from "@/core/components/ui/badge"
 import { Button } from "@/core/components/ui/button"
@@ -532,11 +522,9 @@ function CalendarScheduleEventCard({
 	const isRemote = event.workflow === "REN"
 	const showWorkflow = event.appointmentType === "NOTARIZATION"
 	const [isSheetOpen, setIsSheetOpen] = React.useState(false)
-	const [isRejectDialogOpen, setIsRejectDialogOpen] = React.useState(false)
 	const prevIsProcessingRef = React.useRef(false)
 	const isPending = event.status.id === "pending"
 	const isActionable = isPending && !!onAccept && !!onReject
-	const isAppointment = event.meta?.source === "appointment" || !!event.appointmentType
 
 	const subtitle = [showWorkflow ? (isRemote ? "Remote" : "In Person") : null, typeName]
 		.filter(Boolean)
@@ -635,7 +623,7 @@ function CalendarScheduleEventCard({
 									disabled={isProcessing}
 									onClick={e => {
 										e.stopPropagation()
-										setIsRejectDialogOpen(true)
+										onReject?.()
 									}}
 								>
 									Reject
@@ -806,7 +794,7 @@ function CalendarScheduleEventCard({
 									variant="outline"
 									className="text-destructive hover:bg-destructive hover:text-destructive-foreground flex-1 transition-all hover:shadow-md"
 									disabled={isProcessing}
-									onClick={() => setIsRejectDialogOpen(true)}
+									onClick={onReject}
 								>
 									Reject
 								</Button>
@@ -828,21 +816,6 @@ function CalendarScheduleEventCard({
 					) : null}
 				</SheetContent>
 			</Sheet>
-
-			<AlertDialog open={isRejectDialogOpen} onOpenChange={setIsRejectDialogOpen}>
-				<AlertDialogContent>
-					<AlertDialogHeader>
-						<AlertDialogTitle>
-							{isAppointment ? "Cancel this appointment?" : "Reject this request?"}
-						</AlertDialogTitle>
-						<AlertDialogDescription>This action cannot be undone.</AlertDialogDescription>
-					</AlertDialogHeader>
-					<AlertDialogFooter>
-						<AlertDialogCancel>Cancel</AlertDialogCancel>
-						<AlertDialogAction onClick={onReject}>Confirm</AlertDialogAction>
-					</AlertDialogFooter>
-				</AlertDialogContent>
-			</AlertDialog>
 		</>
 	)
 }
