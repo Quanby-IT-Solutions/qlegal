@@ -1,7 +1,17 @@
+import { format } from "date-fns"
+
 export interface Time12Hour {
 	hour: string
 	minute: string
 	period: "am" | "pm"
+}
+
+export function getTime12Hour(date: Date = new Date()): Time12Hour {
+	return {
+		hour: format(date, "hh"),
+		minute: format(date, "mm"),
+		period: format(date, "a").toLowerCase() as "am" | "pm",
+	}
 }
 
 /**
