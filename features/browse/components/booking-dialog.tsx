@@ -185,8 +185,6 @@ export function BookingDialog({ enpId, enpName, trigger }: BookingDialogProps) {
 	}
 
 	const isBookingPending = bookConsultationMutation.isPending || bookSigningMutation.isPending
-	const isSubmitDisabled =
-		!form.watch("selectedDate") || !form.watch("title")?.trim() || isBookingPending
 
 	return (
 		<Dialog open={open} onOpenChange={setOpen}>
@@ -304,7 +302,7 @@ export function BookingDialog({ enpId, enpName, trigger }: BookingDialogProps) {
 							>
 								Cancel
 							</Button>
-							<Button type="submit" disabled={isSubmitDisabled}>
+							<Button type="submit">
 								{isBookingPending ? (
 									<>
 										<Loader2 className="mr-2 size-4 animate-spin" />
