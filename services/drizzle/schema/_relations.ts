@@ -65,6 +65,13 @@ export const userRelations = relations(users, ({ one, many }) => ({
 	livenessValidations: many(livenessValidations),
 }))
 
+export const legalRegistrationsRelations = relations(legalRegistrations, ({ one }) => ({
+	applicant: one(users, {
+		fields: [legalRegistrations.applicantId],
+		references: [users.id],
+	}),
+}))
+
 // Document relations
 export const documentRelations = relations(documents, ({ one, many }) => ({
 	envelope: one(envelopes, {

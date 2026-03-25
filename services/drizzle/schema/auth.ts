@@ -27,7 +27,7 @@ export const users = createTable("user", t => ({
 	barangay: t.varchar({ length: 255 }), // Barangay
 	cityProvince: t.varchar({ length: 255 }), // City and Province
 	role: userRoles().default("PRINCIPAL").notNull(),
-	commissionStatus: userStatus().default("ACTIVE").notNull(),
+	commissionStatus: userStatus().default("PENDING").notNull(),
 	// KYC status (simplified - detailed data in kyc_sessions and id_card_details tables)
 	kycStatus: kycStatus().default("NOT_STARTED"),
 	kycVerifiedAt: t.timestamp({ mode: "date", withTimezone: true }),

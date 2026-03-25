@@ -11,12 +11,6 @@ import { env } from "@/env"
 
 const { auth: proxy } = NextAuth(authConfig)
 
-const ENP_LAWYER_ROUTE_PREFIXES = ["/requests", "/notarial-registry", "/sessions"] as const
-
-function isEnpLawyerRoute(path: string): boolean {
-	return ENP_LAWYER_ROUTE_PREFIXES.some(prefix => path === prefix || path.startsWith(`${prefix}/`))
-}
-
 function logAccess(path: string, role: string | null, authorized: boolean): void {
 	if (env.NODE_ENV === "development") {
 		console.log(`\n[Middleware] ${path} | Role: ${role ?? "anonymous"} | Authorized: ${authorized}`)
@@ -76,9 +70,9 @@ export default proxy(req => {
 				const callbackObj = new URL(callbackUrl, nextUrl.origin)
 				const callbackPath = callbackObj.pathname
 
-				if (role === "ENP" && userStatus !== "ACTIVE" && isEnpLawyerRoute(callbackPath)) {
+				if (userStatus === "SUSPENDED" && callbackPath !== "/auth/status") {
 					const statusUrl = new URL("/auth/status", nextUrl)
-					logRedirect(path, statusUrl.pathname, "ENP approval required for callback route")
+					logRedirect(path, statusUrl.pathname, "account suspended for callback route")
 					return NextResponse.redirect(statusUrl)
 				}
 
@@ -105,7 +99,9 @@ export default proxy(req => {
 		// User has permission: public routes, shared protected, or role-specific routes
 		if (hasAccess) {
 			// STRICT KYC GATE: All authenticated users must complete KYC before accessing any protected routes
-			const onAuthPage = matchesAnyRoute(path, ROUTE_CONFIG.publicOnly) || path.startsWith("/auth/")
+			const onAuthPage =
+				matchesAnyRoute(path, ROUTE_CONFIG.publicOnly) ||
+				(path.startsWith("/auth/") && path !== "/auth/legal-registration")
 			// ts-expect-error augmented user field
 			const kycStatus = auth?.user?.kycStatus
 
@@ -126,9 +122,9 @@ export default proxy(req => {
 			}
 
 			const userStatus = auth?.user?.status
-			if (isAuth && role === "ENP" && userStatus !== "ACTIVE" && isEnpLawyerRoute(path)) {
+			if (isAuth && userStatus === "SUSPENDED" && path !== "/auth/status") {
 				const statusUrl = new URL("/auth/status", nextUrl)
-				logRedirect(path, statusUrl.pathname, "ENP approval required for lawyer route")
+				logRedirect(path, statusUrl.pathname, "account suspended")
 				return NextResponse.redirect(statusUrl)
 			}
 
@@ -184,7 +180,7 @@ export default proxy(req => {
 				if (kycStatus === "NOT_STARTED" || kycStatus === "PENDING") {
 					return "/onboarding"
 				}
-				if (role === "ENP" && userStatus !== "ACTIVE" && isEnpLawyerRoute(path)) {
+				if (userStatus === "SUSPENDED") {
 					return "/auth/status"
 				}
 				// Default route

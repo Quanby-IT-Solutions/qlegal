@@ -34,7 +34,6 @@ export const ROUTE_CONFIG: RouteConfig = {
 	publicOnly: [
 		{ path: "/auth/error", exact: true },
 		{ path: "/auth/forgot-password", exact: true },
-		{ path: "/auth/legal-registration", exact: true },
 		{ path: "/auth/login", exact: true },
 		{ path: "/auth/register", exact: true },
 		{ path: "/auth/register/lawyer", exact: true },
@@ -48,6 +47,7 @@ export const ROUTE_CONFIG: RouteConfig = {
 			{ path: "/appointments" },
 			{ path: "/auth/signature" },
 			{ path: "/auth/status", exact: true },
+			{ path: "/auth/legal-registration", exact: true },
 			{ path: "/auth/verify-recovery-email", exact: true },
 			{ path: "/browse" },
 			{ path: "/calendar" },

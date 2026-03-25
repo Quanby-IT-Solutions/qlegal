@@ -1,0 +1,2 @@
+ALTER TABLE "user" ALTER COLUMN "commissionStatus" SET DEFAULT 'PENDING';
+

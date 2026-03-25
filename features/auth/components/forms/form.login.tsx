@@ -118,7 +118,7 @@ export function LoginForm({ callbackUrl }: { callbackUrl?: Route }) {
 						// Check KYC status first
 						if (kycStatus === "NOT_STARTED" || kycStatus === "PENDING") {
 							router.push("/onboarding" as Route)
-						} else if (userStatus !== "ACTIVE") {
+						} else if (userStatus === "SUSPENDED") {
 							router.push("/auth/status" as Route)
 						} else {
 							const destination: Route = callbackUrl ?? "/dashboard"
