@@ -9,32 +9,80 @@ import { Separator } from "@/core/components/ui/separator"
 
 import type { Appointment } from "@/services/drizzle/schema/appointments"
 import type { EnpAvailability } from "@/services/drizzle/schema/enp-profiles"
+import { trpc } from "@/services/trpc/client"
 import type { AppRouter } from "@/services/trpc/root"
 
 import { buildCalendarEvents } from "../lib/calendar-events"
 import { useAppointmentsScheduleActions } from "../lib/use-appointments-schedule-actions"
 import { CalendarCard } from "./calendar/calendar-card"
+import { CalendarSkeleton } from "./calendar/calendar-skeleton"
 import { RejectDialog } from "./dialogs/reject-dialog"
 import { AddEventSection } from "./event-list/add-event-section"
 import { EventListHeader, UnifiedSidebarList } from "./event-list/event-list-card"
+import { EventListSkeleton } from "./event-list/event-list-skeleton"
 
 interface AppointmentsScheduleClientProps {
-	incomingRequests: inferRouterOutputs<AppRouter>["appointments"]["getIncomingRequests"]
-	incomingAppointments: inferRouterOutputs<AppRouter>["appointments"]["getIncomingAppointmentsForENP"]
-	scheduleData: {
-		regular: EnpAvailability[]
-		blocked: EnpAvailability[]
-		recurringBlocked: EnpAvailability[]
-		custom: EnpAvailability[]
-		myAppointments?: (Appointment & { lapsed?: boolean })[]
-	}
+	scheduleMonth: number
+	scheduleYear: number
+}
+
+type IncomingRequests = inferRouterOutputs<AppRouter>["appointments"]["getIncomingRequests"]
+type IncomingAppointments =
+	inferRouterOutputs<AppRouter>["appointments"]["getIncomingAppointmentsForENP"]
+type ScheduleData = {
+	regular: EnpAvailability[]
+	blocked: EnpAvailability[]
+	recurringBlocked: EnpAvailability[]
+	custom: EnpAvailability[]
+	myAppointments?: (Appointment & { lapsed?: boolean })[]
+}
+
+const emptyScheduleData: ScheduleData = {
+	regular: [],
+	blocked: [],
+	recurringBlocked: [],
+	custom: [],
+	myAppointments: [],
+}
+
+function sortIncomingItems<T extends { createdAt: Date }>(items: T[]) {
+	return [...items].sort((a, b) => {
+		const dateA = new Date(a.createdAt).getTime()
+		const dateB = new Date(b.createdAt).getTime()
+		return dateB - dateA
+	})
+}
+
+function ScheduleBranchFallback() {
+	return (
+		<div className="mt-4 grid grid-cols-1 gap-y-4 lg:grid-cols-3 lg:items-start lg:gap-x-4 lg:gap-y-0">
+			<CalendarSkeleton />
+			<EventListSkeleton />
+		</div>
+	)
 }
 
 export function AppointmentsScheduleClient({
-	scheduleData,
-	incomingRequests,
-	incomingAppointments,
+	scheduleMonth,
+	scheduleYear,
 }: AppointmentsScheduleClientProps) {
+	const incomingRequestsQuery = trpc.appointments.getIncomingRequests.useQuery()
+	const incomingAppointmentsQuery = trpc.appointments.getIncomingAppointmentsForENP.useQuery()
+	const scheduleQuery = trpc.appointments.getEnpSchedule.useQuery({
+		month: scheduleMonth,
+		year: scheduleYear,
+	})
+
+	const incomingRequests = useMemo(
+		(): IncomingRequests => sortIncomingItems(incomingRequestsQuery.data ?? []),
+		[incomingRequestsQuery.data]
+	)
+	const incomingAppointments = useMemo(
+		(): IncomingAppointments => sortIncomingItems(incomingAppointmentsQuery.data ?? []),
+		[incomingAppointmentsQuery.data]
+	)
+	const scheduleData = scheduleQuery.data ?? emptyScheduleData
+
 	const {
 		rejectDialogOpen,
 		processingKey,
@@ -55,6 +103,33 @@ export function AppointmentsScheduleClient({
 			scheduleData?.myAppointments ?? []
 		)
 	}, [incomingRequests, incomingAppointments, scheduleData?.myAppointments])
+
+	const missingInitialData =
+		incomingRequestsQuery.data === undefined ||
+		incomingAppointmentsQuery.data === undefined ||
+		scheduleQuery.data === undefined
+	const isInitialLoading =
+		missingInitialData &&
+		(incomingRequestsQuery.isPending ||
+			incomingAppointmentsQuery.isPending ||
+			scheduleQuery.isPending)
+	const queryError =
+		incomingRequestsQuery.error ?? incomingAppointmentsQuery.error ?? scheduleQuery.error
+
+	if (isInitialLoading) {
+		return <ScheduleBranchFallback />
+	}
+
+	if (missingInitialData && queryError) {
+		return (
+			<div className="border-border bg-card mt-4 rounded-lg border p-6">
+				<h2 className="text-lg font-semibold">Unable to load appointments</h2>
+				<p className="text-muted-foreground mt-2 text-sm">
+					{queryError.message || "Please refresh the page and try again."}
+				</p>
+			</div>
+		)
+	}
 
 	return (
 		<>
