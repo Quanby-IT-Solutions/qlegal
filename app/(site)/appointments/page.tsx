@@ -1,7 +1,6 @@
 import { Suspense } from "react"
 
 import { PageHeader } from "@/core/components/navbar/page-header"
-import { Skeleton } from "@/core/components/ui/skeleton"
 
 import { HydrateClient, trpc } from "@/services/trpc/server"
 
@@ -21,17 +20,10 @@ function sortIncomingItems<T extends { createdAt: Date }>(items: T[]) {
 
 function ScheduleBranchFallback() {
 	return (
-		<>
-			<div className="space-y-2">
-				<Skeleton className="h-9 w-64" />
-				<Skeleton className="h-5 w-96" />
-			</div>
-
-			<div className="mt-4 grid grid-cols-1 gap-y-4 lg:grid-cols-3 lg:items-start lg:gap-x-4 lg:gap-y-0">
-				<CalendarSkeleton />
-				<EventListSkeleton />
-			</div>
-		</>
+		<div className="mt-4 grid grid-cols-1 gap-y-4 lg:grid-cols-3 lg:items-start lg:gap-x-4 lg:gap-y-0">
+			<CalendarSkeleton />
+			<EventListSkeleton />
+		</div>
 	)
 }
 
@@ -50,17 +42,11 @@ async function ENPAppointmentsContent() {
 	})
 
 	return (
-		<>
-			<div className="space-y-2">
-				<h1 className="text-3xl font-bold tracking-tight">Appointments & Schedule</h1>
-				<p className="text-muted-foreground">Manage incoming requests and your appointments</p>
-			</div>
-			<AppointmentsScheduleClient
-				scheduleData={scheduleData}
-				incomingRequests={incomingRequests}
-				incomingAppointments={incomingAppointments}
-			/>
-		</>
+		<AppointmentsScheduleClient
+			scheduleData={scheduleData}
+			incomingRequests={incomingRequests}
+			incomingAppointments={incomingAppointments}
+		/>
 	)
 }
 
@@ -71,6 +57,12 @@ export default async function AppointmentsPage() {
 				<PageHeader items={[{ label: "Appointments", href: "/appointments" }]} />
 				<main className="flex-1 p-4 md:p-6 lg:p-8">
 					<div className="mx-auto max-w-7xl space-y-8">
+						<div className="space-y-2">
+							<h1 className="text-3xl font-bold tracking-tight">Appointments & Schedule</h1>
+							<p className="text-muted-foreground">
+								Manage incoming requests and your appointments
+							</p>
+						</div>
 						<Suspense fallback={<ScheduleBranchFallback />}>
 							<ENPAppointmentsContent />
 						</Suspense>
