@@ -26,9 +26,10 @@ import {
 } from "@/features/appointments/lib/calendar-events"
 import type { ScheduleIncomingItem } from "@/features/appointments/lib/use-appointments-schedule-actions"
 
-type IncomingRequest = inferRouterOutputs<AppRouter>["appointments"]["getIncomingRequests"][number]
+type IncomingRequest =
+	inferRouterOutputs<AppRouter>["appointments"]["getEnpScheduleDashboard"]["incomingRequests"][number]
 type IncomingAppointment =
-	inferRouterOutputs<AppRouter>["appointments"]["getIncomingAppointmentsForENP"][number]
+	inferRouterOutputs<AppRouter>["appointments"]["getEnpScheduleDashboard"]["incomingAppointments"][number]
 
 export function EventListHeader() {
 	const { formattedDate, relativeDay } = useCalendarScheduleHeader()

@@ -9,14 +9,10 @@ export default async function AppointmentsPage() {
 	const scheduleMonth = today.getMonth()
 	const scheduleYear = today.getFullYear()
 
-	await Promise.all([
-		trpc.appointments.getIncomingRequests.prefetch(),
-		trpc.appointments.getIncomingAppointmentsForENP.prefetch(),
-		trpc.appointments.getEnpSchedule.prefetch({
-			month: scheduleMonth,
-			year: scheduleYear,
-		}),
-	])
+	await trpc.appointments.getEnpScheduleDashboard.prefetch({
+		month: scheduleMonth,
+		year: scheduleYear,
+	})
 
 	return (
 		<HydrateClient>

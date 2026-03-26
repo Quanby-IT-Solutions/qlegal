@@ -7,8 +7,6 @@ import { CalendarScheduleProvider, type CalendarEvent } from "@/core/components/
 import { Card, CardAction, CardContent, CardHeader } from "@/core/components/ui/card"
 import { Separator } from "@/core/components/ui/separator"
 
-import type { Appointment } from "@/services/drizzle/schema/appointments"
-import type { EnpAvailability } from "@/services/drizzle/schema/enp-profiles"
 import { trpc } from "@/services/trpc/client"
 import type { AppRouter } from "@/services/trpc/root"
 
@@ -26,24 +24,7 @@ interface AppointmentsScheduleClientProps {
 	scheduleYear: number
 }
 
-type IncomingRequests = inferRouterOutputs<AppRouter>["appointments"]["getIncomingRequests"]
-type IncomingAppointments =
-	inferRouterOutputs<AppRouter>["appointments"]["getIncomingAppointmentsForENP"]
-type ScheduleData = {
-	regular: EnpAvailability[]
-	blocked: EnpAvailability[]
-	recurringBlocked: EnpAvailability[]
-	custom: EnpAvailability[]
-	myAppointments?: (Appointment & { lapsed?: boolean })[]
-}
-
-const emptyScheduleData: ScheduleData = {
-	regular: [],
-	blocked: [],
-	recurringBlocked: [],
-	custom: [],
-	myAppointments: [],
-}
+type DashboardData = inferRouterOutputs<AppRouter>["appointments"]["getEnpScheduleDashboard"]
 
 function sortIncomingItems<T extends { createdAt: Date }>(items: T[]) {
 	return [...items].sort((a, b) => {
@@ -62,26 +43,33 @@ function ScheduleBranchFallback() {
 	)
 }
 
+const emptySchedule: DashboardData["schedule"] = {
+	regular: [],
+	blocked: [],
+	recurringBlocked: [],
+	custom: [],
+	myAppointments: [],
+}
+
 export function AppointmentsScheduleClient({
 	scheduleMonth,
 	scheduleYear,
 }: AppointmentsScheduleClientProps) {
-	const incomingRequestsQuery = trpc.appointments.getIncomingRequests.useQuery()
-	const incomingAppointmentsQuery = trpc.appointments.getIncomingAppointmentsForENP.useQuery()
-	const scheduleQuery = trpc.appointments.getEnpSchedule.useQuery({
+	const dashboardQuery = trpc.appointments.getEnpScheduleDashboard.useQuery({
 		month: scheduleMonth,
 		year: scheduleYear,
 	})
 
+	const data = dashboardQuery.data
 	const incomingRequests = useMemo(
-		(): IncomingRequests => sortIncomingItems(incomingRequestsQuery.data ?? []),
-		[incomingRequestsQuery.data]
+		() => sortIncomingItems(data?.incomingRequests ?? []),
+		[data?.incomingRequests]
 	)
 	const incomingAppointments = useMemo(
-		(): IncomingAppointments => sortIncomingItems(incomingAppointmentsQuery.data ?? []),
-		[incomingAppointmentsQuery.data]
+		() => sortIncomingItems(data?.incomingAppointments ?? []),
+		[data?.incomingAppointments]
 	)
-	const scheduleData = scheduleQuery.data ?? emptyScheduleData
+	const scheduleData = data?.schedule ?? emptySchedule
 
 	const {
 		rejectDialogOpen,
@@ -104,28 +92,16 @@ export function AppointmentsScheduleClient({
 		)
 	}, [incomingRequests, incomingAppointments, scheduleData?.myAppointments])
 
-	const missingInitialData =
-		incomingRequestsQuery.data === undefined ||
-		incomingAppointmentsQuery.data === undefined ||
-		scheduleQuery.data === undefined
-	const isInitialLoading =
-		missingInitialData &&
-		(incomingRequestsQuery.isPending ||
-			incomingAppointmentsQuery.isPending ||
-			scheduleQuery.isPending)
-	const queryError =
-		incomingRequestsQuery.error ?? incomingAppointmentsQuery.error ?? scheduleQuery.error
-
-	if (isInitialLoading) {
+	if (dashboardQuery.isPending && !dashboardQuery.data) {
 		return <ScheduleBranchFallback />
 	}
 
-	if (missingInitialData && queryError) {
+	if (dashboardQuery.error && !dashboardQuery.data) {
 		return (
 			<div className="border-border bg-card mt-4 rounded-lg border p-6">
 				<h2 className="text-lg font-semibold">Unable to load appointments</h2>
 				<p className="text-muted-foreground mt-2 text-sm">
-					{queryError.message || "Please refresh the page and try again."}
+					{dashboardQuery.error.message || "Please refresh the page and try again."}
 				</p>
 			</div>
 		)
