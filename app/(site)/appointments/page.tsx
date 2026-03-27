@@ -1,15 +1,19 @@
+import { Suspense } from "react"
+
 import { PageHeader } from "@/core/components/navbar/page-header"
 
 import { HydrateClient, trpc } from "@/services/trpc/server"
 
 import { AppointmentsScheduleClient } from "@/features/appointments/components/appointments-schedule-client"
+import { CalendarSkeleton } from "@/features/appointments/components/calendar/calendar-skeleton"
+import { EventListSkeleton } from "@/features/appointments/components/event-list/event-list-skeleton"
 
 export default async function AppointmentsPage() {
 	const today = new Date()
 	const scheduleMonth = today.getMonth()
 	const scheduleYear = today.getFullYear()
 
-	await trpc.appointments.getEnpScheduleDashboard.prefetch({
+	void trpc.appointments.getEnpScheduleDashboard.prefetch({
 		month: scheduleMonth,
 		year: scheduleYear,
 	})
@@ -26,7 +30,19 @@ export default async function AppointmentsPage() {
 								Manage incoming requests and your appointments
 							</p>
 						</div>
-						<AppointmentsScheduleClient scheduleMonth={scheduleMonth} scheduleYear={scheduleYear} />
+						<Suspense
+							fallback={
+								<div className="mt-4 grid grid-cols-1 gap-y-4 lg:grid-cols-3 lg:items-start lg:gap-x-4 lg:gap-y-0">
+									<CalendarSkeleton />
+									<EventListSkeleton />
+								</div>
+							}
+						>
+							<AppointmentsScheduleClient
+								scheduleMonth={scheduleMonth}
+								scheduleYear={scheduleYear}
+							/>
+						</Suspense>
 					</div>
 				</main>
 			</div>
