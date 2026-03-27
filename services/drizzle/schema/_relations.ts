@@ -63,6 +63,16 @@ export const userRelations = relations(users, ({ one, many }) => ({
 	idCardDetails: many(idCardDetails),
 	kycSessions: many(kycSessions),
 	livenessValidations: many(livenessValidations),
+	appointmentParticipants: many(appointmentParticipants, {
+		relationName: "appointmentParticipantUser",
+	}),
+	invitedAppointmentParticipants: many(appointmentParticipants, {
+		relationName: "appointmentParticipantInvitedBy",
+	}),
+	principalRequests: many(notarizationRequests, { relationName: "principalRequests" }),
+	enpRequests: many(notarizationRequests, { relationName: "enpRequests" }),
+	requestedSignatures: many(signatureRequests, { relationName: "requestedSignatures" }),
+	signaturesToSign: many(signatureRequests, { relationName: "signaturesToSign" }),
 }))
 
 export const legalRegistrationsRelations = relations(legalRegistrations, ({ one }) => ({
@@ -115,6 +125,7 @@ export const appointmentParticipantsRelations = relations(appointmentParticipant
 	user: one(users, {
 		fields: [appointmentParticipants.userId],
 		references: [users.id],
+		relationName: "appointmentParticipantUser",
 	}),
 	invitedBy: one(users, {
 		fields: [appointmentParticipants.invitedById],

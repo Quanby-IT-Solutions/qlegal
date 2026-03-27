@@ -27,24 +27,24 @@ export default async function RequestsPage() {
 	const session = await auth()
 	const isENP = session?.user?.role === "ENP"
 
-	const incomingRequests = sortIncomingItems([
-		...((await trpc.appointments.getIncomingRequests()) ?? []),
-	]) as IncomingRequest[]
-
-	let incomingAppointments: IncomingAppointment[] = []
-	if (isENP) {
-		incomingAppointments = sortIncomingItems([
-			...((await trpc.appointments.getIncomingAppointmentsForENP()) ?? []),
-		]) as IncomingAppointment[]
-	}
-
 	const today = new Date()
-	const scheduleData = isENP
-		? await trpc.appointments.getEnpSchedule({
-				month: today.getMonth(),
-				year: today.getFullYear(),
-			})
-		: null
+
+	// Parallelize independent fetches (async-parallel)
+	const [rawRequests, rawAppointments, scheduleData] = await Promise.all([
+		trpc.appointments.getIncomingRequests(),
+		isENP ? trpc.appointments.getIncomingAppointmentsForENP() : Promise.resolve([]),
+		isENP
+			? trpc.appointments.getEnpSchedule({
+					month: today.getMonth(),
+					year: today.getFullYear(),
+				})
+			: Promise.resolve(null),
+	])
+
+	const incomingRequests = sortIncomingItems([...(rawRequests ?? [])]) as IncomingRequest[]
+	const incomingAppointments = sortIncomingItems([
+		...(rawAppointments ?? []),
+	]) as IncomingAppointment[]
 
 	return (
 		<HydrateClient>

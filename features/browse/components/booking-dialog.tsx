@@ -5,12 +5,11 @@ import { useRouter } from "next/navigation"
 import { useState } from "react"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { format } from "date-fns"
-import { CalendarIcon, Loader2, Video } from "lucide-react"
+import { Loader2, Video } from "lucide-react"
 import { useForm } from "react-hook-form"
 import { toast } from "sonner"
 
 import { Button } from "@/core/components/ui/button"
-import { Calendar } from "@/core/components/ui/calendar"
 import {
 	Dialog,
 	DialogContent,
@@ -29,13 +28,11 @@ import {
 	FormMessage,
 } from "@/core/components/ui/form"
 import { Input } from "@/core/components/ui/input"
-import { Popover, PopoverContent, PopoverTrigger } from "@/core/components/ui/popover"
 import { Textarea } from "@/core/components/ui/textarea"
-import { cn } from "@/core/lib/utils"
 
 import { trpc } from "@/services/trpc/client"
 
-import { TimeWheelPicker } from "@/features/appointments/components/schedule/time-wheel-picker"
+import { DateTimeSelector } from "@/features/appointments/components/shared/date-time-selector"
 import { SessionModeSelector } from "@/features/appointments/components/shared/session-mode-selector"
 import { SessionTypeSelector } from "@/features/appointments/components/shared/session-type-selector"
 import {
@@ -53,24 +50,29 @@ interface BookingDialogProps {
 export function BookingDialog({ enpId, enpName, trigger }: BookingDialogProps) {
 	const router = useRouter()
 	const [open, setOpen] = useState(false)
-	const [dateOpen, setDateOpen] = useState(false)
+	const now = new Date()
+	const currentTime = {
+		hour: format(now, "hh"),
+		minute: format(now, "mm"),
+		period: format(now, "a").toLowerCase() as "am" | "pm",
+	}
 
 	// Form state
 	const form = useForm<BookingDialogSchema>({
 		resolver: zodResolver(bookingDialogSchema),
 		defaultValues: {
+			title: "",
+			description: "",
 			bookingMode: "CONSULTATION",
 			workflowType: undefined,
 			selectedDate: new Date(),
-			hour: "09",
-			minute: "00",
-			period: "am" as const,
-			description: "",
+			hour: currentTime.hour,
+			minute: currentTime.minute,
+			period: currentTime.period,
 		},
 	})
 
 	const watchBookingMode = form.watch("bookingMode")
-	const watchSelectedDate = form.watch("selectedDate")
 
 	// Book consultation mutation
 	const bookConsultationMutation = trpc.browse.bookConsultation.useMutation({
@@ -120,7 +122,8 @@ export function BookingDialog({ enpId, enpName, trigger }: BookingDialogProps) {
 	}
 
 	const handleBooking = async (values: BookingDialogSchema) => {
-		const { bookingMode, selectedDate, hour, minute, period, description, workflowType } = values
+		const { bookingMode, selectedDate, hour, minute, period, description, workflowType, title } =
+			values
 
 		if (!selectedDate) {
 			toast.error("Missing Information", {
@@ -129,7 +132,11 @@ export function BookingDialog({ enpId, enpName, trigger }: BookingDialogProps) {
 			return
 		}
 
-		const time24 = convertTo24Hour(hour ?? "09", minute ?? "00", period ?? "am")
+		const time24 = convertTo24Hour(
+			hour ?? currentTime.hour,
+			minute ?? currentTime.minute,
+			period ?? currentTime.period
+		)
 
 		if (bookingMode === "CONSULTATION") {
 			// For consultation, we don't pass workflowType - it's only for NOTARIZATION
@@ -139,6 +146,7 @@ export function BookingDialog({ enpId, enpName, trigger }: BookingDialogProps) {
 
 			await bookConsultationMutation.mutateAsync({
 				enpId,
+				title,
 				workflowType: undefined, // No workflow type for consultations
 				appointmentDate,
 				appointmentTime: time24,
@@ -158,14 +166,14 @@ export function BookingDialog({ enpId, enpName, trigger }: BookingDialogProps) {
 
 			const appointmentDate = constructDate(
 				selectedDate,
-				hour ?? "09",
-				minute ?? "00",
-				period ?? "am"
+				hour ?? currentTime.hour,
+				minute ?? currentTime.minute,
+				period ?? currentTime.period
 			)
 
 			await bookSigningMutation.mutateAsync({
 				enpId,
-				title: enpName ? `Notarization with ${enpName}` : "Notarization Session",
+				title,
 				type: "NOTARIZATION",
 				appointmentDate,
 				duration: workflowType === "REN" ? 45 : 60,
@@ -177,12 +185,11 @@ export function BookingDialog({ enpId, enpName, trigger }: BookingDialogProps) {
 	}
 
 	const isBookingPending = bookConsultationMutation.isPending || bookSigningMutation.isPending
-	const isSubmitDisabled = !form.watch("selectedDate") || isBookingPending
 
 	return (
 		<Dialog open={open} onOpenChange={setOpen}>
 			<DialogTrigger asChild>{trigger ?? <Button>Book Session</Button>}</DialogTrigger>
-			<DialogContent className="flex h-[85vh] max-h-[90vh] w-screen max-w-350 flex-col">
+			<DialogContent className="flex max-h-[90dvh] w-screen max-w-350 flex-col overflow-hidden">
 				<DialogHeader>
 					<DialogTitle>
 						{watchBookingMode === "CONSULTATION" ? "Book Consultation" : "Book Notarization"}
@@ -198,18 +205,55 @@ export function BookingDialog({ enpId, enpName, trigger }: BookingDialogProps) {
 				<Form {...form} key={open ? "booking-form" : "closed"}>
 					<form
 						onSubmit={form.handleSubmit(handleBooking)}
-						className="flex flex-1 flex-col overflow-hidden"
+						className="flex min-h-0 flex-col overflow-hidden"
 					>
 						{/* Scrollable form content */}
-						<div className="flex-1 overflow-y-auto px-1">
-							<div className="space-y-2 pr-1 pb-6">
+						<div className="overflow-y-auto px-1">
+							<div className="space-y-4 pr-1 pb-6">
+								{/* Title */}
+								<FormField
+									control={form.control}
+									name="title"
+									render={({ field }) => (
+										<FormItem>
+											<FormLabel>Title</FormLabel>
+											<FormControl>
+												<Input
+													placeholder="e.g., Property Deed Notarization"
+													disabled={isBookingPending}
+													{...field}
+												/>
+											</FormControl>
+											<FormMessage />
+										</FormItem>
+									)}
+								/>
+								{/* Description */}
+								<FormField
+									control={form.control}
+									name="description"
+									render={({ field }) => (
+										<FormItem>
+											<FormLabel>Description (Optional)</FormLabel>
+											<FormControl>
+												<Textarea
+													placeholder="Add any additional notes or requirements for this booking..."
+													rows={3}
+													disabled={isBookingPending}
+													{...field}
+												/>
+											</FormControl>
+											<FormMessage />
+										</FormItem>
+									)}
+								/>
 								{/* Service Type Selection */}
 								<FormField
 									control={form.control}
 									name="bookingMode"
 									render={({ field }) => (
 										<FormItem>
-											<FormLabel className="text-base font-medium">Service Type</FormLabel>
+											<FormLabel>Service Type</FormLabel>
 											<FormControl>
 												<SessionTypeSelector
 													value={field.value}
@@ -221,7 +265,6 @@ export function BookingDialog({ enpId, enpName, trigger }: BookingDialogProps) {
 										</FormItem>
 									)}
 								/>
-
 								{/* Session Mode Selection - Only for NOTARIZATION */}
 								{watchBookingMode === "NOTARIZATION" && (
 									<FormField
@@ -229,7 +272,7 @@ export function BookingDialog({ enpId, enpName, trigger }: BookingDialogProps) {
 										name="workflowType"
 										render={({ field }) => (
 											<FormItem>
-												<FormLabel className="text-base font-medium">Session Mode</FormLabel>
+												<FormLabel>Session Mode</FormLabel>
 												<FormControl>
 													<div className="space-y-2">
 														<SessionModeSelector
@@ -244,121 +287,8 @@ export function BookingDialog({ enpId, enpName, trigger }: BookingDialogProps) {
 										)}
 									/>
 								)}
-
 								{/* Date Selection */}
-								<FormField
-									control={form.control}
-									name="selectedDate"
-									render={({ field }) => (
-										<FormItem className="flex flex-col gap-2">
-											<FormLabel className="text-base font-medium">Date</FormLabel>
-											<Popover open={dateOpen} onOpenChange={setDateOpen}>
-												<PopoverTrigger asChild>
-													<FormControl>
-														<Button
-															variant="outline"
-															className={cn(
-																"w-full justify-start text-left font-normal",
-																!field.value && "text-muted-foreground"
-															)}
-														>
-															<CalendarIcon className="mr-2 size-4" />
-															{field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
-														</Button>
-													</FormControl>
-												</PopoverTrigger>
-												<PopoverContent className="w-auto p-0" align="start">
-													<Calendar
-														mode="single"
-														selected={field.value}
-														onSelect={value => {
-															field.onChange(value ?? new Date())
-															setDateOpen(false)
-														}}
-														initialFocus
-														disabled={date => date < new Date(new Date().setHours(0, 0, 0, 0))}
-													/>
-												</PopoverContent>
-											</Popover>
-											<FormMessage />
-										</FormItem>
-									)}
-								/>
-
-								{/* Time Selection */}
-								{watchSelectedDate && (
-									<div className="space-y-4">
-										<div>
-											<label className="text-base font-medium">Time</label>
-										</div>
-										<FormField
-											control={form.control}
-											name="hour"
-											render={({ field }) => (
-												<FormItem>
-													<FormControl>
-														<div>
-															<FormField
-																control={form.control}
-																name="minute"
-																render={({ field: minuteField }) => (
-																	<FormItem>
-																		<FormControl>
-																			<Input type="hidden" {...minuteField} />
-																		</FormControl>
-																	</FormItem>
-																)}
-															/>
-															<FormField
-																control={form.control}
-																name="period"
-																render={({ field: periodField }) => (
-																	<FormItem>
-																		<FormControl>
-																			<Input type="hidden" {...periodField} />
-																		</FormControl>
-																	</FormItem>
-																)}
-															/>
-															<TimeWheelPicker
-																hour={field.value ?? "09"}
-																minute={form.watch("minute") ?? "00"}
-																period={form.watch("period") ?? "am"}
-																onHourChange={field.onChange}
-																onMinuteChange={value => form.setValue("minute", value)}
-																onPeriodChange={value => form.setValue("period", value)}
-																disabled={isBookingPending}
-															/>
-														</div>
-													</FormControl>
-													<FormMessage />
-												</FormItem>
-											)}
-										/>
-									</div>
-								)}
-
-								{/* Description */}
-								<FormField
-									control={form.control}
-									name="description"
-									render={({ field }) => (
-										<FormItem>
-											<FormLabel className="text-base font-medium">
-												Description (Optional)
-											</FormLabel>
-											<FormControl>
-												<Textarea
-													placeholder="Add any additional notes or requirements for this booking..."
-													rows={3}
-													disabled={isBookingPending}
-													{...field}
-												/>
-											</FormControl>
-											<FormMessage />
-										</FormItem>
-									)}
-								/>
+								<DateTimeSelector control={form.control} disabled={isBookingPending} />
 							</div>
 						</div>
 
@@ -372,7 +302,7 @@ export function BookingDialog({ enpId, enpName, trigger }: BookingDialogProps) {
 							>
 								Cancel
 							</Button>
-							<Button type="submit" disabled={isSubmitDisabled}>
+							<Button type="submit">
 								{isBookingPending ? (
 									<>
 										<Loader2 className="mr-2 size-4 animate-spin" />

@@ -36,6 +36,9 @@ export const STATUS_IN_PROGRESS: Status = {
 	name: "In Progress",
 	color: "#3B82F6",
 }
+export const STATUS_ONGOING: Status = { id: "ongoing", name: "Ongoing", color: "#8B5CF6" }
+export const STATUS_COMPLETED: Status = { id: "completed", name: "Completed", color: "#059669" }
+export const STATUS_CANCELLED: Status = { id: "cancelled", name: "Cancelled", color: "#EF4444" }
 export const STATUS_LAPSED: Status = { id: "lapsed", name: "Lapsed", color: "#D97706" }
 
 function toEventPrincipal(principal?: EventPrincipal | null): EventPrincipal | undefined {
@@ -116,9 +119,13 @@ export function toCalendarEventFromIncomingAppointment(item: IncomingAppointment
 			? STATUS_PENDING
 			: appointment.status === "CONFIRMED"
 				? STATUS_CONFIRMED
-				: appointment.status === "CANCELLED"
-					? STATUS_REJECTED
-					: STATUS_CONFIRMED
+				: appointment.status === "ONGOING"
+					? STATUS_ONGOING
+					: appointment.status === "COMPLETED"
+						? STATUS_COMPLETED
+						: appointment.status === "CANCELLED"
+							? STATUS_CANCELLED
+							: STATUS_CONFIRMED
 	const eventDate = new Date(appointment.appointmentDate)
 
 	return {
@@ -146,7 +153,9 @@ export function toCalendarEventFromIncomingRequest(item: IncomingRequest): Calen
 				? STATUS_REJECTED
 				: item.status === "IN_PROGRESS"
 					? STATUS_IN_PROGRESS
-					: STATUS_CONFIRMED
+					: item.status === "COMPLETED"
+						? STATUS_COMPLETED
+						: STATUS_CONFIRMED
 
 	return {
 		id: item.id,
@@ -190,7 +199,15 @@ export function buildCalendarEvents(
 			? STATUS_LAPSED
 			: appointment.status === "PENDING"
 				? STATUS_PENDING
-				: STATUS_CONFIRMED
+				: appointment.status === "CONFIRMED"
+					? STATUS_CONFIRMED
+					: appointment.status === "ONGOING"
+						? STATUS_ONGOING
+						: appointment.status === "COMPLETED"
+							? STATUS_COMPLETED
+							: appointment.status === "CANCELLED"
+								? STATUS_CANCELLED
+								: STATUS_CONFIRMED
 		add(toCalendarEvent(appointment, status))
 	}
 
