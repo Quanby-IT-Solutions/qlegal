@@ -727,14 +727,15 @@ export function MeetingsListSection() {
 															(meeting.status === "CONFIRMED" || meeting.status === "PENDING") && (
 																<Button
 																	variant="outline"
-																	size="icon"
-																	className="size-8"
+																	size="sm"
+																	className="h-8 gap-1 text-xs"
 																	onClick={e => {
 																		e.stopPropagation()
 																		handleCancelClick(meeting.id)
 																	}}
 																>
 																	<XCircle className="size-3.5" />
+																	Cancel
 																</Button>
 															)}
 													</div>
@@ -828,14 +829,15 @@ export function MeetingsListSection() {
 													(meeting.status === "CONFIRMED" || meeting.status === "PENDING") && (
 														<Button
 															variant="ghost"
-															size="icon"
-															className="size-8 shrink-0 hover:bg-rose-50 dark:hover:bg-rose-950/20"
+															size="sm"
+															className="shrink-0 gap-1 text-xs text-rose-500 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/20"
 															onClick={e => {
 																e.stopPropagation()
 																handleCancelClick(meeting.id)
 															}}
 														>
-															<XCircle className="size-4 text-rose-500 hover:text-rose-600" />
+															<XCircle className="size-4" />
+															Cancel
 														</Button>
 													)}
 											</div>
