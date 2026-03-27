@@ -47,7 +47,7 @@ export const appSidebarSections: NavSection[] = [
 			},
 			{
 				title: "Appointments",
-				url: "/requests",
+				url: "/appointments",
 				icon: Appointment02Icon,
 				roles: ["ENP"],
 			},

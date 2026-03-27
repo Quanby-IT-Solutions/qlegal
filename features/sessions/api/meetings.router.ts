@@ -3,9 +3,11 @@ import { and, asc, desc, eq, inArray, ne, type InferSelectModel } from "drizzle-
 import { z } from "zod/v4"
 
 import { getFullName } from "@/core/lib/utils"
-import { env } from "@/env"
-import { getSubOrgCredsForMemberEmail } from "@/features/sub-orgs/server/get-sub-org-creds-for-member"
-import { getDoconchainApiToken, invalidateDoconchainToken } from "@/services/doconchain/auth/generate-token"
+
+import {
+	getDoconchainApiToken,
+	invalidateDoconchainToken,
+} from "@/services/doconchain/auth/generate-token"
 import { addDoconchainProjectSigner } from "@/services/doconchain/projects/add-signer"
 import { createDoconchainProject } from "@/services/doconchain/projects/create-project"
 import { generateDoconchainSignLink } from "@/services/doconchain/projects/generate-sign-link"
@@ -26,6 +28,10 @@ import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
 import { createMeetingRoom, fetchRecordings, generateMeetingToken } from "@/services/video-sdk"
 
 import { populateNotarialRegistryOnMeetingEnd } from "@/features/notarial-book/server/populate-notarial-registry-on-meeting-end"
+import { getSubOrgCredsForMemberEmail } from "@/features/sub-orgs/server/get-sub-org-creds-for-member"
+
+import { env } from "@/env"
+
 import { assertMeetingUnlockedForDocumentMutations } from "./meeting-lock-guard"
 
 function isEnpRole(role: unknown): boolean {
@@ -546,7 +552,9 @@ export const meetingsRouter = createTRPCRouter({
 			}
 
 			// Determine which DocOnChain user owns projects for this meeting (ENP participant).
-			const enpParticipant = apParticipants.find(p => isEnpRole(p.user?.role) && !!asNonEmptyEmail(p.user?.email))
+			const enpParticipant = apParticipants.find(
+				p => isEnpRole(p.user?.role) && !!asNonEmptyEmail(p.user?.email)
+			)
 			const enpEmail = asNonEmptyEmail(enpParticipant?.user?.email)
 			if (!enpEmail) {
 				throw new TRPCError({
@@ -581,7 +589,7 @@ export const meetingsRouter = createTRPCRouter({
 				await getDoconchainApiToken({
 					email: enpEmail,
 					forceGenerated: true,
-					getSubOrgCredsForEmail: (em) => getSubOrgCredsForMemberEmail(em, db),
+					getSubOrgCredsForEmail: em => getSubOrgCredsForMemberEmail(em, db),
 				})
 				if (debugLogsEnabled) {
 					console.log("[sessions][doconchain] getDoconchainApiToken ok", {
@@ -872,6 +880,64 @@ export const meetingsRouter = createTRPCRouter({
 		return { success: true }
 	}),
 
+	// Cancel meeting (set associated appointment to CANCELLED with reason)
+	cancelMeeting: protectedProcedure
+		.input(
+			z.object({
+				meetingId: z.string().min(1, "Meeting ID is required"),
+				cancelReason: z.string().min(1, "Cancellation reason is required"),
+			})
+		)
+		.mutation(async ({ input, ctx }) => {
+			const meeting = await db.query.meetings.findFirst({
+				where: eq(meetings.id, input.meetingId),
+			})
+
+			if (!meeting) {
+				throw new TRPCError({
+					code: "NOT_FOUND",
+					message: "Meeting not found",
+				})
+			}
+
+			if (meeting.createdById !== ctx.session.user.id) {
+				throw new TRPCError({
+					code: "FORBIDDEN",
+					message: "Only the creator can cancel this meeting",
+				})
+			}
+
+			const appointment = await db.query.appointments.findFirst({
+				where: eq(appointments.meetingId, input.meetingId),
+			})
+
+			if (!appointment) {
+				throw new TRPCError({
+					code: "NOT_FOUND",
+					message: "No appointment associated with this meeting",
+				})
+			}
+
+			if (appointment.status !== "CONFIRMED" && appointment.status !== "PENDING") {
+				throw new TRPCError({
+					code: "BAD_REQUEST",
+					message: `Cannot cancel a meeting that is ${appointment.status.toLowerCase()}`,
+				})
+			}
+
+			await db
+				.update(appointments)
+				.set({
+					status: "CANCELLED",
+					cancelReason: input.cancelReason,
+					color: "#EF4444",
+					updatedAt: new Date(),
+				})
+				.where(eq(appointments.id, appointment.id))
+
+			return { success: true }
+		}),
+
 	// Upload document during meeting
 	uploadDocument: protectedProcedure
 		.input(
@@ -1125,7 +1191,7 @@ export const meetingsRouter = createTRPCRouter({
 							userListEditable: false,
 							creatorAsViewer: false,
 							documentStamp,
-							getSubOrgCredsForEmail: (em) => getSubOrgCredsForMemberEmail(em, db),
+							getSubOrgCredsForEmail: em => getSubOrgCredsForMemberEmail(em, db),
 						})
 
 						await db
@@ -1561,7 +1627,7 @@ export const meetingsRouter = createTRPCRouter({
 								name: getFullName(user) || signerEmail,
 								role: "Signer",
 							},
-							getSubOrgCredsForEmail: (em) => getSubOrgCredsForMemberEmail(em, db),
+							getSubOrgCredsForEmail: em => getSubOrgCredsForMemberEmail(em, db),
 						})
 					}
 				}
@@ -1661,9 +1727,7 @@ export const meetingsRouter = createTRPCRouter({
 					status: req.status,
 					signedAt: req.signedAt ?? null,
 					signerId: req.signerId,
-					signer: req.signer
-						? { ...req.signer, name: getFullName(req.signer) }
-						: null,
+					signer: req.signer ? { ...req.signer, name: getFullName(req.signer) } : null,
 				})
 				signatureRequestsByDocumentId.set(req.documentId, list)
 			}

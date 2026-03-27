@@ -15,10 +15,10 @@ import {
 	Plus,
 	Search,
 	StopCircle,
-	Trash2,
 	Users,
 	Video,
 	X,
+	XCircle,
 } from "lucide-react"
 import { useSession } from "next-auth/react"
 import { toast } from "sonner"
@@ -52,12 +52,13 @@ import {
 	SelectValue,
 } from "@/core/components/ui/select"
 import { Skeleton } from "@/core/components/ui/skeleton"
-import { getAvatarUrl, getInitials } from "@/core/lib/utils"
+import { getAvatarUrl, getFullName, getInitials } from "@/core/lib/utils"
 
 import { trpc, type RouterInputs, type RouterOutputs } from "@/services/trpc/client"
 
 import { useMessages } from "@/features/messages/api/messages.hooks"
 import { useMeetings } from "@/features/sessions/api/meetings.hooks"
+import { CancelMeetingDialog } from "@/features/sessions/components/dialogs/cancel-meeting-dialog"
 import { MeetingRecordingsModal } from "@/features/sessions/components/meeting-recordings-modal"
 
 type MeetingWithStats =
@@ -105,7 +106,7 @@ function MeetingDocumentSummary({
 export function MeetingsListSection() {
 	const router = useRouter()
 	const { data: session } = useSession()
-	const { create, startMeeting, endMeeting, deleteMeeting } = useMeetings()
+	const { create, startMeeting, endMeeting, cancelMeeting } = useMeetings()
 	const PAGE_SIZE = 10
 	const [page, setPage] = useState(1)
 	const offset = (page - 1) * PAGE_SIZE
@@ -135,6 +136,8 @@ export function MeetingsListSection() {
 		id: string
 		title: string
 	} | null>(null)
+	const [cancelDialogOpen, setCancelDialogOpen] = useState(false)
+	const [cancelMeetingId, setCancelMeetingId] = useState<string | null>(null)
 
 	const { searchUsers } = useMessages()
 	const { data: searchResults } = searchUsers(userSearchQuery)
@@ -143,10 +146,7 @@ export function MeetingsListSection() {
 	const filteredMeetings = meetings.filter(meeting => {
 		if (!meeting) return false
 		const title = typeof meeting.title === "string" ? meeting.title : ""
-		const createdByName =
-			meeting.createdBy?.name !== null && meeting.createdBy?.name !== undefined
-				? String(meeting.createdBy.name)
-				: ""
+		const createdByName = getFullName(meeting.createdBy)
 		const matchesSearch =
 			title.toLowerCase().includes(searchTerm.toLowerCase()) ||
 			createdByName.toLowerCase().includes(searchTerm.toLowerCase())
@@ -226,14 +226,24 @@ export function MeetingsListSection() {
 		}
 	}
 
-	const handleDelete = async (id: string) => {
-		if (!confirm("Are you sure you want to delete this meeting?")) return
-		setLoadingMeetingId(id)
+	const handleCancelClick = (id: string) => {
+		setCancelMeetingId(id)
+		setCancelDialogOpen(true)
+	}
+
+	const handleCancelConfirm = async (reason: string) => {
+		if (!cancelMeetingId) return
+		setLoadingMeetingId(cancelMeetingId)
 		try {
-			await deleteMeeting.mutateAsync(id)
-			toast.success("Meeting deleted")
+			await cancelMeeting.mutateAsync({
+				meetingId: cancelMeetingId,
+				cancelReason: reason,
+			})
+			toast.success("Meeting cancelled")
+			setCancelDialogOpen(false)
+			setCancelMeetingId(null)
 		} catch {
-			toast.error("Failed to delete meeting")
+			toast.error("Failed to cancel meeting")
 		} finally {
 			setLoadingMeetingId(null)
 		}
@@ -617,7 +627,7 @@ export function MeetingsListSection() {
 
 														<div className="flex items-center gap-1">
 															<Clock className="size-3.5 shrink-0" />
-															<span>{meeting.createdBy.name}</span>
+															<span>{getFullName(meeting.createdBy)}</span>
 														</div>
 													</div>
 
@@ -626,16 +636,17 @@ export function MeetingsListSection() {
 														<Avatar className="size-7">
 															<AvatarImage
 																src={getAvatarUrl(meeting.createdBy?.image) ?? undefined}
-																alt={meeting.createdBy?.name ?? "User"}
+																alt={getFullName(meeting.createdBy) || "User"}
 															/>
 															<AvatarFallback>
-																{getInitials(meeting.createdBy?.name) || "U"}
+																{getInitials(getFullName(meeting.createdBy)) || "U"}
 															</AvatarFallback>
 														</Avatar>
-														<span className="text-xs font-medium">{meeting.createdBy.name}</span>
+														<span className="text-xs font-medium">
+															{getFullName(meeting.createdBy)}
+														</span>
 														<span className="text-muted-foreground text-xs">• Host</span>
 													</div>
-
 												</div>
 
 												{/* RIGHT SIDE ACTIONS */}
@@ -712,19 +723,21 @@ export function MeetingsListSection() {
 															</Button>
 														)}
 
-														{isHost && (
-															<Button
-																variant="outline"
-																size="icon"
-																className="size-8"
-																onClick={e => {
-																	e.stopPropagation()
-																	void handleDelete(meeting.id)
-																}}
-															>
-																<Trash2 className="size-3.5" />
-															</Button>
-														)}
+														{isHost &&
+															(meeting.status === "CONFIRMED" || meeting.status === "PENDING") && (
+																<Button
+																	variant="outline"
+																	size="sm"
+																	className="h-8 gap-1 text-xs"
+																	onClick={e => {
+																		e.stopPropagation()
+																		handleCancelClick(meeting.id)
+																	}}
+																>
+																	<XCircle className="size-3.5" />
+																	Cancel
+																</Button>
+															)}
 													</div>
 
 													{/* Video Records Button */}
@@ -796,10 +809,10 @@ export function MeetingsListSection() {
 														<Avatar className="size-12">
 															<AvatarImage
 																src={getAvatarUrl(meeting.createdBy?.image) ?? undefined}
-																alt={meeting.createdBy?.name ?? "User"}
+																alt={getFullName(meeting.createdBy) || "User"}
 															/>
 															<AvatarFallback className="bg-primary text-primary-foreground">
-																{getInitials(meeting.createdBy?.name) || "U"}
+																{getInitials(getFullName(meeting.createdBy)) || "U"}
 															</AvatarFallback>
 														</Avatar>
 														<div className="min-w-0 flex-1">
@@ -807,24 +820,26 @@ export function MeetingsListSection() {
 																{meeting.title}
 															</CardTitle>
 															<CardDescription className="mt-1">
-																by {meeting.createdBy.name}
+																by {getFullName(meeting.createdBy)}
 															</CardDescription>
 														</div>
 													</div>
 												</div>
-												{isHost && (
-													<Button
-														variant="ghost"
-														size="icon"
-														className="size-8 shrink-0 hover:bg-rose-50 dark:hover:bg-rose-950/20"
-														onClick={e => {
-															e.stopPropagation()
-															void handleDelete(meeting.id)
-														}}
-													>
-														<Trash2 className="size-4 text-rose-500 hover:text-rose-600" />
-													</Button>
-												)}
+												{isHost &&
+													(meeting.status === "CONFIRMED" || meeting.status === "PENDING") && (
+														<Button
+															variant="ghost"
+															size="sm"
+															className="shrink-0 gap-1 text-xs text-rose-500 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/20"
+															onClick={e => {
+																e.stopPropagation()
+																handleCancelClick(meeting.id)
+															}}
+														>
+															<XCircle className="size-4" />
+															Cancel
+														</Button>
+													)}
 											</div>
 										</CardHeader>
 										<CardContent className="space-y-4">
@@ -939,6 +954,16 @@ export function MeetingsListSection() {
 					if (!open) setRecordingsModalMeeting(null)
 				}}
 				meeting={recordingsModalMeeting}
+			/>
+
+			<CancelMeetingDialog
+				isOpen={cancelDialogOpen}
+				onOpenChange={open => {
+					setCancelDialogOpen(open)
+					if (!open) setCancelMeetingId(null)
+				}}
+				onConfirm={handleCancelConfirm}
+				isProcessing={loadingMeetingId !== null}
 			/>
 		</div>
 	)
