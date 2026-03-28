@@ -51,7 +51,6 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/core/components/ui/select"
-import { Skeleton } from "@/core/components/ui/skeleton"
 import { getAvatarUrl, getFullName, getInitials } from "@/core/lib/utils"
 
 import { trpc, type RouterInputs, type RouterOutputs } from "@/services/trpc/client"
@@ -112,14 +111,14 @@ export function MeetingsListSection() {
 	const offset = (page - 1) * PAGE_SIZE
 
 	const utils = trpc.useUtils()
-	const { data, isLoading } = trpc.meetings.getUserMeetingsWithDocumentStats.useQuery(
+	const [data] = trpc.meetings.getUserMeetingsWithDocumentStats.useSuspenseQuery(
 		{ limit: PAGE_SIZE, offset },
 		{
-			refetchInterval: 10_000, // Refetch every 10 seconds for better real-time updates
+			refetchInterval: 10_000,
 		}
 	)
-	const meetings: MeetingWithStats[] = data?.items ?? []
-	const hasMore = data?.hasMore ?? false
+	const meetings: MeetingWithStats[] = data.items
+	const hasMore = data.hasMore
 	const [isDialogOpen, setIsDialogOpen] = useState(false)
 	const [title, setTitle] = useState("")
 	const [userSearchQuery, setUserSearchQuery] = useState("")
@@ -261,7 +260,10 @@ export function MeetingsListSection() {
 				return <Badge variant="outline">Pending</Badge>
 			case "ONGOING":
 				return (
-					<Badge variant="default" className="bg-emerald-600 hover:bg-emerald-700">
+					<Badge
+						variant="default"
+						className="bg-success text-success-foreground hover:bg-success/90"
+					>
 						<PlayCircle className="mr-1 size-3" /> Live
 					</Badge>
 				)
@@ -269,7 +271,7 @@ export function MeetingsListSection() {
 				return <Badge variant="outline">Completed</Badge>
 			case "CANCELLED":
 				return (
-					<Badge variant="outline" className="border-rose-600 text-rose-600">
+					<Badge variant="outline" className="border-destructive text-destructive">
 						Cancelled
 					</Badge>
 				)
@@ -470,13 +472,7 @@ export function MeetingsListSection() {
 
 			<div className="flex items-center justify-between pt-4">
 				<h3 className="font-small text-sm">
-					{isLoading ? (
-						<Skeleton className="h-6 w-48" />
-					) : (
-						<>
-							{filteredMeetings.length} Meeting{filteredMeetings.length !== 1 ? "s" : ""} Found
-						</>
-					)}
+					{filteredMeetings.length} Meeting{filteredMeetings.length !== 1 ? "s" : ""} Found
 				</h3>
 				<div className="flex items-center gap-2">
 					<Button
@@ -524,25 +520,7 @@ export function MeetingsListSection() {
 				</CardContent>
 			</Card>
 
-			{isLoading ? (
-				viewMode === "list" ? (
-					<div className="space-y-4">
-						{Array.from({ length: 3 }).map((_, i) => (
-							<Card key={i}>
-								<CardContent className="p-6">
-									<Skeleton className="h-32 w-full" />
-								</CardContent>
-							</Card>
-						))}
-					</div>
-				) : (
-					<div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-						{[1, 2, 3].map(i => (
-							<Skeleton key={i} className="h-64" />
-						))}
-					</div>
-				)
-			) : meetings.length === 0 ? (
+			{meetings.length === 0 ? (
 				<Card>
 					<CardContent className="py-12 text-center">
 						<Video className="text-muted-foreground mx-auto mb-4 size-16" />
@@ -677,8 +655,7 @@ export function MeetingsListSection() {
 														{canJoin && (
 															<Button
 																size="sm"
-																className="h-8 gap-1 text-xs text-black"
-																style={{ backgroundColor: "#33ff00" }}
+																className="bg-success text-foreground hover:bg-success/90 h-8 gap-1 text-xs"
 																onClick={e => {
 																	e.stopPropagation()
 																	setJoiningMeetingId(meeting.id)
@@ -703,7 +680,7 @@ export function MeetingsListSection() {
 														{canEnd && (
 															<Button
 																size="sm"
-																className="h-8 gap-1 bg-rose-500 text-xs text-white hover:bg-rose-600"
+																className="bg-destructive text-destructive-foreground hover:bg-destructive/90 h-8 gap-1 text-xs"
 																onClick={e => {
 																	e.stopPropagation()
 																	void handleEndMeeting(meeting.id)
@@ -768,7 +745,7 @@ export function MeetingsListSection() {
 									variant="outline"
 									size="sm"
 									onClick={() => setPage(p => Math.max(1, p - 1))}
-									disabled={page <= 1 || isLoading}
+									disabled={page <= 1}
 								>
 									Prev
 								</Button>
@@ -777,7 +754,7 @@ export function MeetingsListSection() {
 									variant="outline"
 									size="sm"
 									onClick={() => setPage(p => p + 1)}
-									disabled={!hasMore || isLoading}
+									disabled={!hasMore}
 								>
 									Next
 								</Button>
@@ -830,7 +807,7 @@ export function MeetingsListSection() {
 														<Button
 															variant="ghost"
 															size="sm"
-															className="shrink-0 gap-1 text-xs text-rose-500 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/20"
+															className="text-destructive hover:bg-destructive/10 hover:text-destructive shrink-0 gap-1 text-xs"
 															onClick={e => {
 																e.stopPropagation()
 																handleCancelClick(meeting.id)
@@ -879,8 +856,8 @@ export function MeetingsListSection() {
 
 												{canJoin && (
 													<Button
-														className="flex w-full items-center justify-center text-white"
-														style={{ backgroundColor: "#313638" }}
+														className="w-full"
+														variant="default"
 														onClick={e => {
 															e.stopPropagation()
 															setJoiningMeetingId(meeting.id)
@@ -904,7 +881,7 @@ export function MeetingsListSection() {
 
 												{canEnd && (
 													<Button
-														className="flex w-full items-center justify-center bg-rose-500 text-white hover:bg-rose-600"
+														className="bg-destructive text-destructive-foreground hover:bg-destructive/90 w-full"
 														onClick={e => {
 															e.stopPropagation()
 															void handleEndMeeting(meeting.id)

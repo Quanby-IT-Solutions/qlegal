@@ -6,7 +6,6 @@ import { useEffect, useState } from "react"
 
 import { PageHeader } from "@/core/components/navbar/page-header"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/core/components/ui/tabs"
-import { useHydrated } from "@/core/hooks/use-hydrated"
 
 import { ActiveNotarizationsSection } from "@/features/sessions/components/active-notarizations-section"
 import { HistoryNotarizationsSection } from "@/features/sessions/components/history-notarizations-section"
@@ -21,16 +20,14 @@ interface SessionsPageClientProps {
 export function SessionsPageClient({ initialTab }: SessionsPageClientProps) {
 	const searchParams = useSearchParams()
 	const router = useRouter()
-	const hydrated = useHydrated()
 
 	const [activeTab, setActiveTab] = useState<TabValue>(initialTab)
 
 	useEffect(() => {
-		if (!hydrated) return
 		const tabParam = searchParams?.get("tab")
 		const newTab: TabValue = tabParam === "active" || tabParam === "history" ? tabParam : "meetings"
 		setActiveTab(newTab)
-	}, [searchParams, hydrated])
+	}, [searchParams])
 
 	const handleTabChange = (value: string) => {
 		const newTab = value as TabValue
@@ -47,7 +44,7 @@ export function SessionsPageClient({ initialTab }: SessionsPageClientProps) {
 	}
 
 	return (
-		<div className="flex flex-1 flex-col">
+		<>
 			<PageHeader
 				items={[
 					{ label: "Sessions", href: "/sessions" },
@@ -68,7 +65,7 @@ export function SessionsPageClient({ initialTab }: SessionsPageClientProps) {
 					</div>
 
 					<Tabs
-						value={hydrated ? activeTab : initialTab}
+						value={activeTab}
 						onValueChange={handleTabChange}
 						className="space-y-3"
 					>
@@ -98,6 +95,6 @@ export function SessionsPageClient({ initialTab }: SessionsPageClientProps) {
 					</Tabs>
 				</div>
 			</main>
-		</div>
+		</>
 	)
 }

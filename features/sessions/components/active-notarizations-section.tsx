@@ -11,7 +11,6 @@ import { Button } from "@/core/components/ui/button"
 import { Card, CardContent } from "@/core/components/ui/card"
 import { Input } from "@/core/components/ui/input"
 import { Progress } from "@/core/components/ui/progress"
-import { Skeleton } from "@/core/components/ui/skeleton"
 import { getAvatarUrl } from "@/core/lib/utils"
 
 import { trpc } from "@/services/trpc/client"
@@ -22,16 +21,6 @@ import { getAppointmentStatusBadge } from "@/features/sessions/lib/meeting-badge
 
 type UpcomingAppointment =
 	inferRouterOutputs<AppRouter>["appointments"]["getUpcomingAppointments"][number]
-
-function MeetingCardSkeleton() {
-	return (
-		<Card>
-			<CardContent className="p-6">
-				<Skeleton className="h-32 w-full" />
-			</CardContent>
-		</Card>
-	)
-}
 
 function EmptyState({ hasFilters }: { hasFilters: boolean }) {
 	return (
@@ -175,40 +164,6 @@ function MeetingCard({ meeting, onViewDetails }: MeetingCardProps) {
 	)
 }
 
-function Pagination({
-	page,
-	hasMore,
-	isLoading,
-	onPageChange,
-}: {
-	page: number
-	hasMore: boolean
-	isLoading: boolean
-	onPageChange: (page: number) => void
-}) {
-	return (
-		<div className="flex items-center gap-2">
-			<Button
-				variant="outline"
-				size="sm"
-				onClick={() => onPageChange(Math.max(1, page - 1))}
-				disabled={page <= 1 || isLoading}
-			>
-				Prev
-			</Button>
-			<div className="text-muted-foreground text-sm">Page {page}</div>
-			<Button
-				variant="outline"
-				size="sm"
-				onClick={() => onPageChange(page + 1)}
-				disabled={!hasMore || isLoading}
-			>
-				Next
-			</Button>
-		</div>
-	)
-}
-
 export function ActiveNotarizationsSection() {
 	const [searchTerm, setSearchTerm] = useState("")
 	const [detailsOpen, setDetailsOpen] = useState(false)
@@ -216,8 +171,8 @@ export function ActiveNotarizationsSection() {
 
 	const today = startOfDay(new Date())
 
-	const { data: pendingAppointments = [], isLoading } =
-		trpc.appointments.getUpcomingAppointments.useQuery(undefined, {
+	const [pendingAppointments = []] =
+		trpc.appointments.getUpcomingAppointments.useSuspenseQuery(undefined, {
 			refetchInterval: 10_000,
 		})
 
@@ -306,13 +261,7 @@ export function ActiveNotarizationsSection() {
 				</CardContent>
 			</Card>
 
-			{isLoading ? (
-				<div className="space-y-4">
-					{Array.from({ length: 3 }).map((_, i) => (
-						<MeetingCardSkeleton key={i} />
-					))}
-				</div>
-			) : filteredMeetings.length === 0 ? (
+			{filteredMeetings.length === 0 ? (
 				<EmptyState hasFilters={!!searchTerm} />
 			) : (
 				<div className="space-y-4">
