@@ -7,9 +7,9 @@ import { useEffect, useState } from "react"
 import { PageHeader } from "@/core/components/navbar/page-header"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/core/components/ui/tabs"
 
-import { ActiveNotarizationsSection } from "@/features/sessions/components/active-notarizations-section"
-import { HistoryNotarizationsSection } from "@/features/sessions/components/history-notarizations-section"
-import { MeetingsListSection } from "@/features/sessions/components/meetings-list-section"
+import { ActiveNotarizationsSection } from "@/features/sessions/components/sections/active-notarizations-section"
+import { HistoryNotarizationsSection } from "@/features/sessions/components/sections/history-notarizations-section"
+import { MeetingsListSection } from "@/features/sessions/components/sections/meetings-list-section"
 
 type TabValue = "meetings" | "active" | "history"
 
@@ -64,11 +64,7 @@ export function SessionsPageClient({ initialTab }: SessionsPageClientProps) {
 						</p>
 					</div>
 
-					<Tabs
-						value={activeTab}
-						onValueChange={handleTabChange}
-						className="space-y-3"
-					>
+					<Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-3">
 						<TabsList className="grid w-full max-w-2xl grid-cols-3">
 							<TabsTrigger value="meetings" className="gap-2">
 								Ongoing

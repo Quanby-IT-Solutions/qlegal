@@ -4,7 +4,7 @@ import { Skeleton } from "@/core/components/ui/skeleton"
 
 import { HydrateClient, trpc } from "@/services/trpc/server"
 
-import { SessionsPageClient } from "@/features/sessions/components/sessions-page-client"
+import { SessionsPageClient } from "@/features/sessions/components/sections/sessions-page-client"
 
 type TabValue = "meetings" | "active" | "history"
 

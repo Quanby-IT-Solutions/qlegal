@@ -32,7 +32,7 @@ import { getAvatarUrl, getInitials } from "@/core/lib/utils"
 
 import { trpc } from "@/services/trpc/client"
 
-import { NotarizationDetailsDialog } from "@/features/sessions/components/notarization-details-dialog"
+import { NotarizationDetailsDialog } from "@/features/sessions/components/dialogs/notarization-details-dialog"
 
 type WorkflowType = "REN" | "IEN"
 
@@ -74,9 +74,7 @@ function WorkflowBadge({ workflow }: { workflow: WorkflowType }) {
 	return (
 		<Badge
 			variant="outline"
-			className={
-				workflow === "REN" ? "border-info text-info" : "border-success text-success"
-			}
+			className={workflow === "REN" ? "border-info text-info" : "border-success text-success"}
 		>
 			{workflow}
 		</Badge>
@@ -150,13 +148,13 @@ function HistoryCard({ item, isENP, onViewDetails }: HistoryCardProps) {
 							<div className="flex items-center gap-1">
 								{item.status === "COMPLETED" ? (
 									<>
-										<CheckCircle className="size-3.5 text-success" />
+										<CheckCircle className="text-success size-3.5" />
 										<span className="text-success">Completed</span>
 									</>
 								) : (
 									<>
-												<XCircle className="size-3.5 text-destructive" />
-												<span className="text-destructive">
+										<XCircle className="text-destructive size-3.5" />
+										<span className="text-destructive">
 											Cancelled
 											{item.cancellationReason ? `: ${item.cancellationReason}` : ""}
 										</span>

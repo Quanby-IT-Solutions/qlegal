@@ -16,7 +16,7 @@ import { getAvatarUrl } from "@/core/lib/utils"
 import { trpc } from "@/services/trpc/client"
 import { type AppRouter } from "@/services/trpc/root"
 
-import { NotarizationDetailsDialog } from "@/features/sessions/components/notarization-details-dialog"
+import { NotarizationDetailsDialog } from "@/features/sessions/components/dialogs/notarization-details-dialog"
 import { getAppointmentStatusBadge } from "@/features/sessions/lib/meeting-badges"
 
 type UpcomingAppointment =
@@ -55,9 +55,7 @@ interface MeetingCardProps {
 
 function MeetingCard({ meeting, onViewDetails }: MeetingCardProps) {
 	const scheduledAt = meeting.appointmentDate ?? meeting.createdAt
-	const scheduledLabel = scheduledAt
-		? format(new Date(scheduledAt), "PPp")
-		: "Not scheduled"
+	const scheduledLabel = scheduledAt ? format(new Date(scheduledAt), "PPp") : "Not scheduled"
 
 	const { total: totalDocuments, signed: signedDocuments } = meeting.documentStats
 	const documentProgress =
@@ -171,10 +169,12 @@ export function ActiveNotarizationsSection() {
 
 	const today = startOfDay(new Date())
 
-	const [pendingAppointments = []] =
-		trpc.appointments.getUpcomingAppointments.useSuspenseQuery(undefined, {
+	const [pendingAppointments = []] = trpc.appointments.getUpcomingAppointments.useSuspenseQuery(
+		undefined,
+		{
 			refetchInterval: 10_000,
-		})
+		}
+	)
 
 	const appointmentCards = useMemo(() => {
 		return pendingAppointments

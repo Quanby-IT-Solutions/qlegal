@@ -58,7 +58,7 @@ import { trpc, type RouterInputs, type RouterOutputs } from "@/services/trpc/cli
 import { useMessages } from "@/features/messages/api/messages.hooks"
 import { useMeetings } from "@/features/sessions/api/meetings.hooks"
 import { CancelMeetingDialog } from "@/features/sessions/components/dialogs/cancel-meeting-dialog"
-import { MeetingRecordingsModal } from "@/features/sessions/components/meeting-recordings-modal"
+import { MeetingRecordingsModal } from "@/features/sessions/components/dialogs/meeting-recordings-modal"
 
 type MeetingWithStats =
 	RouterOutputs["meetings"]["getUserMeetingsWithDocumentStats"]["items"][number]
