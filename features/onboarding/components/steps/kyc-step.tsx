@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { CheckCircle2 } from "lucide-react"
 import { useSession } from "next-auth/react"
@@ -62,13 +62,15 @@ export function KycStep({ onNext, onBack, kycStatus, onExpandChange }: KycStepPr
 	const [userInfo, setUserInfo] = useState<UserKycInfo | null>(null)
 	const [mode, setMode] = useState<KycMode>("choose")
 	const [hostedEvent, setHostedEvent] = useState<"cancelled" | null>(null)
+	/** True right after Web SDK reports needs_review so we show the yellow banner before Output API refetch finishes. */
+	const [sdkNeedsReviewPending, setSdkNeedsReviewPending] = useState(false)
 	const hasAutoAdvancedRef = useRef(false)
 
 	const [firstName, setFirstName] = useState("")
 	const [middleName, setMiddleName] = useState("")
 	const [lastName, setLastName] = useState("")
 
-	const refreshUserInfo = async () => {
+	const refreshUserInfo = useCallback(async () => {
 		const result = await getUserKycInfo()
 		if (result.success && result.data) {
 			setUserInfo({
@@ -76,13 +78,20 @@ export function KycStep({ onNext, onBack, kycStatus, onExpandChange }: KycStepPr
 				sessionType: result.data.sessionType as "hosted" | "direct" | null,
 			})
 		}
-	}
+	}, [])
 
 	const { launch: launchSdk, isLoading: isLaunchingSdk } = useHyperVergeSDK({
 		redirectOnSuccess: "", // Do not redirect via href, we will handle it with state update / location reload
 		onComplete: status => {
+			const normalized = (status ?? "").trim().toLowerCase().replace(/\s+/g, "_")
+			if (normalized === "needs_review" || normalized === "manual_review") {
+				setSdkNeedsReviewPending(true)
+				setMode("mobile-pending")
+				onExpandChange?.(false)
+			}
+			void queryClient.invalidateQueries({ queryKey: ["kyc-status"] })
 			void refreshUserInfo().then(() => {
-				if (status === "auto_approved") {
+				if (normalized === "auto_approved") {
 					void updateSession()
 					window.location.reload()
 				}
@@ -111,6 +120,18 @@ export function KycStep({ onNext, onBack, kycStatus, onExpandChange }: KycStepPr
 	const statusResult = statusQueryResult?.success ? statusQueryResult.data : null
 	const isNeedsReview = statusResult?.needsReview ?? statusResult?.status === "needs_review"
 	const isStatusLoading = Boolean(shouldFetchStatus && isCheckingStatus)
+
+	useEffect(() => {
+		if (isStatusLoading) return
+		if (!statusResult) return
+		if (isNeedsReview) {
+			setSdkNeedsReviewPending(false)
+			return
+		}
+		if (statusResult.kycStatus === "VERIFIED" || statusResult.kycStatus === "REJECTED") {
+			setSdkNeedsReviewPending(false)
+		}
+	}, [isStatusLoading, statusResult, isNeedsReview])
 	const isRejected = statusResult?.kycStatus === "REJECTED"
 	const rejectedVariant: "auto" | "manual" =
 		statusResult?.status === "auto_declined" ? "auto" : "manual"
@@ -187,13 +208,34 @@ export function KycStep({ onNext, onBack, kycStatus, onExpandChange }: KycStepPr
 	useEffect(() => {
 		if (!statusResult) return
 		if (statusResult.kycStatus === "VERIFIED") {
+			const sessionSaysVerified = kycStatus === "VERIFIED"
+			const localSaysVerified = userInfo?.kycStatus === "VERIFIED"
+			const needsHardRefresh =
+				!sessionSaysVerified ||
+				userInfo?.kycStatus === "PENDING" ||
+				mode === "mobile-pending"
+
+			if (!needsHardRefresh && sessionSaysVerified && localSaysVerified) {
+				return
+			}
+
+			if (hasAutoAdvancedRef.current) return
+			hasAutoAdvancedRef.current = true
+
 			toast.success("KYC verification approved!")
 			setUserInfo(prev => (prev ? { ...prev, kycStatus: "VERIFIED" } : prev))
-			void updateSession()
-			if (!hasAutoAdvancedRef.current) {
-				hasAutoAdvancedRef.current = true
-				void refreshUserInfo()
+			onExpandChange?.(false)
+			setMode("choose")
+
+			if (needsHardRefresh) {
+				void updateSession().finally(() => {
+					window.location.reload()
+				})
+				return
 			}
+
+			void updateSession()
+			void refreshUserInfo()
 		} else if (statusResult.kycStatus === "REJECTED") {
 			const autoDeclined = statusResult.status === "auto_declined"
 			toast.error(
@@ -205,10 +247,11 @@ export function KycStep({ onNext, onBack, kycStatus, onExpandChange }: KycStepPr
 			void refreshUserInfo()
 			setMode("choose")
 		}
-	}, [statusResult, updateSession, onExpandChange])
+	}, [statusResult, updateSession, onExpandChange, kycStatus, userInfo, mode, refreshUserInfo])
 
 	const handleStartVerification = () => {
 		setHostedEvent(null)
+		setSdkNeedsReviewPending(false)
 		onExpandChange?.(false)
 		setMode("mobile-pending")
 		void launchSdk()
@@ -359,8 +402,12 @@ export function KycStep({ onNext, onBack, kycStatus, onExpandChange }: KycStepPr
 		)
 	}
 
-	const showPendingBanner = mode === "mobile-pending" && !isNeedsReview && !isStatusLoading
-	const showNeedsReviewBanner = isNeedsReview && !isStatusLoading
+	const showPendingBanner =
+		mode === "mobile-pending" &&
+		!isNeedsReview &&
+		!sdkNeedsReviewPending &&
+		!isStatusLoading
+	const showNeedsReviewBanner = sdkNeedsReviewPending || isNeedsReview
 	const showRejectedBanner = isRejected && !isStatusLoading
 
 	return (
@@ -370,7 +417,9 @@ export function KycStep({ onNext, onBack, kycStatus, onExpandChange }: KycStepPr
 				onNext={onNext}
 				onStartVerification={handleStartVerification}
 				onTryAgain={handleTryAgain}
-				isPending={Boolean(isLaunchingSdk || isStatusLoading)}
+				isPending={Boolean(
+					isLaunchingSdk || isStatusLoading || (sdkNeedsReviewPending && isNeedsReview === false)
+				)}
 				showPendingBanner={showPendingBanner}
 				showCancelledBanner={hostedEvent === "cancelled"}
 				showNeedsReviewBanner={showNeedsReviewBanner}
