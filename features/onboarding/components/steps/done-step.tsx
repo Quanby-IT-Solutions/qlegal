@@ -140,7 +140,7 @@ export function DoneStep({
 									<p className="text-muted-foreground text-sm leading-5">
 										{kycVerified
 											? "Your identity is verified and ready for secure signing."
-											: "Complete KYC soon to unlock the full signing experience."}
+											: "Complete identity verification soon to unlock the full signing experience."}
 									</p>
 								</div>
 
