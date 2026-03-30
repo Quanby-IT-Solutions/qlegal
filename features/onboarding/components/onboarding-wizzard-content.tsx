@@ -96,7 +96,7 @@ function OnboardingWizardContentBody({
 		onSuccess: async () => {
 			void utils.onboarding.getStatus.invalidate()
 			await updateSession()
-			toast.success("Onboarding reminders paused for 7 days.")
+			toast.success("We’ll remind you about the remaining setup steps again in 7 days.")
 			router.push("/dashboard")
 		},
 		onError: err => toast.error(err.message),

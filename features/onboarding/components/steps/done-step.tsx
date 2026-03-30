@@ -226,21 +226,20 @@ export function DoneStep({
 					<AlertDialog>
 						<AlertDialogTrigger asChild>
 							<Button type="button" disabled={isSnoozing} size="sm">
-								{isSnoozing ? "Skipping…" : "Skip for 7 days"}
+								{isSnoozing ? "Saving…" : "Confirm"}
 							</Button>
 						</AlertDialogTrigger>
 						<AlertDialogContent>
 							<AlertDialogHeader>
-								<AlertDialogTitle>Skip onboarding for 7 days?</AlertDialogTitle>
+								<AlertDialogTitle>Pause setup reminders?</AlertDialogTitle>
 								<AlertDialogDescription>
-									You still have pending setup items. We&apos;ll pause reminders for 7 days and
-									bring onboarding back after that, or sooner once all required items are
-									completed.
+									You still have a few setup items left. If you continue later, we&apos;ll remind
+									you again in 7 days. You can also return anytime from your account settings.
 								</AlertDialogDescription>
 							</AlertDialogHeader>
 							<AlertDialogFooter>
-								<AlertDialogCancel>Keep setup open</AlertDialogCancel>
-								<AlertDialogAction onClick={onSnooze}>Skip for 7 days</AlertDialogAction>
+								<AlertDialogCancel>Continue setup</AlertDialogCancel>
+								<AlertDialogAction onClick={onSnooze}>Remind me in 7 days</AlertDialogAction>
 							</AlertDialogFooter>
 						</AlertDialogContent>
 					</AlertDialog>

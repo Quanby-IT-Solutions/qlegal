@@ -53,10 +53,6 @@ export function PhoneStep({ onBack, onSkip, control, isSubmitting }: PhoneStepPr
 											disabled={isSubmitting}
 										/>
 									</FormControl>
-									<FormDescription>
-										We may use this to reach you about important account, identity verification,
-										or appointment updates.
-									</FormDescription>
 									<FormMessage />
 								</FormItem>
 							)}
@@ -69,8 +65,7 @@ export function PhoneStep({ onBack, onSkip, control, isSubmitting }: PhoneStepPr
 						<HugeiconsIcon icon={InformationCircleIcon} />
 						<AlertTitle>Optional step</AlertTitle>
 						<AlertDescription>
-							You can skip this for now and add your phone number later from your profile
-							settings.
+							You can skip this for now and add your phone number later from your profile settings.
 						</AlertDescription>
 					</Alert>
 				</CardContent>

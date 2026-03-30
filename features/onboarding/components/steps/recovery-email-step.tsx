@@ -82,6 +82,19 @@ export function RecoveryEmailStep({
 						</Alert>
 					</CardContent>
 				) : null}
+
+				{!hasPendingRecoveryEmail ? (
+					<CardContent className="px-2!">
+						<Alert variant="info">
+							<HugeiconsIcon icon={InformationCircleIcon} />
+							<AlertTitle>Optional step</AlertTitle>
+							<AlertDescription>
+								You can skip this for now and add a recovery email later from your profile
+								settings.
+							</AlertDescription>
+						</Alert>
+					</CardContent>
+				) : null}
 			</div>
 
 			<CardFooter className="justify-between">
