@@ -75,7 +75,7 @@ export function KycMobileFlow({
 										? "Under manual review"
 										: showCheckingPrimary
 											? "Checking verification status…"
-											: "Start KYC"}
+											: "Start identity verification"}
 								</span>
 								<span className="text-muted-foreground text-xs leading-snug wrap-break-word">
 									{showManualReviewPrimary
