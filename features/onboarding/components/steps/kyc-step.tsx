@@ -366,7 +366,7 @@ export function KycStep({ onNext, onBack, kycStatus, onExpandChange }: KycStepPr
 										readOnly
 										disabled
 										className="bg-muted/50"
-										aria-label="Address from KYC"
+										aria-label="Address from identity verification"
 									/>
 								</div>
 							</div>
