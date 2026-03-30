@@ -16,20 +16,29 @@ export type PresignedUrlInput = z.input<typeof presignedUrlSchema>
 async function generatePresignedUploadUrl(input: PresignedUrlInput) {
 	const { file, bucket, folderPath, upsert } = presignedUrlSchema.parse(input)
 
-	const fullPath = folderPath ? `${folderPath.replace(/^\/+|\/+$/g, "")}/${file.name}` : file.name
+	// Use a server route that generates the signed URL using the Supabase service role.
+	// This avoids RLS blocking `createSignedUploadUrl` for the client.
+	const res = await fetch("/api/supabase/presigned-upload-url", {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify({
+			fileName: file.name,
+			bucket,
+			folderPath,
+			upsert,
+		}),
+	})
 
-	const supabase = getPublicClient()
-	const { data, error } = await supabase.storage
-		.from(bucket)
-		.createSignedUploadUrl(fullPath, { upsert })
-
-	if (error) {
-		throw new Error(`Failed to create signed upload URL: ${error.message}`)
+	if (!res.ok) {
+		const json = (await res.json().catch(() => null)) as { error?: string } | null
+		throw new Error(json?.error ?? `Failed to create signed upload URL (${res.status})`)
 	}
 
+	const json = (await res.json()) as { signedUrl: string; path: string }
+
 	return {
-		signedUrl: data.signedUrl,
-		path: data.path,
+		signedUrl: json.signedUrl,
+		path: json.path,
 		fileName: file.name,
 	}
 }

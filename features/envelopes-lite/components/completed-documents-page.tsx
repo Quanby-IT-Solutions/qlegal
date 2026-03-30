@@ -356,7 +356,7 @@ export function CompletedDocumentsPage() {
 												className="flex-1"
 												onClick={() => {
 													const targetDocumentId = doc.id
-													const targetEnvelopeId = doc.envelopeId as string | null
+													const targetEnvelopeId = doc.envelopeId
 													if (targetDocumentId && targetEnvelopeId) {
 														window.location.href = `/document/${targetDocumentId}/sign?envelopeId=${targetEnvelopeId}`
 													}

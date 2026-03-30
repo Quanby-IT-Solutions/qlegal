@@ -32,6 +32,17 @@ import { Progress } from "@/core/components/ui/progress"
 
 import { trpc } from "@/services/trpc/client"
 
+import {
+	ENP_COURSE_CERT_CHANGED_EVENT,
+	getEnpCourseCertStorageKey,
+	readEnpCourseCertificateDownloadedAt,
+} from "../lib/enp-course-certificate"
+import {
+	ENP_SC_CREDENTIALS_CHANGED_EVENT,
+	getEnpScCredentialsStorageKey,
+	readEnpScCredentialsRecordedAt,
+} from "../lib/enp-sc-credentials"
+
 const STEPS = [
 	"Start the ENP accreditation journey",
 	"Complete the LMS course",
@@ -160,10 +171,67 @@ export function EnpAccreditationProgressBanner({
 	const [isClient, setIsClient] = useState(false)
 	const [isDismissed, setIsDismissed] = useState(false)
 	const [isStepsOpen, setIsStepsOpen] = useState(false)
+	const [courseCertificateDownloadedAt, setCourseCertificateDownloadedAt] = useState<string | null>(null)
+	const [scCredentialsRecordedAt, setScCredentialsRecordedAt] = useState<string | null>(null)
 
 	useEffect(() => {
 		setIsClient(true)
 	}, [])
+
+	useEffect(() => {
+		if (!isClient) return
+		setCourseCertificateDownloadedAt(readEnpCourseCertificateDownloadedAt(session?.user?.id))
+	}, [isClient, session?.user?.id])
+
+	useEffect(() => {
+		if (!isClient) return
+		const handler = (event: StorageEvent) => {
+			const key = getEnpCourseCertStorageKey(session?.user?.id)
+			if (!key) return
+			if (event.key !== key) return
+			setCourseCertificateDownloadedAt(readEnpCourseCertificateDownloadedAt(session?.user?.id))
+		}
+		window.addEventListener("storage", handler)
+		return () => window.removeEventListener("storage", handler)
+	}, [isClient, session?.user?.id])
+
+	useEffect(() => {
+		if (!isClient) return
+		const sync = () => {
+			setCourseCertificateDownloadedAt(readEnpCourseCertificateDownloadedAt(session?.user?.id))
+		}
+		window.addEventListener(ENP_COURSE_CERT_CHANGED_EVENT, sync)
+		return () => window.removeEventListener(ENP_COURSE_CERT_CHANGED_EVENT, sync)
+	}, [isClient, session?.user?.id])
+
+	useEffect(() => {
+		if (!isClient) return
+		setScCredentialsRecordedAt(readEnpScCredentialsRecordedAt(session?.user?.id))
+	}, [isClient, session?.user?.id])
+
+	useEffect(() => {
+		if (!isClient) return
+		const handler = (event: StorageEvent) => {
+			const key = getEnpScCredentialsStorageKey(session?.user?.id)
+			if (!key) return
+			if (event.key !== key) return
+			setScCredentialsRecordedAt(readEnpScCredentialsRecordedAt(session?.user?.id))
+		}
+		window.addEventListener("storage", handler)
+		return () => window.removeEventListener("storage", handler)
+	}, [isClient, session?.user?.id])
+
+	useEffect(() => {
+		if (!isClient) return
+		const sync = () => setScCredentialsRecordedAt(readEnpScCredentialsRecordedAt(session?.user?.id))
+		window.addEventListener(ENP_SC_CREDENTIALS_CHANGED_EVENT, sync)
+		return () => window.removeEventListener(ENP_SC_CREDENTIALS_CHANGED_EVENT, sync)
+	}, [isClient, session?.user?.id])
+
+	const openCoursePlaceholder = () => {
+		const url = `${window.location.origin}/auth/legal-registration/course`
+		window.open(url, "_blank", "noopener,noreferrer")
+	}
 
 	useEffect(() => {
 		if (!isClient) return
@@ -183,7 +251,38 @@ export function EnpAccreditationProgressBanner({
 		return false
 	}, [application, isAuth, userRole, userStatus])
 
-	const stepIndex = useMemo(() => getCurrentStepIndex(application?.status), [application?.status])
+	const rawStepIndex = useMemo(() => getCurrentStepIndex(application?.status), [application?.status])
+
+	/** Until the placeholder certificate exists, keep “Complete the LMS course” as the current step for draft flows (don’t skip ahead to submit). */
+	const stepIndex = useMemo(() => {
+		const hasCert = Boolean(courseCertificateDownloadedAt)
+		const hasSc = Boolean(scCredentialsRecordedAt)
+		const status = application?.status
+		if (!hasCert && (status === "DRAFT" || status === "REJECTED") && rawStepIndex >= 2) {
+			return 1
+		}
+
+		// Once you submit your application (PENDING/UNDER_REVIEW/APPROVED), the next required action is
+		// to record Supreme Court credentials (placeholder). Only after that should we move to the final wait step.
+		if (status === "PENDING" || status === "UNDER_REVIEW" || status === "APPROVED") {
+			if (!hasSc) return 3
+			return 4
+		}
+
+		// If accreditation is already active, force the final step to be current.
+		if (userRole === "ENP" && userStatus === "ACTIVE") {
+			return 4
+		}
+		return rawStepIndex
+	}, [
+		application?.status,
+		courseCertificateDownloadedAt,
+		scCredentialsRecordedAt,
+		rawStepIndex,
+		userRole,
+		userStatus,
+	])
+
 	const progressValue = useMemo(() => Math.round(((stepIndex + 1) / STEPS.length) * 100), [stepIndex])
 
 	const stepStates = useMemo<StepState[]>(() => {
@@ -193,9 +292,24 @@ export function EnpAccreditationProgressBanner({
 			idx === stepIndex ? "current" : idx > stepIndex ? "upcoming" : "not_tracked"
 		)
 
+		// Step 1 (index 0): Journey started — verifiable when they have an application record or finished the LMS placeholder.
+		if (application || courseCertificateDownloadedAt) {
+			states[0] = "completed"
+		}
+
+		// Step 2 (index 1): LMS course completion is verifiable via placeholder certificate download.
+		if (courseCertificateDownloadedAt) {
+			states[1] = "completed"
+		}
+
 		// Step 3 (index 2): "submit your application" is verifiable.
 		if (application?.status && application.status !== "DRAFT" && application.status !== "REJECTED") {
 			states[2] = "completed"
+		}
+
+		// Step 4 (index 3): Supreme Court credentials — placeholder until SC integration exists.
+		if (scCredentialsRecordedAt) {
+			states[3] = "completed"
 		}
 
 		// If commission is active, final step is verifiable.
@@ -204,7 +318,14 @@ export function EnpAccreditationProgressBanner({
 		}
 
 		return states
-	}, [application?.status, stepIndex, userRole, userStatus])
+	}, [
+		application,
+		courseCertificateDownloadedAt,
+		scCredentialsRecordedAt,
+		stepIndex,
+		userRole,
+		userStatus,
+	])
 
 	const headline = useMemo(() => {
 		if (application?.status === "REJECTED") return "Your ENP application needs updates"
@@ -236,8 +357,17 @@ export function EnpAccreditationProgressBanner({
 	}
 
 	if (variant === "sidebar") {
+		const sidebarIcon = (
+			<span
+				className="flex size-4 shrink-0 items-center justify-center [&_svg]:size-4"
+				aria-hidden
+			>
+				<Clock className="size-4 shrink-0" />
+			</span>
+		)
+
 		return (
-			<SidebarGroup>
+			<SidebarGroup className="px-2 py-0 group-data-[collapsible=icon]:py-1">
 				<SidebarMenu>
 					<SidebarMenuItem>
 						{sidebarState === "collapsed" ? (
@@ -248,7 +378,7 @@ export function EnpAccreditationProgressBanner({
 										onClick={() => setSidebarDialogOpen(true)}
 										aria-label={headline}
 									>
-										<Clock className="size-4" />
+										{sidebarIcon}
 									</SidebarMenuButton>
 								</TooltipTrigger>
 								<TooltipContent className="max-w-xs">
@@ -257,7 +387,7 @@ export function EnpAccreditationProgressBanner({
 							</Tooltip>
 						) : (
 							<SidebarMenuButton type="button" onClick={() => setSidebarDialogOpen(true)}>
-								<Clock className="size-4" />
+								{sidebarIcon}
 								<span className="truncate">{headline}</span>
 							</SidebarMenuButton>
 						)}
@@ -277,6 +407,9 @@ export function EnpAccreditationProgressBanner({
 							<DialogDescription className="text-muted-foreground text-sm">{subtext}</DialogDescription>
 						</DialogHeader>
 						<div className="space-y-3 pt-2">
+							<Button type="button" className="w-full" variant="secondary" onClick={openCoursePlaceholder}>
+								{courseCertificateDownloadedAt ? "View course & certificate" : "Complete LMS course"}
+							</Button>
 							<div>
 								<Progress value={progressValue} />
 								<p className="text-muted-foreground mt-1 text-xs">
@@ -305,7 +438,10 @@ export function EnpAccreditationProgressBanner({
 									</CollapsibleTrigger>
 									<CollapsibleContent className="data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95">
 										<p className="text-muted-foreground mt-2 text-xs leading-relaxed">
-											We only mark steps “Completed” when QLegal can verify them.
+											We only mark steps “Completed” when QLegal can verify them. Submit your
+											application via <span className="text-foreground font-medium">Open</span> below.
+											After it&apos;s submitted, use the Supreme Court section on that same page to
+											record credentials (placeholder until integration).
 										</p>
 										<div className="max-h-[min(50vh,20rem)] overflow-y-auto overscroll-contain pr-1 pt-3">
 											<StepList currentStepIndex={stepIndex} stepStates={stepStates} />
@@ -376,6 +512,12 @@ export function EnpAccreditationProgressBanner({
 									</Button>
 								</CollapsibleTrigger>
 								<CollapsibleContent className="mt-3 overflow-hidden data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95">
+									<p className="text-muted-foreground mb-2 text-xs leading-relaxed">
+										Submit your application from{" "}
+										<span className="text-foreground font-medium">View ENP application</span>. After
+										it&apos;s submitted, use the Supreme Court section on that page to record
+										credentials (placeholder).
+									</p>
 									<StepList currentStepIndex={stepIndex} stepStates={stepStates} />
 								</CollapsibleContent>
 							</Collapsible>
@@ -384,6 +526,9 @@ export function EnpAccreditationProgressBanner({
 				</div>
 
 				<div className="flex shrink-0 flex-col gap-2 sm:flex-row">
+					<Button type="button" variant="secondary" onClick={openCoursePlaceholder}>
+						{courseCertificateDownloadedAt ? "View course & certificate" : "Complete LMS course"}
+					</Button>
 					<Button asChild variant="secondary">
 						<Link href="/auth/legal-registration">View ENP application</Link>
 					</Button>

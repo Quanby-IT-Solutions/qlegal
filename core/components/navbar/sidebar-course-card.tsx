@@ -47,6 +47,14 @@ const isPlanCardDismissed = (): boolean => {
 	}
 }
 
+function SidebarCourseMenuIcon() {
+	return (
+		<span className="flex size-4 shrink-0 items-center justify-center [&_svg]:size-4" aria-hidden>
+			<HugeiconsIcon icon={BookOpen01Icon} size={16} className="shrink-0" />
+		</span>
+	)
+}
+
 export const SidebarCourseCard = () => {
 	const [open, setOpen] = useState(false)
 	const [dismissed, setDismissed] = useState<boolean | null>(null)
@@ -70,7 +78,7 @@ export const SidebarCourseCard = () => {
 	}
 
 	return (
-		<SidebarGroup>
+		<SidebarGroup className="px-2 py-0 group-data-[collapsible=icon]:py-1">
 			{dismissed ? (
 				<SidebarMenu>
 					<SidebarMenuItem>
@@ -78,7 +86,7 @@ export const SidebarCourseCard = () => {
 							<Tooltip side="right" align="center">
 								<TooltipTrigger asChild>
 									<SidebarMenuButton onClick={handleRestoreCard}>
-										<HugeiconsIcon icon={BookOpen01Icon} size={16} />
+										<SidebarCourseMenuIcon />
 									</SidebarMenuButton>
 								</TooltipTrigger>
 								<TooltipContent>
@@ -87,7 +95,7 @@ export const SidebarCourseCard = () => {
 							</Tooltip>
 						) : (
 							<SidebarMenuButton onClick={handleRestoreCard}>
-								<HugeiconsIcon icon={BookOpen01Icon} size={16} />
+								<SidebarCourseMenuIcon />
 								<span>ENP Course</span>
 							</SidebarMenuButton>
 						)}
@@ -99,7 +107,7 @@ export const SidebarCourseCard = () => {
 						<Tooltip side="right" align="center">
 							<TooltipTrigger asChild>
 								<SidebarMenuButton onClick={() => setOpen(true)}>
-									<HugeiconsIcon icon={BookOpen01Icon} size={16} />
+									<SidebarCourseMenuIcon />
 								</SidebarMenuButton>
 							</TooltipTrigger>
 							<TooltipContent>
