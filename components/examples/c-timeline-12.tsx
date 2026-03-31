@@ -1,0 +1,92 @@
+import { Badge } from "@/components/reui/badge"
+import {
+  Timeline,
+  TimelineContent,
+  TimelineDate,
+  TimelineHeader,
+  TimelineIndicator,
+  TimelineItem,
+  TimelineSeparator,
+  TimelineTitle,
+} from "@/components/reui/timeline"
+
+import { cn } from "@/core/lib/utils"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { Tick02Icon, PlayIcon, CircleIcon } from "@hugeicons/core-free-icons"
+
+const releases = [
+  {
+    id: 1,
+    version: "v1.0",
+    date: "Jan 2025",
+    title: "Initial Release",
+    status: "released",
+  },
+  {
+    id: 2,
+    version: "v1.1",
+    date: "Mar 2025",
+    title: "Bug Fixes",
+    status: "released",
+  },
+  {
+    id: 3,
+    version: "v2.0",
+    date: "Jun 2025",
+    title: "Major Update",
+    status: "current",
+  },
+  {
+    id: 4,
+    version: "v2.1",
+    date: "Sep 2025",
+    title: "Improvements",
+    status: "upcoming",
+  },
+]
+
+export function Pattern() {
+  return (
+    <Timeline
+      defaultValue={3}
+      orientation="horizontal"
+      className="w-full max-w-xl"
+    >
+      {releases.map((release) => (
+        <TimelineItem key={release.id} step={release.id}>
+          <TimelineHeader>
+            <TimelineSeparator className="bg-input! group-data-[orientation=horizontal]/timeline:-top-6 group-data-[orientation=horizontal]/timeline:left-2.5 group-data-[orientation=horizontal]/timeline:w-[calc(100%-2.25rem)]" />
+            <TimelineDate>{release.date}</TimelineDate>
+            <TimelineTitle className="flex items-center gap-2">
+              {release.version}
+              {release.status === "current" && (
+                <Badge variant="primary-light" size="sm">
+                  Current
+                </Badge>
+              )}
+            </TimelineTitle>
+            <TimelineIndicator
+              className={cn(
+                "flex size-6 items-center justify-center border-none",
+                release.status === "released" && "bg-emerald-500 text-white",
+                release.status === "current" &&
+                  "bg-primary text-primary-foreground",
+                release.status === "upcoming" &&
+                  "bg-muted text-muted-foreground"
+              )}
+            >
+              {release.status === "released" ? (
+                <HugeiconsIcon icon={Tick02Icon} strokeWidth={2} className="size-3.5" />
+              ) : release.status === "current" ? (
+                <HugeiconsIcon icon={PlayIcon} strokeWidth={2} className="size-3" />
+              ) : (
+                <HugeiconsIcon icon={CircleIcon} strokeWidth={2} className="size-3" />
+              )}
+            </TimelineIndicator>
+          </TimelineHeader>
+          <TimelineContent className="text-xs">{release.title}</TimelineContent>
+        </TimelineItem>
+      ))}
+    </Timeline>
+  )
+}

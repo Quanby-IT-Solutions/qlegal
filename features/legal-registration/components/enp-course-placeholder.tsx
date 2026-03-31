@@ -10,7 +10,7 @@ import { Button } from "@/core/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/core/components/ui/card"
 
 import {
-	getEnpCourseCertStorageKey,
+	getEnpCourseCertStorageKeys,
 	readEnpCourseCertificateDownloadedAt,
 	writeEnpCourseCertificateDownloaded,
 } from "../lib/enp-course-certificate"
@@ -132,6 +132,7 @@ function makeCertificateId(date: Date) {
 export function EnpCoursePlaceholder() {
 	const { data: session } = useSession()
 	const userId = session?.user?.id
+	const userEmail = session?.user?.email
 	const fullName = useMemo(() => {
 		const name = session?.user?.name?.trim()
 		if (name) return name
@@ -143,27 +144,38 @@ export function EnpCoursePlaceholder() {
 	const [downloadedAtIso, setDownloadedAtIso] = useState<string | null>(null)
 
 	useEffect(() => {
-		setDownloadedAtIso(readEnpCourseCertificateDownloadedAt(userId))
-	}, [userId])
+		setDownloadedAtIso(readEnpCourseCertificateDownloadedAt(userId, userEmail))
+	}, [userId, userEmail])
 
 	useEffect(() => {
 		if (downloadedAtIso) setHasMarkedComplete(true)
 	}, [downloadedAtIso])
 
 	useEffect(() => {
+		const keys = new Set(getEnpCourseCertStorageKeys(userId, userEmail))
+		if (keys.size === 0) return
 		const handler = (event: StorageEvent) => {
-			const key = getEnpCourseCertStorageKey(userId)
-			if (!key) return
-			if (event.key !== key) return
-			setDownloadedAtIso(readEnpCourseCertificateDownloadedAt(userId))
+			if (!event.key || !keys.has(event.key)) return
+			setDownloadedAtIso(readEnpCourseCertificateDownloadedAt(userId, userEmail))
 		}
 		window.addEventListener("storage", handler)
 		return () => window.removeEventListener("storage", handler)
-	}, [userId])
+	}, [userId, userEmail])
+
+	useEffect(() => {
+		const sync = () => setDownloadedAtIso(readEnpCourseCertificateDownloadedAt(userId, userEmail))
+		window.addEventListener("focus", sync)
+		window.addEventListener("pageshow", sync)
+		return () => {
+			window.removeEventListener("focus", sync)
+			window.removeEventListener("pageshow", sync)
+		}
+	}, [userId, userEmail])
 
 	const isCertificateDownloaded = Boolean(downloadedAtIso)
 	const downloadedAtLabel = downloadedAtIso ? new Date(downloadedAtIso).toLocaleString() : null
-	const isAuthenticated = Boolean(userId)
+	const canPersistCertificate = getEnpCourseCertStorageKeys(userId, userEmail).length > 0
+	const isAuthenticated = canPersistCertificate
 
 	return (
 		<Card>
@@ -236,11 +248,11 @@ export function EnpCoursePlaceholder() {
 							type="button"
 							disabled={!isAuthenticated || (!hasMarkedComplete && !isCertificateDownloaded)}
 							onClick={() => {
-								if (!userId) return
+								if (!canPersistCertificate) return
 								const now = new Date()
 								downloadCertificateHtml({ fullName, email, downloadedAt: now })
 								const iso = now.toISOString()
-								writeEnpCourseCertificateDownloaded(userId, iso)
+								writeEnpCourseCertificateDownloaded(userId, userEmail, iso)
 								setDownloadedAtIso(iso)
 							}}
 						>
