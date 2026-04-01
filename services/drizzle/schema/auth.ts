@@ -36,6 +36,8 @@ export const users = createTable("user", t => ({
 	onboardingCompletedAt: t.timestamp({ mode: "date", withTimezone: true }),
 	onboardingDetailsCompletedAt: t.timestamp({ mode: "date", withTimezone: true }),
 	onboardingSnoozedUntil: t.timestamp({ mode: "date", withTimezone: true }),
+	/** Placeholder ENP LMS: set when user downloads the course certificate (until real LMS integration). */
+	enpLmsCourseCompletedAt: t.timestamp({ mode: "date", withTimezone: true }),
 })).enableRLS()
 
 export const accounts = createTable(

@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { useSession } from "next-auth/react"
 import {
 	ArrowRight,
@@ -55,6 +55,7 @@ import { trpc } from "@/services/trpc/client"
 import {
 	ENP_COURSE_CERT_CHANGED_EVENT,
 	getEnpCourseCertStorageKeys,
+	mergeEnpCourseCertificateDownloadedAt,
 	readEnpCourseCertificateDownloadedAt,
 } from "../lib/enp-course-certificate"
 import {
@@ -69,6 +70,15 @@ const STEPS = [
 	"Return to QLegal and submit your application",
 	"Submit your certificate/credentials to the Supreme Court",
 	"Wait for Supreme Court accreditation (we activate your commission after approval)",
+] as const
+
+/** Shorter copy for narrow modals (full text in `title` tooltip). */
+const STEPS_TIMELINE_COMPACT = [
+	"Start ENP journey",
+	"LMS course",
+	"QLegal application",
+	"SC credentials",
+	"Await SC approval",
 ] as const
 
 function getCurrentStepIndex(applicationStatus: string | null | undefined): number {
@@ -106,95 +116,63 @@ function getStepStateLabel(state: StepState) {
 	}
 }
 
-function getStepStateIcon(state: StepState) {
-	if (state === "completed") return <Check className="size-3" />
-	return <span className="size-1.5 rounded-full bg-current opacity-70" />
-}
-
-function getStepStateClasses(state: StepState) {
-	switch (state) {
-		case "completed":
-			return "bg-primary text-primary-foreground mt-0.5 inline-flex size-5 shrink-0 items-center justify-center rounded-full"
-		case "current":
-			return "border-primary mt-0.5 inline-flex size-5 shrink-0 items-center justify-center rounded-full border"
-		case "not_tracked":
-			return "border-muted-foreground/40 text-muted-foreground mt-0.5 inline-flex size-5 shrink-0 items-center justify-center rounded-full border border-dashed"
-		case "upcoming":
-			return "border-muted-foreground/30 text-muted-foreground mt-0.5 inline-flex size-5 shrink-0 items-center justify-center rounded-full border"
-	}
-}
-
-function StepList({
-	currentStepIndex,
-	stepStates,
-}: {
-	currentStepIndex: number
-	stepStates: StepState[]
-}) {
-	return (
-		<ul className="space-y-2">
-			{STEPS.map((label, idx) => {
-				const state: StepState = stepStates[idx] ?? (idx === currentStepIndex ? "current" : "upcoming")
-
-				return (
-					<li key={label} className="flex items-start gap-2">
-						<span
-							className={getStepStateClasses(state)}
-							aria-hidden="true"
-						>
-							{getStepStateIcon(state)}
-						</span>
-
-						<div className="min-w-0">
-							<p
-								className={
-									state === "current"
-										? "text-sm font-medium"
-										: state === "upcoming" || state === "not_tracked"
-											? "text-muted-foreground text-sm"
-											: "text-sm"
-								}
-							>
-								{label}
-							</p>
-							<p className="text-muted-foreground mt-0.5 text-xs">
-								{getStepStateLabel(state)}
-							</p>
-						</div>
-					</li>
-				)
-			})}
-		</ul>
-	)
-}
-
 function PageStepsTimeline({
 	stepIndex,
 	stepStates,
+	variant = "page",
 }: {
 	stepIndex: number
 	stepStates: StepState[]
+	/** `dialog`: shorter labels + tighter layout so the horizontal timeline fits modals. */
+	variant?: "page" | "dialog"
 }) {
+	const compact = variant === "dialog"
 	return (
-		<div className="min-w-0 w-full overflow-x-auto overscroll-x-contain px-1 pt-10 pb-2 sm:px-2">
+		<div
+			className={cn(
+				"min-w-0 w-full px-1 pb-1 sm:px-2",
+				compact ? "overflow-x-hidden pt-7" : "overflow-x-auto overscroll-x-contain pt-8"
+			)}
+		>
 			<Timeline
 				orientation="horizontal"
-				className="w-full min-w-[560px] md:min-w-full"
+				className={cn(
+					"w-full min-w-0",
+					compact ? "max-w-full" : "min-w-[560px] md:min-w-full"
+				)}
 				value={stepIndex + 1}
 			>
-				{STEPS.map((label, idx) => {
+				{STEPS.map((fullLabel, idx) => {
+					const label = compact ? STEPS_TIMELINE_COMPACT[idx] : fullLabel
 					const state: StepState =
 						stepStates[idx] ?? (idx === stepIndex ? "current" : "upcoming")
 					const stepNum = idx + 1
 					return (
-						<TimelineItem key={label} step={stepNum} className="min-w-0 ps-0.5 pe-0.5 first:ps-0 last:pe-2">
+						<TimelineItem
+							key={fullLabel}
+							step={stepNum}
+							className={cn(
+								"min-w-0 ps-0.5 pe-0.5 first:ps-0 last:pe-2",
+								compact &&
+									"group-data-[orientation=horizontal]/timeline:not-last:!pe-2"
+							)}
+						>
 							<TimelineHeader>
 								<TimelineSeparator className="bg-input! group-data-[orientation=horizontal]/timeline:-top-6 group-data-[orientation=horizontal]/timeline:left-2.5 group-data-[orientation=horizontal]/timeline:w-[calc(100%-2.25rem)]" />
-								<TimelineDate>{getStepStateLabel(state)}</TimelineDate>
-								<TimelineTitle className="flex flex-wrap items-center gap-2">
-									Step {stepNum}
+								<TimelineDate className={compact ? "text-[0.65rem]" : undefined}>
+									{getStepStateLabel(state)}
+								</TimelineDate>
+								<TimelineTitle
+									className={cn(
+										"gap-1",
+										compact
+											? "flex flex-col items-start text-xs leading-tight"
+											: "flex flex-wrap items-center gap-2"
+									)}
+								>
+									<span className="font-medium">Step {stepNum}</span>
 									{state === "current" ? (
-										<Badge variant="primary-light" radius="full" size="sm">
+										<Badge variant="primary-light" radius="full" size={compact ? "xs" : "sm"}>
 											Current
 										</Badge>
 									) : null}
@@ -218,7 +196,13 @@ function PageStepsTimeline({
 									)}
 								</TimelineIndicator>
 							</TimelineHeader>
-							<TimelineContent className="text-muted-foreground min-w-0 text-xs leading-snug break-words">
+							<TimelineContent
+								className={cn(
+									"text-muted-foreground min-w-0 text-xs leading-snug break-words",
+									compact && "line-clamp-3"
+								)}
+								title={compact ? fullLabel : undefined}
+							>
 								{label}
 							</TimelineContent>
 						</TimelineItem>
@@ -240,10 +224,27 @@ export function EnpAccreditationProgressBanner({
 	const isAuth = Boolean(session?.user?.id)
 	const pathname = usePathname()
 
+	const utils = trpc.useUtils()
 	const { data: application } = trpc.legalRegistration.getMyApplication.useQuery(undefined, {
 		enabled: isAuth,
 		refetchOnWindowFocus: false,
 		retry: false,
+	})
+
+	const { data: lmsCompletion, isFetched: lmsCompletionFetched } =
+		trpc.legalRegistration.getMyEnpLmsCompletion.useQuery(undefined, {
+			enabled: isAuth,
+			refetchOnWindowFocus: true,
+		})
+
+	const lmsBackfillDoneRef = useRef(false)
+	const recordLmsBackfill = trpc.legalRegistration.recordEnpLmsCourseCompletion.useMutation({
+		onSuccess: () => {
+			void utils.legalRegistration.getMyEnpLmsCompletion.invalidate()
+		},
+		onError: () => {
+			lmsBackfillDoneRef.current = false
+		},
 	})
 
 	const userRole = session?.user?.role
@@ -298,6 +299,23 @@ export function EnpAccreditationProgressBanner({
 	}, [isClient, session?.user?.id, session?.user?.email])
 
 	useEffect(() => {
+		if (!isClient || !isAuth || !lmsCompletionFetched || lmsBackfillDoneRef.current) return
+		const local = readEnpCourseCertificateDownloadedAt(session?.user?.id, session?.user?.email)
+		if (!local || lmsCompletion?.completedAt) return
+		lmsBackfillDoneRef.current = true
+		void recordLmsBackfill.mutate({ completedAtIso: local })
+		// recordLmsBackfill.mutate is stable enough; including the mutation object re-runs this effect every render.
+		// eslint-disable-next-line react-hooks/exhaustive-deps -- exclude recordLmsBackfill
+	}, [
+		isAuth,
+		isClient,
+		lmsCompletion?.completedAt,
+		lmsCompletionFetched,
+		session?.user?.email,
+		session?.user?.id,
+	])
+
+	useEffect(() => {
 		if (!isClient) return
 		setScCredentialsRecordedAt(readEnpScCredentialsRecordedAt(session?.user?.id))
 	}, [isClient, session?.user?.id])
@@ -326,6 +344,15 @@ export function EnpAccreditationProgressBanner({
 		window.open(url, "_blank", "noopener,noreferrer")
 	}
 
+	const mergedCertificateAt = useMemo(
+		() =>
+			mergeEnpCourseCertificateDownloadedAt(
+				lmsCompletion?.completedAt ?? null,
+				courseCertificateDownloadedAt
+			),
+		[courseCertificateDownloadedAt, lmsCompletion?.completedAt]
+	)
+
 	useEffect(() => {
 		if (!isClient) return
 		// Same behavior for both sidebar + page:
@@ -346,19 +373,26 @@ export function EnpAccreditationProgressBanner({
 
 	const rawStepIndex = useMemo(() => getCurrentStepIndex(application?.status), [application?.status])
 
+	const applicationSubmittedForReview =
+		application?.status === "PENDING" ||
+		application?.status === "UNDER_REVIEW" ||
+		application?.status === "APPROVED"
+
+	/** Step 4 satisfied by submitted QLegal application (server) or explicit SC placeholder click (localStorage). */
+	const scStepSatisfied =
+		Boolean(scCredentialsRecordedAt) || Boolean(applicationSubmittedForReview)
+
 	/** Until the placeholder certificate exists, keep “Complete the LMS course” as the current step for draft flows (don’t skip ahead to submit). */
 	const stepIndex = useMemo(() => {
-		const hasCert = Boolean(courseCertificateDownloadedAt)
-		const hasSc = Boolean(scCredentialsRecordedAt)
+		const hasCert = Boolean(mergedCertificateAt)
 		const status = application?.status
 		if (!hasCert && (status === "DRAFT" || status === "REJECTED") && rawStepIndex >= 2) {
 			return 1
 		}
 
-		// Once you submit your application (PENDING/UNDER_REVIEW/APPROVED), the next required action is
-		// to record Supreme Court credentials (placeholder). Only after that should we move to the final wait step.
+		// After QLegal application is submitted for review, advance to the “wait for accreditation” step.
 		if (status === "PENDING" || status === "UNDER_REVIEW" || status === "APPROVED") {
-			if (!hasSc) return 3
+			if (!scStepSatisfied) return 3
 			return 4
 		}
 
@@ -369,9 +403,9 @@ export function EnpAccreditationProgressBanner({
 		return rawStepIndex
 	}, [
 		application?.status,
-		courseCertificateDownloadedAt,
-		scCredentialsRecordedAt,
+		mergedCertificateAt,
 		rawStepIndex,
+		scStepSatisfied,
 		userRole,
 		userStatus,
 	])
@@ -386,12 +420,12 @@ export function EnpAccreditationProgressBanner({
 		)
 
 		// Step 1 (index 0): Journey started — verifiable when they have an application record or finished the LMS placeholder.
-		if (application || courseCertificateDownloadedAt) {
+		if (application || mergedCertificateAt) {
 			states[0] = "completed"
 		}
 
 		// Step 2 (index 1): LMS course completion is verifiable via placeholder certificate download.
-		if (courseCertificateDownloadedAt) {
+		if (mergedCertificateAt) {
 			states[1] = "completed"
 		}
 
@@ -400,8 +434,8 @@ export function EnpAccreditationProgressBanner({
 			states[2] = "completed"
 		}
 
-		// Step 4 (index 3): Supreme Court credentials — placeholder until SC integration exists.
-		if (scCredentialsRecordedAt) {
+		// Step 4 (index 3): SC credentials — complete once application is submitted for review and/or placeholder recorded.
+		if (scStepSatisfied) {
 			states[3] = "completed"
 		}
 
@@ -413,8 +447,8 @@ export function EnpAccreditationProgressBanner({
 		return states
 	}, [
 		application,
-		courseCertificateDownloadedAt,
-		scCredentialsRecordedAt,
+		mergedCertificateAt,
+		scStepSatisfied,
 		stepIndex,
 		userRole,
 		userStatus,
@@ -494,57 +528,70 @@ export function EnpAccreditationProgressBanner({
 						if (!open) setSidebarStepsOpen(false)
 					}}
 				>
-					<DialogContent className="bg-card max-w-md border-0 shadow-lg">
-						<DialogHeader className="space-y-2">
-							<DialogTitle className="text-xl font-semibold">{headline}</DialogTitle>
-							<DialogDescription className="text-muted-foreground text-sm">{subtext}</DialogDescription>
+					<DialogContent className="bg-card border-border/60 isolate flex max-h-[min(90dvh,42rem)] w-[min(98vw,58rem)] max-w-[min(98vw,58rem)] flex-col gap-3 overflow-hidden border p-5 shadow-xl sm:p-6">
+						<DialogHeader className="space-y-1.5 text-left">
+							<DialogTitle className="text-lg font-semibold leading-tight sm:text-xl">{headline}</DialogTitle>
+							<DialogDescription className="text-muted-foreground text-sm leading-snug">
+								{subtext}
+							</DialogDescription>
 						</DialogHeader>
-						<div className="space-y-3 pt-2">
-							<Button type="button" className="w-full" variant="secondary" onClick={openCoursePlaceholder}>
-								{courseCertificateDownloadedAt ? "View course & certificate" : "Complete LMS course"}
-							</Button>
-							<div>
-								<Progress value={progressValue} />
-								<p className="text-muted-foreground mt-1 text-xs">
-									On step {stepIndex + 1} of {STEPS.length}: {STEPS[stepIndex]}
-								</p>
+						<div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto overflow-x-hidden pt-2 pr-1 pb-1">
+							<p className="text-muted-foreground text-xs leading-snug">
+								Submit your application from{" "}
+								<span className="text-foreground font-medium">Open</span> below. After it&apos;s submitted,
+								the checklist advances. You can still use the Supreme Court section on that page to record
+								an external submission date (optional placeholder).
+							</p>
+							<div className="flex flex-wrap items-center justify-end gap-1.5 pt-1">
+								<Button
+									type="button"
+									variant="secondary"
+									size="sm"
+									className="h-7 rounded-full px-3 text-xs"
+									onClick={openCoursePlaceholder}
+								>
+									{mergedCertificateAt ? "View course & certificate" : "Complete LMS course"}
+								</Button>
+								<Button asChild variant="secondary" size="sm" className="h-7 rounded-full px-3 text-xs">
+									<Link href="/auth/legal-registration">View ENP application</Link>
+								</Button>
 							</div>
-							<div className="border-border/60 rounded-lg border p-3">
-								<p className="text-sm font-medium">ENP accreditation steps</p>
-								<Collapsible open={sidebarStepsOpen} onOpenChange={setSidebarStepsOpen}>
+							<Collapsible open={sidebarStepsOpen} onOpenChange={setSidebarStepsOpen}>
+								<div className="flex flex-wrap items-center gap-1">
 									<CollapsibleTrigger asChild>
-										<Button
-											type="button"
-											variant="ghost"
-											size="sm"
-											className="text-muted-foreground mt-1 h-8 w-full justify-between px-2 font-normal"
-										>
-											{sidebarStepsOpen ? "Hide step list" : "Show all steps"}
+										<Button type="button" variant="ghost" size="sm" className="-ms-1 h-7 px-2 text-xs">
+											{sidebarStepsOpen ? "Hide steps" : "Show steps"}
 											<ChevronDown
 												className={
 													sidebarStepsOpen
-														? "size-3.5 shrink-0 rotate-180 transition-transform"
-														: "size-3.5 shrink-0 transition-transform"
+														? "ml-1 size-3.5 rotate-180 transition-transform"
+														: "ml-1 size-3.5 transition-transform"
 												}
 											/>
 										</Button>
 									</CollapsibleTrigger>
-									<CollapsibleContent className="data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95">
-										<p className="text-muted-foreground mt-2 text-xs leading-relaxed">
-											We only mark steps “Completed” when QLegal can verify them. Submit your
-											application via <span className="text-foreground font-medium">Open</span> below.
-											After it&apos;s submitted, use the Supreme Court section on that same page to
-											record credentials (placeholder until integration).
-										</p>
-										<div className="max-h-[min(50vh,20rem)] overflow-y-auto overscroll-contain pr-1 pt-3">
-											<StepList currentStepIndex={stepIndex} stepStates={stepStates} />
-										</div>
-									</CollapsibleContent>
-								</Collapsible>
+								</div>
+								<CollapsibleContent className="min-h-0 overflow-hidden data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95">
+									<div className="border-border/50 mt-2 min-h-0 min-w-0 w-full border-t border-dotted bg-card pt-3">
+										<PageStepsTimeline
+											variant="dialog"
+											stepIndex={stepIndex}
+											stepStates={stepStates}
+										/>
+									</div>
+								</CollapsibleContent>
+							</Collapsible>
+							<div className="border-border/40 border-t pt-2">
+								<Progress value={progressValue} className="h-1.5" />
+								<p className="text-muted-foreground mt-1 text-xs leading-snug">
+									On step {stepIndex + 1} of {STEPS.length}: {STEPS[stepIndex]}
+								</p>
 							</div>
-							<Button asChild className="w-full" variant="secondary">
-								<Link href="/auth/legal-registration">Open</Link>
-							</Button>
+							<div className="flex shrink-0 justify-center pt-1">
+								<Button asChild variant="secondary" size="sm" className="h-7 rounded-full px-8 text-xs">
+									<Link href="/auth/legal-registration">Open</Link>
+								</Button>
+							</div>
 							{/* <Button
 								type="button"
 								variant="ghost"
@@ -570,55 +617,60 @@ export function EnpAccreditationProgressBanner({
 			aria-label="ENP accreditation status"
 			className="border-border/70 bg-muted/35 dark:bg-muted/20 w-full border-b backdrop-blur-sm"
 		>
-			<div className="flex flex-col gap-4 px-4 py-5 sm:px-6">
-				<div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-					<div className="min-w-0 flex-1">
+			<div className="flex flex-col gap-2 px-4 py-3 sm:px-5">
+				<div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between md:gap-4 lg:gap-6">
+					<div className="min-w-0 flex-1 space-y-1 md:pr-2">
 						<div className="flex items-center gap-2">
 							<Clock className="text-muted-foreground size-4 shrink-0" />
-							<p className="text-sm font-semibold">{headline}</p>
+							<p className="text-sm font-semibold leading-tight">{headline}</p>
 						</div>
-						<p className="text-muted-foreground mt-1 text-sm">{subtext}</p>
-						<p className="text-muted-foreground mt-3 text-xs leading-relaxed">
+						<p className="text-muted-foreground text-sm leading-snug">{subtext}</p>
+						<p className="text-muted-foreground text-xs leading-snug">
 							Submit your application from{" "}
 							<span className="text-foreground font-medium">View ENP application</span>. After it&apos;s
-							submitted, use the Supreme Court section on that page to record credentials (placeholder).
+							submitted, the checklist advances. You can still use the Supreme Court section there to
+							record an external submission date (optional placeholder).
 						</p>
 					</div>
 
-					<div className="flex w-full shrink-0 flex-col items-stretch gap-2 sm:w-auto md:items-end">
-						<div className="flex justify-end">
+					<div className="flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:self-end md:self-start md:pt-0.5">
+						<div className="flex flex-wrap items-center justify-end gap-1.5">
+							<Button
+								type="button"
+								variant="secondary"
+								size="sm"
+								className="h-7 rounded-full px-3 text-xs"
+								onClick={openCoursePlaceholder}
+							>
+								{mergedCertificateAt ? "View course & certificate" : "Complete LMS course"}
+							</Button>
+							<Button asChild variant="secondary" size="sm" className="h-7 rounded-full px-3 text-xs">
+								<Link href="/auth/legal-registration">View ENP application</Link>
+							</Button>
+							<Button asChild size="sm" className="h-7 rounded-full px-3 text-xs">
+								<Link href="/dashboard">
+									Continue to dashboard
+									<ArrowRight className="size-3.5" />
+								</Link>
+							</Button>
 							<Button
 								type="button"
 								variant="ghost"
-								size="icon"
-								className="text-muted-foreground hover:text-foreground size-8 shrink-0"
+								size="icon-xs"
+								className="text-muted-foreground hover:text-foreground -me-0.5 shrink-0"
 								onClick={handleDismiss}
 								aria-label="Dismiss"
 							>
-								<X className="size-4" />
-							</Button>
-						</div>
-						<div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
-							<Button type="button" variant="secondary" onClick={openCoursePlaceholder}>
-								{courseCertificateDownloadedAt ? "View course & certificate" : "Complete LMS course"}
-							</Button>
-							<Button asChild variant="secondary">
-								<Link href="/auth/legal-registration">View ENP application</Link>
-							</Button>
-							<Button asChild>
-								<Link href="/dashboard">
-									Continue to dashboard
-									<ArrowRight className="ml-2 size-4" />
-								</Link>
+								<X className="size-3.5" />
 							</Button>
 						</div>
 					</div>
 				</div>
 
 				<Collapsible open={isStepsTimelineOpen} onOpenChange={setIsStepsTimelineOpen}>
-					<div className="flex flex-wrap items-center gap-2">
+					<div className="flex flex-wrap items-center gap-1">
 						<CollapsibleTrigger asChild>
-							<Button type="button" variant="ghost" size="sm" className="-ml-2 h-8 px-2">
+							<Button type="button" variant="ghost" size="sm" className="-ml-2 h-7 px-2 text-xs">
 								{isStepsTimelineOpen ? "Hide steps" : "Show steps"}
 								<ChevronDown
 									className={
@@ -631,15 +683,15 @@ export function EnpAccreditationProgressBanner({
 						</CollapsibleTrigger>
 					</div>
 					<CollapsibleContent className="data-[state=open]:overflow-visible data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95">
-						<div className="border-border/50 mt-4 min-w-0 w-full border-t border-dotted pt-4">
+						<div className="border-border/50 mt-2 min-w-0 w-full border-t border-dotted pt-3">
 							<PageStepsTimeline stepIndex={stepIndex} stepStates={stepStates} />
 						</div>
 					</CollapsibleContent>
 				</Collapsible>
 
-				<div className="pt-1">
-					<Progress value={progressValue} />
-					<p className="text-muted-foreground mt-2 text-xs leading-relaxed">
+				<div className="border-border/40 border-t pt-2">
+					<Progress value={progressValue} className="h-1.5" />
+					<p className="text-muted-foreground mt-1 text-xs leading-snug">
 						On step {stepIndex + 1} of {STEPS.length}: {STEPS[stepIndex]}
 					</p>
 				</div>
