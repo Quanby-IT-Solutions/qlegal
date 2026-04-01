@@ -1,16 +1,19 @@
 "use client"
 
 import Link from "next/link"
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { useSession } from "next-auth/react"
 import { CheckCircle2, Download, ExternalLink } from "lucide-react"
 
 import { Alert, AlertDescription, AlertTitle } from "@/core/components/ui/alert"
 import { Button } from "@/core/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/core/components/ui/card"
+import { trpc } from "@/services/trpc/client"
 
 import {
+	ENP_COURSE_CERT_CHANGED_EVENT,
 	getEnpCourseCertStorageKeys,
+	mergeEnpCourseCertificateDownloadedAt,
 	readEnpCourseCertificateDownloadedAt,
 	writeEnpCourseCertificateDownloaded,
 } from "../lib/enp-course-certificate"
@@ -130,9 +133,23 @@ function makeCertificateId(date: Date) {
 }
 
 export function EnpCoursePlaceholder() {
-	const { data: session } = useSession()
+	const { data: session, status: sessionStatus } = useSession()
 	const userId = session?.user?.id
 	const userEmail = session?.user?.email
+	const isAuth = Boolean(userId)
+	const utils = trpc.useUtils()
+	const { data: lmsCompletion, isFetched: lmsFetched } =
+		trpc.legalRegistration.getMyEnpLmsCompletion.useQuery(undefined, {
+			enabled: isAuth,
+			refetchOnWindowFocus: true,
+		})
+	const recordLmsCompletion = trpc.legalRegistration.recordEnpLmsCourseCompletion.useMutation({
+		onSuccess: () => {
+			void utils.legalRegistration.getMyEnpLmsCompletion.invalidate()
+		},
+	})
+	const lmsBackfillDoneRef = useRef(false)
+
 	const fullName = useMemo(() => {
 		const name = session?.user?.name?.trim()
 		if (name) return name
@@ -141,39 +158,68 @@ export function EnpCoursePlaceholder() {
 	const email = session?.user?.email ?? ""
 
 	const [hasMarkedComplete, setHasMarkedComplete] = useState(false)
-	const [downloadedAtIso, setDownloadedAtIso] = useState<string | null>(null)
+	const [localDownloadedAtIso, setLocalDownloadedAtIso] = useState<string | null>(null)
 
 	useEffect(() => {
-		setDownloadedAtIso(readEnpCourseCertificateDownloadedAt(userId, userEmail))
+		setLocalDownloadedAtIso(readEnpCourseCertificateDownloadedAt(userId, userEmail))
 	}, [userId, userEmail])
 
 	useEffect(() => {
-		if (downloadedAtIso) setHasMarkedComplete(true)
-	}, [downloadedAtIso])
+		if (sessionStatus !== "authenticated" || !lmsFetched || lmsBackfillDoneRef.current) return
+		const local = readEnpCourseCertificateDownloadedAt(userId, userEmail)
+		if (!local || lmsCompletion?.completedAt) return
+		lmsBackfillDoneRef.current = true
+		void recordLmsCompletion.mutate(
+			{ completedAtIso: local },
+			{
+				onError: () => {
+					lmsBackfillDoneRef.current = false
+				},
+			}
+		)
+		// eslint-disable-next-line react-hooks/exhaustive-deps -- recordLmsCompletion identity
+	}, [lmsCompletion?.completedAt, lmsFetched, sessionStatus, userEmail, userId])
+
+	useEffect(() => {
+		if (localDownloadedAtIso) setHasMarkedComplete(true)
+	}, [localDownloadedAtIso])
 
 	useEffect(() => {
 		const keys = new Set(getEnpCourseCertStorageKeys(userId, userEmail))
 		if (keys.size === 0) return
 		const handler = (event: StorageEvent) => {
 			if (!event.key || !keys.has(event.key)) return
-			setDownloadedAtIso(readEnpCourseCertificateDownloadedAt(userId, userEmail))
+			setLocalDownloadedAtIso(readEnpCourseCertificateDownloadedAt(userId, userEmail))
 		}
 		window.addEventListener("storage", handler)
 		return () => window.removeEventListener("storage", handler)
 	}, [userId, userEmail])
 
 	useEffect(() => {
-		const sync = () => setDownloadedAtIso(readEnpCourseCertificateDownloadedAt(userId, userEmail))
+		const sync = () => setLocalDownloadedAtIso(readEnpCourseCertificateDownloadedAt(userId, userEmail))
 		window.addEventListener("focus", sync)
 		window.addEventListener("pageshow", sync)
+		window.addEventListener(ENP_COURSE_CERT_CHANGED_EVENT, sync)
 		return () => {
 			window.removeEventListener("focus", sync)
 			window.removeEventListener("pageshow", sync)
+			window.removeEventListener(ENP_COURSE_CERT_CHANGED_EVENT, sync)
 		}
 	}, [userId, userEmail])
 
-	const isCertificateDownloaded = Boolean(downloadedAtIso)
-	const downloadedAtLabel = downloadedAtIso ? new Date(downloadedAtIso).toLocaleString() : null
+	const effectiveDownloadedAtIso = useMemo(
+		() =>
+			mergeEnpCourseCertificateDownloadedAt(
+				lmsCompletion?.completedAt ?? null,
+				localDownloadedAtIso
+			),
+		[lmsCompletion?.completedAt, localDownloadedAtIso]
+	)
+
+	const isCertificateDownloaded = Boolean(effectiveDownloadedAtIso)
+	const downloadedAtLabel = effectiveDownloadedAtIso
+		? new Date(effectiveDownloadedAtIso).toLocaleString()
+		: null
 	const canPersistCertificate = getEnpCourseCertStorageKeys(userId, userEmail).length > 0
 	const isAuthenticated = canPersistCertificate
 
@@ -246,14 +292,19 @@ export function EnpCoursePlaceholder() {
 					<div className="flex flex-wrap items-center gap-2">
 						<Button
 							type="button"
-							disabled={!isAuthenticated || (!hasMarkedComplete && !isCertificateDownloaded)}
+							disabled={
+								!isAuthenticated ||
+								recordLmsCompletion.isPending ||
+								(!hasMarkedComplete && !isCertificateDownloaded)
+							}
 							onClick={() => {
 								if (!canPersistCertificate) return
 								const now = new Date()
 								downloadCertificateHtml({ fullName, email, downloadedAt: now })
 								const iso = now.toISOString()
 								writeEnpCourseCertificateDownloaded(userId, userEmail, iso)
-								setDownloadedAtIso(iso)
+								setLocalDownloadedAtIso(iso)
+								void recordLmsCompletion.mutateAsync({ completedAtIso: iso })
 							}}
 						>
 							Download certificate

@@ -70,9 +70,9 @@ export function EnpScCredentialsPlaceholder({ applicationStatus }: EnpScCredenti
 					<CardTitle className="text-lg">Supreme Court credentials (placeholder)</CardTitle>
 				</div>
 				<CardDescription>
-					After you submit certificates or credentials to the Supreme Court outside QLegal, record that
-					here so your accreditation checklist can advance. This will be replaced by a real integration
-					later.
+					Your ENP checklist already treats a submitted application (PENDING or later) as having cleared
+					the Supreme Court credentials step for now. Use this only if you want to log when you sent
+					documents outside QLegal — optional until a real Supreme Court integration exists.
 				</CardDescription>
 			</CardHeader>
 			<CardContent className="space-y-4">

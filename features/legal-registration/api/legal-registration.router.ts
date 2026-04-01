@@ -204,6 +204,43 @@ export const legalRegistrationRouter = createTRPCRouter({
 			}
 		}),
 
+	/** Server source of truth for placeholder LMS completion (survives new devices / cleared storage). */
+	getMyEnpLmsCompletion: protectedProcedure
+		.output(z.object({ completedAt: z.string().nullable() }))
+		.query(async ({ ctx }) => {
+			const row = await db.query.users.findFirst({
+				where: eq(users.id, ctx.session.user.id),
+				columns: { enpLmsCourseCompletedAt: true },
+			})
+			const at = row?.enpLmsCourseCompletedAt
+			return { completedAt: at ? at.toISOString() : null }
+		}),
+
+	recordEnpLmsCourseCompletion: protectedProcedure
+		.input(z.object({ completedAtIso: z.string().optional() }))
+		.output(z.object({ completedAt: z.string() }))
+		.mutation(async ({ ctx, input }) => {
+			const nextAt = input.completedAtIso ? new Date(input.completedAtIso) : new Date()
+			if (Number.isNaN(nextAt.getTime())) {
+				throw new TRPCError({ code: "BAD_REQUEST", message: "Invalid completion timestamp" })
+			}
+
+			const row = await db.query.users.findFirst({
+				where: eq(users.id, ctx.session.user.id),
+				columns: { enpLmsCourseCompletedAt: true },
+			})
+			const existing = row?.enpLmsCourseCompletedAt
+			const chosen =
+				existing && existing.getTime() >= nextAt.getTime() ? existing : nextAt
+
+			await db
+				.update(users)
+				.set({ enpLmsCourseCompletedAt: chosen })
+				.where(eq(users.id, ctx.session.user.id))
+
+			return { completedAt: chosen.toISOString() }
+		}),
+
 	// Update application (only in DRAFT status)
 	update: protectedProcedure
 		.input(

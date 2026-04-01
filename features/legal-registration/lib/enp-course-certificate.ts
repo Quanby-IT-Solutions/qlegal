@@ -62,6 +62,20 @@ export function readEnpCourseCertificateDownloadedAt(
 	}
 }
 
+/** Prefer the latest valid ISO timestamp (server vs localStorage). */
+export function mergeEnpCourseCertificateDownloadedAt(
+	a: string | null | undefined,
+	b: string | null | undefined
+): string | null {
+	if (!a) return b ?? null
+	if (!b) return a
+	const ta = new Date(a).getTime()
+	const tb = new Date(b).getTime()
+	if (Number.isNaN(ta)) return b
+	if (Number.isNaN(tb)) return a
+	return ta >= tb ? a : b
+}
+
 export function writeEnpCourseCertificateDownloaded(
 	userId: string | undefined,
 	email: string | null | undefined,
