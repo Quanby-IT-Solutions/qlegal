@@ -13,6 +13,7 @@ import {
 	Monitor,
 	PhoneOff,
 	Square,
+	StopCircle,
 	UserPlus,
 	Users,
 } from "lucide-react"
@@ -39,6 +40,10 @@ interface MeetingControlsProps {
 	participantCount?: number
 	canInvitePeople?: boolean
 	onInvitePeopleClick?: () => void
+	onEndMeetingClick?: () => void
+	isEndMeetingDisabled?: boolean
+	isEndMeetingLoading?: boolean
+	endMeetingDisabledReason?: string
 }
 
 export const MeetingControls = React.memo(function MeetingControls({
@@ -52,6 +57,10 @@ export const MeetingControls = React.memo(function MeetingControls({
 	participantCount = 0,
 	canInvitePeople = false,
 	onInvitePeopleClick,
+	onEndMeetingClick,
+	isEndMeetingDisabled,
+	isEndMeetingLoading,
+	endMeetingDisabledReason,
 }: MeetingControlsProps) {
 	const isUploadControlDisabled = Boolean(isUploadDisabled) || Boolean(isUploadLoading)
 	const uploadTitle = isUploadControlDisabled
@@ -276,6 +285,36 @@ export const MeetingControls = React.memo(function MeetingControls({
 				>
 					<PhoneOff className="size-4" />
 				</Button>
+
+				{onEndMeetingClick && (
+					<Tooltip>
+						<TooltipTrigger asChild>
+							<span className="inline-flex">
+								<Button
+									variant="destructive"
+									className={cn(
+										"h-10 rounded-xl px-3",
+										isEndMeetingDisabled && "cursor-not-allowed opacity-60"
+									)}
+									onClick={onEndMeetingClick}
+									disabled={Boolean(isEndMeetingDisabled) || Boolean(isEndMeetingLoading)}
+									title="End session"
+								>
+									{isEndMeetingLoading ? (
+										<Loader2 className="size-4 animate-spin" />
+									) : (
+										<StopCircle className="size-4" />
+									)}
+								</Button>
+							</span>
+						</TooltipTrigger>
+						<TooltipContent side="top">
+							{isEndMeetingDisabled
+								? endMeetingDisabledReason ?? "You cannot end this session"
+								: "End session"}
+						</TooltipContent>
+					</Tooltip>
+				)}
 
 				{onUploadClick && (
 					<Tooltip>

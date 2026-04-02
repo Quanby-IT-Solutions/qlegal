@@ -3,6 +3,7 @@
 import React, { useCallback, useMemo, useRef, useState } from "react"
 import { useMeeting } from "@videosdk.live/react-sdk"
 import { useSession } from "next-auth/react"
+import { useRouter } from "next/navigation"
 
 import { PageHeader } from "@/core/components/navbar/page-header"
 import { SidebarInset } from "@/core/components/ui/sidebar"
@@ -12,6 +13,7 @@ import { useMeetingData } from "../../lib/use-meeting-data"
 import { useMeetingParticipants } from "../../lib/use-meeting-participants"
 import { useRecording } from "../../lib/use-recording"
 import { useRecordingConsent } from "../../lib/use-recording-consent"
+import { useMeetings } from "../../api/meetings.hooks"
 import { MeetingDocumentUpload } from "../meeting-document-upload"
 import { PlotConfirmDialog } from "./dialogs/plot-confirm-dialog"
 import { RecordingConsentDialog } from "./dialogs/recording-consent-dialog"
@@ -24,6 +26,9 @@ import { MeetingSidePanelControls } from "./side-panel/meeting-side-panel-contro
 
 export function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?: string }) {
 	const { data: session } = useSession()
+	const { endMeeting } = useMeetings()
+	const router = useRouter()
+	const [isEndingMeeting, setIsEndingMeeting] = useState(false)
 
 	const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false)
 	const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false)
@@ -75,6 +80,35 @@ export function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meet
 
 	const isConsentInitiator =
 		recordingConsent.recordingConsentRequest?.initiatorName === (session?.user?.name ?? "Someone")
+
+	const canEndMeeting = (() => {
+		const userId = session?.user?.id
+		if (!userId) return false
+		const meetingDetails = meetingData.meetingDetails
+		if (!meetingDetails) return false
+		return Boolean(meetingDetails.createdBy?.id === userId)
+	})()
+
+	const handleEndMeeting = async () => {
+		const id = meetingId?.trim()
+		if (!id) return
+		if (isEndingMeeting) return
+		if (!canEndMeeting) return
+		const confirmed = confirm("Are you sure you want to end this meeting?")
+		if (!confirmed) return
+
+		try {
+			setIsEndingMeeting(true)
+			await endMeeting.mutateAsync(id)
+			// Leave the room and redirect to the sessions list after server marks it completed.
+			meeting?.leave()
+			router.push("/sessions")
+		} catch (error) {
+			console.error("Failed to end meeting:", error)
+		} finally {
+			setIsEndingMeeting(false)
+		}
+	}
 
 	const plotDialogOpen = Boolean(documentSigning.plotConfirmDocumentId)
 	const plotDialogDocumentName = useMemo(() => {
@@ -207,6 +241,10 @@ export function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meet
 						participantCount={participantCount}
 						canInvitePeople={meetingData.meetingDetails?.createdBy?.id === session?.user?.id}
 						onInvitePeopleClick={() => setIsInviteDialogOpen(true)}
+						onEndMeetingClick={canEndMeeting ? handleEndMeeting : undefined}
+						isEndMeetingDisabled={!canEndMeeting}
+						isEndMeetingLoading={isEndingMeeting}
+						endMeetingDisabledReason="Only the host can end the session"
 					/>
 					<MeetingSidePanelControls sidePanel={sidePanel} onSidePanelChange={setSidePanel} />
 				</div>
