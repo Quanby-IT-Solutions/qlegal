@@ -1,12 +1,11 @@
 "use client"
 
-import { Fragment, useCallback, useMemo, useRef, useState } from "react"
+import { useCallback, useMemo, useRef, useState } from "react"
 import { format } from "date-fns"
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf-lib"
 import {
 	BookOpen,
 	ChevronDown,
-	ChevronRight,
 	CloudUpload,
 	Copy,
 	Download,
@@ -50,14 +49,6 @@ import {
 	SelectValue,
 } from "@/core/components/ui/select"
 import { Skeleton } from "@/core/components/ui/skeleton"
-import {
-	Table,
-	TableBody,
-	TableCell,
-	TableHead,
-	TableHeader,
-	TableRow,
-} from "@/core/components/ui/table"
 import { ToggleGroup, ToggleGroupItem } from "@/core/components/ui/toggle-group"
 import {
 	Tooltip,
@@ -69,21 +60,17 @@ import {
 import { trpc } from "@/services/trpc/client"
 
 import { NotarialActDocumentDialog2 } from "@/features/notarial-book/components/notarial-act-document-dialog-2"
+import {
+	NotarialRegistryDataGrid,
+	type NotarialActRow,
+	type SortBy,
+	type SortDir,
+} from "@/features/notarial-book/components/notarial-registry-data-grid"
 import { PrincipalIdDialog } from "@/features/notarial-book/components/principal-id-dialog"
 
 type ActTypeFilter = "ALL" | "ACKNOWLEDGMENT" | "AFFIRMATION" | "JURAT" | "SIGNATURE_WITNESSING"
 
 type ViewMode = "table" | "cards"
-type SortBy =
-	| "executedAt"
-	| "meetingEndedAt"
-	| "registryNumber"
-	| "principalName"
-	| "documentName"
-	| "certificateNumber"
-	| "actType"
-	| "workflow"
-type SortDir = "asc" | "desc"
 
 function titleCaseFromToken(token: string): string {
 	return token
@@ -363,31 +350,6 @@ async function buildNotarialRegistryPdf(
 	}
 
 	return doc.save()
-}
-
-interface NotarialActRow {
-	id: string
-	executedAt: Date | string
-	meetingEndedAt?: Date | string | null
-	actType: string
-	workflow: string
-	principalName: string
-	principalIdNumber?: string | null
-	principalIdImageBase64?: string | null
-	principalIdType?: string | null
-	principalAddress?: string | null
-	locationStatement?: string | null
-	witnessName?: string | null
-	documentName?: string | null
-	documentDescription?: string | null
-	location?: string | null
-	certificateNumber?: string | null
-	documentId?: string | null
-	docoChainProjectUuid?: string | null
-	fees?: number | null
-	registryNumber?: number | null
-	supremeCourtRegistryId?: string | null
-	syncedToSupremeCourt?: boolean | null
 }
 
 function NotarialActCard({
@@ -881,8 +843,8 @@ export default function NotarialRegistryPage() {
 	const [sortBy, setSortBy] = useState<SortBy>("executedAt")
 	const [sortDir, setSortDir] = useState<SortDir>("desc")
 	const [page, setPage] = useState(1)
+	const [pageSize, setPageSize] = useState(50)
 	const [viewMode, setViewMode] = useState<ViewMode>("table")
-	const perPage = 50
 
 	// Document preview state - matches qsign-lite pattern
 	const [previewDocument, setPreviewDocument] = useState<{
@@ -898,14 +860,6 @@ export default function NotarialRegistryPage() {
 
 	const [expandedActIds, setExpandedActIds] = useState<Set<string>>(new Set())
 	const [copiedNrid, setCopiedNrid] = useState<string | null>(null)
-	const toggleExpanded = useCallback((actId: string) => {
-		setExpandedActIds(prev => {
-			const next = new Set(prev)
-			if (next.has(actId)) next.delete(actId)
-			else next.add(actId)
-			return next
-		})
-	}, [])
 
 	const clearFilters = useCallback(() => {
 		setSearchTerm("")
@@ -922,7 +876,7 @@ export default function NotarialRegistryPage() {
 	// (External signing integration is currently being rebuilt.)
 	const dbQuery = trpc.notarialBook.getNotarialBook.useQuery({
 		page,
-		perPage,
+		perPage: pageSize,
 		search: searchTerm.trim() || undefined,
 		actType: actTypeFilter,
 		workflow: workflowFilter,
@@ -1406,286 +1360,65 @@ export default function NotarialRegistryPage() {
 												animate={{ opacity: 1 }}
 												exit={{ opacity: 0 }}
 												transition={{ duration: 0.2 }}
-												className="min-w-0 **:data-[slot=table-container]:overflow-x-hidden"
+												className="min-w-0"
 											>
-												<Table className="w-full max-w-full table-fixed">
-															<TableHeader>
-																<TableRow>
-																	<TableHead className="w-12">#</TableHead>
-																	<TableHead className="w-16">NRID</TableHead>
-																	<TableHead className="w-28">Act type</TableHead>
-																	<TableHead className="w-36">Date & time</TableHead>
-																	<TableHead className="min-w-0 pr-1">Title / description</TableHead>
-																	<TableHead className="w-24 pl-1 text-left">Fee</TableHead>
-																	<TableHead className="w-44">Notarization</TableHead>
-																	<TableHead className="w-28 text-right">Actions</TableHead>
-																</TableRow>
-															</TableHeader>
-														<TableBody>
-															{filteredActs.map(act => {
-																const isExpanded = expandedActIds.has(act.id)
-																return (
-																	<Fragment key={act.id}>
-																		<TableRow className={isExpanded ? "border-b-0" : undefined}>
-																			<TableCell className="align-top font-mono text-xs font-medium">
-																				{act.registryNumber ?? "—"}
-																			</TableCell>
-																			<TableCell className="align-top">
-																				{act.supremeCourtRegistryId ? (
-																					<TooltipProvider>
-																						<Tooltip>
-																							<TooltipTrigger asChild>
-																								<div className="flex items-center gap-1">
-																									<Hash className="text-muted-foreground size-3.5" />
-																									<Button
-																										variant="ghost"
-																										size="sm"
-																										className="h-6 px-0.5 text-xs"
-																										onClick={() => handleCopyNrid(act.supremeCourtRegistryId!)}
-																									>
-																										{copiedNrid === act.supremeCourtRegistryId ? (
-																											<span className="text-green-600 text-xs dark:text-green-400">
-																												COPIED
-																											</span>
-																										) : (
-																											<Copy className="size-3" />
-																										)}
-																									</Button>
-																								</div>
-																							</TooltipTrigger>
-																							<TooltipContent>
-																								<p className="font-mono text-xs">{act.supremeCourtRegistryId}</p>
-																							</TooltipContent>
-																						</Tooltip>
-																					</TooltipProvider>
-																				) : (
-																					<span className="text-muted-foreground text-xs">—</span>
-																				)}
-																			</TableCell>
-																			<TableCell className="min-w-0 align-top">
-																				<p className="truncate text-xs font-medium">
-																					{formatActTypeLabel(act.actType)}
-																				</p>
-																			</TableCell>
-																			<TableCell className="align-top">
-																				<div className="text-xs leading-tight">
-																					<div className="font-medium">
-																						{format(new Date(act.executedAt), "MMM dd, yyyy")}
-																					</div>
-																					<div className="text-muted-foreground">
-																						{format(new Date(act.executedAt), "hh:mm a")}
-																					</div>
-																				</div>
-																			</TableCell>
-																			<TableCell className="min-w-0 align-top">
-																				<div className="min-w-0">
-																					<TooltipProvider>
-																						<Tooltip>
-																							<TooltipTrigger asChild>
-																								<p className="cursor-help truncate text-xs font-medium">
-																									{truncateFileName(act.documentName, 32)}
-																								</p>
-																							</TooltipTrigger>
-																							{act.documentName && act.documentName.length > 32 && (
-																								<TooltipContent className="max-w-xs">
-																									<p className="wrap-break-word">
-																										{act.documentName}
-																									</p>
-																								</TooltipContent>
-																							)}
-																						</Tooltip>
-																					</TooltipProvider>
-																					{act.documentDescription ? (
-																						<p className="text-muted-foreground mt-0.5 line-clamp-2 text-[11px]">
-																							{act.documentDescription}
-																						</p>
-																					) : null}
-																				</div>
-																			</TableCell>
-																			<TableCell className="align-top pl-1 text-left">
-																				{act.fees !== null &&
-																				act.fees !== undefined &&
-																				typeof act.fees === "number" &&
-																				!Number.isNaN(act.fees) ? (
-																					<span className="text-xs font-medium">
-																						₱ {act.fees.toFixed(2)}
-																					</span>
-																				) : (
-																					<span className="text-muted-foreground text-xs">
-																						—
-																					</span>
-																				)}
-																			</TableCell>
-																			<TableCell className="align-top">
-																				<p className="text-xs font-medium leading-snug whitespace-normal break-words">
-																					{formatWorkflowLabel(act.workflow)}
-																				</p>
-																			</TableCell>
-																			<TableCell className="align-top">
-																				<div className="inline-flex w-full items-center justify-end gap-1">
-																					{(act.documentId ?? act.docoChainProjectUuid) && (
-																						<Button
-																							variant="ghost"
-																							size="sm"
-																							className="size-7 p-0"
-																							onClick={() =>
-																								handleViewDocument(act.id, act.documentName ?? undefined)
-																							}
-																							aria-label="View document"
-																							title="View Document"
-																						>
-																							<Eye className="size-4" />
-																						</Button>
-																					)}
-																					{act.docoChainProjectUuid && (
-																						<Button
-																							variant="ghost"
-																							size="sm"
-																							className="size-7 p-0"
-																							disabled={downloadingActId === act.id}
-																							onClick={() => handleDownloadDocument(act.id)}
-																							aria-label="Download notarized document"
-																							title={
-																								downloadingActId === act.id
-																									? "Downloading..."
-																									: "Download notarized document"
-																							}
-																						>
-																							{downloadingActId === act.id ? (
-																								<Loader2 className="size-4 animate-spin" />
-																							) : (
-																								<Download className="size-4" />
-																							)}
-																						</Button>
-																					)}
-																					{act.docoChainProjectUuid && (
-																						<Button
-																							variant="ghost"
-																							size="sm"
-																							className="size-7 p-0"
-																							disabled
-																							aria-label="View certificate"
-																							title="Temporarily unavailable while signing integration is rebuilt"
-																						>
-																							<FileCheck className="size-4" />
-																						</Button>
-																					)}
-																					{!act.syncedToSupremeCourt && (
-																						<Tooltip>
-																							<TooltipTrigger asChild>
-																								<Button
-																									variant="ghost"
-																									size="sm"
-																									className="size-7 p-0"
-																									disabled={syncingActId === act.id}
-																									onClick={() => handleSyncToSupremeCourt(act.id)}
-																									aria-label="Sync to Supreme Court"
-																									title={syncingActId === act.id ? "Syncing..." : "Sync to Supreme Court"}
-																								>
-																									{syncingActId === act.id ? (
-																										<Loader2 className="size-4 animate-spin" />
-																									) : (
-																										<CloudUpload className="size-4" />
-																									)}
-																								</Button>
-																							</TooltipTrigger>
-																							<TooltipContent>
-																								<p>Sync this act to Supreme Court</p>
-																							</TooltipContent>
-																						</Tooltip>
-																					)}
-																					<Button
-																						variant="ghost"
-																						size="sm"
-																						className="size-7 p-0"
-																						onClick={() => toggleExpanded(act.id)}
-																						aria-label={isExpanded ? "Collapse details" : "Expand details"}
-																						title={isExpanded ? "Collapse details" : "Expand details"}
-																						aria-expanded={isExpanded}
-																					>
-																						{isExpanded ? (
-																							<ChevronDown className="size-4" />
-																						) : (
-																							<ChevronRight className="size-4" />
-																						)}
-																					</Button>
-																				</div>
-																			</TableCell>
-																		</TableRow>
-																		<TableRow
-																			className="bg-muted/30 hover:bg-muted/30"
-																			aria-hidden={!isExpanded}
-																		>
-																			<TableCell colSpan={8} className="p-0 align-top">
-																				<motion.div
-																					animate={{
-																						height: isExpanded ? "auto" : 0,
-																						opacity: isExpanded ? 1 : 0,
-																					}}
-																					transition={{
-																						type: "spring",
-																						stiffness: 300,
-																						damping: 30,
-																						mass: 0.8,
-																					}}
-																					className="overflow-hidden"
-																				>
-																					<div className="px-3 py-2 sm:px-4">
-																						<ExpandedActDetails
-																							act={act}
-																							isExpanded={isExpanded}
-																							onViewSignerId={(
-																								signerName,
-																								idFaceImageBase64,
-																								competentEvidence
-																							) =>
-																								handleViewPrincipalId(
-																									signerName,
-																									idFaceImageBase64,
-																									competentEvidence
-																								)
-																							}
-																						/>
-																					</div>
-																				</motion.div>
-																			</TableCell>
-																		</TableRow>
-																	</Fragment>
-																)
-															})}
-														</TableBody>
-													</Table>
+												{notarialBookData ? (
+													<NotarialRegistryDataGrid
+														acts={filteredActs}
+														total={notarialBookData.total}
+														totalPages={notarialBookData.totalPages}
+														page={page}
+														pageSize={pageSize}
+														onPageChange={setPage}
+														onPageSizeChange={size => {
+															setPageSize(size)
+															setPage(1)
+														}}
+														sortBy={sortBy}
+														sortDir={sortDir}
+														onSortChange={(by, dir) => {
+															setSortBy(by)
+															setSortDir(dir)
+														}}
+														isLoading={false}
+														isFetching={isFetching}
+														expandedActIds={expandedActIds}
+														setExpandedActIds={setExpandedActIds}
+														onCopyNrid={handleCopyNrid}
+														copiedNrid={copiedNrid}
+														onViewDocument={handleViewDocument}
+														onDownloadDocument={actId => {
+															void handleDownloadDocument(actId)
+														}}
+														onSyncToSupremeCourt={handleSyncToSupremeCourt}
+														downloadingActId={downloadingActId}
+														syncingActId={syncingActId}
+														renderExpandedRow={act => (
+															<div className="bg-muted/30">
+																<div className="px-3 py-2 sm:px-4">
+																	<ExpandedActDetails
+																		act={act}
+																		isExpanded
+																		onViewSignerId={(
+																			signerName,
+																			idFaceImageBase64,
+																			competentEvidence
+																		) =>
+																			handleViewPrincipalId(
+																				signerName,
+																				idFaceImageBase64,
+																				competentEvidence
+																			)
+																		}
+																	/>
+																</div>
+															</div>
+														)}
+													/>
+												) : null}
 											</motion.div>
 										)}
 									</AnimatePresence>
-								)}
-
-								{!isLoading && notarialBookData && notarialBookData.totalPages > 1 && (
-									<div className="mt-6 flex flex-col items-center justify-between gap-3 border-t pt-4 sm:flex-row">
-										<div className="text-muted-foreground text-xs">
-											Page {page} of {notarialBookData.totalPages} · {notarialBookData.total} total
-										</div>
-										<div className="flex items-center gap-2">
-											<Button
-												type="button"
-												variant="outline"
-												size="sm"
-												disabled={page <= 1 || isFetching}
-												onClick={() => setPage(p => Math.max(1, p - 1))}
-											>
-												Previous
-											</Button>
-											<Button
-												type="button"
-												variant="outline"
-												size="sm"
-												disabled={page >= notarialBookData.totalPages || isFetching}
-												onClick={() => setPage(p => Math.min(notarialBookData.totalPages, p + 1))}
-											>
-												Next
-											</Button>
-										</div>
-									</div>
 								)}
 							</CardContent>
 						</Card>
