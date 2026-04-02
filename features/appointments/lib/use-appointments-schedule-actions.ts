@@ -10,9 +10,10 @@ import { type AppRouter } from "@/services/trpc/root"
 
 import { addHoursToDate } from "./schedule-utils"
 
-type IncomingRequest = inferRouterOutputs<AppRouter>["appointments"]["getIncomingRequests"][number]
+type IncomingRequest =
+	inferRouterOutputs<AppRouter>["appointments"]["getEnpScheduleDashboard"]["incomingRequests"][number]
 type IncomingAppointment =
-	inferRouterOutputs<AppRouter>["appointments"]["getIncomingAppointmentsForENP"][number]
+	inferRouterOutputs<AppRouter>["appointments"]["getEnpScheduleDashboard"]["incomingAppointments"][number]
 
 export type ScheduleIncomingItem =
 	| { source: "request"; item: IncomingRequest }
@@ -32,9 +33,7 @@ export function useAppointmentsScheduleActions() {
 	const cancelAppointmentMutation = trpc.appointments.cancelAppointment.useMutation()
 	const createEnpEvent = trpc.appointments.createEnpEvent.useMutation({
 		onSuccess: () => {
-			void utils.appointments.getEnpSchedule.invalidate()
-			void utils.appointments.getIncomingRequests.invalidate()
-			void utils.appointments.getIncomingAppointmentsForENP.invalidate()
+			void utils.appointments.getEnpScheduleDashboard.invalidate()
 			router.refresh()
 			toast.success("Event created")
 		},
@@ -47,9 +46,7 @@ export function useAppointmentsScheduleActions() {
 	const deleteEnpEvent = trpc.appointments.deleteEnpEvent.useMutation()
 
 	const revalidate = async () => {
-		await utils.appointments.getIncomingRequests.invalidate()
-		await utils.appointments.getIncomingAppointmentsForENP.invalidate()
-		await utils.appointments.getEnpSchedule.invalidate()
+		await utils.appointments.getEnpScheduleDashboard.invalidate()
 		// Sessions page uses these queries; invalidate so redirect shows fresh data immediately.
 		await utils.meetings.getUserMeetingsWithDocumentStats.invalidate()
 		await utils.appointments.getUpcomingAppointments.invalidate()
@@ -63,7 +60,6 @@ export function useAppointmentsScheduleActions() {
 			if (selection.source === "appointment") {
 				await confirmAppointmentMutation.mutateAsync({
 					appointmentId: selection.item.id,
-					meetingLink: selection.item.appointmentData?.meetingLink ?? "",
 				})
 			} else {
 				await updateStatusMutation.mutateAsync({
@@ -146,7 +142,6 @@ export function useAppointmentsScheduleActions() {
 				location: (event.meta?.location as string | undefined)?.trim(),
 				type,
 				workflow,
-				notes: event.description?.trim(),
 			},
 			{ onSuccess: () => onComplete?.() }
 		)

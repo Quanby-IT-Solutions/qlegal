@@ -51,6 +51,15 @@ export function useMeetings() {
 		},
 	})
 
+	const cancelMeeting = trpc.meetings.cancelMeeting.useMutation({
+		onSuccess: () => {
+			void utils.meetings.getUserMeetings.invalidate()
+			void utils.meetings.getUserMeetingsWithDocumentStats.invalidate()
+			void utils.appointments.getUpcomingAppointments.invalidate()
+			void utils.appointments.getMyAppointments.invalidate()
+		},
+	})
+
 	const uploadDocument = trpc.meetings.uploadDocument.useMutation({
 		onSuccess: () => {
 			void utils.meetings.getMeetingDocuments.invalidate()
@@ -95,6 +104,7 @@ export function useMeetings() {
 		startMeeting,
 		endMeeting,
 		deleteMeeting,
+		cancelMeeting,
 		uploadDocument,
 		getMeetingDocuments,
 		inviteWitnessByEmail,

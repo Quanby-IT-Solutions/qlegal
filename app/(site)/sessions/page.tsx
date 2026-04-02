@@ -1,99 +1,27 @@
-"use client"
+import { HydrateClient, trpc } from "@/services/trpc/server"
 
-import type { Route } from "next"
-import { useRouter, useSearchParams } from "next/navigation"
-import { useEffect, useState } from "react"
-
-import { PageHeader } from "@/core/components/navbar/page-header"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/core/components/ui/tabs"
-import { useHydrated } from "@/core/hooks/use-hydrated"
-
-import { ActiveNotarizationsSection } from "@/features/sessions/components/active-notarizations-section"
-import { HistoryNotarizationsSection } from "@/features/sessions/components/history-notarizations-section"
-import { MeetingsListSection } from "@/features/sessions/components/meetings-list-section"
+import { SessionsPageClient } from "@/features/sessions/components/sessions-page-client"
 
 type TabValue = "meetings" | "active" | "history"
 
-export default function SessionsPage() {
-	const searchParams = useSearchParams()
-	const router = useRouter()
-	const hydrated = useHydrated()
+export default async function SessionsPage({
+	searchParams,
+}: {
+	searchParams: Promise<{ tab?: string }>
+}) {
+	const params = await searchParams
+	const initialTab: TabValue =
+		params.tab === "active" || params.tab === "history" ? params.tab : "meetings"
 
-	const [activeTab, setActiveTab] = useState<TabValue>("meetings")
-
-	useEffect(() => {
-		if (!hydrated) return
-		const tabParam = searchParams?.get("tab")
-		const newTab: TabValue = tabParam === "active" || tabParam === "history" ? tabParam : "meetings"
-		setActiveTab(newTab)
-	}, [searchParams, hydrated])
-
-	const handleTabChange = (value: string) => {
-		const newTab = value as TabValue
-		setActiveTab(newTab)
-
-		const params = new URLSearchParams(searchParams?.toString())
-		if (newTab === "meetings") {
-			params.delete("tab")
-		} else {
-			params.set("tab", newTab)
-		}
-		const newUrl = (params.toString() ? `/sessions?${params.toString()}` : "/sessions") as Route
-		router.push(newUrl)
-	}
+	await Promise.all([
+		trpc.meetings.getUserMeetingsWithDocumentStats.prefetch({ limit: 10, offset: 0 }),
+		trpc.appointments.getUpcomingAppointments.prefetch(),
+		trpc.appointments.getMyAppointments.prefetch({ limit: 50, offset: 0 }),
+	])
 
 	return (
-		<div className="flex flex-1 flex-col">
-			<PageHeader
-				items={[
-					{ label: "Sessions", href: "/sessions" },
-					{
-						label:
-							activeTab === "meetings" ? "Ongoing" : activeTab === "active" ? "Upcoming" : "Past",
-					},
-				]}
-			/>
-
-			<main className="flex-1 p-4 md:p-6 lg:p-8">
-				<div className="mx-auto max-w-7xl space-y-8">
-					<div className="space-y-2">
-						<h1 className="text-3xl font-bold tracking-tight">Sessions</h1>
-						<p className="text-muted-foreground mt-2">
-							Manage your video meetings and notarization sessions
-						</p>
-					</div>
-
-					<Tabs
-						value={hydrated ? activeTab : "meetings"}
-						onValueChange={handleTabChange}
-						className="space-y-3"
-					>
-						<TabsList className="grid w-full max-w-2xl grid-cols-3">
-							<TabsTrigger value="meetings" className="gap-2">
-								Ongoing
-							</TabsTrigger>
-							<TabsTrigger value="active" className="gap-2">
-								Upcoming
-							</TabsTrigger>
-							<TabsTrigger value="history" className="gap-2">
-								Past
-							</TabsTrigger>
-						</TabsList>
-
-						<TabsContent value="meetings" className="mt-0">
-							<MeetingsListSection />
-						</TabsContent>
-
-						<TabsContent value="active" className="mt-0">
-							<ActiveNotarizationsSection />
-						</TabsContent>
-
-						<TabsContent value="history" className="mt-0">
-							<HistoryNotarizationsSection />
-						</TabsContent>
-					</Tabs>
-				</div>
-			</main>
-		</div>
+		<HydrateClient>
+			<SessionsPageClient initialTab={initialTab} />
+		</HydrateClient>
 	)
 }

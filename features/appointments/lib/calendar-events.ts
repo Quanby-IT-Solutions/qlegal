@@ -1,20 +1,22 @@
 import { type inferRouterOutputs } from "@trpc/server"
 
 import type { CalendarEvent, Status } from "@/core/components/calendar-schedule"
+import { getFullName } from "@/core/lib/utils"
 
 import type { AppointmentParticipant as DrizzleAppointmentParticipant } from "@/services/drizzle/schema/appointment-participants"
 import type { Appointment } from "@/services/drizzle/schema/appointments"
-import type { User } from "@/services/drizzle/schema/auth"
 import type { AppRouter } from "@/services/trpc/root"
 
 type RouterOutputs = inferRouterOutputs<AppRouter>
 
-type IncomingRequest = RouterOutputs["appointments"]["getIncomingRequests"][number]
-type IncomingAppointment = RouterOutputs["appointments"]["getIncomingAppointmentsForENP"][number]
+type IncomingRequest =
+	RouterOutputs["appointments"]["getEnpScheduleDashboard"]["incomingRequests"][number]
+type IncomingAppointment =
+	RouterOutputs["appointments"]["getEnpScheduleDashboard"]["incomingAppointments"][number]
 
 type EventPrincipal = {
-	name?: User["name"] | undefined
-	image?: User["image"] | undefined
+	name?: string | undefined
+	image?: string | null | undefined
 }
 
 type AppointmentParticipantWithUser = Pick<DrizzleAppointmentParticipant, "participantRole"> & {
@@ -165,7 +167,7 @@ export function toCalendarEventFromIncomingRequest(item: IncomingRequest): Calen
 		status,
 		color: status.color,
 		principal: item.principal
-			? { name: item.principal.name, image: item.principal.image }
+			? { name: getFullName(item.principal), image: item.principal.image }
 			: undefined,
 		workflow: toWorkflow(item.workflow),
 		meta: { source: "request", incomingItemId: item.id },

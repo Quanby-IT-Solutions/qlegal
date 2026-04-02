@@ -26,9 +26,10 @@ import {
 } from "@/features/appointments/lib/calendar-events"
 import type { ScheduleIncomingItem } from "@/features/appointments/lib/use-appointments-schedule-actions"
 
-type IncomingRequest = inferRouterOutputs<AppRouter>["appointments"]["getIncomingRequests"][number]
+type IncomingRequest =
+	inferRouterOutputs<AppRouter>["appointments"]["getEnpScheduleDashboard"]["incomingRequests"][number]
 type IncomingAppointment =
-	inferRouterOutputs<AppRouter>["appointments"]["getIncomingAppointmentsForENP"][number]
+	inferRouterOutputs<AppRouter>["appointments"]["getEnpScheduleDashboard"]["incomingAppointments"][number]
 
 export function EventListHeader() {
 	const { formattedDate, relativeDay } = useCalendarScheduleHeader()
@@ -77,6 +78,14 @@ export function UnifiedSidebarList({
 	}, [dayEvents])
 
 	const pendingInboxEvents = useMemo(() => {
+		if (!selectedDate) return []
+
+		const y = selectedDate.getFullYear()
+		const m = selectedDate.getMonth()
+		const d = selectedDate.getDate()
+		const dayStart = new Date(y, m, d)
+		const dayEnd = new Date(y, m, d, 23, 59, 59, 999)
+
 		const pendingRequests = incomingRequests.filter(r => r.status === "PENDING")
 		const pendingAppointments = incomingAppointments.filter(a => a.status === "PENDING")
 
@@ -85,8 +94,11 @@ export function UnifiedSidebarList({
 			...pendingAppointments.map(toCalendarEventFromIncomingAppointment),
 		]
 			.toSorted((a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime())
-			.filter(e => !selectedDayEventIds.has(e.id))
-	}, [incomingAppointments, incomingRequests, selectedDayEventIds])
+			.filter(e => {
+				const start = new Date(e.startAt)
+				return start >= dayStart && start <= dayEnd && !selectedDayEventIds.has(e.id)
+			})
+	}, [incomingAppointments, incomingRequests, selectedDayEventIds, selectedDate])
 
 	const pastEvents = useMemo(() => {
 		if (!selectedDate) return []

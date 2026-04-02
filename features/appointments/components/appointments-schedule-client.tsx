@@ -1,15 +1,12 @@
 "use client"
 
 import { useMemo } from "react"
-import { type inferRouterOutputs } from "@trpc/server"
 
 import { CalendarScheduleProvider, type CalendarEvent } from "@/core/components/calendar-schedule"
 import { Card, CardAction, CardContent, CardHeader } from "@/core/components/ui/card"
 import { Separator } from "@/core/components/ui/separator"
 
-import type { Appointment } from "@/services/drizzle/schema/appointments"
-import type { EnpAvailability } from "@/services/drizzle/schema/enp-profiles"
-import type { AppRouter } from "@/services/trpc/root"
+import { trpc } from "@/services/trpc/client"
 
 import { buildCalendarEvents } from "../lib/calendar-events"
 import { useAppointmentsScheduleActions } from "../lib/use-appointments-schedule-actions"
@@ -19,22 +16,37 @@ import { AddEventSection } from "./event-list/add-event-section"
 import { EventListHeader, UnifiedSidebarList } from "./event-list/event-list-card"
 
 interface AppointmentsScheduleClientProps {
-	incomingRequests: inferRouterOutputs<AppRouter>["appointments"]["getIncomingRequests"]
-	incomingAppointments: inferRouterOutputs<AppRouter>["appointments"]["getIncomingAppointmentsForENP"]
-	scheduleData: {
-		regular: EnpAvailability[]
-		blocked: EnpAvailability[]
-		recurringBlocked: EnpAvailability[]
-		custom: EnpAvailability[]
-		myAppointments?: (Appointment & { lapsed?: boolean })[]
-	}
+	scheduleMonth: number
+	scheduleYear: number
+}
+
+function sortIncomingItems<T extends { createdAt: Date }>(items: T[]) {
+	return [...items].sort((a, b) => {
+		const dateA = new Date(a.createdAt).getTime()
+		const dateB = new Date(b.createdAt).getTime()
+		return dateB - dateA
+	})
 }
 
 export function AppointmentsScheduleClient({
-	scheduleData,
-	incomingRequests,
-	incomingAppointments,
+	scheduleMonth,
+	scheduleYear,
 }: AppointmentsScheduleClientProps) {
+	const [data] = trpc.appointments.getEnpScheduleDashboard.useSuspenseQuery({
+		month: scheduleMonth,
+		year: scheduleYear,
+	})
+
+	const incomingRequests = useMemo(
+		() => sortIncomingItems(data.incomingRequests),
+		[data.incomingRequests]
+	)
+	const incomingAppointments = useMemo(
+		() => sortIncomingItems(data.incomingAppointments),
+		[data.incomingAppointments]
+	)
+	const scheduleData = data.schedule
+
 	const {
 		rejectDialogOpen,
 		processingKey,
@@ -49,12 +61,8 @@ export function AppointmentsScheduleClient({
 	} = useAppointmentsScheduleActions()
 
 	const calendarEvents = useMemo((): CalendarEvent[] => {
-		return buildCalendarEvents(
-			incomingRequests,
-			incomingAppointments,
-			scheduleData?.myAppointments ?? []
-		)
-	}, [incomingRequests, incomingAppointments, scheduleData?.myAppointments])
+		return buildCalendarEvents(incomingRequests, incomingAppointments, scheduleData.myAppointments)
+	}, [incomingRequests, incomingAppointments, scheduleData.myAppointments])
 
 	return (
 		<>
