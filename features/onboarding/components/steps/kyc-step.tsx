@@ -359,6 +359,16 @@ export function KycStep({ onNext, onBack, kycStatus, onExpandChange }: KycStepPr
 			<>
 				<div className="space-y-2">
 					<CardContent className="px-2!">
+						<Alert variant="success">
+							<CheckCircle2 className="size-5" />
+							<AlertTitle>Identity verified</AlertTitle>
+							<AlertDescription>
+								Your identity has been successfully verified. Please confirm your details.
+							</AlertDescription>
+						</Alert>
+					</CardContent>
+
+					<CardContent className="px-2!">
 						<FieldGroup className="bg-background/70 rounded-md border p-4">
 							<p className="text-muted-foreground mb-1 text-[11px] font-semibold tracking-wider uppercase">
 								Review details
@@ -409,17 +419,6 @@ export function KycStep({ onNext, onBack, kycStatus, onExpandChange }: KycStepPr
 							</div>
 						</FieldGroup>
 					</CardContent>
-
-					<CardContent className="px-2!">
-						<Alert variant="success">
-							<CheckCircle2 className="size-5" />
-							<AlertTitle>Identity verified</AlertTitle>
-							<AlertDescription>
-								Your identity has been successfully verified. Please confirm your name details
-								before moving on.
-							</AlertDescription>
-						</Alert>
-					</CardContent>
 				</div>
 
 				<CardFooter className="justify-between">
@@ -452,9 +451,9 @@ export function KycStep({ onNext, onBack, kycStatus, onExpandChange }: KycStepPr
 				onStartVerification={() => void handleStartVerification()}
 				isPending={Boolean(
 					isResettingForRetry ||
-						isLaunchingSdk ||
-						isStatusLoading ||
-						(sdkNeedsReviewPending && isNeedsReview === false)
+					isLaunchingSdk ||
+					isStatusLoading ||
+					(sdkNeedsReviewPending && isNeedsReview === false)
 				)}
 				showPendingBanner={showPendingBanner}
 				showCancelledBanner={hostedEvent === "cancelled"}
