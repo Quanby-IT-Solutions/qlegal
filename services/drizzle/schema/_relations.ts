@@ -12,6 +12,7 @@ import { kycSessions } from "@/services/drizzle/schema/kyc-sessions"
 import { legalRegistrations } from "@/services/drizzle/schema/legal-registration"
 import { livenessValidations } from "@/services/drizzle/schema/liveness"
 import { meetingMessages } from "@/services/drizzle/schema/meeting-messages"
+import { meetingParticipantIdentityChecks } from "@/services/drizzle/schema/meeting-participant-identity-checks"
 import { meetings } from "@/services/drizzle/schema/meetings"
 import { messageAttachments } from "@/services/drizzle/schema/message-attachments"
 import {
@@ -39,6 +40,7 @@ export const meetingsRelations = relations(meetings, ({ one, many }) => ({
 	appointments: many(appointments),
 	documents: many(documents),
 	meetingMessages: many(meetingMessages),
+	meetingParticipantIdentityChecks: many(meetingParticipantIdentityChecks),
 	signatureRequests: many(signatureRequests),
 }))
 
@@ -71,6 +73,7 @@ export const userRelations = relations(users, ({ one, many }) => ({
 	savedIds: many(savedIds),
 	kycSessions: many(kycSessions),
 	livenessValidations: many(livenessValidations),
+	meetingParticipantIdentityChecks: many(meetingParticipantIdentityChecks),
 	appointmentParticipants: many(appointmentParticipants, {
 		relationName: "appointmentParticipantUser",
 	}),
@@ -360,7 +363,7 @@ export const kycSessionsRelations = relations(kycSessions, ({ one }) => ({
 }))
 
 // Liveness Validations relations
-export const livenessValidationsRelations = relations(livenessValidations, ({ one }) => ({
+export const livenessValidationsRelations = relations(livenessValidations, ({ one, many }) => ({
 	user: one(users, {
 		fields: [livenessValidations.userId],
 		references: [users.id],
@@ -369,10 +372,11 @@ export const livenessValidationsRelations = relations(livenessValidations, ({ on
 		fields: [livenessValidations.meetingId],
 		references: [meetings.id],
 	}),
+	meetingParticipantIdentityChecks: many(meetingParticipantIdentityChecks),
 }))
 
 // Saved IDs relations
-export const savedIdsRelations = relations(savedIds, ({ one }) => ({
+export const savedIdsRelations = relations(savedIds, ({ one, many }) => ({
 	user: one(users, {
 		fields: [savedIds.userId],
 		references: [users.id],
@@ -381,4 +385,28 @@ export const savedIdsRelations = relations(savedIds, ({ one }) => ({
 		fields: [savedIds.kycSessionId],
 		references: [kycSessions.id],
 	}),
+	meetingParticipantIdentityChecks: many(meetingParticipantIdentityChecks),
 }))
+
+// Meeting Participant Identity Checks relations
+export const meetingParticipantIdentityChecksRelations = relations(
+	meetingParticipantIdentityChecks,
+	({ one }) => ({
+		meeting: one(meetings, {
+			fields: [meetingParticipantIdentityChecks.meetingId],
+			references: [meetings.id],
+		}),
+		user: one(users, {
+			fields: [meetingParticipantIdentityChecks.userId],
+			references: [users.id],
+		}),
+		savedId: one(savedIds, {
+			fields: [meetingParticipantIdentityChecks.savedIdId],
+			references: [savedIds.id],
+		}),
+		livenessValidation: one(livenessValidations, {
+			fields: [meetingParticipantIdentityChecks.livenessValidationId],
+			references: [livenessValidations.id],
+		}),
+	})
+)

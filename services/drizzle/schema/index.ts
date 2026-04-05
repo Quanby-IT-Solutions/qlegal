@@ -13,6 +13,7 @@ import * as kycSessionsSchema from "@/services/drizzle/schema/kyc-sessions"
 import * as legalRegistrationSchema from "@/services/drizzle/schema/legal-registration"
 import * as livenessSchema from "@/services/drizzle/schema/liveness"
 import * as meetingMessagesSchema from "@/services/drizzle/schema/meeting-messages"
+import * as meetingParticipantIdentityChecksSchema from "@/services/drizzle/schema/meeting-participant-identity-checks"
 import * as meetingsSchema from "@/services/drizzle/schema/meetings"
 import * as messageAttachmentsSchema from "@/services/drizzle/schema/message-attachments"
 import * as messagesSchema from "@/services/drizzle/schema/messages"
@@ -37,6 +38,7 @@ export const schema = {
 	...legalRegistrationSchema,
 	...livenessSchema,
 	...meetingMessagesSchema,
+	...meetingParticipantIdentityChecksSchema,
 	...meetingsSchema,
 	...messagesSchema,
 	...messageAttachmentsSchema,
