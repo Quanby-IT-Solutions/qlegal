@@ -242,16 +242,17 @@ export function RegisterForm({ callbackUrl }: RegisterFormProps) {
 					control={form.control}
 					name="agreeToTerms"
 					render={({ field }) => (
-						<FormItem className="bg-muted/40 flex flex-row items-start gap-x-3 space-y-0 rounded-md border px-4 py-3">
-							<FormControl>
-								<Checkbox checked={field.value} onCheckedChange={field.onChange} />
-							</FormControl>
-							<div className="leading-none">
-								<FormLabel className="text-muted-foreground text-xs font-normal leading-relaxed">
-									I have read and agree to the{" "}
+						<FormItem className="space-y-2">
+							<label className="flex cursor-pointer flex-row items-center gap-x-3">
+								<FormControl>
+									<Checkbox checked={field.value} onCheckedChange={field.onChange} />
+								</FormControl>
+								<p className="text-muted-foreground whitespace-nowrap text-xs">
+									I agree to the{" "}
 									<Link
 										href={{ pathname: "/auth/terms-of-service", query: { from: pathname } }}
 										target="_blank"
+										onClick={e => e.stopPropagation()}
 										className={cn(
 											buttonVariants({ variant: "link" }),
 											"text-primary hover:text-primary/80 h-fit p-0 text-xs"
@@ -263,6 +264,7 @@ export function RegisterForm({ callbackUrl }: RegisterFormProps) {
 									<Link
 										href={{ pathname: "/auth/privacy-policy", query: { from: pathname } }}
 										target="_blank"
+										onClick={e => e.stopPropagation()}
 										className={cn(
 											buttonVariants({ variant: "link" }),
 											"text-primary hover:text-primary/80 h-fit p-0 text-xs"
@@ -270,9 +272,9 @@ export function RegisterForm({ callbackUrl }: RegisterFormProps) {
 									>
 										Privacy Policy
 									</Link>
-								</FormLabel>
-								<FormMessage className="mt-1" />
-							</div>
+								</p>
+							</label>
+							<FormMessage />
 						</FormItem>
 					)}
 				/>
