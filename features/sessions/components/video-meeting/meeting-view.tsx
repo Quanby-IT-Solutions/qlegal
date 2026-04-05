@@ -8,8 +8,6 @@ import { useSession } from "next-auth/react"
 import { PageHeader } from "@/core/components/navbar/page-header"
 import { SidebarInset } from "@/core/components/ui/sidebar"
 
-import { env } from "@/env"
-
 import { useMeetings } from "../../api/meetings.hooks"
 import { useDocumentSigning } from "../../lib/use-document-signing"
 import { useMeetingData } from "../../lib/use-meeting-data"
@@ -62,7 +60,7 @@ export function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meet
 	})
 
 	const handleUploadClick = useCallback(async () => {
-		const debugLogsEnabled = env.NODE_ENV !== "production"
+		const debugLogsEnabled = process.env.NODE_ENV !== "production"
 		const startMs = performance.now()
 		if (debugLogsEnabled) {
 			console.log("[sessions][upload] MeetingView.handleUploadClick start", {
