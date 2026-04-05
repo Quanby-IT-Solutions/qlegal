@@ -3,7 +3,6 @@
 import {
   CSSProperties,
   Fragment,
-  memo,
   MouseEvent as ReactMouseEvent,
   ReactNode,
   TouchEvent as ReactTouchEvent,
@@ -24,6 +23,7 @@ import {
   Table,
 } from "@tanstack/react-table"
 import { cva } from "class-variance-authority"
+import { AnimatePresence, motion } from "motion/react"
 
 import { cn } from "@/core/lib/utils"
 import { Checkbox } from "@/core/components/ui/checkbox"
@@ -979,7 +979,12 @@ function DataGridTableBodyRowExpandded<TData>({ row }: { row: Row<TData> }) {
   const { props, table } = useDataGrid()
 
   return (
-    <tr
+    <motion.tr
+      layout={false}
+      initial={{ opacity: 0, y: -4 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -4 }}
+      transition={{ duration: 0.18, ease: [0.25, 0.1, 0.25, 1] }}
       className={cn(
         props.tableLayout?.rowBorder && "[&:not(:last-child)>td]:border-b"
       )}
@@ -995,7 +1000,7 @@ function DataGridTableBodyRowExpandded<TData>({ row }: { row: Row<TData> }) {
           .find((column) => column.columnDef.meta?.expandedContent)
           ?.columnDef.meta?.expandedContent?.(row.original)}
       </td>
-    </tr>
+    </motion.tr>
   )
 }
 
@@ -1070,6 +1075,10 @@ function DataGridTableRenderedRow<TData>({
   pinnedBoundary?: DataGridTablePinnedBoundary
   rowRef?: Ref<HTMLTableRowElement>
 }) {
+  const { props } = useDataGrid()
+  const showExpandedRow =
+    props.expandRowBy?.(row.original) ?? row.getIsExpanded()
+
   return (
     <Fragment>
       <DataGridTableBodyRow
@@ -1083,7 +1092,11 @@ function DataGridTableRenderedRow<TData>({
           </DataGridTableBodyRowCell>
         ))}
       </DataGridTableBodyRow>
-      {row.getIsExpanded() && <DataGridTableBodyRowExpandded row={row} />}
+      <AnimatePresence initial={false} mode="sync">
+        {showExpandedRow ? (
+          <DataGridTableBodyRowExpandded key={row.id} row={row} />
+        ) : null}
+      </AnimatePresence>
     </Fragment>
   )
 }
@@ -1279,16 +1292,6 @@ function DataGridTableBodyRows<TData>({ table }: { table: Table<TData> }) {
   )
 }
 
-/**
- * Memoized body rows: skip re-renders during active column resize.
- * Column widths update via CSS variables on the <table> element,
- * so the browser handles width changes without React re-renders.
- */
-const MemoizedDataGridTableBodyRows = memo(
-  DataGridTableBodyRows,
-  (_prev, next) => !!next.table.getState().columnSizingInfo.isResizingColumn
-) as typeof DataGridTableBodyRows
-
 function DataGridTableHeader<TData>() {
   const { table, props } = useDataGrid()
 
@@ -1393,7 +1396,7 @@ function DataGridTable<TData>({
           )}
 
         <DataGridTableBody>
-          <MemoizedDataGridTableBodyRows table={table} />
+          <DataGridTableBodyRows table={table} />
         </DataGridTableBody>
 
         {footerContent && (
