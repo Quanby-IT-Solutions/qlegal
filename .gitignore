@@ -56,11 +56,8 @@ next-env.d.ts
 /.cursor/skills
 /.factory/skills
 /.gemini/skills
-/.opencode/skill
-/.pi/skills
-/.roo/skills
-/.vibe/skills
-/.qoder/
+/.windsurf/skills
+/.qoder
 /AGENTS.md
 /AGENTS.md.bak
 /CLAUDE.md
