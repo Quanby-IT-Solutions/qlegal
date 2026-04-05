@@ -10,6 +10,8 @@ const lastNameSchema = z
 	.string({ error: "Last name is required" })
 	.trim()
 	.min(1, "Last name cannot be empty")
+const prefixSchema = z.string().trim().max(50, "Prefix must be at most 50 characters").optional()
+const suffixSchema = z.string().trim().max(50, "Suffix must be at most 50 characters").optional()
 
 const emailSchema = z
 	.email("Please enter a valid email address")
@@ -47,6 +49,11 @@ const agreeToTermsSchema = z.boolean({
 
 export const registerSchema = z
 	.object({
+		firstName: firstNameSchema,
+		lastName: lastNameSchema,
+		middleName: middleNameSchema,
+		prefix: prefixSchema,
+		suffix: suffixSchema,
 		email: emailSchema,
 		password: complexPasswordSchema,
 		confirmPassword: complexConfirmPasswordSchema,
