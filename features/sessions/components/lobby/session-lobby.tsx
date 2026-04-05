@@ -614,7 +614,7 @@ export function SessionLobby({ id, onJoin }: SessionLobbyProps) {
 						<div className="flex min-w-0 flex-1 flex-col gap-4 lg:min-w-0">
 							{/* Video preview card — large rounded card */}
 							<Card className="border-border bg-card overflow-hidden rounded-lg border">
-								<CardContent className="relative flex aspect-video min-h-[240px] w-full p-0 sm:min-h-[320px]">
+								<CardContent className="relative flex aspect-video min-h-60 w-full p-0 sm:min-h-80">
 									{isCameraOn && stream ? (
 										<video
 											ref={videoRef}
@@ -770,13 +770,21 @@ export function SessionLobby({ id, onJoin }: SessionLobbyProps) {
 													<Avatar className="border-border size-10 shrink-0 border">
 														<AvatarImage src={participant.user.image ?? undefined} />
 														<AvatarFallback className="bg-muted text-muted-foreground text-sm font-medium">
-															{participant.user.name?.charAt(0).toUpperCase() ?? "?"}
+															{(participant.user.firstName ?? participant.user.email)
+																?.charAt(0)
+																.toUpperCase() ?? "?"}
 														</AvatarFallback>
 													</Avatar>
 													<div className="min-w-0 flex-1">
 														<div className="flex items-center gap-2">
 															<p className="truncate text-sm font-medium">
-																{participant.user.name}
+																{[
+																	participant.user.firstName,
+																	participant.user.middleName,
+																	participant.user.lastName,
+																]
+																	.filter(Boolean)
+																	.join(" ") || participant.user.email}
 																{participant.userId === session?.user?.id && (
 																	<span className="text-muted-foreground font-normal"> (you)</span>
 																)}
