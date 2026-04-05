@@ -1,6 +1,7 @@
 "use client"
 
-import { useState } from "react"
+import { useSession } from "next-auth/react"
+import { useEffect, useState } from "react"
 import { CircleArrowRight, Logout01Icon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 
@@ -12,18 +13,75 @@ import { cn } from "@/core/lib/utils"
 
 import { OnboardingWizardContent } from "./onboarding-wizzard-content"
 
+const ONBOARDING_WELCOME_DISMISSED_KEY = "quanby-onboarding-welcome-dismissed"
+
+function readWelcomeDismissedFromStorage(): boolean {
+	if (typeof window === "undefined") return false
+	try {
+		return window.sessionStorage.getItem(ONBOARDING_WELCOME_DISMISSED_KEY) === "1"
+	} catch {
+		return false
+	}
+}
+
+function persistWelcomeDismissed() {
+	try {
+		window.sessionStorage.setItem(ONBOARDING_WELCOME_DISMISSED_KEY, "1")
+	} catch {
+		/* ignore quota / private mode */
+	}
+}
+
+function clearWelcomeDismissedStorage() {
+	try {
+		window.sessionStorage.removeItem(ONBOARDING_WELCOME_DISMISSED_KEY)
+	} catch {
+		/* ignore */
+	}
+}
+
 export function OnboardingWizard() {
-	const [hasStarted, setHasStarted] = useState(false)
+	const { data: session } = useSession()
+	const [welcomeDismissedLocally, setWelcomeDismissedLocally] = useState(false)
+	const [storageDismissed, setStorageDismissed] = useState(false)
 	const [isExpanded, setIsExpanded] = useState(false)
-	const handleStart = () => setHasStarted(true)
+
+	useEffect(() => {
+		setStorageDismissed(readWelcomeDismissedFromStorage())
+	}, [])
+
+	useEffect(() => {
+		const kyc = session?.user?.kycStatus
+		if (typeof kyc === "string" && kyc !== "NOT_STARTED") {
+			persistWelcomeDismissed()
+			setStorageDismissed(true)
+		}
+	}, [session?.user?.kycStatus])
+
+	const kycHasBegun =
+		typeof session?.user?.kycStatus === "string" &&
+		session.user.kycStatus !== "NOT_STARTED"
+
+	const showWizardFlow = welcomeDismissedLocally || storageDismissed || kycHasBegun
+
+	const handleStart = () => {
+		persistWelcomeDismissed()
+		setStorageDismissed(true)
+		setWelcomeDismissedLocally(true)
+	}
+
 	const handleRestartWelcome = () => {
 		setIsExpanded(false)
-		setHasStarted(false)
+		clearWelcomeDismissedStorage()
+		setStorageDismissed(false)
+		setWelcomeDismissedLocally(false)
 	}
 
 	const handleLogoutClick = () => {
 		setIsExpanded(false)
-		setHasStarted(false)
+		clearWelcomeDismissedStorage()
+		setStorageDismissed(false)
+		setWelcomeDismissedLocally(false)
 		void handleLogout("/login")
 	}
 
@@ -34,7 +92,7 @@ export function OnboardingWizard() {
 				isExpanded ? "max-w-md md:max-w-5xl" : "max-w-md"
 			)}
 		>
-			{!hasStarted && (
+			{!showWizardFlow && (
 				<CardHeader className="flex-col text-center">
 					<div className="mb-2 flex justify-center">
 						<QuanbyLogo className="size-14" />
@@ -58,7 +116,7 @@ export function OnboardingWizard() {
 				</CardHeader>
 			)}
 
-			{hasStarted && (
+			{showWizardFlow && (
 				<OnboardingWizardContent
 					onRestartWelcome={handleRestartWelcome}
 					onExpandChange={setIsExpanded}

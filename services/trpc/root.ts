@@ -11,6 +11,7 @@ import { onboardingRouter } from "@/features/onboarding/api/onboarding.router"
 import { messageFilesRouter } from "@/features/messages/api/message-files.router"
 import { messagesRouter } from "@/features/messages/api/messages.router"
 import { notarialBookRouter } from "@/features/notarial-book/api/notarial-book.router"
+import { principalVaultRouter } from "@/features/principal-vault/api/principal-vault.router"
 import { profileRouter } from "@/features/profile/api/profile.router"
 import { locationVerificationRouter } from "@/features/sessions/api/location-verification.router"
 import { meetingsRouter } from "@/features/sessions/api/meetings.router"
@@ -50,6 +51,7 @@ export const appRouter = createTRPCRouter({
 	messageFiles: messageFilesRouter,
 	messages: messagesRouter,
 	notarialBook: notarialBookRouter,
+	principalVault: principalVaultRouter,
 	profile: profileRouter,
 	settings: settingsRouter,
 	signatureLite: signatureLiteRouter,

@@ -61,6 +61,8 @@ export const ROUTE_CONFIG: RouteConfig = {
 			{ path: "/envelopes" },
 			{ path: "/kyc" },
 			{ path: "/liveness" },
+			{ path: "/my-files" },
+			{ path: "/vault-share" },
 			{ path: "/messages" },
 			{ path: "/notarial-book" },
 			{ path: "/notarial-registry" },

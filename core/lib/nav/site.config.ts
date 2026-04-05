@@ -5,6 +5,7 @@ import {
 	ChatIcon,
 	CustomerSupportIcon,
 	DocumentValidationIcon,
+	Folder01Icon,
 	Home01Icon,
 	Notification01Icon,
 	Sent02Icon,
@@ -77,6 +78,12 @@ export const appSidebarSections: NavSection[] = [
 				title: "Browse",
 				url: "/browse",
 				icon: UserMultipleIcon,
+				roles: ["PRINCIPAL", "ENP"],
+			},
+			{
+				title: "My files",
+				url: "/my-files",
+				icon: Folder01Icon,
 				roles: ["PRINCIPAL", "ENP"],
 			},
 			{
