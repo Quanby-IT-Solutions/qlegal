@@ -7,21 +7,28 @@ import {
 	CameraOff,
 	CircleDot,
 	FileUp,
+	Loader2,
 	Mic,
 	MicOff,
 	Monitor,
 	PhoneOff,
 	Square,
+	UserPlus,
+	Users,
 } from "lucide-react"
 import { toast } from "sonner"
 
 import { Button } from "@/core/components/ui/button"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/core/components/ui/tooltip"
 import { cn } from "@/core/lib/utils"
 
 import { formatElapsedMs } from "../../lib/utils"
 
 interface MeetingControlsProps {
 	onUploadClick?: () => void
+	isUploadDisabled?: boolean
+	isUploadLoading?: boolean
+	uploadDisabledReason?: string
 	onRecordingToggle?: () => Promise<void> | void
 	onLocalRecordingToggle?: () => Promise<void> | void
 	localRecordingSupported?: boolean
@@ -29,14 +36,30 @@ interface MeetingControlsProps {
 	isRecordingStarting?: boolean
 	isLocalRecording?: boolean
 	localRecordingStartedAt?: number | null
+	participantCount?: number
+	canInvitePeople?: boolean
+	onInvitePeopleClick?: () => void
 }
 
 export const MeetingControls = React.memo(function MeetingControls({
 	onUploadClick,
+	isUploadDisabled,
+	isUploadLoading,
+	uploadDisabledReason,
 	onLocalRecordingToggle,
 	isLocalRecording,
 	localRecordingStartedAt,
+	participantCount = 0,
+	canInvitePeople = false,
+	onInvitePeopleClick,
 }: MeetingControlsProps) {
+	const isUploadControlDisabled = Boolean(isUploadDisabled) || Boolean(isUploadLoading)
+	const uploadTitle = isUploadControlDisabled
+		? (uploadDisabledReason ?? (isUploadLoading ? "Preparing upload..." : "Upload document"))
+		: "Upload document"
+	const uploadTooltipMessage = uploadDisabledReason ?? ""
+	const shouldShowUploadTooltip = isUploadControlDisabled && uploadTooltipMessage.length > 0
+
 	const cameraSetterRef = useRef<((v: boolean) => void) | null>(null)
 	const meeting = useMeeting({
 		onError: ({ code, message }: { code: string; message: string }) => {
@@ -62,6 +85,8 @@ export const MeetingControls = React.memo(function MeetingControls({
 	const [isMicOn, setIsMicOn] = useState(() => localMicOn ?? false)
 	const [isScreenSharing, setIsScreenSharing] = useState(() => localScreenShareOn ?? false)
 	const [isRecordingLocal, setIsRecordingLocal] = useState(false)
+	const [isInviteActionOpen, setIsInviteActionOpen] = useState(false)
+	const participantControlRef = useRef<HTMLDivElement | null>(null)
 
 	useEffect(() => {
 		if (meeting?.localWebcamOn !== undefined) setIsCameraOn(meeting.localWebcamOn)
@@ -82,6 +107,17 @@ export const MeetingControls = React.memo(function MeetingControls({
 			setIsRecordingLocal(recording)
 		}
 	}, [recordingState])
+
+	useEffect(() => {
+		if (!isInviteActionOpen) return
+		const handlePointerDown = (event: MouseEvent) => {
+			if (!participantControlRef.current) return
+			if (participantControlRef.current.contains(event.target as Node)) return
+			setIsInviteActionOpen(false)
+		}
+		document.addEventListener("mousedown", handlePointerDown)
+		return () => document.removeEventListener("mousedown", handlePointerDown)
+	}, [isInviteActionOpen])
 
 	const localRecordingActive = isLocalRecording ?? false
 	const [localRecordingElapsed, setLocalRecordingElapsed] = useState("00:00")
@@ -164,13 +200,21 @@ export const MeetingControls = React.memo(function MeetingControls({
 		}
 	}
 
+	const handleInvitePeopleClick = () => {
+		setIsInviteActionOpen(false)
+		onInvitePeopleClick?.()
+	}
+
 	return (
 		<>
-			<div className="flex items-center gap-1.5 md:gap-2">
+			<div className="flex items-center gap-1 rounded-2xl border border-white/10 bg-zinc-900/90 px-4 py-2 shadow-xl backdrop-blur-md">
 				<Button
-					variant={isCameraOn ? "outline" : "destructive"}
-					size="icon"
-					className="size-9 rounded-full shadow-md transition-all hover:shadow-lg md:size-10"
+					variant={isCameraOn ? "ghost" : "destructive"}
+					className={cn(
+						isCameraOn
+							? "h-10 rounded-xl px-3 text-white/80 hover:bg-white/10 hover:text-white"
+							: "h-10 rounded-xl px-3"
+					)}
 					onClick={handleToggleCamera}
 					title={isCameraOn ? "Turn off camera" : "Turn on camera"}
 				>
@@ -178,10 +222,11 @@ export const MeetingControls = React.memo(function MeetingControls({
 				</Button>
 
 				<Button
-					variant={isMicOn ? "outline" : "destructive"}
-					size="icon"
+					variant={isMicOn ? "ghost" : "destructive"}
 					className={cn(
-						"size-9 rounded-full shadow-md transition-all hover:shadow-lg md:size-10",
+						isMicOn
+							? "h-10 rounded-xl px-3 text-white/80 hover:bg-white/10 hover:text-white"
+							: "h-10 rounded-xl px-3",
 						!isMicOn && "animate-pulse"
 					)}
 					onClick={handleToggleMic}
@@ -191,9 +236,12 @@ export const MeetingControls = React.memo(function MeetingControls({
 				</Button>
 
 				<Button
-					variant={isScreenSharing ? "destructive" : "outline"}
-					size="icon"
-					className="size-9 rounded-full shadow-md transition-all hover:shadow-lg md:size-10"
+					variant={isScreenSharing ? "destructive" : "ghost"}
+					className={cn(
+						!isScreenSharing
+							? "h-10 rounded-xl px-3 text-white/80 hover:bg-white/10 hover:text-white"
+							: "h-10 rounded-xl px-3"
+					)}
 					onClick={handleToggleScreenShare}
 					title={isScreenSharing ? "Stop sharing" : "Share screen"}
 				>
@@ -201,10 +249,11 @@ export const MeetingControls = React.memo(function MeetingControls({
 				</Button>
 
 				<Button
-					variant={localRecordingActive ? "destructive" : "outline"}
-					size="icon"
+					variant={localRecordingActive ? "destructive" : "ghost"}
 					className={cn(
-						"size-9 rounded-full shadow-md transition-all hover:shadow-lg md:size-10",
+						!localRecordingActive
+							? "h-10 rounded-xl px-3 text-white/80 hover:bg-white/10 hover:text-white"
+							: "h-10 rounded-xl px-3",
 						localRecordingActive && "animate-pulse"
 					)}
 					onClick={handleToggleRecording}
@@ -219,27 +268,63 @@ export const MeetingControls = React.memo(function MeetingControls({
 					)}
 				</Button>
 
-				{onUploadClick && (
-					<Button
-						variant="outline"
-						size="icon"
-						className="size-9 rounded-full shadow-md transition-all hover:shadow-lg md:size-10"
-						onClick={onUploadClick}
-						title="Upload document"
-					>
-						<FileUp className="size-4" />
-					</Button>
-				)}
-
 				<Button
 					variant="destructive"
-					size="icon"
-					className="size-9 rounded-full shadow-md transition-all hover:shadow-lg md:size-10"
+					className="h-10 rounded-xl px-3"
 					onClick={handleLeave}
 					title="Leave session"
 				>
 					<PhoneOff className="size-4" />
 				</Button>
+
+				{onUploadClick && (
+					<Tooltip>
+						<TooltipTrigger asChild>
+							<span className="inline-flex">
+								<Button
+									variant="ghost"
+									className={cn(
+										"h-10 rounded-xl px-3 text-white/80 hover:bg-white/10 hover:text-white",
+										isUploadControlDisabled && "cursor-not-allowed opacity-60"
+									)}
+									onClick={onUploadClick}
+									disabled={isUploadControlDisabled}
+									title={shouldShowUploadTooltip ? undefined : uploadTitle}
+								>
+									{isUploadLoading ? (
+										<Loader2 className="size-4 animate-spin" />
+									) : (
+										<FileUp className="size-4" />
+									)}
+								</Button>
+							</span>
+						</TooltipTrigger>
+						{shouldShowUploadTooltip && (
+							<TooltipContent side="top">{uploadTooltipMessage}</TooltipContent>
+						)}
+					</Tooltip>
+				)}
+
+				<div
+					ref={participantControlRef}
+					className="ml-1 flex h-10 items-center overflow-hidden border-l border-white/10 pl-2 text-white/80"
+				>
+					<div title="Participants in session" className="flex h-full items-center gap-1.5 px-3">
+						<Users className="size-4" />
+						<span className="text-xs leading-none font-medium tabular-nums">
+							{participantCount}
+						</span>
+					</div>
+					{canInvitePeople && onInvitePeopleClick && (
+						<button
+							onClick={handleInvitePeopleClick}
+							title="Add people"
+							className="flex h-full items-center border-l border-white/10 px-3 transition-colors hover:bg-white/10 hover:text-white"
+						>
+							<UserPlus className="size-4" />
+						</button>
+					)}
+				</div>
 			</div>
 		</>
 	)

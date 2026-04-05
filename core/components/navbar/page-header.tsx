@@ -1,12 +1,11 @@
 "use client"
 
+import Link from "next/link"
 import { type Route } from "next"
 import { type UrlObject } from "url"
 
 import { SidebarTrigger } from "@/core/components/animate-ui/components/radix/sidebar"
 import { ModeToggle } from "@/core/components/mode-toggle"
-import { Separator } from "@/core/components/ui/separator"
-
 import {
 	Breadcrumb,
 	BreadcrumbItem,
@@ -14,7 +13,8 @@ import {
 	BreadcrumbList,
 	BreadcrumbPage,
 	BreadcrumbSeparator,
-} from "@/features/home/components/ui/breadcrumb"
+} from "@/core/components/ui/breadcrumb"
+import { Separator } from "@/core/components/ui/separator"
 
 interface PageHeaderItem {
 	label: string
@@ -42,7 +42,9 @@ export function PageHeader({ items, actions }: PageHeaderProps) {
 										{isLast || !item.href ? (
 											<BreadcrumbPage>{item.label}</BreadcrumbPage>
 										) : (
-											<BreadcrumbLink href={item.href}>{item.label}</BreadcrumbLink>
+											<BreadcrumbLink asChild>
+												<Link href={item.href}>{item.label}</Link>
+											</BreadcrumbLink>
 										)}
 									</BreadcrumbItem>
 									{!isLast && <BreadcrumbSeparator />}
@@ -53,8 +55,8 @@ export function PageHeader({ items, actions }: PageHeaderProps) {
 				</Breadcrumb>
 			</div>
 			<div className="flex items-center gap-2 px-4">
-				{actions}
 				<ModeToggle />
+				{actions}
 			</div>
 		</header>
 	)

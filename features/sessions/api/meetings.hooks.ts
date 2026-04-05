@@ -79,6 +79,14 @@ export function useMeetings() {
 		},
 	})
 
+	const setAllowPublicLink = trpc.meetings.setAllowPublicLink.useMutation({
+		onSuccess: async (_data, variables) => {
+			await utils.meetings.getById.invalidate(variables.meetingId)
+		},
+	})
+
+	const joinMeetingByLink = trpc.meetings.joinMeetingByLink.useMutation()
+
 	return {
 		create,
 		getUserMeetings,
@@ -91,5 +99,7 @@ export function useMeetings() {
 		getMeetingDocuments,
 		inviteWitnessByEmail,
 		respondToInvite,
+		setAllowPublicLink,
+		joinMeetingByLink,
 	}
 }

@@ -5,9 +5,10 @@ import { useEffect, useRef } from "react"
 const KYC_CHANNEL_NAME = "kyc-verification-status"
 
 export type KycBroadcastMessage = {
-	type: "KYC_VERIFIED" | "KYC_REJECTED" | "KYC_PENDING"
+	type: "KYC_VERIFIED" | "KYC_REJECTED" | "KYC_CANCELLED" | "KYC_PENDING"
 	userId?: string
 	timestamp: number
+	transactionId?: string
 }
 
 /**
@@ -63,7 +64,7 @@ export function useKycBroadcast() {
 			}
 		}
 
-		return () => {}
+		return undefined
 	}
 
 	const isSupported = () => {

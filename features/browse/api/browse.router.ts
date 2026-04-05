@@ -1,7 +1,8 @@
 import { TRPCError } from "@trpc/server"
-import { and, count, desc, eq, ilike, or } from "drizzle-orm"
+import { and, count, desc, eq, ilike, ne, or, sql } from "drizzle-orm"
 import { z } from "zod/v4"
 
+import { getFullName } from "@/core/lib/utils"
 import { appointmentParticipants } from "@/services/drizzle/schema/appointment-participants"
 import { appointments } from "@/services/drizzle/schema/appointments"
 import { users } from "@/services/drizzle/schema/auth"
@@ -73,11 +74,17 @@ export const browseRouter = createTRPCRouter({
 	findBestMatch: protectedProcedure.input(findBestMatchSchema).query(async ({ ctx, input }) => {
 		// Query available ENPs
 		const conditions = [eq(users.role, "ENP"), eq(enpProfiles.isAvailable, true)]
+		// When caller is an ENP (e.g. booking another ENP), exclude themselves
+		if (ctx.session.user.role === "ENP") {
+			conditions.push(ne(users.id, ctx.session.user.id))
+		}
 
 		const candidates = await ctx.db
 			.select({
 				id: users.id,
-				name: users.name,
+				firstName: users.firstName,
+				middleName: users.middleName,
+				lastName: users.lastName,
 				email: users.email,
 				image: users.image,
 				phoneNumber: users.phoneNumber,
@@ -101,10 +108,28 @@ export const browseRouter = createTRPCRouter({
 		}
 
 		// Compute scores
-		const scored: ENPCandidateWithScore[] = candidates.map(c => ({
-			candidate: c,
-			breakdown: computeENPScore(c, input.documentType),
-		}))
+		const scored: ENPCandidateWithScore[] = candidates.map(c => {
+			const candidateForScoring: ENPCandidateWithScore["candidate"] = {
+				id: c.id,
+				name: getFullName(c),
+				email: c.email,
+				image: c.image,
+				phoneNumber: c.phoneNumber,
+				specialization: c.specialization,
+				bio: c.bio,
+				experience: c.experience,
+				languages: c.languages,
+				responseTime: c.responseTime,
+				rating: c.rating,
+				reviewCount: c.reviewCount,
+				createdAt: c.createdAt ?? null,
+			}
+
+			return {
+				candidate: candidateForScoring,
+				breakdown: computeENPScore(candidateForScoring, input.documentType),
+			}
+		})
 
 		// Select best by score then rating
 		const best = scored.sort((a, b) => {
@@ -118,7 +143,7 @@ export const browseRouter = createTRPCRouter({
 
 		return {
 			enpId: String(best.candidate.id),
-			enpName: best.candidate.name ?? "Electronic Notary Public",
+			enpName: getFullName(best.candidate) || "Electronic Notary Public",
 			rating: best.candidate.rating ?? 0,
 			totalSessions: best.candidate.reviewCount ?? 0,
 			specializations: best.candidate.specialization
@@ -133,13 +158,20 @@ export const browseRouter = createTRPCRouter({
 	 * Get available ENPs list (for Browse tab)
 	 * Returns: filterable list of all active ENPs with scores
 	 */
-	getAvailableENPs: protectedProcedure
+		getAvailableENPs: protectedProcedure
 		.input(getAvailableENPsSchema)
 		.query(async ({ ctx, input }) => {
 			const { specialization, minRating, searchTerm, sortBy, limit, offset } = input
+			const currentUserId = ctx.session.user.id
+			const currentUserRole = ctx.session.user.role
 
 			// Build where conditions
 			const baseConditions = [eq(users.role, "ENP"), eq(enpProfiles.isAvailable, true)]
+
+			// When viewer is an ENP (e.g. booking another ENP for notarization), exclude themselves from the list
+			if (currentUserRole === "ENP") {
+				baseConditions.push(ne(users.id, currentUserId))
+			}
 
 			// Add specialization, rating, and search filters using utility function
 			const filterConditions = buildENPWhereConditions({
@@ -172,7 +204,9 @@ export const browseRouter = createTRPCRouter({
 			const enpsData = await ctx.db
 				.select({
 					id: users.id,
-					name: users.name,
+					firstName: users.firstName,
+					middleName: users.middleName,
+					lastName: users.lastName,
 					email: users.email,
 					image: users.image,
 					phoneNumber: users.phoneNumber,
@@ -521,7 +555,10 @@ export const browseRouter = createTRPCRouter({
 		if (searchQuery?.trim()) {
 			const searchTerm = `%${searchQuery.toLowerCase()}%`
 			const orCondition = or(
-				ilike(users.name, searchTerm),
+				ilike(
+					sql`concat_ws(' ', coalesce(${users.firstName},''), coalesce(${users.middleName},''), coalesce(${users.lastName},''))`,
+					searchTerm
+				),
 				ilike(users.email, searchTerm),
 				ilike(users.phoneNumber, searchTerm),
 				ilike(enpProfiles.specialization, searchTerm)
@@ -535,7 +572,9 @@ export const browseRouter = createTRPCRouter({
 		const lawyers = await ctx.db
 			.select({
 				id: users.id,
-				name: users.name,
+				firstName: users.firstName,
+				middleName: users.middleName,
+				lastName: users.lastName,
 				email: users.email,
 				image: users.image,
 				phoneNumber: users.phoneNumber,
@@ -555,12 +594,12 @@ export const browseRouter = createTRPCRouter({
 			.where(and(...whereConditions))
 			.limit((input as { limit: number }).limit)
 			.offset((input as { offset: number }).offset)
-			.orderBy(users.name)
+			.orderBy(users.lastName, users.firstName)
 
 		// Transform the data to parse languages JSON and provide defaults
 		return lawyers.map(lawyer => ({
 			id: lawyer.id,
-			name: lawyer.name,
+			name: getFullName(lawyer),
 			email: lawyer.email,
 			image: lawyer.image,
 			phoneNumber: lawyer.phoneNumber,
@@ -591,7 +630,9 @@ export const browseRouter = createTRPCRouter({
 		const result = await ctx.db
 			.select({
 				id: users.id,
-				name: users.name,
+				firstName: users.firstName,
+				middleName: users.middleName,
+				lastName: users.lastName,
 				email: users.email,
 				image: users.image,
 				phoneNumber: users.phoneNumber,
@@ -621,7 +662,7 @@ export const browseRouter = createTRPCRouter({
 		// Transform the data to parse languages JSON and provide defaults
 		return {
 			id: lawyer.id,
-			name: lawyer.name,
+			name: getFullName(lawyer),
 			email: lawyer.email,
 			image: lawyer.image,
 			phoneNumber: lawyer.phoneNumber,

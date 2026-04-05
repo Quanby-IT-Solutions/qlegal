@@ -177,6 +177,52 @@ function extractField(
 	return undefined
 }
 
+interface ParsedNameParts {
+	firstName?: string
+	middleName?: string
+	lastName?: string
+}
+
+function parseNamePartsFromFullName(value: string): ParsedNameParts {
+	const fullName = value.replace(/\s+/g, " ").trim()
+	if (!fullName) return {}
+
+	// Format: "LASTNAME, FIRSTNAME ... MIDDLENAME" (middleName = last word after comma)
+	if (fullName.includes(",")) {
+		const [rawLastName, ...rest] = fullName.split(",")
+		const lastName = rawLastName?.trim() || undefined
+		const trailing = rest.join(" ").trim()
+		const trailingParts = trailing.split(/\s+/).filter(Boolean)
+
+		if (trailingParts.length === 0) {
+			return lastName ? { lastName } : {}
+		}
+
+		const middleName = trailingParts[trailingParts.length - 1]
+		const firstName = trailingParts.length > 1 ? trailingParts.slice(0, -1).join(" ") : trailingParts[0]
+		return {
+			firstName,
+			middleName: trailingParts.length > 1 ? middleName : undefined,
+			lastName,
+		}
+	}
+
+	// Fallback for non-comma format: FIRST [MIDDLE ...] LAST
+	const parts = fullName.split(/\s+/).filter(Boolean)
+	if (parts.length === 1) {
+		return { firstName: parts[0] }
+	}
+	if (parts.length === 2) {
+		return { firstName: parts[0], lastName: parts[1] }
+	}
+
+	return {
+		firstName: parts[0],
+		middleName: parts.slice(1, -1).join(" "),
+		lastName: parts[parts.length - 1],
+	}
+}
+
 /**
  * Detect document type from OCR data
  */
@@ -300,13 +346,21 @@ export function parseIdCardOcrData(
 ): ParsedIdCardData {
 	// Extract all fields
 	const documentNumber = extractField(rawOcrData, FIELD_MAPPINGS.documentNumber)
-	const firstName = extractField(rawOcrData, FIELD_MAPPINGS.firstName)
-	const middleName = extractField(rawOcrData, FIELD_MAPPINGS.middleName)
-	const lastName = extractField(rawOcrData, FIELD_MAPPINGS.lastName)
+	let firstName = extractField(rawOcrData, FIELD_MAPPINGS.firstName)
+	let middleName = extractField(rawOcrData, FIELD_MAPPINGS.middleName)
+	let lastName = extractField(rawOcrData, FIELD_MAPPINGS.lastName)
 	const fullName = extractField(rawOcrData, FIELD_MAPPINGS.fullName)
 	const dateOfBirth = extractField(rawOcrData, FIELD_MAPPINGS.dateOfBirth)
 	const gender = extractField(rawOcrData, FIELD_MAPPINGS.gender)
 	const nationality = extractField(rawOcrData, FIELD_MAPPINGS.nationality)
+
+	// Backfill missing segmented name fields from common full-name formats.
+	if ((!firstName || !lastName) && fullName) {
+		const parsed = parseNamePartsFromFullName(fullName)
+		firstName = firstName ?? parsed.firstName
+		middleName = middleName ?? parsed.middleName
+		lastName = lastName ?? parsed.lastName
+	}
 
 	// Address fields
 	const address = extractField(rawOcrData, FIELD_MAPPINGS.address)

@@ -3,11 +3,10 @@ import { eq } from "drizzle-orm"
 
 import { db } from "@/services/drizzle/db"
 import { documents } from "@/services/drizzle/schema/document"
-import { meetings } from "@/services/drizzle/schema/meetings"
-import { users } from "@/services/drizzle/schema/auth"
 import { auth } from "@/services/next-auth"
 import { getDoconchainProjectDetails } from "@/services/doconchain/projects/get-project-details"
 import { downloadDoconchainSealedProject } from "@/services/doconchain/projects/download-sealed-project"
+import { getSubOrgCredsForMemberEmail } from "@/features/sub-orgs/server/get-sub-org-creds-for-member"
 
 export async function GET(_request: Request, { params }: { params: Promise<{ projectUuid: string }> }) {
 	try {
@@ -25,7 +24,13 @@ export async function GET(_request: Request, { params }: { params: Promise<{ pro
 				meeting: {
 					with: {
 						appointments: {
-							with: { participants: { columns: { userId: true } } },
+							columns: { id: true },
+							with: {
+								participants: {
+									columns: { status: true },
+									with: { user: { columns: { id: true, email: true, role: true } } },
+								},
+							},
 						},
 					},
 				},
@@ -37,28 +42,32 @@ export async function GET(_request: Request, { params }: { params: Promise<{ pro
 		}
 
 		const hasAccess = (doc.meeting.appointments ?? []).some(apt =>
-			(apt.participants ?? []).some(p => p.userId === session.user.id)
+			(apt.participants ?? []).some(p => p.user?.id === session.user.id)
 		)
 		if (!hasAccess) {
 			return new NextResponse("Forbidden", { status: 403 })
 		}
 
-		// Use meeting creator email for DocOnChain API calls (must be a DocOnChain org member).
-		const meeting = await db.query.meetings.findFirst({
-			where: eq(meetings.id, doc.meetingId),
-			columns: { createdById: true },
-		})
-		if (!meeting?.createdById) return new NextResponse("Meeting not found", { status: 404 })
+		// Use the ENP participant's email (project owner) for DocOnChain calls.
+		const acceptedUsers = (doc.meeting.appointments ?? [])
+			.flatMap(a => a.participants ?? [])
+			.filter(p => String(p.status ?? "").toUpperCase() === "ACCEPTED")
+			.map(p => p.user)
+			.filter((u): u is NonNullable<typeof u> => Boolean(u))
 
-		const creator = await db.query.users.findFirst({
-			where: eq(users.id, meeting.createdById),
-			columns: { email: true },
-		})
-		const creatorEmail = creator?.email?.trim().toLowerCase()
-		if (!creatorEmail) return new NextResponse("Missing creator email", { status: 500 })
+		const enpOwner = acceptedUsers.find(
+			u => String(u.role ?? "").trim().toUpperCase() === "ENP" && !!u.email?.trim()
+		)
+		const ownerEmail = enpOwner?.email?.trim().toLowerCase()
+		if (!ownerEmail) return new NextResponse("Missing ENP email", { status: 500 })
+		const getSubOrgCredsForEmail = (em: string) => getSubOrgCredsForMemberEmail(em, db)
 
 		// Ensure DocOnChain finished processing (seal applied).
-		const status = await getDoconchainProjectDetails({ projectUuid: uuid, email: creatorEmail })
+		const status = await getDoconchainProjectDetails({
+			projectUuid: uuid,
+			email: ownerEmail,
+			getSubOrgCredsForEmail,
+		})
 		const statusUpper = String(status.projectStatus ?? "").toUpperCase()
 		const isCompleted = statusUpper === "COMPLETED" || (status.completedAt ?? null) !== null
 		if (!isCompleted) {
@@ -70,7 +79,11 @@ export async function GET(_request: Request, { params }: { params: Promise<{ pro
 		const sealSettleMs = 5_000
 		await new Promise(resolve => setTimeout(resolve, sealSettleMs))
 
-		const result = await downloadDoconchainSealedProject({ projectUuid: uuid, email: creatorEmail })
+		const result = await downloadDoconchainSealedProject({
+			projectUuid: uuid,
+			email: ownerEmail,
+			getSubOrgCredsForEmail,
+		})
 		const filename = result.filename ?? (doc.name?.toLowerCase().endsWith(".pdf") ? doc.name : `${doc.name}.pdf`)
 
 		return new NextResponse(new Uint8Array(result.buffer), {

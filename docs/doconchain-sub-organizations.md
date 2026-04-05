@@ -105,6 +105,18 @@ curl -X POST "https://stg-api2.doconchain.com/api/v2/organizations/sub?user_type
 - **Project creation:** Whether projects can be created under a specific sub-organization (e.g. by sub-org id or by using a token scoped to that sub-org). This determines whether each notary office’s projects can be isolated per sub-org.
 - **organization_uuid format:** Whether the parent is a numeric ID (as in the example `organization_uuid=1`) or a string UUID, and how it maps to `DOCONCHAIN_ORGANIZATION_ID`.
 
+## Troubleshooting: 401 E_UNAUTHORIZED_ACCESS
+
+When you see **DocOnChain get sub-org members failed (401 Unauthorized): E_UNAUTHORIZED_ACCESS** or **DocOnChain auto-join failed (401 Unauthorized)** (e.g. on upload with an ENP that has a sub-org), the failure is **on our side**: the token we send is rejected by DocOnChain (invalid or insufficient scope). The staging platform is responding correctly; the fix is configuration and membership.
+
+**Check:** (1) `DOCONCHAIN_EMAIL` must be a member of the **parent** org in DocOnChain so the generated parent token can list sub-org members and call auto-join. (2) Or set `DOCONCHAIN_USER_TOKEN` to a valid org-admin Bearer token from DocOnChain. (3) If using sub-org creds, we fall back to parent token when the email is not in that sub-org; the parent token must then be valid and scoped for that sub-org.
+
+**Quick fix:** Ensure `DOCONCHAIN_EMAIL` is in the parent org in DocOnChain, or set `DOCONCHAIN_USER_TOKEN` to a valid org-admin Bearer token from DocOnChain.
+
+### Sub-org "used" credits show 0
+
+If an ENP in a sub-org holds signing sessions but the sub-org **used** count stays 0, we derive `used = total_credits - remaining_credits` from whatever DocOnChain returns. If their API returns `total_credits` equal to the current balance (e.g. 18 after use) instead of "total ever allocated" (e.g. 20), then used will show as 0. Ask DocOnChain whether the sub-org credits endpoint (or parent org credits with `sub_organizations[]`) returns `used_credits` or a "total ever allocated" value per sub-org so we can display used correctly.
+
 ## Related files
 
 - `env.js` – `DOCONCHAIN_*` env vars

@@ -13,6 +13,7 @@ import {
 	SidebarMenuItem,
 	SidebarRail,
 } from "@/core/components/animate-ui/components/radix/sidebar"
+import { SidebarCourseCard } from "@/core/components/navbar/sidebar-course-card"
 import { SidebarNavSection } from "@/core/components/navbar/sidebar-nav-section"
 import { SidebarSecondaryNav } from "@/core/components/navbar/sidebar-secondary-nav"
 import { UserDropdown } from "@/core/components/navbar/user-dropdown"
@@ -49,7 +50,10 @@ export const SiteSidebar = () => {
 				{getAppSidebarSections(userRole).map(section => (
 					<SidebarNavSection key={section.label} section={section} userRole={userRole} />
 				))}
-				<SidebarSecondaryNav items={navSecondary} />
+				<div className="mt-auto space-y-2">
+					<SidebarSecondaryNav items={navSecondary} />
+					<SidebarCourseCard />
+				</div>
 			</SidebarContent>
 
 			<SidebarFooter>

@@ -106,8 +106,16 @@ export function ImageCropper({
 		}
 	}
 
+	// When dialog closes (by clicking outside), clear selected file
+	function handleDialogOpenChange(open: boolean) {
+		setDialogOpen(open)
+		if (!open) {
+			setSelectedFile(null)
+		}
+	}
+
 	return (
-		<Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+		<Dialog open={dialogOpen} onOpenChange={handleDialogOpenChange}>
 			<DialogTrigger>
 				<Avatar className="ring-ring ring-offset-border size-36 cursor-pointer ring-2 ring-offset-2">
 					<AvatarImage src={croppedImage ? croppedImage : selectedFile?.preview} alt="@me" />
@@ -129,7 +137,7 @@ export function ImageCropper({
 					>
 						<Image
 							ref={imgRef}
-							className="max-h-[460px] w-full object-contain"
+							className="max-h-115 w-full object-contain"
 							alt="Image Cropper Shell"
 							src={selectedFile?.preview ?? ""}
 							width={800}

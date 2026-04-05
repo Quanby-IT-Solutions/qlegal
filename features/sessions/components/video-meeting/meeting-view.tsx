@@ -1,997 +1,85 @@
 "use client"
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { useMeeting, usePubSub } from "@videosdk.live/react-sdk"
-import { CircleDot, FileSignature, FileText, Loader2, Users as UsersIcon } from "lucide-react"
+import React, { useCallback, useMemo, useRef, useState } from "react"
+import { useMeeting } from "@videosdk.live/react-sdk"
 import { useSession } from "next-auth/react"
-import { toast } from "sonner"
 
-import { Button } from "@/core/components/ui/button"
-import { Card, CardContent } from "@/core/components/ui/card"
-import {
-	Dialog,
-	DialogContent,
-	DialogDescription,
-	DialogFooter,
-	DialogHeader,
-	DialogTitle,
-} from "@/core/components/ui/dialog"
-import { cn } from "@/core/lib/utils"
+import { PageHeader } from "@/core/components/navbar/page-header"
+import { SidebarInset } from "@/core/components/ui/sidebar"
 
-import { trpc } from "@/services/trpc/client"
-
-import {
-	extractDoconchainLink,
-	formatElapsedMs,
-	openCenteredPopup,
-	PRE_GENERATED_LINK_MAX_AGE_MS,
-	sanitizeDoconchainPayloadForLog,
-	SEALED_DOCUMENT_SETTLE_DELAY_MS,
-	STALE_LINK_CHECK_INTERVAL_MS,
-	type PreGeneratedLinkEntry,
-	type RecordingConsentRequest,
-} from "../../lib/utils"
+import { useDocumentSigning } from "../../lib/use-document-signing"
+import { useMeetingData } from "../../lib/use-meeting-data"
+import { useMeetingParticipants } from "../../lib/use-meeting-participants"
+import { useRecording } from "../../lib/use-recording"
+import { useRecordingConsent } from "../../lib/use-recording-consent"
 import { MeetingDocumentUpload } from "../meeting-document-upload"
-import { DocumentCards } from "./document-cards"
+import { PlotConfirmDialog } from "./dialogs/plot-confirm-dialog"
+import { RecordingConsentDialog } from "./dialogs/recording-consent-dialog"
 import { MeetingControls } from "./meeting-controls"
-import { ParticipantView } from "./participant-view"
+import { MeetingInviteDialog } from "./meeting-invite-dialog"
+import { MeetingParticipantGrid } from "./meeting-participant-grid"
 import { RecordingBanner } from "./recording-banner"
-
-// ─────────────────────────────────────────────────────────────
-// MeetingView
-// ─────────────────────────────────────────────────────────────
+import { DocumentCards, type DocumentCardsHandle } from "./side-panel/document/document-cards"
+import { MeetingSidePanelControls } from "./side-panel/meeting-side-panel-controls"
 
 export function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meetingId?: string }) {
 	const { data: session } = useSession()
 
-	// ─── Join state ─────────────────────────────────────────────
-	const [joined, setJoined] = useState(false)
-	const [presenterId, setPresenterId] = useState<string | null>(null)
-
-	// ─── Recording state ────────────────────────────────────────
-	const [isRecording, setIsRecording] = useState(false)
-	const [recordingStatus, setRecordingStatus] = useState<string>("RECORDING_STOPPED")
-	const [recordingStartedAt, setRecordingStartedAt] = useState<number | null>(null)
-	const [isLocalRecording, setIsLocalRecording] = useState(false)
-	const [localRecordingStartedAt, setLocalRecordingStartedAt] = useState<number | null>(null)
-	const [isAnyoneRecording, setIsAnyoneRecording] = useState(false)
-	const [recordingParticipantName, setRecordingParticipantName] = useState<string | null>(null)
-	const [recordingStopped, setRecordingStopped] = useState(false)
-	const [stoppedElapsed, setStoppedElapsed] = useState<string | null>(null)
-
-	// ─── Recording consent state ────────────────────────────────
-	const [recordingConsentRequest, setRecordingConsentRequest] =
-		useState<RecordingConsentRequest | null>(null)
-	const [recordingConsentOpen, setRecordingConsentOpen] = useState(false)
-	const [recordingConsentAcceptedIds, setRecordingConsentAcceptedIds] = useState<Set<string>>(
-		() => new Set()
-	)
-	const [recordingConsentDeclined, setRecordingConsentDeclined] = useState(false)
-
-	// ─── Refs ───────────────────────────────────────────────────
-	const mediaRecorderRef = useRef<MediaRecorder | null>(null)
-	const localStreamRef = useRef<MediaStream | null>(null)
-	const recordingContainerRef = useRef<HTMLDivElement>(null)
-
-	const localRecordingSupported =
-		(typeof navigator !== "undefined" && !!navigator.mediaDevices?.getDisplayMedia) ||
-		(typeof HTMLDivElement !== "undefined" &&
-			typeof (HTMLDivElement.prototype as { captureStream?: unknown })?.captureStream ===
-				"function")
-
-	// ─── UI state ───────────────────────────────────────────────
 	const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false)
-	const [showDocuments, setShowDocuments] = useState(true)
+	const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false)
+	const [sidePanel, setSidePanel] = useState<"documents" | "chat" | null>(null)
+	const showDocuments = sidePanel === "documents"
 
-	// ─── Signing state ──────────────────────────────────────────
-	const [signingDocumentId, setSigningDocumentId] = useState<string | null>(null)
-	const [isPlottingAction, setIsPlottingAction] = useState(false)
-	const isPlottingActionRef = useRef(false)
-	const plotPopupDocumentIdRef = useRef<string | null>(null)
-	const [plotConfirmDocumentId, setPlotConfirmDocumentId] = useState<string | null>(null)
-	const [isConfirmingPlot, setIsConfirmingPlot] = useState(false)
-	const [userConfirmedPlottedDocumentIds, setUserConfirmedPlottedDocumentIds] = useState<
-		Set<string>
-	>(new Set())
-	const openingPlatformToastIdRef = useRef<string | number | null>(null)
-	const openingSignedDocumentToastIdRef = useRef<string | number | null>(null)
+	const recordingContainerRef = useRef<HTMLDivElement>(null)
+	const docCardsRef = useRef<DocumentCardsHandle>(null)
 
-	// ─── Pre-generated links ────────────────────────────────────
-	const [preGeneratedPlotLinks, setPreGeneratedPlotLinks] = useState<
-		Map<string, PreGeneratedLinkEntry>
-	>(new Map())
-	const [preGeneratedSignLinks, setPreGeneratedSignLinks] = useState<
-		Map<string, PreGeneratedLinkEntry>
-	>(new Map())
+	const { joined, presenterId, participantIds, participantCount, localParticipantId } =
+		useMeetingParticipants({ onLeave })
+	const meeting = useMeeting()
 
-	// Proactively clear stale links
-	useEffect(() => {
-		const interval = setInterval(() => {
-			const clearStale = (prev: Map<string, PreGeneratedLinkEntry>) => {
-				if (prev.size === 0) return prev
-				const now = Date.now()
-				const next = new Map(prev)
-				next.forEach((v, docId) => {
-					if (typeof v.storedAt === "number" && now - v.storedAt > PRE_GENERATED_LINK_MAX_AGE_MS) {
-						next.delete(docId)
-					}
-				})
-				return next.size === prev.size ? prev : next
-			}
-			setPreGeneratedPlotLinks(clearStale)
-			setPreGeneratedSignLinks(clearStale)
-		}, STALE_LINK_CHECK_INTERVAL_MS)
-		return () => clearInterval(interval)
-	}, [])
-
-	const [downloadingProjectUuid, setDownloadingProjectUuid] = useState<string | null>(null)
-	const [documentSigningStatus, setDocumentSigningStatus] = useState<
-		Map<
-			string,
-			{
-				isFullySigned: boolean
-				signedCount: number
-				totalSigners: number
-				projectStatus?: string
-				completedAt?: string | null
-				signers: Array<{
-					id: number
-					email: string
-					firstName: string
-					lastName: string
-					status: string
-					signedAt: string | null
-					sequence: number
-					signerRole: string
-				}>
-			}
-		>
-	>(new Map())
-
-	// ─── tRPC queries ────────────────────────────────────────────
-	const {
-		data: documents,
-		refetch: refetchDocuments,
-		isFetching: isDocumentsFetching,
-	} = trpc.meetings.getMeetingDocuments.useQuery(meetingId ?? "", {
-		enabled: !!meetingId,
-		refetchInterval: 10000,
-		staleTime: 5000,
-	})
-
-	const utils = trpc.useUtils()
-
-	const [signingStatusPollingPausedUntil, setSigningStatusPollingPausedUntil] = useState<
-		number | null
-	>(null)
-	const [isRefreshingSigningStatus, setIsRefreshingSigningStatus] = useState(false)
-	const hasShownSigningStatusAuthErrorRef = useRef(false)
-	const hasShownSigningStatusFetchErrorRef = useRef(false)
-
-	const performSigningStatusRefresh = useCallback(async (_force = false) => {
-		// External signing status polling is disabled while the signing integration is rebuilt.
-		return
-	}, [])
-
-	const refreshSigningStatuses = useCallback(async () => {
-		if (!showDocuments) return
-		if (typeof document !== "undefined" && document.visibilityState === "hidden") return
-		if (signingStatusPollingPausedUntil && Date.now() < signingStatusPollingPausedUntil) return
-		await performSigningStatusRefresh(false)
-	}, [showDocuments, signingStatusPollingPausedUntil, performSigningStatusRefresh])
-
-	const manualRefreshSigningStatuses = useCallback(async () => {
-		setSigningStatusPollingPausedUntil(null)
-		hasShownSigningStatusAuthErrorRef.current = false
-		hasShownSigningStatusFetchErrorRef.current = false
-		await performSigningStatusRefresh(true)
-	}, [performSigningStatusRefresh])
-
-	useEffect(() => {
-		if (!showDocuments) return
-		if (!documents || documents.length === 0) return
-
-		void refreshSigningStatuses()
-		const interval = setInterval(() => {
-			void refreshSigningStatuses()
-		}, 5000)
-		return () => clearInterval(interval)
-	}, [documents, refreshSigningStatuses, showDocuments])
-
-	const queryId = meetingId?.trim() ?? ""
-	const { data: meetingDetails, refetch: refetchMeetingDetails } = trpc.meetings.getById.useQuery(
-		queryId,
-		{
-			enabled: !!meetingId?.trim(),
-			retry: false,
-			refetchInterval: 15000,
-			staleTime: 8000,
-		}
-	)
-
-	const { data: notarizationDetails } = trpc.meetings.getMeetingNotarizationDetails.useQuery(
-		{ meetingId: meetingId ?? "" },
-		{ enabled: !!meetingId?.trim() }
-	)
-
-	// ─── Mutations ───────────────────────────────────────────────
-
-	const toggleLockMutation = trpc.meetings.toggleDocumentOrderLock.useMutation({
-		onSuccess: () => {
-			void refetchMeetingDetails()
-			toast.success(
-				meetingDetails?.isDocumentOrderLocked ? "Document order unlocked" : "Document order locked"
-			)
-		},
-		onError: error => {
-			toast.error(error.message || "Failed to toggle document lock")
-		},
-	})
-
-	const setDocumentSignersMutation = trpc.meetings.setDocumentSigners.useMutation({
-		onSuccess: () => {
-			void utils.meetings.getMeetingDocuments.invalidate(meetingId ?? "")
-		},
-		onError: error => {
-			toast.error(error.message ?? "Failed to update signers")
-		},
-	})
-
-	const markDocumentPlottedMutation = trpc.meetings.markDocumentPlotted.useMutation({
-		onSuccess: () => {
-			void utils.meetings.getMeetingDocuments.invalidate(meetingId ?? "")
-			void refetchDocuments()
-		},
-		onError: error => {
-			toast.error(error.message ?? "Failed to mark document as plotted")
-		},
-	})
-
-	const createDocoChainProjectMutation = {
-		mutate: (_input: { documentId: string; meetingId: string }) => {
-			toast.error(
-				"Project creation is temporarily unavailable while we rebuild the signing integration."
-			)
-		},
-		isPending: false,
-	}
-
-	const docoChainTokenReady = true
-	const docoChainTokenLoading = false
-
-	const handleSignersChange = useCallback(
-		(documentId: string, userIds: string[]) => {
-			if (!meetingId) return
-			setDocumentSignersMutation.mutate({ documentId, meetingId, userIds })
-		},
-		[meetingId, setDocumentSignersMutation]
-	)
-
-	const updateDocumentOrder = trpc.meetings.updateDocumentOrder.useMutation({
-		onSuccess: () => {
-			void refetchDocuments()
-		},
-		onError: error => {
-			const errorMessage =
-				error instanceof Error
-					? error.message
-					: typeof error === "object" && error !== null && "message" in error
-						? String(error.message)
-						: "Failed to update document order"
-			toast.error(errorMessage)
-		},
-	})
-
-	const handleViewNotarizedDocument = useCallback(
-		async (projectUuid: string) => {
-			if (!projectUuid?.trim()) return
-			const toastId = toast.loading("Opening notarized document…")
-			try {
-				setDownloadingProjectUuid(projectUuid)
-				const status = await utils.signatureRequests.checkSigningStatus.fetch({ projectUuid })
-				const statusUpper = String(status?.projectStatus ?? "").toUpperCase()
-				const isCompleted = statusUpper === "COMPLETED" || (status?.completedAt ?? null) !== null
-				if (!isCompleted) {
-					toast.error("Signed document is still processing. Please try again in a moment.")
-					return
-				}
-				await new Promise(resolve => setTimeout(resolve, SEALED_DOCUMENT_SETTLE_DELAY_MS))
-				const url = `/api/doconchain/projects/${encodeURIComponent(projectUuid)}/signed`
-				const opened = window.open(url, "_blank", "noopener,noreferrer")
-				if (!opened) {
-					toast.error("Popup blocked. Please allow popups for this site and try again.")
-					return
-				}
-			} catch (error) {
-				const msg = error instanceof Error ? error.message : "Failed to fetch notarized document."
-				toast.error(msg)
-			} finally {
-				toast.dismiss(toastId)
-				setDownloadingProjectUuid(null)
-			}
-		},
-		[utils.signatureRequests.checkSigningStatus]
-	)
-
-	const generateSigningLink = trpc.signatureRequests.generateSigningLink.useMutation({
-		onError: error => {
-			const errorMessage =
-				error instanceof Error
-					? error.message
-					: typeof error === "object" && error !== null && "message" in error
-						? String(error.message)
-						: "Failed to generate signing link"
-			toast.error(errorMessage)
-		},
-	})
-
-	const markSignedForCurrentUser = trpc.signatureRequests.markSignedForCurrentUser.useMutation({
-		onSuccess: () => {
-			const id = meetingId?.trim()
-			if (id) {
-				void utils.meetings.getMeetingNotarizationDetails.invalidate({ meetingId: id })
-				void utils.signatureRequests.getPendingRequests.invalidate({ meetingId: id })
-			}
-			void refetchDocuments()
-		},
-		onError: error => {
-			console.warn("Failed to mark signed for current user:", error)
-		},
-	})
-
-	const initiateSigning = trpc.signatureRequests.initiateSigning.useMutation({
-		onMutate: variables => {
-			if (openingPlatformToastIdRef.current !== null) {
-				toast.dismiss(openingPlatformToastIdRef.current)
-				openingPlatformToastIdRef.current = null
-			}
-			if (variables.isPlotting === true) {
-				openingPlatformToastIdRef.current = toast.loading("Opening plotting platform…")
-			}
-		},
-		onError: error => {
-			console.error("❌ Failed to initiate signing:", error)
-			if (openingPlatformToastIdRef.current !== null) {
-				toast.dismiss(openingPlatformToastIdRef.current)
-				openingPlatformToastIdRef.current = null
-			}
-			setSigningDocumentId(null)
-			setIsPlottingAction(false)
-			isPlottingActionRef.current = false
-			plotPopupDocumentIdRef.current = null
-			const errorMessage =
-				error instanceof Error
-					? error.message
-					: typeof error === "object" && error !== null && "message" in error
-						? String(error.message)
-						: "Failed to start signing process"
-			toast.error(errorMessage)
-		},
-	})
-
-	const handleSignClick = useCallback(
-		async (projectUuid: string | null, email: string, documentId: string, isPlotting?: boolean) => {
-			if (!projectUuid) {
-				toast.error("DocOnChain project not found. Please create the project first.")
-				return
-			}
-			if (!email) {
-				toast.error("User email not found. Please sign in again.")
-				return
-			}
-
-			const kind = isPlotting === true ? "plot" : "sign"
-			const existing =
-				kind === "plot"
-					? preGeneratedPlotLinks.get(documentId)
-					: preGeneratedSignLinks.get(documentId)
-
-			const nowMs = Date.now()
-			const isCachedLinkUsable =
-				kind === "sign" &&
-				!!existing?.link &&
-				existing.projectUuid === projectUuid &&
-				typeof existing.storedAt === "number" &&
-				nowMs - existing.storedAt <= PRE_GENERATED_LINK_MAX_AGE_MS
-
-			if (kind === "sign" && existing && !isCachedLinkUsable) {
-				setPreGeneratedSignLinks(prev => {
-					if (!prev.has(documentId)) return prev
-					const next = new Map(prev)
-					next.delete(documentId)
-					return next
-				})
-			}
-
-			const linkFromCache = isCachedLinkUsable ? existing?.link : undefined
-
-			setSigningDocumentId(documentId)
-			setIsPlottingAction(kind === "plot")
-			isPlottingActionRef.current = kind === "plot"
-
-			try {
-				const data = linkFromCache
-					? { projectUuid, link: linkFromCache, kind, cleanPlotUrl: existing?.cleanPlotUrl }
-					: await initiateSigning.mutateAsync({
-							projectUuid,
-							documentId,
-							email,
-							isPlotting: kind === "plot",
-						})
-
-				console.log(
-					"🟣 [DocOnChain] initiateSigning response (redacted)",
-					sanitizeDoconchainPayloadForLog(data)
-				)
-
-				let link = extractDoconchainLink(data)
-				if (!link && kind === "sign") {
-					const fallback = await generateSigningLink.mutateAsync({ projectUuid, email })
-					console.log(
-						"🟣 [DocOnChain] generateSigningLink response (redacted)",
-						sanitizeDoconchainPayloadForLog(fallback)
-					)
-					link = extractDoconchainLink(fallback)
-				}
-				if (!link) throw new Error("Missing DocOnChain link.")
-
-				if (kind === "plot") {
-					setPreGeneratedPlotLinks(prev => {
-						const next = new Map(prev)
-						next.set(documentId, {
-							link,
-							projectUuid,
-							storedAt: Date.now(),
-							cleanPlotUrl: (data as { cleanPlotUrl?: string }).cleanPlotUrl,
-						})
-						return next
-					})
-				} else {
-					setPreGeneratedSignLinks(prev => {
-						const next = new Map(prev)
-						next.set(documentId, { link, projectUuid, storedAt: Date.now() })
-						return next
-					})
-				}
-
-				if (openingPlatformToastIdRef.current !== null) {
-					toast.dismiss(openingPlatformToastIdRef.current)
-					openingPlatformToastIdRef.current = null
-				}
-
-				if (kind === "plot") {
-					const popup = openCenteredPopup(link, `doconchain-plot-${documentId}`, "signing")
-					plotPopupDocumentIdRef.current = documentId
-					if (!popup) {
-						toast.info("If nothing opened, allow pop-ups for this site and try again.")
-						return
-					}
-					const interval = window.setInterval(() => {
-						if (popup.closed) {
-							window.clearInterval(interval)
-							if (plotPopupDocumentIdRef.current === documentId) {
-								plotPopupDocumentIdRef.current = null
-								setPlotConfirmDocumentId(documentId)
-							}
-						}
-					}, 800)
-				} else {
-					const popup = openCenteredPopup(link, `doconchain-sign-${documentId}`, "signing")
-					if (!popup) {
-						window.open(link, "_blank", "noopener,noreferrer")
-						return
-					}
-					const startedAt = Date.now()
-					const interval = window.setInterval(() => {
-						if (popup.closed) {
-							window.clearInterval(interval)
-							if (!meetingId) return
-							const elapsedMs = Date.now() - startedAt
-							if (elapsedMs < 1500) return
-							markSignedForCurrentUser.mutate({ meetingId, documentId })
-							void refetchDocuments()
-						}
-					}, 800)
-				}
-			} catch (error) {
-				const errorMessage =
-					error instanceof Error
-						? error.message
-						: typeof error === "object" && error !== null && "message" in error
-							? String((error as { message?: unknown }).message)
-							: "Failed to open signing platform"
-				toast.error(errorMessage)
-			} finally {
-				setSigningDocumentId(null)
-				setIsPlottingAction(false)
-				isPlottingActionRef.current = false
-			}
-		},
-		[
-			generateSigningLink,
-			initiateSigning,
-			meetingId,
-			markDocumentPlottedMutation,
-			manualRefreshSigningStatuses,
-			preGeneratedPlotLinks,
-			preGeneratedSignLinks,
-			refetchDocuments,
-			setPreGeneratedPlotLinks,
-			setPreGeneratedSignLinks,
-		]
-	)
-
-	const plotConfirmDocumentName = useMemo(() => {
-		if (!plotConfirmDocumentId) return null
-		const doc = (documents ?? []).find(d => d.id === plotConfirmDocumentId)
-		return doc?.name ?? null
-	}, [documents, plotConfirmDocumentId])
-
-	const handleConfirmPlotDone = useCallback(async () => {
-		const documentId = plotConfirmDocumentId
-		const mId = meetingId
-		if (!documentId || !mId) {
-			setPlotConfirmDocumentId(null)
-			return
-		}
-		setIsConfirmingPlot(true)
-		try {
-			await markDocumentPlottedMutation.mutateAsync({ meetingId: mId, documentId })
-			setUserConfirmedPlottedDocumentIds(prev => new Set(prev).add(documentId))
-			void refetchDocuments().then(() => {
-				void manualRefreshSigningStatuses()
-			})
-			toast.success("Document marked as plotted. Signing can now begin.")
-		} catch (error) {
-			const msg = error instanceof Error ? error.message : "Failed to mark document as plotted."
-			toast.error(msg)
-		} finally {
-			setIsConfirmingPlot(false)
-			setPlotConfirmDocumentId(null)
-		}
-	}, [
-		manualRefreshSigningStatuses,
-		markDocumentPlottedMutation,
+	const recording = useRecording({ meeting, session, onLeave })
+	const meetingData = useMeetingData({ meetingId, session })
+	const documentSigning = useDocumentSigning({
 		meetingId,
-		plotConfirmDocumentId,
-		refetchDocuments,
-	])
-
-	// ─── VideoSDK meeting hooks ──────────────────────────────────
-
-	const [participantVersion, setParticipantVersion] = useState(0)
-
-	const meeting = useMeeting({
-		onMeetingJoined: () => {
-			setJoined(true)
-			setParticipantVersion(v => v + 1)
-		},
-		onMeetingLeft: () => {
-			setJoined(false)
-			setIsAnyoneRecording(false)
-			setRecordingParticipantName(null)
-			setRecordingStopped(false)
-			setStoppedElapsed(null)
-			setLocalRecordingStartedAt(null)
-			if (onLeave) onLeave()
-		},
-		onParticipantJoined: () => {
-			setParticipantVersion(v => v + 1)
-		},
-		onParticipantLeft: () => {
-			setParticipantVersion(v => v + 1)
-		},
-		onPresenterChanged: id => {
-			setPresenterId(id ?? null)
-		},
-		onRecordingStateChanged: (data: { status: string }) => {
-			const status = data.status
-			setRecordingStatus(status)
-			if (status === "RECORDING_STARTED") {
-				setIsRecording(true)
-				setRecordingStartedAt(Date.now())
-				toast.success("Recording started")
-			} else if (status === "RECORDING_STOPPED") {
-				setIsRecording(false)
-				setRecordingStartedAt(null)
-				toast.success("Recording stopped")
-			} else if (status === "RECORDING_STARTING") {
-				toast.message("Starting recording...")
-			}
-		},
+		documents: meetingData.documents,
+		showDocuments,
+		refetchDocuments: meetingData.refetchDocuments,
 	})
-
-	const { publish: publishRecordingStatus } = usePubSub("LOCAL_RECORDING_STATUS", {
-		onMessageReceived: (message: { message: string; senderName: string }) => {
-			if (message.message.startsWith("RECORDING_STARTED")) {
-				setRecordingStopped(false)
-				setStoppedElapsed(null)
-				setIsAnyoneRecording(true)
-				setRecordingParticipantName(message.senderName)
-				const parts = message.message.split(":")
-				if (parts[1]) {
-					const startTime = parseInt(parts[1], 10)
-					if (!isNaN(startTime)) setLocalRecordingStartedAt(startTime)
-				}
-			} else if (message.message.startsWith("RECORDING_STOPPED")) {
-				setIsAnyoneRecording(false)
-				setLocalRecordingStartedAt(null)
-				const elapsed = message.message.split(":").slice(1).join(":") || null
-				setRecordingStopped(true)
-				setStoppedElapsed(elapsed)
-				setTimeout(() => {
-					setRecordingStopped(false)
-					setStoppedElapsed(null)
-					setRecordingParticipantName(null)
-				}, 5000)
-			}
-		},
-	})
-
-	const { localParticipant } = useMeeting()
-	const localParticipantId = localParticipant?.id ?? null
-
-	const participants = meeting?.participants as
-		| Map<
-				string,
-				{
-					displayName?: string
-					webcamOn?: boolean
-					local?: boolean
-					screenShareOn?: boolean
-					mode?: string
-					quality?: string
-				}
-		  >
-		| null
-		| undefined
-
-	const { participantIds, participantCount } = useMemo(() => {
-		if (!participants || participants.size === 0) return { participantIds: [], participantCount: 0 }
-
-		const filterHuman = (
-			id: string,
-			participant: { displayName?: string; mode?: string } | null | undefined
-		) => {
-			if (!participant) return false
-			const idLower = id.toLowerCase()
-			const nameLower = (participant.displayName ?? "").toLowerCase()
-			return !(
-				idLower.includes("recorder") ||
-				idLower.includes("bot") ||
-				idLower.includes("internal") ||
-				idLower.includes("hls") ||
-				nameLower.includes("recorder") ||
-				nameLower.includes("bot")
-			)
-		}
-
-		const normalizeName = (name: string | undefined) =>
-			(name ?? "").trim().toLowerCase() || "unknown"
-
-		const uniqueByName = new Map<
-			string,
-			{
-				id: string
-				participant: {
-					displayName?: string
-					webcamOn?: boolean
-					local?: boolean
-					screenShareOn?: boolean
-				}
-			}
-		>()
-
-		for (const [id, participant] of participants.entries()) {
-			if (!filterHuman(id, participant)) continue
-
-			const participantIsPresenting = Boolean(
-				(participant as unknown as { screenShareOn?: boolean })?.screenShareOn
-			)
-			const key = participantIsPresenting
-				? `${id}-presenter`
-				: normalizeName(participant.displayName ?? id)
-			const current = uniqueByName.get(key)
-			const currentIsPresenting = Boolean(
-				(current?.participant as unknown as { screenShareOn?: boolean })?.screenShareOn
-			)
-
-			const shouldReplace =
-				!current ||
-				(participantIsPresenting && !currentIsPresenting) ||
-				(!participantIsPresenting && currentIsPresenting
-					? false
-					: !!participant?.webcamOn && !current?.participant?.webcamOn) ||
-				(participant?.local &&
-					!current?.participant?.local &&
-					participant?.webcamOn === current?.participant?.webcamOn &&
-					participantIsPresenting === currentIsPresenting)
-
-			if (shouldReplace) uniqueByName.set(key, { id, participant })
-		}
-
-		const ids = Array.from(uniqueByName.values())
-			.sort((a, b) => {
-				const aPresenting = Boolean(a.participant?.screenShareOn)
-				const bPresenting = Boolean(b.participant?.screenShareOn)
-				if (aPresenting && !bPresenting) return -1
-				if (!aPresenting && bPresenting) return 1
-				if (a.participant?.local && !b.participant?.local) return -1
-				if (!a.participant?.local && b.participant?.local) return 1
-				return 0
-			})
-			.map(entry => entry.id)
-
-		return { participantIds: ids, participantCount: ids.length }
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [participants, participantVersion])
-
-	// ─── Recording consent helpers ───────────────────────────────
-
-	const resetRecordingConsentUi = useCallback(() => {
-		setRecordingConsentOpen(false)
-		setRecordingConsentRequest(null)
-		setRecordingConsentAcceptedIds(new Set())
-		setRecordingConsentDeclined(false)
-	}, [])
-
-	const buildConsentRequest = useCallback(
-		(requiredParticipantIds: string[], initiatorName: string): RecordingConsentRequest => {
-			const id = `${Date.now()}-${Math.random().toString(16).slice(2)}`
-			return { id, createdAt: Date.now(), initiatorName, requiredParticipantIds }
-		},
-		[]
-	)
-
-	const { publish: publishRecordingConsent } = usePubSub("RECORDING_CONSENT", {
-		onMessageReceived: (message: { message: string; senderName: string }) => {
-			const raw = message.message
-			if (typeof raw !== "string") return
-
-			const [kind, ...rest] = raw.split(":")
-			if (!kind) return
-
-			if (kind === "REQUEST") {
-				const [requestId, createdAtStr, initiatorName, requiredIdsCsv = ""] = rest
-				if (!requestId || !createdAtStr || !initiatorName) return
-				const requiredParticipantIds = requiredIdsCsv
-					.split(",")
-					.map(s => s.trim())
-					.filter(Boolean)
-				setRecordingConsentRequest(prev => {
-					if (prev?.id === requestId) return prev
-					return {
-						id: requestId,
-						createdAt: Number(createdAtStr) || Date.now(),
-						initiatorName,
-						requiredParticipantIds,
-					}
-				})
-				setRecordingConsentAcceptedIds(new Set())
-				setRecordingConsentDeclined(false)
-				setRecordingConsentOpen(true)
-				return
-			}
-
-			if (kind === "RESPONSE") {
-				const [requestId, participantId, , decision] = rest
-				if (!requestId || !participantId || !decision) return
-				setRecordingConsentRequest(current => {
-					if (current?.id !== requestId) return current
-					if (decision === "DECLINE") {
-						setRecordingConsentDeclined(true)
-						return current
-					}
-					if (decision === "ACCEPT") {
-						setRecordingConsentAcceptedIds(prev => {
-							const next = new Set(prev)
-							next.add(participantId)
-							return next
-						})
-					}
-					return current
-				})
-				return
-			}
-
-			if (kind === "CANCEL") {
-				const [requestId] = rest
-				setRecordingConsentRequest(current => {
-					if (!current || current.id !== requestId) return current
-					resetRecordingConsentUi()
-					return null
-				})
-			}
-		},
-	})
-
-	const startLocalRecording = useCallback(async () => {
-		if (isLocalRecording) return
-		if (!meeting) {
-			toast.error("Meeting not ready yet")
-			return
-		}
-		try {
-			const startedAt = Date.now()
-			const meetingWithRecording = meeting as unknown as {
-				startRecording?: () => Promise<void> | void
-			}
-			const recordingResult = meetingWithRecording.startRecording?.()
-			if (recordingResult !== undefined && recordingResult instanceof Promise) {
-				await recordingResult
-			}
-			setIsLocalRecording(true)
-			setIsAnyoneRecording(true)
-			setLocalRecordingStartedAt(startedAt)
-			setRecordingParticipantName(session?.user?.name ?? "Someone")
-			setRecordingStopped(false)
-			setStoppedElapsed(null)
-			publishRecordingStatus(`RECORDING_STARTED:${startedAt}`, { persist: false })
-			toast.success("Cloud recording started")
-		} catch (error) {
-			console.error("Cloud recording error:", error)
-			toast.error("Failed to start cloud recording")
-		}
-	}, [isLocalRecording, meeting, publishRecordingStatus, session?.user?.name])
-
-	const stopLocalRecording = useCallback(async () => {
-		if (!meeting || !isLocalRecording) return
-		try {
-			const meetingWithRecording = meeting as unknown as {
-				stopRecording?: () => Promise<void> | void
-			}
-			const stopResult = meetingWithRecording.stopRecording?.()
-			if (stopResult !== undefined && stopResult instanceof Promise) await stopResult
-
-			const elapsed = localRecordingStartedAt
-				? formatElapsedMs(Date.now() - localRecordingStartedAt)
-				: "00:00"
-			setIsLocalRecording(false)
-			setIsAnyoneRecording(false)
-			setLocalRecordingStartedAt(null)
-			setRecordingStopped(true)
-			setStoppedElapsed(elapsed)
-			setTimeout(() => {
-				setRecordingStopped(false)
-				setStoppedElapsed(null)
-				setRecordingParticipantName(null)
-			}, 5000)
-			publishRecordingStatus(`RECORDING_STOPPED:${elapsed}`, { persist: false })
-			toast.success("Cloud recording stopped")
-		} catch (error) {
-			console.error("Stop recording error:", error)
-			toast.error("Failed to stop cloud recording")
-		}
-	}, [meeting, isLocalRecording, localRecordingStartedAt, publishRecordingStatus])
-
-	const handleRecordingToggle = useCallback(async () => {
-		if (!meeting) return
-		if (recordingStatus === "RECORDING_STARTING") return
-		try {
-			const meetingWithRecording = meeting as unknown as {
-				stopRecording?: () => Promise<void> | void
-				startRecording?: (config?: unknown) => Promise<void> | void
-			}
-			if (isRecording) {
-				setRecordingStatus("RECORDING_STOPPING")
-				await meetingWithRecording.stopRecording?.()
-			} else {
-				setRecordingStatus("RECORDING_STARTING")
-				await meetingWithRecording.startRecording?.({
-					layout: { type: "GRID", priority: "SPEAKER", gridSize: 4, participants: ["*"] },
-					theme: "DARK",
-				})
-			}
-		} catch (error: unknown) {
-			console.error("Error toggling recording:", error)
-			const errorMessage = error instanceof Error ? error.message : "Failed to toggle recording"
-			toast.error(errorMessage)
-			setRecordingStatus(isRecording ? "RECORDING_STARTED" : "RECORDING_STOPPED")
-		}
-	}, [meeting, recordingStatus, isRecording])
-
-	const closeConsentAsInitiator = useCallback(() => {
-		if (!recordingConsentRequest) return
-		publishRecordingConsent(`CANCEL:${recordingConsentRequest.id}`, { persist: false })
-		resetRecordingConsentUi()
-	}, [publishRecordingConsent, recordingConsentRequest, resetRecordingConsentUi])
-
-	const openConsentAndRequest = useCallback(() => {
-		if (isLocalRecording) {
-			void stopLocalRecording()
-			return
-		}
-		if (participantIds.length <= 0) {
-			toast.error("Waiting for another participant to join before starting a recording.")
-			return
-		}
-		const initiatorName = session?.user?.name ?? "Someone"
-		const requiredIds = participantIds
-		const request = buildConsentRequest(requiredIds, initiatorName)
-		setRecordingConsentRequest(request)
-		setRecordingConsentAcceptedIds(new Set())
-		setRecordingConsentDeclined(false)
-		setRecordingConsentOpen(true)
-		const payload = `REQUEST:${request.id}:${request.createdAt}:${request.initiatorName}:${request.requiredParticipantIds.join(",")}`
-		publishRecordingConsent(payload, { persist: false })
-	}, [
-		buildConsentRequest,
-		isLocalRecording,
+	const recordingConsent = useRecordingConsent({
+		localParticipantId,
+		session,
 		participantIds,
-		publishRecordingConsent,
-		session?.user?.name,
-		stopLocalRecording,
-	])
+		startLocalRecording: recording.startLocalRecording,
+		stopLocalRecording: recording.stopLocalRecording,
+		isLocalRecording: recording.isLocalRecording,
+	})
 
-	const acceptConsent = useCallback(async () => {
-		if (!recordingConsentRequest) return
-		if (!localParticipantId) {
-			toast.error("Cannot confirm consent yet (participant id not ready). Please try again.")
-			return
+	const handleUploadClick = useCallback(async () => {
+		const debugLogsEnabled = process.env.NODE_ENV !== "production"
+		const startMs = performance.now()
+		if (debugLogsEnabled) {
+			console.log("[sessions][upload] MeetingView.handleUploadClick start", {
+				meetingId: meetingId ?? null,
+			})
 		}
-		const myName = session?.user?.name ?? "Someone"
-		publishRecordingConsent(
-			`RESPONSE:${recordingConsentRequest.id}:${localParticipantId}:${myName}:ACCEPT`,
-			{ persist: false }
-		)
-		setRecordingConsentAcceptedIds(prev => {
-			const next = new Set(prev)
-			next.add(localParticipantId)
-			return next
-		})
-	}, [localParticipantId, publishRecordingConsent, recordingConsentRequest, session?.user?.name])
-
-	const declineConsent = useCallback(() => {
-		if (!recordingConsentRequest) return
-		if (!localParticipantId) {
-			resetRecordingConsentUi()
-			return
+		const ready = await meetingData.handleUploadClick()
+		if (debugLogsEnabled) {
+			console.log("[sessions][upload] MeetingView.handleUploadClick done", {
+				meetingId: meetingId ?? null,
+				ready,
+				totalMs: Math.round(performance.now() - startMs),
+			})
 		}
-		const myName = session?.user?.name ?? "Someone"
-		publishRecordingConsent(
-			`RESPONSE:${recordingConsentRequest.id}:${localParticipantId}:${myName}:DECLINE`,
-			{ persist: false }
-		)
-		setRecordingConsentDeclined(true)
-	}, [
-		localParticipantId,
-		publishRecordingConsent,
-		recordingConsentRequest,
-		resetRecordingConsentUi,
-		session?.user?.name,
-	])
+		if (ready) setIsUploadDialogOpen(true)
+	}, [meetingData, meetingId])
 
-	useEffect(() => {
-		if (!recordingConsentRequest || !localParticipantId) return
-		const requiredIds = recordingConsentRequest.requiredParticipantIds
-		if (!requiredIds || requiredIds.length === 0) return
-		const allAccepted = requiredIds.every(id => recordingConsentAcceptedIds.has(id))
-		if (allAccepted) {
-			const isInitiator =
-				recordingConsentRequest.initiatorName === (session?.user?.name ?? "Someone")
-			if (isInitiator) void startLocalRecording()
-			setRecordingConsentOpen(false)
-			resetRecordingConsentUi()
-		}
-		if (recordingConsentDeclined) {
-			setRecordingConsentOpen(false)
-			resetRecordingConsentUi()
-		}
-	}, [
-		recordingConsentAcceptedIds,
-		recordingConsentDeclined,
-		recordingConsentRequest,
-		localParticipantId,
-		session?.user?.name,
-		startLocalRecording,
-		resetRecordingConsentUi,
-	])
+	const isConsentInitiator =
+		recordingConsent.recordingConsentRequest?.initiatorName === (session?.user?.name ?? "Someone")
 
-	const handleUploadClick = useCallback(() => {
-		setIsUploadDialogOpen(true)
-	}, [])
-
-	// ─── Loading screen ──────────────────────────────────────────
+	const plotDialogOpen = Boolean(documentSigning.plotConfirmDocumentId)
+	const plotDialogDocumentName = useMemo(() => {
+		return documentSigning.plotConfirmDocumentName ?? null
+	}, [documentSigning.plotConfirmDocumentName])
 
 	if (!joined) {
 		return (
@@ -1004,268 +92,169 @@ export function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meet
 		)
 	}
 
-	// ─── Render ──────────────────────────────────────────────────
-
 	return (
 		<div
 			ref={recordingContainerRef}
 			className="from-background via-muted/20 to-background flex h-screen flex-col bg-linear-to-br"
 		>
-			{/* Header */}
-			<div className="bg-card/50 flex flex-col items-center justify-between gap-3 border-b px-4 py-3 shadow-sm backdrop-blur-sm sm:flex-row sm:gap-4 md:px-6 md:py-4">
-				<div className="flex items-center gap-2">
-					<div className="bg-primary/10 flex h-8 w-8 items-center justify-center rounded-lg">
-						<FileSignature className="text-primary h-4 w-4" />
-					</div>
-					<h1 className="text-base font-bold md:text-lg">Signing Session</h1>
-				</div>
-
-				<MeetingControls
-					onUploadClick={handleUploadClick}
-					onRecordingToggle={handleRecordingToggle}
-					onLocalRecordingToggle={openConsentAndRequest}
-					localRecordingSupported={localRecordingSupported}
-					isRecording={isRecording}
-					isRecordingStarting={recordingStatus === "RECORDING_STARTING"}
-					isLocalRecording={isLocalRecording}
-					localRecordingStartedAt={localRecordingStartedAt}
-				/>
-
-				<div className="bg-muted/50 flex items-center gap-2 rounded-lg px-3 py-1.5">
-					<UsersIcon className="text-muted-foreground size-4" />
-					<span className="text-xs font-medium md:text-sm">
-						{participantCount} {participantCount === 1 ? "participant" : "participants"}
-					</span>
-				</div>
-			</div>
-
-			{/* Document Upload Dialog */}
 			{meetingId && (
 				<MeetingDocumentUpload
 					meetingId={meetingId}
 					isOpen={isUploadDialogOpen}
 					onClose={() => setIsUploadDialogOpen(false)}
 					onSuccess={() => {
-						void refetchDocuments()
-						setShowDocuments(true)
+						void meetingData.refetchDocuments()
+						setSidePanel("documents")
 					}}
 					isEnp={session?.user?.role === "ENP"}
 				/>
 			)}
 
-			{/* Plot Signature confirm dialog */}
-			<Dialog
-				open={!!plotConfirmDocumentId}
+			<PlotConfirmDialog
+				open={plotDialogOpen}
 				onOpenChange={open => {
-					if (!open && !isConfirmingPlot) setPlotConfirmDocumentId(null)
+					if (!open && !documentSigning.isConfirmingPlot) {
+						documentSigning.setPlotConfirmDocumentId(null)
+					}
 				}}
-			>
-				<DialogContent className="max-w-md">
-					<DialogHeader>
-						<DialogTitle>Confirm signature plotting</DialogTitle>
-						<DialogDescription>
-							Did you finish plotting signatures for{" "}
-							<strong>{plotConfirmDocumentName ?? "this document"}</strong>?
-							<br />
-							Only confirm if you actually placed the required signature fields in DocOnChain.
-						</DialogDescription>
-					</DialogHeader>
-					<DialogFooter className="gap-2 sm:justify-end">
-						<Button
-							variant="outline"
-							disabled={isConfirmingPlot}
-							onClick={() => setPlotConfirmDocumentId(null)}
-						>
-							Not yet
-						</Button>
-						<Button disabled={isConfirmingPlot} onClick={() => void handleConfirmPlotDone()}>
-							{isConfirmingPlot ? (
-								<>
-									<Loader2 className="mr-2 size-4 animate-spin" />
-									Marking…
-								</>
-							) : (
-								"Yes, I plotted"
-							)}
-						</Button>
-					</DialogFooter>
-				</DialogContent>
-			</Dialog>
+				documentName={plotDialogDocumentName}
+				isConfirming={documentSigning.isConfirmingPlot}
+				onConfirm={() => {
+					void documentSigning.handleConfirmPlotDone()
+				}}
+			/>
 
-			{/* Main content */}
-			<div className="flex flex-1 flex-col overflow-hidden">
-				<div className="flex-1 overflow-hidden p-3 md:p-4 lg:p-6">
-					<RecordingBanner
-						isLocalRecording={isLocalRecording}
-						localRecordingStartedAt={localRecordingStartedAt}
-						isAnyoneRecording={isAnyoneRecording}
-						recordingParticipantName={recordingParticipantName}
-						recordingStopped={recordingStopped}
-						stoppedElapsed={stoppedElapsed}
+			<SidebarInset className="flex min-h-0 flex-1 flex-col overflow-hidden">
+				<PageHeader
+					items={[{ label: "Sessions", href: "/sessions" }, { label: "Signing Session" }]}
+				/>
+				<div className="relative flex min-h-0 flex-1 overflow-hidden">
+					<div className="flex flex-1 flex-col overflow-hidden">
+						<div className="flex-1 overflow-hidden px-3 pt-3 pb-1.5 md:px-4 md:pt-4 md:pb-2 lg:px-6 lg:pt-6 lg:pb-3">
+							<RecordingBanner
+								isLocalRecording={recording.isLocalRecording}
+								localRecordingStartedAt={recording.localRecordingStartedAt}
+								isAnyoneRecording={recording.isAnyoneRecording}
+								recordingParticipantName={recording.recordingParticipantName}
+								recordingStopped={recording.recordingStopped}
+								stoppedElapsed={recording.stoppedElapsed}
+							/>
+							<MeetingParticipantGrid participantIds={participantIds} presenterId={presenterId} />
+						</div>
+					</div>
+
+					<DocumentCards
+						ref={docCardsRef}
+						meetingId={meetingId}
+						documents={meetingData.documents ?? []}
+						sidePanel={sidePanel}
+						onPanelOpenChange={open => setSidePanel(open ? (sidePanel ?? "documents") : null)}
+						isDocumentsFetching={meetingData.isDocumentsFetching}
+						isRefreshingSigningStatus={documentSigning.isRefreshingSigningStatus}
+						documentSigningStatus={documentSigning.documentSigningStatus}
+						meetingDetails={meetingData.meetingDetails}
+						notarizationDetails={meetingData.notarizationDetails}
+						signingDocumentId={documentSigning.signingDocumentId}
+						isPlottingAction={documentSigning.isPlottingAction}
+						downloadingProjectUuid={documentSigning.downloadingProjectUuid}
+						preGeneratedPlotLinks={documentSigning.preGeneratedPlotLinks}
+						preGeneratedSignLinks={documentSigning.preGeneratedSignLinks}
+						userConfirmedPlottedDocumentIds={documentSigning.userConfirmedPlottedDocumentIds}
+						docoChainTokenReady={meetingData.docoChainTokenReady}
+						docoChainTokenLoading={meetingData.docoChainTokenLoading}
+						onSignClick={documentSigning.handleSignClick}
+						onSignersChange={meetingData.handleSignersChange}
+						onCreateProject={(documentId, mId) => {
+							meetingData.createDocoChainProjectMutation.mutate({
+								documentId,
+								meetingId: mId,
+							})
+						}}
+						isCreatingProject={meetingData.createDocoChainProjectMutation.isPending}
+						onPreGeneratedLink={documentSigning.onPreGeneratedLink}
+						onViewNotarizedDocument={documentSigning.handleViewNotarizedDocument}
+						onRefresh={async () => {
+							await meetingData.refetchDocuments()
+							await documentSigning.manualRefreshSigningStatuses()
+						}}
+						onToggleLock={isLocked => {
+							if (meetingId) meetingData.toggleLockMutation.mutate({ meetingId, isLocked })
+						}}
+						isTogglingLock={meetingData.toggleLockMutation.isPending}
+						onUpdateDocumentOrder={documentIds => {
+							if (meetingId) meetingData.updateDocumentOrder.mutate({ meetingId, documentIds })
+						}}
+						localParticipantId={localParticipantId}
 					/>
-					{participantIds.length === 0 ? (
-						<Card className="mx-auto max-w-xl shadow-md">
-							<CardContent className="text-muted-foreground p-6 text-center text-sm">
-								No participants yet. Turn on your camera to appear in the session.
-							</CardContent>
-						</Card>
-					) : (
-						<div className="flex h-full w-full flex-col gap-4 overflow-y-auto">
-							{presenterId && (
-								<div className="w-full">
-									<div className="border-border/70 bg-card/80 overflow-hidden rounded-xl border shadow-lg">
-										<ParticipantView participantId={presenterId} />
-									</div>
-								</div>
-							)}
-							<div
-								className={cn(
-									"grid h-full w-full grid-cols-[repeat(auto-fit,minmax(240px,1fr))] gap-4 sm:gap-5",
-									"auto-rows-[minmax(260px,1fr)]",
-									showDocuments && "auto-rows-[minmax(220px,1fr)] md:auto-rows-[minmax(240px,1fr)]"
-								)}
-							>
-								{participantIds
-									.filter(id => id !== presenterId)
-									.map(participantId => (
-										<div key={participantId} className="min-h-65">
-											<ParticipantView participantId={participantId} />
-										</div>
-									))}
-							</div>
-						</div>
-					)}
 				</div>
+				<div className="bg-background/90 relative flex flex-col items-center gap-2 px-4 py-3 backdrop-blur-sm lg:flex-row lg:justify-center lg:gap-4">
+					<MeetingControls
+						onUploadClick={handleUploadClick}
+						isUploadDisabled={!meetingId?.trim() || meetingData.isUploadBlockedByLock}
+						isUploadLoading={meetingData.isPreparingUpload || meetingData.isEnsuringDoconchainToken}
+						uploadDisabledReason={
+							meetingData.isUploadBlockedByLock
+								? "Can't upload a file while document uploads are locked"
+								: undefined
+						}
+						onRecordingToggle={recording.handleRecordingToggle}
+						onLocalRecordingToggle={recordingConsent.openConsentAndRequest}
+						localRecordingSupported={recording.localRecordingSupported}
+						isRecording={recording.isRecording}
+						isRecordingStarting={recording.recordingStatus === "RECORDING_STARTING"}
+						isLocalRecording={recording.isLocalRecording}
+						localRecordingStartedAt={recording.localRecordingStartedAt}
+						participantCount={participantCount}
+						canInvitePeople={meetingData.meetingDetails?.createdBy?.id === session?.user?.id}
+						onInvitePeopleClick={() => setIsInviteDialogOpen(true)}
+					/>
+					<MeetingSidePanelControls sidePanel={sidePanel} onSidePanelChange={setSidePanel} />
+				</div>
+			</SidebarInset>
 
-				{/* Documents Panel */}
-				{documents && documents.length > 0 && (
-					<div
-						className={cn(
-							"bg-card/50 shrink-0 border-t shadow-lg backdrop-blur-sm transition-all duration-300",
-							showDocuments ? "max-h-100 min-h-50" : "h-12 md:h-14"
-						)}
-					>
-						<DocumentCards
-							meetingId={meetingId}
-							documents={documents}
-							showDocuments={showDocuments}
-							onToggleShowDocuments={() => setShowDocuments(!showDocuments)}
-							isDocumentsFetching={isDocumentsFetching}
-							isRefreshingSigningStatus={isRefreshingSigningStatus}
-							documentSigningStatus={documentSigningStatus}
-							meetingDetails={meetingDetails}
-							notarizationDetails={notarizationDetails}
-							signingDocumentId={signingDocumentId}
-							isPlottingAction={isPlottingAction}
-							downloadingProjectUuid={downloadingProjectUuid}
-							preGeneratedPlotLinks={preGeneratedPlotLinks}
-							preGeneratedSignLinks={preGeneratedSignLinks}
-							userConfirmedPlottedDocumentIds={userConfirmedPlottedDocumentIds}
-							docoChainTokenReady={docoChainTokenReady}
-							docoChainTokenLoading={docoChainTokenLoading}
-							onSignClick={handleSignClick}
-							onSignersChange={handleSignersChange}
-							onCreateProject={(documentId, mId) => {
-								createDocoChainProjectMutation.mutate({ documentId, meetingId: mId })
-							}}
-							isCreatingProject={createDocoChainProjectMutation.isPending}
-							onPreGeneratedLink={(documentId, link, projectUuid, kind, cleanPlotUrl) => {
-								const setMap = kind === "plot" ? setPreGeneratedPlotLinks : setPreGeneratedSignLinks
-								setMap(prev => {
-									const next = new Map(prev)
-									next.set(documentId, {
-										link,
-										projectUuid,
-										storedAt: Date.now(),
-										cleanPlotUrl: kind === "plot" ? cleanPlotUrl : undefined,
-									})
-									return next
-								})
-							}}
-							onViewNotarizedDocument={handleViewNotarizedDocument}
-							onRefresh={async () => {
-								await refetchDocuments()
-								await manualRefreshSigningStatuses()
-							}}
-							onToggleLock={isLocked => {
-								if (meetingId) toggleLockMutation.mutate({ meetingId, isLocked })
-							}}
-							isTogglingLock={toggleLockMutation.isPending}
-							onUpdateDocumentOrder={documentIds => {
-								if (meetingId) updateDocumentOrder.mutate({ meetingId, documentIds })
-							}}
-						/>
-					</div>
-				)}
-			</div>
-
-			{/* Recording Consent Dialog */}
-			<Dialog
-				open={recordingConsentOpen}
+			<RecordingConsentDialog
+				open={recordingConsent.recordingConsentOpen}
 				onOpenChange={open => {
-					if (!open && recordingConsentRequest && !recordingConsentDeclined) declineConsent()
-					setRecordingConsentOpen(open)
+					if (
+						!open &&
+						recordingConsent.recordingConsentRequest &&
+						!recordingConsent.recordingConsentDeclined
+					) {
+						recordingConsent.declineConsent()
+					}
+					recordingConsent.setRecordingConsentOpen(open)
 				}}
-			>
-				<DialogContent className="max-w-md">
-					<DialogHeader>
-						<DialogTitle className="flex items-center gap-2">
-							<CircleDot className="text-destructive size-5" />
-							Start meeting recording?
-						</DialogTitle>
-						<DialogDescription>
-							{recordingConsentRequest?.initiatorName ?? "Someone"} wants to start a screen
-							recording. Recording will begin only after everyone agrees.
-						</DialogDescription>
-					</DialogHeader>
+				consentRequest={recordingConsent.recordingConsentRequest}
+				acceptedIds={recordingConsent.recordingConsentAcceptedIds}
+				declined={recordingConsent.recordingConsentDeclined}
+				localParticipantId={localParticipantId}
+				currentUserName={session?.user?.name ?? "Someone"}
+				isInitiator={isConsentInitiator}
+				onAccept={recordingConsent.acceptConsent}
+				onDecline={recordingConsent.declineConsent}
+				onCancel={recordingConsent.closeConsentAsInitiator}
+			/>
 
-					<div className="space-y-3 py-2 text-sm">
-						<div className="bg-muted/50 rounded-lg border p-3">
-							<div className="flex items-center justify-between">
-								<span className="font-medium">Consents</span>
-								<span className="text-muted-foreground text-xs">
-									{recordingConsentRequest
-										? `${recordingConsentAcceptedIds.size}/${recordingConsentRequest.requiredParticipantIds.length}`
-										: "0/0"}
-								</span>
-							</div>
-							{recordingConsentDeclined ? (
-								<p className="mt-2 text-sm text-red-600 dark:text-red-400">
-									Someone declined. Recording will not start.
-								</p>
-							) : (
-								<p className="text-muted-foreground mt-2 text-xs">
-									Click <span className="font-semibold">Agree</span> to consent, or{" "}
-									<span className="font-semibold">Decline</span> to cancel.
-								</p>
-							)}
-						</div>
-					</div>
-
-					<DialogFooter className="flex-col gap-2 sm:flex-row">
-						<Button
-							variant="outline"
-							onClick={() => {
-								if (recordingConsentRequest?.initiatorName === (session?.user?.name ?? "Someone")) {
-									closeConsentAsInitiator()
-								} else {
-									declineConsent()
-								}
-							}}
-						>
-							Decline
-						</Button>
-						<Button
-							disabled={recordingConsentDeclined || !localParticipantId}
-							onClick={async () => {
-								await acceptConsent()
-							}}
-						>
-							Agree
-						</Button>
-					</DialogFooter>
-				</DialogContent>
-			</Dialog>
+			{meetingId && (
+				<MeetingInviteDialog
+					open={isInviteDialogOpen}
+					onOpenChange={setIsInviteDialogOpen}
+					meetingId={meetingId}
+					allowPublicLink={meetingData.meetingDetails?.allowPublicLink ?? false}
+					onSetAllowPublicLink={allow =>
+						meetingData.setAllowPublicLinkMutation.mutate({ meetingId, allow })
+					}
+					isSettingAllowPublicLink={meetingData.setAllowPublicLinkMutation.isPending}
+					onInviteByEmail={email =>
+						meetingData.inviteWitnessByEmailMutation.mutate(
+							{ meetingId, email },
+							{ onSuccess: () => void meetingData.refetchMeetingDetails() }
+						)
+					}
+					isInviting={meetingData.inviteWitnessByEmailMutation.isPending}
+					onSuccess={() => void meetingData.refetchMeetingDetails()}
+				/>
+			)}
 		</div>
 	)
 }

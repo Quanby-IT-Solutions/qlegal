@@ -32,14 +32,6 @@ import {
 	CommandItem,
 	CommandList,
 } from "@/core/components/ui/command"
-import {
-	Item,
-	ItemActions,
-	ItemContent,
-	ItemDescription,
-	ItemMedia,
-	ItemTitle,
-} from "@/core/components/ui/item"
 import { Popover, PopoverContent, PopoverTrigger } from "@/core/components/ui/popover"
 import {
 	Sheet,
@@ -550,7 +542,6 @@ function CalendarScheduleEventCard({
 		.filter(Boolean)
 		.join(" ")
 
-	// Override relative label for rejected/rescheduled statuses
 	const displayLabel =
 		event.status.id === "rejected"
 			? "Rejected"
@@ -567,139 +558,223 @@ function CalendarScheduleEventCard({
 		}
 	}, [isProcessing, event.status.id])
 
+	const statusClassName =
+		event.status.id === "pending"
+			? "border-amber-500/50 bg-amber-500/10 text-amber-700 dark:text-amber-400 dark:bg-amber-500/15"
+			: event.status.id === "rejected" || event.status.id === "rescheduled"
+				? "border-muted-foreground/30 text-muted-foreground"
+				: "border-primary/30 bg-primary/5 text-primary"
+
 	return (
 		<>
 			<Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
 				<SheetTrigger asChild>
-					<Item
+					<div
 						data-slot="calendar-schedule-event-card"
-						variant="muted"
-						size="sm"
+						role="button"
+						tabIndex={0}
+						onKeyDown={e => {
+							if (e.key === "Enter" || e.key === " ") {
+								e.preventDefault()
+								setIsSheetOpen(true)
+							}
+						}}
 						className={cn(
-							"hover:bg-secondary border-input border transition-colors motion-reduce:transition-none",
+							"border-border bg-card hover:bg-muted/40 focus-visible:ring-ring flex cursor-pointer items-center gap-2.5 rounded-lg border px-3 py-2 shadow-sm transition-colors focus-visible:ring-2 focus-visible:outline-none motion-reduce:transition-none",
 							className
 						)}
 						{...props}
 					>
-						<ItemMedia>
-							<Avatar className="size-8">
-								<AvatarImage src={getAvatarUrl(event.principal?.image) ?? undefined} alt="" />
-								<AvatarFallback className="text-xs">
-									{getInitials(event.principal?.name ?? "?")}
-								</AvatarFallback>
-							</Avatar>
-						</ItemMedia>
-						<ItemContent className="min-w-0 gap-0">
-							<ItemTitle className="flex items-center gap-1.5 truncate">
-								<span className="truncate">{event.principal?.name ?? event.title}</span>
-								<Badge
-									variant="secondary"
-									className="shrink-0 px-1.5 py-0 text-[10px]"
-									style={{
-										borderColor: event.status.color,
-										color: event.status.color,
-									}}
-								>
-									{event.status.name}
-								</Badge>
-							</ItemTitle>
-							<ItemDescription className="text-muted-foreground line-clamp-1 text-xs">
-								{subtitle}
-							</ItemDescription>
-						</ItemContent>
-						<ItemActions
-							className={cn(
-								"text-muted-foreground text-xs leading-tight",
-								isActionable ? "flex-row items-center gap-1.5" : "flex flex-col items-end gap-0"
-							)}
-						>
-							{isActionable ? (
-								<>
-									<Button
-										variant="outline"
-										size="xs"
-										className="text-destructive hover:bg-destructive/10 text-xs"
-										disabled={isProcessing}
-										onClick={e => {
-											e.stopPropagation()
-											setIsRejectDialogOpen(true)
-										}}
-									>
-										Reject
-									</Button>
-									<Button
-										size="xs"
-										disabled={isProcessing}
-										onClick={e => {
-											e.stopPropagation()
-											onAccept?.()
-										}}
-										className="text-xs"
-									>
-										{isProcessing ? (
-											<>
-												<Spinner className="size-3" /> Accepting…
-											</>
-										) : (
-											"Accept"
-										)}
-									</Button>
-								</>
-							) : (
-								<>
-									<span>{formattedTime}</span>
-									{displayLabel ? <span>{displayLabel}</span> : null}
-								</>
-							)}
-						</ItemActions>
-					</Item>
-				</SheetTrigger>
-
-				<SheetContent side="right">
-					<SheetHeader className="items-center text-center">
-						<Avatar className="size-14">
+						<Avatar className="ring-border/80 size-8 shrink-0 ring-2">
 							<AvatarImage src={getAvatarUrl(event.principal?.image) ?? undefined} alt="" />
-							<AvatarFallback className="text-sm">
+							<AvatarFallback className="bg-muted text-muted-foreground text-xs font-medium">
 								{getInitials(event.principal?.name ?? "?")}
 							</AvatarFallback>
 						</Avatar>
-						<SheetTitle>{event.principal?.name ?? event.title}</SheetTitle>
-						<Badge
-							variant="secondary"
-							className="px-1.5 py-0 text-[10px]"
-							style={{ borderColor: event.status.color, color: event.status.color }}
-						>
-							{event.status.name}
-						</Badge>
+
+						<div className="min-w-0 flex-1">
+							<div className="flex items-center gap-1.5">
+								<span
+									className="text-foreground truncate text-sm font-semibold"
+									title={event.principal?.name ?? event.title}
+								>
+									{event.principal?.name ?? event.title}
+								</span>
+								<span
+									className={cn(
+										"shrink-0 rounded-full border px-1.5 py-0.5 text-[10px] font-medium tracking-wide uppercase",
+										statusClassName
+									)}
+								>
+									{event.status.name}
+								</span>
+							</div>
+							<p className="text-muted-foreground truncate text-xs">{subtitle}</p>
+						</div>
+
+						{isActionable ? (
+							<div className="flex shrink-0 items-center gap-1.5">
+								<Button
+									variant="ghost"
+									size="xs"
+									className="text-destructive hover:bg-destructive/10 hover:text-destructive h-7 text-xs"
+									disabled={isProcessing}
+									onClick={e => {
+										e.stopPropagation()
+										setIsRejectDialogOpen(true)
+									}}
+								>
+									Reject
+								</Button>
+								<Button
+									size="xs"
+									className="h-7 min-w-15 text-xs"
+									disabled={isProcessing}
+									onClick={e => {
+										e.stopPropagation()
+										onAccept?.()
+									}}
+								>
+									{isProcessing ? (
+										<>
+											<Spinner className="size-3" /> …
+										</>
+									) : (
+										"Accept"
+									)}
+								</Button>
+							</div>
+						) : (
+							<div className="text-muted-foreground flex shrink-0 flex-col items-end gap-0 text-right text-xs">
+								<span className="text-foreground font-medium">{formattedTime}</span>
+								{displayLabel ? <span>{displayLabel}</span> : null}
+							</div>
+						)}
+					</div>
+				</SheetTrigger>
+
+				<SheetContent
+					side="right"
+					className="flex flex-col gap-0 rounded-l-2xl border-l-2 shadow-2xl backdrop-blur-sm sm:max-w-md"
+				>
+					<SheetHeader className="relative space-y-6 border-b pt-8">
+						<div className="flex flex-col items-center gap-4">
+							<div className="relative">
+								<Avatar className="ring-background size-20 shadow-lg ring-4">
+									<AvatarImage src={getAvatarUrl(event.principal?.image) ?? undefined} alt="" />
+									<AvatarFallback className="bg-primary/10 text-primary text-xl font-semibold">
+										{getInitials(event.principal?.name ?? "?")}
+									</AvatarFallback>
+								</Avatar>
+								<div className="bg-background absolute -right-1 -bottom-1 rounded-full p-1.5 shadow-md">
+									<span
+										className={cn(
+											"flex size-3 rounded-full",
+											statusClassName.includes("pending")
+												? "bg-amber-500"
+												: statusClassName.includes("rejected") ||
+													  statusClassName.includes("rescheduled")
+													? "bg-muted-foreground"
+													: "bg-primary"
+										)}
+									/>
+								</div>
+							</div>
+							<div className="text-center">
+								<SheetTitle className="text-xl font-bold">
+									{event.principal?.name ?? event.title}
+								</SheetTitle>
+								<span
+									className={cn(
+										"mt-2 inline-block rounded-full border px-3 py-1 text-xs font-semibold tracking-wider uppercase shadow-sm",
+										statusClassName
+									)}
+								>
+									{event.status.name}
+								</span>
+							</div>
+						</div>
 						<SheetDescription className="sr-only">
 							Detailed information and actions for this calendar event
 						</SheetDescription>
 					</SheetHeader>
 
-					<div className="flex flex-col gap-4 px-4">
-						<div className="flex flex-col gap-1">
-							<span className="text-muted-foreground text-[10px] tracking-wide uppercase">
+					<div className="flex flex-1 flex-col gap-4 overflow-y-auto px-6 py-6">
+						<div className="bg-muted/40 space-y-2 rounded-xl border p-4 shadow-sm transition-all hover:shadow-md">
+							<p className="text-muted-foreground flex items-center gap-2 text-xs font-semibold tracking-wider uppercase">
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									width="14"
+									height="14"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									strokeWidth="2"
+									strokeLinecap="round"
+									strokeLinejoin="round"
+								>
+									<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+									<circle cx="9" cy="7" r="4" />
+									<path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+									<path d="M16 3.13a4 4 0 0 1 0 7.75" />
+								</svg>
 								Type
-							</span>
-							<span className="text-sm">{subtitle}</span>
+							</p>
+							<p className="text-base font-semibold">{subtitle}</p>
 						</div>
 
-						<div className="flex flex-col gap-1">
-							<span className="text-muted-foreground text-[10px] tracking-wide uppercase">
+						<div className="bg-muted/40 space-y-2 rounded-xl border p-4 shadow-sm transition-all hover:shadow-md">
+							<p className="text-muted-foreground flex items-center gap-2 text-xs font-semibold tracking-wider uppercase">
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									width="14"
+									height="14"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									strokeWidth="2"
+									strokeLinecap="round"
+									strokeLinejoin="round"
+								>
+									<circle cx="12" cy="12" r="10" />
+									<polyline points="12 6 12 12 16 14" />
+								</svg>
 								Time
-							</span>
-							<span className="text-sm">
+							</p>
+							<p className="text-base font-semibold">
 								{formattedTime}
-								{displayLabel ? ` · ${displayLabel}` : null}
-							</span>
+								{displayLabel ? (
+									<span className="text-muted-foreground ml-1 text-sm font-normal">
+										{" "}
+										· {displayLabel}
+									</span>
+								) : null}
+							</p>
 						</div>
 
-						<div className="flex flex-col gap-1">
-							<span className="text-muted-foreground text-[10px] tracking-wide uppercase">
+						<div className="bg-muted/40 space-y-2 rounded-xl border p-4 shadow-sm transition-all hover:shadow-md">
+							<p className="text-muted-foreground flex items-center gap-2 text-xs font-semibold tracking-wider uppercase">
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									width="14"
+									height="14"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									strokeWidth="2"
+									strokeLinecap="round"
+									strokeLinejoin="round"
+								>
+									<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+									<polyline points="14 2 14 8 20 8" />
+									<line x1="16" y1="13" x2="8" y2="13" />
+									<line x1="16" y1="17" x2="8" y2="17" />
+									<polyline points="10 9 9 9 8 9" />
+								</svg>
 								Description
-							</span>
+							</p>
 							{event.description ? (
-								<p className="text-sm">{event.description}</p>
+								<p className="text-sm leading-relaxed">{event.description}</p>
 							) : (
 								<p className="text-muted-foreground text-sm italic">No description provided</p>
 							)}
@@ -707,24 +782,30 @@ function CalendarScheduleEventCard({
 					</div>
 
 					{isActionable ? (
-						<SheetFooter className="flex-row gap-2">
-							<Button
-								variant="outline"
-								className="text-destructive hover:bg-destructive/10 flex-1"
-								disabled={isProcessing}
-								onClick={() => setIsRejectDialogOpen(true)}
-							>
-								Reject
-							</Button>
-							<Button className="flex-1" disabled={isProcessing} onClick={onAccept}>
-								{isProcessing ? (
-									<>
-										<Spinner className="size-3" /> Accepting…
-									</>
-								) : (
-									"Accept"
-								)}
-							</Button>
+						<SheetFooter className="border-t px-6 py-5">
+							<div className="flex w-full gap-3">
+								<Button
+									variant="outline"
+									className="text-destructive hover:bg-destructive hover:text-destructive-foreground flex-1 transition-all hover:shadow-md"
+									disabled={isProcessing}
+									onClick={() => setIsRejectDialogOpen(true)}
+								>
+									Reject
+								</Button>
+								<Button
+									className="flex-1 shadow-md transition-all hover:shadow-lg"
+									disabled={isProcessing}
+									onClick={onAccept}
+								>
+									{isProcessing ? (
+										<>
+											<Spinner className="size-4" /> Accepting…
+										</>
+									) : (
+										"Accept"
+									)}
+								</Button>
+							</div>
 						</SheetFooter>
 					) : null}
 				</SheetContent>

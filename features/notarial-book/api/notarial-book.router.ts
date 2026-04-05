@@ -2,6 +2,8 @@ import { TRPCError } from "@trpc/server"
 import { and, asc, count, desc, eq, ilike, inArray, isNotNull, or } from "drizzle-orm"
 import { z } from "zod/v4"
 
+import { getFullName } from "@/core/lib/utils"
+import { env } from "@/env"
 import { appointmentParticipants } from "@/services/drizzle/schema/appointment-participants"
 import { appointments } from "@/services/drizzle/schema/appointments"
 import { users } from "@/services/drizzle/schema/auth"
@@ -362,14 +364,15 @@ export const notarialBookRouter = createTRPCRouter({
 			const enpProfile = await ctx.db.query.enpProfiles.findFirst({
 				where: eq(enpProfiles.userId, userId),
 			})
+			const nfn = env.SUPREME_COURT_NFN
 			if (
 				!enpProfile?.notaryPublicNumber ||
-				!enpProfile?.notaryFacilityNumber ||
+				!nfn ||
 				!enpProfile?.rollNo
 			) {
 				throw new TRPCError({
 					code: "PRECONDITION_FAILED",
-					message: "ENP profile missing NPN, NFN, or RN",
+					message: "ENP profile missing NPN or RN, or SUPREME_COURT_NFN not set",
 				})
 			}
 
@@ -395,7 +398,7 @@ export const notarialBookRouter = createTRPCRouter({
 
 			const result = await syncNotarialActToSupremeCourt({
 				act,
-				notaryFacilityNumber: enpProfile.notaryFacilityNumber,
+				notaryFacilityNumber: nfn,
 				notaryPublicNumber: enpProfile.notaryPublicNumber,
 				rollNumber: enpProfile.rollNo,
 				documentFile,
@@ -709,42 +712,69 @@ export const notarialBookRouter = createTRPCRouter({
 				})
 			}
 
-			// Resolve meetingId for witness enrichment (we show Witness from participantRole)
-			let meetingIdForWitness: string | null = null
-			if (act.documentId) {
-				const doc = await ctx.db.query.documents.findFirst({
-					where: eq(documents.id, act.documentId),
-					columns: { meetingId: true },
-				})
-				meetingIdForWitness = doc?.meetingId ?? null
-			}
-
+			// Witness/principal from document_signers (assigned by ENP when adding signers), not from invite/participantRole
 			const witnessEmails = new Set<string>()
-			if (meetingIdForWitness) {
-				const appointment = await ctx.db.query.appointments.findFirst({
-					where: eq(appointments.meetingId, meetingIdForWitness),
+			const principalEmails = new Set<string>()
+			const enpEmailLower =
+				typeof notarialBook?.enpId === "string"
+					? (
+							(
+								await ctx.db.query.users.findFirst({
+									where: eq(users.id, notarialBook.enpId),
+									columns: { email: true },
+								})
+							)?.email ?? ""
+						)
+							.trim()
+							.toLowerCase()
+					: ""
+			if (act.documentId) {
+				const docSignersForRole = await ctx.db.query.documentSigners.findMany({
+					where: and(
+						eq(documentSigners.documentId, act.documentId),
+						eq(documentSigners.signerRole, "witness")
+					),
+					with: { user: { columns: { email: true } } },
 				})
+				for (const ds of docSignersForRole) {
+					if (ds.user?.email) witnessEmails.add(ds.user.email.trim().toLowerCase())
+				}
 
-				if (appointment) {
-					const witnessParticipants = await ctx.db.query.appointmentParticipants.findMany({
-						where: and(
-							eq(appointmentParticipants.appointmentId, appointment.id),
-							eq(appointmentParticipants.participantRole, "PARTICIPANT")
-						),
-						with: { user: { columns: { email: true } } },
-					})
-					for (const p of witnessParticipants) {
-						if (p.user?.email) witnessEmails.add(p.user.email.trim().toLowerCase())
-					}
+				const principalDocSigners = await ctx.db.query.documentSigners.findMany({
+					where: and(
+						eq(documentSigners.documentId, act.documentId),
+						eq(documentSigners.signerRole, "principal")
+					),
+					with: { user: { columns: { email: true } } },
+				})
+				for (const ds of principalDocSigners) {
+					if (ds.user?.email) principalEmails.add(ds.user.email.trim().toLowerCase())
 				}
 			}
 
-			const enrichSignerRole = (s: ActSigner) => ({
-				...s,
-				signerRole: witnessEmails.has((s.email ?? "").trim().toLowerCase())
-					? "Witness"
-					: (s.signerRole ?? "Signer"),
-			})
+			const enrichSignerRole = (s: ActSigner) => {
+				const emailLower = (s.email ?? "").trim().toLowerCase()
+				const baseRole = (s.signerRole ?? "Signer").trim()
+
+				// ENP is always the Notary in notarial registry context.
+				if (emailLower && enpEmailLower && emailLower === enpEmailLower) {
+					return { ...s, signerRole: "Notary" }
+				}
+
+				// Principal(s) for this document (can be principal or witness during session, but principal here).
+				if (principalEmails.has(emailLower)) {
+					return { ...s, signerRole: "Principal" }
+				}
+
+				// Only use our own witness mapping from document_signers; ignore upstream signerRole
+				// so ENP (notary) never incorrectly appears as a Witness.
+				if (witnessEmails.has(emailLower)) {
+					return { ...s, signerRole: "Witness" }
+				}
+
+				// Fall back to the original (or generic) signer role.
+				return { ...s, signerRole: baseRole || "Signer" }
+			}
 
 			// Return stored signers if we have them (avoids 401 when no meeting/project token)
 			if (act.signersData && typeof act.signersData === "string") {
@@ -829,7 +859,7 @@ export const notarialBookRouter = createTRPCRouter({
 					const signersFromDb = await Promise.all(
 						docSigners.map(async (ds, idx) => {
 							const email = ds.user?.email?.trim() ?? ""
-							const nameParts = (ds.signerName ?? ds.user?.name ?? "").trim().split(/\s+/)
+							const nameParts = (ds.signerName ?? getFullName(ds.user) ?? "").trim().split(/\s+/)
 							const firstName = nameParts[0] ?? ""
 							const lastName = nameParts.slice(1).join(" ") || ""
 
@@ -864,7 +894,12 @@ export const notarialBookRouter = createTRPCRouter({
 								status,
 								signedAt,
 								sequence: ds.signingOrder ?? idx + 1,
-								signerRole: "Signer",
+								signerRole:
+									ds.signerRole === "witness"
+										? "Witness"
+										: ds.signerRole === "principal"
+											? "Principal"
+											: "Signer",
 								homeStreet: ds.user?.homeStreet ?? null,
 								barangay: ds.user?.barangay ?? null,
 								cityProvince: ds.user?.cityProvince ?? null,
@@ -923,7 +958,7 @@ export const notarialBookRouter = createTRPCRouter({
 						requests.map(async (req, idx) => {
 							const u = req.signer
 							const email = u?.email?.trim() ?? ""
-							const nameParts = (u?.name ?? "").trim().split(/\s+/)
+							const nameParts = getFullName(u).trim().split(/\s+/)
 							const firstName = nameParts[0] ?? ""
 							const lastName = nameParts.slice(1).join(" ") ?? ""
 							const status = (req.status ?? "PENDING").toUpperCase()

@@ -1,0 +1,903 @@
+"use client"
+
+import React, {
+	useCallback,
+	useEffect,
+	useImperativeHandle,
+	useMemo,
+	useRef,
+	useState,
+} from "react"
+import {
+	CheckCircle2,
+	Clock,
+	FileText,
+	GripVertical,
+	Lock,
+	MessageSquare,
+	MoreVertical,
+	RefreshCw,
+	Unlock,
+} from "lucide-react"
+import { useSession } from "next-auth/react"
+import { usePubSub } from "@videosdk.live/react-sdk"
+
+import { Button } from "@/core/components/ui/button"
+import { Card, CardContent } from "@/core/components/ui/card"
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuTrigger,
+} from "@/core/components/ui/dropdown-menu"
+import { Input } from "@/core/components/ui/input"
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/core/components/ui/sheet"
+import { useIsMobile } from "@/core/hooks/use-mobile"
+import { cn } from "@/core/lib/utils"
+import { trpc } from "@/services/trpc/client"
+
+import {
+	getDocumentReorderTitle,
+	getMeetingLockToggleLabel,
+	MEETING_LOCK_BADGE_LABEL,
+} from "@/features/sessions/lib/meeting-lock-contract"
+
+import type { PreGeneratedLinkEntry } from "../../../../lib/utils"
+import { NotarizedDocumentMenuItem } from "../../notarized-document-menu-item"
+import { DocumentActions } from "./document-actions"
+
+type MeetingDocument = {
+	id: string
+	name: string
+	size: number
+	docoChainProjectId: string | null
+	status?: string | null
+	notarizationType?: string | null
+	fees?: number | null
+	signerUserIds?: string[]
+}
+const DOCUMENT_OVERLAY_BREAKPOINT = 900
+
+interface SigningStatus {
+	isFullySigned: boolean
+	signedCount: number
+	totalSigners: number
+	projectStatus?: string
+	completedAt?: string | null
+	signers: Array<{
+		id: number
+		email: string
+		firstName: string
+		lastName: string
+		status: string
+		signedAt: string | null
+		sequence: number
+		signerRole: string
+	}>
+}
+
+interface DocumentCardsProps {
+	meetingId: string | undefined
+	documents: MeetingDocument[]
+	sidePanel: "documents" | "chat" | null
+	onPanelOpenChange: (open: boolean) => void
+	isDocumentsFetching: boolean
+	isRefreshingSigningStatus: boolean
+	documentSigningStatus: Map<string, SigningStatus>
+	meetingDetails:
+		| {
+				isDocumentOrderLocked?: boolean
+				createdBy?: { id: string }
+				participants?: Array<{
+					userId: string
+					user: {
+						id: string
+						firstName?: string | null
+						middleName?: string | null
+						lastName?: string | null
+						/** Back-compat for older session payloads */
+						name?: string | null
+						email: string | null
+						role?: string | null
+					} | null
+				}>
+		  }
+		| null
+		| undefined
+	notarizationDetails:
+		| {
+				documents?: Array<{
+					id: string
+					signatureRequests?: Array<{
+						signerId: string
+						status: string
+						signedAt: string | Date | null
+					}>
+				}>
+		  }
+		| null
+		| undefined
+	signingDocumentId: string | null
+	isPlottingAction: boolean
+	downloadingProjectUuid: string | null
+	preGeneratedPlotLinks: Map<string, PreGeneratedLinkEntry>
+	preGeneratedSignLinks: Map<string, PreGeneratedLinkEntry>
+	userConfirmedPlottedDocumentIds: Set<string>
+	docoChainTokenReady: boolean
+	docoChainTokenLoading: boolean
+	onSignClick: (
+		projectUuid: string | null,
+		email: string,
+		documentId: string,
+		isPlotting?: boolean
+	) => Promise<void>
+	onSignersChange: (
+		documentId: string,
+		userIds: string[],
+		roles: Record<string, "principal" | "witness">
+	) => void
+	onCreateProject: (documentId: string, meetingId: string) => void
+	isCreatingProject: boolean
+	onPreGeneratedLink: (
+		documentId: string,
+		link: string,
+		projectUuid: string,
+		kind: "plot" | "sign",
+		cleanPlotUrl?: string
+	) => void
+	onViewNotarizedDocument: (projectUuid: string) => Promise<void>
+	onRefresh: () => Promise<void>
+	onToggleLock: (isLocked: boolean) => void
+	isTogglingLock: boolean
+	onUpdateDocumentOrder: (documentIds: string[]) => void
+	localParticipantId?: string | null
+}
+
+export interface DocumentCardsHandle {
+	getSidebarTarget: () => { x: number; y: number } | null
+}
+
+interface ChatPayload {
+	id: string
+	text: string
+	senderId: string | null
+	senderName: string
+	timestamp: number
+}
+
+interface ChatMessage extends ChatPayload {
+	isSelf: boolean
+}
+
+export const DocumentCards = React.memo(
+	React.forwardRef<DocumentCardsHandle, DocumentCardsProps>(function DocumentCards(
+		{
+			meetingId,
+			documents,
+			sidePanel,
+			onPanelOpenChange,
+			isDocumentsFetching,
+			isRefreshingSigningStatus,
+			documentSigningStatus,
+			meetingDetails,
+			notarizationDetails,
+			signingDocumentId,
+			isPlottingAction,
+			downloadingProjectUuid,
+			preGeneratedPlotLinks,
+			userConfirmedPlottedDocumentIds,
+			docoChainTokenReady,
+			docoChainTokenLoading,
+			onSignClick,
+			onSignersChange,
+			onCreateProject,
+			isCreatingProject,
+			onPreGeneratedLink,
+			onViewNotarizedDocument,
+			onRefresh,
+			onToggleLock,
+			isTogglingLock,
+			onUpdateDocumentOrder,
+			localParticipantId,
+		}: DocumentCardsProps,
+		ref: React.Ref<DocumentCardsHandle>
+	) {
+		const { data: session } = useSession()
+		const isMobile = useIsMobile()
+		const [isOverlayViewport, setIsOverlayViewport] = useState(false)
+
+		useEffect(() => {
+			const mediaQuery = window.matchMedia(`(max-width: ${DOCUMENT_OVERLAY_BREAKPOINT}px)`)
+			const onChange = () => setIsOverlayViewport(mediaQuery.matches)
+			onChange()
+			mediaQuery.addEventListener("change", onChange)
+			return () => mediaQuery.removeEventListener("change", onChange)
+		}, [])
+
+		const isPrincipal = meetingDetails?.createdBy?.id === session?.user?.id
+		const isLocked = meetingDetails?.isDocumentOrderLocked ?? false
+		const lockToggleTitle: string = !isPrincipal
+			? "Only the meeting creator can lock or unlock document uploads"
+			: getMeetingLockToggleLabel(Boolean(isLocked))
+		const reorderTitle: string = getDocumentReorderTitle()
+
+		const [draggedDocumentId, setDraggedDocumentId] = useState<string | null>(null)
+		const [dragOverDocumentId, setDragOverDocumentId] = useState<string | null>(null)
+		const drawerHeaderIconRef = useRef<HTMLDivElement>(null)
+		const showDocuments = sidePanel === "documents"
+		const isPanelOpen = sidePanel !== null
+
+		const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
+		const [chatInput, setChatInput] = useState("")
+
+		const currentUserName = session?.user?.name ?? "Someone"
+
+		const { data: persistedMessages, refetch: refetchMeetingMessages } =
+			trpc.meetings.getMeetingMessages.useQuery(
+				{ meetingId: meetingId ?? "" },
+				{
+					enabled: !!meetingId?.trim(),
+					refetchInterval: sidePanel === "chat" ? 3000 : false,
+				}
+			)
+		const sendMeetingMessageMutation = trpc.meetings.sendMeetingMessage.useMutation()
+
+		// Load latest messages as soon as the user opens the Messages panel
+		useEffect(() => {
+			if (sidePanel === "chat" && meetingId?.trim()) {
+				void refetchMeetingMessages()
+			}
+		}, [sidePanel, meetingId, refetchMeetingMessages])
+
+		useEffect(() => {
+			if (persistedMessages === undefined) return
+			setChatMessages(prev => {
+				const fromApi = persistedMessages ?? []
+				const ids = new Set(fromApi.map(m => m.id))
+				const extra = prev.filter(m => !ids.has(m.id))
+				const merged = [...fromApi, ...extra].sort((a, b) => a.timestamp - b.timestamp)
+				return merged
+			})
+		}, [persistedMessages])
+
+		const addIncomingMessage = useCallback((payload: ChatMessage) => {
+			setChatMessages(prev => {
+				if (prev.some(m => m.id === payload.id)) return prev
+				const next = [...prev, payload]
+				next.sort((a, b) => a.timestamp - b.timestamp)
+				return next
+			})
+		}, [])
+
+		const { publish: publishChatMessage } = usePubSub("MEETING_CHAT", {
+			onMessageReceived: (event: { message: unknown; senderId?: string; senderName?: string }) => {
+				let raw = event.message
+				if (raw !== null && typeof raw === "object" && "message" in raw) {
+					raw = (raw as { message: unknown }).message
+				}
+				const rawStr = typeof raw === "string" ? raw : String(raw ?? "")
+				if (!rawStr.trim()) return
+
+				const [kind, id, tsStr, ...textParts] = rawStr.split(":")
+				if (kind !== "CHAT" || !id) return
+
+				const text = textParts.join(":").trim()
+				if (!text) return
+
+				const timestamp = Number(tsStr) || Date.now()
+				const senderId = event.senderId ?? null
+				const senderName = event.senderName ?? "Someone"
+				const isSelf = !!localParticipantId && senderId === localParticipantId
+
+				addIncomingMessage({
+					id,
+					text,
+					senderId,
+					senderName,
+					timestamp,
+					isSelf,
+				})
+			},
+		})
+
+		const handleSendMessage = useCallback(() => {
+			const text = chatInput.trim()
+			if (!text || !meetingId?.trim()) return
+
+			const pendingId = `pending-${Date.now()}-${Math.random().toString(16).slice(2)}`
+			const now = Date.now()
+			setChatMessages(prev => [
+				...prev,
+				{
+					id: pendingId,
+					text,
+					senderId: localParticipantId ?? null,
+					senderName: currentUserName,
+					timestamp: now,
+					isSelf: true,
+				},
+			])
+			setChatInput("")
+
+			sendMeetingMessageMutation.mutate(
+				{ meetingId, content: text },
+				{
+					onSuccess: (msg) => {
+						setChatMessages(prev => {
+							const withoutPending = prev.filter(m => !m.id.startsWith("pending-"))
+							withoutPending.push({
+								id: msg.id,
+								text: msg.text,
+								senderId: msg.senderId,
+								senderName: msg.senderName,
+								timestamp: msg.timestamp,
+								isSelf: true,
+							})
+							withoutPending.sort((a, b) => a.timestamp - b.timestamp)
+							return withoutPending
+						})
+						try {
+							publishChatMessage(`CHAT:${msg.id}:${msg.timestamp}:${msg.text}`, { persist: false })
+						} catch {
+							// ignore
+						}
+					},
+					onError: () => {
+						setChatMessages(prev => prev.filter(m => m.id !== pendingId))
+					},
+				}
+			)
+		}, [
+			chatInput,
+			meetingId,
+			currentUserName,
+			localParticipantId,
+			publishChatMessage,
+			sendMeetingMessageMutation,
+		])
+
+		useImperativeHandle(ref, () => ({
+			getSidebarTarget: () => {
+				const el = drawerHeaderIconRef.current
+				if (!el) return null
+				const rect = el.getBoundingClientRect()
+				return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }
+			},
+		}))
+
+		const handleDragStart = useCallback((e: React.DragEvent, documentId: string) => {
+			const target = e.target as HTMLElement
+			if (target.closest("button") || target.closest("a") || target.closest('[role="button"]')) {
+				e.preventDefault()
+				return
+			}
+			setDraggedDocumentId(documentId)
+			e.dataTransfer.effectAllowed = "move"
+			e.dataTransfer.setData("text/plain", documentId)
+		}, [])
+
+		const handleDragEnter = useCallback(
+			(e: React.DragEvent, targetDocumentId: string) => {
+				e.preventDefault()
+				if (!draggedDocumentId || targetDocumentId === draggedDocumentId) return
+				setDragOverDocumentId(targetDocumentId)
+			},
+			[draggedDocumentId]
+		)
+
+		const handleDragLeave = useCallback((e: React.DragEvent) => {
+			e.preventDefault()
+			const relatedTarget = e.relatedTarget as HTMLElement
+			if (!relatedTarget || !e.currentTarget.contains(relatedTarget)) {
+				setDragOverDocumentId(null)
+			}
+		}, [])
+
+		const handleDragOver = useCallback(
+			(e: React.DragEvent, targetDocumentId: string) => {
+				e.preventDefault()
+				e.dataTransfer.dropEffect = "move"
+				if (draggedDocumentId && targetDocumentId !== draggedDocumentId) {
+					setDragOverDocumentId(targetDocumentId)
+				}
+			},
+			[draggedDocumentId]
+		)
+
+		const handleDrop = useCallback(
+			(e: React.DragEvent, targetDocumentId: string) => {
+				e.preventDefault()
+				setDragOverDocumentId(null)
+
+				if (!draggedDocumentId || !documents) {
+					setDraggedDocumentId(null)
+					return
+				}
+
+				const sourceIndex = documents.findIndex(doc => doc.id === draggedDocumentId)
+				const targetIndex = documents.findIndex(doc => doc.id === targetDocumentId)
+
+				if (sourceIndex === -1 || targetIndex === -1 || sourceIndex === targetIndex) {
+					setDraggedDocumentId(null)
+					return
+				}
+
+				const newOrder = [...documents]
+				const removed = newOrder.splice(sourceIndex, 1)[0]
+				if (!removed) {
+					setDraggedDocumentId(null)
+					return
+				}
+				newOrder.splice(targetIndex, 0, removed)
+				onUpdateDocumentOrder(newOrder.map(doc => doc.id))
+				setDraggedDocumentId(null)
+			},
+			[documents, draggedDocumentId, onUpdateDocumentOrder]
+		)
+
+		const handleDragEnd = useCallback(() => {
+			setDraggedDocumentId(null)
+			setDragOverDocumentId(null)
+		}, [])
+
+		const notarizationDocs = useMemo(
+			() =>
+				Array.isArray((notarizationDetails as { documents?: unknown })?.documents)
+					? (
+							notarizationDetails as {
+								documents: Array<{ id?: unknown; signatureRequests?: unknown }>
+							}
+						).documents
+					: [],
+			[notarizationDetails]
+		)
+
+		const totalFees = useMemo(
+			() =>
+				documents.reduce((sum, doc) => {
+					const fees = doc.fees
+					const hasValidFees =
+						fees !== null && fees !== undefined && typeof fees === "number" && !Number.isNaN(fees)
+					return hasValidFees ? sum + fees : sum
+				}, 0),
+			[documents]
+		)
+
+		const panelContent = (
+			<>
+				<div
+					className={cn(
+						"flex shrink-0 items-center border-b",
+						showDocuments ? "px-4 py-3" : "px-5 py-4"
+					)}
+				>
+					<div className="flex min-w-0 flex-wrap items-center gap-2">
+						<div
+							ref={drawerHeaderIconRef}
+							className={cn(
+								"bg-primary/10 flex shrink-0 items-center justify-center rounded-lg",
+								showDocuments ? "size-8" : "size-9"
+							)}
+						>
+							{showDocuments ? (
+								<FileText className="text-primary size-4" />
+							) : (
+								<MessageSquare className="text-primary size-5" />
+							)}
+						</div>
+						<span
+							className={cn(
+								"truncate font-semibold",
+								showDocuments ? "text-sm" : "text-base"
+							)}
+						>
+							{showDocuments ? `Documents (${documents.length})` : "Messages"}
+						</span>
+						{isLocked && (
+							<div className="flex shrink-0 items-center gap-1 rounded-full border border-amber-300 bg-amber-100 px-2 py-0.5 dark:border-amber-700 dark:bg-amber-900/30">
+								<Lock className="size-2.5 text-amber-700 dark:text-amber-400" />
+								<span className="text-[10px] font-semibold text-amber-700 dark:text-amber-400">
+									{MEETING_LOCK_BADGE_LABEL}
+								</span>
+							</div>
+						)}
+
+						<Button
+							variant="ghost"
+							size="sm"
+							onClick={() => {
+								if (isPrincipal && meetingId) onToggleLock(!isLocked)
+							}}
+							disabled={!isPrincipal || isTogglingLock}
+							className={cn(
+								"h-7 w-7 p-0",
+								isLocked && "text-amber-600 hover:text-amber-700 dark:text-amber-400",
+								!isPrincipal && "cursor-not-allowed opacity-40"
+							)}
+							title={lockToggleTitle}
+						>
+							{isLocked ? <Lock className="size-3.5" /> : <Unlock className="size-3.5" />}
+						</Button>
+
+						<Button
+							variant="ghost"
+							size="sm"
+							onClick={onRefresh}
+							disabled={isDocumentsFetching || isRefreshingSigningStatus}
+							className="h-7 w-7 p-0"
+							title="Refresh documents"
+						>
+							<RefreshCw
+								className={cn(
+									"size-3.5",
+									(isDocumentsFetching || isRefreshingSigningStatus) && "animate-spin"
+								)}
+							/>
+						</Button>
+					</div>
+				</div>
+				{showDocuments ? (
+					<>
+						<div className="flex min-h-0 flex-1 flex-col overflow-hidden p-3">
+							{documents.length === 0 ? (
+								<div className="flex min-h-0 flex-1 items-center justify-center p-3">
+									<p className="text-muted-foreground text-sm">No Documents Uploaded yet</p>
+								</div>
+							) : (
+								<div className="space-y-3 overflow-y-auto [scrollbar-color:transparent_transparent] [scrollbar-width:thin] hover:[scrollbar-color:rgba(148,163,184,0.45)_transparent] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-transparent hover:[&::-webkit-scrollbar-thumb]:bg-white/25 [&::-webkit-scrollbar-track]:bg-transparent">
+									{documents.map((doc, index) => {
+									const isDragged = draggedDocumentId === doc.id
+									const isDragOver = dragOverDocumentId === doc.id
+
+									const previousDoc = index > 0 ? documents[index - 1] : null
+
+									const previousInternalRequests = Array.isArray(
+										notarizationDocs.find(d => d?.id === previousDoc?.id)?.signatureRequests
+									)
+										? (notarizationDocs.find(d => d?.id === previousDoc?.id)
+												?.signatureRequests as Array<{
+												signerId?: unknown
+												status?: unknown
+											}>)
+										: []
+
+									const previousSignerUserIds = Array.isArray(
+										(previousDoc as { signerUserIds?: unknown })?.signerUserIds
+									)
+										? (previousDoc as { signerUserIds: string[] }).signerUserIds.filter(
+												v => typeof v === "string" && v.trim()
+											)
+										: []
+
+									const prevStatusBySignerId = new Map<string, string>()
+									for (const req of previousInternalRequests) {
+										const id = typeof req?.signerId === "string" ? req.signerId.trim() : ""
+										if (!id) continue
+										prevStatusBySignerId.set(
+											id,
+											typeof req?.status === "string" ? req.status.toUpperCase() : ""
+										)
+									}
+
+									const previousIsInternallySigned =
+										previousSignerUserIds.length > 0 &&
+										previousSignerUserIds.every(id => {
+											const s = prevStatusBySignerId.get(id)
+											return s === "SIGNED" || s === "COMPLETED"
+										})
+
+									const previousSigningStatus = previousDoc?.docoChainProjectId
+										? documentSigningStatus.get(previousDoc.id)
+										: undefined
+
+									const previousIsExternallySigned =
+										previousSigningStatus?.isFullySigned === true ||
+										((previousSigningStatus?.totalSigners ?? 0) > 0 &&
+											(previousSigningStatus?.signedCount ?? 0) ===
+												(previousSigningStatus?.totalSigners ?? 0) &&
+											(previousSigningStatus?.signedCount ?? 0) > 0)
+
+									const isPreviousDocumentSigned =
+										!previousDoc || previousIsInternallySigned || previousIsExternallySigned
+
+									const signingStatus = doc.docoChainProjectId
+										? documentSigningStatus.get(doc.id)
+										: undefined
+
+									const isFullySigned =
+										signingStatus?.isFullySigned === true ||
+										((signingStatus?.totalSigners ?? 0) > 0 &&
+											(signingStatus?.signedCount ?? 0) === (signingStatus?.totalSigners ?? 0) &&
+											(signingStatus?.signedCount ?? 0) > 0) ||
+										false
+
+									const isDownloadingSigned =
+										!!doc.docoChainProjectId && downloadingProjectUuid === doc.docoChainProjectId
+
+									const docSignerUserIds = (doc as { signerUserIds?: string[] }).signerUserIds ?? []
+
+									return (
+										<Card
+											key={doc.id}
+											style={{
+												opacity: isDragged ? 0.5 : 1,
+												transform: isDragged
+													? "scale(0.97)"
+													: isDragOver
+														? "scale(1.02)"
+														: "scale(1)",
+												transition: isDragged
+													? "opacity 0.2s ease-out, transform 0.2s ease-out"
+													: "all 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
+												zIndex: isDragged ? 50 : isDragOver ? 10 : 1,
+											}}
+											className={cn(
+												"relative border-2 shadow-sm transition-shadow",
+												isDragged
+													? "cursor-grabbing shadow-xl"
+													: "hover:border-primary/40 hover:shadow-md",
+												isDragOver && !isDragged && "border-primary bg-primary/5 shadow-lg"
+											)}
+											onDragEnter={e => handleDragEnter(e, doc.id)}
+											onDragLeave={handleDragLeave}
+											onDragOver={e => handleDragOver(e, doc.id)}
+											onDrop={e => handleDrop(e, doc.id)}
+										>
+											{doc.docoChainProjectId && (
+												<div className="absolute top-2 right-2 z-10 flex items-center gap-1">
+													{signingStatus ? (
+														isFullySigned ? (
+															<div className="flex items-center gap-1 rounded-full bg-green-100 px-1.5 py-0.5 dark:bg-green-900/30">
+																<CheckCircle2 className="size-2.5 text-green-600 dark:text-green-400" />
+																<span className="text-[9px] font-semibold text-green-700 dark:text-green-400">
+																	Signed
+																</span>
+															</div>
+														) : (signingStatus.signedCount ?? 0) > 0 ? (
+															<div className="flex items-center gap-1 rounded-full bg-yellow-100 px-1.5 py-0.5 dark:bg-yellow-900/30">
+																<Clock className="size-2.5 text-yellow-600 dark:text-yellow-400" />
+																<span className="text-[9px] font-semibold text-yellow-700 dark:text-yellow-400">
+																	{signingStatus.signedCount}/{signingStatus.totalSigners}
+																</span>
+															</div>
+														) : (
+															<div className="flex items-center gap-1 rounded-full bg-gray-100 px-1.5 py-0.5 dark:bg-gray-800">
+																<Clock className="size-2.5 text-gray-500 dark:text-gray-400" />
+																<span className="text-[9px] font-semibold text-gray-600 dark:text-gray-400">
+																	Pending
+																</span>
+															</div>
+														)
+													) : null}
+
+													<DropdownMenu>
+														<DropdownMenuTrigger asChild>
+															<Button
+																variant="ghost"
+																size="icon"
+																className="h-6 w-6 rounded-full bg-black/5 hover:bg-black/10 dark:bg-white/5 dark:hover:bg-white/10"
+																title="More actions"
+															>
+																<MoreVertical className="size-3" />
+															</Button>
+														</DropdownMenuTrigger>
+														<DropdownMenuContent align="end" sideOffset={6} className="min-w-44">
+															<NotarizedDocumentMenuItem
+																projectUuid={doc.docoChainProjectId}
+																isOpening={isDownloadingSigned}
+																onOpen={onViewNotarizedDocument}
+															/>
+														</DropdownMenuContent>
+													</DropdownMenu>
+												</div>
+											)}
+
+											<CardContent className="p-3">
+												<div className="mb-3 flex items-start gap-2">
+													<div
+														className={cn(
+															"mt-1 shrink-0 transition-colors",
+															"text-muted-foreground hover:text-primary cursor-move"
+														)}
+														draggable
+														onDragStart={e => handleDragStart(e, doc.id)}
+														onDragEnd={handleDragEnd}
+														title={reorderTitle}
+													>
+														<GripVertical className="size-4" />
+													</div>
+
+													<div className="bg-primary/10 mt-0.5 shrink-0 rounded-md p-2">
+														<FileText className="text-primary size-4" />
+													</div>
+
+													<div className="min-w-0 flex-1">
+														<div className="flex items-center gap-2">
+															<p
+																className="truncate text-sm leading-tight font-semibold"
+																title={doc.name}
+															>
+																{doc.name}
+															</p>
+															{(() => {
+																const fees = doc.fees
+																const showFees =
+																	fees !== null &&
+																	fees !== undefined &&
+																	typeof fees === "number" &&
+																	!Number.isNaN(fees)
+																return showFees ? (
+																	<span className="text-muted-foreground shrink-0 text-xs font-semibold">
+																		PHP {fees.toFixed(2)}
+																	</span>
+																) : null
+															})()}
+														</div>
+														<p className="text-muted-foreground mt-0.5 text-xs">
+															{(doc.size / 1024).toFixed(1)} KB · PDF
+														</p>
+														{doc.notarizationType && (
+															<p className="text-muted-foreground mt-0.5 text-xs font-medium">
+																{(() => {
+																	switch (doc.notarizationType) {
+																		case "ACKNOWLEDGMENT":
+																			return "Acknowledgment"
+																		case "AFFIRMATION":
+																			return "Affirmation"
+																		case "JURAT":
+																			return "Jurat"
+																		case "SIGNATURE_WITNESSING":
+																			return "Signature Witnessing"
+																		default:
+																			return doc.notarizationType
+																	}
+																})()}
+															</p>
+														)}
+													</div>
+												</div>
+
+												<DocumentActions
+													document={doc}
+													onSignClick={onSignClick}
+													onSignersChange={onSignersChange}
+													isSigningPending={signingDocumentId === doc.id}
+													isPlottingAction={signingDocumentId === doc.id ? isPlottingAction : false}
+													isLocked={isLocked}
+													isPreviousDocumentSigned={isPreviousDocumentSigned}
+													documentIndex={index}
+													signers={documentSigningStatus.get(doc.id)?.signers}
+													signatureRequests={
+														(notarizationDocs.find(d => d?.id === doc.id)?.signatureRequests ??
+															[]) as Array<{
+															id: string
+															signerId: string
+															status: string
+															signedAt: string | Date | null
+														}>
+													}
+													participants={meetingDetails?.participants ?? []}
+													signerUserIds={docSignerUserIds}
+													signerRoles={
+														(doc as { signerRoles?: Record<string, "principal" | "witness"> })
+															.signerRoles
+													}
+													meetingId={meetingId}
+													onCreateProject={onCreateProject}
+													isCreatingProject={isCreatingProject}
+													docoChainTokenReady={docoChainTokenReady}
+													docoChainTokenLoading={docoChainTokenLoading}
+													onPreGeneratedLink={onPreGeneratedLink}
+													plotLinkReady={!!preGeneratedPlotLinks.get(doc.id)?.link}
+													userConfirmedPlottedDocumentIds={userConfirmedPlottedDocumentIds}
+												/>
+											</CardContent>
+										</Card>
+									)
+									})}
+								</div>
+							)}
+						</div>
+
+						{totalFees > 0 && (
+							<div className="bg-muted/30 shrink-0 border-t px-3 py-2.5">
+								<div className="flex items-center justify-between">
+									<span className="text-muted-foreground text-sm">Total Fees</span>
+									<span className="text-sm font-bold">PHP {totalFees.toFixed(2)}</span>
+								</div>
+							</div>
+						)}
+					</>
+				) : (
+					<div className="flex min-h-0 flex-1 flex-col">
+						<div className="flex-1 space-y-5 overflow-y-auto p-3 [scrollbar-color:transparent_transparent] [scrollbar-width:thin] hover:[scrollbar-color:rgba(148,163,184,0.45)_transparent] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-transparent hover:[&::-webkit-scrollbar-thumb]:bg-white/25 [&::-webkit-scrollbar-track]:bg-transparent">
+							{chatMessages.length === 0 ? (
+								<div className="text-muted-foreground flex h-full items-center justify-center px-4 py-8 text-sm">
+									No messages yet. Start the conversation.
+								</div>
+							) : (
+								chatMessages.map(message => (
+									<div
+										key={message.id}
+										className={cn(
+											"flex text-sm",
+											message.isSelf ? "justify-end" : "justify-start"
+										)}
+									>
+										<div
+											className={cn(
+												"max-w-[88%] rounded-xl px-3.5 py-2 shadow-sm",
+												message.isSelf
+													? "bg-primary text-primary-foreground rounded-br-sm"
+													: "bg-muted text-foreground rounded-bl-sm"
+											)}
+										>
+											<p className="mb-0.5 text-xs font-semibold opacity-90">
+												{message.isSelf ? "You" : message.senderName}
+											</p>
+											<p className="break-words text-[13px] leading-snug">{message.text}</p>
+										</div>
+									</div>
+								))
+							)}
+						</div>
+						<div className="flex items-center gap-2 border-t border-border px-3 py-2.5">
+							<Input
+								placeholder="Type a message"
+								value={chatInput}
+								onChange={e => setChatInput(e.target.value)}
+								onKeyDown={e => {
+									if (e.key === "Enter" && !e.shiftKey) {
+										e.preventDefault()
+										handleSendMessage()
+									}
+								}}
+								className="min-h-9 flex-1 py-2 text-sm"
+							/>
+							<Button
+								size="sm"
+								disabled={!chatInput.trim()}
+								onClick={handleSendMessage}
+								className="h-9 shrink-0 px-3 text-sm"
+							>
+								Send
+							</Button>
+						</div>
+					</div>
+				)}
+			</>
+		)
+
+		if (isMobile || isOverlayViewport) {
+			return (
+				<Sheet open={isPanelOpen} onOpenChange={open => onPanelOpenChange(open)}>
+					<SheetContent side="right" className="w-[24rem] p-0">
+						<SheetHeader className="sr-only">
+							<SheetTitle>Meeting Side Panel</SheetTitle>
+						</SheetHeader>
+						<div className="bg-sidebar text-sidebar-foreground flex h-full flex-col">
+							{panelContent}
+						</div>
+					</SheetContent>
+				</Sheet>
+			)
+		}
+
+		return (
+			<div
+				className={cn(
+					"hidden h-full shrink-0 overflow-hidden pt-3 pb-1.5 transition-[width,padding,opacity] duration-300 ease-in-out md:flex md:min-h-0 md:flex-col md:pt-4 md:pb-2 lg:pt-6 lg:pb-3",
+					isPanelOpen ? "w-[24rem] pr-3 opacity-100 md:pr-4 lg:pr-6" : "w-0 pr-0 opacity-0"
+				)}
+			>
+				<div
+					className={cn(
+						"bg-sidebar text-sidebar-foreground border-border/70 flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border shadow-lg transition-transform duration-300 ease-in-out",
+						isPanelOpen ? "translate-x-0" : "translate-x-6"
+					)}
+				>
+					{panelContent}
+				</div>
+			</div>
+		)
+	})
+)

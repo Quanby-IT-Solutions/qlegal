@@ -34,6 +34,57 @@ function base64ToBlob(base64OrDataUrl: string, mimeType = "image/jpeg"): Blob {
 	return new Blob([byteArray], { type: mimeType })
 }
 
+const GENERIC_ERROR = "Verification failed. Please try again."
+
+/**
+ * Parses HyperVerge API error response and returns a user-facing message.
+ * Logs raw response for support; never exposes raw JSON or codes to the client.
+ */
+function parseHyperVergeErrorForUser(responseText: string): string {
+	try {
+		const raw = JSON.parse(responseText) as {
+			result?: {
+				error?: string
+				summary?: { details?: Array<{ code?: string; message?: string }> }
+			}
+		}
+		const result = raw?.result
+		if (!result) return GENERIC_ERROR
+
+		const errorStr = (result.error ?? "").trim().toLowerCase()
+		const details = result.summary?.details
+		const firstCode = details?.[0]?.code?.trim()
+		const firstMessage = details?.[0]?.message?.trim()
+
+		// Known readId / document errors
+		if (
+			errorStr.includes("document not detected") ||
+			firstCode === "114"
+		) {
+			return "We couldn't detect a valid ID document in the photo. Please ensure the full document is visible, well lit, and not blurry, then try again."
+		}
+		// Code 113: document type/country not supported (e.g. when fallback India API is used and only supports a subset)
+		if (errorStr.includes("document not supported") || firstCode === "113") {
+			return "This document type isn't supported by the current verification service. Try using a Passport if you have one, or try again later. If the issue continues, the main verification server may be temporarily unavailable."
+		}
+		if (errorStr.includes("blur") || firstMessage?.toLowerCase().includes("blur")) {
+			return "The photo is too blurry. Please hold the document steady and ensure it's in focus, then try again."
+		}
+		if (errorStr.includes("face") && (errorStr.includes("match") || errorStr.includes("detect"))) {
+			return "We couldn't verify your face. Please ensure your face is clearly visible and matches the ID photo, then try again."
+		}
+
+		// Use first detail message only if it looks user-safe (short, no technical IDs)
+		if (firstMessage && firstMessage.length < 120 && !/[\w-]{8,}-[\w-]{4,}-[\w-]{4,}-[\w-]{4,}-[\w-]{12,}/.test(firstMessage)) {
+			return firstMessage
+		}
+
+		return GENERIC_ERROR
+	} catch {
+		return GENERIC_ERROR
+	}
+}
+
 export type HyperVergeSummaryAction = "pass" | "fail" | "manualReview"
 
 export interface HyperVergeApiSummary {
@@ -103,6 +154,8 @@ export async function readIdCard(config: {
 		})
 	} catch (networkErr) {
 		console.warn("⚠️ Primary readId failed (network)", networkErr)
+		// Fallback is India endpoint (ind.idv.hyperverge.co); it may return 423 "Document Not Supported"
+		// for country/document combinations it doesn't support (e.g. non-India IDs).
 		response = await fetch(urlFallback, {
 			method: "POST",
 			headers: {
@@ -116,7 +169,8 @@ export async function readIdCard(config: {
 
 	const responseText = await response.text()
 	if (!response.ok) {
-		throw new Error(`HyperVerge readId API error: ${response.status} - ${responseText}`)
+		console.warn("HyperVerge readId API error (raw for support):", response.status, responseText)
+		throw new Error(parseHyperVergeErrorForUser(responseText))
 	}
 
 	const parsed = JSON.parse(responseText) as HyperVergeReadIdResponse
@@ -195,7 +249,8 @@ export async function matchFaceSelfieToId(config: {
 
 	const responseText = await response.text()
 	if (!response.ok) {
-		throw new Error(`HyperVerge matchFace API error: ${response.status} - ${responseText}`)
+		console.warn("HyperVerge matchFace API error (raw for support):", response.status, responseText)
+		throw new Error(parseHyperVergeErrorForUser(responseText))
 	}
 
 	const parsed = JSON.parse(responseText) as HyperVergeMatchFaceResponse

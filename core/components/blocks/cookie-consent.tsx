@@ -218,7 +218,7 @@ const CookieConsent = React.forwardRef<HTMLDivElement, CookieConsentProps>(
 			onDeclineCallback,
 			className,
 			description = DEFAULT_DESCRIPTION,
-			learnMoreHref = "/privacy-policy",
+			learnMoreHref = "/auth/privacy-policy",
 			...props
 		},
 		ref

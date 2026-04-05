@@ -1,6 +1,7 @@
 import { and, count, desc, eq, gte, inArray, isNotNull, or, sql } from "drizzle-orm"
 import { z } from "zod/v4"
 
+import { getFullName } from "@/core/lib/utils"
 import { appointmentParticipants } from "@/services/drizzle/schema/appointment-participants"
 import { appointments } from "@/services/drizzle/schema/appointments"
 import { users } from "@/services/drizzle/schema/auth"
@@ -294,7 +295,7 @@ export const dashboardRouter = createTRPCRouter({
 			const userId = ctx.session.user.id
 
 			// Show meetings the user is an ACCEPTED participant of (not just meetings they created)
-			const recentMeetings = await ctx.db
+			const rows = await ctx.db
 				.select({
 					id: meetings.id,
 					title: appointments.title,
@@ -302,7 +303,9 @@ export const dashboardRouter = createTRPCRouter({
 					status: appointments.status,
 					createdAt: meetings.createdAt,
 					createdById: appointments.userId,
-					creatorName: users.name,
+					creatorFirstName: users.firstName,
+					creatorMiddleName: users.middleName,
+					creatorLastName: users.lastName,
 					creatorEmail: users.email,
 					creatorImage: users.image,
 				})
@@ -320,7 +323,21 @@ export const dashboardRouter = createTRPCRouter({
 				.orderBy(desc(appointments.createdAt))
 				.limit(input?.limit ?? 5)
 
-			return recentMeetings
+			return rows.map(r => ({
+				id: r.id,
+				title: r.title,
+				roomId: r.roomId,
+				status: r.status,
+				createdAt: r.createdAt,
+				createdById: r.createdById,
+				creatorName: getFullName({
+					firstName: r.creatorFirstName,
+					middleName: r.creatorMiddleName,
+					lastName: r.creatorLastName,
+				}),
+				creatorEmail: r.creatorEmail,
+				creatorImage: r.creatorImage,
+			}))
 		}),
 
 	// Get pending meeting invites for current user

@@ -15,8 +15,6 @@ import { cn } from "@/core/lib/utils"
 
 import { LoginForm } from "@/features/auth/components/forms/form.login"
 
-import { env } from "@/env"
-
 export default async function LoginPage({
 	searchParams,
 }: {

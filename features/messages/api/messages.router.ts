@@ -1,11 +1,14 @@
 import { on } from "node:events"
 import { tracked, TRPCError } from "@trpc/server"
 import { and, asc, desc, eq, gt, ne, or, sql } from "drizzle-orm"
+import { getFullName } from "@/core/lib/utils"
 import { z } from "zod/v4"
 
+import { env } from "@/env"
 import { db } from "@/services/drizzle/db"
 import { appointments } from "@/services/drizzle/schema/appointments"
 import { users } from "@/services/drizzle/schema/auth"
+import { enpProfiles } from "@/services/drizzle/schema/enp-profiles"
 import {
 	conversationParticipants,
 	conversations,
@@ -19,6 +22,21 @@ import {
 	messagesEmitter,
 	type MessageWithSender,
 } from "@/features/messages/lib/messages.emitter"
+
+function resolveAvatarUrl(image: string | null | undefined): string | null {
+	if (!image) return null
+	if (image.startsWith("http")) return image
+
+	const baseUrl = env.NEXT_PUBLIC_SUPABASE_URL
+	if (!baseUrl) return image
+
+	const normalizedPath = image
+		.split("/")
+		.map(segment => encodeURIComponent(segment))
+		.join("/")
+
+	return `${baseUrl}/storage/v1/object/public/avatar/${normalizedPath}`
+}
 
 export const messagesRouter = createTRPCRouter({
 	// Get all conversations for current user
@@ -37,6 +55,8 @@ export const messagesRouter = createTRPCRouter({
 										name: true,
 										email: true,
 										image: true,
+										role: true,
+										commissionStatus: true,
 									},
 								},
 							},
@@ -60,6 +80,13 @@ export const messagesRouter = createTRPCRouter({
 				)
 				const lastMessage = conversation.messages[0]
 
+				const profile = otherParticipant
+					? await db.query.enpProfiles.findFirst({
+							where: eq(enpProfiles.userId, otherParticipant.userId),
+							columns: { bio: true },
+						})
+					: null
+
 				// Get user's last read time
 				const userParticipant = conversation.participants.find(
 					p => p.userId === ctx.session.user.id
@@ -82,7 +109,15 @@ export const messagesRouter = createTRPCRouter({
 
 				return {
 					id: conversation.id,
-					otherUser: otherParticipant?.user,
+					otherUser: otherParticipant
+						? {
+							...otherParticipant.user,
+							image: resolveAvatarUrl(otherParticipant.user.image),
+							status: otherParticipant.user.commissionStatus,
+							bio: profile?.bio ?? null,
+							joinedAt: otherParticipant.joinedAt,
+						}
+						: null,
 					lastMessage: lastMessage?.content,
 					lastMessageTime: lastMessage?.createdAt,
 					unreadCount: unreadMessages.length,
@@ -137,7 +172,15 @@ export const messagesRouter = createTRPCRouter({
 			})
 
 			// Return in chronological order (oldest first)
-			return conversationMessages.reverse()
+			return conversationMessages.reverse().map(message => ({
+				...message,
+				sender: message.sender
+					? {
+						...message.sender,
+						image: resolveAvatarUrl(message.sender.image),
+					}
+					: message.sender,
+			}))
 		}),
 
 	// Send a message
@@ -203,6 +246,7 @@ export const messagesRouter = createTRPCRouter({
 			})
 			const messagePayload = withSender as unknown as MessageWithSender
 			if (messagePayload) {
+				messagePayload.sender.image = resolveAvatarUrl(messagePayload.sender.image)
 				emitMessageAdd(input.conversationId, messagePayload)
 			}
 
@@ -385,6 +429,7 @@ export const messagesRouter = createTRPCRouter({
 
 					for (const msg of newSinceLast) {
 						const payload = msg as unknown as MessageWithSender
+						payload.sender.image = resolveAvatarUrl(payload.sender.image)
 						yield tracked(payload.id, payload)
 						lastMessageCreatedAt = payload.createdAt
 					}
@@ -426,20 +471,26 @@ export const messagesRouter = createTRPCRouter({
 				where: and(
 					ne(users.id, ctx.session.user.id), // Exclude current user
 					or(
-						sql`lower(${users.name}) like lower(${`%${input.query}%`})`,
+						sql`lower(concat_ws(' ', coalesce(${users.firstName},''), coalesce(${users.middleName},''), coalesce(${users.lastName},''))) like lower(${`%${input.query}%`})`,
 						sql`lower(${users.email}) like lower(${`%${input.query}%`})`
 					)
 				),
 				columns: {
 					id: true,
-					name: true,
+					firstName: true,
+					middleName: true,
+					lastName: true,
 					email: true,
 					image: true,
 				},
 				limit: 10,
 			})
 
-			return searchResults
+			return searchResults.map(user => ({
+				...user,
+				name: getFullName(user),
+				image: resolveAvatarUrl(user.image),
+			}))
 		}),
 
 	// ENP sends a consultation request card via chat
@@ -464,7 +515,7 @@ export const messagesRouter = createTRPCRouter({
 				where: eq(users.id, ctx.session.user.id),
 				columns: { id: true, role: true },
 			})
-			if (!sender || sender.role !== "ENP") {
+			if (sender?.role !== "ENP") {
 				throw new TRPCError({ code: "FORBIDDEN", message: "Only ENP can send consultation requests" })
 			}
 
@@ -523,6 +574,7 @@ export const messagesRouter = createTRPCRouter({
 			})
 			const messagePayload = withSender as unknown as MessageWithSender
 			if (messagePayload) {
+				messagePayload.sender.image = resolveAvatarUrl(messagePayload.sender.image)
 				emitMessageAdd(input.conversationId, messagePayload)
 			}
 
@@ -549,7 +601,7 @@ export const messagesRouter = createTRPCRouter({
 				where: eq(messages.id, input.messageId),
 			})
 
-			if (!message || message.messageType !== "consultation_request") {
+			if (message?.messageType !== "consultation_request") {
 				throw new TRPCError({ code: "NOT_FOUND", message: "Consultation request not found" })
 			}
 
@@ -594,15 +646,15 @@ export const messagesRouter = createTRPCRouter({
 				const title = meta.title as string
 
 				await db.insert(appointments).values({
-					clientId: ctx.session.user.id,
-					lawyerId: enpId,
-					type: eventType === "notarization" ? "DOCUMENT_SIGNING" : "CONSULTATION",
+					userId: enpId,
+					type: eventType === "notarization" ? "NOTARIZATION" : "CONSULTATION",
 					status: "CONFIRMED",
+					title,
+					description: `Consultation appointment with ${ctx.session.user.name || "Client"}`,
 					appointmentDate,
 					duration,
 					modeOfNotarization: mode?.toUpperCase(),
 					location,
-					notes: title,
 				})
 			}
 
@@ -617,14 +669,58 @@ export const messagesRouter = createTRPCRouter({
 				where: eq(messages.id, input.messageId),
 				with: {
 					sender: {
-						columns: { id: true, name: true, email: true, image: true },
+						columns: { id: true, firstName: true, middleName: true, lastName: true, email: true, image: true },
 					},
 				},
 			})
 			if (withSender) {
-				emitMessageAdd(message.conversationId, withSender as unknown as MessageWithSender)
+				const messagePayload = withSender as unknown as MessageWithSender
+				;(messagePayload.sender as { name?: string }).name = getFullName(messagePayload.sender)
+				messagePayload.sender.image = resolveAvatarUrl(messagePayload.sender.image)
+				emitMessageAdd(message.conversationId, messagePayload)
 			}
 
 			return { success: true, response: input.response }
+		}),
+
+	getParticipant: protectedProcedure
+		.input(z.object({ conversationId: z.string() }))
+		.query(async ({ input, ctx }) => {
+			const participants = await db.query.conversationParticipants.findMany({
+				where: eq(conversationParticipants.conversationId, input.conversationId),
+				with: {
+					user: {
+						columns: {
+							id: true,
+							firstName: true,
+							middleName: true,
+							lastName: true,
+							email: true,
+							image: true,
+							role: true,
+							commissionStatus: true,
+						},
+					},
+				},
+			})
+
+			const otherParticipant = participants.find(p => p.userId !== ctx.session.user.id)
+			if (!otherParticipant) return null
+
+			const enpProfile = await db.query.enpProfiles.findFirst({
+				where: eq(enpProfiles.userId, otherParticipant.user.id),
+				columns: { bio: true },
+			})
+
+			return {
+				id: otherParticipant.user.id,
+				name: getFullName(otherParticipant.user),
+				email: otherParticipant.user.email,
+				image: resolveAvatarUrl(otherParticipant.user.image),
+				role: otherParticipant.user.role,
+				status: otherParticipant.user.commissionStatus,
+				bio: enpProfile?.bio ?? null,
+				joinedAt: otherParticipant.joinedAt,
+			}
 		}),
 })

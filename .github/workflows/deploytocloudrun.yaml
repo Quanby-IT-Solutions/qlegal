@@ -4,7 +4,16 @@ on:
   push:
     branches:
       - production
+      - staging
   workflow_dispatch:
+    inputs:
+      environment:
+        description: "Environment to deploy to"
+        type: choice
+        required: true
+        options:
+          - staging
+          - production
 
 env:
   # Infra / Deploy config (unchanged)
@@ -81,13 +90,14 @@ env:
   SUPREME_COURT_CLIENT_ID: ${{ secrets.SUPREME_COURT_CLIENT_ID }}
   SUPREME_COURT_USERNAME: ${{ secrets.SUPREME_COURT_USERNAME }}
   SUPREME_COURT_PASSWORD: ${{ secrets.SUPREME_COURT_PASSWORD }}
+  SUPREME_COURT_NFN: ${{ vars.SUPREME_COURT_NFN }}
 
   # Public Site URL
   NEXT_PUBLIC_SITE_URL: ${{ vars.NEXT_PUBLIC_SITE_URL }}
 
 jobs:
   deploy:
-    environment: production
+    environment: ${{ github.event.inputs.environment || (github.ref == 'refs/heads/production' && 'production' || 'staging') }}
     permissions:
       contents: "read"
       id-token: "write"
@@ -169,6 +179,7 @@ jobs:
             --build-arg SUPREME_COURT_CLIENT_ID="${{ secrets.SUPREME_COURT_CLIENT_ID }}" \
             --build-arg SUPREME_COURT_USERNAME="${{ secrets.SUPREME_COURT_USERNAME }}" \
             --build-arg SUPREME_COURT_PASSWORD="${{ secrets.SUPREME_COURT_PASSWORD }}" \
+            --build-arg SUPREME_COURT_NFN="${{ vars.SUPREME_COURT_NFN }}" \
             -t "${{ env.GAR_LOCATION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.SERVICE }}:${{ github.sha }}" .
 
           docker push "${{ env.GAR_LOCATION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.SERVICE }}:${{ github.sha }}"
@@ -236,6 +247,7 @@ jobs:
             SUPREME_COURT_CLIENT_ID=${{ secrets.SUPREME_COURT_CLIENT_ID }}
             SUPREME_COURT_USERNAME=${{ secrets.SUPREME_COURT_USERNAME }}
             SUPREME_COURT_PASSWORD=${{ secrets.SUPREME_COURT_PASSWORD }}
+            SUPREME_COURT_NFN=${{ vars.SUPREME_COURT_NFN }}
             SKIP_ENV_VALIDATION=1
           flags: >
             --min-instances=0

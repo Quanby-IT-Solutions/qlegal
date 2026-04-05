@@ -1,5 +1,6 @@
 "use client"
 
+import { type Route } from "next"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { type UseFormReturn } from "react-hook-form"
@@ -54,7 +55,11 @@ export function ReviewStep({ form, error, data }: ReviewStepProps) {
 				<div className="bg-muted/40 rounded-lg border p-4">
 					<h4 className="text-sm font-semibold">Account</h4>
 					<div className="text-muted-foreground mt-2 text-sm">
-						<p className="text-foreground font-medium">{form.getValues("name") || "—"}</p>
+						<p className="text-foreground font-medium">
+							{[form.getValues("firstName"), form.getValues("middleName"), form.getValues("lastName")]
+								.filter(Boolean)
+								.join(" ") || "—"}
+						</p>
 						<p>{form.getValues("email") || "—"}</p>
 					</div>
 				</div>
@@ -171,7 +176,10 @@ export function ReviewStep({ form, error, data }: ReviewStepProps) {
 							<FormLabel className="text-muted-foreground text-xs">
 								I agree to the
 								<Link
-									href={`/terms-of-service?from=${encodeURIComponent(pathname)}`}
+									href={{
+										pathname: "/auth/terms-of-service" as Route,
+										query: { from: pathname },
+									}}
 									target="_blank"
 									className={cn(
 										buttonVariants({ variant: "link" }),
@@ -182,7 +190,10 @@ export function ReviewStep({ form, error, data }: ReviewStepProps) {
 								</Link>
 								and
 								<Link
-									href={`/privacy-policy?from=${encodeURIComponent(pathname)}`}
+									href={{
+										pathname: "/auth/privacy-policy" as Route,
+										query: { from: pathname },
+									}}
 									target="_blank"
 									className={cn(
 										buttonVariants({ variant: "link" }),

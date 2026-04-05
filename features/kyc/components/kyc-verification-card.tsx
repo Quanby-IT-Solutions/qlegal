@@ -9,12 +9,8 @@ import { Button } from "@/core/components/ui/button"
 import { Label } from "@/core/components/ui/label"
 import { useKycBroadcast } from "@/core/hooks/use-kyc-broadcast"
 
-import {
-	createUserKycLink,
-	getExistingKycLink,
-	resetUserKycStatus,
-} from "@/features/kyc/api/kyc.actions"
-import { DirectKycDialog } from "@/features/kyc/components/direct-kyc-dialog"
+import { resetUserKycStatus } from "@/features/kyc/api/kyc.actions"
+import { useHyperVergeSDK } from "@/features/kyc/hooks/use-hyperverge-sdk"
 import { useKycStatus } from "@/features/kyc/hooks/use-kyc-status"
 
 interface KycVerificationCardProps {
@@ -24,6 +20,8 @@ interface KycVerificationCardProps {
 		transactionId: string | null
 		kycStatus: string | null
 		kycLinkCreatedAt?: Date | null
+		hasHostedLink?: boolean
+		sessionType?: "hosted" | "direct" | null
 	}
 	minimal?: boolean
 	redirectUrlOnSkip?: string
@@ -38,6 +36,13 @@ export function KycVerificationCard({
 	const [error, setError] = useState<string | null>(null)
 	const [showManualCheck, setShowManualCheck] = useState(false)
 	const toastShownRef = useRef<Set<string>>(new Set())
+
+	const { launch: launchSdk, isLoading: isLaunchingSdk } = useHyperVergeSDK({
+		redirectOnSuccess: "/dashboard",
+		onComplete: () => {
+			void refetch()
+		},
+	})
 
 	// Check if there's an expired link (24 hours old)
 	const hasExpiredLink = useMemo(() => {
@@ -54,12 +59,18 @@ export function KycVerificationCard({
 
 	// Option 1.5: Single check on mount, no polling
 	// Webhook handles real-time updates (primary method)
-	const { data: statusQueryResult, refetch } = useKycStatus({
+	const {
+		data: statusQueryResult,
+		refetch,
+		isCheckingStatus,
+	} = useKycStatus({
 		currentStatus: effectiveStatus,
 		enabled: true,
 	})
 
 	const statusResult = statusQueryResult?.success ? statusQueryResult.data : null
+	const isStatusLoading = isCheckingStatus
+	const isNeedsReview = statusResult?.needsReview ?? statusResult?.status === "needs_review"
 
 	// Cross-tab communication: Listen for verification events from other tabs (0 API calls)
 	const { listen, isSupported } = useKycBroadcast()
@@ -129,60 +140,18 @@ export function KycVerificationCard({
 		} else if (statusResult.kycStatus === "REJECTED" && !toastShownRef.current.has(toastKey)) {
 			toastShownRef.current.add(toastKey)
 			console.log("❌ KYC Rejected")
-			toast.error("KYC verification was declined. Please try again or contact support.")
+			const autoDeclined = statusResult.status === "auto_declined"
+			toast.error(
+				autoDeclined
+					? "Your KYC verification was automatically declined by our verification provider. Please try again with clearer documents or contact support."
+					: "KYC verification was declined. Please try again or contact support."
+			)
 		}
 	}, [statusResult])
 
-	const handleCreateLink = () => {
+	const handleStartVerification = () => {
 		setError(null)
-		// keep hasExpiredLink memo for UI, no additional state needed
-
-		startTransition(async () => {
-			const result = await createUserKycLink()
-			if (result.success && result.data) {
-				// Auto-open the KYC link
-				window.open(result.data.url, "_blank", "noopener,noreferrer")
-
-				// Show appropriate message based on whether this was for an expired link
-				if (result.data.isExpiredLink) {
-					toast.success(
-						"New KYC verification link created (previous link expired). Opening in new window..."
-					)
-				} else {
-					toast.success("KYC verification link created! Opening in new window...")
-				}
-
-				// User completes KYC in new window, then redirects back with ?status=complete
-				// Single status check will happen automatically when they return
-				console.log("✅ KYC link created. Waiting for user to complete verification...")
-			} else {
-				// Check if error is about existing pending transaction
-				if (result.error?.includes("already have a pending")) {
-					toast.error(result.error)
-					setError(result.error)
-				} else {
-					setError(result.error ?? "Failed to create KYC link")
-					toast.error(result.error ?? "Failed to create KYC link")
-				}
-			}
-		})
-	}
-
-	const handleResumeVerification = () => {
-		setError(null)
-
-		startTransition(async () => {
-			const result = await getExistingKycLink()
-			if (result.success && result.data) {
-				// Open the stored KYC link
-				window.open(result.data.url, "_blank", "noopener,noreferrer")
-				toast.success("Resuming KYC verification...")
-				console.log("🔄 Resuming KYC verification with transaction:", result.data.transactionId)
-			} else {
-				setError(result.error ?? "Failed to resume KYC verification")
-				toast.error(result.error ?? "Failed to resume KYC verification")
-			}
-		})
+		void launchSdk()
 	}
 
 	const getStatusColor = (status: string) => {
@@ -226,6 +195,13 @@ export function KycVerificationCard({
 						Pending
 					</Badge>
 				)
+			case "NEEDS_REVIEW":
+				return (
+					<Badge variant="secondary">
+						<Loader2 className="mr-1 h-3 w-3 animate-spin" />
+						Needs manual review
+					</Badge>
+				)
 			case "NOT_STARTED":
 				return <Badge variant="outline">Not Started</Badge>
 			default:
@@ -236,7 +212,14 @@ export function KycVerificationCard({
 	// Show existing status if available
 	// If there's an expired PENDING link, treat it as NOT_STARTED for UI purposes
 	const rawStatus = statusResult?.kycStatus ?? userInfo.kycStatus ?? "NOT_STARTED"
-	const currentStatus = hasExpiredLink && rawStatus === "PENDING" ? "NOT_STARTED" : rawStatus
+	const normalizedStatus =
+		isNeedsReview && rawStatus !== "VERIFIED" && rawStatus !== "REJECTED"
+			? "NEEDS_REVIEW"
+			: rawStatus
+	const currentStatus =
+		hasExpiredLink && normalizedStatus === "PENDING" ? "NOT_STARTED" : normalizedStatus
+	const showStatusLoadingBanner =
+		isStatusLoading && (currentStatus === "PENDING" || currentStatus === "NOT_STARTED")
 
 	return (
 		<div className="space-y-6">
@@ -264,6 +247,18 @@ export function KycVerificationCard({
 								<span className="font-mono text-xs">{userInfo.transactionId}</span>
 							</div>
 						)}
+					</div>
+				</div>
+			)}
+
+			{/* Status Loading Banner */}
+			{showStatusLoadingBanner && (
+				<div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm dark:border-blue-800 dark:bg-blue-950/20">
+					<div className="flex items-center gap-2">
+						<Loader2 className="size-4 animate-spin text-blue-600 dark:text-blue-400" />
+						<p className="text-blue-800 dark:text-blue-100">
+							Checking your verification status. This should only take a moment.
+						</p>
 					</div>
 				</div>
 			)}
@@ -300,20 +295,24 @@ export function KycVerificationCard({
 						</div>
 					)}
 					<div className="grid gap-3">
-						<Button onClick={handleCreateLink} disabled={isPending} className="w-full" size="lg">
-							{isPending ? (
+						<Button
+							onClick={handleStartVerification}
+							disabled={isLaunchingSdk || isStatusLoading}
+							className="w-full"
+							size="lg"
+						>
+							{isStatusLoading ? (
 								<>
-									<Loader2 className="mr-2 h-4 w-4 animate-spin" />
-									Creating Link...
+									<Loader2 className="mr-2 h-5 w-5 animate-spin" />
+									Checking verification status…
 								</>
 							) : (
 								<>
 									<ShieldCheck className="mr-2 h-5 w-5" />
-									Mobile Link Verification
+									Start verification
 								</>
 							)}
 						</Button>
-						<DirectKycDialog disabled={isPending} variant="secondary" />
 					</div>
 				</div>
 			)}
@@ -332,44 +331,46 @@ export function KycVerificationCard({
 									We&apos;re reviewing your identity documents. This usually takes a few minutes.
 								</p>
 								<p className="mt-2 text-xs text-blue-600 dark:text-blue-400">
-									You&apos;ll be automatically redirected when your verification is complete. You
-									can resume the verification or log out below.
+									You&apos;ll be automatically redirected when your verification is complete.
 								</p>
 							</div>
 						</div>
 					</div>
+
 					<div className="grid gap-3">
 						<Button
-							onClick={handleResumeVerification}
-							disabled={isPending}
+							onClick={handleStartVerification}
+							disabled={isLaunchingSdk}
 							variant="default"
 							className="w-full"
 							size="lg"
 						>
-							{isPending ? (
-								<>
-									<Loader2 className="mr-2 h-4 w-4 animate-spin" />
-									Loading...
-								</>
-							) : (
-								<>
-									<PlayCircle className="mr-2 h-5 w-5" />
-									Resume Verification
-								</>
-							)}
+							<PlayCircle className="mr-2 h-5 w-5" />
+							Resume verification
 						</Button>
-						<DirectKycDialog disabled={isPending} variant="secondary" />
+					</div>
+				</div>
+			)}
 
-						{/* Subtle backup option for expired links */}
-						<div className="flex justify-center border-t pt-3">
-							<button
-								onClick={handleCreateLink}
-								disabled={isPending}
-								className="text-muted-foreground hover:text-foreground text-xs underline-offset-4 transition-colors hover:underline disabled:pointer-events-none disabled:opacity-50"
-								type="button"
-							>
-								Link expired? Create new verification link
-							</button>
+			{/* NEEDS_REVIEW State */}
+			{currentStatus === "NEEDS_REVIEW" && (
+				<div className="space-y-4">
+					<div className="rounded-lg border border-yellow-200 bg-yellow-50 p-4 dark:border-yellow-800 dark:bg-yellow-950/20">
+						<div className="flex items-start gap-3">
+							<Loader2 className="mt-0.5 h-5 w-5 shrink-0 animate-spin text-yellow-600 dark:text-yellow-400" />
+							<div className="flex-1">
+								<p className="mb-1 font-medium text-yellow-900 dark:text-yellow-100">
+									Verification under manual review
+								</p>
+								<p className="text-sm text-yellow-800 dark:text-yellow-200">
+									Your documents have been submitted and are currently being reviewed by our team
+									and our verification partner. This may take longer than automated checks.
+								</p>
+								<p className="mt-2 text-xs text-yellow-800/80 dark:text-yellow-200/80">
+									You don&apos;t need to start a new verification. We&apos;ll notify you once the
+									review is complete.
+								</p>
+							</div>
 						</div>
 					</div>
 				</div>
@@ -419,6 +420,19 @@ export function KycVerificationCard({
 									Your identity verification was not approved. This could be due to unclear
 									documents or mismatched information.
 								</p>
+								{statusResult?.status === "auto_declined" && (
+									<p className="mb-2 text-xs text-red-700/90 dark:text-red-300/90">
+										Our verification provider automatically declined this attempt based on its
+										automated checks. Please review your documents and try again, or contact support
+										if you believe this is an error.
+									</p>
+								)}
+								{statusResult?.status !== "auto_declined" && (
+									<p className="mb-2 text-xs text-red-700/90 dark:text-red-300/90">
+										Your verification was declined after manual review. Please try again or contact
+										support.
+									</p>
+								)}
 								<p className="text-xs text-red-600 dark:text-red-400">
 									Please ensure your ID is clear, well-lit, and all information is visible before
 									retrying.
@@ -427,15 +441,17 @@ export function KycVerificationCard({
 						</div>
 					</div>
 					<Button
-						onClick={async () => {
+						onClick={() => {
 							if (confirm("Start a new verification? Your previous attempt will be cleared.")) {
-								const result = await resetUserKycStatus()
-								if (result.success) {
-									toast.success("Ready to start new verification")
-									window.location.reload()
-								} else {
-									toast.error(result.error ?? "Failed to reset. Please contact support.")
-								}
+								startTransition(async () => {
+									const result = await resetUserKycStatus()
+									if (result.success) {
+										toast.success("Ready to start new verification")
+										window.location.reload()
+									} else {
+										toast.error(result.error ?? "Failed to reset. Please contact support.")
+									}
+								})
 							}
 						}}
 						disabled={isPending}

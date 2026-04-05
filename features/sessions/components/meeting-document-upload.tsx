@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { FileText, Upload, X } from "lucide-react"
 import { useDropzone } from "react-dropzone"
 import { toast } from "sonner"
@@ -33,6 +33,8 @@ interface MeetingDocumentUploadProps {
 	onClose: () => void
 	onSuccess?: () => void
 	isEnp?: boolean
+	/** Called with the dialog center coordinates when upload begins — use this to trigger the flight animation */
+	onUploadStart?: (originX: number, originY: number) => void
 }
 
 export function MeetingDocumentUpload({
@@ -41,7 +43,9 @@ export function MeetingDocumentUpload({
 	onClose,
 	onSuccess,
 	isEnp = false,
+	onUploadStart,
 }: MeetingDocumentUploadProps) {
+	const debugLogsEnabled = process.env.NODE_ENV !== "production"
 	const [documentName, setDocumentName] = useState("")
 	const [description, setDescription] = useState("")
 	const [notarizationType, setNotarizationType] = useState<
@@ -51,13 +55,61 @@ export function MeetingDocumentUpload({
 	const [selectedFile, setSelectedFile] = useState<File | null>(null)
 	const [isUploading, setIsUploading] = useState(false)
 
+	useEffect(() => {
+		if (!debugLogsEnabled) return
+		console.log("[sessions][upload] MeetingDocumentUpload open-state", {
+			meetingId,
+			isOpen,
+			ts: new Date().toISOString(),
+		})
+	}, [debugLogsEnabled, isOpen, meetingId])
+
+	// Fetch meeting details to find the ENP participant's pricing.
+	// getById already returns participants with enpProfile pricing columns
+	// (joined via getAppointmentParticipantsByMeetingId) for both ENP and Principal users.
+	const { data: meetingDetails } = trpc.meetings.getById.useQuery(meetingId, {
+		enabled: isOpen && !!meetingId,
+		staleTime: 5 * 60 * 1000,
+		refetchOnWindowFocus: false,
+	})
+
+	// For ENP: find their own profile in the participant list.
+	// For Principal: find the first ENP-role participant's pricing profile.
+	const pricingProfile = meetingDetails?.participants?.find(p => p.user?.role === "ENP")?.user
+		?.enpProfile
+
+	// Auto-fill fees whenever the notarization type changes and a pricing profile is available.
+	// Always overwrites so switching type always reflects the correct default price.
+	useEffect(() => {
+		if (!pricingProfile || !notarizationType) return
+
+		let defaultFee = 0
+		switch (notarizationType) {
+			case "ACKNOWLEDGMENT":
+				defaultFee = pricingProfile.acknowledgmentPrice ?? 0
+				break
+			case "AFFIRMATION":
+				defaultFee = pricingProfile.affirmationPrice ?? 0
+				break
+			case "JURAT":
+				defaultFee = pricingProfile.juratPrice ?? 0
+				break
+			case "SIGNATURE_WITNESSING":
+				defaultFee = pricingProfile.signatureWitnessingPrice ?? 0
+				break
+		}
+
+		setFees(defaultFee > 0 ? defaultFee.toFixed(2) : "")
+	}, [notarizationType, pricingProfile])
+
 	// tRPC mutation for uploading documents
 	const uploadDocument = trpc.meetings.uploadDocument.useMutation({
 		onSuccess: data => {
 			toast.success("Document uploaded successfully!")
 			if (data && typeof data === "object" && "docoChain" in data) {
-				const doco = (data as { docoChain?: { projectCreated?: boolean; error?: string } }).docoChain
-				if (doco && doco.projectCreated === false) {
+				const doco = (data as { docoChain?: { projectCreated?: boolean; error?: string } })
+					.docoChain
+				if (doco?.projectCreated === false) {
 					toast.error("DocOnChain is temporarily unavailable", {
 						description:
 							doco.error ??
@@ -112,25 +164,58 @@ export function MeetingDocumentUpload({
 	})
 
 	const handleUpload = async () => {
+		const startMs = performance.now()
+		if (debugLogsEnabled) {
+			console.log("[sessions][upload] handleUpload click", {
+				meetingId,
+				hasSelectedFile: Boolean(selectedFile),
+				documentName: documentName.trim() || null,
+				notarizationType: notarizationType || null,
+			})
+		}
 		if (!selectedFile) {
 			toast.error("Please select a file")
+			if (debugLogsEnabled) {
+				console.log("[sessions][upload] handleUpload blocked: no file", {
+					meetingId,
+					totalMs: Math.round(performance.now() - startMs),
+				})
+			}
 			return
 		}
 
 		if (!documentName.trim()) {
 			toast.error("Please enter a document name")
+			if (debugLogsEnabled) {
+				console.log("[sessions][upload] handleUpload blocked: no documentName", {
+					meetingId,
+					totalMs: Math.round(performance.now() - startMs),
+				})
+			}
 			return
 		}
 
 		if (!notarizationType) {
 			toast.error("Please select a notarization type")
+			if (debugLogsEnabled) {
+				console.log("[sessions][upload] handleUpload blocked: no notarizationType", {
+					meetingId,
+					totalMs: Math.round(performance.now() - startMs),
+				})
+			}
 			return
 		}
 
 		setIsUploading(true)
 
+		// Fire animation origin: center of the viewport (dialog is centered)
+		if (onUploadStart) {
+			onUploadStart(window.innerWidth / 2, window.innerHeight / 2)
+		}
+
 		try {
 			// Convert file to base64
+			const base64StartMs = performance.now()
 			const base64 = await new Promise<string>((resolve, reject) => {
 				const reader = new FileReader()
 				reader.onload = () => {
@@ -146,15 +231,38 @@ export function MeetingDocumentUpload({
 				reader.onerror = reject
 				reader.readAsDataURL(selectedFile)
 			})
+			if (debugLogsEnabled) {
+				console.log("[sessions][upload] base64 ready", {
+					meetingId,
+					base64Ms: Math.round(performance.now() - base64StartMs),
+					fileSizeBytes: selectedFile.size,
+				})
+			}
 
-			const feesNum = fees.trim() !== "" ? parseFloat(fees) : undefined
-			if (feesNum !== undefined && (Number.isNaN(feesNum) || feesNum < 0)) {
+			const feesNum = fees.trim() !== "" ? parseFloat(fees) : 0
+			if (Number.isNaN(feesNum) || feesNum < 0) {
 				toast.error("Fees must be a valid non-negative number")
 				setIsUploading(false)
+				if (debugLogsEnabled) {
+					console.log("[sessions][upload] handleUpload blocked: invalid fees", {
+						meetingId,
+						feesRaw: fees,
+						totalMs: Math.round(performance.now() - startMs),
+					})
+				}
 				return
 			}
 
 			// Upload document
+			if (debugLogsEnabled) {
+				console.log("[sessions][upload] uploadDocument.mutate start", {
+					meetingId,
+					name: documentName.trim(),
+					mimeType: selectedFile.type,
+					size: selectedFile.size,
+					fees: feesNum,
+				})
+			}
 			uploadDocument.mutate({
 				meetingId,
 				name: documentName.trim(),
@@ -163,12 +271,19 @@ export function MeetingDocumentUpload({
 				size: selectedFile.size,
 				description: description.trim() || undefined,
 				notarizationType,
-				...(isEnp && feesNum !== undefined && { fees: feesNum }),
+				fees: feesNum,
 			})
 		} catch (error) {
 			console.error("Upload error:", error)
 			toast.error("Failed to upload document")
 			setIsUploading(false)
+			if (debugLogsEnabled) {
+				console.log("[sessions][upload] handleUpload error", {
+					meetingId,
+					message: error instanceof Error ? error.message : String(error),
+					totalMs: Math.round(performance.now() - startMs),
+				})
+			}
 		}
 	}
 
@@ -186,6 +301,13 @@ export function MeetingDocumentUpload({
 
 	// Reset state when dialog closes
 	const handleOpenChange = (open: boolean) => {
+		if (debugLogsEnabled) {
+			console.log("[sessions][upload] dialog onOpenChange", {
+				meetingId,
+				open,
+				isUploading,
+			})
+		}
 		if (!open && !isUploading) {
 			// Reset state when dialog is closed (only if not uploading)
 			setIsUploading(false)
@@ -332,21 +454,26 @@ export function MeetingDocumentUpload({
 							/>
 						</div>
 
-						{isEnp && (
-							<div className="space-y-2">
-								<Label htmlFor="fees">Fees</Label>
-								<Input
-									id="fees"
-									type="number"
-									step="0.01"
-									min={0}
-									value={fees}
-									onChange={e => setFees(e.target.value)}
-									placeholder="0.00"
-									disabled={isUploading || !selectedFile}
-								/>
-							</div>
-						)}
+						<div className="space-y-2">
+							<Label htmlFor="fees">Fees (PHP)</Label>
+							<Input
+								id="fees"
+								type="number"
+								step="0.01"
+								min={0}
+								value={fees}
+								onChange={e => setFees(e.target.value)}
+								placeholder="0.00"
+								disabled={isUploading || !selectedFile}
+							/>
+							<p className="text-muted-foreground text-xs">
+								{isEnp
+									? "Auto-filled from your profile pricing. You can adjust if needed."
+									: pricingProfile
+										? "Auto-filled from ENP participant's pricing. You can adjust if needed."
+										: "Enter the notarization fee for this document."}
+							</p>
+						</div>
 					</div>
 				</div>
 

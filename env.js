@@ -24,7 +24,13 @@ export const env = createEnv({
 		DOCONCHAIN_CLIENT_SECRET: z.string(),
 		DOCONCHAIN_EMAIL: z.string().email(),
 		DOCONCHAIN_ORGANIZATION_ID: z.coerce.number(),
+		/** Parent org UUID for Create Sub Organization API (must be UUID, not numeric ID). */
+		DOCONCHAIN_ORGANIZATION_UUID: z.string().optional(),
 		DOCONCHAIN_ORG_INVITE_CODE: z.string().optional(),
+		/** Optional. Bearer token from an org-admin account (e.g. from DocOnChain app). Used when generated token lacks permission (e.g. transfer credits). */
+		DOCONCHAIN_USER_TOKEN: z.string().optional(),
+		/** Optional. Alias for DOCONCHAIN_USER_TOKEN. */
+		DOCONCHAIN_API_TOKEN: z.string().optional(),
 
 		// Email
 		EMAIL_FROM_NAME: z.string(),
@@ -36,6 +42,7 @@ export const env = createEnv({
 
 		// Maps
 		GOOGLE_MAPS_API_KEY: z.string(),
+		PROXYCHECK_API_KEY: z.string().optional(),
 
 		// Payment (HitPay)
 		HITPAY_API_KEY: z.string(),
@@ -51,6 +58,7 @@ export const env = createEnv({
 
 		// Server Configuration
 		NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
+		LOCATION_VERIFICATION_DEBUG: z.enum(["true", "false"]).optional(),
 		PORT: z.coerce.number().optional(),
 		SEED_VALUE: z.coerce.number().optional(),
 
@@ -60,6 +68,8 @@ export const env = createEnv({
 		SUPREME_COURT_CLIENT_ID: z.string().optional(),
 		SUPREME_COURT_USERNAME: z.string().optional(),
 		SUPREME_COURT_PASSWORD: z.string().optional(),
+		/** Notary Facility Number (NFN); constant per deployment. Per-ENP values are NPN and Roll Number only. */
+		SUPREME_COURT_NFN: z.string().optional(),
 
 		// Storage
 		SUPABASE_SERVICE_ROLE_KEY: z.string(),
@@ -77,6 +87,7 @@ export const env = createEnv({
 	client: {
 		// Public Site URL
 		NEXT_PUBLIC_SITE_URL: z.string(),
+		NEXT_PUBLIC_LOCATION_VERIFICATION_DEBUG: z.enum(["true", "false"]).optional(),
 
 		// Storage (Supabase)
 		NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string(),
@@ -108,7 +119,10 @@ export const env = createEnv({
 		DOCONCHAIN_CLIENT_SECRET: process.env.DOCONCHAIN_CLIENT_SECRET,
 		DOCONCHAIN_EMAIL: process.env.DOCONCHAIN_EMAIL,
 		DOCONCHAIN_ORGANIZATION_ID: process.env.DOCONCHAIN_ORGANIZATION_ID,
+		DOCONCHAIN_ORGANIZATION_UUID: process.env.DOCONCHAIN_ORGANIZATION_UUID,
 		DOCONCHAIN_ORG_INVITE_CODE: process.env.DOCONCHAIN_ORG_INVITE_CODE,
+		DOCONCHAIN_USER_TOKEN: process.env.DOCONCHAIN_USER_TOKEN,
+		DOCONCHAIN_API_TOKEN: process.env.DOCONCHAIN_API_TOKEN,
 
 		// Email
 		EMAIL_FROM_NAME: process.env.EMAIL_FROM_NAME,
@@ -135,8 +149,12 @@ export const env = createEnv({
 
 		// Server Configuration
 		NODE_ENV: process.env.NODE_ENV,
+		LOCATION_VERIFICATION_DEBUG: process.env.LOCATION_VERIFICATION_DEBUG,
 		PORT: process.env.PORT,
 		SEED_VALUE: process.env.SEED_VALUE,
+
+		// VPN/Proxy Detection
+		PROXYCHECK_API_KEY: process.env.PROXYCHECK_API_KEY,
 
 		// Supreme Court eNotarization API
 		SUPREME_COURT_API_URL: process.env.SUPREME_COURT_API_URL,
@@ -144,6 +162,7 @@ export const env = createEnv({
 		SUPREME_COURT_CLIENT_ID: process.env.SUPREME_COURT_CLIENT_ID,
 		SUPREME_COURT_USERNAME: process.env.SUPREME_COURT_USERNAME,
 		SUPREME_COURT_PASSWORD: process.env.SUPREME_COURT_PASSWORD,
+		SUPREME_COURT_NFN: process.env.SUPREME_COURT_NFN,
 
 		// Storage
 		SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
@@ -154,6 +173,7 @@ export const env = createEnv({
 
 		// Public Site URL
 		NEXT_PUBLIC_SITE_URL: process.env.NEXT_PUBLIC_SITE_URL,
+		NEXT_PUBLIC_LOCATION_VERIFICATION_DEBUG: process.env.NEXT_PUBLIC_LOCATION_VERIFICATION_DEBUG,
 
 		// Storage (Supabase)
 		NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,

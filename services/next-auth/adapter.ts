@@ -7,6 +7,7 @@ import type {
 	VerificationToken,
 } from "next-auth/adapters"
 
+import { getFullName } from "@/core/lib/utils"
 import { db } from "@/services/drizzle/db"
 import { accounts, sessions, users, verificationTokens } from "@/services/drizzle/schema/auth"
 
@@ -18,7 +19,7 @@ export function DrizzleCustomAdapter(): Adapter {
 
 		return {
 			id: user.id,
-			name: user.name ?? null,
+			name: getFullName(user) || null,
 			email: user.email!,
 			emailVerified: user.emailVerified ?? null,
 			image: user.image ?? null,
@@ -34,10 +35,32 @@ export function DrizzleCustomAdapter(): Adapter {
 		expires: row.expires,
 	})
 
+	function splitFullName(fullName: string | null | undefined): {
+		firstName: string | null
+		middleName: string | null
+		lastName: string | null
+	} {
+		if (!fullName?.trim()) return { firstName: null, middleName: null, lastName: null }
+		const parts = fullName.trim().split(/\s+/)
+		if (parts.length === 1) return { firstName: parts[0] ?? null, middleName: null, lastName: null }
+		return {
+			firstName: parts[0] ?? null,
+			middleName: parts.length > 2 ? parts.slice(1, -1).join(" ") : null,
+			lastName: parts[parts.length - 1] ?? null,
+		}
+	}
+
 	return {
 		async createUser(data: AdapterUser) {
-			const { id, ...insert } = data
-			const toInsert = id ? { id, ...insert } : insert
+			const { id, name, ...rest } = data
+			const { firstName, middleName, lastName } = splitFullName(name ?? undefined)
+			const toInsert = {
+				...(id ? { id } : {}),
+				firstName,
+				middleName,
+				lastName,
+				...rest,
+			}
 			const [user] = await db.insert(users).values(toInsert).returning()
 
 			if (!user) {
@@ -88,7 +111,16 @@ export function DrizzleCustomAdapter(): Adapter {
 				throw new Error("No user id.")
 			}
 
-			const [updated] = await db.update(users).set(data).where(eq(users.id, data.id)).returning()
+			const { id, name, ...rest } = data
+			const setData =
+				name !== undefined
+					? { ...rest, ...splitFullName(name) }
+					: rest
+			const [updated] = await db
+				.update(users)
+				.set(setData as Partial<typeof users.$inferInsert>)
+				.where(eq(users.id, data.id))
+				.returning()
 
 			if (!updated) {
 				throw new Error("No user found.")

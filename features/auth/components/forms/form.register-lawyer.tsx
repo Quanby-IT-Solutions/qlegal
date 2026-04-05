@@ -53,7 +53,9 @@ function LawyerRegisterFormContent() {
 	const form = useForm<LawyerRegisterSchema>({
 		resolver: zodResolver(lawyerRegisterSchema),
 		defaultValues: {
-			name: "",
+			firstName: "",
+			middleName: "",
+			lastName: "",
 			email: "",
 			password: "",
 			confirmPassword: "",
@@ -82,15 +84,19 @@ function LawyerRegisterFormContent() {
 		},
 	})
 
-	const name = form.watch("name")
+	const firstName = form.watch("firstName")
+	const middleName = form.watch("middleName")
+	const lastName = form.watch("lastName")
 	const email = form.watch("email")
 
-	useEffect(() => {
-		if (!name) return
+	const fullName = [firstName, middleName, lastName].filter(Boolean).join(" ").trim()
 
-		form.setValue("seal.enpName", name, { shouldValidate: false, shouldDirty: false })
-		form.setValue("notaryInfo.attyName", name, { shouldValidate: false, shouldDirty: false })
-	}, [form, name])
+	useEffect(() => {
+		if (!fullName) return
+
+		form.setValue("seal.enpName", fullName, { shouldValidate: false, shouldDirty: false })
+		form.setValue("notaryInfo.attyName", fullName, { shouldValidate: false, shouldDirty: false })
+	}, [form, fullName])
 
 	useEffect(() => {
 		if (!email) return
@@ -113,7 +119,7 @@ function LawyerRegisterFormContent() {
 		let fieldsToValidate: (keyof LawyerRegisterSchema)[] = []
 
 		if (methods.current.id === "account") {
-			fieldsToValidate = ["name", "email", "password", "confirmPassword"]
+			fieldsToValidate = ["firstName", "lastName", "email", "password", "confirmPassword"]
 		} else if (methods.current.id === "seal") {
 			fieldsToValidate = ["seal"]
 		} else if (methods.current.id === "notary") {

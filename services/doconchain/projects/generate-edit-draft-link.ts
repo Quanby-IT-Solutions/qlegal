@@ -1,4 +1,5 @@
 import { env } from "@/env"
+import type { GetSubOrgCredsForEmail } from "@/services/doconchain/auth/generate-token"
 import {
 	getDoconchainApiToken,
 	invalidateDoconchainToken,
@@ -153,6 +154,8 @@ async function postGenerateLink(params: { projectUuid: string; token: string }):
 export async function generateDoconchainEditDraftProjectLink(input: {
 	projectUuid: string
 	userEmail: string
+	/** When provided, sub-org ENPs get a token via stored sub-org creds (same as ensureDocoChainToken). */
+	getSubOrgCredsForEmail?: GetSubOrgCredsForEmail
 }): Promise<string> {
 	const projectUuid = input.projectUuid.trim()
 	if (!projectUuid) throw new Error("Project UUID is required.")
@@ -161,7 +164,11 @@ export async function generateDoconchainEditDraftProjectLink(input: {
 	if (!email) throw new Error("User email is required to generate project link.")
 
 	const doRequest = async () => {
-		const token = await getDoconchainApiToken({ email, forceGenerated: true })
+		const token = await getDoconchainApiToken({
+			email,
+			forceGenerated: true,
+			getSubOrgCredsForEmail: input.getSubOrgCredsForEmail,
+		})
 		return postGenerateLink({ projectUuid, token })
 	}
 

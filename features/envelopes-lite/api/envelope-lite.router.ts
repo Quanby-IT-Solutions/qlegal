@@ -305,7 +305,7 @@ export const envelopeLiteRouter = createTRPCRouter({
 			envelopeOwner: doc.envelopeOwner
 				? {
 						id: doc.envelopeOwner.id,
-						name: doc.envelopeOwner.name,
+						name: getFullName(doc.envelopeOwner),
 						email: doc.envelopeOwner.email,
 						image: doc.envelopeOwner.image,
 					}

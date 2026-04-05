@@ -1,6 +1,7 @@
 import {
 	Appointment02Icon,
 	BookOpen02Icon,
+	Building01Icon,
 	ChatIcon,
 	CustomerSupportIcon,
 	DocumentValidationIcon,
@@ -8,6 +9,7 @@ import {
 	Notification01Icon,
 	Sent02Icon,
 	Settings01Icon,
+	ShieldIcon,
 	ShieldUserIcon,
 	UserGroupIcon,
 	UserIcon,
@@ -44,12 +46,6 @@ export const appSidebarSections: NavSection[] = [
 				icon: Home01Icon,
 			},
 			{
-				title: "Browse",
-				url: "/browse",
-				icon: UserMultipleIcon,
-				roles: ["PRINCIPAL"],
-			},
-			{
 				title: "Appointments",
 				url: "/requests",
 				icon: Appointment02Icon,
@@ -60,12 +56,6 @@ export const appSidebarSections: NavSection[] = [
 				url: "/sessions",
 				icon: Video01Icon,
 				roles: ["ENP", "PRINCIPAL"],
-			},
-			{
-				title: "Documents",
-				url: "/documents",
-				icon: DocumentValidationIcon,
-				roles: ["PRINCIPAL"],
 			},
 			{
 				title: "Notarial Registry",
@@ -81,12 +71,41 @@ export const appSidebarSections: NavSection[] = [
 		],
 	},
 	{
+		label: "Browse & Documents",
+		items: [
+			{
+				title: "Browse",
+				url: "/browse",
+				icon: UserMultipleIcon,
+				roles: ["PRINCIPAL", "ENP"],
+			},
+			{
+				title: "Documents",
+				url: "/documents",
+				icon: DocumentValidationIcon,
+				roles: ["PRINCIPAL", "ENP"],
+			},
+		],
+	},
+	{
 		label: "Management",
 		items: [
 			{
 				title: "User Management",
 				url: "/management/users",
 				icon: UserGroupIcon,
+				roles: ["ENA", "ADMIN"],
+			},
+			{
+				title: "ENP Management",
+				url: "/management/enp-management",
+				icon: ShieldIcon,
+				roles: ["ADMIN"],
+			},
+			{
+				title: "Sub-Orgs",
+				url: "/management/sub-orgs",
+				icon: Building01Icon,
 				roles: ["ENA", "ADMIN"],
 			},
 		],

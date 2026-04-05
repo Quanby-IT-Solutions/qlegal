@@ -6,13 +6,11 @@ import { UserPlus } from "lucide-react"
 import { Button } from "@/core/components/ui/button"
 
 import { AddUserDialog } from "./add-user-dialog"
-import { UserFilters } from "./user-filters"
 import { UserList } from "./user-list"
-import { UserStats } from "./user-stats"
 
 export function UserManagementDashboard() {
 	const [searchTerm, setSearchTerm] = useState("")
-	const [roleFilter, setRoleFilter] = useState("all")
+	const [roleFilter, setRoleFilter] = useState("PRINCIPAL")
 	const [statusFilter, setStatusFilter] = useState("all")
 	const [sortBy, setSortBy] = useState("name-asc")
 	const [isAddUserOpen, setIsAddUserOpen] = useState(false)
@@ -33,25 +31,6 @@ export function UserManagementDashboard() {
 					<UserPlus className="mr-2 h-4 w-4" />
 					Add User
 				</Button>
-			</div>
-
-			{/* User Statistics */}
-			<div className="px-4 sm:px-6">
-				<UserStats />
-			</div>
-
-			{/* Filters */}
-			<div className="mt-4 px-4 sm:mt-6 sm:px-6">
-				<UserFilters
-					searchTerm={searchTerm}
-					setSearchTerm={setSearchTerm}
-					roleFilter={roleFilter}
-					setRoleFilter={setRoleFilter}
-					statusFilter={statusFilter}
-					setStatusFilter={setStatusFilter}
-					sortBy={sortBy}
-					setSortBy={setSortBy}
-				/>
 			</div>
 
 			{/* Users List */}

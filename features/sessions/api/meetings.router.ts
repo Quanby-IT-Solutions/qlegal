@@ -2,6 +2,10 @@ import { TRPCError } from "@trpc/server"
 import { and, asc, desc, eq, inArray, ne, type InferSelectModel } from "drizzle-orm"
 import { z } from "zod/v4"
 
+import { getFullName } from "@/core/lib/utils"
+import { env } from "@/env"
+import { getSubOrgCredsForMemberEmail } from "@/features/sub-orgs/server/get-sub-org-creds-for-member"
+import { getDoconchainApiToken, invalidateDoconchainToken } from "@/services/doconchain/auth/generate-token"
 import { addDoconchainProjectSigner } from "@/services/doconchain/projects/add-signer"
 import { createDoconchainProject } from "@/services/doconchain/projects/create-project"
 import { generateDoconchainSignLink } from "@/services/doconchain/projects/generate-sign-link"
@@ -12,6 +16,7 @@ import { users } from "@/services/drizzle/schema/auth"
 import { documents } from "@/services/drizzle/schema/document"
 import { documentSigners } from "@/services/drizzle/schema/document-signers"
 import { enpProfiles } from "@/services/drizzle/schema/enp-profiles"
+import { meetingMessages } from "@/services/drizzle/schema/meeting-messages"
 import { meetings } from "@/services/drizzle/schema/meetings"
 import { signatureRequests } from "@/services/drizzle/schema/signature-requests"
 import { sendSigningLinkEmail } from "@/services/react-email/lib/send.signing-link"
@@ -21,6 +26,7 @@ import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
 import { createMeetingRoom, fetchRecordings, generateMeetingToken } from "@/services/video-sdk"
 
 import { populateNotarialRegistryOnMeetingEnd } from "@/features/notarial-book/server/populate-notarial-registry-on-meeting-end"
+import { assertMeetingUnlockedForDocumentMutations } from "./meeting-lock-guard"
 
 function isEnpRole(role: unknown): boolean {
 	if (typeof role !== "string") return false
@@ -76,10 +82,22 @@ async function getAppointmentParticipantsByMeetingId(meetingId: string) {
 			user: {
 				columns: {
 					id: true,
-					name: true,
+					firstName: true,
+					middleName: true,
+					lastName: true,
 					email: true,
 					image: true,
 					role: true,
+				},
+				with: {
+					enpProfile: {
+						columns: {
+							acknowledgmentPrice: true,
+							affirmationPrice: true,
+							juratPrice: true,
+							signatureWitnessingPrice: true,
+						},
+					},
 				},
 			},
 		},
@@ -184,7 +202,9 @@ export const meetingsRouter = createTRPCRouter({
 								createdBy: {
 									columns: {
 										id: true,
-										name: true,
+										firstName: true,
+										middleName: true,
+										lastName: true,
 										email: true,
 										image: true,
 										role: true,
@@ -253,7 +273,9 @@ export const meetingsRouter = createTRPCRouter({
 							createdBy: {
 								columns: {
 									id: true,
-									name: true,
+									firstName: true,
+									middleName: true,
+									lastName: true,
 									email: true,
 									image: true,
 									role: true,
@@ -287,7 +309,9 @@ export const meetingsRouter = createTRPCRouter({
 					status: appointmentParticipants.status,
 					user: {
 						id: users.id,
-						name: users.name,
+						firstName: users.firstName,
+						middleName: users.middleName,
+						lastName: users.lastName,
 						image: users.image,
 					},
 				})
@@ -319,7 +343,7 @@ export const meetingsRouter = createTRPCRouter({
 					user: row.user
 						? {
 								id: row.user.id,
-								name: row.user.name,
+								name: getFullName(row.user),
 								image: resolveAvatarImage(row.user.image),
 							}
 						: null,
@@ -375,6 +399,7 @@ export const meetingsRouter = createTRPCRouter({
 						title: displayTitle,
 						status: appointment.status ?? "CONFIRMED",
 						appointmentDate: appointment.appointmentDate,
+						allowPublicLink: appointment.allowPublicLink ?? false,
 						createdBy: meeting.createdBy
 							? { ...meeting.createdBy, image: resolveAvatarImage(meeting.createdBy.image) }
 							: meeting.createdBy,
@@ -402,7 +427,9 @@ export const meetingsRouter = createTRPCRouter({
 				createdBy: {
 					columns: {
 						id: true,
-						name: true,
+						firstName: true,
+						middleName: true,
+						lastName: true,
 						email: true,
 						image: true,
 					},
@@ -446,6 +473,7 @@ export const meetingsRouter = createTRPCRouter({
 			...meeting,
 			title: appointment?.title ?? meeting.id,
 			status: appointment?.status ?? "CONFIRMED",
+			allowPublicLink: appointment?.allowPublicLink ?? false,
 			createdBy: meeting.createdBy
 				? { ...meeting.createdBy, image: resolveAvatarImage(meeting.createdBy.image) }
 				: meeting.createdBy,
@@ -493,6 +521,14 @@ export const meetingsRouter = createTRPCRouter({
 	ensureDocoChainToken: protectedProcedure
 		.input(z.object({ meetingId: z.string().min(1) }))
 		.query(async ({ input, ctx }) => {
+			const debugLogsEnabled = env.NODE_ENV !== "production"
+			const startMs = Date.now()
+			if (debugLogsEnabled) {
+				console.log("[sessions][doconchain] ensureDocoChainToken start", {
+					meetingId: input.meetingId,
+					userId: ctx.session.user.id,
+				})
+			}
 			const meeting = await db.query.meetings.findFirst({
 				where: eq(meetings.id, input.meetingId),
 				columns: { id: true, createdById: true },
@@ -508,7 +544,77 @@ export const meetingsRouter = createTRPCRouter({
 			if (!isHost && !isAccepted) {
 				throw new TRPCError({ code: "FORBIDDEN", message: "You don't have access to this meeting" })
 			}
-			return { ready: true }
+
+			// Determine which DocOnChain user owns projects for this meeting (ENP participant).
+			const enpParticipant = apParticipants.find(p => isEnpRole(p.user?.role) && !!asNonEmptyEmail(p.user?.email))
+			const enpEmail = asNonEmptyEmail(enpParticipant?.user?.email)
+			if (!enpEmail) {
+				throw new TRPCError({
+					code: "PRECONDITION_FAILED",
+					message: "An ENP participant with an email is required to prepare DocOnChain.",
+				})
+			}
+			if (debugLogsEnabled) {
+				console.log("[sessions][doconchain] ensureDocoChainToken resolved ENP", {
+					meetingId: input.meetingId,
+					enpEmail,
+					totalMs: Date.now() - startMs,
+				})
+			}
+
+			try {
+				// Force-refresh the cached token so the next DocOnChain call is not using a stale token.
+				const tokenStartMs = Date.now()
+				if (debugLogsEnabled) {
+					console.log("[sessions][doconchain] invalidateDoconchainToken", {
+						meetingId: input.meetingId,
+						enpEmail,
+					})
+				}
+				invalidateDoconchainToken(enpEmail)
+				if (debugLogsEnabled) {
+					console.log("[sessions][doconchain] getDoconchainApiToken start", {
+						meetingId: input.meetingId,
+						enpEmail,
+					})
+				}
+				await getDoconchainApiToken({
+					email: enpEmail,
+					forceGenerated: true,
+					getSubOrgCredsForEmail: (em) => getSubOrgCredsForMemberEmail(em, db),
+				})
+				if (debugLogsEnabled) {
+					console.log("[sessions][doconchain] getDoconchainApiToken ok", {
+						meetingId: input.meetingId,
+						enpEmail,
+						tokenMs: Date.now() - tokenStartMs,
+						totalMs: Date.now() - startMs,
+					})
+				}
+				return { ready: true }
+			} catch (error) {
+				const msg = error instanceof Error ? error.message : "Failed to prepare DocOnChain."
+				if (debugLogsEnabled) {
+					console.log("[sessions][doconchain] ensureDocoChainToken error", {
+						meetingId: input.meetingId,
+						enpEmail,
+						message: msg,
+						totalMs: Date.now() - startMs,
+					})
+				}
+				const lower = msg.toLowerCase()
+
+				// Don't block document upload UX if DocOnChain auto-join is temporarily unauthorized.
+				// Uploading to QSign can still proceed; DocOnChain project creation can be retried later.
+				const looksLikeDoconchainUnauthorized =
+					lower.includes("e_unauthorized_access") ||
+					(lower.includes("doconchain auto-join failed") && lower.includes("unauthorized"))
+				if (looksLikeDoconchainUnauthorized) {
+					return { ready: true, doconchainDegraded: true }
+				}
+
+				throw new TRPCError({ code: "SERVICE_UNAVAILABLE", message: msg })
+			}
 		}),
 
 	// Fetch VideoSDK recordings for a meeting (user must have access)
@@ -660,8 +766,86 @@ export const meetingsRouter = createTRPCRouter({
 			console.warn("⚠️ Failed to populate notarial registry on meeting end:", error)
 		}
 
+		// Delete in-meeting chat messages when session ends (retention policy).
+		await db.delete(meetingMessages).where(eq(meetingMessages.meetingId, meetingId))
+
 		return { success: true, meeting: updatedMeeting }
 	}),
+
+	// Get meeting chat messages (for rejoin / refresh). Deleted when meeting ends.
+	getMeetingMessages: protectedProcedure
+		.input(z.object({ meetingId: z.string().min(1) }))
+		.query(async ({ input, ctx }) => {
+			const meeting = await db.query.meetings.findFirst({
+				where: eq(meetings.id, input.meetingId),
+			})
+			if (!meeting) {
+				throw new TRPCError({ code: "NOT_FOUND", message: "Meeting not found" })
+			}
+			const rows = await db.query.meetingMessages.findMany({
+				where: eq(meetingMessages.meetingId, input.meetingId),
+				orderBy: [asc(meetingMessages.createdAt)],
+				with: {
+					sender: {
+						columns: {
+							id: true,
+							firstName: true,
+							middleName: true,
+							lastName: true,
+						},
+					},
+				},
+			})
+			const currentUserId = ctx.session.user.id
+			return rows.map(row => ({
+				id: row.id,
+				text: row.content,
+				senderId: row.senderId,
+				senderName: row.sender ? getFullName(row.sender) : "Someone",
+				timestamp: row.createdAt.getTime(),
+				isSelf: row.senderId === currentUserId,
+			}))
+		}),
+
+	// Send a meeting chat message (persisted until meeting ends).
+	sendMeetingMessage: protectedProcedure
+		.input(
+			z.object({
+				meetingId: z.string().min(1),
+				content: z.string().min(1).max(5000),
+			})
+		)
+		.mutation(async ({ input, ctx }) => {
+			const meeting = await db.query.meetings.findFirst({
+				where: eq(meetings.id, input.meetingId),
+			})
+			if (!meeting) {
+				throw new TRPCError({ code: "NOT_FOUND", message: "Meeting not found" })
+			}
+			const [inserted] = await db
+				.insert(meetingMessages)
+				.values({
+					meetingId: input.meetingId,
+					senderId: ctx.session.user.id,
+					content: input.content.trim(),
+				})
+				.returning()
+			if (!inserted) {
+				throw new TRPCError({
+					code: "INTERNAL_SERVER_ERROR",
+					message: "Failed to send message",
+				})
+			}
+			const senderName = (ctx.session.user as { name?: string }).name ?? "Someone"
+			return {
+				id: inserted.id,
+				text: inserted.content,
+				senderId: inserted.senderId,
+				senderName: String(senderName),
+				timestamp: inserted.createdAt.getTime(),
+				isSelf: true,
+			}
+		}),
 
 	// Delete meeting
 	delete: protectedProcedure.input(z.string()).mutation(async ({ input, ctx }) => {
@@ -732,7 +916,7 @@ export const meetingsRouter = createTRPCRouter({
 
 			// Check if user has access to the meeting
 			const isHost = meeting.createdById === ctx.session.user.id
-			const { apParticipants } = await getAppointmentParticipantsByMeetingId(meetingId)
+			const { appointment, apParticipants } = await getAppointmentParticipantsByMeetingId(meetingId)
 			const isAcceptedParticipant = apParticipants.some(
 				p => p.userId === ctx.session.user.id && p.status === "ACCEPTED"
 			)
@@ -744,6 +928,7 @@ export const meetingsRouter = createTRPCRouter({
 					message: "You don't have access to this meeting",
 				})
 			}
+			assertMeetingUnlockedForDocumentMutations(meeting)
 
 			try {
 				// Validate file type - only PDF is supported for document signing
@@ -783,7 +968,7 @@ export const meetingsRouter = createTRPCRouter({
 				const [enpUser, enpProfile] = await Promise.all([
 					db.query.users.findFirst({
 						where: eq(users.id, enpUserId),
-						columns: { name: true, email: true },
+						columns: { firstName: true, middleName: true, lastName: true, email: true },
 					}),
 					db.query.enpProfiles.findFirst({
 						where: eq(enpProfiles.userId, enpUserId),
@@ -811,19 +996,37 @@ export const meetingsRouter = createTRPCRouter({
 						? ""
 						: (enpProfile?.mcleNoPeriod ?? "")
 
-				const enpName = (enpUser?.name ?? "").trim()
+				const enpNameRaw = getFullName(enpUser).trim()
 				const rollNo = (enpProfile?.rollNo ?? "").trim()
+
+				// Format attorney name for seal: "ATTY." prefix and uppercase (matches auth registration seal)
+				const formatAttorneyNameForSeal = (n: string | null | undefined): string => {
+					const base = (n ?? "").trim()
+					if (!base) return ""
+					const upper = base.toUpperCase()
+					return upper.startsWith("ATTY.") ? upper : `ATTY. ${upper}`
+				}
+				const attyNameForSeal = formatAttorneyNameForSeal(enpNameRaw)
+
+				// Mode of notarization is set at booking (principal side); REN = Remote (video), IEN = In-person
+				const modeRaw = (appointment?.modeOfNotarization ?? "REN").trim().toUpperCase()
+				const modeOfNotarization =
+					modeRaw === "REN" || modeRaw === "REMOTE" ? "Remote" : "In-person"
+
 				const documentStamp =
-					enpName && rollNo
+					attyNameForSeal && rollNo
 						? {
 								seal: {
 									type: "seal",
-									enp_name: enpName,
+									enp_name: attyNameForSeal,
+									enpName: attyNameForSeal,
 									enp_role_number: rollNo,
 								},
 								notary_info: {
 									type: "notary",
-									atty_name: enpName,
+									name: attyNameForSeal,
+									atty_name: attyNameForSeal,
+									attyName: attyNameForSeal,
 									roll_no: rollNo,
 									roll_no_date: enpProfile?.rollNoDate ?? "",
 									commission_no: enpProfile?.commissionNo ?? "",
@@ -838,6 +1041,8 @@ export const meetingsRouter = createTRPCRouter({
 									MCLE_no_period: mcleNoPeriod,
 									MCLE_no: enpProfile?.mcleNo ?? "",
 									MCLE_no_date: enpProfile?.mcleNoDate ?? "",
+									mode_of_notarization: modeOfNotarization,
+									modeOfNotarization,
 								},
 							}
 						: undefined
@@ -920,6 +1125,7 @@ export const meetingsRouter = createTRPCRouter({
 							userListEditable: false,
 							creatorAsViewer: false,
 							documentStamp,
+							getSubOrgCredsForEmail: (em) => getSubOrgCredsForMemberEmail(em, db),
 						})
 
 						await db
@@ -934,7 +1140,8 @@ export const meetingsRouter = createTRPCRouter({
 						docoChain = { projectCreated: true }
 						break
 					} catch (error) {
-						const message = error instanceof Error ? error.message : "DocOnChain project creation failed"
+						const message =
+							error instanceof Error ? error.message : "DocOnChain project creation failed"
 						docoChain = { projectCreated: false, error: message }
 
 						// Retry only for likely-transient upstream failures.
@@ -1071,7 +1278,7 @@ export const meetingsRouter = createTRPCRouter({
 							users.id,
 							signerRows.map(s => s.userId)
 						),
-						columns: { id: true, email: true, name: true },
+						columns: { id: true, email: true, firstName: true, middleName: true, lastName: true },
 					})
 					const userById = new Map(signerUsers.map(u => [u.id, u]))
 
@@ -1103,7 +1310,7 @@ export const meetingsRouter = createTRPCRouter({
 						}) => Promise<void>
 						await sendEmail({
 							to: signerEmail,
-							recipientName: (signer?.name ?? signerEmail).trim(),
+							recipientName: (getFullName(signer) || signerEmail).trim(),
 							documentName,
 							signingLink: link,
 							signOrderLabel: `Signer ${i + 1} of ${signerRows.length}`,
@@ -1125,7 +1332,7 @@ export const meetingsRouter = createTRPCRouter({
 			with: {
 				documents: {
 					with: {
-						signers: { columns: { userId: true, signingOrder: true } },
+						signers: { columns: { userId: true, signingOrder: true, signerRole: true } },
 					},
 				},
 			},
@@ -1155,7 +1362,7 @@ export const meetingsRouter = createTRPCRouter({
 
 		// Define type for document with nested signers
 		type DocumentWithSigners = InferSelectModel<typeof documents> & {
-			signers: { userId: string; signingOrder: number | null }[]
+			signers: { userId: string; signingOrder: number | null; signerRole: string | null }[]
 		}
 
 		// Sort by order first (for manual reordering), then by createdAt (for upload sequence)
@@ -1168,19 +1375,27 @@ export const meetingsRouter = createTRPCRouter({
 			return createdAtA - createdAtB
 		})
 
-		// Map to include signerUserIds for each document, ordered by signingOrder
+		// Map to include signerUserIds and signerRoles for each document, ordered by signingOrder
 		return sorted.map(doc => {
 			const { signers, ...rest } = doc
-			// Sort signers by signingOrder (nulls last), then by userId for consistency
 			const sortedSigners = [...(signers ?? [])].sort((a, b) => {
 				const orderA = a.signingOrder ?? 999999
 				const orderB = b.signingOrder ?? 999999
 				if (orderA !== orderB) return orderA - orderB
 				return (a.userId ?? "").localeCompare(b.userId ?? "")
 			})
+			const signerRoles: Record<string, "principal" | "witness"> = {}
+			for (const s of sortedSigners) {
+				if (s.userId && (s.signerRole === "principal" || s.signerRole === "witness")) {
+					signerRoles[s.userId] = s.signerRole
+				} else if (s.userId) {
+					signerRoles[s.userId] = "principal"
+				}
+			}
 			return {
 				...rest,
 				signerUserIds: sortedSigners.map(s => s.userId),
+				signerRoles,
 			}
 		})
 	}),
@@ -1201,17 +1416,24 @@ export const meetingsRouter = createTRPCRouter({
 			})
 		}),
 
-	// Set which meeting participants are signers for a given document (before plotting)
+	// Set which meeting participants are signers for a given document (before plotting).
+	// Signers include role (principal | witness) assigned by ENP; order = array order.
 	setDocumentSigners: protectedProcedure
 		.input(
 			z.object({
 				documentId: z.string().min(1),
 				meetingId: z.string().min(1),
-				userIds: z.array(z.string().min(1)), // Array order represents signing order (first = 1, second = 2, etc.)
+				signers: z.array(
+					z.object({
+						userId: z.string().min(1),
+						role: z.enum(["principal", "witness"]),
+					})
+				),
 			})
 		)
 		.mutation(async ({ ctx, input }) => {
-			const { documentId, meetingId, userIds } = input
+			const { documentId, meetingId, signers: signerInputs } = input
+			const userIds = signerInputs.map(s => s.userId)
 
 			const meeting = await db.query.meetings.findFirst({
 				where: eq(meetings.id, meetingId),
@@ -1248,7 +1470,6 @@ export const meetingsRouter = createTRPCRouter({
 			if (!isHost && !isAccepted) {
 				throw new TRPCError({ code: "FORBIDDEN", message: "You don't have access to this meeting" })
 			}
-
 			const doc = meeting.documents.find(d => d.id === documentId)
 			if (!doc) {
 				throw new TRPCError({ code: "NOT_FOUND", message: "Document not found in this meeting" })
@@ -1273,7 +1494,9 @@ export const meetingsRouter = createTRPCRouter({
 					where: inArray(users.id, userIds),
 					columns: {
 						id: true,
-						name: true,
+						firstName: true,
+						middleName: true,
+						lastName: true,
 						email: true,
 						address: true,
 						role: true,
@@ -1283,15 +1506,13 @@ export const meetingsRouter = createTRPCRouter({
 				// Create a map for quick lookup
 				const userMap = new Map(signerUsers.map(u => [u.id, u]))
 
-				// Insert signers with name, address, and signing order
-				// The array index + 1 represents the signing order (1 = first, 2 = second, etc.)
+				// Insert signers with name, address, role (assigned by ENP), and signing order
 				await db.insert(documentSigners).values(
-					userIds.map((userId, index) => {
+					signerInputs.map(({ userId, role }, index) => {
 						const user = userMap.get(userId)
-						const isPrincipal = user?.role === "PRINCIPAL"
+						const isPrincipal = role === "principal"
 
-						// Extract name and address for principals only
-						const signerName: string | null = isPrincipal && user?.name ? String(user.name) : null
+						const signerName: string | null = isPrincipal && user ? getFullName(user) || null : null
 						const signerAddress: string | null =
 							isPrincipal && user?.address && typeof user.address === "string"
 								? String(user.address)
@@ -1302,7 +1523,8 @@ export const meetingsRouter = createTRPCRouter({
 							userId,
 							signerName,
 							signerAddress,
-							signingOrder: index + 1, // 1-based order
+							signerRole: role,
+							signingOrder: index + 1,
 						}
 					})
 				)
@@ -1336,9 +1558,10 @@ export const meetingsRouter = createTRPCRouter({
 							enpEmail,
 							signer: {
 								email: signerEmail,
-								name: String(user?.name ?? signerEmail),
+								name: getFullName(user) || signerEmail,
 								role: "Signer",
 							},
+							getSubOrgCredsForEmail: (em) => getSubOrgCredsForMemberEmail(em, db),
 						})
 					}
 				}
@@ -1357,7 +1580,9 @@ export const meetingsRouter = createTRPCRouter({
 					createdBy: {
 						columns: {
 							id: true,
-							name: true,
+							firstName: true,
+							middleName: true,
+							lastName: true,
 							email: true,
 							image: true,
 							role: true,
@@ -1379,7 +1604,9 @@ export const meetingsRouter = createTRPCRouter({
 							signer: {
 								columns: {
 									id: true,
-									name: true,
+									firstName: true,
+									middleName: true,
+									lastName: true,
 									email: true,
 									image: true,
 								},
@@ -1434,7 +1661,9 @@ export const meetingsRouter = createTRPCRouter({
 					status: req.status,
 					signedAt: req.signedAt ?? null,
 					signerId: req.signerId,
-					signer: req.signer ?? null,
+					signer: req.signer
+						? { ...req.signer, name: getFullName(req.signer) }
+						: null,
 				})
 				signatureRequestsByDocumentId.set(req.documentId, list)
 			}
@@ -1564,7 +1793,6 @@ export const meetingsRouter = createTRPCRouter({
 					message: "You don't have access to this meeting",
 				})
 			}
-
 			// Update order for each document
 			await Promise.all(
 				input.documentIds.map((documentId, index) =>
@@ -1599,7 +1827,7 @@ export const meetingsRouter = createTRPCRouter({
 			if (meeting.createdById !== ctx.session.user.id) {
 				throw new TRPCError({
 					code: "FORBIDDEN",
-					message: "Only the meeting creator can lock/unlock document order",
+					message: "Only the meeting creator can lock/unlock document uploads",
 				})
 			}
 
@@ -1666,7 +1894,9 @@ export const meetingsRouter = createTRPCRouter({
 				where: eq(users.email, email),
 				columns: {
 					id: true,
-					name: true,
+					firstName: true,
+					middleName: true,
+					lastName: true,
 					email: true,
 					image: true,
 				},
@@ -1710,6 +1940,92 @@ export const meetingsRouter = createTRPCRouter({
 				status: "PENDING" as const,
 				user,
 			}
+		}),
+
+	// Enable/disable public join link for this session (meeting creator only).
+	setAllowPublicLink: protectedProcedure
+		.input(
+			z.object({
+				meetingId: z.string().min(1),
+				allow: z.boolean(),
+			})
+		)
+		.mutation(async ({ input, ctx }) => {
+			const meeting = await db.query.meetings.findFirst({
+				where: eq(meetings.id, input.meetingId),
+				columns: { id: true, createdById: true },
+			})
+			if (!meeting) {
+				throw new TRPCError({ code: "NOT_FOUND", message: "Meeting not found" })
+			}
+			if (meeting.createdById !== ctx.session.user.id) {
+				throw new TRPCError({
+					code: "FORBIDDEN",
+					message: "Only the meeting host can change the public link setting",
+				})
+			}
+			const appointment = await db.query.appointments.findFirst({
+				where: eq(appointments.meetingId, input.meetingId),
+				columns: { id: true },
+			})
+			if (!appointment) {
+				throw new TRPCError({ code: "NOT_FOUND", message: "Appointment not found" })
+			}
+			await db
+				.update(appointments)
+				.set({ allowPublicLink: input.allow })
+				.where(eq(appointments.id, appointment.id))
+			return { allowPublicLink: input.allow }
+		}),
+
+	// Join a meeting via public link (adds current user as participant, then they go through liveness → lobby).
+	joinMeetingByLink: protectedProcedure
+		.input(z.object({ meetingId: z.string().min(1) }))
+		.mutation(async ({ input, ctx }) => {
+			const meeting = await db.query.meetings.findFirst({
+				where: eq(meetings.id, input.meetingId),
+				columns: { id: true },
+			})
+			if (!meeting) {
+				throw new TRPCError({ code: "NOT_FOUND", message: "Meeting not found" })
+			}
+			const appointment = await db.query.appointments.findFirst({
+				where: eq(appointments.meetingId, input.meetingId),
+				columns: { id: true, allowPublicLink: true },
+			})
+			if (!appointment) {
+				throw new TRPCError({ code: "NOT_FOUND", message: "Appointment not found" })
+			}
+			if (!appointment.allowPublicLink) {
+				throw new TRPCError({
+					code: "FORBIDDEN",
+					message: "This session is not open for link-based join",
+				})
+			}
+			const existing = await db.query.appointmentParticipants.findFirst({
+				where: and(
+					eq(appointmentParticipants.appointmentId, appointment.id),
+					eq(appointmentParticipants.userId, ctx.session.user.id)
+				),
+			})
+			if (existing) {
+				if (existing.status === "ACCEPTED") {
+					return { joined: false, alreadyAccepted: true }
+				}
+				await db
+					.update(appointmentParticipants)
+					.set({ status: "ACCEPTED", acceptedAt: new Date() })
+					.where(eq(appointmentParticipants.id, existing.id))
+				return { joined: true }
+			}
+			await db.insert(appointmentParticipants).values({
+				appointmentId: appointment.id,
+				userId: ctx.session.user.id,
+				status: "ACCEPTED",
+				acceptedAt: new Date(),
+				participantRole: "PARTICIPANT",
+			})
+			return { joined: true }
 		}),
 
 	// Respond to a meeting invite (accept/decline)

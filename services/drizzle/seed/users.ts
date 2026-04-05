@@ -14,34 +14,40 @@ export async function createUsers() {
 
 	// Create test accounts
 	const testAccountIds = generateTestIds(SEED_CONFIG.testAccounts.length, "test")
-	const testAccountData: Array<{
-		id: string | undefined
-		email: string
-		name: string
-		emailVerified: Date
-		image: string
-		password: string
-		role: "PRINCIPAL" | "ENP" | "ENA" | "ADMIN"
-		commissionStatus: "ACTIVE" | "PENDING" | "SUSPENDED"
-		kycStatus: "VERIFIED"
-		kycVerifiedAt: Date
-	}> = SEED_CONFIG.testAccounts.map((account, i) => ({
-		id: testAccountIds[i],
-		email: account.email,
-		name: account.name,
-		emailVerified: account.emailVerified,
-		image: account.image,
-		password: hashedPassword,
-		role: account.role,
-		commissionStatus: account.role === "ENP" ? ("PENDING" as const) : ("ACTIVE" as const),
-		kycStatus: "VERIFIED" as const,
-		kycVerifiedAt: new Date(),
-	}))
+	function splitName(fullName: string) {
+		const parts = fullName.trim().split(/\s+/)
+		if (parts.length === 1) return { firstName: parts[0] ?? "", middleName: "", lastName: "" }
+		return {
+			firstName: parts[0] ?? "",
+			middleName: parts.length > 2 ? parts.slice(1, -1).join(" ") : "",
+			lastName: parts[parts.length - 1] ?? "",
+		}
+	}
+
+	const testAccountData = SEED_CONFIG.testAccounts.map((account, i) => {
+		const { firstName, middleName, lastName } = splitName(account.name)
+		return {
+			id: testAccountIds[i],
+			email: account.email,
+			firstName,
+			middleName: middleName || null,
+			lastName,
+			emailVerified: account.emailVerified,
+			image: account.image,
+			password: hashedPassword,
+			role: account.role,
+			commissionStatus: (account.role === "ENP" ? "PENDING" : "ACTIVE") as "ACTIVE" | "PENDING" | "SUSPENDED",
+			kycStatus: "VERIFIED" as const,
+			kycVerifiedAt: new Date(),
+		}
+	})
 
 	let insertedTestUsers: Array<{
 		id: string
 		email: string | null
-		name: string | null
+		firstName: string | null
+		middleName: string | null
+		lastName: string | null
 		role: "ENP" | "PRINCIPAL" | "ENA" | "ADMIN"
 	}> = []
 
@@ -159,7 +165,9 @@ export async function createUsers() {
 				columns: {
 					id: funcs.valuesFromArray({ values: randomTestIds, isUnique: true }),
 					email: funcs.email(),
-					name: funcs.fullName(),
+					firstName: funcs.default({ defaultValue: faker.person.firstName() }),
+					middleName: funcs.default({ defaultValue: faker.person.middleName() }),
+					lastName: funcs.default({ defaultValue: faker.person.lastName() }),
 					emailVerified: funcs.date({
 						minDate: "2024-01-01T00:00:00.000Z",
 						maxDate: "2024-12-31T23:59:59.999Z",
@@ -179,7 +187,9 @@ export async function createUsers() {
 			.select({
 				id: users.id,
 				email: users.email,
-				name: users.name,
+				firstName: users.firstName,
+				middleName: users.middleName,
+				lastName: users.lastName,
 				role: users.role,
 			})
 			.from(users)
@@ -213,7 +223,14 @@ export async function createUsers() {
 	if (allUsers.length > 0) {
 		console.log("\n👥 Generated Users")
 		console.log("=".repeat(100))
-		table([["Name", "Email", "Role"], ...allUsers.map(user => [user.name, user.email, user.role])])
+		table([
+			["Name", "Email", "Role"],
+			...allUsers.map(u => [
+				[u.firstName, u.middleName, u.lastName].filter(Boolean).join(" ") || "—",
+				u.email,
+				u.role,
+			]),
+		])
 		console.log("=".repeat(100))
 	}
 }

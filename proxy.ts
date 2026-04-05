@@ -3,15 +3,36 @@ import NextAuth from "next-auth"
 
 import { getDefaultRoute, isRouteAuthorized } from "@/core/middleware/authorization"
 import { ROUTE_CONFIG } from "@/core/middleware/config"
-import { logAccess, logError, logRedirect } from "@/core/middleware/logger"
 import { matchesAnyRoute } from "@/core/middleware/route-matcher"
-import { addCustomHeaders } from "@/core/middleware/security"
 
 import { authConfig } from "@/services/next-auth/config"
 
 import { env } from "@/env"
 
 const { auth: proxy } = NextAuth(authConfig)
+
+const ENP_LAWYER_ROUTE_PREFIXES = ["/requests", "/notarial-registry", "/sessions"] as const
+
+function isEnpLawyerRoute(path: string): boolean {
+	return ENP_LAWYER_ROUTE_PREFIXES.some(prefix => path === prefix || path.startsWith(`${prefix}/`))
+}
+
+function logAccess(path: string, role: string | null, authorized: boolean): void {
+	if (env.NODE_ENV === "development") {
+		console.log(`\n[Middleware] ${path} | Role: ${role ?? "anonymous"} | Authorized: ${authorized}`)
+	}
+}
+
+function logRedirect(from: string, to: string, reason: string): void {
+	if (env.NODE_ENV === "development") {
+		console.log(`[Middleware] Redirect: ${from} -> ${to} (${reason})`)
+	}
+}
+
+function logError(error: unknown, context?: string): void {
+	const contextInfo = context ? `[${context}] ` : ""
+	console.error(`[Middleware] ${contextInfo}Error:`, error)
+}
 
 // ============================================================================
 // MIDDLEWARE FUNCTION
@@ -46,21 +67,20 @@ export default proxy(req => {
 
 			// STRICT KYC: If not verified, always redirect to KYC first, regardless of callback
 			if (kycStatus === "NOT_STARTED" || kycStatus === "PENDING") {
-				const kycUrl = new URL("/auth/kyc", nextUrl)
-				logRedirect(path, kycUrl.pathname, "kyc required before callback")
-				return NextResponse.redirect(kycUrl)
-			}
-
-			// USER STATUS: If user has not active status, redirect to status page
-			if (userStatus !== "ACTIVE") {
-				const statusUrl = new URL("/auth/status", nextUrl)
-				logRedirect(path, statusUrl.pathname, "user status required before callback")
-				return NextResponse.redirect(statusUrl)
+				const onboardingUrl = new URL("/onboarding", nextUrl)
+				logRedirect(path, onboardingUrl.pathname, "kyc required before callback")
+				return NextResponse.redirect(onboardingUrl)
 			}
 
 			try {
 				const callbackObj = new URL(callbackUrl, nextUrl.origin)
 				const callbackPath = callbackObj.pathname
+
+				if (role === "ENP" && userStatus !== "ACTIVE" && isEnpLawyerRoute(callbackPath)) {
+					const statusUrl = new URL("/auth/status", nextUrl)
+					logRedirect(path, statusUrl.pathname, "ENP approval required for callback route")
+					return NextResponse.redirect(statusUrl)
+				}
 
 				const callbackAuth = isRouteAuthorized(callbackPath, role)
 				if (callbackAuth) {
@@ -96,30 +116,58 @@ export default proxy(req => {
 			// - KYC status is NOT_STARTED or PENDING (not yet VERIFIED)
 			if (
 				isAuth &&
-				path !== "/auth/kyc" &&
+				!path.startsWith("/onboarding") &&
 				!onAuthPage &&
 				(kycStatus === "NOT_STARTED" || kycStatus === "PENDING")
 			) {
-				const kycUrl = new URL("/auth/kyc", nextUrl)
-				logRedirect(path, kycUrl.pathname, "strict kyc gate - verification required")
-				return NextResponse.redirect(kycUrl)
+				const onboardingUrl = new URL("/onboarding", nextUrl)
+				logRedirect(path, onboardingUrl.pathname, "strict kyc gate - verification required")
+				return NextResponse.redirect(onboardingUrl)
 			}
 
 			const userStatus = auth?.user?.status
-			if (
-				isAuth &&
-				path !== "/auth/status" &&
-				!onAuthPage &&
-				path !== "/auth/kyc" &&
-				userStatus !== "ACTIVE"
-			) {
+			if (isAuth && role === "ENP" && userStatus !== "ACTIVE" && isEnpLawyerRoute(path)) {
 				const statusUrl = new URL("/auth/status", nextUrl)
-				logRedirect(path, statusUrl.pathname, "user status gate - account not active")
+				logRedirect(path, statusUrl.pathname, "ENP approval required for lawyer route")
 				return NextResponse.redirect(statusUrl)
 			}
 
+			// ONBOARDING REMINDER GATE:
+			// After KYC, users are reminded to complete optional profile details.
+			// They can snooze reminders for 7 days from onboarding.
+			const onboardingSnoozedUntilRaw = auth?.user?.onboardingSnoozedUntil
+			const onboardingSnoozedUntil =
+				typeof onboardingSnoozedUntilRaw === "string" ? new Date(onboardingSnoozedUntilRaw) : null
+			const isOnboardingSnoozed =
+				onboardingSnoozedUntil !== null &&
+				!Number.isNaN(onboardingSnoozedUntil.getTime()) &&
+				onboardingSnoozedUntil.getTime() > Date.now()
+
+			// Allow through if user completed the wizard (onboardingComplete) or all details (onboardingDetailsComplete) or snoozed
+			if (
+				isAuth &&
+				!path.startsWith("/onboarding") &&
+				!onAuthPage &&
+				path !== "/auth/status" &&
+				role !== "ADMIN" &&
+				role !== "ENA" &&
+				!auth?.user?.onboardingDetailsComplete &&
+				!auth?.user?.onboardingComplete &&
+				!isOnboardingSnoozed
+			) {
+				const onboardingUrl = new URL("/onboarding", nextUrl)
+				logRedirect(path, onboardingUrl.pathname, "onboarding reminder gate")
+				return NextResponse.redirect(onboardingUrl)
+			}
+
 			const response = NextResponse.next()
-			return addCustomHeaders(response, userId, path)
+
+			if (userId) {
+				response.headers.set("X-User-ID", userId)
+			}
+			response.headers.set("x-current-path", path)
+
+			return response
 		}
 
 		// --- ACCESS DENIED (AUTHENTICATED) ---
@@ -134,9 +182,9 @@ export default proxy(req => {
 			const getRedirectRoute = () => {
 				// KYC takes priority
 				if (kycStatus === "NOT_STARTED" || kycStatus === "PENDING") {
-					return "/auth/kyc"
+					return "/onboarding"
 				}
-				if (userStatus !== "ACTIVE") {
+				if (role === "ENP" && userStatus !== "ACTIVE" && isEnpLawyerRoute(path)) {
 					return "/auth/status"
 				}
 				// Default route

@@ -71,6 +71,20 @@
       "when": 1771434579718,
       "tag": "0009_colossal_iron_fist",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1772267082032,
+      "tag": "0010_spicy_jazinda",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1772585079227,
+      "tag": "0011_long_leech",
+      "breakpoints": true
     }
   ]
 }

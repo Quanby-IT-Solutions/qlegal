@@ -23,35 +23,32 @@ export interface RouteConfig {
 
 export const ROUTE_CONFIG: RouteConfig = {
 	public: [
-		{ path: "/", exact: true },
-		{ path: "/test" },
+		{ path: "/auth/privacy-policy", exact: true },
+		{ path: "/auth/terms-of-service", exact: true },
 		{ path: "/liveness-validation" }, // Testing route for liveness validation
-		{ path: "/privacy-policy" },
-		{ path: "/terms-of-service" },
-		{ path: "/legal/privacy-policy" },
-		{ path: "/legal/terms-of-service" },
 		{ path: "/preview-email" },
+		{ path: "/test" },
 	],
 
 	// Public only routes - accessible to non-authenticated users only
 	publicOnly: [
 		{ path: "/auth/error", exact: true },
 		{ path: "/auth/forgot-password", exact: true },
+		{ path: "/auth/legal-registration", exact: true },
 		{ path: "/auth/login", exact: true },
 		{ path: "/auth/register", exact: true },
 		{ path: "/auth/register/lawyer", exact: true },
 		{ path: "/auth/reset-password", exact: true },
 		{ path: "/auth/verify-email", exact: true },
-		{ path: "/auth/legal-registration", exact: true },
 	],
 
 	// Protected routes - require authentication and role-based access
 	protected: {
 		shared: [
-			{ path: "/auth/kyc", exact: true },
+			{ path: "/appointments" },
 			{ path: "/auth/signature" },
 			{ path: "/auth/status", exact: true },
-			{ path: "/appointments" },
+			{ path: "/auth/verify-recovery-email", exact: true },
 			{ path: "/browse" },
 			{ path: "/calendar" },
 			{ path: "/documents" },
@@ -63,7 +60,6 @@ export const ROUTE_CONFIG: RouteConfig = {
 			{ path: "/envelopes" },
 			{ path: "/kyc" },
 			{ path: "/liveness" },
-			{ path: "/sessions" },
 			{ path: "/messages" },
 			{ path: "/notarial-book" },
 			{ path: "/notarial-registry" },
@@ -72,17 +68,26 @@ export const ROUTE_CONFIG: RouteConfig = {
 			{ path: "/notarizations/history" },
 			{ path: "/notarize" },
 			{ path: "/notifications" },
+			{ path: "/onboarding" },
 			{ path: "/profile" },
 			{ path: "/requests" },
 			{ path: "/requests/incoming" },
 			{ path: "/schedule" },
+			{ path: "/sessions" },
 			{ path: "/settings" },
 		],
 		byRole: {
 			ENP: [{ path: "/dashboard" }, { path: "/requests" }],
 			PRINCIPAL: [{ path: "/dashboard" }, { path: "/consultations" }],
-			ENA: [{ path: "/dashboard" }],
-			ADMIN: [{ path: "/dashboard" }, { path: "/management/users" }],
+			ENA: [{ path: "/dashboard" }, { path: "/management/sub-orgs" }],
+			ADMIN: [
+				{ path: "/dashboard" },
+				{ path: "/management/ena-management" },
+				{ path: "/management/enp-management" },
+				{ path: "/management/sub-orgs" },
+				{ path: "/management/users" },
+				{ path: "/management/users" },
+			],
 		},
 	},
 }
@@ -90,8 +95,6 @@ export const ROUTE_CONFIG: RouteConfig = {
 // ============================================================================
 // CONSTANTS
 // ============================================================================
-
-export const CUSTOM_HEADERS = {} as const
 
 export const DEFAULT_ROUTES: Record<UserRole, string> = {
 	ENP: "/dashboard",

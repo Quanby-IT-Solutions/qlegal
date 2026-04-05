@@ -7,6 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import { toast } from "sonner"
 
+import { PasswordRequirementsChecklist } from "@/core/components/password-requirements-checklist"
 import { Button, buttonVariants } from "@/core/components/ui/button"
 import { Checkbox } from "@/core/components/ui/checkbox"
 import {
@@ -36,7 +37,6 @@ export function RegisterForm({ callbackUrl }: RegisterFormProps) {
 	const form = useForm({
 		resolver: zodResolver(registerSchema),
 		defaultValues: {
-			name: "",
 			email: "",
 			password: "",
 			confirmPassword: "",
@@ -54,23 +54,11 @@ export function RegisterForm({ callbackUrl }: RegisterFormProps) {
 
 	const onSubmit = (values: RegisterSchema) => mutate(values)
 
+	const password = form.watch("password")
+
 	return (
 		<Form {...form}>
 			<form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-				<FormField
-					control={form.control}
-					name="name"
-					render={({ field }) => (
-						<FormItem>
-							<FormLabel>Name</FormLabel>
-							<FormControl>
-								<Input placeholder="Enter your name" {...field} />
-							</FormControl>
-							<FormMessage />
-						</FormItem>
-					)}
-				/>
-
 				<FormField
 					control={form.control}
 					name="email"
@@ -94,6 +82,7 @@ export function RegisterForm({ callbackUrl }: RegisterFormProps) {
 							<FormControl>
 								<InputPassword placeholder="Create a password" {...field} />
 							</FormControl>
+							<PasswordRequirementsChecklist password={password} />
 							<FormMessage />
 						</FormItem>
 					)}
@@ -125,7 +114,10 @@ export function RegisterForm({ callbackUrl }: RegisterFormProps) {
 								<FormLabel className="text-muted-foreground text-xs">
 									I agree to the
 									<Link
-										href={`/terms-of-service?from=${encodeURIComponent(pathname)}`}
+										href={{
+											pathname: "/auth/terms-of-service",
+											query: { from: pathname },
+										}}
 										target="_blank"
 										className={cn(
 											buttonVariants({ variant: "link" }),
@@ -136,7 +128,10 @@ export function RegisterForm({ callbackUrl }: RegisterFormProps) {
 									</Link>
 									and
 									<Link
-										href={`/privacy-policy?from=${encodeURIComponent(pathname)}`}
+										href={{
+											pathname: "/auth/privacy-policy",
+											query: { from: pathname },
+										}}
 										target="_blank"
 										className={cn(
 											buttonVariants({ variant: "link" }),

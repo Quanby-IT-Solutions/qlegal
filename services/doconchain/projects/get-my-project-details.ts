@@ -1,5 +1,6 @@
 import { env } from "@/env"
 import { getDoconchainApiToken, invalidateDoconchainToken } from "@/services/doconchain/auth/generate-token"
+import type { GetSubOrgCredsForEmail } from "@/services/doconchain/auth/generate-token"
 
 type DoconchainMyProjectDetailsResponse = {
 	message?: string
@@ -52,6 +53,8 @@ async function fetchMyProjectDetails(params: {
 export async function getDoconchainMyProjectDetails(input: {
 	projectUuid: string
 	email: string
+	/** Optional: resolve sub-org enterprise creds for this token email (usually the ENP owner). */
+	getSubOrgCredsForEmail?: GetSubOrgCredsForEmail
 }): Promise<DoconchainMyProjectDetailsResponse> {
 	const projectUuid = input.projectUuid.trim()
 	if (!projectUuid) throw new Error("Project UUID is required.")
@@ -61,7 +64,7 @@ export async function getDoconchainMyProjectDetails(input: {
 
 	const doRequest = async () => {
 		// Prefer explicit user-token (DOCONCHAIN_API_TOKEN) if configured; otherwise generate.
-		const token = await getDoconchainApiToken({ email })
+		const token = await getDoconchainApiToken({ email, getSubOrgCredsForEmail: input.getSubOrgCredsForEmail })
 		return fetchMyProjectDetails({ projectUuid, token })
 	}
 

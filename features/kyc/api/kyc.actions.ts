@@ -1,17 +1,22 @@
 "use server"
 
 import { revalidatePath } from "next/cache"
-import { eq } from "drizzle-orm"
+import { and, eq } from "drizzle-orm"
+
+import { getFullName } from "@/core/lib/utils"
 
 import { db } from "@/services/drizzle/db"
 import { users } from "@/services/drizzle/schema/auth"
+import { idCardDetails } from "@/services/drizzle/schema/id-card-details"
 import { kycSessions } from "@/services/drizzle/schema/kyc-sessions"
 import {
 	createOnboardLink,
+	extractIdentifierFromStartKycUrl,
 	getTransactionStatus,
 	interpretStatus,
 	type OnboardLinkConfig,
 } from "@/services/hyperverge"
+import { getHyperVergeAuthToken } from "@/services/hyperverge/auth-token"
 import { matchFaceSelfieToId, readIdCard } from "@/services/hyperverge/kyc-direct"
 import {
 	fetchImageUrlAsDataUrl,
@@ -33,6 +38,181 @@ function generateTransactionId(userId: string): string {
 	const timestamp = Date.now().toString(36)
 	const random = Math.random().toString(36).substring(2, 8)
 	return `kyc_${userId}_${timestamp}_${random}`.toUpperCase()
+}
+
+function hasNameValue(value: string | null | undefined) {
+	return Boolean(value && value.trim() !== "")
+}
+
+function coalesceNameValue(
+	currentValue: string | null | undefined,
+	candidateValue: string | null | undefined
+) {
+	if (hasNameValue(currentValue)) return currentValue
+	if (hasNameValue(candidateValue)) return candidateValue?.trim()
+	return currentValue ?? null
+}
+
+function extractAdditionalFieldString(
+	additionalFields: unknown,
+	keys: readonly string[]
+): string | undefined {
+	if (
+		!additionalFields ||
+		typeof additionalFields !== "object" ||
+		Array.isArray(additionalFields)
+	) {
+		return undefined
+	}
+
+	const record = additionalFields as Record<string, unknown>
+	for (const key of keys) {
+		const value = record[key]
+		if (typeof value === "string" && value.trim() !== "") {
+			return value.trim()
+		}
+	}
+
+	return undefined
+}
+
+interface ParsedNameFields {
+	firstName?: string
+	middleName?: string
+	lastName?: string
+}
+
+function normalizeNameValue(value: string | null | undefined): string | undefined {
+	if (!value) return undefined
+	const normalized = value.replace(/\s+/g, " ").trim()
+	return normalized || undefined
+}
+
+/** Capitalize first letter of each word only (title case) for DB display. */
+function toTitleCaseWords(value: string | null | undefined): string | undefined {
+	const trimmed = normalizeNameValue(value)
+	if (!trimmed) return undefined
+	return trimmed
+		.split(/\s+/)
+		.map(w => (w.length ? w.charAt(0).toUpperCase() + w.slice(1).toLowerCase() : w))
+		.join(" ")
+}
+
+function parseNameFromFullName(fullName: string): ParsedNameFields {
+	const normalizedFullName = normalizeNameValue(fullName)
+	if (!normalizedFullName) return {}
+
+	// Format: "LASTNAME, FIRSTNAME ... MIDDLENAME" (middleName = last word after comma)
+	if (normalizedFullName.includes(",")) {
+		const [rawLastName, ...rest] = normalizedFullName.split(",")
+		const lastName = normalizeNameValue(rawLastName)
+		const trailing = normalizeNameValue(rest.join(" "))
+		const trailingParts = trailing?.split(/\s+/).filter(Boolean) ?? []
+
+		if (trailingParts.length === 0) return lastName ? { lastName } : {}
+
+		const middleName = trailingParts[trailingParts.length - 1]
+		const firstName = trailingParts.length > 1 ? trailingParts.slice(0, -1).join(" ") : undefined
+		return {
+			firstName: firstName ?? trailingParts[0],
+			middleName: trailingParts.length > 1 ? middleName : undefined,
+			lastName,
+		}
+	}
+
+	const parts = normalizedFullName.split(" ").filter(Boolean)
+	if (parts.length === 1) return { firstName: parts[0] }
+	if (parts.length === 2) return { firstName: parts[0], lastName: parts[1] }
+
+	return {
+		firstName: parts[0],
+		middleName: parts.slice(1, -1).join(" "),
+		lastName: parts[parts.length - 1],
+	}
+}
+
+function resolveNameFieldsFromIdCardDetails(details: {
+	firstName?: string | null
+	middleName?: string | null
+	lastName?: string | null
+	fullName?: string | null
+}): ParsedNameFields {
+	const fromFullName = details.fullName ? parseNameFromFullName(details.fullName) : {}
+
+	return {
+		firstName: normalizeNameValue(details.firstName) ?? fromFullName.firstName,
+		middleName: normalizeNameValue(details.middleName) ?? fromFullName.middleName,
+		lastName: normalizeNameValue(details.lastName) ?? fromFullName.lastName,
+	}
+}
+
+function joinDefined(parts: Array<string | null | undefined>, separator: string) {
+	return parts
+		.map(part => (typeof part === "string" ? part.trim() : ""))
+		.filter(Boolean)
+		.join(separator)
+}
+
+type AddressDetails = {
+	addressLine1?: string | null
+	addressLine2?: string | null
+	city?: string | null
+	province?: string | null
+	postalCode?: string | null
+	country?: string | null
+	additionalFields?: unknown
+}
+
+function formatAddressLine(details: AddressDetails): string | null {
+	const line1 = normalizeNameValue(details.addressLine1)
+	const line2 = normalizeNameValue(details.addressLine2)
+	const city = normalizeNameValue(details.city)
+	const province = normalizeNameValue(details.province)
+	const postalCode = normalizeNameValue(details.postalCode)
+	const country = normalizeNameValue(details.country)
+
+	const cityProvince = joinDefined([city, province], ", ")
+	const cityProvincePostal = joinDefined([cityProvince, postalCode], " ")
+	const main = joinDefined([line1, line2], ", ")
+
+	const full = joinDefined([main, cityProvincePostal, country], ", ")
+	return full ? full : null
+}
+
+function formatStreetLine(details: AddressDetails): string | null {
+	const line1 = normalizeNameValue(details.addressLine1)
+	const line2 = normalizeNameValue(details.addressLine2)
+	const street = joinDefined([line1, line2], ", ")
+	return street ? street : null
+}
+
+function extractBarangayFromAdditionalFields(additionalFields: unknown): string | null {
+	if (
+		!additionalFields ||
+		typeof additionalFields !== "object" ||
+		Array.isArray(additionalFields)
+	) {
+		return null
+	}
+
+	const record = additionalFields as Record<string, unknown>
+	const candidates = ["barangay", "brgy", "brgyName", "brgy_name"]
+
+	for (const key of candidates) {
+		const value = record[key]
+		if (typeof value === "string" && value.trim()) {
+			return value.trim()
+		}
+	}
+
+	return null
+}
+
+function formatCityProvince(details: AddressDetails): string | null {
+	const city = normalizeNameValue(details.city)
+	const province = normalizeNameValue(details.province)
+	const cityProvince = joinDefined([city, province], ", ")
+	return cityProvince ? cityProvince : null
 }
 
 /**
@@ -79,7 +259,7 @@ export async function createUserKycLink() {
 
 	// Build redirect URL - use callback page that closes the window
 	const baseUrl = env.AUTH_URL ?? "http://localhost:3000"
-	const redirectUrl = `${baseUrl}/auth/kyc/callback`
+	const redirectUrl = `${baseUrl}/onboarding/callback`
 
 	console.log("🔗 Creating KYC link with redirect:", redirectUrl)
 
@@ -132,7 +312,7 @@ export async function createUserKycLink() {
 			})
 			.where(eq(users.id, session.user.id))
 
-		revalidatePath("/auth/kyc")
+		revalidatePath("/onboarding")
 
 		return {
 			success: true,
@@ -147,6 +327,53 @@ export async function createUserKycLink() {
 		return {
 			success: false,
 			error: error instanceof Error ? error.message : "Failed to create KYC link",
+		}
+	}
+}
+
+/**
+ * Create or reuse a KYC session for the HyperVerge Web SDK.
+ * Returns authToken and transactionId so the client can launch HyperKYCModule.launch().
+ */
+export async function getKycWebSdkSession() {
+	const session = await auth()
+
+	if (!session?.user?.id) {
+		return { success: false as const, error: "User not authenticated" }
+	}
+
+	const existingSession = await db.query.kycSessions.findFirst({
+		where: eq(kycSessions.userId, session.user.id),
+		orderBy: (table, { desc }) => [desc(table.createdAt)],
+	})
+
+	let transactionId: string
+
+	if (existingSession?.status === "PENDING" && existingSession.sessionType === "web_sdk") {
+		transactionId = existingSession.transactionId
+	} else {
+		transactionId = generateTransactionId(session.user.id)
+		await db.insert(kycSessions).values({
+			userId: session.user.id,
+			transactionId,
+			sessionType: "web_sdk",
+			status: "PENDING",
+		})
+		await db.update(users).set({ kycStatus: "PENDING" }).where(eq(users.id, session.user.id))
+	}
+
+	try {
+		const authToken = await getHyperVergeAuthToken({ transactionId })
+		revalidatePath("/onboarding")
+		return {
+			success: true as const,
+			data: { authToken, transactionId },
+		}
+	} catch (error) {
+		console.error("Failed to get KYC Web SDK session:", error)
+		return {
+			success: false as const,
+			error: error instanceof Error ? error.message : "Failed to get verification session",
 		}
 	}
 }
@@ -191,6 +418,15 @@ export async function runDirectKycVerification(input: {
 		columns: {
 			commissionStatus: true,
 			role: true,
+			firstName: true,
+			middleName: true,
+			lastName: true,
+			prefix: true,
+			suffix: true,
+			address: true,
+			homeStreet: true,
+			barangay: true,
+			cityProvince: true,
 		},
 	})
 
@@ -343,12 +579,127 @@ export async function runDirectKycVerification(input: {
 			})
 			.where(eq(kycSessions.transactionId, transactionId))
 
-		// Update user status
+		const latestIdCardDetails =
+			kycStatus === "VERIFIED"
+				? await db.query.idCardDetails.findFirst({
+						where: (data, { eq }) => eq(data.userId, session.user.id),
+						orderBy: (table, { desc }) => [desc(table.updatedAt)],
+						columns: {
+							firstName: true,
+							middleName: true,
+							lastName: true,
+							fullName: true,
+							addressLine1: true,
+							addressLine2: true,
+							city: true,
+							province: true,
+							postalCode: true,
+							country: true,
+							additionalFields: true,
+						},
+					})
+				: null
+
+		const latestPrefix = extractAdditionalFieldString(latestIdCardDetails?.additionalFields, [
+			"prefix",
+			"namePrefix",
+			"name_prefix",
+		])
+		const latestSuffix = extractAdditionalFieldString(latestIdCardDetails?.additionalFields, [
+			"suffix",
+			"nameSuffix",
+			"name_suffix",
+		])
+		const resolvedNameFields = resolveNameFieldsFromIdCardDetails({
+			firstName: latestIdCardDetails?.firstName,
+			middleName: latestIdCardDetails?.middleName,
+			lastName: latestIdCardDetails?.lastName,
+			fullName: latestIdCardDetails?.fullName,
+		})
+		const resolvedAddress = latestIdCardDetails
+			? {
+					address: formatAddressLine({
+						addressLine1: latestIdCardDetails.addressLine1,
+						addressLine2: latestIdCardDetails.addressLine2,
+						city: latestIdCardDetails.city,
+						province: latestIdCardDetails.province,
+						postalCode: latestIdCardDetails.postalCode,
+						country: latestIdCardDetails.country,
+						additionalFields: latestIdCardDetails.additionalFields,
+					}),
+					homeStreet: formatStreetLine({
+						addressLine1: latestIdCardDetails.addressLine1,
+						addressLine2: latestIdCardDetails.addressLine2,
+						city: null,
+						province: null,
+						postalCode: null,
+						country: null,
+						additionalFields: latestIdCardDetails.additionalFields,
+					}),
+					barangay: extractBarangayFromAdditionalFields(latestIdCardDetails.additionalFields),
+					cityProvince: formatCityProvince({
+						addressLine1: null,
+						addressLine2: null,
+						city: latestIdCardDetails.city,
+						province: latestIdCardDetails.province,
+						postalCode: null,
+						country: null,
+						additionalFields: latestIdCardDetails.additionalFields,
+					}),
+				}
+			: null
+
+		// Update user status and hydrate missing names from verified ID details (title-cased).
 		await db
 			.update(users)
 			.set({
 				kycStatus,
 				kycVerifiedAt: kycStatus === "VERIFIED" ? new Date() : null,
+				firstName:
+					kycStatus === "VERIFIED"
+						? coalesceNameValue(
+								existingUser.firstName,
+								toTitleCaseWords(resolvedNameFields.firstName)
+							)
+						: existingUser.firstName,
+				middleName:
+					kycStatus === "VERIFIED"
+						? coalesceNameValue(
+								existingUser.middleName,
+								toTitleCaseWords(resolvedNameFields.middleName)
+							)
+						: existingUser.middleName,
+				lastName:
+					kycStatus === "VERIFIED"
+						? coalesceNameValue(
+								existingUser.lastName,
+								toTitleCaseWords(resolvedNameFields.lastName)
+							)
+						: existingUser.lastName,
+				prefix:
+					kycStatus === "VERIFIED"
+						? coalesceNameValue(existingUser.prefix, latestPrefix)
+						: existingUser.prefix,
+				suffix:
+					kycStatus === "VERIFIED"
+						? coalesceNameValue(existingUser.suffix, latestSuffix)
+						: existingUser.suffix,
+				address:
+					kycStatus === "VERIFIED" && resolvedAddress
+						? coalesceNameValue(existingUser.address, resolvedAddress.address)
+						: existingUser.address,
+				homeStreet:
+					kycStatus === "VERIFIED" && resolvedAddress
+						? coalesceNameValue(existingUser.homeStreet, resolvedAddress.homeStreet)
+						: existingUser.homeStreet,
+				barangay:
+					kycStatus === "VERIFIED" && resolvedAddress
+						? coalesceNameValue(existingUser.barangay, resolvedAddress.barangay ?? null)
+						: existingUser.barangay,
+				cityProvince:
+					kycStatus === "VERIFIED" && resolvedAddress
+						? coalesceNameValue(existingUser.cityProvince, resolvedAddress.cityProvince)
+						: existingUser.cityProvince,
 				// Auto-activate account when direct KYC is verified for non-ENP users.
 				// Never override SUSPENDED here.
 				// For ENP users, keep status as PENDING even after KYC verification.
@@ -361,7 +712,7 @@ export async function runDirectKycVerification(input: {
 			})
 			.where(eq(users.id, session.user.id))
 
-		revalidatePath("/auth/kyc")
+		revalidatePath("/onboarding")
 
 		return {
 			success: true,
@@ -404,7 +755,7 @@ export async function runDirectKycVerification(input: {
 			})
 			.where(eq(users.id, session.user.id))
 
-		revalidatePath("/auth/kyc")
+		revalidatePath("/onboarding")
 
 		return {
 			success: false,
@@ -433,6 +784,15 @@ export async function checkUserKycStatus() {
 			kycStatus: true,
 			commissionStatus: true,
 			role: true,
+			firstName: true,
+			middleName: true,
+			lastName: true,
+			prefix: true,
+			suffix: true,
+			address: true,
+			homeStreet: true,
+			barangay: true,
+			cityProvince: true,
 		},
 	})
 
@@ -506,6 +866,112 @@ export async function checkUserKycStatus() {
 			}
 		}
 
+		const shouldHydrateMissingNames =
+			!hasNameValue(user?.firstName) ||
+			!hasNameValue(user?.lastName) ||
+			!hasNameValue(user?.middleName)
+
+		if (shouldHydrateMissingNames) {
+			const latestIdCardDetails = await db.query.idCardDetails.findFirst({
+				where: (data, { eq }) => eq(data.userId, session.user.id),
+				orderBy: (table, { desc }) => [desc(table.updatedAt)],
+				columns: {
+					firstName: true,
+					middleName: true,
+					lastName: true,
+					fullName: true,
+					addressLine1: true,
+					addressLine2: true,
+					city: true,
+					province: true,
+					postalCode: true,
+					country: true,
+					additionalFields: true,
+				},
+			})
+
+			const latestPrefix = extractAdditionalFieldString(latestIdCardDetails?.additionalFields, [
+				"prefix",
+				"namePrefix",
+				"name_prefix",
+			])
+			const latestSuffix = extractAdditionalFieldString(latestIdCardDetails?.additionalFields, [
+				"suffix",
+				"nameSuffix",
+				"name_suffix",
+			])
+			const resolvedNameFields = resolveNameFieldsFromIdCardDetails({
+				firstName: latestIdCardDetails?.firstName,
+				middleName: latestIdCardDetails?.middleName,
+				lastName: latestIdCardDetails?.lastName,
+				fullName: latestIdCardDetails?.fullName,
+			})
+			const resolvedAddress = latestIdCardDetails
+				? {
+						address: formatAddressLine({
+							addressLine1: latestIdCardDetails.addressLine1,
+							addressLine2: latestIdCardDetails.addressLine2,
+							city: latestIdCardDetails.city,
+							province: latestIdCardDetails.province,
+							postalCode: latestIdCardDetails.postalCode,
+							country: latestIdCardDetails.country,
+							additionalFields: latestIdCardDetails.additionalFields,
+						}),
+						homeStreet: formatStreetLine({
+							addressLine1: latestIdCardDetails.addressLine1,
+							addressLine2: latestIdCardDetails.addressLine2,
+							city: null,
+							province: null,
+							postalCode: null,
+							country: null,
+							additionalFields: latestIdCardDetails.additionalFields,
+						}),
+						barangay: extractBarangayFromAdditionalFields(latestIdCardDetails.additionalFields),
+						cityProvince: formatCityProvince({
+							addressLine1: null,
+							addressLine2: null,
+							city: latestIdCardDetails.city,
+							province: latestIdCardDetails.province,
+							postalCode: null,
+							country: null,
+							additionalFields: latestIdCardDetails.additionalFields,
+						}),
+					}
+				: null
+
+			await db
+				.update(users)
+				.set({
+					firstName: coalesceNameValue(
+						user?.firstName,
+						toTitleCaseWords(resolvedNameFields.firstName)
+					),
+					middleName: coalesceNameValue(
+						user?.middleName,
+						toTitleCaseWords(resolvedNameFields.middleName)
+					),
+					lastName: coalesceNameValue(
+						user?.lastName,
+						toTitleCaseWords(resolvedNameFields.lastName)
+					),
+					prefix: coalesceNameValue(user?.prefix, latestPrefix),
+					suffix: coalesceNameValue(user?.suffix, latestSuffix),
+					address: resolvedAddress
+						? coalesceNameValue(user?.address, resolvedAddress.address)
+						: (user?.address ?? null),
+					homeStreet: resolvedAddress
+						? coalesceNameValue(user?.homeStreet, resolvedAddress.homeStreet)
+						: (user?.homeStreet ?? null),
+					barangay: resolvedAddress
+						? coalesceNameValue(user?.barangay, resolvedAddress.barangay ?? null)
+						: (user?.barangay ?? null),
+					cityProvince: resolvedAddress
+						? coalesceNameValue(user?.cityProvince, resolvedAddress.cityProvince)
+						: (user?.cityProvince ?? null),
+				})
+				.where(eq(users.id, session.user.id))
+		}
+
 		return {
 			success: true,
 			data: {
@@ -556,7 +1022,12 @@ export async function checkUserKycStatus() {
 	}
 
 	try {
-		const result = await getTransactionStatus(kycSession.transactionId)
+		const hypervergeIdentifier = kycSession.hostedLink
+			? extractIdentifierFromStartKycUrl(kycSession.hostedLink)
+			: undefined
+		const result = await getTransactionStatus(kycSession.transactionId, {
+			hypervergeIdentifier: hypervergeIdentifier ?? undefined,
+		})
 		const applicationStatus = result.result.applicationStatus
 		const interpretation = interpretStatus(applicationStatus)
 
@@ -632,12 +1103,105 @@ export async function checkUserKycStatus() {
 					.where(eq(kycSessions.id, kycSession.id))
 			}
 
-			// Update user status
+			const latestIdCardDetails = await db.query.idCardDetails.findFirst({
+				where: (data, { eq }) => eq(data.userId, session.user.id),
+				orderBy: (table, { desc }) => [desc(table.updatedAt)],
+				columns: {
+					firstName: true,
+					middleName: true,
+					lastName: true,
+					fullName: true,
+					addressLine1: true,
+					addressLine2: true,
+					city: true,
+					province: true,
+					postalCode: true,
+					country: true,
+					additionalFields: true,
+				},
+			})
+
+			const latestPrefix = extractAdditionalFieldString(latestIdCardDetails?.additionalFields, [
+				"prefix",
+				"namePrefix",
+				"name_prefix",
+			])
+			const latestSuffix = extractAdditionalFieldString(latestIdCardDetails?.additionalFields, [
+				"suffix",
+				"nameSuffix",
+				"name_suffix",
+			])
+			const resolvedNameFields = resolveNameFieldsFromIdCardDetails({
+				firstName: latestIdCardDetails?.firstName,
+				middleName: latestIdCardDetails?.middleName,
+				lastName: latestIdCardDetails?.lastName,
+				fullName: latestIdCardDetails?.fullName,
+			})
+			const resolvedAddress = latestIdCardDetails
+				? {
+						address: formatAddressLine({
+							addressLine1: latestIdCardDetails.addressLine1,
+							addressLine2: latestIdCardDetails.addressLine2,
+							city: latestIdCardDetails.city,
+							province: latestIdCardDetails.province,
+							postalCode: latestIdCardDetails.postalCode,
+							country: latestIdCardDetails.country,
+							additionalFields: latestIdCardDetails.additionalFields,
+						}),
+						homeStreet: formatStreetLine({
+							addressLine1: latestIdCardDetails.addressLine1,
+							addressLine2: latestIdCardDetails.addressLine2,
+							city: null,
+							province: null,
+							postalCode: null,
+							country: null,
+							additionalFields: latestIdCardDetails.additionalFields,
+						}),
+						barangay: extractBarangayFromAdditionalFields(latestIdCardDetails.additionalFields),
+						cityProvince: formatCityProvince({
+							addressLine1: null,
+							addressLine2: null,
+							city: latestIdCardDetails.city,
+							province: latestIdCardDetails.province,
+							postalCode: null,
+							country: null,
+							additionalFields: latestIdCardDetails.additionalFields,
+						}),
+					}
+				: null
+
+			// Update user status and hydrate missing names from verified ID details (title-cased).
 			await db
 				.update(users)
 				.set({
 					kycStatus: newStatus,
 					kycVerifiedAt: new Date(),
+					firstName: coalesceNameValue(
+						user?.firstName,
+						toTitleCaseWords(resolvedNameFields.firstName)
+					),
+					middleName: coalesceNameValue(
+						user?.middleName,
+						toTitleCaseWords(resolvedNameFields.middleName)
+					),
+					lastName: coalesceNameValue(
+						user?.lastName,
+						toTitleCaseWords(resolvedNameFields.lastName)
+					),
+					prefix: coalesceNameValue(user?.prefix, latestPrefix),
+					suffix: coalesceNameValue(user?.suffix, latestSuffix),
+					address: resolvedAddress
+						? coalesceNameValue(user?.address, resolvedAddress.address)
+						: (user?.address ?? null),
+					homeStreet: resolvedAddress
+						? coalesceNameValue(user?.homeStreet, resolvedAddress.homeStreet)
+						: (user?.homeStreet ?? null),
+					barangay: resolvedAddress
+						? coalesceNameValue(user?.barangay, resolvedAddress.barangay ?? null)
+						: (user?.barangay ?? null),
+					cityProvince: resolvedAddress
+						? coalesceNameValue(user?.cityProvince, resolvedAddress.cityProvince)
+						: (user?.cityProvince ?? null),
 					// If account was pending, auto-activate on successful KYC for non-ENP users.
 					// Never override SUSPENDED here.
 					// For ENP users, keep status as PENDING even after KYC verification.
@@ -683,7 +1247,7 @@ export async function checkUserKycStatus() {
 			console.log("⏳ KYC Still Pending")
 		}
 
-		revalidatePath("/auth/kyc")
+		revalidatePath("/onboarding")
 
 		return {
 			success: true,
@@ -705,6 +1269,176 @@ export async function checkUserKycStatus() {
 }
 
 /**
+ * Sync KYC status from the HyperVerge redirect callback (e.g. ?transactionId=...&status=auto_approved).
+ * Call this when the user lands on /onboarding/callback so the DB is updated even when the Output API
+ * is unavailable (e.g. fallback region).
+ */
+export async function syncKycStatusFromCallback(transactionId: string, status: string) {
+	const session = await auth()
+	if (!session?.user?.id) {
+		return { success: false, error: "Not authenticated" }
+	}
+	if (!transactionId?.trim() || !status?.trim()) {
+		return { success: false, error: "Missing transactionId or status" }
+	}
+
+	const normalized = status.trim().toLowerCase()
+	let newStatus: "PENDING" | "VERIFIED" | "REJECTED" = "PENDING"
+	if (
+		["auto_approved", "approved", "success", "succeeded", "verified", "completed"].includes(
+			normalized
+		)
+	) {
+		newStatus = "VERIFIED"
+	} else if (["auto_declined", "rejected", "declined", "failed", "error"].includes(normalized)) {
+		newStatus = "REJECTED"
+	}
+	// user_cancelled, needs_review, or unknown -> leave as PENDING
+
+	const kycSession = await db.query.kycSessions.findFirst({
+		where: and(
+			eq(kycSessions.userId, session.user.id),
+			eq(kycSessions.transactionId, transactionId.trim())
+		),
+		columns: {
+			id: true,
+			status: true,
+			idCardDetailId: true,
+			sessionType: true,
+			transactionId: true,
+		},
+	})
+
+	if (!kycSession) {
+		return { success: false, error: "KYC session not found" }
+	}
+	if (newStatus === "PENDING") {
+		return { success: true } // no DB update for pending/cancelled
+	}
+	if (kycSession.status === "VERIFIED" || kycSession.status === "REJECTED") {
+		return { success: true } // already final
+	}
+
+	await db
+		.update(kycSessions)
+		.set({ status: newStatus, updatedAt: new Date() })
+		.where(eq(kycSessions.id, kycSession.id))
+	await db.update(users).set({ kycStatus: newStatus }).where(eq(users.id, session.user.id))
+
+	// Backfill id_card_details from HyperVerge Logs when VERIFIED and not yet linked (e.g. Web SDK flow)
+	if (newStatus === "VERIFIED" && !kycSession.idCardDetailId && kycSession.transactionId) {
+		try {
+			console.log("🧾 Fetching HyperVerge Logs API (backfill KYC artifacts from callback)...", {
+				transactionId: kycSession.transactionId,
+			})
+			const logs = await getHyperVergeKycLogs({ transactionId: kycSession.transactionId })
+			const imageUrl = pickBestFaceImageUrlFromLogs(logs)
+			const ocr = pickOcrFieldsFromLogs(logs)
+
+			if (ocr) {
+				let faceImageUrl: string | undefined
+				if (imageUrl) {
+					const dataUrl = await fetchImageUrlAsDataUrl(imageUrl)
+					if (dataUrl) faceImageUrl = dataUrl
+				}
+				const verificationMethod =
+					kycSession.sessionType === "web_sdk" ? "kyc_web_sdk" : "kyc_mobile_link"
+				const idCardDetail = await saveIdCardDetails(db, {
+					userId: session.user.id,
+					rawOcrData: ocr,
+					ocrTransactionId: kycSession.transactionId,
+					ocrProvider: "hyperverge",
+					faceImageUrl,
+					isVerified: true,
+					verifiedAt: new Date(),
+					verificationMethod,
+				})
+
+				if (idCardDetail.idCardDetailId) {
+					await db
+						.update(kycSessions)
+						.set({
+							idCardDetailId: idCardDetail.idCardDetailId,
+							verifiedAt: new Date(),
+							updatedAt: new Date(),
+						})
+						.where(eq(kycSessions.id, kycSession.id))
+
+					// Hydrate user profile from id card when name/address are empty
+					const user = await db.query.users.findFirst({
+						where: eq(users.id, session.user.id),
+						columns: { firstName: true, middleName: true, lastName: true, address: true },
+					})
+					const latestIdCardDetails = await db.query.idCardDetails.findFirst({
+						where: eq(idCardDetails.userId, session.user.id),
+						orderBy: (table, { desc }) => [desc(table.updatedAt)],
+						columns: {
+							firstName: true,
+							middleName: true,
+							lastName: true,
+							fullName: true,
+							addressLine1: true,
+							addressLine2: true,
+							city: true,
+							province: true,
+							postalCode: true,
+							country: true,
+							additionalFields: true,
+						},
+					})
+					const shouldHydrate =
+						user &&
+						latestIdCardDetails &&
+						(!hasNameValue(user.firstName) ||
+							!hasNameValue(user.lastName) ||
+							!hasNameValue(user.address))
+					if (shouldHydrate && latestIdCardDetails) {
+						const resolvedNameFields = resolveNameFieldsFromIdCardDetails({
+							firstName: latestIdCardDetails.firstName,
+							middleName: latestIdCardDetails.middleName,
+							lastName: latestIdCardDetails.lastName,
+							fullName: latestIdCardDetails.fullName,
+						})
+						const resolvedAddress = formatAddressLine({
+							addressLine1: latestIdCardDetails.addressLine1,
+							addressLine2: latestIdCardDetails.addressLine2,
+							city: latestIdCardDetails.city,
+							province: latestIdCardDetails.province,
+							postalCode: latestIdCardDetails.postalCode,
+							country: latestIdCardDetails.country,
+							additionalFields: latestIdCardDetails.additionalFields,
+						})
+						await db
+							.update(users)
+							.set({
+								firstName: coalesceNameValue(
+									user?.firstName,
+									toTitleCaseWords(resolvedNameFields.firstName)
+								),
+								middleName: coalesceNameValue(
+									user?.middleName,
+									toTitleCaseWords(resolvedNameFields.middleName)
+								),
+								lastName: coalesceNameValue(
+									user?.lastName,
+									toTitleCaseWords(resolvedNameFields.lastName)
+								),
+								address: coalesceNameValue(user?.address, resolvedAddress),
+							})
+							.where(eq(users.id, session.user.id))
+					}
+				}
+			}
+		} catch (err) {
+			console.warn("⚠️ KYC callback backfill failed (non-fatal):", err)
+		}
+	}
+
+	revalidatePath("/onboarding")
+	return { success: true }
+}
+
+/**
  * Retrieve existing KYC link for the authenticated user
  */
 export async function getExistingKycLink() {
@@ -722,10 +1456,21 @@ export async function getExistingKycLink() {
 		orderBy: (table, { desc }) => [desc(table.createdAt)],
 	})
 
-	if (!kycSession?.hostedLink) {
+	if (!kycSession) {
 		return {
 			success: false,
 			error: "No KYC verification link found. Please start the verification process.",
+		}
+	}
+
+	if (!kycSession.hostedLink) {
+		const isDirectSession = kycSession.sessionType === "direct"
+
+		return {
+			success: false,
+			error: isDirectSession
+				? "This verification was completed in-browser and does not have a link to resume. Please wait for review or start a new verification."
+				: "No KYC verification link found. Please start the verification process.",
 		}
 	}
 
@@ -775,7 +1520,10 @@ export async function getUserKycInfo() {
 	const user = await db.query.users.findFirst({
 		where: eq(users.id, session.user.id),
 		columns: {
-			name: true,
+			firstName: true,
+			middleName: true,
+			lastName: true,
+			address: true,
 			email: true,
 			kycStatus: true,
 		},
@@ -793,14 +1541,113 @@ export async function getUserKycInfo() {
 		orderBy: (table, { desc }) => [desc(table.createdAt)],
 	})
 
+	const latestIdCard = await db.query.idCardDetails.findFirst({
+		where: eq(idCardDetails.userId, session.user.id),
+		orderBy: (table, { desc }) => [desc(table.updatedAt)],
+		columns: {
+			firstName: true,
+			middleName: true,
+			lastName: true,
+			fullName: true,
+			addressLine1: true,
+			addressLine2: true,
+			city: true,
+			province: true,
+			postalCode: true,
+			country: true,
+			additionalFields: true,
+			documentType: true,
+			documentCountry: true,
+			ocrTransactionId: true,
+			isVerified: true,
+		},
+	})
+
+	const resolvedIdName = latestIdCard
+		? resolveNameFieldsFromIdCardDetails({
+				firstName: latestIdCard.firstName,
+				middleName: latestIdCard.middleName,
+				lastName: latestIdCard.lastName,
+				fullName: latestIdCard.fullName,
+			})
+		: null
+
+	const previewAddress = latestIdCard
+		? formatAddressLine({
+				addressLine1: latestIdCard.addressLine1,
+				addressLine2: latestIdCard.addressLine2,
+				city: latestIdCard.city,
+				province: latestIdCard.province,
+				postalCode: latestIdCard.postalCode,
+				country: latestIdCard.country,
+				additionalFields: latestIdCard.additionalFields,
+			})
+		: null
+	const previewHomeStreet = latestIdCard
+		? formatStreetLine({
+				addressLine1: latestIdCard.addressLine1,
+				addressLine2: latestIdCard.addressLine2,
+				city: null,
+				province: null,
+				postalCode: null,
+				country: null,
+				additionalFields: latestIdCard.additionalFields,
+			})
+		: null
+	const previewBarangay = latestIdCard
+		? extractBarangayFromAdditionalFields(latestIdCard.additionalFields)
+		: null
+	const previewCityProvince = latestIdCard
+		? formatCityProvince({
+				addressLine1: null,
+				addressLine2: null,
+				city: latestIdCard.city,
+				province: latestIdCard.province,
+				postalCode: null,
+				country: null,
+				additionalFields: latestIdCard.additionalFields,
+			})
+		: null
+
 	return {
 		success: true,
 		data: {
-			name: user.name,
+			name: getFullName(user),
 			email: user.email,
+			profileFirstName: user.firstName,
+			profileMiddleName: user.middleName,
+			profileLastName: user.lastName,
 			transactionId: kycSession?.transactionId ?? null,
 			kycStatus: user.kycStatus,
 			kycLinkCreatedAt: kycSession?.hostedLinkCreatedAt ?? null,
+			hasHostedLink: !!kycSession?.hostedLink,
+			sessionType: kycSession?.sessionType ?? null,
+			kycPreview:
+				latestIdCard && (latestIdCard.isVerified || user.kycStatus === "VERIFIED")
+					? {
+							// Prefer saved DB values when verified (auto-saved after KYC)
+							firstName:
+								user.kycStatus === "VERIFIED"
+									? (user.firstName ?? resolvedIdName?.firstName ?? null)
+									: (resolvedIdName?.firstName ?? null),
+							middleName:
+								user.kycStatus === "VERIFIED"
+									? (user.middleName ?? resolvedIdName?.middleName ?? null)
+									: (resolvedIdName?.middleName ?? null),
+							lastName:
+								user.kycStatus === "VERIFIED"
+									? (user.lastName ?? resolvedIdName?.lastName ?? null)
+									: (resolvedIdName?.lastName ?? null),
+							address:
+								user.kycStatus === "VERIFIED" ? (user.address ?? previewAddress) : previewAddress,
+							homeStreet: previewHomeStreet,
+							barangay: previewBarangay,
+							cityProvince: previewCityProvince,
+							documentType: latestIdCard.documentType ?? null,
+							documentCountry: latestIdCard.documentCountry ?? null,
+							ocrTransactionId: latestIdCard.ocrTransactionId ?? null,
+						}
+					: null,
 		},
 	}
 }
@@ -831,7 +1678,7 @@ export async function resetUserKycStatus() {
 			})
 			.where(eq(users.id, session.user.id))
 
-		revalidatePath("/auth/kyc")
+		revalidatePath("/onboarding")
 
 		return {
 			success: true,
@@ -842,6 +1689,90 @@ export async function resetUserKycStatus() {
 		return {
 			success: false,
 			error: error instanceof Error ? error.message : "Failed to reset KYC status",
+		}
+	}
+}
+
+/**
+ * Soft-reset KYC status for the authenticated user (preserves history).
+ *
+ * - Keeps existing `kycSessions` rows for audit/history.
+ * - Marks any active PENDING session(s) as REJECTED with metadata reason "user_restarted"
+ *   so the UI no longer treats the user as pending.
+ */
+export type SoftResetUserKycStatusResult =
+	| { success: true; message: string }
+	| { success: false; error: string }
+
+export async function softResetUserKycStatus(): Promise<SoftResetUserKycStatusResult> {
+	const session = await auth()
+
+	if (!session?.user?.id) {
+		return {
+			success: false,
+			error: "User not authenticated",
+		}
+	}
+
+	try {
+		const pendingSessions = await db.query.kycSessions.findMany({
+			where: (table, { and, eq }) =>
+				and(eq(table.userId, session.user.id), eq(table.status, "PENDING")),
+			orderBy: (table, { desc }) => [desc(table.createdAt)],
+			columns: {
+				id: true,
+				workflowMetadata: true,
+			},
+		})
+
+		const restartMetadataBase = {
+			reason: "user_restarted",
+			at: new Date().toISOString(),
+			previousStatus: "PENDING",
+		} as const
+
+		for (const s of pendingSessions) {
+			const existing =
+				s.workflowMetadata &&
+				typeof s.workflowMetadata === "object" &&
+				!Array.isArray(s.workflowMetadata)
+					? (s.workflowMetadata as Record<string, unknown>)
+					: undefined
+
+			await db
+				.update(kycSessions)
+				.set({
+					status: "REJECTED",
+					verifiedAt: null,
+					workflowMetadata: {
+						...existing,
+						...restartMetadataBase,
+					},
+					updatedAt: new Date(),
+				})
+				.where(eq(kycSessions.id, s.id))
+		}
+
+		// Reset user KYC status
+		await db
+			.update(users)
+			.set({
+				kycStatus: "NOT_STARTED",
+				kycVerifiedAt: null,
+			})
+			.where(eq(users.id, session.user.id))
+
+		revalidatePath("/onboarding")
+
+		return {
+			success: true,
+			message: "KYC status reset successfully",
+		}
+	} catch (error) {
+		console.error("Failed to soft reset KYC status:", error)
+		return {
+			success: false,
+			error: error instanceof Error ? error.message : "Failed to soft reset KYC status",
 		}
 	}
 }

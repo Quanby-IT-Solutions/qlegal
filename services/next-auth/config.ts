@@ -4,12 +4,14 @@ import { type DefaultSession, type NextAuthConfig } from "next-auth"
 import Credentials from "next-auth/providers/credentials"
 import Google from "next-auth/providers/google"
 
+import { getFullName } from "@/core/lib/utils"
+
+import { autoJoinMemberInDoconchainOrganization } from "@/services/doconchain/organization/auto-join-member"
 import { db } from "@/services/drizzle/db"
 import { twoFactorConfirmations, users, type UserRole } from "@/services/drizzle/schema/auth"
 import { DrizzleCustomAdapter } from "@/services/next-auth/adapter"
 
 import { loginSchema } from "@/features/auth/api/auth.schemas"
-import { autoJoinMemberInDoconchainOrganization } from "@/services/doconchain/organization/auto-join-member"
 
 import { env } from "@/env"
 
@@ -29,6 +31,9 @@ declare module "next-auth" {
 			role: UserRole
 			status?: string
 			kycStatus?: string
+			onboardingComplete: boolean
+			onboardingDetailsComplete: boolean
+			onboardingSnoozedUntil?: string | null
 		}
 	}
 }
@@ -90,13 +95,13 @@ export const authConfig = {
 			const ensureOrgMembership = async (userId: string) => {
 				const u = await db.query.users.findFirst({
 					where: (data, { eq }) => eq(data.id, userId),
-					columns: { email: true, name: true },
+					columns: { email: true, firstName: true, middleName: true, lastName: true },
 				})
 				const email = u?.email?.trim()
 				if (email) {
 					void autoJoinMemberInDoconchainOrganization({
 						email,
-						name: u?.name ?? undefined,
+						name: getFullName(u) || undefined,
 						role: "Member",
 					}).catch(() => {
 						// Do not block login; org sync is best-effort.
@@ -161,11 +166,16 @@ export const authConfig = {
 				}
 
 				session.user.id = userId
-				session.user.name = user.name ?? ""
+				session.user.name = getFullName(user) ?? ""
 				session.user.email = user.email ?? ""
 				session.user.role = user.role
 				session.user.status = (user.commissionStatus ?? "PENDING") as string
 				session.user.kycStatus = (user.kycStatus ?? "NOT_STARTED") as string
+				session.user.onboardingComplete = !!user.onboardingCompletedAt
+				session.user.onboardingDetailsComplete = !!user.onboardingDetailsCompletedAt
+				session.user.onboardingSnoozedUntil = user.onboardingSnoozedUntil
+					? user.onboardingSnoozedUntil.toISOString()
+					: null
 
 				// Convert Supabase storage paths to displayable URLs
 				const imagePath = user.image ?? session.user.image
@@ -186,6 +196,10 @@ export const authConfig = {
 				if (token.kycStatus) {
 					session.user.kycStatus = token.kycStatus as string
 				}
+				session.user.onboardingComplete = !!token.onboardingComplete
+				session.user.onboardingDetailsComplete = !!token.onboardingDetailsComplete
+				session.user.onboardingSnoozedUntil =
+					typeof token.onboardingSnoozedUntil === "string" ? token.onboardingSnoozedUntil : null
 			}
 
 			return session
@@ -201,9 +215,17 @@ export const authConfig = {
 				const userWithKyc = user as {
 					kycStatus?: string
 					commissionStatus?: string
+					onboardingCompletedAt?: Date | null
+					onboardingDetailsCompletedAt?: Date | null
+					onboardingSnoozedUntil?: Date | null
 				}
 				token.status = userWithKyc.commissionStatus ?? "PENDING"
 				token.kycStatus = userWithKyc.kycStatus ?? "NOT_STARTED"
+				token.onboardingComplete = !!userWithKyc.onboardingCompletedAt
+				token.onboardingDetailsComplete = !!userWithKyc.onboardingDetailsCompletedAt
+				token.onboardingSnoozedUntil = userWithKyc.onboardingSnoozedUntil
+					? userWithKyc.onboardingSnoozedUntil.toISOString()
+					: null
 			}
 
 			// On subsequent runs, enrich token with KYC from DB
@@ -218,6 +240,11 @@ export const authConfig = {
 					if (existing) {
 						token.status = (existing.commissionStatus ?? "PENDING") as string
 						token.kycStatus = (existing.kycStatus ?? "NOT_STARTED") as string
+						token.onboardingComplete = !!existing.onboardingCompletedAt
+						token.onboardingDetailsComplete = !!existing.onboardingDetailsCompletedAt
+						token.onboardingSnoozedUntil = existing.onboardingSnoozedUntil
+							? existing.onboardingSnoozedUntil.toISOString()
+							: null
 					}
 				} catch {
 					// Silently fail - token will use existing values

@@ -3,6 +3,7 @@ import { getDoconchainApiToken, invalidateDoconchainToken } from "@/services/doc
 import { getDoconchainVaultItem } from "@/services/doconchain/vault/get-vault-item"
 import { getDoconchainVaultItems } from "@/services/doconchain/vault/get-vault-items"
 import { getDoconchainMyProjectDetails } from "@/services/doconchain/projects/get-my-project-details"
+import type { GetSubOrgCredsForEmail } from "@/services/doconchain/auth/generate-token"
 
 async function fetchProjectDownload(params: { projectUuid: string; token: string }): Promise<{
 	contentType: string | null
@@ -44,11 +45,16 @@ async function fetchFromVaultFileUrl(params: {
 	projectUuid: string
 	token: string
 	email: string
+	getSubOrgCredsForEmail?: GetSubOrgCredsForEmail
 }): Promise<{ contentType: string | null; filename: string | null; buffer: Buffer }> {
 	let vaultUuidToFetch = params.projectUuid
 	let vault: Awaited<ReturnType<typeof getDoconchainVaultItem>> | Error
 	try {
-		vault = await getDoconchainVaultItem({ email: params.email, uuid: vaultUuidToFetch })
+		vault = await getDoconchainVaultItem({
+			email: params.email,
+			uuid: vaultUuidToFetch,
+			getSubOrgCredsForEmail: params.getSubOrgCredsForEmail,
+		})
 	} catch (err) {
 		vault = err instanceof Error ? err : new Error("Failed to fetch DocOnChain vault item.")
 	}
@@ -69,6 +75,7 @@ async function fetchFromVaultFileUrl(params: {
 					page,
 					userItemsOnly: "no",
 					apiIntegratedProjectsOnly: "no",
+					getSubOrgCredsForEmail: params.getSubOrgCredsForEmail,
 				}).catch(() => null)
 				const items = list?.items ?? []
 				const match = items.find(
@@ -90,7 +97,11 @@ async function fetchFromVaultFileUrl(params: {
 
 			if (foundVaultUuid) {
 				vaultUuidToFetch = foundVaultUuid
-				vault = await getDoconchainVaultItem({ email: params.email, uuid: vaultUuidToFetch })
+				vault = await getDoconchainVaultItem({
+					email: params.email,
+					uuid: vaultUuidToFetch,
+					getSubOrgCredsForEmail: params.getSubOrgCredsForEmail,
+				})
 			} else {
 				const e = new Error("DocOnChain vault item not found yet.")
 				;(e as Error & { status?: number }).status = 425
@@ -178,6 +189,8 @@ async function fetchFromVaultFileUrl(params: {
 export async function downloadDoconchainSealedProject(input: {
 	projectUuid: string
 	email: string
+	/** Optional: resolve sub-org enterprise creds for this token email (usually the ENP owner). */
+	getSubOrgCredsForEmail?: GetSubOrgCredsForEmail
 }): Promise<{ buffer: Buffer; contentType: string; filename: string | null }> {
 	const projectUuid = input.projectUuid.trim()
 	if (!projectUuid) throw new Error("Project UUID is required.")
@@ -187,7 +200,7 @@ export async function downloadDoconchainSealedProject(input: {
 
 	const doRequest = async () => {
 		// Prefer explicit user-token (DOCONCHAIN_API_TOKEN) if configured; otherwise generate.
-		const token = await getDoconchainApiToken({ email })
+		const token = await getDoconchainApiToken({ email, getSubOrgCredsForEmail: input.getSubOrgCredsForEmail })
 		try {
 			return await fetchProjectDownload({ projectUuid, token })
 		} catch (error) {
@@ -196,7 +209,11 @@ export async function downloadDoconchainSealedProject(input: {
 			if (status === 404) {
 				// Fallback 1: try /my/projects/:uuid to find completed/sealed file URLs
 				try {
-					const details = await getDoconchainMyProjectDetails({ projectUuid, email })
+					const details = await getDoconchainMyProjectDetails({
+						projectUuid,
+						email,
+						getSubOrgCredsForEmail: input.getSubOrgCredsForEmail,
+					})
 					const data = details?.data
 					const files = (data?.files ?? []) as Array<{
 						file_name?: string | null
@@ -264,7 +281,12 @@ export async function downloadDoconchainSealedProject(input: {
 				}
 
 				// Fallback 2: vault list+item resolution
-				return fetchFromVaultFileUrl({ projectUuid, token, email })
+				return fetchFromVaultFileUrl({
+					projectUuid,
+					token,
+					email,
+					getSubOrgCredsForEmail: input.getSubOrgCredsForEmail,
+				})
 			}
 			throw error
 		}

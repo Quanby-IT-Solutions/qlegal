@@ -1,13 +1,17 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Activity, Calendar, CheckCircle, Clock, Mail, MapPin, Shield, User } from "lucide-react"
+import { useSession } from "next-auth/react"
+import { toast } from "sonner"
 
 import { Alert, AlertDescription } from "@/core/components/ui/alert"
 import { Avatar, AvatarFallback, AvatarImage } from "@/core/components/ui/avatar"
 import { Badge } from "@/core/components/ui/badge"
-// import { Button } from "@/core/components/ui/button"
+import { Button } from "@/core/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/core/components/ui/card"
+import { Input } from "@/core/components/ui/input"
+import { Label } from "@/core/components/ui/label"
 import {
 	Sheet,
 	SheetContent,
@@ -25,11 +29,101 @@ interface UserProfileSheetProps {
 
 export function UserProfileSheet({ userId, trigger }: UserProfileSheetProps) {
 	const [open, setOpen] = useState(false)
+	const { data: session } = useSession()
+	const utils = trpc.useUtils()
+
+	const isAdmin =
+		session?.user?.role === "ADMIN" || session?.user?.role === "SUPER_ADMIN"
 
 	const { data: user, isLoading } = trpc.userManagement.getById.useQuery(
 		{ id: userId },
 		{ enabled: open }
 	)
+
+	const [subOrgName, setSubOrgName] = useState("")
+	const [subOrgAddress, setSubOrgAddress] = useState("")
+	const [subOrgTypeName, setSubOrgTypeName] = useState("Department")
+	const [subOrgPhoto, setSubOrgPhoto] = useState<File | null>(null)
+	const [provisionViaApiPending, setProvisionViaApiPending] = useState(false)
+	const [creditsToTransferOnly, setCreditsToTransferOnly] = useState<string>("")
+
+	useEffect(() => {
+		if (!open || !user) return
+		if (user.role.toUpperCase() !== "ENP") return
+
+		setSubOrgName(user.enpProfile?.doconchainSubOrgName ?? user.name)
+		setSubOrgAddress(
+			user.enpProfile?.doconchainSubOrgAddress ?? user.enpProfile?.notaryAddress ?? ""
+		)
+		setSubOrgTypeName("Department")
+		setSubOrgPhoto(null)
+		setCreditsToTransferOnly("")
+	}, [open, user])
+
+	const provisionSubOrgMutation = trpc.userManagement.provisionEnpDoconchainSubOrganization.useMutation({
+		onSuccess: async data => {
+			toast.success(
+				data.created
+					? `Created DocOnChain sub-org (${data.subOrgId}).`
+					: `ENP already has a DocOnChain sub-org (${data.subOrgId}).`
+			)
+			await utils.userManagement.getById.invalidate({ id: userId })
+		},
+		onError: err => toast.error(err.message || "Failed to provision ENP sub-organization."),
+	})
+
+	const transferCreditsMutation = trpc.userManagement.transferCreditsToEnpSubOrganization.useMutation({
+		onSuccess: async data => {
+			toast.success(`Transferred ${data.transferredCredits} credits.`)
+			await utils.userManagement.getById.invalidate({ id: userId })
+		},
+		onError: err => toast.error(err.message || "Failed to transfer credits."),
+	})
+
+	const clearSubOrgMutation = trpc.userManagement.clearEnpDoconchainSubOrg.useMutation({
+		onSuccess: async () => {
+			toast.success("Sub-org cleared from profile. You can create a new one.")
+			await utils.userManagement.getById.invalidate({ id: userId })
+		},
+		onError: err => toast.error(err.message || "Failed to clear sub-org."),
+	})
+
+	const provisionWithOptionalPhoto = async () => {
+		if (!subOrgName.trim() || !subOrgAddress.trim()) return
+
+		// If we have a photo, use the multipart route (tRPC can't send files).
+		if (subOrgPhoto) {
+			setProvisionViaApiPending(true)
+			try {
+				const form = new FormData()
+				form.set("enpId", userId)
+				form.set("name", subOrgName)
+				form.set("address", subOrgAddress)
+				form.set("subOrganizationTypeName", subOrgTypeName.trim() || "Department")
+				form.set("photo", subOrgPhoto, subOrgPhoto.name)
+
+				const res = await fetch("/api/doconchain/organizations/sub", { method: "POST", body: form })
+				const json = (await res.json().catch(() => null)) as null | { error?: string; subOrgId?: string }
+				if (!res.ok) {
+					throw new Error(json?.error || `Failed to create sub-org (${res.status}).`)
+				}
+				toast.success(`Created DocOnChain sub-org (${json?.subOrgId ?? "ok"}).`)
+				await utils.userManagement.getById.invalidate({ id: userId })
+			} catch (err) {
+				toast.error(err instanceof Error ? err.message : "Failed to provision ENP sub-organization.")
+			} finally {
+				setProvisionViaApiPending(false)
+			}
+			return
+		}
+
+		provisionSubOrgMutation.mutate({
+			enpId: userId,
+			name: subOrgName,
+			address: subOrgAddress,
+			subOrganizationTypeName: subOrgTypeName.trim() || "Department",
+		})
+	}
 
 	const getRoleColor = (role: string) => {
 		switch (role.toUpperCase()) {
@@ -204,6 +298,114 @@ export function UserProfileSheet({ userId, trigger }: UserProfileSheetProps) {
 									</div>
 								</CardContent>
 							</Card>
+
+							{user.role.toUpperCase() === "ENP" && isAdmin ? (
+								<Card>
+									<CardHeader className="pb-3">
+										<CardTitle className="text-base">DocOnChain Sub-Organization</CardTitle>
+									</CardHeader>
+									<CardContent className="space-y-4">
+										{user.enpProfile?.doconchainSubOrgId ? (
+											<>
+												<div className="space-y-1">
+													<p className="text-sm font-medium">Sub-org ID</p>
+													<p className="text-muted-foreground break-all text-sm">
+														{user.enpProfile.doconchainSubOrgId}
+													</p>
+												</div>
+												<div className="grid gap-2">
+													<Label htmlFor="transfer-credits">Transfer credits to sub-org</Label>
+													<div className="flex gap-2">
+														<Input
+															id="transfer-credits"
+															inputMode="numeric"
+															placeholder="e.g. 20"
+															value={creditsToTransferOnly}
+															onChange={e => setCreditsToTransferOnly(e.target.value)}
+														/>
+														<Button
+															type="button"
+															disabled={transferCreditsMutation.isPending || !creditsToTransferOnly.trim()}
+															onClick={() =>
+																transferCreditsMutation.mutate({
+																	enpId: userId,
+																	credits: Number(creditsToTransferOnly),
+																})
+															}
+														>
+															Transfer
+														</Button>
+													</div>
+												</div>
+												<div className="border-t pt-3">
+													<Button
+														type="button"
+														variant="outline"
+														size="sm"
+														disabled={clearSubOrgMutation.isPending}
+														onClick={() => clearSubOrgMutation.mutate({ enpId: userId })}
+													>
+														{clearSubOrgMutation.isPending
+															? "Clearing..."
+															: "Clear sub-org (e.g. deleted in DocOnChain)"}
+													</Button>
+												</div>
+											</>
+										) : (
+											<div className="grid gap-3">
+												<div className="grid gap-2">
+													<Label htmlFor="sub-org-name">Sub-org name</Label>
+													<Input
+														id="sub-org-name"
+														placeholder="e.g. Notary Office Alpha"
+														value={subOrgName}
+														onChange={e => setSubOrgName(e.target.value)}
+													/>
+												</div>
+												<div className="grid gap-2">
+													<Label htmlFor="sub-org-address">Address / contact</Label>
+													<Input
+														id="sub-org-address"
+														placeholder="e.g. 123 Main St, City"
+														value={subOrgAddress}
+														onChange={e => setSubOrgAddress(e.target.value)}
+													/>
+												</div>
+												<div className="grid gap-2">
+													<Label htmlFor="sub-org-type">Sub-org type</Label>
+													<Input
+														id="sub-org-type"
+														placeholder="e.g. Department"
+														value={subOrgTypeName}
+														onChange={e => setSubOrgTypeName(e.target.value)}
+													/>
+												</div>
+												<div className="grid gap-2">
+													<Label htmlFor="sub-org-photo">Branding image (optional)</Label>
+													<Input
+														id="sub-org-photo"
+														type="file"
+														accept="image/*"
+														onChange={e => setSubOrgPhoto(e.target.files?.[0] ?? null)}
+													/>
+												</div>
+												<Button
+													type="button"
+													disabled={
+														provisionSubOrgMutation.isPending ||
+														provisionViaApiPending ||
+														!subOrgName.trim() ||
+														!subOrgAddress.trim()
+													}
+													onClick={() => void provisionWithOptionalPhoto()}
+												>
+													Create sub-org
+												</Button>
+											</div>
+										)}
+									</CardContent>
+								</Card>
+							) : null}
 						</>
 					) : (
 						<div className="py-8 text-center">

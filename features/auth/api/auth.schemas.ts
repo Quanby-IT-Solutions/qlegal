@@ -1,11 +1,15 @@
 import { z } from "zod/v4"
 
 // Base validation schemas - Single responsibility principle
-const nameSchema = z
-	.string({ error: "Name is required" })
+const firstNameSchema = z
+	.string({ error: "First name is required" })
 	.trim()
-	.min(1, "Name cannot be empty")
+	.min(1, "First name cannot be empty")
+const middleNameSchema = z.string().trim().optional()
+const lastNameSchema = z
+	.string({ error: "Last name is required" })
 	.trim()
+	.min(1, "Last name cannot be empty")
 
 const emailSchema = z
 	.email("Please enter a valid email address")
@@ -13,15 +17,29 @@ const emailSchema = z
 	.trim()
 	.toLowerCase()
 
+// Simple password schema for login (existing passwords may not meet complexity rules)
 const passwordSchema = z
 	.string({ error: "Password is required" })
 	.trim()
 	.min(6, "Password must be at least 6 characters long")
 
-const confirmPasswordSchema = z
+// Complex password schema for new password creation (registration, reset, etc.)
+const complexPasswordSchema = z
+	.string({ error: "Password is required" })
+	.trim()
+	.min(12, "Password must be at least 12 characters")
+	.regex(/[A-Z]/, "Password must contain at least one uppercase letter")
+	.regex(/[a-z]/, "Password must contain at least one lowercase letter")
+	.regex(/\d/, "Password must contain at least one number")
+	.regex(
+		/[!@#$%^&*()_+\-=[\]{}|;:'",.<>?/\\`~]/,
+		"Password must contain at least one special character"
+	)
+
+const complexConfirmPasswordSchema = z
 	.string({ error: "Please confirm your password" })
 	.trim()
-	.min(6, "Password confirmation must be at least 6 characters long")
+	.min(12, "Password confirmation must be at least 12 characters")
 
 const agreeToTermsSchema = z.boolean({
 	error: "You must agree to the terms and conditions",
@@ -29,10 +47,9 @@ const agreeToTermsSchema = z.boolean({
 
 export const registerSchema = z
 	.object({
-		name: nameSchema,
 		email: emailSchema,
-		password: passwordSchema,
-		confirmPassword: confirmPasswordSchema,
+		password: complexPasswordSchema,
+		confirmPassword: complexConfirmPasswordSchema,
 		agreeToTerms: agreeToTermsSchema,
 	})
 	.superRefine((data, ctx) => {
@@ -74,8 +91,8 @@ export const forgotPasswordSchema = z.object({
 
 export const resetPasswordSchema = z
 	.object({
-		newPassword: passwordSchema,
-		confirmPassword: confirmPasswordSchema,
+		newPassword: complexPasswordSchema,
+		confirmPassword: complexConfirmPasswordSchema,
 		token: z.string().optional(),
 	})
 	.superRefine((data, ctx) => {
@@ -115,7 +132,7 @@ const notarySealSchema = z.object({
 	enpRollNumber: z
 		.string()
 		.trim()
-		.regex(/^\d{6}$/, "ENP roll number must be exactly 6 digits"),
+		.regex(/^\d{5}$/, "ENP roll number must be exactly 5 digits"),
 	rollNoDate: z
 		.string()
 		.min(1, "Roll number date is required")
@@ -156,10 +173,12 @@ const notaryInfoSchema = z.object({
 export const lawyerRegisterSchema = z
 	.object({
 		// Basic account info
-		name: nameSchema,
+		firstName: firstNameSchema,
+		middleName: middleNameSchema,
+		lastName: lastNameSchema,
 		email: emailSchema,
-		password: passwordSchema,
-		confirmPassword: confirmPasswordSchema,
+		password: complexPasswordSchema,
+		confirmPassword: complexConfirmPasswordSchema,
 		agreeToTerms: agreeToTermsSchema,
 
 		// Notary seal info
