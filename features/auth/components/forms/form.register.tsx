@@ -74,7 +74,7 @@ export function RegisterForm({ callbackUrl }: RegisterFormProps) {
 		<Form {...form}>
 			<form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
 				{/* ── Name Fields ────────────────────────────────────── */}
-				<div className="grid grid-cols-3 gap-3">
+				<div className="grid grid-cols-3 items-start gap-3">
 					<FormField
 						control={form.control}
 						name="firstName"
