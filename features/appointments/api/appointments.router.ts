@@ -18,6 +18,8 @@ import { getDocumentPublicUrl } from "@/services/supabase/signed-url"
 import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
 import { createMeetingRoom } from "@/services/video-sdk"
 
+import { getAccountReadiness } from "@/features/account-readiness/lib/account-readiness"
+
 import { env } from "@/env"
 
 import {
@@ -86,6 +88,15 @@ export const appointmentsRouter = createTRPCRouter({
 		.input(createAppointmentSchema)
 		.mutation(async ({ ctx, input }) => {
 			const principalId = ctx.session.user.id
+
+			const { canBook, reasons } = await getAccountReadiness(principalId, ctx.db)
+			if (!canBook) {
+				throw new TRPCError({
+					code: "PRECONDITION_FAILED",
+					message: "You must complete KYC verification before booking",
+					cause: { reasons },
+				})
+			}
 
 			// Verify the ENP exists and has ENP role
 			const enp = await ctx.db.query.users.findFirst({
@@ -227,6 +238,15 @@ export const appointmentsRouter = createTRPCRouter({
 	// Create a new notarization request
 	createRequest: protectedProcedure.input(createRequestSchema).mutation(async ({ ctx, input }) => {
 		const userId = ctx.session.user.id
+
+		const { canBook, reasons } = await getAccountReadiness(userId, ctx.db)
+		if (!canBook) {
+			throw new TRPCError({
+				code: "PRECONDITION_FAILED",
+				message: "You must complete KYC verification before creating a notarization request",
+				cause: { reasons },
+			})
+		}
 
 		// Verify the ENP exists and has ENP role
 		const enp = await ctx.db.query.users.findFirst({

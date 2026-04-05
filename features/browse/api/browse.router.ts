@@ -1,5 +1,5 @@
 import { TRPCError } from "@trpc/server"
-import { and, count, desc, eq, ilike, ne, or, sql } from "drizzle-orm"
+import { and, count, desc, eq, exists, gt, ilike, ne, or, sql } from "drizzle-orm"
 import { z } from "zod/v4"
 
 import { getFullName } from "@/core/lib/utils"
@@ -8,6 +8,7 @@ import { appointmentParticipants } from "@/services/drizzle/schema/appointment-p
 import { appointments } from "@/services/drizzle/schema/appointments"
 import { users } from "@/services/drizzle/schema/auth"
 import { enpProfiles } from "@/services/drizzle/schema/enp-profiles"
+import { savedIds } from "@/services/drizzle/schema/saved-ids"
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "@/services/trpc/init"
 
 import {
@@ -75,7 +76,24 @@ export const browseRouter = createTRPCRouter({
 	 */
 	findBestMatch: protectedProcedure.input(findBestMatchSchema).query(async ({ ctx, input }) => {
 		// Query available ENPs
-		const conditions = [eq(users.role, "ENP"), eq(enpProfiles.isAvailable, true)]
+		const conditions = [
+			eq(users.role, "ENP"),
+			eq(enpProfiles.isAvailable, true),
+			eq(users.commissionStatus, "ACTIVE"),
+			exists(
+				ctx.db
+					.select({ one: sql`1` })
+					.from(savedIds)
+					.where(
+						and(
+							eq(savedIds.userId, users.id),
+							eq(savedIds.isActive, true),
+							eq(savedIds.isExpired, false),
+							gt(savedIds.expiresAt, new Date())
+						)
+					)
+			),
+		]
 		// When caller is an ENP (e.g. booking another ENP), exclude themselves
 		if (ctx.session.user.role === "ENP") {
 			conditions.push(ne(users.id, ctx.session.user.id))
@@ -168,7 +186,24 @@ export const browseRouter = createTRPCRouter({
 			const currentUserRole = ctx.session.user.role
 
 			// Build where conditions
-			const baseConditions = [eq(users.role, "ENP"), eq(enpProfiles.isAvailable, true)]
+			const baseConditions = [
+				eq(users.role, "ENP"),
+				eq(enpProfiles.isAvailable, true),
+				eq(users.commissionStatus, "ACTIVE"),
+				exists(
+					ctx.db
+						.select({ one: sql`1` })
+						.from(savedIds)
+						.where(
+							and(
+								eq(savedIds.userId, users.id),
+								eq(savedIds.isActive, true),
+								eq(savedIds.isExpired, false),
+								gt(savedIds.expiresAt, new Date())
+							)
+						)
+				),
+			]
 
 			// When viewer is an ENP (e.g. booking another ENP for notarization), exclude themselves from the list
 			if (currentUserRole === "ENP") {

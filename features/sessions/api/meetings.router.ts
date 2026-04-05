@@ -27,6 +27,7 @@ import { getPublicUrl } from "@/services/supabase/signed-url"
 import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
 import { createMeetingRoom, fetchRecordings, generateMeetingToken } from "@/services/video-sdk"
 
+import { getAccountReadiness } from "@/features/account-readiness/lib/account-readiness"
 import { populateNotarialRegistryOnMeetingEnd } from "@/features/notarial-book/server/populate-notarial-registry-on-meeting-end"
 import { getSubOrgCredsForMemberEmail } from "@/features/sub-orgs/server/get-sub-org-creds-for-member"
 
@@ -685,6 +686,19 @@ export const meetingsRouter = createTRPCRouter({
 			})
 		}
 
+		const readiness = await getAccountReadiness(ctx.session.user.id, db)
+		const isEnp = isEnpRole(ctx.session.user.role)
+		const canProceed = isEnp ? readiness.canStartNotarization : readiness.canJoinMeeting
+		if (!canProceed) {
+			throw new TRPCError({
+				code: "PRECONDITION_FAILED",
+				message: isEnp
+					? "ENP must have active commission and valid ID to start a notarization session"
+					: "You must complete KYC verification before joining a session",
+				cause: { reasons: readiness.reasons },
+			})
+		}
+
 		if (!appointment) {
 			throw new TRPCError({
 				code: "NOT_FOUND",
@@ -1264,6 +1278,18 @@ export const meetingsRouter = createTRPCRouter({
 				throw new TRPCError({ code: "FORBIDDEN", message: "Only ENP can mark document as plotted" })
 			}
 
+			const { canStartNotarization, reasons: readinessReasons } = await getAccountReadiness(
+				ctx.session.user.id,
+				db
+			)
+			if (!canStartNotarization) {
+				throw new TRPCError({
+					code: "PRECONDITION_FAILED",
+					message: "ENP must have active commission and valid ID to perform notarization actions",
+					cause: { reasons: readinessReasons },
+				})
+			}
+
 			const doc = await db.query.documents.findFirst({
 				where: and(eq(documents.id, input.documentId), eq(documents.meetingId, input.meetingId)),
 				columns: { id: true, docoChainProjectId: true },
@@ -1535,6 +1561,20 @@ export const meetingsRouter = createTRPCRouter({
 			)
 			if (!isHost && !isAccepted) {
 				throw new TRPCError({ code: "FORBIDDEN", message: "You don't have access to this meeting" })
+			}
+			const isEnpUser = isEnpRole(ctx.session.user.role)
+			const enpReadiness = await getAccountReadiness(ctx.session.user.id, db)
+			const canProceedWithSigners = isEnpUser
+				? enpReadiness.canStartNotarization
+				: enpReadiness.canJoinMeeting
+			if (!canProceedWithSigners) {
+				throw new TRPCError({
+					code: "PRECONDITION_FAILED",
+					message: isEnpUser
+						? "ENP must have active commission and valid ID to set document signers"
+						: "You must complete KYC verification to participate in this session",
+					cause: { reasons: enpReadiness.reasons },
+				})
 			}
 			const doc = meeting.documents.find(d => d.id === documentId)
 			if (!doc) {
@@ -2064,6 +2104,14 @@ export const meetingsRouter = createTRPCRouter({
 				throw new TRPCError({
 					code: "FORBIDDEN",
 					message: "This session is not open for link-based join",
+				})
+			}
+			const { canJoinMeeting, reasons } = await getAccountReadiness(ctx.session.user.id, db)
+			if (!canJoinMeeting) {
+				throw new TRPCError({
+					code: "PRECONDITION_FAILED",
+					message: "You must complete KYC verification before joining a session",
+					cause: { reasons },
 				})
 			}
 			const existing = await db.query.appointmentParticipants.findFirst({
