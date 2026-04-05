@@ -141,65 +141,110 @@ function wrapTextToWidth(text: string, maxWidth: number, font: PDFFont, fontSize
 	return lines
 }
 
+/** Shorter headers so Excel’s default column widths show full titles; order = logical read order. */
 const CSV_COLUMNS: readonly { key: string; header: string }[] = [
-	{ key: "executedAt", header: "Date and time executed" },
+	{ key: "executedAt", header: "Executed at (UTC)" },
 	{ key: "actType", header: "Act type" },
-	{ key: "workflow", header: "Notarization mode" },
-	{ key: "principalName", header: "Principal name" },
+	{ key: "workflow", header: "Mode (REN / IEN)" },
+	{ key: "principalName", header: "Principal" },
+	{ key: "documentName", header: "Document file" },
+	{ key: "documentDescription", header: "Document notes" },
+	{ key: "certificateNumber", header: "Certificate #" },
+	{ key: "supremeCourtRegistryId", header: "NRID (SC)" },
 	{ key: "principalIdType", header: "Principal ID type" },
-	{ key: "principalIdNumber", header: "Principal ID number" },
+	{ key: "principalIdNumber", header: "Principal ID #" },
 	{ key: "principalAddress", header: "Principal address" },
-	{ key: "witnessName", header: "Witness name" },
-	{ key: "witnessIdNumber", header: "Witness ID number" },
-	{ key: "documentName", header: "Document title" },
-	{ key: "documentDescription", header: "Document description" },
-	{ key: "certificateNumber", header: "Certificate number" },
+	{ key: "witnessName", header: "Witness" },
+	{ key: "witnessIdNumber", header: "Witness ID #" },
 	{ key: "location", header: "Location" },
 	{ key: "locationStatement", header: "Location statement" },
-	{ key: "ipAddress", header: "IP address (session)" },
-	{ key: "enpName", header: "Notary name (as recorded)" },
-	{ key: "enpRollNumber", header: "Notary roll number (as recorded)" },
-	{ key: "signerCount", header: "Signers (count)" },
-	{ key: "meetingEndedAt", header: "Session ended at" },
-	{ key: "syncedToSupremeCourt", header: "Synced to Supreme Court" },
-	{ key: "supremeCourtRegistryId", header: "NRID (Supreme Court)" },
-	{ key: "createdAt", header: "Record created at" },
+	{ key: "ipAddress", header: "Session IP" },
+	{ key: "enpName", header: "Notary (recorded)" },
+	{ key: "enpRollNumber", header: "Notary roll #" },
+	{ key: "signerCount", header: "Signer count" },
+	{ key: "meetingEndedAt", header: "Session ended (UTC)" },
+	{ key: "syncedToSupremeCourt", header: "Synced to SC" },
+	{ key: "createdAt", header: "Record created (UTC)" },
 ]
 
-function escapeCsvCell(v: unknown): string {
-	if (v === null || v === undefined) return ""
+const CSV_LONG_TEXT_KEYS = new Set([
+	"locationStatement",
+	"documentDescription",
+	"principalAddress",
+])
+
+const MAX_CSV_TEXT_LEN = 400
+
+/**
+ * RFC 4180 field, always double-quoted. Leading zero-width space for values Excel
+ * would otherwise treat as dates/numbers (avoids ####### and column shift).
+ */
+function csvQuotedField(raw: string): string {
+	const normalized = raw.replace(/\r\n/g, "\n").replace(/\r/g, "\n")
+	const excelNeedsTextGuard =
+		normalized.length > 0 &&
+		(/^[\d+\-=@]/.test(normalized) ||
+			/^\d{4}-\d{2}-\d{2}/.test(normalized) ||
+			/^\d{1,2}\/\d{1,2}\/\d{4}/.test(normalized))
+	const body = excelNeedsTextGuard ? `\u200B${normalized}` : normalized
+	return `"${body.replace(/"/g, '""')}"`
+}
+
+/** Datetimes spelled for CSV: month name reduces Excel auto-date parsing vs ISO digits. */
+function formatDateTimeForCsv(value: unknown): string {
+	if (value === null || value === undefined) return ""
+	if (value instanceof Date) return format(value, "dd-MMM-yyyy HH:mm")
+	if (typeof value === "string") {
+		const d = new Date(value)
+		return Number.isNaN(d.getTime()) ? value : format(d, "dd-MMM-yyyy HH:mm")
+	}
+	if (typeof value === "number" || typeof value === "bigint") return String(value)
+	if (typeof value === "boolean") return value ? "true" : "false"
+	return JSON.stringify(value)
+}
+
+function formatActFieldForCsv(act: Record<string, unknown>, key: string): string {
 	let s: string
-	if (typeof v === "string") s = v
-	else if (v instanceof Date) s = format(v, "yyyy-MM-dd HH:mm")
-	else if (typeof v === "number" || typeof v === "boolean" || typeof v === "bigint") s = String(v)
-	else s = JSON.stringify(v)
-	if (s.includes(",") || s.includes('"') || s.includes("\n") || s.includes("\r")) {
-		return `"${s.replace(/"/g, '""')}"`
+	if (
+		key === "executedAt" ||
+		key === "meetingEndedAt" ||
+		key === "createdAt" ||
+		key === "updatedAt" ||
+		key === "syncedAt"
+	) {
+		s = formatDateTimeForCsv(act[key])
+	} else {
+		s = formatActFieldForExport(act, key)
+	}
+	if (CSV_LONG_TEXT_KEYS.has(key) && s.length > MAX_CSV_TEXT_LEN) {
+		s = `${s.slice(0, MAX_CSV_TEXT_LEN - 1)}…`
 	}
 	return s
 }
 
 /**
- * UTF-8 CSV with BOM for Excel, human-readable headers, RFC-friendly escaping.
+ * UTF-8 CSV with BOM for Excel. Preamble is one column per row so Excel does not
+ * misalign metadata with the wide data table. All fields quoted; dates formatted
+ * to reduce ####### and wrong typing.
  */
 export function buildNotarialBookCsv(
 	meta: NotarialBookExportMeta,
 	acts: Array<Record<string, unknown>>
 ): string {
-	const headerLine = CSV_COLUMNS.map(c => escapeCsvCell(c.header)).join(",")
+	const headerLine = CSV_COLUMNS.map(c => csvQuotedField(c.header)).join(",")
 	const rows = acts.map(act =>
-		CSV_COLUMNS.map(col => escapeCsvCell(formatActFieldForExport(act, String(col.key)))).join(",")
+		CSV_COLUMNS.map(col => csvQuotedField(formatActFieldForCsv(act, String(col.key)))).join(",")
 	)
-	const infoRows: [string, string][] = [
-		["Report title", `${meta.electronicNotarialFacility} — Notarial book export`],
-		["Generated (UTC)", format(new Date(meta.generatedAtIso), "yyyy-MM-dd HH:mm:ss")],
-		["Book ID", meta.bookId],
-		["Notary public (exporter)", meta.notaryPublicName],
-		["Roll number (profile)", meta.notaryRollNumber ?? ""],
-		["Notary public number (profile)", meta.notaryPublicNumber ?? ""],
-		["Total acts", String(meta.actCount)],
+	const preambleLines = [
+		`Report title: ${meta.electronicNotarialFacility} — Notarial book export`,
+		`Generated (UTC): ${format(new Date(meta.generatedAtIso), "dd-MMM-yyyy HH:mm:ss")}`,
+		`Book ID: ${meta.bookId}`,
+		`Notary public: ${meta.notaryPublicName}`,
+		`Roll number (profile): ${meta.notaryRollNumber ?? "—"}`,
+		`Notary public number (profile): ${meta.notaryPublicNumber ?? "—"}`,
+		`Total acts: ${meta.actCount}`,
 	]
-	const preamble = infoRows.map(([k, v]) => `${escapeCsvCell(k)},${escapeCsvCell(v)}`).join("\r\n")
+	const preamble = preambleLines.map(line => csvQuotedField(line)).join("\r\n")
 
 	return `\ufeff${preamble}\r\n\r\n${headerLine}\r\n${rows.join("\r\n")}\r\n`
 }
