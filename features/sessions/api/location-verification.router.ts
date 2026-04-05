@@ -1,11 +1,13 @@
-import { eq } from "drizzle-orm"
 import { randomUUID } from "node:crypto"
+import { eq } from "drizzle-orm"
 import { z } from "zod/v4"
 
 import { db } from "@/services/drizzle/db"
 import { users } from "@/services/drizzle/schema/auth"
+import { meetingParticipantIdentityChecks } from "@/services/drizzle/schema/meeting-participant-identity-checks"
 import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
 
+import { checkIdentityCompletion } from "@/features/sessions/lib/identity-completion"
 import {
 	verifyLocationForRole,
 	type LocationVerificationResult,
@@ -142,9 +144,7 @@ function getClientIp(headers: Headers): string | null {
 /**
  * Check if an IP is a VPN/proxy using proxycheck.io
  */
-async function checkVpnStatus(
-	ip: string
-): Promise<{
+async function checkVpnStatus(ip: string): Promise<{
 	checked: boolean
 	isVpn: boolean
 	ipData: ProxyCheckIpData | null
@@ -339,10 +339,7 @@ function parseAddressComponents(result: GeocodingResponse["results"][0]): Parsed
 /**
  * Get country code and formatted address from coordinates using Google Maps Geocoding API
  */
-async function getCountryFromCoordinates(
-	lat: number,
-	lng: number
-): Promise<GeocodingLookupResult> {
+async function getCountryFromCoordinates(lat: number, lng: number): Promise<GeocodingLookupResult> {
 	try {
 		// Don't filter by result_type to get full address data
 		const response = await fetch(
@@ -497,8 +494,7 @@ export const locationVerificationRouter = createTRPCRouter({
 							debugInfo: {
 								errorCode: "GPS_ACCURACY_LOW",
 								errorMessage: `GPS accuracy is ${accuracyMeters.toFixed(1)}m, above the 200m threshold`,
-								userMessage:
-									"Your GPS signal is currently too weak to verify location precisely.",
+								userMessage: "Your GPS signal is currently too weak to verify location precisely.",
 								suggestedAction:
 									"Move outdoors, wait for a stronger signal, and retry location verification.",
 								timestamp,
@@ -588,8 +584,7 @@ export const locationVerificationRouter = createTRPCRouter({
 								debugInfo: {
 									errorCode: "GOOGLE_MAPS_QUOTA_EXCEEDED",
 									errorMessage: geocodingMessage,
-									userMessage:
-										"Location verification service is temporarily at capacity.",
+									userMessage: "Location verification service is temporarily at capacity.",
 									suggestedAction:
 										"Please retry in a few minutes or contact support if this persists.",
 									timestamp,
@@ -633,10 +628,8 @@ export const locationVerificationRouter = createTRPCRouter({
 								debugInfo: {
 									errorCode: "GOOGLE_MAPS_ZERO_RESULTS",
 									errorMessage: "Coordinates appear to be in an unmapped area",
-									userMessage:
-										"We could not match your coordinates to a known address.",
-									suggestedAction:
-										"Move to an open area with stronger GPS signal and try again.",
+									userMessage: "We could not match your coordinates to a known address.",
+									suggestedAction: "Move to an open area with stronger GPS signal and try again.",
 									timestamp,
 									apiStatusCode: geocodingStatus,
 									requestId,
@@ -656,8 +649,7 @@ export const locationVerificationRouter = createTRPCRouter({
 								debugInfo: {
 									errorCode: "LOCATION_SERVICE_NETWORK_ERROR",
 									errorMessage: geocodingMessage,
-									userMessage:
-										"We could not reach the location verification service.",
+									userMessage: "We could not reach the location verification service.",
 									suggestedAction: "Please check your connection and retry.",
 									timestamp,
 									apiStatusCode: geocodingStatus,
@@ -687,11 +679,12 @@ export const locationVerificationRouter = createTRPCRouter({
 						}
 					}
 
-					const ipCountryCode = (
-						ipData?.country ??
-						(ipApiData?.authoritative ? ipApiData.countryCode : null) ??
-						null
-					)?.toUpperCase() ?? null
+					const ipCountryCode =
+						(
+							ipData?.country ??
+							(ipApiData?.authoritative ? ipApiData.countryCode : null) ??
+							null
+						)?.toUpperCase() ?? null
 
 					if (ipCountryCode && countryCode && ipCountryCode !== countryCode.toUpperCase()) {
 						console.warn(
@@ -728,6 +721,44 @@ export const locationVerificationRouter = createTRPCRouter({
 						}
 					}
 
+					// Persist location data to the identity check record
+					if (verificationResult.allowed) {
+						try {
+							await db
+								.insert(meetingParticipantIdentityChecks)
+								.values({
+									meetingId,
+									userId,
+									locationVerifiedAt: new Date(),
+									locationLat: latitude,
+									locationLng: longitude,
+									locationAddress: verificationResult.details?.formattedAddress ?? null,
+									locationIp: clientIp ?? null,
+									locationCountryCode: countryCode ?? null,
+								})
+								.onConflictDoUpdate({
+									target: [
+										meetingParticipantIdentityChecks.meetingId,
+										meetingParticipantIdentityChecks.userId,
+									],
+									set: {
+										locationVerifiedAt: new Date(),
+										locationLat: latitude,
+										locationLng: longitude,
+										locationAddress: verificationResult.details?.formattedAddress ?? null,
+										locationIp: clientIp ?? null,
+										locationCountryCode: countryCode ?? null,
+									},
+								})
+
+							await checkIdentityCompletion(meetingId, userId)
+						} catch (persistError) {
+							console.error(
+								`[Location Verification] Failed to persist location check: userId=${userId}, meetingId=${meetingId}`,
+								persistError
+							)
+						}
+					}
 					return {
 						...verificationResult,
 						ipApiDetails: ipApiData,
@@ -809,7 +840,8 @@ export const locationVerificationRouter = createTRPCRouter({
 			}
 		}
 
-		const isVpn = vpnCheckResult.isVpn || (ipApiCheckResult.isProxy && ipApiCheckResult.authoritative)
+		const isVpn =
+			vpnCheckResult.isVpn || (ipApiCheckResult.isProxy && ipApiCheckResult.authoritative)
 
 		return {
 			checked: true,

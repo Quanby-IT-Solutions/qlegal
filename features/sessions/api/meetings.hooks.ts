@@ -96,6 +96,20 @@ export function useMeetings() {
 
 	const joinMeetingByLink = trpc.meetings.joinMeetingByLink.useMutation()
 
+	const getMyIdentityCheck = (meetingId: string) =>
+		trpc.meetings.getMyIdentityCheck.useQuery(meetingId, {
+			enabled: !!meetingId,
+			refetchOnWindowFocus: false,
+		})
+
+	const getMySavedIds = () => trpc.meetings.getMySavedIds.useQuery()
+
+	const selectSessionIdentity = trpc.meetings.selectSessionIdentity.useMutation({
+		onSuccess: (_data, variables) => {
+			void utils.meetings.getMyIdentityCheck.invalidate(variables.meetingId)
+		},
+	})
+
 	return {
 		create,
 		getUserMeetings,
@@ -111,5 +125,8 @@ export function useMeetings() {
 		respondToInvite,
 		setAllowPublicLink,
 		joinMeetingByLink,
+		getMyIdentityCheck,
+		getMySavedIds,
+		selectSessionIdentity,
 	}
 }

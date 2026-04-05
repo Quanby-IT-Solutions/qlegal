@@ -7,6 +7,7 @@ import {
 	CameraOff,
 	CheckCircle,
 	Clock,
+	CreditCard,
 	Loader2,
 	MapPin,
 	Mic,
@@ -52,8 +53,10 @@ interface SessionLobbyProps {
 export function SessionLobby({ id, onJoin }: SessionLobbyProps) {
 	const router = useRouter()
 	const { data: session } = useSession()
-	const { getById } = useMeetings()
+	const { getById, getMyIdentityCheck, getMySavedIds, selectSessionIdentity } = useMeetings()
 	const { data: meeting, isLoading } = getById(id)
+	const { data: identityCheck, refetch: refetchIdentityCheck } = getMyIdentityCheck(id)
+	const { data: savedIdList } = getMySavedIds()
 	const { verifyLocation } = useLocationVerification()
 	const { vpnCheckResult, isChecking: isVpnChecking, performVpnCheck } = useQuickVpnCheck()
 
@@ -65,6 +68,10 @@ export function SessionLobby({ id, onJoin }: SessionLobbyProps) {
 
 	// Liveness verification state
 	const [isCheckingLiveness, setIsCheckingLiveness] = useState(true)
+
+	// ID selection state
+	const [selectedSavedIdId, setSelectedSavedIdId] = useState<string | null>(null)
+	const [isSelectingId, setIsSelectingId] = useState(false)
 
 	// Location verification state
 	const [locationStatus, setLocationStatus] = useState<LocationStatus>("checking")
@@ -426,8 +433,13 @@ export function SessionLobby({ id, onJoin }: SessionLobbyProps) {
 		}
 	}, [stream])
 
+	const userRole = session?.user?.role ?? "PRINCIPAL"
+
 	// Determine if join button should be enabled
-	const canJoinMeeting = locationStatus === "verified"
+	const isEnpUser = userRole === "ENP"
+	const canJoinMeeting = isEnpUser
+		? !!identityCheck?.savedIdId
+		: locationStatus === "verified" && identityCheck?.isComplete === true
 
 	// Get location status display info
 	const getLocationStatusDisplay = () => {
@@ -569,8 +581,6 @@ export function SessionLobby({ id, onJoin }: SessionLobbyProps) {
 			</div>
 		)
 	}
-
-	const userRole = session?.user?.role ?? "PRINCIPAL"
 
 	return (
 		<>
@@ -751,6 +761,66 @@ export function SessionLobby({ id, onJoin }: SessionLobbyProps) {
 									</CardContent>
 								</Card>
 							</div>
+
+						{/* Step 3: Select your ID */}
+						<Card className="border-border rounded-lg border">
+							<CardHeader className="pb-2">
+								<CardTitle className="flex items-center gap-2 text-sm font-medium">
+									<CreditCard className="text-muted-foreground size-4" />
+									Verify your identity
+								</CardTitle>
+							</CardHeader>
+							<CardContent className="pt-0 space-y-2">
+								{identityCheck?.savedIdId ? (
+									<div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-500">
+										<CheckCircle className="size-4 shrink-0" />
+										<p className="text-sm">ID selected for this session</p>
+									</div>
+								) : !savedIdList || savedIdList.length === 0 ? (
+									<p className="text-muted-foreground text-sm">No saved IDs found. Complete KYC verification first.</p>
+								) : (
+									<div className="space-y-2">
+										<p className="text-muted-foreground text-xs">Select the ID to use for this session:</p>
+										{savedIdList.map(sid => {
+											const docLabels: Record<string, string> = {
+												NATIONAL_ID: "National ID", DRIVERS_LICENSE: "Driver's License",
+												PASSPORT: "Passport", VOTERS_ID: "Voter's ID", UMID: "UMID",
+												SSS_ID: "SSS ID", PHILHEALTH_ID: "PhilHealth ID", TIN_ID: "TIN ID",
+												POSTAL_ID: "Postal ID", PRC_ID: "PRC ID",
+											}
+											const label = docLabels[sid.documentType] ?? sid.documentType
+											const isExpired = !!(sid.expiresAt && sid.expiresAt <= new Date())
+											return (
+												<div key={sid.id} className="flex items-center justify-between gap-2 rounded-md border p-2">
+													<div className="min-w-0">
+														<p className="truncate text-sm font-medium">{label}</p>
+														{sid.documentNumber && (<p className="text-muted-foreground truncate text-xs">{sid.documentNumber}</p>)}
+													</div>
+													<Button
+														size="sm"
+														variant={selectedSavedIdId === sid.id ? "default" : "outline"}
+														disabled={isExpired || isSelectingId}
+														onClick={() => {
+															setSelectedSavedIdId(sid.id)
+															setIsSelectingId(true)
+															selectSessionIdentity.mutate(
+																{ meetingId: id, savedIdId: sid.id },
+																{
+																	onSuccess: () => { void refetchIdentityCheck() },
+																	onSettled: () => setIsSelectingId(false),
+																}
+															)
+														}}
+													>
+														{isExpired ? "Expired" : (isSelectingId && selectedSavedIdId === sid.id) ? "Selecting…" : "Select"}
+													</Button>
+												</div>
+											)
+										})}
+									</div>
+								)}
+							</CardContent>
+						</Card>
 						</div>
 
 						{/* Right column: Participants card only */}

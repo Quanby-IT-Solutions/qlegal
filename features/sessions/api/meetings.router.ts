@@ -21,6 +21,8 @@ import { enpProfiles } from "@/services/drizzle/schema/enp-profiles"
 import { meetingMessages } from "@/services/drizzle/schema/meeting-messages"
 import { meetings } from "@/services/drizzle/schema/meetings"
 import { signatureRequests } from "@/services/drizzle/schema/signature-requests"
+import { meetingParticipantIdentityChecks } from "@/services/drizzle/schema/meeting-participant-identity-checks"
+import { savedIds } from "@/services/drizzle/schema/saved-ids"
 import { sendSigningLinkEmail } from "@/services/react-email/lib/send.signing-link"
 import { getPublicClient, getServiceRoleClient } from "@/services/supabase"
 import { getPublicUrl } from "@/services/supabase/signed-url"
@@ -30,6 +32,8 @@ import { createMeetingRoom, fetchRecordings, generateMeetingToken } from "@/serv
 import { getAccountReadiness } from "@/features/account-readiness/lib/account-readiness"
 import { populateNotarialRegistryOnMeetingEnd } from "@/features/notarial-book/server/populate-notarial-registry-on-meeting-end"
 import { getSubOrgCredsForMemberEmail } from "@/features/sub-orgs/server/get-sub-org-creds-for-member"
+
+import { checkIdentityCompletion } from "@/features/sessions/lib/identity-completion"
 
 import { env } from "@/env"
 
@@ -515,6 +519,38 @@ export const meetingsRouter = createTRPCRouter({
 				code: "FORBIDDEN",
 				message: "You don't have access to this meeting",
 			})
+		}
+
+		// Enforce identity verification: non-ENP must have isComplete=true; ENP must have savedIdId set
+		const isEnpUser = isEnpRole(ctx.session.user.role)
+		if (!isEnpUser) {
+			const identityCheck = await db.query.meetingParticipantIdentityChecks.findFirst({
+				where: and(
+					eq(meetingParticipantIdentityChecks.meetingId, input),
+					eq(meetingParticipantIdentityChecks.userId, ctx.session.user.id)
+				),
+				columns: { isComplete: true },
+			})
+			if (!identityCheck?.isComplete) {
+				throw new TRPCError({
+					code: "PRECONDITION_FAILED",
+					message: "You must complete all identity checks before joining the meeting",
+				})
+			}
+		} else {
+			const identityCheck = await db.query.meetingParticipantIdentityChecks.findFirst({
+				where: and(
+					eq(meetingParticipantIdentityChecks.meetingId, input),
+					eq(meetingParticipantIdentityChecks.userId, ctx.session.user.id)
+				),
+				columns: { savedIdId: true },
+			})
+			if (!identityCheck?.savedIdId) {
+				throw new TRPCError({
+					code: "PRECONDITION_FAILED",
+					message: "ENP must select a valid ID before joining the meeting",
+				})
+			}
 		}
 
 		return {
@@ -2192,4 +2228,91 @@ export const meetingsRouter = createTRPCRouter({
 
 			return { success: true, status: newStatus }
 		}),
+	// Get the current user's identity check record for a specific meeting
+	getMyIdentityCheck: protectedProcedure
+		.input(z.string().min(1))
+		.query(async ({ input: meetingId, ctx }) => {
+			const row = await db.query.meetingParticipantIdentityChecks.findFirst({
+				where: and(
+					eq(meetingParticipantIdentityChecks.meetingId, meetingId),
+					eq(meetingParticipantIdentityChecks.userId, ctx.session.user.id)
+				),
+			})
+			return row ?? null
+		}),
+
+	// Get the current user's active saved IDs (for lobby ID selector)
+	getMySavedIds: protectedProcedure.query(async ({ ctx }) => {
+		return db.query.savedIds.findMany({
+			where: and(eq(savedIds.userId, ctx.session.user.id), eq(savedIds.isActive, true)),
+			orderBy: (t, { desc }) => [desc(t.verifiedAt)],
+		})
+	}),
+
+	// Select a saved ID for use in this session (lobby step 3)
+	selectSessionIdentity: protectedProcedure
+		.input(
+			z.object({
+				meetingId: z.string().min(1),
+				savedIdId: z.string().min(1),
+			})
+		)
+		.mutation(async ({ input, ctx }) => {
+			const userId = ctx.session.user.id
+
+			const [meeting, savedId] = await Promise.all([
+				db.query.meetings.findFirst({
+					where: eq(meetings.id, input.meetingId),
+					columns: { id: true, createdById: true },
+				}),
+				db.query.savedIds.findFirst({
+					where: and(
+						eq(savedIds.id, input.savedIdId),
+						eq(savedIds.userId, userId),
+						eq(savedIds.isActive, true)
+					),
+				}),
+			])
+
+			if (!meeting) {
+				throw new TRPCError({ code: "NOT_FOUND", message: "Meeting not found" })
+			}
+
+			// Verify the user is a host or accepted participant
+			const isHost = meeting.createdById === userId
+			const { apParticipants } = await getAppointmentParticipantsByMeetingId(input.meetingId)
+			const isAccepted = apParticipants.some(
+				p => p.userId === userId && p.status === "ACCEPTED"
+			)
+			if (!isHost && !isAccepted) {
+				throw new TRPCError({ code: "FORBIDDEN", message: "You don't have access to this meeting" })
+			}
+
+			if (!savedId) {
+				throw new TRPCError({ code: "NOT_FOUND", message: "Saved ID not found or inactive" })
+			}
+
+			const now = new Date()
+			if (savedId.expiresAt && savedId.expiresAt <= now) {
+				throw new TRPCError({ code: "BAD_REQUEST", message: "This ID has expired" })
+			}
+
+			// Upsert the identity check record with savedIdId
+			await db
+				.insert(meetingParticipantIdentityChecks)
+				.values({ meetingId: input.meetingId, userId, savedIdId: input.savedIdId })
+				.onConflictDoUpdate({
+					target: [
+						meetingParticipantIdentityChecks.meetingId,
+						meetingParticipantIdentityChecks.userId,
+					],
+					set: { savedIdId: input.savedIdId },
+				})
+
+			// Check if all 3 conditions are now met
+			await checkIdentityCompletion(input.meetingId, userId)
+
+			return { success: true }
+		}),
+
 })
