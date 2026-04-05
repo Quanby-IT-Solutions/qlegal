@@ -232,6 +232,23 @@ function normalizeOutputApplicationStatus(rawStatus: unknown): ApplicationStatus
 	// Be defensive: docs and dashboards sometimes use variant spellings.
 	if (normalized === "auto_approve") return "auto_approved"
 	if (normalized === "approved") return "auto_approved"
+	// Align with syncKycStatusFromCallback: HyperVerge may return these for successful completion.
+	if (["success", "succeeded", "verified", "completed"].includes(normalized)) return "auto_approved"
+	// Manual / operator approval after needs_review (Output API wording varies by tenant).
+	if (
+		[
+			"manual_approved",
+			"manually_approved",
+			"manual_approve",
+			"approved_manual",
+			"operator_approved",
+			"reviewer_approved",
+			"review_passed",
+			"review_approved",
+		].includes(normalized)
+	) {
+		return "auto_approved"
+	}
 	if (normalized === "declined") return "auto_declined"
 	if (normalized === "manual_review") return "needs_review"
 	if (normalized === "in_progress") return "pending"

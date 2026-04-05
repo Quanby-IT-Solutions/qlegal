@@ -1103,6 +1103,23 @@ export async function checkUserKycStatus() {
 					.where(eq(kycSessions.id, kycSession.id))
 			}
 
+			// If approval succeeded but we could not persist OCR (no logs / empty OCR), the session row
+			// may still be PENDING. Finalize it so checkUserKycStatus and the DB stay consistent.
+			const sessionRow = await db.query.kycSessions.findFirst({
+				where: eq(kycSessions.id, kycSession.id),
+				columns: { status: true },
+			})
+			if (sessionRow?.status === "PENDING" && newStatus === "VERIFIED") {
+				await db
+					.update(kycSessions)
+					.set({
+						status: "VERIFIED",
+						verifiedAt: new Date(),
+						updatedAt: new Date(),
+					})
+					.where(eq(kycSessions.id, kycSession.id))
+			}
+
 			const latestIdCardDetails = await db.query.idCardDetails.findFirst({
 				where: (data, { eq }) => eq(data.userId, session.user.id),
 				orderBy: (table, { desc }) => [desc(table.updatedAt)],
@@ -1282,12 +1299,25 @@ export async function syncKycStatusFromCallback(transactionId: string, status: s
 		return { success: false, error: "Missing transactionId or status" }
 	}
 
-	const normalized = status.trim().toLowerCase()
+	const normalized = status.trim().toLowerCase().replace(/\s+/g, "_")
 	let newStatus: "PENDING" | "VERIFIED" | "REJECTED" = "PENDING"
 	if (
-		["auto_approved", "approved", "success", "succeeded", "verified", "completed"].includes(
-			normalized
-		)
+		[
+			"auto_approved",
+			"approved",
+			"success",
+			"succeeded",
+			"verified",
+			"completed",
+			"manual_approved",
+			"manually_approved",
+			"manual_approve",
+			"approved_manual",
+			"operator_approved",
+			"reviewer_approved",
+			"review_passed",
+			"review_approved",
+		].includes(normalized)
 	) {
 		newStatus = "VERIFIED"
 	} else if (["auto_declined", "rejected", "declined", "failed", "error"].includes(normalized)) {

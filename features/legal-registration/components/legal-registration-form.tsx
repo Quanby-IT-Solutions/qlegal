@@ -37,6 +37,7 @@ import {
 	type FileUpload,
 	type LegalRegistrationForm as LegalRegistrationFormValues,
 } from "../api/legal-registration.schemas"
+import { EnpScCredentialsPlaceholder } from "./enp-sc-credentials-placeholder"
 import { useFileUpload, useLegalRegistration } from "../hooks/use-legal-registration"
 
 interface FileUploadFieldProps {
@@ -225,6 +226,79 @@ export function LegalRegistrationForm() {
 
 	// Temporary acknowledgement in lieu of ENF Provider Certification upload
 	const [enfAcknowledged, setEnfAcknowledged] = useState(false)
+
+	const handleAutoFillTestData = () => {
+		if (!canEditLocal) return
+
+		// Keep these values aligned with the form schema + submit validation:
+		// - `mobileNumber` must match `/^(\+63|63|0)?[89]\d{9}$/` after stripping dashes/spaces.
+		// - address fields need a minimum length (>= 10 chars).
+		form.setValue("personalQualifications.citizenship", "Filipino", {
+			shouldDirty: true,
+			shouldValidate: true,
+		})
+		form.setValue("personalQualifications.dateOfBirth", "1999-01-13", {
+			shouldDirty: true,
+			shouldValidate: true,
+		})
+		form.setValue(
+			"personalQualifications.residentialAddress",
+			"Cabangan, Legazpi City, Albay",
+			{ shouldDirty: true, shouldValidate: true }
+		)
+		form.setValue(
+			"personalQualifications.workOrBusinessAddress",
+			"Cabangan, Legazpi City, Albay",
+			{ shouldDirty: true, shouldValidate: true }
+		)
+		form.setValue("personalQualifications.telephoneNumber", "(02) 123-4567", {
+			shouldDirty: true,
+			shouldValidate: true,
+		})
+		form.setValue("personalQualifications.mobileNumber", "0912-345-6789", {
+			shouldDirty: true,
+			shouldValidate: true,
+		})
+		form.setValue("personalQualifications.emailAddress", "ladot63160@qvmao.com", {
+			shouldDirty: true,
+			shouldValidate: true,
+		})
+		form.setValue("personalQualifications.professionalTaxReceiptNumber", "PTR-123456789", {
+			shouldDirty: true,
+			shouldValidate: true,
+		})
+		form.setValue("personalQualifications.rollOfAttorneysNumber", "RA-987654", {
+			shouldDirty: true,
+			shouldValidate: true,
+		})
+		form.setValue("personalQualifications.ibpMembershipNumber", "IBP-12004567", {
+			shouldDirty: true,
+			shouldValidate: true,
+		})
+		form.setValue("personalQualifications.mcleComplianceNumber", "MCLE-2025-000123", {
+			shouldDirty: true,
+			shouldValidate: true,
+		})
+		form.setValue("personalQualifications.ulasComplianceNumber", "ULAS-2025-000456", {
+			shouldDirty: true,
+			shouldValidate: true,
+		})
+
+		// Written undertakings (required to enable submit)
+		form.setValue("undertakingElectronicNotarialActs", true, {
+			shouldDirty: true,
+			shouldValidate: true,
+		})
+		form.setValue("undertakingDataSharingGuidelines", true, {
+			shouldDirty: true,
+			shouldValidate: true,
+		})
+
+		// ENF placeholder acknowledgment (so you don't need to upload an ENF certification file just to submit)
+		setEnfAcknowledged(true)
+
+		toast.success("Filled form fields with test data")
+	}
 
 	// Track if we've attempted to create draft to prevent multiple calls
 	const [draftCreationAttempted, setDraftCreationAttempted] = useState(false)
@@ -513,6 +587,8 @@ export function LegalRegistrationForm() {
 				</Alert>
 			)}
 
+			<EnpScCredentialsPlaceholder applicationStatus={application?.status} />
+
 			<Form {...form}>
 				<form
 					onSubmit={form.handleSubmit(_values => {
@@ -547,7 +623,18 @@ export function LegalRegistrationForm() {
 					{/* Personal Qualifications */}
 					<Card>
 						<CardHeader>
-							<CardTitle>Personal Qualifications</CardTitle>
+							<div className="flex items-center justify-between gap-3">
+								<CardTitle>Personal Qualifications</CardTitle>
+								<Button
+									type="button"
+									variant="outline"
+									size="sm"
+									onClick={handleAutoFillTestData}
+									disabled={!canEditLocal}
+								>
+									Auto-fill test data
+								</Button>
+							</div>
 						</CardHeader>
 						<CardContent className="space-y-4">
 							<div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -796,11 +883,7 @@ export function LegalRegistrationForm() {
 						<CardDescription>
 							{!application
 								? "Save your application as a draft first to enable file uploads. Once saved, you can upload your required documents in the correct folder structure: legal-application/{applicationId}/{organization}/"
-								: "Upload all required documents in PDF or image format. Files will be saved to: legal-application/" +
-									application.id +
-									"/" +
-									(summary?.organization ?? "organization") +
-									"/"}
+								: `Upload all required documents in PDF or image format. Files will be saved to: legal-application/${application.id}/${summary?.organization ?? "organization"}/`}
 						</CardDescription>
 					</CardHeader>
 					<CardContent className="space-y-6">

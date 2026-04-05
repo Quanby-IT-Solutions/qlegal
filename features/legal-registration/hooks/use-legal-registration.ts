@@ -275,11 +275,13 @@ export function useFileUpload() {
 			fileSize: number
 			mimeType: string
 		}> => {
-			const folderPath = `${params.applicationId}/${slugify(params.organization)}`
+			// Store uploads under the existing `documents` bucket.
+			// Folder structure matches the UI copy: legal-application/{applicationId}/{organization}/
+			const folderPath = `legal-application/${params.applicationId}/${slugify(params.organization)}`
 			console.log("Upload file called:", {
 				fileName: file.name,
 				folderPath,
-				bucket: "legal-application",
+				bucket: "documents",
 			})
 
 			try {
@@ -287,7 +289,7 @@ export function useFileUpload() {
 				console.log("Getting presigned URL...")
 				const { signedUrl, path } = await presignedUrl.mutateAsync({
 					file,
-					bucket: "legal-application",
+					bucket: "documents",
 					folderPath,
 					upsert: true,
 				})
@@ -300,7 +302,7 @@ export function useFileUpload() {
 
 				// 3) Get public URL (or keep storage path if you prefer signed URLs only)
 				console.log("Getting public URL...")
-				const publicUrl = await getPublicUrl("legal-application", path)
+				const publicUrl = await getPublicUrl("documents", path)
 				console.log("Got public URL:", publicUrl)
 
 				const result = {

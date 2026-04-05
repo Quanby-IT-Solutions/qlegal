@@ -54,10 +54,12 @@ export const SiteSidebar = () => {
 				{getAppSidebarSections(userRole).map(section => (
 					<SidebarNavSection key={section.label} section={section} userRole={userRole} />
 				))}
-				<div className="mt-auto space-y-2">
+				<div className="mt-auto flex flex-col gap-2">
 					<SidebarSecondaryNav items={navSecondary} />
-					{isDashboardRoute ? <EnpAccreditationProgressSidebarBanner /> : null}
-					<SidebarCourseCard />
+					<div className="flex flex-col gap-1 group-data-[collapsible=icon]:gap-0">
+						{isDashboardRoute ? <EnpAccreditationProgressSidebarBanner /> : null}
+						<SidebarCourseCard />
+					</div>
 				</div>
 			</SidebarContent>
 

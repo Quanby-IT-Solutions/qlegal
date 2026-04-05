@@ -85,6 +85,13 @@
       "when": 1772585079227,
       "tag": "0011_long_leech",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1775000000000,
+      "tag": "0024_add_enp_lms_course_completed_at",
+      "breakpoints": true
     }
   ]
 }
