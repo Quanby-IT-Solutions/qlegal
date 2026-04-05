@@ -76,6 +76,11 @@ export interface DataGridProps<TData extends object> {
   fetchingMoreMessage?: ReactNode | string
   allRowsLoadedMessage?: ReactNode | string
   emptyMessage?: ReactNode | string
+  /**
+   * When set, detail rows render when this returns true instead of TanStack `row.getIsExpanded()`.
+   * Use for controlled expansion when table internal `expanded` state lags behind React state.
+   */
+  expandRowBy?: (row: TData) => boolean
   tableLayout?: {
     dense?: boolean
     cellBorder?: boolean
@@ -156,6 +161,7 @@ function DataGridProvider<TData extends object>({
       props.allRowsLoadedMessage,
       props.emptyMessage,
       props.onRowClick,
+      props.expandRowBy,
       props.className,
       // eslint-disable-next-line react-hooks/exhaustive-deps
       JSON.stringify(props.tableLayout),

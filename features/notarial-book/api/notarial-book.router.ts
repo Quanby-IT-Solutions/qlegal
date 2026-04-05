@@ -1,5 +1,5 @@
 import { TRPCError } from "@trpc/server"
-import { and, asc, count, desc, eq, ilike, inArray, isNotNull, or } from "drizzle-orm"
+import { type InferSelectModel, and, asc, count, desc, eq, ilike, inArray, isNotNull, or } from "drizzle-orm"
 import { z } from "zod/v4"
 
 import { getFullName } from "@/core/lib/utils"
@@ -83,6 +83,28 @@ function generateLocationStatement(location: string | undefined | null): string 
 function extractSignerInfo(_passportData: unknown) {
 	// External passport parsing removed while rebuilding signing integration.
 	return { principal: undefined, witness: undefined, allSigners: [] as const }
+}
+
+function signerCountFromSignersData(signersData: string | null | undefined): string {
+	if (!signersData?.trim()) return ""
+	try {
+		const parsed: unknown = JSON.parse(signersData)
+		return Array.isArray(parsed) ? String(parsed.length) : ""
+	} catch {
+		return ""
+	}
+}
+
+/** Strip binary/large fields; add signer count for exports (CSV/PDF). */
+function toNotarialBookExportAct(row: InferSelectModel<typeof notarialActs>) {
+	const { principalIdImageBase64, passportData, signersData, certificateUrl, ...rest } = row
+	void principalIdImageBase64
+	void passportData
+	void certificateUrl
+	return {
+		...rest,
+		signerCount: signerCountFromSignersData(signersData),
+	}
 }
 
 export const notarialBookRouter = createTRPCRouter({
@@ -1039,12 +1061,11 @@ export const notarialBookRouter = createTRPCRouter({
 		}),
 
 	/**
-	 * Export notarial book as PDF/PDFA for Supreme Court submission
+	 * Export notarial book metadata for client-generated PDF/CSV (no embedded ID images).
 	 */
 	exportNotarialBook: protectedProcedure.mutation(async ({ ctx }) => {
 		const userId = ctx.session.user.id
 
-		// Verify user is an ENP
 		const user = await ctx.db.query.users.findFirst({
 			where: eq(users.id, userId),
 		})
@@ -1056,7 +1077,6 @@ export const notarialBookRouter = createTRPCRouter({
 			})
 		}
 
-		// Get notarial book
 		const notarialBook = await ctx.db.query.notarialBooks.findFirst({
 			where: eq(notarialBooks.enpId, userId),
 		})
@@ -1068,22 +1088,35 @@ export const notarialBookRouter = createTRPCRouter({
 			})
 		}
 
-		// Get all acts
-		// Data is stored chronologically via executedAt timestamp
-		// For export, we use ASC order to export in chronological sequence (oldest to newest)
+		const enpProfile = await ctx.db.query.enpProfiles.findFirst({
+			where: eq(enpProfiles.userId, userId),
+			columns: { rollNo: true, notaryPublicNumber: true },
+		})
+
+		const notaryPublicName =
+			getFullName(user).trim() ||
+			user?.email?.trim() ||
+			"Electronic Notary Public"
+
 		const acts = await ctx.db
 			.select()
 			.from(notarialActs)
 			.where(eq(notarialActs.notarialBookId, notarialBook.id))
-			.orderBy(notarialActs.executedAt) // Export: chronological order (oldest to newest)
+			.orderBy(asc(notarialActs.executedAt))
 
-		// TODO: Generate PDF/PDFA from acts
-		// For now, return the data structure
+		const exportActs = acts.map(toNotarialBookExportAct)
+
 		return {
-			notarialBook,
-			acts,
-			exportFormat: "PDF", // Will be PDFA when implemented
-			generatedAt: new Date(),
+			meta: {
+				generatedAtIso: new Date().toISOString(),
+				bookId: notarialBook.id,
+				notaryPublicName,
+				notaryRollNumber: enpProfile?.rollNo?.trim() ?? null,
+				notaryPublicNumber: enpProfile?.notaryPublicNumber?.trim() ?? null,
+				electronicNotarialFacility: "Quanby Sign",
+				actCount: exportActs.length,
+			},
+			acts: exportActs,
 		}
 	}),
 })

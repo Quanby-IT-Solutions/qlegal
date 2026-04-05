@@ -22,12 +22,10 @@ import {
 import {
 	type ColumnDef,
 	type ColumnOrderState,
-	type ExpandedState,
 	type PaginationState,
 	type SortingState,
 	functionalUpdate,
 	getCoreRowModel,
-	getExpandedRowModel,
 	useReactTable,
 } from "@tanstack/react-table"
 
@@ -197,25 +195,18 @@ export function NotarialRegistryDataGrid({
 		[sortBy, sortDir]
 	)
 
-	const expanded: ExpandedState = useMemo(() => {
-		const row: Record<string, boolean> = {}
-		for (const id of expandedActIds) row[id] = true
-		return row
-	}, [expandedActIds])
+	const expandRowBy = useCallback(
+		(act: NotarialActRow) => expandedActIds.has(act.id),
+		[expandedActIds]
+	)
 
-	const onExpandedChange = useCallback(
-		(updater: Parameters<typeof functionalUpdate<ExpandedState>>[0]) => {
+	const toggleActExpanded = useCallback(
+		(actId: string) => {
 			setExpandedActIds(prev => {
-				const prevObj: Record<string, boolean> = {}
-				for (const id of prev) prevObj[id] = true
-				const next = functionalUpdate(updater, prevObj)
-				const nextSet = new Set<string>()
-				if (next && typeof next === "object" && !Array.isArray(next)) {
-					for (const [k, v] of Object.entries(next)) {
-						if (v === true) nextSet.add(k)
-					}
-				}
-				return nextSet
+				const next = new Set(prev)
+				if (next.has(actId)) next.delete(actId)
+				else next.add(actId)
+				return next
 			})
 		},
 		[setExpandedActIds]
@@ -408,7 +399,7 @@ export function NotarialRegistryDataGrid({
 				header: () => <span className="sr-only">Actions</span>,
 				cell: ({ row }) => {
 					const act = row.original
-					const isExpanded = row.getIsExpanded()
+					const isOpen = expandedActIds.has(act.id)
 					return (
 						<div className="inline-flex w-full items-center justify-end gap-1">
 							{(act.documentId ?? act.docoChainProjectUuid) && (
@@ -479,18 +470,21 @@ export function NotarialRegistryDataGrid({
 								</Tooltip>
 							)}
 							<Button
+								type="button"
 								variant="ghost"
 								size="sm"
 								className="size-7 p-0"
 								onClick={e => {
+									e.preventDefault()
 									e.stopPropagation()
-									row.toggleExpanded()
+									if (!act.id) return
+									toggleActExpanded(act.id)
 								}}
-								aria-label={isExpanded ? "Collapse details" : "Expand details"}
-								title={isExpanded ? "Collapse details" : "Expand details"}
-								aria-expanded={isExpanded}
+								aria-label={isOpen ? "Collapse details" : "Expand details"}
+								title={isOpen ? "Collapse details" : "Expand details"}
+								aria-expanded={isOpen}
 							>
-								{isExpanded ? (
+								{isOpen ? (
 									<ChevronDown className="size-4" />
 								) : (
 									<ChevronRight className="size-4" />
@@ -513,6 +507,8 @@ export function NotarialRegistryDataGrid({
 			onSyncToSupremeCourt,
 			downloadingActId,
 			syncingActId,
+			expandedActIds,
+			toggleActExpanded,
 		]
 	)
 
@@ -526,19 +522,14 @@ export function NotarialRegistryDataGrid({
 			pagination,
 			sorting,
 			columnOrder,
-			expanded,
 		},
 		onPaginationChange,
 		onSortingChange,
 		onColumnOrderChange: setColumnOrder,
-		onExpandedChange,
 		manualPagination: true,
 		manualSorting: true,
 		getCoreRowModel: getCoreRowModel(),
-		getExpandedRowModel: getExpandedRowModel(),
 		enableSortingRemoval: false,
-		enableExpanding: true,
-		getRowCanExpand: () => true,
 	})
 
 	return (
@@ -546,6 +537,7 @@ export function NotarialRegistryDataGrid({
 			table={table}
 			recordCount={total}
 			isLoading={isLoading}
+			expandRowBy={expandRowBy}
 			tableLayout={{
 				cellBorder: true,
 			}}
