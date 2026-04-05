@@ -159,11 +159,15 @@ export function KycDesktopFlow({
 								variant="ghost"
 								size="icon"
 								className="size-7"
-							onClick={toggleFullscreen}
+								onClick={toggleFullscreen}
 								title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
 								aria-label={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
 							>
-								{isFullscreen ? <Minimize2 className="size-3.5" /> : <Maximize2 className="size-3.5" />}
+								{isFullscreen ? (
+									<Minimize2 className="size-3.5" />
+								) : (
+									<Maximize2 className="size-3.5" />
+								)}
 							</Button>
 						) : null}
 					</div>
@@ -330,8 +334,8 @@ export function KycDesktopFlow({
 								<AlertDescription>
 									{result?.status === "PENDING" ? (
 										<p className="text-muted-foreground">
-											Your verification is pending manual review. We&apos;ll notify you once it&apos;s
-											complete.
+											Your verification is pending manual review. We&apos;ll notify you once
+											it&apos;s complete.
 										</p>
 									) : result?.status !== "VERIFIED" && result?.message ? (
 										<p>
@@ -364,7 +368,9 @@ export function KycDesktopFlow({
 				</FieldGroup>
 			</CardContent>
 
-			{captureSuccessBanner ? <CardContent className="px-2!">{captureSuccessBanner}</CardContent> : null}
+			{captureSuccessBanner ? (
+				<CardContent className="px-2!">{captureSuccessBanner}</CardContent>
+			) : null}
 
 			<CardFooter className="flex items-center justify-between gap-2">
 				{step === "id" ? (
@@ -372,10 +378,10 @@ export function KycDesktopFlow({
 						type="button"
 						variant="ghost"
 						size="sm"
-					onClick={() => {
-						setIdImage(null)
-						setIsFullscreen(false)
-					}}
+						onClick={() => {
+							setIdImage(null)
+							setIsFullscreen(false)
+						}}
 						disabled={isSubmitting}
 					>
 						<RefreshCw className="mr-1 size-4" />
@@ -386,10 +392,10 @@ export function KycDesktopFlow({
 						type="button"
 						variant="ghost"
 						size="sm"
-					onClick={() => {
-						setSelfieImage(null)
-						setIsFullscreen(false)
-					}}
+						onClick={() => {
+							setSelfieImage(null)
+							setIsFullscreen(false)
+						}}
 						disabled={isSubmitting}
 					>
 						<RefreshCw className="mr-1 size-4" />

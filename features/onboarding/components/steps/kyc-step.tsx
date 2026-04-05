@@ -211,9 +211,7 @@ export function KycStep({ onNext, onBack, kycStatus, onExpandChange }: KycStepPr
 			const sessionSaysVerified = kycStatus === "VERIFIED"
 			const localSaysVerified = userInfo?.kycStatus === "VERIFIED"
 			const needsHardRefresh =
-				!sessionSaysVerified ||
-				userInfo?.kycStatus === "PENDING" ||
-				mode === "mobile-pending"
+				!sessionSaysVerified || userInfo?.kycStatus === "PENDING" || mode === "mobile-pending"
 
 			if (!needsHardRefresh && sessionSaysVerified && localSaysVerified) {
 				return
@@ -403,10 +401,7 @@ export function KycStep({ onNext, onBack, kycStatus, onExpandChange }: KycStepPr
 	}
 
 	const showPendingBanner =
-		mode === "mobile-pending" &&
-		!isNeedsReview &&
-		!sdkNeedsReviewPending &&
-		!isStatusLoading
+		mode === "mobile-pending" && !isNeedsReview && !sdkNeedsReviewPending && !isStatusLoading
 	const showNeedsReviewBanner = sdkNeedsReviewPending || isNeedsReview
 	const showRejectedBanner = isRejected && !isStatusLoading
 
