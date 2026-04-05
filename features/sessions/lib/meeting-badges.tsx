@@ -14,7 +14,7 @@ export function getAppointmentStatusBadge(status: string) {
 			return <Badge variant="secondary">Pending</Badge>
 		case "ONGOING":
 			return (
-				<Badge variant="default" className="bg-emerald-600 hover:bg-emerald-700">
+				<Badge variant="default" className="bg-emerald-600 text-white hover:bg-emerald-700">
 					<PlayCircle className="mr-1 size-3" /> Live
 				</Badge>
 			)

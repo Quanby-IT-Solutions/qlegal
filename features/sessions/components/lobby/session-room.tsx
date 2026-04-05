@@ -14,7 +14,7 @@ import { useMeetings } from "@/features/sessions/api/meetings.hooks"
 // Dynamically import VideoSDK component (client-only, no SSR)
 const VideoMeetingClient = dynamic(
 	() =>
-		import("@/features/sessions/components/video-meeting-client").then(
+		import("@/features/sessions/components/video-meeting/video-meeting-client").then(
 			mod => mod.VideoMeetingClient
 		),
 	{

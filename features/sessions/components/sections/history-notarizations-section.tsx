@@ -28,12 +28,11 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/core/components/ui/select"
-import { Skeleton } from "@/core/components/ui/skeleton"
 import { getAvatarUrl, getInitials } from "@/core/lib/utils"
 
 import { trpc } from "@/services/trpc/client"
 
-import { NotarizationDetailsDialog } from "@/features/sessions/components/notarization-details-dialog"
+import { NotarizationDetailsDialog } from "@/features/sessions/components/dialogs/notarization-details-dialog"
 
 type WorkflowType = "REN" | "IEN"
 
@@ -53,16 +52,6 @@ interface HistoryItem {
 	cancellationReason?: string
 	certificateUrl?: string
 	recordingUrl?: string
-}
-
-function HistoryCardSkeleton() {
-	return (
-		<Card>
-			<CardContent className="p-6">
-				<Skeleton className="h-32 w-full" />
-			</CardContent>
-		</Card>
-	)
 }
 
 function EmptyState({ hasFilters }: { hasFilters: boolean }) {
@@ -85,9 +74,7 @@ function WorkflowBadge({ workflow }: { workflow: WorkflowType }) {
 	return (
 		<Badge
 			variant="outline"
-			className={
-				workflow === "REN" ? "border-blue-600 text-blue-600" : "border-green-600 text-green-600"
-			}
+			className={workflow === "REN" ? "border-info text-info" : "border-success text-success"}
 		>
 			{workflow}
 		</Badge>
@@ -97,7 +84,7 @@ function WorkflowBadge({ workflow }: { workflow: WorkflowType }) {
 function StatusBadge({ status }: { status: HistoryItem["status"] }) {
 	if (status === "COMPLETED") {
 		return (
-			<Badge variant="outline" className="border-green-600 text-green-600">
+			<Badge variant="outline" className="border-success text-success">
 				Completed
 			</Badge>
 		)
@@ -161,13 +148,13 @@ function HistoryCard({ item, isENP, onViewDetails }: HistoryCardProps) {
 							<div className="flex items-center gap-1">
 								{item.status === "COMPLETED" ? (
 									<>
-										<CheckCircle className="size-3.5 text-green-600" />
-										<span className="text-green-600">Completed</span>
+										<CheckCircle className="text-success size-3.5" />
+										<span className="text-success">Completed</span>
 									</>
 								) : (
 									<>
-										<XCircle className="size-3.5 text-red-600" />
-										<span className="text-red-600">
+										<XCircle className="text-destructive size-3.5" />
+										<span className="text-destructive">
 											Cancelled
 											{item.cancellationReason ? `: ${item.cancellationReason}` : ""}
 										</span>
@@ -261,14 +248,14 @@ export function HistoryNotarizationsSection() {
 	const [detailsOpen, setDetailsOpen] = useState(false)
 	const [detailsMeetingId, setDetailsMeetingId] = useState<string | null>(null)
 
-	const { data: meetingsData } = trpc.meetings.getUserMeetingsWithDocumentStats.useQuery({
+	const [meetingsData] = trpc.meetings.getUserMeetingsWithDocumentStats.useSuspenseQuery({
 		limit: 50,
 		offset: 0,
 	})
 
-	const meetings = useMemo(() => meetingsData?.items ?? [], [meetingsData?.items])
+	const meetings = useMemo(() => meetingsData.items, [meetingsData.items])
 
-	const { data: appointments, isLoading } = trpc.appointments.getMyAppointments.useQuery({
+	const [appointments] = trpc.appointments.getMyAppointments.useSuspenseQuery({
 		limit: 50,
 		offset: 0,
 	})
@@ -409,13 +396,7 @@ export function HistoryNotarizationsSection() {
 			</div>
 
 			<h3 className="pt-5 text-sm">
-				{isLoading ? (
-					<Skeleton className="h-6 w-48" />
-				) : (
-					<>
-						{filteredHistory.length} Notarization{filteredHistory.length !== 1 ? "s" : ""} Found
-					</>
-				)}
+				{filteredHistory.length} Notarization{filteredHistory.length !== 1 ? "s" : ""} Found
 			</h3>
 
 			<Card>
@@ -474,13 +455,7 @@ export function HistoryNotarizationsSection() {
 			</Card>
 
 			<div className="space-y-4">
-				{isLoading ? (
-					<div className="space-y-4">
-						{Array.from({ length: 3 }).map((_, i) => (
-							<HistoryCardSkeleton key={i} />
-						))}
-					</div>
-				) : filteredHistory.length === 0 ? (
+				{filteredHistory.length === 0 ? (
 					<EmptyState hasFilters={hasFilters} />
 				) : (
 					<div className="space-y-8">

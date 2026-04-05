@@ -2,7 +2,7 @@
 
 import { MeetingProvider } from "@videosdk.live/react-sdk"
 
-import { MeetingView } from "./video-meeting/meeting-view"
+import { MeetingView } from "./meeting-view"
 
 // ─────────────────────────────────────────────────────────────
 // Public API
