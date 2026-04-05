@@ -1,20 +1,20 @@
 "use client"
 
+import { useRouter } from "next/navigation"
 import React, { useCallback, useMemo, useRef, useState } from "react"
 import { useMeeting } from "@videosdk.live/react-sdk"
 import { useSession } from "next-auth/react"
-import { useRouter } from "next/navigation"
 
 import { PageHeader } from "@/core/components/navbar/page-header"
 import { SidebarInset } from "@/core/components/ui/sidebar"
 
+import { useMeetings } from "../../api/meetings.hooks"
 import { useDocumentSigning } from "../../lib/use-document-signing"
 import { useMeetingData } from "../../lib/use-meeting-data"
 import { useMeetingParticipants } from "../../lib/use-meeting-participants"
 import { useRecording } from "../../lib/use-recording"
 import { useRecordingConsent } from "../../lib/use-recording-consent"
-import { useMeetings } from "../../api/meetings.hooks"
-import { MeetingDocumentUpload } from "../meeting-document-upload"
+import { MeetingDocumentUpload } from "../dialogs/meeting-document-upload"
 import { PlotConfirmDialog } from "./dialogs/plot-confirm-dialog"
 import { RecordingConsentDialog } from "./dialogs/recording-consent-dialog"
 import { MeetingControls } from "./meeting-controls"

@@ -29,8 +29,8 @@ import {
 	useQuickVpnCheck,
 } from "@/features/sessions/api/location-verification.hooks"
 import { useMeetings } from "@/features/sessions/api/meetings.hooks"
-import { LocationErrorDialog } from "@/features/sessions/components/location-error-dialog"
-import { VpnDetectedDialog } from "@/features/sessions/components/vpn-detected-dialog"
+import { LocationErrorDialog } from "@/features/sessions/components/dialogs/location-error-dialog"
+import { VpnDetectedDialog } from "@/features/sessions/components/dialogs/vpn-detected-dialog"
 import type { LocationVerificationResult } from "@/features/sessions/lib/location-verification"
 
 import { env } from "@/env"
