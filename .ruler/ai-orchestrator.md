@@ -10,13 +10,17 @@ alwaysApply: true
 
 When given a new feature, bug fix, or complex task, **DO NOT** write production code immediately. You must act as the AI Orchestrator and follow this exact sequence to plan the work.
 
+1. Task Folder Creation
+
+- Each new task gets its own numbered folder under `docs/ai-orchestrator/` using the pattern `docs/ai-orchestrator/<NNN>-<short-slug>/` (e.g., `docs/ai-orchestrator/001-auth-onboarding/`). Increment the number based on existing folders.
+
 1. Artifact Phase
 
-- Analyze the request and split it into high-level logical artifacts (e.g., Database Schema, tRPC Router, UI Components). Document this breakdown in `docs/ai-orchestrator/artifacts.md`.
+- Analyze the request and split it into high-level logical artifacts (e.g., Database Schema, tRPC Router, UI Components). Document this breakdown in `docs/ai-orchestrator/<NNN>-<short-slug>/artifacts.md`.
 
 1. Ticket Phase
 
-- Divide each artifact into small, actionable, and independent tickets. Create a standalone markdown file for each ticket in the `docs/ai-orchestrator/tickets/` directory (e.g., `ticket-01-auth-schema.md`).
+- Divide each artifact into small, actionable, and independent tickets. Create a standalone markdown file for each ticket in the task folder's `tickets/` subdirectory (e.g., `docs/ai-orchestrator/001-auth-onboarding/tickets/ticket-01-auth-schema.md`).
 
 1. Ticket Structure Requirements
 
