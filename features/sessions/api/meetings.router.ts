@@ -1648,11 +1648,31 @@ export const meetingsRouter = createTRPCRouter({
 				// Create a map for quick lookup
 				const userMap = new Map(signerUsers.map(u => [u.id, u]))
 
+				// Look up identity checks for all signer userIds in this meeting
+				const signerIdentityCheckRows = await db
+					.select({
+						id: meetingParticipantIdentityChecks.id,
+						userId: meetingParticipantIdentityChecks.userId,
+						snapshotDocumentType: meetingParticipantIdentityChecks.snapshotDocumentType,
+						snapshotDocumentNumber: meetingParticipantIdentityChecks.snapshotDocumentNumber,
+						snapshotFullName: meetingParticipantIdentityChecks.snapshotFullName,
+						snapshotFrontImageUrl: meetingParticipantIdentityChecks.snapshotFrontImageUrl,
+					})
+					.from(meetingParticipantIdentityChecks)
+					.where(
+						and(
+							eq(meetingParticipantIdentityChecks.meetingId, meetingId),
+							inArray(meetingParticipantIdentityChecks.userId, userIds)
+						)
+					)
+				const signerIdentityCheckMap = new Map(signerIdentityCheckRows.map(ic => [ic.userId, ic]))
+
 				// Insert signers with name, address, role (assigned by ENP), and signing order
 				await db.insert(documentSigners).values(
 					signerInputs.map(({ userId, role }, index) => {
 						const user = userMap.get(userId)
 						const isPrincipal = role === "principal"
+						const identityCheck = signerIdentityCheckMap.get(userId)
 
 						const signerName: string | null = isPrincipal && user ? getFullName(user) || null : null
 						const signerAddress: string | null =
@@ -1667,6 +1687,11 @@ export const meetingsRouter = createTRPCRouter({
 							signerAddress,
 							signerRole: role,
 							signingOrder: index + 1,
+							identityCheckId: identityCheck?.id ?? null,
+							snapshotDocumentType: identityCheck?.snapshotDocumentType ?? null,
+							snapshotDocumentNumber: identityCheck?.snapshotDocumentNumber ?? null,
+							snapshotFullName: identityCheck?.snapshotFullName ?? null,
+							snapshotFrontImageUrl: identityCheck?.snapshotFrontImageUrl ?? null,
 						}
 					})
 				)

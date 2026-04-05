@@ -2,6 +2,8 @@ import { index } from "drizzle-orm/pg-core"
 
 import { users } from "@/services/drizzle/schema/auth"
 import { documents } from "@/services/drizzle/schema/document"
+import { meetingParticipantIdentityChecks } from "@/services/drizzle/schema/meeting-participant-identity-checks"
+import { savedIds } from "@/services/drizzle/schema/saved-ids"
 import { createTable, randomId } from "@/services/drizzle/utils"
 
 // Notarial act types per Supreme Court requirements
@@ -60,6 +62,17 @@ export const notarialActs = createTable(
 		principalIdImageBase64: t.text(), // Base64 image of principal's ID from KYC
 		principalIdType: t.varchar({ length: 100 }), // OCR document type (e.g., "Driver's License", "National ID", "Passport")
 
+		// Identity check FK references (linked to session identity attachments)
+		principalIdentityCheckId: t
+			.varchar({ length: 255 })
+			.references(() => meetingParticipantIdentityChecks.id, { onDelete: "set null" }),
+		witnessIdentityCheckId: t
+			.varchar({ length: 255 })
+			.references(() => meetingParticipantIdentityChecks.id, { onDelete: "set null" }),
+		principalSavedIdId: t
+			.varchar({ length: 255 })
+			.references(() => savedIds.id, { onDelete: "set null" }),
+
 		// Witness information (if applicable)
 		witnessName: t.varchar({ length: 255 }),
 		witnessIdNumber: t.varchar({ length: 255 }),
@@ -114,5 +127,8 @@ export const notarialActs = createTable(
 		index("notarial_act_enp_name_idx").on(t.enpName), // For ENP search
 		index("notarial_act_act_type_idx").on(t.actType), // Filter by act type
 		index("notarial_act_workflow_idx").on(t.workflow), // Filter by REN/IEN
+		index("notarial_act_principal_identity_check_id_idx").on(t.principalIdentityCheckId),
+		index("notarial_act_witness_identity_check_id_idx").on(t.witnessIdentityCheckId),
+		index("notarial_act_principal_saved_id_id_idx").on(t.principalSavedIdId),
 	]
 ).enableRLS()

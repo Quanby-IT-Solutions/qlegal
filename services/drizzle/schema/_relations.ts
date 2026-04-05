@@ -184,6 +184,10 @@ export const documentSignersRelations = relations(documentSigners, ({ one }) => 
 		fields: [documentSigners.userId],
 		references: [users.id],
 	}),
+	identityCheck: one(meetingParticipantIdentityChecks, {
+		fields: [documentSigners.identityCheckId],
+		references: [meetingParticipantIdentityChecks.id],
+	}),
 }))
 
 // Envelope relations
@@ -340,6 +344,20 @@ export const notarialActsRelations = relations(notarialActs, ({ one }) => ({
 		fields: [notarialActs.documentId],
 		references: [documents.id],
 	}),
+	principalIdentityCheck: one(meetingParticipantIdentityChecks, {
+		fields: [notarialActs.principalIdentityCheckId],
+		references: [meetingParticipantIdentityChecks.id],
+		relationName: "notarialActPrincipalIdentityCheck",
+	}),
+	witnessIdentityCheck: one(meetingParticipantIdentityChecks, {
+		fields: [notarialActs.witnessIdentityCheckId],
+		references: [meetingParticipantIdentityChecks.id],
+		relationName: "notarialActWitnessIdentityCheck",
+	}),
+	principalSavedId: one(savedIds, {
+		fields: [notarialActs.principalSavedIdId],
+		references: [savedIds.id],
+	}),
 }))
 
 // ID Card Details relations
@@ -386,12 +404,13 @@ export const savedIdsRelations = relations(savedIds, ({ one, many }) => ({
 		references: [kycSessions.id],
 	}),
 	meetingParticipantIdentityChecks: many(meetingParticipantIdentityChecks),
+	notarialActs: many(notarialActs),
 }))
 
 // Meeting Participant Identity Checks relations
 export const meetingParticipantIdentityChecksRelations = relations(
 	meetingParticipantIdentityChecks,
-	({ one }) => ({
+	({ one, many }) => ({
 		meeting: one(meetings, {
 			fields: [meetingParticipantIdentityChecks.meetingId],
 			references: [meetings.id],
@@ -407,6 +426,13 @@ export const meetingParticipantIdentityChecksRelations = relations(
 		livenessValidation: one(livenessValidations, {
 			fields: [meetingParticipantIdentityChecks.livenessValidationId],
 			references: [livenessValidations.id],
+		}),
+		documentSigners: many(documentSigners),
+		principalNotarialActs: many(notarialActs, {
+			relationName: "notarialActPrincipalIdentityCheck",
+		}),
+		witnessNotarialActs: many(notarialActs, {
+			relationName: "notarialActWitnessIdentityCheck",
 		}),
 	})
 )

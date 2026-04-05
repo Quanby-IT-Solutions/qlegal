@@ -1,19 +1,22 @@
 import { and, asc, desc, eq, inArray } from "drizzle-orm"
 
 import { getFullName } from "@/core/lib/utils"
-import { env } from "@/env"
+
+import { getDoconchainProjectDetails } from "@/services/doconchain/projects/get-project-details"
 import { db } from "@/services/drizzle/db"
 import { users } from "@/services/drizzle/schema/auth"
-import { documentSigners } from "@/services/drizzle/schema/document-signers"
 import { documents } from "@/services/drizzle/schema/document"
+import { documentSigners } from "@/services/drizzle/schema/document-signers"
 import { enpProfiles } from "@/services/drizzle/schema/enp-profiles"
 import { idCardDetails } from "@/services/drizzle/schema/id-card-details"
+import { meetingParticipantIdentityChecks } from "@/services/drizzle/schema/meeting-participant-identity-checks"
 import { meetings } from "@/services/drizzle/schema/meetings"
 import { notarialActs, notarialBooks } from "@/services/drizzle/schema/notarial-book"
-import { getDoconchainProjectDetails } from "@/services/doconchain/projects/get-project-details"
 import { getServiceRoleClient } from "@/services/supabase"
-import { isConfigured as isSupremeCourtConfigured } from "@/services/supreme-court/lib/token-cache"
 import { syncNotarialActToSupremeCourt } from "@/services/supreme-court/lib/sync-notarial-act"
+import { isConfigured as isSupremeCourtConfigured } from "@/services/supreme-court/lib/token-cache"
+
+import { env } from "@/env"
 
 function asNonEmptyString(v: unknown): string | null {
 	if (typeof v !== "string") return null
@@ -38,62 +41,67 @@ function normalizeDoconchainSigners(raw: unknown): Array<{
 }> {
 	if (!Array.isArray(raw)) return []
 	return raw
-		.map((s): null | {
-			id: number
-			email: string
-			firstName: string
-			lastName: string
-			status: string
-			signedAt: string | null
-			sequence: number
-			signerRole: string
-		} => {
-			if (!s || typeof s !== "object") return null
-			const obj = s as Record<string, unknown>
-			const email = asNonEmptyString(obj.email) ?? ""
-			if (!email) return null
+		.map(
+			(
+				s
+			): null | {
+				id: number
+				email: string
+				firstName: string
+				lastName: string
+				status: string
+				signedAt: string | null
+				sequence: number
+				signerRole: string
+			} => {
+				if (!s || typeof s !== "object") return null
+				const obj = s as Record<string, unknown>
+				const email = asNonEmptyString(obj.email) ?? ""
+				if (!email) return null
 
-			const idRaw = obj.id
-			const id =
-				typeof idRaw === "number"
-					? idRaw
-					: typeof idRaw === "string"
-						? Number.parseInt(idRaw, 10)
-						: Number.NaN
+				const idRaw = obj.id
+				const id =
+					typeof idRaw === "number"
+						? idRaw
+						: typeof idRaw === "string"
+							? Number.parseInt(idRaw, 10)
+							: Number.NaN
 
-			const status = asNonEmptyString(obj.status) ?? "PENDING"
-			const signedAt =
-				asNonEmptyString(obj.signed_at) ?? asNonEmptyString(obj.signedAt) ?? null
+				const status = asNonEmptyString(obj.status) ?? "PENDING"
+				const signedAt = asNonEmptyString(obj.signed_at) ?? asNonEmptyString(obj.signedAt) ?? null
 
-			const sequenceRaw = obj.sequence
-			const sequence =
-				typeof sequenceRaw === "number"
-					? sequenceRaw
-					: typeof sequenceRaw === "string"
-						? Number.parseInt(sequenceRaw, 10)
-						: 0
+				const sequenceRaw = obj.sequence
+				const sequence =
+					typeof sequenceRaw === "number"
+						? sequenceRaw
+						: typeof sequenceRaw === "string"
+							? Number.parseInt(sequenceRaw, 10)
+							: 0
 
-			const signerRole =
-				asNonEmptyString(obj.signer_role) ??
-				asNonEmptyString(obj.role) ??
-				"SIGNER"
+				const signerRole =
+					asNonEmptyString(obj.signer_role) ?? asNonEmptyString(obj.role) ?? "SIGNER"
 
-			return {
-				id: Number.isFinite(id) ? id : 0,
-				email,
-				firstName: asNonEmptyString(obj.first_name) ?? "",
-				lastName: asNonEmptyString(obj.last_name) ?? "",
-				status,
-				signedAt,
-				sequence: Number.isFinite(sequence) ? sequence : 0,
-				signerRole,
+				return {
+					id: Number.isFinite(id) ? id : 0,
+					email,
+					firstName: asNonEmptyString(obj.first_name) ?? "",
+					lastName: asNonEmptyString(obj.last_name) ?? "",
+					status,
+					signedAt,
+					sequence: Number.isFinite(sequence) ? sequence : 0,
+					signerRole,
+				}
 			}
-		})
+		)
 		.filter((v): v is NonNullable<typeof v> => Boolean(v))
 }
 
-function isDoconchainProjectCompleted(details: Awaited<ReturnType<typeof getDoconchainProjectDetails>>): boolean {
-	const statusUpper = String(details.projectStatus ?? "").trim().toUpperCase()
+function isDoconchainProjectCompleted(
+	details: Awaited<ReturnType<typeof getDoconchainProjectDetails>>
+): boolean {
+	const statusUpper = String(details.projectStatus ?? "")
+		.trim()
+		.toUpperCase()
 	return statusUpper === "COMPLETED" || details.completedAt !== null
 }
 
@@ -173,6 +181,21 @@ export async function populateNotarialRegistryOnMeetingEnd(input: {
 		asNonEmptyString(appointment.createdBy.name) ??
 		"Principal"
 
+	// Pre-fetch all identity checks for this meeting (userId → check)
+	const identityCheckRows = await db
+		.select({
+			id: meetingParticipantIdentityChecks.id,
+			userId: meetingParticipantIdentityChecks.userId,
+			savedIdId: meetingParticipantIdentityChecks.savedIdId,
+			snapshotDocumentType: meetingParticipantIdentityChecks.snapshotDocumentType,
+			snapshotDocumentNumber: meetingParticipantIdentityChecks.snapshotDocumentNumber,
+			snapshotFullName: meetingParticipantIdentityChecks.snapshotFullName,
+			snapshotFrontImageUrl: meetingParticipantIdentityChecks.snapshotFrontImageUrl,
+		})
+		.from(meetingParticipantIdentityChecks)
+		.where(eq(meetingParticipantIdentityChecks.meetingId, meetingId))
+	const identityCheckByUserId = new Map(identityCheckRows.map(ic => [ic.userId, ic]))
+
 	// Principal disclosure: ID number, ID image, ID type, address (for notarial registry)
 	let principalIdNumber: string | null = null
 	let principalIdImageBase64: string | null = null
@@ -190,53 +213,68 @@ export async function populateNotarialRegistryOnMeetingEnd(input: {
 			},
 		})
 		if (principalUser) {
-			const fromParts = [principalUser.homeStreet, principalUser.barangay, principalUser.cityProvince]
+			const fromParts = [
+				principalUser.homeStreet,
+				principalUser.barangay,
+				principalUser.cityProvince,
+			]
 				.filter(Boolean)
 				.join(", ")
 			principalAddress =
-				asNonEmptyString(principalUser.address) ??
-				(asNonEmptyString(fromParts) || null)
+				asNonEmptyString(principalUser.address) ?? (asNonEmptyString(fromParts) || null)
 		}
-		const idCard = await db.query.idCardDetails.findFirst({
-			where: eq(idCardDetails.userId, principalUserId),
-			orderBy: [desc(idCardDetails.verifiedAt)],
-			columns: {
-				documentNumber: true,
-				faceImageUrl: true,
-				documentType: true,
-				rawOcrData: true,
-			},
-		})
-		if (idCard) {
-			principalIdNumber = asNonEmptyString(idCard.documentNumber)
-			principalIdImageBase64 = asNonEmptyString(idCard.faceImageUrl)
-			principalIdType = asNonEmptyString(idCard.documentType) ?? (() => {
-				try {
-					const ocr = idCard.rawOcrData as Record<string, unknown> | null | undefined
-					if (!ocr || typeof ocr !== "object") return null
-					const docType =
-						ocr.documentId ??
-						ocr.documentType ??
-						ocr.idType ??
-						ocr.document_type ??
-						ocr.id_type ??
-						ocr.type ??
-						ocr.module
-					if (typeof docType !== "string") return null
-					const map: Record<string, string> = {
-						dl: "Driver's License",
-						national_id: "National ID",
-						passport: "Passport",
-						voter_id: "Voter's ID",
-						"driver's license": "Driver's License",
-						"national id": "National ID",
-						"voter id": "Voter's ID",
-					}
-					return map[docType.toLowerCase()] ?? docType.charAt(0).toUpperCase() + docType.slice(1).replace(/_/g, " ")
-				} catch {
-					return null
-				}
-			})()
+		const identityCheck = identityCheckByUserId.get(principalUserId)
+		if (identityCheck?.snapshotDocumentNumber) {
+			principalIdNumber = asNonEmptyString(identityCheck.snapshotDocumentNumber)
+			principalIdImageBase64 = asNonEmptyString(identityCheck.snapshotFrontImageUrl)
+			principalIdType = asNonEmptyString(identityCheck.snapshotDocumentType)
+		} else {
+			const idCard = await db.query.idCardDetails.findFirst({
+				where: eq(idCardDetails.userId, principalUserId),
+				orderBy: [desc(idCardDetails.verifiedAt)],
+				columns: {
+					documentNumber: true,
+					faceImageUrl: true,
+					documentType: true,
+					rawOcrData: true,
+				},
+			})
+			if (idCard) {
+				principalIdNumber = asNonEmptyString(idCard.documentNumber)
+				principalIdImageBase64 = asNonEmptyString(idCard.faceImageUrl)
+				principalIdType =
+					asNonEmptyString(idCard.documentType) ??
+					(() => {
+						try {
+							const ocr = idCard.rawOcrData as Record<string, unknown> | null | undefined
+							if (!ocr || typeof ocr !== "object") return null
+							const docType =
+								ocr.documentId ??
+								ocr.documentType ??
+								ocr.idType ??
+								ocr.document_type ??
+								ocr.id_type ??
+								ocr.type ??
+								ocr.module
+							if (typeof docType !== "string") return null
+							const map: Record<string, string> = {
+								"dl": "Driver's License",
+								"national_id": "National ID",
+								"passport": "Passport",
+								"voter_id": "Voter's ID",
+								"driver's license": "Driver's License",
+								"national id": "National ID",
+								"voter id": "Voter's ID",
+							}
+							return (
+								map[docType.toLowerCase()] ??
+								docType.charAt(0).toUpperCase() + docType.slice(1).replace(/_/g, " ")
+							)
+						} catch {
+							return null
+						}
+					})()
+			}
 		}
 	}
 
@@ -271,10 +309,10 @@ export async function populateNotarialRegistryOnMeetingEnd(input: {
 			return String(a.id).localeCompare(String(b.id))
 		})
 		.filter(d => {
-		const projectUuid = asNonEmptyString(d.docoChainProjectId)
-		const actType = asNonEmptyString(d.notarizationType)
-		return Boolean(projectUuid && actType)
-	})
+			const projectUuid = asNonEmptyString(d.docoChainProjectId)
+			const actType = asNonEmptyString(d.notarizationType)
+			return Boolean(projectUuid && actType)
+		})
 
 	if (docsToConsider.length === 0) {
 		return { createdCount: 0, skippedCount: 0 }
@@ -323,7 +361,8 @@ export async function populateNotarialRegistryOnMeetingEnd(input: {
 		}
 
 		const executedAt =
-			typeof details.completedAt === "string" && !Number.isNaN(new Date(details.completedAt).getTime())
+			typeof details.completedAt === "string" &&
+			!Number.isNaN(new Date(details.completedAt).getTime())
 				? new Date(details.completedAt)
 				: input.meetingEndedAt
 
@@ -337,6 +376,9 @@ export async function populateNotarialRegistryOnMeetingEnd(input: {
 		let docPrincipalIdType = principalIdType
 		let docPrincipalAddress = principalAddress
 		let docWitnessName: string | null = null
+		let docPrincipalIdentityCheckId: string | null = null
+		let docWitnessIdentityCheckId: string | null = null
+		let docPrincipalSavedIdId: string | null = null
 
 		const docSignersForAct = await db.query.documentSigners.findMany({
 			where: eq(documentSigners.documentId, doc.id),
@@ -381,19 +423,30 @@ export async function populateNotarialRegistryOnMeetingEnd(input: {
 							.join(", ")
 					: null)
 			if (principalDs.userId) {
-				const idCard = await db.query.idCardDetails.findFirst({
-					where: eq(idCardDetails.userId, principalDs.userId),
-					orderBy: [desc(idCardDetails.verifiedAt)],
-					columns: {
-						documentNumber: true,
-						faceImageUrl: true,
-						documentType: true,
-					},
-				})
-				if (idCard) {
-					docPrincipalIdNumber = asNonEmptyString(idCard.documentNumber)
-					docPrincipalIdImageBase64 = asNonEmptyString(idCard.faceImageUrl)
-					docPrincipalIdType = asNonEmptyString(idCard.documentType)
+				const identityCheck = identityCheckByUserId.get(principalDs.userId)
+				if (identityCheck) {
+					docPrincipalIdentityCheckId = identityCheck.id
+					docPrincipalSavedIdId = identityCheck.savedIdId ?? null
+				}
+				if (identityCheck?.snapshotDocumentNumber) {
+					docPrincipalIdNumber = asNonEmptyString(identityCheck.snapshotDocumentNumber)
+					docPrincipalIdImageBase64 = asNonEmptyString(identityCheck.snapshotFrontImageUrl)
+					docPrincipalIdType = asNonEmptyString(identityCheck.snapshotDocumentType)
+				} else {
+					const idCard = await db.query.idCardDetails.findFirst({
+						where: eq(idCardDetails.userId, principalDs.userId),
+						orderBy: [desc(idCardDetails.verifiedAt)],
+						columns: {
+							documentNumber: true,
+							faceImageUrl: true,
+							documentType: true,
+						},
+					})
+					if (idCard) {
+						docPrincipalIdNumber = asNonEmptyString(idCard.documentNumber)
+						docPrincipalIdImageBase64 = asNonEmptyString(idCard.faceImageUrl)
+						docPrincipalIdType = asNonEmptyString(idCard.documentType)
+					}
 				}
 			}
 		}
@@ -402,6 +455,12 @@ export async function populateNotarialRegistryOnMeetingEnd(input: {
 				asNonEmptyString(getFullName(witnessDs.user)) ??
 				asNonEmptyString(witnessDs.user.email) ??
 				null
+			if (witnessDs.userId) {
+				const witnessIdentityCheck = identityCheckByUserId.get(witnessDs.userId)
+				if (witnessIdentityCheck) {
+					docWitnessIdentityCheckId = witnessIdentityCheck.id
+				}
+			}
 		}
 		if (!docWitnessName) {
 			const witnessSigner = signers.find(s =>
@@ -428,6 +487,9 @@ export async function populateNotarialRegistryOnMeetingEnd(input: {
 				principalAddress: docPrincipalAddress ?? undefined,
 				principalIdImageBase64: docPrincipalIdImageBase64 ?? undefined,
 				principalIdType: docPrincipalIdType ?? undefined,
+				principalIdentityCheckId: docPrincipalIdentityCheckId ?? undefined,
+				witnessIdentityCheckId: docWitnessIdentityCheckId ?? undefined,
+				principalSavedIdId: docPrincipalSavedIdId ?? undefined,
 				witnessName: docWitnessName ?? undefined,
 				enpName,
 				enpRollNumber: asNonEmptyString(profile?.rollNo),
@@ -446,7 +508,13 @@ export async function populateNotarialRegistryOnMeetingEnd(input: {
 
 		// Optional: sync new act to Supreme Court when configured (best-effort; do not fail meeting end)
 		const nfn = env.SUPREME_COURT_NFN
-		if (inserted?.id && isSupremeCourtConfigured() && nfn && profile?.notaryPublicNumber && profile?.rollNo) {
+		if (
+			inserted?.id &&
+			isSupremeCourtConfigured() &&
+			nfn &&
+			profile?.notaryPublicNumber &&
+			profile?.rollNo
+		) {
 			try {
 				const actRow = await db.query.notarialActs.findFirst({
 					where: eq(notarialActs.id, inserted.id),
@@ -496,4 +564,3 @@ export async function populateNotarialRegistryOnMeetingEnd(input: {
 
 	return { createdCount, skippedCount }
 }
-
