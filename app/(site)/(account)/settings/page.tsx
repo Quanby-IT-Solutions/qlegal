@@ -7,6 +7,7 @@ import { SiteNavbar } from "@/core/components/navbar/site-navbar"
 
 import { trpc } from "@/services/trpc/client"
 
+import { SavedIdsCard } from "@/features/kyc/components/saved-ids-card"
 import { AddPasswordCard } from "@/features/settings/components/add-password-card"
 import { AddressCard } from "@/features/settings/components/address-card"
 import { AvailabilityToggleCard } from "@/features/settings/components/availability-toggle-card"
@@ -46,6 +47,8 @@ export default function Page() {
 					<RecoveryEmailCard />
 					<div className="h-8" />
 					<ToggleTwoFACard />
+					<div className="h-8" />
+					<SavedIdsCard />
 					{isPrincipal && (
 						<>
 							<div className="h-8" />

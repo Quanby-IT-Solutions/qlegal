@@ -1,7 +1,7 @@
 "use server"
 
 import { revalidatePath } from "next/cache"
-import { and, eq } from "drizzle-orm"
+import { and, desc, eq } from "drizzle-orm"
 
 import { getFullName } from "@/core/lib/utils"
 
@@ -9,6 +9,7 @@ import { db } from "@/services/drizzle/db"
 import { users } from "@/services/drizzle/schema/auth"
 import { idCardDetails } from "@/services/drizzle/schema/id-card-details"
 import { kycSessions } from "@/services/drizzle/schema/kyc-sessions"
+import { savedIds, type SavedId } from "@/services/drizzle/schema/saved-ids"
 import {
 	createOnboardLink,
 	extractIdentifierFromStartKycUrl,
@@ -1804,5 +1805,68 @@ export async function softResetUserKycStatus(): Promise<SoftResetUserKycStatusRe
 			success: false,
 			error: error instanceof Error ? error.message : "Failed to soft reset KYC status",
 		}
+	}
+}
+
+/**
+ * Get all saved IDs for a specific user.
+ * Returns active saved IDs sorted by verifiedAt desc.
+ */
+export async function getUserSavedIds(userId: string): Promise<SavedId[]> {
+	return db.query.savedIds.findMany({
+		where: and(eq(savedIds.userId, userId), eq(savedIds.isActive, true)),
+		orderBy: [desc(savedIds.verifiedAt)],
+	})
+}
+
+/**
+ * Get the default valid saved ID for a user.
+ * Returns the most recently verified, non-expired, active ID, or null.
+ */
+export async function getDefaultValidSavedId(userId: string): Promise<SavedId | null> {
+	const allActive = await getUserSavedIds(userId)
+
+	const now = new Date()
+	const validId = allActive.find(
+		id => id.isVerified && id.isActive && (!id.expiresAt || id.expiresAt > now)
+	)
+
+	return validId ?? null
+}
+
+/**
+ * Get comprehensive KYC info including saved-ID library for the authenticated user.
+ */
+export async function getUserKycInfoWithSavedIds() {
+	const session = await auth()
+
+	if (!session?.user?.id) {
+		return {
+			success: false as const,
+			error: "User not authenticated",
+		}
+	}
+
+	const userId = session.user.id
+
+	// Fetch base KYC info and saved IDs in parallel
+	const [baseInfo, userSavedIds, defaultSavedId] = await Promise.all([
+		getUserKycInfo(),
+		getUserSavedIds(userId),
+		getDefaultValidSavedId(userId),
+	])
+
+	if (!baseInfo.success) {
+		return baseInfo
+	}
+
+	return {
+		success: true as const,
+		data: {
+			...baseInfo.data,
+			savedIds: userSavedIds,
+			defaultSavedId,
+			hasValidSavedId: defaultSavedId !== null,
+		},
 	}
 }

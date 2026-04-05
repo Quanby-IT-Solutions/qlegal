@@ -19,6 +19,7 @@ import * as messagesSchema from "@/services/drizzle/schema/messages"
 import * as notarialBookSchema from "@/services/drizzle/schema/notarial-book"
 import * as notarizationRequestsSchema from "@/services/drizzle/schema/notarization-requests"
 import * as principalVaultSchema from "@/services/drizzle/schema/principal-vault"
+import * as savedIdsSchema from "@/services/drizzle/schema/saved-ids"
 import * as signatureRequestsSchema from "@/services/drizzle/schema/signature-requests"
 
 export const schema = {
@@ -42,6 +43,7 @@ export const schema = {
 	...notarialBookSchema,
 	...notarizationRequestsSchema,
 	...principalVaultSchema,
+	...savedIdsSchema,
 	...signatureRequestsSchema,
 	...relationsSchema,
 }

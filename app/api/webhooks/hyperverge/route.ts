@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server"
-import { desc, eq } from "drizzle-orm"
+import { eq } from "drizzle-orm"
 
 import { db } from "@/services/drizzle/db"
 import { users } from "@/services/drizzle/schema/auth"
@@ -11,7 +11,7 @@ import {
 	pickOcrFieldsFromLogs,
 } from "@/services/hyperverge/kyc-logs"
 
-import { saveIdCardDetails } from "@/features/kyc/lib/save-id-card-details"
+import { createSavedIdFromOcr, saveIdCardDetails } from "@/features/kyc/lib/save-id-card-details"
 
 /**
  * HyperVerge webhook payload structure
@@ -149,6 +149,7 @@ export async function POST(request: NextRequest) {
 			// Store hosted-KYC artifacts (reference face + OCR fields)
 			// We use Logs API (recommended for full module outputs)
 			let idCardDetailId: string | undefined
+			let savedIdId: string | undefined
 			if (!kycSession.idCardDetailId) {
 				try {
 					const logs = await getHyperVergeKycLogs({ transactionId })
@@ -164,7 +165,7 @@ export async function POST(request: NextRequest) {
 							}
 						}
 
-						// Save to id_card_details table
+						// Save to id_card_details table (legacy)
 						const idCardDetail = await saveIdCardDetails(db, {
 							userId: user.id,
 							rawOcrData: ocr,
@@ -174,8 +175,25 @@ export async function POST(request: NextRequest) {
 							isVerified: true,
 							verifiedAt: new Date(),
 							verificationMethod: "kyc_mobile_link",
+							kycSessionId: kycSession.id,
 						})
 						idCardDetailId = idCardDetail.idCardDetailId
+						savedIdId = idCardDetail.savedIdId
+
+						// If saveIdCardDetails didn't create a saved ID (e.g. error), create one explicitly
+						if (!savedIdId) {
+							const savedIdResult = await createSavedIdFromOcr(db, {
+								userId: user.id,
+								rawOcrData: ocr,
+								ocrTransactionId: transactionId,
+								faceImageUrl,
+								isVerified: true,
+								verifiedAt: new Date(),
+								verificationMethod: "kyc_mobile_link",
+								kycSessionId: kycSession.id,
+							})
+							savedIdId = savedIdResult.savedIdId
+						}
 					}
 				} catch (e) {
 					console.warn("⚠️ Failed to fetch/store hosted KYC artifacts from Logs API:", e)
