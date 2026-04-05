@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { useMemo, useState } from "react"
-import { FileText, LayoutGrid, List, Search } from "lucide-react"
+import { FileText, IdCard, LayoutGrid, List, Search } from "lucide-react"
 
 import { Badge } from "@/core/components/ui/badge"
 import { Button } from "@/core/components/ui/button"
@@ -25,7 +25,7 @@ function formatFileSize(bytes: number): string {
 	const k = 1024
 	const sizes = ["Bytes", "KB", "MB", "GB"]
 	const i = Math.floor(Math.log(bytes) / Math.log(k))
-	return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + " " + sizes[i]
+	return `${Math.round((bytes / Math.pow(k, i)) * 100) / 100} ${sizes[i]}`
 }
 
 function getStatusBadgeVariant(status: string) {
@@ -58,6 +58,45 @@ function getStatusLabel(status: string): string {
 	}
 }
 
+function formatIdDocumentTypeLabel(documentType: string | null | undefined): string {
+	const raw = (documentType ?? "").trim()
+	if (!raw) return "—"
+	const map: Record<string, string> = {
+		NATIONAL_ID: "National ID",
+		DRIVERS_LICENSE: "Driver's License",
+		PASSPORT: "Passport",
+		VOTERS_ID: "Voter's ID",
+		UMID: "UMID",
+		SSS_ID: "SSS ID",
+		PHILHEALTH_ID: "PhilHealth ID",
+		TIN_ID: "TIN ID",
+		POSTAL_ID: "Postal ID",
+		PRC_ID: "PRC ID",
+		OTHER: "Other",
+	}
+	return map[raw.toUpperCase()] ?? raw
+}
+
+type SignerIdentity = {
+	snapshotDocumentType: string | null
+	snapshotDocumentNumber: string | null
+	snapshotFullName: string | null
+	snapshotFrontImageUrl: string | null
+} | null
+
+function IdentityBadge({ identity }: { identity: SignerIdentity }) {
+	if (!identity?.snapshotDocumentType && !identity?.snapshotDocumentNumber) return null
+	return (
+		<div className="flex items-center gap-1.5">
+			<IdCard className="text-muted-foreground size-3.5 shrink-0" />
+			<span className="text-muted-foreground text-xs">
+				{formatIdDocumentTypeLabel(identity.snapshotDocumentType)}
+				{identity.snapshotDocumentNumber ? ` · ${identity.snapshotDocumentNumber}` : ""}
+			</span>
+		</div>
+	)
+}
+
 export function PendingDocumentsPage() {
 	const [searchQuery, setSearchQuery] = useState("")
 	const [viewMode, setViewMode] = useState<ViewMode>("grid")
@@ -68,24 +107,19 @@ export function PendingDocumentsPage() {
 		error,
 	} = trpc.envelopeLite.getPendingDocuments.useQuery()
 
-	// Filter and search documents
 	const filteredDocuments = useMemo(() => {
-		if (!pendingDocuments) {
-			return []
-		}
+		if (!pendingDocuments) return []
 
 		return pendingDocuments.filter(doc => {
-			// Search filter
 			if (searchQuery.trim()) {
 				const query = searchQuery.toLowerCase()
 				return (
 					doc.name.toLowerCase().includes(query) ||
 					doc.type.toLowerCase().includes(query) ||
-					doc.envelope?.title.toLowerCase().includes(query) ||
+					(doc.envelope?.title.toLowerCase().includes(query) ?? false) ||
 					(doc.envelope?.description?.toLowerCase().includes(query) ?? false)
 				)
 			}
-
 			return true
 		})
 	}, [pendingDocuments, searchQuery])
@@ -123,7 +157,6 @@ export function PendingDocumentsPage() {
 					{/* Controls */}
 					<div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
 						<div className="flex flex-1 items-center gap-4">
-							{/* Search */}
 							<div className="relative max-w-sm flex-1">
 								<Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
 								<Input
@@ -134,7 +167,6 @@ export function PendingDocumentsPage() {
 								/>
 							</div>
 
-							{/* View Mode Toggle */}
 							<ToggleGroup
 								type="single"
 								value={viewMode}
@@ -194,7 +226,7 @@ export function PendingDocumentsPage() {
 										<div className="min-w-0 flex-1">
 											<CardTitle className="truncate text-base">{doc.name}</CardTitle>
 											<CardDescription className="mt-1">
-												{doc.envelope?.title || "No envelope"}
+												{doc.envelope?.title ?? "No envelope"}
 											</CardDescription>
 										</div>
 									</div>
@@ -216,6 +248,11 @@ export function PendingDocumentsPage() {
 										<span className="text-muted-foreground">Type:</span>
 										<span className="font-medium">{doc.type}</span>
 									</div>
+									{doc.signerIdentity && (
+										<div className="border-t pt-2">
+											<IdentityBadge identity={doc.signerIdentity} />
+										</div>
+									)}
 									<div className="border-t pt-2">
 										<Link href={`/envelope/${doc.envelopeId}`}>
 											<Button variant="outline" className="w-full">
@@ -239,8 +276,13 @@ export function PendingDocumentsPage() {
 												<div className="min-w-0 flex-1">
 													<h3 className="text-foreground truncate font-medium">{doc.name}</h3>
 													<p className="text-muted-foreground mt-1 text-sm">
-														{doc.envelope?.title || "No envelope"}
+														{doc.envelope?.title ?? "No envelope"}
 													</p>
+													{doc.signerIdentity && (
+														<div className="mt-1">
+															<IdentityBadge identity={doc.signerIdentity} />
+														</div>
+													)}
 												</div>
 											</div>
 										</div>

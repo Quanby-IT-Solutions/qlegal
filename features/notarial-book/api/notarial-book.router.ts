@@ -1,25 +1,39 @@
 import { TRPCError } from "@trpc/server"
-import { type InferSelectModel, and, asc, count, desc, eq, ilike, inArray, isNotNull, or } from "drizzle-orm"
+import {
+	and,
+	asc,
+	count,
+	desc,
+	eq,
+	ilike,
+	inArray,
+	isNotNull,
+	or,
+	type InferSelectModel,
+} from "drizzle-orm"
 import { z } from "zod/v4"
 
 import { getFullName } from "@/core/lib/utils"
-import { env } from "@/env"
+
 import { appointmentParticipants } from "@/services/drizzle/schema/appointment-participants"
 import { appointments } from "@/services/drizzle/schema/appointments"
 import { users } from "@/services/drizzle/schema/auth"
-import { documentSigners } from "@/services/drizzle/schema/document-signers"
 import { documents } from "@/services/drizzle/schema/document"
+import { documentSigners } from "@/services/drizzle/schema/document-signers"
 import { enpProfiles } from "@/services/drizzle/schema/enp-profiles"
-import { signatureRequests } from "@/services/drizzle/schema/signature-requests"
 import { idCardDetails } from "@/services/drizzle/schema/id-card-details"
 import { legalRegistrations } from "@/services/drizzle/schema/legal-registration"
+import { meetingParticipantIdentityChecks } from "@/services/drizzle/schema/meeting-participant-identity-checks"
 import { notarialActs, notarialBooks } from "@/services/drizzle/schema/notarial-book"
+import { signatureRequests } from "@/services/drizzle/schema/signature-requests"
 import { getServiceRoleClient } from "@/services/supabase"
 import { getDocumentPublicUrl } from "@/services/supabase/signed-url"
 import { getCommissionStatus } from "@/services/supreme-court/api/commission-status"
 import { syncNotarialActToSupremeCourt } from "@/services/supreme-court/lib/sync-notarial-act"
 import { isConfigured } from "@/services/supreme-court/lib/token-cache"
 import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
+
+import { env } from "@/env"
 
 const getNotarialBookSchema = z.object({
 	page: z.number().min(1).default(1),
@@ -318,13 +332,58 @@ export const notarialBookRouter = createTRPCRouter({
 					}
 				}
 			}
+
+			// Batch-fetch identity check snapshots for acts that have principalIdentityCheckId
+			const identityCheckIds = [
+				...new Set(
+					filteredActs
+						.map(a => a.principalIdentityCheckId)
+						.filter((id): id is string => typeof id === "string" && id.length > 0)
+				),
+			]
+			const identityCheckSnapshotMap = new Map<
+				string,
+				{
+					snapshotDocumentType: string | null
+					snapshotDocumentNumber: string | null
+					snapshotFullName: string | null
+					snapshotFrontImageUrl: string | null
+					snapshotExpiresAt: Date | null
+				}
+			>()
+			if (identityCheckIds.length > 0) {
+				const identityChecks = await ctx.db
+					.select({
+						id: meetingParticipantIdentityChecks.id,
+						snapshotDocumentType: meetingParticipantIdentityChecks.snapshotDocumentType,
+						snapshotDocumentNumber: meetingParticipantIdentityChecks.snapshotDocumentNumber,
+						snapshotFullName: meetingParticipantIdentityChecks.snapshotFullName,
+						snapshotFrontImageUrl: meetingParticipantIdentityChecks.snapshotFrontImageUrl,
+						snapshotExpiresAt: meetingParticipantIdentityChecks.snapshotExpiresAt,
+					})
+					.from(meetingParticipantIdentityChecks)
+					.where(inArray(meetingParticipantIdentityChecks.id, identityCheckIds))
+				for (const ic of identityChecks) {
+					identityCheckSnapshotMap.set(ic.id, {
+						snapshotDocumentType: ic.snapshotDocumentType ?? null,
+						snapshotDocumentNumber: ic.snapshotDocumentNumber ?? null,
+						snapshotFullName: ic.snapshotFullName ?? null,
+						snapshotFrontImageUrl: ic.snapshotFrontImageUrl ?? null,
+						snapshotExpiresAt: ic.snapshotExpiresAt ?? null,
+					})
+				}
+			}
+
 			const enrichedActs = filteredActs.map(act => {
 				const fees =
 					(act.documentId ? docFeesMap.get(act.documentId) : undefined) ??
 					(act.docoChainProjectUuid ? docFeesMap.get(act.docoChainProjectUuid) : undefined) ??
 					null
 				const registryNumber = registryNumberByActId.get(act.id) ?? null
-				return { ...act, fees, registryNumber }
+				const identityCheckSnapshot = act.principalIdentityCheckId
+					? (identityCheckSnapshotMap.get(act.principalIdentityCheckId) ?? null)
+					: null
+				return { ...act, fees, registryNumber, identityCheckSnapshot }
 			})
 
 			return {
@@ -387,11 +446,7 @@ export const notarialBookRouter = createTRPCRouter({
 				where: eq(enpProfiles.userId, userId),
 			})
 			const nfn = env.SUPREME_COURT_NFN
-			if (
-				!enpProfile?.notaryPublicNumber ||
-				!nfn ||
-				!enpProfile?.rollNo
-			) {
+			if (!enpProfile?.notaryPublicNumber || !nfn || !enpProfile?.rollNo) {
 				throw new TRPCError({
 					code: "PRECONDITION_FAILED",
 					message: "ENP profile missing NPN or RN, or SUPREME_COURT_NFN not set",
@@ -1094,9 +1149,7 @@ export const notarialBookRouter = createTRPCRouter({
 		})
 
 		const notaryPublicName =
-			getFullName(user).trim() ||
-			user?.email?.trim() ||
-			"Electronic Notary Public"
+			getFullName(user).trim() || user?.email?.trim() || "Electronic Notary Public"
 
 		const acts = await ctx.db
 			.select()

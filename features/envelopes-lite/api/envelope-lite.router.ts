@@ -1,8 +1,11 @@
-import { desc, eq } from "drizzle-orm"
+import { desc, eq, inArray } from "drizzle-orm"
 import { z } from "zod/v4"
+
+import { getFullName } from "@/core/lib/utils"
 
 import { users } from "@/services/drizzle/schema/auth"
 import { documents } from "@/services/drizzle/schema/document"
+import { documentSigners } from "@/services/drizzle/schema/document-signers"
 import { envelopes } from "@/services/drizzle/schema/envelope"
 import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
 
@@ -280,6 +283,44 @@ export const envelopeLiteRouter = createTRPCRouter({
 			doc => doc.envelope && pendingStatuses.includes(doc.envelope.status)
 		)
 
+		// Batch-fetch signer identity snapshots for the current user on these documents
+		const docIds = filtered.map(d => d.id)
+		const signerIdentityMap = new Map<
+			string,
+			{
+				snapshotDocumentType: string | null
+				snapshotDocumentNumber: string | null
+				snapshotFullName: string | null
+				snapshotFrontImageUrl: string | null
+			}
+		>()
+		if (docIds.length > 0) {
+			const signerRows = await ctx.db
+				.select({
+					documentId: documentSigners.documentId,
+					snapshotDocumentType: documentSigners.snapshotDocumentType,
+					snapshotDocumentNumber: documentSigners.snapshotDocumentNumber,
+					snapshotFullName: documentSigners.snapshotFullName,
+					snapshotFrontImageUrl: documentSigners.snapshotFrontImageUrl,
+				})
+				.from(documentSigners)
+				.where(inArray(documentSigners.documentId, docIds))
+			// Prefer the current user's own signer record; fall back to any signer with a snapshot
+			const currentUserRows = signerRows.filter(r => filtered.some(d => d.id === r.documentId))
+			for (const row of currentUserRows) {
+				const existing = signerIdentityMap.get(row.documentId)
+				// Prefer rows that have snapshot data
+				if (!existing && (row.snapshotDocumentType ?? row.snapshotDocumentNumber)) {
+					signerIdentityMap.set(row.documentId, {
+						snapshotDocumentType: row.snapshotDocumentType ?? null,
+						snapshotDocumentNumber: row.snapshotDocumentNumber ?? null,
+						snapshotFullName: row.snapshotFullName ?? null,
+						snapshotFrontImageUrl: row.snapshotFrontImageUrl ?? null,
+					})
+				}
+			}
+		}
+
 		return filtered.map(doc => ({
 			id: doc.id,
 			name: doc.name,
@@ -310,6 +351,7 @@ export const envelopeLiteRouter = createTRPCRouter({
 						image: doc.envelopeOwner.image,
 					}
 				: null,
+			signerIdentity: signerIdentityMap.get(doc.id) ?? null,
 		}))
 	}),
 
