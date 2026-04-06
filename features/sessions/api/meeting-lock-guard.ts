@@ -6,6 +6,7 @@ export type MeetingLockState = { isDocumentOrderLocked: boolean }
 
 export const DOCUMENT_LOCK_GUARDED_MUTATIONS = [
 	"uploadDocument",
+	"importVaultFolderToMeeting",
 ] as const
 
 export function assertMeetingUnlockedForDocumentMutations(meeting: MeetingLockState): void {

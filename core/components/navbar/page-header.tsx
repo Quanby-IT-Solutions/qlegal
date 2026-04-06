@@ -16,7 +16,7 @@ import {
 } from "@/core/components/ui/breadcrumb"
 import { Separator } from "@/core/components/ui/separator"
 
-interface PageHeaderItem {
+export interface PageHeaderItem {
 	label: string
 	href?: Route | UrlObject
 }

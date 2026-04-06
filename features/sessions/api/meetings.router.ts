@@ -20,6 +20,7 @@ import { documentSigners } from "@/services/drizzle/schema/document-signers"
 import { enpProfiles } from "@/services/drizzle/schema/enp-profiles"
 import { meetingMessages } from "@/services/drizzle/schema/meeting-messages"
 import { meetings } from "@/services/drizzle/schema/meetings"
+import { principalVaultFolders } from "@/services/drizzle/schema/principal-vault"
 import { signatureRequests } from "@/services/drizzle/schema/signature-requests"
 import { sendSigningLinkEmail } from "@/services/react-email/lib/send.signing-link"
 import { getPublicClient, getServiceRoleClient } from "@/services/supabase"
@@ -27,6 +28,7 @@ import { getPublicUrl } from "@/services/supabase/signed-url"
 import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
 import { createMeetingRoom, fetchRecordings, generateMeetingToken } from "@/services/video-sdk"
 
+import { listAllFilesInFolderTree } from "@/features/principal-vault/lib/collect-folder-tree"
 import { populateNotarialRegistryOnMeetingEnd } from "@/features/notarial-book/server/populate-notarial-registry-on-meeting-end"
 import { getSubOrgCredsForMemberEmail } from "@/features/sub-orgs/server/get-sub-org-creds-for-member"
 
@@ -110,6 +112,225 @@ async function getAppointmentParticipantsByMeetingId(meetingId: string) {
 	})
 
 	return { appointment, apParticipants }
+}
+
+type AppointmentParticipantsBundle = Awaited<ReturnType<typeof getAppointmentParticipantsByMeetingId>>
+
+type MeetingEnpStampContext = {
+	appointment: AppointmentParticipantsBundle["appointment"]
+	apParticipants: AppointmentParticipantsBundle["apParticipants"]
+	enpEmail: string
+	enpUserId: string
+	documentStamp: Record<string, unknown> | undefined
+}
+
+async function resolveMeetingEnpAndDocumentStamp(
+	meetingId: string,
+	existing?: AppointmentParticipantsBundle
+): Promise<MeetingEnpStampContext> {
+	const { appointment, apParticipants } = existing ?? (await getAppointmentParticipantsByMeetingId(meetingId))
+
+	const enpParticipant = apParticipants.find(
+		p => isEnpRole(p.user?.role) && !!asNonEmptyEmail(p.user?.email)
+	)
+	const enpEmail = asNonEmptyEmail(enpParticipant?.user?.email)
+	const enpUserId = enpParticipant?.userId
+
+	if (!enpEmail || !enpUserId) {
+		throw new TRPCError({
+			code: "PRECONDITION_FAILED",
+			message: "An ENP participant with an email is required for document signing",
+		})
+	}
+
+	const [enpUser, enpProfile] = await Promise.all([
+		db.query.users.findFirst({
+			where: eq(users.id, enpUserId),
+			columns: { firstName: true, middleName: true, lastName: true, email: true },
+		}),
+		db.query.enpProfiles.findFirst({
+			where: eq(enpProfiles.userId, enpUserId),
+			columns: {
+				rollNo: true,
+				rollNoDate: true,
+				commissionNo: true,
+				commissionNoValidUntil: true,
+				ptrNo: true,
+				ptrNoLocation: true,
+				ptrNoDate: true,
+				ibpNo: true,
+				ibpNoDate: true,
+				notaryAddress: true,
+				mcleNoPeriod: true,
+				mcleNo: true,
+				mcleNoDate: true,
+			},
+		}),
+	])
+
+	const mcleNoPeriod =
+		typeof enpProfile?.mcleNoPeriod === "string" && /^\d{4}-\d{2}-\d{2}T/.test(enpProfile.mcleNoPeriod.trim())
+			? ""
+			: (enpProfile?.mcleNoPeriod ?? "")
+
+	const enpNameRaw = getFullName(enpUser).trim()
+	const rollNo = (enpProfile?.rollNo ?? "").trim()
+
+	const formatAttorneyNameForSeal = (n: string | null | undefined): string => {
+		const base = (n ?? "").trim()
+		if (!base) return ""
+		const upper = base.toUpperCase()
+		return upper.startsWith("ATTY.") ? upper : `ATTY. ${upper}`
+	}
+	const attyNameForSeal = formatAttorneyNameForSeal(enpNameRaw)
+
+	const modeRaw = (appointment?.modeOfNotarization ?? "REN").trim().toUpperCase()
+	const modeOfNotarization = modeRaw === "REN" || modeRaw === "REMOTE" ? "Remote" : "In-person"
+
+	const documentStamp =
+		attyNameForSeal && rollNo
+			? {
+					seal: {
+						type: "seal",
+						enp_name: attyNameForSeal,
+						enpName: attyNameForSeal,
+						enp_role_number: rollNo,
+					},
+					notary_info: {
+						type: "notary",
+						name: attyNameForSeal,
+						atty_name: attyNameForSeal,
+						attyName: attyNameForSeal,
+						roll_no: rollNo,
+						roll_no_date: enpProfile?.rollNoDate ?? "",
+						commission_no: enpProfile?.commissionNo ?? "",
+						commission_no_valid_until: enpProfile?.commissionNoValidUntil ?? "",
+						PTR_no: enpProfile?.ptrNo ?? "",
+						PTR_no_location: enpProfile?.ptrNoLocation ?? "",
+						PTR_no_date: enpProfile?.ptrNoDate ?? "",
+						IBP_no: enpProfile?.ibpNo ?? "",
+						IBP_no_date: enpProfile?.ibpNoDate ?? "",
+						email: enpUser?.email ?? enpEmail,
+						address: enpProfile?.notaryAddress ?? "",
+						MCLE_no_period: mcleNoPeriod,
+						MCLE_no: enpProfile?.mcleNo ?? "",
+						MCLE_no_date: enpProfile?.mcleNoDate ?? "",
+						mode_of_notarization: modeOfNotarization,
+						modeOfNotarization,
+					},
+				}
+			: undefined
+
+	return { appointment, apParticipants, enpEmail, enpUserId, documentStamp }
+}
+
+const MEETING_DOCUMENT_MAX_BYTES = 10 * 1024 * 1024
+const MAX_VAULT_FOLDER_IMPORT_FILES = 40
+
+type MeetingNotarizationAct =
+	| "ACKNOWLEDGMENT"
+	| "AFFIRMATION"
+	| "JURAT"
+	| "SIGNATURE_WITNESSING"
+
+function assertVaultStoragePathBelongsToUser(storagePath: string, userId: string): void {
+	const prefix = `vault/${userId}/`
+	if (!storagePath.startsWith(prefix)) {
+		throw new TRPCError({
+			code: "FORBIDDEN",
+			message: "Invalid vault file path",
+		})
+	}
+}
+
+async function performMeetingDocumentUpload(params: {
+	meetingId: string
+	order: number
+	name: string
+	fileBuffer: Buffer
+	mimeType: string
+	description: string | null
+	notarizationType: MeetingNotarizationAct
+	fees: number | null
+}): Promise<{ updated: InferSelectModel<typeof documents>; publicUrl: string | null }> {
+	if (params.mimeType !== "application/pdf") {
+		throw new TRPCError({
+			code: "BAD_REQUEST",
+			message: "Only PDF files are supported for document signing",
+		})
+	}
+
+	const byteLength = params.fileBuffer.length
+	if (byteLength === 0) {
+		throw new TRPCError({ code: "BAD_REQUEST", message: "File is empty" })
+	}
+	if (byteLength > MEETING_DOCUMENT_MAX_BYTES) {
+		throw new TRPCError({
+			code: "BAD_REQUEST",
+			message: `File exceeds maximum size of ${MEETING_DOCUMENT_MAX_BYTES / (1024 * 1024)}MB`,
+		})
+	}
+
+	const [document] = await db
+		.insert(documents)
+		.values({
+			name: params.name,
+			path: "",
+			type: params.mimeType,
+			size: byteLength,
+			description: params.description,
+			notarizationType: params.notarizationType,
+			meetingId: params.meetingId,
+			docoChainProjectId: null,
+			docoChainRedirectUrl: null,
+			order: params.order,
+			fees: params.fees,
+		})
+		.returning()
+
+	if (!document) {
+		throw new TRPCError({
+			code: "INTERNAL_SERVER_ERROR",
+			message: "Failed to create document record",
+		})
+	}
+
+	const supabase = getServiceRoleClient()
+	const fileName = `meetings/${params.meetingId}/${document.id}/${params.name}`
+
+	const { data: uploadData, error: uploadError } = await supabase.storage
+		.from("documents")
+		.upload(fileName, params.fileBuffer, {
+			contentType: params.mimeType,
+			cacheControl: "3600",
+		})
+
+	if (uploadError || !uploadData?.path) {
+		await db.delete(documents).where(eq(documents.id, document.id))
+		throw new TRPCError({
+			code: "INTERNAL_SERVER_ERROR",
+			message: uploadError
+				? `Failed to upload document to storage: ${uploadError.message}`
+				: "Failed to upload document to storage",
+		})
+	}
+
+	const publicUrl = supabase.storage.from("documents").getPublicUrl(uploadData.path).data.publicUrl
+
+	const [updated] = await db
+		.update(documents)
+		.set({ path: uploadData.path })
+		.where(eq(documents.id, document.id))
+		.returning()
+
+	if (!updated) {
+		throw new TRPCError({
+			code: "INTERNAL_SERVER_ERROR",
+			message: "Failed to update document path",
+		})
+	}
+
+	return { updated, publicUrl }
 }
 
 export const meetingsRouter = createTRPCRouter({
@@ -997,7 +1218,6 @@ export const meetingsRouter = createTRPCRouter({
 			assertMeetingUnlockedForDocumentMutations(meeting)
 
 			try {
-				// Validate file type - only PDF is supported for document signing
 				if (mimeType !== "application/pdf") {
 					throw new TRPCError({
 						code: "BAD_REQUEST",
@@ -1005,7 +1225,6 @@ export const meetingsRouter = createTRPCRouter({
 					})
 				}
 
-				// Get existing documents count to set the order for new upload
 				const existingDocuments = await db
 					.select({ id: documents.id })
 					.from(documents)
@@ -1013,227 +1232,188 @@ export const meetingsRouter = createTRPCRouter({
 
 				const nextOrder = existingDocuments.length
 
-				// Decode base64 file data
 				const fileBuffer = Buffer.from(file, "base64")
 
-				// Determine which DocOnChain user should own the project (ENP).
-				const enpParticipant = apParticipants.find(
-					p => isEnpRole(p.user?.role) && !!asNonEmptyEmail(p.user?.email)
-				)
-				const enpEmail = asNonEmptyEmail(enpParticipant?.user?.email)
-				const enpUserId = enpParticipant?.userId
+				await resolveMeetingEnpAndDocumentStamp(meetingId, {
+					appointment,
+					apParticipants,
+				} as AppointmentParticipantsBundle)
 
-				if (!enpEmail || !enpUserId) {
-					throw new TRPCError({
-						code: "PRECONDITION_FAILED",
-						message: "An ENP participant with an email is required for document signing",
-					})
-				}
-
-				// Best-effort document_stamp payload (improves parity with portal).
-				const [enpUser, enpProfile] = await Promise.all([
-					db.query.users.findFirst({
-						where: eq(users.id, enpUserId),
-						columns: { firstName: true, middleName: true, lastName: true, email: true },
-					}),
-					db.query.enpProfiles.findFirst({
-						where: eq(enpProfiles.userId, enpUserId),
-						columns: {
-							rollNo: true,
-							rollNoDate: true,
-							commissionNo: true,
-							commissionNoValidUntil: true,
-							ptrNo: true,
-							ptrNoLocation: true,
-							ptrNoDate: true,
-							ibpNo: true,
-							ibpNoDate: true,
-							notaryAddress: true,
-							mcleNoPeriod: true,
-							mcleNo: true,
-							mcleNoDate: true,
-						},
-					}),
-				])
-
-				const mcleNoPeriod =
-					typeof enpProfile?.mcleNoPeriod === "string" &&
-					/^\d{4}-\d{2}-\d{2}T/.test(enpProfile.mcleNoPeriod.trim())
-						? ""
-						: (enpProfile?.mcleNoPeriod ?? "")
-
-				const enpNameRaw = getFullName(enpUser).trim()
-				const rollNo = (enpProfile?.rollNo ?? "").trim()
-
-				// Format attorney name for seal: "ATTY." prefix and uppercase (matches auth registration seal)
-				const formatAttorneyNameForSeal = (n: string | null | undefined): string => {
-					const base = (n ?? "").trim()
-					if (!base) return ""
-					const upper = base.toUpperCase()
-					return upper.startsWith("ATTY.") ? upper : `ATTY. ${upper}`
-				}
-				const attyNameForSeal = formatAttorneyNameForSeal(enpNameRaw)
-
-				// Mode of notarization is set at booking (principal side); REN = Remote (video), IEN = In-person
-				const modeRaw = (appointment?.modeOfNotarization ?? "REN").trim().toUpperCase()
-				const modeOfNotarization =
-					modeRaw === "REN" || modeRaw === "REMOTE" ? "Remote" : "In-person"
-
-				const documentStamp =
-					attyNameForSeal && rollNo
-						? {
-								seal: {
-									type: "seal",
-									enp_name: attyNameForSeal,
-									enpName: attyNameForSeal,
-									enp_role_number: rollNo,
-								},
-								notary_info: {
-									type: "notary",
-									name: attyNameForSeal,
-									atty_name: attyNameForSeal,
-									attyName: attyNameForSeal,
-									roll_no: rollNo,
-									roll_no_date: enpProfile?.rollNoDate ?? "",
-									commission_no: enpProfile?.commissionNo ?? "",
-									commission_no_valid_until: enpProfile?.commissionNoValidUntil ?? "",
-									PTR_no: enpProfile?.ptrNo ?? "",
-									PTR_no_location: enpProfile?.ptrNoLocation ?? "",
-									PTR_no_date: enpProfile?.ptrNoDate ?? "",
-									IBP_no: enpProfile?.ibpNo ?? "",
-									IBP_no_date: enpProfile?.ibpNoDate ?? "",
-									email: enpUser?.email ?? enpEmail,
-									address: enpProfile?.notaryAddress ?? "",
-									MCLE_no_period: mcleNoPeriod,
-									MCLE_no: enpProfile?.mcleNo ?? "",
-									MCLE_no_date: enpProfile?.mcleNoDate ?? "",
-									mode_of_notarization: modeOfNotarization,
-									modeOfNotarization,
-								},
-							}
-						: undefined
-
-				// STEP 1: Create document record in database
-				const [document] = await db
-					.insert(documents)
-					.values({
-						name,
-						path: "", // Will be updated after Supabase upload
-						type: mimeType,
-						size,
-						description: input.description ?? null,
-						notarizationType, // Required for notarial book
-						meetingId,
-						docoChainProjectId: null, // Set after DocOnChain project creation
-						docoChainRedirectUrl: null,
-						order: nextOrder, // Set order based on upload sequence
-						fees: input.fees ?? null,
-					})
-					.returning()
-
-				if (!document) {
-					throw new TRPCError({
-						code: "INTERNAL_SERVER_ERROR",
-						message: "Failed to create document record",
-					})
-				}
-
-				// STEP 2: Upload to Supabase storage (this is the PRIMARY storage)
-				const supabase = getServiceRoleClient()
-				const fileName = `meetings/${meetingId}/${document.id}/${name}`
-
-				console.log("🔵 Uploading to Supabase storage...")
-				const { data: uploadData, error: uploadError } = await supabase.storage
-					.from("documents")
-					.upload(fileName, fileBuffer, {
-						contentType: mimeType,
-						cacheControl: "3600",
-					})
-
-				if (uploadError) {
-					console.error("❌ Supabase upload failed:", uploadError)
-					throw new TRPCError({
-						code: "INTERNAL_SERVER_ERROR",
-						message: `Failed to upload document to storage: ${uploadError.message}`,
-					})
-				}
-
-				console.log("✅ Uploaded to Supabase:", uploadData.path)
-
-				// Get public URL for the document
-				const publicUrl = uploadData?.path
-					? supabase.storage.from("documents").getPublicUrl(uploadData.path).data.publicUrl
-					: null
-
-				// Update document with storage path
-				const [updatedDocument] = await db
-					.update(documents)
-					.set({
-						path: uploadData.path,
-					})
-					.where(eq(documents.id, document.id))
-					.returning()
-
-				// STEP 3: Create DocOnChain project using ENP token (best-effort).
-				// IMPORTANT: DocOnChain can be flaky (504/5xx). We keep the Supabase upload + DB record
-				// and allow retry via createDocoChainProject instead of deleting user data.
-				const safeFilename = name.toLowerCase().endsWith(".pdf") ? name : `${name}.pdf`
-
-				let docoChain: { projectCreated: boolean; error?: string } = { projectCreated: false }
-				const transientAttempts = 2
-				for (let attempt = 0; attempt <= transientAttempts; attempt++) {
-					try {
-						const project = await createDoconchainProject({
-							enpEmail,
-							fileBuffer,
-							filename: safeFilename,
-							mimeType,
-							userListEditable: false,
-							creatorAsViewer: false,
-							documentStamp,
-							getSubOrgCredsForEmail: em => getSubOrgCredsForMemberEmail(em, db),
-						})
-
-						await db
-							.update(documents)
-							.set({
-								docoChainProjectId: project.uuid,
-								// Never persist tokenized DocOnChain app URLs (they may contain api_token/token/email).
-								docoChainRedirectUrl: stripUrlQueryAndHash(project.url),
-							})
-							.where(eq(documents.id, document.id))
-
-						docoChain = { projectCreated: true }
-						break
-					} catch (error) {
-						const message =
-							error instanceof Error ? error.message : "DocOnChain project creation failed"
-						docoChain = { projectCreated: false, error: message }
-
-						// Retry only for likely-transient upstream failures.
-						const isTransient =
-							typeof message === "string" &&
-							(message.includes("504") || message.includes("503") || message.includes("502"))
-
-						if (!isTransient || attempt >= transientAttempts) {
-							break
-						}
-
-						// small backoff (0.5s, 1s)
-						await new Promise(r => setTimeout(r, 500 * (attempt + 1)))
-					}
-				}
+				const { updated: updatedDocument, publicUrl } = await performMeetingDocumentUpload({
+					meetingId,
+					order: nextOrder,
+					name: name.trim(),
+					fileBuffer,
+					mimeType,
+					description: input.description ?? null,
+					notarizationType,
+					fees: input.fees ?? null,
+				})
 
 				return {
 					...updatedDocument,
 					url: publicUrl,
-					docoChain,
+					docoChain: { projectCreated: false, pendingManual: true as const },
 				}
 			} catch (error) {
+				if (error instanceof TRPCError) throw error
 				throw new TRPCError({
 					code: "INTERNAL_SERVER_ERROR",
 					message: error instanceof Error ? error.message : "Upload failed",
 				})
+			}
+		}),
+
+	// Import every PDF in a My files folder (recursive) into the meeting. Same metadata for all documents.
+	importVaultFolderToMeeting: protectedProcedure
+		.input(
+			z.object({
+				meetingId: z.string().min(1),
+				folderId: z.string().min(1),
+				notarizationType: z.enum([
+					"ACKNOWLEDGMENT",
+					"AFFIRMATION",
+					"JURAT",
+					"SIGNATURE_WITNESSING",
+				]),
+				description: z.string().optional(),
+				fees: z.number().positive("Fees must be greater than zero"),
+			})
+		)
+		.mutation(async ({ ctx, input }) => {
+			const meeting = await db.query.meetings.findFirst({
+				where: eq(meetings.id, input.meetingId),
+			})
+
+			if (!meeting) {
+				throw new TRPCError({ code: "NOT_FOUND", message: "Meeting not found" })
+			}
+
+			const isHost = meeting.createdById === ctx.session.user.id
+			const participantsBundle = await getAppointmentParticipantsByMeetingId(input.meetingId)
+			const { appointment, apParticipants } = participantsBundle
+			const isAcceptedParticipant = apParticipants.some(
+				p => p.userId === ctx.session.user.id && p.status === "ACCEPTED"
+			)
+			if (!isHost && !isAcceptedParticipant) {
+				throw new TRPCError({ code: "FORBIDDEN", message: "You don't have access to this meeting" })
+			}
+
+			assertMeetingUnlockedForDocumentMutations(meeting)
+
+			const folder = await db.query.principalVaultFolders.findFirst({
+				where: and(
+					eq(principalVaultFolders.id, input.folderId),
+					eq(principalVaultFolders.userId, ctx.session.user.id)
+				),
+				columns: { id: true, name: true },
+			})
+			if (!folder) {
+				throw new TRPCError({ code: "NOT_FOUND", message: "Folder not found in your files" })
+			}
+
+			await resolveMeetingEnpAndDocumentStamp(input.meetingId, participantsBundle as AppointmentParticipantsBundle)
+
+			const treeFiles = await listAllFilesInFolderTree(db, input.folderId, ctx.session.user.id)
+
+			const descriptionBase = input.description?.trim() ? input.description.trim() : null
+
+			const skipped: Array<{ name: string; reason: string }> = []
+			const imported: Array<{ id: string; name: string }> = []
+
+			const pdfCandidates = treeFiles.filter(
+				f => f.mimeType === "application/pdf" || f.name.toLowerCase().endsWith(".pdf")
+			)
+
+			for (const f of treeFiles) {
+				if (pdfCandidates.includes(f)) continue
+				skipped.push({ name: f.name, reason: "Not a PDF" })
+			}
+
+			const eligible = pdfCandidates.filter(f => {
+				if (f.size > MEETING_DOCUMENT_MAX_BYTES) {
+					skipped.push({ name: f.name, reason: `Larger than ${MEETING_DOCUMENT_MAX_BYTES / (1024 * 1024)}MB` })
+					return false
+				}
+				return true
+			})
+
+			if (eligible.length > MAX_VAULT_FOLDER_IMPORT_FILES) {
+				throw new TRPCError({
+					code: "BAD_REQUEST",
+					message: `This folder contains too many PDFs to import at once (max ${MAX_VAULT_FOLDER_IMPORT_FILES}). Remove some files or import in smaller batches.`,
+				})
+			}
+
+			if (eligible.length === 0) {
+				throw new TRPCError({
+					code: "BAD_REQUEST",
+					message: "No importable PDFs in this folder. Add PDFs under 10MB or check file types.",
+				})
+			}
+
+			const supabase = getServiceRoleClient()
+			let orderCursor =
+				(
+					await db
+						.select({ id: documents.id })
+						.from(documents)
+						.where(eq(documents.meetingId, input.meetingId))
+				).length
+
+			for (const vf of eligible) {
+				assertVaultStoragePathBelongsToUser(vf.storagePath, ctx.session.user.id)
+
+				const { data: blob, error: dlErr } = await supabase.storage
+					.from("documents")
+					.download(vf.storagePath)
+
+				if (dlErr || !blob) {
+					skipped.push({
+						name: vf.name,
+						reason: dlErr?.message ?? "Could not read file from storage",
+					})
+					continue
+				}
+
+				const fileBuffer = Buffer.from(await blob.arrayBuffer())
+				const displayName = vf.name.toLowerCase().endsWith(".pdf") ? vf.name : `${vf.name}.pdf`
+				const perFileDescription = descriptionBase
+					? `${descriptionBase} · ${vf.name}`
+					: `From My files: ${folder.name} · ${vf.name}`
+
+				try {
+					const { updated } = await performMeetingDocumentUpload({
+						meetingId: input.meetingId,
+						order: orderCursor,
+						name: displayName,
+						fileBuffer,
+						mimeType: "application/pdf",
+						description: perFileDescription,
+						notarizationType: input.notarizationType,
+						fees: input.fees,
+					})
+					imported.push({ id: updated.id, name: updated.name })
+					orderCursor += 1
+				} catch (err) {
+					const msg = err instanceof Error ? err.message : "Upload failed"
+					skipped.push({ name: vf.name, reason: msg })
+				}
+			}
+
+			if (imported.length === 0) {
+				throw new TRPCError({
+					code: "INTERNAL_SERVER_ERROR",
+					message: "Could not import any documents from this folder.",
+				})
+			}
+
+			return {
+				folderName: folder.name,
+				importedCount: imported.length,
+				skipped,
+				documents: imported,
+				docoChain: { projectCreated: false, pendingManual: true as const },
 			}
 		}),
 
@@ -1466,7 +1646,7 @@ export const meetingsRouter = createTRPCRouter({
 		})
 	}),
 
-	// Create signing project for a document (temporarily disabled)
+	// Create DocOnChain project for an uploaded document (ENP only; after file is in storage).
 	createDocoChainProject: protectedProcedure
 		.input(
 			z.object({
@@ -1474,12 +1654,168 @@ export const meetingsRouter = createTRPCRouter({
 				meetingId: z.string().min(1),
 			})
 		)
-		.mutation(async () => {
-			throw new TRPCError({
-				code: "SERVICE_UNAVAILABLE",
-				message:
-					"Project creation is temporarily unavailable while we rebuild the signing integration.",
+		.mutation(async ({ ctx, input }) => {
+			const meeting = await db.query.meetings.findFirst({
+				where: eq(meetings.id, input.meetingId),
 			})
+
+			if (!meeting) {
+				throw new TRPCError({ code: "NOT_FOUND", message: "Meeting not found" })
+			}
+
+			const isHost = meeting.createdById === ctx.session.user.id
+			const participantsBundle = await getAppointmentParticipantsByMeetingId(input.meetingId)
+			const { apParticipants } = participantsBundle
+			const isAcceptedParticipant = apParticipants.some(
+				p => p.userId === ctx.session.user.id && p.status === "ACCEPTED"
+			)
+			if (!isHost && !isAcceptedParticipant) {
+				throw new TRPCError({ code: "FORBIDDEN", message: "You don't have access to this meeting" })
+			}
+
+			assertMeetingUnlockedForDocumentMutations(meeting)
+
+			const stampCtx = await resolveMeetingEnpAndDocumentStamp(
+				input.meetingId,
+				participantsBundle as AppointmentParticipantsBundle
+			)
+
+			if (ctx.session.user.id !== stampCtx.enpUserId) {
+				throw new TRPCError({
+					code: "FORBIDDEN",
+					message: "Only the notary for this session can create the DocOnChain project",
+				})
+			}
+
+			const doc = await db.query.documents.findFirst({
+				where: and(eq(documents.id, input.documentId), eq(documents.meetingId, input.meetingId)),
+			})
+
+			if (!doc) {
+				throw new TRPCError({ code: "NOT_FOUND", message: "Document not found in this meeting" })
+			}
+
+			if (doc.docoChainProjectId) {
+				return {
+					alreadyExists: true as const,
+					docoChainProjectId: doc.docoChainProjectId,
+					docoChainRedirectUrl: doc.docoChainRedirectUrl,
+				}
+			}
+
+			const path = doc.path?.trim()
+			if (!path) {
+				throw new TRPCError({
+					code: "PRECONDITION_FAILED",
+					message: "Document file is not in storage yet",
+				})
+			}
+
+			const supabase = getServiceRoleClient()
+			const { data: fileBlob, error: downloadError } = await supabase.storage.from("documents").download(path)
+
+			if (downloadError || !fileBlob) {
+				throw new TRPCError({
+					code: "INTERNAL_SERVER_ERROR",
+					message: downloadError?.message ?? "Failed to load file from storage",
+				})
+			}
+
+			const fileBuffer = Buffer.from(await fileBlob.arrayBuffer())
+			const mimeType = doc.type
+			const baseName = doc.name
+			const safeFilename = baseName.toLowerCase().endsWith(".pdf") ? baseName : `${baseName}.pdf`
+
+			let projectUuid: string | null = null
+			let projectUrl: string | null = null
+			let lastError: string | undefined
+			const transientAttempts = 2
+
+			for (let attempt = 0; attempt <= transientAttempts; attempt++) {
+				try {
+					const project = await createDoconchainProject({
+						enpEmail: stampCtx.enpEmail,
+						fileBuffer,
+						filename: safeFilename,
+						mimeType,
+						userListEditable: false,
+						creatorAsViewer: false,
+						documentStamp: stampCtx.documentStamp,
+						getSubOrgCredsForEmail: em => getSubOrgCredsForMemberEmail(em, db),
+					})
+					projectUuid = project.uuid
+					projectUrl = project.url
+					break
+				} catch (error) {
+					lastError = error instanceof Error ? error.message : "DocOnChain project creation failed"
+					const isTransient =
+						typeof lastError === "string" &&
+						(lastError.includes("504") || lastError.includes("503") || lastError.includes("502"))
+					if (!isTransient || attempt >= transientAttempts) {
+						break
+					}
+					await new Promise(r => setTimeout(r, 500 * (attempt + 1)))
+				}
+			}
+
+			if (!projectUuid) {
+				throw new TRPCError({
+					code: "INTERNAL_SERVER_ERROR",
+					message: lastError ?? "DocOnChain project creation failed",
+				})
+			}
+
+			const cleanUrl = stripUrlQueryAndHash(projectUrl)
+
+			await db
+				.update(documents)
+				.set({
+					docoChainProjectId: projectUuid,
+					docoChainRedirectUrl: cleanUrl,
+				})
+				.where(eq(documents.id, doc.id))
+
+			const signerRows = await db.query.documentSigners.findMany({
+				where: eq(documentSigners.documentId, doc.id),
+				orderBy: [asc(documentSigners.signingOrder)],
+				with: {
+					user: {
+						columns: {
+							firstName: true,
+							middleName: true,
+							lastName: true,
+							email: true,
+						},
+					},
+				},
+			})
+
+			for (const row of signerRows) {
+				const signerEmail = asNonEmptyEmail(row.user?.email)
+				if (!signerEmail) {
+					throw new TRPCError({
+						code: "PRECONDITION_FAILED",
+						message: "Signer email is required to sync DocOnChain signers",
+					})
+				}
+
+				await addDoconchainProjectSigner({
+					projectUuid,
+					enpEmail: stampCtx.enpEmail,
+					signer: {
+						email: signerEmail,
+						name: getFullName(row.user) || signerEmail,
+						role: "Signer",
+					},
+					getSubOrgCredsForEmail: em => getSubOrgCredsForMemberEmail(em, db),
+				})
+			}
+
+			return {
+				alreadyExists: false as const,
+				docoChainProjectId: projectUuid,
+				docoChainRedirectUrl: cleanUrl,
+			}
 		}),
 
 	// Set which meeting participants are signers for a given document (before plotting).

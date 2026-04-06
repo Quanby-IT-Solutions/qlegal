@@ -12,7 +12,9 @@ import {
 	CheckCircle2,
 	Clock,
 	FileText,
+	FileUp,
 	GripVertical,
+	Loader2,
 	Lock,
 	MessageSquare,
 	MoreVertical,
@@ -24,6 +26,7 @@ import { usePubSub } from "@videosdk.live/react-sdk"
 
 import { Button } from "@/core/components/ui/button"
 import { Card, CardContent } from "@/core/components/ui/card"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/core/components/ui/tooltip"
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -150,6 +153,11 @@ interface DocumentCardsProps {
 	isTogglingLock: boolean
 	onUpdateDocumentOrder: (documentIds: string[]) => void
 	localParticipantId?: string | null
+	/** Shown in the documents panel header (upper right). */
+	onUploadClick?: () => void
+	isUploadDisabled?: boolean
+	isUploadLoading?: boolean
+	uploadDisabledReason?: string
 }
 
 export interface DocumentCardsHandle {
@@ -198,6 +206,10 @@ export const DocumentCards = React.memo(
 			isTogglingLock,
 			onUpdateDocumentOrder,
 			localParticipantId,
+			onUploadClick,
+			isUploadDisabled,
+			isUploadLoading,
+			uploadDisabledReason,
 		}: DocumentCardsProps,
 		ref: React.Ref<DocumentCardsHandle>
 	) {
@@ -219,6 +231,13 @@ export const DocumentCards = React.memo(
 			? "Only the meeting creator can lock or unlock document uploads"
 			: getMeetingLockToggleLabel(Boolean(isLocked))
 		const reorderTitle: string = getDocumentReorderTitle()
+
+		const isUploadControlDisabled = Boolean(isUploadDisabled) || Boolean(isUploadLoading)
+		const uploadTitle = isUploadControlDisabled
+			? (uploadDisabledReason ?? (isUploadLoading ? "Preparing upload..." : "Add documents"))
+			: "Add documents"
+		const uploadTooltipMessage = uploadDisabledReason ?? ""
+		const shouldShowUploadTooltip = isUploadControlDisabled && uploadTooltipMessage.length > 0
 
 		const [draggedDocumentId, setDraggedDocumentId] = useState<string | null>(null)
 		const [dragOverDocumentId, setDragOverDocumentId] = useState<string | null>(null)
@@ -467,7 +486,7 @@ export const DocumentCards = React.memo(
 				<div
 					className={cn(
 						"flex shrink-0 items-center border-b",
-						showDocuments ? "px-4 py-3" : "px-5 py-4"
+						showDocuments ? "justify-between gap-2 px-4 py-3" : "px-5 py-4"
 					)}
 				>
 					<div className="flex min-w-0 flex-wrap items-center gap-2">
@@ -492,7 +511,7 @@ export const DocumentCards = React.memo(
 						>
 							{showDocuments ? `Documents (${documents.length})` : "Messages"}
 						</span>
-						{isLocked && (
+						{showDocuments && isLocked && (
 							<div className="flex shrink-0 items-center gap-1 rounded-full border border-amber-300 bg-amber-100 px-2 py-0.5 dark:border-amber-700 dark:bg-amber-900/30">
 								<Lock className="size-2.5 text-amber-700 dark:text-amber-400" />
 								<span className="text-[10px] font-semibold text-amber-700 dark:text-amber-400">
@@ -501,39 +520,127 @@ export const DocumentCards = React.memo(
 							</div>
 						)}
 
-						<Button
-							variant="ghost"
-							size="sm"
-							onClick={() => {
-								if (isPrincipal && meetingId) onToggleLock(!isLocked)
-							}}
-							disabled={!isPrincipal || isTogglingLock}
-							className={cn(
-								"h-7 w-7 p-0",
-								isLocked && "text-amber-600 hover:text-amber-700 dark:text-amber-400",
-								!isPrincipal && "cursor-not-allowed opacity-40"
-							)}
-							title={lockToggleTitle}
-						>
-							{isLocked ? <Lock className="size-3.5" /> : <Unlock className="size-3.5" />}
-						</Button>
+						{!showDocuments ? (
+							<>
+								<Button
+									variant="ghost"
+									size="sm"
+									onClick={() => {
+										if (isPrincipal && meetingId) onToggleLock(!isLocked)
+									}}
+									disabled={!isPrincipal || isTogglingLock}
+									className={cn(
+										"h-7 w-7 p-0",
+										isLocked && "text-amber-600 hover:text-amber-700 dark:text-amber-400",
+										!isPrincipal && "cursor-not-allowed opacity-40"
+									)}
+									title={lockToggleTitle}
+								>
+									{isLocked ? <Lock className="size-3.5" /> : <Unlock className="size-3.5" />}
+								</Button>
 
-						<Button
-							variant="ghost"
-							size="sm"
-							onClick={onRefresh}
-							disabled={isDocumentsFetching || isRefreshingSigningStatus}
-							className="h-7 w-7 p-0"
-							title="Refresh documents"
-						>
-							<RefreshCw
-								className={cn(
-									"size-3.5",
-									(isDocumentsFetching || isRefreshingSigningStatus) && "animate-spin"
-								)}
-							/>
-						</Button>
+								<Button
+									variant="ghost"
+									size="sm"
+									onClick={onRefresh}
+									disabled={isDocumentsFetching || isRefreshingSigningStatus}
+									className="h-7 w-7 p-0"
+									title="Refresh documents"
+								>
+									<RefreshCw
+										className={cn(
+											"size-3.5",
+											(isDocumentsFetching || isRefreshingSigningStatus) && "animate-spin"
+										)}
+									/>
+								</Button>
+							</>
+						) : null}
 					</div>
+
+					{showDocuments ? (
+						<div className="flex shrink-0 items-center gap-0.5">
+							<Button
+								variant="ghost"
+								size="sm"
+								onClick={() => {
+									if (isPrincipal && meetingId) onToggleLock(!isLocked)
+								}}
+								disabled={!isPrincipal || isTogglingLock}
+								className={cn(
+									"h-7 w-7 p-0",
+									isLocked && "text-amber-600 hover:text-amber-700 dark:text-amber-400",
+									!isPrincipal && "cursor-not-allowed opacity-40"
+								)}
+								title={lockToggleTitle}
+							>
+								{isLocked ? <Lock className="size-3.5" /> : <Unlock className="size-3.5" />}
+							</Button>
+
+							<Button
+								variant="ghost"
+								size="sm"
+								onClick={onRefresh}
+								disabled={isDocumentsFetching || isRefreshingSigningStatus}
+								className="h-7 w-7 p-0"
+								title="Refresh documents"
+							>
+								<RefreshCw
+									className={cn(
+										"size-3.5",
+										(isDocumentsFetching || isRefreshingSigningStatus) && "animate-spin"
+									)}
+								/>
+							</Button>
+
+							{onUploadClick ? (
+								shouldShowUploadTooltip ? (
+									<Tooltip>
+										<TooltipTrigger asChild>
+											<span className="inline-flex">
+												<Button
+													variant="ghost"
+													size="sm"
+													className="h-7 w-7 cursor-not-allowed p-0 opacity-60"
+													onClick={onUploadClick}
+													disabled
+													type="button"
+												>
+													{isUploadLoading ? (
+														<Loader2 className="size-3.5 animate-spin" />
+													) : (
+														<FileUp className="size-3.5" />
+													)}
+												</Button>
+											</span>
+										</TooltipTrigger>
+										<TooltipContent side="bottom" align="end">
+											{uploadTooltipMessage}
+										</TooltipContent>
+									</Tooltip>
+								) : (
+									<Button
+										variant="ghost"
+										size="sm"
+										type="button"
+										className={cn(
+											"h-7 w-7 p-0",
+											isUploadControlDisabled && "cursor-not-allowed opacity-60"
+										)}
+										onClick={onUploadClick}
+										disabled={isUploadControlDisabled}
+										title={uploadTitle}
+									>
+										{isUploadLoading ? (
+											<Loader2 className="size-3.5 animate-spin" />
+										) : (
+											<FileUp className="size-3.5" />
+										)}
+									</Button>
+								)
+							) : null}
+						</div>
+					) : null}
 				</div>
 				{showDocuments ? (
 					<>
