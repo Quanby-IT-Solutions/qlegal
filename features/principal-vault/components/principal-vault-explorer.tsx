@@ -1,18 +1,19 @@
 "use client"
 
-import { type Route } from "next"
-import { useRouter, useSearchParams } from "next/navigation"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import type { Route } from "next"
+import { useRouter, useSearchParams } from "next/navigation"
 import {
-	ChevronRight,
+	ExternalLink,
 	FileText,
 	Folder,
-	Home,
 	Info,
 	Loader2,
 	MessageSquareText,
 	MoreVertical,
+	Pencil,
 	Plus,
+	Search as SearchIcon,
 	Share2,
 	Trash2,
 	Upload,
@@ -21,7 +22,7 @@ import { useSession } from "next-auth/react"
 import { useDropzone } from "react-dropzone"
 import { toast } from "sonner"
 
-import { PageHeader } from "@/core/components/navbar/page-header"
+import { PageHeader, type PageHeaderItem } from "@/core/components/navbar/page-header"
 import { Alert, AlertDescription, AlertTitle } from "@/core/components/ui/alert"
 import { Button } from "@/core/components/ui/button"
 import { Card, CardContent } from "@/core/components/ui/card"
@@ -74,6 +75,7 @@ export function PrincipalVaultExplorer() {
 	const [uploading, setUploading] = useState(false)
 	const [shareFolder, setShareFolder] = useState<{ id: string; name: string } | null>(null)
 	const [feedbackFile, setFeedbackFile] = useState<{ id: string; name: string } | null>(null)
+	const [vaultSearch, setVaultSearch] = useState("")
 
 	const listQuery = trpc.principalVault.list.useQuery({ parentId }, { retry: false })
 
@@ -125,6 +127,10 @@ export function PrincipalVaultExplorer() {
 	const completeUpload = trpc.principalVault.completeUpload.useMutation()
 	const uploadToSignedUrl = useUploadFile()
 	const getMyVaultFileReadUrl = trpc.principalVault.getMyVaultFileReadUrl.useMutation()
+
+	useEffect(() => {
+		setVaultSearch("")
+	}, [parentId])
 
 	useEffect(() => {
 		const err = listQuery.error
@@ -212,16 +218,43 @@ export function PrincipalVaultExplorer() {
 		disabled: uploading || listQuery.isPending,
 	})
 
-	const breadcrumbItems = useMemo(() => {
+	const pageHeaderBreadcrumbItems = useMemo((): PageHeaderItem[] => {
 		const ancestors = listQuery.data?.ancestors ?? []
-		const items: Array<{ label: string; folderId: string | null }> = [
-			{ label: "My files", folderId: null },
-		]
-		for (const a of ancestors) {
-			items.push({ label: a.name, folderId: a.id })
+		if (!parentId) {
+			return [{ label: "My files" }]
+		}
+		if (listQuery.isPending && !listQuery.data) {
+			return [{ label: "My files", href: "/my-files" }, { label: "…" }]
+		}
+		const items: PageHeaderItem[] = [{ label: "My files", href: "/my-files" }]
+		for (let i = 0; i < ancestors.length; i++) {
+			const a = ancestors[i]!
+			const isLast = i === ancestors.length - 1
+			if (isLast) {
+				items.push({ label: a.name })
+			} else {
+				items.push({
+					label: a.name,
+					href: `/my-files?folder=${encodeURIComponent(a.id)}` as Route,
+				})
+			}
 		}
 		return items
-	}, [listQuery.data?.ancestors])
+	}, [parentId, listQuery.data, listQuery.data?.ancestors, listQuery.isPending])
+
+	const filteredFolders = useMemo(() => {
+		const folders = listQuery.data?.folders ?? []
+		const q = vaultSearch.trim().toLowerCase()
+		if (!q) return folders
+		return folders.filter(f => f.name.toLowerCase().includes(q))
+	}, [listQuery.data?.folders, vaultSearch])
+
+	const filteredFiles = useMemo(() => {
+		const files = listQuery.data?.files ?? []
+		const q = vaultSearch.trim().toLowerCase()
+		if (!q) return files
+		return files.filter(f => f.name.toLowerCase().includes(q))
+	}, [listQuery.data?.files, vaultSearch])
 
 	const currentFolderLabel =
 		parentId && listQuery.data?.ancestors?.length
@@ -247,13 +280,15 @@ export function PrincipalVaultExplorer() {
 
 	return (
 		<div className="flex flex-1 flex-col">
-			<PageHeader items={[{ label: "My files", href: "/my-files" as Route }]} />
+			<PageHeader items={pageHeaderBreadcrumbItems} />
 
 			<main className="flex-1 p-4 md:p-6 lg:p-8">
 				<div className="mx-auto max-w-6xl space-y-6">
 					<div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
 						<div>
-							<h1 className="text-3xl font-bold tracking-tight">My files</h1>
+							<h1 className="text-3xl font-bold tracking-tight">
+								{currentFolderLabel ?? "My files"}
+							</h1>
 							<p className="text-muted-foreground mt-1 max-w-2xl text-sm">
 								Organize drafts and supporting documents before you meet with a notary. This area
 								works like a simple drive: folders and uploads stay private to your account.
@@ -316,27 +351,26 @@ export function PrincipalVaultExplorer() {
 						</AlertDescription>
 					</Alert>
 
-					<nav
-						aria-label="Folder path"
-						className="text-muted-foreground flex flex-wrap items-center gap-1 text-sm"
-					>
-						{breadcrumbItems.map((item, i) => (
-							<span key={item.folderId ?? "root"} className="flex items-center gap-1">
-								{i > 0 && <ChevronRight className="size-3.5 shrink-0 opacity-60" />}
-								<button
-									type="button"
-									className={cn(
-										"hover:text-foreground inline-flex items-center gap-1 rounded-md px-1 py-0.5 transition-colors",
-										i === breadcrumbItems.length - 1 && "text-foreground font-medium"
-									)}
-									onClick={() => goToFolder(item.folderId)}
-								>
-									{i === 0 ? <Home className="size-3.5" /> : null}
-									{item.label}
-								</button>
-							</span>
-						))}
-					</nav>
+					<div className="max-w-xl">
+						<label className="sr-only" htmlFor="vault-folder-search">
+							Search folders and files in this location
+						</label>
+						<div className="relative">
+							<SearchIcon
+								className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2"
+								aria-hidden
+							/>
+							<Input
+								id="vault-folder-search"
+								type="search"
+								placeholder="Search folders and files in this folder…"
+								value={vaultSearch}
+								onChange={e => setVaultSearch(e.target.value)}
+								className="pl-9"
+								autoComplete="off"
+							/>
+						</div>
+					</div>
 
 					<div
 						{...getRootProps()}
@@ -351,7 +385,7 @@ export function PrincipalVaultExplorer() {
 								{listQuery.isPending ? (
 									<div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
 										{Array.from({ length: 6 }).map((_, i) => (
-											<Skeleton key={i} className="h-24 w-full rounded-lg" />
+											<Skeleton key={i} className="h-[4.75rem] w-full rounded-xl" />
 										))}
 									</div>
 								) : listQuery.isError ? (
@@ -364,26 +398,40 @@ export function PrincipalVaultExplorer() {
 									</p>
 								) : (
 									<div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-										{listQuery.data?.folders.map(f => (
+										{filteredFolders.map(f => (
 											<div
 												key={f.id}
-												className="bg-card flex items-stretch gap-1 rounded-lg border transition-colors"
+												className="group bg-card border-border/80 hover:border-border relative flex items-stretch overflow-hidden rounded-xl border shadow-sm transition-all duration-200 hover:shadow-md dark:border-white/10 dark:bg-card/90 dark:shadow-black/25 dark:hover:border-white/[0.14] dark:hover:shadow-lg"
 											>
 												<button
 													type="button"
 													onClick={() => goToFolder(f.id)}
-													className="hover:bg-muted/60 flex min-w-0 flex-1 items-start gap-3 rounded-l-md p-4 text-left"
+													className="hover:bg-muted/50 dark:hover:bg-muted/20 focus-visible:ring-ring flex min-w-0 flex-1 items-center gap-4 rounded-l-xl p-4 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
 												>
-													<Folder className="mt-0.5 size-8 shrink-0 text-amber-600 dark:text-amber-500" />
-													<div className="min-w-0 flex-1">
-														<p className="truncate font-medium">{f.name}</p>
-														<p className="text-muted-foreground text-xs">Folder</p>
+													<div className="bg-amber-500/10 ring-amber-500/15 flex size-11 shrink-0 items-center justify-center rounded-lg ring-1 dark:bg-amber-500/[0.14] dark:ring-amber-400/20">
+														<Folder
+															className="size-5 text-amber-600 dark:text-amber-400"
+															strokeWidth={2}
+															aria-hidden
+														/>
+													</div>
+													<div className="min-w-0 flex-1 py-0.5">
+														<p className="text-foreground truncate text-[15px] leading-snug font-semibold tracking-tight">
+															{f.name}
+														</p>
+														<p className="text-muted-foreground mt-1 text-[10px] font-medium tracking-widest uppercase">
+															Folder
+														</p>
 													</div>
 												</button>
-												<div className="flex shrink-0 items-start pt-2 pr-2">
+												<div className="border-border/60 flex shrink-0 items-center border-l pr-1 pl-0.5 dark:border-white/10">
 													<DropdownMenu>
 														<DropdownMenuTrigger asChild>
-															<Button variant="ghost" size="icon" className="size-8 shrink-0">
+															<Button
+																variant="ghost"
+																size="icon"
+																className="text-muted-foreground size-9 shrink-0 opacity-70 transition-opacity hover:bg-muted/80 hover:opacity-100 group-hover:opacity-90 dark:hover:bg-muted/40"
+															>
 																<MoreVertical className="size-4" />
 																<span className="sr-only">Folder actions</span>
 															</Button>
@@ -393,7 +441,7 @@ export function PrincipalVaultExplorer() {
 																<DropdownMenuItem
 																	onClick={() => setShareFolder({ id: f.id, name: f.name })}
 																>
-																	<Share2 className="mr-2 size-4" />
+																	<Share2 className="size-4 shrink-0" aria-hidden />
 																	Share with notary
 																</DropdownMenuItem>
 															) : null}
@@ -402,13 +450,14 @@ export function PrincipalVaultExplorer() {
 																	openRename({ kind: "folder", id: f.id, name: f.name })
 																}
 															>
+																<Pencil className="size-4 shrink-0" aria-hidden />
 																Rename
 															</DropdownMenuItem>
 															<DropdownMenuItem
 																className="text-destructive focus:text-destructive"
 																onClick={() => deleteFolder.mutate({ id: f.id })}
 															>
-																<Trash2 className="mr-2 size-4" />
+																<Trash2 className="size-4 shrink-0" aria-hidden />
 																Delete
 															</DropdownMenuItem>
 														</DropdownMenuContent>
@@ -417,7 +466,7 @@ export function PrincipalVaultExplorer() {
 											</div>
 										))}
 
-										{listQuery.data?.files.map(file => (
+										{filteredFiles.map(file => (
 											<div
 												key={file.id}
 												className="bg-card flex items-stretch gap-1 rounded-lg border"
@@ -456,7 +505,7 @@ export function PrincipalVaultExplorer() {
 																<DropdownMenuItem
 																	onClick={() => setFeedbackFile({ id: file.id, name: file.name })}
 																>
-																	<MessageSquareText className="mr-2 size-4" />
+																	<MessageSquareText className="size-4 shrink-0" aria-hidden />
 																	Notary feedback
 																</DropdownMenuItem>
 															) : null}
@@ -464,6 +513,7 @@ export function PrincipalVaultExplorer() {
 																disabled={getMyVaultFileReadUrl.isPending}
 																onClick={() => void openVaultFile(file.id)}
 															>
+																<ExternalLink className="size-4 shrink-0" aria-hidden />
 																Open
 															</DropdownMenuItem>
 															<DropdownMenuItem
@@ -471,13 +521,14 @@ export function PrincipalVaultExplorer() {
 																	openRename({ kind: "file", id: file.id, name: file.name })
 																}
 															>
+																<Pencil className="size-4 shrink-0" aria-hidden />
 																Rename
 															</DropdownMenuItem>
 															<DropdownMenuItem
 																className="text-destructive focus:text-destructive"
 																onClick={() => deleteFile.mutate({ id: file.id })}
 															>
-																<Trash2 className="mr-2 size-4" />
+																<Trash2 className="size-4 shrink-0" aria-hidden />
 																Delete
 															</DropdownMenuItem>
 														</DropdownMenuContent>
@@ -486,12 +537,23 @@ export function PrincipalVaultExplorer() {
 											</div>
 										))}
 
-										{listQuery.data?.folders.length === 0 && listQuery.data.files.length === 0 && (
-											<div className="text-muted-foreground col-span-full py-10 text-center text-sm">
-												<p className="mb-2">This folder is empty.</p>
-												<p>Upload files or create a folder to get started.</p>
-											</div>
-										)}
+										{listQuery.data &&
+											listQuery.data.folders.length === 0 &&
+											listQuery.data.files.length === 0 && (
+												<div className="text-muted-foreground col-span-full py-10 text-center text-sm">
+													<p className="mb-2">This folder is empty.</p>
+													<p>Upload files or create a folder to get started.</p>
+												</div>
+											)}
+										{listQuery.data &&
+											(listQuery.data.folders.length > 0 || listQuery.data.files.length > 0) &&
+											filteredFolders.length === 0 &&
+											filteredFiles.length === 0 && (
+												<div className="text-muted-foreground col-span-full py-10 text-center text-sm">
+													<p className="mb-1">No folders or files match your search.</p>
+													<p className="text-xs">Try a different term or clear the search box.</p>
+												</div>
+											)}
 									</div>
 								)}
 							</CardContent>
