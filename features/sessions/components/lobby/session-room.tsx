@@ -5,9 +5,14 @@ import { useRouter } from "next/navigation"
 import { useEffect } from "react"
 import { useSession } from "next-auth/react"
 
+import { KycRequiredDialog } from "@/core/components/kyc-required-dialog"
 import { Button } from "@/core/components/ui/button"
 import { Card, CardContent } from "@/core/components/ui/card"
 import { Skeleton } from "@/core/components/ui/skeleton"
+import {
+	isLawyerBookingBlockedForKyc,
+	KYC_ENP_PRINCIPAL_SESSION_JOIN_MESSAGE,
+} from "@/core/lib/kyc-restriction-guards"
 
 import { useMeetings } from "@/features/sessions/api/meetings.hooks"
 
@@ -35,12 +40,31 @@ interface SessionRoomProps {
 	onLeave: () => void
 }
 
+function trpcErrorMessage(err: unknown): string | undefined {
+	if (err && typeof err === "object" && "message" in err) {
+		const m = (err as { message: unknown }).message
+		return typeof m === "string" ? m : undefined
+	}
+	return undefined
+}
+
 export function SessionRoom({ id, onLeave }: SessionRoomProps) {
 	const router = useRouter()
-	const { data: session } = useSession()
+	const { data: session, status } = useSession()
+	const sessionKyc =
+		typeof session?.user?.kycStatus === "string" ? session.user.kycStatus : undefined
+	const kycJoinBlocked = isLawyerBookingBlockedForKyc(session?.user?.role, sessionKyc)
+	const tokenEnabled =
+		status === "authenticated" && !kycJoinBlocked && Boolean(id?.trim())
+
 	const { getById, getToken } = useMeetings()
-	const { data: meeting, isLoading: isMeetingLoading } = getById(id)
-	const { data: tokenData, isLoading: isTokenLoading } = getToken(id)
+	const { data: meeting, isLoading: isMeetingLoading, error: meetingError } = getById(id)
+	const {
+		data: tokenData,
+		isLoading: isTokenLoading,
+		error: tokenError,
+		isError: isTokenError,
+	} = getToken(id, { enabled: tokenEnabled })
 
 	useEffect(() => {
 		if (!session) {
@@ -48,7 +72,7 @@ export function SessionRoom({ id, onLeave }: SessionRoomProps) {
 		}
 	}, [session, router, id])
 
-	if (isMeetingLoading || isTokenLoading) {
+	if (status === "loading" || status === "unauthenticated") {
 		return (
 			<div className="from-background via-muted/30 to-background flex h-screen items-center justify-center bg-linear-to-br">
 				<div className="text-center">
@@ -59,7 +83,53 @@ export function SessionRoom({ id, onLeave }: SessionRoomProps) {
 		)
 	}
 
-	if (!meeting || !tokenData) {
+	if (status === "authenticated" && kycJoinBlocked) {
+		return (
+			<div className="from-background via-muted/30 to-background flex h-screen items-center justify-center bg-linear-to-br p-4">
+				<KycRequiredDialog
+					open
+					onOpenChange={open => {
+						if (!open) router.push("/sessions")
+					}}
+					returnToPath="/sessions"
+					description="Complete identity verification before joining a session. You can finish verification from here."
+				/>
+			</div>
+		)
+	}
+
+	if (isMeetingLoading || (tokenEnabled && isTokenLoading)) {
+		return (
+			<div className="from-background via-muted/30 to-background flex h-screen items-center justify-center bg-linear-to-br">
+				<div className="text-center">
+					<Skeleton className="mx-auto mb-4 size-12 rounded-full" />
+					<Skeleton className="h-6 w-48" />
+				</div>
+			</div>
+		)
+	}
+
+	const tokenBlockedByKyc =
+		isTokenError &&
+		(trpcErrorMessage(tokenError) === KYC_ENP_PRINCIPAL_SESSION_JOIN_MESSAGE ||
+			trpcErrorMessage(tokenError)?.includes("Complete identity verification before joining"))
+
+	if (tokenBlockedByKyc) {
+		return (
+			<div className="from-background via-muted/30 to-background flex h-screen items-center justify-center bg-linear-to-br p-4">
+				<KycRequiredDialog
+					open
+					onOpenChange={open => {
+						if (!open) router.push("/sessions")
+					}}
+					returnToPath="/sessions"
+					description="Complete identity verification before joining a session. You can finish verification from here."
+				/>
+			</div>
+		)
+	}
+
+	if (!meeting || meetingError || !tokenData) {
 		return (
 			<div className="from-background via-muted/30 to-background flex h-screen items-center justify-center bg-linear-to-br">
 				<Card className="w-full max-w-md shadow-xl">

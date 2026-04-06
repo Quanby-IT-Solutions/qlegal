@@ -2,7 +2,10 @@ import { TRPCError } from "@trpc/server"
 import { and, asc, desc, eq, inArray, ne, type InferSelectModel } from "drizzle-orm"
 import { z } from "zod/v4"
 
-import { assertEnpCanCreateMeetingForKyc } from "@/core/lib/kyc-restriction-guards"
+import {
+	assertEnpCanCreateMeetingForKyc,
+	assertEnpOrPrincipalCanJoinSessionForKyc,
+} from "@/core/lib/kyc-restriction-guards"
 import { getFullName } from "@/core/lib/utils"
 
 import {
@@ -724,6 +727,11 @@ export const meetingsRouter = createTRPCRouter({
 
 	// Get meeting token
 	getToken: protectedProcedure.input(z.string()).query(async ({ input, ctx }) => {
+		assertEnpOrPrincipalCanJoinSessionForKyc(
+			ctx.session.user.role,
+			typeof ctx.session.user.kycStatus === "string" ? ctx.session.user.kycStatus : undefined
+		)
+
 		const meeting = await db.query.meetings.findFirst({
 			where: eq(meetings.id, input),
 		})
@@ -895,6 +903,11 @@ export const meetingsRouter = createTRPCRouter({
 
 	// Start meeting (change status to ONGOING)
 	startMeeting: protectedProcedure.input(z.string()).mutation(async ({ input, ctx }) => {
+		assertEnpOrPrincipalCanJoinSessionForKyc(
+			ctx.session.user.role,
+			typeof ctx.session.user.kycStatus === "string" ? ctx.session.user.kycStatus : undefined
+		)
+
 		const meeting = await db.query.meetings.findFirst({
 			where: eq(meetings.id, input),
 		})
@@ -2392,6 +2405,11 @@ export const meetingsRouter = createTRPCRouter({
 	joinMeetingByLink: protectedProcedure
 		.input(z.object({ meetingId: z.string().min(1) }))
 		.mutation(async ({ input, ctx }) => {
+			assertEnpOrPrincipalCanJoinSessionForKyc(
+				ctx.session.user.role,
+				typeof ctx.session.user.kycStatus === "string" ? ctx.session.user.kycStatus : undefined
+			)
+
 			const meeting = await db.query.meetings.findFirst({
 				where: eq(meetings.id, input.meetingId),
 				columns: { id: true },
@@ -2476,6 +2494,13 @@ export const meetingsRouter = createTRPCRouter({
 					code: "BAD_REQUEST",
 					message: "No pending invite found for this meeting",
 				})
+			}
+
+			if (input.response === "ACCEPT") {
+				assertEnpOrPrincipalCanJoinSessionForKyc(
+					ctx.session.user.role,
+					typeof ctx.session.user.kycStatus === "string" ? ctx.session.user.kycStatus : undefined
+				)
 			}
 
 			const newStatus = input.response === "ACCEPT" ? "ACCEPTED" : "DECLINED"

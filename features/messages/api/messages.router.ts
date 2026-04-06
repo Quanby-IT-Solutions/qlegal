@@ -3,7 +3,6 @@ import { tracked, TRPCError } from "@trpc/server"
 import { and, asc, desc, eq, gt, ne, or, sql } from "drizzle-orm"
 import { z } from "zod/v4"
 
-import { assertBookerCanMessageLawyerForKyc } from "@/core/lib/kyc-restriction-guards"
 import { getFullName } from "@/core/lib/utils"
 
 import { db } from "@/services/drizzle/db"
@@ -338,20 +337,6 @@ export const messagesRouter = createTRPCRouter({
 					code: "NOT_FOUND",
 					message: "User not found",
 				})
-			}
-
-			if (otherUser.role === "ENP") {
-				const booker = await db.query.users.findFirst({
-					where: eq(users.id, ctx.session.user.id),
-					columns: { kycStatus: true, role: true },
-				})
-				if (!booker) {
-					throw new TRPCError({
-						code: "UNAUTHORIZED",
-						message: "User not found",
-					})
-				}
-				assertBookerCanMessageLawyerForKyc(booker.role, booker.kycStatus)
 			}
 
 			// Check if conversation already exists between these two users

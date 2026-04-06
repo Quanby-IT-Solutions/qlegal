@@ -1,8 +1,6 @@
 "use client"
 
-import { useRouter } from "next/navigation"
-import { useState } from "react"
-import { useSession } from "next-auth/react"
+import Link from "next/link"
 import {
 	Briefcase,
 	Clock,
@@ -24,9 +22,7 @@ import {
 	TooltipProvider,
 	TooltipTrigger,
 } from "@/core/components/ui/tooltip"
-import { KycRequiredDialog } from "@/core/components/kyc-required-dialog"
 import { cn, getInitials } from "@/core/lib/utils"
-import { isLawyerContactBlockedForKyc } from "@/core/lib/kyc-restriction-guards"
 
 import { BookingDialog } from "@/features/browse/components/booking-dialog"
 import { UserProfileSheet } from "@/features/user-management/components/user-profile-sheet"
@@ -109,15 +105,6 @@ function EnpRating({
 }
 
 export function EnpCard({ enp, className }: EnpCardProps) {
-	const router = useRouter()
-	const { data: session } = useSession()
-	const [kycMessageBlockOpen, setKycMessageBlockOpen] = useState(false)
-
-	const kycBlocksMessaging = isLawyerContactBlockedForKyc(
-		session?.user?.role,
-		typeof session?.user?.kycStatus === "string" ? session.user.kycStatus : undefined
-	)
-
 	const isAvailable = enp.isAvailable ?? true
 
 	// const specializations =
@@ -252,18 +239,11 @@ export function EnpCard({ enp, className }: EnpCardProps) {
 								variant="outline"
 								size="icon"
 								className="bg-background hover:bg-muted size-9 shrink-0"
-								type="button"
-								onClick={() => {
-									if (kycBlocksMessaging) {
-										setKycMessageBlockOpen(true)
-										return
-									}
-									router.push(
-										`/messages?userId=${enp.id}&returnTo=${encodeURIComponent("/browse")}`
-									)
-								}}
+								asChild
 							>
-								<MessageSquare className="text-muted-foreground size-4" />
+								<Link href={`/messages?userId=${enp.id}`}>
+									<MessageSquare className="text-muted-foreground size-4" />
+								</Link>
 							</Button>
 						</TooltipTrigger>
 						<TooltipContent>Message</TooltipContent>
@@ -288,13 +268,6 @@ export function EnpCard({ enp, className }: EnpCardProps) {
 					</Tooltip>
 				</TooltipProvider>
 			</CardFooter>
-
-			<KycRequiredDialog
-				open={kycMessageBlockOpen}
-				onOpenChange={setKycMessageBlockOpen}
-				returnToPath="/browse"
-				description="Finish identity verification before messaging an Electronic Notary Public."
-			/>
 		</Card>
 	)
 }

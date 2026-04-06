@@ -1,5 +1,10 @@
 "use client"
 
+/**
+ * @deprecated Full onboarding stepper is no longer routed at `/onboarding` (that path redirects to Profile).
+ * Kept for reference or future reuse; KYC Web SDK entry is `useStartKycVerification` on Profile / restriction dialogs.
+ */
+
 import { type Route } from "next"
 import { useRouter } from "next/navigation"
 import { useCallback, useEffect, useRef, useState } from "react"
@@ -39,12 +44,15 @@ interface OnboardingWizardContentProps {
 	onExpandChange?: (expanded: boolean) => void
 	/** When set, Back on the Identity step navigates here instead of the welcome screen. */
 	kycReturnTo?: string | null
+	/** Open HyperVerge immediately (paired with `?autoStart=1` on `/onboarding`). */
+	autoStartKyc?: boolean
 }
 
 export function OnboardingWizardContent({
 	onRestartWelcome,
 	onExpandChange,
 	kycReturnTo,
+	autoStartKyc,
 }: OnboardingWizardContentProps) {
 	return (
 		<StepperProvider variant="horizontal" className="space-y-4">
@@ -52,6 +60,7 @@ export function OnboardingWizardContent({
 				onRestartWelcome={onRestartWelcome}
 				onExpandChange={onExpandChange}
 				kycReturnTo={kycReturnTo}
+				autoStartKyc={autoStartKyc}
 			/>
 		</StepperProvider>
 	)
@@ -61,6 +70,7 @@ function OnboardingWizardContentBody({
 	onRestartWelcome,
 	onExpandChange,
 	kycReturnTo,
+	autoStartKyc,
 }: OnboardingWizardContentProps) {
 	const router = useRouter()
 	const { data: session, update: updateSession } = useSession()
@@ -340,6 +350,7 @@ function OnboardingWizardContentBody({
 						onBack={handleBack}
 						kycStatus={session?.user?.kycStatus ?? undefined}
 						onExpandChange={onExpandChange}
+						autoStartVerification={Boolean(autoStartKyc)}
 					/>
 				)}
 

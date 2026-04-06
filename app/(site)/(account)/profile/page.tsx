@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect } from "react"
 import { useSession } from "next-auth/react"
 
 import { PageHeader } from "@/core/components/navbar/page-header"
@@ -14,6 +15,17 @@ import { RollRegistrationCard } from "@/features/profile/components/roll-registr
 
 export default function Page() {
 	const { data: session } = useSession()
+
+	useEffect(() => {
+		const params = new URLSearchParams(window.location.search)
+		if (params.get("focus") !== "kyc") return
+		requestAnimationFrame(() => {
+			document.getElementById("profile-kyc-verification")?.scrollIntoView({
+				behavior: "smooth",
+				block: "start",
+			})
+		})
+	}, [])
 
 	const isENP = session?.user?.role === "ENP"
 	return (

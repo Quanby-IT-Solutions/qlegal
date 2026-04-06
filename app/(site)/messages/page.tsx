@@ -2,7 +2,6 @@
 
 import { useSearchParams } from "next/navigation"
 import { useEffect, useRef, useState } from "react"
-import { isTRPCClientError } from "@trpc/client"
 import { format } from "date-fns"
 import {
 	CalendarPlus,
@@ -10,18 +9,15 @@ import {
 	Info,
 	MessageSquare,
 	Paperclip,
-	Phone,
 	Plus,
 	Search,
 	Send,
 	Smile,
-	Video,
 } from "lucide-react"
 import { useSession } from "next-auth/react"
 import { toast } from "sonner"
 
 import type { CalendarEvent } from "@/core/components/calendar-schedule"
-import { KycRequiredDialog } from "@/core/components/kyc-required-dialog"
 import { PageHeader } from "@/core/components/navbar/page-header"
 import { Avatar, AvatarFallback, AvatarImage } from "@/core/components/ui/avatar"
 import { Button } from "@/core/components/ui/button"
@@ -37,8 +33,6 @@ import {
 import { Input } from "@/core/components/ui/input"
 import { ScrollArea } from "@/core/components/ui/scroll-area"
 import { Skeleton } from "@/core/components/ui/skeleton"
-import { KYC_ENP_LAWYER_CONTACT_TRPC_MESSAGE } from "@/core/lib/kyc-restriction-guards"
-import { getSafeOnboardingReturnPath } from "@/core/lib/onboarding-return-path"
 import { cn } from "@/core/lib/utils"
 
 import { trpc } from "@/services/trpc/client"
@@ -52,10 +46,6 @@ import {
 } from "@/features/messages/components/consultation-request-card"
 import { FileUploadPanel } from "@/features/messages/components/file-upload-panel"
 import { MessageContent } from "@/features/messages/components/message-content"
-
-function isKycEnpContactForbidden(err: unknown): boolean {
-	return isTRPCClientError(err) && err.message === KYC_ENP_LAWYER_CONTACT_TRPC_MESSAGE
-}
 
 export default function MessagesPage() {
 	const { data: session } = useSession()
@@ -81,7 +71,6 @@ export default function MessagesPage() {
 	const [hasStartedFromQuery, setHasStartedFromQuery] = useState(false)
 	const [isSidebarOpen, setIsSidebarOpen] = useState(false)
 	const [isParticipantPanelOpen, setIsParticipantPanelOpen] = useState(false)
-	const [kycBlockOpen, setKycBlockOpen] = useState(false)
 	const messagesEndRef = useRef<HTMLDivElement>(null)
 	const autoStartInFlightRef = useRef(false)
 	const autoStartHandledUserIdRef = useRef<string | null>(null)
@@ -208,14 +197,8 @@ export default function MessagesPage() {
 					await getConversations.refetch()
 					await messagesQuery.refetch()
 				}
-			} catch (err) {
-				if (isKycEnpContactForbidden(err)) {
-					setKycBlockOpen(true)
-					autoStartHandledUserIdRef.current = null
-					setHasStartedFromQuery(false)
-				} else {
-					toast.error("Failed to start conversation")
-				}
+			} catch {
+				toast.error("Failed to start conversation")
 			} finally {
 				autoStartInFlightRef.current = false
 			}
@@ -278,16 +261,10 @@ export default function MessagesPage() {
 			await messagesQuery.refetch()
 			setIsNewChatDialogOpen(false)
 			setUserSearchQuery("")
-		} catch (err) {
-			if (isKycEnpContactForbidden(err)) {
-				setKycBlockOpen(true)
-			} else {
-				toast.error("Failed to start conversation")
-			}
+		} catch {
+			toast.error("Failed to start conversation")
 		}
 	}
-
-	const kycReturnToPath = getSafeOnboardingReturnPath(searchParams.get("returnTo")) ?? "/messages"
 
 	const formatTime = (date: Date | undefined) => {
 		if (!date) return ""
@@ -739,13 +716,6 @@ export default function MessagesPage() {
 					onClose={() => setIsBookingModalOpen(false)}
 					onSave={handleBookConsultationSave}
 					isSaving={sendConsultationRequest.isPending}
-				/>
-
-				<KycRequiredDialog
-					open={kycBlockOpen}
-					onOpenChange={setKycBlockOpen}
-					returnToPath={kycReturnToPath}
-					description="Finish identity verification before messaging an Electronic Notary Public."
 				/>
 			</div>
 		</div>
