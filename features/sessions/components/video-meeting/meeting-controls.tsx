@@ -6,7 +6,6 @@ import {
 	Camera,
 	CameraOff,
 	CircleDot,
-	FileUp,
 	Loader2,
 	Mic,
 	MicOff,
@@ -26,10 +25,6 @@ import { cn } from "@/core/lib/utils"
 import { formatElapsedMs } from "../../lib/utils"
 
 interface MeetingControlsProps {
-	onUploadClick?: () => void
-	isUploadDisabled?: boolean
-	isUploadLoading?: boolean
-	uploadDisabledReason?: string
 	onRecordingToggle?: () => Promise<void> | void
 	onLocalRecordingToggle?: () => Promise<void> | void
 	localRecordingSupported?: boolean
@@ -47,10 +42,6 @@ interface MeetingControlsProps {
 }
 
 export const MeetingControls = React.memo(function MeetingControls({
-	onUploadClick,
-	isUploadDisabled,
-	isUploadLoading,
-	uploadDisabledReason,
 	onLocalRecordingToggle,
 	isLocalRecording,
 	localRecordingStartedAt,
@@ -62,13 +53,6 @@ export const MeetingControls = React.memo(function MeetingControls({
 	isEndMeetingLoading,
 	endMeetingDisabledReason,
 }: MeetingControlsProps) {
-	const isUploadControlDisabled = Boolean(isUploadDisabled) || Boolean(isUploadLoading)
-	const uploadTitle = isUploadControlDisabled
-		? (uploadDisabledReason ?? (isUploadLoading ? "Preparing upload..." : "Upload document"))
-		: "Upload document"
-	const uploadTooltipMessage = uploadDisabledReason ?? ""
-	const shouldShowUploadTooltip = isUploadControlDisabled && uploadTooltipMessage.length > 0
-
 	const cameraSetterRef = useRef<((v: boolean) => void) | null>(null)
 	const meeting = useMeeting({
 		onError: ({ code, message }: { code: string; message: string }) => {
@@ -313,34 +297,6 @@ export const MeetingControls = React.memo(function MeetingControls({
 								? endMeetingDisabledReason ?? "You cannot end this session"
 								: "End session"}
 						</TooltipContent>
-					</Tooltip>
-				)}
-
-				{onUploadClick && (
-					<Tooltip>
-						<TooltipTrigger asChild>
-							<span className="inline-flex">
-								<Button
-									variant="ghost"
-									className={cn(
-										"h-10 rounded-xl px-3 text-white/80 hover:bg-white/10 hover:text-white",
-										isUploadControlDisabled && "cursor-not-allowed opacity-60"
-									)}
-									onClick={onUploadClick}
-									disabled={isUploadControlDisabled}
-									title={shouldShowUploadTooltip ? undefined : uploadTitle}
-								>
-									{isUploadLoading ? (
-										<Loader2 className="size-4 animate-spin" />
-									) : (
-										<FileUp className="size-4" />
-									)}
-								</Button>
-							</span>
-						</TooltipTrigger>
-						{shouldShowUploadTooltip && (
-							<TooltipContent side="top">{uploadTooltipMessage}</TooltipContent>
-						)}
 					</Tooltip>
 				)}
 
