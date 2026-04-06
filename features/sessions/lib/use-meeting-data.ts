@@ -114,14 +114,15 @@ export function useMeetingData({ meetingId }: UseMeetingDataParams) {
 		},
 	})
 
-	const createDocoChainProjectMutation = {
-		mutate: (_input: { documentId: string; meetingId: string }) => {
-			toast.error(
-				"Project creation is temporarily unavailable while we rebuild the signing integration."
-			)
+	const createDocoChainProjectMutation = trpc.meetings.createDocoChainProject.useMutation({
+		onSuccess: () => {
+			toast.success("DocOnChain project created")
+			void utils.meetings.getMeetingDocuments.invalidate(meetingId ?? "")
 		},
-		isPending: false,
-	}
+		onError: error => {
+			toast.error(error.message ?? "Failed to create DocOnChain project")
+		},
+	})
 
 	const handleSignersChange = useCallback(
 		(documentId: string, userIds: string[], roles: Record<string, "principal" | "witness">) => {
