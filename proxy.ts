@@ -55,16 +55,8 @@ export default proxy(req => {
 		// BUT: Don't handle callback URLs on the signature page itself
 		const callbackUrl = nextUrl.searchParams.get("callbackUrl")
 		if (isAuth && role && callbackUrl && !isPublicRoute && path !== "/auth/signature") {
-			const kycStatus = auth?.user?.kycStatus
 			// ts-expect-error augmented user field
 			const userStatus = auth?.user?.status
-
-			// STRICT KYC: If not verified, always redirect to KYC first, regardless of callback
-			if (kycStatus === "NOT_STARTED" || kycStatus === "PENDING") {
-				const onboardingUrl = new URL("/onboarding", nextUrl)
-				logRedirect(path, onboardingUrl.pathname, "kyc required before callback")
-				return NextResponse.redirect(onboardingUrl)
-			}
 
 			try {
 				const callbackObj = new URL(callbackUrl, nextUrl.origin)
@@ -98,62 +90,11 @@ export default proxy(req => {
 		// --- ACCESS GRANTED ---
 		// User has permission: public routes, shared protected, or role-specific routes
 		if (hasAccess) {
-			// STRICT KYC GATE: All authenticated users must complete KYC before accessing any protected routes
-			const onAuthPage =
-				matchesAnyRoute(path, ROUTE_CONFIG.publicOnly) ||
-				(path.startsWith("/auth/") && path !== "/auth/legal-registration")
-			// ts-expect-error augmented user field
-			const kycStatus = auth?.user?.kycStatus
-
-			// KYC Gate: Redirect to KYC page if:
-			// - User is authenticated AND
-			// - Not already on KYC page AND
-			// - Not on other auth pages (login, register, etc.) AND
-			// - KYC status is NOT_STARTED or PENDING (not yet VERIFIED)
-			if (
-				isAuth &&
-				!path.startsWith("/onboarding") &&
-				!onAuthPage &&
-				(kycStatus === "NOT_STARTED" || kycStatus === "PENDING")
-			) {
-				const onboardingUrl = new URL("/onboarding", nextUrl)
-				logRedirect(path, onboardingUrl.pathname, "strict kyc gate - verification required")
-				return NextResponse.redirect(onboardingUrl)
-			}
-
 			const userStatus = auth?.user?.status
 			if (isAuth && userStatus === "SUSPENDED" && path !== "/auth/status") {
 				const statusUrl = new URL("/auth/status", nextUrl)
 				logRedirect(path, statusUrl.pathname, "account suspended")
 				return NextResponse.redirect(statusUrl)
-			}
-
-			// ONBOARDING REMINDER GATE:
-			// After KYC, users are reminded to complete optional profile details.
-			// They can snooze reminders for 7 days from onboarding.
-			const onboardingSnoozedUntilRaw = auth?.user?.onboardingSnoozedUntil
-			const onboardingSnoozedUntil =
-				typeof onboardingSnoozedUntilRaw === "string" ? new Date(onboardingSnoozedUntilRaw) : null
-			const isOnboardingSnoozed =
-				onboardingSnoozedUntil !== null &&
-				!Number.isNaN(onboardingSnoozedUntil.getTime()) &&
-				onboardingSnoozedUntil.getTime() > Date.now()
-
-			// Allow through if user completed the wizard (onboardingComplete) or all details (onboardingDetailsComplete) or snoozed
-			if (
-				isAuth &&
-				!path.startsWith("/onboarding") &&
-				!onAuthPage &&
-				path !== "/auth/status" &&
-				role !== "ADMIN" &&
-				role !== "ENA" &&
-				!auth?.user?.onboardingDetailsComplete &&
-				!auth?.user?.onboardingComplete &&
-				!isOnboardingSnoozed
-			) {
-				const onboardingUrl = new URL("/onboarding", nextUrl)
-				logRedirect(path, onboardingUrl.pathname, "onboarding reminder gate")
-				return NextResponse.redirect(onboardingUrl)
 			}
 
 			const response = NextResponse.next()
@@ -171,15 +112,10 @@ export default proxy(req => {
 		// Only treat as authenticated if they have a valid role
 		if (isAuth && role) {
 			const isPublicOnly = matchesAnyRoute(path, ROUTE_CONFIG.publicOnly)
-			const kycStatus = auth?.user?.kycStatus
 			const userStatus = auth?.user?.status
 
-			// Determine redirect route based on KYC and user status
+			// Determine redirect route based on user status
 			const getRedirectRoute = () => {
-				// KYC takes priority
-				if (kycStatus === "NOT_STARTED" || kycStatus === "PENDING") {
-					return "/onboarding"
-				}
 				if (userStatus === "SUSPENDED") {
 					return "/auth/status"
 				}

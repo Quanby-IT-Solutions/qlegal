@@ -1362,7 +1362,7 @@ export const meetingsRouter = createTRPCRouter({
 				throw new TRPCError({ code: "NOT_FOUND", message: "Folder not found in your files" })
 			}
 
-			await resolveMeetingEnpAndDocumentStamp(input.meetingId, participantsBundle as AppointmentParticipantsBundle)
+			await resolveMeetingEnpAndDocumentStamp(input.meetingId, participantsBundle)
 
 			const treeFiles = await listAllFilesInFolderTree(db, input.folderId, ctx.session.user.id)
 
@@ -1737,10 +1737,7 @@ export const meetingsRouter = createTRPCRouter({
 
 			assertMeetingUnlockedForDocumentMutations(meeting)
 
-			const stampCtx = await resolveMeetingEnpAndDocumentStamp(
-				input.meetingId,
-				participantsBundle as AppointmentParticipantsBundle
-			)
+			const stampCtx = await resolveMeetingEnpAndDocumentStamp(input.meetingId, participantsBundle)
 
 			if (ctx.session.user.id !== stampCtx.enpUserId) {
 				throw new TRPCError({

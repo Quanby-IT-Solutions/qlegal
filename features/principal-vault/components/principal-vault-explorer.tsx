@@ -1,8 +1,8 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import type { Route } from "next"
 import { useRouter, useSearchParams } from "next/navigation"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
 	ExternalLink,
 	FileText,
@@ -59,6 +59,7 @@ function formatFileSize(bytes: number): string {
 export function PrincipalVaultExplorer() {
 	const router = useRouter()
 	const searchParams = useSearchParams()
+	const myFilesRoute = "/my-files" as Route
 	const { data: session } = useSession()
 	const canShareWithNotary = session?.user?.role === "PRINCIPAL" || session?.user?.role === "ENP"
 	const folderParam = searchParams.get("folder")
@@ -140,19 +141,19 @@ export function PrincipalVaultExplorer() {
 				: undefined
 		if (code === "NOT_FOUND") {
 			toast.error("That folder does not exist or you cannot access it.")
-			router.replace("/my-files" as Route)
+			router.replace(myFilesRoute)
 		}
-	}, [listQuery.error, router])
+	}, [listQuery.error, myFilesRoute, router])
 
 	const goToFolder = useCallback(
 		(id: string | null) => {
 			if (id === null) {
-				router.push("/my-files" as Route)
+				router.push(myFilesRoute)
 			} else {
 				router.push(`/my-files?folder=${encodeURIComponent(id)}` as Route)
 			}
 		},
-		[router]
+		[myFilesRoute, router]
 	)
 
 	const openVaultFile = useCallback(
@@ -224,9 +225,9 @@ export function PrincipalVaultExplorer() {
 			return [{ label: "My files" }]
 		}
 		if (listQuery.isPending && !listQuery.data) {
-			return [{ label: "My files", href: "/my-files" }, { label: "…" }]
+			return [{ label: "My files", href: myFilesRoute }, { label: "…" }]
 		}
-		const items: PageHeaderItem[] = [{ label: "My files", href: "/my-files" }]
+		const items: PageHeaderItem[] = [{ label: "My files", href: myFilesRoute }]
 		for (let i = 0; i < ancestors.length; i++) {
 			const a = ancestors[i]!
 			const isLast = i === ancestors.length - 1
@@ -240,7 +241,7 @@ export function PrincipalVaultExplorer() {
 			}
 		}
 		return items
-	}, [parentId, listQuery.data, listQuery.data?.ancestors, listQuery.isPending])
+	}, [parentId, listQuery.data, listQuery.isPending, myFilesRoute])
 
 	const filteredFolders = useMemo(() => {
 		const folders = listQuery.data?.folders ?? []
@@ -385,7 +386,7 @@ export function PrincipalVaultExplorer() {
 								{listQuery.isPending ? (
 									<div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
 										{Array.from({ length: 6 }).map((_, i) => (
-											<Skeleton key={i} className="h-[4.75rem] w-full rounded-xl" />
+											<Skeleton key={i} className="h-19 w-full rounded-xl" />
 										))}
 									</div>
 								) : listQuery.isError ? (
@@ -401,14 +402,14 @@ export function PrincipalVaultExplorer() {
 										{filteredFolders.map(f => (
 											<div
 												key={f.id}
-												className="group bg-card border-border/80 hover:border-border relative flex items-stretch overflow-hidden rounded-xl border shadow-sm transition-all duration-200 hover:shadow-md dark:border-white/10 dark:bg-card/90 dark:shadow-black/25 dark:hover:border-white/[0.14] dark:hover:shadow-lg"
+												className="group bg-card border-border/80 hover:border-border dark:bg-card/90 relative flex items-stretch overflow-hidden rounded-xl border shadow-sm transition-all duration-200 hover:shadow-md dark:border-white/10 dark:shadow-black/25 dark:hover:border-white/[0.14] dark:hover:shadow-lg"
 											>
 												<button
 													type="button"
 													onClick={() => goToFolder(f.id)}
-													className="hover:bg-muted/50 dark:hover:bg-muted/20 focus-visible:ring-ring flex min-w-0 flex-1 items-center gap-4 rounded-l-xl p-4 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+													className="hover:bg-muted/50 dark:hover:bg-muted/20 focus-visible:ring-ring focus-visible:ring-offset-background flex min-w-0 flex-1 items-center gap-4 rounded-l-xl p-4 text-left transition-colors outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
 												>
-													<div className="bg-amber-500/10 ring-amber-500/15 flex size-11 shrink-0 items-center justify-center rounded-lg ring-1 dark:bg-amber-500/[0.14] dark:ring-amber-400/20">
+													<div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-amber-500/10 ring-1 ring-amber-500/15 dark:bg-amber-500/[0.14] dark:ring-amber-400/20">
 														<Folder
 															className="size-5 text-amber-600 dark:text-amber-400"
 															strokeWidth={2}
@@ -430,7 +431,7 @@ export function PrincipalVaultExplorer() {
 															<Button
 																variant="ghost"
 																size="icon"
-																className="text-muted-foreground size-9 shrink-0 opacity-70 transition-opacity hover:bg-muted/80 hover:opacity-100 group-hover:opacity-90 dark:hover:bg-muted/40"
+																className="text-muted-foreground hover:bg-muted/80 dark:hover:bg-muted/40 size-9 shrink-0 opacity-70 transition-opacity group-hover:opacity-90 hover:opacity-100"
 															>
 																<MoreVertical className="size-4" />
 																<span className="sr-only">Folder actions</span>
@@ -537,16 +538,13 @@ export function PrincipalVaultExplorer() {
 											</div>
 										))}
 
-										{listQuery.data &&
-											listQuery.data.folders.length === 0 &&
-											listQuery.data.files.length === 0 && (
-												<div className="text-muted-foreground col-span-full py-10 text-center text-sm">
-													<p className="mb-2">This folder is empty.</p>
-													<p>Upload files or create a folder to get started.</p>
-												</div>
-											)}
-										{listQuery.data &&
-											(listQuery.data.folders.length > 0 || listQuery.data.files.length > 0) &&
+										{listQuery.data?.folders.length === 0 && listQuery.data.files.length === 0 && (
+											<div className="text-muted-foreground col-span-full py-10 text-center text-sm">
+												<p className="mb-2">This folder is empty.</p>
+												<p>Upload files or create a folder to get started.</p>
+											</div>
+										)}
+										{(listQuery.data?.folders.length > 0 || listQuery.data?.files.length > 0) &&
 											filteredFolders.length === 0 &&
 											filteredFiles.length === 0 && (
 												<div className="text-muted-foreground col-span-full py-10 text-center text-sm">
