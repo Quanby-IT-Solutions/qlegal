@@ -233,7 +233,11 @@ export default function MessagesPage() {
 	])
 
 	const handleBookConsultationSave = async (event: CalendarEvent) => {
-		if (!selectedConversationId) return
+		if (!selectedConversationId) {
+			const error = new Error("No conversation selected")
+			toast.error("Select a conversation before booking a session")
+			throw error
+		}
 
 		// Derive time strings and duration from the CalendarEvent
 		const startHour = event.startAt.getHours().toString().padStart(2, "0")
@@ -260,8 +264,9 @@ export default function MessagesPage() {
 			})
 			setIsBookingModalOpen(false)
 			toast.success("Consultation request sent!")
-		} catch {
+		} catch (error) {
 			toast.error("Failed to send consultation request")
+			throw error
 		}
 	}
 
@@ -732,7 +737,8 @@ export default function MessagesPage() {
 					event={null}
 					isOpen={isBookingModalOpen}
 					onClose={() => setIsBookingModalOpen(false)}
-					onSave={event => void handleBookConsultationSave(event)}
+					onSave={handleBookConsultationSave}
+					isSaving={sendConsultationRequest.isPending}
 				/>
 
 				<KycRequiredDialog
