@@ -5,6 +5,7 @@ import { useSession } from "next-auth/react"
 import { PageHeader } from "@/core/components/navbar/page-header"
 
 import { AvatarCard } from "@/features/profile/components/avatar-card"
+import { IdentityVerificationCard } from "@/features/profile/components/identity-verification-card"
 import { CertificationsCard } from "@/features/profile/components/certifications-card"
 import { LawyerDetailsCard } from "@/features/profile/components/lawyer-details-card"
 import { LicensingCard } from "@/features/profile/components/licensing-card"
@@ -28,6 +29,7 @@ export default function Page() {
 					</div>
 
 					<AvatarCard />
+					<IdentityVerificationCard />
 					<PersonalInformationCard />
 					{isENP && (
 						<>

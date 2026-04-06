@@ -40,17 +40,28 @@ function clearWelcomeDismissedStorage() {
 	}
 }
 
-export function OnboardingWizard() {
+export function OnboardingWizard({
+	skipWelcomeForKyc = false,
+	kycReturnTo = null,
+}: {
+	skipWelcomeForKyc?: boolean
+	/** When set (e.g. from `?returnTo=`), Back on the first step navigates here instead of the welcome screen. */
+	kycReturnTo?: string | null
+} = {}) {
 	const { data: session } = useSession()
-	const [welcomeDismissedLocally, setWelcomeDismissedLocally] = useState(false)
-	const [storageDismissed, setStorageDismissed] = useState(false)
+	const [welcomeDismissedLocally, setWelcomeDismissedLocally] = useState(skipWelcomeForKyc)
+	const [storageDismissed, setStorageDismissed] = useState(skipWelcomeForKyc)
 	/** When true, show the welcome screen even if KYC is PENDING/VERIFIED (fixes Back on step 1 after cancel + return). */
 	const [backToWelcome, setBackToWelcome] = useState(false)
 	const [isExpanded, setIsExpanded] = useState(false)
 
 	useEffect(() => {
+		if (skipWelcomeForKyc) {
+			persistWelcomeDismissed()
+			return
+		}
 		setStorageDismissed(readWelcomeDismissedFromStorage())
-	}, [])
+	}, [skipWelcomeForKyc])
 
 	useEffect(() => {
 		const kyc = session?.user?.kycStatus
@@ -126,6 +137,7 @@ export function OnboardingWizard() {
 				<OnboardingWizardContent
 					onRestartWelcome={handleRestartWelcome}
 					onExpandChange={setIsExpanded}
+					kycReturnTo={kycReturnTo}
 				/>
 			)}
 		</Card>

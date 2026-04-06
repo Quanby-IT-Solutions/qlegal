@@ -3,7 +3,11 @@
 import { useState } from "react"
 import { format, startOfToday } from "date-fns"
 import { Calendar, Clock, Loader2, Video } from "lucide-react"
+import { useSession } from "next-auth/react"
 import { toast } from "sonner"
+
+import { KycRequiredDialog } from "@/core/components/kyc-required-dialog"
+import { isLawyerBookingBlockedForKyc } from "@/core/lib/kyc-restriction-guards"
 
 import { Button } from "@/core/components/ui/button"
 import { Calendar as CalendarComponent } from "@/core/components/ui/calendar"
@@ -21,6 +25,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/core/components/ui/po
 
 import { trpc } from "@/services/trpc/client"
 
+
 interface ConsultationBookingDialogProps {
 	enpId: string
 	enpName?: string | null
@@ -32,7 +37,22 @@ export function ConsultationBookingDialog({
 	enpName,
 	trigger,
 }: ConsultationBookingDialogProps) {
+	const { data: session } = useSession()
 	const [open, setOpen] = useState(false)
+	const [kycBlockOpen, setKycBlockOpen] = useState(false)
+
+	const kycBlocked = isLawyerBookingBlockedForKyc(
+		session?.user?.role,
+		typeof session?.user?.kycStatus === "string" ? session.user.kycStatus : undefined
+	)
+
+	const handleDialogOpenChange = (next: boolean) => {
+		if (next && kycBlocked) {
+			setKycBlockOpen(true)
+			return
+		}
+		setOpen(next)
+	}
 	const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined)
 	const [selectedTime, setSelectedTime] = useState<string>("")
 	const today = startOfToday()
@@ -98,8 +118,15 @@ export function ConsultationBookingDialog({
 			: []
 
 	return (
-		<Dialog open={open} onOpenChange={setOpen}>
-			<DialogTrigger asChild>{trigger || <Button>Book Consultation</Button>}</DialogTrigger>
+		<>
+			<KycRequiredDialog
+				open={kycBlockOpen}
+				onOpenChange={setKycBlockOpen}
+				returnToPath="/browse"
+				description="Finish identity verification before booking an Electronic Notary Public. You can complete it from your profile anytime."
+			/>
+			<Dialog open={open} onOpenChange={handleDialogOpenChange}>
+			<DialogTrigger asChild>{trigger ?? <Button>Book Consultation</Button>}</DialogTrigger>
 			<DialogContent className="sm:max-w-125">
 				<DialogHeader>
 					<DialogTitle>Book Consultation{enpName ? ` with ${enpName}` : ""}</DialogTitle>
@@ -201,5 +228,6 @@ export function ConsultationBookingDialog({
 				</DialogFooter>
 			</DialogContent>
 		</Dialog>
+		</>
 	)
 }

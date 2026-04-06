@@ -1,5 +1,6 @@
 "use client"
 
+import { type Route } from "next"
 import { useRouter } from "next/navigation"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -36,17 +37,21 @@ const { useStepper, steps, StepperProvider, StepperNavigation, StepperStep, Step
 interface OnboardingWizardContentProps {
 	onRestartWelcome: () => void
 	onExpandChange?: (expanded: boolean) => void
+	/** When set, Back on the Identity step navigates here instead of the welcome screen. */
+	kycReturnTo?: string | null
 }
 
 export function OnboardingWizardContent({
 	onRestartWelcome,
 	onExpandChange,
+	kycReturnTo,
 }: OnboardingWizardContentProps) {
 	return (
 		<StepperProvider variant="horizontal" className="space-y-4">
 			<OnboardingWizardContentBody
 				onRestartWelcome={onRestartWelcome}
 				onExpandChange={onExpandChange}
+				kycReturnTo={kycReturnTo}
 			/>
 		</StepperProvider>
 	)
@@ -55,6 +60,7 @@ export function OnboardingWizardContent({
 function OnboardingWizardContentBody({
 	onRestartWelcome,
 	onExpandChange,
+	kycReturnTo,
 }: OnboardingWizardContentProps) {
 	const router = useRouter()
 	const { data: session, update: updateSession } = useSession()
@@ -198,6 +204,10 @@ function OnboardingWizardContentBody({
 
 	const handleBack = () => {
 		if (methods.isFirst) {
+			if (kycReturnTo) {
+				router.push(kycReturnTo as Route)
+				return
+			}
 			onRestartWelcome()
 			return
 		}
