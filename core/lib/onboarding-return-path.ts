@@ -12,9 +12,13 @@ export function getSafeOnboardingReturnPath(raw: string | null | undefined): str
 	return pathOnly
 }
 
-export function buildOnboardingKycUrl(returnToPath?: string | null): string {
-	const base = "/onboarding?focus=kyc"
+export function buildOnboardingKycUrl(
+	returnToPath?: string | null,
+	options?: { autoStart?: boolean }
+): string {
+	const parts = ["focus=kyc"] as string[]
 	const safe = returnToPath ? getSafeOnboardingReturnPath(returnToPath) : null
-	if (!safe) return base
-	return `${base}&returnTo=${encodeURIComponent(safe)}`
+	if (safe) parts.push(`returnTo=${encodeURIComponent(safe)}`)
+	if (options?.autoStart) parts.push("autoStart=1")
+	return `/onboarding?${parts.join("&")}`
 }

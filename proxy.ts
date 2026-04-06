@@ -89,12 +89,6 @@ export default proxy(req => {
 		// --- ACCESS GRANTED ---
 		// User has permission: public routes, shared protected, or role-specific routes
 		if (hasAccess) {
-			const onAuthPage =
-				matchesAnyRoute(path, ROUTE_CONFIG.publicOnly) ||
-				(path.startsWith("/auth/") && path !== "/auth/legal-registration")
-			// ts-expect-error augmented user field
-			const kycStatus = auth?.user?.kycStatus
-
 			const userStatus = auth?.user?.status
 			if (isAuth && userStatus === "SUSPENDED" && path !== "/auth/status") {
 				const statusUrl = new URL("/auth/status", nextUrl)
@@ -102,34 +96,32 @@ export default proxy(req => {
 				return NextResponse.redirect(statusUrl)
 			}
 
-			// ONBOARDING REMINDER GATE:
-			// After KYC is verified, users are reminded to complete optional profile details.
-			// They can snooze reminders for 7 days from onboarding.
-			const onboardingSnoozedUntilRaw = auth?.user?.onboardingSnoozedUntil
-			const onboardingSnoozedUntil =
-				typeof onboardingSnoozedUntilRaw === "string" ? new Date(onboardingSnoozedUntilRaw) : null
-			const isOnboardingSnoozed =
-				onboardingSnoozedUntil !== null &&
-				!Number.isNaN(onboardingSnoozedUntil.getTime()) &&
-				onboardingSnoozedUntil.getTime() > Date.now()
-
-			// Allow through if user completed the wizard (onboardingComplete) or all details (onboardingDetailsComplete) or snoozed
-			if (
-				isAuth &&
-				kycStatus === "VERIFIED" &&
-				!path.startsWith("/onboarding") &&
-				!onAuthPage &&
-				path !== "/auth/status" &&
-				role !== "ADMIN" &&
-				role !== "ENA" &&
-				!auth?.user?.onboardingDetailsComplete &&
-				!auth?.user?.onboardingComplete &&
-				!isOnboardingSnoozed
-			) {
-				const onboardingUrl = new URL("/onboarding", nextUrl)
-				logRedirect(path, onboardingUrl.pathname, "onboarding reminder gate")
-				return NextResponse.redirect(onboardingUrl)
-			}
+			// ONBOARDING REMINDER GATE (disabled):
+			// Previously: after KYC verified, redirect to `/onboarding` for recovery/phone/photo steps.
+			// Replaced by profile-first KYC (`/onboarding` redirects to `/profile?focus=kyc`).
+			// const onboardingSnoozedUntilRaw = auth?.user?.onboardingSnoozedUntil
+			// const onboardingSnoozedUntil =
+			// 	typeof onboardingSnoozedUntilRaw === "string" ? new Date(onboardingSnoozedUntilRaw) : null
+			// const isOnboardingSnoozed =
+			// 	onboardingSnoozedUntil !== null &&
+			// 	!Number.isNaN(onboardingSnoozedUntil.getTime()) &&
+			// 	onboardingSnoozedUntil.getTime() > Date.now()
+			// if (
+			// 	isAuth &&
+			// 	kycStatus === "VERIFIED" &&
+			// 	!path.startsWith("/onboarding") &&
+			// 	!onAuthPage &&
+			// 	path !== "/auth/status" &&
+			// 	role !== "ADMIN" &&
+			// 	role !== "ENA" &&
+			// 	!auth?.user?.onboardingDetailsComplete &&
+			// 	!auth?.user?.onboardingComplete &&
+			// 	!isOnboardingSnoozed
+			// ) {
+			// 	const onboardingUrl = new URL("/onboarding", nextUrl)
+			// 	logRedirect(path, onboardingUrl.pathname, "onboarding reminder gate")
+			// 	return NextResponse.redirect(onboardingUrl)
+			// }
 
 			const response = NextResponse.next()
 

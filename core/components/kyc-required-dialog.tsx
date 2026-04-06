@@ -3,7 +3,7 @@
 import { type Route } from "next"
 import Link from "next/link"
 
-import { buildOnboardingKycUrl } from "@/core/lib/onboarding-return-path"
+import { useStartKycVerification } from "@/features/kyc/hooks/use-start-kyc-verification"
 
 import { Button } from "@/core/components/ui/button"
 import {
@@ -21,9 +21,9 @@ interface KycRequiredDialogProps {
 	onOpenChange: (open: boolean) => void
 	title?: string
 	description?: string
-	/** Full verification URL. When set, `returnToPath` is ignored. */
+	/** When set, primary action navigates here instead of launching the Web SDK. */
 	verificationHref?: Route
-	/** App path to return to when the user presses Back on the Identity step (e.g. `/browse`). */
+	/** Unused when using default SDK launch; kept for API compatibility. */
 	returnToPath?: string
 	primaryLabel?: string
 }
@@ -32,12 +32,17 @@ export function KycRequiredDialog({
 	open,
 	onOpenChange,
 	title = "Identity verification required",
-	description = "Finish identity verification before continuing. You can complete it from your profile anytime.",
+	description = "Finish identity verification before continuing. Verification opens on this device—no need to visit a separate page.",
 	verificationHref,
-	returnToPath,
-	primaryLabel = "Go to verification",
+	primaryLabel = "Start identity verification",
 }: KycRequiredDialogProps) {
-	const linkHref = verificationHref ?? (buildOnboardingKycUrl(returnToPath) as Route)
+	const { start, isLoading } = useStartKycVerification()
+
+	const handlePrimary = () => {
+		if (verificationHref) return
+		onOpenChange(false)
+		void start()
+	}
 
 	return (
 		<AlertDialog open={open} onOpenChange={onOpenChange}>
@@ -47,10 +52,16 @@ export function KycRequiredDialog({
 					<AlertDialogDescription>{description}</AlertDialogDescription>
 				</AlertDialogHeader>
 				<AlertDialogFooter>
-					<AlertDialogCancel>Close</AlertDialogCancel>
-					<Button asChild>
-						<Link href={linkHref}>{primaryLabel}</Link>
-					</Button>
+					<AlertDialogCancel disabled={isLoading}>Close</AlertDialogCancel>
+					{verificationHref ? (
+						<Button asChild>
+							<Link href={verificationHref}>{primaryLabel}</Link>
+						</Button>
+					) : (
+						<Button type="button" disabled={isLoading} onClick={handlePrimary}>
+							{isLoading ? "Opening…" : primaryLabel}
+						</Button>
+					)}
 				</AlertDialogFooter>
 			</AlertDialogContent>
 		</AlertDialog>

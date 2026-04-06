@@ -1,22 +1,23 @@
 "use client"
 
-import { type Route } from "next"
-import Link from "next/link"
 import { useSession } from "next-auth/react"
 import {
 	AlertCircle,
-	ArrowRight,
 	CheckCircle2,
 	Clock,
+	Loader2,
 	Shield,
+	ShieldCheck,
 	type LucideIcon,
 } from "lucide-react"
 
 import { Badge } from "@/core/components/ui/badge"
 import { Button } from "@/core/components/ui/button"
 import { Card, CardContent } from "@/core/components/ui/card"
-import { buildOnboardingKycUrl } from "@/core/lib/onboarding-return-path"
+import { FieldGroup } from "@/core/components/ui/field"
 import { cn } from "@/core/lib/utils"
+
+import { useStartKycVerification } from "@/features/kyc/hooks/use-start-kyc-verification"
 
 function kycStatusMeta(status: string): {
 	label: string
@@ -71,13 +72,22 @@ function kycStatusMeta(status: string): {
 
 export function IdentityVerificationCard() {
 	const { data: session } = useSession()
+	const { start, isLoading } = useStartKycVerification()
+
 	const kycStatus =
 		typeof session?.user?.kycStatus === "string" ? session.user.kycStatus : "NOT_STARTED"
 	const meta = kycStatusMeta(kycStatus)
 	const isVerified = kycStatus === "VERIFIED"
 
+	const description = isVerified
+		? "Your identity is verified. We keep this on file to protect your account, your documents, and everyone you work with on the platform."
+		: "Confirm who you are so we can protect your account. You can finish this whenever you\u2019re ready—signing and the rest of the app stay available in the meantime."
+
 	return (
-		<Card className="border-border/60 bg-card/80 dark:bg-card/70 border shadow-sm backdrop-blur-xl transition-all duration-300 hover:shadow-md">
+		<Card
+			id="profile-kyc-verification"
+			className="border-border/60 bg-card/80 dark:bg-card/70 border shadow-sm backdrop-blur-xl transition-all duration-300 hover:shadow-md"
+		>
 			<CardContent className="p-6 sm:p-8">
 				<div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between lg:gap-10">
 					<div className="flex min-w-0 gap-4 sm:gap-5">
@@ -95,8 +105,7 @@ export function IdentityVerificationCard() {
 									Identity verification
 								</h2>
 								<p className="text-muted-foreground mt-1.5 max-w-xl text-sm leading-relaxed">
-									Confirm who you are so we can protect your account. You can finish this whenever
-									you&apos;re ready—signing and the rest of the app stay available in the meantime.
+									{description}
 								</p>
 							</div>
 							<div className="flex flex-wrap items-center gap-2 pt-1">
@@ -117,22 +126,42 @@ export function IdentityVerificationCard() {
 						</div>
 					</div>
 
-					<div className="flex shrink-0 flex-col gap-3 sm:flex-row sm:items-center lg:flex-col lg:items-stretch xl:flex-row xl:items-center">
+					<div className="flex w-full min-w-0 shrink-0 flex-col gap-3 lg:max-w-md">
 						{isVerified ? (
 							<p className="text-muted-foreground text-center text-sm sm:text-left lg:text-right xl:text-left">
 								Your identity is on file. Update verification if your provider asks you to redo it.
 							</p>
 						) : (
-							<Button
-								asChild
-								size="lg"
-								className="h-11 rounded-full px-6 font-medium shadow-sm transition-transform hover:translate-y-[-1px]"
-							>
-								<Link href={buildOnboardingKycUrl("/profile") as Route} className="gap-2">
-									Continue verification
-									<ArrowRight className="size-4" aria-hidden />
-								</Link>
-							</Button>
+							<FieldGroup className="bg-muted/40 gap-4 rounded-lg border p-4 sm:gap-5">
+								<p className="text-muted-foreground text-[11px] font-semibold tracking-wider uppercase">
+									Verification method
+								</p>
+								<Button
+									type="button"
+									variant="outline"
+									size="lg"
+									disabled={isLoading}
+									className="h-auto w-full cursor-pointer items-start justify-start gap-3 px-4 py-3 text-left whitespace-normal"
+									onClick={() => void start({ skipExpiryGate: true })}
+								>
+									<div className="bg-muted flex size-9 shrink-0 items-center justify-center rounded-md border sm:size-10">
+										{isLoading ? (
+											<Loader2 className="size-5 animate-spin" aria-hidden />
+										) : (
+											<ShieldCheck className="size-5" aria-hidden />
+										)}
+									</div>
+									<div className="flex min-w-0 flex-1 flex-col items-start gap-0.5">
+										<span className="text-sm leading-snug font-medium">
+											{isLoading ? "Opening verification…" : "Start identity verification"}
+										</span>
+										<span className="text-muted-foreground text-xs leading-snug wrap-break-word">
+											Complete verification on your screen. This page will update when you&apos;re
+											done.
+										</span>
+									</div>
+								</Button>
+							</FieldGroup>
 						)}
 					</div>
 				</div>

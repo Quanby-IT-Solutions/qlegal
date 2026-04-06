@@ -41,6 +41,8 @@ interface KycStepProps {
 	onBack: () => void
 	kycStatus?: string
 	onExpandChange?: (expanded: boolean) => void
+	/** When true (from `?autoStart=1`), launch the verification SDK without an extra tap. */
+	autoStartVerification?: boolean
 }
 
 interface UserKycInfo {
@@ -70,7 +72,13 @@ interface UserKycInfo {
 	} | null
 }
 
-export function KycStep({ onNext, onBack, kycStatus, onExpandChange }: KycStepProps) {
+export function KycStep({
+	onNext,
+	onBack,
+	kycStatus,
+	onExpandChange,
+	autoStartVerification = false,
+}: KycStepProps) {
 	const { update: updateSession } = useSession()
 	const queryClient = useQueryClient()
 
@@ -369,6 +377,41 @@ export function KycStep({ onNext, onBack, kycStatus, onExpandChange }: KycStepPr
 		setMode("mobile-pending")
 		void launchSdk()
 	}
+
+	const handleStartVerificationRef = useRef(handleStartVerification)
+	handleStartVerificationRef.current = handleStartVerification
+
+	const kycAutoStartConsumedRef = useRef(false)
+
+	useEffect(() => {
+		if (!autoStartVerification) return
+		if (kycAutoStartConsumedRef.current) return
+		if (isVerified) return
+		if (showKycExpiryNotice) return
+
+		const showNeedsReviewBannerEarly = sdkNeedsReviewPending || isNeedsReview
+		const isPendingForButton =
+			isResettingForRetry ||
+			isLaunchingSdk ||
+			isStatusLoading ||
+			(sdkNeedsReviewPending && isNeedsReview === false)
+		if (isPendingForButton || showNeedsReviewBannerEarly) return
+		if (effectiveStatus === "PENDING" && !isRejected) return
+
+		kycAutoStartConsumedRef.current = true
+		void handleStartVerificationRef.current()
+	}, [
+		autoStartVerification,
+		isVerified,
+		showKycExpiryNotice,
+		sdkNeedsReviewPending,
+		isNeedsReview,
+		isResettingForRetry,
+		isLaunchingSdk,
+		isStatusLoading,
+		effectiveStatus,
+		isRejected,
+	])
 
 	if (isVerified) {
 		const previewAddress = userInfo?.kycPreview?.address ?? null

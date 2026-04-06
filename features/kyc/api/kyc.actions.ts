@@ -1617,7 +1617,7 @@ export async function dismissKycExpiryNotice() {
 	}
 	try {
 		await db.update(users).set({ kycLastExpiredAt: null }).where(eq(users.id, session.user.id))
-		revalidatePath("/onboarding")
+		revalidatePath("/profile")
 		return { success: true as const }
 	} catch (error) {
 		console.error("dismissKycExpiryNotice failed:", error)
