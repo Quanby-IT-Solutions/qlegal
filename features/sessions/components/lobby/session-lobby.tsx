@@ -13,6 +13,7 @@ import {
 	MicOff,
 	Users,
 	Video,
+	X,
 } from "lucide-react"
 import { useSession } from "next-auth/react"
 
@@ -426,6 +427,8 @@ export function SessionLobby({ id, onJoin }: SessionLobbyProps) {
 		}
 	}, [stream])
 
+	const [showDisclaimer, setShowDisclaimer] = useState(true)
+
 	// Determine if join button should be enabled
 	const canJoinMeeting = locationStatus === "verified"
 
@@ -808,6 +811,26 @@ export function SessionLobby({ id, onJoin }: SessionLobbyProps) {
 						</aside>
 					</div>
 				</main>
+
+				{/* System requirements disclaimer — ENF compliance */}
+				{showDisclaimer && (
+					<footer className="border-border bg-muted/30 relative border-t px-4 py-2 pr-10">
+						<p className="text-muted-foreground mx-auto max-w-6xl text-center text-xs">
+							<span className="font-medium">System requirements:</span> HD video (1280×720 px
+							minimum) &middot; Clear audio quality &middot; Minimum{" "}
+							<span className="font-medium">2 Mbps</span> internet connection required for optimal
+							session performance.
+						</p>
+						<button
+							type="button"
+							aria-label="Dismiss"
+							onClick={() => setShowDisclaimer(false)}
+							className="text-muted-foreground hover:text-foreground absolute top-1/2 right-3 -translate-y-1/2 rounded p-0.5 transition-colors"
+						>
+							<X className="size-3.5" />
+						</button>
+					</footer>
+				)}
 			</div>
 		</>
 	)
