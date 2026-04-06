@@ -13,6 +13,7 @@ import {
 	MicOff,
 	Users,
 	Video,
+	X,
 } from "lucide-react"
 import { useSession } from "next-auth/react"
 
@@ -426,6 +427,8 @@ export function SessionLobby({ id, onJoin }: SessionLobbyProps) {
 		}
 	}, [stream])
 
+	const [showDisclaimer, setShowDisclaimer] = useState(true)
+
 	// Determine if join button should be enabled
 	const canJoinMeeting = locationStatus === "verified"
 
@@ -614,7 +617,7 @@ export function SessionLobby({ id, onJoin }: SessionLobbyProps) {
 						<div className="flex min-w-0 flex-1 flex-col gap-4 lg:min-w-0">
 							{/* Video preview card — large rounded card */}
 							<Card className="border-border bg-card overflow-hidden rounded-lg border">
-								<CardContent className="relative flex aspect-video min-h-[240px] w-full p-0 sm:min-h-[320px]">
+								<CardContent className="relative flex aspect-video min-h-60 w-full p-0 sm:min-h-80">
 									{isCameraOn && stream ? (
 										<video
 											ref={videoRef}
@@ -770,13 +773,21 @@ export function SessionLobby({ id, onJoin }: SessionLobbyProps) {
 													<Avatar className="border-border size-10 shrink-0 border">
 														<AvatarImage src={participant.user.image ?? undefined} />
 														<AvatarFallback className="bg-muted text-muted-foreground text-sm font-medium">
-															{participant.user.name?.charAt(0).toUpperCase() ?? "?"}
+															{(participant.user.firstName ?? participant.user.email)
+																?.charAt(0)
+																.toUpperCase() ?? "?"}
 														</AvatarFallback>
 													</Avatar>
 													<div className="min-w-0 flex-1">
 														<div className="flex items-center gap-2">
 															<p className="truncate text-sm font-medium">
-																{participant.user.name}
+																{[
+																	participant.user.firstName,
+																	participant.user.middleName,
+																	participant.user.lastName,
+																]
+																	.filter(Boolean)
+																	.join(" ") || participant.user.email}
 																{participant.userId === session?.user?.id && (
 																	<span className="text-muted-foreground font-normal"> (you)</span>
 																)}
@@ -800,6 +811,26 @@ export function SessionLobby({ id, onJoin }: SessionLobbyProps) {
 						</aside>
 					</div>
 				</main>
+
+				{/* System requirements disclaimer — ENF compliance */}
+				{showDisclaimer && (
+					<footer className="border-border bg-muted/30 relative border-t px-4 py-2 pr-10">
+						<p className="text-muted-foreground mx-auto max-w-6xl text-center text-xs">
+							<span className="font-medium">System requirements:</span> HD video (1280×720 px
+							minimum) &middot; Clear audio quality &middot; Minimum{" "}
+							<span className="font-medium">2 Mbps</span> internet connection required for optimal
+							session performance.
+						</p>
+						<button
+							type="button"
+							aria-label="Dismiss"
+							onClick={() => setShowDisclaimer(false)}
+							className="text-muted-foreground hover:text-foreground absolute top-1/2 right-3 -translate-y-1/2 rounded p-0.5 transition-colors"
+						>
+							<X className="size-3.5" />
+						</button>
+					</footer>
+				)}
 			</div>
 		</>
 	)

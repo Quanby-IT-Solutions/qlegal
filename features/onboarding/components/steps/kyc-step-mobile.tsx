@@ -11,7 +11,6 @@ interface KycMobileFlowProps {
 	onBack: () => void
 	onNext: () => void
 	onStartVerification: () => void
-	onTryAgain?: () => void
 	isPending: boolean
 	showPendingBanner: boolean
 	showCancelledBanner?: boolean
@@ -25,7 +24,6 @@ export function KycMobileFlow({
 	onBack,
 	onNext,
 	onStartVerification,
-	onTryAgain,
 	isPending,
 	showPendingBanner: _showPendingBanner,
 	showCancelledBanner,
@@ -34,11 +32,7 @@ export function KycMobileFlow({
 	rejectedVariant,
 	isStatusLoading,
 }: KycMobileFlowProps) {
-	const handleStartClick = showRejectedBanner
-		? (onTryAgain ?? onStartVerification)
-		: onStartVerification
-	const shouldDisableStartButton =
-		[isPending, showNeedsReviewBanner, isStatusLoading].some(Boolean) && !showRejectedBanner
+	const shouldDisableStartButton = [isPending, showNeedsReviewBanner, isStatusLoading].some(Boolean)
 
 	const showCheckingPrimary =
 		!showRejectedBanner && (isPending || isStatusLoading)
@@ -55,7 +49,7 @@ export function KycMobileFlow({
 
 					<div className="grid gap-3">
 						<Button
-							onClick={handleStartClick}
+							onClick={onStartVerification}
 							disabled={shouldDisableStartButton}
 							variant="outline"
 							className="h-auto w-full cursor-pointer items-start justify-start gap-3 px-4 py-3 text-left whitespace-normal"

@@ -91,6 +91,11 @@ export function useHyperVergeSDK({
 	)
 
 	const launch = useCallback(async () => {
+		// After a finished attempt (success, decline, or setup error) status is "done" or "idle";
+		// clear the guard so "Start verification" works again. Still blocks while loading/launching.
+		if (status === "done" || status === "idle") {
+			hasLaunchedRef.current = false
+		}
 		if (hasLaunchedRef.current) return
 		hasLaunchedRef.current = true
 		setStatus("loading")
@@ -142,7 +147,7 @@ export function useHyperVergeSDK({
 		await HyperKYCModule.launch(config, (result: { status: string }) => {
 			void handleSdkCallback(result, transactionId)
 		})
-	}, [handleSdkCallback, onComplete])
+	}, [handleSdkCallback, onComplete, status])
 
 	return {
 		launch,
