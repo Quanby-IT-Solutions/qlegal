@@ -44,6 +44,8 @@ export function OnboardingWizard() {
 	const { data: session } = useSession()
 	const [welcomeDismissedLocally, setWelcomeDismissedLocally] = useState(false)
 	const [storageDismissed, setStorageDismissed] = useState(false)
+	/** When true, show the welcome screen even if KYC is PENDING/VERIFIED (fixes Back on step 1 after cancel + return). */
+	const [backToWelcome, setBackToWelcome] = useState(false)
 	const [isExpanded, setIsExpanded] = useState(false)
 
 	useEffect(() => {
@@ -62,9 +64,11 @@ export function OnboardingWizard() {
 		typeof session?.user?.kycStatus === "string" &&
 		session.user.kycStatus !== "NOT_STARTED"
 
-	const showWizardFlow = welcomeDismissedLocally || storageDismissed || kycHasBegun
+	const showWizardFlow =
+		!backToWelcome && (welcomeDismissedLocally || storageDismissed || kycHasBegun)
 
 	const handleStart = () => {
+		setBackToWelcome(false)
 		persistWelcomeDismissed()
 		setStorageDismissed(true)
 		setWelcomeDismissedLocally(true)
@@ -75,6 +79,7 @@ export function OnboardingWizard() {
 		clearWelcomeDismissedStorage()
 		setStorageDismissed(false)
 		setWelcomeDismissedLocally(false)
+		setBackToWelcome(true)
 	}
 
 	const handleLogoutClick = () => {
@@ -82,6 +87,7 @@ export function OnboardingWizard() {
 		clearWelcomeDismissedStorage()
 		setStorageDismissed(false)
 		setWelcomeDismissedLocally(false)
+		setBackToWelcome(false)
 		void handleLogout("/login")
 	}
 
