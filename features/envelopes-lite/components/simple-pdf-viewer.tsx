@@ -632,8 +632,20 @@ export function SimplePdfViewer({
 
 			{/* PDF Content */}
 			<div ref={scrollContainerRef} className="bg-muted/20 flex-1 overflow-auto p-4">
-				<div className="mx-auto h-fit max-w-4xl">
-					<div className="flex w-full items-center justify-center">
+				<div
+					className={
+						viewerMode === "continuous-scroll"
+							? "mx-auto w-full max-w-screen-2xl min-w-0"
+							: "mx-auto h-fit max-w-4xl"
+					}
+				>
+					<div
+						className={
+							viewerMode === "continuous-scroll"
+								? "w-full min-w-0"
+								: "flex w-full items-center justify-center"
+						}
+					>
 						<Document
 							file={fileUrl}
 							onLoadSuccess={onDocumentLoadSuccess}
@@ -660,31 +672,32 @@ export function SimplePdfViewer({
 							}
 							className={
 								viewerMode === "continuous-scroll"
-									? "w-fit max-w-full"
+									? "w-full min-w-0"
 									: "bg-background overflow-hidden rounded-lg shadow-lg"
 							}
 						>
 							{viewerMode === "continuous-scroll" ? (
-								<div className="flex w-fit max-w-full flex-col gap-4">
+								<div className="flex w-full min-w-0 flex-col gap-4">
 									{pageNumbers.map(pageNumber => (
-										<div
-											key={pageNumber}
-											ref={node => {
-												setPageRef(pageNumber, node)
-											}}
-											data-page-number={pageNumber}
-											className="bg-background relative inline-block max-w-full overflow-hidden rounded-lg border shadow-sm"
-										>
-											<Page
-												pageNumber={pageNumber}
-												scale={state.scale}
-												rotate={state.rotation}
-												renderTextLayer={false}
-												renderAnnotationLayer={false}
-												onLoadSuccess={onPageLoadSuccess}
-												className="block max-w-full"
-												loading={null}
-											/>
+										<div key={pageNumber} className="flex w-full min-w-max justify-center">
+											<div
+												ref={node => {
+													setPageRef(pageNumber, node)
+												}}
+												data-page-number={pageNumber}
+												className="bg-background relative inline-block overflow-hidden rounded-lg border shadow-sm"
+											>
+												<Page
+													pageNumber={pageNumber}
+													scale={state.scale}
+													rotate={state.rotation}
+													renderTextLayer={false}
+													renderAnnotationLayer={false}
+													onLoadSuccess={onPageLoadSuccess}
+													className="block"
+													loading={null}
+												/>
+											</div>
 										</div>
 									))}
 								</div>

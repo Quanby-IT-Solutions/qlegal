@@ -6,6 +6,7 @@ import { toast } from "sonner"
 
 import { Button } from "@/core/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/core/components/ui/dialog"
+import { useIsMobile } from "@/core/hooks/use-mobile"
 
 import { trpc } from "@/services/trpc/client"
 
@@ -37,6 +38,9 @@ export function NotarialActDocumentDialog2({
 	)
 
 	const [isDownloading, setIsDownloading] = useState(false)
+	const isMobile = useIsMobile()
+	const dialogWidth = isMobile ? "100vw" : "80vw"
+
 	const handleDownload = async () => {
 		if (!documentData?.url) return
 		setIsDownloading(true)
@@ -72,8 +76,8 @@ export function NotarialActDocumentDialog2({
 	return (
 		<Dialog open={isOpen} onOpenChange={onClose}>
 			<DialogContent
-				className="m-0 flex h-[85vh] w-[90vw] max-w-none flex-col gap-0 overflow-hidden rounded-lg p-0"
-				style={{ maxWidth: "90vw" }}
+				className="m-0 flex h-[85vh] max-w-none flex-col gap-0 overflow-hidden rounded-lg p-0 sm:max-w-none"
+				style={{ width: dialogWidth, maxWidth: dialogWidth }}
 			>
 				<DialogHeader className="bg-background flex shrink-0 flex-row items-center justify-between border-b p-4 pr-12">
 					<div className="flex min-w-0 flex-1 items-center gap-3">
