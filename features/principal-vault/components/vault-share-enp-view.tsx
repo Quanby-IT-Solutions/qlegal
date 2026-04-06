@@ -44,7 +44,11 @@ export function VaultShareEnpView({ token }: { token: string }) {
 
 	const query = trpc.principalVault.getFolderShareForEnp.useQuery(
 		{ token },
-		{ enabled: sessionStatus === "authenticated" && session?.user?.role === "ENP" && token.length > 0, retry: false }
+		{
+			enabled:
+				sessionStatus === "authenticated" && session?.user?.role === "ENP" && token.length > 0,
+			retry: false,
+		}
 	)
 
 	const getSharedVaultFileReadUrl = trpc.principalVault.getSharedVaultFileReadUrl.useMutation()
@@ -206,10 +210,12 @@ export function VaultShareEnpView({ token }: { token: string }) {
 									<TableBody>
 										{data.files.map(f => (
 											<TableRow key={f.id}>
-												<TableCell className="max-w-[280px]">
+												<TableCell className="max-w-70">
 													<div className="flex items-start gap-2">
 														<FileText className="text-muted-foreground mt-0.5 size-4 shrink-0" />
-														<span className="break-words text-sm font-medium">{f.displayPath}</span>
+														<span className="text-sm font-medium wrap-break-word">
+															{f.displayPath}
+														</span>
 													</div>
 													<p className="text-muted-foreground mt-0.5 pl-6 font-mono text-xs">
 														{f.mimeType}
@@ -224,9 +230,7 @@ export function VaultShareEnpView({ token }: { token: string }) {
 														size="sm"
 														type="button"
 														className="gap-1.5"
-														onClick={() =>
-															setCommentsFor({ id: f.id, displayPath: f.displayPath })
-														}
+														onClick={() => setCommentsFor({ id: f.id, displayPath: f.displayPath })}
 													>
 														<MessageSquareText className="size-3.5" />
 														{f.commentCount > 0 ? f.commentCount : "Add"}
