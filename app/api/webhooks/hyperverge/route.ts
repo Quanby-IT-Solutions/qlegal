@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server"
-import { desc, eq } from "drizzle-orm"
+import { eq } from "drizzle-orm"
 
 import { db } from "@/services/drizzle/db"
 import { users } from "@/services/drizzle/schema/auth"
@@ -221,6 +221,7 @@ export async function POST(request: NextRequest) {
 				.set({
 					kycStatus,
 					kycVerifiedAt: new Date(),
+					kycLastExpiredAt: null,
 					firstName: coalesceNameValue(user.firstName, latestIdCardDetails?.firstName),
 					middleName: coalesceNameValue(user.middleName, latestIdCardDetails?.middleName),
 					lastName: coalesceNameValue(user.lastName, latestIdCardDetails?.lastName),

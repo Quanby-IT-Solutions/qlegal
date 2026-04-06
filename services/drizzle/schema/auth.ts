@@ -31,6 +31,8 @@ export const users = createTable("user", t => ({
 	// KYC status (simplified - detailed data in kyc_sessions and id_card_details tables)
 	kycStatus: kycStatus().default("NOT_STARTED"),
 	kycVerifiedAt: t.timestamp({ mode: "date", withTimezone: true }),
+	/** Set when automated 14-day KYC expiry runs; cleared after user acknowledges or on new verification. */
+	kycLastExpiredAt: t.timestamp({ mode: "date", withTimezone: true }),
 	recoveryEmail: t.varchar({ length: 255 }).unique(),
 	recoveryEmailVerified: t.timestamp({ mode: "date", withTimezone: true }),
 	onboardingCompletedAt: t.timestamp({ mode: "date", withTimezone: true }),

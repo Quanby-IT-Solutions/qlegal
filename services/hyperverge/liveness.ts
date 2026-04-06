@@ -68,14 +68,14 @@ export interface LivenessDecisionResult {
  * Unified decision logic for liveness validation
  * Used by both hosted workflow results and direct API responses
  *
- * @param liveFaceValue - The liveFace.value from API response ("yes" | "no")
- * @param summaryAction - The summary.action from API response ("pass" | "fail")
+ * @param liveFaceValue - The liveFace.value from API response (e.g. "yes", "no", "unknown")
+ * @param summaryAction - The summary.action from API response (e.g. "pass", "fail")
  * @param qualityChecks - Optional quality check results
  * @returns Unified decision result
  */
 export function makeLivenessDecision(
-	liveFaceValue: "yes" | "no" | string | undefined,
-	summaryAction: "pass" | "fail" | string | undefined,
+	liveFaceValue: string | undefined,
+	summaryAction: string | undefined,
 	qualityChecks?: {
 		eyesClosed?: { value: "yes" | "no"; confidence?: string }
 		occlusion?: { value: "yes" | "no"; confidence?: string }
@@ -257,8 +257,8 @@ export interface OutputAPIResponse {
 		requestId: string
 	}
 	result: {
-		/** Overall status from HyperVerge workflow */
-		status: "auto_approved" | "auto_declined" | "needs_review" | string
+		/** Overall status from HyperVerge workflow (e.g. auto_approved, auto_declined, needs_review) */
+		status: string
 		transactionId: string
 		/** Optional: May contain summary and details for some workflows */
 		summary?: {
@@ -388,9 +388,11 @@ export async function startHostedWorkflow(
 
 		const startUrl = result.result?.startKycUrl
 		if (result.status !== "success" || !startUrl) {
+			const rawError = result.result?.error
 			const msg =
-				(result.result?.error && typeof result.result.error === "string" && result.result.error) ||
-				`Unexpected response: ${JSON.stringify(result)}`
+				typeof rawError === "string" && rawError.length > 0
+					? rawError
+					: `Unexpected response: ${JSON.stringify(result)}`
 			throw new Error(`HyperVerge link-kyc error: ${msg}`)
 		}
 
@@ -425,7 +427,7 @@ export async function getWorkflowOutput(transactionId: string): Promise<OutputAP
 	const OUTPUT_URL_FALLBACK = `${FALLBACK_BASE_URL}/v1/output`
 
 	const requestBody = {
-		transactionId: transactionId,
+		transactionId,
 		// Helpful for diagnosing hosted workflow failures (adds debugInfo.latestModule on error/user_cancelled)
 		sendDebugInfo: "yes",
 	}
@@ -476,7 +478,7 @@ export async function getWorkflowOutput(transactionId: string): Promise<OutputAP
 			statusCode: result.statusCode,
 			resultStatus: result.result?.status,
 			summaryAction: result.result?.summary?.action,
-			detailsCount: result.result?.details?.length || 0,
+			detailsCount: result.result?.details?.length ?? 0,
 		})
 
 		// Log the full result for debugging
@@ -495,7 +497,7 @@ export async function getWorkflowOutput(transactionId: string): Promise<OutputAP
 		if (result.result?.details && Array.isArray(result.result.details)) {
 			console.log("🔍 Processing", result.result.details.length, "detail modules")
 			for (const detail of result.result.details) {
-				console.log("   - Module:", detail.module, "Attempts:", detail.attempts?.length || 0)
+				console.log("   - Module:", detail.module, "Attempts:", detail.attempts?.length ?? 0)
 				if (detail.attempts && Array.isArray(detail.attempts)) {
 					for (const attempt of detail.attempts) {
 						console.log("     - Attempt data:", Object.keys(attempt))
@@ -514,7 +516,7 @@ export async function getWorkflowOutput(transactionId: string): Promise<OutputAP
 		// Determine action from result.status or result.summary.action
 		const actionFromStatus = mapStatusToAction(result.result?.status)
 		const actionFromSummary = result.result?.summary?.action
-		const finalAction = actionFromSummary || actionFromStatus
+		const finalAction = actionFromSummary ?? actionFromStatus
 
 		console.log("📊 Action determination:", {
 			resultStatus: result.result?.status,
@@ -572,7 +574,7 @@ export async function checkLiveness(
 	let base64Image = config.image
 	if (base64Image.startsWith("data:")) {
 		const parts = base64Image.split(",")
-		base64Image = parts[1] || base64Image
+		base64Image = parts[1] ?? base64Image
 	}
 
 	console.log("   - Base64 length:", base64Image.length)
@@ -663,7 +665,7 @@ export async function checkLiveness(
 		const details = result.result.details
 		const decision = makeLivenessDecision(details?.liveFace?.value, result.result.summary?.action, {
 			eyesClosed: details?.qualityChecks?.eyesClosed,
-			occlusion: details?.qualityChecks?.faceOccluded || details?.qualityChecks?.occlusion,
+			occlusion: details?.qualityChecks?.faceOccluded ?? details?.qualityChecks?.occlusion,
 			multipleFaces: details?.qualityChecks?.multipleFaces,
 		})
 

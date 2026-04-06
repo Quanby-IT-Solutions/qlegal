@@ -219,18 +219,20 @@ export function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meet
 							if (meetingId) meetingData.updateDocumentOrder.mutate({ meetingId, documentIds })
 						}}
 						localParticipantId={localParticipantId}
-					/>
-				</div>
-				<div className="bg-background/90 relative flex flex-col items-center gap-2 px-4 py-3 backdrop-blur-sm lg:flex-row lg:justify-center lg:gap-4">
-					<MeetingControls
 						onUploadClick={handleUploadClick}
 						isUploadDisabled={!meetingId?.trim() || meetingData.isUploadBlockedByLock}
-						isUploadLoading={meetingData.isPreparingUpload || meetingData.isEnsuringDoconchainToken}
+						isUploadLoading={
+							meetingData.isPreparingUpload || meetingData.isEnsuringDoconchainToken
+						}
 						uploadDisabledReason={
 							meetingData.isUploadBlockedByLock
 								? "Can't upload a file while document uploads are locked"
 								: undefined
 						}
+					/>
+				</div>
+				<div className="bg-background/90 relative flex flex-col items-center gap-2 px-4 py-3 backdrop-blur-sm lg:flex-row lg:justify-center lg:gap-4">
+					<MeetingControls
 						onRecordingToggle={recording.handleRecordingToggle}
 						onLocalRecordingToggle={recordingConsent.openConsentAndRequest}
 						localRecordingSupported={recording.localRecordingSupported}

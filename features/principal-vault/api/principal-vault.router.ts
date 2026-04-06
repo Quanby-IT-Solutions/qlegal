@@ -179,6 +179,34 @@ export const principalVaultRouter = createTRPCRouter({
 			return { folders, files, ancestors }
 		}),
 
+	/** All files in a folder and its subfolders (for meeting import). Owner only. */
+	listFolderTreeFiles: protectedProcedure
+		.input(z.object({ folderId: z.string().min(1) }))
+		.query(async ({ ctx, input }) => {
+			const userId = ctx.session.user.id
+			const folder = await ctx.db.query.principalVaultFolders.findFirst({
+				where: and(
+					eq(principalVaultFolders.id, input.folderId),
+					eq(principalVaultFolders.userId, userId)
+				),
+				columns: { id: true, name: true },
+			})
+			if (!folder) {
+				throw new TRPCError({ code: "NOT_FOUND", message: "Folder not found" })
+			}
+			const files = await listAllFilesInFolderTree(ctx.db, input.folderId, userId)
+			return {
+				folderId: folder.id,
+				folderName: folder.name,
+				files: files.map(f => ({
+					id: f.id,
+					name: f.name,
+					mimeType: f.mimeType,
+					size: f.size,
+				})),
+			}
+		}),
+
 	createFolder: protectedProcedure
 		.input(
 			z.object({

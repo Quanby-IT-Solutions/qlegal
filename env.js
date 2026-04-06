@@ -55,6 +55,8 @@ export const env = createEnv({
 		HYPERVERGE_APP_KEY: z.string(),
 		HYPERVERGE_DIRECT_LIVENESS_ENABLED: z.enum(["true", "false"]).default("true"),
 		HYPERVERGE_WORKFLOW_ID: z.string(),
+		/** Days KYC stays valid (aligns with HyperVerge Results API retention); then user must re-verify. */
+		KYC_VERIFICATION_VALIDITY_DAYS: z.coerce.number().int().positive().default(14),
 
 		// Server Configuration
 		NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
@@ -146,6 +148,7 @@ export const env = createEnv({
 		HYPERVERGE_APP_KEY: process.env.HYPERVERGE_APP_KEY,
 		HYPERVERGE_DIRECT_LIVENESS_ENABLED: process.env.HYPERVERGE_DIRECT_LIVENESS_ENABLED,
 		HYPERVERGE_WORKFLOW_ID: process.env.HYPERVERGE_WORKFLOW_ID,
+		KYC_VERIFICATION_VALIDITY_DAYS: process.env.KYC_VERIFICATION_VALIDITY_DAYS,
 
 		// Server Configuration
 		NODE_ENV: process.env.NODE_ENV,
