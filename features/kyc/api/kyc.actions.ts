@@ -1050,18 +1050,40 @@ export async function checkUserKycStatus() {
 	}
 
 	if (kycSession.status === "REJECTED") {
-		return {
-			success: true,
-			data: {
-				transactionId: kycSession.transactionId,
-				status: "auto_declined",
-				kycStatus: "REJECTED" as const,
-				isComplete: true,
-				isApproved: false,
-				needsReview: false,
-				message: "KYC was rejected.",
-				details: {},
-			},
+		try {
+			const hypervergeIdentifier = kycSession.hostedLink
+				? extractIdentifierFromStartKycUrl(kycSession.hostedLink)
+				: undefined
+			const result = await getTransactionStatus(kycSession.transactionId, {
+				hypervergeIdentifier: hypervergeIdentifier ?? undefined,
+			})
+			const applicationStatus = result.result.applicationStatus
+			const interpretation = interpretStatus(applicationStatus)
+			return {
+				success: true,
+				data: {
+					transactionId: result.result.transactionId,
+					status: applicationStatus,
+					kycStatus: "REJECTED" as const,
+					...interpretation,
+					details: result.result.workflowDetails ?? {},
+				},
+			}
+		} catch (e) {
+			console.warn("⚠️ Could not refresh HyperVerge status for rejected KYC session:", e)
+			return {
+				success: true,
+				data: {
+					transactionId: kycSession.transactionId,
+					status: "auto_declined",
+					kycStatus: "REJECTED" as const,
+					isComplete: true,
+					isApproved: false,
+					needsReview: false,
+					message: "KYC was rejected.",
+					details: {},
+				},
+			}
 		}
 	}
 
@@ -1291,7 +1313,7 @@ export async function checkUserKycStatus() {
 							: user?.commissionStatus,
 				})
 				.where(eq(users.id, session.user.id))
-		} else if (applicationStatus === "auto_declined") {
+		} else if (applicationStatus === "auto_declined" || applicationStatus === "manual_declined") {
 			newStatus = "REJECTED"
 			console.log("❌ KYC Rejected")
 
@@ -1383,7 +1405,18 @@ export async function syncKycStatusFromCallback(transactionId: string, status: s
 		].includes(normalized)
 	) {
 		newStatus = "VERIFIED"
-	} else if (["auto_declined", "rejected", "declined", "failed", "error"].includes(normalized)) {
+	} else if (
+		[
+			"auto_declined",
+			"manual_declined",
+			"manually_declined",
+			"declined_manual",
+			"rejected",
+			"declined",
+			"failed",
+			"error",
+		].includes(normalized)
+	) {
 		newStatus = "REJECTED"
 	}
 	// user_cancelled, needs_review, or unknown -> leave as PENDING

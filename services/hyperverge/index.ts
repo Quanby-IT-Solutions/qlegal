@@ -249,6 +249,21 @@ function normalizeOutputApplicationStatus(rawStatus: unknown): ApplicationStatus
 	) {
 		return "auto_approved"
 	}
+	// Human / operator decline after review (Output API wording varies by tenant).
+	if (
+		[
+			"manual_declined",
+			"manually_declined",
+			"declined_manual",
+			"manual_decline",
+			"review_declined",
+			"review_rejected",
+			"operator_declined",
+			"manual_rejected",
+		].includes(normalized)
+	) {
+		return "manual_declined"
+	}
 	if (normalized === "declined") return "auto_declined"
 	if (normalized === "manual_review") return "needs_review"
 	if (normalized === "in_progress") return "pending"
@@ -257,6 +272,7 @@ function normalizeOutputApplicationStatus(rawStatus: unknown): ApplicationStatus
 	const known: ReadonlyArray<ApplicationStatus> = [
 		"auto_approved",
 		"auto_declined",
+		"manual_declined",
 		"needs_review",
 		"user_cancelled",
 		"error",
@@ -476,7 +492,8 @@ export async function getTransactionStatus(
  */
 export type ApplicationStatus =
 	| "auto_approved" // All checks passed
-	| "auto_declined" // Verification failed
+	| "auto_declined" // Verification failed (automated checks)
+	| "manual_declined" // Declined after manual / operator review
 	| "needs_review" // Requires manual review
 	| "user_cancelled" // User exited the flow
 	| "error" // Technical failure
@@ -505,6 +522,13 @@ export function interpretStatus(status: ApplicationStatus): {
 				isApproved: false,
 				needsReview: false,
 				message: "KYC verification failed. The application was declined.",
+			}
+		case "manual_declined":
+			return {
+				isComplete: true,
+				isApproved: false,
+				needsReview: false,
+				message: "KYC verification was declined after manual review.",
 			}
 		case "needs_review":
 			return {

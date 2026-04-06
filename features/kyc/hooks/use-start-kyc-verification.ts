@@ -42,6 +42,15 @@ export function useStartKycVerification() {
 			void utils.onboarding.getStatus.invalidate()
 
 			void (async () => {
+				const shouldRefetchKycStatusBeforeRefresh =
+					normalized === "needs_review" ||
+					normalized === "manual_review" ||
+					normalized === "auto_declined" ||
+					normalized === "manual_declined"
+				if (shouldRefetchKycStatusBeforeRefresh) {
+					// Fresh check so the profile card sees needs_review / manual vs auto decline before session refresh.
+					await queryClient.refetchQueries({ queryKey: ["kyc-status"] })
+				}
 				if (normalized === "auto_approved") {
 					await updateSession()
 					router.refresh()
