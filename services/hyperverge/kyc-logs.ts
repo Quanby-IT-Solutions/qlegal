@@ -197,8 +197,8 @@ export function pickOcrFieldsFromLogs(
 	// Prefer likely ID/OCR modules first.
 	for (const entry of results) {
 		if (!isRecord(entry)) continue
-		const moduleName = entry["module"]
-		const moduleId = entry["moduleId"]
+		const moduleName = entry.module
+		const moduleId = entry.moduleId
 
 		const looksLikeIdValidation =
 			keyMatches(moduleName, "id") ||

@@ -28,7 +28,7 @@ async function main() {
 	}
 
 	// Get NRID from command line or use example from PDF
-	const notarialRegistryID = process.argv[2] || "NRID-683d5d1fb5ae63f47af30312"
+	const notarialRegistryID = process.argv[2] ?? "NRID-683d5d1fb5ae63f47af30312"
 
 	if (!notarialRegistryID.startsWith("NRID-")) {
 		console.error("❌ Invalid NRID format. Must start with 'NRID-'")
@@ -73,4 +73,4 @@ async function main() {
 	}
 }
 
-main()
+void main()

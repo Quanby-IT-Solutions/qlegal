@@ -14,7 +14,7 @@ import { accounts, sessions, users, verificationTokens } from "@/services/drizzl
 export function DrizzleCustomAdapter(): Adapter {
 	const pickAdapterUser = (user: typeof users.$inferSelect) => {
 		// Safely extract KYC status field - eslint-disable needed due to Drizzle type inference
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+		 
 		const kycStatusValue = user.kycStatus
 
 		return {

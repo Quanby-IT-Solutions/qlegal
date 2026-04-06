@@ -59,7 +59,7 @@ export async function getDoconchainOrganizationCredits(): Promise<{
 		)
 	}
 
-	const raw = (text ? (JSON.parse(text) as OrgCreditsResponse) : null) as OrgCreditsResponse | null
+	const raw = (text ? (JSON.parse(text) as OrgCreditsResponse) : null)
 	const items = raw ? asCreditsArray(raw) : []
 
 	const top = raw && !Array.isArray(raw) && typeof raw === "object" ? raw : {}

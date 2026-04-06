@@ -30,7 +30,7 @@ import {
 	TooltipProvider,
 	TooltipTrigger,
 } from "@/core/components/ui/tooltip"
-import { getInitials } from "@/core/lib/utils"
+import { getFullName, getInitials } from "@/core/lib/utils"
 
 import type { RouterOutputs } from "@/services/trpc/client"
 
@@ -65,7 +65,7 @@ export function EnvelopeCard({
 				<TooltipProvider>
 					<Tooltip>
 						<TooltipTrigger>
-							<div className="bg-muted text-muted-foreground hover:bg-muted/80 !mt-0 flex h-6 w-6 items-center justify-center rounded-full transition-colors">
+							<div className="bg-muted text-muted-foreground hover:bg-muted/80 mt-0! flex h-6 w-6 items-center justify-center rounded-full transition-colors">
 								<ChevronRightIcon className="h-3.5 w-3.5" />
 							</div>
 						</TooltipTrigger>
@@ -108,7 +108,7 @@ export function EnvelopeCard({
 								<Avatar key={creator.id} className="size-6 border">
 									<AvatarImage src={creator.image ?? ""} />
 									<AvatarFallback className="text-[10px] font-medium">
-										{getInitials(creator.name ?? "?")}
+										{getInitials(getFullName(creator) || "?")}
 									</AvatarFallback>
 								</Avatar>
 							</div>

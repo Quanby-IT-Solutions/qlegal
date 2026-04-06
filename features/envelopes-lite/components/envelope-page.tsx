@@ -7,6 +7,7 @@ import { LayoutGrid, List, Search } from "lucide-react"
 import { Button } from "@/core/components/ui/button"
 import { Input } from "@/core/components/ui/input"
 import { ToggleGroup, ToggleGroupItem } from "@/core/components/ui/toggle-group"
+import { getFullName } from "@/core/lib/utils"
 
 import { trpc, type RouterOutputs } from "@/services/trpc/client"
 
@@ -50,7 +51,7 @@ export function EnvelopePage() {
 				return (
 					envelope.title.toLowerCase().includes(query) ||
 					(envelope.description?.toLowerCase().includes(query) ?? false) ||
-					(envelope.user?.name?.toLowerCase().includes(query) ?? false) ||
+					getFullName(envelope.user).toLowerCase().includes(query) ||
 					(envelope.user?.email?.toLowerCase().includes(query) ?? false)
 				)
 			}

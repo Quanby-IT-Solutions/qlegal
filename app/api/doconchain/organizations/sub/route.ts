@@ -81,7 +81,7 @@ export async function POST(request: Request) {
 		const created = await createDoconchainSubOrganization({
 			name,
 			address,
-			subOrganizationTypeName: subOrganizationTypeName,
+			subOrganizationTypeName,
 			photo: photoFile ?? undefined,
 			photoFilename: photoFile?.name,
 		})
@@ -100,7 +100,7 @@ export async function POST(request: Request) {
 				try {
 					const members = await getParentOrgMembers()
 					const memberId = findParentOrgMemberIdByEmail(members, targetUser.email)
-					if (memberId != null) {
+					if (memberId !== null) {
 						await moveDoconchainMemberToSubOrg({
 							memberId,
 							targetOrganizationId: created.subOrgNumericId,

@@ -10,7 +10,7 @@ import {
 	TooltipProvider,
 	TooltipTrigger,
 } from "@/core/components/ui/tooltip"
-import { getInitials } from "@/core/lib/utils"
+import { getFullName, getInitials } from "@/core/lib/utils"
 
 import type { RouterOutputs } from "@/services/trpc/client"
 
@@ -45,7 +45,7 @@ export function EnvelopeListItem({ envelope }: EnvelopeListItemProps) {
 									<Avatar key={creator.id} className="size-6 border">
 										<AvatarImage src={creator.image ?? ""} />
 										<AvatarFallback className="text-[10px] font-medium">
-											{getInitials(creator.name ?? "?")}
+											{getInitials(getFullName(creator) || "?")}
 										</AvatarFallback>
 									</Avatar>
 								</div>

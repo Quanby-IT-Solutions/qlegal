@@ -74,8 +74,8 @@ export interface LivenessDecisionResult {
  * @returns Unified decision result
  */
 export function makeLivenessDecision(
-	liveFaceValue: "yes" | "no" | string | undefined,
-	summaryAction: "pass" | "fail" | string | undefined,
+	liveFaceValue: string | undefined,
+	summaryAction: string | undefined,
 	qualityChecks?: {
 		eyesClosed?: { value: "yes" | "no"; confidence?: string }
 		occlusion?: { value: "yes" | "no"; confidence?: string }
@@ -258,7 +258,7 @@ export interface OutputAPIResponse {
 	}
 	result: {
 		/** Overall status from HyperVerge workflow */
-		status: "auto_approved" | "auto_declined" | "needs_review" | string
+		status: string
 		transactionId: string
 		/** Optional: May contain summary and details for some workflows */
 		summary?: {
@@ -389,7 +389,7 @@ export async function startHostedWorkflow(
 		const startUrl = result.result?.startKycUrl
 		if (result.status !== "success" || !startUrl) {
 			const msg =
-				(result.result?.error && typeof result.result.error === "string" && result.result.error) ||
+				(result.result?.error && typeof result.result.error === "string" && result.result.error) ??
 				`Unexpected response: ${JSON.stringify(result)}`
 			throw new Error(`HyperVerge link-kyc error: ${msg}`)
 		}
@@ -425,7 +425,7 @@ export async function getWorkflowOutput(transactionId: string): Promise<OutputAP
 	const OUTPUT_URL_FALLBACK = `${FALLBACK_BASE_URL}/v1/output`
 
 	const requestBody = {
-		transactionId: transactionId,
+		transactionId,
 		// Helpful for diagnosing hosted workflow failures (adds debugInfo.latestModule on error/user_cancelled)
 		sendDebugInfo: "yes",
 	}
@@ -476,7 +476,7 @@ export async function getWorkflowOutput(transactionId: string): Promise<OutputAP
 			statusCode: result.statusCode,
 			resultStatus: result.result?.status,
 			summaryAction: result.result?.summary?.action,
-			detailsCount: result.result?.details?.length || 0,
+			detailsCount: result.result?.details?.length ?? 0,
 		})
 
 		// Log the full result for debugging
@@ -514,7 +514,7 @@ export async function getWorkflowOutput(transactionId: string): Promise<OutputAP
 		// Determine action from result.status or result.summary.action
 		const actionFromStatus = mapStatusToAction(result.result?.status)
 		const actionFromSummary = result.result?.summary?.action
-		const finalAction = actionFromSummary || actionFromStatus
+		const finalAction = actionFromSummary ?? actionFromStatus
 
 		console.log("📊 Action determination:", {
 			resultStatus: result.result?.status,
@@ -572,7 +572,7 @@ export async function checkLiveness(
 	let base64Image = config.image
 	if (base64Image.startsWith("data:")) {
 		const parts = base64Image.split(",")
-		base64Image = parts[1] || base64Image
+		base64Image = parts[1] ?? base64Image
 	}
 
 	console.log("   - Base64 length:", base64Image.length)
@@ -663,7 +663,7 @@ export async function checkLiveness(
 		const details = result.result.details
 		const decision = makeLivenessDecision(details?.liveFace?.value, result.result.summary?.action, {
 			eyesClosed: details?.qualityChecks?.eyesClosed,
-			occlusion: details?.qualityChecks?.faceOccluded || details?.qualityChecks?.occlusion,
+			occlusion: details?.qualityChecks?.faceOccluded ?? details?.qualityChecks?.occlusion,
 			multipleFaces: details?.qualityChecks?.multipleFaces,
 		})
 

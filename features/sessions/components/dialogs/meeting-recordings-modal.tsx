@@ -15,15 +15,15 @@ import { ScrollArea } from "@/core/components/ui/scroll-area"
 
 import { trpc } from "@/services/trpc/client"
 
-function formatDuration(seconds: number | undefined): string {
-	if (seconds === null || !Number.isFinite(seconds)) return "—"
+function formatDuration(seconds: number | null | undefined): string {
+	if (seconds === null || seconds === undefined || !Number.isFinite(seconds)) return "—"
 	const m = Math.floor(seconds / 60)
 	const s = Math.floor(seconds % 60)
 	return `${m}:${s.toString().padStart(2, "0")}`
 }
 
-function formatFileSize(bytes: number | undefined): string {
-	if (bytes === null || !Number.isFinite(bytes)) return ""
+function formatFileSize(bytes: number | null | undefined): string {
+	if (bytes === null || bytes === undefined || !Number.isFinite(bytes)) return ""
 	if (bytes < 1024) return `${bytes} B`
 	if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
 	return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
@@ -66,7 +66,7 @@ export function MeetingRecordingsModal({
 					</DialogDescription>
 				</DialogHeader>
 
-				<div className="min-h-[200px]">
+				<div className="min-h-50">
 					{!meeting ? (
 						<p className="text-muted-foreground py-8 text-center text-sm">No meeting selected</p>
 					) : isLoading ? (
@@ -100,8 +100,8 @@ export function MeetingRecordingsModal({
 												</p>
 												<div className="text-muted-foreground mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm">
 													{createdAt && <span>{format(new Date(createdAt), "PPp")}</span>}
-													{duration != null && <span>{formatDuration(duration)}</span>}
-													{size != null && formatFileSize(size) && (
+													{duration !== null && <span>{formatDuration(duration)}</span>}
+													{size !== null && formatFileSize(size) && (
 														<span>{formatFileSize(size)}</span>
 													)}
 												</div>

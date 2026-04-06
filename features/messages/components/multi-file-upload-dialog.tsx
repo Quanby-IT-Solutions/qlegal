@@ -107,12 +107,16 @@ export function MultiFileUploadDialog({
 
 			// Update status to success
 			setFiles(prev => prev.map((f, i) => (i === index ? { ...f, status: "success" as const } : f)))
-		} catch (error: any) {
+		} catch (error) {
 			console.error("Upload error:", error)
 			setFiles(prev =>
 				prev.map((f, i) =>
 					i === index
-						? { ...f, status: "error" as const, error: error?.message || "Upload failed" }
+						? {
+								...f,
+								status: "error" as const,
+								error: error instanceof Error ? error.message : "Upload failed",
+							}
 						: f
 				)
 			)
@@ -128,7 +132,7 @@ export function MultiFileUploadDialog({
 			// Upload all files sequentially
 			for (let i = 0; i < files.length; i++) {
 				const fileWithProgress = files[i]
-				if (fileWithProgress && fileWithProgress.status === "pending") {
+				if (fileWithProgress?.status === "pending") {
 					await uploadFile(fileWithProgress, i)
 				}
 			}
@@ -149,7 +153,7 @@ export function MultiFileUploadDialog({
 		const k = 1024
 		const sizes = ["Bytes", "KB", "MB", "GB"]
 		const i = Math.floor(Math.log(bytes) / Math.log(k))
-		return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + " " + sizes[i]
+		return `${Math.round((bytes / Math.pow(k, i)) * 100) / 100} ${sizes[i]}`
 	}
 
 	const getUploadTypeLabel = () => {

@@ -25,8 +25,8 @@ async function main() {
 	}
 
 	// Test data: NPN and RN (from your ENP profile / Supreme Court), not an act ID
-	const testNPN = process.argv[2] || "NPN-2"
-	const testRN = process.argv[3] || "RN-2"
+	const testNPN = process.argv[2] ?? "NPN-2"
+	const testRN = process.argv[3] ?? "RN-2"
 
 	// If first arg looks like a UUID (e.g. act ID), show correct usage
 	const looksLikeUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
@@ -70,4 +70,4 @@ async function main() {
 	}
 }
 
-main()
+void main()

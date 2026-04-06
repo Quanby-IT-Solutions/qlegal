@@ -1,14 +1,17 @@
-import { env } from "@/env"
 import {
 	getDoconchainApiToken,
 	getDoconchainApiTokenWithEnterpriseCreds,
 } from "@/services/doconchain/auth/generate-token"
 import { getDoconchainOrganizationCredits } from "@/services/doconchain/organization/get-organization-credits"
 
-type SubOrgDetailsResponse = {
-	message?: string
-	data?: Record<string, unknown>
-} | Record<string, unknown>
+import { env } from "@/env"
+
+type SubOrgDetailsResponse =
+	| {
+			message?: string
+			data?: Record<string, unknown>
+	  }
+	| Record<string, unknown>
 
 export type SubOrgCreditsResult = {
 	credits: number | null
@@ -100,39 +103,26 @@ async function fetchCreditsWithToken(
 			`DocOnChain get organization credits failed (${res.status})${text ? `: ${text.slice(0, 200)}` : ""}`
 		)
 	}
-	const raw = (text ? (JSON.parse(text) as Record<string, unknown>) : {}) as Record<string, unknown>
+	const raw = text ? (JSON.parse(text) as Record<string, unknown>) : {}
 
 	// Sub-org token returns { message, data: [ { uuid, remaining_credits, allocated_credits, total_credits, used_credits, ... } ] }
 	// or sometimes data: { remaining_credits, total_credits, used_credits } (single object).
 	// Prefer total_credits for "total" (ever allocated); allocated_credits may be current balance. Derive used = total - remaining when missing.
 	if (Array.isArray(raw.data) && raw.data.length > 0) {
 		const items = raw.data as CreditsDataItem[]
-		const match =
+		const match: CreditsDataItem =
 			items.find(
 				row => String(row.uuid ?? "").trim() === subOrgUuid || String(row.id ?? "") === subOrgUuid
-			) ?? items[0]
+			) ?? items[0]!
 		const remaining = getNum(match, "remaining_credits")
 		const allocated = getNum(match, "allocated_credits")
 		// Total ever allocated: prefer total_credits / initial / transferred so "used = total - remaining" is correct
-		const totalFromApi = getNum(
-			match,
-			"total_credits",
-			"initial_credits",
-			"transferred_credits"
-		)
+		const totalFromApi = getNum(match, "total_credits", "initial_credits", "transferred_credits")
 		const totalCredits = totalFromApi ?? allocated ?? remaining
-		const usedFromApi = getNum(
-			match,
-			"used_credits",
-			"used",
-			"consumed_credits"
-		)
+		const usedFromApi = getNum(match, "used_credits", "used", "consumed_credits")
 		const used =
-			usedFromApi !== null
-				? usedFromApi
-				: totalCredits !== null && remaining !== null
-					? Math.max(0, totalCredits - remaining)
-					: null
+			usedFromApi ??
+			(totalCredits !== null && remaining !== null ? Math.max(0, totalCredits - remaining) : null)
 		return {
 			credits: remaining,
 			totalCredits,
@@ -146,20 +136,12 @@ async function fetchCreditsWithToken(
 		const match = raw.data as CreditsDataItem
 		const remaining = getNum(match, "remaining_credits")
 		const allocated = getNum(match, "allocated_credits")
-		const totalFromApi = getNum(
-			match,
-			"total_credits",
-			"initial_credits",
-			"transferred_credits"
-		)
+		const totalFromApi = getNum(match, "total_credits", "initial_credits", "transferred_credits")
 		const totalCredits = totalFromApi ?? allocated ?? remaining
 		const usedFromApi = getNum(match, "used_credits", "used", "consumed_credits")
 		const used =
-			usedFromApi !== null
-				? usedFromApi
-				: totalCredits !== null && remaining !== null
-					? Math.max(0, totalCredits - remaining)
-					: null
+			usedFromApi ??
+			(totalCredits !== null && remaining !== null ? Math.max(0, totalCredits - remaining) : null)
 		return {
 			credits: remaining,
 			totalCredits,
@@ -233,15 +215,14 @@ export async function getDoconchainSubOrgCredits(input: {
 					: typeof match.allocated_credits === "number"
 						? match.allocated_credits
 						: null
-			const allocated =
-				typeof match.allocated_credits === "number" ? match.allocated_credits : null
+			const allocated = typeof match.allocated_credits === "number" ? match.allocated_credits : null
 			const totalFromApi =
 				typeof match.total_credits === "number"
 					? match.total_credits
-					: typeof (match as CreditsDataItem).initial_credits === "number"
-						? (match as CreditsDataItem).initial_credits
-						: typeof (match as CreditsDataItem).transferred_credits === "number"
-							? (match as CreditsDataItem).transferred_credits
+					: typeof match.initial_credits === "number"
+						? match.initial_credits
+						: typeof match.transferred_credits === "number"
+							? match.transferred_credits
 							: null
 			const totalCredits = totalFromApi ?? allocated ?? remaining
 			const used =
@@ -307,12 +288,12 @@ export async function getDoconchainSubOrgCredits(input: {
 		return { credits: null, totalCredits: null, usedCredits: null }
 	}
 
-	const raw = (text ? (JSON.parse(text) as SubOrgDetailsResponse) : {}) as SubOrgDetailsResponse
+	const raw = text ? (JSON.parse(text) as SubOrgDetailsResponse) : {}
 	const data =
 		raw && typeof raw === "object" && !Array.isArray(raw)
-			? ("data" in raw && raw.data && typeof raw.data === "object"
-					? (raw.data as Record<string, unknown>)
-					: (raw as Record<string, unknown>))
+			? "data" in raw && raw.data && typeof raw.data === "object"
+				? (raw.data as Record<string, unknown>)
+				: (raw as Record<string, unknown>)
 			: ({} as Record<string, unknown>)
 
 	const credits = getNumericCredits(data)
@@ -325,13 +306,10 @@ export async function getDoconchainSubOrgCredits(input: {
 		"transferred_credits",
 		"allocated_credits"
 	)
-	const totalCredits = totalFromApi ?? (credits !== null ? credits : null)
+	const totalCredits = totalFromApi ?? credits
 	const usedFromApi = getNum(dataItem, "used_credits", "used", "consumed_credits")
 	const usedCredits =
-		usedFromApi !== null
-			? usedFromApi
-			: totalCredits !== null && credits !== null
-				? Math.max(0, totalCredits - credits)
-				: null
+		usedFromApi ??
+		(totalCredits !== null && credits !== null ? Math.max(0, totalCredits - credits) : null)
 	return { credits, totalCredits, usedCredits, raw }
 }

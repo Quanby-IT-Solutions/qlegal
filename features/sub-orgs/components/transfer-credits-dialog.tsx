@@ -36,8 +36,8 @@ export function TransferCreditsDialog({
 	const transferMutation = trpc.subOrgs.transferCredits.useMutation({
 		onSuccess: async data => {
 			toast.success(
-				`Transferred ${data.transferredCredits} credit${data.transferredCredits === 1 ? "" : "s"} to ${subOrgName}.` +
-					(data.remainingCredits != null ? ` Parent org has ${data.remainingCredits} credits left.` : "")
+				`Transferred ${data.transferredCredits} credit${data.transferredCredits === 1 ? "" : "s"} to ${subOrgName}.${ 
+					data.remainingCredits !== null ? ` Parent org has ${data.remainingCredits} credits left.` : ""}`
 			)
 			setCredits("")
 			setOpen(false)

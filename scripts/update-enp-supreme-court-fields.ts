@@ -6,10 +6,11 @@
  */
 import "dotenv/config"
 
+import { eq } from "drizzle-orm"
+
 import { db } from "@/services/drizzle/db"
 import { enpProfiles } from "@/services/drizzle/schema/enp-profiles"
 import { notarialActs, notarialBooks } from "@/services/drizzle/schema/notarial-book"
-import { eq } from "drizzle-orm"
 
 async function main() {
 	const actId = process.argv[2]
@@ -25,7 +26,9 @@ async function main() {
 		console.error("   - <nfn>: Your Notary Facility Number (e.g., NFN-456)")
 		console.error("")
 		console.error("   Example:")
-		console.error("   pnpm update:enp-supreme-court-fields a360c764-b553-42df-9b0d-d7f52fe36eee NPN-123 NFN-456")
+		console.error(
+			"   pnpm update:enp-supreme-court-fields a360c764-b553-42df-9b0d-d7f52fe36eee NPN-123 NFN-456"
+		)
 		console.error("")
 		console.error("   ⚠️  Note: Use REAL credentials from Supreme Court, not test values!")
 		process.exit(1)
@@ -44,11 +47,9 @@ async function main() {
 			process.exit(1)
 		}
 
-		console.log(`✅ Found notarial act: ${act.certificateNumber || act.id}`)
+		console.log(`✅ Found notarial act: ${act.certificateNumber ?? act.id}`)
 
 		// Get notarial book
-		// @ts-ignore - PostgresJsDatabase<any> doesn't provide proper types for query builder
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
 		const notarialBook = await db.query.notarialBooks.findFirst({
 			where: eq(notarialBooks.id, act.notarialBookId),
 		})
@@ -75,9 +76,9 @@ async function main() {
 		}
 
 		console.log(`✅ Found ENP profile for user: ${notarialBook.enpId}`)
-		console.log(`   Current NPN: ${currentProfile.notaryPublicNumber || "MISSING"}`)
-		console.log(`   Current NFN: ${currentProfile.notaryFacilityNumber || "MISSING"}`)
-		console.log(`   Current RN: ${currentProfile.rollNo || "MISSING"}\n`)
+		console.log(`   Current NPN: ${currentProfile.notaryPublicNumber ?? "MISSING"}`)
+		console.log(`   Current NFN: ${currentProfile.notaryFacilityNumber ?? "MISSING"}`)
+		console.log(`   Current RN: ${currentProfile.rollNo ?? "MISSING"}\n`)
 
 		// Update the profile
 		await db
@@ -91,7 +92,7 @@ async function main() {
 		console.log("✅ Updated ENP profile:")
 		console.log(`   - Notary Public Number (NPN): ${npn}`)
 		console.log(`   - Notary Facility Number (NFN): ${nfn}`)
-		console.log(`   - Roll Number (RN): ${currentProfile.rollNo || "MISSING"}\n`)
+		console.log(`   - Roll Number (RN): ${currentProfile.rollNo ?? "MISSING"}\n`)
 
 		console.log("✅ You can now run the sync script:")
 		console.log(`   pnpm test:supreme-court-sync ${actId}`)
@@ -104,4 +105,4 @@ async function main() {
 	}
 }
 
-main()
+void main()

@@ -140,7 +140,9 @@ export const messageFilesRouter = createTRPCRouter({
 					uploadedBy: {
 						columns: {
 							id: true,
-							name: true,
+							firstName: true,
+							middleName: true,
+							lastName: true,
 							email: true,
 							image: true,
 						},

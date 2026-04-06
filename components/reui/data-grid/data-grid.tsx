@@ -1,12 +1,12 @@
 "use client"
 
-import { createContext, ReactNode, useContext, useMemo } from "react"
+import { createContext, useContext, useMemo, type ReactNode } from "react"
 import {
-  Column,
-  ColumnFiltersState,
-  RowData,
-  SortingState,
-  Table,
+  type Column,
+  type ColumnFiltersState,
+  type RowData,
+  type SortingState,
+  type Table,
 } from "@tanstack/react-table"
 
 import { cn } from "@/core/lib/utils"
@@ -148,7 +148,7 @@ function DataGridProvider<TData extends object>({
       props,
       table,
       recordCount: props.recordCount,
-      isLoading: props.isLoading || false,
+      isLoading: props.isLoading ?? false,
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [
@@ -229,11 +229,11 @@ function DataGrid<TData extends object>({
     ...props,
     tableLayout: {
       ...defaultProps.tableLayout,
-      ...(props.tableLayout || {}),
+      ...(props.tableLayout ?? {}),
     },
     tableClassNames: {
       ...defaultProps.tableClassNames,
-      ...(props.tableClassNames || {}),
+      ...(props.tableClassNames ?? {}),
     },
   }
 

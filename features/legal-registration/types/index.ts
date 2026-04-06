@@ -8,7 +8,7 @@ export type LegalRegistration = InferSelectModel<typeof legalRegistrations>
 export type User = InferSelectModel<typeof users>
 
 export type LegalRegistrationWithApplicant = LegalRegistration & {
-	applicant: Pick<User, "name" | "email">
+	applicant: Pick<User, "firstName" | "middleName" | "lastName" | "email">
 }
 
 export type LegalRegistrationRecord = LegalRegistration

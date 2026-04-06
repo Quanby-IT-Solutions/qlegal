@@ -1,9 +1,10 @@
-import { env } from "@/env"
 import {
 	getDoconchainApiToken,
 	invalidateDoconchainToken,
+	type GetSubOrgCredsForEmail,
 } from "@/services/doconchain/auth/generate-token"
-import type { GetSubOrgCredsForEmail } from "@/services/doconchain/auth/generate-token"
+
+import { env } from "@/env"
 
 // NOTE: DocOnChain responses vary (sometimes nested, sometimes arrays). We parse defensively at runtime below.
 
@@ -65,7 +66,10 @@ async function postGenerateSignLink(params: {
 	token: string
 	signerEmail: string
 }): Promise<string> {
-	const url = new URL(`/api/v2/projects/${params.projectUuid}/link/generate`, env.DOCONCHAIN_API_URL)
+	const url = new URL(
+		`/api/v2/projects/${params.projectUuid}/link/generate`,
+		env.DOCONCHAIN_API_URL
+	)
 	url.searchParams.set("email", params.signerEmail)
 	url.searchParams.set("user_type", "ENTERPRISE_API")
 
@@ -78,8 +82,8 @@ async function postGenerateSignLink(params: {
 	const res = await fetch(url.toString(), {
 		method: "POST",
 		headers: {
-			Authorization: `Bearer ${params.token}`,
-			accept: "application/json",
+			"Authorization": `Bearer ${params.token}`,
+			"accept": "application/json",
 			// DocOnChain expects JSON headers even with no body.
 			"content-type": "application/json",
 		},
@@ -123,7 +127,12 @@ async function postGenerateSignLink(params: {
 		const obj = parsed as Record<string, unknown>
 		if (Object.hasOwn(obj, "message")) {
 			const v = (obj as { message?: unknown }).message
-			if (v && typeof v === "object" && !Array.isArray(v) && Object.hasOwn(v as Record<string, unknown>, "link")) {
+			if (
+				v &&
+				typeof v === "object" &&
+				!Array.isArray(v) &&
+				Object.hasOwn(v as Record<string, unknown>, "link")
+			) {
 				const maybe = (v as { link?: unknown }).link
 				return typeof maybe === "string" ? maybe : undefined
 			}
@@ -134,7 +143,12 @@ async function postGenerateSignLink(params: {
 		}
 		if (Object.hasOwn(obj, "data")) {
 			const v = (obj as { data?: unknown }).data
-			if (v && typeof v === "object" && !Array.isArray(v) && Object.hasOwn(v as Record<string, unknown>, "link")) {
+			if (
+				v &&
+				typeof v === "object" &&
+				!Array.isArray(v) &&
+				Object.hasOwn(v as Record<string, unknown>, "link")
+			) {
 				const maybe = (v as { link?: unknown }).link
 				return typeof maybe === "string" ? maybe : undefined
 			}
@@ -194,7 +208,8 @@ export async function generateDoconchainSignLink(input: {
 	try {
 		return doRequest()
 	} catch (error) {
-		const status = error instanceof Error ? (error as Error & { status?: number }).status : undefined
+		const status =
+			error instanceof Error ? (error as Error & { status?: number }).status : undefined
 		if (status === 401) {
 			const invalidate = invalidateDoconchainToken as (email: string) => void
 			invalidate(tokenEmail)
@@ -203,4 +218,3 @@ export async function generateDoconchainSignLink(input: {
 		throw error
 	}
 }
-

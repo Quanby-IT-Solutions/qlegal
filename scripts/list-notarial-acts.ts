@@ -4,10 +4,11 @@
  */
 import "dotenv/config"
 
-import { db } from "@/services/drizzle/db"
-import { notarialActs, notarialBooks } from "@/services/drizzle/schema/notarial-book"
-import { users } from "@/services/drizzle/schema/auth"
 import { desc, eq } from "drizzle-orm"
+
+import { db } from "@/services/drizzle/db"
+import { users } from "@/services/drizzle/schema/auth"
+import { notarialActs, notarialBooks } from "@/services/drizzle/schema/notarial-book"
 
 async function main() {
 	console.log("🔵 Listing notarial acts...\n")
@@ -23,7 +24,8 @@ async function main() {
 			enpName: notarialActs.enpName,
 			enpId: notarialBooks.enpId,
 			userEmail: users.email,
-			userName: users.name,
+			userFirstName: users.firstName,
+			userLastName: users.lastName,
 		})
 		.from(notarialActs)
 		.innerJoin(notarialBooks, eq(notarialActs.notarialBookId, notarialBooks.id))
@@ -38,15 +40,16 @@ async function main() {
 	}
 
 	console.log(`✅ Found ${acts.length} notarial act(s):\n`)
-	console.log("ID".padEnd(40) + " | Certificate # | Principal | Act Type | ENP | Synced")
+	console.log(`${"ID".padEnd(40)} | Certificate # | Principal | Act Type | ENP | Synced`)
 	console.log("-".repeat(120))
 
 	acts.forEach(act => {
 		const id = act.id.substring(0, 38).padEnd(40)
-		const cert = (act.certificateNumber || "—").padEnd(14)
+		const cert = (act.certificateNumber ?? "—").padEnd(14)
 		const principal = (act.principalName || "—").substring(0, 20).padEnd(20)
 		const actType = (act.actType || "—").padEnd(20)
-		const enp = (act.enpName || act.userName || act.userEmail || "—").substring(0, 20).padEnd(20)
+		const userFullName = [act.userFirstName, act.userLastName].filter(Boolean).join(" ")
+		const enp = (act.enpName || userFullName || (act.userEmail ?? "—")).substring(0, 20).padEnd(20)
 		const synced = act.syncedToSupremeCourt ? "Yes" : "No"
 		console.log(`${id} | ${cert} | ${principal} | ${actType} | ${enp} | ${synced}`)
 	})
@@ -56,4 +59,4 @@ async function main() {
 	console.log(`   Example: pnpm test:supreme-court-sync ${acts[0]?.id}`)
 }
 
-main()
+void main()

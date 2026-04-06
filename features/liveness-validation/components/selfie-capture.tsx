@@ -120,7 +120,9 @@ export function SelfieCapture({ onSuccess, onError, onCancel, meetingId }: Selfi
 		if (cameraActive) {
 			stopCamera()
 			// Small delay before restarting with new facing mode
-			setTimeout(() => startCamera(), 100)
+			setTimeout(() => {
+				void startCamera()
+			}, 100)
 		}
 	}, [cameraActive, stopCamera, startCamera])
 
@@ -159,7 +161,7 @@ export function SelfieCapture({ onSuccess, onError, onCancel, meetingId }: Selfi
 	const retakePhoto = useCallback(() => {
 		setCapturedImage(null)
 		setValidationResult(null)
-		startCamera()
+		void startCamera()
 	}, [startCamera])
 
 	// Submit selfie for liveness validation
@@ -190,10 +192,10 @@ export function SelfieCapture({ onSuccess, onError, onCancel, meetingId }: Selfi
 				} else {
 					setValidationResult({
 						success: false,
-						message: result.error || "Validation failed",
+						message: result.error ?? "Validation failed",
 					})
 					toast.error("We couldn’t confirm your liveness. Please retake and try again.")
-					onError?.(result.error || "Validation failed")
+					onError?.(result.error ?? "Validation failed")
 				}
 			} catch (error) {
 				const errorMessage = error instanceof Error ? error.message : "An unexpected error occurred"

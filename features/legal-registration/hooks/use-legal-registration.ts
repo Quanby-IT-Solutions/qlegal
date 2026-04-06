@@ -27,7 +27,7 @@ export function useLegalRegistration() {
 	const router = useRouter()
 
 	// Get user's application
-	// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+	 
 	const {
 		data: application,
 		isLoading,
@@ -36,11 +36,11 @@ export function useLegalRegistration() {
 	} = trpc.legalRegistration.getMyApplication.useQuery()
 
 	// Auto-create draft application if none exists
-	// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+	 
 	const autoCreateDraft = trpc.legalRegistration.getOrCreateDraft.useMutation({
 		onSuccess: (data: GetOrCreateDraftOutput) => {
 			console.log("Auto-created draft application:", data.id, data.message)
-			// eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+			 
 			void utils.legalRegistration.getMyApplication.invalidate()
 		},
 		onError: (error: { message: string }) => {
@@ -57,11 +57,11 @@ export function useLegalRegistration() {
 	})
 
 	// Create application mutation
-	// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+	 
 	const createApplication = trpc.legalRegistration.create.useMutation({
 		onSuccess: (data: CreateApplicationOutput) => {
 			toast.success(data.message)
-			// eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+			 
 			void utils.legalRegistration.getMyApplication.invalidate()
 		},
 		onError: (error: { message: string }) => {
@@ -70,12 +70,12 @@ export function useLegalRegistration() {
 	})
 
 	// Update application mutation
-	// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+	 
 	const updateApplication = trpc.legalRegistration.update.useMutation({
 		onSuccess: (data: UpdateApplicationOutput) => {
 			console.log("Application updated successfully:", data.message)
 			toast.success(data.message)
-			// eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+			 
 			void utils.legalRegistration.getMyApplication.invalidate()
 		},
 		onError: (error: { message: string }) => {
@@ -86,11 +86,11 @@ export function useLegalRegistration() {
 	})
 
 	// Submit application mutation
-	// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+	 
 	const submitApplication = trpc.legalRegistration.submit.useMutation({
 		onSuccess: (data: SubmitApplicationOutput) => {
 			toast.success(data.message)
-			// eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+			 
 			void utils.legalRegistration.getMyApplication.invalidate()
 			// Redirect to landing page after successful submission
 			router.push("/")
@@ -103,7 +103,7 @@ export function useLegalRegistration() {
 	// Helper functions
 	const createNewApplication = useCallback(
 		(data: LegalRegistrationForm) => {
-			// eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+			 
 			createApplication.mutate(data)
 		},
 		[createApplication]
@@ -112,7 +112,7 @@ export function useLegalRegistration() {
 	const updateExistingApplication = useCallback(
 		(applicationId: string, data: Partial<LegalRegistrationForm>): Promise<{ message: string }> => {
 			return new Promise((resolve, reject) => {
-				// eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+				 
 				updateApplication.mutate(
 					{ applicationId, data },
 					{
@@ -132,7 +132,7 @@ export function useLegalRegistration() {
 	const submitForReview = useCallback(
 		(applicationId: string, electronicSignatureUrl: string): Promise<{ message: string }> => {
 			return new Promise((resolve, reject) => {
-				// eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+				 
 				submitApplication.mutate(
 					{ applicationId, electronicSignatureUrl },
 					{
@@ -152,7 +152,7 @@ export function useLegalRegistration() {
 	// Auto-create draft with minimal data
 	const createDraftIfNeeded = useCallback(() => {
 		console.log("createDraftIfNeeded called - triggering mutation")
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+		 
 		autoCreateDraft.mutate()
 	}, [autoCreateDraft])
 
@@ -170,31 +170,31 @@ export function useLegalRegistration() {
 		refetch,
 
 		// States
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+		 
 		isCreating: createApplication.isPending,
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+		 
 		isUpdating: updateApplication.isPending,
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+		 
 		isSubmitting: submitApplication.isPending,
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+		 
 		isCreatingDraft: autoCreateDraft.isPending,
 
 		// Status helpers
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+		 
 		isDraft: application?.status === "DRAFT",
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+		 
 		isSubmitted: application?.status === "PENDING",
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+		 
 		isUnderReview: application?.status === "UNDER_REVIEW",
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+		 
 		isApproved: application?.status === "APPROVED",
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+		 
 		isRejected: application?.status === "REJECTED",
 
 		// Permissions
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+		 
 		canEdit: application?.status === "DRAFT",
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+		 
 		canSubmit: application?.status === "DRAFT",
 	}
 }
@@ -204,7 +204,7 @@ export function useLegalRegistrationAdmin() {
 	const utils = trpc.useUtils()
 
 	// List applications with pagination
-	// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+	 
 	const listApplications = trpc.legalRegistration.listApplications.useQuery({
 		status: "ALL",
 		page: 1,
@@ -212,11 +212,11 @@ export function useLegalRegistrationAdmin() {
 	})
 
 	// Update status mutation
-	// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+	 
 	const updateStatus = trpc.legalRegistration.updateStatus.useMutation({
 		onSuccess: (data: UpdateStatusOutput) => {
 			toast.success(data.message)
-			// eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+			 
 			void utils.legalRegistration.listApplications.invalidate()
 		},
 		onError: (error: { message: string }) => {
@@ -226,7 +226,7 @@ export function useLegalRegistrationAdmin() {
 
 	const updateApplicationStatus = useCallback(
 		(data: UpdateApplicationStatus) => {
-			// eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+			 
 			updateStatus.mutate(data)
 		},
 		[updateStatus]
@@ -234,22 +234,22 @@ export function useLegalRegistrationAdmin() {
 
 	return {
 		// Data
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+		 
 		applications: listApplications.data?.applications ?? [],
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+		 
 		pagination: listApplications.data?.pagination,
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+		 
 		isLoading: listApplications.isLoading,
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+		 
 		error: listApplications.error,
 
 		// Actions
 		updateApplicationStatus,
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+		 
 		refetch: listApplications.refetch,
 
 		// States
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+		 
 		isUpdatingStatus: updateStatus.isPending,
 	}
 }

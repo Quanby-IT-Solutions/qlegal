@@ -2,15 +2,10 @@
 
 import React, { useCallback, useEffect, useState } from "react"
 import { ChevronLeft, ChevronRight, RotateCw, ZoomIn, ZoomOut } from "lucide-react"
-
-import { Button } from "@/core/components/ui/button"
-
-// Import react-pdf CSS
-import "react-pdf/dist/Page/AnnotationLayer.css"
-import "react-pdf/dist/Page/TextLayer.css"
-
 // Import react-pdf components directly (will be handled by client-side only loading)
 import { Document, Page } from "react-pdf"
+
+import { Button } from "@/core/components/ui/button"
 
 interface SimplePdfViewerProps {
 	fileUrl: string
@@ -176,8 +171,8 @@ export function SimplePdfViewer({ fileUrl, documentName: _documentName }: Simple
 					}
 				})
 			})
-			.catch(error => {
-				if (error.name === "AbortError") {
+			.catch((error: unknown) => {
+				if (error instanceof Error && error.name === "AbortError") {
 					// Request was aborted (component unmounted or URL changed)
 					return
 				}
@@ -204,9 +199,9 @@ export function SimplePdfViewer({ fileUrl, documentName: _documentName }: Simple
 					// Use the version that react-pdf actually uses (from pdfjs.version)
 					// This ensures the worker version matches the API version
 					// PDF.js 5.x requires the .mjs extension for the worker
-					// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment
+
 					const version = pdfjs.version || "5.4.296"
-					// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+
 					pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${version}/build/pdf.worker.min.mjs`
 					setState(prev => ({ ...prev, isLoaded: true }))
 				})
@@ -230,7 +225,7 @@ export function SimplePdfViewer({ fileUrl, documentName: _documentName }: Simple
 			console.error("PDF document load error:", error)
 			// Check if it's an HTTP error (400, 404, 500, etc.)
 			const errorMessage = error?.message || String(error)
-			let userFriendlyMessage = state.error || "Failed to load PDF document"
+			let userFriendlyMessage = state.error ?? "Failed to load PDF document"
 
 			if (errorMessage.includes("503")) {
 				userFriendlyMessage = "DocoChain API is temporarily unavailable. Please try again later."
@@ -248,7 +243,7 @@ export function SimplePdfViewer({ fileUrl, documentName: _documentName }: Simple
 				userFriendlyMessage = "Server error. Please try again later."
 			} else if (errorMessage.includes("Unexpected server response")) {
 				userFriendlyMessage =
-					state.error ||
+					state.error ??
 					"The server returned an unexpected response. The document may not be available or may be in an unsupported format."
 			}
 
@@ -328,7 +323,7 @@ export function SimplePdfViewer({ fileUrl, documentName: _documentName }: Simple
 			<div className="flex h-full w-full items-center justify-center">
 				<div className="text-center">
 					<p className="text-destructive mb-4 text-sm font-medium">Failed to load PDF document</p>
-					<p className="text-muted-foreground mb-4 text-xs">{state.error || "Unknown error"}</p>
+					<p className="text-muted-foreground mb-4 text-xs">{state.error ?? "Unknown error"}</p>
 					<div className="space-y-2">
 						<Button variant="outline" size="sm" onClick={() => window.open(fileUrl, "_blank")}>
 							Open in New Tab
@@ -402,7 +397,7 @@ export function SimplePdfViewer({ fileUrl, documentName: _documentName }: Simple
 					>
 						<ZoomOut className="h-4 w-4" />
 					</Button>
-					<span className="min-w-[60px] text-center text-sm">{Math.round(state.scale * 100)}%</span>
+					<span className="min-w-15 text-center text-sm">{Math.round(state.scale * 100)}%</span>
 					<Button
 						variant="outline"
 						size="sm"

@@ -371,7 +371,9 @@ export const dashboardRouter = createTRPCRouter({
 							createdBy: {
 								columns: {
 									id: true,
-									name: true,
+									firstName: true,
+									middleName: true,
+									lastName: true,
 									email: true,
 									image: true,
 								},
@@ -381,7 +383,9 @@ export const dashboardRouter = createTRPCRouter({
 					invitedBy: {
 						columns: {
 							id: true,
-							name: true,
+							firstName: true,
+							middleName: true,
+							lastName: true,
 							email: true,
 							image: true,
 						},
@@ -401,7 +405,7 @@ export const dashboardRouter = createTRPCRouter({
 				host: invite.appointment?.createdBy
 					? {
 							id: invite.appointment.createdBy.id,
-							name: invite.appointment.createdBy.name,
+							name: getFullName(invite.appointment.createdBy),
 							email: invite.appointment.createdBy.email,
 							image: invite.appointment.createdBy.image,
 						}
@@ -409,7 +413,7 @@ export const dashboardRouter = createTRPCRouter({
 				invitedBy: invite.invitedBy
 					? {
 							id: invite.invitedBy.id,
-							name: invite.invitedBy.name,
+							name: getFullName(invite.invitedBy),
 							email: invite.invitedBy.email,
 							image: invite.invitedBy.image,
 						}

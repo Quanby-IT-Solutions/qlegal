@@ -148,7 +148,9 @@ export async function createUsers() {
 	let insertedRandomUsers: Array<{
 		id: string
 		email: string | null
-		name: string | null
+		firstName: string | null
+		middleName: string | null
+		lastName: string | null
 		role: "ENP" | "PRINCIPAL" | "ENA" | "ADMIN"
 	}> = []
 	const randomUserCount = SEED_CONFIG.userCount - SEED_CONFIG.testAccounts.length

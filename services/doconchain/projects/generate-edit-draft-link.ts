@@ -1,9 +1,10 @@
-import { env } from "@/env"
-import type { GetSubOrgCredsForEmail } from "@/services/doconchain/auth/generate-token"
 import {
 	getDoconchainApiToken,
 	invalidateDoconchainToken,
+	type GetSubOrgCredsForEmail,
 } from "@/services/doconchain/auth/generate-token"
+
+import { env } from "@/env"
 
 type GenerateLinkResponse =
 	| { message?: { link?: string; message?: string } }
@@ -121,8 +122,8 @@ async function postGenerateLink(params: { projectUuid: string; token: string }):
 	const res = await fetch(url.toString(), {
 		method: "POST",
 		headers: {
-			Authorization: `Bearer ${params.token}`,
-			accept: "application/json",
+			"Authorization": `Bearer ${params.token}`,
+			"accept": "application/json",
 			"content-type": "application/json",
 		},
 	})
@@ -164,7 +165,12 @@ async function postGenerateLink(params: { projectUuid: string; token: string }):
 		const obj = parsed as Record<string, unknown>
 		if (Object.hasOwn(obj, "message")) {
 			const v = (obj as { message?: unknown }).message
-			if (v && typeof v === "object" && !Array.isArray(v) && Object.hasOwn(v as Record<string, unknown>, "link")) {
+			if (
+				v &&
+				typeof v === "object" &&
+				!Array.isArray(v) &&
+				Object.hasOwn(v as Record<string, unknown>, "link")
+			) {
 				const maybe = (v as { link?: unknown }).link
 				return typeof maybe === "string" ? maybe : undefined
 			}
@@ -175,7 +181,12 @@ async function postGenerateLink(params: { projectUuid: string; token: string }):
 		}
 		if (Object.hasOwn(obj, "data")) {
 			const v = (obj as { data?: unknown }).data
-			if (v && typeof v === "object" && !Array.isArray(v) && Object.hasOwn(v as Record<string, unknown>, "link")) {
+			if (
+				v &&
+				typeof v === "object" &&
+				!Array.isArray(v) &&
+				Object.hasOwn(v as Record<string, unknown>, "link")
+			) {
 				const maybe = (v as { link?: unknown }).link
 				return typeof maybe === "string" ? maybe : undefined
 			}
@@ -241,7 +252,8 @@ export async function generateDoconchainEditDraftProjectLink(input: {
 		})
 		return doRequest()
 	} catch (error) {
-		const status = error instanceof Error ? (error as Error & { status?: number }).status : undefined
+		const status =
+			error instanceof Error ? (error as Error & { status?: number }).status : undefined
 		if (status === 401) {
 			const invalidate = invalidateDoconchainToken as (email: string) => void
 			invalidate(email)
@@ -254,4 +266,3 @@ export async function generateDoconchainEditDraftProjectLink(input: {
 		throw error
 	}
 }
-

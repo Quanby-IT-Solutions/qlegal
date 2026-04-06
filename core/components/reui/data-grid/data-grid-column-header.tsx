@@ -226,7 +226,7 @@ function DataGridColumnHeaderInner<TData, TValue>({
 						if (columnIndex > 0) {
 							const newOrder = [...columnOrder]
 							const [movedColumn] = newOrder.splice(columnIndex, 1)
-							newOrder.splice(columnIndex - 1, 0, movedColumn)
+								newOrder.splice(columnIndex - 1, 0, movedColumn!)
 							table.setColumnOrder(newOrder)
 						}
 					}}
@@ -246,7 +246,7 @@ function DataGridColumnHeaderInner<TData, TValue>({
 						if (columnIndex < columnOrder.length - 1) {
 							const newOrder = [...columnOrder]
 							const [movedColumn] = newOrder.splice(columnIndex, 1)
-							newOrder.splice(columnIndex + 1, 0, movedColumn)
+								newOrder.splice(columnIndex + 1, 0, movedColumn!)
 							table.setColumnOrder(newOrder)
 						}
 					}}
@@ -275,7 +275,7 @@ function DataGridColumnHeaderInner<TData, TValue>({
 						<HugeiconsIcon icon={SlidersHorizontalIcon} strokeWidth={2} className="size-3.5!" />
 						<span>Columns</span>
 					</DropdownMenuSubTrigger>
-					<DropdownMenuSubContent side="right">
+					<DropdownMenuSubContent>
 						{table
 							.getAllColumns()
 							.filter(col => typeof col.accessorFn !== "undefined" && col.getCanHide())

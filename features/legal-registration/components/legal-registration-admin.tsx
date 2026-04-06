@@ -37,6 +37,7 @@ import {
 	TableRow,
 } from "@/core/components/ui/table"
 import { Textarea } from "@/core/components/ui/textarea"
+import { getFullName } from "@/core/lib/utils"
 
 import type { UpdateApplicationStatus } from "../api/legal-registration.schemas"
 import { useLegalRegistrationAdmin } from "../hooks/use-legal-registration"
@@ -59,7 +60,9 @@ type ApplicationWithApplicant = {
 	ulasComplianceNumber: string
 	remarks: string | null
 	applicant: {
-		name: string | null
+		firstName: string | null
+		middleName: string | null
+		lastName: string | null
 		email: string | null
 	}
 }
@@ -217,7 +220,9 @@ export function LegalRegistrationAdminDashboard() {
 						<TableBody>
 							{applicationsArray.map(application => (
 								<TableRow key={application.id}>
-									<TableCell className="font-medium">{application.applicant.name}</TableCell>
+									<TableCell className="font-medium">
+										{getFullName(application.applicant)}
+									</TableCell>
 									<TableCell>{application.applicant.email}</TableCell>
 									<TableCell>{getStatusBadge(application.status)}</TableCell>
 									<TableCell>
@@ -238,7 +243,7 @@ export function LegalRegistrationAdminDashboard() {
 													<DialogHeader>
 														<DialogTitle>Application Details</DialogTitle>
 														<DialogDescription>
-															{application.applicant.name} - {application.applicant.email}
+															{getFullName(application.applicant)} - {application.applicant.email}
 														</DialogDescription>
 													</DialogHeader>
 													<div className="space-y-4">
@@ -332,7 +337,7 @@ export function LegalRegistrationAdminDashboard() {
 					<DialogHeader>
 						<DialogTitle>Review Application</DialogTitle>
 						<DialogDescription>
-							{selectedApplication?.applicant.name} - {selectedApplication?.applicant.email}
+							{getFullName(selectedApplication?.applicant)} - {selectedApplication?.applicant.email}
 						</DialogDescription>
 					</DialogHeader>
 					<div className="space-y-4">

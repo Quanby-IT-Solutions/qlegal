@@ -21,6 +21,7 @@ import {
 	TableHeader,
 	TableRow,
 } from "@/core/components/ui/table"
+import { getFullName } from "@/core/lib/utils"
 
 interface Document {
 	id: string
@@ -33,7 +34,9 @@ interface Document {
 interface LegalApplicationWithDocuments {
 	id: string
 	applicant: {
-		name: string | null
+		firstName: string | null
+		middleName: string | null
+		lastName: string | null
 		email: string | null
 	}
 	status: string
@@ -73,7 +76,7 @@ const FilePreview: React.FC<{
 	// PDF Preview
 	if (file.type === "application/pdf" || file.url.toLowerCase().includes(".pdf")) {
 		return (
-			<div className="relative h-full min-h-[800px] w-full">
+			<div className="relative h-full min-h-200 w-full">
 				{isLoading && (
 					<div className="absolute inset-0 z-10 flex items-center justify-center bg-gray-50">
 						<Loader2 className="h-8 w-8 animate-spin text-gray-400" />
@@ -111,7 +114,7 @@ const FilePreview: React.FC<{
 	const imageRegex = /\.(jpg|jpeg|png|gif|webp)$/i
 	if (file.type.startsWith("image/") || imageRegex.exec(file.url)) {
 		return (
-			<div className="relative h-full min-h-[600px] w-full">
+			<div className="relative h-full min-h-150 w-full">
 				{isLoading && (
 					<div className="absolute inset-0 z-10 flex items-center justify-center bg-gray-50">
 						<Loader2 className="h-8 w-8 animate-spin text-gray-400" />
@@ -142,7 +145,7 @@ const FilePreview: React.FC<{
 
 	// Unsupported file type
 	return (
-		<div className="flex h-full min-h-[400px] items-center justify-center">
+		<div className="flex h-full min-h-100 items-center justify-center">
 			<div className="text-center">
 				<FileText className="mx-auto mb-4 h-16 w-16 text-gray-300" />
 				<p className="mb-2 text-gray-500">Preview not available for this file type</p>
@@ -239,7 +242,7 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({
 					</CardTitle>
 				</CardHeader>
 				<CardContent>
-					<div className="flex h-[300px] items-center justify-center">
+					<div className="flex h-75 items-center justify-center">
 						<div className="text-center">
 							<FileText className="mx-auto mb-4 h-16 w-16 text-gray-300" />
 							<p className="text-gray-500">No application selected</p>
@@ -259,12 +262,12 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({
 						<span>Application Documents</span>
 					</CardTitle>
 					<div className="text-sm text-gray-600">
-						{application.applicant.name} - {documents.length} document(s)
+						{getFullName(application.applicant)} - {documents.length} document(s)
 					</div>
 				</CardHeader>
 				<CardContent>
 					{documents.length === 0 ? (
-						<div className="flex h-[300px] items-center justify-center">
+						<div className="flex h-75 items-center justify-center">
 							<div className="text-center">
 								<FileText className="mx-auto mb-4 h-16 w-16 text-gray-300" />
 								<p className="text-gray-500">No documents uploaded yet</p>
@@ -324,9 +327,11 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({
 			{/* Document Preview Dialog */}
 			<Dialog open={previewDialog} onOpenChange={setPreviewDialog}>
 				<DialogContent className="flex h-[95vh] max-w-6xl flex-col">
-					<DialogHeader className="flex-shrink-0">
+					<DialogHeader className="shrink-0">
 						<DialogTitle>{selectedDocument?.name}</DialogTitle>
-						<DialogDescription>Document preview for {application.applicant.name}</DialogDescription>
+						<DialogDescription>
+							Document preview for {getFullName(application.applicant)}
+						</DialogDescription>
 					</DialogHeader>
 					<div className="mt-4 min-h-0 flex-1">
 						{selectedDocument && (

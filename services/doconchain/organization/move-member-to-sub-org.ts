@@ -54,5 +54,5 @@ export async function moveDoconchainMemberToSubOrg(input: {
 		)
 	}
 
-	return (text ? (JSON.parse(text) as MoveMemberResponse) : {}) as MoveMemberResponse
+	return (text ? (JSON.parse(text) as MoveMemberResponse) : {})
 }

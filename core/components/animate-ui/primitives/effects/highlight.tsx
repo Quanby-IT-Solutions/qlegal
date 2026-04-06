@@ -163,8 +163,7 @@ const Highlight = React.forwardRef<HTMLDivElement, HighlightProps<React.ElementT
 
 				setBoundsState(prev => {
 					if (
-						prev &&
-						prev.top === newBounds.top &&
+						prev?.top === newBounds.top &&
 						prev.left === newBounds.left &&
 						prev.width === newBounds.width &&
 						prev.height === newBounds.height
@@ -420,8 +419,7 @@ const HighlightItem = React.forwardRef<HTMLDivElement, HighlightItemProps>(funct
 
 			if (shouldUpdateBounds) {
 				if (
-					previousBounds &&
-					previousBounds.top === bounds.top &&
+					previousBounds?.top === bounds.top &&
 					previousBounds.left === bounds.left &&
 					previousBounds.width === bounds.width &&
 					previousBounds.height === bounds.height

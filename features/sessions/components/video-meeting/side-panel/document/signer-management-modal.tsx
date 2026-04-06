@@ -123,9 +123,7 @@ export const SignerManagementModal = React.memo(function SignerManagementModal({
 		setSignerRoles(prev => {
 			const next = { ...prev }
 			for (const id of nonEnpSelected) {
-				if (next[id] === undefined) {
-					next[id] = "principal"
-				}
+				next[id] ??= "principal"
 			}
 			return next
 		})
@@ -207,7 +205,7 @@ export const SignerManagementModal = React.memo(function SignerManagementModal({
 							<p className="text-muted-foreground text-sm">
 								Selected: {selectedUserIds.length} of {participants.length}
 							</p>
-							<div className="max-h-[400px] space-y-1.5 overflow-y-auto">
+							<div className="max-h-100 space-y-1.5 overflow-y-auto">
 								{participants.map(p => {
 									const checked = selectedSet.has(p.userId)
 									const email = (p.user?.email ?? "").trim()
@@ -243,7 +241,7 @@ export const SignerManagementModal = React.memo(function SignerManagementModal({
 							<p className="text-muted-foreground text-sm">
 								Assign Principal or Witness. ENP signs as notary and is not listed here.
 							</p>
-							<div className="max-h-[400px] space-y-1.5 overflow-y-auto">
+							<div className="max-h-100 space-y-1.5 overflow-y-auto">
 								{orderedSelected
 									.filter(p => p.user?.role !== "ENP")
 									.map(p => {
@@ -266,7 +264,7 @@ export const SignerManagementModal = React.memo(function SignerManagementModal({
 													value={role}
 													onValueChange={(v: SignerRole) => setRoleForUser(p.userId, v)}
 												>
-													<SelectTrigger className="h-8 w-[120px] shrink-0">
+													<SelectTrigger className="h-8 w-30 shrink-0">
 														<SelectValue />
 													</SelectTrigger>
 													<SelectContent>
@@ -285,7 +283,7 @@ export const SignerManagementModal = React.memo(function SignerManagementModal({
 							<p className="text-muted-foreground text-sm">
 								Use arrows to reorder signers (first signs first)
 							</p>
-							<div className="max-h-[400px] space-y-1.5 overflow-y-auto">
+							<div className="max-h-100 space-y-1.5 overflow-y-auto">
 								{orderedSelected.map((p, index) => {
 									const email = (p.user?.email ?? "").trim()
 									const name = getFullName(p.user) || email || "Unknown"

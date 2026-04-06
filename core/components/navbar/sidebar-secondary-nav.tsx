@@ -35,7 +35,7 @@ export const SidebarSecondaryNav = ({ items }: SidebarSecondaryNavProps) => {
 			const IconComponent = icon as React.ComponentType<React.SVGProps<SVGSVGElement>>
 			return <IconComponent />
 		}
-		return <HugeiconsIcon icon={icon as IconSvgObject} size={16} />
+		return <HugeiconsIcon icon={icon} size={16} />
 	}
 
 	const NavContent = ({ item }: { item: NavItem }) => (

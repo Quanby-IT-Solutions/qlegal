@@ -71,20 +71,12 @@ export function DashboardUpcomingAppointments({
 								className="hover:bg-muted/50 flex items-start gap-4 rounded-lg border p-4 transition-colors"
 							>
 								<Avatar className="h-10 w-10">
-									<AvatarImage
-										src={appointment.lawyerImage || undefined}
-										alt={appointment.lawyerName || "Notary"}
-									/>
-									<AvatarFallback>
-										{appointment.lawyerName
-											?.split(" ")
-											.map(n => n[0])
-											.join("") || "N"}
-									</AvatarFallback>
+									<AvatarImage src={undefined} alt={appointment.title || "Appointment"} />
+									<AvatarFallback>{(appointment.title?.[0] ?? "A").toUpperCase()}</AvatarFallback>
 								</Avatar>
 								<div className="flex-1 space-y-1">
 									<div className="flex items-center justify-between">
-										<p className="font-medium">{appointment.lawyerName}</p>
+										<p className="font-medium">{appointment.title ?? "Appointment"}</p>
 										<Badge variant={getStatusVariant(appointment.status)}>
 											{appointment.status}
 										</Badge>
@@ -109,7 +101,7 @@ export function DashboardUpcomingAppointments({
 						<HugeiconsIcon icon={Calendar01Icon} size={48} className="text-muted-foreground/50" />
 						<p className="text-muted-foreground mt-4 text-sm">No upcoming appointments</p>
 						<Link
-							// @ts-ignore Next.js typed routes
+							// @ts-expect-error Next.js typed routes
 							href="/consultations"
 							className={buttonVariants({
 								variant: "outline",

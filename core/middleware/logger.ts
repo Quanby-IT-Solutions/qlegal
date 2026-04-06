@@ -1,4 +1,4 @@
-/* eslint-disable no-console */
+ 
 import { type UserRole } from "@/services/drizzle/schema/auth"
 
 import { env } from "@/env"

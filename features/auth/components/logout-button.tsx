@@ -3,8 +3,7 @@
 import type { ReactNode } from "react"
 import { signOut } from "next-auth/react"
 
-import { Button } from "@/core/components/ui/button"
-import type { ButtonProps } from "@/core/components/ui/button"
+import { Button, type ButtonProps } from "@/core/components/ui/button"
 
 interface LogoutButtonProps extends Omit<ButtonProps, "onClick"> {
 	callbackUrl?: string
@@ -22,7 +21,7 @@ export function LogoutButton({
 			onClick={() => {
 				// Clear KYC skip session cookie before logout
 				document.cookie = "skipKycSession=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT"
-				signOut({ callbackUrl })
+				void signOut({ callbackUrl })
 			}}
 		>
 			{children}

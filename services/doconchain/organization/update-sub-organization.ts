@@ -84,7 +84,7 @@ export async function updateDoconchainSubOrganization(input: {
 		)
 	}
 
-	const raw = (text ? (JSON.parse(text) as UpdateSubOrgResponse) : {}) as UpdateSubOrgResponse
+	const raw = (text ? (JSON.parse(text) as UpdateSubOrgResponse) : {})
 	const success =
 		raw.success === true ||
 		typeof raw.message === "string" && raw.message.toLowerCase().includes("success")
@@ -93,10 +93,10 @@ export async function updateDoconchainSubOrganization(input: {
 
 	return {
 		success,
-		uuid: (data.uuid ?? uuid) as string,
-		name: (data.name ?? name) as string,
-		email: (data.email ?? email) as string,
-		address: (data.address ?? address) as string,
+		uuid: (data.uuid ?? uuid),
+		name: (data.name ?? name),
+		email: (data.email ?? email),
+		address: (data.address ?? address),
 		photoUrl: (data.photo_url ?? null) ?? null,
 		subOrganizationTypeName: (data.sub_organization_type_name ?? typeName) ?? null,
 		raw,

@@ -381,7 +381,7 @@ export function NotarialRegistryDataGrid({
 				id: "workflow",
 				header: "Notarization",
 				cell: ({ row }) => (
-					<p className="text-xs leading-snug font-medium break-words whitespace-normal">
+					<p className="text-xs leading-snug font-medium wrap-break-word whitespace-normal">
 						{formatWorkflowLabel(row.original.workflow)}
 					</p>
 				),

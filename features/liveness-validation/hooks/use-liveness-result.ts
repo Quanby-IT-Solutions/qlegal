@@ -34,9 +34,9 @@ export function useLivenessResult({
 				"🔵 [TanStack Query] Fetching liveness result for:",
 				transactionId,
 				"meeting:",
-				meetingId || "N/A"
+				meetingId ?? "N/A"
 			)
-			return getHostedLivenessResult(transactionId, meetingId || undefined)
+			return getHostedLivenessResult(transactionId, meetingId ?? undefined)
 		},
 		enabled: enabled && !!transactionId,
 		// Prevent refetching - we only need the result once per transaction

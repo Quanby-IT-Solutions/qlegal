@@ -158,7 +158,9 @@ export const legalRegistrationRouter = createTRPCRouter({
 					with: {
 						applicant: {
 							columns: {
-								name: true,
+								firstName: true,
+								middleName: true,
+								lastName: true,
 								email: true,
 							},
 						},
@@ -230,8 +232,7 @@ export const legalRegistrationRouter = createTRPCRouter({
 				columns: { enpLmsCourseCompletedAt: true },
 			})
 			const existing = row?.enpLmsCourseCompletedAt
-			const chosen =
-				existing && existing.getTime() >= nextAt.getTime() ? existing : nextAt
+			const chosen = existing && existing.getTime() >= nextAt.getTime() ? existing : nextAt
 
 			await db
 				.update(users)
@@ -404,7 +405,9 @@ export const legalRegistrationRouter = createTRPCRouter({
 						with: {
 							applicant: {
 								columns: {
-									name: true,
+									firstName: true,
+									middleName: true,
+									lastName: true,
 									email: true,
 								},
 							},

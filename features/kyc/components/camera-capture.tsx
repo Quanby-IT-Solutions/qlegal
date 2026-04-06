@@ -114,7 +114,7 @@ export const CameraCapture = forwardRef<
 	}
 
 	const getStream = async (mode: FacingMode) => {
-		return await navigator.mediaDevices.getUserMedia({
+		return navigator.mediaDevices.getUserMedia({
 			video: {
 				facingMode: mode,
 				width: { ideal: 1280 },
@@ -249,8 +249,8 @@ export const CameraCapture = forwardRef<
 			}
 
 			const trackSettings = streamRef.current?.getVideoTracks?.()?.[0]?.getSettings?.()
-			const width = video.videoWidth || trackSettings?.width || 1280
-			const height = video.videoHeight || trackSettings?.height || 720
+			const width = video.videoWidth || (trackSettings?.width ?? 1280)
+			const height = video.videoHeight || (trackSettings?.height ?? 720)
 
 			if (!width || !height) {
 				setCameraError("Camera is still starting. Please try again.")

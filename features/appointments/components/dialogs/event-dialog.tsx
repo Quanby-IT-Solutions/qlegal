@@ -346,7 +346,7 @@ export function EventDialog({
 										void handleDelete()
 									}}
 									className="mr-auto"
-									disabled={isSaving || isDeleting}
+									disabled={isSaving ?? isDeleting}
 								>
 									{isDeleting ? (
 										<>

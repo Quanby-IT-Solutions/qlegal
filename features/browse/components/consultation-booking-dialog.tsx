@@ -99,7 +99,7 @@ export function ConsultationBookingDialog({
 
 	return (
 		<Dialog open={open} onOpenChange={setOpen}>
-			<DialogTrigger asChild>{trigger || <Button>Book Consultation</Button>}</DialogTrigger>
+			<DialogTrigger asChild>{trigger ?? <Button>Book Consultation</Button>}</DialogTrigger>
 			<DialogContent className="sm:max-w-125">
 				<DialogHeader>
 					<DialogTitle>Book Consultation{enpName ? ` with ${enpName}` : ""}</DialogTitle>

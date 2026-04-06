@@ -60,7 +60,7 @@ export function DashboardMeetingInvites({
 							<div key={invite.id} className="rounded-lg border p-4">
 								<div className="flex items-start justify-between gap-3">
 									<div className="min-w-0 flex-1">
-										<p className="truncate font-semibold">{invite.meetingTitle}</p>
+										<p className="truncate font-semibold">{invite.appointmentTitle}</p>
 										<p className="text-muted-foreground mt-1 text-xs">
 											Invited by {invite.invitedBy?.name ?? invite.host?.name ?? "Host"}
 										</p>
@@ -76,7 +76,7 @@ export function DashboardMeetingInvites({
 									<Button
 										size="sm"
 										disabled={isRespondingToInvite}
-										onClick={() => onAccept(invite.meetingId)}
+										onClick={() => onAccept(invite.meetingId ?? "")}
 									>
 										Accept
 									</Button>
@@ -84,7 +84,7 @@ export function DashboardMeetingInvites({
 										size="sm"
 										variant="outline"
 										disabled={isRespondingToInvite}
-										onClick={() => onDecline(invite.meetingId)}
+										onClick={() => onDecline(invite.meetingId ?? "")}
 									>
 										Decline
 									</Button>

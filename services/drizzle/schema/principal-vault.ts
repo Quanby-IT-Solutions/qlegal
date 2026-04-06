@@ -1,5 +1,4 @@
-import type { AnyPgColumn } from "drizzle-orm/pg-core"
-import { index } from "drizzle-orm/pg-core"
+import { index, type AnyPgColumn } from "drizzle-orm/pg-core"
 
 import { users } from "@/services/drizzle/schema/auth"
 import { createTable, randomId } from "@/services/drizzle/utils"
@@ -85,7 +84,9 @@ export const principalVaultFolderShares = createTable(
 			.notNull()
 			.references(() => users.id, { onDelete: "cascade" }),
 		recipientEmail: t.varchar({ length: 255 }).notNull(),
-		recipientEnpUserId: t.varchar({ length: 255 }).references(() => users.id, { onDelete: "set null" }),
+		recipientEnpUserId: t
+			.varchar({ length: 255 })
+			.references(() => users.id, { onDelete: "set null" }),
 		note: t.text(),
 		expiresAt: t.timestamp({ mode: "date", withTimezone: true }).notNull(),
 		createdAt: t.timestamp({ mode: "date", withTimezone: true }).defaultNow().notNull(),

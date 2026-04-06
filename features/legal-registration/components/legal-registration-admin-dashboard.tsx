@@ -37,6 +37,7 @@ import {
 } from "@/core/components/ui/table"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/core/components/ui/tabs"
 import { Textarea } from "@/core/components/ui/textarea"
+import { getFullName } from "@/core/lib/utils"
 
 import type { UpdateApplicationStatus } from "../api/legal-registration.schemas"
 import { useLegalRegistrationAdmin } from "../hooks/use-legal-registration"
@@ -69,7 +70,9 @@ type LegalApplication = {
 	ulasComplianceNumber: string
 	remarks: string | null
 	applicant?: {
-		name: string | null
+		firstName: string | null
+		middleName: string | null
+		lastName: string | null
 		email: string | null
 	}
 }
@@ -183,7 +186,7 @@ export function LegalRegistrationAdminDashboard() {
 							{(applications as LegalApplication[])?.map(application => (
 								<TableRow key={application.id}>
 									<TableCell className="font-medium">
-										{application.applicant?.name ?? "N/A"}
+										{getFullName(application.applicant) || "N/A"}
 									</TableCell>
 									<TableCell>{application.applicant?.email ?? "N/A"}</TableCell>
 									<TableCell>{getStatusBadge(application.status)}</TableCell>
@@ -232,7 +235,8 @@ export function LegalRegistrationAdminDashboard() {
 					<DialogHeader>
 						<DialogTitle>Review Application</DialogTitle>
 						<DialogDescription>
-							{selectedApplication?.applicant?.name} - {selectedApplication?.applicant?.email}
+							{getFullName(selectedApplication?.applicant)} -{" "}
+							{selectedApplication?.applicant?.email}
 						</DialogDescription>
 					</DialogHeader>
 					<div className="space-y-4">
@@ -285,15 +289,16 @@ export function LegalRegistrationAdminDashboard() {
 			{/* View Application Dialog */}
 			<Dialog open={viewDialog} onOpenChange={setViewDialog}>
 				<DialogContent className="flex max-h-[95vh] max-w-7xl flex-col overflow-hidden">
-					<DialogHeader className="flex-shrink-0">
+					<DialogHeader className="shrink-0">
 						<DialogTitle>Application Details</DialogTitle>
 						<DialogDescription>
-							{selectedApplication?.applicant?.name} - {selectedApplication?.applicant?.email}
+							{getFullName(selectedApplication?.applicant)} -{" "}
+							{selectedApplication?.applicant?.email}
 						</DialogDescription>
 					</DialogHeader>
 
 					<Tabs defaultValue="info" className="mt-4 flex min-h-0 flex-1 flex-col">
-						<TabsList className="grid w-full flex-shrink-0 grid-cols-2">
+						<TabsList className="grid w-full shrink-0 grid-cols-2">
 							<TabsTrigger value="info">Application Info</TabsTrigger>
 							<TabsTrigger value="documents">Documents</TabsTrigger>
 						</TabsList>
@@ -369,7 +374,9 @@ export function LegalRegistrationAdminDashboard() {
 											? {
 													id: selectedApplication.id,
 													applicant: selectedApplication.applicant ?? {
-														name: null,
+														firstName: null,
+														middleName: null,
+														lastName: null,
 														email: null,
 													},
 													status: selectedApplication.status,

@@ -53,7 +53,7 @@ export async function transferDoconchainCreditsToSubOrg(input: {
 	}
 
 	const text = await res.text().catch(() => "")
-	const raw = (text ? (JSON.parse(text) as TransferCreditsResponse) : {}) as TransferCreditsResponse
+	const raw = (text ? (JSON.parse(text) as TransferCreditsResponse) : {})
 	if (!res.ok) {
 		const baseMessage =
 			raw.message ??

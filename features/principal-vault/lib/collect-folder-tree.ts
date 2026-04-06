@@ -1,6 +1,6 @@
 import { and, asc, eq, inArray } from "drizzle-orm"
 
-import { db } from "@/services/drizzle/db"
+import { type db } from "@/services/drizzle/db"
 import {
 	principalVaultFiles,
 	principalVaultFolders,
@@ -36,7 +36,10 @@ export async function listAllFilesInFolderTree(
 ) {
 	const folderIds = await collectDescendantFolderIds(dbClient, rootFolderId, ownerUserId)
 	return dbClient.query.principalVaultFiles.findMany({
-		where: and(eq(principalVaultFiles.userId, ownerUserId), inArray(principalVaultFiles.folderId, folderIds)),
+		where: and(
+			eq(principalVaultFiles.userId, ownerUserId),
+			inArray(principalVaultFiles.folderId, folderIds)
+		),
 		orderBy: [asc(principalVaultFiles.name)],
 		columns: {
 			id: true,
@@ -58,10 +61,14 @@ export async function relativeFolderPathFromShareRoot(
 	const segments: string[] = []
 	let current: string | null = fileFolderId
 	while (current && current !== shareRootFolderId) {
-		const row = await dbClient.query.principalVaultFolders.findFirst({
-			where: and(eq(principalVaultFolders.id, current), eq(principalVaultFolders.userId, ownerUserId)),
-			columns: { name: true, parentId: true },
-		})
+		const row: { name: string; parentId: string | null } | undefined =
+			await dbClient.query.principalVaultFolders.findFirst({
+				where: and(
+					eq(principalVaultFolders.id, current),
+					eq(principalVaultFolders.userId, ownerUserId)
+				),
+				columns: { name: true, parentId: true },
+			})
 		if (!row) break
 		segments.unshift(row.name)
 		current = row.parentId ?? null

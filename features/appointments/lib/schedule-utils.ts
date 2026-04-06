@@ -1,13 +1,13 @@
 import { isSameDay } from "date-fns"
 
 import { AgendaDaysToShow, EventGap, EventHeight, WeekCellsHeight } from "./schedule-constants"
-import type { CalendarEvent, EventColor } from "./schedule-types"
+import type { CalendarEvent } from "./schedule-types"
 
 /**
  * Get CSS classes for event colors
  */
-export function getEventColorClasses(color?: EventColor | string): string {
-	const eventColor = color || "sky"
+export function getEventColorClasses(color?: string): string {
+	const eventColor = color ?? "sky"
 	switch (eventColor) {
 		case "sky":
 			return "bg-sky-200/50 hover:bg-sky-200/40 text-sky-950/80 dark:bg-sky-400/25 dark:hover:bg-sky-400/20 dark:text-sky-200 shadow-sky-700/8"
@@ -47,7 +47,7 @@ export function getBorderRadiusClasses(isFirstDay: boolean, isLastDay: boolean):
 export function isMultiDayEvent(event: CalendarEvent): boolean {
 	const eventStart = new Date(event.start)
 	const eventEnd = new Date(event.end)
-	return event.allDay || eventStart.getDate() !== eventEnd.getDate()
+	return event.allDay ?? eventStart.getDate() !== eventEnd.getDate()
 }
 
 /**

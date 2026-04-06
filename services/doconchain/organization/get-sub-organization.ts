@@ -57,7 +57,7 @@ export async function getDoconchainSubOrganizationDetails(input: {
 		)
 	}
 
-	const raw = (text ? (JSON.parse(text) as SubOrgDetailsResponse) : {}) as SubOrgDetailsResponse
+	const raw = (text ? (JSON.parse(text) as SubOrgDetailsResponse) : {})
 	const data =
 		raw && typeof raw === "object" && !Array.isArray(raw)
 			? ("data" in raw && raw.data && typeof raw.data === "object" ? (raw.data as Record<string, unknown>) : (raw as Record<string, unknown>))

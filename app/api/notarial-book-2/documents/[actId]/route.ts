@@ -48,7 +48,7 @@ export async function GET(
 			where: eq(notarialBooks.id, act.notarialBookId),
 			columns: { enpId: true },
 		})
-		if (!book || book.enpId !== session.user.id) return new NextResponse("Forbidden", { status: 403 })
+		if (book?.enpId !== session.user.id) return new NextResponse("Forbidden", { status: 403 })
 
 		const projectUuid = (act.docoChainProjectUuid ?? "").trim()
 		if (!projectUuid) return new NextResponse("Missing DocOnChain project UUID", { status: 404 })

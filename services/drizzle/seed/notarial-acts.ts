@@ -138,14 +138,14 @@ export async function createNotarialActs() {
 			actType: actTypes[index] ?? "ACKNOWLEDGMENT",
 			documentId: doc.id, // Reference to the unsigned document
 			docoChainProjectUuid: mockProjectUuid, // Reference to the signed document in DocoChain
-			principalName: principalName, // Match against user's name
+			principalName, // Match against user's name
 			principalIdNumber: faker.string.numeric(12),
 			principalAddress: faker.location.streetAddress(),
-			enpName: enpName,
-			enpRollNumber: enpRollNumber,
+			enpName,
+			enpRollNumber,
 			documentName: doc.name,
 			documentDescription: doc.description,
-			executedAt: executedAt,
+			executedAt,
 			location: faker.location.city(),
 			workflow: index % 2 === 0 ? "IEN" : "REN",
 			certificateNumber: `NB-${notarialBook.id.substring(0, 4).toUpperCase()}-${executedAt.getTime().toString().slice(-6)}`,
@@ -162,8 +162,8 @@ export async function createNotarialActs() {
 		principalName: principalUser.email ?? principalName, // Match against user's email
 		principalIdNumber: faker.string.numeric(12),
 		principalAddress: faker.location.streetAddress(),
-		enpName: enpName,
-		enpRollNumber: enpRollNumber,
+		enpName,
+		enpRollNumber,
 		documentName: "Email Matched Document",
 		documentDescription: "Test document matched by email",
 		executedAt: new Date(),

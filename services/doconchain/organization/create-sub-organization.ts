@@ -1,8 +1,9 @@
-import { env } from "@/env"
 import {
 	getDoconchainApiToken,
 	invalidateDoconchainToken,
 } from "@/services/doconchain/auth/generate-token"
+
+import { env } from "@/env"
 
 type CreateSubOrganizationResponse = {
 	id?: string
@@ -132,10 +133,18 @@ export async function createDoconchainSubOrganization(input: {
 		)
 	}
 
-	const raw = (text ? (JSON.parse(text) as CreateSubOrganizationResponse) : {}) as CreateSubOrganizationResponse
+	const raw = text
+		? (JSON.parse(text) as CreateSubOrganizationResponse)
+		: ({} as CreateSubOrganizationResponse)
 	// DocOnChain returns { message, data: { sub_org_data: { uuid, id, name, ... } } }
 	const sub = raw.data?.sub_org_data
-	const id = sub?.uuid ?? (sub?.id != null ? String(sub.id) : null) ?? raw.id ?? raw.uuid ?? raw.data?.id ?? raw.data?.uuid
+	const id =
+		sub?.uuid ??
+		(sub !== undefined && sub.id !== null ? String(sub.id) : null) ??
+		raw.id ??
+		raw.uuid ??
+		raw.data?.id ??
+		raw.data?.uuid
 	const resolvedName = sub?.name ?? raw.name ?? raw.data?.name ?? name
 	const clientKey = (raw.data?.client_key ?? "").trim() || null
 	const clientSecret = (raw.data?.client_secret ?? "").trim() || null

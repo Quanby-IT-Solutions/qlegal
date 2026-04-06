@@ -129,13 +129,27 @@ export async function populateNotarialRegistryOnMeetingEnd(input: {
 			appointments: {
 				with: {
 					createdBy: {
-						columns: { id: true, name: true, email: true, role: true },
+						columns: {
+							id: true,
+							firstName: true,
+							middleName: true,
+							lastName: true,
+							email: true,
+							role: true,
+						},
 					},
 					participants: {
 						columns: { userId: true, status: true, participantRole: true },
 						with: {
 							user: {
-								columns: { id: true, name: true, email: true, role: true },
+								columns: {
+									id: true,
+									firstName: true,
+									middleName: true,
+									lastName: true,
+									email: true,
+									role: true,
+								},
 							},
 						},
 					},
@@ -164,7 +178,7 @@ export async function populateNotarialRegistryOnMeetingEnd(input: {
 	const enpId = appointment.createdBy.id
 	const enpEmail = asNonEmptyString(appointment.createdBy.email)?.toLowerCase() ?? null
 	const enpName =
-		asNonEmptyString(appointment.createdBy.name) ??
+		asNonEmptyString(getFullName(appointment.createdBy)) ??
 		asNonEmptyString(appointment.createdBy.email) ??
 		"ENP"
 
@@ -176,9 +190,9 @@ export async function populateNotarialRegistryOnMeetingEnd(input: {
 		p => p.participantRole === "PARTICIPANT" || p.userId !== enpId
 	)
 	const principalName =
-		asNonEmptyString(principalParticipant?.user?.name) ??
+		asNonEmptyString(getFullName(principalParticipant?.user ?? null)) ??
 		asNonEmptyString(principalParticipant?.user?.email) ??
-		asNonEmptyString(appointment.createdBy.name) ??
+		asNonEmptyString(getFullName(appointment.createdBy)) ??
 		"Principal"
 
 	// Pre-fetch all identity checks for this meeting (userId → check)
@@ -221,7 +235,7 @@ export async function populateNotarialRegistryOnMeetingEnd(input: {
 				.filter(Boolean)
 				.join(", ")
 			principalAddress =
-				asNonEmptyString(principalUser.address) ?? (asNonEmptyString(fromParts) || null)
+				asNonEmptyString(principalUser.address) ?? (asNonEmptyString(fromParts) ?? null)
 		}
 		const identityCheck = identityCheckByUserId.get(principalUserId)
 		if (identityCheck?.snapshotDocumentNumber) {
@@ -387,7 +401,9 @@ export async function populateNotarialRegistryOnMeetingEnd(input: {
 				user: {
 					columns: {
 						id: true,
-						name: true,
+						firstName: true,
+						middleName: true,
+						lastName: true,
 						email: true,
 						address: true,
 						homeStreet: true,

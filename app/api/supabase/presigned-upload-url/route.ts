@@ -12,7 +12,7 @@ const bodySchema = z.object({
 
 export async function POST(req: NextRequest) {
 	try {
-		const json = await req.json()
+		const json: unknown = await req.json()
 		const { fileName, bucket, folderPath, upsert } = bodySchema.parse(json)
 
 		const supabase = getServiceRoleClient()
@@ -37,4 +37,3 @@ export async function POST(req: NextRequest) {
 		return NextResponse.json({ error: message }, { status: 400 })
 	}
 }
-

@@ -1,5 +1,6 @@
-import { env } from "@/env"
 import { getDoconchainApiToken } from "@/services/doconchain/auth/generate-token"
+
+import { env } from "@/env"
 
 export type MemberItem = {
 	id?: number | string
@@ -103,10 +104,7 @@ function buildMemberListUrls(organizationId: number): URL[] {
 
 	// Candidate 3 (legacy): GET /organizations/{id}/members
 	{
-		const url = new URL(
-			`/api/v2/organizations/${organizationId}/members`,
-			env.DOCONCHAIN_API_URL
-		)
+		const url = new URL(`/api/v2/organizations/${organizationId}/members`, env.DOCONCHAIN_API_URL)
 		url.searchParams.set("user_type", "ENTERPRISE_API")
 		candidates.push(url)
 	}
@@ -201,7 +199,7 @@ export async function findOrganizationMemberIdByEmail(input: {
 
 			const list = parseMembersFromText(text)
 			const id = findParentOrgMemberIdByEmail(list, wantEmail)
-			if (id != null) return id
+			if (id !== null) return id
 
 			// Heuristic stop: last page
 			if (list.length < perPage) break
@@ -219,7 +217,7 @@ export async function findOrganizationMemberIdByEmail(input: {
 			}
 			const list = parseMembersFromText(text)
 			const id = findParentOrgMemberIdByEmail(list, wantEmail)
-			if (id != null) return id
+			if (id !== null) return id
 		}
 	}
 
@@ -325,7 +323,9 @@ export async function getMembersListAll(): Promise<MemberItem[]> {
  * Fetch members for multiple organizations (e.g. parent + all sub-orgs) and merge into one list.
  * Deduplicates by member id so we can find a user by email wherever they currently are.
  */
-export async function getMembersAcrossOrganizations(organizationIds: number[]): Promise<MemberItem[]> {
+export async function getMembersAcrossOrganizations(
+	organizationIds: number[]
+): Promise<MemberItem[]> {
 	const results = await Promise.all(
 		organizationIds.map(id => getMembersForOrganization(id).catch(() => [] as MemberItem[]))
 	)
@@ -337,7 +337,7 @@ export function mergeMembersById(...lists: MemberItem[][]): MemberItem[] {
 	const byId = new Map<number | string, MemberItem>()
 	for (const list of lists) {
 		for (const m of list) {
-			if (m.id != null && !byId.has(m.id)) byId.set(m.id, m)
+			if (m.id !== null && m.id !== undefined && !byId.has(m.id)) byId.set(m.id, m)
 		}
 	}
 	return [...byId.values()]
@@ -361,7 +361,7 @@ export function findParentOrgMemberIdByEmail(members: MemberItem[], email: strin
 	const want = email.trim().toLowerCase()
 	for (const m of members) {
 		const e = (m.email ?? "").trim().toLowerCase()
-		if (!e || e !== want || m.id == null) continue
+		if (!e || e !== want || m.id === null) continue
 
 		if (typeof m.id === "number") return m.id
 		const parsed = Number.parseInt(String(m.id), 10)

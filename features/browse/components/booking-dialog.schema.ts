@@ -36,7 +36,7 @@ export const bookingDialogSchema = bookingDialogBaseSchema
 
 export interface BookingDialogSchema {
 	title: string
-	description?: string | ""
+	description?: string
 	bookingMode: "CONSULTATION" | "NOTARIZATION"
 	workflowType?: "REN" | "IEN"
 	selectedDate: Date

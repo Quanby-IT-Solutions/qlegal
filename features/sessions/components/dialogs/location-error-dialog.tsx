@@ -304,7 +304,7 @@ export function LocationErrorDialog({
 					{isAccuracyLowState && (
 						<div className="rounded-lg border border-yellow-200 bg-yellow-50 p-4 dark:border-yellow-900 dark:bg-yellow-950/30">
 							<p className="text-sm font-medium text-yellow-900 dark:text-yellow-200">
-								GPS accuracy: {debugInfo.accuracyMeters.toFixed(1)}m
+								GPS accuracy: {(debugInfo.accuracyMeters ?? 0).toFixed(1)}m
 							</p>
 						</div>
 					)}

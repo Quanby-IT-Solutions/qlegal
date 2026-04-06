@@ -1,9 +1,8 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { type Route } from "next"
 import { useRouter, useSearchParams } from "next/navigation"
-import { useSession } from "next-auth/react"
-import { useDropzone } from "react-dropzone"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
 	ChevronRight,
 	FileText,
@@ -18,6 +17,8 @@ import {
 	Trash2,
 	Upload,
 } from "lucide-react"
+import { useSession } from "next-auth/react"
+import { useDropzone } from "react-dropzone"
 import { toast } from "sonner"
 
 import { PageHeader } from "@/core/components/navbar/page-header"
@@ -25,25 +26,25 @@ import { Alert, AlertDescription, AlertTitle } from "@/core/components/ui/alert"
 import { Button } from "@/core/components/ui/button"
 import { Card, CardContent } from "@/core/components/ui/card"
 import {
-	DropdownMenu,
-	DropdownMenuContent,
-	DropdownMenuItem,
-	DropdownMenuTrigger,
-} from "@/core/components/ui/dropdown-menu"
-import {
 	Dialog,
 	DialogContent,
 	DialogFooter,
 	DialogHeader,
 	DialogTitle,
 } from "@/core/components/ui/dialog"
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuTrigger,
+} from "@/core/components/ui/dropdown-menu"
 import { Input } from "@/core/components/ui/input"
 import { Label } from "@/core/components/ui/label"
 import { Skeleton } from "@/core/components/ui/skeleton"
 import { cn } from "@/core/lib/utils"
 
-import { trpc } from "@/services/trpc/client"
 import { useUploadFile } from "@/services/supabase/upload"
+import { trpc } from "@/services/trpc/client"
 
 import { PrincipalVaultFileFeedbackSheet } from "@/features/principal-vault/components/principal-vault-file-feedback-sheet"
 import { ShareVaultFolderDialog } from "@/features/principal-vault/components/share-vault-folder-dialog"
@@ -58,8 +59,7 @@ export function PrincipalVaultExplorer() {
 	const router = useRouter()
 	const searchParams = useSearchParams()
 	const { data: session } = useSession()
-	const canShareWithNotary =
-		session?.user?.role === "PRINCIPAL" || session?.user?.role === "ENP"
+	const canShareWithNotary = session?.user?.role === "PRINCIPAL" || session?.user?.role === "ENP"
 	const folderParam = searchParams.get("folder")
 	const parentId = folderParam && folderParam.length > 0 ? folderParam : null
 
@@ -68,19 +68,14 @@ export function PrincipalVaultExplorer() {
 	const [newFolderOpen, setNewFolderOpen] = useState(false)
 	const [newFolderName, setNewFolderName] = useState("")
 	const [renameTarget, setRenameTarget] = useState<
-		| { kind: "folder"; id: string; name: string }
-		| { kind: "file"; id: string; name: string }
-		| null
+		{ kind: "folder"; id: string; name: string } | { kind: "file"; id: string; name: string } | null
 	>(null)
 	const [renameValue, setRenameValue] = useState("")
 	const [uploading, setUploading] = useState(false)
 	const [shareFolder, setShareFolder] = useState<{ id: string; name: string } | null>(null)
 	const [feedbackFile, setFeedbackFile] = useState<{ id: string; name: string } | null>(null)
 
-	const listQuery = trpc.principalVault.list.useQuery(
-		{ parentId },
-		{ retry: false }
-	)
+	const listQuery = trpc.principalVault.list.useQuery({ parentId }, { retry: false })
 
 	const createFolder = trpc.principalVault.createFolder.useMutation({
 		onSuccess: async () => {
@@ -139,16 +134,16 @@ export function PrincipalVaultExplorer() {
 				: undefined
 		if (code === "NOT_FOUND") {
 			toast.error("That folder does not exist or you cannot access it.")
-			router.replace("/my-files")
+			router.replace("/my-files" as Route)
 		}
 	}, [listQuery.error, router])
 
 	const goToFolder = useCallback(
 		(id: string | null) => {
 			if (id === null) {
-				router.push("/my-files")
+				router.push("/my-files" as Route)
 			} else {
-				router.push(`/my-files?folder=${encodeURIComponent(id)}`)
+				router.push(`/my-files?folder=${encodeURIComponent(id)}` as Route)
 			}
 		},
 		[router]
@@ -201,13 +196,7 @@ export function PrincipalVaultExplorer() {
 				setUploading(false)
 			}
 		},
-		[
-			parentId,
-			prepareUpload,
-			completeUpload,
-			uploadToSignedUrl,
-			utils.principalVault.list,
-		]
+		[parentId, prepareUpload, completeUpload, uploadToSignedUrl, utils.principalVault.list]
 	)
 
 	const onDrop = useCallback(
@@ -258,7 +247,7 @@ export function PrincipalVaultExplorer() {
 
 	return (
 		<div className="flex flex-1 flex-col">
-			<PageHeader items={[{ label: "My files", href: "/my-files" }]} />
+			<PageHeader items={[{ label: "My files", href: "/my-files" as Route }]} />
 
 			<main className="flex-1 p-4 md:p-6 lg:p-8">
 				<div className="mx-auto max-w-6xl space-y-6">
@@ -275,9 +264,7 @@ export function PrincipalVaultExplorer() {
 								<Button
 									variant="outline"
 									type="button"
-									onClick={() =>
-										setShareFolder({ id: parentId, name: currentFolderLabel })
-									}
+									onClick={() => setShareFolder({ id: parentId, name: currentFolderLabel })}
 								>
 									<Share2 className="mr-2 size-4" />
 									Share this folder
@@ -324,12 +311,15 @@ export function PrincipalVaultExplorer() {
 						<AlertTitle>Not reviewed for notarization</AlertTitle>
 						<AlertDescription>
 							Files you store here have not been checked by an Electronic Notary Public (ENP) for
-							readiness to notarize. 							You can share an entire folder (including subfolders) with an
+							readiness to notarize. You can share an entire folder (including subfolders) with an
 							ENP by email or a copy-paste link so they can review contents before a session.
 						</AlertDescription>
 					</Alert>
 
-					<nav aria-label="Folder path" className="text-muted-foreground flex flex-wrap items-center gap-1 text-sm">
+					<nav
+						aria-label="Folder path"
+						className="text-muted-foreground flex flex-wrap items-center gap-1 text-sm"
+					>
 						{breadcrumbItems.map((item, i) => (
 							<span key={item.folderId ?? "root"} className="flex items-center gap-1">
 								{i > 0 && <ChevronRight className="size-3.5 shrink-0 opacity-60" />}
@@ -384,7 +374,7 @@ export function PrincipalVaultExplorer() {
 													onClick={() => goToFolder(f.id)}
 													className="hover:bg-muted/60 flex min-w-0 flex-1 items-start gap-3 rounded-l-md p-4 text-left"
 												>
-													<Folder className="text-amber-600 dark:text-amber-500 mt-0.5 size-8 shrink-0" />
+													<Folder className="mt-0.5 size-8 shrink-0 text-amber-600 dark:text-amber-500" />
 													<div className="min-w-0 flex-1">
 														<p className="truncate font-medium">{f.name}</p>
 														<p className="text-muted-foreground text-xs">Folder</p>
@@ -408,7 +398,9 @@ export function PrincipalVaultExplorer() {
 																</DropdownMenuItem>
 															) : null}
 															<DropdownMenuItem
-																onClick={() => openRename({ kind: "folder", id: f.id, name: f.name })}
+																onClick={() =>
+																	openRename({ kind: "folder", id: f.id, name: f.name })
+																}
 															>
 																Rename
 															</DropdownMenuItem>
@@ -475,7 +467,9 @@ export function PrincipalVaultExplorer() {
 																Open
 															</DropdownMenuItem>
 															<DropdownMenuItem
-																onClick={() => openRename({ kind: "file", id: file.id, name: file.name })}
+																onClick={() =>
+																	openRename({ kind: "file", id: file.id, name: file.name })
+																}
 															>
 																Rename
 															</DropdownMenuItem>
@@ -492,14 +486,12 @@ export function PrincipalVaultExplorer() {
 											</div>
 										))}
 
-										{listQuery.data &&
-											listQuery.data.folders.length === 0 &&
-											listQuery.data.files.length === 0 && (
-												<div className="text-muted-foreground col-span-full py-10 text-center text-sm">
-													<p className="mb-2">This folder is empty.</p>
-													<p>Upload files or create a folder to get started.</p>
-												</div>
-											)}
+										{listQuery.data?.folders.length === 0 && listQuery.data.files.length === 0 && (
+											<div className="text-muted-foreground col-span-full py-10 text-center text-sm">
+												<p className="mb-2">This folder is empty.</p>
+												<p>Upload files or create a folder to get started.</p>
+											</div>
+										)}
 									</div>
 								)}
 							</CardContent>
@@ -537,9 +529,7 @@ export function PrincipalVaultExplorer() {
 						<Button
 							type="button"
 							disabled={!newFolderName.trim() || createFolder.isPending}
-							onClick={() =>
-								createFolder.mutate({ parentId, name: newFolderName.trim() })
-							}
+							onClick={() => createFolder.mutate({ parentId, name: newFolderName.trim() })}
 						>
 							{createFolder.isPending ? <Loader2 className="size-4 animate-spin" /> : "Create"}
 						</Button>
@@ -577,11 +567,7 @@ export function PrincipalVaultExplorer() {
 						</Button>
 						<Button
 							type="button"
-							disabled={
-								!renameValue.trim() ||
-								renameFolder.isPending ||
-								renameFile.isPending
-							}
+							disabled={!renameValue.trim() || renameFolder.isPending || renameFile.isPending}
 							onClick={() => submitRename()}
 						>
 							{renameFolder.isPending || renameFile.isPending ? (

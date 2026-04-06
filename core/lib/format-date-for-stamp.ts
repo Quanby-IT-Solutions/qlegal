@@ -5,7 +5,7 @@
 export function formatDateForStamp(
 	dateInput: string | Date | null | undefined
 ): string {
-	if (dateInput == null) return ""
+	if (dateInput === null) return ""
 	const dateString = typeof dateInput === "string" ? dateInput.trim() : ""
 	if (dateString === "" && !(dateInput instanceof Date)) return ""
 

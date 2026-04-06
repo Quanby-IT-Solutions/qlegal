@@ -921,7 +921,9 @@ export const notarialBookRouter = createTRPCRouter({
 							columns: {
 								id: true,
 								email: true,
-								name: true,
+								firstName: true,
+								middleName: true,
+								lastName: true,
 								homeStreet: true,
 								barangay: true,
 								cityProvince: true,
@@ -1021,7 +1023,9 @@ export const notarialBookRouter = createTRPCRouter({
 							columns: {
 								id: true,
 								email: true,
-								name: true,
+								firstName: true,
+								middleName: true,
+								lastName: true,
 								homeStreet: true,
 								barangay: true,
 								cityProvince: true,
@@ -1149,7 +1153,7 @@ export const notarialBookRouter = createTRPCRouter({
 		})
 
 		const notaryPublicName =
-			getFullName(user).trim() || user?.email?.trim() || "Electronic Notary Public"
+			getFullName(user).trim() || (user?.email?.trim() ?? "Electronic Notary Public")
 
 		const acts = await ctx.db
 			.select()

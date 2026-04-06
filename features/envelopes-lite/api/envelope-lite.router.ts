@@ -60,7 +60,9 @@ export const envelopeLiteRouter = createTRPCRouter({
 				userId: envelopes.userId,
 				user: {
 					id: users.id,
-					name: users.name,
+					firstName: users.firstName,
+					middleName: users.middleName,
+					lastName: users.lastName,
 					email: users.email,
 					image: users.image,
 				},
@@ -90,7 +92,9 @@ export const envelopeLiteRouter = createTRPCRouter({
 				userId: envelopes.userId,
 				user: {
 					id: users.id,
-					name: users.name,
+					firstName: users.firstName,
+					middleName: users.middleName,
+					lastName: users.lastName,
 					email: users.email,
 					image: users.image,
 				},
@@ -264,7 +268,9 @@ export const envelopeLiteRouter = createTRPCRouter({
 				},
 				envelopeOwner: {
 					id: users.id,
-					name: users.name,
+					firstName: users.firstName,
+					middleName: users.middleName,
+					lastName: users.lastName,
 					email: users.email,
 					image: users.image,
 				},

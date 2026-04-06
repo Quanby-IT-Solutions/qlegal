@@ -31,6 +31,8 @@ export const env = createEnv({
 		DOCONCHAIN_USER_TOKEN: z.string().optional(),
 		/** Optional. Alias for DOCONCHAIN_USER_TOKEN. */
 		DOCONCHAIN_API_TOKEN: z.string().optional(),
+		/** Optional. Webhook secret for validating DocOnChain webhook POST requests. */
+		DOCONCHAIN_WEBHOOK_SECRET: z.string().optional(),
 
 		// Email
 		EMAIL_FROM_NAME: z.string(),
@@ -123,6 +125,7 @@ export const env = createEnv({
 		DOCONCHAIN_ORG_INVITE_CODE: process.env.DOCONCHAIN_ORG_INVITE_CODE,
 		DOCONCHAIN_USER_TOKEN: process.env.DOCONCHAIN_USER_TOKEN,
 		DOCONCHAIN_API_TOKEN: process.env.DOCONCHAIN_API_TOKEN,
+		DOCONCHAIN_WEBHOOK_SECRET: process.env.DOCONCHAIN_WEBHOOK_SECRET,
 
 		// Email
 		EMAIL_FROM_NAME: process.env.EMAIL_FROM_NAME,

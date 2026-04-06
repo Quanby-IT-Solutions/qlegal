@@ -190,7 +190,7 @@ function parseNamePartsFromFullName(value: string): ParsedNameParts {
 	// Format: "LASTNAME, FIRSTNAME ... MIDDLENAME" (middleName = last word after comma)
 	if (fullName.includes(",")) {
 		const [rawLastName, ...rest] = fullName.split(",")
-		const lastName = rawLastName?.trim() || undefined
+		const lastName = rawLastName?.trim() ?? undefined
 		const trailing = rest.join(" ").trim()
 		const trailingParts = trailing.split(/\s+/).filter(Boolean)
 

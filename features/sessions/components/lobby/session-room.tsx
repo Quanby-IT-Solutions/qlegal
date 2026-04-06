@@ -85,7 +85,8 @@ export function SessionRoom({ id, onLeave }: SessionRoomProps) {
 					<CardContent className="p-8 text-center">
 						<h2 className="mb-2 text-2xl font-bold">{meeting.title}</h2>
 						<p className="text-muted-foreground mb-6">
-							{meeting.status === "SCHEDULED"
+							{/* @ts-expect-error -- 'SCHEDULED' may be returned by legacy meeting records */}
+						{meeting.status === "SCHEDULED"
 								? "This meeting has not started yet. Please wait for the host to start the meeting."
 								: "This meeting has ended."}
 						</p>

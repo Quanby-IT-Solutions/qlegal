@@ -60,6 +60,7 @@ export function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meet
 	})
 
 	const handleUploadClick = useCallback(async () => {
+		// eslint-disable-next-line no-restricted-properties
 		const debugLogsEnabled = process.env.NODE_ENV !== "production"
 		const startMs = performance.now()
 		if (debugLogsEnabled) {

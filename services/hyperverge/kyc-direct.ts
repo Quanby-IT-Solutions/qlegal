@@ -18,7 +18,7 @@ function validateCredentials(): void {
 function stripDataUrlPrefix(base64OrDataUrl: string): string {
 	if (base64OrDataUrl.startsWith("data:")) {
 		const parts = base64OrDataUrl.split(",")
-		return parts[1] || base64OrDataUrl
+		return parts[1] ?? base64OrDataUrl
 	}
 	return base64OrDataUrl
 }

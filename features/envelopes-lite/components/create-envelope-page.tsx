@@ -12,7 +12,6 @@ import {
 	FileUploaderDropZone,
 	FileUploaderFileList,
 } from "@/core/components/file-uploader"
-import { Badge } from "@/core/components/ui/badge"
 import { Button } from "@/core/components/ui/button"
 import {
 	Card,
@@ -58,7 +57,7 @@ export function CreateEnvelopePage() {
 	const onSubmit = (values: CreateEnvelopeSchema) => {
 		// Step 1: Create the envelope
 		createEnvelope.mutate(values, {
-			onSuccess: async envelopeData => {
+			onSuccess: envelopeData => {
 				if (!envelopeData || !("id" in envelopeData)) {
 					toast.error("Failed to get envelope ID")
 					return
@@ -211,7 +210,7 @@ export function CreateEnvelopePage() {
 												</Button>
 											</div>
 											{/* Scrollable file list with max height */}
-											<div className="border-muted max-h-[200px] space-y-1.5 overflow-y-auto rounded-md border p-2">
+											<div className="border-muted max-h-50 space-y-1.5 overflow-y-auto rounded-md border p-2">
 												{files.map((file, index) => (
 													<div
 														key={index}

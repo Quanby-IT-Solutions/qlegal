@@ -17,6 +17,7 @@ interface UseMeetingDataParams {
 
 export function useMeetingData({ meetingId }: UseMeetingDataParams) {
 	const [isPreparingUpload, setIsPreparingUpload] = useState(false)
+	// eslint-disable-next-line no-restricted-properties
 	const debugLogsEnabled = process.env.NODE_ENV !== "production"
 
 	const {
@@ -191,7 +192,9 @@ export function useMeetingData({ meetingId }: UseMeetingDataParams) {
 					})
 				}
 				if (result.data?.ready) return
-				toast.error("DocOnChain is still preparing. You can upload now, and retry project creation later.")
+				toast.error(
+					"DocOnChain is still preparing. You can upload now, and retry project creation later."
+				)
 			} catch (error) {
 				const msg =
 					error instanceof Error

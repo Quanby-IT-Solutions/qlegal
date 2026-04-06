@@ -18,11 +18,12 @@ import {
 	CardTitle,
 } from "@/core/components/ui/card"
 import { Skeleton } from "@/core/components/ui/skeleton"
+import { getFullName } from "@/core/lib/utils"
 
 import { trpc } from "@/services/trpc/client"
 
-function getWorkflowLabel(meetingLink?: string | null, location?: string | null) {
-	if (meetingLink) {
+function getWorkflowLabel(meetingId?: string | null, location?: string | null) {
+	if (meetingId) {
 		return "Remote"
 	}
 	if (location) {
@@ -43,21 +44,14 @@ export default function AppointmentMeetingPage({ params }: { params: Promise<{ i
 		appointmentId: id,
 	})
 
-	const meetingLink = appointment?.meetingLink ?? null
-	const workflowLabel = getWorkflowLabel(meetingLink, appointment?.location ?? null)
+	const meetingId = appointment?.meetingId ?? null
+	const workflowLabel = getWorkflowLabel(meetingId, appointment?.location ?? null)
 
 	const handleJoin = () => {
-		if (!meetingLink) {
+		if (!meetingId) {
 			return
 		}
-		// If the link is absolute, navigate there; otherwise push within the app
-		try {
-			const url = new URL(meetingLink)
-			window.location.href = url.toString()
-		} catch {
-			// If URL parsing fails, treat as internal route
-			router.push(meetingLink as unknown as Route)
-		}
+		router.push(`/sessions/${meetingId}` as Route)
 	}
 
 	return (
@@ -132,16 +126,18 @@ export default function AppointmentMeetingPage({ params }: { params: Promise<{ i
 									</div>
 									<div className="flex items-center gap-2">
 										<User className="h-4 w-4" />
-										<span>Lawyer: {appointment.lawyer?.name ?? "Your lawyer"}</span>
+										<span>Lawyer: {getFullName(appointment.createdBy) || "Your lawyer"}</span>
 									</div>
 									<div className="flex items-center gap-2">
 										<User className="h-4 w-4" />
-										<span>Client: {appointment.client?.name ?? "Client"}</span>
+										<span>
+											Client: {getFullName(appointment.participants?.[0]?.user) || "Client"}
+										</span>
 									</div>
 									<div className="flex items-center gap-2">
-										{meetingLink ? <Video className="h-4 w-4" /> : <MapPin className="h-4 w-4" />}
+										{meetingId ? <Video className="h-4 w-4" /> : <MapPin className="h-4 w-4" />}
 										<span>
-											{meetingLink
+											{meetingId
 												? "Remote session — join via the button below."
 												: appointment.location
 													? `In-Person: ${appointment.location}`
@@ -150,7 +146,7 @@ export default function AppointmentMeetingPage({ params }: { params: Promise<{ i
 									</div>
 								</div>
 
-								{meetingLink ? (
+								{meetingId ? (
 									<div className="space-y-2">
 										<Button size="lg" className="w-full md:w-auto" onClick={handleJoin}>
 											<Video className="mr-2 h-4 w-4" />
@@ -172,10 +168,12 @@ export default function AppointmentMeetingPage({ params }: { params: Promise<{ i
 									</Alert>
 								)}
 
-								{appointment.notes && (
+								{appointment.description && (
 									<div className="bg-muted/40 rounded-lg border p-3 text-sm">
 										<p className="text-foreground mb-1 font-medium">Notes</p>
-										<p className="text-muted-foreground whitespace-pre-wrap">{appointment.notes}</p>
+										<p className="text-muted-foreground whitespace-pre-wrap">
+											{appointment.description}
+										</p>
 									</div>
 								)}
 							</CardContent>

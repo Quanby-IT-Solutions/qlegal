@@ -65,7 +65,7 @@ export async function generateToken(): Promise<string> {
 		})
 	} catch (err) {
 		const cause = err instanceof Error ? err.cause : undefined
-		const causeMsg = cause instanceof Error ? cause.message : String(cause ?? "")
+		const causeMsg = cause instanceof Error ? cause.message : typeof cause === "string" ? cause : ""
 		const code =
 			cause && typeof cause === "object" && "code" in cause ? (cause as { code: string }).code : ""
 		throw new Error(
@@ -162,8 +162,8 @@ export async function generateToken(): Promise<string> {
 			const errorText = await challengeResponse.text()
 			let errorMessage = `Supreme Court Cognito challenge response failed: ${challengeResponse.status} - ${errorText}`
 			try {
-				const errorJson = JSON.parse(errorText)
-				if (errorJson.__type || errorJson.message) {
+				const errorJson = JSON.parse(errorText) as { __type?: string; message?: string }
+				if (errorJson.__type ?? errorJson.message) {
 					errorMessage = `Supreme Court Cognito challenge failed: ${errorJson.__type ?? "Error"} - ${errorJson.message ?? errorText}`
 				}
 			} catch {

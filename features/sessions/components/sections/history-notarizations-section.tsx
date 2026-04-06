@@ -28,7 +28,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/core/components/ui/select"
-import { getAvatarUrl, getInitials } from "@/core/lib/utils"
+import { getAvatarUrl, getFullName, getInitials } from "@/core/lib/utils"
 
 import { trpc } from "@/services/trpc/client"
 
@@ -275,7 +275,7 @@ export function HistoryNotarizationsSection() {
 				workflow: "REN",
 				source: "meeting",
 				enp: {
-					name: m.createdBy?.name ?? "Unknown ENP",
+					name: getFullName(m.createdBy) || "Unknown ENP",
 					avatar: m.createdBy?.image ?? undefined,
 				},
 				principal: {
@@ -298,17 +298,17 @@ export function HistoryNotarizationsSection() {
 					title:
 						a.title ??
 						`${a.type === "NOTARIZATION" ? "Notarization" : "Consultation"} - ${
-							principalParticipant?.user?.name ?? "Client"
+							getFullName(principalParticipant?.user) || "Client"
 						}`,
 					status: "CANCELLED",
 					workflow,
 					source: "appointment",
 					enp: {
-						name: a.createdBy?.name ?? "Unknown ENP",
+						name: getFullName(a.createdBy) || "Unknown ENP",
 						avatar: a.createdBy?.image ?? undefined,
 					},
 					principal: {
-						name: principalParticipant?.user?.name ?? "Unknown Client",
+						name: getFullName(principalParticipant?.user) || "Unknown Client",
 						email: principalParticipant?.user?.email ?? undefined,
 					},
 					cancelledAt: new Date(a.updatedAt).toISOString(),

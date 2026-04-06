@@ -58,7 +58,7 @@ export function useWebrtcLeakDetection(expectedIp: string | null): WebrtcLeakDet
 				return
 			}
 
-			const match = candidate.match(ipv4Regex)
+			const match = ipv4Regex.exec(candidate)
 			if (match?.[1]) {
 				discoveredIps.add(match[1])
 			}

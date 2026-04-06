@@ -11,7 +11,7 @@ import { Button } from "@/core/components/ui/button"
 import { Card, CardContent } from "@/core/components/ui/card"
 import { Input } from "@/core/components/ui/input"
 import { Progress } from "@/core/components/ui/progress"
-import { getAvatarUrl } from "@/core/lib/utils"
+import { getAvatarUrl, getFullName, getInitials } from "@/core/lib/utils"
 
 import { trpc } from "@/services/trpc/client"
 import { type AppRouter } from "@/services/trpc/root"
@@ -47,7 +47,12 @@ interface MeetingCardProps {
 		status?: string
 		participants: { id?: string; userId?: string }[]
 		documentStats: { total: number; signed: number; isComplete?: boolean }
-		createdBy: { name?: string | null; image?: string | null }
+		createdBy: {
+			firstName?: string | null
+			middleName?: string | null
+			lastName?: string | null
+			image?: string | null
+		}
 		isAppointment?: boolean
 	}
 	onViewDetails: (meetingId: string) => void
@@ -112,7 +117,7 @@ function MeetingCard({ meeting, onViewDetails }: MeetingCardProps) {
 
 							<div className="flex items-center gap-1">
 								<Clock className="size-3.5 shrink-0" />
-								<span>{meeting.createdBy.name ?? "Unknown"}</span>
+								<span>{getFullName(meeting.createdBy) || "Unknown"}</span>
 							</div>
 						</div>
 
@@ -121,14 +126,16 @@ function MeetingCard({ meeting, onViewDetails }: MeetingCardProps) {
 							<Avatar className="size-7">
 								<AvatarImage src={getAvatarUrl(meeting.createdBy?.image) ?? undefined} />
 								<AvatarFallback>
-									{(meeting.createdBy.name ?? "Unknown")
+									{getInitials(getFullName(meeting.createdBy) || "Unknown")
 										.split(" ")
 										.map((n: string) => n[0])
 										.join("")
 										.toUpperCase()}
 								</AvatarFallback>
 							</Avatar>
-							<span className="text-xs font-medium">{meeting.createdBy.name ?? "Unknown"}</span>
+							<span className="text-xs font-medium">
+								{getFullName(meeting.createdBy) || "Unknown"}
+							</span>
 							<span className="text-muted-foreground text-xs">&bull; Host</span>
 						</div>
 
@@ -192,7 +199,12 @@ export function ActiveNotarizationsSection() {
 				status: "PENDING",
 				participants: [],
 				documentStats: { total: 0, signed: 0, isComplete: true },
-				createdBy: appt.createdBy ?? { name: "Unknown", image: null },
+				createdBy: appt.createdBy ?? {
+					firstName: null,
+					middleName: null,
+					lastName: null,
+					image: null,
+				},
 				isAppointment: true as const,
 			}))
 	}, [pendingAppointments])
@@ -210,8 +222,7 @@ export function ActiveNotarizationsSection() {
 			const dateForFilter =
 				(meeting as { appointmentDate?: string | Date }).appointmentDate ?? meeting.createdAt
 			const meetingDate = startOfDay(new Date(dateForFilter))
-			const createdByName =
-				typeof meeting.createdBy?.name === "string" ? meeting.createdBy.name : ""
+			const createdByName = getFullName(meeting.createdBy)
 
 			if (!(isAfter(meetingDate, today) || isSameDay(meetingDate, today))) return false
 

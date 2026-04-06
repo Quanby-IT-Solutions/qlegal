@@ -116,7 +116,7 @@ export async function getDoconchainSubOrgMembers(input: {
 		)
 	}
 
-	const parsed = (text ? (JSON.parse(text) as SubOrgMembersResponse) : []) as SubOrgMembersResponse
+	const parsed = (text ? (JSON.parse(text) as SubOrgMembersResponse) : [])
 	return asList(parsed)
 }
 

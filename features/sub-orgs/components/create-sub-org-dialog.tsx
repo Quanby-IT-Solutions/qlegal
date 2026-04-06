@@ -53,7 +53,7 @@ export function CreateSubOrgDialog({ open, onOpenChange, onSuccess }: CreateSubO
 					)
 					const json = (await res.json().catch(() => null)) as null | { error?: string }
 					if (!res.ok) {
-						throw new Error(json?.error || `Failed to upload photo (${res.status}).`)
+						throw new Error(json?.error ?? `Failed to upload photo (${res.status}).`)
 					}
 				}
 

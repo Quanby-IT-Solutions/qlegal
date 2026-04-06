@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server"
+import { type NextRequest, NextResponse } from "next/server"
 import { eq } from "drizzle-orm"
 
 import { db } from "@/services/drizzle/db"
@@ -96,7 +96,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 			return NextResponse.json(
 				{
 					error: "Failed to retrieve document file. The document may have been deleted or moved.",
-					details: error?.message || "File not found in storage",
+					details: error?.message ?? "File not found in storage",
 				},
 				{ status: 404 }
 			)

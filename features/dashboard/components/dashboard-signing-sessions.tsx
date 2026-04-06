@@ -73,7 +73,7 @@ export function DashboardSigningSessions({
 					{sessions?.map(session => {
 						const canJoin = session.canJoin
 						const isConfirmed = session.status === "CONFIRMED"
-						const otherPartyName = isPrincipal ? session.lawyerName : session.clientName
+						const otherPartyName = session.title ?? (isPrincipal ? "Notary" : "Client")
 
 						return (
 							<div key={session.id} className="flex flex-col gap-3 rounded-lg border p-4">
@@ -113,9 +113,7 @@ export function DashboardSigningSessions({
 									<Button
 										size="sm"
 										className="bg-green-600 hover:bg-green-700"
-										onClick={() =>
-											router.push(`/sessions/${session.activeMeetingId}` as Route)
-										}
+										onClick={() => router.push(`/sessions/${session.activeMeetingId}` as Route)}
 									>
 										<HugeiconsIcon icon={Video01Icon} size={16} className="mr-1.5" />
 										Join Meeting

@@ -98,7 +98,7 @@ export function DirectKycDialog(props: { disabled?: boolean; variant?: "default"
 	}
 
 	const readFileAsDataUrl = async (file: File): Promise<string> => {
-		return await new Promise((resolve, reject) => {
+		return new Promise((resolve, reject) => {
 			const reader = new FileReader()
 			reader.onload = () => {
 				const result = reader.result
@@ -176,7 +176,7 @@ export function DirectKycDialog(props: { disabled?: boolean; variant?: "default"
 
 			<DialogContent className="max-h-[90vh] w-[95vw] max-w-3xl overflow-hidden p-0">
 				<div className="flex max-h-[90vh] flex-col overflow-hidden rounded-lg">
-					<div className="bg-background/95 supports-[backdrop-filter]:bg-background/60 sticky top-0 z-10 shrink-0 rounded-t-lg border-b backdrop-blur">
+					<div className="bg-background/95 supports-backdrop-filter:bg-background/60 sticky top-0 z-10 shrink-0 rounded-t-lg border-b backdrop-blur">
 						<DialogHeader className="px-6 pt-6 pb-4">
 							<div className="flex items-start justify-between">
 								<div className="space-y-1.5">
@@ -401,11 +401,12 @@ export function DirectKycDialog(props: { disabled?: boolean; variant?: "default"
 										<Label className="text-sm font-medium">ID Document</Label>
 										{idImage ? (
 											<div className="group relative overflow-hidden rounded-lg border shadow-sm transition-shadow hover:shadow-md">
-												<img src={idImage} alt="ID" className="aspect-[4/3] w-full object-cover" />
-												<div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
+												{/* eslint-disable-next-line @next/next/no-img-element */}
+												<img src={idImage} alt="ID" className="aspect-4/3 w-full object-cover" />
+												<div className="absolute inset-0 bg-linear-to-t from-black/20 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
 											</div>
 										) : (
-											<div className="bg-muted flex aspect-[4/3] items-center justify-center rounded-lg border">
+											<div className="bg-muted flex aspect-4/3 items-center justify-center rounded-lg border">
 												<p className="text-muted-foreground text-sm">No photo</p>
 											</div>
 										)}
@@ -414,15 +415,16 @@ export function DirectKycDialog(props: { disabled?: boolean; variant?: "default"
 										<Label className="text-sm font-medium">Selfie</Label>
 										{selfieImage ? (
 											<div className="group relative overflow-hidden rounded-lg border shadow-sm transition-shadow hover:shadow-md">
+												{/* eslint-disable-next-line @next/next/no-img-element */}
 												<img
 													src={selfieImage}
 													alt="Selfie"
-													className="aspect-[4/3] w-full object-cover"
+													className="aspect-4/3 w-full object-cover"
 												/>
-												<div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
+												<div className="absolute inset-0 bg-linear-to-t from-black/20 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
 											</div>
 										) : (
-											<div className="bg-muted flex aspect-[4/3] items-center justify-center rounded-lg border">
+											<div className="bg-muted flex aspect-4/3 items-center justify-center rounded-lg border">
 												<p className="text-muted-foreground text-sm">No photo</p>
 											</div>
 										)}
@@ -465,7 +467,7 @@ export function DirectKycDialog(props: { disabled?: boolean; variant?: "default"
 						)}
 					</div>
 
-					<div className="bg-background/95 supports-[backdrop-filter]:bg-background/60 sticky bottom-0 shrink-0 rounded-b-lg border-t px-6 py-4 backdrop-blur">
+					<div className="bg-background/95 supports-backdrop-filter:bg-background/60 sticky bottom-0 shrink-0 rounded-b-lg border-t px-6 py-4 backdrop-blur">
 						<div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-between">
 							<div className="flex flex-col-reverse gap-2 sm:flex-row">
 								{step !== "result" && (

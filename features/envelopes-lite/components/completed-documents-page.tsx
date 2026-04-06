@@ -343,7 +343,7 @@ export function CompletedDocumentsPage() {
 													documentId: doc.id,
 													envelopeId: doc.envelopeId,
 													documentName: doc.name,
-													projectUuid: getProjectUuid(doc as CompletedDocument),
+													projectUuid: getProjectUuid(doc),
 												})
 											}
 										>
@@ -373,29 +373,29 @@ export function CompletedDocumentsPage() {
 												<DropdownMenuContent align="end">
 													<DropdownMenuItem
 														onClick={() => {
-															const projectUuid = getProjectUuid(doc as CompletedDocument)
+															const projectUuid = getProjectUuid(doc)
 															if (projectUuid) {
 																handleDownload(projectUuid)
 															}
 														}}
 														disabled={
-															!getProjectUuid(doc as CompletedDocument) ||
-															downloadingProjectUuid === getProjectUuid(doc as CompletedDocument)
+															!getProjectUuid(doc) ||
+															downloadingProjectUuid === getProjectUuid(doc)
 														}
 													>
 														<Download className="mr-2 h-4 w-4" />
-														{downloadingProjectUuid === getProjectUuid(doc as CompletedDocument)
+														{downloadingProjectUuid === getProjectUuid(doc)
 															? "Downloading..."
 															: "Download Signed Document"}
 													</DropdownMenuItem>
 													<DropdownMenuItem
 														onClick={() => {
-															const projectUuid = getProjectUuid(doc as CompletedDocument)
+															const projectUuid = getProjectUuid(doc)
 															if (projectUuid) {
 																handleViewCertificate(projectUuid, doc.name)
 															}
 														}}
-														disabled={!getProjectUuid(doc as CompletedDocument)}
+														disabled={!getProjectUuid(doc)}
 													>
 														<Award className="mr-2 h-4 w-4" />
 														Download Certificate
@@ -456,7 +456,7 @@ export function CompletedDocumentsPage() {
 															documentId: doc.id,
 															envelopeId: doc.envelopeId,
 															documentName: doc.name,
-															projectUuid: getProjectUuid(doc as CompletedDocument),
+															projectUuid: getProjectUuid(doc),
 														})
 													}
 												>
@@ -467,18 +467,18 @@ export function CompletedDocumentsPage() {
 													variant="outline"
 													size="sm"
 													onClick={() => {
-														const projectUuid = getProjectUuid(doc as CompletedDocument)
+														const projectUuid = getProjectUuid(doc)
 														if (projectUuid) {
 															handleDownload(projectUuid)
 														}
 													}}
 													disabled={
-														!getProjectUuid(doc as CompletedDocument) ||
-														downloadingProjectUuid === getProjectUuid(doc as CompletedDocument)
+														!getProjectUuid(doc) ||
+														downloadingProjectUuid === getProjectUuid(doc)
 													}
 												>
 													<Download className="mr-2 h-4 w-4" />
-													{downloadingProjectUuid === getProjectUuid(doc as CompletedDocument)
+													{downloadingProjectUuid === getProjectUuid(doc)
 														? "..."
 														: "Download"}
 												</Button>
@@ -486,12 +486,12 @@ export function CompletedDocumentsPage() {
 													variant="outline"
 													size="sm"
 													onClick={() => {
-														const projectUuid = getProjectUuid(doc as CompletedDocument)
+														const projectUuid = getProjectUuid(doc)
 														if (projectUuid) {
 															handleViewCertificate(projectUuid, doc.name)
 														}
 													}}
-													disabled={!getProjectUuid(doc as CompletedDocument)}
+													disabled={!getProjectUuid(doc)}
 												>
 													<Award className="mr-2 h-4 w-4" />
 													Certificate

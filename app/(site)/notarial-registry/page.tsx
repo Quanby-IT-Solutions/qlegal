@@ -143,7 +143,6 @@ function NotarialActCard({
 	act,
 	onViewDocument,
 	onDownloadDocument,
-	onViewCertificate,
 	onViewPrincipalId,
 	onSyncToSupremeCourt,
 	onCopyNrid,
@@ -851,9 +850,6 @@ export default function NotarialRegistryPage() {
 		})
 	}
 
-	// Certificate viewing
-	const utils = trpc.useUtils()
-
 	const handleCopyNrid = useCallback(async (nrid: string) => {
 		try {
 			await navigator.clipboard.writeText(nrid)
@@ -865,7 +861,7 @@ export default function NotarialRegistryPage() {
 		}
 	}, [])
 
-	const handleViewCertificate = async (actId: string) => {
+	const handleViewCertificate = async () => {
 		toast.error(
 			"Certificate retrieval is temporarily unavailable while we rebuild the signing integration."
 		)
@@ -938,7 +934,7 @@ export default function NotarialRegistryPage() {
 												setPage(1)
 											}}
 										>
-											<SelectTrigger className="h-7 w-full min-w-0 text-xs sm:w-[130px]">
+											<SelectTrigger className="h-7 w-full min-w-0 text-xs sm:w-32.5">
 												<SelectValue placeholder="Act type" />
 											</SelectTrigger>
 											<SelectContent>
@@ -956,7 +952,7 @@ export default function NotarialRegistryPage() {
 												setSearchTerm(e.target.value)
 												setPage(1)
 											}}
-											className="h-7 w-full max-w-full min-w-0 text-xs sm:w-[180px]"
+											className="h-7 w-full max-w-full min-w-0 text-xs sm:w-45"
 										/>
 										<Select
 											value={workflowFilter}
@@ -965,7 +961,7 @@ export default function NotarialRegistryPage() {
 												setPage(1)
 											}}
 										>
-											<SelectTrigger className="h-7 w-[92px] text-xs">
+											<SelectTrigger className="h-7 w-23 text-xs">
 												<SelectValue placeholder="Workflow" />
 											</SelectTrigger>
 											<SelectContent>
@@ -998,7 +994,7 @@ export default function NotarialRegistryPage() {
 													setPage(1)
 												}}
 											>
-												<SelectTrigger className="h-7 w-[108px] text-xs">
+												<SelectTrigger className="h-7 w-27 text-xs">
 													<SelectValue placeholder="Sort by" />
 												</SelectTrigger>
 												<SelectContent>
@@ -1019,7 +1015,7 @@ export default function NotarialRegistryPage() {
 													setPage(1)
 												}}
 											>
-												<SelectTrigger className="h-7 w-[72px] text-xs">
+												<SelectTrigger className="h-7 w-18 text-xs">
 													<SelectValue placeholder="Order" />
 												</SelectTrigger>
 												<SelectContent>

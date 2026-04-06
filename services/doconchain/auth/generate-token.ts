@@ -1,6 +1,7 @@
-import { env } from "@/env"
 import { getDoconchainSubOrganizationDetails } from "@/services/doconchain/organization/get-sub-organization"
 import { listDoconchainOrganizations } from "@/services/doconchain/organization/list-organizations"
+
+import { env } from "@/env"
 
 type CachedToken = { token: string; expiresAtMs?: number; cachedAtMs: number }
 
@@ -186,8 +187,12 @@ async function generateDoconchainTokenWithCreds(input: {
 		| { token?: string }
 		| { data?: { token?: string } }
 	const token =
-		(json && typeof json === "object" && "token" in json ? (json as { token?: string }).token : undefined) ??
-		(json && typeof json === "object" && "data" in json ? (json as { data?: { token?: string } }).data?.token : undefined)
+		(json && typeof json === "object" && "token" in json
+			? (json as { token?: string }).token
+			: undefined) ??
+		(json && typeof json === "object" && "data" in json
+			? (json as { data?: { token?: string } }).data?.token
+			: undefined)
 
 	if (!token) {
 		if (debugLogsEnabled) {
@@ -240,11 +245,11 @@ export async function generateDoconchainToken(input?: {
 	// We always include it here to satisfy those environments (and because our caching is per-email).
 	const email = (input?.email ?? env.DOCONCHAIN_EMAIL).trim().toLowerCase()
 	if (!email) throw new Error("DocOnChain token generation requires a non-empty email.")
-	return await generateDoconchainTokenWithCreds({
+	return generateDoconchainTokenWithCreds({
 		cacheKeyEmail: email,
 		payloadEmail: email,
 		clientKey: env.DOCONCHAIN_CLIENT_KEY,
-		clientSecret: env.DOCONCHAIN_CLIENT_SECRET,   
+		clientSecret: env.DOCONCHAIN_CLIENT_SECRET,
 	})
 }
 
@@ -295,7 +300,7 @@ export async function getDoconchainApiToken(input?: {
 		if (debugLogsEnabled) {
 			console.log("[doconchain][token] in-flight await", { email })
 		}
-		return await existingInFlight
+		return existingInFlight
 	}
 
 	const promise = (async () => {
@@ -410,9 +415,8 @@ export async function getDoconchainApiToken(input?: {
 						.filter(o => o.parentId !== null && o.parentId !== undefined)
 
 					for (const o of subOrgs) {
-						const { getDoconchainSubOrgMembers } = await import(
-							"@/services/doconchain/organization/get-sub-org-members"
-						)
+						const { getDoconchainSubOrgMembers } =
+							await import("@/services/doconchain/organization/get-sub-org-members")
 						const members = await getDoconchainSubOrgMembers({ subOrganizationUuid: o.uuid })
 						const found = members.some(m => (m.email ?? "").trim().toLowerCase() === email)
 						if (!found) continue
@@ -423,7 +427,9 @@ export async function getDoconchainApiToken(input?: {
 								subOrgUuid: o.uuid,
 							})
 						}
-						const details = await getDoconchainSubOrganizationDetails({ subOrganizationUuid: o.uuid })
+						const details = await getDoconchainSubOrganizationDetails({
+							subOrganizationUuid: o.uuid,
+						})
 						if (!details.clientKey || !details.clientSecret) break
 
 						cachedEnterpriseCredsByEmail.set(email, {
@@ -454,9 +460,8 @@ export async function getDoconchainApiToken(input?: {
 				if (debugLogsEnabled) {
 					console.log("[doconchain][token] auto-join fallback", { email })
 				}
-				const { autoJoinMemberInDoconchainOrganization } = await import(
-					"@/services/doconchain/organization/auto-join-member"
-				)
+				const { autoJoinMemberInDoconchainOrganization } =
+					await import("@/services/doconchain/organization/auto-join-member")
 				try {
 					await autoJoinMemberInDoconchainOrganization({ email })
 				} catch (e) {
@@ -489,7 +494,7 @@ export async function getDoconchainApiToken(input?: {
 	})()
 
 	inFlightByEmail.set(email, promise)
-	return await promise
+	return promise
 }
 
 function looksLikeDoconchainAlreadyMemberError(error: unknown): boolean {
@@ -503,4 +508,3 @@ function looksLikeDoconchainAlreadyMemberError(error: unknown): boolean {
 			msg.includes("email that already"))
 	)
 }
-

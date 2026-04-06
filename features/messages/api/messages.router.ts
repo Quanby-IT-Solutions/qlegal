@@ -1,10 +1,10 @@
 import { on } from "node:events"
 import { tracked, TRPCError } from "@trpc/server"
 import { and, asc, desc, eq, gt, ne, or, sql } from "drizzle-orm"
-import { getFullName } from "@/core/lib/utils"
 import { z } from "zod/v4"
 
-import { env } from "@/env"
+import { getFullName } from "@/core/lib/utils"
+
 import { db } from "@/services/drizzle/db"
 import { appointments } from "@/services/drizzle/schema/appointments"
 import { users } from "@/services/drizzle/schema/auth"
@@ -22,6 +22,8 @@ import {
 	messagesEmitter,
 	type MessageWithSender,
 } from "@/features/messages/lib/messages.emitter"
+
+import { env } from "@/env"
 
 function resolveAvatarUrl(image: string | null | undefined): string | null {
 	if (!image) return null
@@ -52,7 +54,9 @@ export const messagesRouter = createTRPCRouter({
 								user: {
 									columns: {
 										id: true,
-										name: true,
+										firstName: true,
+										middleName: true,
+										lastName: true,
 										email: true,
 										image: true,
 										role: true,
@@ -111,12 +115,12 @@ export const messagesRouter = createTRPCRouter({
 					id: conversation.id,
 					otherUser: otherParticipant
 						? {
-							...otherParticipant.user,
-							image: resolveAvatarUrl(otherParticipant.user.image),
-							status: otherParticipant.user.commissionStatus,
-							bio: profile?.bio ?? null,
-							joinedAt: otherParticipant.joinedAt,
-						}
+								...otherParticipant.user,
+								image: resolveAvatarUrl(otherParticipant.user.image),
+								status: otherParticipant.user.commissionStatus,
+								bio: profile?.bio ?? null,
+								joinedAt: otherParticipant.joinedAt,
+							}
 						: null,
 					lastMessage: lastMessage?.content,
 					lastMessageTime: lastMessage?.createdAt,
@@ -163,7 +167,9 @@ export const messagesRouter = createTRPCRouter({
 					sender: {
 						columns: {
 							id: true,
-							name: true,
+							firstName: true,
+							middleName: true,
+							lastName: true,
 							email: true,
 							image: true,
 						},
@@ -176,9 +182,9 @@ export const messagesRouter = createTRPCRouter({
 				...message,
 				sender: message.sender
 					? {
-						...message.sender,
-						image: resolveAvatarUrl(message.sender.image),
-					}
+							...message.sender,
+							image: resolveAvatarUrl(message.sender.image),
+						}
 					: message.sender,
 			}))
 		}),
@@ -237,7 +243,9 @@ export const messagesRouter = createTRPCRouter({
 					sender: {
 						columns: {
 							id: true,
-							name: true,
+							firstName: true,
+							middleName: true,
+							lastName: true,
 							email: true,
 							image: true,
 						},
@@ -419,7 +427,9 @@ export const messagesRouter = createTRPCRouter({
 							sender: {
 								columns: {
 									id: true,
-									name: true,
+									firstName: true,
+									middleName: true,
+									lastName: true,
 									email: true,
 									image: true,
 								},
@@ -516,7 +526,10 @@ export const messagesRouter = createTRPCRouter({
 				columns: { id: true, role: true },
 			})
 			if (sender?.role !== "ENP") {
-				throw new TRPCError({ code: "FORBIDDEN", message: "Only ENP can send consultation requests" })
+				throw new TRPCError({
+					code: "FORBIDDEN",
+					message: "Only ENP can send consultation requests",
+				})
 			}
 
 			// Verify participant
@@ -527,7 +540,10 @@ export const messagesRouter = createTRPCRouter({
 				),
 			})
 			if (!participant) {
-				throw new TRPCError({ code: "FORBIDDEN", message: "You are not a participant in this conversation" })
+				throw new TRPCError({
+					code: "FORBIDDEN",
+					message: "You are not a participant in this conversation",
+				})
 			}
 
 			const metadata = {
@@ -568,7 +584,14 @@ export const messagesRouter = createTRPCRouter({
 				where: eq(messages.id, inserted.id),
 				with: {
 					sender: {
-						columns: { id: true, name: true, email: true, image: true },
+						columns: {
+							id: true,
+							firstName: true,
+							middleName: true,
+							lastName: true,
+							email: true,
+							image: true,
+						},
 					},
 				},
 			})
@@ -613,12 +636,18 @@ export const messagesRouter = createTRPCRouter({
 				),
 			})
 			if (!participant) {
-				throw new TRPCError({ code: "FORBIDDEN", message: "You are not a participant in this conversation" })
+				throw new TRPCError({
+					code: "FORBIDDEN",
+					message: "You are not a participant in this conversation",
+				})
 			}
 
 			// Only the non-ENP (principal) can respond
 			if (ctx.session.user.id === (message.metadata as Record<string, unknown>)?.enpId) {
-				throw new TRPCError({ code: "FORBIDDEN", message: "The ENP cannot respond to their own request" })
+				throw new TRPCError({
+					code: "FORBIDDEN",
+					message: "The ENP cannot respond to their own request",
+				})
 			}
 
 			const currentStatus = (message.metadata as Record<string, unknown>)?.status
@@ -669,7 +698,14 @@ export const messagesRouter = createTRPCRouter({
 				where: eq(messages.id, input.messageId),
 				with: {
 					sender: {
-						columns: { id: true, firstName: true, middleName: true, lastName: true, email: true, image: true },
+						columns: {
+							id: true,
+							firstName: true,
+							middleName: true,
+							lastName: true,
+							email: true,
+							image: true,
+						},
 					},
 				},
 			})

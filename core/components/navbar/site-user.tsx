@@ -78,7 +78,7 @@ export function SiteUser() {
 					{config.map(item => {
 						return (
 							<DropdownMenuItem key={item.url} asChild>
-								{/* @ts-ignore Next.js Link href type mismatch */}
+								{/* @ts-expect-error Next.js Link href type mismatch */}
 								<Link href={item.url}>
 									{renderIcon(item.icon)}
 									{item.title}

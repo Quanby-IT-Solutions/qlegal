@@ -60,8 +60,8 @@ export function DocumentPreviewDialog({
 		error,
 	} = trpc.envelopeLite.getDocumentForViewing.useQuery({
 		documentId,
-		envelopeId: envelopeId || undefined,
-		projectUuid: projectUuid || undefined,
+		envelopeId: envelopeId ?? undefined,
+		projectUuid: projectUuid ?? undefined,
 	})
 
 	return (

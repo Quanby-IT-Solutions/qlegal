@@ -1,6 +1,10 @@
+import {
+	getDoconchainApiToken,
+	invalidateDoconchainToken,
+	type GetSubOrgCredsForEmail,
+} from "@/services/doconchain/auth/generate-token"
+
 import { env } from "@/env"
-import { getDoconchainApiToken, invalidateDoconchainToken } from "@/services/doconchain/auth/generate-token"
-import type { GetSubOrgCredsForEmail } from "@/services/doconchain/auth/generate-token"
 
 type DoconchainMyProjectDetailsResponse = {
 	message?: string
@@ -64,14 +68,18 @@ export async function getDoconchainMyProjectDetails(input: {
 
 	const doRequest = async () => {
 		// Prefer explicit user-token (DOCONCHAIN_API_TOKEN) if configured; otherwise generate.
-		const token = await getDoconchainApiToken({ email, getSubOrgCredsForEmail: input.getSubOrgCredsForEmail })
+		const token = await getDoconchainApiToken({
+			email,
+			getSubOrgCredsForEmail: input.getSubOrgCredsForEmail,
+		})
 		return fetchMyProjectDetails({ projectUuid, token })
 	}
 
 	try {
 		return doRequest()
 	} catch (error) {
-		const status = error instanceof Error ? (error as Error & { status?: number }).status : undefined
+		const status =
+			error instanceof Error ? (error as Error & { status?: number }).status : undefined
 		if (status === 401) {
 			const invalidate = invalidateDoconchainToken as (email: string) => void
 			invalidate(email)
@@ -80,4 +88,3 @@ export async function getDoconchainMyProjectDetails(input: {
 		throw error
 	}
 }
-

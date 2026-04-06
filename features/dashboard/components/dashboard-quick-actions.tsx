@@ -55,6 +55,7 @@ export function DashboardQuickActions({
 					)}
 					{isENP && (
 						<Link
+							// @ts-expect-error -- Next.js typed routes: /requests is a valid route
 							href="/requests"
 							className={buttonVariants({
 								variant: "outline",
@@ -76,7 +77,7 @@ export function DashboardQuickActions({
 						</Link>
 					)}
 					<Link
-						// @ts-ignore Next.js typed routes (conditional href)
+						// @ts-expect-error Next.js typed routes (conditional href)
 						href={isENP ? "/appointments" : "/consultations"}
 						className={buttonVariants({
 							variant: "outline",

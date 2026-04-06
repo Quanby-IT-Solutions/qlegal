@@ -45,6 +45,7 @@ export function MeetingDocumentUpload({
 	isEnp = false,
 	onUploadStart,
 }: MeetingDocumentUploadProps) {
+	// eslint-disable-next-line no-restricted-properties
 	const debugLogsEnabled = process.env.NODE_ENV !== "production"
 	const [documentName, setDocumentName] = useState("")
 	const [description, setDescription] = useState("")

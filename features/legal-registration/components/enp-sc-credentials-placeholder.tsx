@@ -31,7 +31,7 @@ export function EnpScCredentialsPlaceholder({ applicationStatus }: EnpScCredenti
 	const userId = session?.user?.id
 
 	const submittedToQlegal =
-		applicationStatus != null &&
+		applicationStatus !== null &&
 		applicationStatus !== "DRAFT" &&
 		applicationStatus !== "REJECTED"
 
