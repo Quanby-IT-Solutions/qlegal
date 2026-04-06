@@ -17,9 +17,9 @@ import { useHyperVergeSDK } from "@/features/kyc/hooks/use-hyperverge-sdk"
 
 export interface StartKycVerificationOptions {
 	/**
-	 * When true (e.g. on Profile), if the user must renew after expiry, dismiss the
-	 * notice server-side and continue. When false, show a toast and abort so they
-	 * can open Profile first.
+	 * When true (Profile, booking restriction dialogs, etc.), if the user must renew after expiry,
+	 * dismiss the notice server-side and launch verification. When false, show a toast and abort
+	 * (legacy path for flows that still expect the user to open Profile first).
 	 */
 	skipExpiryGate?: boolean
 }
@@ -39,6 +39,7 @@ export function useStartKycVerification() {
 		onComplete: (rawStatus: string) => {
 			const normalized = (rawStatus ?? "").trim().toLowerCase().replace(/\s+/g, "_")
 			void queryClient.invalidateQueries({ queryKey: ["kyc-status"] })
+			void queryClient.invalidateQueries({ queryKey: ["user-kyc-info"] })
 			void utils.onboarding.getStatus.invalidate()
 
 			void (async () => {
@@ -86,6 +87,7 @@ export function useStartKycVerification() {
 						toast.error(dismissed.error ?? "Could not continue. Please try again.")
 						return
 					}
+					void queryClient.invalidateQueries({ queryKey: ["user-kyc-info"] })
 					await updateSession()
 				} else {
 					toast.error(
@@ -105,6 +107,7 @@ export function useStartKycVerification() {
 						return
 					}
 					queryClient.removeQueries({ queryKey: ["kyc-status"] })
+					void queryClient.invalidateQueries({ queryKey: ["user-kyc-info"] })
 					await updateSession()
 				} finally {
 					setIsResetting(false)

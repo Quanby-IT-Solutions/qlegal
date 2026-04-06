@@ -1,5 +1,6 @@
 "use client"
 
+import { useQuery } from "@tanstack/react-query"
 import {
 	AlertCircle,
 	Ban,
@@ -14,6 +15,9 @@ import {
 } from "lucide-react"
 import { useSession } from "next-auth/react"
 
+import { kycExpiryRenewalDescription } from "@/core/lib/kyc-reverification-copy"
+
+import { getUserKycInfo } from "@/features/kyc/api/kyc.actions"
 import { Badge } from "@/core/components/ui/badge"
 import { Button } from "@/core/components/ui/button"
 import { Card, CardContent } from "@/core/components/ui/card"
@@ -112,6 +116,16 @@ export function IdentityVerificationCard() {
 	const { data: session } = useSession()
 	const { start, isLoading } = useStartKycVerification()
 
+	const { data: kycInfoResult } = useQuery({
+		queryKey: ["user-kyc-info"],
+		queryFn: () => getUserKycInfo(),
+		staleTime: 60_000,
+	})
+	const userInfo = kycInfoResult?.success ? kycInfoResult.data : undefined
+	const isExpiryRenewal =
+		userInfo?.kycStatus === "NOT_STARTED" && Boolean(userInfo?.kycLastExpiredAt)
+	const validityDays = userInfo?.kycVerificationValidityDays ?? 14
+
 	const kycStatus =
 		typeof session?.user?.kycStatus === "string" ? session.user.kycStatus : "NOT_STARTED"
 
@@ -168,11 +182,9 @@ export function IdentityVerificationCard() {
 	 * skip this: after the SDK reports needs_review, invalidate/refetch leaves stale rows in `data`
 	 * until the request finishes.
 	 */
-	const isPendingAwaitingFreshCheck =
-		rawFromApi === "PENDING" && isCheckingStatus && !isNeedsReview
+	const isPendingAwaitingFreshCheck = rawFromApi === "PENDING" && isCheckingStatus && !isNeedsReview
 
-	const isConfirmingProviderStatus =
-		isPendingAwaitingFreshCheck || isRejectedAwaitingFreshCheck
+	const isConfirmingProviderStatus = isPendingAwaitingFreshCheck || isRejectedAwaitingFreshCheck
 
 	const meta = kycStatusMeta(
 		isPendingAwaitingFreshCheck || isRejectedAwaitingFreshCheck ? "PENDING_LOADING" : displayStatus
@@ -190,7 +202,9 @@ export function IdentityVerificationCard() {
 					? "Our verification provider automatically declined this attempt based on its checks. Please review your documents and try again."
 					: isNeedsReviewUi
 						? "Your documents are with our verification partner for manual review. You don\u2019t need to start again—we\u2019ll notify you when there\u2019s an update."
-						: "Confirm who you are so we can protect your account. You can finish this whenever you\u2019re ready—signing and the rest of the app stay available in the meantime."
+						: isExpiryRenewal
+							? kycExpiryRenewalDescription(validityDays)
+							: "Confirm who you are so we can protect your account. You can finish this whenever you\u2019re ready—signing and the rest of the app stay available in the meantime."
 
 	return (
 		<Card

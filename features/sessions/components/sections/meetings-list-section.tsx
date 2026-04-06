@@ -52,7 +52,10 @@ import {
 	SelectValue,
 } from "@/core/components/ui/select"
 import { KycRequiredDialog } from "@/core/components/kyc-required-dialog"
-import { isEnpMeetingCreationBlockedForKyc } from "@/core/lib/kyc-restriction-guards"
+import {
+	isEnpMeetingCreationBlockedForKyc,
+	isLawyerBookingBlockedForKyc,
+} from "@/core/lib/kyc-restriction-guards"
 import { getAvatarUrl, getFullName, getInitials } from "@/core/lib/utils"
 
 import { trpc, type RouterInputs, type RouterOutputs } from "@/services/trpc/client"
@@ -143,6 +146,11 @@ export function MeetingsListSection() {
 
 	const { searchUsers } = useMessages()
 	const { data: searchResults } = searchUsers(userSearchQuery)
+
+	const sessionKycStatus =
+		typeof session?.user?.kycStatus === "string" ? session.user.kycStatus : undefined
+	/** ENP + Principal: same rule as booking — must verify before joining or starting a session. */
+	const isKycSessionJoinBlocked = isLawyerBookingBlockedForKyc(session?.user?.role, sessionKycStatus)
 
 	// Show all accepted sessions (ENP accepted) in Ongoing regardless of appointment date
 	const requestOpenCreateMeeting = () => {
@@ -238,6 +246,10 @@ export function MeetingsListSection() {
 	}
 
 	const handleStartMeeting = async (id: string) => {
+		if (isKycSessionJoinBlocked) {
+			setKycBlockOpen(true)
+			return
+		}
 		setLoadingMeetingId(id)
 		try {
 			await startMeeting.mutateAsync(id)
@@ -325,7 +337,7 @@ export function MeetingsListSection() {
 				open={kycBlockOpen}
 				onOpenChange={setKycBlockOpen}
 				returnToPath="/sessions"
-				description="Complete identity verification before creating a meeting. You can finish this from Profile or Onboarding."
+				description="Complete identity verification before creating or joining a video session. You can finish verification from here."
 			/>
 			<div className="flex items-center justify-between">
 				<div className="space-y-2">
@@ -703,6 +715,10 @@ export function MeetingsListSection() {
 																className="bg-success text-foreground hover:bg-success/90 h-8 gap-1 text-xs"
 																onClick={e => {
 																	e.stopPropagation()
+																	if (isKycSessionJoinBlocked) {
+																		setKycBlockOpen(true)
+																		return
+																	}
 																	setJoiningMeetingId(meeting.id)
 																	router.push(`/sessions/${meeting.id}`)
 																}}
@@ -905,6 +921,10 @@ export function MeetingsListSection() {
 														variant="default"
 														onClick={e => {
 															e.stopPropagation()
+															if (isKycSessionJoinBlocked) {
+																setKycBlockOpen(true)
+																return
+															}
 															setJoiningMeetingId(meeting.id)
 															router.push(`/sessions/${meeting.id}`)
 														}}

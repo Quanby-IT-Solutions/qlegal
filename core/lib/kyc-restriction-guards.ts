@@ -55,3 +55,22 @@ export function assertEnpCanCreateMeetingForKyc(
 			"Complete identity verification before creating a meeting. You can finish this from Profile or Onboarding.",
 	})
 }
+
+/** tRPC message when ENP/Principal cannot join a video session (token, link join, accept invite). */
+export const KYC_ENP_PRINCIPAL_SESSION_JOIN_MESSAGE =
+	"Complete identity verification before joining a session. You can finish verification from Profile or when prompted in the app."
+
+/**
+ * ENP and Principal must finish identity verification before joining a video session
+ * (same KYC rule as booking an ENP from browse — see {@link isLawyerBookingBlockedForKyc}).
+ */
+export function assertEnpOrPrincipalCanJoinSessionForKyc(
+	role: string | null | undefined,
+	kycStatus: string | null | undefined
+): void {
+	if (!isLawyerBookingBlockedForKyc(role, kycStatus)) return
+	throw new TRPCError({
+		code: "FORBIDDEN",
+		message: KYC_ENP_PRINCIPAL_SESSION_JOIN_MESSAGE,
+	})
+}

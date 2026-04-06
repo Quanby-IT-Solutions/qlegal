@@ -2,8 +2,15 @@
 
 import { type Route } from "next"
 import Link from "next/link"
+import { useQuery } from "@tanstack/react-query"
 
+import { getUserKycInfo } from "@/features/kyc/api/kyc.actions"
 import { useStartKycVerification } from "@/features/kyc/hooks/use-start-kyc-verification"
+
+import {
+	kycExpiryRenewalDescription,
+	kycExpiryRenewalDialogTitle,
+} from "@/core/lib/kyc-reverification-copy"
 
 import { Button } from "@/core/components/ui/button"
 import {
@@ -28,28 +35,49 @@ interface KycRequiredDialogProps {
 	primaryLabel?: string
 }
 
+const DEFAULT_TITLE = "Identity verification required"
+const DEFAULT_DESCRIPTION =
+	"Finish identity verification before continuing. Verification opens on this device—no need to visit a separate page."
+
 export function KycRequiredDialog({
 	open,
 	onOpenChange,
-	title = "Identity verification required",
-	description = "Finish identity verification before continuing. Verification opens on this device—no need to visit a separate page.",
+	title = DEFAULT_TITLE,
+	description = DEFAULT_DESCRIPTION,
 	verificationHref,
 	primaryLabel = "Start identity verification",
 }: KycRequiredDialogProps) {
 	const { start, isLoading } = useStartKycVerification()
 
+	const { data: kycInfoResult } = useQuery({
+		queryKey: ["user-kyc-info"],
+		queryFn: () => getUserKycInfo(),
+		enabled: open,
+		staleTime: 60_000,
+	})
+	const userInfo = kycInfoResult?.success ? kycInfoResult.data : undefined
+	const isExpiryRenewal =
+		userInfo?.kycStatus === "NOT_STARTED" && Boolean(userInfo?.kycLastExpiredAt)
+	const validityDays = userInfo?.kycVerificationValidityDays ?? 14
+
+	const resolvedTitle = isExpiryRenewal ? kycExpiryRenewalDialogTitle() : title
+	const resolvedDescription = isExpiryRenewal
+		? kycExpiryRenewalDescription(validityDays)
+		: description
+
 	const handlePrimary = () => {
 		if (verificationHref) return
 		onOpenChange(false)
-		void start()
+		// Same as Profile: after 14-day expiry, dismiss the server flag and open the SDK here—do not send users to Profile.
+		void start({ skipExpiryGate: true })
 	}
 
 	return (
 		<AlertDialog open={open} onOpenChange={onOpenChange}>
 			<AlertDialogContent>
 				<AlertDialogHeader>
-					<AlertDialogTitle>{title}</AlertDialogTitle>
-					<AlertDialogDescription>{description}</AlertDialogDescription>
+					<AlertDialogTitle>{resolvedTitle}</AlertDialogTitle>
+					<AlertDialogDescription>{resolvedDescription}</AlertDialogDescription>
 				</AlertDialogHeader>
 				<AlertDialogFooter>
 					<AlertDialogCancel disabled={isLoading}>Close</AlertDialogCancel>
