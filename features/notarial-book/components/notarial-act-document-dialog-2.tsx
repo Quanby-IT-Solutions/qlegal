@@ -63,9 +63,7 @@ export function NotarialActDocumentDialog2({
 			document.body.removeChild(a)
 			URL.revokeObjectURL(blobUrl)
 		} catch (err) {
-			toast.error(
-				`Failed to download: ${err instanceof Error ? err.message : "Unknown error"}`
-			)
+			toast.error(`Failed to download: ${err instanceof Error ? err.message : "Unknown error"}`)
 		} finally {
 			setIsDownloading(false)
 		}
@@ -74,13 +72,13 @@ export function NotarialActDocumentDialog2({
 	return (
 		<Dialog open={isOpen} onOpenChange={onClose}>
 			<DialogContent
-				className="!m-0 !flex !h-[85vh] !w-[90vw] !max-w-none flex-col !gap-0 overflow-hidden !rounded-lg !p-0"
+				className="m-0 flex h-[85vh] w-[90vw] max-w-none flex-col gap-0 overflow-hidden rounded-lg p-0"
 				style={{ maxWidth: "90vw" }}
 			>
 				<DialogHeader className="bg-background flex shrink-0 flex-row items-center justify-between border-b p-4 pr-12">
 					<div className="flex min-w-0 flex-1 items-center gap-3">
 						<div className="bg-muted shrink-0 rounded-lg p-2">
-							<FileText className="text-muted-foreground h-5 w-5" />
+							<FileText className="text-muted-foreground size-5" />
 						</div>
 						<div className="min-w-0 flex-1 text-left">
 							<DialogTitle className="text-foreground truncate text-lg font-medium">
@@ -115,7 +113,7 @@ export function NotarialActDocumentDialog2({
 					{isPending && (
 						<div className="flex h-full items-center justify-center p-8">
 							<div className="text-center">
-								<Loader2 className="text-muted-foreground mx-auto mb-4 h-8 w-8 animate-spin" />
+								<Loader2 className="text-muted-foreground mx-auto mb-4 size-8 animate-spin" />
 								<p className="text-muted-foreground text-sm">Loading document...</p>
 							</div>
 						</div>
@@ -125,7 +123,7 @@ export function NotarialActDocumentDialog2({
 						<div className="flex h-full items-center justify-center p-8">
 							<div className="text-center">
 								<div className="bg-destructive/10 mb-4 rounded-lg p-3">
-									<FileText className="text-destructive mx-auto h-8 w-8" />
+									<FileText className="text-destructive mx-auto size-8" />
 								</div>
 								<p className="text-destructive mb-2 font-medium">Failed to load document</p>
 								<p className="text-muted-foreground mb-4 text-xs">
@@ -164,7 +162,7 @@ export function NotarialActDocumentDialog2({
 											size="sm"
 											onClick={() => window.open(documentData.url, "_blank")}
 										>
-											<Download className="mr-2 h-4 w-4" />
+											<Download className="mr-2 size-4" />
 											Open in New Tab
 										</Button>
 									)}
@@ -178,6 +176,7 @@ export function NotarialActDocumentDialog2({
 							<SimplePdfViewer
 								fileUrl={documentData.url}
 								documentName={documentData.fileName ?? documentName}
+								viewerMode="continuous-scroll"
 							/>
 						</div>
 					)}
@@ -186,11 +185,12 @@ export function NotarialActDocumentDialog2({
 						<div className="flex h-full items-center justify-center p-8">
 							<div className="text-center">
 								<div className="bg-muted mb-4 rounded-lg p-3">
-									<FileText className="text-muted-foreground mx-auto h-8 w-8" />
+									<FileText className="text-muted-foreground mx-auto size-8" />
 								</div>
 								<p className="text-muted-foreground text-sm">No document URL available</p>
 								<p className="text-muted-foreground mt-2 text-xs">
-									The document may not have been fully signed or may not exist in the signing system.
+									The document may not have been fully signed or may not exist in the signing
+									system.
 								</p>
 							</div>
 						</div>

@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useCallback, useEffect, useState } from "react"
+import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { ChevronLeft, ChevronRight, RotateCw, ZoomIn, ZoomOut } from "lucide-react"
 
 import { Button } from "@/core/components/ui/button"
@@ -15,11 +15,12 @@ import { Document, Page } from "react-pdf"
 interface SimplePdfViewerProps {
 	fileUrl: string
 	documentName: string
+	viewerMode?: "single-page" | "continuous-scroll"
 }
 
 interface PdfViewerState {
 	numPages: number
-	pageNumber: number
+	currentPage: number
 	scale: number
 	rotation: number
 	error: string | null
@@ -27,14 +28,29 @@ interface PdfViewerState {
 	isUrlValid: boolean | null // null = checking, true = valid, false = invalid
 }
 
+type PageWrapperElement = HTMLDivElement | null
+
 const SCALE_LIMITS = {
 	min: 0.5,
 	max: 3.0,
 	step: 0.25,
 } as const
 
+const DEFAULT_PAGE_NUMBER = 1
+
+function clampPage(pageNumber: number, numPages: number): number {
+	return Math.min(
+		Math.max(DEFAULT_PAGE_NUMBER, pageNumber),
+		Math.max(DEFAULT_PAGE_NUMBER, numPages)
+	)
+}
+
 // Check if URL is external (not from same origin)
 function isExternalUrl(url: string): boolean {
+	if (typeof window === "undefined") {
+		return false
+	}
+
 	if (!url || url.startsWith("#") || url.startsWith("/")) {
 		return false
 	}
@@ -46,25 +62,156 @@ function isExternalUrl(url: string): boolean {
 	}
 }
 
-export function SimplePdfViewer({ fileUrl, documentName: _documentName }: SimplePdfViewerProps) {
+export function SimplePdfViewer({
+	fileUrl,
+	documentName: _documentName,
+	viewerMode = "single-page",
+}: SimplePdfViewerProps) {
 	const [state, setState] = useState<PdfViewerState>({
 		numPages: 0,
-		pageNumber: 1,
+		currentPage: DEFAULT_PAGE_NUMBER,
 		scale: 1.0,
 		rotation: 0,
 		error: null,
 		isLoaded: false,
 		isUrlValid: null,
 	})
+	const scrollContainerRef = useRef<HTMLDivElement | null>(null)
+	const currentPageRef = useRef(DEFAULT_PAGE_NUMBER)
+	const pageRefs = useRef(new Map<number, PageWrapperElement>())
+	const pageNumbers = useMemo(
+		() => Array.from({ length: state.numPages }, (_, index) => index + 1),
+		[state.numPages]
+	)
 
 	// Check if we should use iframe for external URLs
 	const useIframe = isExternalUrl(fileUrl)
+
+	const setPageRef = useCallback((pageNumber: number, node: PageWrapperElement) => {
+		if (node) {
+			pageRefs.current.set(pageNumber, node)
+			return
+		}
+
+		pageRefs.current.delete(pageNumber)
+	}, [])
+
+	useEffect(() => {
+		currentPageRef.current = state.currentPage
+	}, [state.currentPage])
+
+	const syncCurrentPageFromScroll = useCallback(() => {
+		if (viewerMode !== "continuous-scroll") {
+			return
+		}
+
+		const scrollContainer = scrollContainerRef.current
+		if (!scrollContainer || pageRefs.current.size === 0) {
+			return
+		}
+
+		const containerRect = scrollContainer.getBoundingClientRect()
+		let bestPage = currentPageRef.current
+		let bestVisibilityRatio = 0
+		let bestDistanceFromTop = Number.POSITIVE_INFINITY
+
+		for (const [pageNumber, pageElement] of pageRefs.current.entries()) {
+			if (!pageElement) {
+				continue
+			}
+
+			const pageRect = pageElement.getBoundingClientRect()
+			const visibleWidth =
+				Math.min(pageRect.right, containerRect.right) - Math.max(pageRect.left, containerRect.left)
+			const visibleHeight =
+				Math.min(pageRect.bottom, containerRect.bottom) - Math.max(pageRect.top, containerRect.top)
+
+			if (visibleWidth <= 0 || visibleHeight <= 0) {
+				continue
+			}
+
+			const visibleArea = visibleWidth * visibleHeight
+			const totalArea = Math.max(pageRect.width * pageRect.height, 1)
+			const visibilityRatio = visibleArea / totalArea
+			const distanceFromTop = Math.abs(pageRect.top - containerRect.top)
+
+			if (
+				visibilityRatio > bestVisibilityRatio ||
+				(Math.abs(visibilityRatio - bestVisibilityRatio) < 0.0001 &&
+					distanceFromTop < bestDistanceFromTop)
+			) {
+				bestVisibilityRatio = visibilityRatio
+				bestDistanceFromTop = distanceFromTop
+				bestPage = pageNumber
+			}
+		}
+
+		if (bestPage === currentPageRef.current) {
+			return
+		}
+
+		startTransition(() => {
+			setState(prev =>
+				prev.currentPage === bestPage
+					? prev
+					: {
+							...prev,
+							currentPage: bestPage,
+						}
+			)
+		})
+	}, [viewerMode])
+
+	const scrollToPage = useCallback(
+		(pageNumber: number, behavior: ScrollBehavior = "smooth") => {
+			const nextPage = clampPage(pageNumber, state.numPages)
+
+			if (viewerMode !== "continuous-scroll") {
+				setState(prev =>
+					prev.currentPage === nextPage
+						? prev
+						: {
+								...prev,
+								currentPage: nextPage,
+							}
+				)
+				return
+			}
+
+			const scrollContainer = scrollContainerRef.current
+			const pageElement = pageRefs.current.get(nextPage)
+
+			if (
+				!(scrollContainer instanceof HTMLDivElement) ||
+				!(pageElement instanceof HTMLDivElement)
+			) {
+				return
+			}
+
+			const containerRect = scrollContainer.getBoundingClientRect()
+			const pageRect = pageElement.getBoundingClientRect()
+			const nextScrollTop = scrollContainer.scrollTop + (pageRect.top - containerRect.top) - 16
+
+			scrollContainer.scrollTo({
+				top: nextScrollTop,
+				behavior,
+			})
+		},
+		[state.numPages, viewerMode]
+	)
 
 	// Pre-validate the URL before passing to react-pdf to avoid parsing errors
 	useEffect(() => {
 		if (!fileUrl || useIframe) {
 			// Skip validation for external URLs (they'll be handled by iframe)
-			setState(prev => ({ ...prev, isUrlValid: true }))
+			pageRefs.current.clear()
+			setState(prev => ({
+				...prev,
+				numPages: 0,
+				currentPage: DEFAULT_PAGE_NUMBER,
+				error: null,
+				isUrlValid: true,
+			}))
 			return
 		}
 
@@ -76,12 +223,26 @@ export function SimplePdfViewer({ fileUrl, documentName: _documentName }: Simple
 			fileUrl.startsWith("/api/notarial-book-2/documents/") ||
 			fileUrl.startsWith("/api/notarial-book/documents/")
 		) {
-			setState(prev => ({ ...prev, isUrlValid: true, error: null }))
+			pageRefs.current.clear()
+			setState(prev => ({
+				...prev,
+				numPages: 0,
+				currentPage: DEFAULT_PAGE_NUMBER,
+				isUrlValid: true,
+				error: null,
+			}))
 			return
 		}
 
 		// Reset validation state when URL changes
-		setState(prev => ({ ...prev, isUrlValid: null, error: null }))
+		pageRefs.current.clear()
+		setState(prev => ({
+			...prev,
+			numPages: 0,
+			currentPage: DEFAULT_PAGE_NUMBER,
+			isUrlValid: null,
+			error: null,
+		}))
 
 		// Check if the URL is valid and returns a PDF
 		// Use Range request to get only first 1024 bytes to check if it's a PDF
@@ -177,7 +338,7 @@ export function SimplePdfViewer({ fileUrl, documentName: _documentName }: Simple
 				})
 			})
 			.catch(error => {
-				if (error.name === "AbortError") {
+				if (error instanceof Error && error.name === "AbortError") {
 					// Request was aborted (component unmounted or URL changed)
 					return
 				}
@@ -204,9 +365,7 @@ export function SimplePdfViewer({ fileUrl, documentName: _documentName }: Simple
 					// Use the version that react-pdf actually uses (from pdfjs.version)
 					// This ensures the worker version matches the API version
 					// PDF.js 5.x requires the .mjs extension for the worker
-					// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment
-					const version = pdfjs.version || "5.4.296"
-					// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+					const version = typeof pdfjs.version === "string" ? pdfjs.version : "5.4.296"
 					pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${version}/build/pdf.worker.min.mjs`
 					setState(prev => ({ ...prev, isLoaded: true }))
 				})
@@ -218,7 +377,13 @@ export function SimplePdfViewer({ fileUrl, documentName: _documentName }: Simple
 	}, [])
 
 	const onDocumentLoadSuccess = useCallback(({ numPages }: { numPages: number }) => {
-		setState(prev => ({ ...prev, numPages, error: null }))
+		pageRefs.current.clear()
+		setState(prev => ({
+			...prev,
+			numPages,
+			currentPage: DEFAULT_PAGE_NUMBER,
+			error: null,
+		}))
 	}, [])
 
 	const onPageLoadSuccess = useCallback(() => {
@@ -229,8 +394,8 @@ export function SimplePdfViewer({ fileUrl, documentName: _documentName }: Simple
 		(error: Error) => {
 			console.error("PDF document load error:", error)
 			// Check if it's an HTTP error (400, 404, 500, etc.)
-			const errorMessage = error?.message || String(error)
-			let userFriendlyMessage = state.error || "Failed to load PDF document"
+			const errorMessage = error.message ?? String(error)
+			let userFriendlyMessage = state.error ?? "Failed to load PDF document"
 
 			if (errorMessage.includes("503")) {
 				userFriendlyMessage = "DocoChain API is temporarily unavailable. Please try again later."
@@ -248,7 +413,7 @@ export function SimplePdfViewer({ fileUrl, documentName: _documentName }: Simple
 				userFriendlyMessage = "Server error. Please try again later."
 			} else if (errorMessage.includes("Unexpected server response")) {
 				userFriendlyMessage =
-					state.error ||
+					state.error ??
 					"The server returned an unexpected response. The document may not be available or may be in an unsupported format."
 			}
 
@@ -257,15 +422,13 @@ export function SimplePdfViewer({ fileUrl, documentName: _documentName }: Simple
 		[state.error]
 	)
 
-	const changePage = useCallback((offset: number) => {
-		setState(prev => {
-			const newPageNumber = prev.pageNumber + offset
-			return {
-				...prev,
-				pageNumber: Math.min(Math.max(1, newPageNumber), prev.numPages),
-			}
-		})
-	}, [])
+	const changePage = useCallback(
+		(offset: number) => {
+			const nextPage = clampPage(state.currentPage + offset, state.numPages)
+			scrollToPage(nextPage)
+		},
+		[scrollToPage, state.currentPage, state.numPages]
+	)
 
 	const changeScale = useCallback((newScale: number) => {
 		setState(prev => ({
@@ -277,6 +440,56 @@ export function SimplePdfViewer({ fileUrl, documentName: _documentName }: Simple
 	const rotate = useCallback(() => {
 		setState(prev => ({ ...prev, rotation: (prev.rotation + 90) % 360 }))
 	}, [])
+
+	useEffect(() => {
+		if (viewerMode !== "continuous-scroll" || state.numPages === 0) {
+			return
+		}
+
+		const scrollContainer = scrollContainerRef.current
+		if (!scrollContainer) {
+			return
+		}
+
+		let frameId = 0
+
+		const scheduleSync = () => {
+			if (frameId) {
+				return
+			}
+
+			frameId = window.requestAnimationFrame(() => {
+				frameId = 0
+				syncCurrentPageFromScroll()
+			})
+		}
+
+		scheduleSync()
+		scrollContainer.addEventListener("scroll", scheduleSync, { passive: true })
+		window.addEventListener("resize", scheduleSync)
+
+		return () => {
+			scrollContainer.removeEventListener("scroll", scheduleSync)
+			window.removeEventListener("resize", scheduleSync)
+			if (frameId) {
+				window.cancelAnimationFrame(frameId)
+			}
+		}
+	}, [state.numPages, state.rotation, state.scale, syncCurrentPageFromScroll, viewerMode])
+
+	useEffect(() => {
+		if (viewerMode !== "continuous-scroll" || state.numPages === 0) {
+			return
+		}
+
+		const frameId = window.requestAnimationFrame(() => {
+			scrollContainerRef.current?.scrollTo({ top: 0, behavior: "auto" })
+		})
+
+		return () => {
+			window.cancelAnimationFrame(frameId)
+		}
+	}, [fileUrl, state.numPages, viewerMode])
 
 	// Don't render on server side
 	if (typeof window === "undefined") {
@@ -328,7 +541,7 @@ export function SimplePdfViewer({ fileUrl, documentName: _documentName }: Simple
 			<div className="flex h-full w-full items-center justify-center">
 				<div className="text-center">
 					<p className="text-destructive mb-4 text-sm font-medium">Failed to load PDF document</p>
-					<p className="text-muted-foreground mb-4 text-xs">{state.error || "Unknown error"}</p>
+					<p className="text-muted-foreground mb-4 text-xs">{state.error ?? "Unknown error"}</p>
 					<div className="space-y-2">
 						<Button variant="outline" size="sm" onClick={() => window.open(fileUrl, "_blank")}>
 							Open in New Tab
@@ -376,20 +589,20 @@ export function SimplePdfViewer({ fileUrl, documentName: _documentName }: Simple
 						variant="outline"
 						size="sm"
 						onClick={() => changePage(-1)}
-						disabled={state.pageNumber <= 1}
+						disabled={state.currentPage <= 1}
 					>
-						<ChevronLeft className="h-4 w-4" />
+						<ChevronLeft className="size-4" />
 					</Button>
 					<span className="text-sm">
-						Page {state.pageNumber} of {state.numPages || 1}
+						Page {state.currentPage} of {state.numPages > 0 ? state.numPages : 1}
 					</span>
 					<Button
 						variant="outline"
 						size="sm"
 						onClick={() => changePage(1)}
-						disabled={state.pageNumber >= state.numPages}
+						disabled={state.currentPage >= state.numPages}
 					>
-						<ChevronRight className="h-4 w-4" />
+						<ChevronRight className="size-4" />
 					</Button>
 				</div>
 
@@ -400,25 +613,25 @@ export function SimplePdfViewer({ fileUrl, documentName: _documentName }: Simple
 						onClick={() => changeScale(state.scale - SCALE_LIMITS.step)}
 						disabled={state.scale <= SCALE_LIMITS.min}
 					>
-						<ZoomOut className="h-4 w-4" />
+						<ZoomOut className="size-4" />
 					</Button>
-					<span className="min-w-[60px] text-center text-sm">{Math.round(state.scale * 100)}%</span>
+					<span className="min-w-15 text-center text-sm">{Math.round(state.scale * 100)}%</span>
 					<Button
 						variant="outline"
 						size="sm"
 						onClick={() => changeScale(state.scale + SCALE_LIMITS.step)}
 						disabled={state.scale >= SCALE_LIMITS.max}
 					>
-						<ZoomIn className="h-4 w-4" />
+						<ZoomIn className="size-4" />
 					</Button>
 					<Button variant="outline" size="sm" onClick={rotate}>
-						<RotateCw className="h-4 w-4" />
+						<RotateCw className="size-4" />
 					</Button>
 				</div>
 			</div>
 
 			{/* PDF Content */}
-			<div className="bg-muted/20 flex-1 overflow-auto p-4">
+			<div ref={scrollContainerRef} className="bg-muted/20 flex-1 overflow-auto p-4">
 				<div className="mx-auto h-fit max-w-4xl">
 					<div className="flex w-full items-center justify-center">
 						<Document
@@ -445,20 +658,50 @@ export function SimplePdfViewer({ fileUrl, documentName: _documentName }: Simple
 									</div>
 								</div>
 							}
-							className="bg-background overflow-hidden rounded-lg shadow-lg"
+							className={
+								viewerMode === "continuous-scroll"
+									? "w-fit max-w-full"
+									: "bg-background overflow-hidden rounded-lg shadow-lg"
+							}
 						>
-							<div className="bg-background relative inline-block w-full max-w-full overflow-hidden rounded-lg border shadow-sm">
-								<Page
-									pageNumber={state.pageNumber}
-									scale={state.scale}
-									rotate={state.rotation}
-									renderTextLayer={false}
-									renderAnnotationLayer={false}
-									onLoadSuccess={onPageLoadSuccess}
-									className="block max-w-full"
-									loading={null}
-								/>
-							</div>
+							{viewerMode === "continuous-scroll" ? (
+								<div className="flex w-fit max-w-full flex-col gap-4">
+									{pageNumbers.map(pageNumber => (
+										<div
+											key={pageNumber}
+											ref={node => {
+												setPageRef(pageNumber, node)
+											}}
+											data-page-number={pageNumber}
+											className="bg-background relative inline-block max-w-full overflow-hidden rounded-lg border shadow-sm"
+										>
+											<Page
+												pageNumber={pageNumber}
+												scale={state.scale}
+												rotate={state.rotation}
+												renderTextLayer={false}
+												renderAnnotationLayer={false}
+												onLoadSuccess={onPageLoadSuccess}
+												className="block max-w-full"
+												loading={null}
+											/>
+										</div>
+									))}
+								</div>
+							) : (
+								<div className="bg-background relative inline-block w-full max-w-full overflow-hidden rounded-lg border shadow-sm">
+									<Page
+										pageNumber={state.currentPage}
+										scale={state.scale}
+										rotate={state.rotation}
+										renderTextLayer={false}
+										renderAnnotationLayer={false}
+										onLoadSuccess={onPageLoadSuccess}
+										className="block max-w-full"
+										loading={null}
+									/>
+								</div>
+							)}
 						</Document>
 					</div>
 				</div>
