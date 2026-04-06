@@ -12,6 +12,7 @@ import { twoFactorConfirmations, users, type UserRole } from "@/services/drizzle
 import { DrizzleCustomAdapter } from "@/services/next-auth/adapter"
 
 import { loginSchema } from "@/features/auth/api/auth.schemas"
+import { expireUserKycIfNeeded } from "@/features/kyc/lib/expire-user-kyc-if-needed"
 
 import { env } from "@/env"
 
@@ -157,12 +158,21 @@ export const authConfig = {
 			const userId = token.sub
 
 			try {
-				const user = await db.query.users.findFirst({
+				let user = await db.query.users.findFirst({
 					where: (data, { eq }) => eq(data.id, userId),
 				})
 
 				if (!user) {
 					return session
+				}
+
+				if (await expireUserKycIfNeeded(userId)) {
+					const refreshed = await db.query.users.findFirst({
+						where: (data, { eq }) => eq(data.id, userId),
+					})
+					if (refreshed) {
+						user = refreshed
+					}
 				}
 
 				session.user.id = userId
@@ -206,12 +216,29 @@ export const authConfig = {
 		},
 		async jwt({ token, user }) {
 			if (user) {
-				token.sub = user.id
+				const userId = user.id
+				token.sub = userId ?? token.sub
 				token.name = user.name
 				token.email = user.email
 				token.image = user.image ?? token.picture
 
-				// Extract KYC and status fields safely - user may have extended properties from adapter
+				if (userId) {
+					await expireUserKycIfNeeded(userId)
+				}
+
+				const fresh = userId
+					? await db.query.users.findFirst({
+							where: (data, { eq }) => eq(data.id, userId),
+							columns: {
+								commissionStatus: true,
+								kycStatus: true,
+								onboardingCompletedAt: true,
+								onboardingDetailsCompletedAt: true,
+								onboardingSnoozedUntil: true,
+							},
+						})
+					: undefined
+
 				const userWithKyc = user as {
 					kycStatus?: string
 					commissionStatus?: string
@@ -219,16 +246,27 @@ export const authConfig = {
 					onboardingDetailsCompletedAt?: Date | null
 					onboardingSnoozedUntil?: Date | null
 				}
-				token.status = userWithKyc.commissionStatus ?? "PENDING"
-				token.kycStatus = userWithKyc.kycStatus ?? "NOT_STARTED"
-				token.onboardingComplete = !!userWithKyc.onboardingCompletedAt
-				token.onboardingDetailsComplete = !!userWithKyc.onboardingDetailsCompletedAt
-				token.onboardingSnoozedUntil = userWithKyc.onboardingSnoozedUntil
-					? userWithKyc.onboardingSnoozedUntil.toISOString()
-					: null
+
+				if (fresh) {
+					token.status = (fresh.commissionStatus ?? "PENDING") as string
+					token.kycStatus = (fresh.kycStatus ?? "NOT_STARTED") as string
+					token.onboardingComplete = !!fresh.onboardingCompletedAt
+					token.onboardingDetailsComplete = !!fresh.onboardingDetailsCompletedAt
+					token.onboardingSnoozedUntil = fresh.onboardingSnoozedUntil
+						? fresh.onboardingSnoozedUntil.toISOString()
+						: null
+				} else {
+					token.status = userWithKyc.commissionStatus ?? "PENDING"
+					token.kycStatus = userWithKyc.kycStatus ?? "NOT_STARTED"
+					token.onboardingComplete = !!userWithKyc.onboardingCompletedAt
+					token.onboardingDetailsComplete = !!userWithKyc.onboardingDetailsCompletedAt
+					token.onboardingSnoozedUntil = userWithKyc.onboardingSnoozedUntil
+						? userWithKyc.onboardingSnoozedUntil.toISOString()
+						: null
+				}
 			}
 
-			// On subsequent runs, enrich token with KYC from DB
+			// On subsequent runs, enrich token with KYC from DB (after optional KYC expiry)
 			if (!user && token.sub) {
 				const userId = token.sub
 
@@ -238,13 +276,28 @@ export const authConfig = {
 					})
 
 					if (existing) {
-						token.status = (existing.commissionStatus ?? "PENDING") as string
-						token.kycStatus = (existing.kycStatus ?? "NOT_STARTED") as string
-						token.onboardingComplete = !!existing.onboardingCompletedAt
-						token.onboardingDetailsComplete = !!existing.onboardingDetailsCompletedAt
-						token.onboardingSnoozedUntil = existing.onboardingSnoozedUntil
-							? existing.onboardingSnoozedUntil.toISOString()
-							: null
+						await expireUserKycIfNeeded(existing.id)
+
+						const row = await db.query.users.findFirst({
+							where: (data, { eq }) => eq(data.id, userId),
+							columns: {
+								commissionStatus: true,
+								kycStatus: true,
+								onboardingCompletedAt: true,
+								onboardingDetailsCompletedAt: true,
+								onboardingSnoozedUntil: true,
+							},
+						})
+
+						if (row) {
+							token.status = (row.commissionStatus ?? "PENDING") as string
+							token.kycStatus = (row.kycStatus ?? "NOT_STARTED") as string
+							token.onboardingComplete = !!row.onboardingCompletedAt
+							token.onboardingDetailsComplete = !!row.onboardingDetailsCompletedAt
+							token.onboardingSnoozedUntil = row.onboardingSnoozedUntil
+								? row.onboardingSnoozedUntil.toISOString()
+								: null
+						}
 					}
 				} catch {
 					// Silently fail - token will use existing values
