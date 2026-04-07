@@ -37,6 +37,11 @@ export function RegisterForm({ callbackUrl }: RegisterFormProps) {
 	const form = useForm({
 		resolver: zodResolver(registerSchema),
 		defaultValues: {
+			firstName: "",
+			middleName: "",
+			lastName: "",
+			prefix: "",
+			suffix: "",
 			email: "",
 			password: "",
 			confirmPassword: "",
@@ -61,12 +66,103 @@ export function RegisterForm({ callbackUrl }: RegisterFormProps) {
 			<form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
 				<FormField
 					control={form.control}
+					name="firstName"
+					render={({ field }) => (
+						<FormItem>
+							<FormLabel>Name</FormLabel>
+							<FormControl>
+								<Input placeholder="Enter your first name" autoComplete="given-name" {...field} />
+							</FormControl>
+							<FormMessage />
+						</FormItem>
+					)}
+				/>
+
+				<FormField
+					control={form.control}
+					name="middleName"
+					render={({ field: { value, ...field } }) => (
+						<FormItem>
+							<FormLabel>Middle name</FormLabel>
+							<FormControl>
+								<Input
+									placeholder="Middle name (optional)"
+									autoComplete="additional-name"
+									{...field}
+									value={typeof value === "string" ? value : ""}
+								/>
+							</FormControl>
+							<FormMessage />
+						</FormItem>
+					)}
+				/>
+
+				<FormField
+					control={form.control}
+					name="lastName"
+					render={({ field }) => (
+						<FormItem>
+							<FormLabel>Last name</FormLabel>
+							<FormControl>
+								<Input placeholder="Enter your last name" autoComplete="family-name" {...field} />
+							</FormControl>
+							<FormMessage />
+						</FormItem>
+					)}
+				/>
+
+				<div className="grid gap-4 sm:grid-cols-2">
+					<FormField
+						control={form.control}
+						name="prefix"
+						render={({ field: { value, ...field } }) => (
+							<FormItem>
+								<FormLabel>Prefix</FormLabel>
+								<FormControl>
+									<Input
+										placeholder="e.g. Dr., Atty. (optional)"
+										autoComplete="honorific-prefix"
+										{...field}
+										value={typeof value === "string" ? value : ""}
+									/>
+								</FormControl>
+								<FormMessage />
+							</FormItem>
+						)}
+					/>
+					<FormField
+						control={form.control}
+						name="suffix"
+						render={({ field: { value, ...field } }) => (
+							<FormItem>
+								<FormLabel>Suffix</FormLabel>
+								<FormControl>
+									<Input
+										placeholder="e.g. Jr., III (optional)"
+										autoComplete="honorific-suffix"
+										{...field}
+										value={typeof value === "string" ? value : ""}
+									/>
+								</FormControl>
+								<FormMessage />
+							</FormItem>
+						)}
+					/>
+				</div>
+
+				<FormField
+					control={form.control}
 					name="email"
 					render={({ field }) => (
 						<FormItem>
 							<FormLabel>Email</FormLabel>
 							<FormControl>
-								<Input type="email" placeholder="Enter your email" {...field} />
+								<Input
+									type="email"
+									placeholder="Enter your email"
+									autoComplete="email"
+									{...field}
+								/>
 							</FormControl>
 							<FormMessage />
 						</FormItem>
