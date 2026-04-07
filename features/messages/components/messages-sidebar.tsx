@@ -64,7 +64,7 @@ export function MessagesSidebar() {
 			{/* Sidebar panel */}
 			<div
 				className={cn(
-					"bg-background flex w-full flex-col overflow-hidden border-r md:w-80",
+					"bg-background flex w-full flex-col overflow-hidden border-r md:w-80 md:shrink-0",
 					"fixed inset-y-0 left-0 z-40 md:static md:z-auto",
 					isSidebarOpen ? "block" : "hidden md:block"
 				)}
@@ -110,7 +110,7 @@ export function MessagesSidebar() {
 				</div>
 
 				{/* Conversations list */}
-				<ScrollArea className="flex-1">
+				<ScrollArea className="flex-1 [&>[data-radix-scroll-area-viewport]>div]:block!">
 					<div className="p-1.5">
 						{filteredConversations && filteredConversations.length > 0 ? (
 							filteredConversations.map(conversation => {

@@ -152,39 +152,35 @@ export function MessagesChatArea() {
 								</div>
 							</div>
 							<div className="flex shrink-0 items-center gap-1.5">
-								{session?.user?.role === "ENP" && (
-									<>
-										<Button
-											variant="ghost"
-											size="sm"
-											className="hidden gap-1 sm:flex"
-											onClick={() => {
-												if (isEnpConsultationBookingBlocked) {
-													setKycBookingBlockOpen(true)
-													return
-												}
-												setIsBookingModalOpen(true)
-											}}
-										>
-											<CalendarPlus className="size-4" />
-											<span>Book</span>
-										</Button>
-										<Button
-											variant="ghost"
-											size="icon"
-											className="size-7 rounded-full sm:hidden"
-											onClick={() => {
-												if (isEnpConsultationBookingBlocked) {
-													setKycBookingBlockOpen(true)
-													return
-												}
-												setIsBookingModalOpen(true)
-											}}
-										>
-											<CalendarPlus className="size-4" />
-										</Button>
-									</>
-								)}
+								<Button
+									variant="ghost"
+									size="sm"
+									className="hidden gap-1 sm:flex"
+									onClick={() => {
+										if (isEnpConsultationBookingBlocked) {
+											setKycBookingBlockOpen(true)
+											return
+										}
+										setIsBookingModalOpen(true)
+									}}
+								>
+									<CalendarPlus className="size-4" />
+									<span>Book</span>
+								</Button>
+								<Button
+									variant="ghost"
+									size="icon"
+									className="size-7 rounded-full sm:hidden"
+									onClick={() => {
+										if (isEnpConsultationBookingBlocked) {
+											setKycBookingBlockOpen(true)
+											return
+										}
+										setIsBookingModalOpen(true)
+									}}
+								>
+									<CalendarPlus className="size-4" />
+								</Button>
 								<Button
 									variant="ghost"
 									size="icon"

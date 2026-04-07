@@ -4,7 +4,7 @@ import { MessagesView } from "@/features/messages/components/messages-view"
 
 function MessagesPageSkeleton() {
 	return (
-		<div className="bg-background flex h-screen">
+		<div className="bg-background flex h-svh max-h-svh">
 			<div className="flex w-80 flex-col border-r p-4">
 				<div className="bg-muted mb-4 h-10 w-full animate-pulse rounded-md" />
 				<div className="bg-muted mb-2 h-16 w-full animate-pulse rounded-md" />
