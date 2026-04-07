@@ -87,6 +87,230 @@ function toMessageWithSender(row: {
 	}
 }
 
+type ConversationMessageInsert = typeof messages.$inferInsert
+
+const consultationRequestInputSchema = z.object({
+	title: z.string().min(1),
+	description: z.string().optional(),
+	appointmentDate: z.string(),
+	startTime: z.string(),
+	endTime: z.string(),
+	duration: z.number(),
+	eventType: z.enum(["consultation", "notarization"]),
+	mode: z.enum(["ren", "ien"]).optional(),
+	location: z.string().optional(),
+})
+
+function buildConsultationRequestMetadata(
+	input: z.infer<typeof consultationRequestInputSchema>,
+	enpId: string
+) {
+	return {
+		title: input.title,
+		description: input.description,
+		appointmentDate: input.appointmentDate,
+		startTime: input.startTime,
+		endTime: input.endTime,
+		duration: input.duration,
+		eventType: input.eventType,
+		mode: input.mode,
+		location: input.location,
+		status: "PENDING" as const,
+		enpId,
+	}
+}
+
+async function assertConversationTargetExists(targetUserId: string, currentUserId: string) {
+	if (targetUserId === currentUserId) {
+		throw new TRPCError({
+			code: "BAD_REQUEST",
+			message: "Cannot start conversation with yourself",
+		})
+	}
+
+	const otherUser = await db.query.users.findFirst({
+		where: eq(users.id, targetUserId),
+		columns: { id: true },
+	})
+
+	if (!otherUser) {
+		throw new TRPCError({
+			code: "NOT_FOUND",
+			message: "User not found",
+		})
+	}
+
+	return otherUser
+}
+
+async function findExistingDirectConversationId(currentUserId: string, targetUserId: string) {
+	const existingConversations = await db.query.conversationParticipants.findMany({
+		where: eq(conversationParticipants.userId, currentUserId),
+		with: {
+			conversation: {
+				with: {
+					participants: true,
+				},
+			},
+		},
+	})
+
+	const existingConversation = existingConversations.find(cp => {
+		const participants = cp.conversation.participants
+		return (
+			participants.length === 2 &&
+			participants.some((p: (typeof participants)[number]) => p.userId === targetUserId) &&
+			participants.some((p: (typeof participants)[number]) => p.userId === currentUserId)
+		)
+	})
+
+	return existingConversation?.conversationId ?? null
+}
+
+async function createDirectConversation(currentUserId: string, targetUserId: string) {
+	const [conversation] = await db.insert(conversations).values({}).returning()
+
+	if (!conversation) {
+		throw new TRPCError({
+			code: "INTERNAL_SERVER_ERROR",
+			message: "Failed to create conversation",
+		})
+	}
+
+	await db.insert(conversationParticipants).values([
+		{
+			conversationId: conversation.id,
+			userId: currentUserId,
+		},
+		{
+			conversationId: conversation.id,
+			userId: targetUserId,
+		},
+	])
+
+	return conversation.id
+}
+
+async function createOrReuseDirectConversationWithMessage(params: {
+	currentUserId: string
+	targetUserId: string
+	content: string
+	messageType?: ConversationMessageInsert["messageType"]
+	metadata?: ConversationMessageInsert["metadata"]
+}) {
+	await assertConversationTargetExists(params.targetUserId, params.currentUserId)
+
+	const result = await db.transaction(async tx => {
+		const existingConversations = await tx.query.conversationParticipants.findMany({
+			where: eq(conversationParticipants.userId, params.currentUserId),
+			with: {
+				conversation: {
+					with: {
+						participants: true,
+					},
+				},
+			},
+		})
+
+		const existingConversation = existingConversations.find(cp => {
+			const participants = cp.conversation.participants
+			return (
+				participants.length === 2 &&
+				participants.some((p: (typeof participants)[number]) => p.userId === params.targetUserId) &&
+				participants.some((p: (typeof participants)[number]) => p.userId === params.currentUserId)
+			)
+		})
+
+		let conversationId = existingConversation?.conversationId
+
+		if (!conversationId) {
+			const [conversation] = await tx.insert(conversations).values({}).returning()
+
+			if (!conversation) {
+				throw new TRPCError({
+					code: "INTERNAL_SERVER_ERROR",
+					message: "Failed to create conversation",
+				})
+			}
+
+			conversationId = conversation.id
+
+			await tx.insert(conversationParticipants).values([
+				{
+					conversationId,
+					userId: params.currentUserId,
+				},
+				{
+					conversationId,
+					userId: params.targetUserId,
+				},
+			])
+		}
+
+		const [inserted] = await tx
+			.insert(messages)
+			.values({
+				conversationId,
+				senderId: params.currentUserId,
+				content: params.content,
+				messageType: params.messageType ?? "text",
+				metadata: params.metadata,
+			})
+			.returning()
+
+		if (!inserted) {
+			throw new TRPCError({
+				code: "INTERNAL_SERVER_ERROR",
+				message: "Failed to insert message",
+			})
+		}
+
+		await tx
+			.update(conversations)
+			.set({ updatedAt: new Date() })
+			.where(eq(conversations.id, conversationId))
+
+		const withSender = await tx.query.messages.findFirst({
+			where: eq(messages.id, inserted.id),
+			with: {
+				sender: {
+					columns: {
+						id: true,
+						firstName: true,
+						middleName: true,
+						lastName: true,
+						email: true,
+						image: true,
+					},
+				},
+			},
+		})
+
+		const participants = await tx.query.conversationParticipants.findMany({
+			where: eq(conversationParticipants.conversationId, conversationId),
+			columns: { userId: true },
+		})
+
+		return {
+			conversationId,
+			inserted,
+			withSender,
+			affectedUserIds: participants.map(participant => participant.userId),
+		}
+	})
+
+	if (result.withSender) {
+		emitMessageAdd(result.conversationId, toMessageWithSender(result.withSender))
+	}
+
+	emitConversationUpdate(result.affectedUserIds)
+
+	return {
+		conversationId: result.conversationId,
+		message: result.inserted,
+	}
+}
+
 export const messagesRouter = createTRPCRouter({
 	// Get all conversations for current user
 	getConversations: protectedProcedure.query(async ({ ctx }) => {
@@ -121,9 +345,13 @@ export const messagesRouter = createTRPCRouter({
 			},
 		})
 
+		const visibleConversations = userConversations.filter(
+			userConversation => userConversation.conversation.messages.length > 0
+		)
+
 		// Format the response with proper unread counts
 		const formattedConversations = await Promise.all(
-			userConversations.map(async uc => {
+			visibleConversations.map(async uc => {
 				const conversation = uc.conversation
 				// Get the other participant (not the current user)
 				const otherParticipant = conversation.participants.find(
@@ -321,76 +549,40 @@ export const messagesRouter = createTRPCRouter({
 			})
 		)
 		.mutation(async ({ input, ctx }) => {
-			if (input.userId === ctx.session.user.id) {
-				throw new TRPCError({
-					code: "BAD_REQUEST",
-					message: "Cannot start conversation with yourself",
-				})
+			await assertConversationTargetExists(input.userId, ctx.session.user.id)
+
+			const existingConversationId = await findExistingDirectConversationId(
+				ctx.session.user.id,
+				input.userId
+			)
+
+			if (existingConversationId) {
+				return { conversationId: existingConversationId }
 			}
 
-			// Check if user exists
-			const otherUser = await db.query.users.findFirst({
-				where: eq(users.id, input.userId),
+			const conversationId = await createDirectConversation(ctx.session.user.id, input.userId)
+
+			return { conversationId }
+		}),
+
+	createConversationAndSendMessage: protectedProcedure
+		.input(
+			z.object({
+				userId: z.string(),
+				content: z.string().min(1).max(5000),
+			})
+		)
+		.mutation(async ({ input, ctx }) => {
+			const result = await createOrReuseDirectConversationWithMessage({
+				currentUserId: ctx.session.user.id,
+				targetUserId: input.userId,
+				content: input.content,
 			})
 
-			if (!otherUser) {
-				throw new TRPCError({
-					code: "NOT_FOUND",
-					message: "User not found",
-				})
+			return {
+				conversationId: result.conversationId,
+				messageId: result.message.id,
 			}
-
-			// Check if conversation already exists between these two users
-			const existingConversations = await db.query.conversationParticipants.findMany({
-				where: eq(conversationParticipants.userId, ctx.session.user.id),
-				with: {
-					conversation: {
-						with: {
-							participants: true,
-						},
-					},
-				},
-			})
-
-			// Find a conversation with exactly 2 participants (current user and target user)
-			const existingConversation = existingConversations.find(cp => {
-				const participants = cp.conversation.participants
-				return (
-					participants.length === 2 &&
-					participants.some((p: (typeof participants)[number]) => p.userId === input.userId) &&
-					participants.some((p: (typeof participants)[number]) => p.userId === ctx.session.user.id)
-				)
-			})
-
-			if (existingConversation) {
-				return { conversationId: existingConversation.conversationId }
-			}
-
-			// Create new conversation
-			const [conversation] = await db.insert(conversations).values({}).returning()
-
-			if (!conversation) {
-				throw new TRPCError({
-					code: "INTERNAL_SERVER_ERROR",
-					message: "Failed to create conversation",
-				})
-			}
-
-			// Add both users as participants
-			await db.insert(conversationParticipants).values([
-				{
-					conversationId: conversation.id,
-					userId: ctx.session.user.id,
-				},
-				{
-					conversationId: conversation.id,
-					userId: input.userId,
-				},
-			])
-
-			emitConversationUpdate([ctx.session.user.id, input.userId])
-
-			return { conversationId: conversation.id }
 		}),
 
 	// Mark conversation as read
@@ -546,20 +738,62 @@ export const messagesRouter = createTRPCRouter({
 			}))
 		}),
 
+	getUserPreview: protectedProcedure
+		.input(
+			z.object({
+				userId: z.string(),
+			})
+		)
+		.query(async ({ input, ctx }) => {
+			if (input.userId === ctx.session.user.id) {
+				throw new TRPCError({
+					code: "BAD_REQUEST",
+					message: "Cannot start conversation with yourself",
+				})
+			}
+
+			const user = await db.query.users.findFirst({
+				where: eq(users.id, input.userId),
+				columns: {
+					id: true,
+					firstName: true,
+					middleName: true,
+					lastName: true,
+					email: true,
+					image: true,
+					role: true,
+					commissionStatus: true,
+				},
+			})
+
+			if (!user) {
+				throw new TRPCError({
+					code: "NOT_FOUND",
+					message: "User not found",
+				})
+			}
+
+			const profile = await db.query.enpProfiles.findFirst({
+				where: eq(enpProfiles.userId, user.id),
+				columns: { bio: true },
+			})
+
+			return {
+				id: user.id,
+				name: getFullName(user),
+				email: user.email,
+				image: resolveAvatarUrl(user.image),
+				role: user.role,
+				status: user.commissionStatus,
+				bio: profile?.bio ?? null,
+			}
+		}),
+
 	// ENP sends a consultation request card via chat
 	sendConsultationRequest: protectedProcedure
 		.input(
-			z.object({
+			consultationRequestInputSchema.extend({
 				conversationId: z.string(),
-				title: z.string().min(1),
-				description: z.string().optional(),
-				appointmentDate: z.string(), // ISO string
-				startTime: z.string(),
-				endTime: z.string(),
-				duration: z.number(),
-				eventType: z.enum(["consultation", "notarization"]),
-				mode: z.enum(["ren", "ien"]).optional(),
-				location: z.string().optional(),
 			})
 		)
 		.mutation(async ({ input, ctx }) => {
@@ -591,19 +825,7 @@ export const messagesRouter = createTRPCRouter({
 				})
 			}
 
-			const metadata = {
-				title: input.title,
-				description: input.description,
-				appointmentDate: input.appointmentDate,
-				startTime: input.startTime,
-				endTime: input.endTime,
-				duration: input.duration,
-				eventType: input.eventType,
-				mode: input.mode,
-				location: input.location,
-				status: "PENDING" as const, // PENDING | ACCEPTED | DECLINED
-				enpId: ctx.session.user.id,
-			}
+			const metadata = buildConsultationRequestMetadata(input, ctx.session.user.id)
 
 			const [inserted] = await db
 				.insert(messages)
@@ -651,6 +873,43 @@ export const messagesRouter = createTRPCRouter({
 			emitConversationUpdate(participants.map(p => p.userId))
 
 			return inserted
+		}),
+
+	createConversationAndSendConsultationRequest: protectedProcedure
+		.input(
+			consultationRequestInputSchema.extend({
+				userId: z.string(),
+			})
+		)
+		.mutation(async ({ input, ctx }) => {
+			const sender = await db.query.users.findFirst({
+				where: eq(users.id, ctx.session.user.id),
+				columns: { id: true, role: true },
+			})
+
+			if (sender?.role !== "ENP") {
+				throw new TRPCError({
+					code: "FORBIDDEN",
+					message: "Only ENP can send consultation requests",
+				})
+			}
+
+			assertEnpCanCreateMeetingForKyc(ctx.session.user.role, ctx.session.user.kycStatus)
+
+			const metadata = buildConsultationRequestMetadata(input, ctx.session.user.id)
+
+			const result = await createOrReuseDirectConversationWithMessage({
+				currentUserId: ctx.session.user.id,
+				targetUserId: input.userId,
+				content: `Consultation request: ${input.title}`,
+				messageType: "consultation_request",
+				metadata,
+			})
+
+			return {
+				conversationId: result.conversationId,
+				messageId: result.message.id,
+			}
 		}),
 
 	// Principal accepts or declines a consultation request
