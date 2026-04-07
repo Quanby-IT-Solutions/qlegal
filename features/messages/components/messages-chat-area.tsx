@@ -17,6 +17,7 @@ import { KycRequiredDialog } from "@/core/components/kyc-required-dialog"
 import { Avatar, AvatarFallback, AvatarImage } from "@/core/components/ui/avatar"
 import { Button } from "@/core/components/ui/button"
 import { Input } from "@/core/components/ui/input"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/core/components/ui/tooltip"
 import { cn } from "@/core/lib/utils"
 
 import { EventDialog } from "@/features/appointments/components/dialogs/event-dialog"
@@ -43,6 +44,8 @@ function EmptyConversationState() {
 }
 
 export function MessagesChatArea() {
+	const inputRef = React.useRef<HTMLInputElement>(null)
+
 	const {
 		session,
 		activeParticipant,
@@ -56,6 +59,7 @@ export function MessagesChatArea() {
 		isSendingTextMessage,
 		isSendingConsultationRequest,
 		selectedConversationId,
+		selectedConversation,
 		messagesEndRef,
 		setIsSidebarOpen,
 		isParticipantPanelOpen,
@@ -68,6 +72,17 @@ export function MessagesChatArea() {
 		isEnpConsultationBookingBlocked,
 		panelParticipant,
 	} = useMessagesContext()
+
+	const otherUserLastReadAt =
+		(selectedConversation?.otherUserLastReadAt as Date | null | undefined) ?? null
+	const lastSeenByOtherIndex =
+		otherUserLastReadAt && messages
+			? [...messages].reduce<number>(
+					(lastIdx, msg, i) =>
+						new Date(msg.createdAt) <= new Date(otherUserLastReadAt) ? i : lastIdx,
+					-1
+				)
+			: -1
 
 	return (
 		<>
@@ -148,7 +163,7 @@ export function MessagesChatArea() {
 						</div>
 
 						{/* Messages area */}
-						<div className="flex-1 overflow-y-auto p-3">
+						<div className="flex-1 overflow-y-auto p-3 pb-1">
 							{isDraftConversation ? (
 								<EmptyConversationState />
 							) : loadingMessages ? (
@@ -232,6 +247,33 @@ export function MessagesChatArea() {
 														)}
 													</div>
 												</Chat.Bubble>
+												{index === lastSeenByOtherIndex && otherUserLastReadAt && (
+													<div className="mt-2 mb-0.5 flex justify-end pr-1">
+														<Tooltip>
+															<TooltipTrigger asChild>
+																<Avatar className="size-3 cursor-default">
+																	<AvatarImage src={activeParticipant.image ?? undefined} />
+																	<AvatarFallback className="bg-primary text-primary-foreground text-[6px]">
+																		{activeParticipant.name
+																			?.split(" ")
+																			.map(n => n[0])
+																			.join("")}
+																	</AvatarFallback>
+																</Avatar>
+															</TooltipTrigger>
+															<TooltipContent side="left">
+																<p className="text-xs">
+																	Seen by {activeParticipant.name}{" "}
+																	{isToday(new Date(otherUserLastReadAt))
+																		? `at ${format(new Date(otherUserLastReadAt), "p")}`
+																		: isYesterday(new Date(otherUserLastReadAt))
+																			? `Yesterday at ${format(new Date(otherUserLastReadAt), "p")}`
+																			: format(new Date(otherUserLastReadAt), "EEE 'at' p")}
+																</p>
+															</TooltipContent>
+														</Tooltip>
+													</div>
+												)}
 											</React.Fragment>
 										)
 									})}
@@ -265,13 +307,14 @@ export function MessagesChatArea() {
 								</Button>
 								<div className="relative flex-1">
 									<Input
+										ref={inputRef}
 										placeholder="Type a message..."
 										value={messageInput}
 										onChange={handleInputChange}
 										className="h-9 pr-8 text-sm"
 										onKeyDown={e => {
 											if (e.key === "Enter" && messageInput.trim()) {
-												void handleSendMessage()
+												void handleSendMessage().then(() => inputRef.current?.focus())
 											}
 										}}
 										disabled={isSendingTextMessage}
@@ -288,7 +331,7 @@ export function MessagesChatArea() {
 									size="icon"
 									className="size-7 rounded-full"
 									disabled={!messageInput.trim() || isSendingTextMessage}
-									onClick={() => void handleSendMessage()}
+									onClick={() => void handleSendMessage().then(() => inputRef.current?.focus())}
 								>
 									<Send className="size-4" />
 								</Button>

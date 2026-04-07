@@ -271,6 +271,17 @@ async function createOrReuseDirectConversationWithMessage(params: {
 			.set({ updatedAt: new Date() })
 			.where(eq(conversations.id, conversationId))
 
+		// Update sender's lastReadAt so they're marked as having seen their own message
+		await tx
+			.update(conversationParticipants)
+			.set({ lastReadAt: new Date() })
+			.where(
+				and(
+					eq(conversationParticipants.conversationId, conversationId),
+					eq(conversationParticipants.userId, params.currentUserId)
+				)
+			)
+
 		const withSender = await tx.query.messages.findFirst({
 			where: eq(messages.id, inserted.id),
 			with: {
@@ -399,6 +410,8 @@ export const messagesRouter = createTRPCRouter({
 								joinedAt: otherParticipant.joinedAt,
 							}
 						: null,
+					otherUserLastReadAt: otherParticipant?.lastReadAt ?? null,
+					myLastReadAt: userParticipant?.lastReadAt ?? null,
 					lastMessage: lastMessage?.content,
 					lastMessageTime: lastMessage?.createdAt,
 					unreadCount: unreadMessages.length,
@@ -510,6 +523,17 @@ export const messagesRouter = createTRPCRouter({
 				.update(conversations)
 				.set({ updatedAt: new Date() })
 				.where(eq(conversations.id, input.conversationId))
+
+			// Update sender's lastReadAt so they're marked as having seen their own message
+			await db
+				.update(conversationParticipants)
+				.set({ lastReadAt: new Date() })
+				.where(
+					and(
+						eq(conversationParticipants.conversationId, input.conversationId),
+						eq(conversationParticipants.userId, ctx.session.user.id)
+					)
+				)
 
 			// Fetch message with sender for SSE
 			const withSender = await db.query.messages.findFirst({

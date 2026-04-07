@@ -167,6 +167,28 @@ export function MessagesProvider({ children }: { children: React.ReactNode }) {
 		messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
 	}, [messages, isOtherUserTyping])
 
+	// Mark conversation as read whenever a new message arrives — but only if the tab is visible.
+	const lastIncomingMessageId = messages?.at(-1)?.id
+	useEffect(() => {
+		if (!selectedConversationId || !lastIncomingMessageId) return
+		if (typeof document !== "undefined" && document.visibilityState !== "visible") return
+		markAsRead.mutate({ conversationId: selectedConversationId })
+		// eslint-disable-next-line react-hooks/exhaustive-deps -- markAsRead mutation is stable but accessed from a new wrapper object each render
+	}, [lastIncomingMessageId, selectedConversationId])
+
+	// Re-mark as read when the user switches back to this tab.
+	useEffect(() => {
+		if (!selectedConversationId) return
+		const handleVisibilityChange = () => {
+			if (document.visibilityState === "visible") {
+				markAsRead.mutate({ conversationId: selectedConversationId })
+			}
+		}
+		document.addEventListener("visibilitychange", handleVisibilityChange)
+		return () => document.removeEventListener("visibilitychange", handleVisibilityChange)
+		// eslint-disable-next-line react-hooks/exhaustive-deps -- markAsRead mutation is stable but accessed from a new wrapper object each render
+	}, [selectedConversationId])
+
 	// Derived values
 	const filteredConversations = conversations?.filter(conv =>
 		conv.otherUser?.name?.toLowerCase().includes(searchQuery.toLowerCase())
