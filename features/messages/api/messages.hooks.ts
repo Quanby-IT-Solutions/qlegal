@@ -35,6 +35,13 @@ export function useMessages() {
 			},
 		}),
 
+		createConversationAndSendMessage: trpc.messages.createConversationAndSendMessage.useMutation({
+			onSuccess: () => {
+				void utils.messages.getConversations.invalidate()
+				void utils.messages.getMessages.invalidate()
+			},
+		}),
+
 		// Start a new conversation
 		startConversation: trpc.messages.startConversation.useMutation({
 			onSuccess: () => {
@@ -65,6 +72,14 @@ export function useMessages() {
 				void utils.messages.getMessages.invalidate()
 			},
 		}),
+
+		createConversationAndSendConsultationRequest:
+			trpc.messages.createConversationAndSendConsultationRequest.useMutation({
+				onSuccess: () => {
+					void utils.messages.getConversations.invalidate()
+					void utils.messages.getMessages.invalidate()
+				},
+			}),
 
 		// Principal accepts or declines a consultation request
 		respondToConsultationRequest: trpc.messages.respondToConsultationRequest.useMutation({

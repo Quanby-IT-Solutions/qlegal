@@ -18,6 +18,7 @@ import { useSession } from "next-auth/react"
 import { toast } from "sonner"
 
 import type { CalendarEvent } from "@/core/components/calendar-schedule"
+import { KycRequiredDialog } from "@/core/components/kyc-required-dialog"
 import { PageHeader } from "@/core/components/navbar/page-header"
 import { Avatar, AvatarFallback, AvatarImage } from "@/core/components/ui/avatar"
 import { Button } from "@/core/components/ui/button"
@@ -33,7 +34,6 @@ import {
 import { Input } from "@/core/components/ui/input"
 import { ScrollArea } from "@/core/components/ui/scroll-area"
 import { Skeleton } from "@/core/components/ui/skeleton"
-import { KycRequiredDialog } from "@/core/components/kyc-required-dialog"
 import { isEnpMeetingCreationBlockedForKyc } from "@/core/lib/kyc-restriction-guards"
 import { cn } from "@/core/lib/utils"
 
@@ -48,6 +48,17 @@ import {
 } from "@/features/messages/components/consultation-request-card"
 import { FileUploadPanel } from "@/features/messages/components/file-upload-panel"
 import { MessageContent } from "@/features/messages/components/message-content"
+
+type ConversationParticipantDetails = {
+	id: string
+	name: string | null
+	email: string | null
+	image: string | null
+	role?: string
+	status?: "online" | "offline" | "away" | "ACTIVE" | "INACTIVE" | "SUSPENDED" | "PENDING"
+	bio?: string | null
+	joinedAt?: Date
+}
 
 export default function MessagesPage() {
 	const { data: session } = useSession()
@@ -65,6 +76,8 @@ export default function MessagesPage() {
 	const { data: conversations, isLoading: loadingConversations } = getConversations
 
 	const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null)
+	const [draftConversationUser, setDraftConversationUser] =
+		useState<ConversationParticipantDetails | null>(null)
 	const [messageInput, setMessageInput] = useState("")
 	const [searchQuery, setSearchQuery] = useState("")
 	const [userSearchQuery, setUserSearchQuery] = useState("")
@@ -119,6 +132,8 @@ export default function MessagesPage() {
 
 	// Auto-select conversation (prefer URL param)
 	useEffect(() => {
+		if (draftConversationUser) return
+
 		const conversationFromQuery = searchParams.get("conversationId")
 
 		if (conversationFromQuery && conversations?.some(c => c.id === conversationFromQuery)) {
@@ -129,7 +144,7 @@ export default function MessagesPage() {
 		if (conversations && conversations.length > 0 && !selectedConversationId && conversations[0]) {
 			setSelectedConversationId(conversations[0].id)
 		}
-	}, [conversations, selectedConversationId, searchParams])
+	}, [conversations, draftConversationUser, selectedConversationId, searchParams])
 
 	// Mark conversation as read when selected
 	// Only depend on selectedConversationId; markAsRead is stable but comes from a new object each render.
@@ -137,6 +152,10 @@ export default function MessagesPage() {
 		if (!selectedConversationId) return
 		markAsRead.mutate({ conversationId: selectedConversationId })
 	}, [selectedConversationId]) // eslint-disable-line react-hooks/exhaustive-deps -- markAsRead from useMessages() is new ref each render; we only want to run when conversation changes
+
+	useEffect(() => {
+		setMessageInput("")
+	}, [draftConversationUser?.id, selectedConversationId])
 
 	// Scroll to bottom when messages change
 	useEffect(() => {
@@ -149,26 +168,52 @@ export default function MessagesPage() {
 	)
 
 	const selectedConversation = conversations?.find(c => c.id === selectedConversationId)
-	const panelParticipant = selectedConversation?.otherUser as
-		| {
-				id: string
-				name: string | null
-				email: string | null
-				image: string | null
-				role?: string
-				status?: "online" | "offline" | "away" | "ACTIVE" | "INACTIVE" | "SUSPENDED" | "PENDING"
-				bio?: string | null
-				joinedAt?: Date
-		  }
-		| undefined
+	const isDraftConversation = Boolean(draftConversationUser)
+	const activeParticipant: ConversationParticipantDetails | null =
+		selectedConversation?.otherUser ?? draftConversationUser ?? null
+	const panelParticipant = activeParticipant ?? undefined
+	const isSendingTextMessage = sendMessage.isPending || startConversation.isPending
+	const isSendingConsultationRequest =
+		sendConsultationRequest.isPending || startConversation.isPending
+
+	const openDraftConversation = (participant: ConversationParticipantDetails) => {
+		setDraftConversationUser(participant)
+		setSelectedConversationId(null)
+		setIsSidebarOpen(false)
+	}
+
+	const handleSelectConversation = (conversationId: string) => {
+		setDraftConversationUser(null)
+		setSelectedConversationId(conversationId)
+		setIsSidebarOpen(false)
+	}
 
 	const handleSendMessage = async () => {
-		if (!messageInput.trim() || !selectedConversationId) return
+		const trimmedMessage = messageInput.trim()
+		if (!trimmedMessage) return
 
 		try {
+			if (draftConversationUser) {
+				const result = await startConversation.mutateAsync({
+					userId: draftConversationUser.id,
+				})
+				await sendMessage.mutateAsync({
+					conversationId: result.conversationId,
+					content: trimmedMessage,
+				})
+				await getConversations.refetch()
+				setDraftConversationUser(null)
+				setSelectedConversationId(result.conversationId)
+				setMessageInput("")
+				setIsSidebarOpen(false)
+				return
+			}
+
+			if (!selectedConversationId) return
+
 			await sendMessage.mutateAsync({
 				conversationId: selectedConversationId,
-				content: messageInput.trim(),
+				content: trimmedMessage,
 			})
 			setMessageInput("")
 			// Note: No manual refetch needed - mutation invalidation + subscription handles updates
@@ -194,18 +239,16 @@ export default function MessagesPage() {
 
 			try {
 				if (existing) {
-					setSelectedConversationId(existing.id)
-					await getConversations.refetch()
-					await messagesQuery.refetch()
+					handleSelectConversation(existing.id)
 				} else {
 					const result = await startConversation.mutateAsync({ userId: targetUserId })
-					setSelectedConversationId(result.conversationId)
 					await sendMessage.mutateAsync({
 						conversationId: result.conversationId,
 						content: "Hello! I'd like to chat with you.",
 					})
 					await getConversations.refetch()
-					await messagesQuery.refetch()
+					setSelectedConversationId(result.conversationId)
+					setIsSidebarOpen(false)
 				}
 			} catch {
 				toast.error("Failed to start conversation")
@@ -219,14 +262,13 @@ export default function MessagesPage() {
 		conversations,
 		getConversations,
 		hasStartedFromQuery,
-		messagesQuery,
 		searchParams,
 		sendMessage,
 		startConversation,
 	])
 
 	const handleBookConsultationSave = async (event: CalendarEvent) => {
-		if (!selectedConversationId) {
+		if (!selectedConversationId && !draftConversationUser) {
 			const error = new Error("No conversation selected")
 			toast.error("Select a conversation before booking a session")
 			throw error
@@ -244,22 +286,38 @@ export default function MessagesPage() {
 		const endHour = endAt.getHours().toString().padStart(2, "0")
 		const endMin = endAt.getMinutes().toString().padStart(2, "0")
 		const duration = Math.round((endAt.getTime() - event.startAt.getTime()) / (1000 * 60))
+		const consultationRequestPayload = {
+			title: event.title.trim(),
+			description: event.description?.trim(),
+			appointmentDate: event.startAt.toISOString(),
+			startTime: `${startHour}:${startMin}`,
+			endTime: `${endHour}:${endMin}`,
+			duration,
+			eventType:
+				(event.appointmentType?.toLowerCase() as "consultation" | "notarization") ?? "consultation",
+			mode: (event.workflow?.toLowerCase() as "ren" | "ien") ?? "ren",
+			location: (event.meta?.location as string | undefined)?.trim(),
+		}
 
 		try {
-			await sendConsultationRequest.mutateAsync({
-				conversationId: selectedConversationId,
-				title: event.title.trim(),
-				description: event.description?.trim(),
-				appointmentDate: event.startAt.toISOString(),
-				startTime: `${startHour}:${startMin}`,
-				endTime: `${endHour}:${endMin}`,
-				duration,
-				eventType:
-					(event.appointmentType?.toLowerCase() as "consultation" | "notarization") ??
-					"consultation",
-				mode: (event.workflow?.toLowerCase() as "ren" | "ien") ?? "ren",
-				location: (event.meta?.location as string | undefined)?.trim(),
-			})
+			if (draftConversationUser) {
+				const result = await startConversation.mutateAsync({
+					userId: draftConversationUser.id,
+				})
+				await sendConsultationRequest.mutateAsync({
+					conversationId: result.conversationId,
+					...consultationRequestPayload,
+				})
+				await getConversations.refetch()
+				setDraftConversationUser(null)
+				setSelectedConversationId(result.conversationId)
+				setIsSidebarOpen(false)
+			} else if (selectedConversationId) {
+				await sendConsultationRequest.mutateAsync({
+					conversationId: selectedConversationId,
+					...consultationRequestPayload,
+				})
+			}
 			setIsBookingModalOpen(false)
 			toast.success("Consultation request sent!")
 		} catch (error) {
@@ -268,17 +326,27 @@ export default function MessagesPage() {
 		}
 	}
 
-	const handleStartConversation = async (userId: string) => {
-		try {
-			const result = await startConversation.mutateAsync({ userId })
-			setSelectedConversationId(result.conversationId)
-			await getConversations.refetch()
-			await messagesQuery.refetch()
-			setIsNewChatDialogOpen(false)
+	const handleNewChatDialogOpenChange = (open: boolean) => {
+		setIsNewChatDialogOpen(open)
+
+		if (!open) {
 			setUserSearchQuery("")
-		} catch {
-			toast.error("Failed to start conversation")
 		}
+	}
+
+	const handleStartConversation = (participant: ConversationParticipantDetails) => {
+		handleNewChatDialogOpenChange(false)
+
+		const existingConversation = conversations?.find(
+			conversation => conversation.otherUser?.id === participant.id
+		)
+
+		if (existingConversation) {
+			handleSelectConversation(existingConversation.id)
+			return
+		}
+
+		openDraftConversation(participant)
 	}
 
 	const formatTime = (date: Date | undefined) => {
@@ -348,7 +416,7 @@ export default function MessagesPage() {
 								>
 									<ChevronLeft className="size-4" />
 								</Button>
-								<Dialog open={isNewChatDialogOpen} onOpenChange={setIsNewChatDialogOpen}>
+								<Dialog open={isNewChatDialogOpen} onOpenChange={handleNewChatDialogOpenChange}>
 									<DialogTrigger asChild>
 										<Button variant="ghost" size="icon" className="size-7 rounded-full">
 											<Plus className="size-4" />
@@ -377,7 +445,7 @@ export default function MessagesPage() {
 														searchResults.map(user => (
 															<button
 																key={user.id}
-																onClick={() => void handleStartConversation(user.id)}
+																onClick={() => handleStartConversation(user)}
 																className="hover:bg-accent flex w-full items-center gap-3 rounded-lg p-3 text-left transition-colors"
 															>
 																<Avatar className="size-10">
@@ -432,10 +500,7 @@ export default function MessagesPage() {
 								filteredConversations.map(conversation => (
 									<button
 										key={conversation.id}
-										onClick={() => {
-											setSelectedConversationId(conversation.id)
-											setIsSidebarOpen(false)
-										}}
+										onClick={() => handleSelectConversation(conversation.id)}
 										className={cn(
 											"hover:bg-accent flex w-full items-center gap-2.5 rounded-lg p-2 text-left transition-colors",
 											selectedConversationId === conversation.id && "bg-accent"
@@ -488,7 +553,7 @@ export default function MessagesPage() {
 				</div>
 
 				{/* Main Chat Area */}
-				{selectedConversation ? (
+				{activeParticipant ? (
 					<>
 						<div className="flex w-full flex-1 flex-col overflow-hidden">
 							{/* Chat Header */}
@@ -503,20 +568,18 @@ export default function MessagesPage() {
 										<ChevronLeft className="size-4" />
 									</Button>
 									<Avatar className="size-8 shrink-0">
-										<AvatarImage src={selectedConversation.otherUser?.image ?? undefined} />
+										<AvatarImage src={activeParticipant.image ?? undefined} />
 										<AvatarFallback className="bg-primary text-primary-foreground text-xs">
-											{selectedConversation.otherUser?.name
+											{activeParticipant.name
 												?.split(" ")
 												.map(n => n[0])
 												.join("")}
 										</AvatarFallback>
 									</Avatar>
 									<div className="min-w-0 flex-1">
-										<h2 className="truncate text-sm font-medium">
-											{selectedConversation.otherUser?.name}
-										</h2>
+										<h2 className="truncate text-sm font-medium">{activeParticipant.name}</h2>
 										<p className="text-muted-foreground truncate text-[10px]">
-											{selectedConversation.otherUser?.email}
+											{activeParticipant.email}
 										</p>
 									</div>
 								</div>
@@ -573,7 +636,17 @@ export default function MessagesPage() {
 
 							{/* Messages Area */}
 							<div className="flex-1 overflow-y-auto p-3">
-								{loadingMessages ? (
+								{isDraftConversation ? (
+									<div className="flex h-full items-center justify-center">
+										<div className="text-center">
+											<MessageSquare className="text-muted-foreground mx-auto mb-2 size-8" />
+											<p className="text-muted-foreground text-xs">No messages yet</p>
+											<p className="text-muted-foreground mt-1 text-[10px]">
+												Start the conversation by sending a message
+											</p>
+										</div>
+									</div>
+								) : loadingMessages ? (
 									<div className="flex h-full items-center justify-center">
 										<p className="text-muted-foreground text-xs">Loading messages...</p>
 									</div>
@@ -592,11 +665,9 @@ export default function MessagesPage() {
 													>
 														{!isSent && (
 															<Avatar className="size-7 shrink-0">
-																<AvatarImage
-																	src={selectedConversation.otherUser?.image ?? undefined}
-																/>
+																<AvatarImage src={activeParticipant.image ?? undefined} />
 																<AvatarFallback className="bg-primary text-primary-foreground text-[10px]">
-																	{selectedConversation.otherUser?.name
+																	{activeParticipant.name
 																		?.split(" ")
 																		.map(n => n[0])
 																		.join("")}
@@ -672,7 +743,7 @@ export default function MessagesPage() {
 													void handleSendMessage()
 												}
 											}}
-											disabled={sendMessage.isPending}
+											disabled={isSendingTextMessage}
 										/>
 										<Button
 											variant="ghost"
@@ -685,7 +756,7 @@ export default function MessagesPage() {
 									<Button
 										size="icon"
 										className="size-7 rounded-full"
-										disabled={!messageInput.trim() || sendMessage.isPending}
+										disabled={!messageInput.trim() || isSendingTextMessage}
 										onClick={() => void handleSendMessage()}
 									>
 										<Send className="size-4" />
@@ -742,7 +813,7 @@ export default function MessagesPage() {
 					isOpen={isBookingModalOpen}
 					onClose={() => setIsBookingModalOpen(false)}
 					onSave={handleBookConsultationSave}
-					isSaving={sendConsultationRequest.isPending}
+					isSaving={isSendingConsultationRequest}
 				/>
 				<KycRequiredDialog
 					open={kycBookingBlockOpen}
