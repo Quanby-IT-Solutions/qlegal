@@ -7,7 +7,7 @@ import { toast } from "sonner"
 
 import type { CalendarEvent } from "@/core/components/calendar-schedule"
 import { useIsMobile } from "@/core/hooks/use-mobile"
-import { isKycNotStartedOrPending } from "@/core/lib/kyc-restriction-guards"
+import { isKycVerificationBlocking } from "@/core/lib/kyc-restriction-guards"
 
 import { trpc, type RouterOutputs } from "@/services/trpc/client"
 
@@ -147,7 +147,7 @@ export function MessagesProvider({ children }: { children: React.ReactNode }) {
 
 	// Pages are stored newest-first (page[0] = most recent). Reverse so oldest renders at top.
 	const messages = messagesData
-		? ([...messagesData.pages].reverse().flatMap(p => p.messages) as Message[])
+		? [...messagesData.pages].reverse().flatMap(p => p.messages)
 		: undefined
 
 	const fetchOlderMessages: () => void = useCallback(() => {
@@ -165,7 +165,7 @@ export function MessagesProvider({ children }: { children: React.ReactNode }) {
 
 	const sessionKycStatus =
 		typeof session?.user?.kycStatus === "string" ? session.user.kycStatus : undefined
-	const isEnpConsultationBookingBlocked = isKycNotStartedOrPending(sessionKycStatus)
+	const isEnpConsultationBookingBlocked = isKycVerificationBlocking(sessionKycStatus)
 
 	// Auto-select conversation from URL param, or fall back to first conversation
 	useEffect(() => {
