@@ -32,13 +32,15 @@ export interface ConsultationRequestMetadata {
 	mode?: "ren" | "ien"
 	location?: string
 	status: "PENDING" | "ACCEPTED" | "DECLINED"
-	enpId: string
+	senderId: string
+	/** @deprecated Use senderId instead */
+	enpId?: string
 }
 
 interface ConsultationRequestCardProps {
 	messageId: string
 	metadata: ConsultationRequestMetadata
-	isOwnMessage: boolean // true = ENP (sender), false = principal (receiver)
+	isOwnMessage: boolean // true = sender, false = receiver
 }
 
 export function ConsultationRequestCard({
@@ -168,12 +170,12 @@ export function ConsultationRequestCard({
 			{/* Result label for ENP (own message) or after principal responds */}
 			{isAccepted && isOwnMessage && (
 				<p className="mt-2 text-xs font-medium text-green-700 dark:text-green-400">
-					✓ Principal accepted – appointment created
+					✓ Request accepted – appointment created
 				</p>
 			)}
 			{isDeclined && isOwnMessage && (
 				<p className="mt-2 text-xs font-medium text-rose-600 dark:text-rose-400">
-					✗ Principal declined this request
+					✗ Request declined
 				</p>
 			)}
 		</div>

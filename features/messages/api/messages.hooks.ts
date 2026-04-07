@@ -16,6 +16,7 @@ export function useMessages() {
 				{
 					enabled: !!conversationId,
 					getNextPageParam: lastPage => lastPage.nextCursor ?? undefined,
+					initialCursor: null,
 				}
 			),
 

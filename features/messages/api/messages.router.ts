@@ -7,6 +7,7 @@ import { assertEnpCanCreateMeetingForKyc } from "@/core/lib/kyc-restriction-guar
 import { getFullName } from "@/core/lib/utils"
 
 import { db } from "@/services/drizzle/db"
+import { appointmentParticipants } from "@/services/drizzle/schema/appointment-participants"
 import { appointments } from "@/services/drizzle/schema/appointments"
 import { users } from "@/services/drizzle/schema/auth"
 import { enpProfiles } from "@/services/drizzle/schema/enp-profiles"
@@ -104,7 +105,7 @@ const consultationRequestInputSchema = z.object({
 
 function buildConsultationRequestMetadata(
 	input: z.infer<typeof consultationRequestInputSchema>,
-	enpId: string
+	senderId: string
 ) {
 	return {
 		title: input.title,
@@ -117,7 +118,7 @@ function buildConsultationRequestMetadata(
 		mode: input.mode,
 		location: input.location,
 		status: "PENDING" as const,
-		enpId,
+		senderId,
 	}
 }
 
@@ -869,7 +870,7 @@ export const messagesRouter = createTRPCRouter({
 			}
 		}),
 
-	// ENP sends a consultation request card via chat
+	// Any participant sends a consultation request card via chat
 	sendConsultationRequest: protectedProcedure
 		.input(
 			consultationRequestInputSchema.extend({
@@ -877,19 +878,10 @@ export const messagesRouter = createTRPCRouter({
 			})
 		)
 		.mutation(async ({ input, ctx }) => {
-			// Ensure sender is an ENP
-			const sender = await db.query.users.findFirst({
-				where: eq(users.id, ctx.session.user.id),
-				columns: { id: true, role: true },
-			})
-			if (sender?.role !== "ENP") {
-				throw new TRPCError({
-					code: "FORBIDDEN",
-					message: "Only ENP can send consultation requests",
-				})
+			// ENP-specific KYC gate (non-ENP users skip this check)
+			if (ctx.session.user.role === "ENP") {
+				assertEnpCanCreateMeetingForKyc(ctx.session.user.role, ctx.session.user.kycStatus)
 			}
-
-			assertEnpCanCreateMeetingForKyc(ctx.session.user.role, ctx.session.user.kycStatus)
 
 			// Verify participant
 			const participant = await db.query.conversationParticipants.findFirst({
@@ -962,19 +954,10 @@ export const messagesRouter = createTRPCRouter({
 			})
 		)
 		.mutation(async ({ input, ctx }) => {
-			const sender = await db.query.users.findFirst({
-				where: eq(users.id, ctx.session.user.id),
-				columns: { id: true, role: true },
-			})
-
-			if (sender?.role !== "ENP") {
-				throw new TRPCError({
-					code: "FORBIDDEN",
-					message: "Only ENP can send consultation requests",
-				})
+			// ENP-specific KYC gate (non-ENP users skip this check)
+			if (ctx.session.user.role === "ENP") {
+				assertEnpCanCreateMeetingForKyc(ctx.session.user.role, ctx.session.user.kycStatus)
 			}
-
-			assertEnpCanCreateMeetingForKyc(ctx.session.user.role, ctx.session.user.kycStatus)
 
 			const metadata = buildConsultationRequestMetadata(input, ctx.session.user.id)
 
@@ -992,7 +975,7 @@ export const messagesRouter = createTRPCRouter({
 			}
 		}),
 
-	// Principal accepts or declines a consultation request
+	// The other participant accepts or declines a consultation request
 	respondToConsultationRequest: protectedProcedure
 		.input(
 			z.object({
@@ -1024,11 +1007,14 @@ export const messagesRouter = createTRPCRouter({
 				})
 			}
 
-			// Only the non-ENP (principal) can respond
-			if (ctx.session.user.id === (message.metadata as Record<string, unknown>)?.enpId) {
+			// Only the other participant (not the sender) can respond
+			const senderId =
+				(message.metadata as Record<string, unknown>)?.senderId ??
+				(message.metadata as Record<string, unknown>)?.enpId // backward compat
+			if (ctx.session.user.id === senderId) {
 				throw new TRPCError({
 					code: "FORBIDDEN",
-					message: "The ENP cannot respond to their own request",
+					message: "You cannot respond to your own request",
 				})
 			}
 
@@ -1048,7 +1034,7 @@ export const messagesRouter = createTRPCRouter({
 
 			// If accepted → create the appointment
 			if (input.response === "ACCEPTED") {
-				const enpId = meta.enpId as string
+				const metaSenderId = (meta.senderId ?? meta.enpId) as string // backward compat
 				const appointmentDate = new Date(meta.appointmentDate as string)
 				const duration = meta.duration as number
 				const eventType = meta.eventType as string
@@ -1056,17 +1042,48 @@ export const messagesRouter = createTRPCRouter({
 				const location = meta.location as string | undefined
 				const title = meta.title as string
 
-				await db.insert(appointments).values({
-					userId: enpId,
-					type: eventType === "notarization" ? "NOTARIZATION" : "CONSULTATION",
-					status: "CONFIRMED",
-					title,
-					description: `Consultation appointment with ${ctx.session.user.name || "Client"}`,
-					appointmentDate,
-					duration,
-					modeOfNotarization: mode?.toUpperCase(),
-					location,
+				// Determine the ENP: look up both participants' roles
+				const senderUser = await db.query.users.findFirst({
+					where: eq(users.id, metaSenderId),
+					columns: { id: true, role: true },
 				})
+				const responderId = ctx.session.user.id
+				const enpUserId = senderUser?.role === "ENP" ? metaSenderId : responderId
+				const principalUserId = enpUserId === metaSenderId ? responderId : metaSenderId
+
+				const [appointment] = await db
+					.insert(appointments)
+					.values({
+						userId: enpUserId,
+						type: eventType === "notarization" ? "NOTARIZATION" : "CONSULTATION",
+						status: "CONFIRMED",
+						title,
+						description: `Consultation appointment with ${ctx.session.user.name || "Client"}`,
+						appointmentDate,
+						duration,
+						modeOfNotarization: mode?.toUpperCase(),
+						location,
+					})
+					.returning()
+
+				if (appointment) {
+					await db.insert(appointmentParticipants).values([
+						{
+							appointmentId: appointment.id,
+							userId: enpUserId,
+							participantRole: "HOST" as const,
+							status: "ACCEPTED" as const,
+							acceptedAt: new Date(),
+						},
+						{
+							appointmentId: appointment.id,
+							userId: principalUserId,
+							participantRole: "PARTICIPANT" as const,
+							status: "ACCEPTED" as const,
+							acceptedAt: new Date(),
+						},
+					])
+				}
 			}
 
 			// Emit update so the message refreshes for both participants

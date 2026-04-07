@@ -7,7 +7,7 @@ import { toast } from "sonner"
 
 import type { CalendarEvent } from "@/core/components/calendar-schedule"
 import { useIsMobile } from "@/core/hooks/use-mobile"
-import { isEnpMeetingCreationBlockedForKyc } from "@/core/lib/kyc-restriction-guards"
+import { isKycNotStartedOrPending } from "@/core/lib/kyc-restriction-guards"
 
 import { trpc, type RouterOutputs } from "@/services/trpc/client"
 
@@ -165,10 +165,7 @@ export function MessagesProvider({ children }: { children: React.ReactNode }) {
 
 	const sessionKycStatus =
 		typeof session?.user?.kycStatus === "string" ? session.user.kycStatus : undefined
-	const isEnpConsultationBookingBlocked = isEnpMeetingCreationBlockedForKyc(
-		session?.user?.role,
-		sessionKycStatus
-	)
+	const isEnpConsultationBookingBlocked = isKycNotStartedOrPending(sessionKycStatus)
 
 	// Auto-select conversation from URL param, or fall back to first conversation
 	useEffect(() => {
@@ -256,12 +253,12 @@ export function MessagesProvider({ children }: { children: React.ReactNode }) {
 		if (!selectedConversationId) return
 		clearTimeout(typingTimeoutRef.current)
 		if (e.target.value.trim()) {
-			setTyping.mutate({ conversationId: selectedConversationId, isTyping: true }) // eslint-disable-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+			setTyping.mutate({ conversationId: selectedConversationId, isTyping: true })
 			typingTimeoutRef.current = setTimeout(() => {
-				setTyping.mutate({ conversationId: selectedConversationId, isTyping: false }) // eslint-disable-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+				setTyping.mutate({ conversationId: selectedConversationId, isTyping: false })
 			}, 2000)
 		} else {
-			setTyping.mutate({ conversationId: selectedConversationId, isTyping: false }) // eslint-disable-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+			setTyping.mutate({ conversationId: selectedConversationId, isTyping: false })
 		}
 	}
 
@@ -274,7 +271,7 @@ export function MessagesProvider({ children }: { children: React.ReactNode }) {
 
 		if (selectedConversationId) {
 			clearTimeout(typingTimeoutRef.current)
-			setTyping.mutate({ conversationId: selectedConversationId, isTyping: false }) // eslint-disable-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+			setTyping.mutate({ conversationId: selectedConversationId, isTyping: false })
 		}
 
 		// Draft conversation path — needs awaited result, but this is not
@@ -320,20 +317,17 @@ export function MessagesProvider({ children }: { children: React.ReactNode }) {
 		// Optimistically inject message into cache.
 		// pages[0] = most recent page, messages within each page are chronological
 		// (oldest → newest), so append to the end for correct bottom-of-chat placement.
-		utils.messages.getMessages.setInfiniteData(
-			{ conversationId: convId, limit: 20 },
-			old => {
-				if (!old) return old
-				const pages = [...old.pages]
-				if (pages[0]) {
-					pages[0] = {
-						...pages[0],
-						messages: [...pages[0].messages, optimisticMessage],
-					}
+		utils.messages.getMessages.setInfiniteData({ conversationId: convId, limit: 20 }, old => {
+			if (!old) return old
+			const pages = [...old.pages]
+			if (pages[0]) {
+				pages[0] = {
+					...pages[0],
+					messages: [...pages[0].messages, optimisticMessage],
 				}
-				return { ...old, pages }
 			}
-		)
+			return { ...old, pages }
+		})
 
 		// Fire-and-forget — no await, so consecutive sends are never blocked
 		sendMessage.mutate(
@@ -341,21 +335,16 @@ export function MessagesProvider({ children }: { children: React.ReactNode }) {
 			{
 				onError: () => {
 					// Revert optimistic message on failure
-					utils.messages.getMessages.setInfiniteData(
-						{ conversationId: convId, limit: 20 },
-						old => {
-							if (!old) return old
-							return {
-								...old,
-								pages: old.pages.map(page => ({
-									...page,
-									messages: page.messages.filter(
-										(m: { id: string }) => m.id !== optimisticId
-									),
-								})),
-							}
+					utils.messages.getMessages.setInfiniteData({ conversationId: convId, limit: 20 }, old => {
+						if (!old) return old
+						return {
+							...old,
+							pages: old.pages.map(page => ({
+								...page,
+								messages: page.messages.filter((m: { id: string }) => m.id !== optimisticId),
+							})),
 						}
-					)
+					})
 					setMessageInput(trimmedMessage)
 					toast.error("Failed to send message")
 				},
@@ -495,7 +484,7 @@ export function MessagesProvider({ children }: { children: React.ReactNode }) {
 				hasOlderMessages: hasNextPage ?? false,
 				isFetchingOlderMessages,
 				fetchOlderMessages,
-				isOtherUserTyping, // eslint-disable-line @typescript-eslint/no-unsafe-assignment
+				isOtherUserTyping,
 				searchResults,
 				selectedConversationId,
 				draftConversationUser,
