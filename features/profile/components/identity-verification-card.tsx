@@ -15,15 +15,14 @@ import {
 } from "lucide-react"
 import { useSession } from "next-auth/react"
 
-import { kycExpiryRenewalDescription } from "@/core/lib/kyc-reverification-copy"
-
-import { getUserKycInfo } from "@/features/kyc/api/kyc.actions"
 import { Badge } from "@/core/components/ui/badge"
 import { Button } from "@/core/components/ui/button"
 import { Card, CardContent } from "@/core/components/ui/card"
 import { FieldGroup } from "@/core/components/ui/field"
+import { kycExpiryRenewalDescription } from "@/core/lib/kyc-reverification-copy"
 import { cn } from "@/core/lib/utils"
 
+import { getUserKycInfo } from "@/features/kyc/api/kyc.actions"
 import { useKycStatus } from "@/features/kyc/hooks/use-kyc-status"
 import { useStartKycVerification } from "@/features/kyc/hooks/use-start-kyc-verification"
 
@@ -193,7 +192,7 @@ export function IdentityVerificationCard() {
 	const isNeedsReviewUi = displayStatus === "NEEDS_REVIEW"
 
 	const description = isVerified
-		? "Your identity is verified. We keep this on file to protect your account, your documents, and everyone you work with on the platform."
+		? "Your identity is verified. You can now access all features of the platform."
 		: isRejectedAwaitingFreshCheck || isPendingAwaitingFreshCheck
 			? "Hang on while we confirm your verification state with our provider."
 			: isManualDecline
@@ -204,7 +203,7 @@ export function IdentityVerificationCard() {
 						? "Your documents are with our verification partner for manual review. You don\u2019t need to start again—we\u2019ll notify you when there\u2019s an update."
 						: isExpiryRenewal
 							? kycExpiryRenewalDescription(validityDays)
-							: "Confirm who you are so we can protect your account. You can finish this whenever you\u2019re ready—signing and the rest of the app stay available in the meantime."
+							: "You can finish this whenever you\u2019re ready—some of the app's features is unavailable until you're verified."
 
 	return (
 		<Card
