@@ -426,47 +426,18 @@ export const appointmentsRouter = createTRPCRouter({
 				where: eq(users.id, userId),
 			})
 
-			if (user?.role !== "ENP") {
-				return {
-					incomingRequests: [] as never[],
-					incomingAppointments: [] as never[],
-					schedule: {
-						regular: [] as never[],
-						blocked: [] as never[],
-						recurringBlocked: [] as never[],
-						custom: [] as never[],
-						myAppointments: [] as never[],
-					},
-				}
-			}
+			const isEnp = user?.role === "ENP"
 
-			// 3 DB queries instead of ~8
+			// Non-ENP users: find appointments via participant records
+			// ENP users: find appointments by ownership (appointments.userId)
 			const [incomingRequests, allAppointments, allAvailability] = await Promise.all([
-				// Query 1: notarization requests
-				ctx.db.query.notarizationRequests.findMany({
-					where: eq(notarizationRequests.enpId, userId),
-					orderBy: [desc(notarizationRequests.createdAt)],
-					with: {
-						principal: {
-							columns: {
-								id: true,
-								firstName: true,
-								middleName: true,
-								lastName: true,
-								email: true,
-								image: true,
-							},
-						},
-					},
-				}),
-				// Query 2: all appointments for this ENP
-				ctx.db.query.appointments.findMany({
-					where: eq(appointments.userId, userId),
-					orderBy: [desc(appointments.appointmentDate)],
-					with: {
-						participants: {
+				// Query 1: notarization requests (ENP-only, principals get none)
+				isEnp
+					? ctx.db.query.notarizationRequests.findMany({
+							where: eq(notarizationRequests.enpId, userId),
+							orderBy: [desc(notarizationRequests.createdAt)],
 							with: {
-								user: {
+								principal: {
 									columns: {
 										id: true,
 										firstName: true,
@@ -477,18 +448,70 @@ export const appointmentsRouter = createTRPCRouter({
 									},
 								},
 							},
-						},
-					},
-				}),
-				// Query 3: all availability (single query, filter by type in JS)
-				ctx.db.query.enpAvailability.findMany({
-					where: eq(enpAvailability.enpId, userId),
-				}),
+						})
+					: [],
+				// Query 2: appointments — ENP by ownership, non-ENP via participant table
+				isEnp
+					? ctx.db.query.appointments.findMany({
+							where: eq(appointments.userId, userId),
+							orderBy: [desc(appointments.appointmentDate)],
+							with: {
+								participants: {
+									with: {
+										user: {
+											columns: {
+												id: true,
+												firstName: true,
+												middleName: true,
+												lastName: true,
+												email: true,
+												image: true,
+											},
+										},
+									},
+								},
+							},
+						})
+					: ctx.db.query.appointments.findMany({
+							where: inArray(
+								appointments.id,
+								ctx.db
+									.select({ id: appointmentParticipants.appointmentId })
+									.from(appointmentParticipants)
+									.where(eq(appointmentParticipants.userId, userId))
+							),
+							orderBy: [desc(appointments.appointmentDate)],
+							with: {
+								participants: {
+									with: {
+										user: {
+											columns: {
+												id: true,
+												firstName: true,
+												middleName: true,
+												lastName: true,
+												email: true,
+												image: true,
+											},
+										},
+									},
+								},
+							},
+						}),
+				// Query 3: availability (ENP-only, principals get none)
+				isEnp
+					? ctx.db.query.enpAvailability.findMany({
+							where: eq(enpAvailability.enpId, userId),
+						})
+					: [],
 			])
 
 			// Map appointments to incoming appointment format
 			const incomingAppointments = allAppointments.map(apt => {
-				const participant = apt.participants.find(p => p.participantRole === "PARTICIPANT")
+				// For ENP: show the principal (PARTICIPANT). For principal: show the ENP/HOST.
+				const otherParty = isEnp
+					? apt.participants.find(p => p.participantRole === "PARTICIPANT")
+					: apt.participants.find(p => p.userId !== userId)
 
 				return {
 					id: apt.id,
@@ -500,12 +523,12 @@ export const appointmentsRouter = createTRPCRouter({
 					createdAt: apt.createdAt,
 					updatedAt: apt.updatedAt,
 					enpId: apt.userId,
-					principalId: participant?.userId ?? "",
+					principalId: otherParty?.userId ?? "",
 					appointmentId: apt.id,
 					rejectReason: apt.cancelReason,
 					principal: {
-						name: participant?.user ? getFullName(participant.user) : undefined,
-						image: participant?.user?.image,
+						name: otherParty?.user ? getFullName(otherParty.user) : undefined,
+						image: otherParty?.user?.image,
 					},
 					documents: 0,
 					source: "appointment" as const,

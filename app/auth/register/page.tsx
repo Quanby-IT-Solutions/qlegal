@@ -51,7 +51,7 @@ export default async function RegisterPage({
 						Sign in
 					</Link>
 				</div>
-				<div className="text-muted-foreground text-center text-sm">
+				{/* <div className="text-muted-foreground text-center text-sm">
 					Are you a lawyer?{" "}
 					<Link
 						href={
@@ -66,7 +66,7 @@ export default async function RegisterPage({
 					>
 						Register as ENP
 					</Link>
-				</div>
+				</div> */}
 			</CardFooter>
 		</Card>
 	)

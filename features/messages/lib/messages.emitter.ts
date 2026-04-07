@@ -29,3 +29,7 @@ export function emitConversationUpdate(affectedUserIds: string[]): void {
 export function emitFilesUpdate(conversationId: string): void {
 	ee.emit("files:update", conversationId)
 }
+
+export function emitTyping(conversationId: string, userId: string, isTyping: boolean): void {
+	ee.emit("typing", conversationId, userId, isTyping)
+}

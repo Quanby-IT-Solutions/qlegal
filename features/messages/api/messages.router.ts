@@ -1,6 +1,6 @@
 import { on } from "node:events"
 import { tracked, TRPCError } from "@trpc/server"
-import { and, asc, desc, eq, gt, ne, or, sql } from "drizzle-orm"
+import { and, asc, desc, eq, gt, lt, ne, or, sql } from "drizzle-orm"
 import { z } from "zod/v4"
 
 import { assertEnpCommissionActiveForRestrictedOps } from "@/core/lib/enp-lms-guard"
@@ -8,6 +8,7 @@ import { assertEnpCanCreateMeetingForKyc } from "@/core/lib/kyc-restriction-guar
 import { getFullName } from "@/core/lib/utils"
 
 import { db } from "@/services/drizzle/db"
+import { appointmentParticipants } from "@/services/drizzle/schema/appointment-participants"
 import { appointments } from "@/services/drizzle/schema/appointments"
 import { users } from "@/services/drizzle/schema/auth"
 import { enpProfiles } from "@/services/drizzle/schema/enp-profiles"
@@ -21,6 +22,7 @@ import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
 import {
 	emitConversationUpdate,
 	emitMessageAdd,
+	emitTyping,
 	messagesEmitter,
 	type MessageWithSender,
 } from "@/features/messages/lib/messages.emitter"
@@ -104,7 +106,7 @@ const consultationRequestInputSchema = z.object({
 
 function buildConsultationRequestMetadata(
 	input: z.infer<typeof consultationRequestInputSchema>,
-	enpId: string
+	senderId: string
 ) {
 	return {
 		title: input.title,
@@ -117,7 +119,7 @@ function buildConsultationRequestMetadata(
 		mode: input.mode,
 		location: input.location,
 		status: "PENDING" as const,
-		enpId,
+		senderId,
 	}
 }
 
@@ -271,6 +273,17 @@ async function createOrReuseDirectConversationWithMessage(params: {
 			.set({ updatedAt: new Date() })
 			.where(eq(conversations.id, conversationId))
 
+		// Update sender's lastReadAt so they're marked as having seen their own message
+		await tx
+			.update(conversationParticipants)
+			.set({ lastReadAt: new Date() })
+			.where(
+				and(
+					eq(conversationParticipants.conversationId, conversationId),
+					eq(conversationParticipants.userId, params.currentUserId)
+				)
+			)
+
 		const withSender = await tx.query.messages.findFirst({
 			where: eq(messages.id, inserted.id),
 			with: {
@@ -399,6 +412,8 @@ export const messagesRouter = createTRPCRouter({
 								joinedAt: otherParticipant.joinedAt,
 							}
 						: null,
+					otherUserLastReadAt: otherParticipant?.lastReadAt ?? null,
+					myLastReadAt: userParticipant?.lastReadAt ?? null,
 					lastMessage: lastMessage?.content,
 					lastMessageTime: lastMessage?.createdAt,
 					unreadCount: unreadMessages.length,
@@ -411,12 +426,14 @@ export const messagesRouter = createTRPCRouter({
 		return formattedConversations.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())
 	}),
 
-	// Get messages for a specific conversation
+	// Get messages for a specific conversation (cursor-paginated, newest page first)
 	getMessages: protectedProcedure
 		.input(
 			z.object({
 				conversationId: z.string(),
-				limit: z.number().min(1).max(100).default(50),
+				limit: z.number().min(1).max(100).default(20),
+				// ISO datetime string of the oldest message already loaded; omit for the latest page
+				cursor: z.string().nullish(),
 			})
 		)
 		.query(async ({ input, ctx }) => {
@@ -435,11 +452,18 @@ export const messagesRouter = createTRPCRouter({
 				})
 			}
 
-			// Get messages
+			const whereClause = input.cursor
+				? and(
+						eq(messages.conversationId, input.conversationId),
+						lt(messages.createdAt, new Date(input.cursor))
+					)
+				: eq(messages.conversationId, input.conversationId)
+
+			// Fetch one extra to detect whether an older page exists
 			const conversationMessages = await db.query.messages.findMany({
-				where: eq(messages.conversationId, input.conversationId),
+				where: whereClause,
 				orderBy: [desc(messages.createdAt)],
-				limit: input.limit,
+				limit: input.limit + 1,
 				with: {
 					sender: {
 						columns: {
@@ -454,14 +478,21 @@ export const messagesRouter = createTRPCRouter({
 				},
 			})
 
-			// Return in chronological order (oldest first)
-			return conversationMessages.reverse().map(message => {
-				const sender = senderRowToMessageSender(message.sender)
-				return {
+			// If we got an extra item, there are more older messages
+			let nextCursor: string | null = null
+			if (conversationMessages.length > input.limit) {
+				const oldest = conversationMessages.pop()!
+				nextCursor = oldest.createdAt.toISOString()
+			}
+
+			// Return in chronological order (oldest first) within this page
+			return {
+				messages: conversationMessages.reverse().map(message => ({
 					...message,
-					sender,
-				}
-			})
+					sender: senderRowToMessageSender(message.sender),
+				})),
+				nextCursor,
+			}
 		}),
 
 	// Send a message
@@ -510,6 +541,17 @@ export const messagesRouter = createTRPCRouter({
 				.update(conversations)
 				.set({ updatedAt: new Date() })
 				.where(eq(conversations.id, input.conversationId))
+
+			// Update sender's lastReadAt so they're marked as having seen their own message
+			await db
+				.update(conversationParticipants)
+				.set({ lastReadAt: new Date() })
+				.where(
+					and(
+						eq(conversationParticipants.conversationId, input.conversationId),
+						eq(conversationParticipants.userId, ctx.session.user.id)
+					)
+				)
 
 			// Fetch message with sender for SSE
 			const withSender = await db.query.messages.findFirst({
@@ -705,6 +747,45 @@ export const messagesRouter = createTRPCRouter({
 			}
 		}),
 
+	setTyping: protectedProcedure
+		.input(z.object({ conversationId: z.string(), isTyping: z.boolean() }))
+		.mutation(async ({ input, ctx }) => {
+			const participant = await db.query.conversationParticipants.findFirst({
+				where: and(
+					eq(conversationParticipants.conversationId, input.conversationId),
+					eq(conversationParticipants.userId, ctx.session.user.id)
+				),
+			})
+			if (!participant) {
+				throw new TRPCError({ code: "FORBIDDEN", message: "Not a participant" })
+			}
+			emitTyping(input.conversationId, ctx.session.user.id, input.isTyping)
+			return { success: true }
+		}),
+
+	onTyping: protectedProcedure
+		.input(z.object({ conversationId: z.string() }))
+		.subscription(async function* (opts) {
+			const { conversationId } = opts.input
+			const participant = await db.query.conversationParticipants.findFirst({
+				where: and(
+					eq(conversationParticipants.conversationId, conversationId),
+					eq(conversationParticipants.userId, opts.ctx.session.user.id)
+				),
+			})
+			if (!participant) {
+				throw new TRPCError({ code: "FORBIDDEN", message: "Not a participant" })
+			}
+			const iterable = on(messagesEmitter, "typing", {
+				signal: opts.signal,
+			}) as AsyncIterable<[string, string, boolean]>
+			for await (const [convId, userId, isTyping] of iterable) {
+				if (convId !== conversationId) continue
+				if (userId === opts.ctx.session.user.id) continue
+				yield { userId, isTyping }
+			}
+		}),
+
 	// Search users to start conversation
 	searchUsers: protectedProcedure
 		.input(
@@ -790,7 +871,7 @@ export const messagesRouter = createTRPCRouter({
 			}
 		}),
 
-	// ENP sends a consultation request card via chat
+	// Any participant sends a consultation request card via chat
 	sendConsultationRequest: protectedProcedure
 		.input(
 			consultationRequestInputSchema.extend({
@@ -915,7 +996,7 @@ export const messagesRouter = createTRPCRouter({
 			}
 		}),
 
-	// Principal accepts or declines a consultation request
+	// The other participant accepts or declines a consultation request
 	respondToConsultationRequest: protectedProcedure
 		.input(
 			z.object({
@@ -947,11 +1028,14 @@ export const messagesRouter = createTRPCRouter({
 				})
 			}
 
-			// Only the non-ENP (principal) can respond
-			if (ctx.session.user.id === (message.metadata as Record<string, unknown>)?.enpId) {
+			// Only the other participant (not the sender) can respond
+			const senderId =
+				(message.metadata as Record<string, unknown>)?.senderId ??
+				(message.metadata as Record<string, unknown>)?.enpId // backward compat
+			if (ctx.session.user.id === senderId) {
 				throw new TRPCError({
 					code: "FORBIDDEN",
-					message: "The ENP cannot respond to their own request",
+					message: "You cannot respond to your own request",
 				})
 			}
 
@@ -971,7 +1055,7 @@ export const messagesRouter = createTRPCRouter({
 
 			// If accepted → create the appointment
 			if (input.response === "ACCEPTED") {
-				const enpId = meta.enpId as string
+				const metaSenderId = (meta.senderId ?? meta.enpId) as string // backward compat
 				const appointmentDate = new Date(meta.appointmentDate as string)
 				const duration = meta.duration as number
 				const eventType = meta.eventType as string
@@ -979,17 +1063,48 @@ export const messagesRouter = createTRPCRouter({
 				const location = meta.location as string | undefined
 				const title = meta.title as string
 
-				await db.insert(appointments).values({
-					userId: enpId,
-					type: eventType === "notarization" ? "NOTARIZATION" : "CONSULTATION",
-					status: "CONFIRMED",
-					title,
-					description: `Consultation appointment with ${ctx.session.user.name || "Client"}`,
-					appointmentDate,
-					duration,
-					modeOfNotarization: mode?.toUpperCase(),
-					location,
+				// Determine the ENP: look up both participants' roles
+				const senderUser = await db.query.users.findFirst({
+					where: eq(users.id, metaSenderId),
+					columns: { id: true, role: true },
 				})
+				const responderId = ctx.session.user.id
+				const enpUserId = senderUser?.role === "ENP" ? metaSenderId : responderId
+				const principalUserId = enpUserId === metaSenderId ? responderId : metaSenderId
+
+				const [appointment] = await db
+					.insert(appointments)
+					.values({
+						userId: enpUserId,
+						type: eventType === "notarization" ? "NOTARIZATION" : "CONSULTATION",
+						status: "CONFIRMED",
+						title,
+						description: `Consultation appointment with ${ctx.session.user.name || "Client"}`,
+						appointmentDate,
+						duration,
+						modeOfNotarization: mode?.toUpperCase(),
+						location,
+					})
+					.returning()
+
+				if (appointment) {
+					await db.insert(appointmentParticipants).values([
+						{
+							appointmentId: appointment.id,
+							userId: enpUserId,
+							participantRole: "HOST" as const,
+							status: "ACCEPTED" as const,
+							acceptedAt: new Date(),
+						},
+						{
+							appointmentId: appointment.id,
+							userId: principalUserId,
+							participantRole: "PARTICIPANT" as const,
+							status: "ACCEPTED" as const,
+							acceptedAt: new Date(),
+						},
+					])
+				}
 			}
 
 			// Emit update so the message refreshes for both participants

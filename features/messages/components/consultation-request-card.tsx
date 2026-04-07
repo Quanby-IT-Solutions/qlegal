@@ -4,16 +4,17 @@ import { format } from "date-fns"
 import {
 	CalendarCheck,
 	CalendarX,
+	CheckCircle2,
 	Clock,
 	FileText,
+	Loader2,
 	MapPin,
 	Monitor,
-	CheckCircle2,
 	XCircle,
-	Loader2,
 } from "lucide-react"
 import { toast } from "sonner"
 
+import { getBubbleBorderRadius, useChatBubble } from "@/core/components/chat"
 import { Badge } from "@/core/components/ui/badge"
 import { Button } from "@/core/components/ui/button"
 import { cn } from "@/core/lib/utils"
@@ -31,13 +32,15 @@ export interface ConsultationRequestMetadata {
 	mode?: "ren" | "ien"
 	location?: string
 	status: "PENDING" | "ACCEPTED" | "DECLINED"
-	enpId: string
+	senderId: string
+	/** @deprecated Use senderId instead */
+	enpId?: string
 }
 
 interface ConsultationRequestCardProps {
 	messageId: string
 	metadata: ConsultationRequestMetadata
-	isOwnMessage: boolean // true = ENP (sender), false = principal (receiver)
+	isOwnMessage: boolean // true = sender, false = receiver
 }
 
 export function ConsultationRequestCard({
@@ -46,6 +49,8 @@ export function ConsultationRequestCard({
 	isOwnMessage,
 }: ConsultationRequestCardProps) {
 	const { respondToConsultationRequest } = useMessages()
+	const { variant, isFirst, isLast } = useChatBubble()
+	const borderRadius = getBubbleBorderRadius(variant, isFirst, isLast)
 	const isPending = metadata.status === "PENDING"
 	const isAccepted = metadata.status === "ACCEPTED"
 	const isDeclined = metadata.status === "DECLINED"
@@ -74,7 +79,8 @@ export function ConsultationRequestCard({
 	return (
 		<div
 			className={cn(
-				"rounded-lg border p-3 text-sm shadow-sm",
+				"border p-3 text-sm shadow-sm",
+				borderRadius,
 				isPending && "border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/40",
 				isAccepted && "border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950/40",
 				isDeclined && "border-rose-200 bg-rose-50 dark:border-rose-800 dark:bg-rose-950/40"
@@ -82,7 +88,7 @@ export function ConsultationRequestCard({
 		>
 			{/* Header */}
 			<div className="mb-2 flex items-start justify-between gap-2">
-				<div className="flex items-center gap-1.5 font-semibold leading-tight">
+				<div className="flex items-center gap-1.5 leading-tight font-semibold">
 					{metadata.eventType === "consultation" ? (
 						<CalendarCheck className="size-4 shrink-0 text-blue-600 dark:text-blue-400" />
 					) : (
@@ -94,13 +100,11 @@ export function ConsultationRequestCard({
 			</div>
 
 			{/* Details */}
-			<div className="space-y-1 text-xs text-muted-foreground">
+			<div className="text-muted-foreground space-y-1 text-xs">
 				{/* Date & time */}
 				<div className="flex items-center gap-1.5">
 					<CalendarCheck className="size-3.5 shrink-0" />
-					<span>
-						{isValidDate ? format(appointmentDate, "MMMM d, yyyy") : "—"}
-					</span>
+					<span>{isValidDate ? format(appointmentDate, "MMMM d, yyyy") : "—"}</span>
 				</div>
 				<div className="flex items-center gap-1.5">
 					<Clock className="size-3.5 shrink-0" />
@@ -112,7 +116,10 @@ export function ConsultationRequestCard({
 				{metadata.mode && (
 					<div className="flex items-center gap-1.5">
 						<Monitor className="size-3.5 shrink-0" />
-						<span>{metadata.mode.toUpperCase()} — {metadata.eventType === "consultation" ? "Consultation" : "Notarization"}</span>
+						<span>
+							{metadata.mode.toUpperCase()} —{" "}
+							{metadata.eventType === "consultation" ? "Consultation" : "Notarization"}
+						</span>
 					</div>
 				)}
 				{/* Location */}
@@ -123,9 +130,7 @@ export function ConsultationRequestCard({
 					</div>
 				)}
 				{/* Description */}
-				{metadata.description && (
-					<p className="pt-1 italic">{metadata.description}</p>
-				)}
+				{metadata.description && <p className="pt-1 italic">{metadata.description}</p>}
 			</div>
 
 			{/* Actions – only for the principal when status is PENDING */}
@@ -165,12 +170,12 @@ export function ConsultationRequestCard({
 			{/* Result label for ENP (own message) or after principal responds */}
 			{isAccepted && isOwnMessage && (
 				<p className="mt-2 text-xs font-medium text-green-700 dark:text-green-400">
-					✓ Principal accepted – appointment created
+					✓ Request accepted – appointment created
 				</p>
 			)}
 			{isDeclined && isOwnMessage && (
 				<p className="mt-2 text-xs font-medium text-rose-600 dark:text-rose-400">
-					✗ Principal declined this request
+					✗ Request declined
 				</p>
 			)}
 		</div>
@@ -180,20 +185,29 @@ export function ConsultationRequestCard({
 function StatusBadge({ status }: { status: "PENDING" | "ACCEPTED" | "DECLINED" }) {
 	if (status === "PENDING") {
 		return (
-			<Badge variant="outline" className="border-blue-300 bg-blue-100 text-blue-700 dark:border-blue-700 dark:bg-blue-900 dark:text-blue-300">
+			<Badge
+				variant="outline"
+				className="border-blue-300 bg-blue-100 text-blue-700 dark:border-blue-700 dark:bg-blue-900 dark:text-blue-300"
+			>
 				Pending
 			</Badge>
 		)
 	}
 	if (status === "ACCEPTED") {
 		return (
-			<Badge variant="outline" className="border-green-300 bg-green-100 text-green-700 dark:border-green-700 dark:bg-green-900 dark:text-green-300">
+			<Badge
+				variant="outline"
+				className="border-green-300 bg-green-100 text-green-700 dark:border-green-700 dark:bg-green-900 dark:text-green-300"
+			>
 				Accepted
 			</Badge>
 		)
 	}
 	return (
-		<Badge variant="outline" className="border-rose-300 bg-rose-100 text-rose-700 dark:border-rose-700 dark:bg-rose-900 dark:text-rose-300">
+		<Badge
+			variant="outline"
+			className="border-rose-300 bg-rose-100 text-rose-700 dark:border-rose-700 dark:bg-rose-900 dark:text-rose-300"
+		>
 			Declined
 		</Badge>
 	)

@@ -9,12 +9,14 @@ export function useMessages() {
 		// Get all conversations
 		getConversations: trpc.messages.getConversations.useQuery(undefined),
 
-		// Get messages for a conversation
+		// Get messages for a conversation (cursor-paginated)
 		getMessages: (conversationId: string) =>
-			trpc.messages.getMessages.useQuery(
-				{ conversationId, limit: 100 },
+			trpc.messages.getMessages.useInfiniteQuery(
+				{ conversationId, limit: 20 },
 				{
 					enabled: !!conversationId,
+					getNextPageParam: lastPage => lastPage.nextCursor ?? undefined,
+					initialCursor: null,
 				}
 			),
 
@@ -31,14 +33,12 @@ export function useMessages() {
 		sendMessage: trpc.messages.sendMessage.useMutation({
 			onSuccess: () => {
 				void utils.messages.getConversations.invalidate()
-				void utils.messages.getMessages.invalidate()
 			},
 		}),
 
 		createConversationAndSendMessage: trpc.messages.createConversationAndSendMessage.useMutation({
 			onSuccess: () => {
 				void utils.messages.getConversations.invalidate()
-				void utils.messages.getMessages.invalidate()
 			},
 		}),
 
@@ -69,7 +69,6 @@ export function useMessages() {
 		sendConsultationRequest: trpc.messages.sendConsultationRequest.useMutation({
 			onSuccess: () => {
 				void utils.messages.getConversations.invalidate()
-				void utils.messages.getMessages.invalidate()
 			},
 		}),
 
@@ -77,7 +76,6 @@ export function useMessages() {
 			trpc.messages.createConversationAndSendConsultationRequest.useMutation({
 				onSuccess: () => {
 					void utils.messages.getConversations.invalidate()
-					void utils.messages.getMessages.invalidate()
 				},
 			}),
 
@@ -88,5 +86,8 @@ export function useMessages() {
 				void utils.messages.getMessages.invalidate()
 			},
 		}),
+
+		// Signal that the current user is typing (or stopped typing)
+		setTyping: trpc.messages.setTyping.useMutation(),
 	}
 }
