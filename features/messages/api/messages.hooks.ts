@@ -88,5 +88,8 @@ export function useMessages() {
 				void utils.messages.getMessages.invalidate()
 			},
 		}),
+
+		// Signal that the current user is typing (or stopped typing)
+		setTyping: trpc.messages.setTyping.useMutation(),
 	}
 }

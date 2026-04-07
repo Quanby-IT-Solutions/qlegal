@@ -20,6 +20,7 @@ import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
 import {
 	emitConversationUpdate,
 	emitMessageAdd,
+	emitTyping,
 	messagesEmitter,
 	type MessageWithSender,
 } from "@/features/messages/lib/messages.emitter"
@@ -701,6 +702,45 @@ export const messagesRouter = createTRPCRouter({
 			for await (const [affectedUserIds] of iterable) {
 				if (!affectedUserIds.includes(userId)) continue
 				yield tracked(`ts-${Date.now()}`, { type: "conversations_updated" as const })
+			}
+		}),
+
+	setTyping: protectedProcedure
+		.input(z.object({ conversationId: z.string(), isTyping: z.boolean() }))
+		.mutation(async ({ input, ctx }) => {
+			const participant = await db.query.conversationParticipants.findFirst({
+				where: and(
+					eq(conversationParticipants.conversationId, input.conversationId),
+					eq(conversationParticipants.userId, ctx.session.user.id)
+				),
+			})
+			if (!participant) {
+				throw new TRPCError({ code: "FORBIDDEN", message: "Not a participant" })
+			}
+			emitTyping(input.conversationId, ctx.session.user.id, input.isTyping)
+			return { success: true }
+		}),
+
+	onTyping: protectedProcedure
+		.input(z.object({ conversationId: z.string() }))
+		.subscription(async function* (opts) {
+			const { conversationId } = opts.input
+			const participant = await db.query.conversationParticipants.findFirst({
+				where: and(
+					eq(conversationParticipants.conversationId, conversationId),
+					eq(conversationParticipants.userId, opts.ctx.session.user.id)
+				),
+			})
+			if (!participant) {
+				throw new TRPCError({ code: "FORBIDDEN", message: "Not a participant" })
+			}
+			const iterable = on(messagesEmitter, "typing", {
+				signal: opts.signal,
+			}) as AsyncIterable<[string, string, boolean]>
+			for await (const [convId, userId, isTyping] of iterable) {
+				if (convId !== conversationId) continue
+				if (userId === opts.ctx.session.user.id) continue
+				yield { userId, isTyping }
 			}
 		}),
 

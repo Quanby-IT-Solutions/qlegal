@@ -1,8 +1,8 @@
 "use client"
 
 import { useSearchParams } from "next/navigation"
-import { useEffect, useRef, useState } from "react"
-import { format } from "date-fns"
+import React, { useEffect, useRef, useState } from "react"
+import { differenceInMinutes, format, isToday, isYesterday } from "date-fns"
 import {
 	CalendarPlus,
 	ChevronLeft,
@@ -18,11 +18,11 @@ import { useSession } from "next-auth/react"
 import { toast } from "sonner"
 
 import type { CalendarEvent } from "@/core/components/calendar-schedule"
+import { Chat } from "@/core/components/chat"
 import { KycRequiredDialog } from "@/core/components/kyc-required-dialog"
 import { PageHeader } from "@/core/components/navbar/page-header"
 import { Avatar, AvatarFallback, AvatarImage } from "@/core/components/ui/avatar"
 import { Button } from "@/core/components/ui/button"
-import { Card } from "@/core/components/ui/card"
 import {
 	Dialog,
 	DialogContent,
@@ -72,6 +72,7 @@ export default function MessagesPage() {
 		markAsRead,
 		searchUsers,
 		sendConsultationRequest,
+		setTyping,
 	} = useMessages()
 	const { data: conversations, isLoading: loadingConversations } = getConversations
 
@@ -88,6 +89,7 @@ export default function MessagesPage() {
 	const [isSidebarOpen, setIsSidebarOpen] = useState(false)
 	const [isParticipantPanelOpen, setIsParticipantPanelOpen] = useState(false)
 	const messagesEndRef = useRef<HTMLDivElement>(null)
+	const typingTimeoutRef = useRef<ReturnType<typeof setTimeout>>()
 	const autoStartInFlightRef = useRef(false)
 	const autoStartHandledUserIdRef = useRef<string | null>(null)
 
@@ -113,7 +115,7 @@ export default function MessagesPage() {
 	const { data: messages, isLoading: loadingMessages } = messagesQuery
 
 	// Real-time subscriptions (SSE)
-	useMessagesSubscriptions({
+	const { isOtherUserTyping } = useMessagesSubscriptions({
 		userId: session?.user?.id,
 		conversationId: selectedConversationId,
 		utils,
@@ -157,10 +159,10 @@ export default function MessagesPage() {
 		setMessageInput("")
 	}, [draftConversationUser?.id, selectedConversationId])
 
-	// Scroll to bottom when messages change
+	// Scroll to bottom when messages change or typing indicator appears
 	useEffect(() => {
 		messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
-	}, [messages])
+	}, [messages, isOtherUserTyping])
 
 	// Filter conversations
 	const filteredConversations = conversations?.filter(conv =>
@@ -188,9 +190,27 @@ export default function MessagesPage() {
 		setIsSidebarOpen(false)
 	}
 
+	const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+		setMessageInput(e.target.value)
+		if (!selectedConversationId) return
+		clearTimeout(typingTimeoutRef.current)
+		if (e.target.value.trim()) {
+			setTyping.mutate({ conversationId: selectedConversationId, isTyping: true })
+			typingTimeoutRef.current = setTimeout(() => {
+				setTyping.mutate({ conversationId: selectedConversationId, isTyping: false })
+			}, 2000)
+		} else {
+			setTyping.mutate({ conversationId: selectedConversationId, isTyping: false })
+		}
+	}
+
 	const handleSendMessage = async () => {
 		const trimmedMessage = messageInput.trim()
 		if (!trimmedMessage) return
+		if (selectedConversationId) {
+			clearTimeout(typingTimeoutRef.current)
+			setTyping.mutate({ conversationId: selectedConversationId, isTyping: false })
+		}
 
 		try {
 			if (draftConversationUser) {
@@ -651,29 +671,71 @@ export default function MessagesPage() {
 										<p className="text-muted-foreground text-xs">Loading messages...</p>
 									</div>
 								) : messages && messages.length > 0 ? (
-									<div className="space-y-2.5 pb-3">
-										{messages.map(message => {
+									<Chat.List>
+										{messages.map((message, index) => {
 											const isSent = message.senderId === session?.user?.id
 											const isConsultationRequest = message.messageType === "consultation_request"
+											const variant = isSent ? "sent" : "received"
+
+											const prevMessage = messages[index - 1]
+											const nextMessage = messages[index + 1]
+
+											const isFirstInSequence =
+												!prevMessage ||
+												prevMessage.senderId !== message.senderId ||
+												differenceInMinutes(
+													new Date(message.createdAt),
+													new Date(prevMessage.createdAt)
+												) >= 10
+
+											const isLastInSequence =
+												!nextMessage ||
+												nextMessage.senderId !== message.senderId ||
+												differenceInMinutes(
+													new Date(nextMessage.createdAt),
+													new Date(message.createdAt)
+												) >= 10
+
+											const showTimeSeparator =
+												index === 0 ||
+												(prevMessage &&
+													differenceInMinutes(
+														new Date(message.createdAt),
+														new Date(prevMessage.createdAt)
+													) >= 10)
+
+											const separatorLabel = (() => {
+												const d = new Date(message.createdAt)
+												if (isToday(d)) return format(d, "p")
+												if (isYesterday(d)) return `Yesterday ${format(d, "p")}`
+												return format(d, "EEE p")
+											})()
+
 											return (
-												<div
-													key={message.id}
-													className={cn("flex", isSent ? "justify-end" : "justify-start")}
-												>
-													<div
-														className={cn("flex max-w-[70%] gap-2", isSent && "flex-row-reverse")}
+												<React.Fragment key={message.id}>
+													{showTimeSeparator && (
+														<div className="flex items-center justify-center py-2">
+															<span className="text-muted-foreground text-[10px]">
+																{separatorLabel}
+															</span>
+														</div>
+													)}
+													<Chat.Bubble
+														variant={variant}
+														isFirst={isFirstInSequence}
+														isLast={isLastInSequence}
+														timestamp={format(new Date(message.createdAt), "p")}
 													>
-														{!isSent && (
-															<Avatar className="size-7 shrink-0">
-																<AvatarImage src={activeParticipant.image ?? undefined} />
-																<AvatarFallback className="bg-primary text-primary-foreground text-[10px]">
-																	{activeParticipant.name
-																		?.split(" ")
-																		.map(n => n[0])
-																		.join("")}
-																</AvatarFallback>
-															</Avatar>
-														)}
+														<Chat.BubbleAvatar
+															src={activeParticipant.image ?? undefined}
+															fallback={
+																activeParticipant.name
+																	?.split(" ")
+																	.map(n => n[0])
+																	.join("") ?? ""
+															}
+															showAvatar={isLastInSequence}
+														/>
 														<div className="space-y-0.5">
 															{isConsultationRequest ? (
 																<ConsultationRequestCard
@@ -682,33 +744,35 @@ export default function MessagesPage() {
 																	isOwnMessage={isSent}
 																/>
 															) : (
-																<Card
-																	className={cn(
-																		"px-3 py-1.5",
-																		isSent ? "bg-primary text-primary-foreground" : "bg-muted"
-																	)}
-																>
+																<Chat.BubbleMessage>
 																	<MessageContent
 																		content={message.content}
 																		className="text-xs leading-relaxed"
 																	/>
-																</Card>
+																</Chat.BubbleMessage>
 															)}
-															<p
-																className={cn(
-																	"text-muted-foreground text-[10px]",
-																	isSent && "text-right"
-																)}
-															>
-																{format(new Date(message.createdAt), "p")}
-															</p>
 														</div>
-													</div>
-												</div>
+													</Chat.Bubble>
+												</React.Fragment>
 											)
 										})}
+										{isOtherUserTyping && activeParticipant && (
+											<Chat.Bubble variant="received" isFirst isLast>
+												<Chat.BubbleAvatar
+													src={activeParticipant.image ?? undefined}
+													fallback={
+														activeParticipant.name
+															?.split(" ")
+															.map(n => n[0])
+															.join("") ?? ""
+													}
+													showAvatar
+												/>
+												<Chat.BubbleMessage typing />
+											</Chat.Bubble>
+										)}
 										<div ref={messagesEndRef} />
-									</div>
+									</Chat.List>
 								) : (
 									<div className="flex h-full items-center justify-center">
 										<div className="text-center">
@@ -736,7 +800,7 @@ export default function MessagesPage() {
 										<Input
 											placeholder="Type a message..."
 											value={messageInput}
-											onChange={e => setMessageInput(e.target.value)}
+											onChange={handleInputChange}
 											className="h-9 pr-8 text-sm"
 											onKeyDown={e => {
 												if (e.key === "Enter" && messageInput.trim()) {
