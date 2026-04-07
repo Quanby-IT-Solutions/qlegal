@@ -175,10 +175,24 @@ function ChatBubbleTimestamp({ children, className }: ChatBubbleTimestampProps) 
 	)
 }
 
+type ChatTimeSeparatorProps = {
+	children: React.ReactNode
+	className?: string
+}
+
+function ChatTimeSeparator({ children, className }: ChatTimeSeparatorProps) {
+	return (
+		<div className={cn("flex items-center justify-center py-2", className)}>
+			<span className="text-muted-foreground text-[10px]">{children}</span>
+		</div>
+	)
+}
+
 export const Chat = {
 	List: ChatList,
 	Bubble: ChatBubble,
 	BubbleAvatar: ChatBubbleAvatar,
 	BubbleMessage: ChatBubbleMessage,
 	BubbleTimestamp: ChatBubbleTimestamp,
+	TimeSeparator: ChatTimeSeparator,
 }
