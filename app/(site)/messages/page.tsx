@@ -33,6 +33,8 @@ import {
 import { Input } from "@/core/components/ui/input"
 import { ScrollArea } from "@/core/components/ui/scroll-area"
 import { Skeleton } from "@/core/components/ui/skeleton"
+import { KycRequiredDialog } from "@/core/components/kyc-required-dialog"
+import { isEnpMeetingCreationBlockedForKyc } from "@/core/lib/kyc-restriction-guards"
 import { cn } from "@/core/lib/utils"
 
 import { trpc } from "@/services/trpc/client"
@@ -68,6 +70,7 @@ export default function MessagesPage() {
 	const [userSearchQuery, setUserSearchQuery] = useState("")
 	const [isNewChatDialogOpen, setIsNewChatDialogOpen] = useState(false)
 	const [isBookingModalOpen, setIsBookingModalOpen] = useState(false)
+	const [kycBookingBlockOpen, setKycBookingBlockOpen] = useState(false)
 	const [hasStartedFromQuery, setHasStartedFromQuery] = useState(false)
 	const [isSidebarOpen, setIsSidebarOpen] = useState(false)
 	const [isParticipantPanelOpen, setIsParticipantPanelOpen] = useState(false)
@@ -106,6 +109,13 @@ export default function MessagesPage() {
 
 	// Get users for new chat search
 	const { data: searchResults } = searchUsers(userSearchQuery)
+
+	const sessionKycStatus =
+		typeof session?.user?.kycStatus === "string" ? session.user.kycStatus : undefined
+	const isEnpConsultationBookingBlocked = isEnpMeetingCreationBlockedForKyc(
+		session?.user?.role,
+		sessionKycStatus
+	)
 
 	// Auto-select conversation (prefer URL param)
 	useEffect(() => {
@@ -220,6 +230,11 @@ export default function MessagesPage() {
 			const error = new Error("No conversation selected")
 			toast.error("Select a conversation before booking a session")
 			throw error
+		}
+
+		if (isEnpConsultationBookingBlocked) {
+			setKycBookingBlockOpen(true)
+			throw new Error("Identity verification required")
 		}
 
 		// Derive time strings and duration from the CalendarEvent
@@ -512,7 +527,13 @@ export default function MessagesPage() {
 												variant="ghost"
 												size="sm"
 												className="hidden gap-1 sm:flex"
-												onClick={() => setIsBookingModalOpen(true)}
+												onClick={() => {
+													if (isEnpConsultationBookingBlocked) {
+														setKycBookingBlockOpen(true)
+														return
+													}
+													setIsBookingModalOpen(true)
+												}}
 											>
 												<CalendarPlus className="size-4" />
 												<span>Book</span>
@@ -521,7 +542,13 @@ export default function MessagesPage() {
 												variant="ghost"
 												size="icon"
 												className="size-7 rounded-full sm:hidden"
-												onClick={() => setIsBookingModalOpen(true)}
+												onClick={() => {
+													if (isEnpConsultationBookingBlocked) {
+														setKycBookingBlockOpen(true)
+														return
+													}
+													setIsBookingModalOpen(true)
+												}}
 											>
 												<CalendarPlus className="size-4" />
 											</Button>
@@ -716,6 +743,12 @@ export default function MessagesPage() {
 					onClose={() => setIsBookingModalOpen(false)}
 					onSave={handleBookConsultationSave}
 					isSaving={sendConsultationRequest.isPending}
+				/>
+				<KycRequiredDialog
+					open={kycBookingBlockOpen}
+					onOpenChange={setKycBookingBlockOpen}
+					returnToPath="/messages"
+					description="Complete identity verification before sending a booking request from Messages. You can finish verification from here."
 				/>
 			</div>
 		</div>

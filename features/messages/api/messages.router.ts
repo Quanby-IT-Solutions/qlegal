@@ -3,6 +3,7 @@ import { tracked, TRPCError } from "@trpc/server"
 import { and, asc, desc, eq, gt, ne, or, sql } from "drizzle-orm"
 import { z } from "zod/v4"
 
+import { assertEnpCanCreateMeetingForKyc } from "@/core/lib/kyc-restriction-guards"
 import { getFullName } from "@/core/lib/utils"
 
 import { db } from "@/services/drizzle/db"
@@ -573,6 +574,8 @@ export const messagesRouter = createTRPCRouter({
 					message: "Only ENP can send consultation requests",
 				})
 			}
+
+			assertEnpCanCreateMeetingForKyc(ctx.session.user.role, ctx.session.user.kycStatus)
 
 			// Verify participant
 			const participant = await db.query.conversationParticipants.findFirst({
