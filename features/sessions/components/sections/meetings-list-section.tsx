@@ -580,14 +580,14 @@ export function MeetingsListSection() {
 
 			<Card>
 				<CardContent>
-					<div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+					<div className="grid grid-cols-1 gap-4 md:grid-cols-[minmax(0,1fr)_11rem_auto] md:items-center">
 						<Input
 							placeholder="Search meetings..."
 							value={searchTerm}
 							onChange={e => setSearchTerm(e.target.value)}
 						/>
 						<Select value={statusFilter} onValueChange={setStatusFilter}>
-							<SelectTrigger>
+							<SelectTrigger className="w-full">
 								<SelectValue placeholder="All Status" />
 							</SelectTrigger>
 							<SelectContent>
@@ -598,6 +598,14 @@ export function MeetingsListSection() {
 								<SelectItem value="CANCELLED">Cancelled</SelectItem>
 							</SelectContent>
 						</Select>
+						<Button
+							type="button"
+							className="w-full shrink-0 md:w-auto"
+							onClick={requestOpenCreateMeeting}
+						>
+							<Plus className="mr-2 size-4" />
+							Create Meeting
+						</Button>
 					</div>
 				</CardContent>
 			</Card>
