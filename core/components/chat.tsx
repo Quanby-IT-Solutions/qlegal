@@ -84,7 +84,9 @@ function ChatBubble({
 				{timestamp ? (
 					<Tooltip delayDuration={300}>
 						<TooltipTrigger asChild>{inner}</TooltipTrigger>
-						<TooltipContent>{timestamp}</TooltipContent>
+						<TooltipContent side="top" align="end">
+							{timestamp}
+						</TooltipContent>
 					</Tooltip>
 				) : (
 					inner

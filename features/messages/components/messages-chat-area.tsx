@@ -6,6 +6,7 @@ import {
 	CalendarPlus,
 	ChevronLeft,
 	Info,
+	Loader2,
 	MessageSquare,
 	Paperclip,
 	Send,
@@ -45,6 +46,10 @@ function EmptyConversationState() {
 
 export function MessagesChatArea() {
 	const inputRef = React.useRef<HTMLInputElement>(null)
+	const scrollContainerRef = React.useRef<HTMLDivElement>(null)
+	const savedScrollHeightRef = React.useRef(0)
+	const prevMessageCountRef = React.useRef(0)
+	const topSentinelRef = React.useRef<HTMLDivElement>(null)
 
 	const {
 		session,
@@ -71,7 +76,37 @@ export function MessagesChatArea() {
 		handleBookConsultationSave,
 		isEnpConsultationBookingBlocked,
 		panelParticipant,
+		hasOlderMessages,
+		isFetchingOlderMessages,
+		fetchOlderMessages,
 	} = useMessagesContext()
+
+	// Preserve scroll position when older messages prepend
+	React.useLayoutEffect(() => {
+		if (!scrollContainerRef.current || !messages) return
+		if (savedScrollHeightRef.current > 0 && messages.length > prevMessageCountRef.current) {
+			scrollContainerRef.current.scrollTop +=
+				scrollContainerRef.current.scrollHeight - savedScrollHeightRef.current
+			savedScrollHeightRef.current = 0
+		}
+		prevMessageCountRef.current = messages.length
+	}, [messages])
+
+	// Observe top sentinel; fetch older messages when it enters view
+	React.useEffect(() => {
+		if (!topSentinelRef.current) return
+		const observer = new IntersectionObserver(
+			([entry]) => {
+				if (entry?.isIntersecting && hasOlderMessages && !isFetchingOlderMessages) {
+					savedScrollHeightRef.current = scrollContainerRef.current?.scrollHeight ?? 0
+					;(fetchOlderMessages as () => void)()
+				}
+			},
+			{ root: scrollContainerRef.current, threshold: 0 }
+		)
+		observer.observe(topSentinelRef.current)
+		return () => observer.disconnect()
+	}, [hasOlderMessages, isFetchingOlderMessages, fetchOlderMessages])
 
 	const otherUserLastReadAt =
 		(selectedConversation?.otherUserLastReadAt as Date | null | undefined) ?? null
@@ -163,7 +198,7 @@ export function MessagesChatArea() {
 						</div>
 
 						{/* Messages area */}
-						<div className="flex-1 overflow-y-auto p-3 pb-1">
+						<div ref={scrollContainerRef} className="flex-1 overflow-y-auto p-3 pb-0">
 							{isDraftConversation ? (
 								<EmptyConversationState />
 							) : loadingMessages ? (
@@ -172,6 +207,14 @@ export function MessagesChatArea() {
 								</div>
 							) : messages && messages.length > 0 ? (
 								<Chat.List>
+									{" "}
+									{/* Top sentinel triggers fetch of older pages */}
+									<div ref={topSentinelRef} />
+									{isFetchingOlderMessages && (
+										<div className="flex justify-center py-2">
+											<Loader2 className="text-muted-foreground size-4 animate-spin" />
+										</div>
+									)}{" "}
 									{messages.map((message, index) => {
 										const isSent = message.senderId === session?.user?.id
 										const isConsultationRequest = message.messageType === "consultation_request"
@@ -248,8 +291,8 @@ export function MessagesChatArea() {
 													</div>
 												</Chat.Bubble>
 												{index === lastSeenByOtherIndex && otherUserLastReadAt && (
-													<div className="mt-2 mb-0.5 flex justify-end pr-1">
-														<Tooltip>
+													<div className="mt-1.5 mb-2 flex justify-end pr-1">
+														<Tooltip delayDuration={300}>
 															<TooltipTrigger asChild>
 																<Avatar className="size-3 cursor-default">
 																	<AvatarImage src={activeParticipant.image ?? undefined} />
@@ -261,7 +304,7 @@ export function MessagesChatArea() {
 																	</AvatarFallback>
 																</Avatar>
 															</TooltipTrigger>
-															<TooltipContent side="left">
+															<TooltipContent side="top" align="end">
 																<p className="text-xs">
 																	Seen by {activeParticipant.name}{" "}
 																	{isToday(new Date(otherUserLastReadAt))
@@ -313,11 +356,10 @@ export function MessagesChatArea() {
 										onChange={handleInputChange}
 										className="h-9 pr-8 text-sm"
 										onKeyDown={e => {
-											if (e.key === "Enter" && messageInput.trim()) {
-												void handleSendMessage().then(() => inputRef.current?.focus())
+											if (e.key === "Enter" && !isSendingTextMessage && messageInput.trim()) {
+												void handleSendMessage()
 											}
 										}}
-										disabled={isSendingTextMessage}
 									/>
 									<Button
 										variant="ghost"
@@ -331,7 +373,7 @@ export function MessagesChatArea() {
 									size="icon"
 									className="size-7 rounded-full"
 									disabled={!messageInput.trim() || isSendingTextMessage}
-									onClick={() => void handleSendMessage().then(() => inputRef.current?.focus())}
+									onClick={() => void handleSendMessage()}
 								>
 									<Send className="size-4" />
 								</Button>

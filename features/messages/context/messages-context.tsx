@@ -1,7 +1,7 @@
 "use client"
 
 import { useSearchParams } from "next/navigation"
-import React, { createContext, useContext, useEffect, useRef, useState } from "react"
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react"
 import { useSession } from "next-auth/react"
 import { toast } from "sonner"
 
@@ -26,7 +26,11 @@ export type ConversationParticipantDetails = {
 }
 
 type Conversation = RouterOutputs["messages"]["getConversations"][number]
-type Message = RouterOutputs["messages"]["getMessages"][number]
+// The `messages` key appears both as the tRPC router namespace and as a field in the
+// getMessages procedure output. Chained index access like ["messages"]["getMessages"]["messages"]
+// trips TypeScript's resolver, so we use conditional infer instead.
+type GetMessagesPage = RouterOutputs["messages"]["getMessages"]
+type Message = GetMessagesPage extends { messages: Array<infer T> } ? T : never
 type SearchUser = RouterOutputs["messages"]["searchUsers"][number]
 
 type MessagesContextValue = {
@@ -66,6 +70,10 @@ type MessagesContextValue = {
 	setIsBookingModalOpen: React.Dispatch<React.SetStateAction<boolean>>
 	kycBookingBlockOpen: boolean
 	setKycBookingBlockOpen: React.Dispatch<React.SetStateAction<boolean>>
+	// Pagination
+	hasOlderMessages: boolean
+	isFetchingOlderMessages: boolean
+	fetchOlderMessages: () => void
 	// Refs
 	messagesEndRef: React.RefObject<HTMLDivElement | null>
 	// Handlers
@@ -79,7 +87,7 @@ type MessagesContextValue = {
 
 const MessagesContext = createContext<MessagesContextValue | null>(null)
 
-export function useMessagesContext() {
+export function useMessagesContext(): MessagesContextValue {
 	const ctx = useContext(MessagesContext)
 	if (!ctx) throw new Error("useMessagesContext must be used within MessagesProvider")
 	return ctx
@@ -129,7 +137,22 @@ export function MessagesProvider({ children }: { children: React.ReactNode }) {
 	}, [isMobile])
 
 	const messagesQuery = getMessages(selectedConversationId ?? "")
-	const { data: messages, isLoading: loadingMessages } = messagesQuery
+	const {
+		data: messagesData,
+		isLoading: loadingMessages,
+		fetchNextPage: fetchOlderMessagesQuery,
+		hasNextPage,
+		isFetchingNextPage: isFetchingOlderMessages,
+	} = messagesQuery
+
+	// Pages are stored newest-first (page[0] = most recent). Reverse so oldest renders at top.
+	const messages = messagesData
+		? ([...messagesData.pages].reverse().flatMap(p => p.messages) as Message[])
+		: undefined
+
+	const fetchOlderMessages: () => void = useCallback(() => {
+		void fetchOlderMessagesQuery()
+	}, [fetchOlderMessagesQuery])
 
 	const { isOtherUserTyping } = useMessagesSubscriptions({
 		userId: session?.user?.id,
@@ -162,10 +185,19 @@ export function MessagesProvider({ children }: { children: React.ReactNode }) {
 		}
 	}, [conversations, draftConversationUser, selectedConversationId, searchParams])
 
-	// Scroll to bottom when messages change or typing indicator changes
+	// Scroll to bottom only for new messages/typing — not when older pages prepend.
+	const wasLoadingOlderRef = useRef(false)
 	useEffect(() => {
+		if (isFetchingOlderMessages) {
+			wasLoadingOlderRef.current = true
+			return
+		}
+		if (wasLoadingOlderRef.current) {
+			wasLoadingOlderRef.current = false
+			return
+		}
 		messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
-	}, [messages, isOtherUserTyping])
+	}, [messages, isOtherUserTyping, isFetchingOlderMessages])
 
 	// Mark conversation as read whenever a new message arrives — but only if the tab is visible.
 	const lastIncomingMessageId = messages?.at(-1)?.id
@@ -394,6 +426,9 @@ export function MessagesProvider({ children }: { children: React.ReactNode }) {
 				loadingConversations,
 				messages,
 				loadingMessages,
+				hasOlderMessages: hasNextPage ?? false,
+				isFetchingOlderMessages,
+				fetchOlderMessages,
 				isOtherUserTyping, // eslint-disable-line @typescript-eslint/no-unsafe-assignment
 				searchResults,
 				selectedConversationId,

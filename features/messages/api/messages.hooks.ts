@@ -9,12 +9,13 @@ export function useMessages() {
 		// Get all conversations
 		getConversations: trpc.messages.getConversations.useQuery(undefined),
 
-		// Get messages for a conversation
+		// Get messages for a conversation (cursor-paginated)
 		getMessages: (conversationId: string) =>
-			trpc.messages.getMessages.useQuery(
-				{ conversationId, limit: 100 },
+			trpc.messages.getMessages.useInfiniteQuery(
+				{ conversationId, limit: 20 },
 				{
 					enabled: !!conversationId,
+					getNextPageParam: lastPage => lastPage.nextCursor ?? undefined,
 				}
 			),
 
