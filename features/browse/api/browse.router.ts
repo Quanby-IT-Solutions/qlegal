@@ -76,7 +76,11 @@ export const browseRouter = createTRPCRouter({
 	 */
 	findBestMatch: protectedProcedure.input(findBestMatchSchema).query(async ({ ctx, input }) => {
 		// Query available ENPs
-		const conditions = [eq(users.role, "ENP"), eq(enpProfiles.isAvailable, true)]
+		const conditions = [
+			eq(users.role, "ENP"),
+			eq(users.commissionStatus, "ACTIVE"),
+			eq(enpProfiles.isAvailable, true),
+		]
 		// When caller is an ENP (e.g. booking another ENP), exclude themselves
 		if (ctx.session.user.role === "ENP") {
 			conditions.push(ne(users.id, ctx.session.user.id))
@@ -169,7 +173,11 @@ export const browseRouter = createTRPCRouter({
 			const currentUserRole = ctx.session.user.role
 
 			// Build where conditions
-			const baseConditions = [eq(users.role, "ENP"), eq(enpProfiles.isAvailable, true)]
+			const baseConditions = [
+				eq(users.role, "ENP"),
+				eq(users.commissionStatus, "ACTIVE"),
+				eq(enpProfiles.isAvailable, true),
+			]
 
 			// When viewer is an ENP (e.g. booking another ENP for notarization), exclude themselves from the list
 			if (currentUserRole === "ENP") {
@@ -313,15 +321,22 @@ export const browseRouter = createTRPCRouter({
 			}
 			assertBookerCanBookLawyerForKyc(booker.role, booker.kycStatus)
 
-			// Verify the ENP exists and has ENP role
 			const enp = await ctx.db.query.users.findFirst({
 				where: eq(users.id, input.enpId),
+				columns: { role: true, commissionStatus: true },
 			})
 
 			if (enp?.role !== "ENP") {
 				throw new TRPCError({
 					code: "NOT_FOUND",
 					message: "Electronic Notary Public not found",
+				})
+			}
+			if (enp.commissionStatus !== "ACTIVE") {
+				throw new TRPCError({
+					code: "PRECONDITION_FAILED",
+					message:
+						"This Electronic Notary Public is not yet accepting bookings. They must be approved (commission active) first.",
 				})
 			}
 
@@ -564,7 +579,7 @@ export const browseRouter = createTRPCRouter({
 	// Get all lawyers (ENP role users) with their profiles
 	getLawyers: publicProcedure.input(searchLawyersSchema).query(async ({ ctx, input }) => {
 		// Build where condition
-		const whereConditions = [eq(users.role, "ENP")]
+		const whereConditions = [eq(users.role, "ENP"), eq(users.commissionStatus, "ACTIVE")]
 
 		// Add search filter if query provided
 		const searchQuery = (input as { query?: string }).query
@@ -654,6 +669,7 @@ export const browseRouter = createTRPCRouter({
 				phoneNumber: users.phoneNumber,
 				emailVerified: users.emailVerified,
 				role: users.role,
+				commissionStatus: users.commissionStatus,
 				// ENP Profile fields
 				specialization: enpProfiles.specialization,
 				bio: enpProfiles.bio,
@@ -671,7 +687,7 @@ export const browseRouter = createTRPCRouter({
 
 		const lawyer = result[0]
 
-		if (lawyer?.role !== "ENP") {
+		if (lawyer?.role !== "ENP" || lawyer.commissionStatus !== "ACTIVE") {
 			return null
 		}
 

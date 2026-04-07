@@ -3,6 +3,7 @@ import { tracked, TRPCError } from "@trpc/server"
 import { and, asc, desc, eq, gt, ne, or, sql } from "drizzle-orm"
 import { z } from "zod/v4"
 
+import { assertEnpCommissionActiveForRestrictedOps } from "@/core/lib/enp-lms-guard"
 import { assertEnpCanCreateMeetingForKyc } from "@/core/lib/kyc-restriction-guards"
 import { getFullName } from "@/core/lib/utils"
 
@@ -800,7 +801,7 @@ export const messagesRouter = createTRPCRouter({
 			// Ensure sender is an ENP
 			const sender = await db.query.users.findFirst({
 				where: eq(users.id, ctx.session.user.id),
-				columns: { id: true, role: true },
+				columns: { id: true, role: true, commissionStatus: true },
 			})
 			if (sender?.role !== "ENP") {
 				throw new TRPCError({
@@ -810,6 +811,7 @@ export const messagesRouter = createTRPCRouter({
 			}
 
 			assertEnpCanCreateMeetingForKyc(ctx.session.user.role, ctx.session.user.kycStatus)
+			assertEnpCommissionActiveForRestrictedOps(sender.role, sender.commissionStatus)
 
 			// Verify participant
 			const participant = await db.query.conversationParticipants.findFirst({
@@ -884,7 +886,7 @@ export const messagesRouter = createTRPCRouter({
 		.mutation(async ({ input, ctx }) => {
 			const sender = await db.query.users.findFirst({
 				where: eq(users.id, ctx.session.user.id),
-				columns: { id: true, role: true },
+				columns: { id: true, role: true, commissionStatus: true },
 			})
 
 			if (sender?.role !== "ENP") {
@@ -895,6 +897,7 @@ export const messagesRouter = createTRPCRouter({
 			}
 
 			assertEnpCanCreateMeetingForKyc(ctx.session.user.role, ctx.session.user.kycStatus)
+			assertEnpCommissionActiveForRestrictedOps(sender.role, sender.commissionStatus)
 
 			const metadata = buildConsultationRequestMetadata(input, ctx.session.user.id)
 
