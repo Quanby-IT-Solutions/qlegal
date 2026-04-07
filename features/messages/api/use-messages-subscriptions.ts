@@ -19,7 +19,7 @@ export function useMessagesSubscriptions({
 	lastMessageId,
 }: UseMessagesSubscriptionsParams) {
 	const [isOtherUserTyping, setIsOtherUserTyping] = useState(false)
-	const typingTimeoutRef = useRef<ReturnType<typeof setTimeout>>()
+	const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
 	useEffect(() => {
 		setIsOtherUserTyping(false)
