@@ -2,15 +2,9 @@
 
 import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { ChevronLeft, ChevronRight, RotateCw, ZoomIn, ZoomOut } from "lucide-react"
+import { Document, Page } from "react-pdf"
 
 import { Button } from "@/core/components/ui/button"
-
-// Import react-pdf CSS
-import "react-pdf/dist/Page/AnnotationLayer.css"
-import "react-pdf/dist/Page/TextLayer.css"
-
-// Import react-pdf components directly (will be handled by client-side only loading)
-import { Document, Page } from "react-pdf"
 
 interface SimplePdfViewerProps {
 	fileUrl: string
