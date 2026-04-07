@@ -105,7 +105,7 @@ export async function POST(request: NextRequest) {
 		if (applicationStatus === "auto_approved") {
 			kycStatus = "VERIFIED"
 			console.log("✅ KYC Approved via webhook")
-		} else if (applicationStatus === "auto_declined") {
+		} else if (applicationStatus === "auto_declined" || applicationStatus === "manual_declined") {
 			kycStatus = "REJECTED"
 			console.log("❌ KYC Rejected via webhook")
 		} else if (applicationStatus === "needs_review") {

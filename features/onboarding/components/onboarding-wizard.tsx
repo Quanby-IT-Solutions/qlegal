@@ -1,9 +1,11 @@
 "use client"
 
-import { useSession } from "next-auth/react"
+/** @deprecated `/onboarding` redirects to Profile; wizard not mounted in production routing. */
+
 import { useEffect, useState } from "react"
 import { CircleArrowRight, Logout01Icon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
+import { useSession } from "next-auth/react"
 
 import { QuanbyLogo } from "@/core/components/quanby-logo"
 import { Button } from "@/core/components/ui/button"
@@ -40,17 +42,31 @@ function clearWelcomeDismissedStorage() {
 	}
 }
 
-export function OnboardingWizard() {
+export function OnboardingWizard({
+	skipWelcomeForKyc = false,
+	kycReturnTo = null,
+	autoStartKyc = false,
+}: {
+	skipWelcomeForKyc?: boolean
+	/** When set (e.g. from `?returnTo=`), Back on the first step navigates here instead of the welcome screen. */
+	kycReturnTo?: string | null
+	/** From `?autoStart=1`: open the identity SDK immediately instead of stopping on the intro screen. */
+	autoStartKyc?: boolean
+} = {}) {
 	const { data: session } = useSession()
-	const [welcomeDismissedLocally, setWelcomeDismissedLocally] = useState(false)
-	const [storageDismissed, setStorageDismissed] = useState(false)
+	const [welcomeDismissedLocally, setWelcomeDismissedLocally] = useState(skipWelcomeForKyc)
+	const [storageDismissed, setStorageDismissed] = useState(skipWelcomeForKyc)
 	/** When true, show the welcome screen even if KYC is PENDING/VERIFIED (fixes Back on step 1 after cancel + return). */
 	const [backToWelcome, setBackToWelcome] = useState(false)
 	const [isExpanded, setIsExpanded] = useState(false)
 
 	useEffect(() => {
+		if (skipWelcomeForKyc) {
+			persistWelcomeDismissed()
+			return
+		}
 		setStorageDismissed(readWelcomeDismissedFromStorage())
-	}, [])
+	}, [skipWelcomeForKyc])
 
 	useEffect(() => {
 		const kyc = session?.user?.kycStatus
@@ -61,8 +77,7 @@ export function OnboardingWizard() {
 	}, [session?.user?.kycStatus])
 
 	const kycHasBegun =
-		typeof session?.user?.kycStatus === "string" &&
-		session.user.kycStatus !== "NOT_STARTED"
+		typeof session?.user?.kycStatus === "string" && session.user.kycStatus !== "NOT_STARTED"
 
 	const showWizardFlow =
 		!backToWelcome && (welcomeDismissedLocally || storageDismissed || kycHasBegun)
@@ -126,6 +141,8 @@ export function OnboardingWizard() {
 				<OnboardingWizardContent
 					onRestartWelcome={handleRestartWelcome}
 					onExpandChange={setIsExpanded}
+					kycReturnTo={kycReturnTo}
+					autoStartKyc={autoStartKyc}
 				/>
 			)}
 		</Card>

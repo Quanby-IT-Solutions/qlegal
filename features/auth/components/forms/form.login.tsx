@@ -105,20 +105,13 @@ export function LoginForm({ callbackUrl }: { callbackUrl?: Route }) {
 					setFormSuccess(response.success)
 					// Update the session to reflect the logged-in user immediately
 					const updatedSession = await update()
-					// Navigate to KYC if not verified, otherwise go to callback URL or dashboard
 
 					const user = updatedSession?.user
 					if (user) {
-						const kycStatus: string | undefined =
-							"kycStatus" in user && typeof user.kycStatus === "string" ? user.kycStatus : undefined
-
 						const userStatus: string | undefined =
 							"status" in user && typeof user.status === "string" ? user.status : undefined
 
-						// Check KYC status first
-						if (kycStatus === "NOT_STARTED" || kycStatus === "PENDING") {
-							router.push("/onboarding" as Route)
-						} else if (userStatus === "SUSPENDED") {
+						if (userStatus === "SUSPENDED") {
 							router.push("/auth/status" as Route)
 						} else {
 							const destination: Route = callbackUrl ?? "/dashboard"

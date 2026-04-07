@@ -2,6 +2,7 @@ import { TRPCError } from "@trpc/server"
 import { and, desc, eq, gte, inArray, or } from "drizzle-orm"
 import { z } from "zod/v4"
 
+import { assertBookerCanBookLawyerForKyc } from "@/core/lib/kyc-restriction-guards"
 import { getFullName } from "@/core/lib/utils"
 
 import { type db } from "@/services/drizzle/db"
@@ -86,6 +87,18 @@ export const appointmentsRouter = createTRPCRouter({
 		.input(createAppointmentSchema)
 		.mutation(async ({ ctx, input }) => {
 			const principalId = ctx.session.user.id
+
+			const booker = await ctx.db.query.users.findFirst({
+				where: eq(users.id, principalId),
+				columns: { kycStatus: true, role: true },
+			})
+			if (!booker) {
+				throw new TRPCError({
+					code: "UNAUTHORIZED",
+					message: "User not found",
+				})
+			}
+			assertBookerCanBookLawyerForKyc(booker.role, booker.kycStatus)
 
 			// Verify the ENP exists and has ENP role
 			const enp = await ctx.db.query.users.findFirst({
