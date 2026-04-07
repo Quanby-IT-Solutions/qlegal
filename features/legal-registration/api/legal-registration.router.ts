@@ -4,6 +4,7 @@ import { z } from "zod/v4"
 
 import { db } from "@/services/drizzle/db"
 import { users } from "@/services/drizzle/schema/auth"
+import { enpProfiles } from "@/services/drizzle/schema/enp-profiles"
 import { legalRegistrations } from "@/services/drizzle/schema/legal-registration"
 import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
 
@@ -204,21 +205,38 @@ export const legalRegistrationRouter = createTRPCRouter({
 			}
 		}),
 
-	/** Server source of truth for placeholder LMS completion (survives new devices / cleared storage). */
+	/**
+	 * Step 2 (`completedAt`) = initial LMS / certificate placeholder. All modules (`allModulesCompletedAt`) = optional 5/5 telemetry.
+	 * Sessions and booking require commissionStatus ACTIVE (admin approval).
+	 */
 	getMyEnpLmsCompletion: protectedProcedure
-		.output(z.object({ completedAt: z.string().nullable() }))
+		.output(
+			z.object({
+				completedAt: z.string().nullable(),
+				allModulesCompletedAt: z.string().nullable(),
+			})
+		)
 		.query(async ({ ctx }) => {
 			const row = await db.query.users.findFirst({
 				where: eq(users.id, ctx.session.user.id),
-				columns: { enpLmsCourseCompletedAt: true },
+				columns: { enpLmsCourseCompletedAt: true, enpLmsAllModulesCompletedAt: true },
 			})
-			const at = row?.enpLmsCourseCompletedAt
-			return { completedAt: at ? at.toISOString() : null }
+			const step2 = row?.enpLmsCourseCompletedAt
+			const all = row?.enpLmsAllModulesCompletedAt
+			return {
+				completedAt: step2 ? step2.toISOString() : null,
+				allModulesCompletedAt: all ? all.toISOString() : null,
+			}
 		}),
 
 	recordEnpLmsCourseCompletion: protectedProcedure
 		.input(z.object({ completedAtIso: z.string().optional() }))
-		.output(z.object({ completedAt: z.string() }))
+		.output(
+			z.object({
+				completedAt: z.string(),
+				promotedToEnp: z.boolean(),
+			})
+		)
 		.mutation(async ({ ctx, input }) => {
 			const nextAt = input.completedAtIso ? new Date(input.completedAtIso) : new Date()
 			if (Number.isNaN(nextAt.getTime())) {
@@ -227,18 +245,77 @@ export const legalRegistrationRouter = createTRPCRouter({
 
 			const row = await db.query.users.findFirst({
 				where: eq(users.id, ctx.session.user.id),
-				columns: { enpLmsCourseCompletedAt: true },
+				columns: { enpLmsCourseCompletedAt: true, role: true },
 			})
 			const existing = row?.enpLmsCourseCompletedAt
 			const chosen =
 				existing && existing.getTime() >= nextAt.getTime() ? existing : nextAt
 
+			const promoteToEnp = row?.role === "PRINCIPAL"
+
 			await db
 				.update(users)
-				.set({ enpLmsCourseCompletedAt: chosen })
+				.set({
+					enpLmsCourseCompletedAt: chosen,
+					...(promoteToEnp
+						? {
+								role: "ENP",
+								commissionStatus: "PENDING",
+							}
+						: {}),
+				})
 				.where(eq(users.id, ctx.session.user.id))
 
-			return { completedAt: chosen.toISOString() }
+			if (promoteToEnp) {
+				const hasProfile = await db.query.enpProfiles.findFirst({
+					where: eq(enpProfiles.userId, ctx.session.user.id),
+					columns: { id: true },
+				})
+				if (!hasProfile) {
+					await db.insert(enpProfiles).values({
+						userId: ctx.session.user.id,
+						isAvailable: true,
+					})
+				}
+			}
+
+			return { completedAt: chosen.toISOString(), promotedToEnp: promoteToEnp }
+		}),
+
+	/** Record completion of all five ENP training modules (progress only; commission ACTIVE still required for sessions/booking). */
+	recordEnpLmsAllModulesCompletion: protectedProcedure
+		.output(z.object({ completedAt: z.string() }))
+		.mutation(async ({ ctx }) => {
+			const row = await db.query.users.findFirst({
+				where: eq(users.id, ctx.session.user.id),
+				columns: {
+					role: true,
+					enpLmsCourseCompletedAt: true,
+					enpLmsAllModulesCompletedAt: true,
+				},
+			})
+			if (row?.role !== "ENP") {
+				throw new TRPCError({
+					code: "PRECONDITION_FAILED",
+					message: "Complete step 2 of the ENP course (certificate) first. That step upgrades your account to ENP.",
+				})
+			}
+			if (!row.enpLmsCourseCompletedAt) {
+				throw new TRPCError({
+					code: "PRECONDITION_FAILED",
+					message: "Finish the initial LMS step and download your certificate before marking all modules complete.",
+				})
+			}
+			const existingFull = row.enpLmsAllModulesCompletedAt
+			if (existingFull) {
+				return { completedAt: existingFull.toISOString() }
+			}
+			const now = new Date()
+			await db
+				.update(users)
+				.set({ enpLmsAllModulesCompletedAt: now })
+				.where(eq(users.id, ctx.session.user.id))
+			return { completedAt: now.toISOString() }
 		}),
 
 	// Update application (only in DRAFT status)

@@ -38,8 +38,13 @@ export const users = createTable("user", t => ({
 	onboardingCompletedAt: t.timestamp({ mode: "date", withTimezone: true }),
 	onboardingDetailsCompletedAt: t.timestamp({ mode: "date", withTimezone: true }),
 	onboardingSnoozedUntil: t.timestamp({ mode: "date", withTimezone: true }),
-	/** Placeholder ENP LMS: set when user downloads the course certificate (until real LMS integration). */
+	/**
+	 * ENP LMS step 2 (intro / certificate placeholder). When set for a PRINCIPAL, we promote to ENP
+	 * with commissionStatus PENDING. Does not unlock sessions or booking — admin sets commission ACTIVE.
+	 */
 	enpLmsCourseCompletedAt: t.timestamp({ mode: "date", withTimezone: true }),
+	/** Optional telemetry: all five ENP training modules marked complete (does not gate sessions or booking). */
+	enpLmsAllModulesCompletedAt: t.timestamp({ mode: "date", withTimezone: true }),
 })).enableRLS()
 
 export const accounts = createTable(

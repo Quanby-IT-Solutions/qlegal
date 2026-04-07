@@ -14,7 +14,7 @@ import {
 	SidebarMenuItem,
 	SidebarRail,
 } from "@/core/components/animate-ui/components/radix/sidebar"
-import { SidebarCourseCard } from "@/core/components/navbar/sidebar-course-card"
+// import { SidebarCourseCard } from "@/core/components/navbar/sidebar-course-card"
 import { SidebarNavSection } from "@/core/components/navbar/sidebar-nav-section"
 import { SidebarSecondaryNav } from "@/core/components/navbar/sidebar-secondary-nav"
 import { UserDropdown } from "@/core/components/navbar/user-dropdown"
@@ -58,7 +58,7 @@ export const SiteSidebar = () => {
 					<SidebarSecondaryNav items={navSecondary} />
 					<div className="flex flex-col gap-1 group-data-[collapsible=icon]:gap-0">
 						{isDashboardRoute ? <EnpAccreditationProgressSidebarBanner /> : null}
-						<SidebarCourseCard />
+						{/* <SidebarCourseCard /> */}
 					</div>
 				</div>
 			</SidebarContent>

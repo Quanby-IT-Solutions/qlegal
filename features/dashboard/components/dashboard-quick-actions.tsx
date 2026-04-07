@@ -93,19 +93,20 @@ export function DashboardQuickActions({
 							</div>
 						</div>
 					</Link>
-					<Link
-						href="/envelopes"
+					<div
 						className={buttonVariants({
 							variant: "outline",
-							className: "h-auto flex-col items-start gap-2 p-4",
+							className:
+								"hover:bg-background h-auto cursor-default flex-col items-start gap-2 p-4 hover:text-foreground",
 						})}
+						aria-disabled="true"
 					>
 						<HugeiconsIcon icon={FileAddIcon} size={20} />
 						<div className="text-left">
 							<div className="font-semibold">Upload Document</div>
 							<div className="text-muted-foreground text-xs">Create new envelope</div>
 						</div>
-					</Link>
+					</div>
 					<Link
 						href="/appointments"
 						className={buttonVariants({

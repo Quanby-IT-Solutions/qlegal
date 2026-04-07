@@ -2,6 +2,7 @@ import { TRPCError } from "@trpc/server"
 import { and, desc, eq, gte, inArray, or } from "drizzle-orm"
 import { z } from "zod/v4"
 
+import { assertEnpCommissionActiveForRestrictedOps } from "@/core/lib/enp-lms-guard"
 import { assertBookerCanBookLawyerForKyc } from "@/core/lib/kyc-restriction-guards"
 import { getFullName } from "@/core/lib/utils"
 
@@ -244,12 +245,20 @@ export const appointmentsRouter = createTRPCRouter({
 		// Verify the ENP exists and has ENP role
 		const enp = await ctx.db.query.users.findFirst({
 			where: eq(users.id, input.enpId),
+			columns: { id: true, role: true, commissionStatus: true },
 		})
 
 		if (enp?.role !== "ENP") {
 			throw new TRPCError({
 				code: "NOT_FOUND",
 				message: "Electronic Notary Public not found",
+			})
+		}
+		if (enp.commissionStatus !== "ACTIVE") {
+			throw new TRPCError({
+				code: "PRECONDITION_FAILED",
+				message:
+					"This Electronic Notary Public is not yet available for requests. They must be approved (commission active) first.",
 			})
 		}
 
@@ -643,6 +652,15 @@ export const appointmentsRouter = createTRPCRouter({
 					message: "Only the host can confirm this appointment",
 				})
 			}
+
+			const confirmingUser = await ctx.db.query.users.findFirst({
+				where: eq(users.id, userId),
+				columns: { role: true, commissionStatus: true },
+			})
+			assertEnpCommissionActiveForRestrictedOps(
+				confirmingUser?.role,
+				confirmingUser?.commissionStatus
+			)
 
 			// Create/link a meeting on accept for both REN and IEN so accepted bookings
 			// show up under Sessions (Ongoing/Upcoming) consistently.
@@ -1137,6 +1155,15 @@ export const appointmentsRouter = createTRPCRouter({
 		.input(createEnpEventSchema)
 		.mutation(async ({ ctx, input }) => {
 			const userId = ctx.session.user.id
+
+			const scheduleActor = await ctx.db.query.users.findFirst({
+				where: eq(users.id, userId),
+				columns: { role: true, commissionStatus: true },
+			})
+			assertEnpCommissionActiveForRestrictedOps(
+				scheduleActor?.role,
+				scheduleActor?.commissionStatus
+			)
 
 			// Parse appointment date with time
 			const appointmentDateTime = new Date(input.appointmentDate)

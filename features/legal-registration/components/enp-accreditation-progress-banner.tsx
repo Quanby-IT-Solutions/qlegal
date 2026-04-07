@@ -60,41 +60,29 @@ import {
 } from "../lib/enp-course-certificate"
 import {
 	ENP_SC_CREDENTIALS_CHANGED_EVENT,
-	getEnpScCredentialsStorageKey,
 	readEnpScCredentialsRecordedAt,
 } from "../lib/enp-sc-credentials"
 
 const STEPS = [
 	"Start the ENP accreditation journey",
 	"Complete the LMS course",
-	"Return to QLegal and submit your application",
-	"Submit your certificate/credentials to the Supreme Court",
-	"Wait for Supreme Court accreditation (we activate your commission after approval)",
+	"Complete your ENP profile (roll registration, licensing, certifications)",
+	"Submit your ENP application for review",
+	"Commission activation — a QLegal administrator sets your commission to Active after accreditation (sandbox stand-in for Supreme Court approval)",
 ] as const
 
 /** Shorter copy for narrow modals (full text in `title` tooltip). */
 const STEPS_TIMELINE_COMPACT = [
 	"Start ENP journey",
 	"LMS course",
-	"QLegal application",
-	"SC credentials",
-	"Await SC approval",
+	"ENP profile",
+	"Submit application",
+	"Admin activates commission",
 ] as const
 
-function getCurrentStepIndex(applicationStatus: string | null | undefined): number {
-	switch (applicationStatus) {
-		case "DRAFT":
-			return 2
-		case "PENDING":
-		case "UNDER_REVIEW":
-			return 4
-		case "APPROVED":
-			return 4
-		case "REJECTED":
-			return 2
-		default:
-			return 0
-	}
+function isNonEmpty(value: unknown): boolean {
+	if (typeof value !== "string") return false
+	return value.trim().length > 0
 }
 
 type EnpAccreditationProgressBannerProps = {
@@ -237,6 +225,11 @@ export function EnpAccreditationProgressBanner({
 			refetchOnWindowFocus: true,
 		})
 
+	const { data: enpProfile } = trpc.profile.getEnpProfile.useQuery(undefined, {
+		enabled: isAuth && session?.user?.role === "ENP",
+		refetchOnWindowFocus: true,
+	})
+
 	const lmsBackfillDoneRef = useRef(false)
 	const recordLmsBackfill = trpc.legalRegistration.recordEnpLmsCourseCompletion.useMutation({
 		onSuccess: () => {
@@ -254,7 +247,6 @@ export function EnpAccreditationProgressBanner({
 	const [isDismissed, setIsDismissed] = useState(false)
 	const [isStepsTimelineOpen, setIsStepsTimelineOpen] = useState(false)
 	const [courseCertificateDownloadedAt, setCourseCertificateDownloadedAt] = useState<string | null>(null)
-	const [scCredentialsRecordedAt, setScCredentialsRecordedAt] = useState<string | null>(null)
 
 	useEffect(() => {
 		setIsClient(true)
@@ -317,24 +309,7 @@ export function EnpAccreditationProgressBanner({
 
 	useEffect(() => {
 		if (!isClient) return
-		setScCredentialsRecordedAt(readEnpScCredentialsRecordedAt(session?.user?.id))
-	}, [isClient, session?.user?.id])
-
-	useEffect(() => {
-		if (!isClient) return
-		const handler = (event: StorageEvent) => {
-			const key = getEnpScCredentialsStorageKey(session?.user?.id)
-			if (!key) return
-			if (event.key !== key) return
-			setScCredentialsRecordedAt(readEnpScCredentialsRecordedAt(session?.user?.id))
-		}
-		window.addEventListener("storage", handler)
-		return () => window.removeEventListener("storage", handler)
-	}, [isClient, session?.user?.id])
-
-	useEffect(() => {
-		if (!isClient) return
-		const sync = () => setScCredentialsRecordedAt(readEnpScCredentialsRecordedAt(session?.user?.id))
+		const sync = () => void readEnpScCredentialsRecordedAt(session?.user?.id)
 		window.addEventListener(ENP_SC_CREDENTIALS_CHANGED_EVENT, sync)
 		return () => window.removeEventListener(ENP_SC_CREDENTIALS_CHANGED_EVENT, sync)
 	}, [isClient, session?.user?.id])
@@ -353,6 +328,34 @@ export function EnpAccreditationProgressBanner({
 		[courseCertificateDownloadedAt, lmsCompletion?.completedAt]
 	)
 
+	const isEnpProfileComplete = useMemo(() => {
+		if (session?.user?.role !== "ENP") return false
+		if (!enpProfile) return false
+
+		// Roll Registration
+		if (!isNonEmpty(enpProfile.rollNo)) return false
+		if (!isNonEmpty(enpProfile.rollNoDate)) return false
+
+		// Licensing
+		if (!isNonEmpty(enpProfile.commissionNo)) return false
+		if (!isNonEmpty(enpProfile.commissionNoValidUntil)) return false
+		if (!isNonEmpty(enpProfile.ptrNo)) return false
+		if (!isNonEmpty(enpProfile.ptrNoLocation)) return false
+		if (!isNonEmpty(enpProfile.ptrNoDate)) return false
+		if (!isNonEmpty(enpProfile.ibpNo)) return false
+		if (!isNonEmpty(enpProfile.ibpNoDate)) return false
+		if (!isNonEmpty(enpProfile.notaryAddress)) return false
+		// Supreme Court eNotarization API sync requires per-ENP NPN; NFN is env-configured.
+		if (!isNonEmpty(enpProfile.notaryPublicNumber)) return false
+
+		// Certifications
+		if (!isNonEmpty(enpProfile.mcleNoPeriod)) return false
+		if (!isNonEmpty(enpProfile.mcleNo)) return false
+		if (!isNonEmpty(enpProfile.mcleNoDate)) return false
+
+		return true
+	}, [enpProfile, session?.user?.role])
+
 	useEffect(() => {
 		if (!isClient) return
 		// Same behavior for both sidebar + page:
@@ -366,49 +369,39 @@ export function EnpAccreditationProgressBanner({
 	const shouldShow = useMemo(() => {
 		if (!isAuth) return false
 		if (userStatus === "SUSPENDED") return false
+		// Principals start as users; show ENP path (LMS → QLegal application) on the dashboard sidebar.
+		if (userRole === "PRINCIPAL") {
+			if (!lmsCompletion?.completedAt) return true
+			if (application?.status !== "APPROVED") return true
+			return false
+		}
 		if (application && application.status !== "APPROVED") return true
 		if (userRole === "ENP" && userStatus && userStatus !== "ACTIVE") return true
 		return false
-	}, [application, isAuth, userRole, userStatus])
-
-	const rawStepIndex = useMemo(() => getCurrentStepIndex(application?.status), [application?.status])
+	}, [application, isAuth, lmsCompletion?.completedAt, userRole, userStatus])
 
 	const applicationSubmittedForReview =
 		application?.status === "PENDING" ||
 		application?.status === "UNDER_REVIEW" ||
 		application?.status === "APPROVED"
 
-	/** Step 4 satisfied by submitted QLegal application (server) or explicit SC placeholder click (localStorage). */
-	const scStepSatisfied =
-		Boolean(scCredentialsRecordedAt) || Boolean(applicationSubmittedForReview)
-
-	/** Until the placeholder certificate exists, keep “Complete the LMS course” as the current step for draft flows (don’t skip ahead to submit). */
+	/** Step ordering: LMS cert → ENP profile → submit application → admin activates commission. */
 	const stepIndex = useMemo(() => {
-		const hasCert = Boolean(mergedCertificateAt)
-		const status = application?.status
-		if (!hasCert && (status === "DRAFT" || status === "REJECTED") && rawStepIndex >= 2) {
-			return 1
+		// Already active commission: final step.
+		if (userRole === "ENP" && userStatus === "ACTIVE") return 4
+
+		// Principals: guide them through LMS until they become ENP.
+		if (userRole === "PRINCIPAL" || userRole === "ENA") {
+			if (!mergedCertificateAt) return 1
+			return 3
 		}
 
-		// After QLegal application is submitted for review, advance to the “wait for accreditation” step.
-		if (status === "PENDING" || status === "UNDER_REVIEW" || status === "APPROVED") {
-			if (!scStepSatisfied) return 3
-			return 4
-		}
-
-		// If accreditation is already active, force the final step to be current.
-		if (userRole === "ENP" && userStatus === "ACTIVE") {
-			return 4
-		}
-		return rawStepIndex
-	}, [
-		application?.status,
-		mergedCertificateAt,
-		rawStepIndex,
-		scStepSatisfied,
-		userRole,
-		userStatus,
-	])
+		// ENP flow.
+		if (!mergedCertificateAt) return 1
+		if (!isEnpProfileComplete) return 2
+		if (!applicationSubmittedForReview) return 3
+		return 4
+	}, [applicationSubmittedForReview, isEnpProfileComplete, mergedCertificateAt, userRole, userStatus])
 
 	const progressValue = useMemo(() => Math.round(((stepIndex + 1) / STEPS.length) * 100), [stepIndex])
 
@@ -429,13 +422,13 @@ export function EnpAccreditationProgressBanner({
 			states[1] = "completed"
 		}
 
-		// Step 3 (index 2): "submit your application" is verifiable.
-		if (application?.status && application.status !== "DRAFT" && application.status !== "REJECTED") {
+		// Step 3 (index 2): ENP profile is verifiable by required fields being filled.
+		if (isEnpProfileComplete) {
 			states[2] = "completed"
 		}
 
-		// Step 4 (index 3): SC credentials — complete once application is submitted for review and/or placeholder recorded.
-		if (scStepSatisfied) {
+		// Step 4 (index 3): ENP application submitted for review.
+		if (applicationSubmittedForReview) {
 			states[3] = "completed"
 		}
 
@@ -445,14 +438,7 @@ export function EnpAccreditationProgressBanner({
 		}
 
 		return states
-	}, [
-		application,
-		mergedCertificateAt,
-		scStepSatisfied,
-		stepIndex,
-		userRole,
-		userStatus,
-	])
+	}, [application, applicationSubmittedForReview, isEnpProfileComplete, mergedCertificateAt, stepIndex, userRole, userStatus])
 
 	const headline = useMemo(() => {
 		if (application?.status === "REJECTED") return "Your ENP application needs updates"
@@ -469,9 +455,9 @@ export function EnpAccreditationProgressBanner({
 		if (application?.status === "DRAFT")
 			return "Complete the requirements and submit. You can continue using QLegal while you work on this."
 		if (application?.status === "PENDING" || application?.status === "UNDER_REVIEW")
-			return "You can continue using QLegal. We’ll activate your commission once accreditation is confirmed."
+			return "You can continue using QLegal. A QLegal administrator sets your commission to Active when accreditation is complete (step 5 in the checklist)."
 		if (userRole === "ENP" && userStatus && userStatus !== "ACTIVE")
-			return "You can continue using QLegal. Commission-only actions will be available once you’re accredited."
+			return "Video sessions and booking stay off until your commission is Active. An administrator turns that on after accreditation—completing every box in the optional 5-module course checklist does not unlock them."
 		return "You can continue using QLegal while you complete your accreditation requirements."
 	}, [application?.status, userRole, userStatus])
 
@@ -539,8 +525,9 @@ export function EnpAccreditationProgressBanner({
 							<p className="text-muted-foreground text-xs leading-snug">
 								Submit your application from{" "}
 								<span className="text-foreground font-medium">Open</span> below. After it&apos;s submitted,
-								the checklist advances. You can still use the Supreme Court section on that page to record
-								an external submission date (optional placeholder).
+								the checklist advances. Complete your ENP profile from{" "}
+								<span className="text-foreground font-medium">Profile</span> before submitting. Commission
+								Active is set by an administrator after accreditation.
 							</p>
 							<div className="flex flex-wrap items-center justify-end gap-1.5 pt-1">
 								<Button
@@ -628,8 +615,10 @@ export function EnpAccreditationProgressBanner({
 						<p className="text-muted-foreground text-xs leading-snug">
 							Submit your application from{" "}
 							<span className="text-foreground font-medium">View ENP application</span>. After it&apos;s
-							submitted, the checklist advances. You can still use the Supreme Court section there to
-							record an external submission date (optional placeholder).
+							submitted, the checklist advances. Make sure you&apos;ve completed your ENP profile (roll
+							registration, licensing, certifications) from{" "}
+							<span className="text-foreground font-medium">Profile</span> first. Final step: an
+							administrator activates your commission.
 						</p>
 					</div>
 

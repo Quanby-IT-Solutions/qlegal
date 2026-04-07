@@ -1,9 +1,12 @@
 import { TRPCError } from "@trpc/server"
 
-/** Shared: KYC not yet complete for flows that require verification. */
-export function isKycNotStartedOrPending(kycStatus: string | null | undefined): boolean {
+/**
+ * KYC states that block restricted flows until identity verification succeeds.
+ * Includes not started, in review (pending), and rejected (user must re-verify).
+ */
+export function isKycVerificationBlocking(kycStatus: string | null | undefined): boolean {
 	const status = kycStatus ?? "NOT_STARTED"
-	return status === "NOT_STARTED" || status === "PENDING"
+	return status === "NOT_STARTED" || status === "PENDING" || status === "REJECTED"
 }
 
 /**
@@ -15,7 +18,7 @@ export function isLawyerBookingBlockedForKyc(
 	kycStatus: string | null | undefined
 ): boolean {
 	if (role !== "ENP" && role !== "PRINCIPAL") return false
-	return isKycNotStartedOrPending(kycStatus)
+	return isKycVerificationBlocking(kycStatus)
 }
 
 /**
@@ -26,7 +29,7 @@ export function isEnpMeetingCreationBlockedForKyc(
 	kycStatus: string | null | undefined
 ): boolean {
 	if (role !== "ENP") return false
-	return isKycNotStartedOrPending(kycStatus)
+	return isKycVerificationBlocking(kycStatus)
 }
 
 /** tRPC message for ENP/Principal KYC blocks when booking an ENP. */

@@ -8,6 +8,9 @@ import { CheckCircle2, Download, ExternalLink } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/core/components/ui/alert"
 import { Button } from "@/core/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/core/components/ui/card"
+import { Checkbox } from "@/core/components/ui/checkbox"
+import { Label } from "@/core/components/ui/label"
+import { cn } from "@/core/lib/utils"
 import { trpc } from "@/services/trpc/client"
 
 import {
@@ -132,8 +135,16 @@ function makeCertificateId(date: Date) {
 	return `ENP-${ts}-${rand}`
 }
 
+const ENP_LMS_MODULE_LABELS = [
+	"Module 1 — eNotarization rules and platform safety",
+	"Module 2 — Identity verification and signer obligations",
+	"Module 3 — Document handling, seals, and audit trail",
+	"Module 4 — Remote notarization (REN) workflow",
+	"Module 5 — Ethics, privilege, and session closure",
+] as const
+
 export function EnpCoursePlaceholder() {
-	const { data: session, status: sessionStatus } = useSession()
+	const { data: session, status: sessionStatus, update } = useSession()
 	const userId = session?.user?.id
 	const userEmail = session?.user?.email
 	const isAuth = Boolean(userId)
@@ -144,11 +155,21 @@ export function EnpCoursePlaceholder() {
 			refetchOnWindowFocus: true,
 		})
 	const recordLmsCompletion = trpc.legalRegistration.recordEnpLmsCourseCompletion.useMutation({
+		onSuccess: async result => {
+			void utils.legalRegistration.getMyEnpLmsCompletion.invalidate()
+			if (result.promotedToEnp) {
+				await update()
+			}
+		},
+	})
+	const recordAllModules = trpc.legalRegistration.recordEnpLmsAllModulesCompletion.useMutation({
 		onSuccess: () => {
 			void utils.legalRegistration.getMyEnpLmsCompletion.invalidate()
 		},
 	})
 	const lmsBackfillDoneRef = useRef(false)
+
+	const [modulesAck, setModulesAck] = useState<boolean[]>(() => ENP_LMS_MODULE_LABELS.map(() => false))
 
 	const fullName = useMemo(() => {
 		const name = session?.user?.name?.trim()
@@ -217,6 +238,10 @@ export function EnpCoursePlaceholder() {
 	)
 
 	const isCertificateDownloaded = Boolean(effectiveDownloadedAtIso)
+	const step2CompleteServer = Boolean(lmsCompletion?.completedAt)
+	const allModulesDoneServer = Boolean(lmsCompletion?.allModulesCompletedAt)
+	const showFullProgram = isCertificateDownloaded || step2CompleteServer
+	const allModulesAcked = modulesAck.every(Boolean)
 	const downloadedAtLabel = effectiveDownloadedAtIso
 		? new Date(effectiveDownloadedAtIso).toLocaleString()
 		: null
@@ -228,8 +253,9 @@ export function EnpCoursePlaceholder() {
 			<CardHeader>
 				<CardTitle>ENP Course (Placeholder)</CardTitle>
 				<CardDescription>
-					This is a temporary flow until the real LMS is integrated. Downloading the certificate marks the
-					“Complete the LMS course” step as completed.
+					Step 2 (certificate) upgrades your account to ENP when you started as a principal. The five-module
+					checklist below is optional progress only. Sessions, browse, and booking unlock when an administrator
+					sets your commission to Active (accreditation step 5)—not when you tick all five boxes here.
 				</CardDescription>
 			</CardHeader>
 			<CardContent className="space-y-4">
@@ -241,10 +267,10 @@ export function EnpCoursePlaceholder() {
 						<CheckCircle2 className="text-emerald-600 dark:text-emerald-400" />
 						<AlertTitle>Course completed</AlertTitle>
 						<AlertDescription className="text-muted-foreground mt-1">
-							You&apos;ve finished the ENP course placeholder and downloaded your certificate
-							{downloadedAtLabel ? ` on ${downloadedAtLabel}` : ""}. The &quot;Complete the LMS
-							course&quot; step in your accreditation journey stays marked as completed. You can download
-							the certificate again below if you need a new copy.
+							You&apos;ve finished step 2 and downloaded your certificate
+							{downloadedAtLabel ? ` on ${downloadedAtLabel}` : ""}. Your role is now ENP if you began as
+							a principal. You can use the module checklist below to track training; hosting sessions and
+							appearing in browse still require commission Active from an administrator.
 						</AlertDescription>
 					</Alert>
 				) : null}
@@ -323,6 +349,65 @@ export function EnpCoursePlaceholder() {
 						)}
 					</div>
 				</div>
+
+				{showFullProgram ? (
+					<div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-4">
+						<div className="text-sm font-medium">
+							3) Full ENP program (5 of 5 modules — optional record)
+						</div>
+						{allModulesDoneServer ? (
+							<Alert className="border-emerald-500/35 bg-emerald-500/10" role="status">
+								<CheckCircle2 className="text-emerald-600 dark:text-emerald-400" />
+								<AlertTitle>All modules recorded</AlertTitle>
+								<AlertDescription className="text-muted-foreground mt-1">
+									Training progress is saved. Sessions and being listed for booking still require
+									commission Active (admin approval after accreditation).
+								</AlertDescription>
+							</Alert>
+						) : (
+							<>
+								<p className="text-muted-foreground text-sm">
+									Confirm each module when finished (placeholder until the LMS tracks progress). This
+									does not replace admin commission activation for live sessions or public booking.
+								</p>
+								<ul className="space-y-3">
+									{ENP_LMS_MODULE_LABELS.map((label, idx) => (
+										<li key={label} className="flex items-start gap-3">
+											<Checkbox
+												id={`enp-mod-${idx}`}
+												checked={modulesAck[idx]}
+												onCheckedChange={v => {
+													setModulesAck(prev => {
+														const next = [...prev]
+														next[idx] = v === true
+														return next
+													})
+												}}
+												className="mt-0.5"
+											/>
+											<Label
+												htmlFor={`enp-mod-${idx}`}
+												className={cn(
+													"cursor-pointer text-sm leading-snug font-normal",
+													modulesAck[idx] && "text-muted-foreground"
+												)}
+											>
+												{label}
+											</Label>
+										</li>
+									))}
+								</ul>
+								<Button
+									type="button"
+									disabled={!allModulesAcked || recordAllModules.isPending}
+									onClick={() => void recordAllModules.mutateAsync()}
+								>
+									{recordAllModules.isPending ? "Saving…" : "Record 5 of 5 completion"}
+								</Button>
+							</>
+						)}
+					</div>
+				) : null}
 			</CardContent>
 		</Card>
 	)
