@@ -113,48 +113,69 @@ export function MessagesSidebar() {
 				<ScrollArea className="flex-1">
 					<div className="p-1.5">
 						{filteredConversations && filteredConversations.length > 0 ? (
-							filteredConversations.map(conversation => (
-								<button
-									key={conversation.id}
-									onClick={() => handleSelectConversation(conversation.id)}
-									className={cn(
-										"hover:bg-accent flex w-full items-center gap-2.5 rounded-lg p-2 text-left transition-colors",
-										selectedConversationId === conversation.id && "bg-accent"
-									)}
-								>
-									<div className="relative shrink-0">
-										<Avatar className="size-10">
-											<AvatarImage src={conversation.otherUser?.image ?? undefined} />
-											<AvatarFallback className="bg-primary text-primary-foreground text-xs">
-												{conversation.otherUser?.name
-													?.split(" ")
-													.map(n => n[0])
-													.join("")}
-											</AvatarFallback>
-										</Avatar>
-									</div>
-									<div className="min-w-0 flex-1 overflow-hidden">
-										<div className="flex items-center justify-between gap-2">
-											<h3 className="truncate text-sm font-medium">
-												{conversation.otherUser?.name}
-											</h3>
-											<span className="text-muted-foreground shrink-0 text-[10px] whitespace-nowrap">
-												{formatTime(conversation.lastMessageTime)}
-											</span>
-										</div>
-										<div className="mt-0.5 flex items-center justify-between gap-2">
-											<p className="text-muted-foreground truncate text-xs">
-												{conversation.lastMessage ?? "No messages yet"}
-											</p>
-											{conversation.unreadCount > 0 && (
-												<span className="bg-primary text-primary-foreground ml-1 flex size-4 shrink-0 items-center justify-center rounded-full text-[10px] font-medium">
-													{conversation.unreadCount}
-												</span>
+							filteredConversations.map(conversation => {
+								const hasUnread = conversation.unreadCount > 0
+								return (
+									<button
+										key={conversation.id}
+										onClick={() => handleSelectConversation(conversation.id)}
+										className={cn(
+											"hover:bg-accent flex w-full items-center gap-2.5 rounded-lg p-2 text-left transition-colors",
+											selectedConversationId === conversation.id && "bg-accent"
+										)}
+									>
+										<div className="relative shrink-0">
+											<Avatar className="size-10">
+												<AvatarImage src={conversation.otherUser?.image ?? undefined} />
+												<AvatarFallback className="bg-primary text-primary-foreground text-xs">
+													{conversation.otherUser?.name
+														?.split(" ")
+														.map(n => n[0])
+														.join("")}
+												</AvatarFallback>
+											</Avatar>
+											{hasUnread && (
+												<span className="bg-primary ring-background absolute -top-0.5 -right-0.5 size-2.5 rounded-full ring-2" />
 											)}
 										</div>
-									</div>
-								</button>
-							))
+										<div className="min-w-0 flex-1 overflow-hidden">
+											<div className="flex items-center justify-between gap-2">
+												<h3
+													className={cn(
+														"truncate text-sm",
+														hasUnread ? "font-semibold" : "font-medium"
+													)}
+												>
+													{conversation.otherUser?.name}
+												</h3>
+												<span
+													className={cn(
+														"shrink-0 text-[10px] whitespace-nowrap",
+														hasUnread ? "text-primary font-medium" : "text-muted-foreground"
+													)}
+												>
+													{formatTime(conversation.lastMessageTime)}
+												</span>
+											</div>
+											<div className="mt-0.5 flex items-center justify-between gap-2">
+												<p
+													className={cn(
+														"truncate text-xs",
+														hasUnread ? "text-foreground font-medium" : "text-muted-foreground"
+													)}
+												>
+													{conversation.lastMessage ?? "No messages yet"}
+												</p>
+												{hasUnread && (
+													<span className="bg-primary text-primary-foreground ml-1 flex size-4 shrink-0 items-center justify-center rounded-full text-[10px] font-medium">
+														{conversation.unreadCount}
+													</span>
+												)}
+											</div>
+										</div>
+									</button>
+								)
+							})
 						) : (
 							<div className="p-6 text-center">
 								<MessageSquare className="text-muted-foreground mx-auto mb-2 size-8" />
