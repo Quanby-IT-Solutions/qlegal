@@ -107,8 +107,7 @@ export function MessagesChatArea() {
 		return () => observer.disconnect()
 	}, [hasOlderMessages, isFetchingOlderMessages, fetchOlderMessages])
 
-	const otherUserLastReadAt =
-		(selectedConversation?.otherUserLastReadAt as Date | null | undefined) ?? null
+	const otherUserLastReadAt = selectedConversation?.otherUserLastReadAt ?? null
 	const lastSeenByOtherIndex =
 		otherUserLastReadAt && messages
 			? [...messages].reduce<number>(
