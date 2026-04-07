@@ -32,7 +32,7 @@ function maskEmail(email: string): string {
 
 export const authRouter = createTRPCRouter({
 	register: publicProcedure.input(registerSchema).mutation(async ({ ctx, input }) => {
-		const { email, password } = input
+		const { email, password, firstName, middleName, lastName, prefix, suffix } = input
 
 		const existingUser = await ctx.db.query.users.findFirst({
 			where: (data, { eq }) => eq(data.email, email),
@@ -51,6 +51,11 @@ export const authRouter = createTRPCRouter({
 		const [createdUser] = await ctx.db
 			.insert(users)
 			.values({
+				firstName,
+				middleName: middleName ?? null,
+				lastName,
+				prefix: prefix ?? null,
+				suffix: suffix ?? null,
 				email,
 				password: hashedPassword,
 				commissionStatus: "PENDING",
