@@ -32,14 +32,12 @@ export function useMessages() {
 		sendMessage: trpc.messages.sendMessage.useMutation({
 			onSuccess: () => {
 				void utils.messages.getConversations.invalidate()
-				void utils.messages.getMessages.invalidate()
 			},
 		}),
 
 		createConversationAndSendMessage: trpc.messages.createConversationAndSendMessage.useMutation({
 			onSuccess: () => {
 				void utils.messages.getConversations.invalidate()
-				void utils.messages.getMessages.invalidate()
 			},
 		}),
 
@@ -70,7 +68,6 @@ export function useMessages() {
 		sendConsultationRequest: trpc.messages.sendConsultationRequest.useMutation({
 			onSuccess: () => {
 				void utils.messages.getConversations.invalidate()
-				void utils.messages.getMessages.invalidate()
 			},
 		}),
 
@@ -78,7 +75,6 @@ export function useMessages() {
 			trpc.messages.createConversationAndSendConsultationRequest.useMutation({
 				onSuccess: () => {
 					void utils.messages.getConversations.invalidate()
-					void utils.messages.getMessages.invalidate()
 				},
 			}),
 

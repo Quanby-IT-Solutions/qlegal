@@ -268,12 +268,20 @@ export function MessagesProvider({ children }: { children: React.ReactNode }) {
 	const handleSendMessage = async () => {
 		const trimmedMessage = messageInput.trim()
 		if (!trimmedMessage) return
+
+		// Clear input immediately — Messenger-style snappy UX
+		setMessageInput("")
+
 		if (selectedConversationId) {
 			clearTimeout(typingTimeoutRef.current)
 			setTyping.mutate({ conversationId: selectedConversationId, isTyping: false }) // eslint-disable-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
 		}
-		try {
-			if (draftConversationUser) {
+
+		// Draft conversation path — needs awaited result, but this is not
+		// the consecutive-send bottleneck (users rarely rapid-fire in a new chat).
+		if (draftConversationUser) {
+			if (startConversation.isPending) return
+			try {
 				const result = await startConversation.mutateAsync({ userId: draftConversationUser.id })
 				await sendMessage.mutateAsync({
 					conversationId: result.conversationId,
@@ -282,19 +290,77 @@ export function MessagesProvider({ children }: { children: React.ReactNode }) {
 				await getConversations.refetch()
 				setDraftConversationUser(null)
 				setSelectedConversationId(result.conversationId)
-				setMessageInput("")
 				setIsSidebarOpen(false)
-				return
+			} catch {
+				setMessageInput(trimmedMessage)
+				toast.error("Failed to send message")
 			}
-			if (!selectedConversationId) return
-			await sendMessage.mutateAsync({
-				conversationId: selectedConversationId,
-				content: trimmedMessage,
-			})
-			setMessageInput("")
-		} catch {
-			toast.error("Failed to send message")
+			return
 		}
+
+		if (!selectedConversationId) return
+
+		// Build optimistic message with a unique ID
+		const optimisticId = `optimistic-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
+		const optimisticMessage = {
+			id: optimisticId,
+			conversationId: selectedConversationId,
+			senderId: session?.user?.id ?? "",
+			content: trimmedMessage,
+			messageType: "text" as const,
+			metadata: null,
+			createdAt: new Date(),
+			updatedAt: new Date(),
+			sender: null,
+		}
+
+		// Capture conversationId in closure for callbacks
+		const convId = selectedConversationId
+
+		// Optimistically inject message into cache.
+		// pages[0] = most recent page, messages within each page are chronological
+		// (oldest → newest), so append to the end for correct bottom-of-chat placement.
+		utils.messages.getMessages.setInfiniteData(
+			{ conversationId: convId, limit: 20 },
+			old => {
+				if (!old) return old
+				const pages = [...old.pages]
+				if (pages[0]) {
+					pages[0] = {
+						...pages[0],
+						messages: [...pages[0].messages, optimisticMessage],
+					}
+				}
+				return { ...old, pages }
+			}
+		)
+
+		// Fire-and-forget — no await, so consecutive sends are never blocked
+		sendMessage.mutate(
+			{ conversationId: convId, content: trimmedMessage },
+			{
+				onError: () => {
+					// Revert optimistic message on failure
+					utils.messages.getMessages.setInfiniteData(
+						{ conversationId: convId, limit: 20 },
+						old => {
+							if (!old) return old
+							return {
+								...old,
+								pages: old.pages.map(page => ({
+									...page,
+									messages: page.messages.filter(
+										(m: { id: string }) => m.id !== optimisticId
+									),
+								})),
+							}
+						}
+					)
+					setMessageInput(trimmedMessage)
+					toast.error("Failed to send message")
+				},
+			}
+		)
 	}
 
 	// Auto-start conversation from URL (e.g. /messages?userId=ENP_ID)

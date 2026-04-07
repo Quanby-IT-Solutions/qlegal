@@ -61,7 +61,6 @@ export function MessagesChatArea() {
 		messageInput,
 		handleInputChange,
 		handleSendMessage,
-		isSendingTextMessage,
 		isSendingConsultationRequest,
 		selectedConversationId,
 		selectedConversation,
@@ -356,7 +355,7 @@ export function MessagesChatArea() {
 										onChange={handleInputChange}
 										className="h-9 pr-8 text-sm"
 										onKeyDown={e => {
-											if (e.key === "Enter" && !isSendingTextMessage && messageInput.trim()) {
+											if (e.key === "Enter" && messageInput.trim()) {
 												void handleSendMessage()
 											}
 										}}
@@ -372,7 +371,7 @@ export function MessagesChatArea() {
 								<Button
 									size="icon"
 									className="size-7 rounded-full"
-									disabled={!messageInput.trim() || isSendingTextMessage}
+									disabled={!messageInput.trim()}
 									onClick={() => void handleSendMessage()}
 								>
 									<Send className="size-4" />
