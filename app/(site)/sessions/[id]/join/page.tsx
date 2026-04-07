@@ -6,9 +6,11 @@ import { Loader2 } from "lucide-react"
 import { useSession } from "next-auth/react"
 import { toast } from "sonner"
 
+import { EnpLmsRequiredDialog } from "@/core/components/enp-lms-required-dialog"
 import { KycRequiredDialog } from "@/core/components/kyc-required-dialog"
 import { Button } from "@/core/components/ui/button"
 import { Card, CardContent } from "@/core/components/ui/card"
+import { isEnpCommissionInactiveForRestrictedOps } from "@/core/lib/enp-lms-guard"
 import { isLawyerBookingBlockedForKyc } from "@/core/lib/kyc-restriction-guards"
 import { trpc } from "@/services/trpc/client"
 
@@ -19,6 +21,10 @@ export default function SessionJoinPage({ params }: { params: Promise<{ id: stri
 	const sessionKyc =
 		typeof session?.user?.kycStatus === "string" ? session.user.kycStatus : undefined
 	const kycJoinBlocked = isLawyerBookingBlockedForKyc(session?.user?.role, sessionKyc)
+	const enpCommissionJoinBlocked = isEnpCommissionInactiveForRestrictedOps(
+		session?.user?.role,
+		typeof session?.user?.status === "string" ? session.user.status : undefined
+	)
 	const joinByLink = trpc.meetings.joinMeetingByLink.useMutation({
 		onError: err => {
 			toast.error(err.message ?? "Could not join session")
@@ -34,6 +40,7 @@ export default function SessionJoinPage({ params }: { params: Promise<{ id: stri
 		}
 		if (status !== "authenticated" || !session?.user?.id) return
 		if (kycJoinBlocked) return
+		if (enpCommissionJoinBlocked) return
 
 		void (async () => {
 			try {
@@ -44,7 +51,15 @@ export default function SessionJoinPage({ params }: { params: Promise<{ id: stri
 				// Error already surfaced via onError
 			}
 		})()
-	}, [id, status, session?.user?.id, router, kycJoinBlocked, joinMeetingByLink])
+	}, [
+		id,
+		status,
+		session?.user?.id,
+		router,
+		kycJoinBlocked,
+		enpCommissionJoinBlocked,
+		joinMeetingByLink,
+	])
 
 	if (status === "loading" || status === "unauthenticated") {
 		return (
@@ -73,6 +88,19 @@ export default function SessionJoinPage({ params }: { params: Promise<{ id: stri
 					}}
 					returnToPath="/sessions"
 					description="Complete identity verification before joining a session. You can finish verification from here."
+				/>
+			</div>
+		)
+	}
+
+	if (status === "authenticated" && enpCommissionJoinBlocked) {
+		return (
+			<div className="from-background via-muted/20 to-background flex min-h-screen items-center justify-center bg-linear-to-br p-4">
+				<EnpLmsRequiredDialog
+					open
+					onOpenChange={open => {
+						if (!open) router.push("/sessions")
+					}}
 				/>
 			</div>
 		)

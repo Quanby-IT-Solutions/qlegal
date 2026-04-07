@@ -2,6 +2,7 @@ import { TRPCError } from "@trpc/server"
 import { and, asc, desc, eq, inArray, ne, type InferSelectModel } from "drizzle-orm"
 import { z } from "zod/v4"
 
+import { assertEnpCommissionActiveForRestrictedOps } from "@/core/lib/enp-lms-guard"
 import {
 	assertEnpCanCreateMeetingForKyc,
 	assertEnpOrPrincipalCanJoinSessionForKyc,
@@ -349,7 +350,7 @@ export const meetingsRouter = createTRPCRouter({
 		.mutation(async ({ ctx, input }) => {
 			const creator = await db.query.users.findFirst({
 				where: eq(users.id, ctx.session.user.id),
-				columns: { kycStatus: true, role: true },
+				columns: { kycStatus: true, role: true, commissionStatus: true },
 			})
 			if (!creator) {
 				throw new TRPCError({
@@ -358,6 +359,7 @@ export const meetingsRouter = createTRPCRouter({
 				})
 			}
 			assertEnpCanCreateMeetingForKyc(creator.role, creator.kycStatus)
+			assertEnpCommissionActiveForRestrictedOps(creator.role, creator.commissionStatus)
 
 			const { roomId } = await createMeetingRoom()
 
@@ -731,6 +733,13 @@ export const meetingsRouter = createTRPCRouter({
 			ctx.session.user.role,
 			typeof ctx.session.user.kycStatus === "string" ? ctx.session.user.kycStatus : undefined
 		)
+		if (isEnpRole(ctx.session.user.role)) {
+			const joiner = await db.query.users.findFirst({
+				where: eq(users.id, ctx.session.user.id),
+				columns: { role: true, commissionStatus: true },
+			})
+			assertEnpCommissionActiveForRestrictedOps(joiner?.role, joiner?.commissionStatus)
+		}
 
 		const meeting = await db.query.meetings.findFirst({
 			where: eq(meetings.id, input),
@@ -804,6 +813,19 @@ export const meetingsRouter = createTRPCRouter({
 					message: "An ENP participant with an email is required to prepare DocOnChain.",
 				})
 			}
+
+			const meetingEnpUserId = enpParticipant?.user?.id
+			if (meetingEnpUserId) {
+				const meetingEnpRow = await db.query.users.findFirst({
+					where: eq(users.id, meetingEnpUserId),
+					columns: { role: true, commissionStatus: true },
+				})
+				assertEnpCommissionActiveForRestrictedOps(
+					meetingEnpRow?.role,
+					meetingEnpRow?.commissionStatus
+				)
+			}
+
 			if (debugLogsEnabled) {
 				console.log("[sessions][doconchain] ensureDocoChainToken resolved ENP", {
 					meetingId: input.meetingId,
@@ -907,6 +929,13 @@ export const meetingsRouter = createTRPCRouter({
 			ctx.session.user.role,
 			typeof ctx.session.user.kycStatus === "string" ? ctx.session.user.kycStatus : undefined
 		)
+		if (isEnpRole(ctx.session.user.role)) {
+			const starter = await db.query.users.findFirst({
+				where: eq(users.id, ctx.session.user.id),
+				columns: { role: true, commissionStatus: true },
+			})
+			assertEnpCommissionActiveForRestrictedOps(starter?.role, starter?.commissionStatus)
+		}
 
 		const meeting = await db.query.meetings.findFirst({
 			where: eq(meetings.id, input),
@@ -2409,6 +2438,13 @@ export const meetingsRouter = createTRPCRouter({
 				ctx.session.user.role,
 				typeof ctx.session.user.kycStatus === "string" ? ctx.session.user.kycStatus : undefined
 			)
+			if (isEnpRole(ctx.session.user.role)) {
+				const joiner = await db.query.users.findFirst({
+					where: eq(users.id, ctx.session.user.id),
+					columns: { role: true, commissionStatus: true },
+				})
+				assertEnpCommissionActiveForRestrictedOps(joiner?.role, joiner?.commissionStatus)
+			}
 
 			const meeting = await db.query.meetings.findFirst({
 				where: eq(meetings.id, input.meetingId),
@@ -2501,6 +2537,13 @@ export const meetingsRouter = createTRPCRouter({
 					ctx.session.user.role,
 					typeof ctx.session.user.kycStatus === "string" ? ctx.session.user.kycStatus : undefined
 				)
+				if (isEnpRole(ctx.session.user.role)) {
+					const accepter = await db.query.users.findFirst({
+						where: eq(users.id, ctx.session.user.id),
+						columns: { role: true, commissionStatus: true },
+					})
+					assertEnpCommissionActiveForRestrictedOps(accepter?.role, accepter?.commissionStatus)
+				}
 			}
 
 			const newStatus = input.response === "ACCEPT" ? "ACCEPTED" : "DECLINED"

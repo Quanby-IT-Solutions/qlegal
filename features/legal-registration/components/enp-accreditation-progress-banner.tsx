@@ -69,7 +69,7 @@ const STEPS = [
 	"Complete the LMS course",
 	"Return to QLegal and submit your application",
 	"Submit your certificate/credentials to the Supreme Court",
-	"Wait for Supreme Court accreditation (we activate your commission after approval)",
+	"Commission activation — a QLegal administrator sets your commission to Active after accreditation (sandbox stand-in for Supreme Court approval)",
 ] as const
 
 /** Shorter copy for narrow modals (full text in `title` tooltip). */
@@ -78,7 +78,7 @@ const STEPS_TIMELINE_COMPACT = [
 	"LMS course",
 	"QLegal application",
 	"SC credentials",
-	"Await SC approval",
+	"Admin activates commission",
 ] as const
 
 function getCurrentStepIndex(applicationStatus: string | null | undefined): number {
@@ -366,10 +366,16 @@ export function EnpAccreditationProgressBanner({
 	const shouldShow = useMemo(() => {
 		if (!isAuth) return false
 		if (userStatus === "SUSPENDED") return false
+		// Principals start as users; show ENP path (LMS → QLegal application) on the dashboard sidebar.
+		if (userRole === "PRINCIPAL") {
+			if (!lmsCompletion?.completedAt) return true
+			if (application?.status !== "APPROVED") return true
+			return false
+		}
 		if (application && application.status !== "APPROVED") return true
 		if (userRole === "ENP" && userStatus && userStatus !== "ACTIVE") return true
 		return false
-	}, [application, isAuth, userRole, userStatus])
+	}, [application, isAuth, lmsCompletion?.completedAt, userRole, userStatus])
 
 	const rawStepIndex = useMemo(() => getCurrentStepIndex(application?.status), [application?.status])
 
@@ -469,9 +475,9 @@ export function EnpAccreditationProgressBanner({
 		if (application?.status === "DRAFT")
 			return "Complete the requirements and submit. You can continue using QLegal while you work on this."
 		if (application?.status === "PENDING" || application?.status === "UNDER_REVIEW")
-			return "You can continue using QLegal. We’ll activate your commission once accreditation is confirmed."
+			return "You can continue using QLegal. A QLegal administrator sets your commission to Active when accreditation is complete (step 5 in the checklist)."
 		if (userRole === "ENP" && userStatus && userStatus !== "ACTIVE")
-			return "You can continue using QLegal. Commission-only actions will be available once you’re accredited."
+			return "Video sessions and booking stay off until your commission is Active. An administrator turns that on after accreditation—completing every box in the optional 5-module course checklist does not unlock them."
 		return "You can continue using QLegal while you complete your accreditation requirements."
 	}, [application?.status, userRole, userStatus])
 
@@ -540,7 +546,8 @@ export function EnpAccreditationProgressBanner({
 								Submit your application from{" "}
 								<span className="text-foreground font-medium">Open</span> below. After it&apos;s submitted,
 								the checklist advances. You can still use the Supreme Court section on that page to record
-								an external submission date (optional placeholder).
+								an external submission date (optional placeholder). Commission Active is set by an
+								administrator after accreditation.
 							</p>
 							<div className="flex flex-wrap items-center justify-end gap-1.5 pt-1">
 								<Button
@@ -629,7 +636,8 @@ export function EnpAccreditationProgressBanner({
 							Submit your application from{" "}
 							<span className="text-foreground font-medium">View ENP application</span>. After it&apos;s
 							submitted, the checklist advances. You can still use the Supreme Court section there to
-							record an external submission date (optional placeholder).
+							record an external submission date (optional placeholder). Final step: an administrator
+							activates your commission (not the five LMS checkboxes on the course page).
 						</p>
 					</div>
 

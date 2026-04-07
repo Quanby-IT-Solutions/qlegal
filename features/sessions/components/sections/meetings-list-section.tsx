@@ -51,7 +51,9 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/core/components/ui/select"
+import { EnpLmsRequiredDialog } from "@/core/components/enp-lms-required-dialog"
 import { KycRequiredDialog } from "@/core/components/kyc-required-dialog"
+import { isEnpCommissionInactiveForRestrictedOps } from "@/core/lib/enp-lms-guard"
 import {
 	isEnpMeetingCreationBlockedForKyc,
 	isLawyerBookingBlockedForKyc,
@@ -126,6 +128,7 @@ export function MeetingsListSection() {
 	const hasMore = data.hasMore
 	const [isDialogOpen, setIsDialogOpen] = useState(false)
 	const [kycBlockOpen, setKycBlockOpen] = useState(false)
+	const [lmsBlockOpen, setLmsBlockOpen] = useState(false)
 	const [title, setTitle] = useState("")
 	const [userSearchQuery, setUserSearchQuery] = useState("")
 	const [selectedUsers, setSelectedUsers] = useState<
@@ -152,6 +155,11 @@ export function MeetingsListSection() {
 	/** ENP + Principal: same rule as booking — must verify before joining or starting a session. */
 	const isKycSessionJoinBlocked = isLawyerBookingBlockedForKyc(session?.user?.role, sessionKycStatus)
 
+	const isEnpCommissionSessionBlocked = isEnpCommissionInactiveForRestrictedOps(
+		session?.user?.role,
+		typeof session?.user?.status === "string" ? session.user.status : undefined
+	)
+
 	// Show all accepted sessions (ENP accepted) in Ongoing regardless of appointment date
 	const requestOpenCreateMeeting = () => {
 		if (
@@ -161,6 +169,10 @@ export function MeetingsListSection() {
 			)
 		) {
 			setKycBlockOpen(true)
+			return
+		}
+		if (isEnpCommissionSessionBlocked) {
+			setLmsBlockOpen(true)
 			return
 		}
 		setIsDialogOpen(true)
@@ -175,6 +187,10 @@ export function MeetingsListSection() {
 			)
 		) {
 			setKycBlockOpen(true)
+			return
+		}
+		if (open && isEnpCommissionSessionBlocked) {
+			setLmsBlockOpen(true)
 			return
 		}
 		setIsDialogOpen(open)
@@ -207,6 +223,10 @@ export function MeetingsListSection() {
 			)
 		) {
 			setKycBlockOpen(true)
+			return
+		}
+		if (isEnpCommissionSessionBlocked) {
+			setLmsBlockOpen(true)
 			return
 		}
 		try {
@@ -248,6 +268,10 @@ export function MeetingsListSection() {
 	const handleStartMeeting = async (id: string) => {
 		if (isKycSessionJoinBlocked) {
 			setKycBlockOpen(true)
+			return
+		}
+		if (isEnpCommissionSessionBlocked) {
+			setLmsBlockOpen(true)
 			return
 		}
 		setLoadingMeetingId(id)
@@ -339,6 +363,7 @@ export function MeetingsListSection() {
 				returnToPath="/sessions"
 				description="Complete identity verification before creating or joining a video session. You can finish verification from here."
 			/>
+			<EnpLmsRequiredDialog open={lmsBlockOpen} onOpenChange={setLmsBlockOpen} />
 			<div className="flex items-center justify-between">
 				<div className="space-y-2">
 					<h2 className="text-2xl font-semibold tracking-tight">Ongoing</h2>
@@ -719,6 +744,10 @@ export function MeetingsListSection() {
 																		setKycBlockOpen(true)
 																		return
 																	}
+																	if (isEnpCommissionSessionBlocked) {
+																		setLmsBlockOpen(true)
+																		return
+																	}
 																	setJoiningMeetingId(meeting.id)
 																	router.push(`/sessions/${meeting.id}`)
 																}}
@@ -923,6 +952,10 @@ export function MeetingsListSection() {
 															e.stopPropagation()
 															if (isKycSessionJoinBlocked) {
 																setKycBlockOpen(true)
+																return
+															}
+															if (isEnpCommissionSessionBlocked) {
+																setLmsBlockOpen(true)
 																return
 															}
 															setJoiningMeetingId(meeting.id)

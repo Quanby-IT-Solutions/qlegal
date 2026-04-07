@@ -36,9 +36,11 @@ export async function createUsers() {
 			image: account.image,
 			password: hashedPassword,
 			role: account.role,
-			commissionStatus: (account.role === "ENP" ? "PENDING" : "ACTIVE") as "ACTIVE" | "PENDING" | "SUSPENDED",
+			commissionStatus: "ACTIVE" as "ACTIVE" | "PENDING" | "SUSPENDED",
 			kycStatus: "VERIFIED" as const,
 			kycVerifiedAt: new Date(),
+			enpLmsCourseCompletedAt: account.role === "ENP" ? new Date() : null,
+			enpLmsAllModulesCompletedAt: account.role === "ENP" ? new Date() : null,
 		}
 	})
 
