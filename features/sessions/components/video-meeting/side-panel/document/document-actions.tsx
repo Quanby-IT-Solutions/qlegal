@@ -501,6 +501,7 @@ export const DocumentActions = React.memo(function DocumentActions({
 			) : document.docoChainProjectId && filteredSigners && filteredSigners.length > 0 ? (
 				<SignerList signers={filteredSigners} />
 			) : (
+				document.docoChainProjectId &&
 				participants &&
 				participants.length > 0 &&
 				meetingId &&
@@ -637,7 +638,7 @@ export const DocumentActions = React.memo(function DocumentActions({
 					<p className="text-[10px] leading-tight text-amber-700 dark:text-amber-400">
 						{!document.docoChainProjectId
 							? isEnp
-								? "Create the DocOnChain project when ready. You can add signers before or after."
+								? "Create the DocOnChain project first. You can add signers after the project exists."
 								: "Waiting for the notary to create the DocOnChain project."
 							: hasUserSigned
 								? ""
