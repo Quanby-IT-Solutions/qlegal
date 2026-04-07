@@ -33,7 +33,7 @@ export const OAuthButton = ({
 	const handleClick = async () => {
 		setIsLoading(true)
 		await signIn(provider, {
-			callbackUrl: callbackUrl ?? "/onboarding",
+			callbackUrl: callbackUrl ?? "/dashboard",
 			prompt: "select_account",
 		})
 	}

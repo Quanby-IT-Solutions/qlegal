@@ -1,11 +1,13 @@
 "use client"
 
+import { useEffect } from "react"
 import { useSession } from "next-auth/react"
 
 import { PageHeader } from "@/core/components/navbar/page-header"
 
 import { AvatarCard } from "@/features/profile/components/avatar-card"
 import { CertificationsCard } from "@/features/profile/components/certifications-card"
+import { IdentityVerificationCard } from "@/features/profile/components/identity-verification-card"
 import { LawyerDetailsCard } from "@/features/profile/components/lawyer-details-card"
 import { LicensingCard } from "@/features/profile/components/licensing-card"
 import { PersonalInformationCard } from "@/features/profile/components/personal-information-card"
@@ -13,6 +15,17 @@ import { RollRegistrationCard } from "@/features/profile/components/roll-registr
 
 export default function Page() {
 	const { data: session } = useSession()
+
+	useEffect(() => {
+		const params = new URLSearchParams(window.location.search)
+		if (params.get("focus") !== "kyc") return
+		requestAnimationFrame(() => {
+			document.getElementById("profile-kyc-verification")?.scrollIntoView({
+				behavior: "smooth",
+				block: "start",
+			})
+		})
+	}, [])
 
 	const isENP = session?.user?.role === "ENP"
 	return (
@@ -28,6 +41,7 @@ export default function Page() {
 					</div>
 
 					<AvatarCard />
+					<IdentityVerificationCard />
 					<PersonalInformationCard />
 					{isENP && (
 						<>

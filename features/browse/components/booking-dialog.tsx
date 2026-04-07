@@ -6,8 +6,12 @@ import { useState } from "react"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { format } from "date-fns"
 import { Loader2, Video } from "lucide-react"
+import { useSession } from "next-auth/react"
 import { useForm } from "react-hook-form"
 import { toast } from "sonner"
+
+import { KycRequiredDialog } from "@/core/components/kyc-required-dialog"
+import { isLawyerBookingBlockedForKyc } from "@/core/lib/kyc-restriction-guards"
 
 import { Button } from "@/core/components/ui/button"
 import {
@@ -49,7 +53,22 @@ interface BookingDialogProps {
 
 export function BookingDialog({ enpId, enpName, trigger }: BookingDialogProps) {
 	const router = useRouter()
+	const { data: session } = useSession()
 	const [open, setOpen] = useState(false)
+	const [kycBlockOpen, setKycBlockOpen] = useState(false)
+
+	const kycBlocked = isLawyerBookingBlockedForKyc(
+		session?.user?.role,
+		typeof session?.user?.kycStatus === "string" ? session.user.kycStatus : undefined
+	)
+
+	const handleBookingDialogOpenChange = (next: boolean) => {
+		if (next && kycBlocked) {
+			setKycBlockOpen(true)
+			return
+		}
+		setOpen(next)
+	}
 	const now = new Date()
 	const currentTime = {
 		hour: format(now, "hh"),
@@ -187,29 +206,36 @@ export function BookingDialog({ enpId, enpName, trigger }: BookingDialogProps) {
 	const isBookingPending = bookConsultationMutation.isPending || bookSigningMutation.isPending
 
 	return (
-		<Dialog open={open} onOpenChange={setOpen}>
-			<DialogTrigger asChild>{trigger ?? <Button>Book Session</Button>}</DialogTrigger>
-			<DialogContent className="flex max-h-[90dvh] w-screen max-w-350 flex-col overflow-hidden">
-				<DialogHeader>
-					<DialogTitle>
-						{watchBookingMode === "CONSULTATION" ? "Book Consultation" : "Book Notarization"}
-						{enpName ? ` with ${enpName}` : ""}
-					</DialogTitle>
-					<DialogDescription>
-						{watchBookingMode === "CONSULTATION"
-							? "Schedule a consultation with an Electronic Notary Public for your notarization needs."
-							: "Book a notarization session with an Electronic Notary Public for your documents."}
-					</DialogDescription>
-				</DialogHeader>
+		<>
+			<KycRequiredDialog
+				open={kycBlockOpen}
+				onOpenChange={setKycBlockOpen}
+				returnToPath="/browse"
+				description="Finish identity verification before booking an Electronic Notary Public. You can complete it from your profile anytime."
+			/>
+			<Dialog open={open} onOpenChange={handleBookingDialogOpenChange}>
+				<DialogTrigger asChild>{trigger ?? <Button>Book Session</Button>}</DialogTrigger>
+				<DialogContent className="flex max-h-[90dvh] w-screen max-w-350 flex-col overflow-hidden">
+					<DialogHeader>
+						<DialogTitle>
+							{watchBookingMode === "CONSULTATION" ? "Book Consultation" : "Book Notarization"}
+							{enpName ? ` with ${enpName}` : ""}
+						</DialogTitle>
+						<DialogDescription>
+							{watchBookingMode === "CONSULTATION"
+								? "Schedule a consultation with an Electronic Notary Public for your notarization needs."
+								: "Book a notarization session with an Electronic Notary Public for your documents."}
+						</DialogDescription>
+					</DialogHeader>
 
-				<Form {...form} key={open ? "booking-form" : "closed"}>
-					<form
-						onSubmit={form.handleSubmit(handleBooking)}
-						className="flex min-h-0 flex-col overflow-hidden"
-					>
-						{/* Scrollable form content */}
-						<div className="overflow-y-auto px-1">
-							<div className="space-y-4 pr-1 pb-6">
+					<Form {...form} key={open ? "booking-form" : "closed"}>
+						<form
+							onSubmit={form.handleSubmit(handleBooking)}
+							className="flex min-h-0 flex-col overflow-hidden"
+						>
+							{/* Scrollable form content */}
+							<div className="overflow-y-auto px-1">
+								<div className="space-y-4 pr-1 pb-6">
 								{/* Title */}
 								<FormField
 									control={form.control}
@@ -320,5 +346,6 @@ export function BookingDialog({ enpId, enpName, trigger }: BookingDialogProps) {
 				</Form>
 			</DialogContent>
 		</Dialog>
+		</>
 	)
 }

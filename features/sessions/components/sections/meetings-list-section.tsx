@@ -51,6 +51,11 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/core/components/ui/select"
+import { KycRequiredDialog } from "@/core/components/kyc-required-dialog"
+import {
+	isEnpMeetingCreationBlockedForKyc,
+	isLawyerBookingBlockedForKyc,
+} from "@/core/lib/kyc-restriction-guards"
 import { getAvatarUrl, getFullName, getInitials } from "@/core/lib/utils"
 
 import { trpc, type RouterInputs, type RouterOutputs } from "@/services/trpc/client"
@@ -120,6 +125,7 @@ export function MeetingsListSection() {
 	const meetings: MeetingWithStats[] = data.items
 	const hasMore = data.hasMore
 	const [isDialogOpen, setIsDialogOpen] = useState(false)
+	const [kycBlockOpen, setKycBlockOpen] = useState(false)
 	const [title, setTitle] = useState("")
 	const [userSearchQuery, setUserSearchQuery] = useState("")
 	const [selectedUsers, setSelectedUsers] = useState<
@@ -141,7 +147,39 @@ export function MeetingsListSection() {
 	const { searchUsers } = useMessages()
 	const { data: searchResults } = searchUsers(userSearchQuery)
 
+	const sessionKycStatus =
+		typeof session?.user?.kycStatus === "string" ? session.user.kycStatus : undefined
+	/** ENP + Principal: same rule as booking — must verify before joining or starting a session. */
+	const isKycSessionJoinBlocked = isLawyerBookingBlockedForKyc(session?.user?.role, sessionKycStatus)
+
 	// Show all accepted sessions (ENP accepted) in Ongoing regardless of appointment date
+	const requestOpenCreateMeeting = () => {
+		if (
+			isEnpMeetingCreationBlockedForKyc(
+				session?.user?.role,
+				typeof session?.user?.kycStatus === "string" ? session.user.kycStatus : undefined
+			)
+		) {
+			setKycBlockOpen(true)
+			return
+		}
+		setIsDialogOpen(true)
+	}
+
+	const handleMeetingDialogOpenChange = (open: boolean) => {
+		if (
+			open &&
+			isEnpMeetingCreationBlockedForKyc(
+				session?.user?.role,
+				typeof session?.user?.kycStatus === "string" ? session.user.kycStatus : undefined
+			)
+		) {
+			setKycBlockOpen(true)
+			return
+		}
+		setIsDialogOpen(open)
+	}
+
 	const filteredMeetings = meetings.filter(meeting => {
 		if (!meeting) return false
 		const title = typeof meeting.title === "string" ? meeting.title : ""
@@ -162,6 +200,15 @@ export function MeetingsListSection() {
 
 	const handleCreate = async () => {
 		if (!title.trim()) return
+		if (
+			isEnpMeetingCreationBlockedForKyc(
+				session?.user?.role,
+				typeof session?.user?.kycStatus === "string" ? session.user.kycStatus : undefined
+			)
+		) {
+			setKycBlockOpen(true)
+			return
+		}
 		try {
 			const payload: RouterInputs["meetings"]["create"] = {
 				title: title.trim(),
@@ -199,6 +246,10 @@ export function MeetingsListSection() {
 	}
 
 	const handleStartMeeting = async (id: string) => {
+		if (isKycSessionJoinBlocked) {
+			setKycBlockOpen(true)
+			return
+		}
 		setLoadingMeetingId(id)
 		try {
 			await startMeeting.mutateAsync(id)
@@ -282,6 +333,12 @@ export function MeetingsListSection() {
 
 	return (
 		<div className="space-y-6">
+			<KycRequiredDialog
+				open={kycBlockOpen}
+				onOpenChange={setKycBlockOpen}
+				returnToPath="/sessions"
+				description="Complete identity verification before creating or joining a video session. You can finish verification from here."
+			/>
 			<div className="flex items-center justify-between">
 				<div className="space-y-2">
 					<h2 className="text-2xl font-semibold tracking-tight">Ongoing</h2>
@@ -289,7 +346,7 @@ export function MeetingsListSection() {
 						Ongoing meetings with participants for notarization sessions
 					</p>
 				</div>
-				<Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+				<Dialog open={isDialogOpen} onOpenChange={handleMeetingDialogOpenChange}>
 					<DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
 						<DialogHeader className="space-y-3 pb-4">
 							<div className="flex items-center gap-3">
@@ -528,7 +585,7 @@ export function MeetingsListSection() {
 						<p className="text-muted-foreground mt-2">
 							Create your first meeting to get started with video conferences
 						</p>
-						<Button className="mt-4" onClick={() => setIsDialogOpen(true)}>
+						<Button className="mt-4" onClick={requestOpenCreateMeeting}>
 							<Plus className="mr-2 size-4" />
 							Create Meeting
 						</Button>
@@ -544,7 +601,7 @@ export function MeetingsListSection() {
 								? "Try adjusting your search criteria or filters."
 								: "You don't have any meetings at the moment."}
 						</p>
-						<Button onClick={() => setIsDialogOpen(true)} variant="outline">
+						<Button onClick={requestOpenCreateMeeting} variant="outline">
 							Create New Meeting
 						</Button>
 					</CardContent>
@@ -658,6 +715,10 @@ export function MeetingsListSection() {
 																className="bg-success text-foreground hover:bg-success/90 h-8 gap-1 text-xs"
 																onClick={e => {
 																	e.stopPropagation()
+																	if (isKycSessionJoinBlocked) {
+																		setKycBlockOpen(true)
+																		return
+																	}
 																	setJoiningMeetingId(meeting.id)
 																	router.push(`/sessions/${meeting.id}`)
 																}}
@@ -860,6 +921,10 @@ export function MeetingsListSection() {
 														variant="default"
 														onClick={e => {
 															e.stopPropagation()
+															if (isKycSessionJoinBlocked) {
+																setKycBlockOpen(true)
+																return
+															}
 															setJoiningMeetingId(meeting.id)
 															router.push(`/sessions/${meeting.id}`)
 														}}

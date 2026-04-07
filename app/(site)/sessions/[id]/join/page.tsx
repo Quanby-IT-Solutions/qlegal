@@ -6,19 +6,25 @@ import { Loader2 } from "lucide-react"
 import { useSession } from "next-auth/react"
 import { toast } from "sonner"
 
+import { KycRequiredDialog } from "@/core/components/kyc-required-dialog"
 import { Button } from "@/core/components/ui/button"
 import { Card, CardContent } from "@/core/components/ui/card"
+import { isLawyerBookingBlockedForKyc } from "@/core/lib/kyc-restriction-guards"
 import { trpc } from "@/services/trpc/client"
 
 export default function SessionJoinPage({ params }: { params: Promise<{ id: string }> }) {
 	const { id } = use(params)
 	const router = useRouter()
 	const { data: session, status } = useSession()
+	const sessionKyc =
+		typeof session?.user?.kycStatus === "string" ? session.user.kycStatus : undefined
+	const kycJoinBlocked = isLawyerBookingBlockedForKyc(session?.user?.role, sessionKyc)
 	const joinByLink = trpc.meetings.joinMeetingByLink.useMutation({
 		onError: err => {
 			toast.error(err.message ?? "Could not join session")
 		},
 	})
+	const joinMeetingByLink = joinByLink.mutateAsync
 
 	useEffect(() => {
 		if (status === "unauthenticated") {
@@ -27,19 +33,20 @@ export default function SessionJoinPage({ params }: { params: Promise<{ id: stri
 			return
 		}
 		if (status !== "authenticated" || !session?.user?.id) return
+		if (kycJoinBlocked) return
 
 		void (async () => {
 			try {
-				await joinByLink.mutateAsync({ meetingId: id })
+				await joinMeetingByLink({ meetingId: id })
 				const redirectUrl = encodeURIComponent(`/sessions/${id}`)
 				router.replace(`/liveness?redirect=${redirectUrl}&meetingId=${id}`)
 			} catch {
 				// Error already surfaced via onError
 			}
 		})()
-	}, [id, status, session?.user?.id, router])
+	}, [id, status, session?.user?.id, router, kycJoinBlocked, joinMeetingByLink])
 
-	if (status === "loading" || status === "unauthenticated" || joinByLink.isPending) {
+	if (status === "loading" || status === "unauthenticated") {
 		return (
 			<div className="from-background via-muted/20 to-background flex min-h-screen items-center justify-center bg-linear-to-br px-4">
 				<Card className="w-full max-w-sm">
@@ -48,8 +55,36 @@ export default function SessionJoinPage({ params }: { params: Promise<{ id: stri
 						<p className="text-muted-foreground text-sm">
 							{status === "unauthenticated"
 								? "Redirecting to sign in…"
-								: "Joining session…"}
+								: "Loading…"}
 						</p>
+					</CardContent>
+				</Card>
+			</div>
+		)
+	}
+
+	if (status === "authenticated" && kycJoinBlocked) {
+		return (
+			<div className="from-background via-muted/20 to-background flex min-h-screen items-center justify-center bg-linear-to-br p-4">
+				<KycRequiredDialog
+					open
+					onOpenChange={open => {
+						if (!open) router.push("/sessions")
+					}}
+					returnToPath="/sessions"
+					description="Complete identity verification before joining a session. You can finish verification from here."
+				/>
+			</div>
+		)
+	}
+
+	if (joinByLink.isPending) {
+		return (
+			<div className="from-background via-muted/20 to-background flex min-h-screen items-center justify-center bg-linear-to-br px-4">
+				<Card className="w-full max-w-sm">
+					<CardContent className="flex flex-col items-center gap-4 py-8">
+						<Loader2 className="size-10 animate-spin text-muted-foreground" />
+						<p className="text-muted-foreground text-sm">Joining session…</p>
 					</CardContent>
 				</Card>
 			</div>

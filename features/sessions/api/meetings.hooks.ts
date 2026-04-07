@@ -23,9 +23,9 @@ export function useMeetings() {
 			retry: false,
 		})
 
-	const getToken = (id: string) =>
+	const getToken = (id: string, opts?: { enabled?: boolean }) =>
 		trpc.meetings.getToken.useQuery(id, {
-			enabled: !!id && !!id.trim(),
+			enabled: (opts?.enabled ?? true) && !!id && !!id.trim(),
 			retry: false,
 		})
 
