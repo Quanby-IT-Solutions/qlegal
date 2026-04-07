@@ -501,6 +501,7 @@ export const DocumentActions = React.memo(function DocumentActions({
 			) : document.docoChainProjectId && filteredSigners && filteredSigners.length > 0 ? (
 				<SignerList signers={filteredSigners} />
 			) : (
+				document.docoChainProjectId &&
 				participants &&
 				participants.length > 0 &&
 				meetingId &&
@@ -540,7 +541,7 @@ export const DocumentActions = React.memo(function DocumentActions({
 				View Document
 			</Button>
 
-			{!document.docoChainProjectId && hasSigners && meetingId && onCreateProject && (
+			{isEnp && !document.docoChainProjectId && meetingId && onCreateProject && (
 				<Button
 					variant="default"
 					size="sm"
@@ -636,7 +637,9 @@ export const DocumentActions = React.memo(function DocumentActions({
 				{showSigningMessage && (
 					<p className="text-[10px] leading-tight text-amber-700 dark:text-amber-400">
 						{!document.docoChainProjectId
-							? "Add signer first after setting signers"
+							? isEnp
+								? "Create the DocOnChain project first. You can add signers after the project exists."
+								: "Waiting for the notary to create the DocOnChain project."
 							: hasUserSigned
 								? ""
 								: allSignersSigned

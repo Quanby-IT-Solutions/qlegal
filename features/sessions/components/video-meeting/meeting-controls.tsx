@@ -6,13 +6,13 @@ import {
 	Camera,
 	CameraOff,
 	CircleDot,
-	FileUp,
 	Loader2,
 	Mic,
 	MicOff,
 	Monitor,
 	PhoneOff,
 	Square,
+	StopCircle,
 	UserPlus,
 	Users,
 } from "lucide-react"
@@ -25,10 +25,6 @@ import { cn } from "@/core/lib/utils"
 import { formatElapsedMs } from "../../lib/utils"
 
 interface MeetingControlsProps {
-	onUploadClick?: () => void
-	isUploadDisabled?: boolean
-	isUploadLoading?: boolean
-	uploadDisabledReason?: string
 	onRecordingToggle?: () => Promise<void> | void
 	onLocalRecordingToggle?: () => Promise<void> | void
 	localRecordingSupported?: boolean
@@ -39,27 +35,24 @@ interface MeetingControlsProps {
 	participantCount?: number
 	canInvitePeople?: boolean
 	onInvitePeopleClick?: () => void
+	onEndMeetingClick?: () => void
+	isEndMeetingDisabled?: boolean
+	isEndMeetingLoading?: boolean
+	endMeetingDisabledReason?: string
 }
 
 export const MeetingControls = React.memo(function MeetingControls({
-	onUploadClick,
-	isUploadDisabled,
-	isUploadLoading,
-	uploadDisabledReason,
 	onLocalRecordingToggle,
 	isLocalRecording,
 	localRecordingStartedAt,
 	participantCount = 0,
 	canInvitePeople = false,
 	onInvitePeopleClick,
+	onEndMeetingClick,
+	isEndMeetingDisabled,
+	isEndMeetingLoading,
+	endMeetingDisabledReason,
 }: MeetingControlsProps) {
-	const isUploadControlDisabled = Boolean(isUploadDisabled) || Boolean(isUploadLoading)
-	const uploadTitle = isUploadControlDisabled
-		? (uploadDisabledReason ?? (isUploadLoading ? "Preparing upload..." : "Upload document"))
-		: "Upload document"
-	const uploadTooltipMessage = uploadDisabledReason ?? ""
-	const shouldShowUploadTooltip = isUploadControlDisabled && uploadTooltipMessage.length > 0
-
 	const cameraSetterRef = useRef<((v: boolean) => void) | null>(null)
 	const meeting = useMeeting({
 		onError: ({ code, message }: { code: string; message: string }) => {
@@ -277,31 +270,33 @@ export const MeetingControls = React.memo(function MeetingControls({
 					<PhoneOff className="size-4" />
 				</Button>
 
-				{onUploadClick && (
+				{onEndMeetingClick && (
 					<Tooltip>
 						<TooltipTrigger asChild>
 							<span className="inline-flex">
 								<Button
-									variant="ghost"
+									variant="destructive"
 									className={cn(
-										"h-10 rounded-xl px-3 text-white/80 hover:bg-white/10 hover:text-white",
-										isUploadControlDisabled && "cursor-not-allowed opacity-60"
+										"h-10 rounded-xl px-3",
+										isEndMeetingDisabled && "cursor-not-allowed opacity-60"
 									)}
-									onClick={onUploadClick}
-									disabled={isUploadControlDisabled}
-									title={shouldShowUploadTooltip ? undefined : uploadTitle}
+									onClick={onEndMeetingClick}
+									disabled={Boolean(isEndMeetingDisabled) || Boolean(isEndMeetingLoading)}
+									title="End session"
 								>
-									{isUploadLoading ? (
+									{isEndMeetingLoading ? (
 										<Loader2 className="size-4 animate-spin" />
 									) : (
-										<FileUp className="size-4" />
+										<StopCircle className="size-4" />
 									)}
 								</Button>
 							</span>
 						</TooltipTrigger>
-						{shouldShowUploadTooltip && (
-							<TooltipContent side="top">{uploadTooltipMessage}</TooltipContent>
-						)}
+						<TooltipContent side="top">
+							{isEndMeetingDisabled
+								? endMeetingDisabledReason ?? "You cannot end this session"
+								: "End session"}
+						</TooltipContent>
 					</Tooltip>
 				)}
 

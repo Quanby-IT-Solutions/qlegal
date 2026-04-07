@@ -7,6 +7,8 @@ import {
 	PresentationLineChart01Icon,
 } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
+import { useTheme } from "next-themes"
+import { useMemo } from "react"
 import { Bar, Doughnut, Line } from "react-chartjs-2"
 
 import {
@@ -47,9 +49,35 @@ export function DashboardCharts({
 	isLoadingAppointmentStatus,
 	isLoadingDocumentStatus,
 }: DashboardChartsProps) {
+	const { resolvedTheme } = useTheme()
+	const chartUi = useMemo(() => {
+		const dark = resolvedTheme === "dark"
+		return {
+			tick: dark ? "rgb(148, 163, 184)" : "rgb(100, 116, 139)",
+			grid: dark ? "rgba(148, 163, 184, 0.08)" : "rgba(100, 116, 139, 0.12)",
+			legend: dark ? "rgb(148, 163, 184)" : "rgb(100, 116, 139)",
+			tooltipBg: dark ? "rgba(15, 23, 42, 0.94)" : "rgba(255, 255, 255, 0.96)",
+			tooltipBody: dark ? "rgb(226, 232, 240)" : "rgb(51, 65, 85)",
+			tooltipBorder: dark ? "rgba(148, 163, 184, 0.12)" : "rgba(100, 116, 139, 0.2)",
+		}
+	}, [resolvedTheme])
+
+	const lineLegendLabels = useMemo(
+		() => ({
+			color: chartUi.legend,
+			font: { size: 11, family: "system-ui, sans-serif" },
+			boxWidth: 10,
+			boxHeight: 10,
+			padding: 10,
+			usePointStyle: true,
+			pointStyle: "line" as const,
+		}),
+		[chartUi.legend]
+	)
+
 	return (
 		<>
-			<div className="grid gap-8 lg:grid-cols-2">
+			<div className="grid gap-6 lg:grid-cols-2">
 				<Card>
 					<CardHeader>
 						<div className="flex items-center justify-between">
@@ -72,13 +100,28 @@ export function DashboardCharts({
 									options={{
 										responsive: true,
 										maintainAspectRatio: false,
+										interaction: {
+											mode: "index",
+											intersect: false,
+										},
 										plugins: {
 											legend: {
 												position: "top" as const,
+												align: "end" as const,
+												labels: lineLegendLabels,
 											},
 											tooltip: {
 												mode: "index",
 												intersect: false,
+												backgroundColor: chartUi.tooltipBg,
+												titleColor: chartUi.tooltipBody,
+												bodyColor: chartUi.tooltipBody,
+												borderColor: chartUi.tooltipBorder,
+												borderWidth: 1,
+												padding: 10,
+												cornerRadius: 6,
+												displayColors: true,
+												boxPadding: 4,
 											},
 										},
 										scales: {
@@ -86,9 +129,31 @@ export function DashboardCharts({
 												grid: {
 													display: false,
 												},
+												ticks: {
+													color: chartUi.tick,
+													font: { size: 10, family: "system-ui, sans-serif" },
+													maxRotation: 0,
+													autoSkip: true,
+													maxTicksLimit: 8,
+												},
+												border: { display: false },
 											},
 											y: {
 												beginAtZero: true,
+												grid: {
+													color: chartUi.grid,
+													lineWidth: 1,
+													drawTicks: false,
+												},
+												ticks: {
+													color: chartUi.tick,
+													font: { size: 10, family: "system-ui, sans-serif" },
+													padding: 8,
+													callback(value) {
+														return Number.isInteger(value) ? value : ""
+													},
+												},
+												border: { display: false },
 											},
 										},
 									}}
@@ -124,11 +189,27 @@ export function DashboardCharts({
 									options={{
 										responsive: true,
 										maintainAspectRatio: false,
+										cutout: "70%",
 										plugins: {
 											legend: {
 												position: "bottom" as const,
+												labels: {
+													color: chartUi.legend,
+													font: { size: 11, family: "system-ui, sans-serif" },
+													boxWidth: 10,
+													boxHeight: 10,
+													padding: 12,
+													usePointStyle: true,
+												},
 											},
 											tooltip: {
+												backgroundColor: chartUi.tooltipBg,
+												titleColor: chartUi.tooltipBody,
+												bodyColor: chartUi.tooltipBody,
+												borderColor: chartUi.tooltipBorder,
+												borderWidth: 1,
+												padding: 10,
+												cornerRadius: 6,
 												callbacks: {
 													label: context => {
 														const label = context.label ?? ""
@@ -155,7 +236,7 @@ export function DashboardCharts({
 				</Card>
 			</div>
 
-			<div className="grid gap-8 lg:grid-cols-2">
+			<div className="grid gap-6 lg:grid-cols-2">
 				<Card>
 					<CardHeader>
 						<div className="flex items-center justify-between">
@@ -180,12 +261,18 @@ export function DashboardCharts({
 										responsive: true,
 										maintainAspectRatio: false,
 										animation: {
-											duration: 1200,
+											duration: 600,
 											easing: "easeOutQuart",
 										},
 										interaction: {
 											mode: "index" as const,
 											intersect: false,
+										},
+										datasets: {
+											bar: {
+												categoryPercentage: 0.62,
+												barPercentage: 0.9,
+											},
 										},
 										plugins: {
 											legend: {
@@ -193,13 +280,13 @@ export function DashboardCharts({
 											},
 											tooltip: {
 												enabled: true,
-												padding: 12,
-												backgroundColor: "rgba(0, 0, 0, 0.85)",
-												titleColor: "#fff",
-												bodyColor: "#fff",
-												borderColor: "rgba(255, 255, 255, 0.1)",
+												padding: 10,
+												backgroundColor: chartUi.tooltipBg,
+												titleColor: chartUi.tooltipBody,
+												bodyColor: chartUi.tooltipBody,
+												borderColor: chartUi.tooltipBorder,
 												borderWidth: 1,
-												cornerRadius: 8,
+												cornerRadius: 6,
 												displayColors: true,
 												callbacks: {
 													title: context => {
@@ -224,7 +311,7 @@ export function DashboardCharts({
 														const backgroundColor = (
 															typeof backgroundColorArray[context.dataIndex] === "string"
 																? backgroundColorArray[context.dataIndex]
-																: "#3b82f6"
+																: "#64748b"
 														) as string
 														const borderColorArray = Array.isArray(context.dataset.borderColor)
 															? context.dataset.borderColor
@@ -232,13 +319,13 @@ export function DashboardCharts({
 														const borderColor = (
 															typeof borderColorArray[context.dataIndex] === "string"
 																? borderColorArray[context.dataIndex]
-																: "#1d4ed8"
+																: "#475569"
 														) as string
 														return {
 															borderColor,
 															backgroundColor,
-															borderWidth: 2,
-															borderRadius: 4,
+															borderWidth: 1,
+															borderRadius: 3,
 														}
 													},
 												},
@@ -251,12 +338,15 @@ export function DashboardCharts({
 													display: false,
 												},
 												grid: {
-													color: "rgba(148, 163, 184, 0.1)",
+													color: chartUi.grid,
+													lineWidth: 1,
+													drawTicks: false,
 												},
 												ticks: {
-													color: "#94a3b8",
+													color: chartUi.tick,
 													font: {
-														size: 11,
+														size: 10,
+														family: "system-ui, sans-serif",
 													},
 													padding: 8,
 													callback(value) {
@@ -272,9 +362,10 @@ export function DashboardCharts({
 													display: false,
 												},
 												ticks: {
-													color: "#64748b",
+													color: chartUi.tick,
 													font: {
-														size: 12,
+														size: 11,
+														family: "system-ui, sans-serif",
 													},
 													padding: 10,
 												},
@@ -298,7 +389,7 @@ export function DashboardCharts({
 																] ?? APPOINTMENT_TYPE_GRADIENT_COLORS[0]
 															ctx.save()
 															ctx.fillStyle = colors?.end ?? "#1e293b"
-															ctx.font = "bold 12px Inter, system-ui, sans-serif"
+															ctx.font = "600 11px system-ui, sans-serif"
 															ctx.textAlign = "left"
 															ctx.textBaseline = "middle"
 															const x = (bar as { x: number }).x + 8
@@ -314,20 +405,13 @@ export function DashboardCharts({
 								/>
 							</div>
 						) : (
-							<div className="flex h-[350px] flex-col items-center justify-center text-center">
-								<div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-linear-to-br from-blue-100 to-blue-200 dark:from-blue-900/30 dark:to-blue-800/30">
-									{}
-									<HugeiconsIcon
-										icon={BarChartIcon}
-										size={32}
-										className="text-blue-600 dark:text-blue-400"
-									/>
+							<div className="flex h-[350px] flex-col items-center justify-center gap-2 text-center">
+								<div className="bg-muted/50 text-muted-foreground mb-1 flex size-12 items-center justify-center rounded-md border border-border/60">
+									<HugeiconsIcon icon={BarChartIcon} size={22} />
 								</div>
-								<p className="font-semibold text-slate-900 dark:text-slate-100">
-									No appointment type data
-								</p>
-								<p className="text-muted-foreground text-sm">
-									Appointment type distribution will appear here
+								<p className="text-foreground text-sm font-medium">No appointment type data</p>
+								<p className="text-muted-foreground max-w-[240px] text-xs leading-relaxed">
+									Distribution by type will appear when you have appointments.
 								</p>
 							</div>
 						)}
@@ -356,11 +440,28 @@ export function DashboardCharts({
 									options={{
 										responsive: true,
 										maintainAspectRatio: false,
+										animation: {
+											duration: 600,
+											easing: "easeOutQuart",
+										},
+										datasets: {
+											bar: {
+												categoryPercentage: 0.65,
+												barPercentage: 0.82,
+											},
+										},
 										plugins: {
 											legend: {
 												display: false,
 											},
 											tooltip: {
+												backgroundColor: chartUi.tooltipBg,
+												titleColor: chartUi.tooltipBody,
+												bodyColor: chartUi.tooltipBody,
+												borderColor: chartUi.tooltipBorder,
+												borderWidth: 1,
+												padding: 10,
+												cornerRadius: 6,
 												callbacks: {
 													label: context => `Documents: ${context.parsed.y}`,
 												},
@@ -371,9 +472,30 @@ export function DashboardCharts({
 												grid: {
 													display: false,
 												},
+												ticks: {
+													color: chartUi.tick,
+													font: { size: 10, family: "system-ui, sans-serif" },
+													maxRotation: 45,
+													minRotation: 0,
+												},
+												border: { display: false },
 											},
 											y: {
 												beginAtZero: true,
+												grid: {
+													color: chartUi.grid,
+													lineWidth: 1,
+													drawTicks: false,
+												},
+												ticks: {
+													color: chartUi.tick,
+													font: { size: 10, family: "system-ui, sans-serif" },
+													padding: 8,
+													callback(value) {
+														return Number.isInteger(value) ? value : ""
+													},
+												},
+												border: { display: false },
 											},
 										},
 									}}

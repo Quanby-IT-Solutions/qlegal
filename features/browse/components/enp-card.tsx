@@ -1,3 +1,5 @@
+"use client"
+
 import Link from "next/link"
 import {
 	Briefcase,
@@ -22,9 +24,8 @@ import {
 } from "@/core/components/ui/tooltip"
 import { cn, getInitials } from "@/core/lib/utils"
 
-import { UserProfileSheet } from "@/features/user-management/components/user-profile-sheet"
-
 import { BookingDialog } from "@/features/browse/components/booking-dialog"
+import { UserProfileSheet } from "@/features/user-management/components/user-profile-sheet"
 
 // ENP display data type (co-located in enp-card.tsx)
 type ENPDisplayData = {
@@ -122,7 +123,7 @@ export function EnpCard({ enp, className }: EnpCardProps) {
 	return (
 		<Card
 			className={cn(
-				"group border-border/50 hover:border-primary/20 relative flex w-full max-w-[300px] flex-col overflow-hidden pt-0 shadow-sm transition-all duration-300 hover:shadow-md",
+				"group border-border/50 hover:border-primary/20 relative flex w-full max-w-75 flex-col overflow-hidden pt-0! shadow-sm transition-all duration-300 hover:shadow-md",
 				className
 			)}
 		>

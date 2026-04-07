@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server"
-import { desc, eq } from "drizzle-orm"
+import { eq } from "drizzle-orm"
 
 import { db } from "@/services/drizzle/db"
 import { users } from "@/services/drizzle/schema/auth"
@@ -105,7 +105,7 @@ export async function POST(request: NextRequest) {
 		if (applicationStatus === "auto_approved") {
 			kycStatus = "VERIFIED"
 			console.log("✅ KYC Approved via webhook")
-		} else if (applicationStatus === "auto_declined") {
+		} else if (applicationStatus === "auto_declined" || applicationStatus === "manual_declined") {
 			kycStatus = "REJECTED"
 			console.log("❌ KYC Rejected via webhook")
 		} else if (applicationStatus === "needs_review") {
@@ -221,6 +221,7 @@ export async function POST(request: NextRequest) {
 				.set({
 					kycStatus,
 					kycVerifiedAt: new Date(),
+					kycLastExpiredAt: null,
 					firstName: coalesceNameValue(user.firstName, latestIdCardDetails?.firstName),
 					middleName: coalesceNameValue(user.middleName, latestIdCardDetails?.middleName),
 					lastName: coalesceNameValue(user.lastName, latestIdCardDetails?.lastName),

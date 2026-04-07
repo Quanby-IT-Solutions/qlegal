@@ -11,7 +11,6 @@ interface KycMobileFlowProps {
 	onBack: () => void
 	onNext: () => void
 	onStartVerification: () => void
-	onTryAgain?: () => void
 	isPending: boolean
 	showPendingBanner: boolean
 	showCancelledBanner?: boolean
@@ -25,7 +24,6 @@ export function KycMobileFlow({
 	onBack,
 	onNext,
 	onStartVerification,
-	onTryAgain,
 	isPending,
 	showPendingBanner: _showPendingBanner,
 	showCancelledBanner,
@@ -34,11 +32,12 @@ export function KycMobileFlow({
 	rejectedVariant,
 	isStatusLoading,
 }: KycMobileFlowProps) {
-	const handleStartClick = showRejectedBanner
-		? (onTryAgain ?? onStartVerification)
-		: onStartVerification
-	const shouldDisableStartButton =
-		[isPending, showNeedsReviewBanner, isStatusLoading].some(Boolean) && !showRejectedBanner
+	const shouldDisableStartButton = [isPending, showNeedsReviewBanner, isStatusLoading].some(Boolean)
+
+	const showCheckingPrimary =
+		!showRejectedBanner && (isPending || isStatusLoading)
+	const showManualReviewPrimary =
+		showNeedsReviewBanner && !showRejectedBanner && !showCheckingPrimary
 
 	return (
 		<>
@@ -50,7 +49,7 @@ export function KycMobileFlow({
 
 					<div className="grid gap-3">
 						<Button
-							onClick={handleStartClick}
+							onClick={onStartVerification}
 							disabled={shouldDisableStartButton}
 							variant="outline"
 							className="h-auto w-full cursor-pointer items-start justify-start gap-3 px-4 py-3 text-left whitespace-normal"
@@ -58,20 +57,30 @@ export function KycMobileFlow({
 							type="button"
 						>
 							<div className="bg-muted flex size-9 shrink-0 items-center justify-center rounded-md border sm:size-10">
-								{isStatusLoading ? (
+								{isPending || isStatusLoading ? (
 									<Loader2 className="size-5 animate-spin" />
 								) : (
 									<ShieldCheck className="size-5" />
 								)}
 							</div>
 							<div className="flex min-w-0 flex-1 flex-col items-start gap-0.5">
-								<span className="text-sm leading-snug font-medium">Start KYC</span>
+								<span className="text-sm leading-snug font-medium">
+									{showManualReviewPrimary
+										? "Under manual review"
+										: showCheckingPrimary
+											? "Checking verification status…"
+											: "Start identity verification"}
+								</span>
 								<span className="text-muted-foreground text-xs leading-snug wrap-break-word">
-									Complete verification on your screen. This page will update automatically.
+									{showManualReviewPrimary
+										? "You don’t need to start again. We’ll notify you when review is complete."
+										: showCheckingPrimary
+											? "Confirming your result with our provider. This usually takes a moment."
+											: "Complete verification on your screen. This page will update automatically."}
 								</span>
 							</div>
 						</Button>
-						{showNeedsReviewBanner && !isStatusLoading && (
+						{showNeedsReviewBanner && (
 							<div className="rounded-lg border border-yellow-200 bg-yellow-50 p-4 dark:border-yellow-800 dark:bg-yellow-950/20">
 								<div className="flex items-start gap-3">
 									<ShieldCheck className="mt-0.5 size-5 shrink-0 text-yellow-600 dark:text-yellow-400" />

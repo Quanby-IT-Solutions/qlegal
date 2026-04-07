@@ -32,7 +32,7 @@ function maskEmail(email: string): string {
 
 export const authRouter = createTRPCRouter({
 	register: publicProcedure.input(registerSchema).mutation(async ({ ctx, input }) => {
-		const { email, password } = input
+		const { email, password, firstName, middleName, lastName, prefix, suffix } = input
 
 		const existingUser = await ctx.db.query.users.findFirst({
 			where: (data, { eq }) => eq(data.email, email),
@@ -51,8 +51,14 @@ export const authRouter = createTRPCRouter({
 		const [createdUser] = await ctx.db
 			.insert(users)
 			.values({
+				firstName,
+				middleName: middleName ?? null,
+				lastName,
+				prefix: prefix ?? null,
+				suffix: suffix ?? null,
 				email,
 				password: hashedPassword,
+				commissionStatus: "PENDING",
 			})
 			.returning({ id: users.id })
 
@@ -212,7 +218,7 @@ export const authRouter = createTRPCRouter({
 
 		const existingUser = await ctx.db.query.users.findFirst({
 			where: (data, { eq }) => eq(data.email, email),
-			columns: { id: true, email: true, name: true },
+			columns: { id: true, email: true },
 		})
 
 		if (!existingUser) {
@@ -244,7 +250,7 @@ export const authRouter = createTRPCRouter({
 			})
 
 			// Generic error for all failure cases to prevent account enumeration
-			if (!user || !user.recoveryEmail || !user.recoveryEmailVerified) {
+			if (!user?.recoveryEmail || !user?.recoveryEmailVerified) {
 				throw new TRPCError({
 					code: "NOT_FOUND",
 					message: "No recovery email is set up for this account. Please contact support.",

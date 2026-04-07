@@ -2,8 +2,8 @@
 
 import { use, useState } from "react"
 
-import { SessionLobby } from "@/features/sessions/components/session-lobby"
-import { SessionRoom } from "@/features/sessions/components/session-room"
+import { SessionLobby } from "@/features/sessions/components/lobby/session-lobby"
+import { SessionRoom } from "@/features/sessions/components/lobby/session-room"
 
 export default function SessionPage({ params }: { params: Promise<{ id: string }> }) {
 	const { id } = use(params)

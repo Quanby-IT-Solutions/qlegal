@@ -45,8 +45,28 @@ const agreeToTermsSchema = z.boolean({
 	error: "You must agree to the terms and conditions",
 })
 
+/**
+ * Optional text fields: missing keys / null / undefined from the client are coerced to "",
+ * then empty string becomes undefined for storage (tRPC input must accept omitted fields).
+ */
+const optionalTrimmed = (max: number, label: string) =>
+	z.preprocess(
+		(val: unknown) =>
+			val === undefined || val === null ? "" : typeof val === "string" ? val : "",
+		z
+			.string()
+			.trim()
+			.max(max, `${label} must be at most ${max} characters`)
+			.transform(s => (s === "" ? undefined : s))
+	)
+
 export const registerSchema = z
 	.object({
+		firstName: firstNameSchema,
+		middleName: optionalTrimmed(255, "Middle name"),
+		lastName: lastNameSchema,
+		prefix: optionalTrimmed(50, "Prefix"),
+		suffix: optionalTrimmed(50, "Suffix"),
 		email: emailSchema,
 		password: complexPasswordSchema,
 		confirmPassword: complexConfirmPasswordSchema,

@@ -1,8 +1,10 @@
 import { TRPCError } from "@trpc/server"
-import { and, asc, desc, eq, gte, inArray, lt, or } from "drizzle-orm"
+import { and, desc, eq, gte, inArray, or } from "drizzle-orm"
 import { z } from "zod/v4"
 
+import { assertBookerCanBookLawyerForKyc } from "@/core/lib/kyc-restriction-guards"
 import { getFullName } from "@/core/lib/utils"
+
 import { type db } from "@/services/drizzle/db"
 import { appointmentParticipants } from "@/services/drizzle/schema/appointment-participants"
 import { appointments } from "@/services/drizzle/schema/appointments"
@@ -85,6 +87,18 @@ export const appointmentsRouter = createTRPCRouter({
 		.input(createAppointmentSchema)
 		.mutation(async ({ ctx, input }) => {
 			const principalId = ctx.session.user.id
+
+			const booker = await ctx.db.query.users.findFirst({
+				where: eq(users.id, principalId),
+				columns: { kycStatus: true, role: true },
+			})
+			if (!booker) {
+				throw new TRPCError({
+					code: "UNAUTHORIZED",
+					message: "User not found",
+				})
+			}
+			assertBookerCanBookLawyerForKyc(booker.role, booker.kycStatus)
 
 			// Verify the ENP exists and has ENP role
 			const enp = await ctx.db.query.users.findFirst({
@@ -195,7 +209,9 @@ export const appointmentsRouter = createTRPCRouter({
 					createdBy: {
 						columns: {
 							id: true,
-							name: true,
+							firstName: true,
+							middleName: true,
+							lastName: true,
 							email: true,
 							image: true,
 						},
@@ -205,7 +221,9 @@ export const appointmentsRouter = createTRPCRouter({
 							user: {
 								columns: {
 									id: true,
-									name: true,
+									firstName: true,
+									middleName: true,
+									lastName: true,
 									email: true,
 									image: true,
 									phoneNumber: true,
@@ -263,7 +281,9 @@ export const appointmentsRouter = createTRPCRouter({
 				enp: {
 					columns: {
 						id: true,
-						name: true,
+						firstName: true,
+						middleName: true,
+						lastName: true,
 						email: true,
 						image: true,
 					},
@@ -271,7 +291,9 @@ export const appointmentsRouter = createTRPCRouter({
 				principal: {
 					columns: {
 						id: true,
-						name: true,
+						firstName: true,
+						middleName: true,
+						lastName: true,
 						email: true,
 						image: true,
 					},
@@ -293,8 +315,8 @@ export const appointmentsRouter = createTRPCRouter({
 					priority: input.priority,
 					requestUrl,
 				})
-			} catch (error) {
-				console.error("Failed to send notification email:", error)
+			} catch (e: unknown) {
+				console.error("Failed to send notification email:", e)
 				// Don't fail the request creation if email fails
 			}
 		}
@@ -313,7 +335,9 @@ export const appointmentsRouter = createTRPCRouter({
 				enp: {
 					columns: {
 						id: true,
-						name: true,
+						firstName: true,
+						middleName: true,
+						lastName: true,
 						email: true,
 						image: true,
 					},
@@ -342,7 +366,9 @@ export const appointmentsRouter = createTRPCRouter({
 					enp: {
 						columns: {
 							id: true,
-							name: true,
+							firstName: true,
+							middleName: true,
+							lastName: true,
 							email: true,
 							image: true,
 						},
@@ -350,7 +376,9 @@ export const appointmentsRouter = createTRPCRouter({
 					principal: {
 						columns: {
 							id: true,
-							name: true,
+							firstName: true,
+							middleName: true,
+							lastName: true,
 							email: true,
 							image: true,
 						},
@@ -378,104 +406,142 @@ export const appointmentsRouter = createTRPCRouter({
 
 	// =================== ENP PROCEDURES ===================
 
-	// Get incoming requests (requests received by current user as ENP)
-	getIncomingRequests: protectedProcedure.query(async ({ ctx }) => {
-		const userId = ctx.session.user.id
+	// Consolidated ENP schedule dashboard — single query replaces getIncomingRequests,
+	// getIncomingAppointmentsForENP, and getEnpSchedule
+	getEnpScheduleDashboard: protectedProcedure
+		.input(z.object({ month: z.number(), year: z.number() }))
+		.query(async ({ ctx, input }) => {
+			const userId = ctx.session.user.id
 
-		// Verify user is an ENP
-		const user = await ctx.db.query.users.findFirst({
-			where: eq(users.id, userId),
-		})
+			const user = await ctx.db.query.users.findFirst({
+				where: eq(users.id, userId),
+			})
 
-		if (user?.role !== "ENP") {
-			return []
-		}
-
-		const incomingRequests = await ctx.db.query.notarizationRequests.findMany({
-			where: eq(notarizationRequests.enpId, userId),
-			orderBy: [desc(notarizationRequests.createdAt)],
-			with: {
-				principal: {
-					columns: {
-						id: true,
-						name: true,
-						email: true,
-						image: true,
+			if (user?.role !== "ENP") {
+				return {
+					incomingRequests: [] as never[],
+					incomingAppointments: [] as never[],
+					schedule: {
+						regular: [] as never[],
+						blocked: [] as never[],
+						recurringBlocked: [] as never[],
+						custom: [] as never[],
+						myAppointments: [] as never[],
 					},
-				},
-			},
-		})
+				}
+			}
 
-		return incomingRequests
-	}),
-
-	// Get incoming appointments (appointments received by current user as ENP)
-	getIncomingAppointmentsForENP: protectedProcedure.query(async ({ ctx }) => {
-		const userId = ctx.session.user.id
-
-		// Verify user is an ENP
-		const user = await ctx.db.query.users.findFirst({
-			where: eq(users.id, userId),
-		})
-
-		if (user?.role !== "ENP") {
-			return []
-		}
-
-		// Get pending and confirmed appointments for this ENP
-		const incomingAppointments = await ctx.db.query.appointments.findMany({
-			where: and(
-				eq(appointments.userId, userId),
-				or(eq(appointments.status, "PENDING"), eq(appointments.status, "CONFIRMED")),
-				gte(appointments.appointmentDate, new Date()) // Only upcoming appointments
-			),
-			orderBy: [asc(appointments.appointmentDate)],
-			with: {
-				participants: {
+			// 3 DB queries instead of ~8
+			const [incomingRequests, allAppointments, allAvailability] = await Promise.all([
+				// Query 1: notarization requests
+				ctx.db.query.notarizationRequests.findMany({
+					where: eq(notarizationRequests.enpId, userId),
+					orderBy: [desc(notarizationRequests.createdAt)],
 					with: {
-						user: {
+						principal: {
 							columns: {
 								id: true,
-								name: true,
+								firstName: true,
+								middleName: true,
+								lastName: true,
 								email: true,
 								image: true,
 							},
 						},
 					},
-				},
-			},
-		})
+				}),
+				// Query 2: all appointments for this ENP
+				ctx.db.query.appointments.findMany({
+					where: eq(appointments.userId, userId),
+					orderBy: [desc(appointments.appointmentDate)],
+					with: {
+						participants: {
+							with: {
+								user: {
+									columns: {
+										id: true,
+										firstName: true,
+										middleName: true,
+										lastName: true,
+										email: true,
+										image: true,
+									},
+								},
+							},
+						},
+					},
+				}),
+				// Query 3: all availability (single query, filter by type in JS)
+				ctx.db.query.enpAvailability.findMany({
+					where: eq(enpAvailability.enpId, userId),
+				}),
+			])
 
-		// Map appointments to same structure as requests for consistency
-		// We'll use a 'source' field to distinguish between requests and appointments
-		const appointmentsAsRequests = incomingAppointments.map(apt => {
-			const participant = apt.participants.find(p => p.participantRole === "PARTICIPANT")
+			// Map appointments to incoming appointment format
+			const incomingAppointments = allAppointments.map(apt => {
+				const participant = apt.participants.find(p => p.participantRole === "PARTICIPANT")
+
+				return {
+					id: apt.id,
+					title: apt.title,
+					description: apt.description,
+					status: apt.status,
+					workflow: (apt.modeOfNotarization ?? "REN") as "REN" | "IEN",
+					priority: "NORMAL" as const,
+					createdAt: apt.createdAt,
+					updatedAt: apt.updatedAt,
+					enpId: apt.userId,
+					principalId: participant?.userId ?? "",
+					appointmentId: apt.id,
+					rejectReason: apt.cancelReason,
+					principal: {
+						name: participant?.user ? getFullName(participant.user) : undefined,
+						image: participant?.user?.image,
+					},
+					documents: 0,
+					source: "appointment" as const,
+					appointmentData: { ...apt, lapsed: false },
+				}
+			})
+
+			// Split availability by type in JS
+			const regular = allAvailability.filter(a => a.type === "REGULAR")
+			const blocked = allAvailability.filter(a => a.type === "BLOCKED")
+			const recurringBlocked = allAvailability.filter(a => a.type === "RECURRING_BLOCKED")
+			const custom = allAvailability.filter(a => a.type === "CUSTOM")
+
+			// Filter month-scoped appointments for schedule calendar
+			const startDate = new Date(input.year, input.month, 1)
+			const endDate = new Date(input.year, input.month + 1, 0, 0, -1)
+			const now = Date.now()
+			const graceMs = 30 * 60 * 1000
+
+			const myAppointments = allAppointments
+				.filter(apt => {
+					if (apt.status !== "CONFIRMED" && apt.status !== "PENDING") return false
+					const d = new Date(apt.appointmentDate)
+					return d >= startDate && d < endDate
+				})
+				.sort(
+					(a, b) => new Date(a.appointmentDate).getTime() - new Date(b.appointmentDate).getTime()
+				)
+				.map(appointment => ({
+					...appointment,
+					lapsed: computeLapsed(appointment, now, graceMs),
+				}))
 
 			return {
-				id: apt.id,
-				title: apt.title,
-				description: apt.description,
-				status: apt.status,
-				workflow: (apt.modeOfNotarization ?? "REN") as "REN" | "IEN",
-				priority: "NORMAL" as const,
-				createdAt: apt.createdAt,
-				updatedAt: apt.updatedAt,
-				enpId: apt.userId,
-				principalId: participant?.userId ?? "",
-				appointmentId: apt.id, // Link back to appointment
-				rejectReason: apt.cancelReason,
-				principal: {
-					name: participant?.user ? getFullName(participant.user) : undefined,
-					image: participant?.user?.image,
+				incomingRequests,
+				incomingAppointments,
+				schedule: {
+					regular,
+					blocked,
+					recurringBlocked,
+					custom,
+					myAppointments,
 				},
-				documents: 0,
-				source: "appointment" as const, // Mark as coming from appointment
-				appointmentData: { ...apt, lapsed: false }, // Keep full appointment data for actions
 			}
-		})
-
-		return appointmentsAsRequests
-	}),
+		}),
 
 	// Update request status
 	updateRequestStatus: protectedProcedure
@@ -706,7 +772,9 @@ export const appointmentsRouter = createTRPCRouter({
 					createdBy: {
 						columns: {
 							id: true,
-							name: true,
+							firstName: true,
+							middleName: true,
+							lastName: true,
 							email: true,
 							image: true,
 						},
@@ -716,7 +784,9 @@ export const appointmentsRouter = createTRPCRouter({
 							user: {
 								columns: {
 									id: true,
-									name: true,
+									firstName: true,
+									middleName: true,
+									lastName: true,
 									email: true,
 									image: true,
 									phoneNumber: true,
@@ -774,7 +844,9 @@ export const appointmentsRouter = createTRPCRouter({
 				createdBy: {
 					columns: {
 						id: true,
-						name: true,
+						firstName: true,
+						middleName: true,
+						lastName: true,
 						email: true,
 						image: true,
 					},
@@ -784,7 +856,9 @@ export const appointmentsRouter = createTRPCRouter({
 						user: {
 							columns: {
 								id: true,
-								name: true,
+								firstName: true,
+								middleName: true,
+								lastName: true,
 								email: true,
 								image: true,
 							},
@@ -811,7 +885,9 @@ export const appointmentsRouter = createTRPCRouter({
 					createdBy: {
 						columns: {
 							id: true,
-							name: true,
+							firstName: true,
+							middleName: true,
+							lastName: true,
 							email: true,
 							image: true,
 						},
@@ -821,7 +897,9 @@ export const appointmentsRouter = createTRPCRouter({
 							user: {
 								columns: {
 									id: true,
-									name: true,
+									firstName: true,
+									middleName: true,
+									lastName: true,
 									email: true,
 									image: true,
 									phoneNumber: true,
@@ -841,7 +919,9 @@ export const appointmentsRouter = createTRPCRouter({
 						principal: {
 							columns: {
 								id: true,
-								name: true,
+								firstName: true,
+								middleName: true,
+								lastName: true,
 								email: true,
 								image: true,
 								phoneNumber: true,
@@ -850,7 +930,9 @@ export const appointmentsRouter = createTRPCRouter({
 						enp: {
 							columns: {
 								id: true,
-								name: true,
+								firstName: true,
+								middleName: true,
+								lastName: true,
 								email: true,
 								image: true,
 								phoneNumber: true,
@@ -861,7 +943,9 @@ export const appointmentsRouter = createTRPCRouter({
 								createdBy: {
 									columns: {
 										id: true,
-										name: true,
+										firstName: true,
+										middleName: true,
+										lastName: true,
 										email: true,
 										image: true,
 									},
@@ -871,7 +955,9 @@ export const appointmentsRouter = createTRPCRouter({
 										user: {
 											columns: {
 												id: true,
-												name: true,
+												firstName: true,
+												middleName: true,
+												lastName: true,
 												email: true,
 												image: true,
 												phoneNumber: true,
@@ -1022,159 +1108,6 @@ export const appointmentsRouter = createTRPCRouter({
 		}),
 
 	// ENP Schedule Management
-
-	// Get ENP's schedule including their own events
-	getEnpSchedule: protectedProcedure
-		.input(z.object({ month: z.number(), year: z.number() }))
-		.query(async ({ ctx, input }) => {
-			const userId = ctx.session.user.id
-
-			// Verify user is ENP
-			const user = await ctx.db.query.users.findFirst({
-				where: eq(users.id, userId),
-			})
-
-			if (user?.role !== "ENP") {
-				throw new TRPCError({
-					code: "FORBIDDEN",
-					message: "Only ENPs can access schedule",
-				})
-			}
-
-			// Get regular weekly availability
-			const regularAvailability = await ctx.db.query.enpAvailability.findMany({
-				where: and(eq(enpAvailability.enpId, userId), eq(enpAvailability.type, "REGULAR")),
-			})
-
-			// Get one-time blocked slots
-			const blockedSlots = await ctx.db.query.enpAvailability.findMany({
-				where: and(eq(enpAvailability.enpId, userId), eq(enpAvailability.type, "BLOCKED")),
-				orderBy: [asc(enpAvailability.date), asc(enpAvailability.startTime)],
-			})
-
-			// Get recurring blocked slots
-			const recurringBlocked = await ctx.db.query.enpAvailability.findMany({
-				where: and(
-					eq(enpAvailability.enpId, userId),
-					eq(enpAvailability.type, "RECURRING_BLOCKED")
-				),
-				orderBy: [asc(enpAvailability.dayOfWeek), asc(enpAvailability.startTime)],
-			})
-
-			// Get custom availability overrides for month
-			const customAvailability = await ctx.db.query.enpAvailability.findMany({
-				where: and(eq(enpAvailability.enpId, userId), eq(enpAvailability.type, "CUSTOM")),
-				orderBy: [asc(enpAvailability.date), asc(enpAvailability.startTime)],
-			})
-
-			// Get ENP's appointments with lapsed status computation (inline getEnpScheduleWithEvents logic)
-			const startDate = new Date(input.year, input.month, 1)
-			const endDate = new Date(input.year, input.month + 1, 0, 0, -1) // Last day of month
-
-			const myAppointments = await ctx.db.query.appointments.findMany({
-				where: and(
-					eq(appointments.userId, userId),
-					or(eq(appointments.status, "CONFIRMED"), eq(appointments.status, "PENDING")),
-					gte(appointments.appointmentDate, startDate),
-					lt(appointments.appointmentDate, endDate)
-				),
-				orderBy: [asc(appointments.appointmentDate)],
-				with: {
-					participants: {
-						with: {
-							user: {
-								columns: {
-									id: true,
-									name: true,
-									email: true,
-									image: true,
-								},
-							},
-						},
-					},
-				},
-			})
-
-			// Compute lapsed status for each appointment
-			const now = Date.now()
-			const graceMs = 30 * 60 * 1000
-
-			const myAppointmentsWithLapsed = myAppointments.map(appointment => {
-				return {
-					...appointment,
-					lapsed: computeLapsed(appointment, now, graceMs),
-				}
-			})
-
-			return {
-				regular: regularAvailability,
-				blocked: blockedSlots,
-				recurringBlocked,
-				custom: customAvailability,
-				myAppointments: myAppointmentsWithLapsed,
-			}
-		}),
-
-	// Get ENP's schedule with their events - FIXED TIMEZONE ISSUE
-	getEnpScheduleWithEvents: protectedProcedure
-		.input(z.object({ month: z.number(), year: z.number() }))
-		.query(async ({ ctx, input }) => {
-			const userId = ctx.session.user.id
-
-			// Verify user is ENP
-			const user = await ctx.db.query.users.findFirst({
-				where: eq(users.id, userId),
-			})
-
-			if (user?.role !== "ENP") {
-				throw new TRPCError({
-					code: "FORBIDDEN",
-					message: "Only ENPs can access schedule",
-				})
-			}
-
-			// Get ENP's appointments (all appointments where ENP is lawyer) - timezone-safe approach
-			const startDate = new Date(input.year, input.month, 1)
-			const endDate = new Date(input.year, input.month + 1, 0, 0, -1) // Last day of month
-
-			const myAppointments = await ctx.db.query.appointments.findMany({
-				where: and(
-					eq(appointments.userId, userId),
-					or(eq(appointments.status, "CONFIRMED"), eq(appointments.status, "PENDING")),
-					gte(appointments.appointmentDate, startDate),
-					lt(appointments.appointmentDate, endDate)
-				),
-				orderBy: [asc(appointments.appointmentDate)],
-				with: {
-					participants: {
-						with: {
-							user: {
-								columns: {
-									id: true,
-									name: true,
-									email: true,
-									image: true,
-								},
-							},
-						},
-					},
-				},
-			})
-
-			const now = Date.now()
-			const graceMs = 30 * 60 * 1000
-
-			const myAppointmentsWithLapsed = myAppointments.map(appointment => {
-				return {
-					...appointment,
-					lapsed: computeLapsed(appointment, now, graceMs),
-				}
-			})
-
-			return {
-				myAppointments: myAppointmentsWithLapsed,
-			}
-		}),
 
 	// Create ENP event (consultation or notarization)
 	createEnpEvent: protectedProcedure

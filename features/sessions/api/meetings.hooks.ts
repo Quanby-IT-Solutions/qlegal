@@ -23,9 +23,9 @@ export function useMeetings() {
 			retry: false,
 		})
 
-	const getToken = (id: string) =>
+	const getToken = (id: string, opts?: { enabled?: boolean }) =>
 		trpc.meetings.getToken.useQuery(id, {
-			enabled: !!id && !!id.trim(),
+			enabled: (opts?.enabled ?? true) && !!id && !!id.trim(),
 			retry: false,
 		})
 
@@ -48,6 +48,15 @@ export function useMeetings() {
 		onSuccess: () => {
 			void utils.meetings.getUserMeetings.invalidate()
 			void utils.meetings.getUserMeetingsWithDocumentStats.invalidate()
+		},
+	})
+
+	const cancelMeeting = trpc.meetings.cancelMeeting.useMutation({
+		onSuccess: () => {
+			void utils.meetings.getUserMeetings.invalidate()
+			void utils.meetings.getUserMeetingsWithDocumentStats.invalidate()
+			void utils.appointments.getUpcomingAppointments.invalidate()
+			void utils.appointments.getMyAppointments.invalidate()
 		},
 	})
 
@@ -95,6 +104,7 @@ export function useMeetings() {
 		startMeeting,
 		endMeeting,
 		deleteMeeting,
+		cancelMeeting,
 		uploadDocument,
 		getMeetingDocuments,
 		inviteWitnessByEmail,

@@ -3,24 +3,26 @@
 import * as React from "react"
 import {
 	differenceInDays,
+	format,
 	formatDistanceStrict,
 	formatDistanceToNow,
 	getDay,
 	getDaysInMonth,
 	isSameDay,
 } from "date-fns"
-import { Check, ChevronLeftIcon, ChevronRightIcon, ChevronsUpDown } from "lucide-react"
-
 import {
-	AlertDialog,
-	AlertDialogAction,
-	AlertDialogCancel,
-	AlertDialogContent,
-	AlertDialogDescription,
-	AlertDialogFooter,
-	AlertDialogHeader,
-	AlertDialogTitle,
-} from "@/core/components/ui/alert-dialog"
+	CalendarDays,
+	Check,
+	ChevronLeftIcon,
+	ChevronRightIcon,
+	ChevronsUpDown,
+	Clock,
+	FileText,
+	Globe,
+	Type,
+	Users,
+} from "lucide-react"
+
 import { Avatar, AvatarFallback, AvatarImage } from "@/core/components/ui/avatar"
 import { Badge } from "@/core/components/ui/badge"
 import { Button } from "@/core/components/ui/button"
@@ -32,6 +34,14 @@ import {
 	CommandItem,
 	CommandList,
 } from "@/core/components/ui/command"
+import {
+	Item,
+	ItemContent,
+	ItemDescription,
+	ItemGroup,
+	ItemMedia,
+	ItemTitle,
+} from "@/core/components/ui/item"
 import { Popover, PopoverContent, PopoverTrigger } from "@/core/components/ui/popover"
 import {
 	Sheet,
@@ -506,6 +516,34 @@ function CalendarScheduleBody({
 	)
 }
 
+const STATUS_CLASSNAMES: Record<string, string> = {
+	pending:
+		"border-amber-500/50 bg-amber-500/10 text-amber-700 dark:text-amber-400 dark:bg-amber-500/15",
+	confirmed:
+		"border-emerald-500/50 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 dark:bg-emerald-500/15",
+	ongoing:
+		"border-violet-500/50 bg-violet-500/10 text-violet-700 dark:text-violet-400 dark:bg-violet-500/15",
+	in_progress:
+		"border-blue-500/50 bg-blue-500/10 text-blue-700 dark:text-blue-400 dark:bg-blue-500/15",
+	completed:
+		"border-emerald-500/50 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 dark:bg-emerald-500/15",
+	cancelled: "border-red-500/50 bg-red-500/10 text-red-700 dark:text-red-400 dark:bg-red-500/15",
+	rejected: "border-red-500/50 bg-red-500/10 text-red-700 dark:text-red-400 dark:bg-red-500/15",
+	lapsed:
+		"border-orange-500/50 bg-orange-500/10 text-orange-700 dark:text-orange-400 dark:bg-orange-500/15",
+}
+
+const STATUS_DOT_COLORS: Record<string, string> = {
+	pending: "bg-amber-500",
+	confirmed: "bg-emerald-500",
+	ongoing: "bg-violet-500",
+	in_progress: "bg-blue-500",
+	completed: "bg-emerald-500",
+	cancelled: "bg-red-500",
+	rejected: "bg-red-500",
+	lapsed: "bg-orange-500",
+}
+
 function formatAppointmentType(type?: "NOTARIZATION" | "CONSULTATION"): string {
 	if (!type) return "Request"
 	return type.charAt(0).toUpperCase() + type.slice(1).toLowerCase()
@@ -532,11 +570,9 @@ function CalendarScheduleEventCard({
 	const isRemote = event.workflow === "REN"
 	const showWorkflow = event.appointmentType === "NOTARIZATION"
 	const [isSheetOpen, setIsSheetOpen] = React.useState(false)
-	const [isRejectDialogOpen, setIsRejectDialogOpen] = React.useState(false)
 	const prevIsProcessingRef = React.useRef(false)
 	const isPending = event.status.id === "pending"
 	const isActionable = isPending && !!onAccept && !!onReject
-	const isAppointment = event.meta?.source === "appointment" || !!event.appointmentType
 
 	const subtitle = [showWorkflow ? (isRemote ? "Remote" : "In Person") : null, typeName]
 		.filter(Boolean)
@@ -545,9 +581,11 @@ function CalendarScheduleEventCard({
 	const displayLabel =
 		event.status.id === "rejected"
 			? "Rejected"
-			: event.status.id === "rescheduled"
-				? "Rescheduled"
-				: (relativeLabel ?? null)
+			: event.status.id === "cancelled"
+				? "Cancelled"
+				: event.status.id === "rescheduled"
+					? "Rescheduled"
+					: (relativeLabel ?? null)
 
 	React.useEffect(() => {
 		const wasProcessing = prevIsProcessingRef.current
@@ -559,273 +597,235 @@ function CalendarScheduleEventCard({
 	}, [isProcessing, event.status.id])
 
 	const statusClassName =
-		event.status.id === "pending"
-			? "border-amber-500/50 bg-amber-500/10 text-amber-700 dark:text-amber-400 dark:bg-amber-500/15"
-			: event.status.id === "rejected" || event.status.id === "rescheduled"
-				? "border-muted-foreground/30 text-muted-foreground"
-				: "border-primary/30 bg-primary/5 text-primary"
+		STATUS_CLASSNAMES[event.status.id] ?? "border-primary/30 bg-primary/5 text-primary"
 
 	return (
-		<>
-			<Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
-				<SheetTrigger asChild>
-					<div
-						data-slot="calendar-schedule-event-card"
-						role="button"
-						tabIndex={0}
-						onKeyDown={e => {
-							if (e.key === "Enter" || e.key === " ") {
-								e.preventDefault()
-								setIsSheetOpen(true)
-							}
-						}}
-						className={cn(
-							"border-border bg-card hover:bg-muted/40 focus-visible:ring-ring flex cursor-pointer items-center gap-2.5 rounded-lg border px-3 py-2 shadow-sm transition-colors focus-visible:ring-2 focus-visible:outline-none motion-reduce:transition-none",
-							className
-						)}
-						{...props}
-					>
-						<Avatar className="ring-border/80 size-8 shrink-0 ring-2">
-							<AvatarImage src={getAvatarUrl(event.principal?.image) ?? undefined} alt="" />
-							<AvatarFallback className="bg-muted text-muted-foreground text-xs font-medium">
-								{getInitials(event.principal?.name ?? "?")}
-							</AvatarFallback>
-						</Avatar>
-
-						<div className="min-w-0 flex-1">
-							<div className="flex items-center gap-1.5">
-								<span
-									className="text-foreground truncate text-sm font-semibold"
-									title={event.principal?.name ?? event.title}
-								>
-									{event.principal?.name ?? event.title}
-								</span>
-								<span
-									className={cn(
-										"shrink-0 rounded-full border px-1.5 py-0.5 text-[10px] font-medium tracking-wide uppercase",
-										statusClassName
-									)}
-								>
-									{event.status.name}
-								</span>
-							</div>
-							<p className="text-muted-foreground truncate text-xs">{subtitle}</p>
-						</div>
-
-						{isActionable ? (
-							<div className="flex shrink-0 items-center gap-1.5">
-								<Button
-									variant="ghost"
-									size="xs"
-									className="text-destructive hover:bg-destructive/10 hover:text-destructive h-7 text-xs"
-									disabled={isProcessing}
-									onClick={e => {
-										e.stopPropagation()
-										setIsRejectDialogOpen(true)
-									}}
-								>
-									Reject
-								</Button>
-								<Button
-									size="xs"
-									className="h-7 min-w-15 text-xs"
-									disabled={isProcessing}
-									onClick={e => {
-										e.stopPropagation()
-										onAccept?.()
-									}}
-								>
-									{isProcessing ? (
-										<>
-											<Spinner className="size-3" /> …
-										</>
-									) : (
-										"Accept"
-									)}
-								</Button>
-							</div>
-						) : (
-							<div className="text-muted-foreground flex shrink-0 flex-col items-end gap-0 text-right text-xs">
-								<span className="text-foreground font-medium">{formattedTime}</span>
-								{displayLabel ? <span>{displayLabel}</span> : null}
-							</div>
-						)}
-					</div>
-				</SheetTrigger>
-
-				<SheetContent
-					side="right"
-					className="flex flex-col gap-0 rounded-l-2xl border-l-2 shadow-2xl backdrop-blur-sm sm:max-w-md"
+		<Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
+			<SheetTrigger asChild>
+				<div
+					data-slot="calendar-schedule-event-card"
+					role="button"
+					tabIndex={0}
+					onKeyDown={e => {
+						if (e.key === "Enter" || e.key === " ") {
+							e.preventDefault()
+							setIsSheetOpen(true)
+						}
+					}}
+					className={cn(
+						"border-border bg-card hover:bg-muted/40 focus-visible:ring-ring flex cursor-pointer items-center gap-2.5 rounded-lg border px-3 py-2 shadow-sm transition-colors focus-visible:ring-2 focus-visible:outline-none motion-reduce:transition-none",
+						className
+					)}
+					{...props}
 				>
-					<SheetHeader className="relative space-y-6 border-b pt-8">
-						<div className="flex flex-col items-center gap-4">
-							<div className="relative">
-								<Avatar className="ring-background size-20 shadow-lg ring-4">
-									<AvatarImage src={getAvatarUrl(event.principal?.image) ?? undefined} alt="" />
-									<AvatarFallback className="bg-primary/10 text-primary text-xl font-semibold">
-										{getInitials(event.principal?.name ?? "?")}
-									</AvatarFallback>
-								</Avatar>
-								<div className="bg-background absolute -right-1 -bottom-1 rounded-full p-1.5 shadow-md">
-									<span
-										className={cn(
-											"flex size-3 rounded-full",
-											statusClassName.includes("pending")
-												? "bg-amber-500"
-												: statusClassName.includes("rejected") ||
-													  statusClassName.includes("rescheduled")
-													? "bg-muted-foreground"
-													: "bg-primary"
-										)}
-									/>
-								</div>
-							</div>
-							<div className="text-center">
-								<SheetTitle className="text-xl font-bold">
-									{event.principal?.name ?? event.title}
-								</SheetTitle>
-								<span
-									className={cn(
-										"mt-2 inline-block rounded-full border px-3 py-1 text-xs font-semibold tracking-wider uppercase shadow-sm",
-										statusClassName
-									)}
-								>
-									{event.status.name}
-								</span>
-							</div>
-						</div>
-						<SheetDescription className="sr-only">
-							Detailed information and actions for this calendar event
-						</SheetDescription>
-					</SheetHeader>
+					<Avatar className="ring-border/80 size-8 shrink-0 ring-2">
+						<AvatarImage src={getAvatarUrl(event.principal?.image) ?? undefined} alt="" />
+						<AvatarFallback className="bg-muted text-muted-foreground text-xs font-medium">
+							{getInitials(event.principal?.name ?? "?")}
+						</AvatarFallback>
+					</Avatar>
 
-					<div className="flex flex-1 flex-col gap-4 overflow-y-auto px-6 py-6">
-						<div className="bg-muted/40 space-y-2 rounded-xl border p-4 shadow-sm transition-all hover:shadow-md">
-							<p className="text-muted-foreground flex items-center gap-2 text-xs font-semibold tracking-wider uppercase">
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									width="14"
-									height="14"
-									viewBox="0 0 24 24"
-									fill="none"
-									stroke="currentColor"
-									strokeWidth="2"
-									strokeLinecap="round"
-									strokeLinejoin="round"
-								>
-									<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-									<circle cx="9" cy="7" r="4" />
-									<path d="M22 21v-2a4 4 0 0 0-3-3.87" />
-									<path d="M16 3.13a4 4 0 0 1 0 7.75" />
-								</svg>
-								Type
-							</p>
-							<p className="text-base font-semibold">{subtitle}</p>
+					<div className="min-w-0 flex-1">
+						<div className="flex items-center gap-1.5">
+							<span
+								className="text-foreground truncate text-sm font-semibold"
+								title={event.title ?? event.principal?.name}
+							>
+								{event.title ?? event.principal?.name}
+							</span>
+							<span
+								className={cn(
+									"shrink-0 rounded-full border px-1.5 py-0.5 text-[10px] font-medium tracking-wide uppercase",
+									statusClassName
+								)}
+							>
+								{event.status.name}
+							</span>
 						</div>
-
-						<div className="bg-muted/40 space-y-2 rounded-xl border p-4 shadow-sm transition-all hover:shadow-md">
-							<p className="text-muted-foreground flex items-center gap-2 text-xs font-semibold tracking-wider uppercase">
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									width="14"
-									height="14"
-									viewBox="0 0 24 24"
-									fill="none"
-									stroke="currentColor"
-									strokeWidth="2"
-									strokeLinecap="round"
-									strokeLinejoin="round"
-								>
-									<circle cx="12" cy="12" r="10" />
-									<polyline points="12 6 12 12 16 14" />
-								</svg>
-								Time
-							</p>
-							<p className="text-base font-semibold">
-								{formattedTime}
-								{displayLabel ? (
-									<span className="text-muted-foreground ml-1 text-sm font-normal">
-										{" "}
-										· {displayLabel}
-									</span>
-								) : null}
-							</p>
-						</div>
-
-						<div className="bg-muted/40 space-y-2 rounded-xl border p-4 shadow-sm transition-all hover:shadow-md">
-							<p className="text-muted-foreground flex items-center gap-2 text-xs font-semibold tracking-wider uppercase">
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									width="14"
-									height="14"
-									viewBox="0 0 24 24"
-									fill="none"
-									stroke="currentColor"
-									strokeWidth="2"
-									strokeLinecap="round"
-									strokeLinejoin="round"
-								>
-									<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-									<polyline points="14 2 14 8 20 8" />
-									<line x1="16" y1="13" x2="8" y2="13" />
-									<line x1="16" y1="17" x2="8" y2="17" />
-									<polyline points="10 9 9 9 8 9" />
-								</svg>
-								Description
-							</p>
-							{event.description ? (
-								<p className="text-sm leading-relaxed">{event.description}</p>
-							) : (
-								<p className="text-muted-foreground text-sm italic">No description provided</p>
-							)}
-						</div>
+						<p className="text-muted-foreground truncate text-xs">{subtitle}</p>
 					</div>
 
 					{isActionable ? (
-						<SheetFooter className="border-t px-6 py-5">
-							<div className="flex w-full gap-3">
-								<Button
-									variant="outline"
-									className="text-destructive hover:bg-destructive hover:text-destructive-foreground flex-1 transition-all hover:shadow-md"
-									disabled={isProcessing}
-									onClick={() => setIsRejectDialogOpen(true)}
-								>
-									Reject
-								</Button>
-								<Button
-									className="flex-1 shadow-md transition-all hover:shadow-lg"
-									disabled={isProcessing}
-									onClick={onAccept}
-								>
-									{isProcessing ? (
-										<>
-											<Spinner className="size-4" /> Accepting…
-										</>
-									) : (
-										"Accept"
-									)}
-								</Button>
-							</div>
-						</SheetFooter>
-					) : null}
-				</SheetContent>
-			</Sheet>
+						<div className="flex shrink-0 items-center gap-1.5">
+							<Button
+								variant="ghost"
+								size="xs"
+								className="text-destructive hover:bg-destructive/10 hover:text-destructive h-7 text-xs"
+								disabled={isProcessing}
+								onClick={e => {
+									e.stopPropagation()
+									onReject?.()
+								}}
+							>
+								Reject
+							</Button>
+							<Button
+								size="xs"
+								className="h-7 min-w-15 text-xs"
+								disabled={isProcessing}
+								onClick={e => {
+									e.stopPropagation()
+									onAccept?.()
+								}}
+							>
+								{isProcessing ? (
+									<>
+										<Spinner className="size-3" /> …
+									</>
+								) : (
+									"Accept"
+								)}
+							</Button>
+						</div>
+					) : (
+						<div className="text-muted-foreground flex shrink-0 flex-col items-end gap-0 text-right text-xs">
+							<span className="text-foreground font-medium">{formattedTime}</span>
+							{displayLabel ? <span>{displayLabel}</span> : null}
+						</div>
+					)}
+				</div>
+			</SheetTrigger>
 
-			<AlertDialog open={isRejectDialogOpen} onOpenChange={setIsRejectDialogOpen}>
-				<AlertDialogContent>
-					<AlertDialogHeader>
-						<AlertDialogTitle>
-							{isAppointment ? "Cancel this appointment?" : "Reject this request?"}
-						</AlertDialogTitle>
-						<AlertDialogDescription>This action cannot be undone.</AlertDialogDescription>
-					</AlertDialogHeader>
-					<AlertDialogFooter>
-						<AlertDialogCancel>Cancel</AlertDialogCancel>
-						<AlertDialogAction onClick={onReject}>Confirm</AlertDialogAction>
-					</AlertDialogFooter>
-				</AlertDialogContent>
-			</AlertDialog>
-		</>
+			<SheetContent side="right" className="bg-card">
+				<SheetHeader className="relative space-y-6 border-b pt-8">
+					<div className="flex flex-col items-center gap-4">
+						<div className="relative">
+							<Avatar className="ring-background size-20 shadow-lg ring-4">
+								<AvatarImage src={getAvatarUrl(event.principal?.image) ?? undefined} alt="" />
+								<AvatarFallback className="bg-primary/10 text-primary text-xl font-semibold">
+									{getInitials(event.principal?.name ?? "?")}
+								</AvatarFallback>
+							</Avatar>
+							<div className="bg-background absolute -right-1 -bottom-1 rounded-full p-1.5 shadow-md">
+								<span
+									className={cn(
+										"flex size-3 rounded-full",
+										STATUS_DOT_COLORS[event.status.id] ?? "bg-primary"
+									)}
+								/>
+							</div>
+						</div>
+						<div className="text-center">
+							<SheetTitle className="text-xl font-bold">
+								{event.principal?.name ?? event.title}
+							</SheetTitle>
+							<span
+								className={cn(
+									"mt-2 inline-block rounded-full border px-3 py-1 text-xs font-semibold tracking-wider uppercase shadow-sm",
+									statusClassName
+								)}
+							>
+								{event.status.name}
+							</span>
+						</div>
+					</div>
+					<SheetDescription className="sr-only">
+						Detailed information and actions for this calendar event
+					</SheetDescription>
+				</SheetHeader>
+
+				<div className="flex flex-1 flex-col overflow-y-auto px-6 py-6">
+					<ItemGroup>
+						<Item variant="outline">
+							<ItemMedia variant="icon">
+								<Type />
+							</ItemMedia>
+							<ItemContent>
+								<ItemTitle>Title</ItemTitle>
+								<ItemDescription>{event.title}</ItemDescription>
+							</ItemContent>
+						</Item>
+
+						<Item variant="outline">
+							<ItemMedia variant="icon">
+								<Users />
+							</ItemMedia>
+							<ItemContent>
+								<ItemTitle>Type</ItemTitle>
+								<ItemDescription>{typeName}</ItemDescription>
+							</ItemContent>
+						</Item>
+
+						{showWorkflow ? (
+							<Item variant="outline">
+								<ItemMedia variant="icon">
+									<Globe />
+								</ItemMedia>
+								<ItemContent>
+									<ItemTitle>Mode</ItemTitle>
+									<ItemDescription>{isRemote ? "Remote" : "In Person"}</ItemDescription>
+								</ItemContent>
+							</Item>
+						) : null}
+
+						<Item variant="outline">
+							<ItemMedia variant="icon">
+								<CalendarDays />
+							</ItemMedia>
+							<ItemContent>
+								<ItemTitle>Date</ItemTitle>
+								<ItemDescription>
+									{format(new Date(event.startAt), "EEEE, MMMM d, yyyy")}
+								</ItemDescription>
+							</ItemContent>
+						</Item>
+
+						<Item variant="outline">
+							<ItemMedia variant="icon">
+								<Clock />
+							</ItemMedia>
+							<ItemContent>
+								<ItemTitle>Time</ItemTitle>
+								<ItemDescription>
+									{formattedTime}
+									{displayLabel ? ` · ${displayLabel}` : null}
+								</ItemDescription>
+							</ItemContent>
+						</Item>
+
+						<Item variant="outline">
+							<ItemMedia variant="icon">
+								<FileText />
+							</ItemMedia>
+							<ItemContent>
+								<ItemTitle>Description</ItemTitle>
+								<ItemDescription>
+									{event.description ?? <span className="italic">No description provided</span>}
+								</ItemDescription>
+							</ItemContent>
+						</Item>
+					</ItemGroup>
+				</div>
+
+				{isActionable ? (
+					<SheetFooter className="border-t px-6 py-5">
+						<div className="flex w-full gap-3">
+							<Button
+								variant="outline"
+								className="text-destructive hover:bg-destructive hover:text-destructive-foreground flex-1 transition-all hover:shadow-md"
+								disabled={isProcessing}
+								onClick={onReject}
+							>
+								Reject
+							</Button>
+							<Button
+								className="flex-1 shadow-md transition-all hover:shadow-lg"
+								disabled={isProcessing}
+								onClick={onAccept}
+							>
+								{isProcessing ? (
+									<>
+										<Spinner className="size-4" /> Accepting…
+									</>
+								) : (
+									"Accept"
+								)}
+							</Button>
+						</div>
+					</SheetFooter>
+				) : null}
+			</SheetContent>
+		</Sheet>
 	)
 }
 

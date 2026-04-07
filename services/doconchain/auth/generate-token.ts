@@ -244,7 +244,7 @@ export async function generateDoconchainToken(input?: {
 		cacheKeyEmail: email,
 		payloadEmail: email,
 		clientKey: env.DOCONCHAIN_CLIENT_KEY,
-		clientSecret: env.DOCONCHAIN_CLIENT_SECRET,
+		clientSecret: env.DOCONCHAIN_CLIENT_SECRET,   
 	})
 }
 

@@ -1,20 +1,22 @@
 import { type inferRouterOutputs } from "@trpc/server"
 
 import type { CalendarEvent, Status } from "@/core/components/calendar-schedule"
+import { getFullName } from "@/core/lib/utils"
 
 import type { AppointmentParticipant as DrizzleAppointmentParticipant } from "@/services/drizzle/schema/appointment-participants"
 import type { Appointment } from "@/services/drizzle/schema/appointments"
-import type { User } from "@/services/drizzle/schema/auth"
 import type { AppRouter } from "@/services/trpc/root"
 
 type RouterOutputs = inferRouterOutputs<AppRouter>
 
-type IncomingRequest = RouterOutputs["appointments"]["getIncomingRequests"][number]
-type IncomingAppointment = RouterOutputs["appointments"]["getIncomingAppointmentsForENP"][number]
+type IncomingRequest =
+	RouterOutputs["appointments"]["getEnpScheduleDashboard"]["incomingRequests"][number]
+type IncomingAppointment =
+	RouterOutputs["appointments"]["getEnpScheduleDashboard"]["incomingAppointments"][number]
 
 type EventPrincipal = {
-	name?: User["name"] | undefined
-	image?: User["image"] | undefined
+	name?: string | undefined
+	image?: string | null | undefined
 }
 
 type AppointmentParticipantWithUser = Pick<DrizzleAppointmentParticipant, "participantRole"> & {
@@ -36,6 +38,9 @@ export const STATUS_IN_PROGRESS: Status = {
 	name: "In Progress",
 	color: "#3B82F6",
 }
+export const STATUS_ONGOING: Status = { id: "ongoing", name: "Ongoing", color: "#8B5CF6" }
+export const STATUS_COMPLETED: Status = { id: "completed", name: "Completed", color: "#059669" }
+export const STATUS_CANCELLED: Status = { id: "cancelled", name: "Cancelled", color: "#EF4444" }
 export const STATUS_LAPSED: Status = { id: "lapsed", name: "Lapsed", color: "#D97706" }
 
 function toEventPrincipal(principal?: EventPrincipal | null): EventPrincipal | undefined {
@@ -116,9 +121,13 @@ export function toCalendarEventFromIncomingAppointment(item: IncomingAppointment
 			? STATUS_PENDING
 			: appointment.status === "CONFIRMED"
 				? STATUS_CONFIRMED
-				: appointment.status === "CANCELLED"
-					? STATUS_REJECTED
-					: STATUS_CONFIRMED
+				: appointment.status === "ONGOING"
+					? STATUS_ONGOING
+					: appointment.status === "COMPLETED"
+						? STATUS_COMPLETED
+						: appointment.status === "CANCELLED"
+							? STATUS_CANCELLED
+							: STATUS_CONFIRMED
 	const eventDate = new Date(appointment.appointmentDate)
 
 	return {
@@ -146,7 +155,9 @@ export function toCalendarEventFromIncomingRequest(item: IncomingRequest): Calen
 				? STATUS_REJECTED
 				: item.status === "IN_PROGRESS"
 					? STATUS_IN_PROGRESS
-					: STATUS_CONFIRMED
+					: item.status === "COMPLETED"
+						? STATUS_COMPLETED
+						: STATUS_CONFIRMED
 
 	return {
 		id: item.id,
@@ -156,7 +167,7 @@ export function toCalendarEventFromIncomingRequest(item: IncomingRequest): Calen
 		status,
 		color: status.color,
 		principal: item.principal
-			? { name: item.principal.name, image: item.principal.image }
+			? { name: getFullName(item.principal), image: item.principal.image }
 			: undefined,
 		workflow: toWorkflow(item.workflow),
 		meta: { source: "request", incomingItemId: item.id },
@@ -190,7 +201,15 @@ export function buildCalendarEvents(
 			? STATUS_LAPSED
 			: appointment.status === "PENDING"
 				? STATUS_PENDING
-				: STATUS_CONFIRMED
+				: appointment.status === "CONFIRMED"
+					? STATUS_CONFIRMED
+					: appointment.status === "ONGOING"
+						? STATUS_ONGOING
+						: appointment.status === "COMPLETED"
+							? STATUS_COMPLETED
+							: appointment.status === "CANCELLED"
+								? STATUS_CANCELLED
+								: STATUS_CONFIRMED
 		add(toCalendarEvent(appointment, status))
 	}
 

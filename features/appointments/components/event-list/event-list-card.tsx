@@ -1,9 +1,10 @@
 import { useMemo } from "react"
 import { type inferRouterOutputs } from "@trpc/server"
-import { CalendarIcon, InboxIcon } from "lucide-react"
+import { CalendarIcon, HistoryIcon, InboxIcon } from "lucide-react"
 
 import {
 	CalendarScheduleEventCard,
+	useCalendarSchedule,
 	useCalendarScheduleHeader,
 	useSelectedDayEvents,
 } from "@/core/components/calendar-schedule"
@@ -19,15 +20,16 @@ import { ItemGroup } from "@/core/components/ui/item"
 
 import { type AppRouter } from "@/services/trpc/root"
 
-import type { ScheduleIncomingItem } from "@/features/appointments/lib/use-appointments-schedule-actions"
 import {
 	toCalendarEventFromIncomingAppointment,
 	toCalendarEventFromIncomingRequest,
 } from "@/features/appointments/lib/calendar-events"
+import type { ScheduleIncomingItem } from "@/features/appointments/lib/use-appointments-schedule-actions"
 
-type IncomingRequest = inferRouterOutputs<AppRouter>["appointments"]["getIncomingRequests"][number]
+type IncomingRequest =
+	inferRouterOutputs<AppRouter>["appointments"]["getEnpScheduleDashboard"]["incomingRequests"][number]
 type IncomingAppointment =
-	inferRouterOutputs<AppRouter>["appointments"]["getIncomingAppointmentsForENP"][number]
+	inferRouterOutputs<AppRouter>["appointments"]["getEnpScheduleDashboard"]["incomingAppointments"][number]
 
 export function EventListHeader() {
 	const { formattedDate, relativeDay } = useCalendarScheduleHeader()
@@ -55,6 +57,7 @@ export function UnifiedSidebarList({
 	processingKey,
 }: UnifiedSidebarListProps) {
 	const dayEvents = useSelectedDayEvents()
+	const { selectedDate } = useCalendarSchedule()
 
 	const itemLookup = useMemo(() => {
 		const map = new Map<string, ScheduleIncomingItem>()
@@ -75,15 +78,55 @@ export function UnifiedSidebarList({
 	}, [dayEvents])
 
 	const pendingInboxEvents = useMemo(() => {
+		if (!selectedDate) return []
+
+		const y = selectedDate.getFullYear()
+		const m = selectedDate.getMonth()
+		const d = selectedDate.getDate()
+		const dayStart = new Date(y, m, d)
+		const dayEnd = new Date(y, m, d, 23, 59, 59, 999)
+
 		const pendingRequests = incomingRequests.filter(r => r.status === "PENDING")
 		const pendingAppointments = incomingAppointments.filter(a => a.status === "PENDING")
 
 		return [
 			...pendingRequests.map(toCalendarEventFromIncomingRequest),
 			...pendingAppointments.map(toCalendarEventFromIncomingAppointment),
-		].toSorted((a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime())
-			.filter(e => !selectedDayEventIds.has(e.id))
-	}, [incomingAppointments, incomingRequests, selectedDayEventIds])
+		]
+			.toSorted((a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime())
+			.filter(e => {
+				const start = new Date(e.startAt)
+				return start >= dayStart && start <= dayEnd && !selectedDayEventIds.has(e.id)
+			})
+	}, [incomingAppointments, incomingRequests, selectedDayEventIds, selectedDate])
+
+	const pastEvents = useMemo(() => {
+		if (!selectedDate) return []
+
+		const y = selectedDate.getFullYear()
+		const m = selectedDate.getMonth()
+		const d = selectedDate.getDate()
+		const dayStart = new Date(y, m, d)
+		const dayEnd = new Date(y, m, d, 23, 59, 59, 999)
+
+		const resolvedRequests = incomingRequests.filter(
+			r => r.status === "COMPLETED" || r.status === "REJECTED" || r.status === "IN_PROGRESS"
+		)
+
+		const resolvedAppointments = incomingAppointments.filter(
+			a => a.status === "COMPLETED" || a.status === "CANCELLED" || a.status === "ONGOING"
+		)
+
+		return [
+			...resolvedRequests.map(toCalendarEventFromIncomingRequest),
+			...resolvedAppointments.map(toCalendarEventFromIncomingAppointment),
+		]
+			.toSorted((a, b) => new Date(b.startAt).getTime() - new Date(a.startAt).getTime())
+			.filter(e => {
+				const start = new Date(e.startAt)
+				return start >= dayStart && start <= dayEnd && !selectedDayEventIds.has(e.id)
+			})
+	}, [incomingRequests, incomingAppointments, selectedDayEventIds, selectedDate])
 
 	const sortedEvents = useMemo(
 		() =>
@@ -96,7 +139,7 @@ export function UnifiedSidebarList({
 		[dayEvents]
 	)
 
-	if (sortedEvents.length === 0 && pendingInboxEvents.length === 0) {
+	if (sortedEvents.length === 0 && pendingInboxEvents.length === 0 && pastEvents.length === 0) {
 		if (
 			incomingRequests.length === 0 &&
 			incomingAppointments.length === 0 &&
@@ -137,10 +180,10 @@ export function UnifiedSidebarList({
 		<div className="space-y-6">
 			{pendingInboxEvents.length > 0 ? (
 				<div className="space-y-3">
-					<h3 className="text-muted-foreground text-xs font-semibold uppercase tracking-wider">
+					<h3 className="text-muted-foreground text-xs font-semibold tracking-wider uppercase">
 						Pending requests
 					</h3>
-					<ItemGroup className="animate-in fade-in duration-300 motion-reduce:animate-none gap-2">
+					<ItemGroup className="animate-in fade-in gap-2 duration-300 motion-reduce:animate-none">
 						{pendingInboxEvents.map(ev => {
 							const incomingItemId = (ev.meta?.incomingItemId as string | undefined) ?? ev.id
 							const source = ev.meta?.source as "request" | "appointment" | undefined
@@ -166,30 +209,49 @@ export function UnifiedSidebarList({
 
 			{sortedEvents.length > 0 ? (
 				<div className="space-y-3">
-					<h3 className="text-muted-foreground text-xs font-semibold uppercase tracking-wider">
+					<h3 className="text-muted-foreground text-xs font-semibold tracking-wider uppercase">
 						Schedule
 					</h3>
-					<ItemGroup className="animate-in fade-in duration-300 motion-reduce:animate-none gap-2">
+					<ItemGroup className="animate-in fade-in gap-2 duration-300 motion-reduce:animate-none">
 						{sortedEvents.map(item => {
-						const ev = item.event
-						const incomingItemId = (ev.meta?.incomingItemId as string | undefined) ?? ev.id
-						const source = ev.meta?.source as "request" | "appointment" | undefined
-						const lookupKey = source ? `${source}:${incomingItemId}` : null
-						const incomingItem = lookupKey ? itemLookup.get(lookupKey) : undefined
-						const isProcessing = lookupKey !== null && processingKey === lookupKey
+							const ev = item.event
+							const incomingItemId = (ev.meta?.incomingItemId as string | undefined) ?? ev.id
+							const source = ev.meta?.source as "request" | "appointment" | undefined
+							const lookupKey = source ? `${source}:${incomingItemId}` : null
+							const incomingItem = lookupKey ? itemLookup.get(lookupKey) : undefined
+							const isProcessing = lookupKey !== null && processingKey === lookupKey
 
-						return (
+							return (
+								<CalendarScheduleEventCard
+									key={ev.id}
+									event={ev}
+									formattedTime={item.formattedTime}
+									relativeLabel={item.relativeLabel}
+									onAccept={incomingItem ? () => onAccept(incomingItem) : undefined}
+									onReject={incomingItem ? () => onReject(incomingItem) : undefined}
+									isProcessing={isProcessing}
+								/>
+							)
+						})}
+					</ItemGroup>
+				</div>
+			) : null}
+
+			{pastEvents.length > 0 ? (
+				<div className="space-y-3">
+					<h3 className="text-muted-foreground flex items-center gap-1.5 text-xs font-semibold tracking-wider uppercase">
+						<HistoryIcon className="size-3" />
+						History
+					</h3>
+					<ItemGroup className="animate-in fade-in gap-2 duration-300 motion-reduce:animate-none">
+						{pastEvents.map(ev => (
 							<CalendarScheduleEventCard
-								key={ev.id}
+								key={`past:${ev.id}`}
 								event={ev}
-								formattedTime={item.formattedTime}
-								relativeLabel={item.relativeLabel}
-								onAccept={incomingItem ? () => onAccept(incomingItem) : undefined}
-								onReject={incomingItem ? () => onReject(incomingItem) : undefined}
-								isProcessing={isProcessing}
+								formattedTime=""
+								relativeLabel={null}
 							/>
-						)
-					})}
+						))}
 					</ItemGroup>
 				</div>
 			) : null}

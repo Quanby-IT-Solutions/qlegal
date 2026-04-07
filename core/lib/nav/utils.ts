@@ -1,6 +1,10 @@
 import { appSidebarSections } from "@/core/lib/nav/site.config"
 import type { NavItem, NavSection, NotaryRole } from "@/core/lib/nav/types"
 
+const ENP_SECTION_ITEM_TITLES = new Set(["Appointments", "Notarial Registry"])
+const BROWSE_AND_DOCUMENTS_LABEL = "Browse & Documents"
+const ENP_APPOINTMENTS_LABEL = "Appointments & Notarial Registry"
+
 // Active route checking utility
 export const isRouteActive = (itemUrl: string, currentPath: string): boolean => {
 	// Remove trailing slashes for comparison
@@ -67,17 +71,51 @@ export function filterNavSectionsByRole(
 }
 
 // Get filtered app sidebar sections.
-// ENP: Platform and "Browse & Documents" as separate sections. Principal (and others): combined into one Platform section.
+// ENP: move Browse/Documents into Platform and show Appointments/Notarial Registry as their own section.
+// Principal (and others): combine Browse/Documents into Platform.
 export function getAppSidebarSections(userRole?: string): NavSection[] {
 	const filtered = filterNavSectionsByRole(appSidebarSections, userRole)
-	if (userRole === "ENP") return filtered
-
-	// For Principal and other roles: merge "Browse & Documents" into "Platform", remove the separate section
 	const platform = filtered.find(s => s.label === "Platform")
-	const browseAndDocs = filtered.find(s => s.label === "Browse & Documents")
-	const rest = filtered.filter(s => s.label !== "Platform" && s.label !== "Browse & Documents")
+	const browseAndDocs = filtered.find(s => s.label === BROWSE_AND_DOCUMENTS_LABEL)
+	const rest = filtered.filter(s => s.label !== "Platform" && s.label !== BROWSE_AND_DOCUMENTS_LABEL)
 
 	if (!platform) return filtered
+
+	if (userRole === "ENP") {
+		const appointmentsSectionItems = platform.items.filter(item =>
+			ENP_SECTION_ITEM_TITLES.has(item.title)
+		)
+		const browseAndDocsItems = browseAndDocs?.items ?? []
+		let browseAndDocsIndex = 0
+
+		const enpPlatformItems = platform.items.flatMap(item => {
+			if (!ENP_SECTION_ITEM_TITLES.has(item.title)) return [item]
+
+			const replacementItem = browseAndDocsItems[browseAndDocsIndex]
+
+			if (!replacementItem) return []
+
+			browseAndDocsIndex += 1
+			return [replacementItem]
+		})
+
+		const enpSections: NavSection[] = [
+			{
+				label: "Platform",
+				items: [...enpPlatformItems, ...browseAndDocsItems.slice(browseAndDocsIndex)],
+			},
+		]
+
+		if (appointmentsSectionItems.length > 0) {
+			enpSections.push({
+				label: ENP_APPOINTMENTS_LABEL,
+				items: appointmentsSectionItems,
+			})
+		}
+
+		return [...enpSections, ...rest]
+	}
+
 	const mergedPlatform: NavSection = {
 		label: "Platform",
 		items: browseAndDocs ? [...platform.items, ...browseAndDocs.items] : platform.items,

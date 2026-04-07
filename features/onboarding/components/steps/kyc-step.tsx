@@ -1,12 +1,21 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { CheckCircle2 } from "lucide-react"
 import { useSession } from "next-auth/react"
 import { toast } from "sonner"
 
 import { Alert, AlertDescription, AlertTitle } from "@/core/components/reui/alert"
+import {
+	AlertDialog,
+	AlertDialogAction,
+	AlertDialogContent,
+	AlertDialogDescription,
+	AlertDialogFooter,
+	AlertDialogHeader,
+	AlertDialogTitle,
+} from "@/core/components/ui/alert-dialog"
 import { Button } from "@/core/components/ui/button"
 import { CardContent, CardFooter } from "@/core/components/ui/card"
 import { FieldGroup } from "@/core/components/ui/field"
@@ -15,7 +24,11 @@ import { useKycBroadcast } from "@/core/hooks/use-kyc-broadcast"
 
 import { trpc } from "@/services/trpc/client"
 
-import { getUserKycInfo, softResetUserKycStatus } from "@/features/kyc/api/kyc.actions"
+import {
+	dismissKycExpiryNotice,
+	getUserKycInfo,
+	softResetUserKycStatus,
+} from "@/features/kyc/api/kyc.actions"
 import { useHyperVergeSDK } from "@/features/kyc/hooks/use-hyperverge-sdk"
 import { useKycStatus } from "@/features/kyc/hooks/use-kyc-status"
 
@@ -28,6 +41,8 @@ interface KycStepProps {
 	onBack: () => void
 	kycStatus?: string
 	onExpandChange?: (expanded: boolean) => void
+	/** When true (from `?autoStart=1`), launch the verification SDK without an extra tap. */
+	autoStartVerification?: boolean
 }
 
 interface UserKycInfo {
@@ -38,6 +53,8 @@ interface UserKycInfo {
 	profileLastName?: string | null
 	transactionId: string | null
 	kycStatus: string | null
+	kycLastExpiredAt?: string | null
+	kycVerificationValidityDays?: number
 	kycLinkCreatedAt?: Date | null
 	hasHostedLink?: boolean
 	sessionType?: "hosted" | "direct" | null
@@ -55,34 +72,73 @@ interface UserKycInfo {
 	} | null
 }
 
-export function KycStep({ onNext, onBack, kycStatus, onExpandChange }: KycStepProps) {
+export function KycStep({
+	onNext,
+	onBack,
+	kycStatus,
+	onExpandChange,
+	autoStartVerification = false,
+}: KycStepProps) {
 	const { update: updateSession } = useSession()
 	const queryClient = useQueryClient()
 
 	const [userInfo, setUserInfo] = useState<UserKycInfo | null>(null)
 	const [mode, setMode] = useState<KycMode>("choose")
 	const [hostedEvent, setHostedEvent] = useState<"cancelled" | null>(null)
+	/** True right after Web SDK reports needs_review so we show the yellow banner before Output API refetch finishes. */
+	const [sdkNeedsReviewPending, setSdkNeedsReviewPending] = useState(false)
 	const hasAutoAdvancedRef = useRef(false)
+	/** Prevents repeated rejection toasts when refreshUserInfo() updates state and re-runs effects. */
+	const rejectionNotifiedRef = useRef(false)
+	/** After we have a terminal REJECTED from checkUserKycStatus, stop re-enabling the status query. */
+	const [kycRejectDetailsLoaded, setKycRejectDetailsLoaded] = useState(false)
 
 	const [firstName, setFirstName] = useState("")
 	const [middleName, setMiddleName] = useState("")
 	const [lastName, setLastName] = useState("")
+	const [isResettingForRetry, setIsResettingForRetry] = useState(false)
+	const [isDismissingExpiryNotice, setIsDismissingExpiryNotice] = useState(false)
 
-	const refreshUserInfo = async () => {
+	const refreshUserInfo = useCallback(async () => {
 		const result = await getUserKycInfo()
 		if (result.success && result.data) {
 			setUserInfo({
 				...result.data,
 				sessionType: result.data.sessionType as "hosted" | "direct" | null,
 			})
+			if (result.data.kycStatus === "NOT_STARTED") {
+				queryClient.removeQueries({ queryKey: ["kyc-status"] })
+			}
 		}
-	}
+	}, [queryClient])
+
+	const handleDismissKycExpiryNotice = useCallback(async () => {
+		setIsDismissingExpiryNotice(true)
+		try {
+			const result = await dismissKycExpiryNotice()
+			if (!result.success) {
+				toast.error(result.error ?? "Could not continue. Please try again.")
+				return
+			}
+			await refreshUserInfo()
+			await updateSession()
+		} finally {
+			setIsDismissingExpiryNotice(false)
+		}
+	}, [refreshUserInfo, updateSession])
 
 	const { launch: launchSdk, isLoading: isLaunchingSdk } = useHyperVergeSDK({
 		redirectOnSuccess: "", // Do not redirect via href, we will handle it with state update / location reload
 		onComplete: status => {
+			const normalized = (status ?? "").trim().toLowerCase().replace(/\s+/g, "_")
+			if (normalized === "needs_review" || normalized === "manual_review") {
+				setSdkNeedsReviewPending(true)
+				setMode("mobile-pending")
+				onExpandChange?.(false)
+			}
+			void queryClient.invalidateQueries({ queryKey: ["kyc-status"] })
 			void refreshUserInfo().then(() => {
-				if (status === "auto_approved") {
+				if (normalized === "auto_approved") {
 					void updateSession()
 					window.location.reload()
 				}
@@ -98,7 +154,8 @@ export function KycStep({ onNext, onBack, kycStatus, onExpandChange }: KycStepPr
 	const effectiveStatus = userInfo?.kycStatus ?? kycStatus ?? null
 	const isVerified = effectiveStatus === "VERIFIED"
 	const shouldPoll = mode === "mobile-pending" || effectiveStatus === "PENDING"
-	const shouldFetchStatus = shouldPoll || effectiveStatus === "REJECTED"
+	const shouldFetchStatus =
+		shouldPoll || (effectiveStatus === "REJECTED" && !kycRejectDetailsLoaded)
 
 	const {
 		data: statusQueryResult,
@@ -108,12 +165,44 @@ export function KycStep({ onNext, onBack, kycStatus, onExpandChange }: KycStepPr
 		currentStatus: effectiveStatus,
 		enabled: shouldFetchStatus,
 	})
-	const statusResult = statusQueryResult?.success ? statusQueryResult.data : null
-	const isNeedsReview = statusResult?.needsReview ?? statusResult?.status === "needs_review"
+	const statusResult =
+		statusQueryResult?.success === true && statusQueryResult.data !== undefined
+			? statusQueryResult.data
+			: null
+	/** TanStack cache can still hold REJECTED/VERIFIED from before 14-day expiry or reset while `user` is NOT_STARTED. */
+	const statusQueryStaleVsFreshStart =
+		effectiveStatus === "NOT_STARTED" &&
+		statusResult !== null &&
+		statusResult.kycStatus !== "NOT_STARTED"
+	const resolvedStatusResult = statusQueryStaleVsFreshStart ? null : statusResult
+
+	const isNeedsReview =
+		resolvedStatusResult?.needsReview ?? resolvedStatusResult?.status === "needs_review"
 	const isStatusLoading = Boolean(shouldFetchStatus && isCheckingStatus)
-	const isRejected = statusResult?.kycStatus === "REJECTED"
+
+	useEffect(() => {
+		if (isStatusLoading) return
+		if (!resolvedStatusResult) return
+		if (isNeedsReview) {
+			setSdkNeedsReviewPending(false)
+			return
+		}
+		if (
+			resolvedStatusResult.kycStatus === "VERIFIED" ||
+			resolvedStatusResult.kycStatus === "REJECTED"
+		) {
+			setSdkNeedsReviewPending(false)
+		}
+	}, [isStatusLoading, resolvedStatusResult, isNeedsReview])
+	const isRejected =
+		resolvedStatusResult?.kycStatus === "REJECTED" ||
+		(effectiveStatus === "REJECTED" && kycRejectDetailsLoaded)
 	const rejectedVariant: "auto" | "manual" =
-		statusResult?.status === "auto_declined" ? "auto" : "manual"
+		resolvedStatusResult?.status === "auto_declined" ? "auto" : "manual"
+
+	const kycValidityDays = userInfo?.kycVerificationValidityDays ?? 14
+	const showKycExpiryNotice =
+		effectiveStatus === "NOT_STARTED" && Boolean(userInfo?.kycLastExpiredAt)
 
 	const { listen, isSupported } = useKycBroadcast()
 
@@ -130,6 +219,9 @@ export function KycStep({ onNext, onBack, kycStatus, onExpandChange }: KycStepPr
 					...result.data,
 					sessionType: result.data.sessionType as "hosted" | "direct" | null,
 				})
+				if (result.data.kycStatus === "NOT_STARTED") {
+					queryClient.removeQueries({ queryKey: ["kyc-status"] })
+				}
 				if (result.data.kycStatus === "PENDING") {
 					onExpandChange?.(false)
 					setMode("mobile-pending")
@@ -141,7 +233,14 @@ export function KycStep({ onNext, onBack, kycStatus, onExpandChange }: KycStepPr
 				}
 			}
 		})()
-	}, [onExpandChange])
+	}, [onExpandChange, queryClient])
+
+	useEffect(() => {
+		if (effectiveStatus !== "REJECTED") {
+			rejectionNotifiedRef.current = false
+			setKycRejectDetailsLoaded(false)
+		}
+	}, [effectiveStatus])
 
 	useEffect(() => {
 		if (!shouldPoll) return
@@ -154,11 +253,14 @@ export function KycStep({ onNext, onBack, kycStatus, onExpandChange }: KycStepPr
 			}
 
 			if (message.type === "KYC_REJECTED") {
-				toast.error("KYC verification was declined. Please try again.")
 				setHostedEvent(null)
 				onExpandChange?.(false)
 				setMode("choose")
 				void refreshUserInfo()
+				if (!rejectionNotifiedRef.current) {
+					rejectionNotifiedRef.current = true
+					toast.error("KYC verification was declined. Please try again.")
+				}
 				return
 			}
 
@@ -182,48 +284,134 @@ export function KycStep({ onNext, onBack, kycStatus, onExpandChange }: KycStepPr
 			unsubscribe?.()
 			removeFocusListener?.()
 		}
-	}, [shouldPoll, listen, isSupported, refetch, updateSession, onExpandChange])
+	}, [shouldPoll, listen, isSupported, refetch, updateSession, onExpandChange, refreshUserInfo])
 
 	useEffect(() => {
-		if (!statusResult) return
-		if (statusResult.kycStatus === "VERIFIED") {
-			toast.success("KYC verification approved!")
-			setUserInfo(prev => (prev ? { ...prev, kycStatus: "VERIFIED" } : prev))
-			void updateSession()
-			if (!hasAutoAdvancedRef.current) {
-				hasAutoAdvancedRef.current = true
-				void refreshUserInfo()
-			}
-		} else if (statusResult.kycStatus === "REJECTED") {
-			const autoDeclined = statusResult.status === "auto_declined"
-			toast.error(
-				autoDeclined
-					? "Your KYC verification was automatically declined by our verification provider. Please try again with clearer documents."
-					: "KYC verification was declined. Please try again."
-			)
-			onExpandChange?.(false)
-			void refreshUserInfo()
-			setMode("choose")
-		}
-	}, [statusResult, updateSession, onExpandChange])
+		if (resolvedStatusResult?.kycStatus !== "VERIFIED") return
 
-	const handleStartVerification = () => {
-		setHostedEvent(null)
+		const sessionSaysVerified = kycStatus === "VERIFIED"
+		const localSaysVerified = userInfo?.kycStatus === "VERIFIED"
+		const needsHardRefresh =
+			!sessionSaysVerified || userInfo?.kycStatus === "PENDING" || mode === "mobile-pending"
+
+		if (!needsHardRefresh && sessionSaysVerified && localSaysVerified) {
+			return
+		}
+
+		if (hasAutoAdvancedRef.current) return
+		hasAutoAdvancedRef.current = true
+
+		toast.success("KYC verification approved!")
+		setUserInfo(prev => (prev ? { ...prev, kycStatus: "VERIFIED" } : prev))
 		onExpandChange?.(false)
+		setMode("choose")
+
+		if (needsHardRefresh) {
+			void updateSession().finally(() => {
+				window.location.reload()
+			})
+			return
+		}
+
+		void updateSession()
+		void refreshUserInfo()
+	}, [
+		resolvedStatusResult,
+		updateSession,
+		onExpandChange,
+		kycStatus,
+		userInfo,
+		mode,
+		refreshUserInfo,
+	])
+
+	useEffect(() => {
+		if (resolvedStatusResult?.kycStatus !== "REJECTED") return
+
+		setKycRejectDetailsLoaded(true)
+
+		if (rejectionNotifiedRef.current) return
+		rejectionNotifiedRef.current = true
+
+		const autoDeclined = resolvedStatusResult?.status === "auto_declined"
+		toast.error(
+			autoDeclined
+				? "Your KYC verification was automatically declined by our verification provider. Please try again with clearer documents."
+				: "KYC verification was declined. Please try again."
+		)
+		onExpandChange?.(false)
+		void refreshUserInfo()
+		setMode("choose")
+	}, [resolvedStatusResult, onExpandChange, refreshUserInfo])
+
+	const handleStartVerification = async () => {
+		if (showKycExpiryNotice) return
+
+		setHostedEvent(null)
+		setSdkNeedsReviewPending(false)
+		onExpandChange?.(false)
+
+		const needsResetBeforeLaunch =
+			effectiveStatus === "REJECTED" ||
+			userInfo?.kycStatus === "REJECTED" ||
+			resolvedStatusResult?.kycStatus === "REJECTED"
+
+		if (needsResetBeforeLaunch) {
+			setIsResettingForRetry(true)
+			try {
+				const result = await softResetUserKycStatus()
+				if (!result.success) {
+					toast.error(result.error ?? "Could not reset. Please try again or contact support.")
+					return
+				}
+				queryClient.removeQueries({ queryKey: ["kyc-status"] })
+				setKycRejectDetailsLoaded(false)
+				rejectionNotifiedRef.current = false
+				await refreshUserInfo()
+				await updateSession()
+			} finally {
+				setIsResettingForRetry(false)
+			}
+		}
+
 		setMode("mobile-pending")
 		void launchSdk()
 	}
 
-	const handleTryAgain = async () => {
-		const result = await softResetUserKycStatus()
-		if (result.success) {
-			toast.success("Ready to start a new verification.")
-			await refreshUserInfo()
-			setMode("choose")
-		} else {
-			toast.error(result.error ?? "Could not reset. Please try again or contact support.")
-		}
-	}
+	const handleStartVerificationRef = useRef(handleStartVerification)
+	handleStartVerificationRef.current = handleStartVerification
+
+	const kycAutoStartConsumedRef = useRef(false)
+
+	useEffect(() => {
+		if (!autoStartVerification) return
+		if (kycAutoStartConsumedRef.current) return
+		if (isVerified) return
+		if (showKycExpiryNotice) return
+
+		const showNeedsReviewBannerEarly = sdkNeedsReviewPending || isNeedsReview
+		const isPendingForButton =
+			isResettingForRetry ||
+			isLaunchingSdk ||
+			isStatusLoading ||
+			(sdkNeedsReviewPending && isNeedsReview === false)
+		if (isPendingForButton || showNeedsReviewBannerEarly) return
+		if (effectiveStatus === "PENDING" && !isRejected) return
+
+		kycAutoStartConsumedRef.current = true
+		void handleStartVerificationRef.current()
+	}, [
+		autoStartVerification,
+		isVerified,
+		showKycExpiryNotice,
+		sdkNeedsReviewPending,
+		isNeedsReview,
+		isResettingForRetry,
+		isLaunchingSdk,
+		isStatusLoading,
+		effectiveStatus,
+		isRejected,
+	])
 
 	if (isVerified) {
 		const previewAddress = userInfo?.kycPreview?.address ?? null
@@ -278,7 +466,17 @@ export function KycStep({ onNext, onBack, kycStatus, onExpandChange }: KycStepPr
 		return (
 			<>
 				<div className="space-y-2">
-					<CardContent className="px-2!">
+					<CardContent className="!px-2">
+						<Alert variant="success">
+							<CheckCircle2 className="size-5" />
+							<AlertTitle>Identity verified</AlertTitle>
+							<AlertDescription>
+								Your identity has been successfully verified. Please confirm your details.
+							</AlertDescription>
+						</Alert>
+					</CardContent>
+
+					<CardContent className="!px-2">
 						<FieldGroup className="bg-background/70 rounded-md border p-4">
 							<p className="text-muted-foreground mb-1 text-[11px] font-semibold tracking-wider uppercase">
 								Review details
@@ -323,22 +521,11 @@ export function KycStep({ onNext, onBack, kycStatus, onExpandChange }: KycStepPr
 										readOnly
 										disabled
 										className="bg-muted/50"
-										aria-label="Address from KYC"
+										aria-label="Address from identity verification"
 									/>
 								</div>
 							</div>
 						</FieldGroup>
-					</CardContent>
-
-					<CardContent className="px-2!">
-						<Alert variant="success">
-							<CheckCircle2 className="size-5" />
-							<AlertTitle>Identity verified</AlertTitle>
-							<AlertDescription>
-								Your identity has been successfully verified. Please confirm your name details
-								before moving on.
-							</AlertDescription>
-						</Alert>
 					</CardContent>
 				</div>
 
@@ -359,18 +546,52 @@ export function KycStep({ onNext, onBack, kycStatus, onExpandChange }: KycStepPr
 		)
 	}
 
-	const showPendingBanner = mode === "mobile-pending" && !isNeedsReview && !isStatusLoading
-	const showNeedsReviewBanner = isNeedsReview && !isStatusLoading
+	const showPendingBanner =
+		mode === "mobile-pending" && !isNeedsReview && !sdkNeedsReviewPending && !isStatusLoading
+	const showNeedsReviewBanner = sdkNeedsReviewPending || isNeedsReview
 	const showRejectedBanner = isRejected && !isStatusLoading
 
 	return (
 		<>
+			<AlertDialog open={showKycExpiryNotice}>
+				<AlertDialogContent onEscapeKeyDown={e => e.preventDefault()}>
+					<AlertDialogHeader>
+						<AlertDialogTitle>Verify your identity again</AlertDialogTitle>
+						<AlertDialogDescription className="text-muted-foreground space-y-3 text-sm">
+							<span className="mb-3 block">
+								For security and to align with our verification provider's data retention,
+								identity checks are only considered valid for about {kycValidityDays} days. Your
+								previous verification period has ended, so we need a fresh verification.
+							</span>
+							<span className="block">
+								The provider may no longer return full details for your old check. When you
+								continue, we start a new verification with a new transaction.
+							</span>
+						</AlertDialogDescription>
+					</AlertDialogHeader>
+					<AlertDialogFooter>
+						<AlertDialogAction
+							disabled={isDismissingExpiryNotice}
+							onClick={event => {
+								event.preventDefault()
+								void handleDismissKycExpiryNotice()
+							}}
+						>
+							{isDismissingExpiryNotice ? "Please wait…" : "I understand, continue"}
+						</AlertDialogAction>
+					</AlertDialogFooter>
+				</AlertDialogContent>
+			</AlertDialog>
 			<KycMobileFlow
 				onBack={onBack}
 				onNext={onNext}
-				onStartVerification={handleStartVerification}
-				onTryAgain={handleTryAgain}
-				isPending={Boolean(isLaunchingSdk || isStatusLoading)}
+				onStartVerification={() => void handleStartVerification()}
+				isPending={Boolean(
+					isResettingForRetry ||
+					isLaunchingSdk ||
+					isStatusLoading ||
+					(sdkNeedsReviewPending && isNeedsReview === false)
+				)}
 				showPendingBanner={showPendingBanner}
 				showCancelledBanner={hostedEvent === "cancelled"}
 				showNeedsReviewBanner={showNeedsReviewBanner}

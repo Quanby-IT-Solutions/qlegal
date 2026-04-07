@@ -1,5 +1,11 @@
 "use client"
 
+/**
+ * @deprecated Full onboarding stepper is no longer routed at `/onboarding` (that path redirects to Profile).
+ * Kept for reference or future reuse; KYC Web SDK entry is `useStartKycVerification` on Profile / restriction dialogs.
+ */
+
+import { type Route } from "next"
 import { useRouter } from "next/navigation"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -26,7 +32,7 @@ import { RecoveryEmailStep } from "@/features/onboarding/components/steps/recove
 
 const { useStepper, steps, StepperProvider, StepperNavigation, StepperStep, StepperTitle } =
 	defineStepper(
-		{ id: "kyc", title: "KYC", description: "Identity verification" },
+		{ id: "kyc", title: "Identity", description: "Identity verification" },
 		{ id: "recovery-email", title: "Recovery", description: "Account recovery" },
 		{ id: "phone", title: "Phone", description: "Contact details" },
 		{ id: "photo", title: "Photo", description: "Profile image" },
@@ -36,17 +42,25 @@ const { useStepper, steps, StepperProvider, StepperNavigation, StepperStep, Step
 interface OnboardingWizardContentProps {
 	onRestartWelcome: () => void
 	onExpandChange?: (expanded: boolean) => void
+	/** When set, Back on the Identity step navigates here instead of the welcome screen. */
+	kycReturnTo?: string | null
+	/** Open HyperVerge immediately (paired with `?autoStart=1` on `/onboarding`). */
+	autoStartKyc?: boolean
 }
 
 export function OnboardingWizardContent({
 	onRestartWelcome,
 	onExpandChange,
+	kycReturnTo,
+	autoStartKyc,
 }: OnboardingWizardContentProps) {
 	return (
 		<StepperProvider variant="horizontal" className="space-y-4">
 			<OnboardingWizardContentBody
 				onRestartWelcome={onRestartWelcome}
 				onExpandChange={onExpandChange}
+				kycReturnTo={kycReturnTo}
+				autoStartKyc={autoStartKyc}
 			/>
 		</StepperProvider>
 	)
@@ -55,6 +69,8 @@ export function OnboardingWizardContent({
 function OnboardingWizardContentBody({
 	onRestartWelcome,
 	onExpandChange,
+	kycReturnTo,
+	autoStartKyc,
 }: OnboardingWizardContentProps) {
 	const router = useRouter()
 	const { data: session, update: updateSession } = useSession()
@@ -96,7 +112,7 @@ function OnboardingWizardContentBody({
 		onSuccess: async () => {
 			void utils.onboarding.getStatus.invalidate()
 			await updateSession()
-			toast.success("Onboarding reminders paused for 7 days.")
+			toast.success("We’ll remind you about the remaining setup steps again in 7 days.")
 			router.push("/dashboard")
 		},
 		onError: err => toast.error(err.message),
@@ -156,11 +172,11 @@ function OnboardingWizardContentBody({
 		switch (methods.current.id) {
 			case "kyc":
 				return {
-					title: "Identity verification (KYC)",
+					title: "Identity Verification",
 					description:
 						session?.user?.kycStatus === "VERIFIED"
-							? "KYC is required before using the platform. Great news — you're verified."
-							: "KYC is required before using the platform. You still need to complete verification.",
+							? "Identity verification is required before using the platform. Great news — you're verified."
+							: "Identity verification is required before using the platform. You still need to complete verification.",
 				}
 			case "recovery-email":
 				return {
@@ -171,7 +187,8 @@ function OnboardingWizardContentBody({
 			case "phone":
 				return {
 					title: "Add your phone number",
-					description: "We may use this to contact you about important account updates.",
+					description:
+						"We may use your phone number for important account, identity verification, or appointment updates. This step is optional and can be completed later.",
 				}
 			case "photo":
 				return {
@@ -197,6 +214,10 @@ function OnboardingWizardContentBody({
 
 	const handleBack = () => {
 		if (methods.isFirst) {
+			if (kycReturnTo) {
+				router.push(kycReturnTo as Route)
+				return
+			}
 			onRestartWelcome()
 			return
 		}
@@ -329,6 +350,7 @@ function OnboardingWizardContentBody({
 						onBack={handleBack}
 						kycStatus={session?.user?.kycStatus ?? undefined}
 						onExpandChange={onExpandChange}
+						autoStartVerification={Boolean(autoStartKyc)}
 					/>
 				)}
 

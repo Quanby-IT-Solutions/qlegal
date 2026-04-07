@@ -105,20 +105,13 @@ export function LoginForm({ callbackUrl }: { callbackUrl?: Route }) {
 					setFormSuccess(response.success)
 					// Update the session to reflect the logged-in user immediately
 					const updatedSession = await update()
-					// Navigate to KYC if not verified, otherwise go to callback URL or dashboard
 
 					const user = updatedSession?.user
 					if (user) {
-						const kycStatus: string | undefined =
-							"kycStatus" in user && typeof user.kycStatus === "string" ? user.kycStatus : undefined
-
 						const userStatus: string | undefined =
 							"status" in user && typeof user.status === "string" ? user.status : undefined
 
-						// Check KYC status first
-						if (kycStatus === "NOT_STARTED" || kycStatus === "PENDING") {
-							router.push("/onboarding" as Route)
-						} else if (userStatus !== "ACTIVE") {
+						if (userStatus === "SUSPENDED") {
 							router.push("/auth/status" as Route)
 						} else {
 							const destination: Route = callbackUrl ?? "/dashboard"
@@ -170,42 +163,39 @@ export function LoginForm({ callbackUrl }: { callbackUrl?: Route }) {
 						control={form.control}
 						name="code"
 						render={({ field }) => (
-							<FormItem>
-								<div className="flex items-center justify-between">
-									<FormLabel>Two Factor Code</FormLabel>
-
-									<Button
-										type="button"
-										variant="link"
-										onClick={handleResendCode}
-										disabled={resendCooldown > 0 || isResending}
-										className="text-primary hover:text-primary/80 h-fit px-1.5 py-0.5 text-sm"
-									>
-										{isResending
-											? "Sending..."
-											: resendCooldown > 0
-												? `Resend in ${Math.floor(resendCooldown / 60)}:${(resendCooldown % 60).toString().padStart(2, "0")}`
-												: "Resend code"}
-									</Button>
-								</div>
+							<FormItem className="flex flex-col items-center text-center">
+								<FormLabel>Two Factor Code</FormLabel>
 								<FormControl>
 									<InputOTP maxLength={6} {...field}>
 										<InputOTPGroup>
-											<InputOTPSlot index={0} />
-											<InputOTPSlot index={1} />
-											<InputOTPSlot index={2} />
+											<InputOTPSlot index={0} className="h-12 w-11 text-xl" />
+											<InputOTPSlot index={1} className="h-12 w-11 text-xl" />
+											<InputOTPSlot index={2} className="h-12 w-11 text-xl" />
 										</InputOTPGroup>
 
 										<InputOTPSeparator />
 
 										<InputOTPGroup>
-											<InputOTPSlot index={3} />
-											<InputOTPSlot index={4} />
-											<InputOTPSlot index={5} />
+											<InputOTPSlot index={3} className="h-12 w-11 text-xl" />
+											<InputOTPSlot index={4} className="h-12 w-11 text-xl" />
+											<InputOTPSlot index={5} className="h-12 w-11 text-xl" />
 										</InputOTPGroup>
 									</InputOTP>
 								</FormControl>
 								<FormMessage />
+								<Button
+									type="button"
+									variant="link"
+									onClick={handleResendCode}
+									disabled={resendCooldown > 0 || isResending}
+									className="text-muted-foreground hover:text-primary h-fit px-1.5 py-0.5 text-sm"
+								>
+									{isResending
+										? "Sending..."
+										: resendCooldown > 0
+											? `Resend in ${Math.floor(resendCooldown / 60)}:${(resendCooldown % 60).toString().padStart(2, "0")}`
+											: "Didn't receive a code? Resend"}
+								</Button>
 							</FormItem>
 						)}
 					/>

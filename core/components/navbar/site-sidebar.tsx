@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import { usePathname } from "next/navigation"
 import { useSession } from "next-auth/react"
 
 import {
@@ -18,14 +19,17 @@ import { SidebarNavSection } from "@/core/components/navbar/sidebar-nav-section"
 import { SidebarSecondaryNav } from "@/core/components/navbar/sidebar-secondary-nav"
 import { UserDropdown } from "@/core/components/navbar/user-dropdown"
 import { QuanbyLogo } from "@/core/components/quanby-logo"
+import { EnpAccreditationProgressSidebarBanner } from "@/features/legal-registration/components/enp-accreditation-progress-banner"
 import { useIsMobile } from "@/core/hooks/use-mobile"
 import { navSecondary } from "@/core/lib/nav/site.config"
 import { getAppSidebarSections } from "@/core/lib/nav/utils"
 
 export const SiteSidebar = () => {
+	const pathname = usePathname()
 	const { data: session } = useSession()
 	const isMobile = useIsMobile()
 	const userRole = session?.user?.role
+	const isDashboardRoute = pathname === "/dashboard" || pathname.startsWith("/dashboard/")
 
 	return (
 		<Sidebar collapsible="icon" variant="sidebar" suppressHydrationWarning>
@@ -50,9 +54,12 @@ export const SiteSidebar = () => {
 				{getAppSidebarSections(userRole).map(section => (
 					<SidebarNavSection key={section.label} section={section} userRole={userRole} />
 				))}
-				<div className="mt-auto space-y-2">
+				<div className="mt-auto flex flex-col gap-2">
 					<SidebarSecondaryNav items={navSecondary} />
-					<SidebarCourseCard />
+					<div className="flex flex-col gap-1 group-data-[collapsible=icon]:gap-0">
+						{isDashboardRoute ? <EnpAccreditationProgressSidebarBanner /> : null}
+						<SidebarCourseCard />
+					</div>
 				</div>
 			</SidebarContent>
 

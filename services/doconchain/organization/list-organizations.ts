@@ -17,11 +17,25 @@ type OrganizationsResponse =
 	| { data?: OrganizationItem[] }
 	| OrganizationItem[]
 
+function isOrganizationItemLike(value: unknown): value is OrganizationItem {
+	return typeof value === "object" && value !== null && !Array.isArray(value)
+}
+
+/** Narrow unknown JSON arrays to `OrganizationItem[]` for safe returns (eslint no-unsafe-return). */
+function toOrganizationItems(value: unknown): OrganizationItem[] {
+	if (!Array.isArray(value)) return []
+	return value.filter(isOrganizationItemLike)
+}
+
 function asList(parsed: OrganizationsResponse): OrganizationItem[] {
-	if (Array.isArray(parsed)) return parsed
+	if (Array.isArray(parsed)) return toOrganizationItems(parsed)
 	if (parsed && typeof parsed === "object") {
-		if (Array.isArray(parsed.organizations)) return parsed.organizations
-		if (Array.isArray(parsed.data)) return parsed.data
+		if ("organizations" in parsed && Array.isArray(parsed.organizations)) {
+			return toOrganizationItems(parsed.organizations)
+		}
+		if ("data" in parsed && Array.isArray(parsed.data)) {
+			return toOrganizationItems(parsed.data)
+		}
 	}
 	return []
 }
@@ -50,7 +64,9 @@ export async function listDoconchainOrganizations(): Promise<OrganizationItem[]>
 		)
 	}
 
-	const parsed = (text ? (JSON.parse(text) as OrganizationsResponse) : []) as OrganizationsResponse
+	const parsed: OrganizationsResponse = text
+		? (JSON.parse(text) as OrganizationsResponse)
+		: []
 	return asList(parsed)
 }
 

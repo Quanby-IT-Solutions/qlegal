@@ -27,15 +27,19 @@ export const users = createTable("user", t => ({
 	barangay: t.varchar({ length: 255 }), // Barangay
 	cityProvince: t.varchar({ length: 255 }), // City and Province
 	role: userRoles().default("PRINCIPAL").notNull(),
-	commissionStatus: userStatus().default("ACTIVE").notNull(),
+	commissionStatus: userStatus().default("PENDING").notNull(),
 	// KYC status (simplified - detailed data in kyc_sessions and id_card_details tables)
 	kycStatus: kycStatus().default("NOT_STARTED"),
 	kycVerifiedAt: t.timestamp({ mode: "date", withTimezone: true }),
+	/** Set when automated 14-day KYC expiry runs; cleared after user acknowledges or on new verification. */
+	kycLastExpiredAt: t.timestamp({ mode: "date", withTimezone: true }),
 	recoveryEmail: t.varchar({ length: 255 }).unique(),
 	recoveryEmailVerified: t.timestamp({ mode: "date", withTimezone: true }),
 	onboardingCompletedAt: t.timestamp({ mode: "date", withTimezone: true }),
 	onboardingDetailsCompletedAt: t.timestamp({ mode: "date", withTimezone: true }),
 	onboardingSnoozedUntil: t.timestamp({ mode: "date", withTimezone: true }),
+	/** Placeholder ENP LMS: set when user downloads the course certificate (until real LMS integration). */
+	enpLmsCourseCompletedAt: t.timestamp({ mode: "date", withTimezone: true }),
 })).enableRLS()
 
 export const accounts = createTable(

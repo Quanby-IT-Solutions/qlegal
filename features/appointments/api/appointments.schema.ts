@@ -109,12 +109,6 @@ export const deleteEnpEventSchema = z.object({
 	appointmentId: z.string().min(1, "Appointment ID is required"),
 })
 
-// Get ENP schedule schema (from requests.router.ts)
-export const getEnpScheduleSchema = z.object({
-	month: z.number(),
-	year: z.number(),
-})
-
 // Block time slot schema (from requests.router.ts)
 export const blockTimeSlotSchema = z.object({
 	type: z.enum(["ONE_TIME", "RECURRING"]),
@@ -128,12 +122,6 @@ export const blockTimeSlotSchema = z.object({
 // Unblock time slot schema (from requests.router.ts)
 export const unblockTimeSlotSchema = z.object({
 	availabilityId: z.string().min(1),
-})
-
-// Get ENP schedule with events schema (from schedule.router.ts)
-export const getEnpScheduleWithEventsSchema = z.object({
-	month: z.number(),
-	year: z.number(),
 })
 
 // =================== SHARED SCHEMAS ===================
@@ -180,10 +168,9 @@ export type UpdateRequestStatusInput = z.infer<typeof updateRequestStatusSchema>
 export type CreateEnpEventInput = z.infer<typeof createEnpEventSchema>
 export type UpdateEnpEventInput = z.infer<typeof updateEnpEventSchema>
 export type DeleteEnpEventInput = z.infer<typeof deleteEnpEventSchema>
-export type GetEnpScheduleInput = z.infer<typeof getEnpScheduleSchema>
 export type BlockTimeSlotInput = z.infer<typeof blockTimeSlotSchema>
 export type UnblockTimeSlotInput = z.infer<typeof unblockTimeSlotSchema>
-export type GetEnpScheduleWithEventsInput = z.infer<typeof getEnpScheduleWithEventsSchema>
+
 export type UpdateAppointmentInput = z.infer<typeof updateAppointmentSchema>
 export type CancelAppointmentInput = z.infer<typeof cancelAppointmentSchema>
 export type GetAppointmentByIdInput = z.infer<typeof getAppointmentByIdSchema>

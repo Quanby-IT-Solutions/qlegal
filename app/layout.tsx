@@ -1,11 +1,11 @@
 import type { Metadata } from "next"
 import { Inter } from "next/font/google"
-import { SessionProvider } from "next-auth/react"
 
 import { CookieConsent } from "@/core/components/blocks/cookie-consent"
 import { Toaster } from "@/core/components/ui/sonner"
 import { ThemeProvider } from "@/core/context/theme-provider"
 
+import { AuthSessionProvider } from "@/core/context/auth-session-provider"
 import { auth } from "@/services/next-auth"
 import { TRPCProvider } from "@/services/trpc/client"
 
@@ -33,7 +33,7 @@ export default async function RootLayout({
 	return (
 		<html lang="en" suppressHydrationWarning>
 			<body className={`${inter.className} antialiased`}>
-				<SessionProvider session={session}>
+				<AuthSessionProvider session={session}>
 					<TRPCProvider>
 						<ThemeProvider
 							attribute="class"
@@ -51,7 +51,7 @@ export default async function RootLayout({
 							<Toaster richColors closeButton />
 						</ThemeProvider>
 					</TRPCProvider>
-				</SessionProvider>
+				</AuthSessionProvider>
 			</body>
 		</html>
 	)
