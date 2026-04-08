@@ -14,12 +14,16 @@ import { env } from "@/env"
 // HyperVerge API Configuration
 // Prefer explicit full URLs if provided; otherwise, use documented defaults
 const DEFAULT_BASE_URL = "https://ind.idv.hyperverge.co"
-const CONFIGURED_BASE_URL = (env.HYPERVERGE_API_URL || DEFAULT_BASE_URL).replace(/\/$/, "")
+const RAW_CONFIGURED_BASE_URL = (env.HYPERVERGE_API_URL || DEFAULT_BASE_URL).replace(/\/$/, "")
+// HyperVerge "onboard links" + output APIs live on the idv host, not api.hyperverge.com.
+const PRIMARY_BASE_URL = RAW_CONFIGURED_BASE_URL.includes("idv.hyperverge")
+	? RAW_CONFIGURED_BASE_URL
+	: DEFAULT_BASE_URL
 const FALLBACK_BASE_URL = DEFAULT_BASE_URL
 
-const HYPERVERGE_API_START_URL_PRIMARY = `${CONFIGURED_BASE_URL}/v1/link-kyc/start`
+const HYPERVERGE_API_START_URL_PRIMARY = `${PRIMARY_BASE_URL}/v1/link-kyc/start`
 // Output API per docs: https://ind.idv.hyperverge.co/v1/output
-const HYPERVERGE_API_RESULTS_URL_PRIMARY = `${CONFIGURED_BASE_URL}/v1/output`
+const HYPERVERGE_API_RESULTS_URL_PRIMARY = `${PRIMARY_BASE_URL}/v1/output`
 
 const HYPERVERGE_API_START_URL_FALLBACK = `${FALLBACK_BASE_URL}/v1/link-kyc/start`
 const HYPERVERGE_API_RESULTS_URL_FALLBACK = `${FALLBACK_BASE_URL}/v1/output`
@@ -628,7 +632,7 @@ export async function validateSelfie(
 
 	validateCredentials()
 
-	const LIVENESS_API_URL = `${CONFIGURED_BASE_URL}/v1/photo/liveness`
+	const LIVENESS_API_URL = `${PRIMARY_BASE_URL}/v1/photo/liveness`
 	const LIVENESS_API_URL_FALLBACK = `${FALLBACK_BASE_URL}/v1/photo/liveness`
 
 	const requestBody = {
