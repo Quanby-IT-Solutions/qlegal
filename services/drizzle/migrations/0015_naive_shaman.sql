@@ -1,0 +1,1 @@
+ALTER TABLE "contract_agent_session" DROP COLUMN "contractText";

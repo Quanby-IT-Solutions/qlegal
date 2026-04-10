@@ -8,6 +8,7 @@ const nextConfig = {
 	typescript: { ignoreBuildErrors: true },
 	typedRoutes: true,
 	reactCompiler: true,
+	serverExternalPackages: ["pdf-parse", "@napi-rs/canvas"],
 	devIndicators: {
 		position: "bottom-right",
 	},
