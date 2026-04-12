@@ -1049,41 +1049,20 @@ export async function checkUserKycStatus() {
 		}
 	}
 
+	// Terminal rejection: do not call HyperVerge /v1/output. After a decline, the transaction is
+	// often no longer returned (400 TransactionId not found), which spams logs and was mis-parsed
+	// as "pending" inside getTransactionStatus. Our DB row is authoritative for REJECTED.
 	if (kycSession.status === "REJECTED") {
-		try {
-			const hypervergeIdentifier = kycSession.hostedLink
-				? extractIdentifierFromStartKycUrl(kycSession.hostedLink)
-				: undefined
-			const result = await getTransactionStatus(kycSession.transactionId, {
-				hypervergeIdentifier: hypervergeIdentifier ?? undefined,
-			})
-			const applicationStatus = result.result.applicationStatus
-			const interpretation = interpretStatus(applicationStatus)
-			return {
-				success: true,
-				data: {
-					transactionId: result.result.transactionId,
-					status: applicationStatus,
-					kycStatus: "REJECTED" as const,
-					...interpretation,
-					details: result.result.workflowDetails ?? {},
-				},
-			}
-		} catch (e) {
-			console.warn("⚠️ Could not refresh HyperVerge status for rejected KYC session:", e)
-			return {
-				success: true,
-				data: {
-					transactionId: kycSession.transactionId,
-					status: "auto_declined",
-					kycStatus: "REJECTED" as const,
-					isComplete: true,
-					isApproved: false,
-					needsReview: false,
-					message: "KYC was rejected.",
-					details: {},
-				},
-			}
+		const interpretation = interpretStatus("auto_declined")
+		return {
+			success: true,
+			data: {
+				transactionId: kycSession.transactionId,
+				status: "auto_declined",
+				kycStatus: "REJECTED" as const,
+				...interpretation,
+				details: {},
+			},
 		}
 	}
 
