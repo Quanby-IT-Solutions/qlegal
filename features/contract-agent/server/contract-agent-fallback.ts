@@ -5,6 +5,7 @@ import type {
 	ContractRiskFlag,
 	ContractTemplate,
 } from "@/features/contract-agent/api/contract-agent.schema"
+import { PHILIPPINE_LAW_RULES } from "@/features/contract-agent/server/philippine-law-rules"
 
 const COMMON_STOP_WORDS = new Set([
 	"about",
@@ -57,6 +58,15 @@ const MISSING_CLAUSE_RULES = [
 	{ label: "Governing law", test: /governing law|laws of|jurisdiction/i },
 	{ label: "Dispute resolution", test: /arbitration|dispute resolution|mediation|venue/i },
 	{ label: "Signature mechanics", test: /signed|signature|executed/i },
+	{
+		label: "Data privacy clause",
+		test: /data\s+privac|personal\s+(?:data|information)|RA\s+10173/i,
+	},
+	{
+		label: "Electronic signature authorization",
+		test: /electronic\s+signature|e-?sign|RA\s+8792/i,
+	},
+	{ label: "Philippine governing law", test: /philippines|philippine|republic\s+act/i },
 ] as const
 
 function normalizeWhitespace(value: string) {
@@ -176,6 +186,36 @@ function buildRiskFlags(contractText: string, missingClauses: string[]) {
 		})
 	}
 
+	// Philippine-law-specific risk flags
+	const hasPersonalDataLanguage =
+		/personal\s+(?:data|information)|data\s+(?:subject|processing|privacy)/i.test(contractText)
+	if (hasPersonalDataLanguage && missingClauses.includes("Data privacy clause")) {
+		riskFlags.push({
+			title: "Personal data handled without Data Privacy Act compliance",
+			severity: "high",
+			detail:
+				"The contract references personal data but lacks a data privacy clause required under RA 10173.",
+		})
+	}
+
+	if (/unconscionable|waive\s+all\s+rights|take\s+it\s+or\s+leave\s+it/i.test(contractText)) {
+		riskFlags.push({
+			title: "Potentially unconscionable terms under Philippine Consumer Act",
+			severity: "high",
+			detail:
+				"Grossly one-sided or unconscionable contract terms may be unenforceable under RA 7394 Art. 50–52.",
+		})
+	}
+
+	if (missingClauses.includes("Philippine governing law")) {
+		riskFlags.push({
+			title: "No reference to Philippine law or jurisdiction",
+			severity: "low",
+			detail:
+				"Consider specifying Philippine governing law to give local courts clear jurisdiction.",
+		})
+	}
+
 	if (riskFlags.length === 0) {
 		riskFlags.push({
 			title: "No obvious red-flag language found in fallback review",
@@ -227,6 +267,17 @@ function buildComplianceChecks(contractText: string, parties: string[], keyDates
 	]
 
 	return checks
+}
+
+function buildPhilippineComplianceChecks(contractText: string): ContractComplianceItem[] {
+	return PHILIPPINE_LAW_RULES.map(rule => {
+		const matches = rule.testPattern.test(contractText)
+		return {
+			label: `[${rule.provision}] ${rule.label}`,
+			status: matches ? "pass" : "warning",
+			detail: matches ? rule.passDetail : rule.failDetail,
+		} satisfies ContractComplianceItem
+	})
 }
 
 function scoreOverallRisk(riskFlags: ContractRiskFlag[], missingClauses: string[]) {
@@ -281,7 +332,10 @@ export function analyzeContractFallback(input: {
 		rule => !rule.test.test(input.contractText)
 	).map(rule => rule.label)
 	const riskFlags = buildRiskFlags(input.contractText, missingClauses)
-	const complianceCheck = buildComplianceChecks(input.contractText, parties, keyDates)
+	const complianceCheck = [
+		...buildComplianceChecks(input.contractText, parties, keyDates),
+		...buildPhilippineComplianceChecks(input.contractText),
+	]
 	const { overallRisk, overallScore } = scoreOverallRisk(riskFlags, missingClauses)
 	const contractType = detectContractType(input.contractText)
 

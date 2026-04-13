@@ -368,53 +368,39 @@ export function ContractAgentSection() {
 
 						<TabsContent value="analyze" className="space-y-6 p-4 sm:p-6">
 							<div className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
-								<Card className="bg-background/70 border-dashed">
-									<CardHeader>
-										<CardTitle className="flex items-center gap-2 text-xl">
-											<Upload className="text-primary size-5" />
-											Drop in a contract
-										</CardTitle>
-										<CardDescription>
-											{SUPPORTED_UPLOAD_LABEL}. We extract the text and score the draft — nothing is
-											saved to our servers.
-										</CardDescription>
-									</CardHeader>
-									<CardContent>
-										<div
-											{...getRootProps()}
-											className={cn(
-												"flex min-h-56 cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed px-6 py-10 text-center transition-all",
-												isDragActive && "border-primary bg-primary/5",
-												isAnalyzing && "pointer-events-none opacity-70"
-											)}
-										>
-											<input {...getInputProps()} />
-											<div className="bg-background rounded-full border p-3 shadow-sm">
-												{isAnalyzing ? (
-													<Loader2 className="text-primary size-6 animate-spin" />
-												) : (
-													<Upload className="text-primary size-6" />
-												)}
-											</div>
-											<p className="mt-4 text-lg font-semibold">
-												{isAnalyzing
-													? "Analyzing contract…"
-													: isDragActive
-														? "Drop the contract here"
-														: "Drag and drop or click to upload"}
-											</p>
-											<p className="text-muted-foreground mt-2 max-w-md text-sm leading-6">
-												Your contract stays in your browser session only — it is never stored on our
-												servers.
-											</p>
-											{lastUploadedFileName ? (
-												<p className="text-primary mt-4 text-xs font-medium tracking-[0.2em] uppercase">
-													Latest file: {lastUploadedFileName}
-												</p>
-											) : null}
-										</div>
-									</CardContent>
-								</Card>
+								<div
+									{...getRootProps()}
+									className={cn(
+										"bg-background/70 flex min-h-56 cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed px-6 py-10 text-center transition-all",
+										isDragActive && "border-primary bg-primary/5",
+										isAnalyzing && "pointer-events-none opacity-70"
+									)}
+								>
+									<input {...getInputProps()} />
+									<div className="bg-background rounded-full border p-3 shadow-sm">
+										{isAnalyzing ? (
+											<Loader2 className="text-primary size-6 animate-spin" />
+										) : (
+											<Upload className="text-primary size-6" />
+										)}
+									</div>
+									<p className="mt-4 text-lg font-semibold">
+										{isAnalyzing
+											? "Analyzing contract…"
+											: isDragActive
+												? "Drop the contract here"
+												: "Drop in a contract"}
+									</p>
+									<p className="text-muted-foreground mt-2 max-w-md text-sm leading-6">
+										{SUPPORTED_UPLOAD_LABEL}. Your contract stays in your browser session only — it
+										is never stored on our servers.
+									</p>
+									{lastUploadedFileName ? (
+										<p className="text-primary mt-4 text-xs font-medium tracking-[0.2em] uppercase">
+											Latest file: {lastUploadedFileName}
+										</p>
+									) : null}
+								</div>
 
 								<Card className="bg-background/70">
 									<CardHeader>
