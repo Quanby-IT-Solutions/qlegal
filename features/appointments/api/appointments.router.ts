@@ -2,7 +2,7 @@ import { TRPCError } from "@trpc/server"
 import { and, desc, eq, gte, inArray, or } from "drizzle-orm"
 import { z } from "zod/v4"
 
-import { assertEnpCommissionActiveForRestrictedOps } from "@/core/lib/enp-lms-guard"
+import { assertEnpCommissionActiveForRestrictedOpsWithSync } from "@/core/lib/enp-lms-server-guard"
 import { assertBookerCanBookLawyerForKyc } from "@/core/lib/kyc-restriction-guards"
 import { getFullName } from "@/core/lib/utils"
 
@@ -44,7 +44,6 @@ const RECURRING_BLOCKED = "RECURRING_BLOCKED" as const
 
 /**
  * Helper function to create a meeting for appointments
- * Extracts duplicated meeting creation logic for use in confirmAppointment and createEnpEvent procedures
  */
 async function createMeetingForAppointment(
 	ctx: { db: typeof db },
@@ -657,10 +656,7 @@ export const appointmentsRouter = createTRPCRouter({
 				where: eq(users.id, userId),
 				columns: { role: true, commissionStatus: true },
 			})
-			assertEnpCommissionActiveForRestrictedOps(
-				confirmingUser?.role,
-				confirmingUser?.commissionStatus
-			)
+			await assertEnpCommissionActiveForRestrictedOpsWithSync(userId, confirmingUser?.role)
 
 			// Create/link a meeting on accept for both REN and IEN so accepted bookings
 			// show up under Sessions (Ongoing/Upcoming) consistently.
@@ -1160,10 +1156,7 @@ export const appointmentsRouter = createTRPCRouter({
 				where: eq(users.id, userId),
 				columns: { role: true, commissionStatus: true },
 			})
-			assertEnpCommissionActiveForRestrictedOps(
-				scheduleActor?.role,
-				scheduleActor?.commissionStatus
-			)
+			await assertEnpCommissionActiveForRestrictedOpsWithSync(userId, scheduleActor?.role)
 
 			// Parse appointment date with time
 			const appointmentDateTime = new Date(input.appointmentDate)

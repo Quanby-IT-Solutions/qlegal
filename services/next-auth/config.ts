@@ -10,6 +10,7 @@ import { autoJoinMemberInDoconchainOrganization } from "@/services/doconchain/or
 import { db } from "@/services/drizzle/db"
 import { twoFactorConfirmations, users, type UserRole } from "@/services/drizzle/schema/auth"
 import { DrizzleCustomAdapter } from "@/services/next-auth/adapter"
+import { syncEnpCommissionStatusFromSupremeCourt } from "@/services/supreme-court/lib/sync-enp-commission"
 
 import { loginSchema } from "@/features/auth/api/auth.schemas"
 import { expireUserKycIfNeeded } from "@/features/kyc/lib/expire-user-kyc-if-needed"
@@ -38,7 +39,6 @@ declare module "next-auth" {
 		}
 	}
 }
-
 /**
  * Options for NextAuth.js used to configure adapters, providers, callbacks, etc.
  *
@@ -112,6 +112,14 @@ export const authConfig = {
 
 			if (account?.provider !== "credentials") {
 				if (user.id) {
+					// Sync ENP commission status from Supreme Court if user is a lawyer
+					if (user.role === "ENP") {
+						const syncedStatus = await syncEnpCommissionStatusFromSupremeCourt(userId)
+						user = {
+							...user,
+							commissionStatus: syncedStatus,
+						}
+					}
 					void ensureOrgMembership(user.id)
 				}
 				return true
@@ -172,6 +180,15 @@ export const authConfig = {
 					})
 					if (refreshed) {
 						user = refreshed
+					}
+				}
+
+				// Sync ENP commission status from Supreme Court if user is a lawyer
+				if (user.role === "ENP") {
+					const syncedStatus = await syncEnpCommissionStatusFromSupremeCourt(userId)
+					user = {
+						...user,
+						commissionStatus: syncedStatus,
 					}
 				}
 
@@ -281,6 +298,7 @@ export const authConfig = {
 						const row = await db.query.users.findFirst({
 							where: (data, { eq }) => eq(data.id, userId),
 							columns: {
+								role: true,
 								commissionStatus: true,
 								kycStatus: true,
 								onboardingCompletedAt: true,
@@ -290,7 +308,14 @@ export const authConfig = {
 						})
 
 						if (row) {
-							token.status = (row.commissionStatus ?? "PENDING") as string
+							// For ENP users, sync commission status from Supreme Court so
+							// the JWT token (used by middleware) always reflects the live SC value.
+							if (row.role === "ENP") {
+								const syncedStatus = await syncEnpCommissionStatusFromSupremeCourt(userId)
+								token.status = syncedStatus
+							} else {
+								token.status = (row.commissionStatus ?? "PENDING") as string
+							}
 							token.kycStatus = (row.kycStatus ?? "NOT_STARTED") as string
 							token.onboardingComplete = !!row.onboardingCompletedAt
 							token.onboardingDetailsComplete = !!row.onboardingDetailsCompletedAt
