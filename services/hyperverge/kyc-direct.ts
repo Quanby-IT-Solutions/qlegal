@@ -18,7 +18,7 @@ function validateCredentials(): void {
 function stripDataUrlPrefix(base64OrDataUrl: string): string {
 	if (base64OrDataUrl.startsWith("data:")) {
 		const parts = base64OrDataUrl.split(",")
-		return parts[1] || base64OrDataUrl
+		return parts[1] ?? base64OrDataUrl
 	}
 	return base64OrDataUrl
 }
@@ -57,10 +57,7 @@ function parseHyperVergeErrorForUser(responseText: string): string {
 		const firstMessage = details?.[0]?.message?.trim()
 
 		// Known readId / document errors
-		if (
-			errorStr.includes("document not detected") ||
-			firstCode === "114"
-		) {
+		if (errorStr.includes("document not detected") || firstCode === "114") {
 			return "We couldn't detect a valid ID document in the photo. Please ensure the full document is visible, well lit, and not blurry, then try again."
 		}
 		// Code 113: document type/country not supported (e.g. when fallback India API is used and only supports a subset)
@@ -75,7 +72,11 @@ function parseHyperVergeErrorForUser(responseText: string): string {
 		}
 
 		// Use first detail message only if it looks user-safe (short, no technical IDs)
-		if (firstMessage && firstMessage.length < 120 && !/[\w-]{8,}-[\w-]{4,}-[\w-]{4,}-[\w-]{4,}-[\w-]{12,}/.test(firstMessage)) {
+		if (
+			firstMessage &&
+			firstMessage.length < 120 &&
+			!/[\w-]{8,}-[\w-]{4,}-[\w-]{4,}-[\w-]{4,}-[\w-]{12,}/.test(firstMessage)
+		) {
 			return firstMessage
 		}
 

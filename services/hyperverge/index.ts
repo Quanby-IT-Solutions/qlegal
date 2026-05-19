@@ -292,7 +292,9 @@ function normalizeOutputApplicationStatus(rawStatus: unknown): ApplicationStatus
  * Extract the full identifier from a HyperVerge startKycUrl (e.g. from link-kyc.idv.hyperverge.co).
  * The fallback /v1/output API may require this identifier instead of the short transactionId.
  */
-export function extractIdentifierFromStartKycUrl(startKycUrl: string | null | undefined): string | null {
+export function extractIdentifierFromStartKycUrl(
+	startKycUrl: string | null | undefined
+): string | null {
 	if (!startKycUrl?.trim()) return null
 	try {
 		const url = new URL(startKycUrl)
@@ -433,11 +435,10 @@ export async function getTransactionStatus(
 			// Fallback /v1/output often returns "TransactionId not found" until the user completes
 			// the flow (or the transaction is not yet in their system). Return pending so the UI
 			// can keep polling or the callback can update state when the user lands with ?status=...
-			if (
-				response.status === 400 &&
-				responseText.includes("TransactionId not found")
-			) {
-				console.log("   - Treating 'TransactionId not found' as pending (user may not have completed yet)")
+			if (response.status === 400 && responseText.includes("TransactionId not found")) {
+				console.log(
+					"   - Treating 'TransactionId not found' as pending (user may not have completed yet)"
+				)
 				return {
 					status: "success",
 					statusCode: 200,
