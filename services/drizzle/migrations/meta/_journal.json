@@ -99,6 +99,20 @@
       "when": 1775100000000,
       "tag": "0025_add_kyc_last_expired_at",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1775797401584,
+      "tag": "0014_nasty_imperial_guard",
+      "breakpoints": false
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1775808047458,
+      "tag": "0015_naive_shaman",
+      "breakpoints": false
     }
   ]
 }

@@ -13,8 +13,11 @@ interface CommissionStatusResponse {
  * Get Notary Public Commission Status from Supreme Court eNotarization API.
  * Endpoint: POST /public-use/cs
  *
- * @param npn - Notary Public Number (e.g. "NPN-2" or "2")
- * @param rn - Roll Number (e.g. "RN-2" or "2")
+ * SC only uses NPN to look up commission status; rn is required by the API
+ * contract but its value is not validated against the NPN.
+ *
+ * @param npn - Notary Public Number (e.g. "NPN-2025-00020")
+ * @param rn - Roll Number sent for API contract compliance (e.g. "RN-12341")
  * @returns Commission status ("Active" or "Inactive")
  */
 export async function getCommissionStatus(
@@ -29,10 +32,10 @@ export async function getCommissionStatus(
 		const errorMessage = `Supreme Court commission status failed: ${response.status} - ${errorText}`
 		const err = new Error(errorMessage)
 		;(err as Error & { status?: number }).status = response.status
-		
+
 		// Handle documented error codes per PDF specification
 		// PDF documents: 400, 401, 404, 500
-		
+
 		if (response.status === 400) {
 			err.message =
 				`${errorMessage}\n\n` +
@@ -42,7 +45,7 @@ export async function getCommissionStatus(
 				`   - Ensure the notary exists in the Supreme Court system`
 			throw err
 		}
-		
+
 		if (response.status === 401) {
 			err.message =
 				`${errorMessage}\n\n` +
@@ -51,7 +54,7 @@ export async function getCommissionStatus(
 				`   - Check that the access token is valid and not expired`
 			throw err
 		}
-		
+
 		if (response.status === 404) {
 			err.message =
 				`${errorMessage}\n\n` +
@@ -60,7 +63,7 @@ export async function getCommissionStatus(
 				`   - Check that the NPN/RN combination exists`
 			throw err
 		}
-		
+
 		if (response.status === 500) {
 			err.message =
 				`${errorMessage}\n\n` +
@@ -69,7 +72,7 @@ export async function getCommissionStatus(
 				`   - Contact Supreme Court API administrators if this persists`
 			throw err
 		}
-		
+
 		throw err
 	}
 

@@ -3,6 +3,7 @@ import * as relationsSchema from "@/services/drizzle/schema/_relations"
 import * as appointmentParticipantsSchema from "@/services/drizzle/schema/appointment-participants"
 import * as appointmentsSchema from "@/services/drizzle/schema/appointments"
 import * as authSchema from "@/services/drizzle/schema/auth"
+import * as contractAgentSchema from "@/services/drizzle/schema/contract-agent"
 import * as doconchainSubOrgsSchema from "@/services/drizzle/schema/doconchain-sub-organizations"
 import * as documentSchema from "@/services/drizzle/schema/document"
 import * as documentSignersSchema from "@/services/drizzle/schema/document-signers"
@@ -25,6 +26,7 @@ export const schema = {
 	...enumsSchema,
 	...authSchema,
 	...appointmentParticipantsSchema,
+	...contractAgentSchema,
 	...doconchainSubOrgsSchema,
 	...appointmentsSchema,
 	...documentSchema,

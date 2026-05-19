@@ -23,6 +23,7 @@ export interface RouteConfig {
 
 export const ROUTE_CONFIG: RouteConfig = {
 	public: [
+		{ path: "/", exact: true },
 		{ path: "/auth/privacy-policy", exact: true },
 		{ path: "/auth/terms-of-service", exact: true },
 		{ path: "/liveness-validation" }, // Testing route for liveness validation

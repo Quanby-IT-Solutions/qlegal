@@ -17,6 +17,11 @@ export const env = createEnv({
 		// Database
 		DATABASE_URL: z.string(),
 
+		// Contract AI (optional external model configuration)
+		XAI_API_KEY: z.string().optional(),
+		XAI_BASE_URL: z.string().url().default("https://api.x.ai/v1"),
+		XAI_MODEL: z.string().default("grok-3-fast-beta"),
+
 		// DocOnChain (Enterprise API)
 		DOCONCHAIN_API_URL: z.string().url(),
 		DOCONCHAIN_APP_URL: z.string().url().optional(),
@@ -113,6 +118,11 @@ export const env = createEnv({
 
 		// Database
 		DATABASE_URL: process.env.DATABASE_URL,
+
+		// Contract AI (optional external model configuration)
+		XAI_API_KEY: process.env.XAI_API_KEY,
+		XAI_BASE_URL: process.env.XAI_BASE_URL,
+		XAI_MODEL: process.env.XAI_MODEL,
 
 		// DocOnChain (Enterprise API)
 		DOCONCHAIN_API_URL: process.env.DOCONCHAIN_API_URL,

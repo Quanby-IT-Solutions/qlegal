@@ -3,22 +3,23 @@ import { createCallerFactory, createTRPCRouter } from "@/services/trpc/init"
 import { appointmentsRouter } from "@/features/appointments/api/appointments.router"
 import { authRouter } from "@/features/auth/api/auth.router"
 import { browseRouter } from "@/features/browse/api/browse.router"
+import { contractAgentRouter } from "@/features/contract-agent/api/contract-agent.router"
 import { dashboardRouter } from "@/features/dashboard/api/dashboard.router"
 import { documentsRouter } from "@/features/documents/api/documents.router"
 import { envelopeLiteRouter } from "@/features/envelopes-lite/api/envelope-lite.router"
 import { legalRegistrationRouter } from "@/features/legal-registration/api/legal-registration.router"
-import { onboardingRouter } from "@/features/onboarding/api/onboarding.router"
 import { messageFilesRouter } from "@/features/messages/api/message-files.router"
 import { messagesRouter } from "@/features/messages/api/messages.router"
 import { notarialBookRouter } from "@/features/notarial-book/api/notarial-book.router"
+import { onboardingRouter } from "@/features/onboarding/api/onboarding.router"
 import { principalVaultRouter } from "@/features/principal-vault/api/principal-vault.router"
 import { profileRouter } from "@/features/profile/api/profile.router"
 import { locationVerificationRouter } from "@/features/sessions/api/location-verification.router"
 import { meetingsRouter } from "@/features/sessions/api/meetings.router"
 import { signatureRequestsRouter } from "@/features/sessions/api/signature-requests.router"
 import { settingsRouter } from "@/features/settings/api/settings.router"
-import { subOrgsRouter } from "@/features/sub-orgs/api/sub-orgs.router"
 import { signatureLiteRouter } from "@/features/signature-lite/api/new-signature.router"
+import { subOrgsRouter } from "@/features/sub-orgs/api/sub-orgs.router"
 import { userManagementRouter } from "@/features/user-management/api/user-management.router"
 
 /**
@@ -40,6 +41,7 @@ export const appRouter = createTRPCRouter({
 	auth: authRouter,
 	browse: browseRouter,
 	appointments: appointmentsRouter, // NEW consolidated router
+	contractAgent: contractAgentRouter,
 	dashboard: dashboardRouter,
 	documents: documentsRouter,
 	envelopeLite: envelopeLiteRouter,

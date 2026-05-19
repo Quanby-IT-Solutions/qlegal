@@ -2,7 +2,7 @@ import { TRPCError } from "@trpc/server"
 import { and, asc, desc, eq, inArray, ne, type InferSelectModel } from "drizzle-orm"
 import { z } from "zod/v4"
 
-import { assertEnpCommissionActiveForRestrictedOps } from "@/core/lib/enp-lms-guard"
+import { assertEnpCommissionActiveForRestrictedOpsWithSync } from "@/core/lib/enp-lms-server-guard"
 import {
 	assertEnpCanCreateMeetingForKyc,
 	assertEnpOrPrincipalCanJoinSessionForKyc,
@@ -33,8 +33,8 @@ import { getPublicUrl } from "@/services/supabase/signed-url"
 import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
 import { createMeetingRoom, fetchRecordings, generateMeetingToken } from "@/services/video-sdk"
 
-import { listAllFilesInFolderTree } from "@/features/principal-vault/lib/collect-folder-tree"
 import { populateNotarialRegistryOnMeetingEnd } from "@/features/notarial-book/server/populate-notarial-registry-on-meeting-end"
+import { listAllFilesInFolderTree } from "@/features/principal-vault/lib/collect-folder-tree"
 import { getSubOrgCredsForMemberEmail } from "@/features/sub-orgs/server/get-sub-org-creds-for-member"
 
 import { env } from "@/env"
@@ -119,7 +119,9 @@ async function getAppointmentParticipantsByMeetingId(meetingId: string) {
 	return { appointment, apParticipants }
 }
 
-type AppointmentParticipantsBundle = Awaited<ReturnType<typeof getAppointmentParticipantsByMeetingId>>
+type AppointmentParticipantsBundle = Awaited<
+	ReturnType<typeof getAppointmentParticipantsByMeetingId>
+>
 
 type MeetingEnpStampContext = {
 	appointment: AppointmentParticipantsBundle["appointment"]
@@ -133,7 +135,8 @@ async function resolveMeetingEnpAndDocumentStamp(
 	meetingId: string,
 	existing?: AppointmentParticipantsBundle
 ): Promise<MeetingEnpStampContext> {
-	const { appointment, apParticipants } = existing ?? (await getAppointmentParticipantsByMeetingId(meetingId))
+	const { appointment, apParticipants } =
+		existing ?? (await getAppointmentParticipantsByMeetingId(meetingId))
 
 	const enpParticipant = apParticipants.find(
 		p => isEnpRole(p.user?.role) && !!asNonEmptyEmail(p.user?.email)
@@ -154,7 +157,6 @@ async function resolveMeetingEnpAndDocumentStamp(
 			columns: { firstName: true, middleName: true, lastName: true, email: true },
 		}),
 		db.query.enpProfiles.findFirst({
-			where: eq(enpProfiles.userId, enpUserId),
 			columns: {
 				rollNo: true,
 				rollNoDate: true,
@@ -174,7 +176,8 @@ async function resolveMeetingEnpAndDocumentStamp(
 	])
 
 	const mcleNoPeriod =
-		typeof enpProfile?.mcleNoPeriod === "string" && /^\d{4}-\d{2}-\d{2}T/.test(enpProfile.mcleNoPeriod.trim())
+		typeof enpProfile?.mcleNoPeriod === "string" &&
+		/^\d{4}-\d{2}-\d{2}T/.test(enpProfile.mcleNoPeriod.trim())
 			? ""
 			: (enpProfile?.mcleNoPeriod ?? "")
 
@@ -232,11 +235,7 @@ async function resolveMeetingEnpAndDocumentStamp(
 const MEETING_DOCUMENT_MAX_BYTES = 10 * 1024 * 1024
 const MAX_VAULT_FOLDER_IMPORT_FILES = 40
 
-type MeetingNotarizationAct =
-	| "ACKNOWLEDGMENT"
-	| "AFFIRMATION"
-	| "JURAT"
-	| "SIGNATURE_WITNESSING"
+type MeetingNotarizationAct = "ACKNOWLEDGMENT" | "AFFIRMATION" | "JURAT" | "SIGNATURE_WITNESSING"
 
 function assertVaultStoragePathBelongsToUser(storagePath: string, userId: string): void {
 	const prefix = `vault/${userId}/`
@@ -359,7 +358,7 @@ export const meetingsRouter = createTRPCRouter({
 				})
 			}
 			assertEnpCanCreateMeetingForKyc(creator.role, creator.kycStatus)
-			assertEnpCommissionActiveForRestrictedOps(creator.role, creator.commissionStatus)
+			await assertEnpCommissionActiveForRestrictedOpsWithSync(ctx.session.user.id, creator.role)
 
 			const { roomId } = await createMeetingRoom()
 
@@ -738,7 +737,7 @@ export const meetingsRouter = createTRPCRouter({
 				where: eq(users.id, ctx.session.user.id),
 				columns: { role: true, commissionStatus: true },
 			})
-			assertEnpCommissionActiveForRestrictedOps(joiner?.role, joiner?.commissionStatus)
+			await assertEnpCommissionActiveForRestrictedOpsWithSync(ctx.session.user.id, joiner?.role)
 		}
 
 		const meeting = await db.query.meetings.findFirst({
@@ -820,9 +819,9 @@ export const meetingsRouter = createTRPCRouter({
 					where: eq(users.id, meetingEnpUserId),
 					columns: { role: true, commissionStatus: true },
 				})
-				assertEnpCommissionActiveForRestrictedOps(
-					meetingEnpRow?.role,
-					meetingEnpRow?.commissionStatus
+				await assertEnpCommissionActiveForRestrictedOpsWithSync(
+					meetingEnpUserId,
+					meetingEnpRow?.role
 				)
 			}
 
@@ -934,7 +933,7 @@ export const meetingsRouter = createTRPCRouter({
 				where: eq(users.id, ctx.session.user.id),
 				columns: { role: true, commissionStatus: true },
 			})
-			assertEnpCommissionActiveForRestrictedOps(starter?.role, starter?.commissionStatus)
+			await assertEnpCommissionActiveForRestrictedOpsWithSync(ctx.session.user.id, starter?.role)
 		}
 
 		const meeting = await db.query.meetings.findFirst({
@@ -1387,7 +1386,10 @@ export const meetingsRouter = createTRPCRouter({
 
 			const eligible = pdfCandidates.filter(f => {
 				if (f.size > MEETING_DOCUMENT_MAX_BYTES) {
-					skipped.push({ name: f.name, reason: `Larger than ${MEETING_DOCUMENT_MAX_BYTES / (1024 * 1024)}MB` })
+					skipped.push({
+						name: f.name,
+						reason: `Larger than ${MEETING_DOCUMENT_MAX_BYTES / (1024 * 1024)}MB`,
+					})
 					return false
 				}
 				return true
@@ -1408,13 +1410,12 @@ export const meetingsRouter = createTRPCRouter({
 			}
 
 			const supabase = getServiceRoleClient()
-			let orderCursor =
-				(
-					await db
-						.select({ id: documents.id })
-						.from(documents)
-						.where(eq(documents.meetingId, input.meetingId))
-				).length
+			let orderCursor = (
+				await db
+					.select({ id: documents.id })
+					.from(documents)
+					.where(eq(documents.meetingId, input.meetingId))
+			).length
 
 			for (const vf of eligible) {
 				assertVaultStoragePathBelongsToUser(vf.storagePath, ctx.session.user.id)
@@ -1764,7 +1765,9 @@ export const meetingsRouter = createTRPCRouter({
 			}
 
 			const supabase = getServiceRoleClient()
-			const { data: fileBlob, error: downloadError } = await supabase.storage.from("documents").download(path)
+			const { data: fileBlob, error: downloadError } = await supabase.storage
+				.from("documents")
+				.download(path)
 
 			if (downloadError || !fileBlob) {
 				throw new TRPCError({
@@ -2443,7 +2446,7 @@ export const meetingsRouter = createTRPCRouter({
 					where: eq(users.id, ctx.session.user.id),
 					columns: { role: true, commissionStatus: true },
 				})
-				assertEnpCommissionActiveForRestrictedOps(joiner?.role, joiner?.commissionStatus)
+				await assertEnpCommissionActiveForRestrictedOpsWithSync(ctx.session.user.id, joiner?.role)
 			}
 
 			const meeting = await db.query.meetings.findFirst({
@@ -2542,7 +2545,10 @@ export const meetingsRouter = createTRPCRouter({
 						where: eq(users.id, ctx.session.user.id),
 						columns: { role: true, commissionStatus: true },
 					})
-					assertEnpCommissionActiveForRestrictedOps(accepter?.role, accepter?.commissionStatus)
+					await assertEnpCommissionActiveForRestrictedOpsWithSync(
+						ctx.session.user.id,
+						accepter?.role
+					)
 				}
 			}
 

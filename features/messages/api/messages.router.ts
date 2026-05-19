@@ -3,7 +3,7 @@ import { tracked, TRPCError } from "@trpc/server"
 import { and, asc, desc, eq, gt, lt, ne, or, sql } from "drizzle-orm"
 import { z } from "zod/v4"
 
-import { assertEnpCommissionActiveForRestrictedOps } from "@/core/lib/enp-lms-guard"
+import { assertEnpCommissionActiveForRestrictedOpsWithSync } from "@/core/lib/enp-lms-server-guard"
 import { assertEnpCanCreateMeetingForKyc } from "@/core/lib/kyc-restriction-guards"
 import { getFullName } from "@/core/lib/utils"
 
@@ -81,7 +81,6 @@ function toMessageWithSender(row: {
 		})
 	}
 	return {
-		id: row.id,
 		conversationId: row.conversationId,
 		senderId: row.senderId,
 		content: row.content,
@@ -892,7 +891,7 @@ export const messagesRouter = createTRPCRouter({
 			}
 
 			assertEnpCanCreateMeetingForKyc(ctx.session.user.role, ctx.session.user.kycStatus)
-			assertEnpCommissionActiveForRestrictedOps(sender.role, sender.commissionStatus)
+			await assertEnpCommissionActiveForRestrictedOpsWithSync(ctx.session.user.id, sender.role)
 
 			// Verify participant
 			const participant = await db.query.conversationParticipants.findFirst({
@@ -978,7 +977,7 @@ export const messagesRouter = createTRPCRouter({
 			}
 
 			assertEnpCanCreateMeetingForKyc(ctx.session.user.role, ctx.session.user.kycStatus)
-			assertEnpCommissionActiveForRestrictedOps(sender.role, sender.commissionStatus)
+			await assertEnpCommissionActiveForRestrictedOpsWithSync(ctx.session.user.id, sender.role)
 
 			const metadata = buildConsultationRequestMetadata(input, ctx.session.user.id)
 

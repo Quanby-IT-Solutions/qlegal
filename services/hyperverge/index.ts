@@ -14,12 +14,16 @@ import { env } from "@/env"
 // HyperVerge API Configuration
 // Prefer explicit full URLs if provided; otherwise, use documented defaults
 const DEFAULT_BASE_URL = "https://ind.idv.hyperverge.co"
-const CONFIGURED_BASE_URL = (env.HYPERVERGE_API_URL || DEFAULT_BASE_URL).replace(/\/$/, "")
+const RAW_CONFIGURED_BASE_URL = (env.HYPERVERGE_API_URL || DEFAULT_BASE_URL).replace(/\/$/, "")
+// HyperVerge "onboard links" + output APIs live on the idv host, not api.hyperverge.com.
+const PRIMARY_BASE_URL = RAW_CONFIGURED_BASE_URL.includes("idv.hyperverge")
+	? RAW_CONFIGURED_BASE_URL
+	: DEFAULT_BASE_URL
 const FALLBACK_BASE_URL = DEFAULT_BASE_URL
 
-const HYPERVERGE_API_START_URL_PRIMARY = `${CONFIGURED_BASE_URL}/v1/link-kyc/start`
+const HYPERVERGE_API_START_URL_PRIMARY = `${PRIMARY_BASE_URL}/v1/link-kyc/start`
 // Output API per docs: https://ind.idv.hyperverge.co/v1/output
-const HYPERVERGE_API_RESULTS_URL_PRIMARY = `${CONFIGURED_BASE_URL}/v1/output`
+const HYPERVERGE_API_RESULTS_URL_PRIMARY = `${PRIMARY_BASE_URL}/v1/output`
 
 const HYPERVERGE_API_START_URL_FALLBACK = `${FALLBACK_BASE_URL}/v1/link-kyc/start`
 const HYPERVERGE_API_RESULTS_URL_FALLBACK = `${FALLBACK_BASE_URL}/v1/output`
@@ -288,7 +292,9 @@ function normalizeOutputApplicationStatus(rawStatus: unknown): ApplicationStatus
  * Extract the full identifier from a HyperVerge startKycUrl (e.g. from link-kyc.idv.hyperverge.co).
  * The fallback /v1/output API may require this identifier instead of the short transactionId.
  */
-export function extractIdentifierFromStartKycUrl(startKycUrl: string | null | undefined): string | null {
+export function extractIdentifierFromStartKycUrl(
+	startKycUrl: string | null | undefined
+): string | null {
 	if (!startKycUrl?.trim()) return null
 	try {
 		const url = new URL(startKycUrl)
@@ -429,11 +435,10 @@ export async function getTransactionStatus(
 			// Fallback /v1/output often returns "TransactionId not found" until the user completes
 			// the flow (or the transaction is not yet in their system). Return pending so the UI
 			// can keep polling or the callback can update state when the user lands with ?status=...
-			if (
-				response.status === 400 &&
-				responseText.includes("TransactionId not found")
-			) {
-				console.log("   - Treating 'TransactionId not found' as pending (user may not have completed yet)")
+			if (response.status === 400 && responseText.includes("TransactionId not found")) {
+				console.log(
+					"   - Treating 'TransactionId not found' as pending (user may not have completed yet)"
+				)
 				return {
 					status: "success",
 					statusCode: 200,
@@ -628,7 +633,7 @@ export async function validateSelfie(
 
 	validateCredentials()
 
-	const LIVENESS_API_URL = `${CONFIGURED_BASE_URL}/v1/photo/liveness`
+	const LIVENESS_API_URL = `${PRIMARY_BASE_URL}/v1/photo/liveness`
 	const LIVENESS_API_URL_FALLBACK = `${FALLBACK_BASE_URL}/v1/photo/liveness`
 
 	const requestBody = {
