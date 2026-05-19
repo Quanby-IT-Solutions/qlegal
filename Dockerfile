@@ -167,7 +167,7 @@ ENV SKIP_ENV_VALIDATION=1
 ENV ENABLE_STANDALONE=true
 
 # Build the project and its dependencies
-RUN corepack enable pnpm && pnpm db:generate && pnpm build
+RUN npm install -g pnpm@10 && pnpm db:generate && pnpm build
 
 # Production image, copy all the files and run next
 FROM base AS runner
