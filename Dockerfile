@@ -10,9 +10,7 @@ WORKDIR /app
 
 # Install Node dependencies with pnpm
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-RUN corepack enable pnpm && pnpm i --frozen-lockfile
-
-# Rebuild the source code only when needed
+    RUN npm install -g pnpm@10 && pnpm i --frozen-lockfile
 FROM base AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
