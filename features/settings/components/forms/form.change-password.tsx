@@ -4,6 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import { toast } from "sonner"
 
+import { PasswordRequirementsChecklist } from "@/core/components/password-requirements-checklist"
 import { Button } from "@/core/components/ui/button"
 import {
 	Form,
@@ -14,7 +15,6 @@ import {
 	FormMessage,
 } from "@/core/components/ui/form"
 import { InputPassword } from "@/core/components/ui/input-password"
-import { PasswordRequirementsChecklist } from "@/core/components/password-requirements-checklist"
 
 import { trpc } from "@/services/trpc/client"
 

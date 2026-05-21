@@ -2,9 +2,7 @@
  * Format date from ISO string or Date to readable stamp format (e.g. "10 February 2026").
  * Uses UTC so ISO strings like 2026-02-10T16:00:00.000Z never appear raw in document seals.
  */
-export function formatDateForStamp(
-	dateInput: string | Date | null | undefined
-): string {
+export function formatDateForStamp(dateInput: string | Date | null | undefined): string {
 	if (dateInput == null) return ""
 	const dateString = typeof dateInput === "string" ? dateInput.trim() : ""
 	if (dateString === "" && !(dateInput instanceof Date)) return ""

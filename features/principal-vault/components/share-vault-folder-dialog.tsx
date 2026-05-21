@@ -94,8 +94,8 @@ export function ShareVaultFolderDialog({
 				<DialogHeader>
 					<DialogTitle>Share folder with notary</DialogTitle>
 					<DialogDescription>
-						The entire folder <strong>{folderName}</strong> (all files and subfolders) will be shared.
-						Enter the ENP’s account email — they must use that account to open the link.
+						The entire folder <strong>{folderName}</strong> (all files and subfolders) will be
+						shared. Enter the ENP’s account email — they must use that account to open the link.
 					</DialogDescription>
 				</DialogHeader>
 				<div className="space-y-4 py-2">

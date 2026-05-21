@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server"
 import { eq } from "drizzle-orm"
 
-import { auth } from "@/services/next-auth"
+import { updateDoconchainSubOrganization } from "@/services/doconchain/organization/update-sub-organization"
 import { db } from "@/services/drizzle/db"
 import { doconchainSubOrganizations } from "@/services/drizzle/schema/doconchain-sub-organizations"
-import { updateDoconchainSubOrganization } from "@/services/doconchain/organization/update-sub-organization"
+import { auth } from "@/services/next-auth"
 
 export const runtime = "nodejs"
 
@@ -58,7 +58,9 @@ export async function PUT(
 		const name = getString(form, "name") || subOrg.name
 		const address = getString(form, "address") || subOrg.address
 		const subOrganizationTypeName =
-			getString(form, "sub_organization_type_name") || subOrg.subOrganizationTypeName || "Department"
+			getString(form, "sub_organization_type_name") ||
+			subOrg.subOrganizationTypeName ||
+			"Department"
 		const email =
 			getString(form, "email") ||
 			(process.env.DOCONCHAIN_EMAIL ?? "").trim() ||
@@ -102,4 +104,3 @@ export async function PUT(
 		)
 	}
 }
-

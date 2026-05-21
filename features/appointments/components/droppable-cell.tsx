@@ -1,7 +1,7 @@
 "use client"
 
-import { useDroppable } from "@dnd-kit/core"
 import type { ReactNode } from "react"
+import { useDroppable } from "@dnd-kit/core"
 
 interface DroppableCellProps {
 	id: string

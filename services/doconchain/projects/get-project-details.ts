@@ -1,9 +1,10 @@
-import { env } from "@/env"
 import {
 	getDoconchainApiToken,
 	invalidateDoconchainToken,
 	type GetSubOrgCredsForEmail,
 } from "@/services/doconchain/auth/generate-token"
+
+import { env } from "@/env"
 
 type DoconchainProjectDetailsResponse = {
 	message?: string
@@ -50,7 +51,11 @@ export async function getDoconchainProjectDetails(input: {
 	email: string
 	/** Optional: resolve sub-org enterprise creds for this token email (usually the ENP owner). */
 	getSubOrgCredsForEmail?: GetSubOrgCredsForEmail
-}): Promise<{ projectStatus: string | null; completedAt: string | null; raw: DoconchainProjectDetailsResponse }> {
+}): Promise<{
+	projectStatus: string | null
+	completedAt: string | null
+	raw: DoconchainProjectDetailsResponse
+}> {
 	const projectUuid = input.projectUuid.trim()
 	if (!projectUuid) throw new Error("Project UUID is required.")
 
@@ -59,7 +64,10 @@ export async function getDoconchainProjectDetails(input: {
 
 	const doRequest = async () => {
 		// Prefer explicit user-token (DOCONCHAIN_API_TOKEN) if configured; otherwise generate.
-		const token = await getDoconchainApiToken({ email, getSubOrgCredsForEmail: input.getSubOrgCredsForEmail })
+		const token = await getDoconchainApiToken({
+			email,
+			getSubOrgCredsForEmail: input.getSubOrgCredsForEmail,
+		})
 		return fetchProjectDetails({ projectUuid, token })
 	}
 
@@ -69,7 +77,8 @@ export async function getDoconchainProjectDetails(input: {
 		const completedAt = typeof raw.data?.completed_at === "string" ? raw.data.completed_at : null
 		return { projectStatus: status, completedAt, raw }
 	} catch (error) {
-		const status = error instanceof Error ? (error as Error & { status?: number }).status : undefined
+		const status =
+			error instanceof Error ? (error as Error & { status?: number }).status : undefined
 		if (status === 401) {
 			const invalidate = invalidateDoconchainToken as (email: string) => void
 			invalidate(email)
@@ -81,4 +90,3 @@ export async function getDoconchainProjectDetails(input: {
 		throw error
 	}
 }
-

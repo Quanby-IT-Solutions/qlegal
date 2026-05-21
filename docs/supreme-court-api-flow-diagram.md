@@ -203,6 +203,7 @@
 ## 📝 Request/Response Examples
 
 ### Authentication Request
+
 ```http
 POST https://cognito-idp.ap-southeast-1.amazonaws.com/ap-southeast-1_P86ZTewxH
 Content-Type: application/x-amz-json-1.1
@@ -219,6 +220,7 @@ X-Amz-Target: AWSCognitoIdentityProviderService.InitiateAuth
 ```
 
 ### API Request (All Endpoints)
+
 ```http
 POST https://scenotarization-api.com/public-use/consolidated
 Authorization: Bearer <access-token>

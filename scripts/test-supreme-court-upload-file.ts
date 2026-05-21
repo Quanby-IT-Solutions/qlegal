@@ -8,6 +8,7 @@
  * Get an NRN from: pnpm test:supreme-court-consolidated (or from a sync)
  */
 import "dotenv/config"
+
 import fs from "node:fs"
 import path from "node:path"
 
@@ -24,7 +25,9 @@ async function main() {
 
 	if (!nrn?.startsWith("NRN-") || !filePath) {
 		console.error("❌ Usage: pnpm test:supreme-court-upload-file <NRN> <path-to.pdf>")
-		console.error("   Example: pnpm test:supreme-court-upload-file NRN-698bed177039a3a0d1146537 ./document.pdf")
+		console.error(
+			"   Example: pnpm test:supreme-court-upload-file NRN-698bed177039a3a0d1146537 ./document.pdf"
+		)
 		console.error("   Get an NRN from: pnpm test:supreme-court-consolidated")
 		process.exit(1)
 	}

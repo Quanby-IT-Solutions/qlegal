@@ -50,9 +50,7 @@ export async function getPresignedUrl(
 
 	if (!response.ok) {
 		const errorText = await response.text()
-		throw new Error(
-			`Supreme Court presigned URL failed: ${response.status} - ${errorText}`
-		)
+		throw new Error(`Supreme Court presigned URL failed: ${response.status} - ${errorText}`)
 	}
 
 	const data = (await response.json()) as PresignedUrlResponse

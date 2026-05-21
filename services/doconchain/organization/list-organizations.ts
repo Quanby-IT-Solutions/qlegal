@@ -1,5 +1,6 @@
-import { env } from "@/env"
 import { getDoconchainApiToken } from "@/services/doconchain/auth/generate-token"
+
+import { env } from "@/env"
 
 type OrganizationItem = {
 	id?: number | string
@@ -64,9 +65,6 @@ export async function listDoconchainOrganizations(): Promise<OrganizationItem[]>
 		)
 	}
 
-	const parsed: OrganizationsResponse = text
-		? (JSON.parse(text) as OrganizationsResponse)
-		: []
+	const parsed: OrganizationsResponse = text ? (JSON.parse(text) as OrganizationsResponse) : []
 	return asList(parsed)
 }
-

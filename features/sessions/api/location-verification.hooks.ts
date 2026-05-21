@@ -69,12 +69,13 @@ export function useQuickVpnCheck() {
 			})
 		} finally {
 			// Ensure terminal state even if query resolves without data/error details.
-			setVpnCheckResult(previous =>
-				previous ?? {
-					checked: false,
-					isVpn: false,
-					message: "VPN check unavailable. Proceeding with location-only verification.",
-				}
+			setVpnCheckResult(
+				previous =>
+					previous ?? {
+						checked: false,
+						isVpn: false,
+						message: "VPN check unavailable. Proceeding with location-only verification.",
+					}
 			)
 			setIsChecking(false)
 		}

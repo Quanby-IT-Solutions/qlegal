@@ -1,5 +1,6 @@
 "use client"
 
+import { useMemo } from "react"
 import {
 	BarChartIcon,
 	File01Icon,
@@ -8,7 +9,6 @@ import {
 } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { useTheme } from "next-themes"
-import { useMemo } from "react"
 import { Bar, Doughnut, Line } from "react-chartjs-2"
 
 import {
@@ -406,7 +406,7 @@ export function DashboardCharts({
 							</div>
 						) : (
 							<div className="flex h-[350px] flex-col items-center justify-center gap-2 text-center">
-								<div className="bg-muted/50 text-muted-foreground mb-1 flex size-12 items-center justify-center rounded-md border border-border/60">
+								<div className="bg-muted/50 text-muted-foreground border-border/60 mb-1 flex size-12 items-center justify-center rounded-md border">
 									<HugeiconsIcon icon={BarChartIcon} size={22} />
 								</div>
 								<p className="text-foreground text-sm font-medium">No appointment type data</p>

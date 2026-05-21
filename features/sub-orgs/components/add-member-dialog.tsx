@@ -16,6 +16,7 @@ import {
 } from "@/core/components/ui/dialog"
 import { Input } from "@/core/components/ui/input"
 import { Label } from "@/core/components/ui/label"
+
 import { trpc } from "@/services/trpc/client"
 
 interface AddMemberDialogProps {
@@ -61,8 +62,8 @@ export function AddMemberDialog({ subOrgId, subOrgName, onSuccess }: AddMemberDi
 				<DialogHeader>
 					<DialogTitle>Add member to {subOrgName}</DialogTitle>
 					<DialogDescription>
-						User must already be a member of the parent organization. They will be moved into
-						this sub-org.
+						User must already be a member of the parent organization. They will be moved into this
+						sub-org.
 					</DialogDescription>
 				</DialogHeader>
 				<form onSubmit={handleSubmit} className="grid gap-4 py-4">

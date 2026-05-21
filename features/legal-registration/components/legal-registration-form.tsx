@@ -37,8 +37,8 @@ import {
 	type FileUpload,
 	type LegalRegistrationForm as LegalRegistrationFormValues,
 } from "../api/legal-registration.schemas"
-import { EnpScCredentialsPlaceholder } from "./enp-sc-credentials-placeholder"
 import { useFileUpload, useLegalRegistration } from "../hooks/use-legal-registration"
+import { EnpScCredentialsPlaceholder } from "./enp-sc-credentials-placeholder"
 
 interface FileUploadFieldProps {
 	label: string
@@ -241,16 +241,14 @@ export function LegalRegistrationForm() {
 			shouldDirty: true,
 			shouldValidate: true,
 		})
-		form.setValue(
-			"personalQualifications.residentialAddress",
-			"Cabangan, Legazpi City, Albay",
-			{ shouldDirty: true, shouldValidate: true }
-		)
-		form.setValue(
-			"personalQualifications.workOrBusinessAddress",
-			"Cabangan, Legazpi City, Albay",
-			{ shouldDirty: true, shouldValidate: true }
-		)
+		form.setValue("personalQualifications.residentialAddress", "Cabangan, Legazpi City, Albay", {
+			shouldDirty: true,
+			shouldValidate: true,
+		})
+		form.setValue("personalQualifications.workOrBusinessAddress", "Cabangan, Legazpi City, Albay", {
+			shouldDirty: true,
+			shouldValidate: true,
+		})
 		form.setValue("personalQualifications.telephoneNumber", "(02) 123-4567", {
 			shouldDirty: true,
 			shouldValidate: true,

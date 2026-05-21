@@ -77,7 +77,9 @@ export function getAppSidebarSections(userRole?: string): NavSection[] {
 	const filtered = filterNavSectionsByRole(appSidebarSections, userRole)
 	const platform = filtered.find(s => s.label === "Platform")
 	const browseAndDocs = filtered.find(s => s.label === BROWSE_AND_DOCUMENTS_LABEL)
-	const rest = filtered.filter(s => s.label !== "Platform" && s.label !== BROWSE_AND_DOCUMENTS_LABEL)
+	const rest = filtered.filter(
+		s => s.label !== "Platform" && s.label !== BROWSE_AND_DOCUMENTS_LABEL
+	)
 
 	if (!platform) return filtered
 

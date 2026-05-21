@@ -8,6 +8,7 @@ import type {
 } from "next-auth/adapters"
 
 import { getFullName } from "@/core/lib/utils"
+
 import { db } from "@/services/drizzle/db"
 import { accounts, sessions, users, verificationTokens } from "@/services/drizzle/schema/auth"
 
@@ -112,10 +113,7 @@ export function DrizzleCustomAdapter(): Adapter {
 			}
 
 			const { id, name, ...rest } = data
-			const setData =
-				name !== undefined
-					? { ...rest, ...splitFullName(name) }
-					: rest
+			const setData = name !== undefined ? { ...rest, ...splitFullName(name) } : rest
 			const [updated] = await db
 				.update(users)
 				.set(setData as Partial<typeof users.$inferInsert>)

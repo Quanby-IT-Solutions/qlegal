@@ -7,8 +7,6 @@ import { useSession } from "next-auth/react"
 import { toast } from "sonner"
 
 import { KycRequiredDialog } from "@/core/components/kyc-required-dialog"
-import { isLawyerBookingBlockedForKyc } from "@/core/lib/kyc-restriction-guards"
-
 import { Button } from "@/core/components/ui/button"
 import { Calendar as CalendarComponent } from "@/core/components/ui/calendar"
 import {
@@ -22,9 +20,9 @@ import {
 } from "@/core/components/ui/dialog"
 import { Label } from "@/core/components/ui/label"
 import { Popover, PopoverContent, PopoverTrigger } from "@/core/components/ui/popover"
+import { isLawyerBookingBlockedForKyc } from "@/core/lib/kyc-restriction-guards"
 
 import { trpc } from "@/services/trpc/client"
-
 
 interface ConsultationBookingDialogProps {
 	enpId: string
@@ -126,108 +124,110 @@ export function ConsultationBookingDialog({
 				description="Finish identity verification before booking an Electronic Notary Public. You can complete it from your profile anytime."
 			/>
 			<Dialog open={open} onOpenChange={handleDialogOpenChange}>
-			<DialogTrigger asChild>{trigger ?? <Button>Book Consultation</Button>}</DialogTrigger>
-			<DialogContent className="sm:max-w-125">
-				<DialogHeader>
-					<DialogTitle>Book Consultation{enpName ? ` with ${enpName}` : ""}</DialogTitle>
-					<DialogDescription>
-						Schedule a consultation with an Electronic Notary Public for your notarization needs.
-					</DialogDescription>
-				</DialogHeader>
+				<DialogTrigger asChild>{trigger ?? <Button>Book Consultation</Button>}</DialogTrigger>
+				<DialogContent className="sm:max-w-125">
+					<DialogHeader>
+						<DialogTitle>Book Consultation{enpName ? ` with ${enpName}` : ""}</DialogTitle>
+						<DialogDescription>
+							Schedule a consultation with an Electronic Notary Public for your notarization needs.
+						</DialogDescription>
+					</DialogHeader>
 
-				<div className="space-y-6 py-4">
-					{/* Date Selection */}
-					<div className="space-y-2">
-						<Label className="text-base font-medium">Select Date</Label>
-						<Popover>
-							<PopoverTrigger asChild>
-								<Button variant="outline" className="w-full justify-start text-left font-normal">
-									<Calendar className="mr-2 size-4" />
-									{selectedDate ? format(selectedDate, "PPP") : "Pick a date"}
-								</Button>
-							</PopoverTrigger>
-							<PopoverContent className="w-auto p-0" align="start">
-								<CalendarComponent
-									mode="single"
-									selected={selectedDate}
-									onSelect={setSelectedDate}
-									disabled={date => date < today}
-									initialFocus
+					<div className="space-y-6 py-4">
+						{/* Date Selection */}
+						<div className="space-y-2">
+							<Label className="text-base font-medium">Select Date</Label>
+							<Popover>
+								<PopoverTrigger asChild>
+									<Button variant="outline" className="w-full justify-start text-left font-normal">
+										<Calendar className="mr-2 size-4" />
+										{selectedDate ? format(selectedDate, "PPP") : "Pick a date"}
+									</Button>
+								</PopoverTrigger>
+								<PopoverContent className="w-auto p-0" align="start">
+									<CalendarComponent
+										mode="single"
+										selected={selectedDate}
+										onSelect={setSelectedDate}
+										disabled={date => date < today}
+										initialFocus
+									/>
+								</PopoverContent>
+							</Popover>
+						</div>
+
+						{/* Time Selection */}
+						{selectedDate && (
+							<div className="space-y-3">
+								<div className="space-y-1">
+									<Label className="text-base font-medium">Pick a time</Label>
+									<p className="text-muted-foreground text-xs">
+										Choose a suggested slot or type a custom time.
+									</p>
+								</div>
+								<input
+									type="time"
+									className="border-input bg-background ring-offset-background placeholder:text-muted-foreground focus-visible:ring-ring w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
+									value={selectedTime || ""}
+									onChange={e => setSelectedTime(e.target.value)}
 								/>
-							</PopoverContent>
-						</Popover>
+								<div className="space-y-2">
+									<Label className="text-muted-foreground text-sm font-medium">
+										Suggested slots
+									</Label>
+									{isLoadingAvailability ? (
+										<div className="flex items-center justify-center py-4">
+											<Loader2 className="text-muted-foreground size-5 animate-spin" />
+										</div>
+									) : filteredSlots.length > 0 ? (
+										<div className="grid grid-cols-2 gap-2">
+											{filteredSlots.map((slot, index) => (
+												<Button
+													key={index}
+													variant={selectedTime === slot.time ? "default" : "outline"}
+													onClick={() => setSelectedTime(slot.time)}
+													className="justify-start"
+													size="sm"
+												>
+													<Clock className="mr-2 size-4" />
+													{slot.time}
+												</Button>
+											))}
+										</div>
+									) : (
+										<p className="text-muted-foreground text-sm">
+											No suggested slots for this date. Enter a custom time above.
+										</p>
+									)}
+								</div>
+							</div>
+						)}
 					</div>
 
-					{/* Time Selection */}
-					{selectedDate && (
-						<div className="space-y-3">
-							<div className="space-y-1">
-								<Label className="text-base font-medium">Pick a time</Label>
-								<p className="text-muted-foreground text-xs">
-									Choose a suggested slot or type a custom time.
-								</p>
-							</div>
-							<input
-								type="time"
-								className="border-input bg-background ring-offset-background placeholder:text-muted-foreground focus-visible:ring-ring w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
-								value={selectedTime || ""}
-								onChange={e => setSelectedTime(e.target.value)}
-							/>
-							<div className="space-y-2">
-								<Label className="text-muted-foreground text-sm font-medium">Suggested slots</Label>
-								{isLoadingAvailability ? (
-									<div className="flex items-center justify-center py-4">
-										<Loader2 className="text-muted-foreground size-5 animate-spin" />
-									</div>
-								) : filteredSlots.length > 0 ? (
-									<div className="grid grid-cols-2 gap-2">
-										{filteredSlots.map((slot, index) => (
-											<Button
-												key={index}
-												variant={selectedTime === slot.time ? "default" : "outline"}
-												onClick={() => setSelectedTime(slot.time)}
-												className="justify-start"
-												size="sm"
-											>
-												<Clock className="mr-2 size-4" />
-												{slot.time}
-											</Button>
-										))}
-									</div>
-								) : (
-									<p className="text-muted-foreground text-sm">
-										No suggested slots for this date. Enter a custom time above.
-									</p>
-								)}
-							</div>
-						</div>
-					)}
-				</div>
-
-				<DialogFooter>
-					<Button type="button" variant="outline" onClick={() => setOpen(false)}>
-						Cancel
-					</Button>
-					<Button
-						type="button"
-						onClick={handleBooking}
-						disabled={!selectedDate || !selectedTime || bookConsultationMutation.isPending}
-					>
-						{bookConsultationMutation.isPending ? (
-							<>
-								<Loader2 className="mr-2 size-4 animate-spin" />
-								Booking...
-							</>
-						) : (
-							<>
-								<Video className="mr-2 size-4" />
-								Confirm booking
-							</>
-						)}
-					</Button>
-				</DialogFooter>
-			</DialogContent>
-		</Dialog>
+					<DialogFooter>
+						<Button type="button" variant="outline" onClick={() => setOpen(false)}>
+							Cancel
+						</Button>
+						<Button
+							type="button"
+							onClick={handleBooking}
+							disabled={!selectedDate || !selectedTime || bookConsultationMutation.isPending}
+						>
+							{bookConsultationMutation.isPending ? (
+								<>
+									<Loader2 className="mr-2 size-4 animate-spin" />
+									Booking...
+								</>
+							) : (
+								<>
+									<Video className="mr-2 size-4" />
+									Confirm booking
+								</>
+							)}
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
 		</>
 	)
 }

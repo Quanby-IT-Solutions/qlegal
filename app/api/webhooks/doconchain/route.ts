@@ -1,16 +1,17 @@
 import { NextResponse, type NextRequest } from "next/server"
 import { and, eq } from "drizzle-orm"
 
-import { env } from "@/env"
-import { db } from "@/services/drizzle/db"
-import { documents } from "@/services/drizzle/schema/document"
-import { signatureRequests } from "@/services/drizzle/schema/signature-requests"
-import { users } from "@/services/drizzle/schema/auth"
 import {
 	interpretDoconchainWebhook,
 	sanitizeWebhookPayloadForLog,
 	timingSafeEqualString,
 } from "@/services/doconchain/webhook"
+import { db } from "@/services/drizzle/db"
+import { users } from "@/services/drizzle/schema/auth"
+import { documents } from "@/services/drizzle/schema/document"
+import { signatureRequests } from "@/services/drizzle/schema/signature-requests"
+
+import { env } from "@/env"
 
 function maskEmailForLog(email: string): string {
 	const trimmed = email.trim()
@@ -161,4 +162,3 @@ export async function GET() {
 		timestamp: new Date().toISOString(),
 	})
 }
-

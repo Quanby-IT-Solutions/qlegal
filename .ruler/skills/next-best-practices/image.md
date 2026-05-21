@@ -38,19 +38,19 @@ Remote domains must be configured in `next.config.js`:
 ```js
 // next.config.js
 module.exports = {
-  images: {
-    remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: 'example.com',
-        pathname: '/images/**',
-      },
-      {
-        protocol: 'https',
-        hostname: '*.cdn.com', // Wildcard subdomain
-      },
-    ],
-  },
+	images: {
+		remotePatterns: [
+			{
+				protocol: "https",
+				hostname: "example.com",
+				pathname: "/images/**",
+			},
+			{
+				protocol: "https",
+				hostname: "*.cdn.com", // Wildcard subdomain
+			},
+		],
+	},
 }
 ```
 
@@ -155,19 +155,19 @@ When using `output: 'export'`, use `unoptimized` or custom loader:
 
 ```tsx
 // Option 1: Disable optimization
-<Image src="/hero.png" alt="Hero" width={800} height={400} unoptimized />
+;<Image src="/hero.png" alt="Hero" width={800} height={400} unoptimized />
 
 // Option 2: Global config
 // next.config.js
 module.exports = {
-  output: 'export',
-  images: { unoptimized: true },
+	output: "export",
+	images: { unoptimized: true },
 }
 
 // Option 3: Custom loader (Cloudinary, Imgix, etc.)
 const cloudinaryLoader = ({ src, width, quality }) => {
-  return `https://res.cloudinary.com/demo/image/upload/w_${width},q_${quality || 75}/${src}`
+	return `https://res.cloudinary.com/demo/image/upload/w_${width},q_${quality || 75}/${src}`
 }
 
-<Image loader={cloudinaryLoader} src="sample.jpg" alt="Sample" width={800} height={400} />
+;<Image loader={cloudinaryLoader} src="sample.jpg" alt="Sample" width={800} height={400} />
 ```

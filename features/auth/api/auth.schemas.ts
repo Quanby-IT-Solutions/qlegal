@@ -51,8 +51,7 @@ const agreeToTermsSchema = z.boolean({
  */
 const optionalTrimmed = (max: number, label: string) =>
 	z.preprocess(
-		(val: unknown) =>
-			val === undefined || val === null ? "" : typeof val === "string" ? val : "",
+		(val: unknown) => (val === undefined || val === null ? "" : typeof val === "string" ? val : ""),
 		z
 			.string()
 			.trim()

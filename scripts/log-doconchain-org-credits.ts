@@ -23,7 +23,7 @@ async function main() {
 
 	// If the API returns sub_organizations in each item, show them
 	const withSubOrgs = result.items.filter(
-		(row) =>
+		row =>
 			row &&
 			typeof row === "object" &&
 			"sub_organizations" in row &&
@@ -33,7 +33,9 @@ async function main() {
 		console.log("\n--- Items with sub_organizations ---")
 		withSubOrgs.forEach((row, i) => {
 			const sub = (row as { name?: string; sub_organizations?: unknown[] }).sub_organizations ?? []
-			console.log(`[${i}] ${(row as { name?: string }).name ?? row.uuid ?? "?"}: ${sub.length} sub_org(s)`)
+			console.log(
+				`[${i}] ${(row as { name?: string }).name ?? row.uuid ?? "?"}: ${sub.length} sub_org(s)`
+			)
 			console.log(JSON.stringify(sub, null, 2))
 		})
 	}
@@ -41,7 +43,7 @@ async function main() {
 	console.log("\nDone.")
 }
 
-main().catch((err) => {
+main().catch(err => {
 	console.error("Error:", err)
 	process.exit(1)
 })

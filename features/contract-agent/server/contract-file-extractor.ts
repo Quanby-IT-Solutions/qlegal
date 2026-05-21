@@ -1,6 +1,6 @@
 import mammoth from "mammoth"
-import { getData as getPdfParseWorkerData } from "pdf-parse/worker"
 import { PDFParse } from "pdf-parse"
+import { getData as getPdfParseWorkerData } from "pdf-parse/worker"
 
 // pdf-parse needs an explicit worker in Next.js/Turbopack server runtimes.
 PDFParse.setWorker(getPdfParseWorkerData())

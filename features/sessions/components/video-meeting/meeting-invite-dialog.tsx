@@ -17,6 +17,7 @@ import { Input } from "@/core/components/ui/input"
 import { Label } from "@/core/components/ui/label"
 import { Switch } from "@/core/components/ui/switch"
 import { cn, getAvatarUrl } from "@/core/lib/utils"
+
 import { trpc } from "@/services/trpc/client"
 
 interface MeetingInviteDialogProps {
@@ -82,9 +83,7 @@ export function MeetingInviteDialog({
 	}, [])
 
 	const joinUrl =
-		typeof window !== "undefined"
-			? `${window.location.origin}/sessions/${meetingId}/join`
-			: ""
+		typeof window !== "undefined" ? `${window.location.origin}/sessions/${meetingId}/join` : ""
 
 	const handleCopyLink = () => {
 		if (!joinUrl) return
@@ -140,11 +139,7 @@ export function MeetingInviteDialog({
 						</div>
 						{allowPublicLink && (
 							<div className="flex gap-2">
-								<Input
-									readOnly
-									className="flex-1 truncate text-xs"
-									value={joinUrl}
-								/>
+								<Input readOnly className="flex-1 truncate text-xs" value={joinUrl} />
 								<Button
 									variant="outline"
 									size="icon"
@@ -188,14 +183,12 @@ export function MeetingInviteDialog({
 										role="listbox"
 									>
 										{isLoadingSuggestions ? (
-											<div className="flex items-center gap-2 px-3 py-2 text-sm text-muted-foreground">
+											<div className="text-muted-foreground flex items-center gap-2 px-3 py-2 text-sm">
 												<Loader2 className="size-4 animate-spin" />
 												Searching…
 											</div>
 										) : suggestions.length === 0 ? (
-											<div className="px-3 py-2 text-sm text-muted-foreground">
-												No users found
-											</div>
+											<div className="text-muted-foreground px-3 py-2 text-sm">No users found</div>
 										) : (
 											suggestions.map(user => (
 												<button
@@ -215,7 +208,9 @@ export function MeetingInviteDialog({
 														</AvatarFallback>
 													</Avatar>
 													<div className="min-w-0 flex-1 truncate">
-														<span className="block truncate font-medium">{user.name ?? "No name"}</span>
+														<span className="block truncate font-medium">
+															{user.name ?? "No name"}
+														</span>
 														{user.email && (
 															<span className="text-muted-foreground block truncate text-xs">
 																{user.email}
@@ -233,11 +228,7 @@ export function MeetingInviteDialog({
 								disabled={!email.trim() || isInviting}
 								className="shrink-0"
 							>
-								{isInviting ? (
-									<Loader2 className="size-4 animate-spin" />
-								) : (
-									"Send"
-								)}
+								{isInviting ? <Loader2 className="size-4 animate-spin" /> : "Send"}
 							</Button>
 						</div>
 					</div>

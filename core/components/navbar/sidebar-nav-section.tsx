@@ -1,6 +1,10 @@
 "use client"
 
-import { SidebarGroup, SidebarGroupLabel, SidebarMenu } from "@/core/components/animate-ui/components/radix/sidebar"
+import {
+	SidebarGroup,
+	SidebarGroupLabel,
+	SidebarMenu,
+} from "@/core/components/animate-ui/components/radix/sidebar"
 import type { NavSection } from "@/core/lib/nav/types"
 
 import { SidebarNavItem } from "./sidebar-nav-item"

@@ -3,9 +3,6 @@
 import type { Route } from "next"
 import Link from "next/link"
 
-import { ENP_COMMISSION_ACTIVE_REQUIRED_MESSAGE } from "@/core/lib/enp-lms-guard"
-
-import { Button } from "@/core/components/ui/button"
 import {
 	AlertDialog,
 	AlertDialogCancel,
@@ -15,6 +12,8 @@ import {
 	AlertDialogHeader,
 	AlertDialogTitle,
 } from "@/core/components/ui/alert-dialog"
+import { Button } from "@/core/components/ui/button"
+import { ENP_COMMISSION_ACTIVE_REQUIRED_MESSAGE } from "@/core/lib/enp-lms-guard"
 
 interface EnpLmsRequiredDialogProps {
 	open: boolean

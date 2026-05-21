@@ -19,7 +19,12 @@ interface Witness {
 
 interface Metadata {
 	dateNotarized: string // YYYY-MM-DD format
-	notarialActType: "Acknowledgment" | "Affirmation" | "Jurat" | "Signature Witnessing" | "Copy Certification"
+	notarialActType:
+		| "Acknowledgment"
+		| "Affirmation"
+		| "Jurat"
+		| "Signature Witnessing"
+		| "Copy Certification"
 	notarialPageNumber: number
 	notarialBookNumber: number
 	description: string
@@ -64,49 +69,49 @@ export async function createMetadata(
 	if (!response.ok) {
 		const errorText = await response.text()
 		const errorMessage = `Supreme Court metadata creation failed: ${response.status} - ${errorText}`
-		
+
 		// Handle documented error codes per PDF specification
 		// PDF documents: 400, 401, 404, 500
 		// Note: 403 is not documented but occurs in practice (AWS API Gateway IAM policy deny)
-		
+
 		if (response.status === 400) {
 			throw new Error(
 				`${errorMessage}\n\n` +
-				`⚠️ Bad Request (400): Invalid input data\n` +
-				`   - Check that NPN, NFN, and RN values are valid and registered in the Supreme Court system\n` +
-				`   - Verify all required fields are provided and in the correct format\n` +
-				`   - Ensure commission status is "Active" (use real credentials, not test values)`
+					`⚠️ Bad Request (400): Invalid input data\n` +
+					`   - Check that NPN, NFN, and RN values are valid and registered in the Supreme Court system\n` +
+					`   - Verify all required fields are provided and in the correct format\n` +
+					`   - Ensure commission status is "Active" (use real credentials, not test values)`
 			)
 		}
-		
+
 		if (response.status === 401) {
 			throw new Error(
 				`${errorMessage}\n\n` +
-				`⚠️ Unauthorized (401): Missing or invalid token\n` +
-				`   - Verify your Cognito credentials are correct\n` +
-				`   - Check that the access token is valid and not expired\n` +
-				`   - Ensure authentication was successful`
+					`⚠️ Unauthorized (401): Missing or invalid token\n` +
+					`   - Verify your Cognito credentials are correct\n` +
+					`   - Check that the access token is valid and not expired\n` +
+					`   - Ensure authentication was successful`
 			)
 		}
-		
+
 		if (response.status === 404) {
 			throw new Error(
 				`${errorMessage}\n\n` +
-				`⚠️ Not Found (404): Task not found\n` +
-				`   - Verify the endpoint URL is correct\n` +
-				`   - Check that the resource exists`
+					`⚠️ Not Found (404): Task not found\n` +
+					`   - Verify the endpoint URL is correct\n` +
+					`   - Check that the resource exists`
 			)
 		}
-		
+
 		if (response.status === 500) {
 			throw new Error(
 				`${errorMessage}\n\n` +
-				`⚠️ Internal Server Error (500): Something went wrong on the server\n` +
-				`   - This is a server-side issue\n` +
-				`   - Contact Supreme Court API administrators if this persists`
+					`⚠️ Internal Server Error (500): Something went wrong on the server\n` +
+					`   - This is a server-side issue\n` +
+					`   - Contact Supreme Court API administrators if this persists`
 			)
 		}
-		
+
 		// Handle 403 (not documented in PDF but occurs in practice)
 		// AWS API Gateway returns 403 when IAM policies explicitly deny access
 		if (response.status === 403) {
@@ -122,19 +127,19 @@ export async function createMetadata(
 					groupInfo += `\n   - Username: ${decoded.username}`
 				}
 			}
-			
+
 			throw new Error(
 				`${errorMessage}\n\n` +
-				`⚠️ Forbidden (403): Access denied by IAM policy${groupInfo}\n` +
-				`   - Note: 403 is not documented in PDF but occurs when AWS API Gateway IAM policies deny access\n` +
-				`   - The "API-Guest" group typically only has read-only access\n` +
-				`   - Contact Supreme Court API administrators to:\n` +
-				`     • Request access to POST /public-use/metadata endpoint\n` +
-				`     • Ask to be added to a group with write permissions (e.g., "API-User" or "API-Write")\n` +
-				`   - Ensure your IAM policy allows access to this resource`
+					`⚠️ Forbidden (403): Access denied by IAM policy${groupInfo}\n` +
+					`   - Note: 403 is not documented in PDF but occurs when AWS API Gateway IAM policies deny access\n` +
+					`   - The "API-Guest" group typically only has read-only access\n` +
+					`   - Contact Supreme Court API administrators to:\n` +
+					`     • Request access to POST /public-use/metadata endpoint\n` +
+					`     • Ask to be added to a group with write permissions (e.g., "API-User" or "API-Write")\n` +
+					`   - Ensure your IAM policy allows access to this resource`
 			)
 		}
-		
+
 		// Generic error for any other status codes
 		throw new Error(errorMessage)
 	}

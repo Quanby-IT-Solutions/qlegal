@@ -1715,9 +1715,7 @@ const EMBASSY_COUNTRY_NAME_TO_ISO3: Record<string, string> = {
 }
 
 const allowedCountryIds = (() => {
-	const embassyCountryNames = new Set(
-		PHILIPPINE_EMBASSIES.map(e => e.country.trim().toLowerCase())
-	)
+	const embassyCountryNames = new Set(PHILIPPINE_EMBASSIES.map(e => e.country.trim().toLowerCase()))
 
 	const allowed = new Set<string>(["phl"])
 

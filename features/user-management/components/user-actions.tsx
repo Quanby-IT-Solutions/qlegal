@@ -57,7 +57,12 @@ export function UserActions({ userId, open, onOpenChange, onSuccess }: UserActio
 		},
 	})
 
-	function namePartsFromUser(u: { firstName?: string | null; middleName?: string | null; lastName?: string | null; name?: string | null }) {
+	function namePartsFromUser(u: {
+		firstName?: string | null
+		middleName?: string | null
+		lastName?: string | null
+		name?: string | null
+	}) {
 		if (u.firstName != null || u.lastName != null) {
 			return {
 				firstName: u.firstName ?? "",

@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server"
+
 import { getServiceRoleClient } from "@/services/supabase"
 
 export async function GET(_req: NextRequest) {
@@ -18,4 +19,3 @@ export async function GET(_req: NextRequest) {
 		return NextResponse.json({ error: message }, { status: 500 })
 	}
 }
-

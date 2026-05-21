@@ -28,19 +28,19 @@ In Quanby Sign, the highest application role is **ADMIN** (there is no separate 
 
 **Query:**
 
-| Parameter   | Type   | Required | Description              |
-|------------|--------|----------|--------------------------|
-| user_type  | string | Yes      | Must be `ENTERPRISE_API` |
+| Parameter | Type   | Required | Description              |
+| --------- | ------ | -------- | ------------------------ |
+| user_type | string | Yes      | Must be `ENTERPRISE_API` |
 
 **Body (multipart/form-data):**
 
-| Field                      | Type   | Required | Description                                      |
-|---------------------------|--------|----------|--------------------------------------------------|
-| name                      | string | Yes      | Name of the sub-organization                     |
-| address                   | string | Yes      | Address or contact details                       |
-| sub_organization_type_name| string | Yes      | Type (e.g. `Department`)                         |
-| organization_uuid         | string | Yes      | UUID or ID of the parent organization            |
-| photo                     | file   | No       | Logo/branding image (emails, signing page)       |
+| Field                      | Type   | Required | Description                                |
+| -------------------------- | ------ | -------- | ------------------------------------------ |
+| name                       | string | Yes      | Name of the sub-organization               |
+| address                    | string | Yes      | Address or contact details                 |
+| sub_organization_type_name | string | Yes      | Type (e.g. `Department`)                   |
+| organization_uuid          | string | Yes      | UUID or ID of the parent organization      |
+| photo                      | file   | No       | Logo/branding image (emails, signing page) |
 
 **Example request (curl):**
 
@@ -57,13 +57,13 @@ curl -X POST "https://stg-api2.doconchain.com/api/v2/organizations/sub?user_type
 
 ```json
 {
-  "id": "12345",
-  "name": "test",
-  "address": "address",
-  "photo_url": "https://example.com/uploads/logo.png",
-  "sub_organization_type_name": "Department",
-  "organization_uuid": "1",
-  "created_at": "2024-06-01T12:00:00Z"
+	"id": "12345",
+	"name": "test",
+	"address": "address",
+	"photo_url": "https://example.com/uploads/logo.png",
+	"sub_organization_type_name": "Department",
+	"organization_uuid": "1",
+	"created_at": "2024-06-01T12:00:00Z"
 }
 ```
 

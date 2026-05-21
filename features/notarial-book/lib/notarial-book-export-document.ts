@@ -1,5 +1,5 @@
 import { format } from "date-fns"
-import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf-lib"
+import { PDFDocument, rgb, StandardFonts, type PDFFont, type PDFPage } from "pdf-lib"
 
 export interface NotarialBookExportMeta {
 	generatedAtIso: string
@@ -99,11 +99,17 @@ function formatActFieldForExport(act: Record<string, unknown>, key: string): str
 	if (key === "workflow") return formatWorkflowLabel(unknownToDisplayString(raw))
 	if (key === "principalIdType") return formatIdDocumentTypeLabel(unknownToDisplayString(raw))
 	if (typeof raw === "string") return raw
-	if (typeof raw === "number" || typeof raw === "boolean" || typeof raw === "bigint") return String(raw)
+	if (typeof raw === "number" || typeof raw === "boolean" || typeof raw === "bigint")
+		return String(raw)
 	return JSON.stringify(raw)
 }
 
-function wrapTextToWidth(text: string, maxWidth: number, font: PDFFont, fontSize: number): string[] {
+function wrapTextToWidth(
+	text: string,
+	maxWidth: number,
+	font: PDFFont,
+	fontSize: number
+): string[] {
 	const normalized = String(text ?? "")
 		.replace(/\s+/g, " ")
 		.trim()
@@ -167,11 +173,7 @@ const CSV_COLUMNS: readonly { key: string; header: string }[] = [
 	{ key: "createdAt", header: "Record created (UTC)" },
 ]
 
-const CSV_LONG_TEXT_KEYS = new Set([
-	"locationStatement",
-	"documentDescription",
-	"principalAddress",
-])
+const CSV_LONG_TEXT_KEYS = new Set(["locationStatement", "documentDescription", "principalAddress"])
 
 const MAX_CSV_TEXT_LEN = 400
 
@@ -321,10 +323,7 @@ export async function buildNotarialBookPdf(
 	label("Notary public number (profile)", npnForCover)
 	label("Book identifier", meta.bookId)
 	label("Total entries in this export", String(meta.actCount))
-	label(
-		"Generated",
-		format(new Date(meta.generatedAtIso), "MMMM d, yyyy 'at' h:mm a")
-	)
+	label("Generated", format(new Date(meta.generatedAtIso), "MMMM d, yyyy 'at' h:mm a"))
 
 	cy -= 8
 	cover.drawLine({
@@ -435,17 +434,17 @@ export async function buildNotarialBookPdf(
 		if (yTop - neededFromTop >= minBottom) return
 		page = doc.addPage([pageWidth, pageHeight])
 		yTop = pageHeight - margin
-		drawText(page, "Notarial acts — detailed register (continued)", margin, yTop, titleSize, fontBold, brandNavy)
-		yTop -= titleSize + metaSize + 10
 		drawText(
 			page,
-			`${meta.notaryPublicName} · continued`,
+			"Notarial acts — detailed register (continued)",
 			margin,
 			yTop,
-			metaSize,
-			font,
-			mutedColor
+			titleSize,
+			fontBold,
+			brandNavy
 		)
+		yTop -= titleSize + metaSize + 10
+		drawText(page, `${meta.notaryPublicName} · continued`, margin, yTop, metaSize, font, mutedColor)
 		yTop -= metaSize + 14
 		tableBottom = drawColumnHeaders(page, yTop)
 		yTop = tableBottom - 6

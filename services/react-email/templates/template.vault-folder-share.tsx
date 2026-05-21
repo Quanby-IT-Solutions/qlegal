@@ -1,4 +1,14 @@
-import { Body, Button, Container, Head, Html, Preview, Section, Tailwind, Text } from "@react-email/components"
+import {
+	Body,
+	Button,
+	Container,
+	Head,
+	Html,
+	Preview,
+	Section,
+	Tailwind,
+	Text,
+} from "@react-email/components"
 
 interface VaultFolderShareTemplateProps {
 	enpName: string
@@ -24,7 +34,9 @@ export function VaultFolderShareTemplate({
 	return (
 		<Html>
 			<Head />
-			<Preview>{principalName} shared a folder for your review: {folderName}</Preview>
+			<Preview>
+				{principalName} shared a folder for your review: {folderName}
+			</Preview>
 			<Tailwind>
 				<Body className="mx-auto my-auto bg-gray-100 p-4 font-sans text-gray-800">
 					<Container className="mx-auto max-w-xl overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
@@ -46,9 +58,10 @@ export function VaultFolderShareTemplate({
 										(<span style={{ color: "#6b7280" }}>{principalEmail}</span>)
 									</>
 								) : null}{" "}
-								shared the folder <strong>{folderName}</strong> with you so you can review whether the
-								documents look correct before notarization. The folder includes{" "}
-								<strong>{fileCount}</strong> file{fileCount === 1 ? "" : "s"} (including subfolders).
+								shared the folder <strong>{folderName}</strong> with you so you can review whether
+								the documents look correct before notarization. The folder includes{" "}
+								<strong>{fileCount}</strong> file{fileCount === 1 ? "" : "s"} (including
+								subfolders).
 							</Text>
 							{note ? (
 								<Text className="mb-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-gray-800">
@@ -68,8 +81,8 @@ export function VaultFolderShareTemplate({
 								</Button>
 							</Section>
 							<Text className="text-xs leading-relaxed text-gray-500">
-								You must be signed in as the notary this link was sent to. The link expires on the date
-								shown on the review page. —{" "}
+								You must be signed in as the notary this link was sent to. The link expires on the
+								date shown on the review page. —{" "}
 								<a href={siteUrl} className="text-pink-600 underline">
 									Quanby Sign
 								</a>

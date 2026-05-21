@@ -2,21 +2,23 @@ import { TRPCError } from "@trpc/server"
 import { and, eq } from "drizzle-orm"
 import { z } from "zod/v4"
 
-import { env } from "@/env"
-import { getSubOrgCredsForMemberEmail } from "@/features/sub-orgs/server/get-sub-org-creds-for-member"
-import { db } from "@/services/drizzle/db"
-import { users } from "@/services/drizzle/schema/auth"
-import { documents } from "@/services/drizzle/schema/document"
-import { documentSigners } from "@/services/drizzle/schema/document-signers"
-import { meetings } from "@/services/drizzle/schema/meetings"
-import { signatureRequests } from "@/services/drizzle/schema/signature-requests"
 import { invalidateDoconchainToken } from "@/services/doconchain/auth/generate-token"
 import { generateDoconchainEditDraftProjectLink } from "@/services/doconchain/projects/generate-edit-draft-link"
 import { generateDoconchainSignLink } from "@/services/doconchain/projects/generate-sign-link"
 import { getDoconchainProjectDetails } from "@/services/doconchain/projects/get-project-details"
 import { getDoconchainVaultItem } from "@/services/doconchain/vault/get-vault-item"
 import { getDoconchainVaultItems } from "@/services/doconchain/vault/get-vault-items"
+import { db } from "@/services/drizzle/db"
+import { users } from "@/services/drizzle/schema/auth"
+import { documents } from "@/services/drizzle/schema/document"
+import { documentSigners } from "@/services/drizzle/schema/document-signers"
+import { meetings } from "@/services/drizzle/schema/meetings"
+import { signatureRequests } from "@/services/drizzle/schema/signature-requests"
 import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
+
+import { getSubOrgCredsForMemberEmail } from "@/features/sub-orgs/server/get-sub-org-creds-for-member"
+
+import { env } from "@/env"
 
 function maskEmailForLog(email: string): string {
 	const trimmed = email.trim()
@@ -237,12 +239,11 @@ export const signatureRequestsRouter = createTRPCRouter({
 			}
 
 			const isHost = meeting.createdById === ctx.session.user.id
-			const isAcceptedParticipant =
-				(meeting.appointments ?? []).some(apt =>
-					(apt.participants ?? []).some(
-						p => p.userId === ctx.session.user.id && p.status === "ACCEPTED"
-					)
+			const isAcceptedParticipant = (meeting.appointments ?? []).some(apt =>
+				(apt.participants ?? []).some(
+					p => p.userId === ctx.session.user.id && p.status === "ACCEPTED"
 				)
+			)
 			if (!isHost && !isAcceptedParticipant) {
 				throw new TRPCError({ code: "FORBIDDEN", message: "You don't have access to this meeting" })
 			}
@@ -264,7 +265,10 @@ export const signatureRequestsRouter = createTRPCRouter({
 				columns: { userId: true },
 			})
 			if (!signerRow?.userId) {
-				throw new TRPCError({ code: "FORBIDDEN", message: "You are not assigned as a signer for this document" })
+				throw new TRPCError({
+					code: "FORBIDDEN",
+					message: "You are not assigned as a signer for this document",
+				})
 			}
 
 			const existing = await db.query.signatureRequests.findFirst({
@@ -316,7 +320,8 @@ export const signatureRequestsRouter = createTRPCRouter({
 		)
 		.query(async ({ ctx, input }) => {
 			const email = ctx.session.user.email?.trim().toLowerCase()
-			if (!email) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "User email is required." })
+			if (!email)
+				throw new TRPCError({ code: "PRECONDITION_FAILED", message: "User email is required." })
 
 			return getDoconchainVaultItems({
 				email,
@@ -332,7 +337,8 @@ export const signatureRequestsRouter = createTRPCRouter({
 		.input(z.object({ uuid: z.string().min(1) }))
 		.query(async ({ ctx, input }) => {
 			const email = ctx.session.user.email?.trim().toLowerCase()
-			if (!email) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "User email is required." })
+			if (!email)
+				throw new TRPCError({ code: "PRECONDITION_FAILED", message: "User email is required." })
 
 			return getDoconchainVaultItem({ email, uuid: input.uuid })
 		}),
@@ -403,7 +409,10 @@ export const signatureRequestsRouter = createTRPCRouter({
 					.filter((u): u is NonNullable<typeof u> => Boolean(u))
 
 				const enpOwner = meetingParticipants.find(
-					u => String(u.role ?? "").trim().toUpperCase() === "ENP" && !!u.email?.trim()
+					u =>
+						String(u.role ?? "")
+							.trim()
+							.toUpperCase() === "ENP" && !!u.email?.trim()
 				)
 				projectOwnerEmail =
 					enpOwner?.email?.trim().toLowerCase() ??
@@ -447,7 +456,7 @@ export const signatureRequestsRouter = createTRPCRouter({
 					const link = await generateDoconchainEditDraftProjectLink({
 						projectUuid,
 						userEmail: email,
-						getSubOrgCredsForEmail: (em) => getSubOrgCredsForMemberEmail(em, db),
+						getSubOrgCredsForEmail: em => getSubOrgCredsForMemberEmail(em, db),
 					})
 					console.log("🟣 [DocOnChain] initiateSigning:buildLink:success", {
 						kind: "plot",
@@ -477,7 +486,7 @@ export const signatureRequestsRouter = createTRPCRouter({
 					projectUuid,
 					signerEmail: email,
 					projectOwnerEmail,
-					getSubOrgCredsForEmail: (em) => getSubOrgCredsForMemberEmail(em, db),
+					getSubOrgCredsForEmail: em => getSubOrgCredsForMemberEmail(em, db),
 				})
 				console.log("🟣 [DocOnChain] initiateSigning:buildLink:success", {
 					kind: "sign",
@@ -561,7 +570,7 @@ export const signatureRequestsRouter = createTRPCRouter({
 				const link = await generateDoconchainSignLink({
 					projectUuid,
 					signerEmail: email,
-					getSubOrgCredsForEmail: (em) => getSubOrgCredsForMemberEmail(em, db),
+					getSubOrgCredsForEmail: em => getSubOrgCredsForMemberEmail(em, db),
 				})
 				console.log("🟣 [DocOnChain] generateSigningLink:success", {
 					projectUuid,
@@ -581,7 +590,7 @@ export const signatureRequestsRouter = createTRPCRouter({
 					const link = await generateDoconchainSignLink({
 						projectUuid,
 						signerEmail: email,
-						getSubOrgCredsForEmail: (em) => getSubOrgCredsForMemberEmail(em, db),
+						getSubOrgCredsForEmail: em => getSubOrgCredsForMemberEmail(em, db),
 					})
 					console.log("🟣 [DocOnChain] generateSigningLink:successAfterRetry", {
 						projectUuid,
@@ -642,12 +651,18 @@ export const signatureRequestsRouter = createTRPCRouter({
 				(apt.participants ?? []).some(p => p.userId === ctx.session.user.id)
 			)
 			if (!hasAccess) {
-				throw new TRPCError({ code: "FORBIDDEN", message: "You don't have access to this document" })
+				throw new TRPCError({
+					code: "FORBIDDEN",
+					message: "You don't have access to this document",
+				})
 			}
 
 			const creatorEmail = doc.meeting.createdBy?.email?.trim().toLowerCase()
 			if (!creatorEmail) {
-				throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Missing meeting creator email" })
+				throw new TRPCError({
+					code: "PRECONDITION_FAILED",
+					message: "Missing meeting creator email",
+				})
 			}
 
 			const details = await getDoconchainProjectDetails({
@@ -655,66 +670,71 @@ export const signatureRequestsRouter = createTRPCRouter({
 				email: creatorEmail,
 			})
 
-			const rawSigners = (details.raw?.data as unknown as { signers?: unknown } | undefined)?.signers
+			const rawSigners = (details.raw?.data as unknown as { signers?: unknown } | undefined)
+				?.signers
 			const signersArray = Array.isArray(rawSigners) ? rawSigners : []
 			const normalizedSigners = signersArray
-				.map((s): null | {
-					id: number
-					email: string
-					firstName: string
-					lastName: string
-					status: string
-					signedAt: string | null
-					sequence: number
-					signerRole: string
-				} => {
-					if (!s || typeof s !== "object") return null
-					const obj = s as Record<string, unknown>
-					const email = typeof obj.email === "string" ? obj.email : ""
-					if (!email) return null
+				.map(
+					(
+						s
+					): null | {
+						id: number
+						email: string
+						firstName: string
+						lastName: string
+						status: string
+						signedAt: string | null
+						sequence: number
+						signerRole: string
+					} => {
+						if (!s || typeof s !== "object") return null
+						const obj = s as Record<string, unknown>
+						const email = typeof obj.email === "string" ? obj.email : ""
+						if (!email) return null
 
-					const idRaw = obj.id
-					const id =
-						typeof idRaw === "number"
-							? idRaw
-							: typeof idRaw === "string"
-								? Number.parseInt(idRaw, 10)
-								: Number.NaN
+						const idRaw = obj.id
+						const id =
+							typeof idRaw === "number"
+								? idRaw
+								: typeof idRaw === "string"
+									? Number.parseInt(idRaw, 10)
+									: Number.NaN
 
-					const status = typeof obj.status === "string" ? obj.status : "PENDING"
-					const signedAt =
-						typeof obj.signed_at === "string"
-							? obj.signed_at
-							: typeof obj.signedAt === "string"
-								? obj.signedAt
-								: null
+						const status = typeof obj.status === "string" ? obj.status : "PENDING"
+						const signedAt =
+							typeof obj.signed_at === "string"
+								? obj.signed_at
+								: typeof obj.signedAt === "string"
+									? obj.signedAt
+									: null
 
-					const sequenceRaw = obj.sequence
-					const sequence =
-						typeof sequenceRaw === "number"
-							? sequenceRaw
-							: typeof sequenceRaw === "string"
-								? Number.parseInt(sequenceRaw, 10)
-								: 0
+						const sequenceRaw = obj.sequence
+						const sequence =
+							typeof sequenceRaw === "number"
+								? sequenceRaw
+								: typeof sequenceRaw === "string"
+									? Number.parseInt(sequenceRaw, 10)
+									: 0
 
-					const signerRole =
-						typeof obj.signer_role === "string"
-							? obj.signer_role
-							: typeof obj.role === "string"
-								? obj.role
-								: "SIGNER"
+						const signerRole =
+							typeof obj.signer_role === "string"
+								? obj.signer_role
+								: typeof obj.role === "string"
+									? obj.role
+									: "SIGNER"
 
-					return {
-						id: Number.isFinite(id) ? id : 0,
-						email,
-						firstName: typeof obj.first_name === "string" ? obj.first_name : "",
-						lastName: typeof obj.last_name === "string" ? obj.last_name : "",
-						status,
-						signedAt,
-						sequence: Number.isFinite(sequence) ? sequence : 0,
-						signerRole,
+						return {
+							id: Number.isFinite(id) ? id : 0,
+							email,
+							firstName: typeof obj.first_name === "string" ? obj.first_name : "",
+							lastName: typeof obj.last_name === "string" ? obj.last_name : "",
+							status,
+							signedAt,
+							sequence: Number.isFinite(sequence) ? sequence : 0,
+							signerRole,
+						}
 					}
-				})
+				)
 				.filter((s): s is NonNullable<typeof s> => Boolean(s))
 
 			const isSignerSigned = (s: (typeof normalizedSigners)[number]): boolean => {

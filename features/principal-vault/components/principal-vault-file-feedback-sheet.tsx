@@ -59,7 +59,7 @@ export function PrincipalVaultFileFeedbackSheet({
 					) : (
 						<ul className="space-y-4 pr-2">
 							{listQuery.data?.map(c => (
-								<li key={c.id} className="rounded-lg border bg-card p-3">
+								<li key={c.id} className="bg-card rounded-lg border p-3">
 									<div className="mb-2 flex flex-wrap items-center gap-2">
 										<span className="text-sm font-medium">{c.authorName}</span>
 										<Badge variant="secondary" className="text-xs font-normal">

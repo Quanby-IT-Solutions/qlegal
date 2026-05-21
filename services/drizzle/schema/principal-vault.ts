@@ -85,7 +85,9 @@ export const principalVaultFolderShares = createTable(
 			.notNull()
 			.references(() => users.id, { onDelete: "cascade" }),
 		recipientEmail: t.varchar({ length: 255 }).notNull(),
-		recipientEnpUserId: t.varchar({ length: 255 }).references(() => users.id, { onDelete: "set null" }),
+		recipientEnpUserId: t
+			.varchar({ length: 255 })
+			.references(() => users.id, { onDelete: "set null" }),
 		note: t.text(),
 		expiresAt: t.timestamp({ mode: "date", withTimezone: true }).notNull(),
 		createdAt: t.timestamp({ mode: "date", withTimezone: true }).defaultNow().notNull(),

@@ -418,10 +418,7 @@ function ExpandedActDetails({
 	}
 
 	const { data: signersData, isLoading: isSignersLoading } =
-		trpc.notarialBook.getActSigners.useQuery(
-			{ actId: act.id },
-			{ enabled: isExpanded && !!act.id }
-		)
+		trpc.notarialBook.getActSigners.useQuery({ actId: act.id }, { enabled: isExpanded && !!act.id })
 	const signers = (signersData?.signers ?? []) as ActSigner[]
 	const isSignerSigned = (s: { status?: string | null; signedAt?: string | null }) => {
 		const statusUpper = (s.status ?? "").toUpperCase()
@@ -724,7 +721,9 @@ export default function NotarialRegistryPage() {
 					document.body.removeChild(a)
 					URL.revokeObjectURL(url)
 				} catch (err) {
-					toast.error(`Failed to generate PDF: ${err instanceof Error ? err.message : "Unknown error"}`)
+					toast.error(
+						`Failed to generate PDF: ${err instanceof Error ? err.message : "Unknown error"}`
+					)
 					return
 				}
 			}
@@ -883,10 +882,7 @@ export default function NotarialRegistryPage() {
 								</Button>
 								<DropdownMenu>
 									<DropdownMenuTrigger asChild>
-										<Button
-											variant="outline"
-											disabled={exportMutation.isPending}
-										>
+										<Button variant="outline" disabled={exportMutation.isPending}>
 											{exportMutation.isPending ? (
 												<Loader2 className="mr-2 size-4 animate-spin" />
 											) : (
@@ -941,7 +937,7 @@ export default function NotarialRegistryPage() {
 												setSearchTerm(e.target.value)
 												setPage(1)
 											}}
-											className="h-7 w-full min-w-0 max-w-full text-xs sm:w-[180px]"
+											className="h-7 w-full max-w-full min-w-0 text-xs sm:w-[180px]"
 										/>
 										<Select
 											value={workflowFilter}
@@ -964,16 +960,18 @@ export default function NotarialRegistryPage() {
 											size="sm"
 											type="button"
 											onClick={clearFilters}
-											className="h-7 shrink-0 px-1.5 text-[11px] text-muted-foreground hover:text-foreground"
+											className="text-muted-foreground hover:text-foreground h-7 shrink-0 px-1.5 text-[11px]"
 										>
 											Clear filters
 										</Button>
 									</div>
 
 									{/* Row 2: Sort + View */}
-									<div className="flex flex-wrap items-center gap-3 border-t border-border/50 pt-2.5">
+									<div className="border-border/50 flex flex-wrap items-center gap-3 border-t pt-2.5">
 										<div className="flex items-center gap-1.5">
-											<span className="text-muted-foreground shrink-0 text-[10px] font-medium uppercase tracking-wider">Sort</span>
+											<span className="text-muted-foreground shrink-0 text-[10px] font-medium tracking-wider uppercase">
+												Sort
+											</span>
 											<Select
 												value={sortBy}
 												onValueChange={value => {
@@ -1012,7 +1010,9 @@ export default function NotarialRegistryPage() {
 											</Select>
 										</div>
 										<div className="flex items-center gap-1.5">
-											<span className="text-muted-foreground shrink-0 text-[10px] font-medium uppercase tracking-wider">View</span>
+											<span className="text-muted-foreground shrink-0 text-[10px] font-medium tracking-wider uppercase">
+												View
+											</span>
 											<ToggleGroup
 												type="single"
 												value={viewMode}
@@ -1021,10 +1021,18 @@ export default function NotarialRegistryPage() {
 												size="sm"
 												className="[&_button]:h-7 [&_button]:min-w-7 [&_button]:px-1.5"
 											>
-												<ToggleGroupItem value="table" aria-label="Table view" className="size-7 p-0">
+												<ToggleGroupItem
+													value="table"
+													aria-label="Table view"
+													className="size-7 p-0"
+												>
 													<List className="size-3.5" />
 												</ToggleGroupItem>
-												<ToggleGroupItem value="cards" aria-label="Cards view" className="size-7 p-0">
+												<ToggleGroupItem
+													value="cards"
+													aria-label="Cards view"
+													className="size-7 p-0"
+												>
 													<LayoutGrid className="size-3.5" />
 												</ToggleGroupItem>
 											</ToggleGroup>

@@ -1,9 +1,10 @@
-import { env } from "@/env"
 import type { GetSubOrgCredsForEmail } from "@/services/doconchain/auth/generate-token"
 import {
 	getDoconchainApiToken,
 	invalidateDoconchainToken,
 } from "@/services/doconchain/auth/generate-token"
+
+import { env } from "@/env"
 
 function splitName(fullName: string): { firstName: string; lastName: string } {
 	const trimmed = fullName.trim()
@@ -32,7 +33,7 @@ async function postAddSigner(params: {
 	const res = await fetch(url.toString(), {
 		method: "POST",
 		headers: {
-			Authorization: `Bearer ${params.token}`,
+			"Authorization": `Bearer ${params.token}`,
 			"Content-Type": "application/json",
 		},
 		body: JSON.stringify(params.payload),
@@ -106,7 +107,8 @@ export async function addDoconchainProjectSigner(input: {
 	try {
 		await doRequest()
 	} catch (error) {
-		const status = error instanceof Error ? (error as Error & { status?: number }).status : undefined
+		const status =
+			error instanceof Error ? (error as Error & { status?: number }).status : undefined
 		if (status === 401) {
 			invalidateDoconchainToken(email)
 			await doRequest()
@@ -115,4 +117,3 @@ export async function addDoconchainProjectSigner(input: {
 		throw error
 	}
 }
-

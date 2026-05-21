@@ -1,7 +1,17 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { AlertCircle, CheckCircle, ChevronLeft, ChevronRight, Clock, Edit, MoreVertical, Shield, Trash2 } from "lucide-react"
+import {
+	AlertCircle,
+	CheckCircle,
+	ChevronLeft,
+	ChevronRight,
+	Clock,
+	Edit,
+	MoreVertical,
+	Shield,
+	Trash2,
+} from "lucide-react"
 import { toast } from "sonner"
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/core/components/ui/avatar"
@@ -286,7 +296,10 @@ export function UserList({ searchTerm, roleFilter, statusFilter, sortBy }: UserL
 				<CardContent>
 					<div className="space-y-3 sm:space-y-4">
 						{Array.from({ length: 3 }).map((_, i) => (
-							<div key={i} className="flex items-center justify-between rounded-lg border p-3 sm:p-4">
+							<div
+								key={i}
+								className="flex items-center justify-between rounded-lg border p-3 sm:p-4"
+							>
 								<div className="flex items-center space-x-3">
 									<div className="bg-muted h-10 w-10 shrink-0 animate-pulse rounded-full sm:h-12 sm:w-12" />
 									<div className="space-y-2">
@@ -317,7 +330,7 @@ export function UserList({ searchTerm, roleFilter, statusFilter, sortBy }: UserL
 			<CardContent>
 				<div className="space-y-3 sm:space-y-4">
 					{users.length === 0 ? (
-						<div className="flex min-h-75 flex-col items-center justify-center py-8 sm:py-12 text-center">
+						<div className="flex min-h-75 flex-col items-center justify-center py-8 text-center sm:py-12">
 							<div className="text-muted-foreground space-y-2">
 								<p className="text-sm">No users found.</p>
 							</div>
@@ -327,123 +340,119 @@ export function UserList({ searchTerm, roleFilter, statusFilter, sortBy }: UserL
 							const avatarUrl = getAvatarUrl(user.avatar)
 
 							return (
-							<div
-								key={user.id}
-								className="relative flex flex-col gap-2 rounded-lg border p-3 transition-colors hover:bg-gray-50 sm:gap-3 sm:p-4 dark:hover:bg-gray-800"
-							>
-								{/* Kebab menu - Top Right */}
-								<div className="absolute top-2 right-2 sm:top-3 sm:right-3">
-									<DropdownMenu>
-										<DropdownMenuTrigger asChild>
-											<Button variant="ghost" size="icon" className="shrink-0 h-8 w-8">
-												<MoreVertical className="h-4 w-4" />
-											</Button>
-										</DropdownMenuTrigger>
-										<DropdownMenuContent align="end">
-											<DropdownMenuLabel>Actions</DropdownMenuLabel>
-											<DropdownMenuSeparator />
-											<DropdownMenuItem onClick={() => setSelectedUserId(user.id)}>
-												<Edit className="mr-2 h-4 w-4" />
-												Edit User
-											</DropdownMenuItem>
-											<UserProfileSheet
-												userId={user.id}
-												trigger={
-													<DropdownMenuItem onSelect={e => e.preventDefault()}>
-														<Shield className="mr-2 h-4 w-4" />
-														View Profile
+								<div
+									key={user.id}
+									className="relative flex flex-col gap-2 rounded-lg border p-3 transition-colors hover:bg-gray-50 sm:gap-3 sm:p-4 dark:hover:bg-gray-800"
+								>
+									{/* Kebab menu - Top Right */}
+									<div className="absolute top-2 right-2 sm:top-3 sm:right-3">
+										<DropdownMenu>
+											<DropdownMenuTrigger asChild>
+												<Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
+													<MoreVertical className="h-4 w-4" />
+												</Button>
+											</DropdownMenuTrigger>
+											<DropdownMenuContent align="end">
+												<DropdownMenuLabel>Actions</DropdownMenuLabel>
+												<DropdownMenuSeparator />
+												<DropdownMenuItem onClick={() => setSelectedUserId(user.id)}>
+													<Edit className="mr-2 h-4 w-4" />
+													Edit User
+												</DropdownMenuItem>
+												<UserProfileSheet
+													userId={user.id}
+													trigger={
+														<DropdownMenuItem onSelect={e => e.preventDefault()}>
+															<Shield className="mr-2 h-4 w-4" />
+															View Profile
+														</DropdownMenuItem>
+													}
+												/>
+												{user.status === "pending" && (
+													<DropdownMenuItem onClick={() => handleApproveUser(user.id)}>
+														<CheckCircle className="mr-2 h-4 w-4" />
+														Approve User
 													</DropdownMenuItem>
-												}
-											/>
-											{user.status === "pending" && (
-												<DropdownMenuItem onClick={() => handleApproveUser(user.id)}>
-													<CheckCircle className="mr-2 h-4 w-4" />
-													Approve User
-												</DropdownMenuItem>
-											)}
-											{user.status === "active" && (
+												)}
+												{user.status === "active" && (
+													<DropdownMenuItem
+														onClick={() => openConfirmationModal("suspend", user.id, user.name)}
+													>
+														<AlertCircle className="mr-2 h-4 w-4" />
+														Suspend User
+													</DropdownMenuItem>
+												)}
+												{user.status === "suspended" && (
+													<DropdownMenuItem
+														onClick={() => openConfirmationModal("unsuspend", user.id, user.name)}
+													>
+														<CheckCircle className="mr-2 h-4 w-4" />
+														Unsuspend User
+													</DropdownMenuItem>
+												)}
+												<DropdownMenuSeparator />
 												<DropdownMenuItem
-													onClick={() => openConfirmationModal("suspend", user.id, user.name)}
+													className="text-red-600"
+													onClick={() => openConfirmationModal("delete", user.id, user.name)}
 												>
-													<AlertCircle className="mr-2 h-4 w-4" />
-													Suspend User
+													<Trash2 className="mr-2 h-4 w-4" />
+													Delete User
 												</DropdownMenuItem>
-											)}
-											{user.status === "suspended" && (
-												<DropdownMenuItem
-													onClick={() => openConfirmationModal("unsuspend", user.id, user.name)}
-												>
-													<CheckCircle className="mr-2 h-4 w-4" />
-													Unsuspend User
-												</DropdownMenuItem>
-											)}
-											<DropdownMenuSeparator />
-											<DropdownMenuItem
-												className="text-red-600"
-												onClick={() => openConfirmationModal("delete", user.id, user.name)}
-											>
-												<Trash2 className="mr-2 h-4 w-4" />
-												Delete User
-											</DropdownMenuItem>
-										</DropdownMenuContent>
-									</DropdownMenu>
-								</div>
+											</DropdownMenuContent>
+										</DropdownMenu>
+									</div>
 
-								{/* User Avatar and Info */}
-								<div className="flex flex-1 items-start space-x-3 pr-8 sm:pr-0">
-									<Avatar className="h-10 w-10 shrink-0 sm:h-12 sm:w-12">
-										{avatarUrl ? <AvatarImage src={avatarUrl} alt={user.name} /> : null}
-										<AvatarFallback className="bg-muted text-muted-foreground text-xs font-medium sm:text-sm">
-											{user.name
-												.split(" ")
-												.map((n: string) => n[0])
-												.join("")
-												.toUpperCase()}
-										</AvatarFallback>
-									</Avatar>
-									<div className="min-w-0 flex-1">
-										<div className="flex flex-wrap items-center gap-x-2 gap-y-1 mb-1">
-											<h3 className="text-sm font-semibold text-gray-900 dark:text-white">
-												{user.name}
-											</h3>
-											{user.verified && (
-												<Shield className="h-3 w-3 shrink-0 text-blue-600 sm:h-4 sm:w-4" />
+									{/* User Avatar and Info */}
+									<div className="flex flex-1 items-start space-x-3 pr-8 sm:pr-0">
+										<Avatar className="h-10 w-10 shrink-0 sm:h-12 sm:w-12">
+											{avatarUrl ? <AvatarImage src={avatarUrl} alt={user.name} /> : null}
+											<AvatarFallback className="bg-muted text-muted-foreground text-xs font-medium sm:text-sm">
+												{user.name
+													.split(" ")
+													.map((n: string) => n[0])
+													.join("")
+													.toUpperCase()}
+											</AvatarFallback>
+										</Avatar>
+										<div className="min-w-0 flex-1">
+											<div className="mb-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+												<h3 className="text-sm font-semibold text-gray-900 dark:text-white">
+													{user.name}
+												</h3>
+												{user.verified && (
+													<Shield className="h-3 w-3 shrink-0 text-blue-600 sm:h-4 sm:w-4" />
+												)}
+											</div>
+											<p className="mb-1 text-xs text-gray-600 dark:text-gray-400">{user.email}</p>
+											{user.organization && (
+												<p className="mb-2 text-xs text-gray-500">{user.organization}</p>
 											)}
-										</div>
-										<p className="text-xs text-gray-600 dark:text-gray-400 mb-1">
-											{user.email}
-										</p>
-										{user.organization && (
-											<p className="text-xs text-gray-500 mb-2">
-												{user.organization}
-											</p>
-										)}
-										<div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-gray-500">
-											<span className="hidden sm:inline">
-												Last login: {formatLastLogin(user.lastActive)}
-											</span>
-											<span className="hidden sm:inline">
-												Documents: {user.documentsCount ?? 0}
-											</span>
+											<div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-gray-500">
+												<span className="hidden sm:inline">
+													Last login: {formatLastLogin(user.lastActive)}
+												</span>
+												<span className="hidden sm:inline">
+													Documents: {user.documentsCount ?? 0}
+												</span>
+											</div>
 										</div>
 									</div>
-								</div>
 
-								{/* Badges */}
-								<div className="flex flex-wrap items-center gap-2">
-									<Badge className={`${getRoleColor(user.role)} text-xs`}>
-										{user.role.toUpperCase()}
-									</Badge>
-									<Badge className={`${getStatusColor(user.status)} text-xs`}>
-										<div className="flex items-center space-x-1">
-											{getStatusIcon(user.status)}
-											<span>{user.status}</span>
-										</div>
-									</Badge>
+									{/* Badges */}
+									<div className="flex flex-wrap items-center gap-2">
+										<Badge className={`${getRoleColor(user.role)} text-xs`}>
+											{user.role.toUpperCase()}
+										</Badge>
+										<Badge className={`${getStatusColor(user.status)} text-xs`}>
+											<div className="flex items-center space-x-1">
+												{getStatusIcon(user.status)}
+												<span>{user.status}</span>
+											</div>
+										</Badge>
+									</div>
 								</div>
-							</div>
-						)
-					})
+							)
+						})
 					)}
 
 					{/* Pagination */}
@@ -475,7 +484,10 @@ export function UserList({ searchTerm, roleFilter, statusFilter, sortBy }: UserL
 								</div>
 								<div className="flex items-center space-x-1 sm:space-x-2">
 									<span className="text-muted-foreground text-xs sm:text-sm">Show:</span>
-									<Select value={pageSize.toString()} onValueChange={value => setPageSize(Number(value))}>
+									<Select
+										value={pageSize.toString()}
+										onValueChange={value => setPageSize(Number(value))}
+									>
 										<SelectTrigger className="h-8 w-17 sm:h-9 sm:w-16">
 											<SelectValue />
 										</SelectTrigger>

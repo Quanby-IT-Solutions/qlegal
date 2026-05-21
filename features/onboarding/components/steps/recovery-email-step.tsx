@@ -89,8 +89,7 @@ export function RecoveryEmailStep({
 							<HugeiconsIcon icon={InformationCircleIcon} />
 							<AlertTitle>Optional step</AlertTitle>
 							<AlertDescription>
-								You can skip this for now and add a recovery email later from your profile
-								settings.
+								You can skip this for now and add a recovery email later from your profile settings.
 							</AlertDescription>
 						</Alert>
 					</CardContent>
@@ -105,11 +104,7 @@ export function RecoveryEmailStep({
 					<Button type="button" variant="ghost" size="sm" onClick={onBack}>
 						Back
 					</Button>
-					<Button
-						type="submit"
-						disabled={isSubmitting || isCooldownActive}
-						size="sm"
-					>
+					<Button type="submit" disabled={isSubmitting || isCooldownActive} size="sm">
 						{isSubmitting
 							? "Sending…"
 							: isCooldownActive

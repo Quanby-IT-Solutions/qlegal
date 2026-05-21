@@ -1,5 +1,6 @@
-import { env } from "@/env"
 import { getDoconchainApiToken } from "@/services/doconchain/auth/generate-token"
+
+import { env } from "@/env"
 
 export type MemberItem = {
 	id?: number | string
@@ -103,10 +104,7 @@ function buildMemberListUrls(organizationId: number): URL[] {
 
 	// Candidate 3 (legacy): GET /organizations/{id}/members
 	{
-		const url = new URL(
-			`/api/v2/organizations/${organizationId}/members`,
-			env.DOCONCHAIN_API_URL
-		)
+		const url = new URL(`/api/v2/organizations/${organizationId}/members`, env.DOCONCHAIN_API_URL)
 		url.searchParams.set("user_type", "ENTERPRISE_API")
 		candidates.push(url)
 	}
@@ -325,7 +323,9 @@ export async function getMembersListAll(): Promise<MemberItem[]> {
  * Fetch members for multiple organizations (e.g. parent + all sub-orgs) and merge into one list.
  * Deduplicates by member id so we can find a user by email wherever they currently are.
  */
-export async function getMembersAcrossOrganizations(organizationIds: number[]): Promise<MemberItem[]> {
+export async function getMembersAcrossOrganizations(
+	organizationIds: number[]
+): Promise<MemberItem[]> {
 	const results = await Promise.all(
 		organizationIds.map(id => getMembersForOrganization(id).catch(() => [] as MemberItem[]))
 	)

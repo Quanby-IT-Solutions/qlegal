@@ -1,9 +1,10 @@
 import { and, eq } from "drizzle-orm"
 
-import { env } from "@/env"
 import { db } from "@/services/drizzle/db"
 import { users } from "@/services/drizzle/schema/auth"
 import { idCardDetails } from "@/services/drizzle/schema/id-card-details"
+
+import { env } from "@/env"
 
 /**
  * If the user's KYC verification is older than `KYC_VERIFICATION_VALIDITY_DAYS`, reset them to
