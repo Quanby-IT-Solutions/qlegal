@@ -3,6 +3,7 @@ import { NextResponse } from "next/server"
 import { syncKycStatusFromCallback } from "@/features/kyc/api/kyc.actions"
 
 interface SyncKycCallbackPayload {
+	createdTransactionId?: unknown
 	transactionId?: unknown
 	status?: unknown
 }
@@ -20,6 +21,8 @@ export async function POST(request: Request) {
 	}
 
 	const transactionId = typeof payload.transactionId === "string" ? payload.transactionId : ""
+	const createdTransactionId =
+		typeof payload.createdTransactionId === "string" ? payload.createdTransactionId : ""
 	const status = typeof payload.status === "string" ? payload.status : ""
 
 	if (!transactionId.trim() || !status.trim()) {
@@ -29,6 +32,8 @@ export async function POST(request: Request) {
 		)
 	}
 
-	const result = await syncKycStatusFromCallback(transactionId, status)
+	const result = await syncKycStatusFromCallback(transactionId, status, {
+		alternateTransactionIds: createdTransactionId ? [createdTransactionId] : [],
+	})
 	return NextResponse.json(result, { status: result.success ? 200 : 400 })
 }

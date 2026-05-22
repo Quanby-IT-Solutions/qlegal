@@ -6,12 +6,13 @@ export type SyncKycCallbackResult =
 
 export async function syncKycStatusFromCallbackRequest(
 	transactionId: string,
-	status: string
+	status: string,
+	createdTransactionId?: string
 ): Promise<SyncKycCallbackResult> {
 	const response = await fetch("/api/kyc/sync-callback", {
 		method: "POST",
 		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify({ transactionId, status }),
+		body: JSON.stringify({ transactionId, status, createdTransactionId }),
 	})
 
 	const payload = (await response.json().catch(() => null)) as SyncKycCallbackResult | null

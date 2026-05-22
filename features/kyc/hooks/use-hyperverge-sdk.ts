@@ -71,7 +71,7 @@ export function useHyperVergeSDK({
 				transactionId: syncTransactionId,
 				createdTransactionId: transactionId,
 			})
-			const sync = await syncKycStatusFromCallbackRequest(syncTransactionId, s)
+			const sync = await syncKycStatusFromCallbackRequest(syncTransactionId, s, transactionId)
 
 			if (s === "auto_approved") {
 				if (!sync.success) {

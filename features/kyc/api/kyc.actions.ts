@@ -1410,7 +1410,7 @@ export async function checkUserKycStatus() {
 export async function syncKycStatusFromCallback(
 	transactionId: string,
 	status: string,
-	options: { backfillIdCardDetails?: boolean } = {}
+	options: { alternateTransactionIds?: string[]; backfillIdCardDetails?: boolean } = {}
 ) {
 	const logPrefix = "[KYC syncKycStatusFromCallback]"
 
@@ -1472,19 +1472,44 @@ export async function syncKycStatusFromCallback(
 		resolvedKycStatus: newStatus,
 	})
 
-	const kycSession = await db.query.kycSessions.findFirst({
-		where: and(
-			eq(kycSessions.userId, session.user.id),
-			eq(kycSessions.transactionId, transactionId.trim())
-		),
-		columns: {
-			id: true,
-			status: true,
-			idCardDetailId: true,
-			sessionType: true,
-			transactionId: true,
-		},
-	})
+	const transactionIds = Array.from(
+		new Set(
+			[transactionId, ...(options.alternateTransactionIds ?? [])]
+				.map(id => id.trim())
+				.filter(Boolean)
+		)
+	)
+
+	const kycSessionColumns = {
+		id: true,
+		status: true,
+		idCardDetailId: true,
+		sessionType: true,
+		transactionId: true,
+	} as const
+
+	let kycSession: {
+		id: string
+		status: "NOT_STARTED" | "PENDING" | "VERIFIED" | "REJECTED"
+		idCardDetailId: string | null
+		sessionType: string
+		transactionId: string
+	} | undefined
+
+	for (const candidateTransactionId of transactionIds) {
+		const candidate = await db.query.kycSessions.findFirst({
+			where: and(
+				eq(kycSessions.userId, session.user.id),
+				eq(kycSessions.transactionId, candidateTransactionId)
+			),
+			columns: kycSessionColumns,
+		})
+
+		if (candidate) {
+			kycSession = candidate
+			break
+		}
+	}
 
 	const resolvedKycSession =
 		kycSession ??
