@@ -54,67 +54,6 @@ function coalesceNameValue(
 	return currentValue ?? null
 }
 
-type KycStatusValue = "NOT_STARTED" | "PENDING" | "VERIFIED" | "REJECTED"
-
-/**
- * Keep `users.kyc_status` aligned with `kyc_session.status`.
- * Session can be VERIFIED while user stays NOT_STARTED if an earlier write only updated kyc_session
- * or syncKycStatusFromCallback returned early when the session was already final.
- */
-async function ensureUserKycStatusMatchesSession(
-	userId: string,
-	sessionStatus: KycStatusValue,
-	userRow?: {
-		kycStatus: string | null
-		commissionStatus: string | null
-		role: string | null
-	} | null
-) {
-	if (sessionStatus !== "VERIFIED" && sessionStatus !== "REJECTED") {
-		return
-	}
-
-	let user = userRow
-	user ??= await db.query.users.findFirst({
-		where: eq(users.id, userId),
-		columns: { kycStatus: true, commissionStatus: true, role: true },
-	})
-	if (!user) return
-
-	if (sessionStatus === "VERIFIED" && user.kycStatus !== "VERIFIED") {
-		let commissionStatusUpdate: "PENDING" | "ACTIVE" | "SUSPENDED" | undefined
-		if (user.commissionStatus === "PENDING" && user.role !== "ENP") {
-			commissionStatusUpdate = "ACTIVE"
-		} else if (
-			user.commissionStatus === "PENDING" ||
-			user.commissionStatus === "ACTIVE" ||
-			user.commissionStatus === "SUSPENDED"
-		) {
-			commissionStatusUpdate = user.commissionStatus
-		}
-
-		await db
-			.update(users)
-			.set({
-				kycStatus: "VERIFIED",
-				kycVerifiedAt: new Date(),
-				kycLastExpiredAt: null,
-				...(commissionStatusUpdate ? { commissionStatus: commissionStatusUpdate } : {}),
-			})
-			.where(eq(users.id, userId))
-		console.log("✅ Synced users.kyc_status to VERIFIED (matched verified kyc_session)")
-	} else if (sessionStatus === "REJECTED" && user.kycStatus !== "REJECTED") {
-		await db
-			.update(users)
-			.set({
-				kycStatus: "REJECTED",
-				kycVerifiedAt: null,
-			})
-			.where(eq(users.id, userId))
-		console.log("✅ Synced users.kyc_status to REJECTED (matched rejected kyc_session)")
-	}
-}
-
 function extractAdditionalFieldString(
 	additionalFields: unknown,
 	keys: readonly string[]
@@ -917,13 +856,13 @@ export async function checkUserKycStatus() {
 		}
 	}
 
-	// User row is NOT_STARTED after expiry/admin reset, but a new PENDING session may already exist
-	// (e.g. Web SDK re-verification). In that case, keep going so we can poll HyperVerge /v1/output.
-	if (user.kycStatus === "NOT_STARTED" && kycSession.status !== "PENDING") {
+	// User row is source of truth for "fresh start" (14-day expiry, admin reset, etc.).
+	// Latest session row may still be VERIFIED/REJECTED/PENDING while `kycStatus` is NOT_STARTED.
+	if (user.kycStatus === "NOT_STARTED") {
 		return {
 			success: true,
 			data: {
-				transactionId: kycSession.transactionId,
+				transactionId: null,
 				status: "not_started",
 				kycStatus: "NOT_STARTED" as const,
 				isComplete: false,
@@ -947,8 +886,6 @@ export async function checkUserKycStatus() {
 	// - normally we avoid remote calls
 	// - but for Hosted KYC, we want consistency: backfill ID card details exactly once if missing
 	if (kycSession.status === "VERIFIED") {
-		await ensureUserKycStatusMatchesSession(session.user.id, "VERIFIED", user)
-
 		if (needsHostedArtifacts) {
 			try {
 				console.log("🧾 Fetching HyperVerge Logs API (backfill hosted KYC artifacts)...", {
@@ -1355,8 +1292,6 @@ export async function checkUserKycStatus() {
 							: user?.commissionStatus,
 				})
 				.where(eq(users.id, session.user.id))
-
-			await ensureUserKycStatusMatchesSession(session.user.id, "VERIFIED", user)
 		} else if (applicationStatus === "auto_declined" || applicationStatus === "manual_declined") {
 			newStatus = "REJECTED"
 			console.log("❌ KYC Rejected")
@@ -1377,8 +1312,6 @@ export async function checkUserKycStatus() {
 					kycStatus: newStatus,
 				})
 				.where(eq(users.id, session.user.id))
-
-			await ensureUserKycStatusMatchesSession(session.user.id, "REJECTED", user)
 		} else if (interpretation.needsReview) {
 			newStatus = "PENDING"
 			console.log("🕵️ KYC Needs Review")
@@ -1520,19 +1453,11 @@ export async function syncKycStatusFromCallback(transactionId: string, status: s
 	}
 
 	if (kycSession.status === "VERIFIED" || kycSession.status === "REJECTED") {
-		console.log(`${logPrefix} Session already final — syncing users row if needed`, {
+		console.log(`${logPrefix} Session already final — skipping update`, {
 			sessionStatus: kycSession.status,
 			incomingResolvedStatus: newStatus,
 		})
-		await ensureUserKycStatusMatchesSession(session.user.id, kycSession.status)
-		revalidatePath("/onboarding")
-		revalidatePath("/profile")
-		console.log(`${logPrefix} Completed (session was already final)`, {
-			userId: session.user.id,
-			transactionId: kycSession.transactionId,
-			finalStatus: kycSession.status,
-		})
-		return { success: true } // session already final; user row may have been out of sync
+		return { success: true } // already final
 	}
 
 	const previousSessionStatus = kycSession.status
@@ -1699,7 +1624,6 @@ export async function syncKycStatusFromCallback(transactionId: string, status: s
 	}
 
 	revalidatePath("/onboarding")
-	revalidatePath("/profile")
 
 	const completed =
 		newStatus === "VERIFIED"
@@ -1845,11 +1769,6 @@ export async function getUserKycInfo() {
 		where: eq(kycSessions.userId, session.user.id),
 		orderBy: (table, { desc }) => [desc(table.createdAt)],
 	})
-
-	if (kycSession?.status === "VERIFIED" && dbUser.kycStatus !== "VERIFIED") {
-		await ensureUserKycStatusMatchesSession(session.user.id, "VERIFIED")
-		dbUser.kycStatus = "VERIFIED"
-	}
 
 	const latestIdCard = await db.query.idCardDetails.findFirst({
 		where: eq(idCardDetails.userId, session.user.id),
