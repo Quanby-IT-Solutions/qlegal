@@ -3,7 +3,6 @@
 import { useCallback, useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { useSession } from "next-auth/react"
-import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 
 import { trpc } from "@/services/trpc/client"
@@ -30,7 +29,6 @@ export interface StartKycVerificationOptions {
 export function useStartKycVerification() {
 	const { update: updateSession } = useSession()
 	const queryClient = useQueryClient()
-	const router = useRouter()
 	const utils = trpc.useUtils()
 	const [isResetting, setIsResetting] = useState(false)
 
@@ -43,27 +41,11 @@ export function useStartKycVerification() {
 			void utils.onboarding.getStatus.invalidate()
 
 			void (async () => {
-				const shouldRefetchKycStatusBeforeRefresh =
-					normalized === "needs_review" ||
-					normalized === "manual_review" ||
-					normalized === "auto_declined" ||
-					normalized === "manual_declined"
-				if (shouldRefetchKycStatusBeforeRefresh) {
-					// Fresh check so the profile card sees needs_review / manual vs auto decline before session refresh.
-					await queryClient.refetchQueries({ queryKey: ["kyc-status"] })
-				}
-				if (normalized === "auto_approved") {
-					await updateSession()
-					router.refresh()
-					return
-				}
-				if (normalized === "needs_review" || normalized === "manual_review") {
-					await updateSession()
-					router.refresh()
-					return
-				}
+				// Always re-check DB + HyperVerge after SDK closes (expiry renewal leaves user NOT_STARTED
+				// until sync/poll succeeds; profile must not stay on stale session JWT).
+				await queryClient.refetchQueries({ queryKey: ["user-kyc-info"] })
+				await queryClient.refetchQueries({ queryKey: ["kyc-status"] })
 				await updateSession()
-				router.refresh()
 			})()
 		},
 	})

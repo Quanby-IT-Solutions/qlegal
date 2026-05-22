@@ -1,6 +1,7 @@
 "use client"
 
-import { useQuery } from "@tanstack/react-query"
+import { useEffect } from "react"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import {
 	AlertCircle,
 	Ban,
@@ -19,6 +20,7 @@ import { Badge } from "@/core/components/ui/badge"
 import { Button } from "@/core/components/ui/button"
 import { Card, CardContent } from "@/core/components/ui/card"
 import { FieldGroup } from "@/core/components/ui/field"
+import { useKycBroadcast } from "@/core/hooks/use-kyc-broadcast"
 import { kycExpiryRenewalDescription } from "@/core/lib/kyc-reverification-copy"
 import { cn } from "@/core/lib/utils"
 
@@ -112,8 +114,10 @@ function kycStatusMeta(status: string): {
 }
 
 export function IdentityVerificationCard() {
-	const { data: session } = useSession()
+	const queryClient = useQueryClient()
+	const { data: session, update: updateSession } = useSession()
 	const { start, isLoading } = useStartKycVerification()
+	const { listen } = useKycBroadcast()
 
 	const { data: kycInfoResult } = useQuery({
 		queryKey: ["user-kyc-info"],
@@ -121,8 +125,6 @@ export function IdentityVerificationCard() {
 		staleTime: 60_000,
 	})
 	const userInfo = kycInfoResult?.success ? kycInfoResult.data : undefined
-	const isExpiryRenewal =
-		userInfo?.kycStatus === "NOT_STARTED" && Boolean(userInfo?.kycLastExpiredAt)
 	const validityDays = userInfo?.kycVerificationValidityDays ?? 14
 
 	const kycStatus =
@@ -136,7 +138,32 @@ export function IdentityVerificationCard() {
 	const isNeedsReview =
 		Boolean(statusResult?.needsReview) || statusResult?.status === "needs_review"
 
-	const rawFromApi = statusResult?.kycStatus ?? kycStatus
+	// DB (`user-kyc-info`) wins over stale JWT when status check short-circuits (e.g. post-expiry NOT_STARTED).
+	const effectiveKycStatus = statusResult?.kycStatus ?? userInfo?.kycStatus ?? kycStatus
+	const isExpiryRenewal =
+		effectiveKycStatus === "NOT_STARTED" && Boolean(userInfo?.kycLastExpiredAt)
+
+	const rawFromApi = effectiveKycStatus
+
+	useEffect(() => {
+		const unsubscribe = listen(message => {
+			if (
+				message.type !== "KYC_VERIFIED" &&
+				message.type !== "KYC_REJECTED" &&
+				message.type !== "KYC_PENDING"
+			) {
+				return
+			}
+
+			void (async () => {
+				await queryClient.refetchQueries({ queryKey: ["user-kyc-info"] })
+				await queryClient.refetchQueries({ queryKey: ["kyc-status"] })
+				await updateSession()
+			})()
+		})
+
+		return unsubscribe
+	}, [listen, queryClient, updateSession])
 	const providerStatus = typeof statusResult?.status === "string" ? statusResult.status : undefined
 
 	/** DB/API can be REJECTED before the NextAuth session updates; prefer `rawFromApi` for rejection UI. */
