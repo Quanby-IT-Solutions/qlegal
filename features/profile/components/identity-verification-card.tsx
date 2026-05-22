@@ -28,6 +28,27 @@ import { getUserKycInfo } from "@/features/kyc/api/kyc.actions"
 import { useKycStatus } from "@/features/kyc/hooks/use-kyc-status"
 import { useStartKycVerification } from "@/features/kyc/hooks/use-start-kyc-verification"
 
+/** Prefer the strongest status when JWT, status check, and DB disagree (e.g. stale TanStack cache). */
+function resolveDisplayKycStatus(...sources: (string | undefined | null)[]): string {
+	const rank: Record<string, number> = {
+		VERIFIED: 4,
+		PENDING: 3,
+		REJECTED: 2,
+		NOT_STARTED: 1,
+	}
+	let best = "NOT_STARTED"
+	let bestRank = 0
+	for (const source of sources) {
+		if (!source) continue
+		const r = rank[source] ?? 0
+		if (r > bestRank) {
+			bestRank = r
+			best = source
+		}
+	}
+	return best
+}
+
 function kycStatusMeta(status: string): {
 	label: string
 	badgeVariant: "default" | "secondary" | "outline" | "destructive"
@@ -138,8 +159,12 @@ export function IdentityVerificationCard() {
 	const isNeedsReview =
 		Boolean(statusResult?.needsReview) || statusResult?.status === "needs_review"
 
-	// DB (`user-kyc-info`) wins over stale JWT when status check short-circuits (e.g. post-expiry NOT_STARTED).
-	const effectiveKycStatus = statusResult?.kycStatus ?? userInfo?.kycStatus ?? kycStatus
+	// DB + status check + JWT can disagree after expiry re-verify; never let stale NOT_STARTED hide VERIFIED.
+	const effectiveKycStatus = resolveDisplayKycStatus(
+		userInfo?.kycStatus,
+		statusResult?.kycStatus,
+		kycStatus
+	)
 	const isExpiryRenewal =
 		effectiveKycStatus === "NOT_STARTED" && Boolean(userInfo?.kycLastExpiredAt)
 

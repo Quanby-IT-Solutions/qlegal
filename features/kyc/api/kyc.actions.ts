@@ -54,6 +54,67 @@ function coalesceNameValue(
 	return currentValue ?? null
 }
 
+type KycStatusValue = "NOT_STARTED" | "PENDING" | "VERIFIED" | "REJECTED"
+
+/**
+ * Keep `users.kyc_status` aligned with `kyc_session.status`.
+ * Session can be VERIFIED while user stays NOT_STARTED if an earlier write only updated kyc_session
+ * or syncKycStatusFromCallback returned early when the session was already final.
+ */
+async function ensureUserKycStatusMatchesSession(
+	userId: string,
+	sessionStatus: KycStatusValue,
+	userRow?: {
+		kycStatus: string | null
+		commissionStatus: string | null
+		role: string | null
+	} | null
+) {
+	if (sessionStatus !== "VERIFIED" && sessionStatus !== "REJECTED") {
+		return
+	}
+
+	let user = userRow
+	user ??= await db.query.users.findFirst({
+		where: eq(users.id, userId),
+		columns: { kycStatus: true, commissionStatus: true, role: true },
+	})
+	if (!user) return
+
+	if (sessionStatus === "VERIFIED" && user.kycStatus !== "VERIFIED") {
+		let commissionStatusUpdate: "PENDING" | "ACTIVE" | "SUSPENDED" | undefined
+		if (user.commissionStatus === "PENDING" && user.role !== "ENP") {
+			commissionStatusUpdate = "ACTIVE"
+		} else if (
+			user.commissionStatus === "PENDING" ||
+			user.commissionStatus === "ACTIVE" ||
+			user.commissionStatus === "SUSPENDED"
+		) {
+			commissionStatusUpdate = user.commissionStatus
+		}
+
+		await db
+			.update(users)
+			.set({
+				kycStatus: "VERIFIED",
+				kycVerifiedAt: new Date(),
+				kycLastExpiredAt: null,
+				...(commissionStatusUpdate ? { commissionStatus: commissionStatusUpdate } : {}),
+			})
+			.where(eq(users.id, userId))
+		console.log("✅ Synced users.kyc_status to VERIFIED (matched verified kyc_session)")
+	} else if (sessionStatus === "REJECTED" && user.kycStatus !== "REJECTED") {
+		await db
+			.update(users)
+			.set({
+				kycStatus: "REJECTED",
+				kycVerifiedAt: null,
+			})
+			.where(eq(users.id, userId))
+		console.log("✅ Synced users.kyc_status to REJECTED (matched rejected kyc_session)")
+	}
+}
+
 function extractAdditionalFieldString(
 	additionalFields: unknown,
 	keys: readonly string[]
@@ -886,6 +947,8 @@ export async function checkUserKycStatus() {
 	// - normally we avoid remote calls
 	// - but for Hosted KYC, we want consistency: backfill ID card details exactly once if missing
 	if (kycSession.status === "VERIFIED") {
+		await ensureUserKycStatusMatchesSession(session.user.id, "VERIFIED", user)
+
 		if (needsHostedArtifacts) {
 			try {
 				console.log("🧾 Fetching HyperVerge Logs API (backfill hosted KYC artifacts)...", {
@@ -1292,6 +1355,8 @@ export async function checkUserKycStatus() {
 							: user?.commissionStatus,
 				})
 				.where(eq(users.id, session.user.id))
+
+			await ensureUserKycStatusMatchesSession(session.user.id, "VERIFIED", user)
 		} else if (applicationStatus === "auto_declined" || applicationStatus === "manual_declined") {
 			newStatus = "REJECTED"
 			console.log("❌ KYC Rejected")
@@ -1312,6 +1377,8 @@ export async function checkUserKycStatus() {
 					kycStatus: newStatus,
 				})
 				.where(eq(users.id, session.user.id))
+
+			await ensureUserKycStatusMatchesSession(session.user.id, "REJECTED", user)
 		} else if (interpretation.needsReview) {
 			newStatus = "PENDING"
 			console.log("🕵️ KYC Needs Review")
@@ -1355,11 +1422,18 @@ export async function checkUserKycStatus() {
  * is unavailable (e.g. fallback region).
  */
 export async function syncKycStatusFromCallback(transactionId: string, status: string) {
+	const logPrefix = "[KYC syncKycStatusFromCallback]"
+
 	const session = await auth()
 	if (!session?.user?.id) {
+		console.warn(`${logPrefix} Aborted: not authenticated`)
 		return { success: false, error: "Not authenticated" }
 	}
 	if (!transactionId?.trim() || !status?.trim()) {
+		console.warn(`${logPrefix} Aborted: missing transactionId or status`, {
+			hasTransactionId: Boolean(transactionId?.trim()),
+			hasStatus: Boolean(status?.trim()),
+		})
 		return { success: false, error: "Missing transactionId or status" }
 	}
 
@@ -1400,6 +1474,14 @@ export async function syncKycStatusFromCallback(transactionId: string, status: s
 	}
 	// user_cancelled, needs_review, or unknown -> leave as PENDING
 
+	console.log(`${logPrefix} Started`, {
+		userId: session.user.id,
+		transactionId: transactionId.trim(),
+		rawStatus: status.trim(),
+		normalizedStatus: normalized,
+		resolvedKycStatus: newStatus,
+	})
+
 	const kycSession = await db.query.kycSessions.findFirst({
 		where: and(
 			eq(kycSessions.userId, session.user.id),
@@ -1415,14 +1497,45 @@ export async function syncKycStatusFromCallback(transactionId: string, status: s
 	})
 
 	if (!kycSession) {
+		console.error(`${logPrefix} Failed: KYC session not found`, {
+			userId: session.user.id,
+			transactionId: transactionId.trim(),
+		})
 		return { success: false, error: "KYC session not found" }
 	}
+
+	console.log(`${logPrefix} Session loaded`, {
+		kycSessionId: kycSession.id,
+		previousSessionStatus: kycSession.status,
+		sessionType: kycSession.sessionType,
+		hasIdCardDetailId: Boolean(kycSession.idCardDetailId),
+	})
+
 	if (newStatus === "PENDING") {
+		console.log(`${logPrefix} No DB update (non-final provider status)`, {
+			normalizedStatus: normalized,
+			sessionStatus: kycSession.status,
+		})
 		return { success: true } // no DB update for pending/cancelled
 	}
+
 	if (kycSession.status === "VERIFIED" || kycSession.status === "REJECTED") {
-		return { success: true } // already final
+		console.log(`${logPrefix} Session already final — syncing users row if needed`, {
+			sessionStatus: kycSession.status,
+			incomingResolvedStatus: newStatus,
+		})
+		await ensureUserKycStatusMatchesSession(session.user.id, kycSession.status)
+		revalidatePath("/onboarding")
+		revalidatePath("/profile")
+		console.log(`${logPrefix} Completed (session was already final)`, {
+			userId: session.user.id,
+			transactionId: kycSession.transactionId,
+			finalStatus: kycSession.status,
+		})
+		return { success: true } // session already final; user row may have been out of sync
 	}
+
+	const previousSessionStatus = kycSession.status
 
 	await db
 		.update(kycSessions)
@@ -1442,11 +1555,23 @@ export async function syncKycStatusFromCallback(transactionId: string, status: s
 
 	await db.update(users).set(userKycUpdate).where(eq(users.id, session.user.id))
 
+	console.log(`${logPrefix} Updated kyc_session and users`, {
+		userId: session.user.id,
+		transactionId: kycSession.transactionId,
+		previousSessionStatus,
+		newSessionStatus: newStatus,
+		newUserKycStatus: newStatus,
+	})
+
+	let idCardBackfill: "skipped" | "saved" | "no_ocr" | "failed" = "skipped"
+
 	// Backfill id_card_details from HyperVerge Logs when VERIFIED and not yet linked (e.g. Web SDK flow)
 	if (newStatus === "VERIFIED" && !kycSession.idCardDetailId && kycSession.transactionId) {
+		idCardBackfill = "no_ocr"
 		try {
-			console.log("🧾 Fetching HyperVerge Logs API (backfill KYC artifacts from callback)...", {
+			console.log(`${logPrefix} Fetching HyperVerge Logs API for id_card_details backfill`, {
 				transactionId: kycSession.transactionId,
+				sessionType: kycSession.sessionType,
 			})
 			const logs = await getHyperVergeKycLogs({ transactionId: kycSession.transactionId })
 			const imageUrl = pickBestFaceImageUrlFromLogs(logs)
@@ -1472,6 +1597,7 @@ export async function syncKycStatusFromCallback(transactionId: string, status: s
 				})
 
 				if (idCardDetail.idCardDetailId) {
+					idCardBackfill = "saved"
 					await db
 						.update(kycSessions)
 						.set({
@@ -1480,6 +1606,12 @@ export async function syncKycStatusFromCallback(transactionId: string, status: s
 							updatedAt: new Date(),
 						})
 						.where(eq(kycSessions.id, kycSession.id))
+
+					console.log(`${logPrefix} id_card_details saved and linked to session`, {
+						idCardDetailId: idCardDetail.idCardDetailId,
+						hasFaceImage: Boolean(faceImageUrl),
+						verificationMethod,
+					})
 
 					// Hydrate user profile from id card when name/address are empty
 					const user = await db.query.users.findFirst({
@@ -1543,15 +1675,46 @@ export async function syncKycStatusFromCallback(transactionId: string, status: s
 								address: coalesceNameValue(user?.address, resolvedAddress),
 							})
 							.where(eq(users.id, session.user.id))
+						console.log(`${logPrefix} Hydrated user profile from id_card_details`)
+					} else {
+						console.log(`${logPrefix} Skipped profile hydration (names/address already set)`)
 					}
+				} else {
+					console.warn(`${logPrefix} saveIdCardDetails returned no idCardDetailId`)
 				}
+			} else {
+				console.warn(`${logPrefix} Logs API returned no OCR fields`, {
+					transactionId: kycSession.transactionId,
+					hasFaceImageUrl: Boolean(imageUrl),
+				})
 			}
 		} catch (err) {
-			console.warn("⚠️ KYC callback backfill failed (non-fatal):", err)
+			idCardBackfill = "failed"
+			console.warn(`${logPrefix} id_card_details backfill failed (non-fatal):`, err)
 		}
+	} else if (newStatus === "VERIFIED" && kycSession.idCardDetailId) {
+		console.log(`${logPrefix} id_card_details backfill skipped (already linked)`, {
+			idCardDetailId: kycSession.idCardDetailId,
+		})
 	}
 
 	revalidatePath("/onboarding")
+	revalidatePath("/profile")
+
+	const completed =
+		newStatus === "VERIFIED"
+			? "KYC verification completed — user and session marked VERIFIED"
+			: newStatus === "REJECTED"
+				? "KYC verification completed — user and session marked REJECTED"
+				: "KYC callback processed"
+
+	console.log(`${logPrefix} ${completed}`, {
+		userId: session.user.id,
+		transactionId: kycSession.transactionId,
+		finalStatus: newStatus,
+		idCardBackfill,
+	})
+
 	return { success: true }
 }
 
@@ -1682,6 +1845,11 @@ export async function getUserKycInfo() {
 		where: eq(kycSessions.userId, session.user.id),
 		orderBy: (table, { desc }) => [desc(table.createdAt)],
 	})
+
+	if (kycSession?.status === "VERIFIED" && dbUser.kycStatus !== "VERIFIED") {
+		await ensureUserKycStatusMatchesSession(session.user.id, "VERIFIED")
+		dbUser.kycStatus = "VERIFIED"
+	}
 
 	const latestIdCard = await db.query.idCardDetails.findFirst({
 		where: eq(idCardDetails.userId, session.user.id),

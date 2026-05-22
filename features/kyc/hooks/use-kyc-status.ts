@@ -50,7 +50,8 @@ export function useKycStatus({ enabled = true, currentStatus }: UseKycStatusOpti
 		// Cache configuration
 		// When status is pending we always want a fresh check when the hook is enabled,
 		// so treat cached results as immediately stale.
-		staleTime: isPending ? 0 : Infinity,
+		// Do not cache NOT_STARTED forever — post-KYC refetch must pick up VERIFIED from the server.
+		staleTime: isPending ? 0 : 30_000,
 		gcTime: 1000 * 60 * 5, // Cache for 5 minutes
 		retry: 1,
 		retryDelay: 3000,
