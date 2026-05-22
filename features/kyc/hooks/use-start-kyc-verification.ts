@@ -8,10 +8,10 @@ import { toast } from "sonner"
 import { trpc } from "@/services/trpc/client"
 
 import {
-	dismissKycExpiryNotice,
-	getUserKycInfo,
-	softResetUserKycStatus,
-} from "@/features/kyc/api/kyc.actions"
+	dismissKycExpiryNoticeRequest,
+	getUserKycInfoRequest,
+	softResetUserKycStatusRequest,
+} from "@/features/kyc/api/kyc-client"
 import { useHyperVergeSDK } from "@/features/kyc/hooks/use-hyperverge-sdk"
 
 export interface StartKycVerificationOptions {
@@ -34,8 +34,7 @@ export function useStartKycVerification() {
 
 	const { launch, isLoading: isSdkLoading } = useHyperVergeSDK({
 		redirectOnSuccess: "",
-		onComplete: (rawStatus: string) => {
-			const normalized = (rawStatus ?? "").trim().toLowerCase().replace(/\s+/g, "_")
+		onComplete: () => {
 			void queryClient.invalidateQueries({ queryKey: ["kyc-status"] })
 			void queryClient.invalidateQueries({ queryKey: ["user-kyc-info"] })
 			void utils.onboarding.getStatus.invalidate()
@@ -52,7 +51,7 @@ export function useStartKycVerification() {
 
 	const start = useCallback(
 		async (options?: StartKycVerificationOptions) => {
-			const result = await getUserKycInfo()
+			const result = await getUserKycInfoRequest()
 			if (!result.success || !result.data) {
 				toast.error(result.error ?? "Could not load verification status.")
 				return
@@ -64,7 +63,7 @@ export function useStartKycVerification() {
 
 			if (expiryRenewalPending) {
 				if (options?.skipExpiryGate) {
-					const dismissed = await dismissKycExpiryNotice()
+					const dismissed = await dismissKycExpiryNoticeRequest()
 					if (!dismissed.success) {
 						toast.error(dismissed.error ?? "Could not continue. Please try again.")
 						return
@@ -83,7 +82,7 @@ export function useStartKycVerification() {
 			if (needsReset) {
 				setIsResetting(true)
 				try {
-					const reset = await softResetUserKycStatus()
+					const reset = await softResetUserKycStatusRequest()
 					if (!reset.success) {
 						toast.error(reset.error ?? "Could not reset. Please try again or contact support.")
 						return

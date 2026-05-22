@@ -4,7 +4,7 @@ import { type Route } from "next"
 import Link from "next/link"
 import { useQuery } from "@tanstack/react-query"
 
-import { getUserKycInfo } from "@/features/kyc/api/kyc.actions"
+import { getUserKycInfoRequest } from "@/features/kyc/api/kyc-client"
 import { useStartKycVerification } from "@/features/kyc/hooks/use-start-kyc-verification"
 
 import {
@@ -51,7 +51,7 @@ export function KycRequiredDialog({
 
 	const { data: kycInfoResult } = useQuery({
 		queryKey: ["user-kyc-info"],
-		queryFn: () => getUserKycInfo(),
+		queryFn: () => getUserKycInfoRequest(),
 		enabled: open,
 		staleTime: 60_000,
 	})

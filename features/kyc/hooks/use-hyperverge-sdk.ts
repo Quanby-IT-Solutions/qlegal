@@ -5,7 +5,7 @@ import { toast } from "sonner"
 
 import { useKycBroadcast } from "@/core/hooks/use-kyc-broadcast"
 
-import { getKycWebSdkSession } from "@/features/kyc/api/kyc.actions"
+import { getKycWebSdkSessionRequest } from "@/features/kyc/api/kyc-client"
 import { syncKycStatusFromCallbackRequest } from "@/features/kyc/api/sync-kyc-callback-client"
 
 const HYPERVERGE_WEB_SDK_VERSION = "10.0.0"
@@ -126,7 +126,7 @@ export function useHyperVergeSDK({
 			return
 		}
 
-		const sessionResult = await getKycWebSdkSession()
+		const sessionResult = await getKycWebSdkSessionRequest()
 		if (!sessionResult.success || !sessionResult.data) {
 			const msg = sessionResult.error ?? "Failed to start verification"
 			setError(msg)

@@ -1354,7 +1354,11 @@ export async function checkUserKycStatus() {
  * Call this when the user lands on /onboarding/callback so the DB is updated even when the Output API
  * is unavailable (e.g. fallback region).
  */
-export async function syncKycStatusFromCallback(transactionId: string, status: string) {
+export async function syncKycStatusFromCallback(
+	transactionId: string,
+	status: string,
+	options: { backfillIdCardDetails?: boolean } = {}
+) {
 	const logPrefix = "[KYC syncKycStatusFromCallback]"
 
 	const session = await auth()
@@ -1461,17 +1465,22 @@ export async function syncKycStatusFromCallback(transactionId: string, status: s
 	}
 
 	const previousSessionStatus = kycSession.status
+	const now = new Date()
 
 	await db
 		.update(kycSessions)
-		.set({ status: newStatus, updatedAt: new Date() })
+		.set({
+			status: newStatus,
+			verifiedAt: newStatus === "VERIFIED" ? now : null,
+			updatedAt: now,
+		})
 		.where(eq(kycSessions.id, kycSession.id))
 
 	const userKycUpdate =
 		newStatus === "VERIFIED"
 			? {
 					kycStatus: newStatus,
-					kycVerifiedAt: new Date(),
+					kycVerifiedAt: now,
 					kycLastExpiredAt: null,
 				}
 			: newStatus === "REJECTED"
@@ -1489,6 +1498,20 @@ export async function syncKycStatusFromCallback(transactionId: string, status: s
 	})
 
 	let idCardBackfill: "skipped" | "saved" | "no_ocr" | "failed" = "skipped"
+
+	if (!options.backfillIdCardDetails) {
+		revalidatePath("/onboarding")
+		revalidatePath("/profile")
+
+		console.log(`${logPrefix} KYC callback processed without blocking on id_card_details backfill`, {
+			userId: session.user.id,
+			transactionId: kycSession.transactionId,
+			finalStatus: newStatus,
+			idCardBackfill,
+		})
+
+		return { success: true }
+	}
 
 	// Backfill id_card_details from HyperVerge Logs when VERIFIED and not yet linked (e.g. Web SDK flow)
 	if (newStatus === "VERIFIED" && !kycSession.idCardDetailId && kycSession.transactionId) {

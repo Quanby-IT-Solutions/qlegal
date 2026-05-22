@@ -24,7 +24,7 @@ import { useKycBroadcast } from "@/core/hooks/use-kyc-broadcast"
 import { kycExpiryRenewalDescription } from "@/core/lib/kyc-reverification-copy"
 import { cn } from "@/core/lib/utils"
 
-import { getUserKycInfo } from "@/features/kyc/api/kyc.actions"
+import { getUserKycInfoRequest } from "@/features/kyc/api/kyc-client"
 import { useKycStatus } from "@/features/kyc/hooks/use-kyc-status"
 import { useStartKycVerification } from "@/features/kyc/hooks/use-start-kyc-verification"
 
@@ -142,7 +142,7 @@ export function IdentityVerificationCard() {
 
 	const { data: kycInfoResult } = useQuery({
 		queryKey: ["user-kyc-info"],
-		queryFn: () => getUserKycInfo(),
+		queryFn: () => getUserKycInfoRequest(),
 		staleTime: 60_000,
 	})
 	const userInfo = kycInfoResult?.success ? kycInfoResult.data : undefined

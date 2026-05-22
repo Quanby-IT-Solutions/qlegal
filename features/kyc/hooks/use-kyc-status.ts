@@ -14,7 +14,7 @@
 
 import { useQuery } from "@tanstack/react-query"
 
-import { checkUserKycStatus } from "../api/kyc.actions"
+import { checkUserKycStatusRequest } from "@/features/kyc/api/kyc-client"
 
 interface UseKycStatusOptions {
 	/**
@@ -35,7 +35,7 @@ export function useKycStatus({ enabled = true, currentStatus }: UseKycStatusOpti
 		enabled,
 		queryFn: async () => {
 			console.log("🔵 [TanStack Query] Checking KYC status")
-			return checkUserKycStatus()
+			return checkUserKycStatusRequest()
 		},
 		// Avoid repeated Output API calls (/v1/output).
 		// We rely on:
@@ -60,7 +60,13 @@ export function useKycStatus({ enabled = true, currentStatus }: UseKycStatusOpti
 	const isCheckingStatus = enabled && (query.isLoading || query.isFetching)
 
 	return {
-		...query,
+		data: query.data,
+		error: query.error,
 		isCheckingStatus,
+		isError: query.isError,
+		isFetching: query.isFetching,
+		isLoading: query.isLoading,
+		refetch: query.refetch,
+		status: query.status,
 	}
 }
