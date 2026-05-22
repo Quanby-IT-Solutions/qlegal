@@ -1624,6 +1624,7 @@ export async function syncKycStatusFromCallback(transactionId: string, status: s
 	}
 
 	revalidatePath("/onboarding")
+	revalidatePath("/profile")
 
 	const completed =
 		newStatus === "VERIFIED"

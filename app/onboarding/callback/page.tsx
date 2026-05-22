@@ -10,7 +10,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/core/components/reui/aler
 import { Spotlight } from "@/core/components/ui/spotlight-new"
 import { useKycBroadcast, type KycBroadcastMessage } from "@/core/hooks/use-kyc-broadcast"
 
-import { syncKycStatusFromCallback } from "@/features/kyc/api/kyc.actions"
+import { syncKycStatusFromCallbackRequest } from "@/features/kyc/api/sync-kyc-callback-client"
 
 export default function KycCallbackPage() {
 	const searchParams = useSearchParams()
@@ -116,7 +116,7 @@ export default function KycCallbackPage() {
 
 		// Persist status from redirect (needed when Output API is unavailable e.g. fallback region)
 		if (transactionId && status) {
-			syncKycStatusFromCallback(transactionId, status).catch(() => {
+			syncKycStatusFromCallbackRequest(transactionId, status).catch(() => {
 				// Non-blocking; broadcast still notifies other tab
 			})
 		}

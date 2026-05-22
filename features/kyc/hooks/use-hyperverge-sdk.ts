@@ -5,7 +5,8 @@ import { toast } from "sonner"
 
 import { useKycBroadcast } from "@/core/hooks/use-kyc-broadcast"
 
-import { getKycWebSdkSession, syncKycStatusFromCallback } from "@/features/kyc/api/kyc.actions"
+import { getKycWebSdkSession } from "@/features/kyc/api/kyc.actions"
+import { syncKycStatusFromCallbackRequest } from "@/features/kyc/api/sync-kyc-callback-client"
 
 const HYPERVERGE_WEB_SDK_VERSION = "10.0.0"
 const SDK_SCRIPT_URL = `https://hv-web-sdk-cdn.hyperverge.co/hyperverge-web-sdk@${HYPERVERGE_WEB_SDK_VERSION}/src/sdk.min.js`
@@ -64,7 +65,7 @@ export function useHyperVergeSDK({
 		async (result: { status: string }, transactionId: string) => {
 			const s = (result?.status ?? "").trim().toLowerCase().replace(/\s+/g, "_")
 			console.log("HyperVerge Web SDK callback:", { status: s, transactionId })
-			const sync = await syncKycStatusFromCallback(transactionId, s)
+			const sync = await syncKycStatusFromCallbackRequest(transactionId, s)
 
 			if (s === "auto_approved") {
 				if (!sync.success) {
