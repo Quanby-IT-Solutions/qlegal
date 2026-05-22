@@ -4,6 +4,7 @@ import { env } from "@/env"
 import { db } from "@/services/drizzle/db"
 import { users } from "@/services/drizzle/schema/auth"
 import { idCardDetails } from "@/services/drizzle/schema/id-card-details"
+import { kycSessions } from "@/services/drizzle/schema/kyc-sessions"
 
 /**
  * If the user's KYC verification is older than `KYC_VERIFICATION_VALIDITY_DAYS`, reset them to
@@ -27,12 +28,45 @@ export async function expireUserKycIfNeeded(userId: string): Promise<boolean> {
 			},
 		})
 
-		if (user?.kycStatus !== "VERIFIED" || !user?.kycVerifiedAt) {
+		if (user?.kycStatus !== "VERIFIED") {
 			return false
 		}
 
+		const latestVerifiedSession = await db.query.kycSessions.findFirst({
+			where: and(eq(kycSessions.userId, userId), eq(kycSessions.status, "VERIFIED")),
+			orderBy: (table, { desc }) => [desc(table.verifiedAt), desc(table.updatedAt)],
+			columns: {
+				verifiedAt: true,
+				updatedAt: true,
+				createdAt: true,
+			},
+		})
+
+		const effectiveVerifiedAt =
+			latestVerifiedSession?.verifiedAt ??
+			latestVerifiedSession?.updatedAt ??
+			latestVerifiedSession?.createdAt ??
+			user.kycVerifiedAt
+
+		if (!effectiveVerifiedAt) {
+			return false
+		}
+
+		if (
+			!user.kycVerifiedAt ||
+			latestVerifiedSession?.verifiedAt?.getTime() !== user.kycVerifiedAt.getTime()
+		) {
+			await db
+				.update(users)
+				.set({
+					kycVerifiedAt: effectiveVerifiedAt,
+					kycLastExpiredAt: null,
+				})
+				.where(eq(users.id, userId))
+		}
+
 		const validityMs = env.KYC_VERIFICATION_VALIDITY_DAYS * 24 * 60 * 60 * 1000
-		const ageMs = Date.now() - user.kycVerifiedAt.getTime()
+		const ageMs = Date.now() - effectiveVerifiedAt.getTime()
 		if (ageMs < validityMs) {
 			return false
 		}
