@@ -21,7 +21,7 @@ declare global {
 		HyperKYCModule?: {
 			launch: (
 				config: HyperKycConfigInstance,
-				callback: (result: { status: string }) => void
+				callback: (result: { status: string; transactionId?: string }) => void
 			) => Promise<void>
 		}
 		HyperKycConfig?: new (authToken: string, showLandingPage?: boolean) => HyperKycConfigInstance
@@ -62,10 +62,16 @@ export function useHyperVergeSDK({
 	const { broadcast } = useKycBroadcast()
 
 	const handleSdkCallback = useCallback(
-		async (result: { status: string }, transactionId: string) => {
+		async (result: { status: string; transactionId?: string }, transactionId: string) => {
 			const s = (result?.status ?? "").trim().toLowerCase().replace(/\s+/g, "_")
-			console.log("HyperVerge Web SDK callback:", { status: s, transactionId })
-			const sync = await syncKycStatusFromCallbackRequest(transactionId, s)
+			const providerTransactionId = result?.transactionId?.trim()
+			const syncTransactionId = providerTransactionId ?? transactionId
+			console.log("HyperVerge Web SDK callback:", {
+				status: s,
+				transactionId: syncTransactionId,
+				createdTransactionId: transactionId,
+			})
+			const sync = await syncKycStatusFromCallbackRequest(syncTransactionId, s)
 
 			if (s === "auto_approved") {
 				if (!sync.success) {
@@ -79,13 +85,13 @@ export function useHyperVergeSDK({
 					setStatus("done")
 					return
 				}
-				broadcast({ type: "KYC_VERIFIED", timestamp: Date.now(), transactionId })
+				broadcast({ type: "KYC_VERIFIED", timestamp: Date.now(), transactionId: syncTransactionId })
 				toast.success("Verification approved!")
 				if (redirectOnSuccess) {
 					window.location.href = redirectOnSuccess
 				}
 			} else if (s === "auto_declined") {
-				broadcast({ type: "KYC_REJECTED", timestamp: Date.now(), transactionId })
+				broadcast({ type: "KYC_REJECTED", timestamp: Date.now(), transactionId: syncTransactionId })
 				toast.error("Verification was declined. Please try again or contact support.")
 			} else if (s === "needs_review") {
 				toast.message("Verification is under review. We'll notify you once complete.")
@@ -157,7 +163,7 @@ export function useHyperVergeSDK({
 			config.supportDarkMode(true)
 		}
 
-		await HyperKYCModule.launch(config, (result: { status: string }) => {
+		await HyperKYCModule.launch(config, (result: { status: string; transactionId?: string }) => {
 			void handleSdkCallback(result, transactionId)
 		})
 	}, [handleSdkCallback, onComplete, status])

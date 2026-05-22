@@ -800,10 +800,12 @@ export async function checkUserKycStatus() {
 		}
 	}
 
-	const user = await db.query.users.findFirst({
+	let user = await db.query.users.findFirst({
 		where: eq(users.id, session.user.id),
 		columns: {
 			kycStatus: true,
+			kycVerifiedAt: true,
+			kycLastExpiredAt: true,
 			commissionStatus: true,
 			role: true,
 			firstName: true,
@@ -856,9 +858,60 @@ export async function checkUserKycStatus() {
 		}
 	}
 
-	// User row is source of truth for "fresh start" (14-day expiry, admin reset, etc.).
-	// Latest session row may still be VERIFIED/REJECTED/PENDING while `kycStatus` is NOT_STARTED.
+	// If the user row is stale but the latest transaction is active/final, recover from the session.
+	// This protects deployed clients from staying NOT_STARTED when the callback sync missed the exact
+	// transaction id but HyperVerge/session state is already pending or verified.
 	if (user.kycStatus === "NOT_STARTED") {
+		if (kycSession.status === "VERIFIED") {
+			const effectiveVerifiedAt =
+				kycSession.verifiedAt ?? kycSession.updatedAt ?? kycSession.createdAt
+			const validityMs = env.KYC_VERIFICATION_VALIDITY_DAYS * 24 * 60 * 60 * 1000
+			const isStillValid =
+				effectiveVerifiedAt && Date.now() - effectiveVerifiedAt.getTime() < validityMs
+
+			if (isStillValid) {
+				await db
+					.update(users)
+					.set({
+						kycStatus: "VERIFIED",
+						kycVerifiedAt: effectiveVerifiedAt,
+						kycLastExpiredAt: null,
+					})
+					.where(eq(users.id, session.user.id))
+
+				user = {
+					...user,
+					kycStatus: "VERIFIED",
+					kycVerifiedAt: effectiveVerifiedAt,
+					kycLastExpiredAt: null,
+				}
+			}
+		}
+
+		if (user.kycStatus !== "NOT_STARTED" || kycSession.status === "PENDING") {
+			console.log("🔁 Recovering KYC status from latest session", {
+				transactionId: kycSession.transactionId,
+				userStatus: user.kycStatus,
+				sessionStatus: kycSession.status,
+			})
+		} else {
+			return {
+				success: true,
+				data: {
+					transactionId: null,
+					status: "not_started",
+					kycStatus: "NOT_STARTED" as const,
+					isComplete: false,
+					isApproved: false,
+					needsReview: false,
+					message: "Please start identity verification.",
+					details: {},
+				},
+			}
+		}
+	}
+
+	if (user.kycStatus === "NOT_STARTED" && kycSession.status !== "PENDING") {
 		return {
 			success: true,
 			data: {
@@ -1433,7 +1486,21 @@ export async function syncKycStatusFromCallback(
 		},
 	})
 
-	if (!kycSession) {
+	const resolvedKycSession =
+		kycSession ??
+		(await db.query.kycSessions.findFirst({
+			where: and(eq(kycSessions.userId, session.user.id), eq(kycSessions.status, "PENDING")),
+			orderBy: (table, { desc }) => [desc(table.createdAt)],
+			columns: {
+				id: true,
+				status: true,
+				idCardDetailId: true,
+				sessionType: true,
+				transactionId: true,
+			},
+		}))
+
+	if (!resolvedKycSession) {
 		console.error(`${logPrefix} Failed: KYC session not found`, {
 			userId: session.user.id,
 			transactionId: transactionId.trim(),
@@ -1442,29 +1509,30 @@ export async function syncKycStatusFromCallback(
 	}
 
 	console.log(`${logPrefix} Session loaded`, {
-		kycSessionId: kycSession.id,
-		previousSessionStatus: kycSession.status,
-		sessionType: kycSession.sessionType,
-		hasIdCardDetailId: Boolean(kycSession.idCardDetailId),
+		kycSessionId: resolvedKycSession.id,
+		previousSessionStatus: resolvedKycSession.status,
+		sessionType: resolvedKycSession.sessionType,
+		hasIdCardDetailId: Boolean(resolvedKycSession.idCardDetailId),
+		matchedRequestedTransactionId: Boolean(kycSession),
 	})
 
 	if (newStatus === "PENDING") {
 		console.log(`${logPrefix} No DB update (non-final provider status)`, {
 			normalizedStatus: normalized,
-			sessionStatus: kycSession.status,
+			sessionStatus: resolvedKycSession.status,
 		})
 		return { success: true } // no DB update for pending/cancelled
 	}
 
-	if (kycSession.status === "VERIFIED" || kycSession.status === "REJECTED") {
+	if (resolvedKycSession.status === "VERIFIED" || resolvedKycSession.status === "REJECTED") {
 		console.log(`${logPrefix} Session already final — skipping update`, {
-			sessionStatus: kycSession.status,
+			sessionStatus: resolvedKycSession.status,
 			incomingResolvedStatus: newStatus,
 		})
 		return { success: true } // already final
 	}
 
-	const previousSessionStatus = kycSession.status
+	const previousSessionStatus = resolvedKycSession.status
 	const now = new Date()
 
 	await db
@@ -1474,7 +1542,7 @@ export async function syncKycStatusFromCallback(
 			verifiedAt: newStatus === "VERIFIED" ? now : null,
 			updatedAt: now,
 		})
-		.where(eq(kycSessions.id, kycSession.id))
+		.where(eq(kycSessions.id, resolvedKycSession.id))
 
 	const userKycUpdate =
 		newStatus === "VERIFIED"
@@ -1491,7 +1559,7 @@ export async function syncKycStatusFromCallback(
 
 	console.log(`${logPrefix} Updated kyc_session and users`, {
 		userId: session.user.id,
-		transactionId: kycSession.transactionId,
+		transactionId: resolvedKycSession.transactionId,
 		previousSessionStatus,
 		newSessionStatus: newStatus,
 		newUserKycStatus: newStatus,
@@ -1505,7 +1573,7 @@ export async function syncKycStatusFromCallback(
 
 		console.log(`${logPrefix} KYC callback processed without blocking on id_card_details backfill`, {
 			userId: session.user.id,
-			transactionId: kycSession.transactionId,
+			transactionId: resolvedKycSession.transactionId,
 			finalStatus: newStatus,
 			idCardBackfill,
 		})
@@ -1514,14 +1582,18 @@ export async function syncKycStatusFromCallback(
 	}
 
 	// Backfill id_card_details from HyperVerge Logs when VERIFIED and not yet linked (e.g. Web SDK flow)
-	if (newStatus === "VERIFIED" && !kycSession.idCardDetailId && kycSession.transactionId) {
+	if (
+		newStatus === "VERIFIED" &&
+		!resolvedKycSession.idCardDetailId &&
+		resolvedKycSession.transactionId
+	) {
 		idCardBackfill = "no_ocr"
 		try {
 			console.log(`${logPrefix} Fetching HyperVerge Logs API for id_card_details backfill`, {
-				transactionId: kycSession.transactionId,
-				sessionType: kycSession.sessionType,
+				transactionId: resolvedKycSession.transactionId,
+				sessionType: resolvedKycSession.sessionType,
 			})
-			const logs = await getHyperVergeKycLogs({ transactionId: kycSession.transactionId })
+			const logs = await getHyperVergeKycLogs({ transactionId: resolvedKycSession.transactionId })
 			const imageUrl = pickBestFaceImageUrlFromLogs(logs)
 			const ocr = pickOcrFieldsFromLogs(logs)
 
@@ -1532,11 +1604,11 @@ export async function syncKycStatusFromCallback(
 					if (dataUrl) faceImageUrl = dataUrl
 				}
 				const verificationMethod =
-					kycSession.sessionType === "web_sdk" ? "kyc_web_sdk" : "kyc_mobile_link"
+					resolvedKycSession.sessionType === "web_sdk" ? "kyc_web_sdk" : "kyc_mobile_link"
 				const idCardDetail = await saveIdCardDetails(db, {
 					userId: session.user.id,
 					rawOcrData: ocr,
-					ocrTransactionId: kycSession.transactionId,
+					ocrTransactionId: resolvedKycSession.transactionId,
 					ocrProvider: "hyperverge",
 					faceImageUrl,
 					isVerified: true,
@@ -1553,7 +1625,7 @@ export async function syncKycStatusFromCallback(
 							verifiedAt: new Date(),
 							updatedAt: new Date(),
 						})
-						.where(eq(kycSessions.id, kycSession.id))
+						.where(eq(kycSessions.id, resolvedKycSession.id))
 
 					console.log(`${logPrefix} id_card_details saved and linked to session`, {
 						idCardDetailId: idCardDetail.idCardDetailId,
@@ -1632,7 +1704,7 @@ export async function syncKycStatusFromCallback(
 				}
 			} else {
 				console.warn(`${logPrefix} Logs API returned no OCR fields`, {
-					transactionId: kycSession.transactionId,
+					transactionId: resolvedKycSession.transactionId,
 					hasFaceImageUrl: Boolean(imageUrl),
 				})
 			}
@@ -1640,9 +1712,9 @@ export async function syncKycStatusFromCallback(
 			idCardBackfill = "failed"
 			console.warn(`${logPrefix} id_card_details backfill failed (non-fatal):`, err)
 		}
-	} else if (newStatus === "VERIFIED" && kycSession.idCardDetailId) {
+	} else if (newStatus === "VERIFIED" && resolvedKycSession.idCardDetailId) {
 		console.log(`${logPrefix} id_card_details backfill skipped (already linked)`, {
-			idCardDetailId: kycSession.idCardDetailId,
+			idCardDetailId: resolvedKycSession.idCardDetailId,
 		})
 	}
 
@@ -1658,7 +1730,7 @@ export async function syncKycStatusFromCallback(
 
 	console.log(`${logPrefix} ${completed}`, {
 		userId: session.user.id,
-		transactionId: kycSession.transactionId,
+		transactionId: resolvedKycSession.transactionId,
 		finalStatus: newStatus,
 		idCardBackfill,
 	})
