@@ -62,10 +62,22 @@ export function useHyperVergeSDK({
 
 	const handleSdkCallback = useCallback(
 		async (result: { status: string }, transactionId: string) => {
-			const s = (result?.status ?? "").trim().toLowerCase()
-			await syncKycStatusFromCallback(transactionId, s)
+			const s = (result?.status ?? "").trim().toLowerCase().replace(/\s+/g, "_")
+			console.log("HyperVerge Web SDK callback:", { status: s, transactionId })
+			const sync = await syncKycStatusFromCallback(transactionId, s)
 
 			if (s === "auto_approved") {
+				if (!sync.success) {
+					console.error("KYC sync failed after SDK approval:", sync.error)
+					toast.error(
+						sync.error ??
+							"Verification succeeded but could not save to your account. Refresh the page or try again."
+					)
+					onComplete?.(s)
+					hasLaunchedRef.current = false
+					setStatus("done")
+					return
+				}
 				broadcast({ type: "KYC_VERIFIED", timestamp: Date.now(), transactionId })
 				toast.success("Verification approved!")
 				if (redirectOnSuccess) {

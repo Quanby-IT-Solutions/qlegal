@@ -856,13 +856,13 @@ export async function checkUserKycStatus() {
 		}
 	}
 
-	// User row is source of truth for "fresh start" (14-day expiry, admin reset, etc.).
-	// Latest session row may still be VERIFIED/REJECTED/PENDING while `kycStatus` is NOT_STARTED.
-	if (user.kycStatus === "NOT_STARTED") {
+	// User row is NOT_STARTED after expiry/admin reset, but a new PENDING session may already exist
+	// (e.g. Web SDK re-verification). In that case, keep going so we can poll HyperVerge /v1/output.
+	if (user.kycStatus === "NOT_STARTED" && kycSession.status !== "PENDING") {
 		return {
 			success: true,
 			data: {
-				transactionId: null,
+				transactionId: kycSession.transactionId,
 				status: "not_started",
 				kycStatus: "NOT_STARTED" as const,
 				isComplete: false,
