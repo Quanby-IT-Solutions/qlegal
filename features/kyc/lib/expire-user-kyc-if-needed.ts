@@ -33,26 +33,22 @@ export async function expireUserKycIfNeeded(userId: string): Promise<boolean> {
 
 		const latestVerifiedSession = await db.query.kycSessions.findFirst({
 			where: and(eq(kycSessions.userId, userId), eq(kycSessions.status, "VERIFIED")),
-			orderBy: (table, { desc }) => [
-				desc(table.verifiedAt),
-				desc(table.updatedAt),
-				desc(table.createdAt),
-			],
+			orderBy: (table, { desc }) => [desc(table.verifiedAt)],
 			columns: {
 				id: true,
 				verifiedAt: true,
-				updatedAt: true,
-				createdAt: true,
 			},
 		})
 
-		const effectiveVerifiedAt =
-			latestVerifiedSession?.verifiedAt ??
-			latestVerifiedSession?.updatedAt ??
-			latestVerifiedSession?.createdAt ??
-			user.kycVerifiedAt
+		const effectiveVerifiedAt = latestVerifiedSession?.verifiedAt ?? user.kycVerifiedAt
 
 		if (!latestVerifiedSession || !effectiveVerifiedAt) {
+			await db
+				.update(users)
+				.set({
+					kycLastExpiredAt: null,
+				})
+				.where(eq(users.id, userId))
 			return false
 		}
 
