@@ -260,6 +260,43 @@ async function syncUserKycStatusFromLatestSession(userId: string): Promise<{
 		}
 	}
 
+	// SENTINEL_v2_BULLETPROOF_GUARD: short-circuit when the users row already says VERIFIED
+	// with a recent kycVerifiedAt. Source-of-truth on a fast path; avoids the wipe paths.
+	{
+		const validityDaysEarly = Math.max(
+			env.KYC_VERIFICATION_VALIDITY_DAYS,
+			MIN_KYC_VERIFICATION_VALIDITY_DAYS
+		)
+		const validityMsEarly = validityDaysEarly * 24 * 60 * 60 * 1000
+		if (
+			dbUser.kycStatus === "VERIFIED" &&
+			dbUser.kycVerifiedAt &&
+			Date.now() - dbUser.kycVerifiedAt.getTime() < validityMsEarly
+		) {
+			console.warn(
+				"[syncUserKycStatusFromLatestSession] SENTINEL_v2 short-circuit (user row authoritative)",
+				{
+					userId,
+					kycVerifiedAt: dbUser.kycVerifiedAt,
+					ageMs: Date.now() - dbUser.kycVerifiedAt.getTime(),
+					validityMs: validityMsEarly,
+				}
+			)
+			if (dbUser.kycLastExpiredAt) {
+				await db
+					.update(users)
+					.set({ kycLastExpiredAt: null })
+					.where(eq(users.id, userId))
+			}
+			return {
+				kycStatus: "VERIFIED",
+				kycVerifiedAt: dbUser.kycVerifiedAt,
+				kycLastExpiredAt: null,
+				latestSession: latestVerifiedSession ?? latestSession ?? null,
+			}
+		}
+	}
+
 	const latestVerifiedAt =
 		latestVerifiedSession?.verifiedAt ??
 		latestVerifiedSession?.updatedAt ??
