@@ -125,8 +125,12 @@ export function IdentityVerificationCard() {
 		userInfo?.kycStatus === "NOT_STARTED" && Boolean(userInfo?.kycLastExpiredAt)
 	const validityDays = userInfo?.kycVerificationValidityDays ?? 14
 
-	const kycStatus =
+	// Prefer the fresh DB status from `getUserKycInfo` over the cached NextAuth JWT to prevent the
+	// badge from briefly showing "Verified" while the description renders the expiry copy (or vice
+	// versa) right after `expireUserKycIfNeeded` runs server-side.
+	const sessionKycStatus =
 		typeof session?.user?.kycStatus === "string" ? session.user.kycStatus : "NOT_STARTED"
+	const kycStatus = typeof userInfo?.kycStatus === "string" ? userInfo.kycStatus : sessionKycStatus
 
 	const { data: statusQueryResult, isCheckingStatus } = useKycStatus({
 		currentStatus: kycStatus,
