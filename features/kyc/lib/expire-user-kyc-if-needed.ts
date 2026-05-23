@@ -154,12 +154,49 @@ export async function expireUserKycIfNeeded(userId: string): Promise<boolean> {
 				.where(eq(users.id, userId))
 		}
 
+		// Defensive guard: re-query the DB (source of truth) for any recent VERIFIED session
+		// before flipping the user to NOT_STARTED. If a verified session within the validity
+		// window still exists, self-heal to VERIFIED instead of expiring. Prevents accidental
+		// resets if in-memory state (effectiveVerifiedAt / ageMs / validityMs) ever drifts.
+		const guardCutoff = new Date(Date.now() - validityMs)
+		const recentVerifiedRow = await db.query.kycSessions.findFirst({
+			where: and(
+				eq(kycSessions.userId, userId),
+				eq(kycSessions.status, "VERIFIED"),
+				isNotNull(kycSessions.verifiedAt)
+			),
+			orderBy: (table, { desc }) => [desc(table.verifiedAt)],
+			columns: { id: true, verifiedAt: true },
+		})
+		if (
+			recentVerifiedRow?.verifiedAt &&
+			recentVerifiedRow.verifiedAt.getTime() >= guardCutoff.getTime()
+		) {
+			console.warn("[expireUserKycIfNeeded] Abort expire — recent VERIFIED session exists", {
+				userId,
+				sessionId: recentVerifiedRow.id,
+				sessionVerifiedAt: recentVerifiedRow.verifiedAt,
+				guardCutoff,
+				validityDays,
+			})
+			await db
+				.update(users)
+				.set({
+					kycStatus: "VERIFIED",
+					kycVerifiedAt: recentVerifiedRow.verifiedAt,
+					kycLastExpiredAt: null,
+				})
+				.where(eq(users.id, userId))
+			return false
+		}
+
 		console.warn("[expireUserKycIfNeeded] Expiring KYC", {
 			userId,
 			userVerifiedAt: user.kycVerifiedAt,
 			sessionVerifiedAt: latestVerifiedSession?.verifiedAt,
 			effectiveVerifiedAt,
 			ageDays: Math.round(ageMs / (24 * 60 * 60 * 1000)),
+			validityDays,
 		})
 
 		await db
