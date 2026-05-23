@@ -34,8 +34,13 @@ export async function expireUserKycIfNeeded(userId: string): Promise<boolean> {
 
 		const latestVerifiedSession = await db.query.kycSessions.findFirst({
 			where: and(eq(kycSessions.userId, userId), eq(kycSessions.status, "VERIFIED")),
-			orderBy: (table, { desc }) => [desc(table.verifiedAt), desc(table.updatedAt)],
+			orderBy: (table, { desc }) => [
+				desc(table.verifiedAt),
+				desc(table.updatedAt),
+				desc(table.createdAt),
+			],
 			columns: {
+				id: true,
 				verifiedAt: true,
 				updatedAt: true,
 				createdAt: true,
@@ -48,7 +53,21 @@ export async function expireUserKycIfNeeded(userId: string): Promise<boolean> {
 			latestVerifiedSession?.createdAt ??
 			user.kycVerifiedAt
 
-		if (!effectiveVerifiedAt) {
+		if (!latestVerifiedSession || !effectiveVerifiedAt) {
+			return false
+		}
+
+		const validityMs = env.KYC_VERIFICATION_VALIDITY_DAYS * 24 * 60 * 60 * 1000
+		const ageMs = Date.now() - effectiveVerifiedAt.getTime()
+		if (ageMs < validityMs) {
+			await db
+				.update(users)
+				.set({
+					kycStatus: "VERIFIED",
+					kycVerifiedAt: effectiveVerifiedAt,
+					kycLastExpiredAt: null,
+				})
+				.where(eq(users.id, userId))
 			return false
 		}
 
@@ -65,12 +84,6 @@ export async function expireUserKycIfNeeded(userId: string): Promise<boolean> {
 				.where(eq(users.id, userId))
 		}
 
-		const validityMs = env.KYC_VERIFICATION_VALIDITY_DAYS * 24 * 60 * 60 * 1000
-		const ageMs = Date.now() - effectiveVerifiedAt.getTime()
-		if (ageMs < validityMs) {
-			return false
-		}
-
 		await db
 			.update(users)
 			.set({
@@ -79,6 +92,14 @@ export async function expireUserKycIfNeeded(userId: string): Promise<boolean> {
 				kycLastExpiredAt: new Date(),
 			})
 			.where(eq(users.id, userId))
+
+		await db
+			.update(kycSessions)
+			.set({
+				status: "NOT_STARTED",
+				updatedAt: new Date(),
+			})
+			.where(eq(kycSessions.id, latestVerifiedSession.id))
 
 		await db
 			.update(idCardDetails)
