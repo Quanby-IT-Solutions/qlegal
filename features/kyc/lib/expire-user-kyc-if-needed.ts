@@ -73,9 +73,9 @@ export async function expireUserKycIfNeeded(userId: string): Promise<boolean> {
 
 		const effectiveVerifiedAt =
 			latestVerifiedSession?.verifiedAt ??
-			user.kycVerifiedAt ??
 			latestVerifiedSession?.updatedAt ??
 			latestVerifiedSession?.createdAt ??
+			user.kycVerifiedAt ??
 			null
 
 		if (!latestVerifiedSession || !effectiveVerifiedAt) {

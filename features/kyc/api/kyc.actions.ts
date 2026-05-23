@@ -262,9 +262,9 @@ async function syncUserKycStatusFromLatestSession(userId: string): Promise<{
 
 	const latestVerifiedAt =
 		latestVerifiedSession?.verifiedAt ??
-		dbUser.kycVerifiedAt ??
 		latestVerifiedSession?.updatedAt ??
 		latestVerifiedSession?.createdAt ??
+		dbUser.kycVerifiedAt ??
 		null
 	const validityDays = Math.max(
 		env.KYC_VERIFICATION_VALIDITY_DAYS,
