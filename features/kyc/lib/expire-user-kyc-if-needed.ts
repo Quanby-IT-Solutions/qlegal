@@ -23,12 +23,11 @@ export async function expireUserKycIfNeeded(userId: string): Promise<boolean> {
 		const user = await db.query.users.findFirst({
 			where: eq(users.id, userId),
 			columns: {
-				kycStatus: true,
 				kycVerifiedAt: true,
 			},
 		})
 
-		if (user?.kycStatus !== "VERIFIED") {
+		if (!user) {
 			return false
 		}
 
