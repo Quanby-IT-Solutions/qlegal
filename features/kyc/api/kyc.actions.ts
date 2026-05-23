@@ -216,6 +216,89 @@ function formatCityProvince(details: AddressDetails): string | null {
 	return cityProvince ? cityProvince : null
 }
 
+async function syncUserKycStatusFromLatestSession(userId: string): Promise<{
+	kycStatus: "NOT_STARTED" | "PENDING" | "VERIFIED" | "REJECTED" | null
+	kycVerifiedAt: Date | null
+	kycLastExpiredAt: Date | null
+	latestSession: typeof kycSessions.$inferSelect | null
+}> {
+	const latestSession = await db.query.kycSessions.findFirst({
+		where: eq(kycSessions.userId, userId),
+		orderBy: (table, { desc }) => [desc(table.createdAt)],
+	})
+
+	const dbUser = await db.query.users.findFirst({
+		where: eq(users.id, userId),
+		columns: {
+			kycStatus: true,
+			kycVerifiedAt: true,
+			kycLastExpiredAt: true,
+		},
+	})
+
+	if (!dbUser) {
+		return {
+			kycStatus: null,
+			kycVerifiedAt: null,
+			kycLastExpiredAt: null,
+			latestSession: latestSession ?? null,
+		}
+	}
+
+	if (!latestSession || latestSession.status === "NOT_STARTED") {
+		return {
+			kycStatus: dbUser.kycStatus ?? "NOT_STARTED",
+			kycVerifiedAt: dbUser.kycVerifiedAt,
+			kycLastExpiredAt: dbUser.kycLastExpiredAt,
+			latestSession: latestSession ?? null,
+		}
+	}
+
+	const nextStatus = latestSession.status
+	const nextVerifiedAt =
+		nextStatus === "VERIFIED"
+			? (latestSession.verifiedAt ?? latestSession.updatedAt ?? latestSession.createdAt)
+			: null
+
+	if (nextStatus === "VERIFIED" && nextVerifiedAt) {
+		const validityMs = env.KYC_VERIFICATION_VALIDITY_DAYS * 24 * 60 * 60 * 1000
+		const isExpired = Date.now() - nextVerifiedAt.getTime() >= validityMs
+		if (isExpired) {
+			return {
+				kycStatus: dbUser.kycStatus ?? "NOT_STARTED",
+				kycVerifiedAt: dbUser.kycVerifiedAt,
+				kycLastExpiredAt: dbUser.kycLastExpiredAt,
+				latestSession,
+			}
+		}
+	}
+
+	const nextLastExpiredAt = nextStatus === "VERIFIED" ? null : dbUser.kycLastExpiredAt
+
+	const needsUpdate =
+		dbUser.kycStatus !== nextStatus ||
+		(dbUser.kycVerifiedAt?.getTime() ?? null) !== (nextVerifiedAt?.getTime() ?? null) ||
+		(nextStatus === "VERIFIED" && dbUser.kycLastExpiredAt !== null)
+
+	if (needsUpdate) {
+		await db
+			.update(users)
+			.set({
+				kycStatus: nextStatus,
+				kycVerifiedAt: nextVerifiedAt,
+				kycLastExpiredAt: nextStatus === "VERIFIED" ? null : dbUser.kycLastExpiredAt,
+			})
+			.where(eq(users.id, userId))
+	}
+
+	return {
+		kycStatus: nextStatus,
+		kycVerifiedAt: nextVerifiedAt,
+		kycLastExpiredAt: nextLastExpiredAt,
+		latestSession,
+	}
+}
+
 /**
  * Create a new KYC onboard link for the authenticated user
  * Prevents creating multiple pending transactions by checking for existing valid (non-expired) pending transactions
@@ -799,6 +882,8 @@ export async function checkUserKycStatus() {
 			error: "User not authenticated",
 		}
 	}
+
+	await syncUserKycStatusFromLatestSession(session.user.id)
 
 	let user = await db.query.users.findFirst({
 		where: eq(users.id, session.user.id),
@@ -1861,7 +1946,9 @@ export async function getUserKycInfo() {
 		}
 	}
 
+	await syncUserKycStatusFromLatestSession(session.user.id)
 	await expireUserKycIfNeeded(session.user.id)
+	await syncUserKycStatusFromLatestSession(session.user.id)
 
 	const dbUser = await db.query.users.findFirst({
 		where: eq(users.id, session.user.id),
