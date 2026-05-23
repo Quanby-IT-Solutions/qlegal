@@ -220,7 +220,10 @@ export async function expireUserKycIfNeeded(userId: string): Promise<boolean> {
 			return false
 		}
 
-		console.warn("[expireUserKycIfNeeded] Expiring KYC", {
+		// SENTINEL_v3_NO_WIPE: passive reconciliation should NEVER destructively wipe the
+		// user's KYC status. Expiry is now driven exclusively by explicit user actions
+		// (e.g. re-running KYC) and webhook events. Log-only here.
+		console.warn("[expireUserKycIfNeeded] SENTINEL_v3 — wipe SUPPRESSED", {
 			userId,
 			userVerifiedAt: user.kycVerifiedAt,
 			sessionVerifiedAt: latestVerifiedSession?.verifiedAt,
@@ -229,25 +232,7 @@ export async function expireUserKycIfNeeded(userId: string): Promise<boolean> {
 			validityDays,
 		})
 
-		await db
-			.update(users)
-			.set({
-				kycStatus: "NOT_STARTED",
-				kycVerifiedAt: null,
-				kycLastExpiredAt: new Date(),
-			})
-			.where(eq(users.id, userId))
-
-		await db
-			.update(idCardDetails)
-			.set({
-				isVerified: false,
-				verifiedAt: null,
-				updatedAt: new Date(),
-			})
-			.where(and(eq(idCardDetails.userId, userId), eq(idCardDetails.isVerified, true)))
-
-		return true
+		return false
 	} catch (error) {
 		console.error("[expireUserKycIfNeeded] Failed:", error)
 		return false

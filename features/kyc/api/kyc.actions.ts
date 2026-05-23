@@ -368,7 +368,7 @@ async function syncUserKycStatusFromLatestSession(userId: string): Promise<{
 			}
 		}
 
-		console.warn("[syncUserKycStatusFromLatestSession] Expiring KYC", {
+		console.warn("[syncUserKycStatusFromLatestSession] SENTINEL_v3 — expire SUPPRESSED", {
 			userId,
 			latestVerifiedAt,
 			hasValidVerifiedSession,
@@ -378,21 +378,11 @@ async function syncUserKycStatusFromLatestSession(userId: string): Promise<{
 			validityDays,
 		})
 
-		const nextLastExpiredAt = dbUser.kycLastExpiredAt ?? new Date()
-		await db
-			.update(users)
-			.set({
-				kycStatus: "NOT_STARTED",
-				kycVerifiedAt: null,
-				kycLastExpiredAt: nextLastExpiredAt,
-			})
-			.where(eq(users.id, userId))
-
 		return {
-			kycStatus: "NOT_STARTED",
-			kycVerifiedAt: null,
-			kycLastExpiredAt: nextLastExpiredAt,
-			latestSession: latestSession ?? latestVerifiedSession,
+			kycStatus: dbUser.kycStatus,
+			kycVerifiedAt: dbUser.kycVerifiedAt,
+			kycLastExpiredAt: dbUser.kycLastExpiredAt,
+			latestSession: latestVerifiedSession ?? latestSession ?? null,
 		}
 	}
 
@@ -452,7 +442,7 @@ async function syncUserKycStatusFromLatestSession(userId: string): Promise<{
 		}
 
 		if (dbUser.kycStatus !== "NOT_STARTED" || dbUser.kycLastExpiredAt) {
-			console.warn("[syncUserKycStatusFromLatestSession] Wiping user to NOT_STARTED", {
+			console.warn("[syncUserKycStatusFromLatestSession] SENTINEL_v3 — wipe SUPPRESSED", {
 				userId,
 				dbUserKycStatus: dbUser.kycStatus,
 				dbUserKycVerifiedAt: dbUser.kycVerifiedAt,
@@ -463,20 +453,12 @@ async function syncUserKycStatusFromLatestSession(userId: string): Promise<{
 				latestSessionId: latestSession?.id ?? null,
 				latestSessionStatus: latestSession?.status ?? null,
 			})
-			await db
-				.update(users)
-				.set({
-					kycStatus: "NOT_STARTED",
-					kycVerifiedAt: null,
-					kycLastExpiredAt: null,
-				})
-				.where(eq(users.id, userId))
 		}
 
 		return {
-			kycStatus: "NOT_STARTED",
-			kycVerifiedAt: null,
-			kycLastExpiredAt: null,
+			kycStatus: dbUser.kycStatus,
+			kycVerifiedAt: dbUser.kycVerifiedAt,
+			kycLastExpiredAt: dbUser.kycLastExpiredAt,
 			latestSession: sourceSession ?? null,
 		}
 	}
