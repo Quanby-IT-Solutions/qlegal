@@ -921,7 +921,7 @@ export async function checkUserKycStatus() {
 			})
 		: null
 
-	if (!kycSession || sessionBackedStatus.kycStatus === "NOT_STARTED") {
+	if (!kycSession) {
 		return {
 			success: true,
 			data: {
