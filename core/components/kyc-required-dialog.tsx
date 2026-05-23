@@ -4,14 +4,6 @@ import { type Route } from "next"
 import Link from "next/link"
 import { useQuery } from "@tanstack/react-query"
 
-import { getUserKycInfoRequest } from "@/features/kyc/api/kyc-client"
-import { useStartKycVerification } from "@/features/kyc/hooks/use-start-kyc-verification"
-
-import {
-	kycExpiryRenewalDescription,
-	kycExpiryRenewalDialogTitle,
-} from "@/core/lib/kyc-reverification-copy"
-
 import {
 	AlertDialog,
 	AlertDialogCancel,
@@ -22,6 +14,13 @@ import {
 	AlertDialogTitle,
 } from "@/core/components/ui/alert-dialog"
 import { Button } from "@/core/components/ui/button"
+import {
+	kycExpiryRenewalDescription,
+	kycExpiryRenewalDialogTitle,
+} from "@/core/lib/kyc-reverification-copy"
+
+import { getUserKycInfoRequest } from "@/features/kyc/api/kyc-client"
+import { useStartKycVerification } from "@/features/kyc/hooks/use-start-kyc-verification"
 
 interface KycRequiredDialogProps {
 	open: boolean

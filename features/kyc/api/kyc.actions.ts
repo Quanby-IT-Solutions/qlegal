@@ -340,8 +340,7 @@ async function syncUserKycStatusFromLatestSession(userId: string): Promise<{
 	const needsUpdate =
 		dbUser.kycStatus !== nextStatus ||
 		(dbUser.kycVerifiedAt?.getTime() ?? null) !== (nextVerifiedAt?.getTime() ?? null) ||
-		(dbUser.kycLastExpiredAt?.getTime() ?? null) !==
-			(nextLastExpiredAt?.getTime() ?? null)
+		(dbUser.kycLastExpiredAt?.getTime() ?? null) !== (nextLastExpiredAt?.getTime() ?? null)
 
 	if (needsUpdate) {
 		await db
