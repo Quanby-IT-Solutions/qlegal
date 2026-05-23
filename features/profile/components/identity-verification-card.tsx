@@ -136,7 +136,7 @@ function kycStatusMeta(status: string): {
 
 export function IdentityVerificationCard() {
 	const queryClient = useQueryClient()
-	const { data: session, update: updateSession } = useSession()
+	const { update: updateSession } = useSession()
 	const { start, isLoading } = useStartKycVerification()
 	const { listen } = useKycBroadcast()
 
@@ -148,11 +148,8 @@ export function IdentityVerificationCard() {
 	const userInfo = kycInfoResult?.success ? kycInfoResult.data : undefined
 	const validityDays = userInfo?.kycVerificationValidityDays ?? 14
 
-	const kycStatus =
-		typeof session?.user?.kycStatus === "string" ? session.user.kycStatus : "NOT_STARTED"
-
 	const { data: statusQueryResult, isCheckingStatus } = useKycStatus({
-		currentStatus: kycStatus,
+		currentStatus: userInfo?.kycStatus ?? "NOT_STARTED",
 		enabled: true,
 	})
 	const statusResult = statusQueryResult?.success ? statusQueryResult.data : null
@@ -162,8 +159,7 @@ export function IdentityVerificationCard() {
 	// DB + status check + JWT can disagree after expiry re-verify; never let stale NOT_STARTED hide VERIFIED.
 	const effectiveKycStatus = resolveDisplayKycStatus(
 		userInfo?.kycStatus,
-		statusResult?.kycStatus,
-		kycStatus
+		statusResult?.kycStatus
 	)
 	const isExpiryRenewal =
 		effectiveKycStatus === "NOT_STARTED" && Boolean(userInfo?.kycLastExpiredAt)

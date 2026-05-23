@@ -27,7 +27,6 @@ import {
 import { checkLiveness } from "@/services/hyperverge/liveness"
 import { auth } from "@/services/next-auth"
 
-import { expireUserKycIfNeeded } from "@/features/kyc/lib/expire-user-kyc-if-needed"
 import { saveIdCardDetails } from "@/features/kyc/lib/save-id-card-details"
 
 import { env } from "@/env"
@@ -228,7 +227,11 @@ async function syncUserKycStatusFromLatestSession(userId: string): Promise<{
 	})
 	const latestVerifiedSession = await db.query.kycSessions.findFirst({
 		where: and(eq(kycSessions.userId, userId), eq(kycSessions.status, "VERIFIED")),
-		orderBy: (table, { desc }) => [desc(table.verifiedAt), desc(table.updatedAt), desc(table.createdAt)],
+		orderBy: (table, { desc }) => [
+			desc(table.verifiedAt),
+			desc(table.updatedAt),
+			desc(table.createdAt),
+		],
 	})
 
 	const dbUser = await db.query.users.findFirst({
@@ -264,7 +267,7 @@ async function syncUserKycStatusFromLatestSession(userId: string): Promise<{
 
 	if (!sourceSession || sourceSession.status === "NOT_STARTED") {
 		return {
-			kycStatus: dbUser.kycStatus ?? "NOT_STARTED",
+			kycStatus: "NOT_STARTED",
 			kycVerifiedAt: dbUser.kycVerifiedAt,
 			kycLastExpiredAt: dbUser.kycLastExpiredAt,
 			latestSession: sourceSession ?? null,
@@ -317,10 +320,7 @@ export async function createUserKycLink() {
 		}
 	}
 
-	const dbUser = await db.query.users.findFirst({
-		where: eq(users.id, session.user.id),
-		columns: { kycStatus: true },
-	})
+	const sessionBackedStatus = await syncUserKycStatusFromLatestSession(session.user.id)
 
 	// Check for existing pending KYC session
 	const existingSession = await db.query.kycSessions.findFirst({
@@ -329,9 +329,9 @@ export async function createUserKycLink() {
 	})
 
 	// If there's a pending session, check if it's expired (24 hours)
-	// Only when user is still PENDING (not NOT_STARTED after 14-day expiry or reset).
+	// Only when the KYC session source of truth is still PENDING.
 	if (
-		dbUser?.kycStatus === "PENDING" &&
+		sessionBackedStatus.kycStatus === "PENDING" &&
 		existingSession?.status === "PENDING" &&
 		existingSession.hostedLink
 	) {
@@ -440,10 +440,7 @@ export async function getKycWebSdkSession() {
 		return { success: false as const, error: "User not authenticated" }
 	}
 
-	const dbUser = await db.query.users.findFirst({
-		where: eq(users.id, session.user.id),
-		columns: { kycStatus: true },
-	})
+	const sessionBackedStatus = await syncUserKycStatusFromLatestSession(session.user.id)
 
 	const existingSession = await db.query.kycSessions.findFirst({
 		where: eq(kycSessions.userId, session.user.id),
@@ -452,9 +449,9 @@ export async function getKycWebSdkSession() {
 
 	let transactionId: string
 
-	// Reuse a pending Web SDK transaction only while the user row is still PENDING (not NOT_STARTED).
+	// Reuse a pending Web SDK transaction only while the KYC session source of truth is PENDING.
 	if (
-		dbUser?.kycStatus === "PENDING" &&
+		sessionBackedStatus.kycStatus === "PENDING" &&
 		existingSession?.status === "PENDING" &&
 		existingSession.sessionType === "web_sdk"
 	) {
@@ -887,12 +884,11 @@ export async function checkUserKycStatus() {
 		}
 	}
 
-	await syncUserKycStatusFromLatestSession(session.user.id)
+	const sessionBackedStatus = await syncUserKycStatusFromLatestSession(session.user.id)
 
-	let user = await db.query.users.findFirst({
+	const user = await db.query.users.findFirst({
 		where: eq(users.id, session.user.id),
 		columns: {
-			kycStatus: true,
 			kycVerifiedAt: true,
 			kycLastExpiredAt: true,
 			commissionStatus: true,
@@ -916,91 +912,16 @@ export async function checkUserKycStatus() {
 		}
 	}
 
-	// Get the latest KYC session
-	const kycSession = await db.query.kycSessions.findFirst({
-		where: eq(kycSessions.userId, session.user.id),
-		orderBy: (table, { desc }) => [desc(table.createdAt)],
-		with: {
-			idCardDetail: true,
-		},
-	})
-
-	if (!kycSession) {
-		if (user.kycStatus === "NOT_STARTED") {
-			return {
-				success: true,
-				data: {
-					transactionId: null,
-					status: "not_started",
-					kycStatus: "NOT_STARTED" as const,
-					isComplete: false,
-					isApproved: false,
-					needsReview: false,
-					message: "Please start identity verification.",
-					details: {},
+	const kycSession = sessionBackedStatus.latestSession
+		? await db.query.kycSessions.findFirst({
+				where: eq(kycSessions.id, sessionBackedStatus.latestSession.id),
+				with: {
+					idCardDetail: true,
 				},
-			}
-		}
-		return {
-			success: false,
-			error: "No KYC verification found. Please start the verification process.",
-		}
-	}
-
-	// If the user row is stale but the latest transaction is active/final, recover from the session.
-	// This protects deployed clients from staying NOT_STARTED when the callback sync missed the exact
-	// transaction id but HyperVerge/session state is already pending or verified.
-	if (user.kycStatus === "NOT_STARTED") {
-		if (kycSession.status === "VERIFIED") {
-			const effectiveVerifiedAt =
-				kycSession.verifiedAt ?? kycSession.updatedAt ?? kycSession.createdAt
-			const validityMs = env.KYC_VERIFICATION_VALIDITY_DAYS * 24 * 60 * 60 * 1000
-			const isStillValid =
-				effectiveVerifiedAt && Date.now() - effectiveVerifiedAt.getTime() < validityMs
-
-			if (isStillValid) {
-				await db
-					.update(users)
-					.set({
-						kycStatus: "VERIFIED",
-						kycVerifiedAt: effectiveVerifiedAt,
-						kycLastExpiredAt: null,
-					})
-					.where(eq(users.id, session.user.id))
-
-				user = {
-					...user,
-					kycStatus: "VERIFIED",
-					kycVerifiedAt: effectiveVerifiedAt,
-					kycLastExpiredAt: null,
-				}
-			}
-		}
-
-		if (user.kycStatus !== "NOT_STARTED" || kycSession.status === "PENDING") {
-			console.log("🔁 Recovering KYC status from latest session", {
-				transactionId: kycSession.transactionId,
-				userStatus: user.kycStatus,
-				sessionStatus: kycSession.status,
 			})
-		} else {
-			return {
-				success: true,
-				data: {
-					transactionId: null,
-					status: "not_started",
-					kycStatus: "NOT_STARTED" as const,
-					isComplete: false,
-					isApproved: false,
-					needsReview: false,
-					message: "Please start identity verification.",
-					details: {},
-				},
-			}
-		}
-	}
+		: null
 
-	if (user.kycStatus === "NOT_STARTED" && kycSession.status !== "PENDING") {
+	if (!kycSession || sessionBackedStatus.kycStatus === "NOT_STARTED") {
 		return {
 			success: true,
 			data: {
@@ -1577,13 +1498,15 @@ export async function syncKycStatusFromCallback(
 		transactionId: true,
 	} as const
 
-	let kycSession: {
-		id: string
-		status: "NOT_STARTED" | "PENDING" | "VERIFIED" | "REJECTED"
-		idCardDetailId: string | null
-		sessionType: string
-		transactionId: string
-	} | undefined
+	let kycSession:
+		| {
+				id: string
+				status: "NOT_STARTED" | "PENDING" | "VERIFIED" | "REJECTED"
+				idCardDetailId: string | null
+				sessionType: string
+				transactionId: string
+		  }
+		| undefined
 
 	for (const candidateTransactionId of transactionIds) {
 		const candidate = await db.query.kycSessions.findFirst({
@@ -1685,12 +1608,15 @@ export async function syncKycStatusFromCallback(
 		revalidatePath("/onboarding")
 		revalidatePath("/profile")
 
-		console.log(`${logPrefix} KYC callback processed without blocking on id_card_details backfill`, {
-			userId: session.user.id,
-			transactionId: resolvedKycSession.transactionId,
-			finalStatus: newStatus,
-			idCardBackfill,
-		})
+		console.log(
+			`${logPrefix} KYC callback processed without blocking on id_card_details backfill`,
+			{
+				userId: session.user.id,
+				transactionId: resolvedKycSession.transactionId,
+				finalStatus: newStatus,
+				idCardBackfill,
+			}
+		)
 
 		return { success: true }
 	}
@@ -1950,9 +1876,7 @@ export async function getUserKycInfo() {
 		}
 	}
 
-	await syncUserKycStatusFromLatestSession(session.user.id)
-	await expireUserKycIfNeeded(session.user.id)
-	await syncUserKycStatusFromLatestSession(session.user.id)
+	const sessionBackedStatus = await syncUserKycStatusFromLatestSession(session.user.id)
 
 	const dbUser = await db.query.users.findFirst({
 		where: eq(users.id, session.user.id),
@@ -1962,7 +1886,6 @@ export async function getUserKycInfo() {
 			lastName: true,
 			address: true,
 			email: true,
-			kycStatus: true,
 			kycLastExpiredAt: true,
 		},
 	})
@@ -1975,7 +1898,9 @@ export async function getUserKycInfo() {
 	}
 
 	const kycLastExpiredAtIso =
-		dbUser.kycLastExpiredAt instanceof Date ? dbUser.kycLastExpiredAt.toISOString() : null
+		sessionBackedStatus.kycLastExpiredAt instanceof Date
+			? sessionBackedStatus.kycLastExpiredAt.toISOString()
+			: null
 
 	const kycSession = await db.query.kycSessions.findFirst({
 		where: eq(kycSessions.userId, session.user.id),
@@ -2059,30 +1984,30 @@ export async function getUserKycInfo() {
 			profileMiddleName: dbUser.middleName,
 			profileLastName: dbUser.lastName,
 			transactionId: kycSession?.transactionId ?? null,
-			kycStatus: dbUser.kycStatus,
+			kycStatus: sessionBackedStatus.kycStatus ?? "NOT_STARTED",
 			kycLastExpiredAt: kycLastExpiredAtIso,
 			kycVerificationValidityDays: env.KYC_VERIFICATION_VALIDITY_DAYS,
 			kycLinkCreatedAt: kycSession?.hostedLinkCreatedAt ?? null,
 			hasHostedLink: !!kycSession?.hostedLink,
 			sessionType: kycSession?.sessionType ?? null,
 			kycPreview:
-				latestIdCard && (latestIdCard.isVerified || dbUser.kycStatus === "VERIFIED")
+				latestIdCard && (latestIdCard.isVerified || sessionBackedStatus.kycStatus === "VERIFIED")
 					? {
 							// Prefer saved DB values when verified (auto-saved after KYC)
 							firstName:
-								dbUser.kycStatus === "VERIFIED"
+								sessionBackedStatus.kycStatus === "VERIFIED"
 									? (dbUser.firstName ?? resolvedIdName?.firstName ?? null)
 									: (resolvedIdName?.firstName ?? null),
 							middleName:
-								dbUser.kycStatus === "VERIFIED"
+								sessionBackedStatus.kycStatus === "VERIFIED"
 									? (dbUser.middleName ?? resolvedIdName?.middleName ?? null)
 									: (resolvedIdName?.middleName ?? null),
 							lastName:
-								dbUser.kycStatus === "VERIFIED"
+								sessionBackedStatus.kycStatus === "VERIFIED"
 									? (dbUser.lastName ?? resolvedIdName?.lastName ?? null)
 									: (resolvedIdName?.lastName ?? null),
 							address:
-								dbUser.kycStatus === "VERIFIED"
+								sessionBackedStatus.kycStatus === "VERIFIED"
 									? (dbUser.address ?? previewAddress)
 									: previewAddress,
 							homeStreet: previewHomeStreet,
