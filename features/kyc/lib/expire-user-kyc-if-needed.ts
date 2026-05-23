@@ -1,10 +1,12 @@
-import { and, eq } from "drizzle-orm"
+import { and, eq, isNotNull } from "drizzle-orm"
 
 import { env } from "@/env"
 import { db } from "@/services/drizzle/db"
 import { users } from "@/services/drizzle/schema/auth"
 import { idCardDetails } from "@/services/drizzle/schema/id-card-details"
 import { kycSessions } from "@/services/drizzle/schema/kyc-sessions"
+
+const MIN_KYC_VERIFICATION_VALIDITY_DAYS = 14
 
 /**
  * If the user's KYC verification is older than `KYC_VERIFICATION_VALIDITY_DAYS`, reset them to
@@ -24,6 +26,7 @@ export async function expireUserKycIfNeeded(userId: string): Promise<boolean> {
 			where: eq(users.id, userId),
 			columns: {
 				kycVerifiedAt: true,
+				kycLastExpiredAt: true,
 			},
 		})
 
@@ -31,35 +34,102 @@ export async function expireUserKycIfNeeded(userId: string): Promise<boolean> {
 			return false
 		}
 
-		const latestVerifiedSession = await db.query.kycSessions.findFirst({
-			where: and(eq(kycSessions.userId, userId), eq(kycSessions.status, "VERIFIED")),
+		const latestSession = await db.query.kycSessions.findFirst({
+			where: eq(kycSessions.userId, userId),
+			orderBy: (table, { desc }) => [desc(table.createdAt)],
+			columns: {
+				id: true,
+				status: true,
+				createdAt: true,
+			},
+		})
+
+		const latestVerifiedSessionWithTimestamp = await db.query.kycSessions.findFirst({
+			where: and(
+				eq(kycSessions.userId, userId),
+				eq(kycSessions.status, "VERIFIED"),
+				isNotNull(kycSessions.verifiedAt)
+			),
 			orderBy: (table, { desc }) => [desc(table.verifiedAt)],
 			columns: {
 				id: true,
 				verifiedAt: true,
+				updatedAt: true,
+				createdAt: true,
 			},
 		})
+		const latestVerifiedSession =
+			latestVerifiedSessionWithTimestamp ??
+			(await db.query.kycSessions.findFirst({
+				where: and(eq(kycSessions.userId, userId), eq(kycSessions.status, "VERIFIED")),
+				orderBy: (table, { desc }) => [desc(table.updatedAt), desc(table.createdAt)],
+				columns: {
+					id: true,
+					verifiedAt: true,
+					updatedAt: true,
+					createdAt: true,
+				},
+			}))
 
-		const effectiveVerifiedAt = latestVerifiedSession?.verifiedAt ?? user.kycVerifiedAt
+		const effectiveVerifiedAt =
+			latestVerifiedSession?.verifiedAt ??
+			user.kycVerifiedAt ??
+			latestVerifiedSession?.updatedAt ??
+			latestVerifiedSession?.createdAt ??
+			null
 
 		if (!latestVerifiedSession || !effectiveVerifiedAt) {
-			await db
-				.update(users)
-				.set({
-					kycLastExpiredAt: null,
-				})
-				.where(eq(users.id, userId))
+			if (user.kycLastExpiredAt) {
+				await db
+					.update(users)
+					.set({
+						kycLastExpiredAt: null,
+					})
+					.where(eq(users.id, userId))
+			}
 			return false
 		}
 
-		const validityMs = env.KYC_VERIFICATION_VALIDITY_DAYS * 24 * 60 * 60 * 1000
+		const validityDays = Math.max(
+			env.KYC_VERIFICATION_VALIDITY_DAYS,
+			MIN_KYC_VERIFICATION_VALIDITY_DAYS
+		)
+		const validityMs = validityDays * 24 * 60 * 60 * 1000
 		const ageMs = Date.now() - effectiveVerifiedAt.getTime()
-		if (ageMs < validityMs) {
+		if (ageMs < validityMs || ageMs < 0) {
 			await db
 				.update(users)
 				.set({
 					kycStatus: "VERIFIED",
 					kycVerifiedAt: effectiveVerifiedAt,
+					kycLastExpiredAt: null,
+				})
+				.where(eq(users.id, userId))
+
+			if (!latestVerifiedSession.verifiedAt) {
+				await db
+					.update(kycSessions)
+					.set({
+						verifiedAt: effectiveVerifiedAt,
+						updatedAt: new Date(),
+					})
+					.where(eq(kycSessions.id, latestVerifiedSession.id))
+			}
+
+			return false
+		}
+
+		if (
+			latestSession &&
+			latestSession.id !== latestVerifiedSession.id &&
+			latestSession.status !== "NOT_STARTED" &&
+			latestSession.createdAt.getTime() > effectiveVerifiedAt.getTime()
+		) {
+			await db
+				.update(users)
+				.set({
+					kycStatus: latestSession.status,
+					kycVerifiedAt: null,
 					kycLastExpiredAt: null,
 				})
 				.where(eq(users.id, userId))
@@ -87,14 +157,6 @@ export async function expireUserKycIfNeeded(userId: string): Promise<boolean> {
 				kycLastExpiredAt: new Date(),
 			})
 			.where(eq(users.id, userId))
-
-		await db
-			.update(kycSessions)
-			.set({
-				status: "NOT_STARTED",
-				updatedAt: new Date(),
-			})
-			.where(eq(kycSessions.id, latestVerifiedSession.id))
 
 		await db
 			.update(idCardDetails)

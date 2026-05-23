@@ -1,7 +1,7 @@
 "use server"
 
 import { revalidatePath } from "next/cache"
-import { and, eq } from "drizzle-orm"
+import { and, eq, isNotNull } from "drizzle-orm"
 
 import { getFullName } from "@/core/lib/utils"
 
@@ -30,6 +30,8 @@ import { auth } from "@/services/next-auth"
 import { saveIdCardDetails } from "@/features/kyc/lib/save-id-card-details"
 
 import { env } from "@/env"
+
+const MIN_KYC_VERIFICATION_VALIDITY_DAYS = 14
 
 /**
  * Generate a unique transaction ID for KYC based on user ID
@@ -225,14 +227,20 @@ async function syncUserKycStatusFromLatestSession(userId: string): Promise<{
 		where: eq(kycSessions.userId, userId),
 		orderBy: (table, { desc }) => [desc(table.createdAt)],
 	})
-	const latestVerifiedSession = await db.query.kycSessions.findFirst({
-		where: and(eq(kycSessions.userId, userId), eq(kycSessions.status, "VERIFIED")),
-		orderBy: (table, { desc }) => [
-			desc(table.verifiedAt),
-			desc(table.updatedAt),
-			desc(table.createdAt),
-		],
+	const latestVerifiedSessionWithTimestamp = await db.query.kycSessions.findFirst({
+		where: and(
+			eq(kycSessions.userId, userId),
+			eq(kycSessions.status, "VERIFIED"),
+			isNotNull(kycSessions.verifiedAt)
+		),
+		orderBy: (table, { desc }) => [desc(table.verifiedAt)],
 	})
+	const latestVerifiedSession =
+		latestVerifiedSessionWithTimestamp ??
+		(await db.query.kycSessions.findFirst({
+			where: and(eq(kycSessions.userId, userId), eq(kycSessions.status, "VERIFIED")),
+			orderBy: (table, { desc }) => [desc(table.updatedAt), desc(table.createdAt)],
+		}))
 
 	const dbUser = await db.query.users.findFirst({
 		where: eq(users.id, userId),
@@ -254,22 +262,69 @@ async function syncUserKycStatusFromLatestSession(userId: string): Promise<{
 
 	const latestVerifiedAt =
 		latestVerifiedSession?.verifiedAt ??
+		dbUser.kycVerifiedAt ??
 		latestVerifiedSession?.updatedAt ??
 		latestVerifiedSession?.createdAt ??
 		null
-	const validityMs = env.KYC_VERIFICATION_VALIDITY_DAYS * 24 * 60 * 60 * 1000
+	const validityDays = Math.max(
+		env.KYC_VERIFICATION_VALIDITY_DAYS,
+		MIN_KYC_VERIFICATION_VALIDITY_DAYS
+	)
+	const validityMs = validityDays * 24 * 60 * 60 * 1000
+	const verifiedSessionAgeMs = latestVerifiedAt ? Date.now() - latestVerifiedAt.getTime() : null
 	const hasValidVerifiedSession =
-		latestVerifiedSession && latestVerifiedAt
-			? Date.now() - latestVerifiedAt.getTime() < validityMs
+		latestVerifiedSession && latestVerifiedAt && verifiedSessionAgeMs !== null
+			? verifiedSessionAgeMs < validityMs || verifiedSessionAgeMs < 0
 			: false
+	const hasNewerActiveSession =
+		latestSession && latestVerifiedSession && latestVerifiedAt
+			? latestSession.id !== latestVerifiedSession.id &&
+				latestSession.status !== "NOT_STARTED" &&
+				latestSession.createdAt.getTime() > latestVerifiedAt.getTime()
+			: false
+
+	if (
+		latestVerifiedSession &&
+		latestVerifiedAt &&
+		!hasValidVerifiedSession &&
+		!hasNewerActiveSession
+	) {
+		const nextLastExpiredAt = dbUser.kycLastExpiredAt ?? new Date()
+		await db
+			.update(users)
+			.set({
+				kycStatus: "NOT_STARTED",
+				kycVerifiedAt: null,
+				kycLastExpiredAt: nextLastExpiredAt,
+			})
+			.where(eq(users.id, userId))
+
+		return {
+			kycStatus: "NOT_STARTED",
+			kycVerifiedAt: null,
+			kycLastExpiredAt: nextLastExpiredAt,
+			latestSession: latestSession ?? latestVerifiedSession,
+		}
+	}
 
 	const sourceSession = hasValidVerifiedSession ? latestVerifiedSession : latestSession
 
 	if (!sourceSession || sourceSession.status === "NOT_STARTED") {
+		if (dbUser.kycStatus !== "NOT_STARTED" || dbUser.kycLastExpiredAt) {
+			await db
+				.update(users)
+				.set({
+					kycStatus: "NOT_STARTED",
+					kycVerifiedAt: null,
+					kycLastExpiredAt: null,
+				})
+				.where(eq(users.id, userId))
+		}
+
 		return {
 			kycStatus: "NOT_STARTED",
-			kycVerifiedAt: dbUser.kycVerifiedAt,
-			kycLastExpiredAt: dbUser.kycLastExpiredAt,
+			kycVerifiedAt: null,
+			kycLastExpiredAt: null,
 			latestSession: sourceSession ?? null,
 		}
 	}
@@ -297,6 +352,16 @@ async function syncUserKycStatusFromLatestSession(userId: string): Promise<{
 				kycLastExpiredAt: nextLastExpiredAt,
 			})
 			.where(eq(users.id, userId))
+	}
+
+	if (nextStatus === "VERIFIED" && !sourceSession.verifiedAt && nextVerifiedAt) {
+		await db
+			.update(kycSessions)
+			.set({
+				verifiedAt: nextVerifiedAt,
+				updatedAt: new Date(),
+			})
+			.where(eq(kycSessions.id, sourceSession.id))
 	}
 
 	return {
@@ -933,6 +998,22 @@ export async function checkUserKycStatus() {
 				isApproved: false,
 				needsReview: false,
 				message: "Please start identity verification.",
+				details: {},
+			},
+		}
+	}
+
+	if (sessionBackedStatus.kycStatus === "NOT_STARTED" && sessionBackedStatus.kycLastExpiredAt) {
+		return {
+			success: true,
+			data: {
+				transactionId: kycSession.transactionId,
+				status: "expired",
+				kycStatus: "NOT_STARTED" as const,
+				isComplete: false,
+				isApproved: false,
+				needsReview: false,
+				message: "Your previous KYC verification has expired. Please verify again.",
 				details: {},
 			},
 		}
@@ -1987,7 +2068,10 @@ export async function getUserKycInfo() {
 			transactionId: kycSession?.transactionId ?? null,
 			kycStatus: sessionBackedStatus.kycStatus ?? "NOT_STARTED",
 			kycLastExpiredAt: kycLastExpiredAtIso,
-			kycVerificationValidityDays: env.KYC_VERIFICATION_VALIDITY_DAYS,
+			kycVerificationValidityDays: Math.max(
+				env.KYC_VERIFICATION_VALIDITY_DAYS,
+				MIN_KYC_VERIFICATION_VALIDITY_DAYS
+			),
 			kycLinkCreatedAt: kycSession?.hostedLinkCreatedAt ?? null,
 			hasHostedLink: !!kycSession?.hostedLink,
 			sessionType: kycSession?.sessionType ?? null,
