@@ -30,12 +30,42 @@ export async function expireUserKycIfNeeded(userId: string): Promise<boolean> {
 		const user = await db.query.users.findFirst({
 			where: eq(users.id, userId),
 			columns: {
+				kycStatus: true,
 				kycVerifiedAt: true,
 				kycLastExpiredAt: true,
 			},
 		})
 
 		if (!user) {
+			return false
+		}
+
+		// SENTINEL_v2_BULLETPROOF_GUARD: log presence to verify deployed code on Cloud Run.
+		// Bulletproof short-circuit: if the user row itself says VERIFIED with a recent
+		// kycVerifiedAt, do absolutely nothing. This protects against any unexpected drift
+		// in kyc_sessions reconciliation logic below.
+		const validityDaysEarly = Math.max(
+			env.KYC_VERIFICATION_VALIDITY_DAYS,
+			MIN_KYC_VERIFICATION_VALIDITY_DAYS
+		)
+		const validityMsEarly = validityDaysEarly * 24 * 60 * 60 * 1000
+		if (
+			user.kycStatus === "VERIFIED" &&
+			user.kycVerifiedAt &&
+			Date.now() - user.kycVerifiedAt.getTime() < validityMsEarly
+		) {
+			console.warn("[expireUserKycIfNeeded] SENTINEL_v2 short-circuit (user row authoritative)", {
+				userId,
+				kycVerifiedAt: user.kycVerifiedAt,
+				ageMs: Date.now() - user.kycVerifiedAt.getTime(),
+				validityMs: validityMsEarly,
+			})
+			if (user.kycLastExpiredAt) {
+				await db
+					.update(users)
+					.set({ kycLastExpiredAt: null })
+					.where(eq(users.id, userId))
+			}
 			return false
 		}
 
