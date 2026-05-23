@@ -280,12 +280,13 @@ async function syncUserKycStatusFromLatestSession(userId: string): Promise<{
 			? (sourceSession.verifiedAt ?? sourceSession.updatedAt ?? sourceSession.createdAt)
 			: null
 
-	const nextLastExpiredAt = nextStatus === "VERIFIED" ? null : dbUser.kycLastExpiredAt
+	const nextLastExpiredAt = nextStatus === "REJECTED" ? dbUser.kycLastExpiredAt : null
 
 	const needsUpdate =
 		dbUser.kycStatus !== nextStatus ||
 		(dbUser.kycVerifiedAt?.getTime() ?? null) !== (nextVerifiedAt?.getTime() ?? null) ||
-		(nextStatus === "VERIFIED" && dbUser.kycLastExpiredAt !== null)
+		(dbUser.kycLastExpiredAt?.getTime() ?? null) !==
+			(nextLastExpiredAt?.getTime() ?? null)
 
 	if (needsUpdate) {
 		await db
@@ -293,7 +294,7 @@ async function syncUserKycStatusFromLatestSession(userId: string): Promise<{
 			.set({
 				kycStatus: nextStatus,
 				kycVerifiedAt: nextVerifiedAt,
-				kycLastExpiredAt: nextStatus === "VERIFIED" ? null : dbUser.kycLastExpiredAt,
+				kycLastExpiredAt: nextLastExpiredAt,
 			})
 			.where(eq(users.id, userId))
 	}
