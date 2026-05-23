@@ -362,7 +362,70 @@ async function syncUserKycStatusFromLatestSession(userId: string): Promise<{
 	const sourceSession = hasValidVerifiedSession ? latestVerifiedSession : latestSession
 
 	if (!sourceSession || sourceSession.status === "NOT_STARTED") {
+		// Defensive guard: trust the users table when it has a recent kycVerifiedAt
+		// within the validity window. This protects against destructive reconciliation
+		// when kyc_sessions lacks a VERIFIED row (e.g., HyperVerge webhook not yet
+		// delivered to this environment, SDK callback that hit "Not authenticated",
+		// or seeded users without a matching kyc_sessions row).
+		const dbUserVerifiedAgeMs = dbUser.kycVerifiedAt
+			? Date.now() - dbUser.kycVerifiedAt.getTime()
+			: null
+		const userTableIsAuthoritative =
+			dbUser.kycStatus === "VERIFIED" &&
+			dbUser.kycVerifiedAt !== null &&
+			dbUserVerifiedAgeMs !== null &&
+			dbUserVerifiedAgeMs < validityMs
+
+		if (userTableIsAuthoritative && dbUser.kycVerifiedAt) {
+			console.warn(
+				"[syncUserKycStatusFromLatestSession] Abort wipe — users.kycVerifiedAt is recent, self-healing kyc_sessions",
+				{
+					userId,
+					userKycVerifiedAt: dbUser.kycVerifiedAt,
+					dbUserVerifiedAgeMs,
+					validityMs,
+					validityDays,
+					latestSessionId: latestSession?.id ?? null,
+					latestSessionStatus: latestSession?.status ?? null,
+				}
+			)
+			// Self-heal: backfill a synthetic VERIFIED kyc_sessions row so future
+			// reconciliations have positive evidence and skip this branch entirely.
+			const [syntheticSession] = await db
+				.insert(kycSessions)
+				.values({
+					userId,
+					transactionId: `self_heal_${userId}_${Date.now()}`,
+					sessionType: "self_heal",
+					status: "VERIFIED",
+					verifiedAt: dbUser.kycVerifiedAt,
+				})
+				.returning()
+
+			if (dbUser.kycLastExpiredAt) {
+				await db.update(users).set({ kycLastExpiredAt: null }).where(eq(users.id, userId))
+			}
+
+			return {
+				kycStatus: "VERIFIED",
+				kycVerifiedAt: dbUser.kycVerifiedAt,
+				kycLastExpiredAt: null,
+				latestSession: syntheticSession ?? latestSession ?? null,
+			}
+		}
+
 		if (dbUser.kycStatus !== "NOT_STARTED" || dbUser.kycLastExpiredAt) {
+			console.warn("[syncUserKycStatusFromLatestSession] Wiping user to NOT_STARTED", {
+				userId,
+				dbUserKycStatus: dbUser.kycStatus,
+				dbUserKycVerifiedAt: dbUser.kycVerifiedAt,
+				dbUserKycLastExpiredAt: dbUser.kycLastExpiredAt,
+				dbUserVerifiedAgeMs,
+				validityMs,
+				validityDays,
+				latestSessionId: latestSession?.id ?? null,
+				latestSessionStatus: latestSession?.status ?? null,
+			})
 			await db
 				.update(users)
 				.set({
